@@ -4,6 +4,17 @@ This file is for Codex CLI agents and contributors working in this repo.
 
 Canonical spec: `grandplan.md`.
 
+## Reproducibility (required; macOS-first)
+
+- Use the Nix dev shell (`flake.nix`) for a pinned toolchain: `nix develop`.
+- Use `uv` for Python **always** (never use `pip` directly):
+  - Install/sync: `uv sync --frozen` (exactly reproduces `uv.lock`)
+  - Run scripts: `uv run python …`
+- Lockfiles are part of the contract:
+  - Commit `uv.lock`.
+  - Commit `flake.lock` (generate/update with `nix flake lock`).
+  - Do not hand-edit lockfiles.
+
 ## Step-by-step plan (project roadmap)
 
 1. **Implement Wibral PID in Rust (I^sx_∩, continuous; “latest” in spec = Makkeh et al. 2021 + Ehrlich et al. 2024):**
@@ -20,6 +31,7 @@ Canonical spec: `grandplan.md`.
    - Make dim reduction explicit and logged so results are interpretable/reproducible.
 4. **Build experiment harnesses and reproducibility scaffolding:**
    - Add a simple task runner (e.g., `justfile`) and/or scripts to run experiments deterministically.
+   - Keep environments pinned with Nix (`flake.lock`) + uv (`uv.lock`); record `rustc --version`, Python version, and seeds in every run artifact.
    - Add benchmarking (runtime vs N,d,k; memory) to enforce “real-time” viability for Level 1.
 5. **Experiment 0 gate (do before any VLA claims):**
    - Run synthetic validation across {N,d,k} grids up to VLA-like d (or demonstrate why dim reduction is required).

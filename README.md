@@ -11,16 +11,25 @@ This repo currently contains the research specification (`grandplan.md`). The en
 
 ## Getting started (engineering setup)
 
-Minimum tools:
-- Rust toolchain (`rustc`, `cargo`) + `rustfmt` and `clippy`
-- Python 3.11+ (for experiment orchestration)
+This repo aims to be **reproducible on macOS (M4 Max) from day 1**.
 
-Recommended tools (once code exists):
-- `just` (task runner) for `build`, `test`, `exp0`, …
-- PyO3 + `maturin` (to expose Rust to Python)
-- macOS: Xcode Command Line Tools (Metal toolchain) + optional Accelerate usage for linear algebra
-- macOS: MLX + CoreML tooling (for VLA inference / embedding extraction on Apple Silicon)
-- Optional: Nix (`flake.nix`) for fully pinned environments (more relevant for Linux/CUDA)
+**Required path (macOS-first): Nix + uv**
+
+1. Enter the pinned dev shell:
+   - `nix develop`
+   - If `flake.lock` is missing, generate it once with `nix flake lock` and commit it (this is what makes Nix reproducible).
+2. Sync Python dependencies (never use `pip` directly):
+   - `uv sync --frozen` (uses `uv.lock` exactly)
+3. Build/test:
+   - `just test`
+   - `just exp0-bin`
+
+Notes:
+- `flake.nix` provides `rustc/cargo/rustfmt/clippy`, `python`, `uv`, and `just`.
+- macOS also needs Xcode Command Line Tools for Metal/Accelerate-related work (`xcode-select --install`).
+- VLA inference/embedding extraction will be macOS-first via **MLX / CoreML / Metal** (Python deps live in `uv.lock`).
+
+**Fallback (not recommended):** install Rust + `just` + Python + `uv` manually and accept that results may not be bit-for-bit reproducible across machines.
 
 ## Target repository layout (what to create)
 
