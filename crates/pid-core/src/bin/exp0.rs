@@ -1,6 +1,7 @@
 use pid_core::{
-    co_information_pairwise, isx_redundancy, ksg_mi, ksg_mi_concat_xy, HashProjector, IsxConfig,
-    IsxMethod, KsgConfig, MatRef, Metric, NegativeHandling, Standardizer,
+    co_information_pairwise, concat_horiz, intrinsic_dimension_levina_bickel, isx_redundancy,
+    ksg_mi, ksg_mi_concat_xy, HashProjector, IntrinsicDimConfig, IsxConfig, IsxMethod, KsgConfig,
+    MatRef, Metric, NegativeHandling, Standardizer,
 };
 
 fn main() {
@@ -65,6 +66,7 @@ fn run_case(
     let baseline = compute_metrics(s1z.as_ref(), s2z.as_ref(), tz.as_ref(), ksg_cfg);
 
     print_metrics(name, d, baseline);
+    print_intrinsic_dims(s1z.as_ref(), s2z.as_ref(), tz.as_ref(), ksg_cfg.metric);
 
     if let Some(dout) = hash_project_to {
         if d > dout {
@@ -80,8 +82,26 @@ fn run_case(
 
             let projected = compute_metrics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), ksg_cfg);
             print_metrics(&format!("{name}_hashproj"), dout, projected);
+            print_intrinsic_dims(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), ksg_cfg.metric);
         }
     }
+}
+
+fn print_intrinsic_dims(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, metric: Metric) {
+    let cfg = IntrinsicDimConfig { k: 10, metric };
+
+    let id_s1 = intrinsic_dimension_levina_bickel(s1, &cfg).unwrap_or(f64::NAN);
+    let id_s2 = intrinsic_dimension_levina_bickel(s2, &cfg).unwrap_or(f64::NAN);
+    let id_t = intrinsic_dimension_levina_bickel(t, &cfg).unwrap_or(f64::NAN);
+    let id_s12 = concat_horiz(s1, s2)
+        .ok()
+        .and_then(|s12| intrinsic_dimension_levina_bickel(s12.as_ref(), &cfg).ok())
+        .unwrap_or(f64::NAN);
+
+    println!(
+        "{:>20} {:>7} | ID(s1)={:>6.2} ID(s2)={:>6.2} ID(t)={:>6.2} ID(s1,s2)={:>6.2}",
+        "", "", id_s1, id_s2, id_t, id_s12
+    );
 }
 
 fn run_gaussian_channel_strong_dependence_sweep(n: usize, ksg_cfg: &KsgConfig, seed: u64) {

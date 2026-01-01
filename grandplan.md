@@ -1444,6 +1444,91 @@ Therefore, a scientifically clean hierarchy is:
 2. **Variable-count hierarchy:** use Shannon invariants/co-information for screening across many candidate sources/windows.
 3. **Full `I^sx_∩` PID:** only where (1) and (2) indicate it is meaningful, and only with paper-faithful `I^sx_∩` estimation.
 
+### 8.1.5 Differential Geometry / Manifold-Aware Contingencies (When kNN/Hierarchical PID Fail)
+
+This section integrates differential-geometry ideas **only where they produce actionable changes** for this project: diagnosing when kNN estimators are invalid, designing safer preprocessing, and (optionally) using manifold-aware MI estimators as MI-only baselines.
+
+It is important to separate:
+- **Scientific object (fixed):** Wibral-group shared-exclusions redundancy `I^sx_∩` (Makkeh 2021) + its continuous disjunction-kNN estimator (Ehrlich 2024).
+- **Estimator geometry (variable):** how we choose coordinates/metrics/projections to make finite-sample estimation behave.
+- **Metaphor vs method:** the local note `Information Theory Meets Differential Geometry.pdf` contains *conceptual analogies* (Lorentzian rigidity ↔ PID axiom rigidity). These are interesting for intuition but are **not** evidence and do not directly yield a new `I^sx_∩` estimator. Treat them as background reading, not as a correctness source.
+
+#### A) First principles: what transformations are truly “free”
+
+For continuous variables, **mutual information is invariant under per-variable diffeomorphisms** (invertible, differentiable reparameterizations applied separately):
+- `I(X;Y) = I(f(X); g(Y))` for invertible smooth `f`, `g` (and similarly for multivariate blocks), even though *differential entropies* change by Jacobian terms.
+
+Practical consequence:
+- Prefer **invertible** preprocessing steps (standardization, whitening, monotone marginal Gaussianization) before resorting to non-invertible dimension reduction, because invertible reparameterizations can improve kNN geometry **without changing the true MI**.
+
+For PID:
+- `I^sx_∩` is a functional of the underlying distribution and is designed to be invariant under invertible relabelings at the theoretical level (as with other information-theoretic quantities), but **finite-sample estimators are not automatically invariant**. In practice, you must still re-validate after any substantial preprocessing change (Experiment 0 subset).
+
+Hard constraint (do not violate):
+- Do **not** apply transforms that mix variables (no PCA/ICA on `[S1|S2|T]` concatenations). Mixing can change the target quantity and can also change what “source” means scientifically.
+
+#### B) Manifold hypothesis: intrinsic dimension matters more than ambient dimension
+
+The “curse of dimensionality” for kNN is controlled by the **intrinsic** dimension of the support, not the raw embedding size:
+- Many learned representations empirically lie near a **lower-dimensional manifold** embedded in ℝᵈ.
+- kNN estimators can still fail if intrinsic dimension is high, or if curvature/noise makes the local-neighborhood assumption false.
+
+Actionable integration (add to Experiment 0, not post-hoc):
+- Measure **intrinsic dimension estimates** for each variable block (`V`, `D`, `L`, `A`, and their joint concatenations used for MI) on your intended sampling unit.
+- Track **distance concentration diagnostics** (e.g., nearest-neighbor distance ratios, coefficient of variation of pairwise distances) as a “geometry health check.”
+
+Interpretation rules (scientific hygiene):
+- If intrinsic dimension is still large (or unstable across subsamples), treat kNN-based MI/`I^sx_∩` as likely invalid at that operating point, even if `d_total` was reduced by PCA.
+- If intrinsic dimension is low and stable, kNN may be viable *after* Experiment 0 establishes quantitative accuracy.
+
+#### C) Riemannian / geodesic kNN MI as a contingency baseline (MI-only, not `I^sx_∩`)
+
+If the representation is plausibly **manifold-valued** (curved support where Euclidean distances are a poor proxy for neighborhood volumes), consider manifold-aware MI estimators as **separate baseline pipelines** for MI-only screening:
+- Marx & Fischer (2021, arXiv:2110.13883) propose **geodesic kNN** MI estimation on Riemannian manifolds.
+
+Scope and limitations for PID-VLA:
+- This can support **Shannon-invariant screening** (CI/O-information-style terms) in curved settings.
+- It does **not** automatically provide `I^sx_∩`, because the disjunction-neighborhood construction would need to be re-derived for Riemannian/hyperbolic spaces (volume forms and product-neighborhood cancellations are nontrivial).
+
+#### D) Hyperbolic geometry for hierarchical structure (Poincaré / Lorentz model) — optional, research-gated
+
+Hyperbolic spaces (constant negative curvature) can represent tree-like/hierarchical structures with low distortion, motivating their use as **learned low-dimensional projections** when hierarchies are central:
+- Nickel & Kiela (2017, arXiv:1705.08039): Poincaré embeddings for hierarchies.
+- Nickel & Kiela (2018, arXiv:1806.03417): efficient training in the **Lorentz (hyperboloid) model**.
+- Ganea et al. (2018, arXiv:1805.09112): hyperbolic neural networks.
+
+Why Lorentzian geometry shows up here (mathematically, not physically):
+- The Lorentz model represents hyperbolic space as a Riemannian manifold embedded in a Minkowski space with a **Lorentzian** bilinear form (signature `(-,+,...,+)`), which makes optimization and distance computation numerically convenient.
+
+How this could help (hypotheses; must be tested):
+- As a **hierarchy-friendly projection**, hyperbolic embeddings may capture coarse semantic structure with fewer dimensions than Euclidean PCA (useful if “hierarchy” is the relevant inductive bias).
+
+How this could fail:
+- Any non-invertible projection (including hyperbolic embedding to low dimension) changes the information quantities. Treat it like a learned projection: re-run Experiment 0-style validation and report it as a different measurement regime.
+
+#### E) Critical audit of `Information Theory Meets Differential Geometry.pdf` (local file; Jan 2026)
+
+This repo-local PDF is best read as a *conceptual synthesis note*, not as a technical specification. Below is a line-by-line-level **classification** of its major claims into: (i) correct math, (ii) plausible but not directly useful here, and (iii) speculative/unsupported.
+
+What is solid (mathematics, broadly standard):
+- **Lorentzian vs Riemannian metrics:** signature `(-,+,...,+)` vs `(+, +, ..., +)` and the induced timelike/null/spacelike classification.
+- **Conformal maps preserve causal structure** (light cones) in Lorentzian geometry; they preserve “possibility of influence” but not distances.
+- **PID impossibility results exist:** it is correct that Matthias–Makkeh–Wibral–Gutknecht (2025, arXiv:2512.16662) establish strong inconsistency/impossibility statements that force trade-offs among desirable PID axioms.
+
+What is plausible background but not an actionable method for PID-VLA (needs careful scoping):
+- **Rigidity-theorem analogy:** comparing “axiom rigidity” (PID) to “symmetry/curvature rigidity” (Lorentzian conformal geometry) can be a useful intuition pump, but it does not produce estimator-level guarantees for `I^sx_∩` on embeddings.
+- **Lorentz (hyperboloid) model link:** the PDF’s emphasis on Lorentzian signatures is indirectly relevant because modern **hyperbolic embedding** methods often use the Lorentz model, but that is a representational choice, not a proof about PID atoms.
+
+What is speculative / not currently supported for this project (treat as hypotheses at best):
+- **Direct identification of PID atoms with timelike/null/spacelike geometry:** mapping {Red, Unq, Syn} onto Lorentzian causal classes is metaphorical; PID is defined on probability distributions, not spacetime intervals.
+- **“Synergy requires spacelike separation”** or similar causal-geometry necessity claims: synergy/redundancy are statistical/functional properties and can arise in many causal graph configurations; Lorentzian geometry is not a general constraint in VLA inference.
+- **Claims about Wibral-lab using Lorentzian PSD fits + “spectral PID” as a core method:** may be true in some neuroscience contexts, but this is **not cited to a specific Wibral-group PID paper** and is not part of the validated `I^sx_∩` estimator line (Makkeh 2021; Ehrlich 2024; Gutknecht 2025).
+- **Consciousness interpretations (redundancy↔unconscious, synergy↔conscious):** outside scope for PID-VLA; treat as speculative neuroscience interpretation, not an engineering objective.
+
+How we use it safely:
+- Keep it as *conceptual background* and as motivation to (i) treat invariances carefully, and (ii) explicitly measure geometry/intrinsic dimension before trusting kNN at scale.
+- Do not treat it as evidence about `I^sx_∩` on VLA embeddings, and do not borrow its metaphors as “explanations” for observed PID signs without controlled experiments.
+
 ## 8.2 Dimensionality Reduction Strategies
 
 ### 8.2.1 Why Dimensionality Reduction is Necessary
@@ -1455,12 +1540,15 @@ At d=4096, k-NN suffers from:
 
 ### 8.2.2 Options
 
+Before non-invertible dimensionality reduction, consider **invertible reparameterizations** that can improve kNN geometry without changing the true MI (e.g., per-variable standardization/whitening; monotone marginal Gaussianization). These are “geometry fixes,” not “information fixes,” and still require Experiment 0 validation.
+
 | Method | Dimensions | Properties |
 |--------|------------|------------|
 | **Raw embeddings** | 4096 | Potentially unusable |
 | **PCA (95% variance)** | ~256 | Linear, interpretable |
 | **Random projection** | 64-256 | Preserves distances (Johnson-Lindenstrauss) |
 | **Learned projection** | 64 | Task-specific, requires training |
+| **Hyperbolic embedding (Poincaré/Lorentz)** | ~2–64 | Nonlinear, hierarchy-friendly; learned; **changes the quantity** (non-invertible); treat as an experimental projection + re-validate |
 | **Intermediate layers** | 4096 but different | May encode different information |
 
 ### 8.2.3 Recommendation
@@ -1583,6 +1671,13 @@ Design principle: create regimes where the *true* information quantities are unc
      - Example: `X ~ N(0,1)`, `Y = X + σ·N`, `N~N(0,1)`, so `I(X;Y) = 0.5 ln(1 + 1/σ²)` and grows without bound as `σ→0`.
    - Sweep `σ` logarithmically (e.g., `σ ∈ {1, 0.3, 0.1, 0.03, 0.01, 0.003, ...}`) at fixed `N,k`.
    - Goal: empirically map the **safe MI regime** for KSG and for the continuous `I^sx_∩` estimator (and/or show that the noiseless/near-noiseless regime is fundamentally ill-posed for continuous targets).
+4c. **Geometry diagnostics (separate axis from “high d” and “strong dependence”):**
+   - Estimate **intrinsic dimension** of each variable block (and of the joint spaces used in MI) using nearest-neighbor-based intrinsic-dimension estimators (e.g., Levina–Bickel MLE; TwoNN-style estimators; or other validated ID estimators).
+   - Compute **distance concentration** proxies (e.g., nearest-neighbor distance ratio distributions; coefficient of variation of pairwise distances).
+   - Use these as a “geometry health check”:
+     - Low, stable intrinsic dimension is a prerequisite for believing kNN results after dimensionality reduction.
+     - If intrinsic dimension remains large/unstable, treat kNN-based MI/`I^sx_∩` as likely invalid at that operating point (even if `d_total` was reduced).
+   - Optional (MI-only baseline): if the representation is plausibly manifold-valued/curved, compare MI terms against **geodesic kNN MI** (Marx & Fischer, arXiv:2110.13883). Treat this as a separate estimator pipeline; do not claim it estimates `I^sx_∩`.
 5. For each setting, measure:
    - estimate mean + variance across random seeds,
    - runtime and peak memory,
@@ -1612,13 +1707,18 @@ Define “reference” values using the low-dimensional signal system (and cross
 
 ### 9.1.4 If Validation Fails
 
-1. Use PCA to reduce to 256-dim
-2. Re-validate at d = 256
-3. If still fails, use learned projections
-4. If still fails, abandon PID approach
+Before “PIVOT” decisions, diagnose *why* validation failed (high intrinsic dimension vs strong dependence vs ties/quantization vs curvature):
+
+1. **Run geometry + dependence diagnostics:** inspect the strong-dependence sweep (4b) and geometry diagnostics (4c) to distinguish “MI is huge” vs “intrinsic dimension is huge/unstable” vs “duplicate/tie pathology”.
+2. **Try invertible geometry fixes (still same true MI):** re-run after per-variable standardization/whitening and (optionally) monotone marginal Gaussianization. If conclusions change wildly, treat the kNN estimator regime as unstable.
+3. **Use PCA to reduce to 256-dim** (or a dimension justified by the intrinsic-dimension diagnostics).
+4. **Re-validate at the reduced dimension**
+5. **If still fails, use learned projections** (explicitly trained for the downstream objective; report as a different measurement regime).
+6. **If still fails, abandon kNN-based `I^sx_∩`** for this regime and pivot to validated alternatives (Shannon invariants as primary; or non-kNN MI estimators for MI-only screening), clearly reporting that `I^sx_∩` was not estimable.
 
 Additional contingency (MI-only screening, not full `I^sx_∩`):
 - If the disjunction-kNN `I^sx_∩` estimator is unusable at your `(N,d)` even after dimensionality reduction, you may still be able to run **Shannon-invariant** screening (CI/O-information) with non-kNN MI estimators (e.g., MINE / classifier-based MI), but treat this as a *different scientific pipeline* and do not claim results about `I^sx_∩` without a validated `I^sx_∩` estimator.
+- Optional geometry-aware MI-only baseline: geodesic kNN MI (Marx & Fischer, arXiv:2110.13883) for manifold-valued variables; treat as a separate validated pipeline.
 
 ## 9.2 Experiment 1: Decomposition Comparison
 
@@ -2765,6 +2865,23 @@ Can PID profiles predict how well a policy will transfer across:
 - **llm.c:** C/CUDA LLM training, 7% faster than PyTorch. (github.com/karpathy/llm.c)
 - **modded-nanogpt:** Speedrun benchmark for LLM training optimization
 - **SRL (step-wise reasoning training; optional):** Deng et al. (2025). *Supervised Reinforcement Learning: From Expert Trajectories to Step-wise Reasoning.* arXiv:2510.25992. (Potentially relevant to Aim 3 / PRM-style training loops; not PID-specific.)
+
+## 13.12 Differential Geometry & Non-Euclidean Representation (Optional)
+
+- **Local note (conceptual; not peer-reviewed):** *Information Theory Meets Differential Geometry* (PDF in repo root: `Information Theory Meets Differential Geometry.pdf`). Treat as a hypothesis/analogy document, not a correctness source.
+- **Manifold-aware MI estimation:** Marx, Fischer (2021). *Estimating Mutual Information via Geodesic kNN.* arXiv:2110.13883. (Riemannian/geodesic kNN MI; useful as MI-only baseline in curved settings.)
+- **Hyperbolic embeddings for hierarchies:**
+  - Nickel, Kiela (2017). *Poincaré Embeddings for Learning Hierarchical Representations.* arXiv:1705.08039.
+  - Nickel, Kiela (2018). *Learning Continuous Hierarchies in the Lorentz Model of Hyperbolic Geometry.* arXiv:1806.03417.
+  - Ganea, Bécigneul, Hofmann (2018). *Hyperbolic Neural Networks.* arXiv:1805.09112.
+  - Yang et al. (2022). *Hyperbolic Graph Neural Networks: A Review of Methods and Applications.* arXiv:2202.13852.
+- **Intrinsic dimension estimation (geometry diagnostics for kNN validity):**
+  - Levina, Bickel (2005). *Maximum likelihood estimation of intrinsic dimension.* (Foundational intrinsic-dimension estimator; use as a diagnostic, not a guarantee.)
+  - Gomtsyan et al. (2019). *Geometry-Aware Maximum Likelihood Estimation of Intrinsic Dimension.* arXiv:1904.06151.
+- **Lorentzian conformal rigidity (background; mostly analogy-level for this project):**
+  - Melnick, Pecastaing (2025). *A local Lorentzian Ferrand-Obata theorem for conformal vector fields.* arXiv:2511.03713.
+  - Pecastaing (2019). *The conformal group of a compact simply connected Lorentzian manifold.* arXiv:1911.06251.
+  - Frances (2025). *Conformal quotients of plane waves, and Lichnerowicz conjecture in a locally homogeneous setting.* arXiv:2503.08614.
 
 ---
 
@@ -7075,6 +7192,8 @@ release: build build-wheel
 | 2.7 | Jan 2026 | **World model paradigms & DKT deep dive:** (1) Added §10.1 world model taxonomy (Internal/Evaluative/Generative) with Genie 3 as environment generator. (2) Expanded §10.4.3 DKT section with "Diffusion Knows Transparency" principle, technical details, robot grasping results, and genuine PID relevance (perception quality as prerequisite for valid PID). (3) Added §10.7 World Model Paradigms and PID Implications: theoretical framework for how external world models (Genie 3, WAN) affect internal D; "Diffusion Knows Physics" principle; perception quality diagnostic tree. (4) Added Genie 3, SIMA 2, Genie 2 to world models references. (5) Updated glossary with Genie 3, SIMA 2, TransPhy3D, Emergent Physics. (6) Renumbered sections 10.7→10.8 for Gazebo+Tauri. |
 | 2.8 | Jan 2026 | **NixOS CUDA secondary target:** (1) Restructured §B.2 as "Platform Implementation Reference" with primary (Apple M4) and secondary (NixOS + CUDA) targets. (2) Added §B.2.4 NixOS + CUDA Implementation with complete configuration.nix for NVIDIA drivers, flake.nix with CUDA-enabled PyTorch and Rust toolchain, CUDA software stack diagram. (3) Added GPU-accelerated PID implementation: CUDAKSGEstimator and CUDAPIDEstimator classes with chunked distance computation for OOM prevention. (4) Added NixOS troubleshooting guide and multi-GPU configuration (NCCL). (5) Fixed §B.3 subsection numbering: B.3.5→B.3.3, B.3.6→B.3.4, B.3.7→B.3.5 with correct heading levels. |
 | 2.9 | Jan 2026 | **PixelVLA integration & sae_analysis notes:** (1) Added §7.3 PixelVLA architecture: multiscale pixel-aware encoder, visual prompting encoder, continuous action decoder, Pixel-160K dataset. (2) Added §7.4 TraceVLA: visual trace prompting for spatial-temporal awareness. (3) Added §10.8.7 PixelVLA + Headless Gazebo + Tauri integration: data flow diagram, visual prompting in Tauri (TypeScript), PixelVLA-specific PID analysis (Rust), latency budget (~86ms interactive). (4) Added §B.3.3.2 Abzinger/sae_analysis: Shannon invariants (Red°, Vul°) for SAE analysis, comparison with our approach. (5) Updated §B.3.3.5 to clarify sae_analysis is **not** an `I^sx_∩` estimator; added implementation-level definitions of Red°/Vul° and safe integration guidance (SAE compression + screening), not a correctness validation for `I^sx_∩`. (6) Updated §7.5 with MemoryVLA, CoT-VLA. (7) Added PixelVLA, TraceVLA, sae_analysis to references (§13.2, §13.3). (8) Updated glossary with PixelVLA, TraceVLA, Red°, Vul°, multiscale pixel-aware encoder, Pixel-160K. |
+| 3.0 | Jan 2026 | **First-principles audit pass:** (1) Reframed “synergy sign” as a falsifiable hypothesis (not a definition); clarified deterministic-target degeneracy in VLA decompositions and the need for external targets/counterfactuals. (2) Tightened estimator risk framing and strengthened Experiment 0 as a scientific gate before any VLA claims. (3) Added/expanded i.i.d. vs trajectory autocorrelation guidance (sampling unit, block bootstrap). |
+| 4.0 (Draft) | Jan 2026 | **Audited + citation-verified pass:** (1) Added explicit reference verification policy and downgraded unsourced architecture/latency statements to “unverified sketches”. (2) Added strong-dependence warning (Gao et al. 2015) and integrated a Gaussian-channel strong-dependence sweep into Experiment 0. (3) Added MI/CMI estimator comparison section (Gao-LNC/local Gaussian, MINE, CCMI) strictly as MI/CMI baselines (do not mix estimator families inside SxPID identities). (4) Verified key VLA citations (notably DreamVLA) and added optional background papers (OpenVLThinker, SRL, diffusion parameterization). (5) Cleaned up NF-PID (“Thin-PID” legacy) naming and other citation/notation fixes. |
 
 ---
 

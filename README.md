@@ -46,7 +46,7 @@ After M0, the repo should expose a small, stable set of commands:
 - `just build` / `cargo build` — build Rust crates
 - `just test` / `cargo test` — run Rust unit tests (and later Python tests)
 - `just exp0` — run Experiment 0 validation (the gate before any VLA experiments)
-- `just exp0-bin` — run the Rust quick Experiment 0 runner (`cargo run -p pid-core --bin exp0`)
+- `just exp0-bin` — run the Rust quick Experiment 0 runner (`cargo run -p pid-core --bin exp0`) (prints MI/PID terms + strong-dependence sweep + intrinsic-dimension diagnostics)
 
 ## Where to look in `grandplan.md` (implementation-critical)
 
@@ -78,6 +78,7 @@ After M0, the repo should expose a small, stable set of commands:
 - **“Synergy < 0 ⇒ hallucination” is a hypothesis, not a definition.** Treat synergy sign as a feature to be evaluated against strong baselines (entropy, Liang BATCH/CVX, learned classifier, etc.).
 - **High-dimensional kNN is fragile.** Expect distance concentration at `d≈4096`; plan for PCA/random projections and re-validation.
 - **Strong dependence is a separate failure mode.** Near-deterministic relationships can break kNN MI/PID even at low `d`; include strong-dependence sweeps (Gao et al. 2015) in Experiment 0 and do not over-interpret MI/PID on effectively noiseless signals.
+- **Geometry can invalidate kNN.** Track intrinsic dimension + distance-concentration diagnostics; if intrinsic dimension remains high/unstable even after reduction, treat kNN-based MI/`I^sx_∩` as invalid for that regime and pivot to MI-only baselines (e.g., geodesic kNN MI) or Shannon invariants.
 - **Liang et al. estimators are not `I^sx_∩`.** Use them as baselines, not as evidence that shared-exclusions behaves similarly.
 - **macOS-first implementation.** Don’t block progress on CUDA/NixOS; treat Linux/CUDA as a later port once the M4 Max pipeline is validated.
 
@@ -149,7 +150,7 @@ M8. **(Optional) Visualization**
 
 ## Experiments (what to run and why)
 
-- **Experiment 0 (mandatory first): Estimator validation at scale.** Synthetic systems embedded into increasing dimensionality. Measure error/variance/runtime/memory; apply GO/PIVOT/NO-GO.
+- **Experiment 0 (mandatory first): Estimator validation at scale.** Synthetic systems embedded into increasing dimensionality + strong-dependence sweeps + geometry diagnostics (intrinsic dimension, distance concentration). Measure error/variance/runtime/memory; apply GO/PIVOT/NO-GO.
 - **Experiment 1: Decomposition comparison.** V-D-A vs V-L-A vs V-D-A* vs hierarchical pairwise for failure prediction.
 - **Experiment 2: Baseline comparison.** Compare `I^sx_∩` synergy vs entropy/uncertainty baselines plus Liang et al. (BATCH/CVX); success requires statistically significant AUROC improvement (paired bootstrap, p < 0.05).
 - **Experiment 3: Dimensionality study.** Raw vs PCA vs random projection vs learned projection vs intermediate-layer embeddings.
@@ -171,6 +172,13 @@ MI/CMI estimation references (baselines; not `I^sx_∩`):
 - Gao, Ver Steeg, Galstyan (2015) — local Gaussian MI estimator (strong dependence correction). arXiv:1508.00536. `https://arxiv.org/abs/1508.00536`
 - Belghazi et al. (2018) — MINE (neural MI; lower-bound-style; treat as separate validated pipeline). arXiv:1801.04062. `https://arxiv.org/abs/1801.04062`
 - Mukherjee, Asnani, Kannan (2019) — CCMI (classifier-based conditional MI; for conditioning-heavy baselines). arXiv:1906.01824. `https://arxiv.org/abs/1906.01824`
+
+Differential geometry / manifold contingencies (MI-only baselines; not `I^sx_∩`):
+- Marx, Fischer (2021) — geodesic kNN MI on Riemannian manifolds (useful if embeddings appear curved/manifold-valued). arXiv:2110.13883. `https://arxiv.org/abs/2110.13883`
+- Nickel, Kiela (2017) — Poincaré embeddings for hierarchical representations (optional learned projection). arXiv:1705.08039. `https://arxiv.org/abs/1705.08039`
+- Nickel, Kiela (2018) — Lorentz (hyperboloid) model for hyperbolic hierarchies (optional learned projection). arXiv:1806.03417. `https://arxiv.org/abs/1806.03417`
+- Ganea, Bécigneul, Hofmann (2018) — Hyperbolic Neural Networks (optional background). arXiv:1805.09112. `https://arxiv.org/abs/1805.09112`
+- Local repo note (conceptual only): `Information Theory Meets Differential Geometry.pdf` (do not treat as an estimator spec or correctness oracle).
 
 Reference repos (baselines/sanity checks; not the same estimator unless noted):
 - `https://gitlab.gwdg.de/wibral/continuouspidestimator` — authors’ reference implementation of the continuous `I^sx_∩` kNN estimator (Ehrlich et al. 2024); primary cross-check target for `pid-core`.

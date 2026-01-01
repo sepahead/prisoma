@@ -15,7 +15,8 @@ Canonical spec: `grandplan.md`.
    - Level 2: targeted full pairwise I^sx_∩ PID on suspicious pairs.
    - Level 3: optional 3-way PID (offline only) once pairwise behavior is understood.
 3. **Implement dimensionality reduction + preprocessing hooks:**
-   - Standardization/whitening; PCA (retain variance target); random projections; interfaces for learned projections.
+   - Standardization/whitening; optional **invertible reparameterizations** (e.g., monotone marginal Gaussianization) to improve kNN geometry without changing true MI; PCA (retain variance target); random projections; interfaces for learned projections.
+   - Add **geometry diagnostics** (intrinsic dimension + distance concentration) to decide whether kNN-based MI/`I^sx_∩` is even plausible in the chosen representation.
    - Make dim reduction explicit and logged so results are interpretable/reproducible.
 4. **Build experiment harnesses and reproducibility scaffolding:**
    - Add a simple task runner (e.g., `justfile`) and/or scripts to run experiments deterministically.
@@ -23,6 +24,7 @@ Canonical spec: `grandplan.md`.
 5. **Experiment 0 gate (do before any VLA claims):**
    - Run synthetic validation across {N,d,k} grids up to VLA-like d (or demonstrate why dim reduction is required).
    - Include **strong-dependence sweeps** (near-deterministic/large-MI regimes) as a separate axis from “high `d`” (see Gao et al. 2015); do not treat low-`d` success as proof of robustness under strong dependence.
+   - Include **geometry diagnostics** as a separate axis: intrinsic-dimension estimates and distance-concentration proxies; treat “kNN works after PCA” as unproven unless intrinsic dimension is also low/stable.
    - Record error/variance/cost; decide GO / PIVOT / NO-GO using the thresholds in `grandplan.md` (e.g., error targets: d=10 <5%, d=100 <10%, d=1000 <15%, d=4096 <20% or require dim reduction).
    - Decision rule of thumb from spec: **GO** if stable at d=4096; **PIVOT** if stable only after PCA/random projection (e.g., d≈256); **NO-GO** if unstable even at d≈256 (abandon I^sx_∩ for alternatives).
    - Optional: use `sae_analysis` Shannon invariants (Red°, Vul°) as **heuristic screening / SAE-compression tooling** per `grandplan.md` Appendix B.3.3.5 (not a correctness oracle for `I^sx_∩`).
@@ -84,13 +86,18 @@ Context/guardrails:
 - **Gao S, Ver Steeg G, Galstyan A (2015)** — arXiv:1508.00536. Local Gaussian MI estimator (strong-dependence correction / MI baseline). `https://arxiv.org/abs/1508.00536`
 - **Belghazi MI et al. (2018)** — arXiv:1801.04062. MINE (neural MI; treat as a separate validated MI pipeline for MI-only screening, not drop-in `I^sx_∩`). `https://arxiv.org/abs/1801.04062`
 - **Mukherjee S, Asnani H, Kannan S (2019)** — arXiv:1906.01824. CCMI (classifier-based conditional MI; useful if conditioning becomes central; separate validated pipeline). `https://arxiv.org/abs/1906.01824`
+- **Marx A, Fischer J (2021)** — arXiv:2110.13883. Geodesic kNN MI estimation on Riemannian manifolds (MI-only baseline if embeddings are curved/manifold-valued). `https://arxiv.org/abs/2110.13883`
+- **Nickel M, Kiela D (2017)** — arXiv:1705.08039. Poincaré embeddings (hyperbolic geometry for hierarchies; optional learned projection). `https://arxiv.org/abs/1705.08039`
+- **Nickel M, Kiela D (2018)** — arXiv:1806.03417. Lorentz (hyperboloid) model hyperbolic embeddings (often more stable than Poincaré ball). `https://arxiv.org/abs/1806.03417`
+- **Ganea O-E, Bécigneul G, Hofmann T (2018)** — arXiv:1805.09112. Hyperbolic Neural Networks (background). `https://arxiv.org/abs/1805.09112`
+- **Local note (conceptual only):** `Information Theory Meets Differential Geometry.pdf` (do not treat as an estimator spec or correctness oracle).
 - **Liang PP et al. (2023)** — NeurIPS 2023. Multimodal “PID” estimators (BATCH/CVX) for baselines; not the same as `I^sx_∩`. Code: `https://github.com/pliang279/PID`
 - **PixelVLA (2025)** — arXiv:2511.01571. Pixel-level understanding + visual prompting for VLAs (optional future target; see `grandplan.md` §7.3). `https://arxiv.org/abs/2511.01571`
 - **TraceVLA (2024)** — arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness (optional future target; see `grandplan.md` §7.4). `https://arxiv.org/abs/2412.10345`
 
 In-repo pointers (use these to stay aligned with the spec):
 - `grandplan.md` §2.2 (`I^sx_∩` definition), §2.3 (continuous extension), §8.1 (KSG details), §2.5.4 (hierarchical strategy), §9.1 (Experiment 0), Appendix B.3.4 (Rust estimator sketch + validation tests).
-  - Current code locations: `crates/pid-core/src/ksg.rs` (KSG MI + local terms), `crates/pid-core/src/isx.rs` (`I^sx_∩` candidates via `IsxMethod`), `crates/pid-core/src/pid2.rs` (PID atoms wrapper), `crates/pid-core/src/ci.rs` (co-information), `crates/pid-core/src/nn.rs` (brute-force kNN helpers), `crates/pid-core/src/preprocess.rs` (standardization).
+  - Current code locations: `crates/pid-core/src/ksg.rs` (KSG MI + local terms), `crates/pid-core/src/isx.rs` (`I^sx_∩` candidates via `IsxMethod`), `crates/pid-core/src/pid2.rs` (PID atoms wrapper), `crates/pid-core/src/ci.rs` (co-information), `crates/pid-core/src/nn.rs` (brute-force kNN helpers), `crates/pid-core/src/preprocess.rs` (standardization), `crates/pid-core/src/geometry.rs` (intrinsic-dimension diagnostic).
 
 Reference code (for sanity checks and baselines; verify commit hashes when used):
 - **Continuous `I^sx_∩` (authors’ reference impl):** `https://gitlab.gwdg.de/wibral/continuouspidestimator` (Python package `csxpid`; Ehrlich et al. 2024; uses KDTree/ball-tree variants + merging procedure for disjunction distances)
@@ -157,6 +164,7 @@ Implementation note: exact container types (`ndarray`, `nalgebra`, raw slices) a
   - Log/serialize the fitted transform (mean/std; PCA components; random projection matrix seed).
 - Default preprocessing (minimum):
   - Per-dimension standardization (zero mean, unit variance) or min-max scaling.
+  - Optional: monotone marginal Gaussianization (rank/CDF→Normal) as an **invertible** per-dimension reparameterization to improve kNN geometry (does not change true MI when applied per variable; still re-validate estimator behavior).
   - Optional: small jitter for duplicate points (seeded) to avoid kNN tie pathologies; record when enabled.
 - Dimensionality reduction (only after Experiment 0 justifies it):
   - PCA: pick variance-retained target (e.g., 95%) or fixed component count; record the achieved dimension.

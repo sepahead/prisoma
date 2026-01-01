@@ -3,6 +3,7 @@
 mod ci;
 mod distance_matrix;
 mod error;
+mod geometry;
 mod hierarchy;
 mod isx;
 mod ksg;
@@ -17,6 +18,7 @@ mod stats;
 pub use ci::{co_information_pairwise, co_information_triplet};
 pub use distance_matrix::{symmetric_distances, SymmetricDistanceMatrix};
 pub use error::{PidError, PidResult};
+pub use geometry::{intrinsic_dimension_levina_bickel, IntrinsicDimConfig};
 pub use hierarchy::{
     hierarchical_pairwise, hierarchical_triplet, HierarchicalConfig, HierarchicalTriplet,
     PairSelection, PairwiseScreen,
