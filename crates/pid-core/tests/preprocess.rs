@@ -82,4 +82,3 @@ fn preprocess_rejects_invalid_configs() {
     assert!(Jitter::new(-1.0, 0).is_err());
     assert!(Jitter::new(f64::NAN, 0).is_err());
 }
-

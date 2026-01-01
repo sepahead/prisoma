@@ -1,6 +1,6 @@
 use pid_core::{
-    co_information_pairwise, concat_horiz, isx_redundancy, ksg_mi, IsxConfig, IsxMethod, KsgConfig,
-    HashProjector, MatRef, Metric, NegativeHandling, Pid2Config, Standardizer,
+    co_information_pairwise, isx_redundancy, ksg_mi, ksg_mi_concat_xy, HashProjector, IsxConfig,
+    IsxMethod, KsgConfig, MatRef, Metric, NegativeHandling, Standardizer,
 };
 
 fn main() {
@@ -27,14 +27,7 @@ fn main() {
     println!();
 
     for d in dims {
-        run_case(
-            "independent_additive",
-            d,
-            n,
-            &ksg_cfg,
-            42,
-            hash_project_to,
-        );
+        run_case("independent_additive", d, n, &ksg_cfg, 42, hash_project_to);
         run_case("redundant_copy", d, n, &ksg_cfg, 43, hash_project_to);
         run_case("unique_s1", d, n, &ksg_cfg, 44, hash_project_to);
         run_case("xor_like", d, n, &ksg_cfg, 45, hash_project_to);
@@ -95,20 +88,19 @@ struct Metrics {
     mi_s2_t: f64,
     mi_s1s2_t: f64,
     ci: f64,
-    red_sketch: f64,
+    red_ehrlich: f64,
     red_local_min: f64,
     red_disjunction: f64,
-    syn_local_min: f64,
+    syn_ehrlich: f64,
 }
 
 fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgConfig) -> Metrics {
     let mi_s1_t = ksg_mi(s1, t, ksg_cfg).unwrap();
     let mi_s2_t = ksg_mi(s2, t, ksg_cfg).unwrap();
-    let s1s2 = concat_horiz(s1, s2).unwrap();
-    let mi_s1s2_t = ksg_mi(s1s2.as_ref(), t, ksg_cfg).unwrap();
+    let mi_s1s2_t = ksg_mi_concat_xy(s1, s2, t, ksg_cfg).unwrap();
     let ci = co_information_pairwise(s1, s2, t, ksg_cfg).unwrap();
 
-    let red_sketch = isx_redundancy(
+    let red_ehrlich = isx_redundancy(
         s1,
         s2,
         t,
@@ -116,7 +108,7 @@ fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgC
             k: ksg_cfg.k,
             metric: ksg_cfg.metric,
             tie_epsilon: ksg_cfg.tie_epsilon,
-            method: IsxMethod::GrandplanSketch,
+            method: IsxMethod::EhrlichKsg,
         },
     )
     .unwrap();
@@ -147,45 +139,29 @@ fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgC
     )
     .unwrap_or(f64::NAN);
 
-    let pid_local_min = pid_core::pid2_isx(
-        s1,
-        s2,
-        t,
-        &Pid2Config {
-            ksg: ksg_cfg.clone(),
-            isx: IsxConfig {
-                k: ksg_cfg.k,
-                metric: ksg_cfg.metric,
-                tie_epsilon: ksg_cfg.tie_epsilon,
-                method: IsxMethod::LocalMinKsg,
-            },
-        },
-    )
-    .unwrap();
-
     Metrics {
         mi_s1_t,
         mi_s2_t,
         mi_s1s2_t,
         ci,
-        red_sketch,
+        red_ehrlich,
         red_local_min,
         red_disjunction,
-        syn_local_min: pid_local_min.synergy,
+        syn_ehrlich: mi_s1s2_t - mi_s1_t - mi_s2_t + red_ehrlich,
     }
 }
 
 fn print_metrics(name: &str, d: usize, m: Metrics) {
     println!(
-        "{name:>20} d={d:<4} | I1={:>7.3} I2={:>7.3} I12={:>7.3} CI={:>7.3} | Red(sketch)={:>7.3} Red(local_min)={:>7.3} Red(disj)={:>7.3} | Syn(local_min)={:>7.3}",
+        "{name:>20} d={d:<4} | I1={:>7.3} I2={:>7.3} I12={:>7.3} CI={:>7.3} | Red(ehrlich)={:>7.3} Red(local_min)={:>7.3} Red(disj)={:>7.3} | Syn(ehrlich)={:>7.3}",
         m.mi_s1_t,
         m.mi_s2_t,
         m.mi_s1s2_t,
         m.ci,
-        m.red_sketch,
+        m.red_ehrlich,
         m.red_local_min,
         m.red_disjunction,
-        m.syn_local_min,
+        m.syn_ehrlich,
     );
 }
 

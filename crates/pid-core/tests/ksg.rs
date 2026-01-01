@@ -1,4 +1,6 @@
-use pid_core::{co_information_pairwise, ksg_mi, KsgConfig, MatRef, NegativeHandling};
+use pid_core::{
+    co_information_pairwise, ksg_mi, KsgConfig, MatRef, NegativeHandling, PidError, Standardizer,
+};
 
 #[derive(Clone)]
 struct Rng64 {
@@ -34,6 +36,12 @@ impl Rng64 {
         let theta = 2.0 * std::f64::consts::PI * u2;
         r * theta.cos()
     }
+}
+
+fn gaussian_mi_from_corr(rho: f64) -> f64 {
+    let r2 = rho * rho;
+    debug_assert!(r2 < 1.0);
+    -0.5 * (1.0 - r2).ln()
 }
 
 #[test]
@@ -89,6 +97,45 @@ fn ksg_mi_is_larger_for_noisy_copy() {
 }
 
 #[test]
+fn ksg_mi_matches_gaussian_correlation_approximately() {
+    // Analytic MI for 1D jointly-Gaussian variables via correlation:
+    // I(X;Y) = -0.5 ln(1 - rho^2)
+    let mut rng = Rng64::new(2026);
+    let n = 600;
+    let sigma_x = 0.5;
+    let sigma_y = 0.8;
+
+    let mut x = Vec::with_capacity(n);
+    let mut y = Vec::with_capacity(n);
+    for _ in 0..n {
+        let base = rng.normal();
+        x.push(base + sigma_x * rng.normal());
+        y.push(base + sigma_y * rng.normal());
+    }
+
+    let x = MatRef::new(&x, n, 1).unwrap();
+    let y = MatRef::new(&y, n, 1).unwrap();
+    let (x, _) = Standardizer::fit_transform(x).unwrap();
+    let (y, _) = Standardizer::fit_transform(y).unwrap();
+
+    let cfg = KsgConfig {
+        k: 3,
+        negative_handling: NegativeHandling::Allow,
+        ..Default::default()
+    };
+    let mi_hat = ksg_mi(x.as_ref(), y.as_ref(), &cfg).unwrap();
+
+    let rho = 1.0 / ((1.0 + sigma_x * sigma_x) * (1.0 + sigma_y * sigma_y)).sqrt();
+    let mi_true = gaussian_mi_from_corr(rho);
+
+    assert!(mi_hat.is_finite());
+    assert!(
+        (mi_hat - mi_true).abs() < 0.35,
+        "MI mismatch: estimated={mi_hat:.4} true={mi_true:.4} rho={rho:.4}"
+    );
+}
+
+#[test]
 fn exp0_co_information_smoke() {
     // Minimal Experiment 0-ish smoke: CI is finite.
     let mut rng = Rng64::new(999);
@@ -112,4 +159,116 @@ fn exp0_co_information_smoke() {
     let cfg = KsgConfig::default();
     let ci = co_information_pairwise(s1, s2, t, &cfg).unwrap();
     assert!(ci.is_finite());
+}
+
+#[test]
+fn co_information_matches_gaussian_sum_channel_approximately() {
+    // S1,S2 ~ N(0,1) independent. T = S1 + S2 + N, N~N(0, sigma^2).
+    //
+    // Analytic:
+    // I(S1;T) = -0.5 ln((1+sigma^2)/(2+sigma^2))
+    // I(S1,S2;T) = 0.5 ln((2+sigma^2)/sigma^2)
+    // CI = I(S1;T)+I(S2;T)-I(S1,S2;T)
+    let mut rng = Rng64::new(2027);
+    let n = 700;
+    let sigma = 0.6;
+    let sigma2 = sigma * sigma;
+
+    let mut s1 = Vec::with_capacity(n);
+    let mut s2 = Vec::with_capacity(n);
+    let mut t = Vec::with_capacity(n);
+    for _ in 0..n {
+        let a = rng.normal();
+        let b = rng.normal();
+        let noise = sigma * rng.normal();
+        s1.push(a);
+        s2.push(b);
+        t.push(a + b + noise);
+    }
+
+    let s1 = MatRef::new(&s1, n, 1).unwrap();
+    let s2 = MatRef::new(&s2, n, 1).unwrap();
+    let t = MatRef::new(&t, n, 1).unwrap();
+    let (s1, _) = Standardizer::fit_transform(s1).unwrap();
+    let (s2, _) = Standardizer::fit_transform(s2).unwrap();
+    let (t, _) = Standardizer::fit_transform(t).unwrap();
+
+    let cfg = KsgConfig {
+        k: 3,
+        negative_handling: NegativeHandling::Allow,
+        ..Default::default()
+    };
+    let ci_hat = co_information_pairwise(s1.as_ref(), s2.as_ref(), t.as_ref(), &cfg).unwrap();
+
+    let i_s1_t = -0.5 * ((1.0 + sigma2) / (2.0 + sigma2)).ln();
+    let i_s1s2_t = 0.5 * ((2.0 + sigma2) / sigma2).ln();
+    let ci_true = 2.0 * i_s1_t - i_s1s2_t;
+
+    assert!(ci_hat.is_finite());
+    assert!(
+        (ci_hat - ci_true).abs() < 0.45,
+        "CI mismatch: estimated={ci_hat:.4} true={ci_true:.4}"
+    );
+}
+
+#[test]
+fn ksg_rejects_zero_column_inputs() {
+    let n = 10;
+    let x: Vec<f64> = Vec::new();
+    let y: Vec<f64> = Vec::new();
+    let x = MatRef::new(&x, n, 0).unwrap();
+    let y = MatRef::new(&y, n, 0).unwrap();
+
+    let cfg = KsgConfig {
+        k: 3,
+        negative_handling: NegativeHandling::Allow,
+        ..Default::default()
+    };
+    let err = ksg_mi(x, y, &cfg).unwrap_err();
+    assert!(
+        matches!(err, PidError::InvalidConfig { .. }),
+        "unexpected error: {err:?}"
+    );
+}
+
+#[test]
+fn ksg_rejects_negative_tie_epsilon() {
+    let n = 20;
+    let x: Vec<f64> = (0..n).map(|i| i as f64).collect();
+    let y: Vec<f64> = (0..n).map(|i| (i as f64) * 0.5).collect();
+    let x = MatRef::new(&x, n, 1).unwrap();
+    let y = MatRef::new(&y, n, 1).unwrap();
+
+    let cfg = KsgConfig {
+        k: 3,
+        tie_epsilon: -1.0,
+        negative_handling: NegativeHandling::Allow,
+        ..Default::default()
+    };
+    let err = ksg_mi(x, y, &cfg).unwrap_err();
+    assert!(
+        matches!(err, PidError::InvalidConfig { .. }),
+        "unexpected error: {err:?}"
+    );
+}
+
+#[test]
+fn ksg_errors_on_duplicate_points_without_jitter() {
+    // Duplicate points make the kNN radius zero, which breaks strict-inequality counting.
+    let n = 30;
+    let x = vec![0.0f64; n];
+    let y = vec![0.0f64; n];
+    let x = MatRef::new(&x, n, 1).unwrap();
+    let y = MatRef::new(&y, n, 1).unwrap();
+
+    let cfg = KsgConfig {
+        k: 3,
+        negative_handling: NegativeHandling::Allow,
+        ..Default::default()
+    };
+    let err = ksg_mi(x, y, &cfg).unwrap_err();
+    assert!(
+        matches!(err, PidError::NumericalInstability { .. }),
+        "unexpected error: {err:?}"
+    );
 }
