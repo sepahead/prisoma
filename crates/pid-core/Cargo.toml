@@ -1,0 +1,10 @@
+[package]
+name = "pid-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pid_core"
+path = "src/lib.rs"
+
+[dependencies]

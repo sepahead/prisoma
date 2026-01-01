@@ -80,6 +80,7 @@ Context/guardrails:
 
 In-repo pointers (use these to stay aligned with the spec):
 - `grandplan.md` §2.2 (`I^sx_∩` definition), §2.3 (continuous extension), §8.1 (KSG details), §2.5.4 (hierarchical strategy), §9.1 (Experiment 0), Appendix B.3.4 (Rust estimator sketch + validation tests).
+  - Current code locations: `crates/pid-core/src/ksg.rs` (KSG MI), `crates/pid-core/src/isx.rs` (current `I^sx_∩` sketch), `crates/pid-core/src/pid2.rs` (PID atoms wrapper), `crates/pid-core/src/ci.rs` (co-information).
 
 Reference code (for sanity checks and baselines; verify commit hashes when used):
 - **Discrete `I^sx_∩` (definitions/lattice sanity):** `https://github.com/Abzinger/SxPID`

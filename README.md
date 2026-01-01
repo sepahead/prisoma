@@ -83,6 +83,7 @@ The Rust implementation is the long-lived foundation of this project.
 
 - **Measure:** shared-exclusions redundancy `I^sx_∩` (Wibral group). Do not substitute other PID measures.
 - **Estimator:** continuous k-NN / KSG-style estimator per Ehrlich et al. (2024). No public reference implementation is assumed; implement from the paper.
+- **Status note:** the repo’s initial `isx_redundancy` implementation is based on the `grandplan.md` Appendix B.3.4 sketch and is **not trusted** until Experiment 0 validates it.
 - **KSG invariants that must not drift:** use Chebyshev/L∞ for neighbor search + marginal counting; apply the documented tie/strict-inequality rule; use a real digamma `ψ(·)`.
 - **Units:** pick one and stick to it (recommended: nats internally; provide explicit conversion to bits for reporting).
 - **Preprocessing is explicit:** standardization + (if used) PCA/random projection must be recorded with results; do not silently change dimensionality.
