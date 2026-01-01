@@ -60,7 +60,7 @@ impl Default for IsxConfig {
         Self {
             k: 3,
             metric: Metric::Chebyshev,
-            tie_epsilon: 1e-15,
+            tie_epsilon: 0.0,
             method: IsxMethod::EhrlichKsg,
         }
     }
@@ -168,10 +168,10 @@ fn isx_redundancy_ehrlich_ksg(
         let mut n_t = 1usize;
         let mut n_alpha = 1usize;
         for d in &scratch {
-            if d.dt < eps {
+            if d.dt <= eps {
                 n_t += 1;
             }
-            if d.ds < eps {
+            if d.ds <= eps {
                 n_alpha += 1;
             }
         }

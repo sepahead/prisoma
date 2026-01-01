@@ -5,6 +5,13 @@ use crate::metric::Metric;
 use crate::nn::strict_radius;
 use crate::stats::digamma;
 
+#[derive(Clone, Copy)]
+struct DistIsx3 {
+    joint: f64,
+    ds: f64,
+    dt: f64,
+}
+
 #[derive(Debug, Clone)]
 pub struct Pid3Config {
     pub k: usize,
@@ -17,7 +24,7 @@ impl Default for Pid3Config {
         Self {
             k: 3,
             metric: Metric::Chebyshev,
-            tie_epsilon: 1e-15,
+            tie_epsilon: 0.0,
         }
     }
 }
@@ -51,7 +58,7 @@ impl Antichain3 {
 
     /// Create an antichain from a list of non-empty subset masks over {0,1,2}.
     ///
-    /// The input is canonicalized (sorted ascending, deduplicated) and validated to satisfy the
+    /// The input is canonicalized (sorted ascending) and validated to satisfy the
     /// antichain property (no set is a subset of another).
     pub fn try_from_sets(sets: &[u8]) -> PidResult<Self> {
         if sets.is_empty() || sets.len() > 3 {
@@ -227,18 +234,12 @@ fn redundancy_for_antichain(
     let psi_k = digamma(k as f64);
     let psi_n = digamma(n as f64);
 
-    let mut joint = Vec::with_capacity(n.saturating_sub(1));
-    let mut ds = Vec::with_capacity(n.saturating_sub(1));
-    let mut dt = Vec::with_capacity(n.saturating_sub(1));
+    let mut scratch = Vec::with_capacity(n.saturating_sub(1));
 
     let mut sum = 0.0f64;
     for i in 0..n {
-        joint.clear();
-        ds.clear();
-        dt.clear();
-        joint.reserve(n.saturating_sub(1));
-        ds.reserve(n.saturating_sub(1));
-        dt.reserve(n.saturating_sub(1));
+        scratch.clear();
+        scratch.reserve(n.saturating_sub(1));
 
         for j in 0..n {
             if i == j {
@@ -249,13 +250,15 @@ fn redundancy_for_antichain(
             let d2 = sources[2].get(i, j);
             let ds_disj = source_disjunction_distance(antichain, d0, d1, d2);
             let dt_ij = target.get(i, j);
-            joint.push(dt_ij.max(ds_disj));
-            ds.push(ds_disj);
-            dt.push(dt_ij);
+            scratch.push(DistIsx3 {
+                joint: dt_ij.max(ds_disj),
+                ds: ds_disj,
+                dt: dt_ij,
+            });
         }
 
-        joint.select_nth_unstable_by(kth, |a, b| a.total_cmp(b));
-        let eps = strict_radius(joint[kth], cfg.tie_epsilon);
+        scratch.select_nth_unstable_by(kth, |a, b| a.joint.total_cmp(&b.joint));
+        let eps = strict_radius(scratch[kth].joint, cfg.tie_epsilon);
         if eps == 0.0 {
             return Err(PidError::NumericalInstability {
                 context: "pid3_isx: kNN radius is non-positive; add jitter to break duplicates",
@@ -265,13 +268,11 @@ fn redundancy_for_antichain(
         // Counts exclude self; estimator uses inclusive counts.
         let mut n_alpha = 1usize;
         let mut n_t = 1usize;
-        for &v in &ds {
-            if v < eps {
+        for d in &scratch {
+            if d.ds <= eps {
                 n_alpha += 1;
             }
-        }
-        for &v in &dt {
-            if v < eps {
+            if d.dt <= eps {
                 n_t += 1;
             }
         }

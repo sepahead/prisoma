@@ -17,7 +17,7 @@ fn main() {
     let ksg_cfg = KsgConfig {
         k,
         metric: Metric::Chebyshev,
-        tie_epsilon: 1e-15,
+        tie_epsilon: 0.0,
         negative_handling: NegativeHandling::ClampToZero,
     };
 

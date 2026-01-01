@@ -25,7 +25,13 @@ pub struct KsgConfig {
     pub k: usize,
     /// Distance metric. For KSG, the standard choice is Chebyshev / L∞.
     pub metric: Metric,
-    /// Strict-inequality tie handling: marginal neighbor counts use `< (eps - tie_epsilon)`.
+    /// Tie handling for strict-inequality counting.
+    ///
+    /// Many kNN backends only support inclusive ball queries (`<= eps`). To implement the KSG-1
+    /// strict inequality (`< eps_raw`) robustly, we convert the raw kNN radius `eps_raw` into a
+    /// strict radius `eps = strict_radius(eps_raw, tie_epsilon)` which is guaranteed to be
+    /// strictly smaller than `eps_raw` (in floating-point terms), then count neighbors using
+    /// `<= eps`.
     pub tie_epsilon: f64,
     /// Handling of small negative MI estimates due to finite-sample noise.
     pub negative_handling: NegativeHandling,
@@ -36,7 +42,7 @@ impl Default for KsgConfig {
         Self {
             k: 3,
             metric: Metric::Chebyshev,
-            tie_epsilon: 1e-15,
+            tie_epsilon: 0.0,
             negative_handling: NegativeHandling::ClampToZero,
         }
     }
@@ -45,7 +51,7 @@ impl Default for KsgConfig {
 /// KSG mutual information estimator (Algorithm 1 style).
 ///
 /// - Uses a kNN search in joint space (X,Y) with the configured metric (default: L∞).
-/// - Uses strict inequality for marginal counts (`< eps`) to reduce tie bias.
+/// - Uses strict-inequality semantics for marginal counts (`< eps_raw`) via `strict_radius` + `<=`.
 /// - Returns MI in nats (natural log).
 ///
 /// This is a brute-force O(n²) reference implementation intended for correctness first.
@@ -128,10 +134,10 @@ pub fn ksg_local_mi_terms(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidR
         let mut nx = 0usize;
         let mut ny = 0usize;
         for d in &scratch {
-            if d.dx < eps {
+            if d.dx <= eps {
                 nx += 1;
             }
-            if d.dy < eps {
+            if d.dy <= eps {
                 ny += 1;
             }
         }
@@ -234,10 +240,10 @@ pub(crate) fn ksg_local_mi_terms_xblocks<'a>(
         let mut nx = 0usize;
         let mut ny = 0usize;
         for d in &scratch {
-            if d.dx < eps {
+            if d.dx <= eps {
                 nx += 1;
             }
-            if d.dy < eps {
+            if d.dy <= eps {
                 ny += 1;
             }
         }

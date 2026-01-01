@@ -2,12 +2,13 @@ use crate::error::{PidError, PidResult};
 use crate::matrix::MatRef;
 use crate::metric::Metric;
 
-/// Convert a kNN radius `eps` into a strict-inequality radius for neighbor counting.
+/// Convert a raw kNN radius `eps_raw` into a radius suitable for *inclusive* neighbor counting.
 ///
-/// KSG-style estimators typically require counting neighbors with a strict inequality (`< eps`)
-/// even when the kNN search returns a distance based on `<= eps`. Many implementations subtract
-/// a small epsilon; we support that via `tie_epsilon` but also ensure the returned radius is
-/// strictly less than `eps` in floating-point terms when possible.
+/// KSG-style estimators require strict-inequality semantics (`distance < eps_raw`). Many kNN
+/// backends provide only inclusive radius queries (`<= eps`). To recover strict semantics, we
+/// return an `eps_strict` that is guaranteed to be strictly smaller than `eps_raw` (in floating
+/// point terms). Counting neighbors with `distance <= eps_strict` is then equivalent to
+/// `distance < eps_raw` for floating-point distances.
 #[inline]
 pub(crate) fn strict_radius(eps: f64, tie_epsilon: f64) -> f64 {
     if !eps.is_finite() || eps <= 0.0 {
@@ -87,7 +88,8 @@ pub fn kth_neighbor_distance_joint_max_with_scratch(
 
 /// Count neighbors of sample `i` within radius `eps` in a single space.
 ///
-/// Uses strict inequality (`< eps`) to mirror typical KSG tie handling.
+/// This uses inclusive counting (`<= eps`). For KSG-style strict-inequality semantics, pass
+/// `eps = strict_radius(eps_raw, tie_epsilon)`.
 pub fn count_neighbors_within(m: MatRef<'_>, i: usize, eps: f64, metric: Metric) -> usize {
     let n = m.nrows();
     let mi = m.row(i);
@@ -96,7 +98,7 @@ pub fn count_neighbors_within(m: MatRef<'_>, i: usize, eps: f64, metric: Metric)
         if i == j {
             continue;
         }
-        if metric.distance(mi, m.row(j)) < eps {
+        if metric.distance(mi, m.row(j)) <= eps {
             count += 1;
         }
     }

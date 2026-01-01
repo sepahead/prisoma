@@ -1,4 +1,7 @@
-use pid_core::{concat_horiz, ksg_mi, pid3_isx, Antichain3, KsgConfig, MatRef, Metric, Pid3Config};
+use pid_core::{
+    concat_horiz, ksg_mi, ksg_mi_concat_xy, pid3_isx, Antichain3, KsgConfig, MatRef, Metric,
+    Pid3Config,
+};
 
 mod common;
 
@@ -58,7 +61,7 @@ fn pid3_isx_matches_reference_implementation_on_fixed_data() {
     let cfg = Pid3Config {
         k,
         metric: Metric::Chebyshev,
-        tie_epsilon: 1e-15,
+        tie_epsilon: 0.0,
     };
 
     let out = pid3_isx(s0, s1, s2, t, &cfg).unwrap();
@@ -139,22 +142,35 @@ fn pid3_isx_matches_reference_implementation_on_fixed_data() {
         );
     }
 
-    // Singleton antichains reduce to KSG MI on the corresponding joint source block.
-    let top = Antichain3::try_from_sets(&[0b111]).unwrap();
-    let red_top = out.redundancy(top).unwrap();
-
-    let s01 = concat_horiz(s0, s1).unwrap();
-    let s012 = concat_horiz(s01.as_ref(), s2).unwrap();
     let mi_cfg = KsgConfig {
         k,
         metric: Metric::Chebyshev,
-        tie_epsilon: 1e-15,
+        tie_epsilon: 0.0,
         negative_handling: pid_core::NegativeHandling::Allow,
     };
+
+    // Singleton antichains reduce to KSG MI on the corresponding joint source block.
+    let red_s0 = out.redundancy(expected_antichains[0]).unwrap();
+    let red_s1 = out.redundancy(expected_antichains[1]).unwrap();
+    let red_s2 = out.redundancy(expected_antichains[2]).unwrap();
+    let red_s01 = out.redundancy(expected_antichains[3]).unwrap();
+    let red_s02 = out.redundancy(expected_antichains[4]).unwrap();
+    let red_s12 = out.redundancy(expected_antichains[5]).unwrap();
+    let red_s012 = out.redundancy(expected_antichains[6]).unwrap();
+
+    assert!((red_s0 - ksg_mi(s0, t, &mi_cfg).unwrap()).abs() < 1e-12);
+    assert!((red_s1 - ksg_mi(s1, t, &mi_cfg).unwrap()).abs() < 1e-12);
+    assert!((red_s2 - ksg_mi(s2, t, &mi_cfg).unwrap()).abs() < 1e-12);
+    assert!((red_s01 - ksg_mi_concat_xy(s0, s1, t, &mi_cfg).unwrap()).abs() < 1e-12);
+    assert!((red_s02 - ksg_mi_concat_xy(s0, s2, t, &mi_cfg).unwrap()).abs() < 1e-12);
+    assert!((red_s12 - ksg_mi_concat_xy(s1, s2, t, &mi_cfg).unwrap()).abs() < 1e-12);
+
+    let s01 = concat_horiz(s0, s1).unwrap();
+    let s012 = concat_horiz(s01.as_ref(), s2).unwrap();
     let mi = ksg_mi(s012.as_ref(), t, &mi_cfg).unwrap();
     assert!(
-        (mi - red_top).abs() < 1e-12,
-        "I(S0,S1,S2;T) mismatch: ksg_mi={mi:.15e} pid3_redundancy={red_top:.15e}"
+        (mi - red_s012).abs() < 1e-12,
+        "I(S0,S1,S2;T) mismatch: ksg_mi={mi:.15e} pid3_redundancy={red_s012:.15e}"
     );
 }
 
