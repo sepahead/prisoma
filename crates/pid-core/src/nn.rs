@@ -85,47 +85,6 @@ pub fn kth_neighbor_distance_joint_max_with_scratch(
     Ok(scratch[kth])
 }
 
-/// Count neighbors of sample `i` within radius `eps` in a joint space composed of multiple blocks,
-/// with distance defined as the maximum of per-block distances.
-pub(crate) fn count_neighbors_within_joint_max(
-    blocks: &[MatRef<'_>],
-    i: usize,
-    eps: f64,
-    metric: Metric,
-) -> PidResult<usize> {
-    if blocks.is_empty() {
-        return Err(PidError::NotImplemented {
-            feature: "count_neighbors_within_joint_max with empty blocks",
-        });
-    }
-
-    let n = blocks[0].nrows();
-    for b in blocks.iter().skip(1) {
-        if b.nrows() != n {
-            return Err(PidError::RowCountMismatch {
-                context: "count_neighbors_within_joint_max",
-                left_rows: n,
-                right_rows: b.nrows(),
-            });
-        }
-    }
-
-    let mut count = 0usize;
-    for j in 0..n {
-        if i == j {
-            continue;
-        }
-        let mut dist = 0.0f64;
-        for b in blocks {
-            dist = dist.max(metric.distance(b.row(i), b.row(j)));
-        }
-        if dist < eps {
-            count += 1;
-        }
-    }
-    Ok(count)
-}
-
 /// Count neighbors of sample `i` within radius `eps` in a single space.
 ///
 /// Uses strict inequality (`< eps`) to mirror typical KSG tie handling.

@@ -7,6 +7,13 @@ use crate::nn::{
 };
 use crate::stats::digamma;
 
+#[derive(Clone, Copy)]
+struct DistIsx2 {
+    joint: f64,
+    dt: f64,
+    ds: f64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IsxMethod {
     /// Paper-faithful kNN estimator for continuous shared-exclusions redundancy from:
@@ -129,20 +136,27 @@ fn isx_redundancy_ehrlich_ksg(
         scratch.clear();
         scratch.reserve(n.saturating_sub(1));
 
+        let s1i = s1.row(i);
+        let s2i = s2.row(i);
+        let ti = t.row(i);
         for j in 0..n {
             if i == j {
                 continue;
             }
-            let ds1 = cfg.metric.distance(s1.row(i), s1.row(j));
-            let ds2 = cfg.metric.distance(s2.row(i), s2.row(j));
-            let dt = cfg.metric.distance(t.row(i), t.row(j));
-            let d_joint = dt.max(ds1.min(ds2));
-            scratch.push(d_joint);
+            let ds1 = cfg.metric.distance(s1i, s1.row(j));
+            let ds2 = cfg.metric.distance(s2i, s2.row(j));
+            let dt = cfg.metric.distance(ti, t.row(j));
+            let ds = ds1.min(ds2);
+            scratch.push(DistIsx2 {
+                joint: dt.max(ds),
+                dt,
+                ds,
+            });
         }
 
         let kth = k - 1;
-        scratch.select_nth_unstable_by(kth, |a, b| a.total_cmp(b));
-        let eps_raw = scratch[kth];
+        scratch.select_nth_unstable_by(kth, |a, b| a.joint.total_cmp(&b.joint));
+        let eps_raw = scratch[kth].joint;
         let eps = strict_radius(eps_raw, cfg.tie_epsilon);
         if eps == 0.0 {
             return Err(PidError::NumericalInstability {
@@ -151,36 +165,21 @@ fn isx_redundancy_ehrlich_ksg(
         }
 
         // Counts exclude self; the estimator needs counts including self.
-        let n_t = count_neighbors_within(t, i, eps, cfg.metric) + 1;
-        let n_alpha = count_neighbors_within_source_disjunction(s1, s2, i, eps, cfg.metric) + 1;
+        let mut n_t = 1usize;
+        let mut n_alpha = 1usize;
+        for d in &scratch {
+            if d.dt < eps {
+                n_t += 1;
+            }
+            if d.ds < eps {
+                n_alpha += 1;
+            }
+        }
 
         sum += psi_k + psi_n - digamma(n_alpha as f64) - digamma(n_t as f64);
     }
 
     Ok(sum / (n as f64))
-}
-
-#[inline]
-fn count_neighbors_within_source_disjunction(
-    s1: MatRef<'_>,
-    s2: MatRef<'_>,
-    i: usize,
-    eps: f64,
-    metric: Metric,
-) -> usize {
-    let n = s1.nrows();
-    let mut count = 0usize;
-    for j in 0..n {
-        if i == j {
-            continue;
-        }
-        let d1 = metric.distance(s1.row(i), s1.row(j));
-        let d2 = metric.distance(s2.row(i), s2.row(j));
-        if d1.min(d2) < eps {
-            count += 1;
-        }
-    }
-    count
 }
 
 fn isx_redundancy_disjunction_from_local_mi(
@@ -223,7 +222,8 @@ fn isx_redundancy_disjunction_from_local_mi(
         let s = sa + sb - sc;
         if !s.is_finite() || s <= 0.0 {
             return Err(PidError::NumericalInstability {
-                context: "isx_redundancy_disjunction_from_local_mi: disjunction argument is non-positive",
+                context:
+                    "isx_redundancy_disjunction_from_local_mi: disjunction argument is non-positive",
             });
         }
         sum += m + s.ln();

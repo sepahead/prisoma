@@ -162,6 +162,7 @@ Authoritative papers:
 - Matthias et al. (2025) — arXiv:2512.16662. Why negative PID atoms can occur (impossibility/inconsistency results). `https://arxiv.org/abs/2512.16662`
 
 Reference repos (baselines/sanity checks; not the same estimator unless noted):
+- `https://gitlab.gwdg.de/wibral/continuouspidestimator` — authors’ reference implementation of the continuous `I^sx_∩` kNN estimator (Ehrlich et al. 2024); primary cross-check target for `pid-core`.
 - `https://github.com/Abzinger/SxPID` — discrete `I^sx_∩` (definitions/lattice sanity).
 - `https://github.com/Abzinger/sae_analysis` — WIP toolbox for information-theoretic SAE analysis (Shannon-invariants-style redundancy/vulnerability from Gutknecht et al. 2025); not a continuous `I^sx_∩` implementation; treat as a reference/starting point only.
 - `https://github.com/pliang279/PID` — Liang et al. BATCH/CVX estimators (baseline; NOT `I^sx_∩`).

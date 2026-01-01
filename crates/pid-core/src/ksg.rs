@@ -1,16 +1,20 @@
 use crate::error::{PidError, PidResult};
 use crate::matrix::MatRef;
 use crate::metric::Metric;
-use crate::nn::{
-    count_neighbors_within, count_neighbors_within_joint_max,
-    kth_neighbor_distance_joint_max_with_scratch, strict_radius,
-};
+use crate::nn::strict_radius;
 use crate::stats::digamma;
 
 #[derive(Debug, Clone, Copy)]
 pub enum NegativeHandling {
     Allow,
     ClampToZero,
+}
+
+#[derive(Clone, Copy)]
+struct DistPair {
+    joint: f64,
+    dx: f64,
+    dy: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -90,25 +94,47 @@ pub fn ksg_local_mi_terms(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidR
 
     let mut local = Vec::with_capacity(n);
     let mut scratch = Vec::with_capacity(n.saturating_sub(1));
-    let blocks = [x, y];
     for i in 0..n {
-        let eps = kth_neighbor_distance_joint_max_with_scratch(
-            &blocks,
-            i,
-            cfg.k,
-            cfg.metric,
-            &mut scratch,
-        )?;
+        scratch.clear();
+        scratch.reserve(n.saturating_sub(1));
+
+        let xi = x.row(i);
+        let yi = y.row(i);
+        for j in 0..n {
+            if i == j {
+                continue;
+            }
+            let dx = cfg.metric.distance(xi, x.row(j));
+            let dy = cfg.metric.distance(yi, y.row(j));
+            scratch.push(DistPair {
+                joint: dx.max(dy),
+                dx,
+                dy,
+            });
+        }
+
+        let kth = k - 1;
+        scratch.select_nth_unstable_by(kth, |a, b| a.joint.total_cmp(&b.joint));
+        let eps = scratch[kth].joint;
         // Strict inequality for marginal counts.
         let eps = strict_radius(eps, cfg.tie_epsilon);
         if eps == 0.0 {
             return Err(PidError::NumericalInstability {
-                context: "ksg_local_mi_terms: kNN radius is non-positive; add jitter to break duplicates",
+                context:
+                    "ksg_local_mi_terms: kNN radius is non-positive; add jitter to break duplicates",
             });
         }
 
-        let nx = count_neighbors_within(x, i, eps, cfg.metric);
-        let ny = count_neighbors_within(y, i, eps, cfg.metric);
+        let mut nx = 0usize;
+        let mut ny = 0usize;
+        for d in &scratch {
+            if d.dx < eps {
+                nx += 1;
+            }
+            if d.dy < eps {
+                ny += 1;
+            }
+        }
 
         let li = psi_k + psi_n - digamma((nx + 1) as f64) - digamma((ny + 1) as f64);
         local.push(li);
@@ -169,29 +195,52 @@ pub(crate) fn ksg_local_mi_terms_xblocks<'a>(
     let psi_k = digamma(k as f64);
     let psi_n = digamma(n as f64);
 
-    let mut joint_blocks: Vec<MatRef<'a>> = Vec::with_capacity(x_blocks.len() + 1);
-    joint_blocks.extend_from_slice(x_blocks);
-    joint_blocks.push(y);
-
     let mut scratch = Vec::with_capacity(n.saturating_sub(1));
     let mut local = Vec::with_capacity(n);
     for i in 0..n {
-        let eps_joint = kth_neighbor_distance_joint_max_with_scratch(
-            &joint_blocks,
-            i,
-            cfg.k,
-            cfg.metric,
-            &mut scratch,
-        )?;
-        let eps = strict_radius(eps_joint, cfg.tie_epsilon);
+        scratch.clear();
+        scratch.reserve(n.saturating_sub(1));
+
+        let mut x_rows_i: Vec<&[f64]> = Vec::with_capacity(x_blocks.len());
+        for b in x_blocks {
+            x_rows_i.push(b.row(i));
+        }
+        let yi = y.row(i);
+        for j in 0..n {
+            if i == j {
+                continue;
+            }
+            let mut dx = 0.0f64;
+            for (b_idx, b) in x_blocks.iter().enumerate() {
+                dx = dx.max(cfg.metric.distance(x_rows_i[b_idx], b.row(j)));
+            }
+            let dy = cfg.metric.distance(yi, y.row(j));
+            scratch.push(DistPair {
+                joint: dx.max(dy),
+                dx,
+                dy,
+            });
+        }
+
+        let kth = k - 1;
+        scratch.select_nth_unstable_by(kth, |a, b| a.joint.total_cmp(&b.joint));
+        let eps = strict_radius(scratch[kth].joint, cfg.tie_epsilon);
         if eps == 0.0 {
             return Err(PidError::NumericalInstability {
                 context: "ksg_local_mi_terms_xblocks: kNN radius is non-positive; add jitter to break duplicates",
             });
         }
 
-        let nx = count_neighbors_within_joint_max(x_blocks, i, eps, cfg.metric)?;
-        let ny = count_neighbors_within(y, i, eps, cfg.metric);
+        let mut nx = 0usize;
+        let mut ny = 0usize;
+        for d in &scratch {
+            if d.dx < eps {
+                nx += 1;
+            }
+            if d.dy < eps {
+                ny += 1;
+            }
+        }
 
         local.push(psi_k + psi_n - digamma((nx + 1) as f64) - digamma((ny + 1) as f64));
     }

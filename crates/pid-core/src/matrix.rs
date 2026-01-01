@@ -90,18 +90,14 @@ pub fn concat_horiz(a: MatRef<'_>, b: MatRef<'_>) -> PidResult<MatOwned> {
     let da = a.ncols();
     let db = b.ncols();
 
-    let out_cols = da
-        .checked_add(db)
-        .ok_or(PidError::InvalidConfig {
-            context: "concat_horiz",
-            message: "column count overflow",
-        })?;
-    let out_len = n
-        .checked_mul(out_cols)
-        .ok_or(PidError::InvalidConfig {
-            context: "concat_horiz",
-            message: "output size overflow",
-        })?;
+    let out_cols = da.checked_add(db).ok_or(PidError::InvalidConfig {
+        context: "concat_horiz",
+        message: "column count overflow",
+    })?;
+    let out_len = n.checked_mul(out_cols).ok_or(PidError::InvalidConfig {
+        context: "concat_horiz",
+        message: "output size overflow",
+    })?;
 
     let mut out = Vec::with_capacity(out_len);
     for i in 0..n {

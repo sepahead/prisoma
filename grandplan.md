@@ -122,17 +122,19 @@ We adopt I^sx_∩ from Makkeh, Gutknecht, and Wibral (2021), extended to continu
 
 ### 2.2.1 Definition
 
-The shared-exclusions redundancy is defined via pointwise information:
+The shared-exclusions redundancy `I^sx_∩` is defined via **exclusions of probability mass** and can be written as a **local mutual information** induced by an auxiliary “statement” variable `W` (Makkeh et al. 2021, Eq. 17):
 ```
-I^sx_∩(S₁, S₂; T) = E_T[min(i(S₁; T=t), i(S₂; T=t))]
+i^sx_∩(t : s₁; s₂) := i(t : W_{s₁,s₂}=1) = log[ p(t | W_{s₁,s₂}=1) / p(t) ]
+
+I^sx_∩(S₁, S₂; T) := E_{t,s₁,s₂}[ i^sx_∩(t : s₁; s₂) ]
 ```
 
-Where i(s; t) is the **pointwise mutual information**:
+Where `i(·;·)` is the **pointwise mutual information**:
 ```
 i(s; t) = log[p(s, t) / (p(s)·p(t))]
 ```
 
-**Critical:** This is the AVERAGE of the MINIMUM pointwise MI, NOT a simple min of averages.
+Ehrlich et al. (2024) derive a **kNN/KSG-style estimator** for the continuous case by replacing conjunction (intersection) neighborhoods with disjunction (union) neighborhoods; see §8.1.3 for the concrete estimator form.
 
 ### 2.2.2 Key Properties
 
@@ -1181,12 +1183,23 @@ def ksg_mutual_information(X, Y, k=3):
 
 ### 8.1.3 Extension to I^sx_∩
 
-The continuous I^sx_∩ requires:
-1. Estimate pointwise MI i(s₁; t) and i(s₂; t) at each sample
-2. Take minimum: min(i(s₁; t), i(s₂; t))
-3. Average: E_T[min(...)]
+The continuous `I^sx_∩` estimator in **Ehrlich et al. (2024)** is **not** implemented as “take the minimum of pointwise MI terms.”
 
-This is harder because pointwise MI estimation is noisy.
+Instead, it adapts KSG by replacing conjunction (intersection) neighborhoods with the **disjunction (union)** neighborhoods implied by shared exclusions.
+
+For **two sources** `S₁,S₂` and a target `T`, under Chebyshev/L∞:
+
+1. For each sample `i`, compute the joint disjunction distance to every other sample `j`:
+   - `d_S_disj(i,j) = min( d(S₁_i,S₁_j), d(S₂_i,S₂_j) )`
+   - `d_ST_disj(i,j) = max( d(T_i,T_j), d_S_disj(i,j) )`
+2. Let `ε_i` be the distance to the `k`-th nearest neighbor under `d_ST_disj` (with strict `< ε_i` counting for ties).
+3. Count neighbors within `ε_i`:
+   - `n_α(i)` = number of samples within `ε_i` of the **source disjunction** (i.e., `d_S_disj(i,j) < ε_i`), including the query point
+   - `n_T(i)` = number of samples within `ε_i` in target space (i.e., `d(T_i,T_j) < ε_i`), including the query point
+4. Estimate redundancy:
+   - `Î^sx_∩ = ψ(k) + ψ(N) − (1/N) Σ_i [ ψ(n_α(i)) + ψ(n_T(i)) ]`
+
+This matches the authors’ reference implementation (`gitlab.gwdg.de/wibral/continuouspidestimator`) and is implemented in this repo as `crates/pid-core/src/isx.rs` (`IsxMethod::EhrlichKsg`).
 
 ## 8.2 Dimensionality Reduction Strategies
 

@@ -83,6 +83,7 @@ In-repo pointers (use these to stay aligned with the spec):
   - Current code locations: `crates/pid-core/src/ksg.rs` (KSG MI + local terms), `crates/pid-core/src/isx.rs` (`I^sx_∩` candidates via `IsxMethod`), `crates/pid-core/src/pid2.rs` (PID atoms wrapper), `crates/pid-core/src/ci.rs` (co-information), `crates/pid-core/src/nn.rs` (brute-force kNN helpers), `crates/pid-core/src/preprocess.rs` (standardization).
 
 Reference code (for sanity checks and baselines; verify commit hashes when used):
+- **Continuous `I^sx_∩` (authors’ reference impl):** `https://gitlab.gwdg.de/wibral/continuouspidestimator` (Python package `csxpid`; Ehrlich et al. 2024; uses KDTree/ball-tree variants + merging procedure for disjunction distances)
 - **Discrete `I^sx_∩` (definitions/lattice sanity):** `https://github.com/Abzinger/SxPID`
 - **Related (Shannon invariants on neural latents; NOT `I^sx_∩`):** `https://github.com/Abzinger/sae_analysis` (WIP; computes redundancy/vulnerability-style invariants for SAEs; uses submodules `sparsify`/`delphi`; treat as reference only)
 - **Baseline estimators (NOT `I^sx_∩`):** `https://github.com/pliang279/PID` (Liang BATCH/CVX)
@@ -108,9 +109,9 @@ Keep these definitions consistent across Rust, Python bindings, and plots.
 
 - **Pointwise mutual information (PMI):**  
   `i(s; t) = log( p(s,t) / (p(s) p(t)) )`
-- **Shared-exclusions redundancy (conceptual definition used in spec):**  
-  `I^sx_∩(S1, S2; T) = E_T[ min( i(S1; T=t), i(S2; T=t) ) ]`  
-  (Continuous estimation is nontrivial; see Ehrlich et al. 2024 for the k-NN estimator.)
+- **Shared-exclusions redundancy (Wibral group, conceptual):**  
+  `i^sx_∩(s1,s2;t) = log( p(t | (S1=s1) ∨ (S2=s2)) / p(t) )` (Makkeh et al. 2021).  
+  Continuous estimation uses the KSG-style kNN construction in Ehrlich et al. 2024 (Appendix H; Algorithms 3–6), implemented in this repo as `IsxMethod::EhrlichKsg`.
 - **Two-source PID atoms derived from MI + redundancy:**  
   `Unq1 = I(S1;T) − Red`  
   `Unq2 = I(S2;T) − Red`  

@@ -3,6 +3,7 @@ use crate::isx::{isx_redundancy, IsxConfig};
 use crate::ksg::{ksg_mi, ksg_mi_concat_xy, ksg_mi_xblocks, KsgConfig};
 use crate::matrix::MatRef;
 use crate::pid2::{Pid2Estimate, Pid2Result};
+use crate::pid3::{pid3_isx, Pid3Config, Pid3Result};
 
 #[derive(Debug, Clone)]
 pub enum PairSelection {
@@ -18,9 +19,14 @@ pub enum PairSelection {
 pub struct HierarchicalConfig {
     pub ksg: KsgConfig,
     pub isx: IsxConfig,
+    pub pid3: Pid3Config,
     pub selection: PairSelection,
     /// If false, only compute Level-1 screening (CI + MI terms); `pid` is always `None`.
     pub compute_pid: bool,
+    /// If true, compute the full 3-source SxPID (18 atoms) for `hierarchical_triplet`.
+    ///
+    /// This is expensive (offline only); prefer Level 1/2 for real-time paths.
+    pub compute_pid3: bool,
 }
 
 impl Default for HierarchicalConfig {
@@ -28,8 +34,10 @@ impl Default for HierarchicalConfig {
         Self {
             ksg: KsgConfig::default(),
             isx: IsxConfig::default(),
+            pid3: Pid3Config::default(),
             selection: PairSelection::TopKMostNegativeCi { k: 16 },
             compute_pid: true,
+            compute_pid3: false,
         }
     }
 }
@@ -54,6 +62,8 @@ pub struct HierarchicalTriplet {
     pub ci_triplet: f64,
     /// Joint MI term I(X,Y,Z;T) used in `ci_triplet`.
     pub mi_xyz_t: f64,
+    /// Optional Level-3 full 3-source SxPID (18 atoms).
+    pub pid3: Option<Pid3Result>,
 }
 
 /// Hierarchical pairwise analysis:
@@ -214,13 +224,20 @@ pub fn hierarchical_triplet(
     }
 
     let mi_xyz_t = ksg_mi_xblocks(&sources, t, &cfg.ksg)?;
-    let ci_triplet = mi_i_t[0] + mi_i_t[1] + mi_i_t[2] - mi01.unwrap() - mi02.unwrap()
-        - mi12.unwrap()
-        + mi_xyz_t;
+    let ci_triplet =
+        mi_i_t[0] + mi_i_t[1] + mi_i_t[2] - mi01.unwrap() - mi02.unwrap() - mi12.unwrap()
+            + mi_xyz_t;
+
+    let pid3 = if cfg.compute_pid3 {
+        Some(pid3_isx(x, y, z, t, &cfg.pid3)?)
+    } else {
+        None
+    };
 
     Ok(HierarchicalTriplet {
         pairwise,
         ci_triplet,
         mi_xyz_t,
+        pid3,
     })
 }
