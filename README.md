@@ -77,6 +77,7 @@ After M0, the repo should expose a small, stable set of commands:
 - **Experiment 0 is mandatory first.** If the estimator collapses at high `d`, all downstream VLA conclusions are invalid.
 - **“Synergy < 0 ⇒ hallucination” is a hypothesis, not a definition.** Treat synergy sign as a feature to be evaluated against strong baselines (entropy, Liang BATCH/CVX, learned classifier, etc.).
 - **High-dimensional kNN is fragile.** Expect distance concentration at `d≈4096`; plan for PCA/random projections and re-validation.
+- **Strong dependence is a separate failure mode.** Near-deterministic relationships can break kNN MI/PID even at low `d`; include strong-dependence sweeps (Gao et al. 2015) in Experiment 0 and do not over-interpret MI/PID on effectively noiseless signals.
 - **Liang et al. estimators are not `I^sx_∩`.** Use them as baselines, not as evidence that shared-exclusions behaves similarly.
 - **macOS-first implementation.** Don’t block progress on CUDA/NixOS; treat Linux/CUDA as a later port once the M4 Max pipeline is validated.
 
@@ -164,6 +165,12 @@ Authoritative papers:
 - Matthias et al. (2025) — arXiv:2512.16662. Why negative PID atoms can occur (impossibility/inconsistency results). `https://arxiv.org/abs/2512.16662`
 - PixelVLA (2025) — arXiv:2511.01571. Pixel-level understanding + visual prompting for VLAs (optional future). `https://arxiv.org/abs/2511.01571`
 - TraceVLA (2024) — arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness (optional future). `https://arxiv.org/abs/2412.10345`
+
+MI/CMI estimation references (baselines; not `I^sx_∩`):
+- Gao, Ver Steeg, Galstyan (2015) — sample complexity pathologies for kNN MI under strong dependence. arXiv:1411.2003. `https://arxiv.org/abs/1411.2003`
+- Gao, Ver Steeg, Galstyan (2015) — local Gaussian MI estimator (strong dependence correction). arXiv:1508.00536. `https://arxiv.org/abs/1508.00536`
+- Belghazi et al. (2018) — MINE (neural MI; lower-bound-style; treat as separate validated pipeline). arXiv:1801.04062. `https://arxiv.org/abs/1801.04062`
+- Mukherjee, Asnani, Kannan (2019) — CCMI (classifier-based conditional MI; for conditioning-heavy baselines). arXiv:1906.01824. `https://arxiv.org/abs/1906.01824`
 
 Reference repos (baselines/sanity checks; not the same estimator unless noted):
 - `https://gitlab.gwdg.de/wibral/continuouspidestimator` — authors’ reference implementation of the continuous `I^sx_∩` kNN estimator (Ehrlich et al. 2024); primary cross-check target for `pid-core`.

@@ -12,6 +12,12 @@ fn gaussian_mi_from_corr(rho: f64) -> f64 {
     -0.5 * (1.0 - r2).ln()
 }
 
+fn gaussian_channel_mi(sigma: f64) -> f64 {
+    debug_assert!(sigma.is_finite());
+    debug_assert!(sigma > 0.0);
+    0.5 * (1.0 + 1.0 / (sigma * sigma)).ln()
+}
+
 #[test]
 fn ksg_mi_is_small_for_independent_uniforms() {
     let mut rng = Rng64::new(42);
@@ -101,6 +107,66 @@ fn ksg_mi_matches_gaussian_correlation_approximately() {
         (mi_hat - mi_true).abs() < 0.35,
         "MI mismatch: estimated={mi_hat:.4} true={mi_true:.4} rho={rho:.4}"
     );
+}
+
+#[test]
+fn exp0_strong_dependence_gaussian_channel_sweep_smoke() {
+    // Strong dependence (very large true MI) can break kNN MI even at low dimension.
+    // This test is not asserting "perfect accuracy"; it checks:
+    // - finiteness (no NaNs/Infs)
+    // - broadly increasing MI as sigma shrinks
+    // - rough agreement with the analytic Gaussian-channel MI at moderate MI values
+    //
+    // Analytic: X ~ N(0,1), Y = X + σN, N~N(0,1): I(X;Y) = 0.5 ln(1 + 1/σ²).
+    let mut rng = Rng64::new(0x51A7_2026);
+    let n = 800;
+
+    let mut x_raw = Vec::with_capacity(n);
+    let mut noise = Vec::with_capacity(n);
+    for _ in 0..n {
+        x_raw.push(rng.normal());
+        noise.push(rng.normal());
+    }
+
+    let x = MatRef::new(&x_raw, n, 1).unwrap();
+    let (x, _) = Standardizer::fit_transform(x).unwrap();
+
+    let cfg = KsgConfig {
+        k: 3,
+        negative_handling: NegativeHandling::Allow,
+        ..Default::default()
+    };
+
+    let sigmas = [1.0, 0.3, 0.1];
+    let mut last = None;
+    for &sigma in &sigmas {
+        let y_raw: Vec<f64> = x_raw
+            .iter()
+            .zip(noise.iter())
+            .map(|(&xi, &ni)| xi + sigma * ni)
+            .collect();
+
+        let y = MatRef::new(&y_raw, n, 1).unwrap();
+        let (y, _) = Standardizer::fit_transform(y).unwrap();
+
+        let mi_hat = ksg_mi(x.as_ref(), y.as_ref(), &cfg).unwrap();
+        let mi_true = gaussian_channel_mi(sigma);
+
+        assert!(mi_hat.is_finite(), "sigma={sigma} mi_hat={mi_hat}");
+
+        if let Some(prev) = last {
+            assert!(
+                mi_hat >= prev - 0.25,
+                "expected MI to increase as sigma shrinks: sigma={sigma} mi_hat={mi_hat} prev={prev}"
+            );
+        }
+        last = Some(mi_hat);
+
+        assert!(
+            (mi_hat - mi_true).abs() < 1.0,
+            "MI mismatch: sigma={sigma} estimated={mi_hat:.4} true={mi_true:.4}"
+        );
+    }
 }
 
 #[test]

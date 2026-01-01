@@ -5,7 +5,7 @@ use crate::metric::Metric;
 use crate::nn::{
     count_neighbors_within, kth_neighbor_distance_joint_max_with_scratch, strict_radius,
 };
-use crate::stats::digamma;
+use crate::stats::{digamma, digamma_int_table};
 
 #[derive(Clone, Copy)]
 struct DistIsx2 {
@@ -129,6 +129,7 @@ fn isx_redundancy_ehrlich_ksg(
     // d_ST_disj(i,j) = max( d(T_i,T_j), d_S_disj(i,j) ).
     let psi_k = digamma(k as f64);
     let psi_n = digamma(n as f64);
+    let psi_int = digamma_int_table(n);
 
     let mut scratch = Vec::with_capacity(n.saturating_sub(1));
     let mut sum = 0.0f64;
@@ -175,7 +176,7 @@ fn isx_redundancy_ehrlich_ksg(
             }
         }
 
-        sum += psi_k + psi_n - digamma(n_alpha as f64) - digamma(n_t as f64);
+        sum += psi_k + psi_n - psi_int[n_alpha] - psi_int[n_t];
     }
 
     Ok(sum / (n as f64))
@@ -327,12 +328,13 @@ fn isx_redundancy_grandplan_sketch(
     // 3) Spec-sketch estimator (grandplan Appendix B.3.4.2).
     let psi_k = digamma(k as f64);
     let psi_n = digamma(n as f64);
+    let psi_int = digamma_int_table(n);
 
     let avg_term = (0..n)
         .map(|i| {
-            let psi_shared = digamma((n_t_shared[i] + 1) as f64);
-            let psi_s1 = digamma((n_t_s1[i] + 1) as f64);
-            let psi_s2 = digamma((n_t_s2[i] + 1) as f64);
+            let psi_shared = psi_int[n_t_shared[i] + 1];
+            let psi_s1 = psi_int[n_t_s1[i] + 1];
+            let psi_s2 = psi_int[n_t_s2[i] + 1];
             psi_shared - 0.5 * (psi_s1 + psi_s2)
         })
         .sum::<f64>()

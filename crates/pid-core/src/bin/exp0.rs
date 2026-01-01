@@ -33,6 +33,8 @@ fn main() {
         run_case("xor_like", d, n, &ksg_cfg, 45, hash_project_to);
         println!();
     }
+
+    run_gaussian_channel_strong_dependence_sweep(900, &ksg_cfg, 0x51A7_2026);
 }
 
 fn run_case(
@@ -80,6 +82,53 @@ fn run_case(
             print_metrics(&format!("{name}_hashproj"), dout, projected);
         }
     }
+}
+
+fn run_gaussian_channel_strong_dependence_sweep(n: usize, ksg_cfg: &KsgConfig, seed: u64) {
+    // Strong-dependence sweep (separate axis from "high d"):
+    // X ~ N(0,1), Y = X + σN, N~N(0,1), so analytic MI is:
+    // I(X;Y) = 0.5 ln(1 + 1/σ²).
+    let sigmas = [1.0, 0.3, 0.1, 0.03, 0.01];
+
+    let mut rng = Rng64::new(seed);
+    let mut x = Vec::with_capacity(n);
+    let mut noise = Vec::with_capacity(n);
+    for _ in 0..n {
+        x.push(rng.normal());
+        noise.push(rng.normal());
+    }
+
+    let xref = MatRef::new(&x, n, 1).unwrap();
+    let (xstd, _) = Standardizer::fit_transform(xref).unwrap();
+
+    println!("Strong-dependence sweep (Gaussian channel, 1D)");
+    println!("n={n}, k={}, metric={:?}", ksg_cfg.k, ksg_cfg.metric);
+    for &sigma in &sigmas {
+        let mut y = Vec::with_capacity(n);
+        for (&xi, &ni) in x.iter().zip(noise.iter()) {
+            y.push(xi + sigma * ni);
+        }
+
+        let yref = MatRef::new(&y, n, 1).unwrap();
+        let (ystd, _) = Standardizer::fit_transform(yref).unwrap();
+
+        let mi_hat = ksg_mi(xstd.as_ref(), ystd.as_ref(), ksg_cfg).unwrap();
+        let mi_true = gaussian_channel_mi(sigma);
+        println!(
+            "  sigma={:<7.3}  MI_hat={:>8.3}  MI_true={:>8.3}  err={:>8.3}",
+            sigma,
+            mi_hat,
+            mi_true,
+            mi_hat - mi_true
+        );
+    }
+    println!();
+}
+
+fn gaussian_channel_mi(sigma: f64) -> f64 {
+    debug_assert!(sigma.is_finite());
+    debug_assert!(sigma > 0.0);
+    0.5 * (1.0 + 1.0 / (sigma * sigma)).ln()
 }
 
 #[derive(Clone, Copy)]

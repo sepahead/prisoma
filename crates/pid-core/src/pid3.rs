@@ -3,7 +3,7 @@ use crate::error::{PidError, PidResult};
 use crate::matrix::MatRef;
 use crate::metric::Metric;
 use crate::nn::strict_radius;
-use crate::stats::digamma;
+use crate::stats::{digamma, digamma_int_table};
 
 #[derive(Clone, Copy)]
 struct DistIsx3 {
@@ -233,6 +233,7 @@ fn redundancy_for_antichain(
 
     let psi_k = digamma(k as f64);
     let psi_n = digamma(n as f64);
+    let psi_int = digamma_int_table(n);
 
     let mut scratch = Vec::with_capacity(n.saturating_sub(1));
 
@@ -276,7 +277,7 @@ fn redundancy_for_antichain(
             }
         }
 
-        sum += psi_k + psi_n - digamma(n_alpha as f64) - digamma(n_t as f64);
+        sum += psi_k + psi_n - psi_int[n_alpha] - psi_int[n_t];
     }
 
     Ok(sum / (n as f64))

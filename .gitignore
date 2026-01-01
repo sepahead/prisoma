@@ -38,6 +38,7 @@ data/
 results/
 logs/
 *.log
+outputs/
 
 # Editors/IDEs
 .idea/
@@ -70,3 +71,6 @@ result-*
 
 # Local scratch space for external reference repos (e.g., for audits/comparisons).
 .external/
+
+# Local one-off tooling / report generation artifacts (keep out of the main repo unless promoted).
+report_gen.py

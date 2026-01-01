@@ -2,7 +2,7 @@ use crate::error::{PidError, PidResult};
 use crate::matrix::MatRef;
 use crate::metric::Metric;
 use crate::nn::strict_radius;
-use crate::stats::digamma;
+use crate::stats::{digamma, digamma_int_table};
 
 #[derive(Debug, Clone, Copy)]
 pub enum NegativeHandling {
@@ -97,6 +97,7 @@ pub fn ksg_local_mi_terms(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidR
 
     let psi_k = digamma(k as f64);
     let psi_n = digamma(n as f64);
+    let psi_int = digamma_int_table(n);
 
     let mut local = Vec::with_capacity(n);
     let mut scratch = Vec::with_capacity(n.saturating_sub(1));
@@ -141,7 +142,7 @@ pub fn ksg_local_mi_terms(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidR
             }
         }
 
-        let li = psi_k + psi_n - digamma((nx + 1) as f64) - digamma((ny + 1) as f64);
+        let li = psi_k + psi_n - psi_int[nx + 1] - psi_int[ny + 1];
         local.push(li);
     }
 
@@ -199,6 +200,7 @@ pub(crate) fn ksg_local_mi_terms_xblocks<'a>(
 
     let psi_k = digamma(k as f64);
     let psi_n = digamma(n as f64);
+    let psi_int = digamma_int_table(n);
 
     let mut scratch = Vec::with_capacity(n.saturating_sub(1));
     let mut local = Vec::with_capacity(n);
@@ -247,7 +249,7 @@ pub(crate) fn ksg_local_mi_terms_xblocks<'a>(
             }
         }
 
-        local.push(psi_k + psi_n - digamma((nx + 1) as f64) - digamma((ny + 1) as f64));
+        local.push(psi_k + psi_n - psi_int[nx + 1] - psi_int[ny + 1]);
     }
 
     Ok(local)

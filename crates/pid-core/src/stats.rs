@@ -32,6 +32,19 @@ pub fn digamma(x: f64) -> f64 {
         + (691.0 / 32760.0) * inv12
 }
 
+/// Precompute ψ(i) for integer `i` in `0..=n` (with index 0 unused).
+///
+/// KSG-style estimators call `digamma` many times with small positive integers
+/// (`k`, `N`, and neighbor counts). This helper avoids repeated work while keeping
+/// semantics identical.
+pub fn digamma_int_table(n: usize) -> Vec<f64> {
+    let mut out = vec![0.0f64; n.saturating_add(1)];
+    for (i, v) in out.iter_mut().enumerate().skip(1) {
+        *v = digamma(i as f64);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::digamma;

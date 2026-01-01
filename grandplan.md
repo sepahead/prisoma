@@ -100,7 +100,21 @@ VLA embeddings are:
 
 At d=4096, k-NN methods suffer from the curse of dimensionality: "nearest neighbors" become nearly equidistant.
 
-### Warning 4: kNN Estimators Assume i.i.d. Samples (Trajectory Autocorrelation Is a Confound)
+### Warning 4: Strong Dependence Can Break kNN MI Even at Low Dimension
+
+There is a separate (often missed) failure mode from “high dimension”: **strong statistical dependence** (very large true MI, e.g., near-deterministic relationships) can make kNN MI estimators require **prohibitively many samples** even when `d` is small.
+
+Gao, Ver Steeg, and Galstyan (AISTATS 2015; arXiv:1411.2003) show that popular kNN MI estimators can have sample complexity that scales **exponentially in the true MI** for strongly dependent variables, due to an implicit local-uniformity assumption. They propose corrections/alternatives (e.g., local non-uniformity correction; local Gaussian approximations, arXiv:1508.00536) that can reduce bias in this regime.
+
+Why this matters here:
+- VLA pipelines often contain **near-deterministic mappings** (e.g., `A = f(V,D,L)`; deterministic decoders; cached embeddings; quantized actions).
+- If variables are treated as continuous, **MI may be effectively unbounded** in the deterministic/noiseless limit. Estimator output can be dominated by numerical/finite-precision effects rather than meaningful “information integration.”
+
+Design implication:
+- Experiment 0 must include **strong-dependence** synthetic cases (not just “high `d`”) and explicitly test estimator stability under near-determinism.
+- When using MI/PID on VLA signals, you must be explicit about the noise model / discretization / stochasticity that makes the quantity finite and interpretable.
+
+### Warning 5: kNN Estimators Assume i.i.d. Samples (Trajectory Autocorrelation Is a Confound)
 
 The KSG family (and the Ehrlich et al. `I^sx_∩` estimator built on it) is typically analyzed under an **i.i.d. sample** assumption.
 
@@ -114,7 +128,7 @@ But VLA data is usually collected as **trajectories**:
 - Prefer **across-trajectory** datasets where each sample is an episode/timepoint chosen by a reproducible rule (or use large stride subsampling).
 - Use **block bootstrap** / trajectory-level resampling for uncertainty estimates when temporal dependence is unavoidable.
 
-### Warning 5: Liang et al. (2023) Use DIFFERENT PID Measures
+### Warning 6: Liang et al. (2023) Use DIFFERENT PID Measures
 
 Their robotics results do NOT validate I^sx_∩ specifically. They use:
 - "Batch estimator" based on variational bounds
@@ -245,7 +259,7 @@ See §8.1.3 for concrete implementation notes (tie handling matters).
 
 ## 2.4 Infomorphic Networks (Optional / Exploratory)
 
-Makkeh et al. (2025, PNAS; verify final citation details) describe “infomorphic networks”: using local information-theoretic terms as **learning objectives** rather than post-hoc analysis tools. This is *conceptually adjacent* but **not required** for Aim 1 (implementing/validating `I^sx_∩` as a diagnostic).
+Makkeh et al. (2025, PNAS; DOI `10.1073/pnas.2408125122`) describe “infomorphic networks”: using local information-theoretic terms as **learning objectives** rather than post-hoc analysis tools. This is *conceptually adjacent* but **not required** for Aim 1 (implementing/validating `I^sx_∩` as a diagnostic).
 
 In infomorphic networks, neurons optimize:
 ```
@@ -424,6 +438,10 @@ This hierarchical approach balances speed with interpretability, using Shannon i
 
 This is the critical validation gate. The “synergy sign” is one candidate feature, but we should treat it as a hypothesis rather than a privileged statistic. If SxPID features do not significantly outperform baselines under a validated estimator regime, we report negative results.
 
+**Diagnostic-first stance (recommended):**
+- It is scientifically reasonable to treat PID primarily as a **diagnostic / interpretability** tool (explaining *which sources matter and how*), even if it does not beat entropy/PRMs on AUROC.
+- It is *not* scientifically justified to reduce PID to “synergy only” a priori. In practice, the most reliable signal may come from a **feature set** that includes MI terms, CI, redundancy, uniques, synergy, and derived summaries—then letting Experiments 1–2 determine what actually predicts failures.
+
 ## 3.2 Secondary Questions
 
 1. **Which decomposition is most predictive?** V-D-A? V-L-A? Three-way? Something else?
@@ -461,6 +479,12 @@ This is the critical validation gate. The “synergy sign” is one candidate fe
 **Contingent on Aim 1 success.**
 
 **Status:** Concept only. The kNN/KSG estimators used for Experiment 0 are not differentiable and are unlikely to be stable/safe as direct RL rewards. If pursued, Aim 3 should follow the Wibral-group “infomorphic networks” framing (Makkeh et al. 2025) or use a differentiable surrogate trained offline to predict SxPID-derived features.
+
+Relevant adjacent training work (not PID-specific, but useful to ground expectations):
+- **Iterative SFT↔RL cycles can change visual grounding and reasoning traces** in VLMs (OpenVLThinker, arXiv:2503.17352).
+- **Step-wise reasoning training objectives** that interpolate between imitation and RL rewards (SRL, arXiv:2510.25992).
+
+If Aim 3 is attempted, treat these as baselines/controls: if a generic SRL/PRM-style method achieves the same gains as a PID-derived reward surrogate, then PID is not providing unique value as a training objective.
 
 ## 3.4 Where PID Provides Unique Value (Six Use Cases)
 
@@ -821,7 +845,7 @@ PID(V, D; A | L)  → "Given the instruction, how do vision and dream interact?"
 ```
 
 **Pros:** Controls for task variation  
-**Cons:** Requires more samples per conditioning value
+**Cons:** Requires more samples per conditioning value; conditional MI estimation is itself hard in high dimension. If conditioning becomes central, consider dedicated conditional-MI estimators as baselines (e.g., CCMI, arXiv:1906.01824), but treat that as a separate validated estimator pipeline (not automatically compatible with `I^sx_∩`).
 
 ## 5.4 Recommendation
 
@@ -843,9 +867,9 @@ The pattern {Syn_VL, Syn_VD, Syn_LD} can help generate and localize **testable h
 
 Compare PID profiles between:
 - **OpenVLA:** Autoregressive (Llama 2 7B backbone), no explicit world model, 256-bin discrete actions
-- **DreamVLA:** Diffusion-based (GPT-2 backbone), explicit world model with dynamic/depth/semantic prediction heads, continuous actions via flow matching
+- **DreamVLA:** GPT-2 backbone + block-wise structured attention + explicit world-knowledge prediction (dynamic regions, depth, semantics) + diffusion-based action modeling (DreamVLA, arXiv:2507.04447; related diffusion-backbone work: Dream-VL & Dream-VLA, arXiv:2512.22615)
 
-**Hypothesis:** DreamVLA shows higher Syn(V, D; A) due to coherent multimodal integration; OpenVLA shows lower/negative synergy due to lack of explicit world modeling.
+**Hypothesis (weaker / testable):** Architectures with explicit predicted world-knowledge channels may yield different PID signatures than those without such channels, *under matched variable definitions and matched targets*. Whether those differences correlate with “grounding failures” remains empirical.
 
 ### 6.1.2 Why It Was Discarded
 
@@ -858,9 +882,9 @@ During first-principles review, we discovered that "negative synergy = hallucina
 | Aspect | OpenVLA | DreamVLA |
 |--------|---------|----------|
 | Backbone | Llama 2 7B | GPT-2 based |
-| Action representation | 256-bin discretization | Continuous (flow matching) |
-| World model | Implicit/none | Explicit prediction heads |
-| Vision encoder | SigLIP | Qwen2ViT |
+| Action representation | 256-bin discretization | Continuous actions (diffusion-based transformer in arXiv:2507.04447) |
+| World model | Implicit/none | Explicit world-knowledge prediction (dynamic/depth/semantic) |
+| Vision encoder | SigLIP | See paper (arXiv:2507.04447); semantics pipeline references DINOv2 + SAM in overview/figures |
 | Attention | Causal (autoregressive) | Block-wise structured |
 | Training data | Open-X | Open-X + additional |
 
@@ -1139,7 +1163,7 @@ Options:
 ### 7.2.1 Architecture
 
 ```
-Image → Qwen2ViT → GPT-2 backbone with block-wise structured attention
+Image → (vision encoder; see DreamVLA paper) → GPT-2 backbone with block-wise structured attention (DreamVLA, arXiv:2507.04447)
                               ↓
               ┌───────────────┼───────────────┐
               ↓               ↓               ↓
@@ -1150,14 +1174,24 @@ Image → Qwen2ViT → GPT-2 backbone with block-wise structured attention
                               ↓
                     World Embedding (D)
                               ↓
-                    Diffusion Action Decoder
+                    Diffusion-based Action Transformer
 ```
 
-- **Backbone:** GPT-2 based with block-wise structured attention
-- **Vision Encoder:** Qwen2ViT
-- **Explicit World Model:** Predicts dynamic regions, depth, semantics
-- **Action Representation:** Continuous via flow matching
-- **Key Innovation:** Attention masks prevent information leakage between D components
+**DreamVLA (arXiv:2507.04447, Zhang et al. 2025)** (verified by PDF inspection) describes:
+- **Backbone:** GPT-2 based multimodal transformer with **block-wise structured attention**
+- **Explicit world-knowledge prediction:** predicts **dynamic regions**, **depth**, and **semantic knowledge** (the paper references DINOv2 + SAM for semantics in its overview/figures)
+- **Action modeling:** a **diffusion-based transformer** for action generation (not “flow matching” in the arXiv v3 PDF)
+- **Key architectural idea:** prevent interference/leakage between dynamic/spatial/semantic streams via structured attention masks
+
+**Diffusion parameterization note (optional, but estimator-relevant):**
+Diffusion models differ in whether they predict *noise/noised quantities* vs. *clean data*. Li & He (2025, arXiv:2511.13720) argue that predicting clean data can better respect the manifold assumption. For PID/MI estimation, this matters because it may change:
+- the intrinsic dimension and local geometry of latents,
+- the degree of apparent determinism between latents and outputs.
+If you analyze diffusion-model internal representations (DreamVLA actions or predicted world knowledge), record the model’s diffusion parameterization and which representation you treat as the variable in PID.
+
+**Dream-VL & Dream-VLA (arXiv:2512.22615, Ye et al. 2025)** is a related but distinct line:
+- Uses a **diffusion LLM backbone** (“dLLM”) for VL/VLA, emphasizing bidirectionality and parallel generation.
+- Reports strong LIBERO/SimplerEnv results; treat performance numbers as benchmark-dependent and verify protocols before using as “ground truth” comparisons.
 
 **Note on GPT-2 vs NanoGPT/nanochat:**
 DreamVLA uses GPT-2 architecture with pretrained weights. For custom VLA training from scratch, consider:
@@ -1169,17 +1203,19 @@ For this specification, GPT-2 refers to the pretrained architecture; NanoGPT is 
 
 ### 7.2.2 Key Properties for PID Analysis
 
-- **Explicit D:** World embedding is a well-defined output
-- **Separable streams:** Block-wise attention keeps V, D components disentangled
+- **Explicit D (operationalizable):** world-knowledge predictions provide a concrete candidate “D” variable (dynamic/depth/semantic outputs and/or intermediate “world embedding”)
+- **Partial stream separation:** block-wise attention is intended to reduce cross-talk between predicted knowledge components (verify exact masking scheme before treating as “disentangled”)
 - **Action chunking:** Predicts K future actions simultaneously
-- **Designed for PID-like analysis:** Separation is architectural
+- **Caveat:** “designed for PID” is too strong; the claim we can defend is only that the architecture makes D extraction less arbitrary than in models without explicit prediction heads/tokens.
 
 ### 7.2.3 Why DreamVLA is Better for V-D-A Analysis
 
-The explicit world embedding D means:
-1. No ambiguity about what "D" is
-2. D is designed to be separable from V
-3. Synergy/redundancy have clear interpretation
+Relative to models with no explicit world-knowledge outputs, DreamVLA can be **more amenable** to V–D–A analysis because:
+1. “D” can be defined as an explicit predicted representation (rather than “some hidden state we decided to call D”).
+2. You can test interventions that specifically corrupt predicted knowledge (e.g., corrupt depth vs corrupt semantics) and see whether PID features move as expected (§9.5).
+3. You can probe whether the model actually uses predicted knowledge by comparing PID features with/without access to that channel (ablation-style).
+
+This still does not remove the degeneracy/strong-dependence concerns in §1.2: if `A` is effectively deterministic and continuous, you must define the noise/discretization model that makes the information quantities finite and interpretable.
 
 ## 7.3 PixelVLA (Pixel-Level Understanding)
 
@@ -1271,12 +1307,12 @@ Current Image + Historical Trace Overlay → VLA → Action
 
 | VLA | Backbone | World Model | Action Representation | Notes |
 |-----|----------|-------------|----------------------|-------|
-| **OpenVLA-OFT** | Llama 2 7B (parallel) | None | Continuous (L1) | Faster inference |
-| **Groot N1** | Custom | System 2 planner | Continuous | NVIDIA, hierarchical |
+| **OpenVLA-OFT** | (unverified) | (unverified) | (unverified) | Earlier-draft placeholder; add a concrete citation before using |
+| **GR00T N1** | (see paper) | Planner-style | Continuous | NVIDIA et al. (2025), arXiv:2503.14734 |
 | **TinyVLA** | Smaller | None | Discrete | Efficient |
-| **π₀** | Flow matching | Implicit | Continuous | State-of-art |
-| **MemoryVLA** | VLM + Memory Bank | Working + Long-term | Continuous | Hippocampal-inspired |
-| **CoT-VLA** | 7B + CoT | Visual chain-of-thought | Mixed | 17% improvement |
+| **π₀** | (see paper) | (see paper) | (see paper) | Mentioned as a baseline in Dream-VLA/Dream-VLA-related work; add citation when used |
+| **MemoryVLA** | VLM + memory bank | Working + long-term | Continuous | Shi et al. (2025), arXiv:2508.19236 |
+| **CoT-VLA** | 7B + visual CoT | Predicts visual goals | Mixed | Zhao et al. (2025), arXiv:2503.22020 (performance deltas are benchmark-dependent; verify protocol) |
 
 ---
 
@@ -1348,6 +1384,65 @@ For **two sources** `S₁,S₂` and a target `T`, under Chebyshev/L∞:
    - `Î^sx_∩ = ψ(k) + ψ(N) − (1/N) Σ_i [ ψ(n_α(i)) + ψ(n_T(i)) ]`
 
 This matches the authors’ reference implementation (`gitlab.gwdg.de/wibral/continuouspidestimator`, Python package `csxpid`) and is implemented in this repo as `crates/pid-core/src/isx.rs` (`IsxMethod::EhrlichKsg`).
+
+### 8.1.4 Beyond KSG: Alternative MI/CMI Estimators (MINE, CCMI, Gao-LNC / Local Gaussian)
+
+This project’s *scientific object* is **Wibral-group shared-exclusions redundancy** `I^sx_∩` and the derived PID atoms. For continuous variables, the only paper-faithful estimator in scope is the **Ehrlich et al. (2024) disjunction-kNN/KSG-style estimator** (§8.1.3).
+
+However, two realities force us to consider additional estimators as **baselines / contingency options**:
+1. **High dimension** (distance concentration) can break kNN geometry.
+2. **Strong dependence** (very large true MI; near-deterministic relationships) can break kNN MI even at low dimension (Gao et al., arXiv:1411.2003).
+
+It is crucial to keep roles separate:
+- **`I^sx_∩` redundancy** is *not* obtainable from a generic MI estimator unless you implement the shared-exclusions logic (statement-variable / disjunction neighborhoods).
+- **Shannon invariants / co-information screening** depend only on MI/CMI terms, so in principle they can be computed with *any* MI/CMI estimator (but estimator bias can still change conclusions).
+
+#### A) Gao et al.: kNN Robustness for Strong Dependence (still nonparametric)
+
+Gao, Ver Steeg, and Galstyan show that common kNN MI estimators can require sample sizes scaling exponentially in the **true MI** for strongly dependent variables, due to local-uniformity assumptions (arXiv:1411.2003). They propose improved estimators that account for **local non-uniformity**.
+
+Follow-up work by the same authors proposes a **local Gaussian approximation** MI estimator (arXiv:1508.00536), which locally fits a Gaussian around each sample to better approximate densities.
+
+How this fits here:
+- **Pros:** Targets exactly one of our biggest conceptual confounds: near-determinism / very strong dependence (common in learned models).
+- **Cons:** Does not remove the curse of dimensionality; still relies on local neighborhoods; integration into the disjunction-kNN `I^sx_∩` estimator is **non-trivial** (the elegance of KSG-style cancellation relies on specific ball/rectangle volume terms).
+
+Recommendation:
+- Treat Gao-style estimators as **MI baselines** (for CI/O-information screening) and as a diagnostic tool for “KSG is failing because MI is huge,” not as a drop-in replacement for `I^sx_∩`.
+
+#### B) MINE (Belghazi et al., 2018): Neural MI Estimation (variational)
+
+MINE (arXiv:1801.04062) estimates MI by optimizing a neural critic over samples (Donsker–Varadhan-style variational bounds).
+
+How this fits here:
+- **Pros:** Scales to high-dimensional inputs; does not explicitly depend on nearest-neighbor geometry; can be trained with minibatches.
+- **Cons (PhD-critical):** Optimization instability, estimator bias/variance trade-offs, dependence on architecture/regularization, and reproducibility challenges. MINE estimates are typically **lower bounds** and can be sensitive to training protocol; “same data, different seed” can change the number unless carefully controlled.
+
+Recommendation:
+- Use MINE as an **optional baseline** for MI-only invariants when kNN collapses in high `d` (PIVOT path).
+- Do **not** mix estimator families inside a PID identity (e.g., do not compute `Syn = I(S1,S2;T) - I(S1;T) - I(S2;T) + Red` with `I(·;·)` from MINE and `Red` from disjunction-kNN).
+
+#### C) CCMI / Neural CMI: Conditional MI in High Dimension (classifier-based)
+
+Conditional MI is relevant when conditioning on confounders (e.g., “given instruction L, how do V and D interact?”) or when using conditional PID variants.
+
+Classifier-based CMI estimators such as CCMI (Mukherjee et al., arXiv:1906.01824) train a classifier to distinguish samples from the joint distribution vs. a product distribution to estimate KL divergences, then assemble CMI.
+
+How this fits here:
+- **Pros:** Can handle high-dimensional `Z` (conditioning variable) where kNN CMI struggles.
+- **Cons:** Requires careful negative-sample construction and classifier calibration; adds another training loop; provides an estimator of CMI, not `I^sx_∩`.
+
+Recommendation:
+- If conditional analyses become central (e.g., PID conditioned on L), prefer to treat CCMI/CMI-NN estimators as **separate baseline pipelines** and validate them with synthetic conditional systems before using on VLA data.
+
+#### Relationship to the Wibral/Gutknecht “hierarchical” strategy
+
+The Wibral/Gutknecht strategy (Shannon invariants + hierarchical screening) primarily addresses **scaling in number of sources** (avoiding 18+ atoms unless needed). It does **not** by itself solve high-dimensional or strong-dependence estimator pathologies.
+
+Therefore, a scientifically clean hierarchy is:
+1. **Estimator validity gate (Experiment 0):** determine what MI estimator family is trustworthy at your `(N,d)` and dependence regime.
+2. **Variable-count hierarchy:** use Shannon invariants/co-information for screening across many candidate sources/windows.
+3. **Full `I^sx_∩` PID:** only where (1) and (2) indicate it is meaningful, and only with paper-faithful `I^sx_∩` estimation.
 
 ## 8.2 Dimensionality Reduction Strategies
 
@@ -1482,6 +1577,12 @@ Design principle: create regimes where the *true* information quantities are unc
    - `d_total ∈ {10, 100, 1000, 4096}` via noise concatenation,
    - `N ∈ {100, 1000, 10000}` (and higher if feasible),
    - `k ∈ {3, 10, 30}`.
+4b. **Strong-dependence sweep (separate axis from “high d”):**
+   - Even at low dimension, kNN MI can fail when the *true MI is large* (Gao et al., arXiv:1411.2003).
+   - Add a 1D (or low-d) Gaussian-channel family where the analytic MI is known and controllable:
+     - Example: `X ~ N(0,1)`, `Y = X + σ·N`, `N~N(0,1)`, so `I(X;Y) = 0.5 ln(1 + 1/σ²)` and grows without bound as `σ→0`.
+   - Sweep `σ` logarithmically (e.g., `σ ∈ {1, 0.3, 0.1, 0.03, 0.01, 0.003, ...}`) at fixed `N,k`.
+   - Goal: empirically map the **safe MI regime** for KSG and for the continuous `I^sx_∩` estimator (and/or show that the noiseless/near-noiseless regime is fundamentally ill-posed for continuous targets).
 5. For each setting, measure:
    - estimate mean + variance across random seeds,
    - runtime and peak memory,
@@ -1489,6 +1590,12 @@ Design principle: create regimes where the *true* information quantities are unc
 6. **Cross-check correctness where possible:**
    - MI terms: compare against analytic Gaussian-channel MI in low dimensions.
    - `I^sx_∩` redundancy: compare against `csxpid` (authors’ reference implementation) for small `d_total` and fixed datasets.
+7. **Optional estimator baselines (keep separate from `I^sx_∩` correctness):**
+   - If you implement or adopt them, compare MI-only terms against:
+     - Gao et al. strong-dependence corrections (LNC / local Gaussian MI; arXiv:1411.2003, arXiv:1508.00536),
+     - MINE (arXiv:1801.04062) for high-dimensional MI (treat as a trained estimator; record architecture/seed/training steps),
+     - CCMI / neural CMI (arXiv:1906.01824, arXiv:1911.02277) for conditional MI when conditioning becomes central.
+   - Use these baselines to decide whether MI-only **screening** can be made reliable when kNN collapses; do not treat them as “estimating `I^sx_∩`.”
 
 ### 9.1.3 Success Criteria
 
@@ -1509,6 +1616,9 @@ Define “reference” values using the low-dimensional signal system (and cross
 2. Re-validate at d = 256
 3. If still fails, use learned projections
 4. If still fails, abandon PID approach
+
+Additional contingency (MI-only screening, not full `I^sx_∩`):
+- If the disjunction-kNN `I^sx_∩` estimator is unusable at your `(N,d)` even after dimensionality reduction, you may still be able to run **Shannon-invariant** screening (CI/O-information) with non-kNN MI estimators (e.g., MINE / classifier-based MI), but treat this as a *different scientific pipeline* and do not claim results about `I^sx_∩` without a validated `I^sx_∩` estimator.
 
 ## 9.2 Experiment 1: Decomposition Comparison
 
@@ -1623,7 +1733,7 @@ Understanding the different roles of "world models" is critical for proper integ
 
 | Type | Example | Role in Pipeline | Action-Conditioned? |
 |------|---------|------------------|---------------------|
-| **Internal (VLA)** | DreamVLA's `<dream>` | Predicts future states for action decisions | Yes (implicit in architecture) |
+| **Internal (VLA)** | DreamVLA `<dream>` queries (arXiv:2507.04447) | Predicts future/world knowledge for action decisions | Yes (implicit in architecture) |
 | **Evaluative** | WAN, GWM | Visualize/validate VLA predictions | Via LoRA/VACE fine-tuning |
 | **Generative (Environment)** | Genie 3, Isaac Sim | Create training environments for agents | Yes (responds to agent actions) |
 | **Perceptual Foundation** | DKT, Depth-Anything | Improve visual input quality | N/A (perception preprocessing) |
@@ -2556,14 +2666,17 @@ Can PID profiles predict how well a policy will transfer across:
 
 ## 13.2 VLA Models
 
-- **OpenVLA:** Kim et al. (2024). arXiv:2406.09246
-- **Dream-VLA:** HKU NLP (2024). 97.2% LIBERO, diffusion-based
-- **OpenVLA-OFT:** Parallel decoding, L1 regression
-- **Groot N1:** NVIDIA (2025). arXiv:2503.14734
-- **PixelVLA:** arXiv:2511.01571 (Nov 2025). Pixel-level understanding with multiscale encoder and visual prompting.
-- **TraceVLA:** arXiv:2412.10345 (Dec 2024). Visual trace prompting for spatial-temporal awareness.
-- **MemoryVLA:** Shi et al. (2025). Perceptual-cognitive memory for long-horizon manipulation.
-- **CoT-VLA:** Chain-of-thought for VLAs. 7B model with 17% improvement over baselines.
+- **OpenVLA:** Kim et al. (2024). arXiv:2406.09246.
+- **DreamVLA:** Zhang et al. (2025). arXiv:2507.04447. (World-knowledge forecasting + inverse dynamics; diffusion-style framing in the abstract.)
+- **Dream-VL & Dream-VLA (diffusion LLM backbone):** Ye et al. (2025). arXiv:2512.22615.
+  - **Legacy note:** earlier drafts referenced “HKU NLP (2024), 97.2% LIBERO” without a stable citation; treat any such performance claims as unverified unless traced to a specific paper/benchmark protocol.
+- **OpenVLA-OFT:** (Unverified label in earlier drafts; likely a fine-tuning / decoding variant; add a concrete citation before treating as a distinct model family.)
+- **GR00T N1:** NVIDIA et al. (2025). arXiv:2503.14734.
+- **PixelVLA:** Liang et al. (2025). arXiv:2511.01571. Pixel-level understanding with multiscale encoder and visual prompting.
+- **TraceVLA:** Zheng et al. (2024). arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness.
+- **MemoryVLA:** Shi et al. (2025). arXiv:2508.19236. Perceptual-cognitive memory for long-horizon manipulation.
+- **CoT-VLA:** Zhao et al. (2025). arXiv:2503.22020. Visual chain-of-thought reasoning for VLA.
+- **Related (VLM reasoning; optional background for “L”/reasoning traces):** Deng et al. (2025). *OpenVLThinker: Complex Vision-Language Reasoning via Iterative SFT-RL Cycles.* arXiv:2503.17352. (Not a VLA policy paper per se, but relevant to how RL fine-tuning affects visual grounding and intermediate reasoning traces.)
 
 ## 13.3 Multimodal PID
 
@@ -2590,6 +2703,7 @@ Can PID profiles predict how well a policy will transfer across:
 - **Genie 2:** DeepMind (Dec 2024). Large-scale foundation world model. (deepmind.google/discover/blog/genie-2-a-large-scale-foundation-world-model)
 - **Genie 1:** Bruce et al. (Feb 2024). Generative Interactive Environments. arXiv:2402.15391
 - **SIMA 2:** DeepMind (Nov 2025). Gemini-powered generalist agent for 3D virtual worlds. arXiv:2512.04797
+- **Diffusion modeling note (background; optional):** Li & He (2025). *Back to Basics: Let Denoising Generative Models Denoise.* arXiv:2511.13720. (Relevant to how “denoising” vs “noise prediction” parameterizations can change representation geometry; treat as background for diffusion-based world models, not a PID paper.)
 
 ## 13.5 Uncertainty & Hallucination Detection
 
@@ -2608,13 +2722,20 @@ Can PID profiles predict how well a policy will transfer across:
 ## 13.7 Information Theory
 
 - **KSG Estimator:** Kraskov et al. (2004). Phys Rev E 69:066138
+- **kNN MI under strong dependence (limitations + fixes):**
+  - Gao, Ver Steeg, Galstyan (2015). *Efficient Estimation of Mutual Information for Strongly Dependent Variables.* arXiv:1411.2003.
+  - Gao, Ver Steeg, Galstyan (2015). *Estimating Mutual Information by Local Gaussian Approximation.* arXiv:1508.00536.
+- **Neural / classifier-based MI estimation (baselines for MI/CMI; not `I^sx_∩`):**
+  - Belghazi et al. (2018). *MINE: Mutual Information Neural Estimation.* arXiv:1801.04062.
+  - Mukherjee, Asnani, Kannan (2019). *CCMI: Classifier based Conditional Mutual Information Estimation.* arXiv:1906.01824.
+  - Molavipour, Bassi, Skoglund (2019). *Conditional Mutual Information Neural Estimator.* arXiv:1911.02277.
 - **Williams & Beer (2010).** Original PID formulation
 
 ## 13.8 Scalable PID Methods
 
 - **Shannon Invariants:** Gutknecht et al. (2025). arXiv:2504.15779. [Scalable summaries]
 - **Gaussian PID:** Barrett et al. (2023). NeurIPS. [Bias-corrected high-d estimation]
-- **Thin-PID:** Zhang et al. (2025). arXiv:2510.04417. [Normalizing flows for PID]
+- **Normalizing-flow PID in latent Gaussian space:** Zhao et al. (2025). arXiv:2510.04417. (Earlier drafts referred to this as “Thin-PID”; the arXiv title is *Partial Information Decomposition via Normalizing Flows in Latent Gaussian Distributions*.)
 - **Representational Complexity:** Ehrlich et al. (2022). Trans. ML Res. [Coarse-graining]
 - **dit Library:** Python library for discrete information theory (dit.distributions)
 - **IDTxl:** Comprehensive information dynamics toolkit (pwollstadt/IDTxl)
@@ -2643,6 +2764,7 @@ Can PID profiles predict how well a policy will transfer across:
 - **nanochat:** Karpathy (2025). Full-stack ChatGPT training, ~$100. (github.com/karpathy/nanochat)
 - **llm.c:** C/CUDA LLM training, 7% faster than PyTorch. (github.com/karpathy/llm.c)
 - **modded-nanogpt:** Speedrun benchmark for LLM training optimization
+- **SRL (step-wise reasoning training; optional):** Deng et al. (2025). *Supervised Reinforcement Learning: From Expert Trajectories to Step-wise Reasoning.* arXiv:2510.25992. (Potentially relevant to Aim 3 / PRM-style training loops; not PID-specific.)
 
 ---
 
@@ -5379,21 +5501,27 @@ impl CoarseGrainedPID {
 - Bounds on information loss available (see Ehrlich et al.)
 - Useful when interested in aggregate patterns, not individual neurons
 
-**Approach 4: Thin-PID via Normalizing Flows (arXiv:2510.04417)**
+**Approach 4: Normalizing-Flow PID in Latent Gaussian Distributions (Zhao et al., arXiv:2510.04417)**
 
 Most recent approach combining all above:
 
 ```rust
-/// Thin-PID: Efficient PID via latent Gaussian space
+/// Flow-based PID in latent Gaussian space (Zhao et al., arXiv:2510.04417).
 /// "Partial Information Decomposition via Normalizing Flows in Latent Gaussian Distributions"
-pub struct ThinPID {
+///
+/// Note: Earlier drafts used the nickname “Thin-PID”; the arXiv title does not use that name.
+/// This is also not I^sx_∩ (it targets a Gaussian/flow-based PID variant).
+pub struct NormalizingFlowPid {
     /// Invertible normalizing flow encoder
     flow: RealNVP,  // Or other normalizing flow
     /// Gradient-based optimizer for GPID
     optimizer: AdamOptimizer,
 }
 
-impl ThinPID {
+/// Legacy alias used in earlier drafts.
+pub type ThinPID = NormalizingFlowPid;
+
+impl NormalizingFlowPid {
     /// Key insight: PID is easier to solve in Gaussian space
     /// Normalizing flows preserve information while Gaussianizing
     pub fn estimate(&mut self, s1: &[Vec<f64>], s2: &[Vec<f64>], target: &[Vec<f64>]) -> PIDResult {
@@ -5494,12 +5622,12 @@ pub enum ScaledPIDResult {
 
 | Method | Time Complexity | Space | Max d | Max sources |
 |--------|-----------------|-------|-------|-------------|
-| KSG MI | O(n² × d) | O(n × d) | ~1000 | Any |
-| I^sx_∩ 2-way | O(n² × d × 4) | O(n × d) | ~500 | 2 |
-| I^sx_∩ 3-way | O(n² × d × 18) | O(n × d) | ~256 | 3 |
-| Shannon Invariants | O(n² × d × (2^n - 1)) | O(n × d) | ~1000 | ~5 |
-| Gaussian PID | O(n × d + d³) | O(d²) | ~1024 | 2-3 |
-| Thin-PID | O(n × d × epochs) | O(d²) | 1000+ | 2-3 |
+| KSG MI | O(N² × d) | O(N × d) | ~1000 | Any |
+| I^sx_∩ 2-way | O(N² × d × 4) | O(N × d) | ~500 | 2 |
+| I^sx_∩ 3-way | O(N² × d × 18) | O(N × d) | ~256 | 3 |
+| Shannon invariants (m sources) | O(N² × d × (2^m − 1)) | O(N × d) | ~1000 | ~5 |
+| Gaussian PID | O(N × d + d³) | O(d²) | ~1024 | 2-3 |
+| NF-PID (Zhao et al.; “Thin-PID” legacy) | O(N × d × epochs) | O(d²) | 1000+ | 2-3 |
 
 #### B.3.5.6 References for Scaling
 
@@ -5508,7 +5636,7 @@ Core Papers:
 - Gutknecht et al. (2025): Shannon Invariants. arXiv:2504.15779
 - Ehrlich et al. (2022): Representational Complexity. Trans. ML Res.
 - Barrett et al. (2023): Gaussian PID with Bias Correction. NeurIPS.
-- Zhang et al. (2025): Thin-PID via Normalizing Flows. arXiv:2510.04417
+- Zhao et al. (2025): Partial Information Decomposition via Normalizing Flows in Latent Gaussian Distributions. arXiv:2510.04417 (earlier drafts used “Thin-PID” as a nickname)
 
 Libraries:
 - dit (Python): dit.distributions, dit.pid (discrete PID measures)
@@ -6941,7 +7069,7 @@ release: build build-wheel
 | 2.1 | Dec 2025 | Added six use cases, Shannon invariants section, dual-process theory framing |
 | 2.2 | Dec 2025 | Added complete Apple M4 implementation reference (Appendix B) |
 | 2.3 | Dec 2025 | Added existing PID code availability analysis, complete Rust I^sx_∩ implementation with 5 validation test scenarios, verified all content based on Wibral's PID (not older Williams & Beer I_min) |
-| 2.4 | Dec 2025 | **Major update:** (1) Corrected WAN information throughout document - WAN CAN be made action-conditioned via LoRA fine-tuning, VACE, Wan-Move; added WAN 2.2 MoE architecture, inference speed improvements; added Motus, DreamGen, VideoVLA as WAN-based robotics systems. (2) Added comprehensive §B.3.5 on scaling 3-way PID: Shannon invariants, Gaussian PID, Thin-PID via normalizing flows, coarse-graining approaches. (3) Added new references for scalable PID methods. |
+| 2.4 | Dec 2025 | **Major update:** (1) Corrected WAN information throughout document - WAN CAN be made action-conditioned via LoRA fine-tuning, VACE, Wan-Move; added WAN 2.2 MoE architecture, inference speed improvements; added Motus, DreamGen, VideoVLA as WAN-based robotics systems. (2) Added comprehensive §B.3.5 on scaling 3-way PID: Shannon invariants, Gaussian PID, NF-PID (“Thin-PID” legacy) via normalizing flows, coarse-graining approaches. (3) Added new references for scalable PID methods. |
 | 2.5 | Dec 2025 | **Additions:** (1) Added §10.4 Depth Perception Methods: monocular depth (Depth-Anything v2/v3, Metric3D v2, RollingDepth), stereo vision (StereoVLA approach from arXiv:2512.21970), transparent object depth (DKT). (2) Added Headless Gazebo + Tauri Visualization System with Zenoh middleware, SparkJS/Three.js rendering, ~25-30ms latency path, cross-platform ML backends (CoreML/MLX/Metal on macOS, CUDA/TensorRT on Linux). (3) Added NanoGPT/nanochat note to DreamVLA backbone section - clarified GPT-2 refers to pretrained architecture, NanoGPT useful for custom training. (4) Expanded references: Depth Estimation & 3D Perception, Simulation & Middleware, Training Infrastructure. (5) Updated glossary with Zenoh, NanoGPT, StereoVLA, DKT. |
 | 2.6 | Jan 2026 | **Process Reward Models integration:** (1) Added §3.5 PID vs. Process Reward Models (PRMs) - comprehensive comparison of PID approach with Robo-Dopamine's General Reward Model (GRM), including when to use each, potential synergies, and the "semantic trap" insight for reward shaping. (2) Added GRM as baseline #7 in experimental design. (3) Added §13.6 Process Reward Models references (Robo-Dopamine, GVL, VLAC, SARM, LIV). (4) Updated glossary with PRM, GRM, ORM, VOC, PBRS terms. |
 | 2.7 | Jan 2026 | **World model paradigms & DKT deep dive:** (1) Added §10.1 world model taxonomy (Internal/Evaluative/Generative) with Genie 3 as environment generator. (2) Expanded §10.4.3 DKT section with "Diffusion Knows Transparency" principle, technical details, robot grasping results, and genuine PID relevance (perception quality as prerequisite for valid PID). (3) Added §10.7 World Model Paradigms and PID Implications: theoretical framework for how external world models (Genie 3, WAN) affect internal D; "Diffusion Knows Physics" principle; perception quality diagnostic tree. (4) Added Genie 3, SIMA 2, Genie 2 to world models references. (5) Updated glossary with Genie 3, SIMA 2, TransPhy3D, Emergent Physics. (6) Renumbered sections 10.7→10.8 for Gazebo+Tauri. |
