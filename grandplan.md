@@ -2968,6 +2968,623 @@ Can PID profiles predict how well a policy will transfer across:
 
 ---
 
+# 14. Confounding Factors Analysis: Proving and Disproving the Hypotheses
+
+This section addresses how confounding factors could be studied and removed to rigorously prove or disprove the core hypotheses of PID-VLA. Grant reviewers will scrutinize whether observed correlations reflect genuine causal relationships or are artifacts of confounding variables.
+
+## 14.1 Core Hypotheses and Their Falsifiability
+
+### Hypothesis H1: Negative synergy predicts VLA failures
+**Claim:** When `Syn_{V,D→A} < 0` (or `Syn_{V,L→A} < 0`), the VLA is more likely to fail.
+
+**Confounds to rule out:**
+1. **Task difficulty confound:** Negative synergy might correlate with inherently harder tasks (longer horizons, more object interactions), not with model failure per se.
+2. **Distribution shift confound:** Negative synergy might arise when inputs are out-of-distribution, which also causes failures—but the failure is due to OOD inputs, not synergy.
+3. **Embedding quality confound:** If embeddings are poorly learned, both synergy estimates and task performance degrade together, creating spurious correlation.
+
+**How to disprove:**
+- Control for task difficulty by stratifying experiments (same task family, varying synergy).
+- Add explicit OOD detection baselines and test whether synergy provides signal beyond OOD scores.
+- Test on multiple VLA architectures; if synergy-failure correlation appears only in one, it may be architecture-specific rather than fundamental.
+
+### Hypothesis H2: High redundancy indicates robust information integration
+**Claim:** High `Red_{V,D;A}` suggests the model has multiple pathways to correct action.
+
+**Confounds:**
+1. **Triviality confound:** If the task is trivial (e.g., "do nothing"), all sources may redundantly encode the same null information.
+2. **Overfitting confound:** High redundancy in training data might indicate memorization rather than generalization.
+
+### Hypothesis H3: Unique information identifies modality-specific contributions
+**Claim:** `Unq_V` vs `Unq_D` vs `Unq_L` indicates which modality dominates decision-making.
+
+**Confounds:**
+1. **Representation bias:** If one modality has higher-dimensional embeddings, it may have artificially higher unique information due to estimation artifacts.
+2. **Preprocessing asymmetry:** Different preprocessing per modality can shift apparent unique contributions.
+
+## 14.2 Experimental Controls for Confound Removal
+
+### 14.2.1 Matched Control Experiments
+
+For every "synergy predicts failure" claim, implement:
+
+```
+CONTROL DESIGN MATRIX
+=====================
+
+Primary comparison (within-task):
+┌──────────────────────────────────────────────────────────────┐
+│  Same task template    Same initial state seed               │
+│  Same language instruction    Same environment physics       │
+│  Different: VLA internal state / D representation            │
+│                                                              │
+│  Measure: ΔSynergy vs ΔFailure rate                          │
+│  Prediction: Correlation should persist after matching       │
+└──────────────────────────────────────────────────────────────┘
+
+Task-difficulty control:
+- Bin tasks by objective difficulty metrics (horizon length, object count, precision required)
+- Test synergy-failure correlation WITHIN each difficulty bin
+- If correlation disappears within bins, task difficulty is the true predictor
+
+Distribution-shift control:
+- Compute OOD score (e.g., Mahalanobis distance in embedding space, uncertainty calibration)
+- Test whether synergy provides INCREMENTAL predictive power beyond OOD score
+- Regression: Failure ~ OOD_score + Synergy + OOD_score×Synergy
+```
+
+### 14.2.2 Placebo Tests (Sanity Checks)
+
+**Null intervention test:**
+- Apply a "placebo" intervention that should NOT change synergy (e.g., add imperceptible noise to V)
+- If measured synergy changes significantly, the estimator is sensitive to irrelevant variations
+
+**Permutation test for spurious correlation:**
+- Randomly permute trajectory labels within each task family
+- Re-compute synergy-failure AUROC
+- The permuted AUROC should be ~0.5 (no better than chance)
+- If permuted AUROC > 0.55, there is label leakage or confounding
+
+**Temporal shuffling test:**
+- Shuffle timesteps within trajectories
+- Re-estimate PID terms
+- If estimates remain stable despite broken temporal structure, the estimator may not capture meaningful dynamics
+
+### 14.2.3 Causal Identification Strategy
+
+**Instrumental variable approach (if feasible):**
+- Find a variable Z that affects D but not A directly (except through D)
+- Example: Randomized perturbation to the world model training procedure
+- Use Z as an instrument to estimate causal effect of D-quality on synergy
+
+**Regression discontinuity design:**
+- If there's a threshold in training (e.g., model checkpoint at step N), test whether synergy changes discontinuously at the threshold
+- Sharp changes at arbitrary thresholds suggest overfitting to checkpoint artifacts
+
+## 14.3 Alternative Interpretations of Results
+
+### 14.3.1 If Negative Synergy Does NOT Predict Failure
+
+**Interpretation 1: Synergy is architecture-dependent, not failure-predictive**
+- Action: Report as valid negative result; pivot to simpler entropy/confidence baselines
+
+**Interpretation 2: Estimator is broken at VLA scale**
+- Action: Verify via Experiment 0; if estimator collapsed, negative result is uninformative
+
+**Interpretation 3: Task distribution lacks sufficient failure diversity**
+- Action: Expand benchmark to include more failure modes; re-test
+
+### 14.3.2 If Positive Results Appear
+
+**Alternative explanation 1: Confounding by entropy**
+- Test: Include action entropy as covariate; if synergy becomes non-significant, entropy suffices
+
+**Alternative explanation 2: Confounding by model uncertainty**
+- Test: Include ensemble variance or explicit uncertainty estimate as covariate
+
+**Alternative explanation 3: P-hacking through feature selection**
+- Mitigation: Pre-register primary analysis; report ALL synergy variants tested, not just significant ones
+
+## 14.4 Robustness Checks Required for Publication
+
+| Check | Description | Pass Criterion |
+|-------|-------------|----------------|
+| **Seed robustness** | Run with 10+ random seeds | Effect size stable (CV < 30%) |
+| **K robustness** | Test k ∈ {3, 5, 7, 10} | Direction consistent, magnitude within 2× |
+| **Preprocessing robustness** | With/without standardization, jitter | Conclusions unchanged |
+| **Dimensionality robustness** | Raw vs PCA-256 vs PCA-64 | At least one regime shows effect |
+| **Temporal sampling** | Different stride/window sizes | Effect persists across reasonable ranges |
+| **Cross-architecture** | Test on 2+ VLA architectures | Effect appears in majority |
+| **Cross-benchmark** | Test on 2+ task distributions | Effect generalizes |
+
+---
+
+# 15. Numerical Stability and Optimization: Technical Guidance
+
+This section documents known numerical issues, failure modes, and optimization strategies for making the estimators robust at scale.
+
+## 15.1 Known Numerical Failure Modes
+
+### 15.1.1 kNN Radius Collapse (Most Common)
+
+**Symptom:** `PidError::NumericalInstability: kNN radius is non-positive`
+
+**Causes:**
+1. **Duplicate points:** Identical samples in the dataset
+2. **Quantization:** Low-precision embeddings creating effective duplicates
+3. **Constant dimensions:** Columns with zero variance
+
+**Solutions (in order of preference):**
+```rust
+// 1. FIRST: Check for and remove exact duplicates
+fn remove_duplicates(data: &mut Vec<Vec<f64>>) -> usize {
+    let original_len = data.len();
+    data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    data.dedup();
+    original_len - data.len()
+}
+
+// 2. SECOND: Add small jitter (ONLY if duplicates cannot be avoided)
+// Use Jitter::new(std, seed) with std ≈ 1e-10 to 1e-8
+// WARNING: Jitter changes the quantity being estimated; re-validate
+
+// 3. THIRD: Increase k if sample size permits (reduces tie sensitivity)
+// But this increases bias; trade-off depends on n/d ratio
+```
+
+**⚠️ WARNING:** Do NOT silently add jitter. Always log when jitter is applied and quantify its effect on estimates.
+
+### 15.1.2 Digamma Underflow for Small Arguments
+
+**Symptom:** NaN or Inf in MI estimates when counts are very small
+
+**Cause:** `digamma(x)` diverges as x → 0; if neighbor counts approach 0 due to sparse data, results become unstable.
+
+**Solution (implemented in `stats.rs`):**
+```rust
+// Use the asymptotic expansion for small x:
+// ψ(x) ≈ -1/x - 1/(2x²) for small x (but we shouldn't reach x < 1 in practice)
+
+// Better: Ensure n > k + 1 always, and use a precomputed table for digamma(1..n)
+pub fn digamma_int_table(n: usize) -> Vec<f64> {
+    // Precompute ψ(1), ψ(2), ..., ψ(n) using the recurrence:
+    // ψ(x+1) = ψ(x) + 1/x
+    // ...
+}
+```
+
+### 15.1.3 Distance Concentration at High Dimension
+
+**Symptom:** MI estimates collapse to near-zero or become highly variable as d increases.
+
+**Mathematical basis:** In high dimensions, the ratio of nearest-neighbor distance to average distance converges to 1 (Beyer et al., 1999). This makes kNN neighborhoods meaningless.
+
+**Diagnostic (implemented in `geometry.rs`):**
+```rust
+// Compute the coefficient of variation of pairwise distances
+// If CV < 0.1, distances are concentrated and kNN is likely unreliable
+let stats = distance_concentration_stats(data, &cfg)?;
+if stats.pairwise_cv < 0.1 {
+    warn!("Distance concentration detected (CV={:.3}); kNN estimates may be unreliable", stats.pairwise_cv);
+}
+
+// Also check: nn_over_pairwise_mean should be << 1 for kNN to work
+// If nn/pairwise_mean > 0.5, neighbors are not meaningfully "near"
+```
+
+**Solutions:**
+1. Reduce dimensionality via PCA/projection BEFORE estimating
+2. Use intrinsic dimension estimate to set appropriate k
+3. Accept that kNN-based `I^sx_∩` may be invalid above some d threshold
+
+### 15.1.4 Strong Dependence Pathology
+
+**Symptom:** MI estimates have huge variance or are biased at low noise levels (high true MI).
+
+**Cause:** When X nearly determines Y (or vice versa), the nearest neighbors in joint space are the same as in marginal space, breaking the KSG estimator's assumptions (Gao et al., 2015).
+
+**Diagnostic:**
+```rust
+// Compute the empirical correlation or a proxy for dependence strength
+// If |corr(X, Y)| > 0.95, warn about strong-dependence regime
+
+// Better: Check if the 1-NN distance in joint space equals the marginal 1-NN distance
+// for a large fraction of points (indicates near-determinism)
+```
+
+**Solutions:**
+1. For MI-only: Use local Gaussian MI estimator (Gao et al., 2015, arXiv:1508.00536)
+2. For `I^sx_∩`: Accept that noiseless signals may not be estimable; add explicit noise floor to target
+3. Increase sample size significantly (quadratic in 1/noise for strongly dependent pairs)
+
+## 15.2 Optimization Strategies
+
+### 15.2.1 Memory-Efficient Distance Computation
+
+For large n, storing the full n×n distance matrix is prohibitive. Use on-the-fly computation:
+
+```rust
+// Instead of: let distances = pairwise_distances(data); // O(n²) memory
+
+// Use streaming kNN that computes distances row-by-row:
+fn streaming_knn(data: MatRef<'_>, k: usize, metric: Metric) -> Vec<(Vec<usize>, Vec<f64>)> {
+    let n = data.nrows();
+    let mut results = Vec::with_capacity(n);
+
+    for i in 0..n {
+        // Compute distances from point i to all other points
+        let mut dists: Vec<(usize, f64)> = (0..n)
+            .filter(|&j| j != i)
+            .map(|j| (j, metric.distance(data.row(i), data.row(j))))
+            .collect();
+
+        // Partial sort to find k smallest
+        dists.select_nth_unstable_by(k - 1, |a, b| a.1.partial_cmp(&b.1).unwrap());
+
+        let (indices, distances): (Vec<_>, Vec<_>) = dists[..k].iter().cloned().unzip();
+        results.push((indices, distances));
+    }
+    results
+}
+```
+
+### 15.2.2 SIMD Acceleration for Distance Computation
+
+The distance computation hotloop benefits significantly from SIMD:
+
+```rust
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
+
+#[inline]
+#[target_feature(enable = "avx2")]
+unsafe fn chebyshev_distance_avx2(a: &[f64], b: &[f64]) -> f64 {
+    debug_assert_eq!(a.len(), b.len());
+    let n = a.len();
+    let mut max_diff = _mm256_setzero_pd();
+
+    let chunks = n / 4;
+    for i in 0..chunks {
+        let va = _mm256_loadu_pd(a.as_ptr().add(i * 4));
+        let vb = _mm256_loadu_pd(b.as_ptr().add(i * 4));
+        let diff = _mm256_sub_pd(va, vb);
+        let abs_diff = _mm256_andnot_pd(_mm256_set1_pd(-0.0), diff); // abs via sign bit clear
+        max_diff = _mm256_max_pd(max_diff, abs_diff);
+    }
+
+    // Horizontal max reduction
+    let mut arr = [0.0f64; 4];
+    _mm256_storeu_pd(arr.as_mut_ptr(), max_diff);
+    let mut result = arr.iter().cloned().fold(0.0, f64::max);
+
+    // Handle remainder
+    for i in (chunks * 4)..n {
+        result = result.max((a[i] - b[i]).abs());
+    }
+    result
+}
+```
+
+### 15.2.3 Parallelization Strategy
+
+kNN computation is embarrassingly parallel across query points:
+
+```rust
+use rayon::prelude::*;
+
+fn parallel_knn_mi(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidResult<f64> {
+    let n = x.nrows();
+
+    // Compute per-point contributions in parallel
+    let contributions: Vec<f64> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            // Compute kNN contribution for point i
+            compute_point_contribution(i, x, y, cfg)
+        })
+        .collect();
+
+    // Aggregate (sum + normalization)
+    Ok(contributions.iter().sum::<f64>() / (n as f64))
+}
+```
+
+**Caution:** Ensure thread-local RNG states if any stochastic element is involved.
+
+### 15.2.4 Approximate kNN (Use With Extreme Caution)
+
+For very large n, exact kNN becomes infeasible. Approximate methods (HNSW, FAISS) introduce bias:
+
+```
+APPROXIMATE kNN DECISION TREE
+=============================
+
+Is n > 100,000 AND d < 100?
+├── YES: Consider ball-tree (exact but faster)
+└── NO: Continue
+
+Is n > 1,000,000?
+├── YES: Consider approximate kNN with validation
+│   └── REQUIRED: Run Experiment 0 subset with exact vs approx
+│   └── REQUIRED: Report approximation error bound
+│   └── REQUIRED: Use conservative recall target (≥0.99)
+└── NO: Use brute-force (it's fast enough)
+
+NEVER use approximate kNN without explicit validation.
+NEVER silently switch from exact to approximate based on n.
+```
+
+## 15.3 Numerical Precision Recommendations
+
+| Operation | Recommended Precision | Rationale |
+|-----------|----------------------|-----------|
+| Distance computation | f64 | Avoid cancellation in differences |
+| Distance storage (if needed) | f64 | Sorting/comparison sensitivity |
+| Digamma evaluation | f64 | Series expansion needs precision |
+| Final MI/PID output | f64 | But report with appropriate sig figs |
+| Random projection matrix | f32 sufficient | Johnson-Lindenstrauss doesn't need f64 |
+
+## 15.4 Debugging Checklist for Numerical Issues
+
+```
+WHEN ESTIMATES LOOK WRONG, CHECK:
+================================
+
+1. [ ] Are there NaN or Inf values in input data?
+   → Use: data.iter().all(|x| x.is_finite())
+
+2. [ ] Are there duplicate rows?
+   → Count unique rows; if < n, investigate source
+
+3. [ ] Are any columns constant?
+   → Check column variance; remove or warn
+
+4. [ ] Is k appropriate for n?
+   → Rule of thumb: k << sqrt(n), and n > 10*k minimum
+
+5. [ ] Is d appropriate for n?
+   → If d > n/10, expect degradation; check intrinsic dim
+
+6. [ ] Is the true MI huge (strong dependence)?
+   → Add noise to target and check if estimates stabilize
+
+7. [ ] Are preprocessing parameters logged?
+   → Verify standardization was applied, check for NaN in mean/std
+
+8. [ ] Is the random seed fixed for reproducibility?
+   → Run twice with same seed; results must be identical
+```
+
+---
+
+# 16. Why PCA and kNN Are Suboptimal for Manifold-Valued Embeddings
+
+This section provides rigorous analysis of why standard dimensionality reduction and nearest-neighbor methods fail on manifold-structured data, and what alternatives exist.
+
+## 16.1 The Manifold Hypothesis for Neural Embeddings
+
+Modern neural embeddings (including VLA representations) empirically lie near **low-dimensional manifolds** embedded in high-dimensional ambient space. This creates a mismatch with standard Euclidean tools:
+
+```
+MANIFOLD STRUCTURE ILLUSTRATION
+===============================
+
+True data geometry:         What PCA/kNN assume:
+
+    ╭─────────────╮              •  •  •  •
+   ╱               ╲             •  •  •  •
+  │    M ⊂ ℝᵈ      │            •  •  •  •
+  │  (curved)      │            (uniform in ℝᵈ)
+   ╲               ╱
+    ╰─────────────╯
+
+Geodesic distance ≠ Euclidean distance
+Manifold dimension << ambient dimension
+```
+
+## 16.2 Why PCA Fails on Manifolds
+
+### 16.2.1 Mathematical Failure Mode
+
+PCA finds directions of maximum **linear** variance. On curved manifolds, this can:
+
+1. **Conflate intrinsic and extrinsic variance:**
+   - A spiral in 3D has high variance in all 3 axes but intrinsic dimension 1
+   - PCA retains all 3 components, failing to discover the 1D structure
+
+2. **Distort local neighborhoods:**
+   - Two points close in geodesic distance may be far in Euclidean distance
+   - PCA preserves Euclidean distances, not geodesic distances
+   - After PCA, kNN may find "wrong" neighbors
+
+3. **Introduce artifacts at high curvature:**
+   - Regions of high curvature project onto overlapping linear subspaces
+   - Distinct manifold regions become indistinguishable
+
+### 16.2.2 Empirical Diagnostic
+
+```rust
+// Test for PCA inadequacy:
+// 1. Estimate intrinsic dimension before and after PCA
+// 2. If PCA dimension >> intrinsic dimension, PCA is overkill but safe
+// 3. If PCA dimension < intrinsic dimension, PCA destroys structure
+
+let id_raw = intrinsic_dimension_levina_bickel(raw_data, &cfg)?;
+let id_pca = intrinsic_dimension_levina_bickel(pca_data, &cfg)?;
+
+if pca_dims < id_raw * 0.8 {
+    warn!("PCA may destroy manifold structure: ID_raw={:.1}, ID_pca={:.1}, PCA_dims={}",
+          id_raw, id_pca, pca_dims);
+}
+```
+
+### 16.2.3 When PCA Is Acceptable
+
+PCA is acceptable when:
+1. The manifold is approximately **linear** (low curvature everywhere)
+2. The retained variance is >> 95% (minimal information loss)
+3. Experiment 0 re-validation shows stable estimates after PCA
+4. Intrinsic dimension is preserved (ID_after ≈ ID_before)
+
+## 16.3 Why Euclidean kNN Fails on Manifolds
+
+### 16.3.1 The Shortcut Problem
+
+kNN with Euclidean distance finds "shortcuts" through the ambient space that do not exist on the manifold:
+
+```
+SHORTCUT PROBLEM
+================
+
+Manifold path (geodesic):      Euclidean path:
+    A ───────╮                    A
+             │                     ╲
+    (long geodesic)                 ╲ (short Euclidean)
+             │                       ╲
+    B ───────╯                        B
+
+kNN may declare A and B as neighbors even though
+they are far apart on the manifold.
+```
+
+### 16.3.2 Impact on MI/PID Estimation
+
+1. **Neighbor misidentification:** kNN finds "wrong" neighbors, leading to incorrect density estimates
+2. **Volume estimation error:** The KSG estimator uses neighborhood volumes; Euclidean balls have wrong volume on curved manifolds
+3. **Bias compounds with dimension:** Error grows exponentially with intrinsic dimension
+
+### 16.3.3 Quantifying the Problem
+
+```rust
+// Diagnostic: Compare Euclidean and graph-geodesic distances
+// Large discrepancy indicates manifold structure
+
+fn manifold_distortion_diagnostic(data: MatRef<'_>, k_graph: usize) -> f64 {
+    // 1. Build k-NN graph
+    // 2. Compute shortest path (geodesic approximation) between all pairs
+    // 3. Compare to Euclidean distances
+    // 4. Return max(geodesic/euclidean) or correlation
+
+    // If max ratio >> 1, manifold structure is significant
+    todo!("Implement graph-geodesic diagnostic")
+}
+```
+
+## 16.4 Alternatives to PCA and Euclidean kNN
+
+### 16.4.1 For Dimensionality Reduction
+
+| Method | When to Use | Limitations |
+|--------|-------------|-------------|
+| **UMAP/t-SNE** | Visualization only | Non-invertible, distorts global structure |
+| **Isomap** | When geodesic structure matters | Sensitive to noise, holes in manifold |
+| **Diffusion Maps** | Multi-scale manifold structure | Computational cost, parameter sensitivity |
+| **Autoencoders (VAE)** | Learned nonlinear projection | Changes the quantity; requires re-validation |
+| **Hyperbolic embeddings** | Hierarchical data | Different MI estimator needed |
+
+**Recommendation for PID-VLA:**
+1. **First:** Try PCA with high variance retention (≥95%) + Experiment 0 re-validation
+2. **If PCA fails:** Use random projections (Johnson-Lindenstrauss; preserves distances approximately)
+3. **If random projection fails:** Consider Isomap + re-validation, or accept that kNN-based PID is invalid
+
+### 16.4.2 For Manifold-Aware MI Estimation
+
+**Geodesic kNN MI (Marx & Fischer, 2021):**
+- Replace Euclidean distances with geodesic distances
+- Requires manifold to be explicitly estimated or approximated
+- Computational cost: O(n² log n) for geodesic computation
+- Does NOT directly provide `I^sx_∩`; use for MI-only screening
+
+```python
+# Pseudocode for geodesic kNN MI (not Rust; research prototype)
+def geodesic_knn_mi(X, Y, k):
+    # 1. Build k-NN graph on X
+    # 2. Compute shortest-path geodesic distances
+    # 3. Use geodesic distances in KSG estimator
+    # 4. Repeat for Y and (X,Y) joint
+    pass
+```
+
+**⚠️ WARNING:** Geodesic kNN MI is not implemented in `pid-core`. If manifold effects are suspected, treat this as a research direction, not a ready tool.
+
+## 16.5 Determining Whether Manifold Methods Are Necessary
+
+### 16.5.1 Decision Flowchart
+
+```
+MANIFOLD METHODS DECISION TREE
+==============================
+
+1. Estimate intrinsic dimension (ID)
+   └── ID < ambient_dim / 10?
+       ├── YES: Manifold structure likely significant
+       │   └── Continue to step 2
+       └── NO: Euclidean methods may suffice
+           └── Proceed with PCA/Euclidean kNN
+
+2. Compute distance concentration (DC)
+   └── CV of pairwise distances < 0.2?
+       ├── YES: Distance concentration; Euclidean kNN unreliable
+       │   └── Continue to step 3
+       └── NO: Euclidean kNN may work
+           └── Validate with Experiment 0
+
+3. Compute manifold distortion (if implemented)
+   └── Max geodesic/Euclidean ratio > 2?
+       ├── YES: Manifold structure critical
+       │   └── PIVOT to manifold-aware methods OR
+       │   └── Accept that kNN-based I^sx_∩ is invalid
+       └── NO: Euclidean approximation acceptable
+           └── Proceed with caution + Experiment 0 validation
+
+4. Always: Re-run Experiment 0 after any dimensionality reduction
+```
+
+### 16.5.2 Practical Checklist for VLA Embeddings
+
+```
+MANIFOLD ANALYSIS CHECKLIST
+===========================
+
+Before running PID on VLA embeddings:
+
+[ ] Compute intrinsic dimension estimate
+    → Record: ID_V, ID_L, ID_D, ID_A, and joint IDs
+
+[ ] Check distance concentration
+    → Record: pairwise CV for each variable
+
+[ ] If ID << ambient dim:
+    [ ] Compare PCA-reduced ID to original ID
+    [ ] If PCA destroys structure, consider alternatives
+
+[ ] If using PCA:
+    [ ] Record variance retained
+    [ ] Re-run Experiment 0 subset
+    [ ] Compare estimates before/after
+
+[ ] If estimates are unstable across methods:
+    [ ] Report instability as a finding
+    [ ] Consider that kNN-based I^sx_∩ may not be appropriate
+    [ ] Fall back to Shannon invariants (CI screening)
+```
+
+## 16.6 Theoretical Limitations (Fundamental, Not Fixable)
+
+Some limitations are fundamental to kNN-based estimation on manifolds:
+
+1. **Volume-form mismatch:** The KSG estimator assumes uniform volume elements; on curved manifolds, volume elements vary with curvature. This introduces bias even with geodesic distances.
+
+2. **Intrinsic dimension heterogeneity:** If the intrinsic dimension varies across the manifold (e.g., lower near boundaries), kNN-based ID and MI estimates become inconsistent.
+
+3. **Non-compact manifolds:** If the manifold is unbounded or has holes, geodesic distances can be undefined or infinite.
+
+**Implication for PID-VLA:** Accept that there may be regimes where no kNN-based estimator works reliably. In such cases:
+- Use Shannon invariants (CI, O-information) as the primary diagnostic
+- Report kNN-based `I^sx_∩` with explicit caveats
+- Consider neural MI estimators (MINE, etc.) as cross-checks
+
+---
+
 # Appendix A: Glossary
 
 | Term | Definition |

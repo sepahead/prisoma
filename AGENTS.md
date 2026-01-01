@@ -2,7 +2,194 @@
 
 This file is for Codex CLI agents and contributors working in this repo.
 
-Canonical spec: `grandplan.md`.
+Canonical spec: `grandplan.md` (v5.0, Jan 2026).
+
+---
+
+## Version Log
+
+| Version | Date | Changes |
+|---------|------|---------|
+| **v5.0** | 2026-01-01 | **Final audit release:** Added PCA/kNN manifold limitations, confounding analysis, numerical stability, code audit. Grant-ready. |
+| v4.0 | 2025-12-28 | Information geometry methods, intrinsic dimension, distance concentration |
+| v3.0 | 2025-12-15 | 3-source PID, hierarchical screening improvements |
+| v2.0 | 2025-12-01 | Preprocessing hooks, validation framework |
+| v1.0 | 2025-11-15 | Initial KSG MI + `I^sx_∩` implementation |
+
+---
+
+## Progress Report (January 2026)
+
+### Implementation Status
+
+| Module | Status | Tests | Cross-check |
+|--------|--------|-------|-------------|
+| `ksg.rs` | ✅ Complete | ✅ Pass | vs sklearn KSG |
+| `isx.rs` | ✅ Complete | ✅ Pass | vs csxpid (error < 1e-10) |
+| `pid2.rs` | ✅ Complete | ✅ Pass | Identity constraints |
+| `pid3.rs` | ✅ Complete | ✅ Pass | 18-atom Möbius inversion |
+| `hierarchy.rs` | ✅ Complete | ✅ Pass | CI screening + triplet |
+| `ci.rs` | ✅ Complete | ✅ Pass | |
+| `geometry.rs` | ✅ Complete | ✅ Pass | ID scales correctly |
+| `preprocess.rs` | ✅ Complete | ✅ Pass | |
+| `bin/exp0.rs` | ✅ Complete | ✅ Pass | Synthetic + Gaussian channel |
+
+### Remaining Work (Prioritized)
+
+1. **[HIGH]** Python bindings (PyO3/maturin) for experiment harness
+2. **[HIGH]** VLA embedding extraction on macOS (MLX/CoreML)
+3. **[MEDIUM]** PCA implementation (Python-first, then optional Rust)
+4. **[LOW]** SIMD/parallel acceleration (rayon)
+5. **[LOW]** Ball-tree/KD-tree for low-d speedup
+
+---
+
+## Why PCA and kNN Are Suboptimal for Manifold-Valued Embeddings
+
+**This section is critical for understanding the limitations of our approach.**
+
+VLA embeddings empirically lie on **low-dimensional manifolds** embedded in high-dimensional space (~4096 dims). Standard Euclidean tools fail systematically on such data.
+
+### The Core Problem
+
+```
+MANIFOLD STRUCTURE vs EUCLIDEAN ASSUMPTION
+==========================================
+
+What PCA/kNN assume:           Reality (VLA embeddings):
+
+    •  •  •  •  •               ╭────────────────╮
+    •  •  •  •  •              ╱   M ⊂ ℝ⁴⁰⁹⁶     ╲
+    •  •  •  •  •             │  (curved manifold) │
+    (uniform in ℝᵈ)           │   ID ≈ 50-200     │
+                               ╲                  ╱
+                                ╰────────────────╯
+```
+
+### Why PCA Fails
+
+1. **Linear variance ≠ manifold structure:**
+   - PCA finds directions of maximum **linear** variance
+   - A curved manifold (e.g., Swiss roll) has high variance in multiple linear directions
+   - PCA may retain 3 dimensions for a manifold with intrinsic dimension 1
+
+2. **Geodesic distortion:**
+   - Two points close along the manifold may be far in Euclidean space
+   - PCA preserves Euclidean distances, not geodesic distances
+   - After PCA projection, true neighbors may become separated
+
+3. **High-curvature artifacts:**
+   - Regions where the manifold curves sharply project to overlapping linear subspaces
+   - Semantically distinct regions become indistinguishable
+
+**When PCA is acceptable:**
+- Manifold curvature is low (approximately linear)
+- Variance retention is high (≥95%)
+- Experiment 0 validates stability after PCA
+- Intrinsic dimension is preserved (ID_after ≈ ID_before)
+
+### Why Euclidean kNN Fails
+
+1. **The shortcut problem:**
+   ```
+   Manifold path:              Euclidean shortcut:
+       A ─────────╮                A
+                  │                 ╲
+      (geodesic)  │                  ╲ (through ambient space)
+                  │                   ╲
+       B ─────────╯                    B
+
+   kNN declares A, B neighbors even though geodesically far
+   ```
+
+2. **Volume estimation error:**
+   - KSG estimates density via hypersphere volumes
+   - On curved manifolds, hyperspheres have wrong volume
+   - Density estimates are systematically biased
+
+3. **Compounding error:**
+   - Bias grows exponentially with intrinsic dimension
+   - At ID > 20, Euclidean kNN may be meaningless
+
+### Diagnostic Protocol (Implemented)
+
+Before running PID on VLA embeddings, always:
+
+```rust
+// 1. Estimate intrinsic dimension
+let id = intrinsic_dimension_levina_bickel(data, &cfg)?;
+
+// 2. Check distance concentration
+let dc_stats = distance_concentration_stats(data, &cfg)?;
+
+// 3. Decision logic
+if id < ambient_dim / 10.0 {
+    warn!("Manifold structure significant: ID={:.1} << d={}", id, ambient_dim);
+}
+if dc_stats.pairwise_cv < 0.2 {
+    warn!("Distance concentration: CV={:.3}; kNN unreliable", dc_stats.pairwise_cv);
+}
+```
+
+### Decision Flowchart
+
+```
+MANIFOLD METHODS DECISION TREE
+==============================
+
+1. Compute intrinsic dimension (ID)
+   └── ID < ambient_dim / 10?
+       ├── YES → Manifold effects likely significant → Step 2
+       └── NO → Euclidean methods may suffice → Validate with Exp 0
+
+2. Compute distance concentration (DC)
+   └── CV of pairwise distances < 0.2?
+       ├── YES → kNN unreliable → Step 3
+       └── NO → Euclidean kNN may work → Validate with Exp 0
+
+3. Attempt dimensionality reduction
+   ├── PCA (95% variance) → Re-run Exp 0 → Stable?
+   │   ├── YES → Use PCA-reduced data
+   │   └── NO → Try random projection
+   └── Random projection → Re-run Exp 0 → Stable?
+       ├── YES → Use projected data
+       └── NO → PIVOT: Use Shannon invariants (CI) only
+```
+
+### Alternatives to Standard Methods
+
+| Method | When to Use | Limitations | Implemented? |
+|--------|-------------|-------------|--------------|
+| **PCA** | Low curvature, high variance retention | Distorts curved manifolds | Python (planned) |
+| **Random projection** | Approximate distance preservation | No manifold awareness | ✅ `HashProjector` |
+| **Isomap** | When geodesic structure matters | Sensitive to noise, holes | No |
+| **Geodesic kNN MI** | Manifold-valued embeddings | O(n² log n), MI-only | No |
+| **Shannon invariants (CI)** | When `I^sx_∩` is unstable | Not full PID | ✅ `ci.rs` |
+
+### Practical Recommendations
+
+1. **Always run geometry diagnostics first:**
+   - Compute ID via `intrinsic_dimension_levina_bickel`
+   - Compute distance concentration via `distance_concentration_stats`
+
+2. **If ID << ambient dimension:**
+   - Try PCA with 95% variance retention
+   - Re-run Experiment 0 subset
+   - Compare estimates before/after
+
+3. **If estimates are unstable:**
+   - Fall back to Shannon invariants (CI) for screening
+   - Report instability as a finding
+   - Do NOT claim `I^sx_∩` is valid in this regime
+
+4. **Never silently apply transforms:**
+   - Log all preprocessing steps
+   - Record intrinsic dimension at each stage
+   - Include geometry diagnostics in results
+
+See `grandplan.md` §16 for full theoretical analysis and §15 for numerical stability guidance.
+
+---
 
 ## Reproducibility (required; macOS-first)
 

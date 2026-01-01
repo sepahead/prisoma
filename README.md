@@ -2,7 +2,98 @@
 
 Engineering roadmap for implementing and validating Wibral-group shared-exclusions PID (SxPID, `I^sx_∩`) for Vision-Language-Action (VLA) diagnostics.
 
-Canonical research specification: `grandplan.md` (v4.0 draft, Jan 2026).
+Canonical research specification: `grandplan.md` (v5.0, Jan 2026).
+
+---
+
+## Version Log
+
+| Version | Date | Changes |
+|---------|------|---------|
+| **v5.0** | 2026-01-01 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Information geometry methods integrated. Code audit complete. Grant-ready documentation. |
+| v4.0 | 2025-12-28 | Added information geometry methods, intrinsic dimension diagnostics, distance concentration proxies |
+| v3.0 | 2025-12-15 | Critical review and gameplan adjustments, 3-source PID implementation |
+| v2.0 | 2025-12-01 | Hierarchical screening, preprocessing hooks |
+| v1.0 | 2025-11-15 | Initial KSG MI + `I^sx_∩` implementation |
+
+---
+
+## Progress Report (January 2026)
+
+### Completed (Ready for Validation)
+
+| Component | Status | Location | Notes |
+|-----------|--------|----------|-------|
+| **KSG Mutual Information** | ✅ Complete | `crates/pid-core/src/ksg.rs` | Chebyshev/L∞, strict-radius ties, cross-checked |
+| **Continuous I^sx_∩** | ✅ Complete | `crates/pid-core/src/isx.rs` | Multiple methods: EhrlichKsg (reference), LocalMinKsg, GrandplanSketch, DisjunctionFromLocalMi |
+| **2-source PID** | ✅ Complete | `crates/pid-core/src/pid2.rs` | {Red, Unq1, Unq2, Syn} atoms |
+| **3-source PID** | ✅ Complete | `crates/pid-core/src/pid3.rs` | 18 atoms, Möbius inversion, offline only |
+| **Hierarchical screening** | ✅ Complete | `crates/pid-core/src/hierarchy.rs` | Fast CI → targeted PID, 3-source triplet |
+| **Co-information** | ✅ Complete | `crates/pid-core/src/ci.rs` | Pairwise and triplet CI |
+| **Intrinsic dimension** | ✅ Complete | `crates/pid-core/src/geometry.rs` | Levina-Bickel MLE |
+| **Distance concentration** | ✅ Complete | `crates/pid-core/src/geometry.rs` | CV, NN ratio diagnostics |
+| **Preprocessing** | ✅ Complete | `crates/pid-core/src/preprocess.rs` | Standardizer, Jitter, HashProjector |
+| **Experiment 0 runner** | ✅ Complete | `crates/pid-core/src/bin/exp0.rs` | Synthetic validation + Gaussian channel sweep + geometry diagnostics |
+
+### In Progress
+
+| Component | Status | Priority | Blocker |
+|-----------|--------|----------|---------|
+| Python bindings (PyO3) | 🔄 Planned | High | None |
+| VLA embedding extraction (MLX) | 🔄 Planned | High | Requires Python harness |
+| PCA implementation | 🔄 Planned (Python-first) | Medium | None |
+| SIMD acceleration | 🔄 Optional | Low | Performance profiling needed |
+
+### Validation Status
+
+| Test | Result | Notes |
+|------|--------|-------|
+| `csxpid` cross-check (fixed data) | ✅ Pass | Error < 1e-10 |
+| Synthetic generators (d≤10) | ✅ Pass | All scenarios (independent, redundant, unique, XOR) |
+| High-d synthetic (d=256) | ⚠️ Partial | Requires hash projection; estimates drift with d |
+| Gaussian channel (strong dependence) | ⚠️ Partial | Underestimates at σ < 0.03 (expected per Gao et al.) |
+| Intrinsic dimension accuracy | ✅ Pass | Increases correctly with true dimension |
+
+### Known Limitations (Be Honest)
+
+1. **kNN is brute-force O(n²):** Acceptable for Experiment 0 but not real-time at n > 10k
+2. **Only Chebyshev metric:** Euclidean/other metrics not implemented
+3. **No PCA in Rust:** Must use Python or `HashProjector` baseline
+4. **Strong dependence regime:** Estimates degrade when true MI > ~4 nats
+5. **Manifold effects unaddressed:** Euclidean kNN may fail on curved embeddings (see `grandplan.md` §16)
+6. **No parallelization yet:** Single-threaded; rayon integration planned
+
+---
+
+## Critical Considerations for Grant Reviewers
+
+### Why PCA/kNN May Be Suboptimal for VLA Embeddings
+
+VLA embeddings lie on **low-dimensional manifolds** in high-dimensional space. Standard tools fail:
+
+1. **PCA preserves linear variance, not geodesic structure:**
+   - A spiral has high 3D variance but intrinsic dimension 1
+   - PCA retains all 3 components, missing the 1D structure
+   - After PCA, kNN may find "wrong" neighbors (Euclidean shortcuts)
+
+2. **Euclidean kNN finds shortcuts through ambient space:**
+   - Points far apart on the manifold may be close in Euclidean distance
+   - This biases density estimates and MI/PID calculations
+   - Bias compounds exponentially with intrinsic dimension
+
+3. **When to suspect manifold effects:**
+   - Intrinsic dimension << ambient dimension (e.g., ID=50 but d=4096)
+   - Distance concentration coefficient of variation < 0.2
+   - Estimates unstable across preprocessing choices
+
+**Mitigation strategy (implemented):**
+- Compute intrinsic dimension before estimating (§16.5 of grandplan.md)
+- Check distance concentration as a "geometry health check"
+- If manifold effects are significant, fall back to Shannon invariants (CI) for screening
+
+See `grandplan.md` §16 for detailed analysis and decision flowcharts.
+
+---
 
 ## Status (what exists today)
 
