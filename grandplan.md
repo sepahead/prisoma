@@ -2,10 +2,20 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 2.9 (PixelVLA Integration & sae_analysis Cross-Validation)  
+**Version:** 4.0 (Draft) — audited + citation-verified pass  
 **Date:** January 2026  
-**Status:** Research Specification with Critical Assessment  
+**Status:** Research Specification (critical assessment + engineering roadmap)  
 **Canonical:** This is the living spec; prior versions live in git history.
+
+**v4 draft audit notes (changes without deleting prior work):**
+- Corrected multiple overconfident/incorrect statements (especially around deterministic targets, kNN scaling/latency claims, and how `sae_analysis` relates to `I^sx_∩`).
+- Updated citations in §13 using arXiv/Crossref metadata where possible; corrected/added missing VLA model references (e.g., DreamVLA).
+- Tightened hypotheses into falsifiable, non-forced claims; clarified what constitutes evidence vs. speculation.
+
+**Reference verification status (important):**
+- Core `I^sx_∩` / KSG papers: verified by DOI metadata; local copies exist under `.external/papers/`.
+- arXiv IDs in §13: verified via arXiv API (title/authors/date).
+- Detailed architecture claims, runtime/latency numbers, and some “ecosystem” descriptions are treated as **unverified unless explicitly sourced**; keep them as ideas/design sketches, not facts.
 
 ---
 

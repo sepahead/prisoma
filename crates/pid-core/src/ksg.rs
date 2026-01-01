@@ -102,7 +102,6 @@ pub fn ksg_local_mi_terms(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidR
     let mut scratch = Vec::with_capacity(n.saturating_sub(1));
     for i in 0..n {
         scratch.clear();
-        scratch.reserve(n.saturating_sub(1));
 
         let xi = x.row(i);
         let yi = y.row(i);
@@ -203,11 +202,11 @@ pub(crate) fn ksg_local_mi_terms_xblocks<'a>(
 
     let mut scratch = Vec::with_capacity(n.saturating_sub(1));
     let mut local = Vec::with_capacity(n);
+    let mut x_rows_i: Vec<&[f64]> = Vec::with_capacity(x_blocks.len());
     for i in 0..n {
         scratch.clear();
-        scratch.reserve(n.saturating_sub(1));
 
-        let mut x_rows_i: Vec<&[f64]> = Vec::with_capacity(x_blocks.len());
+        x_rows_i.clear();
         for b in x_blocks {
             x_rows_i.push(b.row(i));
         }

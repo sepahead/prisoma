@@ -239,7 +239,6 @@ fn redundancy_for_antichain(
     let mut sum = 0.0f64;
     for i in 0..n {
         scratch.clear();
-        scratch.reserve(n.saturating_sub(1));
 
         for j in 0..n {
             if i == j {

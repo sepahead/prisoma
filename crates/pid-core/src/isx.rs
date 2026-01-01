@@ -134,7 +134,6 @@ fn isx_redundancy_ehrlich_ksg(
     let mut sum = 0.0f64;
     for i in 0..n {
         scratch.clear();
-        scratch.reserve(n.saturating_sub(1));
 
         let s1i = s1.row(i);
         let s2i = s2.row(i);
