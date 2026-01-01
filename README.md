@@ -85,8 +85,8 @@ After M0, the repo should expose a small, stable set of commands:
 The Rust implementation is the long-lived foundation of this project.
 
 - **Measure:** shared-exclusions redundancy `I^sx_∩` (Wibral group). Do not substitute other PID measures.
-- **Estimator:** continuous k-NN / KSG-style estimator per Ehrlich et al. (2024). No public reference implementation is assumed; implement from the paper.
-- **Status note:** `isx_redundancy` currently has multiple candidate estimators (`IsxMethod`), including the `grandplan.md` Appendix B.3.4 sketch and a KSG-local-min variant; treat all `I^sx_∩` results as **untrusted** until Experiment 0 validates the operating regime.
+- **Estimator:** continuous k-NN / KSG-style estimator per Ehrlich et al. (2024). Cross-check against the authors’ public reference implementation (`csxpid`, `https://gitlab.gwdg.de/wibral/continuouspidestimator`) where possible.
+- **Status note:** `isx_redundancy` has multiple estimators (`IsxMethod`). `IsxMethod::EhrlichKsg` matches `csxpid` on a fixed small-d dataset test; other methods (e.g., the `grandplan.md` Appendix B.3.4 sketch) are heuristic. Still treat all `I^sx_∩` results as **untrusted** at your target `(N,d)` until Experiment 0 validates the operating regime.
 - **KSG invariants that must not drift:** use Chebyshev/L∞ for neighbor search + marginal counting; apply the documented tie/strict-inequality rule; use a real digamma `ψ(·)`.
 - **Units:** pick one and stick to it (recommended: nats internally; provide explicit conversion to bits for reporting).
 - **Preprocessing is explicit:** standardization + (if used) dimensionality reduction must be recorded with results; do not silently change dimensionality. (`pid-core` currently provides `Standardizer`, `Jitter`, and a dependency-free `HashProjector` baseline.)

@@ -24,7 +24,7 @@ Canonical spec: `grandplan.md`.
    - Run synthetic validation across {N,d,k} grids up to VLA-like d (or demonstrate why dim reduction is required).
    - Record error/variance/cost; decide GO / PIVOT / NO-GO using the thresholds in `grandplan.md` (e.g., error targets: d=10 <5%, d=100 <10%, d=1000 <15%, d=4096 <20% or require dim reduction).
    - Decision rule of thumb from spec: **GO** if stable at d=4096; **PIVOT** if stable only after PCA/random projection (e.g., d≈256); **NO-GO** if unstable even at d≈256 (abandon I^sx_∩ for alternatives).
-   - Optional cross-check: compare qualitative behavior to `sae_analysis` Shannon invariants (Red°, Vul°) per `grandplan.md` Appendix B.3.3.5 (different quantities; treat as heuristic).
+   - Optional: use `sae_analysis` Shannon invariants (Red°, Vul°) as **heuristic screening / SAE-compression tooling** per `grandplan.md` Appendix B.3.3.5 (not a correctness oracle for `I^sx_∩`).
 6. **VLA data plumbing:**
    - Define a stable on-disk format for rollouts + embeddings.
    - Implement extraction for (V, L, D, A) and optionally A* (“optimal action”) per the selected benchmark.

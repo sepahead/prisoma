@@ -33,6 +33,18 @@
 
 This document provides a comprehensive specification for applying Partial Information Decomposition (PID), specifically the shared-exclusions measure I^sx_∩ from the Wibral group at Göttingen, to diagnose grounding failures ("hallucinations") in Vision-Language-Action (VLA) models.
 
+**Scope constraint (PhD-critical):**
+- This document is intentionally anchored on the **Wibral/Göttingen line of work**: shared-exclusions PID (`I^sx_∩`, “SxPID”) and the related **Shannon-invariants** program (Gutknecht et al. 2025).
+- Other PID measures/tools may be mentioned for contrast or baselines, but **they are not the scientific object of this project**.
+
+**First-principles epistemic split (do not blur):**
+- The **quantity** `I^sx_∩` is a mathematical functional of the data-generating distribution.
+- Any **estimator** (kNN/KSG, variational, etc.) is a finite-sample algorithm with bias/variance/failure modes. Most “surprising” effects at VLA scale are more likely estimator/pathology than new science unless ruled out by Experiment 0.
+
+**Units (avoid silent mismatches):**
+- Papers often use `log2` (bits). This repo’s Rust implementation uses natural `log` (nats).
+- Convert via: `bits = nats / ln(2)` and `nats = bits * ln(2)`.
+
 ## 1.2 ⚠️ CRITICAL WARNINGS: Read Before Proceeding
 
 This project underwent extensive first-principles review that revealed **fundamental conceptual issues** that must be understood before any implementation:
@@ -60,9 +72,9 @@ action = vla_forward(vision, dream_state, language_instruction)
 
 The action A is **deterministically computed** from (V, D, L). This creates problems:
 
-1. **Degeneracy:** I(V, D; A) ≈ H(A) because A is fully determined by inputs
-2. **Tautology:** Of course V and D together predict A—that's how A was computed!
-3. **No counterfactual:** We're not comparing "what should have happened" vs "what did happen"
+1. **Triviality when conditioning on all inputs:** If `A = f(V,D,L)` deterministically (fixed weights + deterministic inference), then `I(V,D,L;A) = H(A)` (up to inference stochasticity). A 3-source PID of `(V,L,D)→A` decomposes `H(A)` and does not by itself validate grounding/correctness.
+2. **Pairwise MI depends on what varies:** `I(V,D;A)` can be informative when `L` varies across samples, but it can approach `H(A)` if `L` is constant (or effectively redundant) in the dataset. Always report the sampling unit and which inputs are included in the decomposition.
+3. **Grounding/failure diagnosis needs an external target or counterfactual:** Prefer `A*` (teacher/optimal action), a success/failure label, or controlled interventions/counterfactuals. Otherwise you risk measuring only the model’s internal consistency rather than “hallucination.”
 
 ### Warning 3: The KSG Estimator May Fail at VLA Scale
 
@@ -78,7 +90,21 @@ VLA embeddings are:
 
 At d=4096, k-NN methods suffer from the curse of dimensionality: "nearest neighbors" become nearly equidistant.
 
-### Warning 4: Liang et al. (2023) Use DIFFERENT PID Measures
+### Warning 4: kNN Estimators Assume i.i.d. Samples (Trajectory Autocorrelation Is a Confound)
+
+The KSG family (and the Ehrlich et al. `I^sx_∩` estimator built on it) is typically analyzed under an **i.i.d. sample** assumption.
+
+But VLA data is usually collected as **trajectories**:
+- Adjacent timesteps are strongly autocorrelated → “N frames” is not “N independent samples”.
+- Some variables are constant within a trajectory (e.g., instruction `L`) → within-trajectory MI/PID can be degenerate or misleading.
+
+**Implication:** Treating every frame as an i.i.d. sample can inflate apparent sample size, distort variance estimates, and change neighbor geometry. Any “real-time” claims must state the sampling unit (frames vs windows vs trajectories) and the effective sample size.
+
+**Mitigations (design choices, not afterthoughts):**
+- Prefer **across-trajectory** datasets where each sample is an episode/timepoint chosen by a reproducible rule (or use large stride subsampling).
+- Use **block bootstrap** / trajectory-level resampling for uncertainty estimates when temporal dependence is unavoidable.
+
+### Warning 5: Liang et al. (2023) Use DIFFERENT PID Measures
 
 Their robotics results do NOT validate I^sx_∩ specifically. They use:
 - "Batch estimator" based on variational bounds
@@ -143,9 +169,9 @@ Ehrlich et al. (2024) derive a **kNN/KSG-style estimator** for the continuous ca
 
 | Property | I^sx_∩ | Implication |
 |----------|--------|-------------|
-| **Differentiability** | ✓ | Enables gradient-based optimization (Aim 3) |
+| **Differentiability (distribution-level)** | ✓ | Differentiable as a functional of probabilities; **gradient-based training still requires a differentiable estimator** (the kNN/KSG estimator is not). |
 | **Target Chain Rule** | ✓ | Atoms sum to total MI |
-| **Non-negativity** | ✗ | Allows negative synergy |
+| **Atom non-negativity** | ✗ | Some atoms (especially synergy/unique) can be negative |
 | **Transformation Invariance** | ✗ | Traded for TCR |
 
 ### 2.2.3 Why Negative Synergy is Possible
@@ -154,7 +180,7 @@ The impossibility results from Matthias et al. (2025, arXiv:2512.16662) prove th
 
 > Non-negativity + Target Chain Rule + Transformation Invariance are **mutually incompatible**
 
-I^sx_∩ satisfies the Target Chain Rule by sacrificing non-negativity. This means synergy CAN be negative, which we hypothesize signals hallucination.
+I^sx_∩ satisfies the Target Chain Rule by sacrificing all-atom non-negativity. This means synergy CAN be negative. Whether negative-synergy regimes correlate with grounding failures is an empirical question that must be tested under controlled validation and strong baselines.
 
 ### 2.2.4 What Negative Synergy Actually Means (Mathematically)
 
@@ -207,16 +233,16 @@ For each sample `i`, let `εᵢ` be the distance to the `k`-th nearest neighbor 
 
 See §8.1.3 for concrete implementation notes (tie handling matters).
 
-## 2.4 Infomorphic Networks
+## 2.4 Infomorphic Networks (Optional / Exploratory)
 
-Makkeh et al. (2025, PNAS) introduced a paradigm shift: using PID atoms as **local learning objectives** rather than post-hoc analysis tools.
+Makkeh et al. (2025, PNAS; verify final citation details) describe “infomorphic networks”: using local information-theoretic terms as **learning objectives** rather than post-hoc analysis tools. This is *conceptually adjacent* but **not required** for Aim 1 (implementing/validating `I^sx_∩` as a diagnostic).
 
 In infomorphic networks, neurons optimize:
 ```
 L_local = α·Redundancy + β·Unique + γ·Synergy
 ```
 
-This inspires our Aim 3: using synergy as an intrinsic reward for VLA fine-tuning.
+This motivates Aim 3 as an exploratory direction *only after* Experiment 0 and the diagnostic experiments succeed, and only with a differentiable estimator (the kNN/KSG estimators in this spec are not differentiable).
 
 ## 2.5 Shannon Invariants as Problem-Solvers
 
@@ -314,10 +340,11 @@ CI_VL = co_information_2way(V, L, A)
 CI_LD = co_information_2way(L, D, A)
 ```
 
-**Interpretation:**
-- If CI_VL << CI_VD: Vision-Language is more synergistic → use V-L-A
-- If CI_VD << CI_VL: Vision-Dream is more synergistic → use V-D-A
-- If all similar: Sources are interchangeable → use cheapest extraction
+**Interpretation (cautious):**
+- CI is a Shannon-invariant summary: for any bivariate PID, `CI = Red − Syn`.
+- If CI_VL is strongly negative relative to CI_VD, the V–L pair is more “synergy-dominant” than V–D (a candidate to prioritize in deeper analysis).
+- If CI_VD is strongly negative relative to CI_VL, the V–D pair is more “synergy-dominant” than V–L (a candidate to prioritize in deeper analysis).
+- If all are similar, either (a) the system is genuinely symmetric, or (b) the estimator regime is too noisy to differentiate pairs.
 
 #### Problem 3: Localizing Failure Mode Without Full 3-Way PID
 
@@ -332,18 +359,18 @@ CI_VD = I(V;A) + I(D;A) - I(V,D;A)
 CI_LD = I(L;A) + I(D;A) - I(L,D;A)
 ```
 
-**Diagnostic Interpretation:**
+**Heuristic interpretation (requires validation):**
 
-| CI_VL | CI_VD | CI_LD | Interpretation |
+| CI_VL | CI_VD | CI_LD | Interpretation (heuristic) |
 |-------|-------|-------|----------------|
-| < 0 | < 0 | < 0 | All pairs synergistic (coherent integration) |
-| > 0 | < 0 | < 0 | V-L redundant (vision and language say same thing) |
-| < 0 | > 0 | < 0 | V-D redundant (vision and dream aligned) |
-| < 0 | < 0 | > 0 | L-D redundant (instruction and world model aligned) |
-| > 0 | > 0 | < 0 | V isolated (neither L nor D uses V coherently) |
-| > 0 | < 0 | > 0 | L isolated (instruction not integrated) |
-| < 0 | > 0 | > 0 | D isolated (world model diverged) |
-| > 0 | > 0 | > 0 | All redundant (all sources saying same thing) |
+| < 0 | < 0 | < 0 | All pairs synergy-dominant (Syn > Red for each pair) |
+| > 0 | < 0 | < 0 | V–L redundancy-dominant (Red > Syn) while others are synergy-dominant |
+| < 0 | > 0 | < 0 | V–D redundancy-dominant while others are synergy-dominant |
+| < 0 | < 0 | > 0 | L–D redundancy-dominant while others are synergy-dominant |
+| > 0 | > 0 | < 0 | Both V–L and V–D are redundancy-dominant relative to L–D |
+| > 0 | < 0 | > 0 | V–L and L–D are redundancy-dominant relative to V–D |
+| < 0 | > 0 | > 0 | V–D and L–D are redundancy-dominant relative to V–L |
+| > 0 | > 0 | > 0 | All pairs redundancy-dominant (Red > Syn for each pair) |
 
 **Note:** This uses classical interaction information (MI-based), not I^sx_∩. While less fine-grained, it's much cheaper to compute.
 
@@ -367,11 +394,13 @@ failure_prob = ci_to_failure_model.predict(ci_vec)
 
 ### 2.5.4 Recommended Strategy: Hierarchical Approach
 
-**Level 1 (Fast, ~10ms):** Compute CI_VL, CI_VD, CI_LD using KSG. Use for real-time monitoring.
+**Level 1 (Fast screening; MI-only):** Compute CI_VL, CI_VD, CI_LD using KSG. Use for triage / monitoring.
 
-**Level 2 (Medium, ~100ms):** Compute full pairwise I^sx_∩ PID for the most suspicious pair (identified by Level 1).
+**Level 2 (Targeted, slower):** Compute full pairwise `I^sx_∩` PID for the most suspicious pair (identified by Level 1).
 
 **Level 3 (Slow, offline):** Compute full 3-way decomposition or run detailed analysis for failure diagnosis.
+
+**Latency note (do not oversell):** Wall-clock time depends strongly on `(N, d, k)` and on the kNN backend. A brute-force O(N²) implementation is not “real-time” at N in the thousands; any ms-level budgets are design targets that presume aggressive dimensionality reduction and/or accelerated kNN.
 
 This hierarchical approach balances speed with interpretability, using Shannon invariants as a fast screening layer.
 
@@ -381,9 +410,9 @@ This hierarchical approach balances speed with interpretability, using Shannon i
 
 ## 3.1 Primary Question
 
-**Does the sign of I^sx_∩-synergy outperform existing uncertainty estimation methods for VLA failure detection?**
+**Do shared-exclusions PID (SxPID / `I^sx_∩`) features provide statistically reliable signal for VLA failure detection and diagnosis beyond strong uncertainty baselines?**
 
-This is the critical validation gate. If synergy sign does not significantly outperform baselines, we report negative results.
+This is the critical validation gate. The “synergy sign” is one candidate feature, but we should treat it as a hypothesis rather than a privileged statistic. If SxPID features do not significantly outperform baselines under a validated estimator regime, we report negative results.
 
 ## 3.2 Secondary Questions
 
@@ -396,7 +425,7 @@ This is the critical validation gate. If synergy sign does not significantly out
 
 ### Aim 1 (Primary): Comparative Evaluation
 
-**Hypothesis:** Syn(V, D; A) < 0 will achieve AUROC > 0.85 for failure detection, exceeding entropy (~0.70) and attention entropy (~0.75) baselines.
+**Hypothesis (falsifiable; pre-register):** Under a validated estimator regime (Experiment 0), SxPID-derived features from plausible decompositions (e.g., V–D–A, V–L–A, and hierarchical pairwise) contain predictive information about failure labels beyond the best baseline.
 
 **Baselines:**
 1. Predictive entropy: H(A|V, L)
@@ -407,22 +436,21 @@ This is the critical validation gate. If synergy sign does not significantly out
 6. Liang et al. Batch/CVX estimators
 7. **Process Reward Model (GRM):** Progress-based failure detection (Robo-Dopamine)
 
-**Success Criteria:** Statistically significant improvement over best baseline, OR definitive recommendation of simpler method.
+**Success Criteria:** Statistically significant improvement over best baseline (paired bootstrap or matched test; p < 0.05) with a practically meaningful effect size (to be preregistered), OR a well-supported negative result (SxPID does not outperform) with clear analysis of why.
 
 ### Aim 2: Synergy Dynamics
 
 **Question:** Does synergy decay rate predict task success?
 
-**Metric:** Synergy Half-Life k* = horizon where Syn drops to 50% of initial value
+**Metric (tentative):** Synergy half-life `k*` = horizon where Syn drops to 50% of its initial value.
+
+**Critical dependence caveat:** time-resolved PID on trajectories must handle autocorrelation (sampling unit, windowing, and uncertainty estimates) explicitly; otherwise apparent “dynamics” can be artifacts.
 
 ### Aim 3 (Exploratory): RL Fine-Tuning
 
 **Contingent on Aim 1 success.**
 
-**Proposed Intrinsic Reward:**
-```
-r_intrinsic = α·Syn(V,D;A) + β·Unq(V;A) − γ·max(0, −Syn(V,D;A))
-```
+**Status:** Concept only. The kNN/KSG estimators used for Experiment 0 are not differentiable and are unlikely to be stable/safe as direct RL rewards. If pursued, Aim 3 should follow the Wibral-group “infomorphic networks” framing (Makkeh et al. 2025) or use a differentiable surrogate trained offline to predict SxPID-derived features.
 
 ## 3.4 Where PID Provides Unique Value (Six Use Cases)
 
@@ -434,15 +462,15 @@ r_intrinsic = α·Syn(V,D;A) + β·Unq(V;A) − γ·max(0, −Syn(V,D;A))
 
 **What entropy tells us:** "The model was uncertain."
 
-**What PID decomposition tells us:**
+**What PID decomposition may suggest (hypotheses that require validation):**
 
-| Pattern | Diagnosis | Actionable Insight |
+| Pattern (estimated) | Hypothesis | Next Check |
 |---------|-----------|-------------------|
-| High Unq(V), low Unq(D) | Vision-dominant failure | Model ignored world model predictions |
-| Low Unq(V), high Unq(D) | Dream-dominant failure | Model ignored visual evidence |
-| High Syn (positive) | Coherent integration | Not an integration problem |
-| Low/negative Syn | Integration failure | Model couldn't reconcile V and D |
-| High Unq(L) (V-L-A) | Instruction problem | Language grounding failure |
+| High Unq(V), low Unq(D) | Policy relies mostly on V for T | Intervention on D should have limited effect |
+| Low Unq(V), high Unq(D) | Policy relies mostly on D for T | Intervention on V (occlusion/corruption) should strongly affect |
+| High Syn (positive) | Joint V–D interaction contributes | Check whether synergy tracks task phase or known fusion modules |
+| Low/negative Syn | Subadditivity / possible integration anomaly | Distinguish (a) estimator pathology, (b) redundancy inflation, (c) true “misinformation” via controls |
+| High Unq(L) (V–L–A) | Language heavily determines T | Check instruction perturbations / paraphrases |
 
 ### Use Case 2: Architecture Design Feedback
 
@@ -549,7 +577,7 @@ Robo-Dopamine introduces a General Reward Model (GRM) trained on 35M samples fro
 | **Computational cost** | O(n² × d) per pair | O(1) forward pass |
 | **Training required** | None (estimator-based) | 35M+ samples, 3400+ hours |
 | **Multi-view support** | Implicit in embeddings | Explicit (GRM uses multi-view fusion) |
-| **Real-time feasible** | Shannon invariants only (~10ms) | Yes (~50ms inference) |
+| **Real-time feasible** | Shannon invariants only (fastest; depends on n,d and kNN backend) | Yes (single forward pass; hardware-dependent) |
 
 ### 3.5.3 When to Use Each
 
@@ -626,9 +654,9 @@ I(V, L; A) = Red(V,L;A) + Unq(V;A) + Unq(L;A) + Syn(V,L;A)
 | Advantage | Explanation |
 |-----------|-------------|
 | **L is always available** | No need to extract hidden states |
-| **L is ground truth** | It's what the human actually requested |
+| **L is externally specified intent** | It encodes what the human requested (often the closest available “ground truth” for intent, but can be ambiguous) |
 | **Language grounding failures are common** | "Pick up red cup" → picks blue |
-| **Cleaner interpretation** | Syn(V,L;A) < 0 has unambiguous meaning |
+| **Often more interpretable than D** | Language is more interpretable than an implicit “dream” state, but negative synergy still requires careful controls/validation |
 
 ### 4.2.2 Interpretation of V-L-A Atoms
 
@@ -636,8 +664,8 @@ I(V, L; A) = Red(V,L;A) + Unq(V;A) + Unq(L;A) + Syn(V,L;A)
 |----------|----------------|
 | Unq(L;A) | Action determined purely by instruction (ignoring scene) |
 | Unq(V;A) | Action determined purely by visual scene (ignoring instruction) |
-| Syn(V,L;A) > 0 | Vision and language cooperate |
-| **Syn(V,L;A) < 0** | **Language-vision conflict** |
+| Syn(V,L;A) > 0 | Joint V–L interaction appears important (candidate “integration” signal) |
+| **Syn(V,L;A) < 0** | Subadditivity / potential mismatch; distinguish from estimator artifacts and redundancy inflation via controls |
 
 ### 4.2.3 Why V-L-A Might Be Better Than V-D-A
 
@@ -671,9 +699,9 @@ V-D-A cannot distinguish these from vision-dream conflicts.
 
 | Decomposition | Sources | Target | Hypothesis |
 |---------------|---------|--------|------------|
-| V-D-A | Vision, Dream | Action | Dream-vision conflict → failure |
+| V-D-A | Vision, Dream | Action | V–D mismatch may correlate with certain failures (requires controls) |
 | V-D-A* | Vision, Dream | Optimal Action | Measures error, not tautology |
-| V-L-A | Vision, Language | Action | Language misunderstanding → failure |
+| V-L-A | Vision, Language | Action | V–L mismatch may correlate with language-grounding failures (requires controls) |
 | D_t-D_{t-1}-A | Current Dream, Previous Dream | Action | Temporal inconsistency → failure |
 | V-A*-Error | Vision, Optimal Action | Prediction Error | Directly predicts failure magnitude |
 
@@ -690,9 +718,9 @@ I(V, L, D; A) = ?
 ```
 
 This would capture:
-- Vision-language conflicts
-- Vision-dream conflicts  
-- Language-dream conflicts (model misunderstands instruction)
+- Vision–language mismatches
+- Vision–dream mismatches  
+- Language–dream mismatches (e.g., instruction misinterpretation vs world-state representation)
 - Three-way synergies and redundancies
 
 ## 5.2 The Problem: Combinatorial Explosion
@@ -753,16 +781,16 @@ PID(L, D; A)  → Syn_LD  (language-dream coherence)
 
 **Diagnostic Matrix:**
 
-| Syn_VL | Syn_VD | Syn_LD | Interpretation |
+| Syn_VL | Syn_VD | Syn_LD | Hypothesis (requires validation) |
 |--------|--------|--------|----------------|
-| + | + | + | Coherent multimodal fusion |
-| - | + | + | Vision-language grounding failure |
-| + | - | + | World model diverged from vision |
-| + | + | - | World model misunderstands instruction |
-| - | - | + | Vision isolated (neither L nor D agree with V) |
-| - | + | - | Language isolated (instruction misinterpreted) |
-| + | - | - | Dream isolated (world model is wrong) |
-| - | - | - | Complete incoherence |
+| + | + | + | Pairwise synergies appear positive (suggests interaction-dominant regime) |
+| - | + | + | V–L interaction appears weak/subadditive relative to other pairs (check language perturbations) |
+| + | - | + | V–D interaction appears weak/subadditive (check D corruption / vision occlusion controls) |
+| + | + | - | L–D interaction appears weak/subadditive (check instruction changes and D dependence) |
+| - | - | + | V appears atypical relative to (L,D) (could be occlusion/OOD; check estimator stability) |
+| - | + | - | L appears atypical relative to (V,D) (could be instruction ambiguity; check paraphrase robustness) |
+| + | - | - | D appears atypical relative to (V,L) (could be world-model mismatch; check D interventions) |
+| - | - | - | Broad subadditivity across pairs (could be estimator breakdown; run controls + Experiment 0-style checks) |
 
 **Pros:**
 - Only 3× the cost of single PID
@@ -789,11 +817,11 @@ PID(V, D; A | L)  → "Given the instruction, how do vision and dream interact?"
 
 **Start with Option 3 (Hierarchical Pairwise)**, with co-information (Option 2) as a summary.
 
-The pattern {Syn_VL, Syn_VD, Syn_LD} tells you WHERE the failure is:
-- All negative → complete breakdown
-- Only Syn_VL negative → language grounding failure
-- Only Syn_VD negative → world model hallucinating
-- Only Syn_LD negative → instruction misinterpreted
+The pattern {Syn_VL, Syn_VD, Syn_LD} can help generate and localize **testable hypotheses**:
+- All negative → broad subadditivity across pairs (could be genuine mismatch or estimator breakdown; investigate with controls)
+- Only Syn_VL negative → candidate V–L integration issue (validate with language-side perturbations)
+- Only Syn_VD negative → candidate V–D mismatch (validate with D/V interventions and estimator controls)
+- Only Syn_LD negative → candidate L–D mismatch (validate with instruction changes and D dependence)
 
 ---
 
@@ -859,7 +887,7 @@ Despite these issues, the comparison could be valuable IF:
 WAN's 3D Causal VAE (Wan-VAE) is itself a learned world model. We could:
 1. Use it as a **proxy** for what a "good" world model should predict
 2. Compare VLA's synergy against WAN's synergy
-3. If Syn_vla << Syn_wan, VLA is hallucinating
+3. Treat large, systematic gaps (e.g., `Syn_VLA << Syn_WAN` under *matched variable definitions*) as a **hypothesis** about failure modes, not a diagnostic; validate with labels and controlled interventions.
 
 ### 6.2.2 WAN Ecosystem Overview (Updated December 2025)
 
@@ -1262,7 +1290,10 @@ def ksg_mutual_information(X, Y, k=3):
     
     # For each point, find distance to k-th neighbor
     distances, _ = tree.query(XY, k=k+1)  # k+1 because point is its own neighbor
-    eps = distances[:, k]  # k-th neighbor distance for each point
+    eps_raw = distances[:, k]  # k-th neighbor distance for each point
+    # KSG uses strict inequality (< eps_raw) for marginal counts; many radius queries are <=.
+    # Implement strictness by shrinking the radius in floating point.
+    eps = np.nextafter(eps_raw, 0.0)
     
     # Count points in marginal balls
     tree_x = KDTree(X, metric='chebyshev')
@@ -1284,6 +1315,8 @@ def ksg_mutual_information(X, Y, k=3):
 2. **The digamma function:** scipy.special.digamma, NOT np.log
 3. **Handle edge cases:** n_x or n_y could be 0 at boundary points
 4. **Normalize inputs:** Scale each dimension to [0, 1] or standardize
+5. **Tie handling matters:** document whether you implement strict `< eps_raw` via `eps = nextafter(eps_raw, 0)` + inclusive `<= eps` counting (recommended), and test it.
+6. **Duplicates/quantization:** if many points are identical (or nearly so), kNN radii can collapse to 0. Detect this and either (a) add small seeded jitter, or (b) reject the run and change preprocessing.
 
 ### 8.1.3 Extension to I^sx_∩
 
@@ -1312,7 +1345,7 @@ This matches the authors’ reference implementation (`gitlab.gwdg.de/wibral/con
 
 At d=4096, k-NN suffers from:
 - **Distance concentration:** All points become nearly equidistant
-- **Exponential sample requirements:** Need N >> 2^d samples for reliable estimation
+- **Exponential sample requirements:** Sample needs grow rapidly with intrinsic dimension; at `d≈4096`, naive kNN is typically unusable without strong low-dimensional structure and/or explicit dimensionality reduction.
 - **Computational cost:** O(N² d) for naive k-NN
 
 ### 8.2.2 Options
@@ -1335,11 +1368,11 @@ At d=4096, k-NN suffers from:
 
 ### 8.3.1 Complexity
 
-For N samples, d dimensions, k neighbors:
-- k-NN tree construction: O(N log N)
-- k-NN query: O(k N log N)
-- Marginal counting: O(N² d) worst case, O(N log N) with ball trees
-- Total for one MI estimate: O(N² d) or O(N d log N) with optimizations
+For `N` samples, `d` dimensions, and `k` neighbors, kNN-based estimators can range from “toy-problem fast” to completely infeasible depending on intrinsic dimension and backend:
+
+- **Brute-force exact kNN (current reference path):** `O(N²·d)` distance work per estimate.
+- **Tree-based exact kNN (KD/ball tree):** typically `O(N log N)` build + `O(N log N)` queries at *low intrinsic dimension*, but degrades toward brute force as `d` grows.
+- **Approximate kNN (e.g., HNSW/FAISS-style):** potentially sub-quadratic, but introduces estimator bias; only acceptable behind an explicit “approx” mode + re-validation (subset of Experiment 0).
 
 ### 8.3.2 Rust Implementation
 
@@ -1350,41 +1383,27 @@ For real-time use, implement in Rust with:
 
 ### 8.3.3 Expected Latency
 
-| Implementation | N=100 | N=1000 | N=10000 |
-|----------------|-------|--------|---------|
-| Python (naive) | 10ms | 1s | 100s |
-| Python (sklearn) | 1ms | 100ms | 10s |
-| Rust (SIMD) | 0.1ms | 10ms | 1s |
+Do not treat any ms-level numbers as “spec truth”: wall-clock depends strongly on `(N, d, k)` and on the kNN backend (exact vs approximate, CPU vs GPU, and whether dimensionality reduction is applied).
 
-Target: <25ms for N=1000 to enable real-time diagnostics.
+Engineering posture:
+- Use brute-force exact kNN for **Experiment 0 + correctness**.
+- Treat any “real-time monitoring” goal as **Level 0/Level 1 only** (Shannon invariants / co-information), and only after aggressive dimensionality reduction and benchmarking on the target M4 Max.
 
 ## 8.4 Validation Strategy
 
 ### 8.4.1 Synthetic Data with Known PID
 
-Generate data with analytically known PID values:
+Be explicit about what is “known”:
 
-1. **XOR:** Perfect synergy (Syn = 1 bit)
-   ```python
-   S1, S2 ~ Bernoulli(0.5)
-   T = S1 XOR S2
-   # Red = 0, Unq1 = 0, Unq2 = 0, Syn = 1
-   ```
+1. **Discrete, definition-level sanity checks (lattice bookkeeping):**
+   - XOR / copy / unique toy systems have unambiguous *discrete* PID expectations (e.g., XOR is synergy-dominated).
+   - Use these to sanity-check antichain ordering, atom identities, and qualitative behavior via a *discrete* SxPID implementation (e.g., `Abzinger/SxPID`).
+   - These do **not** validate the continuous kNN estimator.
 
-2. **Copy:** Perfect redundancy
-   ```python
-   T ~ Bernoulli(0.5)
-   S1 = T, S2 = T
-   # Red = 1, Unq1 = 0, Unq2 = 0, Syn = 0
-   ```
-
-3. **Unique:** One source only
-   ```python
-   S1 ~ Bernoulli(0.5)
-   S2 ~ Bernoulli(0.5)  # independent
-   T = S1
-   # Red = 0, Unq1 = 1, Unq2 = 0, Syn = 0
-   ```
+2. **Continuous estimator validation (the actual Experiment 0 gate):**
+   - Use i.i.d. *continuous* synthetic systems where at least some MI terms are analytic (e.g., correlated Gaussians), and where adding independent noise dimensions provably leaves the true quantities unchanged.
+   - Cross-check continuous `I^sx_∩` redundancy against the authors’ reference implementation (`csxpid`) on fixed datasets.
+   - See §9.1 for the full protocol.
 
 ### 8.4.2 Scaling Test
 
@@ -1393,11 +1412,43 @@ Test estimator accuracy at:
 - N = 100, 1000, 10000
 - k = 3, 10, 30
 
-**Go/No-Go:** If error > 20% at d=4096, N=1000, use dimensionality reduction.
+**Go/No-Go:** Use the Experiment 0 gate criteria in §9.1. If estimates collapse at d=4096, pivot to dimensionality reduction and re-validate.
+
+### 8.4.3 Temporal Dependence and Sampling (Trajectory Data)
+
+Most kNN/KSG estimators are analyzed under an **i.i.d. sample** assumption. Robotics/VLA data is naturally **temporal** (trajectories), so sampling design is part of estimator validity:
+
+- **Do not treat “frames” as i.i.d. by default.** Adjacent timesteps are autocorrelated; effective sample size can be far smaller than raw frame count.
+- **Prefer cross-trajectory sampling** when possible (e.g., one sample per rollout at a fixed phase, or a large-stride subsample) to reduce dependence.
+- **If time-resolved PID is desired**, compute on explicit windows and report window size/stride; interpret as descriptive unless causal controls support it.
+- **Uncertainty estimates must respect dependence:** prefer trajectory-level resampling or block bootstrap over naive per-frame bootstrap.
 
 ---
 
 # 9. Experimental Design
+
+## 9.0 Sampling Unit, Pointwise Outputs, and Autocorrelation (Read Before Running AUROCs)
+
+Information estimators require multiple samples. In VLA settings, it is easy to accidentally compute a quantity that is *mathematically well-defined* but *experimentally meaningless* because the sampling unit is wrong.
+
+Key distinctions:
+- **Estimation dataset:** the collection of samples used to estimate MI / `I^sx_∩` / PID atoms (kNN geometry depends on this).
+- **Prediction target:** what you want to predict (often a trajectory-level failure label).
+
+Common pitfalls (and fixes):
+1. **Within-trajectory estimation vs. i.i.d. assumptions**
+   - Treating every timestep as an i.i.d. sample can be misleading due to autocorrelation.
+   - Mitigation: large-stride subsampling, explicit windows, and trajectory-level/block bootstrap for uncertainty.
+2. **Per-trajectory prediction needs per-trajectory features**
+   - A single global PID computed “across all trajectories” is not directly usable for AUROC per trajectory.
+   - For per-trajectory diagnostics, use either:
+     - **Within-trajectory PID on windows** (produces a time series of atoms), and summarize (mean/min/%negative/etc.), or
+     - **Pointwise/local contributions** (PPID-style): compute per-sample local MI / local redundancy contributions and derive local atoms.
+3. **Static variables inside a trajectory**
+   - Instruction `L` is often constant within a rollout; within-trajectory MI(L;·) is degenerate.
+   - For V–L analyses, prefer cross-trajectory designs (different `L` across samples) or define a target `T` that is trajectory-level (with appropriate estimators).
+
+This section’s experiments should explicitly state the sampling unit (frames vs windows vs trajectories) and how per-trajectory features are derived.
 
 ## 9.1 Experiment 0: Estimator Validation (MANDATORY FIRST)
 
@@ -1407,20 +1458,40 @@ Validate that I^sx_∩ estimation works at VLA scale before any VLA experiments.
 
 ### 9.1.2 Protocol
 
-1. Generate synthetic data with known PID (XOR, copy, unique)
-2. Embed in high-dimensional space (add Gaussian noise dimensions)
-3. Scale: d = 10 → 100 → 1000 → 4096
-4. Scale: N = 100 → 1000 → 10000
-5. Measure: estimation error, variance, computational cost
+Design principle: create regimes where the *true* information quantities are unchanged by adding nuisance dimensions, so “ground truth” is well-defined without relying on uncheckable high-d claims.
+
+1. **Generate i.i.d. synthetic systems** (not trajectories) with clear qualitative structure:
+   - **Redundant/copy-like:** both sources observe (noisy) versions of the same latent that drives `T`
+   - **Unique:** `T` depends on only one source
+   - **Synergy/XOR-like:** `T` depends on an interaction (e.g., discrete XOR; or continuous “XOR-like” via thresholded signs)
+2. **Define a low-dimensional “signal” representation** (e.g., `d_signal = 1..10`) for each system.
+3. **Embed into high dimension by concatenating independent noise features**:
+   - `S1' = [S1_signal | N1]`, `S2' = [S2_signal | N2]`, with `N1,N2` independent of everything (and of each other).
+   - This preserves the *true* information about `T` but stresses the kNN geometry.
+4. Sweep:
+   - `d_total ∈ {10, 100, 1000, 4096}` via noise concatenation,
+   - `N ∈ {100, 1000, 10000}` (and higher if feasible),
+   - `k ∈ {3, 10, 30}`.
+5. For each setting, measure:
+   - estimate mean + variance across random seeds,
+   - runtime and peak memory,
+   - failure modes (ties/duplicate points, NaNs/Infs, implausible drift with `d_total`).
+6. **Cross-check correctness where possible:**
+   - MI terms: compare against analytic Gaussian-channel MI in low dimensions.
+   - `I^sx_∩` redundancy: compare against `csxpid` (authors’ reference implementation) for small `d_total` and fixed datasets.
 
 ### 9.1.3 Success Criteria
 
-| Dimensionality | Required Accuracy |
-|----------------|-------------------|
+Define “reference” values using the low-dimensional signal system (and cross-check with `csxpid`/analytic MI where available). Because added noise dimensions are independent, the *true* MI/PID quantities should remain constant as `d_total` increases; any systematic drift is estimator pathology.
+
+| Dimensionality (d_total) | Required Accuracy vs Reference |
+|--------------------------|-------------------------------|
 | d = 10 | Error < 5% |
 | d = 100 | Error < 10% |
 | d = 1000 | Error < 15% |
-| d = 4096 | Error < 20% (or use dim reduction) |
+| d = 4096 | Error < 20% **or** require dim reduction (PIVOT) |
+
+**Error definition:** use relative error when the reference magnitude is non-trivial; use absolute error thresholds for atoms expected near zero (to avoid meaningless relative blow-ups).
 
 ### 9.1.4 If Validation Fails
 
@@ -1444,10 +1515,16 @@ Determine which decomposition best predicts VLA failures.
 
 ### 9.2.3 Protocol
 
-1. Collect 5,000 rollouts on LIBERO-10 (2,500 success, 2,500 failure)
-2. Extract V, L, D, A, A* from each trajectory
-3. Compute PID for each decomposition
-4. Measure AUROC for failure prediction using synergy sign
+1. Collect rollouts (e.g., LIBERO-10), with clear success/failure labels and enough coverage of failure modes.
+2. Decide the **sampling unit** per decomposition (see §9.0):
+   - V–D–A and V–D–A*: typically windowed within-trajectory (V,D,A vary over time).
+   - V–L–A: `L` is often constant within a trajectory, so prefer cross-trajectory designs or a trajectory-level target.
+3. Extract embeddings (V, L, D, A, and optionally A*) with explicit pooling rules and logged preprocessing.
+4. Compute features at multiple fidelity levels:
+   - Level 0: co-information / Shannon invariants (fastest; usable broadly).
+   - Level 1/2: pairwise `I^sx_∩` PID on selected windows/episodes (expensive; targeted).
+5. Convert time series into per-trajectory features (e.g., mean/min/quantiles/%negative/peak magnitude, plus duration-above-threshold).
+6. Train and evaluate a predictor (logistic regression / small MLP) using cross-validation; report AUROC + calibration + confidence intervals.
 
 ### 9.2.4 Expected Outcome
 
@@ -1459,8 +1536,8 @@ Report which decomposition achieves highest AUROC.
 
 | Baseline | Description |
 |----------|-------------|
-| Entropy H(A\|V,D) | Conditional entropy |
-| Predictive entropy H(A\|V,L) | VL-Uncertainty style |
+| Action predictive entropy | Entropy of the model’s action distribution/logits (for deterministic policies, use stochastic decoding temperature and/or ensembles) |
+| Semantic uncertainty (VL-Uncertainty-style) | Uncertainty signals derived from multimodal semantics (as in VL-Uncertainty / related work) |
 | Ensemble variance | 4 checkpoint ensemble |
 | Attention entropy | Mean cross-modal attention entropy |
 | Learned classifier | MLP on (V, D) features |
@@ -1470,7 +1547,7 @@ Report which decomposition achieves highest AUROC.
 
 ### 9.3.2 Success Criteria
 
-I^sx_∩ synergy achieves AUROC **statistically significantly** > best baseline (paired bootstrap, p < 0.05).
+SxPID-derived features achieve AUROC **statistically significantly** > best baseline (paired bootstrap, p < 0.05) with a preregistered effect size, OR yield a well-supported negative result with clear analysis.
 
 ## 9.4 Experiment 3: Dimensionality Study
 
@@ -1495,7 +1572,7 @@ AUROC for failure detection at each dimensionality.
 
 ### 9.5.1 Purpose
 
-Establish that synergy is CAUSAL (not just correlated) with failure.
+Test whether PID-derived signals respond to controlled interventions in a way consistent with a causal interpretation (not merely correlation).
 
 ### 9.5.2 Protocol
 
@@ -1507,16 +1584,16 @@ Establish that synergy is CAUSAL (not just correlated) with failure.
 
 ### 9.5.3 Expected Outcome
 
-If synergy is causal: corrupting D → synergy drops → failure rate increases.
+If PID-derived signals have causal relevance: interventions that degrade `D` in task-relevant ways should shift the corresponding PID metrics in the predicted direction *and* increase failure rates; controls should not.
 
 ## 9.6 Success Criteria Summary
 
 | Outcome | Interpretation | Action |
 |---------|----------------|--------|
-| Syn AUROC > 0.85, beats all baselines by >5% | **Strong success** | Proceed with Aim 2, 3 |
-| Syn AUROC > 0.75, beats entropy by >3% | **Moderate success** | Proceed cautiously |
-| Some PID atom predicts better than baselines | **Conditional success** | Pivot to that atom |
-| Entropy ≥ Syn AUROC | **Negative result** | Recommend simpler methods |
+| SxPID-derived features outperform the best baseline with statistical significance (paired bootstrap, p < 0.05) and a preregistered effect size | **Strong success** | Proceed with Aim 2, 3 |
+| SxPID-derived features are competitive but gains are small/unstable across seeds/splits | **Moderate / uncertain** | Proceed cautiously; refine sampling/preprocessing and re-test |
+| A different PID feature (not synergy) is consistently best | **Conditional success** | Pivot to the best-performing atom/summary |
+| Baselines match or beat SxPID (with clear significance) | **Negative result** | Prefer simpler methods; write up limits/lessons |
 
 ---
 
@@ -2046,7 +2123,7 @@ async fn pid_monitor_loop(zenoh_session: &Session) {
         // Decode embeddings (zero-copy from shared memory)
         let embeddings: VLAEmbeddings = deserialize(&sample.payload);
         
-        // Compute fast Shannon invariants (~10ms)
+        // Compute fast Shannon invariants (fastest; runtime depends on n,d and kNN backend)
         let ci = co_information_pairwise(
             &embeddings.vision,
             &embeddings.dream,
@@ -2239,7 +2316,7 @@ Total (interactive)             ~86ms      ~12 fps interactive
 Total (with full PID)          ~186ms      ~5 fps detailed analysis
 ```
 
-**Note:** Full I^sx_∩ PID is too slow for real-time (~100ms). Use Shannon invariants for continuous monitoring, trigger full PID only for suspicious frames.
+**Note:** Full `I^sx_∩` PID is not expected to be real-time without aggressive dimensionality reduction and an accelerated kNN backend. Use Shannon invariants for continuous monitoring, and trigger full PID only for suspicious windows/episodes.
 
 ---
 
@@ -2646,7 +2723,7 @@ V-D-A (Vision-Dream-Action) as primary decomposition, with V-L-A as secondary.
 
 **Why Changed:**
 
-1. **L is ground truth:** Language instructions are human-provided. If the model ignores L, that's definitionally a grounding failure. There's no ambiguity about what L "should" mean.
+1. **L is externally specified intent:** Language instructions are human-provided and are often the closest available “ground truth” for task intent, but they can still be ambiguous/underspecified. “Ignoring L” must be operationalized carefully (dataset semantics, annotation policy, and task context).
 
 2. **D is model-internal:** The "Dream" representation is whatever the model learned. It might be wrong, incomplete, or encode biases. Using D as a reference conflates model failures with reference failures.
 
@@ -2674,32 +2751,34 @@ Compute full three-way PID I(V, L, D; A) with 18 atoms from the start.
 
 **Why Changed:**
 
-1. **Estimation cost:** 18 atoms require O(18 × n × log(n) × d) operations. At VLA scale (d=4096, n=10000), this is prohibitively expensive.
+1. **Estimation cost:** 18 atoms require many kNN-based estimates. With exact/brute-force kNN this scales at least like O(n²·d) per estimate; at VLA scale (d≈4096), this becomes prohibitively expensive without aggressive dimensionality reduction and/or accelerated kNN.
 
 2. **Interpretation burden:** Most of the 18 atoms have no clear operational meaning. What does "information uniquely provided by V, but redundantly available in L and D" mean for robot control?
 
 3. **Variance multiplication:** Each additional atom adds estimation variance. With 18 atoms, confidence intervals become uselessly wide.
 
-4. **Pairwise captures most value:** The key insights (which source dominates? is there synergy or conflict?) are available from pairwise decompositions.
+4. **Pairwise captures most value:** The key insights (which source dominates? is there synergy or subadditivity?) are available from pairwise decompositions.
 
 **Recommended Hierarchical Strategy:**
 
 ```
-Level 0: Shannon Invariants (~10ms)
+Level 0: Shannon invariants (fastest; MI-only)
 ├── Compute CI_VL, CI_VD, CI_LD (co-information)
 ├── Use for: Real-time monitoring, screening
 └── Proceed to Level 1 if: Any CI is suspicious (outside normal range)
 
-Level 1: Pairwise PID (~100ms per pair)
+Level 1: Pairwise PID (slower; targeted)
 ├── Compute full I^sx_∩(V, L; A) or I^sx_∩(V, D; A)
 ├── Use for: Failure diagnosis, architecture comparison
 └── Proceed to Level 2 if: Need three-way interactions
 
-Level 2: Three-Way PID (~1s, offline only)
+Level 2: Three-way PID (offline only)
 ├── Compute full I^sx_∩(V, L, D; A)
 ├── Use for: Detailed post-hoc analysis, publication figures
 └── Only after pairwise validation complete
 ```
+
+**Latency note:** Any ms-level budgets depend strongly on `(n,d,k)` and on the kNN backend. Brute-force exact kNN is not real-time at large `n`; treat timings as design targets, not guarantees.
 
 ---
 
@@ -2727,29 +2806,23 @@ Start with VLA experiments immediately, validate estimator in parallel.
 **Experiment 0 Protocol:**
 
 ```python
-# Generate known-structure synthetic data at target dimensionality
-# Ground truth: synergy > 0 for XOR-like systems, synergy = 0 for independent sources
+# Experiment 0 is about estimator validity, not a priori “truth” claims at d=4096.
+# Use i.i.d. synthetic systems + noise-dimension embeddings where true information
+# quantities are invariant to added nuisance dimensions.
 
 for dim in [64, 256, 1024, 4096]:
     for n_samples in [1000, 5000, 10000, 50000]:
-        # System 1: Independent sources (true synergy = 0)
-        X1 = np.random.randn(n_samples, dim)
-        X2 = np.random.randn(n_samples, dim)
-        Y = X1[:, 0] + X2[:, 0] + noise  # Simple additive
-        
-        # System 2: XOR-like (true synergy > 0)
-        Y_xor = np.sign(X1[:, 0] * X2[:, 0]) + noise
-        
-        # Estimate and compare to ground truth
-        estimated_syn = compute_isx_pid(X1, X2, Y).synergy
-        
-        # Go/no-go: |estimated - true| < 0.1 bits for 95% of trials
+        # 1) Generate low-d "signal" variables (e.g., 1–10 dims).
+        # 2) Concatenate independent noise dims to reach `dim`.
+        # 3) Compare estimates against reference values computed on the signal system
+        #    (cross-checked with `csxpid` for redundancy and analytic MI where available).
+        pass
 ```
 
 **Go/No-Go Criteria:**
-- **GO:** Synergy estimates within 0.1 bits of ground truth at d=4096, n=10000
-- **PIVOT:** Works at d=256 but not d=4096 → use dimensionality reduction
-- **NO-GO:** Estimates are random even at d=256 → abandon I^sx_∩, use alternatives
+- **GO:** Stable estimates under noise-dimension embeddings up to d=4096 with acceptable variance/runtime.
+- **PIVOT:** Stable only after dimensionality reduction (e.g., PCA to ~256) → adopt reduction + re-validate and proceed.
+- **NO-GO:** Unstable even after reduction (or contradicts `csxpid` at low d) → treat kNN-based `I^sx_∩` as invalid for this regime and pivot to alternative diagnostics (e.g., Shannon invariants as primary).
 
 ---
 
@@ -3813,7 +3886,7 @@ def extract_embeddings(
                ↑              ↑                                  ↑              ↑
           VISION (V)    LANGUAGE (L)                         DREAM (D)    PRE_ACTION
           
-    DreamVLA has EXPLICIT <dream> tokens, making D extraction unambiguous.
+    DreamVLA uses explicit `<dream>` queries/tokens; D extraction is *less arbitrary* than in OpenVLA, but still requires an explicit extraction hook (e.g., hidden states at `<dream>` tokens) and pooling rules.
     
     MEMORY OPTIMIZATION:
     ====================
@@ -4120,8 +4193,8 @@ Activations → delphi (caching) → info_analysis.py → Shannon Invariants
 
 | Invariant | Definition | Interpretation |
 |-----------|------------|----------------|
-| **Degree of Redundancy (Red°)** | Avg. extent to which information is accessible from multiple sources | Higher = more distributed/robust representation |
-| **Degree of Vulnerability (Vul°)** | Avg. extent to which information is lost when sources removed | Higher = more fragile/specialized representation |
+| **Degree of Redundancy (Red°)** | `Red° = (Σ_i H(X_i)) / H(X_1,…,X_m)` | Higher = more distributed/“redundant” (in the sense of large marginal-entropy sum relative to joint) |
+| **Degree of Vulnerability (Vul°)** | `Vul° = (Σ_i H(X_i | X_{-i})) / H(X_1,…,X_m)` | Higher = more fragile/“vulnerable” (more conditional entropy per feature relative to joint) |
 
 **Relevance to PID-VLA:**
 
@@ -4158,8 +4231,8 @@ sae_analysis/
 | Aspect | sae_analysis | Our Rust I^sx_∩ Implementation |
 |--------|--------------|--------------------------------|
 | **Measures** | Shannon invariants only | Full PID atoms (Syn, Red, Unq) |
-| **Granularity** | Global averages | Pointwise (per-sample) |
-| **Speed** | Fast (no pointwise computation) | Slow (O(n²) k-NN) |
+| **Granularity** | Global invariants (scalar summaries) | Global PID estimates (atom averages); MI local terms available for debugging |
+| **Speed** | Potentially fast after SAE compression (still depends on SAE width and dataset size) | Slow with exact kNN (O(n²)) unless accelerated / reduced |
 | **Interpretability** | Less (aggregate measures) | More (individual atoms) |
 | **Use case** | Screening, feature selection | Detailed failure diagnosis |
 | **Dimensionality** | High-dim via SAE compression | Requires dim reduction |
@@ -4167,132 +4240,22 @@ sae_analysis/
 **Recommendation:**
 Use sae_analysis for **initial screening** (fast Shannon invariants), then our Rust I^sx_∩ for **detailed analysis** on suspicious cases. This matches our hierarchical approach in §2.5.4.
 
-#### B.3.3.5 Implementation Validation: Our Rust I^sx_∩ vs sae_analysis
+#### B.3.3.5 Using sae_analysis Safely (Not a Correctness Oracle for I^sx_∩)
 
-**Validation Strategy:**
+`sae_analysis` is **not** a continuous `I^sx_∩` estimator, so it cannot be used to validate whether our `I^sx_∩` math/estimator is correct. Treat it as a *potentially useful preprocessing + screening toolbox*, not a correctness oracle.
 
-Since sae_analysis uses Shannon invariants (degree of redundancy, degree of vulnerability) while our Rust implementation computes full I^sx_∩ atoms, we can cross-validate by checking consistency:
+What `sae_analysis` actually computes (as implemented in `info_analysis.py`):
+- **Degree of redundancy (Red°):** `Red° = (Σ_i H(X_i)) / H(X_1,…,X_m)`
+- **Degree of vulnerability (Vul°):** `Vul° = (Σ_i H(X_i | X_{-i})) / H(X_1,…,X_m)`
 
-```
-Theoretical Relationship (Gutknecht et al. 2025):
-─────────────────────────────────────────────────
-The Shannon invariants are weighted averages over PID atoms:
+Here, the `X_i` are typically **SAE latent features** (and the repo uses `log2`, so entropies are in bits; the ratios are dimensionless).
 
-Red° = (1/I(S;T)) × Σ_α w_α × Π(α)    [weighted avg of redundancy atoms]
-Vul° = (1/I(S;T)) × Σ_α v_α × Π(α)    [weighted avg of vulnerability atoms]
+How to use it safely in this project:
+1. **Correctness validation for continuous `I^sx_∩`:** use `csxpid` (authors’ reference implementation) + Experiment 0. Do *not* substitute `sae_analysis` for this.
+2. **Optional dimensionality reduction path:** train an SAE on high-dimensional VLA embeddings, then run `pid-core` on the SAE latents (treat the SAE as an explicit, logged preprocessing step).
+3. **Screening/feature selection:** use Red°/Vul° as heuristic signals about whether an SAE representation is distributed vs fragile before paying the cost of full `I^sx_∩` on many cases.
 
-For 2-source PID (our V-D-A case):
-- If Syn >> Red: expect low Red°, high Vul° (fragile, synergy-dependent)
-- If Red >> Syn: expect high Red°, low Vul° (robust, distributed)
-```
-
-**Validation Test Cases:**
-
-| Test | sae_analysis Expected | Our Rust I^sx_∩ Expected | Consistency Check |
-|------|----------------------|--------------------------|-------------------|
-| **XOR gate** | Red° ≈ 0, Vul° high | Syn ≈ 1 bit, Red ≈ 0 | ✓ Synergy-dominated |
-| **Copy gate** | Red° high, Vul° low | Red ≈ 1 bit, Syn ≈ 0 | ✓ Redundancy-dominated |
-| **Unique gate** | Red° ≈ 0, Vul° moderate | Unq ≈ 1 bit each | ✓ Independent sources |
-| **Random data** | Red° ≈ 0, Vul° ≈ 0 | All atoms ≈ 0 | ✓ No information |
-
-**Cross-Implementation Test Protocol:**
-
-```python
-# test_cross_implementation.py
-"""
-Cross-validate our Rust I^sx_∩ against sae_analysis Shannon invariants.
-"""
-
-import numpy as np
-from pid_python import compute_pid  # Our Rust bindings
-# from sae_analysis.info_analysis import compute_shannon_invariants  # Once stable
-
-def test_consistency_xor():
-    """XOR should show high synergy (Rust) and high vulnerability (sae_analysis)."""
-    n = 10000
-    x1 = np.random.randint(0, 2, n)
-    x2 = np.random.randint(0, 2, n)
-    y = x1 ^ x2  # XOR
-    
-    # Our Rust implementation
-    pid = compute_pid(
-        x1.reshape(-1, 1).astype(np.float64),
-        x2.reshape(-1, 1).astype(np.float64),
-        y.reshape(-1, 1).astype(np.float64),
-        k=3
-    )
-    
-    # Check synergy is dominant
-    assert pid.synergy > 0.8  # Should be ~1 bit
-    assert pid.redundancy < 0.1  # Should be ~0
-    
-    # sae_analysis comparison (when available)
-    # invariants = compute_shannon_invariants(x1, x2, y)
-    # assert invariants.vulnerability > 0.7  # High vulnerability for XOR
-    # assert invariants.redundancy_degree < 0.1  # Low redundancy degree
-    
-def test_consistency_copy():
-    """Copy should show high redundancy (Rust) and low vulnerability (sae_analysis)."""
-    n = 10000
-    x1 = np.random.randn(n)
-    x2 = x1.copy()  # Copy (maximum redundancy)
-    y = x1 + np.random.randn(n) * 0.1  # Noisy observation
-    
-    pid = compute_pid(
-        x1.reshape(-1, 1),
-        x2.reshape(-1, 1),
-        y.reshape(-1, 1),
-        k=3
-    )
-    
-    # Check redundancy is dominant
-    assert pid.redundancy > 0.8  # Should be high
-    assert pid.synergy < 0.1  # Should be ~0
-    
-def test_consistency_vla_embeddings():
-    """
-    Real VLA embeddings should show interpretable patterns:
-    - Successful actions: moderate synergy (V and D integrate well)
-    - Failed actions: low/negative synergy (V and D conflict)
-    """
-    # Load test embeddings from validated VLA run
-    v_success = np.load("test_data/v_success.npy")
-    d_success = np.load("test_data/d_success.npy")
-    a_success = np.load("test_data/a_success.npy")
-    
-    v_failure = np.load("test_data/v_failure.npy")
-    d_failure = np.load("test_data/d_failure.npy")
-    a_failure = np.load("test_data/a_failure.npy")
-    
-    pid_success = compute_pid(v_success, d_success, a_success, k=5)
-    pid_failure = compute_pid(v_failure, d_failure, a_failure, k=5)
-    
-    # Hypothesis: successful actions have higher synergy
-    assert pid_success.synergy > pid_failure.synergy, (
-        f"Expected success synergy ({pid_success.synergy:.3f}) > "
-        f"failure synergy ({pid_failure.synergy:.3f})"
-    )
-```
-
-**Key Differences in Implementation Approach:**
-
-| Aspect | sae_analysis | Our Rust Implementation |
-|--------|--------------|-------------------------|
-| **Density estimation** | Via SAE sparsity patterns | KSG k-NN estimator |
-| **Discretization** | SAE latent activations (sparse, discrete-ish) | None (continuous k-NN) |
-| **Output** | Scalar invariants (Red°, Vul°) | Full PID decomposition (4 atoms) |
-| **Computation cost** | O(n × d_sae) | O(n² × k) for k-NN |
-| **Interpretability** | Aggregate (global property) | Pointwise (per-sample) |
-
-**When to Use Each:**
-
-| Scenario | Recommended Approach |
-|----------|---------------------|
-| Initial screening of many trajectories | sae_analysis Shannon invariants |
-| Detailed failure diagnosis | Our Rust I^sx_∩ |
-| Real-time monitoring | Shannon invariants (faster) |
-| Research paper results | Both (for validation) |
-| Very high dimensions (d > 1000) | sae_analysis (SAE compresses first) |
+If SAE compression is used, add a robustness check: run `pid-core` on multiple SAE seeds/sizes and confirm conclusions are stable (avoid “tuning the SAE until PID looks good”).
 
 #### B.3.3.6 Why Liang et al.'s Code Is NOT Directly Usable
 
@@ -4330,7 +4293,7 @@ Verification checklist:
 
 **Key theoretical properties of I^sx_∩ that distinguish it from other PID measures:**
 
-1. **Differentiability:** I^sx_∩ is differentiable w.r.t. the underlying probability distribution (unique among PID measures)
+1. **Differentiability (distribution-level):** I^sx_∩ is differentiable w.r.t. the underlying probability distribution (a core design goal; not shared by many PID measures). This does **not** imply that a particular estimator (e.g., kNN/KSG) is differentiable.
 2. **Local formulation:** Defined via local (pointwise) mutual information
 3. **Exclusions-based:** Quantifies shared information via overlapping exclusions in probability space
 4. **Target chain rule:** Satisfies I^sx_∩(S₁,S₂;T₁,T₂) decomposition
@@ -4375,10 +4338,50 @@ where:
 - n_T(i) is the count of points within εᵢ in target space (including self)
 ```
 
-#### B.3.4.2 Core Rust Implementation
+#### B.3.4.2 Core Rust Implementation (Repo Canonical)
+
+Authoritative implementation in this repo (kept in sync with tests; prefer these over sketches in this document):
+- `crates/pid-core/src/ksg.rs` — KSG MI (Chebyshev/L∞, strict-radius tie handling).
+- `crates/pid-core/src/isx.rs` — continuous `I^sx_∩(S₁,S₂;T)` redundancy (Ehrlich et al. 2024; `IsxMethod::EhrlichKsg`), cross-checked against `csxpid`.
+- `crates/pid-core/src/pid2.rs` — 2-source PID atoms `{Red, Unq1, Unq2, Syn}` derived from MI + redundancy.
+- `crates/pid-core/src/hierarchy.rs` — hierarchical “fast→slow” screening path.
+
+Minimal usage (redundancy only; returns **nats**):
 
 ```rust
-//! crates/pid-core/src/isx.rs
+use pid_core::{isx_redundancy, IsxConfig, IsxMethod, MatRef};
+
+let cfg = IsxConfig {
+    k: 3,
+    method: IsxMethod::EhrlichKsg,
+    ..IsxConfig::default()
+};
+
+let red_nats = isx_redundancy(s1, s2, t, &cfg)?;
+```
+
+Minimal usage (full bivariate PID atoms; returns **nats**):
+
+```rust
+use pid_core::{pid2_isx, IsxConfig, IsxMethod, KsgConfig, MatRef, Pid2Config};
+
+let cfg = Pid2Config {
+    ksg: KsgConfig::default(),
+    isx: IsxConfig {
+        method: IsxMethod::EhrlichKsg,
+        ..IsxConfig::default()
+    },
+};
+
+let pid = pid2_isx(s1, s2, t, &cfg)?;
+```
+
+##### Legacy Sketch (Do Not Implement From This)
+
+The following block is retained only as historical context. It is **not paper-faithful** and does **not** match the current repo implementation; use §8.1.3 + the files above as the source of truth.
+
+```text
+//! LEGACY SKETCH ONLY — does not match `crates/pid-core/src/isx.rs`.
 //! 
 //! Continuous I^sx_∩ PID estimator based on Ehrlich et al. (2024).
 //! 
@@ -4652,7 +4655,7 @@ impl IsxEstimator {
     
     /// Estimate I^sx_∩ redundancy using the continuous extension.
     /// 
-    /// This implements Equation 14 from Ehrlich et al. (2024).
+    /// LEGACY SKETCH ONLY: do not treat as paper-faithful; see §8.1.3 and `crates/pid-core/src/isx.rs`.
     /// The key insight is that shared exclusions in probability space
     /// correspond to shared k-NN neighborhoods.
     fn estimate_isx_redundancy(
@@ -4703,11 +4706,11 @@ impl IsxEstimator {
         let n_t_s1 = self.count_neighbors_within(target, n, d_t, &eps_s1_t);
         let n_t_s2 = self.count_neighbors_within(target, n, d_t, &eps_s2_t);
         
-        // For shared exclusions, use the INTERSECTION of neighborhoods
-        // This corresponds to the disjunction in probability space
+        // LEGACY SKETCH ONLY (WARNING): this uses an intersection-of-radii heuristic.
+        // This is *not* the Ehrlich et al. (2024) disjunction-kNN estimator described in §8.1.3.
         let eps_shared: Vec<f64> = eps_s1_t.iter()
             .zip(eps_s2_t.iter())
-            .map(|(&e1, &e2)| e1.min(e2))  // Intersection = smaller epsilon
+            .map(|(&e1, &e2)| e1.min(e2))  // Heuristic: intersection via smaller epsilon (legacy sketch)
             .collect();
         let n_t_shared = self.count_neighbors_within(target, n, d_t, &eps_shared);
         
@@ -4715,7 +4718,7 @@ impl IsxEstimator {
         let n_t_joint = self.count_neighbors_within(target, n, d_t, &eps_s1_s2_t);
         
         // I^sx_∩ formula (continuous extension of discrete definition)
-        // Based on Equation 14 in Ehrlich et al. (2024)
+        // LEGACY SKETCH ONLY: do not treat as paper-faithful; see §8.1.3 and `crates/pid-core/src/isx.rs`.
         let psi_k = digamma(k as f64);
         let psi_n = digamma(n as f64);
         
@@ -4946,8 +4949,17 @@ pub enum PIDError {
 
 #### B.3.4.3 Test Scenarios for Validation (Experiment 0)
 
-```rust
-//! pid-core/src/tests/validation.rs
+Repo-canonical tests in this repo (kept in sync with the Rust implementation):
+- `crates/pid-core/tests/ksg.rs` — MI + co-information sanity checks (Gaussian channels, independence).
+- `crates/pid-core/tests/isx.rs` — `I^sx_∩` redundancy smoke tests + exact-value cross-check against `csxpid` on fixed data.
+- `crates/pid-core/tests/pid3.rs` — 3-source SxPID cross-check against `csxpid` on fixed data.
+- `crates/pid-core/tests/hierarchy.rs` — hierarchical screening behavior.
+- `crates/pid-core/src/bin/exp0.rs` — Experiment 0 runner (synthetic sweeps; extend as needed).
+
+The block below is a legacy sketch for illustration; do not treat its “ground truth” comments as mathematically guaranteed for continuous SxPID.
+
+```text
+//! LEGACY SKETCH ONLY — repo tests live in `crates/pid-core/tests/*.rs`.
 //! 
 //! Test scenarios for validating the I^sx_∩ estimator.
 //! These implement Experiment 0 from the specification.
@@ -4959,10 +4971,10 @@ mod tests {
     use rand::rngs::StdRng;
     use rand_distr::{Normal, Distribution};
 
-    /// Test 1: Independent Sources (Ground Truth: Synergy = 0, Redundancy = 0)
+    /// Test 1: Independent/additive-style system (qualitative expectation: low redundancy, low synergy)
     /// 
     /// S₁ and S₂ are independent, T = S₁ + S₂ + noise
-    /// Expected: Unique(S₁) = I(S₁;T), Unique(S₂) = I(S₂;T), Red = Syn = 0
+    /// Note: exact atom values depend on the redundancy measure and estimator; validate against `csxpid` and check invariants.
     #[test]
     fn test_independent_sources() {
         let mut rng = StdRng::seed_from_u64(42);
@@ -5176,6 +5188,8 @@ The fundamental bottleneck is **NOT** the number of atoms, but:
 3. **Estimation variance** multiplies across atoms
 
 #### B.3.5.2 Scalable Approaches from Literature
+
+**Scope note:** This appendix lists several scalability ideas from the broader literature. For this PhD project, the in-scope core is **Wibral-group shared-exclusions PID (`I^sx_∩`)** and **Shannon invariants** (Gutknecht et al. 2025). Other approaches below are for context/baselines only and should not be conflated with `I^sx_∩`.
 
 **Approach 1: Shannon Invariants (Gutknecht et al. 2025)**
 
@@ -5393,30 +5407,26 @@ For the PID-VLA system with sources V (4096-d), L (4096-d), D (4096-d), Target A
 SCALING STRATEGY
 ================
 
-Level 0: Shannon Invariants (~10ms)
+Level 0: Shannon invariants (fastest; MI-only)
 ├── Compute CI_VL, CI_VD, CI_LD (pairwise co-information)
 ├── Compute Ω(V,L,D;A) (3-way O-information)
 ├── O(7) MI estimates via KSG
 └── Use for: Real-time monitoring, fast screening
 
-Level 1: Pairwise I^sx_∩ PID with Dimensionality Reduction (~100ms)
+Level 1: Pairwise `I^sx_∩` PID (slower; targeted; likely requires dim reduction)
 ├── Apply PCA: 4096-d → 256-d (retain 95% variance)
 ├── Compute PID(V,D;A), PID(V,L;A), PID(L,D;A)
 ├── O(3) × 4 atoms = 12 estimates
 └── Use for: Detailed failure analysis
 
-Level 2: 3-Way Hierarchical PID (~1s)
+Level 2: 3-way SxPID (offline only; only after pairwise validation)
 ├── Pre-filter with Level 0 to identify suspicious patterns
 ├── Compute full 18-atom decomposition on reduced dimensions
 ├── Use coarse-graining if d > 512
 └── Use for: Research, paper results
-
-Level 3: Full-Dimensional Gaussian PID (~10s)
-├── Train normalizing flows on VLA embeddings
-├── Compute BROJA-PID in latent Gaussian space
-├── Bias correction via bootstrap
-└── Use for: Offline comprehensive analysis
 ```
+
+**Scope note:** This project’s scientific object is Wibral-group shared-exclusions PID (`I^sx_∩`) plus Shannon invariants. Non-SxPID approaches (e.g., BROJA, normalizing-flow PID variants) may be explored as *baselines* if needed, but they are out of scope for the core estimator and should not be conflated with `I^sx_∩`.
 
 #### B.3.5.4 Implementation Recommendations
 
@@ -5817,7 +5827,8 @@ kernel void ksg_compute_mi(
     if (gid >= n) return;
     
     // KSG formula for single sample
-    // Full MI = ψ(k) - 1/k + ψ(n) - mean over samples of [ψ(n_x+1) + ψ(n_y+1)]
+    // KSG-style MI formula (exact variant/tie handling must match the chosen estimator).
+    // See `crates/pid-core/src/ksg.rs` for the canonical implementation used in this repo.
     
     float psi_nx = digamma(float(n_x[gid] + 1));
     float psi_ny = digamma(float(n_y[gid] + 1));
@@ -5829,7 +5840,7 @@ kernel void ksg_compute_mi(
 ### B.4.3 Rust Metal Integration
 
 ```rust
-//! pid-core/src/metal_knn.rs
+//! (future sketch) crates/pid-core/src/metal_knn.rs (not yet implemented)
 //! 
 //! Rust bindings for Metal GPU acceleration of k-NN search.
 //! Uses the metal-rs crate for GPU access.
@@ -6107,7 +6118,7 @@ RECOMMENDATION FOR PID-VLA:
 WHY MLX IS PRIMARY:
 - Embedding extraction requires forward hooks (easy in MLX, hard in CoreML)
 - PID experiments need custom operations (MLX is composable)
-- Reproducibility requires deterministic execution (MLX guarantees this)
+- Reproducibility benefits from deterministic execution; MLX is often deterministic on fixed Apple Silicon hardware, but treat determinism as an assumption to be tested (set seeds, avoid nondeterministic kernels, and verify repeatability).
 - Debugging requires inspecting intermediates (MLX arrays are transparent)
 
 WHEN TO USE COREML:
@@ -6925,7 +6936,7 @@ release: build build-wheel
 | 2.6 | Jan 2026 | **Process Reward Models integration:** (1) Added §3.5 PID vs. Process Reward Models (PRMs) - comprehensive comparison of PID approach with Robo-Dopamine's General Reward Model (GRM), including when to use each, potential synergies, and the "semantic trap" insight for reward shaping. (2) Added GRM as baseline #7 in experimental design. (3) Added §13.6 Process Reward Models references (Robo-Dopamine, GVL, VLAC, SARM, LIV). (4) Updated glossary with PRM, GRM, ORM, VOC, PBRS terms. |
 | 2.7 | Jan 2026 | **World model paradigms & DKT deep dive:** (1) Added §10.1 world model taxonomy (Internal/Evaluative/Generative) with Genie 3 as environment generator. (2) Expanded §10.4.3 DKT section with "Diffusion Knows Transparency" principle, technical details, robot grasping results, and genuine PID relevance (perception quality as prerequisite for valid PID). (3) Added §10.7 World Model Paradigms and PID Implications: theoretical framework for how external world models (Genie 3, WAN) affect internal D; "Diffusion Knows Physics" principle; perception quality diagnostic tree. (4) Added Genie 3, SIMA 2, Genie 2 to world models references. (5) Updated glossary with Genie 3, SIMA 2, TransPhy3D, Emergent Physics. (6) Renumbered sections 10.7→10.8 for Gazebo+Tauri. |
 | 2.8 | Jan 2026 | **NixOS CUDA secondary target:** (1) Restructured §B.2 as "Platform Implementation Reference" with primary (Apple M4) and secondary (NixOS + CUDA) targets. (2) Added §B.2.4 NixOS + CUDA Implementation with complete configuration.nix for NVIDIA drivers, flake.nix with CUDA-enabled PyTorch and Rust toolchain, CUDA software stack diagram. (3) Added GPU-accelerated PID implementation: CUDAKSGEstimator and CUDAPIDEstimator classes with chunked distance computation for OOM prevention. (4) Added NixOS troubleshooting guide and multi-GPU configuration (NCCL). (5) Fixed §B.3 subsection numbering: B.3.5→B.3.3, B.3.6→B.3.4, B.3.7→B.3.5 with correct heading levels. |
-| 2.9 | Jan 2026 | **PixelVLA integration & sae_analysis cross-validation:** (1) Added §7.3 PixelVLA architecture: multiscale pixel-aware encoder, visual prompting encoder, continuous action decoder, Pixel-160K dataset. (2) Added §7.4 TraceVLA: visual trace prompting for spatial-temporal awareness. (3) Added §10.8.7 PixelVLA + Headless Gazebo + Tauri integration: data flow diagram, visual prompting in Tauri (TypeScript), PixelVLA-specific PID analysis (Rust), latency budget (~86ms interactive). (4) Added §B.3.3.2 Abzinger/sae_analysis: Shannon invariants (Red°, Vul°) for SAE analysis, comparison with our approach. (5) Added §B.3.3.5 Implementation Validation: cross-validation protocol between Rust I^sx_∩ and sae_analysis Shannon invariants, test cases (XOR, copy, unique, random), when to use each. (6) Updated §7.5 with MemoryVLA, CoT-VLA. (7) Added PixelVLA, TraceVLA, sae_analysis to references (§13.2, §13.3). (8) Updated glossary with PixelVLA, TraceVLA, Red°, Vul°, multiscale pixel-aware encoder, Pixel-160K. |
+| 2.9 | Jan 2026 | **PixelVLA integration & sae_analysis notes:** (1) Added §7.3 PixelVLA architecture: multiscale pixel-aware encoder, visual prompting encoder, continuous action decoder, Pixel-160K dataset. (2) Added §7.4 TraceVLA: visual trace prompting for spatial-temporal awareness. (3) Added §10.8.7 PixelVLA + Headless Gazebo + Tauri integration: data flow diagram, visual prompting in Tauri (TypeScript), PixelVLA-specific PID analysis (Rust), latency budget (~86ms interactive). (4) Added §B.3.3.2 Abzinger/sae_analysis: Shannon invariants (Red°, Vul°) for SAE analysis, comparison with our approach. (5) Updated §B.3.3.5 to clarify sae_analysis is **not** an `I^sx_∩` estimator; added implementation-level definitions of Red°/Vul° and safe integration guidance (SAE compression + screening), not a correctness validation for `I^sx_∩`. (6) Updated §7.5 with MemoryVLA, CoT-VLA. (7) Added PixelVLA, TraceVLA, sae_analysis to references (§13.2, §13.3). (8) Updated glossary with PixelVLA, TraceVLA, Red°, Vul°, multiscale pixel-aware encoder, Pixel-160K. |
 
 ---
 
