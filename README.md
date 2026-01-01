@@ -46,6 +46,7 @@ After M0, the repo should expose a small, stable set of commands:
 - `just build` / `cargo build` — build Rust crates
 - `just test` / `cargo test` — run Rust unit tests (and later Python tests)
 - `just exp0` — run Experiment 0 validation (the gate before any VLA experiments)
+- `just exp0-bin` — run the Rust quick Experiment 0 runner (`cargo run -p pid-core --bin exp0`)
 
 ## Where to look in `grandplan.md` (implementation-critical)
 
@@ -83,10 +84,10 @@ The Rust implementation is the long-lived foundation of this project.
 
 - **Measure:** shared-exclusions redundancy `I^sx_∩` (Wibral group). Do not substitute other PID measures.
 - **Estimator:** continuous k-NN / KSG-style estimator per Ehrlich et al. (2024). No public reference implementation is assumed; implement from the paper.
-- **Status note:** the repo’s initial `isx_redundancy` implementation is based on the `grandplan.md` Appendix B.3.4 sketch and is **not trusted** until Experiment 0 validates it.
+- **Status note:** `isx_redundancy` currently has multiple candidate estimators (`IsxMethod`), including the `grandplan.md` Appendix B.3.4 sketch and a KSG-local-min variant; treat all `I^sx_∩` results as **untrusted** until Experiment 0 validates the operating regime.
 - **KSG invariants that must not drift:** use Chebyshev/L∞ for neighbor search + marginal counting; apply the documented tie/strict-inequality rule; use a real digamma `ψ(·)`.
 - **Units:** pick one and stick to it (recommended: nats internally; provide explicit conversion to bits for reporting).
-- **Preprocessing is explicit:** standardization + (if used) PCA/random projection must be recorded with results; do not silently change dimensionality.
+- **Preprocessing is explicit:** standardization + (if used) dimensionality reduction must be recorded with results; do not silently change dimensionality. (`pid-core` currently provides `Standardizer`, `Jitter`, and a dependency-free `HashProjector` baseline.)
 - **Atom formulas (2-source PID):**
   - `Unq1 = I(S1;T) − Red`
   - `Unq2 = I(S2;T) − Red`
@@ -99,7 +100,7 @@ Suggested `pid-core` internal layout (so work can parallelize cleanly):
 - `ksg.rs` — KSG mutual information
 - `isx.rs` — continuous `I^sx_∩` redundancy estimator
 - `pid2.rs` — 2-source PID wrapper (`{Red, Unq1, Unq2, Syn}`)
-- `preprocess.rs` — standardization + PCA/random projection hooks (explicit + logged)
+- `preprocess.rs` — standardization + jitter + hash projection (PCA later; explicit + logged)
 - `nn.rs` — kNN backend abstraction (brute-force baseline first)
 - `stats.rs` — digamma + bootstrap/CI utilities
 

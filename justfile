@@ -16,9 +16,12 @@ fmt:
     cargo fmt
 
 lint:
-    cargo clippy -- -D warnings
+    cargo clippy --workspace -- -D warnings
 
 # Experiment 0 gate (Rust-side smoke subset).
 # Full Experiment 0 will later be orchestrated via python/experiments/.
 exp0:
     cargo test -p pid-core exp0 -- --nocapture
+
+exp0-bin:
+    cargo run -p pid-core --bin exp0

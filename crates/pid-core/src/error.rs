@@ -9,6 +9,10 @@ pub enum PidError {
         expected_len: usize,
         actual_len: usize,
     },
+    InvalidConfig {
+        context: &'static str,
+        message: &'static str,
+    },
     RowCountMismatch {
         context: &'static str,
         left_rows: usize,
@@ -19,6 +23,9 @@ pub enum PidError {
         n_samples: usize,
     },
     NonFiniteInput {
+        context: &'static str,
+    },
+    NumericalInstability {
         context: &'static str,
     },
     NotImplemented {
@@ -37,6 +44,9 @@ impl fmt::Display for PidError {
                 f,
                 "{context}: shape mismatch (expected len {expected_len}, got {actual_len})"
             ),
+            PidError::InvalidConfig { context, message } => {
+                write!(f, "{context}: invalid config ({message})")
+            }
             PidError::RowCountMismatch {
                 context,
                 left_rows,
@@ -49,6 +59,9 @@ impl fmt::Display for PidError {
                 write!(f, "invalid k={k} for n={n_samples} (require n > k >= 1)")
             }
             PidError::NonFiniteInput { context } => write!(f, "{context}: non-finite input"),
+            PidError::NumericalInstability { context } => {
+                write!(f, "{context}: numerical instability")
+            }
             PidError::NotImplemented { feature } => write!(f, "not implemented: {feature}"),
         }
     }

@@ -80,7 +80,7 @@ Context/guardrails:
 
 In-repo pointers (use these to stay aligned with the spec):
 - `grandplan.md` §2.2 (`I^sx_∩` definition), §2.3 (continuous extension), §8.1 (KSG details), §2.5.4 (hierarchical strategy), §9.1 (Experiment 0), Appendix B.3.4 (Rust estimator sketch + validation tests).
-  - Current code locations: `crates/pid-core/src/ksg.rs` (KSG MI), `crates/pid-core/src/isx.rs` (current `I^sx_∩` sketch), `crates/pid-core/src/pid2.rs` (PID atoms wrapper), `crates/pid-core/src/ci.rs` (co-information).
+  - Current code locations: `crates/pid-core/src/ksg.rs` (KSG MI + local terms), `crates/pid-core/src/isx.rs` (`I^sx_∩` candidates via `IsxMethod`), `crates/pid-core/src/pid2.rs` (PID atoms wrapper), `crates/pid-core/src/ci.rs` (co-information), `crates/pid-core/src/nn.rs` (brute-force kNN helpers), `crates/pid-core/src/preprocess.rs` (standardization).
 
 Reference code (for sanity checks and baselines; verify commit hashes when used):
 - **Discrete `I^sx_∩` (definitions/lattice sanity):** `https://github.com/Abzinger/SxPID`
@@ -144,6 +144,7 @@ Implementation note: exact container types (`ndarray`, `nalgebra`, raw slices) a
 - Dimensionality reduction (only after Experiment 0 justifies it):
   - PCA: pick variance-retained target (e.g., 95%) or fixed component count; record the achieved dimension.
   - Random projection: use a seeded matrix; record seed + target dimension.
+    - Current dependency-free baseline in this repo: `HashProjector` (feature hashing / CountSketch) in `crates/pid-core/src/preprocess.rs`.
   - Any reduction changes the quantity being estimated (non-invertible transform); always report it with results.
 
 ### kNN backend requirements (exact first, pluggable later)
