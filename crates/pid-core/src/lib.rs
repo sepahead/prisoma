@@ -1,3 +1,27 @@
+//! `pid-core`: continuous mutual information + shared-exclusions PID (`I^sx_∩`) estimators.
+//!
+//! This crate implements:
+//! - KSG mutual information (Kraskov et al. 2004) for continuous variables
+//! - Wibral-group shared-exclusions redundancy `I^sx_∩(S1,S2;T)` (Makkeh et al. 2021)
+//! - Continuous shared-exclusions estimator (Ehrlich et al. 2024)
+//! - 2-source PID atoms derived from MI + `I^sx_∩`, and an optional 3-source SxPID
+//! - A hierarchical “fast→slow” screening path for many-source settings
+//!
+//! # Units
+//! All information quantities are reported in **nats** (natural logarithm).
+//!
+//! # Scientific contract
+//! The mathematical object of interest is `I^sx_∩` and its derived PID atoms. Estimators are
+//! finite-sample algorithms with failure modes; do not interpret downstream VLA results without
+//! passing the Experiment 0 validation gate described in `grandplan.md`.
+//!
+//! # Estimator cautions (read before using on VLA embeddings)
+//! - kNN estimators assume i.i.d. samples; trajectories violate this unless you subsample.
+//! - High ambient/intrinsic dimension can collapse kNN geometry (distance concentration).
+//! - Strong dependence (near-deterministic mappings) can require prohibitive samples even at low
+//!   dimension.
+//! - `I^sx_∩` (and PID atoms) are **not guaranteed non-negative** under all desiderata; negative
+//!   values are possible and must be representable.
 #![forbid(unsafe_code)]
 
 mod ci;
@@ -18,7 +42,10 @@ mod stats;
 pub use ci::{co_information_pairwise, co_information_triplet};
 pub use distance_matrix::{symmetric_distances, SymmetricDistanceMatrix};
 pub use error::{PidError, PidResult};
-pub use geometry::{intrinsic_dimension_levina_bickel, IntrinsicDimConfig};
+pub use geometry::{
+    distance_concentration_stats, intrinsic_dimension_levina_bickel, DistanceConcentrationConfig,
+    DistanceConcentrationStats, IntrinsicDimConfig,
+};
 pub use hierarchy::{
     hierarchical_pairwise, hierarchical_triplet, HierarchicalConfig, HierarchicalTriplet,
     PairSelection, PairwiseScreen,

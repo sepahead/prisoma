@@ -11,6 +11,8 @@
 - Corrected multiple overconfident/incorrect statements (especially around deterministic targets, kNN scaling/latency claims, and how `sae_analysis` relates to `I^sx_∩`).
 - Updated citations in §13 using arXiv/Crossref metadata where possible; corrected/added missing VLA model references (e.g., DreamVLA).
 - Tightened hypotheses into falsifiable, non-forced claims; clarified what constitutes evidence vs. speculation.
+- Corrected/clarified Shannon-invariant definitions (CI sign conventions; O-information vs target co-information) and fixed downstream scaling sketches to match.
+- Aligned reproducibility guidance with the repo-canonical `flake.nix` + `uv.lock` workflow (macOS-first).
 
 **Reference verification status (important):**
 - Core `I^sx_∩` / KSG papers: verified by DOI metadata; local copies exist under `.external/papers/`.
@@ -185,6 +187,11 @@ Where `i(·;·)` is the **pointwise mutual information**:
 i(s; t) = log[p(s, t) / (p(s)·p(t))]
 ```
 
+**Subtle but important (do not gloss over):**
+- The *local* term `i(t : W_{s₁,s₂}=1)` is a pointwise mutual information with an auxiliary statement variable.
+- The *global* redundancy `I^sx_∩(S₁,S₂;T)` is **not** the mutual information `I(T;W)` because the expectation is taken over `p(t,s₁,s₂)` (Makkeh et al. 2021 note under Eq. 17), not over `p(t,W)`.
+- Consequence: even the **redundancy itself** can be negative at the distribution level; negative values are not automatically “bugs,” but they do require careful interpretation and estimator validation.
+
 Ehrlich et al. (2024) derive a **kNN/KSG-style estimator** for the continuous case by replacing conjunction (intersection) neighborhoods with disjunction (union) neighborhoods; see §8.1.3 for the concrete estimator form.
 
 **Important:** Do **not** confuse `I^sx_∩` with Williams & Beer’s `I_min`, which is defined using a minimum over “specific information” terms; `I_min` is a different redundancy measure.
@@ -195,7 +202,7 @@ Ehrlich et al. (2024) derive a **kNN/KSG-style estimator** for the continuous ca
 |----------|--------|-------------|
 | **Differentiability (distribution-level)** | ✓ | Differentiable as a functional of probabilities; **gradient-based training still requires a differentiable estimator** (the kNN/KSG estimator is not). |
 | **Target Chain Rule** | ✓ | Atoms sum to total MI |
-| **Atom non-negativity** | ✗ | Some atoms (especially synergy/unique) can be negative |
+| **Atom non-negativity** | ✗ | Some atoms can be negative (including `I^sx_∩` itself; not just synergy/unique) |
 | **Transformation Invariance** | ✗ | Traded for TCR |
 
 ### 2.2.3 Why Negative Synergy is Possible
@@ -216,9 +223,10 @@ Syn = I(S₁, S₂; T) - Red - Unq₁ - Unq₂ < 0
 This means: Red + Unq₁ + Unq₂ > I(S₁, S₂; T)
 
 **Interpretation options:**
-1. **Overestimated redundancy:** The measure counts some information as redundant that shouldn't be
-2. **Subadditive information:** Combining sources yields less than expected
-3. **Pointwise misinformation:** At specific points, observing (s₁, s₂) makes t LESS likely than marginally expected
+1. **Redundancy-leaning allocation under `I^sx_∩`:** relative to other PID measures, `I^sx_∩` can allocate more (or even negative) redundancy to satisfy its axioms; the synergy term adjusts accordingly via the PID identities.
+2. **Subadditivity in the chosen decomposition:** combining sources yields less *net* information about `T` than suggested by their individual terms once redundancy is accounted for (a statement about the decomposition, not about “conflict”).
+3. **Pointwise misinformation:** at specific points, observing `(s₁,s₂)` can make `t` less likely than marginally expected (negative local information), which can propagate into negative PID atoms depending on the measure.
+4. **Estimator/pathology:** high dimension, strong dependence, ties/quantization, and trajectory autocorrelation can all produce artifactual negative atoms; treat “unexpected signs” as a prompt to run controls, not as a conclusion.
 
 **NOT a valid interpretation:** "The sources are fighting each other" or "conflict" in any intuitive sense. This is a seductive but potentially misleading metaphor.
 
@@ -255,7 +263,13 @@ For each sample `i`, let `εᵢ` be the distance to the `k`-th nearest neighbor 
 Î^sx_∩ = ψ(k) + ψ(N) − (1/N) Σ_i [ ψ(n_α(i)) + ψ(n_T(i)) ]
 ```
 
-See §8.1.3 for concrete implementation notes (tie handling matters).
+**Counting convention (make this explicit; it affects off-by-one bugs):**
+- In many KSG-style presentations, neighbor counts exclude the sample itself and the formula uses `ψ(n_x(i)+1)` / `ψ(n_y(i)+1)`.
+- In other (equivalent) presentations, counts **include** the sample itself and the `+1` is absorbed into the count.
+
+This document (and `crates/pid-core`) uses the **include-self** convention for `n_α(i)` and `n_T(i)` so the digamma arguments are the inclusive counts.
+
+See §8.1.3 for concrete implementation notes (tie handling and “strict radius” rules matter).
 
 ## 2.4 Infomorphic Networks (Optional / Exploratory)
 
@@ -312,21 +326,36 @@ CI(V, L, D; A) = I(V;A) + I(L;A) + I(D;A)
 ```
 
 **Interpretation:**
-- CI < 0: Net synergy (three-way cooperation required)
-- CI > 0: Net redundancy (three-way overlap)
-- CI ≈ 0: Sources operate relatively independently
+This is the natural higher-order extension of the pairwise “interaction information” with a distinguished target:
+
+```
+CI_m(X₁,…,X_m; Y) := Σ_{∅≠S⊆{1..m}} (-1)^{|S|+1} I(X_S; Y)
+```
+
+For `m=2`, this reduces to `CI_2(X₁,X₂;Y)=I(X₁;Y)+I(X₂;Y)-I(X₁,X₂;Y)=Red−Syn` (a Shannon invariant for any bivariate PID).
+
+**Sign convention warning:** literature flips signs and names (co-information vs interaction information) depending on author. In this document, **negative CI is treated as “synergy-dominant”** (i.e., `Syn > Red` for the corresponding bivariate PID), and **positive CI** as “redundancy-dominant”.
+
+**Important:** `CI_m` is a Shannon-invariant summary computed from MI terms. It is **not** a PID and it conflates multiple PID atoms for `m≥3`. Use it as a screening statistic, not as a substitute for `I^sx_∩`.
 
 **O-Information (for n > 3 variables):**
 
-Gutknecht et al. (2025) generalize to the O-information (also called "enigmatic information"):
+O-information (Rosas et al., 2019) is a **synergy-vs-redundancy bias** scalar defined for a *set of variables* (no distinguished target). A standard entropy-form definition is:
 
 ```
-Ω(X₁,...,Xₙ;Y) = (n-2)·I(X₁,...,Xₙ;Y) + Σᵢ I(Xᵢ;Y) - Σᵢ<ⱼ I(Xᵢ,Xⱼ;Y) + ...
+Ω(X₁,…,Xₙ) = (n-2)·H(X₁,…,Xₙ) + Σᵢ H(Xᵢ) − Σᵢ H(X_{-i})
 ```
 
-For n=3, this reduces to co-information. For larger systems, O-information provides a scalable summary of whether the system is predominantly synergistic or redundant.
+where `X_{-i}` denotes the collection of all variables except `Xᵢ`. Equivalently, `Ω = TC − DTC` (total correlation minus dual total correlation).
 
-**Application to VLA:** When analyzing attention heads or hidden layer neurons (potentially hundreds of sources), O-information can summarize the overall information structure without computing exponentially many PID atoms.
+For `n=3`, `Ω(X,Y,Z)` equals the (3-variable) co-information / interaction information (up to sign conventions).
+
+**How to use it here (and where it does *not* help):**
+- It can summarize whether a *chosen small set* (e.g., `{V,L,D,A}` or `{V,L,D}`) is globally synergy-leaning (`Ω<0`) vs redundancy-leaning (`Ω>0`).
+- It is **not automatically scalable** to “hundreds of attention heads” in the raw sense: estimating the required high-order entropies/CMIs in high-dimensional continuous spaces can be harder than PID itself unless you introduce strong structure (coarse-graining, factorization, parametric assumptions, or dedicated estimators).
+- Treat `Ω` as a screening/description statistic that may motivate where to apply the hierarchical SxPID pipeline (Level 1 CI → Level 2 targeted `I^sx_∩`).
+
+**Application to VLA:** `Ω` can be useful once you have **a small, well-defined set of variables** (or a **coarse-grained** representation of many units). It is not a “free lunch” for hundreds of raw attention heads unless you add structure (clustering/SAE, factor models, or other dimensionality reduction) and re-validate estimator behavior.
 
 ### 2.5.4 How Shannon Invariants Solve Our Problems
 
@@ -526,9 +555,10 @@ This informs which architectural choices improve integration vs. reliance on ind
 **What entropy tells us:** "Train on examples where the model is uncertain."
 
 **What PID decomposition tells us:**
-- "Model has low Syn on manipulation tasks → prioritize manipulation data"
-- "Model has high Unq(D), low Unq(V) → add visual grounding data"
-- "Model shows Syn_VL < 0 → add language-vision alignment data"
+- *(Hypotheses; require a validated estimator regime + controls for confounds like task difficulty and distribution shift.)*
+- "Model shows persistently low/unstable Syn on manipulation tasks → candidate integration weakness → prioritize targeted manipulation data"
+- "Model shows high Unq(D) and low Unq(V) (relative to validated baselines) → candidate over-reliance on internal state → add visual grounding data"
+- "Model shows atypical V–L interaction signatures (e.g., CI_VL strongly negative or `Syn_VL` consistently extreme) → candidate language–vision alignment issue → add alignment data"
 
 **Proposed curriculum objective:**
 ```python
@@ -542,9 +572,10 @@ curriculum_priority = α*|Syn| + β*imbalance(Unq_V, Unq_D) + γ*task_importance
 **What entropy tells us:** "Collect data for high-uncertainty scenarios."
 
 **What PID decomposition tells us:**
-- "Model needs visual grounding data (high Unq(D), low Unq(V))"
-- "Model needs language-vision alignment data (Syn_VL < 0)"
-- "Model needs action diversity (high Red between tasks)"
+- *(Hypotheses; PID atoms can be negative under `I^sx_∩` and can be estimator-sensitive at high `d`.)*
+- "Model needs visual grounding data (e.g., Unq(V) systematically low relative to Unq(D) under validated preprocessing)"
+- "Model needs language–vision alignment data (e.g., V–L pair shows abnormal CI/PID signatures compared to controls)"
+- "Model needs action diversity / disambiguation (e.g., redundancy-dominant signatures across task variants; verify with controlled task splits)"
 
 This enables **targeted** data collection rather than blanket uncertainty-based collection.
 
@@ -555,9 +586,10 @@ This enables **targeted** data collection rather than blanket uncertainty-based 
 **What entropy tells us:** "Robot is uncertain → request help."
 
 **What PID decomposition tells us:**
+- *(Heuristic; only meaningful if the estimator regime is validated and the mapping is learned/calibrated on held-out data.)*
 - High Unq(D), low Unq(V) → "Show me what you see" (visual confirmation)
 - High Unq(V), low Unq(D) → "What do you expect to happen?" (prediction query)  
-- Syn_VL < 0 → "Did you understand the instruction?" (language clarification)
+- V–L signatures suggest mismatch → "Did you understand the instruction?" (language clarification)
 
 **Note:** This requires fast PID computation (<10ms), which is currently challenging. May need to use PID signatures computed offline to classify real-time scenarios.
 
@@ -568,9 +600,9 @@ This enables **targeted** data collection rather than blanket uncertainty-based 
 **What entropy tells us:** "Model uncertainty stays below threshold X."
 
 **What PID decomposition tells us:**
-- "Model never enters negative synergy state" (always coherent)
-- "Model shows stable Syn across task variations" (robust integration)
-- "Failure modes are traceable to specific information sources"
+- "Model avoids extreme negative-atom regimes outside those seen in validated controls" (a stability check, not a guarantee of “coherence”)
+- "Model shows stable information signatures across task variations under fixed preprocessing" (robustness evidence if replicated)
+- "Failure modes are *more traceable* to specific information sources" (interpretability hypothesis; validate against intervention tests)
 
 This provides an **audit trail** for safety certification that entropy alone cannot provide.
 
@@ -599,7 +631,7 @@ Robo-Dopamine introduces a General Reward Model (GRM) trained on 35M samples fro
 - **Step-wise Reward Discretization:** Hop-based relative progress labels
 - **Multi-Perspective Progress Fusion:** Combines incremental, forward-anchored, and backward-anchored predictions
 - **Policy-Invariant Reward Shaping:** Avoids "semantic trap" where agent stagnates in high-progress states
-- **Results:** 92.8% progress accuracy, 0.953 VOC score, policy improves from ~0% to 95% in 150 rollouts
+- **Results:** 92.8% progress accuracy, 0.953 VOC score, policy improves from ~0% to 95% in 150 rollouts *(paper-reported; verify evaluation protocol if used for quantitative comparisons).*
 
 ### 3.5.2 Comparison: PID vs. PRM
 
@@ -673,7 +705,7 @@ Where:
 
 ### 4.1.1 Problems with V-D-A
 
-1. **Degeneracy:** A is computed from (V, D, L), so I(V, D; A) ≈ H(A)
+1. **Potential degeneracy:** because `A` is computed from `(V,D,L)`, `I(V,D;A)` can become close to `H(A)` when `L` is constant/redundant and inference is near-deterministic. Treat this as a *dataset- and inference-protocol-dependent risk*, not an identity (see Warning 2 in §1.2).
 2. **L is ignored:** Language instruction is not in the decomposition
 3. **D is often implicit:** In autoregressive VLAs like OpenVLA, there's no explicit "dream" state
 
@@ -708,7 +740,7 @@ Many VLA failures are specifically **language grounding failures**:
 - "Place it on the left" → robot places on right
 - Instruction ambiguity → wrong interpretation
 
-V-D-A cannot distinguish these from vision-dream conflicts.
+V-D-A cannot distinguish these from other V–D internal mismatch hypotheses without language-side controls.
 
 ## 4.3 The Question of Ignoring L
 
@@ -959,8 +991,8 @@ The WAN (Wanxiang/Tongyi Wanxiang) family has evolved significantly:
 | Trajectory guidance | Wan-Move | Propagate motion through latent trajectories |
 
 **DreamGen Benchmark Results** (benchmarking WAN 2.1 for robotics):
-- Instruction Following: ~60-70% (GPT4o evaluation)
-- Physics Alignment: ~50-60%
+- Instruction Following: ~60-70% (paper-reported; GPT-4o evaluation is protocol-sensitive; treat as approximate)
+- Physics Alignment: ~50-60% (paper-reported; verify task suite and scoring)
 - Outperformed by Cosmos (pre-trained on physical-AI data)
 - Can be fine-tuned on robot data to improve alignment
 
@@ -1148,13 +1180,13 @@ Image → SigLIP ViT → Prismatic Projector → Llama 2 7B → Action Tokens �
 - **No explicit world model:** "D" must be inferred from hidden states
 - **Causal attention:** Each token only attends to previous tokens
 - **Hidden states:** 4096-dim at each of 33 layers
-- **Layer-specific encoding:** Object states in early layers, action states in later layers (per probing studies)
+- **Layer-specific encoding:** object-state vs action-state localization is *often* reported in probing studies for large transformers, but treat any specific layer claim here as **unverified until you cite a concrete probing result for OpenVLA**.
 
 ### 7.1.3 Where to Extract "D"?
 
 Options:
-1. **Layer 16 (middle):** World model emerges here per probing studies
-2. **Layer 24:** Good for action prediction
+1. **Layer 16 (middle):** candidate “mid-level” representation (heuristic; requires model-specific probing)
+2. **Layer 24:** candidate “late” representation (heuristic; requires model-specific probing)
 3. **Average across layers:** Lose layer-specific information
 4. **Don't use D at all:** Focus on V-L-A decomposition
 
@@ -1281,7 +1313,7 @@ PixelVLA offers unique advantages for PID-based diagnostics:
 | **Explicit D** | No | Yes | No |
 | **Pixel-level V** | No | Partial (depth pred.) | Yes |
 | **Visual prompts** | No | No | Yes (points, masks) |
-| **Action type** | Discrete (256-bin) | Continuous (flow) | Continuous (L1) |
+| **Action type** | Discrete (256-bin) | Continuous (diffusion-based transformer) | Continuous (L1) |
 | **Best PID decomposition** | V-L-A | V-D-A | V_multi-L-A |
 
 **Recommendation:** Use PixelVLA when:
@@ -1451,7 +1483,7 @@ This section integrates differential-geometry ideas **only where they produce ac
 It is important to separate:
 - **Scientific object (fixed):** Wibral-group shared-exclusions redundancy `I^sx_∩` (Makkeh 2021) + its continuous disjunction-kNN estimator (Ehrlich 2024).
 - **Estimator geometry (variable):** how we choose coordinates/metrics/projections to make finite-sample estimation behave.
-- **Metaphor vs method:** the local note `Information Theory Meets Differential Geometry.pdf` contains *conceptual analogies* (Lorentzian rigidity ↔ PID axiom rigidity). These are interesting for intuition but are **not** evidence and do not directly yield a new `I^sx_∩` estimator. Treat them as background reading, not as a correctness source.
+- **Metaphor vs method:** differential-geometry analogies (e.g., Lorentzian rigidity ↔ PID axiom rigidity) can be useful intuition pumps, but they are **not** evidence and do not directly yield a new `I^sx_∩` estimator. Treat them as background intuition, not as a correctness source.
 
 #### A) First principles: what transformations are truly “free”
 
@@ -1462,7 +1494,8 @@ Practical consequence:
 - Prefer **invertible** preprocessing steps (standardization, whitening, monotone marginal Gaussianization) before resorting to non-invertible dimension reduction, because invertible reparameterizations can improve kNN geometry **without changing the true MI**.
 
 For PID:
-- `I^sx_∩` is a functional of the underlying distribution and is designed to be invariant under invertible relabelings at the theoretical level (as with other information-theoretic quantities), but **finite-sample estimators are not automatically invariant**. In practice, you must still re-validate after any substantial preprocessing change (Experiment 0 subset).
+- **Do not assume “free invariance” the way you can for MI.** In discrete settings, `I^sx_∩` is trivially invariant under relabelings (permutations). In continuous settings, the *estimator* (and the “treat sources on equal footing” convention in Ehrlich et al. 2024) introduces metric/scale choices; even invertible reparameterizations can change finite-sample behavior and can effectively redefine what you are measuring unless carefully controlled.
+- Practical rule: treat preprocessing as part of the measurement definition; keep it explicit, keep it fixed across runs, and re-validate after substantial changes (Experiment 0 subset).
 
 Hard constraint (do not violate):
 - Do **not** apply transforms that mix variables (no PCA/ICA on `[S1|S2|T]` concatenations). Mixing can change the target quantity and can also change what “source” means scientifically.
@@ -1506,7 +1539,7 @@ How this could help (hypotheses; must be tested):
 How this could fail:
 - Any non-invertible projection (including hyperbolic embedding to low dimension) changes the information quantities. Treat it like a learned projection: re-run Experiment 0-style validation and report it as a different measurement regime.
 
-#### E) Critical audit of `Information Theory Meets Differential Geometry.pdf` (local file; Jan 2026)
+#### E) Differential-geometry analogies: audit and safe usage (Jan 2026)
 
 This repo-local PDF is best read as a *conceptual synthesis note*, not as a technical specification. Below is a line-by-line-level **classification** of its major claims into: (i) correct math, (ii) plausible but not directly useful here, and (iii) speculative/unsupported.
 
@@ -1517,7 +1550,7 @@ What is solid (mathematics, broadly standard):
 
 What is plausible background but not an actionable method for PID-VLA (needs careful scoping):
 - **Rigidity-theorem analogy:** comparing “axiom rigidity” (PID) to “symmetry/curvature rigidity” (Lorentzian conformal geometry) can be a useful intuition pump, but it does not produce estimator-level guarantees for `I^sx_∩` on embeddings.
-- **Lorentz (hyperboloid) model link:** the PDF’s emphasis on Lorentzian signatures is indirectly relevant because modern **hyperbolic embedding** methods often use the Lorentz model, but that is a representational choice, not a proof about PID atoms.
+- **Lorentz (hyperboloid) model link:** emphasis on Lorentzian signatures is indirectly relevant because modern **hyperbolic embedding** methods often use the Lorentz model, but that is a representational choice, not a proof about PID atoms.
 
 What is speculative / not currently supported for this project (treat as hypotheses at best):
 - **Direct identification of PID atoms with timelike/null/spacelike geometry:** mapping {Red, Unq, Syn} onto Lorentzian causal classes is metaphorical; PID is defined on probability distributions, not spacetime intervals.
@@ -1540,7 +1573,11 @@ At d=4096, k-NN suffers from:
 
 ### 8.2.2 Options
 
-Before non-invertible dimensionality reduction, consider **invertible reparameterizations** that can improve kNN geometry without changing the true MI (e.g., per-variable standardization/whitening; monotone marginal Gaussianization). These are “geometry fixes,” not “information fixes,” and still require Experiment 0 validation.
+Before non-invertible dimensionality reduction, consider **invertible reparameterizations**:
+- For **MI-only terms** (KSG MI, CI screening), per-variable invertible transforms can improve kNN geometry **without changing the true MI**.
+- For **`I^sx_∩`**, treat such transforms as an explicit part of the measurement definition (the estimator has metric/scale conventions); keep them fixed and validate them.
+
+These are “geometry fixes,” not “information fixes,” and still require Experiment 0 validation.
 
 | Method | Dimensions | Properties |
 |--------|------------|------------|
@@ -1553,9 +1590,10 @@ Before non-invertible dimensionality reduction, consider **invertible reparamete
 
 ### 8.2.3 Recommendation
 
-1. **Start with PCA to 256-dim** (retaining 95% variance)
-2. Compare against random projection baseline
-3. If needed, train learned projections optimized for PID estimation
+1. **Run geometry diagnostics first** (intrinsic dimension + distance concentration); use them to justify whether kNN/PID is plausible at all.
+2. If dimensionality reduction is needed, **start with PCA** (e.g., retain 95% variance) and treat ~256 dims as an initial engineering target, not a law.
+3. Compare against a random projection baseline.
+4. If needed, train learned projections optimized for the downstream diagnostic objective (and re-run Experiment 0 at the resulting dimension).
 
 ## 8.3 Computational Considerations
 
@@ -1589,7 +1627,7 @@ Engineering posture:
 Be explicit about what is “known”:
 
 1. **Discrete, definition-level sanity checks (lattice bookkeeping):**
-   - XOR / copy / unique toy systems have unambiguous *discrete* PID expectations (e.g., XOR is synergy-dominated).
+   - XOR / copy / unique toy systems have clear *qualitative* structure (redundant vs synergistic vs unique-dominant), but **numeric atom values depend on the PID measure** (and some measures allow negative atoms even in simple systems).
    - Use these to sanity-check antichain ordering, atom identities, and qualitative behavior via a *discrete* SxPID implementation (e.g., `Abzinger/SxPID`).
    - These do **not** validate the continuous kNN estimator.
 
@@ -1740,11 +1778,14 @@ Determine which decomposition best predicts VLA failures.
    - V–D–A and V–D–A*: typically windowed within-trajectory (V,D,A vary over time).
    - V–L–A: `L` is often constant within a trajectory, so prefer cross-trajectory designs or a trajectory-level target.
 3. Extract embeddings (V, L, D, A, and optionally A*) with explicit pooling rules and logged preprocessing.
+   - **Leakage rule (critical):** any fitted preprocessing (PCA, learned projection, SAE, normalization learned from data) must be fit on the training split only, then applied to validation/test. Never fit PCA on the full dataset if you report predictive performance.
 4. Compute features at multiple fidelity levels:
    - Level 0: co-information / Shannon invariants (fastest; usable broadly).
    - Level 1/2: pairwise `I^sx_∩` PID on selected windows/episodes (expensive; targeted).
 5. Convert time series into per-trajectory features (e.g., mean/min/quantiles/%negative/peak magnitude, plus duration-above-threshold).
-6. Train and evaluate a predictor (logistic regression / small MLP) using cross-validation; report AUROC + calibration + confidence intervals.
+6. Train and evaluate a predictor (logistic regression / small MLP) using **grouped** cross-validation; report AUROC + calibration + confidence intervals.
+   - **Grouping rule:** do not let windows/timesteps from the same trajectory appear in both train and test folds.
+   - If you evaluate across multiple tasks/instructions, consider grouping by task family or instruction template to test generalization (not just memorization).
 
 ### 9.2.4 Expected Outcome
 
@@ -1769,6 +1810,8 @@ Report which decomposition achieves highest AUROC.
 
 SxPID-derived features achieve AUROC **statistically significantly** > best baseline (paired bootstrap, p < 0.05) with a preregistered effect size, OR yield a well-supported negative result with clear analysis.
 
+**Evaluation hygiene (avoid overclaiming):** select hyperparameters and “best baseline” variants using training/validation only (nested CV or a held-out test set for the final claim).
+
 ## 9.4 Experiment 3: Dimensionality Study
 
 ### 9.4.1 Purpose
@@ -1786,7 +1829,12 @@ Determine optimal dimensionality for PID estimation.
 
 ### 9.4.3 Metric
 
-AUROC for failure detection at each dimensionality.
+Primary: AUROC for failure detection at each dimensionality.
+
+Also report (because “best AUROC” can hide estimator collapse):
+- estimator diagnostics (tie rate / zero radii, distance concentration proxies, intrinsic-dimension estimates),
+- variance across seeds (bootstrap / repeated splits),
+- runtime and memory (so “best” is not infeasible).
 
 ## 9.5 Experiment 4: Causal Validation
 
@@ -1796,11 +1844,23 @@ Test whether PID-derived signals respond to controlled interventions in a way co
 
 ### 9.5.2 Protocol
 
-1. **Intervention:** Corrupt D by adding noise to world model predictions
-2. Measure synergy change
-3. Verify failure rate increases
-4. **Control:** Corrupt D in ways that DON'T change synergy
-5. Verify failure rate unchanged
+This experiment is only meaningful if **D is operationally interventionable** (e.g., an explicit predicted channel in DreamVLA) and if you define a target that avoids the “A is deterministic” tautology (prefer `A*` or an external failure/success label).
+
+1. **Paired rollout design (reduce confounds):** for each initial state/instruction seed, run a baseline rollout and an intervention rollout that differs only in the D-intervention (same environment seed when possible).
+2. **Intervention family (explicitly enumerate):**
+   - **Ablation:** drop/mask a D channel (e.g., depth tokens) before fusion.
+   - **Noise injection:** add calibrated noise to D (sweep noise level).
+   - **Permutation (dependence-breaking) control:** randomly permute D across samples/episodes to break dependence on V while preserving D’s marginal distribution (offline analysis; or online if architecture allows swapping).
+3. **Measurement:** compute the relevant PID/Shannon-invariant features under a fixed preprocessing pipeline:
+   - If using `A*`: compute PID on `(V,D)→A*` (or on error `E=A−A*`) so the target is external.
+   - If using a failure label: treat this as a mixed discrete/continuous setting; either discretize appropriately or use MI-only screening features as the primary statistic (do not pretend continuous kNN PID applies unchanged).
+4. **Predictions (pre-register):**
+   - D-degrading interventions should reduce `I(D;A*)` and shift the corresponding PID signatures (e.g., Unq(D) and/or Syn(V,D;A*) depending on architecture).
+   - Dependence-breaking interventions (permutation) should collapse D-related terms toward 0 under ideal estimation (a strong estimator sanity check).
+5. **Outcomes:** compare paired failure rates and PID feature shifts with paired statistical tests (e.g., paired bootstrap over seeds/episodes).
+6. **Controls (“placebo”):** include at least one intervention expected to be task-irrelevant (e.g., perturb a D subspace empirically shown to be unused by the policy) and verify it does not systematically change either PID features or failure rate.
+
+**Critical caveat:** an intervention can change PID features without being “the cause of failure” if it induces broader distribution shift. Interpret this experiment as *intervention consistency evidence*, not as full causal identification.
 
 ### 9.5.3 Expected Outcome
 
@@ -1826,6 +1886,8 @@ External world models can serve as:
 2. **Analytical baselines:** Compare VLA predictions against reference predictions
 3. **Data augmentation:** Generate synthetic training data
 4. **Training environment generation:** Create unlimited simulation scenarios
+
+**Scope / verification note:** this entire section is *optional* and contains a mix of (a) paper-reported capabilities and (b) engineering design sketches. Treat architecture diagrams and runtime/latency numbers as **to-be-verified on your hardware and data**, and do not let this section block the core PID validation (Experiment 0 + Experiments 1–3).
 
 ### 10.1.1 World Model Taxonomy
 
@@ -2068,9 +2130,9 @@ StereoVLA shows improved spatial reasoning by providing the VLA with native 3D i
 - Time-of-flight sensors receive corrupted signals
 - Stereo correspondence fails on textureless transparent regions
 
-**The "Diffusion Knows Transparency" Principle:**
+**The “Diffusion Knows Transparency” principle (interpret cautiously):**
 
-DKT (arXiv:2512.23705) demonstrates a key insight: **video diffusion models have implicitly internalized the physical principles of light transport**—refraction, reflection, and transmission through transparent materials. By observing millions of videos, models like WAN have learned how light behaves with glass, water, and reflective surfaces without explicit physics simulation.
+DKT (arXiv:2512.23705) argues that strong video diffusion priors can help infer depth for transparent/reflective objects. Interpret this as **learned statistical regularities** that are often consistent with light transport (refraction/reflection), not as evidence that the model “understands physics” in a mechanistic sense.
 
 **Architecture:**
 ```
@@ -2104,9 +2166,9 @@ DKT integrated with AnyGrasp achieves improved success rates across:
 
 This is a genuine connection to PID diagnostics:
 
-1. **V Quality Affects All PID Measurements:** If the VLA's visual input V contains corrupted depth for transparent objects, any PID analysis measures noise, not meaningful integration:
+1. **V quality affects interpretability:** if the visual representation `V` is dominated by perception artifacts (e.g., transparent-object depth failures), the resulting MI/PID quantities are still mathematically well-defined but can become **semantically uninterpretable** for “integration quality” questions:
    ```
-   Corrupted V → Invalid I(V;A) → Unreliable Syn(V,D;A)
+   Perception artifact → V no longer tracks scene geometry → PID reflects the artifact regime
    ```
 
 2. **V-D Mismatch from Perception Failure:** When standard depth sensors fail on glass:
@@ -2621,40 +2683,58 @@ pid-vla/
 └── results/               # Experiment results
 ```
 
+**Repo status (v4 draft):**
+- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, and a Rust `exp0` runner).
+- Planned: `crates/pid-python`, `crates/pid-tauri`, and the `python/` experiment harness (keep the structure above as the target layout, but do not assume those folders exist yet).
+
 ## 11.3 Reproducibility
+
+**Canonical (repo truth):** `flake.nix`, `flake.lock`, `pyproject.toml`, and `uv.lock` at the repo root.
+
+If the examples below diverge from the repo files, **prefer the repo files**. (This document is a spec; the repo is the executable artifact.)
 
 ### 11.3.1 Nix Flake
 
 ```nix
 {
-  description = "PID-VLA: Shared-Exclusions PID for Vision-Language-Action Diagnostics";
+  description = "pid_vla (macOS-first): reproducible dev shell for Rust + Python (uv)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rust-overlay.url = "github:oxalica/rust-overlay";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, rust-overlay, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ (import rust-overlay) ];
-        };
-        rustVersion = pkgs.rust-bin.stable.latest.default;
-      in {
+        pkgs = import nixpkgs { inherit system; };
+      in
+      {
         devShells.default = pkgs.mkShell {
-          buildInputs = [
-            rustVersion
-            pkgs.python311
-            pkgs.uv
-            pkgs.just
+          packages = with pkgs; [
+            just
+
+            # Rust toolchain (pin via flake.lock).
+            rustc
+            cargo
+            rustfmt
+            clippy
+
+            # Python + uv (pin via flake.lock; pin deps via uv.lock).
+            python311
+            uv
           ];
+
+          # Prefer a system/Nix-provided Python; do not auto-download Pythons.
+          UV_NO_MANAGED_PYTHON = "1";
+          UV_PYTHON_DOWNLOADS = "never";
         };
-      });
+      }
+    );
 }
 ```
+
+**Lockfile requirement:** commit `flake.lock` (generate/update with `nix flake lock`).
 
 ### 11.3.2 uv for Python
 
@@ -2662,21 +2742,23 @@ pid-vla/
 [project]
 name = "pid-vla"
 version = "0.1.0"
+description = "Wibral-group shared-exclusions PID (I^sx_∩) for VLA diagnostics"
+readme = "README.md"
 requires-python = ">=3.11"
 
-dependencies = [
-    "numpy>=1.24",
-    "scipy>=1.11",
-    "scikit-learn>=1.3",
-    "torch>=2.0",
-    "polars>=0.19",
-    "matplotlib>=3.8",
-]
+# Keep base dependencies minimal; add groups as needed.
+dependencies = []
 
-[project.optional-dependencies]
-dev = ["pytest", "black", "ruff", "mypy"]
-mlx = ["mlx>=0.5"]
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+analysis = ["numpy>=1.26", "scipy>=1.11", "pandas>=2.2", "matplotlib>=3.8", "seaborn>=0.13"]
+report = ["reportlab>=4.0"]
+
+[tool.uv]
+default-groups = ["dev", "analysis"]
 ```
+
+**Lockfile requirement:** commit `uv.lock` and use `uv sync --frozen` for deterministic installs.
 
 ---
 
@@ -2822,6 +2904,7 @@ Can PID profiles predict how well a policy will transfer across:
 ## 13.7 Information Theory
 
 - **KSG Estimator:** Kraskov et al. (2004). Phys Rev E 69:066138
+- **O-information (Ω; synergy-vs-redundancy bias for a set of variables):** introduced by Rosas et al. (2019). *(Bibliographic details should be verified; included as optional background, not part of the Wibral-group `I^sx_∩` line.)*
 - **kNN MI under strong dependence (limitations + fixes):**
   - Gao, Ver Steeg, Galstyan (2015). *Efficient Estimation of Mutual Information for Strongly Dependent Variables.* arXiv:1411.2003.
   - Gao, Ver Steeg, Galstyan (2015). *Estimating Mutual Information by Local Gaussian Approximation.* arXiv:1508.00536.
@@ -2868,7 +2951,7 @@ Can PID profiles predict how well a policy will transfer across:
 
 ## 13.12 Differential Geometry & Non-Euclidean Representation (Optional)
 
-- **Local note (conceptual; not peer-reviewed):** *Information Theory Meets Differential Geometry* (PDF in repo root: `Information Theory Meets Differential Geometry.pdf`). Treat as a hypothesis/analogy document, not a correctness source.
+- Differential-geometry contingency notes are integrated into §8.1.5 (optional background; not a correctness source).
 - **Manifold-aware MI estimation:** Marx, Fischer (2021). *Estimating Mutual Information via Geodesic kNN.* arXiv:2110.13883. (Riemannian/geodesic kNN MI; useful as MI-only baseline in curved settings.)
 - **Hyperbolic embeddings for hierarchies:**
   - Nickel, Kiela (2017). *Poincaré Embeddings for Learning Hierarchical Representations.* arXiv:1705.08039.
@@ -4594,6 +4677,7 @@ Authoritative implementation in this repo (kept in sync with tests; prefer these
 - `crates/pid-core/src/isx.rs` — continuous `I^sx_∩(S₁,S₂;T)` redundancy (Ehrlich et al. 2024; `IsxMethod::EhrlichKsg`), cross-checked against `csxpid`.
 - `crates/pid-core/src/pid2.rs` — 2-source PID atoms `{Red, Unq1, Unq2, Syn}` derived from MI + redundancy.
 - `crates/pid-core/src/hierarchy.rs` — hierarchical “fast→slow” screening path.
+- `crates/pid-core/src/geometry.rs` — geometry diagnostics: intrinsic dimension + basic distance concentration proxies.
 
 Minimal usage (redundancy only; returns **nats**):
 
@@ -4984,9 +5068,10 @@ impl IsxEstimator {
         }).sum::<f64>() / n as f64;
         
         let redundancy = psi_k + psi_n + avg_term;
-        
-        // Redundancy must be non-negative and bounded by min(I(S₁;T), I(S₂;T))
-        Ok(redundancy.max(0.0))
+
+        // IMPORTANT: In shared-exclusions PID, even the redundancy `I^sx_∩` can be negative
+        // at the distribution level (Makkeh et al. 2021 note under Eq. 17). Do not clamp.
+        Ok(redundancy)
     }
     
     /// Find the distance to the k-th nearest neighbor for each point.
@@ -5445,8 +5530,12 @@ The fundamental bottleneck is **NOT** the number of atoms, but:
 Compute summary statistics that are invariant across all PID measures:
 
 ```rust
-/// Co-information: Red - Syn (Shannon invariant)
-/// For 3 sources: O(7) MI estimates instead of O(18) PID atoms
+/// Bivariate co-information: CI₂(X₁,X₂;Y) = I(X₁;Y)+I(X₂;Y)-I(X₁,X₂;Y) = Red - Syn
+/// (a Shannon invariant for any 2-source PID).
+///
+/// For 3 sources (with a distinguished target), CI₃ is an interaction-information-style
+/// alternating sum of MI terms. It is a screening statistic (not a PID) and is much cheaper
+/// than estimating all 18 PID atoms.
 pub fn co_information_3way(
     s1: &[Vec<f64>],
     s2: &[Vec<f64>],
@@ -5469,36 +5558,37 @@ pub fn co_information_3way(
         + i_s1s2s3_t
 }
 
-/// O-information: Generalization to n sources
-pub fn o_information(
+/// m-way co-information relative to a target (generalization of CI₃).
+///
+/// NOTE: This is **not** the O-information Ω.
+/// - `CI_m(X₁,…,X_m;Y)` is defined via an alternating sum over MI terms `I(X_S;Y)`.
+/// - `Ω(X₁,…,X_n)` is defined on a *set of variables* (no distinguished target) via entropies
+///   and equals `TC - DTC`. See §2.5.3 for the correct Ω definition and scope limitations.
+pub fn co_information_mway(
     sources: &[&[Vec<f64>]],
     target: &[Vec<f64>],
     k: usize,
 ) -> f64 {
-    let n = sources.len();
-    let mut result = ((n as f64) - 2.0) * ksg_mi(&concat_all(sources), target, k);
-    
-    // Add single-source terms
-    for s in sources {
-        result += ksg_mi(s, target, k);
+    // CI_m(X₁,…,X_m;Y) := Σ_{∅≠S⊆{1..m}} (-1)^{|S|+1} I(X_S;Y)
+    //
+    // WARNING: enumerating all subsets is exponential in m; for PID-VLA screening we typically
+    // only use m ≤ 3 (pairwise CI and 3-way CI with a distinguished target).
+    let m = sources.len();
+    let mut sum = 0.0f64;
+    for mask in 1usize..(1usize << m) {
+        let r = mask.count_ones() as usize;
+        let sign = if (r % 2) == 1 { 1.0 } else { -1.0 };
+        let blocks = select_blocks(sources, mask);
+        sum += sign * ksg_mi(&concat_all(&blocks), target, k);
     }
-    
-    // Subtract pair terms (binomial coefficient weighting)
-    for i in 0..n {
-        for j in (i+1)..n {
-            result -= ksg_mi(&concat_sources(sources[i], sources[j]), target, k);
-        }
-    }
-    
-    // Continue alternating sum for higher-order terms...
-    result
+    sum
 }
 ```
 
 **Interpretation:**
-- CI < 0 or Ω < 0: Net synergy (cooperation dominates)
-- CI > 0 or Ω > 0: Net redundancy (overlap dominates)
-- Provides scalar summary without computing all 18 atoms
+- `CI_m < 0`: synergy-leaning interactions (sign convention; see §2.5.3)
+- `CI_m > 0`: redundancy-leaning interactions
+- Provides scalar summaries without computing all PID atoms, but does not replace `I^sx_∩`
 
 **Approach 2: Gaussian PID (NeurIPS 2023, 2024)**
 
@@ -5664,9 +5754,13 @@ SCALING STRATEGY
 
 Level 0: Shannon invariants (fastest; MI-only)
 ├── Compute CI_VL, CI_VD, CI_LD (pairwise co-information)
-├── Compute Ω(V,L,D;A) (3-way O-information)
+├── Compute CI_3(V,L,D;A) (3-way co-information / interaction information with a distinguished target)
 ├── O(7) MI estimates via KSG
 └── Use for: Real-time monitoring, fast screening
+
+Optional (research-only; not “MI-only cheap”):
+└── Compute Ω on a *set* (e.g., Ω(V,L,D,A) or Ω(V,L,D)) after coarse-graining/feature selection.
+    This requires high-order entropy estimation and can be harder than CI screening in high `d`.
 
 Level 1: Pairwise `I^sx_∩` PID (slower; targeted; likely requires dim reduction)
 ├── Apply PCA: 4096-d → 256-d (retain 95% variance)
@@ -5719,9 +5813,11 @@ pub fn auto_scaled_pid(
             ScaledPIDResult::Hierarchical { ci, pairwise }
         }
         (n, _) if n > 3 => {
-            // O-information only (scalable Shannon invariant)
-            let omega = o_information(&sources.iter().collect::<Vec<_>>(), target, config.k);
-            ScaledPIDResult::OInformation(omega)
+            // Scalable screening for many sources:
+            // - Compute the full pairwise CI₂ matrix (reusing single-source MI terms).
+            // - Optionally compute Ω on a *small, selected/coarse-grained* subset offline.
+            let ci2 = compute_pairwise_ci2_matrix(sources, target, config.k);
+            ScaledPIDResult::PairwiseCi2(ci2)
         }
         _ => unreachable!()
     }
@@ -5731,7 +5827,7 @@ pub enum ScaledPIDResult {
     Full(PIDResult),
     Reduced(PIDResult),  // With note about dimensionality reduction
     Hierarchical { ci: f64, pairwise: Vec<PIDResult> },
-    OInformation(f64),
+    PairwiseCi2(Vec<Vec<f64>>),
 }
 ```
 
@@ -5742,7 +5838,9 @@ pub enum ScaledPIDResult {
 | KSG MI | O(N² × d) | O(N × d) | ~1000 | Any |
 | I^sx_∩ 2-way | O(N² × d × 4) | O(N × d) | ~500 | 2 |
 | I^sx_∩ 3-way | O(N² × d × 18) | O(N × d) | ~256 | 3 |
-| Shannon invariants (m sources) | O(N² × d × (2^m − 1)) | O(N × d) | ~1000 | ~5 |
+| Pairwise CI₂ screening (m sources → target) | O(N² × d × m²) | O(N × d) | ~1000 | ~100 (still heavy) |
+| m-way CI_m (explicit subset sum) | O(N² × d × (2^m − 1)) | O(N × d) | ~500 | ~5 (not scalable) |
+| Ω (O-information on a set; entropy-based) | O(N² × d × m) | O(N × d) | ~500 | ~10–100 (depends on estimator; research-only) |
 | Gaussian PID | O(N × d + d³) | O(d²) | ~1024 | 2-3 |
 | NF-PID (Zhao et al.; “Thin-PID” legacy) | O(N × d × epochs) | O(d²) | 1000+ | 2-3 |
 
@@ -6645,6 +6743,11 @@ def benchmark_coreml_inference(
 
 ## B.6 Nix Configuration for Reproducibility
 
+**Important (avoid divergence):**
+- The **canonical** reproducibility config lives in the repo root: `flake.nix`, `flake.lock`, `pyproject.toml`, `uv.lock`.
+- This appendix includes a much larger “kitchen sink” flake from earlier drafts (Rust overlays, Python-withPackages, CUDA scaffolding, etc.). It is retained for context, but it is **not** the authoritative environment definition unless it is explicitly reconciled with the repo files.
+- Prefer: Nix pins **tooling** (rustc/cargo/python/uv/just) and `uv.lock` pins **Python deps**. Avoid mixing “Python deps from Nix” and “Python deps from uv” unless you have a clear reason and a single source of truth.
+
 ### B.6.1 Complete flake.nix
 
 ```nix
@@ -7016,6 +7119,8 @@ def benchmark_coreml_inference(
 
 ### B.6.2 justfile (Task Runner)
 
+**Canonical:** the repo root `justfile`. The block below is an expanded example from earlier drafts (kept for context); update it only if you also update the repo `justfile`.
+
 ```makefile
 # justfile
 # ========
@@ -7193,7 +7298,7 @@ release: build build-wheel
 | 2.8 | Jan 2026 | **NixOS CUDA secondary target:** (1) Restructured §B.2 as "Platform Implementation Reference" with primary (Apple M4) and secondary (NixOS + CUDA) targets. (2) Added §B.2.4 NixOS + CUDA Implementation with complete configuration.nix for NVIDIA drivers, flake.nix with CUDA-enabled PyTorch and Rust toolchain, CUDA software stack diagram. (3) Added GPU-accelerated PID implementation: CUDAKSGEstimator and CUDAPIDEstimator classes with chunked distance computation for OOM prevention. (4) Added NixOS troubleshooting guide and multi-GPU configuration (NCCL). (5) Fixed §B.3 subsection numbering: B.3.5→B.3.3, B.3.6→B.3.4, B.3.7→B.3.5 with correct heading levels. |
 | 2.9 | Jan 2026 | **PixelVLA integration & sae_analysis notes:** (1) Added §7.3 PixelVLA architecture: multiscale pixel-aware encoder, visual prompting encoder, continuous action decoder, Pixel-160K dataset. (2) Added §7.4 TraceVLA: visual trace prompting for spatial-temporal awareness. (3) Added §10.8.7 PixelVLA + Headless Gazebo + Tauri integration: data flow diagram, visual prompting in Tauri (TypeScript), PixelVLA-specific PID analysis (Rust), latency budget (~86ms interactive). (4) Added §B.3.3.2 Abzinger/sae_analysis: Shannon invariants (Red°, Vul°) for SAE analysis, comparison with our approach. (5) Updated §B.3.3.5 to clarify sae_analysis is **not** an `I^sx_∩` estimator; added implementation-level definitions of Red°/Vul° and safe integration guidance (SAE compression + screening), not a correctness validation for `I^sx_∩`. (6) Updated §7.5 with MemoryVLA, CoT-VLA. (7) Added PixelVLA, TraceVLA, sae_analysis to references (§13.2, §13.3). (8) Updated glossary with PixelVLA, TraceVLA, Red°, Vul°, multiscale pixel-aware encoder, Pixel-160K. |
 | 3.0 | Jan 2026 | **First-principles audit pass:** (1) Reframed “synergy sign” as a falsifiable hypothesis (not a definition); clarified deterministic-target degeneracy in VLA decompositions and the need for external targets/counterfactuals. (2) Tightened estimator risk framing and strengthened Experiment 0 as a scientific gate before any VLA claims. (3) Added/expanded i.i.d. vs trajectory autocorrelation guidance (sampling unit, block bootstrap). |
-| 4.0 (Draft) | Jan 2026 | **Audited + citation-verified pass:** (1) Added explicit reference verification policy and downgraded unsourced architecture/latency statements to “unverified sketches”. (2) Added strong-dependence warning (Gao et al. 2015) and integrated a Gaussian-channel strong-dependence sweep into Experiment 0. (3) Added MI/CMI estimator comparison section (Gao-LNC/local Gaussian, MINE, CCMI) strictly as MI/CMI baselines (do not mix estimator families inside SxPID identities). (4) Verified key VLA citations (notably DreamVLA) and added optional background papers (OpenVLThinker, SRL, diffusion parameterization). (5) Cleaned up NF-PID (“Thin-PID” legacy) naming and other citation/notation fixes. |
+| 4.0 (Draft) | Jan 2026 | **Audited + citation-verified pass:** (1) Added explicit reference verification policy and downgraded unsourced architecture/latency statements to “unverified sketches”. (2) Added strong-dependence warning (Gao et al. 2015) and integrated a Gaussian-channel strong-dependence sweep into Experiment 0. (3) Added MI/CMI estimator comparison section (Gao-LNC/local Gaussian, MINE, CCMI) strictly as MI/CMI baselines (do not mix estimator families inside SxPID identities). (4) Verified key VLA citations (notably DreamVLA) and added optional background papers (OpenVLThinker, SRL, diffusion parameterization). (5) Cleaned up NF-PID (“Thin-PID” legacy) naming and other citation/notation fixes. (6) Corrected/clarified Shannon-invariant definitions (CI sign conventions; Ω vs target co-information) and reconciled scaling sketches. (7) Aligned reproducibility guidance with repo-canonical `flake.nix` + `uv.lock` workflow (macOS-first). (8) Integrated differential-geometry contingencies into §8.1.5 without relying on a repo-local PDF. |
 
 ---
 

@@ -55,6 +55,21 @@ impl Default for KsgConfig {
 /// - Returns MI in nats (natural log).
 ///
 /// This is a brute-force O(n²) reference implementation intended for correctness first.
+///
+/// # Assumptions / failure modes
+/// - **i.i.d. samples:** KSG assumes independent samples from a fixed distribution. For time-series
+///   data (VLA trajectories), autocorrelation can seriously bias estimates unless you subsample or
+///   otherwise account for dependence.
+/// - **Continuous support:** duplicates/quantization can collapse the kNN radius to 0 and trigger
+///   `PidError::NumericalInstability`. Add small jitter (explicitly, seeded) only as a last resort
+///   and re-validate in Experiment 0.
+/// - **High dimension:** kNN distances concentrate with large ambient/intrinsic dimension; the
+///   estimator can become unstable or dominated by finite-sample noise.
+/// - **Strong dependence:** even at low dimension, near-deterministic relationships (very large
+///   true MI) can require prohibitive sample sizes for kNN MI (see Gao, Ver Steeg, Galstyan 2015).
+/// - **Clamping:** by default `KsgConfig` clamps small negative estimates to 0. This is a reporting
+///   choice, not a mathematical property of the estimator; use `NegativeHandling::Allow` when you
+///   need unbiased cancellation in algebraic identities.
 pub fn ksg_mi(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidResult<f64> {
     let local = ksg_local_mi_terms(x, y, cfg)?;
     let mi = local.iter().sum::<f64>() / (local.len() as f64);

@@ -73,6 +73,21 @@ impl Default for IsxConfig {
 /// By default (`IsxMethod::EhrlichKsg`), this uses the paper-faithful KSG-style kNN estimator
 /// for continuous variables (Ehrlich et al. 2024, Appendix H).
 ///
+/// # Units
+/// Returns redundancy in **nats** (natural log).
+///
+/// # Important: can be negative
+/// `I^sx_∩` is a well-defined functional of the joint distribution, but it is **not guaranteed
+/// to be non-negative** under all desiderata (see the PID inconsistency/impossibility results
+/// discussed in `grandplan.md`, and Matthias et al. 2025). Do not clamp this value to 0.
+///
+/// # Assumptions / failure modes (estimator-level)
+/// The default estimator is kNN-based and inherits the usual kNN MI pathologies:
+/// - Assumes i.i.d. samples from a continuous distribution; trajectory autocorrelation and
+///   quantization/duplicates can break the estimator (kNN radius can collapse to 0).
+/// - Can fail in high ambient/intrinsic dimension due to distance concentration.
+/// - Can require prohibitive samples under strong dependence (very large true MI).
+///
 /// Other `IsxMethod` variants are included only as explicit experimental baselines / cross-checks
 /// against various sketches in `grandplan.md` and should not be trusted without validation.
 pub fn isx_redundancy(
@@ -341,5 +356,5 @@ fn isx_redundancy_grandplan_sketch(
         / (n as f64);
 
     let redundancy = psi_k + psi_n + avg_term;
-    Ok(redundancy.max(0.0))
+    Ok(redundancy)
 }

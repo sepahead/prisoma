@@ -54,7 +54,6 @@ fn exp0_isx_redundancy_grandplan_sketch_smoke() {
     };
     let red = isx_redundancy(s1, s2, t, &cfg).unwrap();
     assert!(red.is_finite());
-    assert!(red >= 0.0);
 }
 
 #[test]

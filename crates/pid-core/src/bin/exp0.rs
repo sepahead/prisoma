@@ -1,10 +1,94 @@
 use pid_core::{
-    co_information_pairwise, concat_horiz, intrinsic_dimension_levina_bickel, isx_redundancy,
-    ksg_mi, ksg_mi_concat_xy, HashProjector, IntrinsicDimConfig, IsxConfig, IsxMethod, KsgConfig,
-    MatRef, Metric, NegativeHandling, Standardizer,
+    co_information_pairwise, concat_horiz, distance_concentration_stats,
+    intrinsic_dimension_levina_bickel, isx_redundancy, ksg_mi, ksg_mi_concat_xy,
+    DistanceConcentrationConfig, HashProjector, IntrinsicDimConfig, IsxConfig, IsxMethod,
+    KsgConfig, MatRef, Metric, NegativeHandling, Standardizer,
 };
+use std::io::{self, Write};
+
+#[derive(Debug, Clone, Copy)]
+struct Args {
+    csv: bool,
+}
+
+#[derive(Debug)]
+enum Exp0Error {
+    Pid(pid_core::PidError),
+    Io(io::Error),
+}
+
+impl From<pid_core::PidError> for Exp0Error {
+    fn from(value: pid_core::PidError) -> Self {
+        Self::Pid(value)
+    }
+}
+
+impl From<io::Error> for Exp0Error {
+    fn from(value: io::Error) -> Self {
+        Self::Io(value)
+    }
+}
 
 fn main() {
+    let args = match parse_args() {
+        Ok(Some(a)) => a,
+        Ok(None) => {
+            let mut out = io::BufWriter::new(io::stdout());
+            if let Err(e) = print_usage(&mut out) {
+                // If someone does `exp0 --help | head`, avoid panicking.
+                if e.kind() == io::ErrorKind::BrokenPipe {
+                    return;
+                }
+                eprintln!("exp0: failed to write help: {e}");
+            }
+            return;
+        }
+        Err(msg) => {
+            eprintln!("exp0: {msg}");
+            eprintln!();
+            let mut out = io::BufWriter::new(io::stderr());
+            let _ = print_usage(&mut out);
+            std::process::exit(2);
+        }
+    };
+
+    let mut out = io::BufWriter::new(io::stdout());
+    if let Err(err) = run(&mut out, args) {
+        match err {
+            Exp0Error::Io(e) if e.kind() == io::ErrorKind::BrokenPipe => return,
+            Exp0Error::Pid(e) => {
+                eprintln!("exp0: estimator error: {e}");
+                std::process::exit(1);
+            }
+            Exp0Error::Io(e) => {
+                eprintln!("exp0: IO error: {e}");
+                std::process::exit(1);
+            }
+        }
+    }
+}
+
+fn parse_args() -> Result<Option<Args>, String> {
+    let mut csv = false;
+    for arg in std::env::args().skip(1) {
+        match arg.as_str() {
+            "--csv" => csv = true,
+            "--help" | "-h" => return Ok(None),
+            other => return Err(format!("unknown argument: {other}")),
+        }
+    }
+    Ok(Some(Args { csv }))
+}
+
+fn print_usage(out: &mut dyn Write) -> io::Result<()> {
+    writeln!(out, "Usage: exp0 [--csv]")?;
+    writeln!(out)?;
+    writeln!(out, "  --csv   Emit machine-readable CSV (two tables).")?;
+    writeln!(out, "  -h, --help   Show this help.")?;
+    Ok(())
+}
+
+fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
     // Minimal Experiment 0 runner (Rust-side).
     //
     // This is intentionally small and brute-force; it exists to exercise the estimators end-to-end
@@ -22,30 +106,55 @@ fn main() {
         negative_handling: NegativeHandling::ClampToZero,
     };
 
-    println!("Experiment 0 (Rust quick run)");
-    println!("n={n}, k={k}, dims={dims:?}");
-    println!("hash_project_to={hash_project_to:?} (feature hashing / CountSketch; S1,S2 only)");
-    println!();
-
-    for d in dims {
-        run_case("independent_additive", d, n, &ksg_cfg, 42, hash_project_to);
-        run_case("redundant_copy", d, n, &ksg_cfg, 43, hash_project_to);
-        run_case("unique_s1", d, n, &ksg_cfg, 44, hash_project_to);
-        run_case("xor_like", d, n, &ksg_cfg, 45, hash_project_to);
-        println!();
+    if args.csv {
+        write_case_csv_header(out)?;
+    } else {
+        writeln!(out, "Experiment 0 (Rust quick run)")?;
+        writeln!(out, "n={n}, k={k}, dims={dims:?}")?;
+        writeln!(
+            out,
+            "hash_project_to={hash_project_to:?} (feature hashing / CountSketch; S1,S2 only)"
+        )?;
+        writeln!(out)?;
     }
 
-    run_gaussian_channel_strong_dependence_sweep(900, &ksg_cfg, 0x51A7_2026);
+    for d in dims {
+        run_case(
+            out,
+            args,
+            "independent_additive",
+            d,
+            n,
+            &ksg_cfg,
+            42,
+            hash_project_to,
+        )?;
+        run_case(out, args, "redundant_copy", d, n, &ksg_cfg, 43, hash_project_to)?;
+        run_case(out, args, "unique_s1", d, n, &ksg_cfg, 44, hash_project_to)?;
+        run_case(out, args, "xor_like", d, n, &ksg_cfg, 45, hash_project_to)?;
+        if !args.csv {
+            writeln!(out)?;
+        }
+    }
+
+    if args.csv {
+        writeln!(out)?;
+        write_gaussian_csv_header(out)?;
+    }
+    run_gaussian_channel_strong_dependence_sweep(out, args, 900, &ksg_cfg, 0x51A7_2026)?;
+    Ok(())
 }
 
 fn run_case(
+    out: &mut dyn Write,
+    args: Args,
     name: &str,
     d: usize,
     n: usize,
     ksg_cfg: &KsgConfig,
     seed: u64,
     hash_project_to: Option<usize>,
-) {
+) -> Result<(), Exp0Error> {
     let noise_std = 0.05;
     let (s1, s2, t) = match name {
         "independent_additive" => gen_independent_additive(n, d, noise_std, seed),
@@ -55,39 +164,76 @@ fn run_case(
         _ => unreachable!("unknown case: {name}"),
     };
 
-    let s1 = MatRef::new(&s1, n, d).unwrap();
-    let s2 = MatRef::new(&s2, n, d).unwrap();
-    let t = MatRef::new(&t, n, 1).unwrap();
+    let s1 = MatRef::new(&s1, n, d)?;
+    let s2 = MatRef::new(&s2, n, d)?;
+    let t = MatRef::new(&t, n, 1)?;
 
-    let (s1z, _) = Standardizer::fit_transform(s1).unwrap();
-    let (s2z, _) = Standardizer::fit_transform(s2).unwrap();
-    let (tz, _) = Standardizer::fit_transform(t).unwrap();
+    let (s1z, _) = Standardizer::fit_transform(s1)?;
+    let (s2z, _) = Standardizer::fit_transform(s2)?;
+    let (tz, _) = Standardizer::fit_transform(t)?;
 
-    let baseline = compute_metrics(s1z.as_ref(), s2z.as_ref(), tz.as_ref(), ksg_cfg);
+    let baseline = compute_metrics(s1z.as_ref(), s2z.as_ref(), tz.as_ref(), ksg_cfg)?;
+    let diag = compute_diagnostics(s1z.as_ref(), s2z.as_ref(), tz.as_ref(), ksg_cfg.metric);
 
-    print_metrics(name, d, baseline);
-    print_intrinsic_dims(s1z.as_ref(), s2z.as_ref(), tz.as_ref(), ksg_cfg.metric);
+    if args.csv {
+        write_case_csv_row(out, name, d, n, ksg_cfg, false, hash_project_to, baseline, diag)?;
+    } else {
+        print_metrics(out, name, d, baseline)?;
+        print_intrinsic_dims(out, diag)?;
+    }
 
     if let Some(dout) = hash_project_to {
         if d > dout {
-            let p1 = HashProjector::new(d, dout, 0xA11CE_u64 ^ seed).unwrap();
-            let p2 = HashProjector::new(d, dout, 0xB22CE_u64 ^ seed).unwrap();
+            let p1 = HashProjector::new(d, dout, 0xA11CE_u64 ^ seed)?;
+            let p2 = HashProjector::new(d, dout, 0xB22CE_u64 ^ seed)?;
 
-            let s1p = p1.transform(s1z.as_ref()).unwrap();
-            let s2p = p2.transform(s2z.as_ref()).unwrap();
+            let s1p = p1.transform(s1z.as_ref())?;
+            let s2p = p2.transform(s2z.as_ref())?;
 
             // Re-standardize after projection so Chebyshev distance has comparable scale.
-            let (s1p, _) = Standardizer::fit_transform(s1p.as_ref()).unwrap();
-            let (s2p, _) = Standardizer::fit_transform(s2p.as_ref()).unwrap();
+            let (s1p, _) = Standardizer::fit_transform(s1p.as_ref())?;
+            let (s2p, _) = Standardizer::fit_transform(s2p.as_ref())?;
 
-            let projected = compute_metrics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), ksg_cfg);
-            print_metrics(&format!("{name}_hashproj"), dout, projected);
-            print_intrinsic_dims(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), ksg_cfg.metric);
+            let projected = compute_metrics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), ksg_cfg)?;
+            let diag =
+                compute_diagnostics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), ksg_cfg.metric);
+            if args.csv {
+                write_case_csv_row(
+                    out,
+                    &format!("{name}_hashproj"),
+                    dout,
+                    n,
+                    ksg_cfg,
+                    true,
+                    hash_project_to,
+                    projected,
+                    diag,
+                )?;
+            } else {
+                print_metrics(out, &format!("{name}_hashproj"), dout, projected)?;
+                print_intrinsic_dims(out, diag)?;
+            }
         }
     }
+    Ok(())
 }
 
-fn print_intrinsic_dims(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, metric: Metric) {
+#[derive(Debug, Clone, Copy)]
+struct Diagnostics {
+    id_s1: f64,
+    id_s2: f64,
+    id_t: f64,
+    id_s12: f64,
+
+    dc_cv_s1: f64,
+    dc_nnr_s1: f64,
+    dc_cv_s2: f64,
+    dc_nnr_s2: f64,
+    dc_cv_s12: f64,
+    dc_nnr_s12: f64,
+}
+
+fn compute_diagnostics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, metric: Metric) -> Diagnostics {
     let cfg = IntrinsicDimConfig { k: 10, metric };
 
     let id_s1 = intrinsic_dimension_levina_bickel(s1, &cfg).unwrap_or(f64::NAN);
@@ -98,13 +244,66 @@ fn print_intrinsic_dims(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, metric: M
         .and_then(|s12| intrinsic_dimension_levina_bickel(s12.as_ref(), &cfg).ok())
         .unwrap_or(f64::NAN);
 
-    println!(
-        "{:>20} {:>7} | ID(s1)={:>6.2} ID(s2)={:>6.2} ID(t)={:>6.2} ID(s1,s2)={:>6.2}",
-        "", "", id_s1, id_s2, id_t, id_s12
-    );
+    let dcfg = DistanceConcentrationConfig { metric };
+    let (dc_cv_s1, dc_nnr_s1) = distance_concentration_stats(s1, &dcfg)
+        .map(|s| (s.pairwise_cv, s.nn_over_pairwise_mean))
+        .unwrap_or((f64::NAN, f64::NAN));
+    let (dc_cv_s2, dc_nnr_s2) = distance_concentration_stats(s2, &dcfg)
+        .map(|s| (s.pairwise_cv, s.nn_over_pairwise_mean))
+        .unwrap_or((f64::NAN, f64::NAN));
+    let (dc_cv_s12, dc_nnr_s12) = concat_horiz(s1, s2)
+        .ok()
+        .and_then(|s12| distance_concentration_stats(s12.as_ref(), &dcfg).ok())
+        .map(|s| (s.pairwise_cv, s.nn_over_pairwise_mean))
+        .unwrap_or((f64::NAN, f64::NAN));
+
+    Diagnostics {
+        id_s1,
+        id_s2,
+        id_t,
+        id_s12,
+        dc_cv_s1,
+        dc_nnr_s1,
+        dc_cv_s2,
+        dc_nnr_s2,
+        dc_cv_s12,
+        dc_nnr_s12,
+    }
 }
 
-fn run_gaussian_channel_strong_dependence_sweep(n: usize, ksg_cfg: &KsgConfig, seed: u64) {
+fn print_intrinsic_dims(out: &mut dyn Write, d: Diagnostics) -> io::Result<()> {
+    writeln!(
+        out,
+        "{:>20} {:>7} | ID(s1)={:>6.2} ID(s2)={:>6.2} ID(t)={:>6.2} ID(s1,s2)={:>6.2}",
+        "",
+        "",
+        d.id_s1,
+        d.id_s2,
+        d.id_t,
+        d.id_s12
+    )?;
+    writeln!(
+        out,
+        "{:>20} {:>7} | DCcv(s1)={:>6.3} nn/mean={:>6.3} | DCcv(s2)={:>6.3} nn/mean={:>6.3} | DCcv(s1,s2)={:>6.3} nn/mean={:>6.3}",
+        "",
+        "",
+        d.dc_cv_s1,
+        d.dc_nnr_s1,
+        d.dc_cv_s2,
+        d.dc_nnr_s2,
+        d.dc_cv_s12,
+        d.dc_nnr_s12
+    )?;
+    Ok(())
+}
+
+fn run_gaussian_channel_strong_dependence_sweep(
+    out: &mut dyn Write,
+    args: Args,
+    n: usize,
+    ksg_cfg: &KsgConfig,
+    seed: u64,
+) -> Result<(), Exp0Error> {
     // Strong-dependence sweep (separate axis from "high d"):
     // X ~ N(0,1), Y = X + σN, N~N(0,1), so analytic MI is:
     // I(X;Y) = 0.5 ln(1 + 1/σ²).
@@ -118,31 +317,41 @@ fn run_gaussian_channel_strong_dependence_sweep(n: usize, ksg_cfg: &KsgConfig, s
         noise.push(rng.normal());
     }
 
-    let xref = MatRef::new(&x, n, 1).unwrap();
-    let (xstd, _) = Standardizer::fit_transform(xref).unwrap();
+    let xref = MatRef::new(&x, n, 1)?;
+    let (xstd, _) = Standardizer::fit_transform(xref)?;
 
-    println!("Strong-dependence sweep (Gaussian channel, 1D)");
-    println!("n={n}, k={}, metric={:?}", ksg_cfg.k, ksg_cfg.metric);
+    if !args.csv {
+        writeln!(out, "Strong-dependence sweep (Gaussian channel, 1D)")?;
+        writeln!(out, "n={n}, k={}, metric={:?}", ksg_cfg.k, ksg_cfg.metric)?;
+    }
     for &sigma in &sigmas {
         let mut y = Vec::with_capacity(n);
         for (&xi, &ni) in x.iter().zip(noise.iter()) {
             y.push(xi + sigma * ni);
         }
 
-        let yref = MatRef::new(&y, n, 1).unwrap();
-        let (ystd, _) = Standardizer::fit_transform(yref).unwrap();
+        let yref = MatRef::new(&y, n, 1)?;
+        let (ystd, _) = Standardizer::fit_transform(yref)?;
 
-        let mi_hat = ksg_mi(xstd.as_ref(), ystd.as_ref(), ksg_cfg).unwrap();
+        let mi_hat = ksg_mi(xstd.as_ref(), ystd.as_ref(), ksg_cfg)?;
         let mi_true = gaussian_channel_mi(sigma);
-        println!(
-            "  sigma={:<7.3}  MI_hat={:>8.3}  MI_true={:>8.3}  err={:>8.3}",
-            sigma,
-            mi_hat,
-            mi_true,
-            mi_hat - mi_true
-        );
+        if args.csv {
+            write_gaussian_csv_row(out, sigma, n, ksg_cfg, mi_hat, mi_true)?;
+        } else {
+            writeln!(
+                out,
+                "  sigma={:<7.3}  MI_hat={:>8.3}  MI_true={:>8.3}  err={:>8.3}",
+                sigma,
+                mi_hat,
+                mi_true,
+                mi_hat - mi_true
+            )?;
+        }
     }
-    println!();
+    if !args.csv {
+        writeln!(out)?;
+    }
+    Ok(())
 }
 
 fn gaussian_channel_mi(sigma: f64) -> f64 {
@@ -163,11 +372,11 @@ struct Metrics {
     syn_ehrlich: f64,
 }
 
-fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgConfig) -> Metrics {
-    let mi_s1_t = ksg_mi(s1, t, ksg_cfg).unwrap();
-    let mi_s2_t = ksg_mi(s2, t, ksg_cfg).unwrap();
-    let mi_s1s2_t = ksg_mi_concat_xy(s1, s2, t, ksg_cfg).unwrap();
-    let ci = co_information_pairwise(s1, s2, t, ksg_cfg).unwrap();
+fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgConfig) -> pid_core::PidResult<Metrics> {
+    let mi_s1_t = ksg_mi(s1, t, ksg_cfg)?;
+    let mi_s2_t = ksg_mi(s2, t, ksg_cfg)?;
+    let mi_s1s2_t = ksg_mi_concat_xy(s1, s2, t, ksg_cfg)?;
+    let ci = co_information_pairwise(s1, s2, t, ksg_cfg)?;
 
     let red_ehrlich = isx_redundancy(
         s1,
@@ -180,7 +389,7 @@ fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgC
             method: IsxMethod::EhrlichKsg,
         },
     )
-    .unwrap();
+    ?;
 
     let red_local_min = isx_redundancy(
         s1,
@@ -193,7 +402,7 @@ fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgC
             method: IsxMethod::LocalMinKsg,
         },
     )
-    .unwrap();
+    ?;
 
     let red_disjunction = isx_redundancy(
         s1,
@@ -208,7 +417,7 @@ fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgC
     )
     .unwrap_or(f64::NAN);
 
-    Metrics {
+    Ok(Metrics {
         mi_s1_t,
         mi_s2_t,
         mi_s1s2_t,
@@ -217,11 +426,12 @@ fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgC
         red_local_min,
         red_disjunction,
         syn_ehrlich: mi_s1s2_t - mi_s1_t - mi_s2_t + red_ehrlich,
-    }
+    })
 }
 
-fn print_metrics(name: &str, d: usize, m: Metrics) {
-    println!(
+fn print_metrics(out: &mut dyn Write, name: &str, d: usize, m: Metrics) -> io::Result<()> {
+    writeln!(
+        out,
         "{name:>20} d={d:<4} | I1={:>7.3} I2={:>7.3} I12={:>7.3} CI={:>7.3} | Red(ehrlich)={:>7.3} Red(local_min)={:>7.3} Red(disj)={:>7.3} | Syn(ehrlich)={:>7.3}",
         m.mi_s1_t,
         m.mi_s2_t,
@@ -231,7 +441,77 @@ fn print_metrics(name: &str, d: usize, m: Metrics) {
         m.red_local_min,
         m.red_disjunction,
         m.syn_ehrlich,
-    );
+    )?;
+    Ok(())
+}
+
+fn write_case_csv_header(out: &mut dyn Write) -> io::Result<()> {
+    writeln!(
+        out,
+        "case_name,hash_applied,d,n,k,metric,hash_project_to,mi_s1_t,mi_s2_t,mi_s1s2_t,ci,red_ehrlich,red_local_min,red_disjunction,syn_ehrlich,id_s1,id_s2,id_t,id_s12,dc_cv_s1,dc_nnratio_s1,dc_cv_s2,dc_nnratio_s2,dc_cv_s12,dc_nnratio_s12"
+    )
+}
+
+fn write_case_csv_row(
+    out: &mut dyn Write,
+    name: &str,
+    d: usize,
+    n: usize,
+    ksg_cfg: &KsgConfig,
+    hash_applied: bool,
+    hash_project_to: Option<usize>,
+    m: Metrics,
+    diag: Diagnostics,
+) -> io::Result<()> {
+    let hash_project_to = hash_project_to
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| String::new());
+    writeln!(
+        out,
+        "{name},{},{d},{n},{},{:?},{hash_project_to},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e}",
+        if hash_applied { 1 } else { 0 },
+        ksg_cfg.k,
+        ksg_cfg.metric,
+        m.mi_s1_t,
+        m.mi_s2_t,
+        m.mi_s1s2_t,
+        m.ci,
+        m.red_ehrlich,
+        m.red_local_min,
+        m.red_disjunction,
+        m.syn_ehrlich,
+        diag.id_s1,
+        diag.id_s2,
+        diag.id_t,
+        diag.id_s12,
+        diag.dc_cv_s1,
+        diag.dc_nnr_s1,
+        diag.dc_cv_s2,
+        diag.dc_nnr_s2,
+        diag.dc_cv_s12,
+        diag.dc_nnr_s12,
+    )
+}
+
+fn write_gaussian_csv_header(out: &mut dyn Write) -> io::Result<()> {
+    writeln!(out, "sigma,n,k,metric,mi_hat,mi_true,err")
+}
+
+fn write_gaussian_csv_row(
+    out: &mut dyn Write,
+    sigma: f64,
+    n: usize,
+    ksg_cfg: &KsgConfig,
+    mi_hat: f64,
+    mi_true: f64,
+) -> io::Result<()> {
+    writeln!(
+        out,
+        "{sigma:.15e},{n},{},{:?},{mi_hat:.15e},{mi_true:.15e},{:.15e}",
+        ksg_cfg.k,
+        ksg_cfg.metric,
+        mi_hat - mi_true
+    )
 }
 
 fn gen_independent_additive(

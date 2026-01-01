@@ -15,10 +15,31 @@ Canonical spec: `grandplan.md`.
   - Commit `flake.lock` (generate/update with `nix flake lock`).
   - Do not hand-edit lockfiles.
 
+## Repo status snapshot (Jan 2026)
+
+- Implemented (Rust): `crates/pid-core`
+  - KSG MI (`ksg_mi`, Chebyshev/L∞ + strict-radius tie handling)
+  - Continuous `I^sx_∩(S1,S2;T)` (`isx_redundancy`, `IsxMethod::EhrlichKsg`) + a fixed-data cross-check test vs `csxpid`
+  - 2-source PID atoms (`pid2_isx`)
+  - Hierarchical screening (`hierarchical_pairwise`, `hierarchical_triplet`)
+  - Optional full 3-source continuous SxPID (`pid3_isx`, offline/expensive)
+  - Preprocessing helpers (`Standardizer`, `Jitter`, `HashProjector`)
+  - Geometry diagnostics:
+    - intrinsic dimension (`intrinsic_dimension_levina_bickel`)
+    - basic distance concentration proxies (`distance_concentration_stats`)
+  - Quick synthetic runner (`cargo run -p pid-core --bin exp0`)
+- Implemented (tooling): `justfile` with `build`, `test`, `exp0`, `exp0-bin`
+- Missing (planned next): Python experiment harness + macOS-first VLA embedding extraction (MLX/CoreML)
+- Current limitations (do not pretend otherwise):
+  - kNN backend is brute-force `O(n²)` (reference correctness path)
+  - `Metric` currently implements **Chebyshev only**
+  - Intrinsic dimension is implemented; distance concentration has basic proxies, but may need expansion
+  - PCA / marginal Gaussianization are not implemented in Rust (plan them in Python first)
+
 ## Step-by-step plan (project roadmap)
 
-1. **Implement Wibral PID in Rust (I^sx_∩, continuous; “latest” in spec = Makkeh et al. 2021 + Ehrlich et al. 2024):**
-   - Create a Rust core library (`pid-core`) implementing KSG MI, continuous shared-exclusions redundancy I^sx_∩, and the derived 2-source PID atoms.
+1. **Maintain and extend Wibral PID in Rust (I^sx_∩, continuous; “latest” in spec = Makkeh et al. 2021 + Ehrlich et al. 2024):**
+   - `pid-core` already exists; keep estimator semantics stable while extending capabilities (bindings, harness, performance).
    - Prioritize: correctness, numerical stability, reproducibility (seeded RNG, pinned deps), and a clean API that can later support 3-way PID and alternative estimators.
    - Include validation tests mirroring Experiment 0 scenarios (independent/additive, XOR-like synergy, redundant/copy, scaling).
 2. **Adopt a hierarchical computation design (sound + adaptable):**
@@ -26,19 +47,30 @@ Canonical spec: `grandplan.md`.
    - Level 2: targeted full pairwise I^sx_∩ PID on suspicious pairs.
    - Level 3: optional 3-way PID (offline only) once pairwise behavior is understood.
 3. **Implement dimensionality reduction + preprocessing hooks:**
-   - Standardization/whitening; optional **invertible reparameterizations** (e.g., monotone marginal Gaussianization) to improve kNN geometry without changing true MI; PCA (retain variance target); random projections; interfaces for learned projections.
-   - Add **geometry diagnostics** (intrinsic dimension + distance concentration) to decide whether kNN-based MI/`I^sx_∩` is even plausible in the chosen representation.
+   - Already implemented in Rust: standardization, small jitter, and a dependency-free hash projection baseline.
+   - Planned (prefer Python-first): PCA (retain variance target), random projections, optional invertible reparameterizations (e.g., monotone marginal Gaussianization).
+   - Add **geometry diagnostics** to decide whether kNN-based MI/`I^sx_∩` is even plausible:
+     - intrinsic dimension: implemented
+     - distance concentration (basic proxies): implemented
    - Make dim reduction explicit and logged so results are interpretable/reproducible.
 4. **Build experiment harnesses and reproducibility scaffolding:**
-   - Add a simple task runner (e.g., `justfile`) and/or scripts to run experiments deterministically.
+   - `justfile` already exists; extend it as the stable entrypoint for experiments.
    - Keep environments pinned with Nix (`flake.lock`) + uv (`uv.lock`); record `rustc --version`, Python version, and seeds in every run artifact.
    - Add benchmarking (runtime vs N,d,k; memory) to enforce “real-time” viability for Level 1.
 5. **Experiment 0 gate (do before any VLA claims):**
    - Run synthetic validation across {N,d,k} grids up to VLA-like d (or demonstrate why dim reduction is required).
-   - Include **strong-dependence sweeps** (near-deterministic/large-MI regimes) as a separate axis from “high `d`” (see Gao et al. 2015); do not treat low-`d` success as proof of robustness under strong dependence.
-   - Include **geometry diagnostics** as a separate axis: intrinsic-dimension estimates and distance-concentration proxies; treat “kNN works after PCA” as unproven unless intrinsic dimension is also low/stable.
-   - Record error/variance/cost; decide GO / PIVOT / NO-GO using the thresholds in `grandplan.md` (e.g., error targets: d=10 <5%, d=100 <10%, d=1000 <15%, d=4096 <20% or require dim reduction).
-   - Decision rule of thumb from spec: **GO** if stable at d=4096; **PIVOT** if stable only after PCA/random projection (e.g., d≈256); **NO-GO** if unstable even at d≈256 (abandon I^sx_∩ for alternatives).
+   - Include **strong-dependence sweeps** (near-deterministic/large-MI regimes) as a separate axis
+     from “high `d`” (see Gao et al. 2015). Do not treat low-`d` success as proof of robustness
+     under strong dependence.
+   - Include **geometry diagnostics** as a separate axis: intrinsic-dimension estimates and
+     distance-concentration proxies. Treat “kNN works after PCA” as unproven unless intrinsic
+     dimension is also low/stable.
+   - Record error/variance/cost; decide GO / PIVOT / NO-GO using the thresholds in `grandplan.md`
+     (e.g., error targets: d=10 <5%, d=100 <10%, d=1000 <15%, d=4096 <20% or require dim
+     reduction).
+   - Decision rule of thumb from spec: **GO** if stable at d=4096; **PIVOT** if stable only after
+     PCA/random projection (e.g., d≈256); **NO-GO** if unstable even at d≈256 (abandon `I^sx_∩` for
+     alternatives).
    - Optional: use `sae_analysis` Shannon invariants (Red°, Vul°) as **heuristic screening / SAE-compression tooling** per `grandplan.md` Appendix B.3.3.5 (not a correctness oracle for `I^sx_∩`).
 6. **VLA data plumbing:**
    - Define a stable on-disk format for rollouts + embeddings.
@@ -87,39 +119,77 @@ Level-1 co-information (for a pair of sources `X,Y` and target `T`) uses MI term
 ### Required reading (sources + where they map into this repo)
 
 Papers (authoritative):
-- **Makkeh A, Gutknecht AJ, Wibral M (2021)** — *Phys Rev E* 103:032149. “Introducing a differentiable measure of pointwise shared information.” Defines `I^sx_∩`. DOI: `https://doi.org/10.1103/PhysRevE.103.032149`
-- **Ehrlich DA, Schick-Poland K, Makkeh A, Lanfermann F, Wollstadt P, Wibral M (2024)** — *Phys Rev E* 110:014115. “Partial Information Decomposition for Continuous Variables based on Shared Exclusions.” Continuous `I^sx_∩` estimator details. DOI: `https://doi.org/10.1103/PhysRevE.110.014115`
-- **Kraskov A, Stögbauer H, Grassberger P (2004)** — *Phys Rev E* 69:066138. “Estimating mutual information.” KSG estimator details (max-norm usage, neighbor counting, bias/variance behavior). DOI: `https://doi.org/10.1103/PhysRevE.69.066138`
+- **Makkeh A, Gutknecht AJ, Wibral M (2021)** — *Phys Rev E* 103:032149.
+  “Introducing a differentiable measure of pointwise shared information.” Defines `I^sx_∩`.
+  DOI: `https://doi.org/10.1103/PhysRevE.103.032149`
+- **Ehrlich DA, Schick-Poland K, Makkeh A, Lanfermann F, Wollstadt P, Wibral M (2024)** —
+  *Phys Rev E* 110:014115. “Partial Information Decomposition for Continuous Variables based on
+  Shared Exclusions.” Continuous `I^sx_∩` estimator details.
+  DOI: `https://doi.org/10.1103/PhysRevE.110.014115`
+- **Kraskov A, Stögbauer H, Grassberger P (2004)** — *Phys Rev E* 69:066138.
+  “Estimating mutual information.” KSG estimator details (max-norm usage, neighbor counting,
+  bias/variance behavior).
+  DOI: `https://doi.org/10.1103/PhysRevE.69.066138`
 
 Context/guardrails:
-- **Gutknecht AJ, Rosas FE, Ehrlich DA, Makkeh A, Mediano PAM, Wibral M (2025)** — arXiv:2504.15779. “Shannon Invariants: A Scalable Approach to Information Decomposition.” `https://arxiv.org/abs/2504.15779`
-- **Matthias PH, Makkeh A, Wibral M, Gutknecht AJ (2025)** — arXiv:2512.16662. Impossibility/inconsistency results (explains why `I^sx_∩` can have negative atoms). `https://arxiv.org/abs/2512.16662`
-- **Gao S, Ver Steeg G, Galstyan A (2015)** — arXiv:1411.2003. Strong-dependence sample complexity pathologies for kNN MI estimators (relevant to “near-deterministic” VLA variables). `https://arxiv.org/abs/1411.2003`
+- **Gutknecht AJ, Rosas FE, Ehrlich DA, Makkeh A, Mediano PAM, Wibral M (2025)** —
+  arXiv:2504.15779. “Shannon Invariants: A Scalable Approach to Information Decomposition.”
+  `https://arxiv.org/abs/2504.15779`
+- **Matthias PH, Makkeh A, Wibral M, Gutknecht AJ (2025)** — arXiv:2512.16662.
+  Impossibility/inconsistency results (explains why `I^sx_∩` can have negative atoms).
+  `https://arxiv.org/abs/2512.16662`
+- **Gao S, Ver Steeg G, Galstyan A (2015)** — arXiv:1411.2003.
+  Strong-dependence sample complexity pathologies for kNN MI estimators (relevant to
+  “near-deterministic” VLA variables).
+  `https://arxiv.org/abs/1411.2003`
 - **Gao S, Ver Steeg G, Galstyan A (2015)** — arXiv:1508.00536. Local Gaussian MI estimator (strong-dependence correction / MI baseline). `https://arxiv.org/abs/1508.00536`
-- **Belghazi MI et al. (2018)** — arXiv:1801.04062. MINE (neural MI; treat as a separate validated MI pipeline for MI-only screening, not drop-in `I^sx_∩`). `https://arxiv.org/abs/1801.04062`
-- **Mukherjee S, Asnani H, Kannan S (2019)** — arXiv:1906.01824. CCMI (classifier-based conditional MI; useful if conditioning becomes central; separate validated pipeline). `https://arxiv.org/abs/1906.01824`
+- **Belghazi MI et al. (2018)** — arXiv:1801.04062.
+  MINE (neural MI; treat as a separate validated MI pipeline for MI-only screening, not drop-in
+  `I^sx_∩`).
+  `https://arxiv.org/abs/1801.04062`
+- **Mukherjee S, Asnani H, Kannan S (2019)** — arXiv:1906.01824.
+  CCMI (classifier-based conditional MI; useful if conditioning becomes central; separate
+  validated pipeline).
+  `https://arxiv.org/abs/1906.01824`
 - **Marx A, Fischer J (2021)** — arXiv:2110.13883. Geodesic kNN MI estimation on Riemannian manifolds (MI-only baseline if embeddings are curved/manifold-valued). `https://arxiv.org/abs/2110.13883`
 - **Nickel M, Kiela D (2017)** — arXiv:1705.08039. Poincaré embeddings (hyperbolic geometry for hierarchies; optional learned projection). `https://arxiv.org/abs/1705.08039`
 - **Nickel M, Kiela D (2018)** — arXiv:1806.03417. Lorentz (hyperboloid) model hyperbolic embeddings (often more stable than Poincaré ball). `https://arxiv.org/abs/1806.03417`
 - **Ganea O-E, Bécigneul G, Hofmann T (2018)** — arXiv:1805.09112. Hyperbolic Neural Networks (background). `https://arxiv.org/abs/1805.09112`
-- **Local note (conceptual only):** `Information Theory Meets Differential Geometry.pdf` (do not treat as an estimator spec or correctness oracle).
+- Differential-geometry contingencies are covered in `grandplan.md` §8.1.5 (optional background; not an estimator spec).
 - **Liang PP et al. (2023)** — NeurIPS 2023. Multimodal “PID” estimators (BATCH/CVX) for baselines; not the same as `I^sx_∩`. Code: `https://github.com/pliang279/PID`
 - **PixelVLA (2025)** — arXiv:2511.01571. Pixel-level understanding + visual prompting for VLAs (optional future target; see `grandplan.md` §7.3). `https://arxiv.org/abs/2511.01571`
 - **TraceVLA (2024)** — arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness (optional future target; see `grandplan.md` §7.4). `https://arxiv.org/abs/2412.10345`
 
 In-repo pointers (use these to stay aligned with the spec):
-- `grandplan.md` §2.2 (`I^sx_∩` definition), §2.3 (continuous extension), §8.1 (KSG details), §2.5.4 (hierarchical strategy), §9.1 (Experiment 0), Appendix B.3.4 (Rust estimator sketch + validation tests).
-  - Current code locations: `crates/pid-core/src/ksg.rs` (KSG MI + local terms), `crates/pid-core/src/isx.rs` (`I^sx_∩` candidates via `IsxMethod`), `crates/pid-core/src/pid2.rs` (PID atoms wrapper), `crates/pid-core/src/ci.rs` (co-information), `crates/pid-core/src/nn.rs` (brute-force kNN helpers), `crates/pid-core/src/preprocess.rs` (standardization), `crates/pid-core/src/geometry.rs` (intrinsic-dimension diagnostic).
+- `grandplan.md` §2.2 (`I^sx_∩` definition), §2.3 (continuous extension), §8.1 (KSG details),
+  §2.5.4 (hierarchical strategy), §9.1 (Experiment 0), Appendix B.3.4 (validation notes).
+  - Current code locations (Rust):
+    - `crates/pid-core/src/ksg.rs` — KSG MI (+ local MI terms)
+    - `crates/pid-core/src/isx.rs` — continuous `I^sx_∩(S1,S2;T)` (`IsxMethod::EhrlichKsg`)
+    - `crates/pid-core/src/pid2.rs` — 2-source PID atoms wrapper
+    - `crates/pid-core/src/ci.rs` — pairwise/triplet co-information helpers
+    - `crates/pid-core/src/hierarchy.rs` — hierarchical screening + optional full 3-source PID
+    - `crates/pid-core/src/pid3.rs` — full 3-source continuous SxPID (offline)
+    - `crates/pid-core/src/geometry.rs` — intrinsic dimension + distance concentration diagnostics
+    - `crates/pid-core/src/preprocess.rs` — standardization/jitter/hash projection
+    - `crates/pid-core/src/matrix.rs`, `crates/pid-core/src/metric.rs`, `crates/pid-core/src/nn.rs`
+      — data layout + metric + brute-force kNN utilities
 
 Reference code (for sanity checks and baselines; verify commit hashes when used):
-- **Continuous `I^sx_∩` (authors’ reference impl):** `https://gitlab.gwdg.de/wibral/continuouspidestimator` (Python package `csxpid`; Ehrlich et al. 2024; uses KDTree/ball-tree variants + merging procedure for disjunction distances)
+- **Continuous `I^sx_∩` (authors’ reference impl):**
+  `https://gitlab.gwdg.de/wibral/continuouspidestimator` (Python package `csxpid`; Ehrlich et al.
+  2024; uses KDTree/ball-tree variants + merging procedure for disjunction distances)
 - **Discrete `I^sx_∩` (definitions/lattice sanity):** `https://github.com/Abzinger/SxPID`
-- **Related (Shannon invariants on neural latents; NOT `I^sx_∩`):** `https://github.com/Abzinger/sae_analysis` (WIP; computes redundancy/vulnerability-style invariants for SAEs; uses submodules `sparsify`/`delphi`; treat as reference only)
+- **Related (Shannon invariants on neural latents; NOT `I^sx_∩`):**
+  `https://github.com/Abzinger/sae_analysis` (WIP; computes redundancy/vulnerability-style
+  invariants for SAEs; uses submodules `sparsify`/`delphi`; treat as reference only)
 - **Baseline estimators (NOT `I^sx_∩`):** `https://github.com/pliang279/PID` (Liang BATCH/CVX)
 - **General info-dynamics toolkit:** `https://github.com/pwollstadt/IDTxl`
 
 Quick comparison (to avoid false equivalences):
-- `Abzinger/sae_analysis` is **discrete PMF / plug-in entropy**-based and targets **SAE latents** + **Shannon invariants** (degree of redundancy/vulnerability). It does **not** implement continuous KSG MI or continuous shared-exclusions `I^sx_∩`.
+- `Abzinger/sae_analysis` is **discrete PMF / plug-in entropy**-based and targets **SAE latents**
+  + **Shannon invariants** (degree of redundancy/vulnerability). It does **not** implement
+  continuous KSG MI or continuous shared-exclusions `I^sx_∩`.
 - `Abzinger/sae_analysis` uses `log2` (bits) throughout; `crates/pid-core` currently reports MI/PID in natural logs (nats).
 - `crates/pid-core` in this repo is **continuous kNN/KSG**-based and targets **Wibral-group shared-exclusions PID** (`I^sx_∩`) + pairwise co-information screening.
 
@@ -150,24 +220,31 @@ Implementation detail: decide whether `log` is natural (nats) or base-2 (bits) a
 
 ### Suggested crate/API shape (so future work stays stable)
 
-Rust workspace layout (minimum viable):
-- `crates/pid-core/`
-  - `src/lib.rs` (public API surface)
-  - `src/ksg.rs` (KSG MI estimator)
-  - `src/isx.rs` (continuous `I^sx_∩` redundancy estimator)
-  - `src/pid2.rs` (2-source PID wrapper: calls KSG + `I^sx_∩`)
-  - `src/preprocess.rs` (standardize/whiten; PCA/random projection hooks)
-  - `src/metrics.rs` (L∞/L2 distance, tie handling)
-  - `src/nn.rs` (kNN backend abstraction: brute force baseline + optional trees/ANN later)
-  - `src/stats.rs` (digamma, bootstrap utilities, CI helpers)
+Current Rust workspace layout (authoritative; keep docs aligned with this):
+- `crates/pid-core/src/lib.rs` — public API surface
+- `crates/pid-core/src/error.rs` — error types (`PidError`, `PidResult`)
+- `crates/pid-core/src/matrix.rs` — `MatRef`/`MatOwned` (row-major `n×d` floats)
+- `crates/pid-core/src/metric.rs` — `Metric` (currently Chebyshev only)
+- `crates/pid-core/src/nn.rs` — brute-force kNN helpers + strict-radius tie handling
+- `crates/pid-core/src/stats.rs` — digamma utilities
+- `crates/pid-core/src/ksg.rs` — KSG MI (`ksg_mi`, `ksg_mi_concat_xy`, local terms)
+- `crates/pid-core/src/isx.rs` — continuous `I^sx_∩(S1,S2;T)` (`isx_redundancy`)
+- `crates/pid-core/src/pid2.rs` — 2-source PID atoms wrapper (`pid2_isx`)
+- `crates/pid-core/src/ci.rs` — co-information helpers (`co_information_pairwise`, etc.)
+- `crates/pid-core/src/hierarchy.rs` — hierarchical screening + optional full 3-source PID
+- `crates/pid-core/src/geometry.rs` — intrinsic-dimension diagnostic
+- `crates/pid-core/src/distance_matrix.rs` — symmetric distances (used by `pid3_isx`)
+- `crates/pid-core/src/pid3.rs` — full 3-source continuous SxPID (18 atoms; offline)
+- `crates/pid-core/src/preprocess.rs` — standardization/jitter/hash projection
+- `crates/pid-core/src/bin/exp0.rs` — quick synthetic runner
 
 Public API sketch (keep stable; allow internal refactors):
-- `fn ksg_mi(x: ArrayView2<f64>, y: ArrayView2<f64>, cfg: &KsgConfig) -> Result<f64>`
-- `fn isx_redundancy(s1: ArrayView2<f64>, s2: ArrayView2<f64>, t: ArrayView2<f64>, cfg: &IsxConfig) -> Result<f64>`
-- `fn pid2_isx(s1: ArrayView2<f64>, s2: ArrayView2<f64>, t: ArrayView2<f64>, cfg: &Pid2Config) -> Result<Pid2Result>`
-- `struct Pid2Result { redundancy, unique_s1, unique_s2, synergy, se/ci optional, meta }`
+- `fn ksg_mi(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidResult<f64>`
+- `fn isx_redundancy(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, cfg: &IsxConfig) -> PidResult<f64>`
+- `fn pid2_isx(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, cfg: &Pid2Config) -> PidResult<Pid2Result>`
+- `fn hierarchical_pairwise(sources: &[MatRef<'_>], target: MatRef<'_>, cfg: &HierarchicalConfig) -> PidResult<Vec<PairwiseScreen>>`
 
-Implementation note: exact container types (`ndarray`, `nalgebra`, raw slices) are flexible, but keep a single canonical “row-major (n×d) float” convention and enforce it everywhere.
+Implementation note: keep a single canonical “row-major (`n×d`) float” convention and enforce it everywhere.
 
 ### Preprocessing + dimensionality reduction rules (avoid silent bugs)
 
@@ -175,11 +252,16 @@ Implementation note: exact container types (`ndarray`, `nalgebra`, raw slices) a
   - Fit/transform `S1`, `S2`, and `T` independently (no PCA on `[S1|S2|T]` concatenations).
   - Log/serialize the fitted transform (mean/std; PCA components; random projection matrix seed).
 - Default preprocessing (minimum):
-  - Per-dimension standardization (zero mean, unit variance) or min-max scaling.
-  - Optional: monotone marginal Gaussianization (rank/CDF→Normal) as an **invertible** per-dimension reparameterization to improve kNN geometry (does not change true MI when applied per variable; still re-validate estimator behavior).
-  - Optional: small jitter for duplicate points (seeded) to avoid kNN tie pathologies; record when enabled.
+  - Per-dimension standardization (zero mean, unit variance). Implemented in Rust as `Standardizer`.
+    (Min-max scaling is not currently implemented.)
+  - Optional: monotone marginal Gaussianization (rank/CDF→Normal) as an **invertible**
+    per-dimension reparameterization to improve kNN geometry (does not change true MI when applied
+    per variable; still re-validate estimator behavior). (TODO: Python-first.)
+  - Optional: small jitter for duplicate points (seeded) to avoid kNN tie pathologies. Implemented
+    in Rust as `Jitter`; record when enabled.
 - Dimensionality reduction (only after Experiment 0 justifies it):
-  - PCA: pick variance-retained target (e.g., 95%) or fixed component count; record the achieved dimension.
+  - PCA: pick variance-retained target (e.g., 95%) or fixed component count; record the achieved
+    dimension. (TODO: Python-first.)
   - Random projection: use a seeded matrix; record seed + target dimension.
     - Current dependency-free baseline in this repo: `HashProjector` (feature hashing / CountSketch) in `crates/pid-core/src/preprocess.rs`.
   - Any reduction changes the quantity being estimated (non-invertible transform); always report it with results.
@@ -200,13 +282,20 @@ KSG mutual information (continuous, k-NN):
 - Always validate behavior on low-dimensional synthetic data before trusting high-dimensional runs.
 
 Continuous `I^sx_∩` redundancy (Ehrlich et al. 2024):
-- Implement from the paper and **cross-check against the authors’ reference implementation** (`csxpid`, `gitlab.gwdg.de/wibral/continuouspidestimator`; vendored at `.external/repos/continuouspidestimator`); treat Appendix B.3.4 in `grandplan.md` as a sketch, not as a proof of correctness.
+- Implement from the paper and **cross-check against the authors’ reference implementation**
+  (`csxpid`, `gitlab.gwdg.de/wibral/continuouspidestimator`; vendored at
+  `.external/repos/continuouspidestimator`). Treat Appendix B.3.4 in `grandplan.md` as a sketch,
+  not as a proof of correctness.
 - Keep the estimator factored so we can swap kNN backends (exact vs approximate) without changing math.
 
 High-dimensional regime handling:
-- Expect **distance concentration** and estimator collapse at large `d`; do not hide this—detect it and trigger the Experiment 0 “PIVOT” path (dim reduction).
+- Expect **distance concentration** and estimator collapse at large `d`; do not hide this.
+  Detect it via intrinsic-dimension estimates (implemented) and distance-concentration proxies
+  (TODO), then trigger the Experiment 0 “PIVOT” path (dim reduction).
 - Default approach: PCA to ~256 dims (variance retained target) + rerun Experiment 0 to re-establish accuracy.
-- Strong dependence is a separate pathology from high `d`: large true MI (near-deterministic mappings) can break kNN MI/PID at low `d` unless sample sizes are enormous (Gao et al. 2015). Treat “noiseless” signals with extreme caution.
+- Strong dependence is a separate pathology from high `d`: large true MI (near-deterministic
+  mappings) can break kNN MI/PID at low `d` unless sample sizes are enormous (Gao et al. 2015).
+  Treat “noiseless” signals with extreme caution.
 - Do not mix estimator families inside PID identities (e.g., do not combine MINE MI terms with disjunction-kNN redundancy in `Syn = I(S1,S2;T) − I(S1;T) − I(S2;T) + Red`).
 
 ### Result reporting (make downstream experiments reproducible)
@@ -216,7 +305,8 @@ Every experiment output that depends on the Rust estimator should record:
 - environment (OS/arch, `rustc --version`, BLAS/GPU backend if applicable),
 - sample sizes and effective dimensions after reduction,
 - random seeds for any stochastic step (jitter, bootstrap, random projection),
-- warnings/diagnostics (e.g., distance concentration indicators, excessive ties, NaNs clamped/filtered).
+- warnings/diagnostics (e.g., intrinsic dimension, distance-concentration proxies (TODO),
+  excessive ties, NaNs clamped/filtered).
 
 ### Validation obligations (what to test, always)
 
