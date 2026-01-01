@@ -2,9 +2,10 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 2.8 (NixOS CUDA Secondary Target)  
+**Version:** 2.9 (PixelVLA Integration & sae_analysis Cross-Validation)  
 **Date:** January 2026  
-**Status:** Research Specification with Critical Assessment
+**Status:** Research Specification with Critical Assessment  
+**Canonical:** This is the living spec; prior versions live in git history.
 
 ---
 
@@ -136,6 +137,8 @@ i(s; t) = log[p(s, t) / (p(s)·p(t))]
 
 Ehrlich et al. (2024) derive a **kNN/KSG-style estimator** for the continuous case by replacing conjunction (intersection) neighborhoods with disjunction (union) neighborhoods; see §8.1.3 for the concrete estimator form.
 
+**Important:** Do **not** confuse `I^sx_∩` with Williams & Beer’s `I_min`, which is defined using a minimum over “specific information” terms; `I_min` is a different redundancy measure.
+
 ### 2.2.2 Key Properties
 
 | Property | I^sx_∩ | Implication |
@@ -189,7 +192,20 @@ Where:
 
 ### 2.3.2 Extension to I^sx_∩
 
-The continuous I^sx_∩ requires estimating pointwise MI at each sample point, then taking the minimum across sources. This is computationally expensive and has unknown accuracy at high dimensions.
+Ehrlich et al. (2024) derive a **KSG-style kNN estimator** for continuous `I^sx_∩`. It is **not** “take the minimum of pointwise MI terms.”
+
+The key adaptation is that the shared-exclusions “OR” in Makkeh et al. (2021) becomes a **disjunction neighborhood** in source space. Under Chebyshev/L∞:
+
+- `d_S_disj(i,j) = min( d(S₁ᵢ,S₁ⱼ), d(S₂ᵢ,S₂ⱼ) )`
+- `d_ST_disj(i,j) = max( d(Tᵢ,Tⱼ), d_S_disj(i,j) )`
+
+For each sample `i`, let `εᵢ` be the distance to the `k`-th nearest neighbor under `d_ST_disj`. Count `n_α(i)` neighbors in the source-disjunction ball and `n_T(i)` neighbors in target space within `εᵢ`, then estimate:
+
+```
+Î^sx_∩ = ψ(k) + ψ(N) − (1/N) Σ_i [ ψ(n_α(i)) + ψ(n_T(i)) ]
+```
+
+See §8.1.3 for concrete implementation notes (tie handling matters).
 
 ## 2.4 Infomorphic Networks
 
@@ -347,7 +363,7 @@ ci_vec = [co_info_2way(V, L, A), co_info_2way(V, D, A), co_info_2way(L, D, A)]
 failure_prob = ci_to_failure_model.predict(ci_vec)
 ```
 
-**Speed improvement:** CI requires 7 MI estimates; full I^sx_∩ PID requires pointwise MI for all N samples.
+**Speed improvement:** CI requires only MI terms (7 KSG runs for a triplet); full `I^sx_∩` PID adds an additional disjunction-kNN redundancy estimator with per-sample kNN radii + neighbor counts, which is typically more expensive.
 
 ### 2.5.4 Recommended Strategy: Hierarchical Approach
 
@@ -1127,14 +1143,102 @@ The explicit world embedding D means:
 2. D is designed to be separable from V
 3. Synergy/redundancy have clear interpretation
 
-## 7.3 Other VLAs (For Future Reference)
+## 7.3 PixelVLA (Pixel-Level Understanding)
 
-| VLA | Backbone | World Model | Action Representation |
-|-----|----------|-------------|----------------------|
-| **OpenVLA-OFT** | Llama 2 7B (parallel decoding) | None | Continuous (L1 regression) |
-| **Groot N1** | Custom | System 2 planner | Continuous |
-| **TinyVLA** | Smaller | None | Discrete |
-| **π₀** | Flow matching | Implicit | Continuous |
+### 7.3.1 Architecture
+
+PixelVLA (arXiv:2511.01571, November 2025) extends VLAs with pixel-level understanding and multimodal visual prompting:
+
+```
+Image → DinoV2+SigLIP → MLP Projector → Llama 2 7B → Continuous Action Decoder
+              ↓                              ↑
+    Multiscale Pixel-Aware Encoder ──────────┘
+              ↑
+    Visual Prompting Encoder ← (points, lines, regions, masks)
+```
+
+**Key Components:**
+
+| Component | Description | Novelty |
+|-----------|-------------|---------|
+| **Visual Prompting Encoder** | Lightweight encoder for diverse visual prompts | Handles points, lines, bboxes, masks |
+| **Multiscale Pixel-Aware Encoder** | Generates pixel-aware embeddings | Injects pixel-level understanding |
+| **Continuous Action Decoder** | L1 regression instead of 256-bin discretization | Finer action granularity |
+
+**Training Pipeline:**
+1. **Continuous Action Training:** Align continuous action decoder with VLA backbone
+2. **Pixel-Level Understanding Enhancement:** Fine-tune on Pixel-160K dataset
+
+**Pixel-160K Dataset:**
+- 160K trajectories with pixel-level annotations
+- Two-stage automated annotation pipeline:
+  1. Gripper-aware region proposal (video segmentation)
+  2. Multimodal object segmentation (LLM + open-vocab segmentation)
+
+### 7.3.2 Key Properties for PID Analysis
+
+PixelVLA offers unique advantages for PID-based diagnostics:
+
+| Property | Advantage for PID |
+|----------|-------------------|
+| **Pixel-level V** | V captures fine-grained spatial structure, not just global features |
+| **Visual prompts** | Can probe specific regions for localized PID analysis |
+| **Continuous actions** | No discretization artifacts in A |
+| **Multiscale encoder** | Multiple V representations at different scales |
+
+**PID Decomposition Opportunities:**
+
+1. **V at Multiple Scales:** PixelVLA's multiscale encoder produces V_coarse, V_medium, V_fine. We can compute:
+   ```
+   Syn(V_coarse, V_fine; A) → Does the model integrate global and local visual info?
+   ```
+
+2. **Visual Prompt → V Analysis:** When visual prompts (masks, points) are provided:
+   ```
+   I(V_prompted, V_unprompted; A) → How much does prompting change action?
+   ```
+
+3. **Pixel-Level Failure Localization:** If Syn(V,D;A) < 0, we can use visual prompts to probe specific regions and identify WHERE the failure occurs.
+
+### 7.3.3 PixelVLA vs Other VLAs for PID
+
+| Property | OpenVLA | DreamVLA | PixelVLA |
+|----------|---------|----------|----------|
+| **Explicit D** | No | Yes | No |
+| **Pixel-level V** | No | Partial (depth pred.) | Yes |
+| **Visual prompts** | No | No | Yes (points, masks) |
+| **Action type** | Discrete (256-bin) | Continuous (flow) | Continuous (L1) |
+| **Best PID decomposition** | V-L-A | V-D-A | V_multi-L-A |
+
+**Recommendation:** Use PixelVLA when:
+- Task requires pixel-level precision (small object manipulation)
+- Failure localization is important (WHERE did it fail?)
+- Visual grounding issues are suspected
+
+## 7.4 TraceVLA (Visual Trace Prompting)
+
+**TraceVLA** (arXiv:2412.10345, December 2024) enhances VLAs with spatial-temporal awareness by overlaying visual state-action trajectories:
+
+```
+Current Image + Historical Trace Overlay → VLA → Action
+```
+
+- Fine-tuned from OpenVLA on 150K trajectories with visual traces
+- 10% improvement on SimplerEnv, 3.5× on real-robot tasks
+- Also released as TraceVLA-Phi3 (4B parameters) for RTX 4090 fine-tuning
+
+**PID Relevance:** TraceVLA encodes temporal history visually. This means V implicitly contains D-like information (past states). The V-D boundary becomes blurred—interesting for testing whether PID can detect this encoding.
+
+## 7.5 Other VLAs (For Future Reference)
+
+| VLA | Backbone | World Model | Action Representation | Notes |
+|-----|----------|-------------|----------------------|-------|
+| **OpenVLA-OFT** | Llama 2 7B (parallel) | None | Continuous (L1) | Faster inference |
+| **Groot N1** | Custom | System 2 planner | Continuous | NVIDIA, hierarchical |
+| **TinyVLA** | Smaller | None | Discrete | Efficient |
+| **π₀** | Flow matching | Implicit | Continuous | State-of-art |
+| **MemoryVLA** | VLM + Memory Bank | Working + Long-term | Continuous | Hippocampal-inspired |
+| **CoT-VLA** | 7B + CoT | Visual chain-of-thought | Mixed | 17% improvement |
 
 ---
 
@@ -1190,16 +1294,17 @@ Instead, it adapts KSG by replacing conjunction (intersection) neighborhoods wit
 For **two sources** `S₁,S₂` and a target `T`, under Chebyshev/L∞:
 
 1. For each sample `i`, compute the joint disjunction distance to every other sample `j`:
-   - `d_S_disj(i,j) = min( d(S₁_i,S₁_j), d(S₂_i,S₂_j) )`
-   - `d_ST_disj(i,j) = max( d(T_i,T_j), d_S_disj(i,j) )`
-2. Let `ε_i` be the distance to the `k`-th nearest neighbor under `d_ST_disj` (with strict `< ε_i` counting for ties).
-3. Count neighbors within `ε_i`:
-   - `n_α(i)` = number of samples within `ε_i` of the **source disjunction** (i.e., `d_S_disj(i,j) < ε_i`), including the query point
-   - `n_T(i)` = number of samples within `ε_i` in target space (i.e., `d(T_i,T_j) < ε_i`), including the query point
+   - `d_S_disj(i,j) = min( d(S₁ᵢ,S₁ⱼ), d(S₂ᵢ,S₂ⱼ) )`
+   - `d_ST_disj(i,j) = max( d(Tᵢ,Tⱼ), d_S_disj(i,j) )`
+2. Let `εᵢ_raw` be the distance to the `k`-th nearest neighbor under `d_ST_disj`.
+   - Use **strict** semantics for marginal counts (`< εᵢ_raw`) via `εᵢ = nextafter(εᵢ_raw, 0)` (or an equivalent strict-radius rule).
+3. Count neighbors within `εᵢ`:
+   - `n_α(i)` = number of samples within `εᵢ` of the **source disjunction** (`d_S_disj(i,j) <= εᵢ`), including the query point
+   - `n_T(i)` = number of samples within `εᵢ` in target space (`d(Tᵢ,Tⱼ) <= εᵢ`), including the query point
 4. Estimate redundancy:
    - `Î^sx_∩ = ψ(k) + ψ(N) − (1/N) Σ_i [ ψ(n_α(i)) + ψ(n_T(i)) ]`
 
-This matches the authors’ reference implementation (`gitlab.gwdg.de/wibral/continuouspidestimator`) and is implemented in this repo as `crates/pid-core/src/isx.rs` (`IsxMethod::EhrlichKsg`).
+This matches the authors’ reference implementation (`gitlab.gwdg.de/wibral/continuouspidestimator`, Python package `csxpid`) and is implemented in this repo as `crates/pid-core/src/isx.rs` (`IsxMethod::EhrlichKsg`).
 
 ## 8.2 Dimensionality Reduction Strategies
 
@@ -1976,6 +2081,166 @@ The Tauri + Three.js frontend can overlay:
 | Memory | 16GB | 32GB |
 | Storage | SSD | NVMe |
 
+### 10.8.7 PixelVLA Integration with Headless Gazebo + Tauri
+
+PixelVLA's pixel-level understanding and visual prompting capabilities integrate naturally with the visualization system:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PIXELVLA + GAZEBO + TAURI INTEGRATION                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Gazebo (Headless)              PixelVLA                    Tauri + SparkJS│
+│   ─────────────────              ────────                    ───────────────│
+│                                                                              │
+│   Physics @ 1kHz ─────────┐                                                 │
+│                           │                                                 │
+│   Camera @ 30fps ─────────┼──(Zenoh)──→ DinoV2+SigLIP ─→ V embeddings     │
+│                           │             + Multiscale    │                   │
+│                           │               Pixel Encoder  │                   │
+│                           │                              ↓                   │
+│   ┌───────────────────────┴──────────────────────────────┴───────────────┐ │
+│   │                        THREE.JS OVERLAYS                              │ │
+│   │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │ │
+│   │  │ Pixel-level     │  │ Visual Prompt   │  │ PID Diagnostic      │  │ │
+│   │  │ Attention Maps  │  │ Overlay (masks, │  │ Heatmaps           │  │ │
+│   │  │ (from PixelVLA  │  │ points, regions)│  │ (Syn(V,D;A) per    │  │ │
+│   │  │  encoder)       │  │                 │  │  pixel region)     │  │ │
+│   │  └─────────────────┘  └─────────────────┘  └─────────────────────┘  │ │
+│   └──────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│   User Interaction:                                                         │
+│   • Click to place visual prompts (points, bboxes)                          │
+│   • Hover for local PID values                                              │
+│   • Select regions for targeted analysis                                    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Data Flow for PixelVLA + PID:**
+
+```
+1. Gazebo renders simulated scene
+2. Camera image sent via Zenoh (zero-copy) to PixelVLA
+3. PixelVLA produces:
+   - V_coarse: Global visual features (256 patches)
+   - V_fine: Pixel-level features (from multiscale encoder)
+   - A_pred: Continuous action prediction
+4. Embeddings forwarded to PID computation
+5. Results visualized in Tauri:
+   - Per-patch synergy overlaid on image
+   - Attention maps from pixel-aware encoder
+   - Interactive visual prompting interface
+```
+
+**Visual Prompting in Tauri:**
+
+The SparkJS/Three.js frontend can send visual prompts back to PixelVLA:
+
+```typescript
+// Tauri frontend: user clicks to create visual prompt
+async function onCanvasClick(event: MouseEvent) {
+  const point = screenToImageCoords(event);
+  
+  // Send point prompt via Zenoh
+  await zenoh.put("pixelvla/prompt/point", {
+    x: point.x,
+    y: point.y,
+    type: "manipulation_target"
+  });
+  
+  // Receive PixelVLA's response with pixel attention
+  const attention = await zenoh.get("pixelvla/attention");
+  
+  // Overlay on Three.js scene
+  renderAttentionHeatmap(attention);
+}
+
+// Draw bounding box prompt
+function onBboxDraw(bbox: Rect) {
+  zenoh.put("pixelvla/prompt/bbox", {
+    x1: bbox.left, y1: bbox.top,
+    x2: bbox.right, y2: bbox.bottom,
+    type: "region_of_interest"
+  });
+}
+```
+
+**PixelVLA-Specific PID Analysis in Tauri:**
+
+```rust
+// Rust backend: specialized PID for PixelVLA's multiscale outputs
+async fn pixelvla_pid_analysis(
+    v_coarse: &Tensor,   // 256 patches × 1024 dim
+    v_fine: &Tensor,     // H×W × 256 dim (pixel-level)
+    d: &Tensor,          // World model state
+    a: &Tensor,          // Action prediction
+) -> PixelPIDResult {
+    // 1. Global PID (standard V-D-A)
+    let global_pid = compute_pid(
+        &v_coarse.mean(dim=0),  // Pool to single vector
+        d,
+        a,
+    );
+    
+    // 2. Patch-level PID (for each of 256 patches)
+    let patch_pids: Vec<PIDResult> = (0..256)
+        .map(|i| compute_pid(&v_coarse[i], d, a))
+        .collect();
+    
+    // 3. Region-specific PID (if visual prompt provided)
+    let region_pid = if let Some(prompt) = get_current_prompt() {
+        let v_region = extract_region_features(v_fine, &prompt);
+        Some(compute_pid(&v_region, d, a))
+    } else {
+        None
+    };
+    
+    // 4. Cross-scale synergy (does PixelVLA integrate global + local?)
+    let cross_scale_syn = compute_conditional_mi(
+        &v_coarse.mean(dim=0),  // Global
+        &v_fine.mean(dims=[0,1]),  // Local (pooled)
+        a,  // Target
+    ) - mi(&v_coarse.mean(dim=0), a) - mi(&v_fine.mean(dims=[0,1]), a);
+    
+    PixelPIDResult {
+        global: global_pid,
+        per_patch: patch_pids,
+        region: region_pid,
+        cross_scale_synergy: cross_scale_syn,
+    }
+}
+```
+
+**Benefits of PixelVLA + Gazebo Integration:**
+
+| Feature | Benefit for PID Research |
+|---------|-------------------------|
+| **Pixel-level embeddings** | Localize WHERE synergy/failures occur |
+| **Interactive visual prompts** | Probe specific objects/regions |
+| **Continuous actions** | No discretization noise in A |
+| **Multiscale representations** | Test cross-scale information integration |
+| **Sim-to-real alignment** | Debug perception issues before real robot |
+
+**Latency Budget for PixelVLA:**
+
+```
+Component                      Time (ms)    Notes
+─────────────────────────────────────────────────
+Gazebo → Zenoh                    2        Zero-copy shared mem
+DinoV2 + SigLIP inference        45        7B params, M4 Max
+Multiscale pixel encoder          8        Lightweight
+Action decoder                    5        L1 regression
+PID (Shannon invariants)         10        Fast screening
+PID (full I^sx_∩) on demand     100        Per-click analysis
+Three.js render                  16        60 fps cap
+─────────────────────────────────────────────────
+Total (interactive)             ~86ms      ~12 fps interactive
+Total (with full PID)          ~186ms      ~5 fps detailed analysis
+```
+
+**Note:** Full I^sx_∩ PID is too slow for real-time (~100ms). Use Shannon invariants for continuous monitoring, trigger full PID only for suspicious frames.
+
 ---
 
 # 11. Technical Implementation
@@ -2208,6 +2473,10 @@ Can PID profiles predict how well a policy will transfer across:
 - **Dream-VLA:** HKU NLP (2024). 97.2% LIBERO, diffusion-based
 - **OpenVLA-OFT:** Parallel decoding, L1 regression
 - **Groot N1:** NVIDIA (2025). arXiv:2503.14734
+- **PixelVLA:** arXiv:2511.01571 (Nov 2025). Pixel-level understanding with multiscale encoder and visual prompting.
+- **TraceVLA:** arXiv:2412.10345 (Dec 2024). Visual trace prompting for spatial-temporal awareness.
+- **MemoryVLA:** Shi et al. (2025). Perceptual-cognitive memory for long-horizon manipulation.
+- **CoT-VLA:** Chain-of-thought for VLAs. 7B model with 17% improvement over baselines.
 
 ## 13.3 Multimodal PID
 
@@ -2215,9 +2484,9 @@ Can PID profiles predict how well a policy will transfer across:
 
 - **IDTxl:** Wollstadt P, Lizier JT, et al. (2019). IDTxl: The Information Dynamics Toolkit xl. JOSS 4(34):1081. [Comprehensive PID toolkit. Code: github.com/pwollstadt/IDTxl]
 
-- **SxPID:** Makkeh A (2021). Discrete I^sx_∩ implementation. [Code: github.com/Abzinger/SxPID]
+- **SxPID:** Discrete `I^sx_∩` reference implementation (Python). [Code: https://github.com/Abzinger/SxPID]
 
-- **sae_analysis:** Abzinger (WIP). Information-theoretic analysis toolbox for sparse autoencoders (SAEs) implementing **Shannon-invariants-style** measures (e.g., degree of redundancy / vulnerability from Gutknecht et al. 2025). **Not** a continuous `I^sx_∩` estimator; may be incomplete/not yet validated; uses submodules (sparsify/delphi) and has no obvious top-level license—treat as a reference/starting point only. [Code: github.com/Abzinger/sae_analysis]
+- **sae_analysis:** WIP toolbox for Shannon-invariants-style analysis of SAE latents (degree of redundancy / vulnerability from Gutknecht et al. 2025). [Code: https://github.com/Abzinger/sae_analysis; experimental/not yet fully validated]
 
 ## 13.4 World Models
 
@@ -2323,6 +2592,14 @@ Can PID profiles predict how well a policy will transfer across:
 | **SIMA 2** | Scalable Instructable Multiworld Agent (DeepMind) |
 | **TransPhy3D** | Synthetic transparent object video dataset (11k scenes) |
 | **Emergent Physics** | Physics learned via self-supervision, not hardcoded |
+| **PixelVLA** | VLA with pixel-level understanding and visual prompting |
+| **TraceVLA** | VLA with visual trace prompting for spatial-temporal awareness |
+| **Multiscale Pixel-Aware Encoder** | PixelVLA component for pixel-level feature injection |
+| **Visual Prompting Encoder** | PixelVLA component for processing points, masks, regions |
+| **Pixel-160K** | PixelVLA's pixel-annotated visuomotor dataset (160K trajectories) |
+| **sae_analysis** | Makkeh's Shannon invariant toolkit for SAE analysis |
+| **Red° (Degree of Redundancy)** | Shannon invariant: avg. extent info accessible from multiple sources |
+| **Vul° (Degree of Vulnerability)** | Shannon invariant: avg. extent info lost when sources removed |
 
 ---
 
@@ -3068,8 +3345,7 @@ class CUDAPIDEstimator:
         i_s2_t = self.ksg.mutual_information(s2, target)
         i_s1s2_t = self.ksg.mutual_information(s1s2, target)
         
-        # Compute I^sx_∩ redundancy via pointwise minimum
-        # This is computationally expensive - use sampling for large N
+        # Compute I^sx_∩ redundancy via the Ehrlich et al. (2024) kNN disjunction estimator.
         redundancy = self._compute_shared_exclusions_redundancy(s1, s2, target)
         
         # PID atoms
@@ -3096,8 +3372,12 @@ class CUDAPIDEstimator:
         n_samples: int = 1000
     ) -> float:
         """
-        Compute I^sx_∩ redundancy via pointwise MI minimum.
-        Uses sampling for computational tractability.
+        Compute continuous shared-exclusions redundancy I^sx_∩(S1,S2;T)
+        using the KSG-style disjunction estimator (Ehrlich et al. 2024).
+
+        This is O(N²) in the naive form; this sketch optionally subsamples for
+        tractability. For production, prefer an explicit distance-matrix cache
+        + chunked k-th-neighbor selection.
         """
         n = target.shape[0]
         
@@ -3108,41 +3388,31 @@ class CUDAPIDEstimator:
             s2 = s2[indices]
             target = target[indices]
             n = n_samples
-        
-        # Estimate pointwise MI for each target value
-        # This is approximate - full implementation requires density estimation
-        redundancy_sum = 0.0
-        
-        # Batch computation of local MI estimates
-        for i in range(n):
-            # Local neighborhood around target point
-            t_i = target[i:i+1]
-            
-            # Find neighbors in target space
-            t_dists = torch.cdist(target, t_i, p=float('inf')).squeeze()
-            k_dist = torch.kthvalue(t_dists, self.k + 1).values
-            
-            # Points within k-th neighbor distance
-            mask = t_dists <= k_dist
-            local_s1 = s1[mask]
-            local_s2 = s2[mask]
-            
-            if local_s1.shape[0] > self.k:
-                # Estimate local MI
-                pmi_s1 = self._estimate_local_pmi(local_s1)
-                pmi_s2 = self._estimate_local_pmi(local_s2)
-                
-                # Shared exclusions: minimum of pointwise MI
-                redundancy_sum += min(pmi_s1, pmi_s2)
-        
-        return redundancy_sum / n
-    
-    def _estimate_local_pmi(self, local_data: Tensor) -> float:
-        """Estimate local pointwise MI from neighborhood data."""
-        # Simplified: use variance as proxy for information content
-        # Full implementation would use density estimation
-        var = local_data.var(dim=0).mean().item()
-        return max(0.0, 0.5 * math.log(2 * math.pi * math.e * var + 1e-10))
+
+        # Pairwise Chebyshev/L∞ distances.
+        ds1 = self.ksg._cdist_chunked(s1, s1)
+        ds2 = self.ksg._cdist_chunked(s2, s2)
+        dt = self.ksg._cdist_chunked(target, target)
+
+        # Disjunction distance in source space: min(ds1, ds2).
+        ds_disj = torch.minimum(ds1, ds2)
+        # Joint disjunction distance: max(dt, ds_disj).
+        d_joint = torch.maximum(dt, ds_disj)
+
+        # Exclude self for the kNN radius.
+        d_joint.fill_diagonal_(float('inf'))
+        eps_raw, _ = torch.kthvalue(d_joint, self.k, dim=1)
+        # Strict radius for inclusive counting (KSG-style tie handling).
+        eps = torch.nextafter(eps_raw, torch.zeros_like(eps_raw))
+
+        # Counts include self (diagonal distance is 0).
+        n_alpha = (ds_disj <= eps.unsqueeze(1)).sum(dim=1)
+        n_t = (dt <= eps.unsqueeze(1)).sum(dim=1)
+
+        psi_k = torch.digamma(torch.tensor(self.k, dtype=torch.float32, device=self.device))
+        psi_n = torch.digamma(torch.tensor(n, dtype=torch.float32, device=self.device))
+        avg = (torch.digamma(n_alpha.float()) + torch.digamma(n_t.float())).mean()
+        return (psi_k + psi_n - avg).item()
 
 
 # Batch processing for large-scale experiments
@@ -3816,19 +4086,215 @@ def extract_embeddings_streaming(
 
 #### B.3.3.1 Code Repositories for PID Estimation
 
-**CRITICAL NOTE:** The continuous I^sx_∩ estimator from Ehrlich et al. (2024) does NOT have publicly available code as of December 2025. The paper states implementation details are in "Appendix H" but no public repository has been released. **This means we must implement the estimator ourselves from the paper's mathematical description.**
+**CRITICAL NOTE (updated):** The authors’ reference implementation of the continuous `I^sx_∩` estimator is public: `https://gitlab.gwdg.de/wibral/continuouspidestimator` (Python package `csxpid`). This repo vendors the reference code under `.external/repos/continuouspidestimator` for cross-checking, and the Rust implementation in `crates/pid-core` is validated against it on synthetic tests.
 
 | Repository | PID Measure | Data Type | Language | Status |
 |------------|-------------|-----------|----------|--------|
 | **[Abzinger/SxPID](https://github.com/Abzinger/SxPID)** | I^sx_∩ (discrete) | Discrete only | Python | ✓ Released, 7 stars |
+| **[Abzinger/sae_analysis](https://github.com/Abzinger/sae_analysis)** | Shannon invariants (Red°, Vul°) | Continuous (via SAE) | Python | ⚠️ Experimental |
 | **[pwollstadt/IDTxl](https://github.com/pwollstadt/IDTxl)** | Multiple (includes SxPID) | Discrete + some continuous | Python | ✓ Released, mature |
 | **[pliang279/PID](https://github.com/pliang279/PID)** | BATCH + CVX (NOT I^sx_∩) | High-dim continuous via clustering | Python | ✓ Released, 84 stars |
-| **Ehrlich et al. (2024) continuous I^sx_∩** | I^sx_∩ (continuous) | Continuous | Unknown | ✗ NOT PUBLIC |
+| **[wibral/continuouspidestimator](https://gitlab.gwdg.de/wibral/continuouspidestimator)** (`csxpid`) | I^sx_∩ (continuous, kNN) | Continuous | Python | ✓ Public (reference) |
 
-Related (not PID estimation, but relevant to §2.5 Shannon invariants / scalable decomposition):
-- **[Abzinger/sae_analysis](https://github.com/Abzinger/sae_analysis)** — WIP toolbox for information-theoretic analysis of sparse autoencoders (SAEs) implementing “Shannon invariants” measures (degree of redundancy / vulnerability) from Gutknecht et al. (2025); uses submodules (sparsify/delphi). Not a continuous `I^sx_∩` estimator; treat as a reference/starting point only.
+#### B.3.3.2 Abzinger/sae_analysis: Shannon Invariants for SAE Analysis
 
-#### B.3.3.2 Why Liang et al.'s Code Is NOT Directly Usable
+**Repository note:** `https://github.com/Abzinger/sae_analysis` is an experimental/WIP toolbox for applying **Shannon invariants** (Gutknecht et al. 2025) to **SAE latents**. It is **not** a continuous shared-exclusions (`I^sx_∩`) estimator, and it may not yet be complete or fully validated—treat it as a reference/starting point only.
+
+**Repository:** https://github.com/Abzinger/sae_analysis
+
+**What It Does:**
+- Applies Shannon invariants from Gutknecht et al. (2025, arXiv:2504.15779) to analyze SAE representations
+- Computes **degree of redundancy (Red°)** and **degree of vulnerability (Vul°)**
+- Uses EleutherAI's `sparsify` for SAE training and `delphi` for activation caching
+
+**Architecture:**
+```
+Training Data → sparsify (SAE training) → Learned SAE
+                                              ↓
+Activations → delphi (caching) → info_analysis.py → Shannon Invariants
+                                              ↓
+                                    Red° (redundancy), Vul° (vulnerability)
+```
+
+**Shannon Invariants Computed:**
+
+| Invariant | Definition | Interpretation |
+|-----------|------------|----------------|
+| **Degree of Redundancy (Red°)** | Avg. extent to which information is accessible from multiple sources | Higher = more distributed/robust representation |
+| **Degree of Vulnerability (Vul°)** | Avg. extent to which information is lost when sources removed | Higher = more fragile/specialized representation |
+
+**Relevance to PID-VLA:**
+
+| Aspect | sae_analysis | Our PID-VLA Approach |
+|--------|--------------|----------------------|
+| **Target system** | SAE latent features | VLA embeddings (V, D, A) |
+| **Measures** | Red°, Vul° (Shannon invariants) | Syn, Red, Unq (I^sx_∩ atoms) |
+| **Goal** | Dictionary size optimization | Hallucination detection |
+| **Theoretical basis** | Same (Gutknecht et al. 2025) | Same (Wibral group) |
+
+**Potential Synergy:**
+1. **SAE preprocessing:** Train SAE on VLA embeddings, then apply sae_analysis to identify informative features
+2. **Dimensionality reduction:** Use SAE to reduce 4096-dim embeddings before PID analysis
+3. **Feature selection:** Red° and Vul° could identify which SAE features to use for V-D-A decomposition
+
+**Caveats (as of January 2026):**
+- Repository has 0 stars, 70 commits—actively developed but early stage
+- No formal release or documentation beyond README
+- May not be complete or fully functional
+- Uses Shannon invariants (scalable summaries) rather than full PID atoms
+
+**Code Structure:**
+```
+sae_analysis/
+├── info_analysis.py      # Shannon invariant computation
+├── feature_analysis.py   # SAE feature analysis
+├── visualize.py          # Visualization utilities
+├── delphi/               # EleutherAI activation caching (submodule)
+└── sparsify/             # EleutherAI SAE training (submodule)
+```
+
+#### B.3.3.3 Comparison: sae_analysis vs Our Rust Implementation
+
+| Aspect | sae_analysis | Our Rust I^sx_∩ Implementation |
+|--------|--------------|--------------------------------|
+| **Measures** | Shannon invariants only | Full PID atoms (Syn, Red, Unq) |
+| **Granularity** | Global averages | Pointwise (per-sample) |
+| **Speed** | Fast (no pointwise computation) | Slow (O(n²) k-NN) |
+| **Interpretability** | Less (aggregate measures) | More (individual atoms) |
+| **Use case** | Screening, feature selection | Detailed failure diagnosis |
+| **Dimensionality** | High-dim via SAE compression | Requires dim reduction |
+
+**Recommendation:**
+Use sae_analysis for **initial screening** (fast Shannon invariants), then our Rust I^sx_∩ for **detailed analysis** on suspicious cases. This matches our hierarchical approach in §2.5.4.
+
+#### B.3.3.5 Implementation Validation: Our Rust I^sx_∩ vs sae_analysis
+
+**Validation Strategy:**
+
+Since sae_analysis uses Shannon invariants (degree of redundancy, degree of vulnerability) while our Rust implementation computes full I^sx_∩ atoms, we can cross-validate by checking consistency:
+
+```
+Theoretical Relationship (Gutknecht et al. 2025):
+─────────────────────────────────────────────────
+The Shannon invariants are weighted averages over PID atoms:
+
+Red° = (1/I(S;T)) × Σ_α w_α × Π(α)    [weighted avg of redundancy atoms]
+Vul° = (1/I(S;T)) × Σ_α v_α × Π(α)    [weighted avg of vulnerability atoms]
+
+For 2-source PID (our V-D-A case):
+- If Syn >> Red: expect low Red°, high Vul° (fragile, synergy-dependent)
+- If Red >> Syn: expect high Red°, low Vul° (robust, distributed)
+```
+
+**Validation Test Cases:**
+
+| Test | sae_analysis Expected | Our Rust I^sx_∩ Expected | Consistency Check |
+|------|----------------------|--------------------------|-------------------|
+| **XOR gate** | Red° ≈ 0, Vul° high | Syn ≈ 1 bit, Red ≈ 0 | ✓ Synergy-dominated |
+| **Copy gate** | Red° high, Vul° low | Red ≈ 1 bit, Syn ≈ 0 | ✓ Redundancy-dominated |
+| **Unique gate** | Red° ≈ 0, Vul° moderate | Unq ≈ 1 bit each | ✓ Independent sources |
+| **Random data** | Red° ≈ 0, Vul° ≈ 0 | All atoms ≈ 0 | ✓ No information |
+
+**Cross-Implementation Test Protocol:**
+
+```python
+# test_cross_implementation.py
+"""
+Cross-validate our Rust I^sx_∩ against sae_analysis Shannon invariants.
+"""
+
+import numpy as np
+from pid_python import compute_pid  # Our Rust bindings
+# from sae_analysis.info_analysis import compute_shannon_invariants  # Once stable
+
+def test_consistency_xor():
+    """XOR should show high synergy (Rust) and high vulnerability (sae_analysis)."""
+    n = 10000
+    x1 = np.random.randint(0, 2, n)
+    x2 = np.random.randint(0, 2, n)
+    y = x1 ^ x2  # XOR
+    
+    # Our Rust implementation
+    pid = compute_pid(
+        x1.reshape(-1, 1).astype(np.float64),
+        x2.reshape(-1, 1).astype(np.float64),
+        y.reshape(-1, 1).astype(np.float64),
+        k=3
+    )
+    
+    # Check synergy is dominant
+    assert pid.synergy > 0.8  # Should be ~1 bit
+    assert pid.redundancy < 0.1  # Should be ~0
+    
+    # sae_analysis comparison (when available)
+    # invariants = compute_shannon_invariants(x1, x2, y)
+    # assert invariants.vulnerability > 0.7  # High vulnerability for XOR
+    # assert invariants.redundancy_degree < 0.1  # Low redundancy degree
+    
+def test_consistency_copy():
+    """Copy should show high redundancy (Rust) and low vulnerability (sae_analysis)."""
+    n = 10000
+    x1 = np.random.randn(n)
+    x2 = x1.copy()  # Copy (maximum redundancy)
+    y = x1 + np.random.randn(n) * 0.1  # Noisy observation
+    
+    pid = compute_pid(
+        x1.reshape(-1, 1),
+        x2.reshape(-1, 1),
+        y.reshape(-1, 1),
+        k=3
+    )
+    
+    # Check redundancy is dominant
+    assert pid.redundancy > 0.8  # Should be high
+    assert pid.synergy < 0.1  # Should be ~0
+    
+def test_consistency_vla_embeddings():
+    """
+    Real VLA embeddings should show interpretable patterns:
+    - Successful actions: moderate synergy (V and D integrate well)
+    - Failed actions: low/negative synergy (V and D conflict)
+    """
+    # Load test embeddings from validated VLA run
+    v_success = np.load("test_data/v_success.npy")
+    d_success = np.load("test_data/d_success.npy")
+    a_success = np.load("test_data/a_success.npy")
+    
+    v_failure = np.load("test_data/v_failure.npy")
+    d_failure = np.load("test_data/d_failure.npy")
+    a_failure = np.load("test_data/a_failure.npy")
+    
+    pid_success = compute_pid(v_success, d_success, a_success, k=5)
+    pid_failure = compute_pid(v_failure, d_failure, a_failure, k=5)
+    
+    # Hypothesis: successful actions have higher synergy
+    assert pid_success.synergy > pid_failure.synergy, (
+        f"Expected success synergy ({pid_success.synergy:.3f}) > "
+        f"failure synergy ({pid_failure.synergy:.3f})"
+    )
+```
+
+**Key Differences in Implementation Approach:**
+
+| Aspect | sae_analysis | Our Rust Implementation |
+|--------|--------------|-------------------------|
+| **Density estimation** | Via SAE sparsity patterns | KSG k-NN estimator |
+| **Discretization** | SAE latent activations (sparse, discrete-ish) | None (continuous k-NN) |
+| **Output** | Scalar invariants (Red°, Vul°) | Full PID decomposition (4 atoms) |
+| **Computation cost** | O(n × d_sae) | O(n² × k) for k-NN |
+| **Interpretability** | Aggregate (global property) | Pointwise (per-sample) |
+
+**When to Use Each:**
+
+| Scenario | Recommended Approach |
+|----------|---------------------|
+| Initial screening of many trajectories | sae_analysis Shannon invariants |
+| Detailed failure diagnosis | Our Rust I^sx_∩ |
+| Real-time monitoring | Shannon invariants (faster) |
+| Research paper results | Both (for validation) |
+| Very high dimensions (d > 1000) | sae_analysis (SAE compresses first) |
+
+#### B.3.3.6 Why Liang et al.'s Code Is NOT Directly Usable
 
 The Liang et al. (NeurIPS 2023) repository is the most relevant existing code for high-dimensional multimodal PID, **but it uses different PID measures:**
 
@@ -3847,7 +4313,7 @@ Neither uses the I^sx_∩ (shared-exclusions) definition from the Wibral group. 
 
 **Recommendation:** Use Liang et al.'s code as a **baseline comparison**, not as the primary estimator. Our Rust implementation should target I^sx_∩ for theoretical consistency with the Wibral framework.
 
-#### B.3.3.3 Verification: Document Alignment with Wibral's PID Framework
+#### B.3.3.7 Verification: Document Alignment with Wibral's PID Framework
 
 **All PID formulations in this document are based on the Wibral group's I^sx_∩ measure, NOT older PID measures like Williams & Beer's I_min.**
 
@@ -3889,40 +4355,44 @@ I^sx_∩(S₁, S₂; T) = ∫∫∫ p(s₁, s₂, t) · i^sx_∩(s₁, s₂; t) 
 
 where the local (pointwise) shared information is:
 
-i^sx_∩(s₁, s₂; t) = log [ p(t | s₁ ∨ s₂) / p(t) ]
-                  = log [ (p(t|s₁) + p(t|s₂) - p(t|s₁,s₂)) / p(t) ]
+i^sx_∩(t : s₁; s₂) = log [ p(t | W_{s₁,s₂} = true) / p(t) ]
+
+where the “statement variable” is:
+
+W_{s₁,s₂} := (S₁ = s₁) ∨ (S₂ = s₂)
 ```
 
-The k-NN estimator approximates this using the KSG framework:
+The k-NN estimator approximates this using a KSG-style construction:
 
 ```
-Î^sx_∩ = ψ(k) + ψ(n) - (1/n) Σᵢ [ ψ(nₜ(i) + 1) + correction_term(i) ]
+Î^sx_∩ = ψ(k) + ψ(n) - (1/n) Σᵢ [ ψ(n_α(i)) + ψ(n_T(i)) ]
 
 where:
 - ψ is the digamma function
 - k is the number of neighbors
 - n is the total sample count
-- nₜ(i) is the count of points within ε of point i in target space
-- correction_term accounts for the "∨" (disjunction) in the exclusions formula
+- n_α(i) is the count of points within εᵢ in the source-disjunction neighborhood (including self)
+- n_T(i) is the count of points within εᵢ in target space (including self)
 ```
 
 #### B.3.4.2 Core Rust Implementation
 
 ```rust
-//! pid-core/src/isx_continuous.rs
+//! crates/pid-core/src/isx.rs
 //! 
 //! Continuous I^sx_∩ PID estimator based on Ehrlich et al. (2024).
 //! 
 //! IMPLEMENTATION NOTES:
 //! =====================
 //! This is a from-scratch implementation based on the paper's mathematical
-//! description, as no reference implementation is publicly available.
+//! description, cross-checked against the authors’ public reference code:
+//! https://gitlab.gwdg.de/wibral/continuouspidestimator (Python package `csxpid`).
 //! 
 //! Key algorithmic components:
-//! 1. k-NN search in joint (S₁, S₂, T) space to find ε(i)
-//! 2. Neighbor counting in marginal spaces S₁, S₂, T within ε(i)
-//! 3. Digamma function evaluations
-//! 4. Correction term for the disjunction operation
+//! 1. k-NN radius ε(i) under the joint disjunction distance d_ST_disj(i,j)
+//! 2. Neighbor counting in target space and source-disjunction space within ε(i)
+//! 3. Digamma ψ(·) evaluations and averaging
+//! 4. Strict-radius tie handling (ε = nextafter(ε_raw, 0) then count with <=)
 //! 
 //! IMPORTANT: This implementation must be validated against synthetic
 //! data with known ground truth (Experiment 0) before use on VLA data.
@@ -5024,7 +5494,6 @@ Libraries:
 - dit (Python): dit.distributions, dit.pid (discrete PID measures)
 - IDTxl (Python): Comprehensive information theory toolkit
 - Abzinger/SxPID (Python): Discrete I^sx_∩ implementation
-- Abzinger/sae_analysis (Python): Shannon-invariants-style SAE analysis toolbox (degree of redundancy / vulnerability), WIP / not a complete `I^sx_∩` implementation
 ```
 
 ---
@@ -6456,6 +6925,7 @@ release: build build-wheel
 | 2.6 | Jan 2026 | **Process Reward Models integration:** (1) Added §3.5 PID vs. Process Reward Models (PRMs) - comprehensive comparison of PID approach with Robo-Dopamine's General Reward Model (GRM), including when to use each, potential synergies, and the "semantic trap" insight for reward shaping. (2) Added GRM as baseline #7 in experimental design. (3) Added §13.6 Process Reward Models references (Robo-Dopamine, GVL, VLAC, SARM, LIV). (4) Updated glossary with PRM, GRM, ORM, VOC, PBRS terms. |
 | 2.7 | Jan 2026 | **World model paradigms & DKT deep dive:** (1) Added §10.1 world model taxonomy (Internal/Evaluative/Generative) with Genie 3 as environment generator. (2) Expanded §10.4.3 DKT section with "Diffusion Knows Transparency" principle, technical details, robot grasping results, and genuine PID relevance (perception quality as prerequisite for valid PID). (3) Added §10.7 World Model Paradigms and PID Implications: theoretical framework for how external world models (Genie 3, WAN) affect internal D; "Diffusion Knows Physics" principle; perception quality diagnostic tree. (4) Added Genie 3, SIMA 2, Genie 2 to world models references. (5) Updated glossary with Genie 3, SIMA 2, TransPhy3D, Emergent Physics. (6) Renumbered sections 10.7→10.8 for Gazebo+Tauri. |
 | 2.8 | Jan 2026 | **NixOS CUDA secondary target:** (1) Restructured §B.2 as "Platform Implementation Reference" with primary (Apple M4) and secondary (NixOS + CUDA) targets. (2) Added §B.2.4 NixOS + CUDA Implementation with complete configuration.nix for NVIDIA drivers, flake.nix with CUDA-enabled PyTorch and Rust toolchain, CUDA software stack diagram. (3) Added GPU-accelerated PID implementation: CUDAKSGEstimator and CUDAPIDEstimator classes with chunked distance computation for OOM prevention. (4) Added NixOS troubleshooting guide and multi-GPU configuration (NCCL). (5) Fixed §B.3 subsection numbering: B.3.5→B.3.3, B.3.6→B.3.4, B.3.7→B.3.5 with correct heading levels. |
+| 2.9 | Jan 2026 | **PixelVLA integration & sae_analysis cross-validation:** (1) Added §7.3 PixelVLA architecture: multiscale pixel-aware encoder, visual prompting encoder, continuous action decoder, Pixel-160K dataset. (2) Added §7.4 TraceVLA: visual trace prompting for spatial-temporal awareness. (3) Added §10.8.7 PixelVLA + Headless Gazebo + Tauri integration: data flow diagram, visual prompting in Tauri (TypeScript), PixelVLA-specific PID analysis (Rust), latency budget (~86ms interactive). (4) Added §B.3.3.2 Abzinger/sae_analysis: Shannon invariants (Red°, Vul°) for SAE analysis, comparison with our approach. (5) Added §B.3.3.5 Implementation Validation: cross-validation protocol between Rust I^sx_∩ and sae_analysis Shannon invariants, test cases (XOR, copy, unique, random), when to use each. (6) Updated §7.5 with MemoryVLA, CoT-VLA. (7) Added PixelVLA, TraceVLA, sae_analysis to references (§13.2, §13.3). (8) Updated glossary with PixelVLA, TraceVLA, Red°, Vul°, multiscale pixel-aware encoder, Pixel-160K. |
 
 ---
 

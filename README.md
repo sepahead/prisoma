@@ -54,8 +54,10 @@ After M0, the repo should expose a small, stable set of commands:
 - `§2.3` continuous-variable extension
 - `§8.1` KSG estimator implementation notes (Chebyshev distance, counting rules)
 - `§2.5.4` hierarchical “fast→slow” strategy (co-information screening)
+- `§7.3–7.4` PixelVLA + TraceVLA (optional future VLA targets)
+- `§10.8.7` PixelVLA + headless Gazebo + Tauri integration (optional future)
 - `§9.1` Experiment 0 protocol + GO/PIVOT/NO-GO criteria
-- `Appendix B.3.4` Rust implementation sketch + validation tests
+- `Appendix B.3.3–B.3.4` reference code availability (`csxpid`) + Rust implementation sketch + validation tests + `sae_analysis` cross-validation notes
 
 ## What we are building (deliverables)
 
@@ -160,6 +162,8 @@ Authoritative papers:
 - Kraskov, Stögbauer, Grassberger (2004) — *Phys Rev E* 69:066138. KSG MI estimator. DOI: `https://doi.org/10.1103/PhysRevE.69.066138`
 - Gutknecht et al. (2025) — arXiv:2504.15779. Shannon invariants / scalable decomposition. `https://arxiv.org/abs/2504.15779`
 - Matthias et al. (2025) — arXiv:2512.16662. Why negative PID atoms can occur (impossibility/inconsistency results). `https://arxiv.org/abs/2512.16662`
+- PixelVLA (2025) — arXiv:2511.01571. Pixel-level understanding + visual prompting for VLAs (optional future). `https://arxiv.org/abs/2511.01571`
+- TraceVLA (2024) — arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness (optional future). `https://arxiv.org/abs/2412.10345`
 
 Reference repos (baselines/sanity checks; not the same estimator unless noted):
 - `https://gitlab.gwdg.de/wibral/continuouspidestimator` — authors’ reference implementation of the continuous `I^sx_∩` kNN estimator (Ehrlich et al. 2024); primary cross-check target for `pid-core`.

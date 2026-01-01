@@ -24,6 +24,7 @@ Canonical spec: `grandplan.md`.
    - Run synthetic validation across {N,d,k} grids up to VLA-like d (or demonstrate why dim reduction is required).
    - Record error/variance/cost; decide GO / PIVOT / NO-GO using the thresholds in `grandplan.md` (e.g., error targets: d=10 <5%, d=100 <10%, d=1000 <15%, d=4096 <20% or require dim reduction).
    - Decision rule of thumb from spec: **GO** if stable at d=4096; **PIVOT** if stable only after PCA/random projection (e.g., d≈256); **NO-GO** if unstable even at d≈256 (abandon I^sx_∩ for alternatives).
+   - Optional cross-check: compare qualitative behavior to `sae_analysis` Shannon invariants (Red°, Vul°) per `grandplan.md` Appendix B.3.3.5 (different quantities; treat as heuristic).
 6. **VLA data plumbing:**
    - Define a stable on-disk format for rollouts + embeddings.
    - Implement extraction for (V, L, D, A) and optionally A* (“optimal action”) per the selected benchmark.
@@ -35,6 +36,8 @@ Canonical spec: `grandplan.md`.
 9. **Only if Aim 1 succeeds:**
    - Aim 2: synergy dynamics (half-life) analysis.
    - Aim 3: RL fine-tuning using PID-derived intrinsic reward (treat as exploratory).
+10. **(Optional) PixelVLA/TraceVLA + visualization integration:**
+   - If targeting PixelVLA or TraceVLA, use `grandplan.md` §7.3–7.4 and §10.8.7 (PixelVLA + headless Gazebo + Tauri) as the integration sketch; treat as post-Experiment-0 work.
 
 ## Rust implementation specification (long-lived)
 
@@ -77,6 +80,8 @@ Context/guardrails:
 - **Gutknecht AJ, Rosas FE, Ehrlich DA, Makkeh A, Mediano PAM, Wibral M (2025)** — arXiv:2504.15779. “Shannon Invariants: A Scalable Approach to Information Decomposition.” `https://arxiv.org/abs/2504.15779`
 - **Matthias PH, Makkeh A, Wibral M, Gutknecht AJ (2025)** — arXiv:2512.16662. Impossibility/inconsistency results (explains why `I^sx_∩` can have negative atoms). `https://arxiv.org/abs/2512.16662`
 - **Liang PP et al. (2023)** — NeurIPS 2023. Multimodal “PID” estimators (BATCH/CVX) for baselines; not the same as `I^sx_∩`. Code: `https://github.com/pliang279/PID`
+- **PixelVLA (2025)** — arXiv:2511.01571. Pixel-level understanding + visual prompting for VLAs (optional future target; see `grandplan.md` §7.3). `https://arxiv.org/abs/2511.01571`
+- **TraceVLA (2024)** — arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness (optional future target; see `grandplan.md` §7.4). `https://arxiv.org/abs/2412.10345`
 
 In-repo pointers (use these to stay aligned with the spec):
 - `grandplan.md` §2.2 (`I^sx_∩` definition), §2.3 (continuous extension), §8.1 (KSG details), §2.5.4 (hierarchical strategy), §9.1 (Experiment 0), Appendix B.3.4 (Rust estimator sketch + validation tests).
@@ -170,7 +175,7 @@ KSG mutual information (continuous, k-NN):
 - Always validate behavior on low-dimensional synthetic data before trusting high-dimensional runs.
 
 Continuous `I^sx_∩` redundancy (Ehrlich et al. 2024):
-- Implement from the paper (no public reference implementation is assumed available); treat Appendix B.3.4 in `grandplan.md` as a sketch, not as a proof of correctness.
+- Implement from the paper and **cross-check against the authors’ reference implementation** (`csxpid`, `gitlab.gwdg.de/wibral/continuouspidestimator`; vendored at `.external/repos/continuouspidestimator`); treat Appendix B.3.4 in `grandplan.md` as a sketch, not as a proof of correctness.
 - Keep the estimator factored so we can swap kNN backends (exact vs approximate) without changing math.
 
 High-dimensional regime handling:
@@ -198,6 +203,7 @@ Experiment 0 (required gate; see `grandplan.md` §9.1):
 
 Cross-checks (recommended):
 - For small `d` and moderate `n`, compare MI estimates against a known-good Python implementation (e.g., SciPy/sklearn-based KSG) to catch off-by-one/tie bugs.
+- For small `d`, cross-check `I^sx_∩` redundancy against `csxpid` (authors’ reference impl) to catch disjunction-distance/tie-rule bugs.
 - Add invariants-based smoke tests:
   - `I(S1,S2;T)` should approximately equal `Red + Unq1 + Unq2 + Syn` (numerical tolerance)
   - `Unq1 + Red` should approximately equal `I(S1;T)` (same for S2)
