@@ -84,8 +84,14 @@ In-repo pointers (use these to stay aligned with the spec):
 
 Reference code (for sanity checks and baselines; verify commit hashes when used):
 - **Discrete `I^sx_∩` (definitions/lattice sanity):** `https://github.com/Abzinger/SxPID`
+- **Related (Shannon invariants on neural latents; NOT `I^sx_∩`):** `https://github.com/Abzinger/sae_analysis` (WIP; computes redundancy/vulnerability-style invariants for SAEs; uses submodules `sparsify`/`delphi`; treat as reference only)
 - **Baseline estimators (NOT `I^sx_∩`):** `https://github.com/pliang279/PID` (Liang BATCH/CVX)
 - **General info-dynamics toolkit:** `https://github.com/pwollstadt/IDTxl`
+
+Quick comparison (to avoid false equivalences):
+- `Abzinger/sae_analysis` is **discrete PMF / plug-in entropy**-based and targets **SAE latents** + **Shannon invariants** (degree of redundancy/vulnerability). It does **not** implement continuous KSG MI or continuous shared-exclusions `I^sx_∩`.
+- `Abzinger/sae_analysis` uses `log2` (bits) throughout; `crates/pid-core` currently reports MI/PID in natural logs (nats).
+- `crates/pid-core` in this repo is **continuous kNN/KSG**-based and targets **Wibral-group shared-exclusions PID** (`I^sx_∩`) + pairwise co-information screening.
 
 ### Engineering requirements (quality bar)
 

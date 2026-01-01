@@ -2204,6 +2204,8 @@ Can PID profiles predict how well a policy will transfer across:
 
 - **SxPID:** Makkeh A (2021). Discrete I^sx_∩ implementation. [Code: github.com/Abzinger/SxPID]
 
+- **sae_analysis:** Abzinger (WIP). Information-theoretic analysis toolbox for sparse autoencoders (SAEs) implementing **Shannon-invariants-style** measures (e.g., degree of redundancy / vulnerability from Gutknecht et al. 2025). **Not** a continuous `I^sx_∩` estimator; may be incomplete/not yet validated; uses submodules (sparsify/delphi) and has no obvious top-level license—treat as a reference/starting point only. [Code: github.com/Abzinger/sae_analysis]
+
 ## 13.4 World Models
 
 - **GWM:** Gaussian World Model, ICCV 2025. 3DGS + Diffusion for robotics.
@@ -3810,6 +3812,9 @@ def extract_embeddings_streaming(
 | **[pliang279/PID](https://github.com/pliang279/PID)** | BATCH + CVX (NOT I^sx_∩) | High-dim continuous via clustering | Python | ✓ Released, 84 stars |
 | **Ehrlich et al. (2024) continuous I^sx_∩** | I^sx_∩ (continuous) | Continuous | Unknown | ✗ NOT PUBLIC |
 
+Related (not PID estimation, but relevant to §2.5 Shannon invariants / scalable decomposition):
+- **[Abzinger/sae_analysis](https://github.com/Abzinger/sae_analysis)** — WIP toolbox for information-theoretic analysis of sparse autoencoders (SAEs) implementing “Shannon invariants” measures (degree of redundancy / vulnerability) from Gutknecht et al. (2025); uses submodules (sparsify/delphi). Not a continuous `I^sx_∩` estimator; treat as a reference/starting point only.
+
 #### B.3.3.2 Why Liang et al.'s Code Is NOT Directly Usable
 
 The Liang et al. (NeurIPS 2023) repository is the most relevant existing code for high-dimensional multimodal PID, **but it uses different PID measures:**
@@ -5006,6 +5011,7 @@ Libraries:
 - dit (Python): dit.distributions, dit.pid (discrete PID measures)
 - IDTxl (Python): Comprehensive information theory toolkit
 - Abzinger/SxPID (Python): Discrete I^sx_∩ implementation
+- Abzinger/sae_analysis (Python): Shannon-invariants-style SAE analysis toolbox (degree of redundancy / vulnerability), WIP / not a complete `I^sx_∩` implementation
 ```
 
 ---

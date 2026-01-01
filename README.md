@@ -163,5 +163,6 @@ Authoritative papers:
 
 Reference repos (baselines/sanity checks; not the same estimator unless noted):
 - `https://github.com/Abzinger/SxPID` — discrete `I^sx_∩` (definitions/lattice sanity).
+- `https://github.com/Abzinger/sae_analysis` — WIP toolbox for information-theoretic SAE analysis (Shannon-invariants-style redundancy/vulnerability from Gutknecht et al. 2025); not a continuous `I^sx_∩` implementation; treat as a reference/starting point only.
 - `https://github.com/pliang279/PID` — Liang et al. BATCH/CVX estimators (baseline; NOT `I^sx_∩`).
 - `https://github.com/pwollstadt/IDTxl` — information dynamics toolkit (baseline ideas/cross-checks).
