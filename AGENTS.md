@@ -2,7 +2,7 @@
 
 This file is for Codex CLI agents and contributors working in this repo.
 
-Canonical spec: `grandplan.md` (v5.0, Jan 2026).
+Canonical spec: `grandplan.md` (v5.1, Jan 2026).
 
 ---
 
@@ -10,7 +10,8 @@ Canonical spec: `grandplan.md` (v5.0, Jan 2026).
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v5.0** | 2026-01-01 | **Final audit release:** Added PCA/kNN manifold limitations, confounding analysis, numerical stability, code audit. Grant-ready. |
+| **v5.1** | 2026-01-02 | **Hypothesis coherence + manifold strategy:** Unified hypothesis hierarchy (H1-H4), elevated Shannon invariants (Red°, Vul°) as primary approach for manifold regimes, enhanced §2.5 and §16.7 with manifold-aware PID strategy. |
+| v5.0 | 2026-01-01 | **Final audit release:** Added PCA/kNN manifold limitations, confounding analysis, numerical stability, code audit. Grant-ready. |
 | v4.0 | 2025-12-28 | Information geometry methods, intrinsic dimension, distance concentration |
 | v3.0 | 2025-12-15 | 3-source PID, hierarchical screening improvements |
 | v2.0 | 2025-12-01 | Preprocessing hooks, validation framework |
@@ -38,9 +39,11 @@ Canonical spec: `grandplan.md` (v5.0, Jan 2026).
 
 1. **[HIGH]** Python bindings (PyO3/maturin) for experiment harness
 2. **[HIGH]** VLA embedding extraction on macOS (MLX/CoreML)
-3. **[MEDIUM]** PCA implementation (Python-first, then optional Rust)
-4. **[LOW]** SIMD/parallel acceleration (rayon)
-5. **[LOW]** Ball-tree/KD-tree for low-d speedup
+3. **[HIGH]** Shannon invariants implementation (Red°, Vul° from Gutknecht et al. 2025) — entropy-only, works at any scale
+4. **[MEDIUM]** PCA implementation (Python-first, then optional Rust)
+5. **[MEDIUM]** MINE/variational MI estimator integration for high-d fallback
+6. **[LOW]** SIMD/parallel acceleration (rayon)
+7. **[LOW]** Ball-tree/KD-tree for low-d speedup
 
 ---
 
@@ -131,61 +134,73 @@ if dc_stats.pairwise_cv < 0.2 {
 }
 ```
 
-### Decision Flowchart
+### Decision Flowchart (v5.1 — Shannon Invariants First)
 
 ```
-MANIFOLD METHODS DECISION TREE
-==============================
+MANIFOLD-AWARE PID STRATEGY
+===========================
+
+0. ALWAYS compute Shannon invariants first (works at any scale):
+   - Red° (Degree of Redundancy) = Σᵢ H(Xᵢ) / H(X₁,…,Xₘ)
+   - Vul° (Degree of Vulnerability) = Σᵢ H(Xᵢ|X₋ᵢ) / H(X₁,…,Xₘ)
+   - CI (Co-Information) via MI terms
 
 1. Compute intrinsic dimension (ID)
    └── ID < ambient_dim / 10?
        ├── YES → Manifold effects likely significant → Step 2
-       └── NO → Euclidean methods may suffice → Validate with Exp 0
+       └── NO → kNN may work → Proceed to Step 3
 
 2. Compute distance concentration (DC)
    └── CV of pairwise distances < 0.2?
-       ├── YES → kNN unreliable → Step 3
-       └── NO → Euclidean kNN may work → Validate with Exp 0
+       ├── YES → kNN unreliable → STAY at Level 0 (invariants only)
+       │         Report: "Shannon invariants valid; I^sx_∩ unreliable"
+       └── NO → kNN may work → Proceed to Step 3
 
-3. Attempt dimensionality reduction
-   ├── PCA (95% variance) → Re-run Exp 0 → Stable?
-   │   ├── YES → Use PCA-reduced data
-   │   └── NO → Try random projection
-   └── Random projection → Re-run Exp 0 → Stable?
-       ├── YES → Use projected data
-       └── NO → PIVOT: Use Shannon invariants (CI) only
+3. Validate kNN-based I^sx_∩ (Experiment 0)
+   └── Estimates stable across seeds/subsamples?
+       ├── YES → Compute full I^sx_∩ PID (Levels 1-3)
+       └── NO → Attempt dimensionality reduction → Re-run Exp 0
+           ├── Stable after reduction → Use reduced data
+           └── Still unstable → STAY at Level 0 (invariants only)
 ```
 
 ### Alternatives to Standard Methods
 
 | Method | When to Use | Limitations | Implemented? |
 |--------|-------------|-------------|--------------|
+| **Shannon invariants (Red°, Vul°)** | Always; primary for high-d | Not full PID | Planned (entropy-only) |
+| **Shannon invariants (CI)** | Always; screening | Not full PID | ✅ `ci.rs` |
 | **PCA** | Low curvature, high variance retention | Distorts curved manifolds | Python (planned) |
 | **Random projection** | Approximate distance preservation | No manifold awareness | ✅ `HashProjector` |
 | **Isomap** | When geodesic structure matters | Sensitive to noise, holes | No |
 | **Geodesic kNN MI** | Manifold-valued embeddings | O(n² log n), MI-only | No |
-| **Shannon invariants (CI)** | When `I^sx_∩` is unstable | Not full PID | ✅ `ci.rs` |
+| **MINE (neural MI)** | High-d fallback for invariants | Optimization instability | Planned |
 
 ### Practical Recommendations
 
-1. **Always run geometry diagnostics first:**
+1. **Always compute Shannon invariants first:**
+   - Red° and Vul° provide interpretable diagnostics at any scale
+   - CI screening identifies which source pairs to investigate
+   - These are valid even when kNN fails
+
+2. **Run geometry diagnostics:**
    - Compute ID via `intrinsic_dimension_levina_bickel`
    - Compute distance concentration via `distance_concentration_stats`
 
-2. **If ID << ambient dimension:**
+3. **If ID << ambient dimension:**
    - Try PCA with 95% variance retention
    - Re-run Experiment 0 subset
    - Compare estimates before/after
 
-3. **If estimates are unstable:**
-   - Fall back to Shannon invariants (CI) for screening
-   - Report instability as a finding
-   - Do NOT claim `I^sx_∩` is valid in this regime
+4. **If kNN-based estimates are unstable:**
+   - Stay at Level 0 (Shannon invariants only)
+   - Report: "Shannon invariants valid; I^sx_∩ unreliable at this dimension"
+   - This is a valid finding for hypothesis H3 (see grandplan.md §3.2)
 
-4. **Never silently apply transforms:**
-   - Log all preprocessing steps
-   - Record intrinsic dimension at each stage
-   - Include geometry diagnostics in results
+5. **Report hierarchy clearly:**
+   - Primary: Shannon invariants (always computed, always valid)
+   - Secondary: `I^sx_∩` atoms (only if kNN validated via Experiment 0)
+   - Log all preprocessing steps and intrinsic dimension at each stage
 
 See `grandplan.md` §16 for full theoretical analysis and §15 for numerical stability guidance.
 
