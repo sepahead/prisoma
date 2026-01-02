@@ -29,6 +29,7 @@ mod distance_matrix;
 mod error;
 mod geometry;
 mod hierarchy;
+mod invariants;
 mod isx;
 mod ksg;
 mod matrix;
@@ -49,6 +50,10 @@ pub use geometry::{
 pub use hierarchy::{
     hierarchical_pairwise, hierarchical_triplet, HierarchicalConfig, HierarchicalTriplet,
     PairSelection, PairwiseScreen,
+};
+pub use invariants::{
+    co_information_pairwise_discrete, entropy_discrete, joint_entropy_discrete, o_information_discrete,
+    red_degree_discrete, vul_degree_discrete,
 };
 pub use isx::{isx_redundancy, IsxConfig, IsxMethod};
 pub use ksg::{ksg_local_mi_terms, ksg_mi, ksg_mi_concat_xy, KsgConfig, NegativeHandling};

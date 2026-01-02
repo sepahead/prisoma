@@ -2,7 +2,7 @@
 
 Engineering roadmap for implementing and validating Wibral-group shared-exclusions PID (SxPID, `I^sx_∩`) for Vision-Language-Action (VLA) diagnostics.
 
-Canonical research specification: `grandplan.md` (v5.0, Jan 2026).
+Canonical research specification: `grandplan.md` (v5.2, Jan 2026).
 
 ---
 
@@ -10,6 +10,8 @@ Canonical research specification: `grandplan.md` (v5.0, Jan 2026).
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **v5.2** | 2026-01-02 | **Explicit computation recipes + stage-wise validation:** implemented Level-0 discrete invariants (Red°/Vul°/Ω/CI) + exact toy tests; clarified how “entropy-only” is estimated in practice. |
+| **v5.1** | 2026-01-02 | **Hypothesis coherence + manifold-first strategy:** unified H1–H4, elevated Shannon invariants (Red°, Vul°) as Level 0 for manifold/high-d regimes, updated §2.5 and §16.7. |
 | **v5.0** | 2026-01-01 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Information geometry methods integrated. Code audit complete. Grant-ready documentation. |
 | v4.0 | 2025-12-28 | Added information geometry methods, intrinsic dimension diagnostics, distance concentration proxies |
 | v3.0 | 2025-12-15 | Critical review and gameplan adjustments, 3-source PID implementation |
@@ -30,6 +32,7 @@ Canonical research specification: `grandplan.md` (v5.0, Jan 2026).
 | **3-source PID** | ✅ Complete | `crates/pid-core/src/pid3.rs` | 18 atoms, Möbius inversion, offline only |
 | **Hierarchical screening** | ✅ Complete | `crates/pid-core/src/hierarchy.rs` | Fast CI → targeted PID, 3-source triplet |
 | **Co-information** | ✅ Complete | `crates/pid-core/src/ci.rs` | Pairwise and triplet CI |
+| **Shannon invariants (Red°, Vul°, Ω; discrete proxies)** | ✅ Complete | `crates/pid-core/src/invariants.rs` | Plug-in discrete entropies + exact toy tests (independent/redundant/XOR) |
 | **Intrinsic dimension** | ✅ Complete | `crates/pid-core/src/geometry.rs` | Levina-Bickel MLE |
 | **Distance concentration** | ✅ Complete | `crates/pid-core/src/geometry.rs` | CV, NN ratio diagnostics |
 | **Preprocessing** | ✅ Complete | `crates/pid-core/src/preprocess.rs` | Standardizer, Jitter, HashProjector |
@@ -53,6 +56,48 @@ Canonical research specification: `grandplan.md` (v5.0, Jan 2026).
 | High-d synthetic (d=256) | ⚠️ Partial | Requires hash projection; estimates drift with d |
 | Gaussian channel (strong dependence) | ⚠️ Partial | Underestimates at σ < 0.03 (expected per Gao et al.) |
 | Intrinsic dimension accuracy | ✅ Pass | Increases correctly with true dimension |
+| Shannon invariants (Red°/Vul°/Ω) on exact toy systems | ✅ Pass | Discrete plug-in entropies match exact values for independent/redundant/XOR |
+
+### Validation gates & tests (estimator vs exact/reference)
+
+Run everything:
+- `cargo test -p pid-core`
+
+Stage-by-stage checks:
+
+- **Level 0 (Shannon invariants on discrete proxies)**:
+  - **What**: `Red°`, `Vul°`, `Ω`, and pairwise `CI` computed *exactly from counts* on discrete label data.
+  - **Tests**: exact toy distributions (independent bits, perfect redundancy, XOR).
+  - **Run**: `cargo test -p pid-core invariants`
+
+- **Level 0 (geometry diagnostics)**:
+  - **What**: intrinsic dimension + distance concentration used to decide if kNN geometry is healthy.
+  - **Tests**: hand-computed example + monotonicity with true dimension.
+  - **Run**: `cargo test -p pid-core geometry`
+
+- **Level 0/1 (KSG MI + CI on continuous variables)**:
+  - **What**: KSG MI (Chebyshev/L∞) and pairwise co-information via MI terms.
+  - **Exact**: analytic Gaussian MI (correlation / Gaussian channel); analytic CI for a Gaussian sum-channel.
+  - **Run**: `cargo test -p pid-core ksg`
+
+- **Level 1 (continuous `I^sx_∩` redundancy)**:
+  - **What**: Ehrlich et al. (2024) disjunction-kNN estimator.
+  - **Reference**: fixed-data cross-check against the authors’ `csxpid` implementation (converted to nats).
+  - **Run**: `cargo test -p pid-core isx`
+
+- **Level 1 (2-source PID atoms; identity constraints)**:
+  - **What**: `{Red, Unq1, Unq2, Syn}` computed from MI + `I^sx_∩` via the bivariate PID identities.
+  - **Check**: internal consistency (`Unq+Red=I(S;T)`, atoms sum to `I(S1,S2;T)`).
+  - **Run**: `cargo test -p pid-core pid2`
+
+- **Level 2 (3-source SxPID; offline)**:
+  - **What**: 18-atom Möbius inversion + redundancy backend.
+  - **Reference**: fixed-data cross-check (see `crates/pid-core/tests/pid3.rs`).
+  - **Run**: `cargo test -p pid-core pid3`
+
+- **Experiment 0 (the project gate, not just unit tests)**:
+  - **What**: scaling sweeps over `{N,d,k}` + strong-dependence sweep + geometry diagnostics.
+  - **Run**: `cargo run -p pid-core --bin exp0`
 
 ### Known Limitations (Be Honest)
 
@@ -60,7 +105,7 @@ Canonical research specification: `grandplan.md` (v5.0, Jan 2026).
 2. **Only Chebyshev metric:** Euclidean/other metrics not implemented
 3. **No PCA in Rust:** Must use Python or `HashProjector` baseline
 4. **Strong dependence regime:** Estimates degrade when true MI > ~4 nats
-5. **Manifold effects unaddressed:** Euclidean kNN may fail on curved embeddings (see `grandplan.md` §16)
+5. **Manifold-aware MI/PID not implemented:** Euclidean kNN may fail on curved embeddings (see `grandplan.md` §16). Use Level-0 Shannon invariants on explicit discrete proxies when kNN geometry is unhealthy.
 6. **No parallelization yet:** Single-threaded; rayon integration planned
 
 ---
@@ -89,7 +134,7 @@ VLA embeddings lie on **low-dimensional manifolds** in high-dimensional space. S
 **Mitigation strategy (implemented):**
 - Compute intrinsic dimension before estimating (§16.5 of grandplan.md)
 - Check distance concentration as a "geometry health check"
-- If manifold effects are significant, fall back to Shannon invariants (CI) for screening
+- If manifold effects are significant, fall back to Level-0 Shannon invariants (CI, Ω, Red°, Vul°) on explicit discrete proxies for screening
 
 See `grandplan.md` §16 for detailed analysis and decision flowcharts.
 
