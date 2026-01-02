@@ -2,7 +2,7 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 5.8 (VLA-Arena Integration + Memorization/Generalization Analysis)
+**Version:** 6.0 (Critical Blockers Analysis + Training/Compute Requirements)
 **Date:** 2026-01-02
 **Status:** Research Specification (critical assessment + engineering roadmap)
 **Canonical:** This is the living spec; prior versions live in git history.
@@ -31,6 +31,29 @@
 > *   **Kernel Density Estimation (KDE):** Excluded due to the "curse of dimensionality" at d=4096 (bandwidth selection is statistically impossible). Furthermore, numerically integrating the complex "disjunction" shape for `I^sx_∩` is intractable compared to KSG counting.
 > *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to computational cost ($O(N^3)$ eigendecomposition) and uncontrolled density distortion. Unlike Isomap ("Unrolling"), spectral embeddings change local volumes in ways that are difficult to correct for PID.
 > *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 2, which restricts itself to MI/CI where this cancellation is not required).
+
+**v6.0 notes (Critical Blockers Analysis + Training/Compute Requirements):**
+- **New §17: Training, Compute, and Data Requirements Analysis:** Comprehensive audit of all methods in the document, classifying each by training requirements (none, low, medium, high, extreme), compute needs (inference-only vs training), and data availability. Covers:
+  - §17.1: Executive classification table (25+ methods assessed)
+  - §17.2-§17.3: Core PID estimators and VLA embedding extraction (no training required)
+  - §17.4: VLA fine-tuning costs (LoRA: ~$50-150, Full: ~$50K+)
+  - §17.5-§17.6: Dimensionality reduction (PCA vs learned SAE/VAE)
+  - §17.7: Neural MI estimators (MINE, CCMI) with per-task training costs
+  - §17.8-§17.9: World models and PRMs (extreme compute, infeasible for this project)
+  - §17.10-§17.12: Failure classifiers, depth estimation, synthetic data
+  - §17.13-§17.16: Data strategy, compute budget recommendations, licensing, and critical challenges
+- **New §18: Critical Blockers and Risk Analysis:** Systematic risk assessment with explicit Go/No-Go decision criteria:
+  - **5 Show-Stopper Blockers (Category 1):** Experiment 0 failure at d≤256, DreamVLA unavailability, strong dependence (unbounded MI), i.i.d. assumption violation, baselines always winning
+  - **7 Major Blockers (Category 2):** Geodesic kNN not implemented, Ollivier-Ricci not implemented, no hyperbolic `I^sx_∩`, Pixel-160K access TBD, GRM weights TBD, no ground truth for "world model quality", scope exceeds PhD timeline
+  - **8 Minor Blockers (Category 3):** SAE training, MINE retraining, Isomap cost, macOS CUDA limits, etc.
+  - Risk mitigation timeline (Month 1-7 decision gates)
+  - Fallback scope hierarchy (Core → Important → Stretch → Future Work)
+- **Verification of key blockers:**
+  - DreamVLA: Confirmed GPT-2 variant/hidden dims NOT SPECIFIED in paper; weights availability unclear
+  - OpenVLA: Verified accessible on HuggingFace (1M+ downloads)
+  - VLA-Arena: Verified public website with data/code
+  - Geodesic kNN MI and Ollivier-Ricci curvature: NOT implemented in pid-core
+- **Scientific Rigor Notes:** All blockers have explicit detection criteria, mitigation options, and Go/No-Go decision frameworks. Honest assessment: project is HIGH risk but tractable if Experiment 0 succeeds.
 
 **v5.8 notes (VLA-Arena Deep Integration + Memorization/Generalization Analysis):**
 - **VLA-Arena as Primary Evaluation Framework:** Deep integration of VLA-Arena (arXiv:2512.22539) as the recommended benchmark for PID-VLA experiments (§9.7.1). VLA-Arena's 170 tasks with structured difficulty axes directly align with PID diagnostic goals.
@@ -137,6 +160,8 @@
 14. [Confounding Factors Analysis: Proving and Disproving the Hypotheses](#14-confounding-factors-analysis-proving-and-disproving-the-hypotheses)
 15. [Numerical Stability and Optimization: Technical Guidance](#15-numerical-stability-and-optimization-technical-guidance)
 16. [Why PCA and kNN Are Suboptimal for Manifold-Valued Embeddings](#16-why-pca-and-knn-are-suboptimal-for-manifold-valued-embeddings)
+17. [Training, Compute, and Data Requirements Analysis](#17-training-compute-and-data-requirements-analysis)
+18. [Critical Blockers and Risk Analysis](#18-critical-blockers-and-risk-analysis)
 A. [Appendix A: Glossary](#appendix-a-glossary)
 B. [Appendix B: Decision Log and Implementation Reference](#appendix-b-decision-log-and-implementation-reference)
 
@@ -4791,6 +4816,859 @@ Some limitations are fundamental to kNN-based estimation on manifolds:
 
 ---
 
+# 17. Training, Compute, and Data Requirements Analysis (v5.9)
+
+This section provides a comprehensive, critical analysis of all components in the PID-VLA project that require training, with explicit compute cost estimates, data requirements, and guidance on obtaining or generating necessary data.
+
+## 17.1 Executive Summary: Training Requirements Classification
+
+| Category | Components | Training Required? | Data-Heavy? | Compute-Heavy? |
+|----------|------------|-------------------|-------------|----------------|
+| **Core PID Estimators** | KSG MI, `I^sx_∩`, Shannon invariants | ❌ No training | ❌ No | ⚠️ Moderate (kNN is O(N²d)) |
+| **VLA Models (inference only)** | OpenVLA, DreamVLA, PixelVLA, TraceVLA | ❌ No training (use pre-trained) | ❌ No | ⚠️ Moderate (7B inference) |
+| **VLA Fine-tuning** | LoRA adaptation | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Dimensionality Reduction** | PCA, Random Projection, Hash Projection | ❌ No training | ❌ No | ❌ Minimal |
+| **Learned Projections** | Autoencoders, Contrastive | ✅ Yes | ⚠️ Moderate | ⚠️ Moderate |
+| **SAE (Sparse Autoencoders)** | Vision/LLM decomposition | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Hyperbolic Embeddings** | Poincaré/Lorentz projection | ✅ Yes | ⚠️ Moderate | ⚠️ Moderate |
+| **Neural MI Estimators** | MINE, CCMI | ✅ Yes | ⚠️ Moderate | ⚠️ Moderate |
+| **World Models** | WAN, GWM, Genie 3 | ✅ Yes (if fine-tuning) | ✅ Yes | ✅✅ Very High |
+| **Process Reward Models** | GRM (Robo-Dopamine) | ✅ Yes | ✅✅ Very High | ✅✅ Very High |
+| **Failure Classifiers** | Learned baselines | ✅ Yes | ⚠️ Moderate | ⚠️ Moderate |
+| **Depth Estimation** | DKT, Depth-Anything | ✅ Yes (if fine-tuning) | ✅ Yes | ✅ Yes |
+
+## 17.2 Core PID Estimators (No Training Required)
+
+### 17.2.1 KSG Mutual Information
+
+**Training:** None — the KSG estimator is a non-parametric algorithm.
+
+**Compute Requirements:**
+| Operation | Complexity | Wall-clock (N=10000, d=256, k=5) | Hardware |
+|-----------|------------|----------------------------------|----------|
+| Brute-force kNN | O(N²d) | ~10-30s | CPU (single core) |
+| Ball-tree kNN | O(N log N) at low d | ~1-5s | CPU |
+| CUDA kNN (cuML) | O(N²d) but parallel | ~0.1-1s | RTX 4090 |
+
+**Data Requirements:** N ≥ 10k samples recommended for stable estimates at d=256.
+
+**Critical Challenge:** At d=4096, brute-force becomes prohibitive (~10-60 minutes per estimate).
+
+### 17.2.2 Continuous `I^sx_∩` Redundancy
+
+**Training:** None — Ehrlich et al. (2024) estimator is non-parametric.
+
+**Compute Requirements:**
+- Same as KSG MI but with additional disjunction-distance computation
+- Approximately 1.5-2× the cost of standard KSG MI
+- Full pairwise distance matrix required: O(N²) memory or streaming computation
+
+**Data Requirements:**
+- Experiment 0 validation: synthetic data (N=1000-50000, d=10-4096)
+- VLA analysis: extract embeddings from trajectories (see §17.3)
+
+### 17.2.3 Shannon Invariants (CI, Ω)
+
+**Training:** None — computed from MI terms.
+
+**Compute Requirements:**
+- 7 MI estimates for 3-way CI (fastest PID-related computation)
+- O(7 × KSG_cost) ≈ 70-210s at d=256, N=10000 on CPU
+
+**Why This Matters:** Shannon invariants are the recommended "Level 0" screening layer precisely because they require NO training and have moderate compute cost.
+
+## 17.3 VLA Embedding Extraction (Pre-trained Inference)
+
+### 17.3.1 OpenVLA / PixelVLA / TraceVLA (Llama 2 7B backbone)
+
+**Training:** None required for embedding extraction — use pre-trained weights.
+
+**Inference Compute:**
+| Hardware | Forward Pass (batch=1) | Embedding Extraction | Memory |
+|----------|------------------------|---------------------|--------|
+| M4 Max (128GB) | ~80-100ms | ~20ms | ~14GB (f16) |
+| RTX 4090 (24GB) | ~40-60ms | ~10ms | ~14GB (f16) |
+| RTX 4090 (INT8) | ~20-30ms | ~5ms | ~7GB |
+
+**Data Sources for VLA Evaluation:**
+| Dataset | Size | Trajectories | Access | Notes |
+|---------|------|--------------|--------|-------|
+| **Open-X Embodiment** | 1M+ trajectories | 22 robot embodiments | [Open-X website](https://robotics-transformer-x.github.io/) | Primary VLA training data |
+| **VLA-Arena-S** | ~1K trajectories | 170 tasks | [VLA-Arena repo](https://vla-arena.github.io) | Small-scale validation |
+| **VLA-Arena-M** | ~10K trajectories | 170 tasks | VLA-Arena repo | Primary experiments |
+| **VLA-Arena-L** | ~100K trajectories | 170 tasks | VLA-Arena repo | Publication-ready |
+| **LIBERO** | 130 tasks | ~100 demos/task | [LIBERO repo](https://github.com/Lifelong-Robot-Learning/LIBERO) | Standard benchmark |
+| **SimplerEnv** | Varied | Lightweight | [SimplerEnv repo](https://github.com/simpler-env/SimplerEnv) | Rapid iteration |
+| **Pixel-160K** | 160K trajectories | Pixel annotations | PixelVLA paper | PixelVLA-specific |
+
+**Estimated Data Volume:**
+- 10K trajectories × 100 timesteps × 4096 dims × 4 bytes = ~16GB per variable (V, L, D, A)
+- Full experiment suite: ~100-500GB storage recommended
+
+### 17.3.2 DreamVLA (GPT-2 backbone)
+
+**Training:** None for embedding extraction, but DreamVLA model may need to be obtained/reproduced.
+
+**⚠️ Critical Gap:** DreamVLA hidden dimensions are NOT specified in the paper. Assume GPT-2 Medium (1024d) or Large (1280d) for planning.
+
+**Inference Compute:** ~50% of Llama 2 7B costs (smaller model).
+
+## 17.4 VLA Fine-tuning (High Compute, High Data)
+
+### 17.4.1 LoRA Adaptation of OpenVLA
+
+**When Needed:** Task-specific fine-tuning for new domains, benchmarks, or custom robots.
+
+**Training Requirements:**
+| Component | Value | Notes |
+|-----------|-------|-------|
+| **Base Model** | OpenVLA 7B | Pre-trained weights required |
+| **LoRA Rank** | 32 (PixelVLA default) | Lower rank = less compute, less capacity |
+| **Training Data** | 1K-10K trajectories | Domain-specific robot data |
+| **GPU Memory** | 24GB+ (RTX 4090) | Full fine-tuning: 80GB+ (A100) |
+| **Training Time** | 2-8 hours | On RTX 4090, depends on dataset size |
+| **Estimated Cost** | ~$10-50 | Cloud GPU (Lambda Labs / Runpod) |
+
+**Data Sources:**
+| Approach | Data Size | Cost | Effort |
+|----------|-----------|------|--------|
+| **Existing benchmarks (LIBERO, SimplerEnv)** | 10K+ trajectories | Free | Low |
+| **Collect in simulation (Isaac Sim, Gazebo)** | Unlimited synthetic | $0 (compute only) | Medium |
+| **Collect on real robot** | 100-1000 demos | $$$$ (robot + operator time) | High |
+| **Use VLA-Arena datasets** | 170 tasks, structured | Free | Low |
+
+### 17.4.2 Full VLA Pre-training (Extreme Compute)
+
+**When Needed:** Only if training VLA from scratch (not recommended for PID-VLA project).
+
+**Training Requirements:**
+| Component | Value | Notes |
+|-----------|-------|-------|
+| **Data** | 970K+ trajectories | Open-X Embodiment scale |
+| **Compute** | 64 A100 GPUs × 1 week | ~$50K-100K cloud cost |
+| **Parameters** | 7B+ | Llama 2 7B backbone |
+
+**Recommendation:** Use pre-trained VLAs. Full pre-training is out of scope for a PhD project unless specifically required.
+
+## 17.5 Dimensionality Reduction (No Training)
+
+### 17.5.1 PCA (Linear Projection)
+
+**Training:** None — SVD on data matrix.
+
+**Compute:** O(min(N,d)² × max(N,d)) for exact SVD; randomized SVD much faster.
+
+| Data Size | Compute Time | Memory |
+|-----------|--------------|--------|
+| N=10K, d=4096 | ~1-5s | ~160MB |
+| N=100K, d=4096 | ~30-120s | ~1.6GB |
+
+**Data Requirements:** Same embeddings used for PID (no additional data).
+
+### 17.5.2 Random Projection / Hash Projection
+
+**Training:** None — random matrix generation (seeded).
+
+**Compute:** O(Nd × d_target) — matrix multiply, very fast.
+
+**Data Requirements:** None.
+
+## 17.6 Learned Dimensionality Reduction (Training Required)
+
+### 17.6.1 Sparse Autoencoders (SAE)
+
+**When Needed:**
+- Interpretable feature decomposition (§16.8)
+- Lower effective dimension for PID
+- Monosemantic feature identification
+
+**Training Requirements:**
+| Component | Value | Notes |
+|-----------|-------|-------|
+| **Architecture** | Encoder (d → 16d) → ReLU → Decoder (16d → d) | Expansion factor 16 typical |
+| **Training Data** | 100K-1M activation vectors | From frozen VLA forward passes |
+| **Training Time** | 2-8 hours on single GPU | Depends on expansion factor |
+| **GPU Memory** | 8-24GB | Batch size dependent |
+
+**Data Sources:**
+- Run frozen VLA on existing trajectory datasets
+- Extract activations at target layer(s)
+- No new robot data collection required
+
+**Compute Cost Estimate:**
+| SAE Target | Activations Needed | Training Time | GPU |
+|------------|-------------------|---------------|-----|
+| SigLIP (1024d) | 500K | ~2 hours | RTX 4090 |
+| DinoV2 (1024d) | 500K | ~2 hours | RTX 4090 |
+| Llama hidden (4096d) | 1M | ~6 hours | RTX 4090 |
+
+**Code Resources:**
+- [SAELens](https://github.com/jbloomAus/SAELens) — well-maintained SAE training library
+- [sae_analysis](https://github.com/Abzinger/sae_analysis) — Makkeh's Shannon invariants for SAE
+
+### 17.6.2 Contractive/Variational Autoencoders
+
+**Training Requirements:**
+| Component | Value |
+|-----------|-------|
+| **Architecture** | MLP or Transformer encoder/decoder |
+| **Training Data** | 100K+ embedding vectors |
+| **Training Time** | 1-4 hours |
+| **GPU Memory** | 8-16GB |
+
+**Data Sources:** Same as SAE — run frozen VLA on trajectory datasets.
+
+### 17.6.3 Hyperbolic Projection Heads (HypLoRA-style)
+
+**When Needed:**
+- δ-hyperbolicity < 0.1 (embedding space is tree-like)
+- Hierarchy-preserving dimensionality reduction
+- Research comparison with Euclidean methods
+
+**Training Requirements:**
+| Component | Value | Notes |
+|-----------|-------|-------|
+| **Architecture** | MLP projector → Lorentz manifold | Final layer projects to hyperboloid |
+| **Training Data** | 100K+ embeddings with structure-preserving loss | May use contrastive/reconstruction objectives |
+| **Training Time** | 4-12 hours | Lorentz optimization adds overhead |
+| **GPU Memory** | 16-32GB | Depending on batch size |
+
+**⚠️ Critical Note:** Hyperbolic MI/PID estimators are research-gated (§16.4.2, §16.7.4). Training a hyperbolic projection changes the measured quantity and requires re-validation.
+
+## 17.7 Neural MI Estimators (Training Required)
+
+### 17.7.1 MINE (Mutual Information Neural Estimation)
+
+**When Needed:**
+- KSG fails at high dimension (Experiment 0 NO-GO)
+- MI-only screening (not full `I^sx_∩`)
+- Cross-check for kNN estimates
+
+**Training Requirements:**
+| Component | Value | Notes |
+|-----------|-------|-------|
+| **Architecture** | Critic network (MLP, 3-5 layers) | Donsker-Varadhan bound |
+| **Training Data** | 10K-100K joint samples | Per MI estimate |
+| **Training Time** | 5-30 min per MI estimate | Optimization-based |
+| **GPU Memory** | 4-8GB | Small critic network |
+
+**Critical Challenge:** MINE must be **retrained for each MI estimate**. This makes it expensive for full PID decomposition (which requires multiple MI terms).
+
+**Data Sources:** Same embeddings as kNN-based methods (no additional data).
+
+### 17.7.2 CCMI (Conditional MI)
+
+**Training Requirements:**
+| Component | Value |
+|-----------|-------|
+| **Architecture** | Classifier distinguishing joint vs product |
+| **Training Data** | 10K-100K samples with negative sampling |
+| **Training Time** | 10-60 min per CMI estimate |
+
+**When Needed:** Conditional analyses (e.g., I(V;A|L)).
+
+## 17.8 World Models (Very High Compute/Data)
+
+### 17.8.1 WAN (Wanxiang) Fine-tuning
+
+**When Needed:**
+- Action-conditioned video generation for VLA visualization
+- Data augmentation for VLA training
+
+**Pre-trained Inference (No Training):**
+| Model | Inference Time | VRAM | Notes |
+|-------|----------------|------|-------|
+| WAN 2.1 14B | ~4 min / 5s clip | 48GB+ | Requires A100/H100 |
+| WAN 2.2 14B (MoE) | ~2-3 min / 5s clip | 32GB+ | MoE reduces active params |
+| WAN 2.2 TI2V 5B | ~1-2 min / 5s clip | 22GB | Fits on RTX 4090 |
+| WAN 2.1 1.3B | ~4 min / 5s 480p | 12GB | Consumer-friendly |
+
+**LoRA Fine-tuning for Robot Domain:**
+| Component | Value | Notes |
+|-----------|-------|-------|
+| **Base Model** | WAN 2.1 14B or 2.2 5B | Pre-trained weights |
+| **Training Data** | 1K-10K robot video trajectories | Domain-specific |
+| **Training Time** | 8-24 hours | On 4× A100 |
+| **Estimated Cost** | $200-1000 | Cloud GPU |
+
+**Data Sources:**
+| Source | Availability | Robot-specific? |
+|--------|--------------|-----------------|
+| Open-X Embodiment videos | Public | ✅ Yes |
+| RoboMimic datasets | Public | ✅ Yes |
+| Simulate in Isaac Sim/Gazebo | Generate yourself | ✅ Yes |
+| Internet video (WebVid) | WAN pretrained on this | ❌ No |
+
+### 17.8.2 GWM (Gaussian World Model)
+
+**Compute:** Lighter than WAN but requires 3DGS scene reconstruction.
+
+| Component | Compute | Notes |
+|-----------|---------|-------|
+| 3DGS scene fit | ~5-30 min per scene | Depends on views |
+| GWM inference | ~100ms/frame | Faster than WAN |
+| Training GWM | ~4-12 hours | On robot trajectory data |
+
+### 17.8.3 Genie 3 / SIMA 2 (DeepMind)
+
+**⚠️ Access Limitation:** Not publicly available (as of Jan 2026).
+
+**If/When Available:**
+- Procedural world generation for VLA training
+- Unlimited synthetic training scenarios
+- Emergent physics learning
+
+## 17.9 Process Reward Models (Very High Data Requirements)
+
+### 17.9.1 GRM (General Reward Model — Robo-Dopamine)
+
+**Training Requirements:**
+| Component | Value | Notes |
+|-----------|-------|-------|
+| **Training Data** | 35M samples | 3,400+ hours of video |
+| **Base Model** | VLM backbone (InternLM-XC2-VL) | Pre-trained |
+| **Training Time** | Days to weeks | Multi-GPU cluster |
+| **Estimated Cost** | $1K-10K+ | Significant infrastructure |
+
+**Data Source for Reproduction:**
+- The GRM paper uses diverse robot manipulation videos
+- Collecting 35M samples is a major data engineering effort
+- Alternative: Use pre-trained GRM weights if released
+
+**For PID-VLA (Baseline Use Only):**
+- Use pre-trained GRM for failure prediction baseline
+- Do NOT train GRM from scratch (out of scope)
+
+## 17.10 Failure Classifiers (Moderate Requirements)
+
+### 17.10.1 Learned Failure Predictor (Baseline)
+
+**Training Requirements:**
+| Component | Value |
+|-----------|-------|
+| **Architecture** | MLP or small Transformer on (V, D, L, PID features) |
+| **Training Data** | 1K-10K trajectories with success/failure labels |
+| **Training Time** | 10-60 min |
+| **GPU Memory** | 2-8GB |
+
+**Data Sources:**
+| Approach | Effort | Labels |
+|----------|--------|--------|
+| LIBERO benchmark | Low | Automatic (task completion) |
+| VLA-Arena | Low | Automatic (structured tasks) |
+| Manual annotation | High | Human-labeled failure modes |
+| Simulation auto-label | Medium | Physics-based success criteria |
+
+## 17.11 Depth Estimation (High Compute for Training)
+
+### 17.11.1 Depth-Anything v2/v3 (Inference Only)
+
+**Training:** None — use pre-trained.
+
+**Inference:**
+| Model | Speed | GPU |
+|-------|-------|-----|
+| Depth-Anything v3 | ~40ms/frame | RTX 4090 |
+| Depth-Anything v2 | ~50ms/frame | RTX 4090 |
+
+### 17.11.2 DKT (Diffusion Knows Transparency)
+
+**Pre-trained Inference:**
+| Model | Speed | VRAM | Notes |
+|-------|-------|------|-------|
+| DKT 1.3B | ~167ms/frame | 11GB | Handles transparent objects |
+
+**Fine-tuning (if needed):**
+| Component | Value | Notes |
+|-----------|-------|-------|
+| **Base Model** | WAN VAE + DiT | Pre-trained |
+| **Training Data** | TransPhy3D (11K scenes, 1.32M frames) | Synthetic, available |
+| **Training Time** | 12-48 hours | Multi-GPU |
+
+## 17.12 Synthetic Data Generation
+
+### 17.12.1 When Synthetic Data Is Sufficient
+
+| Use Case | Synthetic OK? | Notes |
+|----------|---------------|-------|
+| **Experiment 0 (Estimator Validation)** | ✅ Yes | Required synthetic validation |
+| **PID estimator development** | ✅ Yes | Gaussian/XOR systems |
+| **VLA fine-tuning** | ⚠️ Partial | Sim-to-real gap |
+| **Failure detection training** | ⚠️ Partial | Need diverse failure modes |
+| **World model training** | ⚠️ Partial | Physics fidelity matters |
+
+### 17.12.2 Synthetic Data Generation Tools
+
+| Tool | Purpose | Compute | Realism |
+|------|---------|---------|---------|
+| **Isaac Sim** | Robot simulation | High (GPU required) | High |
+| **Gazebo** | Robot simulation | Moderate | Moderate |
+| **Mujoco** | Physics simulation | Low | Moderate |
+| **Blender/Cycles** | Synthetic rendering | Moderate | Very High |
+| **Procedural generators** | Domain randomization | Low | Variable |
+
+### 17.12.3 Experiment 0 Synthetic Data Protocol
+
+**Purpose:** Validate PID estimators at target dimensionality.
+
+**Data Generation:**
+```python
+# No external data needed — generate in-memory
+for d_total in [10, 100, 1000, 4096]:
+    for n_samples in [1000, 5000, 10000, 50000]:
+        # Signal variables (low-d, known structure)
+        s1_signal = generate_redundant_source(d=5)
+        s2_signal = generate_xor_source(d=5)
+        target = generate_target(s1_signal, s2_signal)
+        
+        # Embed in high-d by concatenating noise
+        s1 = concat([s1_signal, noise(d=d_total-5)])
+        s2 = concat([s2_signal, noise(d=d_total-5)])
+        
+        # Run estimator validation
+        ...
+```
+
+**Compute:** Minutes to hours on single GPU depending on grid size.
+
+## 17.13 Data Collection Strategy Summary
+
+### 17.13.1 Recommended Data Collection Priority
+
+| Priority | Data Type | Source | Effort | Required For |
+|----------|-----------|--------|--------|--------------|
+| **1** | Synthetic validation | Generate yourself | Very Low | Experiment 0 |
+| **2** | VLA-Arena trajectories | Public download | Low | Experiments 1-4 |
+| **3** | LIBERO/SimplerEnv | Public download | Low | Baseline comparison |
+| **4** | Open-X Embodiment subset | Public download | Low-Medium | VLA fine-tuning |
+| **5** | SAE training activations | Run frozen VLA | Medium | SAE analysis (§16.8) |
+| **6** | Custom robot demos | Collect yourself | High | Domain-specific |
+
+### 17.13.2 Total Data Requirements Estimate
+
+| Phase | Data Size | Storage | Collection Effort |
+|-------|-----------|---------|-------------------|
+| **Experiment 0** | ~1GB synthetic | <5GB | None (generate) |
+| **Experiments 1-3** | 10-100K trajectories | 50-500GB | Download public |
+| **Experiment 4** | Subset of above + interventions | +20GB | Medium (intervention setup) |
+| **SAE training** | 1M activations × 4096d | ~16GB | Forward passes |
+| **Full project** | — | ~1TB recommended | — |
+
+## 17.14 Compute Budget Recommendations
+
+### 17.14.1 Minimum Viable Setup (PhD Project)
+
+| Component | Specification | Cost |
+|-----------|---------------|------|
+| **Development** | M4 Max MacBook (128GB) | $4,000-5,000 (one-time) |
+| **GPU Compute** | RTX 4090 workstation or cloud | $2,000/GPU or $2-5/hr cloud |
+| **Storage** | 2TB NVMe | $200 |
+| **Cloud Budget** | Occasional A100 for large jobs | $500-2,000/year |
+
+### 17.14.2 Compute Time Estimates
+
+| Task | Hardware | Time | Cost |
+|------|----------|------|------|
+| Experiment 0 (full grid) | RTX 4090 | 1-3 days | <$50 cloud |
+| VLA embedding extraction (100K traj) | RTX 4090 | 4-12 hours | <$20 cloud |
+| SAE training (SigLIP layer) | RTX 4090 | 2-4 hours | <$10 cloud |
+| PID analysis (1K trajectories) | RTX 4090 | 1-4 hours | <$10 cloud |
+| Full Experiments 1-3 | RTX 4090 | 1-2 weeks | <$500 cloud |
+
+### 17.14.3 What NOT to Train (Out of Scope)
+
+| Component | Why Out of Scope | Alternative |
+|-----------|-----------------|-------------|
+| VLA from scratch | 64 A100s × 1 week (~$50K+) | Use pre-trained OpenVLA |
+| GRM from scratch | 35M samples, massive infra | Use as pre-trained baseline |
+| WAN from scratch | Billions of video frames | Use pre-trained, LoRA fine-tune |
+| Genie 3 / SIMA 2 | Not public, DeepMind scale | N/A |
+
+## 17.15 Data Access and Licensing
+
+| Dataset | License | Access | Registration? |
+|---------|---------|--------|---------------|
+| **Open-X Embodiment** | Apache 2.0 | Public | No |
+| **VLA-Arena** | CC-BY (expected) | Public | No |
+| **LIBERO** | MIT | GitHub | No |
+| **SimplerEnv** | MIT | GitHub | No |
+| **TransPhy3D** | Research-only | Paper link | Possibly |
+| **Pixel-160K** | TBD | PixelVLA paper | TBD |
+
+## 17.16 Critical Challenges and Mitigations
+
+### 17.16.1 Challenge: kNN at d=4096
+
+**Problem:** Brute-force kNN is O(N²d), prohibitive at d=4096.
+
+**Mitigations:**
+1. PCA to d=256 (recommended first attempt)
+2. GPU-accelerated kNN (cuML, FAISS)
+3. Approximate kNN (with Experiment 0 re-validation)
+4. SAE decomposition (reduce effective dimension)
+
+### 17.16.2 Challenge: Strong Dependence (Near-Deterministic VLA)
+
+**Problem:** VLA `A = f(V,D,L)` is nearly deterministic; MI can be huge/undefined.
+
+**Mitigations:**
+1. Add calibrated noise to action predictions
+2. Use temperature in VLA decoding
+3. Target external labels (`A*`, success/failure) instead of raw action
+4. Strong-dependence synthetic sweep in Experiment 0
+
+### 17.16.3 Challenge: Trajectory Autocorrelation
+
+**Problem:** Consecutive timesteps are correlated; "N frames" ≠ "N i.i.d. samples".
+
+**Mitigations:**
+1. Cross-trajectory sampling (one sample per rollout)
+2. Large-stride subsampling (every 10th frame)
+3. Block bootstrap for uncertainty estimation
+4. Trajectory-level PID features (mean/min over windows)
+
+---
+
+# 18. Critical Blockers and Risk Analysis
+
+This section provides a systematic assessment of blockers that could prevent project success, organized by severity. Each blocker includes explicit mitigation strategies and Go/No-Go decision criteria.
+
+## 18.1 Executive Summary: Risk Classification
+
+| Category | Count | Project Impact |
+|----------|-------|----------------|
+| **Show-Stoppers (Cat 1)** | 5 | Could kill project entirely |
+| **Major Blockers (Cat 2)** | 7 | Require significant scope pivots |
+| **Minor Blockers (Cat 3)** | 8 | Workarounds exist; manageable |
+
+**Overall Risk Assessment:** HIGH but tractable. Success depends critically on Experiment 0 outcomes and DreamVLA availability.
+
+---
+
+## 18.2 Category 1: Show-Stopper Blockers
+
+These blockers could terminate the project if unmitigated. Each requires explicit Go/No-Go decision before proceeding.
+
+### 18.2.1 Experiment 0 Fails at d ≤ 256
+
+**Risk:** kNN-based `I^sx_∩` may be fundamentally unreliable even after dimensionality reduction.
+
+**Evidence for Concern:**
+- Distance concentration is exponential in dimension
+- No published validation of continuous `I^sx_∩` at d > 100
+- Ehrlich et al. 2024 validation was on low-d synthetic data only
+
+**Detection:**
+- Experiment 0 error > 20% at d=256 after PCA
+- Synthetic XOR/redundancy patterns unrecoverable
+- Variance across seeds exceeds signal magnitude
+
+**Mitigation Options:**
+1. **PIVOT to Shannon invariants only:** Use CI = I(X;T) + I(Y;T) - I(X,Y;T) for screening; abandon `I^sx_∩` atoms
+2. **PIVOT to discrete PID:** Quantize embeddings to k=100-1000 clusters; use discrete `I^sx_∩` (Makkeh et al. 2021)
+3. **PIVOT to neural MI:** Use MINE/CCMI for MI estimation; compute CI from neural MI (but NOT `I^sx_∩`)
+
+**Go/No-Go Decision:**
+- **GO:** Error < 15% at d=256 after PCA, stable across seeds
+- **PIVOT:** Error 15-30% at d=256; switch to discrete or CI-only
+- **NO-GO:** Error > 30% at d=256; fundamental approach failure → publish as negative result
+
+**Timeline Risk:** This gate must be cleared in Month 1-2. Failure here invalidates all downstream experiments.
+
+---
+
+### 18.2.2 DreamVLA Weights/Architecture Unavailable
+
+**Risk:** DreamVLA (arXiv:2507.04447) is the only VLA with explicitly extractable world model states ("D"). If unavailable, the V-D-A decomposition becomes impossible.
+
+**Evidence for Concern:**
+- Paper does NOT specify GPT-2 variant or hidden dimensions
+- No HuggingFace page or GitHub release found (as of Jan 2026)
+- Authors may not release weights due to training data licensing
+
+**Detection:**
+- Unable to download/access DreamVLA weights
+- Authors unresponsive to access requests
+- Architecture details insufficient for re-implementation
+
+**Mitigation Options:**
+1. **PIVOT to OpenVLA hidden states:** Use internal layer activations as "D" proxy (less clean, but extractable)
+2. **PIVOT to V-L-A only:** Abandon world model decomposition; focus on language grounding (still scientifically valuable)
+3. **Re-implement DreamVLA:** If architecture is sufficiently specified, train from scratch (HIGH cost: ~$5K-10K compute + 2-3 months)
+4. **Contact authors directly:** Request pre-publication access for research purposes
+
+**Go/No-Go Decision:**
+- **GO:** Weights accessible OR architecture fully specified for re-implementation
+- **PIVOT:** Use OpenVLA hidden states as D proxy (weaker but tractable)
+- **NO-GO:** No V-D-A decomposition possible → reframe project as V-L-A analysis only
+
+**Timeline Risk:** Must resolve by Month 1. Downstream experiment design depends on this.
+
+---
+
+### 18.2.3 Strong Dependence Makes MI Unbounded
+
+**Risk:** VLA action outputs are nearly deterministic functions of inputs. For deterministic f, I(X; f(X)) = H(X) which can be arbitrarily large or undefined for continuous X.
+
+**Evidence for Concern:**
+- VLA decoding is typically argmax (deterministic)
+- Even with temperature, entropy of action distribution may be very low
+- Gao et al. 2015 shows kNN MI estimators fail catastrophically in strong-dependence regimes
+
+**Detection:**
+- MI estimates grow without bound as k decreases
+- Estimates are unstable across seeds (high variance)
+- Strong-dependence synthetic sweep in Experiment 0 fails
+
+**Mitigation Options:**
+1. **Add calibrated noise:** Inject noise to action outputs before MI estimation (but this changes the quantity being estimated)
+2. **Use temperature decoding:** Force VLA to output distributions, not argmax
+3. **Target external labels:** Estimate I(V,L,D; Success) where Success is a binary external label (avoids determinism)
+4. **Use binned/discrete actions:** Discretize action space to 256-1000 bins (as in OpenVLA); use discrete MI
+
+**Go/No-Go Decision:**
+- **GO:** Strong-dependence sweep in Experiment 0 shows bounded MI with actionable mitigations
+- **PIVOT:** Switch to discrete targets (Success/Failure) or binned actions
+- **NO-GO:** Continuous action-based PID fundamentally impossible → reframe to classification/reward prediction
+
+**Timeline Risk:** Detectable in Experiment 0 (Month 1-2).
+
+---
+
+### 18.2.4 i.i.d. Assumption Fundamentally Violated
+
+**Risk:** PID estimators assume i.i.d. samples. VLA rollouts are temporally correlated; consecutive frames are nearly identical.
+
+**Evidence for Concern:**
+- Adjacent frames in a trajectory share >90% visual content
+- Action sequences are smooth (kinematic constraints)
+- "10,000 frames" may represent only 100 effective i.i.d. samples
+
+**Detection:**
+- Effective sample size (ESS) << nominal N
+- Block bootstrap CIs are 10x wider than naive CIs
+- Estimates change dramatically with subsampling stride
+
+**Mitigation Options:**
+1. **Cross-trajectory sampling:** One sample per rollout (guaranteed independent)
+2. **Large-stride subsampling:** Every 10th-30th frame within trajectory
+3. **Block bootstrap:** Use trajectory-aware blocks for uncertainty quantification
+4. **Trajectory-level features:** Compute mean/min/max PID over windows; treat trajectory as single sample
+
+**Go/No-Go Decision:**
+- **GO:** ESS/N > 0.1 with reasonable subsampling
+- **PIVOT:** Switch to cross-trajectory only (requires more rollouts)
+- **NO-GO:** Insufficient independent samples available → collect more data or abandon temporal claims
+
+**Timeline Risk:** Detectable after first VLA embedding extraction (Month 3-4).
+
+---
+
+### 18.2.5 All Baselines Beat PID
+
+**Risk:** Simpler baselines (entropy, uncertainty, GRM reward) may outperform PID for failure prediction, rendering the contribution trivial.
+
+**Evidence for Concern:**
+- Entropy baselines are well-established and cheap
+- GRM (Robo-Dopamine) already achieves strong failure prediction
+- PID adds complexity without guaranteed benefit
+
+**Detection:**
+- PID-based classifier AUROC ≤ baseline + 0.02
+- No statistically significant improvement
+- PID atoms do not provide interpretable signal
+
+**Mitigation Options:**
+1. **Reframe as diagnostic tool:** Even if not predictive, PID may explain *why* failures occur (interpretability value)
+2. **Combine PID + baselines:** Ensemble approach where PID provides additional signal
+3. **Focus on modality attribution:** PID tells *which modality* failed even if overall prediction is similar to baselines
+4. **Publish as negative result:** Valuable contribution if rigorously conducted
+
+**Go/No-Go Decision:**
+- **GO:** PID provides statistically significant improvement OR unique interpretability
+- **PIVOT:** Reframe as diagnostic/interpretability tool rather than predictor
+- **NO-GO:** No advantage over baselines AND no interpretability → publish negative result
+
+**Timeline Risk:** Discoverable only after Experiment 2 (Month 5-7).
+
+---
+
+## 18.3 Category 2: Major Blockers
+
+These blockers require significant scope pivots but do not terminate the project.
+
+### 18.3.1 Geodesic kNN MI Not Implemented
+
+**Status:** NOT implemented in `pid-core`
+
+**Impact:** Cannot test manifold-aware MI estimation directly. Limited to Euclidean approximations.
+
+**Mitigation:** Use Isomap/contractive AE to "unroll" manifold first, then apply standard KSG. OR use PCA and accept linear approximation. Geodesic kNN is a future enhancement.
+
+**Priority:** LOW for v1.0 experiments.
+
+---
+
+### 18.3.2 Ollivier-Ricci Curvature Not Implemented
+
+**Status:** NOT implemented in `pid-core`
+
+**Impact:** Cannot directly test local curvature of embedding spaces. Must rely on δ-hyperbolicity and indirect diagnostics.
+
+**Mitigation:** Use δ-hyperbolicity (4-point condition) as proxy. Ollivier-Ricci is computationally expensive (O(n²) optimal transport per edge) anyway.
+
+**Priority:** LOW for v1.0 experiments.
+
+---
+
+### 18.3.3 No Hyperbolic `I^sx_∩` Estimator Exists
+
+**Status:** NO mathematical derivation exists for `I^sx_∩` in hyperbolic geometry
+
+**Impact:** Cannot directly apply hyperbolic projections for full PID analysis. The v5.5 warning explicitly forbids this.
+
+**Mitigation:** 
+1. Use hyperbolic geometry for hierarchy visualization ONLY
+2. Use hyperbolic projections for MI-only screening (geodesic MI is valid)
+3. Apply "unrolling" approaches before `I^sx_∩` estimation
+
+**Priority:** HIGH conceptual barrier; must be clearly communicated in all publications.
+
+---
+
+### 18.3.4 Pixel-160K Dataset Access TBD
+
+**Status:** Access not publicly announced (as of Jan 2026)
+
+**Impact:** Cannot replicate PixelVLA experiments with original training data.
+
+**Mitigation:** Use alternative VLAs (OpenVLA, TraceVLA) on publicly available benchmarks (LIBERO, VLA-Arena).
+
+**Priority:** MEDIUM; affects PixelVLA-specific experiments only.
+
+---
+
+### 18.3.5 GRM Weights May Not Be Released
+
+**Status:** Robo-Dopamine paper does not guarantee weight release
+
+**Impact:** Cannot use GRM as baseline without retraining (prohibitive: 35M samples).
+
+**Mitigation:**
+1. Contact authors for weights
+2. Use simpler reward model baselines (GVL, VLAC)
+3. Train lightweight reward classifier on smaller data
+
+**Priority:** MEDIUM; affects Experiment 2 baseline comparisons.
+
+---
+
+### 18.3.6 No Ground Truth for "World Model Quality"
+
+**Status:** No external metric for validating world model representations
+
+**Impact:** Cannot prove that PID measures "world model quality" rather than something else.
+
+**Mitigation:**
+1. Use controlled interventions (change D, observe behavior changes)
+2. Correlate PID with downstream task success
+3. Treat "world model quality" as latent construct, not ground truth
+
+**Priority:** HIGH conceptual issue; requires careful framing in publications.
+
+---
+
+### 18.3.7 Document Scope Exceeds PhD Timeline
+
+**Status:** grandplan.md describes ~5 years of work
+
+**Impact:** Risk of scope creep, never finishing, burnout.
+
+**Mitigation:**
+1. Strict prioritization: Experiments 0-2 are core; 3-4 are stretch goals
+2. Aim 3 (RL fine-tuning) is explicitly optional
+3. VLA-Arena integration is additive, not required
+4. World model integration (§10) is future work
+
+**Priority:** HIGH; requires active scope management.
+
+---
+
+## 18.4 Category 3: Minor Blockers
+
+These blockers have known workarounds and are manageable.
+
+| Blocker | Status | Workaround |
+|---------|--------|------------|
+| SAE training for VLA | Not implemented | Use pre-trained SAE (Jiang et al. 2025) |
+| MINE must be retrained per estimate | Known limitation | Pre-train on VLA distribution once |
+| Isomap expensive (O(n³)) | Known | Use sparse Isomap or landmarks |
+| Full VLA pre-training infeasible | Known | Use LoRA fine-tuning only |
+| Some arXiv papers not peer-reviewed | Known | Verify claims independently |
+| macOS primary limits CUDA | Known | NixOS secondary target available |
+| PyO3 bindings not implemented | Planned | Python-first for experiments |
+| Ball-tree/KD-tree not implemented | Known | Brute-force kNN is reference-correct |
+
+---
+
+## 18.5 Risk Mitigation Timeline
+
+| Month | Gate | Critical Decision |
+|-------|------|-------------------|
+| 1 | DreamVLA access | GO (available) / PIVOT (OpenVLA hidden states) |
+| 1-2 | Experiment 0 | GO (< 15% error) / PIVOT (CI-only) / NO-GO |
+| 2-3 | Strong dependence | GO (bounded) / PIVOT (discrete targets) |
+| 3-4 | ESS estimation | GO (ESS/N > 0.1) / PIVOT (cross-trajectory) |
+| 5-7 | Baseline comparison | GO (PID adds value) / PIVOT (interpretability) / NO-GO (negative result) |
+
+---
+
+## 18.6 Fallback Scope Hierarchy
+
+If blockers force scope reduction, reduce in this order (highest priority first):
+
+1. **Core (MUST complete):**
+   - Experiment 0: Estimator validation
+   - V-L-A decomposition on OpenVLA
+   - Basic failure prediction comparison
+
+2. **Important (SHOULD complete):**
+   - V-D-A decomposition (if DreamVLA available)
+   - VLA-Arena integration
+   - Baseline comparison (Experiment 2)
+
+3. **Stretch (COULD complete):**
+   - Experiment 3: Dimensionality study
+   - Experiment 4: Causal validation
+   - PixelVLA/TraceVLA analysis
+
+4. **Future work (WON'T in PhD):**
+   - Aim 3: RL fine-tuning with PID reward
+   - Full 3-way PID (18 atoms)
+   - Custom world model training
+
+---
+
+## 18.7 Decision Framework Summary
+
+```
+BLOCKER RESOLUTION PROTOCOL
+===========================
+
+1. Identify blocker category (1/2/3)
+2. Check detection criteria
+3. If detected:
+   a. Cat 1 → Immediate Go/Pivot/No-Go decision
+   b. Cat 2 → Apply mitigation; document scope change
+   c. Cat 3 → Apply workaround; continue
+4. Document all decisions in Appendix B
+5. Update timeline and deliverables
+```
+
+**Final Note:** This analysis assumes honest scientific inquiry. If Experiment 0 fails, that is a legitimate (and publishable) finding about the limits of continuous `I^sx_∩` estimation. The goal is truth, not confirmation of hypotheses.
+
+---
+
 # Appendix A: Glossary
 
 | Term | Definition |
@@ -9128,6 +10006,8 @@ release: build build-wheel
 | 5.5 | Jan 2026 | **Critical Geometry Fix:** Documented that Wibral PID (`I^sx_∩`) on manifolds/Lorentz spaces requires new derivations. Added top-level warning against naive Euclidean application. |
 | 5.6 | Jan 2026 | **Manifold Approaches (WIP):** Added Top 5 manifold-compatible engineering approaches (Unrolling, Geodesic MI, Linear Projection, Quantization, Copula Transform) to address the v5.5 discovery. |
 | **5.7** | Jan 2026 | **First-Principles Geometry Analysis + VLA Verification:** (1) Verified VLA architectures against original papers: OpenVLA (SigLIP+DinoV2 600M, 32 layers, 4096d), DreamVLA (GPT-2 dims UNSPECIFIED), PixelVLA/TraceVLA (4096d, 7D actions). (2) Added §16.6-§16.11: local flatness testing (4 methods incl. Ollivier-Ricci curvature), δ-hyperbolicity testing, SAE analysis for VLA, Chebyshev/PixelVLA geometry transition, GPT-2 vs modern LLMs hierarchy evidence, unified Geometry-First Protocol with NanoGPT foundational study. (3) Added Wibral GitLab repos as authoritative code sources. (4) Integrated VLA-Arena benchmark findings, GenieReasoner/FACT tokenizer, hierarchical geometry of cognitive states. (5) Added explicit hyperbolic training guidance. |
+| **5.8** | Jan 2026 | **VLA-Arena Deep Integration + Memorization/Generalization Analysis:** (1) VLA-Arena as primary evaluation framework (§9.7.1). (2) New §3.6: Memorization vs Generalization hypotheses (H4-H6). (3) Perturbation-based PID robustness protocol (§9.7.2). (4) Expanded confound analysis (§14.5). (5) Long-horizon and compositional failure analysis. (6) Safety dimension integration. |
+| **6.0** | Jan 2026 | **Critical Blockers Analysis + Training/Compute Requirements:** (1) New §17: Training, Compute, and Data Requirements Analysis covering 25+ methods, VLA fine-tuning costs, compute budget recommendations. (2) New §18: Critical Blockers and Risk Analysis with 5 show-stoppers, 7 major blockers, 8 minor blockers, Go/No-Go decision frameworks, and fallback scope hierarchy. (3) Verified DreamVLA architecture gaps, OpenVLA availability, VLA-Arena accessibility. (4) Risk assessment: HIGH but tractable if Experiment 0 succeeds. |
 
 ---
 
