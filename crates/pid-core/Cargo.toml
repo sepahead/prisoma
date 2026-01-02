@@ -8,3 +8,4 @@ name = "pid_core"
 path = "src/lib.rs"
 
 [dependencies]
+nalgebra = "0.33"

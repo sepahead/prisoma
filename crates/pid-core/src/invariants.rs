@@ -229,5 +229,3 @@ pub fn co_information_pairwise_discrete(x1: &[u32], x2: &[u32], y: &[u32]) -> Pi
 
     Ok(i_x1_y + i_x2_y - i_x1x2_y)
 }
-
-

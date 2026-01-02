@@ -2,13 +2,28 @@ use pid_core::{
     co_information_pairwise, concat_horiz, distance_concentration_stats,
     intrinsic_dimension_levina_bickel, isx_redundancy, ksg_mi, ksg_mi_concat_xy,
     DistanceConcentrationConfig, HashProjector, IntrinsicDimConfig, IsxConfig, IsxMethod,
-    KsgConfig, MatRef, Metric, NegativeHandling, Standardizer,
+    KsgConfig, MatRef, Metric, NegativeHandling, PcaProjector, Standardizer,
 };
 use std::io::{self, Write};
 
 #[derive(Debug, Clone, Copy)]
 struct Args {
     csv: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CaseCommon<'a> {
+    args: Args,
+    n: usize,
+    ksg_cfg: &'a KsgConfig,
+    hash_project_to: Option<usize>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CaseSpec<'a> {
+    name: &'a str,
+    d: usize,
+    seed: u64,
 }
 
 #[derive(Debug)]
@@ -55,7 +70,7 @@ fn main() {
     let mut out = io::BufWriter::new(io::stdout());
     if let Err(err) = run(&mut out, args) {
         match err {
-            Exp0Error::Io(e) if e.kind() == io::ErrorKind::BrokenPipe => return,
+            Exp0Error::Io(e) if e.kind() == io::ErrorKind::BrokenPipe => (),
             Exp0Error::Pid(e) => {
                 eprintln!("exp0: estimator error: {e}");
                 std::process::exit(1);
@@ -113,55 +128,82 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
         writeln!(out, "n={n}, k={k}, dims={dims:?}")?;
         writeln!(
             out,
-            "hash_project_to={hash_project_to:?} (feature hashing / CountSketch; S1,S2 only)"
+            "project_to={hash_project_to:?} (projection baselines: hash + PCA; S1,S2 only)"
         )?;
         writeln!(out)?;
     }
 
+    let common = CaseCommon {
+        args,
+        n,
+        ksg_cfg: &ksg_cfg,
+        hash_project_to,
+    };
     for d in dims {
         run_case(
             out,
-            args,
-            "independent_additive",
-            d,
-            n,
-            &ksg_cfg,
-            42,
-            hash_project_to,
+            common,
+            CaseSpec {
+                name: "independent_additive",
+                d,
+                seed: 42,
+            },
         )?;
-        run_case(out, args, "redundant_copy", d, n, &ksg_cfg, 43, hash_project_to)?;
-        run_case(out, args, "unique_s1", d, n, &ksg_cfg, 44, hash_project_to)?;
-        run_case(out, args, "xor_like", d, n, &ksg_cfg, 45, hash_project_to)?;
-        if !args.csv {
+        run_case(
+            out,
+            common,
+            CaseSpec {
+                name: "redundant_copy",
+                d,
+                seed: 43,
+            },
+        )?;
+        run_case(
+            out,
+            common,
+            CaseSpec {
+                name: "unique_s1",
+                d,
+                seed: 44,
+            },
+        )?;
+        run_case(
+            out,
+            common,
+            CaseSpec {
+                name: "xor_like",
+                d,
+                seed: 45,
+            },
+        )?;
+        if !common.args.csv {
             writeln!(out)?;
         }
     }
 
-    if args.csv {
+    if common.args.csv {
         writeln!(out)?;
         write_gaussian_csv_header(out)?;
     }
-    run_gaussian_channel_strong_dependence_sweep(out, args, 900, &ksg_cfg, 0x51A7_2026)?;
+    run_gaussian_channel_strong_dependence_sweep(out, common.args, 900, &ksg_cfg, 0x51A7_2026)?;
     Ok(())
 }
 
 fn run_case(
     out: &mut dyn Write,
-    args: Args,
-    name: &str,
-    d: usize,
-    n: usize,
-    ksg_cfg: &KsgConfig,
-    seed: u64,
-    hash_project_to: Option<usize>,
+    common: CaseCommon<'_>,
+    spec: CaseSpec<'_>,
 ) -> Result<(), Exp0Error> {
     let noise_std = 0.05;
-    let (s1, s2, t) = match name {
+    let n = common.n;
+    let d = spec.d;
+    let seed = spec.seed;
+    let (s1, s2, t) = match spec.name {
         "independent_additive" => gen_independent_additive(n, d, noise_std, seed),
         "redundant_copy" => gen_redundant_copy(n, d, noise_std, seed),
         "unique_s1" => gen_unique_s1(n, d, noise_std, seed),
         "xor_like" => gen_xor_like(n, d, noise_std, seed),
-        _ => unreachable!("unknown case: {name}"),
+        _ => unreachable!("unknown case: {}", spec.name),
     };
 
     let s1 = MatRef::new(&s1, n, d)?;
@@ -172,17 +214,34 @@ fn run_case(
     let (s2z, _) = Standardizer::fit_transform(s2)?;
     let (tz, _) = Standardizer::fit_transform(t)?;
 
-    let baseline = compute_metrics(s1z.as_ref(), s2z.as_ref(), tz.as_ref(), ksg_cfg)?;
-    let diag = compute_diagnostics(s1z.as_ref(), s2z.as_ref(), tz.as_ref(), ksg_cfg.metric);
+    let baseline = compute_metrics(s1z.as_ref(), s2z.as_ref(), tz.as_ref(), common.ksg_cfg)?;
+    let diag = compute_diagnostics(
+        s1z.as_ref(),
+        s2z.as_ref(),
+        tz.as_ref(),
+        common.ksg_cfg.metric,
+    );
 
-    if args.csv {
-        write_case_csv_row(out, name, d, n, ksg_cfg, false, hash_project_to, baseline, diag)?;
+    if common.args.csv {
+        write_case_csv_row(
+            out,
+            common.ksg_cfg,
+            CaseCsvRow {
+                name: spec.name,
+                projection: ProjectionMethod::None,
+                d,
+                n,
+                project_to: None,
+                metrics: baseline,
+                diag,
+            },
+        )?;
     } else {
-        print_metrics(out, name, d, baseline)?;
+        print_metrics(out, spec.name, d, baseline)?;
         print_intrinsic_dims(out, diag)?;
     }
 
-    if let Some(dout) = hash_project_to {
+    if let Some(dout) = common.hash_project_to {
         if d > dout {
             let p1 = HashProjector::new(d, dout, 0xA11CE_u64 ^ seed)?;
             let p2 = HashProjector::new(d, dout, 0xB22CE_u64 ^ seed)?;
@@ -194,23 +253,67 @@ fn run_case(
             let (s1p, _) = Standardizer::fit_transform(s1p.as_ref())?;
             let (s2p, _) = Standardizer::fit_transform(s2p.as_ref())?;
 
-            let projected = compute_metrics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), ksg_cfg)?;
-            let diag =
-                compute_diagnostics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), ksg_cfg.metric);
-            if args.csv {
+            let projected =
+                compute_metrics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), common.ksg_cfg)?;
+            let diag = compute_diagnostics(
+                s1p.as_ref(),
+                s2p.as_ref(),
+                tz.as_ref(),
+                common.ksg_cfg.metric,
+            );
+            let case_name = format!("{}_hashproj", spec.name);
+            if common.args.csv {
                 write_case_csv_row(
                     out,
-                    &format!("{name}_hashproj"),
-                    dout,
-                    n,
-                    ksg_cfg,
-                    true,
-                    hash_project_to,
-                    projected,
-                    diag,
+                    common.ksg_cfg,
+                    CaseCsvRow {
+                        name: &case_name,
+                        projection: ProjectionMethod::Hash,
+                        d: dout,
+                        n,
+                        project_to: Some(dout),
+                        metrics: projected,
+                        diag,
+                    },
                 )?;
             } else {
-                print_metrics(out, &format!("{name}_hashproj"), dout, projected)?;
+                print_metrics(out, &case_name, dout, projected)?;
+                print_intrinsic_dims(out, diag)?;
+            }
+
+            // PCA projection baseline (deterministic; no external deps).
+            let (s1p, _) = PcaProjector::fit_transform(s1z.as_ref(), dout)?;
+            let (s2p, _) = PcaProjector::fit_transform(s2z.as_ref(), dout)?;
+
+            // Re-standardize after projection so Chebyshev distance has comparable scale.
+            let (s1p, _) = Standardizer::fit_transform(s1p.as_ref())?;
+            let (s2p, _) = Standardizer::fit_transform(s2p.as_ref())?;
+
+            let projected =
+                compute_metrics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), common.ksg_cfg)?;
+            let diag = compute_diagnostics(
+                s1p.as_ref(),
+                s2p.as_ref(),
+                tz.as_ref(),
+                common.ksg_cfg.metric,
+            );
+            let case_name = format!("{}_pca", spec.name);
+            if common.args.csv {
+                write_case_csv_row(
+                    out,
+                    common.ksg_cfg,
+                    CaseCsvRow {
+                        name: &case_name,
+                        projection: ProjectionMethod::Pca,
+                        d: dout,
+                        n,
+                        project_to: Some(dout),
+                        metrics: projected,
+                        diag,
+                    },
+                )?;
+            } else {
+                print_metrics(out, &case_name, dout, projected)?;
                 print_intrinsic_dims(out, diag)?;
             }
         }
@@ -233,7 +336,12 @@ struct Diagnostics {
     dc_nnr_s12: f64,
 }
 
-fn compute_diagnostics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, metric: Metric) -> Diagnostics {
+fn compute_diagnostics(
+    s1: MatRef<'_>,
+    s2: MatRef<'_>,
+    t: MatRef<'_>,
+    metric: Metric,
+) -> Diagnostics {
     let cfg = IntrinsicDimConfig { k: 10, metric };
 
     let id_s1 = intrinsic_dimension_levina_bickel(s1, &cfg).unwrap_or(f64::NAN);
@@ -275,12 +383,7 @@ fn print_intrinsic_dims(out: &mut dyn Write, d: Diagnostics) -> io::Result<()> {
     writeln!(
         out,
         "{:>20} {:>7} | ID(s1)={:>6.2} ID(s2)={:>6.2} ID(t)={:>6.2} ID(s1,s2)={:>6.2}",
-        "",
-        "",
-        d.id_s1,
-        d.id_s2,
-        d.id_t,
-        d.id_s12
+        "", "", d.id_s1, d.id_s2, d.id_t, d.id_s12
     )?;
     writeln!(
         out,
@@ -372,7 +475,12 @@ struct Metrics {
     syn_ehrlich: f64,
 }
 
-fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgConfig) -> pid_core::PidResult<Metrics> {
+fn compute_metrics(
+    s1: MatRef<'_>,
+    s2: MatRef<'_>,
+    t: MatRef<'_>,
+    ksg_cfg: &KsgConfig,
+) -> pid_core::PidResult<Metrics> {
     let mi_s1_t = ksg_mi(s1, t, ksg_cfg)?;
     let mi_s2_t = ksg_mi(s2, t, ksg_cfg)?;
     let mi_s1s2_t = ksg_mi_concat_xy(s1, s2, t, ksg_cfg)?;
@@ -388,8 +496,7 @@ fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgC
             tie_epsilon: ksg_cfg.tie_epsilon,
             method: IsxMethod::EhrlichKsg,
         },
-    )
-    ?;
+    )?;
 
     let red_local_min = isx_redundancy(
         s1,
@@ -401,8 +508,7 @@ fn compute_metrics(s1: MatRef<'_>, s2: MatRef<'_>, t: MatRef<'_>, ksg_cfg: &KsgC
             tie_epsilon: ksg_cfg.tie_epsilon,
             method: IsxMethod::LocalMinKsg,
         },
-    )
-    ?;
+    )?;
 
     let red_disjunction = isx_redundancy(
         s1,
@@ -448,48 +554,70 @@ fn print_metrics(out: &mut dyn Write, name: &str, d: usize, m: Metrics) -> io::R
 fn write_case_csv_header(out: &mut dyn Write) -> io::Result<()> {
     writeln!(
         out,
-        "case_name,hash_applied,d,n,k,metric,hash_project_to,mi_s1_t,mi_s2_t,mi_s1s2_t,ci,red_ehrlich,red_local_min,red_disjunction,syn_ehrlich,id_s1,id_s2,id_t,id_s12,dc_cv_s1,dc_nnratio_s1,dc_cv_s2,dc_nnratio_s2,dc_cv_s12,dc_nnratio_s12"
+        "case_name,projection,d,n,k,metric,project_to,mi_s1_t,mi_s2_t,mi_s1s2_t,ci,red_ehrlich,red_local_min,red_disjunction,syn_ehrlich,id_s1,id_s2,id_t,id_s12,dc_cv_s1,dc_nnratio_s1,dc_cv_s2,dc_nnratio_s2,dc_cv_s12,dc_nnratio_s12"
     )
+}
+
+#[derive(Clone, Copy)]
+enum ProjectionMethod {
+    None,
+    Hash,
+    Pca,
+}
+
+impl ProjectionMethod {
+    fn as_str(self) -> &'static str {
+        match self {
+            ProjectionMethod::None => "none",
+            ProjectionMethod::Hash => "hash",
+            ProjectionMethod::Pca => "pca",
+        }
+    }
+}
+
+struct CaseCsvRow<'a> {
+    name: &'a str,
+    projection: ProjectionMethod,
+    d: usize,
+    n: usize,
+    project_to: Option<usize>,
+    metrics: Metrics,
+    diag: Diagnostics,
 }
 
 fn write_case_csv_row(
     out: &mut dyn Write,
-    name: &str,
-    d: usize,
-    n: usize,
     ksg_cfg: &KsgConfig,
-    hash_applied: bool,
-    hash_project_to: Option<usize>,
-    m: Metrics,
-    diag: Diagnostics,
+    row: CaseCsvRow<'_>,
 ) -> io::Result<()> {
-    let hash_project_to = hash_project_to
-        .map(|v| v.to_string())
-        .unwrap_or_else(|| String::new());
+    let project_to = row.project_to.map_or_else(String::new, |v| v.to_string());
     writeln!(
         out,
-        "{name},{},{d},{n},{},{:?},{hash_project_to},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e}",
-        if hash_applied { 1 } else { 0 },
+        "{},{},{},{},{},{:?},{project_to},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e}",
+        row.name,
+        row.projection.as_str(),
+        row.d,
+        row.n,
         ksg_cfg.k,
         ksg_cfg.metric,
-        m.mi_s1_t,
-        m.mi_s2_t,
-        m.mi_s1s2_t,
-        m.ci,
-        m.red_ehrlich,
-        m.red_local_min,
-        m.red_disjunction,
-        m.syn_ehrlich,
-        diag.id_s1,
-        diag.id_s2,
-        diag.id_t,
-        diag.id_s12,
-        diag.dc_cv_s1,
-        diag.dc_nnr_s1,
-        diag.dc_cv_s2,
-        diag.dc_nnr_s2,
-        diag.dc_cv_s12,
-        diag.dc_nnr_s12,
+        row.metrics.mi_s1_t,
+        row.metrics.mi_s2_t,
+        row.metrics.mi_s1s2_t,
+        row.metrics.ci,
+        row.metrics.red_ehrlich,
+        row.metrics.red_local_min,
+        row.metrics.red_disjunction,
+        row.metrics.syn_ehrlich,
+        row.diag.id_s1,
+        row.diag.id_s2,
+        row.diag.id_t,
+        row.diag.id_s12,
+        row.diag.dc_cv_s1,
+        row.diag.dc_nnr_s1,
+        row.diag.dc_cv_s2,
+        row.diag.dc_nnr_s2,
+        row.diag.dc_cv_s12,
+        row.diag.dc_nnr_s12,
     )
 }
 

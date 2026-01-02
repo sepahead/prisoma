@@ -1,6 +1,6 @@
 use pid_core::{
-    co_information_pairwise_discrete, o_information_discrete, red_degree_discrete, vul_degree_discrete,
-    PidError,
+    co_information_pairwise_discrete, o_information_discrete, red_degree_discrete,
+    vul_degree_discrete, PidError,
 };
 
 fn ln2() -> f64 {
@@ -43,10 +43,7 @@ fn red_vul_degrees_xor_triplet() {
     let red = red_degree_discrete(&[&x, &y, &z]).unwrap();
     let vul = vul_degree_discrete(&[&x, &y, &z]).unwrap();
 
-    assert!(
-        (red - 1.5).abs() < 1e-12,
-        "Red° expected 1.5, got {red}"
-    );
+    assert!((red - 1.5).abs() < 1e-12, "Red° expected 1.5, got {red}");
     assert!(vul.abs() < 1e-12, "Vul° expected 0, got {vul}");
 }
 
@@ -81,10 +78,7 @@ fn pairwise_co_information_discrete_matches_xor() {
     let z = [0_u32, 1, 1, 0];
 
     let ci = co_information_pairwise_discrete(&x, &y, &z).unwrap();
-    assert!(
-        (ci + ln2()).abs() < 1e-12,
-        "CI XOR expected -ln2, got {ci}"
-    );
+    assert!((ci + ln2()).abs() < 1e-12, "CI XOR expected -ln2, got {ci}");
 }
 
 #[test]
@@ -105,5 +99,3 @@ fn degrees_error_on_zero_joint_entropy() {
         "expected InvalidConfig, got {err:?}"
     );
 }
-
-

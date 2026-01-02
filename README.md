@@ -36,7 +36,7 @@ Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 | **Shannon invariants (exact discrete)** | ✅ Complete | `crates/pid-core/src/invariants.rs` | Entropies + Red°/Vul°/Ω + discrete CI (toy-system exact baselines) |
 | **Intrinsic dimension** | ✅ Complete | `crates/pid-core/src/geometry.rs` | Levina-Bickel MLE |
 | **Distance concentration** | ✅ Complete | `crates/pid-core/src/geometry.rs` | CV, NN ratio diagnostics |
-| **Preprocessing** | ✅ Complete | `crates/pid-core/src/preprocess.rs` | Standardizer, Jitter, HashProjector |
+| **Preprocessing** | ✅ Complete | `crates/pid-core/src/preprocess.rs` | Standardizer, Jitter, HashProjector, PcaProjector |
 | **Experiment 0 runner** | ✅ Complete | `crates/pid-core/src/bin/exp0.rs` | Synthetic validation + Gaussian channel sweep + geometry diagnostics |
 
 ### In Progress
@@ -45,7 +45,7 @@ Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 |-----------|--------|----------|---------|
 | Python bindings (PyO3) | 🔄 Planned | High | None |
 | VLA embedding extraction (MLX) | 🔄 Planned | High | Requires Python harness |
-| PCA implementation | 🔄 Planned (Python-first) | Medium | None |
+| PCA implementation | ✅ Rust baseline + 🔄 Python scaling planned | Medium | None |
 | SIMD acceleration | 🔄 Optional | Low | Performance profiling needed |
 
 ### Validation Status
@@ -62,7 +62,7 @@ Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 
 1. **kNN is brute-force O(n²):** Acceptable for Experiment 0 but not real-time at n > 10k
 2. **Only Chebyshev metric:** Euclidean/other metrics not implemented
-3. **No PCA in Rust:** Must use Python or `HashProjector` baseline
+3. **PCA scaling:** Rust includes a deterministic baseline (`PcaProjector`), but a Python PCA pipeline is still planned for large-scale/variance-retained runs.
 4. **Strong dependence regime:** Estimates degrade when true MI > ~4 nats
 5. **Manifold-aware estimation not implemented:** geometry diagnostics exist, but Euclidean kNN may fail on curved embeddings (see `grandplan.md` §16)
 6. **No parallelization yet:** Single-threaded; rayon integration planned
@@ -111,7 +111,7 @@ See `grandplan.md` §16 for detailed analysis and decision flowcharts.
   - Hierarchical “fast→slow” screening (CI → selected pairwise PID; optional full 3-source SxPID): `crates/pid-core/src/hierarchy.rs`
   - Optional full 3-source continuous SxPID (18 atoms; offline only): `crates/pid-core/src/pid3.rs`
   - Discrete Shannon invariants (exact): entropies + Red°/Vul°/Ω + discrete CI in `crates/pid-core/src/invariants.rs` (see `crates/pid-core/tests/invariants.rs`)
-  - Preprocessing (dependency-free): `Standardizer`, `Jitter`, `HashProjector` in `crates/pid-core/src/preprocess.rs`
+  - Preprocessing: `Standardizer`, `Jitter`, `HashProjector`, `PcaProjector` in `crates/pid-core/src/preprocess.rs`
   - Geometry diagnostics: intrinsic dimension + basic distance concentration proxies in `crates/pid-core/src/geometry.rs`
   - Quick Experiment 0 runner: `cargo run -p pid-core --bin exp0` (prints a small synthetic sweep + geometry diagnostics)
 - Not yet built (planned next): Python experiment harness (`python/`), macOS-first VLA embedding extraction (MLX/CoreML), run logging + plots.
@@ -274,7 +274,8 @@ The Rust implementation is the long-lived foundation of this project.
 - **Units:** pick one and stick to it (recommended: nats internally; provide explicit conversion to bits for reporting).
 - **Preprocessing is explicit:** standardization and any dimensionality reduction must be recorded
   with results; do not silently change dimensionality. (`pid-core` currently provides
-  `Standardizer`, `Jitter`, and a dependency-free `HashProjector` baseline.)
+  `Standardizer`, `Jitter`, a dependency-free `HashProjector` baseline, and a Rust PCA baseline
+  `PcaProjector`.)
 - **Atom formulas (2-source PID):**
   - `Unq1 = I(S1;T) − Red`
   - `Unq2 = I(S2;T) − Red`
@@ -287,7 +288,7 @@ Suggested `pid-core` internal layout (so work can parallelize cleanly):
 - `ksg.rs` — KSG mutual information
 - `isx.rs` — continuous `I^sx_∩` redundancy estimator
 - `pid2.rs` — 2-source PID wrapper (`{Red, Unq1, Unq2, Syn}`)
-- `preprocess.rs` — standardization + jitter + hash projection (PCA later; explicit + logged)
+- `preprocess.rs` — standardization + jitter + hash projection + PCA (all explicit + logged)
 - `nn.rs` — kNN backend abstraction (brute-force baseline first)
 - `stats.rs` — digamma + bootstrap/CI utilities
 

@@ -1,4 +1,6 @@
-use pid_core::{ksg_mi, ksg_mi_concat_xy, pid2_isx, IsxConfig, KsgConfig, MatRef, NegativeHandling, Pid2Config};
+use pid_core::{
+    ksg_mi, ksg_mi_concat_xy, pid2_isx, IsxConfig, KsgConfig, MatRef, NegativeHandling, Pid2Config,
+};
 
 mod common;
 
@@ -73,5 +75,3 @@ fn pid2_identities_hold_by_construction() {
         out.synergy
     );
 }
-
-

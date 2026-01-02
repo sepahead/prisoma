@@ -52,8 +52,8 @@ pub use hierarchy::{
     PairSelection, PairwiseScreen,
 };
 pub use invariants::{
-    co_information_pairwise_discrete, entropy_discrete, joint_entropy_discrete, o_information_discrete,
-    red_degree_discrete, vul_degree_discrete,
+    co_information_pairwise_discrete, entropy_discrete, joint_entropy_discrete,
+    o_information_discrete, red_degree_discrete, vul_degree_discrete,
 };
 pub use isx::{isx_redundancy, IsxConfig, IsxMethod};
 pub use ksg::{ksg_local_mi_terms, ksg_mi, ksg_mi_concat_xy, KsgConfig, NegativeHandling};
@@ -61,4 +61,4 @@ pub use matrix::{concat_horiz, MatOwned, MatRef};
 pub use metric::Metric;
 pub use pid2::{pid2_isx, pid2_isx_estimate, Pid2Config, Pid2Estimate, Pid2Result};
 pub use pid3::{pid3_isx, Antichain3, Pid3Atom, Pid3Config, Pid3Redundancy, Pid3Result};
-pub use preprocess::{HashProjector, Jitter, Standardizer};
+pub use preprocess::{HashProjector, Jitter, PcaProjector, Standardizer};

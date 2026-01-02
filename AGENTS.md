@@ -42,7 +42,7 @@ Canonical spec: `grandplan.md` (v5.3, Jan 2026).
 
 1. **[HIGH]** Python bindings (PyO3/maturin) for experiment harness
 2. **[HIGH]** VLA embedding extraction on macOS (MLX/CoreML)
-3. **[MEDIUM]** PCA implementation (Python-first, then optional Rust)
+3. **[MEDIUM]** PCA (Rust baseline implemented; Python scaling/variance-target planned)
 4. **[LOW]** SIMD/parallel acceleration (rayon)
 5. **[LOW]** Ball-tree/KD-tree for low-d speedup
 
@@ -164,7 +164,7 @@ MANIFOLD METHODS DECISION TREE
 
 | Method | When to Use | Limitations | Implemented? |
 |--------|-------------|-------------|--------------|
-| **PCA** | Low curvature, high variance retention | Distorts curved manifolds | Python (planned) |
+| **PCA** | Low curvature, high variance retention | Distorts curved manifolds | Rust baseline (`PcaProjector`); Python (planned) |
 | **Random projection** | Approximate distance preservation | No manifold awareness | ✅ `HashProjector` |
 | **Isomap** | When geodesic structure matters | Sensitive to noise, holes | No |
 | **Geodesic kNN MI** | Manifold-valued embeddings | O(n² log n), MI-only | No |
@@ -226,7 +226,7 @@ See `grandplan.md` §16 for full theoretical analysis and §15 for numerical sta
   - kNN backend is brute-force `O(n²)` (reference correctness path)
   - `Metric` currently implements **Chebyshev only**
   - Intrinsic dimension is implemented; distance concentration has basic proxies, but may need expansion
-  - PCA / marginal Gaussianization are not implemented in Rust (plan them in Python first)
+  - PCA baseline exists in Rust (`PcaProjector`); marginal Gaussianization remains Python-first
 
 ## Step-by-step plan (project roadmap)
 

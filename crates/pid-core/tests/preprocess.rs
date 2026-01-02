@@ -1,4 +1,4 @@
-use pid_core::{HashProjector, Jitter, MatRef};
+use pid_core::{HashProjector, Jitter, MatRef, PcaProjector, PidError};
 
 fn mat_equal(a: MatRef<'_>, b: MatRef<'_>, tol: f64) -> bool {
     if a.nrows() != b.nrows() || a.ncols() != b.ncols() {
@@ -81,4 +81,116 @@ fn preprocess_rejects_invalid_configs() {
     assert!(HashProjector::new(2, 0, 1).is_err());
     assert!(Jitter::new(-1.0, 0).is_err());
     assert!(Jitter::new(f64::NAN, 0).is_err());
+}
+
+#[test]
+fn pca_projector_shapes_and_direction_sanity() {
+    // A simple 2D dataset concentrated along the x-axis.
+    let n = 200usize;
+    let d = 2usize;
+    let mut data = Vec::with_capacity(n * d);
+    for i in 0..n {
+        let x = i as f64;
+        data.push(x);
+        data.push(0.0);
+    }
+    let xref = MatRef::new(&data, n, d).unwrap();
+
+    let p = PcaProjector::fit(xref, 1).unwrap();
+    assert_eq!(p.in_dim(), 2);
+    assert_eq!(p.out_dim(), 1);
+
+    // Component should be (approximately) aligned with the x-axis (sign is arbitrary).
+    let w = p.components();
+    assert_eq!(w.len(), 2);
+    assert!(w[0].abs() > 0.99, "w={w:?}");
+    assert!(w[1].abs() < 1e-8, "w={w:?}");
+
+    let y = p.transform(xref).unwrap();
+    assert_eq!(y.as_ref().nrows(), n);
+    assert_eq!(y.as_ref().ncols(), 1);
+}
+
+#[test]
+fn pca_matches_svd_subspace_on_fixed_data() {
+    // Validate that our PCA implementation matches a direct SVD-based PCA subspace (the
+    // scikit-learn-style approach), up to the usual sign/rotation ambiguities.
+    use nalgebra as na;
+
+    let n = 40usize;
+    let d = 15usize;
+    let k = 5usize;
+
+    // Deterministic, full-rank-ish data (no RNG deps).
+    let mut data = Vec::with_capacity(n * d);
+    for i in 0..n {
+        for j in 0..d {
+            let v = ((i + 1) as f64).ln() * ((j + 2) as f64).sin() + 0.001 * (i * j) as f64;
+            data.push(v);
+        }
+    }
+    let xref = MatRef::new(&data, n, d).unwrap();
+
+    let p = PcaProjector::fit(xref, k).unwrap();
+    let w1 = na::DMatrix::from_row_slice(k, d, p.components());
+
+    // Center X and compute SVD: Xc = U S V^T, so PCA components are rows of V^T.
+    let mut mean = vec![0.0f64; d];
+    for i in 0..n {
+        for j in 0..d {
+            mean[j] += data[i * d + j];
+        }
+    }
+    for m in &mut mean {
+        *m /= n as f64;
+    }
+    let mut centered = Vec::with_capacity(n * d);
+    for i in 0..n {
+        for j in 0..d {
+            centered.push(data[i * d + j] - mean[j]);
+        }
+    }
+    let xc = na::DMatrix::from_row_slice(n, d, &centered);
+    let svd = na::linalg::SVD::new(xc, false, true);
+    let vt = svd.v_t.expect("requested V^T");
+
+    // nalgebra does not guarantee singular values are already sorted. Build PCA components by
+    // selecting the top-k singular vectors explicitly.
+    let svals: Vec<f64> = svd.singular_values.iter().copied().collect();
+    let mut order: Vec<usize> = (0..d).collect();
+    order.sort_by(|&a, &b| svals[b].partial_cmp(&svals[a]).unwrap());
+
+    let mut w2_data = Vec::with_capacity(k * d);
+    for r in 0..k {
+        let idx = order[r];
+        for c in 0..d {
+            w2_data.push(vt[(idx, c)]);
+        }
+    }
+    let w2 = na::DMatrix::from_row_slice(k, d, &w2_data);
+
+    // Compare the k-dim row subspaces via singular values of W1 * W2^T (should all be ~1).
+    let m = &w1 * w2.transpose();
+    let sv = na::linalg::SVD::new(m, false, false).singular_values;
+    for s in sv.iter().copied() {
+        assert!(
+            (s - 1.0).abs() < 1e-6,
+            "subspace mismatch: singular value {s}"
+        );
+    }
+}
+
+#[test]
+fn pca_rejects_too_many_components() {
+    let n = 5usize;
+    let d = 3usize;
+    let data = vec![0.0f64; n * d];
+    let xref = MatRef::new(&data, n, d).unwrap();
+
+    // After centering, rank ≤ n-1, so requesting out_dim = n is invalid.
+    let err = PcaProjector::fit(xref, n).unwrap_err();
+    match err {
+        PidError::InvalidConfig { context, .. } => assert_eq!(context, "PcaProjector::fit"),
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
