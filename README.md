@@ -2,7 +2,9 @@
 
 Engineering roadmap for implementing and validating Wibral-group shared-exclusions PID (SxPID, `I^sx_∩`) for Vision-Language-Action (VLA) diagnostics.
 
-Canonical research specification: `grandplan.md` (v5.4, Jan 2026).
+Canonical research specification: `grandplan.md` (v5.5, Jan 2026).
+
+> **⚠️ Critical Discovery (v5.5):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
 
 ---
 
@@ -10,7 +12,11 @@ Canonical research specification: `grandplan.md` (v5.4, Jan 2026).
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v5.4** | 2026-01-02 | **VLA architecture integration + coherence:** clarified how OpenVLA/DreamVLA/PixelVLA/TraceVLA affect variable definitions (what “D” can mean); tightened hierarchy-vs-geometry story; clarified units (bits vs nats) and estimator compatibility boundaries; updated doc versioning to match canonical spec. |
+| **v5.5** | 2026-01-02 | **Manifold/Lorentz Limitation Fix:** Documented that Wibral PID on manifolds requires new derivations; warned against naive application of Euclidean estimators to curved spaces. |
+| **v5.4** | 2026-01-02 | **VLA architecture integration + coherence:** clarified how OpenVLA/DreamVLA/PixelVLA/TraceVLA affect variable definitions; tightened hierarchy-vs-geometry story; clarified units (bits vs nats). |
+| **v5.3** | 2026-01-02 | **Hierarchy vs Geometry:** Distinguished source-count scaling (hierarchy) from estimator validity (geometry). |
+| **v5.2** | 2026-01-02 | **PixelVLA & TraceVLA:** Added citations and scope for visual prompting and trace-based architectures. |
+| **v5.1** | 2026-01-02 | **OpenVLA & DreamVLA:** Clarified variable definitions and world model ("D") extraction. |
 | **v5.0** | 2026-01-01 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Information geometry methods integrated. Code audit complete. Grant-ready documentation. |
 | v4.0 | 2025-12-28 | Added information geometry methods, intrinsic dimension diagnostics, distance concentration proxies |
 | v3.0 | 2025-12-15 | Critical review and gameplan adjustments, 3-source PID implementation |

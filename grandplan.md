@@ -2,12 +2,18 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 5.4 (VLA architecture integration + coherence + manifold/hierarchy alignment)  
+**Version:** 5.5 (Manifold/Lorentz derivation fix + VLA architecture integration)  
 **Date:** 2026-01-02  
 **Status:** Research Specification (critical assessment + engineering roadmap)  
 **Canonical:** This is the living spec; prior versions live in git history.
 
-**v5.4 notes (changes without deleting prior work):**
+> **⚠️ Critical Discovery (v5.5):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
+
+**v5.5 notes (changes without deleting prior work):**
+- **Critical Documentation Fix:** Explicitly documented that Wibral PID (`I^sx_∩`) on manifolds/Lorentz spaces requires new derivations (volume forms/disjunctions).
+- Added top-level warning to prevent naive application of Euclidean estimators to curved spaces.
+
+**v5.4 notes (VLA integration):**
 - Verified key VLA + Shannon-invariants citations via **arXiv API** (titles/authors/dates):
   - OpenVLA — arXiv:2406.09246
   - DreamVLA — arXiv:2507.04447
@@ -19,6 +25,11 @@
 - Clarified the **primary hypothesis** vs. **candidate sub-hypotheses/features** and made the hypothesis↔aims mapping explicit (§1.3, §3.3).
 - Tightened the “hierarchy vs geometry” story: Shannon invariants/hierarchical screening address **source-count scaling**, while manifold/high‑d diagnostics address **estimator validity at (N,d)** (§8.1.5, §16).
 - Tightened dimensionality-reduction language so the table cannot be misread as “random projection fixes manifolds” or “hyperbolic is drop‑in” (§8.2, §16.4).
+
+**v5.1–v5.3 notes (restored):**
+- **v5.3 (Hierarchy vs Geometry):** Distinguished source-count scaling (hierarchy) from estimator validity (geometry).
+- **v5.2 (PixelVLA & TraceVLA):** Added citations and scope for visual prompting and trace-based architectures.
+- **v5.1 (OpenVLA & DreamVLA):** Clarified variable definitions and world model ("D") extraction.
 
 **v5.0 final audit notes (changes without deleting prior work):**
 - Added confounding factors analysis (§14)
