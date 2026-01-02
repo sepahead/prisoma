@@ -108,6 +108,15 @@ pub fn isx_redundancy(
             message: "tie_epsilon must be finite and >= 0",
         });
     }
+    // Paper-faithful continuous `I^sx_∩` estimator is validated under the L∞/Chebyshev convention.
+    // Do not silently “swap the geometry” (e.g., hyperbolic distances) and still call it `I^sx_∩`.
+    if cfg.method == IsxMethod::EhrlichKsg && cfg.metric != Metric::Chebyshev {
+        return Err(PidError::InvalidConfig {
+            context: "isx_redundancy",
+            message:
+                "IsxMethod::EhrlichKsg is validated only for Metric::Chebyshev (L∞). Other metrics are research-gated.",
+        });
+    }
     match cfg.method {
         IsxMethod::EhrlichKsg => isx_redundancy_ehrlich_ksg(s1, s2, t, cfg),
         IsxMethod::GrandplanSketch => isx_redundancy_grandplan_sketch(s1, s2, t, cfg),

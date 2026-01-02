@@ -28,6 +28,7 @@ mod ci;
 mod distance_matrix;
 mod error;
 mod geometry;
+mod hyperbolic;
 mod hierarchy;
 mod invariants;
 mod isx;
@@ -47,6 +48,7 @@ pub use geometry::{
     distance_concentration_stats, intrinsic_dimension_levina_bickel, DistanceConcentrationConfig,
     DistanceConcentrationStats, IntrinsicDimConfig,
 };
+pub use hyperbolic::{hyperbolic_distance_lorentz, lorentz_dot, poincare_to_lorentz};
 pub use hierarchy::{
     hierarchical_pairwise, hierarchical_triplet, HierarchicalConfig, HierarchicalTriplet,
     PairSelection, PairwiseScreen,

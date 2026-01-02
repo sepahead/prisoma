@@ -2,6 +2,17 @@
 pub enum Metric {
     /// Chebyshev / L∞ distance: max_i |a_i - b_i|
     Chebyshev,
+    /// Hyperbolic geodesic distance in the Lorentz (hyperboloid) model (curvature -1).
+    ///
+    /// Expects each row vector to represent a point `x ∈ R^{d+1}` on the hyperboloid with
+    /// Minkowski norm `⟨x,x⟩_L = -1` and `x0 > 0`. Distance is:
+    ///
+    /// `d(x,y) = arcosh( -⟨x,y⟩_L )`
+    ///
+    /// This is intended for **MI-only** manifold/hyperbolic contingencies (Shannon-invariant
+    /// screening). It is *not* a drop-in way to “hyperbolicize” the validated shared-exclusions
+    /// `I^sx_∩` estimator.
+    HyperbolicLorentz,
 }
 
 impl Metric {
@@ -9,6 +20,7 @@ impl Metric {
     pub fn distance(&self, a: &[f64], b: &[f64]) -> f64 {
         match self {
             Metric::Chebyshev => chebyshev(a, b),
+            Metric::HyperbolicLorentz => crate::hyperbolic::hyperbolic_distance_lorentz(a, b),
         }
     }
 }

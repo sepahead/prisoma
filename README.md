@@ -2,7 +2,7 @@
 
 Engineering roadmap for implementing and validating Wibral-group shared-exclusions PID (SxPID, `I^sx_∩`) for Vision-Language-Action (VLA) diagnostics.
 
-Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
+Canonical research specification: `grandplan.md` (v5.4, Jan 2026).
 
 ---
 
@@ -10,9 +10,7 @@ Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v5.3** | 2026-01-02 | **Docs sync + README consolidation:** updated canonical spec version; removed outdated “build-from-scratch” milestones so the README roadmap matches the current repo state. |
-| **v5.2** | 2026-01-02 | **Shannon invariants (exact discrete):** added `pid-core` discrete invariants (`invariants.rs`: entropies, Red°, Vul°, Ω, discrete CI) + tests for XOR/redundant/independent toy systems to provide exact sanity checks for estimator/approximation changes. |
-| **v5.1** | 2026-01-02 | **Coherence + manifold/hierarchy alignment:** clarified hypothesis↔aims framing, strengthened geometry-first + Shannon-invariants hierarchy workflow, and made exact-baseline validation requirements explicit for approximations/accelerations. |
+| **v5.4** | 2026-01-02 | **VLA architecture integration + coherence:** clarified how OpenVLA/DreamVLA/PixelVLA/TraceVLA affect variable definitions (what “D” can mean); tightened hierarchy-vs-geometry story; clarified units (bits vs nats) and estimator compatibility boundaries; updated doc versioning to match canonical spec. |
 | **v5.0** | 2026-01-01 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Information geometry methods integrated. Code audit complete. Grant-ready documentation. |
 | v4.0 | 2025-12-28 | Added information geometry methods, intrinsic dimension diagnostics, distance concentration proxies |
 | v3.0 | 2025-12-15 | Critical review and gameplan adjustments, 3-source PID implementation |
@@ -33,10 +31,9 @@ Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 | **3-source PID** | ✅ Complete | `crates/pid-core/src/pid3.rs` | 18 atoms, Möbius inversion, offline only |
 | **Hierarchical screening** | ✅ Complete | `crates/pid-core/src/hierarchy.rs` | Fast CI → targeted PID, 3-source triplet |
 | **Co-information** | ✅ Complete | `crates/pid-core/src/ci.rs` | Pairwise and triplet CI |
-| **Shannon invariants (exact discrete)** | ✅ Complete | `crates/pid-core/src/invariants.rs` | Entropies + Red°/Vul°/Ω + discrete CI (toy-system exact baselines) |
 | **Intrinsic dimension** | ✅ Complete | `crates/pid-core/src/geometry.rs` | Levina-Bickel MLE |
 | **Distance concentration** | ✅ Complete | `crates/pid-core/src/geometry.rs` | CV, NN ratio diagnostics |
-| **Preprocessing** | ✅ Complete | `crates/pid-core/src/preprocess.rs` | Standardizer, Jitter, HashProjector, PcaProjector |
+| **Preprocessing** | ✅ Complete | `crates/pid-core/src/preprocess.rs` | Standardizer, Jitter, HashProjector |
 | **Experiment 0 runner** | ✅ Complete | `crates/pid-core/src/bin/exp0.rs` | Synthetic validation + Gaussian channel sweep + geometry diagnostics |
 
 ### In Progress
@@ -45,7 +42,7 @@ Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 |-----------|--------|----------|---------|
 | Python bindings (PyO3) | 🔄 Planned | High | None |
 | VLA embedding extraction (MLX) | 🔄 Planned | High | Requires Python harness |
-| PCA implementation | ✅ Rust baseline + 🔄 Python scaling planned | Medium | None |
+| PCA implementation | 🔄 Planned (Python-first) | Medium | None |
 | SIMD acceleration | 🔄 Optional | Low | Performance profiling needed |
 
 ### Validation Status
@@ -62,9 +59,9 @@ Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 
 1. **kNN is brute-force O(n²):** Acceptable for Experiment 0 but not real-time at n > 10k
 2. **Only Chebyshev metric:** Euclidean/other metrics not implemented
-3. **PCA scaling:** Rust includes a deterministic baseline (`PcaProjector`), but a Python PCA pipeline is still planned for large-scale/variance-retained runs.
+3. **No PCA in Rust:** Must use Python or `HashProjector` baseline
 4. **Strong dependence regime:** Estimates degrade when true MI > ~4 nats
-5. **Manifold-aware estimation not implemented:** geometry diagnostics exist, but Euclidean kNN may fail on curved embeddings (see `grandplan.md` §16)
+5. **Manifold-aware estimators not implemented:** Euclidean kNN may fail on curved embeddings; we only ship diagnostics + explicit PIVOT paths (see `grandplan.md` §16)
 6. **No parallelization yet:** Single-threaded; rayon integration planned
 
 ---
@@ -110,8 +107,7 @@ See `grandplan.md` §16 for detailed analysis and decision flowcharts.
   - 2-source PID atoms `{Red, Unq1, Unq2, Syn}`: `crates/pid-core/src/pid2.rs`
   - Hierarchical “fast→slow” screening (CI → selected pairwise PID; optional full 3-source SxPID): `crates/pid-core/src/hierarchy.rs`
   - Optional full 3-source continuous SxPID (18 atoms; offline only): `crates/pid-core/src/pid3.rs`
-  - Discrete Shannon invariants (exact): entropies + Red°/Vul°/Ω + discrete CI in `crates/pid-core/src/invariants.rs` (see `crates/pid-core/tests/invariants.rs`)
-  - Preprocessing: `Standardizer`, `Jitter`, `HashProjector`, `PcaProjector` in `crates/pid-core/src/preprocess.rs`
+  - Preprocessing (dependency-free): `Standardizer`, `Jitter`, `HashProjector` in `crates/pid-core/src/preprocess.rs`
   - Geometry diagnostics: intrinsic dimension + basic distance concentration proxies in `crates/pid-core/src/geometry.rs`
   - Quick Experiment 0 runner: `cargo run -p pid-core --bin exp0` (prints a small synthetic sweep + geometry diagnostics)
 - Not yet built (planned next): Python experiment harness (`python/`), macOS-first VLA embedding extraction (MLX/CoreML), run logging + plots.
@@ -133,7 +129,7 @@ This repo aims to be **reproducible on macOS (M4 Max) from day 1**.
 2. Sync Python dependencies (never use `pip` directly):
    - `uv sync --frozen` (uses `uv.lock` exactly)
 3. Build/test:
-   - `just test` (includes analytic Gaussian MI sanity checks + `csxpid` cross-checks)
+   - `just test`
    - `just exp0-bin`
 
 Notes:
@@ -201,8 +197,6 @@ pid_vla/
   Near-deterministic relationships can break kNN MI/PID even at low `d`.
   Include strong-dependence sweeps (Gao et al. 2015) in Experiment 0 and do not over-interpret
   MI/PID on effectively noiseless signals.
-- **Any acceleration/approximation must match exact baselines.**
-  Treat KD/ball trees, approximate kNN, and GPU-accelerated distance code as new estimator variants: require agreement with brute-force on analytic MI baselines + `csxpid` cross-check data, and quantify bias via an Experiment 0 subset.
 - **Geometry can invalidate kNN.**
   Track intrinsic dimension and distance-concentration proxies; if intrinsic dimension remains
   high/unstable even after reduction, treat kNN-based MI/`I^sx_∩` as invalid for that regime and
@@ -274,8 +268,7 @@ The Rust implementation is the long-lived foundation of this project.
 - **Units:** pick one and stick to it (recommended: nats internally; provide explicit conversion to bits for reporting).
 - **Preprocessing is explicit:** standardization and any dimensionality reduction must be recorded
   with results; do not silently change dimensionality. (`pid-core` currently provides
-  `Standardizer`, `Jitter`, a dependency-free `HashProjector` baseline, and a Rust PCA baseline
-  `PcaProjector`.)
+  `Standardizer`, `Jitter`, and a dependency-free `HashProjector` baseline.)
 - **Atom formulas (2-source PID):**
   - `Unq1 = I(S1;T) − Red`
   - `Unq2 = I(S2;T) − Red`
@@ -288,18 +281,49 @@ Suggested `pid-core` internal layout (so work can parallelize cleanly):
 - `ksg.rs` — KSG mutual information
 - `isx.rs` — continuous `I^sx_∩` redundancy estimator
 - `pid2.rs` — 2-source PID wrapper (`{Red, Unq1, Unq2, Syn}`)
-- `preprocess.rs` — standardization + jitter + hash projection + PCA (all explicit + logged)
+- `preprocess.rs` — standardization + jitter + hash projection (PCA later; explicit + logged)
 - `nn.rs` — kNN backend abstraction (brute-force baseline first)
 - `stats.rs` — digamma + bootstrap/CI utilities
 
-## Roadmap (next engineering milestones)
+## Engineering plan (milestones)
 
-The Rust estimator core (`pid-core`) is already implemented in this repo. The remaining critical work is to build the **Python experiment harness + macOS-first VLA embedding extraction**, then run Experiment 0 at VLA-relevant regimes (including geometry diagnostics + dimensionality-reduction pivots) before making any VLA claims.
+M0. **Scaffold the project**
+- Create a Cargo workspace with `crates/pid-core/` (and later `crates/pid-python/`).
+- Add a task runner (`justfile`) with at least `build`, `test`, `exp0`.
+- Acceptance: `cargo test` runs locally; deterministic seed plumbing exists.
 
-- **Python harness / bindings**: PyO3/maturin (or thin wrapper) so experiments can call `pid-core` and log full provenance (configs, seeds, transforms).
-- **macOS VLA embedding extraction**: MLX/CoreML pipeline + a stable on-disk format for `(V,L,D,A[,A*])`.
-- **Dimensionality reduction pipeline (Python-first)**: PCA (variance target) + projection baselines; enforce train-only fitting to prevent leakage.
-- **Performance (later)**: SIMD/rayon; optional exact low-d trees; explicit “approx” modes only after exact-baseline regression tests + Experiment 0 subset bias quantification.
+M1. **Implement KSG mutual information (Rust)**
+- Implement KSG MI with correct metric + tie handling + digamma; add unit tests.
+- Acceptance: matches a known-good small-d reference within tolerance; stable across seeds.
+
+M2. **Implement continuous `I^sx_∩` redundancy (Rust)**
+- Implement continuous shared-exclusions redundancy per Ehrlich et al. (2024), factored so kNN backend can be swapped later.
+- Acceptance: passes Experiment 0 synthetic scenarios at low dimension and does not exhibit obvious numerical pathologies.
+
+M3. **Implement 2-source PID wrapper + invariants checks**
+- Combine `I(S1;T)`, `I(S2;T)`, `I(S1,S2;T)`, and `I^sx_∩` into `{Red, Unq1, Unq2, Syn}` with optional bootstrap SE/CI.
+- Acceptance: internal consistency checks pass (`MI ≈ Red+Unq1+Unq2+Syn` within tolerance).
+
+M4. **Experiment 0 (mandatory gate)**
+- Run synthetic validation across `{d,n,k}` (including “VLA-like” d, or demonstrate collapse and pivot to dim reduction).
+- Acceptance (from spec): d=10 (<5% error), d=100 (<10%), d=1000 (<15%), d=4096 (<20% *or* require dim reduction).
+- Decision: **GO** if stable at d=4096; **PIVOT** if only stable after PCA/random projection (e.g., d≈256); **NO-GO** if unstable even at d≈256.
+
+M5. **Python bindings + experiment harness**
+- Expose Rust to Python (PyO3/maturin) and implement repeatable experiment runners that record full configs + seeds.
+- Acceptance: Python can call `pid2_isx` and reproduce Experiment 0 results.
+
+M6. **VLA data + Experiments 1–4**
+- Implement embedding extraction + dataset interfaces on macOS (prefer MLX/CoreML); run decomposition comparison, baseline comparison, dimensionality study, and causal intervention study.
+- Acceptance: preregistered metrics computed; AUROC + significance tests implemented; full provenance recorded.
+
+M7. **(Optional) Real-time monitoring integration**
+- Build a Rust “PID monitor” process that consumes embeddings from the inference stack (or logs) and computes Level-1 co-information online.
+- Acceptance: bounded latency and stable output on representative rollouts; logs include full config + provenance.
+
+M8. **(Optional) Visualization**
+- Add a lightweight visualization surface (e.g., Tauri/WebView or simple web dashboard) to inspect trajectories and PID metrics.
+- Acceptance: can replay rollouts and overlay metrics for debugging/analysis without changing estimator semantics.
 
 ## Experiments (actionable, step-by-step)
 
@@ -396,6 +420,31 @@ Differential geometry / manifold contingencies (MI-only baselines; not `I^sx_∩
 - Nickel, Kiela (2017) — Poincaré embeddings for hierarchical representations (optional learned projection). arXiv:1705.08039. `https://arxiv.org/abs/1705.08039`
 - Nickel, Kiela (2018) — Lorentz (hyperboloid) model for hyperbolic hierarchies (optional learned projection). arXiv:1806.03417. `https://arxiv.org/abs/1806.03417`
 - Ganea, Bécigneul, Hofmann (2018) — Hyperbolic Neural Networks (optional background). arXiv:1805.09112. `https://arxiv.org/abs/1805.09112`
+
+Experimental hyperbolic MI support (MI-only screening; research-gated):
+- `pid-core` includes `Metric::HyperbolicLorentz` (Lorentz/hyperboloid geodesic distance). This enables KSG MI / CI computations on hyperbolic coordinates for Shannon-invariant screening.
+
+**Revisit later (once the sim outputs hyperbolic coordinates):**
+
+If you already have **Lorentz-model points** (each row is a Lorentz vector on the hyperboloid):
+
+```rust
+let cfg = KsgConfig {
+    metric: Metric::HyperbolicLorentz,
+    ..KsgConfig::default()
+};
+
+let mi = ksg_mi(x, y, &cfg)?;
+let ci = co_information_pairwise(x, y, t, &cfg)?;
+```
+
+If you have **Poincaré ball** coords, convert per point with `poincare_to_lorentz` first.
+
+**CRITICAL LIMITATION (do not blur):**
+- Full Wibral shared-exclusions PID (`I^sx_∩` + PID atoms) is **not** available in the hyperbolic/Lorentz/Poincaré pipeline today.
+- The continuous `I^sx_∩` estimator we implement (Ehrlich et al. 2024) is derived/validated under the **maximum norm / L∞ (Chebyshev)** convention to achieve the product-ball factorization and exact cancellation used by KSG-style estimators.
+- Extending `I^sx_∩` to hyperbolic geodesic neighborhoods would require a **new derivation** (volume form + disjunction neighborhoods on a manifold) and a **new Experiment 0** validation gate.
+- `pid-core` enforces this by rejecting `IsxMethod::EhrlichKsg` unless `metric == Metric::Chebyshev`.
 
 Reference repos (baselines/sanity checks; not the same estimator unless noted):
 - `https://gitlab.gwdg.de/wibral/continuouspidestimator` — authors’ reference implementation of the continuous `I^sx_∩` kNN estimator (Ehrlich et al. 2024); primary cross-check target for `pid-core`.

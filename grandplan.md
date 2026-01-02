@@ -2,10 +2,23 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 5.3 (Docs sync + README roadmap consolidation) — grant-ready  
-**Date:** January 2026  
+**Version:** 5.4 (VLA architecture integration + coherence + manifold/hierarchy alignment)  
+**Date:** 2026-01-02  
 **Status:** Research Specification (critical assessment + engineering roadmap)  
 **Canonical:** This is the living spec; prior versions live in git history.
+
+**v5.4 notes (changes without deleting prior work):**
+- Verified key VLA + Shannon-invariants citations via **arXiv API** (titles/authors/dates):
+  - OpenVLA — arXiv:2406.09246
+  - DreamVLA — arXiv:2507.04447
+  - Dream-VL & Dream-VLA — arXiv:2512.22615
+  - PixelVLA — arXiv:2511.01571
+  - TraceVLA — arXiv:2412.10345
+  - Shannon invariants — arXiv:2504.15779
+- Clarified how OpenVLA/DreamVLA/PixelVLA/TraceVLA affect **what variables exist** (what “D” can mean) and therefore which decompositions are scientifically clean (§6.1, §7).
+- Clarified the **primary hypothesis** vs. **candidate sub-hypotheses/features** and made the hypothesis↔aims mapping explicit (§1.3, §3.3).
+- Tightened the “hierarchy vs geometry” story: Shannon invariants/hierarchical screening address **source-count scaling**, while manifold/high‑d diagnostics address **estimator validity at (N,d)** (§8.1.5, §16).
+- Tightened dimensionality-reduction language so the table cannot be misread as “random projection fixes manifolds” or “hyperbolic is drop‑in” (§8.2, §16.4).
 
 **v5.0 final audit notes (changes without deleting prior work):**
 - Added confounding factors analysis (§14)
@@ -14,18 +27,6 @@
 - Integrated information geometry methods and intrinsic dimension estimation
 - Code audit complete — implementation cross-checked against reference implementations
 - Grant-ready documentation with full provenance tracking
-
-**v5.1 coherence notes (Jan 2026):**
-- Reconciled the “synergy sign” framing with the broader hypothesis/aims structure (Aim 1 is primary; Aims 2–3 are contingent).
-- Made the **geometry-first (manifold) gate** + **hierarchical (Shannon-invariants) compute path** explicit in the early recommended workflow.
-- Added explicit “**approximation must match exact baselines**” rules for accelerated kNN / dimensionality reduction variants.
-
-**v5.2 notes (Jan 2026):**
-- Added **exact discrete Shannon-invariants utilities** in `pid-core` (`invariants.rs`: entropies, Red°, Vul°, Ω, and discrete CI) to support *ground-truth* toy-system sanity checks and to validate approximations/accelerations against exact baselines.
-
-**v5.3 notes (Jan 2026):**
-- Version bump to keep repo docs consistent.
-- Consolidated README roadmap to remove outdated “build from scratch” milestones (the Rust core is already implemented in this repo).
 
 **Reference verification status (important):**
 - Core `I^sx_∩` / KSG papers: verified by DOI metadata; local copies exist under `.external/papers/`.
@@ -49,11 +50,11 @@
 11. [Technical Implementation](#11-technical-implementation)
 12. [Open Questions and Future Directions](#12-open-questions-and-future-directions)
 13. [References](#13-references)
-14. [Confounding Factors Analysis](#14-confounding-factors-analysis-proving-and-disproving-the-hypotheses)
-15. [Numerical Stability and Optimization](#15-numerical-stability-and-optimization-technical-guidance)
-16. [Manifold Limitations (PCA/kNN)](#16-why-pca-and-knn-are-suboptimal-for-manifold-valued-embeddings)
-A. [Glossary](#appendix-a-glossary)
-B. [Decision Log and Implementation Reference](#appendix-b-decision-log-and-implementation-reference)
+14. [Confounding Factors Analysis: Proving and Disproving the Hypotheses](#14-confounding-factors-analysis-proving-and-disproving-the-hypotheses)
+15. [Numerical Stability and Optimization: Technical Guidance](#15-numerical-stability-and-optimization-technical-guidance)
+16. [Why PCA and kNN Are Suboptimal for Manifold-Valued Embeddings](#16-why-pca-and-knn-are-suboptimal-for-manifold-valued-embeddings)
+A. [Appendix A: Glossary](#appendix-a-glossary)
+B. [Appendix B: Decision Log and Implementation Reference](#appendix-b-decision-log-and-implementation-reference)
 
 ---
 
@@ -91,7 +92,7 @@ Negative synergy could arise from:
 - General model uncertainty (unrelated to hallucination)
 - Pointwise misinformation (observing sources makes target less likely)
 
-**Status:** This is a HYPOTHESIS requiring empirical validation, not a definitional truth.
+**Status:** This is a HYPOTHESIS requiring empirical validation, not a definitional truth. In this spec it is treated as a *candidate sub-hypothesis / feature* inside the primary evaluation aim (see §3.3), not as the project’s sole thesis.
 
 ### Warning 2: The V-D-A Decomposition May Be Degenerate
 
@@ -160,12 +161,35 @@ Neither uses the shared-exclusions definition. Their success doesn't transfer au
 
 Given these warnings, the recommended approach is:
 
-1. **Define the measurement problem up front:** pick an external target/counterfactual (`A*`, success/failure label, or controlled interventions), and state the sampling unit (frames vs windows vs trajectories).
-2. **Run geometry diagnostics before trusting kNN:** estimate intrinsic dimension + distance concentration; decide whether you will (a) stay in raw space, (b) apply invertible “geometry fixes”, or (c) apply explicit dimensionality reduction (PCA/projection).
-3. **Run Experiment 0 in the chosen regime:** include both high-`d` and strong-dependence sweeps; classify GO / PIVOT / NO-GO before any VLA claims.
-4. **Use the Wibral/Gutknecht hierarchy for scalability:** Level 1 Shannon invariants (CI/Ω) for screening/monitoring; Level 2 targeted pairwise `I^sx_∩`; Level 3 offline 3-way PID only where justified.
-5. **Evaluate against strong baselines and preregistered criteria:** entropy/uncertainty, Liang Batch/CVX, learned classifiers/PRMs; treat negative results as publishable.
-6. **Compare decompositions deliberately:** V–D–A vs V–L–A vs three-way, and report estimator/preprocessing choices explicitly.
+1. **Run Experiment 0 FIRST:** Validate the estimator on synthetic data at target dimensionality before any VLA experiments
+2. **Include strong baselines:** Compare against entropy, Liang et al.'s estimators, learned classifiers
+3. **Pre-register success criteria:** Specify AUROC threshold, statistical tests
+4. **Plan for negative results:** If entropy works just as well, that's a valid (and publishable) finding
+5. **Test multiple decompositions:** Don't commit to V-D-A alone; test V-L-A and three-way decomposition
+
+**Coherence note (why §1 highlights “one hypothesis” but §3 has multiple aims):**
+- The original “Syn < 0 ⇒ hallucination” claim is *not* the project thesis; it is one candidate feature/sub-hypothesis.
+- The project thesis is broader: under a **validated estimator regime**, a **feature set** derived from Shannon invariants (Gutknecht et al. 2025) and (where feasible) SxPID (`I^sx_∩`) should add predictive/diagnostic value beyond strong uncertainty baselines.
+- §3.3 rewrites the aims to match this hierarchy and makes the gating explicit.
+
+## 1.4 How the Pieces Fit Together (VLA Architecture × Hierarchy × Manifolds)
+
+This project has three *separable* axes that are easy to conflate:
+
+1. **What variables exist (model/architecture):** what “V”, “L”, “D”, and “A” mean depends on the VLA.
+   - **DreamVLA (arXiv:2507.04447):** provides explicit world‑knowledge predictions → “D” is operationalizable (and interventionable).
+   - **OpenVLA (arXiv:2406.09246):** no explicit “dream/world model” output → any “D” is a hidden-state extraction (definition choice).
+   - **PixelVLA (arXiv:2511.01571):** introduces **multiscale V** and **visual prompts** → many candidate “sources” (hierarchy becomes useful).
+   - **TraceVLA (arXiv:2412.10345):** injects history via **visual traces** → temporal information is partly “inside V,” blurring V/D boundaries.
+
+2. **How we scale to many sources (hierarchy):** Shannon invariants / hierarchical screening (Gutknecht et al., arXiv:2504.15779) address **combinatorial explosion in source count**, not high‑dimensional geometry.
+   - Level 1: MI-only invariants (CI/Ω) to screen many candidate sources/windows.
+   - Level 2: targeted pairwise SxPID (`I^sx_∩`) where meaningful.
+   - Level 3: optional full 3-way SxPID (18 atoms) offline.
+
+3. **Whether estimation is valid at all (geometry/manifolds):** kNN/KSG and disjunction‑kNN `I^sx_∩` can collapse at high effective dimension or under strong dependence.
+   - Always run geometry diagnostics (intrinsic dimension + distance concentration proxies) and the Experiment 0 gate **after** any projection/preprocessing.
+   - If kNN-based `I^sx_∩` is invalid even after reduction, restrict claims to Shannon invariants / MI-only baselines and treat them as a different pipeline (not “`I^sx_∩` results”).
 
 ---
 
@@ -322,6 +346,13 @@ For three variables (V, L, D), estimating all 18 atoms is computationally expens
 3. Can be computed efficiently from standard MI estimates
 
 **Why This Matters:** Different PID measures (I^sx_∩, I_min, I_BROJA, etc.) give different values for redundancy and synergy. But Shannon invariants have the **same value regardless of which PID measure you use**. This makes them theoretically robust and practically useful.
+
+**Units note (bits vs nats):**
+- Gutknecht et al. (arXiv:2504.15779) primarily report in **bits** (`log2`).
+- This repo’s Rust estimators report in **nats** (`ln`).
+- Changing log base multiplies all MI/entropy/PID quantities by a constant: `bits = nats / ln(2)`.
+  - Signs (e.g., `CI < 0`) and rank-order comparisons are unchanged.
+  - Any numeric thresholds (e.g., “MI > 4 nats”) must be converted when comparing across papers.
 
 **The Key Example - Co-Information:**
 
@@ -499,11 +530,13 @@ This is the critical validation gate. The “synergy sign” is one candidate fe
 
 ## 3.3 Specific Aims
 
-**Coherence note (why there are multiple aims):** This project has one primary, falsifiable claim: **under a validated estimator regime**, SxPID/Shannon-invariant features add reliable diagnostic/predictive signal beyond strong baselines. The additional aims test *extensions* (time dynamics; training) and are contingent on Aim 1; the “synergy sign” is only one candidate feature within Aim 1, not the project’s sole hypothesis.
+**Non-negotiable gate:** All aims below assume Experiment 0 establishes a validated estimator regime (possibly only **after** explicit dimensionality reduction). If Experiment 0 is **NO-GO** even after reduction (e.g., at \(d \approx 256\)), we do not claim results about kNN-based `I^sx_∩` on VLA embeddings; we pivot to Shannon-invariant screening and non-`I^sx_∩` baselines.
 
-### Aim 1 (Primary): Comparative Evaluation
+### Aim 1 (Primary): Comparative Evaluation (Experiments 1–2)
 
-**Hypothesis (falsifiable; pre-register):** Under a validated estimator regime (Experiment 0), SxPID-derived features from plausible decompositions (e.g., V–D–A, V–L–A, and hierarchical pairwise) contain predictive information about failure labels beyond the best baseline.
+**Primary hypothesis (falsifiable; pre-register):** Under a validated estimator regime, a feature set derived from Shannon invariants (CI/Ω) and (where feasible) SxPID atoms from plausible decompositions (e.g., V–D–A, V–L–A, hierarchical pairwise) contains predictive information about failure labels beyond the best baseline.
+
+**Candidate sub-hypothesis (not privileged):** The “synergy sign / frequency of negative-synergy windows” contributes additional signal beyond MI/entropy alone; it may also fail entirely (estimator/pathology or irrelevance).
 
 **Baselines:**
 1. Predictive entropy: H(A|V, L)
@@ -511,30 +544,27 @@ This is the critical validation gate. The “synergy sign” is one candidate fe
 3. Snapshot ensemble variance
 4. Cross-modal attention entropy
 5. Learned failure classifier
-6. Liang et al. Batch/CVX estimators
+6. Liang et al. Batch/CVX estimators (different PID family; baseline only)
 7. **Process Reward Model (GRM):** Progress-based failure detection (Robo-Dopamine)
 
-**Success Criteria:** Statistically significant improvement over best baseline (paired bootstrap or matched test; p < 0.05) with a practically meaningful effect size (to be preregistered), OR a well-supported negative result (SxPID does not outperform) with clear analysis of why.
+**Success criteria:** statistically significant improvement over best baseline (paired bootstrap or matched test; p < 0.05) with a practically meaningful effect size (pre-registered), OR a well-supported negative result (no improvement) with analysis of failure causes (estimator regime, confounds, variable choice).
 
-### Aim 2: Synergy Dynamics
+### Aim 2: Regime Mapping for High‑d / Manifold‑Valued Embeddings (Experiment 3 + Exp0 subsets)
 
-**Question:** Does synergy decay rate predict task success?
+**Question:** At what effective dimensionality and preprocessing does the estimator become stable enough to support Aim 1?
 
-**Metric (tentative):** Synergy half-life `k*` = horizon where Syn drops to 50% of its initial value.
+**Deliverable:** a regime map and a single recommended measurement pipeline (e.g., Raw vs PCA95 vs random/Hash projection), with geometry diagnostics (intrinsic dimension, distance concentration proxies) recorded at each stage and explicit GO/PIVOT/NO-GO outcomes.
 
-**Critical dependence caveat:** time-resolved PID on trajectories must handle autocorrelation (sampling unit, windowing, and uncertainty estimates) explicitly; otherwise apparent “dynamics” can be artifacts.
+### Aim 3: Causal Validation for Diagnosis (Experiment 4)
 
-### Aim 3 (Exploratory): RL Fine-Tuning
+**Question:** Are decomposition signatures merely correlational, or do controlled interventions / counterfactual targets (`A*`) produce predictable, reproducible changes?
 
-**Contingent on Aim 1 success.**
+**Design note:** causal claims require interventions (on `D`/`V`/`L`) or external targets; otherwise VLA self-consistency can masquerade as “information integration.”
 
-**Status:** Concept only. The kNN/KSG estimators used for Experiment 0 are not differentiable and are unlikely to be stable/safe as direct RL rewards. If pursued, Aim 3 should follow the Wibral-group “infomorphic networks” framing (Makkeh et al. 2025) or use a differentiable surrogate trained offline to predict SxPID-derived features.
+### Optional extensions (only if Aim 1 succeeds AND Aim 2 yields a stable regime)
 
-Relevant adjacent training work (not PID-specific, but useful to ground expectations):
-- **Iterative SFT↔RL cycles can change visual grounding and reasoning traces** in VLMs (OpenVLThinker, arXiv:2503.17352).
-- **Step-wise reasoning training objectives** that interpolate between imitation and RL rewards (SRL, arXiv:2510.25992).
-
-If Aim 3 is attempted, treat these as baselines/controls: if a generic SRL/PRM-style method achieves the same gains as a PID-derived reward surrogate, then PID is not providing unique value as a training objective.
+- **Synergy dynamics:** test whether time-resolved summaries (e.g., a “synergy half-life” under explicit windowing/stride + dependence-aware uncertainty) add signal beyond static features.
+- **RL fine-tuning (exploratory):** kNN/KSG estimators are not differentiable and are unlikely to be safe as direct rewards. If pursued, follow Wibral-group “infomorphic networks” framing (Makkeh et al. 2025) or train an offline differentiable surrogate to predict SxPID-derived features; treat generic PRM/SRL methods as baseline controls.
 
 ## 3.4 Where PID Provides Unique Value (Six Use Cases)
 
@@ -919,8 +949,9 @@ The pattern {Syn_VL, Syn_VD, Syn_LD} can help generate and localize **testable h
 ### 6.1.1 The Original Idea
 
 Compare PID profiles between:
-- **OpenVLA:** Autoregressive (Llama 2 7B backbone), no explicit world model, 256-bin discrete actions
-- **DreamVLA:** GPT-2 backbone + block-wise structured attention + explicit world-knowledge prediction (dynamic regions, depth, semantics) + diffusion-based action modeling (DreamVLA, arXiv:2507.04447; related diffusion-backbone work: Dream-VL & Dream-VLA, arXiv:2512.22615)
+- **OpenVLA (arXiv:2406.09246; Kim et al. 2024):** autoregressive VLA with no explicit “dream/world model” prediction head; actions via discrete tokens / binning (paper details; verify exact action parameterization before treating as a variable definition).
+- **DreamVLA (arXiv:2507.04447; Zhang et al. 2025):** GPT‑2-style backbone + structured attention + explicit world‑knowledge prediction channels (e.g., dynamic/depth/semantic) + diffusion-style action modeling (see paper for exact heads/parameterization).
+  - Related but distinct: **Dream‑VL & Dream‑VLA (arXiv:2512.22615; Ye et al. 2025)** uses a diffusion language-model backbone; do not conflate its architectural details with DreamVLA unless explicitly matched.
 
 **Hypothesis (weaker / testable):** Architectures with explicit predicted world-knowledge channels may yield different PID signatures than those without such channels, *under matched variable definitions and matched targets*. Whether those differences correlate with “grounding failures” remains empirical.
 
@@ -943,13 +974,13 @@ During first-principles review, we discovered that "negative synergy = hallucina
 
 If we observe different PID profiles, we CANNOT attribute the difference to "world model quality" because too many variables differ.
 
-#### Reason 3: Circular Reasoning
+#### Reason 3: “D” Exists Explicitly in One Model but Not the Other (Definition Mismatch)
 
-DreamVLA was **designed specifically** to have separable V-D-A information streams (with block-wise structured attention that masks mutual attention between dynamic, spatial, and semantic information).
+DreamVLA explicitly predicts world‑knowledge via dedicated channels/tokens. This makes a **concrete “D”** operationalization plausible *within DreamVLA* (and supports targeted interventions on D).
 
-OpenVLA was NOT designed this way.
+OpenVLA does not provide an explicit “dream/world model” output channel by default. Any “D” you define in OpenVLA is necessarily an **extracted hidden state**, which changes the scientific question (and makes cross‑model comparisons fragile).
 
-Comparing their PID profiles would be circular: "Models designed to have separable information streams have more separable information streams."
+As a result, an OpenVLA↔DreamVLA PID comparison risks becoming circular or uninterpretable: observed differences may reflect **variable-definition choices**, not “world model quality.”
 
 #### Reason 4: "D" is Ill-Defined for OpenVLA
 
@@ -1181,7 +1212,7 @@ This parallel is particularly apt for **DreamVLA**, which explicitly separates:
 
 > "PID measures System 1/2 integration in VLAs" ❌
 
-## 7.1 OpenVLA
+## 7.1 OpenVLA (arXiv:2406.09246)
 
 ### 7.1.1 Architecture
 
@@ -1211,7 +1242,7 @@ Options:
 3. **Average across layers:** Lose layer-specific information
 4. **Don't use D at all:** Focus on V-L-A decomposition
 
-## 7.2 DreamVLA
+## 7.2 DreamVLA (arXiv:2507.04447)
 
 ### 7.2.1 Architecture
 
@@ -1270,7 +1301,7 @@ Relative to models with no explicit world-knowledge outputs, DreamVLA can be **m
 
 This still does not remove the degeneracy/strong-dependence concerns in §1.2: if `A` is effectively deterministic and continuous, you must define the noise/discretization model that makes the information quantities finite and interpretable.
 
-## 7.3 PixelVLA (Pixel-Level Understanding)
+## 7.3 PixelVLA (Pixel-Level Understanding; arXiv:2511.01571)
 
 ### 7.3.1 Architecture
 
@@ -1342,7 +1373,7 @@ PixelVLA offers unique advantages for PID-based diagnostics:
 - Failure localization is important (WHERE did it fail?)
 - Visual grounding issues are suspected
 
-## 7.4 TraceVLA (Visual Trace Prompting)
+## 7.4 TraceVLA (Visual Trace Prompting; arXiv:2412.10345)
 
 **TraceVLA** (arXiv:2412.10345, December 2024) enhances VLAs with spatial-temporal awareness by overlaying visual state-action trajectories:
 
@@ -1350,9 +1381,9 @@ PixelVLA offers unique advantages for PID-based diagnostics:
 Current Image + Historical Trace Overlay → VLA → Action
 ```
 
-- Fine-tuned from OpenVLA on 150K trajectories with visual traces
-- 10% improvement on SimplerEnv, 3.5× on real-robot tasks
-- Also released as TraceVLA-Phi3 (4B parameters) for RTX 4090 fine-tuning
+- Fine-tuned from OpenVLA on 150K trajectories with visual traces (paper-reported; verify dataset definition/protocol before using numerically)
+- Reported gains: ~10% on SimplerEnv and ~3.5× on real-robot tasks (paper-reported; protocol-sensitive)
+- Also released as TraceVLA-Phi3 (4B parameters) for RTX 4090 fine-tuning (paper-reported)
 
 **PID Relevance:** TraceVLA encodes temporal history visually. This means V implicitly contains D-like information (past states). The V-D boundary becomes blurred—interesting for testing whether PID can detect this encoding.
 
@@ -1559,6 +1590,7 @@ How this could help (hypotheses; must be tested):
 
 How this could fail:
 - Any non-invertible projection (including hyperbolic embedding to low dimension) changes the information quantities. Treat it like a learned projection: re-run Experiment 0-style validation and report it as a different measurement regime.
+- Hyperbolic embeddings come with a **non-Euclidean distance** (Poincaré/Lorentz). Feeding hyperbolic coordinates into a Euclidean/Chebyshev kNN estimator is not principled; treat “hyperbolic + MI/PID” as a **separate estimator pipeline** (research-gated), not a drop-in preprocessing step.
 
 #### E) Differential-geometry analogies: audit and safe usage (Jan 2026)
 
@@ -1602,12 +1634,14 @@ These are “geometry fixes,” not “information fixes,” and still require E
 
 | Method | Dimensions | Properties |
 |--------|------------|------------|
-| **Raw embeddings** | 4096 | Potentially unusable |
-| **PCA (95% variance)** | ~256 | Linear, interpretable |
-| **Random projection** | 64-256 | Preserves distances (Johnson-Lindenstrauss) |
-| **Learned projection** | 64 | Task-specific, requires training |
-| **Hyperbolic embedding (Poincaré/Lorentz)** | ~2–64 | Nonlinear, hierarchy-friendly; learned; **changes the quantity** (non-invertible); treat as an experimental projection + re-validate |
-| **Intermediate layers** | 4096 but different | May encode different information |
+| **Invertible per-variable reparameterization** (standardize; marginal Gaussianization) | 4096 | Preserves true MI; can improve kNN geometry; still validate for `I^sx_∩` |
+| **Raw embeddings** | 4096 | Often unusable (distance concentration / curvature) |
+| **PCA (95% variance)** | ~256 | Linear; **changes the quantity** (non-invertible); often stabilizes Euclidean kNN; re-validate |
+| **Random projection (JL)** | 64–256 | Preserves **ambient Euclidean** distances; does **not** recover geodesics; changes the quantity; re-validate |
+| **Hash projection (CountSketch)** | 64–256 | Fast baseline (`HashProjector`); approximate; changes the quantity; re-validate |
+| **Learned projection (AE/contrastive)** | 64 | Task-specific; changes the quantity; requires training + leakage controls |
+| **Hyperbolic embedding (Poincaré/Lorentz)** | ~2–64 | Non-Euclidean metric; **not drop-in** for Euclidean kNN/`I^sx_∩`; treat as a separate estimator pipeline |
+| **Intermediate layers** | 4096 but different | Alternative variables (not reduction); may encode different information |
 
 ### 8.2.3 Recommendation
 
@@ -1656,10 +1690,6 @@ Be explicit about what is “known”:
    - Use i.i.d. *continuous* synthetic systems where at least some MI terms are analytic (e.g., correlated Gaussians), and where adding independent noise dimensions provably leaves the true quantities unchanged.
    - Cross-check continuous `I^sx_∩` redundancy against the authors’ reference implementation (`csxpid`) on fixed datasets.
    - See §9.1 for the full protocol.
-
-3. **Approximation validation (exact vs accelerated backends):**
-   - Any speedup that changes neighbor search or distances (KD/ball trees, approximate kNN, GPU chunking, etc.) is a new estimator variant.
-   - Requirement: demonstrate agreement with the brute-force exact backend on (i) analytic MI cases (correlated Gaussian / Gaussian channel) and (ii) a fixed `csxpid` cross-check dataset before using it for claims.
 
 ### 8.4.2 Scaling Test
 
@@ -2708,7 +2738,7 @@ pid-vla/
 └── results/               # Experiment results
 ```
 
-**Repo status (v5.3):**
+**Repo status (v5.0):**
 - Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner).
 - Planned: `crates/pid-python`, `crates/pid-tauri`, and the `python/` experiment harness (keep the structure above as the target layout, but do not assume those folders exist yet).
 
@@ -2873,14 +2903,14 @@ Can PID profiles predict how well a policy will transfer across:
 
 ## 13.2 VLA Models
 
-- **OpenVLA:** Kim et al. (2024). arXiv:2406.09246.
-- **DreamVLA:** Zhang et al. (2025). arXiv:2507.04447. (World-knowledge forecasting + inverse dynamics; diffusion-style framing in the abstract.)
-- **Dream-VL & Dream-VLA (diffusion LLM backbone):** Ye et al. (2025). arXiv:2512.22615.
+- **OpenVLA:** Kim et al. (2024). *OpenVLA: An Open-Source Vision-Language-Action Model.* arXiv:2406.09246.
+- **DreamVLA:** Zhang et al. (2025). *DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge.* arXiv:2507.04447. (World-knowledge forecasting + inverse dynamics; diffusion-style framing in the abstract.)
+- **Dream-VL & Dream-VLA (diffusion LLM backbone):** Ye et al. (2025). *Dream-VL & Dream-VLA: Open Vision-Language and Vision-Language-Action Models with Diffusion Language Model Backbone.* arXiv:2512.22615.
   - **Legacy note:** earlier drafts referenced “HKU NLP (2024), 97.2% LIBERO” without a stable citation; treat any such performance claims as unverified unless traced to a specific paper/benchmark protocol.
 - **OpenVLA-OFT:** (Unverified label in earlier drafts; likely a fine-tuning / decoding variant; add a concrete citation before treating as a distinct model family.)
 - **GR00T N1:** NVIDIA et al. (2025). arXiv:2503.14734.
-- **PixelVLA:** Liang et al. (2025). arXiv:2511.01571. Pixel-level understanding with multiscale encoder and visual prompting.
-- **TraceVLA:** Zheng et al. (2024). arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness.
+- **PixelVLA:** Liang et al. (2025). *PixelVLA: Advancing Pixel-level Understanding in Vision-Language-Action Model.* arXiv:2511.01571. Pixel-level understanding with multiscale encoder and visual prompting.
+- **TraceVLA:** Zheng et al. (2024). *TraceVLA: Visual Trace Prompting Enhances Spatial-Temporal Awareness for Generalist Robotic Policies.* arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness.
 - **MemoryVLA:** Shi et al. (2025). arXiv:2508.19236. Perceptual-cognitive memory for long-horizon manipulation.
 - **CoT-VLA:** Zhao et al. (2025). arXiv:2503.22020. Visual chain-of-thought reasoning for VLA.
 - **Related (VLM reasoning; optional background for “L”/reasoning traces):** Deng et al. (2025). *OpenVLThinker: Complex Vision-Language Reasoning via Iterative SFT-RL Cycles.* arXiv:2503.17352. (Not a VLA policy paper per se, but relevant to how RL fine-tuning affects visual grounding and intermediate reasoning traces.)
@@ -3385,8 +3415,6 @@ WHEN ESTIMATES LOOK WRONG, CHECK:
 
 This section provides rigorous analysis of why standard dimensionality reduction and nearest-neighbor methods fail on manifold-structured data, and what alternatives exist.
 
-**Key framing:** the Wibral/Gutknecht hierarchy (Shannon invariants → targeted `I^sx_∩`) addresses **scaling in source count**; manifold diagnostics address **whether Euclidean kNN geometry is valid at all**. For high-dimensional VLA embeddings you generally need *both*: pass the geometry gate, then choose the hierarchical compute level.
-
 ## 16.1 The Manifold Hypothesis for Neural Embeddings
 
 Modern neural embeddings (including VLA representations) empirically lie near **low-dimensional manifolds** embedded in high-dimensional ambient space. This creates a mismatch with standard Euclidean tools:
@@ -3481,20 +3509,14 @@ they are far apart on the manifold.
 
 ### 16.3.3 Quantifying the Problem
 
-```rust
-// Diagnostic: Compare Euclidean and graph-geodesic distances
-// Large discrepancy indicates manifold structure
+A practical “shortcut distortion” diagnostic is to compare Euclidean distances to approximate geodesic distances on a kNN graph:
 
-fn manifold_distortion_diagnostic(data: MatRef<'_>, k_graph: usize) -> f64 {
-    // 1. Build k-NN graph
-    // 2. Compute shortest path (geodesic approximation) between all pairs
-    // 3. Compare to Euclidean distances
-    // 4. Return max(geodesic/euclidean) or correlation
+1. Build a kNN graph (Euclidean) with `k_graph` neighbors.
+2. For a small set of anchor points (or random pairs), compute shortest-path distances on this graph (Dijkstra).
+3. Compare ratios \(d_\text{geo}(i,j) / d_\text{euc}(i,j)\):
+   - Large ratios (e.g., >2 on many pairs) indicate severe shortcut distortion (Euclidean neighbors are unreliable).
 
-    // If max ratio >> 1, manifold structure is significant
-    todo!("Implement graph-geodesic diagnostic")
-}
-```
+**Status:** This graph-geodesic distortion diagnostic is not implemented in `pid-core` yet; today we rely on intrinsic-dimension + distance-concentration proxies (§16.5).
 
 ## 16.4 Alternatives to PCA and Euclidean kNN
 
@@ -3506,11 +3528,11 @@ fn manifold_distortion_diagnostic(data: MatRef<'_>, k_graph: usize) -> f64 {
 | **Isomap** | When geodesic structure matters | Sensitive to noise, holes in manifold |
 | **Diffusion Maps** | Multi-scale manifold structure | Computational cost, parameter sensitivity |
 | **Autoencoders (VAE)** | Learned nonlinear projection | Changes the quantity; requires re-validation |
-| **Hyperbolic embeddings** | Hierarchical data | Different MI estimator needed |
+| **Hyperbolic embeddings** | Hierarchical / tree-like structure | Non-Euclidean metric; would require a new MI/`I^sx_∩` estimator (not drop-in) |
 
 **Recommendation for PID-VLA:**
 1. **First:** Try PCA with high variance retention (≥95%) + Experiment 0 re-validation
-2. **If PCA fails:** Use random projections as a distance-preserving baseline (Johnson–Lindenstrauss), and compare to a cheap hash-projection baseline (e.g., `HashProjector`) to sanity-check stability
+2. **If PCA fails:** Use random projections / feature hashing (preserves ambient Euclidean distances; not a geodesic fix) + re-validation
 3. **If random projection fails:** Consider Isomap + re-validation, or accept that kNN-based PID is invalid
 
 ### 16.4.2 For Manifold-Aware MI Estimation
@@ -3532,6 +3554,31 @@ def geodesic_knn_mi(X, Y, k):
 ```
 
 **⚠️ WARNING:** Geodesic kNN MI is not implemented in `pid-core`. If manifold effects are suspected, treat this as a research direction, not a ready tool.
+
+#### Hyperbolic embeddings: a concrete MI-only estimator pipeline (implemented; research-gated)
+
+If you use **hyperbolic embeddings** (Poincaré/Lorentz) as a learned projection, you must also change the estimator’s notion of “neighborhood” to the **hyperbolic geodesic distance**. A minimal, defensible *MI-only* pipeline is:
+
+1. **Represent points in the Lorentz (hyperboloid) model** of \(\mathbb{H}^d\) (constant curvature \(-1\)):
+   - Points live in \(\mathbb{R}^{d+1}\) with Minkowski bilinear form \(\langle x,y\rangle_L = -x_0y_0 + \sum_{i=1}^d x_i y_i\)
+   - Valid points satisfy \(\langle x,x\rangle_L = -1\) and \(x_0>0\)
+2. **Use geodesic distance** \(d_\mathbb{H}(x,y) = \operatorname{arcosh}(-\langle x,y\rangle_L)\).
+3. **Estimate MI terms using KSG with a product (L∞) joint metric**:
+   - For MI `I(X;Y)`, use the joint distance \(d((x,y),(x',y')) = \max(d_\mathbb{H}(x,x'), d_\mathbb{H}(y,y'))\), then KSG counts in the marginals using the same \(\varepsilon_i\) radius (standard KSG structure).
+4. **Compute Shannon-invariant screening terms** (CI/Ω) from these MI estimates.
+
+**Status in this repo:** `pid-core` now provides an **experimental** hyperbolic geodesic distance via `Metric::HyperbolicLorentz`, so you can run:
+- MI via `ksg_mi(…, KsgConfig { metric: Metric::HyperbolicLorentz, … })`
+- CI via `co_information_pairwise` / `co_information_triplet` with the same metric
+
+**Important limitations (do not overclaim):**
+- This is an MI/CI pipeline only. It does **not** make the continuous shared-exclusions `I^sx_∩` estimator “hyperbolic-correct” automatically; the Ehrlich et al. (2024) estimator is validated under the Euclidean/L∞ convention. Treat “hyperbolic + `I^sx_∩`” as research, requiring a re-derivation + a new Experiment 0 gate.
+- A learned hyperbolic projection is non-invertible and therefore **changes the measured quantity**; report it as a different measurement regime.
+
+**Paper check (important): why we treat this as research-gated**
+- Kraskov et al. (KSG MI) and the continuous shared-exclusions estimator of Ehrlich et al. explicitly use the **maximum norm / L∞** construction so that a joint-space “ball” factorizes into a product of marginal balls and the relevant volume terms cancel in KSG-style expressions.
+- Ehrlich et al. also note that other *Euclidean* norms can yield asymptotically consistent density estimates under standard “nicely shrinking” conditions, but the exact KSG-style cancellation logic (and our cross-checks vs `csxpid`) are tied to the L∞ convention at finite sample sizes.
+- Hyperbolic geodesic neighborhoods are not covered by that Euclidean-norm argument; curvature changes local volume elements and the disjunction-neighborhood construction would need to be re-derived. Therefore, we do **not** claim `I^sx_∩` on hyperbolic embeddings without a fresh derivation + Experiment 0 validation.
 
 ## 16.5 Determining Whether Manifold Methods Are Necessary
 
@@ -7944,9 +7991,6 @@ release: build build-wheel
 | 3.0 | Jan 2026 | **First-principles audit pass:** (1) Reframed “synergy sign” as a falsifiable hypothesis (not a definition); clarified deterministic-target degeneracy in VLA decompositions and the need for external targets/counterfactuals. (2) Tightened estimator risk framing and strengthened Experiment 0 as a scientific gate before any VLA claims. (3) Added/expanded i.i.d. vs trajectory autocorrelation guidance (sampling unit, block bootstrap). |
 | 4.0 (Draft) | Jan 2026 | **Audited + citation-verified pass:** (1) Added explicit reference verification policy and downgraded unsourced architecture/latency statements to “unverified sketches”. (2) Added strong-dependence warning (Gao et al. 2015) and integrated a Gaussian-channel strong-dependence sweep into Experiment 0. (3) Added MI/CMI estimator comparison section (Gao-LNC/local Gaussian, MINE, CCMI) strictly as MI/CMI baselines (do not mix estimator families inside SxPID identities). (4) Verified key VLA citations (notably DreamVLA) and added optional background papers (OpenVLThinker, SRL, diffusion parameterization). (5) Cleaned up NF-PID (“Thin-PID” legacy) naming and other citation/notation fixes. (6) Corrected/clarified Shannon-invariant definitions (CI sign conventions; Ω vs target co-information) and reconciled scaling sketches. (7) Aligned reproducibility guidance with repo-canonical `flake.nix` + `uv.lock` workflow (macOS-first). (8) Integrated differential-geometry contingencies into §8.1.5 without relying on a repo-local PDF. |
 | **5.0** | Jan 2026 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Integrated information geometry methods and intrinsic dimension estimation. Code audit complete (implementation cross-checked). Grant-ready documentation with full provenance tracking. |
-| **5.1** | Jan 2026 | **Coherence + manifold/hierarchy alignment:** Completed TOC coverage for §§14–16 + appendices; clarified hypothesis→aims structure (synergy sign is a candidate feature, not the sole claim); made the geometry-first + hierarchical compute gates explicit; added “approximation must match exact baselines” validation rules. |
-| **5.2** | Jan 2026 | **Shannon invariants (exact discrete) + baselines:** added `pid-core` discrete invariants (`invariants.rs`: Red°, Vul°, Ω, discrete CI) + tests for XOR/redundant/independent toy systems to provide exact sanity checks for estimator/approximation changes. |
-| **5.3** | Jan 2026 | **Docs sync + README consolidation:** bumped canonical spec version across docs; removed outdated README milestones so the roadmap reflects the current repo state; no estimator semantics changes. |
 
 ---
 
