@@ -121,13 +121,21 @@ fn pca_matches_svd_subspace_on_fixed_data() {
     let d = 15usize;
     let k = 5usize;
 
-    // Deterministic, full-rank-ish data (no RNG deps).
+    // Deterministic pseudo-random data (no RNG deps).
+    //
+    // Important: avoid low-rank constructions here; we want k < rank(Xc) so the PCA subspace is
+    // well-defined (otherwise the "top-k" subspace can drift arbitrarily in the nullspace).
     let mut data = Vec::with_capacity(n * d);
-    for i in 0..n {
-        for j in 0..d {
-            let v = ((i + 1) as f64).ln() * ((j + 2) as f64).sin() + 0.001 * (i * j) as f64;
-            data.push(v);
-        }
+    let mut state = 0xA5A5_5A5A_DEAD_BEEFu64;
+    for _ in 0..(n * d) {
+        // xorshift64*
+        state ^= state >> 12;
+        state ^= state << 25;
+        state ^= state >> 27;
+        state = state.wrapping_mul(0x2545_F491_4F6C_DD1D);
+        // 53 bits -> [0, 1)
+        let u = (state >> 11) as f64 * (1.0 / ((1u64 << 53) as f64));
+        data.push(u - 0.5);
     }
     let xref = MatRef::new(&data, n, d).unwrap();
 
