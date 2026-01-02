@@ -7,24 +7,7 @@
 **Status:** Research Specification (critical assessment + engineering roadmap)  
 **Canonical:** This is the living spec; prior versions live in git history.
 
-**v5.2 notes (changes since v5.1; keep prior work):**
-- Made “entropy-only” concrete: added **explicit Red°/Vul° estimation procedure** (discrete proxies / coarse-graining + counting estimator + reporting requirements)
-- Implemented Level-0 discrete invariants in Rust (`crates/pid-core/src/invariants.rs`) + **exact toy tests** (independent/redundant/XOR)
-- Added stage-wise “estimator vs exact/reference” test map (spec + README) so every reported quantity has a named computation route + validation evidence
-
-**v5.1 notes (for provenance):**
-- Unified hypothesis hierarchy (H1–H4) and mapped hypotheses ↔ aims ↔ experiments
-- Elevated Shannon invariants (Red°, Vul°, CI, Ω) as **Level 0** and the default in manifold/high-d regimes
-- Clarified estimator compatibility: which results require validated `I^sx_∩` vs MI-only vs entropy-only pipelines
-- Added/updated manifold-first decision flowcharts (see §2.5.5 and §16.7)
-
-**v5.0 final audit notes (for provenance):**
-- Added confounding factors analysis (§14)
-- Added numerical stability guidance (§15)
-- Added manifold/PCA/kNN limitations section (§16) with detailed diagnostics and decision flowcharts
-- Integrated information geometry methods and intrinsic dimension estimation
-- Code audit complete — implementation cross-checked against reference implementations
-- Grant-ready documentation with full provenance tracking
+**Changelog / version notes:** see **Appendix B.0** (Version Log).
 
 **Reference verification status (important):**
 - Core `I^sx_∩` / KSG papers: verified by DOI metadata; local copies exist under `.external/papers/`.
@@ -3773,6 +3756,27 @@ Cross-references:
 ---
 
 # Appendix B: Decision Log and Implementation Reference
+
+## B.0 Version Log (Changelog)
+
+### v5.2 (Jan 2026) — explicit computation recipes + stage-wise validation
+- Made “entropy-only” concrete: added **explicit Red°/Vul° estimation procedure** (discrete proxies / coarse-graining + counting estimator + reporting requirements).
+- Implemented Level-0 discrete invariants in Rust (`crates/pid-core/src/invariants.rs`) + **exact toy tests** (independent/redundant/XOR).
+- Added stage-wise “estimator vs exact/reference” test map (spec + README) so every reported quantity has a named computation route + validation evidence.
+
+### v5.1 (Jan 2026) — hypothesis coherence + manifold-first strategy
+- Unified hypothesis hierarchy (H1–H4) and mapped hypotheses ↔ aims ↔ experiments.
+- Elevated Shannon invariants (Red°, Vul°, CI, Ω) as **Level 0** and the default in manifold/high-d regimes.
+- Clarified estimator compatibility: which results require validated `I^sx_∩` vs MI-only vs entropy-only pipelines.
+- Added/updated manifold-first decision flowcharts (see §2.5.5 and §16.7).
+
+### v5.0 (Jan 2026) — final audit release (grant-ready)
+- Added confounding factors analysis (§14).
+- Added numerical stability guidance (§15).
+- Added manifold/PCA/kNN limitations section (§16) with detailed diagnostics and decision flowcharts.
+- Integrated information geometry methods and intrinsic dimension estimation.
+- Code audit complete — implementation cross-checked against reference implementations.
+- Grant-ready documentation with full provenance tracking.
 
 ## B.1 Decision Log (Detailed)
 
