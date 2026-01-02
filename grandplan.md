@@ -2,17 +2,18 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 4.0 (Draft) — audited + citation-verified pass  
+**Version:** 5.0 (Final Audit) — grant-ready  
 **Date:** January 2026  
 **Status:** Research Specification (critical assessment + engineering roadmap)  
 **Canonical:** This is the living spec; prior versions live in git history.
 
-**v4 draft audit notes (changes without deleting prior work):**
-- Corrected multiple overconfident/incorrect statements (especially around deterministic targets, kNN scaling/latency claims, and how `sae_analysis` relates to `I^sx_∩`).
-- Updated citations in §13 using arXiv/Crossref metadata where possible; corrected/added missing VLA model references (e.g., DreamVLA).
-- Tightened hypotheses into falsifiable, non-forced claims; clarified what constitutes evidence vs. speculation.
-- Corrected/clarified Shannon-invariant definitions (CI sign conventions; O-information vs target co-information) and fixed downstream scaling sketches to match.
-- Aligned reproducibility guidance with the repo-canonical `flake.nix` + `uv.lock` workflow (macOS-first).
+**v5.0 final audit notes (changes without deleting prior work):**
+- Added confounding factors analysis (§14)
+- Added numerical stability guidance (§15)
+- Added manifold/PCA/kNN limitations section (§16) with detailed diagnostics and decision flowcharts
+- Integrated information geometry methods and intrinsic dimension estimation
+- Code audit complete — implementation cross-checked against reference implementations
+- Grant-ready documentation with full provenance tracking
 
 **Reference verification status (important):**
 - Core `I^sx_∩` / KSG papers: verified by DOI metadata; local copies exist under `.external/papers/`.
@@ -2683,8 +2684,8 @@ pid-vla/
 └── results/               # Experiment results
 ```
 
-**Repo status (v4 draft):**
-- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, and a Rust `exp0` runner).
+**Repo status (v5.0):**
+- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner).
 - Planned: `crates/pid-python`, `crates/pid-tauri`, and the `python/` experiment harness (keep the structure above as the target layout, but do not assume those folders exist yet).
 
 ## 11.3 Reproducibility
