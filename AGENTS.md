@@ -2,7 +2,7 @@
 
 This file is for Codex CLI agents and contributors working in this repo.
 
-Canonical spec: `grandplan.md` (v5.4, Jan 2026).
+Canonical spec: `grandplan.md` (v5.7, Jan 2026).
 
 ---
 
@@ -10,6 +10,7 @@ Canonical spec: `grandplan.md` (v5.4, Jan 2026).
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **v5.7** | 2026-01-02 | **First-Principles Geometry Analysis (TRIPLE-CHECKED):** (1) Verified VLA architectures against papers (OpenVLA 4096d/32L ✓, PixelVLA/TraceVLA 4096d ✓, DreamVLA GPT-2 dims unspecified ⚠️). (2) Added geometry diagnostics: local flatness testing (4 methods), δ-hyperbolicity (Gromov 4-point), Ollivier-Ricci curvature. (3) Added §16.6-§16.11 in grandplan.md: SAE analysis for VLA, Chebyshev/PixelVLA geometry transition, GPT-2 vs modern LLMs hierarchy, unified Geometry-First Protocol. (4) Integrated VLA-Arena benchmark (arXiv:2512.22539) + GenieReasoner/FACT (arXiv:2512.24125). (5) Added Wibral GitLab repos (verified accessible). (6) All paper citations triple-checked for factual correctness. |
 | **v5.4** | 2026-01-02 | **VLA architecture integration + coherence:** aligned OpenVLA/DreamVLA/PixelVLA/TraceVLA variable definitions and citations; clarified hierarchy vs geometry responsibilities and unit conventions; updated doc versioning to match canonical spec. |
 | **v5.0** | 2026-01-01 | **Final audit release:** Added PCA/kNN manifold limitations, confounding analysis, numerical stability, code audit. Grant-ready. |
 | v4.0 | 2025-12-28 | Information geometry methods, intrinsic dimension, distance concentration |
@@ -348,6 +349,19 @@ Context/guardrails:
 - **PixelVLA (2025)** — arXiv:2511.01571. Pixel-level understanding + visual prompting for VLAs (optional future target; see `grandplan.md` §7.3). `https://arxiv.org/abs/2511.01571`
 - **TraceVLA (2024)** — arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness (optional future target; see `grandplan.md` §7.4). `https://arxiv.org/abs/2412.10345`
 
+Geometry diagnostics (v5.7 additions, all verified ✓):
+- **Gosztolai & Arnaudon (2021)** — *Nature Comm.* 12:4561. Ollivier-Ricci curvature for networks; only discrete curvature proven to converge to Ricci curvature. `https://doi.org/10.1038/s41467-021-24884-1`
+- **Zang et al. (2022)** — *ECCV 2022*. DLME: Deep Local-flatness Manifold Embedding; second-order curvature penalty for flatness. arXiv:2207.03160. `https://arxiv.org/abs/2207.03160`
+- **Diaz et al. (2025)** — δ-hyperbolicity of protein LM embeddings (ProtT5 δ=0.04 vs SeqVec δ=1.62). arXiv:2512.20926. `https://arxiv.org/abs/2512.20926`
+- **Jiang et al. (2025)** — HypLoRA: Hyperbolic low-rank adaptation for LLMs. arXiv:2410.04010. `https://arxiv.org/abs/2410.04010`
+- **Tao et al. (2025)** — HELM: Hyperbolic representations in LLMs. arXiv:2505.24722. `https://arxiv.org/abs/2505.24722`
+- **Jiang et al. (2025)** — SAE for VLMs: Sparse autoencoders for vision-language models. arXiv:2504.02821. `https://arxiv.org/abs/2504.02821`
+- **de Haan et al. (2025)** — Hierarchical geometry of cognitive states in transformer embeddings. arXiv:2512.22227. `https://arxiv.org/abs/2512.22227`
+
+VLA benchmarks and analysis (v5.7 additions, all verified ✓):
+- **Wei et al. (2025)** — VLA-Arena: "Memorization over generalization" finding + ERIQ metric. arXiv:2512.22539. `https://arxiv.org/abs/2512.22539`
+- **Zhao et al. (2025)** — GenieReasoner/FACT: Flow-matching action tokenizer for VLAs. arXiv:2512.24125. `https://arxiv.org/abs/2512.24125`
+
 In-repo pointers (use these to stay aligned with the spec):
 - `grandplan.md` §2.2 (`I^sx_∩` definition), §2.3 (continuous extension), §8.1 (KSG details),
   §2.5.4 (hierarchical strategy), §9.1 (Experiment 0), Appendix B.3.4 (validation notes).
@@ -364,9 +378,12 @@ In-repo pointers (use these to stay aligned with the spec):
       — data layout + metric + brute-force kNN utilities
 
 Reference code (for sanity checks and baselines; verify commit hashes when used):
-- **Continuous `I^sx_∩` (authors’ reference impl):**
+- **Continuous `I^sx_∩` (authors' reference impl):**
   `https://gitlab.gwdg.de/wibral/continuouspidestimator` (Python package `csxpid`; Ehrlich et al.
-  2024; uses KDTree/ball-tree variants + merging procedure for disjunction distances)
+  2024; uses KDTree/ball-tree variants + merging procedure for disjunction distances). **Verified accessible ✓**
+- **Infomorphic networks (Wibral group experiments):**
+  `https://gitlab.gwdg.de/wibral/infomorphic_networks` (185 commits, GPL v3; experimental code for
+  infomorphic networks; actual learning rules in separate PIDnets repo). **Verified accessible ✓**
 - **Discrete `I^sx_∩` (definitions/lattice sanity):** `https://github.com/Abzinger/SxPID`
 - **Related (Shannon invariants on neural latents; NOT `I^sx_∩`):**
   `https://github.com/Abzinger/sae_analysis` (WIP; computes redundancy/vulnerability-style

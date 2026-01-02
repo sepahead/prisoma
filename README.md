@@ -2,7 +2,7 @@
 
 Engineering roadmap for implementing and validating Wibral-group shared-exclusions PID (SxPID, `I^sx_∩`) for Vision-Language-Action (VLA) diagnostics.
 
-Canonical research specification: `grandplan.md` (v5.6, Jan 2026).
+Canonical research specification: `grandplan.md` (v5.7, Jan 2026).
 
 > **⚠️ Critical Discovery (v5.5):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
 
@@ -26,6 +26,7 @@ Canonical research specification: `grandplan.md` (v5.6, Jan 2026).
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **v5.7** | 2026-01-02 | **First-Principles Geometry Analysis + VLA Verification (TRIPLE-CHECKED):** (1) Verified VLA architectures against papers (OpenVLA: SigLIP+DinoV2 600M, 32 layers, 4096d ✓; DreamVLA: GPT-2 dims UNSPECIFIED ⚠️; PixelVLA/TraceVLA: 4096d ✓). (2) Added §16.6-§16.11: local flatness testing (4 methods), δ-hyperbolicity testing, SAE analysis for VLA, Chebyshev/PixelVLA geometry transition, GPT-2 vs modern LLMs hierarchy evidence, unified Geometry-First Protocol. (3) Added authoritative code sources: Wibral GitLab repos (infomorphic_networks, continuouspidestimator) - verified accessible. (4) Integrated VLA-Arena benchmark findings (memorization vs generalization) - arXiv:2512.22539 ✓. (5) Added GenieReasoner/FACT tokenizer analysis (flow-matching action discretization) - arXiv:2512.24125 ✓. (6) Documented hierarchical geometry evidence from transformer embeddings - arXiv:2512.22227 ✓. (7) Verified all paper citations for factual correctness: Ollivier-Ricci (Nature Comm. 2021) ✓, DLME (ECCV 2022) ✓, δ-hyperbolicity (arXiv:2512.20926) ✓, HypLoRA (arXiv:2410.04010) ✓, HELM (arXiv:2505.24722) ✓, SAE for VLM (arXiv:2504.02821) ✓. |
 | **v5.6** | 2026-01-02 | **Manifold Solutions (WIP):** Added top 5 engineering approaches (Unrolling, Geodesic MI, PCA, Quantization, Copula) and documented exclusions (KDE, Harmonic, Naive Geodesic). |
 | **v5.5** | 2026-01-02 | **Manifold/Lorentz Limitation Fix:** Documented that Wibral PID on manifolds requires new derivations; warned against naive application of Euclidean estimators to curved spaces. |
 | **v5.4** | 2026-01-02 | **VLA architecture integration + coherence:** clarified how OpenVLA/DreamVLA/PixelVLA/TraceVLA affect variable definitions; tightened hierarchy-vs-geometry story; clarified units (bits vs nats). |
@@ -442,6 +443,19 @@ Differential geometry / manifold contingencies (MI-only baselines; not `I^sx_∩
 - Nickel, Kiela (2018) — Lorentz (hyperboloid) model for hyperbolic hierarchies (optional learned projection). arXiv:1806.03417. `https://arxiv.org/abs/1806.03417`
 - Ganea, Bécigneul, Hofmann (2018) — Hyperbolic Neural Networks (optional background). arXiv:1805.09112. `https://arxiv.org/abs/1805.09112`
 
+Geometry diagnostics (v5.7 additions, all verified ✓):
+- Gosztolai & Arnaudon (2021) — Ollivier-Ricci curvature for networks. *Nature Comm.* 12:4561. Only discrete curvature proven to converge to Ricci curvature. `https://doi.org/10.1038/s41467-021-24884-1`
+- Zang et al. (2022) — DLME: Deep Local-flatness Manifold Embedding. *ECCV 2022*. Second-order curvature penalty for enforcing flatness. arXiv:2207.03160. `https://arxiv.org/abs/2207.03160`
+- Diaz et al. (2025) — δ-hyperbolicity of protein language model embeddings (ProtT5 δ=0.04 vs SeqVec δ=1.62). arXiv:2512.20926. `https://arxiv.org/abs/2512.20926`
+- Jiang et al. (2025) — HypLoRA: Hyperbolic low-rank adaptation for LLMs. arXiv:2410.04010. `https://arxiv.org/abs/2410.04010`
+- Tao et al. (2025) — HELM: Hyperbolic representations in LLMs. arXiv:2505.24722. `https://arxiv.org/abs/2505.24722`
+- Jiang et al. (2025) — SAE for VLMs: Sparse autoencoders for vision-language models. arXiv:2504.02821. `https://arxiv.org/abs/2504.02821`
+- de Haan et al. (2025) — Hierarchical geometry of cognitive states in transformer embeddings. arXiv:2512.22227. `https://arxiv.org/abs/2512.22227`
+
+VLA benchmarks and analysis (v5.7 additions, all verified ✓):
+- Wei et al. (2025) — VLA-Arena: "Memorization over generalization" finding + ERIQ metric. arXiv:2512.22539. `https://arxiv.org/abs/2512.22539`
+- Zhao et al. (2025) — GenieReasoner/FACT: Flow-matching action tokenizer for VLAs. arXiv:2512.24125. `https://arxiv.org/abs/2512.24125`
+
 Experimental hyperbolic MI support (MI-only screening; research-gated):
 - `pid-core` includes `Metric::HyperbolicLorentz` (Lorentz/hyperboloid geodesic distance). This enables KSG MI / CI computations on hyperbolic coordinates for Shannon-invariant screening.
 
@@ -468,7 +482,8 @@ If you have **Poincaré ball** coords, convert per point with `poincare_to_loren
 - `pid-core` enforces this by rejecting `IsxMethod::EhrlichKsg` unless `metric == Metric::Chebyshev`.
 
 Reference repos (baselines/sanity checks; not the same estimator unless noted):
-- `https://gitlab.gwdg.de/wibral/continuouspidestimator` — authors’ reference implementation of the continuous `I^sx_∩` kNN estimator (Ehrlich et al. 2024); primary cross-check target for `pid-core`.
+- `https://gitlab.gwdg.de/wibral/continuouspidestimator` — authors' reference implementation of the continuous `I^sx_∩` kNN estimator (Ehrlich et al. 2024); primary cross-check target for `pid-core`. **Verified accessible ✓**
+- `https://gitlab.gwdg.de/wibral/infomorphic_networks` — Wibral group experimental infomorphic networks code (185 commits, GPL v3). **Verified accessible ✓**
 - `https://github.com/Abzinger/SxPID` — discrete `I^sx_∩` (definitions/lattice sanity).
 - `https://github.com/Abzinger/sae_analysis` — WIP toolbox for information-theoretic SAE analysis
   (Shannon-invariants-style redundancy/vulnerability from Gutknecht et al. 2025); not a

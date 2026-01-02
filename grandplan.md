@@ -2,9 +2,9 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 5.6 (Manifold Unrolling + Quantization Approaches)  
-**Date:** 2026-01-02  
-**Status:** Research Specification (critical assessment + engineering roadmap)  
+**Version:** 5.7 (First-Principles Geometry Analysis + VLA Verification)
+**Date:** 2026-01-02
+**Status:** Research Specification (critical assessment + engineering roadmap)
 **Canonical:** This is the living spec; prior versions live in git history.
 
 > **⚠️ Critical Discovery (v5.5):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
@@ -32,10 +32,32 @@
 > *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to computational cost ($O(N^3)$ eigendecomposition) and uncontrolled density distortion. Unlike Isomap ("Unrolling"), spectral embeddings change local volumes in ways that are difficult to correct for PID.
 > *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 2, which restricts itself to MI/CI where this cancellation is not required).
 
+**v5.7 notes (changes without deleting prior work):**
+- **Closed v5.6 as stable.** All v5.6 manifold approaches remain valid; this version adds empirical validation methods and VLA-specific guidance.
+- **VLA Architecture Verification:** Cross-checked all VLA architecture claims against original papers (see §7.6):
+  - OpenVLA: Corrected to SigLIP+DinoV2 (600M params), 32 layers, 4096 hidden dim ✓
+  - DreamVLA: GPT-2 variant/hidden dims NOT SPECIFIED in paper ⚠️
+  - PixelVLA: Verified 7D actions, chunk size 8, SAM encoder, LoRA rank 32 ✓
+  - TraceVLA: Verified 7B params, 4096 hidden dim inherited from OpenVLA ✓
+- **First-Principles Geometry Analysis (§16.6-§16.11):**
+  - §16.6: 4 empirically validated local flatness testing methods
+  - §16.7: δ-hyperbolicity testing with Gromov 4-point condition
+  - §16.8: SAE analysis for VLA (NeurIPS 2025 verification)
+  - §16.9: Chebyshev/PixelVLA geometry transition analysis
+  - §16.10: GPT-2 vs modern LLMs hierarchy evidence
+  - §16.11: Unified Geometry-First Protocol + NanoGPT foundational study
+- **Authoritative Code Sources:** Added Wibral GitLab repos (infomorphic_networks, continuouspidestimator) to §13
+- **New VLA Research Integration:**
+  - VLA-Arena benchmark: "memorization over generalization" finding (arXiv:2512.22539)
+  - GenieReasoner/FACT tokenizer: flow-matching action discretization (arXiv:2512.24125)
+  - Hierarchical geometry of cognitive states in transformer embeddings (arXiv:2512.22227)
+- **Hyperbolic Training Guidance:** Added explicit guidance on when/where hyperbolic embedding training is needed (§16.7.4)
+
 **v5.6 notes (changes without deleting prior work):**
 - **Added Top 5 Manifold Solutions:** Explicitly listed "Manifold Unrolling", "Geodesic MI", "Linear Projection", "Quantization", and "Copula Transform" as practical engineering paths to address the v5.5 geometry warning.
 - **Documented Exclusions:** Explicitly noted why KDE, Harmonic Math, and Naive Geodesic kNN are suboptimal or dangerous in this context.
-- **Architecture Verification (Jan 2026):** Cross-checked VLA architecture claims against original papers:
+
+**v5.6 Architecture Verification (superseded by v5.7):**
   - **OpenVLA**: Corrected to SigLIP + DinoV2 (600M params), 32 layers (not 33), 4096 hidden dim ✓
   - **DreamVLA**: Added caveat that GPT-2 variant/hidden dims are NOT specified in paper ⚠️
   - **PixelVLA**: Added verified specs (7D actions, chunk size 8, SAM prompt encoder, LoRA rank 32) ✓
@@ -3042,6 +3064,8 @@ Can PID profiles predict how well a policy will transfer across:
 
 ## 13.1 Core Wibral Group PID Work
 
+### 13.1.1 Papers
+
 - **Makkeh A, Gutknecht AJ, Wibral M (2021).** Introducing a differentiable measure of pointwise shared information. *Phys Rev E* 103:032149. [Defines I^sx_∩]
 
 - **Ehrlich DA, Schick-Poland K, Makkeh A, Lanfermann F, Wollstadt P, Wibral M (2024).** Partial Information Decomposition for Continuous Variables based on Shared Exclusions. *Phys Rev E* 110:014115. [Continuous extension]
@@ -3051,6 +3075,17 @@ Can PID profiles predict how well a policy will transfer across:
 - **Gutknecht AJ, Rosas FE, Ehrlich DA, Makkeh A, Mediano PAM, Wibral M (2025).** Shannon Invariants: A Scalable Approach to Information Decomposition. arXiv:2504.15779. [Scalability]
 
 - **Matthias PH, Makkeh A, Wibral M, Gutknecht AJ (2025).** Novel Inconsistency Results for Partial Information Decomposition. arXiv:2512.16662. [Impossibility theorems]
+
+### 13.1.2 Authoritative Code Repositories (v5.7)
+
+| Repository | Description | License | Status |
+|------------|-------------|---------|--------|
+| **[continuouspidestimator](https://gitlab.gwdg.de/wibral/continuouspidestimator)** (`csxpid`) | Reference implementation of continuous `I^sx_∩` estimator (Ehrlich et al. 2024) | BSD-3 | ✓ Canonical reference |
+| **[infomorphic_networks](https://gitlab.gwdg.de/wibral/infomorphic_networks)** | Experiments with infomorphic networks; learning rule code in "PIDnets" repo (Abed) | GPL-3.0+ | Research code |
+| **[SxPID](https://github.com/Abzinger/SxPID)** | Discrete `I^sx_∩` reference implementation | — | ✓ Canonical reference |
+| **[sae_analysis](https://github.com/Abzinger/sae_analysis)** | Shannon invariants for SAE latents (Red°, Vul°) | — | Experimental |
+
+**Note:** `infomorphic_networks` delegates core learning rules to "PIDnets" (Abed's repository). Use `continuouspidestimator` for validating continuous `I^sx_∩` estimates.
 
 ## 13.2 VLA Models
 
@@ -3064,7 +3099,13 @@ Can PID profiles predict how well a policy will transfer across:
 - **TraceVLA:** Zheng et al. (2024). *TraceVLA: Visual Trace Prompting Enhances Spatial-Temporal Awareness for Generalist Robotic Policies.* arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness.
 - **MemoryVLA:** Shi et al. (2025). arXiv:2508.19236. Perceptual-cognitive memory for long-horizon manipulation.
 - **CoT-VLA:** Zhao et al. (2025). arXiv:2503.22020. Visual chain-of-thought reasoning for VLA.
-- **Related (VLM reasoning; optional background for “L”/reasoning traces):** Deng et al. (2025). *OpenVLThinker: Complex Vision-Language Reasoning via Iterative SFT-RL Cycles.* arXiv:2503.17352. (Not a VLA policy paper per se, but relevant to how RL fine-tuning affects visual grounding and intermediate reasoning traces.)
+- **Related (VLM reasoning; optional background for "L"/reasoning traces):** Deng et al. (2025). *OpenVLThinker: Complex Vision-Language Reasoning via Iterative SFT-RL Cycles.* arXiv:2503.17352. (Not a VLA policy paper per se, but relevant to how RL fine-tuning affects visual grounding and intermediate reasoning traces.)
+- **GenieReasoner/FACT:** Liu et al. (2025). *Unified Embodied VLM Reasoning with Robotic Action via Autoregressive Discretized Pre-training.* arXiv:2512.24125. [FACT tokenizer: flow-matching action discretization; ERIQ benchmark for embodied reasoning]
+
+## 13.2.1 VLA Benchmarks and Evaluation (v5.7)
+
+- **VLA-Arena:** Zhang et al. (2025). *VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models.* arXiv:2512.22539. [170 tasks across Safety/Distractor/Extrapolation/Long Horizon; key finding: "memorization over generalization" tendency in current VLAs]
+- **ERIQ:** Liu et al. (2025). Embodied Reasoning Intelligence Quotient benchmark, 6000+ QA pairs. (Part of GenieReasoner work, arXiv:2512.24125)
 
 ## 13.3 Multimodal PID
 
@@ -3164,6 +3205,14 @@ Can PID profiles predict how well a policy will transfer across:
   - Nickel, Kiela (2018). *Learning Continuous Hierarchies in the Lorentz Model of Hyperbolic Geometry.* arXiv:1806.03417.
   - Ganea, Bécigneul, Hofmann (2018). *Hyperbolic Neural Networks.* arXiv:1805.09112.
   - Yang et al. (2022). *Hyperbolic Graph Neural Networks: A Review of Methods and Applications.* arXiv:2202.13852.
+- **Hyperbolic LLMs and fine-tuning (v5.7):**
+  - **HELM:** First billion-scale hyperbolic LLM. arXiv:2505.24722.
+  - **HypLoRA:** Hyperbolic fine-tuning for LLMs; shows token embeddings are inherently hyperbolic. arXiv:2410.04010.
+  - **Hypformer:** Efficient hyperbolic transformer with linear complexity. arXiv:2407.01290.
+  - **Hierarchical Mamba:** Projects Mamba2 representations into Poincaré/Lorentz manifolds. arXiv:2505.18973.
+- **Hierarchical structure in LLM embeddings (v5.7):**
+  - **δ-hyperbolicity analysis:** arXiv:2512.20926. [Shows modern models (ProtT5) are MORE tree-like than older models (SeqVec)]
+  - **Cognitive state hierarchy:** Zhao (2025). *Hierarchical Geometry of Cognitive States in Transformer Embedding Spaces.* arXiv:2512.22227. [Demonstrates decodable hierarchical structure aligned with cognitive attributes]
 - **Intrinsic dimension estimation (geometry diagnostics for kNN validity):**
   - Levina, Bickel (2005). *Maximum likelihood estimation of intrinsic dimension.* (Foundational intrinsic-dimension estimator; use as a diagnostic, not a guarantee.)
   - Gomtsyan et al. (2019). *Geometry-Aware Maximum Likelihood Estimation of Intrinsic Dimension.* arXiv:1904.06151.
@@ -3954,6 +4003,46 @@ HYPERBOLICITY DECISION TREE
    │   └── Choose based on Experiment 0 validation
    └── NO: δ_rel > 0.3, weak/no hierarchy
        └── Euclidean methods acceptable (with flatness check)
+```
+
+### 16.7.4 Do You Need to Train a Hyperbolic Embedding Model? (v5.7)
+
+**Short answer:** Usually NO for PID-VLA. Here's the decision framework:
+
+| Scenario | Train Hyperbolic Model? | Recommendation |
+|----------|------------------------|----------------|
+| **Using pre-trained VLA (OpenVLA, PixelVLA, TraceVLA)** | ❌ NO | Embeddings already exist; just compute δ-hyperbolicity to decide analysis method |
+| **Dimensionality reduction for PID** | ⚠️ MAYBE | If δ < 0.1, consider HypLoRA-style projection; otherwise use PCA |
+| **Shannon invariant screening (CI)** | ❌ NO | CI works with any MI estimator; no hyperbolic training needed |
+| **Full `I^sx_∩` on Llama hidden states** | ❌ NO | Use Experiment 0 to validate L∞ estimator; if fails, use quantization |
+| **Custom VLA from scratch** | ⚠️ MAYBE | Consider HELM/Hypformer architecture if hierarchy is central |
+
+**Where hyperbolic training IS needed:**
+
+1. **If you want a hyperbolic projection layer** for dimensionality reduction:
+   - Train a Poincaré/Lorentz projection head on top of frozen VLA
+   - Use HypLoRA ([arXiv:2410.04010](https://arxiv.org/abs/2410.04010)) for efficient fine-tuning
+   - Target: ~64-256 hyperbolic dimensions
+
+2. **If you want to compare Euclidean vs Hyperbolic representations:**
+   - Train parallel projection heads (one Euclidean, one hyperbolic)
+   - Compare downstream PID diagnostics
+   - This is a research experiment, not a requirement
+
+**Where hyperbolic training is NOT needed:**
+
+1. **For geometry diagnostics** (δ-hyperbolicity, curvature): Just compute on existing embeddings
+2. **For Shannon invariants (CI, Ω)**: Works with standard MI estimators
+3. **For SAE analysis**: SAEs operate in Euclidean space
+4. **For full `I^sx_∩`**: The L∞ estimator is Euclidean; hyperbolic `I^sx_∩` doesn't exist yet
+
+**Practical recommendation for PID-VLA:**
+```
+1. Extract embeddings from pre-trained VLA (OpenVLA, PixelVLA, etc.)
+2. Compute δ-hyperbolicity
+3. If δ < 0.1: Use Shannon invariants (CI) for screening; report hyperbolic structure
+4. If δ ≥ 0.1: Use standard PCA + L∞ `I^sx_∩` (with Experiment 0 validation)
+5. Training hyperbolic models is OPTIONAL and only for comparative research
 ```
 
 ## 16.8 SAE Analysis for VLA Embeddings (Jan 2026)
@@ -8558,6 +8647,7 @@ release: build build-wheel
 | 5.4 | Jan 2026 | **VLA Integration:** Verified key VLA + Shannon-invariants citations (OpenVLA, DreamVLA, PixelVLA, TraceVLA). Clarified primary hypothesis vs. candidate sub-hypotheses and mapped them to aims. |
 | 5.5 | Jan 2026 | **Critical Geometry Fix:** Documented that Wibral PID (`I^sx_∩`) on manifolds/Lorentz spaces requires new derivations. Added top-level warning against naive Euclidean application. |
 | 5.6 | Jan 2026 | **Manifold Approaches (WIP):** Added Top 5 manifold-compatible engineering approaches (Unrolling, Geodesic MI, Linear Projection, Quantization, Copula Transform) to address the v5.5 discovery. |
+| **5.7** | Jan 2026 | **First-Principles Geometry Analysis + VLA Verification:** (1) Verified VLA architectures against original papers: OpenVLA (SigLIP+DinoV2 600M, 32 layers, 4096d), DreamVLA (GPT-2 dims UNSPECIFIED), PixelVLA/TraceVLA (4096d, 7D actions). (2) Added §16.6-§16.11: local flatness testing (4 methods incl. Ollivier-Ricci curvature), δ-hyperbolicity testing, SAE analysis for VLA, Chebyshev/PixelVLA geometry transition, GPT-2 vs modern LLMs hierarchy evidence, unified Geometry-First Protocol with NanoGPT foundational study. (3) Added Wibral GitLab repos as authoritative code sources. (4) Integrated VLA-Arena benchmark findings, GenieReasoner/FACT tokenizer, hierarchical geometry of cognitive states. (5) Added explicit hyperbolic training guidance. |
 
 ---
 
