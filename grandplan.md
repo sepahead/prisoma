@@ -2,7 +2,7 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 5.7 (First-Principles Geometry Analysis + VLA Verification)
+**Version:** 5.8 (VLA-Arena Integration + Memorization/Generalization Analysis)
 **Date:** 2026-01-02
 **Status:** Research Specification (critical assessment + engineering roadmap)
 **Canonical:** This is the living spec; prior versions live in git history.
@@ -31,6 +31,17 @@
 > *   **Kernel Density Estimation (KDE):** Excluded due to the "curse of dimensionality" at d=4096 (bandwidth selection is statistically impossible). Furthermore, numerically integrating the complex "disjunction" shape for `I^sx_∩` is intractable compared to KSG counting.
 > *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to computational cost ($O(N^3)$ eigendecomposition) and uncontrolled density distortion. Unlike Isomap ("Unrolling"), spectral embeddings change local volumes in ways that are difficult to correct for PID.
 > *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 2, which restricts itself to MI/CI where this cancellation is not required).
+
+**v5.8 notes (VLA-Arena Deep Integration + Memorization/Generalization Analysis):**
+- **VLA-Arena as Primary Evaluation Framework:** Deep integration of VLA-Arena (arXiv:2512.22539) as the recommended benchmark for PID-VLA experiments (§9.7.1). VLA-Arena's 170 tasks with structured difficulty axes directly align with PID diagnostic goals.
+- **New Testable Hypothesis — Memorization vs Generalization (§3.6):** VLA-Arena's key finding that VLAs exhibit "memorization over generalization" motivates a new, falsifiable hypothesis: PID signatures (specifically, the stability of synergy under input perturbations) may distinguish memorized from generalized task performance. This is treated as a candidate sub-hypothesis requiring empirical validation, not an a priori claim.
+- **Perturbation-Based PID Robustness Protocol (§9.7.2):** VLA-Arena's orthogonal V0-V4 (visual) and W0-W4 (language) perturbation axes provide a principled framework for testing whether PID estimates are robust to controlled distribution shifts. Asymmetric robustness patterns (V-perturbations affecting PID differently than L-perturbations) would provide evidence for modality-specific integration failures.
+- **Expanded Confound Analysis (§14.5):** Added VLA-Arena-derived confounds including task difficulty stratification (L0/L1/L2), perturbation-induced distribution shift, memorization/generalization confound, modality asymmetry confound, and compositional failure confound. These must be controlled before attributing PID patterns to "integration quality."
+- **New §9.7: VLA-Arena Alignment and Experimental Mapping:** Complete subsection mapping VLA-Arena's 4 task dimensions (Safety, Distractor, Extrapolation, Long-Horizon) to specific PID predictions, with falsifiability criteria and expected null results.
+- **Long-Horizon and Compositional Failure Analysis (§3.6.3):** VLA-Arena's finding that VLAs cannot compose learned skills for long-horizon tasks suggests that temporal synergy dynamics (synergy half-life, synergy stability across task phases) may be diagnostically valuable. This extends Aim 2 with concrete experimental targets.
+- **Safety Dimension Integration (§3.6.4):** VLA-Arena's Safety task axis (collision avoidance, constraint satisfaction) is integrated as a potential PID test case: safety-aware behavior may require specific V-L integration patterns that differ from goal-oriented behavior.
+- **Expanded §13.2.1:** VLA-Arena benchmark details including task structure, perturbation protocols, and VLA-Arena-S/M/L dataset specifications.
+- **Scientific Rigor Notes:** All VLA-Arena-derived hypotheses are explicitly marked as requiring Experiment 0 validation + controlled experiments. The "memorization over generalization" phenomenon is treated as an empirical observation from VLA-Arena, not as a definitional property of PID.
 
 **v5.7 notes (changes without deleting prior work):**
 - **Closed v5.6 as stable.** All v5.6 manifold approaches remain valid; this version adds empirical validation methods and VLA-specific guidance.
@@ -811,6 +822,81 @@ where r_gold = 1 at task completion. This telescopes to a boundary term, preserv
 r_intrinsic = α·Syn(V,D;A) - γ·max(0, -Syn)
 ```
 should be analyzed for policy invariance properties.
+
+## 3.6 Memorization vs Generalization: A VLA-Arena-Derived Hypothesis (v5.8)
+
+VLA-Arena (arXiv:2512.22539) identifies a critical limitation of current VLAs: **"a strong tendency toward memorization over generalization."** This finding has direct implications for PID-based diagnostics and motivates new testable hypotheses.
+
+### 3.6.1 The Phenomenon (Empirical Observation, Not PID Theory)
+
+VLA-Arena's structured difficulty levels (L0→L1→L2) reveal that VLAs:
+- Perform well on L0 tasks (training distribution)
+- Degrade significantly on L1/L2 tasks (distribution shifts requiring generalization)
+- Show **asymmetric robustness**: visual perturbations (V0→V4) and language perturbations (W0→W4) affect performance differently
+
+**Critical epistemic note:** This is an empirical observation about current VLA architectures, not a theorem about information theory. The following hypotheses translate this observation into PID-testable predictions, but they require validation and may be false.
+
+### 3.6.2 Hypothesis H4: PID Signatures Differ Between Memorization and Generalization Regimes
+
+**Claim (falsifiable):** When a VLA memorizes a task, PID signatures on training-distribution inputs will differ systematically from PID signatures on OOD/generalization-requiring inputs.
+
+**Theoretical motivation (speculative, requiring validation):**
+
+| Regime | Information-Theoretic Characterization | Expected PID Pattern |
+|--------|---------------------------------------|---------------------|
+| **Memorization** | `(V,L)→A` approximates a lookup table; model has stored specific input-output mappings | High `I(V;A\|L)` and `I(L;A\|V)` on training examples (each input independently "indexes" the answer); potentially high redundancy (both sources point to same stored action) |
+| **Generalization** | Model has learned compositional/abstract mappings that transfer to novel inputs | Synergy may be higher (V and L must be *combined* in a meaningful way, not just matched); synergy should be *stable* under perturbations |
+
+**Predicted empirical signatures (testable):**
+
+1. **Synergy stability under perturbation:** A generalizing model should show relatively stable `Syn(V,L;A)` across V0→V2 and W0→W2 perturbations (within some tolerance). A memorizing model should show rapid synergy degradation because the lookup fails.
+
+2. **Cross-task synergy consistency:** A generalizing model should show similar synergy patterns across L0/L1/L2 difficulty levels for the same task family. A memorizing model should show high synergy only on L0 (exact match to training).
+
+3. **Redundancy patterns:** Memorization may paradoxically show high redundancy on training data (both V and L independently "recall" the same stored action) but near-zero MI on OOD data. Generalization should show more consistent MI across distributions.
+
+**How to disprove H4:**
+- If synergy stability under perturbation does not correlate with L0→L1→L2 performance degradation, H4 is false or requires refinement.
+- If simpler metrics (entropy, confidence) predict memorization/generalization equally well, PID adds no value for this diagnostic.
+- If estimator variance at VLA scale is too large to distinguish regimes, H4 is untestable with current methods.
+
+### 3.6.3 Hypothesis H5: Compositional Failure Correlates with Temporal Synergy Degradation
+
+**Claim (falsifiable):** VLA-Arena's finding that VLAs "cannot compose learned skills for long-horizon tasks" should manifest as synergy degradation over time within a trajectory.
+
+**Theoretical motivation:**
+- Compositional skill requires maintaining context and integrating current observations with task history
+- If the model fails to compose, `Syn(V_t, D_t; A_t)` (or `Syn(V_t, V_{t-history}; A_t)`) should degrade as the task progresses and requires more composition
+- Alternatively, temporal synergy (synergy between current and past states) should be low when composition fails
+
+**Predicted empirical signatures:**
+1. **Synergy half-life:** On long-horizon tasks, measure how synergy evolves over timesteps. Models that fail to compose should show earlier synergy degradation than models that succeed.
+2. **Phase-specific synergy:** For tasks with distinct phases (approach, grasp, place), synergy patterns should differ by phase if the model composes skills vs. executes a single memorized trajectory.
+
+**How to disprove H5:**
+- If synergy dynamics do not predict long-horizon task success beyond simple trajectory length, H5 is false.
+- If all VLAs show similar temporal synergy patterns regardless of compositional ability, H5 lacks discriminative power.
+
+### 3.6.4 Hypothesis H6: Safety-Aware Behavior Requires Specific V-L Integration
+
+**Claim (exploratory, lower confidence):** VLA-Arena's Safety task axis (collision avoidance, constraint satisfaction) may require distinctive V-L integration patterns.
+
+**Motivation:**
+- Safety often requires integrating visual perception of hazards with language-specified constraints
+- Unlike goal-directed tasks where V and L reinforce the same action, safety may involve V signaling "danger" while L specifies "avoid"
+- This could manifest as specific PID patterns (e.g., higher unique information from V when safety is relevant)
+
+**Status:** This is an exploratory hypothesis with lower confidence than H4/H5. It is included for completeness but should not be prioritized over the core validation experiments.
+
+### 3.6.5 Relationship to Existing Aims
+
+| New Hypothesis | Maps to Aim | Experimental Locus |
+|----------------|-------------|-------------------|
+| H4 (Mem vs Gen) | Aim 1 (Comparative Evaluation) | VLA-Arena L0/L1/L2 stratification |
+| H5 (Compositional Failure) | Aim 2 (Synergy Dynamics) | VLA-Arena Long-Horizon tasks |
+| H6 (Safety) | Exploratory (Aim 1 extension) | VLA-Arena Safety tasks |
+
+**Critical constraint:** All new hypotheses inherit the Experiment 0 gate. If the estimator is invalid at VLA scale, these hypotheses cannot be tested with kNN-based `I^sx_∩`. In that case, fall back to Shannon invariants (CI screening) and treat H4-H6 as future directions contingent on estimator improvements.
 
 ---
 
@@ -2103,6 +2189,137 @@ If PID-derived signals have causal relevance: interventions that degrade `D` in 
 | A different PID feature (not synergy) is consistently best | **Conditional success** | Pivot to the best-performing atom/summary |
 | Baselines match or beat SxPID (with clear significance) | **Negative result** | Prefer simpler methods; write up limits/lessons |
 
+## 9.7 VLA-Arena Integration and Experimental Alignment (v5.8)
+
+VLA-Arena (arXiv:2512.22539) provides a structured benchmark that directly aligns with PID diagnostic goals. This section specifies how PID experiments should leverage VLA-Arena's framework.
+
+### 9.7.1 VLA-Arena Structure Overview
+
+**Three Orthogonal Difficulty Axes:**
+
+| Axis | Levels | Description | PID Relevance |
+|------|--------|-------------|---------------|
+| **Task Structure** | L0→L1→L2 | Fine-tuning on L0 only; L1/L2 test generalization | Tests H4 (memorization vs generalization) |
+| **Language (W)** | W0→W4 | Perturbation levels for language commands | Tests V-L synergy robustness |
+| **Visual (V)** | V0→V4 | Perturbation levels for visual observations | Tests V-D synergy robustness |
+
+**Four Task Dimensions (170 total tasks):**
+
+| Dimension | Description | PID Prediction (Hypothesis) |
+|-----------|-------------|---------------------------|
+| **Safety** | Collision avoidance, constraint satisfaction | H6: Safety-aware integration may show distinct V-L patterns |
+| **Distractor** | Irrelevant objects/information in scene | Robust synergy should ignore distractors; fragile synergy should degrade |
+| **Extrapolation** | Novel object/scene configurations | Tests generalization; synergy stability predicts success (H4) |
+| **Long Horizon** | Multi-step compositional tasks | Tests temporal synergy dynamics (H5) |
+
+### 9.7.2 Experimental Protocol: Perturbation-Based PID Robustness
+
+**Goal:** Determine whether PID estimates are robust to controlled distribution shifts and whether robustness predicts task performance.
+
+**Protocol:**
+
+```
+FOR each task family in VLA-Arena:
+    1. Run VLA on L0 tasks (training distribution)
+       - Extract embeddings (V, L, D, A)
+       - Compute PID features: Syn, Red, Unq_V, Unq_L, CI
+       - Record success rate
+    
+    2. Run VLA on same tasks with V-perturbations (V1, V2, V3)
+       - Compute PID features at each perturbation level
+       - Record success rate
+       - Measure: |ΔPID|/|ΔSuccess| (sensitivity ratio)
+    
+    3. Run VLA on same tasks with W-perturbations (W1, W2, W3)
+       - Same measurements as step 2
+    
+    4. Compare V-perturbation sensitivity vs W-perturbation sensitivity
+       - Asymmetric robustness → modality-specific integration weakness
+       - Symmetric robustness → balanced integration
+    
+    5. Test L1, L2 difficulty levels
+       - Compare PID patterns to L0
+       - If PID stable but performance drops → generalization failure unrelated to integration
+       - If PID degrades and performance drops → potential integration-based explanation
+```
+
+**Metrics to Report:**
+
+| Metric | Definition | Interpretation |
+|--------|------------|----------------|
+| **Synergy Stability Index (SSI)** | `1 - Var(Syn)/Mean(Syn)` across perturbation levels | Higher = more robust integration |
+| **Modality Asymmetry Ratio (MAR)** | `|ΔSyn_V|/|ΔSyn_W|` for matched perturbation severity | >1 = V-sensitive; <1 = W-sensitive |
+| **Generalization Synergy Gap (GSG)** | `Syn_L0 - Syn_L2` | Positive = synergy degrades with generalization demand |
+
+### 9.7.3 Mapping VLA-Arena Dimensions to PID Predictions
+
+**Dimension: Safety**
+
+| VLA-Arena Observation | PID Prediction | Falsification Criterion |
+|-----------------------|----------------|------------------------|
+| VLAs ignore safety constraints | Safety tasks may require integrating "avoid" signals from V with "constraint" signals from L | If Syn(V,L;A) is indistinguishable on safety vs non-safety tasks, H6 is unsupported |
+| Collision avoidance failures | High `Unq(V)` may indicate model sees danger but doesn't integrate with task | If collision failures don't correlate with PID patterns, simpler metrics suffice |
+
+**Dimension: Distractor**
+
+| VLA-Arena Observation | PID Prediction | Falsification Criterion |
+|-----------------------|----------------|------------------------|
+| Performance degrades with distractors | Robust integration should show stable synergy despite distractors | If synergy degrades proportionally to distractor count but success doesn't, synergy is noise-sensitive |
+| Models attend to irrelevant objects | `Unq(V)` may increase (visual information not integrated with language) | If attention-based metrics predict distractor failures better than PID, prefer attention |
+
+**Dimension: Extrapolation**
+
+| VLA-Arena Observation | PID Prediction | Falsification Criterion |
+|-----------------------|----------------|------------------------|
+| VLAs fail to extrapolate to novel configurations | Memorizing models: synergy stable on training, unstable on novel | If synergy stability doesn't predict extrapolation success, H4 is wrong |
+| "Memorization over generalization" | PID patterns may differ systematically between L0 (memorized) and L2 (requires generalization) | If PID patterns are identical on L0 and L2, this hypothesis fails |
+
+**Dimension: Long Horizon**
+
+| VLA-Arena Observation | PID Prediction | Falsification Criterion |
+|-----------------------|----------------|------------------------|
+| Cannot compose learned skills | Temporal synergy may degrade as task progresses | If temporal synergy is stable but composition still fails, synergy is not the bottleneck |
+| Multi-step tasks fail | Phase-specific synergy patterns may reveal where composition breaks | If all phases show similar synergy but some fail, synergy lacks diagnostic power |
+
+### 9.7.4 VLA-Arena Datasets for PID Experiments
+
+VLA-Arena provides three dataset scales for fine-tuning:
+
+| Dataset | Size | Recommended Use for PID |
+|---------|------|------------------------|
+| **VLA-Arena-S** | Small | Initial Experiment 0 validation + rapid iteration |
+| **VLA-Arena-M** | Medium | Primary experiments (Experiments 1-3) |
+| **VLA-Arena-L** | Large | Full-scale validation if M shows positive results |
+
+**Fine-tuning Protocol (matching VLA-Arena):**
+- Fine-tune only on L0 tasks
+- Evaluate on L0 (in-distribution), L1, L2 (generalization)
+- Apply V and W perturbations independently
+- This ensures PID experiments match VLA-Arena's evaluation protocol for comparability
+
+### 9.7.5 Expected Null Results (Pre-Registration)
+
+For scientific rigor, we pre-register expected null results:
+
+1. **PID may not distinguish memorization from generalization** if the phenomenon is purely about lookup vs. computation, not information integration.
+
+2. **Synergy stability may not predict perturbation robustness** if robustness is dominated by low-level perceptual factors.
+
+3. **Long-horizon failures may not correlate with temporal synergy** if composition failures are architectural (context length, recurrence) rather than information-theoretic.
+
+4. **Safety task patterns may not differ** if safety is handled by the same integration mechanisms as goal-directed behavior.
+
+Observing these null results is **valid scientific outcome** that would redirect focus to simpler baselines.
+
+### 9.7.6 Success Criteria for VLA-Arena Integration
+
+| Outcome | Interpretation | Next Steps |
+|---------|----------------|------------|
+| Synergy stability predicts L0→L2 performance drop | **Strong support for H4** | Publish memorization/generalization diagnostic |
+| V/W asymmetry in PID correlates with asymmetric robustness | **Support for modality-specific diagnosis** | Develop modality-specific interventions |
+| Temporal synergy predicts long-horizon success | **Support for H5** | Develop synergy-based curriculum |
+| None of the above | **Null result** | Report limits; prefer simpler baselines |
+
 ---
 
 # 10. World Model Integration (WAN, GWM, 3DGS)
@@ -3102,10 +3319,93 @@ Can PID profiles predict how well a policy will transfer across:
 - **Related (VLM reasoning; optional background for "L"/reasoning traces):** Deng et al. (2025). *OpenVLThinker: Complex Vision-Language Reasoning via Iterative SFT-RL Cycles.* arXiv:2503.17352. (Not a VLA policy paper per se, but relevant to how RL fine-tuning affects visual grounding and intermediate reasoning traces.)
 - **GenieReasoner/FACT:** Liu et al. (2025). *Unified Embodied VLM Reasoning with Robotic Action via Autoregressive Discretized Pre-training.* arXiv:2512.24125. [FACT tokenizer: flow-matching action discretization; ERIQ benchmark for embodied reasoning]
 
-## 13.2.1 VLA Benchmarks and Evaluation (v5.7)
+## 13.2.1 VLA Benchmarks and Evaluation (v5.8)
 
-- **VLA-Arena:** Zhang et al. (2025). *VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models.* arXiv:2512.22539. [170 tasks across Safety/Distractor/Extrapolation/Long Horizon; key finding: "memorization over generalization" tendency in current VLAs]
-- **ERIQ:** Liu et al. (2025). Embodied Reasoning Intelligence Quotient benchmark, 6000+ QA pairs. (Part of GenieReasoner work, arXiv:2512.24125)
+### VLA-Arena (Primary Recommended Benchmark for PID-VLA)
+
+**Citation:** Zhang et al. (2025). *VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models.* arXiv:2512.22539.
+
+**Why VLA-Arena is recommended for PID experiments:**
+
+| Property | VLA-Arena Value | PID-VLA Benefit |
+|----------|-----------------|-----------------|
+| **Structured difficulty** | L0/L1/L2 levels | Enables memorization vs generalization testing (H4) |
+| **Orthogonal perturbation axes** | V0-V4 (visual), W0-W4 (language) | Decoupled testing of V and L integration robustness |
+| **Task dimensions** | Safety, Distractor, Extrapolation, Long-Horizon | Maps directly to PID hypotheses (H4, H5, H6) |
+| **Scale** | 170 tasks | Sufficient statistical power for PID signature analysis |
+| **Open-source** | Full toolchain provided | Reproducibility and community adoption |
+
+**VLA-Arena Task Structure (Detailed):**
+
+```
+VLA-Arena Task Organization:
+├── Safety (collision avoidance, constraint satisfaction)
+│   ├── L0: Training distribution
+│   ├── L1: Mild generalization
+│   └── L2: Strong generalization
+├── Distractor (irrelevant objects in scene)
+│   ├── L0, L1, L2 difficulty levels
+│   └── Cross-product with V0-V4, W0-W4
+├── Extrapolation (novel configurations)
+│   ├── L0, L1, L2 difficulty levels
+│   └── Key test for memorization vs generalization
+└── Long Horizon (multi-step compositional tasks)
+    ├── L0, L1, L2 difficulty levels
+    └── Key test for temporal synergy dynamics
+```
+
+**Perturbation Protocols (V0-V4, W0-W4):**
+
+| Level | Visual (V) Perturbations | Language (W) Perturbations |
+|-------|-------------------------|---------------------------|
+| **0** | Clean observation | Original instruction |
+| **1** | Minor noise/lighting | Synonym substitution |
+| **2** | Moderate occlusion | Paraphrasing |
+| **3** | Significant viewpoint change | Instruction simplification/elaboration |
+| **4** | Severe corruption | Ambiguous/underspecified instructions |
+
+*Note: Exact perturbation specifications should be verified against VLA-Arena documentation.*
+
+**VLA-Arena Datasets:**
+
+| Dataset | Description | Recommended PID Use |
+|---------|-------------|---------------------|
+| **VLA-Arena-S** | Small-scale fine-tuning set | Experiment 0 validation, rapid prototyping |
+| **VLA-Arena-M** | Medium-scale fine-tuning set | Primary experiments (Experiments 1-4) |
+| **VLA-Arena-L** | Large-scale fine-tuning set | Full-scale validation, publication-ready results |
+
+**Key Findings Relevant to PID-VLA:**
+
+1. **"Memorization over generalization"**: VLAs show strong tendency to memorize training tasks rather than learning generalizable skills. This motivates H4 (§3.6.2).
+
+2. **Asymmetric robustness**: V-perturbations and W-perturbations affect VLA performance differently. This suggests modality-specific integration weaknesses detectable by PID.
+
+3. **Compositional failure on long-horizon tasks**: VLAs cannot compose learned skills. This motivates temporal synergy analysis (H5, §3.6.3).
+
+4. **Safety constraint ignorance**: VLAs often fail to consider safety constraints. This motivates H6 (§3.6.4).
+
+**Resources:**
+- Website: https://vla-arena.github.io
+- Leaderboard: Available at project website
+- Code: Full end-to-end toolchain from task definition to automated evaluation
+
+### Other VLA Benchmarks
+
+- **ERIQ:** Liu et al. (2025). Embodied Reasoning Intelligence Quotient benchmark, 6000+ QA pairs. (Part of GenieReasoner work, arXiv:2512.24125). Useful for reasoning-focused VLA evaluation but less structured for PID analysis than VLA-Arena.
+
+- **SimplerEnv:** Lightweight simulation benchmark. Useful for rapid iteration but lacks VLA-Arena's structured difficulty axes.
+
+- **LIBERO:** Standard manipulation benchmark. Well-established but doesn't provide the perturbation structure needed for robustness testing.
+
+**Benchmark Selection Guidance:**
+
+| Research Question | Recommended Benchmark | Rationale |
+|-------------------|----------------------|-----------|
+| Memorization vs generalization | VLA-Arena | L0/L1/L2 structure directly tests this |
+| V-L integration robustness | VLA-Arena | V0-V4 / W0-W4 perturbation axes |
+| Temporal synergy dynamics | VLA-Arena (Long Horizon) | Multi-step tasks with clear phase structure |
+| Rapid PID validation | SimplerEnv or VLA-Arena-S | Lower computational cost |
+| Publication-ready results | VLA-Arena-M/L | Community standard, reproducible |
 
 ## 13.3 Multimodal PID
 
@@ -3350,6 +3650,186 @@ Distribution-shift control:
 | **Temporal sampling** | Different stride/window sizes | Effect persists across reasonable ranges |
 | **Cross-architecture** | Test on 2+ VLA architectures | Effect appears in majority |
 | **Cross-benchmark** | Test on 2+ task distributions | Effect generalizes |
+
+## 14.5 VLA-Arena-Derived Confounds
+
+VLA-Arena (arXiv:2512.22539) provides systematic evidence of VLA behavioral patterns that introduce specific confounds for PID analysis. These must be controlled before attributing PID patterns to "integration quality."
+
+### 14.5.1 Task Difficulty Stratification Confound (L0/L1/L2)
+
+**The confound:** VLA-Arena defines three task structure levels that correlate with both failure rate and expected synergy:
+
+| Level | Structure | Example | Failure Expectation | Synergy Confound |
+|-------|-----------|---------|---------------------|------------------|
+| **L0** | Single primitive | "Pick up the apple" | Low failure | Simple V-L mapping; synergy naturally low |
+| **L1** | Conditioned primitive | "Pick the red object, not the blue" | Medium failure | Disambiguation requires synergy |
+| **L2** | Composed actions | "Move X to Y, then Z to W" | High failure | Temporal composition; synergy across time |
+
+**Control protocol:**
+```
+TASK-LEVEL STRATIFIED ANALYSIS
+==============================
+
+1. Stratify all trajectories by L-level (L0, L1, L2)
+2. Compute PID terms WITHIN each level
+3. Test synergy-failure correlation WITHIN each level separately
+4. Only claim "synergy predicts failure" if effect persists within L1 and L2
+   (L0 may have floor effects due to low failure rates)
+
+Null hypothesis per level:
+- H0(L1): Within L1 tasks, synergy is uncorrelated with failure (ρ = 0)
+- H0(L2): Within L2 tasks, synergy is uncorrelated with failure (ρ = 0)
+
+Pre-registered adjustment: Bonferroni correction for 2 independent tests (α = 0.025)
+```
+
+**Why this matters:** If PID synergy only predicts failure when comparing L0 vs L2 tasks (trivially different difficulty), the finding is confounded. The PID metric must provide signal **within** difficulty strata to be useful.
+
+### 14.5.2 Perturbation-Induced Distribution Shift Confound
+
+**The confound:** VLA-Arena applies systematic perturbations (W0-W4 for language, V0-V4 for visual) that shift inputs out of distribution. Both synergy and failure may increase due to OOD inputs, not due to integration failure.
+
+**Perturbation taxonomy:**
+
+| Axis | Levels | Examples | OOD Severity |
+|------|--------|----------|--------------|
+| **Language (W)** | W0-W4 | Original → Synonym → Paraphrase → Typos → Irrelevant | Increasing |
+| **Visual (V)** | V0-V4 | Original → Lighting → Texture → Background → Distractor | Increasing |
+
+**Control protocol:**
+```
+OOD-ADJUSTED SYNERGY ANALYSIS
+=============================
+
+Step 1: Quantify distribution shift
+- Compute embedding-space OOD score for each (V, L) pair
+- Methods: Mahalanobis distance, k-NN density, calibrated uncertainty
+
+Step 2: Regression with OOD control
+  Failure ~ OOD_score_V + OOD_score_L + Synergy + interactions
+
+Step 3: Interpretation matrix
+┌─────────────────────────────────────────────────────────────────┐
+│ If Synergy significant after OOD control: Integration effect   │
+│ If Synergy non-significant after OOD control: OOD confound     │
+│ If interaction (Synergy × OOD) significant: Context-dependent  │
+└─────────────────────────────────────────────────────────────────┘
+
+Step 4: Report incremental R² from synergy beyond OOD baseline
+```
+
+**The VLA-Arena finding to verify:** VLAs show asymmetric robustness (more robust to V than L perturbations). PID should detect this as:
+- `Unq_L` increases under L perturbation (language becomes less redundantly encoded)
+- `Red_{V,L;A}` decreases under L perturbation (integration breaks down)
+
+### 14.5.3 Memorization vs Generalization Confound
+
+**The confound:** VLA-Arena's key finding is "memorization over generalization"—VLAs perform well on training-similar tasks but fail on novel compositions. Synergy patterns may simply reflect memorization confidence rather than integration quality.
+
+**Diagnostic signatures:**
+
+| Behavior | Memorized Response | Generalized Response |
+|----------|-------------------|----------------------|
+| Synergy pattern | Low variance (stable) | High variance (uncertain) |
+| Response to perturbation | Abrupt failure | Graceful degradation |
+| PID interpretation | Overfit to training synergy patterns | True integration |
+
+**Control protocol:**
+```
+MEMORIZATION DETECTION PROTOCOL
+===============================
+
+1. Identify "memorization indicators" from VLA-Arena:
+   - Task similarity to training set (embedding distance to training tasks)
+   - Response stereotype (action sequence similarity to training)
+   - Confidence-calibration gap (high confidence on failures)
+
+2. Stratify by memorization score:
+   - High memorization: Tasks similar to training, stereotyped responses
+   - Low memorization: Novel compositions, variable responses
+
+3. Test PID-failure correlation within each stratum:
+   - If effect only in "high memorization": Synergy tracks overfitting
+   - If effect only in "low memorization": Synergy tracks true integration
+   - If effect in both: Synergy is robust across regimes
+
+4. Report memorization index alongside all PID results
+```
+
+**Critical insight:** A VLA that has memorized a perfect V-L-A mapping will show high redundancy and low synergy (the signature of "robust integration"), but this is an artifact of overfitting, not genuine understanding.
+
+### 14.5.4 Asymmetric Modality Robustness Confound
+
+**The confound:** VLA-Arena shows VLAs are more robust to visual perturbations than language perturbations. This asymmetry could create systematic biases in PID decomposition that reflect architecture bias rather than task structure.
+
+**Observed asymmetry (from VLA-Arena):**
+```
+┌────────────────────────────────────────────────────────────────┐
+│              Perturbation Robustness Asymmetry                 │
+├────────────────────────────────────────────────────────────────┤
+│   Visual perturbations (V1-V4):                                │
+│   - VLAs maintain performance longer                           │
+│   - Synergy degrades gradually                                 │
+│                                                                │
+│   Language perturbations (W1-W4):                              │
+│   - VLAs fail more abruptly                                    │
+│   - Synergy shows discontinuous drops                          │
+│                                                                │
+│   Implication for PID:                                         │
+│   - Unq_V may appear stable (robust pathway)                   │
+│   - Unq_L may appear critical (fragile pathway)                │
+│   - This is ARCHITECTURE-DRIVEN, not task-driven               │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Control protocol:**
+1. Normalize PID terms by baseline modality contribution (from unperturbed samples)
+2. Report relative change: `ΔUnq_V / Unq_V(baseline)` vs `ΔUnq_L / Unq_L(baseline)`
+3. Compare asymmetry across architectures (OpenVLA vs π₀ vs others)
+4. If asymmetry pattern is identical across architectures, it reflects training data bias; if different, it reflects architecture
+
+**Pre-registration:** State expected direction of asymmetry before running experiments. VLA-Arena predicts L > V fragility; if PID shows opposite, either the estimator or the hypothesis is wrong.
+
+### 14.5.5 Compositional Failure Confound (Long-Horizon Tasks)
+
+**The confound:** VLA-Arena shows VLAs cannot compose learned skills for long-horizon tasks. This creates a confound where synergy degradation over time might reflect:
+- (a) True integration failure (the hypothesis)
+- (b) Simple action-sequence length effects (confound)
+- (c) Compounding error from early mistakes (confound)
+
+**Control protocol:**
+```
+COMPOSITIONAL FAILURE ANALYSIS
+==============================
+
+1. Segment long-horizon tasks into sub-goals (if ground truth available)
+2. Compute PID terms per sub-goal segment, not just per trajectory
+3. Test whether synergy degradation:
+   - Occurs at sub-goal boundaries (compositional failure)
+   - Accumulates gradually (compounding error)
+   - Correlates with sub-goal novelty (generalization failure)
+
+4. Control for trajectory position:
+   - Regression: Synergy ~ timestep + sub_goal_index + error_so_far
+   - If timestep explains all variance, it's a length confound
+
+5. Matched comparison:
+   - Compare same-length trajectories with different composition requirements
+   - L1 (single primitive, 50 steps) vs L2 (composed, 50 steps)
+   - If synergy patterns differ, composition matters
+```
+
+### 14.5.6 Summary: Required Controls Before Publication
+
+| Confound | Control Method | Failure Criterion |
+|----------|----------------|-------------------|
+| **Task difficulty (L0/L1/L2)** | Stratified analysis | Effect disappears within strata |
+| **Distribution shift (OOD)** | OOD score regression | Synergy non-significant after OOD control |
+| **Memorization** | Memorization index stratification | Effect only in high-memorization stratum |
+| **Modality asymmetry** | Baseline-normalized ΔUnq | Pattern identical across architectures |
+| **Compositional length** | Segment-level analysis + matched comparison | Timestep explains all variance |
+
+**Publication gate:** At least 3 of 5 confound controls must be passed (effect persists after controlling) before claiming "PID synergy predicts VLA failure."
 
 ---
 
