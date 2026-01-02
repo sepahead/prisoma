@@ -2,12 +2,27 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 5.2 — explicit computation recipes + stage-wise validation (invariants-first for manifolds)  
+**Version:** 5.3 (Docs sync + README roadmap consolidation) — grant-ready  
 **Date:** January 2026  
 **Status:** Research Specification (critical assessment + engineering roadmap)  
 **Canonical:** This is the living spec; prior versions live in git history.
 
-**Changelog / version notes:** see **Appendix B.0** (Version Log).
+**v5.0 final audit notes (changes without deleting prior work):**
+- Added confounding factors analysis (§14)
+- Added numerical stability guidance (§15)
+- Added manifold/PCA/kNN limitations section (§16) with detailed diagnostics and decision flowcharts
+- Integrated information geometry methods and intrinsic dimension estimation
+- Code audit complete — implementation cross-checked against reference implementations
+- Grant-ready documentation with full provenance tracking
+
+**v5.1 coherence notes (Jan 2026):**
+- Reconciled the “synergy sign” framing with the broader hypothesis/aims structure (Aim 1 is primary; Aims 2–3 are contingent).
+- Made the **geometry-first (manifold) gate** + **hierarchical (Shannon-invariants) compute path** explicit in the early recommended workflow.
+- Added explicit “**approximation must match exact baselines**” rules for accelerated kNN / dimensionality reduction variants.
+
+**v5.3 notes (Jan 2026):**
+- Version bump to keep repo docs consistent.
+- Consolidated README roadmap to remove outdated “build from scratch” milestones (the Rust core is already implemented in this repo).
 
 **Reference verification status (important):**
 - Core `I^sx_∩` / KSG papers: verified by DOI metadata; local copies exist under `.external/papers/`.
@@ -33,9 +48,9 @@
 13. [References](#13-references)
 14. [Confounding Factors Analysis](#14-confounding-factors-analysis-proving-and-disproving-the-hypotheses)
 15. [Numerical Stability and Optimization](#15-numerical-stability-and-optimization-technical-guidance)
-16. [Manifold-Valued Embeddings: Why PCA/kNN Fail](#16-why-pca-and-knn-are-suboptimal-for-manifold-valued-embeddings)
-17. [Appendix A: Glossary](#appendix-a-glossary)
-18. [Appendix B: Decision Log and Implementation Reference](#appendix-b-decision-log-and-implementation-reference)
+16. [Manifold Limitations (PCA/kNN)](#16-why-pca-and-knn-are-suboptimal-for-manifold-valued-embeddings)
+A. [Glossary](#appendix-a-glossary)
+B. [Decision Log and Implementation Reference](#appendix-b-decision-log-and-implementation-reference)
 
 ---
 
@@ -43,7 +58,7 @@
 
 ## 1.1 What This Document Is
 
-This document provides a comprehensive **research specification and engineering roadmap** for using Partial Information Decomposition (PID)—specifically the Wibral-group shared-exclusions measure `I^sx_∩`—and related Shannon-invariant summaries to **investigate, validate, and (if supported by experiments) deploy** information-decomposition signals as diagnostics for grounding failures (“hallucinations”) in Vision-Language-Action (VLA) models.
+This document provides a comprehensive specification for applying Partial Information Decomposition (PID), specifically the shared-exclusions measure I^sx_∩ from the Wibral group at Göttingen, to diagnose grounding failures ("hallucinations") in Vision-Language-Action (VLA) models.
 
 **Scope constraint (PhD-critical):**
 - This document is intentionally anchored on the **Wibral/Göttingen line of work**: shared-exclusions PID (`I^sx_∩`, “SxPID”) and the related **Shannon-invariants** program (Gutknecht et al. 2025).
@@ -57,19 +72,11 @@ This document provides a comprehensive **research specification and engineering 
 - Papers often use `log2` (bits). This repo’s Rust implementation uses natural `log` (nats).
 - Convert via: `bits = nats / ln(2)` and `nats = bits * ln(2)`.
 
-**Coherence note (read this if §1 feels like it has “one hypothesis”):**
-- This document has **one primary research question** (does decomposition help beyond baselines?) plus **multiple falsifiable hypotheses** (H1–H4) and **multiple Aims** (Aim 1–3).
-- §1.2 emphasizes “Warning 1” because the *original proposal* over-weighted a single claim (“negative synergy ⇒ hallucination”). In v5.2 that claim is **just Hypothesis H1**, not “the project.”
-- Where to find the full structure:
-  - **Aims**: §3.3 (what we will do)
-  - **Hypotheses (H1–H4) + confounds/controls**: §14.1 (what would make claims true/false)
-  - **Estimator/geometry gates**: Experiment 0 (§9.1) + manifold strategy (§16.7)
-
 ## 1.2 ⚠️ CRITICAL WARNINGS: Read Before Proceeding
 
 This project underwent extensive first-principles review that revealed **fundamental conceptual issues** that must be understood before any implementation:
 
-### Warning 1: The “synergy sign” claim is not a definition
+### Warning 1: The Core Hypothesis May Be Unfounded
 
 **Claim in original proposal:** "Negative synergy (Syn < 0) indicates hallucination because V and D conflict"
 
@@ -82,8 +89,6 @@ Negative synergy could arise from:
 - Pointwise misinformation (observing sources makes target less likely)
 
 **Status:** This is a HYPOTHESIS requiring empirical validation, not a definitional truth.
-
-**Coherence note (v5.2):** This “negative synergy predicts failures” idea is **Hypothesis H1** (one of several) and is *not* the same as the project’s primary claim. The primary claim is broader: whether **decomposition features** (Shannon invariants + SxPID atoms where estimable) add signal beyond strong baselines under a validated estimator regime (see §3.3 and falsifiability/controls in §14.1).
 
 ### Warning 2: The V-D-A Decomposition May Be Degenerate
 
@@ -152,11 +157,12 @@ Neither uses the shared-exclusions definition. Their success doesn't transfer au
 
 Given these warnings, the recommended approach is:
 
-1. **Run Experiment 0 FIRST:** Validate the estimator on synthetic data at target dimensionality before any VLA experiments
-2. **Include strong baselines:** Compare against entropy, Liang et al.'s estimators, learned classifiers
-3. **Pre-register success criteria:** Specify AUROC threshold, statistical tests
-4. **Plan for negative results:** If entropy works just as well, that's a valid (and publishable) finding
-5. **Test multiple decompositions:** Don't commit to V-D-A alone; test V-L-A and three-way decomposition
+1. **Define the measurement problem up front:** pick an external target/counterfactual (`A*`, success/failure label, or controlled interventions), and state the sampling unit (frames vs windows vs trajectories).
+2. **Run geometry diagnostics before trusting kNN:** estimate intrinsic dimension + distance concentration; decide whether you will (a) stay in raw space, (b) apply invertible “geometry fixes”, or (c) apply explicit dimensionality reduction (PCA/projection).
+3. **Run Experiment 0 in the chosen regime:** include both high-`d` and strong-dependence sweeps; classify GO / PIVOT / NO-GO before any VLA claims.
+4. **Use the Wibral/Gutknecht hierarchy for scalability:** Level 1 Shannon invariants (CI/Ω) for screening/monitoring; Level 2 targeted pairwise `I^sx_∩`; Level 3 offline 3-way PID only where justified.
+5. **Evaluate against strong baselines and preregistered criteria:** entropy/uncertainty, Liang Batch/CVX, learned classifiers/PRMs; treat negative results as publishable.
+6. **Compare decompositions deliberately:** V–D–A vs V–L–A vs three-way, and report estimator/preprocessing choices explicitly.
 
 ---
 
@@ -310,7 +316,7 @@ For three variables (V, L, D), estimating all 18 atoms is computationally expens
 **Key Insight from Gutknecht et al. (2025):** A "Shannon invariant" is a quantity that:
 1. Captures meaningful properties of information decomposition
 2. **Depends only on Shannon's entropy definition** (not on which PID measure you choose)
-3. Can be computed from entropy/MI terms **without choosing a PID measure** (and is typically cheaper than full PID because it avoids lattice/Möbius inversion)
+3. Can be computed efficiently from standard MI estimates
 
 **Why This Matters:** Different PID measures (I^sx_∩, I_min, I_BROJA, etc.) give different values for redundancy and synergy. But Shannon invariants have the **same value regardless of which PID measure you use**. This makes them theoretically robust and practically useful.
 
@@ -366,55 +372,6 @@ For `n=3`, `Ω(X,Y,Z)` equals the (3-variable) co-information / interaction info
 - Treat `Ω` as a screening/description statistic that may motivate where to apply the hierarchical SxPID pipeline (Level 1 CI → Level 2 targeted `I^sx_∩`).
 
 **Application to VLA:** `Ω` can be useful once you have **a small, well-defined set of variables** (or a **coarse-grained** representation of many units). It is not a “free lunch” for hundreds of raw attention heads unless you add structure (clustering/SAE, factor models, or other dimensionality reduction) and re-validate estimator behavior.
-
-**Degree of Redundancy (Red°) and Degree of Vulnerability (Vul°):**
-
-Gutknecht et al. (2025) introduce **entropy-only scalar invariants** that summarize “how redundant” and “how fragile” a multivariate system is, without computing a full PID.
-
-For variables \(X_1,\dots,X_m\), define (log base cancels; these are unitless ratios):
-
-```
-Red°(X₁,…,X_m) := (Σᵢ H(Xᵢ)) / H(X₁,…,X_m)
-Vul°(X₁,…,X_m) := (Σᵢ H(Xᵢ | X_{-i})) / H(X₁,…,X_m)
-```
-
-Interpretation (coarse, but useful for screening):
-- `Red° ≈ 1`: near-independence (little redundancy); `Red° ≈ m`: highly redundant (strong overlap).
-- `Vul° ≈ 1`: each variable carries substantial “private” entropy not predictable from the rest; `Vul° ≈ 0`: low vulnerability (variables are largely predictable from each other).
-
-**How we use them in PID-VLA (v5.2):**
-- Treat `{Red°, Vul°, CI, Ω}` as **Level 0** diagnostics.
-- In high-dimensional/manifold regimes where continuous kNN estimators are unreliable, compute these invariants on an **explicit discrete proxy** (coarse-graining) or via a clearly-specified entropy/CMI estimator. “Entropy-only” does **not** mean “estimation-free.”
-
-**Red°/Vul° estimation in practice (required; be explicit):**
-
-1. **Pick the variable set and the representation.**
-   - Use a *small, well-defined* set (e.g., `{V,L,D}` or `{V,L,D,A}`), not “hundreds of heads” directly.
-   - For continuous embeddings, define a **coarse-graining map** per variable block:
-     - **Clustering**: fit k-means (or GMM) on training embeddings, map each sample to a cluster ID.
-     - **SAE / codebook**: map each sample to a discrete code or top-k active features (then optionally binarize).
-     - **Quantization**: per-dimension binning or product-quantization (only if the resulting alphabet is manageable).
-   - Hard rule: any fitted coarse-graining (k-means centroids, SAE, codebook, normalizer) must be fit on **training only** and then applied to validation/test.
-
-2. **Compute entropies by counting (discrete plug-in estimator).**
-   - Given discrete labels \(x_i^{(1..N)} \in \{0,\dots,K_i-1\}\), compute empirical probabilities via counts:
-     - \(\hat{H}(X)= -\sum_x \hat{p}(x)\log \hat{p}(x)\), where \(\hat{p}(x)=c(x)/N\).
-     - \(\hat{H}(X_1,\dots,X_m)\) uses joint counts over label tuples \((x_1,\dots,x_m)\).
-   - Bias note: plug-in entropy is biased at small \(N\) relative to the joint alphabet size. You may optionally add a bias correction (e.g., Miller–Madow) but you must state it; default in this repo is plug-in.
-
-3. **Assemble Red°/Vul° from the entropies** (same log base throughout; ratios are base-invariant):
-   - `Red° = (Σ_i H(X_i)) / H(X_1,…,X_m)`
-   - `Vul° = (Σ_i H(X_i | X_-i)) / H(X_1,…,X_m)` with \(H(X_i|X_{-i}) = H(X_1,\dots,X_m)-H(X_{-i})\).
-
-4. **Report enough to reproduce the quantity.**
-   - The exact variable set, coarse-graining method + hyperparameters (e.g., k-means `K`, SAE architecture), training split used to fit it, and the resulting alphabet sizes / observed support size.
-   - The estimator choice (plug-in entropy vs bias-corrected) and log base (bits vs nats).
-
-**Implementation (this repo):**
-- Discrete entropies + degrees: `pid_core::{entropy_discrete, joint_entropy_discrete, red_degree_discrete, vul_degree_discrete}`.
-- Discrete CI (for Level 0 when KSG is not trusted): `pid_core::co_information_pairwise_discrete`.
-- Ω on discrete proxies: `pid_core::o_information_discrete`.
-- Exact-toy validation tests: `cargo test -p pid-core invariants`.
 
 ### 2.5.4 How Shannon Invariants Solve Our Problems
 
@@ -504,36 +461,17 @@ failure_prob = ci_to_failure_model.predict(ci_vec)
 
 **Speed improvement:** CI requires only MI terms (7 KSG runs for a triplet); full `I^sx_∩` PID adds an additional disjunction-kNN redundancy estimator with per-sample kNN radii + neighbor counts, which is typically more expensive.
 
-### 2.5.5 Recommended Strategy: Hierarchical Approach (v5.2)
+### 2.5.4 Recommended Strategy: Hierarchical Approach
 
-**Level 0 (Always; scalable default):** Compute Shannon invariants `{CI, Ω, Red°, Vul°}` and basic geometry diagnostics (intrinsic dimension + distance concentration) for the chosen representation and sampling unit. Use this for broad screening and as the **primary analysis** in manifold/high-d regimes.
+**Level 1 (Fast screening; MI-only):** Compute CI_VL, CI_VD, CI_LD using KSG. Use for triage / monitoring.
 
-**Level 1 (Targeted; requires validated kNN MI):** Compute full pairwise `I^sx_∩` PID only for the most suspicious pairs/episodes (identified by Level 0), and only after Experiment 0 validates the estimator regime under the same preprocessing/dim-reduction choices.
+**Level 2 (Targeted, slower):** Compute full pairwise `I^sx_∩` PID for the most suspicious pair (identified by Level 1).
 
-**Level 2 (Offline; requires validated kNN MI):** Compute full 3-way SxPID decomposition (18 atoms) or detailed post-hoc analysis for publication/diagnosis.
-
-**Manifold/high-d guardrail:** If intrinsic dimension remains large/unstable or distance concentration is severe, **do not force kNN-based `I^sx_∩`**. Stay at Level 0, optionally add MI-only baselines (e.g., geodesic kNN MI for curved supports), and report that `I^sx_∩` was not estimable at that operating point.
+**Level 3 (Slow, offline):** Compute full 3-way decomposition or run detailed analysis for failure diagnosis.
 
 **Latency note (do not oversell):** Wall-clock time depends strongly on `(N, d, k)` and on the kNN backend. A brute-force O(N²) implementation is not “real-time” at N in the thousands; any ms-level budgets are design targets that presume aggressive dimensionality reduction and/or accelerated kNN.
 
-This hierarchy balances speed with interpretability while keeping estimator validity explicit.
-
-### 2.5.6 Estimator compatibility matrix (v5.2)
-
-The phrase “use another estimator” is only coherent if we also state **what scientific object we are estimating** and what swaps are allowed without changing that object.
-
-| Quantity / Level | Depends on | What’s allowed | What’s not allowed (common pitfall) |
-|---|---|---|---|
-| **SxPID atoms via `I^sx_∩` (Level 1/2)** | Wibral-group shared-exclusions definition + Ehrlich et al. (2024) continuous disjunction-kNN estimator | kNN/KSG-style pipeline validated by Experiment 0 (plus paper-faithful tie rules) | Mixing estimator families inside PID identities (e.g., MINE for `I(S;T)` but kNN for `I^sx_∩`) |
-| **CI with distinguished target (Level 0)** | Shannon-invariant identity over MI terms | Any MI estimator that can estimate all required MI terms consistently (kNN, parametric, classifier/variational MI), plus explicit coarse-graining if needed | Treating CI sign as “the SxPID synergy sign”; CI is `Red−Syn` for bivariate PID, not a PID atom itself |
-| **`Ω`, `Red°`, `Vul°` (Level 0)** | Shannon entropies / conditional entropies on a chosen set | Any validated entropy/CMI estimation route appropriate to the representation (often requires coarse-graining or model-based entropy estimation); ratios like `Red°/Vul°` are log-base invariant | Claiming they are “free” at high dimension without specifying the representation + entropy estimator |
-| **Geometry diagnostics (supporting Level 0)** | Distances in representation space | Compute intrinsic dimension / distance concentration to decide whether kNN-style estimators are plausible | Treating “ID is low” as a proof that kNN MI/PID is accurate (it’s only a prerequisite + diagnostic) |
-
-**Validation evidence in this repo (what is tested against what):**
-- **Discrete Level 0 invariants (`Red°`, `Vul°`, `Ω`, discrete CI):** exact toy distributions in `crates/pid-core/tests/invariants.rs`.
-- **Continuous MI + CI (KSG):** analytic Gaussian MI/CI checks in `crates/pid-core/tests/ksg.rs`.
-- **Continuous `I^sx_∩` redundancy:** fixed-data cross-check vs `csxpid` in `crates/pid-core/tests/isx.rs`.
-- **3-source SxPID (18 atoms):** fixed-data cross-check in `crates/pid-core/tests/pid3.rs`.
+This hierarchical approach balances speed with interpretability, using Shannon invariants as a fast screening layer.
 
 ---
 
@@ -558,11 +496,11 @@ This is the critical validation gate. The “synergy sign” is one candidate fe
 
 ## 3.3 Specific Aims
 
+**Coherence note (why there are multiple aims):** This project has one primary, falsifiable claim: **under a validated estimator regime**, SxPID/Shannon-invariant features add reliable diagnostic/predictive signal beyond strong baselines. The additional aims test *extensions* (time dynamics; training) and are contingent on Aim 1; the “synergy sign” is only one candidate feature within Aim 1, not the project’s sole hypothesis.
+
 ### Aim 1 (Primary): Comparative Evaluation
 
-**Hypothesis (falsifiable; pre-register):** Under a validated estimator regime (Experiment 0), a feature set built from **Level 0 Shannon invariants** and (where estimable) **SxPID (`I^sx_∩`) atoms** from plausible decompositions (e.g., V–D–A, V–L–A, and hierarchical pairwise) contains predictive information about failure labels beyond the best baseline.
-
-**Mechanistic sub-hypotheses (H1–H4):** see §14.1 for the atom-level/manifold-level hypotheses and the confounds/controls required to interpret any correlation.
+**Hypothesis (falsifiable; pre-register):** Under a validated estimator regime (Experiment 0), SxPID-derived features from plausible decompositions (e.g., V–D–A, V–L–A, and hierarchical pairwise) contain predictive information about failure labels beyond the best baseline.
 
 **Baselines:**
 1. Predictive entropy: H(A|V, L)
@@ -1716,6 +1654,10 @@ Be explicit about what is “known”:
    - Cross-check continuous `I^sx_∩` redundancy against the authors’ reference implementation (`csxpid`) on fixed datasets.
    - See §9.1 for the full protocol.
 
+3. **Approximation validation (exact vs accelerated backends):**
+   - Any speedup that changes neighbor search or distances (KD/ball trees, approximate kNN, GPU chunking, etc.) is a new estimator variant.
+   - Requirement: demonstrate agreement with the brute-force exact backend on (i) analytic MI cases (correlated Gaussian / Gaussian channel) and (ii) a fixed `csxpid` cross-check dataset before using it for claims.
+
 ### 8.4.2 Scaling Test
 
 Test estimator accuracy at:
@@ -2763,9 +2705,9 @@ pid-vla/
 └── results/               # Experiment results
 ```
 
-**Repo status (v5.2):**
-- Implemented (Rust): `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, hierarchical screening, preprocessing hooks, intrinsic-dimension + distance concentration diagnostics, **Level-0 discrete invariants (Red°/Vul°/Ω/CI)**, and a Rust `exp0` runner).
-- Planned next (to support the v5.2 hierarchy): Python experiment harness/bindings + macOS-first VLA embedding extraction + PCA (Python-first). (Keep the structure above as the target layout, but do not assume those folders exist yet.)
+**Repo status (v5.3):**
+- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner).
+- Planned: `crates/pid-python`, `crates/pid-tauri`, and the `python/` experiment harness (keep the structure above as the target layout, but do not assume those folders exist yet).
 
 ## 11.3 Reproducibility
 
@@ -3080,18 +3022,6 @@ This section addresses how confounding factors could be studied and removed to r
 **Confounds:**
 1. **Representation bias:** If one modality has higher-dimensional embeddings, it may have artificially higher unique information due to estimation artifacts.
 2. **Preprocessing asymmetry:** Different preprocessing per modality can shift apparent unique contributions.
-
-### Hypothesis H4: Manifold/high-d regimes require invariants-first analysis (and geometry predicts kNN failure)
-**Claim:** At VLA scale, kNN-based continuous `I^sx_∩` will often be unstable unless the **intrinsic dimension is low and stable** after explicit preprocessing/dim-reduction. In regimes where geometry diagnostics predict kNN unreliability, **Level 0 Shannon invariants** (e.g., `{CI, Ω, Red°, Vul°}` computed under explicit coarse-graining or validated entropy estimators) remain stable enough to support screening/prediction, even when full SxPID is not estimable.
-
-**Confounds:**
-1. **Coarse-graining confound:** clustering/SAEs/projections can inject structure; invariants may reflect the discretization scheme rather than the underlying process.
-2. **Estimator-family confound:** “invariants work” may just mean “a different estimator family works” (e.g., classifier-based MI), not that information quantities are robust; keep pipelines separate and explicitly labeled.
-3. **Task-difficulty confound:** invariants may correlate with task difficulty/horizon length rather than grounding/failure.
-
-**How to disprove:**
-- Show that geometry diagnostics (ID/DC) do *not* predict MI/PID stability across Experiment 0 sweeps and VLA subsamples.
-- Show that invariants are not stable across reasonable coarse-grainings (or additivity controls) and do not provide incremental predictive power beyond baselines.
 
 ## 14.2 Experimental Controls for Confound Removal
 
@@ -3452,6 +3382,8 @@ WHEN ESTIMATES LOOK WRONG, CHECK:
 
 This section provides rigorous analysis of why standard dimensionality reduction and nearest-neighbor methods fail on manifold-structured data, and what alternatives exist.
 
+**Key framing:** the Wibral/Gutknecht hierarchy (Shannon invariants → targeted `I^sx_∩`) addresses **scaling in source count**; manifold diagnostics address **whether Euclidean kNN geometry is valid at all**. For high-dimensional VLA embeddings you generally need *both*: pass the geometry gate, then choose the hierarchical compute level.
+
 ## 16.1 The Manifold Hypothesis for Neural Embeddings
 
 Modern neural embeddings (including VLA representations) empirically lie near **low-dimensional manifolds** embedded in high-dimensional ambient space. This creates a mismatch with standard Euclidean tools:
@@ -3575,7 +3507,7 @@ fn manifold_distortion_diagnostic(data: MatRef<'_>, k_graph: usize) -> f64 {
 
 **Recommendation for PID-VLA:**
 1. **First:** Try PCA with high variance retention (≥95%) + Experiment 0 re-validation
-2. **If PCA fails:** Use random projections (Johnson-Lindenstrauss; preserves distances approximately)
+2. **If PCA fails:** Use random projections as a distance-preserving baseline (Johnson–Lindenstrauss), and compare to a cheap hash-projection baseline (e.g., `HashProjector`) to sanity-check stability
 3. **If random projection fails:** Consider Isomap + re-validation, or accept that kNN-based PID is invalid
 
 ### 16.4.2 For Manifold-Aware MI Estimation
@@ -3605,9 +3537,6 @@ def geodesic_knn_mi(X, Y, k):
 ```
 MANIFOLD METHODS DECISION TREE
 ==============================
-
-0. Always compute Level-0 Shannon invariants (CI, Ω, Red°, Vul°)
-   └── Provides a stable baseline and something to report even if kNN/PID fails (see §2.5.3 for how these are estimated in practice)
 
 1. Estimate intrinsic dimension (ID)
    └── ID < ambient_dim / 10?
@@ -3674,40 +3603,9 @@ Some limitations are fundamental to kNN-based estimation on manifolds:
 3. **Non-compact manifolds:** If the manifold is unbounded or has holes, geodesic distances can be undefined or infinite.
 
 **Implication for PID-VLA:** Accept that there may be regimes where no kNN-based estimator works reliably. In such cases:
-- Use Shannon invariants (CI, Ω, Red°, Vul°) as the primary diagnostic
+- Use Shannon invariants (CI, O-information) as the primary diagnostic
 - Report kNN-based `I^sx_∩` with explicit caveats
 - Consider neural MI estimators (MINE, etc.) as cross-checks
-
-## 16.7 Manifold-first hierarchical strategy (v5.2): stay compatible with Wibral-group SxPID
-
-**Key point:** For high-dimensional VLA embeddings, “manifold structure” often makes *geometric* sense, but it does **not** automatically give us a drop-in replacement for the Wibral-group continuous `I^sx_∩` estimator. To stay scientifically compatible with Makkeh (2021) + Ehrlich (2024), we only claim `I^sx_∩` results when the **paper-faithful disjunction-kNN estimator** is validated in the operating regime.
-
-Therefore, the v5.2 pipeline is intentionally **hierarchical and manifold-aware**:
-
-```
-MANIFOLD-FIRST HIERARCHY (v5.2)
-===============================
-
-Level 0 (always; robust-by-design):
-  - Compute Shannon invariants {CI, Ω, Red°, Vul°} on an explicitly defined representation.
-  - Run geometry diagnostics (intrinsic dimension + distance concentration).
-  - If kNN is unreliable, STOP here and report Level-0 results + instability.
-
-Level 1 (only if kNN is plausible and validated):
-  - Re-run Experiment 0 under the exact preprocessing/dim-reduction choices.
-  - Compute targeted pairwise SxPID via the continuous `I^sx_∩` estimator.
-
-Level 2 (offline only; only after Level 1 success):
-  - Full 3-source SxPID (18 atoms) or deeper post-hoc analyses.
-```
-
-**Where manifolds “make more sense” (and what we can do today):**
-- For **MI-only screening** on curved supports, manifold-aware MI estimators (e.g., geodesic kNN MI) may be more faithful than Euclidean kNN. Treat this as a **separate baseline pipeline**; do not claim it estimates `I^sx_∩`.
-- For **full SxPID on manifolds**, a correct approach would require re-deriving the disjunction-neighborhood estimator under the manifold’s volume form. That is future work; until then, the compatible choices are: (i) Euclidean kNN `I^sx_∩` with validation, or (ii) invariants-only reporting.
-
-Cross-references:
-- Shannon invariants and the v5.2 hierarchy: §2.5.5
-- Geometry diagnostics + “when to stop” rules: §8.1.5 and Experiment 0 (§9.1)
 
 ---
 
@@ -3756,27 +3654,6 @@ Cross-references:
 ---
 
 # Appendix B: Decision Log and Implementation Reference
-
-## B.0 Version Log (Changelog)
-
-### v5.2 (Jan 2026) — explicit computation recipes + stage-wise validation
-- Made “entropy-only” concrete: added **explicit Red°/Vul° estimation procedure** (discrete proxies / coarse-graining + counting estimator + reporting requirements).
-- Implemented Level-0 discrete invariants in Rust (`crates/pid-core/src/invariants.rs`) + **exact toy tests** (independent/redundant/XOR).
-- Added stage-wise “estimator vs exact/reference” test map (spec + README) so every reported quantity has a named computation route + validation evidence.
-
-### v5.1 (Jan 2026) — hypothesis coherence + manifold-first strategy
-- Unified hypothesis hierarchy (H1–H4) and mapped hypotheses ↔ aims ↔ experiments.
-- Elevated Shannon invariants (Red°, Vul°, CI, Ω) as **Level 0** and the default in manifold/high-d regimes.
-- Clarified estimator compatibility: which results require validated `I^sx_∩` vs MI-only vs entropy-only pipelines.
-- Added/updated manifold-first decision flowcharts (see §2.5.5 and §16.7).
-
-### v5.0 (Jan 2026) — final audit release (grant-ready)
-- Added confounding factors analysis (§14).
-- Added numerical stability guidance (§15).
-- Added manifold/PCA/kNN limitations section (§16) with detailed diagnostics and decision flowcharts.
-- Integrated information geometry methods and intrinsic dimension estimation.
-- Code audit complete — implementation cross-checked against reference implementations.
-- Grant-ready documentation with full provenance tracking.
 
 ## B.1 Decision Log (Detailed)
 
@@ -3858,11 +3735,10 @@ Compute full three-way PID I(V, L, D; A) with 18 atoms from the start.
 **Recommended Hierarchical Strategy:**
 
 ```
-Level 0: Shannon invariants + geometry diagnostics (fastest; scalable default)
-├── Compute {CI, Ω, Red°, Vul°} on an explicitly defined representation
-├── Run intrinsic dimension + distance concentration diagnostics
-├── Use for: Real-time monitoring, broad screening, primary reporting in manifold/high-d regimes
-└── Proceed to Level 1 only if: geometry is healthy AND Experiment 0 validates the kNN estimator regime
+Level 0: Shannon invariants (fastest; MI-only)
+├── Compute CI_VL, CI_VD, CI_LD (co-information)
+├── Use for: Real-time monitoring, screening
+└── Proceed to Level 1 if: Any CI is suspicious (outside normal range)
 
 Level 1: Pairwise PID (slower; targeted)
 ├── Compute full I^sx_∩(V, L; A) or I^sx_∩(V, D; A)
@@ -5335,7 +5211,7 @@ sae_analysis/
 | **Dimensionality** | High-dim via SAE compression | Requires dim reduction |
 
 **Recommendation:**
-Use sae_analysis for **initial screening** (fast Shannon invariants), then our Rust I^sx_∩ for **detailed analysis** on suspicious cases. This matches our hierarchical approach in §2.5.5.
+Use sae_analysis for **initial screening** (fast Shannon invariants), then our Rust I^sx_∩ for **detailed analysis** on suspicious cases. This matches our hierarchical approach in §2.5.4.
 
 #### B.3.3.5 Using sae_analysis Safely (Not a Correctness Oracle for I^sx_∩)
 
@@ -6517,12 +6393,11 @@ For the PID-VLA system with sources V (4096-d), L (4096-d), D (4096-d), Target A
 SCALING STRATEGY
 ================
 
-Level 0: Shannon invariants + geometry diagnostics (fastest; scalable default)
-├── Compute pairwise CI_VL, CI_VD, CI_LD (Shannon-invariant screening)
-├── Optionally compute CI_3(V,L,D;A) (3-way co-information with a distinguished target)
-├── Compute Red°/Vul° on explicitly chosen sets after coarse-graining (or via a validated entropy estimator)
-├── Run intrinsic dimension + distance concentration diagnostics
-└── Use for: Real-time monitoring, broad screening, primary reporting in manifold/high-d regimes
+Level 0: Shannon invariants (fastest; MI-only)
+├── Compute CI_VL, CI_VD, CI_LD (pairwise co-information)
+├── Compute CI_3(V,L,D;A) (3-way co-information / interaction information with a distinguished target)
+├── O(7) MI estimates via KSG
+└── Use for: Real-time monitoring, fast screening
 
 Optional (research-only; not “MI-only cheap”):
 └── Compute Ω on a *set* (e.g., Ω(V,L,D,A) or Ω(V,L,D)) after coarse-graining/feature selection.
@@ -8066,6 +7941,8 @@ release: build build-wheel
 | 3.0 | Jan 2026 | **First-principles audit pass:** (1) Reframed “synergy sign” as a falsifiable hypothesis (not a definition); clarified deterministic-target degeneracy in VLA decompositions and the need for external targets/counterfactuals. (2) Tightened estimator risk framing and strengthened Experiment 0 as a scientific gate before any VLA claims. (3) Added/expanded i.i.d. vs trajectory autocorrelation guidance (sampling unit, block bootstrap). |
 | 4.0 (Draft) | Jan 2026 | **Audited + citation-verified pass:** (1) Added explicit reference verification policy and downgraded unsourced architecture/latency statements to “unverified sketches”. (2) Added strong-dependence warning (Gao et al. 2015) and integrated a Gaussian-channel strong-dependence sweep into Experiment 0. (3) Added MI/CMI estimator comparison section (Gao-LNC/local Gaussian, MINE, CCMI) strictly as MI/CMI baselines (do not mix estimator families inside SxPID identities). (4) Verified key VLA citations (notably DreamVLA) and added optional background papers (OpenVLThinker, SRL, diffusion parameterization). (5) Cleaned up NF-PID (“Thin-PID” legacy) naming and other citation/notation fixes. (6) Corrected/clarified Shannon-invariant definitions (CI sign conventions; Ω vs target co-information) and reconciled scaling sketches. (7) Aligned reproducibility guidance with repo-canonical `flake.nix` + `uv.lock` workflow (macOS-first). (8) Integrated differential-geometry contingencies into §8.1.5 without relying on a repo-local PDF. |
 | **5.0** | Jan 2026 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Integrated information geometry methods and intrinsic dimension estimation. Code audit complete (implementation cross-checked). Grant-ready documentation with full provenance tracking. |
+| **5.1** | Jan 2026 | **Coherence + manifold/hierarchy alignment:** Completed TOC coverage for §§14–16 + appendices; clarified hypothesis→aims structure (synergy sign is a candidate feature, not the sole claim); made the geometry-first + hierarchical compute gates explicit; added “approximation must match exact baselines” validation rules. |
+| **5.3** | Jan 2026 | **Docs sync + README consolidation:** bumped canonical spec version across docs; removed outdated README milestones so the roadmap reflects the current repo state; no estimator semantics changes. |
 
 ---
 

@@ -2,7 +2,7 @@
 
 Engineering roadmap for implementing and validating Wibral-group shared-exclusions PID (SxPID, `I^sx_∩`) for Vision-Language-Action (VLA) diagnostics.
 
-Canonical research specification: `grandplan.md` (v5.2, Jan 2026).
+Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 
 ---
 
@@ -10,8 +10,8 @@ Canonical research specification: `grandplan.md` (v5.2, Jan 2026).
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v5.2** | 2026-01-02 | **Explicit computation recipes + stage-wise validation:** implemented Level-0 discrete invariants (Red°/Vul°/Ω/CI) + exact toy tests; clarified how “entropy-only” is estimated in practice. |
-| **v5.1** | 2026-01-02 | **Hypothesis coherence + manifold-first strategy:** unified H1–H4, elevated Shannon invariants (Red°, Vul°) as Level 0 for manifold/high-d regimes, updated §2.5 and §16.7. |
+| **v5.3** | 2026-01-02 | **Docs sync + README consolidation:** updated canonical spec version; removed outdated “build-from-scratch” milestones so the README roadmap matches the current repo state. |
+| **v5.1** | 2026-01-02 | **Coherence + manifold/hierarchy alignment:** clarified hypothesis↔aims framing, strengthened geometry-first + Shannon-invariants hierarchy workflow, and made exact-baseline validation requirements explicit for approximations/accelerations. |
 | **v5.0** | 2026-01-01 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Information geometry methods integrated. Code audit complete. Grant-ready documentation. |
 | v4.0 | 2025-12-28 | Added information geometry methods, intrinsic dimension diagnostics, distance concentration proxies |
 | v3.0 | 2025-12-15 | Critical review and gameplan adjustments, 3-source PID implementation |
@@ -32,7 +32,6 @@ Canonical research specification: `grandplan.md` (v5.2, Jan 2026).
 | **3-source PID** | ✅ Complete | `crates/pid-core/src/pid3.rs` | 18 atoms, Möbius inversion, offline only |
 | **Hierarchical screening** | ✅ Complete | `crates/pid-core/src/hierarchy.rs` | Fast CI → targeted PID, 3-source triplet |
 | **Co-information** | ✅ Complete | `crates/pid-core/src/ci.rs` | Pairwise and triplet CI |
-| **Shannon invariants (Red°, Vul°, Ω; discrete proxies)** | ✅ Complete | `crates/pid-core/src/invariants.rs` | Plug-in discrete entropies + exact toy tests (independent/redundant/XOR) |
 | **Intrinsic dimension** | ✅ Complete | `crates/pid-core/src/geometry.rs` | Levina-Bickel MLE |
 | **Distance concentration** | ✅ Complete | `crates/pid-core/src/geometry.rs` | CV, NN ratio diagnostics |
 | **Preprocessing** | ✅ Complete | `crates/pid-core/src/preprocess.rs` | Standardizer, Jitter, HashProjector |
@@ -56,48 +55,6 @@ Canonical research specification: `grandplan.md` (v5.2, Jan 2026).
 | High-d synthetic (d=256) | ⚠️ Partial | Requires hash projection; estimates drift with d |
 | Gaussian channel (strong dependence) | ⚠️ Partial | Underestimates at σ < 0.03 (expected per Gao et al.) |
 | Intrinsic dimension accuracy | ✅ Pass | Increases correctly with true dimension |
-| Shannon invariants (Red°/Vul°/Ω) on exact toy systems | ✅ Pass | Discrete plug-in entropies match exact values for independent/redundant/XOR |
-
-### Validation gates & tests (estimator vs exact/reference)
-
-Run everything:
-- `cargo test -p pid-core`
-
-Stage-by-stage checks:
-
-- **Level 0 (Shannon invariants on discrete proxies)**:
-  - **What**: `Red°`, `Vul°`, `Ω`, and pairwise `CI` computed *exactly from counts* on discrete label data.
-  - **Tests**: exact toy distributions (independent bits, perfect redundancy, XOR).
-  - **Run**: `cargo test -p pid-core invariants`
-
-- **Level 0 (geometry diagnostics)**:
-  - **What**: intrinsic dimension + distance concentration used to decide if kNN geometry is healthy.
-  - **Tests**: hand-computed example + monotonicity with true dimension.
-  - **Run**: `cargo test -p pid-core geometry`
-
-- **Level 0/1 (KSG MI + CI on continuous variables)**:
-  - **What**: KSG MI (Chebyshev/L∞) and pairwise co-information via MI terms.
-  - **Exact**: analytic Gaussian MI (correlation / Gaussian channel); analytic CI for a Gaussian sum-channel.
-  - **Run**: `cargo test -p pid-core ksg`
-
-- **Level 1 (continuous `I^sx_∩` redundancy)**:
-  - **What**: Ehrlich et al. (2024) disjunction-kNN estimator.
-  - **Reference**: fixed-data cross-check against the authors’ `csxpid` implementation (converted to nats).
-  - **Run**: `cargo test -p pid-core isx`
-
-- **Level 1 (2-source PID atoms; identity constraints)**:
-  - **What**: `{Red, Unq1, Unq2, Syn}` computed from MI + `I^sx_∩` via the bivariate PID identities.
-  - **Check**: internal consistency (`Unq+Red=I(S;T)`, atoms sum to `I(S1,S2;T)`).
-  - **Run**: `cargo test -p pid-core pid2`
-
-- **Level 2 (3-source SxPID; offline)**:
-  - **What**: 18-atom Möbius inversion + redundancy backend.
-  - **Reference**: fixed-data cross-check (see `crates/pid-core/tests/pid3.rs`).
-  - **Run**: `cargo test -p pid-core pid3`
-
-- **Experiment 0 (the project gate, not just unit tests)**:
-  - **What**: scaling sweeps over `{N,d,k}` + strong-dependence sweep + geometry diagnostics.
-  - **Run**: `cargo run -p pid-core --bin exp0`
 
 ### Known Limitations (Be Honest)
 
@@ -105,7 +62,7 @@ Stage-by-stage checks:
 2. **Only Chebyshev metric:** Euclidean/other metrics not implemented
 3. **No PCA in Rust:** Must use Python or `HashProjector` baseline
 4. **Strong dependence regime:** Estimates degrade when true MI > ~4 nats
-5. **Manifold-aware MI/PID not implemented:** Euclidean kNN may fail on curved embeddings (see `grandplan.md` §16). Use Level-0 Shannon invariants on explicit discrete proxies when kNN geometry is unhealthy.
+5. **Manifold-aware estimation not implemented:** geometry diagnostics exist, but Euclidean kNN may fail on curved embeddings (see `grandplan.md` §16)
 6. **No parallelization yet:** Single-threaded; rayon integration planned
 
 ---
@@ -134,7 +91,7 @@ VLA embeddings lie on **low-dimensional manifolds** in high-dimensional space. S
 **Mitigation strategy (implemented):**
 - Compute intrinsic dimension before estimating (§16.5 of grandplan.md)
 - Check distance concentration as a "geometry health check"
-- If manifold effects are significant, fall back to Level-0 Shannon invariants (CI, Ω, Red°, Vul°) on explicit discrete proxies for screening
+- If manifold effects are significant, fall back to Shannon invariants (CI) for screening
 
 See `grandplan.md` §16 for detailed analysis and decision flowcharts.
 
@@ -173,7 +130,7 @@ This repo aims to be **reproducible on macOS (M4 Max) from day 1**.
 2. Sync Python dependencies (never use `pip` directly):
    - `uv sync --frozen` (uses `uv.lock` exactly)
 3. Build/test:
-   - `just test`
+   - `just test` (includes analytic Gaussian MI sanity checks + `csxpid` cross-checks)
    - `just exp0-bin`
 
 Notes:
@@ -241,6 +198,8 @@ pid_vla/
   Near-deterministic relationships can break kNN MI/PID even at low `d`.
   Include strong-dependence sweeps (Gao et al. 2015) in Experiment 0 and do not over-interpret
   MI/PID on effectively noiseless signals.
+- **Any acceleration/approximation must match exact baselines.**
+  Treat KD/ball trees, approximate kNN, and GPU-accelerated distance code as new estimator variants: require agreement with brute-force on analytic MI baselines + `csxpid` cross-check data, and quantify bias via an Experiment 0 subset.
 - **Geometry can invalidate kNN.**
   Track intrinsic dimension and distance-concentration proxies; if intrinsic dimension remains
   high/unstable even after reduction, treat kNN-based MI/`I^sx_∩` as invalid for that regime and
@@ -329,45 +288,14 @@ Suggested `pid-core` internal layout (so work can parallelize cleanly):
 - `nn.rs` — kNN backend abstraction (brute-force baseline first)
 - `stats.rs` — digamma + bootstrap/CI utilities
 
-## Engineering plan (milestones)
+## Roadmap (next engineering milestones)
 
-M0. **Scaffold the project**
-- Create a Cargo workspace with `crates/pid-core/` (and later `crates/pid-python/`).
-- Add a task runner (`justfile`) with at least `build`, `test`, `exp0`.
-- Acceptance: `cargo test` runs locally; deterministic seed plumbing exists.
+The Rust estimator core (`pid-core`) is already implemented in this repo. The remaining critical work is to build the **Python experiment harness + macOS-first VLA embedding extraction**, then run Experiment 0 at VLA-relevant regimes (including geometry diagnostics + dimensionality-reduction pivots) before making any VLA claims.
 
-M1. **Implement KSG mutual information (Rust)**
-- Implement KSG MI with correct metric + tie handling + digamma; add unit tests.
-- Acceptance: matches a known-good small-d reference within tolerance; stable across seeds.
-
-M2. **Implement continuous `I^sx_∩` redundancy (Rust)**
-- Implement continuous shared-exclusions redundancy per Ehrlich et al. (2024), factored so kNN backend can be swapped later.
-- Acceptance: passes Experiment 0 synthetic scenarios at low dimension and does not exhibit obvious numerical pathologies.
-
-M3. **Implement 2-source PID wrapper + invariants checks**
-- Combine `I(S1;T)`, `I(S2;T)`, `I(S1,S2;T)`, and `I^sx_∩` into `{Red, Unq1, Unq2, Syn}` with optional bootstrap SE/CI.
-- Acceptance: internal consistency checks pass (`MI ≈ Red+Unq1+Unq2+Syn` within tolerance).
-
-M4. **Experiment 0 (mandatory gate)**
-- Run synthetic validation across `{d,n,k}` (including “VLA-like” d, or demonstrate collapse and pivot to dim reduction).
-- Acceptance (from spec): d=10 (<5% error), d=100 (<10%), d=1000 (<15%), d=4096 (<20% *or* require dim reduction).
-- Decision: **GO** if stable at d=4096; **PIVOT** if only stable after PCA/random projection (e.g., d≈256); **NO-GO** if unstable even at d≈256.
-
-M5. **Python bindings + experiment harness**
-- Expose Rust to Python (PyO3/maturin) and implement repeatable experiment runners that record full configs + seeds.
-- Acceptance: Python can call `pid2_isx` and reproduce Experiment 0 results.
-
-M6. **VLA data + Experiments 1–4**
-- Implement embedding extraction + dataset interfaces on macOS (prefer MLX/CoreML); run decomposition comparison, baseline comparison, dimensionality study, and causal intervention study.
-- Acceptance: preregistered metrics computed; AUROC + significance tests implemented; full provenance recorded.
-
-M7. **(Optional) Real-time monitoring integration**
-- Build a Rust “PID monitor” process that consumes embeddings from the inference stack (or logs) and computes Level-1 co-information online.
-- Acceptance: bounded latency and stable output on representative rollouts; logs include full config + provenance.
-
-M8. **(Optional) Visualization**
-- Add a lightweight visualization surface (e.g., Tauri/WebView or simple web dashboard) to inspect trajectories and PID metrics.
-- Acceptance: can replay rollouts and overlay metrics for debugging/analysis without changing estimator semantics.
+- **Python harness / bindings**: PyO3/maturin (or thin wrapper) so experiments can call `pid-core` and log full provenance (configs, seeds, transforms).
+- **macOS VLA embedding extraction**: MLX/CoreML pipeline + a stable on-disk format for `(V,L,D,A[,A*])`.
+- **Dimensionality reduction pipeline (Python-first)**: PCA (variance target) + projection baselines; enforce train-only fitting to prevent leakage.
+- **Performance (later)**: SIMD/rayon; optional exact low-d trees; explicit “approx” modes only after exact-baseline regression tests + Experiment 0 subset bias quantification.
 
 ## Experiments (actionable, step-by-step)
 

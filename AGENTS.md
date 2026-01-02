@@ -2,7 +2,7 @@
 
 This file is for Codex CLI agents and contributors working in this repo.
 
-Canonical spec: `grandplan.md` (v5.2, Jan 2026).
+Canonical spec: `grandplan.md` (v5.3, Jan 2026).
 
 ---
 
@@ -10,8 +10,8 @@ Canonical spec: `grandplan.md` (v5.2, Jan 2026).
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v5.2** | 2026-01-02 | **Explicit computation recipes + stage-wise validation:** implemented Level-0 discrete invariants (Red°/Vul°/Ω/CI) + exact toy tests; clarified how “entropy-only” is estimated in practice. |
-| **v5.1** | 2026-01-02 | **Hypothesis coherence + manifold-first strategy:** unified H1–H4, elevated Shannon invariants (Red°, Vul°) as Level 0 for manifold/high-d regimes, updated §2.5 and §16.7. |
+| **v5.3** | 2026-01-02 | **Docs sync:** bumped canonical spec version across repo docs; tightened README roadmap to reflect current repo state (Rust core already implemented). |
+| **v5.1** | 2026-01-02 | **Coherence + manifold/hierarchy alignment:** clarified hypothesis↔aims, made geometry-first + Shannon-invariants hierarchy explicit, and strengthened “approximation must match exact baselines” validation rules across docs. |
 | **v5.0** | 2026-01-01 | **Final audit release:** Added PCA/kNN manifold limitations, confounding analysis, numerical stability, code audit. Grant-ready. |
 | v4.0 | 2025-12-28 | Information geometry methods, intrinsic dimension, distance concentration |
 | v3.0 | 2025-12-15 | 3-source PID, hierarchical screening improvements |
@@ -32,7 +32,6 @@ Canonical spec: `grandplan.md` (v5.2, Jan 2026).
 | `pid3.rs` | ✅ Complete | ✅ Pass | 18-atom Möbius inversion |
 | `hierarchy.rs` | ✅ Complete | ✅ Pass | CI screening + triplet |
 | `ci.rs` | ✅ Complete | ✅ Pass | |
-| `invariants.rs` | ✅ Complete | ✅ Pass | Exact toy distributions (independent/redundant/XOR) |
 | `geometry.rs` | ✅ Complete | ✅ Pass | ID scales correctly |
 | `preprocess.rs` | ✅ Complete | ✅ Pass | |
 | `bin/exp0.rs` | ✅ Complete | ✅ Pass | Synthetic + Gaussian channel |
@@ -481,7 +480,7 @@ Continuous `I^sx_∩` redundancy (Ehrlich et al. 2024):
 High-dimensional regime handling:
 - Expect **distance concentration** and estimator collapse at large `d`; do not hide this.
   Detect it via intrinsic-dimension estimates (implemented) and distance-concentration proxies
-  (TODO), then trigger the Experiment 0 “PIVOT” path (dim reduction).
+  (implemented; basic proxies), then trigger the Experiment 0 “PIVOT” path (dim reduction).
 - Default approach: PCA to ~256 dims (variance retained target) + rerun Experiment 0 to re-establish accuracy.
 - Strong dependence is a separate pathology from high `d`: large true MI (near-deterministic
   mappings) can break kNN MI/PID at low `d` unless sample sizes are enormous (Gao et al. 2015).
@@ -495,7 +494,7 @@ Every experiment output that depends on the Rust estimator should record:
 - environment (OS/arch, `rustc --version`, BLAS/GPU backend if applicable),
 - sample sizes and effective dimensions after reduction,
 - random seeds for any stochastic step (jitter, bootstrap, random projection),
-- warnings/diagnostics (e.g., intrinsic dimension, distance-concentration proxies (TODO),
+- warnings/diagnostics (e.g., intrinsic dimension, distance-concentration proxies (implemented; basic),
   excessive ties, NaNs clamped/filtered).
 
 ### Validation obligations (what to test, always)
@@ -511,7 +510,9 @@ Experiment 0 (required gate; see `grandplan.md` §9.1):
 
 Cross-checks (recommended):
 - For small `d` and moderate `n`, compare MI estimates against a known-good Python implementation (e.g., SciPy/sklearn-based KSG) to catch off-by-one/tie bugs.
+- Compare MI estimates against analytic baselines where available (e.g., correlated Gaussians / Gaussian channel) to detect estimator drift under strong dependence.
 - For small `d`, cross-check `I^sx_∩` redundancy against `csxpid` (authors’ reference impl) to catch disjunction-distance/tie-rule bugs.
+- If you add any accelerated/approximate kNN backend, require a regression test showing agreement with the brute-force backend on a frozen dataset (and re-run an Experiment 0 subset to quantify bias).
 - Add invariants-based smoke tests:
   - `I(S1,S2;T)` should approximately equal `Red + Unq1 + Unq2 + Syn` (numerical tolerance)
   - `Unq1 + Red` should approximately equal `I(S1;T)` (same for S2)
