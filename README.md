@@ -2,9 +2,23 @@
 
 Engineering roadmap for implementing and validating Wibral-group shared-exclusions PID (SxPID, `I^sx_∩`) for Vision-Language-Action (VLA) diagnostics.
 
-Canonical research specification: `grandplan.md` (v5.5, Jan 2026).
+Canonical research specification: `grandplan.md` (v5.6, Jan 2026).
 
 > **⚠️ Critical Discovery (v5.5):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
+
+> **🚧 WORK IN PROGRESS (v5.6): Top 5 Manifold-Compatible Approaches**
+> 
+> 1. **The "Manifold Unrolling" Approach (Isomap/AE → Standard Estimator):** Flatten manifold to low-d Euclidean space, then run standard `I^sx_∩`.
+> 2. **The "Geodesic MI" Approach (Manifold kNN → Shannon Invariants):** Use geodesic distances for MI only; derive Co-Information (Red - Syn).
+> 3. **The "Linear Projection" Approach (PCA → Standard Estimator):** PCA to ~256 dims preserves "box" logic better than nonlinear warping if locally flat.
+> 4. **The "Quantization" Approach (Clustering → Discrete PID):** Map continuous embeddings to discrete cluster IDs; use discrete `I^sx_∩`.
+> 5. **The "Copula Transform" Approach (Rank Transform → Standard Estimator):** Force Uniform marginals to maximize L∞ efficiency in high dimensions.
+>
+> **⛔ EXCLUDED APPROACHES (Why they didn't make the list):**
+> 
+> *   **Kernel Density Estimation (KDE):** Bandwidth selection impossible at d=4096; numerical integration of "disjunction" shape is intractable.
+> *   **Harmonic/Spectral Methods:** $O(N^3)$ cost; uncontrolled density distortion compared to Isomap.
+> *   **Naive Geodesic kNN (for PID atoms):** **Violates v5.5 Warning.** Curvature breaks the exact volume cancellation required for `I^sx_∩` atoms.
 
 ---
 
@@ -12,6 +26,7 @@ Canonical research specification: `grandplan.md` (v5.5, Jan 2026).
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **v5.6** | 2026-01-02 | **Manifold Solutions (WIP):** Added top 5 engineering approaches (Unrolling, Geodesic MI, PCA, Quantization, Copula) and documented exclusions (KDE, Harmonic, Naive Geodesic). |
 | **v5.5** | 2026-01-02 | **Manifold/Lorentz Limitation Fix:** Documented that Wibral PID on manifolds requires new derivations; warned against naive application of Euclidean estimators to curved spaces. |
 | **v5.4** | 2026-01-02 | **VLA architecture integration + coherence:** clarified how OpenVLA/DreamVLA/PixelVLA/TraceVLA affect variable definitions; tightened hierarchy-vs-geometry story; clarified units (bits vs nats). |
 | **v5.3** | 2026-01-02 | **Hierarchy vs Geometry:** Distinguished source-count scaling (hierarchy) from estimator validity (geometry). |

@@ -2,12 +2,39 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 5.5 (Manifold/Lorentz derivation fix + VLA architecture integration)  
+**Version:** 5.6 (Manifold Unrolling + Quantization Approaches)  
 **Date:** 2026-01-02  
 **Status:** Research Specification (critical assessment + engineering roadmap)  
 **Canonical:** This is the living spec; prior versions live in git history.
 
 > **⚠️ Critical Discovery (v5.5):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
+
+> **🚧 WORK IN PROGRESS (v5.6): Top 5 Manifold-Compatible Approaches**
+> 
+> 1. **The "Manifold Unrolling" Approach (Isomap/AE → Standard Estimator):**
+>    Use Isomap or Contractive Autoencoders to flatten the manifold into a lower-dimensional Euclidean space (e.g., d=32), then run the standard Ehrlich `I^sx_∩` estimator. This "unrolls" the geometry so L∞ distances become valid proxies.
+> 
+> 2. **The "Geodesic MI" Approach (Manifold kNN → Shannon Invariants):**
+>    Abandon PID atoms. Use a Manifold-Aware MI Estimator (Marx & Fischer 2021) with geodesic distances to compute Mutual Information only. Derive Co-Information (Red - Syn) as a rigorous, coordinate-invariant scalar summary.
+> 
+> 3. **The "Linear Projection" Approach (PCA → Standard Estimator):**
+>    Pragmatic baseline. Use PCA to reduce to ~256 dims. PCA is a linear rotation, preserving the "box" volume logic of the Chebyshev estimator better than nonlinear warping, provided the manifold is locally flat enough.
+> 
+> 4. **The "Quantization" Approach (Clustering → Discrete PID):**
+>    Map continuous embeddings to discrete cluster IDs (k=100..1000) using k-means/VQ. Use the classic Discrete `I^sx_∩` estimator (Makkeh et al. 2021), effectively bypassing geometry issues by counting mass instead of volumes.
+> 
+> 5. **The "Copula Transform" Approach (Rank Transform → Standard Estimator):**
+>    Apply empirical CDF transform to every dimension to force Uniform marginals. This mitigates "empty space" issues in high-d L∞ metrics and maximizes estimator efficiency, though it ignores dependencies during the transform.
+>
+> **⛔ EXCLUDED APPROACHES (Why they didn't make the list):**
+> 
+> *   **Kernel Density Estimation (KDE):** Excluded due to the "curse of dimensionality" at d=4096 (bandwidth selection is statistically impossible). Furthermore, numerically integrating the complex "disjunction" shape for `I^sx_∩` is intractable compared to KSG counting.
+> *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to computational cost ($O(N^3)$ eigendecomposition) and uncontrolled density distortion. Unlike Isomap ("Unrolling"), spectral embeddings change local volumes in ways that are difficult to correct for PID.
+> *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 2, which restricts itself to MI/CI where this cancellation is not required).
+
+**v5.6 notes (changes without deleting prior work):**
+- **Added Top 5 Manifold Solutions:** Explicitly listed "Manifold Unrolling", "Geodesic MI", "Linear Projection", "Quantization", and "Copula Transform" as practical engineering paths to address the v5.5 geometry warning.
+- **Documented Exclusions:** Explicitly noted why KDE, Harmonic Math, and Naive Geodesic kNN are suboptimal or dangerous in this context.
 
 **v5.5 notes (changes without deleting prior work):**
 - **Critical Documentation Fix:** Explicitly documented that Wibral PID (`I^sx_∩`) on manifolds/Lorentz spaces requires new derivations (volume forms/disjunctions).
@@ -8001,7 +8028,11 @@ release: build build-wheel
 | 2.9 | Jan 2026 | **PixelVLA integration & sae_analysis notes:** (1) Added §7.3 PixelVLA architecture: multiscale pixel-aware encoder, visual prompting encoder, continuous action decoder, Pixel-160K dataset. (2) Added §7.4 TraceVLA: visual trace prompting for spatial-temporal awareness. (3) Added §10.8.7 PixelVLA + Headless Gazebo + Tauri integration: data flow diagram, visual prompting in Tauri (TypeScript), PixelVLA-specific PID analysis (Rust), latency budget (~86ms interactive). (4) Added §B.3.3.2 Abzinger/sae_analysis: Shannon invariants (Red°, Vul°) for SAE analysis, comparison with our approach. (5) Updated §B.3.3.5 to clarify sae_analysis is **not** an `I^sx_∩` estimator; added implementation-level definitions of Red°/Vul° and safe integration guidance (SAE compression + screening), not a correctness validation for `I^sx_∩`. (6) Updated §7.5 with MemoryVLA, CoT-VLA. (7) Added PixelVLA, TraceVLA, sae_analysis to references (§13.2, §13.3). (8) Updated glossary with PixelVLA, TraceVLA, Red°, Vul°, multiscale pixel-aware encoder, Pixel-160K. |
 | 3.0 | Jan 2026 | **First-principles audit pass:** (1) Reframed “synergy sign” as a falsifiable hypothesis (not a definition); clarified deterministic-target degeneracy in VLA decompositions and the need for external targets/counterfactuals. (2) Tightened estimator risk framing and strengthened Experiment 0 as a scientific gate before any VLA claims. (3) Added/expanded i.i.d. vs trajectory autocorrelation guidance (sampling unit, block bootstrap). |
 | 4.0 (Draft) | Jan 2026 | **Audited + citation-verified pass:** (1) Added explicit reference verification policy and downgraded unsourced architecture/latency statements to “unverified sketches”. (2) Added strong-dependence warning (Gao et al. 2015) and integrated a Gaussian-channel strong-dependence sweep into Experiment 0. (3) Added MI/CMI estimator comparison section (Gao-LNC/local Gaussian, MINE, CCMI) strictly as MI/CMI baselines (do not mix estimator families inside SxPID identities). (4) Verified key VLA citations (notably DreamVLA) and added optional background papers (OpenVLThinker, SRL, diffusion parameterization). (5) Cleaned up NF-PID (“Thin-PID” legacy) naming and other citation/notation fixes. (6) Corrected/clarified Shannon-invariant definitions (CI sign conventions; Ω vs target co-information) and reconciled scaling sketches. (7) Aligned reproducibility guidance with repo-canonical `flake.nix` + `uv.lock` workflow (macOS-first). (8) Integrated differential-geometry contingencies into §8.1.5 without relying on a repo-local PDF. |
-| **5.0** | Jan 2026 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Integrated information geometry methods and intrinsic dimension estimation. Code audit complete (implementation cross-checked). Grant-ready documentation with full provenance tracking. |
+| 5.0 | Jan 2026 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Integrated information geometry methods and intrinsic dimension estimation. Code audit complete (implementation cross-checked). Grant-ready documentation with full provenance tracking. |
+| 5.1-5.3 | Jan 2026 | **Refinements:** Clarified variable definitions for OpenVLA/DreamVLA, added scope for visual prompting/trace architectures, and distinguished source-count scaling (hierarchy) from estimator validity (geometry). |
+| 5.4 | Jan 2026 | **VLA Integration:** Verified key VLA + Shannon-invariants citations (OpenVLA, DreamVLA, PixelVLA, TraceVLA). Clarified primary hypothesis vs. candidate sub-hypotheses and mapped them to aims. |
+| 5.5 | Jan 2026 | **Critical Geometry Fix:** Documented that Wibral PID (`I^sx_∩`) on manifolds/Lorentz spaces requires new derivations. Added top-level warning against naive Euclidean application. |
+| 5.6 | Jan 2026 | **Manifold Approaches (WIP):** Added Top 5 manifold-compatible engineering approaches (Unrolling, Geodesic MI, Linear Projection, Quantization, Copula Transform) to address the v5.5 discovery. |
 
 ---
 
