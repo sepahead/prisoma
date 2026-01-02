@@ -11,6 +11,7 @@ Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 | Version | Date | Changes |
 |---------|------|---------|
 | **v5.3** | 2026-01-02 | **Docs sync + README consolidation:** updated canonical spec version; removed outdated “build-from-scratch” milestones so the README roadmap matches the current repo state. |
+| **v5.2** | 2026-01-02 | **Shannon invariants (exact discrete):** added `pid-core` discrete invariants (`invariants.rs`: entropies, Red°, Vul°, Ω, discrete CI) + tests for XOR/redundant/independent toy systems to provide exact sanity checks for estimator/approximation changes. |
 | **v5.1** | 2026-01-02 | **Coherence + manifold/hierarchy alignment:** clarified hypothesis↔aims framing, strengthened geometry-first + Shannon-invariants hierarchy workflow, and made exact-baseline validation requirements explicit for approximations/accelerations. |
 | **v5.0** | 2026-01-01 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Information geometry methods integrated. Code audit complete. Grant-ready documentation. |
 | v4.0 | 2025-12-28 | Added information geometry methods, intrinsic dimension diagnostics, distance concentration proxies |
@@ -32,6 +33,7 @@ Canonical research specification: `grandplan.md` (v5.3, Jan 2026).
 | **3-source PID** | ✅ Complete | `crates/pid-core/src/pid3.rs` | 18 atoms, Möbius inversion, offline only |
 | **Hierarchical screening** | ✅ Complete | `crates/pid-core/src/hierarchy.rs` | Fast CI → targeted PID, 3-source triplet |
 | **Co-information** | ✅ Complete | `crates/pid-core/src/ci.rs` | Pairwise and triplet CI |
+| **Shannon invariants (exact discrete)** | ✅ Complete | `crates/pid-core/src/invariants.rs` | Entropies + Red°/Vul°/Ω + discrete CI (toy-system exact baselines) |
 | **Intrinsic dimension** | ✅ Complete | `crates/pid-core/src/geometry.rs` | Levina-Bickel MLE |
 | **Distance concentration** | ✅ Complete | `crates/pid-core/src/geometry.rs` | CV, NN ratio diagnostics |
 | **Preprocessing** | ✅ Complete | `crates/pid-core/src/preprocess.rs` | Standardizer, Jitter, HashProjector |
@@ -108,6 +110,7 @@ See `grandplan.md` §16 for detailed analysis and decision flowcharts.
   - 2-source PID atoms `{Red, Unq1, Unq2, Syn}`: `crates/pid-core/src/pid2.rs`
   - Hierarchical “fast→slow” screening (CI → selected pairwise PID; optional full 3-source SxPID): `crates/pid-core/src/hierarchy.rs`
   - Optional full 3-source continuous SxPID (18 atoms; offline only): `crates/pid-core/src/pid3.rs`
+  - Discrete Shannon invariants (exact): entropies + Red°/Vul°/Ω + discrete CI in `crates/pid-core/src/invariants.rs` (see `crates/pid-core/tests/invariants.rs`)
   - Preprocessing (dependency-free): `Standardizer`, `Jitter`, `HashProjector` in `crates/pid-core/src/preprocess.rs`
   - Geometry diagnostics: intrinsic dimension + basic distance concentration proxies in `crates/pid-core/src/geometry.rs`
   - Quick Experiment 0 runner: `cargo run -p pid-core --bin exp0` (prints a small synthetic sweep + geometry diagnostics)

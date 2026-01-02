@@ -11,6 +11,7 @@ Canonical spec: `grandplan.md` (v5.3, Jan 2026).
 | Version | Date | Changes |
 |---------|------|---------|
 | **v5.3** | 2026-01-02 | **Docs sync:** bumped canonical spec version across repo docs; tightened README roadmap to reflect current repo state (Rust core already implemented). |
+| **v5.2** | 2026-01-02 | **Shannon invariants (exact discrete):** added `crates/pid-core/src/invariants.rs` (entropies, Red°, Vul°, Ω, discrete CI) + tests to provide exact toy-system sanity checks for estimator/approximation changes. |
 | **v5.1** | 2026-01-02 | **Coherence + manifold/hierarchy alignment:** clarified hypothesis↔aims, made geometry-first + Shannon-invariants hierarchy explicit, and strengthened “approximation must match exact baselines” validation rules across docs. |
 | **v5.0** | 2026-01-01 | **Final audit release:** Added PCA/kNN manifold limitations, confounding analysis, numerical stability, code audit. Grant-ready. |
 | v4.0 | 2025-12-28 | Information geometry methods, intrinsic dimension, distance concentration |
@@ -32,6 +33,7 @@ Canonical spec: `grandplan.md` (v5.3, Jan 2026).
 | `pid3.rs` | ✅ Complete | ✅ Pass | 18-atom Möbius inversion |
 | `hierarchy.rs` | ✅ Complete | ✅ Pass | CI screening + triplet |
 | `ci.rs` | ✅ Complete | ✅ Pass | |
+| `invariants.rs` | ✅ Complete | ✅ Pass | Exact discrete Shannon invariants (Red°, Vul°, Ω, CI) |
 | `geometry.rs` | ✅ Complete | ✅ Pass | ID scales correctly |
 | `preprocess.rs` | ✅ Complete | ✅ Pass | |
 | `bin/exp0.rs` | ✅ Complete | ✅ Pass | Synthetic + Gaussian channel |
@@ -213,6 +215,7 @@ See `grandplan.md` §16 for full theoretical analysis and §15 for numerical sta
   - Hierarchical screening (`hierarchical_pairwise`, `hierarchical_triplet`)
   - Optional full 3-source continuous SxPID (`pid3_isx`, offline/expensive)
   - Preprocessing helpers (`Standardizer`, `Jitter`, `HashProjector`)
+  - Discrete Shannon invariants (exact): entropies + Red°/Vul°/Ω + discrete CI (`invariants.rs`)
   - Geometry diagnostics:
     - intrinsic dimension (`intrinsic_dimension_levina_bickel`)
     - basic distance concentration proxies (`distance_concentration_stats`)

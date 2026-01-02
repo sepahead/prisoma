@@ -20,6 +20,9 @@
 - Made the **geometry-first (manifold) gate** + **hierarchical (Shannon-invariants) compute path** explicit in the early recommended workflow.
 - Added explicit “**approximation must match exact baselines**” rules for accelerated kNN / dimensionality reduction variants.
 
+**v5.2 notes (Jan 2026):**
+- Added **exact discrete Shannon-invariants utilities** in `pid-core` (`invariants.rs`: entropies, Red°, Vul°, Ω, and discrete CI) to support *ground-truth* toy-system sanity checks and to validate approximations/accelerations against exact baselines.
+
 **v5.3 notes (Jan 2026):**
 - Version bump to keep repo docs consistent.
 - Consolidated README roadmap to remove outdated “build from scratch” milestones (the Rust core is already implemented in this repo).
@@ -7942,6 +7945,7 @@ release: build build-wheel
 | 4.0 (Draft) | Jan 2026 | **Audited + citation-verified pass:** (1) Added explicit reference verification policy and downgraded unsourced architecture/latency statements to “unverified sketches”. (2) Added strong-dependence warning (Gao et al. 2015) and integrated a Gaussian-channel strong-dependence sweep into Experiment 0. (3) Added MI/CMI estimator comparison section (Gao-LNC/local Gaussian, MINE, CCMI) strictly as MI/CMI baselines (do not mix estimator families inside SxPID identities). (4) Verified key VLA citations (notably DreamVLA) and added optional background papers (OpenVLThinker, SRL, diffusion parameterization). (5) Cleaned up NF-PID (“Thin-PID” legacy) naming and other citation/notation fixes. (6) Corrected/clarified Shannon-invariant definitions (CI sign conventions; Ω vs target co-information) and reconciled scaling sketches. (7) Aligned reproducibility guidance with repo-canonical `flake.nix` + `uv.lock` workflow (macOS-first). (8) Integrated differential-geometry contingencies into §8.1.5 without relying on a repo-local PDF. |
 | **5.0** | Jan 2026 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Integrated information geometry methods and intrinsic dimension estimation. Code audit complete (implementation cross-checked). Grant-ready documentation with full provenance tracking. |
 | **5.1** | Jan 2026 | **Coherence + manifold/hierarchy alignment:** Completed TOC coverage for §§14–16 + appendices; clarified hypothesis→aims structure (synergy sign is a candidate feature, not the sole claim); made the geometry-first + hierarchical compute gates explicit; added “approximation must match exact baselines” validation rules. |
+| **5.2** | Jan 2026 | **Shannon invariants (exact discrete) + baselines:** added `pid-core` discrete invariants (`invariants.rs`: Red°, Vul°, Ω, discrete CI) + tests for XOR/redundant/independent toy systems to provide exact sanity checks for estimator/approximation changes. |
 | **5.3** | Jan 2026 | **Docs sync + README consolidation:** bumped canonical spec version across docs; removed outdated README milestones so the roadmap reflects the current repo state; no estimator semantics changes. |
 
 ---
