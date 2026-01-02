@@ -60,7 +60,7 @@
 
 ## 1.1 What This Document Is
 
-This document provides a comprehensive specification for applying Partial Information Decomposition (PID), specifically the shared-exclusions measure I^sx_∩ from the Wibral group at Göttingen, to diagnose grounding failures ("hallucinations") in Vision-Language-Action (VLA) models.
+This document provides a comprehensive **research specification and engineering roadmap** for using Partial Information Decomposition (PID)—specifically the Wibral-group shared-exclusions measure `I^sx_∩`—and related Shannon-invariant summaries to **investigate, validate, and (if supported by experiments) deploy** information-decomposition signals as diagnostics for grounding failures (“hallucinations”) in Vision-Language-Action (VLA) models.
 
 **Scope constraint (PhD-critical):**
 - This document is intentionally anchored on the **Wibral/Göttingen line of work**: shared-exclusions PID (`I^sx_∩`, “SxPID”) and the related **Shannon-invariants** program (Gutknecht et al. 2025).
