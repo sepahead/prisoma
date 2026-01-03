@@ -12210,4 +12210,54 @@ release: build build-wheel
 
 ---
 
+## Appendix C: Modern Rendering Stack (SparkJS / WebGPU)
+
+**Context:** The simulation environment described in §10.8 relies on a novel "Splat-First" rendering stack. This appendix details the technical specifications for the visualization layer.
+
+### C.1 SparkJS Architecture
+
+SparkJS is a custom WebGPU renderer designed for high-performance 3D Gaussian Splatting (3DGS). It replaces standard rasterizers to enable:
+1.  **Sorting on GPU:** Radix sort implemented in WGSL compute shaders (vs CPU sort in standard Three.js/Luma).
+2.  **Zero-Copy Updates:** Direct access to shared memory buffers (via Zenoh/Rust) for updating splat positions from physics.
+3.  **Dyno Shaders:** Programmable compute shaders that modify splat attributes (color, alpha, scale) per-frame based on PID data streams.
+
+### C.2 Dyno Shader Specification
+
+**Concept:** A "Dyno" is a compute shader stage that runs before sorting. It takes PID metrics and environmental state as input and outputs modified splat attributes.
+
+**PID Heatmap Dyno (WGSL):**
+```wgsl
+struct PidMetric {
+    synergy: f32,
+    redundancy: f32,
+    unique_v: f32,
+}
+
+@group(0) @binding(0) var<storage, read> pid_buffer: array<PidMetric>;
+@group(0) @binding(1) var<storage, read_write> splat_colors: array<vec4f>;
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let i = global_id.x;
+    let pid = pid_buffer[i];
+    
+    // Diverging colormap: Red (Syn) -> Gray (Red) -> Blue (Unq)
+    let syn_color = vec3f(1.0, 0.0, 0.0);
+    let red_color = vec3f(0.5, 0.5, 0.5);
+    let unq_color = vec3f(0.0, 0.0, 1.0);
+    
+    // Mix based on dominant metric
+    var final_color = red_color;
+    if (pid.synergy > pid.redundancy && pid.synergy > pid.unique_v) {
+        final_color = mix(red_color, syn_color, pid.synergy);
+    } else if (pid.unique_v > pid.redundancy) {
+        final_color = mix(red_color, unq_color, pid.unique_v);
+    }
+    
+    splat_colors[i] = vec4f(final_color, 1.0);
+}
+```
+
+---
+
 *End of Document*

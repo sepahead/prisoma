@@ -1,7 +1,7 @@
 # PID-VLA Experimental Protocols
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** 1.0  
+**Version:** 1.1 (Full 5-Experiment Suite)  
 **Date:** 2026-01-03  
 **Context:** This document provides exact specifications for reproducing all experiments defined in `grandplan.md` §9, using the PID-Splat environment from `pidsplatspecs.md`.
  
@@ -13,13 +13,15 @@
 2. [Robot Configuration](#2-robot-configuration)
 3. [VLA Model Setup](#3-vla-model-setup)
 4. [Experiment 0: Estimator Validation](#4-experiment-0-estimator-validation)
-5. [Experiment 1: Pick-and-Place](#5-experiment-1-pick-and-place)
-6. [Experiment 2: Long-Horizon Assembly](#6-experiment-2-long-horizon-assembly)
-7. [Experiment 3: Dream2Flow Validation](#7-experiment-3-dream2flow-validation)
-8. [Perturbation Library](#8-perturbation-library)
-9. [Data Formats & Storage](#9-data-formats--storage)
-10. [Compute Requirements](#10-compute-requirements)
-11. [Reproducibility Checklist](#11-reproducibility-checklist)
+5. [Experiment 1: Pick-and-Place (Baseline)](#5-experiment-1-pick-and-place-baseline)
+6. [Experiment 2: Long-Horizon Assembly (Temporal)](#6-experiment-2-long-horizon-assembly-temporal)
+7. [Experiment 3: Instruction Perturbation (Robustness)](#7-experiment-3-instruction-perturbation-robustness)
+8. [Experiment 4: Dream2Flow Validation (Flow-as-Bridge)](#8-experiment-4-dream2flow-validation-flow-as-bridge)
+9. [Experiment 5: Cross-Embodiment (Generalization)](#9-experiment-5-cross-embodiment-generalization)
+10. [Perturbation Library](#10-perturbation-library)
+11. [Data Formats & Storage](#11-data-formats--storage)
+12. [Compute Requirements](#12-compute-requirements)
+13. [Reproducibility Checklist](#13-reproducibility-checklist)
  
 ---
  
@@ -39,7 +41,7 @@
 # Capture
 # Device: iPhone 15 Pro with Polycam app
 # Method: 360° orbit around table, 2 minutes, 4K @30fps
-# Lighting: Diffuse overhead (avoid harsh shadows)
+# Lighting: Diffuse overhead (avoid harsh shadows) 
  
 # Training
 ns-train splatfacto \
@@ -533,9 +535,10 @@ def detokenize_action(tokens: np.ndarray, n_bins: int = 256) -> np.ndarray:
 | Layer Name                 | Tensor Shape       | Description             | Use in PID      |
 | -------------------------- | ------------------ | ----------------------- | --------------- |
 |  vision_encoder.patch_embed  | (B, 256, 1024)     | Raw ViT patch tokens    | —               |
-|  vision_encoder.output       | (B, 256, 1024)     | Post-attention vision   | V (mean pooled) |
-|  language_encoder.output     | (B, seq_len, 4096) | Instruction embedding   | L (mean pooled) |
-|  fusion_layer.output         | (B, 1, 4096)       | Cross-attention fused   | —               |
+| `vision_encoder.output` | (n_patches, 1024) | Post-attention visual tokens | `vla/emb/vision` |
+| `language_encoder.output` | (n_tokens, 4096) | Instruction embedding | `vla/emb/language` |
+| `llm.residual_pre_attn` | (1, 4096) | Pre-attention state (Mitigates RoPE) | `vla/emb/clean_d` |
+| `fusion_layer.output` | (1, 4096) | Fused V+L representation | `vla/emb/fused` |
 |  action_head.input           | (B, 1, 4096)       | Pre-action hidden state | D (World Model) |
 |  action_head.logits          | (B, 8, 256)        | Action distribution     | A (argmax)      |
 
@@ -689,8 +692,8 @@ def generate_synthetic_data(n: int, d: int, scenario: str, noise: float = 0.05):
 
 ---
  
-## 5. Experiment 1: Pick-and-Place
-Hypothesis Tested: H1 (Negative synergy predicts failure), H2 (Modality contribution)
+## 5. Experiment 1: Pick-and-Place (Baseline)
+Hypothesis Tested: H1 (Negative synergy indicates subadditive information/potential hallucination), H2 (Modality contribution)
 
 ### 5.1 Task Definition
 | Property               | Value                                                        |
@@ -796,17 +799,19 @@ class PickPlaceEpisode:
     pid_action_synergy: np.ndarray        # (T/6,)
     pid_action_redundancy: np.ndarray     # (T/6,)
     pid_action_unique_v: np.ndarray       # (T/6,)
-    pid_action_unique_l: np.ndarray       # (T/6,)
+    pid_action_unique_d: np.ndarray       # (T/6,)
     
     # Target: 3D Flow (Tests H7 - World Model Consistency)
     pid_flow_synergy: np.ndarray          # (T/6,)
     pid_flow_redundancy: np.ndarray       # (T/6,)
+    pid_flow_unique_v: np.ndarray         # (T/6,)
+    pid_flow_unique_d: np.ndarray         # (T/6,)
     
     pid_co_information: np.ndarray        # (T/6,)
 ```
 
-5.4 PID Computation
-// python
+### 5.4 PID Computation
+```python
 from pid_core import pid2_isx, MatRef, Pid2Config, KsgConfig, IsxConfig, IsxMethod
  
 def compute_episode_pid(episode: PickPlaceEpisode, window_size: int = 20) -> dict:
@@ -870,12 +875,18 @@ def compute_episode_pid(episode: PickPlaceEpisode, window_size: int = 20) -> dic
         res_f = pid2_isx(win_V, win_D, win_T, cfg)
         results["flow"]["syn"].append(res_f.synergy)
         results["flow"]["red"].append(res_f.redundancy)
+        results["flow"]["unq_v"].append(res_f.unique_s1)
+        results["flow"]["unq_d"].append(res_f.unique_s2)
     
     return {
         "pid_action_synergy": np.array(results["action"]["syn"]),
         "pid_action_redundancy": np.array(results["action"]["red"]),
+        "pid_action_unique_v": np.array(results["action"]["unq_v"]),
+        "pid_action_unique_d": np.array(results["action"]["unq_d"]),
         "pid_flow_synergy": np.array(results["flow"]["syn"]),
-        # ... include other terms ...
+        "pid_flow_redundancy": np.array(results["flow"]["red"]),
+        "pid_flow_unique_v": np.array(results["flow"]["unq_v"]),
+        "pid_flow_unique_d": np.array(results["flow"]["unq_d"]),
     }
 
 
@@ -925,8 +936,8 @@ def evaluate_exp1(episodes: List[PickPlaceEpisode]) -> dict:
 
 ---
  
-## 6. Experiment 2: Long-Horizon Assembly
-Hypothesis Tested: H5 (Temporal degradation), H6 (Compositionality)
+## 6. Experiment 2: Long-Horizon Assembly (Temporal)
+Hypothesis Tested: H5 (Compositional Failure Correlates with Temporal Synergy Degradation)
 
 ### 6.1 Task Definition
 | Property         | Value                                                            |
@@ -970,8 +981,7 @@ def detect_task_phases(episode: StackingEpisode) -> List[Tuple[float, float, str
     """
     Detect subtask phases from trajectory.
     
-    Returns: [(start_time, end_time, phase_name), ...]
-    """
+    Returns: [(start_time, end_time, phase_name), ...]"""
     phases = []
     
     # Phase detection based on gripper state and object contacts
@@ -1003,7 +1013,7 @@ def detect_task_phases(episode: StackingEpisode) -> List[Tuple[float, float, str
 ```python
 def analyze_temporal_pid(episode: StackingEpisode) -> dict:
     """
-    Analyze how PID metrics evolve across task phases.
+    Analyze how PID metrics evolve across task phases. 
     
     Tests H5: Does synergy degrade over time in long-horizon tasks?
     """
@@ -1044,11 +1054,41 @@ def analyze_temporal_pid(episode: StackingEpisode) -> dict:
 ```
 
 ---
- 
-## 7. Experiment 3: Dream2Flow Validation
-Purpose: Validate the Flow-as-Bridge approach using WAN-generated video predictions.
 
-### 7.1 WAN Video Generation Setup
+## 7. Experiment 3: Instruction Perturbation (Robustness)
+Hypothesis Tested: **H6** (Safety-Aware Behavior Requires Specific V-L Integration) & General Robustness
+
+### 7.1 Task Definition
+| Property | Value |
+|----------|-------|
+| Task | Pick-and-Place (same as Exp1) |
+| Variations | Instructions are semantically equivalent but syntactically distinct |
+| Goal | Measure robustness of V-L-A PID signatures to language variation |
+
+### 7.2 Experimental Conditions
+```yaml
+experiment_id: exp3_instruction_robustness
+conditions:
+  - name: baseline
+    instruction: "Pick up the red cube."
+  - name: verbose
+    instruction: "I would like you to grasp the small red cube located on the table."
+  - name: safety_constraint
+    instruction: "Carefully pick up the red cube without hitting the blue cylinder."
+  - name: abstract
+    instruction: "Retrieve the crimson object."
+```
+
+### 7.3 PID Metric Analysis
+**Focus:** Compare `Unq(L)` (Unique Language Information) and `Syn(V,L;A)` across conditions.
+**Prediction:** Safety constraints should increase `Unq(L)` or `Syn(V,L;A)` compared to baseline if the model is attending to the constraint.
+
+---
+ 
+## 8. Experiment 4: Dream2Flow Validation (Flow-as-Bridge)
+Hypothesis Tested: **H7** (3D Object Flow serves as an embodiment-agnostic integration diagnostic)
+
+### 8.1 WAN Video Generation Setup
 ```python
 # WAN 2.2 configuration
 WAN_CONFIG = {
@@ -1092,7 +1132,7 @@ def generate_dream_video(
     return np.array(video)
 ```
 
-### 7.2 3D Flow Extraction Pipeline
+### 8.2 3D Flow Extraction Pipeline
 ```python
 def extract_3d_flow(
     video: np.ndarray,
@@ -1134,6 +1174,8 @@ def extract_3d_flow(
     )  # tracks_2d: (n_objects, T, 2)
     
     # 4. Estimate depth for each frame
+    # Note: Use DepthAnythingV3 for general scenes. 
+    # Use DKT (Diffusion Knows Transparency) if scene contains glass/plastic (per grandplan §10.4.3).
     depth_model = DepthAnythingV3()
     depths = np.stack([depth_model(frame) for frame in video])  # (T, H, W)
     
@@ -1162,7 +1204,7 @@ def extract_3d_flow(
     return flows_3d
 ```
 
-### 7.3 Dream2Flow PID Computation
+### 8.3 Dream2Flow PID Computation
 ```python
 @dataclass
 class DreamFlowTrajectory:
@@ -1220,10 +1262,22 @@ def compute_dream_pid(
 ```
 
 ---
- 
-## 8. Perturbation Library
 
-### 8.1 Visual Perturbations
+## 9. Experiment 5: Cross-Embodiment (Generalization)
+Hypothesis Tested: **H7** (Embodiment Gap separation)
+
+### 9.1 Protocol
+Compare PID signatures on the **same task** performed by two different robots (Franka Panda vs. UR5e) with the **same VLA policy** (using cross-embodiment training data or adapters).
+
+### 9.2 Key Comparison
+Compute `Syn(V, D; A_robot)` for both robots.
+*   **Prediction:** `Syn(V, D; Flow)` (World Model) should be similar across embodiments. `Syn(D; A_robot)` should vary if one embodiment is less familiar to the policy.
+
+---
+ 
+## 10. Perturbation Library
+
+### 10.1 Visual Perturbations
 ```python
 class VisualPerturbations:
     """Real-time visual perturbations via SparkJS Dynos"""
@@ -1231,7 +1285,7 @@ class VisualPerturbations:
     @staticmethod
     def lighting_shift(scene, intensity_delta: float, color_temp_k: int):
         """
-        Shift scene lighting.
+        Shift scene lighting. 
         
         Args:
             intensity_delta: -0.5 to 0.5 (relative change)
@@ -1271,7 +1325,7 @@ class VisualPerturbations:
         )
 ```
 
-### 8.2 Physical Perturbations
+### 10.2 Physical Perturbations
 ```python
 class PhysicalPerturbations:
     """Physics-based perturbations via Rapier"""
@@ -1279,7 +1333,7 @@ class PhysicalPerturbations:
     @staticmethod
     def mass_variation(physics_world, object_id: str, scale: float):
         """
-        Scale object mass.
+        Scale object mass. 
         
         Args:
             scale: 0.5 to 2.0 (multiplier)
@@ -1291,7 +1345,7 @@ class PhysicalPerturbations:
     @staticmethod
     def friction_variation(physics_world, object_id: str, new_friction: float):
         """
-        Change surface friction.
+        Change surface friction. 
         
         Args:
             new_friction: 0.1 to 1.0
@@ -1322,7 +1376,7 @@ class PhysicalPerturbations:
         body.apply_impulse(vector![force[0], force[1], force[2]], true)
 ```
 
-### 8.3 Perturbation Schedules
+### 10.3 Perturbation Schedules
 ```yaml
 # experiments/configs/perturbation_schedules.yaml
  
@@ -1364,9 +1418,9 @@ embodiment_battery:
 
 ---
  
-## 9. Data Formats & Storage
+## 11. Data Formats & Storage
 
-### 9.1 Episode Storage (HDF5)
+### 11.1 Episode Storage (HDF5)
 ```python
 import h5py
  
@@ -1410,10 +1464,19 @@ def save_episode(episode: PickPlaceEpisode, filepath: str):
         
         # PID metrics
         pid = f.create_group("pid")
-        pid.create_dataset("synergy", data=episode.pid_synergy)
-        pid.create_dataset("redundancy", data=episode.pid_redundancy)
-        pid.create_dataset("unique_v", data=episode.pid_unique_v)
-        pid.create_dataset("unique_l", data=episode.pid_unique_l)
+        # Action target (H1)
+        action = pid.create_group("action")
+        action.create_dataset("synergy", data=episode.pid_action_synergy)
+        action.create_dataset("redundancy", data=episode.pid_action_redundancy)
+        action.create_dataset("unique_v", data=episode.pid_action_unique_v)
+        action.create_dataset("unique_d", data=episode.pid_action_unique_d)
+        
+        # Flow target (H7)
+        flow = pid.create_group("flow")
+        flow.create_dataset("synergy", data=episode.pid_flow_synergy)
+        flow.create_dataset("redundancy", data=episode.pid_flow_redundancy)
+        flow.create_dataset("unique_v", data=episode.pid_flow_unique_v)
+        flow.create_dataset("unique_d", data=episode.pid_flow_unique_d)
         
         # Object tracking
         objects = f.create_group("objects")
@@ -1421,7 +1484,7 @@ def save_episode(episode: PickPlaceEpisode, filepath: str):
             objects.create_dataset(obj_id, data=poses, compression="gzip")
 ```
 
-### 9.2 Dataset Index (JSON)
+### 11.2 Dataset Index (JSON)
 ```json
 {
   "dataset_id": "pid_vla_exp1_v1",
@@ -1456,17 +1519,17 @@ def save_episode(episode: PickPlaceEpisode, filepath: str):
 
 ---
  
-## 10. Compute Requirements
+## 12. Compute Requirements
 
-### 10.1 Hardware Specifications
+### 12.1 Hardware Specifications
 | Component     | Minimum         | Recommended         |
-| ------------- | --------------- | ------------------- |
+| --------------- | --------------- | ------------------- |
 | Apple Silicon | M2 Pro (16GB)   | M4 Max (64GB)       |
 | NVIDIA GPU    | RTX 3080 (10GB) | A100 (40GB) for WAN |
 | RAM           | 32GB            | 64GB                |
 | Storage       | 500GB SSD       | 2TB NVMe            |
 
-### 10.2 Per-Component Resource Usage
+### 12.2 Per-Component Resource Usage
 | Component              | Device     | VRAM/RAM     | Compute Time  |
 | ---------------------- | ---------- | ------------ | ------------- |
 | OpenVLA 7B (inference) | M4 Max MLX | 16GB unified | ~2s/action    |
@@ -1478,7 +1541,7 @@ def save_episode(episode: PickPlaceEpisode, filepath: str):
 | Rapier Physics         | M4 Max CPU | 0.5GB        | <1ms/step     |
 | SparkJS Render         | M4 Max GPU | 4GB          | 16ms/frame    |
 
-10.3 Latency Budget
+12.3 Latency Budget
 Real-time Loop (no WAN):
 Capture image          :    0ms (start)
 VLA inference          : 2000ms
@@ -1503,7 +1566,7 @@ Full PID analysis      : 10s per episode
 Post-processing        : ~50s per episode
 ```
 
-### 10.4 Storage Estimates
+### 12.4 Storage Estimates
 | Data Type                 | Per Episode | 100 Episodes |
 | ------------------------- | ----------- | ------------ |
 | Wrist images (30fps, 30s) | ~1.5 GB     | 150 GB       |
@@ -1515,9 +1578,9 @@ Post-processing        : ~50s per episode
 
 ---
  
-## 11. Reproducibility Checklist
+## 13. Reproducibility Checklist
 
-### 11.1 Random Seeds
+### 13.1 Random Seeds
 ```python
 # Master seed configuration
 REPRODUCIBILITY_CONFIG = {
@@ -1547,7 +1610,7 @@ def set_all_seeds(seed: int):
     os.environ["RAPIER_DETERMINISTIC"] = "1"
 ```
 
-### 11.2 Version Pinning
+### 13.2 Version Pinning
 ```toml
 # pyproject.toml
 [project]
@@ -1569,7 +1632,7 @@ rapier3d = "0.18.0"
 nalgebra = "0.33.0"
 ```
 
-### 11.3 Experiment Manifest
+### 13.3 Experiment Manifest
 Every experiment run should produce a manifest file:
 ```yaml
 # results/exp1_run_001/manifest.yaml
