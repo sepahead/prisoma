@@ -285,3 +285,139 @@ pub fn intrinsic_dimension_levina_bickel(
 
     Ok(sum_m / (n as f64))
 }
+
+#[derive(Debug, Clone)]
+pub struct HyperbolicityConfig {
+    /// Number of 4-point tuples to sample for estimating delta.
+    pub n_samples: usize,
+    pub metric: Metric,
+    /// Random seed for reproducibility (if using a seeded RNG, but here we keep it simple).
+    /// For this simple estimator, we just use the system RNG or deterministic steps if needed.
+    /// To keep dependencies minimal in pid-core, we'll use a simple PCG or just iterate strided.
+    /// For now, we'll implement exhaustive or simple random sampling if `rand` is available,
+    /// or a deterministic strided sampler to avoid adding `rand` to core if not needed.
+    ///
+    /// Let's use a deterministic strided sampler for stability without heavy deps.
+    pub seed: u64,
+}
+
+impl Default for HyperbolicityConfig {
+    fn default() -> Self {
+        Self {
+            n_samples: 1000,
+            metric: Metric::Euclidean, // Usually computed on Euclidean embeddings to test if they are hyperbolic
+            seed: 42,
+        }
+    }
+}
+
+/// Estimate the Gromov delta-hyperbolicity of a dataset via sampling.
+///
+/// The 4-point condition states that for any four points x, y, z, w:
+/// (x.y)_w >= min((x.z)_w, (y.z)_w) - delta
+///
+/// where (x.y)_w is the Gromov product with respect to base point w:
+/// (x.y)_w = 0.5 * (d(x,w) + d(y,w) - d(x,y))
+///
+/// Equivalently, for the "worst" permutation of the four points (ordered by sums of distances),
+/// delta >= (L - M) / 2, where L is the largest sum of pairs and M is the medium sum.
+///
+/// Returns the mean delta over the sampled quadruples. A value close to 0 indicates
+/// the space is tree-like (hyperbolic). High values indicate Euclidean structure.
+///
+/// Note: This computes the *absolute* delta. Normalized delta_rel = 2*delta / diam(X)
+/// is often used for scale invariance, but here we return the raw mean delta.
+pub fn gromov_hyperbolicity(x: MatRef<'_>, cfg: &HyperbolicityConfig) -> PidResult<f64> {
+    let n = x.nrows();
+    if n < 4 {
+        return Err(PidError::InvalidConfig {
+            context: "gromov_hyperbolicity",
+            message: "Need at least 4 points to estimate delta",
+        });
+    }
+
+    let mut rng = Pcg32::new(cfg.seed, 0xcafef00dd15ea5e5);
+    let mut sum_delta = 0.0;
+    let mut valid_samples = 0;
+
+    for _ in 0..cfg.n_samples {
+        // Sample 4 distinct indices
+        let i = rng.next_u64() as usize % n;
+        let j = rng.next_u64() as usize % n;
+        let k = rng.next_u64() as usize % n;
+        let l = rng.next_u64() as usize % n;
+
+        if i == j || i == k || i == l || j == k || j == l || k == l {
+            continue;
+        }
+
+        let pi = x.row(i);
+        let pj = x.row(j);
+        let pk = x.row(k);
+        let pl = x.row(l);
+
+        // Compute the 3 pair sums
+        // S1 = d(i,j) + d(k,l)
+        // S2 = d(i,k) + d(j,l)
+        // S3 = d(i,l) + d(j,k)
+        let dij = cfg.metric.distance(pi, pj);
+        let dkl = cfg.metric.distance(pk, pl);
+        let dik = cfg.metric.distance(pi, pk);
+        let djl = cfg.metric.distance(pj, pl);
+        let dil = cfg.metric.distance(pi, pl);
+        let djk = cfg.metric.distance(pj, pk);
+
+        let s1 = dij + dkl;
+        let s2 = dik + djl;
+        let s3 = dil + djk;
+
+        // Sort sums: L >= M >= S
+        // The condition is: delta(i,j,k,l) = (L - M) / 2
+        let mut sums = [s1, s2, s3];
+        sums.sort_by(|a, b| b.total_cmp(a)); // Descending: sums[0] >= sums[1] >= sums[2]
+
+        let delta_local = (sums[0] - sums[1]) * 0.5;
+        sum_delta += delta_local;
+        valid_samples += 1;
+    }
+
+    if valid_samples == 0 {
+        return Err(PidError::InvalidConfig {
+            context: "gromov_hyperbolicity",
+            message: "Failed to sample valid quadruples (n too small?)",
+        });
+    }
+
+    Ok(sum_delta / valid_samples as f64)
+}
+
+// Minimal PCG RNG for self-contained sampling
+struct Pcg32 {
+    state: u64,
+    inc: u64,
+}
+
+impl Pcg32 {
+    fn new(init_state: u64, init_seq: u64) -> Self {
+        let mut rng = Self {
+            state: 0,
+            inc: (init_seq << 1) | 1,
+        };
+        rng.next_u64();
+        rng.state = rng.state.wrapping_add(init_state);
+        rng.next_u64();
+        rng
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        // PCG-XSH-RR variant extended to 64 bits (simple)
+        let oldstate = self.state;
+        self.state = oldstate
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(self.inc);
+        let xorshifted = ((oldstate >> 18) ^ oldstate) >> 27;
+        let rot = (oldstate >> 59) as u32;
+        let v32 = (xorshifted as u32).rotate_right(rot);
+        v32 as u64 // Just return 32 bits zero-extended for simplicity in sampling indices
+    }
+}

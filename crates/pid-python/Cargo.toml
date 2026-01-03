@@ -1,0 +1,13 @@
+[package]
+name = "pid-python"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pid_core_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23.3", features = ["extension-module"] }
+numpy = "0.23.0"
+pid-core = { path = "../pid-core" }

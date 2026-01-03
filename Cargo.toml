@@ -1,6 +1,6 @@
 [workspace]
-members = [
-  "crates/pid-core",
-]
-
 resolver = "2"
+members = [
+    "crates/pid-core",
+    "crates/pid-python",
+]
