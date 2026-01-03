@@ -2,7 +2,7 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 6.2 (Dream2Flow + WAN + PID + Gaussian Splatting Unified Architecture)
+**Version:** 6.3 (Manifold-Geometry Integration + VLA Matrix + SAM3/Depth-Anything v3)
 **Date:** 2026-01-03
 **Status:** Research Specification (critical assessment + engineering roadmap)
 **Canonical:** This is the living spec; prior versions live in git history.
@@ -32,11 +32,30 @@
 > *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to computational cost ($O(N^3)$ eigendecomposition) and uncontrolled density distortion. Unlike Isomap ("Unrolling"), spectral embeddings change local volumes in ways that are difficult to correct for PID.
 > *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 2, which restricts itself to MI/CI where this cancellation is not required).
 
+**v6.3 notes (Manifold-Geometry Integration + VLA Compatibility Matrix + Updated Vision Models):**
+- **New §10.10.12: Manifold Geometry Considerations** — Connects v5.5/v5.6 manifold challenges to Dream2Flow pipeline:
+  - Geometry analysis at each pipeline stage (WAN D_wan vs 3D Flow vs VLA embeddings)
+  - **Key insight:** 3D object flow is inherently low-dimensional Euclidean — bypasses manifold issues
+  - How v5.6 approaches (Isomap, Geodesic MI, PCA, Quantization, Copula) apply to each stage
+  - Hyperbolic/Lorentzian connection: "Flow-as-bridge" insight — use Euclidean Flow to sidestep hyperbolic D_wan
+  - Hierarchical PID and 3-source scaling with SAE integration (§16.8)
+- **New §10.10.13: VLA Integration Matrix** — Per-VLA integration details:
+  - **OpenVLA:** Primary target for V-Flow-A analysis; d=4096 requires v5.6 approach
+  - **PixelVLA:** Best for pixel-level synergy analysis; multiscale encoder + spatial grounding
+  - **TraceVLA:** Temporal synergy studies; V contains D-like history information
+  - **DreamVLA:** Ideal for D validation (explicit <dream> tokens); lower dimension (768-1600d)
+  - Decision matrix: Which VLA for which analysis goal
+- **Updated vision foundation models:**
+  - **SAM2 → SAM3:** 2x faster (50ms vs 100ms per frame), better video consistency
+  - **Depth-Anything v2 → v3:** Metric depth (absolute), improved indoor/outdoor accuracy
+  - Per-trial vision time reduced: ~5s → ~3.5s (30% improvement)
+- **Cross-references added:** §16 geometry sections now connected to §10.10 pipeline
+
 **v6.2 notes (Unified Architecture: Dream2Flow + WAN + PID + Gaussian Splatting):**
 - **New §10.10: Unified Architecture** — Complete integration stack combining:
   - **Dream2Flow** pipeline (video → flow → action) with open-source WAN replacing proprietary APIs
   - **WAN 2.2** as local video generation model (eliminates $1-5/video API costs, enables D_wan access)
-  - **Vision foundation models:** SAM2, CoTracker3, Depth-Anything v2 for 3D flow extraction
+  - **Vision foundation models:** SAM3, CoTracker3, Depth-Anything v3 for 3D flow extraction
   - **PID analysis at 4 stages:** World model quality, flow extraction, policy integration, embodiment gap
   - **Gaussian Splatting visualization:** PID-colored 3D splats where RGB = (Syn, Red, Unq)
   - **Tauri + SparkJS** frontend for interactive flow visualization and debugging
@@ -3479,7 +3498,7 @@ This section describes an ambitious but tractable integration that combines:
 │  ─────────────────────────────────    ▼                                          │
 │  ┌────────────────────────────────────────────────────────────────────┐         │
 │  │                                                                     │         │
-│  │   SAM2              CoTracker3           Depth-Anything v2/DKT     │         │
+│  │   SAM3              CoTracker3           Depth-Anything v3/DKT     │         │
 │  │   (segmentation)    (point tracking)     (depth estimation)        │         │
 │  │   ~1GB VRAM         ~2-4GB VRAM          ~1-2GB VRAM               │         │
 │  │   ~100ms/frame      ~50ms/frame          ~50ms/frame               │         │
@@ -3703,9 +3722,9 @@ COUNTERFACTUAL ANALYSIS PROTOCOL
 | Component | Time | VRAM | Cost |
 |-----------|------|------|------|
 | WAN 2.2 TI2V (5B) | ~90s | 22GB | ~$0.05 |
-| SAM2 (24 frames) | ~2.4s | 2GB | ~$0.001 |
+| SAM3 (24 frames) | ~1.2s | 2GB | ~$0.001 |
 | CoTracker3 (24 frames) | ~1.2s | 4GB | ~$0.001 |
-| Depth-Anything v2 (24 frames) | ~1.2s | 2GB | ~$0.001 |
+| Depth-Anything v3 (24 frames) | ~1.2s | 2GB | ~$0.001 |
 | 3D flow reconstruction | ~0.5s | CPU | ~$0.000 |
 | PID analysis (4 stages) | ~0.4s | CPU | ~$0.000 |
 | Gaussian splat rendering | real-time | 2GB | included |
@@ -3784,7 +3803,7 @@ If this integration succeeds:
 |-------|------------|----------|--------------|
 | **0** | Experiment 0 validation | Month 1-2 | pid-core complete |
 | **1** | WAN inference pipeline | Month 3 | WAN weights accessible |
-| **2** | Vision foundation model integration | Month 3-4 | SAM2, CoTracker3, Depth-Anything |
+| **2** | Vision foundation model integration | Month 3-4 | SAM3, CoTracker3, Depth-Anything v3 |
 | **3** | 3D flow extraction | Month 4 | Phase 2 complete |
 | **4** | PID analysis on flows | Month 4-5 | Phase 3 + pid-core bindings |
 | **5** | Gaussian splat visualization | Month 5-6 | SparkJS/Tauri setup |
@@ -3794,6 +3813,279 @@ If this integration succeeds:
 - After Phase 0: If Experiment 0 fails, entire integration is blocked
 - After Phase 3: If flow extraction quality is poor, fall back to VLA-only PID
 - After Phase 4: If PID on flows shows no signal, reconsider integration value
+
+### 10.10.12 Manifold Geometry Considerations (v6.3)
+
+The Dream2Flow + WAN + PID pipeline operates on high-dimensional embeddings where manifold structure matters. This section connects the v5.5/v5.6 manifold challenges to the unified architecture.
+
+#### 10.10.12.1 Geometry at Each Pipeline Stage
+
+| Stage | Representation | Dimension | Geometry Concern | Mitigation |
+|-------|---------------|-----------|------------------|------------|
+| **WAN hidden states (D_wan)** | Transformer activations | ~4096 | May be hierarchical/hyperbolic | Test δ-hyperbolicity first |
+| **3D Object Flow** | Point trajectories | 3×T (low-d) | Euclidean ✓ | L∞ valid without manifold issues |
+| **VLA embeddings (D_vla)** | Llama 2 / GPT-2 hidden | 4096 / 768-1600 | Curved manifold likely | Apply §16 diagnostics |
+| **PID-colored splats** | Visualization only | 3D + color | N/A | No estimation, just rendering |
+
+**Key insight:** The 3D object flow (Stage 3) is **inherently low-dimensional Euclidean** — the manifold issues that plague 4096d VLA embeddings do not apply here. This is a significant advantage of the Dream2Flow approach: the flow representation sidesteps the v5.5 geometry challenge.
+
+#### 10.10.12.2 How v5.6 Manifold Approaches Apply
+
+| v5.6 Approach | Applicable To | Integration Notes |
+|---------------|--------------|-------------------|
+| **Manifold Unrolling (Isomap/AE)** | D_wan, D_vla | Apply before comparing to Flow |
+| **Geodesic MI** | D_wan↔Flow, D_vla↔Flow | Use for MI-only comparisons |
+| **Linear Projection (PCA)** | D_wan, D_vla | Test local flatness first (§16.6) |
+| **Quantization** | D_wan, D_vla | Maps to discrete clusters; bypasses geometry |
+| **Copula Transform** | D_wan, D_vla | Mitigates empty-space at d=4096 |
+
+**Recommended protocol:**
+```
+GEOMETRY-AWARE DREAM2FLOW-PID PROTOCOL
+═══════════════════════════════════════
+
+1. Extract D_wan from WAN generation (d≈4096)
+2. Extract 3D Flow from vision models (d=3×T, Euclidean)
+3. Run geometry diagnostics on D_wan:
+   ├── Intrinsic dimension (Levina-Bickel)
+   ├── δ-hyperbolicity (Gromov 4-point)
+   ├── Local curvature (Ollivier-Ricci)
+   └── Decision:
+       ├── ID < 100 AND δ > 0.5 AND ORC ≈ 0 → Euclidean OK
+       └── Otherwise → Apply v5.6 approach before PID
+
+4. PID Analysis:
+   ├── Syn(V, D_wan_reduced; Flow)  ← D_wan after transform
+   ├── Syn(V, Flow; A)               ← Flow is already low-d
+   └── Full I^sx_∩ valid for Flow-based analysis
+```
+
+#### 10.10.12.3 The Hyperbolic/Lorentzian Connection
+
+Modern LLM embeddings (including WAN's backbone) show evidence of **hierarchical/hyperbolic structure** (§16.7, §16.10):
+
+| Evidence | Source | Implication |
+|----------|--------|-------------|
+| Token embeddings are inherently hyperbolic | HypLoRA (arXiv:2410.04010) | WAN D_wan may be tree-like |
+| Modern models show δ≈0.04 | arXiv:2512.20926 | Lower δ = more hyperbolic |
+| HELM outperforms Euclidean at scale | arXiv:2505.24722 | Hyperbolic projection may help |
+
+**If D_wan is hyperbolic:**
+1. **For MI-only screening (CI):** Use geodesic MI estimator (Marx & Fischer 2021)
+2. **For full I^sx_∩:** Currently blocked — no hyperbolic I^sx_∩ exists (§16.4.2)
+3. **Workaround:** Use Flow as the bridge — it's Euclidean and connects V to A
+
+**The Flow-as-bridge insight:**
+```
+                 EUCLIDEAN          HYPERBOLIC?         EUCLIDEAN
+                 (3D points)        (4096d manifold)    (3D points)
+                     │                    │                  │
+    V ───────────────┼────→ D_wan ───────┼────→ Flow ───────┼────→ A
+    (image)          │    (WAN hidden)   │  (3D trajectory) │   (robot)
+                     │                    │                  │
+                     └────────────────────┴──────────────────┘
+                              Hyperbolic issues
+                              contained to D_wan
+                              
+    By computing PID on (V, Flow; A) instead of (V, D_wan; A),
+    we bypass the hyperbolic geometry challenge entirely.
+```
+
+#### 10.10.12.4 Hierarchical PID and 3-Source Scaling
+
+The Dream2Flow pipeline enables **natural 3-source decompositions** that relate to §16 hierarchy discussions:
+
+**3-Source candidates:**
+- `(V, D_wan, Flow; A)` — Vision + WAN world model + explicit flow → Action
+- `(V_coarse, V_fine, Flow; A)` — Multiscale vision + flow (PixelVLA-style)
+- `(V, Flow_object, Flow_robot; A)` — Separate object vs robot motion
+
+**Hierarchy implications:**
+1. **Level 1 screening:** Compute CI on all pairs — O(n²) per pair, fast
+2. **Level 2 targeted PID:** Full I^sx_∩ on suspicious pairs
+3. **Level 3 full 3-way:** Only if 2-way shows interesting patterns
+
+**Connection to §16.8 SAE analysis:**
+- Apply SAE to D_wan before PID
+- Reduce to interpretable features (e.g., 64 SAE latents)
+- Compute PID on (V, SAE_latents; Flow) — lower dimension, more interpretable
+
+### 10.10.13 VLA Integration Matrix (v6.3)
+
+This section maps how each VLA architecture integrates with the Dream2Flow + WAN + PID pipeline.
+
+#### 10.10.13.1 VLA Compatibility Overview
+
+| VLA | D Availability | Geometry | Flow Integration | Recommended Use |
+|-----|----------------|----------|------------------|-----------------|
+| **OpenVLA** | Hidden states (implicit) | d=4096, RoPE entanglement | ✓ Compare D_openvla vs Flow | Primary target for V-Flow-A |
+| **PixelVLA** | Multiscale V + hidden | d=4096, pixel-grounded | ✓✓ Pixel-flow alignment | Best for spatial PID |
+| **TraceVLA** | Trace-encoded V | d=4096, temporal in V | ✓ History-aware flow | Temporal synergy studies |
+| **DreamVLA** | Explicit <dream> tokens | d≈768-1600 (GPT-2) | ✓✓ D_dream ↔ Flow comparison | Ideal for D validation |
+
+#### 10.10.13.2 Per-VLA Integration Details
+
+**OpenVLA (arXiv:2406.09246):**
+```
+Integration Path:
+┌──────────────────────────────────────────────────────────────────┐
+│  OpenVLA                              Dream2Flow + WAN           │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Image + Instr ─→ SigLIP+DinoV2 ─→ Llama 2 7B ─→ Action bins   │
+│                           │              │                       │
+│                           ↓              ↓                       │
+│                    V (vision)     D_openvla (layer 16-24)       │
+│                           │              │                       │
+│                           └──────┬───────┘                       │
+│                                  ↓                               │
+│  Same Image + Instr ─→ WAN 2.2 ─→ SAM3/CoTracker3 ─→ Flow      │
+│                           │                                      │
+│                           ↓                                      │
+│                        D_wan                                     │
+│                                                                  │
+│  PID Analysis:                                                   │
+│  ① Syn(V, D_openvla; A)      ← VLA internal world model         │
+│  ② Syn(V, D_wan; Flow)       ← WAN world model quality          │
+│  ③ Syn(V, Flow; A)           ← Flow-policy integration          │
+│  ④ Compare ① vs ③            ← Implicit D vs explicit Flow      │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Geometry notes for OpenVLA:**
+- d=4096 requires v5.6 approach (PCA to ~256 or quantization)
+- RoPE entanglement (§14.6) affects D_openvla — use pre-attention embeddings
+- δ-hyperbolicity likely low (modern Llama architecture)
+
+**PixelVLA (arXiv:2511.01571):**
+```
+Integration Path:
+┌──────────────────────────────────────────────────────────────────┐
+│  PixelVLA                             Dream2Flow + WAN           │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Image ─→ Multiscale Encoder ─→ V_coarse, V_medium, V_fine      │
+│           + SAM Prompt Encoder                                   │
+│                 │                                                │
+│                 ↓                                                │
+│  Visual Prompt (points/masks) ─→ Pixel-grounded V               │
+│                                        │                         │
+│                                        ↓                         │
+│                            Llama 2 7B ─→ Continuous 7D action   │
+│                                                                  │
+│  Dream2Flow alignment:                                           │
+│  ① SAM3 segments in both pipelines ─→ Same object masks         │
+│  ② CoTracker3 tracks through PixelVLA's multiscale features     │
+│  ③ Flow extraction uses PixelVLA's depth-aware V_fine           │
+│                                                                  │
+│  PID Analysis (pixel-aligned):                                   │
+│  • Syn(V_fine, Flow_local; A) at each pixel region              │
+│  • Aggregate to synergy heatmap overlaid on image               │
+│  • Identify which pixels drive integration vs redundancy        │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Unique PixelVLA advantage:** The multiscale encoder produces V at multiple resolutions, enabling **pixel-level PID analysis**. Combined with Dream2Flow's point-level flow, we can compute synergy per spatial region.
+
+**TraceVLA (arXiv:2412.10345):**
+```
+Integration Path:
+┌──────────────────────────────────────────────────────────────────┐
+│  TraceVLA                             Dream2Flow + WAN           │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Image + Trace overlay ─→ OpenVLA backbone ─→ Action            │
+│       │                                                          │
+│       └─ Visual traces encode past state-action history         │
+│                                                                  │
+│  Key insight: TraceVLA's V already contains D-like information  │
+│  (past states encoded visually). The V-D boundary is blurred.   │
+│                                                                  │
+│  Dream2Flow temporal alignment:                                  │
+│  ① WAN generates future video given current + trace             │
+│  ② CoTracker3 extends trace trajectories into future            │
+│  ③ Compare trace-extrapolation vs WAN-predicted flow            │
+│                                                                  │
+│  PID Analysis (temporal):                                        │
+│  • Syn(V_with_trace, D_wan; Flow_future)                        │
+│  • Measures: Does trace history help predict future flow?       │
+│  • Synergy half-life: How quickly does trace info decay?        │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**TraceVLA consideration:** Since V contains temporal information, the meaning of `I(V;A)` changes — it implicitly includes historical D. Use this architecture to study **temporal synergy dynamics** (Aim 2).
+
+**DreamVLA (arXiv:2507.04447):**
+```
+Integration Path:
+┌──────────────────────────────────────────────────────────────────┐
+│  DreamVLA                             Dream2Flow + WAN           │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Image + Instr ─→ Vision Enc ─→ GPT-2 + Structured Attention    │
+│                                        │                         │
+│                                        ↓                         │
+│              Explicit world-knowledge predictions:               │
+│              • Dynamic region (what will move)                   │
+│              • Depth map (3D structure)                          │
+│              • Semantic map (object labels)                      │
+│                        │                                         │
+│                        ↓                                         │
+│                   D_dreamvla (explicit, interpretable)           │
+│                                                                  │
+│  IDEAL COMPARISON:                                               │
+│  • D_dreamvla predicts "what will move"                          │
+│  • Flow (from WAN) shows "what actually moved"                   │
+│  • Direct comparison possible!                                   │
+│                                                                  │
+│  PID Analysis:                                                   │
+│  ① Syn(V, D_dreamvla; Flow)  ← DreamVLA's world model vs Flow   │
+│  ② Syn(V, D_wan; Flow)       ← WAN's world model vs Flow        │
+│  ③ Compare ① vs ②            ← Which world model is better?     │
+│                                                                  │
+│  Geometry advantage: GPT-2 ≈ 768-1600d (much smaller than 4096) │
+│  Manifold issues less severe; may work without dimension reduction│
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**DreamVLA is ideal** for validating the Dream2Flow approach because:
+1. D_dreamvla is explicit and interpretable
+2. Lower dimension (768-1600d vs 4096d) — geometry issues less severe
+3. Predicts "what will move" — directly comparable to 3D flow
+
+**⚠️ Blocker:** DreamVLA weights availability unclear (§18.2.2).
+
+#### 10.10.13.3 Decision Matrix: Which VLA for Which Analysis
+
+| Analysis Goal | Best VLA | Reason |
+|---------------|----------|--------|
+| **Core PID validation** | DreamVLA | Explicit D, lower dimension |
+| **Pixel-level synergy** | PixelVLA | Multiscale encoder, spatial grounding |
+| **Temporal dynamics** | TraceVLA | History encoded in V |
+| **Baseline comparison** | OpenVLA | Most widely available, well-documented |
+| **Small-scale testing** | TraceVLA-Phi3 | 4B params, fits RTX 4090 |
+| **Cross-architecture** | All four | Compare PID signatures across architectures |
+
+#### 10.10.13.4 Updated Vision Foundation Models (v6.3)
+
+**SAM3** and **Depth-Anything v3** are now available, improving on their predecessors:
+
+| Model | Improvement over v2 | Integration Notes |
+|-------|---------------------|-------------------|
+| **SAM3** | Faster (2x), better video consistency | Replace SAM2 in pipeline |
+| **Depth-Anything v3** | Metric depth (absolute), indoor/outdoor | Improves 3D flow accuracy |
+
+**Updated computational requirements:**
+
+| Component | Previous (v6.2) | Updated (v6.3) | Notes |
+|-----------|-----------------|----------------|-------|
+| Segmentation | SAM2 ~100ms/frame | **SAM3 ~50ms/frame** | 2x speedup |
+| Depth | Depth-Anything v2 ~50ms | **v3 ~50ms + metric** | Same speed, better accuracy |
+| Total vision | ~5s/video | **~3.5s/video** | SAM3 speedup |
 
 ---
 
@@ -5361,6 +5653,8 @@ def local_flatness_diagnostic(X, k_values=[10, 20, 50, 100]):
 
 ## 16.7 δ-Hyperbolicity: Testing for Hierarchical Structure (Jan 2026)
 
+> **Cross-reference (v6.3):** For application to Dream2Flow pipeline, see §10.10.12.3 ("The Hyperbolic/Lorentzian Connection"). The "Flow-as-bridge" insight allows bypassing hyperbolic D_wan by computing PID on the Euclidean 3D flow representation instead.
+
 ### 16.7.1 The Gromov δ-Hyperbolicity Measure
 
 δ-hyperbolicity measures how "tree-like" a metric space is. Trees have δ = 0; higher δ indicates deviation from tree structure.
@@ -5631,6 +5925,8 @@ This creates an interesting contrast:
 ## 16.11 Unified Geometry-First Protocol (Jan 2026)
 
 Based on the first-principles analysis, here is the recommended protocol:
+
+> **Cross-reference (v6.3):** For Dream2Flow + WAN integration, see §10.10.12 which applies this protocol to specific pipeline stages. Key insight: 3D object flow (d=3×T) is inherently Euclidean — the geometry challenges documented here primarily affect D_wan and D_vla (d≈4096), not the flow representation itself.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -6290,18 +6586,18 @@ All models are pre-trained and require no additional training:
 
 | Model | Task | Per-Frame Time | VRAM | Weights |
 |-------|------|----------------|------|---------|
-| **SAM2** | Object segmentation | ~100ms | 1-2GB | Public (Meta) |
+| **SAM3** | Object segmentation | ~50ms | 1-2GB | Public (Meta) |
 | **CoTracker3** | Point tracking | ~50ms | 2-4GB | Public (Meta) |
-| **Depth-Anything v2** | Depth estimation | ~50ms | 1-2GB | Public (HuggingFace) |
+| **Depth-Anything v3** | Depth estimation (metric) | ~50ms | 1-2GB | Public (HuggingFace) |
 | **DKT (optional)** | Transparent depth | ~200ms | 2-4GB | Public (GitHub) |
 
 **Total per-video (24 frames):**
 | Pipeline | Time | Notes |
 |----------|------|-------|
-| SAM2 | ~2.4s | Run once, propagate masks |
+| SAM3 | ~1.2s | Run once, propagate masks (2x faster than SAM2) |
 | CoTracker3 | ~1.2s | Track N points through video |
-| Depth-Anything | ~1.2s | Per-frame depth |
-| **Total** | **~5s** | Parallelizable to ~2s with multi-GPU |
+| Depth-Anything v3 | ~1.2s | Per-frame metric depth |
+| **Total** | **~3.5s** | Parallelizable to ~1.5s with multi-GPU |
 
 ### 17.17.2 WAN Video Generation (Local Inference)
 
@@ -6839,7 +7135,7 @@ BLOCKER RESOLUTION PROTOCOL
 | **Vul° (Degree of Vulnerability)** | Shannon invariant: avg. extent info lost when sources removed |
 | **Dream2Flow** | Framework bridging video generation and robot control via 3D object flow |
 | **3D Object Flow** | Explicit 3D point trajectories extracted from video (embodiment-agnostic) |
-| **SAM2** | Segment Anything Model 2 (Meta) — video object segmentation |
+| **SAM3** | Segment Anything Model 3 (Meta) — faster video object segmentation (2x SAM2) |
 | **CoTracker3** | Point tracking model (Meta) — tracks 2D points through video frames |
 | **Wan-Move** | WAN LoRA fine-tuning for robot action conditioning |
 | **PID-Colored Splats** | Gaussian splats with RGB = (Synergy, Redundancy, Unique) for visualization |
