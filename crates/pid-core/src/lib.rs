@@ -45,8 +45,9 @@ pub use ci::{co_information_pairwise, co_information_triplet};
 pub use distance_matrix::{symmetric_distances, SymmetricDistanceMatrix};
 pub use error::{PidError, PidResult};
 pub use geometry::{
-    distance_concentration_stats, intrinsic_dimension_levina_bickel, DistanceConcentrationConfig,
-    DistanceConcentrationStats, IntrinsicDimConfig,
+    distance_concentration_stats, gromov_hyperbolicity, intrinsic_dimension_levina_bickel,
+    DistanceConcentrationConfig, DistanceConcentrationStats, HyperbolicityConfig,
+    IntrinsicDimConfig,
 };
 pub use hyperbolic::{hyperbolic_distance_lorentz, lorentz_dot, poincare_to_lorentz};
 pub use hierarchy::{
