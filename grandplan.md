@@ -2,8 +2,8 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 6.0 (Critical Blockers Analysis + Training/Compute Requirements)
-**Date:** 2026-01-02
+**Version:** 6.2 (Dream2Flow + WAN + PID + Gaussian Splatting Unified Architecture)
+**Date:** 2026-01-03
 **Status:** Research Specification (critical assessment + engineering roadmap)
 **Canonical:** This is the living spec; prior versions live in git history.
 
@@ -31,6 +31,35 @@
 > *   **Kernel Density Estimation (KDE):** Excluded due to the "curse of dimensionality" at d=4096 (bandwidth selection is statistically impossible). Furthermore, numerically integrating the complex "disjunction" shape for `I^sx_∩` is intractable compared to KSG counting.
 > *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to computational cost ($O(N^3)$ eigendecomposition) and uncontrolled density distortion. Unlike Isomap ("Unrolling"), spectral embeddings change local volumes in ways that are difficult to correct for PID.
 > *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 2, which restricts itself to MI/CI where this cancellation is not required).
+
+**v6.2 notes (Unified Architecture: Dream2Flow + WAN + PID + Gaussian Splatting):**
+- **New §10.10: Unified Architecture** — Complete integration stack combining:
+  - **Dream2Flow** pipeline (video → flow → action) with open-source WAN replacing proprietary APIs
+  - **WAN 2.2** as local video generation model (eliminates $1-5/video API costs, enables D_wan access)
+  - **Vision foundation models:** SAM2, CoTracker3, Depth-Anything v2 for 3D flow extraction
+  - **PID analysis at 4 stages:** World model quality, flow extraction, policy integration, embodiment gap
+  - **Gaussian Splatting visualization:** PID-colored 3D splats where RGB = (Syn, Red, Unq)
+  - **Tauri + SparkJS** frontend for interactive flow visualization and debugging
+- **New §17.17: Dream2Flow Integration Requirements** — Full computational and data requirements:
+  - Per-trial cost: ~$0.05 (local WAN) vs ~$1-5 (commercial APIs)
+  - Per-trial time: ~96 seconds (WAN 90s + vision models 5s + PID 0.4s)
+  - Hardware: RTX 4090 minimum, A100 recommended
+  - Complete pipeline breakdown with VRAM, timing, and cost estimates
+- **Novel concept:** Gaussian splats as PID visualization — encode synergy/redundancy/uniqueness as splat colors, MI magnitude as opacity, uncertainty as size
+- **WAN action conditioning:** Wan-Move LoRA enables counterfactual "what if" analysis
+- **Research payoff:** Localize VLA failures to specific stages, compare VLA internal D vs WAN-derived flows, visualize information integration in 3D
+
+**v6.1 notes (Dream2Flow Integration + Embodiment-Agnostic Analysis):**
+- **Dream2Flow integration (arXiv:2512.24766):** Added Dream2Flow (Dharmarajan et al. 2025) as a related paradigm demonstrating that video generation models encode implicit world knowledge that can be extracted via **3D object flow** as an intermediate representation. Key findings:
+  - Video models (Kling 2.6, Veo 3.1, Sora 2) produce reasonable *object* motions even when robot-object interactions are unrealistic
+  - **Embodiment gap bypass:** Separating "what should move" (object) from "how to move it" (actuator) enables zero-shot transfer
+  - 3D flow as reward signal achieves comparable performance to handcrafted state rewards for RL (Franka, Spot, GR1)
+  - Failure mode taxonomy: Video generation (80%), Flow extraction (92%), Robot execution (91%), End-to-end (67%)
+- **New §10.9: Dream2Flow and Video-to-Flow Paradigm:** Detailed analysis of how video generation as implicit world model relates to VLA internal world models
+- **New Hypothesis H7 (§3.6.6):** 3D object flow as an embodiment-agnostic intermediate representation may correlate with PID synergy patterns when V-D integration is successful
+- **New confound §14.5.7:** Embodiment gap confound — PID on (V,D,A) may conflate world model quality with action-execution failures
+- **Updated §9.7:** Dream2Flow failure taxonomy as structured framework for PID failure mode analysis
+- **Updated §13.4:** Added Dream2Flow citation with project URL
 
 **v6.0 notes (Critical Blockers Analysis + Training/Compute Requirements):**
 - **New §17: Training, Compute, and Data Requirements Analysis:** Comprehensive audit of all methods in the document, classifying each by training requirements (none, low, medium, high, extreme), compute needs (inference-only vs training), and data availability. Covers:
@@ -914,15 +943,50 @@ VLA-Arena's structured difficulty levels (L0→L1→L2) reveal that VLAs:
 
 **Status:** This is an exploratory hypothesis with lower confidence than H4/H5. It is included for completeness but should not be prioritized over the core validation experiments.
 
-### 3.6.5 Relationship to Existing Aims
+### 3.6.6 Hypothesis H7: 3D Object Flow as Embodiment-Agnostic Integration Diagnostic (Dream2Flow-Inspired)
+
+**Source:** Dream2Flow (Dharmarajan et al. 2025, arXiv:2512.24766) demonstrates that video generation models encode implicit world knowledge that can be extracted via **3D object flow** as an intermediate representation.
+
+**Key empirical finding (from Dream2Flow):**
+Video generation models (Kling 2.6, Veo 3.1, Sora 2) produce reasonable *object* motions from text + image even when their generated robot-object interactions are unrealistic. This suggests:
+1. Video models encode plausible physics/dynamics in their latent representations
+2. The "embodiment gap" (translating world knowledge to robot actions) is a distinct failure mode from world understanding
+
+**Claim (falsifiable):** When a VLA's internal world model (D) correctly predicts object-level dynamics, `Syn(V,D;A)` should be higher than when D fails to predict plausible object motion — *independent of whether the final action execution succeeds*.
+
+**Theoretical motivation:**
+- Dream2Flow separates "what should move" (object flow) from "how to move it" (robot policy)
+- This decoupling suggests that **failures in (V,D)→A may conflate two distinct phenomena**:
+  1. World model quality (does D predict plausible object dynamics?)
+  2. Action execution (does the policy translate good D into correct A?)
+- PID on (V,D;A) measures information integration but cannot distinguish these sources of failure without additional structure
+
+**Predicted empirical signatures:**
+1. **Object flow as D proxy:** If 3D object flow can be extracted from VLA's D representation (or from an external world model conditioned on D), the correlation between flow quality and `Syn(V,D;A)` should be positive.
+2. **Embodiment-independent synergy:** When comparing the same task across different robot embodiments (as Dream2Flow does with Franka, Spot, GR1), `Syn(V,D;A*)` computed against *optimal* action should be more stable than `Syn(V,D;A)` against actual action.
+3. **Failure taxonomy alignment:** Dream2Flow identifies 4 failure stages: video generation (20%), flow extraction (8%), robot execution (9%). If PID synergy primarily tracks world model quality, it should correlate more with the first two stages than with execution failures.
+
+**How to disprove H7:**
+- If `Syn(V,D;A)` correlates equally with all failure stages (generation, extraction, execution), the hypothesis that synergy specifically tracks world model quality is unsupported.
+- If object flow quality (as a measurable intermediate) does not correlate with PID estimates, the conceptual link between PID and Dream2Flow's paradigm is weak.
+- If embodiment has no effect on the synergy-failure relationship, the "embodiment gap" confound is negligible.
+
+**Relevance to PID-VLA:**
+This hypothesis does NOT require implementing Dream2Flow. Rather, it motivates:
+1. Using `A*` (optimal action) as target when possible (reduces embodiment confound)
+2. Adding embodiment/robot type as a covariate in failure analysis
+3. Considering object-level predictions as a D operationalization in addition to hidden states
+
+### 3.6.7 Relationship to Existing Aims
 
 | New Hypothesis | Maps to Aim | Experimental Locus |
 |----------------|-------------|-------------------|
 | H4 (Mem vs Gen) | Aim 1 (Comparative Evaluation) | VLA-Arena L0/L1/L2 stratification |
 | H5 (Compositional Failure) | Aim 2 (Synergy Dynamics) | VLA-Arena Long-Horizon tasks |
 | H6 (Safety) | Exploratory (Aim 1 extension) | VLA-Arena Safety tasks |
+| H7 (Embodiment Gap) | Aim 3 (Causal Validation) | Cross-embodiment comparison; A* vs A targets |
 
-**Critical constraint:** All new hypotheses inherit the Experiment 0 gate. If the estimator is invalid at VLA scale, these hypotheses cannot be tested with kNN-based `I^sx_∩`. In that case, fall back to Shannon invariants (CI screening) and treat H4-H6 as future directions contingent on estimator improvements.
+**Critical constraint:** All new hypotheses inherit the Experiment 0 gate. If the estimator is invalid at VLA scale, these hypotheses cannot be tested with kNN-based `I^sx_∩`. In that case, fall back to Shannon invariants (CI screening) and treat H4-H7 as future directions contingent on estimator improvements.
 
 ---
 
@@ -2472,6 +2536,52 @@ Observing these null results is **valid scientific outcome** that would redirect
 | Temporal synergy predicts long-horizon success | **Support for H5** | Develop synergy-based curriculum |
 | None of the above | **Null result** | Report limits; prefer simpler baselines |
 
+### 9.7.7 Dream2Flow Failure Taxonomy as PID Diagnostic Framework (v6.1)
+
+Dream2Flow (arXiv:2512.24766) provides a staged failure taxonomy that complements VLA-Arena's perturbation-based analysis. Their decomposition separates failures into distinct stages, each with different PID implications:
+
+**Dream2Flow Failure Stages (from 60 real-world trials):**
+
+| Stage | Success Rate | Failure Types | PID-Relevant Diagnostic |
+|-------|--------------|---------------|------------------------|
+| **Video Generation** | 48/60 (80%) | Object morphing (6), Hallucination (6) | If D is derived from video model, low `I(V;D)` or high `H(D|V)` may indicate generation failures |
+| **Flow Extraction** | 44/48 (92%) | Depth errors, tracking failures | Perception confound (§10.4.3); if V is corrupted, PID on (V,D;A) is uninterpretable |
+| **Robot Execution** | 40/44 (91%) | Motion planning failures | Embodiment-specific; `Syn(V,D;A)` may be low even when `Syn(V,D;A*)` is high |
+| **End-to-end** | 40/60 (67%) | All above combined | Standard VLA analysis; conflates stages |
+
+**How to Use This Taxonomy for PID Analysis:**
+
+1. **Stage-aware failure attribution:**
+   ```
+   Failure diagnosed at video/D stage  →  Focus on I(V;D), Unq(V), Unq(D)
+   Failure diagnosed at execution stage  →  Focus on I(D;A) vs I(D;A*)
+   ```
+
+2. **Cross-stage PID signatures:**
+   If Dream2Flow-style staging is available (e.g., via external world model comparison), compute:
+   - `Syn(V, D_vla; D_external)` — Does VLA's D agree with external world model?
+   - `Syn(V, D_external; A*)` — Does external D predict optimal action?
+   - `Syn(V, D_vla; A) - Syn(V, D_vla; A*)` — Embodiment gap in PID terms
+
+3. **Object-centric decomposition (exploratory):**
+   Dream2Flow operates on object-level 3D flow. If object segmentation is available:
+   - Compute per-object PID: `Syn(V_obj, D_obj; A_obj)`
+   - Aggregate to identify which objects drive synergy/failure
+
+**Integration with VLA-Arena:**
+
+| VLA-Arena Dimension | Dream2Flow Stage | Combined Diagnostic |
+|--------------------|------------------|---------------------|
+| **Distractor** | Flow extraction | Distractors may cause tracking failures; `Unq(V)` on non-target objects |
+| **Extrapolation** | Video generation | Novel configurations may cause video hallucination |
+| **Long Horizon** | All stages compound | Temporal synergy (H5) + stage-by-stage error accumulation |
+| **Safety** | Execution | Safety failures are often execution-stage (constraint violation in motion planning) |
+
+**Caveats:**
+- Dream2Flow's taxonomy assumes access to intermediate representations (generated video, extracted flow). For standard VLAs, these must be approximated or the taxonomy is inapplicable.
+- The 60-trial sample size is small; treat success rates as indicative, not definitive.
+- Dream2Flow uses proprietary video models (Kling, Veo, Sora). Open alternatives may have different failure distributions.
+
 ---
 
 # 10. World Model Integration (WAN, GWM, 3DGS)
@@ -2496,8 +2606,9 @@ Understanding the different roles of "world models" is critical for proper integ
 | **Evaluative** | WAN, GWM | Visualize/validate VLA predictions | Via LoRA/VACE fine-tuning |
 | **Generative (Environment)** | Genie 3, Isaac Sim | Create training environments for agents | Yes (responds to agent actions) |
 | **Perceptual Foundation** | DKT, Depth-Anything | Improve visual input quality | N/A (perception preprocessing) |
+| **Video-to-Flow (v6.1)** | Dream2Flow (arXiv:2512.24766) | Extract object dynamics from video models; embodiment-agnostic intermediate representation | Via trajectory optimization or RL |
 
-**Key Insight:** PID analysis operates on the **internal** world model (D) within a VLA. External world models (WAN, GWM, Genie 3) can support PID analysis by:
+**Key Insight:** PID analysis operates on the **internal** world model (D) within a VLA. External world models (WAN, GWM, Genie 3, Dream2Flow) can support PID analysis by:
 1. Providing reference predictions to compare against VLA's D
 2. Generating training environments where PID patterns can be studied
 3. Improving visual input quality (V) for more interpretable PID results
@@ -3197,6 +3308,493 @@ Total (with full PID)          ~186ms      ~5 fps detailed analysis
 
 **Note:** Full `I^sx_∩` PID is not expected to be real-time without aggressive dimensionality reduction and an accelerated kNN backend. Use Shannon invariants for continuous monitoring, and trigger full PID only for suspicious windows/episodes.
 
+## 10.9 Dream2Flow: Video Generation as Implicit World Model (v6.1)
+
+### 10.9.1 Overview
+
+**Dream2Flow** (Dharmarajan et al. 2025, arXiv:2512.24766) introduces a paradigm that is conceptually relevant to PID-VLA: using **3D object flow** as an intermediate representation to bridge video generation models and robotic manipulation.
+
+**Key insight:** Video generation models (Kling 2.6, Veo 3.1, Sora 2) encode plausible physical dynamics and can synthesize reasonable *object motions* even when they fail to render realistic robot-object interactions. This suggests that:
+1. Pre-trained video models contain implicit world knowledge
+2. This knowledge can be extracted without robot-specific training
+3. The "embodiment gap" (world understanding → robot action) is a separable failure mode
+
+### 10.9.2 Architecture and Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     DREAM2FLOW PIPELINE                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  1. VIDEO GENERATION                                                     │
+│     Input: RGB-D image + task instruction                                │
+│     Model: Kling 2.6 / Veo 3.1 / Sora 2 (pre-trained)                   │
+│     Output: Generated video showing plausible object motion              │
+│                                                                          │
+│  2. 3D FLOW EXTRACTION                                                   │
+│     - SAM / open-vocab segmentation → Object masks                       │
+│     - Video depth estimation (Depth-Anything/DKT)                        │
+│     - 2D point tracking (CoTracker / TAPIR)                             │
+│     → Lift 2D tracks to 3D → Object flow trajectories                   │
+│                                                                          │
+│  3. ROBOT POLICY                                                         │
+│     - Trajectory optimization (MPC-style) OR                             │
+│     - Reinforcement learning with 3D flow as reward                      │
+│     → Executable low-level actions                                       │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.9.3 Empirical Results (from Dream2Flow Paper)
+
+**Real-world experiments (60 trials):**
+
+| Stage | Success Rate | Failure Rate | Notes |
+|-------|--------------|--------------|-------|
+| Video generation | 48/60 (80%) | 20% | Morphing (6), Hallucination (6) |
+| Flow extraction | 44/48 (92%) | 8% | Depth/tracking errors |
+| Robot execution | 40/44 (91%) | 9% | Motion planning failures |
+| **End-to-end** | **40/60 (67%)** | 33% | |
+
+**Failure taxonomy:**
+1. **Object morphing (50% of video failures):** Video model changes object shape mid-video
+2. **Hallucination (50% of video failures):** Unrealistic/incomplete object interactions
+3. **Flow extraction failures:** Depth estimation or 2D tracking errors
+4. **Execution failures:** Robot motion planning failures (embodiment-specific)
+
+**Cross-embodiment generalization:**
+Dream2Flow was tested with Franka Panda, Boston Dynamics Spot, and Fourier GR1 humanoid. The 3D object flow representation transfers across embodiments, demonstrating that the intermediate representation is **embodiment-agnostic**.
+
+### 10.9.4 Relationship to VLA Internal World Models
+
+| Aspect | VLA Internal D | Dream2Flow 3D Flow |
+|--------|----------------|-------------------|
+| **Source** | Learned within VLA | Extracted from pre-trained video model |
+| **Format** | Hidden state (4096d) | 3D trajectories (explicit geometry) |
+| **Training** | End-to-end with policy | Zero-shot (no task-specific training) |
+| **Interpretability** | Low (implicit) | High (visualizable trajectories) |
+| **Embodiment** | Tied to specific robot | Agnostic |
+
+**Key comparison:** VLA's "D" (dream/world model state) is an **implicit** representation learned end-to-end. Dream2Flow's 3D object flow is an **explicit** intermediate representation extracted from a separate video model.
+
+### 10.9.5 Implications for PID-VLA
+
+#### Implication 1: Decoupling World Model Quality from Action Execution
+
+Dream2Flow's staged pipeline (video → flow → action) enables attributing failures to specific components. This motivates a similar decomposition for PID analysis:
+
+```
+PID on (V, D; A)  ← Conflates world model quality with execution
+        vs
+PID on (V, D; Flow)  ← Isolates world model contribution
+PID on (Flow; A)     ← Isolates execution contribution
+```
+
+**Testable hypothesis (H7, §3.6.6):** If object flow can be extracted as an intermediate variable, PID on (V,D;Flow) should correlate with video generation success, while PID on (Flow;A) should correlate with execution success.
+
+#### Implication 2: Video Models as D Proxies
+
+For VLAs without explicit D (e.g., OpenVLA), a pre-trained video model could provide a **reference D**:
+
+1. Condition video model on VLA's current state + instruction
+2. Extract predicted object flow as "what the video model thinks should happen"
+3. Compare to VLA's implicit predictions via PID
+
+This is related to the GWM comparison approach (§10.3) but uses video-derived flow instead of 3DGS-derived predictions.
+
+#### Implication 3: Flow as Reward Signal for PID-Informed RL
+
+Dream2Flow shows that 3D object flow can serve as a reward signal for RL, achieving comparable performance to handcrafted state rewards. For PID-VLA Aim 3 (RL fine-tuning):
+
+```python
+# Dream2Flow-style: reward from object flow
+r_flow = -||extracted_flow - target_flow||
+
+# PID-informed alternative: reward from synergy
+r_pid = alpha * Syn(V, D; A*) - gamma * max(0, -Syn)
+
+# Potential combination
+r_combined = beta1 * r_flow + beta2 * r_pid
+```
+
+**Caution:** The PID-based reward requires a differentiable surrogate (kNN estimators are not differentiable).
+
+### 10.9.6 When to Consider Dream2Flow-Style Analysis
+
+| Scenario | Recommendation |
+|----------|---------------|
+| **Core PID validation (Experiments 0-3)** | Do NOT use Dream2Flow; compute PID on VLA latents directly |
+| **Failure mode attribution** | Consider Dream2Flow's staged analysis as a template |
+| **Embodiment-independent D proxy** | Consider video-derived flow if VLA has no explicit D |
+| **RL reward design (Aim 3)** | Consider flow-based reward as a baseline for PID-based reward |
+| **Visualization / interpretability** | Use Dream2Flow's 3D flow for intuitive failure visualization |
+
+### 10.9.7 Limitations and Caveats
+
+1. **Video model access:** Kling, Veo 3, Sora 2 are proprietary. Open alternatives (WAN, CogVideo) may have different quality/physics understanding.
+
+2. **Flow extraction fidelity:** The 2D-to-3D lifting depends on depth estimation quality (see DKT discussion in §10.4.3).
+
+3. **Not a PID estimator:** Dream2Flow does not compute information-theoretic quantities. Its relevance is conceptual (embodiment gap, failure taxonomy) rather than methodological.
+
+4. **Object-centric assumption:** Dream2Flow's flow extraction assumes objects can be segmented. This may not apply to deformable/granular materials without extensions.
+
+### 10.9.8 Code and Resources
+
+- **Project website:** https://dream2flow.github.io/
+- **Paper:** arXiv:2512.24766 (Dec 2025)
+- **Code:** Announced as "Coming Soon" (as of Jan 2026)
+
+## 10.10 Unified Architecture: Dream2Flow + WAN + PID + Gaussian Splatting (v6.2)
+
+### 10.10.1 Vision: A Complete PID-Aware Robotics Stack
+
+This section describes an ambitious but tractable integration that combines:
+- **Dream2Flow** (§10.9): 3D object flow extraction from video generation
+- **WAN** (§10.2): Open-source video/world model (replaces proprietary APIs)
+- **Wibral PID** (§2): Partial information decomposition for diagnostics
+- **Gaussian Splatting** (§10.5): 3D scene representation
+- **SparkJS/Tauri** (§10.8): Browser-based visualization
+- **Gazebo** (§10.8): Headless robot simulation
+
+**Key insight:** Dream2Flow's staged architecture provides natural intervention points for PID analysis, while WAN provides an open-source alternative to commercial video APIs. Combined with Gaussian Splatting visualization, this creates a system where information integration can be analyzed, visualized, and debugged in 3D.
+
+### 10.10.2 Full Stack Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│              PID-DREAM2FLOW-WAN-GAUSSIANSPLAT INTEGRATION STACK                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  STAGE 1: INPUT + VIDEO GENERATION                                               │
+│  ─────────────────────────────────                                               │
+│  ┌───────────────┐    ┌────────────────────────────────────┐                    │
+│  │ Gazebo        │    │           WAN 2.2 Video Gen        │                    │
+│  │ (RGB-D +      │───▶│  • Image + instruction → video     │                    │
+│  │  task instr)  │    │  • Access to D_wan (hidden states) │                    │
+│  └───────────────┘    │  • Local inference (no API cost)   │                    │
+│                       └───────────────┬────────────────────┘                    │
+│                                       │                                          │
+│  STAGE 2: VISION FOUNDATION MODELS    │                                          │
+│  ─────────────────────────────────    ▼                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐         │
+│  │                                                                     │         │
+│  │   SAM2              CoTracker3           Depth-Anything v2/DKT     │         │
+│  │   (segmentation)    (point tracking)     (depth estimation)        │         │
+│  │   ~1GB VRAM         ~2-4GB VRAM          ~1-2GB VRAM               │         │
+│  │   ~100ms/frame      ~50ms/frame          ~50ms/frame               │         │
+│  │                                                                     │         │
+│  └────────────────────────────────┬───────────────────────────────────┘         │
+│                                   │                                              │
+│  STAGE 3: 3D FLOW EXTRACTION      ▼                                              │
+│  ───────────────────────────────────                                             │
+│  ┌────────────────────────────────────────────────────────────────────┐         │
+│  │           3D Object Flow Reconstruction                             │         │
+│  │                                                                     │         │
+│  │   2D tracks + Depth → 3D point trajectories                        │         │
+│  │   Output: Per-object flow fields (Gaussian Splat representation)   │         │
+│  │                                                                     │         │
+│  │   Novel: Represent flows as animated Gaussian Splats where:        │         │
+│  │   • Splat position = point in flow trajectory                      │         │
+│  │   • Splat color = PID signature (RGB = Syn, Red, Unq)             │         │
+│  │   • Splat opacity = MI magnitude / confidence                      │         │
+│  │   • Splat size = variance / uncertainty                            │         │
+│  └────────────────────────────────┬───────────────────────────────────┘         │
+│                                   │                                              │
+│  STAGE 4: PID ANALYSIS (RUST)     │                                              │
+│  ───────────────────────────      ▼                                              │
+│  ┌────────────────────────────────────────────────────────────────────┐         │
+│  │                    Wibral PID Analysis Layer                        │         │
+│  │                                                                     │         │
+│  │   PID Decomposition Points:                                         │         │
+│  │                                                                     │         │
+│  │   ① Syn(V, D_wan; Flow)     → World model quality                  │         │
+│  │      "Does WAN's internal state predict object flow?"               │         │
+│  │                                                                     │         │
+│  │   ② Syn(V, Flow; A_cmd)     → Policy integration quality           │         │
+│  │      "Does the policy correctly use V and Flow together?"           │         │
+│  │                                                                     │         │
+│  │   ③ Syn(A_cmd, Sim; A_out)  → Embodiment gap magnitude             │         │
+│  │      "How much does simulation differ from commanded action?"       │         │
+│  │                                                                     │         │
+│  │   ④ Temporal synergy dynamics across flow trajectory               │         │
+│  │      "How does synergy evolve during task execution?"               │         │
+│  │                                                                     │         │
+│  └────────────────────────────────┬───────────────────────────────────┘         │
+│                                   │                                              │
+│  STAGE 5: VISUALIZATION           ▼                                              │
+│  ──────────────────────────────────                                              │
+│  ┌────────────────────────────────────────────────────────────────────┐         │
+│  │              Tauri + SparkJS + Three.js Visualization               │         │
+│  │                                                                     │         │
+│  │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐   │         │
+│  │   │ Gaussian Splat  │  │ 3D Object Flow  │  │ PID Diagnostic  │   │         │
+│  │   │ Scene View      │  │ Animation       │  │ Overlays        │   │         │
+│  │   │ (SparkJS/WebGPU)│  │ (trajectories)  │  │ (synergy maps)  │   │         │
+│  │   └─────────────────┘  └─────────────────┘  └─────────────────┘   │         │
+│  │                                                                     │         │
+│  │   Interactive Features:                                             │         │
+│  │   • Scrub through flow timeline                                     │         │
+│  │   • Click points to see local PID values                           │         │
+│  │   • Compare WAN-generated vs VLA-generated flows                    │         │
+│  │   • Overlay failure mode annotations                                │         │
+│  │                                                                     │         │
+│  └────────────────────────────────┬───────────────────────────────────┘         │
+│                                   │                                              │
+│  STAGE 6: ROBOT EXECUTION         ▼                                              │
+│  ─────────────────────────────────                                               │
+│  ┌────────────────────────────────────────────────────────────────────┐         │
+│  │                 Gazebo Simulation / Real Robot                      │         │
+│  │                                                                     │         │
+│  │   • Trajectory optimization (MPC) on 3D flow targets               │         │
+│  │   • RL with flow-derived + PID-derived rewards                     │         │
+│  │   • Closed-loop execution with PID monitoring                      │         │
+│  │                                                                     │         │
+│  └────────────────────────────────────────────────────────────────────┘         │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.10.3 Why WAN Instead of Commercial Video APIs
+
+Dream2Flow uses Kling 2.6, Veo 3.1, and Sora 2—all proprietary APIs with per-call costs. WAN provides an open-source alternative:
+
+| Aspect | Commercial APIs (Kling/Veo/Sora) | WAN 2.2 (Open-Source) |
+|--------|----------------------------------|----------------------|
+| **Cost** | $0.50-5.00 per video | ~$0.10 per video (compute) |
+| **Latency** | 30-120 seconds (network) | 60-180 seconds (local) |
+| **Access to D** | ❌ Black box | ✅ Full hidden states |
+| **Reproducibility** | ❌ API version changes | ✅ Pinned weights |
+| **Action conditioning** | ❌ Not supported | ✅ Via Wan-Move/VACE LoRA |
+| **Unlimited generation** | ❌ Rate limits | ✅ Only hardware-limited |
+
+**Critical advantage for PID:** With WAN, we can extract `D_wan` (the video model's internal representation) and compute `Syn(V, D_wan; Flow)` directly. This is impossible with black-box APIs.
+
+### 10.10.4 Gaussian Splatting as PID Representation
+
+**Novel visualization concept:** Represent 3D object flows as animated Gaussian splats where visual properties encode PID quantities:
+
+```
+GAUSSIAN SPLAT ↔ PID MAPPING
+════════════════════════════
+
+Splat Property          PID Quantity              Interpretation
+────────────────────────────────────────────────────────────────────
+Position (x,y,z)        Flow trajectory point     Where in 3D space
+Color (RGB)             (Syn, Red, Unq₁)         Information structure
+  R channel             Redundancy                V and D agree
+  G channel             Unique(V)                 V provides alone
+  B channel             Synergy                   V+D together needed
+Opacity (α)             |I(V,D;Flow)|            Total information
+Size (σ)                Variance / uncertainty    Estimation confidence
+
+Animation over time:
+  • Splat moves along flow trajectory
+  • Color changes as PID changes
+  • Opacity pulses on significant MI events
+  • Size grows when uncertainty increases
+```
+
+**Implementation sketch (SparkJS/Three.js):**
+
+```typescript
+// PID-colored Gaussian Splat renderer
+interface PIDSplat {
+  position: [number, number, number];  // 3D flow point
+  synergy: number;      // [-1, 1] normalized
+  redundancy: number;   // [0, 1] normalized  
+  unique_v: number;     // [0, 1] normalized
+  mi_magnitude: number; // [0, ∞) → mapped to opacity
+  variance: number;     // [0, ∞) → mapped to size
+}
+
+function pidToColor(splat: PIDSplat): THREE.Color {
+  // Diverging colormap: synergy = blue, redundancy = red
+  const r = splat.redundancy * 255;
+  const g = splat.unique_v * 255;
+  const b = (splat.synergy > 0 ? splat.synergy : 0) * 255;
+  return new THREE.Color(r/255, g/255, b/255);
+}
+
+function renderPIDFlow(splats: PIDSplat[], timestamp: number) {
+  const geometry = new SplatGeometry(splats.length);
+  
+  for (let i = 0; i < splats.length; i++) {
+    geometry.setPosition(i, splats[i].position);
+    geometry.setColor(i, pidToColor(splats[i]));
+    geometry.setOpacity(i, Math.tanh(splats[i].mi_magnitude));
+    geometry.setSize(i, 0.01 + 0.05 * Math.sqrt(splats[i].variance));
+  }
+  
+  // SparkJS handles WebGPU rendering
+  sparkRenderer.render(geometry, camera);
+}
+```
+
+### 10.10.5 PID Analysis Points in the Pipeline
+
+The staged architecture provides four natural PID measurement points:
+
+| Stage | PID Computation | What It Measures | Failure Attribution |
+|-------|-----------------|------------------|---------------------|
+| **1** | `Syn(V, L; D_wan)` | Instruction grounding in WAN | WAN doesn't understand task |
+| **2** | `Syn(V, D_wan; Flow)` | World model → geometry | WAN knows physics but not geometry |
+| **3** | `Syn(V, Flow; A_cmd)` | Policy integration | Policy doesn't use flow correctly |
+| **4** | `Syn(A_cmd, Sim; A_out)` | Embodiment gap | Physics/control mismatch |
+
+**Failure localization protocol:**
+
+```python
+def localize_failure(trial: Trial) -> FailureStage:
+    # Stage 1: Video generation quality
+    syn_1 = compute_pid(trial.V, trial.L, trial.D_wan)
+    if syn_1.synergy < THRESHOLD_1:
+        return FailureStage.VIDEO_GENERATION
+    
+    # Stage 2: Flow extraction quality  
+    syn_2 = compute_pid(trial.V, trial.D_wan, trial.flow_3d)
+    if syn_2.synergy < THRESHOLD_2:
+        return FailureStage.FLOW_EXTRACTION
+    
+    # Stage 3: Policy quality
+    syn_3 = compute_pid(trial.V, trial.flow_3d, trial.A_cmd)
+    if syn_3.synergy < THRESHOLD_3:
+        return FailureStage.POLICY
+    
+    # Stage 4: Execution quality
+    syn_4 = compute_pid(trial.A_cmd, trial.sim_state, trial.A_out)
+    if syn_4.synergy < THRESHOLD_4:
+        return FailureStage.EMBODIMENT_GAP
+    
+    return FailureStage.UNKNOWN  # Success or undiagnosed
+```
+
+### 10.10.6 WAN Action Conditioning for Counterfactual Analysis
+
+WAN can be action-conditioned via Wan-Move (arXiv:2503.01110) LoRA fine-tuning. This enables **counterfactual PID analysis**:
+
+```
+COUNTERFACTUAL ANALYSIS PROTOCOL
+════════════════════════════════
+
+1. Generate baseline video:
+   V_base = WAN(image, instruction)
+   Flow_base = extract_flow(V_base)
+
+2. Generate action-conditioned video:
+   V_action = WAN_Move(image, instruction, A_proposed)
+   Flow_action = extract_flow(V_action)
+
+3. Compute counterfactual PID:
+   ΔSyn = Syn(V, D_wan; Flow_action) - Syn(V, D_wan; Flow_base)
+
+4. Interpretation:
+   ΔSyn > 0 → Proposed action improves V-D integration
+   ΔSyn < 0 → Proposed action disrupts V-D integration
+   ΔSyn ≈ 0 → Action is neutral for integration
+```
+
+**Use case:** Before executing a VLA-proposed action, simulate it in WAN and check if it improves or degrades the synergy signature. This provides a "second opinion" from the video world model.
+
+### 10.10.7 Computational Requirements Summary
+
+**Per-trial breakdown (see §17.17 for details):**
+
+| Component | Time | VRAM | Cost |
+|-----------|------|------|------|
+| WAN 2.2 TI2V (5B) | ~90s | 22GB | ~$0.05 |
+| SAM2 (24 frames) | ~2.4s | 2GB | ~$0.001 |
+| CoTracker3 (24 frames) | ~1.2s | 4GB | ~$0.001 |
+| Depth-Anything v2 (24 frames) | ~1.2s | 2GB | ~$0.001 |
+| 3D flow reconstruction | ~0.5s | CPU | ~$0.000 |
+| PID analysis (4 stages) | ~0.4s | CPU | ~$0.000 |
+| Gaussian splat rendering | real-time | 2GB | included |
+| **Total per trial** | **~95s** | **22GB peak** | **~$0.05** |
+
+**Hardware requirements:**
+
+| Setup | Minimum | Recommended |
+|-------|---------|-------------|
+| **GPU** | RTX 4090 (24GB) | A100 (40GB) |
+| **RAM** | 32GB | 64GB |
+| **Storage** | 500GB SSD | 2TB NVMe |
+| **macOS alternative** | M4 Max (64GB unified) | M4 Ultra (128GB) |
+
+### 10.10.8 Comparison: VLA Internal D vs WAN-Derived Flow
+
+This architecture enables direct comparison between VLA internal representations and WAN-derived representations:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    VLA vs WAN WORLD MODEL COMPARISON                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Same input (V, L)                                                           │
+│       │                                                                      │
+│       ├──────────────────────┬────────────────────────┐                     │
+│       ▼                      ▼                        ▼                     │
+│  ┌─────────────┐      ┌─────────────┐         ┌─────────────┐              │
+│  │   OpenVLA   │      │  DreamVLA   │         │   WAN 2.2   │              │
+│  │             │      │             │         │   + Flow    │              │
+│  └──────┬──────┘      └──────┬──────┘         └──────┬──────┘              │
+│         │                    │                       │                      │
+│         ▼                    ▼                       ▼                      │
+│  D_openvla (implicit)  D_dreamvla (<dream>)   Flow_3D (explicit)           │
+│         │                    │                       │                      │
+│         └────────────────────┴───────────────────────┘                      │
+│                              │                                               │
+│                              ▼                                               │
+│                    PID Comparison Matrix:                                    │
+│                                                                              │
+│  Syn(V, D_openvla; A)  vs  Syn(V, D_dreamvla; A)  vs  Syn(V, Flow; A)       │
+│                                                                              │
+│  Questions answered:                                                         │
+│  • Which D is more informative about A?                                     │
+│  • Does explicit flow (Dream2Flow) outperform implicit D (VLA)?             │
+│  • Do synergy patterns correlate with task success?                         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.10.9 Research Payoffs
+
+If this integration succeeds:
+
+1. **Diagnostic power:** Localize VLA failures to specific stages (world model vs action decoder vs embodiment)
+2. **Reference oracle:** Use WAN as a "reference world model" to compare against VLA internal D
+3. **Visualization:** Intuitive 3D visualization of information integration via PID-colored Gaussian splats
+4. **Counterfactual analysis:** Test "what if" scenarios with action-conditioned WAN
+5. **Reward design:** Use PID + flow as combined reward signal for RL fine-tuning
+
+### 10.10.10 Limitations and Caveats
+
+1. **Computational cost:** ~95 seconds per trial limits real-time use. Pre-compute flows for offline analysis.
+
+2. **WAN quality gap:** WAN may not match Sora 2/Veo 3 quality. Validate flow extraction quality before drawing conclusions.
+
+3. **Not a replacement for Experiment 0:** This architecture is post-Experiment-0 work. The core PID estimator must be validated on synthetics first.
+
+4. **Embodiment transfer unproven:** Dream2Flow showed transfer across Franka/Spot/GR1, but this doesn't guarantee PID patterns transfer.
+
+5. **Action conditioning requires fine-tuning:** Wan-Move LoRA training adds complexity (8-24 hours, 4× A100).
+
+### 10.10.11 Implementation Roadmap
+
+| Phase | Components | Timeline | Dependencies |
+|-------|------------|----------|--------------|
+| **0** | Experiment 0 validation | Month 1-2 | pid-core complete |
+| **1** | WAN inference pipeline | Month 3 | WAN weights accessible |
+| **2** | Vision foundation model integration | Month 3-4 | SAM2, CoTracker3, Depth-Anything |
+| **3** | 3D flow extraction | Month 4 | Phase 2 complete |
+| **4** | PID analysis on flows | Month 4-5 | Phase 3 + pid-core bindings |
+| **5** | Gaussian splat visualization | Month 5-6 | SparkJS/Tauri setup |
+| **6** | Counterfactual analysis | Month 6+ | Wan-Move fine-tuning |
+
+**Go/No-Go gates:**
+- After Phase 0: If Experiment 0 fails, entire integration is blocked
+- After Phase 3: If flow extraction quality is poor, fall back to VLA-only PID
+- After Phase 4: If PID on flows shows no signal, reconsider integration value
+
 ---
 
 # 11. Technical Implementation
@@ -3571,6 +4169,7 @@ VLA-Arena Task Organization:
 
 ## 13.4 World Models
 
+- **Dream2Flow:** Dharmarajan et al. (2025). *Dream2Flow: Bridging Video Generation and Open-World Manipulation with 3D Object Flow.* arXiv:2512.24766. [3D object flow as intermediate representation; embodiment-agnostic; zero-shot video-to-action. Website: https://dream2flow.github.io/]
 - **GWM:** Gaussian World Model, ICCV 2025. 3DGS + Diffusion for robotics.
 - **Physically Embodied Gaussian Splatting:** CoRL 2024. Real-time correctable world model.
 - **WAN:** Wanxiang Video Model, Alibaba 2025. arXiv:2503.20314
@@ -3982,6 +4581,94 @@ COMPOSITIONAL FAILURE ANALYSIS
 | **Compositional length** | Segment-level analysis + matched comparison | Timestep explains all variance |
 
 **Publication gate:** At least 3 of 5 confound controls must be passed (effect persists after controlling) before claiming "PID synergy predicts VLA failure."
+
+### 14.5.7 Embodiment Gap Confound (Dream2Flow-Derived)
+
+**Source:** Dharmarajan et al. (2025), "Dream2Flow: Leveraging Video Generative Models for Embodied Action Planning" (arXiv:2512.24766)
+
+#### 14.5.7.1 The Problem: Conflating World Model Quality with Execution Failure
+
+When computing PID on VLA variables `(V, D, A)`, we implicitly assume that failures in `A` reflect failures in information integration. However, Dream2Flow's staged analysis reveals that **failures can occur at multiple decoupled stages**:
+
+| Stage | What Fails | PID Manifestation | True Cause |
+|-------|-----------|-------------------|------------|
+| **World model** | D encodes incorrect dynamics | Low `I(D;A)` and `Syn(V,D;A)` | Internal representation error |
+| **Action decoding** | Correct D → wrong A | Low `I(D;A)` despite correct D | Decoder/head failure |
+| **Physical execution** | Correct A command → wrong outcome | PID looks normal, task still fails | Robot/environment mismatch |
+
+**Dream2Flow empirical evidence:**
+- Video generation success: 80% (world model stage)
+- Flow extraction success: 92% (intermediate representation stage)  
+- Execution success: 91% (action execution stage)
+- End-to-end success: 67% (compound failures)
+
+The 13% gap between "all stages pass individually" (80% × 92% × 91% ≈ 67%) and observed E2E success shows stages are **not independent**—errors compound and interact.
+
+#### 14.5.7.2 Why This Confounds PID Analysis
+
+When a VLA fails, PID analysis on `(V, D, A)` cannot distinguish:
+
+1. **D is wrong** (world model failure): PID correctly identifies integration failure
+2. **D is right but A is wrong** (action decoder failure): PID on D shows high synergy, but A fails anyway
+3. **A is right but outcome is wrong** (embodiment gap): PID shows success signature, task fails
+
+**Critical implication:** Correlating low `Syn(V,D;A)` with failure conflates these three distinct failure modes. A VLA could have a perfect world model (high synergy at D) but fail due to action decoding or embodiment mismatch.
+
+#### 14.5.7.3 Control Strategies
+
+**Strategy 1: Multi-Stage PID Analysis**
+```
+Compute PID at multiple stages along the VLA pipeline:
+
+1. Early layers: Syn(V,L;D_early) — sensory integration
+2. Middle layers: Syn(V,D;D_late) — world model formation  
+3. Output layers: Syn(D;A) — action decoding quality
+4. Execution: Compare A_commanded vs A_achieved (if measurable)
+
+If failure correlates with stage 3 but not stages 1-2, the world model
+is intact but action decoding fails.
+```
+
+**Strategy 2: Counterfactual Action Evaluation**
+- For failed trials, extract the internal representation D at the failure point
+- Use an oracle policy (privileged access or human teleop) to determine optimal A*
+- Compute `I(D;A*)` vs `I(D;A_actual)`
+- If `I(D;A*) >> I(D;A_actual)`, the D representation was correct but action decoding failed
+
+**Strategy 3: Embodiment-Matched Comparison**
+- Compare the same VLA checkpoint across different robots (if available)
+- Embodiment-independent PID patterns (same across robots) → reflect world model quality
+- Embodiment-dependent PID patterns → may reflect action decoder overfitting
+
+**Strategy 4: Simulation-to-Real Gap Analysis**
+- Compute PID in simulation (where embodiment gap is zero by construction)
+- Compare to PID on same policy in real environment
+- Divergence indicates embodiment confound magnitude
+
+#### 14.5.7.4 Dream2Flow as Diagnostic Ground Truth
+
+Dream2Flow's staged architecture provides natural ablations:
+
+| Comparison | What It Reveals |
+|------------|-----------------|
+| Video correct, flow incorrect | Representation bottleneck (not world model) |
+| Flow correct, execution incorrect | Embodiment gap (action execution failure) |
+| Video incorrect, everything else N/A | World model failure (true D deficiency) |
+
+**Recommendation:** When ground-truth video predictions are available (Dream2Flow, video prediction VLAs, or world model benchmarks), use video accuracy as an **upper bound** on world model quality. If video is correct but actions fail, the failure is downstream of D.
+
+#### 14.5.7.5 Updated Confound Control Table
+
+| Confound | Control Method | Failure Criterion |
+|----------|----------------|-------------------|
+| **Task difficulty (L0/L1/L2)** | Stratified analysis | Effect disappears within strata |
+| **Distribution shift (OOD)** | OOD score regression | Synergy non-significant after OOD control |
+| **Memorization** | Memorization index stratification | Effect only in high-memorization stratum |
+| **Modality asymmetry** | Baseline-normalized ΔUnq | Pattern identical across architectures |
+| **Compositional length** | Segment-level analysis | Timestep explains all variance |
+| **Embodiment gap** | Multi-stage PID + counterfactual A* | Effect localizes to action decoder, not D |
+
+**Updated publication gate:** At least 4 of 6 confound controls must be passed before claiming "PID synergy predicts VLA failure." The embodiment gap control is particularly important for any claim about world model quality.
 
 ## 14.6 Positional Encoding Confound (RoPE What-Where Entanglement)
 
@@ -5593,6 +6280,180 @@ for d_total in [10, 100, 1000, 4096]:
 3. Block bootstrap for uncertainty estimation
 4. Trajectory-level PID features (mean/min over windows)
 
+## 17.17 Dream2Flow Integration Requirements (v6.2)
+
+This section provides detailed computational and data requirements for the unified Dream2Flow + WAN + PID + Gaussian Splatting architecture described in §10.10.
+
+### 17.17.1 Vision Foundation Models (Inference Only)
+
+All models are pre-trained and require no additional training:
+
+| Model | Task | Per-Frame Time | VRAM | Weights |
+|-------|------|----------------|------|---------|
+| **SAM2** | Object segmentation | ~100ms | 1-2GB | Public (Meta) |
+| **CoTracker3** | Point tracking | ~50ms | 2-4GB | Public (Meta) |
+| **Depth-Anything v2** | Depth estimation | ~50ms | 1-2GB | Public (HuggingFace) |
+| **DKT (optional)** | Transparent depth | ~200ms | 2-4GB | Public (GitHub) |
+
+**Total per-video (24 frames):**
+| Pipeline | Time | Notes |
+|----------|------|-------|
+| SAM2 | ~2.4s | Run once, propagate masks |
+| CoTracker3 | ~1.2s | Track N points through video |
+| Depth-Anything | ~1.2s | Per-frame depth |
+| **Total** | **~5s** | Parallelizable to ~2s with multi-GPU |
+
+### 17.17.2 WAN Video Generation (Local Inference)
+
+Replacing commercial APIs with local WAN inference:
+
+| Model Variant | Video Length | Time | VRAM | Quality |
+|---------------|--------------|------|------|---------|
+| WAN 2.2 14B (full) | 5s @ 720p | ~3 min | 48GB+ | Best |
+| WAN 2.2 TI2V 5B | 5s @ 480p | ~90s | 22GB | Good |
+| WAN 2.1 1.3B | 5s @ 480p | ~4 min | 12GB | Acceptable |
+
+**Recommended for Dream2Flow integration:** WAN 2.2 TI2V 5B
+- Fits on RTX 4090 (24GB)
+- 90 seconds per video is acceptable for offline analysis
+- Quality sufficient for flow extraction
+
+**Cost comparison:**
+| Approach | Per-Video Cost | Per-1000 Videos |
+|----------|----------------|-----------------|
+| Kling 2.6 API | ~$1.00 | $1,000 |
+| Veo 3.1 API | ~$2.00 | $2,000 |
+| Sora 2 API | ~$5.00 | $5,000 |
+| WAN 2.2 TI2V (local, RTX 4090) | ~$0.05 | $50 |
+| WAN 2.2 TI2V (cloud A100) | ~$0.15 | $150 |
+
+**Wan-Move Action Conditioning (Optional):**
+
+To condition WAN on proposed robot actions:
+
+| Component | Requirement |
+|-----------|-------------|
+| **Training data** | 1K-10K robot video trajectories with action labels |
+| **Training time** | 8-24 hours |
+| **Hardware** | 4× A100 (40GB) recommended |
+| **Estimated cost** | $200-800 (cloud GPU) |
+
+### 17.17.3 3D Flow Extraction (CPU/Light GPU)
+
+| Step | Time | Compute | Notes |
+|------|------|---------|-------|
+| 2D-to-3D lifting | ~0.1s | CPU | Per-point depth lookup |
+| Point cloud registration | ~0.2s | CPU | ICP or direct projection |
+| Flow field computation | ~0.2s | CPU | Per-object trajectories |
+| **Total** | **~0.5s** | CPU-bound | Negligible vs video gen |
+
+### 17.17.4 PID Analysis (Rust, CPU)
+
+Using the `pid-core` implementation:
+
+| Operation | Time (n=1000, d=256, k=10) | Notes |
+|-----------|---------------------------|-------|
+| KSG MI (single pair) | ~10ms | Brute-force kNN |
+| I^sx_∩ redundancy | ~50ms | Multiple kNN queries |
+| Full 2-source PID | ~60ms | MI + redundancy |
+| Shannon invariants (CI) | ~15ms | Fast screening |
+
+**For Dream2Flow pipeline (4 PID analysis points):**
+| Analysis | Time |
+|----------|------|
+| Syn(V, D_wan; Flow) | ~60ms |
+| Syn(V, Flow; A_cmd) | ~60ms |
+| Syn(A_cmd, Sim; A_out) | ~60ms |
+| Temporal dynamics (10 windows) | ~150ms |
+| **Total PID analysis** | **~400ms** |
+
+### 17.17.5 Gaussian Splat Visualization (Real-Time)
+
+| Component | Performance | Hardware |
+|-----------|-------------|----------|
+| SparkJS rendering | 60fps | WebGPU-capable GPU |
+| PID-colored splats (1K points) | 60fps | Minimal overhead |
+| Interactive scrubbing | Real-time | ~16ms frame budget |
+| Multi-view (4 panels) | 30-60fps | Depends on scene complexity |
+
+**Browser requirements:**
+- Chrome 113+ or Firefox 121+ (WebGPU support)
+- 2GB+ GPU VRAM for smooth rendering
+- 8GB+ system RAM
+
+### 17.17.6 Full Pipeline Per-Trial Summary
+
+| Stage | Time | VRAM (Peak) | Cost |
+|-------|------|-------------|------|
+| WAN video generation | 90s | 22GB | $0.05 |
+| Vision foundation models | 5s | 4GB | $0.002 |
+| 3D flow extraction | 0.5s | - | - |
+| PID analysis (4 points) | 0.4s | - | - |
+| Visualization | real-time | 2GB | - |
+| **Total per trial** | **~96s** | **22GB** | **~$0.05** |
+
+**For 1000-trial experiment:**
+| Metric | Value |
+|--------|-------|
+| Total compute time | ~27 hours |
+| Total cost (cloud A100) | ~$50-100 |
+| Total cost (own RTX 4090) | ~$5-10 (electricity) |
+| Storage (videos + flows) | ~50-100 GB |
+
+### 17.17.7 Hardware Recommendations
+
+**Minimum Viable (PhD student budget):**
+| Component | Spec | Estimated Cost |
+|-----------|------|----------------|
+| GPU | RTX 4090 24GB | $1,600 |
+| CPU | AMD Ryzen 9 / Intel i9 | $400 |
+| RAM | 64GB DDR5 | $200 |
+| Storage | 2TB NVMe | $150 |
+| **Total** | | **~$2,400** |
+
+**Recommended (Lab setup):**
+| Component | Spec | Estimated Cost |
+|-----------|------|----------------|
+| GPU | 2× RTX 4090 or 1× A100 40GB | $3,200-10,000 |
+| CPU | AMD Threadripper / Xeon | $1,000 |
+| RAM | 128GB DDR5 | $400 |
+| Storage | 4TB NVMe RAID | $400 |
+| **Total** | | **~$5,000-12,000** |
+
+**macOS Alternative (Apple Silicon):**
+| Device | Unified Memory | Performance | Cost |
+|--------|----------------|-------------|------|
+| M4 Max MacBook Pro | 64GB | WAN 1.3B only | $4,000 |
+| M4 Ultra Mac Studio | 128GB | WAN 5B possible | $6,000+ |
+| **Limitation** | | WAN 14B not feasible | |
+
+### 17.17.8 Data Requirements
+
+| Data Type | Source | Amount | Effort |
+|-----------|--------|--------|--------|
+| **RGB-D images** | Gazebo sim or real robot | 100-1000 scenes | Low-Medium |
+| **Task instructions** | Manual or template | 10-50 per scene | Low |
+| **Success/failure labels** | Automatic (task completion) | Per trial | Low |
+| **Robot trajectories** | Gazebo or real | 1000+ | Medium |
+| **VLA embeddings** | OpenVLA inference | Per trajectory | Low |
+
+**For Wan-Move fine-tuning (optional):**
+| Requirement | Value |
+|-------------|-------|
+| Robot videos with actions | 1K-10K clips |
+| Action labels | Per-frame or per-segment |
+| Training compute | 8-24 hours on 4× A100 |
+
+### 17.17.9 What NOT to Build (Out of Scope)
+
+| Component | Why Out of Scope | Alternative |
+|-----------|------------------|-------------|
+| Custom video model | Extreme compute (weeks on clusters) | Use pre-trained WAN |
+| Custom depth model | Not core contribution | Use Depth-Anything/DKT |
+| Custom tracking model | Not core contribution | Use CoTracker3 |
+| Real robot experiments | High cost, safety, time | Use Gazebo simulation |
+| Large-scale RL training | Days-weeks of GPU time | Small-scale validation only |
+
 ---
 
 # 18. Critical Blockers and Risk Analysis
@@ -5976,6 +6837,14 @@ BLOCKER RESOLUTION PROTOCOL
 | **sae_analysis** | Makkeh's Shannon invariant toolkit for SAE analysis |
 | **Red° (Degree of Redundancy)** | Shannon invariant: avg. extent info accessible from multiple sources |
 | **Vul° (Degree of Vulnerability)** | Shannon invariant: avg. extent info lost when sources removed |
+| **Dream2Flow** | Framework bridging video generation and robot control via 3D object flow |
+| **3D Object Flow** | Explicit 3D point trajectories extracted from video (embodiment-agnostic) |
+| **SAM2** | Segment Anything Model 2 (Meta) — video object segmentation |
+| **CoTracker3** | Point tracking model (Meta) — tracks 2D points through video frames |
+| **Wan-Move** | WAN LoRA fine-tuning for robot action conditioning |
+| **PID-Colored Splats** | Gaussian splats with RGB = (Synergy, Redundancy, Unique) for visualization |
+| **Embodiment Gap** | Mismatch between intended action and physical execution due to robot differences |
+| **D_wan** | WAN's internal hidden states used as world model proxy |
 
 ---
 
