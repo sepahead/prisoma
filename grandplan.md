@@ -54,6 +54,7 @@
   - VLA-Arena: Verified public website with data/code
   - Geodesic kNN MI and Ollivier-Ricci curvature: NOT implemented in pid-core
 - **Scientific Rigor Notes:** All blockers have explicit detection criteria, mitigation options, and Go/No-Go decision frameworks. Honest assessment: project is HIGH risk but tractable if Experiment 0 succeeds.
+- **New §14.6: RoPE What-Where Entanglement Confound:** Based on Gopalakrishnan et al. (2025, arXiv:2509.10534), documents how RoPE-based VLAs (OpenVLA, Llama-based architectures) entangle content and position in embeddings. This creates a confound where PID estimates may reflect positional structure rather than pure semantic integration. Includes 5 mitigation strategies and publication requirements.
 
 **v5.8 notes (VLA-Arena Deep Integration + Memorization/Generalization Analysis):**
 - **VLA-Arena as Primary Evaluation Framework:** Deep integration of VLA-Arena (arXiv:2512.22539) as the recommended benchmark for PID-VLA experiments (§9.7.1). VLA-Arena's 170 tasks with structured difficulty axes directly align with PID diagnostic goals.
@@ -1677,6 +1678,132 @@ Given the confirmed d=4096 for most VLAs:
 | **Copula Transform** | ✓ Still valid | Mitigates empty-space issues at d=4096 |
 
 **Key Correction**: The v5.6 approaches remain appropriate for d=4096. The main caveat is that **PCA's "locally flat" assumption** may not hold for VLA embeddings, which show complex layer-dependent geometry per the intrinsic dimension literature.
+
+## 7.7 Small Custom VLA: Moondream-Inspired Alternative
+
+**Source:** Moondream VLM (vikhyat/moondream) technical blog post, 2025
+
+### 7.7.1 Motivation
+
+If **DreamVLA weights are unavailable** (§18.2.2 blocker) and OpenVLA (9.25B params) is too large for rapid iteration, a **small custom VLA** inspired by Moondream architecture offers a feasible alternative.
+
+**Key insight:** Moondream demonstrates that **3.5B parameter VLMs can achieve strong performance** with proper training strategy (frozen encoders + tunable projection).
+
+### 7.7.2 Proposed Architecture
+
+```
+Image → ┌─ SigLIP ViT-S/400 ─┐
+         │                    ├─ [Projection (2560d)] ──┐
+         └────────────────────┘                       │
+                                                    ┌──┴──→ Phi-2 (2.8B) → Action Head
+Language (Instruction) ─────────────────────────────┘                          ↑
+                                                                                       ↓
+                                                                                 Robot Action
+```
+
+**Components:**
+- **Vision encoder:** SigLIP ViT-S/400 (224×224, 576 patches, 384d each)
+- **Language model:** Phi-2 (2.8B parameters, 32 layers)
+- **Projection:** 2-layer MLP reducing 576×384d → 576×2560d, injected at Phi-2 layer 11
+- **Action head:** New diffusion or autoregressive head (estimate: 0.5-1B params)
+
+**Total parameters:** ~3.5B (vs 9.25B for OpenVLA = **62% reduction**)
+
+### 7.7.3 Training Strategy
+
+**Stage 1: Visual Alignment (400M tokens)**
+- Freeze SigLIP and Phi-2
+- Train projection layer on vision-action pairs (no language)
+- Goal: Align visual embeddings to action space
+
+**Stage 2: Instruction Tuning (50M tokens)**
+- Freeze SigLIP and Phi-2
+- Train projection layer + action head on instruction-action pairs
+- Generate synthetic data using GPT-4o (as Moondream does)
+- Goal: Integrate language instructions into action prediction
+
+**Stage 3: Full Fine-tuning (Optional)**
+- Unfreeze Phi-2 last 4 layers
+- Fine-tune on real robot rollouts
+- Goal: Adapt to domain-specific distribution
+
+### 7.7.4 Advantages for PID-VLA Project
+
+| Advantage | Explanation |
+|-----------|-------------|
+| **Small size (3.5B)** | Fits on single consumer GPU; faster embedding extraction |
+| **Frozen encoders** | Clean experimental design: V and L are unchanged, only projection integrates |
+| **Fast training** | ~1-2 weeks on 8x A100 (~$1-2K compute) |
+| **No explicit D** | Focus on V-L-A decomposition (simplifies PID) |
+| **Open weights** | SigLIP and Phi-2 are publicly available |
+
+### 7.7.5 Disadvantages
+
+| Disadvantage | Mitigation |
+|-------------|------------|
+| **No explicit world model** | Cannot test V-D-A decomposition; focus on V-L-A only |
+| **Phi-2 not VLA-optimized** | Frozen LLM was trained on NLP, not robotics data |
+| **Projection layer confound** | PID may reflect projection quality, not modality integration (see §14.7) |
+| **No pre-trained action head** | Must train from scratch (requires trajectory data) |
+| **New architecture** | No established benchmarks; less confidence in performance |
+
+### 7.7.6 Compute Estimate
+
+| Task | Tokens | GPU | Time | Cost |
+|------|--------|-----|------|------|
+| Stage 1 (alignment) | 400M | 8x A100 | ~2 days | ~$500 |
+| Stage 2 (instruction) | 50M | 8x A100 | ~4 hours | ~$100 |
+| Stage 3 (fine-tune, optional) | 100M | 8x A100 | ~2 days | ~$500 |
+| **Total** | **550M** | - | **~5-6 days** | **~$1.1K** |
+
+**Compare to alternatives:**
+- OpenVLA full pre-training: ~$50K+ (infeasible)
+- DreamVLA re-implementation: ~$5-10K (if architecture specified)
+- Moondream+ActionHead: ~$1.1K (feasible)
+
+### 7.7.7 Relevance to Blockers
+
+**Addresses §18.2.2 (DreamVLA unavailable):**
+- If DreamVLA weights not released, this provides a viable alternative
+- Smaller model enables faster iteration and debugging
+
+**Addresses §18.3.7 (Scope exceeds PhD timeline):**
+- 1-2 weeks training time is manageable
+- Small model reduces embedding extraction time
+- Enables rapid hypothesis testing
+
+**Does NOT address:**
+- No explicit world model (D) - still need OpenVLA for V-D-A analysis
+- Performance uncertainty - unproven architecture for VLA tasks
+
+### 7.7.8 Decision Criteria
+
+**Use Moondream+ActionHead if:**
+- DreamVLA unavailable AND need small model
+- Primary interest is V-L-A decomposition (not V-D-A)
+- Compute budget < $5K
+- Rapid iteration required (multiple experimental conditions)
+
+**Use OpenVLA if:**
+- Need immediate access (no training time)
+- Established benchmark performance required
+- V-D-A decomposition is critical
+- Compute budget allows inference on 9B model
+
+**Use DreamVLA if:**
+- Weights available
+- Explicit world model (D) is critical
+- Architecture is sufficiently specified
+
+### 7.7.9 Summary
+
+**Status:** Feasible alternative architecture; requires training from scratch.
+
+**Priority:** MEDIUM (backup if DreamVLA unavailable AND need small model).
+
+**Research gap:** No evidence that Phi-2 + SigLIP + action head achieves competitive VLA performance. Requires empirical validation.
+
+**Reference:** Moondream VLM (vikhyat/moondream), "A Small Vision Language Model" technical blog, 2025. (Not peer-reviewed; treat as reference architecture, not validated VLA).
 
 ---
 
@@ -3856,6 +3983,102 @@ COMPOSITIONAL FAILURE ANALYSIS
 
 **Publication gate:** At least 3 of 5 confound controls must be passed (effect persists after controlling) before claiming "PID synergy predicts VLA failure."
 
+## 14.6 Positional Encoding Confound (RoPE What-Where Entanglement)
+
+**Source:** Gopalakrishnan et al. (2025), "Decoupling the 'What' and 'Where' With Polar Coordinate Positional Embeddings" (arXiv:2509.10534)
+
+### 14.6.1 The Problem: Content-Position Entanglement in VLA Embeddings
+
+Most modern VLAs (OpenVLA, TraceVLA, and any Llama-based architecture) use **Rotary Position Embeddings (RoPE)** for attention. Gopalakrishnan et al. (2025) demonstrate empirically that RoPE **entangles content ("what") and position ("where")** in attention scores.
+
+**Mathematical basis (from the paper):**
+
+In RoPE, the attention score between query at position t and key at position s is:
+```
+a_ts^RoPE = Σ_c μ_q_tc · μ_k_sc · cos((s-t)θ_c + φ_k_sc - φ_q_tc)
+```
+
+The interaction term `φ_k_sc - φ_q_tc` means that **both the key and query influence the effective phase (position)**. Content and position are confounded in the same representation.
+
+**Empirical evidence:**
+- On an "Indirect Indexing" diagnostic task requiring position-only or content-only matching:
+  - RoPE: **11% accuracy** (fails to separate what/where)
+  - PoPE (decoupled): **95% accuracy**
+- This entanglement persists across model scales (124M to 774M parameters)
+
+### 14.6.2 Implications for PID Analysis
+
+| PID Component | How RoPE Confound Affects It |
+|---------------|------------------------------|
+| **I(V;A)** | Vision has spatial structure; RoPE conflates "what object" with "where in image/sequence" |
+| **I(L;A)** | Language instruction position (word order) is entangled with word semantics |
+| **I(V,L;A) synergy** | May reflect position-content joint encoding, not pure semantic integration |
+| **Trajectory-level PID** | Action at timestep t has position t entangled with action content |
+
+**Critical concern:** When computing `I(V,D;A)` across a trajectory, we may be measuring:
+1. True semantic integration (intended)
+2. Positional structure of the trajectory (confound)
+3. A mixture of both (likely reality)
+
+### 14.6.3 Why This Matters for VLA Specifically
+
+VLA data has **multiple position axes** that RoPE entangles:
+
+1. **Token position within context window:** Standard RoPE position
+2. **Timestep within trajectory:** Action sequences are temporally ordered
+3. **Spatial position in visual input:** ViT patch positions (often also use positional encoding)
+4. **Word position in instruction:** Language has syntactic position
+
+All of these positions are entangled with their respective content. PID analysis cannot cleanly separate "does the model integrate V and L semantically?" from "does the model use V and L positions jointly?"
+
+### 14.6.4 Control and Mitigation Strategies
+
+**Strategy 1: Use Pre-Attention Embeddings**
+- Extract embeddings **before** RoPE rotation is applied
+- In Llama-style architectures: use residual stream before attention, not after
+- Limitation: Loses information about how the model uses position
+
+**Strategy 2: Cross-Position Averaging**
+- Compute PID for the same semantic content at different trajectory positions
+- If PID estimates are stable across positions → position confound is minor
+- If PID estimates vary with position → position confound is significant
+
+**Strategy 3: Position-Matched Controls**
+- Compare success vs failure cases **at the same trajectory timestep**
+- This controls for position effects when comparing PID signatures
+
+**Strategy 4: Explicit Position Regression**
+- Include trajectory timestep as a covariate in statistical analysis
+- Test whether PID effects persist after controlling for position
+- `Syn ~ failure + timestep + (failure × timestep)`
+
+**Strategy 5: Use Non-RoPE Models (If Available)**
+- If DreamVLA uses GPT-2 (learned absolute embeddings, not RoPE), this confound may be reduced
+- Compare PID patterns between RoPE-based (OpenVLA) and non-RoPE models
+- Difference in patterns may indicate RoPE-specific artifacts
+
+### 14.6.5 Diagnostic: Position-Content Entanglement Score
+
+**Proposed metric:** Measure how much PID estimates vary with trajectory position for semantically matched samples.
+
+```
+Entanglement Score = Var(PID | position) / Var(PID | semantics)
+```
+
+- High score (>1): Position dominates; RoPE confound is severe
+- Low score (<0.3): Semantics dominates; RoPE confound is minor
+- Intermediate: Both contribute; must control for position in analysis
+
+### 14.6.6 Publication Requirement
+
+Before claiming "synergy predicts failure," must demonstrate one of:
+1. **Position control:** Effect persists after controlling for trajectory timestep
+2. **Cross-position stability:** Same semantic content shows stable PID across positions
+3. **Architecture comparison:** Effect replicates in non-RoPE architecture
+4. **Pre-attention extraction:** Effect observed in pre-RoPE embeddings
+
+**Reference:** Gopalakrishnan A, Csordás R, Schmidhuber J, Mozer MC (2025). Decoupling the "What" and "Where" With Polar Coordinate Positional Embeddings. arXiv:2509.10534.
+
 ---
 
 # 15. Numerical Stability and Optimization: Technical Guidance
@@ -4949,6 +5172,49 @@ This section provides a comprehensive, critical analysis of all components in th
 | **Parameters** | 7B+ | Llama 2 7B backbone |
 
 **Recommendation:** Use pre-trained VLAs. Full pre-training is out of scope for a PhD project unless specifically required.
+
+### 17.4.3 Moondream-Inspired Small VLA (Alternative to DreamVLA)
+
+**When Needed:** If DreamVLA unavailable AND a small model is required for rapid iteration (see §7.7 for full architecture details).
+
+**Based on:** Moondream VLM (SigLIP + Phi-2) with added action head.
+
+**Training Requirements:**
+| Component | Value | Notes |
+|-----------|-------|-------|
+| **Vision Encoder** | SigLIP ViT-S/400 (frozen) | Pre-trained; no training cost |
+| **Language Model** | Phi-2 2.8B (frozen) | Pre-trained; no training cost |
+| **Projection Layer** | 2-layer MLP | Reduces 576×384d → 576×2560d |
+| **Action Head** | New diffusion/autoregressive | Estimate: 0.5-1B params |
+| **Total Parameters** | ~3.5B | 62% reduction vs OpenVLA |
+
+**Stage-wise Training:**
+| Stage | Task | Tokens | GPU | Time | Cost |
+|-------|------|--------|-----|------|------|
+| **Stage 1** | Visual alignment (proj only) | 400M | 8x A100 | ~2 days | ~$500 |
+| **Stage 2** | Instruction tuning (proj + head) | 50M | 8x A100 | ~4 hours | ~$100 |
+| **Stage 3** | Full fine-tune (optional, unfreeze last 4 layers) | 100M | 8x A100 | ~2 days | ~$500 |
+| **Total** | | **550M** | | **~5-6 days** | **~$1.1K** |
+
+**Data Requirements:**
+| Stage | Data Type | Size | Source |
+|-------|-----------|------|--------|
+| Stage 1 | Vision-action pairs | 100K+ trajectories | Existing benchmarks (LIBERO, Open-X) |
+| Stage 2 | Instruction-action pairs | 50K+ pairs | Synthetic (GPT-4o generated) + real |
+| Stage 3 (optional) | Domain-specific rollouts | 10K+ trajectories | Sim or real robot |
+
+**Advantages:**
+- Feasible compute (~$1.1K vs $50K+ for full pre-training)
+- Fast iteration (5-6 days vs months)
+- Small model (3.5B fits on single GPU)
+- Clean experimental design (frozen encoders)
+
+**Disadvantages:**
+- No explicit world model (D) - cannot test V-D-A decomposition
+- Unproven for VLA tasks (Moondream is VLM, not VLA)
+- Requires training from scratch (no pre-trained action head)
+
+**Recommendation:** Use as **fallback** if DreamVLA unavailable AND OpenVLA too large. Prioritize OpenVLA for core experiments due to established benchmarks.
 
 ## 17.5 Dimensionality Reduction (No Training)
 
