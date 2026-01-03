@@ -2,7 +2,7 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 6.3 (Manifold-Geometry Integration + VLA Matrix + SAM3/Depth-Anything v3)
+**Version:** 6.5 (Hierarchical 3-Way PID for Dream2Flow Analysis)
 **Date:** 2026-01-03
 **Status:** Research Specification (critical assessment + engineering roadmap)
 **Canonical:** This is the living spec; prior versions live in git history.
@@ -31,6 +31,48 @@
 > *   **Kernel Density Estimation (KDE):** Excluded due to the "curse of dimensionality" at d=4096 (bandwidth selection is statistically impossible). Furthermore, numerically integrating the complex "disjunction" shape for `I^sx_∩` is intractable compared to KSG counting.
 > *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to computational cost ($O(N^3)$ eigendecomposition) and uncontrolled density distortion. Unlike Isomap ("Unrolling"), spectral embeddings change local volumes in ways that are difficult to correct for PID.
 > *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 2, which restricts itself to MI/CI where this cancellation is not required).
+
+**v6.5 notes (Hierarchical 3-Way PID Applicability to Dream2Flow):**
+- **Verified: Hierarchical Pairwise PID (§5.3 Option 3) is ideal for Dream2Flow** — The recommended 3-way analysis approach computes three separate 2-source PIDs: `Syn(V,L;A)`, `Syn(V,D;A)`, `Syn(L,D;A)`. This maps directly to Dream2Flow's staged pipeline:
+  - `Syn(V, D_wan; Flow)` — World model quality (video generation stage)
+  - `Syn(V, Flow; A_cmd)` — Flow-to-action translation (flow extraction stage)
+  - `Syn(A_cmd, Sim; A_out)` — Command-to-execution (robot execution stage)
+- **Key finding: 3D flow enables valid hierarchical PID where latent action space does not:**
+  - 3D object flow (d=3×T, typically d≈6-30) is inherently **low-dimensional Euclidean** (§16.11 cross-reference)
+  - This bypasses the curse of dimensionality that invalidates kNN estimators on D_vla (d=4096)
+  - Latent action diffusion operates on A (output), not on D (intermediate) — it doesn't solve the D-side estimation problem
+  - For hierarchical 3-way PID, you need interpretable, estimator-valid intermediates — 3D flow provides this
+- **Dream2Flow failure taxonomy maps to hierarchical PID (§9.7.7, §14.5.7):**
+  | Dream2Flow Stage | Success Rate | Hierarchical PID Diagnostic |
+  |------------------|--------------|----------------------------|
+  | Video generation | 80% | Low `Syn(V, D_wan; Flow)` indicates world model failure |
+  | Flow extraction | 92% | Low `Syn(V, Flow; A)` indicates perception/tracking failure |
+  | Robot execution | 91% | Low `Syn(A_cmd, Sim; A_out)` indicates embodiment gap |
+  | End-to-end | 67% | Standard `Syn(V,D;A)` conflates all stages |
+- **Confound controls (§14.5.7) enable stage-wise attribution:**
+  - Multi-stage PID separates world model quality from execution failures
+  - Counterfactual `A*` (optimal action) isolates embodiment gap: `Syn(V,D;A) - Syn(V,D;A*)`
+  - Dream2Flow's architecture provides natural ablation points for validation
+- **Compute requirements verified (§17.17.4):**
+  - Full 2-source PID: ~60ms at n=1000, d=256
+  - 4-point Dream2Flow analysis: ~400ms total
+  - Hierarchical 3-way (3× pairwise PIDs): ~180ms — tractable for real-time diagnostics
+- **Latent action diffusion is complementary, not competing:**
+  - Use latent action diffusion in the VLA policy head (how A is generated)
+  - Use 3D flow as D proxy for PID analysis (how D quality is measured)
+  - Both coexist: one is about policy architecture, the other is about diagnostic methodology
+
+**v6.4 notes (VLM→World Model Transition + 3D Flow vs Latent Action Analysis):**
+- **New §10.11: The VLM→World Model Paradigm Shift** — Documents the emerging transition in robotics foundation models:
+  - **Generation 1 (VLM-based VLAs):** OpenVLA, RT-2, PaLM-E — language model backbone, implicit world knowledge in weights, action tokens appended to language output
+  - **Generation 2 (World Model-based):** Dream2Flow, DreamVLA, Motus, UniSim — explicit world model with video/flow intermediate representations
+  - Key architectural difference: where physics/dynamics knowledge is encoded
+- **New analysis: 3D Object Flow vs Latent Action Space Diffusion** — Addresses the question "why not diffusion on latent actions instead of 3D positional space?":
+  - **3D Object Flow (Dream2Flow):** Operates on D (world model); low-dimensional Euclidean (d≈6-9 per point); embodiment-agnostic; enables PID estimator validity (bypasses curse of dimensionality); good for cross-stage failure attribution
+  - **Latent Action Diffusion:** Operates on A (policy head); compact learned representation; embodiment-specific; doesn't solve the D-side estimator validity problem
+  - **For PID-VLA specifically:** 3D flow is more useful because the bottleneck is measuring information in high-dimensional D/V embeddings, not action space. 3D flow serves as a "geometry escape hatch" for valid PID estimation.
+  - **Both can coexist:** Use latent action diffusion in the VLA being studied, but use 3D flow as an external D validation to diagnose where failures occur
+- **Updated Hypothesis H7 context:** The choice of 3D flow over latent actions is deliberate — it enables the decomposition of failures into video→flow→execution stages, which maps directly to PID diagnostic goals
 
 **v6.3 notes (Manifold-Geometry Integration + VLA Compatibility Matrix + Updated Vision Models):**
 - **New §10.10.12: Manifold Geometry Considerations** — Connects v5.5/v5.6 manifold challenges to Dream2Flow pipeline:
@@ -11439,6 +11481,11 @@ release: build build-wheel
 | **5.7** | Jan 2026 | **First-Principles Geometry Analysis + VLA Verification:** (1) Verified VLA architectures against original papers: OpenVLA (SigLIP+DinoV2 600M, 32 layers, 4096d), DreamVLA (GPT-2 dims UNSPECIFIED), PixelVLA/TraceVLA (4096d, 7D actions). (2) Added §16.6-§16.11: local flatness testing (4 methods incl. Ollivier-Ricci curvature), δ-hyperbolicity testing, SAE analysis for VLA, Chebyshev/PixelVLA geometry transition, GPT-2 vs modern LLMs hierarchy evidence, unified Geometry-First Protocol with NanoGPT foundational study. (3) Added Wibral GitLab repos as authoritative code sources. (4) Integrated VLA-Arena benchmark findings, GenieReasoner/FACT tokenizer, hierarchical geometry of cognitive states. (5) Added explicit hyperbolic training guidance. |
 | **5.8** | Jan 2026 | **VLA-Arena Deep Integration + Memorization/Generalization Analysis:** (1) VLA-Arena as primary evaluation framework (§9.7.1). (2) New §3.6: Memorization vs Generalization hypotheses (H4-H6). (3) Perturbation-based PID robustness protocol (§9.7.2). (4) Expanded confound analysis (§14.5). (5) Long-horizon and compositional failure analysis. (6) Safety dimension integration. |
 | **6.0** | Jan 2026 | **Critical Blockers Analysis + Training/Compute Requirements:** (1) New §17: Training, Compute, and Data Requirements Analysis covering 25+ methods, VLA fine-tuning costs, compute budget recommendations. (2) New §18: Critical Blockers and Risk Analysis with 5 show-stoppers, 7 major blockers, 8 minor blockers, Go/No-Go decision frameworks, and fallback scope hierarchy. (3) Verified DreamVLA architecture gaps, OpenVLA availability, VLA-Arena accessibility. (4) Risk assessment: HIGH but tractable if Experiment 0 succeeds. |
+| **6.1** | Jan 2026 | **Dream2Flow Integration + Embodiment-Agnostic Analysis:** (1) Dream2Flow (arXiv:2512.24766) integration as related paradigm for 3D object flow extraction. (2) New §10.9: Dream2Flow and Video-to-Flow Paradigm. (3) New Hypothesis H7: 3D object flow as embodiment-agnostic intermediate. (4) New §14.5.7: Embodiment gap confound. (5) Updated §9.7: Dream2Flow failure taxonomy. |
+| **6.2** | Jan 2026 | **Unified Architecture: Dream2Flow + WAN + PID + Gaussian Splatting:** (1) New §10.10: Complete integration stack. (2) WAN 2.2 as local video generation. (3) SAM3, CoTracker3, Depth-Anything v3 for 3D flow. (4) PID analysis at 4 stages. (5) Gaussian Splatting visualization. (6) New §17.17: Dream2Flow integration requirements. |
+| **6.3** | Jan 2026 | **Manifold-Geometry Integration + VLA Compatibility Matrix:** (1) New §10.10.12: Manifold geometry per pipeline stage. (2) Key insight: 3D flow is low-dim Euclidean — bypasses manifold issues. (3) New §10.10.13: VLA integration matrix. (4) Updated vision models (SAM3, Depth-Anything v3). |
+| **6.4** | Jan 2026 | **VLM→World Model Transition + 3D Flow vs Latent Action Analysis:** (1) Documented paradigm shift from VLM-based VLAs (Gen 1: OpenVLA, RT-2) to World Model-based (Gen 2: Dream2Flow, DreamVLA, Motus). (2) Analyzed 3D Object Flow vs Latent Action Space Diffusion: 3D flow operates on D (world model) enabling PID validity; latent action diffusion operates on A (policy) and doesn't solve D-side estimation. (3) For PID-VLA, 3D flow serves as "geometry escape hatch." (4) Both approaches can coexist. |
+| **6.5** | Jan 2026 | **Hierarchical 3-Way PID for Dream2Flow Analysis:** (1) Verified Hierarchical Pairwise PID (§5.3 Option 3) is ideal for Dream2Flow — maps to staged pipeline: `Syn(V,D_wan;Flow)`, `Syn(V,Flow;A_cmd)`, `Syn(A_cmd,Sim;A_out)`. (2) 3D flow enables valid hierarchical PID where latent action space does not — d≈6-30 is tractable vs d=4096. (3) Dream2Flow failure taxonomy directly maps to hierarchical PID diagnostics. (4) Confound controls (§14.5.7) enable stage-wise attribution. (5) Compute verified: 3× pairwise PID ≈180ms, tractable for real-time. (6) Latent action diffusion is complementary (policy architecture) not competing (diagnostic methodology). |
 
 ---
 
