@@ -227,3 +227,5 @@ See `grandplan.md` §7 for detailed analysis.
   url = {https://github.com/your-org/pid-vla}
 }
 ```
+
+- `GAUSS_MI_INTEGRATION.md`: Specification for integrating GauSS-MI uncertainty quantification with PID estimators.

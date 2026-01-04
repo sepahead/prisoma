@@ -12268,3 +12268,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 ---
 
 *End of Document*
+
+## 9.8 Extended Comparisons: World Models & Deformables (Experiments 6-10)
+
+This section extends the core experimental suite to address advanced world model capabilities and deformable object manipulation, comparing **ManiGaussian** (learned/implicit) vs **PEGS** (explicit/PBD).
+
+| Exp | Name | Hypothesis | Key Metric |
+|-----|------|------------|------------|
+| **6** | **Prediction Fidelity** | H_WM1: Learned models win in-distribution; explicit models win OOD | `I(Prediction; P_GT)` |
+| **7** | **Novel Object Generalization** | H_WM2: Explicit physics generalizes to novel geometry/mass better | Success rate drop |
+| **8** | **Physics Perturbation** | H_WM3: Visual correction (PEGS) adapts to mass/friction changes | Synergy variance |
+| **9** | **Temporal Coherence** | H_WM4: Explicit state maintains coherence in long tasks | Synergy degradation slope |
+| **10** | **Deformable Objects** | H_WM5: Particle-based physics handles rope/cloth; rigid assumptions fail | Task success rate |
+
+**See `EXPERIMENTS.md` Sections 14-19 for detailed protocols.**
