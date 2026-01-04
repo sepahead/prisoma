@@ -1814,6 +1814,1216 @@ results:
 
 ---
  
+
+---
+
+## 14. World Model Comparison: ManiGaussian vs PEGS
+
+### 14.1 Overview and Motivation
+
+This experiment suite compares two fundamentally different approaches to integrating physics with 3D Gaussian Splatting for robotic manipulation:
+
+| Approach     | Physics Type       | Visual Integration                            | Key Innovation                                    |
+| ------------ | ------------------ | --------------------------------------------- | ------------------------------------------------- |
+| ManiGaussian | Learned (implicit) | 3D Variational Encoder → Gaussian World Model | Predicts future Z embedding conditioned on action |
+| PEGS         | Explicit (PBD)     | Dual Gaussian-Particle + Visual Forces        | Real-time correction via photometric error        |
+
+**Core Research Questions:**
+1. Which approach captures more information about ground truth physics? (Measured by I(Prediction; P_GT))
+2. How do PID signatures differ between learned and explicit physics?
+3. Which approach generalizes better to novel objects/physics perturbations?
+4. How does temporal coherence degrade in long-horizon tasks?
+
+### 14.2 Unified PID Metric Framework
+
+```python
+@dataclass
+class WorldModelPIDMetrics:
+    'Unified PID metrics for comparing ManiGaussian vs PEGS'
+    
+    # === ManiGaussian-specific ===
+    # World model construction: PID(V, L; Z)
+    mani_world_model_synergy: float      # Syn(V, L; Z)
+    mani_world_model_redundancy: float   # Red(V, L; Z)
+    mani_world_model_unique_v: float     # Unq(V; Z)
+    mani_world_model_unique_l: float     # Unq(L; Z)
+    
+    # Dynamics prediction: I(Z'; P_GT)
+    mani_prediction_mi: float            # MI between predicted embedding and ground truth
+    
+    # Action prediction: PID(Z, L; A)
+    mani_action_synergy: float           # Syn(Z, L; A)
+    mani_action_unique_z: float          # Unq(Z; A) - world model contribution
+    mani_action_unique_l: float          # Unq(L; A) - hallucination risk indicator
+    
+    # === PEGS-specific ===
+    # Correction quality: PID(P_pred, V_obs; P_corr)
+    pegs_correction_synergy: float       # Syn(P_pred, V_obs; P_corr)
+    pegs_correction_redundancy: float    # Red(P_pred, V_obs; P_corr)
+    pegs_correction_unique_phys: float   # Unq(P_pred; P_corr) - physics dominance
+    pegs_correction_unique_vis: float    # Unq(V_obs; P_corr) - visual dominance
+    
+    # Physics prediction accuracy: I(P_pred; P_GT)
+    pegs_prediction_mi: float            # MI between PBD prediction and ground truth
+    
+    # Visual force magnitude (scalar)
+    pegs_visual_force_magnitude: float   # ||F_visual|| - correction effort
+    
+    # === Comparative (both systems) ===
+    # Flow consistency: I(WorldModel; Flow_GT)
+    flow_consistency_mi: float           # How well does world model predict 3D flow?
+    
+    # Temporal stability
+    synergy_variance: float              # Var(Syn) over episode
+    synergy_slope: float                 # Trend of Syn over time (negative = degradation)
+```
+
+---
+
+## 15. Experiment 6: World Model Prediction Fidelity
+
+**Hypothesis H_WM1:** ManiGaussian achieves higher I(Prediction; P_GT) on in-distribution scenarios, but PEGS maintains stable accuracy across distribution shifts.
+
+### 15.1 Task Definition
+
+| Property     | Value                                                |
+| ------------ | ---------------------------------------------------- |
+| Task         | Open-loop trajectory prediction (no robot execution) |
+| Input        | Initial scene state + 10-step action sequence        |
+| Output       | Predicted object trajectories from both systems      |
+| Ground Truth | Rapier3D physics simulation                          |
+| Metric       | Prediction horizon (steps until error > threshold)   |
+| Episodes     | 200 per condition                                    |
+
+### 15.2 Experimental Protocol
+
+```yaml
+# experiments/configs/exp6_prediction_fidelity.yaml
+experiment_id: exp6_world_model_prediction_v1
+ 
+conditions:
+  - name: single_object_push
+    scene: scenes/simple_push.yaml
+    action_type: push_sequence
+    prediction_horizon: 20  # steps
+    n_episodes: 200
+    
+  - name: multi_object_collision
+    scene: scenes/collision_chain.yaml
+    action_type: contact_cascade
+    prediction_horizon: 30
+    n_episodes: 200
+    
+  - name: stacking_dynamics
+    scene: scenes/stacking.yaml
+    action_type: place_sequence
+    prediction_horizon: 25
+    n_episodes: 200
+ 
+world_models:
+  - name: manigaussian
+    type: learned
+    checkpoint: models/manigaussian_v1.pth
+    inference_mode: rollout
+    
+  - name: pegs
+    type: explicit
+    physics_engine: pbd
+    pbd_iterations: 10
+    visual_correction: false  # Pure physics prediction
+    
+  - name: pegs_corrected
+    type: explicit
+    physics_engine: pbd
+    visual_correction: true
+    correction_rate: 0.1
+ 
+ground_truth:
+  engine: rapier3d
+  step_hz: 1000
+  substeps: 10
+```
+
+### 15.3 Scene Configurations
+
+**Scene: Single Object Push**
+```yaml
+# scenes/simple_push.yaml
+scene_id: simple_push_v1
+environment: tabletop
+ 
+objects:
+  - id: target_cube
+    splat: assets/splats/red_cube.spz
+    initial_pose:
+      position: [0.45, 0.0, 0.025]
+      orientation: [1.0, 0.0, 0.0, 0.0]
+    physics:
+      type: cuboid
+      half_extents: [0.025, 0.025, 0.025]
+      mass: 0.1
+      friction: 0.5
+      restitution: 0.2
+ 
+action_sequence:
+  type: push
+  direction: [0.0, 1.0, 0.0]  # Push along Y axis
+  force_magnitude: 2.0  # Newtons
+  duration_steps: 5
+```
+
+**Scene: Multi-Object Collision Chain**
+```yaml
+# scenes/collision_chain.yaml
+scene_id: collision_chain_v1
+environment: tabletop
+ 
+objects:
+  - id: striker
+    splat: assets/splats/green_sphere.spz
+    initial_pose:
+      position: [0.30, 0.0, 0.04]
+      orientation: [1.0, 0.0, 0.0, 0.0]
+    physics:
+      type: ball
+      radius: 0.04
+      mass: 0.2
+      friction: 0.3
+      restitution: 0.8
+ 
+  - id: target_1
+    splat: assets/splats/red_cube.spz
+    initial_pose:
+      position: [0.45, 0.0, 0.025]
+      orientation: [1.0, 0.0, 0.0, 0.0]
+    physics:
+      type: cuboid
+      half_extents: [0.025, 0.025, 0.025]
+      mass: 0.1
+ 
+  - id: target_2
+    splat: assets/splats/blue_cube.spz
+    initial_pose:
+      position: [0.52, 0.0, 0.025]
+      orientation: [1.0, 0.0, 0.0, 0.0]
+    physics:
+      type: cuboid
+      half_extents: [0.025, 0.025, 0.025]
+      mass: 0.1
+ 
+  - id: target_3
+    splat: assets/splats/yellow_cube.spz
+    initial_pose:
+      position: [0.59, 0.0, 0.025]
+      orientation: [1.0, 0.0, 0.0, 0.0]
+    physics:
+      type: cuboid
+      half_extents: [0.025, 0.025, 0.025]
+      mass: 0.1
+ 
+action_sequence:
+  type: impulse
+  target: striker
+  direction: [1.0, 0.0, 0.0]
+  impulse_magnitude: 0.5  # N·s
+```
+
+### 15.4 PID Decompositions for Experiment 6
+
+```python
+@dataclass
+class Exp6PIDAnalysis:
+    'PID analysis for world model prediction fidelity'
+    
+    # ManiGaussian-specific
+    # Sources: V (visual input), L (language), Z (Gaussian embedding)
+    # Target: P_GT (ground truth positions)
+    manigaussian_mi_z_pgt: float          # I(Z'; P_GT) - embedding captures physics
+    manigaussian_pid_v_l_z: Pid2Result    # PID(V, L; Z) - how V,L form world model
+    
+    # PEGS-specific  
+    # Sources: P_pred (PBD prediction), V_obs (visual observation)
+    # Target: P_GT (ground truth positions)
+    pegs_mi_pred_pgt: float               # I(P_pred; P_GT) - physics prediction
+    pegs_mi_corr_pgt: float               # I(P_corrected; P_GT) - after correction
+    pegs_pid_pred_vobs_pcorr: Pid2Result  # PID(P_pred, V_obs; P_corr)
+    
+    # Comparative metrics
+    prediction_horizon_manigaussian: int  # Steps until error > threshold
+    prediction_horizon_pegs: int
+    prediction_horizon_pegs_corrected: int
+ 
+ 
+def compute_exp6_pid(
+    manigaussian_predictions: np.ndarray,  # (T, n_objects, 3)
+    pegs_predictions: np.ndarray,          # (T, n_objects, 3)
+    pegs_corrected: np.ndarray,            # (T, n_objects, 3)
+    ground_truth: np.ndarray,              # (T, n_objects, 3)
+    visual_observations: np.ndarray,       # (T, H, W, 3)
+    manigaussian_embeddings: np.ndarray,   # (T, embed_dim)
+    cfg: Pid2Config,
+) -> Exp6PIDAnalysis:
+    '
+    Compute PID metrics comparing world model predictions.
+    
+    Key question: Which representation captures more information 
+    about ground truth physics?
+    '
+    T = len(ground_truth)
+    n_obj = ground_truth.shape[1]
+    
+    # Flatten object positions for MI computation
+    gt_flat = ground_truth.reshape(T, -1)  # (T, n_objects * 3)
+    mg_flat = manigaussian_predictions.reshape(T, -1)
+    pegs_flat = pegs_predictions.reshape(T, -1)
+    pegs_corr_flat = pegs_corrected.reshape(T, -1)
+    
+    # Standardize
+    gt_std = Standardizer.fit_transform(MatRef.from_numpy(gt_flat))
+    mg_std = Standardizer.fit_transform(MatRef.from_numpy(mg_flat))
+    pegs_std = Standardizer.fit_transform(MatRef.from_numpy(pegs_flat))
+    pegs_corr_std = Standardizer.fit_transform(MatRef.from_numpy(pegs_corr_flat))
+    z_std = Standardizer.fit_transform(MatRef.from_numpy(manigaussian_embeddings))
+    
+    # 1. ManiGaussian: I(Z'; P_GT)
+    mi_z_pgt = ksg_mi(z_std, gt_std, cfg.ksg)
+    
+    # 2. PEGS: I(P_pred; P_GT) and I(P_corr; P_GT)
+    mi_pred_pgt = ksg_mi(pegs_std, gt_std, cfg.ksg)
+    mi_corr_pgt = ksg_mi(pegs_corr_std, gt_std, cfg.ksg)
+    
+    # 3. PEGS PID: How does visual correction contribute?
+    # PID(P_pred, V_features; P_corrected)
+    v_features = extract_visual_features(visual_observations)  # CNN/ViT features
+    v_std = Standardizer.fit_transform(MatRef.from_numpy(v_features))
+    
+    pegs_pid = pid2_isx(pegs_std, v_std, pegs_corr_std, cfg)
+    
+    # 4. Compute prediction horizons
+    error_threshold = 0.02  # 2cm position error
+    
+    mg_horizon = compute_prediction_horizon(mg_flat, gt_flat, error_threshold)
+    pegs_horizon = compute_prediction_horizon(pegs_flat, gt_flat, error_threshold)
+    pegs_corr_horizon = compute_prediction_horizon(pegs_corr_flat, gt_flat, error_threshold)
+    
+    return Exp6PIDAnalysis(
+        manigaussian_mi_z_pgt=mi_z_pgt,
+        pegs_mi_pred_pgt=mi_pred_pgt,
+        pegs_mi_corr_pgt=mi_corr_pgt,
+        pegs_pid_pred_vobs_pcorr=pegs_pid,
+        prediction_horizon_manigaussian=mg_horizon,
+        prediction_horizon_pegs=pegs_horizon,
+        prediction_horizon_pegs_corrected=pegs_corr_horizon,
+    )
+ 
+ 
+def compute_prediction_horizon(
+    predictions: np.ndarray,
+    ground_truth: np.ndarray,
+    threshold: float,
+) -> int:
+    'Find first timestep where prediction error exceeds threshold'
+    errors = np.linalg.norm(predictions - ground_truth, axis=1)
+    exceeds = np.where(errors > threshold)[0]
+    return exceeds[0] if len(exceeds) > 0 else len(predictions)
+```
+
+### 15.5 Evaluation Metrics
+
+```python
+def evaluate_exp6(results: List[Exp6PIDAnalysis]) -> dict:
+    'Aggregate evaluation for Experiment 6'
+    
+    # Prediction accuracy comparison
+    mg_horizons = [r.prediction_horizon_manigaussian for r in results]
+    pegs_horizons = [r.prediction_horizon_pegs for r in results]
+    pegs_corr_horizons = [r.prediction_horizon_pegs_corrected for r in results]
+    
+    # MI comparison
+    mg_mi = [r.manigaussian_mi_z_pgt for r in results]
+    pegs_mi = [r.pegs_mi_pred_pgt for r in results]
+    pegs_corr_mi = [r.pegs_mi_corr_pgt for r in results]
+    
+    # Visual correction benefit (PEGS)
+    correction_benefit = [
+        r.pegs_pid_pred_vobs_pcorr.synergy for r in results
+    ]
+    
+    # Statistical tests
+    from scipy.stats import wilcoxon, ttest_rel
+    
+    # H_WM1: Is ManiGaussian MI > PEGS MI on in-distribution?
+    stat_mi, pval_mi = ttest_rel(mg_mi, pegs_mi)
+    
+    # H_WM1b: Does visual correction help PEGS?
+    stat_corr, pval_corr = ttest_rel(pegs_corr_mi, pegs_mi)
+    
+    return {
+        "mean_horizon_manigaussian": np.mean(mg_horizons),
+        "mean_horizon_pegs": np.mean(pegs_horizons),
+        "mean_horizon_pegs_corrected": np.mean(pegs_corr_horizons),
+        "mean_mi_manigaussian": np.mean(mg_mi),
+        "mean_mi_pegs": np.mean(pegs_mi),
+        "mean_mi_pegs_corrected": np.mean(pegs_corr_mi),
+        "mean_correction_synergy": np.mean(correction_benefit),
+        "h_wm1_pvalue": pval_mi,
+        "h_wm1_significant": pval_mi < 0.05,
+        "visual_correction_benefit_pvalue": pval_corr,
+    }
+```
+
+---
+
+## 16. Experiment 7: Novel Object Generalization
+
+**Hypothesis H_WM2:** PEGS maintains stable PID signatures (Syn(P_pred, V_obs; P_corr)) on novel objects because physics generalizes; ManiGaussian's Syn(V, L; Z) degrades significantly on objects outside training distribution.
+
+### 16.1 Task Definition
+
+| Property         | Value                                                          |
+| ---------------- | -------------------------------------------------------------- |
+| Task             | Pick-and-place with novel objects                              |
+| Novel Geometries | L-shaped blocks, hollow cylinders, torus                       |
+| Novel Materials  | Glass-like (transparent), metallic (reflective)                |
+| Novel Mass       | Weighted dice (asymmetric CoM), hollow vs solid                |
+| Control          | Same objects captured as 3DGS but NOT in ManiGaussian training |
+
+### 16.2 Novel Object Library
+
+```yaml
+# assets/novel_objects/object_library.yaml
+novel_objects:
+  # Geometry novelty
+  - id: l_block
+    description: "L-shaped wooden block"
+    splat: assets/splats/novel/l_block.spz
+    physics:
+      type: compound  # Multiple cuboids
+      components:
+        - {type: cuboid, half_extents: [0.04, 0.02, 0.02], offset: [0, 0, 0]}
+        - {type: cuboid, half_extents: [0.02, 0.04, 0.02], offset: [0.03, 0.02, 0]}
+      mass: 0.15
+    in_mani_training: false
+    
+  - id: hollow_cylinder
+    description: "Hollow metal cylinder (pipe section)"
+    splat: assets/splats/novel/hollow_cylinder.spz
+    physics:
+      type: trimesh
+      mesh_path: assets/meshes/hollow_cylinder.obj
+      mass: 0.08
+    in_mani_training: false
+    
+  - id: torus
+    description: "Rubber torus (donut shape)"
+    splat: assets/splats/novel/torus.spz
+    physics:
+      type: trimesh
+      mesh_path: assets/meshes/torus.obj
+      mass: 0.05
+    in_mani_training: false
+    
+  # Material novelty (same geometry as training, different appearance)
+  - id: glass_cube
+    description: "Transparent glass cube (same size as red_cube)"
+    splat: assets/splats/novel/glass_cube.spz  # Captured with DKT for transparency
+    physics:
+      type: cuboid
+      half_extents: [0.025, 0.025, 0.025]
+      mass: 0.15  # Glass is denser
+    in_mani_training: false
+    visual_challenge: transparency
+    
+  - id: chrome_sphere
+    description: "Reflective chrome sphere"
+    splat: assets/splats/novel/chrome_sphere.spz
+    physics:
+      type: ball
+      radius: 0.04
+      mass: 0.5  # Metal
+    in_mani_training: false
+    visual_challenge: reflection
+    
+  # Mass distribution novelty
+  - id: weighted_die
+    description: "Cube with asymmetric weight distribution"
+    splat: assets/splats/novel/weighted_die.spz
+    physics:
+      type: cuboid
+      half_extents: [0.025, 0.025, 0.025]
+      mass: 0.2
+      center_of_mass: [0.01, 0.01, -0.015]  # Off-center
+    in_mani_training: false
+    physics_challenge: asymmetric_com
+```
+
+### 16.3 Experimental Conditions
+
+```yaml
+# experiments/configs/exp7_novel_objects.yaml
+experiment_id: exp7_novel_object_generalization_v1
+ 
+conditions:
+  # Baseline: familiar objects (sanity check)
+  - name: familiar_red_cube
+    scene: scenes/novel_object_test.yaml
+    target_object: red_cube
+    instruction: "Pick up the red cube and place it on the blue plate."
+    n_episodes: 50
+    
+  # Geometry novelty
+  - name: novel_l_block
+    scene: scenes/novel_object_test.yaml
+    target_object: l_block
+    instruction: "Pick up the L-shaped block and place it on the blue plate."
+    n_episodes: 50
+    
+  - name: novel_hollow_cylinder
+    scene: scenes/novel_object_test.yaml
+    target_object: hollow_cylinder
+    instruction: "Pick up the hollow cylinder and place it on the blue plate."
+    n_episodes: 50
+    
+  - name: novel_torus
+    scene: scenes/novel_object_test.yaml
+    target_object: torus
+    instruction: "Pick up the rubber ring and place it on the blue plate."
+    n_episodes: 50
+    
+  # Material novelty
+  - name: novel_glass_cube
+    scene: scenes/novel_object_test.yaml
+    target_object: glass_cube
+    instruction: "Pick up the glass cube and place it on the blue plate."
+    n_episodes: 50
+    note: "Tests visual encoder on transparency (use DKT-captured splat)"
+    
+  - name: novel_chrome_sphere
+    scene: scenes/novel_object_test.yaml
+    target_object: chrome_sphere
+    instruction: "Pick up the shiny metal ball and place it on the blue plate."
+    n_episodes: 50
+    note: "Tests visual encoder on reflections"
+    
+  # Physics novelty
+  - name: novel_weighted_die
+    scene: scenes/novel_object_test.yaml
+    target_object: weighted_die
+    instruction: "Pick up the die and place it on the blue plate."
+    n_episodes: 50
+    note: "Asymmetric CoM causes unexpected rotation during grasp"
+ 
+analysis:
+  primary_metrics:
+    - "pid_stability"  # Variance of Syn across episode
+    - "success_rate"
+    - "grasp_success_rate"
+  
+  pid_decomposition:
+    manigaussian:
+      - "Syn(V, L; Z)"
+      - "Unq(V; Z)"
+      - "Unq(L; Z)"
+    pegs:
+      - "Syn(P_pred, V_obs; P_corr)"
+      - "Unq(P_pred; P_corr)"
+      - "Unq(V_obs; P_corr)"
+```
+
+### 16.4 PID Analysis for Generalization
+
+```python
+def analyze_novel_object_generalization(
+    mani_episodes: List[NovelObjectEpisode],
+    pegs_episodes: List[NovelObjectEpisode]
+) -> dict:
+    '
+    Test H_WM2: PEGS maintains stable PID; ManiGaussian degrades on novel objects
+    '
+    
+    # Group by object novelty type
+    novelty_types = ["familiar", "geometry", "material", "physics"]
+    
+    results = {}
+    for novelty in novelty_types:
+        mani_eps = [e for e in mani_episodes if e.novelty_type == novelty]
+        pegs_eps = [e for e in pegs_episodes if e.novelty_type == novelty]
+        
+        # Compute PID variance (stability metric)
+        mani_syn_values = []
+        for ep in mani_eps:
+            syn_trajectory = compute_manigaussian_synergy_trajectory(ep)
+            mani_syn_values.extend(syn_trajectory)
+        
+        pegs_syn_values = []
+        for ep in pegs_eps:
+            syn_trajectory = compute_pegs_synergy_trajectory(ep)
+            pegs_syn_values.extend(syn_trajectory)
+        
+        results[novelty] = {
+            "manigaussian": {
+                "mean_synergy": np.mean(mani_syn_values),
+                "std_synergy": np.std(mani_syn_values),
+                "success_rate": np.mean([e.success for e in mani_eps]),
+            },
+            "pegs": {
+                "mean_synergy": np.mean(pegs_syn_values),
+                "std_synergy": np.std(pegs_syn_values),
+                "success_rate": np.mean([e.success for e in pegs_eps]),
+            }
+        }
+    
+    # H_WM2 test: Compare stability drop from familiar to novel
+    mani_familiar_std = results["familiar"]["manigaussian"]["std_synergy"]
+    mani_novel_stds = [results[n]["manigaussian"]["std_synergy"] for n in ["geometry", "material", "physics"]]
+    mani_stability_drop = np.mean(mani_novel_stds) / mani_familiar_std
+    
+    pegs_familiar_std = results["familiar"]["pegs"]["std_synergy"]
+    pegs_novel_stds = [results[n]["pegs"]["std_synergy"] for n in ["geometry", "material", "physics"]]
+    pegs_stability_drop = np.mean(pegs_novel_stds) / pegs_familiar_std
+    
+    return {
+        "per_novelty_results": results,
+        "h_wm2_test": {
+            "hypothesis": "PEGS more stable than ManiGaussian on novel objects",
+            "mani_stability_drop_ratio": mani_stability_drop,
+            "pegs_stability_drop_ratio": pegs_stability_drop,
+            "supported": pegs_stability_drop < mani_stability_drop,
+        }
+    }
+```
+
+---
+
+## 17. Experiment 8: Physics Perturbation Sensitivity
+
+**Hypothesis H_WM3:** PEGS's visual correction mechanism compensates for physics mismatch (stable PID, increased ||F_visual||); ManiGaussian shows PID distribution shift (increased Unq(V; Z) as it falls back to visual dominance).
+
+### 17.1 Task Definition
+
+| Property      | Value                                                                   |
+| ------------- | ----------------------------------------------------------------------- |
+| Task          | Standard pick-and-place                                                 |
+| Perturbations | Mass ×{0.5, 0.75, 1.0, 1.5, 2.0}, Friction ×{0.3, 0.5, 1.0, 1.5, 2.0}   |
+| Metric        | PID stability under physics mismatch                                    |
+| Episodes      | 50 per perturbation level × 2 systems = 500 total per perturbation type |
+
+### 17.2 Perturbation Matrix
+
+```yaml
+# experiments/configs/exp8_physics_perturbation.yaml
+experiment_id: exp8_physics_perturbation_sensitivity_v1
+ 
+perturbation_matrix:
+  mass_scale: [0.5, 0.75, 1.0, 1.5, 2.0]
+  friction_scale: [0.3, 0.5, 1.0, 1.5, 2.0]
+  
+# Generate all combinations
+conditions:
+  # Mass perturbations (friction = 1.0)
+  - name: mass_0.5x
+    perturbations:
+      - {type: mass_variation, target: red_cube, scale: 0.5}
+    n_episodes: 50
+    
+  - name: mass_0.75x
+    perturbations:
+      - {type: mass_variation, target: red_cube, scale: 0.75}
+    n_episodes: 50
+    
+  # ... etc for all mass values
+  
+  # Friction perturbations (mass = 1.0)
+  - name: friction_0.3x
+    perturbations:
+      - {type: friction_variation, target: table, scale: 0.3}
+    n_episodes: 50
+    
+  # ... etc for all friction values
+  
+  # Combined perturbations (stress test)
+  - name: combined_heavy_slippery
+    perturbations:
+      - {type: mass_variation, target: red_cube, scale: 2.0}
+      - {type: friction_variation, target: table, scale: 0.3}
+    n_episodes: 50
+ 
+analysis:
+  key_metrics:
+    - "pid_distribution_shift"  # KL divergence from baseline
+    - "visual_force_magnitude"  # PEGS correction effort
+    - "unique_v_ratio"         # ManiGaussian visual dominance
+```
+
+### 17.3 PID Sensitivity Analysis
+
+```python
+def analyze_physics_perturbation_sensitivity(
+    baseline_mani: List[Episode],
+    baseline_pegs: List[Episode],
+    perturbed_mani: Dict[str, List[Episode]],  # perturbation_name -> episodes
+    perturbed_pegs: Dict[str, List[Episode]],
+) -> dict:
+    '
+    Test H_WM3: PEGS compensates via visual forces; ManiGaussian shifts to visual dominance
+    '
+    
+    # Compute baseline PID distributions
+    baseline_mani_pid = extract_pid_distribution(baseline_mani, "manigaussian")
+    baseline_pegs_pid = extract_pid_distribution(baseline_pegs, "pegs")
+    
+    results = {"manigaussian": {}, "pegs": {}}
+    
+    for pert_name, mani_eps in perturbed_mani.items():
+        pegs_eps = perturbed_pegs[pert_name]
+        
+        # ManiGaussian analysis
+        mani_pid = extract_pid_distribution(mani_eps, "manigaussian")
+        mani_kl = compute_kl_divergence(baseline_mani_pid["synergy"], mani_pid["synergy"])
+        mani_unique_v_ratio = np.mean(mani_pid["unique_v"]) / (
+            np.mean(mani_pid["unique_v"]) + np.mean(mani_pid["unique_l"]) + 1e-8
+        )
+        
+        results["manigaussian"][pert_name] = {
+            "kl_from_baseline": mani_kl,
+            "unique_v_ratio": mani_unique_v_ratio,
+            "mean_synergy": np.mean(mani_pid["synergy"]),
+            "success_rate": np.mean([e.success for e in mani_eps]),
+        }
+        
+        # PEGS analysis
+        pegs_pid = extract_pid_distribution(pegs_eps, "pegs")
+        pegs_kl = compute_kl_divergence(baseline_pegs_pid["synergy"], pegs_pid["synergy"])
+        mean_visual_force = np.mean([
+            np.linalg.norm(e.pegs_visual_forces, axis=-1).mean() 
+            for e in pegs_eps
+        ])
+        
+        results["pegs"][pert_name] = {
+            "kl_from_baseline": pegs_kl,
+            "mean_visual_force": mean_visual_force,
+            "mean_synergy": np.mean(pegs_pid["synergy"]),
+            "success_rate": np.mean([e.success for e in pegs_eps]),
+        }
+    
+    # H_WM3 tests
+    # 1. PEGS should have lower KL divergence (more stable PID)
+    mani_kls = [r["kl_from_baseline"] for r in results["manigaussian"].values()]
+    pegs_kls = [r["kl_from_baseline"] for r in results["pegs"].values()]
+    
+    # 2. PEGS visual force should increase with perturbation severity
+    perturbation_severity = [0.5, 0.75, 1.0, 1.5, 2.0]  # mass scale
+    visual_forces = [results["pegs"][f"mass_{s}x"]["mean_visual_force"] for s in perturbation_severity]
+    force_correlation = np.corrcoef(
+        [abs(1 - s) for s in perturbation_severity],  # deviation from nominal
+        visual_forces
+    )[0, 1]
+    
+    # 3. ManiGaussian unique_v_ratio should increase under perturbation
+    mani_unique_v_baseline = extract_pid_distribution(baseline_mani, "manigaussian")["unique_v"].mean()
+    mani_unique_v_perturbed = np.mean([r["unique_v_ratio"] for r in results["manigaussian"].values()])
+    
+    return {
+        "per_perturbation_results": results,
+        "h_wm3_tests": {
+            "pegs_more_stable": {
+                "mani_mean_kl": np.mean(mani_kls),
+                "pegs_mean_kl": np.mean(pegs_kls),
+                "supported": np.mean(pegs_kls) < np.mean(mani_kls),
+            },
+            "pegs_force_compensates": {
+                "force_perturbation_correlation": force_correlation,
+                "supported": force_correlation > 0.5,  # positive correlation
+            },
+            "mani_visual_fallback": {
+                "baseline_unique_v_ratio": mani_unique_v_baseline,
+                "perturbed_unique_v_ratio": mani_unique_v_perturbed,
+                "supported": mani_unique_v_perturbed > mani_unique_v_baseline * 1.2,  # 20% increase
+            }
+        }
+    }
+```
+
+---
+
+## 18. Experiment 9: Temporal Coherence in Long-Horizon Tasks
+
+**Hypothesis H_WM4:** ManiGaussian shows faster synergy decay over long-horizon tasks; PEGS maintains coherence via continuous visual correction.
+
+### 18.1 Task Definition
+
+| Property         | Value                                 |
+| ---------------- | ------------------------------------- |
+| Task             | 5-block tower stacking                |
+| Phases           | 10 subtasks (5 grasps + 5 placements) |
+| Success Criteria | All 5 blocks stacked, stable for 3s   |
+| Timeout          | 300 seconds                           |
+| Episodes         | 50                                    |
+
+### 18.2 Scene Configuration
+
+```yaml
+# scenes/tower_5_blocks.yaml
+scene_id: tower_5_blocks_v1
+environment: tabletop
+ 
+objects:
+  - id: block_1
+    splat: assets/splats/red_cube.spz
+    initial_pose: {position: [0.30, 0.15, 0.025], orientation: [1,0,0,0]}
+    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
+    stack_order: 1
+    
+  - id: block_2
+    splat: assets/splats/blue_cube.spz
+    initial_pose: {position: [0.35, 0.20, 0.025], orientation: [1,0,0,0]}
+    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
+    stack_order: 2
+    
+  - id: block_3
+    splat: assets/splats/green_cube.spz
+    initial_pose: {position: [0.40, 0.15, 0.025], orientation: [1,0,0,0]}
+    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
+    stack_order: 3
+    
+  - id: block_4
+    splat: assets/splats/yellow_cube.spz
+    initial_pose: {position: [0.45, 0.20, 0.025], orientation: [1,0,0,0]}
+    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
+    stack_order: 4
+    
+  - id: block_5
+    splat: assets/splats/purple_cube.spz
+    initial_pose: {position: [0.50, 0.15, 0.025], orientation: [1,0,0,0]}
+    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
+    stack_order: 5
+    
+  - id: target_base
+    splat: assets/splats/target_platform.spz
+    initial_pose: {position: [0.45, -0.10, 0.001], orientation: [1,0,0,0]}
+    physics: {type: cuboid, half_extents: [0.04, 0.04, 0.001], fixed: true}
+ 
+instruction: "Stack all five blocks in order: red, blue, green, yellow, purple from bottom to top."
+```
+
+### 18.3 Phase Detection and Temporal Analysis
+
+```python
+def detect_stacking_phases(episode: StackingEpisode) -> List[TaskPhase]:
+    'Detect grasp and place phases from episode data'
+    phases = []
+    phase_id = 0
+    
+    gripper_widths = episode.gripper_widths
+    timestamps = episode.timestamps
+    
+    # State machine for phase detection
+    state = "searching"  # "searching", "approaching", "grasping", "lifting", "placing"
+    current_object = None
+    phase_start = None
+    
+    for t in range(1, len(timestamps)):
+        dt = timestamps[t] - timestamps[t-1]
+        
+        # Detect grasp initiation (gripper closing rapidly)
+        if state == "searching" and gripper_widths[t] < gripper_widths[t-1] - 0.005:
+            state = "grasping"
+            phase_start = timestamps[t]
+            current_object = identify_nearest_object(episode, t)
+            
+        # Detect grasp completion (object lifted)
+        elif state == "grasping":
+            obj_height = episode.object_poses[current_object][t, 2]
+            if obj_height > 0.05:  # Lifted threshold
+                phases.append(TaskPhase(
+                    phase_id=phase_id,
+                    phase_type="grasp",
+                    target_object=current_object,
+                    start_time=phase_start,
+                    end_time=timestamps[t],
+                    success=True,
+                ))
+                phase_id += 1
+                state = "placing"
+                phase_start = timestamps[t]
+                
+        # Detect place completion (gripper opening, object stationary)
+        elif state == "placing" and gripper_widths[t] > gripper_widths[t-1] + 0.01:
+            obj_vel = np.linalg.norm(
+                episode.object_velocities[current_object][t]
+            )
+            if obj_vel < 0.01:  # Stationary threshold
+                phases.append(TaskPhase(
+                    phase_id=phase_id,
+                    phase_type="place",
+                    target_object=current_object,
+                    start_time=phase_start,
+                    end_time=timestamps[t],
+                    success=True,
+                ))
+                phase_id += 1
+                state = "searching"
+                current_object = None
+                
+    return phases
+```
+
+### 18.4 Temporal Coherence Evaluation
+
+```python
+def evaluate_exp9(results: List[Exp9PIDAnalysis]) -> dict:
+    '
+    Evaluate temporal coherence over long-horizon tasks.
+    
+    Key metrics:
+    - Synergy degradation slope: negative = degrading, 0 = stable
+    - Cumulative error growth rate
+    - Correlation between synergy and phase success
+    '
+    
+    # Aggregate synergy slopes
+    mg_slopes = [r.synergy_slope_mg for r in results if not np.isnan(r.synergy_slope_mg)]
+    pegs_slopes = [r.synergy_slope_pegs for r in results if not np.isnan(r.synergy_slope_pegs)]
+    
+    # Test H_WM4: ManiGaussian has more negative slope
+    from scipy.stats import ttest_ind
+    stat, pval = ttest_ind(mg_slopes, pegs_slopes)
+    
+    # Phase-by-phase synergy curves
+    max_phases = max(len(r.phase_synergies_mg) for r in results)
+    
+    mg_synergy_curve = []
+    pegs_synergy_curve = []
+    
+    for phase_idx in range(max_phases):
+        mg_vals = [r.phase_synergies_mg[phase_idx] 
+                  for r in results if phase_idx < len(r.phase_synergies_mg)]
+        pegs_vals = [r.phase_synergies_pegs[phase_idx]
+                   for r in results if phase_idx < len(r.phase_synergies_pegs)]
+        
+        mg_synergy_curve.append({
+            "phase": phase_idx,
+            "mean": np.nanmean(mg_vals),
+            "std": np.nanstd(mg_vals),
+        })
+        pegs_synergy_curve.append({
+            "phase": phase_idx,
+            "mean": np.nanmean(pegs_vals),
+            "std": np.nanstd(pegs_vals),
+        })
+    
+    # Task completion rates
+    mg_completion = np.mean([r.phases_completed / r.total_phases for r in results])
+    pegs_completion = np.mean([r.phases_completed / r.total_phases for r in results])
+    
+    # Correlation: synergy with success
+    all_phase_synergies_mg = []
+    all_phase_successes = []
+    for r in results:
+        for phase, syn in zip(r.phases, r.phase_synergies_mg):
+            if not np.isnan(syn):
+                all_phase_synergies_mg.append(syn)
+                all_phase_successes.append(1 if phase.success else 0)
+    
+    from scipy.stats import pointbiserialr
+    corr, corr_pval = pointbiserialr(all_phase_successes, all_phase_synergies_mg)
+    
+    return {
+        "mean_synergy_slope_mg": np.mean(mg_slopes),
+        "mean_synergy_slope_pegs": np.mean(pegs_slopes),
+        "h_wm4_pvalue": pval,
+        "h_wm4_mg_degrades_more": np.mean(mg_slopes) < np.mean(pegs_slopes),
+        "mg_synergy_curve": mg_synergy_curve,
+        "pegs_synergy_curve": pegs_synergy_curve,
+        "mg_phase_completion_rate": mg_completion,
+        "pegs_phase_completion_rate": pegs_completion,
+        "synergy_success_correlation": corr,
+        "synergy_success_pvalue": corr_pval,
+    }
+```
+
+---
+
+## 19. Experiment 10: Deformable Object Manipulation
+
+**Hypothesis H_WM5:** PEGS handles deformables via explicit constraints; ManiGaussian fails (high Unq(L; A)).
+
+### 19.1 Task Definition
+
+| Property     | Value                                        |
+| ------------ | -------------------------------------------- |
+| Task A       | Rope arrangement (form a circle)             |
+| Task B       | Cloth folding (fold in half)                 |
+| Physics      | PEGS uses particle chains / mesh constraints |
+| ManiGaussian | No deformable support (expected failure)     |
+| Episodes     | 30 per task                                  |
+
+### 19.2 Deformable Object Specifications
+
+```yaml
+# objects/deformables.yaml
+deformable_objects:
+  - id: rope_1m
+    description: "1m flexible rope"
+    type: rope
+    
+    splat: assets/splats/deformable/rope_1m.spz
+    
+    pegs_config:
+      particle_count: 100
+      segment_length: 0.01  # meters
+      bending_stiffness: 0.5
+      stretch_stiffness: 1.0
+      particle_mass: 0.001  # kg per particle
+      
+    physics_proxy:
+      type: particle_chain
+      constraints:
+        - type: distance
+          rest_length: 0.01
+          compliance: 0.0001
+        - type: bending
+          rest_angle: 0.0
+          compliance: 0.001
+          
+    manigaussian_support: false
+    
+  - id: cloth_30x30
+    description: "30cm x 30cm cloth"
+    type: cloth
+    
+    splat: assets/splats/deformable/cloth_30x30.spz
+    
+    pegs_config:
+      particle_grid: [30, 30]  # 30x30 particles
+      rest_spacing: 0.01  # meters
+      stretch_stiffness: 1.0
+      shear_stiffness: 0.5
+      bend_stiffness: 0.1
+      particle_mass: 0.0001
+      
+    physics_proxy:
+      type: particle_mesh
+      constraints:
+        - type: stretch
+          compliance: 0.0001
+        - type: shear
+          compliance: 0.001
+        - type: bend
+          compliance: 0.01
+          
+    manigaussian_support: false
+```
+
+### 19.3 Deformable Task Configurations
+
+```yaml
+# experiments/configs/exp10_deformables.yaml
+experiment_id: exp10_deformable_manipulation
+ 
+tasks:
+  - name: rope_circle
+    object: rope_1m
+    instruction: "Arrange the rope into a circle on the table."
+    success_criteria:
+      shape: circle
+      radius_tolerance: 0.05  # meters
+      closure_gap: 0.02  # max gap at ends
+    n_episodes: 30
+    
+  - name: rope_line
+    object: rope_1m
+    instruction: "Straighten the rope into a line."
+    success_criteria:
+      shape: line
+      straightness: 0.95  # correlation coefficient
+    n_episodes: 30
+    
+  - name: cloth_fold_half
+    object: cloth_30x30
+    instruction: "Fold the cloth in half."
+    success_criteria:
+      fold_type: half
+      alignment_error: 0.02  # meters
+      fold_crispness: 0.8
+    n_episodes: 30
+    
+  - name: cloth_flatten
+    object: cloth_30x30
+    instruction: "Flatten the wrinkled cloth on the table."
+    success_criteria:
+      flatness: 0.95  # max height variance
+    n_episodes: 30
+ 
+world_model_configs:
+  pegs:
+    deformable_solver: position_based_dynamics
+    solver_iterations: 20
+    substeps: 5
+    visual_correction: true
+    
+  manigaussian:
+    # Expected to fail - rigid body assumption
+    fallback_mode: rigid_approximation
+```
+
+### 19.4 PID Analysis for Deformables
+
+```python
+def compute_exp10_pid(
+    episode: DeformableEpisode,
+    cfg: Pid2Config,
+) -> Exp10PIDAnalysis:
+    '
+    Analyze deformable manipulation performance.
+    
+    Key hypothesis H_WM5:
+    - PEGS handles deformables via explicit constraints
+    - ManiGaussian fails, falls back to language (high Unq(L; A))
+    '
+    
+    # PEGS analysis
+    if episode.pegs_data is not None:
+        # Particle positions from PBD
+        P_particles = episode.pegs_data.particle_positions  # (T, n_particles, 3)
+        V_features = episode.visual_features
+        P_corrected = episode.pegs_data.corrected_particles
+        
+        # Flatten particles for PID
+        T = len(P_particles)
+        P_flat = P_particles.reshape(T, -1)
+        P_corr_flat = P_corrected.reshape(T, -1)
+        
+        # Reduce dimensionality (too many particles)
+        from sklearn.decomposition import PCA
+        pca = PCA(n_components=64)
+        P_reduced = pca.fit_transform(P_flat)
+        P_corr_reduced = pca.transform(P_corr_flat)
+        
+        P_std = Standardizer.fit_transform(MatRef.from_numpy(P_reduced))
+        V_std = Standardizer.fit_transform(MatRef.from_numpy(V_features))
+        P_corr_std = Standardizer.fit_transform(MatRef.from_numpy(P_corr_reduced))
+        
+        pegs_pid = pid2_isx(P_std, V_std, P_corr_std, cfg)
+        
+        # Constraint analysis
+        constraint_violations = episode.pegs_data.constraint_violations
+        mean_violation = np.mean(constraint_violations)
+        
+        # Particle tracking coverage
+        particle_coverage = episode.pegs_data.tracking_coverage
+        
+    else:
+        pegs_pid = None
+        mean_violation = None
+        particle_coverage = None
+    
+    # ManiGaussian failure analysis
+    if episode.manigaussian_data is not None:
+        mg_data = episode.manigaussian_data
+        
+        # Check if fallback was triggered
+        fallback_triggered = mg_data.used_rigid_fallback
+        
+        # Language dominance analysis
+        V = mg_data.visual_embeddings
+        L = mg_data.language_embeddings
+        D = mg_data.decoder_embeddings
+        A = mg_data.actions
+        
+        V_std = Standardizer.fit_transform(MatRef.from_numpy(V))
+        L_std = Standardizer.fit_transform(MatRef.from_numpy(L))
+        A_std = Standardizer.fit_transform(MatRef.from_numpy(A))
+        
+        # PID(V, L; A) to check language dominance
+        mg_pid = pid2_isx(V_std, L_std, A_std, cfg)
+        total_mi = (mg_pid.redundancy + mg_pid.unique_s1 + 
+                   mg_pid.unique_s2 + mg_pid.synergy)
+        language_dominance = mg_pid.unique_s2 / total_mi if total_mi > 0 else 0
+        
+        # Action variance (uncertainty indicator)
+        action_variance = np.mean(np.var(A, axis=0))
+        
+    else:
+        fallback_triggered = None
+        language_dominance = None
+        action_variance = None
+    
+    return Exp10PIDAnalysis(
+        task_name=episode.task_name,
+        object_type=episode.object_type,
+        pegs_pid_particles_v_corr=pegs_pid,
+        pegs_constraint_violations=mean_violation,
+        pegs_particle_coverage=particle_coverage,
+        mg_attempted=episode.manigaussian_data is not None,
+        mg_fallback_triggered=fallback_triggered,
+        mg_language_dominance=language_dominance,
+        mg_action_variance=action_variance,
+        success_pegs=episode.pegs_success,
+        success_mg=episode.manigaussian_success,
+        shape_error_pegs=episode.pegs_shape_error,
+        shape_error_mg=episode.manigaussian_shape_error,
+    )
+```
+
+### 19.5 Deformable Manipulation Evaluation
+
+```python
+def evaluate_exp10(results: List[Exp10PIDAnalysis]) -> dict:
+    '
+    Evaluate deformable manipulation capabilities.
+    
+    Expected outcome: PEGS succeeds, ManiGaussian fails with high Unq(L; A)
+    '
+    
+    # Success rates
+    pegs_success = np.mean([r.success_pegs for r in results if r.success_pegs is not None])
+    mg_success = np.mean([r.success_mg for r in results if r.success_mg is not None])
+    
+    # By object type
+    rope_results = [r for r in results if r.object_type == "rope"]
+    cloth_results = [r for r in results if r.object_type == "cloth"]
+    
+    pegs_rope_success = np.mean([r.success_pegs for r in rope_results])
+    pegs_cloth_success = np.mean([r.success_pegs for r in cloth_results])
+    
+    # ManiGaussian failure analysis
+    mg_failures = [r for r in results if not r.success_mg and r.mg_attempted]
+    
+    if mg_failures:
+        mean_language_dominance = np.mean([r.mg_language_dominance for r in mg_failures])
+        mean_action_variance = np.mean([r.mg_action_variance for r in mg_failures])
+        fallback_rate = np.mean([r.mg_fallback_triggered for r in mg_failures])
+    else:
+        mean_language_dominance = None
+        mean_action_variance = None
+        fallback_rate = None
+    
+    # PEGS constraint analysis
+    pegs_results = [r for r in results if r.pegs_pid_particles_v_corr is not None]
+    
+    mean_constraint_violation = np.mean([r.pegs_constraint_violations for r in pegs_results])
+    mean_particle_coverage = np.mean([r.pegs_particle_coverage for r in pegs_results])
+    mean_pegs_synergy = np.mean([r.pegs_pid_particles_v_corr.synergy for r in pegs_results])
+    
+    return {
+        "pegs_overall_success": pegs_success,
+        "mg_overall_success": mg_success,
+        "pegs_rope_success": pegs_rope_success,
+        "pegs_cloth_success": pegs_cloth_success,
+        "mg_language_dominance_on_failure": mean_language_dominance,
+        "mg_action_variance_on_failure": mean_action_variance,
+        "mg_fallback_rate": fallback_rate,
+        "pegs_mean_constraint_violation": mean_constraint_violation,
+        "pegs_mean_particle_coverage": mean_particle_coverage,
+        "pegs_mean_synergy": mean_pegs_synergy,
+        "h_wm5_pegs_handles_deformables": pegs_success > 0.5,
+        "h_wm5_mg_fails_deformables": mg_success < 0.2,
+    }
+```
+
+---
+
 ## Appendix A: Quick Start Commands
 ```bash
 # 1. Validate estimators (Experiment 0)
@@ -1838,4 +3048,31 @@ results:
 #     --experiment exp1 \
 #     --data results/exp1_20260115/ \
 #     --output reports/exp1_report.pdf
+```
+
+---
+
+## Appendix B: Validation Tools
+
+### B.1 YAML Schema Validator
+**Script:** `scripts/validate_yaml_schemas.py`
+
+A comprehensive validator for all scene (`scenes/*.yaml`), object (`objects/*.yaml`), and experiment (`configs/*.yaml`) configuration files.
+
+**Features:**
+- **Auto-detection:** Identifies file type (scene, object, deformable, config) based on content.
+- **Physics Validation:** Checks mass, friction, and dimensions against realistic bounds.
+- **Cross-Validation:** Ensures object IDs referenced in tasks actually exist in the scene.
+- **Deformable Checks:** Validates PEGS particle configs (grid size, constraint types).
+
+**Usage:**
+```bash
+# Validate single file
+python scripts/validate_yaml_schemas.py --file assets/objects/novel/l_block.yaml
+
+# Validate entire project
+python scripts/validate_yaml_schemas.py --all
+
+# CI Integration (JSON output)
+python scripts/validate_yaml_schemas.py --all --json --strict
 ```

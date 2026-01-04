@@ -182,3 +182,59 @@ struct PidMetricMsg {
 *   **WAN Failure:** If WAN fails to generate flow, "Ghost Splats" do not appear; simulation continues with physics only.
 *   **WebGPU Failure:** Fall back to WebGL2.
 *   **Zenoh Disconnect:** Physics pauses; UI shows "Reconnecting...".
+
+---
+
+## 12. Asset Library Specifications
+
+### 12.1 Standard Mesh Assets
+
+The following OBJ and MTL definitions serve as the ground truth for physics proxies in Experiments 7 and 10. They use Z-up coordinate convention and meters as units.
+
+#### 12.1.1 Hollow Cylinder (Tube)
+**File:** `assets/meshes/hollow_cylinder.obj`
+- **Dimensions:** Outer R=0.03m, Inner R=0.02m, Height=0.08m
+- **Purpose:** Novel geometry challenge (Exp 7)
+- **Material:** `hollow_cylinder.mtl` (Plastic)
+
+#### 12.1.2 Dice Cup
+**File:** `assets/meshes/dice_cup.obj`
+- **Dimensions:** Outer R=0.04m, Height=0.06m
+- **Purpose:** Containment target for weighted die (Exp 7)
+- **Material:** `dice_cup.mtl` (Leather/Plastic)
+
+#### 12.1.3 L-Shaped Block
+**File:** `assets/meshes/l_block.obj`
+- **Dimensions:** 0.08m x 0.04m x 0.04m (Horizontal), 0.04m x 0.04m x 0.08m (Vertical)
+- **Purpose:** Compound geometry grasp planning (Exp 7)
+- **Material:** `l_block.mtl` (Wood)
+
+#### 12.1.4 Target Platform
+**File:** `assets/meshes/target_platform.obj`
+- **Dimensions:** 0.08m x 0.08m x 0.01m
+- **Purpose:** Standard placement target
+- **Material:** `target_platform.mtl` (Matte)
+
+#### 12.1.5 Metal Peg
+**File:** `assets/meshes/metal_peg.obj`
+- **Dimensions:** Radius=0.015m, Height=0.06m
+- **Purpose:** Precision alignment target for hollow cylinder
+- **Material:** `metal_peg.mtl` (Metal)
+
+#### 12.1.6 Glass Cube
+**File:** `assets/meshes/glass_cube.obj`
+- **Dimensions:** 0.06m x 0.06m x 0.06m
+- **Purpose:** Transparent object physics proxy (Exp 7)
+- **Material:** `glass_cube.mtl` (Transparent, index of refraction 1.52)
+
+### 12.2 Material Definitions (MTL)
+
+Common material properties used in `assets/meshes/*.mtl`:
+
+| Material | Ka (Ambient) | Kd (Diffuse) | Ks (Specular) | Ns (Shininess) | d (Opacity) |
+|----------|--------------|--------------|---------------|----------------|-------------|
+| Plastic  | 0.1 0.1 0.1 | 0.6 0.6 0.7 | 0.3 0.3 0.3 | 50.0 | 1.0 |
+| Wood | 0.1 0.08 0.05 | 0.6 0.45 0.3 | 0.1 0.1 0.1 | 10.0 | 1.0 |
+| Metal | 0.2 0.2 0.2 | 0.7 0.7 0.75 | 0.9 0.9 0.9 | 100.0 | 1.0 |
+| Glass | 0.0 0.0 0.0 | 0.1 0.1 0.1 | 0.9 0.9 0.9 | 200.0 | 0.15 (Tr 0.85) |
+
