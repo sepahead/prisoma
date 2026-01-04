@@ -1,4 +1,12 @@
 # PID-VLA Experimental Protocols
+
+> **Documentation Cross-Reference**:
+> - `grandplan.md` — Master plan and theoretical foundations
+> - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
+> - `ARCHITECTURE.md` — Component breakdown (Tauri, Rapier, Gazebo, 3DGS) and advantages over VLM-based robotics
+> - `DIAGRAMS.md` — Visual architecture diagrams
+> - `README.md` — Quick start guide
+
 ## Detailed Specifications for Reproducible Experiments
  
 **Version:** 1.1 (Full 5-Experiment Suite)  
@@ -22,6 +30,88 @@
 11. [Data Formats & Storage](#11-data-formats--storage)
 12. [Compute Requirements](#12-compute-requirements)
 13. [Reproducibility Checklist](#13-reproducibility-checklist)
+
+---
+
+## Physics Engine Usage: Rapier vs Gazebo
+
+This table clarifies when to use each physics engine across experiments.
+
+| Component | Engine | Purpose | Experiments |
+|-----------|--------|---------|-------------|
+| **Object Manipulation** | Rapier3D | Grasping, stacking, placing objects | Exp 1-5 |
+| **Robot Kinematics** | Gazebo Harmonic | 7-DOF arm dynamics, joint limits | Exp 1-5 |
+| **Sensor Simulation** | Gazebo Harmonic | RGB-D cameras, joint encoders | Exp 1-5 |
+| **Physical Perturbations** | Rapier3D | Mass/friction variations | Exp 1, 3, 5 |
+| **Visual Perturbations** | SparkJS Dynos | Lighting, textures | Exp 1 |
+| **Cross-Embodiment** | Gazebo Harmonic | UR5e vs Franka URDFs | Exp 5 |
+
+### Per-Hypothesis Engine Mapping
+
+| Hypothesis | Primary Engine | Reason |
+|------------|----------------|--------|
+| **H1** (Synergy → hallucination) | Rapier + Gazebo | Need accurate object poses for PID(V,D;A) |
+| **H4** (Memorization vs generalization) | Rapier | Perturbation library uses Rapier for mass/friction |
+| **H5** (Temporal synergy degradation) | Rapier + Gazebo | Long-horizon stacking needs precise contact physics |
+| **H6** (Safety-aware V-L integration) | Rapier + Gazebo | Collision detection for safety constraints |
+| **H7** (Flow-as-bridge) | N/A (WAN video gen) | 3D flow extracted from WAN video, no physics sim needed |
+
+### Modular Physics Backend Configuration
+
+PID-Splat supports swappable physics backends. Select based on your experiment needs:
+
+```toml
+# pid-splat.toml - Physics backend configuration
+
+[physics]
+backend = "rapier"  # Options: "rapier", "mujoco", "isaac"
+
+# Rapier: Fast iteration, Rust-native, deterministic
+[physics.rapier]
+step_hz = 1000
+deterministic = true
+gravity = [0.0, 0.0, -9.81]
+
+# MuJoCo: Gold-standard contact physics, benchmark compatibility
+[physics.mujoco]
+model_path = "assets/mujoco/franka_tabletop.xml"
+step_hz = 500
+solver_iterations = 50
+
+# Isaac Gym: GPU-parallel batch experiments
+[physics.isaac]
+gpu_id = 0
+num_envs = 1024
+use_gpu_pipeline = true
+
+[robot]
+backend = "gazebo"  # Options: "gazebo", "mujoco", "none"
+urdf_path = "assets/robots/franka_panda.urdf"
+```
+
+**Backend Selection Guide:**
+
+| Use Case | Backend | Rationale |
+|----------|---------|----------|
+| Fast prototyping | `rapier` | <1ms/step, no external deps |
+| Benchmark comparison (LIBERO, MetaWorld) | `mujoco` | Match paper baselines |
+| Large-scale ablations (10k+ episodes) | `isaac` | GPU parallelism |
+| Accurate robot kinematics | `gazebo` | Industry-standard URDFs |
+| Contact-rich manipulation | `mujoco` | Best contact solver |
+
+### When to Use Which
+
+**Use Rapier3D when:**
+- Simulating object-object and object-table interactions
+- Running many episodes quickly (< 1ms/step)
+- Applying physical perturbations (mass, friction)
+- Determinism is critical for reproducibility
+
+**Use Headless Gazebo when:**
+- Simulating robot arm kinematics/dynamics
+- Generating sensor data (RGB-D, joint states)
+- Testing cross-embodiment (different robot URDFs)
+- Industry-standard robot fidelity is required
  
 ---
  
@@ -613,6 +703,61 @@ class EmbeddingReducer:
  
 ## 4. Experiment 0: Estimator Validation
 Purpose: Validate that PID estimators work at the target dimensions before running real experiments.
+
+### 4.0 Geometry Validation Gate (REQUIRED)
+
+**Critical**: Before running PID estimation on VLA embeddings, you MUST validate the geometric assumptions.
+
+#### Why This Matters
+
+The KSG/ISX estimators assume Euclidean-like geometry (specifically Chebyshev/L∞). VLA embeddings may lie on curved manifolds (hyperbolic, Lorentzian) where these estimators produce invalid results.
+
+#### Geometry Diagnostics
+
+| Diagnostic | Method | Pass Criterion | Interpretation | Action if Fail |
+|------------|--------|----------------|----------------|----------------|
+| **Intrinsic Dimension** | Levina-Bickel (MLE) | d_intrinsic < 20 | Lower = better for KSG | Reduce dimension further |
+| **δ-Hyperbolicity** | Gromov 4-point sampling | δ > 0.1 | Higher δ = more Euclidean-like; lower δ = more tree-like/hyperbolic | Use Flow-as-Bridge workaround |
+| **Distance Concentration** | CV of pairwise distances | CV > 0.1 | Higher CV = healthier distance spread | Reduce dimension or increase N |
+
+#### Running Geometry Diagnostics
+
+```python
+from pid_core import intrinsic_dimension_levina_bickel, estimate_gromov_delta, distance_concentration_stats
+
+# 1. Check intrinsic dimension
+d_hat = intrinsic_dimension_levina_bickel(embeddings, k=5)
+if d_hat > 20:
+    print(f"WARNING: Intrinsic dimension {d_hat:.1f} too high for KSG")
+    # ACTION: Apply more aggressive PCA or use Flow-as-Bridge
+
+# 2. Check hyperbolicity
+delta = estimate_gromov_delta(embeddings, n_samples=1000)
+if delta < 0.1:
+    print(f"WARNING: Data is tree-like (δ={delta:.3f}), hyperbolic geometry suspected")
+    # ACTION: Use Flow-as-Bridge (3D Euclidean target) instead of raw embeddings
+
+# 3. Check distance concentration
+stats = distance_concentration_stats(embeddings)
+if stats.pairwise_cv < 0.1:
+    print(f"WARNING: Distance concentration detected (CV={stats.pairwise_cv:.3f})")
+    # ACTION: Reduce dimension or collect more samples
+```
+
+#### Hyperbolic/Lorentzian Limitation
+
+> **⚠️ IMPORTANT**: The validated ISX estimator (`EhrlichKsg`) **only supports Chebyshev (L∞) metric**. Hyperbolic/Lorentzian PID estimation is NOT currently supported.
+>
+> **Workaround**: Use **Flow-as-Bridge** (see Experiment 4, §8). By using 3D Object Flow as the PID target instead of high-dimensional embeddings, you sidestep manifold geometry issues entirely because 3D flow lives in Euclidean R³.
+
+#### Geometry Gate Pass/Fail
+
+| Check | Pass Criterion | Interpretation | Fail Action |
+|-------|----------------|----------------|-------------|
+| Intrinsic Dim | < 20 | Low intrinsic dim = KSG works | Reduce to d < 20 via PCA |
+| δ-hyperbolicity | > 0.1 | High δ = Euclidean-like geometry | Use Flow-as-Bridge |
+| Distance CV | > 0.1 | High CV = good distance spread | Increase N or reduce d |
+| **All three pass** | All criteria met | Geometry is KSG-compatible | Fix geometry issues first |
 
 ### 4.1 Synthetic Test Cases
 ```python

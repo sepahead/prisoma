@@ -1,5 +1,12 @@
 # System Architecture Diagrams
 
+> **Documentation Cross-Reference**:
+> - `grandplan.md` — Master plan and theoretical foundations
+> - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
+> - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
+> - `EXPERIMENTS.md` — Experimental protocols for SparkJS, Gazebo, Rapier setup and hypothesis testing
+> - `README.md` — Quick start guide
+
 This document contains visual representations of the PID-VLA system, the PID-Splat simulation environment, and the data processing pipelines.
 
 ## 1. High-Level System Overview
@@ -108,12 +115,12 @@ flowchart TD
         Diag --> Curve[Local Curvature]
     end
     
-    ID --> CheckID{ID < 100?}
+    ID --> CheckID{ID < 20?}
     Delta --> CheckHyp{Delta < 0.1?}
     
     CheckHyp -- Yes (Tree-like) --> Hyperbolic[Hyperbolic Pipeline]
     
-    CheckID -- No (High Dim) --> Fail[NO-GO: Estimator Invalid]
+    CheckID -- No (ID >= 20) --> Fail[NO-GO: Estimator Invalid]
     
     CheckID -- Yes --> CheckFlat{Locally Flat?}
     Curve --> CheckFlat
@@ -135,7 +142,122 @@ flowchart TD
 
 ---
 
-## 4. Dream2Flow Data Pipeline
+## 4. Modular Physics Backend Architecture
+
+This diagram shows the composable backend system where rendering (Gaussian Splats) is decoupled from physics (swappable between Rapier, MuJoCo, Isaac Gym) and robot simulation (Gazebo or MuJoCo).
+
+```mermaid
+graph TB
+    subgraph "Application Layer"
+        Tauri[Tauri App]
+        Config[pid-splat.toml]
+    end
+
+    subgraph "Rendering Layer (Fixed)"
+        Splats[Gaussian Splats]
+        SparkJS[SparkJS WebGPU]
+        Dynos[PID Dyno Shaders]
+        
+        Splats --> SparkJS
+        Dynos --> SparkJS
+    end
+
+    subgraph "Physics Layer (Swappable)"
+        direction TB
+        PhysTrait[PhysicsBackend Trait]
+        
+        subgraph "Implementations"
+            Rapier["Rapier3D\n<1ms/step\nRust-native"]
+            MuJoCo["MuJoCo\nGold-standard contacts\nFFI bindings"]
+            Isaac["Isaac Gym\nGPU parallel\n10k+ envs"]
+        end
+        
+        PhysTrait --> Rapier
+        PhysTrait --> MuJoCo
+        PhysTrait --> Isaac
+    end
+
+    subgraph "Robot Layer (Swappable)"
+        direction TB
+        RobotTrait[RobotBackend Trait]
+        
+        subgraph "Robot Implementations"
+            GazeboRobot["Gazebo Harmonic\nIndustry URDFs\nSensor sim"]
+            MuJoCoRobot["MuJoCo Robot\nLegacy support\nBenchmark compat"]
+        end
+        
+        RobotTrait --> GazeboRobot
+        RobotTrait --> MuJoCoRobot
+    end
+
+    subgraph "Middleware"
+        Zenoh[Zenoh Bus]
+    end
+
+    Config --> Tauri
+    Tauri --> SparkJS
+    Tauri --> PhysTrait
+    Tauri --> RobotTrait
+    
+    PhysTrait <--> Zenoh
+    RobotTrait <--> Zenoh
+    SparkJS <--> Zenoh
+```
+
+### Backend Selection Logic
+
+```mermaid
+flowchart TD
+    Start[Read pid-splat.toml] --> CheckPhys{physics.backend?}
+    
+    CheckPhys -->|rapier| Rapier[Initialize Rapier3D]
+    CheckPhys -->|mujoco| MuJoCo[Initialize MuJoCo FFI]
+    CheckPhys -->|isaac| Isaac[Initialize Isaac Gym]
+    
+    Rapier --> CheckRobot{robot.backend?}
+    MuJoCo --> CheckRobot
+    Isaac --> CheckRobot
+    
+    CheckRobot -->|gazebo| Gazebo[Launch Headless Gazebo]
+    CheckRobot -->|mujoco| MuJoCoR[Use MuJoCo Robot]
+    CheckRobot -->|none| NoRobot[Object-only Simulation]
+    
+    Gazebo --> Ready[Simulation Ready]
+    MuJoCoR --> Ready
+    NoRobot --> Ready
+    
+    Ready --> Render[Always: Gaussian Splats via SparkJS]
+```
+
+### Use Case Decision Tree
+
+```mermaid
+flowchart TD
+    UseCase[What's your use case?] --> Speed{Need speed?}
+    
+    Speed -->|Yes, <1ms/step| Rapier[Use: physics.backend = rapier]
+    Speed -->|No| Contact{Contact-rich manipulation?}
+    
+    Contact -->|Yes, precise grasping| MuJoCo[Use: physics.backend = mujoco]
+    Contact -->|No| Batch{Large-scale experiments?}
+    
+    Batch -->|Yes, 10k+ episodes| Isaac[Use: physics.backend = isaac]
+    Batch -->|No| Benchmark{Comparing to papers?}
+    
+    Benchmark -->|Yes, LIBERO/MetaWorld| MuJoCo
+    Benchmark -->|No| Rapier
+    
+    Rapier --> Robot{Need robot sim?}
+    MuJoCo --> Robot
+    Isaac --> Robot
+    
+    Robot -->|Yes, accurate kinematics| Gazebo[Use: robot.backend = gazebo]
+    Robot -->|No, objects only| None[Use: robot.backend = none]
+```
+
+---
+
+## 5. Dream2Flow Data Pipeline
 
 Visualizing the specific integration of WAN video generation and 3D flow extraction (`pidsplatspecs.md` §4).
 

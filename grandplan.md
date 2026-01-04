@@ -1,4 +1,11 @@
 # Comprehensive PID-VLA Specification
+
+> **Documentation Set Cross-Reference**: This is the master plan. See also:
+> - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
+> - `ARCHITECTURE.md` — Component breakdown (Tauri, Rapier, Gazebo, 3DGS) and advantages over VLM-based robotics
+> - `EXPERIMENTS.md` — Experimental protocols for SparkJS, Gazebo, Rapier setup and hypothesis testing
+> - `DIAGRAMS.md` — Visual architecture diagrams
+> - `README.md` — Quick start guide
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
@@ -1042,9 +1049,9 @@ At d=4096, k-NN methods suffer from the curse of dimensionality: "nearest neighb
 
 ### Warning 4: Strong Dependence Can Break kNN MI Even at Low Dimension
 
-There is a separate (often missed) failure mode from “high dimension”: **strong statistical dependence** (very large true MI, e.g., near-deterministic relationships) can make kNN MI estimators require **prohibitively many samples** even when `d` is small.
+There is a separate (often missed) failure mode from “high dimension”: **strong statistical dependence** (very large true MI, e.g., near-deterministic relationships) can make KSG MI estimators require **prohibitively many samples** even when `d` is small.
 
-Gao, Ver Steeg, and Galstyan (AISTATS 2015; arXiv:1411.2003) show that popular kNN MI estimators can have sample complexity that scales **exponentially in the true MI** for strongly dependent variables, due to an implicit local-uniformity assumption. They propose corrections/alternatives (e.g., local non-uniformity correction; local Gaussian approximations, arXiv:1508.00536) that can reduce bias in this regime.
+Gao, Ver Steeg, and Galstyan (AISTATS 2015; arXiv:1411.2003) show that popular KSG MI estimators can have sample complexity that scales **exponentially in the true MI** for strongly dependent variables, due to an implicit local-uniformity assumption. They propose corrections/alternatives (e.g., local non-uniformity correction; local Gaussian approximations, arXiv:1508.00536) that can reduce bias in this regime.
 
 Why this matters here:
 - VLA pipelines often contain **near-deterministic mappings** (e.g., `A = f(V,D,L)`; deterministic decoders; cached embeddings; quantized actions).
@@ -2734,7 +2741,7 @@ It is crucial to keep roles separate:
 
 #### A) Gao et al.: kNN Robustness for Strong Dependence (still nonparametric)
 
-Gao, Ver Steeg, and Galstyan show that common kNN MI estimators can require sample sizes scaling exponentially in the **true MI** for strongly dependent variables, due to local-uniformity assumptions (arXiv:1411.2003). They propose improved estimators that account for **local non-uniformity**.
+Gao, Ver Steeg, and Galstyan show that common KSG MI estimators can require sample sizes scaling exponentially in the **true MI** for strongly dependent variables, due to local-uniformity assumptions (arXiv:1411.2003). They propose improved estimators that account for **local non-uniformity**.
 
 Follow-up work by the same authors proposes a **local Gaussian approximation** MI estimator (arXiv:1508.00536), which locally fits a Gaussian around each sample to better approximate densities.
 
@@ -2814,7 +2821,7 @@ Actionable integration (add to Experiment 0, not post-hoc):
 - Track **distance concentration diagnostics** (e.g., nearest-neighbor distance ratios, coefficient of variation of pairwise distances) as a “geometry health check.”
 
 Interpretation rules (scientific hygiene):
-- If intrinsic dimension is still large (or unstable across subsamples), treat kNN-based MI/`I^sx_∩` as likely invalid at that operating point, even if `d_total` was reduced by PCA.
+- If intrinsic dimension is still large (or unstable across subsamples), treat KSG-based MI/`I^sx_∩` as likely invalid at that operating point, even if `d_total` was reduced by PCA.
 - If intrinsic dimension is low and stable, kNN may be viable *after* Experiment 0 establishes quantitative accuracy.
 
 #### C) Riemannian / geodesic kNN MI as a contingency baseline (MI-only, not `I^sx_∩`)
@@ -3024,7 +3031,7 @@ Design principle: create regimes where the *true* information quantities are unc
    - Compute **distance concentration** proxies (e.g., nearest-neighbor distance ratio distributions; coefficient of variation of pairwise distances).
    - Use these as a “geometry health check”:
      - Low, stable intrinsic dimension is a prerequisite for believing kNN results after dimensionality reduction.
-     - If intrinsic dimension remains large/unstable, treat kNN-based MI/`I^sx_∩` as likely invalid at that operating point (even if `d_total` was reduced).
+     - If intrinsic dimension remains large/unstable, treat KSG-based MI/`I^sx_∩` as likely invalid at that operating point (even if `d_total` was reduced).
    - Optional (MI-only baseline): if the representation is plausibly manifold-valued/curved, compare MI terms against **geodesic kNN MI** (Marx & Fischer, arXiv:2110.13883). Treat this as a separate estimator pipeline; do not claim it estimates `I^sx_∩`.
 5. For each setting, measure:
    - estimate mean + variance across random seeds,
@@ -3062,10 +3069,10 @@ Before “PIVOT” decisions, diagnose *why* validation failed (high intrinsic d
 3. **Use PCA to reduce to 256-dim** (or a dimension justified by the intrinsic-dimension diagnostics).
 4. **Re-validate at the reduced dimension**
 5. **If still fails, use learned projections** (explicitly trained for the downstream objective; report as a different measurement regime).
-6. **If still fails, abandon kNN-based `I^sx_∩`** for this regime and pivot to validated alternatives (Shannon invariants as primary; or non-kNN MI estimators for MI-only screening), clearly reporting that `I^sx_∩` was not estimable.
+6. **If still fails, abandon kNN-based `I^sx_∩`** for this regime and pivot to validated alternatives (Shannon invariants as primary; or non-KSG MI estimators for MI-only screening), clearly reporting that `I^sx_∩` was not estimable.
 
 Additional contingency (MI-only screening, not full `I^sx_∩`):
-- If the disjunction-kNN `I^sx_∩` estimator is unusable at your `(N,d)` even after dimensionality reduction, you may still be able to run **Shannon-invariant** screening (CI/O-information) with non-kNN MI estimators (e.g., MINE / classifier-based MI), but treat this as a *different scientific pipeline* and do not claim results about `I^sx_∩` without a validated `I^sx_∩` estimator.
+- If the disjunction-kNN `I^sx_∩` estimator is unusable at your `(N,d)` even after dimensionality reduction, you may still be able to run **Shannon-invariant** screening (CI/O-information) with non-KSG MI estimators (e.g., MINE / classifier-based MI), but treat this as a *different scientific pipeline* and do not claim results about `I^sx_∩` without a validated `I^sx_∩` estimator.
 - Optional geometry-aware MI-only baseline: geodesic kNN MI (Marx & Fischer, arXiv:2110.13883) for manifold-valued variables; treat as a separate validated pipeline.
 
 ## 9.2 Experiment 1: Decomposition Comparison
@@ -7597,7 +7604,7 @@ These blockers could terminate the project if unmitigated. Each requires explici
 **Evidence for Concern:**
 - VLA decoding is typically argmax (deterministic)
 - Even with temperature, entropy of action distribution may be very low
-- Gao et al. 2015 shows kNN MI estimators fail catastrophically in strong-dependence regimes
+- Gao et al. 2015 shows KSG MI estimators fail catastrophically in strong-dependence regimes
 
 **Detection:**
 - MI estimates grow without bound as k decreases

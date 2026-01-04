@@ -1,4 +1,13 @@
-# PID-VLA: Partial Information Decomposition for Vision-Language-Action Models
+# PID-VLA
+
+> **Documentation Cross-Reference**: This README provides a quick start guide. For detailed specifications, see:
+> - `grandplan.md` — Master plan with glossary and mathematical foundations  
+> - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
+> - `ARCHITECTURE.md` — Component breakdown (Tauri, Rapier, Gazebo, 3DGS) and advantages over VLM-based robotics
+> - `EXPERIMENTS.md` — Experimental protocols for SparkJS, Gazebo, Rapier setup and hypothesis testing
+> - `DIAGRAMS.md` — Visual architecture diagrams
+
+**Partial Information Decomposition for Vision-Language-Action Models**
 
 **Wibral-group shared-exclusions PID (I^sx_∩) for VLA diagnostics**
 
@@ -43,6 +52,28 @@ cargo build
 uv sync
 ```
 
+### Configuration
+
+Copy and customize the configuration file:
+
+```bash
+cp pid-splat.toml my-experiment.toml
+```
+
+Select physics backend based on your needs (see `DIAGRAMS.md` §4 for decision tree):
+
+```toml
+# pid-splat.toml - Quick presets
+[physics]
+backend = "rapier"    # Fast iteration (<1ms/step)
+# backend = "mujoco"  # Benchmark comparison (LIBERO/MetaWorld)
+# backend = "isaac"   # Large-scale experiments (10k+ envs)
+
+[robot]
+backend = "gazebo"    # Industry-standard robot simulation
+# backend = "none"    # Object-only experiments
+```
+
 ### Running Experiment 0 (Validation Gate)
 
 Before using PID-VLA on real VLA embeddings, you **MUST** run the validation suite (see `grandplan.md` §9.1):
@@ -69,7 +100,7 @@ cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv
 use pid_core::{pid2_isx, MatRef, Pid2Config};
 
 // Prepare your data: n samples × d dimensions
-// OpenVLA standard dimensions (see EXPERIMENTS.md §3.1)
+// OpenVLA standard dimensions (see EXPERIMENTS.md §3)
 let n = 1000;
 let d_vis = 1024; // Vision (SigLIP/DinoV2)
 let d_lang = 4096; // Language (Llama 2 7B)
@@ -95,6 +126,16 @@ println!("Synergy: {:.3} nats", result.synergy);
 ```
 
 ## Architecture
+
+### Modular Simulation Backends
+
+PID-Splat uses a composable architecture with swappable backends (see `DIAGRAMS.md` §4 and `ARCHITECTURE.md` §2):
+
+| Layer | Options | Selection Criteria |
+|-------|---------|--------------------|
+| **Rendering** | Gaussian Splats (fixed) | Always photorealistic |
+| **Physics** | Rapier, MuJoCo, Isaac Gym | Speed vs accuracy vs scale |
+| **Robot** | Gazebo, MuJoCo, None | Sensor sim vs benchmark compat |
 
 ### PID-Core Library
 
@@ -154,11 +195,15 @@ See `grandplan.md` §7 for detailed analysis.
 
 1. **Manifold Geometry:** The continuous I^sx_∩ estimator relies on Chebyshev (L∞) geometry. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without mitigation. See `grandplan.md` §16.
 
-2. **Flow-as-Bridge:** To sidestep manifold issues, `EXPERIMENTS.md` §7 uses 3D Object Flow (Euclidean) as the PID target rather than high-dimensional embeddings.
+2. **Hyperbolic/Lorentzian Limitation:** The validated ISX estimator (`EhrlichKsg`) **only supports Chebyshev metric**. Hyperbolic/Lorentzian PID estimation is NOT currently supported. This is a fundamental limitation of the Ehrlich et al. (2024) algorithm.
 
-3. **Sample Size:** Theoretically, KSG requires $N \propto k^d$. In practice, `EXPERIMENTS.md` §4 validates performance at $N=1000$ for $d=64$, relying on the empirical validation in `grandplan.md` §8.6.
+3. **Flow-as-Bridge Workaround:** To sidestep manifold issues, use 3D Object Flow (Euclidean R³) as the PID target rather than high-dimensional embeddings. See `EXPERIMENTS.md` §8, `ARCHITECTURE.md` §1.6, and `DIAGRAMS.md` §5. This is the **recommended approach** for VLA analysis.
 
-4. **i.i.d. Assumption:** VLA trajectories are autocorrelated. Use cross-trajectory sampling or large strides.
+4. **Geometry Validation Gate:** Before trusting PID results, run geometry diagnostics (intrinsic dimension, δ-hyperbolicity, distance concentration). See `EXPERIMENTS.md` §4 (Geometry Validation Gate subsection).
+
+5. **Sample Size:** Theoretically, KSG requires $N \propto k^d$. In practice, validation at $N=1000$ for $d=64$ relies on empirical tests in `grandplan.md` §8.6.
+
+6. **i.i.d. Assumption:** VLA trajectories are autocorrelated. Use cross-trajectory sampling or large strides.
 
 ## References
 
@@ -169,8 +214,9 @@ See `grandplan.md` §7 for detailed analysis.
 
 **Research Plan:**
 - [grandplan.md](grandplan.md) - Full theoretical specification
-- [EXPERIMENTS.md](EXPERIMENTS.md) - Detailed protocols
 - [pidsplatspecs.md](pidsplatspecs.md) - Simulation environment spec
+- [EXPERIMENTS.md](EXPERIMENTS.md) - Experimental protocols and setup
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Component breakdown and VLM comparison
 
 ## Citation
 

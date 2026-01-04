@@ -305,7 +305,7 @@ impl Default for HyperbolicityConfig {
     fn default() -> Self {
         Self {
             n_samples: 1000,
-            metric: Metric::Euclidean, // Usually computed on Euclidean embeddings to test if they are hyperbolic
+            metric: Metric::Chebyshev, // Standard metric; Euclidean would be natural for hyperbolicity but is not implemented
             seed: 42,
         }
     }

@@ -1,7 +1,14 @@
 # PID-Splat Unified Simulation Environment Specification
+
+> **Documentation Cross-Reference**:
+> - `grandplan.md` — Master plan and theoretical foundations
+> - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
+> - `EXPERIMENTS.md` — Experimental protocols for SparkJS, Gazebo, Rapier setup and hypothesis testing
+> - `DIAGRAMS.md` — Visual architecture diagrams
+> - `README.md` — Quick start guide
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 3.0 (Dream2Flow Integrated)
+**Version:** 3.1 (Modular Physics Backends)
 **Date:** 2026-01-03
 **Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
 

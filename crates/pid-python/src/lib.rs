@@ -31,12 +31,11 @@ fn array_to_matref<'a>(arr: &'a PyReadonlyArray2<f64>) -> PyResult<MatRef<'a>> {
 fn parse_metric(name: &str) -> PyResult<Metric> {
     match name.to_lowercase().as_str() {
         "chebyshev" | "linf" | "max" => Ok(Metric::Chebyshev),
-        "euclidean" | "l2" => Ok(Metric::Euclidean),
-        "manhattan" | "l1" => Ok(Metric::Manhattan),
-        // Experimental research metrics:
+        // Experimental research metrics (MI-only, not validated for ISX):
         "hyperbolic" | "lorentz" => Ok(Metric::HyperbolicLorentz),
         _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Unknown metric: {}",
+            "Unknown metric: '{}'. Valid metrics are: 'chebyshev' (aliases: 'linf', 'max'), \
+             'hyperbolic' (alias: 'lorentz', experimental MI-only)",
             name
         ))),
     }
@@ -114,7 +113,7 @@ fn estimate_intrinsic_dimension(
 
 /// Estimate Gromov delta-hyperbolicity via 4-point sampling.
 #[pyfunction]
-#[pyo3(signature = (x, n_samples=1000, metric="euclidean", seed=42))]
+#[pyo3(signature = (x, n_samples=1000, metric="chebyshev", seed=42))]
 fn estimate_gromov_delta(
     x: PyReadonlyArray2<f64>,
     n_samples: usize,
