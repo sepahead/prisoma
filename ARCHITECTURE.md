@@ -460,3 +460,43 @@ Render                 :   16ms
 Total                  : ~2100ms per action
 Effective control Hz   : ~0.5 Hz (quasi-static tasks)
 ```
+
+
+---
+
+## 7. World Model Comparison: ManiGaussian vs PEGS
+
+The architecture supports a head-to-head comparison between two dominant world model paradigms for 3DGS-based robotics.
+
+### 7.1 ManiGaussian (Learned Implicit Physics)
+- **Paradigm:** End-to-end differentiable world model.
+- **Mechanism:** Uses a 3D Variational Encoder to map 3DGS scenes to a latent space $Z$. Future states are predicted as $Z_{t+1} = f(Z_t, A_t)$.
+- **PID Role:** Used to measure the fidelity of the latent world model: $Syn(V, L; Z)$.
+- **Strength:** Captures complex, hard-to-model dynamics directly from data.
+- **Weakness:** Poor generalization to novel objects (requires retraining).
+
+### 7.2 PEGS (Explicit Particle-Based Physics)
+- **Paradigm:** Hybrid explicit simulation with visual correction.
+- **Mechanism:** Binds Gaussians to a PBD (Position-Based Dynamics) particle system. Real-time "visual forces" nudge particles to match photometric observations.
+- **PID Role:** Used to measure the benefit of visual correction: $Syn(P_{pred}, V_{obs}; P_{corr})$.
+- **Strength:** High generalization (physics laws don't change); handles deformables natively.
+- **Weakness:** Requires accurate manual proxy/mesh definitions for novel objects.
+
+---
+
+---
+
+## 8. SmolVLA (LeRobot) Integration
+
+SmolVLA (Jan 2025) is integrated as the primary lightweight baseline.
+
+### 8.1 Architecture
+- **Backbone:** SmolVLM-2 (SigLIP visual encoder + SmolLM2 language model).
+- **Action Head:** **Flow-Matching Transformer** (continuous action generation).
+- **Inference:** Asynchronous execution (perception/planning decoupled from control).
+- **Parameters:** ~450M (15x smaller than OpenVLA).
+
+### 8.2 Architectural Role in PID-VLA
+- **Iteration Speed:** Enables rapid testing of the PID pipeline due to fast inference (~100ms on M4 Max vs ~2s for OpenVLA).
+- **Control Rate:** Higher control frequency (~10Hz) due to async inference.
+- **Fine-tuning:** Seamless integration with Hugging Face LeRobot datasets (SO-100, LIBERO).

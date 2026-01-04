@@ -9,8 +9,8 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 6.7 FINAL (Unified Splat-First Simulation Environment + Complete PID-VLA Pipeline)
-**Date:** 2026-01-03
+**Version:** 6.8 FINAL (Unified Splat-First Simulation Environment + Complete PID-VLA Pipeline)
+**Date:** 2026-01-04
 **Status:** Research Specification + Implementation Blueprint (FINALIZED)
 **Canonical:** This is the living spec; prior versions live in git history.
 
@@ -4938,9 +4938,9 @@ pid-vla/
 └── results/               # Experiment results
 ```
 
-**Repo status (v5.0):**
-- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner).
-- Planned: `crates/pid-python`, `crates/pid-tauri`, and the `python/` experiment harness (keep the structure above as the target layout, but do not assume those folders exist yet).
+**Repo status (v6.8):**
+- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner) and `crates/pid-python` (PyO3 bindings).
+- Planned: `crates/pid-tauri` and the `python/` experiment harness (keep the structure above as the target layout, but do not assume those folders exist yet).
 
 ## 11.3 Reproducibility
 
@@ -12214,6 +12214,7 @@ release: build build-wheel
 | **6.5** | Jan 2026 | **Hierarchical 3-Way PID for Dream2Flow Analysis (with v6.5.1 corrections):** (1) Hierarchical Pairwise PID (§5.3) maps to Dream2Flow stages: `Syn(V,D_wan;Flow)`, `Syn(V,Flow;A)`. (2) **CORRECTED:** Execution-stage PID removed ("Sim" was undefined). (3) **CORRECTED:** 3D flow dimensionality properly specified — full representation is 3NT (can be 100s-1000s dims); "d≈6-30" only valid for aggregated single-object statistics. (4) **CORRECTED:** v5.5 (geometric validity) vs curse-of-d (statistical reliability) are separate issues; low-d Euclidean addresses both, high-d Euclidean only violates curse-of-d. (5) **CORRECTED:** "Bridge variable" claim removed — disjunction neighborhood doesn't rescue high-d sources; V requires PCA→256 regardless of Flow dimension. (6) Experiment 0 must validate mixed-dimension joint estimation. (7) Latent action diffusion remains complementary (policy) not competing (diagnostic). |
 | **6.6** | Jan 2026 | **3DGS Integration + Video Model Selection + Tauri/SparkJS/Gazebo Architecture:** (1) Defined 4 roles for 3DGS in pipeline: PID visualization (splat coloring), spatial failure localization, GWM representation, Spatia-style memory. (2) Evaluated video models: WAN 2.2, WAN+TurboDiffusion, Spatia (arXiv:2512.15716), Video4Spatial. (3) **TurboDiffusion** (thu-ml) enables 100-200× speedup — WAN 184s→1.9s, makes Dream2Flow interactive. (4) **Spatia** maintains 3D point cloud as persistent spatial memory via Visual SLAM — best for long-horizon spatial consistency. (5) Recommended 3 pipeline configurations: PRIMARY (WAN+TurboDiffusion, <5s), SPATIAL (Spatia, ~60s), COUNTERFACTUAL (WAN+Wan-Move). (6) Integrated Tauri+SparkJS+Gazebo architecture diagram with video model placement. (7) Defined 3DGS-PID visualization encoding: R=Syn, G=Red, B=Unq(V), opacity=MI, size=uncertainty. (8) 5-phase implementation priority for environment setup. (9) Updated hardware requirements with TurboDiffusion benefits (12GB vs 24GB VRAM). |
 | **6.7 FINAL** | Jan 2026 | **Unified Splat-First Simulation Environment — Complete Architecture:** (1) **Critical comparison with competitors** (§A): Honest analysis vs Isaac Sim, Omniverse, MuJoCo, Gazebo, SplatSim, Discoverse — proposed system targets >90% sim2real via 3DGS rendering + cross-platform + real-time editing. (2) **Complete system architecture** (§B): Full Tauri+SparkJS+Modular Physics stack diagram with PEGS-style dual Gaussian-Particle representation. (3) **Asset pipeline** (§C): PLY/SPZ/SPLAT/KSPLAT/SOG/GLB/URDF support with COLMAP→SparkJS workflow. (4) **PEGS-style physics** (§D): Rust implementation of particle-Gaussian binding with visual force correction. (5) **FOCI collision detection** (§E): Gaussian overlap integral for splat-splat collision + hybrid mesh approach + splat raycasting. (6) **Environment simulation** (§F): SparkJS Dyno-based weather/lighting/domain randomization. (7) **Camera system** (§G): Virtual cameras with raycast depth, Zenoh streaming, click-to-place. (8) **Real-time editing** (§H): Splat selection (box/raycast), transform, delete, clone + mesh collision adjustment. (9) **Sim2Real strategy** (§I): Multi-layer approach targeting >90% zero-shot transfer. (10) **Data collection pipeline** (§J): Complete workflow from scene setup to RLDS/HDF5/Zarr export. (11) **VLA setup analysis** (§K): Gap analysis showing all open-source VLAs use MuJoCo+OpenGL; none use 3DGS. (12) **Hardware requirements** (§L): 10× smaller footprint than Isaac Sim, runs on M2 Mac. **DOCUMENT FINALIZED.** |
+| **6.8 FINAL** | Jan 2026 | **SmolVLA Integration + World Model Comparison (Exps 6-10):** (1) Added SmolVLA (LeRobot) as lightweight ~450M parameter baseline with Flow-Matching head and asynchronous inference (§7.8, §8). (2) Documented ManiGaussian vs PEGS head-to-head comparison for world model fidelity and generalization. (3) Added Experiments 6-10 protocols to experimental design suite (§9.8). |
 
 ---
 
@@ -12282,3 +12283,24 @@ This section extends the core experimental suite to address advanced world model
 | **10** | **Deformable Objects** | H_WM5: Particle-based physics handles rope/cloth; rigid assumptions fail | Task success rate |
 
 **See `EXPERIMENTS.md` Sections 14-19 for detailed protocols.**
+
+## 7.8 SmolVLA (LeRobot)
+
+**Source:** Hugging Face LeRobot (SmolVLA), Jan 2025
+
+### 7.8.1 Architecture
+- **Backbone:** SmolVLM-2 (SigLIP visual encoder + SmolLM2 language model).
+- **Action Head:** **Flow-Matching Transformer** (action expert).
+- **Inference:** Asynchronous (decouples perception/planning from execution).
+- **Parameters:** ~450M (extremely lightweight).
+
+### 7.8.2 Training & Data
+- **Datasets:** Open LeRobot ecosystem (481 datasets, ~23k episodes).
+- **Primary Embodiment:** SO-100 robotic arm (but fine-tunable for others).
+- **Data Curation:** Task descriptions standardized via Qwen2.5-VL-3B-Instruct.
+
+### 7.8.3 Relevance to PID-VLA
+SmolVLA is the **ideal low-resource baseline** for Experiment 0/1 iteration.
+- **Pros:** Runs on consumer GPU, fully open weights, integrated with LeRobot training scripts.
+- **Cons:** Smaller capacity than 7B models; Flow-Matching head requires specific PID adaptation (vs Diffusion).
+- **Use Case:** Debugging the PID pipeline and establishing a "small model" baseline on LIBERO/Meta-World tasks.
