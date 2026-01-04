@@ -2,8 +2,8 @@
 
 > **Documentation Set Cross-Reference**: This is the master plan. See also:
 > - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
-> - `ARCHITECTURE.md` — Component breakdown (Tauri, Rapier, Gazebo, 3DGS) and advantages over VLM-based robotics
-> - `EXPERIMENTS.md` — Experimental protocols for SparkJS, Gazebo, Rapier setup and hypothesis testing
+> - `ARCHITECTURE.md` — Component breakdown (Tauri, Modular Physics, 3DGS) and advantages over VLM-based robotics
+> - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
@@ -65,15 +65,15 @@
 | **Gazebo (Classic/Ignition)** | ⭐⭐⭐ OGRE | ⭐⭐⭐ ODE/DART | ⭐⭐⭐ | ✓ | ❌ | ⭐⭐⭐⭐⭐ | ~55% |
 | **SplatSim** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐ (external) | ⭐⭐⭐ | ✓ | ❌ | ❌ | **86.25%** |
 | **Discoverse** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐⭐⭐ MuJoCo | ⭐⭐⭐⭐ | ✓ | ❌ | ❌ | **~90%** |
-| **Proposed (SparkJS+Rapier+Gazebo)** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐⭐ Rapier | ⭐⭐⭐⭐ | ✓ All platforms | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | Target: **>90%** |
+| **Proposed (Modular)** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐⭐ Modular | ⭐⭐⭐⭐ | ✓ All platforms | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | Target: **>90%** |
 
 **Key advantages of proposed architecture:**
 1. **Splat-first rendering** — 3DGS achieves 86-90% zero-shot sim2real (SplatSim, Discoverse) vs ~55-75% for mesh-based
 2. **SparkJS programmable Dynos** — Real-time procedural splat modification impossible in mesh pipelines
-3. **Rapier in Rust** — Deterministic physics, same language as pid-core, no FFI overhead
+3. **Rapier (Default Physics)** — Deterministic rigid-body physics in Rust, same language as pid-core, no FFI overhead
 4. **Cross-platform** — Runs on M4 Mac, Linux, Windows (Isaac/Omniverse require NVIDIA)
 5. **Lightweight** — ~50MB vs 20GB+ for Isaac Sim
-6. **Headless Gazebo** — Best-in-class ROS 2 integration without rendering overhead
+6. **Headless Gazebo (Robot Sim)** — Best-in-class ROS 2 integration without rendering overhead
 7. **Tauri** — Native performance with web technologies, ~10MB bundle
 
 **Honest disadvantages:**
@@ -89,7 +89,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                           PID-VLA UNIFIED SIMULATION ENVIRONMENT                         │
-│                              (Tauri + SparkJS + Rapier + Gazebo)                         │
+│                              (Tauri + SparkJS + Modular Physics)                         │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────┐│
@@ -114,11 +114,11 @@
 │  │  ┌─────────────────────────────────────────────────────────────────────────────────┐││
 │  │  │                           RUST BACKEND (Tauri Core)                             │││
 │  │  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌─────────────────┐  │││
-│  │  │  │  Rapier 3D    │  │  pid-core     │  │  Asset Manager│  │  Zenoh Client   │  │││
-│  │  │  │  Physics      │  │  (I^sx_∩)     │  │  (PLY/SPZ/GLB)│  │  (ROS 2 bridge) │  │││
-│  │  │  │  • Collision  │  │  • Estimator  │  │  • Import     │  │  • Pub/Sub      │  │││
-│  │  │  │  • Dynamics   │  │  • Bootstrap  │  │  • Convert    │  │  • Zero-copy    │  │││
-│  │  │  │  • Raycasting │  │  • Stream     │  │  • LOD        │  │  • <2ms latency │  │││
+│  │  │  │ Physics Engine │  │  pid-core     │  │  Asset Manager│  │  Zenoh Client   │  │││
+│  │  │  │ (Rapier/MuJoCo)│  │  (I^sx_∩)     │  │  (PLY/SPZ/GLB)│  │  (ROS 2 bridge) │  │││
+│  │  │  │ • Collision  │  │  • Estimator  │  │  • Import     │  │  • Pub/Sub      │  │││
+│  │  │  │ • Dynamics   │  │  • Bootstrap  │  │  • Convert    │  │  • Zero-copy    │  │││
+│  │  │  │ • Raycasting │  │  • Stream     │  │  • LOD        │  │  • <2ms latency │  │││
 │  │  │  └───────┬───────┘  └───────┬───────┘  └───────┬───────┘  └────────┬────────┘  │││
 │  │  │          │                  │                  │                   │           │││
 │  │  │          └──────────────────┴──────────────────┴───────────────────┘           │││
@@ -188,13 +188,13 @@ iPhone/DSLR video → COLMAP + gsplat/nerfstudio → .PLY/.SPZ → Rapier collis
 
 ### §D. PEGS-Style Dual Gaussian-Particle Representation
 
-**Implementation in Rapier + SparkJS:**
+**Implementation in Modular Physics + SparkJS:**
 
 ```rust
-// Rust backend: Particle-Physics layer
+// Rust backend: Particle-Physics layer (Generic Trait over Rapier/MuJoCo)
 pub struct PhysicsParticle {
-    body_handle: RigidBodyHandle,      // Rapier rigid body
-    collider_handle: ColliderHandle,   // Rapier collision shape
+    body_handle: RigidBodyHandle,      // Generic handle
+    collider_handle: ColliderHandle,   // Generic handle
     splat_indices: Vec<u32>,           // Attached SparkJS splat IDs
     mass: f32,
     material: PhysicsMaterial,
@@ -208,10 +208,10 @@ pub struct GaussianBinding {
 
 // Sync loop: Physics → Rendering
 pub fn sync_particles_to_splats(
-    physics: &RapierContext,
+    physics: &dyn PhysicsBackend,      // Modular backend trait
     splat_transforms: &mut SplatTransformBuffer,
 ) {
-    for particle in physics.particles.iter() {
+    for particle in physics.particles().iter() {
         let transform = physics.get_body_transform(particle.body_handle);
         for &splat_idx in &particle.splat_indices {
             splat_transforms[splat_idx] = transform * particle.bindings[splat_idx].local_offset;
@@ -562,7 +562,7 @@ class MeshEditor {
 │     └── Set episode length and termination conditions                       │
 │                                                                              │
 │  3. DATA GENERATION                                                          │
-│     ├── Teleoperation: SpaceNav/keyboard → Gazebo → Rapier sync            │
+│     ├── Teleoperation: SpaceNav/keyboard → Robot Sim → Physics sync        │
 │     ├── OR scripted policies: Predefined trajectories with noise           │
 │     ├── OR RL training: PPO/SAC with PID-VLA reward shaping                │
 │     └── Domain randomization applied per-episode                            │
@@ -12213,7 +12213,7 @@ release: build build-wheel
 | **6.4** | Jan 2026 | **VLM→World Model Transition + 3D Flow vs Latent Action Analysis:** (1) Documented paradigm shift from VLM-based VLAs (Gen 1: OpenVLA, RT-2) to World Model-based (Gen 2: Dream2Flow, DreamVLA, Motus). (2) Analyzed 3D Object Flow vs Latent Action Space Diffusion: 3D flow operates on D (world model) enabling PID validity; latent action diffusion operates on A (policy) and doesn't solve D-side estimation. (3) For PID-VLA, 3D flow serves as "geometry escape hatch." (4) Both approaches can coexist. |
 | **6.5** | Jan 2026 | **Hierarchical 3-Way PID for Dream2Flow Analysis (with v6.5.1 corrections):** (1) Hierarchical Pairwise PID (§5.3) maps to Dream2Flow stages: `Syn(V,D_wan;Flow)`, `Syn(V,Flow;A)`. (2) **CORRECTED:** Execution-stage PID removed ("Sim" was undefined). (3) **CORRECTED:** 3D flow dimensionality properly specified — full representation is 3NT (can be 100s-1000s dims); "d≈6-30" only valid for aggregated single-object statistics. (4) **CORRECTED:** v5.5 (geometric validity) vs curse-of-d (statistical reliability) are separate issues; low-d Euclidean addresses both, high-d Euclidean only violates curse-of-d. (5) **CORRECTED:** "Bridge variable" claim removed — disjunction neighborhood doesn't rescue high-d sources; V requires PCA→256 regardless of Flow dimension. (6) Experiment 0 must validate mixed-dimension joint estimation. (7) Latent action diffusion remains complementary (policy) not competing (diagnostic). |
 | **6.6** | Jan 2026 | **3DGS Integration + Video Model Selection + Tauri/SparkJS/Gazebo Architecture:** (1) Defined 4 roles for 3DGS in pipeline: PID visualization (splat coloring), spatial failure localization, GWM representation, Spatia-style memory. (2) Evaluated video models: WAN 2.2, WAN+TurboDiffusion, Spatia (arXiv:2512.15716), Video4Spatial. (3) **TurboDiffusion** (thu-ml) enables 100-200× speedup — WAN 184s→1.9s, makes Dream2Flow interactive. (4) **Spatia** maintains 3D point cloud as persistent spatial memory via Visual SLAM — best for long-horizon spatial consistency. (5) Recommended 3 pipeline configurations: PRIMARY (WAN+TurboDiffusion, <5s), SPATIAL (Spatia, ~60s), COUNTERFACTUAL (WAN+Wan-Move). (6) Integrated Tauri+SparkJS+Gazebo architecture diagram with video model placement. (7) Defined 3DGS-PID visualization encoding: R=Syn, G=Red, B=Unq(V), opacity=MI, size=uncertainty. (8) 5-phase implementation priority for environment setup. (9) Updated hardware requirements with TurboDiffusion benefits (12GB vs 24GB VRAM). |
-| **6.7 FINAL** | Jan 2026 | **Unified Splat-First Simulation Environment — Complete Architecture:** (1) **Critical comparison with competitors** (§A): Honest analysis vs Isaac Sim, Omniverse, MuJoCo, Gazebo, SplatSim, Discoverse — proposed system targets >90% sim2real via 3DGS rendering + cross-platform + real-time editing. (2) **Complete system architecture** (§B): Full Tauri+SparkJS+Rapier+Gazebo stack diagram with PEGS-style dual Gaussian-Particle representation. (3) **Asset pipeline** (§C): PLY/SPZ/SPLAT/KSPLAT/SOG/GLB/URDF support with COLMAP→SparkJS workflow. (4) **PEGS-style physics** (§D): Rust implementation of particle-Gaussian binding with visual force correction. (5) **FOCI collision detection** (§E): Gaussian overlap integral for splat-splat collision + hybrid mesh approach + splat raycasting. (6) **Environment simulation** (§F): SparkJS Dyno-based weather/lighting/domain randomization. (7) **Camera system** (§G): Virtual cameras with raycast depth, Zenoh streaming, click-to-place. (8) **Real-time editing** (§H): Splat selection (box/raycast), transform, delete, clone + mesh collision adjustment. (9) **Sim2Real strategy** (§I): Multi-layer approach targeting >90% zero-shot transfer. (10) **Data collection pipeline** (§J): Complete workflow from scene setup to RLDS/HDF5/Zarr export. (11) **VLA setup analysis** (§K): Gap analysis showing all open-source VLAs use MuJoCo+OpenGL; none use 3DGS. (12) **Hardware requirements** (§L): 10× smaller footprint than Isaac Sim, runs on M2 Mac. **DOCUMENT FINALIZED.** |
+| **6.7 FINAL** | Jan 2026 | **Unified Splat-First Simulation Environment — Complete Architecture:** (1) **Critical comparison with competitors** (§A): Honest analysis vs Isaac Sim, Omniverse, MuJoCo, Gazebo, SplatSim, Discoverse — proposed system targets >90% sim2real via 3DGS rendering + cross-platform + real-time editing. (2) **Complete system architecture** (§B): Full Tauri+SparkJS+Modular Physics stack diagram with PEGS-style dual Gaussian-Particle representation. (3) **Asset pipeline** (§C): PLY/SPZ/SPLAT/KSPLAT/SOG/GLB/URDF support with COLMAP→SparkJS workflow. (4) **PEGS-style physics** (§D): Rust implementation of particle-Gaussian binding with visual force correction. (5) **FOCI collision detection** (§E): Gaussian overlap integral for splat-splat collision + hybrid mesh approach + splat raycasting. (6) **Environment simulation** (§F): SparkJS Dyno-based weather/lighting/domain randomization. (7) **Camera system** (§G): Virtual cameras with raycast depth, Zenoh streaming, click-to-place. (8) **Real-time editing** (§H): Splat selection (box/raycast), transform, delete, clone + mesh collision adjustment. (9) **Sim2Real strategy** (§I): Multi-layer approach targeting >90% zero-shot transfer. (10) **Data collection pipeline** (§J): Complete workflow from scene setup to RLDS/HDF5/Zarr export. (11) **VLA setup analysis** (§K): Gap analysis showing all open-source VLAs use MuJoCo+OpenGL; none use 3DGS. (12) **Hardware requirements** (§L): 10× smaller footprint than Isaac Sim, runs on M2 Mac. **DOCUMENT FINALIZED.** |
 
 ---
 

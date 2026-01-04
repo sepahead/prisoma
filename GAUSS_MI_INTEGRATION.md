@@ -5,8 +5,8 @@
 > - `pidsplatspecs.md` — Simulation environment (PID-Splat)
 > - `pid-core` — Rust implementation context
 
-**Version:** 1.0  
-**Date:** 2025  
+**Version:** 1.0
+**Date:** 2026-01-03
 **Status:** Specification (Pre-Implementation)
 
 ---

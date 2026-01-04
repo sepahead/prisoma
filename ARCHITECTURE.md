@@ -3,7 +3,7 @@
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan and theoretical foundations
 > - `pidsplatspecs.md` — Detailed simulation environment specifications
-> - `EXPERIMENTS.md` — Experimental protocols for SparkJS, Gazebo, Rapier setup and hypothesis testing
+> - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
 
@@ -54,14 +54,15 @@
   - Blue = High Unique Information
   - Green = High Redundancy
 
-### 1.3 Rapier3D (Physics Engine)
+### 1.3 Modular Physics Engine (Rapier, MuJoCo, Isaac Gym)
 
 **What it does:**
-- Rust-native rigid body physics simulation
+- Provides rigid body physics simulation via a pluggable backend system
+- Supports **Rapier3D** (Rust-native, default), **MuJoCo** (industry standard), and **Isaac Gym** (GPU-parallel)
 - Handles collision detection, joint constraints, friction, restitution
-- Runs at <1ms/step, enabling 1000Hz internal physics with 100Hz external control
+- Rapier runs at <1ms/step, enabling 1000Hz internal physics with 100Hz external control
 
-**Key capabilities:**
+**Key capabilities (Rapier implementation):**
 ```rust
 // Table collider with realistic friction
 let table_collider = ColliderBuilder::cuboid(0.60, 0.40, 0.375)
@@ -77,9 +78,9 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 ```
 
 **Why it matters:**
-- **Determinism**: Fully deterministic physics (critical for reproducibility)
-- **Speed**: Orders of magnitude faster than Gazebo/PyBullet for simple scenes
-- **Integration**: Native Rust = zero-copy data flow to PID-core
+- **Determinism**: Fully deterministic physics (critical for reproducibility in Rapier)
+- **Modularity**: Select the best engine for the task (Rapier for speed, MuJoCo for contact accuracy)
+- **Integration**: Native Rust (Rapier) = zero-copy data flow to PID-core; FFI for MuJoCo/Isaac
 
 ### 1.4 Gazebo Harmonic (Robot Simulation)
 
@@ -99,21 +100,21 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 └─────────────────┘
 ```
 
-**Why both Rapier AND Gazebo?**
+**Why separate Physics and Robot Simulation?**
 
 | Component | Use Case | When to Use |
 |-----------|----------|-------------|
-| **Rapier** | Object manipulation physics (fast, deterministic) | Object-object interactions, perturbations, fast iteration |
-| **Gazebo** | Robot kinematics/dynamics, sensor simulation | Robot URDF loading, sensor data, cross-embodiment |
+| **Physics Engine** | Object manipulation physics (fast, deterministic) | Object-object interactions, perturbations, fast iteration |
+| **Robot Sim** | Robot kinematics/dynamics, sensor simulation | Robot URDF loading, sensor data, cross-embodiment |
 
 The "Splat-First Physics" approach:
-- Gazebo handles complex robot dynamics (Franka, UR5e URDFs)
-- Rapier handles object manipulation (grasping, stacking, placing)
+- Robot Sim (Gazebo/MuJoCo) handles complex robot dynamics (Franka, UR5e URDFs)
+- Physics Engine (Rapier/MuJoCo) handles object manipulation (grasping, stacking, placing)
 - 3DGS provides visual rendering for both
 
 **Per-Hypothesis Engine Usage** (see `EXPERIMENTS.md` for full details):
 
-| Hypothesis | Rapier | Gazebo | Notes |
+| Hypothesis | Physics | Robot | Notes |
 |------------|--------|--------|-------|
 | H1 (Synergy → hallucination) | ✓ | ✓ | Object poses + robot state |
 | H4 (Memorization vs generalization) | ✓ | | Mass/friction perturbations |
@@ -208,7 +209,7 @@ Current Image + Instruction
 
 ---
 
-## 2. Simulator Comparison: Why Gaussian Splats + Rapier/Gazebo
+## 2. Simulator Comparison: Why Gaussian Splats + Modular Physics
 
 ### 2.1 Comprehensive Simulator Comparison
 
@@ -243,11 +244,9 @@ Current Image + Instruction
 ├─────────────────────────────────────────────────────────────┤
 │  RENDERING        │  PHYSICS           │  ROBOT SIMULATION  │
 │  ────────         │  ───────           │  ────────────────  │
-│  Gaussian Splats  │  Rapier3D (fast)   │  Gazebo (accurate) │
-│  (photorealistic) │  OR                │  OR                │
-│                   │  MuJoCo (accurate) │  MuJoCo (legacy)   │
-│                   │  OR                │                    │
-│                   │  Isaac Gym (GPU)   │                    │
+│  Gaussian Splats  │  Modular Backend   │  Gazebo (accurate) │
+│  (photorealistic) │  (Rapier, MuJoCo,  │  OR                │
+│                   │   Isaac Gym)       │  MuJoCo (legacy)   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -395,12 +394,12 @@ I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 - Long-horizon tasks: Does synergy degrade over time? (H5)
 - If yes → world model loses coherence over long plans
 
-### 3.3 Why Gaussian Splats + Rapier Enable This
+### 3.3 Why Gaussian Splats + Modular Physics Enable This
 
 | Traditional Sim | PID-Splat |
 |-----------------|-----------|
 | Synthetic renders → domain gap → VLA sees different inputs than real | Splat captures → photorealism → VLA sees real-like inputs |
-| MuJoCo physics → slow, non-Rust → IPC overhead | Rapier physics → Rust-native → zero-copy to PID-core |
+| MuJoCo physics → slow, non-Rust → IPC overhead | Modular physics → Rust-native (Rapier) or FFI (MuJoCo) |
 | Offline evaluation → no real-time feedback | Tauri dashboard → live PID overlay on running policy |
 
 **The key insight**: To diagnose VLAs, we need:
@@ -409,7 +408,7 @@ I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 3. **Real-time analysis** (live PID computation during rollouts)
 4. **Differentiable rendering** (for future gradient-based probing)
 
-Gaussian Splats + Rapier + Tauri provide all four.
+Gaussian Splats + Modular Physics + Tauri provide all four.
 
 ---
 
@@ -419,8 +418,8 @@ Gaussian Splats + Rapier + Tauri provide all four.
 |-----------|------|--------------|
 | **Tauri** | Desktop app shell | Native Rust perf + cross-platform |
 | **SparkJS** | 3DGS rendering | WebGPU photorealism + PID overlays |
-| **Rapier** | Object physics | 1000x faster than PyBullet, deterministic |
-| **Gazebo** | Robot dynamics | Industry-standard robot simulation |
+| **Physics** | Object physics | Modular (Rapier/MuJoCo/Isaac) |
+| **Robot Sim** | Robot dynamics | Industry-standard (Gazebo/MuJoCo) |
 | **3DGS Pipeline** | Scene capture | Real2Sim photorealism, differentiable |
 | **Dream2Flow** | World model probe | Euclidean flow target, embodiment-agnostic |
 | **PID-Core** | Information analysis | Decomposes V-L-A integration, diagnoses failures |

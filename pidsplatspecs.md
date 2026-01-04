@@ -3,7 +3,7 @@
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan and theoretical foundations
 > - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
-> - `EXPERIMENTS.md` — Experimental protocols for SparkJS, Gazebo, Rapier setup and hypothesis testing
+> - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
 ## Technical Blueprint for the "Splat-First" Research Platform
@@ -16,7 +16,7 @@
 
 ### 1. Executive Summary
 
-This document specifies the engineering implementation of the **PID-Splat** environment. It bridges photorealistic 3D Gaussian Splatting (3DGS) with deterministic rigid-body physics (Rapier) and **generative video flow (Dream2Flow)** to enable real-time Partial Information Decomposition (PID) diagnostics for VLA models.
+This document specifies the engineering implementation of the **PID-Splat** environment. It bridges photorealistic 3D Gaussian Splatting (3DGS) with modular rigid-body physics (**Rapier, MuJoCo, or Isaac Gym**) and **generative video flow (Dream2Flow)** to enable real-time Partial Information Decomposition (PID) diagnostics for VLA models.
 
 **Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying generative "dreams" (WAN-derived flow) to visualize what the VLA expects to happen.
 
@@ -29,7 +29,7 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 | **Frontend Shell** | Tauri | v2.0+ (Rust backend, WebView frontend) | MIT |
 | **Renderer** | SparkJS | 2025 Release (WebGPU backend) | MIT |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
-| **Physics Engine** | Rapier3d | v0.18+ (Rust native) | Apache 2.0 |
+| **Physics Engine** | Rapier3d / MuJoCo | Rapier v0.18+ / MuJoCo v3.0+ | Apache 2.0 |
 | **Middleware** | Zenoh | v1.0 (Zero-copy, shared memory) | Apache 2.0 |
 | **Sensor Sim** | Gazebo | Harmonic (gz-sim 8.x) | Apache 2.0 |
 | **Video Gen** | WAN | v2.2 (for Dream2Flow) | Apache 2.0 |
@@ -101,10 +101,10 @@ SparkJS renders these flows as **animated ghost splats** overlaying the real phy
 
 | Key Expression | Data Type | Frequency | Source → Dest |
 | :--- | :--- | :--- | :--- |
-| `sim/pose/{id}` | `[f32; 7]` | 60Hz | Rapier → SparkJS |
+| `sim/pose/{id}` | `[f32; 7]` | 60Hz | Physics → SparkJS |
 | `dream/flow/{id}`| `DreamFlowTrajectory` | Event | WAN → SparkJS |
 | `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → SparkJS |
-| `vla/action` | `[f32; 7]` | ~10Hz | VLA → Rapier |
+| `vla/action` | `[f32; 7]` | ~10Hz | VLA → Physics |
 
 #### 5.2 PID Message Schema
 ```rust
@@ -121,9 +121,10 @@ struct PidMetricMsg {
 
 ---
 
-### 6. Rapier Physics Binding (PEGS)
+### 6. Modular Physics Binding (PEGS)
 
 #### 6.1 Splat-to-Physics Mapping
+The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym**) via a unified trait interface.
 *   **Manual Proxy:** User places primitive colliders (Box, Sphere) in the Tauri editor to match visual boundaries.
 *   **Visual Forces:** If `Syn(V, Flow; A)` drops, we can optionally apply "correction forces" to nudge the physics simulation toward the Dream (counterfactual analysis).
 
@@ -166,7 +167,7 @@ struct PidMetricMsg {
     *   Integrate `gsplat` (via SparkJS) WebGPU renderer.
 
 2.  **Physics (Week 3-4):**
-    *   Implement Rapier loop.
+    *   Implement Physics loop (Rapier by default, MuJoCo optional).
     *   Create "Proxy Editor".
 
 3.  **Dream2Flow (Week 5-6):**

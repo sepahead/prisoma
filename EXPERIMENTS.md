@@ -3,7 +3,7 @@
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan and theoretical foundations
 > - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
-> - `ARCHITECTURE.md` — Component breakdown (Tauri, Rapier, Gazebo, 3DGS) and advantages over VLM-based robotics
+> - `ARCHITECTURE.md` — Component breakdown (Tauri, Modular Physics, 3DGS) and advantages over VLM-based robotics
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
 
@@ -33,27 +33,27 @@
 
 ---
 
-## Physics Engine Usage: Rapier vs Gazebo
+## Physics and Robot Backend Usage: Modular Architecture
 
-This table clarifies when to use each physics engine across experiments.
+This table clarifies when to use each backend across experiments. While **Rapier** and **Gazebo** are the recommended defaults for performance and industry standards, the system is fully modular and supports **MuJoCo** as a first-class alternative.
 
 | Component | Engine | Purpose | Experiments |
 |-----------|--------|---------|-------------|
-| **Object Manipulation** | Rapier3D | Grasping, stacking, placing objects | Exp 1-5 |
-| **Robot Kinematics** | Gazebo Harmonic | 7-DOF arm dynamics, joint limits | Exp 1-5 |
-| **Sensor Simulation** | Gazebo Harmonic | RGB-D cameras, joint encoders | Exp 1-5 |
-| **Physical Perturbations** | Rapier3D | Mass/friction variations | Exp 1, 3, 5 |
+| **Object Manipulation** | Rapier / MuJoCo | Grasping, stacking, placing objects | Exp 1-5 |
+| **Robot Kinematics** | Gazebo / MuJoCo | 7-DOF arm dynamics, joint limits | Exp 1-5 |
+| **Sensor Simulation** | Gazebo / MuJoCo | RGB-D cameras, joint encoders | Exp 1-5 |
+| **Physical Perturbations** | Rapier / MuJoCo | Mass/friction variations | Exp 1, 3, 5 |
 | **Visual Perturbations** | SparkJS Dynos | Lighting, textures | Exp 1 |
-| **Cross-Embodiment** | Gazebo Harmonic | UR5e vs Franka URDFs | Exp 5 |
+| **Cross-Embodiment** | Gazebo / MuJoCo | UR5e vs Franka URDFs | Exp 5 |
 
 ### Per-Hypothesis Engine Mapping
 
 | Hypothesis | Primary Engine | Reason |
 |------------|----------------|--------|
-| **H1** (Synergy → hallucination) | Rapier + Gazebo | Need accurate object poses for PID(V,D;A) |
-| **H4** (Memorization vs generalization) | Rapier | Perturbation library uses Rapier for mass/friction |
-| **H5** (Temporal synergy degradation) | Rapier + Gazebo | Long-horizon stacking needs precise contact physics |
-| **H6** (Safety-aware V-L integration) | Rapier + Gazebo | Collision detection for safety constraints |
+| **H1** (Synergy → hallucination) | Physics + Robot | Need accurate object poses for PID(V,D;A) |
+| **H4** (Memorization vs generalization) | Physics | Perturbation library uses physics for mass/friction |
+| **H5** (Temporal synergy degradation) | Physics + Robot | Long-horizon stacking needs precise contact physics |
+| **H6** (Safety-aware V-L integration) | Physics + Robot | Collision detection for safety constraints |
 | **H7** (Flow-as-bridge) | N/A (WAN video gen) | 3D flow extracted from WAN video, no physics sim needed |
 
 ### Modular Physics Backend Configuration
@@ -102,13 +102,18 @@ urdf_path = "assets/robots/franka_panda.urdf"
 ### When to Use Which
 
 **Use Rapier3D when:**
-- Simulating object-object and object-table interactions
+- Simulating object-object and object-table interactions in a Rust-native environment
 - Running many episodes quickly (< 1ms/step)
 - Applying physical perturbations (mass, friction)
 - Determinism is critical for reproducibility
 
+**Use MuJoCo when:**
+- Gold-standard contact physics are required for manipulation
+- Comparing results against standard VLA benchmarks (LIBERO, MetaWorld)
+- Precise grasping or multi-body dynamics are the focus
+
 **Use Headless Gazebo when:**
-- Simulating robot arm kinematics/dynamics
+- Simulating robot arm kinematics/dynamics via URDF
 - Generating sensor data (RGB-D, joint states)
 - Testing cross-embodiment (different robot URDFs)
 - Industry-standard robot fidelity is required

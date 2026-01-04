@@ -3,8 +3,8 @@
 > **Documentation Cross-Reference**: This README provides a quick start guide. For detailed specifications, see:
 > - `grandplan.md` — Master plan with glossary and mathematical foundations  
 > - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
-> - `ARCHITECTURE.md` — Component breakdown (Tauri, Rapier, Gazebo, 3DGS) and advantages over VLM-based robotics
-> - `EXPERIMENTS.md` — Experimental protocols for SparkJS, Gazebo, Rapier setup and hypothesis testing
+> - `ARCHITECTURE.md` — Component breakdown (Tauri, Modular Physics, 3DGS) and advantages over VLM-based robotics
+> - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
 > - `DIAGRAMS.md` — Visual architecture diagrams
 
 **Partial Information Decomposition for Vision-Language-Action Models**

@@ -4,7 +4,7 @@
 > - `grandplan.md` — Master plan and theoretical foundations
 > - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
 > - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
-> - `EXPERIMENTS.md` — Experimental protocols for SparkJS, Gazebo, Rapier setup and hypothesis testing
+> - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
 > - `README.md` — Quick start guide
 
 This document contains visual representations of the PID-VLA system, the PID-Splat simulation environment, and the data processing pipelines.
@@ -36,11 +36,11 @@ graph TD
 
     subgraph "Simulation & Vis Layer (Tauri/Rust)"
         subgraph "Backend"
-            Rapier[Rapier3D Physics]
+            Phys[Physics Engine]
             PID_Core[pid-core Estimator]
             
-            Z_ACT --> Rapier
-            Rapier -->|Pose| Spark_Bridge
+            Z_ACT --> Phys
+            Phys -->|Pose| Spark_Bridge
             
             Z_EMB --> PID_Core
             Z_FLOW --> PID_Core
@@ -73,7 +73,7 @@ This diagram details the "Splat-First" update loop, showing how physics (Rapier)
 sequenceDiagram
     participant VLA as VLA Agent
     participant Zenoh as Zenoh Bus
-    participant Phys as Rapier (Rust)
+    participant Phys as Physics (Rust)
     participant PID as PID-Core
     participant Spark as SparkJS (WebGPU)
 
