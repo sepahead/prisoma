@@ -6,7 +6,7 @@ WorldWarp (https://github.com/sepehrmn/WorldWarp) is an external framework for g
 ## Key Features
 - **Asynchronous Chunk-Wise Autoregressive Diffusion:** Enables the generation of extended, long-range views efficiently.
 - **Explicit Camera Conditioning:** Allows precise control over camera rotation and translation, critical for simulating robot viewpoints.
-- **Online 3D Cache:** Maintains geometric consistency across generated frames, reducing "hallucinations" in scene geometry.
+- **Online 3D Cache:** Maintains geometric consistency across generated frames, reducing geometric drift/artifacts in scene structure.
 - **Interactive GUI:** Gradio-based interface for rapid testing and parameter tuning (camera paths, generation strength).
 - **Foundation model integration (verify):** WorldWarp may integrate one or more video/VLM backbones; confirm exact models/versions and licensing in the upstream documentation rather than assuming specific WAN/Qwen variants.
 

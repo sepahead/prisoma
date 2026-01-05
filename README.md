@@ -49,7 +49,7 @@ PID-VLA is a research toolkit for analyzing **Vision-Language-Action (VLA)** rob
 4. **Decide GO/PIVOT/NO-GO**
    - Use the criteria in `grandplan.md` §9.1 and the diagnostics in the `exp0` output
 5. **Proceed to real embeddings only after GO**
-   - Follow `EXPERIMENTS.md` for data collection + hypothesis tests; treat non-implemented components as specifications until built.
+   - Follow `EXPERIMENTS.md` for data collection + hypothesis tests; start with `Flow_gt` (simulator-derived) and a small baseline (e.g., SmolVLA) for harness bring-up before adding video predictors or larger VLAs.
 
 ### Prerequisites
 
@@ -212,8 +212,8 @@ See `grandplan.md` §7 for detailed analysis.
 | VLA | Backbone | World Model (D) | Action Rep | Notes |
 | --- | --- | --- | --- | --- |
 | **OpenVLA** | Llama 2 7B | Implicit (hidden states; definition choice) | Action tokens/bins (verify) | Primary target; d≈4096 |
-| **DreamVLA** | GPT-2-class (per abstract; verify) | Explicit world-knowledge forecasting (dynamic/spatial/semantic cues) | Diffusion-style action model (paper-reported; verify) | Useful when D is operationalizable; dims unknown |
-| **PixelVLA** | Llama 2 7B | Implicit + Pixel enc. | Continuous 7D | Multiscale visual features |
+| **DreamVLA** | Backbone unspecified in abstract (verify) | Explicit world-knowledge forecasting (dynamic/spatial/semantic cues) | Diffusion-based transformer (abstract; verify representation) | Useful when D is operationalizable; dims unknown |
+| **PixelVLA** | Integrated into existing VLAs (abstract; backbone unspecified) | Implicit (verify) | (verify) | Adds pixel-level reasoning + multimodal prompting; Pixel‑160K (paper-reported; verify release) |
 | **TraceVLA** | Llama 2 7B | Trace-augmented V | Action tokens/bins (verify) | Temporal history in V |
 | **SmolVLA** | LeRobot baseline (verify) | Implicit | (verify) | Lightweight baseline for fast iteration / pipeline debugging |
 

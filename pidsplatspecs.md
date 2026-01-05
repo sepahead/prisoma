@@ -55,7 +55,7 @@ This document specifies the engineering implementation of the **PID-Splat** envi
   - `python -m threedgrut.export.scripts.ply_to_usd path/to/your/splats.ply --output_file path/to/output.usdz`
 
 #### 3.2 LOD Strategy
-*   **Target Count:** 500k - 2M gaussians per scene.
+*   **Starting range (benchmark-dependent):** ~0.5M–2M gaussians per scene.
 *   **Distance-based culling:** Alpha cull threshold increases with distance.
 *   **Frustum culling:** Octree-based spatial indexing.
 
@@ -64,6 +64,8 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 ### 4. Dream2Flow Integration (Flow-as-Bridge)
 
 This section implements the "Unified Architecture" from `grandplan.md` §10.10.
+
+**v7.0 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor. This isolates PID/geometry issues from predictor failures and makes early engineering reproducible.
 
 #### 4.1 3D Flow Data Structure
 We represent the "Dream" not just as a hidden state, but as explicit 3D trajectories extracted from predicted videos (Dream2Flow-style bridge).
@@ -95,9 +97,9 @@ SparkJS renders these flows as **animated ghost splats** overlaying the real phy
 
 *   **Visual Style:** Semi-transparent, glowing trails.
 *   **Color Mapping:**
-    *   **Red:** High Synergy (VLA "Dream" matches Reality).
-    *   **Blue:** Unique V (Reality diverges from Dream).
-    *   **Pulsing:** Opacity pulses with the beat of the flow.
+    *   **Red:** High `Syn` (as defined by the chosen PID/decomposition; interpretation is experimental).
+    *   **Blue:** High `Unq(V)` (or other selected atom/metric; choose and preregister).
+    *   **Pulsing (optional):** Encode confidence/uncertainty or flow magnitude (make the mapping explicit in exports).
 
 ---
 

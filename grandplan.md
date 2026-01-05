@@ -23,15 +23,15 @@
 - Added OpenUSD/USDZ interoperability notes based on the LeIsaac Marble tutorial (`.ply → .usdz → .usd`) as an optional workflow.
 - Strengthened scientific rigor in §A and §16: clarified δ normalization (`δ_rel`), removed unverified numeric/roadmap claims, and added an explicit geometry→estimator/decomposition decision matrix (2-way vs 3-way vs hierarchical).
 
-> **⚠️ Critical Discovery (v5.5):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
+> **⚠️ Key caveat (estimator geometry):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
 
-> **🚧 WORK IN PROGRESS (v5.6): Top 5 Manifold-Compatible Approaches**
+> **Geometry mitigations (choose one, then re-run the Geometry Gate + Experiment 0):**
 > 
 > 1. **The "Manifold Unrolling" Approach (Isomap/AE → Standard Estimator):**
 >    Use Isomap or Contractive Autoencoders to flatten the manifold into a lower-dimensional Euclidean space (e.g., d=32), then run the standard Ehrlich `I^sx_∩` estimator. This "unrolls" the geometry so L∞ distances become valid proxies.
 > 
 > 2. **The "Geodesic MI" Approach (Manifold kNN → Shannon Invariants):**
->    Abandon PID atoms. Use a Manifold-Aware MI Estimator (Marx & Fischer 2021) with geodesic distances to compute Mutual Information only. Derive Co-Information (Red - Syn) as a rigorous, coordinate-invariant scalar summary.
+>    Prefer MI/CMI-based screening (CI/Ω / co-information) rather than continuous PID atoms. Use a manifold-aware MI estimator (e.g., Marx & Fischer 2021) with geodesic distances, and treat results as **screening** unless validated under controls.
 > 
 > 3. **The "Linear Projection" Approach (PCA → Standard Estimator):**
 >    Pragmatic baseline. Use PCA to reduce to ~256 dims. PCA is a linear rotation, preserving the "box" volume logic of the Chebyshev estimator better than nonlinear warping, provided the manifold is locally flat enough.
@@ -42,7 +42,7 @@
 > 5. **The "Copula Transform" Approach (Rank Transform → Standard Estimator):**
 >    Apply empirical CDF transform to every dimension to force Uniform marginals. This mitigates "empty space" issues in high-d L∞ metrics and maximizes estimator efficiency, though it ignores dependencies during the transform.
 >
-> **⛔ EXCLUDED APPROACHES (Why they didn't make the list):**
+> **Excluded approaches (why they are not default):**
 > 
 > *   **Kernel Density Estimation (KDE):** Excluded because KDE becomes impractical in very high dimension (e.g., `d≈4096`) due to the curse of dimensionality, and because numerically integrating the `I^sx_∩` disjunction neighborhoods is not tractable at VLA scale.
 > *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to cost (exact eigendecomposition is typically `O(N^3)`; scalable approximations exist) and because spectral embeddings can distort local volumes in ways that are hard to correct for PID atoms.
@@ -105,6 +105,58 @@
 - **Physics validity is an empirical question** — Rapier is not the gold standard for contact-rich manipulation; use MuJoCo/PhysX baselines when physics fidelity is central.
 - **Rendering trade-offs** — 3DGS is typically rasterized and does not automatically provide RTX-grade lighting/material effects; dynamic/interactive edits require hybrid representations.
 - **Dependency/roadmap risk** — do not justify the research plan on third-party roadmap or marketing claims (e.g., “500M splats”, “multiplayer”); treat as unverified until benchmarked.
+
+#### §A.1 Value Proposition (and when it is *not* justified)
+
+This project’s scientific contribution is PID‑based diagnostics under controlled interventions—not “a new simulator”. A custom stack is justified only if it enables experiments that are otherwise impractical or error-prone to reproduce. The minimum bar for justification is:
+1. **Intervention + replay as a first-class primitive** (episode-level, not just logs)
+2. **Synchronized capture of** `(V,L,D,A)` **representations** alongside simulator state, prompts, and labels
+3. **One control plane for both GUI and automation** so manual runs and LLM/tool-driven runs are comparable and auditable
+
+If these properties can be achieved with acceptable effort on Isaac Sim/Lab, MuJoCo, or Gazebo for the target tasks, then PID‑VLA should use those systems and focus engineering effort on the experiment harness.
+
+#### §A.2 Why Tauri (and why SparkJS is optional)
+
+- **Tauri (shell):** provides a cross-platform desktop host with a Rust backend (for PID computation, run logging, and the Agent Bridge) and a WebView frontend (for a modern GPU UI).
+- **Renderer (pluggable):** SparkJS is a candidate WebGPU 3DGS renderer; Three.js/WebGPU or other engines are acceptable if they meet interface requirements (version pinning, stable camera model, mesh overlays, and metric‑driven overlays).
+- **Do not rely on ecosystem narratives:** “future-proof” arguments based on third‑party funding/roadmaps are not scientific evidence. Pin revisions, benchmark, and design for swap‑ability.
+
+#### §A.3 Hybrid scene geometry: splats + meshes (+ anything WebGPU can draw)
+
+- **Splats are appearance, not physics.** Use 3DGS for photoreal views of captured scenes; use meshes/URDFs/primitive colliders for contacts, robots, and interactive edits.
+- **Compositing is a requirement:** 3DGS background + mesh robots/objects + optional point clouds/voxels/SDF debug views + annotation gizmos (selection, transforms, constraints).
+- **Why this matters for PID hypotheses:** it enables controlled *visual* perturbations without changing physical state, controlled *physics* perturbations without changing appearance, and “what‑if” edits whose provenance is logged and replayable.
+
+#### §A.4 Expert-perspective design review (10 lenses)
+
+| Expert lens | Likely objection | Design response / constraint |
+|---|---|---|
+| Robotics simulation engineer | “You’ll reinvent Isaac/MuJoCo poorly.” | Do not compete on generality; benchmark on matched tasks; keep physics swappable; keep experiments the focus. |
+| Graphics/renderer engineer | “3DGS can’t handle dynamics/materials.” | Treat splats as a static appearance layer; dynamic entities are meshes; overlays are diagnostic, not photoreal PT. |
+| Control/robotics researcher | “Where is the ground truth / teacher?” | Require `A*` or external labels where causal claims are made; stage-wise logging prevents misattribution. |
+| PID / information theory expert | “Estimator validity dominates conclusions.” | Enforce Geometry Gate + Experiment 0; downgrade to MI/CI/Ω/discrete PID when geometry fails. |
+| VLA researcher | “D is ill-defined across models.” | Define D per model (explicit vs implicit); prefer decompositions that match operational variables; treat D extraction as an experimental variable. |
+| Systems/performance engineer | “Real-time budgets are fantasy.” | Default to offline-first; measure budgets; make in-loop components opt-in and logged. |
+| MLOps/reproducibility engineer | “Your runs won’t be replayable.” | Event-sourced run logs; deterministic seeds/settings; artifact hashes; same control plane for GUI and API. |
+| Security/privacy engineer | “LLM tooling + local control plane is risky.” | Localhost-only by default; explicit auth token; audit logs; capability gating; safe-mode that disallows file/network actions. |
+| HCI/UX designer | “Diagnostics will be unreadable.” | Timeline-first UI; semantic overlays; consistent encodings; every visualization maps to an exported numeric artifact. |
+| Open-source maintainer | “Scope creep will kill the project.” | Keep simulator minimal; prioritize Experiment 0→3; treat world-model extras as optional modules with clear boundaries. |
+
+#### §A.5 Utility beyond PID (why the broader community might care)
+
+Even if PID results are negative, the infrastructure can remain useful as a **general VLA diagnostics harness**: stage-wise logging/replay, intervention tooling, hybrid 3DGS+mesh visualization, and an agent-native control plane for automated debugging and dataset generation.
+
+#### §A.6 Recommended sequencing (risk-reducing “expert consensus”)
+
+The lowest-risk path is to add complexity only after each prior layer is validated:
+
+1. **Estimator gate (Exp0):** validate the estimator regime on synthetic data (including strong-dependence cases) before touching VLA embeddings.
+2. **Harness bring-up (no predictor):** build logging/interventions/replay and compute **`Flow_gt`** from simulator object poses (no video model; no oracle claims).
+3. **Small baseline (SmolVLA or toy policy):** validate embedding extraction + run metadata + geometry gate behavior on a cheap, reproducible model.
+4. **Primary VLA target (OpenVLA or equivalent):** run Aim 1/2 experiments under matched controls; treat diffusion-based VLAs as a separate axis to test *after* baseline replication.
+5. **Predictor-driven Flow (Dream2Flow/WAN):** integrate external video→flow only when you need embodiment-gap studies or when you want to compare `Flow_pred` to `Flow_gt` as an additional diagnostic layer.
+
+**Why not start with video predictors?** They add major confounds (stochastic generation, heavy compute, opaque failure modes). Starting with `Flow_gt` tests the PID hypotheses about integration with a clean Euclidean variable before introducing an additional model.
 
 ---
 
@@ -819,7 +871,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
 
 **v6.4 notes (VLM→World Model Transition + 3D Flow vs Latent Action Analysis):**
 - **New §10.11: The VLM→World Model Paradigm Shift** — Documents the emerging transition in robotics foundation models:
-  - **Generation 1 (VLM-based VLAs):** OpenVLA, SmolVLA, RT-2, PaLM-E — language model backbone, implicit world knowledge in weights, action tokens appended to language output
+  - **Generation 1 (VLM-based VLAs):** OpenVLA, RT-2, PaLM-E (and smaller open baselines such as SmolVLA) — language-model backbones with largely **implicit** world knowledge in weights; action parameterization varies by implementation (do not assume “action tokens appended to language output” universally).
   - **Generation 2 (World Model-based):** Dream2Flow, DreamVLA, Motus, UniSim — explicit world model with video/flow intermediate representations
   - Key architectural difference: where physics/dynamics knowledge is encoded
 - **New lightweight baseline:** SmolVLA (LeRobot) is treated as a low-resource baseline for rapid Experiment 0/1 iteration and pipeline debugging; do not assume its internal variable semantics match larger VLAs (§7.8).
@@ -838,11 +890,9 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   - Hyperbolic/Lorentzian connection: "Flow-as-bridge" — use flow targets to reduce dependence on `D_wan` geometry; avoid interpreting continuous PID atoms on non‑Euclidean embeddings without new derivations
   - Hierarchical PID and 3-source scaling with SAE integration (§16.8)
 - **New §10.10.13: VLA Integration Matrix** — Per-VLA integration details:
-  - **OpenVLA:** Primary target for V-Flow-A analysis; d=4096 requires v5.6 approach
-  - **PixelVLA:** Best for pixel-level synergy analysis; multiscale encoder + spatial grounding
-  - **TraceVLA:** Temporal synergy studies; V contains D-like history information
-  - **DreamVLA:** D is more operationalizable due to explicit world-knowledge prediction channels (dynamic/spatial/semantic); backbone hidden size not specified in the abstract—verify exact dims/heads before making geometry claims
-  - Decision matrix: Which VLA for which analysis goal
+  - v7.0 reframes this section as **contract-first**: define `V/L/D/A` explicitly per checkpoint and avoid assuming internal module names/shapes.
+  - “Per‑VLA details” are restricted to abstract-supported facts and explicit verification; everything else is treated as “verify”.
+  - The decision matrix is expressed in terms of analysis constraints (what variables are exposed, whether pixel-aligned variables exist, whether explicit `D` is available) rather than assumed architecture internals.
 - **Updated vision foundation model placeholders (verify availability/licensing):**
   - **Segmentation:** SAM2 (promptable segmentation) or equivalent; use newer successors if/when released.
   - **Point tracking:** CoTracker (or equivalent point tracker).
@@ -891,11 +941,11 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   - **8 Minor Blockers (Category 3):** SAE training, MINE retraining, Isomap cost, macOS CUDA limits, etc.
   - Risk mitigation timeline (Month 1-7 decision gates)
   - Fallback scope hierarchy (Core → Important → Stretch → Future Work)
-- **Verification of key blockers:**
-  - DreamVLA: Confirmed GPT-2 variant/hidden dims NOT SPECIFIED in paper; weights availability unclear
-  - OpenVLA: Verified accessible on HuggingFace (1M+ downloads)
-  - VLA-Arena: Verified public website with data/code
-  - Geodesic kNN MI and Ollivier-Ricci curvature: NOT implemented in pid-core
+- **Verification of key blockers (v7.0 audit level = arXiv abstracts + repo reality):**
+  - DreamVLA: abstract does not specify backbone dims; weights availability must be checked upstream.
+  - OpenVLA: abstract claims open-source checkpoints/code; verify repository/weights availability and license before depending on it.
+  - VLA-Arena: verify benchmark availability, data access, and licensing before using it as a primary evaluation source.
+  - Geodesic kNN MI and Ollivier-Ricci curvature: not implemented in `pid-core`.
 - **Scientific Rigor Notes:** All blockers have explicit detection criteria, mitigation options, and Go/No-Go decision frameworks. Honest assessment: project is HIGH risk but tractable if Experiment 0 succeeds.
 - **New §14.6: RoPE What-Where Entanglement Confound:** Based on Gopalakrishnan et al. (2025, arXiv:2509.10534), documents how RoPE-based VLAs (OpenVLA, Llama-based architectures) entangle content and position in embeddings. This creates a confound where PID estimates may reflect positional structure rather than pure semantic integration. Includes 5 mitigation strategies and publication requirements.
 
@@ -912,11 +962,11 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
 
 **v5.7 notes (changes without deleting prior work):**
 - **Closed v5.6 as stable.** All v5.6 manifold approaches remain valid; this version adds empirical validation methods and VLA-specific guidance.
-- **VLA Architecture Verification:** Cross-checked all VLA architecture claims against original papers (see §7.6):
-  - OpenVLA: Corrected to SigLIP+DinoV2 (600M params), 32 layers, 4096 hidden dim ✓
-  - DreamVLA: GPT-2 variant/hidden dims NOT SPECIFIED in paper ⚠️
-  - PixelVLA: Verified 7D actions, chunk size 8, SAM encoder, LoRA rank 32 ✓
-  - TraceVLA: Verified 7B params, 4096 hidden dim inherited from OpenVLA ✓
+- **VLA claim status:** Cross-checked key arXiv abstracts (see §7.6; treat non-abstract specifics as derived/unverified unless cited):
+  - OpenVLA (arXiv:2406.09246): abstract states 7B parameters, Llama 2 backbone, and visual features from DINOv2 + SigLIP.
+  - DreamVLA (arXiv:2507.04447): abstract describes world-knowledge forecasting and a diffusion-based transformer; backbone dims are unspecified in the abstract.
+  - PixelVLA: details remain unverified here; add a primary citation before using numeric specs.
+  - TraceVLA (arXiv:2412.10345): abstract states it fine-tunes OpenVLA and mentions a 4B Phi‑3‑Vision compact variant.
 - **First-Principles Geometry Analysis (§16.6-§16.11):**
   - §16.6: 4 empirically validated local flatness testing methods
   - §16.7: δ-hyperbolicity testing with Gromov 4-point condition
@@ -935,12 +985,9 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
 - **Added Top 5 Manifold Solutions:** Explicitly listed "Manifold Unrolling", "Geodesic MI", "Linear Projection", "Quantization", and "Copula Transform" as practical engineering paths to address the v5.5 geometry warning.
 - **Documented Exclusions:** Explicitly noted why KDE, Harmonic Math, and Naive Geodesic kNN are suboptimal or dangerous in this context.
 
-**v5.6 Architecture Verification (superseded by v5.7):**
-  - **OpenVLA**: Corrected to SigLIP + DinoV2 (600M params), 32 layers (not 33), 4096 hidden dim ✓
-  - **DreamVLA**: Added caveat that GPT-2 variant/hidden dims are NOT specified in paper ⚠️
-  - **PixelVLA**: Added verified specs (7D actions, chunk size 8, SAM prompt encoder, LoRA rank 32) ✓
-  - **TraceVLA**: Added verified 7B params, 4096 hidden dim inherited from OpenVLA ✓
-- **Added §7.6 Architecture Verification Summary:** Documents verification status, intrinsic dimension literature, and v5.6 approach review in light of confirmed d=4096.
+**v5.6 Architecture notes (superseded by §7.6):**
+  - Older “✓ verified” claims should be treated as historical notes unless a primary citation (paper section/code commit/model card) is added.
+- **Added §7.6 Architecture Claim Status:** Tracks what is abstract-verified vs derived vs unverified, to avoid overstating certainty.
 - **First-Principles Geometry Analysis (Jan 2026):** Major additions to §16:
   - **§16.6 Local Flatness Testing:** 4 empirically validated methods (manifold curvature via subspace angles, Ollivier-Ricci curvature, DLME constraint, curvature-adjusted PCA)
   - **§16.7 δ-Hyperbolicity Testing:** Gromov 4-point condition; literature pointers on tree-likeness diagnostics (replicate on your embeddings; do not transplant values)
@@ -1115,11 +1162,13 @@ Neither uses the shared-exclusions definition. Their success doesn't transfer au
 
 Given these warnings, the recommended approach is:
 
-1. **Run Experiment 0 FIRST:** Validate the estimator on synthetic data at target dimensionality before any VLA experiments
-2. **Include strong baselines:** Compare against entropy, Liang et al.'s estimators, learned classifiers
-3. **Pre-register success criteria:** Specify AUROC threshold, statistical tests
-4. **Plan for negative results:** If entropy works just as well, that's a valid (and publishable) finding
-5. **Test multiple decompositions:** Don't commit to V-D-A alone; test V-L-A and three-way decomposition
+1. **Run Experiment 0 FIRST:** validate the estimator on synthetic data at target dimensionality before any VLA experiments.
+2. **Bring up the harness on the simplest stack:** start with simulator-derived `Flow_gt` (from logged object poses) and a small open baseline (e.g., SmolVLA, or even a toy policy) to validate logging, interventions, replay, and embedding extraction *without* adding a video predictor dependency.
+3. **Scale to the primary VLA target next (e.g., OpenVLA):** only after (1)–(2) are stable; treat diffusion-based VLAs and predictor-driven Flow as optional branches, not prerequisites.
+4. **Include strong baselines:** compare against entropy, OOD scores, PRMs/GRMs, and learned classifiers.
+5. **Pre-register success criteria:** specify AUROC/effect-size targets, statistical tests, and which decompositions are “primary”.
+6. **Plan for negative results:** if baselines match or beat PID features, that is a valid (publishable) outcome with confound analysis.
+7. **Test multiple decompositions:** do not commit to V-D-A alone; test V-L-A and hierarchical pairwise variants, and add 3-way only when pairwise screening indicates value.
 
 **Coherence note (why §1 highlights “one hypothesis” but §3 has multiple aims):**
 - The original “Syn < 0 ⇒ hallucination” claim is *not* the project thesis; it is one candidate feature/sub-hypothesis.
@@ -1596,7 +1645,7 @@ This enables **targeted** data collection rather than blanket uncertainty-based 
 - High Unq(V), low Unq(D) → "What do you expect to happen?" (prediction query)  
 - V–L signatures suggest mismatch → "Did you understand the instruction?" (language clarification)
 
-**Note:** This requires fast PID computation (<10ms), which is currently challenging. May need to use PID signatures computed offline to classify real-time scenarios.
+**Note:** This requires diagnostics fast enough for live intervention, which is currently challenging for full SxPID on high‑d signals. A practical approach is to compute PID offline and deploy only lightweight screening (CI/Ω) or a learned classifier online.
 
 ### Use Case 6: Interpretability for Safety Certification
 
@@ -2011,8 +2060,8 @@ The pattern {Syn_VL, Syn_VD, Syn_LD} can help generate and localize **testable h
 ### 6.1.1 The Original Idea
 
 Compare PID profiles between:
-- **OpenVLA (arXiv:2406.09246; Kim et al. 2024):** autoregressive VLA with no explicit “dream/world model” prediction head; actions via discrete tokens / binning (paper details; verify exact action parameterization before treating as a variable definition).
-- **DreamVLA (arXiv:2507.04447; Zhang et al. 2025):** GPT‑2-style backbone + structured attention + explicit world‑knowledge prediction channels (e.g., dynamic/depth/semantic) + diffusion-style action modeling (see paper for exact heads/parameterization).
+- **OpenVLA (arXiv:2406.09246; Kim et al. 2024):** Llama 2‑based VLA with no explicit “dream/world model” prediction head; the abstract states a fused DINOv2+SigLIP visual encoder and 7B parameters. Action parameterization details should be treated as **paper/code details** (verify before using as a variable definition).
+- **DreamVLA (arXiv:2507.04447; Zhang et al. 2025):** VLA framework with explicit world-knowledge forecasting channels (dynamic-region-guided prediction plus spatial and semantic cues) and diffusion-based action modeling; the abstract does not specify backbone family/dimensions, so do not assume “GPT‑2” without a primary citation.
   - Related but distinct: **Dream‑VL & Dream‑VLA (arXiv:2512.22615; Ye et al. 2025)** uses a diffusion language-model backbone; do not conflate its architectural details with DreamVLA unless explicitly matched.
 
 **Hypothesis (weaker / testable):** Architectures with explicit predicted world-knowledge channels may yield different PID signatures than those without such channels, *under matched variable definitions and matched targets*. Whether those differences correlate with “grounding failures” remains empirical.
@@ -2027,12 +2076,12 @@ During first-principles review, we discovered that "negative synergy = hallucina
 
 | Aspect | OpenVLA | DreamVLA |
 |--------|---------|----------|
-| Backbone | Llama 2 7B | GPT-2 based |
-| Action representation | 256-bin discretization | Continuous actions (diffusion-based transformer in arXiv:2507.04447) |
-| World model | Implicit/none | Explicit world-knowledge prediction (dynamic/depth/semantic) |
-| Vision encoder | SigLIP | See paper (arXiv:2507.04447); semantics pipeline references DINOv2 + SAM in overview/figures |
+| Backbone | Llama 2 (abstract) | Unspecified in abstract (verify paper/code) |
+| Action representation | Unspecified in abstract (verify) | Diffusion-based transformer (abstract); exact action representation verify |
+| World model | Implicit/none (no explicit prediction heads) | Explicit world-knowledge forecasting (dynamic/spatial/semantic cues; abstract) |
+| Vision encoder | Fused DINOv2 + SigLIP features (abstract) | Unspecified in abstract (verify paper/code) |
 | Attention | Causal (autoregressive) | Block-wise structured |
-| Training data | Open-X | Open-X + additional |
+| Training data | 970k real-world demos (abstract) | Unspecified in abstract (verify) |
 
 If we observe different PID profiles, we CANNOT attribute the difference to "world model quality" because too many variables differ.
 
@@ -2234,36 +2283,30 @@ This parallel is particularly apt for **DreamVLA**, which explicitly separates:
 
 ## 7.1 OpenVLA (arXiv:2406.09246)
 
-### 7.1.1 Architecture
+### 7.1.1 What the abstract claims (minimum verification bar)
 
-```
-Image → ┌─ SigLIP ViT ─┐
-        │              ├─ [concat] → 2-layer MLP Projector → Llama 2 7B → Action Tokens → 256-bin
-        └─ DinoV2 ─────┘                                         ↑
-           (600M total)                                  Language Instruction
-```
+OpenVLA (arXiv:2406.09246) is described in the arXiv abstract as:
+- a **7B‑parameter** open-source VLA,
+- built on a **Llama 2** language model,
+- with a visual encoder that fuses pretrained features from **DINOv2** and **SigLIP**,
+- trained on **970k** real‑world robot demonstrations (paper-reported),
+- released with checkpoints and a PyTorch codebase (paper-reported; verify availability/licensing before depending on it).
 
-- **Backbone:** Llama 2 7B (autoregressive)
-- **Vision Encoder:** SigLIP + DinoV2 fused (600M parameters total; channel-wise concatenation)
-- **Action Representation:** 256-bin discretization per dimension
-- **Training:** Open-X Embodiment dataset (970k trajectories)
-- **Patch Embeddings:** 256 patches extracted from each ViT, concatenated along hidden dimension, projected into LLM input space via 2-layer MLP
+**Not verified in the abstract (do not assume without a source):** exact action representation (tokens/bins/continuous), exact fusion/projection architecture, vision encoder parameter counts, and patch/tokenization details.
 
 ### 7.1.2 Key Properties for PID Analysis
 
 - **No explicit world model:** "D" must be inferred from hidden states
 - **Causal attention:** Each token only attends to previous tokens
-- **Hidden states:** 4096-dim at each of **32 transformer decoder blocks** (Llama 2 7B architecture)
+- **Hidden states:** if the backbone is Llama 2 7B, hidden states are 4096‑dim across 32 layers by the standard config (derived prior; verify in implementation)
 - **Layer-specific encoding:** object-state vs action-state localization is *often* reported in probing studies for large transformers, but treat any specific layer claim here as **unverified until you cite a concrete probing result for OpenVLA**.
 
-**Verified Dimensions (Jan 2026):**
-| Component | Dimension | Source |
-|-----------|-----------|--------|
-| Hidden size | 4096 | Llama 2 7B spec |
-| Transformer layers | 32 | Llama 2 7B spec |
-| Attention heads | 32 | Llama 2 7B spec |
-| Vision encoder params | 600M | OpenVLA paper |
-| Action bins | 256/dim | OpenVLA paper |
+**Backbone priors (derived from Llama 2 7B config; verify in code if you cite them):**
+| Component | Value |
+|-----------|-------|
+| Hidden size | 4096 |
+| Transformer layers | 32 |
+| Attention heads | 32 |
 
 ### 7.1.3 Where to Extract "D"?
 
@@ -2275,40 +2318,28 @@ Options:
 
 ## 7.2 DreamVLA (arXiv:2507.04447)
 
-### 7.2.1 Architecture
+### 7.2.1 What the abstract claims (minimum verification bar)
 
-```
-Image → (vision encoder; see DreamVLA paper) → GPT-2 backbone with block-wise structured attention (DreamVLA, arXiv:2507.04447)
-                              ↓
-              ┌───────────────┼───────────────┐
-              ↓               ↓               ↓
-         Dynamic         Spatial        Semantic
-         Prediction      Cues           Cues
-              ↓               ↓               ↓
-              └───────────────┼───────────────┘
-                              ↓
-                    World Embedding (D)
-                              ↓
-                    Diffusion-based Action Transformer
-```
+DreamVLA (arXiv:2507.04447) is described in the arXiv abstract as a VLA framework that:
+- integrates **world-knowledge forecasting** (dynamic-region-guided prediction plus spatial and semantic cues) to support a perception–prediction–action loop,
+- uses **block-wise structured attention** to mitigate interference among dynamic/spatial/semantic information (verify the exact masking scheme before claiming disentanglement),
+- uses a **diffusion-based transformer** to model the conditional distribution over future actions (verify the action representation used in your analysis),
+- reports success on real-robot tasks and CALVIN ABC‑D (paper-reported; protocol-sensitive).
 
-**DreamVLA (arXiv:2507.04447, Zhang et al. 2025)** (paper-reported; verify implementation details) describes:
-- **Backbone:** GPT-2 based multimodal transformer with **block-wise structured attention**
-- **Explicit world-knowledge prediction:** forecasts **dynamic regions** plus additional **spatial** and **semantic** cues (the abstract does not guarantee an exact output format like “depth maps”; verify exact heads/targets)
-- **Action modeling:** a **diffusion-based transformer** for action generation (verify parameterization and what representation you treat as “A”)
+**Not verified in the abstract:** the exact backbone family/dimensions, the exact prediction heads/targets, and weight availability/licensing.
 - **Key architectural idea:** prevent interference/leakage between dynamic/spatial/semantic streams via structured attention masks
 - **Vision encoder:** see paper/code (do not assume a specific pretraining method without verification)
 
-**⚠️ Dimension Caveat (Jan 2026 verification):**
-The DreamVLA paper does **NOT** specify the GPT-2 variant size or hidden dimensions. Standard GPT-2 sizes are: Small (768d, 12L), Medium (1024d, 24L), Large (1280d, 36L), XL (1600d, 48L). Treat any specific dimension claims as **unverified** until confirmed.
+**⚠️ Dimension caveat (abstract-level verification):**
+The DreamVLA arXiv abstract does **not** specify the backbone family, hidden dimensions, or layer counts. Treat any dimensionality claims as **unverified** until you cite the paper section, code commit, or model card that states them.
 
 **What you can and cannot assume from the abstract alone:**
 | Claim | Status | Source |
 |------|--------|--------|
-| GPT-2-style backbone + block-wise structured attention | Paper-reported | arXiv abstract |
+| Backbone family unspecified + block-wise structured attention | Paper-reported | arXiv abstract |
 | World knowledge forecasting includes dynamic + spatial + semantic information | Paper-reported | arXiv abstract |
 | Diffusion-based transformer for action distribution | Paper-reported | arXiv abstract |
-| GPT-2 variant (hidden dim, layer count), exact prediction targets, query lengths, diffusion steps | Not specified in abstract | Verify paper/code |
+| Backbone dims/layers, exact prediction targets, query lengths, diffusion steps | Not specified in abstract | Verify paper/code |
 
 **Diffusion parameterization note (optional, but estimator-relevant):**
 Diffusion models differ in whether they predict *noise/noised quantities* vs. *clean data*. Li & He (2025, arXiv:2511.13720) argue that predicting clean data can better respect the manifold assumption. For PID/MI estimation, this matters because it may change:
@@ -2320,13 +2351,7 @@ If you analyze diffusion-model internal representations (DreamVLA actions or pre
 - Uses a **diffusion LLM backbone** (“dLLM”) for VL/VLA, emphasizing bidirectionality and parallel generation.
 - Reports strong LIBERO/SimplerEnv results; treat performance numbers as benchmark-dependent and verify protocols before using as “ground truth” comparisons.
 
-**Note on GPT-2 vs NanoGPT/nanochat:**
-DreamVLA uses GPT-2 architecture with pretrained weights. For custom VLA training from scratch, consider:
-- **NanoGPT** (Karpathy): ~600 lines, reproduces GPT-2 124M in ~1hr for ~$10
-- **nanochat** (Karpathy 2025): Full-stack ChatGPT training, ~$100-$300 for GPT-2-grade models
-- **llm.c**: C/CUDA implementation, 7% faster than PyTorch
-
-For this specification, GPT-2 refers to the pretrained architecture; NanoGPT is useful for ablations or custom backbones.
+**Implementation note:** If you need a small, controllable model for end-to-end pipeline validation (logging/interventions/estimators), see §7.7; do not infer DreamVLA’s backbone choice from this document without a primary citation.
 
 ### 7.2.2 Key Properties for PID Analysis
 
@@ -2346,86 +2371,22 @@ This still does not remove the degeneracy/strong-dependence concerns in §1.2: i
 
 ## 7.3 PixelVLA (Pixel-Level Understanding; arXiv:2511.01571)
 
-### 7.3.1 Architecture
+### 7.3.1 What the abstract claims (minimum verification bar)
 
-PixelVLA (arXiv:2511.01571, November 2025) extends VLAs with pixel-level understanding and multimodal visual prompting:
+PixelVLA (arXiv:2511.01571) is described in the arXiv abstract as:
+- supporting **pixel-level reasoning** and **multimodal prompting** (text + visual inputs),
+- integrating a **multiscale pixel-aware encoder** with a **visual prompting encoder**,
+- proposing a two-stage automated pipeline that generates **Pixel‑160K** (pixel-level annotations derived from existing robot data),
+- improving manipulation success rates by **10.1%–17.8%** over OpenVLA on three benchmarks while requiring **1.5%** of its pretraining cost (paper-reported; protocol-sensitive),
+- releasing dataset and code as open source (paper-reported; verify availability/licensing).
 
-```
-Image → DinoV2+SigLIP → MLP Projector → Llama 2 7B → Continuous Action Decoder
-              ↓                              ↑
-    Multiscale Pixel-Aware Encoder ──────────┘
-              ↑
-    Visual Prompting Encoder ← (points, lines, regions, masks)
-```
+**Not verified in the abstract (do not assume without a source):** the exact backbone family/dimensions, action representation (discrete/continuous), prompt encoder provenance (e.g., SAM), and any specific LoRA settings.
 
-**Key Components:**
+### 7.3.2 PID-relevant implications (conditional)
 
-| Component | Description | Novelty |
-|-----------|-------------|---------|
-| **Visual Prompting Encoder** | Lightweight encoder from SAM (Segment Anything Model) | Handles points, lines, bboxes, masks |
-| **Multiscale Pixel-Aware Encoder** | Generates pixel-aware embeddings E_p^0 ∈ ℝ^(N_p × D) | Injects pixel-level understanding |
-| **Continuous Action Decoder** | Sequential linear projector + N_r ResNet blocks + MLP | Finer action granularity |
-
-**Training Pipeline:**
-1. **Continuous Action Training:** Align continuous action decoder with VLA backbone
-2. **Pixel-Level Understanding Enhancement:** Fine-tune on Pixel-160K dataset with LoRA (rank=32)
-
-**Pixel-160K Dataset:**
-- 160K trajectories with pixel-level annotations
-- Two-stage automated annotation pipeline:
-  1. Gripper-aware region proposal (video segmentation)
-  2. Multimodal object segmentation (LLM + open-vocab segmentation)
-
-**Verified Dimensions (Jan 2026):**
-| Component | Dimension | Source |
-|-----------|-----------|--------|
-| LLM backbone | Llama 2 7B | Paper |
-| Hidden size (D) | 4096 | Llama 2 7B spec |
-| Action dimension | 7D per timestep | Paper |
-| Action chunk size (N_c) | 8 | Paper |
-| LoRA rank | 32 | Paper |
-| Multiscale features | L levels from SigLIP (H_i × W_i × D_i) | Paper |
-| Vision encoders | DinoV2 + SigLIP (pre-trained) | Paper |
-
-### 7.3.2 Key Properties for PID Analysis
-
-PixelVLA offers unique advantages for PID-based diagnostics:
-
-| Property | Advantage for PID |
-|----------|-------------------|
-| **Pixel-level V** | V captures fine-grained spatial structure, not just global features |
-| **Visual prompts** | Can probe specific regions for localized PID analysis |
-| **Continuous actions** | No discretization artifacts in A |
-| **Multiscale encoder** | Multiple V representations at different scales |
-
-**PID Decomposition Opportunities:**
-
-1. **V at Multiple Scales:** PixelVLA's multiscale encoder produces V_coarse, V_medium, V_fine. We can compute:
-   ```
-   Syn(V_coarse, V_fine; A) → Does the model integrate global and local visual info?
-   ```
-
-2. **Visual Prompt → V Analysis:** When visual prompts (masks, points) are provided:
-   ```
-   I(V_prompted, V_unprompted; A) → How much does prompting change action?
-   ```
-
-3. **Pixel-Level Failure Localization:** If Syn(V,D;A) < 0, we can use visual prompts to probe specific regions and identify WHERE the failure occurs.
-
-### 7.3.3 PixelVLA vs Other VLAs for PID
-
-| Property | OpenVLA | DreamVLA | PixelVLA |
-|----------|---------|----------|----------|
-| **Explicit D** | No | Yes | No |
-| **Pixel-level V** | No | Partial (depth pred.) | Yes |
-| **Visual prompts** | No | No | Yes (points, masks) |
-| **Action type** | Discrete (256-bin) | Continuous (diffusion-based transformer) | Continuous (L1) |
-| **Best PID decomposition** | V-L-A | V-D-A | V_multi-L-A |
-
-**Recommendation:** Use PixelVLA when:
-- Task requires pixel-level precision (small object manipulation)
-- Failure localization is important (WHERE did it fail?)
-- Visual grounding issues are suspected
+- PixelVLA introduces an explicit *visual prompt* input channel. Decide whether to treat this as part of **V** or as a separate source **P** (and preregister that choice) before running PID.
+- Pixel-level and multiscale representations can have different geometry than pooled “global” embeddings; re-run the Geometry Gate at the exact extraction points you will publish.
+- The scientific question is not “PixelVLA is better”, but whether adding prompt channels and pixel-level structure changes redundancy/synergy patterns under matched controls (Exp1/Exp3).
 
 ## 7.4 TraceVLA (Visual Trace Prompting; arXiv:2412.10345)
 
@@ -2438,17 +2399,17 @@ Current Image + Historical Trace Overlay → VLA → Action
 - Fine-tuned from OpenVLA (7B parameters) on 150K trajectories with visual traces
 - Dual visual streams: current observation + trace-overlaid image, separated by special token
 - Reported gains: ~10% on SimplerEnv and ~3.5× on real-robot tasks (paper-reported; protocol-sensitive)
-- Also released as TraceVLA-Phi3 (4B parameters, Phi-3-Vision backbone) for RTX 4090 fine-tuning
+- Also released as a compact TraceVLA‑Phi3 variant (4B parameters, Phi‑3‑Vision backbone; paper-reported).
 
-**Verified Dimensions (Jan 2026):**
+**Claim status (based on arXiv abstracts + backbone configuration priors; verify in code if needed):**
 | Component | Dimension | Source |
 |-----------|-----------|--------|
-| Backbone | OpenVLA (Llama 2 7B) | Paper |
-| Parameters | 7B | Paper |
-| Hidden size | 4096 | Inherited from OpenVLA/Llama 2 7B |
-| Transformer layers | 32 | Inherited from Llama 2 7B |
-| Action bins | 256/dim | Inherited from OpenVLA |
-| Compact variant | TraceVLA-Phi3 (4B) | Paper |
+| Backbone | OpenVLA (Llama 2 7B) | arXiv:2412.10345 (abstract) |
+| Parameters | 7B | arXiv:2412.10345 (abstract) |
+| Hidden size | 4096 | Derived from Llama 2 7B config (verify in implementation) |
+| Transformer layers | 32 | Derived from Llama 2 7B config (verify in implementation) |
+| Action discretization | (unverified in abstract) | Check OpenVLA/TraceVLA code/paper before citing |
+| Compact variant | TraceVLA‑Phi3 (4B) | arXiv:2412.10345 (abstract) |
 
 **PID Relevance:** TraceVLA encodes temporal history visually. This means V implicitly contains D-like information (past states). The V-D boundary becomes blurred—interesting for testing whether PID can detect this encoding.
 
@@ -2465,29 +2426,29 @@ Current Image + Historical Trace Overlay → VLA → Action
 
 ## 7.6 Architecture Verification Summary (Jan 2026)
 
-This section documents the verification status of VLA architecture claims, cross-referenced against original papers.
+This section tracks *claim status* for VLA architecture details. Treat arXiv abstracts as the minimum verification bar; treat any non-abstract details as “derived from known backbone configs” or “unverified” unless you cite a concrete source (paper section, code commit, model card).
 
 ### 7.6.1 Verified Dimension Summary
 
 | VLA | Hidden Dim | Layers | Action Type | Verification Status |
 |-----|------------|--------|-------------|---------------------|
-| **OpenVLA** | **4096** | 32 | Discrete (256-bin) | ✓ Fully verified |
-| **DreamVLA** | **Unknown** | Unknown | Continuous (diffusion) | ⚠️ GPT-2 variant unspecified |
-| **PixelVLA** | **4096** | 32 | Continuous (7D) | ✓ Fully verified |
-| **TraceVLA** | **4096** | 32 | Discrete (256-bin) | ✓ Fully verified (inherits OpenVLA) |
+| **OpenVLA** | 4096 (Llama 2 7B prior) | 32 (Llama 2 7B prior) | (unverified in abstract) | Abstract verifies: 7B + Llama 2 + (DINOv2, SigLIP); other specifics require a citation |
+| **DreamVLA** | Unknown | Unknown | Diffusion-based transformer (paper-reported) | Abstract does not specify backbone dims; do not assume GPT‑2 sizes |
+| **PixelVLA** | Unknown (abstract) | Unknown (abstract) | Unknown (abstract) | Abstract verifies pixel-level reasoning + multimodal prompting + Pixel‑160K; numeric architecture details require paper/code |
+| **TraceVLA** | 4096 (inherits OpenVLA) | 32 (inherits OpenVLA) | (unverified in abstract) | Abstract verifies it fine-tunes OpenVLA; action discretization requires a citation |
 
 ### 7.6.2 Implications for Geometry Analysis
 
-**Confirmed**: The dominant VLA hidden dimension is **4096** (Llama 2 7B based architectures).
+**Practical prior (from reported backbones, not from geometry):** Some VLAs targeted here are reported to use a Llama 2 7B language backbone (e.g., OpenVLA arXiv:2406.09246; TraceVLA arXiv:2412.10345). If so, the LM hidden size is 4096 by the Llama 2 7B configuration. This is not a substitute for the Geometry Gate: the *effective* dimension and local geometry of the extracted representations must still be measured.
 
-This confirms the v5.6 manifold approaches are addressing the right scale:
-- **d = 4096** is the ambient dimension for OpenVLA, PixelVLA, TraceVLA
-- **DreamVLA** uses GPT-2 (likely 768–1600), so dimension reduction may be less critical
-- PCA to ~256 dims represents a **16× reduction** from d=4096
+Implications for estimator planning:
+- Treat **4096** as a plausible **upper bound** for certain extraction points; pooled/projected embeddings can be lower-dimensional.
+- DreamVLA’s backbone dimensionality is **not stated in the abstract** (arXiv:2507.04447); do not assume GPT‑2 sizes without checking the paper/code.
+- PCA (or other reduction) is a common starting point, but must be validated with the Geometry Gate + Experiment 0 on the exact pipeline you will publish.
 
 ### 7.6.3 Intrinsic Dimension Research (Transformer Embeddings)
 
-Recent literature on transformer embedding geometry (verified Jan 2026):
+Selected references on transformer embedding geometry (use as motivation; do not transplant numeric claims across models/datasets):
 
 | Finding | Source |
 |---------|--------|
@@ -2499,166 +2460,91 @@ Recent literature on transformer embedding geometry (verified Jan 2026):
 
 **Implication for PID-VLA**: The intrinsic dimension of VLA embeddings is **layer-dependent**, **training-dependent**, and likely **much lower** than d=4096. However, the exact ID for VLA-specific embeddings is **not yet measured** and should be part of Experiment 0 diagnostics.
 
-### 7.6.4 v5.6 Approach Review in Light of Verified Dimensions
+### 7.6.4 Geometry Mitigation Options (when d is large / geometry fails)
 
 Given the confirmed d=4096 for most VLAs:
 
 | Approach | Assessment | Notes |
 |----------|------------|-------|
-| **Manifold Unrolling (Isomap/AE)** | ✓ Still valid | Addresses curved manifold in ℝ^4096 |
-| **Geodesic MI** | ✓ Still valid | MI-only, avoids `I^sx_∩` geometry issues |
-| **Linear Projection (PCA)** | ⚠️ Conditional | Valid **only if** manifold is locally flat; verify ID preserved |
-| **Quantization** | ✓ Still valid | Bypasses geometry entirely; counts mass |
-| **Copula Transform** | ✓ Still valid | Mitigates empty-space issues at d=4096 |
+| **Manifold unrolling (Isomap/AE)** | When geometry fails but you still want continuous `I^sx_∩` | Requires validating that the learned embedding supports L∞ neighborhoods; re-run gates. |
+| **Geodesic MI / CI screening** | When you need geometry-respecting *screening* | Prefer MI/CI/Ω over continuous PID atoms; do not claim atom-level conclusions. |
+| **Linear projection (PCA)** | Baseline if representation is locally flat-ish | Valid only if the Geometry Gate + Experiment 0 pass on the exact preprocessing. |
+| **Quantization → discrete PID** | When high‑D/concentration makes kNN unstable | Trades geometric fidelity for count-based robustness; report sensitivity to k. |
+| **Copula / rank transform** | Preprocessing for L∞ estimators | Can mitigate empty-space artifacts; validate empirically (can also destroy structure). |
 
-**Key Correction**: The v5.6 approaches remain appropriate for d=4096. The main caveat is that **PCA's "locally flat" assumption** may not hold for VLA embeddings, which show complex layer-dependent geometry per the intrinsic dimension literature.
+**Key point:** Treat these as *options*, not guarantees. The Geometry Gate + Experiment 0 determine which (if any) are publishable for a given representation.
 
-## 7.7 Small Custom VLA: Moondream-Inspired Alternative
+## 7.7 Optional: Small Custom Model for Pipeline Validation (Fallback)
 
-**Source:** Moondream VLM (vikhyat/moondream) technical blog post, 2025
+This is a contingency plan if (a) a target VLA is unavailable or too expensive to run for rapid iteration, and (b) you need a controllable model to validate logging, intervention semantics, and PID plumbing.
 
 ### 7.7.1 Motivation
 
-If **DreamVLA weights are unavailable** (§18.2.2 blocker) and OpenVLA (9.25B params) is too large for rapid iteration, a **small custom VLA** inspired by Moondream architecture offers a feasible alternative.
+If **DreamVLA weights are unavailable** (§18.2.2) and running OpenVLA (arXiv:2406.09246; 7B parameters per abstract) is too heavy for rapid iteration on your hardware, consider training a small, explicitly documented model solely for **pipeline validation**. This is not required for the scientific core of PID‑VLA unless you plan to publish the model and its training data.
 
-**Key insight:** Moondream demonstrates that **3.5B parameter VLMs can achieve strong performance** with proper training strategy (frozen encoders + tunable projection).
+### 7.7.2 Design Goals (what matters for this project)
 
-### 7.7.2 Proposed Architecture
+Any “small custom VLA” used here should:
+- expose well-defined `(V,L,D,A)` (or a justified subset) for logging,
+- be cheap enough to run repeatedly for Experiment 0/1 plumbing,
+- have weights/code that can be redistributed (or at minimum, reproducibly rebuilt),
+- be evaluated only as a baseline/debugging target unless it is benchmarked under matched protocols.
 
-```
-Image → ┌─ SigLIP ViT-S/400 ─┐
-         │                    ├─ [Projection (2560d)] ──┐
-         └────────────────────┘                       │
-                                                    ┌──┴──→ Phi-2 (2.8B) → Action Head
-Language (Instruction) ─────────────────────────────┘                          ↑
-                                                                                       ↓
-                                                                                 Robot Action
-```
+### 7.7.3 Training Sketch (high level; verify against your chosen backbone)
 
-**Components:**
-- **Vision encoder:** SigLIP ViT-S/400 (224×224, 576 patches, 384d each)
-- **Language model:** Phi-2 (2.8B parameters, 32 layers)
-- **Projection:** 2-layer MLP reducing 576×384d → 576×2560d, injected at Phi-2 layer 11
-- **Action head:** New diffusion or autoregressive head (estimate: 0.5-1B params)
+- Keep the architecture simple (frozen encoders + small trainable projection + action head) so that changes in PID statistics are interpretable.
+- Prefer supervised imitation on a small task suite first; do not jump to RL until the estimator gates and logging are stable.
+- Record *everything* needed to reproduce training (data hashes, code commit, hyperparameters); otherwise the model is not a credible scientific object.
 
-**Total parameters:** ~3.5B (vs 9.25B for OpenVLA = **62% reduction**)
+### 7.7.4 Advantages for PID‑VLA
 
-### 7.7.3 Training Strategy
+- Faster iteration on the end-to-end experiment harness (logging, interventions, replay, diagnostics).
+- Cleaner ablations (fewer moving parts) if you keep encoders frozen and only change fusion/projection.
 
-**Stage 1: Visual Alignment (400M tokens)**
-- Freeze SigLIP and Phi-2
-- Train projection layer on vision-action pairs (no language)
-- Goal: Align visual embeddings to action space
+### 7.7.5 Disadvantages / risks
 
-**Stage 2: Instruction Tuning (50M tokens)**
-- Freeze SigLIP and Phi-2
-- Train projection layer + action head on instruction-action pairs
-- Generate synthetic data using GPT-4o (as Moondream does)
-- Goal: Integrate language instructions into action prediction
+- No guarantee of relevance to large VLAs; treat as a plumbing check unless benchmarked.
+- Risk of confounding: PID patterns can reflect projection/head idiosyncrasies rather than modality integration (see §14.7).
 
-**Stage 3: Full Fine-tuning (Optional)**
-- Unfreeze Phi-2 last 4 layers
-- Fine-tune on real robot rollouts
-- Goal: Adapt to domain-specific distribution
+### 7.7.6 Compute and budget note (measurement-first)
 
-### 7.7.4 Advantages for PID-VLA Project
+Do not cite fixed time/cost estimates here. Compute depends on model choice, dataset size, optimizer, precision, and hardware. If this fallback is used, report **measured** training time, peak memory, and throughput for your exact configuration.
 
-| Advantage | Explanation |
-|-----------|-------------|
-| **Small size (3.5B)** | Fits on single consumer GPU; faster embedding extraction |
-| **Frozen encoders** | Clean experimental design: V and L are unchanged, only projection integrates |
-| **Fast training** | ~1-2 weeks on 8x A100 (~$1-2K compute) |
-| **No explicit D** | Focus on V-L-A decomposition (simplifies PID) |
-| **Open weights** | SigLIP and Phi-2 are publicly available |
+### 7.7.7 Relevance to blockers
 
-### 7.7.5 Disadvantages
+This can mitigate “model unavailable” and “iteration too slow” blockers, but it does **not** solve estimator validity, geometry pathologies, or the need for interventions/labels.
 
-| Disadvantage | Mitigation |
-|-------------|------------|
-| **No explicit world model** | Cannot test V-D-A decomposition; focus on V-L-A only |
-| **Phi-2 not VLA-optimized** | Frozen LLM was trained on NLP, not robotics data |
-| **Projection layer confound** | PID may reflect projection quality, not modality integration (see §14.7) |
-| **No pre-trained action head** | Must train from scratch (requires trajectory data) |
-| **New architecture** | No established benchmarks; less confidence in performance |
+### 7.7.8 Decision criteria (when to use it)
 
-### 7.7.6 Compute Estimate
-
-| Task | Tokens | GPU | Time | Cost |
-|------|--------|-----|------|------|
-| Stage 1 (alignment) | 400M | 8x A100 | ~2 days | ~$500 |
-| Stage 2 (instruction) | 50M | 8x A100 | ~4 hours | ~$100 |
-| Stage 3 (fine-tune, optional) | 100M | 8x A100 | ~2 days | ~$500 |
-| **Total** | **550M** | - | **~5-6 days** | **~$1.1K** |
-
-**Compare to alternatives:**
-- OpenVLA full pre-training: ~$50K+ (infeasible)
-- DreamVLA re-implementation: ~$5-10K (if architecture specified)
-- Moondream+ActionHead: ~$1.1K (feasible)
-
-### 7.7.7 Relevance to Blockers
-
-**Addresses §18.2.2 (DreamVLA unavailable):**
-- If DreamVLA weights not released, this provides a viable alternative
-- Smaller model enables faster iteration and debugging
-
-**Addresses §18.3.7 (Scope exceeds PhD timeline):**
-- 1-2 weeks training time is manageable
-- Small model reduces embedding extraction time
-- Enables rapid hypothesis testing
-
-**Does NOT address:**
-- No explicit world model (D) - still need OpenVLA for V-D-A analysis
-- Performance uncertainty - unproven architecture for VLA tasks
-
-### 7.7.8 Decision Criteria
-
-**Use Moondream+ActionHead if:**
-- DreamVLA unavailable AND need small model
-- Primary interest is V-L-A decomposition (not V-D-A)
-- Compute budget < $5K
-- Rapid iteration required (multiple experimental conditions)
-
-**Use OpenVLA if:**
-- Need immediate access (no training time)
-- Established benchmark performance required
-- V-D-A decomposition is critical
-- Compute budget allows inference on 9B model
-
-**Use DreamVLA if:**
-- Weights available
-- Explicit world model (D) is critical
-- Architecture is sufficiently specified
+Use a small custom model only if it materially accelerates Experiment 0/1 engineering and you can document it well enough to be scientifically defensible. Otherwise, prioritize running the target VLA(s) with aggressive measurement-first profiling and caching.
 
 ### 7.7.9 Summary
 
-**Status:** Feasible alternative architecture; requires training from scratch.
-
-**Priority:** MEDIUM (backup if DreamVLA unavailable AND need small model).
-
-**Research gap:** No evidence that Phi-2 + SigLIP + action head achieves competitive VLA performance. Requires empirical validation.
-
-**Reference:** Moondream VLM (vikhyat/moondream), "A Small Vision Language Model" technical blog, 2025. (Not peer-reviewed; treat as reference architecture, not validated VLA).
+**Status:** Optional fallback for pipeline validation. Not required for the core PID study unless you intend to publish the model + training artifacts.
 
 ## 7.8 SmolVLA (LeRobot)
 
-**Source:** Hugging Face LeRobot (SmolVLA), Jan 2025
+**Source:** LeRobot “SmolVLA” (model card / repo; verify at time of use)
 
-### 7.8.1 Architecture
-- **Backbone:** SmolVLM-2 (SigLIP visual encoder + SmolLM2 language model).
-- **Action Head:** **Flow-Matching Transformer** (action expert).
-- **Inference:** Asynchronous (decouples perception/planning from execution).
-- **Parameters:** ~450M (lightweight baseline).
+SmolVLA is treated here as a **lightweight baseline** for fast iteration and pipeline debugging. It is not used as primary evidence about the internals of large VLAs.
 
-### 7.8.2 Training & Data
-- **Datasets:** Open LeRobot ecosystem (481 datasets, ~23k episodes).
-- **Primary Embodiment:** SO-100 robotic arm (but fine-tunable for others).
-- **Data Curation:** Task descriptions standardized via Qwen2.5-VL-3B-Instruct.
+### 7.8.1 What must be verified (do not assume)
+- Backbone (vision encoder + language model), hidden sizes, context length
+- Action representation (discrete tokens vs continuous vector) and control-rate assumptions
+- Training data (datasets, episodes, embodiments) and licensing
+- Whether it supports asynchronous inference, and what that means operationally (e.g., perception at lower rate than control)
+- Which intermediate representations can be exported reproducibly for `V/L/D` and how they align to PID variables
 
-### 7.8.3 Relevance to PID-VLA
-SmolVLA is a practical low-resource baseline for Experiment 0/1 iteration.
-- **Pros:** Runs on consumer GPU, fully open weights, integrated with LeRobot training scripts.
-- **Cons:** Smaller capacity than 7B models; Flow-Matching head requires specific PID adaptation (vs diffusion-style).
-- **Use Case:** Debugging the PID pipeline and establishing a “small model” baseline on LIBERO/Meta-World tasks.
+### 7.8.2 How it is used in this study
+- **Primary role:** Exercise the end-to-end harness (logging, interventions, replay, geometry gate, Experiment 0/1) on a model that is cheaper to run than 7B‑class VLAs.
+- **Not a substitute:** Do not generalize PID patterns from SmolVLA to OpenVLA/DreamVLA without explicit cross‑model replication.
+
+### 7.8.3 Minimal integration contract (same as any VLA)
+- Inputs: `(obs_rgb[, obs_depth], instruction[, state])`
+- Outputs: action `A` + optional representation dumps: `V`, `L`, and one or more candidate `D` definitions (layer IDs / named hooks)
+- Log: model id/revision, seed, preprocessing, layer choice, and any throttling/async semantics as part of the run metadata
+
+SmolVLA is a practical low-resource baseline for Experiment 0/1 iteration, not a core scientific object unless you preregister its training/setup and publish artifacts.
 
 ---
 
@@ -2939,7 +2825,7 @@ Do not treat any ms-level numbers as “spec truth”: wall-clock depends strong
 
 Engineering posture:
 - Use brute-force exact kNN for **Experiment 0 + correctness**.
-- Treat any “real-time monitoring” goal as **Level 0/Level 1 only** (Shannon invariants / co-information), and only after aggressive dimensionality reduction and benchmarking on the target M4 Max.
+- Treat any “real-time monitoring” goal as **Level 0/Level 1 only** (Shannon invariants / co-information), and only after aggressive dimensionality reduction and benchmarking on your target hardware.
 
 ## 8.4 Validation Strategy
 
@@ -3395,51 +3281,11 @@ Understanding the different roles of "world models" is critical for proper integ
 2. Generating training environments where PID patterns can be studied
 3. Improving visual input quality (V) for more interpretable PID results
 
-### 10.1.2 Genie 3: Environment Generation (DeepMind)
+### 10.1.2 Genie-like environment generators (optional; out of scope)
 
-**Genie 3** (August 2025) represents a distinct paradigm—generating interactive training environments rather than action-conditioned video predictions.
+Some work explores generative models that produce **interactive environments** (e.g., “Genie”-style systems). They may be useful for synthetic data generation or RL fine-tuning, but they are not required for PID‑VLA and introduce additional confounds (the generator’s physics validity becomes part of the experimental condition).
 
-**Key Capabilities:**
-- Text prompt → navigable 3D environment
-- Real-time interaction at 24 fps, 720p resolution
-- "World memory" maintains consistency for several minutes
-- **Emergent physics** learned through self-supervision (not hardcoded)
-- Object permanence: changes persist across exploration
-- Tested with SIMA 2 agent for goal-directed navigation
-
-**Architecture:**
-```
-Text Prompt → Genie 3 (auto-regressive) → Interactive 3D Environment
-                     ↑                              ↓
-                     └──── Agent Actions ───────────┘
-```
-
-**Comparison with WAN/GWM:**
-
-| Aspect | WAN/GWM | Genie 3 |
-|--------|---------|---------|
-| **Output** | Video clips (fixed length) | Persistent interactive environment |
-| **Interaction** | Generate once, view passively | Real-time navigation & action |
-| **Physics** | Learned from video data | Self-supervised emergent physics |
-| **Duration** | 5-20 seconds | Several minutes |
-| **Primary Use** | Visualization, action prediction | Agent training, environment generation |
-| **Action Conditioning** | Via LoRA/VACE | Native (responds to agent input) |
-
-**Relevance to VLA Training:**
-1. **Pre-training:** Generate diverse environments for VLA exposure
-2. **RL Fine-tuning:** Provide unlimited training scenarios for Aim 3
-3. **Domain Randomization:** Genie 3 can create varied conditions to improve generalization
-4. **Evaluation:** Test VLA policies in procedurally generated scenarios
-
-**Limitations (as of August 2025):**
-- Limited action space for agents
-- ~1 minute visual memory before consistency degrades
-- Few minutes of continuous interaction (insufficient for full RL training)
-- Challenges modeling complex multi-agent interactions
-- Not publicly available (research preview)
-
-**PID Relevance (Indirect):**
-If using Genie 3 environments for RL fine-tuning, the quality of Genie 3's physics understanding affects what the VLA's internal world model (D) learns. If Genie 3's emergent physics diverge from reality, the VLA's D may learn incorrect dynamics—this would manifest as V-D mismatch (potentially negative synergy) when deployed in the real world.
+If such a generator is used, treat it as another **versioned experimental variable** with the same provenance requirements (pinned revision, logged prompts/actions, and explicit “no oracle” framing).
 
 ## 10.2 WAN (Wan Video Model Family)
 
@@ -3563,33 +3409,7 @@ StereoVLA shows improved spatial reasoning by providing the VLA with native 3D i
 
 DKT (arXiv:2512.23705) argues that strong video diffusion priors can help infer depth for transparent/reflective objects. Interpret this as **learned statistical regularities** that are often consistent with light transport (refraction/reflection), not as evidence that the model “understands physics” in a mechanistic sense.
 
-**Architecture:**
-```
-RGB Video → WAN VAE Encoder → Concat[RGB_latent, Depth_latent] → DiT + LoRA → Depth/Normal Maps
-                                                                      ↑
-                                                               TransPhy3D training
-```
-
-**Technical Details:**
-- **Base model:** WAN video diffusion (DiT backbone)
-- **Adaptation:** LoRA fine-tuning (preserves base priors, prevents catastrophic forgetting)
-- **Dataset:** TransPhy3D (11k sequences, 1.32M frames, Blender/Cycles rendering)
-- **Output:** Temporally consistent depth + normals for arbitrary-length video
-- **Speed:** paper-reported ~167ms/frame for the 1.3B variant in their setting (benchmark-dependent; hardware/runtime/config matter).
-
-**Benchmark Results:**
-| Dataset | DKT Performance |
-|---------|-----------------|
-| ClearPose | Paper-reported SOTA (zero-shot; verify metric/setting in DKT) |
-| DREDS CatKnown | Paper-reported SOTA (verify metric/setting in DKT) |
-| DREDS CatNovel | Paper-reported SOTA (verify metric/setting in DKT) |
-| TransPhy3D-Test | Paper-reported SOTA (verify metric/setting in DKT) |
-
-**Real-World Robot Grasping:**
-DKT integrated with AnyGrasp achieves improved success rates across:
-- Translucent objects (glass bottles, plastic containers)
-- Reflective surfaces (metal, mirrors)
-- Diffuse objects (baseline comparison)
+**Implementation note:** The base model, datasets, outputs (depth/normals), and runtime characteristics are paper-specific. Do not copy architecture diagrams or speed numbers into this spec without a primary citation and a local benchmark; treat DKT as an optional perception preprocessor whose value must be validated on your scenes and tasks.
 
 **PID Relevance: Why Transparent Object Depth Matters for V-D Analysis**
 
@@ -3605,7 +3425,7 @@ This is a genuine connection to PID diagnostics:
    - D (world model) may predict correct physics
    - This creates *apparent* V-D mismatch that is actually a perception failure, not a world model failure
    
-   **Hypothesis:** Using DKT-enhanced depth should *reduce* negative synergy for transparent object tasks because V becomes accurate and consistent with D's physics predictions.
+   **Testable hypothesis:** Using a better depth representation for transparent objects can change PID features by reducing perception-driven noise in V. Whether this increases or decreases synergy is empirical and must be measured under controls (Exp3 perturbations + ablations).
 
 3. **Failure Mode Attribution:** Without accurate transparent object depth:
    - Low Syn(V,D;A) could indicate either:
@@ -3613,11 +3433,7 @@ This is a genuine connection to PID diagnostics:
      b) Perception failure (V is garbage)
    - DKT removes (b) from the equation, enabling cleaner diagnosis
 
-4. **The "Diffusion Knows Transparency" Implication:**
-   If video diffusion models have learned light transport physics, this suggests:
-   - Well-trained VLAs with diffusion-based world models should handle transparent objects better
-   - The D component in such VLAs may already encode refraction/reflection priors
-   - We could test this by comparing Syn(V,D;A) on transparent vs opaque objects
+4. **Avoid over-interpretation:** Even if DKT improves depth, this does not imply “physics understanding”. Treat it as a statistical prior that can reduce a confound in PID analysis.
 
 **When to Use DKT in PID-VLA Pipeline:**
 | Scenario | Recommendation |
@@ -3626,8 +3442,6 @@ This is a genuine connection to PID diagnostics:
 | Diagnosing transparent object failures | Essential for valid PID |
 | General manipulation (opaque) | A standard depth estimator (e.g., Depth-Anything v2 or similar) may suffice (validate on your scenes) |
 | Speed-critical real-time | DKT may be too slow; consider stereo/RGB-D or simpler depth baselines |
-
-**Code:** https://github.com/Daniellli/DKT
 
 ## 10.5 3DGS (3D Gaussian Splatting)
 
@@ -3790,10 +3604,10 @@ Gazebo (headless)                    Tauri + SparkJS
 
                       Zenoh
 Physics     ─────────(measure)──────→ State update ──→ Three.js
-1000 Hz        shared mem                            render @ 60fps
+step rate (configurable)        shared mem/zero-copy (config-dependent)      render @ interactive rate
 
 Camera      ─────────(measure)──────→ Texture update ─→ Three.js
-30-60 Hz       zero-copy                              plane/quad
+frame rate (configurable)        zero-copy (config-dependent)                plane/quad
 
 Sensors     ─────────(measure)──────→ Process ──→ Overlay ──→ render
 
@@ -3853,172 +3667,30 @@ The Tauri + Three.js frontend can overlay:
 
 ### 10.8.6 Hardware Requirements
 
-| Platform | Minimum | Recommended |
-|----------|---------|-------------|
-| macOS | M1 8GB | M4 Pro 24GB |
-| Linux | RTX 3060 | RTX 4090 |
-| Memory | 16GB | 32GB |
-| Storage | SSD | NVMe |
+Hardware requirements are benchmark-dependent and should not be stated as fixed “minimum/recommended” tables in this document. Measure end-to-end latency and peak memory for your exact stack (scene size, physics backend, rendering settings, and any external video/flow models).
 
 ### 10.8.7 PixelVLA Integration with Headless Gazebo + Tauri
 
-PixelVLA's pixel-level understanding and visual prompting capabilities integrate naturally with the visualization system:
+Pixel-level prompting is treated as a **controlled intervention**, not a UI-only feature. Some VLAs support multimodal prompting with visual inputs (e.g., PixelVLA arXiv:2511.01571). For PID‑VLA, the critical requirements are:
+- visual prompt actions are routed through the **Agent Bridge** control plane (so they are scriptable and logged),
+- prompt semantics are preregistered (is the prompt part of V, or a separate source P?),
+- and any model-specific tensor shapes/keys are isolated behind a per‑model adapter (do not bake unverified internals into the simulator spec).
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     PIXELVLA + GAZEBO + TAURI INTEGRATION                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│   Gazebo (Headless)              PixelVLA                    Tauri + SparkJS│
-│   ─────────────────              ────────                    ───────────────│
-│                                                                              │
-│   Physics @ 1kHz ─────────┐                                                 │
-│                           │                                                 │
-│   Camera @ 30fps ─────────┼──(Zenoh)──→ DinoV2+SigLIP ─→ V embeddings     │
-│                           │             + Multiscale    │                   │
-│                           │               Pixel Encoder  │                   │
-│                           │                              ↓                   │
-│   ┌───────────────────────┴──────────────────────────────┴───────────────┐ │
-│   │                        THREE.JS OVERLAYS                              │ │
-│   │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │ │
-│   │  │ Pixel-level     │  │ Visual Prompt   │  │ PID Diagnostic      │  │ │
-│   │  │ Attention Maps  │  │ Overlay (masks, │  │ Heatmaps           │  │ │
-│   │  │ (from PixelVLA  │  │ points, regions)│  │ (Syn(V,D;A) per    │  │ │
-│   │  │  encoder)       │  │                 │  │  pixel region)     │  │ │
-│   │  └─────────────────┘  └─────────────────┘  └─────────────────────┘  │ │
-│   └──────────────────────────────────────────────────────────────────────┘ │
-│                                                                              │
-│   User Interaction:                                                         │
-│   • Click to place visual prompts (points, bboxes)                          │
-│   • Hover for local PID values                                              │
-│   • Select regions for targeted analysis                                    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+**High-level data flow (conceptual; model-specific shapes/topics vary):**
+1. Simulator renders observation(s) and publishes them to the VLA interface.
+2. VLA consumes observation + instruction (+ optional visual prompt) and emits action plus any representations chosen for analysis.
+3. PID‑core computes diagnostics on preregistered representations (offline-first; in-loop only if measured budgets allow).
+4. UI overlays diagnostics and exposes prompt tools; every prompt event is logged with provenance and is replayable.
 
-**Data Flow for PixelVLA + PID:**
-
-```
-1. Gazebo renders simulated scene
-2. Camera image sent via Zenoh (zero-copy) to PixelVLA
-3. PixelVLA produces:
-   - V_coarse: Global visual features (256 patches)
-   - V_fine: Pixel-level features (from multiscale encoder)
-   - A_pred: Continuous action prediction
-4. Embeddings forwarded to PID computation
-5. Results visualized in Tauri:
-   - Per-patch synergy overlaid on image
-   - Attention maps from pixel-aware encoder
-   - Interactive visual prompting interface
-```
-
-**Visual Prompting in Tauri:**
-
-The SparkJS/Three.js frontend can send visual prompts back to PixelVLA:
-
+**Conceptual example: prompt routed through Agent Bridge (so external tools can reproduce it):**
 ```typescript
-// Tauri frontend: user clicks to create visual prompt
-async function onCanvasClick(event: MouseEvent) {
-  const point = screenToImageCoords(event);
-  
-  // Send point prompt via Zenoh
-  await zenoh.put("pixelvla/prompt/point", {
-    x: point.x,
-    y: point.y,
-    type: "manipulation_target"
-  });
-  
-  // Receive PixelVLA's response with pixel attention
-  const attention = await zenoh.get("pixelvla/attention");
-  
-  // Overlay on Three.js scene
-  renderAttentionHeatmap(attention);
-}
-
-// Draw bounding box prompt
-function onBboxDraw(bbox: Rect) {
-  zenoh.put("pixelvla/prompt/bbox", {
-    x1: bbox.left, y1: bbox.top,
-    x2: bbox.right, y2: bbox.bottom,
-    type: "region_of_interest"
-  });
-}
+await agentBridge.call("prompt.set", {
+  kind: "point",
+  x: point.x,
+  y: point.y,
+  tag: "region_of_interest"
+});
 ```
-
-**PixelVLA-Specific PID Analysis in Tauri:**
-
-```rust
-// Rust backend: specialized PID for PixelVLA's multiscale outputs
-async fn pixelvla_pid_analysis(
-    v_coarse: &Tensor,   // 256 patches × 1024 dim
-    v_fine: &Tensor,     // H×W × 256 dim (pixel-level)
-    d: &Tensor,          // World model state
-    a: &Tensor,          // Action prediction
-) -> PixelPIDResult {
-    // 1. Global PID (standard V-D-A)
-    let global_pid = compute_pid(
-        &v_coarse.mean(dim=0),  // Pool to single vector
-        d,
-        a,
-    );
-    
-    // 2. Patch-level PID (for each of 256 patches)
-    let patch_pids: Vec<PIDResult> = (0..256)
-        .map(|i| compute_pid(&v_coarse[i], d, a))
-        .collect();
-    
-    // 3. Region-specific PID (if visual prompt provided)
-    let region_pid = if let Some(prompt) = get_current_prompt() {
-        let v_region = extract_region_features(v_fine, &prompt);
-        Some(compute_pid(&v_region, d, a))
-    } else {
-        None
-    };
-    
-    // 4. Cross-scale synergy (does PixelVLA integrate global + local?)
-    let cross_scale_syn = compute_conditional_mi(
-        &v_coarse.mean(dim=0),  // Global
-        &v_fine.mean(dims=[0,1]),  // Local (pooled)
-        a,  // Target
-    ) - mi(&v_coarse.mean(dim=0), a) - mi(&v_fine.mean(dims=[0,1]), a);
-    
-    PixelPIDResult {
-        global: global_pid,
-        per_patch: patch_pids,
-        region: region_pid,
-        cross_scale_synergy: cross_scale_syn,
-    }
-}
-```
-
-**Benefits of PixelVLA + Gazebo Integration:**
-
-| Feature | Benefit for PID Research |
-|---------|-------------------------|
-| **Pixel-level embeddings** | Localize WHERE synergy/failures occur |
-| **Interactive visual prompts** | Probe specific objects/regions |
-| **Continuous actions** | No discretization noise in A |
-| **Multiscale representations** | Test cross-scale information integration |
-| **Sim-to-real alignment** | Debug perception issues before real robot |
-
-**Latency Budget for PixelVLA:**
-
-```
-Component                      Time (ms)    Notes
-─────────────────────────────────────────────────
-Gazebo → Zenoh                 measure      Transport + serialization overhead (implementation-dependent)
-Vision encoders                measure      Dominant cost; depends on model choice + hardware
-Multiscale pixel encoder        measure      Depends on architecture + resolution
-Action decoder                  measure      Depends on action head
-PID (Shannon invariants)        measure      Intended for continuous monitoring
-PID (full I^sx_∩) on demand      measure      Triggered/episodic; requires dimensionality reduction
-Renderer (SparkJS/Three.js)     measure      Frame budget depends on scene + GPU
-─────────────────────────────────────────────────
-Total (interactive)            measure      Report achieved FPS/latency on your setup
-Total (with full PID)          measure      Expect slower; benchmark
-```
-
-**Note:** Full `I^sx_∩` PID is not expected to be real-time without aggressive dimensionality reduction and an accelerated kNN backend. Use Shannon invariants for continuous monitoring, and trigger full PID only for suspicious windows/episodes. Do not report latency/FPS numbers without measured hardware + configuration details.
 
 ## 10.9 Dream2Flow: Video→Flow Bridge for Manipulation (v7.0)
 
@@ -4195,24 +3867,28 @@ This section describes an ambitious but tractable integration that combines:
 │  │   • Splat size = variance / uncertainty                            │         │
 │  └────────────────────────────────┬───────────────────────────────────┘         │
 │                                   │                                              │
-│  STAGE 4: PID ANALYSIS (RUST)     │                                              │
+│  STAGE 4: DIAGNOSTICS (RUST)      │                                              │
 │  ───────────────────────────      ▼                                              │
 │  ┌────────────────────────────────────────────────────────────────────┐         │
 │  │                    Wibral PID Analysis Layer                        │         │
 │  │                                                                     │         │
 │  │   PID Decomposition Points:                                         │         │
 │  │                                                                     │         │
-│  │   ① Syn(V, D_wan; Flow)     → World model quality                  │         │
-│  │      "Does WAN's internal state predict object flow?"               │         │
+│  │   ① Flow quality (preferred):                                      │         │
+│  │      quality(Flow_pred, Flow_gt) → predictor correctness            │         │
+│  │      (only when Flow_gt exists; no oracle claims otherwise)         │         │
 │  │                                                                     │         │
-│  │   ② Syn(V, Flow; A_cmd)     → Policy integration quality           │         │
-│  │      "Does the policy correctly use V and Flow together?"           │         │
+│  │   ② Integration summaries (screen → targeted PID):                  │         │
+│  │      CI/PID on (V, L, D_vla, Flow_pred; A_cmd or A*)                │         │
+│  │      "Which sources are used, redundantly or synergistically?"      │         │
 │  │                                                                     │         │
-│  │   ③ Syn(A_cmd, Sim; A_out)  → Embodiment gap magnitude             │         │
-│  │      "How much does simulation differ from commanded action?"       │         │
+│  │   ③ Execution outcome (not PID by default):                         │         │
+│  │      success/failure labels + state deltas + contact events         │         │
+│  │      "Did the environment/state change as intended?"                │         │
 │  │                                                                     │         │
-│  │   ④ Temporal synergy dynamics across flow trajectory               │         │
-│  │      "How does synergy evolve during task execution?"               │         │
+│  │   ④ Temporal diagnostics:                                           │         │
+│  │      synergy/CI half-life, phase-wise summaries, bootstrapped CIs   │         │
+│  │      (only after Exp0 + geometry gates for the chosen variables)    │         │
 │  │                                                                     │         │
 │  └────────────────────────────────┬───────────────────────────────────┘         │
 │                                   │                                              │
@@ -4325,40 +4001,47 @@ function renderPIDFlow(splats: PIDSplat[], timestamp: number) {
 
 ### 10.10.5 PID Analysis Points in the Pipeline
 
-The staged architecture provides four natural PID measurement points:
+The staged architecture supports **stage-wise diagnostics**, but not all stages should be framed as PID. v7.0 adopts a **no-oracle, contract-first** stance: use explicit quality metrics where possible, and apply PID only to variables that are well-defined for your run and that pass the Geometry Gate + Experiment 0.
 
-| Stage | PID Computation | What It Measures | Failure Attribution |
-|-------|-----------------|------------------|---------------------|
-| **1** | `Syn(V, L; D_wan)` | Instruction grounding in WAN | WAN doesn't understand task |
-| **2** | `Syn(V, D_wan; Flow)` | World model → geometry | WAN knows physics but not geometry |
-| **3** | `Syn(V, Flow; A_cmd)` | Policy integration | Policy doesn't use flow correctly |
-| **4** | `Syn(A_cmd, Sim; A_out)` | Embodiment gap | Physics/control mismatch |
+**Per-run variable definitions (log them):**
+- `Flow_pred`: reconstructed object-level 3D trajectories from a predictor (Dream2Flow-style).
+- `Flow_gt`: object-level 3D trajectories from simulator logs (when available).
+- `A_cmd`: policy output action command.
+- `A*`: teacher/optimal action (when available).
+- `D_vla`: chosen VLA internal representation (explicit or hidden; layer choice is part of the experiment).
+- `D_pred` (optional): predictor internal representation, *only if* it is actually exposed (rare; do not assume).
 
-**Failure localization protocol:**
+**Recommended stage metrics (minimum viable):**
+| Stage | Primary metric(s) | What it measures | Notes |
+|-------|-------------------|------------------|-------|
+| **1. Predictor** | `quality(Flow_pred, Flow_gt)` (if `Flow_gt` exists) | World-model correctness | Use trajectory error metrics + confidence; if no `Flow_gt`, treat as qualitative/heuristic only |
+| **2. Flow extraction** | failure rate + confidence distributions | Pipeline health | Track “could not reconstruct”, lost tracks, depth failures; stratify later analysis by these codes |
+| **3. Policy integration** | hierarchical CI/PID on `(V, L, D_vla, Flow_pred; A_cmd or A*)` | Integration diagnostics | Apply only after preprocessing + Exp0 gate; start with CI screening, then targeted SxPID |
+| **4. Execution** | task success + state deltas | Embodiment/physics/control error | Do not force a PID definition here unless all variables are rigorously defined and justified |
+
+**Optional (exploratory) PID points (only if variables exist):**
+- `Syn(V, L; D_pred)` or `Syn(V, D_pred; Flow_pred)` to probe predictor internals **if** exposed.
+- `Syn(V, D_vla; Flow_gt)` when you can compute `Flow_gt` from simulator logs (bypasses video predictor geometry entirely).
+
+**Failure localization protocol (v7.0):** do not hard-code synergy thresholds. Instead, learn or calibrate a stage classifier on held-out tasks using the stage metrics above (and report uncertainty).
 
 ```python
-def localize_failure(trial: Trial) -> FailureStage:
-    # Stage 1: Video generation quality
-    syn_1 = compute_pid(trial.V, trial.L, trial.D_wan)
-    if syn_1.synergy < THRESHOLD_1:
-        return FailureStage.VIDEO_GENERATION
-    
-    # Stage 2: Flow extraction quality  
-    syn_2 = compute_pid(trial.V, trial.D_wan, trial.flow_3d)
-    if syn_2.synergy < THRESHOLD_2:
-        return FailureStage.FLOW_EXTRACTION
-    
-    # Stage 3: Policy quality
-    syn_3 = compute_pid(trial.V, trial.flow_3d, trial.A_cmd)
-    if syn_3.synergy < THRESHOLD_3:
-        return FailureStage.POLICY
-    
-    # Stage 4: Execution quality
-    syn_4 = compute_pid(trial.A_cmd, trial.sim_state, trial.A_out)
-    if syn_4.synergy < THRESHOLD_4:
-        return FailureStage.EMBODIMENT_GAP
-    
-    return FailureStage.UNKNOWN  # Success or undiagnosed
+def localize_failure(trial: Trial, clf) -> FailureStage:
+    feats = {
+        # Predictor quality (if GT exists)
+        "flow_err": flow_error(trial.Flow_pred, trial.Flow_gt) if trial.Flow_gt is not None else None,
+        "flow_conf_mean": float(np.mean(trial.Flow_pred.confidence)) if trial.Flow_pred is not None else None,
+
+        # Extraction / reconstruction health
+        "recon_failed": int(trial.stage_codes.flow_recon_failed),
+        "track_drop_rate": float(trial.stage_codes.track_drop_rate),
+
+        # Integration summaries (screening-friendly)
+        "ci_vl_a": trial.CI_VL_A,
+        "ci_vflow_a": trial.CI_VFlow_A,
+        # ... optionally: selected PID atoms, only if Exp0+geometry gates pass
+    }
+    return clf.predict(feats)
 ```
 
 ### 10.10.6 WAN Action Conditioning for Counterfactual Analysis
@@ -4381,12 +4064,12 @@ COUNTERFACTUAL ANALYSIS PROTOCOL
    ΔSyn = Syn(V, D_wan; Flow_action) - Syn(V, D_wan; Flow_base)
 
 4. Interpretation:
-   ΔSyn > 0 → Proposed action improves V-D integration
-   ΔSyn < 0 → Proposed action disrupts V-D integration
-   ΔSyn ≈ 0 → Action is neutral for integration
+   Treat ΔSyn as a candidate feature, not a ground-truth utility signal:
+   - ΔSyn may correlate with better predicted flow quality or downstream success, or it may not.
+   - Any use of ΔSyn for “action selection” requires calibration on held-out tasks, uncertainty estimates, and ablations that rule out trivial confounds (e.g., action magnitude).
 ```
 
-**Use case:** Before executing a VLA-proposed action, simulate it in WAN and check if it improves or degrades the synergy signature. This provides a "second opinion" from the video world model.
+**Use case (optional / exploratory):** before executing a VLA-proposed action, simulate it in a predictor and compute *changes in diagnostics* (ΔCI/ΔPID/Δflow-quality). Do not assume the predictor is an oracle; validate against simulator or sensor-derived trajectories when making “improves/degrades” claims.
 
 ### 10.10.7 Computational Requirements Summary
 
@@ -4403,14 +4086,7 @@ COUNTERFACTUAL ANALYSIS PROTOCOL
 | Rendering (optional) | fps, end-to-end latency | depends on scene complexity and GPU |
 | **Total per trial** | sum | report separately for online loop vs offline analysis |
 
-**Hardware requirements:**
-
-| Setup | Minimum | Recommended |
-|-------|---------|-------------|
-| **GPU** | RTX 4090 (24GB) | A100 (40GB) |
-| **RAM** | 32GB | 64GB |
-| **Storage** | 500GB SSD | 2TB NVMe |
-| **macOS alternative** | M4 Max (64GB unified) | M4 Ultra (128GB) |
+**Hardware note (v7.0):** this document does not prescribe a “minimum GPU”. The implemented core (`crates/pid-core`) runs on CPU. Any additional requirements are determined by the specific VLA checkpoint(s), video predictor(s), and scene complexity you choose. Prefer offline-first pipelines and cache artifacts so that interactive diagnostics do not depend on real-time video generation.
 
 ### 10.10.8 Comparison: VLA Internal D vs External Predictor‑Derived Flow
 
@@ -4585,168 +4261,46 @@ The Dream2Flow pipeline enables **natural 3-source decompositions** that relate 
 - Reduce to interpretable features (e.g., 64 SAE latents)
 - Compute PID on (V, SAE_latents; Flow) — lower dimension, more interpretable
 
-### 10.10.13 VLA Integration Matrix (v6.3)
+### 10.10.13 VLA Integration Matrix (v7.0)
 
-This section maps how each VLA architecture integrates with the Dream2Flow + WAN + PID pipeline.
+This section maps how each VLA architecture integrates with the Dream2Flow + WAN + PID pipeline. v7.0 uses a **contract-first** framing: avoid assuming internal module names or fixed tensor shapes unless you have verified them for your exact checkpoint.
 
-#### 10.10.13.1 VLA Compatibility Overview
+#### 10.10.13.1 VLA ↔ PID Variable Contract (model-agnostic)
 
-| VLA | D Availability | Geometry | Flow Integration | Recommended Use |
-|-----|----------------|----------|------------------|-----------------|
-| **OpenVLA** | Hidden states (implicit) | d=4096, RoPE entanglement | ✓ Compare D_openvla vs Flow | Primary target for V-Flow-A |
-| **PixelVLA** | Multiscale V + hidden | d=4096, pixel-grounded | ✓✓ Pixel-flow alignment | Best for spatial PID |
-| **TraceVLA** | Trace-encoded V | d=4096, temporal in V | ✓ History-aware flow | Temporal synergy studies |
-| **DreamVLA** | Explicit world-knowledge prediction channels (dynamic/spatial/semantic) | Backbone hidden dim not specified; verify | ✓✓ D_dreamvla ↔ Flow comparison | D validation + targeted ablations |
+For every run, define and log the analysis variables explicitly:
+- `V`: a **pre-fusion** vision representation (e.g., pooled vision tokens or a chosen vision-layer summary).
+- `L`: a **text/instruction** representation (token pool or selected layer summary).
+- `D`: a **world/plan** representation. This can be:
+  - **Explicit** (`D_explicit`): predicted world-knowledge channels/cues, if the model exposes them (preferred when available).
+  - **Implicit** (`D_hidden[k]`): selected hidden state(s) of the policy backbone (treat layer choice as an experimental variable).
+  - **Fused** (`D_fused`): a post-fusion representation that mixes vision + language.
+- `A`: the action output (continuous or discrete; representation is model-specific).
 
-#### 10.10.13.2 Per-VLA Integration Details
+**Hard requirement:** the harness must log `model_id`, revision/commit hash, preprocessing, seed(s), layer IDs for any extracted representations, and timestamp alignment with simulator state.
 
-**OpenVLA (arXiv:2406.09246):**
-```
-Integration Path:
-┌──────────────────────────────────────────────────────────────────┐
-│  OpenVLA                              Dream2Flow + Video/Flow    │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Image + Instr ─→ SigLIP+DinoV2 ─→ Llama 2 7B ─→ Action bins   │
-│                           │              │                       │
-│                           ↓              ↓                       │
-│                    V (vision)     D_openvla (layer 16-24)       │
-│                           │              │                       │
-│                           └──────┬───────┘                       │
-│                                  ↓                               │
-│  Same Image + Instr ─→ Video predictor ─→ Segmenter/Tracker ─→ Flow │
-│                           │                                      │
-│                           ↓                                      │
-│                        D_wan                                     │
-│                                                                  │
-│  PID Analysis:                                                   │
-│  ① Syn(V, D_openvla; A)      ← VLA internal world model         │
-│  ② Syn(V, D_wan; Flow)       ← WAN world model quality          │
-│  ③ Syn(V, Flow; A)           ← Flow-policy integration          │
-│  ④ Compare ① vs ③            ← Implicit D vs explicit Flow      │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
+#### 10.10.13.2 Candidate VLAs and Operational “D” Definitions (known vs verify)
 
-**Geometry notes for OpenVLA:**
-- d=4096 requires v5.6 approach (PCA to ~256 or quantization)
-- RoPE entanglement (§14.6) affects D_openvla — use pre-attention embeddings
-- δ-hyperbolicity is an empirical question; measure δ_rel + distance concentration on the exact representation/layer you analyze (do not assume from architecture)
+| VLA | Primary source | `D` for PID (candidate) | Best-fit hypotheses / decompositions | Verify before using |
+|-----|----------------|-------------------------|--------------------------------------|---------------------|
+| **OpenVLA** | arXiv:2406.09246 | `D_hidden[k]` (selected backbone state) or `D_fused` | Baseline 2-way: `(V,D;A)`; Flow-as-bridge: `(V,D;Flow)` and `(V,Flow;A)`; optional 3-way/hierarchical with `Flow` | Action parameterization; where to hook `V/L/D`; geometry gate results for chosen reps |
+| **TraceVLA** | arXiv:2412.10345 | `D_hidden[k]` plus an explicit **trace input** channel (treat as an additional source) | Temporal hypotheses: H5-style “synergy half-life”; 3-way candidates: `(V_now, V_trace, Flow;A)` or `(V_with_trace, D_wan;Flow_future)` | How traces are encoded; how to separate “trace vs image” in logged variables |
+| **DreamVLA** | arXiv:2507.04447 | `D_explicit` (world-knowledge forecasting outputs) if exposed; else `D_hidden[k]` | Cleanest for ablations: compare `(V, D_explicit; Flow)` against `(V, D_wan; Flow)`; channel-wise ablations for dynamic/spatial/semantic cues | Exact output formats/dims; weights/code availability; whether explicit channels are logged per-step |
+| **PixelVLA** | arXiv:2511.01571 | Model-dependent: pixel-/prompt-conditioned representation (verify) | Spatial PID when pixel-aligned variables exist: `(V_region, Flow_region;A)`; hierarchical: region-level CI screening → targeted PID | What is actually exposed (pixel maps vs pooled); backbone/API; dataset access (Pixel‑160K) |
+| **SmolVLA** | LeRobot (verify) | Whatever is accessible (`D_hidden[k]` / `D_fused`) | Harness/debug baseline: run Experiment 0/1 quickly; do not over-interpret cross-model semantics | Everything: backbone, action rep, licensing, async semantics, hook points |
 
-**PixelVLA (arXiv:2511.01571):**
-```
-Integration Path:
-┌──────────────────────────────────────────────────────────────────┐
-│  PixelVLA                             Dream2Flow + WAN           │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Image ─→ Multiscale Encoder ─→ V_coarse, V_medium, V_fine      │
-│           + SAM Prompt Encoder                                   │
-│                 │                                                │
-│                 ↓                                                │
-│  Visual Prompt (points/masks) ─→ Pixel-grounded V               │
-│                                        │                         │
-│                                        ↓                         │
-│                            Llama 2 7B ─→ Continuous 7D action   │
-│                                                                  │
-│  Dream2Flow alignment:                                           │
-│  ① Segmentation model aligns masks ─→ Same object masks         │
-│  ② Tracking model follows points ─→ Tracks through multiscale V │
-│  ③ Flow extraction uses PixelVLA's depth-aware V_fine           │
-│                                                                  │
-│  PID Analysis (pixel-aligned):                                   │
-│  • Syn(V_fine, Flow_local; A) at each pixel region              │
-│  • Aggregate to synergy heatmap overlaid on image               │
-│  • Identify which pixels drive integration vs redundancy        │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
+**Geometry note:** do not assume “d=4096” or “RoPE entanglement” for every model. If you use a RoPE-based backbone (e.g., Llama-family), consider exporting a **pre-attention residual stream** representation as one candidate `D_hidden[k]`, but treat this as an empirical mitigation and validate via the Geometry Gate + Experiment 0.
 
-**Unique PixelVLA advantage:** The multiscale encoder produces V at multiple resolutions, enabling **pixel-level PID analysis**. Combined with Dream2Flow's point-level flow, we can compute synergy per spatial region.
+#### 10.10.13.3 Decision Matrix: Which VLA for Which Analysis (v7.0)
 
-**TraceVLA (arXiv:2412.10345):**
-```
-Integration Path:
-┌──────────────────────────────────────────────────────────────────┐
-│  TraceVLA                             Dream2Flow + WAN           │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Image + Trace overlay ─→ OpenVLA backbone ─→ Action            │
-│       │                                                          │
-│       └─ Visual traces encode past state-action history         │
-│                                                                  │
-│  Key insight: TraceVLA's V already contains D-like information  │
-│  (past states encoded visually). The V-D boundary is blurred.   │
-│                                                                  │
-│  Dream2Flow temporal alignment:                                  │
-│  ① WAN generates future video given current + trace             │
-│  ② Tracking model extends trace trajectories into future        │
-│  ③ Compare trace-extrapolation vs WAN-predicted flow            │
-│                                                                  │
-│  PID Analysis (temporal):                                        │
-│  • Syn(V_with_trace, D_wan; Flow_future)                        │
-│  • Measures: Does trace history help predict future flow?       │
-│  • Synergy half-life: How quickly does trace info decay?        │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
+| Analysis goal | Suggested VLA | Reason (constraint-first) |
+|---------------|---------------|---------------------------|
+| **Harness + estimator bring-up** | SmolVLA (or any small open baseline) | Faster iteration for logging/interventions/geometry gating before scaling up |
+| **Core PID study on a widely used target** | OpenVLA | Most likely to be runnable and comparable; `D` is implicit but extractable |
+| **Explicit world-model ablations** | DreamVLA (if available) | Operational `D_explicit` makes interventions and interpretation cleaner |
+| **Temporal dynamics / history effects** | TraceVLA | Trace input explicitly manipulates history dependence |
+| **Spatial / pixel-aligned diagnostics** | PixelVLA (if integration supports it) | Pixel-level variables enable localized PID/CI analyses |
 
-**TraceVLA consideration:** Since V contains temporal information, the meaning of `I(V;A)` changes — it implicitly includes historical D. Use this architecture to study **temporal synergy dynamics** (Aim 2).
-
-**DreamVLA (arXiv:2507.04447):**
-```
-Integration Path:
-┌──────────────────────────────────────────────────────────────────┐
-│  DreamVLA                             Dream2Flow + WAN           │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Image + Instr ─→ Vision Enc ─→ GPT-2 + Structured Attention    │
-│                                        │                         │
-│                                        ↓                         │
-│              Explicit world-knowledge predictions:               │
-│              • Dynamic region (what will move)                   │
-│              • Spatial cues (e.g., depth/geometry; verify)        │
-│              • Semantic cues (e.g., categories/labels; verify)    │
-│                        │                                         │
-│                        ↓                                         │
-│                   D_dreamvla (explicit, interpretable)           │
-│                                                                  │
-│  IDEAL COMPARISON:                                               │
-│  • D_dreamvla predicts "what will move"                          │
-│  • Flow (from WAN) shows "what actually moved"                   │
-│  • Direct comparison possible!                                   │
-│                                                                  │
-│  PID Analysis:                                                   │
-│  ① Syn(V, D_dreamvla; Flow)  ← DreamVLA's world model vs Flow   │
-│  ② Syn(V, D_wan; Flow)       ← WAN's world model vs Flow        │
-│  ③ Compare ① vs ②            ← Which world model is better?     │
-│                                                                  │
-│  Geometry note: backbone hidden size is not specified in the      │
-│  abstract; GPT‑2 family spans 768–1600 depending on variant.      │
-│  Do not assume “no reduction needed”; run geometry + Exp0 gates.  │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-**DreamVLA is a strong candidate** for validating the Dream2Flow approach because:
-1. D_dreamvla is explicit and interpretable
-2. The predicted knowledge channels can be lower-dimensional/structured than raw LLM hidden states (verify exact representations and dimensions)
-3. Predicts “what should change” (dynamic/spatial/semantic cues), which is directly comparable to object-level flow targets
-
-**⚠️ Blocker:** DreamVLA weights availability unclear (§18.2.2).
-
-#### 10.10.13.3 Decision Matrix: Which VLA for Which Analysis
-
-| Analysis Goal | Suggested VLA | Reason |
-|---------------|----------|--------|
-| **Core PID validation** | DreamVLA | Explicit world-knowledge prediction channels make D operationalizable (verify exact representations/dims); good for controlled ablations |
-| **Pixel-level synergy** | PixelVLA | Multiscale encoder, spatial grounding |
-| **Temporal dynamics** | TraceVLA | History encoded in V |
-| **Baseline comparison** | OpenVLA | Most widely available, well-documented |
-| **Small-scale testing** | TraceVLA-Phi3 | 4B params, fits RTX 4090 |
-| **Cross-architecture** | All four | Compare PID signatures across architectures |
-
-#### 10.10.13.4 Vision Model Placeholders (v6.3 note; verify)
+#### 10.10.13.4 Vision Model Placeholders (v7.0 note; verify)
 
 Earlier drafts referenced specific “v3/3” releases for segmentation/tracking/depth. Treat those as **placeholders** for whichever *current, available* models you can actually run and license. For scientific rigor, log the exact model name, version/commit hash, and license for every run.
 
@@ -4946,6 +4500,11 @@ The PID‑Splat simulator is intended to be **interactive** (GUI) *and* **progra
 - `intervention.apply|list|undo|branch` (all interventions are log events)
 - `log.start|stop|export|replay`
 
+**Async/concurrency sketch (Rust-side):**
+- Keep physics stepping deterministic in a single “sim thread” or single-threaded task; apply interventions only at explicit checkpoints (`pause → apply → step/resume`).
+- Run I/O-heavy components (Zenoh pub/sub, JSON‑RPC WebSocket server, file export) on an async runtime and communicate with the sim loop via bounded channels (backpressure instead of unbounded queues).
+- Write the run log via an append-only writer task so GUI/LLM actions are recorded even if the UI crashes.
+
 This control plane is an *engineering enabler* for the scientific goals: it makes the preregistered intervention protocol (§9/§14) executable, reviewable, and repeatable.
 
 # 12. Open Questions and Future Directions
@@ -4987,7 +4546,7 @@ PID estimation requires many samples. Is a single trajectory enough? Do we need 
 
 ### Q6: Is Real-Time PID Feasible?
 
-For intervention during execution, we need <10ms latency. Is this achievable?
+For live intervention, diagnostics must be low-latency and stable. Is this achievable on the target hardware and scene/model sizes, or should “real-time” be restricted to CI/Ω screening with offline PID?
 
 ## 12.3 Future Directions
 
@@ -5172,8 +4731,8 @@ VLA-Arena Task Organization:
 - **DreamGen:** Robot Learning via Neural Trajectories. arXiv:2505.12705
 - **VideoVLA:** VideoVLA: Video Generators Can Be Generalizable Robot Manipulators. arXiv:2512.06963
 - **Scalable Policy Evaluation:** Action-conditioned video for policy eval. arXiv:2511.11520
-- **Genie 3:** DeepMind (Aug 2025). General-purpose interactive world model. 24fps, 720p, emergent physics. (deepmind.google/blog/genie-3)
-- **Genie 2:** DeepMind (Dec 2024). Large-scale foundation world model. (deepmind.google/discover/blog/genie-2-a-large-scale-foundation-world-model)
+- **Genie 3:** DeepMind blog/release (verify details; listed as background inspiration, not a dependency of this project).
+- **Genie 2:** DeepMind blog/release (verify details; background only).
 - **Genie 1:** Bruce et al. (Feb 2024). Generative Interactive Environments. arXiv:2402.15391
 - **SIMA 2:** DeepMind (Nov 2025). Gemini-powered generalist agent for 3D virtual worlds. arXiv:2512.04797
 - **Diffusion modeling note (background; optional):** Li & He (2025). *Back to Basics: Let Denoising Generative Models Denoise.* arXiv:2511.13720. (Relevant to how “denoising” vs “noise prediction” parameterizations can change representation geometry; treat as background for diffusion-based world models, not a PID paper.)
@@ -5275,8 +4834,25 @@ This section addresses how confounding factors could be studied and removed to r
 
 ## 14.1 Core Hypotheses and Their Falsifiability
 
-### Hypothesis H1: Negative synergy predicts VLA failures
-**Claim:** When `Syn_{V,D→A} < 0` (or `Syn_{V,L→A} < 0`), the VLA is more likely to fail.
+### 14.1.0 Hypothesis Registry (v7.0)
+
+This project treats hypotheses as **falsifiable contracts**, not slogans. Status labels are about *priority and interpretability* given current estimator and logging constraints.
+
+| Hypothesis | Status | Rationale / notes |
+|------------|--------|-------------------|
+| **H1** PID features ↔ failure labels | **Core** | Primary evaluative claim; must beat strong baselines under controls; synergy sign is a candidate feature, not a definition |
+| **H2** redundancy ↔ robustness | Exploratory | Redundancy is easily confounded; only meaningful under matched difficulty + nuisance controls |
+| **H3** uniques ↔ modality contribution | Exploratory | Useful for targeted interventions; requires symmetry in preprocessing to avoid estimator artifacts |
+| **H4** memorization vs generalization | Core | Motivated by VLA-Arena framing; tests whether PID signatures change under structured distribution shifts |
+| **H5** temporal synergy degradation | Core | Operationalizable with windowed summaries + block bootstrap; tests long-horizon composition failures |
+| **H6** safety-aware integration | Exploratory | Lower confidence; include only if safety labels and matched controls are available |
+| **H7** Flow-as-Bridge | Core (method + hypothesis) | Makes a Euclidean diagnostic target explicit; enables stage-wise attribution and cross-embodiment comparisons |
+
+**Deprecated / ruled-out framing (kept for transparency):**
+- “`Syn < 0` ⇒ hallucination” as a definitional claim is **rejected** (see §1.2 Warning 1). Negative synergy is mathematically meaningful (subadditive information) but requires empirical validation to map onto failure semantics.
+
+### Hypothesis H1: SxPID-derived features correlate with VLA failures (including negative synergy)
+**Claim (falsifiable):** Under a validated estimator regime, a **feature set** derived from Shannon invariants (CI/Ω) and (where feasible) SxPID atoms contains predictive information about failure labels beyond strong uncertainty baselines. The **synergy sign** (including negative synergy frequency) is one candidate feature, not a definition of “hallucination”.
 
 **Confounds to rule out:**
 1. **Task difficulty confound:** Negative synergy might correlate with inherently harder tasks (longer horizons, more object interactions), not with model failure per se.
@@ -5290,6 +4866,7 @@ This section addresses how confounding factors could be studied and removed to r
 
 ### Hypothesis H2: High redundancy indicates robust information integration
 **Claim:** High `Red_{V,D;A}` suggests the model has multiple pathways to correct action.
+**Status:** Exploratory. Redundancy can increase for trivial reasons (task simplicity, dataset artifacts, representation leakage), so H2 is only meaningful under matched controls and alongside generalization tests (H4).
 
 **Confounds:**
 1. **Triviality confound:** If the task is trivial (e.g., "do nothing"), all sources may redundantly encode the same null information.
@@ -5297,6 +4874,7 @@ This section addresses how confounding factors could be studied and removed to r
 
 ### Hypothesis H3: Unique information identifies modality-specific contributions
 **Claim:** `Unq_V` vs `Unq_D` vs `Unq_L` indicates which modality dominates decision-making.
+**Status:** Exploratory but operationally useful for interventions (e.g., corrupt one modality and observe which uniques move). Interpreting uniques requires careful symmetry in preprocessing and dimensionality reduction across modalities to avoid estimation artifacts.
 
 **Confounds:**
 1. **Representation bias:** If one modality has higher-dimensional embeddings, it may have artificially higher unique information due to estimation artifacts.
@@ -5612,7 +5190,7 @@ Compute PID at multiple stages along the VLA pipeline:
 
 1. Early layers: Syn(V,L;D_early) — sensory integration
 2. Middle layers: Syn(V,D;D_late) — world model formation  
-3. Output layers: Syn(D;A) — action decoding quality
+3. Output layers: I(D;A) — action decoding quality (a simple dependence check, not a PID atom)
 4. Execution: Compare A_commanded vs A_achieved (if measurable)
 
 If failure correlates with stage 3 but not stages 1-2, the world model
@@ -5730,7 +5308,7 @@ All of these positions are entangled with their respective content. PID analysis
 - `Syn ~ failure + timestep + (failure × timestep)`
 
 **Strategy 5: Use Non-RoPE Models (If Available)**
-- If DreamVLA uses GPT-2 (learned absolute embeddings, not RoPE), this confound may be reduced
+- If a target VLA uses non‑RoPE positional embeddings (e.g., learned absolute embeddings), this confound may be reduced (verify in the actual implementation)
 - Compare PID patterns between RoPE-based (OpenVLA) and non-RoPE models
 - Difference in patterns may indicate RoPE-specific artifacts
 
@@ -5742,9 +5320,9 @@ All of these positions are entangled with their respective content. PID analysis
 Entanglement Score = Var(PID | position) / Var(PID | semantics)
 ```
 
-- High score (>1): Position dominates; RoPE confound is severe
-- Low score (<0.3): Semantics dominates; RoPE confound is minor
-- Intermediate: Both contribute; must control for position in analysis
+- High score: position dominates; RoPE confound is severe
+- Low score: semantics dominates; RoPE confound is minor
+- Calibrate thresholds using synthetic controls and report sensitivity
 
 ### 14.6.6 Publication Requirement
 
@@ -6690,16 +6268,12 @@ This section provides a comprehensive, critical analysis of all components in th
 
 **Training:** None — the KSG estimator is a non-parametric algorithm.
 
-**Compute Requirements:**
-| Operation | Complexity | Wall-clock (N=10000, d=256, k=5) | Hardware |
-|-----------|------------|----------------------------------|----------|
-| Brute-force kNN | O(N²d) | ~10-30s | CPU (single core) |
-| Ball-tree kNN | O(N log N) at low d | ~1-5s | CPU |
-| CUDA kNN (cuML) | O(N²d) but parallel | ~0.1-1s | RTX 4090 |
+**Compute requirements (measurement-first):**
+- Naive exact kNN scales as `O(N² d)`; storing a full pairwise distance matrix is `O(N²)` memory (avoid at large `N`).
+- Tree/graph methods can help when intrinsic dimension is modest; approximate kNN can help but changes estimator behavior (validate under Experiment 0).
+- Report measured wall-clock and peak memory for your chosen `(N,d,k)` and backend (exact vs approximate; CPU vs GPU).
 
-**Data Requirements:** N ≥ 10k samples recommended for stable estimates at d=256.
-
-**Critical Challenge:** At d=4096, brute-force becomes prohibitive (~10-60 minutes per estimate).
+**Sample size:** requirements grow rapidly with intrinsic dimension and dependence strength; treat any “works at (N,d)” claim as empirical until validated (Experiment 0 + Geometry Gate).
 
 ### 17.2.2 Continuous `I^sx_∩` Redundancy
 
@@ -6707,20 +6281,20 @@ This section provides a comprehensive, critical analysis of all components in th
 
 **Compute Requirements:**
 - Same as KSG MI but with additional disjunction-distance computation
-- Approximately 1.5-2× the cost of standard KSG MI
+- Typically higher than standard KSG MI due to additional disjunction-distance computation (measure on your backend and `(N,d,k)`)
 - Full pairwise distance matrix required: O(N²) memory or streaming computation
 
 **Data Requirements:**
-- Experiment 0 validation: synthetic data (N=1000-50000, d=10-4096)
+- Experiment 0 validation: synthetic data spanning your planned `d` and dependence regimes (see §9.1 and `EXPERIMENTS.md` §4)
 - VLA analysis: extract embeddings from trajectories (see §17.3)
 
 ### 17.2.3 Shannon Invariants (CI, Ω)
 
 **Training:** None — computed from MI terms.
 
-**Compute Requirements:**
-- 7 MI estimates for 3-way CI (fastest PID-related computation)
-- O(7 × KSG_cost) ≈ 70-210s at d=256, N=10000 on CPU
+**Compute requirements (measurement-first):**
+- Computed from a small fixed set of MI/CMI terms (often substantially cheaper than estimating full multi-source PID atoms).
+- Still inherits the MI estimator’s scaling and geometry pathologies; use as **screening** and validate stability under controls.
 
 **Why This Matters:** Shannon invariants are the recommended "Level 0" screening layer precisely because they require NO training and have moderate compute cost.
 
@@ -6731,31 +6305,29 @@ This section provides a comprehensive, critical analysis of all components in th
 **Training:** None required for embedding extraction — use pre-trained weights.
 
 **Inference compute (benchmark-dependent):**
-- **Memory:** a 7B model in fp16 is on the order of ~14GB for weights alone; runtime overhead and KV cache can add substantially.
+- **Memory:** weights-only memory is approximately `params × bytes_per_param` (e.g., fp16 ≈ 2 bytes/param). For a 7B-parameter model this is ~14GB for weights alone; runtime overhead and KV cache can add substantially.
 - **Latency/throughput:** depends on runtime (CUDA/Metal/CoreML), quantization, sequence length, batch size, and kernel choices. Do not report fixed ms numbers without measurement on your exact setup.
 
-**Data Sources for VLA Evaluation:**
-| Dataset | Size | Trajectories | Access | Notes |
-|---------|------|--------------|--------|-------|
-| **Open-X Embodiment** | 1M+ trajectories | 22 robot embodiments | [Open-X website](https://robotics-transformer-x.github.io/) | Primary VLA training data |
-| **VLA-Arena-S** | ~1K trajectories | 170 tasks | [VLA-Arena repo](https://vla-arena.github.io) | Small-scale validation |
-| **VLA-Arena-M** | ~10K trajectories | 170 tasks | VLA-Arena repo | Primary experiments |
-| **VLA-Arena-L** | ~100K trajectories | 170 tasks | VLA-Arena repo | Publication-ready |
-| **LIBERO** | 130 tasks | ~100 demos/task | [LIBERO repo](https://github.com/Lifelong-Robot-Learning/LIBERO) | Standard benchmark |
-| **SimplerEnv** | Varied | Lightweight | [SimplerEnv repo](https://github.com/simpler-env/SimplerEnv) | Rapid iteration |
-| **Pixel-160K** | 160K trajectories | Pixel annotations | PixelVLA paper | PixelVLA-specific |
+**Data sources / benchmarks (examples; verify sizes/licensing before citing):**
+| Source | Purpose | Notes |
+|--------|---------|-------|
+| Open‑X Embodiment | Pretraining provenance / broad evaluation | Verify access terms and exact subsets used |
+| VLA‑Arena | Perturbation axes for robustness tests | Verify dataset availability and protocol |
+| LIBERO | Standard manipulation benchmark | Verify task definitions and splits |
+| SimplerEnv | Lightweight iteration / sanity checks | Verify task parity with your study |
+| Pixel‑160K (PixelVLA) | Pixel-level prompting analysis | Abstract says “will be released”; verify availability |
 
-**Estimated Data Volume:**
-- 10K trajectories × 100 timesteps × 4096 dims × 4 bytes = ~16GB per variable (V, L, D, A)
-- Full experiment suite: ~100-500GB storage recommended
+**Estimated data volume (illustrative; measure on your logging schema):**
+- `10k trajectories × 100 timesteps × 4096 dims × 4 bytes ≈ 16GB` per variable if you store dense float32 arrays (V/L/D/A) without compression.
+- In practice, you should log only the representations you analyze, prefer float16/quantized storage where valid, and compress/chunk data formats (see `EXPERIMENTS.md` §11).
 
-### 17.3.2 DreamVLA (GPT-2 backbone)
+### 17.3.2 DreamVLA (backbone dims unspecified in abstract)
 
-**Training:** None for embedding extraction, but DreamVLA model may need to be obtained/reproduced.
+**Training:** None for embedding extraction *if* weights and an inference API are available.
 
-**⚠️ Critical Gap:** DreamVLA hidden dimensions are NOT specified in the paper. Assume GPT-2 Medium (1024d) or Large (1280d) for planning.
+**Critical gap:** The DreamVLA arXiv abstract does not specify backbone family/dimensions or hidden sizes. Treat all such details as unknown until verified from a primary source (paper/code/model card). Do not assume it is “smaller than Llama 2 7B” without measurement.
 
-**Inference Compute:** ~50% of Llama 2 7B costs (smaller model).
+**Inference compute:** model- and runtime-dependent; report measured latency/throughput and peak memory on your deployment.
 
 ## 17.4 VLA Fine-tuning (High Compute, High Data)
 
@@ -6763,79 +6335,42 @@ This section provides a comprehensive, critical analysis of all components in th
 
 **When Needed:** Task-specific fine-tuning for new domains, benchmarks, or custom robots.
 
-**Training Requirements:**
-| Component | Value | Notes |
-|-----------|-------|-------|
-| **Base Model** | OpenVLA 7B | Pre-trained weights required |
-| **LoRA Rank** | 32 (PixelVLA default) | Lower rank = less compute, less capacity |
-| **Training Data** | 1K-10K trajectories | Domain-specific robot data |
-| **GPU Memory** | 24GB+ (RTX 4090) | Full fine-tuning: 80GB+ (A100) |
-| **Training Time** | 2-8 hours | On RTX 4090, depends on dataset size |
-| **Estimated Cost** | ~$10-50 | Cloud GPU (Lambda Labs / Runpod) |
+**Training requirements (measurement-first):**
+- Pre-trained base weights + a reproducible fine-tuning codepath.
+- A declared LoRA/adapter configuration (rank, target modules, precision) recorded in the run manifest.
+- Domain/task data with explicit licensing and provenance.
+- Measured training throughput, peak memory, and wall-clock on your hardware/runtime (do not cite generic “X hours on Y GPU” numbers).
 
-**Data Sources:**
-| Approach | Data Size | Cost | Effort |
-|----------|-----------|------|--------|
-| **Existing benchmarks (LIBERO, SimplerEnv)** | 10K+ trajectories | Free | Low |
-| **Collect in simulation (Isaac Sim, Gazebo)** | Unlimited synthetic | $0 (compute only) | Medium |
-| **Collect on real robot** | 100-1000 demos | $$$$ (robot + operator time) | High |
-| **Use VLA-Arena datasets** | 170 tasks, structured | Free | Low |
+**Data sources (examples; verify availability and licensing):**
+| Source | Notes |
+|--------|------|
+| Existing benchmarks (e.g., LIBERO, SimplerEnv) | Useful for matched comparisons; ensure protocol parity |
+| Collect in simulation | Cheap iteration; validate sim realism for your claim scope |
+| Collect on real robot | High fidelity; higher operational overhead and safety constraints |
+| Perturbation benchmarks (e.g., VLA‑Arena) | Useful for robustness analyses; verify access terms |
 
 ### 17.4.2 Full VLA Pre-training (Extreme Compute)
 
 **When Needed:** Only if training VLA from scratch (not recommended for PID-VLA project).
 
-**Training Requirements:**
-| Component | Value | Notes |
-|-----------|-------|-------|
-| **Data** | 970K+ trajectories | Open-X Embodiment scale |
-| **Compute** | 64 A100 GPUs × 1 week | ~$50K-100K cloud cost |
-| **Parameters** | 7B+ | Llama 2 7B backbone |
-
-**Recommendation:** Use pre-trained VLAs. Full pre-training is out of scope for a PhD project unless specifically required.
+**Recommendation (scope discipline):** Use pre-trained VLAs. Full pre-training is out of scope for PID‑VLA unless the study explicitly targets training dynamics. If you do pre-train, report measured compute, data, and costs for your exact setup and treat it as a separate project with its own reproducibility package.
 
 ### 17.4.3 Moondream-Inspired Small VLA (Alternative to DreamVLA)
 
 **When Needed:** If DreamVLA unavailable AND a small model is required for rapid iteration (see §7.7 for full architecture details).
 
-**Based on:** Moondream VLM (SigLIP + Phi-2) with added action head.
+**Scope note:** This is an *engineering contingency* for pipeline validation (logging/interventions/estimator plumbing), not a primary scientific target. If used, it must be documented and reproducible enough to be a credible object of study (see §7.7).
 
-**Training Requirements:**
-| Component | Value | Notes |
-|-----------|-------|-------|
-| **Vision Encoder** | SigLIP ViT-S/400 (frozen) | Pre-trained; no training cost |
-| **Language Model** | Phi-2 2.8B (frozen) | Pre-trained; no training cost |
-| **Projection Layer** | 2-layer MLP | Reduces 576×384d → 576×2560d |
-| **Action Head** | New diffusion/autoregressive | Estimate: 0.5-1B params |
-| **Total Parameters** | ~3.5B | 62% reduction vs OpenVLA |
+**Training requirements (measurement-first):**
+- Choose a small open backbone and a simple, explicit fusion/projection mechanism.
+- Record data provenance/licensing, commit hashes, hyperparameters, and seeds.
+- Report measured training/inference throughput and peak memory for your configuration; do not cite generic “X days on Y GPUs” estimates.
 
-**Stage-wise Training:**
-| Stage | Task | Tokens | GPU | Time | Cost |
-|-------|------|--------|-----|------|------|
-| **Stage 1** | Visual alignment (proj only) | 400M | 8x A100 | ~2 days | ~$500 |
-| **Stage 2** | Instruction tuning (proj + head) | 50M | 8x A100 | ~4 hours | ~$100 |
-| **Stage 3** | Full fine-tune (optional, unfreeze last 4 layers) | 100M | 8x A100 | ~2 days | ~$500 |
-| **Total** | | **550M** | | **~5-6 days** | **~$1.1K** |
+**Advantages:** faster iteration for engineering and cleaner ablations if encoders are frozen.
 
-**Data Requirements:**
-| Stage | Data Type | Size | Source |
-|-------|-----------|------|--------|
-| Stage 1 | Vision-action pairs | 100K+ trajectories | Existing benchmarks (LIBERO, Open-X) |
-| Stage 2 | Instruction-action pairs | 50K+ pairs | Synthetic (GPT-4o generated) + real |
-| Stage 3 (optional) | Domain-specific rollouts | 10K+ trajectories | Sim or real robot |
+**Disadvantages:** not automatically representative of large VLAs; cannot substitute for DreamVLA/OpenVLA claims unless benchmarked under matched protocols.
 
-**Advantages:**
-- Feasible compute (~$1.1K vs $50K+ for full pre-training)
-- Fast iteration (5-6 days vs months)
-- Small model (3.5B fits on single GPU)
-- Clean experimental design (frozen encoders)
-
-**Disadvantages:**
-- No explicit world model (D) - cannot test V-D-A decomposition
-- Unproven for VLA tasks (Moondream is VLM, not VLA)
-- Requires training from scratch (no pre-trained action head)
-
-**Recommendation:** Use as **fallback** if DreamVLA unavailable AND OpenVLA too large. Prioritize OpenVLA for core experiments due to established benchmarks.
+**Recommendation:** Use only if it materially accelerates Experiment 0/1 engineering; otherwise prioritize pre-trained VLAs.
 
 ## 17.5 Dimensionality Reduction (No Training)
 
@@ -6843,12 +6378,7 @@ This section provides a comprehensive, critical analysis of all components in th
 
 **Training:** None — SVD on data matrix.
 
-**Compute:** O(min(N,d)² × max(N,d)) for exact SVD; randomized SVD much faster.
-
-| Data Size | Compute Time | Memory |
-|-----------|--------------|--------|
-| N=10K, d=4096 | ~1-5s | ~160MB |
-| N=100K, d=4096 | ~30-120s | ~1.6GB |
+**Compute (measurement-first):** exact SVD is expensive at large `N`/`d`; randomized/incremental PCA is often preferred. Benchmark your PCA implementation and record runtime/memory for your dataset size and target dimension.
 
 **Data Requirements:** Same embeddings used for PID (no additional data).
 
@@ -6869,25 +6399,17 @@ This section provides a comprehensive, critical analysis of all components in th
 - Lower effective dimension for PID
 - Monosemantic feature identification
 
-**Training Requirements:**
-| Component | Value | Notes |
-|-----------|-------|-------|
-| **Architecture** | Encoder (d → 16d) → ReLU → Decoder (16d → d) | Expansion factor 16 typical |
-| **Training Data** | 100K-1M activation vectors | From frozen VLA forward passes |
-| **Training Time** | 2-8 hours on single GPU | Depends on expansion factor |
-| **GPU Memory** | 8-24GB | Batch size dependent |
+**Training requirements (measurement-first):**
+- Choose an SAE architecture/expansion factor and record it (do not assume a “typical” default is optimal).
+- Training data are activation vectors from frozen VLA forward passes; report the extraction point(s) and dataset provenance.
+- Report measured training throughput and peak memory; avoid fixed hour/GB claims.
 
 **Data Sources:**
 - Run frozen VLA on existing trajectory datasets
 - Extract activations at target layer(s)
 - No new robot data collection required
 
-**Compute Cost Estimate:**
-| SAE Target | Activations Needed | Training Time | GPU |
-|------------|-------------------|---------------|-----|
-| SigLIP (1024d) | 500K | ~2 hours | RTX 4090 |
-| DinoV2 (1024d) | 500K | ~2 hours | RTX 4090 |
-| Llama hidden (4096d) | 1M | ~6 hours | RTX 4090 |
+**Compute note:** SAE cost depends strongly on activation dimension, dataset size, expansion factor, optimizer settings, and hardware. Treat cost as empirical: benchmark on a small subset, then scale.
 
 **Code Resources:**
 - [SAELens](https://github.com/jbloomAus/SAELens) — well-maintained SAE training library
@@ -6895,13 +6417,10 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ### 17.6.2 Contractive/Variational Autoencoders
 
-**Training Requirements:**
-| Component | Value |
-|-----------|-------|
-| **Architecture** | MLP or Transformer encoder/decoder |
-| **Training Data** | 100K+ embedding vectors |
-| **Training Time** | 1-4 hours |
-| **GPU Memory** | 8-16GB |
+**Training requirements (measurement-first):**
+- Choose an encoder/decoder architecture and objective (contractive/variational/reconstruction) and record it in the manifest.
+- Use embedding vectors from the frozen VLA stage you analyze (same source as PID inputs).
+- Report measured training throughput and peak memory for your setup; do not cite generic hour/GB figures.
 
 **Data Sources:** Same as SAE — run frozen VLA on trajectory datasets.
 
@@ -6912,13 +6431,10 @@ This section provides a comprehensive, critical analysis of all components in th
 - Hierarchy-preserving dimensionality reduction
 - Research comparison with Euclidean methods
 
-**Training Requirements:**
-| Component | Value | Notes |
-|-----------|-------|-------|
-| **Architecture** | MLP projector → Lorentz manifold | Final layer projects to hyperboloid |
-| **Training Data** | 100K+ embeddings with structure-preserving loss | May use contrastive/reconstruction objectives |
-| **Training Time** | 4-12 hours | Lorentz optimization adds overhead |
-| **GPU Memory** | 16-32GB | Depending on batch size |
+**Training requirements (measurement-first):**
+- Define the projection geometry (e.g., Lorentz/Poincaré) and loss; record it.
+- Use embeddings with an explicit structure-preserving objective (contrastive/reconstruction); report dataset provenance.
+- Report measured training/inference cost for your implementation; avoid fixed hour/GB claims.
 
 **⚠️ Critical Note:** Hyperbolic MI/PID estimators are research-gated (§16.4.2, §16.7.4). Training a hyperbolic projection changes the measured quantity and requires re-validation.
 
@@ -6931,13 +6447,10 @@ This section provides a comprehensive, critical analysis of all components in th
 - MI-only screening (not full `I^sx_∩`)
 - Cross-check for kNN estimates
 
-**Training Requirements:**
-| Component | Value | Notes |
-|-----------|-------|-------|
-| **Architecture** | Critic network (MLP, 3-5 layers) | Donsker-Varadhan bound |
-| **Training Data** | 10K-100K joint samples | Per MI estimate |
-| **Training Time** | 5-30 min per MI estimate | Optimization-based |
-| **GPU Memory** | 4-8GB | Small critic network |
+**Training requirements (measurement-first):**
+- A critic network + optimizer; record architecture, objective variant, and early-stopping criteria.
+- Training data is the same samples used by kNN MI (no extra data), but optimization stability can vary widely; report variance across seeds.
+- Report measured per‑estimate time and peak memory for your configuration.
 
 **Critical Challenge:** MINE must be **retrained for each MI estimate**. This makes it expensive for full PID decomposition (which requires multiple MI terms).
 
@@ -6945,12 +6458,9 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ### 17.7.2 CCMI (Conditional MI)
 
-**Training Requirements:**
-| Component | Value |
-|-----------|-------|
-| **Architecture** | Classifier distinguishing joint vs product |
-| **Training Data** | 10K-100K samples with negative sampling |
-| **Training Time** | 10-60 min per CMI estimate |
+**Training requirements (measurement-first):**
+- A classifier-based estimator for conditional MI; record architecture/objective/negative sampling scheme.
+- Conditional estimation can be brittle; report stability checks and sensitivity to hyperparameters.
 
 **When Needed:** Conditional analyses (e.g., I(V;A|L)).
 
@@ -6990,24 +6500,13 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ### 17.8.3 Genie 3 / SIMA 2 (DeepMind)
 
-**⚠️ Access Limitation:** Not publicly available (as of Jan 2026).
-
-**If/When Available:**
-- Procedural world generation for VLA training
-- Unlimited synthetic training scenarios
-- Emergent physics learning
+Treat environment generators as an optional, separate track. Availability and capabilities vary; verify access/licensing and treat the generator’s physics fidelity as part of the experimental condition.
 
 ## 17.9 Process Reward Models (Very High Data Requirements)
 
 ### 17.9.1 GRM (General Reward Model — Robo-Dopamine)
 
-**Training Requirements:**
-| Component | Value | Notes |
-|-----------|-------|-------|
-| **Training Data** | 35M samples | 3,400+ hours of video |
-| **Base Model** | VLM backbone (InternLM-XC2-VL) | Pre-trained |
-| **Training Time** | Days to weeks | Multi-GPU cluster |
-| **Estimated Cost** | $1K-10K+ | Significant infrastructure |
+**Scope note:** Training large process reward models is typically data- and compute-intensive and is out of scope for PID‑VLA. Use pre-trained weights as a baseline only if they are available under an acceptable license.
 
 **Data Source for Reproduction:**
 - The GRM paper uses diverse robot manipulation videos
@@ -7022,13 +6521,10 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ### 17.10.1 Learned Failure Predictor (Baseline)
 
-**Training Requirements:**
-| Component | Value |
-|-----------|-------|
-| **Architecture** | MLP or small Transformer on (V, D, L, PID features) |
-| **Training Data** | 1K-10K trajectories with success/failure labels |
-| **Training Time** | 10-60 min |
-| **GPU Memory** | 2-8GB |
+**Training requirements (measurement-first):**
+- A lightweight supervised model (e.g., logistic regression/MLP) over logged representations and/or PID features.
+- A labeled dataset with clear success/failure definitions and split protocol.
+- Report measured training cost and calibration/robustness metrics; avoid generic time/memory claims.
 
 **Data Sources:**
 | Approach | Effort | Labels |
@@ -7052,17 +6548,7 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ### 17.11.2 DKT (Diffusion Knows Transparency)
 
-**Pre-trained Inference:**
-| Model | Speed | VRAM | Notes |
-|-------|-------|------|-------|
-| DKT 1.3B | Paper-reported (benchmark) | Paper-reported (benchmark) | Handles transparent objects |
-
-**Fine-tuning (if needed):**
-| Component | Value | Notes |
-|-----------|-------|-------|
-| **Base Model** | WAN VAE + DiT | Pre-trained |
-| **Training Data** | TransPhy3D (11K scenes, 1.32M frames) | Synthetic, available |
-| **Training Time** | 12-48 hours | Multi-GPU |
+Treat diffusion-based depth for transparent/reflective objects as an optional perception preprocessor. Use pre-trained models if available and benchmark on your scenes; avoid committing to base-model/dataset/training-time claims in this document without a primary citation and a local benchmark.
 
 ## 17.12 Synthetic Data Generation
 
@@ -7108,7 +6594,7 @@ for d_total in [10, 100, 1000, 4096]:
         ...
 ```
 
-**Compute:** Minutes to hours on single GPU depending on grid size.
+**Compute:** benchmark-dependent; record measured runtime and peak memory for your chosen grid size and backend.
 
 ## 17.13 Data Collection Strategy Summary
 
@@ -7125,54 +6611,35 @@ for d_total in [10, 100, 1000, 4096]:
 
 ### 17.13.2 Total Data Requirements Estimate
 
-| Phase | Data Size | Storage | Collection Effort |
-|-------|-----------|---------|-------------------|
-| **Experiment 0** | ~1GB synthetic | <5GB | None (generate) |
-| **Experiments 1-3** | 10-100K trajectories | 50-500GB | Download public |
-| **Experiment 4** | Subset of above + interventions | +20GB | Medium (intervention setup) |
-| **SAE training** | 1M activations × 4096d | ~16GB | Forward passes |
-| **Full project** | — | ~1TB recommended | — |
+Data volume is highly dependent on what you log (raw video vs embeddings vs flows), representation precision, compression, and episode count. Treat storage as an engineering variable: prefer chunked, compressed formats and log only the representations you analyze (see `EXPERIMENTS.md` §11).
 
 ## 17.14 Compute Budget Recommendations
 
 ### 17.14.1 Minimum Viable Setup (PhD Project)
 
-| Component | Specification | Cost |
-|-----------|---------------|------|
-| **Development** | M4 Max MacBook (128GB) | $4,000-5,000 (one-time) |
-| **GPU Compute** | RTX 4090 workstation or cloud | $2,000/GPU or $2-5/hr cloud |
-| **Storage** | 2TB NVMe | $200 |
-| **Cloud Budget** | Occasional A100 for large jobs | $500-2,000/year |
+**Measurement-first recommendation:** start with the hardware you have, run Experiment 0, and measure the actual bottlenecks (PID kNN, embedding extraction, video prediction, flow extraction). Upgrade only for the bottleneck you cannot mitigate via caching, reduction, or offline scheduling.
 
 ### 17.14.2 Compute Time Estimates
 
-| Task | Hardware | Time | Cost |
-|------|----------|------|------|
-| Experiment 0 (full grid) | RTX 4090 | 1-3 days | <$50 cloud |
-| VLA embedding extraction (100K traj) | RTX 4090 | 4-12 hours | <$20 cloud |
-| SAE training (SigLIP layer) | RTX 4090 | 2-4 hours | <$10 cloud |
-| PID analysis (1K trajectories) | RTX 4090 | 1-4 hours | <$10 cloud |
-| Full Experiments 1-3 | RTX 4090 | 1-2 weeks | <$500 cloud |
+Do not cite generic time/cost estimates in this document. Record measured runtime ranges (median/p95), peak memory, and configuration for each pipeline stage and report those in your experiment manifests.
 
 ### 17.14.3 What NOT to Train (Out of Scope)
 
 | Component | Why Out of Scope | Alternative |
 |-----------|-----------------|-------------|
-| VLA from scratch | 64 A100s × 1 week (~$50K+) | Use pre-trained OpenVLA |
-| GRM from scratch | 35M samples, massive infra | Use as pre-trained baseline |
-| WAN from scratch | Billions of video frames | Use pre-trained, LoRA fine-tune |
-| Genie 3 / SIMA 2 | Not public, DeepMind scale | N/A |
+| VLA from scratch | Training dynamics are not the object here | Use pre-trained VLAs |
+| Large PRM/GRM from scratch | Data/compute heavy; separate research program | Use pre-trained baseline if available |
+| Video foundation model from scratch | Data/compute heavy; separate research program | Use pre-trained predictor; treat as experimental variable |
+| Environment generators | Adds confounds and scope | Treat as optional future work |
 
 ## 17.15 Data Access and Licensing
 
-| Dataset | License | Access | Registration? |
-|---------|---------|--------|---------------|
-| **Open-X Embodiment** | Apache 2.0 | Public | No |
-| **VLA-Arena** | CC-BY (expected) | Public | No |
-| **LIBERO** | MIT | GitHub | No |
-| **SimplerEnv** | MIT | GitHub | No |
-| **TransPhy3D** | Research-only | Paper link | Possibly |
-| **Pixel-160K** | TBD | PixelVLA paper | TBD |
+Do not assume licenses from memory. For every dataset/model you use, record:
+- the license (or lack thereof),
+- access conditions/registration,
+- exact version/commit and checksum,
+- and whether redistribution is permitted.
+If you cannot legally redistribute an artifact required to reproduce the study, treat that as a publication blocker.
 
 ## 17.16 Critical Challenges and Mitigations
 
@@ -7264,90 +6731,53 @@ PID runtime depends on sample size \(n\), working dimension \(d\), kNN backend, 
 
 ### 17.17.5 Gaussian Splat Visualization (Real-Time)
 
-| Component | Performance | Hardware |
-|-----------|-------------|----------|
-| SparkJS rendering | target 60fps | WebGPU-capable GPU |
-| PID-colored splats (toy case) | target 60fps | overhead depends on splat count + shaders |
-| Interactive scrubbing | target real-time | frame budget depends on GPU + scene complexity |
-| Multi-view (4 panels) | target 30-60fps | depends on scene complexity |
+| Component | Target | Notes |
+|-----------|--------|-------|
+| SparkJS rendering | Interactive frame rate | WebGPU-capable GPU; benchmark on your scene complexity and splat count |
+| PID-colored overlays | Interactive for small scenes; offline for heavy runs | GPU budget depends on splat count + shader complexity + update rate |
+| Timeline scrubbing | Responsive interaction | Depends on caching strategy + IO; measure end-to-end |
+| Multi-view | Responsive interaction | Scene complexity and GPU memory are the limiting factors |
 
 **Browser requirements:**
 - Recent Chrome/Edge/Firefox with WebGPU support enabled
-- 2GB+ GPU VRAM for smooth rendering
-- 8GB+ system RAM
+- Sufficient GPU VRAM for your scene size (benchmark-dependent)
+- Sufficient system RAM for cached assets and logs (benchmark-dependent)
 
 ### 17.17.6 Full Pipeline Per-Trial Summary
 
-| Stage | Time | VRAM (Peak) | Cost |
-|-------|------|-------------|------|
-| WAN video generation | 90s | 22GB | $0.05 |
-| Vision foundation models | 5s | 4GB | $0.002 |
-| 3D flow extraction | 0.5s | - | - |
-| PID analysis (4 points) | 0.4s | - | - |
-| Visualization | real-time | 2GB | - |
-| **Total per trial** | **~96s** | **22GB** | **~$0.05** |
-
-**For 1000-trial experiment:**
-| Metric | Value |
-|--------|-------|
-| Total compute time | ~27 hours |
-| Total cost (cloud A100) | ~$50-100 |
-| Total cost (own RTX 4090) | ~$5-10 (electricity) |
-| Storage (videos + flows) | ~50-100 GB |
+Do not treat any per‑trial time/VRAM/cost numbers as stable. For every run, log:
+- stage-level wall-clock time (median/p95),
+- peak memory (RAM/VRAM),
+- and configuration (model IDs, resolution, frames, seeds, tracker settings).
+Assume offline-first unless you have demonstrated interactive throughput on your hardware.
 
 ### 17.17.7 Hardware Recommendations
 
-**Minimum Viable (PhD student budget):**
-| Component | Spec | Estimated Cost |
-|-----------|------|----------------|
-| GPU | RTX 4090 24GB | $1,600 |
-| CPU | AMD Ryzen 9 / Intel i9 | $400 |
-| RAM | 64GB DDR5 | $200 |
-| Storage | 2TB NVMe | $150 |
-| **Total** | | **~$2,400** |
-
-**Recommended (Lab setup):**
-| Component | Spec | Estimated Cost |
-|-----------|------|----------------|
-| GPU | 2× RTX 4090 or 1× A100 40GB | $3,200-10,000 |
-| CPU | AMD Threadripper / Xeon | $1,000 |
-| RAM | 128GB DDR5 | $400 |
-| Storage | 4TB NVMe RAID | $400 |
-| **Total** | | **~$5,000-12,000** |
-
-**macOS Alternative (Apple Silicon):**
-| Device | Unified Memory | Performance | Cost |
-|--------|----------------|-------------|------|
-| M4 Max MacBook Pro | 64GB | WAN 1.3B only | $4,000 |
-| M4 Ultra Mac Studio | 128GB | WAN 5B possible | $6,000+ |
-| **Limitation** | | WAN 14B not feasible | |
+Hardware requirements depend on which components you run locally:
+- **Estimator-only (PID on embeddings):** CPU + enough RAM for kNN workloads; GPU not required.
+- **Embedding extraction / video prediction / flow extraction:** typically benefits from GPU acceleration; exact VRAM requirements depend on the chosen models and resolutions.
+- **Visualization:** any WebGPU-capable GPU can work, but large scenes require more VRAM.
+Prefer profiling-first: run a small pilot, record peak memory and latency, then scale.
 
 ### 17.17.8 Data Requirements
 
-| Data Type | Source | Amount | Effort |
-|-----------|--------|--------|--------|
-| **RGB-D images** | Gazebo sim or real robot | 100-1000 scenes | Low-Medium |
-| **Task instructions** | Manual or template | 10-50 per scene | Low |
-| **Success/failure labels** | Automatic (task completion) | Per trial | Low |
-| **Robot trajectories** | Gazebo or real | 1000+ | Medium |
-| **VLA embeddings** | OpenVLA inference | Per trajectory | Low |
-
-**For Wan-Move fine-tuning (optional):**
-| Requirement | Value |
-|-------------|-------|
-| Robot videos with actions | 1K-10K clips |
-| Action labels | Per-frame or per-segment |
-| Training compute | 8-24 hours on 4× A100 |
+Minimum required artifacts are:
+- observations (RGB or RGB‑D),
+- task instructions/prompts,
+- success/failure labels or external targets,
+- executed trajectories,
+- and the extracted representations used for PID.
+Exact volumes depend on episode length, frame rate, representation precision, and how much you cache; measure and report.
 
 ### 17.17.9 What NOT to Build (Out of Scope)
 
 | Component | Why Out of Scope | Alternative |
 |-----------|------------------|-------------|
-| Custom video model | Extreme compute (weeks on clusters) | Use pre-trained WAN |
+| Custom video model | Separate high-compute research program | Use a pre-trained predictor; treat as experimental variable |
 | Custom depth model | Not core contribution | Use Depth-Anything/DKT |
 | Custom tracking model | Not core contribution | Use CoTracker (or equivalent) |
 | Real robot experiments | High cost, safety, time | Use Gazebo simulation |
-| Large-scale RL training | Days-weeks of GPU time | Small-scale validation only |
+| Large-scale RL training | Separate research program | Small-scale validation only |
 
 ---
 
@@ -7404,9 +6834,8 @@ These blockers could terminate the project if unmitigated. Each requires explici
 **Risk:** DreamVLA (arXiv:2507.04447) is the only VLA with explicitly extractable world model states ("D"). If unavailable, the V-D-A decomposition becomes impossible.
 
 **Evidence for Concern:**
-- Paper does NOT specify GPT-2 variant or hidden dimensions
-- No HuggingFace page or GitHub release found (as of Jan 2026)
-- Authors may not release weights due to training data licensing
+- Abstract does not specify backbone family/dimensions or hidden sizes; implementation details may be insufficient for re-implementation.
+- Weight release/hosting status is unknown; verify upstream availability and licensing before depending on DreamVLA.
 
 **Detection:**
 - Unable to download/access DreamVLA weights
@@ -7416,7 +6845,7 @@ These blockers could terminate the project if unmitigated. Each requires explici
 **Mitigation Options:**
 1. **PIVOT to OpenVLA hidden states:** Use internal layer activations as "D" proxy (less clean, but extractable)
 2. **PIVOT to V-L-A only:** Abandon world model decomposition; focus on language grounding (still scientifically valuable)
-3. **Re-implement DreamVLA:** If architecture is sufficiently specified, train from scratch (HIGH cost: ~$5K-10K compute + 2-3 months)
+3. **Re-implement DreamVLA:** Only if the architecture and training recipe are sufficiently specified and you can publish a reproducibility package
 4. **Contact authors directly:** Request pre-publication access for research purposes
 
 **Go/No-Go Decision:**
@@ -7745,6 +7174,8 @@ BLOCKER RESOLUTION PROTOCOL
 
 # Appendix B: Decision Log and Implementation Reference
 
+**Scope note:** This appendix contains decision history and engineering sketches. Treat any hardware, performance, or cost numbers as historical placeholders unless they are tied to a primary citation or a committed benchmark in this repo; benchmark on your setup before using.
+
 ## B.1 Decision Log (Detailed)
 
 ### Decision 1: Discard OpenVLA vs DreamVLA Comparison
@@ -7760,7 +7191,7 @@ Compare PID decomposition signatures between OpenVLA (no explicit world-model ou
 
 **Why Rejected:**
 
-1. **Confounds are insurmountable:** The architectures differ in backbone (Llama 2 vs GPT‑2‑class, plus different vision stacks), training data, action representation (discrete bins vs diffusion-style continuous actions), and attention/conditioning design. Any observed PID difference could be attributed to any of these factors.
+1. **Confounds are insurmountable:** The architectures differ in backbone (Llama 2 vs backbone unspecified in DreamVLA’s abstract), training data, action representation, and attention/conditioning design. Any observed PID difference could be attributed to any of these factors.
 
 2. **Circular reasoning risk:** If we define "D" differently for each architecture (hidden states for OpenVLA, explicit world‑knowledge outputs for DreamVLA), we may end up measuring the operationalization rather than an intrinsic property.
 
@@ -7900,16 +7331,16 @@ for dim in [64, 256, 1024, 4096]:
 **Context:**
 Both GWM (Gaussian World Model) and WAN (Wanxiang) were considered for providing ground-truth world state predictions to validate against VLA internal representations.
 
-**Why GWM is Preferred:**
+**Comparison (capability notes; avoid declaring a “winner” without a matched benchmark):**
 
-| Criterion | WAN | GWM | Winner |
-|-----------|-----|-----|--------|
-| Trained on robot data | No (internet video) | Yes (robot trajectories) | GWM |
-| 3D representation | No (2D video frames) | Yes (3D Gaussian Splatting) | GWM |
-| Action-conditioned | No (unconditional) | Yes (predicts state given action) | GWM |
-| Inference speed | ~4 min/clip | ~100ms/frame | GWM |
-| Visual quality | Excellent | Moderate | WAN |
-| Open weights | Yes (1.3B, 14B) | Limited | WAN |
+| Criterion | WAN (video foundation model) | GWM (Gaussian world model; if built) |
+|-----------|------------------------------|--------------------------------------|
+| Training distribution | Broad video (paper; not robot-specialized by default) | Robot/scene dependent (you choose) |
+| Representation | 2D video frames | 3D (e.g., 3DGS / scene state) |
+| Action conditioning | Possible via fine-tuning/conditioning schemes (verify) | Native by design (predicts next state from action) |
+| Runtime / footprint | Benchmark-dependent | Benchmark-dependent |
+| Visual quality | Often high (paper claims; benchmark-dependent) | Scene/capture dependent |
+| Weights/code | Paper claims open release (verify licensing) | Research/implementation dependent |
 
 **When to Use Each:**
 
@@ -7924,4117 +7355,57 @@ GWM integration requires 3DGS scene reconstruction, which adds pipeline complexi
 
 ## B.2 Platform Implementation Reference
 
-### B.2.1 Hardware Target Specification
+**v7.0 scope change:** earlier drafts included detailed, hardware-specific implementation sketches (Apple Silicon targets, CUDA targets, MLX/Metal/CoreML acceleration ideas). Those blocks were removed in v7.0 because they:
+- contained unsourced hardware/performance assertions,
+- described non-existent modules/scripts in this repository,
+- and risked being cited as “requirements” despite being unbenchmarked.
 
-| Component | Specification | Notes |
-|-----------|---------------|-------|
-| **Primary Target** | Apple M4 Max (128GB unified memory) | Development & prototyping |
-| **Secondary Target** | NixOS + NVIDIA RTX 4090 (24GB VRAM) | Scaling & batch experiments |
-| **Tertiary Target** | Apple M4 Pro (64GB unified memory) | May require model sharding |
-| **Minimum Viable** | Apple M4 (24GB unified memory) | Requires aggressive quantization |
+**Canonical repo reality (authoritative):**
+- Tooling: `flake.nix` / `flake.lock` and `justfile`
+- Python deps: `pyproject.toml` / `uv.lock`
+- Implemented code: `crates/pid-core` (estimators + geometry gates) and `crates/pid-python` (`pid_core_rs` bindings)
 
-### B.2.2 Platform Comparison
+**Engineering guidance (measurement-first):**
+- The PID estimators and geometry diagnostics run on CPU.
+- GPU acceleration (CUDA/Metal) and deployment backends (CoreML/TensorRT) are optional engineering work and should only be specified once there is a committed implementation + benchmark protocol in this repo.
 
-| Aspect | Apple M4 Max | NixOS + RTX 4090 |
-|--------|--------------|------------------|
-| **Memory** | 128GB unified | 24GB VRAM + 64GB+ RAM |
-| **Bandwidth** | 400 GB/s | 1008 GB/s (VRAM) |
-| **Peak FP16** | ~27 TFLOPS | ~83 TFLOPS |
-| **Power** | ~30W TDP | ~450W TDP |
-| **Reproducibility** | Excellent (Metal determinism) | Good (Nix + pinned CUDA) |
-| **Framework** | MLX | PyTorch + CUDA |
-| **Best For** | Interactive dev, long runs | Batch experiments, scaling |
-
-### B.2.3 Apple Silicon M4 Implementation (Primary)
-
-#### B.2.3.1 Why Apple Silicon for Development
-
-```
-RATIONALE FOR M4-FIRST DEVELOPMENT
-==================================
-
-1. UNIFIED MEMORY ARCHITECTURE (UMA)
-   - No CPU↔GPU memory copies for embedding extraction
-   - VLA forward pass and PID computation share memory
-   - Critical for large embedding buffers (4096-dim × 10000 samples = 160MB per source)
-   
-2. POWER EFFICIENCY
-   - Long experiment runs without thermal throttling
-   - Can run overnight on laptop without external cooling
-   - ~30W vs ~300W for equivalent NVIDIA setup
-
-3. MLX FRAMEWORK ADVANTAGES
-   - Native lazy evaluation reduces memory pressure
-   - Composable function transforms (grad, vmap, compile)
-   - Unified NumPy-like API across CPU/GPU
-   - Active development by Apple ML research
-
-4. REPRODUCIBILITY
-   - Nix works perfectly on macOS
-   - Metal shaders are deterministic (unlike CUDA)
-   - Single-machine setup avoids cluster variability
-
-5. PRACTICAL CONSIDERATIONS
-   - Hardware already owned
-   - No cloud costs for initial development
-   - Later port to Linux/CUDA for scaling
-```
-
-#### B.2.3.2 Apple Silicon Software Stack
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     APPLICATION LAYER                           │
-├─────────────────────────────────────────────────────────────────┤
-│  Python Experiments    │  Tauri Visualization  │  Jupyter       │
-│  (uv + pid-vla pkg)    │  (Rust + WebView)     │  Notebooks     │
-├─────────────────────────────────────────────────────────────────┤
-│                      PYTHON BINDINGS                            │
-├─────────────────────────────────────────────────────────────────┤
-│  PyO3 (pid-python)     │  mlx-rs bindings      │  coremltools   │
-├─────────────────────────────────────────────────────────────────┤
-│                        CORE LIBRARIES                           │
-├─────────────────────────────────────────────────────────────────┤
-│  pid-core (Rust)  │  MLX (C++)   │  CoreML    │  Accelerate    │
-│  - KSG estimator  │  - VLA inf.  │  - Quant.  │  - BLAS/vDSP   │
-│  - I^sx_∩ PID     │  - Autodiff  │  - ANE     │  - vecLib      │
-│  - k-NN search    │  - Compile   │  inference │                │
-├─────────────────────────────────────────────────────────────────┤
-│                      ACCELERATION LAYER                         │
-├─────────────────────────────────────────────────────────────────┤
-│  Metal Performance    │  Metal           │  Apple Neural      │
-│  Shaders (MPS)        │  Compute         │  Engine (ANE)      │
-├─────────────────────────────────────────────────────────────────┤
-│                         HARDWARE                                │
-├─────────────────────────────────────────────────────────────────┤
-│  Apple M4 Max: GPU (40 cores) + ANE (38 TOPS) + CPU (16 cores) │
-│  Unified Memory: 128GB @ 400 GB/s bandwidth                     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### B.2.4 NixOS + CUDA Implementation (Secondary)
-
-#### B.2.4.1 Why NixOS for CUDA Development
-
-```
-RATIONALE FOR NIXOS + CUDA AS SECONDARY TARGET
-==============================================
-
-1. REPRODUCIBILITY
-   - Nix flakes provide bit-for-bit reproducible environments
-   - CUDA version, cuDNN version, Python packages ALL pinned
-   - No "works on my machine" issues
-   - Same flake.nix works on any NixOS machine
-   
-2. CUDA VERSION MANAGEMENT
-   - Run multiple CUDA versions simultaneously
-   - No system-wide CUDA installation conflicts
-   - Easy rollback if update breaks something
-   - nix develop --impure for CUDA driver access
-   
-3. DECLARATIVE CONFIGURATION
-   - Entire system configuration in version control
-   - hardware.nvidia.* options for driver config
-   - programs.cuda.enable for CUDA toolkit
-   - Easy to spin up identical machines
-   
-4. FLAKE-BASED DEVELOPMENT
-   - devShells with all dependencies
-   - Separate shells for different CUDA versions
-   - Cached builds via Cachix
-   - CI/CD integration with GitHub Actions
-
-5. PERFORMANCE PARITY
-   - Same PyTorch code as Ubuntu/Arch
-   - No performance overhead from Nix
-   - NVIDIA drivers work normally
-   - Full access to CUDA ecosystem
-```
-
-#### B.2.4.2 NixOS CUDA Hardware Specifications
-
-| Component | Recommended | Minimum | Notes |
-|-----------|-------------|---------|-------|
-| **GPU** | RTX 4090 (24GB) | RTX 3090 (24GB) | 24GB VRAM required for 7B models |
-| **CPU** | AMD Ryzen 9 / Intel i9 | 8+ cores | For data loading, preprocessing |
-| **RAM** | 64GB+ | 32GB | CPU-side embedding buffers |
-| **Storage** | 2TB NVMe | 1TB NVMe | Datasets, checkpoints |
-| **PSU** | 1000W+ | 850W | RTX 4090 draws ~450W |
-
-**Multi-GPU Considerations:**
-- PID computation is embarrassingly parallel across samples
-- Each GPU processes independent trajectory batches
-- Minimal inter-GPU communication needed
-- 2× RTX 4090 effectively doubles throughput
-
-#### B.2.4.3 NixOS Configuration for CUDA
-
-**System Configuration (`/etc/nixos/configuration.nix`):**
-
-```nix
-{ config, pkgs, ... }:
-
-{
-  # Enable unfree packages (required for NVIDIA drivers)
-  nixpkgs.config.allowUnfree = true;
-  
-  # NVIDIA driver configuration
-  services.xserver.videoDrivers = [ "nvidia" ];
-  
-  hardware.nvidia = {
-    # Use the stable driver (production)
-    package = config.boot.kernelPackages.nvidiaPackages.stable;
-    
-    # For RTX 40 series, use production branch
-    # package = config.boot.kernelPackages.nvidiaPackages.production;
-    
-    # Enable modesetting (required for Wayland)
-    modesetting.enable = true;
-    
-    # Power management
-    powerManagement.enable = true;
-    powerManagement.finegrained = false;  # Keep GPU active for compute
-    
-    # Enable NVIDIA settings GUI
-    nvidiaSettings = true;
-    
-    # Open source kernel module (experimental, disable for stability)
-    open = false;
-  };
-  
-  # Enable OpenGL
-  hardware.opengl = {
-    enable = true;
-    driSupport = true;
-    driSupport32Bit = true;
-  };
-  
-  # CUDA support
-  environment.systemPackages = with pkgs; [
-    cudaPackages.cudatoolkit
-    cudaPackages.cudnn
-    nvtopPackages.nvidia  # GPU monitoring
-    pciutils
-    lshw
-  ];
-  
-  # Environment variables for CUDA
-  environment.sessionVariables = {
-    CUDA_PATH = "${pkgs.cudaPackages.cudatoolkit}";
-    EXTRA_LDFLAGS = "-L/lib -L${pkgs.linuxPackages.nvidia_x11}/lib";
-    EXTRA_CCFLAGS = "-I/usr/include";
-  };
-}
-```
-
-#### B.2.4.4 Project Flake for PID-VLA (NixOS)
-
-```nix
-# flake.nix for PID-VLA project
-{
-  description = "PID-VLA: Partial Information Decomposition for VLA Diagnostics";
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
-    flake-utils.url = "github:numtide/flake-utils";
-    rust-overlay.url = "github:oxalica/rust-overlay";
-  };
-
-  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs {
-          inherit system overlays;
-          config = {
-            allowUnfree = true;  # Required for CUDA
-            cudaSupport = true;
-            cudaCapabilities = [ "8.9" ];  # RTX 40 series (Ada Lovelace)
-            # cudaCapabilities = [ "8.6" ];  # RTX 30 series (Ampere)
-          };
-        };
-        
-        # Pin Rust version for reproducibility
-        rustVersion = pkgs.rust-bin.stable."1.75.0".default.override {
-          extensions = [ "rust-src" "rust-analyzer" ];
-          targets = [ "x86_64-unknown-linux-gnu" ];
-        };
-        
-        # Python environment with CUDA-enabled PyTorch
-        pythonEnv = pkgs.python311.withPackages (ps: with ps; [
-          # Core ML
-          (pytorch-bin.override { cudaSupport = true; })
-          torchvision-bin
-          transformers
-          accelerate
-          bitsandbytes
-          
-          # Scientific computing
-          numpy
-          scipy
-          scikit-learn
-          polars
-          
-          # Visualization
-          matplotlib
-          seaborn
-          plotly
-          
-          # Utilities
-          tqdm
-          wandb
-          jupyter
-          ipython
-          
-          # Testing
-          pytest
-          pytest-benchmark
-        ]);
-        
-        # CUDA development libraries
-        cudaLibs = with pkgs.cudaPackages; [
-          cudatoolkit
-          cudnn
-          cutensor
-          nccl  # For multi-GPU
-        ];
-        
-      in {
-        devShells = {
-          # Primary CUDA development shell
-          default = pkgs.mkShell {
-            name = "pid-vla-cuda";
-            
-            buildInputs = [
-              rustVersion
-              pythonEnv
-              pkgs.uv
-              pkgs.just
-              pkgs.pkg-config
-              pkgs.openssl
-            ] ++ cudaLibs;
-            
-            # CUDA environment setup
-            shellHook = ''
-              export CUDA_HOME="${pkgs.cudaPackages.cudatoolkit}"
-              export CUDA_PATH="$CUDA_HOME"
-              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath cudaLibs}:$LD_LIBRARY_PATH"
-              export TORCH_CUDA_ARCH_LIST="8.9"  # RTX 40 series
-              
-              # Verify CUDA is accessible
-              if command -v nvidia-smi &> /dev/null; then
-                echo "🚀 CUDA environment ready"
-                nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
-              else
-                echo "⚠️  nvidia-smi not found. Run with: nix develop --impure"
-              fi
-              
-              echo "Python: $(python --version)"
-              echo "PyTorch CUDA: $(python -c 'import torch; print(torch.cuda.is_available())')"
-            '';
-            
-            # Required for accessing GPU drivers
-            # Run with: nix develop --impure
-            NIX_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-              pkgs.stdenv.cc.cc
-              pkgs.zlib
-            ];
-          };
-          
-          # CPU-only shell for testing without GPU
-          cpu = pkgs.mkShell {
-            name = "pid-vla-cpu";
-            buildInputs = [
-              rustVersion
-              (pkgs.python311.withPackages (ps: with ps; [
-                pytorch-bin
-                numpy
-                scipy
-                polars
-                pytest
-              ]))
-              pkgs.uv
-              pkgs.just
-            ];
-          };
-        };
-        
-        # Package definition for distribution
-        packages.default = pkgs.rustPlatform.buildRustPackage {
-          pname = "pid-vla";
-          version = "0.1.0";
-          src = ./.;
-          cargoLock.lockFile = ./Cargo.lock;
-          
-          nativeBuildInputs = [ pkgs.pkg-config ];
-          buildInputs = [ pkgs.openssl ];
-        };
-      });
-}
-```
-
-#### B.2.4.5 NixOS CUDA Software Stack
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     APPLICATION LAYER                           │
-├─────────────────────────────────────────────────────────────────┤
-│  Python Experiments    │  Tauri Visualization  │  Jupyter       │
-│  (uv + pid-vla pkg)    │  (Rust + WebView)     │  Notebooks     │
-├─────────────────────────────────────────────────────────────────┤
-│                      PYTHON BINDINGS                            │
-├─────────────────────────────────────────────────────────────────┤
-│  PyO3 (pid-python)     │  torch.utils.cpp_ext  │  pybind11      │
-├─────────────────────────────────────────────────────────────────┤
-│                        CORE LIBRARIES                           │
-├─────────────────────────────────────────────────────────────────┤
-│  pid-core (Rust)  │  PyTorch     │  cuML/RAPIDS │  OpenBLAS    │
-│  - KSG estimator  │  - VLA inf.  │  - GPU k-NN  │  - CPU BLAS  │
-│  - I^sx_∩ PID     │  - Autodiff  │  - cuGraph   │  - Fallback  │
-│  - k-NN search    │  - compile() │              │              │
-├─────────────────────────────────────────────────────────────────┤
-│                      ACCELERATION LAYER                         │
-├─────────────────────────────────────────────────────────────────┤
-│  cuDNN            │  CUDA        │  cuBLAS      │  NCCL        │
-│  (Deep Learning)  │  Kernels     │  (Linear Alg)│  (Multi-GPU) │
-├─────────────────────────────────────────────────────────────────┤
-│                    NIX-MANAGED DRIVERS                          │
-├─────────────────────────────────────────────────────────────────┤
-│  NVIDIA Driver (nixpkgs.linuxPackages.nvidia_x11)               │
-│  CUDA Toolkit (nixpkgs.cudaPackages.cudatoolkit)                │
-│  cuDNN (nixpkgs.cudaPackages.cudnn)                             │
-├─────────────────────────────────────────────────────────────────┤
-│                         HARDWARE                                │
-├─────────────────────────────────────────────────────────────────┤
-│  NVIDIA RTX 4090: 16384 CUDA cores @ 2.52 GHz                   │
-│  24GB GDDR6X @ 1008 GB/s | 82.6 TFLOPS FP16 | 330 TOPS INT8    │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### B.2.4.6 CUDA-Specific PID Implementation
-
-```python
-"""
-CUDA-optimized PID computation for NixOS environment.
-Uses PyTorch for GPU-accelerated k-NN and MI estimation.
-"""
-
-import torch
-import torch.nn.functional as F
-from torch import Tensor
-from typing import Tuple
-import math
-
-# Verify CUDA availability on NixOS
-def check_cuda_nixos():
-    """Verify CUDA is properly configured on NixOS."""
-    if not torch.cuda.is_available():
-        raise RuntimeError(
-            "CUDA not available. On NixOS, run with: nix develop --impure\n"
-            "Ensure hardware.nvidia is configured in configuration.nix"
-        )
-    
-    device = torch.cuda.current_device()
-    props = torch.cuda.get_device_properties(device)
-    print(f"GPU: {props.name}")
-    print(f"Memory: {props.total_memory / 1e9:.1f} GB")
-    print(f"Compute Capability: {props.major}.{props.minor}")
-    print(f"CUDA Version: {torch.version.cuda}")
-    return device
-
-
-class CUDAKSGEstimator:
-    """
-    GPU-accelerated KSG mutual information estimator.
-    Optimized for batch processing on NVIDIA GPUs.
-    """
-    
-    def __init__(self, k: int = 5, device: str = "cuda"):
-        self.k = k
-        self.device = torch.device(device)
-        
-    def _cdist_chunked(
-        self, 
-        x: Tensor, 
-        y: Tensor, 
-        chunk_size: int = 2048
-    ) -> Tensor:
-        """
-        Chunked pairwise distance computation to avoid OOM.
-        RTX 4090 can handle ~4096 chunk size for d=4096.
-        """
-        n, m = x.shape[0], y.shape[0]
-        
-        # For small inputs, use direct computation
-        if n * m * x.shape[1] < 1e9:  # ~1GB
-            return torch.cdist(x, y, p=float('inf'))  # Chebyshev distance
-        
-        # Chunked computation for large inputs
-        distances = torch.empty(n, m, device=self.device)
-        for i in range(0, n, chunk_size):
-            i_end = min(i + chunk_size, n)
-            for j in range(0, m, chunk_size):
-                j_end = min(j + chunk_size, m)
-                distances[i:i_end, j:j_end] = torch.cdist(
-                    x[i:i_end], y[j:j_end], p=float('inf')
-                )
-        return distances
-    
-    def _kth_neighbor_distance(self, x: Tensor) -> Tuple[Tensor, Tensor]:
-        """Find k-th nearest neighbor distance for each point."""
-        # Self-distance matrix
-        dists = self._cdist_chunked(x, x)
-        
-        # Set self-distance to inf
-        dists.fill_diagonal_(float('inf'))
-        
-        # Find k-th smallest distance
-        kth_dists, indices = torch.kthvalue(dists, self.k, dim=1)
-        
-        return kth_dists, indices
-    
-    def _count_within_distance(
-        self, 
-        x: Tensor, 
-        epsilon: Tensor
-    ) -> Tensor:
-        """Count points within epsilon distance (Chebyshev)."""
-        dists = self._cdist_chunked(x, x)
-        # Strict inequality as per KSG algorithm
-        counts = (dists < epsilon.unsqueeze(1)).sum(dim=1) - 1  # Exclude self
-        return counts
-    
-    @torch.no_grad()
-    def mutual_information(self, x: Tensor, y: Tensor) -> float:
-        """
-        Estimate I(X; Y) using KSG algorithm on GPU.
-        
-        Args:
-            x: (N, d_x) tensor
-            y: (N, d_y) tensor
-            
-        Returns:
-            Estimated mutual information in nats
-        """
-        x = x.to(self.device)
-        y = y.to(self.device)
-        n = x.shape[0]
-        
-        # Joint space
-        xy = torch.cat([x, y], dim=1)
-        
-        # Find k-th neighbor distance in joint space
-        epsilon, _ = self._kth_neighbor_distance(xy)
-        
-        # Count neighbors in marginal spaces
-        n_x = self._count_within_distance(x, epsilon)
-        n_y = self._count_within_distance(y, epsilon)
-        
-        # KSG formula: I(X;Y) = psi(k) + psi(N) - <psi(n_x+1) + psi(n_y+1)>
-        psi_k = torch.digamma(torch.tensor(self.k, dtype=torch.float32, device=self.device))
-        psi_n = torch.digamma(torch.tensor(n, dtype=torch.float32, device=self.device))
-        
-        # Average digamma of marginal counts
-        avg_psi = (
-            torch.digamma((n_x + 1).float()) + 
-            torch.digamma((n_y + 1).float())
-        ).mean()
-        
-        mi = (psi_k + psi_n - avg_psi).item()
-        return max(0.0, mi)  # MI is non-negative
-
-
-class CUDAPIDEstimator:
-    """
-    GPU-accelerated I^sx_∩ PID estimation.
-    Batched computation for high throughput on RTX 4090.
-    """
-    
-    def __init__(self, k: int = 5, device: str = "cuda"):
-        self.k = k
-        self.device = torch.device(device)
-        self.ksg = CUDAKSGEstimator(k=k, device=device)
-    
-    @torch.no_grad()
-    def decompose(
-        self, 
-        s1: Tensor, 
-        s2: Tensor, 
-        target: Tensor
-    ) -> dict:
-        """
-        Compute full PID decomposition I(S1, S2; T).
-        
-        Returns:
-            Dictionary with keys: total_mi, redundancy, unique_s1, 
-            unique_s2, synergy
-        """
-        s1 = s1.to(self.device)
-        s2 = s2.to(self.device)
-        target = target.to(self.device)
-        
-        # Joint source
-        s1s2 = torch.cat([s1, s2], dim=1)
-        
-        # Compute mutual information terms
-        i_s1_t = self.ksg.mutual_information(s1, target)
-        i_s2_t = self.ksg.mutual_information(s2, target)
-        i_s1s2_t = self.ksg.mutual_information(s1s2, target)
-        
-        # Compute I^sx_∩ redundancy via the Ehrlich et al. (2024) kNN disjunction estimator.
-        redundancy = self._compute_shared_exclusions_redundancy(s1, s2, target)
-        
-        # PID atoms
-        unique_s1 = i_s1_t - redundancy
-        unique_s2 = i_s2_t - redundancy
-        synergy = i_s1s2_t - i_s1_t - i_s2_t + redundancy
-        
-        return {
-            'total_mi': i_s1s2_t,
-            'redundancy': redundancy,
-            'unique_s1': unique_s1,
-            'unique_s2': unique_s2,
-            'synergy': synergy,
-            # Additional diagnostics
-            'i_s1_t': i_s1_t,
-            'i_s2_t': i_s2_t,
-        }
-    
-    def _compute_shared_exclusions_redundancy(
-        self, 
-        s1: Tensor, 
-        s2: Tensor, 
-        target: Tensor,
-        n_samples: int = 1000
-    ) -> float:
-        """
-        Compute continuous shared-exclusions redundancy I^sx_∩(S1,S2;T)
-        using the KSG-style disjunction estimator (Ehrlich et al. 2024).
-
-        This is O(N²) in the naive form; this sketch optionally subsamples for
-        tractability. For production, prefer an explicit distance-matrix cache
-        + chunked k-th-neighbor selection.
-        """
-        n = target.shape[0]
-        
-        # Sample if dataset is large
-        if n > n_samples:
-            indices = torch.randperm(n, device=self.device)[:n_samples]
-            s1 = s1[indices]
-            s2 = s2[indices]
-            target = target[indices]
-            n = n_samples
-
-        # Pairwise Chebyshev/L∞ distances.
-        ds1 = self.ksg._cdist_chunked(s1, s1)
-        ds2 = self.ksg._cdist_chunked(s2, s2)
-        dt = self.ksg._cdist_chunked(target, target)
-
-        # Disjunction distance in source space: min(ds1, ds2).
-        ds_disj = torch.minimum(ds1, ds2)
-        # Joint disjunction distance: max(dt, ds_disj).
-        d_joint = torch.maximum(dt, ds_disj)
-
-        # Exclude self for the kNN radius.
-        d_joint.fill_diagonal_(float('inf'))
-        eps_raw, _ = torch.kthvalue(d_joint, self.k, dim=1)
-        # Strict radius for inclusive counting (KSG-style tie handling).
-        eps = torch.nextafter(eps_raw, torch.zeros_like(eps_raw))
-
-        # Counts include self (diagonal distance is 0).
-        n_alpha = (ds_disj <= eps.unsqueeze(1)).sum(dim=1)
-        n_t = (dt <= eps.unsqueeze(1)).sum(dim=1)
-
-        psi_k = torch.digamma(torch.tensor(self.k, dtype=torch.float32, device=self.device))
-        psi_n = torch.digamma(torch.tensor(n, dtype=torch.float32, device=self.device))
-        avg = (torch.digamma(n_alpha.float()) + torch.digamma(n_t.float())).mean()
-        return (psi_k + psi_n - avg).item()
-
-
-# Batch processing for large-scale experiments
-def batch_pid_analysis(
-    trajectories: list,
-    estimator: CUDAPIDEstimator,
-    batch_size: int = 32
-) -> list:
-    """
-    Process multiple trajectories in batches.
-    Optimized for RTX 4090 with 24GB VRAM.
-    """
-    results = []
-    
-    for i in range(0, len(trajectories), batch_size):
-        batch = trajectories[i:i+batch_size]
-        
-        # Process batch in parallel (data parallelism)
-        batch_results = []
-        for traj in batch:
-            v, d, a = traj['vision'], traj['dream'], traj['action']
-            pid = estimator.decompose(v, d, a)
-            batch_results.append(pid)
-        
-        results.extend(batch_results)
-        
-        # Clear CUDA cache periodically
-        if i % (batch_size * 10) == 0:
-            torch.cuda.empty_cache()
-    
-    return results
-```
-
-#### B.2.4.7 NixOS-Specific Troubleshooting
-
-**Common Issues and Solutions:**
-
-| Issue | Symptom | Solution |
-|-------|---------|----------|
-| CUDA not found | `torch.cuda.is_available() == False` | Run `nix develop --impure` to access GPU drivers |
-| Driver mismatch | `CUDA driver version insufficient` | Update `hardware.nvidia.package` in configuration.nix |
-| OOM errors | `CUDA out of memory` | Reduce batch size, use chunked distance computation |
-| Slow k-NN | GPU underutilized | Increase batch size, use RAPIDS cuML for k-NN |
-| Non-deterministic | Results vary between runs | Set `torch.backends.cudnn.deterministic = True` |
-
-**Verifying CUDA Installation:**
-
-```bash
-# In nix develop shell
-$ nvidia-smi
-# Should show GPU info
-
-$ python -c "import torch; print(torch.cuda.is_available())"
-# Should print: True
-
-$ python -c "import torch; print(torch.cuda.get_device_name(0))"
-# Should print: NVIDIA GeForce RTX 4090
-
-# Check CUDA version matches PyTorch expectation
-$ python -c "import torch; print(f'PyTorch CUDA: {torch.version.cuda}')"
-$ nvcc --version
-```
-
-#### B.2.4.8 Multi-GPU Configuration (Optional)
-
-For 2× RTX 4090 setups:
-
-```python
-import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
-
-def setup_multi_gpu(rank: int, world_size: int):
-    """Initialize distributed training on NixOS multi-GPU setup."""
-    dist.init_process_group(
-        backend="nccl",  # NCCL is optimal for NVIDIA GPUs
-        init_method="env://",
-        world_size=world_size,
-        rank=rank
-    )
-    torch.cuda.set_device(rank)
-
-def parallel_pid_analysis(trajectories: list, world_size: int = 2):
-    """
-    Distribute PID computation across multiple GPUs.
-    Each GPU processes a subset of trajectories.
-    """
-    import torch.multiprocessing as mp
-    
-    # Split trajectories
-    chunks = [trajectories[i::world_size] for i in range(world_size)]
-    
-    # Spawn processes
-    mp.spawn(
-        worker_fn,
-        args=(chunks,),
-        nprocs=world_size,
-        join=True
-    )
-```
-
-**NixOS NCCL Configuration:**
-
-```nix
-# Add to flake.nix buildInputs
-cudaPackages.nccl
-
-# Environment variable for multi-GPU
-shellHook = ''
-  export NCCL_DEBUG=INFO
-  export NCCL_IB_DISABLE=1  # Disable InfiniBand if not available
-'';
-```
-
----
+If you need the historical platform notes, consult git history prior to v7.0 and treat them as unverified until benchmarked.
 
 ## B.3 MLX Framework Integration
 
-### B.3.1 Why MLX (Not PyTorch) for Apple Silicon
+**Status (v7.0):** Not part of the implemented repo and not required for the scientific claims.
 
-```python
-"""
-MLX vs PyTorch on Apple Silicon: Decision Rationale
-====================================================
+MLX integration is a reasonable future direction for running certain models locally on Apple Silicon, but any integration should be tracked as an engineering proposal with:
+- a pinned dependency/version,
+- a benchmark + correctness protocol,
+- and a clear mapping to the experiment harness (logging/interventions/replay).
 
-PERFORMANCE (benchmark-dependent; measure):
-- Report tokens/s, end-to-end latency, peak memory, and variance on your target model + precision.
-- MLX can be competitive on Apple Silicon for some transformer inference workloads, but results depend on kernels, batch size, and caching.
-
-KEY MLX ADVANTAGES:
-
-1. LAZY EVALUATION
-   - Operations aren't executed until results are needed
-   - Allows operation fusion and memory optimization
-   - Critical for large embedding buffers
-   
-   # PyTorch: Immediate execution, memory allocated now
-   x = torch.randn(10000, 4096)  # 160MB allocated immediately
-   y = x @ W                      # Another 160MB allocated
-   z = y.relu()                   # Another 160MB allocated
-   
-   # MLX: Lazy, fused execution
-   x = mx.random.normal((10000, 4096))  # No allocation yet
-   y = x @ W                             # No allocation yet
-   z = mx.maximum(y, 0)                  # No allocation yet
-   mx.eval(z)                            # Single fused allocation
-
-2. UNIFIED ARRAYS
-   - Same array type for CPU and GPU
-   - No .to('mps') calls
-   - Automatic placement decisions
-   
-3. COMPOSABLE TRANSFORMS
-   - mx.grad() for automatic differentiation
-   - mx.vmap() for automatic batching
-   - mx.compile() for kernel fusion
-   
-4. NATIVE METAL INTEGRATION
-   - Direct Metal shader compilation
-   - No MPS translation layer
-   - Deterministic execution (reproducibility!)
-
-WHEN TO USE PYTORCH INSTEAD:
-- Model not available in MLX format
-- Need specific PyTorch ecosystem tools
-- Prototyping with existing PyTorch code
-- Later CUDA porting is priority
-"""
-```
-
-### B.3.2 MLX VLA Inference Implementation
-
-```python
-"""
-pid_vla/mlx_inference.py
-========================
-MLX-based VLA inference for embedding extraction.
-
-DETAILED IMPLEMENTATION with extensive comments explaining
-every design decision for Apple Silicon optimization.
-"""
-
-import mlx.core as mx
-import mlx.nn as nn
-from pathlib import Path
-from typing import NamedTuple, Optional
-import json
-
-# =============================================================================
-# DATA STRUCTURES
-# =============================================================================
-
-class VLAEmbeddings(NamedTuple):
-    """
-    Container for extracted VLA embeddings.
-    
-    All arrays are MLX arrays (lazy evaluation) until explicitly evaluated.
-    This allows the caller to decide when to materialize results, enabling
-    memory-efficient streaming processing.
-    
-    Attributes:
-        vision: Shape (batch, seq_len_v, d_model). Raw vision encoder outputs
-                BEFORE projection into the language model space. These represent
-                "pure" visual features without language model contamination.
-                
-        language: Shape (batch, seq_len_l, d_model). Language instruction 
-                  embeddings from the language model's embedding layer. These
-                  are the tokenized instruction before any attention with vision.
-                  
-        dream: Shape (batch, seq_len_d, d_model). For DreamVLA-style models:
-               an explicit world-knowledge prediction representation (dynamic/spatial/semantic)
-               and/or an intermediate “world embedding” used for action planning (verify the
-               model’s exact heads/activations). For models with no explicit world-knowledge
-               outputs (e.g., OpenVLA-style), this can be a chosen LLM hidden-state layer as a
-               *proxy* for D (heuristic; must be validated and is not guaranteed).
-               
-        pre_action: Shape (batch, d_model). Final hidden state before action
-                    head. This is the "integrated" representation after all
-                    cross-modal attention.
-                    
-        action: Shape (batch, action_dim). Predicted action. For discrete
-                action heads, this is the argmax of logits. For diffusion
-                heads, this is the denoised action after N diffusion steps.
-                
-        metadata: Dict with extraction details (layer indices, timestamp, etc.)
-    """
-    vision: mx.array      # (batch, seq_v, d_model)
-    language: mx.array    # (batch, seq_l, d_model)
-    dream: Optional[mx.array]  # (batch, seq_d, d_model) or None
-    pre_action: mx.array  # (batch, d_model)
-    action: mx.array      # (batch, action_dim)
-    metadata: dict
-
-
-class ExtractionConfig(NamedTuple):
-    """
-    Configuration for embedding extraction.
-    
-    Attributes:
-        vision_layer: Which layer to extract vision embeddings from.
-                      -1 = final encoder layer (default)
-                      0 = first layer (very low-level features)
-                      Recommendation: Use -1 for initial experiments
-                      
-        dream_layer: For OpenVLA (no explicit world model), which LLM layer
-                     to use as proxy for "world model" representation.
-                     16 = middle layer (per probing studies)
-                     24 = later layer (better for action prediction)
-                     None = don't extract dream embeddings
-                     
-        pool_strategy: How to pool sequence dimension to get fixed-size vectors.
-                       'mean' = average over sequence (default, most stable)
-                       'cls' = first token only (if model uses CLS token)
-                       'last' = last token only (causal models)
-                       'max' = max pooling (sparse features)
-                       
-        include_attention: Whether to also extract attention matrices.
-                           Expensive but useful for interpretability.
-                           Default: False
-                           
-        dtype: Data type for computation.
-               mx.float32 = most accurate, more memory
-               mx.float16 = good balance (recommended)
-               mx.bfloat16 = better numerical stability than f16
-    """
-    vision_layer: int = -1
-    dream_layer: Optional[int] = 16
-    pool_strategy: str = 'mean'
-    include_attention: bool = False
-    dtype: mx.Dtype = mx.float16
-
-
-# =============================================================================
-# MODEL LOADING
-# =============================================================================
-
-def load_vla_model(
-    model_path: Path,
-    config_overrides: Optional[dict] = None
-) -> nn.Module:
-    """
-    Load a VLA model in MLX format.
-    
-    MEMORY MANAGEMENT STRATEGY:
-    ---------------------------
-    MLX uses lazy evaluation, so loading a model doesn't immediately
-    allocate GPU memory. Memory is allocated only when:
-    1. A forward pass is executed
-    2. mx.eval() is called on model parameters
-    3. Parameters are explicitly copied
-    
-    This means we can load the model, inspect its structure, and configure
-    extraction hooks BEFORE allocating the full 14GB+ for a 7B model.
-    
-    SUPPORTED MODEL FORMATS:
-    ------------------------
-    1. MLX native (.safetensors + config.json)
-       - Fastest loading, no conversion needed
-       - Use mlx-community HuggingFace repos
-       
-    2. PyTorch checkpoint (.bin or .pt)
-       - Requires conversion (one-time cost)
-       - Use convert_pytorch_to_mlx() helper
-       
-    3. GGUF quantized (.gguf)
-       - Smallest files, fastest inference
-       - Accuracy loss depends on model/task/runtime; validate on your benchmarks before relying on quantized outputs
-       - Use for memory-constrained M4 (non-Max)
-    
-    Parameters:
-        model_path: Path to model directory or file
-        config_overrides: Optional dict to override model config
-                          (e.g., {"max_position_embeddings": 2048})
-    
-    Returns:
-        MLX nn.Module with forward() method
-        
-    Example:
-        >>> model = load_vla_model(Path("models/openvla-7b-mlx"))
-        >>> print(model)  # Inspect structure without allocating memory
-        >>> embeddings = extract_embeddings(model, images, text)
-        >>> mx.eval(embeddings.vision)  # NOW memory is allocated
-    """
-    model_path = Path(model_path)
-    
-    # Detect model format
-    if (model_path / "config.json").exists():
-        # MLX native format
-        with open(model_path / "config.json") as f:
-            config = json.load(f)
-            
-        if config_overrides:
-            config.update(config_overrides)
-            
-        # Import appropriate model class based on architecture
-        arch = config.get("architectures", ["LlamaForCausalLM"])[0]
-        
-        if "OpenVLA" in arch or "Llama" in arch:
-            from pid_vla.models.openvla_mlx import OpenVLAModel
-            model = OpenVLAModel(config)
-        elif "DreamVLA" in arch:
-            from pid_vla.models.dreamvla_mlx import DreamVLAModel
-            model = DreamVLAModel(config)
-        else:
-            raise ValueError(f"Unsupported architecture: {arch}")
-            
-        # Load weights (lazy - no memory until eval)
-        weights = mx.load(str(model_path / "model.safetensors"))
-        model.load_weights(list(weights.items()))
-        
-    elif model_path.suffix == ".gguf":
-        # GGUF quantized format
-        from pid_vla.models.gguf_loader import load_gguf_model
-        model = load_gguf_model(model_path)
-        
-    else:
-        raise ValueError(f"Unknown model format: {model_path}")
-        
-    return model
-
-
-# =============================================================================
-# EMBEDDING EXTRACTION
-# =============================================================================
-
-def extract_embeddings(
-    model: nn.Module,
-    images: mx.array,
-    text_tokens: mx.array,
-    config: ExtractionConfig = ExtractionConfig()
-) -> VLAEmbeddings:
-    """
-    Extract embeddings from all VLA components.
-    
-    EXTRACTION POINTS (OpenVLA architecture):
-    =========================================
-    
-    Image → [SigLIP ViT] → vision_embed → [Projector] → [Llama Layers 0-32] → logits
-                ↑                              ↑              ↑           ↑
-           VISION (V)                    LANGUAGE (L)   DREAM (D)   PRE_ACTION
-           
-    Layer indices for Llama 2 7B:
-    - Layers 0-7: Low-level feature extraction
-    - Layers 8-15: Mid-level concept formation  
-    - Layer 16: World model emergence (per probing studies) ← EXTRACT D HERE
-    - Layers 17-23: Action planning
-    - Layer 24: Action-relevant features
-    - Layers 25-32: Action decoding
-    
-    EXTRACTION POINTS (DreamVLA-style explicit world-knowledge forecasting):
-    ==========================================
-    
-    Image → [Vision Enc] → Backbone + structured attention → World-knowledge prediction → Action model → action
-               ↑                 ↑                                 ↑               ↑
-          VISION (V)        LANGUAGE (L)                         DREAM (D)     PRE_ACTION
-
-    DreamVLA (arXiv:2507.04447) reports explicit world-knowledge forecasting with dynamic/spatial/semantic cues and a diffusion-based action model. Do not assume special tokens; D extraction must hook the model’s explicit prediction heads and/or the intermediate representation used for action planning (verify exact architecture and pooling rules).
-    
-    MEMORY OPTIMIZATION:
-    ====================
-    We use MLX's lazy evaluation to avoid materializing intermediate activations
-    we don't need. The extraction hooks capture references to specific tensors,
-    and only those tensors are kept after the forward pass.
-    
-    Parameters:
-        model: Loaded VLA model
-        images: Preprocessed images, shape (batch, channels, height, width)
-        text_tokens: Tokenized instructions, shape (batch, seq_len)
-        config: Extraction configuration
-        
-    Returns:
-        VLAEmbeddings with all extracted representations
-        
-    Example:
-        >>> model = load_vla_model(model_path)
-        >>> config = ExtractionConfig(dream_layer=16, pool_strategy='mean')
-        >>> 
-        >>> # Process batch
-        >>> images = preprocess_images(raw_images)  # (32, 3, 224, 224)
-        >>> tokens = tokenizer(instructions)         # (32, 128)
-        >>> 
-        >>> embeddings = extract_embeddings(model, images, tokens, config)
-        >>> 
-        >>> # Embeddings are lazy until evaluated
-        >>> vision_np = np.array(mx.eval(embeddings.vision))  # (32, 4096)
-    """
-    # Storage for intermediate activations
-    # Using list to allow mutation in nested function
-    captured = {
-        'vision': None,
-        'language': None, 
-        'dream': None,
-        'pre_action': None,
-        'attention': [] if config.include_attention else None
-    }
-    
-    # ---------------------------------------------------------------------
-    # HOOK FUNCTIONS
-    # These capture intermediate activations during forward pass
-    # ---------------------------------------------------------------------
-    
-    def vision_hook(module, args, output):
-        """
-        Capture vision encoder output.
-        
-        For SigLIP ViT:
-        - Input: (batch, channels, H, W)
-        - Output: (batch, num_patches, d_vision)
-        
-        We pool over the patch dimension to get (batch, d_vision).
-        """
-        if config.pool_strategy == 'mean':
-            captured['vision'] = mx.mean(output, axis=1)
-        elif config.pool_strategy == 'cls':
-            captured['vision'] = output[:, 0, :]
-        elif config.pool_strategy == 'max':
-            captured['vision'] = mx.max(output, axis=1)
-        else:
-            captured['vision'] = output[:, -1, :]  # 'last'
-            
-    def language_hook(module, args, output):
-        """
-        Capture language embeddings (pre-attention).
-        
-        These are the raw token embeddings before any transformer layers,
-        representing the "pure" language instruction without vision influence.
-        """
-        if config.pool_strategy == 'mean':
-            captured['language'] = mx.mean(output, axis=1)
-        elif config.pool_strategy == 'cls':
-            captured['language'] = output[:, 0, :]
-        else:
-            captured['language'] = output[:, -1, :]
-            
-    def dream_hook(module, args, output):
-        """
-        Capture world model representation.
-        
-        For DreamVLA-style models: explicit world-knowledge prediction representation (or its internal “world embedding”)
-        For OpenVLA-style models: hidden state at the specified layer (heuristic proxy)
-        
-        This represents the model's "understanding" of the world state,
-        which should be compared against vision for synergy analysis.
-        """
-        if config.pool_strategy == 'mean':
-            captured['dream'] = mx.mean(output, axis=1)
-        else:
-            captured['dream'] = output[:, -1, :]
-            
-    def pre_action_hook(module, args, output):
-        """
-        Capture final hidden state before action head.
-        
-        This is the "integrated" representation after all cross-modal
-        attention. It should contain information from both V and D.
-        """
-        # Pre-action is often the last token's hidden state (verify for your model/tokenization scheme)
-        captured['pre_action'] = output[:, -1, :]
-        
-    # ---------------------------------------------------------------------
-    # REGISTER HOOKS
-    # ---------------------------------------------------------------------
-    
-    hooks = []
-    
-    # Vision encoder hook
-    if hasattr(model, 'vision_encoder'):
-        hooks.append(model.vision_encoder.register_forward_hook(vision_hook))
-    elif hasattr(model, 'vision_tower'):
-        hooks.append(model.vision_tower.register_forward_hook(vision_hook))
-        
-    # Language embedding hook
-    if hasattr(model, 'embed_tokens'):
-        hooks.append(model.embed_tokens.register_forward_hook(language_hook))
-    elif hasattr(model, 'language_model'):
-        hooks.append(model.language_model.embed_tokens.register_forward_hook(language_hook))
-        
-    # Dream/world model hook
-    if config.dream_layer is not None:
-        if hasattr(model, 'dream_module'):
-            # DreamVLA: explicit dream module
-            hooks.append(model.dream_module.register_forward_hook(dream_hook))
-        elif hasattr(model, 'layers'):
-            # OpenVLA: use specified LLM layer
-            hooks.append(model.layers[config.dream_layer].register_forward_hook(dream_hook))
-            
-    # Pre-action hook (final layer before action head)
-    if hasattr(model, 'layers'):
-        hooks.append(model.layers[-1].register_forward_hook(pre_action_hook))
-        
-    # ---------------------------------------------------------------------
-    # FORWARD PASS
-    # ---------------------------------------------------------------------
-    
-    try:
-        # Cast inputs to configured dtype
-        images = images.astype(config.dtype)
-        
-        # Run forward pass (hooks capture activations)
-        action_output = model(images, text_tokens)
-        
-        # Extract action from model output
-        if isinstance(action_output, dict):
-            action = action_output.get('actions', action_output.get('logits'))
-        else:
-            action = action_output
-            
-    finally:
-        # Always remove hooks to prevent memory leaks
-        for hook in hooks:
-            hook.remove()
-            
-    # ---------------------------------------------------------------------
-    # PACKAGE RESULTS
-    # ---------------------------------------------------------------------
-    
-    return VLAEmbeddings(
-        vision=captured['vision'],
-        language=captured['language'],
-        dream=captured['dream'],
-        pre_action=captured['pre_action'],
-        action=action,
-        metadata={
-            'vision_layer': config.vision_layer,
-            'dream_layer': config.dream_layer,
-            'pool_strategy': config.pool_strategy,
-            'dtype': str(config.dtype),
-            'model_type': type(model).__name__
-        }
-    )
-
-
-# =============================================================================
-# BATCHED EXTRACTION (MEMORY-OPTIMIZED)
-# =============================================================================
-
-def extract_embeddings_streaming(
-    model: nn.Module,
-    image_iterator,  # yields (batch_images, batch_tokens)
-    config: ExtractionConfig = ExtractionConfig(),
-    max_memory_gb: float = 32.0
-) -> 'Iterator[VLAEmbeddings]':
-    """
-    Memory-optimized streaming extraction for large datasets.
-    
-    MEMORY MANAGEMENT:
-    ==================
-    VLA embeddings are large. For a dataset with 10,000 samples:
-    - Vision: 10000 × 4096 × 4 bytes = 160MB
-    - Language: 10000 × 4096 × 4 bytes = 160MB  
-    - Dream: 10000 × 4096 × 4 bytes = 160MB
-    - Pre-action: 10000 × 4096 × 4 bytes = 160MB
-    - Action: 10000 × 7 × 4 bytes = 0.3MB
-    - TOTAL: ~640MB per extraction
-    
-    For a full experiment with 100 trajectories × 100 timesteps:
-    - 10000 samples × 640MB / sample = 6.4GB
-    
-    This function uses streaming to process data in chunks, keeping
-    memory usage bounded by max_memory_gb.
-    
-    IMPLEMENTATION:
-    ===============
-    1. Process batches through model
-    2. Immediately evaluate and yield results
-    3. Clear MLX graph to free memory
-    4. Repeat
-    
-    Parameters:
-        model: Loaded VLA model
-        image_iterator: Iterator yielding (images, tokens) batches
-        config: Extraction configuration
-        max_memory_gb: Maximum memory to use (triggers GC when exceeded)
-        
-    Yields:
-        VLAEmbeddings for each batch (already evaluated, numpy-convertible)
-        
-    Example:
-        >>> def data_loader():
-        ...     for traj in trajectories:
-        ...         images = load_images(traj)
-        ...         tokens = tokenize(traj.instructions)
-        ...         yield images, tokens
-        ...
-        >>> all_embeddings = []
-        >>> for batch_emb in extract_embeddings_streaming(model, data_loader()):
-        ...     all_embeddings.append(batch_emb)
-        ...     # Memory stays bounded even for huge datasets
-    """
-    import gc
-    
-    for batch_images, batch_tokens in image_iterator:
-        # Extract embeddings (lazy)
-        embeddings = extract_embeddings(model, batch_images, batch_tokens, config)
-        
-        # Force evaluation to materialize results
-        mx.eval(
-            embeddings.vision,
-            embeddings.language,
-            embeddings.dream,
-            embeddings.pre_action,
-            embeddings.action
-        )
-        
-        # Yield evaluated embeddings
-        yield embeddings
-        
-        # Check memory and trigger GC if needed
-        # MLX doesn't expose memory stats directly, so we estimate
-        # based on array sizes
-        estimated_mb = (
-            embeddings.vision.nbytes +
-            embeddings.language.nbytes +
-            (embeddings.dream.nbytes if embeddings.dream is not None else 0) +
-            embeddings.pre_action.nbytes +
-            embeddings.action.nbytes
-        ) / 1e6
-        
-        if estimated_mb > max_memory_gb * 1000 * 0.8:  # 80% threshold
-            gc.collect()
-            mx.metal.clear_cache()  # Clear Metal memory cache
-```
-
----
-
-### B.3.3 Existing PID Code Availability and Implementation Status
-
-#### B.3.3.1 Code Repositories for PID Estimation
-
-**CRITICAL NOTE (updated):** The authors’ reference implementation of the continuous `I^sx_∩` estimator is public: `https://gitlab.gwdg.de/wibral/continuouspidestimator` (Python package `csxpid`). This repo vendors the reference code under `.external/repos/continuouspidestimator` for cross-checking, and the Rust implementation in `crates/pid-core` is validated against it on synthetic tests.
-
-| Repository | PID Measure | Data Type | Language | Status |
-|------------|-------------|-----------|----------|--------|
-| **[Abzinger/SxPID](https://github.com/Abzinger/SxPID)** | I^sx_∩ (discrete) | Discrete only | Python | ✓ Released, 7 stars |
-| **[Abzinger/sae_analysis](https://github.com/Abzinger/sae_analysis)** | Shannon invariants (Red°, Vul°) | Continuous (via SAE) | Python | ⚠️ Experimental |
-| **[pwollstadt/IDTxl](https://github.com/pwollstadt/IDTxl)** | Multiple (includes SxPID) | Discrete + some continuous | Python | ✓ Released, mature |
-| **[pliang279/PID](https://github.com/pliang279/PID)** | BATCH + CVX (NOT I^sx_∩) | High-dim continuous via clustering | Python | ✓ Released, 84 stars |
-| **[wibral/continuouspidestimator](https://gitlab.gwdg.de/wibral/continuouspidestimator)** (`csxpid`) | I^sx_∩ (continuous, kNN) | Continuous | Python | ✓ Public (reference) |
-
-#### B.3.3.2 Abzinger/sae_analysis: Shannon Invariants for SAE Analysis
-
-**Repository note:** `https://github.com/Abzinger/sae_analysis` is an experimental/WIP toolbox for applying **Shannon invariants** (Gutknecht et al. 2025) to **SAE latents**. It is **not** a continuous shared-exclusions (`I^sx_∩`) estimator, and it may not yet be complete or fully validated—treat it as a reference/starting point only.
-
-**Repository:** https://github.com/Abzinger/sae_analysis
-
-**What It Does:**
-- Applies Shannon invariants from Gutknecht et al. (2025, arXiv:2504.15779) to analyze SAE representations
-- Computes **degree of redundancy (Red°)** and **degree of vulnerability (Vul°)**
-- Uses EleutherAI's `sparsify` for SAE training and `delphi` for activation caching
-
-**Architecture:**
-```
-Training Data → sparsify (SAE training) → Learned SAE
-                                              ↓
-Activations → delphi (caching) → info_analysis.py → Shannon Invariants
-                                              ↓
-                                    Red° (redundancy), Vul° (vulnerability)
-```
-
-**Shannon Invariants Computed:**
-
-| Invariant | Definition | Interpretation |
-|-----------|------------|----------------|
-| **Degree of Redundancy (Red°)** | `Red° = (Σ_i H(X_i)) / H(X_1,…,X_m)` | Higher = more distributed/“redundant” (in the sense of large marginal-entropy sum relative to joint) |
-| **Degree of Vulnerability (Vul°)** | `Vul° = (Σ_i H(X_i | X_{-i})) / H(X_1,…,X_m)` | Higher = more fragile/“vulnerable” (more conditional entropy per feature relative to joint) |
-
-**Relevance to PID-VLA:**
-
-| Aspect | sae_analysis | Our PID-VLA Approach |
-|--------|--------------|----------------------|
-| **Target system** | SAE latent features | VLA embeddings (V, D, A) |
-| **Measures** | Red°, Vul° (Shannon invariants) | Syn, Red, Unq (I^sx_∩ atoms) |
-| **Goal** | Dictionary size optimization | Hallucination detection |
-| **Theoretical basis** | Same (Gutknecht et al. 2025) | Same (Wibral group) |
-
-**Potential Synergy:**
-1. **SAE preprocessing:** Train SAE on VLA embeddings, then apply sae_analysis to identify informative features
-2. **Dimensionality reduction:** Use SAE to reduce 4096-dim embeddings before PID analysis
-3. **Feature selection:** Red° and Vul° could identify which SAE features to use for V-D-A decomposition
-
-**Caveats (as of January 2026):**
-- Repository has 0 stars, 70 commits—actively developed but early stage
-- No formal release or documentation beyond README
-- May not be complete or fully functional
-- Uses Shannon invariants (scalable summaries) rather than full PID atoms
-
-**Code Structure:**
-```
-sae_analysis/
-├── info_analysis.py      # Shannon invariant computation
-├── feature_analysis.py   # SAE feature analysis
-├── visualize.py          # Visualization utilities
-├── delphi/               # EleutherAI activation caching (submodule)
-└── sparsify/             # EleutherAI SAE training (submodule)
-```
-
-#### B.3.3.3 Comparison: sae_analysis vs Our Rust Implementation
-
-| Aspect | sae_analysis | Our Rust I^sx_∩ Implementation |
-|--------|--------------|--------------------------------|
-| **Measures** | Shannon invariants only | Full PID atoms (Syn, Red, Unq) |
-| **Granularity** | Global invariants (scalar summaries) | Global PID estimates (atom averages); MI local terms available for debugging |
-| **Speed** | Potentially fast after SAE compression (still depends on SAE width and dataset size) | Slow with exact kNN (O(n²)) unless accelerated / reduced |
-| **Interpretability** | Less (aggregate measures) | More (individual atoms) |
-| **Use case** | Screening, feature selection | Detailed failure diagnosis |
-| **Dimensionality** | High-dim via SAE compression | Requires dim reduction |
-
-**Recommendation:**
-Use sae_analysis for **initial screening** (fast Shannon invariants), then our Rust I^sx_∩ for **detailed analysis** on suspicious cases. This matches our hierarchical approach in §2.5.4.
-
-#### B.3.3.5 Using sae_analysis Safely (Not a Correctness Oracle for I^sx_∩)
-
-`sae_analysis` is **not** a continuous `I^sx_∩` estimator, so it cannot be used to validate whether our `I^sx_∩` math/estimator is correct. Treat it as a *potentially useful preprocessing + screening toolbox*, not a correctness oracle.
-
-What `sae_analysis` actually computes (as implemented in `info_analysis.py`):
-- **Degree of redundancy (Red°):** `Red° = (Σ_i H(X_i)) / H(X_1,…,X_m)`
-- **Degree of vulnerability (Vul°):** `Vul° = (Σ_i H(X_i | X_{-i})) / H(X_1,…,X_m)`
-
-Here, the `X_i` are typically **SAE latent features** (and the repo uses `log2`, so entropies are in bits; the ratios are dimensionless).
-
-How to use it safely in this project:
-1. **Correctness validation for continuous `I^sx_∩`:** use `csxpid` (authors’ reference implementation) + Experiment 0. Do *not* substitute `sae_analysis` for this.
-2. **Optional dimensionality reduction path:** train an SAE on high-dimensional VLA embeddings, then run `pid-core` on the SAE latents (treat the SAE as an explicit, logged preprocessing step).
-3. **Screening/feature selection:** use Red°/Vul° as heuristic signals about whether an SAE representation is distributed vs fragile before paying the cost of full `I^sx_∩` on many cases.
-
-If SAE compression is used, add a robustness check: run `pid-core` on multiple SAE seeds/sizes and confirm conclusions are stable (avoid “tuning the SAE until PID looks good”).
-
-#### B.3.3.6 Why Liang et al.'s Code Is NOT Directly Usable
-
-The Liang et al. (NeurIPS 2023) repository is the most relevant existing code for high-dimensional multimodal PID, **but it uses different PID measures:**
-
-1. **BATCH Estimator:** Variational bound on PID using neural networks
-2. **CVX Estimator:** Convex optimization over discrete clusters (requires K-means preprocessing)
-
-Neither uses the I^sx_∩ (shared-exclusions) definition from the Wibral group. The key differences:
-
-| Property | I^sx_∩ (Wibral) | BATCH/CVX (Liang) |
-|----------|-----------------|-------------------|
-| Theoretical basis | Exclusions in probability space | Optimization bounds |
-| Continuous extension | Ehrlich et al. 2024 (k-NN based) | Clustering + discrete PID |
-| Differentiable | Yes (key property) | BATCH: Yes, CVX: No |
-| Validated on | Low-dim neuroscience data | High-dim multimodal (robotics, pathology) |
-| Interpretation | Information-theoretic (local MI) | Variational/optimization bounds |
-
-**Recommendation:** Use Liang et al.'s code as a **baseline comparison**, not as the primary estimator. Our Rust implementation should target I^sx_∩ for theoretical consistency with the Wibral framework.
-
-#### B.3.3.7 Verification: Document Alignment with Wibral's PID Framework
-
-**All PID formulations in this document are based on the Wibral group's I^sx_∩ measure, NOT older PID measures like Williams & Beer's I_min.**
-
-Verification checklist:
-
-| Section | PID Measure Referenced | Status |
-|---------|----------------------|--------|
-| §2.1 Core Definition | I^sx_∩ from Makkeh et al. (2021) | ✓ Correct |
-| §2.2 Continuous Extension | Ehrlich et al. (2024) k-NN estimator | ✓ Correct |
-| §2.5 Shannon Invariants | Co-information (classical, not PID-specific) | ✓ Correct |
-| §5 Three-Way PID | I^sx_∩ lattice structure | ✓ Correct |
-| §8 Estimation | KSG-based continuous I^sx_∩ | ✓ Correct |
-| Warning 4 | Correctly notes Liang et al. use DIFFERENT measures | ✓ Correct |
-
-**Key theoretical properties of I^sx_∩ that distinguish it from other PID measures:**
-
-1. **Differentiability (distribution-level):** I^sx_∩ is differentiable w.r.t. the underlying probability distribution (a core design goal; not shared by many PID measures). This does **not** imply that a particular estimator (e.g., kNN/KSG) is differentiable.
-2. **Local formulation:** Defined via local (pointwise) mutual information
-3. **Exclusions-based:** Quantifies shared information via overlapping exclusions in probability space
-4. **Target chain rule:** Satisfies I^sx_∩(S₁,S₂;T₁,T₂) decomposition
-
-**Measures we are NOT using:**
-
-- ❌ I_min (Williams & Beer 2010) - criticized for unintuitive behavior
-- ❌ I_BROJA (Bertschinger et al. 2014) - uses optimization, not exclusions
-- ❌ I_CCS (Ince 2017) - different pointwise formulation
-- ❌ I_dep (James et al.) - dependency-lattice based
-
----
-
-### B.3.4 Rust Implementation of Continuous I^sx_∩ Estimator
-
-#### B.3.4.1 Mathematical Foundation
-
-The continuous I^sx_∩ redundancy from Ehrlich et al. (2024) is defined as:
-
-```
-I^sx_∩(S₁, S₂; T) = ∫∫∫ p(s₁, s₂, t) · i^sx_∩(s₁, s₂; t) ds₁ ds₂ dt
-
-where the local (pointwise) shared information is:
-
-i^sx_∩(t : s₁; s₂) = log [ p(t | W_{s₁,s₂} = true) / p(t) ]
-
-where the “statement variable” is:
-
-W_{s₁,s₂} := (S₁ = s₁) ∨ (S₂ = s₂)
-```
-
-The k-NN estimator approximates this using a KSG-style construction:
-
-```
-Î^sx_∩ = ψ(k) + ψ(n) - (1/n) Σᵢ [ ψ(n_α(i)) + ψ(n_T(i)) ]
-
-where:
-- ψ is the digamma function
-- k is the number of neighbors
-- n is the total sample count
-- n_α(i) is the count of points within εᵢ in the source-disjunction neighborhood (including self)
-- n_T(i) is the count of points within εᵢ in target space (including self)
-```
-
-#### B.3.4.2 Core Rust Implementation (Repo Canonical)
-
-Authoritative implementation in this repo (kept in sync with tests; prefer these over sketches in this document):
-- `crates/pid-core/src/ksg.rs` — KSG MI (Chebyshev/L∞, strict-radius tie handling).
-- `crates/pid-core/src/isx.rs` — continuous `I^sx_∩(S₁,S₂;T)` redundancy (Ehrlich et al. 2024; `IsxMethod::EhrlichKsg`), cross-checked against `csxpid`.
-- `crates/pid-core/src/pid2.rs` — 2-source PID atoms `{Red, Unq1, Unq2, Syn}` derived from MI + redundancy.
-- `crates/pid-core/src/hierarchy.rs` — hierarchical “fast→slow” screening path.
-- `crates/pid-core/src/geometry.rs` — geometry diagnostics: intrinsic dimension + basic distance concentration proxies.
-
-Minimal usage (redundancy only; returns **nats**):
-
-```rust
-use pid_core::{isx_redundancy, IsxConfig, IsxMethod, MatRef};
-
-let cfg = IsxConfig {
-    k: 3,
-    method: IsxMethod::EhrlichKsg,
-    ..IsxConfig::default()
-};
-
-let red_nats = isx_redundancy(s1, s2, t, &cfg)?;
-```
-
-Minimal usage (full bivariate PID atoms; returns **nats**):
-
-```rust
-use pid_core::{pid2_isx, IsxConfig, IsxMethod, KsgConfig, MatRef, Pid2Config};
-
-let cfg = Pid2Config {
-    ksg: KsgConfig::default(),
-    isx: IsxConfig {
-        method: IsxMethod::EhrlichKsg,
-        ..IsxConfig::default()
-    },
-};
-
-let pid = pid2_isx(s1, s2, t, &cfg)?;
-```
-
-##### Legacy Sketch (Do Not Implement From This)
-
-The following block is retained only as historical context. It is **not paper-faithful** and does **not** match the current repo implementation; use §8.1.3 + the files above as the source of truth.
-
-```text
-//! LEGACY SKETCH ONLY — does not match `crates/pid-core/src/isx.rs`.
-//! 
-//! Continuous I^sx_∩ PID estimator based on Ehrlich et al. (2024).
-//! 
-//! IMPLEMENTATION NOTES:
-//! =====================
-//! This is a from-scratch implementation based on the paper's mathematical
-//! description, cross-checked against the authors’ public reference code:
-//! https://gitlab.gwdg.de/wibral/continuouspidestimator (Python package `csxpid`).
-//! 
-//! Key algorithmic components:
-//! 1. k-NN radius ε(i) under the joint disjunction distance d_ST_disj(i,j)
-//! 2. Neighbor counting in target space and source-disjunction space within ε(i)
-//! 3. Digamma ψ(·) evaluations and averaging
-//! 4. Strict-radius tie handling (ε = nextafter(ε_raw, 0) then count with <=)
-//! 
-//! IMPORTANT: This implementation must be validated against synthetic
-//! data with known ground truth (Experiment 0) before use on VLA data.
-
-use std::collections::BinaryHeap;
-use std::cmp::Ordering;
-
-/// Result of PID estimation containing all four atoms.
-#[derive(Debug, Clone)]
-pub struct PIDResult {
-    /// Redundant information: I^sx_∩(S₁, S₂; T)
-    pub redundancy: f64,
-    /// Unique information from S₁: I(S₁; T) - I^sx_∩
-    pub unique_s1: f64,
-    /// Unique information from S₂: I(S₂; T) - I^sx_∩
-    pub unique_s2: f64,
-    /// Synergistic information: I(S₁, S₂; T) - I(S₁; T) - I(S₂; T) + I^sx_∩
-    pub synergy: f64,
-    /// Standard error estimates (from bootstrap or jackknife)
-    pub redundancy_se: f64,
-    pub unique_s1_se: f64,
-    pub unique_s2_se: f64,
-    pub synergy_se: f64,
-    /// Number of samples used
-    pub n_samples: usize,
-    /// Dimensionality of each source
-    pub dim_s1: usize,
-    pub dim_s2: usize,
-    pub dim_t: usize,
-}
-
-/// Configuration for the I^sx_∩ estimator.
-#[derive(Debug, Clone)]
-pub struct IsxConfig {
-    /// Number of nearest neighbors for KSG estimator.
-    /// Typical values: 3-10. Higher k reduces variance but increases bias.
-    /// Default: 3 (standard KSG choice)
-    pub k: usize,
-    
-    /// Distance metric for k-NN search.
-    /// L_infinity (Chebyshev) is standard for KSG estimators.
-    pub distance_metric: DistanceMetric,
-    
-    /// Whether to use the bias-corrected estimator.
-    /// Adds O(1/n) correction term. Recommended for n < 10000.
-    pub bias_correction: bool,
-    
-    /// Number of bootstrap resamples for standard error estimation.
-    /// Set to 0 to skip SE estimation (faster).
-    pub n_bootstrap: usize,
-    
-    /// Random seed for reproducibility.
-    pub seed: u64,
-    
-    /// Whether to use SIMD acceleration for distance calculations.
-    /// Requires x86_64 with AVX2 or aarch64 with NEON.
-    pub use_simd: bool,
-    
-    /// Maximum dimensionality before triggering dimensionality reduction.
-    /// If d > max_dim, PCA is applied automatically.
-    /// Set to 0 to disable automatic reduction.
-    pub max_dim: usize,
-    
-    /// Variance to retain in automatic PCA (e.g., 0.95 for 95%).
-    pub pca_variance_retained: f64,
-}
-
-impl Default for IsxConfig {
-    fn default() -> Self {
-        Self {
-            k: 3,
-            distance_metric: DistanceMetric::LInfinity,
-            bias_correction: true,
-            n_bootstrap: 100,
-            seed: 42,
-            use_simd: true,
-            max_dim: 1024,  // Warn above this, reduce above 4096
-            pca_variance_retained: 0.95,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum DistanceMetric {
-    /// L∞ (Chebyshev) distance: max_i |x_i - y_i|
-    /// Standard choice for KSG estimators because it defines hypercube neighborhoods.
-    LInfinity,
-    /// L2 (Euclidean) distance: sqrt(sum_i (x_i - y_i)²)
-    /// Alternative for comparison experiments.
-    L2,
-}
-
-/// Main I^sx_∩ estimator struct.
-pub struct IsxEstimator {
-    config: IsxConfig,
-    /// Pre-allocated buffers for distance calculations
-    distance_buffer: Vec<f64>,
-    /// Pre-allocated buffer for neighbor indices
-    neighbor_buffer: Vec<usize>,
-}
-
-impl IsxEstimator {
-    pub fn new(config: IsxConfig) -> Self {
-        Self {
-            config,
-            distance_buffer: Vec::new(),
-            neighbor_buffer: Vec::new(),
-        }
-    }
-    
-    /// Estimate PID for two source variables and one target.
-    /// 
-    /// # Arguments
-    /// * `s1` - First source variable, shape (n, d_s1)
-    /// * `s2` - Second source variable, shape (n, d_s2)
-    /// * `target` - Target variable, shape (n, d_t)
-    /// 
-    /// # Returns
-    /// PIDResult containing all four atoms with standard errors.
-    /// 
-    /// # Panics
-    /// Panics if inputs have different numbers of samples.
-    /// 
-    /// # Example
-    /// ```
-    /// let estimator = IsxEstimator::new(IsxConfig::default());
-    /// let result = estimator.estimate(&vision_embed, &dream_embed, &action)?;
-    /// println!("Synergy: {:.4} ± {:.4}", result.synergy, result.synergy_se);
-    /// ```
-    pub fn estimate(
-        &mut self,
-        s1: &[f64],  // Flattened (n * d_s1)
-        s2: &[f64],  // Flattened (n * d_s2)
-        target: &[f64],  // Flattened (n * d_t)
-        n: usize,
-        d_s1: usize,
-        d_s2: usize,
-        d_t: usize,
-    ) -> Result<PIDResult, PIDError> {
-        // Validate inputs
-        if s1.len() != n * d_s1 || s2.len() != n * d_s2 || target.len() != n * d_t {
-            return Err(PIDError::DimensionMismatch);
-        }
-        
-        // Check dimensionality and warn/reduce if needed
-        let total_dim = d_s1 + d_s2 + d_t;
-        if total_dim > self.config.max_dim && self.config.max_dim > 0 {
-            log::warn!(
-                "Total dimensionality {} exceeds max_dim {}. Consider PCA reduction.",
-                total_dim, self.config.max_dim
-            );
-        }
-        
-        // Step 1: Compute MI terms using KSG estimator
-        // We need: I(S₁;T), I(S₂;T), I(S₁,S₂;T)
-        let mi_s1_t = self.estimate_mi(s1, target, n, d_s1, d_t)?;
-        let mi_s2_t = self.estimate_mi(s2, target, n, d_s2, d_t)?;
-        
-        // Concatenate S₁ and S₂ for joint MI
-        let mut s1_s2 = Vec::with_capacity(n * (d_s1 + d_s2));
-        for i in 0..n {
-            s1_s2.extend_from_slice(&s1[i * d_s1..(i + 1) * d_s1]);
-            s1_s2.extend_from_slice(&s2[i * d_s2..(i + 1) * d_s2]);
-        }
-        let mi_s1s2_t = self.estimate_mi(&s1_s2, target, n, d_s1 + d_s2, d_t)?;
-        
-        // Step 2: Compute I^sx_∩ redundancy
-        // This is the core contribution of Ehrlich et al. (2024)
-        let redundancy = self.estimate_isx_redundancy(s1, s2, target, n, d_s1, d_s2, d_t)?;
-        
-        // Step 3: Derive other atoms from consistency equations
-        // Unique(S₁) = I(S₁;T) - Red
-        // Unique(S₂) = I(S₂;T) - Red
-        // Synergy = I(S₁,S₂;T) - I(S₁;T) - I(S₂;T) + Red
-        let unique_s1 = mi_s1_t - redundancy;
-        let unique_s2 = mi_s2_t - redundancy;
-        let synergy = mi_s1s2_t - mi_s1_t - mi_s2_t + redundancy;
-        
-        // Step 4: Bootstrap for standard errors (if configured)
-        let (red_se, u1_se, u2_se, syn_se) = if self.config.n_bootstrap > 0 {
-            self.bootstrap_se(s1, s2, target, n, d_s1, d_s2, d_t)?
-        } else {
-            (0.0, 0.0, 0.0, 0.0)
-        };
-        
-        Ok(PIDResult {
-            redundancy,
-            unique_s1,
-            unique_s2,
-            synergy,
-            redundancy_se: red_se,
-            unique_s1_se: u1_se,
-            unique_s2_se: u2_se,
-            synergy_se: syn_se,
-            n_samples: n,
-            dim_s1: d_s1,
-            dim_s2: d_s2,
-            dim_t: d_t,
-        })
-    }
-    
-    /// Estimate mutual information using KSG algorithm 1.
-    /// 
-    /// KSG estimator: I(X;Y) ≈ ψ(k) - <ψ(n_x + 1) + ψ(n_y + 1)> + ψ(n)
-    /// 
-    /// where:
-    /// - ψ is the digamma function
-    /// - k is the number of neighbors
-    /// - n_x, n_y are the counts of points within ε in marginal spaces
-    /// - ε is the distance to the k-th nearest neighbor in joint space
-    fn estimate_mi(
-        &mut self,
-        x: &[f64],
-        y: &[f64],
-        n: usize,
-        d_x: usize,
-        d_y: usize,
-    ) -> Result<f64, PIDError> {
-        let k = self.config.k;
-        
-        // Concatenate X and Y for joint space k-NN
-        let mut joint = Vec::with_capacity(n * (d_x + d_y));
-        for i in 0..n {
-            joint.extend_from_slice(&x[i * d_x..(i + 1) * d_x]);
-            joint.extend_from_slice(&y[i * d_y..(i + 1) * d_y]);
-        }
-        
-        // For each point, find k-th nearest neighbor distance in joint space
-        let epsilon = self.find_kth_neighbor_distances(&joint, n, d_x + d_y, k);
-        
-        // Count neighbors within epsilon in marginal spaces
-        let n_x = self.count_neighbors_within(x, n, d_x, &epsilon);
-        let n_y = self.count_neighbors_within(y, n, d_y, &epsilon);
-        
-        // KSG formula
-        let psi_k = digamma(k as f64);
-        let psi_n = digamma(n as f64);
-        
-        let avg_psi_nx: f64 = n_x.iter()
-            .map(|&nx| digamma((nx + 1) as f64))
-            .sum::<f64>() / n as f64;
-        let avg_psi_ny: f64 = n_y.iter()
-            .map(|&ny| digamma((ny + 1) as f64))
-            .sum::<f64>() / n as f64;
-        
-        let mi = psi_k - avg_psi_nx - avg_psi_ny + psi_n;
-        
-        // Bias correction if enabled
-        let mi_corrected = if self.config.bias_correction {
-            mi - (d_x + d_y) as f64 / (2.0 * n as f64)  // O(1/n) correction
-        } else {
-            mi
-        };
-        
-        Ok(mi_corrected.max(0.0))  // MI is non-negative
-    }
-    
-    /// Estimate I^sx_∩ redundancy using the continuous extension.
-    /// 
-    /// LEGACY SKETCH ONLY: do not treat as paper-faithful; see §8.1.3 and `crates/pid-core/src/isx.rs`.
-    /// The key insight is that shared exclusions in probability space
-    /// correspond to shared k-NN neighborhoods.
-    fn estimate_isx_redundancy(
-        &mut self,
-        s1: &[f64],
-        s2: &[f64],
-        target: &[f64],
-        n: usize,
-        d_s1: usize,
-        d_s2: usize,
-        d_t: usize,
-    ) -> Result<f64, PIDError> {
-        let k = self.config.k;
-        
-        // Build joint spaces: (S₁, T), (S₂, T), (S₁, S₂, T)
-        let mut s1_t = Vec::with_capacity(n * (d_s1 + d_t));
-        let mut s2_t = Vec::with_capacity(n * (d_s2 + d_t));
-        let mut s1_s2_t = Vec::with_capacity(n * (d_s1 + d_s2 + d_t));
-        
-        for i in 0..n {
-            // (S₁, T)
-            s1_t.extend_from_slice(&s1[i * d_s1..(i + 1) * d_s1]);
-            s1_t.extend_from_slice(&target[i * d_t..(i + 1) * d_t]);
-            
-            // (S₂, T)
-            s2_t.extend_from_slice(&s2[i * d_s2..(i + 1) * d_s2]);
-            s2_t.extend_from_slice(&target[i * d_t..(i + 1) * d_t]);
-            
-            // (S₁, S₂, T)
-            s1_s2_t.extend_from_slice(&s1[i * d_s1..(i + 1) * d_s1]);
-            s1_s2_t.extend_from_slice(&s2[i * d_s2..(i + 1) * d_s2]);
-            s1_s2_t.extend_from_slice(&target[i * d_t..(i + 1) * d_t]);
-        }
-        
-        // Find k-th neighbor distances in each joint space
-        let eps_s1_t = self.find_kth_neighbor_distances(&s1_t, n, d_s1 + d_t, k);
-        let eps_s2_t = self.find_kth_neighbor_distances(&s2_t, n, d_s2 + d_t, k);
-        let eps_s1_s2_t = self.find_kth_neighbor_distances(&s1_s2_t, n, d_s1 + d_s2 + d_t, k);
-        
-        // For I^sx_∩, we need to count neighbors in a way that captures
-        // the "shared exclusions" - information that BOTH sources provide.
-        // 
-        // The key formula involves:
-        // - n_t^{s1}: neighbors of i in T within ε_{s1,t}
-        // - n_t^{s2}: neighbors of i in T within ε_{s2,t}
-        // - n_t^{joint}: neighbors of i in T within max(ε_{s1,t}, ε_{s2,t})
-        
-        let n_t_s1 = self.count_neighbors_within(target, n, d_t, &eps_s1_t);
-        let n_t_s2 = self.count_neighbors_within(target, n, d_t, &eps_s2_t);
-        
-        // LEGACY SKETCH ONLY (WARNING): this uses an intersection-of-radii heuristic.
-        // This is *not* the Ehrlich et al. (2024) disjunction-kNN estimator described in §8.1.3.
-        let eps_shared: Vec<f64> = eps_s1_t.iter()
-            .zip(eps_s2_t.iter())
-            .map(|(&e1, &e2)| e1.min(e2))  // Heuristic: intersection via smaller epsilon (legacy sketch)
-            .collect();
-        let n_t_shared = self.count_neighbors_within(target, n, d_t, &eps_shared);
-        
-        // Count in marginal spaces for normalization
-        let n_t_joint = self.count_neighbors_within(target, n, d_t, &eps_s1_s2_t);
-        
-        // I^sx_∩ formula (continuous extension of discrete definition)
-        // LEGACY SKETCH ONLY: do not treat as paper-faithful; see §8.1.3 and `crates/pid-core/src/isx.rs`.
-        let psi_k = digamma(k as f64);
-        let psi_n = digamma(n as f64);
-        
-        // Average digamma terms
-        let avg_term: f64 = (0..n).map(|i| {
-            let psi_shared = digamma((n_t_shared[i] + 1) as f64);
-            let psi_s1 = digamma((n_t_s1[i] + 1) as f64);
-            let psi_s2 = digamma((n_t_s2[i] + 1) as f64);
-            
-            // Shared exclusions contribution
-            // The formula captures: log[p(t|s₁ ∨ s₂) / p(t)]
-            // where ∨ represents the disjunction (OR) operation
-            psi_shared - 0.5 * (psi_s1 + psi_s2)
-        }).sum::<f64>() / n as f64;
-        
-        let redundancy = psi_k + psi_n + avg_term;
-
-        // IMPORTANT: In shared-exclusions PID, even the redundancy `I^sx_∩` can be negative
-        // at the distribution level (Makkeh et al. 2021 note under Eq. 17). Do not clamp.
-        Ok(redundancy)
-    }
-    
-    /// Find the distance to the k-th nearest neighbor for each point.
-    fn find_kth_neighbor_distances(
-        &mut self,
-        data: &[f64],
-        n: usize,
-        d: usize,
-        k: usize,
-    ) -> Vec<f64> {
-        let mut distances = vec![0.0; n];
-        
-        for i in 0..n {
-            // Use a max-heap to track k smallest distances
-            let mut heap: BinaryHeap<OrderedFloat> = BinaryHeap::with_capacity(k + 1);
-            
-            for j in 0..n {
-                if i == j { continue; }  // Skip self
-                
-                let dist = self.compute_distance(data, i, j, d);
-                
-                if heap.len() < k {
-                    heap.push(OrderedFloat(dist));
-                } else if dist < heap.peek().unwrap().0 {
-                    heap.pop();
-                    heap.push(OrderedFloat(dist));
-                }
-            }
-            
-            // The k-th smallest is at the top of the max-heap
-            distances[i] = heap.peek().map(|x| x.0).unwrap_or(f64::INFINITY);
-        }
-        
-        distances
-    }
-    
-    /// Count neighbors within epsilon for each point.
-    fn count_neighbors_within(
-        &self,
-        data: &[f64],
-        n: usize,
-        d: usize,
-        epsilon: &[f64],
-    ) -> Vec<usize> {
-        let mut counts = vec![0; n];
-        
-        for i in 0..n {
-            let eps = epsilon[i];
-            for j in 0..n {
-                if i == j { continue; }
-                
-                let dist = self.compute_distance(data, i, j, d);
-                if dist < eps {  // Strict inequality per KSG convention
-                    counts[i] += 1;
-                }
-            }
-        }
-        
-        counts
-    }
-    
-    /// Compute distance between two points.
-    #[inline]
-    fn compute_distance(&self, data: &[f64], i: usize, j: usize, d: usize) -> f64 {
-        let start_i = i * d;
-        let start_j = j * d;
-        
-        match self.config.distance_metric {
-            DistanceMetric::LInfinity => {
-                // L∞: max |x_i - y_i|
-                let mut max_diff = 0.0f64;
-                for k in 0..d {
-                    let diff = (data[start_i + k] - data[start_j + k]).abs();
-                    max_diff = max_diff.max(diff);
-                }
-                max_diff
-            }
-            DistanceMetric::L2 => {
-                // L2: sqrt(sum (x_i - y_i)²)
-                let mut sum_sq = 0.0f64;
-                for k in 0..d {
-                    let diff = data[start_i + k] - data[start_j + k];
-                    sum_sq += diff * diff;
-                }
-                sum_sq.sqrt()
-            }
-        }
-    }
-    
-    /// Bootstrap resampling for standard error estimation.
-    fn bootstrap_se(
-        &mut self,
-        s1: &[f64],
-        s2: &[f64],
-        target: &[f64],
-        n: usize,
-        d_s1: usize,
-        d_s2: usize,
-        d_t: usize,
-    ) -> Result<(f64, f64, f64, f64), PIDError> {
-        use rand::{SeedableRng, Rng};
-        use rand::rngs::StdRng;
-        
-        let mut rng = StdRng::seed_from_u64(self.config.seed);
-        let mut red_samples = Vec::with_capacity(self.config.n_bootstrap);
-        let mut u1_samples = Vec::with_capacity(self.config.n_bootstrap);
-        let mut u2_samples = Vec::with_capacity(self.config.n_bootstrap);
-        let mut syn_samples = Vec::with_capacity(self.config.n_bootstrap);
-        
-        for _ in 0..self.config.n_bootstrap {
-            // Sample with replacement
-            let indices: Vec<usize> = (0..n).map(|_| rng.gen_range(0..n)).collect();
-            
-            // Create resampled data
-            let mut s1_boot = vec![0.0; n * d_s1];
-            let mut s2_boot = vec![0.0; n * d_s2];
-            let mut t_boot = vec![0.0; n * d_t];
-            
-            for (new_i, &old_i) in indices.iter().enumerate() {
-                s1_boot[new_i * d_s1..(new_i + 1) * d_s1]
-                    .copy_from_slice(&s1[old_i * d_s1..(old_i + 1) * d_s1]);
-                s2_boot[new_i * d_s2..(new_i + 1) * d_s2]
-                    .copy_from_slice(&s2[old_i * d_s2..(old_i + 1) * d_s2]);
-                t_boot[new_i * d_t..(new_i + 1) * d_t]
-                    .copy_from_slice(&target[old_i * d_t..(old_i + 1) * d_t]);
-            }
-            
-            // Estimate PID on bootstrap sample (without SE to avoid recursion)
-            let mut temp_config = self.config.clone();
-            temp_config.n_bootstrap = 0;
-            let mut temp_estimator = IsxEstimator::new(temp_config);
-            
-            if let Ok(result) = temp_estimator.estimate(
-                &s1_boot, &s2_boot, &t_boot, n, d_s1, d_s2, d_t
-            ) {
-                red_samples.push(result.redundancy);
-                u1_samples.push(result.unique_s1);
-                u2_samples.push(result.unique_s2);
-                syn_samples.push(result.synergy);
-            }
-        }
-        
-        // Compute standard deviation of bootstrap samples
-        fn std_dev(samples: &[f64]) -> f64 {
-            if samples.is_empty() { return 0.0; }
-            let mean = samples.iter().sum::<f64>() / samples.len() as f64;
-            let variance = samples.iter()
-                .map(|x| (x - mean).powi(2))
-                .sum::<f64>() / samples.len() as f64;
-            variance.sqrt()
-        }
-        
-        Ok((
-            std_dev(&red_samples),
-            std_dev(&u1_samples),
-            std_dev(&u2_samples),
-            std_dev(&syn_samples),
-        ))
-    }
-}
-
-/// Digamma (psi) function.
-/// Uses Stirling's approximation for large x and recurrence for small x.
-#[inline]
-fn digamma(x: f64) -> f64 {
-    let mut x = x;
-    let mut result = 0.0;
-    
-    // Recurrence for small x: ψ(x) = ψ(x+1) - 1/x
-    while x < 6.0 {
-        result -= 1.0 / x;
-        x += 1.0;
-    }
-    
-    // Stirling's approximation for large x
-    let inv_x = 1.0 / x;
-    let inv_x2 = inv_x * inv_x;
-    
-    result + x.ln() - 0.5 * inv_x
-        - inv_x2 * (1.0/12.0 - inv_x2 * (1.0/120.0 - inv_x2 / 252.0))
-}
-
-/// Wrapper for f64 that implements Ord for use in BinaryHeap.
-#[derive(Clone, Copy, PartialEq)]
-struct OrderedFloat(f64);
-
-impl Eq for OrderedFloat {}
-
-impl PartialOrd for OrderedFloat {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.0.partial_cmp(&other.0)
-    }
-}
-
-impl Ord for OrderedFloat {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Equal)
-    }
-}
-
-/// Errors that can occur during PID estimation.
-#[derive(Debug)]
-pub enum PIDError {
-    DimensionMismatch,
-    InsufficientSamples,
-    NumericalInstability,
-}
-```
-
-#### B.3.4.3 Test Scenarios for Validation (Experiment 0)
-
-Repo-canonical tests in this repo (kept in sync with the Rust implementation):
-- `crates/pid-core/tests/ksg.rs` — MI + co-information sanity checks (Gaussian channels, independence).
-- `crates/pid-core/tests/isx.rs` — `I^sx_∩` redundancy smoke tests + exact-value cross-check against `csxpid` on fixed data.
-- `crates/pid-core/tests/pid3.rs` — 3-source SxPID cross-check against `csxpid` on fixed data.
-- `crates/pid-core/tests/hierarchy.rs` — hierarchical screening behavior.
-- `crates/pid-core/src/bin/exp0.rs` — Experiment 0 runner (synthetic sweeps; extend as needed).
-
-The block below is a legacy sketch for illustration; do not treat its “ground truth” comments as mathematically guaranteed for continuous SxPID.
-
-```text
-//! LEGACY SKETCH ONLY — repo tests live in `crates/pid-core/tests/*.rs`.
-//! 
-//! Test scenarios for validating the I^sx_∩ estimator.
-//! These implement Experiment 0 from the specification.
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::{SeedableRng, Rng};
-    use rand::rngs::StdRng;
-    use rand_distr::{Normal, Distribution};
-
-    /// Test 1: Independent/additive-style system (qualitative expectation: low redundancy, low synergy)
-    /// 
-    /// S₁ and S₂ are independent, T = S₁ + S₂ + noise
-    /// Note: exact atom values depend on the redundancy measure and estimator; validate against `csxpid` and check invariants.
-    #[test]
-    fn test_independent_sources() {
-        let mut rng = StdRng::seed_from_u64(42);
-        let normal = Normal::new(0.0, 1.0).unwrap();
-        
-        let n = 5000;
-        let d = 10;  // Start with low dimensions
-        
-        // Generate independent sources
-        let s1: Vec<f64> = (0..n * d).map(|_| normal.sample(&mut rng)).collect();
-        let s2: Vec<f64> = (0..n * d).map(|_| normal.sample(&mut rng)).collect();
-        
-        // T = mean(S₁) + mean(S₂) + noise (additive, no synergy)
-        let noise_std = 0.1;
-        let target: Vec<f64> = (0..n).map(|i| {
-            let s1_mean: f64 = s1[i * d..(i + 1) * d].iter().sum::<f64>() / d as f64;
-            let s2_mean: f64 = s2[i * d..(i + 1) * d].iter().sum::<f64>() / d as f64;
-            s1_mean + s2_mean + normal.sample(&mut rng) * noise_std
-        }).collect();
-        
-        let mut estimator = IsxEstimator::new(IsxConfig {
-            n_bootstrap: 0,  // Skip SE for speed
-            ..Default::default()
-        });
-        
-        let result = estimator.estimate(&s1, &s2, &target, n, d, d, 1).unwrap();
-        
-        // Assertions with tolerance
-        assert!(result.synergy.abs() < 0.1, "Synergy should be ~0, got {}", result.synergy);
-        assert!(result.redundancy.abs() < 0.1, "Redundancy should be ~0, got {}", result.redundancy);
-        assert!(result.unique_s1 > 0.3, "Unique(S₁) should be positive, got {}", result.unique_s1);
-        assert!(result.unique_s2 > 0.3, "Unique(S₂) should be positive, got {}", result.unique_s2);
-    }
-    
-    /// Test 2: XOR-like System (Ground Truth: High Synergy)
-    /// 
-    /// T = sign(S₁ * S₂), meaning neither S₁ nor S₂ alone predicts T
-    /// Expected: High synergy, low unique, low redundancy
-    #[test]
-    fn test_xor_synergy() {
-        let mut rng = StdRng::seed_from_u64(42);
-        let normal = Normal::new(0.0, 1.0).unwrap();
-        
-        let n = 5000;
-        let d = 1;  // 1D for clear XOR interpretation
-        
-        // Generate sources
-        let s1: Vec<f64> = (0..n).map(|_| normal.sample(&mut rng)).collect();
-        let s2: Vec<f64> = (0..n).map(|_| normal.sample(&mut rng)).collect();
-        
-        // T = sign(S₁ * S₂) + noise
-        let noise_std = 0.1;
-        let target: Vec<f64> = (0..n).map(|i| {
-            let product = s1[i] * s2[i];
-            (if product > 0.0 { 1.0 } else { -1.0 }) + normal.sample(&mut rng) * noise_std
-        }).collect();
-        
-        let mut estimator = IsxEstimator::new(IsxConfig {
-            n_bootstrap: 0,
-            ..Default::default()
-        });
-        
-        let result = estimator.estimate(&s1, &s2, &target, n, d, d, 1).unwrap();
-        
-        // XOR should show high synergy
-        assert!(result.synergy > 0.5, "Synergy should be high for XOR, got {}", result.synergy);
-        // Individual sources should have low unique information
-        assert!(result.unique_s1.abs() < 0.3, "Unique(S₁) should be low, got {}", result.unique_s1);
-        assert!(result.unique_s2.abs() < 0.3, "Unique(S₂) should be low, got {}", result.unique_s2);
-    }
-    
-    /// Test 3: Redundant Sources (Ground Truth: High Redundancy)
-    /// 
-    /// S₁ = S₂ = T + noise, both sources carry the same information
-    /// Expected: High redundancy, low unique, low synergy
-    #[test]
-    fn test_redundant_sources() {
-        let mut rng = StdRng::seed_from_u64(42);
-        let normal = Normal::new(0.0, 1.0).unwrap();
-        
-        let n = 5000;
-        let d = 5;
-        
-        // Generate target first
-        let target: Vec<f64> = (0..n * d).map(|_| normal.sample(&mut rng)).collect();
-        
-        // S₁ and S₂ are noisy copies of T
-        let noise_std = 0.1;
-        let s1: Vec<f64> = target.iter()
-            .map(|&t| t + normal.sample(&mut rng) * noise_std)
-            .collect();
-        let s2: Vec<f64> = target.iter()
-            .map(|&t| t + normal.sample(&mut rng) * noise_std)
-            .collect();
-        
-        let mut estimator = IsxEstimator::new(IsxConfig {
-            n_bootstrap: 0,
-            ..Default::default()
-        });
-        
-        let result = estimator.estimate(&s1, &s2, &target, n, d, d, d).unwrap();
-        
-        // Redundancy should dominate
-        assert!(result.redundancy > 0.5, "Redundancy should be high, got {}", result.redundancy);
-        assert!(result.synergy.abs() < 0.2, "Synergy should be low, got {}", result.synergy);
-    }
-    
-    /// Test 4: Dimensionality Scaling
-    /// 
-    /// Test that estimator works across different dimensionalities.
-    /// This is critical for VLA applications (d=4096).
-    #[test]
-    fn test_dimensionality_scaling() {
-        let dims = [10, 50, 100, 256];  // Progressively higher dimensions
-        
-        for d in dims {
-            let mut rng = StdRng::seed_from_u64(42);
-            let normal = Normal::new(0.0, 1.0).unwrap();
-            
-            // Scale n with d to maintain reasonable estimation
-            let n = (1000 * (d as f64).sqrt() as usize).max(2000);
-            
-            let s1: Vec<f64> = (0..n * d).map(|_| normal.sample(&mut rng)).collect();
-            let s2: Vec<f64> = (0..n * d).map(|_| normal.sample(&mut rng)).collect();
-            let target: Vec<f64> = (0..n).map(|i| {
-                s1[i * d] + s2[i * d] + normal.sample(&mut rng) * 0.1
-            }).collect();
-            
-            let mut estimator = IsxEstimator::new(IsxConfig {
-                n_bootstrap: 0,
-                ..Default::default()
-            });
-            
-            let result = estimator.estimate(&s1, &s2, &target, n, d, d, 1);
-            
-            assert!(result.is_ok(), "Estimation failed at d={}", d);
-            
-            let result = result.unwrap();
-            // Check that results are finite and in reasonable range
-            assert!(result.synergy.is_finite(), "Synergy not finite at d={}", d);
-            assert!(result.redundancy.is_finite(), "Redundancy not finite at d={}", d);
-            assert!(result.synergy.abs() < 5.0, "Synergy out of range at d={}", d);
-            
-            println!("d={}: Syn={:.3}, Red={:.3}, U1={:.3}, U2={:.3}", 
-                     d, result.synergy, result.redundancy, result.unique_s1, result.unique_s2);
-        }
-    }
-    
-    /// Test 5: Consistency Check
-    /// 
-    /// Verify that the four PID atoms sum to I(S₁,S₂;T).
-    /// This is a fundamental consistency requirement.
-    #[test]
-    fn test_pid_consistency() {
-        let mut rng = StdRng::seed_from_u64(42);
-        let normal = Normal::new(0.0, 1.0).unwrap();
-        
-        let n = 5000;
-        let d = 10;
-        
-        let s1: Vec<f64> = (0..n * d).map(|_| normal.sample(&mut rng)).collect();
-        let s2: Vec<f64> = (0..n * d).map(|_| normal.sample(&mut rng)).collect();
-        let target: Vec<f64> = (0..n).map(|i| {
-            // Mix of additive and multiplicative to have all PID components
-            s1[i * d] + s2[i * d] + s1[i * d] * s2[i * d] + normal.sample(&mut rng) * 0.1
-        }).collect();
-        
-        let mut estimator = IsxEstimator::new(IsxConfig {
-            n_bootstrap: 0,
-            ..Default::default()
-        });
-        
-        let result = estimator.estimate(&s1, &s2, &target, n, d, d, 1).unwrap();
-        
-        // Estimate I(S₁,S₂;T) directly for comparison
-        let mut s1_s2 = Vec::with_capacity(n * 2 * d);
-        for i in 0..n {
-            s1_s2.extend_from_slice(&s1[i * d..(i + 1) * d]);
-            s1_s2.extend_from_slice(&s2[i * d..(i + 1) * d]);
-        }
-        let mi_joint = estimator.estimate_mi(&s1_s2, &target, n, 2 * d, 1).unwrap();
-        
-        // Sum of atoms should equal joint MI
-        let sum_atoms = result.redundancy + result.unique_s1 + result.unique_s2 + result.synergy;
-        let diff = (sum_atoms - mi_joint).abs();
-        
-        assert!(diff < 0.2, "PID consistency violated: sum={:.3}, MI={:.3}, diff={:.3}",
-                sum_atoms, mi_joint, diff);
-    }
-}
-```
-
----
-
-### B.3.5 Scaling to 3-Way PID and High Dimensions
-
-#### B.3.5.1 The Scalability Challenge
-
-For 3-source PID (V, L, D → A), we face:
-
-| Sources | PID Atoms | Complexity |
-|---------|-----------|------------|
-| 2 | 4 | O(n² × d) |
-| 3 | 18 | O(n² × d) × 18 atoms |
-| 4 | 166 | Computationally intractable |
-| n | B(n) (Bell number) | Super-exponential |
-
-The fundamental bottleneck is **NOT** the number of atoms, but:
-1. **k-NN search** in high dimensions (curse of dimensionality)
-2. **Sample complexity** increases with dimension
-3. **Estimation variance** multiplies across atoms
-
-#### B.3.5.2 Scalable Approaches from Literature
-
-**Scope note:** This appendix lists several scalability ideas from the broader literature. For this PhD project, the in-scope core is **Wibral-group shared-exclusions PID (`I^sx_∩`)** and **Shannon invariants** (Gutknecht et al. 2025). Other approaches below are for context/baselines only and should not be conflated with `I^sx_∩`.
-
-**Approach 1: Shannon Invariants (Gutknecht et al. 2025)**
-
-Compute summary statistics that are invariant across all PID measures:
-
-```rust
-/// Bivariate co-information: CI₂(X₁,X₂;Y) = I(X₁;Y)+I(X₂;Y)-I(X₁,X₂;Y) = Red - Syn
-/// (a Shannon invariant for any 2-source PID).
-///
-/// For 3 sources (with a distinguished target), CI₃ is an interaction-information-style
-/// alternating sum of MI terms. It is a screening statistic (not a PID) and is much cheaper
-/// than estimating all 18 PID atoms.
-pub fn co_information_3way(
-    s1: &[Vec<f64>],
-    s2: &[Vec<f64>],
-    s3: &[Vec<f64>],
-    target: &[Vec<f64>],
-    k: usize,
-) -> f64 {
-    // Compute 7 mutual information terms
-    let i_s1_t = ksg_mi(s1, target, k);
-    let i_s2_t = ksg_mi(s2, target, k);
-    let i_s3_t = ksg_mi(s3, target, k);
-    let i_s1s2_t = ksg_mi(&concat_sources(s1, s2), target, k);
-    let i_s1s3_t = ksg_mi(&concat_sources(s1, s3), target, k);
-    let i_s2s3_t = ksg_mi(&concat_sources(s2, s3), target, k);
-    let i_s1s2s3_t = ksg_mi(&concat_sources_3(s1, s2, s3), target, k);
-    
-    // Co-information formula (alternating sum)
-    i_s1_t + i_s2_t + i_s3_t 
-        - i_s1s2_t - i_s1s3_t - i_s2s3_t 
-        + i_s1s2s3_t
-}
-
-/// m-way co-information relative to a target (generalization of CI₃).
-///
-/// NOTE: This is **not** the O-information Ω.
-/// - `CI_m(X₁,…,X_m;Y)` is defined via an alternating sum over MI terms `I(X_S;Y)`.
-/// - `Ω(X₁,…,X_n)` is defined on a *set of variables* (no distinguished target) via entropies
-///   and equals `TC - DTC`. See §2.5.3 for the correct Ω definition and scope limitations.
-pub fn co_information_mway(
-    sources: &[&[Vec<f64>]],
-    target: &[Vec<f64>],
-    k: usize,
-) -> f64 {
-    // CI_m(X₁,…,X_m;Y) := Σ_{∅≠S⊆{1..m}} (-1)^{|S|+1} I(X_S;Y)
-    //
-    // WARNING: enumerating all subsets is exponential in m; for PID-VLA screening we typically
-    // only use m ≤ 3 (pairwise CI and 3-way CI with a distinguished target).
-    let m = sources.len();
-    let mut sum = 0.0f64;
-    for mask in 1usize..(1usize << m) {
-        let r = mask.count_ones() as usize;
-        let sign = if (r % 2) == 1 { 1.0 } else { -1.0 };
-        let blocks = select_blocks(sources, mask);
-        sum += sign * ksg_mi(&concat_all(&blocks), target, k);
-    }
-    sum
-}
-```
-
-**Interpretation:**
-- `CI_m < 0`: synergy-leaning interactions (sign convention; see §2.5.3)
-- `CI_m > 0`: redundancy-leaning interactions
-- Provides scalar summaries without computing all PID atoms, but does not replace `I^sx_∩`
-
-**Approach 2: Gaussian PID (NeurIPS 2023, 2024)**
-
-Transform data to Gaussian latent space where PID has closed-form solution:
-
-```rust
-/// Gaussian PID via normalizing flows
-/// Based on: "Gaussian PID: Bias Correction and Application to High-Dimensional Data"
-pub struct GaussianPID {
-    /// Normalizing flow encoder for each source
-    encoders: Vec<NormalizingFlow>,
-    /// Covariance matrices in latent space
-    cov_cache: HashMap<String, DMatrix<f64>>,
-}
-
-impl GaussianPID {
-    /// Transform sources to Gaussian latent space, then compute BROJA-PID
-    pub fn estimate(
-        &mut self,
-        s1: &DMatrix<f64>,  // [n, d1]
-        s2: &DMatrix<f64>,  // [n, d2]
-        target: &DMatrix<f64>, // [n, dt]
-    ) -> PIDResult {
-        // Step 1: Encode to Gaussian latent space
-        let z1 = self.encoders[0].encode(s1);
-        let z2 = self.encoders[1].encode(s2);
-        let zt = self.encoders[2].encode(target);
-        
-        // Step 2: Estimate covariance matrices
-        let cov_z1_zt = estimate_covariance(&z1, &zt);
-        let cov_z2_zt = estimate_covariance(&z2, &zt);
-        let cov_z1_z2_zt = estimate_covariance_3way(&z1, &z2, &zt);
-        
-        // Step 3: Compute Gaussian PID (closed-form for BROJA)
-        // Uses optimization over Q(zt | z1, z2) distributions
-        self.compute_broja_gaussian(&cov_z1_zt, &cov_z2_zt, &cov_z1_z2_zt)
-    }
-    
-    /// Bias-corrected estimator for finite samples
-    pub fn estimate_with_bias_correction(
-        &mut self,
-        s1: &DMatrix<f64>,
-        s2: &DMatrix<f64>,
-        target: &DMatrix<f64>,
-        n_bootstrap: usize,
-    ) -> PIDResult {
-        // Apply Ledoit-Wolf shrinkage to covariance estimates
-        // Then use bias correction formula from NeurIPS 2023
-        // ...
-    }
-}
-```
-
-**Key properties:**
-- Scales to d=1024+ dimensions
-- Bias-corrected estimator available
-- Preserves information (normalizing flows are bijective)
-- **Caveat:** Uses BROJA-PID, not I^sx_∩ (different measure)
-
-**Approach 3: Coarse-Graining (Ehrlich et al. 2022)**
-
-Instead of treating each neuron as a separate source, group neurons:
-
-```rust
-/// Coarse-grain high-dimensional sources into lower-dimensional groups
-pub struct CoarseGrainedPID {
-    /// PCA for dimensionality reduction
-    pca: Option<PCA>,
-    /// Clustering for neuron grouping
-    kmeans: Option<KMeans>,
-    /// Number of groups
-    n_groups: usize,
-}
-
-impl CoarseGrainedPID {
-    /// Reduce d-dimensional source to n_groups components
-    pub fn coarse_grain(&self, source: &DMatrix<f64>) -> DMatrix<f64> {
-        match &self.pca {
-            Some(pca) => pca.transform(source, self.n_groups),
-            None => {
-                // Use k-means clustering on neurons
-                let assignments = self.kmeans.as_ref().unwrap().predict(source);
-                self.aggregate_by_cluster(source, &assignments)
-            }
-        }
-    }
-    
-    /// Aggregate neurons by cluster (mean or first PC per cluster)
-    fn aggregate_by_cluster(
-        &self,
-        source: &DMatrix<f64>,
-        assignments: &[usize],
-    ) -> DMatrix<f64> {
-        let mut grouped = DMatrix::zeros(source.nrows(), self.n_groups);
-        for (i, &cluster) in assignments.iter().enumerate() {
-            for j in 0..source.nrows() {
-                grouped[(j, cluster)] += source[(j, i)];
-            }
-        }
-        grouped
-    }
-    
-    /// Compute PID on coarse-grained representation
-    pub fn estimate(&self, sources: &[DMatrix<f64>], target: &DMatrix<f64>) -> PIDResult {
-        let coarse_sources: Vec<_> = sources.iter()
-            .map(|s| self.coarse_grain(s))
-            .collect();
-        
-        // Now compute standard PID on lower-dimensional representations
-        // ...
-    }
-}
-```
-
-**Trade-offs:**
-- Reduces dimensionality but may lose fine-grained information
-- Bounds on information loss available (see Ehrlich et al.)
-- Useful when interested in aggregate patterns, not individual neurons
-
-**Approach 4: Normalizing-Flow PID in Latent Gaussian Distributions (Zhao et al., arXiv:2510.04417)**
-
-Most recent approach combining all above:
-
-```rust
-/// Flow-based PID in latent Gaussian space (Zhao et al., arXiv:2510.04417).
-/// "Partial Information Decomposition via Normalizing Flows in Latent Gaussian Distributions"
-///
-/// Note: Earlier drafts used the nickname “Thin-PID”; the arXiv title does not use that name.
-/// This is also not I^sx_∩ (it targets a Gaussian/flow-based PID variant).
-pub struct NormalizingFlowPid {
-    /// Invertible normalizing flow encoder
-    flow: RealNVP,  // Or other normalizing flow
-    /// Gradient-based optimizer for GPID
-    optimizer: AdamOptimizer,
-}
-
-/// Legacy alias used in earlier drafts.
-pub type ThinPID = NormalizingFlowPid;
-
-impl NormalizingFlowPid {
-    /// Key insight: PID is easier to solve in Gaussian space
-    /// Normalizing flows preserve information while Gaussianizing
-    pub fn estimate(&mut self, s1: &[Vec<f64>], s2: &[Vec<f64>], target: &[Vec<f64>]) -> PIDResult {
-        // 1. Train flows to map each variable to Gaussian
-        let z1 = self.flow.fit_transform(s1);
-        let z2 = self.flow.fit_transform(s2);
-        let zt = self.flow.fit_transform(target);
-        
-        // 2. Compute Gaussian PID (much faster than discrete)
-        let gpid = GaussianPID::new();
-        gpid.estimate(&z1, &z2, &zt)
-    }
-}
-```
-
-#### B.3.5.3 Recommended Scaling Strategy for VLA
-
-For the PID-VLA system with sources V (4096-d), L (4096-d), D (4096-d), Target A (7-d):
-
-```
-SCALING STRATEGY
-================
-
-Level 0: Shannon invariants (fastest; MI-only)
-├── Compute CI_VL, CI_VD, CI_LD (pairwise co-information)
-├── Compute CI_3(V,L,D;A) (3-way co-information / interaction information with a distinguished target)
-├── O(7) MI estimates via KSG
-└── Use for: Real-time monitoring, fast screening
-
-Optional (research-only; not “MI-only cheap”):
-└── Compute Ω on a *set* (e.g., Ω(V,L,D,A) or Ω(V,L,D)) after coarse-graining/feature selection.
-    This requires high-order entropy estimation and can be harder than CI screening in high `d`.
-
-Level 1: Pairwise `I^sx_∩` PID (slower; targeted; likely requires dim reduction)
-├── Apply PCA: 4096-d → 256-d (retain 95% variance)
-├── Compute PID(V,D;A), PID(V,L;A), PID(L,D;A)
-├── O(3) × 4 atoms = 12 estimates
-└── Use for: Detailed failure analysis
-
-Level 2: 3-way SxPID (offline only; only after pairwise validation)
-├── Pre-filter with Level 0 to identify suspicious patterns
-├── Compute full 18-atom decomposition on reduced dimensions
-├── Use coarse-graining if d > 512
-└── Use for: Research, paper results
-```
-
-**Scope note:** This project’s scientific object is Wibral-group shared-exclusions PID (`I^sx_∩`) plus Shannon invariants. Non-SxPID approaches (e.g., BROJA, normalizing-flow PID variants) may be explored as *baselines* if needed, but they are out of scope for the core estimator and should not be conflated with `I^sx_∩`.
-
-#### B.3.5.4 Implementation Recommendations
-
-```rust
-/// High-level PID computation with automatic scaling
-pub fn auto_scaled_pid(
-    sources: &[DMatrix<f64>],
-    target: &DMatrix<f64>,
-    config: &ScalingConfig,
-) -> ScaledPIDResult {
-    let n_sources = sources.len();
-    let max_dim = sources.iter().map(|s| s.ncols()).max().unwrap_or(0);
-    
-    // Decide scaling strategy based on problem size
-    match (n_sources, max_dim) {
-        (2, d) if d <= 256 => {
-            // Direct I^sx_∩ estimation
-            let isx = IsxContinuous::with_config(config.isx_config.clone());
-            ScaledPIDResult::Full(isx.estimate(&sources[0], &sources[1], target))
-        }
-        (2, d) if d <= 4096 => {
-            // PCA reduction + I^sx_∩
-            let reduced = apply_pca(sources, config.pca_components);
-            let isx = IsxContinuous::with_config(config.isx_config.clone());
-            ScaledPIDResult::Reduced(isx.estimate(&reduced[0], &reduced[1], target))
-        }
-        (3, d) if d <= 256 => {
-            // Full 3-way PID (18 atoms)
-            compute_3way_isx(sources, target, &config.isx_config)
-        }
-        (3, d) => {
-            // Shannon invariants + targeted pairwise PID
-            let ci = co_information_3way(&sources[0], &sources[1], &sources[2], target, config.k);
-            let pairwise = compute_pairwise_pids(sources, target, &config);
-            ScaledPIDResult::Hierarchical { ci, pairwise }
-        }
-        (n, _) if n > 3 => {
-            // Scalable screening for many sources:
-            // - Compute the full pairwise CI₂ matrix (reusing single-source MI terms).
-            // - Optionally compute Ω on a *small, selected/coarse-grained* subset offline.
-            let ci2 = compute_pairwise_ci2_matrix(sources, target, config.k);
-            ScaledPIDResult::PairwiseCi2(ci2)
-        }
-        _ => unreachable!()
-    }
-}
-
-pub enum ScaledPIDResult {
-    Full(PIDResult),
-    Reduced(PIDResult),  // With note about dimensionality reduction
-    Hierarchical { ci: f64, pairwise: Vec<PIDResult> },
-    PairwiseCi2(Vec<Vec<f64>>),
-}
-```
-
-#### B.3.5.5 Computational Complexity Summary
-
-| Method | Time Complexity | Space | Max d | Max sources |
-|--------|-----------------|-------|-------|-------------|
-| KSG MI | O(N² × d) | O(N × d) | ~1000 | Any |
-| I^sx_∩ 2-way | O(N² × d × 4) | O(N × d) | ~500 | 2 |
-| I^sx_∩ 3-way | O(N² × d × 18) | O(N × d) | ~256 | 3 |
-| Pairwise CI₂ screening (m sources → target) | O(N² × d × m²) | O(N × d) | ~1000 | ~100 (still heavy) |
-| m-way CI_m (explicit subset sum) | O(N² × d × (2^m − 1)) | O(N × d) | ~500 | ~5 (not scalable) |
-| Ω (O-information on a set; entropy-based) | O(N² × d × m) | O(N × d) | ~500 | ~10–100 (depends on estimator; research-only) |
-| Gaussian PID | O(N × d + d³) | O(d²) | ~1024 | 2-3 |
-| NF-PID (Zhao et al.; “Thin-PID” legacy) | O(N × d × epochs) | O(d²) | 1000+ | 2-3 |
-
-#### B.3.5.6 References for Scaling
-
-```
-Core Papers:
-- Gutknecht et al. (2025): Shannon Invariants. arXiv:2504.15779
-- Ehrlich et al. (2022): Representational Complexity. Trans. ML Res.
-- Barrett et al. (2023): Gaussian PID with Bias Correction. NeurIPS.
-- Zhao et al. (2025): Partial Information Decomposition via Normalizing Flows in Latent Gaussian Distributions. arXiv:2510.04417 (earlier drafts used “Thin-PID” as a nickname)
-
-Libraries:
-- dit (Python): dit.distributions, dit.pid (discrete PID measures)
-- IDTxl (Python): Comprehensive information theory toolkit
-- Abzinger/SxPID (Python): Discrete I^sx_∩ implementation
-```
-
----
+Until then, treat MLX as an external option and do not cite performance expectations from this document.
 
 ## B.4 Metal Compute for PID Estimation
 
-### B.4.1 Why Custom Metal Kernels
+**Status (v7.0):** Not implemented here.
 
-```
-PERFORMANCE MOTIVATION
-======================
-
-The I^sx_∩ PID estimator is dominated by k-NN search:
-- For each sample i, find k nearest neighbors in d dimensions
-- Naive: O(n² × d) distance calculations
-- With k-d tree: O(n × log(n) × d) average case
-- With Metal GPU: O(n × d / num_cores) parallel
-
-For VLA scale (n=10000, d=4096, k=3):
-- CPU (single-threaded): ~45 seconds
-- CPU (M4 Max 16 cores): ~4 seconds
-- Metal GPU (40 cores): ~0.3 seconds
-
-The 150x speedup makes interactive analysis possible.
-
-WHY NOT USE MPS (Metal Performance Shaders)?
-============================================
-MPS provides pre-built kernels for common operations (matmul, conv, etc.)
-but does NOT provide:
-- k-NN search with custom distance metrics
-- Digamma function evaluation (needed for KSG)
-- Custom reduction patterns for PID atoms
-
-We need custom Metal kernels for the PID-specific operations.
-```
-
-### B.4.2 Metal Shader Implementation
-
-```metal
-/* 
- * pid_kernels.metal
- * =================
- * Custom Metal compute shaders for PID estimation.
- * 
- * COMPILATION:
- * xcrun -sdk macosx metal -c pid_kernels.metal -o pid_kernels.air
- * xcrun -sdk macosx metallib pid_kernels.air -o pid_kernels.metallib
- * 
- * Or via Rust metal-rs crate for runtime compilation.
- */
-
-#include <metal_stdlib>
-using namespace metal;
-
-// =============================================================================
-// CONSTANTS AND HELPERS
-// =============================================================================
-
-// Thread group size optimized for M4 GPU architecture
-// M4 has 40 execution units with 32 threads each = 1280 max concurrent
-// We use 256 threads per group for good occupancy
-constant uint THREAD_GROUP_SIZE = 256;
-
-// Digamma function coefficients (Bernoulli numbers)
-// Used in KSG estimator: ψ(k) + ψ(n) - ψ(n_x) - ψ(n_y)
-constant float DIGAMMA_C1 = -0.5772156649f;  // Euler-Mascheroni constant
-constant float DIGAMMA_C2 = 1.6449340668f;   // π²/6
-
-/*
- * digamma - Digamma (psi) function approximation
- * 
- * Uses asymptotic expansion for x > 6, recurrence relation for smaller x.
- * Accuracy: ~1e-7 relative error for x > 0.5
- * 
- * This is critical for KSG estimator accuracy. The formula:
- *   I(X;Y) ≈ ψ(k) + ψ(n) - <ψ(n_x + 1)> - <ψ(n_y + 1)>
- * 
- * where ψ is the digamma function and n_x, n_y are neighbor counts.
- */
-inline float digamma(float x) {
-    // Handle small x via recurrence: ψ(x) = ψ(x+1) - 1/x
-    float result = 0.0f;
-    while (x < 6.0f) {
-        result -= 1.0f / x;
-        x += 1.0f;
-    }
-    
-    // Asymptotic expansion for large x
-    float inv_x = 1.0f / x;
-    float inv_x2 = inv_x * inv_x;
-    
-    result += log(x) - 0.5f * inv_x;
-    result -= inv_x2 * (1.0f/12.0f - inv_x2 * (1.0f/120.0f - inv_x2 * (1.0f/252.0f)));
-    
-    return result;
-}
-
-
-// =============================================================================
-// K-NN DISTANCE COMPUTATION
-// =============================================================================
-
-/*
- * compute_distances_chunk
- * 
- * Computes L∞ (Chebyshev) distances from query points to all data points.
- * L∞ is used in KSG estimator because it defines hypercube neighborhoods.
- * 
- * MEMORY LAYOUT:
- * - data: (n, d) row-major, all data points
- * - queries: (q, d) row-major, query points (subset of data for k-NN)
- * - distances: (q, n) output distances
- * 
- * PARALLELIZATION:
- * - Each thread handles one (query, data) pair
- * - Grid: (q, ceil(n / THREAD_GROUP_SIZE))
- * - Thread group: (1, THREAD_GROUP_SIZE)
- * 
- * For large (n,d,q), this becomes a dominant cost; benchmark on your target GPU/runtime.
- */
-kernel void compute_distances_linf(
-    device const float* data       [[buffer(0)]],  // (n, d)
-    device const float* queries    [[buffer(1)]],  // (q, d)
-    device float* distances        [[buffer(2)]],  // (q, n)
-    constant uint& n               [[buffer(3)]],  // number of data points
-    constant uint& d               [[buffer(4)]],  // dimensionality
-    constant uint& q               [[buffer(5)]],  // number of queries
-    uint2 gid                      [[thread_position_in_grid]]
-) {
-    uint query_idx = gid.x;
-    uint data_idx = gid.y;
-    
-    // Bounds check
-    if (query_idx >= q || data_idx >= n) return;
-    
-    // Compute L∞ distance
-    float max_diff = 0.0f;
-    
-    for (uint dim = 0; dim < d; dim++) {
-        float query_val = queries[query_idx * d + dim];
-        float data_val = data[data_idx * d + dim];
-        float diff = abs(query_val - data_val);
-        max_diff = max(max_diff, diff);
-    }
-    
-    distances[query_idx * n + data_idx] = max_diff;
-}
-
-
-/*
- * compute_distances_l2
- * 
- * Alternative: Euclidean distance for comparison experiments.
- * Some PID estimators use L2 instead of L∞.
- */
-kernel void compute_distances_l2(
-    device const float* data       [[buffer(0)]],
-    device const float* queries    [[buffer(1)]],
-    device float* distances        [[buffer(2)]],
-    constant uint& n               [[buffer(3)]],
-    constant uint& d               [[buffer(4)]],
-    constant uint& q               [[buffer(5)]],
-    uint2 gid                      [[thread_position_in_grid]]
-) {
-    uint query_idx = gid.x;
-    uint data_idx = gid.y;
-    
-    if (query_idx >= q || data_idx >= n) return;
-    
-    float sum_sq = 0.0f;
-    
-    for (uint dim = 0; dim < d; dim++) {
-        float diff = queries[query_idx * d + dim] - data[data_idx * d + dim];
-        sum_sq += diff * diff;
-    }
-    
-    distances[query_idx * n + data_idx] = sqrt(sum_sq);
-}
-
-
-// =============================================================================
-// K-NN SELECTION (PARTIAL SORT)
-// =============================================================================
-
-/*
- * find_k_nearest
- * 
- * For each query, find the k smallest distances.
- * Uses parallel bitonic sort on small k, heap for larger k.
- * 
- * OUTPUT:
- * - knn_indices: (q, k) indices of k nearest neighbors
- * - knn_distances: (q, k) distances to k nearest neighbors
- * 
- * NOTE: Excludes self-matches (distance = 0) for leave-one-out estimation.
- */
-kernel void find_k_nearest(
-    device const float* distances   [[buffer(0)]],  // (q, n)
-    device uint* knn_indices        [[buffer(1)]],  // (q, k)
-    device float* knn_distances     [[buffer(2)]],  // (q, k)
-    constant uint& n                [[buffer(3)]],
-    constant uint& k                [[buffer(4)]],
-    constant uint& q                [[buffer(5)]],
-    uint gid                        [[thread_position_in_grid]]
-) {
-    if (gid >= q) return;
-    
-    // Initialize with maximum values
-    threadgroup float local_dists[32];  // Assuming k <= 32
-    threadgroup uint local_indices[32];
-    
-    for (uint i = 0; i < k; i++) {
-        local_dists[i] = INFINITY;
-        local_indices[i] = 0;
-    }
-    
-    // Scan all distances, maintaining top-k
-    for (uint i = 0; i < n; i++) {
-        float dist = distances[gid * n + i];
-        
-        // Skip self-match
-        if (dist < 1e-10f) continue;
-        
-        // Check if this distance belongs in top-k
-        if (dist < local_dists[k-1]) {
-            // Insert in sorted position
-            uint insert_pos = k - 1;
-            while (insert_pos > 0 && dist < local_dists[insert_pos - 1]) {
-                local_dists[insert_pos] = local_dists[insert_pos - 1];
-                local_indices[insert_pos] = local_indices[insert_pos - 1];
-                insert_pos--;
-            }
-            local_dists[insert_pos] = dist;
-            local_indices[insert_pos] = i;
-        }
-    }
-    
-    // Write results
-    for (uint i = 0; i < k; i++) {
-        knn_indices[gid * k + i] = local_indices[i];
-        knn_distances[gid * k + i] = local_dists[i];
-    }
-}
-
-
-// =============================================================================
-// KSG MUTUAL INFORMATION ESTIMATION
-// =============================================================================
-
-/*
- * ksg_count_neighbors
- * 
- * For each point, count neighbors within epsilon in marginal spaces.
- * This is the core of the KSG estimator.
- * 
- * Given joint space (X, Y) and epsilon = distance to k-th neighbor in joint:
- * - n_x = count of points within epsilon in X marginal
- * - n_y = count of points within epsilon in Y marginal
- * 
- * MI estimate: ψ(k) - 1/k - <ψ(n_x + 1) + ψ(n_y + 1)> + ψ(n)
- */
-kernel void ksg_count_neighbors(
-    device const float* X           [[buffer(0)]],  // (n, d_x)
-    device const float* Y           [[buffer(1)]],  // (n, d_y)
-    device const float* epsilon     [[buffer(2)]],  // (n,) distance to k-th neighbor in joint
-    device uint* n_x                [[buffer(3)]],  // (n,) output: neighbors in X
-    device uint* n_y                [[buffer(4)]],  // (n,) output: neighbors in Y
-    constant uint& n                [[buffer(5)]],
-    constant uint& d_x              [[buffer(6)]],
-    constant uint& d_y              [[buffer(7)]],
-    uint gid                        [[thread_position_in_grid]]
-) {
-    if (gid >= n) return;
-    
-    float eps = epsilon[gid];
-    uint count_x = 0;
-    uint count_y = 0;
-    
-    // Count neighbors in each marginal
-    for (uint j = 0; j < n; j++) {
-        if (j == gid) continue;
-        
-        // Check X marginal distance
-        float dist_x = 0.0f;
-        for (uint dim = 0; dim < d_x; dim++) {
-            float diff = abs(X[gid * d_x + dim] - X[j * d_x + dim]);
-            dist_x = max(dist_x, diff);
-        }
-        if (dist_x < eps) count_x++;
-        
-        // Check Y marginal distance  
-        float dist_y = 0.0f;
-        for (uint dim = 0; dim < d_y; dim++) {
-            float diff = abs(Y[gid * d_y + dim] - Y[j * d_y + dim]);
-            dist_y = max(dist_y, diff);
-        }
-        if (dist_y < eps) count_y++;
-    }
-    
-    n_x[gid] = count_x;
-    n_y[gid] = count_y;
-}
-
-
-/*
- * ksg_compute_mi
- * 
- * Final MI computation from neighbor counts.
- * Parallel reduction over all samples.
- */
-kernel void ksg_compute_mi(
-    device const uint* n_x          [[buffer(0)]],
-    device const uint* n_y          [[buffer(1)]],
-    device float* mi_contribution   [[buffer(2)]],  // (n,) per-sample contribution
-    constant uint& n                [[buffer(3)]],
-    constant uint& k                [[buffer(4)]],
-    uint gid                        [[thread_position_in_grid]]
-) {
-    if (gid >= n) return;
-    
-    // KSG formula for single sample
-    // KSG-style MI formula (exact variant/tie handling must match the chosen estimator).
-    // See `crates/pid-core/src/ksg.rs` for the canonical implementation used in this repo.
-    
-    float psi_nx = digamma(float(n_x[gid] + 1));
-    float psi_ny = digamma(float(n_y[gid] + 1));
-    
-    mi_contribution[gid] = psi_nx + psi_ny;
-}
-```
-
-### B.4.3 Rust Metal Integration
-
-```rust
-//! (future sketch) crates/pid-core/src/metal_knn.rs (not yet implemented)
-//! 
-//! Rust bindings for Metal GPU acceleration of k-NN search.
-//! Uses the metal-rs crate for GPU access.
-
-use metal::{Device, CommandQueue, MTLResourceOptions, Buffer, ComputePipelineState};
-use std::path::Path;
-
-/// Metal-accelerated k-NN search for PID estimation.
-/// 
-/// # Architecture
-/// 
-/// The Metal backend is structured as:
-/// 
-/// ```text
-/// ┌─────────────────────────────────────────────────────────────┐
-/// │                     MetalKNN                                │
-/// ├─────────────────────────────────────────────────────────────┤
-/// │  device: Device           // GPU device handle              │
-/// │  command_queue: CommandQueue  // Async command submission   │
-/// │  distance_pipeline: ComputePipelineState  // Distance shader│
-/// │  knn_pipeline: ComputePipelineState       // k-NN shader    │
-/// │  ksg_count_pipeline: ComputePipelineState // KSG neighbor   │
-/// │  ksg_mi_pipeline: ComputePipelineState    // KSG MI compute │
-/// └─────────────────────────────────────────────────────────────┘
-/// ```
-/// 
-/// # Memory Management
-/// 
-/// Metal buffers are allocated with `MTLResourceOptions::StorageModeShared`
-/// for unified memory access between CPU and GPU. This avoids explicit
-/// memory copies on Apple Silicon.
-/// 
-/// # Thread Safety
-/// 
-/// MetalKNN is NOT thread-safe. Each thread should have its own instance,
-/// or access should be synchronized externally. This is because:
-/// 1. CommandQueue submission is not thread-safe
-/// 2. Buffer reuse assumes single-threaded access
-/// 
-/// For multi-threaded PID computation, create a pool of MetalKNN instances.
-pub struct MetalKNN {
-    device: Device,
-    command_queue: CommandQueue,
-    distance_pipeline: ComputePipelineState,
-    knn_pipeline: ComputePipelineState,
-    ksg_count_pipeline: ComputePipelineState,
-    ksg_mi_pipeline: ComputePipelineState,
-    
-    // Pre-allocated buffers for common sizes (avoid allocation in hot path)
-    // Key: (n, d), Value: Buffer
-    distance_buffer_cache: std::collections::HashMap<(usize, usize), Buffer>,
-}
-
-impl MetalKNN {
-    /// Create a new Metal k-NN accelerator.
-    /// 
-    /// # Arguments
-    /// * `metallib_path` - Path to compiled Metal library (.metallib)
-    /// 
-    /// # Panics
-    /// Panics if no Metal device is available or shader compilation fails.
-    /// 
-    /// # Example
-    /// ```
-    /// let knn = MetalKNN::new(Path::new("shaders/pid_kernels.metallib"))?;
-    /// ```
-    pub fn new(metallib_path: &Path) -> Result<Self, MetalError> {
-        // Get default Metal device (M4 GPU)
-        let device = Device::system_default()
-            .ok_or(MetalError::NoDevice)?;
-        
-        // Create command queue for async execution
-        let command_queue = device.new_command_queue();
-        
-        // Load compiled shader library
-        let library = device.new_library_with_file(metallib_path)?;
-        
-        // Create compute pipelines for each kernel
-        let distance_fn = library.get_function("compute_distances_linf", None)?;
-        let distance_pipeline = device.new_compute_pipeline_state_with_function(&distance_fn)?;
-        
-        let knn_fn = library.get_function("find_k_nearest", None)?;
-        let knn_pipeline = device.new_compute_pipeline_state_with_function(&knn_fn)?;
-        
-        let ksg_count_fn = library.get_function("ksg_count_neighbors", None)?;
-        let ksg_count_pipeline = device.new_compute_pipeline_state_with_function(&ksg_count_fn)?;
-        
-        let ksg_mi_fn = library.get_function("ksg_compute_mi", None)?;
-        let ksg_mi_pipeline = device.new_compute_pipeline_state_with_function(&ksg_mi_fn)?;
-        
-        Ok(Self {
-            device,
-            command_queue,
-            distance_pipeline,
-            knn_pipeline,
-            ksg_count_pipeline,
-            ksg_mi_pipeline,
-            distance_buffer_cache: std::collections::HashMap::new(),
-        })
-    }
-    
-    /// Find k nearest neighbors for all query points.
-    /// 
-    /// # Arguments
-    /// * `data` - Data points, shape (n, d), row-major
-    /// * `queries` - Query points, shape (q, d), row-major
-    /// * `k` - Number of neighbors to find
-    /// 
-    /// # Returns
-    /// * `indices` - Neighbor indices, shape (q, k)
-    /// * `distances` - Neighbor distances, shape (q, k)
-    /// 
-    /// # Performance
-    /// Benchmark on your target GPU/CPU; do not assume fixed latencies or “× speedup” factors.
-    pub fn find_knn(
-        &mut self,
-        data: &[f32],      // (n * d,)
-        queries: &[f32],   // (q * d,)
-        n: usize,
-        d: usize,
-        q: usize,
-        k: usize,
-    ) -> (Vec<u32>, Vec<f32>) {
-        // Allocate GPU buffers
-        let data_buffer = self.device.new_buffer_with_data(
-            data.as_ptr() as *const _,
-            (data.len() * std::mem::size_of::<f32>()) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
-        
-        let query_buffer = self.device.new_buffer_with_data(
-            queries.as_ptr() as *const _,
-            (queries.len() * std::mem::size_of::<f32>()) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
-        
-        // Distance output buffer
-        let distance_buffer = self.get_or_create_distance_buffer(q, n);
-        
-        // k-NN output buffers
-        let knn_indices_buffer = self.device.new_buffer(
-            (q * k * std::mem::size_of::<u32>()) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
-        let knn_distances_buffer = self.device.new_buffer(
-            (q * k * std::mem::size_of::<f32>()) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
-        
-        // Create command buffer
-        let command_buffer = self.command_queue.new_command_buffer();
-        
-        // --- Dispatch distance computation ---
-        {
-            let encoder = command_buffer.new_compute_command_encoder();
-            encoder.set_compute_pipeline_state(&self.distance_pipeline);
-            encoder.set_buffer(0, Some(&data_buffer), 0);
-            encoder.set_buffer(1, Some(&query_buffer), 0);
-            encoder.set_buffer(2, Some(&distance_buffer), 0);
-            encoder.set_bytes(3, std::mem::size_of::<u32>() as u64, &(n as u32) as *const _ as *const _);
-            encoder.set_bytes(4, std::mem::size_of::<u32>() as u64, &(d as u32) as *const _ as *const _);
-            encoder.set_bytes(5, std::mem::size_of::<u32>() as u64, &(q as u32) as *const _ as *const _);
-            
-            // Grid: (q, ceil(n / 256) * 256)
-            let thread_group_size = metal::MTLSize::new(1, 256, 1);
-            let grid_size = metal::MTLSize::new(q as u64, ((n + 255) / 256 * 256) as u64, 1);
-            encoder.dispatch_threads(grid_size, thread_group_size);
-            encoder.end_encoding();
-        }
-        
-        // --- Dispatch k-NN selection ---
-        {
-            let encoder = command_buffer.new_compute_command_encoder();
-            encoder.set_compute_pipeline_state(&self.knn_pipeline);
-            encoder.set_buffer(0, Some(&distance_buffer), 0);
-            encoder.set_buffer(1, Some(&knn_indices_buffer), 0);
-            encoder.set_buffer(2, Some(&knn_distances_buffer), 0);
-            encoder.set_bytes(3, std::mem::size_of::<u32>() as u64, &(n as u32) as *const _ as *const _);
-            encoder.set_bytes(4, std::mem::size_of::<u32>() as u64, &(k as u32) as *const _ as *const _);
-            encoder.set_bytes(5, std::mem::size_of::<u32>() as u64, &(q as u32) as *const _ as *const _);
-            
-            let thread_group_size = metal::MTLSize::new(256, 1, 1);
-            let grid_size = metal::MTLSize::new(((q + 255) / 256 * 256) as u64, 1, 1);
-            encoder.dispatch_threads(grid_size, thread_group_size);
-            encoder.end_encoding();
-        }
-        
-        // Execute and wait
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-        
-        // Read results back (zero-copy on Apple Silicon due to shared memory)
-        let indices: Vec<u32> = unsafe {
-            std::slice::from_raw_parts(
-                knn_indices_buffer.contents() as *const u32,
-                q * k,
-            ).to_vec()
-        };
-        
-        let distances: Vec<f32> = unsafe {
-            std::slice::from_raw_parts(
-                knn_distances_buffer.contents() as *const f32,
-                q * k,
-            ).to_vec()
-        };
-        
-        (indices, distances)
-    }
-    
-    /// Get or create a distance buffer of given size.
-    /// Reuses existing buffers when possible to avoid allocation overhead.
-    fn get_or_create_distance_buffer(&mut self, q: usize, n: usize) -> Buffer {
-        let key = (q, n);
-        if let Some(buffer) = self.distance_buffer_cache.get(&key) {
-            return buffer.clone();
-        }
-        
-        let buffer = self.device.new_buffer(
-            (q * n * std::mem::size_of::<f32>()) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
-        
-        // Only cache if buffer is reasonably sized (< 1GB)
-        if q * n * 4 < 1_000_000_000 {
-            self.distance_buffer_cache.insert(key, buffer.clone());
-        }
-        
-        buffer
-    }
-}
-
-/// Errors that can occur during Metal operations.
-#[derive(Debug)]
-pub enum MetalError {
-    NoDevice,
-    ShaderCompilationFailed(String),
-    BufferCreationFailed,
-    PipelineCreationFailed,
-}
-```
-
----
+GPU kernels for kNN/KSG/PID are plausible but easy to get subtly wrong (precision, tie handling, radius conventions). If pursued, add them as a separately tested backend with parity tests against `crates/pid-core` and publish benchmark scripts + measured results in-repo.
 
 ## B.5 CoreML for Quantized Inference
 
-### B.5.1 When to Use CoreML vs MLX
+**Status (v7.0):** Not implemented here.
 
-```
-COREML VS MLX DECISION MATRIX
-=============================
-
-┌─────────────────────┬────────────────┬────────────────┬──────────────┐
-│ Use Case            │ CoreML         │ MLX            │ Recommended  │
-├─────────────────────┼────────────────┼────────────────┼──────────────┤
-│ 7B model (f16)      │ ✓ (via ANE)    │ ✓ (GPU)        │ MLX          │
-│ 7B model (4-bit)    │ ✓✓ (fast ANE)  │ ✓ (mlx-lm)     │ CoreML       │
-│ Batch inference     │ Limited        │ ✓✓ (vmap)      │ MLX          │
-│ Embedding extract   │ Difficult      │ ✓✓ (hooks)     │ MLX          │
-│ Mobile deployment   │ ✓✓             │ ✗              │ CoreML       │
-│ Custom layers       │ ✗              │ ✓✓             │ MLX          │
-│ Deterministic       │ Varies         │ ✓✓             │ MLX          │
-└─────────────────────┴────────────────┴────────────────┴──────────────┘
-
-RECOMMENDATION FOR PID-VLA:
-===========================
-- PRIMARY: MLX for development and experiments (flexibility, hooks)
-- SECONDARY: CoreML for final optimized inference (speed, memory)
-- QUANTIZATION: Consider 8/4-bit when memory-bound, but validate accuracy and benchmark end-to-end latency; do not assume universal “× speedups”.
-
-WHY MLX IS PRIMARY:
-- Embedding extraction requires forward hooks (easy in MLX, hard in CoreML)
-- PID experiments need custom operations (MLX is composable)
-- Reproducibility benefits from deterministic execution; MLX is often deterministic on fixed Apple Silicon hardware, but treat determinism as an assumption to be tested (set seeds, avoid nondeterministic kernels, and verify repeatability).
-- Debugging requires inspecting intermediates (MLX arrays are transparent)
-
-WHEN TO USE COREML:
-- Final deployment (CoreML is faster for pure inference)
-- Memory-constrained hardware (quantization reduces *weights* roughly in proportion to bits/parameter; activations/KV cache can still dominate)
-- Integration with iOS/macOS apps (CoreML is native)
-```
-
-### B.5.2 CoreML Model Conversion
-
-```python
-"""
-pid_vla/coreml_convert.py
-=========================
-Convert VLA models to CoreML format for optimized inference.
-
-DETAILED CONVERSION PIPELINE with comments explaining each step.
-"""
-
-import coremltools as ct
-from coremltools.models.neural_network import quantization_utils
-import torch
-from pathlib import Path
-from typing import Optional, Tuple
-
-def convert_vla_to_coreml(
-    pytorch_model_path: Path,
-    output_path: Path,
-    quantization: Optional[str] = None,  # None, '8bit', '4bit'
-    compute_units: str = 'ALL'  # 'ALL', 'CPU_AND_GPU', 'CPU_AND_NE', 'CPU_ONLY'
-) -> ct.models.MLModel:
-    """
-    Convert a PyTorch VLA model to CoreML format.
-    
-    CONVERSION STEPS:
-    =================
-    
-    1. LOAD PYTORCH MODEL
-       - Load weights from checkpoint
-       - Set to evaluation mode
-       - Trace with example inputs
-    
-    2. TRACE GRAPH
-       - Use torch.jit.trace() for static models
-       - Use torch.jit.script() if model has control flow
-       - VLAs typically need trace (no data-dependent control flow)
-    
-    3. CONVERT TO COREML
-       - Map PyTorch ops to CoreML ops
-       - Handle custom layers (may need custom converters)
-       - Set input/output specifications
-    
-4. QUANTIZE (OPTIONAL)
-       - 8-bit/4-bit reduce weights memory roughly proportionally (weights-only); end-to-end speed/accuracy depends on model/runtime.
-       - Uses calibration data for optimal quantization ranges (when supported).
-    
-    5. VALIDATE
-       - Compare CoreML output to PyTorch output
-       - Check numerical accuracy (should be < 1e-4 for f16)
-    
-    Parameters:
-        pytorch_model_path: Path to PyTorch checkpoint
-        output_path: Where to save CoreML model (.mlpackage)
-        quantization: Quantization level (None, '8bit', '4bit')
-        compute_units: Which hardware to target
-        
-    Returns:
-        Converted CoreML model
-        
-    Example:
-        >>> model = convert_vla_to_coreml(
-        ...     Path("models/openvla-7b.pt"),
-        ...     Path("models/openvla-7b.mlpackage"),
-        ...     quantization='4bit',
-        ...     compute_units='CPU_AND_NE'  # Use Neural Engine
-        ... )
-    """
-    
-    # -------------------------------------------------------------------------
-    # STEP 1: LOAD PYTORCH MODEL
-    # -------------------------------------------------------------------------
-    
-    print(f"Loading PyTorch model from {pytorch_model_path}...")
-    
-    # Import model class based on architecture
-    # This assumes model follows HuggingFace structure
-    from transformers import AutoModelForCausalLM, AutoConfig
-    
-    config = AutoConfig.from_pretrained(pytorch_model_path)
-    model = AutoModelForCausalLM.from_pretrained(
-        pytorch_model_path,
-        torch_dtype=torch.float16,  # CoreML works best with f16 input
-        device_map='cpu'  # Trace on CPU
-    )
-    model.eval()
-    
-    # -------------------------------------------------------------------------
-    # STEP 2: CREATE TRACE INPUTS
-    # -------------------------------------------------------------------------
-    
-    # VLA models take:
-    # - images: (batch, channels, height, width) = (1, 3, 224, 224)
-    # - input_ids: (batch, seq_len) = (1, 128)
-    # - attention_mask: (batch, seq_len) = (1, 128)
-    
-    batch_size = 1
-    image_size = 224
-    seq_len = 128
-    
-    example_inputs = {
-        'pixel_values': torch.randn(batch_size, 3, image_size, image_size, dtype=torch.float16),
-        'input_ids': torch.randint(0, 32000, (batch_size, seq_len)),
-        'attention_mask': torch.ones(batch_size, seq_len, dtype=torch.long)
-    }
-    
-    print("Tracing model...")
-    
-    # -------------------------------------------------------------------------
-    # STEP 3: TRACE AND CONVERT
-    # -------------------------------------------------------------------------
-    
-    # Trace the forward pass
-    with torch.no_grad():
-        traced_model = torch.jit.trace(
-            model,
-            example_kwarg_inputs=example_inputs,
-            strict=False  # Allow non-deterministic ops
-        )
-    
-    # Define CoreML input specifications
-    # These tell CoreML the expected input shapes and types
-    inputs = [
-        ct.TensorType(
-            name="pixel_values",
-            shape=(batch_size, 3, image_size, image_size),
-            dtype=ct.TensorType.Float16
-        ),
-        ct.TensorType(
-            name="input_ids", 
-            shape=(batch_size, seq_len),
-            dtype=ct.TensorType.Int32
-        ),
-        ct.TensorType(
-            name="attention_mask",
-            shape=(batch_size, seq_len),
-            dtype=ct.TensorType.Int32
-        )
-    ]
-    
-    # Convert to CoreML
-    print("Converting to CoreML...")
-    
-    mlmodel = ct.convert(
-        traced_model,
-        inputs=inputs,
-        convert_to="mlprogram",  # Use ML Program format (modern)
-        compute_units=getattr(ct.ComputeUnit, compute_units),
-        minimum_deployment_target=ct.target.macOS14  # macOS 14+ for M4 optimization
-    )
-    
-    # -------------------------------------------------------------------------
-    # STEP 4: QUANTIZE (OPTIONAL)
-    # -------------------------------------------------------------------------
-    
-    if quantization == '8bit':
-        print("Applying 8-bit quantization...")
-        mlmodel = quantization_utils.quantize_weights(
-            mlmodel,
-            nbits=8,
-            quantization_mode="linear"  # Linear quantization for weights
-        )
-        
-    elif quantization == '4bit':
-        print("Applying 4-bit quantization...")
-        # 4-bit requires calibration data for best results
-        # Here we use post-training quantization without calibration
-        mlmodel = quantization_utils.quantize_weights(
-            mlmodel,
-            nbits=4,
-            quantization_mode="linear_symmetric"  # Better for 4-bit
-        )
-    
-    # -------------------------------------------------------------------------
-    # STEP 5: SAVE AND VALIDATE
-    # -------------------------------------------------------------------------
-    
-    print(f"Saving to {output_path}...")
-    mlmodel.save(str(output_path))
-    
-    # Validate by comparing outputs
-    print("Validating conversion...")
-    
-    # Run PyTorch
-    with torch.no_grad():
-        pt_output = model(**example_inputs).logits.numpy()
-    
-    # Run CoreML
-    # Note: CoreML returns a dictionary of outputs
-    coreml_inputs = {
-        'pixel_values': example_inputs['pixel_values'].numpy(),
-        'input_ids': example_inputs['input_ids'].numpy().astype('int32'),
-        'attention_mask': example_inputs['attention_mask'].numpy().astype('int32')
-    }
-    coreml_output = mlmodel.predict(coreml_inputs)['logits']
-    
-    # Compare
-    max_diff = abs(pt_output - coreml_output).max()
-    print(f"Maximum output difference: {max_diff:.6f}")
-    
-    if max_diff > 0.01:
-        print("WARNING: Large conversion error detected!")
-        print("Consider using float32 or checking for unsupported ops.")
-    else:
-        print("Conversion validated successfully!")
-    
-    return mlmodel
-
-
-def benchmark_coreml_inference(
-    mlmodel_path: Path,
-    num_iterations: int = 100
-) -> dict:
-    """
-    Benchmark CoreML model inference speed.
-    
-    Measures:
-    - Cold start time (first inference, includes compilation)
-    - Warm inference time (subsequent inferences)
-    - Memory usage
-    
-    Returns dict with timing statistics.
-    """
-    import time
-    import coremltools as ct
-    
-    # Load model
-    mlmodel = ct.models.MLModel(str(mlmodel_path))
-    
-    # Create dummy inputs
-    inputs = {
-        'pixel_values': np.random.randn(1, 3, 224, 224).astype(np.float16),
-        'input_ids': np.random.randint(0, 32000, (1, 128)).astype(np.int32),
-        'attention_mask': np.ones((1, 128)).astype(np.int32)
-    }
-    
-    # Cold start
-    t0 = time.perf_counter()
-    _ = mlmodel.predict(inputs)
-    cold_time = time.perf_counter() - t0
-    
-    # Warm iterations
-    times = []
-    for _ in range(num_iterations):
-        t0 = time.perf_counter()
-        _ = mlmodel.predict(inputs)
-        times.append(time.perf_counter() - t0)
-    
-    return {
-        'cold_start_ms': cold_time * 1000,
-        'warm_mean_ms': np.mean(times) * 1000,
-        'warm_std_ms': np.std(times) * 1000,
-        'warm_p50_ms': np.percentile(times, 50) * 1000,
-        'warm_p99_ms': np.percentile(times, 99) * 1000,
-    }
-```
-
----
+CoreML (and similar deployment runtimes) are relevant only once the project includes a committed inference stack. For PID‑VLA, the scientific bottleneck is estimator validity + experiment design, not a specific inference runtime.
 
 ## B.6 Nix Configuration for Reproducibility
 
-**Important (avoid divergence):**
-- The **canonical** reproducibility config lives in the repo root: `flake.nix`, `flake.lock`, `pyproject.toml`, `uv.lock`.
-- This appendix includes a much larger “kitchen sink” flake from earlier drafts (Rust overlays, Python-withPackages, CUDA scaffolding, etc.). It is retained for context, but it is **not** the authoritative environment definition unless it is explicitly reconciled with the repo files.
-- Prefer: Nix pins **tooling** (rustc/cargo/python/uv/just) and `uv.lock` pins **Python deps**. Avoid mixing “Python deps from Nix” and “Python deps from uv” unless you have a clear reason and a single source of truth.
+**Avoid divergence:** the authoritative reproducibility config lives in the repo root:
+- `flake.nix`, `flake.lock`
+- `pyproject.toml`, `uv.lock`
+- `justfile`
 
-### B.6.1 Complete flake.nix
-
-```nix
-# flake.nix
-# =========
-# Nix flake for reproducible PID-VLA development environment.
-#
-# WHAT THIS PROVIDES:
-# - Exact versions of all dependencies (Rust, Python, system libraries)
-# - Reproducible builds across machines
-# - Isolated development environment (no system pollution)
-# - Easy onboarding for new contributors
-#
-# USAGE:
-#   nix develop              # Enter development shell
-#   nix build .#pid-core     # Build Rust crate
-#   nix build .#pid-python   # Build Python wheel
-#   nix run .#experiments    # Run experiment suite
-#
-# WHY NIX FOR THIS PROJECT:
-# 1. REPRODUCIBILITY: ML experiments MUST be reproducible
-#    - Same code + same data + same environment = same results
-#    - Nix aims to improve environment reproducibility by pinning dependencies (hardware/driver differences can still matter)
-#
-# 2. DEPENDENCY HELL AVOIDANCE:
-#    - Python version conflicts (3.9 vs 3.11 vs 3.12)
-#    - CUDA version conflicts (11.x vs 12.x)
-#    - Rust toolchain versions
-#    - System library versions (OpenBLAS, MKL, etc.)
-#
-# 3. MULTI-PLATFORM:
-#    - Same flake works on macOS (M4) and Linux (CUDA)
-#    - Platform-specific optimizations are handled transparently
-#
-# APPLE SILICON SPECIFIC:
-# - Uses nixpkgs-darwin for macOS-specific packages
-# - MLX is installed via pip (not in nixpkgs yet)
-# - Metal SDK is available through Xcode (not managed by Nix)
-
-{
-  description = "PID-VLA: Partial Information Decomposition for Vision-Language-Action Model Diagnostics";
-
-  # ============================================================================
-  # INPUTS: External dependencies
-  # ============================================================================
-  
-  inputs = {
-    # Main package repository
-    # Using nixos-unstable for latest packages
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    
-    # Rust toolchain overlay
-    # Provides rust-bin for precise Rust version control
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    
-    # Flake utilities for multi-system support
-    flake-utils.url = "github:numtide/flake-utils";
-    
-    # Optional: Nix Darwin for macOS system configuration
-    # Uncomment if you want to manage macOS system settings via Nix
-    # darwin = {
-    #   url = "github:lnl7/nix-darwin";
-    #   inputs.nixpkgs.follows = "nixpkgs";
-    # };
-  };
-
-  # ============================================================================
-  # OUTPUTS: What this flake provides
-  # ============================================================================
-  
-  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        # ======================================================================
-        # PLATFORM DETECTION
-        # ======================================================================
-        
-        # Detect if we're on Apple Silicon
-        isAppleSilicon = system == "aarch64-darwin";
-        isLinux = builtins.match ".*-linux" system != null;
-        
-        # Configure nixpkgs with overlays
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ 
-            (import rust-overlay)
-            
-            # Custom overlay for project-specific packages
-            (final: prev: {
-              # Pin specific Python version
-              python = prev.python311;
-              
-              # Add project-specific packages here
-              pid-vla = final.callPackage ./nix/pid-vla.nix { };
-            })
-          ];
-          
-          # Allow unfree packages (needed for some ML tools)
-          config.allowUnfree = true;
-        };
-        
-        # ======================================================================
-        # RUST CONFIGURATION
-        # ======================================================================
-        
-        # Use stable Rust with specific extensions
-        # We need:
-        # - rust-src: For IDE support and debugging
-        # - rust-analyzer: For IDE integration
-        # - clippy: For linting
-        # - rustfmt: For formatting
-        rustToolchain = pkgs.rust-bin.stable."1.75.0".default.override {
-          extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
-          targets = [
-            # Native target
-            (if isAppleSilicon then "aarch64-apple-darwin" else "x86_64-unknown-linux-gnu")
-            # Cross-compilation targets (optional)
-          ] ++ (if isLinux then [ "aarch64-apple-darwin" ] else [ ]);
-        };
-        
-        # ======================================================================
-        # PYTHON CONFIGURATION
-        # ======================================================================
-        
-        # Python with specific packages from nixpkgs
-        # Additional packages (MLX, etc.) are installed via pip in the shell
-        pythonEnv = pkgs.python.withPackages (ps: with ps; [
-          # Core scientific computing
-          numpy
-          scipy
-          scikit-learn
-          
-          # Data handling
-          polars
-          pyarrow
-          
-          # Visualization
-          matplotlib
-          seaborn
-          
-          # Development tools
-          pytest
-          black
-          ruff
-          mypy
-          
-          # Jupyter for experiments
-          jupyterlab
-          ipykernel
-          
-          # PyO3 for Rust bindings
-          maturin
-        ]);
-        
-        # ======================================================================
-        # PLATFORM-SPECIFIC DEPENDENCIES
-        # ======================================================================
-        
-        # Common dependencies (all platforms)
-        commonDeps = with pkgs; [
-          # Build tools
-          rustToolchain
-          pkg-config
-          cmake
-          
-          # Python environment
-          pythonEnv
-          uv  # Fast Python package installer
-          
-          # Task runner
-          just
-          
-          # Version control
-          git
-          git-lfs  # For large model files
-          
-          # Data tools
-          jq
-          yq
-          
-          # Documentation
-          mdbook
-        ];
-        
-        # macOS-specific dependencies
-        darwinDeps = with pkgs; [
-          # Apple frameworks (needed for Metal, CoreML)
-          darwin.apple_sdk.frameworks.Metal
-          darwin.apple_sdk.frameworks.MetalPerformanceShaders
-          darwin.apple_sdk.frameworks.Accelerate
-          darwin.apple_sdk.frameworks.CoreML
-          
-          # macOS-specific tools
-          darwin.cctools
-          
-          # NOTE: MLX is installed via pip, not Nix
-          # (not yet available in nixpkgs)
-        ];
-        
-        # Linux-specific dependencies
-        linuxDeps = with pkgs; [
-          # CUDA support (optional, for NVIDIA GPUs)
-          # Uncomment if you have NVIDIA hardware
-          # cudaPackages.cudatoolkit
-          # cudaPackages.cudnn
-          
-          # OpenBLAS for linear algebra
-          openblas
-          
-          # Linux-specific tools
-          patchelf
-        ];
-        
-        # Select platform-specific deps
-        platformDeps = if isAppleSilicon then darwinDeps
-                       else if isLinux then linuxDeps
-                       else [ ];
-        
-        # ======================================================================
-        # ENVIRONMENT VARIABLES
-        # ======================================================================
-        
-        envVars = {
-          # Rust configuration
-          RUST_BACKTRACE = "1";
-          RUST_LOG = "info";
-          
-          # Python configuration
-          PYTHONDONTWRITEBYTECODE = "1";
-          VIRTUAL_ENV = ""; # Disable venv detection (we use Nix)
-          
-          # Project paths
-          PID_VLA_ROOT = builtins.toString ./.;
-          PID_VLA_DATA = builtins.toString ./data;
-          PID_VLA_MODELS = builtins.toString ./models;
-          
-        } // (if isAppleSilicon then {
-          # Apple Silicon specific
-          # Point to Metal SDK (from Xcode)
-          METAL_SDK = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk";
-          
-          # MLX configuration
-          MLX_GPU_MEMORY_LIMIT = "0.9";  # Use 90% of GPU memory
-          
-          # Disable MPS fallback warnings
-          PYTORCH_ENABLE_MPS_FALLBACK = "1";
-          
-        } else { });
-        
-      in {
-        # ======================================================================
-        # DEVELOPMENT SHELLS
-        # ======================================================================
-        
-        devShells = {
-          # Default development shell with everything
-          default = pkgs.mkShell {
-            name = "pid-vla-dev";
-            
-            buildInputs = commonDeps ++ platformDeps;
-            
-            inherit (envVars) RUST_BACKTRACE RUST_LOG PYTHONDONTWRITEBYTECODE;
-            
-            shellHook = ''
-              echo "🧠 PID-VLA Development Environment"
-              echo "=================================="
-              echo "Platform: ${system}"
-              echo "Rust: $(rustc --version)"
-              echo "Python: $(python --version)"
-              echo ""
-              
-              # Create .venv if it doesn't exist (for pip packages like MLX)
-              if [ ! -d .venv ]; then
-                echo "Creating Python virtual environment for pip packages..."
-                python -m venv .venv
-              fi
-              
-              # Activate venv for pip packages
-              source .venv/bin/activate
-              
-              # Install pip packages not in nixpkgs
-              ${if isAppleSilicon then ''
-                echo "Installing Apple Silicon specific packages..."
-                pip install -q mlx mlx-lm coremltools
-              '' else ''
-                echo "Installing Linux specific packages..."
-                pip install -q torch torchvision
-              ''}
-              
-              echo ""
-              echo "Available commands:"
-              echo "  just build    - Build Rust crates"
-              echo "  just test     - Run tests"
-              echo "  just exp0     - Run Experiment 0 (validation)"
-              echo "  just notebook - Start Jupyter Lab"
-              echo ""
-            '';
-          };
-          
-          # Minimal shell for CI
-          ci = pkgs.mkShell {
-            name = "pid-vla-ci";
-            buildInputs = with pkgs; [
-              rustToolchain
-              pythonEnv
-              just
-            ];
-          };
-        };
-        
-        # ======================================================================
-        # PACKAGES
-        # ======================================================================
-        
-        packages = {
-          # Rust core library
-          pid-core = pkgs.rustPlatform.buildRustPackage {
-            pname = "pid-core";
-            version = "0.1.0";
-            src = ./crates/pid-core;
-            cargoLock.lockFile = ./Cargo.lock;
-          };
-          
-          # Python wheel with Rust bindings
-          pid-python = pkgs.python.pkgs.buildPythonPackage {
-            pname = "pid-vla";
-            version = "0.1.0";
-            src = ./.;
-            format = "pyproject";
-            
-            nativeBuildInputs = [ pkgs.maturin rustToolchain ];
-            
-            buildPhase = ''
-              maturin build --release
-            '';
-          };
-          
-          # Default package
-          default = self.packages.${system}.pid-python;
-        };
-        
-        # ======================================================================
-        # APPS (Runnable commands)
-        # ======================================================================
-        
-        apps = {
-          # Run experiment suite
-          experiments = flake-utils.lib.mkApp {
-            drv = pkgs.writeShellScriptBin "run-experiments" ''
-              cd ${builtins.toString ./.}
-              python -m pid_vla.experiments.run_all
-            '';
-          };
-          
-          # Start visualization app
-          viz = flake-utils.lib.mkApp {
-            drv = pkgs.writeShellScriptBin "pid-viz" ''
-              cd ${builtins.toString ./.}
-              cargo run -p pid-tauri
-            '';
-          };
-        };
-      });
-}
-```
-
-### B.6.2 justfile (Task Runner)
-
-**Canonical:** the repo root `justfile`. Reproduced below verbatim.
-
-```makefile
-# Task runner for pid_vla (macOS-first; M4 Max).
-#
-# Install just:
-#   cargo install just
-
-default:
-    @just --list
-
-build:
-    cargo build
-
-test:
-    cargo test
-
-fmt:
-    cargo fmt
-
-lint:
-    cargo clippy --workspace -- -D warnings
-
-# Experiment 0 gate (Rust-side smoke subset).
-# Full Experiment 0 will later be orchestrated via python/experiments/.
-exp0:
-    cargo test -p pid-core exp0 -- --nocapture
-
-exp0-bin:
-    cargo run -p pid-core --bin exp0
-```
-
-<details>
-<summary>Historical expanded example (obsolete; do not use)</summary>
-
-```makefile
-# justfile
-# ========
-# Task runner for PID-VLA project.
-# 
-# Just is like Make but simpler and more ergonomic.
-# Install: cargo install just
-# 
-# USAGE:
-#   just          # List available tasks
-#   just build    # Build everything
-#   just test     # Run all tests
-#   just exp0     # Run Experiment 0
-
-# Default recipe: list available tasks
-default:
-    @just --list
-
-# =============================================================================
-# BUILD TASKS
-# =============================================================================
-
-# Build all Rust crates
-build:
-    cargo build --release
-
-# Build Python wheel
-build-wheel:
-    maturin build --release
-
-# Build and install Python package in development mode
-dev-install:
-    maturin develop --release
-
-# Clean build artifacts
-clean:
-    cargo clean
-    rm -rf .venv
-    rm -rf __pycache__
-    rm -rf .pytest_cache
-    find . -name "*.egg-info" -type d -exec rm -rf {} +
-
-# =============================================================================
-# TEST TASKS
-# =============================================================================
-
-# Run all tests
-test: test-rust test-python
-
-# Run Rust tests
-test-rust:
-    cargo test --release
-
-# Run Python tests
-test-python:
-    pytest python/tests/ -v
-
-# Run tests with coverage
-test-coverage:
-    cargo tarpaulin --out Html
-    pytest python/tests/ --cov=pid_vla --cov-report=html
-
-# =============================================================================
-# LINT AND FORMAT
-# =============================================================================
-
-# Format all code
-fmt:
-    cargo fmt
-    black python/
-    ruff check python/ --fix
-
-# Check formatting (CI)
-fmt-check:
-    cargo fmt --check
-    black --check python/
-    ruff check python/
-
-# Run all linters
-lint:
-    cargo clippy -- -D warnings
-    ruff check python/
-    mypy python/pid_vla/
-
-# =============================================================================
-# EXPERIMENTS
-# =============================================================================
-
-# Run Experiment 0: Estimator validation
-exp0:
-    @echo "Running Experiment 0: KSG Estimator Validation"
-    @echo "=============================================="
-    python python/experiments/exp0_validation.py
-
-# Run Experiment 1: Decomposition analysis
-exp1: exp0
-    @echo "Running Experiment 1: Decomposition Analysis"
-    @echo "============================================="
-    python python/experiments/exp1_decomposition.py
-
-# Run Experiment 2: Baseline comparison
-exp2: exp1
-    @echo "Running Experiment 2: Baseline Comparison"
-    @echo "=========================================="
-    python python/experiments/exp2_baselines.py
-
-# Run all experiments in sequence
-experiments: exp0 exp1 exp2
-    @echo "All experiments completed!"
-
-# =============================================================================
-# DATA MANAGEMENT
-# =============================================================================
-
-# Download LIBERO dataset
-download-libero:
-    @echo "Downloading LIBERO dataset..."
-    python scripts/download_libero.py
-
-# Download model weights
-download-models:
-    @echo "Downloading VLA model weights..."
-    python scripts/download_models.py
-
-# Extract embeddings from VLA model
-extract-embeddings model="openvla":
-    @echo "Extracting embeddings from {{model}}..."
-    python python/experiments/extract_embeddings.py --model {{model}}
-
-# =============================================================================
-# DEVELOPMENT
-# =============================================================================
-
-# Start Jupyter Lab
-notebook:
-    jupyter lab --notebook-dir=python/notebooks
-
-# Start Tauri visualization app
-viz:
-    cargo run -p pid-tauri
-
-# Generate documentation
-docs:
-    cargo doc --no-deps --open
-    cd python && sphinx-build -b html docs/ docs/_build/
-
-# =============================================================================
-# CI/CD
-# =============================================================================
-
-# Full CI check (runs everything)
-ci: fmt-check lint test
-    @echo "CI checks passed!"
-
-# Build release artifacts
-release: build build-wheel
-    @echo "Release artifacts built!"
-```
-</details>
-
----
+Earlier drafts embedded large “kitchen sink” Nix flakes and task runners inside this document. Those were removed in v7.0 so the documentation cannot drift away from the executable repo. If you need expanded Nix/CUDA scaffolding, add it to the repo as real files and reference them here.
 
 ## B.7 Version History
+
+**Note:** Older entries may contain legacy performance/latency/cost figures and engineering sketches that were later removed or rewritten. Treat those as historical placeholders unless they are tied to a primary citation or a committed benchmark; consult git history for removed appendices; v7.0 adopts measurement-first language.
 
 | Version | Date | Changes |
 |---------|------|---------|
@@ -12056,7 +7427,7 @@ release: build build-wheel
 | 5.4 | Jan 2026 | **VLA Integration:** Verified key VLA + Shannon-invariants citations (OpenVLA, DreamVLA, PixelVLA, TraceVLA). Clarified primary hypothesis vs. candidate sub-hypotheses and mapped them to aims. |
 | 5.5 | Jan 2026 | **Critical Geometry Fix:** Documented that Wibral PID (`I^sx_∩`) on manifolds/Lorentz spaces requires new derivations. Added top-level warning against naive Euclidean application. |
 | 5.6 | Jan 2026 | **Manifold Approaches (WIP):** Added Top 5 manifold-compatible engineering approaches (Unrolling, Geodesic MI, Linear Projection, Quantization, Copula Transform) to address the v5.5 discovery. |
-| **5.7** | Jan 2026 | **First-Principles Geometry Analysis + VLA Verification:** (1) Verified VLA architectures against original papers: OpenVLA (SigLIP+DinoV2 600M, 32 layers, 4096d), DreamVLA (GPT-2 dims UNSPECIFIED), PixelVLA/TraceVLA (4096d, 7D actions). (2) Added §16.6-§16.11: local flatness testing (4 methods incl. Ollivier-Ricci curvature), δ-hyperbolicity testing, SAE analysis for VLA, Chebyshev/PixelVLA geometry transition, GPT-2 vs modern LLMs hierarchy evidence, unified Geometry-First Protocol with NanoGPT foundational study. (3) Added Wibral GitLab repos as authoritative code sources. (4) Integrated VLA-Arena benchmark findings, GenieReasoner/FACT tokenizer, hierarchical geometry of cognitive states. (5) Added explicit hyperbolic training guidance. |
+| **5.7** | Jan 2026 | **First-Principles Geometry Analysis + VLA Claim Status:** (1) Added/updated claim-status tracking for OpenVLA/DreamVLA/PixelVLA/TraceVLA (avoid overstating non-abstract details as “verified”). (2) Added §16.6-§16.11: local flatness testing, δ-hyperbolicity testing, SAE analysis for VLA, and a unified Geometry-First Protocol with a small-model sanity-check sketch. (3) Added Wibral GitLab repos as authoritative code sources. (4) Integrated VLA-Arena as a benchmark context (protocol-sensitive). (5) Added explicit hyperbolic-geometry cautions (no drop-in `I^sx_∩`). |
 | **5.8** | Jan 2026 | **VLA-Arena Deep Integration + Memorization/Generalization Analysis:** (1) VLA-Arena as primary evaluation framework (§9.7.1). (2) New §3.6: Memorization vs Generalization hypotheses (H4-H6). (3) Perturbation-based PID robustness protocol (§9.7.2). (4) Expanded confound analysis (§14.5). (5) Long-horizon and compositional failure analysis. (6) Safety dimension integration. |
 | **6.0** | Jan 2026 | **Critical Blockers Analysis + Training/Compute Requirements:** (1) New §17: Training, Compute, and Data Requirements Analysis covering 25+ methods, VLA fine-tuning costs, compute budget recommendations. (2) New §18: Critical Blockers and Risk Analysis with 5 show-stoppers, 7 major blockers, 8 minor blockers, Go/No-Go decision frameworks, and fallback scope hierarchy. (3) Verified DreamVLA architecture gaps, OpenVLA availability, VLA-Arena accessibility. (4) Risk assessment: HIGH but tractable if Experiment 0 succeeds. |
 | **6.1** | Jan 2026 | **Dream2Flow Integration + Embodiment-Agnostic Analysis:** (1) Dream2Flow (arXiv:2512.24766) integration as related paradigm for 3D object flow extraction. (2) New §10.9: Dream2Flow and Video-to-Flow Paradigm. (3) New Hypothesis H7: 3D object flow as embodiment-agnostic intermediate. (4) New §14.5.7: Embodiment gap confound. (5) Updated §9.7: Dream2Flow failure taxonomy. |
@@ -12066,7 +7437,7 @@ release: build build-wheel
 | **6.5** | Jan 2026 | **Hierarchical 3-Way PID for Dream2Flow Analysis (with v6.5.1 corrections):** (1) Hierarchical Pairwise PID (§5.3) maps to Dream2Flow stages: `Syn(V,D_wan;Flow)`, `Syn(V,Flow;A)`. (2) **CORRECTED:** Execution-stage PID removed ("Sim" was undefined). (3) **CORRECTED:** 3D flow dimensionality properly specified — full representation is 3NT (can be 100s-1000s dims); "d≈6-30" only valid for aggregated single-object statistics. (4) **CORRECTED:** v5.5 (geometric validity) vs curse-of-d (statistical reliability) are separate issues; low-d Euclidean addresses both, high-d Euclidean only violates curse-of-d. (5) **CORRECTED:** "Bridge variable" claim removed — disjunction neighborhood doesn't rescue high-d sources; V requires PCA→256 regardless of Flow dimension. (6) Experiment 0 must validate mixed-dimension joint estimation. (7) Latent action diffusion remains complementary (policy) not competing (diagnostic). |
 | **6.6** | Jan 2026 | **3DGS Integration + Video Model Selection + Tauri/SparkJS/Gazebo Architecture:** (1) Defined 4 roles for 3DGS in pipeline: PID visualization, spatial failure localization, GWM representation, and spatial‑memory‑style context. (2) Compared candidate predictor families (Wan, Spatia) and optional acceleration methods (treat all speedups as benchmark‑dependent). (3) Integrated Tauri+SparkJS+Gazebo architecture diagram with external Video/Flow service placement. (4) Standardized 3DGS‑PID visualization encoding (R=Syn, G=Red, B=Unq(V), opacity=MI, size=uncertainty). (5) Updated implementation priority and hardware guidance as benchmark‑dependent targets. |
 | **6.7 FINAL** | Jan 2026 | **Unified Splat-First Simulation Environment — Complete Architecture:** (1) **Critical comparison with competitors** (§A): Analysis vs Isaac Sim, Omniverse, MuJoCo, Gazebo, SplatSim, DISCOVERSE (benchmark required; avoid cross-task “sim2real %” comparisons). (2) **Complete system architecture** (§B): Tauri+SparkJS+Modular Physics stack diagram with PEGS-style dual Gaussian-Particle representation. (3) **Asset pipeline** (§C): PLY/SPZ/SPLAT/KSPLAT/SOG/GLB/URDF support with COLMAP→SparkJS workflow. (4) **PEGS-style physics** (§D): Rust implementation of particle-Gaussian binding with visual force correction. (5) **FOCI collision detection** (§E): Gaussian overlap integral for splat-splat collision + hybrid mesh approach + splat raycasting. (6) **Environment simulation** (§F): SparkJS Dyno-based weather/lighting/domain randomization. (7) **Camera system** (§G): Virtual cameras with raycast depth, Zenoh streaming, click-to-place. (8) **Real-time editing** (§H): Splat selection (box/raycast), transform, delete, clone + mesh collision adjustment. (9) **Sim2Real strategy** (§I): Multi-layer approach with measurement/ablation plan (avoid pre-committed transfer percentages). (10) **Data collection pipeline** (§J): Workflow from scene setup to RLDS/HDF5/Zarr export. (11) **VLA setup analysis** (§K): Gap analysis of open-source VLA simulation stacks. (12) **Hardware requirements** (§L): Footprint claims are hardware/config-dependent; benchmark for your deployment. |
-| **6.8 FINAL** | Jan 2026 | **SmolVLA Integration + World Model Comparison (Exps 6-10):** (1) Added SmolVLA (LeRobot) as lightweight ~450M parameter baseline with Flow-Matching head and asynchronous inference (§7.8, §8). (2) Documented ManiGaussian vs PEGS head-to-head comparison for world model fidelity and generalization. (3) Added Experiments 6-10 protocols to experimental design suite (§9.8). |
+| **6.8 FINAL** | Jan 2026 | **SmolVLA baseline + world-model comparison (draft; details later revised):** (1) Added SmolVLA (LeRobot) as a lightweight baseline for harness bring-up and pipeline debugging (§7.8; model internals must be verified). (2) Added a conceptual ManiGaussian vs PEGS comparison as a framing device for “learned implicit” vs “explicit physics + correction” world models (verify any implementation claims before use). (3) Sketched additional experiment ideas (Exps 6–10) but did not treat them as core aims. |
 | **7.0 FINAL** | Jan 2026 | **Scientific audit + docset alignment:** (1) Reworked architecture/competitor comparisons into capability notes (removed star ratings and roadmap/marketing framing). (2) Removed or labeled unverified performance/latency/hardware “requirements”; made measurement-first language consistent across the docset. (3) Clarified repo reality in §11 (current layout vs planned), fixed Python binding examples to use the real `pid_core_rs` API, and updated task-runner documentation. (4) Made Dream2Flow/WAN integration model-agnostic (“Video Predictor Service”), removed hard-coded clip lengths and vendor-specific assertions, and tightened “no oracle” language. (5) Added OpenUSD/USDZ interop notes and diagrams (LeIsaac Marble tutorial; NVIDIA 3DGrut `.ply → .usdz` bridge) as an optional workflow. (6) Added/updated SmolVLA mentions as a lightweight baseline. (7) Docset consistency sweep across `README.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, `ARCHITECTURE.md`, and `pidsplatspecs.md`, plus repo guidance via `AGENTS.md`. (8) Added an agent-native control plane requirement (“Agent Bridge” via JSON‑RPC/MCP) so GUI actions and live interventions are reproducible and callable from LLM coding tools. |
 
 ---

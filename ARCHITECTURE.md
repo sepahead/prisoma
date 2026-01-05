@@ -120,7 +120,7 @@ The "Splat-First Physics" approach:
 
 | Hypothesis | Physics | Robot | Notes |
 |------------|--------|--------|-------|
-| H1 (Synergy → hallucination) | ✓ | ✓ | Object poses + robot state |
+| H1 (PID features ↔ failure labels) | ✓ | ✓ | Object poses + robot state; synergy sign is a candidate feature, not a definition |
 | H4 (Memorization vs generalization) | ✓ | | Mass/friction perturbations |
 | H5 (Temporal degradation) | ✓ | ✓ | Long-horizon contact physics |
 | H6 (Safety-aware V-L integration) | ✓ | ✓ | Collision detection for safety |
@@ -135,7 +135,7 @@ The "Splat-First Physics" approach:
 
 **Pipeline:**
 ```bash
-# 1. Capture (iPhone 15 Pro, Polycam, 4K @30fps, 360° orbit)
+# 1. Capture (phone/DSLR video; e.g., Polycam; capture protocol is dataset- and scene-dependent)
 # 2. Train
 ns-train splatfacto \
     --data ./captures/scene/ \
@@ -389,9 +389,9 @@ PID-Splat enables **world model based robotics** by:
 ```
 I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 ```
-- **High Syn**: Model requires both modalities (good integration)
-- **Negative Syn**: Subadditive, potential hallucination
-- **High Unq(L) in visual task**: Overreliance on language (brittleness)
+- **High Syn**: information about `A` is present only in the joint `(V,L)` beyond either alone (interpretation is task-dependent; validate under controls)
+- **Negative Syn**: allowed under `I^sx_∩`; treat as a candidate diagnostic feature and rule out estimator/geometry artifacts via Experiment 0 + perturbation controls
+- **High Unq(L) in a visually dominated task**: can indicate language reliance; test with instruction perturbations and placebo controls
 
 **3. Embodiment-agnostic evaluation:**
 - 3D Flow is robot-independent

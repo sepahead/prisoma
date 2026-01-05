@@ -74,7 +74,7 @@ This table clarifies the intended backend choices across experiments. Treat “r
 
 | Hypothesis | Primary Engine | Reason |
 |------------|----------------|--------|
-| **H1** (Synergy → hallucination) | Physics + Robot | Need accurate object poses for PID(V,D;A) |
+| **H1** (PID features ↔ failure labels) | Physics + Robot | Need accurate object poses + labels/teacher signals to ground claims; synergy sign is not definitional |
 | **H4** (Memorization vs generalization) | Physics | Perturbation library uses physics for mass/friction |
 | **H5** (Temporal synergy degradation) | Physics + Robot | Long-horizon stacking needs precise contact physics |
 | **H6** (Safety-aware V-L integration) | Physics + Robot | Collision detection for safety constraints |
@@ -162,7 +162,17 @@ Minimum provenance fields for any action event:
 **Live intervention guidance:**
 - Prefer applying interventions at a **named checkpoint** (`pause → apply → resume` or `step`) so “when” is reproducible.
 - Heavy computations (video prediction, flow extraction, large bootstraps) are offline-first but should still be orchestrated through the same control plane so the artifacts and provenance are logged.
- 
+
+### 0.3 Decomposition Choice (2-way vs 3-way vs hierarchical)
+
+Experiments must preregister which decomposition is being used and which concrete representations instantiate `(V,L,D,A)` for the tested model. Use the Geometry Gate + Experiment 0 results to decide which analyses are publishable (see `grandplan.md` §16.11.2).
+
+| Decomposition | Example variables | When to use | Notes |
+|---|---|---|---|
+| **2-way PID (`pid2`)** | `(V,L;A)` or `(V,D;A)` | Default for H1–H6 after gates pass | Most interpretable and most tractable; still requires geometry validation |
+| **3-way PID (`pid3`)** | `(V,L,D;A)` | Only when `D` is operationalizable and gates pass | Expensive (many atoms); use offline and report uncertainty/sensitivity |
+| **Hierarchical / screening** | pairwise PID + CI/Ω | When geometry fails or `D` is ambiguous | Prefer robust comparisons (ΔCI/ΔMI) under perturbations over atom-level claims |
+
 ---
  
 ## 1. Physical Environment Specifications
@@ -595,103 +605,58 @@ class RobotObservation:
  
 ## 3. VLA Model Setup
 
-### 3.1 OpenVLA (7B) - Primary Model
-| Property         | Value                            |
-| ---------------- | -------------------------------- |
-| Base LLM         | Llama-2 7B                       |
-| Vision Encoder   | SigLIP-SO400M + DinoV2-L (fused) |
-| Total Parameters | ~7.6B                            |
-| Hidden Dimension | 4096                             |
-| Action Bins      | 256 per dimension                |
-| Context Length   | 2048 tokens                      |
+### 3.1 Model Selection and Staging (v7.0)
 
-**Model Loading (pseudocode; API is model-/framework-specific):**
+Follow the risk-reducing sequence in `grandplan.md` §A.6:
+1) estimator gate (Exp0), 2) harness bring-up with `Flow_gt`, 3) small baseline (e.g., SmolVLA), 4) primary VLA target (e.g., OpenVLA), then optional branches (diffusion-based VLAs and predictor-driven `Flow_pred`).
+
+**Model choice is an experimental variable.** Log `model_id`, revision/commit hash, preprocessing, and action parameterization for every run.
+
+| Model | Role in this study | Minimum verified facts | Must verify before quantitative use |
+|-------|---------------------|------------------------|-------------------------------------|
+| **OpenVLA** | Primary target for Aim 1/2 | arXiv:2406.09246: Llama‑2 7B + (DINOv2, SigLIP) + ~970k demos | Action representation; exact hook points for `V/L/D`; whether/where to export pre-attention states; licensing + checkpoint provenance |
+| **SmolVLA** | Harness bring-up baseline | (model card/repo; verify) | Backbone, action rep, available intermediate dumps, licensing |
+| **TraceVLA** | Temporal/history axis | arXiv:2412.10345: finetuned OpenVLA; trace-based prompting; 150K trajectories; compact Phi‑3‑Vision variant | How traces are encoded and how to separate “image vs trace” variables in logs |
+| **DreamVLA** | Explicit-`D` ablation axis (if available) | arXiv:2507.04447: world-knowledge forecasting + structured attention + diffusion-based transformer policy | Output formats/dims of explicit channels; weights/code availability; what is exposed per step |
+| **PixelVLA** | Pixel-aligned diagnostics (if integration supports it) | arXiv:2511.01571: pixel-level reasoning + multimodal prompting; Pixel‑160K; reported gains | What variables are exposed (pixel maps vs pooled); API/backbone; dataset access/licensing |
+
+### 3.2 `V/L/D/A` Extraction Contract (Model-Agnostic)
+
+Treat `grandplan.md` §10.10.13 as the contract: do not assume layer names or fixed tensor shapes.
+
+**Per-run definitions (log them):**
+- `V`: a pre-fusion vision representation (choose and pin a hook point).
+- `L`: a text/instruction representation (token pool or layer summary).
+- `D`: a world/plan representation. Candidate definitions include:
+  - `D_explicit`: model-exposed world-knowledge cues (preferred when available).
+  - `D_hidden[k]`: selected hidden state(s) (layer choice is part of the experiment).
+  - `D_fused`: post-fusion representation mixing modalities.
+- `A`: action output (continuous or discrete; representation is model-specific).
+
+**Extraction rule:** export *multiple* candidate `D` definitions in early bring-up runs. Later, preregister which `D` is “primary” for each model.
+
+**Minimal extraction sketch (pseudocode):**
 ```python
-# Pseudocode sketch. Consult the official model implementation for the real API.
-# The goal is to log consistent (V, L, D, A) representations with known shapes.
-def run_inference(model, processor, image: np.ndarray, instruction: str):
+def run_inference(model, processor, image, instruction):
     inputs = processor(images=image, text=instruction)
     outputs = model(**inputs, output_hidden_states=True)
 
-    # Extract action representation (tokens, bins, or continuous vector; model-specific)
-    action = extract_action(outputs)
+    action = extract_action(outputs)  # tokens, bins, or continuous vector (model-specific)
 
-    # Extract embeddings for PID (verify layer choice/shapes for your model)
-    embeddings = {
-        "V": extract_vision_embedding(outputs),     # (1, d_v)
-        "L": extract_language_embedding(outputs),   # (1, d_l)
-        "D": extract_world_model_embedding(outputs) # (1, d_d) or None if unavailable
+    reps = {
+        # placeholders: adapt to your model and log the exact hook names
+        "V": extract_vision_rep(outputs),
+        "L": extract_language_rep(outputs),
+        # export multiple candidates during bring-up
+        "D_hidden_16": extract_hidden(outputs, layer=16),
+        "D_fused": extract_fused_rep(outputs),
     }
 
-    return action, embeddings
+    return action, reps
 ```
 
-**Action Tokenization:**
-```python
-def tokenize_action(continuous: np.ndarray, n_bins: int = 256) -> np.ndarray:
-    """
-    Convert continuous action [-1, 1] to discrete tokens [0, 255].
-    
-    OpenVLA uses uniform binning across the action range.
-    """
-    # Clip to valid range
-    clipped = np.clip(continuous, -1.0, 1.0)
-    
-    # Map to [0, n_bins-1]
-    tokens = ((clipped + 1.0) / 2.0 * (n_bins - 1)).astype(np.int32)
-    
-    return tokens
- 
-def detokenize_action(tokens: np.ndarray, n_bins: int = 256) -> np.ndarray:
-    """
-    Convert discrete tokens [0, 255] back to continuous action [-1, 1].
-    """
-    # Map to bin centers
-    continuous = (tokens.astype(np.float32) / (n_bins - 1)) * 2.0 - 1.0
-    
-    return continuous
-```
+**Action representation note:** do not assume discretization or “256 bins”. If your model uses binning, log the binning scheme (range, clipping, bin centers) and treat it as part of the experimental setup.
 
-### 3.2 Embedding Extraction Points
-**Note:** The exact module names and tensor shapes are **model-specific**. Treat this section as a schematic; verify layer names, shapes, and action parameterization against the specific VLA checkpoint you are using before treating `V/L/D/A` as well-defined variables (see `grandplan.md` §1.2 Warning 2).
-
-| Layer Name                 | Tensor Shape       | Description             | Use in PID      |
-| -------------------------- | ------------------ | ----------------------- | --------------- |
-|  vision_encoder.patch_embed  | (B, 256, 1024)     | Raw ViT patch tokens    | —               |
-| `vision_encoder.output` | (n_patches, 1024) | Post-attention visual tokens | `vla/emb/vision` |
-| `language_encoder.output` | (n_tokens, 4096) | Instruction embedding | `vla/emb/language` |
-| `llm.residual_pre_attn` | (1, 4096) | Pre-attention state (Mitigates RoPE) | `vla/emb/clean_d` |
-| `fusion_layer.output` | (1, 4096) | Fused V+L representation | `vla/emb/fused` |
-|  action_head.input           | (B, 1, 4096)       | Pre-action hidden state | D (World Model) |
-|  action_head.logits          | (B, 8, 256)        | Action distribution     | A (argmax)      |
-
-**Extraction Hook:**
-```python
-# Pseudocode sketch. Adapt to your model/framework (PyTorch/MLX) and verify layer names.
-class EmbeddingExtractor:
-    def __init__(self, model):
-        self.model = model
-        self.embeddings = {}
-        
-        # Register hooks
-        model.vision_encoder.register_forward_hook(
-            lambda m, inp, out: self.embeddings.update({"V_raw": out})
-        )
-        model.language_encoder.register_forward_hook(
-            lambda m, inp, out: self.embeddings.update({"L_raw": out})
-        )
-        model.action_head.register_forward_hook(
-            lambda m, inp, out: self.embeddings.update({"D_raw": inp[0]})
-        )
-    
-    def get_pid_embeddings(self) -> dict:
-        """Return processed embeddings for PID computation"""
-        return {
-            "V": self.embeddings["V_raw"].mean(dim=1).squeeze().numpy(),  # (1024,)
-            "L": self.embeddings["L_raw"].mean(dim=1).squeeze().numpy(),  # (4096,)
-            "D": self.embeddings["D_raw"].squeeze().numpy(),              # (4096,)
-        }
-```
 
 ### 3.3 Dimensionality Reduction for PID
 Since raw embeddings are high-dimensional (1024-4096), we reduce before PID:
@@ -899,21 +864,22 @@ def generate_synthetic_data(n: int, d: int, scenario: str, noise: float = 0.05):
 | d > 256, error > 20% | —                  | NO-GO                  |
 
 ### 4.3 Running Experiment 0
+Run the implemented Rust Experiment 0 gate (this repo):
+
 ```bash
-# Rust-native runner (fast)
-# cargo run -p pid-core --bin exp0 -- --csv > results/exp0_rust.csv
- 
-# Full validation with diagnostics
-# python experiments/exp0_full.py \
-#     --configs experiments/configs/exp0.yaml \
-#     --output results/exp0_full/ \
-#     --seed 42
+just exp0
+just exp0-bin
+
+# Optional CSV output for analysis
+cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv
 ```
+
+**Note:** A larger Python experiment harness is specified in `grandplan.md`/`EXPERIMENTS.md` but is not implemented in this repo yet; avoid citing non-existent scripts as runnable.
 
 ---
  
 ## 5. Experiment 1: Pick-and-Place (Baseline)
-Hypothesis Tested: H1 (Negative synergy indicates subadditive information/potential hallucination), H2 (Modality contribution)
+Hypothesis Tested: **H1** (PID features ↔ failure labels; synergy sign is a candidate feature), **H2/H3** (redundancy/uniques under controlled perturbations)
 
 ### 5.1 Task Definition
 | Property               | Value                                                        |
@@ -1351,7 +1317,17 @@ conditions:
 ## 8. Experiment 4: Dream2Flow Validation (Flow-as-Bridge)
 Hypothesis Tested: **H7** (3D Object Flow serves as an embodiment-agnostic integration diagnostic)
 
-### 8.1 Video Generation Setup (External)
+### 8.0 Flow_gt-First Bring-Up (Recommended)
+
+Before introducing a stochastic video predictor, validate the Flow-as-Bridge pipeline using **simulator-derived ground truth flow** (`Flow_gt`) computed from logged object poses. This isolates the core scientific question—whether flow is a useful Euclidean diagnostic target—from predictor confounds.
+
+**Protocol (minimal):**
+1. Run episodes in simulation and log per-object poses over time.
+2. Define `Flow_gt` as a low-dimensional per-object summary (e.g., centroid position/velocity over a short window); log the aggregation method.
+3. Compute CI screening and (if gates pass) targeted SxPID on candidate decompositions such as `(V, L; Flow_gt)`, `(V, D_vla; Flow_gt)`, and `(V, Flow_gt; A_cmd)` under matched controls.
+4. Only after this passes, add predictor-driven `Flow_pred` below to study embodiment-gap and world-model questions.
+
+### 8.1 Video Generation Setup (External; Optional)
 
 This repository does **not** ship a WAN/video-model runner. Use any image+instruction→video model (local or API) and treat the model choice as an *experimental variable*.
 
@@ -1462,8 +1438,11 @@ Hypothesis Tested: **H7** (Embodiment Gap separation)
 Compare PID signatures on the **same task** performed by two different robots (Franka Panda vs. UR5e) with the **same VLA policy** (using cross-embodiment training data or adapters).
 
 ### 9.2 Key Comparison
-Compute `Syn(V, D; A_robot)` for both robots.
-*   **Prediction:** `Syn(V, D; Flow)` (World Model) should be similar across embodiments. `Syn(D; A_robot)` should vary if one embodiment is less familiar to the policy.
+Use Flow-as-Bridge to separate “world understanding” from “actuation/embodiment”:
+- **World-model diagnostic (embodiment-agnostic target):** compare CI/PID summaries for decompositions such as `(V, D_vla; Flow_gt)` or `(V, L; Flow_gt)` across robots on matched tasks/scenes. These should be more stable across embodiments if Flow captures task-relevant state changes.
+- **Policy/embodiment sensitivity:** compare how Flow relates to actions via `(V, Flow_gt; A_cmd)` and simple MI terms (e.g., `I(D_vla; A_cmd)`) across robots; differences here are consistent with an embodiment gap.
+
+Avoid undefined atoms like `Syn(D; A_robot)`; synergy is a two-source construct.
 
 ---
  
@@ -1901,7 +1880,7 @@ class WorldModelPIDMetrics:
     # Action prediction: PID(Z, L; A)
     mani_action_synergy: float           # Syn(Z, L; A)
     mani_action_unique_z: float          # Unq(Z; A) - world model contribution
-    mani_action_unique_l: float          # Unq(L; A) - hallucination risk indicator
+    mani_action_unique_l: float          # Unq(L; A) - candidate feature (requires validation against failure labels/controls)
     
     # === PEGS-specific ===
     # Correction quality: PID(P_pred, V_obs; P_corr)
