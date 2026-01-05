@@ -198,6 +198,21 @@ pid_metrics = "pid/metrics"
 dream_flow = "dream/flow"
 
 # =============================================================================
+# AGENT BRIDGE (CONTROL PLANE)
+# =============================================================================
+# A local automation interface for GUI + scripts + LLM tools (planned).
+# The UI should call the same API so experiments are replayable (see grandplan.md §11.4).
+
+[agent_bridge]
+enabled = true
+transport = "ws_jsonrpc"          # JSON-RPC 2.0 over WebSocket
+listen = "127.0.0.1:9123"         # Local-only by default
+allow_remote = false              # Do not bind 0.0.0.0 unless explicitly intended
+require_token = true              # Require a per-session token/handshake
+read_only_default = true          # Default external sessions to inspection-only
+audit_log = "logs/agent_bridge.jsonl"
+
+# =============================================================================
 # EXPERIMENT PRESETS
 # =============================================================================
 # Quick presets for common experiment configurations.

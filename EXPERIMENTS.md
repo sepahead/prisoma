@@ -11,7 +11,7 @@
  
 **Version:** 7.0 (Aligned with `grandplan.md` v7.0)  
 **Date:** 2026-01-05  
-**Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, WAN/Dream2Flow pipeline) are external or not yet implemented in this repo; treat them as specifications until built.
+**Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, external video predictor / Dream2Flow-style pipeline, and the Agent Bridge control plane) are external or not yet implemented in this repo; treat them as specifications until built.
  
 ---
  
@@ -78,7 +78,7 @@ This table clarifies the intended backend choices across experiments. Treat “r
 | **H4** (Memorization vs generalization) | Physics | Perturbation library uses physics for mass/friction |
 | **H5** (Temporal synergy degradation) | Physics + Robot | Long-horizon stacking needs precise contact physics |
 | **H6** (Safety-aware V-L integration) | Physics + Robot | Collision detection for safety constraints |
-| **H7** (Flow-as-bridge) | N/A (WAN video gen) | 3D flow extracted from WAN video, no physics sim needed |
+| **H7** (Flow-as-bridge) | N/A (external video predictor) | 3D flow extracted from predicted video; physics sim optional depending on design |
 
 ### Modular Physics Backend Configuration
 
@@ -141,6 +141,27 @@ urdf_path = "assets/robots/franka_panda.urdf"
 - Generating sensor data (RGB-D, joint states)
 - Testing cross-embodiment (different robot URDFs)
 - Industry-standard robot fidelity is required
+
+### 0.2 Agent Bridge + Live Intervention (Protocol Requirement)
+
+The PID‑Splat environment is specified to have a strong GUI *and* an **agent-native automation interface** (“Agent Bridge”). Experiments should be runnable:
+- manually via the GUI, and
+- programmatically via scripts or LLM coding tools (Claude Code/Codex/opencode-style),
+without changing the experimental semantics.
+
+**Reproducibility rule:** every intervention/scene edit/run-control action must be recorded as an event in the run log, including those initiated by an LLM tool. Avoid “click-only” steps that cannot be replayed.
+
+Minimum provenance fields for any action event:
+- `actor_type`: `human_gui` | `script` | `llm_tool`
+- `actor_id`: stable identifier (e.g., OS user, script name, tool name)
+- `session_id`: run-scoped ID for an interactive session
+- `request_id`: unique per API call (idempotency key)
+- `payload_hash`: hash of the structured request body
+- optional `prompt_hash`: hash of the LLM prompt/context that produced the action (store full text only if policy allows)
+
+**Live intervention guidance:**
+- Prefer applying interventions at a **named checkpoint** (`pause → apply → resume` or `step`) so “when” is reproducible.
+- Heavy computations (video prediction, flow extraction, large bootstraps) are offline-first but should still be orchestrated through the same control plane so the artifacts and provenance are logged.
  
 ---
  
@@ -1448,6 +1469,8 @@ Compute `Syn(V, D; A_robot)` for both robots.
  
 ## 10. Perturbation Library
 
+**Implementation note (planned):** every perturbation below should be exposed both as a GUI action and as an Agent Bridge call (e.g., `intervention.apply`), and must emit a logged intervention event with parameters and timestamps.
+
 ### 10.1 Visual Perturbations
 ```python
 class VisualPerturbations:
@@ -1656,6 +1679,8 @@ def save_episode(episode: PickPlaceEpisode, filepath: str):
 ```
 
 ### 11.2 Dataset Index (JSON)
+
+Example schema (values below are illustrative placeholders; populate from actual run metadata and measured statistics):
 ```json
 {
   "dataset_id": "pid_vla_exp1_v1",
@@ -1695,8 +1720,8 @@ def save_episode(episode: PickPlaceEpisode, filepath: str):
 ### 12.1 Hardware Specifications
 | Component     | Minimum         | Recommended         |
 | --------------- | --------------- | ------------------- |
-| Apple Silicon | M2 Pro (16GB)   | M4 Max (64GB)       |
-| NVIDIA GPU    | RTX 3080 (10GB) | A100 (40GB) for WAN |
+| Apple Silicon | Any supported dev machine | More RAM helps for large datasets |
+| NVIDIA GPU    | Any CUDA GPU (if running models locally) | High-VRAM GPU if running heavy video/world models locally (otherwise use remote service) |
 | RAM           | 32GB            | 64GB                |
 | Storage       | 500GB SSD       | 2TB NVMe            |
 
@@ -1720,6 +1745,8 @@ For reporting, compute:
 and record measured `(median, p95)` for each term.
 
 ### 12.4 Storage Estimates
+
+These are rough, codec-dependent planning estimates; measure on your logging format and do not cite as fixed requirements.
 | Data Type                 | Per Episode | 100 Episodes |
 | ------------------------- | ----------- | ------------ |
 | Wrist images (30fps, 30s) | ~1.5 GB     | 150 GB       |
@@ -1735,22 +1762,21 @@ and record measured `(median, p95)` for each term.
 
 ### 13.1 Random Seeds
 ```python
+import random
+import numpy as np
+
 # Master seed configuration
 REPRODUCIBILITY_CONFIG = {
     "master_seed": 42,
     "numpy_seed": 42,
     "torch_seed": 42,
     "physics_seed": 42,
-    
     # Per-episode seeds derived from master
     "episode_seed_fn": lambda master, episode_idx: master + episode_idx * 1000,
 }
- 
+
 def set_all_seeds(seed: int):
     """Set common RNG seeds for reproducibility (where available)."""
-    import random
-    import numpy as np
-    
     random.seed(seed)
     np.random.seed(seed)
 
@@ -1807,6 +1833,31 @@ results:
   data_path: results/exp1_run_001/episodes/
   analysis_path: results/exp1_run_001/analysis/
 ```
+
+### 13.4 Agent / Automation Provenance
+
+If any experiment uses the Agent Bridge (scripts or LLM tools) for live interventions or scene edits, require a session manifest (one per run) that makes tool-driven actions auditable:
+
+```json
+{
+  "session_id": "sess_2026-01-05T10:12:33Z_001",
+  "actor_type": "llm_tool",
+  "actor_id": "codex-cli",
+  "client_version": "unknown",
+  "capabilities": ["scene.edit", "intervention.apply", "sim.step", "log.export"],
+  "policy": {
+    "store_full_prompts": false,
+    "store_prompt_hashes": true
+  }
+}
+```
+
+### 13.5 Live Intervention Replay Rule
+
+To keep runs replayable:
+- Log every intervention with a **simulation-time coordinate** (e.g., `t_step`, `t_seconds`) and a wall-clock timestamp.
+- Prefer checkpointed application (`pause/step → apply → resume`) for interventions that change task difficulty.
+- Record whether a run is “strict replayable” (deterministic + fixed ordering) vs “best-effort replayable” (nondeterminism tolerated but logged).
 
 ---
  
@@ -3020,30 +3071,24 @@ def evaluate_exp10(results: List[Exp10PIDAnalysis]) -> dict:
 
 ---
 
-## Appendix A: Quick Start Commands
+## Appendix A: Planned Commands (Spec Only)
+
+This repo currently ships the Rust estimator core (`pid-core`) and the `exp0` runner. The simulator stack (`pid‑splat`, UI, experiment harness scripts) is specified here but not implemented in this repository yet; treat the commands below as future targets unless/until the referenced binaries/scripts exist.
 ```bash
 # 1. Validate estimators (Experiment 0)
-# just exp0-bin
+# cargo run -p pid-core --bin exp0
  
 # 2. Launch PID-Splat environment
-# cargo run -p pid-splat -- --scene scenes/simple_pick_place.yaml
+# (planned) cargo run -p pid-splat -- --scene scenes/simple_pick_place.yaml
  
 # 3. Run Experiment 1
-# python experiments/run_exp1.py \
-#     --config experiments/configs/exp1_pick_place.yaml \
-#     --output results/exp1_$(date +%Y%m%d)/ \
-#     --seed 42
+# (planned) python experiments/run_exp1.py --config ...
  
 # 4. Analyze results
-# python analysis/analyze_exp1.py \
-#     --data results/exp1_20260115/ \
-#     --output results/exp1_20260115/analysis/
+# (planned) python analysis/analyze_exp1.py --data ...
  
 # 5. Generate report
-# python reports/generate_report.py \
-#     --experiment exp1 \
-#     --data results/exp1_20260115/ \
-#     --output reports/exp1_report.pdf
+# (planned) python reports/generate_report.py --experiment ...
 ```
 
 ---
@@ -3051,7 +3096,7 @@ def evaluate_exp10(results: List[Exp10PIDAnalysis]) -> dict:
 ## Appendix B: Validation Tools
 
 ### B.1 YAML Schema Validator
-**Script:** `scripts/validate_yaml_schemas.py`
+**Script (planned):** `scripts/validate_yaml_schemas.py`
 
 A comprehensive validator for all scene (`scenes/*.yaml`), object (`objects/*.yaml`), and experiment (`configs/*.yaml`) configuration files.
 
@@ -3064,11 +3109,11 @@ A comprehensive validator for all scene (`scenes/*.yaml`), object (`objects/*.ya
 **Usage:**
 ```bash
 # Validate single file
-python scripts/validate_yaml_schemas.py --file assets/objects/novel/l_block.yaml
+# (planned) python scripts/validate_yaml_schemas.py --file assets/objects/novel/l_block.yaml
 
 # Validate entire project
-python scripts/validate_yaml_schemas.py --all
+# (planned) python scripts/validate_yaml_schemas.py --all
 
 # CI Integration (JSON output)
-python scripts/validate_yaml_schemas.py --all --json --strict
+# (planned) python scripts/validate_yaml_schemas.py --all --json --strict
 ```

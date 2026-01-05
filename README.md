@@ -22,7 +22,7 @@ PID-VLA is a research toolkit for analyzing **Vision-Language-Action (VLA)** rob
 ## Status (Docset v7.0)
 
 - **Implemented in this repo:** `crates/pid-core` (Rust estimators + diagnostics), `crates/pid-python` (PyO3 module `pid_core_rs`), and the Rust Experiment 0 runner (`just exp0`, `just exp0-bin`).
-- **Specified / planned (see `grandplan.md`):** the full “PID‑Splat” simulation + visualization stack (Tauri/SparkJS/Gazebo/Zenoh) and a complete Python experiment harness for real VLA embedding extraction and benchmarking.
+- **Specified / planned (see `grandplan.md`):** the full “PID‑Splat” simulation + visualization stack (Tauri/SparkJS/Gazebo/Zenoh), an **Agent Bridge control plane** (GUI + automation via JSON‑RPC/MCP for live interventions), and a complete Python experiment harness for real VLA embedding extraction and benchmarking.
 
 ### Key Research Questions (Hypotheses)
 
@@ -41,7 +41,8 @@ PID-VLA is a research toolkit for analyzing **Vision-Language-Action (VLA)** rob
    - Nix: `nix develop`
    - Non-Nix: install Rust + Python 3.11+, then run `cargo build` and `uv sync`
 2. **Run unit tests and formatting**
-   - `just test` (and optionally `just lint`, `just fmt`)
+   - `just test` (and optionally `just lint`, `just fmt`)  
+     If you don’t have `just` installed: `cargo test`, `cargo clippy --workspace -- -D warnings`, `cargo fmt`
 3. **Run the Experiment 0 validation gate**
    - `just exp0` (test subset)
    - `cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv`
@@ -55,7 +56,7 @@ PID-VLA is a research toolkit for analyzing **Vision-Language-Action (VLA)** rob
 - **Rust** (stable, edition 2021)
 - **Python** 3.11+ (the `pid_core_rs` extension is built with PyO3 `abi3-py311`)
 - **uv** (Python package manager)
-- **just** (task runner)
+- **just** (task runner; install with `cargo install just`)
 
 ### Installation
 
@@ -159,6 +160,10 @@ The proposed PID‑Splat stack uses a composable architecture with swappable bac
 | **Physics** | Rapier, MuJoCo (Isaac Gym: planned) | Speed vs contact fidelity vs scale |
 | **Robot** | Gazebo, MuJoCo, None | Sensor sim vs benchmark compat |
 
+### Agent-Native Control Plane (Planned)
+
+The PID‑Splat UI is specified to be **scriptable**: the same operations available in the GUI (scene edits, perturbations, run control, replay/export) must be exposed via a stable local API (“Agent Bridge”), designed to work well with LLM coding tools (Claude Code/Codex/opencode-style) and conventional scripts. See `grandplan.md` §11.4 and `pidsplatspecs.md` §5.3.
+
 ### PID-Core Library
 
 The `pid-core` crate implements the estimators defined in `grandplan.md`:
@@ -207,11 +212,10 @@ See `grandplan.md` §7 for detailed analysis.
 | VLA | Backbone | World Model (D) | Action Rep | Notes |
 | --- | --- | --- | --- | --- |
 | **OpenVLA** | Llama 2 7B | Implicit (hidden states; definition choice) | Action tokens/bins (verify) | Primary target; d≈4096 |
-| **DreamVLA** | GPT-2 var. | Explicit (<dream> tokens) | Diffusion | Ideal for V-D-A; dims unknown |
+| **DreamVLA** | GPT-2-class (per abstract; verify) | Explicit world-knowledge forecasting (dynamic/spatial/semantic cues) | Diffusion-style action model (paper-reported; verify) | Useful when D is operationalizable; dims unknown |
 | **PixelVLA** | Llama 2 7B | Implicit + Pixel enc. | Continuous 7D | Multiscale visual features |
 | **TraceVLA** | Llama 2 7B | Trace-augmented V | Action tokens/bins (verify) | Temporal history in V |
-| **GalaxeaVLA** | - | - | - | Open-source VLA platform |
-| **π* (Pi-star) 0.6** | - | - | - | Foundation model for general robotics |
+| **SmolVLA** | LeRobot baseline (verify) | Implicit | (verify) | Lightweight baseline for fast iteration / pipeline debugging |
 
 ## Estimator Caveats
 

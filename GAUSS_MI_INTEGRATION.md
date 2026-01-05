@@ -19,6 +19,7 @@ This specification details how to integrate **GauSS-MI (Gaussian Splatting Shann
 2. **Uncertainty-aware MI estimation** that down-weights unreliable visual features
 3. **Active view selection** for improving PID estimate quality
 4. **Diagnostic metrics** for identifying when visual uncertainty corrupts PID analysis
+5. **Agent-native execution (planned):** expose view selection and uncertainty queries via the same Agent Bridge control plane as the GUI, so automated tools can request candidate viewpoints and the decisions are logged for replay
 
 ### Key Innovation
 Standard PID estimators treat all samples equally. GauSS-MI integration allows uncertainty-weighted PID estimation where:

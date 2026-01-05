@@ -19,6 +19,7 @@
 - Provides the cross-platform desktop application shell
 - Runs a Rust backend with native performance for PID computation
 - Hosts the WebGPU-based SparkJS renderer for Gaussian Splat visualization
+- Hosts the **Agent Bridge** control plane (planned): a stable local API (JSON‑RPC/MCP) used by both the GUI and external automation (scripts + LLM tools) for live interventions
 - Manages IPC (Inter-Process Communication) between:
   - Rust PID-core (computation)
   - React/Three.js frontend (visualization)
@@ -37,7 +38,8 @@
 │  Frontend (React/Three.js)  │  Backend (Rust)          │
 │  ├─ SparkJS 3DGS Renderer   │  ├─ PID-Core estimators  │
 │  ├─ PID Heatmap Overlays    │  ├─ Zenoh subscriber     │
-│  └─ Control Panel           │  └─ MLX inference hooks  │
+│  ├─ Control Panel           │  ├─ Agent Bridge (JSON-RPC/MCP) │
+│  └─ Timeline + replay UI    │  └─ ML inference hooks (planned) │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -80,7 +82,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 ```
 
 **Why it matters:**
-- **Determinism**: Fully deterministic physics (critical for reproducibility in Rapier)
+- **Determinism**: Rapier aims for deterministic replay under fixed dt/ordering, but bitwise determinism can break across platforms/CPUs; verify and log settings/seeds.
 - **Modularity**: Select an engine appropriate to your trade-offs (Rapier for speed, MuJoCo for contact fidelity)
 - **Integration**: Native Rust (Rapier) = zero-copy data flow to PID-core; FFI for MuJoCo/Isaac
 
@@ -122,7 +124,7 @@ The "Splat-First Physics" approach:
 | H4 (Memorization vs generalization) | ✓ | | Mass/friction perturbations |
 | H5 (Temporal degradation) | ✓ | ✓ | Long-horizon contact physics |
 | H6 (Safety-aware V-L integration) | ✓ | ✓ | Collision detection for safety |
-| H7 (Flow-as-bridge) | | | Flow from WAN video gen, no physics sim needed |
+| H7 (Flow-as-bridge) | | | Flow from an external video predictor; no physics sim needed for flow extraction itself |
 
 ### 1.5 Gaussian Splatting (3DGS) Pipeline
 
@@ -215,20 +217,21 @@ Current Image + Instruction
 
 ## 2. Simulator Comparison: Why Gaussian Splats + Modular Physics
 
-### 2.1 Comprehensive Simulator Comparison
+### 2.1 Simulator Capability Notes (Not a Ranking)
 
-| Simulator | Rendering | Physics | Domain Gap | Speed | VLA Suitability |
-|-----------|-----------|---------|------------|-------|------------------|
-| **MuJoCo** | Mesh-based, synthetic | ⭐⭐⭐⭐⭐ Excellent contacts | High | Fast | Good physics, poor visuals |
-| **PyBullet** | Basic OpenGL | ⭐⭐⭐ Adequate | High | Medium | Legacy, limited |
-| **Isaac Sim/Lab** | RTX (optional) | ⭐⭐⭐⭐ Good | Medium | Medium–Fast | High-fidelity simulator (NVIDIA) |
-| **Isaac Gym** | Basic raster (if used) | ⭐⭐⭐⭐ Good (GPU) | Medium | Very Fast (GPU) | Scalable physics; visuals depend on renderer |
-| **Habitat** | Mesh + neural | ⭐⭐ Navigation only | Medium | Fast | Navigation tasks only |
-| **CARLA** | Unreal Engine | ⭐⭐⭐ Vehicle physics | Low-Medium | Slow | Driving only |
-| **robosuite** | MuJoCo backend | ⭐⭐⭐⭐⭐ MuJoCo | High | Fast | Standard benchmark |
-| **Gazebo Harmonic** | OGRE2/Vulkan | ⭐⭐⭐⭐ Good robot sim | Medium | Medium | Industry standard |
-| **Rapier3D** | None (headless) | ⭐⭐⭐ Good rigid body | N/A | Very Fast | Fast iteration |
-| **Gaussian splats (3DGS)** | High-fidelity (capture dependent) | N/A (needs physics) | Often reduced vs synthetic meshes | Fast rendering (hardware dependent) | Strong candidate for visual realism studies |
+Use this table as a qualitative capability map. Do not compare “sim2real %”, fps, or latency across platforms unless you run a matched benchmark + hardware + protocol.
+
+| Simulator | Rendering | Physics | Availability / constraints | Notes for PID‑VLA |
+|-----------|-----------|---------|----------------------------|------------------|
+| **MuJoCo / robosuite** | Raster (OpenGL) | MuJoCo | Cross-platform | Strong contact baseline; visuals are not photoreal by default |
+| **PyBullet** | Raster (OpenGL) | Bullet | Cross-platform | Widely used but not state-of-the-art for contacts/visuals |
+| **Isaac Sim/Lab** | RTX / OpenUSD | PhysX | NVIDIA GPU required | Strong USD tooling; heavy stack; PID harness is custom |
+| **Isaac Gym** | (Varies) | GPU physics | NVIDIA GPU required | Good for scale; visuals depend on assets/renderer |
+| **Gazebo Harmonic** | Raster (OGRE2) | Plugin-dependent | Cross-platform; ROS-centric | Strong robot/sensor ecosystem; PID harness is custom |
+| **Habitat** | Mesh + neural | Limited (navigation focus) | Cross-platform | Good for nav; not a manipulation physics stack |
+| **CARLA** | Unreal | Vehicle focus | Cross-platform | Driving-focused; not a manipulation stack |
+| **Rapier3D** | Headless / debug | Rapier | Cross-platform | Fast iteration; contact fidelity depends on task and tuning |
+| **3DGS (Gaussian splats)** | Photoreal views (capture-dependent) | N/A | Requires separate physics | Useful to reduce *visual* gaps when capture quality is good; does not replace physics |
 
 ### 2.2 Why Each Simulator Falls Short for VLA Diagnostics
 
@@ -255,7 +258,7 @@ Current Image + Instruction
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Key Insight**: Decouple rendering from physics. Use Gaussian splats for visuals (often reduced visual sim2real gap vs synthetic meshes; benchmark-dependent) + a pluggable physics backend for simulation.
+**Key Insight**: Decouple rendering from physics. Use Gaussian splats for visuals (can reduce *visual* gaps when capture is good; benchmark-dependent) + a pluggable physics backend for dynamics/contact.
 
 ### 2.4 Modular Physics Backend Selection
 
@@ -351,7 +354,7 @@ urdf_path = "assets/robots/franka_panda.urdf"
 
 | Aspect | DreamVLA | PID-Splat |
 |--------|----------|-----------|
-| **World Model** | Explicit `<dream>` tokens | Explicit via Dream2Flow extraction |
+| **World Model** | Explicit world-knowledge forecasting (dynamic/spatial/semantic cues; verify) | D can be internal (hidden states) or external; Flow is used as a diagnostic intermediate |
 | **Analysis** | Task performance | PID(V, D; Flow) reveals world model quality |
 | **Architecture** | Fixed training objective | Post-hoc analysis, any VLA |
 
@@ -448,8 +451,8 @@ Gaussian splats + modular physics + a unified UI (e.g., Tauri) are intended to s
 
 | Component | Minimum | Recommended |
 |-----------|---------|-------------|
-| Apple Silicon | M2 Pro (16GB) | M4 Max (64GB) |
-| NVIDIA GPU | RTX 3080 (10GB) | A100 (40GB) for WAN |
+| Apple Silicon | Any supported dev machine | More RAM helps for large datasets |
+| NVIDIA GPU | Any CUDA GPU (if running models locally) | High-VRAM GPU if running heavy video/world models locally (otherwise use remote service) |
 | RAM | 32GB | 64GB |
 | Storage | 500GB SSD | 2TB NVMe |
 
@@ -485,10 +488,9 @@ The architecture supports a head-to-head comparison between two dominant world m
 SmolVLA (LeRobot) is a candidate lightweight baseline (planned integration; verify model availability/APIs).
 
 ### 8.1 Architecture
-- **Backbone:** SmolVLM-2 (SigLIP visual encoder + SmolLM2 language model).
-- **Action Head:** **Flow-Matching Transformer** (continuous action generation).
-- **Inference:** Asynchronous execution (perception/planning decoupled from control).
-- **Parameters:** ~450M (15x smaller than OpenVLA).
+- **Backbone:** Lightweight VLM baseline (LeRobot; verify exact architecture/backbone).
+- **Action head:** Flow-matching or diffusion-style head (implementation-specific; verify).
+- **Inference:** May support async pipelines (verify and measure on your stack).
 
 ### 8.2 Architectural Role in PID-VLA
 - **Iteration Speed:** Smaller models can make the PID pipeline easier to iterate on (measure inference latency on your hardware).

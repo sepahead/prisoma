@@ -8,17 +8,17 @@
 > - `README.md` — Quick start guide
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 3.1 (Modular Physics Backends)
-**Date:** 2026-01-03
+**Version:** 7.0 (Aligned with docset; PID‑Splat target spec)
+**Date:** 2026-01-05
 **Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
 
 ---
 
 ### 1. Executive Summary
 
-This document specifies the engineering implementation of the **PID-Splat** environment. It bridges photorealistic 3D Gaussian Splatting (3DGS) with modular rigid-body physics (**Rapier, MuJoCo, or Isaac Gym**) and **generative video flow (Dream2Flow)** to enable real-time Partial Information Decomposition (PID) diagnostics for VLA models.
+This document specifies the engineering implementation of the **PID-Splat** environment. It bridges photorealistic 3D Gaussian Splatting (3DGS) with modular rigid-body physics (**Rapier, MuJoCo, or Isaac Gym**) and Dream2Flow-style video→flow bridges to enable reproducible PID diagnostics for VLA models (offline-first; optionally interactive if measured budgets allow).
 
-**Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying generative "dreams" (WAN-derived flow) to visualize what the VLA expects to happen.
+**Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying predicted “dreams” (video‑predicted 3D flow) to visualize what a policy *expects* to happen (treat predictors as experimental variables; no oracle framing).
 
 ---
 
@@ -30,10 +30,11 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 | **Renderer** | SparkJS (or equivalent WebGPU 3DGS renderer) | Pin version / git SHA | verify |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
 | **Physics Engine** | Rapier3d / MuJoCo | Rapier v0.18+ / MuJoCo v3.0+ | Apache 2.0 |
-| **Middleware** | Zenoh | v1.0 (Zero-copy, shared memory) | Apache 2.0 |
+| **Middleware** | Zenoh | Pub/sub transport; shared memory/zero-copy is config-dependent | Apache 2.0 |
 | **Sensor Sim** | Gazebo | Harmonic (gz-sim 8.x) | Apache 2.0 |
-| **Video Gen** | Video model (WAN-like) | Model-dependent (pin revision) | verify |
+| **Video predictor** | Video model (external service) | Model-dependent (pin revision) | verify |
 | **Flow Tracker** | Point tracker (e.g., CoTracker) | Model-dependent (pin revision) | verify |
+| **Agent Bridge (control plane)** | JSON‑RPC over WebSocket (+ optional MCP wrapper) | Versioned local API for live interventions + automation | MIT (project) |
 
 ---
 
@@ -48,6 +49,11 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 2.  **Process:** `ns-train splatfacto --data <data_dir>` (Nerfstudio/gsplat backend).
 3.  **Export:** `ns-export gaussian-splat --load-config <config> --output-format spz`.
 
+**Optional OpenUSD / USDZ interop (Isaac Sim / LeIsaac workflows):**
+- Convert splat `.ply` → `.usdz` (packaged OpenUSD) using NVIDIA 3DGrut, then compose splats + collision mesh in Isaac Sim to export a single `.usd` background stage (see `grandplan.md` §C.1 and `DIAGRAMS.md` §9).
+- Example conversion command (from LeIsaac Marble tutorial):
+  - `python -m threedgrut.export.scripts.ply_to_usd path/to/your/splats.ply --output_file path/to/output.usdz`
+
 #### 3.2 LOD Strategy
 *   **Target Count:** 500k - 2M gaussians per scene.
 *   **Distance-based culling:** Alpha cull threshold increases with distance.
@@ -55,12 +61,12 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 
 ---
 
-### 4. Dream2Flow Integration (New in v3.0)
+### 4. Dream2Flow Integration (Flow-as-Bridge)
 
 This section implements the "Unified Architecture" from `grandplan.md` §10.10.
 
 #### 4.1 3D Flow Data Structure
-We represent the "Dream" not just as a hidden state, but as explicit 3D trajectories extracted from WAN-generated videos.
+We represent the "Dream" not just as a hidden state, but as explicit 3D trajectories extracted from predicted videos (Dream2Flow-style bridge).
 
 ```rust
 /// Represents a single object's predicted path (the "Flow")
@@ -76,12 +82,12 @@ struct DreamFlowTrajectory {
 }
 ```
 
-#### 4.2 WAN Integration Pipeline
-The WAN video generation happens externally (Python/CUDA) and feeds into the visualization via Zenoh.
+#### 4.2 Video Predictor Integration Pipeline
+Video prediction happens externally (e.g., Python/CUDA or a hosted API) and feeds into the visualization via Zenoh.
 
-1.  **Trigger:** VLA sends `(Image, Instruction)` to WAN Service.
-2.  **Generate:** Video model generates a short clip (e.g., ~2s; configurable).
-3.  **Extract:** Tracking + depth estimation extract `DreamFlowTrajectory` (model-specific).
+1.  **Trigger:** VLA (or the orchestrator) sends `(Image, Instruction)` to a video predictor service.
+2.  **Generate:** Video model generates a short clip (length is configurable; log FPS/frames/seed).
+3.  **Extract:** Tracking + depth estimation extract `DreamFlowTrajectory` (model-specific; log versions).
 4.  **Publish:** Rust backend receives `dream/flow/{id}` via Zenoh.
 
 #### 4.3 "Ghost Splat" Visualization
@@ -102,7 +108,7 @@ SparkJS renders these flows as **animated ghost splats** overlaying the real phy
 | Key Expression | Data Type | Frequency | Source → Dest |
 | :--- | :--- | :--- | :--- |
 | `sim/pose/{id}` | `[f32; 7]` | 60Hz | Physics → SparkJS |
-| `dream/flow/{id}`| `DreamFlowTrajectory` | Event | WAN → SparkJS |
+| `dream/flow/{id}`| `DreamFlowTrajectory` | Event | Video predictor/flow extractor → SparkJS |
 | `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → SparkJS |
 | `vla/action` | `[f32; 7]` | ~10Hz | VLA → Physics |
 
@@ -118,6 +124,33 @@ struct PidMetricMsg {
     unique_l: f32,
 }
 ```
+
+#### 5.3 Agent Bridge (UI + Automation API)
+
+The simulator must be **agent-native**: the GUI is not the only interface. Every operation that matters scientifically (scene edits, interventions, run control, replay, exports) must be callable through a stable API that works well with **Claude Code / Codex / opencode‑style tooling**.
+
+**Core rule:** the UI uses the same control plane as external tools (no hidden manual paths). All API calls emit an **audit event** into the run log for reproducibility.
+
+**Recommended transport (planned):**
+- **JSON‑RPC 2.0 over WebSocket** on `127.0.0.1` (simple from Rust/TS/Python).
+- Optional: **MCP server wrapper** exposing the same methods as tool calls (thin adapter; no separate logic).
+
+**Minimum method surface (versioned; sketch):**
+- `sim.start|pause|step|reset|status|set_seed`
+- `scene.load|save|list|inspect` (introspection must be complete enough for agents to plan edits)
+- `scene.add_object|remove_object|set_transform|set_material|set_physics`
+- `camera.get|set|keyframe|render_snapshot`
+- `intervention.apply|list|undo|branch` (all interventions are log events with timestamps and actor IDs)
+- `log.start|stop|export|replay|attach_artifact`
+
+**Live intervention semantics:**
+- Interventions can be applied while the sim is running, but the system must enforce **backpressure** (bounded queues) and expose “paused/stepping” modes to keep interventions reproducible.
+- Heavy jobs (video prediction, flow extraction, large PID bootstraps) are offline-first but still orchestrated through the same control plane so the provenance is logged.
+
+**Safety defaults:**
+- Local-only by default; explicit opt‑in for remote binding.
+- Capability gating for destructive operations (e.g., deleting assets, overwriting logs).
+- Option for read-only sessions (inspection without mutation).
 
 ---
 
@@ -151,14 +184,7 @@ The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym*
 
 ### 9. Performance Budget & Targets
 
-**Note:** The table below lists *aspirational targets* for interactive debugging. Actual performance is hardware/scene dependent; benchmark and report measured ranges (do not treat targets as guarantees).
-
-| Metric | Target | Minimum Acceptable |
-| :--- | :--- | :--- |
-| **Render FPS** | 60 FPS | 30 FPS |
-| **Physics Step** | 16ms (60Hz) | 33ms (30Hz) |
-| **Flow Viz** | < 5ms (instanced) | < 10ms |
-| **E2E Latency** | < 50ms | < 150ms |
+**Measurement-first:** treat latency/throughput as empirical properties of your hardware + scene + models. For interactive work, start with offline playback and progressively move components in-loop only after you have measured budgets and uncertainty (see `grandplan.md` §A and `EXPERIMENTS.md` §12).
 
 ---
 
@@ -175,14 +201,14 @@ The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym*
 3.  **Dream2Flow (Week 5-6):**
     *   Implement `DreamFlowTrajectory` struct.
     *   Create "Ghost Splat" shader in SparkJS.
-    *   Connect WAN output stream.
+    *   Connect external video predictor output stream.
 
 4.  **Integration (Week 7-8):**
     *   Visualize PID heatmaps on both Real and Ghost splats.
 
 ### 11. Error Handling
 
-*   **WAN Failure:** If WAN fails to generate flow, "Ghost Splats" do not appear; simulation continues with physics only.
+*   **Video predictor failure:** If the predictor fails to generate flow, "Ghost Splats" do not appear; simulation continues with physics only.
 *   **WebGPU Failure:** Fall back to WebGL2.
 *   **Zenoh Disconnect:** Physics pauses; UI shows "Reconnecting...".
 
@@ -192,7 +218,9 @@ The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym*
 
 ### 12.1 Standard Mesh Assets
 
-The following OBJ and MTL definitions serve as the ground truth for physics proxies in Experiments 7 and 10. They use Z-up coordinate convention and meters as units.
+**Status:** This repo does not currently ship an `assets/` library. The items below are *planned conventions* for a shared asset pack; generate them (e.g., Blender) or pull from standard datasets (e.g., YCB) and keep large binaries out of git where appropriate.
+
+The following OBJ and MTL definitions are intended as ground truth for physics proxies in later experiments. They use Z-up coordinate convention and meters as units.
 
 #### 12.1.1 Hollow Cylinder (Tube)
 **File:** `assets/meshes/hollow_cylinder.obj`

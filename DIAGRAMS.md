@@ -9,7 +9,7 @@
 
 This document contains visual representations of the PID-VLA system, the PID-Splat simulation environment, and the data processing pipelines.
 
-**Docset alignment:** These diagrams are aligned to `grandplan.md` v7.0. Several components shown below (e.g., Tauri/SparkJS/Gazebo/Zenoh/WAN) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” for what exists today.
+**Docset alignment:** These diagrams are aligned to `grandplan.md` v7.0. Several components shown below (e.g., Tauri/SparkJS/Gazebo/Zenoh, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” for what exists today.
 
 ## 1. High-Level System Overview
 
@@ -17,7 +17,12 @@ This diagram illustrates how the core components interact via the Zenoh middlewa
 
 ```mermaid
 graph TD
-    subgraph "Inference Layer (Python/MLX)"
+    subgraph "Automation Clients"
+        Claude[Claude Code / Codex / opencode]
+        Scripts[Scripts (Python/Rust)]
+    end
+
+    subgraph "Inference Layer (External)"
         VLA[OpenVLA / DreamVLA]
         WAN[Video Gen Model (WAN-like)]
         Vis[Vision Foundation Models]
@@ -40,6 +45,7 @@ graph TD
         subgraph "Backend"
             Phys[Physics Engine]
             PID_Core[pid-core Estimator]
+            Agent[Agent Bridge (JSON-RPC/MCP)]
             
             Z_ACT --> Phys
             Phys -->|Pose| Spark_Bridge
@@ -47,6 +53,11 @@ graph TD
             Z_EMB --> PID_Core
             Z_FLOW --> PID_Core
             PID_Core -->|Synergy/Red/Unq| Z_PID
+
+            Claude --> Agent
+            Scripts --> Agent
+            Agent -->|Scene edits / interventions| Phys
+            Agent -->|Compute requests| PID_Core
         end
         
         subgraph "Frontend (WebGPU)"
@@ -73,6 +84,7 @@ This diagram details the "Splat-First" update loop, showing how physics (Rapier)
 
 ```mermaid
 sequenceDiagram
+    participant Agent as Agent Bridge / UI
     participant VLA as VLA Agent
     participant Zenoh as Zenoh Bus
     participant Phys as Physics (Rust)
@@ -86,6 +98,7 @@ sequenceDiagram
         Zenoh->>Phys: Apply Forces
         Phys->>Phys: Step Simulation (dt=1/60)
         Phys->>Zenoh: Publish Object Poses
+        Agent->>Phys: Apply intervention (pause/step-safe)
     and PID Computation
         VLA->>Zenoh: Publish Embeddings (V, D)
         Zenoh->>PID: Update Buffer
@@ -296,7 +309,7 @@ graph TB
 
 ## 6. Dream2Flow Data Pipeline
 
-Visualizing the specific integration of WAN video generation and 3D flow extraction (`pidsplatspecs.md` §4).
+Visualizing a model-agnostic Dream2Flow-style bridge: external video prediction → 3D flow extraction → PID targets (see `grandplan.md` §9.7.7, §10.10). The video predictor is treated as an interchangeable, versioned service (no oracle framing).
 
 ```mermaid
 graph LR
@@ -305,15 +318,15 @@ graph LR
         TXT[Instruction]
     end
 
-    subgraph "WAN Generation"
-        IMG & TXT --> WAN[Video Gen Model]
-        WAN --> VIDEO[Generated Video 2s]
+    subgraph "Video Prediction (External)"
+        IMG & TXT --> VP[Video Predictor Service]
+        VP --> VIDEO[Predicted Video Clip (T frames)]
     end
 
     subgraph "Flow Extraction"
-        VIDEO --> SAM[Segmentation (e.g., SAM2)]
+        VIDEO --> SAM[Segmentation (model-agnostic)]
         VIDEO --> DEPTH[Depth (relative or metric)]
-        VIDEO --> TRACK[Tracking (e.g., CoTracker)]
+        VIDEO --> TRACK[Tracking (model-agnostic)]
         
         SAM & DEPTH & TRACK --> LIFT[2D to 3D Lifting]
         LIFT --> TRAJ[3D Flow Trajectory]
@@ -324,7 +337,7 @@ graph LR
         VLA_EMB[VLA Embeddings] --> SOURCE{PID Source}
         
         SOURCE & TARGET --> EST[PID Estimator]
-        EST --> GHOST[Ghost Splat Viz]
+        EST --> VIZ[PID Overlays (Splats/Mesh)]
     end
 ```
 
@@ -368,4 +381,71 @@ graph LR
 
     H7[H7 Flow-as-bridge] --> E4[Exp4 Dream2Flow validation]
     H7 --> E5
+```
+
+---
+
+## 9. OpenUSD / USDZ Interop (Optional)
+
+This diagram summarizes the LeIsaac/Isaac Sim interoperability pattern referenced in `grandplan.md` §C.1: convert splats to OpenUSD for composition/validation in USD tooling, then (optionally) bring the composed result back into the PID‑Splat workflow.
+
+```mermaid
+graph LR
+    PLY[3DGS Splats (.ply)] --> GRUT[NVIDIA 3DGrut\nply_to_usd]
+    GRUT --> USDZ[USDZ (packaged OpenUSD)]
+
+    MESH[Collision mesh (.glb/.gltf)] --> ISAAC[Isaac Sim / LeIsaac\nUSD stage composition]
+    USDZ --> ISAAC
+
+    ISAAC --> USD[Composed background scene (.usd/.usda/.usdc)]
+
+    USD --> NOTE[Optional: validate alignment/colliders\nin USD tooling]
+    USD --> IMPORT[Optional: convert/import into\nPID‑Splat scene graph (planned)]
+```
+
+---
+
+## 10. Agent Bridge Control Plane (LLM‑First)
+
+The Agent Bridge is the “programmable face” of the simulator: a local control plane that exposes the same operations the GUI uses (scene editing, interventions, run control, replay, exports). It is designed to be called by scripts and LLM coding tools without introducing irreproducible “manual steps”.
+
+```mermaid
+graph TB
+    subgraph Clients
+        UI[GUI (Tauri)]
+        LLM[Claude Code / Codex / opencode]
+        Script[Scripts (Python/Rust)]
+    end
+
+    subgraph ControlPlane
+        RPC[Agent Bridge\n(JSON-RPC over WebSocket)]
+        MCP[Optional MCP wrapper\n(thin adapter)]
+    end
+
+    subgraph Core
+        Sim[Deterministic sim loop\n(threaded)]
+        Scene[Scene graph\n(splats+meshes+URDF)]
+        Intervene[Intervention engine\n(perturb/apply/undo/branch)]
+        Log[Run log + replay\n(artifacts + audit)]
+        PID[PID workers\n(CI/Ω/SxPID)]
+        Events[Event stream\n(state/metrics/frames)]
+    end
+
+    UI --> RPC
+    Script --> RPC
+    LLM --> MCP --> RPC
+
+    RPC --> Sim
+    RPC --> Scene
+    RPC --> Intervene
+    RPC --> Log
+    RPC --> PID
+
+    Sim --> Events
+    PID --> Events
+    Log --> Events
+
+    Events --> UI
+    Events --> Script
+    Events --> LLM
 ```
