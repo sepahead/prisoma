@@ -6,6 +6,7 @@
 > - `ARCHITECTURE.md` — Target system design (PID‑Splat)
 > - `DIAGRAMS.md` — Architecture + control plane diagrams
 > - `pidsplatspecs.md` — Simulation/spec details (PID‑Splat)
+> - `uidesigner/UI.md` — UI/UX spec (viewer-first; ordered by milestones)
 > - `GAUSS_MI_INTEGRATION.md` — Optional: 3DGS uncertainty + view selection (spec)
 > - `WORLD_WARP_INTEGRATION.md` — Optional: external world‑model baseline (spec)
 

@@ -93,7 +93,7 @@ sequenceDiagram
     participant PID as PID-Core
     participant Spark as SparkJS (Three.js/WebGL2)
 
-    Note over Phys, Spark: Example frame budget (hardware-dependent)
+    Note over Phys,Spark: Example frame budget (hardware-dependent)
 
     par Physics Step
         VLA->>Zenoh: Publish Action (Joints)
@@ -321,7 +321,8 @@ graph LR
     end
 
     subgraph "Video Prediction (External)"
-        IMG & TXT --> VP[Video Predictor Service]
+        IMG --> VP[Video Predictor Service]
+        TXT --> VP
         VP --> VIDEO[Predicted Video Clip (T frames)]
     end
 
@@ -330,7 +331,9 @@ graph LR
         VIDEO --> DEPTH[Depth (relative or metric)]
         VIDEO --> TRACK[Tracking (model-agnostic)]
         
-        SAM & DEPTH & TRACK --> LIFT[2D to 3D Lifting]
+        SAM --> LIFT[2D to 3D Lifting]
+        DEPTH --> LIFT
+        TRACK --> LIFT
         LIFT --> TRAJ[3D Flow Trajectory]
     end
 
@@ -338,7 +341,8 @@ graph LR
         TRAJ --> TARGET{PID Target}
         VLA_EMB[VLA Embeddings] --> SOURCE{PID Source}
         
-        SOURCE & TARGET --> EST[PID Estimator]
+        SOURCE --> EST[PID Estimator]
+        TARGET --> EST
         EST --> VIZ[PID Overlays (Splats/Mesh)]
     end
 ```

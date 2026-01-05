@@ -177,7 +177,7 @@ This section turns the spec into an actionable build order. The goal is to make 
 | **M1** | Run logs + replay | Rust | Versioned event schema + reader/writer + replay CLI | You can replay a run deterministically into identical state traces; logs include hashes + config |
 | **M2** | Agent Bridge API | Rust (JSON‑RPC over WS; localhost-only) | API spec + server + audit log integration | Every UI/automation action is an RPC; every RPC is appended to the run log; safe-mode gates |
 | **M3** | Minimal object sim + `Flow_gt` | Rapier (Rust; behind a backend trait boundary) | Deterministic sim loop + collision geometry + `Flow_gt` derived from poses | You can spawn/move objects via Agent Bridge, step deterministically, export `Flow_gt`, and record backend + solver params in the run log (enables later cross-backend replay) |
-| **M4** | Viewer-first UI | Tauri v2 + React + Three.js + SparkJS “Spark” | Playback viewer (splats + meshes + overlays) | Offline replay renders states + overlays; timeline scrub and event inspection work end-to-end |
+| **M4** | Viewer-first UI | Tauri v2 + React + Three.js + SparkJS “Spark” | Playback viewer (splats + meshes + overlays) | Offline replay renders states + overlays; timeline scrub and event inspection work end-to-end (UI spec lives in `uidesigner/UI.md`) |
 | **M5** | VLA embedding capture harness | Python 3.11 (`uv`) + HF/LeRobot (as needed) | Cached `(V,L,D,A)` artifacts + provenance | Contract-first logging works on a small baseline (SmolVLA/toy); artifacts are replay-linked |
 | **M6** | Optional live transport + robot sim | Zenoh + Gazebo (optional) | Live sensor/action streams + synchronized logs | Live mode reproduces the same run-log format; disconnects are handled and logged |
 | **M7** | Optional predictor-driven Flow | External service (WAN-like) + tracking/depth | `Flow_pred` + stage labels + caches | Stage-wise artifacts are persisted; Flow pipelines have negative controls; no “oracle” framing |
@@ -188,6 +188,7 @@ This section turns the spec into an actionable build order. The goal is to make 
 - `crates/pid-bridge`: Agent Bridge server + JSON‑RPC method definitions (and a small client).
 - `crates/pid-sim`: deterministic object simulation loop (Rapier first) + `Flow_gt` extraction utilities.
 - `crates/pid-tauri`: viewer-first desktop UI (Tauri + React + Three.js + SparkJS).
+- `uidesigner/`: UI spec + prompt-iteration tooling to design the viewer-first UI before implementation.
 - Optional: `crates/pid-gauss-mi` (or `crates/pid-core::gauss_mi`): 3DGS uncertainty artifacts + view selection (M8; see `GAUSS_MI_INTEGRATION.md`).
 - `experiments/` (Python): embedding extraction + dataset orchestration (after M1–M3 are stable).
 

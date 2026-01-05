@@ -23,6 +23,9 @@ __pycache__/
 *.pyd
 *.so
 .env
+.env.local
+.env.*.local
+.envrc
 .venv/
 venv/
 env/
@@ -39,6 +42,9 @@ results/
 logs/
 *.log
 outputs/
+
+# UI prompt-iteration artifacts (generated images/reviews; keep specs/scripts in git)
+uidesigner/out/
 
 # Editors/IDEs
 .idea/
