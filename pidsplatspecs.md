@@ -27,13 +27,13 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 | Component | Technology | Version / Spec | License |
 | :--- | :--- | :--- | :--- |
 | **Frontend Shell** | Tauri | v2.0+ (Rust backend, WebView frontend) | MIT |
-| **Renderer** | SparkJS | 2025 Release (WebGPU backend) | MIT |
+| **Renderer** | SparkJS (or equivalent WebGPU 3DGS renderer) | Pin version / git SHA | verify |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
 | **Physics Engine** | Rapier3d / MuJoCo | Rapier v0.18+ / MuJoCo v3.0+ | Apache 2.0 |
 | **Middleware** | Zenoh | v1.0 (Zero-copy, shared memory) | Apache 2.0 |
 | **Sensor Sim** | Gazebo | Harmonic (gz-sim 8.x) | Apache 2.0 |
-| **Video Gen** | WAN | v2.2 (for Dream2Flow) | Apache 2.0 |
-| **Flow Tracker** | CoTracker3 | v3.0 (Meta) | CC-BY-NC |
+| **Video Gen** | Video model (WAN-like) | Model-dependent (pin revision) | verify |
+| **Flow Tracker** | Point tracker (e.g., CoTracker) | Model-dependent (pin revision) | verify |
 
 ---
 
@@ -69,7 +69,7 @@ struct DreamFlowTrajectory {
     object_id: u32,
     /// Sequence of (x, y, z) points over time T
     points: Vec<[f32; 3]>,
-    /// Confidence/Opacity per point (from CoTracker3)
+    /// Confidence/Opacity per point (from the tracker)
     confidence: Vec<f32>,
     /// PID Synergy at each point Syn(V, D; Flow_t)
     synergy: Vec<f32>,
@@ -80,8 +80,8 @@ struct DreamFlowTrajectory {
 The WAN video generation happens externally (Python/CUDA) and feeds into the visualization via Zenoh.
 
 1.  **Trigger:** VLA sends `(Image, Instruction)` to WAN Service.
-2.  **Generate:** WAN 2.2 generates 2s video.
-3.  **Extract:** CoTracker3 + Depth-Anything v3 extracts `DreamFlowTrajectory`.
+2.  **Generate:** Video model generates a short clip (e.g., ~2s; configurable).
+3.  **Extract:** Tracking + depth estimation extract `DreamFlowTrajectory` (model-specific).
 4.  **Publish:** Rust backend receives `dream/flow/{id}` via Zenoh.
 
 #### 4.3 "Ghost Splat" Visualization
@@ -150,6 +150,8 @@ The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym*
 ---
 
 ### 9. Performance Budget & Targets
+
+**Note:** The table below lists *aspirational targets* for interactive debugging. Actual performance is hardware/scene dependent; benchmark and report measured ranges (do not treat targets as guarantees).
 
 | Metric | Target | Minimum Acceptable |
 | :--- | :--- | :--- |
@@ -238,4 +240,3 @@ Common material properties used in `assets/meshes/*.mtl`:
 | Wood | 0.1 0.08 0.05 | 0.6 0.45 0.3 | 0.1 0.1 0.1 | 10.0 | 1.0 |
 | Metal | 0.2 0.2 0.2 | 0.7 0.7 0.75 | 0.9 0.9 0.9 | 100.0 | 1.0 |
 | Glass | 0.0 0.0 0.0 | 0.1 0.1 0.1 | 0.9 0.9 0.9 | 200.0 | 0.15 (Tr 0.85) |
-

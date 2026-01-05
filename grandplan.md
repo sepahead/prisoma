@@ -9,10 +9,17 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 6.8 FINAL (Unified Splat-First Simulation Environment + Complete PID-VLA Pipeline)
-**Date:** 2026-01-04
-**Status:** Research Specification + Implementation Blueprint (FINALIZED)
-**Canonical:** This is the living spec; prior versions live in git history.
+**Version:** 7.0 FINAL (Scientific audit + citation verification + structural cleanup)
+**Date:** 2026-01-05
+**Status:** Research Specification + Implementation Blueprint (v7.0 audited)
+**Canonical:** Living spec; prior versions live in git history.
+
+**v7.0 FINAL notes (Scientific audit & verification pass):**
+- Verified arXiv IDs referenced in this document via the arXiv API (cache: `outputs/arxiv_ref_cache.json`).
+- Added DOI metadata for core references (Phys Rev E, PNAS); re-check DOI resolution before publication (no Crossref cache is committed here).
+- Corrected at least one incorrect arXiv citation (Wan-Move) and tightened language around unsourced performance/latency claims.
+- Fixed document structure (moved misplaced §7.8/§9.8 back into their sections; clarified Appendix C placement).
+- Strengthened scientific rigor in §A and §16: clarified δ normalization (`δ_rel`), removed unverified numeric/venue/roadmap claims, and added an explicit geometry→estimator/decomposition decision matrix (2-way vs 3-way vs hierarchical).
 
 > **⚠️ Critical Discovery (v5.5):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
 
@@ -35,52 +42,65 @@
 >
 > **⛔ EXCLUDED APPROACHES (Why they didn't make the list):**
 > 
-> *   **Kernel Density Estimation (KDE):** Excluded due to the "curse of dimensionality" at d=4096 (bandwidth selection is statistically impossible). Furthermore, numerically integrating the complex "disjunction" shape for `I^sx_∩` is intractable compared to KSG counting.
-> *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to computational cost ($O(N^3)$ eigendecomposition) and uncontrolled density distortion. Unlike Isomap ("Unrolling"), spectral embeddings change local volumes in ways that are difficult to correct for PID.
+> *   **Kernel Density Estimation (KDE):** Excluded because KDE becomes impractical in very high dimension (e.g., `d≈4096`) due to the curse of dimensionality, and because numerically integrating the `I^sx_∩` disjunction neighborhoods is not tractable at VLA scale.
+> *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to cost (exact eigendecomposition is typically `O(N^3)`; scalable approximations exist) and because spectral embeddings can distort local volumes in ways that are hard to correct for PID atoms.
 > *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 2, which restricts itself to MI/CI where this cancellation is not required).
 
 **v6.7 FINAL notes (Unified Splat-First Simulation Environment — Complete Architecture):**
 
-> **🎯 Design Goal:** A hardware-free simulation environment for VLA data collection, training, and PID analysis that outperforms Isaac Sim, Omniverse, Gazebo alone, and existing VLA setups through splat-first rendering, unified Rust physics, and real-time editability.
+> **🎯 Design Goal:** A hardware-free simulation environment for VLA data collection, training, and PID analysis, optimized for fast iteration and splat-first rendering; benchmark against Isaac Sim / Omniverse / Gazebo on matched tasks (avoid “outperforms” claims without a shared protocol).
 
 ---
 
 ### §A. Critical Analysis: Why This Architecture Over Competitors
 
-**From first principles, what does VLA training/evaluation require?**
-1. **Photorealistic rendering** → Closes visual sim2real gap
-2. **Accurate physics** → Closes dynamics sim2real gap
-3. **Fast iteration** → Enables rapid experimentation
-4. **ROS 2 integration** → Standard robotics middleware
-5. **Cross-platform** → Runs on researcher hardware (not just NVIDIA clusters)
-6. **Real-time editing** → Rapid scene authoring without re-export cycles
+**From first principles, what does *PID-based VLA diagnosis* require (beyond “a simulator”)?**
+1. **Closed-loop instrumentation** → time-synchronized logging of `(obs, state, actions, embeddings, interventions)` with reproducible replay
+2. **Controlled interventions** → perturb vision/language/physics/world-model inputs *without* changing task identity (placebo + nuisance controls)
+3. **External targets/labels** → `A*` (teacher/optimal action), success/failure labels, and counterfactual hooks to ground “failure” claims
+4. **Rendering + physics appropriate to the task** → visual realism helps *reduce* domain gaps; contact fidelity matters for manipulation; both must be benchmarked
+5. **Iteration speed + cross-platform** → rapid ablations on researcher hardware; avoid locking the entire pipeline to one vendor/runtime
+6. **Hybrid scene representations** → splats for photoreal views, meshes/URDFs for collisions/robots (and for “what-if” edits)
+7. **World-model integration** → a clean interface to plug in WAN-like video models and flow extraction as *experimental variables*
 
 **Honest comparison with existing platforms:**
 
+**Note on the table:** star ratings are qualitative (planning snapshot). Sim2Real numbers are only meaningful when they come from a clearly specified benchmark; do not compare across platforms/tasks unless the evaluation protocol matches.
+
 | Platform | Rendering | Physics | Speed | Cross-Platform | Real-time Edit | ROS 2 | Sim2Real |
 |----------|-----------|---------|-------|----------------|----------------|-------|----------|
-| **Isaac Sim/Lab** | ⭐⭐⭐⭐⭐ Ray-traced | ⭐⭐⭐⭐ PhysX | ⭐⭐⭐⭐⭐ GPU parallel | ❌ NVIDIA only | ❌ USD pipeline | ⭐⭐⭐ | ~75% |
-| **Omniverse** | ⭐⭐⭐⭐⭐ RTX | ⭐⭐⭐⭐ PhysX | ⭐⭐⭐⭐ | ❌ NVIDIA only | ⭐⭐⭐ USD | ⭐⭐⭐ | ~75% |
-| **MuJoCo** | ⭐⭐ OpenGL raster | ⭐⭐⭐⭐⭐ Best contact | ⭐⭐⭐⭐⭐ Fastest | ✓ | ❌ | ❌ | ~60% |
-| **Gazebo (Classic/Ignition)** | ⭐⭐⭐ OGRE | ⭐⭐⭐ ODE/DART | ⭐⭐⭐ | ✓ | ❌ | ⭐⭐⭐⭐⭐ | ~55% |
-| **SplatSim** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐ (external) | ⭐⭐⭐ | ✓ | ❌ | ❌ | **86.25%** |
-| **Discoverse** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐⭐⭐ MuJoCo | ⭐⭐⭐⭐ | ✓ | ❌ | ❌ | **~90%** |
-| **Proposed (Modular)** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐⭐ Modular | ⭐⭐⭐⭐ | ✓ All platforms | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | Target: **>90%** |
+| **Isaac Sim/Lab** | ⭐⭐⭐⭐⭐ Ray-traced | ⭐⭐⭐⭐ PhysX | ⭐⭐⭐⭐⭐ GPU parallel | ❌ NVIDIA only | ❌ USD pipeline | ⭐⭐⭐ | Task/benchmark-specific |
+| **Omniverse** | ⭐⭐⭐⭐⭐ RTX | ⭐⭐⭐⭐ PhysX | ⭐⭐⭐⭐ | ❌ NVIDIA only | ⭐⭐⭐ USD | ⭐⭐⭐ | Task/benchmark-specific |
+| **MuJoCo** | ⭐⭐ OpenGL raster | ⭐⭐⭐⭐⭐ Strong contact modeling | ⭐⭐⭐⭐⭐ Fast | ✓ | ❌ | ❌ | Task/benchmark-specific |
+| **Gazebo (Classic/Ignition)** | ⭐⭐⭐ OGRE | ⭐⭐⭐ ODE/DART | ⭐⭐⭐ | ✓ | ❌ | ⭐⭐⭐⭐⭐ | Task/benchmark-specific |
+| **SplatSim** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐ (external) | ⭐⭐⭐ | ✓ | ❌ | ❌ | **86.25% avg success** (paper-reported; arXiv:2409.10161; benchmark-specific) |
+| **DISCOVERSE** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐⭐⭐ MuJoCo | ⭐⭐⭐⭐ | ✓ | ❌ | ❌ | Real2Sim2Real framework (paper; arXiv:2507.21981; metric depends on benchmark) |
+| **Proposed (Modular)** | ⭐⭐⭐⭐ 3DGS | ⭐⭐⭐⭐ Modular | ⭐⭐⭐⭐ | ✓ All platforms | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | Target: benchmarked; no claim without matched eval |
+
+**Do current systems provide the closed-loop PID diagnostics needed here?**
+- **They can be instrumented, but it is not “turn-key”.** Isaac Sim/Lab, MuJoCo, and Gazebo all support logging and Python integration, but none ship a PID-centric experiment harness with geometry gates, preregistered interventions, and synchronized `(V,L,D,A)` embedding capture as a first-class feature.
+- **This project’s goal is not “a better simulator”; it is a better *diagnostic loop*.** The architectural differentiation is the explicit contract for (a) interventions and provenance, (b) synchronized logging/replay, and (c) in-loop computation/visualization of information-theoretic diagnostics.
+
+**WAN-like video models and Dream2Flow-style bridges**
+- Most simulators do not include “world model → flow → diagnostic target” pipelines out of the box. Here they are treated as external services with pinned versions, and as experimental variables rather than infrastructure assumptions.
+
+**Hybrid splats + meshes (and why Three.js/WebGPU matters)**
+- 3DGS is strong for photoreal *views* of captured scenes; meshes/URDFs remain the practical choice for articulated robots, collision proxies, and precise interactive edits. The proposed stack assumes hybrid rendering/physics: splats for appearance, meshes for dynamics and contact.
 
 **Key advantages of proposed architecture:**
-1. **Splat-first rendering** — 3DGS achieves 86-90% zero-shot sim2real (SplatSim, Discoverse) vs ~55-75% for mesh-based
-2. **SparkJS programmable Dynos** — Real-time procedural splat modification impossible in mesh pipelines
-3. **Rapier (Default Physics)** — Deterministic rigid-body physics in Rust, same language as pid-core, no FFI overhead
-4. **Cross-platform** — Runs on M4 Mac, Linux, Windows (Isaac/Omniverse require NVIDIA)
-5. **Lightweight** — ~50MB vs 20GB+ for Isaac Sim
-6. **Headless Gazebo (Robot Sim)** — Best-in-class ROS 2 integration without rendering overhead
-7. **Tauri** — Native performance with web technologies, ~10MB bundle
+1. **Splat-first rendering (visual realism when capture is good)** — 3DGS can reduce *visual* domain gaps on some tasks; SplatSim reports 86.25% average zero-shot sim2real success on their benchmark (arXiv:2409.10161). Treat transfer rates as benchmark-specific.
+2. **Hybrid splats + meshes** — Use splats for photoreal views and meshes/URDFs for collisions, robots, and precise “what-if” edits (Three.js/WebGPU can render both).
+3. **Programmable overlays (Dynos)** — GPU-side splat recoloring/annotation makes PID diagnostics inspectable in real time (treat SparkJS implementation details as external).
+4. **Modular physics choice** — Rapier (fast iteration, deterministic) vs MuJoCo/PhysX-class engines (contact baselines); avoid claiming “better” without matched evaluation.
+5. **Closed-loop PID instrumentation as a first-class requirement** — explicit hooks for perturbations, provenance, and synchronized logs to make PID hypotheses testable.
+6. **World-model integration is explicit** — WAN-like video models + flow extraction are treated as plug-in experimental variables, not baked into the simulator.
+7. **Lower operational footprint (by design)** — a Tauri/WebGPU app (Rust backend + system WebView) can be substantially lighter to install/run than full Omniverse/Isaac stacks; exact size/throughput is packaging- and hardware-dependent, and other shells (Electron/Qt/Unity) remain viable.
 
 **Honest disadvantages:**
-- **No GPU-parallel environments** — Isaac Lab can run 4096 envs simultaneously; this runs 1-4
-- **Physics not validated** — Rapier less battle-tested than MuJoCo for contact-rich manipulation
-- **No ray tracing** — SparkJS uses rasterization; Isaac Sim has RTX ray tracing
-- **Novel integration** — PEGS/SplatSim patterns not yet productionized
+- **Not a GPU-parallel RL factory** — Isaac Gym/Lab can run O(10³) environments; this architecture prioritizes instrumented, reproducible runs (interactive or small-batch).
+- **Physics validity is an empirical question** — Rapier is not the gold standard for contact-rich manipulation; use MuJoCo/PhysX baselines when physics fidelity is central.
+- **Rendering trade-offs** — 3DGS is typically rasterized and does not automatically provide RTX-grade lighting/material effects; dynamic/interactive edits require hybrid representations.
+- **Dependency/roadmap risk** — do not justify the research plan on third-party roadmap or marketing claims (e.g., “500M splats”, “multiplayer”); treat as unverified until benchmarked.
 
 ---
 
@@ -161,22 +181,22 @@
 
 ### §C. Asset Pipeline and Format Support
 
-**Supported formats (SparkJS native + extensions):**
+**Target formats (renderer support varies; verify with chosen stack):**
 
 | Format | Type | Use Case | Import Method |
 |--------|------|----------|---------------|
-| **.PLY** | Point cloud / Splats | 3DGS scenes, COLMAP output | SparkJS native |
-| **.SPZ** | Compressed splats | Optimized 3DGS storage | SparkJS native |
-| **.SPLAT** | Raw splats | Fast loading | SparkJS native |
-| **.KSPLAT** | Keyframed splats | Animated splats | SparkJS native |
-| **.SOG** | Structured splats | Semantic splats | SparkJS native |
+| **.PLY** | Point cloud / Splats | 3DGS scenes, COLMAP output | Renderer-native (SparkJS or equivalent) |
+| **.SPZ** | Compressed splats | Optimized 3DGS storage | Renderer-native (SparkJS or equivalent) |
+| **.SPLAT** | Raw splats | Fast loading | Renderer-native (SparkJS or equivalent) |
+| **.KSPLAT** | Keyframed splats | Animated splats | Renderer-native (SparkJS or equivalent) |
+| **.SOG** | Structured splats | Semantic splats | Renderer-native (SparkJS or equivalent) |
 | **.GLB/.GLTF** | Mesh + materials | Collision geometry, robots | Three.js loader → collision mesh |
 | **.URDF** | Robot description | Gazebo robots | Gazebo native |
 | **.USD** | Universal scene | Isaac Sim interop | Custom converter (future) |
 
 **Asset workflow:**
 ```
-Real Scene Capture    3DGS Reconstruction    SparkJS Import    Physics Binding
+Real Scene Capture    3DGS Reconstruction    Renderer Import   Physics Binding
 ─────────────────    ──────────────────    ──────────────    ──────────────────
 iPhone/DSLR video → COLMAP + gsplat/nerfstudio → .PLY/.SPZ → Rapier collision mesh
                                                     ↓
@@ -529,17 +549,17 @@ class MeshEditor {
 
 ### §I. Sim2Real Gap Closure Strategy
 
-**Multi-layered approach based on SplatSim/Discoverse/PEGS research:**
+**Multi-layered approach motivated by 3DGS-based simulation work (SplatSim, arXiv:2409.10161; DISCOVERSE, arXiv:2507.21981) and PEGS-style explicit physics:**
 
-| Layer | Strategy | Implementation | Expected Improvement |
+| Layer | Strategy | Implementation | What to Measure (avoid pre-committing %) |
 |-------|----------|----------------|---------------------|
-| **Visual** | 3DGS rendering | SparkJS splat-first | +25-30% over mesh (per SplatSim) |
-| **Domain Randomization** | Dyno-based procedural | Weather, lighting, texture variance | +10-15% robustness |
-| **Physics Alignment** | PEGS visual forces | Predicted vs observed correction | +5-10% dynamics accuracy |
-| **Sensor Noise** | Gazebo sensor models | Realistic camera/depth noise | +5% sensor robustness |
-| **Action Noise** | Randomized execution | Torque/velocity perturbations | +5% execution robustness |
+| **Visual** | 3DGS rendering | SparkJS splat-first | Δ zero-shot transfer vs mesh baseline on the *same tasks*; report CIs |
+| **Domain Randomization** | Dyno-based procedural | Weather, lighting, texture variance | Robustness under perturbation suites; ablation vs no-randomization |
+| **Physics Alignment** | PEGS visual forces | Predicted vs observed correction | Trajectory/contact error vs reference; downstream effect on transfer |
+| **Sensor Noise** | Gazebo sensor models | Realistic camera/depth noise | Sensitivity to sensor corruption; calibration against real sensors |
+| **Action Noise** | Randomized execution | Torque/velocity perturbations | Robustness to execution noise; transfer across controllers |
 
-**Combined target: >90% zero-shot sim2real** (vs 86.25% SplatSim, ~90% Discoverse)
+**Outcome target:** define success metrics on a named benchmark and report improvements via controlled ablations; do not treat the layers as additively contributing “% improvements” unless measured.
 
 ---
 
@@ -619,8 +639,8 @@ class MeshEditor {
 
 **Comparison with Isaac Sim:**
 - Isaac Sim minimum: RTX 3070, 32GB RAM, 50GB disk
-- Proposed system: Runs on M2 Mac with no NVIDIA requirement
-- **10× smaller footprint, 5× lower hardware barrier**
+- Proposed system: Can target Apple Silicon for core estimator work (no NVIDIA required for Experiment 0 / analysis); video-generation components may still require substantial GPU resources
+- **Footprint note:** treat any “× smaller” comparisons as benchmark-dependent; measure on your deployment
 
 ---
 
@@ -629,25 +649,24 @@ class MeshEditor {
 - **Where 3DGS fits in the PID-VLA pipeline — 4 distinct roles:**
   | Role | What It Does | When To Use |
   |------|--------------|-------------|
-  | **1. PID Visualization** | Color splats by (Syn, Red, Unq); opacity = MI magnitude | Always for debugging/paper figures |
+  | **1. PID Visualization** | Color splats by (Syn, Red, Unq); opacity = MI magnitude | Recommended for debugging/paper figures |
   | **2. Spatial Failure Localization** | Project PID metrics onto 3D scene geometry | When failures have spatial structure |
   | **3. World Model Representation (GWM)** | 3DGS as internal state for Gaussian World Model | Analytical comparison with VLA D |
   | **4. Spatia-style Memory** | 3D point cloud as persistent context for video generation | Spatial consistency in long videos |
 
 - **Evaluated video generation approaches for Dream2Flow pipeline:**
-  | Model | Speed | Spatial Consistency | Robot-Aware | Recommended Use |
-  |-------|-------|---------------------|-------------|-----------------|
-  | **WAN 2.2 TI2V 5B** | 90s/video | Medium | No (needs fine-tune) | Base visual quality |
-  | **WAN + TurboDiffusion** | **~2s/video** | Medium | No | **Primary choice** — 45× speedup enables interactive use |
-  | **Spatia** (arXiv:2512.15716) | ~60s/video (est.) | **High** (3D point cloud memory) | No | Long-horizon spatial consistency |
-  | **Video4Spatial** | Similar to base | Medium-High | No | Object grounding tasks |
-  | **WAN + Wan-Move LoRA** | 90s/video | Medium | **Yes** | Counterfactual "what-if" analysis |
+  | Model | Speed (benchmark) | Spatial Consistency | Robot-Aware | Use (hypothesis; verify) |
+  |-------|-------------------|---------------------|-------------|--------------------------|
+  | **WAN 2.2 TI2V 5B** | Baseline (often slower) | Medium | No (needs fine-tune) | Base visual quality |
+  | **WAN + TurboDiffusion** | Reported faster (benchmark) | Medium | No | Default candidate for interactive use (if acceleration works for your stack) |
+  | **Spatia** (arXiv:2512.15716) | Reported slower (benchmark) | High (3D point cloud memory) | No | Long-horizon spatial consistency studies |
+  | **Video4Spatial** | N/A (benchmark suite) | Medium-High | No | Spatial reasoning evaluation |
+  | **WAN + Wan-Move LoRA** | Baseline + fine-tune cost | Medium | Yes | Counterfactual "what-if" analysis |
 
 - **TurboDiffusion (thu-ml) — Critical for practical use:**
-  - Achieves **100-200× acceleration** for video diffusion models
-  - WAN 2.1 1.3B: 184s → **1.9s** (5-second video)
+  - Reports large acceleration factors for video diffusion models in some settings (treat as a claim; benchmark)
   - Techniques: SageAttention + SLA (Sparse-Linear Attention) + rCM (rectified consistency model)
-  - **Impact on PID-VLA:** Makes Dream2Flow pipeline interactive (<5s total vs ~2min)
+  - **Impact on PID-VLA:** May enable interactive Dream2Flow-style debugging on some hardware if end-to-end throughput is sufficient
   - GitHub: https://github.com/thu-ml/TurboDiffusion
 
 - **Spatia (arXiv:2512.15716) — For spatial coherence:**
@@ -667,20 +686,17 @@ class MeshEditor {
 
 - **Recommended video model configuration for PID-VLA:**
   ```
-  PRIMARY PIPELINE (Interactive debugging, <5s total):
+  PRIMARY PIPELINE (Interactive debugging; benchmark-dependent):
   ───────────────────────────────────────────────────
   Gazebo RGB-D → WAN 2.2 + TurboDiffusion → 3D Flow → PID → SparkJS
-                     (~2s)                  (~0.5s)  (~0.2s)
 
   SPATIAL CONSISTENCY PIPELINE (Long-horizon, offline analysis):
   ────────────────────────────────────────────────────────────────
   Gazebo RGB-D → Spatia (3D memory) → 3D Flow → PID → SparkJS
-                     (~60s)           (~0.5s)  (~0.2s)
 
   COUNTERFACTUAL PIPELINE (Action-conditioned "what-if"):
   ────────────────────────────────────────────────────────
   Gazebo RGB-D + A* → WAN + Wan-Move LoRA → 3D Flow → PID comparison
-                           (~90s)
   ```
 
 - **Tauri + SparkJS + Headless Gazebo architecture integration:**
@@ -725,7 +741,8 @@ class MeshEditor {
   | GPU VRAM | 24GB (RTX 4090) | 48GB (A100) | WAN + SparkJS concurrent |
   | System RAM | 64GB | 128GB | Large video buffers |
   | Storage | 2TB NVMe | 4TB NVMe | Video cache, 3DGS assets |
-  | **With TurboDiffusion** | 12GB (RTX 4070) | 24GB | 45× lower VRAM pressure |
+ 
+  **Note:** Acceleration techniques can change both throughput and VRAM requirements; benchmark and report measured ranges instead of assuming fixed multipliers.
 
 - **Implementation priority for Tauri+SparkJS+Gazebo setup:**
   1. **Phase 1:** Headless Gazebo → Zenoh → Tauri basic visualization (no 3DGS)
@@ -794,18 +811,18 @@ class MeshEditor {
   - **Generation 2 (World Model-based):** Dream2Flow, DreamVLA, Motus, UniSim — explicit world model with video/flow intermediate representations
   - Key architectural difference: where physics/dynamics knowledge is encoded
 - **New analysis: 3D Object Flow vs Latent Action Space Diffusion** — Addresses the question "why not diffusion on latent actions instead of 3D positional space?":
-  - **3D Object Flow (Dream2Flow):** Operates on D (world model); low-dimensional Euclidean (d≈6-9 per point); embodiment-agnostic; enables PID estimator validity (bypasses curse of dimensionality); good for cross-stage failure attribution
+  - **3D Object Flow (Dream2Flow):** Operates on D (world model); **explicitly Euclidean** (typically \(\mathbb{R}^{3T}\) before aggregation); embodiment-agnostic; can improve estimator tractability when summarized into low‑D object-level features; useful for cross-stage failure attribution
   - **Latent Action Diffusion:** Operates on A (policy head); compact learned representation; embodiment-specific; doesn't solve the D-side estimator validity problem
-  - **For PID-VLA specifically:** 3D flow is more useful because the bottleneck is measuring information in high-dimensional D/V embeddings, not action space. 3D flow serves as a "geometry escape hatch" for valid PID estimation.
+  - **For PID-VLA specifically:** 3D flow is more useful because the bottleneck is measuring information in high-dimensional D/V embeddings, not action space. 3D flow can be a “geometry escape hatch” (avoid non‑Euclidean metrics) when represented/aggregated in a way that passes the same Experiment 0 + geometry gates.
   - **Both can coexist:** Use latent action diffusion in the VLA being studied, but use 3D flow as an external D validation to diagnose where failures occur
 - **Updated Hypothesis H7 context:** The choice of 3D flow over latent actions is deliberate — it enables the decomposition of failures into video→flow→execution stages, which maps directly to PID diagnostic goals
 
 **v6.3 notes (Manifold-Geometry Integration + VLA Compatibility Matrix + Updated Vision Models):**
 - **New §10.10.12: Manifold Geometry Considerations** — Connects v5.5/v5.6 manifold challenges to Dream2Flow pipeline:
   - Geometry analysis at each pipeline stage (WAN D_wan vs 3D Flow vs VLA embeddings)
-  - **Key insight:** 3D object flow is inherently low-dimensional Euclidean — bypasses manifold issues
+  - **Key insight:** 3D object flow is an explicitly Euclidean target; after aggregation to low‑D features it can reduce reliance on non‑Euclidean latent distances (still validate dimension/concentration)
   - How v5.6 approaches (Isomap, Geodesic MI, PCA, Quantization, Copula) apply to each stage
-  - Hyperbolic/Lorentzian connection: "Flow-as-bridge" insight — use Euclidean Flow to sidestep hyperbolic D_wan
+  - Hyperbolic/Lorentzian connection: "Flow-as-bridge" — use flow targets to reduce dependence on `D_wan` geometry; avoid interpreting continuous PID atoms on non‑Euclidean embeddings without new derivations
   - Hierarchical PID and 3-source scaling with SAE integration (§16.8)
 - **New §10.10.13: VLA Integration Matrix** — Per-VLA integration details:
   - **OpenVLA:** Primary target for V-Flow-A analysis; d=4096 requires v5.6 approach
@@ -813,17 +830,18 @@ class MeshEditor {
   - **TraceVLA:** Temporal synergy studies; V contains D-like history information
   - **DreamVLA:** Ideal for D validation (explicit <dream> tokens); lower dimension (768-1600d)
   - Decision matrix: Which VLA for which analysis goal
-- **Updated vision foundation models:**
-  - **SAM2 → SAM3:** 2x faster (50ms vs 100ms per frame), better video consistency
-  - **Depth-Anything v2 → v3:** Metric depth (absolute), improved indoor/outdoor accuracy
-  - Per-trial vision time reduced: ~5s → ~3.5s (30% improvement)
+- **Updated vision foundation model placeholders (verify availability/licensing):**
+  - **Segmentation:** SAM2 (promptable segmentation) or equivalent; use newer successors if/when released.
+  - **Point tracking:** CoTracker (or equivalent point tracker).
+  - **Depth:** a monocular depth model such as Depth-Anything v2 (relative depth) and/or a metric-depth baseline (e.g., Metric3D); calibrate if absolute scale is required.
+  - Do not assume specific speed/latency improvements; benchmark your pipeline.
 - **Cross-references added:** §16 geometry sections now connected to §10.10 pipeline
 
 **v6.2 notes (Unified Architecture: Dream2Flow + WAN + PID + Gaussian Splatting):**
 - **New §10.10: Unified Architecture** — Complete integration stack combining:
   - **Dream2Flow** pipeline (video → flow → action) with open-source WAN replacing proprietary APIs
   - **WAN 2.2** as local video generation model (eliminates $1-5/video API costs, enables D_wan access)
-  - **Vision foundation models:** SAM3, CoTracker3, Depth-Anything v3 for 3D flow extraction
+  - **Vision foundation models:** segmentation (e.g., SAM2), point tracking (e.g., CoTracker), and depth estimation (e.g., Depth-Anything v2 / metric-depth baseline) for 3D flow extraction
   - **PID analysis at 4 stages:** World model quality, flow extraction, policy integration, embodiment gap
   - **Gaussian Splatting visualization:** PID-colored 3D splats where RGB = (Syn, Red, Unq)
   - **Tauri + SparkJS** frontend for interactive flow visualization and debugging
@@ -893,7 +911,7 @@ class MeshEditor {
 - **First-Principles Geometry Analysis (§16.6-§16.11):**
   - §16.6: 4 empirically validated local flatness testing methods
   - §16.7: δ-hyperbolicity testing with Gromov 4-point condition
-  - §16.8: SAE analysis for VLA (NeurIPS 2025 verification)
+  - §16.8: SAE analysis for VLA (e.g., VLM SAE work; arXiv:2504.02821)
   - §16.9: Chebyshev/PixelVLA geometry transition analysis
   - §16.10: GPT-2 vs modern LLMs hierarchy evidence
   - §16.11: Unified Geometry-First Protocol + NanoGPT foundational study
@@ -916,8 +934,8 @@ class MeshEditor {
 - **Added §7.6 Architecture Verification Summary:** Documents verification status, intrinsic dimension literature, and v5.6 approach review in light of confirmed d=4096.
 - **First-Principles Geometry Analysis (Jan 2026):** Major additions to §16:
   - **§16.6 Local Flatness Testing:** 4 empirically validated methods (manifold curvature via subspace angles, Ollivier-Ricci curvature, DLME constraint, curvature-adjusted PCA)
-  - **§16.7 δ-Hyperbolicity Testing:** Gromov 4-point condition, empirical evidence from LLM embeddings showing modern models are MORE tree-like
-  - **§16.8 SAE Analysis for VLA:** Application of Sparse Autoencoders to VLM/VLA components (NeurIPS 2025 verification), concrete protocol for PID analysis
+  - **§16.7 δ-Hyperbolicity Testing:** Gromov 4-point condition; literature pointers on tree-likeness diagnostics (replicate on your embeddings; do not transplant values)
+  - **§16.8 SAE Analysis for VLA:** Application of Sparse Autoencoders to VLM/VLA components (e.g., arXiv:2504.02821), concrete protocol for PID analysis
   - **§16.9 Chebyshev/PixelVLA Analysis:** Geometry transition analysis showing where L∞ is appropriate vs hierarchical methods
   - **§16.10 GPT-2 vs Modern LLMs:** Architectural differences affecting geometry, layer-wise hierarchy evidence
   - **§16.11 Unified Geometry-First Protocol:** Complete decision framework integrating all diagnostics + NanoGPT foundational study protocol
@@ -954,7 +972,7 @@ class MeshEditor {
 
 **Reference verification status (important):**
 - Core `I^sx_∩` / KSG papers: verified by DOI metadata; local copies exist under `.external/papers/`.
-- arXiv IDs in §13: verified via arXiv API (title/authors/date).
+- arXiv IDs in this document: verified via arXiv API (title/authors/date).
 - Detailed architecture claims, runtime/latency numbers, and some “ecosystem” descriptions are treated as **unverified unless explicitly sourced**; keep them as ideas/design sketches, not facts.
 
 ---
@@ -981,6 +999,7 @@ class MeshEditor {
 18. [Critical Blockers and Risk Analysis](#18-critical-blockers-and-risk-analysis)
 A. [Appendix A: Glossary](#appendix-a-glossary)
 B. [Appendix B: Decision Log and Implementation Reference](#appendix-b-decision-log-and-implementation-reference)
+C. [Appendix C: Modern Rendering Stack (SparkJS and WebGPU)](#appendix-c-modern-rendering-stack-sparkjs-and-webgpu)
 
 ---
 
@@ -1806,7 +1825,7 @@ I(V, L; A) = Red(V,L;A) + Unq(V;A) + Unq(L;A) + Syn(V,L;A)
 
 | Advantage | Explanation |
 |-----------|-------------|
-| **L is always available** | No need to extract hidden states |
+| **L is (usually) available** | Language is typically provided externally; no need to extract hidden states |
 | **L is externally specified intent** | It encodes what the human requested (often the closest available “ground truth” for intent, but can be ambiguous) |
 | **Language grounding failures are common** | "Pick up red cup" → picks blue |
 | **Often more interpretable than D** | Language is more interpretable than an implicit “dream” state, but negative synergy still requires careful controls/validation |
@@ -2062,7 +2081,7 @@ The WAN (Wanxiang/Tongyi Wanxiang) family has evolved significantly:
 - Supports depth, pose, and mask conditioning
 - Available at: `github.com/Wan-Video/Wan2.1` and via Diffusers
 
-**Wan-Move** (NeurIPS 2025) enables motion control:
+**Wan-Move** (arXiv:2512.08765; venue/status should be verified) enables motion control:
 - Dense point trajectory guidance in latent space
 - No architecture change to base I2V model
 - Supports object dragging, camera motion, 3D rotation, motion transfer
@@ -2128,7 +2147,7 @@ If we fine-tune WAN on robot data, it learns similar biases. Mitigation:
 
 ### 6.2.5 Recommended Alternative: GWM (Gaussian World Model)
 
-GWM (ICCV 2025) remains more appropriate for **analytical** purposes:
+GWM (Gaussian World Model; see the corresponding paper/code and verify venue/status) may be more appropriate for **analytical** purposes:
 
 | Property | WAN (base) | WAN (fine-tuned) | GWM |
 |----------|------------|------------------|-----|
@@ -2136,7 +2155,7 @@ GWM (ICCV 2025) remains more appropriate for **analytical** purposes:
 | 3D representation | No (2D video) | No | **Yes (3DGS)** |
 | Action-conditioned | No | **Yes** | **Yes** |
 | Latent space alignment | Poor | Medium | **High** |
-| Inference speed | Slow | Slow | **Faster** |
+| Inference speed | Slow | Slow | Model/implementation-dependent (benchmark) |
 
 ### 6.2.6 When to Use WAN vs GWM vs Neither
 
@@ -2446,7 +2465,7 @@ PixelVLA offers unique advantages for PID-based diagnostics:
 
 ## 7.4 TraceVLA (Visual Trace Prompting; arXiv:2412.10345)
 
-**TraceVLA** (arXiv:2412.10345, December 2024; ICLR 2025) enhances VLAs with spatial-temporal awareness by overlaying visual state-action trajectories:
+**TraceVLA** (arXiv:2412.10345, December 2024; venue/status should be verified) enhances VLAs with spatial-temporal awareness by overlaying visual state-action trajectories:
 
 ```
 Current Image + Historical Trace Overlay → VLA → Action
@@ -2655,6 +2674,27 @@ Language (Instruction) ───────────────────
 **Research gap:** No evidence that Phi-2 + SigLIP + action head achieves competitive VLA performance. Requires empirical validation.
 
 **Reference:** Moondream VLM (vikhyat/moondream), "A Small Vision Language Model" technical blog, 2025. (Not peer-reviewed; treat as reference architecture, not validated VLA).
+
+## 7.8 SmolVLA (LeRobot)
+
+**Source:** Hugging Face LeRobot (SmolVLA), Jan 2025
+
+### 7.8.1 Architecture
+- **Backbone:** SmolVLM-2 (SigLIP visual encoder + SmolLM2 language model).
+- **Action Head:** **Flow-Matching Transformer** (action expert).
+- **Inference:** Asynchronous (decouples perception/planning from execution).
+- **Parameters:** ~450M (lightweight baseline).
+
+### 7.8.2 Training & Data
+- **Datasets:** Open LeRobot ecosystem (481 datasets, ~23k episodes).
+- **Primary Embodiment:** SO-100 robotic arm (but fine-tunable for others).
+- **Data Curation:** Task descriptions standardized via Qwen2.5-VL-3B-Instruct.
+
+### 7.8.3 Relevance to PID-VLA
+SmolVLA is a practical low-resource baseline for Experiment 0/1 iteration.
+- **Pros:** Runs on consumer GPU, fully open weights, integrated with LeRobot training scripts.
+- **Cons:** Smaller capacity than 7B models; Flow-Matching head requires specific PID adaptation (vs diffusion-style).
+- **Use Case:** Debugging the PID pipeline and establishing a “small model” baseline on LIBERO/Meta-World tasks.
 
 ---
 
@@ -2906,7 +2946,7 @@ These are “geometry fixes,” not “information fixes,” and still require E
 1. **Run geometry diagnostics first** (intrinsic dimension + distance concentration + local flatness + δ-hyperbolicity); use them to justify whether kNN/PID is plausible at all. **See §16.6-§16.7 for empirically validated testing methods.**
 2. If dimensionality reduction is needed, **start with PCA** (e.g., retain 95% variance) and treat ~256 dims as an initial engineering target, not a law. **⚠️ Caveat**: PCA requires local flatness assumption; test with methods in §16.6.4.
 3. Compare against a random projection baseline.
-4. If δ-hyperbolicity is low (< 0.1), consider **hyperbolic projection** instead of PCA. See §16.7.3.
+4. If normalized δ-hyperbolicity is very small (e.g., δ_rel < 0.1 under an explicit normalization), treat the space as tree-like: prefer MI-only screening / quantization (and treat hyperbolic projection as optional feature engineering that must be re-validated). See §16.7.3.
 5. Consider **SAE decomposition** before PID — may yield lower effective dimension with interpretable features. See §16.8.
 6. If needed, train learned projections optimized for the downstream diagnostic objective (and re-run Experiment 0 at the resulting dimension).
 
@@ -3369,6 +3409,22 @@ Dream2Flow (arXiv:2512.24766) provides a staged failure taxonomy that complement
 - The 60-trial sample size is small; treat success rates as indicative, not definitive.
 - Dream2Flow uses proprietary video models (Kling, Veo, Sora). Open alternatives may have different failure distributions.
 
+## 9.8 Extended Comparisons: World Models & Deformables (Experiments 6-10)
+
+**Priority note:** These are optional extensions and should not block Experiments 0–4.
+
+This section extends the experimental suite to address advanced world model capabilities and deformable object manipulation, comparing **ManiGaussian** (learned/implicit) vs **PEGS** (explicit/PBD).
+
+| Exp | Name | Hypothesis | Key Metric |
+|-----|------|------------|------------|
+| **6** | **Prediction Fidelity** | H_WM1: Learned models win in-distribution; explicit models win OOD | `I(Prediction; P_GT)` |
+| **7** | **Novel Object Generalization** | H_WM2: Explicit physics generalizes to novel geometry/mass better | Success rate drop |
+| **8** | **Physics Perturbation** | H_WM3: Visual correction (PEGS) adapts to mass/friction changes | Synergy variance |
+| **9** | **Temporal Coherence** | H_WM4: Explicit state maintains coherence in long tasks | Synergy degradation slope |
+| **10** | **Deformable Objects** | H_WM5: Particle-based physics handles rope/cloth; rigid assumptions fail | Task success rate |
+
+**See `EXPERIMENTS.md` Sections 14-19 for detailed protocols.**
+
 ---
 
 # 10. World Model Integration (WAN, GWM, 3DGS)
@@ -3485,7 +3541,7 @@ Total: 27B parameters, 14B active per step
 | Extension | Paper | Capability |
 |-----------|-------|------------|
 | **VACE** | arXiv:2503.07598 | All-in-one video creation/editing with Video Condition Unit |
-| **Wan-Move** | arXiv:2512.08765 (NeurIPS 2025) | Motion control via latent trajectory guidance |
+| **Wan-Move** | arXiv:2512.08765 (venue/status should be verified) | Motion control via latent trajectory guidance |
 | **Motus** | arXiv:2512.13030 | Unified latent action world model using Wan 2.2 5B |
 | **DreamGen** | arXiv:2505.12705 | Robot learning via neural trajectories |
 
@@ -3588,15 +3644,14 @@ Current Frame → Shared Vision Encoder → V
 
 ### 10.4.1 Monocular Depth Estimation
 
-| Method | Speed | Accuracy | Notes |
-|--------|-------|----------|-------|
-| **Depth-Anything v2** | ~50ms | Good | Relative depth, widely deployed |
-| **Depth-Anything v3** | ~40ms | Better | Improved fine-grained details |
-| **Metric3D v2** | ~100ms | Best metric | Absolute depth with scale |
-| **Video Depth Anything** | ~60ms/frame | Temporal consistent | For video sequences |
-| **RollingDepth** | ~80ms | Excellent | LDM-based, handles depth range changes |
+| Method (examples; verify current versions) | Output | Notes |
+|--------|--------|-------|
+| **Depth-Anything (v2 or similar)** | Relative depth | Widely used; scale ambiguity unless calibrated |
+| **Metric3D (or similar)** | Metric/scale-aware depth | Better for absolute geometry if calibrated; often slower/heavier |
+| **Video depth models** | Temporally consistent depth | Useful when depth flicker is a confound |
+| **Diffusion-based depth (optional)** | Depth with strong priors | Potentially robust in hard cases; benchmark carefully |
 
-**Recommendation:** Use Depth-Anything v3 as primary, fall back to v2 for speed-critical applications.
+**Recommendation:** Start with a well-supported relative-depth model (e.g., Depth-Anything v2) and validate on your scenes. If you need absolute scale, use a metric-depth baseline (e.g., Metric3D) or calibrate relative depth; benchmark for accuracy and latency on your deployment.
 
 ### 10.4.2 Stereo Vision (StereoVLA Approach)
 
@@ -3641,15 +3696,15 @@ RGB Video → WAN VAE Encoder → Concat[RGB_latent, Depth_latent] → DiT + LoR
 - **Adaptation:** LoRA fine-tuning (preserves base priors, prevents catastrophic forgetting)
 - **Dataset:** TransPhy3D (11k sequences, 1.32M frames, Blender/Cycles rendering)
 - **Output:** Temporally consistent depth + normals for arbitrary-length video
-- **Speed:** 1.3B version runs at ~167ms/frame (11.19GB VRAM)
+- **Speed:** paper-reported ~167ms/frame for the 1.3B variant in their setting (benchmark-dependent; hardware/runtime/config matter).
 
 **Benchmark Results:**
 | Dataset | DKT Performance |
 |---------|-----------------|
-| ClearPose | SOTA (zero-shot) |
-| DREDS CatKnown | SOTA |
-| DREDS CatNovel | SOTA |
-| TransPhy3D-Test | SOTA |
+| ClearPose | Paper-reported SOTA (zero-shot; verify metric/setting in DKT) |
+| DREDS CatKnown | Paper-reported SOTA (verify metric/setting in DKT) |
+| DREDS CatNovel | Paper-reported SOTA (verify metric/setting in DKT) |
+| TransPhy3D-Test | Paper-reported SOTA (verify metric/setting in DKT) |
 
 **Real-World Robot Grasping:**
 DKT integrated with AnyGrasp achieves improved success rates across:
@@ -3690,8 +3745,8 @@ This is a genuine connection to PID diagnostics:
 |----------|----------------|
 | Tasks involving glass/plastic | Use DKT for V preprocessing |
 | Diagnosing transparent object failures | Essential for valid PID |
-| General manipulation (opaque) | Depth-Anything v3 sufficient |
-| Speed-critical real-time | DKT too slow (~167ms), use stereo |
+| General manipulation (opaque) | A standard depth estimator (e.g., Depth-Anything v2 or similar) may suffice (validate on your scenes) |
+| Speed-critical real-time | DKT may be too slow; consider stereo/RGB-D or simpler depth baselines |
 
 **Code:** https://github.com/Daniellli/DKT
 
@@ -3699,8 +3754,8 @@ This is a genuine connection to PID diagnostics:
 
 ### 10.5.1 Role in Pipeline
 
-- **SHARP:** Single-image to 3DGS conversion (<1s on MPS)
-- **Depth-Anything-3:** Metric depth estimation (use with SHARP)
+- **SHARP:** Single-image to 3DGS conversion (latency is hardware/model dependent; benchmark)
+- **Depth model:** Depth estimation (relative or metric; calibrate if absolute scale is required)
 - **SparkJS:** 3DGS rendering in browser
 
 ### 10.5.2 When 3DGS Adds Value
@@ -3823,7 +3878,7 @@ Failure Mode Diagnostic Tree:
 ```
 
 **Practical Protocol:**
-1. For transparent/reflective objects: Always use DKT preprocessing
+1. For transparent/reflective objects: Prefer DKT-style preprocessing (if available) and validate depth quality
 2. For stereo setups: Verify calibration before PID analysis
 3. Log V quality metrics alongside PID measurements
 4. If V quality degrades, discount PID findings
@@ -3859,6 +3914,8 @@ A low-latency simulation and visualization system optimized for robotics researc
 
 ### 10.8.2 Latency Path
 
+**Note:** The numbers below are *illustrative budgets* (order-of-magnitude). Measure end-to-end latency on your hardware/configuration before making any real-time claims.
+
 ```
 Gazebo (headless)                    Tauri + SparkJS
 ─────────────────                    ────────────────
@@ -3872,14 +3929,14 @@ Camera      ─────────(~5ms)────────→ Texture
 
 Sensors     ─────────(~2ms)────────→ Process ──→ Overlay ──→ render
 
-Total input lag: ~8-15ms (data) + ~16ms (render) = ~25-30ms
+Illustrative total input lag: ~8-15ms (data) + ~16ms (render) = ~25-30ms
 ```
 
 ### 10.8.3 Why This Architecture for PID-VLA
 
 | Benefit | Explanation |
 |---------|-------------|
-| **Low latency (~25-30ms)** | Enables interactive debugging of VLA decisions |
+| **Target low latency (illustrative budget)** | Enables interactive debugging of VLA decisions |
 | **Zenoh middleware** | Same protocol as ROS 2, zero-copy shared memory |
 | **SparkJS for 3DGS** | Renders Gaussian splats in browser via WebGPU |
 | **Platform abstraction** | Same code runs on M4 Mac (MLX/Metal) and Linux (CUDA) |
@@ -3922,7 +3979,7 @@ The Tauri + Three.js frontend can overlay:
 
 1. **Real-time PID metrics** (co-information, synergy estimates)
 2. **Attention heatmaps** from VLA transformer layers
-3. **Depth estimation** (Depth-Anything v3 or stereo disparity)
+3. **Depth estimation** (a monocular depth model or stereo disparity)
 4. **3DGS point clouds** rendered via SparkJS
 5. **Action trajectory predictions** from world model
 
@@ -4266,10 +4323,9 @@ This section describes an ambitious but tractable integration that combines:
 │  ─────────────────────────────────    ▼                                          │
 │  ┌────────────────────────────────────────────────────────────────────┐         │
 │  │                                                                     │         │
-│  │   SAM3              CoTracker3           Depth-Anything v3/DKT     │         │
-│  │   (segmentation)    (point tracking)     (depth estimation)        │         │
-│  │   ~1GB VRAM         ~2-4GB VRAM          ~1-2GB VRAM               │         │
-│  │   ~100ms/frame      ~50ms/frame          ~50ms/frame               │         │
+│  │   Segmentation      Point tracking       Depth estimation          │         │
+│  │   (e.g., SAM2)      (e.g., CoTracker)    (depth model / DKT opt.)  │         │
+│  │   (versions/APIs vary; benchmark VRAM/latency on your hardware)    │         │
 │  │                                                                     │         │
 │  └────────────────────────────────┬───────────────────────────────────┘         │
 │                                   │                                              │
@@ -4458,7 +4514,7 @@ def localize_failure(trial: Trial) -> FailureStage:
 
 ### 10.10.6 WAN Action Conditioning for Counterfactual Analysis
 
-WAN can be action-conditioned via Wan-Move (arXiv:2503.01110) LoRA fine-tuning. This enables **counterfactual PID analysis**:
+WAN can be made motion/action-conditioned via Wan-Move (arXiv:2512.08765). The exact conditioning mechanism (guidance vs LoRA fine-tuning vs other adapters) is implementation-specific; verify the paper details before treating the conditioning signal as “actions”. This enables **counterfactual PID analysis**:
 
 ```
 COUNTERFACTUAL ANALYSIS PROTOCOL
@@ -4485,18 +4541,18 @@ COUNTERFACTUAL ANALYSIS PROTOCOL
 
 ### 10.10.7 Computational Requirements Summary
 
-**Per-trial breakdown (see §17.17 for details):**
+**Per-trial breakdown (benchmark on your hardware; avoid treating any numbers as guarantees):**
 
-| Component | Time | VRAM | Cost |
-|-----------|------|------|------|
-| WAN 2.2 TI2V (5B) | ~90s | 22GB | ~$0.05 |
-| SAM3 (24 frames) | ~1.2s | 2GB | ~$0.001 |
-| CoTracker3 (24 frames) | ~1.2s | 4GB | ~$0.001 |
-| Depth-Anything v3 (24 frames) | ~1.2s | 2GB | ~$0.001 |
-| 3D flow reconstruction | ~0.5s | CPU | ~$0.000 |
-| PID analysis (4 stages) | ~0.4s | CPU | ~$0.000 |
-| Gaussian splat rendering | real-time | 2GB | included |
-| **Total per trial** | **~95s** | **22GB peak** | **~$0.05** |
+| Component | What to measure | Notes |
+|-----------|-----------------|------|
+| Video generation (local or API) | wall-clock time, peak VRAM | record model name/revision, frames/resolution, prompt, seed |
+| Segmentation | time/image, VRAM | often run once per clip; propagate masks if supported |
+| Point tracking | time/clip, VRAM | depends on number of points and clip length |
+| Depth estimation | time/frame, VRAM | relative vs metric depth; calibrate if absolute scale is required |
+| 3D flow reconstruction | time/clip, CPU/GPU | unprojection + filtering; log failures and confidence |
+| PID analysis (4 stages) | time/window, memory | depends on `(n,d,k)` and kNN backend; run Exp0 gate first |
+| Rendering (optional) | fps, end-to-end latency | depends on scene complexity and GPU |
+| **Total per trial** | sum | report separately for online loop vs offline analysis |
 
 **Hardware requirements:**
 
@@ -4555,7 +4611,7 @@ If this integration succeeds:
 
 ### 10.10.10 Limitations and Caveats
 
-1. **Computational cost:** ~95 seconds per trial limits real-time use. Pre-compute flows for offline analysis.
+1. **Computational cost:** Often offline-scale (tens of seconds+ per trial depending on the video model and vision stack). Pre-compute flows for offline analysis and report measured runtimes.
 
 2. **WAN quality gap:** WAN may not match Sora 2/Veo 3 quality. Validate flow extraction quality before drawing conclusions.
 
@@ -4571,7 +4627,7 @@ If this integration succeeds:
 |-------|------------|----------|--------------|
 | **0** | Experiment 0 validation | Month 1-2 | pid-core complete |
 | **1** | WAN inference pipeline | Month 3 | WAN weights accessible |
-| **2** | Vision foundation model integration | Month 3-4 | SAM3, CoTracker3, Depth-Anything v3 |
+| **2** | Vision foundation model integration | Month 3-4 | Segmentation + tracking + depth models (versions vary; benchmark) |
 | **3** | 3D flow extraction | Month 4 | Phase 2 complete |
 | **4** | PID analysis on flows | Month 4-5 | Phase 3 + pid-core bindings |
 | **5** | Gaussian splat visualization | Month 5-6 | SparkJS/Tauri setup |
@@ -4595,7 +4651,7 @@ The Dream2Flow + WAN + PID pipeline operates on high-dimensional embeddings wher
 | **VLA embeddings (D_vla)** | Llama 2 / GPT-2 hidden | 4096 / 768-1600 | Curved manifold likely | Apply §16 diagnostics |
 | **PID-colored splats** | Visualization only | 3D + color | N/A | No estimation, just rendering |
 
-**Key insight:** The 3D object flow (Stage 3) is **inherently low-dimensional Euclidean** — the manifold issues that plague 4096d VLA embeddings do not apply here. This is a significant advantage of the Dream2Flow approach: the flow representation sidesteps the v5.5 geometry challenge.
+**Key insight:** The 3D object flow target (Stage 3) is **explicitly Euclidean**. When represented as low‑dimensional aggregated object trajectories (rather than a full \(3NT\) tensor), it can reduce reliance on non‑Euclidean latent distances; you still must run geometry diagnostics + Experiment 0 on the chosen flow representation.
 
 #### 10.10.12.2 How v5.6 Manifold Approaches Apply
 
@@ -4634,9 +4690,9 @@ Modern LLM embeddings (including WAN's backbone) show evidence of **hierarchical
 
 | Evidence | Source | Implication |
 |----------|--------|-------------|
-| Token embeddings are inherently hyperbolic | HypLoRA (arXiv:2410.04010) | WAN D_wan may be tree-like |
-| Modern models show δ≈0.04 | arXiv:2512.20926 | Lower δ = more hyperbolic |
-| HELM outperforms Euclidean at scale | arXiv:2505.24722 | Hyperbolic projection may help |
+| Some studies report hyperbolic structure in token embeddings | HypLoRA (arXiv:2410.04010) | WAN `D_wan` may have hierarchical geometry |
+| Some studies report low δ-hyperbolicity / ultrametric tendencies | arXiv:2512.20926 | Consider hyperbolic/hierarchical diagnostics (verify the exact setup/metric) |
+| HELM explores hyperbolic LLMs; improvements are benchmark-dependent | arXiv:2505.24722 | Hyperbolic projection is plausible but must be validated |
 
 **If D_wan is hyperbolic:**
 1. **For MI-only screening (CI):** Use geodesic MI estimator (Marx & Fischer 2021)
@@ -4707,7 +4763,7 @@ Integration Path:
 │                           │              │                       │
 │                           └──────┬───────┘                       │
 │                                  ↓                               │
-│  Same Image + Instr ─→ WAN 2.2 ─→ SAM3/CoTracker3 ─→ Flow      │
+│  Same Image + Instr ─→ WAN 2.2 ─→ Segmenter/Tracker ─→ Flow    │
 │                           │                                      │
 │                           ↓                                      │
 │                        D_wan                                     │
@@ -4724,7 +4780,7 @@ Integration Path:
 **Geometry notes for OpenVLA:**
 - d=4096 requires v5.6 approach (PCA to ~256 or quantization)
 - RoPE entanglement (§14.6) affects D_openvla — use pre-attention embeddings
-- δ-hyperbolicity likely low (modern Llama architecture)
+- δ-hyperbolicity is an empirical question; measure δ_rel + distance concentration on the exact representation/layer you analyze (do not assume from architecture)
 
 **PixelVLA (arXiv:2511.01571):**
 ```
@@ -4743,8 +4799,8 @@ Integration Path:
 │                            Llama 2 7B ─→ Continuous 7D action   │
 │                                                                  │
 │  Dream2Flow alignment:                                           │
-│  ① SAM3 segments in both pipelines ─→ Same object masks         │
-│  ② CoTracker3 tracks through PixelVLA's multiscale features     │
+│  ① Segmentation model aligns masks ─→ Same object masks         │
+│  ② Tracking model follows points ─→ Tracks through multiscale V │
 │  ③ Flow extraction uses PixelVLA's depth-aware V_fine           │
 │                                                                  │
 │  PID Analysis (pixel-aligned):                                   │
@@ -4773,7 +4829,7 @@ Integration Path:
 │                                                                  │
 │  Dream2Flow temporal alignment:                                  │
 │  ① WAN generates future video given current + trace             │
-│  ② CoTracker3 extends trace trajectories into future            │
+│  ② Tracking model extends trace trajectories into future        │
 │  ③ Compare trace-extrapolation vs WAN-predicted flow            │
 │                                                                  │
 │  PID Analysis (temporal):                                        │
@@ -4820,7 +4876,7 @@ Integration Path:
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-**DreamVLA is ideal** for validating the Dream2Flow approach because:
+**DreamVLA is a strong candidate** for validating the Dream2Flow approach because:
 1. D_dreamvla is explicit and interpretable
 2. Lower dimension (768-1600d vs 4096d) — geometry issues less severe
 3. Predicts "what will move" — directly comparable to 3D flow
@@ -4829,7 +4885,7 @@ Integration Path:
 
 #### 10.10.13.3 Decision Matrix: Which VLA for Which Analysis
 
-| Analysis Goal | Best VLA | Reason |
+| Analysis Goal | Suggested VLA | Reason |
 |---------------|----------|--------|
 | **Core PID validation** | DreamVLA | Explicit D, lower dimension |
 | **Pixel-level synergy** | PixelVLA | Multiscale encoder, spatial grounding |
@@ -4838,22 +4894,17 @@ Integration Path:
 | **Small-scale testing** | TraceVLA-Phi3 | 4B params, fits RTX 4090 |
 | **Cross-architecture** | All four | Compare PID signatures across architectures |
 
-#### 10.10.13.4 Updated Vision Foundation Models (v6.3)
+#### 10.10.13.4 Vision Model Placeholders (v6.3 note; verify)
 
-**SAM3** and **Depth-Anything v3** are now available, improving on their predecessors:
+Earlier drafts referenced specific “v3/3” releases for segmentation/tracking/depth. Treat those as **placeholders** for whichever *current, available* models you can actually run and license. For scientific rigor, log the exact model name, version/commit hash, and license for every run.
 
-| Model | Improvement over v2 | Integration Notes |
-|-------|---------------------|-------------------|
-| **SAM3** | Faster (2x), better video consistency | Replace SAM2 in pipeline |
-| **Depth-Anything v3** | Metric depth (absolute), indoor/outdoor | Improves 3D flow accuracy |
+| Category | Example choices (non-exhaustive) | Notes |
+|----------|----------------------------------|-------|
+| Segmentation | SAM2 or equivalent promptable segmenter | Validate mask quality and temporal consistency for your scenes |
+| Tracking | CoTracker (or equivalent point tracker) | Log number of points, confidence, and failure modes |
+| Depth | Depth-Anything v2 (relative) and/or a metric-depth baseline (e.g., Metric3D), plus RGB-D when available | Calibrate if absolute scale is required; handle transparents separately (e.g., DKT) |
 
-**Updated computational requirements:**
-
-| Component | Previous (v6.2) | Updated (v6.3) | Notes |
-|-----------|-----------------|----------------|-------|
-| Segmentation | SAM2 ~100ms/frame | **SAM3 ~50ms/frame** | 2x speedup |
-| Depth | Depth-Anything v2 ~50ms | **v3 ~50ms + metric** | Same speed, better accuracy |
-| Total vision | ~5s/video | **~3.5s/video** | SAM3 speedup |
+**Performance:** Do not assume fixed ms/frame latencies or “2× speedups”. Benchmark your pipeline on your hardware and report measured ranges.
 
 ---
 
@@ -4938,7 +4989,7 @@ pid-vla/
 └── results/               # Experiment results
 ```
 
-**Repo status (v6.8):**
+**Repo status (v7.0):**
 - Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner) and `crates/pid-python` (PyO3 bindings).
 - Planned: `crates/pid-tauri` and the `python/` experiment harness (keep the structure above as the target layout, but do not assume those folders exist yet).
 
@@ -5093,11 +5144,11 @@ Can PID profiles predict how well a policy will transfer across:
 
 ### 13.1.1 Papers
 
-- **Makkeh A, Gutknecht AJ, Wibral M (2021).** Introducing a differentiable measure of pointwise shared information. *Phys Rev E* 103:032149. [Defines I^sx_∩]
+- **Makkeh A, Gutknecht AJ, Wibral M (2021).** Introducing a differentiable measure of pointwise shared information. *Phys Rev E* 103:032149. DOI: `10.1103/PhysRevE.103.032149`. [Defines I^sx_∩]
 
-- **Ehrlich DA, Schick-Poland K, Makkeh A, Lanfermann F, Wollstadt P, Wibral M (2024).** Partial Information Decomposition for Continuous Variables based on Shared Exclusions. *Phys Rev E* 110:014115. [Continuous extension]
+- **Ehrlich DA, Schick-Poland K, Makkeh A, Lanfermann F, Wollstadt P, Wibral M (2024).** Partial Information Decomposition for Continuous Variables based on Shared Exclusions. *Phys Rev E* 110:014115. DOI: `10.1103/PhysRevE.110.014115`. [Continuous extension]
 
-- **Makkeh A, Graetz M, Schneider AC, Ehrlich DA, Priesemann V, Wibral M (2025).** A General Framework for Interpretable Neural Learning based on Local Information-Theoretic Goal Functions. *PNAS* 122:e2408125122. [Infomorphic networks]
+- **Makkeh A, Graetz M, Schneider AC, Ehrlich DA, Priesemann V, Wibral M (2025).** A General Framework for Interpretable Neural Learning based on Local Information-Theoretic Goal Functions. *PNAS* 122:e2408125122. DOI: `10.1073/pnas.2408125122`. [Infomorphic networks]
 
 - **Gutknecht AJ, Rosas FE, Ehrlich DA, Makkeh A, Mediano PAM, Wibral M (2025).** Shannon Invariants: A Scalable Approach to Information Decomposition. arXiv:2504.15779. [Scalability]
 
@@ -5232,11 +5283,11 @@ VLA-Arena Task Organization:
 ## 13.4 World Models
 
 - **Dream2Flow:** Dharmarajan et al. (2025). *Dream2Flow: Bridging Video Generation and Open-World Manipulation with 3D Object Flow.* arXiv:2512.24766. [3D object flow as intermediate representation; embodiment-agnostic; zero-shot video-to-action. Website: https://dream2flow.github.io/]
-- **GWM:** Gaussian World Model, ICCV 2025. 3DGS + Diffusion for robotics.
-- **Physically Embodied Gaussian Splatting:** CoRL 2024. Real-time correctable world model.
+- **GWM:** Gaussian World Model (3DGS + diffusion for robotics; verify venue/status).
+- **Physically Embodied Gaussian Splatting:** (paper; verify venue/status). Real-time correctable world model.
 - **WAN:** Wanxiang Video Model, Alibaba 2025. arXiv:2503.20314
 - **WAN VACE:** Video All-in-one Creation and Editing. arXiv:2503.07598
-- **Wan-Move:** Motion-controllable Video Generation. arXiv:2512.08765 (NeurIPS 2025)
+- **Wan-Move:** Motion-controllable Video Generation. arXiv:2512.08765 (verify venue/status)
 - **Motus:** Unified Latent Action World Model. arXiv:2512.13030 (Uses Wan 2.2 5B)
 - **DreamGen:** Robot Learning via Neural Trajectories. arXiv:2505.12705 (Benchmarks WAN 2.1)
 - **VideoVLA:** Video Generators as Robot Manipulators. arXiv:2512.06963
@@ -5263,7 +5314,7 @@ VLA-Arena Task Organization:
 
 ## 13.7 Information Theory
 
-- **KSG Estimator:** Kraskov et al. (2004). Phys Rev E 69:066138
+- **KSG Estimator:** Kraskov et al. (2004). *Phys Rev E* 69:066138. DOI: `10.1103/PhysRevE.69.066138`.
 - **O-information (Ω; synergy-vs-redundancy bias for a set of variables):** introduced by Rosas et al. (2019). *(Bibliographic details should be verified; included as optional background, not part of the Wibral-group `I^sx_∩` line.)*
 - **kNN MI under strong dependence (limitations + fixes):**
   - Gao, Ver Steeg, Galstyan (2015). *Efficient Estimation of Mutual Information for Strongly Dependent Variables.* arXiv:1411.2003.
@@ -5296,6 +5347,8 @@ VLA-Arena Task Organization:
 ## 13.10 Simulation & Middleware
 
 - **Gazebo Harmonic:** ROS 2 compatible physics simulator
+- **SplatSim:** *SplatSim: Zero-Shot Sim2Real Transfer of RGB Manipulation Policies Using Gaussian Splatting.* arXiv:2409.10161.
+- **DISCOVERSE:** *DISCOVERSE: Efficient Robot Simulation in Complex High-Fidelity Environments.* arXiv:2507.21981.
 - **Zenoh:** Zero-overhead pub/sub middleware (eclipse-zenoh.io)
 - **Tauri:** Rust + WebView desktop apps (tauri.app)
 - **SparkJS:** 3DGS rendering in browser via WebGPU
@@ -5320,11 +5373,11 @@ VLA-Arena Task Organization:
   - Yang et al. (2022). *Hyperbolic Graph Neural Networks: A Review of Methods and Applications.* arXiv:2202.13852.
 - **Hyperbolic LLMs and fine-tuning (v5.7):**
   - **HELM:** First billion-scale hyperbolic LLM. arXiv:2505.24722.
-  - **HypLoRA:** Hyperbolic fine-tuning for LLMs; shows token embeddings are inherently hyperbolic. arXiv:2410.04010.
+  - **HypLoRA:** Hyperbolic fine-tuning for LLMs; reports evidence of hierarchical/hyperbolic structure in some embedding settings (check metric/setup). arXiv:2410.04010.
   - **Hypformer:** Efficient hyperbolic transformer with linear complexity. arXiv:2407.01290.
   - **Hierarchical Mamba:** Projects Mamba2 representations into Poincaré/Lorentz manifolds. arXiv:2505.18973.
 - **Hierarchical structure in LLM embeddings (v5.7):**
-  - **δ-hyperbolicity analysis:** arXiv:2512.20926. [Shows modern models (ProtT5) are MORE tree-like than older models (SeqVec)]
+  - **δ-hyperbolicity analysis:** arXiv:2512.20926. (Uses δ-hyperbolicity + ultrametricity to compare tree-likeness across embedding spaces; replicate on your embeddings—do not transplant exact values.)
   - **Cognitive state hierarchy:** Zhao (2025). *Hierarchical Geometry of Cognitive States in Transformer Embedding Spaces.* arXiv:2512.22227. [Demonstrates decodable hierarchical structure aligned with cognitive attributes]
 - **Intrinsic dimension estimation (geometry diagnostics for kNN validity):**
   - Levina, Bickel (2005). *Maximum likelihood estimation of intrinsic dimension.* (Foundational intrinsic-dimension estimator; use as a diagnostic, not a guarantee.)
@@ -6360,7 +6413,7 @@ def manifold_curvature_estimate(X, k=20, pca_dims=10):
     return curvatures, np.mean(curvatures)
 ```
 
-**Key finding**: "Each layer of a neural network maps an input manifold to a **flatter manifold** during training, and each successive block generates a manifold with less curvature."
+**What the paper reports (paraphrase; verify on your setting):** curvature proxies based on local subspace-angle statistics can decrease across layers during training for the models/tasks studied.
 
 **Interpretation**:
 - Low curvature (< 0.1 radians) → locally flat, PCA acceptable
@@ -6368,7 +6421,7 @@ def manifold_curvature_estimate(X, k=20, pca_dims=10):
 
 ### 16.6.2 Method 2: Ollivier-Ricci Curvature ([Nature Comm. 2021](https://www.nature.com/articles/s41467-021-24884-1))
 
-The **only discrete curvature** proven to converge to Ricci curvature of the underlying Riemannian manifold:
+Ollivier-Ricci curvature (ORC) is a discrete curvature notion with convergence results in some regimes; it is **not unique** among discrete curvature proposals, and its practical behavior depends strongly on graph construction (e.g., kNN graph quality) and the choice of neighborhood measures.
 
 ```
 ORC(x, y) = 1 - W₁(μ_x, μ_y) / d(x, y)
@@ -6419,48 +6472,45 @@ def local_flatness_diagnostic(X, k_values=[10, 20, 50, 100]):
         return "ACCEPTABLE: local flatness assumption holds"
 ```
 
-**Key insight** ([arXiv:2510.15141](https://arxiv.org/abs/2510.15141)): "Estimators based on flatness assumptions tend to increase estimates with neighborhood size because larger neighborhoods capture more global geometry, violating local linear assumptions."
+**Key point (from the discussion in [arXiv:2510.15141](https://arxiv.org/abs/2510.15141); re-check the paper for exact statements):** when the data are curved/nonlinear, estimates that assume local linearity can change systematically with neighborhood size because larger neighborhoods “see” more global geometry.
 
 ## 16.7 δ-Hyperbolicity: Testing for Hierarchical Structure (Jan 2026)
 
-> **Cross-reference (v6.3):** For application to Dream2Flow pipeline, see §10.10.12.3 ("The Hyperbolic/Lorentzian Connection"). The "Flow-as-bridge" insight allows bypassing hyperbolic D_wan by computing PID on the Euclidean 3D flow representation instead.
+> **Cross-reference (v6.3):** For application to Dream2Flow pipeline, see §10.10.12.3 ("The Hyperbolic/Lorentzian Connection"). The "Flow-as-bridge" idea can reduce reliance on non-Euclidean `D_wan` embeddings by using an explicitly Euclidean flow representation as the diagnostic target; you still must check flow dimensionality and distance concentration before interpreting kNN-based estimates.
 
 ### 16.7.1 The Gromov δ-Hyperbolicity Measure
 
 δ-hyperbolicity measures how "tree-like" a metric space is. Trees have δ = 0; higher δ indicates deviation from tree structure.
 
-**Definition** (Gromov 4-point condition):
+**4-point (quadrilateral) form** (equivalent, and what `pid-core` implements):
+For any four points \(a,b,c,d\), define:
 ```
-For points x, y, z, w:
-
-(x·y)_w = 0.5 * (d(x,w) + d(y,w) - d(x,y))  # Gromov product
-
-δ = max over all quadruples of:
-    min((x·y)_w, (x·z)_w) - (y·z)_w
+s1 = d(a,b) + d(c,d)
+s2 = d(a,c) + d(b,d)
+s3 = d(a,d) + d(b,c)
 ```
-
-**Normalized form** (scale-invariant):
+Let \(L ≥ M ≥ S\) be these three sums sorted. Then the per-quadruple value is:
 ```
-δ_rel ∈ [0, 1] where:
-- δ_rel ≈ 0: highly tree-like (hyperbolic methods appropriate)
-- δ_rel ≈ 1: not tree-like (Euclidean may be acceptable)
+δ(a,b,c,d) = (L - M) / 2
 ```
+The space is δ-hyperbolic if \(δ(a,b,c,d)\) is uniformly bounded over all quadruples.
 
-### 16.7.2 Empirical Evidence from LLM Embeddings ([arXiv:2512.20926](https://arxiv.org/abs/2512.20926))
+**Implementation note (`pid-core`)**: `gromov_hyperbolicity(...)` samples quadruples, computes \(δ(a,b,c,d)\) using the chosen `Metric` (default Chebyshev/L∞), and returns the **mean raw δ** over samples. Raw δ is scale-dependent.
 
-| Model | δ_avg | Ultrametricity | Interpretation |
-|-------|-------|----------------|----------------|
-| **ProtT5** (modern) | 0.04 | 0.13 | Strongly tree-like |
-| **ESM-2** | 0.09 | 0.22 | Moderately tree-like |
-| **TAPE** | 0.15 | 0.31 | Weakly tree-like |
-| **SeqVec** (older) | 1.62 | 3.66 | Not tree-like |
+**Recommended normalization (scale-invariant reporting):**
+```
+δ_rel = 2 δ / diam(X)
+diam(X) ≈ max_{i<j} d(x_i, x_j)   (under the same metric)
+```
+Heuristic thresholds (e.g., “δ_rel < 0.1”) only make sense in terms of \(δ_rel\) plus a clearly stated metric and preprocessing.
 
-**Key finding**: "Tree-likeness correlated strongly with downstream task performance" — ProtT5 achieved ROC-AUC of 0.80 vs SeqVec's 0.62.
+### 16.7.2 What Literature Uses δ For (and How to Use It Here)
 
-**Implication for VLA**: Modern LLM backbones (Llama 2 7B) likely exhibit low δ-hyperbolicity, suggesting:
-1. Hyperbolic projections may be effective for dimensionality reduction
-2. Hierarchical screening (Shannon invariants) aligns with embedding structure
-3. Euclidean PCA may destroy implicit hierarchical organization
+[arXiv:2512.20926](https://arxiv.org/abs/2512.20926) uses δ-hyperbolicity, ultrametricity, and neighbor-joining tree fits to probe hierarchical structure in embedding spaces. Their quantitative values depend on the metric, normalization, sampling scheme, and preprocessing; for PID‑VLA, treat this paper as a **method template** and recompute the statistics on your own embeddings rather than transplanting numbers.
+
+**Implication for PID‑VLA (careful version):**
+- If \(δ_rel\) is very small, the embedding distances behave in a strongly tree‑like way. This flags a regime where the **Euclidean/Chebyshev volume logic** underlying the validated continuous `I^sx_∩` estimator is not currently justified.
+- In that regime, prefer **Shannon invariants (MI-only)**, **quantization → discrete PID**, or **Flow-as-Bridge** rather than interpreting continuous PID atoms on raw embeddings.
 
 ### 16.7.3 When to Use Hyperbolic vs Euclidean
 
@@ -6469,11 +6519,11 @@ HYPERBOLICITY DECISION TREE
 ============================
 
 1. Compute δ-hyperbolicity on sample (n=1000-5000)
-   └── δ_rel < 0.1?
+   └── δ_rel < 0.1?  (report metric + normalization)
        ├── YES: Strong hierarchy
-       │   ├── Use hyperbolic embedding for projection
-       │   ├── Use Shannon invariants (CI) for screening
-       │   └── Full I^sx_∩ only after Lorentz MI validation
+       │   ├── Use MI-only screening (CI/Ω) and/or quantization → discrete PID
+       │   ├── Treat hyperbolic projections as optional feature engineering (re-validate)
+       │   └── Do not interpret continuous `I^sx_∩` atoms on hyperbolic distances (no derivation)
        └── NO: Continue to step 2
 
 2. δ_rel ∈ [0.1, 0.3]?
@@ -6491,7 +6541,7 @@ HYPERBOLICITY DECISION TREE
 | Scenario | Train Hyperbolic Model? | Recommendation |
 |----------|------------------------|----------------|
 | **Using pre-trained VLA (OpenVLA, PixelVLA, TraceVLA)** | ❌ NO | Embeddings already exist; just compute δ-hyperbolicity to decide analysis method |
-| **Dimensionality reduction for PID** | ⚠️ MAYBE | If δ < 0.1, consider HypLoRA-style projection; otherwise use PCA |
+| **Dimensionality reduction for PID** | ⚠️ MAYBE | If δ_rel is very small (e.g., < 0.1 under a stated normalization), consider HypLoRA-style projection; otherwise use PCA |
 | **Shannon invariant screening (CI)** | ❌ NO | CI works with any MI estimator; no hyperbolic training needed |
 | **Full `I^sx_∩` on Llama hidden states** | ❌ NO | Use Experiment 0 to validate L∞ estimator; if fails, use quantization |
 | **Custom VLA from scratch** | ⚠️ MAYBE | Consider HELM/Hypformer architecture if hierarchy is central |
@@ -6519,30 +6569,31 @@ HYPERBOLICITY DECISION TREE
 ```
 1. Extract embeddings from pre-trained VLA (OpenVLA, PixelVLA, etc.)
 2. Compute δ-hyperbolicity
-3. If δ < 0.1: Use Shannon invariants (CI) for screening; report hyperbolic structure
-4. If δ ≥ 0.1: Use standard PCA + L∞ `I^sx_∩` (with Experiment 0 validation)
-5. Training hyperbolic models is OPTIONAL and only for comparative research
+3. Convert to δ_rel using an explicit normalization (e.g., diameter)
+4. If δ_rel is very small: Use Shannon invariants (CI/Ω) for screening; report tree-like structure and avoid continuous PID atoms on raw embeddings
+5. If δ_rel is not very small: Use standard PCA + L∞ `I^sx_∩` (with Experiment 0 validation)
+6. Training hyperbolic models is OPTIONAL and only for comparative research
 ```
 
 ## 16.8 SAE Analysis for VLA Embeddings (Jan 2026)
 
 ### 16.8.1 What Sparse Autoencoders Reveal
 
-Sparse Autoencoders (SAEs) decompose polysemantic neurons into monosemantic, interpretable features. Recent work ([NeurIPS 2025, arXiv:2504.02821](https://arxiv.org/abs/2504.02821)) shows SAEs work for Vision-Language Models.
+Sparse Autoencoders (SAEs) decompose polysemantic activations into sparse, more interpretable feature dictionaries. Recent work ([arXiv:2504.02821](https://arxiv.org/abs/2504.02821)) extends SAE analysis to vision-language models (e.g., CLIP) and evaluates monosemanticity with a user-study-derived benchmark.
 
 **Key findings**:
-- SAE features show **modular structure** ("lobes" for math, code, etc.)
-- Features exhibit **geometric regularity** (parallelograms like man:woman::king:queen)
-- **Steering capability**: SAE interventions on CLIP can directly steer LLaVA outputs
+- **Multi-scale structure** in SAE feature spaces (small-scale “crystals”, intermediate “lobes”) has been reported in LLM SAE dictionaries ([arXiv:2410.19750](https://arxiv.org/abs/2410.19750)); validate whether analogous structure appears in VLA/VLM components.
+- **Geometric regularities** (e.g., parallelogram/trapezoid relations generalizing classic word-embedding analogies) appear in some SAE feature dictionaries ([arXiv:2410.19750](https://arxiv.org/abs/2410.19750)).
+- **Steering capability**: intervening on SAE latents in a VLM vision encoder can steer multimodal LLM outputs (e.g., LLaVA) without modifying the underlying LLM ([arXiv:2504.02821](https://arxiv.org/abs/2504.02821)).
 
 ### 16.8.2 SAE Application to VLA Components
 
 | VLA Component | SAE Applicability | Benefit |
 |---------------|-------------------|---------|
-| **SigLIP encoder** | ✓ Verified (NeurIPS 2025) | Decompose V into monosemantic visual features |
-| **DinoV2 encoder** | ✓ Likely (same architecture class) | Geometric/semantic feature separation |
-| **Llama hidden states** | ✓ Verified (Anthropic) | Interpretable D/L representations |
-| **Action decoder** | ? Untested | Could reveal action primitives |
+| **SigLIP/CLIP-like vision encoder** | ✓ Demonstrated for VLMs (arXiv:2504.02821; validate for your exact encoder/layer) | Decompose V into more monosemantic visual features; targeted interventions |
+| **DinoV2-like vision features** | ✓ Plausible but unverified | Feature separation; dimensionality reduction targets |
+| **LLM hidden states** | ✓ Used in mechanistic-interpretability SAE work (validate for your model/activation point) | Interpretable L/D representations; feature-based ablations |
+| **Action decoder / policy head** | ? Unclear | May reveal action primitives, but depends on architecture and supervision |
 
 ### 16.8.3 SAE for PID Analysis: Concrete Protocol
 
@@ -6609,171 +6660,116 @@ GEOMETRY TRANSITION IN VLAs
     Vision Encoder                              LLM Backbone
     (DinoV2, SigLIP)                           (Llama 2 7B)
 
-    • Chebyshev natural                         • Hierarchical/tree-like
-    • 8-connectivity                            • δ-hyperbolic
-    • Local morphology ops                      • Curved manifold
-    • ~1024 dim                                 • 4096 dim
+    • L∞ neighborhoods match 8-connectivity      • Geometry is empirical: may be anisotropic,
+      on pixel grids                              concentrated, or hierarchical
+    • Learned features: do not assume           • Diagnose via ID/DC/δ_rel (do not assume)
+      “L∞ is natural” post-encoder
+    • ~1024 dim (example)                       • 4096 dim (example)
 
     APPROPRIATE:                                APPROPRIATE:
-    L∞ estimators                               Hierarchical screening
-    PCA may work                                Quantization or unrolling
-    SAE for feature decomposition              Shannon invariants safest
+    L∞ estimator (only after Exp0 + geometry)   MI-only screening (CI/Ω) or discrete PID
+    PCA may work if locally flat                Hyperbolic claims must be measured
+    SAE for feature decomposition               Flow-as-Bridge when available
 ```
 
 ### 16.9.3 Where Chebyshev Is Appropriate in PixelVLA
 
-| Stage | Geometry | Chebyshev Valid? |
+This table is about whether an **L∞ neighborhood shape** is a reasonable heuristic for kNN queries at that stage. It is *not* a proof of estimator validity; the Experiment 0 + geometry gates still apply.
+
+| Stage | Geometry | L∞ neighborhood heuristic? |
 |-------|----------|------------------|
-| **Raw image input** | Pixel grid | ✓ Yes (8-connectivity) |
-| **DinoV2 patches** | Patch embeddings | ✓ Partially (local structure) |
-| **SigLIP output** | Global features | ⚠️ Transitional |
-| **Multiscale encoder** | Hierarchical features | ⚠️ Transitional |
-| **MLP projector output** | LLM-aligned | ❌ Hierarchical dominates |
-| **Llama hidden states** | Semantic space | ❌ Use hierarchical methods |
-| **Action decoder** | Continuous actions | ⚠️ Depends on structure |
+| **Raw image input** | Pixel grid | Yes (8-connectivity), but PID is not usually run on raw pixels |
+| **DinoV2 patches** | Patch embeddings | Unknown; measure ID/DC/δ_rel and validate |
+| **SigLIP output** | Global features | Unknown; measure + validate |
+| **Multiscale encoder** | Hierarchical features | Unknown; measure + validate |
+| **MLP projector output** | LLM-aligned | Unknown; often high-d; measure + validate |
+| **LLM hidden states** | Semantic space | Unknown; often high-d/concentrated; expect MI-only/quantization to be safer unless gates pass |
+| **Action decoder** | Continuous actions | Often low-d; likely acceptable if locally flat (still validate) |
 
 ### 16.9.4 Recommendation for PixelVLA PID Analysis
 
-1. **For V at early stages** (patches, local features): Chebyshev/L∞ `I^sx_∩` is appropriate
-2. **For V at late stages** (after MLP projector): Use hierarchical screening first
-3. **For D (if extractable)**: Always use hierarchical screening; Chebyshev geometry likely invalid
-4. **For A (actions)**: 7D continuous — Chebyshev valid if locally flat; test with curvature diagnostics
+1. **Choose the representation first, then validate**: run geometry diagnostics + Experiment 0 on the exact stage you plan to analyze (patches vs pooled features vs projector output).
+2. **If the gates pass (after reduction if needed)**: PCA→(≤256) + L∞ `I^sx_∩` is a candidate for two-source PID on that representation.
+3. **If the gates fail on high‑D stages (common for LLM-aligned features)**: prefer MI-only screening (CI/Ω), quantization → discrete PID, or Flow‑as‑Bridge rather than interpreting continuous PID atoms.
+4. **Actions** are usually low-dimensional; they are often the safest target variable, but still require i.i.d./autocorrelation controls.
 
 ## 16.10 Hierarchical Structure: GPT-2 vs Modern LLMs (Jan 2026)
 
-### 16.10.1 Architectural Differences Affecting Geometry
+This subsection is a cautionary note: architecture differences can change anisotropy, intrinsic dimension, and tree-likeness, but the direction is not reliably predictable. Treat “model X is more hierarchical than model Y” as a **measurable hypothesis**, not a premise.
 
-| Feature | GPT-2 | Llama 2 | Geometric Implication |
-|---------|-------|---------|----------------------|
-| **Position Encoding** | Absolute (learned) | RoPE (rotary) | RoPE preserves relative structure |
-| **Activation** | ReLU | SwiGLU | SwiGLU may create smoother manifolds |
-| **Attention** | Multi-head (MHA) | Grouped-query (GQA) | GQA may compress hierarchy differently |
-| **Context Length** | 1024 tokens | 4096 tokens | Longer context → more hierarchical |
-| **Layer Count** | 12 (small) | 32 (7B) | Deeper → more hierarchical processing |
+### 16.10.1 Architecture Differences That Might Affect Geometry (Hypotheses)
+
+| Feature | GPT-2 | Llama 2 | Why it might matter (hypothesis; must be measured) |
+|---------|-------|---------|-----------------------------------------------------|
+| **Position encoding** | Absolute (learned) | RoPE (rotary) | Changes similarity structure across positions; effect on δ_rel/ID is empirical |
+| **MLP nonlinearity** | GELU (typical GPT-2) | SwiGLU | Different nonlinearities can affect anisotropy and effective dimension |
+| **Attention** | Multi-head (MHA) | Grouped-query (GQA) | Changes parameterization and may change representational geometry |
+| **Context length** | ~1k (common configs) | ~4k (common configs) | Longer context can change representation mixing and long-range structure |
+| **Depth (example)** | 12 layers (GPT-2 small) | 32 layers (Llama 2 7B) | Depth changes compositional capacity; geometry may evolve across layers |
 
 ### 16.10.2 Empirical Evidence for Hierarchy Evolution
 
 | Evidence | Source | Finding |
 |----------|--------|---------|
-| **Token frequency** | [HypLoRA](https://arxiv.org/abs/2410.04010) | "Token embeddings exhibit high degree of hyperbolicity" |
-| **δ-hyperbolicity** | [arXiv:2512.20926](https://arxiv.org/abs/2512.20926) | Modern models (ProtT5) show δ=0.04 vs older (SeqVec) δ=1.62 |
-| **Brain alignment** | [arXiv:2502.14671](https://arxiv.org/html/2502.14671v1) | Llama 2 layer 12 shows highest brain alignment |
-| **Billion-scale** | [HELM](https://arxiv.org/abs/2505.24722) | First hyperbolic LLM outperforms Euclidean at scale |
+| **Token embeddings** | [HypLoRA](https://arxiv.org/abs/2410.04010) | Paper reports high hyperbolicity in token embeddings (verify metric/setting) |
+| **δ-hyperbolicity** | [arXiv:2512.20926](https://arxiv.org/abs/2512.20926) | Paper reports lower δ / more hierarchical structure in some modern models vs older baselines (verify the exact numbers and sampling method) |
+| **Brain alignment** | [arXiv:2502.14671](https://arxiv.org/html/2502.14671v1) | Paper reports layer-wise differences in brain alignment (verify dataset/metric) |
+| **Hyperbolic LLMs** | [HELM](https://arxiv.org/abs/2505.24722) | Hyperbolic LLM variants; improvements are benchmark-dependent and need replication |
+### 16.10.3 What to Do in PID‑VLA (Instead of Assuming)
 
-### 16.10.3 Layer-wise Hierarchy in Transformers
-
-```
-GPT-2 (12 layers):
-├── Layers 1-4:  Lexical (word identity)
-├── Layers 5-9:  Syntactic (grammar)
-└── Layers 10-12: Semantic (meaning, task-specific)
-
-Llama 2 7B (32 layers):
-├── Layers 1-8:   Lexical + early syntax
-├── Layers 9-20:  Deep syntax + semantics
-├── Layers 21-28: Abstract representations
-└── Layers 29-32: Task-specific output
-
-Implication: Later models have MORE hierarchical depth
-```
-
-### 16.10.4 Implications for DreamVLA (GPT-2 based)
-
-DreamVLA uses GPT-2 backbone. Based on the evidence:
-- GPT-2 shows LESS hierarchical structure than Llama 2
-- δ-hyperbolicity likely higher (less tree-like)
-- **Recommendation**: Euclidean methods may be more appropriate for DreamVLA than for OpenVLA/PixelVLA/TraceVLA
-
-This creates an interesting contrast:
-| VLA | Backbone | Expected δ | Recommended Geometry |
-|-----|----------|------------|---------------------|
-| **OpenVLA** | Llama 2 7B | Low (tree-like) | Hierarchical/Hyperbolic |
-| **DreamVLA** | GPT-2 | Higher | Euclidean/PCA may suffice |
-| **PixelVLA** | Llama 2 7B | Low | Hierarchical/Hyperbolic |
-| **TraceVLA** | Llama 2 7B | Low | Hierarchical/Hyperbolic |
+For any candidate VLA (GPT‑2‑backed or Llama‑backed):
+1. Measure geometry **per layer and per representation** (ID, distance concentration, δ_rel) on the embeddings you actually plan to analyze.
+2. Apply the Experiment 0 gate on the chosen preprocessing (e.g., z‑score + PCA→256).
+3. Only then decide whether continuous PID atoms are interpretable, or whether you should pivot to MI‑only / discrete / Flow‑as‑Bridge.
 
 ## 16.11 Unified Geometry-First Protocol (Jan 2026)
 
 Based on the first-principles analysis, here is the recommended protocol:
 
-> **Cross-reference (v6.3):** For Dream2Flow + WAN integration, see §10.10.12 which applies this protocol to specific pipeline stages. Key insight: 3D object flow (d=3×T) is inherently Euclidean — the geometry challenges documented here primarily affect D_wan and D_vla (d≈4096), not the flow representation itself.
+> **Cross-reference (v6.3):** For Dream2Flow + WAN integration, see §10.10.12 which applies this protocol to specific pipeline stages. Note that 3D object flow lives in Euclidean \(\mathbb{R}^{3T}\) (though it can still be high-dimensional for large \(T\)), so it avoids *non-Euclidean metric* issues but not the curse-of-dimensionality or autocorrelation pitfalls.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    GEOMETRY-FIRST PROTOCOL                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  STEP 0: GEOMETRY DIAGNOSTICS (Before ANY PID)                  │
-│  ├─ 0a. Intrinsic dimension (Levina-Bickel, GRIDE)              │
-│  ├─ 0b. δ-hyperbolicity (Gromov 4-point sampling)               │
-│  ├─ 0c. Ollivier-Ricci curvature (if implemented)               │
-│  └─ 0d. Local flatness (neighborhood PCA residual)              │
-│                                                                  │
-│  DECISION TREE:                                                  │
-│                                                                  │
-│  δ < 0.1?  ──YES──→  Hierarchical structure dominant            │
-│     │                 ├─ Use hyperbolic projection               │
-│     │                 ├─ Shannon invariants (not full PID)      │
-│     │                 └─ SAE for interpretable decomposition    │
-│     NO                                                          │
-│     ↓                                                           │
-│  ORC ≈ 0?  ──YES──→  Locally flat                               │
-│     │                 ├─ PCA + L∞ I^sx_∩ may work               │
-│     │                 └─ Still validate with Experiment 0       │
-│     NO                                                          │
-│     ↓                                                           │
-│  High curvature, non-hierarchical:                              │
-│  └─→ Use QUANTIZATION (discrete PID) or                        │
-│      MANIFOLD UNROLLING (Isomap/CAE → L∞ estimator)            │
-│                                                                  │
-│  STEP 1: SAE ANALYSIS (Optional but recommended for VLA)        │
-│  ├─ Train SAE on vision encoder (SigLIP/DinoV2 layers)          │
-│  ├─ Identify monosemantic features                              │
-│  ├─ Use SAE features as interpretable V decomposition          │
-│  └─ Re-run geometry diagnostics on SAE features                │
-│                                                                  │
-│  STEP 2: HIERARCHICAL SCREENING                                 │
-│  ├─ Compute Shannon invariants: CI_VL, CI_VD, CI_LD            │
-│  ├─ These are estimator-agnostic and fast                       │
-│  └─ Only proceed to full I^sx_∩ if screening suggests value    │
-│                                                                  │
-│  STEP 3: TARGETED PID (If Step 2 passes)                        │
-│  ├─ Apply appropriate geometry based on Step 0 diagnostics     │
-│  └─ Full I^sx_∩ on reduced/validated representations           │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
+### 16.11.1 What To Compute (Implemented Diagnostics + Optional Extensions)
 
-### 16.11.1 NanoGPT for Foundational Studies
+Before interpreting any PID atoms on a representation \(X\) (and especially before moving from 2‑way → 3‑way PID), compute diagnostics on:
+- each marginal \(V, L, D, A\) you will use, and
+- the **joint concatenations** that appear in your estimator calls (e.g., \([V;L]\), \([V;D]\), \([V;L;D]\)).
 
-For quick validation of geometry diagnostics, use minimal models:
+**Implemented in `pid-core` (Experiment‑0 scale, O(n²)):**
+- **Intrinsic dimension** \(\hat d\) (Levina–Bickel): `intrinsic_dimension_levina_bickel`
+- **Distance concentration** (pairwise CV, `nn_over_pairwise_mean`): `distance_concentration_stats`
+- **δ-hyperbolicity** (4‑point sampling): `gromov_hyperbolicity` (raw δ); report `δ_rel = 2δ / diam(X)` with `diam(X)` measured under the same metric
+
+**Optional external methods (not implemented here):**
+- Neighborhood PCA residuals / subspace-angle curvature proxies (§16.6.1)
+- Graph-based curvatures like Ollivier–Ricci on a kNN graph (§16.6.2), noting that poor kNN graphs in high‑D can make these unreliable
+
+### 16.11.2 Geometry → Estimator / Decomposition Decision Matrix
+
+| Diagnostic regime (heuristic) | What it means for estimation | Recommended estimation strategy | Decomposition strategy | Hypotheses you can still test cleanly |
+|---|---|---|---|---|
+| **Modest \(\hat d\)**, **no strong concentration** (pairwise CV not tiny), **δ_rel not very small**, locally flat-ish | Euclidean/Chebyshev neighborhood logic is at least plausible | PCA/whitening → continuous `I^sx_∩` (L∞) + KSG MI, *after Experiment 0 passes on that pipeline* | **Primary:** 2‑way PID (`pid2`). **Optional:** 3‑way PID (`pid3`) only offline and only after MI/CI stability checks | H1–H6 on `(V,L;A)` or `(V,D;A)`; H7 on flow targets if available |
+| **Strong distance concentration** (very low CV; `nn_over_pairwise_mean → 1`) | kNN neighborhoods become unstable; variance/bias dominate | Reduce dimensionality aggressively; increase N; if still concentrated → MI-only or discrete | Prefer **hierarchical screening** (CI/Ω, pairwise MI/PID) | H4/H5/H6 as *comparative* diagnostics (ΔCI/ΔMI) under perturbations; avoid fine-grained atom claims |
+| **Very small δ_rel** (tree-like distances) | Continuous `I^sx_∩` derivation is not justified in this geometry | MI-only screening (CI/Ω); quantization → discrete PID; Flow-as-Bridge when possible | Prefer **hierarchical pairwise** over full 3‑way atoms; treat hyperbolic projections as optional feature engineering (re-validate) | H7 stage attribution; H4/H6 as MI/CI shifts; avoid “continuous PID atom” conclusions on raw embeddings |
+| **Strong dependence / heavy tails / autocorrelation dominates** | KSG/ISX can break even at low d | Use strong-dependence MI estimators (e.g., Gao–Ver Steeg–Galstyan) as a check; enforce block bootstrap / trajectory controls | Keep decomposition simple; emphasize uncertainty and robustness | Hypotheses become primarily about *robustness of invariants* under controls, not absolute atom values |
+
+### 16.11.3 Minimal Sanity-Checks With Small Models (Optional)
+
+Use a small, fast model (NanoGPT‑class) to validate the *plumbing* of geometry diagnostics and logging before spending effort on VLAs:
 
 ```python
-# NanoGPT-based geometry study protocol
-# (~600 lines, ~1hr training, ~$10)
-
-# 1. Train small action predictor
+# NanoGPT-based geometry sanity-check (conceptual)
 model = NanoGPT(d_model=256, n_layers=6, n_heads=4)
 model.train(action_prediction_dataset)
 
-# 2. Extract layer-wise embeddings
-for layer in range(6):
-    embeddings[layer] = model.get_hidden(validation_set, layer)
-
-# 3. Compute geometry diagnostics per layer
-for layer, emb in embeddings.items():
-    results[layer] = {
-        'intrinsic_dim': levina_bickel_mle(emb, k=5),
-        'delta_hyp': gromov_hyperbolicity(emb, n_samples=1000),
-        'orc': ollivier_ricci_curvature(emb, k=10),
-        'local_flatness': local_pca_residual(emb, k=20),
-    }
-
-# 4. Identify geometry transition points
-# Expect: curvature decreases with layer, δ decreases with layer
+for layer in range(model.n_layers):
+    emb = model.get_hidden(validation_set, layer)
+    d_hat = levina_bickel_mle(emb, k=10)
+    dc = distance_concentration_stats(emb)
+    delta = gromov_hyperbolicity(emb, n_samples=1000)
+    # Convert to δ_rel using an explicit diameter estimate.
 ```
 
-**Tooling**: sparkjs + tauri + gazebo enables fast iteration for this foundational study.
+Do not assume monotonic trends (e.g., “curvature decreases with layer”) without measuring them; use this to confirm that diagnostics behave sensibly on controlled data and are stable across seeds.
 
 ## 16.12 Theoretical Limitations (Fundamental, Not Fixable)
 
@@ -6859,12 +6855,9 @@ This section provides a comprehensive, critical analysis of all components in th
 
 **Training:** None required for embedding extraction — use pre-trained weights.
 
-**Inference Compute:**
-| Hardware | Forward Pass (batch=1) | Embedding Extraction | Memory |
-|----------|------------------------|---------------------|--------|
-| M4 Max (128GB) | ~80-100ms | ~20ms | ~14GB (f16) |
-| RTX 4090 (24GB) | ~40-60ms | ~10ms | ~14GB (f16) |
-| RTX 4090 (INT8) | ~20-30ms | ~5ms | ~7GB |
+**Inference compute (benchmark-dependent):**
+- **Memory:** a 7B model in fp16 is on the order of ~14GB for weights alone; runtime overhead and KV cache can add substantially.
+- **Latency/throughput:** depends on runtime (CUDA/Metal/CoreML), quantization, sequence length, batch size, and kernel choices. Do not report fixed ms numbers without measurement on your exact setup.
 
 **Data Sources for VLA Evaluation:**
 | Dataset | Size | Trajectories | Access | Notes |
@@ -7040,7 +7033,7 @@ This section provides a comprehensive, critical analysis of all components in th
 ### 17.6.3 Hyperbolic Projection Heads (HypLoRA-style)
 
 **When Needed:**
-- δ-hyperbolicity < 0.1 (embedding space is tree-like)
+- δ_rel is very small under an explicit normalization (tree-like distances)
 - Hierarchy-preserving dimensionality reduction
 - Research comparison with Euclidean methods
 
@@ -7120,13 +7113,13 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ### 17.8.2 GWM (Gaussian World Model)
 
-**Compute:** Lighter than WAN but requires 3DGS scene reconstruction.
+**Compute trade-off:** can be lighter than large diffusion video models in some implementations, but requires 3DGS scene reconstruction; benchmark on your hardware and report measured ranges.
 
 | Component | Compute | Notes |
 |-----------|---------|-------|
-| 3DGS scene fit | ~5-30 min per scene | Depends on views |
-| GWM inference | ~100ms/frame | Faster than WAN |
-| Training GWM | ~4-12 hours | On robot trajectory data |
+| 3DGS scene fit | Benchmark | Depends on capture quality, views, and training config |
+| GWM inference | Benchmark | Runtime/model dependent; do not assume “faster than WAN” without matched settings |
+| Training GWM | Benchmark | Depends on dataset scale and architecture |
 
 ### 17.8.3 Genie 3 / SIMA 2 (DeepMind)
 
@@ -7180,22 +7173,22 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ## 17.11 Depth Estimation (High Compute for Training)
 
-### 17.11.1 Depth-Anything v2/v3 (Inference Only)
+### 17.11.1 Depth-Anything (Inference Only)
 
 **Training:** None — use pre-trained.
 
-**Inference:**
-| Model | Speed | GPU |
-|-------|-------|-----|
-| Depth-Anything v3 | ~40ms/frame | RTX 4090 |
-| Depth-Anything v2 | ~50ms/frame | RTX 4090 |
+**Inference (benchmark on your hardware):**
+| Model | Notes |
+|-------|-------|
+| Depth-Anything v2 (or similar) | Relative depth; validate whether calibration is required for your tasks |
+| Metric depth baseline (e.g., Metric3D) | Use if absolute scale is required; validate and benchmark |
 
 ### 17.11.2 DKT (Diffusion Knows Transparency)
 
 **Pre-trained Inference:**
 | Model | Speed | VRAM | Notes |
 |-------|-------|------|-------|
-| DKT 1.3B | ~167ms/frame | 11GB | Handles transparent objects |
+| DKT 1.3B | Paper-reported (benchmark) | Paper-reported (benchmark) | Handles transparent objects |
 
 **Fine-tuning (if needed):**
 | Component | Value | Notes |
@@ -7352,22 +7345,16 @@ This section provides detailed computational and data requirements for the unifi
 
 ### 17.17.1 Vision Foundation Models (Inference Only)
 
-All models are pre-trained and require no additional training:
+This stage uses three model *classes*: segmentation, point tracking, and depth. Specific implementations change quickly; treat any named models as examples and benchmark on your hardware.
 
-| Model | Task | Per-Frame Time | VRAM | Weights |
-|-------|------|----------------|------|---------|
-| **SAM3** | Object segmentation | ~50ms | 1-2GB | Public (Meta) |
-| **CoTracker3** | Point tracking | ~50ms | 2-4GB | Public (Meta) |
-| **Depth-Anything v3** | Depth estimation (metric) | ~50ms | 1-2GB | Public (HuggingFace) |
-| **DKT (optional)** | Transparent depth | ~200ms | 2-4GB | Public (GitHub) |
+| Category | Example models (verify availability/licensing) | Outputs to log | Notes |
+|----------|-----------------------------------------------|----------------|-------|
+| Segmentation | SAM2 or equivalent promptable segmenter | masks, prompts, per-object confidence | Often run once per clip; propagate masks if supported |
+| Point tracking | CoTracker (or equivalent) | 2D tracks, confidence, failure cases | Runtime depends on number of points and clip length |
+| Depth | Depth-Anything v2 (relative) and/or a metric-depth baseline (e.g., Metric3D), plus RGB-D when available | depth maps + calibration metadata | Metric depth typically needs calibration; handle transparents separately |
+| Transparent depth (optional) | DKT (or other transparency-aware depth) | depth + uncertainty | Only needed for glass/plastic/etc. scenes |
 
-**Total per-video (24 frames):**
-| Pipeline | Time | Notes |
-|----------|------|-------|
-| SAM3 | ~1.2s | Run once, propagate masks (2x faster than SAM2) |
-| CoTracker3 | ~1.2s | Track N points through video |
-| Depth-Anything v3 | ~1.2s | Per-frame metric depth |
-| **Total** | **~3.5s** | Parallelizable to ~1.5s with multi-GPU |
+**Measurement protocol:** For every run, record wall-clock time per frame/clip, peak memory, and model version/commit hash. Do not report fixed ms/frame values without measurement.
 
 ### 17.17.2 WAN Video Generation (Local Inference)
 
@@ -7428,22 +7415,22 @@ Using the `pid-core` implementation:
 | Analysis | Time |
 |----------|------|
 | Syn(V, D_wan; Flow) | ~60ms |
-| Syn(V, Flow; A_cmd) | ~60ms |
-| Syn(A_cmd, Sim; A_out) | ~60ms |
-| Temporal dynamics (10 windows) | ~150ms |
-| **Total PID analysis** | **~400ms** |
+| Syn(V, Flow; A_cmd) | benchmark |
+| Syn(A_cmd, Sim; A_out) | benchmark |
+| Temporal dynamics (10 windows) | benchmark |
+| **Total PID analysis** | **benchmark** |
 
 ### 17.17.5 Gaussian Splat Visualization (Real-Time)
 
 | Component | Performance | Hardware |
 |-----------|-------------|----------|
-| SparkJS rendering | 60fps | WebGPU-capable GPU |
-| PID-colored splats (1K points) | 60fps | Minimal overhead |
-| Interactive scrubbing | Real-time | ~16ms frame budget |
-| Multi-view (4 panels) | 30-60fps | Depends on scene complexity |
+| SparkJS rendering | target 60fps | WebGPU-capable GPU |
+| PID-colored splats (toy case) | target 60fps | overhead depends on splat count + shaders |
+| Interactive scrubbing | target real-time | frame budget depends on GPU + scene complexity |
+| Multi-view (4 panels) | target 30-60fps | depends on scene complexity |
 
 **Browser requirements:**
-- Chrome 113+ or Firefox 121+ (WebGPU support)
+- Recent Chrome/Edge/Firefox with WebGPU support enabled
 - 2GB+ GPU VRAM for smooth rendering
 - 8GB+ system RAM
 
@@ -7516,7 +7503,7 @@ Using the `pid-core` implementation:
 |-----------|------------------|-------------|
 | Custom video model | Extreme compute (weeks on clusters) | Use pre-trained WAN |
 | Custom depth model | Not core contribution | Use Depth-Anything/DKT |
-| Custom tracking model | Not core contribution | Use CoTracker3 |
+| Custom tracking model | Not core contribution | Use CoTracker (or equivalent) |
 | Real robot experiments | High cost, safety, time | Use Gazebo simulation |
 | Large-scale RL training | Days-weeks of GPU time | Small-scale validation only |
 
@@ -7643,7 +7630,7 @@ These blockers could terminate the project if unmitigated. Each requires explici
 - Estimates change dramatically with subsampling stride
 
 **Mitigation Options:**
-1. **Cross-trajectory sampling:** One sample per rollout (guaranteed independent)
+1. **Cross-trajectory sampling:** One sample per rollout (approximately independent if rollouts are independently reset/seeded)
 2. **Large-stride subsampling:** Every 10th-30th frame within trajectory
 3. **Block bootstrap:** Use trajectory-aware blocks for uncertainty quantification
 4. **Trajectory-level features:** Compute mean/min/max PID over windows; treat trajectory as single sample
@@ -7905,8 +7892,8 @@ BLOCKER RESOLUTION PROTOCOL
 | **Vul° (Degree of Vulnerability)** | Shannon invariant: avg. extent info lost when sources removed |
 | **Dream2Flow** | Framework bridging video generation and robot control via 3D object flow |
 | **3D Object Flow** | Explicit 3D point trajectories extracted from video (embodiment-agnostic) |
-| **SAM3** | Segment Anything Model 3 (Meta) — faster video object segmentation (2x SAM2) |
-| **CoTracker3** | Point tracking model (Meta) — tracks 2D points through video frames |
+| **SAM2** | Segment Anything Model 2 (Meta) — promptable segmentation; use for video mask initialization |
+| **CoTracker** | Point tracking model — tracks 2D points through video frames (use the latest available release) |
 | **Wan-Move** | WAN LoRA fine-tuning for robot action conditioning |
 | **PID-Colored Splats** | Gaussian splats with RGB = (Synergy, Redundancy, Unique) for visualization |
 | **Embodiment Gap** | Mismatch between intended action and physical execution due to robot differences |
@@ -9220,7 +9207,7 @@ def extract_embeddings(
         This is the "integrated" representation after all cross-modal
         attention. It should contain information from both V and D.
         """
-        # Pre-action is always the last token's hidden state
+        # Pre-action is often the last token's hidden state (verify for your model/tokenization scheme)
         captured['pre_action'] = output[:, -1, :]
         
     # ---------------------------------------------------------------------
@@ -11672,7 +11659,7 @@ def benchmark_coreml_inference(
 # WHY NIX FOR THIS PROJECT:
 # 1. REPRODUCIBILITY: ML experiments MUST be reproducible
 #    - Same code + same data + same environment = same results
-#    - Nix guarantees environment reproducibility
+#    - Nix aims to improve environment reproducibility by pinning dependencies (hardware/driver differences can still matter)
 #
 # 2. DEPENDENCY HELL AVOIDANCE:
 #    - Python version conflicts (3.9 vs 3.11 vs 3.12)
@@ -12210,26 +12197,29 @@ release: build build-wheel
 | **5.8** | Jan 2026 | **VLA-Arena Deep Integration + Memorization/Generalization Analysis:** (1) VLA-Arena as primary evaluation framework (§9.7.1). (2) New §3.6: Memorization vs Generalization hypotheses (H4-H6). (3) Perturbation-based PID robustness protocol (§9.7.2). (4) Expanded confound analysis (§14.5). (5) Long-horizon and compositional failure analysis. (6) Safety dimension integration. |
 | **6.0** | Jan 2026 | **Critical Blockers Analysis + Training/Compute Requirements:** (1) New §17: Training, Compute, and Data Requirements Analysis covering 25+ methods, VLA fine-tuning costs, compute budget recommendations. (2) New §18: Critical Blockers and Risk Analysis with 5 show-stoppers, 7 major blockers, 8 minor blockers, Go/No-Go decision frameworks, and fallback scope hierarchy. (3) Verified DreamVLA architecture gaps, OpenVLA availability, VLA-Arena accessibility. (4) Risk assessment: HIGH but tractable if Experiment 0 succeeds. |
 | **6.1** | Jan 2026 | **Dream2Flow Integration + Embodiment-Agnostic Analysis:** (1) Dream2Flow (arXiv:2512.24766) integration as related paradigm for 3D object flow extraction. (2) New §10.9: Dream2Flow and Video-to-Flow Paradigm. (3) New Hypothesis H7: 3D object flow as embodiment-agnostic intermediate. (4) New §14.5.7: Embodiment gap confound. (5) Updated §9.7: Dream2Flow failure taxonomy. |
-| **6.2** | Jan 2026 | **Unified Architecture: Dream2Flow + WAN + PID + Gaussian Splatting:** (1) New §10.10: Complete integration stack. (2) WAN 2.2 as local video generation. (3) SAM3, CoTracker3, Depth-Anything v3 for 3D flow. (4) PID analysis at 4 stages. (5) Gaussian Splatting visualization. (6) New §17.17: Dream2Flow integration requirements. |
-| **6.3** | Jan 2026 | **Manifold-Geometry Integration + VLA Compatibility Matrix:** (1) New §10.10.12: Manifold geometry per pipeline stage. (2) Key insight: 3D flow is low-dim Euclidean — bypasses manifold issues. (3) New §10.10.13: VLA integration matrix. (4) Updated vision models (SAM3, Depth-Anything v3). |
+| **6.2** | Jan 2026 | **Unified Architecture: Dream2Flow + WAN + PID + Gaussian Splatting:** (1) New §10.10: Complete integration stack. (2) WAN 2.2 as local video generation. (3) Segmentation/tracking/depth models (e.g., SAM2/CoTracker/Depth-Anything v2 or a metric-depth baseline) for 3D flow. (4) PID analysis at 4 stages. (5) Gaussian Splatting visualization. (6) New §17.17: Dream2Flow integration requirements. |
+| **6.3** | Jan 2026 | **Manifold-Geometry Integration + VLA Compatibility Matrix:** (1) New §10.10.12: Manifold geometry per pipeline stage. (2) Key insight: 3D flow is low-dim Euclidean — bypasses manifold issues. (3) New §10.10.13: VLA integration matrix. (4) Updated vision-model placeholders (segmentation/tracking/depth; versions vary). |
 | **6.4** | Jan 2026 | **VLM→World Model Transition + 3D Flow vs Latent Action Analysis:** (1) Documented paradigm shift from VLM-based VLAs (Gen 1: OpenVLA, RT-2) to World Model-based (Gen 2: Dream2Flow, DreamVLA, Motus). (2) Analyzed 3D Object Flow vs Latent Action Space Diffusion: 3D flow operates on D (world model) enabling PID validity; latent action diffusion operates on A (policy) and doesn't solve D-side estimation. (3) For PID-VLA, 3D flow serves as "geometry escape hatch." (4) Both approaches can coexist. |
 | **6.5** | Jan 2026 | **Hierarchical 3-Way PID for Dream2Flow Analysis (with v6.5.1 corrections):** (1) Hierarchical Pairwise PID (§5.3) maps to Dream2Flow stages: `Syn(V,D_wan;Flow)`, `Syn(V,Flow;A)`. (2) **CORRECTED:** Execution-stage PID removed ("Sim" was undefined). (3) **CORRECTED:** 3D flow dimensionality properly specified — full representation is 3NT (can be 100s-1000s dims); "d≈6-30" only valid for aggregated single-object statistics. (4) **CORRECTED:** v5.5 (geometric validity) vs curse-of-d (statistical reliability) are separate issues; low-d Euclidean addresses both, high-d Euclidean only violates curse-of-d. (5) **CORRECTED:** "Bridge variable" claim removed — disjunction neighborhood doesn't rescue high-d sources; V requires PCA→256 regardless of Flow dimension. (6) Experiment 0 must validate mixed-dimension joint estimation. (7) Latent action diffusion remains complementary (policy) not competing (diagnostic). |
-| **6.6** | Jan 2026 | **3DGS Integration + Video Model Selection + Tauri/SparkJS/Gazebo Architecture:** (1) Defined 4 roles for 3DGS in pipeline: PID visualization (splat coloring), spatial failure localization, GWM representation, Spatia-style memory. (2) Evaluated video models: WAN 2.2, WAN+TurboDiffusion, Spatia (arXiv:2512.15716), Video4Spatial. (3) **TurboDiffusion** (thu-ml) enables 100-200× speedup — WAN 184s→1.9s, makes Dream2Flow interactive. (4) **Spatia** maintains 3D point cloud as persistent spatial memory via Visual SLAM — best for long-horizon spatial consistency. (5) Recommended 3 pipeline configurations: PRIMARY (WAN+TurboDiffusion, <5s), SPATIAL (Spatia, ~60s), COUNTERFACTUAL (WAN+Wan-Move). (6) Integrated Tauri+SparkJS+Gazebo architecture diagram with video model placement. (7) Defined 3DGS-PID visualization encoding: R=Syn, G=Red, B=Unq(V), opacity=MI, size=uncertainty. (8) 5-phase implementation priority for environment setup. (9) Updated hardware requirements with TurboDiffusion benefits (12GB vs 24GB VRAM). |
-| **6.7 FINAL** | Jan 2026 | **Unified Splat-First Simulation Environment — Complete Architecture:** (1) **Critical comparison with competitors** (§A): Honest analysis vs Isaac Sim, Omniverse, MuJoCo, Gazebo, SplatSim, Discoverse — proposed system targets >90% sim2real via 3DGS rendering + cross-platform + real-time editing. (2) **Complete system architecture** (§B): Full Tauri+SparkJS+Modular Physics stack diagram with PEGS-style dual Gaussian-Particle representation. (3) **Asset pipeline** (§C): PLY/SPZ/SPLAT/KSPLAT/SOG/GLB/URDF support with COLMAP→SparkJS workflow. (4) **PEGS-style physics** (§D): Rust implementation of particle-Gaussian binding with visual force correction. (5) **FOCI collision detection** (§E): Gaussian overlap integral for splat-splat collision + hybrid mesh approach + splat raycasting. (6) **Environment simulation** (§F): SparkJS Dyno-based weather/lighting/domain randomization. (7) **Camera system** (§G): Virtual cameras with raycast depth, Zenoh streaming, click-to-place. (8) **Real-time editing** (§H): Splat selection (box/raycast), transform, delete, clone + mesh collision adjustment. (9) **Sim2Real strategy** (§I): Multi-layer approach targeting >90% zero-shot transfer. (10) **Data collection pipeline** (§J): Complete workflow from scene setup to RLDS/HDF5/Zarr export. (11) **VLA setup analysis** (§K): Gap analysis showing all open-source VLAs use MuJoCo+OpenGL; none use 3DGS. (12) **Hardware requirements** (§L): 10× smaller footprint than Isaac Sim, runs on M2 Mac. **DOCUMENT FINALIZED.** |
+| **6.6** | Jan 2026 | **3DGS Integration + Video Model Selection + Tauri/SparkJS/Gazebo Architecture:** (1) Defined 4 roles for 3DGS in pipeline: PID visualization (splat coloring), spatial failure localization, GWM representation, Spatia-style memory. (2) Evaluated video models: WAN 2.2, WAN+TurboDiffusion, Spatia (arXiv:2512.15716), Video4Spatial. (3) **TurboDiffusion** (thu-ml) reports large speedups in some settings (treat as a claim; benchmark on your hardware). (4) **Spatia** maintains 3D point cloud as persistent spatial memory via Visual SLAM (candidate for long-horizon spatial consistency). (5) Recommended 3 pipeline configurations: PRIMARY (WAN + acceleration), SPATIAL (Spatia), COUNTERFACTUAL (WAN + Wan-Move); latency ranges are hardware/model dependent. (6) Integrated Tauri+SparkJS+Gazebo architecture diagram with video model placement. (7) Defined 3DGS-PID visualization encoding: R=Syn, G=Red, B=Unq(V), opacity=MI, size=uncertainty. (8) 5-phase implementation priority for environment setup. (9) Updated hardware requirements guidance; VRAM and throughput are model/config-dependent. |
+| **6.7 FINAL** | Jan 2026 | **Unified Splat-First Simulation Environment — Complete Architecture:** (1) **Critical comparison with competitors** (§A): Analysis vs Isaac Sim, Omniverse, MuJoCo, Gazebo, SplatSim, DISCOVERSE (benchmark required; avoid cross-task “sim2real %” comparisons). (2) **Complete system architecture** (§B): Tauri+SparkJS+Modular Physics stack diagram with PEGS-style dual Gaussian-Particle representation. (3) **Asset pipeline** (§C): PLY/SPZ/SPLAT/KSPLAT/SOG/GLB/URDF support with COLMAP→SparkJS workflow. (4) **PEGS-style physics** (§D): Rust implementation of particle-Gaussian binding with visual force correction. (5) **FOCI collision detection** (§E): Gaussian overlap integral for splat-splat collision + hybrid mesh approach + splat raycasting. (6) **Environment simulation** (§F): SparkJS Dyno-based weather/lighting/domain randomization. (7) **Camera system** (§G): Virtual cameras with raycast depth, Zenoh streaming, click-to-place. (8) **Real-time editing** (§H): Splat selection (box/raycast), transform, delete, clone + mesh collision adjustment. (9) **Sim2Real strategy** (§I): Multi-layer approach with measurement/ablation plan (avoid pre-committed transfer percentages). (10) **Data collection pipeline** (§J): Workflow from scene setup to RLDS/HDF5/Zarr export. (11) **VLA setup analysis** (§K): Gap analysis of open-source VLA simulation stacks. (12) **Hardware requirements** (§L): Footprint claims are hardware/config-dependent; benchmark for your deployment. |
 | **6.8 FINAL** | Jan 2026 | **SmolVLA Integration + World Model Comparison (Exps 6-10):** (1) Added SmolVLA (LeRobot) as lightweight ~450M parameter baseline with Flow-Matching head and asynchronous inference (§7.8, §8). (2) Documented ManiGaussian vs PEGS head-to-head comparison for world model fidelity and generalization. (3) Added Experiments 6-10 protocols to experimental design suite (§9.8). |
+| **7.0 FINAL** | Jan 2026 | **Scientific audit + citation verification + structural cleanup:** (1) Corrected mis-cited arXiv IDs (e.g., Wan-Move) and added missing citations (SplatSim, DISCOVERSE). (2) Added DOI metadata for core PID/KSG references (re-check DOI resolution before publication). (3) Tightened language around unsourced performance/latency claims; replaced unverified “model version” assertions (e.g., SAM3/Depth‑Anything v3) with benchmark-first placeholders. (4) Fixed document structure (moved §7.8 and §9.8 into their proper sections; Appendix C promoted and added to TOC). (5) Docset consistency sweep (README/DIAGRAMS/ARCHITECTURE/EXPERIMENTS) + PyO3 binding stability fixes. (6) Geometry audit: clarified raw δ vs normalized `δ_rel`, removed unverified numeric tables/overclaims, and added a geometry→estimator/decomposition decision matrix (2-way vs 3-way vs hierarchical). (7) Architecture comparison audit (§A): added closed-loop PID diagnostics requirements, WAN integration framing, hybrid splats+mesh justification, and removed roadmap/venue-marketing justifications. (8) Added/updated diagrams (hybrid rendering) and updated examples to compute `δ_rel` via diameter. |
 
 ---
 
-## Appendix C: Modern Rendering Stack (SparkJS / WebGPU)
+# Appendix C: Modern Rendering Stack (SparkJS and WebGPU)
 
 **Context:** The simulation environment described in §10.8 relies on a novel "Splat-First" rendering stack. This appendix details the technical specifications for the visualization layer.
 
 ### C.1 SparkJS Architecture
 
-SparkJS is a custom WebGPU renderer designed for high-performance 3D Gaussian Splatting (3DGS). It replaces standard rasterizers to enable:
-1.  **Sorting on GPU:** Radix sort implemented in WGSL compute shaders (vs CPU sort in standard Three.js/Luma).
-2.  **Zero-Copy Updates:** Direct access to shared memory buffers (via Zenoh/Rust) for updating splat positions from physics.
-3.  **Dyno Shaders:** Programmable compute shaders that modify splat attributes (color, alpha, scale) per-frame based on PID data streams.
+This spec assumes a **WebGPU 3D Gaussian Splatting renderer** (referred to as “SparkJS” throughout, but replace with your chosen implementation). The core requirements for PID‑Splat visualization are:
+1. **Low-latency splat updates**: per-frame updates to positions/colors/scales without expensive CPU→GPU copies.
+2. **Deterministic, inspectable overlay stages** (“Dynos” concept): a programmable pass that can map PID metrics → visual encodings.
+3. **Scalable sorting/LOD strategy**: enough throughput to remain interactive at the splat counts required by your scenes (benchmark on target hardware).
+
+Do not rely on vendor roadmaps or marketing claims for performance; treat renderer choice as an interchangeable component behind a stable interface.
 
 ### C.2 Dyno Shader Specification
 
@@ -12271,38 +12261,3 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 ---
 
 *End of Document*
-
-## 9.8 Extended Comparisons: World Models & Deformables (Experiments 6-10)
-
-This section extends the core experimental suite to address advanced world model capabilities and deformable object manipulation, comparing **ManiGaussian** (learned/implicit) vs **PEGS** (explicit/PBD).
-
-| Exp | Name | Hypothesis | Key Metric |
-|-----|------|------------|------------|
-| **6** | **Prediction Fidelity** | H_WM1: Learned models win in-distribution; explicit models win OOD | `I(Prediction; P_GT)` |
-| **7** | **Novel Object Generalization** | H_WM2: Explicit physics generalizes to novel geometry/mass better | Success rate drop |
-| **8** | **Physics Perturbation** | H_WM3: Visual correction (PEGS) adapts to mass/friction changes | Synergy variance |
-| **9** | **Temporal Coherence** | H_WM4: Explicit state maintains coherence in long tasks | Synergy degradation slope |
-| **10** | **Deformable Objects** | H_WM5: Particle-based physics handles rope/cloth; rigid assumptions fail | Task success rate |
-
-**See `EXPERIMENTS.md` Sections 14-19 for detailed protocols.**
-
-## 7.8 SmolVLA (LeRobot)
-
-**Source:** Hugging Face LeRobot (SmolVLA), Jan 2025
-
-### 7.8.1 Architecture
-- **Backbone:** SmolVLM-2 (SigLIP visual encoder + SmolLM2 language model).
-- **Action Head:** **Flow-Matching Transformer** (action expert).
-- **Inference:** Asynchronous (decouples perception/planning from execution).
-- **Parameters:** ~450M (extremely lightweight).
-
-### 7.8.2 Training & Data
-- **Datasets:** Open LeRobot ecosystem (481 datasets, ~23k episodes).
-- **Primary Embodiment:** SO-100 robotic arm (but fine-tunable for others).
-- **Data Curation:** Task descriptions standardized via Qwen2.5-VL-3B-Instruct.
-
-### 7.8.3 Relevance to PID-VLA
-SmolVLA is the **ideal low-resource baseline** for Experiment 0/1 iteration.
-- **Pros:** Runs on consumer GPU, fully open weights, integrated with LeRobot training scripts.
-- **Cons:** Smaller capacity than 7B models; Flow-Matching head requires specific PID adaptation (vs Diffusion).
-- **Use Case:** Debugging the PID pipeline and establishing a "small model" baseline on LIBERO/Meta-World tasks.

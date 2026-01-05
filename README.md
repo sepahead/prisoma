@@ -19,21 +19,41 @@ PID-VLA is a research toolkit for analyzing **Vision-Language-Action (VLA)** rob
 
 **Canonical Research Specification:** This project is governed by [`grandplan.md`](grandplan.md), which contains the complete theoretical, experimental, and implementation details.
 
+## Status (Docset v7.0)
+
+- **Implemented in this repo:** `crates/pid-core` (Rust estimators + diagnostics), `crates/pid-python` (PyO3 module `pid_core_rs`), and the Rust Experiment 0 runner (`just exp0`, `just exp0-bin`).
+- **Specified / planned (see `grandplan.md`):** the full “PID‑Splat” simulation + visualization stack (Tauri/SparkJS/Gazebo/Zenoh) and a complete Python experiment harness for real VLA embedding extraction and benchmarking.
+
 ### Key Research Questions (Hypotheses)
 
 | Hypothesis | Description | Reference |
 |------------|-------------|-----------|
-| **H1** | Negative synergy indicates subadditive information (potential hallucination). | `grandplan.md` §1.2 |
+| **H1** | Certain SxPID features (including negative synergy) may correlate with grounding failures; this is *not definitional* and must be validated under controls. | `grandplan.md` §1.2, §9 |
 | **H4** | PID signatures distinguish memorization from generalization. | `grandplan.md` §3.6.2 |
 | **H5** | Compositional failure correlates with temporal synergy degradation. | `grandplan.md` §3.6.3 |
 | **H7** | 3D object flow serves as an embodiment-agnostic integration diagnostic. | `grandplan.md` §3.6.6 |
 
 ## Quick Start
 
+### Step-by-Step Plan (Recommended)
+
+1. **Set up the dev environment**
+   - Nix: `nix develop`
+   - Non-Nix: install Rust + Python 3.11+, then run `cargo build` and `uv sync`
+2. **Run unit tests and formatting**
+   - `just test` (and optionally `just lint`, `just fmt`)
+3. **Run the Experiment 0 validation gate**
+   - `just exp0` (test subset)
+   - `cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv`
+4. **Decide GO/PIVOT/NO-GO**
+   - Use the criteria in `grandplan.md` §9.1 and the diagnostics in the `exp0` output
+5. **Proceed to real embeddings only after GO**
+   - Follow `EXPERIMENTS.md` for data collection + hypothesis tests; treat non-implemented components as specifications until built.
+
 ### Prerequisites
 
-- **Rust** 1.75+ (via rustup or Nix)
-- **Python** 3.11+
+- **Rust** (stable, edition 2021)
+- **Python** 3.11+ (the `pid_core_rs` extension is built with PyO3 `abi3-py311`)
 - **uv** (Python package manager)
 - **just** (task runner)
 
@@ -54,6 +74,8 @@ uv sync
 
 ### Configuration
 
+**Note:** `pid-splat.toml` describes the *proposed* simulation stack (PID‑Splat). The current repo focuses on PID estimation/diagnostics; treat the simulation backends as a design target unless you have implemented the missing components.
+
 Copy and customize the configuration file:
 
 ```bash
@@ -65,9 +87,9 @@ Select physics backend based on your needs (see `DIAGRAMS.md` §4 for decision t
 ```toml
 # pid-splat.toml - Quick presets
 [physics]
-backend = "rapier"    # Fast iteration (<1ms/step)
+backend = "rapier"    # Fast iteration (hardware-dependent)
 # backend = "mujoco"  # Benchmark comparison (LIBERO/MetaWorld)
-# backend = "isaac"   # Large-scale experiments (10k+ envs)
+# backend = "isaac"   # Large-scale batch experiments (GPU; planned)
 
 [robot]
 backend = "gazebo"    # Industry-standard robot simulation
@@ -100,7 +122,7 @@ cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv
 use pid_core::{pid2_isx, MatRef, Pid2Config};
 
 // Prepare your data: n samples × d dimensions
-// OpenVLA standard dimensions (see EXPERIMENTS.md §3)
+// Example dimensions (verify for your model; see EXPERIMENTS.md §3)
 let n = 1000;
 let d_vis = 1024; // Vision (SigLIP/DinoV2)
 let d_lang = 4096; // Language (Llama 2 7B)
@@ -129,12 +151,12 @@ println!("Synergy: {:.3} nats", result.synergy);
 
 ### Modular Simulation Backends
 
-PID-Splat uses a composable architecture with swappable backends (see `DIAGRAMS.md` §4 and `ARCHITECTURE.md` §2):
+The proposed PID‑Splat stack uses a composable architecture with swappable backends (see `DIAGRAMS.md` §4 and `ARCHITECTURE.md` §2):
 
 | Layer | Options | Selection Criteria |
 |-------|---------|--------------------|
-| **Rendering** | Gaussian Splats (fixed) | Always photorealistic |
-| **Physics** | Rapier, MuJoCo, Isaac Gym | Speed vs accuracy vs scale |
+| **Rendering** | Gaussian splats (proposed) | High visual fidelity (benchmark-dependent) |
+| **Physics** | Rapier, MuJoCo (Isaac Gym: planned) | Speed vs contact fidelity vs scale |
 | **Robot** | Gazebo, MuJoCo, None | Sensor sim vs benchmark compat |
 
 ### PID-Core Library
@@ -184,10 +206,10 @@ See `grandplan.md` §7 for detailed analysis.
 
 | VLA | Backbone | World Model (D) | Action Rep | Notes |
 | --- | --- | --- | --- | --- |
-| **OpenVLA** | Llama 2 7B | Implicit (Hidden states) | Discrete bins | Primary target; d=4096 |
+| **OpenVLA** | Llama 2 7B | Implicit (hidden states; definition choice) | Action tokens/bins (verify) | Primary target; d≈4096 |
 | **DreamVLA** | GPT-2 var. | Explicit (<dream> tokens) | Diffusion | Ideal for V-D-A; dims unknown |
 | **PixelVLA** | Llama 2 7B | Implicit + Pixel enc. | Continuous 7D | Multiscale visual features |
-| **TraceVLA** | Llama 2 7B | Trace-augmented V | Discrete bins | Temporal history in V |
+| **TraceVLA** | Llama 2 7B | Trace-augmented V | Action tokens/bins (verify) | Temporal history in V |
 | **GalaxeaVLA** | - | - | - | Open-source VLA platform |
 | **π* (Pi-star) 0.6** | - | - | - | Foundation model for general robotics |
 
@@ -199,19 +221,19 @@ See `grandplan.md` §7 for detailed analysis.
 
 2. **Hyperbolic/Lorentzian Limitation:** The validated ISX estimator (`EhrlichKsg`) **only supports Chebyshev metric**. Hyperbolic/Lorentzian PID estimation is NOT currently supported. This is a fundamental limitation of the Ehrlich et al. (2024) algorithm.
 
-3. **Flow-as-Bridge Workaround:** To sidestep manifold issues, use 3D Object Flow (Euclidean R³) as the PID target rather than high-dimensional embeddings. See `EXPERIMENTS.md` §8, `ARCHITECTURE.md` §1.6, and `DIAGRAMS.md` §5. This is the **recommended approach** for VLA analysis.
+3. **Flow-as-Bridge Workaround:** To avoid non-Euclidean embedding geometry, use explicit 3D Object Flow as the PID target rather than relying on high-dimensional latent distances. See `EXPERIMENTS.md` §8, `ARCHITECTURE.md` §1.6, and `DIAGRAMS.md` §6. Flow is Euclidean but can still be high-dimensional (e.g., \(\mathbb{R}^{3T}\)), so you must validate dimensionality and distance concentration.
 
 4. **Geometry Validation Gate:** Before trusting PID results, run geometry diagnostics (intrinsic dimension, δ-hyperbolicity, distance concentration). See `EXPERIMENTS.md` §4 (Geometry Validation Gate subsection).
 
-5. **Sample Size:** Theoretically, KSG requires $N \propto k^d$. In practice, validation at $N=1000$ for $d=64$ relies on empirical tests in `grandplan.md` §8.6.
+5. **Sample Size:** kNN/KSG estimators can require very large sample sizes as intrinsic dimension or dependence strength increases. Treat any “works at (N,d)” claim as empirical until validated (Experiment 0 + geometry diagnostics).
 
 6. **i.i.d. Assumption:** VLA trajectories are autocorrelated. Use cross-trajectory sampling or large strides.
 
 ## References
 
 **Core Methodology:**
-- Makkeh, A., Gutknecht, A. J., & Wibral, M. (2021). Introducing a differentiable measure of pointwise shared information. *Phys Rev E*, 103:032149.
-- Ehrlich, D. A., Schick-Poland, K., Makkeh, A., et al. (2024). Partial Information Decomposition for Continuous Variables based on Shared Exclusions. *Phys Rev E*, 110:014115.
+- Makkeh, A., Gutknecht, A. J., & Wibral, M. (2021). Introducing a differentiable measure of pointwise shared information. *Phys Rev E*, 103:032149. DOI: `10.1103/PhysRevE.103.032149`.
+- Ehrlich, D. A., Schick-Poland, K., Makkeh, A., et al. (2024). Partial Information Decomposition for Continuous Variables based on Shared Exclusions. *Phys Rev E*, 110:014115. DOI: `10.1103/PhysRevE.110.014115`.
 - Gutknecht, A. J., et al. (2025). Shannon Invariants: A Scalable Approach to Information Decomposition. *arXiv:2504.15779*.
 
 **Research Plan:**

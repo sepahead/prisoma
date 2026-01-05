@@ -9,6 +9,8 @@
 
 ---
 
+**Docset alignment:** This document is aligned to `grandplan.md` v7.0. It describes a *target architecture* (PID‑Splat) that goes beyond what is currently implemented in this repository; treat latency/throughput numbers as measurements to be taken on your hardware, not guarantees.
+
 ## 1. Core System Components
 
 ### 1.1 Tauri Application (Desktop Framework)
@@ -22,10 +24,10 @@
   - React/Three.js frontend (visualization)
   - Zenoh bridge (simulation data streaming)
 
-**Why it matters:**
-- Native performance: Rust backend runs PID estimators at <100ms/window
-- Real-time visualization: 16ms/frame rendering on M4 Max
-- Unified interface: Single app combines simulation control, VLA inference monitoring, and PID analysis
+**Why it matters (design goals; verify on your hardware):**
+- Tight Rust↔UI integration for low-latency debugging workflows
+- A unified surface for simulation control + PID metric visualization (planned)
+- Practical iteration speed for Experiment 0 and downstream analyses
 
 **Stack:**
 ```
@@ -44,11 +46,11 @@
 **What it does:**
 - Custom WebGPU renderer for 3D Gaussian Splatting (3DGS)
 - Implements "Dynos" — WGSL shaders that modify splat color buffers based on PID metrics
-- Real-time LOD (Level of Detail) for 60fps on consumer hardware
+- Real-time LOD (Level of Detail) targeting smooth interaction on WebGPU-capable GPUs (benchmark-dependent)
 
 **Why it matters:**
-- **Photorealistic rendering**: 3DGS provides camera-realistic views without expensive ray-tracing
-- **Differentiable**: Splat rendering is fully differentiable, enabling gradient-based world model training
+- **High visual fidelity**: 3DGS can produce photorealistic novel views in many settings (capture/scene dependent)
+- **Differentiability caveat**: Gaussian splatting is differentiable in training frameworks; the SparkJS/WebGPU renderer here is a visualization target, not a differentiable training primitive.
 - **PID Overlay**: Dynos colorize splats based on information flow:
   - Red = High Synergy
   - Blue = High Unique Information
@@ -60,7 +62,7 @@
 - Provides rigid body physics simulation via a pluggable backend system
 - Supports **Rapier3D** (Rust-native, default), **MuJoCo** (industry standard), and **Isaac Gym** (GPU-parallel)
 - Handles collision detection, joint constraints, friction, restitution
-- Rapier runs at <1ms/step, enabling 1000Hz internal physics with 100Hz external control
+- Rapier can run at low step times for small scenes; achievable control/step rates are hardware- and scene-dependent (measure on your setup).
 
 **Key capabilities (Rapier implementation):**
 ```rust
@@ -79,7 +81,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 
 **Why it matters:**
 - **Determinism**: Fully deterministic physics (critical for reproducibility in Rapier)
-- **Modularity**: Select the best engine for the task (Rapier for speed, MuJoCo for contact accuracy)
+- **Modularity**: Select an engine appropriate to your trade-offs (Rapier for speed, MuJoCo for contact fidelity)
 - **Integration**: Native Rust (Rapier) = zero-copy data flow to PID-core; FFI for MuJoCo/Isaac
 
 ### 1.4 Gazebo Harmonic (Robot Simulation)
@@ -157,18 +159,20 @@ ns-export gaussian-splat \
 | tabletop_scene | ~800,000 | Static mesh |
 
 **Why it matters:**
-- **Real2Sim photorealism**: Captured splats look like real images (domain gap minimization)
+- **Real2Sim photorealism**: Captured splats look like real images (can reduce synthetic domain gaps; benchmark-dependent)
 - **Object-centric assets**: Each manipulated object is a separate splat (compositional scenes)
 - **Differentiable rendering**: Enables gradient flow through visual observations
+ 
+**Caveat:** “Domain gap” and “photorealism” are benchmark-dependent; treat any sim2real claims as empirical until measured.
 
 ### 1.6 Dream2Flow Integration (World Model Bridge)
 
 **What it does:**
-- Uses WAN 2.2 video generation to "dream" future trajectories
-- SAM3 + CoTracker3 + Depth-Anything v3 extracts 3D object flow from dreamed videos
+- Uses a video generation model to "dream" plausible future trajectories (model choice is external)
+- Segmentation + point tracking + depth estimation extract 3D object flow from dreamed videos
 - 3D Flow becomes a **target variable** for PID analysis
 
-> **Why Flow-as-Bridge is Critical**: The validated ISX estimator (`EhrlichKsg`) only supports Chebyshev (L∞) metric and **cannot** handle hyperbolic/Lorentzian geometry. VLA embeddings may lie on curved manifolds where standard PID estimation fails. By using 3D Object Flow (Euclidean R³) as the target, we sidestep manifold issues entirely.
+> **Why Flow-as-Bridge is Critical**: The validated ISX estimator (`EhrlichKsg`) only supports Chebyshev (L∞) geometry and does **not** currently have a derivation for hyperbolic/Lorentzian manifolds. If high‑D embeddings exhibit tree‑like or curved geometry, shifting the diagnostic target to explicit 3D object flow can avoid non‑Euclidean metric issues; you still must validate dimensionality/distance concentration (flow is Euclidean but can be high‑D as \(\mathbb{R}^{3T}\)).
 
 **Pipeline:**
 ```
@@ -176,23 +180,23 @@ Current Image + Instruction
          │
          ▼
     ┌─────────┐
-    │ WAN 2.2 │ (48 frames, 2 seconds @ 24fps)
+    │ Video   │ (e.g., 48 frames, 2 seconds @ 24fps; configurable)
+    │  model  │
     └────┬────┘
          │
          ▼
     ┌─────────┐
-    │  SAM3   │ (Segment objects in frame 0)
+    │ Segm.   │ (Segment objects in frame 0)
     └────┬────┘
          │
          ▼
   ┌───────────┐
-  │ CoTracker3│ (Track 2D points through video)
+  │ Tracker   │ (Track 2D points through video)
   └─────┬─────┘
          │
          ▼
 ┌─────────────────┐
-│ Depth-Anything  │ (Estimate per-frame depth)
-│      v3         │
+│ Depth model     │ (Estimate per-frame depth)
 └────────┬────────┘
          │
          ▼
@@ -217,24 +221,25 @@ Current Image + Instruction
 |-----------|-----------|---------|------------|-------|------------------|
 | **MuJoCo** | Mesh-based, synthetic | ⭐⭐⭐⭐⭐ Excellent contacts | High | Fast | Good physics, poor visuals |
 | **PyBullet** | Basic OpenGL | ⭐⭐⭐ Adequate | High | Medium | Legacy, limited |
-| **Isaac Gym** | RTX ray-tracing | ⭐⭐⭐⭐ Good | Medium | Very Fast (GPU) | Best traditional sim |
+| **Isaac Sim/Lab** | RTX (optional) | ⭐⭐⭐⭐ Good | Medium | Medium–Fast | High-fidelity simulator (NVIDIA) |
+| **Isaac Gym** | Basic raster (if used) | ⭐⭐⭐⭐ Good (GPU) | Medium | Very Fast (GPU) | Scalable physics; visuals depend on renderer |
 | **Habitat** | Mesh + neural | ⭐⭐ Navigation only | Medium | Fast | Navigation tasks only |
 | **CARLA** | Unreal Engine | ⭐⭐⭐ Vehicle physics | Low-Medium | Slow | Driving only |
 | **robosuite** | MuJoCo backend | ⭐⭐⭐⭐⭐ MuJoCo | High | Fast | Standard benchmark |
 | **Gazebo Harmonic** | OGRE2/Vulkan | ⭐⭐⭐⭐ Good robot sim | Medium | Medium | Industry standard |
 | **Rapier3D** | None (headless) | ⭐⭐⭐ Good rigid body | N/A | Very Fast | Fast iteration |
-| **Gaussian Splats** | Photorealistic | N/A (needs physics) | **Minimal** | 60fps | **Best for VLA visuals** |
+| **Gaussian splats (3DGS)** | High-fidelity (capture dependent) | N/A (needs physics) | Often reduced vs synthetic meshes | Fast rendering (hardware dependent) | Strong candidate for visual realism studies |
 
 ### 2.2 Why Each Simulator Falls Short for VLA Diagnostics
 
 | Simulator | Limitation for PID-VLA |
 |-----------|------------------------|
-| **MuJoCo/robosuite** | Synthetic visuals → domain gap → VLA behaves differently than on real images |
+| **MuJoCo/robosuite** | Synthetic visuals can create sim2real gaps for vision-heavy policies unless carefully randomized/photorealistic |
 | **PyBullet** | Outdated rendering, poor visual fidelity |
-| **Isaac Gym** | Requires NVIDIA GPU, complex setup, still not photorealistic |
+| **Isaac Gym** | NVIDIA-only; rendering fidelity depends on the chosen renderer and assets |
 | **Habitat** | Navigation-only, no manipulation |
 | **CARLA** | Driving-only, no manipulation |
-| **Gazebo** | Better visuals but still synthetic, slow for batch experiments |
+| **Gazebo** | Strong robot middleware support; visuals/physics trade-offs depend on plugins and assets; batch scaling may require additional tooling |
 
 ### 2.3 The PID-Splat Solution: Composable Backends
 
@@ -250,7 +255,7 @@ Current Image + Instruction
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Key Insight**: Decouple rendering from physics. Use Gaussian Splats for visuals (minimal domain gap) + pluggable physics backend for simulation.
+**Key Insight**: Decouple rendering from physics. Use Gaussian splats for visuals (often reduced visual sim2real gap vs synthetic meshes; benchmark-dependent) + a pluggable physics backend for simulation.
 
 ### 2.4 Modular Physics Backend Selection
 
@@ -258,9 +263,9 @@ Users can select physics backend based on their needs:
 
 | Use Case | Recommended Backend | Why |
 |----------|---------------------|-----|
-| **Fast iteration / prototyping** | Rapier3D | <1ms/step, Rust-native |
-| **Accurate contact physics** | MuJoCo | Gold standard for manipulation |
-| **GPU-parallel batch experiments** | Isaac Gym | 10,000+ parallel envs |
+| **Fast iteration / prototyping** | Rapier3D | Low-latency, Rust-native |
+| **Accurate contact physics** | MuJoCo | Strong contact modeling baseline for manipulation |
+| **GPU-parallel batch experiments** | Isaac Gym | Large parallel batches (GPU; hardware-dependent) |
 | **Robot kinematics/sensors** | Gazebo Harmonic | Industry-standard URDFs |
 | **Benchmark comparison** | MuJoCo + robosuite | Match existing VLA papers |
 
@@ -284,7 +289,7 @@ gpu_id = 0
 num_envs = 1024
 
 [rendering]
-backend = "splat"  # Always use Gaussian Splats for VLA studies
+backend = "splat"  # Default: Gaussian splats for visual realism studies
 
 [robot]
 backend = "gazebo"  # Options: "gazebo", "mujoco", "none"
@@ -300,7 +305,7 @@ urdf_path = "assets/robots/franka_panda.urdf"
 | **Camera intrinsics** | Manual setup | Manual setup | **Real-time modification** |
 | **Motion blur** | Not supported | Limited | **Post-process shader** |
 | **Lens distortion** | Not supported | Limited | **Post-process shader** |
-| **New environments** | Days (3D modeling) | Days (3D modeling) | **Minutes (iPhone capture)** |
+| **New environments** | Longer asset-authoring cycles | Longer asset-authoring cycles | Potentially faster capture/reconstruction (depends on setup/tooling) |
 
 ---
 
@@ -311,26 +316,26 @@ urdf_path = "assets/robots/franka_panda.urdf"
 | Aspect | OpenVLA et al. | PID-Splat |
 |--------|----------------|-----------|
 | **Simulation** | MuJoCo/PyBullet (mesh-based) | Gaussian Splats + Rapier (photorealistic + fast) |
-| **Visual Fidelity** | Synthetic renders, domain gap | Real-captured splats, minimal domain gap |
+| **Visual Fidelity** | Synthetic renders can introduce domain gaps | Real-captured splats can reduce visual domain gaps (benchmark-dependent) |
 | **Analysis** | Task success rate only | PID decomposition reveals *why* success/failure |
 | **World Model** | Implicit in LLM hidden states | Explicit 3D flow extraction for validation |
 | **Embodiment Transfer** | Per-robot fine-tuning | Flow-as-bridge tests embodiment-agnostic understanding |
 
-**Key advantage**: OpenVLA/PixelVLA report success rates but cannot diagnose *why* a policy fails. PID-Splat decomposes information flow to identify:
-- **Hallucination**: Negative synergy indicates subadditive integration (H1)
-- **Memorization vs Generalization**: PID signatures distinguish these (H4)
-- **Compositional failure**: Temporal synergy degradation in long-horizon tasks (H5)
+**What PID adds (hypothesis; validate empirically):** typical benchmarks emphasize task success and sometimes auxiliary diagnostics; PID offers an additional, information-theoretic decomposition that *may* help localize which inputs drive decisions:
+- **Grounding failure signatures:** candidate correlations between PID atoms and failures (H1/H2; see `grandplan.md` warnings + Experiment 0 gate)
+- **Memorization vs generalization:** test whether PID patterns differ across held-out compositions (H4)
+- **Long-horizon composition:** test whether temporal PID summaries degrade before failure (H5)
 
-### 3.2 Comparison with VLMarena
+### 3.2 Comparison with VLA-Arena
 
-| Aspect | VLMarena | PID-Splat |
+| Aspect | VLA-Arena | PID-Splat |
 |--------|----------|-----------|
 | **Focus** | Benchmark suite (what) | Diagnostic framework (why) |
 | **Rendering** | Standard simulators | 3DGS photorealism |
 | **Metrics** | Task completion, collision rate | Information-theoretic decomposition |
 | **Scalability** | N models × M tasks = N×M runs | Single analysis reveals modality contributions |
 
-**Key advantage**: VLMarena tells you *which* model performs better. PID-Splat tells you *why* one model integrates vision-language better than another.
+**Complementary positioning:** VLA-Arena provides standardized evaluation; PID-based analyses aim to add diagnostic signals on top of those evaluations (not replace them).
 
 ### 3.3 Comparison with Dream2Flow
 
@@ -364,10 +369,10 @@ Image + Instruction → LLM → Action Tokens
 ```
 
 **Failure modes:**
-1. **No physics grounding**: LLM has no explicit model of 3D physics
-2. **Hallucination risk**: Language models can generate confident but wrong actions
-3. **Opaque integration**: Unknown how V and L combine to produce A
-4. **Embodiment brittleness**: Policy tied to specific robot morphology
+1. **Implicit state:** policies often do not expose an explicit physical state representation (“world model”) as a first-class variable
+2. **Grounding risk:** models can produce confident actions that are physically infeasible or misaligned with the scene
+3. **Opaque integration:** it is often hard to attribute failures to V vs L vs internal state without targeted probes/interventions
+4. **Embodiment coupling:** policies may overfit to specific camera viewpoints, control frequencies, or embodiments
 
 ### 3.2 The World Model Advantage
 
@@ -406,21 +411,21 @@ I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 1. **Photorealistic inputs** (so VLA behavior matches real-world)
 2. **Fast physics** (for thousands of evaluation episodes)
 3. **Real-time analysis** (live PID computation during rollouts)
-4. **Differentiable rendering** (for future gradient-based probing)
+4. **Reproducible instrumentation** (fixed preprocessing, validated estimators, and controlled interventions)
 
-Gaussian Splats + Modular Physics + Tauri provide all four.
+Gaussian splats + modular physics + a unified UI (e.g., Tauri) are intended to support these goals; treat them as hypotheses until benchmarked.
 
 ---
 
 ## 4. Component Summary
 
-| Component | Role | Why Superior |
+| Component | Role | Rationale (design goals; benchmark-dependent) |
 |-----------|------|--------------|
 | **Tauri** | Desktop app shell | Native Rust perf + cross-platform |
 | **SparkJS** | 3DGS rendering | WebGPU photorealism + PID overlays |
 | **Physics** | Object physics | Modular (Rapier/MuJoCo/Isaac) |
 | **Robot Sim** | Robot dynamics | Industry-standard (Gazebo/MuJoCo) |
-| **3DGS Pipeline** | Scene capture | Real2Sim photorealism, differentiable |
+| **3DGS Pipeline** | Scene capture | Photorealistic captures; differentiable training pipelines exist (visualization here is non-differentiable) |
 | **Dream2Flow** | World model probe | Euclidean flow target, embodiment-agnostic |
 | **PID-Core** | Information analysis | Decomposes V-L-A integration, diagnoses failures |
 
@@ -448,18 +453,7 @@ Gaussian Splats + Modular Physics + Tauri provide all four.
 | RAM | 32GB | 64GB |
 | Storage | 500GB SSD | 2TB NVMe |
 
-**Latency Budget (Real-time loop, no WAN):**
-```
-Capture image          :    0ms (start)
-VLA inference          : 2000ms
-Action execution       :   10ms
-Physics step           :    1ms
-PID computation        :   50ms
-Render                 :   16ms
-─────────────────────────────────
-Total                  : ~2100ms per action
-Effective control Hz   : ~0.5 Hz (quasi-static tasks)
-```
+**Latency note:** Any ms-level budget is hardware/model dependent; treat numbers as estimates until measured. For rigorous reporting, benchmark each component and report measured ranges (see `EXPERIMENTS.md` §12).
 
 
 ---
@@ -488,7 +482,7 @@ The architecture supports a head-to-head comparison between two dominant world m
 
 ## 8. SmolVLA (LeRobot) Integration
 
-SmolVLA (Jan 2025) is integrated as the primary lightweight baseline.
+SmolVLA (LeRobot) is a candidate lightweight baseline (planned integration; verify model availability/APIs).
 
 ### 8.1 Architecture
 - **Backbone:** SmolVLM-2 (SigLIP visual encoder + SmolLM2 language model).
@@ -497,6 +491,6 @@ SmolVLA (Jan 2025) is integrated as the primary lightweight baseline.
 - **Parameters:** ~450M (15x smaller than OpenVLA).
 
 ### 8.2 Architectural Role in PID-VLA
-- **Iteration Speed:** Enables rapid testing of the PID pipeline due to fast inference (~100ms on M4 Max vs ~2s for OpenVLA).
-- **Control Rate:** Higher control frequency (~10Hz) due to async inference.
+- **Iteration Speed:** Smaller models can make the PID pipeline easier to iterate on (measure inference latency on your hardware).
+- **Control Rate:** Async inference can raise effective control rates (benchmark; depends on policy and environment).
 - **Fine-tuning:** Seamless integration with Hugging Face LeRobot datasets (SO-100, LIBERO).

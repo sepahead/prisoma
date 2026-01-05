@@ -8,6 +8,7 @@ name = "pid_core_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23.3", features = ["extension-module"] }
+# Build as a stable-ABI extension for Python 3.11+.
+pyo3 = { version = "0.23.3", features = ["extension-module", "abi3-py311"] }
 numpy = "0.23.0"
 pid-core = { path = "../pid-core" }

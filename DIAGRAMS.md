@@ -9,6 +9,8 @@
 
 This document contains visual representations of the PID-VLA system, the PID-Splat simulation environment, and the data processing pipelines.
 
+**Docset alignment:** These diagrams are aligned to `grandplan.md` v7.0. Several components shown below (e.g., Tauri/SparkJS/Gazebo/Zenoh/WAN) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” for what exists today.
+
 ## 1. High-Level System Overview
 
 This diagram illustrates how the core components interact via the Zenoh middleware, separating the inference (VLA), simulation (PID-Splat), and analysis (PID-Core) layers.
@@ -17,7 +19,7 @@ This diagram illustrates how the core components interact via the Zenoh middlewa
 graph TD
     subgraph "Inference Layer (Python/MLX)"
         VLA[OpenVLA / DreamVLA]
-        WAN[WAN 2.2 Video Gen]
+        WAN[Video Gen Model (WAN-like)]
         Vis[Vision Foundation Models]
         
         VLA -->|Action| Z_ACT[Zenoh: vla/action]
@@ -77,7 +79,7 @@ sequenceDiagram
     participant PID as PID-Core
     participant Spark as SparkJS (WebGPU)
 
-    Note over Phys, Spark: Frame T (16ms)
+    Note over Phys, Spark: Example frame budget (hardware-dependent)
 
     par Physics Step
         VLA->>Zenoh: Publish Action (Joints)
@@ -104,40 +106,38 @@ sequenceDiagram
 ## 3. Geometry-First Analysis Protocol
 
 This flowchart implements the decision logic from `grandplan.md` §16.11, determining whether to use Euclidean, Manifold, or Hierarchical analysis methods.
+For δ-hyperbolicity thresholds, use a normalized `δ_rel` (e.g., `δ_rel = 2δ / diam(X)`) rather than raw δ; see `grandplan.md` §16.7.
 
 ```mermaid
 flowchart TD
-    Start[Input Embeddings V, D, A] --> Diag[Run Geometry Diagnostics]
-    
-    subgraph "Step 0: Diagnostics"
-        Diag --> ID[Intrinsic Dimension]
-        Diag --> Delta[Gromov Delta]
-        Diag --> Curve[Local Curvature]
+    Start[Input embeddings (V, D, A)] --> Diag[Step 0: Geometry diagnostics]
+
+    subgraph "Diagnostics"
+        Diag --> ID[Intrinsic dimension (Levina–Bickel / GRIDE)]
+        Diag --> DC[Distance concentration (pairwise CV, nn/mean)]
+        Diag --> Delta[δ-hyperbolicity (4-point sampling)]
+        Diag --> Flat[Local flatness / curvature proxy (e.g., neighborhood PCA residual; ORC if available)]
     end
-    
-    ID --> CheckID{ID < 20?}
-    Delta --> CheckHyp{Delta < 0.1?}
-    
-    CheckHyp -- Yes (Tree-like) --> Hyperbolic[Hyperbolic Pipeline]
-    
-    CheckID -- No (ID >= 20) --> Fail[NO-GO: Estimator Invalid]
-    
-    CheckID -- Yes --> CheckFlat{Locally Flat?}
-    Curve --> CheckFlat
-    
-    CheckFlat -- Yes --> Euclidean[Euclidean Pipeline]
-    CheckFlat -- No --> Manifold[Manifold Pipeline]
-    
-    subgraph "Pipelines"
-        Hyperbolic --> P1[Hyperbolic Projection]
-        P1 --> SI[Shannon Invariants CI/Omega]
-        
-        Euclidean --> P2[PCA / Random Proj]
-        P2 --> KSG[Standard KSG I_sx_intersect]
-        
-        Manifold --> P3[Isomap / Unrolling]
-        P3 --> KSG
-    end
+
+    DC --> ConcQ{Concentration?}
+    ConcQ -- Yes --> Reduce[Reduce/quantize or MI-only]
+    Reduce --> Note0[Re-run diagnostics + Experiment 0 after pivot]
+
+    ConcQ -- No --> Tree{δ_rel very small?}
+    Tree -- Yes --> Hier[Tree-like regime]
+    Hier --> SI[Use Shannon invariants / MI-only screening]
+    Hier --> Note1[Avoid interpreting continuous I^sx_∩ atoms (no non-Euclidean derivation)]
+
+    Tree -- No --> FlatQ{Locally flat-ish?}
+    Flat --> FlatQ
+
+    FlatQ -- Yes --> Euclid[PCA + L∞ I^sx_∩ (after Experiment 0 gate)]
+    Euclid --> Gate{Experiment 0 passes?}
+    Gate -- No --> Pivot[Pivot: quantization (discrete PID) or MI-only]
+
+    FlatQ -- No --> Curved[High curvature, non-hierarchical]
+    Curved --> Quant[Quantization → discrete PID]
+    Curved --> Unroll[Manifold unrolling → L∞ estimator (then re-validate)]
 ```
 
 ---
@@ -167,9 +167,9 @@ graph TB
         PhysTrait[PhysicsBackend Trait]
         
         subgraph "Implementations"
-            Rapier["Rapier3D\n<1ms/step\nRust-native"]
-            MuJoCo["MuJoCo\nGold-standard contacts\nFFI bindings"]
-            Isaac["Isaac Gym\nGPU parallel\n10k+ envs"]
+            Rapier["Rapier3D\n(low-latency; hardware-dependent)\nRust-native"]
+            MuJoCo["MuJoCo\nstrong contact modeling\nFFI bindings"]
+            Isaac["Isaac Gym\nGPU-parallel (if available)\n(batch scale)"]
         end
         
         PhysTrait --> Rapier
@@ -226,7 +226,7 @@ flowchart TD
     MuJoCoR --> Ready
     NoRobot --> Ready
     
-    Ready --> Render[Always: Gaussian Splats via SparkJS]
+    Ready --> Render[Default: Gaussian splats via SparkJS]
 ```
 
 ### Use Case Decision Tree
@@ -235,13 +235,13 @@ flowchart TD
 flowchart TD
     UseCase[What's your use case?] --> Speed{Need speed?}
     
-    Speed -->|Yes, <1ms/step| Rapier[Use: physics.backend = rapier]
+    Speed -->|Yes, prioritize speed| Rapier[Use: physics.backend = rapier]
     Speed -->|No| Contact{Contact-rich manipulation?}
     
     Contact -->|Yes, precise grasping| MuJoCo[Use: physics.backend = mujoco]
     Contact -->|No| Batch{Large-scale experiments?}
     
-    Batch -->|Yes, 10k+ episodes| Isaac[Use: physics.backend = isaac]
+    Batch -->|Yes, large-scale batch runs| Isaac[Use: physics.backend = isaac]
     Batch -->|No| Benchmark{Comparing to papers?}
     
     Benchmark -->|Yes, LIBERO/MetaWorld| MuJoCo
@@ -257,7 +257,44 @@ flowchart TD
 
 ---
 
-## 5. Dream2Flow Data Pipeline
+## 5. Hybrid Rendering: Splats + Mesh + Physics Proxies
+
+This diagram captures the intended hybrid approach: use 3DGS splats for photoreal appearance, and meshes/URDFs for articulated robots, collision proxies, and precise interactive edits. This aligns with `grandplan.md` §A and §16 (geometry/diagnostics are independent of the renderer, but the renderer must support inspectable overlays).
+
+```mermaid
+graph TB
+    subgraph "Visual Scene (Appearance)"
+        Splats[3DGS Splats\n(static background / captured assets)]
+        Spark[SparkJS (WebGPU)\nSplat Renderer]
+        Splats --> Spark
+    end
+
+    subgraph "Dynamics Scene (Geometry)"
+        Mesh[Meshes/URDFs\n(robots + collision proxies)]
+        Three[Three.js/WebGPU\nMesh Renderer]
+        Mesh --> Three
+    end
+
+    subgraph "Physics"
+        Phys[Physics Engine\n(Rapier/MuJoCo)]
+        Mesh -->|Collision shapes| Phys
+        Phys -->|Pose/Transforms| Mesh
+    end
+
+    subgraph "Diagnostics"
+        PID[pid-core metrics\n(Syn/Red/Unq, CI/Ω)]
+        PID --> Overlay[GPU overlays\n(Dynos / heatmaps)]
+        Overlay --> Spark
+        Overlay --> Three
+    end
+
+    Cam[Shared camera + UI state] --> Spark
+    Cam --> Three
+```
+
+---
+
+## 6. Dream2Flow Data Pipeline
 
 Visualizing the specific integration of WAN video generation and 3D flow extraction (`pidsplatspecs.md` §4).
 
@@ -269,14 +306,14 @@ graph LR
     end
 
     subgraph "WAN Generation"
-        IMG & TXT --> WAN[WAN 2.2 Model]
+        IMG & TXT --> WAN[Video Gen Model]
         WAN --> VIDEO[Generated Video 2s]
     end
 
     subgraph "Flow Extraction"
-        VIDEO --> SAM[SAM3 Segmentation]
-        VIDEO --> DEPTH[Depth-Anything v3]
-        VIDEO --> TRACK[CoTracker3]
+        VIDEO --> SAM[Segmentation (e.g., SAM2)]
+        VIDEO --> DEPTH[Depth (relative or metric)]
+        VIDEO --> TRACK[Tracking (e.g., CoTracker)]
         
         SAM & DEPTH & TRACK --> LIFT[2D to 3D Lifting]
         LIFT --> TRAJ[3D Flow Trajectory]
@@ -289,4 +326,46 @@ graph LR
         SOURCE & TARGET --> EST[PID Estimator]
         EST --> GHOST[Ghost Splat Viz]
     end
+```
+
+---
+
+## 7. Experiment 0 Validation Gate (GO/PIVOT/NO-GO)
+
+This diagram summarizes the required estimator/geometry validation loop before applying PID to real VLA embeddings (`grandplan.md` §9.1, §16; `EXPERIMENTS.md` §4).
+
+```mermaid
+flowchart TD
+    Start[Choose representation (V/L/D/A/Flow)] --> Geo[Run geometry diagnostics]
+    Geo -->|OK| Exp0[Run Experiment 0 (synthetic validation)]
+    Geo -->|Flags non-Euclidean / concentration| PivotGeom[Pivot representation: reduce/quantize/Flow target]
+    PivotGeom --> Geo
+
+    Exp0 --> Gate{Meets accuracy/stability thresholds?}
+    Gate -->|GO| Proceed[Proceed to real embeddings + preregistered analyses]
+    Gate -->|PIVOT| PivotEst[Pivot estimator/representation; re-run Geo + Exp0]
+    Gate -->|NO-GO| Stop[Stop: do not interpret PID atoms]
+
+    PivotEst --> Geo
+```
+
+---
+
+## 8. Hypotheses → Experiments Map
+
+```mermaid
+graph LR
+    H1[H1 Grounding failures] --> E1[Exp1 Pick-and-place]
+    H1 --> E3[Exp3 Instruction perturbation]
+
+    H4[H4 Memorization vs generalization] --> E1
+    H4 --> E3
+    H4 --> E5[Exp5 Cross-embodiment]
+
+    H5[H5 Temporal synergy degradation] --> E2[Exp2 Long-horizon assembly]
+
+    H6[H6 Safety-aware integration] --> E3
+
+    H7[H7 Flow-as-bridge] --> E4[Exp4 Dream2Flow validation]
+    H7 --> E5
 ```

@@ -1,26 +1,18 @@
-use numpy::{PyReadonlyArray2, ToPyArray};
-use pid_core::geometry::{
+use numpy::PyReadonlyArray2;
+use pid_core::{
     distance_concentration_stats, gromov_hyperbolicity, intrinsic_dimension_levina_bickel,
-    DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig,
+    isx_redundancy, ksg_mi, DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig,
+    IsxConfig, IsxMethod, KsgConfig, MatRef, Metric,
 };
-use pid_core::isx::{isx_redundancy, IsxConfig, IsxMethod};
-use pid_core::ksg::{ksg_mi, KsgConfig};
-use pid_core::matrix::MatRef;
-use pid_core::metric::Metric;
 use pyo3::prelude::*;
 
 /// Convert a numpy array to MatRef.
 /// Returns error if array is not C-contiguous or contains non-finite values.
 fn array_to_matref<'a>(arr: &'a PyReadonlyArray2<f64>) -> PyResult<MatRef<'a>> {
-    let arr_view = arr.as_array();
-    if !arr_view.is_standard_layout() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "Array must be C-contiguous",
-        ));
-    }
-    let slice = arr_view.as_slice().ok_or_else(|| {
-        pyo3::exceptions::PyValueError::new_err("Failed to get array slice (non-contiguous?)")
+    let slice = arr.as_slice().map_err(|_| {
+        pyo3::exceptions::PyValueError::new_err("Array must be C-contiguous")
     })?;
+    let arr_view = arr.as_array();
     let (nrows, ncols) = (arr_view.shape()[0], arr_view.shape()[1]);
     
     MatRef::new(slice, nrows, ncols).map_err(|e| {
@@ -57,6 +49,7 @@ fn compute_mi(
     let cfg = KsgConfig {
         k,
         metric: metric_enum,
+        ..Default::default()
     };
 
     ksg_mi(x_mat, y_mat, &cfg)
@@ -85,6 +78,7 @@ fn compute_redundancy(
     let cfg = IsxConfig {
         k,
         method: method_enum,
+        ..Default::default()
     };
 
     isx_redundancy(s1_mat, s2_mat, t_mat, &cfg)
@@ -134,7 +128,9 @@ fn estimate_gromov_delta(
 }
 
 /// Compute distance concentration statistics.
-/// Returns a dict: {'pairwise_cv': float, 'nn_mean_ratio': float, ...}
+/// Returns a dict with summary statistics including:
+/// - pairwise min/max/mean/std/cv
+/// - nearest-neighbor mean/cv and nn_over_pairwise_mean
 #[pyfunction]
 #[pyo3(signature = (x, metric="chebyshev"))]
 fn distance_stats(x: PyReadonlyArray2<f64>, metric: &str) -> PyResult<std::collections::HashMap<String, f64>> {
@@ -149,9 +145,14 @@ fn distance_stats(x: PyReadonlyArray2<f64>, metric: &str) -> PyResult<std::colle
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{:?}", e)))?;
 
     let mut map = std::collections::HashMap::new();
+    map.insert("pairwise_count".to_string(), stats.pairwise_count as f64);
+    map.insert("pairwise_min".to_string(), stats.pairwise_min);
+    map.insert("pairwise_max".to_string(), stats.pairwise_max);
     map.insert("pairwise_mean".to_string(), stats.pairwise_mean);
     map.insert("pairwise_std".to_string(), stats.pairwise_std);
     map.insert("pairwise_cv".to_string(), stats.pairwise_cv);
+    map.insert("nn_min".to_string(), stats.nn_min);
+    map.insert("nn_max".to_string(), stats.nn_max);
     map.insert("nn_mean".to_string(), stats.nn_mean);
     map.insert("nn_cv".to_string(), stats.nn_cv);
     map.insert("nn_over_pairwise_mean".to_string(), stats.nn_over_pairwise_mean);
