@@ -9,7 +9,7 @@
 
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** 7.0 (Aligned with `grandplan.md` v7.0)  
+**Version:** 9.0 (Aligned with `grandplan.md` v9.0)  
 **Date:** 2026-01-05  
 **Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, external video predictor / Dream2Flow-style pipeline, and the Agent Bridge control plane) are external or not yet implemented in this repo; treat them as specifications until built.
  
@@ -50,8 +50,8 @@ All hypotheses below inherit **two prerequisites**:
 | Hypothesis | Experiments | Variables (examples) | Primary metrics | Required controls (see `grandplan.md` §14) |
 |-----------|-------------|----------------------|----------------|--------------------------------------------|
 | **H1** Grounding failures ↔ PID features | Exp1, Exp3 | `(V,L;A)` or `(V,D;A)` | Failure prediction AUROC / calibration; effect size over baselines | Label leakage checks, stratified splits, nested CV/held-out test, geometry gate + Exp0 |
-| **H2** Redundancy ↔ robust integration | Exp1, Exp3 | `(V,L;A)` across perturbations | ΔRed and ΔMI vs Δsuccess; redundancy stability under nuisance shifts | Matched difficulty, nuisance controls, geometry gate + Exp0 |
-| **H3** Unique info ↔ modality-specific contribution | Exp1, Exp3 | `(V,L;A)` under modality-isolated perturbations | ΔUnq(V), ΔUnq(L) under V-only vs L-only perturbations; attribution validity | Perturbations isolated to one modality, placebo perturbations, preregistered comparisons |
+| **H2** Redundancy ↔ robustness-to-ablation | Exp1, Exp3 | `(V,L;A)` under single-modality corruptions | Δsuccess / Δaction-change under V-only vs L-only corruption as a function of `Red(V,L;A)` | Matched difficulty, nuisance controls, geometry gate + Exp0 |
+| **H3** Uniques ↔ intervention sensitivity | Exp1, Exp3 | `(V,L;A)` under modality-isolated perturbations | ΔUnq(V), ΔUnq(L) under V-only vs L-only perturbations; sensitivity/attribution validity | Perturbations isolated to one modality, placebo perturbations, preregistered comparisons |
 | **H4** Memorization vs generalization | Exp1, Exp3, Exp5 + §10 | `(V,L;A)` across in-dist vs perturbed | ΔPID atoms vs Δsuccess under perturbations; OOD generalization gap | Perturbations matched for difficulty, seed controls, report distribution shift severity |
 | **H5** Temporal synergy degradation | Exp2 | windowed `(V,L;A)` over phases | Synergy trend (slope), early vs late contrast, correlation with failure time | Autocorrelation-aware sampling, block bootstrap, phase definitions pre-registered |
 | **H6** Safety constraints require V–L integration | Exp3 | safety vs baseline instructions | ΔUnq(L), ΔSyn(V,L;A); collision/near-miss rates | Matched task conditions, instruction-only changes, nuisance controls (lighting/distractors) |
@@ -605,7 +605,7 @@ class RobotObservation:
  
 ## 3. VLA Model Setup
 
-### 3.1 Model Selection and Staging (v7.0)
+### 3.1 Model Selection and Staging (v9.0)
 
 Follow the risk-reducing sequence in `grandplan.md` §A.6:
 1) estimator gate (Exp0), 2) harness bring-up with `Flow_gt`, 3) small baseline (e.g., SmolVLA), 4) primary VLA target (e.g., OpenVLA), then optional branches (diffusion-based VLAs and predictor-driven `Flow_pred`).
@@ -616,6 +616,7 @@ Follow the risk-reducing sequence in `grandplan.md` §A.6:
 |-------|---------------------|------------------------|-------------------------------------|
 | **OpenVLA** | Primary target for Aim 1/2 | arXiv:2406.09246: Llama‑2 7B + (DINOv2, SigLIP) + ~970k demos | Action representation; exact hook points for `V/L/D`; whether/where to export pre-attention states; licensing + checkpoint provenance |
 | **SmolVLA** | Harness bring-up baseline | (model card/repo; verify) | Backbone, action rep, available intermediate dumps, licensing |
+| **InternVLA‑A1** | Diffusion / flow-matching ablation axis (optional) | Repo + project page describe a tripartite understanding/generation/action design; action generation via “Flow Matching” (verify) | License constraints (repo indicates CC BY‑NC‑SA 4.0); what the generation expert outputs (`D_gen`) and how to export it; action parameterization (“delta actions”); patched Transformers constraints; do not confuse “Flow Matching” (a generative method) with this project’s geometric `Flow_*` variables |
 | **TraceVLA** | Temporal/history axis | arXiv:2412.10345: finetuned OpenVLA; trace-based prompting; 150K trajectories; compact Phi‑3‑Vision variant | How traces are encoded and how to separate “image vs trace” variables in logs |
 | **DreamVLA** | Explicit-`D` ablation axis (if available) | arXiv:2507.04447: world-knowledge forecasting + structured attention + diffusion-based transformer policy | Output formats/dims of explicit channels; weights/code availability; what is exposed per step |
 | **PixelVLA** | Pixel-aligned diagnostics (if integration supports it) | arXiv:2511.01571: pixel-level reasoning + multimodal prompting; Pixel‑160K; reported gains | What variables are exposed (pixel maps vs pooled); API/backbone; dataset access/licensing |

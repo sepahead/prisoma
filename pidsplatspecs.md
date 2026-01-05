@@ -8,7 +8,7 @@
 > - `README.md` — Quick start guide
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 7.0 (Aligned with docset; PID‑Splat target spec)
+**Version:** 9.0 (Aligned with docset; PID‑Splat target spec)
 **Date:** 2026-01-05
 **Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
 
@@ -20,6 +20,8 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 
 **Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying predicted “dreams” (video‑predicted 3D flow) to visualize what a policy *expects* to happen (treat predictors as experimental variables; no oracle framing).
 
+**Contact/collision reality check:** existing “3DGS-based” simulators still use conventional physics engines for contacts (e.g., SplatSim uses PyBullet; DISCOVERSE uses MuJoCo, per their papers). Treat splats as the appearance layer; use explicit collision geometry (URDF/MJCF primitives/meshes) in the physics backend.
+
 ---
 
 ### 2. Technology Stack & Versions
@@ -27,7 +29,7 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 | Component | Technology | Version / Spec | License |
 | :--- | :--- | :--- | :--- |
 | **Frontend Shell** | Tauri | v2.0+ (Rust backend, WebView frontend) | MIT |
-| **Renderer** | SparkJS (or equivalent WebGPU 3DGS renderer) | Pin version / git SHA | verify |
+| **Renderer** | SparkJS (“Spark”; Three.js/WebGL2) or equivalent GPU 3DGS renderer | Pin version / git SHA | verify |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
 | **Physics Engine** | Rapier3d / MuJoCo | Rapier v0.18+ / MuJoCo v3.0+ | Apache 2.0 |
 | **Middleware** | Zenoh | Pub/sub transport; shared memory/zero-copy is config-dependent | Apache 2.0 |
@@ -65,7 +67,7 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 
 This section implements the "Unified Architecture" from `grandplan.md` §10.10.
 
-**v7.0 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor. This isolates PID/geometry issues from predictor failures and makes early engineering reproducible.
+**v9.0 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor. This isolates PID/geometry issues from predictor failures and makes early engineering reproducible.
 
 #### 4.1 3D Flow Data Structure
 We represent the "Dream" not just as a hidden state, but as explicit 3D trajectories extracted from predicted videos (Dream2Flow-style bridge).
@@ -104,6 +106,8 @@ SparkJS renders these flows as **animated ghost splats** overlaying the real phy
 ---
 
 ### 5. Zenoh Middleware Protocol
+
+**Note (v9.0 execution plan):** Zenoh is an optional live/distributed transport (M6). Early milestones should be able to run entirely offline by writing the same events to the run log (M1) and replaying them (M1/M4).
 
 #### 5.1 Key Expressions
 
@@ -194,7 +198,7 @@ The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym*
 
 1.  **Infrastructure (Week 1-2):**
     *   Set up Tauri v2 + Rust workspace.
-    *   Integrate `gsplat` (via SparkJS) WebGPU renderer.
+    *   Integrate a 3DGS renderer (e.g., SparkJS “Spark” via Three.js/WebGL2, or a WebGPU-native renderer if you choose one) and pin its version.
 
 2.  **Physics (Week 3-4):**
     *   Implement Physics loop (Rapier by default, MuJoCo optional).
@@ -211,7 +215,7 @@ The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym*
 ### 11. Error Handling
 
 *   **Video predictor failure:** If the predictor fails to generate flow, "Ghost Splats" do not appear; simulation continues with physics only.
-*   **WebGPU Failure:** Fall back to WebGL2.
+*   **Renderer backend failure:** If the chosen GPU backend is unavailable (e.g., WebGPU not supported, context lost), fall back to a supported renderer/backend (e.g., WebGL2/Three.js) or offline playback.
 *   **Zenoh Disconnect:** Physics pauses; UI shows "Reconnecting...".
 
 ---

@@ -9,19 +9,15 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 7.0 FINAL (Scientific audit + citation verification + structural cleanup)
+**Version:** 9.0 FINAL (Actionable engineering plan + docset execution order)
 **Date:** 2026-01-05
-**Status:** Research Specification + Implementation Blueprint (v7.0 audited)
+**Status:** Research Specification + Implementation Blueprint (v9.0 audited)
 **Canonical:** Living spec; prior versions live in git history.
 
-**v7.0 FINAL notes (Scientific audit & verification pass):**
-- Cross-checked arXiv IDs referenced in this document against cached arXiv API metadata (`outputs/arxiv_ref_cache.json`).
-- Added DOI metadata for core references (Phys Rev E, PNAS); re-check DOI resolution before publication (no Crossref cache is committed here).
-- Corrected at least one incorrect arXiv citation (Wan-Move) and tightened language around unsourced performance/latency/hardware “requirements” (measurement-first).
-- Added an agent-native control plane requirement for the PID‑Splat UI stack: the same interventions and inspections exposed in the GUI must be callable via a stable local API (for Claude Code/Codex/opencode-style tooling), with full audit logging and replay.
-- Clarified repo reality in §11 (current layout vs planned), updated Python binding examples to the real `pid_core_rs` API, and aligned task-runner docs.
-- Added OpenUSD/USDZ interoperability notes based on the LeIsaac Marble tutorial (`.ply → .usdz → .usd`) as an optional workflow.
-- Strengthened scientific rigor in §A and §16: clarified δ normalization (`δ_rel`), removed unverified numeric/roadmap claims, and added an explicit geometry→estimator/decomposition decision matrix (2-way vs 3-way vs hierarchical).
+**v9.0 FINAL notes (Actionability + build order):**
+- Added an explicit, engineering-first execution plan with milestone ordering and acceptance criteria so implementation can begin without re-interpreting the spec (§A.7).
+- Reworked the docset handoff so `README.md` leads with hypotheses and experiments, then maps to the engineering build order (contract-first, gate-driven).
+- Preserved the v8.0 corrections: SparkJS “Spark” is Three.js/WebGL2; “3DGS-based” simulators still use conventional physics backends (SplatSim→PyBullet; DISCOVERSE→MuJoCo); and H8 formalizes geometry-gated estimator regime selection.
 
 > **⚠️ Key caveat (estimator geometry):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
 
@@ -76,7 +72,7 @@
 | **Omniverse (general)** | Omniverse RTX / OpenUSD | PhysX | NVIDIA GPU required | No (not PID-centric) |
 | **MuJoCo** | OpenGL raster | MuJoCo | Cross-platform | No (instrumentation is DIY) |
 | **Gazebo (Classic/Ignition)** | OGRE raster | ODE/DART (varies) | Cross-platform; ROS-centric | No (instrumentation is DIY) |
-| **SplatSim** | 3DGS rendering | Not the main contribution (see paper) | Research code; verify constraints | No (not a PID harness) |
+| **SplatSim** | 3DGS rendering | PyBullet (paper; physics backbone) | Research code; verify constraints | No (not a PID harness) |
 | **DISCOVERSE** | 3DGS rendering | MuJoCo (paper) | Research code; verify constraints | No (not a PID harness) |
 | **Proposed (Modular)** | 3DGS + mesh overlays | Modular (Rapier + baselines) | Cross-platform target | Yes (explicit goal) |
 
@@ -87,17 +83,17 @@
 **WAN-like video models and Dream2Flow-style bridges**
 - Most simulators do not include “world model → flow → diagnostic target” pipelines out of the box. Here they are treated as external services with pinned versions, and as experimental variables rather than infrastructure assumptions.
 
-**Hybrid splats + meshes (and why Three.js/WebGPU matters)**
+**Hybrid splats + meshes (and why Three.js/GPU compositing matters)**
 - 3DGS is strong for photoreal *views* of captured scenes; meshes/URDFs remain the practical choice for articulated robots, collision proxies, and precise interactive edits. The proposed stack assumes hybrid rendering/physics: splats for appearance, meshes for dynamics and contact.
 
 **Key advantages of proposed architecture:**
 1. **Splat-first rendering (visual realism when capture is good)** — 3DGS can reduce *visual* domain gaps on some tasks; SplatSim reports 86.25% average zero-shot sim2real success on their benchmark (arXiv:2409.10161). Treat transfer rates as benchmark-specific.
-2. **Hybrid splats + meshes** — Use splats for photoreal views and meshes/URDFs for collisions, robots, and precise “what-if” edits (Three.js/WebGPU can render both).
+2. **Hybrid splats + meshes** — Use splats for photoreal views and meshes/URDFs for collisions, robots, and precise “what-if” edits (e.g., Three.js + SparkJS can render both; other GPU renderers are acceptable).
 3. **Programmable overlays (Dynos)** — GPU-side splat recoloring/annotation makes PID diagnostics inspectable in real time (treat SparkJS implementation details as external).
 4. **Modular physics choice** — Rapier (fast iteration, deterministic) vs MuJoCo/PhysX-class engines (contact baselines); avoid claiming “better” without matched evaluation.
 5. **Closed-loop PID instrumentation as a first-class requirement** — explicit hooks for perturbations, provenance, and synchronized logs to make PID hypotheses testable.
 6. **World-model integration is explicit** — WAN-like video models + flow extraction are treated as plug-in experimental variables, not baked into the simulator.
-7. **Lower operational footprint (by design)** — a Tauri/WebGPU app (Rust backend + system WebView) can be substantially lighter to install/run than full Omniverse/Isaac stacks; exact size/throughput is packaging- and hardware-dependent, and other shells (Electron/Qt/Unity) remain viable.
+7. **Lower operational footprint (by design)** — a Tauri app with a GPU-accelerated web renderer (WebGL2/WebGPU, depending on implementation) can be substantially lighter to install/run than full Omniverse/Isaac stacks; exact size/throughput is packaging- and hardware-dependent, and other shells (Electron/Qt/Unity) remain viable.
 8. **UI + automation are the same surface** — every action possible in the GUI (spawn/move objects, apply perturbations, scrub timeline, export logs) is also exposed via a stable local API (“Agent Bridge”), enabling reproducible live interventions by scripts and LLM tools (no hidden manual steps).
 
 **Honest disadvantages:**
@@ -118,12 +114,13 @@ If these properties can be achieved with acceptable effort on Isaac Sim/Lab, MuJ
 #### §A.2 Why Tauri (and why SparkJS is optional)
 
 - **Tauri (shell):** provides a cross-platform desktop host with a Rust backend (for PID computation, run logging, and the Agent Bridge) and a WebView frontend (for a modern GPU UI).
-- **Renderer (pluggable):** SparkJS is a candidate WebGPU 3DGS renderer; Three.js/WebGPU or other engines are acceptable if they meet interface requirements (version pinning, stable camera model, mesh overlays, and metric‑driven overlays).
+- **Renderer (pluggable):** SparkJS (“Spark”; https://sparkjs.dev/ ; https://github.com/sparkjsdev/spark) integrates with the Three.js rendering pipeline and targets broad WebGL2 support; WebGPU-native renderers are also acceptable if they meet interface requirements (version pinning, stable camera model, mesh overlays, and metric‑driven overlays).
 - **Do not rely on ecosystem narratives:** “future-proof” arguments based on third‑party funding/roadmaps are not scientific evidence. Pin revisions, benchmark, and design for swap‑ability.
 
-#### §A.3 Hybrid scene geometry: splats + meshes (+ anything WebGPU can draw)
+#### §A.3 Hybrid scene geometry: splats + meshes (+ anything the renderer can draw)
 
 - **Splats are appearance, not physics.** Use 3DGS for photoreal views of captured scenes; use meshes/URDFs/primitive colliders for contacts, robots, and interactive edits.
+- **This matches current 3DGS simulators:** SplatSim (arXiv:2409.10161) uses a standard physics simulator (PyBullet) with splat-based rendering; DISCOVERSE (arXiv:2507.21981) couples 3DGS rendering with MuJoCo and MJCF physical models. “3DGS-based” is a rendering/material pipeline upgrade, not a replacement for collision geometry.
 - **Compositing is a requirement:** 3DGS background + mesh robots/objects + optional point clouds/voxels/SDF debug views + annotation gizmos (selection, transforms, constraints).
 - **Why this matters for PID hypotheses:** it enables controlled *visual* perturbations without changing physical state, controlled *physics* perturbations without changing appearance, and “what‑if” edits whose provenance is logged and replayable.
 
@@ -158,6 +155,41 @@ The lowest-risk path is to add complexity only after each prior layer is validat
 
 **Why not start with video predictors?** They add major confounds (stochastic generation, heavy compute, opaque failure modes). Starting with `Flow_gt` tests the PID hypotheses about integration with a clean Euclidean variable before introducing an additional model.
 
+#### §A.7 Engineering Execution Plan (v9.0; make it buildable)
+
+This section turns the spec into an actionable build order. The goal is to make **engineering begin** without ambiguity while preserving scientific rigor (Exp0 + geometry gates; no-oracle; contract-first).
+
+**Principles (non-negotiable):**
+1. **Interface-first:** define schemas and APIs before adding UI/features so every interaction is loggable and replayable.
+2. **Offline-first:** build **record → replay → analysis** before “live mode”; real-time is optional and must be measured.
+3. **Hybrid-by-default:** splats are appearance; collisions are mesh/URDF/MJCF geometry in the physics engine (§A.3, §E).
+4. **One control plane:** GUI actions and automation both go through the same Agent Bridge API; every call becomes a run-log event.
+
+**Milestones (implement in order):**
+
+| Milestone | What you build | Frameworks / deps | Primary outputs (artifacts) | Acceptance criteria (definition of done) |
+|-----------|----------------|-------------------|------------------------------|------------------------------------------|
+| **M0** | Estimator gate (Exp0) | Rust (`crates/pid-core`) | CSV + diagnostics | Exp0 passes GO/PIVOT/NO‑GO gates on synthetic data; results stable across seeds |
+| **M1** | Run logs + replay | Rust | Versioned event schema + reader/writer + replay CLI | You can replay a run deterministically into identical state traces; logs include hashes + config |
+| **M2** | Agent Bridge API | Rust (JSON‑RPC over WS; localhost-only) | API spec + server + audit log integration | Every UI/automation action is an RPC; every RPC is appended to the run log; safe-mode gates |
+| **M3** | Minimal object sim + `Flow_gt` | Rapier (Rust) | Deterministic sim loop + collision geometry + `Flow_gt` derived from poses | You can spawn/move objects via Agent Bridge, step deterministically, and export `Flow_gt` trajectories |
+| **M4** | Viewer-first UI | Tauri v2 + React + Three.js + SparkJS “Spark” | Playback viewer (splats + meshes + overlays) | Offline replay renders states + overlays; timeline scrub and event inspection work end-to-end |
+| **M5** | VLA embedding capture harness | Python 3.11 (`uv`) + HF/LeRobot (as needed) | Cached `(V,L,D,A)` artifacts + provenance | Contract-first logging works on a small baseline (SmolVLA/toy); artifacts are replay-linked |
+| **M6** | Optional live transport + robot sim | Zenoh + Gazebo (optional) | Live sensor/action streams + synchronized logs | Live mode reproduces the same run-log format; disconnects are handled and logged |
+| **M7** | Optional predictor-driven Flow | External service (WAN-like) + tracking/depth | `Flow_pred` + stage labels + caches | Stage-wise artifacts are persisted; Flow pipelines have negative controls; no “oracle” framing |
+
+**Recommended repo layout for new components (names are suggestions; keep scope tight):**
+- `crates/pid-runlog`: event schemas, hashing, readers/writers, replay utilities.
+- `crates/pid-bridge`: Agent Bridge server + JSON‑RPC method definitions (and a small client).
+- `crates/pid-sim`: deterministic object simulation loop (Rapier first) + `Flow_gt` extraction utilities.
+- `crates/pid-tauri`: viewer-first desktop UI (Tauri + React + Three.js + SparkJS).
+- `experiments/` (Python): embedding extraction + dataset orchestration (after M1–M3 are stable).
+
+**Why this order is the fastest path to publishable results:**
+- M1–M3 make the experiments *reproducible* and isolate estimator/geometry issues from UI and predictor confounds.
+- M4 improves iteration speed and produces inspectable diagnostics without making “real-time” a dependency.
+- M5–M7 are additive: they expand model coverage and external validity only after the core diagnostic loop works.
+
 ---
 
 ### §B. Complete System Architecture
@@ -171,7 +203,7 @@ The lowest-risk path is to add complexity only after each prior layer is validat
 │  ┌─────────────────────────────────────────────────────────────────────────────────────┐│
 │  │                              TAURI APPLICATION SHELL                                 ││
 │  │  ┌─────────────────────────────────────────────────────────────────────────────────┐││
-│  │  │               SPARKJS RENDERING LAYER (WebGPU; fallback WebGL2)                 │││
+│  │  │        SPARKJS / THREE.JS RENDERING LAYER (WebGL2; WebGPU alt optional)        │││
 │  │  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌─────────────────┐  │││
 │  │  │  │  3DGS Splats  │  │  Mesh Overlay │  │  UI Overlays  │  │  PID Heatmaps   │  │││
 │  │  │  │  (PLY/SPZ/    │  │  (GLB/GLTF)   │  │  (Three.js)   │  │  (Syn/Red/Unq)  │  │││
@@ -330,12 +362,21 @@ class VisualForceCorrector {
 
 ---
 
-### §E. Collision Detection on Gaussian Splats
+### §E. Collision and Contact Handling (Hybrid; splats are render-only by default)
+
+**Reality check from existing 3DGS simulators:** “3DGS-based” does not mean “3DGS-only physics”.
+- **SplatSim** uses Gaussian splats for photoreal rendering while using an existing physics simulator (**PyBullet**, per the paper) for dynamics, contacts, and collisions.
+- **DISCOVERSE** explicitly couples Gaussian splatting with a physics engine (**MuJoCo**, per the paper) and supports mesh assets and MJCF physical models for interactive objects/robots.
+
+**Implication for PID‑Splat:** treat 3DGS as the **appearance layer**. Contacts/collisions should be handled by the chosen physics backend (Rapier/MuJoCo/etc.) using explicit collision geometry (URDF/MJCF primitives, convex decompositions, or decimated meshes). This matches standard simulator practice and keeps “physics validity” separate from “visual realism”.
+
+**Optional research (not required for core PID experiments):** splat-field collisions can be explored as a *broad-phase proximity heuristic* or for editor tooling, but should not be the default contact model for contact-rich manipulation until benchmarked against mesh/primitive baselines.
 
 **FOCI-inspired approach (Field Overlap Collision Integral):**
 
 ```rust
-// Gaussian-Gaussian collision via overlap integral
+// Optional: Gaussian-Gaussian proximity via overlap integral.
+// Treat as an editor/broad-phase heuristic unless validated against mesh/primitive baselines.
 pub fn gaussian_overlap_collision(
     g1: &GaussianSplat,
     g2: &GaussianSplat,
@@ -708,7 +749,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
 | Profile | CPU/GPU | RAM | Storage | Use Case |
 |---------|---------|-----|---------|----------|
 | **Estimator dev (Experiment 0)** | CPU-only OK; GPU optional | 16GB+ | modest | `cargo test`, `just exp0`, geometry diagnostics |
-| **Renderer/sim prototyping** | WebGPU-capable GPU (Metal/Vulkan/DX12) | 32GB+ | fast SSD | Interactive splat+mesh visualization; small-batch rollouts |
+| **Renderer/sim prototyping** | GPU capable of the chosen renderer (WebGL2 on most systems; WebGPU optional) | 32GB+ | fast SSD | Interactive splat+mesh visualization; small-batch rollouts |
 | **Video/world-model experiments** | High-VRAM CUDA GPU *or* remote service | 32–64GB+ | large SSD | WAN-like predictors, Dream2Flow-style generation/flow caching |
 
 **Comparison with Isaac Sim:**
@@ -775,7 +816,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   ├─────────────────────────────────────────────────────────────────────────┤
   │                                                                          │
   │  Headless Gazebo ──Zenoh──→ Tauri Backend ──→ SparkJS Frontend          │
-  │                    (Rust)            (WebGPU)                             │
+  │                    (Rust)         (Three.js/WebGL2)                       │
   │                                │                    │                    │
   │                     ┌──────────┴──────────┐        │                    │
   │                     │                     │        │                    │
@@ -783,7 +824,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   │         Video/Flow Service*      PID Analysis   3DGS Render             │
   │         ┌──────────────────┐     ┌──────────┐   ┌──────────┐            │
   │         │ WAN-like model    │     │ pid-core │   │ SparkJS  │            │
-  │         │ + flow extraction │     │ (Rust)   │   │ (WebGPU) │            │
+  │         │ + flow extraction │     │ (Rust)   │   │ (WebGL2) │            │
   │         └──────────────────┘     └──────────┘   └──────────┘            │
   │                     │                     │              │              │
   │                     └──────────┬──────────┘              │              │
@@ -941,7 +982,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   - **8 Minor Blockers (Category 3):** SAE training, MINE retraining, Isomap cost, macOS CUDA limits, etc.
   - Risk mitigation timeline (Month 1-7 decision gates)
   - Fallback scope hierarchy (Core → Important → Stretch → Future Work)
-- **Verification of key blockers (v7.0 audit level = arXiv abstracts + repo reality):**
+- **Verification of key blockers (v9.0 audit level = arXiv abstracts + repo reality):**
   - DreamVLA: abstract does not specify backbone dims; weights availability must be checked upstream.
   - OpenVLA: abstract claims open-source checkpoints/code; verify repository/weights availability and license before depending on it.
   - VLA-Arena: verify benchmark availability, data access, and licensing before using it as a primary evaluation source.
@@ -1055,7 +1096,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
 18. [Critical Blockers and Risk Analysis](#18-critical-blockers-and-risk-analysis)
 A. [Appendix A: Glossary](#appendix-a-glossary)
 B. [Appendix B: Decision Log and Implementation Reference](#appendix-b-decision-log-and-implementation-reference)
-C. [Appendix C: Modern Rendering Stack (SparkJS and WebGPU)](#appendix-c-modern-rendering-stack-sparkjs-and-webgpu)
+C. [Appendix C: Modern Rendering Stack (SparkJS, Three.js, and GPU Rendering)](#appendix-c-modern-rendering-stack-sparkjs-threejs-and-gpu-rendering)
 
 ---
 
@@ -2462,7 +2503,7 @@ Selected references on transformer embedding geometry (use as motivation; do not
 
 ### 7.6.4 Geometry Mitigation Options (when d is large / geometry fails)
 
-Given the confirmed d=4096 for most VLAs:
+Many target VLAs expose high-dimensional embeddings (often O(10³) dims; e.g., Llama‑family hidden size 4096 is a common prior). Treat the exact dimensionality and geometry of the *extracted* representations as empirical and re-check via the Geometry Gate + Exp0 for the specific hook points you will publish.
 
 | Approach | Assessment | Notes |
 |----------|------------|-------|
@@ -3213,7 +3254,7 @@ Observing these null results is **valid scientific outcome** that would redirect
 | Temporal synergy predicts long-horizon success | **Support for H5** | Develop synergy-based curriculum |
 | None of the above | **Null result** | Report limits; prefer simpler baselines |
 
-### 9.7.7 Dream2Flow Stage Taxonomy as PID Diagnostic Framework (v7.0)
+### 9.7.7 Dream2Flow Stage Taxonomy as PID Diagnostic Framework (v9.0)
 
 Dream2Flow (arXiv:2512.24766) motivates a methodology that is directly useful for PID: if you can expose intermediate artifacts (generated video, extracted flow, executed trajectory), you can avoid misattributing “end‑to‑end failure” to the wrong mechanism. PID‑VLA adopts the same *stage-wise logging* idea whenever a Dream2Flow‑style bridge is used.
 
@@ -3242,11 +3283,11 @@ This section extends the experimental suite to address advanced world model capa
 
 | Exp | Name | Hypothesis | Key Metric |
 |-----|------|------------|------------|
-| **6** | **Prediction Fidelity** | H_WM1: Learned models win in-distribution; explicit models win OOD | `I(Prediction; P_GT)` |
-| **7** | **Novel Object Generalization** | H_WM2: Explicit physics generalizes to novel geometry/mass better | Success rate drop |
-| **8** | **Physics Perturbation** | H_WM3: Visual correction (PEGS) adapts to mass/friction changes | Synergy variance |
-| **9** | **Temporal Coherence** | H_WM4: Explicit state maintains coherence in long tasks | Synergy degradation slope |
-| **10** | **Deformable Objects** | H_WM5: Particle-based physics handles rope/cloth; rigid assumptions fail | Task success rate |
+| **6** | **Prediction Fidelity** | **H_WM1 (exploratory):** learned predictors may outperform explicit physics in-distribution; explicit physics may degrade more gracefully under distribution shift (verify under matched controls) | `I(Prediction; P_GT)` |
+| **7** | **Novel Object Generalization** | **H_WM2 (exploratory):** explicit physics may generalize better to novel geometry/mass when parameters are known; learned models may match if trained (treat as empirical) | Success rate drop |
+| **8** | **Physics Perturbation** | **H_WM3 (exploratory):** visual correction loops may compensate for mismatched mass/friction and reduce performance collapse vs no-correction baselines | Synergy variance |
+| **9** | **Temporal Coherence** | **H_WM4 (exploratory):** explicit state/proxy tracking may maintain long-horizon coherence more reliably than purely implicit learned latents (benchmark-dependent) | Synergy degradation slope |
+| **10** | **Deformable Objects** | **H_WM5 (exploratory):** particle-based explicit simulators may handle rope/cloth better than rigid assumptions; learned models may require dedicated representations/training | Task success rate |
 
 **See `EXPERIMENTS.md` Sections 14-19 for detailed protocols.**
 
@@ -3576,7 +3617,7 @@ A low-latency simulation and visualization system optimized for robotics researc
 │                              TAURI APP                                   │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                      SparkJS / Three.js                                  │
-│                   (WebGPU → Metal or Vulkan)                            │
+│                   (WebGL2; WebGPU optional)                              │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                         Rust Backend                                     │
 │  ┌─────────────────┬─────────────────┬─────────────────┐                │
@@ -3620,7 +3661,7 @@ Total input lag (report measured): data path + render path + OS scheduling jitte
 |---------|-------------|
 | **Target low-latency UI loop (goal; measure)** | Enables interactive debugging of VLA decisions |
 | **Zenoh middleware (optional)** | Pub/sub transport; can bridge to ROS 2; shared-memory/zero-copy behavior is configuration-dependent |
-| **SparkJS for 3DGS (or equivalent)** | Renders Gaussian splats via WebGPU |
+| **SparkJS for 3DGS (or equivalent)** | Renders Gaussian splats via Three.js/WebGL2 (SparkJS “Spark”) or via WebGPU (if you choose a WebGPU-native renderer) |
 | **Platform abstraction (goal)** | Keep ML inference pluggable (macOS/Metal vs Linux/CUDA); do not assume identical throughput |
 | **Headless sim option** | Decouple physics stepping from rendering; actual Hz depends on world complexity |
 | **Three.js flexibility** | Overlay PID diagnostics, trajectories, flow vectors, and mesh/URDF debug geometry |
@@ -3692,7 +3733,7 @@ await agentBridge.call("prompt.set", {
 });
 ```
 
-## 10.9 Dream2Flow: Video→Flow Bridge for Manipulation (v7.0)
+## 10.9 Dream2Flow: Video→Flow Bridge for Manipulation (v9.0)
 
 ### 10.9.1 Overview
 
@@ -3900,7 +3941,7 @@ This section describes an ambitious but tractable integration that combines:
 │  │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐   │         │
 │  │   │ Gaussian Splat  │  │ 3D Object Flow  │  │ PID Diagnostic  │   │         │
 │  │   │ Scene View      │  │ Animation       │  │ Overlays        │   │         │
-│  │   │ (SparkJS/WebGPU)│  │ (trajectories)  │  │ (synergy maps)  │   │         │
+│  │   │ (SparkJS/WebGL2)│  │ (trajectories)  │  │ (synergy maps)  │   │         │
 │  │   └─────────────────┘  └─────────────────┘  └─────────────────┘   │         │
 │  │                                                                     │         │
 │  │   Interactive Features:                                             │         │
@@ -3994,14 +4035,14 @@ function renderPIDFlow(splats: PIDSplat[], timestamp: number) {
     geometry.setSize(i, 0.01 + 0.05 * Math.sqrt(splats[i].variance));
   }
   
-  // SparkJS handles WebGPU rendering
+  // SparkJS/Three.js handles rendering (backend depends on chosen renderer)
   sparkRenderer.render(geometry, camera);
 }
 ```
 
 ### 10.10.5 PID Analysis Points in the Pipeline
 
-The staged architecture supports **stage-wise diagnostics**, but not all stages should be framed as PID. v7.0 adopts a **no-oracle, contract-first** stance: use explicit quality metrics where possible, and apply PID only to variables that are well-defined for your run and that pass the Geometry Gate + Experiment 0.
+The staged architecture supports **stage-wise diagnostics**, but not all stages should be framed as PID. v9.0 adopts a **no-oracle, contract-first** stance: use explicit quality metrics where possible, and apply PID only to variables that are well-defined for your run and that pass the Geometry Gate + Experiment 0.
 
 **Per-run variable definitions (log them):**
 - `Flow_pred`: reconstructed object-level 3D trajectories from a predictor (Dream2Flow-style).
@@ -4023,7 +4064,7 @@ The staged architecture supports **stage-wise diagnostics**, but not all stages 
 - `Syn(V, L; D_pred)` or `Syn(V, D_pred; Flow_pred)` to probe predictor internals **if** exposed.
 - `Syn(V, D_vla; Flow_gt)` when you can compute `Flow_gt` from simulator logs (bypasses video predictor geometry entirely).
 
-**Failure localization protocol (v7.0):** do not hard-code synergy thresholds. Instead, learn or calibrate a stage classifier on held-out tasks using the stage metrics above (and report uncertainty).
+**Failure localization protocol (v9.0):** do not hard-code synergy thresholds. Instead, learn or calibrate a stage classifier on held-out tasks using the stage metrics above (and report uncertainty).
 
 ```python
 def localize_failure(trial: Trial, clf) -> FailureStage:
@@ -4086,7 +4127,7 @@ COUNTERFACTUAL ANALYSIS PROTOCOL
 | Rendering (optional) | fps, end-to-end latency | depends on scene complexity and GPU |
 | **Total per trial** | sum | report separately for online loop vs offline analysis |
 
-**Hardware note (v7.0):** this document does not prescribe a “minimum GPU”. The implemented core (`crates/pid-core`) runs on CPU. Any additional requirements are determined by the specific VLA checkpoint(s), video predictor(s), and scene complexity you choose. Prefer offline-first pipelines and cache artifacts so that interactive diagnostics do not depend on real-time video generation.
+**Hardware note (v9.0):** this document does not prescribe a “minimum GPU”. The implemented core (`crates/pid-core`) runs on CPU. Any additional requirements are determined by the specific VLA checkpoint(s), video predictor(s), and scene complexity you choose. Prefer offline-first pipelines and cache artifacts so that interactive diagnostics do not depend on real-time video generation.
 
 ### 10.10.8 Comparison: VLA Internal D vs External Predictor‑Derived Flow
 
@@ -4261,9 +4302,9 @@ The Dream2Flow pipeline enables **natural 3-source decompositions** that relate 
 - Reduce to interpretable features (e.g., 64 SAE latents)
 - Compute PID on (V, SAE_latents; Flow) — lower dimension, more interpretable
 
-### 10.10.13 VLA Integration Matrix (v7.0)
+### 10.10.13 VLA Integration Matrix (v9.0)
 
-This section maps how each VLA architecture integrates with the Dream2Flow + WAN + PID pipeline. v7.0 uses a **contract-first** framing: avoid assuming internal module names or fixed tensor shapes unless you have verified them for your exact checkpoint.
+This section maps how each VLA architecture integrates with the Dream2Flow + WAN + PID pipeline. v9.0 uses a **contract-first** framing: avoid assuming internal module names or fixed tensor shapes unless you have verified them for your exact checkpoint.
 
 #### 10.10.13.1 VLA ↔ PID Variable Contract (model-agnostic)
 
@@ -4285,22 +4326,24 @@ For every run, define and log the analysis variables explicitly:
 | **OpenVLA** | arXiv:2406.09246 | `D_hidden[k]` (selected backbone state) or `D_fused` | Baseline 2-way: `(V,D;A)`; Flow-as-bridge: `(V,D;Flow)` and `(V,Flow;A)`; optional 3-way/hierarchical with `Flow` | Action parameterization; where to hook `V/L/D`; geometry gate results for chosen reps |
 | **TraceVLA** | arXiv:2412.10345 | `D_hidden[k]` plus an explicit **trace input** channel (treat as an additional source) | Temporal hypotheses: H5-style “synergy half-life”; 3-way candidates: `(V_now, V_trace, Flow;A)` or `(V_with_trace, D_wan;Flow_future)` | How traces are encoded; how to separate “trace vs image” in logged variables |
 | **DreamVLA** | arXiv:2507.04447 | `D_explicit` (world-knowledge forecasting outputs) if exposed; else `D_hidden[k]` | Cleanest for ablations: compare `(V, D_explicit; Flow)` against `(V, D_wan; Flow)`; channel-wise ablations for dynamic/spatial/semantic cues | Exact output formats/dims; weights/code availability; whether explicit channels are logged per-step |
+| **InternVLA‑A1** | GitHub + project page + HF model card (verify) | `D_explicit` from the **generation expert** (predicted future visual states / dynamics; representation depends on implementation) | Ideal for stage-wise decomposition inside one model: `(V, L; D_gen)` and `(V, D_gen; A)`; Flow-as-Bridge variant: compare `D_gen`-derived `Flow_pred` against simulator `Flow_gt` under matched controls | What the generation expert outputs (frames vs latents); how to export intermediates; action parameterization (“delta actions”; Flow‑Matching head is a generative method, not geometric flow); licensing (CC BY‑NC‑SA 4.0 per repo); patched Transformers constraints |
 | **PixelVLA** | arXiv:2511.01571 | Model-dependent: pixel-/prompt-conditioned representation (verify) | Spatial PID when pixel-aligned variables exist: `(V_region, Flow_region;A)`; hierarchical: region-level CI screening → targeted PID | What is actually exposed (pixel maps vs pooled); backbone/API; dataset access (Pixel‑160K) |
 | **SmolVLA** | LeRobot (verify) | Whatever is accessible (`D_hidden[k]` / `D_fused`) | Harness/debug baseline: run Experiment 0/1 quickly; do not over-interpret cross-model semantics | Everything: backbone, action rep, licensing, async semantics, hook points |
 
 **Geometry note:** do not assume “d=4096” or “RoPE entanglement” for every model. If you use a RoPE-based backbone (e.g., Llama-family), consider exporting a **pre-attention residual stream** representation as one candidate `D_hidden[k]`, but treat this as an empirical mitigation and validate via the Geometry Gate + Experiment 0.
 
-#### 10.10.13.3 Decision Matrix: Which VLA for Which Analysis (v7.0)
+#### 10.10.13.3 Decision Matrix: Which VLA for Which Analysis (v9.0)
 
 | Analysis goal | Suggested VLA | Reason (constraint-first) |
 |---------------|---------------|---------------------------|
 | **Harness + estimator bring-up** | SmolVLA (or any small open baseline) | Faster iteration for logging/interventions/geometry gating before scaling up |
+| **Diffusion / flow-matching baseline** | InternVLA‑A1 (if runnable/licensing ok) | Tripartite “understanding/generation/action” design makes an explicit generative intermediate available; good for stage-wise ablations without adding a separate video predictor |
 | **Core PID study on a widely used target** | OpenVLA | Most likely to be runnable and comparable; `D` is implicit but extractable |
 | **Explicit world-model ablations** | DreamVLA (if available) | Operational `D_explicit` makes interventions and interpretation cleaner |
 | **Temporal dynamics / history effects** | TraceVLA | Trace input explicitly manipulates history dependence |
 | **Spatial / pixel-aligned diagnostics** | PixelVLA (if integration supports it) | Pixel-level variables enable localized PID/CI analyses |
 
-#### 10.10.13.4 Vision Model Placeholders (v7.0 note; verify)
+#### 10.10.13.4 Vision Model Placeholders (v9.0 note; verify)
 
 Earlier drafts referenced specific “v3/3” releases for segmentation/tracking/depth. Treat those as **placeholders** for whichever *current, available* models you can actually run and license. For scientific rigor, log the exact model name, version/commit hash, and license for every run.
 
@@ -4341,13 +4384,13 @@ To keep the diagnostics scientifically interpretable and the system maintainable
 
 ### 11.1.1 Core Components
 
-| Component | In repo (v7.0) | Status | Notes |
+| Component | In repo (v9.0) | Status | Notes |
 |-----------|-----------------|--------|------|
 | Continuous MI + SxPID (2-way/3-way) | `crates/pid-core` | Implemented | KSG MI + continuous `I^sx_∩` (`IsxMethod::EhrlichKsg`) + `pid2`/`pid3` wrappers |
 | Geometry gates + screening | `crates/pid-core` | Implemented | Intrinsic dimension, distance concentration, δ/δ_rel; hierarchy helpers |
 | Python bindings (PyO3) | `crates/pid-python` → `pid_core_rs` | Implemented (extension crate) | Wheel/publish workflow is not wired yet; treat as local-dev bindings |
 | Minimal “Experiment 0” runner | `crates/pid-core/src/bin/exp0.rs` + `just exp0` | Implemented | Smoke/validation subset; expand protocol in `EXPERIMENTS.md` |
-| Visualization app | `crates/pid-tauri` | Planned | UI + WebGPU renderer (SparkJS/Three.js or equivalent) |
+| Visualization app | `crates/pid-tauri` | Planned | UI + GPU renderer (SparkJS/Three.js/WebGL2 or equivalent) |
 | Simulator + asset pipeline | `assets/`, `experiments/` | Planned | Currently empty; will be populated by scripts or external datasets (likely gitignored) |
 | World-model / video predictor | Out-of-process service | Planned | Versioned external dependency (no oracle framing); logs seeds/artifacts |
 
@@ -4378,7 +4421,7 @@ syn = I_vd_a - I_v_a - I_d_a + R
 
 This section distinguishes the **current repo layout** from the **target layout** described in the broader system spec.
 
-**Current (in this repo, v7.0):**
+**Current (in this repo, v9.0):**
 
 ```
 pid_vla/
@@ -4400,7 +4443,7 @@ pid_vla/
 └── *.md (docs)
 ```
 
-**Repo status (v7.0):**
+**Repo status (v9.0):**
 - Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner) and `crates/pid-python` (PyO3 bindings).
 - Planned: `crates/pid-tauri` (visualization app) and a Python experiment harness (location TBD: `python/` or `experiments/`), plus asset/tooling scripts to populate `assets/` and local datasets.
 
@@ -4609,11 +4652,14 @@ Can PID profiles predict how well a policy will transfer across:
 - **GalaxeaVLA:** Open-source VLA model and platform. [GitHub](https://github.com/OpenGalaxea/GalaxeaVLA)
 - **π* (Pi-star) 0.6:** Foundation model for general-purpose robotics. [Pi Blog](https://www.pi.website/blog/pistar06)
 - **OpenVLA:** Kim et al. (2024). *OpenVLA: An Open-Source Vision-Language-Action Model.* arXiv:2406.09246.
+- **SmolVLA (LeRobot):** Lightweight baseline policy for harness bring-up and pipeline debugging (verify model card/repo + exact action parameterization at time of use).
 - **DreamVLA:** Zhang et al. (2025). *DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge.* arXiv:2507.04447. (World-knowledge forecasting + inverse dynamics; diffusion-style framing in the abstract.)
 - **Dream-VL & Dream-VLA (diffusion LLM backbone):** Ye et al. (2025). *Dream-VL & Dream-VLA: Open Vision-Language and Vision-Language-Action Models with Diffusion Language Model Backbone.* arXiv:2512.22615.
   - **Legacy note:** earlier drafts referenced “HKU NLP (2024), 97.2% LIBERO” without a stable citation; treat any such performance claims as unverified unless traced to a specific paper/benchmark protocol.
 - **OpenVLA-OFT:** (Unverified label in earlier drafts; likely a fine-tuning / decoding variant; add a concrete citation before treating as a distinct model family.)
 - **GR00T N1:** NVIDIA et al. (2025). arXiv:2503.14734.
+- **InternVLA‑A1:** InternRobotics (2026). *InternVLA‑A1: Unifying Understanding, Generation, and Action for Robotic Manipulation.* Project page + PDF + code: https://internrobotics.github.io/internvla-a1.github.io/ and https://github.com/InternRobotics/InternVLA-A1. Model card: https://huggingface.co/InternRobotics/InternVLA-A1-3B. Repo describes a tripartite (understanding / generation / action) design with Flow‑Matching action generation; verify paper details/protocols before citing any performance numbers.
+- **InternVLA‑M1:** Chen et al. (2025). *InternVLA‑M1: A Spatially Guided Vision-Language-Action Framework for Generalist Robot Policy.* arXiv:2510.13778. (Related line; distinct from InternVLA‑A1.)
 - **PixelVLA:** Liang et al. (2025). *PixelVLA: Advancing Pixel-level Understanding in Vision-Language-Action Model.* arXiv:2511.01571. Pixel-level understanding with multiscale encoder and visual prompting.
 - **TraceVLA:** Zheng et al. (2024). *TraceVLA: Visual Trace Prompting Enhances Spatial-Temporal Awareness for Generalist Robotic Policies.* arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness.
 - **MemoryVLA:** Shi et al. (2025). arXiv:2508.19236. Perceptual-cognitive memory for long-horizon manipulation.
@@ -4778,6 +4824,7 @@ VLA-Arena Task Organization:
 - **Depth-Anything v2/v3:** Yang et al. (2024-2025). Monocular depth foundation models.
 - **Video Depth Anything:** Temporally consistent video depth estimation.
 - **RollingDepth:** Video depth without video models. arXiv:2411.19189. [LDM-based]
+- **RAFT (optical flow baseline):** Teed, Deng (2020). *RAFT: Recurrent All-Pairs Field Transforms for Optical Flow.* arXiv:2003.12039. (Useful as a non-generative motion baseline when deriving `Flow_obs` from RGB/RGB‑D.)
 - **StereoVLA:** Deng et al. (2025). arXiv:2512.21970. [Stereo vision for VLAs]
 - **DKT (Diffusion Knows Transparency):** arXiv:2512.23705. [Transparent object depth via WAN]
 - **Metric3D v2:** Absolute depth with metric scale recovery.
@@ -4786,11 +4833,11 @@ VLA-Arena Task Organization:
 ## 13.10 Simulation & Middleware
 
 - **Gazebo Harmonic:** ROS 2 compatible physics simulator
-- **SplatSim:** *SplatSim: Zero-Shot Sim2Real Transfer of RGB Manipulation Policies Using Gaussian Splatting.* arXiv:2409.10161.
-- **DISCOVERSE:** *DISCOVERSE: Efficient Robot Simulation in Complex High-Fidelity Environments.* arXiv:2507.21981.
+- **SplatSim:** *SplatSim: Zero-Shot Sim2Real Transfer of RGB Manipulation Policies Using Gaussian Splatting.* arXiv:2409.10161. (3DGS rendering + **PyBullet** physics backend, per paper.)
+- **DISCOVERSE:** *DISCOVERSE: Efficient Robot Simulation in Complex High-Fidelity Environments.* arXiv:2507.21981. (3DGS rendering + **MuJoCo** physics backend, per paper.)
 - **Zenoh:** Zero-overhead pub/sub middleware (eclipse-zenoh.io)
 - **Tauri:** Rust + WebView desktop apps (tauri.app)
-- **SparkJS:** 3DGS rendering in browser via WebGPU
+- **SparkJS (Spark):** 3D Gaussian splatting renderer that integrates with the Three.js rendering pipeline (WebGL2). Docs: https://sparkjs.dev/ . Code: https://github.com/sparkjsdev/spark .
 - **Three.js:** WebGL/WebGPU 3D rendering library
 
 ## 13.11 Training Infrastructure
@@ -4834,22 +4881,27 @@ This section addresses how confounding factors could be studied and removed to r
 
 ## 14.1 Core Hypotheses and Their Falsifiability
 
-### 14.1.0 Hypothesis Registry (v7.0)
+### 14.1.0 Hypothesis Registry (v9.0)
 
 This project treats hypotheses as **falsifiable contracts**, not slogans. Status labels are about *priority and interpretability* given current estimator and logging constraints.
 
 | Hypothesis | Status | Rationale / notes |
 |------------|--------|-------------------|
 | **H1** PID features ↔ failure labels | **Core** | Primary evaluative claim; must beat strong baselines under controls; synergy sign is a candidate feature, not a definition |
-| **H2** redundancy ↔ robustness | Exploratory | Redundancy is easily confounded; only meaningful under matched difficulty + nuisance controls |
-| **H3** uniques ↔ modality contribution | Exploratory | Useful for targeted interventions; requires symmetry in preprocessing to avoid estimator artifacts |
+| **H2** redundancy ↔ robustness-to-ablation | Exploratory | Redundancy is easily confounded; treat as “robustness to single-modality corruption” under matched difficulty + nuisance controls, not a general claim about “understanding” |
+| **H3** uniques ↔ intervention sensitivity | Exploratory | Operationally useful: uniques should predict which targeted ablations/interventions change actions; requires symmetry in preprocessing to avoid estimator artifacts |
 | **H4** memorization vs generalization | Core | Motivated by VLA-Arena framing; tests whether PID signatures change under structured distribution shifts |
 | **H5** temporal synergy degradation | Core | Operationalizable with windowed summaries + block bootstrap; tests long-horizon composition failures |
-| **H6** safety-aware integration | Exploratory | Lower confidence; include only if safety labels and matched controls are available |
+| **H6** safety-aware integration | Deferred / exploratory | Include only if safety labels and matched controls are available; otherwise treat as out-of-scope for the core study |
 | **H7** Flow-as-Bridge | Core (method + hypothesis) | Makes a Euclidean diagnostic target explicit; enables stage-wise attribution and cross-embodiment comparisons |
+| **H8** geometry gate → estimator choice | Core (method) | Geometry/dimensionality diagnostics predict which preprocessing + estimator regime is valid (continuous vs discrete vs CI-only); prevents false positives from invalid geometry |
+
+**Extension hypotheses (optional; do not block Experiments 0–4):**
+- **H_WM1–H_WM5** (world-model comparison; §9.8): exploratory extensions comparing learned vs explicit physics world models; require additional infrastructure and careful matched controls.
 
 **Deprecated / ruled-out framing (kept for transparency):**
 - “`Syn < 0` ⇒ hallucination” as a definitional claim is **rejected** (see §1.2 Warning 1). Negative synergy is mathematically meaningful (subadditive information) but requires empirical validation to map onto failure semantics.
+- Applying the continuous `I^sx_∩` estimator by swapping in non-Euclidean distances (e.g., Lorentz/hyperbolic geodesics) is **ruled out** without a new derivation of disjunction neighborhoods and volume forms (see the estimator geometry caveat at the top of this document).
 
 ### Hypothesis H1: SxPID-derived features correlate with VLA failures (including negative synergy)
 **Claim (falsifiable):** Under a validated estimator regime, a **feature set** derived from Shannon invariants (CI/Ω) and (where feasible) SxPID atoms contains predictive information about failure labels beyond strong uncertainty baselines. The **synergy sign** (including negative synergy frequency) is one candidate feature, not a definition of “hallucination”.
@@ -4864,21 +4916,42 @@ This project treats hypotheses as **falsifiable contracts**, not slogans. Status
 - Add explicit OOD detection baselines and test whether synergy provides signal beyond OOD scores.
 - Test on multiple VLA architectures; if synergy-failure correlation appears only in one, it may be architecture-specific rather than fundamental.
 
-### Hypothesis H2: High redundancy indicates robust information integration
-**Claim:** High `Red_{V,D;A}` suggests the model has multiple pathways to correct action.
+### Hypothesis H2: Redundancy predicts robustness to single-modality ablation
+**Claim (narrowed; falsifiable):** Under matched task difficulty and preprocessing, higher redundancy between sources (e.g., `Red(V,L;A)` or `Red(V,D;A)`) predicts **robustness to single-modality corruption**: when you ablate/corrupt one modality, actions and success degrade more gracefully than when redundancy is low.
+
 **Status:** Exploratory. Redundancy can increase for trivial reasons (task simplicity, dataset artifacts, representation leakage), so H2 is only meaningful under matched controls and alongside generalization tests (H4).
 
 **Confounds:**
 1. **Triviality confound:** If the task is trivial (e.g., "do nothing"), all sources may redundantly encode the same null information.
 2. **Overfitting confound:** High redundancy in training data might indicate memorization rather than generalization.
+3. **Leakage confound:** If one modality contains a proxy for another (e.g., instruction text embedded in pixels), redundancy can be artificially inflated.
 
-### Hypothesis H3: Unique information identifies modality-specific contributions
-**Claim:** `Unq_V` vs `Unq_D` vs `Unq_L` indicates which modality dominates decision-making.
-**Status:** Exploratory but operationally useful for interventions (e.g., corrupt one modality and observe which uniques move). Interpreting uniques requires careful symmetry in preprocessing and dimensionality reduction across modalities to avoid estimation artifacts.
+**How to disprove H2:**
+- If high-redundancy episodes are *not* more robust under controlled single-modality ablations, redundancy is not a useful robustness indicator in this setting.
+
+### Hypothesis H3: Unique information predicts intervention sensitivity
+**Claim (operational; falsifiable):** Unique information estimates predict **intervention sensitivity**. If `Unq(V;A)` is high (under a validated regime), then targeted corruption of `V` (holding other sources fixed) should measurably change the action distribution and/or success more than matched corruptions of other sources. Analogously for `Unq(L;A)` and `Unq(D;A)`.
+
+**Status:** Exploratory but operationally useful for interventions. Interpreting uniques requires careful symmetry in preprocessing and dimensionality reduction across modalities to avoid estimation artifacts.
 
 **Confounds:**
 1. **Representation bias:** If one modality has higher-dimensional embeddings, it may have artificially higher unique information due to estimation artifacts.
 2. **Preprocessing asymmetry:** Different preprocessing per modality can shift apparent unique contributions.
+3. **Intervention mismatch:** If a “corruption” changes semantics for one modality but not another, sensitivity comparisons are not meaningful; design matched-strength interventions.
+
+### Hypothesis H8: Geometry gate metrics predict a valid estimator regime (method)
+
+**Claim (falsifiable):** Embedding-geometry diagnostics (intrinsic dimension, distance concentration, kNN degeneracy/ties, and stability under mild jitter/PCA seeds) predict which analysis regime is valid for a given `(V,L,D,A)` definition:
+- **Continuous SxPID** (Ehrlich `I^sx_∩`) only when Euclidean/L∞ assumptions are adequately met after preprocessing.
+- **Discrete PID** (clustered/quantized) when continuous volumes are unreliable but discretization is stable.
+- **MI/CMI/Ω screening only** when neither PID regime is stable at feasible sample sizes.
+
+**Why this matters:** Without H8-style gating, apparent “PID signatures” can be estimator artifacts from invalid geometry rather than properties of the VLA.
+
+**How to disprove H8:**
+- If geometry diagnostics do **not** predict estimator stability on synthetic controls (Exp0), they are not useful gates.
+- If the gates pass but estimates remain unstable across seeds/jitter/splits on real embeddings, the gating criteria are insufficient.
+- If the gates fail but continuous SxPID remains stable and predictive under controls, the diagnostics are overly conservative and should be revised.
 
 ## 14.2 Experimental Controls for Confound Removal
 
@@ -6733,13 +6806,13 @@ PID runtime depends on sample size \(n\), working dimension \(d\), kNN backend, 
 
 | Component | Target | Notes |
 |-----------|--------|-------|
-| SparkJS rendering | Interactive frame rate | WebGPU-capable GPU; benchmark on your scene complexity and splat count |
+| SparkJS rendering | Interactive frame rate | SparkJS targets WebGL2; benchmark on your scene complexity and splat count |
 | PID-colored overlays | Interactive for small scenes; offline for heavy runs | GPU budget depends on splat count + shader complexity + update rate |
 | Timeline scrubbing | Responsive interaction | Depends on caching strategy + IO; measure end-to-end |
 | Multi-view | Responsive interaction | Scene complexity and GPU memory are the limiting factors |
 
 **Browser requirements:**
-- Recent Chrome/Edge/Firefox with WebGPU support enabled
+- Recent Chrome/Edge/Firefox with WebGL2 support (SparkJS) or WebGPU enabled (if you choose a WebGPU-native renderer)
 - Sufficient GPU VRAM for your scene size (benchmark-dependent)
 - Sufficient system RAM for cached assets and logs (benchmark-dependent)
 
@@ -6756,7 +6829,7 @@ Assume offline-first unless you have demonstrated interactive throughput on your
 Hardware requirements depend on which components you run locally:
 - **Estimator-only (PID on embeddings):** CPU + enough RAM for kNN workloads; GPU not required.
 - **Embedding extraction / video prediction / flow extraction:** typically benefits from GPU acceleration; exact VRAM requirements depend on the chosen models and resolutions.
-- **Visualization:** any WebGPU-capable GPU can work, but large scenes require more VRAM.
+- **Visualization:** any GPU that can run the chosen renderer (WebGL2/WebGPU) can work, but large scenes require more VRAM.
 Prefer profiling-first: run a small pilot, record peak memory and latency, then scale.
 
 ### 17.17.8 Data Requirements
@@ -7439,27 +7512,32 @@ Earlier drafts embedded large “kitchen sink” Nix flakes and task runners ins
 | **6.7 FINAL** | Jan 2026 | **Unified Splat-First Simulation Environment — Complete Architecture:** (1) **Critical comparison with competitors** (§A): Analysis vs Isaac Sim, Omniverse, MuJoCo, Gazebo, SplatSim, DISCOVERSE (benchmark required; avoid cross-task “sim2real %” comparisons). (2) **Complete system architecture** (§B): Tauri+SparkJS+Modular Physics stack diagram with PEGS-style dual Gaussian-Particle representation. (3) **Asset pipeline** (§C): PLY/SPZ/SPLAT/KSPLAT/SOG/GLB/URDF support with COLMAP→SparkJS workflow. (4) **PEGS-style physics** (§D): Rust implementation of particle-Gaussian binding with visual force correction. (5) **FOCI collision detection** (§E): Gaussian overlap integral for splat-splat collision + hybrid mesh approach + splat raycasting. (6) **Environment simulation** (§F): SparkJS Dyno-based weather/lighting/domain randomization. (7) **Camera system** (§G): Virtual cameras with raycast depth, Zenoh streaming, click-to-place. (8) **Real-time editing** (§H): Splat selection (box/raycast), transform, delete, clone + mesh collision adjustment. (9) **Sim2Real strategy** (§I): Multi-layer approach with measurement/ablation plan (avoid pre-committed transfer percentages). (10) **Data collection pipeline** (§J): Workflow from scene setup to RLDS/HDF5/Zarr export. (11) **VLA setup analysis** (§K): Gap analysis of open-source VLA simulation stacks. (12) **Hardware requirements** (§L): Footprint claims are hardware/config-dependent; benchmark for your deployment. |
 | **6.8 FINAL** | Jan 2026 | **SmolVLA baseline + world-model comparison (draft; details later revised):** (1) Added SmolVLA (LeRobot) as a lightweight baseline for harness bring-up and pipeline debugging (§7.8; model internals must be verified). (2) Added a conceptual ManiGaussian vs PEGS comparison as a framing device for “learned implicit” vs “explicit physics + correction” world models (verify any implementation claims before use). (3) Sketched additional experiment ideas (Exps 6–10) but did not treat them as core aims. |
 | **7.0 FINAL** | Jan 2026 | **Scientific audit + docset alignment:** (1) Reworked architecture/competitor comparisons into capability notes (removed star ratings and roadmap/marketing framing). (2) Removed or labeled unverified performance/latency/hardware “requirements”; made measurement-first language consistent across the docset. (3) Clarified repo reality in §11 (current layout vs planned), fixed Python binding examples to use the real `pid_core_rs` API, and updated task-runner documentation. (4) Made Dream2Flow/WAN integration model-agnostic (“Video Predictor Service”), removed hard-coded clip lengths and vendor-specific assertions, and tightened “no oracle” language. (5) Added OpenUSD/USDZ interop notes and diagrams (LeIsaac Marble tutorial; NVIDIA 3DGrut `.ply → .usdz` bridge) as an optional workflow. (6) Added/updated SmolVLA mentions as a lightweight baseline. (7) Docset consistency sweep across `README.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, `ARCHITECTURE.md`, and `pidsplatspecs.md`, plus repo guidance via `AGENTS.md`. (8) Added an agent-native control plane requirement (“Agent Bridge” via JSON‑RPC/MCP) so GUI actions and live interventions are reproducible and callable from LLM coding tools. |
+| **8.0 FINAL** | Jan 2026 | **Renderer clarification + hypothesis/method updates:** (1) Corrected SparkJS assumptions (SparkJS “Spark” integrates with Three.js and targets WebGL2; WebGPU treated as an optional backend). (2) Updated the hypothesis set: added H8 (geometry gate → estimator regime choice) and narrowed H2/H3 into falsifiable ablation/intervention claims; softened optional world-model extension hypotheses (H_WM1–H_WM5). (3) Expanded the survey with a non-generative flow baseline (RAFT; arXiv:2003.12039) and updated model references (SmolVLA). (4) Docset bump to v8.0 + consistency sweep (including Appendix C rendering notes). |
+| **9.0 FINAL** | Jan 2026 | **Actionable engineering plan + docset v9.0:** (1) Added an explicit engineering execution plan (M0–M7) with acceptance criteria and a risk-reducing build order so implementation can begin without re-interpreting the spec (§A.7). (2) Restructured `README.md` to lead with hypotheses and experiments, then map to the engineering order (gate-driven, contract-first). (3) Clarified offline-first run logs + replay as core and moved live transports (Zenoh) and predictor-driven Flow to optional milestones; aligned `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` accordingly. |
 
 ---
 
-# Appendix C: Modern Rendering Stack (SparkJS and WebGPU)
+# Appendix C: Modern Rendering Stack (SparkJS, Three.js, and GPU Rendering)
 
 **Context:** The simulation environment described in §10.8 relies on a novel "Splat-First" rendering stack. This appendix details the technical specifications for the visualization layer.
 
-### C.1 SparkJS Architecture
+### C.1 SparkJS (Spark) Integration (Three.js/WebGL2)
 
-This spec assumes a **WebGPU 3D Gaussian Splatting renderer** (referred to as “SparkJS” throughout, but replace with your chosen implementation). The core requirements for PID‑Splat visualization are:
+This spec assumes a **GPU 3D Gaussian Splatting renderer**. If you use SparkJS (“Spark”; https://sparkjs.dev/ ; https://github.com/sparkjsdev/spark), it integrates with the **Three.js** rendering pipeline and targets broad **WebGL2** support. A WebGPU-native renderer is also acceptable if it meets the same interface requirements.
+
+Core requirements for PID‑Splat visualization (renderer-agnostic):
 1. **Low-latency splat updates**: per-frame updates to positions/colors/scales without expensive CPU→GPU copies.
-2. **Deterministic, inspectable overlay stages** (“Dynos” concept): a programmable pass that can map PID metrics → visual encodings.
+2. **Deterministic, inspectable overlay stages** (“Dynos” concept): a programmable pass that maps PID metrics → visual encodings.
 3. **Scalable sorting/LOD strategy**: enough throughput to remain interactive at the splat counts required by your scenes (benchmark on target hardware).
+4. **Hybrid compositing**: splats + meshes/URDF overlays + gizmos must render together so visual vs physics interventions can be separated cleanly.
 
-Do not rely on vendor roadmaps or marketing claims for performance; treat renderer choice as an interchangeable component behind a stable interface.
+Do not rely on vendor roadmaps or marketing claims for performance; treat the renderer as an interchangeable component behind a stable interface.
 
-### C.2 Dyno Shader Specification
+### C.2 Programmable Overlays (“Dynos”) Across Backends
 
-**Concept:** A "Dyno" is a compute shader stage that runs before sorting. It takes PID metrics and environmental state as input and outputs modified splat attributes.
+**Concept:** A “Dyno” is a programmable stage that modifies splat attributes (color/opacity/size, optional displacement) based on PID metrics and other state. In SparkJS, this maps naturally to shader-graph/material-style customization; in a WebGPU-native renderer, this may be implemented as a compute pass.
 
-**PID Heatmap Dyno (WGSL):**
+**WebGPU-native example (WGSL; illustrative, not SparkJS-specific):**
 ```wgsl
 struct PidMetric {
     synergy: f32,

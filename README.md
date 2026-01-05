@@ -19,19 +19,64 @@ PID-VLA is a research toolkit for analyzing **Vision-Language-Action (VLA)** rob
 
 **Canonical Research Specification:** This project is governed by [`grandplan.md`](grandplan.md), which contains the complete theoretical, experimental, and implementation details.
 
-## Status (Docset v7.0)
+## Hypotheses (Docset v9.0)
 
-- **Implemented in this repo:** `crates/pid-core` (Rust estimators + diagnostics), `crates/pid-python` (PyO3 module `pid_core_rs`), and the Rust Experiment 0 runner (`just exp0`, `just exp0-bin`).
-- **Specified / planned (see `grandplan.md`):** the full “PID‑Splat” simulation + visualization stack (Tauri/SparkJS/Gazebo/Zenoh), an **Agent Bridge control plane** (GUI + automation via JSON‑RPC/MCP for live interventions), and a complete Python experiment harness for real VLA embedding extraction and benchmarking.
-
-### Key Research Questions (Hypotheses)
+This repo treats hypotheses as falsifiable contracts (not definitions or slogans). The canonical registry and falsification criteria live in `grandplan.md` §14.1.
 
 | Hypothesis | Description | Reference |
 |------------|-------------|-----------|
-| **H1** | Certain SxPID features (including negative synergy) may correlate with grounding failures; this is *not definitional* and must be validated under controls. | `grandplan.md` §1.2, §9 |
-| **H4** | PID signatures distinguish memorization from generalization. | `grandplan.md` §3.6.2 |
-| **H5** | Compositional failure correlates with temporal synergy degradation. | `grandplan.md` §3.6.3 |
-| **H7** | 3D object flow serves as an embodiment-agnostic integration diagnostic. | `grandplan.md` §3.6.6 |
+| **H1** | PID/CI feature sets predict failure labels beyond strong baselines (synergy sign is a candidate feature, not a definition). | `grandplan.md` §14.1 |
+| **H2** | Redundancy predicts robustness to single-modality ablation (under matched controls). | `grandplan.md` §14.1 |
+| **H3** | Unique information predicts intervention sensitivity (matched-strength perturbations). | `grandplan.md` §14.1 |
+| **H4** | Memorization vs generalization induces systematic PID/CI shifts (VLA-Arena framing; verify). | `grandplan.md` §3.6.2 |
+| **H5** | Long-horizon failures correlate with temporal PID/CI degradation (windowed summaries). | `grandplan.md` §3.6.3 |
+| **H6** | Safety tasks show distinctive V–L integration patterns (deferred unless labels/controls exist). | `grandplan.md` §3.6.4 |
+| **H7** | Flow-as-Bridge enables stage-wise diagnostics and embodiment-agnostic comparisons. | `grandplan.md` §3.6.6 |
+| **H8** | Geometry gate metrics determine which estimator regime is valid (continuous vs discrete vs CI-only). | `grandplan.md` §14.1 |
+
+## Experiments (What to Run, in Order)
+
+This project is explicitly **gate-driven**: do not run VLA-scale claims until Exp0 passes.
+
+1. **Exp0 — Estimator + geometry gate (GO/PIVOT/NO‑GO)**
+   - Run the synthetic validation suite and geometry diagnostics before touching real embeddings.
+   - Protocol: `grandplan.md` §9.1 and `EXPERIMENTS.md` §4.
+2. **Exp1 — Baseline pick-and-place + perturbations (H1–H4)**
+   - Collect controlled rollouts and test whether PID/CI features add predictive value beyond uncertainty/OOD baselines.
+3. **Exp2 — Long-horizon composition (H5)**
+   - Windowed/time-series summaries with autocorrelation-aware uncertainty.
+4. **Exp3 — Instruction/visual/physics perturbations (H1–H6)**
+   - Matched-strength perturbations + placebo controls.
+5. **Exp4 — Flow-as-Bridge bring-up with `Flow_gt` (H7)**
+   - Start with simulator-derived `Flow_gt` (no video predictor). Add predictor-driven `Flow_pred` only after the harness is stable.
+6. **Exp5 — Cross-embodiment replication (H4/H7)**
+   - Re-run the same analysis with different embodiments under a fixed logging contract.
+
+The authoritative “what to run and what to log” details live in `EXPERIMENTS.md`. The estimator/math and confound analysis live in `grandplan.md`.
+
+## Status (Docset v9.0)
+
+- **Implemented in this repo:** `crates/pid-core` (Rust estimators + geometry diagnostics), `crates/pid-python` (PyO3 module `pid_core_rs`), and the Rust Experiment 0 runner (`just exp0`, `just exp0-bin`).
+- **Specified / planned (see `grandplan.md`):** the “PID‑Splat” diagnostic harness: physics backends (Rapier + baselines), a renderer stack (Three.js + SparkJS “Spark” or equivalent), run logging + replay, and an **Agent Bridge control plane** (GUI + automation via JSON‑RPC/MCP for live interventions).
+
+## Engineering Order (v9.0, Actionable)
+
+The build order below mirrors the experimental dependencies. Treat each milestone as “done” only if its artifacts are replayable and versioned.
+
+1. **M0 — Exp0 gate (already in repo)**
+   - Target: reproducible estimator behavior under known synthetic cases.
+2. **M1 — Run logs + replay (in-repo)**
+   - Define an event-sourced run log format (state/actions/embeddings/interventions), a replay CLI, and integrity hashes.
+3. **M2 — Agent Bridge (in-repo)**
+   - Implement a localhost-only JSON‑RPC API used by both UI and automation; every RPC call is an auditable event in the run log.
+4. **M3 — Minimal sim loop + `Flow_gt` (in-repo)**
+   - Start object-only (Rapier), explicit collision geometry, and deterministic stepping; derive `Flow_gt` from object pose logs.
+5. **M4 — Viewer-first UI (in-repo)**
+   - Tauri shell + Three.js + SparkJS “Spark” (or equivalent) with *offline playback first*, then live mode.
+6. **M5 — VLA embedding capture harness (external or in-repo)**
+   - Implement the contract-first `(V,L,D,A)` extraction + artifact caching; integrate after M1–M3 are stable.
+7. **M6 — Optional: Zenoh/Gazebo/video predictor service**
+   - Add only when needed for cross-embodiment sensors or predictor-driven Flow comparisons; keep stage-wise artifacts and “no oracle” framing.
 
 ## Quick Start
 
@@ -216,6 +261,7 @@ See `grandplan.md` §7 for detailed analysis.
 | **PixelVLA** | Integrated into existing VLAs (abstract; backbone unspecified) | Implicit (verify) | (verify) | Adds pixel-level reasoning + multimodal prompting; Pixel‑160K (paper-reported; verify release) |
 | **TraceVLA** | Llama 2 7B | Trace-augmented V | Action tokens/bins (verify) | Temporal history in V |
 | **SmolVLA** | LeRobot baseline (verify) | Implicit | (verify) | Lightweight baseline for fast iteration / pipeline debugging |
+| **InternVLA‑A1** | LeRobot-based policy (verify) | Generation expert outputs (explicit; verify format) | Delta actions via Flow Matching (generative method; not geometric flow; verify) | Tripartite understanding/generation/action design; useful for stage-wise ablations; CC BY‑NC‑SA 4.0 license per repo |
 
 ## Estimator Caveats
 

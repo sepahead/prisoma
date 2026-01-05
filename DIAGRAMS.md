@@ -9,7 +9,7 @@
 
 This document contains visual representations of the PID-VLA system, the PID-Splat simulation environment, and the data processing pipelines.
 
-**Docset alignment:** These diagrams are aligned to `grandplan.md` v7.0. Several components shown below (e.g., Tauri/SparkJS/Gazebo/Zenoh, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” for what exists today.
+**Docset alignment:** These diagrams are aligned to `grandplan.md` v9.0. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” and the v9.0 execution plan (`grandplan.md` §A.7) for what exists today and what to build next.
 
 ## 1. High-Level System Overview
 
@@ -23,7 +23,7 @@ graph TD
     end
 
     subgraph "Inference Layer (External)"
-        VLA[OpenVLA / DreamVLA]
+        VLA[Target VLA (e.g., SmolVLA/OpenVLA/DreamVLA/InternVLA‑A1)]
         WAN[Video Gen Model (WAN-like)]
         Vis[Vision Foundation Models]
         
@@ -60,7 +60,7 @@ graph TD
             Agent -->|Compute requests| PID_Core
         end
         
-        subgraph "Frontend (WebGPU)"
+        subgraph "Frontend (Three.js + SparkJS / GPU Renderer)"
             SparkJS[SparkJS Renderer]
             Dynos[PID Dyno Shaders]
             
@@ -89,7 +89,7 @@ sequenceDiagram
     participant Zenoh as Zenoh Bus
     participant Phys as Physics (Rust)
     participant PID as PID-Core
-    participant Spark as SparkJS (WebGPU)
+    participant Spark as SparkJS (Three.js/WebGL2)
 
     Note over Phys, Spark: Example frame budget (hardware-dependent)
 
@@ -168,7 +168,7 @@ graph TB
 
     subgraph "Rendering Layer (Fixed)"
         Splats[Gaussian Splats]
-        SparkJS[SparkJS WebGPU]
+        SparkJS[SparkJS (Three.js/WebGL2)]
         Dynos[PID Dyno Shaders]
         
         Splats --> SparkJS
@@ -278,13 +278,13 @@ This diagram captures the intended hybrid approach: use 3DGS splats for photorea
 graph TB
     subgraph "Visual Scene (Appearance)"
         Splats[3DGS Splats\n(static background / captured assets)]
-        Spark[SparkJS (WebGPU)\nSplat Renderer]
+        Spark[SparkJS (Three.js/WebGL2)\nSplat Renderer]
         Splats --> Spark
     end
 
     subgraph "Dynamics Scene (Geometry)"
         Mesh[Meshes/URDFs\n(robots + collision proxies)]
-        Three[Three.js/WebGPU\nMesh Renderer]
+        Three[Three.js (WebGL2/WebGPU)\nMesh Renderer]
         Mesh --> Three
     end
 

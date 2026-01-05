@@ -9,7 +9,7 @@
 
 ---
 
-**Docset alignment:** This document is aligned to `grandplan.md` v7.0. It describes a *target architecture* (PID‑Splat) that goes beyond what is currently implemented in this repository; treat latency/throughput numbers as measurements to be taken on your hardware, not guarantees.
+**Docset alignment:** This document is aligned to `grandplan.md` v9.0. It describes a *target architecture* (PID‑Splat) that goes beyond what is currently implemented in this repository; treat latency/throughput numbers as measurements to be taken on your hardware, not guarantees.
 
 ## 1. Core System Components
 
@@ -18,12 +18,12 @@
 **What it does:**
 - Provides the cross-platform desktop application shell
 - Runs a Rust backend with native performance for PID computation
-- Hosts the WebGPU-based SparkJS renderer for Gaussian Splat visualization
+- Hosts the SparkJS renderer (“Spark”; Three.js/WebGL2) or an equivalent 3DGS renderer for Gaussian splat visualization
 - Hosts the **Agent Bridge** control plane (planned): a stable local API (JSON‑RPC/MCP) used by both the GUI and external automation (scripts + LLM tools) for live interventions
 - Manages IPC (Inter-Process Communication) between:
   - Rust PID-core (computation)
   - React/Three.js frontend (visualization)
-  - Zenoh bridge (simulation data streaming)
+  - Run log + event stream (offline-first); optional Zenoh for live/distributed streaming
 
 **Why it matters (design goals; verify on your hardware):**
 - Tight Rust↔UI integration for low-latency debugging workflows
@@ -35,24 +35,25 @@
 ┌─────────────────────────────────────────────────────────┐
 │                    Tauri v2 Shell                       │
 ├─────────────────────────────────────────────────────────┤
-│  Frontend (React/Three.js)  │  Backend (Rust)          │
+│  Frontend (React + Three.js)│  Backend (Rust)          │
 │  ├─ SparkJS 3DGS Renderer   │  ├─ PID-Core estimators  │
-│  ├─ PID Heatmap Overlays    │  ├─ Zenoh subscriber     │
+│  ├─ PID Heatmap Overlays    │  ├─ Run log + replay     │
 │  ├─ Control Panel           │  ├─ Agent Bridge (JSON-RPC/MCP) │
 │  └─ Timeline + replay UI    │  └─ ML inference hooks (planned) │
 └─────────────────────────────────────────────────────────┘
 ```
+**Note:** The v9.0 build order is offline-first: implement run logs + replay before relying on live transports such as Zenoh (`grandplan.md` §A.7).
 
-### 1.2 SparkJS (WebGPU Renderer)
+### 1.2 SparkJS (Three.js / WebGL2 3DGS Renderer)
 
 **What it does:**
-- Custom WebGPU renderer for 3D Gaussian Splatting (3DGS)
-- Implements "Dynos" — WGSL shaders that modify splat color buffers based on PID metrics
-- Real-time LOD (Level of Detail) targeting smooth interaction on WebGPU-capable GPUs (benchmark-dependent)
+- Three.js-integrated 3D Gaussian Splatting (3DGS) renderer (“Spark”; `@sparkjsdev/spark`) that composes splats and mesh objects in one scene graph (see https://sparkjs.dev/ and https://github.com/sparkjsdev/spark)
+- Provides programmable GPU splat effects (Spark “shader graph”); PID overlays can be implemented as shader-driven recoloring/annotation (implementation detail; benchmark-dependent)
+- Supports multiple splat formats (see Spark docs; verify exact formats/versions at time of integration)
 
 **Why it matters:**
 - **High visual fidelity**: 3DGS can produce photorealistic novel views in many settings (capture/scene dependent)
-- **Differentiability caveat**: Gaussian splatting is differentiable in training frameworks; the SparkJS/WebGPU renderer here is a visualization target, not a differentiable training primitive.
+- **Differentiability caveat**: Gaussian splatting is differentiable in some training frameworks; SparkJS/Three.js here is a visualization target, not a differentiable training primitive.
 - **PID Overlay**: Dynos colorize splats based on information flow:
   - Red = High Synergy
   - Blue = High Unique Information
@@ -103,6 +104,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 │ └─ ros_gz_bridge│            └─────────────────┘
 └─────────────────┘
 ```
+**Note:** Zenoh is an optional live/distributed transport (M6). Offline playback and most analysis should operate directly on run logs (M1).
 
 **Why separate Physics and Robot Simulation?**
 
@@ -153,7 +155,7 @@ ns-export gaussian-splat \
 
 **Asset specifications:**
 
-| Object | Gaussian Count | Physics Proxy |
+| Object | Gaussian Count (illustrative; scene/export dependent) | Physics Proxy |
 |--------|----------------|---------------|
 | red_cube | ~15,000 | Cuboid |
 | blue_cylinder | ~20,000 | Cylinder |
@@ -163,7 +165,7 @@ ns-export gaussian-splat \
 **Why it matters:**
 - **Real2Sim photorealism**: Captured splats look like real images (can reduce synthetic domain gaps; benchmark-dependent)
 - **Object-centric assets**: Each manipulated object is a separate splat (compositional scenes)
-- **Differentiable rendering**: Enables gradient flow through visual observations
+- **Differentiability caveat**: 3DGS is differentiable in *training* frameworks; the SparkJS/Three.js renderer here is a visualization target, not a differentiable primitive.
  
 **Caveat:** “Domain gap” and “photorealism” are benchmark-dependent; treat any sim2real claims as empirical until measured.
 
@@ -182,7 +184,7 @@ Current Image + Instruction
          │
          ▼
     ┌─────────┐
-    │ Video   │ (e.g., 48 frames, 2 seconds @ 24fps; configurable)
+    │ Video   │ (T frames @ fps; configurable; log frames/fps/seed)
     │  model  │
     └────┬────┘
          │
@@ -425,7 +427,7 @@ Gaussian splats + modular physics + a unified UI (e.g., Tauri) are intended to s
 | Component | Role | Rationale (design goals; benchmark-dependent) |
 |-----------|------|--------------|
 | **Tauri** | Desktop app shell | Native Rust perf + cross-platform |
-| **SparkJS** | 3DGS rendering | WebGPU photorealism + PID overlays |
+| **SparkJS (Spark)** | 3DGS rendering | Three.js/WebGL2 splat+mesh compositing + programmable shader effects for PID overlays (benchmark-dependent) |
 | **Physics** | Object physics | Modular (Rapier/MuJoCo/Isaac) |
 | **Robot Sim** | Robot dynamics | Industry-standard (Gazebo/MuJoCo) |
 | **3DGS Pipeline** | Scene capture | Photorealistic captures; differentiable training pipelines exist (visualization here is non-differentiable) |
@@ -489,10 +491,25 @@ SmolVLA (LeRobot) is a candidate lightweight baseline (planned integration; veri
 
 ### 8.1 Architecture
 - **Backbone:** Lightweight VLM baseline (LeRobot; verify exact architecture/backbone).
-- **Action head:** Flow-matching or diffusion-style head (implementation-specific; verify).
+- **Action head / representation:** Implementation-specific; verify (continuous delta actions vs discretized tokens/bins).
 - **Inference:** May support async pipelines (verify and measure on your stack).
 
 ### 8.2 Architectural Role in PID-VLA
 - **Iteration Speed:** Smaller models can make the PID pipeline easier to iterate on (measure inference latency on your hardware).
 - **Control Rate:** Async inference can raise effective control rates (benchmark; depends on policy and environment).
 - **Fine-tuning:** Seamless integration with Hugging Face LeRobot datasets (SO-100, LIBERO).
+
+---
+
+## 9. InternVLA‑A1 (Optional) Integration
+
+InternVLA‑A1 is a candidate **diffusion / flow-matching** VLA for stage-wise ablations because it explicitly separates “understanding”, “generation”, and “action” experts (verify details and interfaces from its paper/repo before use).
+
+### 9.1 Architectural Role in PID‑VLA (Docset v9.0)
+- **Hierarchical PID inside one model:** treat generation-expert outputs as `D_gen` (a candidate `D_explicit`) and test `(V,L;D_gen)` and `(V,D_gen;A)` under the same data/logging contract as other VLAs.
+- **Flow comparisons:** if `D_gen` yields predicted frames/latents, derive a model-side `Flow_pred` and compare to simulator-derived `Flow_gt` under matched controls (do not conflate “Flow Matching” used to generate actions with this project’s geometric `Flow_*` variables).
+- **License caution:** the repo indicates **CC BY‑NC‑SA 4.0**; treat as non-commercial and avoid vendoring code into this MIT-licensed repo.
+
+### 9.2 Integration Notes (Verify)
+- The repo describes patched HuggingFace Transformers modules; isolate integration in a separate service/environment and log the exact revision.
+- Confirm how to export intermediates (`D_gen`) and the exact action parameterization (“delta actions”, etc.) before quantitative comparisons.
