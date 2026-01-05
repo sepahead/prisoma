@@ -1,296 +1,63 @@
 # PID-VLA
 
-> **Documentation Cross-Reference**: This README provides a quick start guide. For detailed specifications, see:
-> - `grandplan.md` — Master plan with glossary and mathematical foundations  
-> - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
-> - `ARCHITECTURE.md` — Component breakdown (Tauri, Modular Physics, 3DGS) and advantages over VLM-based robotics
-> - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
-> - `DIAGRAMS.md` — Visual architecture diagrams
-
-**Partial Information Decomposition for Vision-Language-Action Models**
-
-**Wibral-group shared-exclusions PID (I^sx_∩) for VLA diagnostics**
+> **Docs (start here):**
+> - `grandplan.md` — Canonical spec (definitions, gates, hypotheses, engineering plan)
+> - `EXPERIMENTS.md` — What to run + what to log (protocols)
+> - `ARCHITECTURE.md` — Target system design (PID‑Splat)
+> - `DIAGRAMS.md` — Architecture + control plane diagrams
+> - `pidsplatspecs.md` — Simulation/spec details (PID‑Splat)
+> - `GAUSS_MI_INTEGRATION.md` — Optional: 3DGS uncertainty + view selection (spec)
+> - `WORLD_WARP_INTEGRATION.md` — Optional: external world‑model baseline (spec)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Overview
+PID‑VLA is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
 
-PID-VLA is a research toolkit for analyzing **Vision-Language-Action (VLA)** robot policies using **Partial Information Decomposition (PID)**. It quantifies how visual and linguistic inputs contribute—redundantly, uniquely, or synergistically—to robot action outputs.
+## Hypotheses (Docset v10.0)
 
-**Canonical Research Specification:** This project is governed by [`grandplan.md`](grandplan.md), which contains the complete theoretical, experimental, and implementation details.
+The canonical registry + falsification criteria live in `grandplan.md` (§14.1).
 
-## Hypotheses (Docset v9.0)
+| Hypothesis | One‑line testable claim |
+|---|---|
+| **H1** | PID/CI features predict failure labels beyond strong baselines. |
+| **H2** | Redundancy predicts robustness to single‑modality ablation (matched controls). |
+| **H3** | Uniques predict intervention sensitivity (matched‑strength perturbations). |
+| **H4** | Memorization vs generalization induces systematic PID/CI shifts. |
+| **H5** | Long‑horizon failures correlate with temporal PID/CI degradation. |
+| **H6** | Safety tasks show distinctive V–L integration patterns (only with proper labels/controls). |
+| **H7** | Flow‑as‑Bridge enables stage‑wise diagnostics and embodiment‑agnostic comparisons. |
+| **H8** | Geometry diagnostics determine which estimator regime is valid. |
 
-This repo treats hypotheses as falsifiable contracts (not definitions or slogans). The canonical registry and falsification criteria live in `grandplan.md` §14.1.
+## Experiments (Run Order)
 
-| Hypothesis | Description | Reference |
-|------------|-------------|-----------|
-| **H1** | PID/CI feature sets predict failure labels beyond strong baselines (synergy sign is a candidate feature, not a definition). | `grandplan.md` §14.1 |
-| **H2** | Redundancy predicts robustness to single-modality ablation (under matched controls). | `grandplan.md` §14.1 |
-| **H3** | Unique information predicts intervention sensitivity (matched-strength perturbations). | `grandplan.md` §14.1 |
-| **H4** | Memorization vs generalization induces systematic PID/CI shifts (VLA-Arena framing; verify). | `grandplan.md` §3.6.2 |
-| **H5** | Long-horizon failures correlate with temporal PID/CI degradation (windowed summaries). | `grandplan.md` §3.6.3 |
-| **H6** | Safety tasks show distinctive V–L integration patterns (deferred unless labels/controls exist). | `grandplan.md` §3.6.4 |
-| **H7** | Flow-as-Bridge enables stage-wise diagnostics and embodiment-agnostic comparisons. | `grandplan.md` §3.6.6 |
-| **H8** | Geometry gate metrics determine which estimator regime is valid (continuous vs discrete vs CI-only). | `grandplan.md` §14.1 |
+Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and confounds live in `grandplan.md`.
 
-## Experiments (What to Run, in Order)
+1. **Exp0** — Estimator + geometry gate (GO/PIVOT/NO‑GO).
+2. **Exp1** — Pick‑and‑place + perturbations (H1–H4).
+3. **Exp2** — Long‑horizon composition (H5).
+4. **Exp3** — Instruction/visual/physics perturbations (H1–H6).
+5. **Exp4** — Flow‑as‑Bridge bring‑up with simulator `Flow_gt` (H7).
+6. **Exp5** — Cross‑embodiment replication (H4/H7).
 
-This project is explicitly **gate-driven**: do not run VLA-scale claims until Exp0 passes.
+## Repo Status (What Actually Exists)
 
-1. **Exp0 — Estimator + geometry gate (GO/PIVOT/NO‑GO)**
-   - Run the synthetic validation suite and geometry diagnostics before touching real embeddings.
-   - Protocol: `grandplan.md` §9.1 and `EXPERIMENTS.md` §4.
-2. **Exp1 — Baseline pick-and-place + perturbations (H1–H4)**
-   - Collect controlled rollouts and test whether PID/CI features add predictive value beyond uncertainty/OOD baselines.
-3. **Exp2 — Long-horizon composition (H5)**
-   - Windowed/time-series summaries with autocorrelation-aware uncertainty.
-4. **Exp3 — Instruction/visual/physics perturbations (H1–H6)**
-   - Matched-strength perturbations + placebo controls.
-5. **Exp4 — Flow-as-Bridge bring-up with `Flow_gt` (H7)**
-   - Start with simulator-derived `Flow_gt` (no video predictor). Add predictor-driven `Flow_pred` only after the harness is stable.
-6. **Exp5 — Cross-embodiment replication (H4/H7)**
-   - Re-run the same analysis with different embodiments under a fixed logging contract.
+- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
+- Specified (not yet implemented here): the PID‑Splat harness (run logs + replay, Agent Bridge, sim loop, UI, optional live transports/predictors). Start at `grandplan.md` §A.7.
 
-The authoritative “what to run and what to log” details live in `EXPERIMENTS.md`. The estimator/math and confound analysis live in `grandplan.md`.
-
-## Status (Docset v9.0)
-
-- **Implemented in this repo:** `crates/pid-core` (Rust estimators + geometry diagnostics), `crates/pid-python` (PyO3 module `pid_core_rs`), and the Rust Experiment 0 runner (`just exp0`, `just exp0-bin`).
-- **Specified / planned (see `grandplan.md`):** the “PID‑Splat” diagnostic harness: physics backends (Rapier + baselines), a renderer stack (Three.js + SparkJS “Spark” or equivalent), run logging + replay, and an **Agent Bridge control plane** (GUI + automation via JSON‑RPC/MCP for live interventions).
-
-## Engineering Order (v9.0, Actionable)
-
-The build order below mirrors the experimental dependencies. Treat each milestone as “done” only if its artifacts are replayable and versioned.
-
-1. **M0 — Exp0 gate (already in repo)**
-   - Target: reproducible estimator behavior under known synthetic cases.
-2. **M1 — Run logs + replay (in-repo)**
-   - Define an event-sourced run log format (state/actions/embeddings/interventions), a replay CLI, and integrity hashes.
-3. **M2 — Agent Bridge (in-repo)**
-   - Implement a localhost-only JSON‑RPC API used by both UI and automation; every RPC call is an auditable event in the run log.
-4. **M3 — Minimal sim loop + `Flow_gt` (in-repo)**
-   - Start object-only (Rapier), explicit collision geometry, and deterministic stepping; derive `Flow_gt` from object pose logs.
-5. **M4 — Viewer-first UI (in-repo)**
-   - Tauri shell + Three.js + SparkJS “Spark” (or equivalent) with *offline playback first*, then live mode.
-6. **M5 — VLA embedding capture harness (external or in-repo)**
-   - Implement the contract-first `(V,L,D,A)` extraction + artifact caching; integrate after M1–M3 are stable.
-7. **M6 — Optional: Zenoh/Gazebo/video predictor service**
-   - Add only when needed for cross-embodiment sensors or predictor-driven Flow comparisons; keep stage-wise artifacts and “no oracle” framing.
-
-## Quick Start
-
-### Step-by-Step Plan (Recommended)
-
-1. **Set up the dev environment**
-   - Nix: `nix develop`
-   - Non-Nix: install Rust + Python 3.11+, then run `cargo build` and `uv sync`
-2. **Run unit tests and formatting**
-   - `just test` (and optionally `just lint`, `just fmt`)  
-     If you don’t have `just` installed: `cargo test`, `cargo clippy --workspace -- -D warnings`, `cargo fmt`
-3. **Run the Experiment 0 validation gate**
-   - `just exp0` (test subset)
-   - `cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv`
-4. **Decide GO/PIVOT/NO-GO**
-   - Use the criteria in `grandplan.md` §9.1 and the diagnostics in the `exp0` output
-5. **Proceed to real embeddings only after GO**
-   - Follow `EXPERIMENTS.md` for data collection + hypothesis tests; start with `Flow_gt` (simulator-derived) and a small baseline (e.g., SmolVLA) for harness bring-up before adding video predictors or larger VLAs.
-
-### Prerequisites
-
-- **Rust** (stable, edition 2021)
-- **Python** 3.11+ (the `pid_core_rs` extension is built with PyO3 `abi3-py311`)
-- **uv** (Python package manager)
-- **just** (task runner; install with `cargo install just`)
-
-### Installation
+## Quick Start (Exp0 Gate)
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/pid-vla.git
-cd pid-vla
-
-# Option 1: Using Nix (recommended for reproducibility)
-nix develop
-
-# Option 2: Manual setup
-cargo build
-uv sync
-```
-
-### Configuration
-
-**Note:** `pid-splat.toml` describes the *proposed* simulation stack (PID‑Splat). The current repo focuses on PID estimation/diagnostics; treat the simulation backends as a design target unless you have implemented the missing components.
-
-Copy and customize the configuration file:
-
-```bash
-cp pid-splat.toml my-experiment.toml
-```
-
-Select physics backend based on your needs (see `DIAGRAMS.md` §4 for decision tree):
-
-```toml
-# pid-splat.toml - Quick presets
-[physics]
-backend = "rapier"    # Fast iteration (hardware-dependent)
-# backend = "mujoco"  # Benchmark comparison (LIBERO/MetaWorld)
-# backend = "isaac"   # Large-scale batch experiments (GPU; planned)
-
-[robot]
-backend = "gazebo"    # Industry-standard robot simulation
-# backend = "none"    # Object-only experiments
-```
-
-### Running Experiment 0 (Validation Gate)
-
-Before using PID-VLA on real VLA embeddings, you **MUST** run the validation suite (see `grandplan.md` §9.1):
-
-```bash
-# Run Rust-side validation tests
+# optional: nix develop
+cargo test
 just exp0
-
-# Run the full Experiment 0 binary
 just exp0-bin
-
-# CSV output for analysis
-cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv
 ```
 
-**GO/NO-GO Criteria (`grandplan.md` §9.1):**
-*   **GO:** Error < 15% at d=256 after PCA, stable across seeds.
-*   **PIVOT:** Error 15-30% at d=256; switch to discrete or CI-only screening.
-*   **NO-GO:** Error > 30% at d=256; fundamental approach failure.
+If you don’t have `just`: `cargo test` and `cargo run -p pid-core --bin exp0`.
 
-### Basic Usage (Rust)
+## Engineering Plan (To “Finish” the Project)
 
-```rust
-use pid_core::{pid2_isx, MatRef, Pid2Config};
-
-// Prepare your data: n samples × d dimensions
-// Example dimensions (verify for your model; see EXPERIMENTS.md §3)
-let n = 1000;
-let d_vis = 1024; // Vision (SigLIP/DinoV2)
-let d_lang = 4096; // Language (Llama 2 7B)
-let d_act = 8;    // Action (7 joints + gripper)
-
-// Dummy data for illustration
-let vision_embeddings = vec![0.0; n * d_vis];
-let language_embeddings = vec![0.0; n * d_lang];
-let action_outputs = vec![0.0; n * d_act];
-
-// Map VLA variables to PID Source/Target roles
-let s1 = MatRef::new(&vision_embeddings, n, d_vis)?; // Source 1: Vision
-let s2 = MatRef::new(&language_embeddings, n, d_lang)?; // Source 2: Language
-let t = MatRef::new(&action_outputs, n, d_act)?; // Target: Action
-
-let cfg = Pid2Config::default();
-let result = pid2_isx(s1, s2, t, &cfg)?;
-
-println!("Redundancy: {:.3} nats", result.redundancy);
-println!("Unique Vision: {:.3} nats", result.unique_s1);
-println!("Unique Language: {:.3} nats", result.unique_s2);
-println!("Synergy: {:.3} nats", result.synergy);
-```
-
-## Architecture
-
-### Modular Simulation Backends
-
-The proposed PID‑Splat stack uses a composable architecture with swappable backends (see `DIAGRAMS.md` §4 and `ARCHITECTURE.md` §2):
-
-| Layer | Options | Selection Criteria |
-|-------|---------|--------------------|
-| **Rendering** | Gaussian splats (proposed) | High visual fidelity (benchmark-dependent) |
-| **Physics** | Rapier, MuJoCo (Isaac Gym: planned) | Speed vs contact fidelity vs scale |
-| **Robot** | Gazebo, MuJoCo, None | Sensor sim vs benchmark compat |
-
-### Agent-Native Control Plane (Planned)
-
-The PID‑Splat UI is specified to be **scriptable**: the same operations available in the GUI (scene edits, perturbations, run control, replay/export) must be exposed via a stable local API (“Agent Bridge”), designed to work well with LLM coding tools (Claude Code/Codex/opencode-style) and conventional scripts. See `grandplan.md` §11.4 and `pidsplatspecs.md` §5.3.
-
-### PID-Core Library
-
-The `pid-core` crate implements the estimators defined in `grandplan.md`:
-
-| Module | Description | Reference |
-|--------|-------------|-----------|
-| `ksg` | KSG mutual information estimator (Kraskov et al. 2004) | §8.1 |
-| `isx` | Shared-exclusions redundancy I^sx_∩ (Ehrlich et al. 2024) | §2.2 |
-| `pid2` | 2-source PID decomposition (Red, Unq1, Unq2, Syn) | §2.1 |
-| `hierarchy` | Fast→slow hierarchical screening for many-source settings | §2.5.4 |
-| `geometry` | Distance concentration and intrinsic dimension diagnostics | §16 |
-| `hyperbolic` | Hyperbolic geometry utilities (Poincaré/Lorentz) | §16.7 |
-
-### Information Flow
-
-```
-┌─────────────────┐     ┌─────────────────┐
-│  Vision (V)     │     │  Language (L)   │
-│ (n×1024)        │     │ (n×4096)        │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         ▼                       ▼
-    ┌─────────┐             ┌─────────┐
-    │   S1    │             │   S2    │
-    └────┬────┘             └────┬────┘
-         │                       │
-         └───────────┬───────────┘
-                     │
-              ┌──────▼──────┐
-              │  PID-Core   │
-              │  Estimators │
-              └──────┬──────┘
-                     │
-         ┌───────────┼───────────┐
-         │           │           │
-    ┌────▼────┐ ┌────▼────┐ ┌────▼────┐
-    │ Red(V,  │ │ Unq(V)  │ │ Syn(V,  │
-    │ L; A)   │ │         │ │ L; A)   │
-    └─────────┘ └─────────┘ └─────────┘
-```
-
-## VLA Architecture Targets
-
-See `grandplan.md` §7 for detailed analysis.
-
-| VLA | Backbone | World Model (D) | Action Rep | Notes |
-| --- | --- | --- | --- | --- |
-| **OpenVLA** | Llama 2 7B | Implicit (hidden states; definition choice) | Action tokens/bins (verify) | Primary target; d≈4096 |
-| **DreamVLA** | Backbone unspecified in abstract (verify) | Explicit world-knowledge forecasting (dynamic/spatial/semantic cues) | Diffusion-based transformer (abstract; verify representation) | Useful when D is operationalizable; dims unknown |
-| **PixelVLA** | Integrated into existing VLAs (abstract; backbone unspecified) | Implicit (verify) | (verify) | Adds pixel-level reasoning + multimodal prompting; Pixel‑160K (paper-reported; verify release) |
-| **TraceVLA** | Llama 2 7B | Trace-augmented V | Action tokens/bins (verify) | Temporal history in V |
-| **SmolVLA** | LeRobot baseline (verify) | Implicit | (verify) | Lightweight baseline for fast iteration / pipeline debugging |
-| **InternVLA‑A1** | LeRobot-based policy (verify) | Generation expert outputs (explicit; verify format) | Delta actions via Flow Matching (generative method; not geometric flow; verify) | Tripartite understanding/generation/action design; useful for stage-wise ablations; CC BY‑NC‑SA 4.0 license per repo |
-
-## Estimator Caveats
-
-⚠️ **Read before using on VLA embeddings (`grandplan.md` v5.5 Warning):**
-
-1. **Manifold Geometry:** The continuous I^sx_∩ estimator relies on Chebyshev (L∞) geometry. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without mitigation. See `grandplan.md` §16.
-
-2. **Hyperbolic/Lorentzian Limitation:** The validated ISX estimator (`EhrlichKsg`) **only supports Chebyshev metric**. Hyperbolic/Lorentzian PID estimation is NOT currently supported. This is a fundamental limitation of the Ehrlich et al. (2024) algorithm.
-
-3. **Flow-as-Bridge Workaround:** To avoid non-Euclidean embedding geometry, use explicit 3D Object Flow as the PID target rather than relying on high-dimensional latent distances. See `EXPERIMENTS.md` §8, `ARCHITECTURE.md` §1.6, and `DIAGRAMS.md` §6. Flow is Euclidean but can still be high-dimensional (e.g., \(\mathbb{R}^{3T}\)), so you must validate dimensionality and distance concentration.
-
-4. **Geometry Validation Gate:** Before trusting PID results, run geometry diagnostics (intrinsic dimension, δ-hyperbolicity, distance concentration). See `EXPERIMENTS.md` §4 (Geometry Validation Gate subsection).
-
-5. **Sample Size:** kNN/KSG estimators can require very large sample sizes as intrinsic dimension or dependence strength increases. Treat any “works at (N,d)” claim as empirical until validated (Experiment 0 + geometry diagnostics).
-
-6. **i.i.d. Assumption:** VLA trajectories are autocorrelated. Use cross-trajectory sampling or large strides.
-
-## References
-
-**Core Methodology:**
-- Makkeh, A., Gutknecht, A. J., & Wibral, M. (2021). Introducing a differentiable measure of pointwise shared information. *Phys Rev E*, 103:032149. DOI: `10.1103/PhysRevE.103.032149`.
-- Ehrlich, D. A., Schick-Poland, K., Makkeh, A., et al. (2024). Partial Information Decomposition for Continuous Variables based on Shared Exclusions. *Phys Rev E*, 110:014115. DOI: `10.1103/PhysRevE.110.014115`.
-- Gutknecht, A. J., et al. (2025). Shannon Invariants: A Scalable Approach to Information Decomposition. *arXiv:2504.15779*.
-
-**Research Plan:**
-- [grandplan.md](grandplan.md) - Full theoretical specification
-- [pidsplatspecs.md](pidsplatspecs.md) - Simulation environment spec
-- [EXPERIMENTS.md](EXPERIMENTS.md) - Experimental protocols and setup
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Component breakdown and VLM comparison
+Build order + acceptance criteria are in `grandplan.md` §A.7 (M0–M8): run logs + replay → Agent Bridge → minimal sim + `Flow_gt` → viewer‑first UI → embedding harness → optional live transport/predictors → optional GauSS‑MI uncertainty + view selection.
 
 ## Citation
 
@@ -301,5 +68,3 @@ See `grandplan.md` §7 for detailed analysis.
   url = {https://github.com/your-org/pid-vla}
 }
 ```
-
-- `GAUSS_MI_INTEGRATION.md`: Specification for integrating GauSS-MI uncertainty quantification with PID estimators.

@@ -6,18 +6,21 @@
 > - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
+> - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
+> - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 9.0 FINAL (Actionable engineering plan + docset execution order)
+**Version:** 10.0 FINAL (Docset consistency + GauSS‑MI integration)
 **Date:** 2026-01-05
-**Status:** Research Specification + Implementation Blueprint (v9.0 audited)
+**Status:** Research Specification + Implementation Blueprint (v10.0 audited)
 **Canonical:** Living spec; prior versions live in git history.
 
-**v9.0 FINAL notes (Actionability + build order):**
-- Added an explicit, engineering-first execution plan with milestone ordering and acceptance criteria so implementation can begin without re-interpreting the spec (§A.7).
-- Reworked the docset handoff so `README.md` leads with hypotheses and experiments, then maps to the engineering build order (contract-first, gate-driven).
-- Preserved the v8.0 corrections: SparkJS “Spark” is Three.js/WebGL2; “3DGS-based” simulators still use conventional physics backends (SplatSim→PyBullet; DISCOVERSE→MuJoCo); and H8 formalizes geometry-gated estimator regime selection.
+**v10.0 FINAL notes (Consistency + optional uncertainty controls):**
+- Preserved the v9.0 execution plan and added an explicit optional milestone for 3DGS uncertainty/view selection (GauSS‑MI) as a confound control (see §A.7 and §C.2).
+- Integrated the GauSS‑MI spec into the main docset (protocol notes + diagrams) without claiming it is implemented (`GAUSS_MI_INTEGRATION.md` is a pre‑implementation spec).
+- Slimmed `README.md` into a brief “how to proceed” entrypoint that points to the canonical documents (keep detail in `grandplan.md`/`EXPERIMENTS.md`).
+- Preserved earlier factual corrections: SparkJS “Spark” is Three.js/WebGL2; “3DGS-based” simulators still use conventional physics backends (SplatSim→PyBullet; DISCOVERSE→MuJoCo); and geometry diagnostics gate estimator regime selection (H8).
 
 > **⚠️ Key caveat (estimator geometry):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
 
@@ -82,6 +85,7 @@
 
 **WAN-like video models and Dream2Flow-style bridges**
 - Most simulators do not include “world model → flow → diagnostic target” pipelines out of the box. Here they are treated as external services with pinned versions, and as experimental variables rather than infrastructure assumptions.
+- **Optional camera-motion world model baseline:** WorldWarp-style camera-conditioned scene generation can be treated as an additional external predictor for viewpoint changes (evaluative/generative; verify upstream claims and licensing). See `WORLD_WARP_INTEGRATION.md`.
 
 **Hybrid splats + meshes (and why Three.js/GPU compositing matters)**
 - 3DGS is strong for photoreal *views* of captured scenes; meshes/URDFs remain the practical choice for articulated robots, collision proxies, and precise interactive edits. The proposed stack assumes hybrid rendering/physics: splats for appearance, meshes for dynamics and contact.
@@ -90,7 +94,7 @@
 1. **Splat-first rendering (visual realism when capture is good)** — 3DGS can reduce *visual* domain gaps on some tasks; SplatSim reports 86.25% average zero-shot sim2real success on their benchmark (arXiv:2409.10161). Treat transfer rates as benchmark-specific.
 2. **Hybrid splats + meshes** — Use splats for photoreal views and meshes/URDFs for collisions, robots, and precise “what-if” edits (e.g., Three.js + SparkJS can render both; other GPU renderers are acceptable).
 3. **Programmable overlays (Dynos)** — GPU-side splat recoloring/annotation makes PID diagnostics inspectable in real time (treat SparkJS implementation details as external).
-4. **Modular physics choice** — Rapier (fast iteration, deterministic) vs MuJoCo/PhysX-class engines (contact baselines); avoid claiming “better” without matched evaluation.
+4. **Modular physics choice (plus differential replay)** — use one physics backend per run (Rapier for fast iteration/determinism; MuJoCo/PhysX-class engines as contact baselines). Optionally replay the same run log across backends as a robustness/confound check; true per-object mixed backends is a co-simulation problem and is treated as an advanced, restricted option (§E.1).
 5. **Closed-loop PID instrumentation as a first-class requirement** — explicit hooks for perturbations, provenance, and synchronized logs to make PID hypotheses testable.
 6. **World-model integration is explicit** — WAN-like video models + flow extraction are treated as plug-in experimental variables, not baked into the simulator.
 7. **Lower operational footprint (by design)** — a Tauri app with a GPU-accelerated web renderer (WebGL2/WebGPU, depending on implementation) can be substantially lighter to install/run than full Omniverse/Isaac stacks; exact size/throughput is packaging- and hardware-dependent, and other shells (Electron/Qt/Unity) remain viable.
@@ -155,7 +159,7 @@ The lowest-risk path is to add complexity only after each prior layer is validat
 
 **Why not start with video predictors?** They add major confounds (stochastic generation, heavy compute, opaque failure modes). Starting with `Flow_gt` tests the PID hypotheses about integration with a clean Euclidean variable before introducing an additional model.
 
-#### §A.7 Engineering Execution Plan (v9.0; make it buildable)
+#### §A.7 Engineering Execution Plan (v10.0; make it buildable)
 
 This section turns the spec into an actionable build order. The goal is to make **engineering begin** without ambiguity while preserving scientific rigor (Exp0 + geometry gates; no-oracle; contract-first).
 
@@ -172,17 +176,19 @@ This section turns the spec into an actionable build order. The goal is to make 
 | **M0** | Estimator gate (Exp0) | Rust (`crates/pid-core`) | CSV + diagnostics | Exp0 passes GO/PIVOT/NO‑GO gates on synthetic data; results stable across seeds |
 | **M1** | Run logs + replay | Rust | Versioned event schema + reader/writer + replay CLI | You can replay a run deterministically into identical state traces; logs include hashes + config |
 | **M2** | Agent Bridge API | Rust (JSON‑RPC over WS; localhost-only) | API spec + server + audit log integration | Every UI/automation action is an RPC; every RPC is appended to the run log; safe-mode gates |
-| **M3** | Minimal object sim + `Flow_gt` | Rapier (Rust) | Deterministic sim loop + collision geometry + `Flow_gt` derived from poses | You can spawn/move objects via Agent Bridge, step deterministically, and export `Flow_gt` trajectories |
+| **M3** | Minimal object sim + `Flow_gt` | Rapier (Rust; behind a backend trait boundary) | Deterministic sim loop + collision geometry + `Flow_gt` derived from poses | You can spawn/move objects via Agent Bridge, step deterministically, export `Flow_gt`, and record backend + solver params in the run log (enables later cross-backend replay) |
 | **M4** | Viewer-first UI | Tauri v2 + React + Three.js + SparkJS “Spark” | Playback viewer (splats + meshes + overlays) | Offline replay renders states + overlays; timeline scrub and event inspection work end-to-end |
 | **M5** | VLA embedding capture harness | Python 3.11 (`uv`) + HF/LeRobot (as needed) | Cached `(V,L,D,A)` artifacts + provenance | Contract-first logging works on a small baseline (SmolVLA/toy); artifacts are replay-linked |
 | **M6** | Optional live transport + robot sim | Zenoh + Gazebo (optional) | Live sensor/action streams + synchronized logs | Live mode reproduces the same run-log format; disconnects are handled and logged |
 | **M7** | Optional predictor-driven Flow | External service (WAN-like) + tracking/depth | `Flow_pred` + stage labels + caches | Stage-wise artifacts are persisted; Flow pipelines have negative controls; no “oracle” framing |
+| **M8** | Optional GauSS‑MI uncertainty + view selection | 3DGS pipeline + residual analysis | `SceneUncertaintyMap` + `N_eff` + view suggestions | Uncertainty artifacts are versioned and replay-linked; UI can visualize uncertainty; view-selection decisions are logged as interventions |
 
 **Recommended repo layout for new components (names are suggestions; keep scope tight):**
 - `crates/pid-runlog`: event schemas, hashing, readers/writers, replay utilities.
 - `crates/pid-bridge`: Agent Bridge server + JSON‑RPC method definitions (and a small client).
 - `crates/pid-sim`: deterministic object simulation loop (Rapier first) + `Flow_gt` extraction utilities.
 - `crates/pid-tauri`: viewer-first desktop UI (Tauri + React + Three.js + SparkJS).
+- Optional: `crates/pid-gauss-mi` (or `crates/pid-core::gauss_mi`): 3DGS uncertainty artifacts + view selection (M8; see `GAUSS_MI_INTEGRATION.md`).
 - `experiments/` (Python): embedding extraction + dataset orchestration (after M1–M3 are stable).
 
 **Why this order is the fastest path to publishable results:**
@@ -293,6 +299,17 @@ iPhone/DSLR video → COLMAP + gsplat/nerfstudio → .PLY/.SPZ → Rapier collis
                                               (edit, randomize)
 ```
 
+#### C.2 Optional: GauSS‑MI uncertainty + active view selection (proposed; this repo)
+
+If you use 3DGS scenes, **reconstruction quality becomes a confound**: PID features can shift simply because parts of the scene are poorly reconstructed (few views, high residual error, transparent/specular surfaces). This repo’s proposed “GauSS‑MI” module (see `GAUSS_MI_INTEGRATION.md`) treats 3DGS uncertainty as a first-class diagnostic signal:
+
+- **Per‑Gaussian uncertainty map:** estimate uncertainty from residual image loss for each Gaussian (and derived scene‑level summary stats).
+- **Uncertainty‑aware diagnostics:** report *effective sample size* (`N_eff`) and “uncertainty corruption” indicators so you can detect when visual unreliability drives PID results.
+- **(Optional) uncertainty‑weighted estimators:** down‑weight unreliable samples/features when computing MI/PID (requires a dedicated validation gate; do not assume correctness without tests).
+- **Active view selection:** choose additional camera viewpoints to reduce uncertainty (information-gain framing) and log the decision as a reproducible intervention.
+
+**Scientific role:** this strengthens H1–H6 by adding a negative control against “PID signal == reconstruction artifact”. Treat it as an **optional module** until it is implemented and validated in‑repo.
+
 **OpenUSD/Isaac Sim interop note (LeIsaac/Marble-style workflow):**
 - LeIsaac’s Marble tutorial converts Gaussian splat `.ply` → `.usdz` (packaged OpenUSD) using NVIDIA 3DGrut, then combines the splat scene with a collision mesh inside Isaac Sim and exports a single `.usd` “background scene”.
 - This project can adopt the same interoperability pattern when Isaac Sim/LeIsaac tooling is useful (e.g., to validate collision proxies or reuse OpenUSD scene composition), while still using SparkJS for splat rendering and mesh/URDF for physics in the PID‑Splat stack.
@@ -371,6 +388,17 @@ class VisualForceCorrector {
 **Implication for PID‑Splat:** treat 3DGS as the **appearance layer**. Contacts/collisions should be handled by the chosen physics backend (Rapier/MuJoCo/etc.) using explicit collision geometry (URDF/MJCF primitives, convex decompositions, or decimated meshes). This matches standard simulator practice and keeps “physics validity” separate from “visual realism”.
 
 **Optional research (not required for core PID experiments):** splat-field collisions can be explored as a *broad-phase proximity heuristic* or for editor tooling, but should not be the default contact model for contact-rich manipulation until benchmarked against mesh/primitive baselines.
+
+#### E.1 Multi-engine physics (per-object backends) — what is feasible
+
+It is tempting to ask for “Rapier walls + MuJoCo cups” (or similar). In general, **contact-rich scenes want a single constraint solver**: mixing physics engines at the object level is not a normal feature of robotics simulators, because contacts/joints form one coupled system.
+
+For PID‑VLA, the practical options are:
+1. **One backend per run (recommended default):** pick Rapier for fast, instrumented iteration or MuJoCo as a contact-physics baseline. This keeps replay, attribution, and intervention semantics clean.
+2. **Cross-backend replay (recommended robustness check):** record the same initial state + action log and replay it under a different backend, then report divergence metrics (state/contacts/success). This directly tests whether a PID finding is an artifact of one simulator’s contact model.
+3. **Physics “islands” (advanced; restricted coupling):** you can simulate disjoint object groups in different engines **only if cross-island contacts are not required**. Coupling is typically one-way (e.g., a MuJoCo subscene treats the rest of the world as kinematic colliders duplicated into MuJoCo). If a MuJoCo object must collide with a wall, that wall must exist as collision geometry in MuJoCo as well—having the wall “in Rapier” does not help that contact.
+
+**Why this matters for the hypotheses:** physics mismatch is a confound for H1–H6 (failures can be contact-model artifacts). Treating the physics backend as an explicit experimental variable—and adding cross-backend replay as a negative control—strengthens claims about *V–L integration* vs environment idiosyncrasies.
 
 **FOCI-inspired approach (Field Overlap Collision Integral):**
 
@@ -982,7 +1010,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   - **8 Minor Blockers (Category 3):** SAE training, MINE retraining, Isomap cost, macOS CUDA limits, etc.
   - Risk mitigation timeline (Month 1-7 decision gates)
   - Fallback scope hierarchy (Core → Important → Stretch → Future Work)
-- **Verification of key blockers (v9.0 audit level = arXiv abstracts + repo reality):**
+- **Verification of key blockers (v10.0 audit level = arXiv abstracts + repo reality):**
   - DreamVLA: abstract does not specify backbone dims; weights availability must be checked upstream.
   - OpenVLA: abstract claims open-source checkpoints/code; verify repository/weights availability and license before depending on it.
   - VLA-Arena: verify benchmark availability, data access, and licensing before using it as a primary evaluation source.
@@ -3254,7 +3282,7 @@ Observing these null results is **valid scientific outcome** that would redirect
 | Temporal synergy predicts long-horizon success | **Support for H5** | Develop synergy-based curriculum |
 | None of the above | **Null result** | Report limits; prefer simpler baselines |
 
-### 9.7.7 Dream2Flow Stage Taxonomy as PID Diagnostic Framework (v9.0)
+### 9.7.7 Dream2Flow Stage Taxonomy as PID Diagnostic Framework (v10.0)
 
 Dream2Flow (arXiv:2512.24766) motivates a methodology that is directly useful for PID: if you can expose intermediate artifacts (generated video, extracted flow, executed trajectory), you can avoid misattributing “end‑to‑end failure” to the wrong mechanism. PID‑VLA adopts the same *stage-wise logging* idea whenever a Dream2Flow‑style bridge is used.
 
@@ -3733,7 +3761,7 @@ await agentBridge.call("prompt.set", {
 });
 ```
 
-## 10.9 Dream2Flow: Video→Flow Bridge for Manipulation (v9.0)
+## 10.9 Dream2Flow: Video→Flow Bridge for Manipulation (v10.0)
 
 ### 10.9.1 Overview
 
@@ -4042,7 +4070,7 @@ function renderPIDFlow(splats: PIDSplat[], timestamp: number) {
 
 ### 10.10.5 PID Analysis Points in the Pipeline
 
-The staged architecture supports **stage-wise diagnostics**, but not all stages should be framed as PID. v9.0 adopts a **no-oracle, contract-first** stance: use explicit quality metrics where possible, and apply PID only to variables that are well-defined for your run and that pass the Geometry Gate + Experiment 0.
+The staged architecture supports **stage-wise diagnostics**, but not all stages should be framed as PID. v10.0 adopts a **no-oracle, contract-first** stance: use explicit quality metrics where possible, and apply PID only to variables that are well-defined for your run and that pass the Geometry Gate + Experiment 0.
 
 **Per-run variable definitions (log them):**
 - `Flow_pred`: reconstructed object-level 3D trajectories from a predictor (Dream2Flow-style).
@@ -4064,7 +4092,7 @@ The staged architecture supports **stage-wise diagnostics**, but not all stages 
 - `Syn(V, L; D_pred)` or `Syn(V, D_pred; Flow_pred)` to probe predictor internals **if** exposed.
 - `Syn(V, D_vla; Flow_gt)` when you can compute `Flow_gt` from simulator logs (bypasses video predictor geometry entirely).
 
-**Failure localization protocol (v9.0):** do not hard-code synergy thresholds. Instead, learn or calibrate a stage classifier on held-out tasks using the stage metrics above (and report uncertainty).
+**Failure localization protocol (v10.0):** do not hard-code synergy thresholds. Instead, learn or calibrate a stage classifier on held-out tasks using the stage metrics above (and report uncertainty).
 
 ```python
 def localize_failure(trial: Trial, clf) -> FailureStage:
@@ -4127,7 +4155,7 @@ COUNTERFACTUAL ANALYSIS PROTOCOL
 | Rendering (optional) | fps, end-to-end latency | depends on scene complexity and GPU |
 | **Total per trial** | sum | report separately for online loop vs offline analysis |
 
-**Hardware note (v9.0):** this document does not prescribe a “minimum GPU”. The implemented core (`crates/pid-core`) runs on CPU. Any additional requirements are determined by the specific VLA checkpoint(s), video predictor(s), and scene complexity you choose. Prefer offline-first pipelines and cache artifacts so that interactive diagnostics do not depend on real-time video generation.
+**Hardware note (v10.0):** this document does not prescribe a “minimum GPU”. The implemented core (`crates/pid-core`) runs on CPU. Any additional requirements are determined by the specific VLA checkpoint(s), video predictor(s), and scene complexity you choose. Prefer offline-first pipelines and cache artifacts so that interactive diagnostics do not depend on real-time video generation.
 
 ### 10.10.8 Comparison: VLA Internal D vs External Predictor‑Derived Flow
 
@@ -4302,9 +4330,9 @@ The Dream2Flow pipeline enables **natural 3-source decompositions** that relate 
 - Reduce to interpretable features (e.g., 64 SAE latents)
 - Compute PID on (V, SAE_latents; Flow) — lower dimension, more interpretable
 
-### 10.10.13 VLA Integration Matrix (v9.0)
+### 10.10.13 VLA Integration Matrix (v10.0)
 
-This section maps how each VLA architecture integrates with the Dream2Flow + WAN + PID pipeline. v9.0 uses a **contract-first** framing: avoid assuming internal module names or fixed tensor shapes unless you have verified them for your exact checkpoint.
+This section maps how each VLA architecture integrates with the Dream2Flow + WAN + PID pipeline. v10.0 uses a **contract-first** framing: avoid assuming internal module names or fixed tensor shapes unless you have verified them for your exact checkpoint.
 
 #### 10.10.13.1 VLA ↔ PID Variable Contract (model-agnostic)
 
@@ -4332,7 +4360,7 @@ For every run, define and log the analysis variables explicitly:
 
 **Geometry note:** do not assume “d=4096” or “RoPE entanglement” for every model. If you use a RoPE-based backbone (e.g., Llama-family), consider exporting a **pre-attention residual stream** representation as one candidate `D_hidden[k]`, but treat this as an empirical mitigation and validate via the Geometry Gate + Experiment 0.
 
-#### 10.10.13.3 Decision Matrix: Which VLA for Which Analysis (v9.0)
+#### 10.10.13.3 Decision Matrix: Which VLA for Which Analysis (v10.0)
 
 | Analysis goal | Suggested VLA | Reason (constraint-first) |
 |---------------|---------------|---------------------------|
@@ -4343,7 +4371,7 @@ For every run, define and log the analysis variables explicitly:
 | **Temporal dynamics / history effects** | TraceVLA | Trace input explicitly manipulates history dependence |
 | **Spatial / pixel-aligned diagnostics** | PixelVLA (if integration supports it) | Pixel-level variables enable localized PID/CI analyses |
 
-#### 10.10.13.4 Vision Model Placeholders (v9.0 note; verify)
+#### 10.10.13.4 Vision Model Placeholders (v10.0 note; verify)
 
 Earlier drafts referenced specific “v3/3” releases for segmentation/tracking/depth. Treat those as **placeholders** for whichever *current, available* models you can actually run and license. For scientific rigor, log the exact model name, version/commit hash, and license for every run.
 
@@ -4384,7 +4412,7 @@ To keep the diagnostics scientifically interpretable and the system maintainable
 
 ### 11.1.1 Core Components
 
-| Component | In repo (v9.0) | Status | Notes |
+| Component | In repo (v10.0) | Status | Notes |
 |-----------|-----------------|--------|------|
 | Continuous MI + SxPID (2-way/3-way) | `crates/pid-core` | Implemented | KSG MI + continuous `I^sx_∩` (`IsxMethod::EhrlichKsg`) + `pid2`/`pid3` wrappers |
 | Geometry gates + screening | `crates/pid-core` | Implemented | Intrinsic dimension, distance concentration, δ/δ_rel; hierarchy helpers |
@@ -4421,7 +4449,7 @@ syn = I_vd_a - I_v_a - I_d_a + R
 
 This section distinguishes the **current repo layout** from the **target layout** described in the broader system spec.
 
-**Current (in this repo, v9.0):**
+**Current (in this repo, v10.0):**
 
 ```
 pid_vla/
@@ -4443,7 +4471,7 @@ pid_vla/
 └── *.md (docs)
 ```
 
-**Repo status (v9.0):**
+**Repo status (v10.0):**
 - Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner) and `crates/pid-python` (PyO3 bindings).
 - Planned: `crates/pid-tauri` (visualization app) and a Python experiment harness (location TBD: `python/` or `experiments/`), plus asset/tooling scripts to populate `assets/` and local datasets.
 
@@ -4881,7 +4909,7 @@ This section addresses how confounding factors could be studied and removed to r
 
 ## 14.1 Core Hypotheses and Their Falsifiability
 
-### 14.1.0 Hypothesis Registry (v9.0)
+### 14.1.0 Hypothesis Registry (v10.0)
 
 This project treats hypotheses as **falsifiable contracts**, not slogans. Status labels are about *priority and interpretability* given current estimator and logging constraints.
 
@@ -7513,7 +7541,8 @@ Earlier drafts embedded large “kitchen sink” Nix flakes and task runners ins
 | **6.8 FINAL** | Jan 2026 | **SmolVLA baseline + world-model comparison (draft; details later revised):** (1) Added SmolVLA (LeRobot) as a lightweight baseline for harness bring-up and pipeline debugging (§7.8; model internals must be verified). (2) Added a conceptual ManiGaussian vs PEGS comparison as a framing device for “learned implicit” vs “explicit physics + correction” world models (verify any implementation claims before use). (3) Sketched additional experiment ideas (Exps 6–10) but did not treat them as core aims. |
 | **7.0 FINAL** | Jan 2026 | **Scientific audit + docset alignment:** (1) Reworked architecture/competitor comparisons into capability notes (removed star ratings and roadmap/marketing framing). (2) Removed or labeled unverified performance/latency/hardware “requirements”; made measurement-first language consistent across the docset. (3) Clarified repo reality in §11 (current layout vs planned), fixed Python binding examples to use the real `pid_core_rs` API, and updated task-runner documentation. (4) Made Dream2Flow/WAN integration model-agnostic (“Video Predictor Service”), removed hard-coded clip lengths and vendor-specific assertions, and tightened “no oracle” language. (5) Added OpenUSD/USDZ interop notes and diagrams (LeIsaac Marble tutorial; NVIDIA 3DGrut `.ply → .usdz` bridge) as an optional workflow. (6) Added/updated SmolVLA mentions as a lightweight baseline. (7) Docset consistency sweep across `README.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, `ARCHITECTURE.md`, and `pidsplatspecs.md`, plus repo guidance via `AGENTS.md`. (8) Added an agent-native control plane requirement (“Agent Bridge” via JSON‑RPC/MCP) so GUI actions and live interventions are reproducible and callable from LLM coding tools. |
 | **8.0 FINAL** | Jan 2026 | **Renderer clarification + hypothesis/method updates:** (1) Corrected SparkJS assumptions (SparkJS “Spark” integrates with Three.js and targets WebGL2; WebGPU treated as an optional backend). (2) Updated the hypothesis set: added H8 (geometry gate → estimator regime choice) and narrowed H2/H3 into falsifiable ablation/intervention claims; softened optional world-model extension hypotheses (H_WM1–H_WM5). (3) Expanded the survey with a non-generative flow baseline (RAFT; arXiv:2003.12039) and updated model references (SmolVLA). (4) Docset bump to v8.0 + consistency sweep (including Appendix C rendering notes). |
-| **9.0 FINAL** | Jan 2026 | **Actionable engineering plan + docset v9.0:** (1) Added an explicit engineering execution plan (M0–M7) with acceptance criteria and a risk-reducing build order so implementation can begin without re-interpreting the spec (§A.7). (2) Restructured `README.md` to lead with hypotheses and experiments, then map to the engineering order (gate-driven, contract-first). (3) Clarified offline-first run logs + replay as core and moved live transports (Zenoh) and predictor-driven Flow to optional milestones; aligned `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` accordingly. |
+| **9.0 FINAL** | Jan 2026 | **Actionable engineering plan + docset v9.0:** (1) Added an explicit engineering execution plan (M0–M7) with acceptance criteria and a risk-reducing build order so implementation can begin without re-interpreting the spec (§A.7). (2) Restructured `README.md` to lead with hypotheses and experiments, then map to the engineering order (gate-driven, contract-first). (3) Clarified offline-first run logs + replay as core and moved live transports (Zenoh) and predictor-driven Flow to optional milestones; aligned `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` accordingly. (4) Added a multi-engine physics reality check and promoted cross-backend replay (Rapier ↔ MuJoCo) as a robustness/confound control (§E.1). |
+| **10.0 FINAL** | Jan 2026 | **Docset consistency + GauSS‑MI integration:** (1) Integrated the optional GauSS‑MI spec into the core docset: added reconstruction-uncertainty and active view selection as explicit confound controls and an optional milestone (M8; §C.2; `GAUSS_MI_INTEGRATION.md`). (2) Added diagrams for cross-backend replay and GauSS‑MI flows (`DIAGRAMS.md`). (3) Slimmed `README.md` into a brief entrypoint and aligned doc versions to v10.0. |
 
 ---
 

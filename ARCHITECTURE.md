@@ -6,10 +6,12 @@
 > - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
+> - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
+> - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 
 ---
 
-**Docset alignment:** This document is aligned to `grandplan.md` v9.0. It describes a *target architecture* (PID‑Splat) that goes beyond what is currently implemented in this repository; treat latency/throughput numbers as measurements to be taken on your hardware, not guarantees.
+**Docset alignment:** This document is aligned to `grandplan.md` v10.0. It describes a *target architecture* (PID‑Splat) that goes beyond what is currently implemented in this repository; treat latency/throughput numbers as measurements to be taken on your hardware, not guarantees.
 
 ## 1. Core System Components
 
@@ -42,7 +44,7 @@
 │  └─ Timeline + replay UI    │  └─ ML inference hooks (planned) │
 └─────────────────────────────────────────────────────────┘
 ```
-**Note:** The v9.0 build order is offline-first: implement run logs + replay before relying on live transports such as Zenoh (`grandplan.md` §A.7).
+**Note:** The v10.0 build order is offline-first: implement run logs + replay before relying on live transports such as Zenoh (`grandplan.md` §A.7).
 
 ### 1.2 SparkJS (Three.js / WebGL2 3DGS Renderer)
 
@@ -58,6 +60,7 @@
   - Red = High Synergy
   - Blue = High Unique Information
   - Green = High Redundancy
+- **Optional uncertainty overlays (proposed):** visualize per‑Gaussian reconstruction uncertainty (GauSS‑MI) and log uncertainty stats as artifacts; see `GAUSS_MI_INTEGRATION.md`.
 
 ### 1.3 Modular Physics Engine (Rapier, MuJoCo, Isaac Gym)
 
@@ -86,6 +89,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 - **Determinism**: Rapier aims for deterministic replay under fixed dt/ordering, but bitwise determinism can break across platforms/CPUs; verify and log settings/seeds.
 - **Modularity**: Select an engine appropriate to your trade-offs (Rapier for speed, MuJoCo for contact fidelity)
 - **Integration**: Native Rust (Rapier) = zero-copy data flow to PID-core; FFI for MuJoCo/Isaac
+- **Multi-engine reality**: per-object “Rapier walls + MuJoCo cups” is a co-simulation problem for contact-rich scenes. v10.0 recommends **one physics backend per run**, plus optional **cross-backend replay** (Rapier ↔ MuJoCo) as a robustness/confound check (see `grandplan.md` §E.1).
 
 ### 1.4 Gazebo Harmonic (Robot Simulation)
 
@@ -106,17 +110,17 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 ```
 **Note:** Zenoh is an optional live/distributed transport (M6). Offline playback and most analysis should operate directly on run logs (M1).
 
-**Why separate Physics and Robot Simulation?**
+**Robot vs object simulation (coupling constraints)**
 
 | Component | Use Case | When to Use |
 |-----------|----------|-------------|
 | **Physics Engine** | Object manipulation physics (fast, deterministic) | Object-object interactions, perturbations, fast iteration |
 | **Robot Sim** | Robot kinematics/dynamics, sensor simulation | Robot URDF loading, sensor data, cross-embodiment |
 
-The "Splat-First Physics" approach:
-- Robot Sim (Gazebo/MuJoCo) handles complex robot dynamics (Franka, UR5e URDFs)
-- Physics Engine (Rapier/MuJoCo) handles object manipulation (grasping, stacking, placing)
-- 3DGS provides visual rendering for both
+**Important coupling rule:** if the robot and manipulated objects are simulated in different engines, robot–object contacts are **not physically meaningful** unless you implement an explicit coupling layer (co-simulation). For most PID‑VLA experiments, prefer one of:
+- **Single-engine contact (recommended for manipulation):** simulate robot + objects together in **MuJoCo** (benchmark-aligned) or another single backend, and use PID‑Splat only for logging/overlays.
+- **Harness bring-up (recommended for early engineering):** run **object-only** physics in Rapier and drive a kinematic “end-effector proxy” for interventions/perturbations; add full robot dynamics later (see `grandplan.md` §A.7).
+- **Advanced (optional):** multi-engine “physics islands” with restricted coupling; static colliders can be duplicated, but cross-island contacts require one solver (see `grandplan.md` §E.1).
 
 **Per-Hypothesis Engine Usage** (see `EXPERIMENTS.md` for full details):
 
@@ -297,7 +301,7 @@ num_envs = 1024
 backend = "splat"  # Default: Gaussian splats for visual realism studies
 
 [robot]
-backend = "gazebo"  # Options: "gazebo", "mujoco", "none"
+backend = "none"    # Options: "gazebo", "mujoco", "none" (default for early bring-up)
 urdf_path = "assets/robots/franka_panda.urdf"
 ```
 
@@ -505,7 +509,7 @@ SmolVLA (LeRobot) is a candidate lightweight baseline (planned integration; veri
 
 InternVLA‑A1 is a candidate **diffusion / flow-matching** VLA for stage-wise ablations because it explicitly separates “understanding”, “generation”, and “action” experts (verify details and interfaces from its paper/repo before use).
 
-### 9.1 Architectural Role in PID‑VLA (Docset v9.0)
+### 9.1 Architectural Role in PID‑VLA (Docset v10.0)
 - **Hierarchical PID inside one model:** treat generation-expert outputs as `D_gen` (a candidate `D_explicit`) and test `(V,L;D_gen)` and `(V,D_gen;A)` under the same data/logging contract as other VLAs.
 - **Flow comparisons:** if `D_gen` yields predicted frames/latents, derive a model-side `Flow_pred` and compare to simulator-derived `Flow_gt` under matched controls (do not conflate “Flow Matching” used to generate actions with this project’s geometric `Flow_*` variables).
 - **License caution:** the repo indicates **CC BY‑NC‑SA 4.0**; treat as non-commercial and avoid vendoring code into this MIT-licensed repo.

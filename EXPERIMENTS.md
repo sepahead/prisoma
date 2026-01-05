@@ -6,10 +6,12 @@
 > - `ARCHITECTURE.md` — Component breakdown (Tauri, Modular Physics, 3DGS) and advantages over VLM-based robotics
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
+> - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
+> - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** 9.0 (Aligned with `grandplan.md` v9.0)  
+**Version:** 10.0 (Aligned with `grandplan.md` v10.0)  
 **Date:** 2026-01-05  
 **Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, external video predictor / Dream2Flow-style pipeline, and the Agent Bridge control plane) are external or not yet implemented in this repo; treat them as specifications until built.
  
@@ -109,7 +111,7 @@ num_envs = 1024
 use_gpu_pipeline = true
 
 [robot]
-backend = "gazebo"  # Options: "gazebo", "mujoco", "none"
+backend = "none"    # Options: "gazebo", "mujoco", "none" (default for early bring-up)
 urdf_path = "assets/robots/franka_panda.urdf"
 ```
 
@@ -122,6 +124,12 @@ urdf_path = "assets/robots/franka_panda.urdf"
 | Large-scale ablations (GPU) | `isaac` | GPU parallelism (if available) |
 | Accurate robot kinematics | `gazebo` | Industry-standard URDFs |
 | Contact-rich manipulation | `mujoco` | Strong contact solver baseline |
+
+**Coupling note (important):** if `robot.backend` and `physics.backend` differ and the robot is expected to make physical contact with simulated objects, you are in a **co-simulation** regime. Without an explicit coupling layer, robot–object contacts will not be physically meaningful. For most PID‑VLA claims, prefer:
+- **Single-engine contact:** robot + objects together in **MuJoCo** (benchmark-aligned), or
+- **Harness bring-up:** object-only Rapier with a kinematic end-effector proxy (then add a full robot backend later).
+
+**Robustness control (recommended):** replay a subset of episodes under both `rapier` and `mujoco` (same initial conditions + action log) and report divergence metrics. This helps rule out physics-backend artifacts in H1–H6 (see `grandplan.md` §E.1).
 
 ### When to Use Which
 
@@ -205,6 +213,12 @@ ns-export gaussian-splat \
     --output-dir ./assets/splats/ \
     --output-format spz
 ```
+
+**Optional 3DGS quality diagnostic (GauSS‑MI; proposed):**
+- Treat reconstruction quality as a confound: if large scene regions have high residual error / low view coverage, PID features can shift for purely perceptual reasons.
+- Compute a per‑Gaussian uncertainty map from held‑out view residuals and record scene‑level stats (mean/median uncertainty, fraction unreliable, `N_eff`) as artifacts.
+- Optionally use uncertainty‑guided **view selection** to decide which additional camera viewpoints to capture next (log the decision as an intervention via the Agent Bridge).
+- Specification lives in `GAUSS_MI_INTEGRATION.md`; treat as optional until implemented and validated.
 
 **Physics Proxy (Rapier3D):**
 ```rust
@@ -605,7 +619,7 @@ class RobotObservation:
  
 ## 3. VLA Model Setup
 
-### 3.1 Model Selection and Staging (v9.0)
+### 3.1 Model Selection and Staging (v10.0)
 
 Follow the risk-reducing sequence in `grandplan.md` §A.6:
 1) estimator gate (Exp0), 2) harness bring-up with `Flow_gt`, 3) small baseline (e.g., SmolVLA), 4) primary VLA target (e.g., OpenVLA), then optional branches (diffusion-based VLAs and predictor-driven `Flow_pred`).

@@ -81,8 +81,13 @@ num_velocity_iterations = 0       # Velocity solver iterations
 # Options: "gazebo", "mujoco", "none"
 
 [robot]
-backend = "gazebo"
+backend = "none"                  # Default for early bring-up (object-only)
 urdf_path = "assets/robots/franka_panda.urdf"
+
+# Coupling note:
+# - If `robot.backend` and `physics.backend` differ and the robot is expected to physically contact objects,
+#   you need an explicit coupling/co-simulation layer; otherwise contacts are not meaningful.
+# - For contact-rich manipulation baselines, prefer `physics.backend = "mujoco"` and `robot.backend = "mujoco"`.
 
 # -----------------------------------------------------------------------------
 # Gazebo Harmonic Configuration (Industry-standard robot simulation)
@@ -237,10 +242,10 @@ physics.isaac.num_envs = 4096
 robot.backend = "none"
 
 [presets.cross_embodiment]
-# For H5 cross-embodiment experiments (Franka vs UR5e)
-physics.backend = "rapier"
-robot.backend = "gazebo"
-# Switch URDF: robot.urdf_path = "assets/robots/ur5e.urdf"
+# For Exp5 cross-embodiment replication (H4/H7) (Franka vs UR5e)
+physics.backend = "mujoco"
+robot.backend = "mujoco"
+# Switch robot model (MJCF). If you only have URDFs, convert to MJCF as part of the asset pipeline.
 
 # =============================================================================
 # LOGGING & OUTPUT

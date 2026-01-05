@@ -6,9 +6,11 @@
 > - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
+> - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
+> - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 9.0 (Aligned with docset; PID‑Splat target spec)
+**Version:** 10.0 (Aligned with docset; PID‑Splat target spec)
 **Date:** 2026-01-05
 **Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
 
@@ -21,6 +23,10 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 **Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying predicted “dreams” (video‑predicted 3D flow) to visualize what a policy *expects* to happen (treat predictors as experimental variables; no oracle framing).
 
 **Contact/collision reality check:** existing “3DGS-based” simulators still use conventional physics engines for contacts (e.g., SplatSim uses PyBullet; DISCOVERSE uses MuJoCo, per their papers). Treat splats as the appearance layer; use explicit collision geometry (URDF/MJCF primitives/meshes) in the physics backend.
+
+**Multi-engine note (v10.0):** treat the physics backend as a **per-run** choice for contact-rich scenes. Per-object “Rapier walls + MuJoCo cups” is a co-simulation problem; if you need it, constrain it to advanced “physics islands” with restricted coupling. A more practical differentiator is **cross-backend replay** (re-run the same action log in Rapier vs MuJoCo and report divergence) as a robustness/confound control (see `grandplan.md` §E.1).
+
+**Optional visual-quality control (proposed): GauSS‑MI.** If you use 3DGS scenes, reconstruction uncertainty can become a confound for PID diagnostics. The proposed GauSS‑MI integration (see `GAUSS_MI_INTEGRATION.md`) adds per‑Gaussian uncertainty maps, optional uncertainty‑weighted MI/PID, and active view selection via the Agent Bridge—treat as an optional module until implemented/validated.
 
 ---
 
@@ -67,7 +73,7 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 
 This section implements the "Unified Architecture" from `grandplan.md` §10.10.
 
-**v9.0 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor. This isolates PID/geometry issues from predictor failures and makes early engineering reproducible.
+**v10.0 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor. This isolates PID/geometry issues from predictor failures and makes early engineering reproducible.
 
 #### 4.1 3D Flow Data Structure
 We represent the "Dream" not just as a hidden state, but as explicit 3D trajectories extracted from predicted videos (Dream2Flow-style bridge).
@@ -107,16 +113,19 @@ SparkJS renders these flows as **animated ghost splats** overlaying the real phy
 
 ### 5. Zenoh Middleware Protocol
 
-**Note (v9.0 execution plan):** Zenoh is an optional live/distributed transport (M6). Early milestones should be able to run entirely offline by writing the same events to the run log (M1) and replaying them (M1/M4).
+**Note (v10.0 execution plan):** Zenoh is an optional live/distributed transport (M6). Early milestones should be able to run entirely offline by writing the same events to the run log (M1) and replaying them (M1/M4).
 
 #### 5.1 Key Expressions
 
 | Key Expression | Data Type | Frequency | Source → Dest |
 | :--- | :--- | :--- | :--- |
 | `sim/pose/{id}` | `[f32; 7]` | 60Hz | Physics → SparkJS |
+| `scene/uncertainty` | `SceneUncertaintyMap` | Event | GauSS‑MI (optional) → UI/PID |
 | `dream/flow/{id}`| `DreamFlowTrajectory` | Event | Video predictor/flow extractor → SparkJS |
 | `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → SparkJS |
 | `vla/action` | `[f32; 7]` | ~10Hz | VLA → Physics |
+
+`SceneUncertaintyMap` is specified in `GAUSS_MI_INTEGRATION.md` (§4.2); treat it as an optional diagnostic artifact until implemented.
 
 #### 5.2 PID Message Schema
 ```rust

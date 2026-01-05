@@ -6,10 +6,12 @@
 > - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
 > - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
 > - `README.md` — Quick start guide
+> - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
+> - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 
 This document contains visual representations of the PID-VLA system, the PID-Splat simulation environment, and the data processing pipelines.
 
-**Docset alignment:** These diagrams are aligned to `grandplan.md` v9.0. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” and the v9.0 execution plan (`grandplan.md` §A.7) for what exists today and what to build next.
+**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.0. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” and the v10.0 execution plan (`grandplan.md` §A.7) for what exists today and what to build next.
 
 ## 1. High-Level System Overview
 
@@ -448,4 +450,48 @@ graph TB
     Events --> UI
     Events --> Script
     Events --> LLM
+```
+
+---
+
+## 11. Cross-Backend Replay (Optional Robustness Control)
+
+This diagram captures the v10.0 “differential physics” idea (`grandplan.md` §E.1): replay the same run log under different physics backends (e.g., Rapier vs MuJoCo) and quantify divergence. This is a practical way to test whether PID findings (H1–H6) are sensitive to contact-model idiosyncrasies.
+
+```mermaid
+graph LR
+    Log[Run log\n(initial state + actions + interventions)] -->|Replay| R[Rapier backend]
+    Log -->|Replay| M[MuJoCo backend]
+
+    R --> TR[State/contact trace]
+    M --> TM[State/contact trace]
+
+    TR --> D[Diff + divergence metrics\n(state, contacts, success)]
+    TM --> D
+
+    D --> Report[Sensitivity report\n(PID vs backend)]
+```
+
+---
+
+## 12. GauSS‑MI Uncertainty + Active View Selection (Optional)
+
+This diagram summarizes the proposed GauSS‑MI integration (`GAUSS_MI_INTEGRATION.md`): treat 3DGS reconstruction uncertainty as a confound/diagnostic signal, optionally down‑weight unreliable visual features, and (if you are still capturing scenes) use uncertainty‑guided view selection to reduce uncertainty.
+
+```mermaid
+graph TB
+    Capture[Scene capture views] --> Train[3DGS training\n(PLY/SPZ)]
+    Train --> Render[Render held-out views]
+    Render --> Resid[Residuals\n(I_obs vs I_render)]
+    Resid --> UMap[SceneUncertaintyMap\n(per-Gaussian uncertainty)]
+
+    UMap --> UI[UI overlay\n(color by uncertainty)]
+    UMap --> Gate[Quality gate\n(N_eff, fraction unreliable)]
+    UMap --> Wt[Optional weighting\n(weighted MI/PID)]
+
+    Gate -->|Needs more coverage| Suggest[Suggest next viewpoints]
+    Suggest --> Capture
+
+    Wt --> PID[pid-core\n(MI/CI/PID)]
+    PID --> Log[Run log artifacts\n(metrics + provenance)]
 ```

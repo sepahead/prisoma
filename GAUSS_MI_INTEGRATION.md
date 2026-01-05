@@ -3,9 +3,12 @@
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan
 > - `pidsplatspecs.md` — Simulation environment (PID-Splat)
+> - `DIAGRAMS.md` — System diagrams (GauSS‑MI overview)
+> - `EXPERIMENTS.md` — Capture protocols + quality gates
 > - `pid-core` — Rust implementation context
 
-**Version:** 1.0
+**Docset alignment:** v10.0 (this is an optional module spec; not implemented in this repo today)
+**Spec version:** 1.0
 **Date:** 2026-01-03
 **Status:** Specification (Pre-Implementation)
 
@@ -27,12 +30,14 @@ Standard PID estimators treat all samples equally. GauSS-MI integration allows u
 - Visual features from well-reconstructed regions dominate the analysis
 - PID estimates include confidence intervals based on reconstruction quality
 
+**Rigour note:** weighted kNN/KSG-style estimators and weighted PID atoms require a dedicated validation gate (analogous to Experiment 0). Treat all weighted-estimator outputs as *experimental* until they are validated on synthetic ground truth cases and stress-tested for bias/variance.
+
 ---
 
 ## 2. Background: GauSS-MI Framework
 
 ### 2.1 Per-Gaussian Uncertainty Model
-GauSS-MI assigns uncertainty to each 3D Gaussian in a scene reconstruction by analyzing residual image loss:
+This spec proposes assigning uncertainty to each 3D Gaussian in a scene reconstruction by analyzing residual image loss:
 
 $$ \sigma^2_i = \text{Var}[L(I_{obs}, I_{rendered}) \mid G_i \text{ contributes to pixel}] $$
 
@@ -43,7 +48,7 @@ Where:
 - $I_{obs}, I_{rendered}$: observed and rendered images
 
 ### 2.2 Shannon Mutual Information for View Selection
-GauSS-MI computes expected information gain for candidate viewpoints:
+This spec proposes using expected information gain for candidate viewpoints:
 
 $$ MI(\Theta; Y_v) = H(\Theta) - H(\Theta \mid Y_v) $$
 

@@ -4,7 +4,7 @@ These notes help future coding agents work on this repo without introducing acci
 
 ## Ground rules
 
-- `grandplan.md` is the canonical research + engineering spec; keep `README.md`, `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` consistent with it (current docset: v9.0).
+- `grandplan.md` is the canonical research + engineering spec; keep `README.md`, `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` consistent with it (current docset: v10.0).
 - Avoid hard-coded performance, cost, or roadmap claims unless they are backed by a committed source or a clearly labeled measurement in this repo.
 - Network access may be restricted; prefer `outputs/arxiv_ref_cache.json` for source verification when possible.
 
