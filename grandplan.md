@@ -5116,6 +5116,8 @@ Can PID profiles predict how well a policy will transfer across:
 
 ## 13.2 VLA Models
 
+- **GalaxeaVLA:** Open-source VLA model and platform. [GitHub](https://github.com/OpenGalaxea/GalaxeaVLA)
+- **π* (Pi-star) 0.6:** Foundation model for general-purpose robotics. [Pi Blog](https://www.pi.website/blog/pistar06)
 - **OpenVLA:** Kim et al. (2024). *OpenVLA: An Open-Source Vision-Language-Action Model.* arXiv:2406.09246.
 - **DreamVLA:** Zhang et al. (2025). *DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge.* arXiv:2507.04447. (World-knowledge forecasting + inverse dynamics; diffusion-style framing in the abstract.)
 - **Dream-VL & Dream-VLA (diffusion LLM backbone):** Ye et al. (2025). *Dream-VL & Dream-VLA: Open Vision-Language and Vision-Language-Action Models with Diffusion Language Model Backbone.* arXiv:2512.22615.

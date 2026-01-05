@@ -188,6 +188,8 @@ See `grandplan.md` §7 for detailed analysis.
 | **DreamVLA** | GPT-2 var. | Explicit (<dream> tokens) | Diffusion | Ideal for V-D-A; dims unknown |
 | **PixelVLA** | Llama 2 7B | Implicit + Pixel enc. | Continuous 7D | Multiscale visual features |
 | **TraceVLA** | Llama 2 7B | Trace-augmented V | Discrete bins | Temporal history in V |
+| **GalaxeaVLA** | - | - | - | Open-source VLA platform |
+| **π* (Pi-star) 0.6** | - | - | - | Foundation model for general robotics |
 
 ## Estimator Caveats
 
