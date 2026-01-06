@@ -59,6 +59,7 @@ If you don’t have `just`: `cargo test` and `cargo run -p pid-core --bin exp0`.
 ## Engineering Plan (To “Finish” the Project)
 
 Build order + acceptance criteria are in `grandplan.md` §A.7 (M0–M8): run logs + replay → Agent Bridge → minimal sim + `Flow_gt` → viewer‑first UI → embedding harness → optional live transport/predictors → optional GauSS‑MI uncertainty + view selection.
+If you use an external simulator backend (Isaac/MuJoCo/etc.), treat it as an adapter that still emits the canonical run log and is controlled via the Agent Bridge surface.
 
 ## Citation
 

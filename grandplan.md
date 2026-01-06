@@ -77,7 +77,14 @@
 | **Gazebo (Classic/Ignition)** | OGRE raster | ODE/DART (varies) | Cross-platform; ROS-centric | No (instrumentation is DIY) |
 | **SplatSim** | 3DGS rendering | PyBullet (paper; physics backbone) | Research code; verify constraints | No (not a PID harness) |
 | **DISCOVERSE** | 3DGS rendering | MuJoCo (paper) | Research code; verify constraints | No (not a PID harness) |
+| **LuckyRobots / Lucky World** | “Hyperrealistic” (vendor claim; verify) | Lucky World backend (engine/solver not specified in public docs; verify) | Proprietary backend executable + Python API (WebSocket); Windows binary public as of v0.1; Linux/macOS TBD | No (not PID-centric; would still require custom harness) |
 | **Proposed (Modular)** | 3DGS + mesh overlays | Modular (Rapier + baselines) | Cross-platform target | Yes (explicit goal) |
+
+**Emerging “ML‑first simulator” direction (why it matters here):**
+- Public materials around LuckyRobots/Lucky World and Sentdex joining Lucky Robots to build “the robotics simulator I wish we had” emphasize an **RL‑style surface** (`reset`/`step` + observations) exposed over a **WebSocket control plane** with pub/sub and service-style request/response.
+- PID‑VLA’s design should stay compatible with this ergonomic norm: keep `reset/step` primitives stable, provide a **streaming event channel** (state/metrics/frames), and keep the control plane easy to call from Python (not GUI-only).
+- If you use such a simulator as a data source, treat it as an **external backend**: adapt its actions/observations/control messages into the v10.0 **run‑log schema** so Exp0/geometry gates and PID analyses remain identical across backends.
+- Some simulators also market “natural language scene control”; if adopted, treat it as a **compiler** that emits deterministic scene‑edit/intervention events (and log the compiler/prompt/version), not as an unlogged free‑form side channel.
 
 **Do current systems provide the closed-loop PID diagnostics needed here?**
 - **They can be instrumented, but it is not “turn-key”.** Isaac Sim/Lab, MuJoCo, and Gazebo all support logging and Python integration, but none ship a PID-centric experiment harness with geometry gates, preregistered interventions, and synchronized `(V,L,D,A)` embedding capture as a first-class feature.
@@ -101,7 +108,7 @@
 8. **UI + automation are the same surface** — every action possible in the GUI (spawn/move objects, apply perturbations, scrub timeline, export logs) is also exposed via a stable local API (“Agent Bridge”), enabling reproducible live interventions by scripts and LLM tools (no hidden manual steps).
 
 **Honest disadvantages:**
-- **Not a GPU-parallel RL factory** — Isaac Gym/Lab can run O(10³) environments; this architecture prioritizes instrumented, reproducible runs (interactive or small-batch).
+- **Not a GPU-parallel RL factory** — Isaac Gym/Lab can run O(10³) environments and some platforms explicitly optimize for large-scale synthetic episode generation (e.g., LuckyRobots; claims must be verified). This architecture prioritizes instrumented, reproducible runs (interactive or small-batch).
 - **Physics validity is an empirical question** — Rapier is not the gold standard for contact-rich manipulation; use MuJoCo/PhysX baselines when physics fidelity is central.
 - **Rendering trade-offs** — 3DGS is typically rasterized and does not automatically provide RTX-grade lighting/material effects; dynamic/interactive edits require hybrid representations.
 - **Dependency/roadmap risk** — do not justify the research plan on third-party roadmap or marketing claims (e.g., “500M splats”, “multiplayer”); treat as unverified until benchmarked.
@@ -175,7 +182,7 @@ This section turns the spec into an actionable build order. The goal is to make 
 |-----------|----------------|-------------------|------------------------------|------------------------------------------|
 | **M0** | Estimator gate (Exp0) | Rust (`crates/pid-core`) | CSV + diagnostics | Exp0 passes GO/PIVOT/NO‑GO gates on synthetic data; results stable across seeds |
 | **M1** | Run logs + replay | Rust | Versioned event schema + reader/writer + replay CLI | You can replay a run deterministically into identical state traces; logs include hashes + config |
-| **M2** | Agent Bridge API | Rust (JSON‑RPC over WS; localhost-only) | API spec + server + audit log integration | Every UI/automation action is an RPC; every RPC is appended to the run log; safe-mode gates |
+| **M2** | Agent Bridge API | Rust (JSON‑RPC over WS; localhost-only) | API spec + server + audit log integration | Every UI/automation action is an RPC; every RPC is appended to the run log; clients can subscribe to a versioned event stream (state/metrics); safe-mode gates |
 | **M3** | Minimal object sim + `Flow_gt` | Rapier (Rust; behind a backend trait boundary) | Deterministic sim loop + collision geometry + `Flow_gt` derived from poses | You can spawn/move objects via Agent Bridge, step deterministically, export `Flow_gt`, and record backend + solver params in the run log (enables later cross-backend replay) |
 | **M4** | Viewer-first UI | Tauri v2 + React + Three.js + SparkJS “Spark” | Playback viewer (splats + meshes + overlays) | Offline replay renders states + overlays; timeline scrub and event inspection work end-to-end (UI spec lives in `uidesigner/UI.md`) |
 | **M5** | VLA embedding capture harness | Python 3.11 (`uv`) + HF/LeRobot (as needed) | Cached `(V,L,D,A)` artifacts + provenance | Contract-first logging works on a small baseline (SmolVLA/toy); artifacts are replay-linked |
@@ -2490,7 +2497,9 @@ Current Image + Historical Trace Overlay → VLA → Action
 | **OpenVLA-OFT** | (unverified) | (unverified) | (unverified) | Earlier-draft placeholder; add a concrete citation before using |
 | **GR00T N1** | (see paper) | Planner-style | Continuous | NVIDIA et al. (2025), arXiv:2503.14734 |
 | **TinyVLA** | Smaller | None | Discrete | Efficient |
-| **π₀** | (see paper) | (see paper) | (see paper) | Mentioned as a baseline in Dream-VLA/Dream-VLA-related work; add citation when used |
+| **π0** | (see PI paper) | (see PI paper) | (see PI paper) | Physical Intelligence generalist policy (PI blog 2024‑10‑31 + paper PDF). Likely proprietary; treat as black‑box unless you can export embeddings/hidden states for the `V/L/D/A` contract (https://www.pi.website/blog/pi0 ; https://www.pi.website/download/pi0.pdf). |
+| **π0.5** | (see PI paper) | (see PI paper) | (see PI paper) | Physical Intelligence “open‑world generalization” variant (PI blog 2025‑04‑22 + paper PDF). Same caveats: do not assume hook points/embeddings are available (https://www.pi.website/blog/pi05 ; https://www.pi.website/download/pi05.pdf). |
+| **π0.6\\*** | (see PI paper/model card) | (see PI paper/model card) | (see PI paper/model card) | Physical Intelligence “learns from experience” variant (PI blog 2025‑11‑17 + model card PDF). Treat training claims as vendor claims until replicated; verify access + logging contract (https://www.pi.website/blog/pistar06 ; https://website.pi-asset.com/pi06star/PI06_model_card.pdf). |
 | **MemoryVLA** | VLM + memory bank | Working + long-term | Continuous | Shi et al. (2025), arXiv:2508.19236 |
 | **CoT-VLA** | 7B + visual CoT | Predicts visual goals | Mixed | Zhao et al. (2025), arXiv:2503.22020 (performance deltas are benchmark-dependent; verify protocol) |
 
@@ -4358,6 +4367,7 @@ For every run, define and log the analysis variables explicitly:
 | **InternVLA‑A1** | GitHub + project page + HF model card (verify) | `D_explicit` from the **generation expert** (predicted future visual states / dynamics; representation depends on implementation) | Ideal for stage-wise decomposition inside one model: `(V, L; D_gen)` and `(V, D_gen; A)`; Flow-as-Bridge variant: compare `D_gen`-derived `Flow_pred` against simulator `Flow_gt` under matched controls | What the generation expert outputs (frames vs latents); how to export intermediates; action parameterization (“delta actions”; Flow‑Matching head is a generative method, not geometric flow); licensing (CC BY‑NC‑SA 4.0 per repo); patched Transformers constraints |
 | **PixelVLA** | arXiv:2511.01571 | Model-dependent: pixel-/prompt-conditioned representation (verify) | Spatial PID when pixel-aligned variables exist: `(V_region, Flow_region;A)`; hierarchical: region-level CI screening → targeted PID | What is actually exposed (pixel maps vs pooled); backbone/API; dataset access (Pixel‑160K) |
 | **SmolVLA** | LeRobot (verify) | Whatever is accessible (`D_hidden[k]` / `D_fused`) | Harness/debug baseline: run Experiment 0/1 quickly; do not over-interpret cross-model semantics | Everything: backbone, action rep, licensing, async semantics, hook points |
+| **PI “π” series** (`π0`, `π0.5`, `π0.6*`) | PI vendor papers/blog posts (see §7.5 / §13.2; verify access) | `D` unknown: treat as `D_hidden[k]` / `D_fused` **only if** you can export per-step embeddings/hidden states; otherwise `D` is not available | **Black-box comparator** for behavior-only metrics (success/robustness). If internals are accessible, you may apply the same `V/L/D/A` contract as OpenVLA, but preregister all hook points and rerun Exp0 + geometry gates | Access mode (API vs weights); whether internals can be logged; determinism/replay; licensing/ToS constraints |
 
 **Geometry note:** do not assume “d=4096” or “RoPE entanglement” for every model. If you use a RoPE-based backbone (e.g., Llama-family), consider exporting a **pre-attention residual stream** representation as one candidate `D_hidden[k]`, but treat this as an empirical mitigation and validate via the Geometry Gate + Experiment 0.
 
@@ -4371,6 +4381,7 @@ For every run, define and log the analysis variables explicitly:
 | **Explicit world-model ablations** | DreamVLA (if available) | Operational `D_explicit` makes interventions and interpretation cleaner |
 | **Temporal dynamics / history effects** | TraceVLA | Trace input explicitly manipulates history dependence |
 | **Spatial / pixel-aligned diagnostics** | PixelVLA (if integration supports it) | Pixel-level variables enable localized PID/CI analyses |
+| **Closed-source black-box baseline** | PI “π” series (if you can run it) | Useful to contextualize behavior-level performance/robustness, but **do not** claim internal PID on `V/L/D` unless per-step representations are exportable and logged |
 
 #### 10.10.13.4 Vision Model Placeholders (v10.0 note; verify)
 
@@ -4569,8 +4580,13 @@ The PID‑Splat simulator is intended to be **interactive** (GUI) *and* **progra
 - `sim.start|pause|step|reset|status`
 - `scene.load|save|list|add_object|set_transform|set_material|remove_object`
 - `camera.get|set|keyframe|render_snapshot`
+- `obs.get|subscribe` (RGB/RGB‑D/proprio/state; in replay this is served from the run log)
 - `intervention.apply|list|undo|branch` (all interventions are log events)
 - `log.start|stop|export|replay`
+
+**Interoperability note (ML‑first simulators):**
+- Many training-oriented simulators expose a `reset/step` API plus a streaming channel for observations/state. Treat this as a *compatibility target* for the Agent Bridge: keep the RL-style subset small, stable, and easy to call from Python.
+- If a simulator already has its own WebSocket pub/sub + service layer (e.g., LuckyRobots’ documented node architecture), prefer a thin **adapter** that maps its messages into PID‑VLA’s run‑log events, rather than forking the analysis stack per simulator.
 
 **Async/concurrency sketch (Rust-side):**
 - Keep physics stepping deterministic in a single “sim thread” or single-threaded task; apply interventions only at explicit checkpoints (`pause → apply → step/resume`).
@@ -4679,7 +4695,10 @@ Can PID profiles predict how well a policy will transfer across:
 ## 13.2 VLA Models
 
 - **GalaxeaVLA:** Open-source VLA model and platform. [GitHub](https://github.com/OpenGalaxea/GalaxeaVLA)
-- **π* (Pi-star) 0.6:** Foundation model for general-purpose robotics. [Pi Blog](https://www.pi.website/blog/pistar06)
+- **Physical Intelligence “π” series (vendor papers; access/embeddings must be verified):**
+  - **`π0` (pi-zero):** *Our First Generalist Policy* (PI blog, 2024‑10‑31) + paper PDF: https://www.pi.website/blog/pi0 and https://www.pi.website/download/pi0.pdf
+  - **`π0.5`:** *a VLA with Open‑World Generalization* (PI blog, 2025‑04‑22) + paper PDF: https://www.pi.website/blog/pi05 and https://www.pi.website/download/pi05.pdf
+  - **`π0.6*` (“Pi‑star”):** *a VLA that Learns from Experience* (PI blog, 2025‑11‑17) + model card PDF: https://www.pi.website/blog/pistar06 and https://website.pi-asset.com/pi06star/PI06_model_card.pdf
 - **OpenVLA:** Kim et al. (2024). *OpenVLA: An Open-Source Vision-Language-Action Model.* arXiv:2406.09246.
 - **SmolVLA (LeRobot):** Lightweight baseline policy for harness bring-up and pipeline debugging (verify model card/repo + exact action parameterization at time of use).
 - **DreamVLA:** Zhang et al. (2025). *DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge.* arXiv:2507.04447. (World-knowledge forecasting + inverse dynamics; diffusion-style framing in the abstract.)

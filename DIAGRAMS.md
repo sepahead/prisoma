@@ -415,6 +415,8 @@ graph LR
 
 The Agent Bridge is the “programmable face” of the simulator: a local control plane that exposes the same operations the GUI uses (scene editing, interventions, run control, replay, exports). It is designed to be called by scripts and LLM coding tools without introducing irreproducible “manual steps”.
 
+**External backend note:** the Agent Bridge can also act as an *adapter surface* for third‑party simulators that already expose an RL-style `reset/step` API (or their own WebSocket/pubsub control plane). In that mode, the adapter must still write PID‑VLA run‑log events so replay and analysis are identical across backends.
+
 ```mermaid
 graph TB
     subgraph Clients

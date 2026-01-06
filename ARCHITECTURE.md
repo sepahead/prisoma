@@ -22,6 +22,8 @@
 - Runs a Rust backend with native performance for PID computation
 - Hosts the SparkJS renderer (“Spark”; Three.js/WebGL2) or an equivalent 3DGS renderer for Gaussian splat visualization
 - Hosts the **Agent Bridge** control plane (planned): a stable local API (JSON‑RPC/MCP) used by both the GUI and external automation (scripts + LLM tools) for live interventions
+- Keeps an **RL-style subset** (`reset`/`step` + observation subscriptions) stable so training/evaluation loops can drive the simulator without GUI-only pathways.
+- Enables **external backend adapters**: if you run a third-party simulator with its own control plane (e.g., WebSocket-based), wrap it by writing the canonical run log so replay/analysis are identical across backends.
 - Manages IPC (Inter-Process Communication) between:
   - Rust PID-core (computation)
   - React/Three.js frontend (visualization)
@@ -234,6 +236,7 @@ Use this table as a qualitative capability map. Do not compare “sim2real %”,
 | **Isaac Sim/Lab** | RTX / OpenUSD | PhysX | NVIDIA GPU required | Strong USD tooling; heavy stack; PID harness is custom |
 | **Isaac Gym** | (Varies) | GPU physics | NVIDIA GPU required | Good for scale; visuals depend on assets/renderer |
 | **Gazebo Harmonic** | Raster (OGRE2) | Plugin-dependent | Cross-platform; ROS-centric | Strong robot/sensor ecosystem; PID harness is custom |
+| **LuckyRobots / Lucky World** | “Hyperrealistic” (vendor claim; verify) | Lucky World backend (engine/solver not specified in public docs; verify) | Proprietary world executable + Python API (WebSocket); Windows binary public as of v0.1; Linux/macOS TBD | RL-style interface surface (`reset`/`step`, observations); PID harness still custom |
 | **Habitat** | Mesh + neural | Limited (navigation focus) | Cross-platform | Good for nav; not a manipulation physics stack |
 | **CARLA** | Unreal | Vehicle focus | Cross-platform | Driving-focused; not a manipulation stack |
 | **Rapier3D** | Headless / debug | Rapier | Cross-platform | Fast iteration; contact fidelity depends on task and tuning |

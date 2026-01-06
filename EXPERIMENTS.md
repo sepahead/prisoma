@@ -159,6 +159,8 @@ without changing the experimental semantics.
 
 **Reproducibility rule:** every intervention/scene edit/run-control action must be recorded as an event in the run log, including those initiated by an LLM tool. Avoid “click-only” steps that cannot be replayed.
 
+**External simulator backends (optional):** some simulators expose an RL-style `reset/step` surface (and may already have their own WebSocket/pubsub control plane). If you run a PID‑VLA protocol on an external simulator (e.g., Isaac stacks; emerging ML-first simulators), require a thin adapter that emits the *same* run‑log events (reset/step/actions/observations/interventions) so replay + analysis remain identical and auditable across backends.
+
 Minimum provenance fields for any action event:
 - `actor_type`: `human_gui` | `script` | `llm_tool`
 - `actor_id`: stable identifier (e.g., OS user, script name, tool name)
@@ -634,6 +636,7 @@ Follow the risk-reducing sequence in `grandplan.md` §A.6:
 | **TraceVLA** | Temporal/history axis | arXiv:2412.10345: finetuned OpenVLA; trace-based prompting; 150K trajectories; compact Phi‑3‑Vision variant | How traces are encoded and how to separate “image vs trace” variables in logs |
 | **DreamVLA** | Explicit-`D` ablation axis (if available) | arXiv:2507.04447: world-knowledge forecasting + structured attention + diffusion-based transformer policy | Output formats/dims of explicit channels; weights/code availability; what is exposed per step |
 | **PixelVLA** | Pixel-aligned diagnostics (if integration supports it) | arXiv:2511.01571: pixel-level reasoning + multimodal prompting; Pixel‑160K; reported gains | What variables are exposed (pixel maps vs pooled); API/backbone; dataset access/licensing |
+| **PI “π” series** (`π0`, `π0.5`, `π0.6*`) | Closed-source comparator (optional) | PI vendor papers/blog posts (see `grandplan.md` §7.5 / §13.2). Treat training/perf claims as vendor claims until replicated | Access mode (API vs weights); whether per-step embeddings/hidden states can be exported (required for internal PID); determinism/replay; licensing/ToS constraints |
 
 ### 3.2 `V/L/D/A` Extraction Contract (Model-Agnostic)
 
