@@ -11,10 +11,27 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 10.0 FINAL (Docset consistency + GauSS‑MI integration)
-**Date:** 2026-01-05
-**Status:** Research Specification + Implementation Blueprint (v10.0 audited)
+**Version:** 10.1 (DreamVLA availability update + Rerun-First Architecture)
+**Date:** 2026-01-08
+**Status:** Research Specification + Implementation Blueprint (v10.1 updated)
 **Canonical:** Living spec; prior versions live in git history.
+
+**v10.1 notes (Jan 2026 updates):**
+- **Architecture Shift:** Adopted 'Rerun-First' strategy for Phases 1-3 to accelerate research iteration; custom Tauri/SparkJS UI deferred to Phase 4 (see §A.7).
+- **CRITICAL CORRECTION:** Updated DreamVLA availability status. Both DreamVLA variants now have public weights:
+  - `WenyaoZhang/DreamVLA` (arXiv:2507.04447; GPT-2 base; world-knowledge forecasting)
+  - `Dream-org/Dream-VLA-7B` (arXiv:2512.22615; 8B diffusion LLM backbone)
+  - This resolves blocker §18.2.2 (formerly a show-stopper, now marked RESOLVED).
+- Added §12.4: NeurIPS 2025 Embodied AI Research Landscape synthesis with critical analysis of community observations for PID-VLA relevance.
+- Updated §7.2 with verified DreamVLA architecture details (GPT-2 base, 768 hidden dim).
+- All "DreamVLA unavailable" claims corrected throughout the document.
+- **Added NeurIPS 2025 paper citations to §13 References:**
+  - §13.4.1: Learning from Videos (EgoBridge)
+  - §13.5: FIPER for failure detection
+  - §13.6.1: RL for VLAs (ReinFlow, CQN-AS)
+  - §13.11.1: VLA Inference Efficiency (VLA-Cache, EfficientVLA)
+  - §13.13: Multimodal Sensing (ForceVLA, Touch in the Wild, OpenTouch)
+  - §13.4: RoboScape world model
 
 **v10.0 FINAL notes (Consistency + optional uncertainty controls):**
 - Preserved the v9.0 execution plan and added an explicit optional milestone for 3DGS uncertainty/view selection (GauSS‑MI) as a confound control (see §A.7 and §C.2).
@@ -184,17 +201,18 @@ This section turns the spec into an actionable build order. The goal is to make 
 | **M1** | Run logs + replay | Rust | Versioned event schema + reader/writer + replay CLI | You can replay a run deterministically into identical state traces; logs include hashes + config |
 | **M2** | Agent Bridge API | Rust (JSON‑RPC over WS; localhost-only) | API spec + server + audit log integration | Every UI/automation action is an RPC; every RPC is appended to the run log; clients can subscribe to a versioned event stream (state/metrics); safe-mode gates |
 | **M3** | Minimal object sim + `Flow_gt` | Rapier (Rust; behind a backend trait boundary) | Deterministic sim loop + collision geometry + `Flow_gt` derived from poses | You can spawn/move objects via Agent Bridge, step deterministically, export `Flow_gt`, and record backend + solver params in the run log (enables later cross-backend replay) |
-| **M4** | Viewer-first UI | Tauri v2 + React + Three.js + SparkJS “Spark” | Playback viewer (splats + meshes + overlays) | Offline replay renders states + overlays; timeline scrub and event inspection work end-to-end (UI spec lives in `uidesigner/UI.md`) |
+| **M4** | Rerun-based Diagnostic Viewer (Phases 1-3) | Rerun SDK (Rust) | Rerun blueprint + logging adapters | Offline replay in Rerun works with timeline; ghost splats visible as secondary point clouds; timeline scrub works |
 | **M5** | VLA embedding capture harness | Python 3.11 (`uv`) + HF/LeRobot (as needed) | Cached `(V,L,D,A)` artifacts + provenance | Contract-first logging works on a small baseline (SmolVLA/toy); artifacts are replay-linked |
 | **M6** | Optional live transport + robot sim | Zenoh + Gazebo (optional) | Live sensor/action streams + synchronized logs | Live mode reproduces the same run-log format; disconnects are handled and logged |
 | **M7** | Optional predictor-driven Flow | External service (WAN-like) + tracking/depth | `Flow_pred` + stage labels + caches | Stage-wise artifacts are persisted; Flow pipelines have negative controls; no “oracle” framing |
-| **M8** | Optional GauSS‑MI uncertainty + view selection | 3DGS pipeline + residual analysis | `SceneUncertaintyMap` + `N_eff` + view suggestions | Uncertainty artifacts are versioned and replay-linked; UI can visualize uncertainty; view-selection decisions are logged as interventions |
+| **M8** | Custom Tauri+SparkJS UI (Phase 4) | Tauri v2 + React + Three.js | Interactive Editor + Shader Effects | (Optional) Advanced interactive tools that Rerun cannot support (e.g. real-time visual force editing) |
 
 **Recommended repo layout for new components (names are suggestions; keep scope tight):**
 - `crates/pid-runlog`: event schemas, hashing, readers/writers, replay utilities.
 - `crates/pid-bridge`: Agent Bridge server + JSON‑RPC method definitions (and a small client).
 - `crates/pid-sim`: deterministic object simulation loop (Rapier first) + `Flow_gt` extraction utilities.
-- `crates/pid-tauri`: viewer-first desktop UI (Tauri + React + Three.js + SparkJS).
+- `crates/pid-rerun`: Rerun logging adapters and blueprints (Phases 1-3).
+- `crates/pid-tauri`: viewer-first desktop UI (Phase 4; deferred).
 - `uidesigner/`: UI spec + prompt-iteration tooling to design the viewer-first UI before implementation.
 - Optional: `crates/pid-gauss-mi` (or `crates/pid-core::gauss_mi`): 3DGS uncertainty artifacts + view selection (M8; see `GAUSS_MI_INTEGRATION.md`).
 - `experiments/` (Python): embedding extraction + dataset orchestration (after M1–M3 are stable).
@@ -1013,7 +1031,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   - §17.10-§17.12: Failure classifiers, depth estimation, synthetic data
   - §17.13-§17.16: Data strategy, compute budget recommendations, licensing, and critical challenges
 - **New §18: Critical Blockers and Risk Analysis:** Systematic risk assessment with explicit Go/No-Go decision criteria:
-  - **5 Show-Stopper Blockers (Category 1):** Experiment 0 failure at d≤256, DreamVLA unavailability, strong dependence (unbounded MI), i.i.d. assumption violation, baselines always winning
+  - **5 Show-Stopper Blockers (Category 1):** Experiment 0 failure at d≤256, ~~DreamVLA unavailability~~ (RESOLVED: weights now available; see §18.2.2), strong dependence (unbounded MI), i.i.d. assumption violation, baselines always winning
   - **7 Major Blockers (Category 2):** Geodesic kNN not implemented, Ollivier-Ricci not implemented, no hyperbolic `I^sx_∩`, Pixel-160K access TBD, GRM weights TBD, no ground truth for "world model quality", scope exceeds PhD timeline
   - **8 Minor Blockers (Category 3):** SAE training, MINE retraining, Isomap cost, macOS CUDA limits, etc.
   - Risk mitigation timeline (Month 1-7 decision gates)
@@ -2403,20 +2421,33 @@ DreamVLA (arXiv:2507.04447) is described in the arXiv abstract as a VLA framewor
 - uses a **diffusion-based transformer** to model the conditional distribution over future actions (verify the action representation used in your analysis),
 - reports success on real-robot tasks and CALVIN ABC‑D (paper-reported; protocol-sensitive).
 
-**Not verified in the abstract:** the exact backbone family/dimensions, the exact prediction heads/targets, and weight availability/licensing.
-- **Key architectural idea:** prevent interference/leakage between dynamic/spatial/semantic streams via structured attention masks
-- **Vision encoder:** see paper/code (do not assume a specific pretraining method without verification)
+**Weights and Code Availability (verified Jan 2026):**
+- **HuggingFace:** `WenyaoZhang/DreamVLA`
+- **License:** Apache 2.0
+- **Base model:** GPT-2 (`openai-community/gpt2`)
+- **GitHub:** https://github.com/Zhangwenyao1/DreamVLA
+- **Features:** Dynamic region extraction (CoTracker), SAM features, DINOv2 features, pretrain/finetune scripts for CALVIN
+- **Checkpoints:** Available via Google Drive link in repo
 
-**⚠️ Dimension caveat (abstract-level verification):**
-The DreamVLA arXiv abstract does **not** specify the backbone family, hidden dimensions, or layer counts. Treat any dimensionality claims as **unverified** until you cite the paper section, code commit, or model card that states them.
+**Key architectural idea:** prevent interference/leakage between dynamic/spatial/semantic streams via structured attention masks
+- **Vision encoder:** DINOv2 features (see data processing pipeline in repo)
 
-**What you can and cannot assume from the abstract alone:**
+**⚠️ Dimension note (now verified):**
+The DreamVLA (Zhang et al.) uses a **GPT-2 base model**, which has:
+- Hidden size: 768
+- Layers: 12
+- Attention heads: 12
+
+This is substantially smaller than Llama-2-based VLAs (4096 hidden dim), making it more tractable for rapid Experiment 0/1 iteration.
+
+**What you can and cannot assume:**
 | Claim | Status | Source |
 |------|--------|--------|
-| Backbone family unspecified + block-wise structured attention | Paper-reported | arXiv abstract |
-| World knowledge forecasting includes dynamic + spatial + semantic information | Paper-reported | arXiv abstract |
-| Diffusion-based transformer for action distribution | Paper-reported | arXiv abstract |
-| Backbone dims/layers, exact prediction targets, query lengths, diffusion steps | Not specified in abstract | Verify paper/code |
+| Backbone: GPT-2 | ✓ Verified | HuggingFace model card |
+| World knowledge forecasting (dynamic + spatial + semantic) | Paper-reported | arXiv abstract + code |
+| Block-wise structured attention | Paper-reported | arXiv abstract |
+| Diffusion-based action modeling | Paper-reported | arXiv abstract |
+| Weights publicly available | ✓ Verified (Jan 2026) | `WenyaoZhang/DreamVLA` |
 
 **Diffusion parameterization note (optional, but estimator-relevant):**
 Diffusion models differ in whether they predict *noise/noised quantities* vs. *clean data*. Li & He (2025, arXiv:2511.13720) argue that predicting clean data can better respect the manifold assumption. For PID/MI estimation, this matters because it may change:
@@ -2559,7 +2590,7 @@ This is a contingency plan if (a) a target VLA is unavailable or too expensive t
 
 ### 7.7.1 Motivation
 
-If **DreamVLA weights are unavailable** (§18.2.2) and running OpenVLA (arXiv:2406.09246; 7B parameters per abstract) is too heavy for rapid iteration on your hardware, consider training a small, explicitly documented model solely for **pipeline validation**. This is not required for the scientific core of PID‑VLA unless you plan to publish the model and its training data.
+If **DreamVLA weights were previously unavailable** (§18.2.2) — **UPDATE (Jan 2026): Weights are now available** at `WenyaoZhang/DreamVLA` (arXiv:2507.04447; GPT-2 base) and `Dream-org/Dream-VLA-7B` (arXiv:2512.22615; 8B diffusion LLM backbone). If running the full models is too heavy for rapid iteration on your hardware, consider training a small, explicitly documented model solely for **pipeline validation**. This is not required for the scientific core of PID‑VLA unless you plan to publish the model and its training data.
 
 ### 7.7.2 Design Goals (what matters for this project)
 
@@ -4378,7 +4409,7 @@ For every run, define and log the analysis variables explicitly:
 | **Harness + estimator bring-up** | SmolVLA (or any small open baseline) | Faster iteration for logging/interventions/geometry gating before scaling up |
 | **Diffusion / flow-matching baseline** | InternVLA‑A1 (if runnable/licensing ok) | Tripartite “understanding/generation/action” design makes an explicit generative intermediate available; good for stage-wise ablations without adding a separate video predictor |
 | **Core PID study on a widely used target** | OpenVLA | Most likely to be runnable and comparable; `D` is implicit but extractable |
-| **Explicit world-model ablations** | DreamVLA (if available) | Operational `D_explicit` makes interventions and interpretation cleaner |
+| **Explicit world-model ablations** | DreamVLA (weights available; see §7.2) | Operational `D_explicit` makes interventions and interpretation cleaner |
 | **Temporal dynamics / history effects** | TraceVLA | Trace input explicitly manipulates history dependence |
 | **Spatial / pixel-aligned diagnostics** | PixelVLA (if integration supports it) | Pixel-level variables enable localized PID/CI analyses |
 | **Closed-source black-box baseline** | PI “π” series (if you can run it) | Useful to contextualize behavior-level performance/robustness, but **do not** claim internal PID on `V/L/D` unless per-step representations are exportable and logged |
@@ -4663,6 +4694,118 @@ Can PID profiles predict how well a policy will transfer across:
 - Environments
 - Task distributions
 
+## 12.4 NeurIPS 2025 Embodied AI Research Landscape (Community Observations)
+
+This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Robotics tracks, based on Ralf Römer's conference field notes (Dec 2025, @ralfroemer99). These are **personal observations from a PhD researcher attending the conference**, not authoritative consensus statements. Each observation is evaluated critically for PID-VLA relevance, and claims should be validated against primary sources before depending on them.
+
+### 12.4.1 Continual Learning Gap
+
+**Community observation:** The ability to learn from experience is still largely missing in embodied agents. Continual deep learning (avoiding forgetting and plasticity loss) does not yet work well.
+
+**PID-VLA relevance:** This is orthogonal to PID diagnostics. PID measures information integration at inference time, not learning dynamics. However, if continual learning were solved, PID could diagnose whether newly learned representations integrate properly with prior knowledge (synergy between old and new task representations).
+
+**Implication:** PID-VLA focuses on diagnosing *deployed* policies, not training dynamics. Continual learning remains an upstream challenge.
+
+### 12.4.2 Imitation Learning Efficiency Limits
+
+**Community observation:** Learning from teleoperation data (imitation learning) is too inefficient to achieve long-term general autonomy on its own. Even for LLMs, supervised fine-tuning (imitation) on all internet data has plateaued, motivating RL-based approaches.
+
+**PID-VLA relevance:** This supports the project's diagnostic framing: if imitation alone cannot achieve reliable autonomy, understanding *why* policies fail becomes critical. PID can help identify whether failures stem from:
+- Insufficient V-L integration (missing grounding)
+- World model mismatch (D diverges from reality)
+- Compositional failure (H5: temporal synergy degradation)
+
+**Critical assessment:** The parallel to LLM SFT plateaus is apt but incomplete. Robot manipulation has fundamentally different data distributions (contact physics, embodiment constraints) than internet text. The bottleneck may be data *quality* and *coverage*, not just quantity.
+
+### 12.4.3 RL for VLAs: Emerging Hot Topic
+
+**Community observation:** RL for flow matching is being actively studied (e.g., ReinFlow, CQN-AS), but sample efficiency remains a challenge. For RL fine-tuning of VLAs on hard real-world tasks, a strong base policy and targeted exploration will be crucial.
+
+**PID-VLA relevance:** This directly supports Aim 3 (RL fine-tuning with PID-derived signals). Key implications:
+- **Sample efficiency:** PID-derived rewards (if validated) could improve sample efficiency by providing dense integration-quality signals, complementing sparse task rewards.
+- **Strong base policy requirement:** Validates the approach of using pretrained VLAs (OpenVLA, DreamVLA) as the base for PID analysis rather than training from scratch.
+- **Targeted exploration:** PID signatures could potentially guide exploration toward states where V-D integration is weak (high uncertainty regions).
+
+**Critical assessment:** The kNN-based `I^sx_∩` estimator is not differentiable, so direct PID-as-reward is not straightforward. Requires either:
+1. Differentiable surrogate trained to predict PID features (added training cost)
+2. Discretized/binned PID used as reward shaping (loses continuous precision)
+3. Offline PID analysis to design curriculum/replay prioritization (avoids online estimation)
+
+**Connection to existing work:** Aligns with §3.5.5 discussion of Robo-Dopamine's reward shaping and the "semantic trap" problem.
+
+### 12.4.4 World Models: Powerful but Contact-Challenged
+
+**Community observation:** World models have become quite powerful (e.g., MindJourney, PlayerOne) and are starting to become real-time capable. In autonomous driving, they already work well at larger scale, but things are harder for manipulation due to contact physics.
+
+**PID-VLA relevance:** This validates the project's focus on manipulation as a challenging testbed. The "contact challenge" maps directly to:
+- **H7 (Flow-as-Bridge):** Dream2Flow-style 3D object flow can capture rigid-body motion but struggles with contact-rich deformables.
+- **World model uses in robotics (per community):**
+  1. **Data generation for policy training** (BOOM, Newt, RoboScape)
+  2. **Safe policy evaluation** (AutoVLA, ReSim)
+  3. **Better representations via world-modeling objectives** (DreamVLA)
+
+**Critical assessment:** The third use (representation learning) is directly relevant: DreamVLA's explicit world-knowledge forecasting creates an extractable "D" for PID analysis. The community's observation that world-modeling objectives help learn better representations supports the hypothesis that explicit D should show cleaner PID signatures than implicit hidden states.
+
+**Updated model context (Jan 2026):** DreamVLA weights are now available (see §7.2, §18.2.2), making empirical validation tractable.
+
+### 12.4.5 Learning from Videos: Embodiment Gap
+
+**Community observation:** Learning from videos is progressing (e.g., EgoBridge, Object-centric 3D Motion Field, KungfuBot), and it seems to be easier for locomotion than for manipulation, where the embodiment gap is often bigger.
+
+**PID-VLA relevance:** This directly supports H7 (§3.6.6) and the Dream2Flow integration (§10.9):
+- **Embodiment gap as confound (§14.5.7):** PID on (V,D,A) may conflate world model quality with action-execution failures.
+- **Video-to-flow paradigm:** Extracting object-level motion from video models can provide embodiment-agnostic intermediate representations.
+
+**Critical assessment:** The observation that locomotion is "easier" than manipulation for video learning suggests that PID analysis should stratify results by task type. Locomotion tasks may show different V-D integration patterns than contact-rich manipulation.
+
+### 12.4.6 Inference Speed: No Longer a Bottleneck
+
+**Community observation:** Inference speed is not really a bottleneck anymore for VLAs thanks to new tokenization (e.g., BEAST), caching (e.g., VLA-Cache, EfficientVLA), and fast-sampling methods (e.g., Two-Steps Diffusion Policy, MeanFlow).
+
+**PID-VLA relevance:** This has mixed implications:
+- **Positive:** Fast VLA inference enables more rollouts per compute budget, improving PID sample sizes.
+- **Neutral for PID:** PID estimation cost is dominated by kNN computation, not VLA forward passes. Real-time PID remains challenging regardless of VLA speed (see §12.2 Q6).
+
+**Practical implication:** The bottleneck for "real-time PID monitoring" is the estimator, not the policy. Confirms the recommendation to use Shannon invariants (CI) for online screening and full `I^sx_∩` offline.
+
+### 12.4.7 VLA Safety: Alignment and Failure Detection
+
+**Community observation:** VLAs still fail in many situations. Offline safety alignment (e.g., SafeVLA) and combining online failure detection (e.g., FIPER, SAFE) with data-efficient human-in-the-loop learning (e.g., Compliant Residual DAgger, APO) hold promise for improving VLA safety.
+
+**PID-VLA relevance:** This strongly supports Use Case 5 (§3.4, Real-Time Intervention Selection) and H6 (Safety-aware integration):
+- **Failure detection:** PID/CI features could complement existing failure detectors (FIPER, SAFE) by providing interpretable *why* signals.
+- **Human-in-the-loop:** PID-derived signals could prioritize which rollouts need human review (high uncertainty × low synergy).
+- **SafeVLA context:** Offline safety alignment methods could potentially incorporate PID-derived constraints (e.g., "avoid states with extreme negative synergy").
+
+**Critical assessment:** The community identifies online failure detection as important. This reinforces that PID's practical deployment may be as a *diagnostic* (identifying failure modes post-hoc) rather than a real-time safety gate. SAFE (arXiv:2506.09937) and similar methods should be treated as baselines in Experiment 2.
+
+### 12.4.8 Beyond Vision: Multimodal Sensing
+
+**Community observation:** It's still an open question to what extent other sensing modalities are needed and how to best fuse them, but there are promising works in this direction (e.g., Force VLA, Touch-in-the-Wild).
+
+**PID-VLA relevance:** This suggests future extensions beyond V-L-D-A:
+- **Proprioception (P):** Already implicit in some VLA state representations.
+- **Force/torque (F):** Contact-rich manipulation may require explicit force sensing; PID could decompose Syn(V,F;A).
+- **Tactile (T):** Touch-in-the-Wild suggests tactile features for fine manipulation.
+
+**Implication for PID-VLA:** The current V-L-D-A decomposition focuses on vision and language. Force/tactile sensing would introduce new sources, increasing PID atom count (§5.2). The hierarchical pairwise approach (§5.3 Option 3) becomes even more important with additional modalities.
+
+### 12.4.9 Synthesis: NeurIPS 2025 Takeaways for PID-VLA Roadmap
+
+| NeurIPS Observation | PID-VLA Impact | Action Item |
+|---------------------|----------------|-------------|
+| Continual learning gap | Orthogonal | None (focus on deployed policies) |
+| Imitation efficiency limits | Supports diagnostic focus | Validates "why failures occur" framing |
+| RL for VLAs emerging | Supports Aim 3 | Investigate non-differentiable PID-as-shaping |
+| World models contact-challenged | Validates manipulation focus | Stratify results by contact complexity |
+| DreamVLA-style objectives help | Direct support for V-D-A | **DreamVLA weights now available** (§7.2) |
+| Video learning embodiment gap | Supports H7 | Include embodiment as covariate |
+| Inference speed solved | Neutral for PID | Focus estimator optimization, not VLA speed |
+| Safety/failure detection active | Supports Use Case 5 | Add SAFE/FIPER as baselines |
+| Multimodal sensing open | Future direction | Consider force/tactile extensions post-v1.0 |
+
+**Critical note:** These observations come from a community synthesis (NeurIPS 2025 field notes) rather than peer-reviewed meta-analysis. Treat specific claims (e.g., "contact is harder than locomotion") as empirical priors requiring validation on PID-VLA's target benchmarks.
+
 ---
 
 # 13. References
@@ -4830,11 +4973,17 @@ VLA-Arena Task Organization:
 - **Genie 1:** Bruce et al. (Feb 2024). Generative Interactive Environments. arXiv:2402.15391
 - **SIMA 2:** DeepMind (Nov 2025). Gemini-powered generalist agent for 3D virtual worlds. arXiv:2512.04797
 - **Diffusion modeling note (background; optional):** Li & He (2025). *Back to Basics: Let Denoising Generative Models Denoise.* arXiv:2511.13720. (Relevant to how “denoising” vs “noise prediction” parameterizations can change representation geometry; treat as background for diffusion-based world models, not a PID paper.)
+- **RoboScape:** Shang et al. (2025). *RoboScape: Physics-informed Embodied World Model.* arXiv:2506.23135. [Joint RGB video + physics knowledge (depth, keypoint dynamics); robotic data generation + policy evaluation]
+
+## 13.4.1 Learning from Videos (NeurIPS 2025)
+
+- **EgoBridge:** Punamiya et al. (2025). *EgoBridge: Domain Adaptation for Generalizable Imitation from Egocentric Human Data.* arXiv:2509.19626. NeurIPS 2025 + CoRL 2025 Oral. [Optimal-transport domain adaptation for human-to-robot transfer; addresses embodiment gap]
 
 ## 13.5 Uncertainty & Hallucination Detection
 
 - **VL-Uncertainty:** Zhang et al. (2024). arXiv:2411.11919
 - **SAFE:** Multitask VLA failure detection. arXiv:2506.09937
+- **FIPER:** Römer et al. (2025). *Failure Prediction at Runtime for Generative Robot Policies.* arXiv:2510.09459. NeurIPS 2025. [OOD detection + action-chunk entropy for failure prediction in diffusion/flow policies]
 - **PRE-HAL:** Dempster-Shafer for VLM hallucination
 
 ## 13.6 Process Reward Models (PRMs)
@@ -4844,6 +4993,12 @@ VLA-Arena Task Organization:
 - **VLAC:** Vision-language action critic. Zhai et al. (2025). arXiv:2509.15937
 - **SARM:** Stage-aware reward modeling. Chen et al. (2025). arXiv:2509.25358
 - **LIV:** Language-image representations for rewards. Ma et al. (2023). ICML
+
+## 13.6.1 RL for VLAs & Flow Matching (NeurIPS 2025)
+
+- **ReinFlow:** Zhang et al. (2025). *ReinFlow: Fine-tuning Flow Matching Policy with Online Reinforcement Learning.* arXiv:2505.22094. NeurIPS 2025. [RL fine-tuning of Rectified Flow and Shortcut Model policies; 135% episode reward improvement in locomotion]
+- **CQN-AS:** Seo, Abbeel (2025). *Coarse-to-fine Q-Network with Action Sequence for Data-Efficient Reinforcement Learning.* arXiv:2411.12155. [Value-based RL with action sequences; sample-efficient manipulation]
+- **CQN (original):** Seo, Uruç, James (2024). *Continuous Control with Coarse-to-fine Reinforcement Learning.* arXiv:2407.07787. [Coarse-to-fine discretization for continuous action RL]
 
 ## 13.7 Information Theory
 
@@ -4896,6 +5051,11 @@ VLA-Arena Task Organization:
 - **modded-nanogpt:** Speedrun benchmark for LLM training optimization
 - **SRL (step-wise reasoning training; optional):** Deng et al. (2025). *Supervised Reinforcement Learning: From Expert Trajectories to Step-wise Reasoning.* arXiv:2510.25992. (Potentially relevant to Aim 3 / PRM-style training loops; not PID-specific.)
 
+## 13.11.1 VLA Inference Efficiency (NeurIPS 2025)
+
+- **VLA-Cache:** Xu et al. (2025). *VLA-Cache: Efficient Vision-Language-Action Manipulation via Adaptive Token Caching.* arXiv:2502.02175. NeurIPS 2025. [1.7x speedup via static visual token caching; layer-adaptive reuse]
+- **EfficientVLA:** Yang et al. (2025). *EfficientVLA: Training-Free Acceleration and Compression for Vision-Language-Action Models.* arXiv:2506.10100. [1.93x speedup via layer pruning + task-aware token selection]
+
 ## 13.12 Differential Geometry & Non-Euclidean Representation (Optional)
 
 - Differential-geometry contingency notes are integrated into §8.1.5 (optional background; not a correctness source).
@@ -4920,6 +5080,12 @@ VLA-Arena Task Organization:
   - Melnick, Pecastaing (2025). *A local Lorentzian Ferrand-Obata theorem for conformal vector fields.* arXiv:2511.03713.
   - Pecastaing (2019). *The conformal group of a compact simply connected Lorentzian manifold.* arXiv:1911.06251.
   - Frances (2025). *Conformal quotients of plane waves, and Lichnerowicz conjecture in a locally homogeneous setting.* arXiv:2503.08614.
+
+## 13.13 Multimodal Sensing: Force & Tactile (NeurIPS 2025)
+
+- **ForceVLA:** Yu et al. (2025). *ForceVLA: Enhancing VLA Models with a Force-aware MoE for Contact-rich Manipulation.* arXiv:2505.22159. NeurIPS 2025. [6-axis force/torque as first-class modality; 23.2% improvement in contact-rich tasks]
+- **Touch in the Wild:** Zhu, Huang, Li (2025). *Touch in the Wild: Learning Fine-Grained Manipulation with a Portable Visuo-Tactile Gripper.* arXiv:2507.15062. [Cross-modal representation learning for visual-tactile integration; in-the-wild data collection]
+- **OpenTouch:** Song et al. (2025). *OPENTOUCH: Bringing Full-Hand Touch to Real-World Interaction.* arXiv:2512.16842. [5.1 hours synchronized video-touch-pose data; egocentric full-hand tactile dataset]
 
 ---
 
@@ -6478,7 +6644,7 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ### 17.4.3 Moondream-Inspired Small VLA (Alternative to DreamVLA)
 
-**When Needed:** If DreamVLA unavailable AND a small model is required for rapid iteration (see §7.7 for full architecture details).
+**When Needed:** If DreamVLA models are too large for rapid iteration (see §7.7 for full architecture details). **Note (Jan 2026):** Both DreamVLA variants now have public weights available; "unavailable" is no longer a blocker.
 
 **Scope note:** This is an *engineering contingency* for pipeline validation (logging/interventions/estimator plumbing), not a primary scientific target. If used, it must be documented and reproducible enough to be a credible object of study (see §7.7).
 
@@ -6910,11 +7076,11 @@ This section provides a systematic assessment of blockers that could prevent pro
 
 | Category | Count | Project Impact |
 |----------|-------|----------------|
-| **Show-Stoppers (Cat 1)** | 5 | Could kill project entirely |
+| **Show-Stoppers (Cat 1)** | 4 (was 5; DreamVLA resolved) | Could kill project entirely |
 | **Major Blockers (Cat 2)** | 7 | Require significant scope pivots |
 | **Minor Blockers (Cat 3)** | 8 | Workarounds exist; manageable |
 
-**Overall Risk Assessment:** HIGH but tractable. Success depends critically on Experiment 0 outcomes and DreamVLA availability.
+**Overall Risk Assessment:** HIGH but tractable. Success depends critically on Experiment 0 outcomes. ~~DreamVLA availability~~ **RESOLVED (Jan 2026): Both DreamVLA variants now have public weights.**
 
 ---
 
@@ -6950,31 +7116,20 @@ These blockers could terminate the project if unmitigated. Each requires explici
 
 ---
 
-### 18.2.2 DreamVLA Weights/Architecture Unavailable
+### 18.2.2 DreamVLA Weights/Architecture ~~Unavailable~~ **RESOLVED (Jan 2026)**
 
-**Risk:** DreamVLA (arXiv:2507.04447) is the only VLA with explicitly extractable world model states ("D"). If unavailable, the V-D-A decomposition becomes impossible.
+**Update (Jan 2026):** Both DreamVLA models now have publicly available weights and code:
+- **DreamVLA (arXiv:2507.04447, Zhang et al.):** `WenyaoZhang/DreamVLA` on HuggingFace. GPT-2 base model. Apache 2.0 license. Includes code, training scripts, and checkpoints for CALVIN benchmark. This is the variant with explicit world-knowledge forecasting (dynamic region via CoTracker, SAM features, DINOv2 features).
+- **Dream-VLA (arXiv:2512.22615, Ye et al.):** `Dream-org/Dream-VLA-7B` on HuggingFace. 8B parameters with diffusion LLM backbone (Dream-7B). Apache 2.0 license. Supports multiple robots out-of-box (BridgeV2/WidowX).
 
-**Evidence for Concern:**
-- Abstract does not specify backbone family/dimensions or hidden sizes; implementation details may be insufficient for re-implementation.
-- Weight release/hosting status is unknown; verify upstream availability and licensing before depending on DreamVLA.
+**Status:** This blocker is **RESOLVED**. Both V-D-A decomposition (using explicit world-knowledge outputs from Zhang et al. DreamVLA) and diffusion-based VLA analysis (using Ye et al. Dream-VLA) are now tractable.
 
-**Detection:**
-- Unable to download/access DreamVLA weights
-- Authors unresponsive to access requests
-- Architecture details insufficient for re-implementation
+**Previous Risk (historical):** ~~DreamVLA (arXiv:2507.04447) is the only VLA with explicitly extractable world model states ("D"). If unavailable, the V-D-A decomposition becomes impossible.~~
 
-**Mitigation Options:**
-1. **PIVOT to OpenVLA hidden states:** Use internal layer activations as "D" proxy (less clean, but extractable)
-2. **PIVOT to V-L-A only:** Abandon world model decomposition; focus on language grounding (still scientifically valuable)
-3. **Re-implement DreamVLA:** Only if the architecture and training recipe are sufficiently specified and you can publish a reproducibility package
-4. **Contact authors directly:** Request pre-publication access for research purposes
-
-**Go/No-Go Decision:**
-- **GO:** Weights accessible OR architecture fully specified for re-implementation
-- **PIVOT:** Use OpenVLA hidden states as D proxy (weaker but tractable)
-- **NO-GO:** No V-D-A decomposition possible → reframe project as V-L-A analysis only
-
-**Timeline Risk:** Must resolve by Month 1. Downstream experiment design depends on this.
+**Remaining considerations:**
+- Verify that the explicit world-knowledge outputs (dynamic region, spatial cues, semantic cues) from Zhang et al. DreamVLA can be logged per-step for PID analysis.
+- Dream-org/Dream-VLA-7B is larger (8B); consider hardware requirements for rapid iteration.
+- GPT-2-based DreamVLA (Zhang et al.) is smaller and may be more suitable for Experiment 0/1 rapid iteration.
 
 ---
 

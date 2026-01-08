@@ -3,4 +3,5 @@ resolver = "2"
 members = [
     "crates/pid-core",
     "crates/pid-python",
+    "crates/pid-rerun",
 ]

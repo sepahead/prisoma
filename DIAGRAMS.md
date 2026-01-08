@@ -43,7 +43,7 @@ graph TD
         Z_PID[Zenoh: pid/metrics]
     end
 
-    subgraph "Simulation & Vis Layer (Tauri/Rust)"
+    subgraph "Simulation & Vis Layer (Rust/Rerun)"
         subgraph "Backend"
             Phys[Physics Engine]
             PID_Core[pid-core Estimator]
@@ -62,13 +62,13 @@ graph TD
             Agent -->|Compute requests| PID_Core
         end
         
-        subgraph "Frontend (Three.js + SparkJS / GPU Renderer)"
-            SparkJS[SparkJS Renderer]
-            Dynos[PID Dyno Shaders]
+        subgraph "Frontend (Rerun Viewer / SparkJS)"
+            Vis[Rerun Viewer (P1-3) / SparkJS (P4)]
+            Ghost[Ghost Splats (Rerun PointCloud)]
             
-            Spark_Bridge --> SparkJS
-            Z_PID --> Dynos
-            Dynos --> SparkJS
+            Spark_Bridge --> Vis
+            Z_PID --> Ghost
+            Ghost --> Vis
         end
     end
 
@@ -82,7 +82,7 @@ graph TD
 
 ## 2. PID-Splat Simulation Loop
 
-This diagram details the "Splat-First" update loop, showing how physics (Rapier) and rendering (SparkJS) are synchronized and how PID metrics modulate the visual output.
+This diagram details the "Splat-First" update loop, showing how physics (Rapier) and rendering (Rerun/SparkJS) are synchronized and how PID metrics modulate the visual output.
 
 ```mermaid
 sequenceDiagram
@@ -91,9 +91,9 @@ sequenceDiagram
     participant Zenoh as Zenoh Bus
     participant Phys as Physics (Rust)
     participant PID as PID-Core
-    participant Spark as SparkJS (Three.js/WebGL2)
+    participant Vis as Rerun / SparkJS
 
-    Note over Phys,Spark: Example frame budget (hardware-dependent)
+    Note over Phys,Vis: Example frame budget (hardware-dependent)
 
     par Physics Step
         VLA->>Zenoh: Publish Action (Joints)
@@ -109,10 +109,10 @@ sequenceDiagram
     end
 
     par Rendering
-        Zenoh->>Spark: Update Proxy Transforms
-        Zenoh->>Spark: Update Splat Colors (PID)
-        Spark->>Spark: Run Dyno Shaders
-        Spark->>Spark: Rasterize 3DGS
+        Zenoh->>Vis: Log Transforms
+        Zenoh->>Vis: Log Ghost Splats (PID)
+        Vis->>Vis: Render Timeline
+        Vis->>Vis: Rasterize 3DGS
     end
 ```
 
@@ -164,17 +164,17 @@ This diagram shows the composable backend system where rendering (Gaussian Splat
 ```mermaid
 graph TB
     subgraph "Application Layer"
-        Tauri[Tauri App]
+        App[Rust App / Rerun Logger]
         Config[pid-splat.toml]
     end
 
     subgraph "Rendering Layer (Fixed)"
         Splats[Gaussian Splats]
-        SparkJS[SparkJS (Three.js/WebGL2)]
-        Dynos[PID Dyno Shaders]
+        Vis[Rerun / SparkJS]
+        Ghost[Ghost Splats]
         
-        Splats --> SparkJS
-        Dynos --> SparkJS
+        Splats --> Vis
+        Ghost --> Vis
     end
 
     subgraph "Physics Layer (Swappable)"
@@ -209,14 +209,14 @@ graph TB
         Zenoh[Zenoh Bus]
     end
 
-    Config --> Tauri
-    Tauri --> SparkJS
-    Tauri --> PhysTrait
-    Tauri --> RobotTrait
+    Config --> App
+    App --> Vis
+    App --> PhysTrait
+    App --> RobotTrait
     
     PhysTrait <--> Zenoh
     RobotTrait <--> Zenoh
-    SparkJS <--> Zenoh
+    Vis <--> Zenoh
 ```
 
 ### Backend Selection Logic
@@ -280,8 +280,8 @@ This diagram captures the intended hybrid approach: use 3DGS splats for photorea
 graph TB
     subgraph "Visual Scene (Appearance)"
         Splats[3DGS Splats\n(static background / captured assets)]
-        Spark[SparkJS (Three.js/WebGL2)\nSplat Renderer]
-        Splats --> Spark
+        Vis[Rerun / SparkJS\nSplat Renderer]
+        Splats --> Vis
     end
 
     subgraph "Dynamics Scene (Geometry)"
@@ -299,11 +299,11 @@ graph TB
     subgraph "Diagnostics"
         PID[pid-core metrics\n(Syn/Red/Unq, CI/Ω)]
         PID --> Overlay[GPU overlays\n(Dynos / heatmaps)]
-        Overlay --> Spark
+        Overlay --> Vis
         Overlay --> Three
     end
 
-    Cam[Shared camera + UI state] --> Spark
+    Cam[Shared camera + UI state] --> Vis
     Cam --> Three
 ```
 

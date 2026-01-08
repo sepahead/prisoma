@@ -80,3 +80,8 @@ result-*
 
 # Local one-off tooling / report generation artifacts (keep out of the main repo unless promoted).
 report_gen.py
+
+# Meshmaker: Ignore everything except python and bash scripts
+meshmaker/*
+!meshmaker/*.py
+!meshmaker/*.sh

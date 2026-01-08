@@ -43,7 +43,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 ## Repo Status (What Actually Exists)
 
 - Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
-- Specified (not yet implemented here): the PID‑Splat harness (run logs + replay, Agent Bridge, sim loop, UI, optional live transports/predictors). Start at `grandplan.md` §A.7.
+- Specified: The Rerun-based simulation harness (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start (Exp0 Gate)
 
@@ -58,7 +58,8 @@ If you don’t have `just`: `cargo test` and `cargo run -p pid-core --bin exp0`.
 
 ## Engineering Plan (To “Finish” the Project)
 
-Build order + acceptance criteria are in `grandplan.md` §A.7 (M0–M8): run logs + replay → Agent Bridge → minimal sim + `Flow_gt` → viewer‑first UI → embedding harness → optional live transport/predictors → optional GauSS‑MI uncertainty + view selection.
+Build order + acceptance criteria are in `grandplan.md` §A.7 (M0–M8): run logs + replay → Agent Bridge → minimal sim + `Flow_gt` → Rerun-based viewer → embedding harness → optional live transport/predictors → optional GauSS‑MI uncertainty + view selection.
+Note: Custom Tauri+SparkJS UI is deferred to Phase 4.
 If you use an external simulator backend (Isaac/MuJoCo/etc.), treat it as an adapter that still emits the canonical run log and is controlled via the Agent Bridge surface.
 
 ## Citation

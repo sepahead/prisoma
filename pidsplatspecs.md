@@ -10,23 +10,24 @@
 > - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 10.0 (Aligned with docset; PID‑Splat target spec)
-**Date:** 2026-01-05
+**Version:** 10.1 (Rerun-First Architecture)
+**Date:** 2026-01-08
 **Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
 
 ---
 
 ### 1. Executive Summary
 
-This document specifies the engineering implementation of the **PID-Splat** environment. It bridges photorealistic 3D Gaussian Splatting (3DGS) with modular rigid-body physics (**Rapier, MuJoCo, or Isaac Gym**) and Dream2Flow-style video→flow bridges to enable reproducible PID diagnostics for VLA models (offline-first; optionally interactive if measured budgets allow).
+This document specifies the engineering implementation of the **PID-Splat** environment. It bridges photorealistic 3D Gaussian Splatting (3DGS) with modular rigid-body physics (**Rapier, MuJoCo, or Isaac Gym**) and Dream2Flow-style video→flow bridges to enable reproducible PID diagnostics for VLA models.
 
-**Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying predicted “dreams” (video‑predicted 3D flow) to visualize what a policy *expects* to happen (treat predictors as experimental variables; no oracle framing).
+**Visualization Strategy (v10.1): "Rerun-First"**
+To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** (https://rerun.io/) as the primary visualization, logging, and "time machine" engine. The custom Tauri/SparkJS frontend is deferred to Phase 4 for advanced interactive needs.
 
-**Contact/collision reality check:** existing “3DGS-based” simulators still use conventional physics engines for contacts (e.g., SplatSim uses PyBullet; DISCOVERSE uses MuJoCo, per their papers). Treat splats as the appearance layer; use explicit collision geometry (URDF/MJCF primitives/meshes) in the physics backend.
+**Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying predicted “dreams” (video‑predicted 3D flow) to visualize what a policy *expects* to happen.
 
-**Multi-engine note (v10.0):** treat the physics backend as a **per-run** choice for contact-rich scenes. Per-object “Rapier walls + MuJoCo cups” is a co-simulation problem; if you need it, constrain it to advanced “physics islands” with restricted coupling. A more practical differentiator is **cross-backend replay** (re-run the same action log in Rapier vs MuJoCo and report divergence) as a robustness/confound control (see `grandplan.md` §E.1).
+**Contact/collision reality check:** existing “3DGS-based” simulators still use conventional physics engines for contacts. Treat splats as the appearance layer; use explicit collision geometry (URDF/MJCF primitives/meshes) in the physics backend.
 
-**Optional visual-quality control (proposed): GauSS‑MI.** If you use 3DGS scenes, reconstruction uncertainty can become a confound for PID diagnostics. The proposed GauSS‑MI integration (see `GAUSS_MI_INTEGRATION.md`) adds per‑Gaussian uncertainty maps, optional uncertainty‑weighted MI/PID, and active view selection via the Agent Bridge—treat as an optional module until implemented/validated.
+**Multi-engine note (v10.0):** treat the physics backend as a **per-run** choice for contact-rich scenes. A more practical differentiator is **cross-backend replay** (re-run the same action log in Rapier vs MuJoCo and report divergence) as a robustness/confound control (see `grandplan.md` §E.1).
 
 ---
 
@@ -34,8 +35,8 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 
 | Component | Technology | Version / Spec | License |
 | :--- | :--- | :--- | :--- |
-| **Frontend Shell** | Tauri | v2.0+ (Rust backend, WebView frontend) | MIT |
-| **Renderer** | SparkJS (“Spark”; Three.js/WebGL2) or equivalent GPU 3DGS renderer | Pin version / git SHA | verify |
+| **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | Rerun SDK v0.16+ | Apache 2.0 / MIT |
+| **Renderer** | Rerun (Native) / SparkJS (Phase 4) | Pin version / git SHA | verify |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
 | **Physics Engine** | Rapier3d / MuJoCo | Rapier v0.18+ / MuJoCo v3.0+ | Apache 2.0 |
 | **Middleware** | Zenoh | Pub/sub transport; shared memory/zero-copy is config-dependent | Apache 2.0 |
@@ -59,8 +60,6 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 
 **Optional OpenUSD / USDZ interop (Isaac Sim / LeIsaac workflows):**
 - Convert splat `.ply` → `.usdz` (packaged OpenUSD) using NVIDIA 3DGrut, then compose splats + collision mesh in Isaac Sim to export a single `.usd` background stage (see `grandplan.md` §C.1 and `DIAGRAMS.md` §9).
-- Example conversion command (from LeIsaac Marble tutorial):
-  - `python -m threedgrut.export.scripts.ply_to_usd path/to/your/splats.ply --output_file path/to/output.usdz`
 
 #### 3.2 LOD Strategy
 *   **Starting range (benchmark-dependent):** ~0.5M–2M gaussians per scene.
@@ -73,7 +72,7 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 
 This section implements the "Unified Architecture" from `grandplan.md` §10.10.
 
-**v10.0 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor. This isolates PID/geometry issues from predictor failures and makes early engineering reproducible.
+**v10.0 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor.
 
 #### 4.1 3D Flow Data Structure
 We represent the "Dream" not just as a hidden state, but as explicit 3D trajectories extracted from predicted videos (Dream2Flow-style bridge).
@@ -100,14 +99,15 @@ Video prediction happens externally (e.g., Python/CUDA or a hosted API) and feed
 3.  **Extract:** Tracking + depth estimation extract `DreamFlowTrajectory` (model-specific; log versions).
 4.  **Publish:** Rust backend receives `dream/flow/{id}` via Zenoh.
 
-#### 4.3 "Ghost Splat" Visualization
-SparkJS renders these flows as **animated ghost splats** overlaying the real physics simulation.
+#### 4.3 "Ghost Splat" Visualization (Rerun Implementation)
+In Rerun (Phases 1-3), we avoid complex custom shaders. Instead, we log **two distinct entities**:
 
-*   **Visual Style:** Semi-transparent, glowing trails.
-*   **Color Mapping:**
-    *   **Red:** High `Syn` (as defined by the chosen PID/decomposition; interpretation is experimental).
-    *   **Blue:** High `Unq(V)` (or other selected atom/metric; choose and preregister).
-    *   **Pulsing (optional):** Encode confidence/uncertainty or flow magnitude (make the mapping explicit in exports).
+1.  **`world/reality`**: The captured scene splats (standard rendering).
+2.  **`world/ghost`**: A separate point cloud or splat-set representing the predicted flow.
+    *   **Color Mapping:** Manually colored Red/Blue/Green in Rust before logging to represent PID values (Syn, Unq, Red).
+    *   **Transparency:** Alpha value set by MI magnitude or confidence.
+
+(In Phase 4/SparkJS, this will be upgraded to a GPU shader-based overlay).
 
 ---
 
@@ -119,13 +119,11 @@ SparkJS renders these flows as **animated ghost splats** overlaying the real phy
 
 | Key Expression | Data Type | Frequency | Source → Dest |
 | :--- | :--- | :--- | :--- |
-| `sim/pose/{id}` | `[f32; 7]` | 60Hz | Physics → SparkJS |
+| `sim/pose/{id}` | `[f32; 7]` | 60Hz | Physics → Rerun/SparkJS |
 | `scene/uncertainty` | `SceneUncertaintyMap` | Event | GauSS‑MI (optional) → UI/PID |
-| `dream/flow/{id}`| `DreamFlowTrajectory` | Event | Video predictor/flow extractor → SparkJS |
-| `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → SparkJS |
+| `dream/flow/{id}`| `DreamFlowTrajectory` | Event | Video predictor/flow extractor → Rerun/SparkJS |
+| `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → Rerun/SparkJS |
 | `vla/action` | `[f32; 7]` | ~10Hz | VLA → Physics |
-
-`SceneUncertaintyMap` is specified in `GAUSS_MI_INTEGRATION.md` (§4.2); treat it as an optional diagnostic artifact until implemented.
 
 #### 5.2 PID Message Schema
 ```rust
@@ -150,30 +148,13 @@ The simulator must be **agent-native**: the GUI is not the only interface. Every
 - **JSON‑RPC 2.0 over WebSocket** on `127.0.0.1` (simple from Rust/TS/Python).
 - Optional: **MCP server wrapper** exposing the same methods as tool calls (thin adapter; no separate logic).
 
-**Minimum method surface (versioned; sketch):**
-- `sim.start|pause|step|reset|status|set_seed`
-- `scene.load|save|list|inspect` (introspection must be complete enough for agents to plan edits)
-- `scene.add_object|remove_object|set_transform|set_material|set_physics`
-- `camera.get|set|keyframe|render_snapshot`
-- `intervention.apply|list|undo|branch` (all interventions are log events with timestamps and actor IDs)
-- `log.start|stop|export|replay|attach_artifact`
-
-**Live intervention semantics:**
-- Interventions can be applied while the sim is running, but the system must enforce **backpressure** (bounded queues) and expose “paused/stepping” modes to keep interventions reproducible.
-- Heavy jobs (video prediction, flow extraction, large PID bootstraps) are offline-first but still orchestrated through the same control plane so the provenance is logged.
-
-**Safety defaults:**
-- Local-only by default; explicit opt‑in for remote binding.
-- Capability gating for destructive operations (e.g., deleting assets, overwriting logs).
-- Option for read-only sessions (inspection without mutation).
-
 ---
 
 ### 6. Modular Physics Binding (PEGS)
 
 #### 6.1 Splat-to-Physics Mapping
 The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym**) via a unified trait interface.
-*   **Manual Proxy:** User places primitive colliders (Box, Sphere) in the Tauri editor to match visual boundaries.
+*   **Manual Proxy:** User defines primitive colliders (Box, Sphere) in code/config (visualized in Rerun) or uses the Tauri editor (Phase 4) to match visual boundaries.
 *   **Visual Forces:** If `Syn(V, Flow; A)` drops, we can optionally apply "correction forces" to nudge the physics simulation toward the Dream (counterfactual analysis).
 
 ---
@@ -206,25 +187,24 @@ The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym*
 ### 10. Implementation Plan
 
 1.  **Infrastructure (Week 1-2):**
-    *   Set up Tauri v2 + Rust workspace.
-    *   Integrate a 3DGS renderer (e.g., SparkJS “Spark” via Three.js/WebGL2, or a WebGPU-native renderer if you choose one) and pin its version.
+    *   Set up **Rerun** + Rust workspace.
+    *   Integrate a 3DGS loader (for Rerun) and pin its version.
 
 2.  **Physics (Week 3-4):**
     *   Implement Physics loop (Rapier by default, MuJoCo optional).
-    *   Create "Proxy Editor".
+    *   Implement **Rerun Logging Adapter** (SimState -> Rerun SDK).
 
 3.  **Dream2Flow (Week 5-6):**
     *   Implement `DreamFlowTrajectory` struct.
-    *   Create "Ghost Splat" shader in SparkJS.
     *   Connect external video predictor output stream.
 
 4.  **Integration (Week 7-8):**
-    *   Visualize PID heatmaps on both Real and Ghost splats.
+    *   Visualize PID heatmaps on **Ghost Splats** (logged as secondary point clouds in Rerun).
 
 ### 11. Error Handling
 
 *   **Video predictor failure:** If the predictor fails to generate flow, "Ghost Splats" do not appear; simulation continues with physics only.
-*   **Renderer backend failure:** If the chosen GPU backend is unavailable (e.g., WebGPU not supported, context lost), fall back to a supported renderer/backend (e.g., WebGL2/Three.js) or offline playback.
+*   **Rerun Disconnect:** Simulation continues running headless; logs are preserved.
 *   **Zenoh Disconnect:** Physics pauses; UI shows "Reconnecting...".
 
 ---

@@ -11,58 +11,50 @@
 
 ---
 
-**Docset alignment:** This document is aligned to `grandplan.md` v10.0. It describes a *target architecture* (PID‑Splat) that goes beyond what is currently implemented in this repository; treat latency/throughput numbers as measurements to be taken on your hardware, not guarantees.
+**Docset alignment:** This document is aligned to `grandplan.md` v10.1. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
 
 ## 1. Core System Components
 
-### 1.1 Tauri Application (Desktop Framework)
+### 1.1 Strategy: "Rerun-First" (Phases 1–3)
+
+**What it is:**
+Instead of building a custom simulator frontend from scratch immediately, we utilize **Rerun** (https://rerun.io/) as the primary visualization, logging, and "time machine" engine for the initial research phases.
+
+**Why this decision (v10.1):**
+- **Engineering Efficiency:** Building a custom 3D engine with timeline scrubbing, camera controls, and state management (Tauri+SparkJS) is a massive upfront cost. Rerun provides these "for free" via a simple SDK (`cargo add rerun`).
+- **The "Time Machine":** Rerun's core feature is recording streams of data and allowing instant replay/scrubbing. This is critical for diagnosing VLA failures (e.g., "rewind to 2 seconds before the drop").
+- **3DGS Support:** Rerun supports logging Gaussian Splats directly.
+- **Focus on Science:** Allows the team to focus on `pid-core`, physics bindings, and experiment logic (the novel parts) rather than boilerplate UI code.
+
+**Implementation Detail: Ghost Splats in Rerun**
+SparkJS (Phase 4) allows custom shaders for "Ghost Splats" (predictive flow overlays). Rerun does not support custom shaders.
+*   **Workaround:** We log **two** separate entities:
+    1.  `world/reality`: The captured scene splats (standard rendering).
+    2.  `world/ghost`: A separate, lower-density point cloud or splat-set representing the predicted flow, colored Red/Blue based on PID values.
+*   **Trade-off:** Slightly higher bandwidth/storage than a shader-based approach, but vastly simpler to implement.
+
+### 1.2 Tauri Application + SparkJS (Phase 4 Target)
 
 **What it does:**
-- Provides the cross-platform desktop application shell
-- Runs a Rust backend with native performance for PID computation
-- Hosts the SparkJS renderer (“Spark”; Three.js/WebGL2) or an equivalent 3DGS renderer for Gaussian splat visualization
-- Hosts the **Agent Bridge** control plane (planned): a stable local API (JSON‑RPC/MCP) used by both the GUI and external automation (scripts + LLM tools) for live interventions
-- Keeps an **RL-style subset** (`reset`/`step` + observation subscriptions) stable so training/evaluation loops can drive the simulator without GUI-only pathways.
-- Enables **external backend adapters**: if you run a third-party simulator with its own control plane (e.g., WebSocket-based), wrap it by writing the canonical run log so replay/analysis are identical across backends.
-- Manages IPC (Inter-Process Communication) between:
-  - Rust PID-core (computation)
-  - React/Three.js frontend (visualization)
-  - Run log + event stream (offline-first); optional Zenoh for live/distributed streaming
+- A specialized, cross-platform desktop application shell (Tauri v2)
+- Hosts the SparkJS renderer (Three.js/WebGL2) for custom shader-based visual effects
+- Provides a dedicated "Agent Bridge" control panel for human-in-the-loop experiments
 
-**Why it matters (design goals; verify on your hardware):**
-- Tight Rust↔UI integration for low-latency debugging workflows
-- A unified surface for simulation control + PID metric visualization (planned)
-- Practical iteration speed for Experiment 0 and downstream analyses
+**Status:**
+- **Deferred to Phase 4.** This is the "Productization" target for when the research is validated and we need highly specific interactive tools (e.g., real-time "visual force" editing) that Rerun cannot support.
 
-**Stack:**
+**Stack (Phase 4):**
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Tauri v2 Shell                       │
 ├─────────────────────────────────────────────────────────┤
 │  Frontend (React + Three.js)│  Backend (Rust)          │
 │  ├─ SparkJS 3DGS Renderer   │  ├─ PID-Core estimators  │
-│  ├─ PID Heatmap Overlays    │  ├─ Run log + replay     │
-│  ├─ Control Panel           │  ├─ Agent Bridge (JSON-RPC/MCP) │
-│  └─ Timeline + replay UI    │  └─ ML inference hooks (planned) │
+│  ├─ PID Heatmap Shaders     │  ├─ Rerun SDK (optional) │
+│  ├─ Control Panel           │  ├─ Agent Bridge (JSON-RPC)     │
+│  └─ Timeline + replay UI    │  └─ ML inference hooks   │
 └─────────────────────────────────────────────────────────┘
 ```
-**Note:** The v10.0 build order is offline-first: implement run logs + replay before relying on live transports such as Zenoh (`grandplan.md` §A.7).
-
-### 1.2 SparkJS (Three.js / WebGL2 3DGS Renderer)
-
-**What it does:**
-- Three.js-integrated 3D Gaussian Splatting (3DGS) renderer (“Spark”; `@sparkjsdev/spark`) that composes splats and mesh objects in one scene graph (see https://sparkjs.dev/ and https://github.com/sparkjsdev/spark)
-- Provides programmable GPU splat effects (Spark “shader graph”); PID overlays can be implemented as shader-driven recoloring/annotation (implementation detail; benchmark-dependent)
-- Supports multiple splat formats (see Spark docs; verify exact formats/versions at time of integration)
-
-**Why it matters:**
-- **High visual fidelity**: 3DGS can produce photorealistic novel views in many settings (capture/scene dependent)
-- **Differentiability caveat**: Gaussian splatting is differentiable in some training frameworks; SparkJS/Three.js here is a visualization target, not a differentiable training primitive.
-- **PID Overlay**: Dynos colorize splats based on information flow:
-  - Red = High Synergy
-  - Blue = High Unique Information
-  - Green = High Redundancy
-- **Optional uncertainty overlays (proposed):** visualize per‑Gaussian reconstruction uncertainty (GauSS‑MI) and log uncertainty stats as artifacts; see `GAUSS_MI_INTEGRATION.md`.
 
 ### 1.3 Modular Physics Engine (Rapier, MuJoCo, Isaac Gym)
 
@@ -70,7 +62,7 @@
 - Provides rigid body physics simulation via a pluggable backend system
 - Supports **Rapier3D** (Rust-native, default), **MuJoCo** (industry standard), and **Isaac Gym** (GPU-parallel)
 - Handles collision detection, joint constraints, friction, restitution
-- Rapier can run at low step times for small scenes; achievable control/step rates are hardware- and scene-dependent (measure on your setup).
+- Rapier can run at low step times for small scenes; achievable control/step rates are hardware- and scene-dependent.
 
 **Key capabilities (Rapier implementation):**
 ```rust
@@ -88,9 +80,9 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 ```
 
 **Why it matters:**
-- **Determinism**: Rapier aims for deterministic replay under fixed dt/ordering, but bitwise determinism can break across platforms/CPUs; verify and log settings/seeds.
-- **Modularity**: Select an engine appropriate to your trade-offs (Rapier for speed, MuJoCo for contact fidelity)
-- **Integration**: Native Rust (Rapier) = zero-copy data flow to PID-core; FFI for MuJoCo/Isaac
+- **Determinism:** Rapier aims for deterministic replay under fixed dt/ordering, but bitwise determinism can break across platforms/CPUs; verify and log settings/seeds.
+- **Modularity:** Select an engine appropriate to your trade-offs (Rapier for speed, MuJoCo for contact fidelity)
+- **Integration:** Native Rust (Rapier) = zero-copy data flow to PID-core; FFI for MuJoCo/Isaac
 - **Multi-engine reality**: per-object “Rapier walls + MuJoCo cups” is a co-simulation problem for contact-rich scenes. v10.0 recommends **one physics backend per run**, plus optional **cross-backend replay** (Rapier ↔ MuJoCo) as a robustness/confound check (see `grandplan.md` §E.1).
 
 ### 1.4 Gazebo Harmonic (Robot Simulation)
@@ -100,17 +92,20 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 - Sensor simulation (RGB-D cameras, joint encoders, force/torque)
 - Headless mode for batch experiments
 
-**Integration architecture:**
+**Integration architecture (Rerun-First):**
 ```
-┌─────────────────┐    Zenoh    ┌─────────────────┐
-│ Gazebo Harmonic │◄──────────►│  Tauri App      │
-│ (Headless)      │            │  ├─ SparkJS     │
-│ ├─ Robot URDF   │            │  ├─ PID-Core    │
-│ ├─ Sensors      │            │  └─ Controls    │
-│ └─ ros_gz_bridge│            └─────────────────┘
-└─────────────────┘
+┌─────────────────┐    Zenoh    ┌─────────────────────┐
+│ Gazebo Harmonic │◄──────────►│  Rust Backend       │
+│ (Headless)      │            │  ├─ PID-Core        │
+│ ├─ Robot URDF   │            │  ├─ Controls        │
+│ ├─ Sensors      │            │  └─ Rerun SDK       │
+│ └─ ros_gz_bridge│            └──────────┬──────────┘
+└─────────────────┘                       │
+                                          ▼
+                                   ┌──────────────┐
+                                   │ Rerun Viewer │
+                                   └──────────────┘
 ```
-**Note:** Zenoh is an optional live/distributed transport (M6). Offline playback and most analysis should operate directly on run logs (M1).
 
 **Robot vs object simulation (coupling constraints)**
 
@@ -156,7 +151,7 @@ ns-export gaussian-splat \
     --output-dir ./assets/splats/ \
     --output-format spz
 
-# 4. Load in SparkJS for real-time rendering
+# 4. Load in Rerun (Phases 1-3) or SparkJS (Phase 4)
 ```
 
 **Asset specifications:**
@@ -171,7 +166,7 @@ ns-export gaussian-splat \
 **Why it matters:**
 - **Real2Sim photorealism**: Captured splats look like real images (can reduce synthetic domain gaps; benchmark-dependent)
 - **Object-centric assets**: Each manipulated object is a separate splat (compositional scenes)
-- **Differentiability caveat**: 3DGS is differentiable in *training* frameworks; the SparkJS/Three.js renderer here is a visualization target, not a differentiable primitive.
+- **Differentiability caveat**: 3DGS is differentiable in *training* frameworks; the visualization target here is not a differentiable training primitive.
  
 **Caveat:** “Domain gap” and “photorealism” are benchmark-dependent; treat any sim2real claims as empirical until measured.
 
@@ -261,9 +256,9 @@ Use this table as a qualitative capability map. Do not compare “sim2real %”,
 ├─────────────────────────────────────────────────────────────┤
 │  RENDERING        │  PHYSICS           │  ROBOT SIMULATION  │
 │  ────────         │  ───────           │  ────────────────  │
-│  Gaussian Splats  │  Modular Backend   │  Gazebo (accurate) │
-│  (photorealistic) │  (Rapier, MuJoCo,  │  OR                │
-│                   │   Isaac Gym)       │  MuJoCo (legacy)   │
+│  Rerun (P1-3) /   │  Modular Backend   │  Gazebo (accurate) │
+│  SparkJS (P4)     │  (Rapier, MuJoCo,  │  OR                │
+│  (photorealistic) │   Isaac Gym)       │  MuJoCo (legacy)   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -301,7 +296,7 @@ gpu_id = 0
 num_envs = 1024
 
 [rendering]
-backend = "splat"  # Default: Gaussian splats for visual realism studies
+backend = "rerun"  # Default: Rerun for P1-3, "spark" for P4
 
 [robot]
 backend = "none"    # Options: "gazebo", "mujoco", "none" (default for early bring-up)
@@ -310,13 +305,13 @@ urdf_path = "assets/robots/franka_panda.urdf"
 
 ### 2.5 Camera & Environment Simulation
 
-| Feature | MuJoCo/robosuite | Isaac Gym | Gaussian Splats |
+| Feature | MuJoCo/robosuite | Isaac Gym | Rerun (P1-3) |
 |---------|------------------|-----------|------------------|
-| **Multi-view cameras** | ✓ Fixed viewpoints | ✓ Any viewpoint | ✓ Any viewpoint (within capture) |
-| **Lighting changes** | Re-render needed | Re-render needed | **Real-time Dynos** |
-| **Camera intrinsics** | Manual setup | Manual setup | **Real-time modification** |
-| **Motion blur** | Not supported | Limited | **Post-process shader** |
-| **Lens distortion** | Not supported | Limited | **Post-process shader** |
+| **Multi-view cameras** | ✓ Fixed viewpoints | ✓ Any viewpoint | ✓ Any viewpoint (Scrubbing) |
+| **Lighting changes** | Re-render needed | Re-render needed | **N/A (Recorded)** |
+| **Camera intrinsics** | Manual setup | Manual setup | **Logged from capture** |
+| **Motion blur** | Not supported | Limited | **N/A** |
+| **Lens distortion** | Not supported | Limited | **N/A** |
 | **New environments** | Longer asset-authoring cycles | Longer asset-authoring cycles | Potentially faster capture/reconstruction (depends on setup/tooling) |
 
 ---
@@ -417,7 +412,7 @@ I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 |-----------------|-----------|
 | Synthetic renders → domain gap → VLA sees different inputs than real | Splat captures → photorealism → VLA sees real-like inputs |
 | MuJoCo physics → slow, non-Rust → IPC overhead | Modular physics → Rust-native (Rapier) or FFI (MuJoCo) |
-| Offline evaluation → no real-time feedback | Tauri dashboard → live PID overlay on running policy |
+| Offline evaluation → no real-time feedback | **Rerun Time Machine** → scrub through failure cases instanty |
 
 **The key insight**: To diagnose VLAs, we need:
 1. **Photorealistic inputs** (so VLA behavior matches real-world)
@@ -425,7 +420,7 @@ I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 3. **Real-time analysis** (live PID computation during rollouts)
 4. **Reproducible instrumentation** (fixed preprocessing, validated estimators, and controlled interventions)
 
-Gaussian splats + modular physics + a unified UI (e.g., Tauri) are intended to support these goals; treat them as hypotheses until benchmarked.
+Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended to support these goals; treat them as hypotheses until benchmarked.
 
 ---
 
@@ -433,8 +428,8 @@ Gaussian splats + modular physics + a unified UI (e.g., Tauri) are intended to s
 
 | Component | Role | Rationale (design goals; benchmark-dependent) |
 |-----------|------|--------------|
-| **Tauri** | Desktop app shell | Native Rust perf + cross-platform |
-| **SparkJS (Spark)** | 3DGS rendering | Three.js/WebGL2 splat+mesh compositing + programmable shader effects for PID overlays (benchmark-dependent) |
+| **Rerun** | **Visualization & Logging** | **Primary P1-3 Tool.** Low-overhead, built-in timeline, 3DGS support. |
+| **Tauri+SparkJS** | Interactive App | **Deferred to P4.** For custom shaders and complex intervention UI. |
 | **Physics** | Object physics | Modular (Rapier/MuJoCo/Isaac) |
 | **Robot Sim** | Robot dynamics | Industry-standard (Gazebo/MuJoCo) |
 | **3DGS Pipeline** | Scene capture | Photorealistic captures; differentiable training pipelines exist (visualization here is non-differentiable) |
@@ -445,12 +440,12 @@ Gaussian splats + modular physics + a unified UI (e.g., Tauri) are intended to s
 
 ## 5. Research Trajectory
 
-| Phase | Goal | Key Deliverable |
-|-------|------|-----------------|
-| **1** | Validate PID estimators (Experiment 0) | GO/NO-GO gate passed |
-| **2** | Apply to OpenVLA on LIBERO | Failure signature taxonomy |
-| **3** | Compare DreamVLA vs OpenVLA | World model quality metrics |
-| **4** | Embodiment transfer via Flow-as-bridge | Cross-robot PID analysis |
+| Phase | Goal | Key Deliverable | Visualization |
+|-------|------|-----------------|---------------|
+| **1** | Validate PID estimators (Experiment 0) | GO/NO-GO gate passed | Rerun (Charts) |
+| **2** | Apply to OpenVLA on LIBERO | Failure signature taxonomy | Rerun (Timeline + Logs) |
+| **3** | Compare DreamVLA vs OpenVLA | World model quality metrics | Rerun (3DGS + Ghost Splats) |
+| **4** | Embodiment transfer via Flow-as-bridge | Cross-robot PID analysis | **Tauri + SparkJS** (Interactive) |
 
 **Ultimate goal**: Move from "does this VLA work?" to "how does this VLA understand the world?" — enabling principled debugging and improvement of vision-language-action models.
 

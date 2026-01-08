@@ -109,9 +109,9 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
     // This is intentionally small and brute-force; it exists to exercise the estimators end-to-end
     // on synthetic systems and to provide a place to iterate while building the full harness.
 
-    let n = 250usize;
+    let n = 500usize;
     let k = 3usize;
-    let dims = [1usize, 10, 50, 256];
+    let dims = [10usize, 64, 256];
     let hash_project_to = Some(64usize);
 
     let ksg_cfg = KsgConfig {
@@ -133,6 +133,10 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
         writeln!(out)?;
     }
 
+    let mut passes = 0;
+    let mut total = 0;
+    let mut geom_warnings = 0;
+
     let common = CaseCommon {
         args,
         n,
@@ -140,42 +144,35 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
         hash_project_to,
     };
     for d in dims {
-        run_case(
-            out,
-            common,
-            CaseSpec {
-                name: "independent_additive",
-                d,
-                seed: 42,
-            },
-        )?;
-        run_case(
-            out,
-            common,
-            CaseSpec {
-                name: "redundant_copy",
-                d,
-                seed: 43,
-            },
-        )?;
-        run_case(
-            out,
-            common,
-            CaseSpec {
-                name: "unique_s1",
-                d,
-                seed: 44,
-            },
-        )?;
-        run_case(
-            out,
-            common,
-            CaseSpec {
-                name: "xor_like",
-                d,
-                seed: 45,
-            },
-        )?;
+        for name in ["independent_additive", "redundant_copy", "unique_s1", "xor_like"] {
+            let res = run_case(
+                out,
+                common,
+                CaseSpec {
+                    name,
+                    d,
+                    seed: 42,
+                },
+            )?;
+
+            // Simple heuristic check for Independent Additive case (True MI is small but non-zero).
+            // For Redundant Copy, Red should be large.
+            // For Exp0 validation, we want to know if it's "plausible".
+            if name == "independent_additive" {
+                total += 1;
+                let rel_err = (res.metrics.red_ehrlich).abs(); // Ideally 0
+                let threshold = if d <= 10 { 0.1 } else if d <= 100 { 0.2 } else { 0.3 };
+                if rel_err < threshold {
+                    passes += 1;
+                }
+
+                // Check geometry warnings on the independent additive case as a proxy for the dimension
+                let dr_s1 = 2.0 * res.diag.gromov_s1 / res.diag.diam_s1;
+                if res.diag.id_s1 > 20.0 || res.diag.dc_cv_s1 < 0.1 || dr_s1 < 0.1 {
+                    geom_warnings += 1;
+                }
+            }
+        }
         if !common.args.csv {
             writeln!(out)?;
         }
@@ -186,6 +183,21 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
         write_gaussian_csv_header(out)?;
     }
     run_gaussian_channel_strong_dependence_sweep(out, common.args, 900, &ksg_cfg, 0x51A7_2026)?;
+
+    if !args.csv {
+        writeln!(out, "--- Experiment 0 Summary ---")?;
+        writeln!(out, "Passes (Independent Additive Zero-Redundancy check): {}/{}", passes, total)?;
+        writeln!(out, "Geometry Warnings: {}/{}", geom_warnings, dims.len())?;
+        let status = if passes == total && geom_warnings == 0 {
+            "GO"
+        } else if passes as f64 / total as f64 > 0.5 {
+            "PIVOT (High-d instability or geometry risks detected)"
+        } else {
+            "NO-GO"
+        };
+        writeln!(out, "Status: {}", status)?;
+    }
+
     Ok(())
 }
 
@@ -193,7 +205,7 @@ fn run_case(
     out: &mut dyn Write,
     common: CaseCommon<'_>,
     spec: CaseSpec<'_>,
-) -> Result<(), Exp0Error> {
+) -> Result<CaseResult, Exp0Error> {
     let noise_std = 0.05;
     let n = common.n;
     let d = spec.d;
@@ -255,7 +267,7 @@ fn run_case(
 
             let projected =
                 compute_metrics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), common.ksg_cfg)?;
-            let diag = compute_diagnostics(
+            let diag_p = compute_diagnostics(
                 s1p.as_ref(),
                 s2p.as_ref(),
                 tz.as_ref(),
@@ -273,12 +285,12 @@ fn run_case(
                         n,
                         project_to: Some(dout),
                         metrics: projected,
-                        diag,
+                        diag: diag_p,
                     },
                 )?;
             } else {
                 print_metrics(out, &case_name, dout, projected)?;
-                print_intrinsic_dims(out, diag)?;
+                print_intrinsic_dims(out, diag_p)?;
             }
 
             // PCA projection baseline (deterministic; no external deps).
@@ -291,7 +303,7 @@ fn run_case(
 
             let projected =
                 compute_metrics(s1p.as_ref(), s2p.as_ref(), tz.as_ref(), common.ksg_cfg)?;
-            let diag = compute_diagnostics(
+            let diag_p = compute_diagnostics(
                 s1p.as_ref(),
                 s2p.as_ref(),
                 tz.as_ref(),
@@ -309,16 +321,24 @@ fn run_case(
                         n,
                         project_to: Some(dout),
                         metrics: projected,
-                        diag,
+                        diag: diag_p,
                     },
                 )?;
             } else {
                 print_metrics(out, &case_name, dout, projected)?;
-                print_intrinsic_dims(out, diag)?;
+                print_intrinsic_dims(out, diag_p)?;
             }
         }
     }
-    Ok(())
+    Ok(CaseResult {
+        metrics: baseline,
+        diag,
+    })
+}
+
+struct CaseResult {
+    metrics: Metrics,
+    diag: Diagnostics,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -334,6 +354,16 @@ struct Diagnostics {
     dc_nnr_s2: f64,
     dc_cv_s12: f64,
     dc_nnr_s12: f64,
+
+    gromov_s1: f64,
+    gromov_s2: f64,
+    gromov_s12: f64,
+    gromov_t: f64,
+
+    diam_s1: f64,
+    diam_s2: f64,
+    diam_s12: f64,
+    diam_t: f64,
 }
 
 fn compute_diagnostics(
@@ -353,29 +383,45 @@ fn compute_diagnostics(
         .unwrap_or(f64::NAN);
 
     let dcfg = DistanceConcentrationConfig { metric };
-    let (dc_cv_s1, dc_nnr_s1) = distance_concentration_stats(s1, &dcfg)
-        .map(|s| (s.pairwise_cv, s.nn_over_pairwise_mean))
-        .unwrap_or((f64::NAN, f64::NAN));
-    let (dc_cv_s2, dc_nnr_s2) = distance_concentration_stats(s2, &dcfg)
-        .map(|s| (s.pairwise_cv, s.nn_over_pairwise_mean))
-        .unwrap_or((f64::NAN, f64::NAN));
-    let (dc_cv_s12, dc_nnr_s12) = concat_horiz(s1, s2)
+    let ds1 = distance_concentration_stats(s1, &dcfg).ok();
+    let ds2 = distance_concentration_stats(s2, &dcfg).ok();
+    let ds12 = concat_horiz(s1, s2)
         .ok()
-        .and_then(|s12| distance_concentration_stats(s12.as_ref(), &dcfg).ok())
-        .map(|s| (s.pairwise_cv, s.nn_over_pairwise_mean))
-        .unwrap_or((f64::NAN, f64::NAN));
+        .and_then(|s12| distance_concentration_stats(s12.as_ref(), &dcfg).ok());
+    let dt = distance_concentration_stats(t, &dcfg).ok();
+
+    let hcfg = pid_core::HyperbolicityConfig {
+        n_samples: 500,
+        metric,
+        seed: 42,
+    };
+    let gromov_s1 = pid_core::gromov_hyperbolicity(s1, &hcfg).unwrap_or(f64::NAN);
+    let gromov_s2 = pid_core::gromov_hyperbolicity(s2, &hcfg).unwrap_or(f64::NAN);
+    let gromov_t = pid_core::gromov_hyperbolicity(t, &hcfg).unwrap_or(f64::NAN);
+    let gromov_s12 = concat_horiz(s1, s2)
+        .ok()
+        .and_then(|s12| pid_core::gromov_hyperbolicity(s12.as_ref(), &hcfg).ok())
+        .unwrap_or(f64::NAN);
 
     Diagnostics {
         id_s1,
         id_s2,
         id_t,
         id_s12,
-        dc_cv_s1,
-        dc_nnr_s1,
-        dc_cv_s2,
-        dc_nnr_s2,
-        dc_cv_s12,
-        dc_nnr_s12,
+        dc_cv_s1: ds1.map(|s| s.pairwise_cv).unwrap_or(f64::NAN),
+        dc_nnr_s1: ds1.map(|s| s.nn_over_pairwise_mean).unwrap_or(f64::NAN),
+        dc_cv_s2: ds2.map(|s| s.pairwise_cv).unwrap_or(f64::NAN),
+        dc_nnr_s2: ds2.map(|s| s.nn_over_pairwise_mean).unwrap_or(f64::NAN),
+        dc_cv_s12: ds12.map(|s| s.pairwise_cv).unwrap_or(f64::NAN),
+        dc_nnr_s12: ds12.map(|s| s.nn_over_pairwise_mean).unwrap_or(f64::NAN),
+        gromov_s1,
+        gromov_s2,
+        gromov_s12,
+        gromov_t,
+        diam_s1: ds1.map(|s| s.pairwise_max).unwrap_or(f64::NAN),
+        diam_s2: ds2.map(|s| s.pairwise_max).unwrap_or(f64::NAN),
+        diam_s12: ds12.map(|s| s.pairwise_max).unwrap_or(f64::NAN),
+        diam_t: dt.map(|s| s.pairwise_max).unwrap_or(f64::NAN),
     }
 }
 
@@ -396,6 +442,17 @@ fn print_intrinsic_dims(out: &mut dyn Write, d: Diagnostics) -> io::Result<()> {
         d.dc_nnr_s2,
         d.dc_cv_s12,
         d.dc_nnr_s12
+    )?;
+
+    let dr_s1 = 2.0 * d.gromov_s1 / d.diam_s1;
+    let dr_s2 = 2.0 * d.gromov_s2 / d.diam_s2;
+    let dr_s12 = 2.0 * d.gromov_s12 / d.diam_s12;
+    let dr_t = 2.0 * d.gromov_t / d.diam_t;
+
+    writeln!(
+        out,
+        "{:>20} {:>7} | d_rel(s1)={:>6.3} | d_rel(s2)={:>6.3} | d_rel(s1,s2)={:>6.3} | d_rel(t)={:>6.3}",
+        "", "", dr_s1, dr_s2, dr_s12, dr_t
     )?;
     Ok(())
 }
@@ -554,7 +611,7 @@ fn print_metrics(out: &mut dyn Write, name: &str, d: usize, m: Metrics) -> io::R
 fn write_case_csv_header(out: &mut dyn Write) -> io::Result<()> {
     writeln!(
         out,
-        "case_name,projection,d,n,k,metric,project_to,mi_s1_t,mi_s2_t,mi_s1s2_t,ci,red_ehrlich,red_local_min,red_disjunction,syn_ehrlich,id_s1,id_s2,id_t,id_s12,dc_cv_s1,dc_nnratio_s1,dc_cv_s2,dc_nnratio_s2,dc_cv_s12,dc_nnratio_s12"
+        "case_name,projection,d,n,k,metric,project_to,mi_s1_t,mi_s2_t,mi_s1s2_t,ci,red_ehrlich,red_local_min,red_disjunction,syn_ehrlich,id_s1,id_s2,id_t,id_s12,dc_cv_s1,dc_nnratio_s1,dc_cv_s2,dc_nnratio_s2,dc_cv_s12,dc_nnratio_s12,gromov_s1,gromov_s2,gromov_s12,gromov_t,dr_s1,dr_s2,dr_s12,dr_t"
     )
 }
 
@@ -591,9 +648,14 @@ fn write_case_csv_row(
     row: CaseCsvRow<'_>,
 ) -> io::Result<()> {
     let project_to = row.project_to.map_or_else(String::new, |v| v.to_string());
+    let dr_s1 = 2.0 * row.diag.gromov_s1 / row.diag.diam_s1;
+    let dr_s2 = 2.0 * row.diag.gromov_s2 / row.diag.diam_s2;
+    let dr_s12 = 2.0 * row.diag.gromov_s12 / row.diag.diam_s12;
+    let dr_t = 2.0 * row.diag.gromov_t / row.diag.diam_t;
+
     writeln!(
         out,
-        "{},{},{},{},{},{:?},{project_to},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e}",
+        "{},{},{},{},{},{:?},{project_to},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e}",
         row.name,
         row.projection.as_str(),
         row.d,
@@ -618,6 +680,14 @@ fn write_case_csv_row(
         row.diag.dc_nnr_s2,
         row.diag.dc_cv_s12,
         row.diag.dc_nnr_s12,
+        row.diag.gromov_s1,
+        row.diag.gromov_s2,
+        row.diag.gromov_s12,
+        row.diag.gromov_t,
+        dr_s1,
+        dr_s2,
+        dr_s12,
+        dr_t,
     )
 }
 
