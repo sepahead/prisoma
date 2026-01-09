@@ -144,6 +144,83 @@ These require different solutions.
 
 ## Paper-Informed Analysis
 
+### From Gutknecht et al. 2025 (Shannon Invariants)
+
+This paper (arXiv:2504.15779) changes the strategic response to the geometry warnings.
+
+**The "NaN" Root Cause Re-evaluated:** The failures in Exp0 (NaNs, unstable atoms) are partly due to the brittleness of the `I^sx_∩` estimator's geometric requirements (intersection of exclusion balls) in sparse/degenerate data.
+
+**The Solution:** The paper introduces **Average Degree of Redundancy ($\bar{r}$)** and **Vulnerability ($\bar{v}$)**.
+*   These are **Shannon Invariants**: they depend *only* on Mutual Information terms ($I(S;T)$), not on specific PID atom definitions.
+*   **Implication:** For manifold-valued data (Warning 5.5), we do not need to derive a "Hyperbolic PID Estimator" (which is mathematically fraught). We only need a valid **Geodesic MI Estimator**.
+*   If we can estimate $I(V;A)$ and $I(D;A)$ reliably (using geodesic distances), we can compute $\bar{r}$ to diagnose redundancy vs. synergy without ever calculating the unstable intersection volumes.
+
+## Experiment 0 Update: Shannon Invariants Results
+
+We implemented $\bar{r}$ and $\bar{v}$ in Exp0 and observed:
+
+1.  **Metric Stability:** Unlike `Red(disj)` which returned `NaN` in high-d/sparse cases, $\bar{r}$ and $\bar{v}$ always return numeric values, providing a continuous diagnostic.
+2.  **Diagnostic Value (Negative Vulnerability):** In the `redundant_copy` case (d=10), we observed $\bar{v} = -1.59$.
+    *   Mathematically, $\bar{v} < 0$ implies that the sum of conditional mutual information terms is negative. Since conditional MI must be non-negative, this flags a fundamental estimator inconsistency.
+    *   **The Specific Violation:** We observed $I(S_1; T) \approx 0.49$ but $I(S_1, S_2; T) \approx 0.27$.
+    *   **Monotonicity Violation:** The estimator claims that **adding a second informative source reduces the total information**. This violates the monotonicity axiom $I(S_1, S_2; T) \ge I(S_1; T)$.
+    *   **Root Cause:** The KSG estimator bias scales with dimension. The bias at $d_{joint}=20$ is significantly more negative than at $d_{marginal}=10$, causing the estimated joint MI to collapse below the marginals.
+    *   **Action:** Use $\bar{v} < 0$ as a hard "NO-GO" gate. It detects when the "curse of dimensionality" has destroyed the coherence between marginal and joint estimates.
+
+    *   **Action:** Use $\bar{v} < 0$ as a hard "NO-GO" gate. It detects when the "curse of dimensionality" has destroyed the coherence between marginal and joint estimates.
+
+## Strategic Guide: Where to Use Which Method
+
+Based on Exp0 findings (Negative Vulnerability at $d \ge 10$) and the new Shannon Invariants strategy, use the following selection logic:
+
+### 1. The Method Selection Matrix
+
+| Variables | Effective Dimension ($d$) | Geometry | Risk Status | Recommended Method |
+| :--- | :--- | :--- | :--- | :--- |
+| **V, L, D** (Raw) | ~4096 | Any | **Critical Failure** ($\bar{v} < 0$, NaNs) | **NONE** (Must Reduce) |
+| **V, L, D** (Reduced) | ~20–64 | Euclidean/Flat | Bias Risk | **Shannon Invariants** ($\bar{r}, \bar{v}$) |
+| **A, Flow, Proprio** | ~3–10 | Euclidean/Flat | Safe / Accurate | **Atomic PID** ($I^{sx}_{\cap}$) |
+| **Manifolds** | Any | Curved | Geometry Mismatch | **Geodesic MI + Invariants** |
+
+### 2. Applied V-L-A-D Scenarios
+
+*   **Scenario A: V-L-A (Vision-Language Alignment)**
+    *   **Sources:** $V_{red}$ (PCA/SAE $\to$ 20d), $L_{red}$ (PCA/SAE $\to$ 20d).
+    *   **Method:** **Shannon Invariants ($\bar{r}, \bar{v}$)**.
+    *   **Goal:** Measure global redundancy ($\bar{r}$). High $\bar{r}$ implies V and L provide overlapping info (good grounding).
+
+*   **Scenario B: V-D-A (World Model Consistency)**
+    *   **Sources:** $V_{red}$ (20d), $D_{red}$ (20d).
+    *   **Method:** **Shannon Invariants ($\bar{r}$)**.
+    *   **Goal:** If $\bar{r} \approx 1$ (Independent), the Policy is ignoring the Dream state (or V).
+
+*   **Scenario C: "Flow-as-Bridge" (Geometric Escape Hatch)**
+    *   **Sources:** **Flow** (3D motion, $d \approx 3-9$), **Proprio** ($d \approx 7$).
+    *   **Method:** **Full Atomic PID ($I^{sx}_{\cap}$)**.
+    *   **Why:** Low dimensionality ($d \le 10$) allows safe, precise decomposition of Synergy/Unique terms.
+
+### 3. Manifold & Geometry Selection Guide
+
+When standard Euclidean assumptions fail (distance concentration, hierarchy), select geometry based on data structure:
+
+*   **Euclidean ($\mathbb{R}^n$):**
+    *   **Use when:** Data is dense, locally flat, or pre-processed (PCA/Whitening).
+    *   **Valid Estimators:** Standard kNN MI, $I^{sx}_{\cap}$ (if $d \le 10$).
+
+*   **Spherical ($\mathbb{S}^n$):**
+    *   **Use when:** Embeddings are cosine-similarity based (e.g., CLIP, SigLIP, normalized vectors).
+    *   **Valid Estimators:** **Geodesic kNN MI** (using Great Circle distance).
+    *   **Avoid:** $I^{sx}_{\cap}$ (volume intersection is ill-defined).
+
+*   **Hyperbolic / Poincaré ($\mathbb{H}^n$):**
+    *   **Use when:** Data exhibits strong **hierarchical structure** (tree-like) or exponential volume expansion (e.g., language hierarchies, entailment cones).
+    *   **Diagnostics:** Check $\delta$-hyperbolicity (Gromov product). High $\delta$ (low metric distortion on tree) $\to$ Hyperbolic.
+    *   **Valid Estimators:** **Geodesic kNN MI** (using Poincaré/Lorentz distance).
+    *   **Avoid:** $I^{sx}_{\cap}$.
+
+*   **Lorentzian ($\mathbb{L}^n$):**
+    *   **Use when:** Numerical stability is required for Hyperbolic operations (Poincaré ball is unstable near boundary). Mathematically equivalent to Hyperbolic but better for optimization.
+
 ### From Ehrlich et al. 2024 (Continuous I^sx_∩)
 
 The paper explicitly states:

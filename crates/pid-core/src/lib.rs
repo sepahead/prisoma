@@ -55,6 +55,7 @@ pub use hierarchy::{
     PairSelection, PairwiseScreen,
 };
 pub use invariants::{
+    average_degree_of_redundancy, average_degree_of_vulnerability,
     co_information_pairwise_discrete, entropy_discrete, joint_entropy_discrete,
     o_information_discrete, red_degree_discrete, vul_degree_discrete,
 };

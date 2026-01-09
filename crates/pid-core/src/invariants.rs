@@ -229,3 +229,41 @@ pub fn co_information_pairwise_discrete(x1: &[u32], x2: &[u32], y: &[u32]) -> Pi
 
     Ok(i_x1_y + i_x2_y - i_x1x2_y)
 }
+
+/// Average Degree of Redundancy (\bar{r}) for a target T and sources S_1, ..., S_n.
+///
+/// ```text
+/// \bar{r}(T; S_1...S_n) = (Σ_i I(T; S_i)) / I(T; S_1...S_n)
+/// ```
+///
+/// - `marginal_mis`: [I(T;S_1), ..., I(T;S_n)]
+/// - `joint_mi`: I(T; S_1...S_n)
+/// - Returns NaN if joint_mi is 0.
+pub fn average_degree_of_redundancy(marginal_mis: &[f64], joint_mi: f64) -> f64 {
+    if joint_mi.abs() < 1e-12 {
+        return f64::NAN;
+    }
+    marginal_mis.iter().sum::<f64>() / joint_mi
+}
+
+/// Average Degree of Vulnerability (\bar{v}) for a target T and sources S_1, ..., S_n.
+///
+/// ```text
+/// \bar{v}(T; S_1...S_n) = (Σ_i I(T; S_i | S_-i)) / I(T; S_1...S_n)
+/// ```
+///
+/// where I(T; S_i | S_-i) = I(T; S_1...S_n) - I(T; S_-i).
+///
+/// - `joint_mi`: I(T; S_1...S_n)
+/// - `leave_one_out_mis`: [I(T; S_-1), ..., I(T; S_-n)]
+///   (For n=2, this is just [I(T;S_2), I(T;S_1)]).
+/// - Returns NaN if joint_mi is 0.
+pub fn average_degree_of_vulnerability(joint_mi: f64, leave_one_out_mis: &[f64]) -> f64 {
+    if joint_mi.abs() < 1e-12 {
+        return f64::NAN;
+    }
+    let n = leave_one_out_mis.len() as f64;
+    let sum_loo: f64 = leave_one_out_mis.iter().sum();
+    // Σ (I_joint - I_loo_i) = n * I_joint - Σ I_loo_i
+    (n * joint_mi - sum_loo) / joint_mi
+}

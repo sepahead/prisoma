@@ -43,26 +43,24 @@
 
 > **Geometry mitigations (choose one, then re-run the Geometry Gate + Experiment 0):**
 > 
-> 1. **The "Manifold Unrolling" Approach (Isomap/AE → Standard Estimator):**
->    Use Isomap or Contractive Autoencoders to flatten the manifold into a lower-dimensional Euclidean space (e.g., d=32), then run the standard Ehrlich `I^sx_∩` estimator. This "unrolls" the geometry so L∞ distances become valid proxies.
+> 1.  **The "Shannon Invariants" Approach (Geodesic MI → $\bar{r}, \bar{v}$):**
+>     **PRIMARY RECOMMENDATION for Manifolds.** Do not attempt to calculate atomic PID ($I^{sx}_{\cap}$) on curved manifolds, as the intersection volumes are ill-defined. Instead, use a manifold-aware **Mutual Information estimator** (e.g., Geodesic kNN, MINE, or optimization-based MI) to compute the Shannon Invariants $\bar{r}$ and $\bar{v}$ (Gutknecht et al. 2025). This bypasses the volume-cancellation geometry problem entirely while still diagnosing Redundancy vs. Synergy.
 > 
-> 2. **The "Geodesic MI" Approach (Manifold kNN → Shannon Invariants):**
->    Prefer MI/CMI-based screening (CI/Ω / co-information) rather than continuous PID atoms. Use a manifold-aware MI estimator (e.g., Marx & Fischer 2021) with geodesic distances, and treat results as **screening** unless validated under controls.
+> 2.  **The "Manifold Unrolling" Approach (Isomap/AE → Standard Estimator):**
+>     **Fallback.** Use Isomap or Contractive Autoencoders to flatten the manifold into a lower-dimensional Euclidean space (e.g., d=32), then run the standard Ehrlich `I^sx_∩` estimator. This "unrolls" the geometry so L∞ distances become valid proxies, but introduces distortion.
 > 
-> 3. **The "Linear Projection" Approach (PCA → Standard Estimator):**
->    Pragmatic baseline. Use PCA to reduce to ~256 dims. PCA is a linear rotation, preserving the "box" volume logic of the Chebyshev estimator better than nonlinear warping, provided the manifold is locally flat enough.
+> 3.  **The "Linear Projection" Approach (PCA → Standard Estimator):**
+>     Pragmatic baseline. Use PCA to reduce to ~256 dims. PCA is a linear rotation, preserving the "box" volume logic of the Chebyshev estimator better than nonlinear warping, provided the manifold is locally flat enough.
 > 
-> 4. **The "Quantization" Approach (Clustering → Discrete PID):**
->    Map continuous embeddings to discrete cluster IDs (k=100..1000) using k-means/VQ. Use the classic Discrete `I^sx_∩` estimator (Makkeh et al. 2021), effectively bypassing geometry issues by counting mass instead of volumes.
+> 4.  **The "Quantization" Approach (Clustering → Discrete PID):**
+>     Map continuous embeddings to discrete cluster IDs (k=100..1000) using k-means/VQ. Use the classic Discrete `I^sx_∩` estimator (Makkeh et al. 2021), effectively bypassing geometry issues by counting mass instead of volumes.
 > 
-> 5. **The "Copula Transform" Approach (Rank Transform → Standard Estimator):**
->    Apply empirical CDF transform to every dimension to force Uniform marginals. This mitigates "empty space" issues in high-d L∞ metrics and maximizes estimator efficiency, though it ignores dependencies during the transform.
+> 5.  **The "Copula Transform" Approach (Rank Transform → Standard Estimator):**
+>     Apply empirical CDF transform to every dimension to force Uniform marginals. This mitigates "empty space" issues in high-d L∞ metrics and maximizes estimator efficiency, though it ignores dependencies during the transform.
 >
 > **Excluded approaches (why they are not default):**
 > 
-> *   **Kernel Density Estimation (KDE):** Excluded because KDE becomes impractical in very high dimension (e.g., `d≈4096`) due to the curse of dimensionality, and because numerically integrating the `I^sx_∩` disjunction neighborhoods is not tractable at VLA scale.
-> *   **Harmonic/Spectral Methods (Diffusion Maps):** Excluded due to cost (exact eigendecomposition is typically `O(N^3)`; scalable approximations exist) and because spectral embeddings can distort local volumes in ways that are hard to correct for PID atoms.
-> *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 2, which restricts itself to MI/CI where this cancellation is not required).
+> *   **Naive Geodesic kNN (for PID atoms):** **Violates the v5.5 Warning.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 1, which restricts itself to MI/Shannon Invariants where this cancellation is not required).
 
 **v6.7 FINAL notes (Unified Splat-First Simulation Environment — Complete Architecture):**
 
@@ -1465,6 +1463,22 @@ This equals Redundancy minus Synergy for **any** valid PID measure. The individu
 ### 2.5.3 Shannon Invariants: Scalar Summaries
 
 Instead of computing all PID atoms, Shannon invariants provide interpretable numbers:
+
+**Average Degree of Redundancy ($\bar{r}$) and Vulnerability ($\bar{v}$):**
+
+Gutknecht et al. (2025) define these normalized invariants to capture the system's global position on the redundancy-synergy spectrum:
+
+1.  **Average Degree of Redundancy ($\bar{r}$):**
+    $$ \bar{r}(T; S_1, \dots, S_n) = \frac{\sum_{i=1}^n I(T; S_i)}{I(T; S_1, \dots, S_n)} $$
+    *   $\bar{r} > 1$: Redundancy-dominated (sum of parts > whole).
+    *   $\bar{r} < 1$: Synergy-dominated (whole > sum of parts).
+    *   $\bar{r} = 1$: Independent/Additive.
+    *   *Relation to Co-Information:* $\bar{r} - 1 \propto -\text{CoInfo}$ (normalized).
+
+2.  **Average Degree of Vulnerability ($\bar{v}$):**
+    $$ \bar{v}(T; S_1, \dots, S_n) = \frac{\sum_{i=1}^n I(T; S_i | S_{-i})}{I(T; S_1, \dots, S_n)} $$
+    *   Measures how much information is lost when a single source is removed.
+    *   Low $\bar{v}$ indicates robustness (information is distributed).
 
 **Co-Information (Interaction Information) for 3 Variables:**
 ```

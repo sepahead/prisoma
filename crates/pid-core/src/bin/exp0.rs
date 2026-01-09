@@ -1,8 +1,8 @@
 use pid_core::{
-    co_information_pairwise, concat_horiz, distance_concentration_stats,
-    intrinsic_dimension_levina_bickel, isx_redundancy, ksg_mi, ksg_mi_concat_xy,
-    DistanceConcentrationConfig, HashProjector, IntrinsicDimConfig, IsxConfig, IsxMethod,
-    KsgConfig, MatRef, Metric, NegativeHandling, PcaProjector, Standardizer,
+    average_degree_of_redundancy, average_degree_of_vulnerability, co_information_pairwise,
+    concat_horiz, distance_concentration_stats, intrinsic_dimension_levina_bickel, isx_redundancy,
+    ksg_mi, ksg_mi_concat_xy, DistanceConcentrationConfig, HashProjector, IntrinsicDimConfig,
+    IsxConfig, IsxMethod, KsgConfig, MatRef, Metric, NegativeHandling, PcaProjector, Standardizer,
 };
 use std::io::{self, Write};
 
@@ -526,6 +526,8 @@ struct Metrics {
     mi_s2_t: f64,
     mi_s1s2_t: f64,
     ci: f64,
+    r_bar: f64,
+    v_bar: f64,
     red_ehrlich: f64,
     red_local_min: f64,
     red_disjunction: f64,
@@ -580,11 +582,16 @@ fn compute_metrics(
     )
     .unwrap_or(f64::NAN);
 
+    let r_bar = average_degree_of_redundancy(&[mi_s1_t, mi_s2_t], mi_s1s2_t);
+    let v_bar = average_degree_of_vulnerability(mi_s1s2_t, &[mi_s2_t, mi_s1_t]);
+
     Ok(Metrics {
         mi_s1_t,
         mi_s2_t,
         mi_s1s2_t,
         ci,
+        r_bar,
+        v_bar,
         red_ehrlich,
         red_local_min,
         red_disjunction,
@@ -595,15 +602,16 @@ fn compute_metrics(
 fn print_metrics(out: &mut dyn Write, name: &str, d: usize, m: Metrics) -> io::Result<()> {
     writeln!(
         out,
-        "{name:>20} d={d:<4} | I1={:>7.3} I2={:>7.3} I12={:>7.3} CI={:>7.3} | Red(ehrlich)={:>7.3} Red(local_min)={:>7.3} Red(disj)={:>7.3} | Syn(ehrlich)={:>7.3}",
+        "{name:>20} d={d:<4} | I1={:>7.3} I2={:>7.3} I12={:>7.3} CI={:>7.3} | r_bar={:>5.2} v_bar={:>5.2} | Red(ehr)={:>7.3} Syn(ehr)={:>7.3} | Red(disj)={:>7.3}",
         m.mi_s1_t,
         m.mi_s2_t,
         m.mi_s1s2_t,
         m.ci,
+        m.r_bar,
+        m.v_bar,
         m.red_ehrlich,
-        m.red_local_min,
-        m.red_disjunction,
         m.syn_ehrlich,
+        m.red_disjunction,
     )?;
     Ok(())
 }
@@ -611,7 +619,7 @@ fn print_metrics(out: &mut dyn Write, name: &str, d: usize, m: Metrics) -> io::R
 fn write_case_csv_header(out: &mut dyn Write) -> io::Result<()> {
     writeln!(
         out,
-        "case_name,projection,d,n,k,metric,project_to,mi_s1_t,mi_s2_t,mi_s1s2_t,ci,red_ehrlich,red_local_min,red_disjunction,syn_ehrlich,id_s1,id_s2,id_t,id_s12,dc_cv_s1,dc_nnratio_s1,dc_cv_s2,dc_nnratio_s2,dc_cv_s12,dc_nnratio_s12,gromov_s1,gromov_s2,gromov_s12,gromov_t,dr_s1,dr_s2,dr_s12,dr_t"
+        "case_name,projection,d,n,k,metric,project_to,mi_s1_t,mi_s2_t,mi_s1s2_t,ci,r_bar,v_bar,red_ehrlich,red_local_min,red_disjunction,syn_ehrlich,id_s1,id_s2,id_t,id_s12,dc_cv_s1,dc_nnratio_s1,dc_cv_s2,dc_nnratio_s2,dc_cv_s12,dc_nnratio_s12,gromov_s1,gromov_s2,gromov_s12,gromov_t,dr_s1,dr_s2,dr_s12,dr_t"
     )
 }
 
@@ -655,7 +663,7 @@ fn write_case_csv_row(
 
     writeln!(
         out,
-        "{},{},{},{},{},{:?},{project_to},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e}",
+        "{},{},{},{},{},{:?},{project_to},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e}",
         row.name,
         row.projection.as_str(),
         row.d,
@@ -666,6 +674,8 @@ fn write_case_csv_row(
         row.metrics.mi_s2_t,
         row.metrics.mi_s1s2_t,
         row.metrics.ci,
+        row.metrics.r_bar,
+        row.metrics.v_bar,
         row.metrics.red_ehrlich,
         row.metrics.red_local_min,
         row.metrics.red_disjunction,
