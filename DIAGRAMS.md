@@ -11,7 +11,7 @@
 
 This document contains visual representations of the PID-VLA system, the PID-Splat simulation environment, and the data processing pipelines.
 
-**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.0. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” and the v10.0 execution plan (`grandplan.md` §A.7) for what exists today and what to build next.
+**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.1. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1) and the v10.1 execution plan (`grandplan.md` §A.7) for what exists today and what to build next.
 
 ## 1. High-Level System Overview
 
@@ -360,7 +360,7 @@ flowchart TD
     Geo -->|Flags non-Euclidean / concentration| PivotGeom[Pivot representation: reduce/quantize/Flow target]
     PivotGeom --> Geo
 
-    Exp0 --> Gate{Meets accuracy/stability thresholds?}
+    Exp0 --> Gate{Meets coherence gates?}
     Gate -->|GO| Proceed[Proceed to real embeddings + preregistered analyses]
     Gate -->|PIVOT| PivotEst[Pivot estimator/representation; re-run Geo + Exp0]
     Gate -->|NO-GO| Stop[Stop: do not interpret PID atoms]

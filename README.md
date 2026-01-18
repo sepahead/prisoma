@@ -14,7 +14,7 @@
 
 PID‑VLA is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
 
-## Hypotheses (Docset v10.0)
+## Hypotheses (Docset v10.1)
 
 The canonical registry + falsification criteria live in `grandplan.md` (§14.1).
 
@@ -40,10 +40,17 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 5. **Exp4** — Flow‑as‑Bridge bring‑up with simulator `Flow_gt` (H7).
 6. **Exp5** — Cross‑embodiment replication (H4/H7).
 
+## Doc Audits
+
+- `python scripts/audit_grandplan.py --check-italic-titles` (arXiv coverage + title drift; uses `outputs/arxiv_ref_cache.json`)
+- `python scripts/audit_grandplan_claims.py` (heuristic scan for unqualified venue/perf claims)
+- `python scripts/audit_docset_claims.py` (same heuristic scan across the canonical docset + `findings.md`)
+- If you have `just`: `just docs-audit`
+
 ## Repo Status (What Actually Exists)
 
-- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
-- Specified: The Rerun-based simulation harness (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
+- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-rerun` (prototype Rerun logging + `vla_demo`), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
+- Specified: A fuller Rerun-based diagnostic viewer (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start (Exp0 Gate)
 
@@ -55,6 +62,7 @@ just exp0-bin
 ```
 
 If you don’t have `just`: `cargo test` and `cargo run -p pid-core --bin exp0`.
+See `findings.md` for the latest repo-local Exp0 interpretation notes.
 
 ## Engineering Plan (To “Finish” the Project)
 

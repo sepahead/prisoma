@@ -41,7 +41,8 @@ data/
 results/
 logs/
 *.log
-outputs/
+outputs/*
+!outputs/arxiv_ref_cache.json
 
 # UI prompt-iteration artifacts (generated images/reviews; keep specs/scripts in git)
 uidesigner/out/

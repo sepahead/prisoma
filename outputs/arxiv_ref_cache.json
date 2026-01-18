@@ -1,0 +1,1471 @@
+{
+  "1411.2003": {
+    "authors": [
+      "Shuyang Gao",
+      "Greg Ver Steeg",
+      "Aram Galstyan"
+    ],
+    "id": "1411.2003",
+    "published": "2014-11-07T19:00:57Z",
+    "summary": "We demonstrate that a popular class of nonparametric mutual information (MI) estimators based on k-nearest-neighbor graphs requires number of samples that scales exponentially with the true MI. Consequently, accurate estimation of MI between two strongly dependent variables is possible only for prohibitively large sample size. This important yet overlooked shortcoming of the existing estimators is due to their implicit reliance on local uniformity of the underlying joint distribution. We introduce a new estimator that is robust to local non-uniformity, works well with limited data, and is able to capture relationship strengths over many orders of magnitude. We demonstrate the superior performance of the proposed estimator on both synthetic and real-world data.",
+    "title": "Efficient Estimation of Mutual Information for Strongly Dependent Variables",
+    "updated": "2015-03-05T22:10:18Z"
+  },
+  "1508.00536": {
+    "authors": [
+      "Shuyang Gao",
+      "Greg Ver Steeg",
+      "Aram Galstyan"
+    ],
+    "id": "1508.00536",
+    "published": "2015-08-03T19:15:32Z",
+    "summary": "Estimating mutual information (MI) from samples is a fundamental problem in statistics, machine learning, and data analysis. Recently it was shown that a popular class of non-parametric MI estimators perform very poorly for strongly dependent variables and have sample complexity that scales exponentially with the true MI. This undesired behavior was attributed to the reliance of those estimators on local uniformity of the underlying (and unknown) probability density function. Here we present a novel semi-parametric estimator of mutual information, where at each sample point, densities are {\\em locally} approximated by a Gaussians distribution. We demonstrate that the estimator is asymptotically unbiased. We also show that the proposed estimator has a superior performance compared to several baselines, and is able to accurately measure relationship strengths over many orders of magnitude.",
+    "title": "Estimating Mutual Information by Local Gaussian Approximation",
+    "updated": "2016-02-17T20:29:44Z"
+  },
+  "1705.08039": {
+    "authors": [
+      "Maximilian Nickel",
+      "Douwe Kiela"
+    ],
+    "id": "1705.08039",
+    "published": "2017-05-22T23:14:36Z",
+    "summary": "Representation learning has become an invaluable approach for learning from symbolic data such as text and graphs. However, while complex symbolic datasets often exhibit a latent hierarchical structure, state-of-the-art methods typically learn embeddings in Euclidean vector spaces, which do not account for this property. For this purpose, we introduce a new approach for learning hierarchical representations of symbolic data by embedding them into hyperbolic space -- or more precisely into an n-dimensional Poincar\u00e9 ball. Due to the underlying hyperbolic geometry, this allows us to learn parsimonious representations of symbolic data by simultaneously capturing hierarchy and similarity. We introduce an efficient algorithm to learn the embeddings based on Riemannian optimization and show experimentally that Poincar\u00e9 embeddings outperform Euclidean embeddings significantly on data with latent hierarchies, both in terms of representation capacity and in terms of generalization ability.",
+    "title": "Poincar\u00e9 Embeddings for Learning Hierarchical Representations",
+    "updated": "2017-05-26T17:40:55Z"
+  },
+  "1801.04062": {
+    "authors": [
+      "Mohamed Ishmael Belghazi",
+      "Aristide Baratin",
+      "Sai Rajeswar",
+      "Sherjil Ozair",
+      "Yoshua Bengio",
+      "Aaron Courville",
+      "R Devon Hjelm"
+    ],
+    "id": "1801.04062",
+    "published": "2018-01-12T05:42:58Z",
+    "summary": "We argue that the estimation of mutual information between high dimensional continuous random variables can be achieved by gradient descent over neural networks. We present a Mutual Information Neural Estimator (MINE) that is linearly scalable in dimensionality as well as in sample size, trainable through back-prop, and strongly consistent. We present a handful of applications on which MINE can be used to minimize or maximize mutual information. We apply MINE to improve adversarially trained generative models. We also use MINE to implement Information Bottleneck, applying it to supervised classification; our results demonstrate substantial improvement in flexibility and performance in these settings.",
+    "title": "MINE: Mutual Information Neural Estimation",
+    "updated": "2021-08-14T18:35:05Z"
+  },
+  "1805.09112": {
+    "authors": [
+      "Octavian-Eugen Ganea",
+      "Gary B\u00e9cigneul",
+      "Thomas Hofmann"
+    ],
+    "id": "1805.09112",
+    "published": "2018-05-23T13:08:07Z",
+    "summary": "Hyperbolic spaces have recently gained momentum in the context of machine learning due to their high capacity and tree-likeliness properties. However, the representational power of hyperbolic geometry is not yet on par with Euclidean geometry, mostly because of the absence of corresponding hyperbolic neural network layers. This makes it hard to use hyperbolic embeddings in downstream tasks. Here, we bridge this gap in a principled manner by combining the formalism of M\u00f6bius gyrovector spaces with the Riemannian geometry of the Poincar\u00e9 model of hyperbolic spaces. As a result, we derive hyperbolic versions of important deep learning tools: multinomial logistic regression, feed-forward and recurrent neural networks such as gated recurrent units. This allows to embed sequential data and perform classification in the hyperbolic space. Empirically, we show that, even if hyperbolic optimization tools are limited, hyperbolic sentence embeddings either outperform or are on par with their Euclidean variants on textual entailment and noisy-prefix recognition tasks.",
+    "title": "Hyperbolic Neural Networks",
+    "updated": "2018-06-28T17:20:43Z"
+  },
+  "1806.03417": {
+    "authors": [
+      "Maximilian Nickel",
+      "Douwe Kiela"
+    ],
+    "id": "1806.03417",
+    "published": "2018-06-09T05:56:50Z",
+    "summary": "We are concerned with the discovery of hierarchical relationships from large-scale unstructured similarity scores. For this purpose, we study different models of hyperbolic space and find that learning embeddings in the Lorentz model is substantially more efficient than in the Poincar\u00e9-ball model. We show that the proposed approach allows us to learn high-quality embeddings of large taxonomies which yield improvements over Poincar\u00e9 embeddings, especially in low dimensions. Lastly, we apply our model to discover hierarchies in two real-world datasets: we show that an embedding in hyperbolic space can reveal important aspects of a company's organizational structure as well as reveal historical relationships between language families.",
+    "title": "Learning Continuous Hierarchies in the Lorentz Model of Hyperbolic Geometry",
+    "updated": "2018-07-08T13:06:31Z"
+  },
+  "1904.06151": {
+    "authors": [
+      "Marina Gomtsyan",
+      "Nikita Mokrov",
+      "Maxim Panov",
+      "Yury Yanovich"
+    ],
+    "id": "1904.06151",
+    "published": "2019-04-12T10:44:22Z",
+    "summary": "The existing approaches to intrinsic dimension estimation usually are not reliable when the data are nonlinearly embedded in the high dimensional space. In this work, we show that the explicit accounting to geometric properties of unknown support leads to the polynomial correction to the standard maximum likelihood estimate of intrinsic dimension for flat manifolds. The proposed algorithm (GeoMLE) realizes the correction by regression of standard MLEs based on distances to nearest neighbors for different sizes of neighborhoods. Moreover, the proposed approach also efficiently handles the case of nonuniform sampling of the manifold. We perform numerous experiments on different synthetic and real-world datasets. The results show that our algorithm achieves state-of-the-art performance, while also being computationally efficient and robust to noise in the data.",
+    "title": "Geometry-Aware Maximum Likelihood Estimation of Intrinsic Dimension",
+    "updated": "2019-04-12T10:44:22Z"
+  },
+  "1906.01824": {
+    "authors": [
+      "Sudipto Mukherjee",
+      "Himanshu Asnani",
+      "Sreeram Kannan"
+    ],
+    "id": "1906.01824",
+    "published": "2019-06-05T04:58:22Z",
+    "summary": "Conditional Mutual Information (CMI) is a measure of conditional dependence between random variables X and Y, given another random variable Z. It can be used to quantify conditional dependence among variables in many data-driven inference problems such as graphical models, causal learning, feature selection and time-series analysis. While k-nearest neighbor (kNN) based estimators as well as kernel-based methods have been widely used for CMI estimation, they suffer severely from the curse of dimensionality. In this paper, we leverage advances in classifiers and generative models to design methods for CMI estimation. Specifically, we introduce an estimator for KL-Divergence based on the likelihood ratio by training a classifier to distinguish the observed joint distribution from the product distribution. We then show how to construct several CMI estimators using this basic divergence estimator by drawing ideas from conditional generative models. We demonstrate that the estimates from our proposed approaches do not degrade in performance with increasing dimension and obtain significant improvement over the widely used KSG estimator. Finally, as an application of accurate CMI estimation, we use our best estimator for conditional independence testing and achieve superior performance than the state-of-the-art tester on both simulated and real data-sets.",
+    "title": "CCMI : Classifier based Conditional Mutual Information Estimation",
+    "updated": "2019-06-05T04:58:22Z"
+  },
+  "1911.02277": {
+    "authors": [
+      "Sina Molavipour",
+      "Germ\u00e1n Bassi",
+      "Mikael Skoglund"
+    ],
+    "id": "1911.02277",
+    "published": "2019-11-06T09:52:29Z",
+    "summary": "Several recent works in communication systems have proposed to leverage the power of neural networks in the design of encoders and decoders. In this approach, these blocks can be tailored to maximize the transmission rate based on aggregated samples from the channel. Motivated by the fact that, in many communication schemes, the achievable transmission rate is determined by a conditional mutual information term, this paper focuses on neural-based estimators for this information-theoretic quantity. Our results are based on variational bounds for the KL-divergence and, in contrast to some previous works, we provide a mathematically rigorous lower bound. However, additional challenges with respect to the unconditional mutual information emerge due to the presence of a conditional density function which we address here.",
+    "title": "Conditional Mutual Information Neural Estimator",
+    "updated": "2020-02-14T12:29:18Z"
+  },
+  "1911.06251": {
+    "authors": [
+      "Karin Melnick",
+      "Vincent Pecastaing"
+    ],
+    "id": "1911.06251",
+    "published": "2019-11-14T17:19:45Z",
+    "summary": "We prove that the conformal group of a closed, simply connected, real analytic Lorentzian manifold is compact. D'Ambra proved in 1988 that the isometry group of such a manifold is compact. Our result implies the Lorentzian Lichnerowicz Conjecture for real analytic Lorentzian manifolds with finite fundamental group. Third version includes corrections and clarifications, particularly in section 6.",
+    "title": "The conformal group of a compact simply connected Lorentzian manifold",
+    "updated": "2021-07-14T08:06:57Z"
+  },
+  "2003.12039": {
+    "authors": [
+      "Zachary Teed",
+      "Jia Deng"
+    ],
+    "id": "2003.12039",
+    "published": "2020-03-26T17:12:42Z",
+    "summary": "We introduce Recurrent All-Pairs Field Transforms (RAFT), a new deep network architecture for optical flow. RAFT extracts per-pixel features, builds multi-scale 4D correlation volumes for all pairs of pixels, and iteratively updates a flow field through a recurrent unit that performs lookups on the correlation volumes. RAFT achieves state-of-the-art performance. On KITTI, RAFT achieves an F1-all error of 5.10%, a 16% error reduction from the best published result (6.10%). On Sintel (final pass), RAFT obtains an end-point-error of 2.855 pixels, a 30% error reduction from the best published result (4.098 pixels). In addition, RAFT has strong cross-dataset generalization as well as high efficiency in inference time, training speed, and parameter count. Code is available at https://github.com/princeton-vl/RAFT.",
+    "title": "RAFT: Recurrent All-Pairs Field Transforms for Optical Flow",
+    "updated": "2020-08-25T15:49:48Z"
+  },
+  "2110.13883": {
+    "authors": [
+      "Alexander Marx",
+      "Jonas Fischer"
+    ],
+    "id": "2110.13883",
+    "published": "2021-10-26T17:40:35Z",
+    "summary": "Estimating mutual information (MI) between two continuous random variables $X$ and $Y$ allows to capture non-linear dependencies between them, non-parametrically. As such, MI estimation lies at the core of many data science applications. Yet, robustly estimating MI for high-dimensional $X$ and $Y$ is still an open research question. In this paper, we formulate this problem through the lens of manifold learning. That is, we leverage the common assumption that the information of $X$ and $Y$ is captured by a low-dimensional manifold embedded in the observed high-dimensional space and transfer it to MI estimation. As an extension to state-of-the-art $k$NN estimators, we propose to determine the $k$-nearest neighbors via geodesic distances on this manifold rather than from the ambient space, which allows us to estimate MI even in the high-dimensional setting. An empirical evaluation of our method, G-KSG, against the state-of-the-art shows that it yields good estimations of MI in classical benchmark and manifold tasks, even for high dimensional datasets, which none of the existing methods can provide.",
+    "title": "Estimating Mutual Information via Geodesic $k$NN",
+    "updated": "2022-01-18T12:59:04Z"
+  },
+  "2202.13852": {
+    "authors": [
+      "Menglin Yang",
+      "Min Zhou",
+      "Tong Zhang",
+      "Jiahong Liu",
+      "Zhihao Li",
+      "Lujia Pan",
+      "Hui Xiong",
+      "Irwin King"
+    ],
+    "id": "2202.13852",
+    "published": "2022-02-28T15:08:48Z",
+    "summary": "Graph representation learning in Euclidean space, despite its widespread adoption and proven utility in many domains, often struggles to effectively capture the inherent hierarchical and complex relational structures prevalent in real-world data, particularly for datasets exhibiting a highly non-Euclidean latent anatomy or power-law distributions. Hyperbolic geometry, with its constant negative curvature and exponential growth property, naturally accommodates such structures, offering a promising alternative for learning rich graph representations. This survey paper provides a comprehensive review of the rapidly evolving field of Hyperbolic Graph Learning (HGL). We systematically categorize and analyze existing methods broadly dividing them into (1) hyperbolic graph embedding-based techniques, (2) graph neural network-based hyperbolic models, and (3) emerging paradigms. Beyond methodologies, we extensively discuss diverse applications of HGL across multiple domains, including recommender systems, knowledge graphs, bioinformatics, and other relevant scenarios, demonstrating the broad applicability and effectiveness of hyperbolic geometry in real-world graph learning tasks. Most importantly, we identify several key challenges that serve as directions for advancing HGL, including handling complex data structures, developing geometry-aware learning objectives, ensuring trustworthy and scalable implementations, and integrating with foundation models, e.g., large language models. We highlight promising research opportunities in this exciting interdisciplinary area. A comprehensive repository can be found at https://github.com/digailab/awesome-hyperbolic-graph-learning.",
+    "title": "Hyperbolic Graph Neural Networks: A Review of Methods and Applications",
+    "updated": "2025-08-22T21:56:34Z"
+  },
+  "2207.03160": {
+    "authors": [
+      "Zelin Zang",
+      "Siyuan Li",
+      "Di Wu",
+      "Ge Wang",
+      "Lei Shang",
+      "Baigui Sun",
+      "Hao Li",
+      "Stan Z. Li"
+    ],
+    "id": "2207.03160",
+    "published": "2022-07-07T08:46:17Z",
+    "summary": "Manifold learning (ML) aims to seek low-dimensional embedding from high-dimensional data. The problem is challenging on real-world datasets, especially with under-sampling data, and we find that previous methods perform poorly in this case. Generally, ML methods first transform input data into a low-dimensional embedding space to maintain the data's geometric structure and subsequently perform downstream tasks therein. The poor local connectivity of under-sampling data in the former step and inappropriate optimization objectives in the latter step leads to two problems: structural distortion and underconstrained embedding. This paper proposes a novel ML framework named Deep Local-flatness Manifold Embedding (DLME) to solve these problems. The proposed DLME constructs semantic manifolds by data augmentation and overcomes the structural distortion problem using a smoothness constrained based on a local flatness assumption about the manifold. To overcome the underconstrained embedding problem, we design a loss and theoretically demonstrate that it leads to a more suitable embedding based on the local flatness. Experiments on three types of datasets (toy, biological, and image) for various downstream tasks (classification, clustering, and visualization) show that our proposed DLME outperforms state-of-the-art ML and contrastive learning methods.",
+    "title": "DLME: Deep Local-flatness Manifold Embedding",
+    "updated": "2022-07-26T00:47:01Z"
+  },
+  "2311.05928": {
+    "authors": [
+      "Anton Razzhigaev",
+      "Matvey Mikhalchuk",
+      "Elizaveta Goncharova",
+      "Ivan Oseledets",
+      "Denis Dimitrov",
+      "Andrey Kuznetsov"
+    ],
+    "id": "2311.05928",
+    "published": "2023-11-10T08:25:02Z",
+    "summary": "In this study, we present an investigation into the anisotropy dynamics and intrinsic dimension of embeddings in transformer architectures, focusing on the dichotomy between encoders and decoders. Our findings reveal that the anisotropy profile in transformer decoders exhibits a distinct bell-shaped curve, with the highest anisotropy concentrations in the middle layers. This pattern diverges from the more uniformly distributed anisotropy observed in encoders. In addition, we found that the intrinsic dimension of embeddings increases in the initial phases of training, indicating an expansion into higher-dimensional space. Which is then followed by a compression phase towards the end of training with dimensionality decrease, suggesting a refinement into more compact representations. Our results provide fresh insights to the understanding of encoders and decoders embedding properties.",
+    "title": "The Shape of Learning: Anisotropy and Intrinsic Dimensions in Transformer-Based Models",
+    "updated": "2024-02-26T06:46:17Z"
+  },
+  "2402.15391": {
+    "authors": [
+      "Jake Bruce",
+      "Michael Dennis",
+      "Ashley Edwards",
+      "Jack Parker-Holder",
+      "Yuge Shi",
+      "Edward Hughes",
+      "Matthew Lai",
+      "Aditi Mavalankar",
+      "Richie Steigerwald",
+      "Chris Apps",
+      "Yusuf Aytar",
+      "Sarah Bechtle",
+      "Feryal Behbahani",
+      "Stephanie Chan",
+      "Nicolas Heess",
+      "Lucy Gonzalez",
+      "Simon Osindero",
+      "Sherjil Ozair",
+      "Scott Reed",
+      "Jingwei Zhang",
+      "Konrad Zolna",
+      "Jeff Clune",
+      "Nando de Freitas",
+      "Satinder Singh",
+      "Tim Rockt\u00e4schel"
+    ],
+    "id": "2402.15391",
+    "published": "2024-02-23T15:47:26Z",
+    "summary": "We introduce Genie, the first generative interactive environment trained in an unsupervised manner from unlabelled Internet videos. The model can be prompted to generate an endless variety of action-controllable virtual worlds described through text, synthetic images, photographs, and even sketches. At 11B parameters, Genie can be considered a foundation world model. It is comprised of a spatiotemporal video tokenizer, an autoregressive dynamics model, and a simple and scalable latent action model. Genie enables users to act in the generated environments on a frame-by-frame basis despite training without any ground-truth action labels or other domain-specific requirements typically found in the world model literature. Further the resulting learned latent action space facilitates training agents to imitate behaviors from unseen videos, opening the path for training generalist agents of the future.",
+    "title": "Genie: Generative Interactive Environments",
+    "updated": "2024-02-23T15:47:26Z"
+  },
+  "2406.09246": {
+    "authors": [
+      "Moo Jin Kim",
+      "Karl Pertsch",
+      "Siddharth Karamcheti",
+      "Ted Xiao",
+      "Ashwin Balakrishna",
+      "Suraj Nair",
+      "Rafael Rafailov",
+      "Ethan Foster",
+      "Grace Lam",
+      "Pannag Sanketi",
+      "Quan Vuong",
+      "Thomas Kollar",
+      "Benjamin Burchfiel",
+      "Russ Tedrake",
+      "Dorsa Sadigh",
+      "Sergey Levine",
+      "Percy Liang",
+      "Chelsea Finn"
+    ],
+    "id": "2406.09246",
+    "published": "2024-06-13T15:46:55Z",
+    "summary": "Large policies pretrained on a combination of Internet-scale vision-language data and diverse robot demonstrations have the potential to change how we teach robots new skills: rather than training new behaviors from scratch, we can fine-tune such vision-language-action (VLA) models to obtain robust, generalizable policies for visuomotor control. Yet, widespread adoption of VLAs for robotics has been challenging as 1) existing VLAs are largely closed and inaccessible to the public, and 2) prior work fails to explore methods for efficiently fine-tuning VLAs for new tasks, a key component for adoption. Addressing these challenges, we introduce OpenVLA, a 7B-parameter open-source VLA trained on a diverse collection of 970k real-world robot demonstrations. OpenVLA builds on a Llama 2 language model combined with a visual encoder that fuses pretrained features from DINOv2 and SigLIP. As a product of the added data diversity and new model components, OpenVLA demonstrates strong results for generalist manipulation, outperforming closed models such as RT-2-X (55B) by 16.5% in absolute task success rate across 29 tasks and multiple robot embodiments, with 7x fewer parameters. We further show that we can effectively fine-tune OpenVLA for new settings, with especially strong generalization results in multi-task environments involving multiple objects and strong language grounding abilities, and outperform expressive from-scratch imitation learning methods such as Diffusion Policy by 20.4%. We also explore compute efficiency; as a separate contribution, we show that OpenVLA can be fine-tuned on consumer GPUs via modern low-rank adaptation methods and served efficiently via quantization without a hit to downstream success rate. Finally, we release model checkpoints, fine-tuning notebooks, and our PyTorch codebase with built-in support for training VLAs at scale on Open X-Embodiment datasets.",
+    "title": "OpenVLA: An Open-Source Vision-Language-Action Model",
+    "updated": "2024-09-05T19:46:34Z"
+  },
+  "2407.01290": {
+    "authors": [
+      "Menglin Yang",
+      "Harshit Verma",
+      "Delvin Ce Zhang",
+      "Jiahong Liu",
+      "Irwin King",
+      "Rex Ying"
+    ],
+    "id": "2407.01290",
+    "published": "2024-07-01T13:44:38Z",
+    "summary": "Hyperbolic geometry have shown significant potential in modeling complex structured data, particularly those with underlying tree-like and hierarchical structures. Despite the impressive performance of various hyperbolic neural networks across numerous domains, research on adapting the Transformer to hyperbolic space remains limited. Previous attempts have mainly focused on modifying self-attention modules in the Transformer. However, these efforts have fallen short of developing a complete hyperbolic Transformer. This stems primarily from: (i) the absence of well-defined modules in hyperbolic space, including linear transformation layers, LayerNorm layers, activation functions, dropout operations, etc. (ii) the quadratic time complexity of the existing hyperbolic self-attention module w.r.t the number of input tokens, which hinders its scalability. To address these challenges, we propose, Hypformer, a novel hyperbolic Transformer based on the Lorentz model of hyperbolic geometry. In Hypformer, we introduce two foundational blocks that define the essential modules of the Transformer in hyperbolic space. Furthermore, we develop a linear self-attention mechanism in hyperbolic space, enabling hyperbolic Transformer to process billion-scale graph data and long-sequence inputs for the first time. Our experimental results confirm the effectiveness and efficiency of Hypformer across various datasets, demonstrating its potential as an effective and scalable solution for large-scale data representation and large models.",
+    "title": "Hypformer: Exploring Efficient Transformer Fully in Hyperbolic Space",
+    "updated": "2025-08-24T12:17:27Z"
+  },
+  "2407.07787": {
+    "authors": [
+      "Younggyo Seo",
+      "Jafar Uru\u00e7",
+      "Stephen James"
+    ],
+    "id": "2407.07787",
+    "published": "2024-07-10T16:04:08Z",
+    "summary": "Despite recent advances in improving the sample-efficiency of reinforcement learning (RL) algorithms, designing an RL algorithm that can be practically deployed in real-world environments remains a challenge. In this paper, we present Coarse-to-fine Reinforcement Learning (CRL), a framework that trains RL agents to zoom-into a continuous action space in a coarse-to-fine manner, enabling the use of stable, sample-efficient value-based RL algorithms for fine-grained continuous control tasks. Our key idea is to train agents that output actions by iterating the procedure of (i) discretizing the continuous action space into multiple intervals and (ii) selecting the interval with the highest Q-value to further discretize at the next level. We then introduce a concrete, value-based algorithm within the CRL framework called Coarse-to-fine Q-Network (CQN). Our experiments demonstrate that CQN significantly outperforms RL and behavior cloning baselines on 20 sparsely-rewarded RLBench manipulation tasks with a modest number of environment interactions and expert demonstrations. We also show that CQN robustly learns to solve real-world manipulation tasks within a few minutes of online training.",
+    "title": "Continuous Control with Coarse-to-fine Reinforcement Learning",
+    "updated": "2024-07-10T16:04:08Z"
+  },
+  "2409.10161": {
+    "authors": [
+      "Mohammad Nomaan Qureshi",
+      "Sparsh Garg",
+      "Francisco Yandun",
+      "David Held",
+      "George Kantor",
+      "Abhisesh Silwal"
+    ],
+    "id": "2409.10161",
+    "published": "2024-09-16T10:52:16Z",
+    "summary": "Sim2Real transfer, particularly for manipulation policies relying on RGB images, remains a critical challenge in robotics due to the significant domain shift between synthetic and real-world visual data. In this paper, we propose SplatSim, a novel framework that leverages Gaussian Splatting as the primary rendering primitive to reduce the Sim2Real gap for RGB-based manipulation policies. By replacing traditional mesh representations with Gaussian Splats in simulators, SplatSim produces highly photorealistic synthetic data while maintaining the scalability and cost-efficiency of simulation. We demonstrate the effectiveness of our framework by training manipulation policies within SplatSim and deploying them in the real world in a zero-shot manner, achieving an average success rate of 86.25%, compared to 97.5% for policies trained on real-world data. Videos can be found on our project page: https://splatsim.github.io",
+    "title": "SplatSim: Zero-Shot Sim2Real Transfer of RGB Manipulation Policies Using Gaussian Splatting",
+    "updated": "2024-10-07T03:37:36Z"
+  },
+  "2410.04010": {
+    "authors": [
+      "Menglin Yang",
+      "Aosong Feng",
+      "Bo Xiong",
+      "Jihong Liu",
+      "Irwin King",
+      "Rex Ying"
+    ],
+    "id": "2410.04010",
+    "published": "2024-10-05T02:58:25Z",
+    "summary": "Large language models (LLMs) have demonstrated remarkable performance on various tasks. However, it remains an open question whether the default Euclidean space is the most suitable choice for embedding tokens in LLMs. In this study, we first investigate the non-Euclidean characteristics of LLMs. Our findings reveal that token frequency follows a power-law distribution, with high-frequency tokens clustering near the origin and low-frequency tokens positioned farther away. Additionally, token embeddings exhibit a high degree of hyperbolicity, indicating a latent tree-like structure in the embedding space. Building on the observation, we propose to efficiently fine-tune LLMs in hyperbolic space to better exploit the underlying complex structures. However, we found that this fine-tuning in hyperbolic space cannot be achieved with naive application of exponential and logarithmic maps, when the embedding and weight matrices both reside in Euclidean space. To address this technique issue, we introduce a new method called hyperbolic low-rank efficient fine-tuning, HypLoRA, that performs low-rank adaptation directly on the hyperbolic manifold, avoiding the cancellation effect caused by the exponential and logarithmic maps, thus preserving the hyperbolic modeling capabilities. Through extensive experiments, we demonstrate that HypLoRA significantly enhances the performance of LLMs on reasoning tasks, particularly for complex reasoning problems. In particular, HypLoRA improves the performance in the complex AQuA dataset by up to 13.0%, showcasing its effectiveness in handling complex reasoning challenges",
+    "title": "Hyperbolic Fine-tuning for Large Language Models",
+    "updated": "2024-10-05T02:58:25Z"
+  },
+  "2410.19750": {
+    "authors": [
+      "Yuxiao Li",
+      "Eric J. Michaud",
+      "David D. Baek",
+      "Joshua Engels",
+      "Xiaoqing Sun",
+      "Max Tegmark"
+    ],
+    "id": "2410.19750",
+    "published": "2024-10-10T17:58:47Z",
+    "summary": "Sparse autoencoders have recently produced dictionaries of high-dimensional vectors corresponding to the universe of concepts represented by large language models. We find that this concept universe has interesting structure at three levels: 1) The \"atomic\" small-scale structure contains \"crystals\" whose faces are parallelograms or trapezoids, generalizing well-known examples such as (man-woman-king-queen). We find that the quality of such parallelograms and associated function vectors improves greatly when projecting out global distractor directions such as word length, which is efficiently done with linear discriminant analysis. 2) The \"brain\" intermediate-scale structure has significant spatial modularity; for example, math and code features form a \"lobe\" akin to functional lobes seen in neural fMRI images. We quantify the spatial locality of these lobes with multiple metrics and find that clusters of co-occurring features, at coarse enough scale, also cluster together spatially far more than one would expect if feature geometry were random. 3) The \"galaxy\" scale large-scale structure of the feature point cloud is not isotropic, but instead has a power law of eigenvalues with steepest slope in middle layers. We also quantify how the clustering entropy depends on the layer.",
+    "title": "The Geometry of Concepts: Sparse Autoencoder Feature Structure",
+    "updated": "2025-03-30T23:55:03Z"
+  },
+  "2411.11919": {
+    "authors": [
+      "Ruiyang Zhang",
+      "Hu Zhang",
+      "Zhedong Zheng"
+    ],
+    "id": "2411.11919",
+    "published": "2024-11-18T04:06:04Z",
+    "summary": "Given the higher information load processed by large vision-language models (LVLMs) compared to single-modal LLMs, detecting LVLM hallucinations requires more human and time expense, and thus rise a wider safety concerns. In this paper, we introduce VL-Uncertainty, the first uncertainty-based framework for detecting hallucinations in LVLMs. Different from most existing methods that require ground-truth or pseudo annotations, VL-Uncertainty utilizes uncertainty as an intrinsic metric. We measure uncertainty by analyzing the prediction variance across semantically equivalent but perturbed prompts, including visual and textual data. When LVLMs are highly confident, they provide consistent responses to semantically equivalent queries. However, when uncertain, the responses of the target LVLM become more random. Considering semantically similar answers with different wordings, we cluster LVLM responses based on their semantic content and then calculate the cluster distribution entropy as the uncertainty measure to detect hallucination. Our extensive experiments on 10 LVLMs across four benchmarks, covering both free-form and multi-choice tasks, show that VL-Uncertainty significantly outperforms strong baseline methods in hallucination detection.",
+    "title": "VL-Uncertainty: Detecting Hallucination in Large Vision-Language Model via Uncertainty Estimation",
+    "updated": "2024-11-28T13:35:56Z"
+  },
+  "2411.12155": {
+    "authors": [
+      "Younggyo Seo",
+      "Pieter Abbeel"
+    ],
+    "id": "2411.12155",
+    "published": "2024-11-19T01:23:52Z",
+    "summary": "Predicting a sequence of actions has been crucial in the success of recent behavior cloning algorithms in robotics. Can similar ideas improve reinforcement learning (RL)? We answer affirmatively by observing that incorporating action sequences when predicting ground-truth return-to-go leads to lower validation loss. Motivated by this, we introduce Coarse-to-fine Q-Network with Action Sequence (CQN-AS), a novel value-based RL algorithm that learns a critic network that outputs Q-values over a sequence of actions, i.e., explicitly training the value function to learn the consequence of executing action sequences. Our experiments show that CQN-AS outperforms several baselines on a variety of sparse-reward humanoid control and tabletop manipulation tasks from BiGym and RLBench.",
+    "title": "Coarse-to-fine Q-Network with Action Sequence for Data-Efficient Reinforcement Learning",
+    "updated": "2025-11-16T22:06:44Z"
+  },
+  "2411.19189": {
+    "authors": [
+      "Bingxin Ke",
+      "Dominik Narnhofer",
+      "Shengyu Huang",
+      "Lei Ke",
+      "Torben Peters",
+      "Katerina Fragkiadaki",
+      "Anton Obukhov",
+      "Konrad Schindler"
+    ],
+    "id": "2411.19189",
+    "published": "2024-11-28T14:50:14Z",
+    "summary": "Video depth estimation lifts monocular video clips to 3D by inferring dense depth at every frame. Recent advances in single-image depth estimation, brought about by the rise of large foundation models and the use of synthetic training data, have fueled a renewed interest in video depth. However, naively applying a single-image depth estimator to every frame of a video disregards temporal continuity, which not only leads to flickering but may also break when camera motion causes sudden changes in depth range. An obvious and principled solution would be to build on top of video foundation models, but these come with their own limitations; including expensive training and inference, imperfect 3D consistency, and stitching routines for the fixed-length (short) outputs. We take a step back and demonstrate how to turn a single-image latent diffusion model (LDM) into a state-of-the-art video depth estimator. Our model, which we call RollingDepth, has two main ingredients: (i) a multi-frame depth estimator that is derived from a single-image LDM and maps very short video snippets (typically frame triplets) to depth snippets. (ii) a robust, optimization-based registration algorithm that optimally assembles depth snippets sampled at various different frame rates back into a consistent video. RollingDepth is able to efficiently handle long videos with hundreds of frames and delivers more accurate depth videos than both dedicated video depth estimators and high-performing single-frame models. Project page: rollingdepth.github.io.",
+    "title": "Video Depth without Video Models",
+    "updated": "2025-03-17T12:43:52Z"
+  },
+  "2412.06245": {
+    "authors": [
+      "Saahith Janapati",
+      "Yangfeng Ji"
+    ],
+    "id": "2412.06245",
+    "published": "2024-12-09T06:37:35Z",
+    "summary": "The performance of Large Language Models (LLMs) on natural language tasks can be improved through both supervised fine-tuning (SFT) and in-context learning (ICL), which operate via distinct mechanisms. Supervised fine-tuning updates the model's weights by minimizing loss on training data, whereas in-context learning leverages task demonstrations embedded in the prompt, without changing the model's parameters. This study investigates the effects of these learning paradigms on the hidden representations of LLMs using Intrinsic Dimension (ID). We use ID to estimate the number of degrees of freedom between representations extracted from LLMs as they perform specific natural language tasks. We first explore how the ID of LLM representations evolves during SFT and how it varies due to the number of demonstrations in ICL. We then compare the IDs induced by SFT and ICL and find that ICL consistently induces a higher ID compared to SFT, suggesting that representations generated during ICL reside in higher dimensional manifolds in the embedding space.",
+    "title": "A Comparative Study of Learning Paradigms in Large Language Models via Intrinsic Dimension",
+    "updated": "2025-05-20T03:17:07Z"
+  },
+  "2412.10345": {
+    "authors": [
+      "Ruijie Zheng",
+      "Yongyuan Liang",
+      "Shuaiyi Huang",
+      "Jianfeng Gao",
+      "Hal Daum\u00e9",
+      "Andrey Kolobov",
+      "Furong Huang",
+      "Jianwei Yang"
+    ],
+    "id": "2412.10345",
+    "published": "2024-12-13T18:40:51Z",
+    "summary": "Although large vision-language-action (VLA) models pretrained on extensive robot datasets offer promising generalist policies for robotic learning, they still struggle with spatial-temporal dynamics in interactive robotics, making them less effective in handling complex tasks, such as manipulation. In this work, we introduce visual trace prompting, a simple yet effective approach to facilitate VLA models' spatial-temporal awareness for action prediction by encoding state-action trajectories visually. We develop a new TraceVLA model by finetuning OpenVLA on our own collected dataset of 150K robot manipulation trajectories using visual trace prompting. Evaluations of TraceVLA across 137 configurations in SimplerEnv and 4 tasks on a physical WidowX robot demonstrate state-of-the-art performance, outperforming OpenVLA by 10% on SimplerEnv and 3.5x on real-robot tasks and exhibiting robust generalization across diverse embodiments and scenarios. To further validate the effectiveness and generality of our method, we present a compact VLA model based on 4B Phi-3-Vision, pretrained on the Open-X-Embodiment and finetuned on our dataset, rivals the 7B OpenVLA baseline while significantly improving inference efficiency.",
+    "title": "TraceVLA: Visual Trace Prompting Enhances Spatial-Temporal Awareness for Generalist Robotic Policies",
+    "updated": "2025-06-05T21:26:08Z"
+  },
+  "2502.02175": {
+    "authors": [
+      "Siyu Xu",
+      "Yunke Wang",
+      "Chenghao Xia",
+      "Dihao Zhu",
+      "Tao Huang",
+      "Chang Xu"
+    ],
+    "id": "2502.02175",
+    "published": "2025-02-04T09:48:14Z",
+    "summary": "Vision-Language-Action (VLA) models have demonstrated strong multi-modal reasoning capabilities, enabling direct action generation from visual perception and language instructions in an end-to-end manner. However, their substantial computational cost poses a challenge for real-time robotic control, where rapid decision-making is essential. This paper introduces VLA-Cache, a training-free inference acceleration method that reduces computational overhead by adaptively caching and reusing static visual tokens across frames. Exploiting the temporal continuity in robotic manipulation, VLA-Cache identifies minimally changed tokens between adjacent frames and reuses their cached key-value representations, thereby circumventing redundant computations. Additionally, to maintain action precision, VLA-Cache selectively re-computes task-relevant tokens that are environmentally sensitive, ensuring the fidelity of critical visual information. To further optimize efficiency, we introduce a layer adaptive token reusing strategy that dynamically adjusts the reuse ratio based on attention concentration across decoder layers, prioritizing critical tokens for recomputation. Extensive experiments on two simulation platforms (LIBERO and SIMPLER) and a real-world robotic system demonstrate that VLA-Cache achieves up to 1.7x speedup in CUDA latency and a 15% increase in control frequency, with negligible loss on task success rate. The code and videos can be found at our project page: https://vla-cache.github.io.",
+    "title": "VLA-Cache: Efficient Vision-Language-Action Manipulation via Adaptive Token Caching",
+    "updated": "2025-10-21T10:33:29Z"
+  },
+  "2502.14671": {
+    "authors": [
+      "Maryam Rahimi",
+      "Yadollah Yaghoobzadeh",
+      "Mohammad Reza Daliri"
+    ],
+    "id": "2502.14671",
+    "published": "2025-02-20T16:05:45Z",
+    "summary": "Large language models (LLMs) not only exhibit human-like performance but also share computational principles with the brain's language processing mechanisms. While prior research has focused on mapping LLMs' internal representations to neural activity, we propose a novel approach using explainable AI (XAI) to strengthen this link. Applying attribution methods, we quantify the influence of preceding words on LLMs' next-word predictions and use these explanations to predict fMRI data from participants listening to narratives. We find that attribution methods robustly predict brain activity across the language network, revealing a hierarchical pattern: explanations from early layers align with the brain's initial language processing stages, while later layers correspond to more advanced stages. Additionally, layers with greater influence on next-word prediction$\\unicode{x2014}$reflected in higher attribution scores$\\unicode{x2014}$demonstrate stronger brain alignment. These results underscore XAI's potential for exploring the neural basis of language and suggest brain alignment for assessing the biological plausibility of explanation methods.",
+    "title": "Explanations of Large Language Models Explain Language Representations in the Brain",
+    "updated": "2025-04-03T21:56:08Z"
+  },
+  "2503.02142": {
+    "authors": [
+      "Takuya Kataiwa",
+      "Cho Hakaze",
+      "Tetsushi Ohki"
+    ],
+    "id": "2503.02142",
+    "published": "2025-03-04T00:19:01Z",
+    "summary": "In this study, we measure the Intrinsic Dimension (ID) of token embedding to estimate the intrinsic dimensions of the manifolds spanned by the representations, so as to evaluate their redundancy quantitatively compared to their extrinsic dimensionality. In detail, (1) we estimate the ID of token embeddings in small-scale language models and also modern large language models, finding that the embedding spaces often reside on lower-dimensional manifolds compared to their extrinsic dimensionality; (2) we measure the ID across various model sizes and observe an increase in redundancy rates as the model scale grows; (3) we measure the dynamics of IDs during the training process, and find a rapid ID drop in the early stages of training. Moreover, (4) when LoRA is applied to the embedding layers, we observe a sudden drop in perplexity around the estimated IDs, suggesting that the ID can serve as a useful guideline for LoRA application.",
+    "title": "Measuring Intrinsic Dimension of Token Embeddings",
+    "updated": "2025-03-04T00:19:01Z"
+  },
+  "2503.07598": {
+    "authors": [
+      "Zeyinzi Jiang",
+      "Zhen Han",
+      "Chaojie Mao",
+      "Jingfeng Zhang",
+      "Yulin Pan",
+      "Yu Liu"
+    ],
+    "id": "2503.07598",
+    "published": "2025-03-10T17:57:04Z",
+    "summary": "Diffusion Transformer has demonstrated powerful capability and scalability in generating high-quality images and videos. Further pursuing the unification of generation and editing tasks has yielded significant progress in the domain of image content creation. However, due to the intrinsic demands for consistency across both temporal and spatial dynamics, achieving a unified approach for video synthesis remains challenging. We introduce VACE, which enables users to perform Video tasks within an All-in-one framework for Creation and Editing. These tasks include reference-to-video generation, video-to-video editing, and masked video-to-video editing. Specifically, we effectively integrate the requirements of various tasks by organizing video task inputs, such as editing, reference, and masking, into a unified interface referred to as the Video Condition Unit (VCU). Furthermore, by utilizing a Context Adapter structure, we inject different task concepts into the model using formalized representations of temporal and spatial dimensions, allowing it to handle arbitrary video synthesis tasks flexibly. Extensive experiments demonstrate that the unified model of VACE achieves performance on par with task-specific models across various subtasks. Simultaneously, it enables diverse applications through versatile task combinations. Project page: https://ali-vilab.github.io/VACE-Page/.",
+    "title": "VACE: All-in-One Video Creation and Editing",
+    "updated": "2025-03-11T06:44:25Z"
+  },
+  "2503.08614": {
+    "authors": [
+      "Lilia Mehidi"
+    ],
+    "id": "2503.08614",
+    "published": "2025-03-11T16:53:49Z",
+    "summary": "In the first part of the paper, we study conformal groups that act properly discontinuously and cocompactly on simply connected, non-flat homogeneous plane waves. We show that proper cocompact similarity actions that are not isometric can occur, in contrast to the behavior of Riemannian and Lorentzian affine similarity actions. In the second part, we consider the Lorentzian conformal Lichnerowicz conjecture, which states that if the conformal group of a compact Lorentzian manifold acts without preserving any metric in the conformal class, then the manifold must be conformally flat. We prove the conjecture in a locally homogeneous setting.",
+    "title": "Conformal quotients of plane waves, and Lichnerowicz conjecture in a locally homogeneous setting",
+    "updated": "2025-03-11T16:53:49Z"
+  },
+  "2503.14734": {
+    "authors": [
+      "NVIDIA",
+      ":",
+      "Johan Bjorck",
+      "Fernando Casta\u00f1eda",
+      "Nikita Cherniadev",
+      "Xingye Da",
+      "Runyu Ding",
+      "Linxi \"Jim\" Fan",
+      "Yu Fang",
+      "Dieter Fox",
+      "Fengyuan Hu",
+      "Spencer Huang",
+      "Joel Jang",
+      "Zhenyu Jiang",
+      "Jan Kautz",
+      "Kaushil Kundalia",
+      "Lawrence Lao",
+      "Zhiqi Li",
+      "Zongyu Lin",
+      "Kevin Lin",
+      "Guilin Liu",
+      "Edith Llontop",
+      "Loic Magne",
+      "Ajay Mandlekar",
+      "Avnish Narayan",
+      "Soroush Nasiriany",
+      "Scott Reed",
+      "You Liang Tan",
+      "Guanzhi Wang",
+      "Zu Wang",
+      "Jing Wang",
+      "Qi Wang",
+      "Jiannan Xiang",
+      "Yuqi Xie",
+      "Yinzhen Xu",
+      "Zhenjia Xu",
+      "Seonghyeon Ye",
+      "Zhiding Yu",
+      "Ao Zhang",
+      "Hao Zhang",
+      "Yizhou Zhao",
+      "Ruijie Zheng",
+      "Yuke Zhu"
+    ],
+    "id": "2503.14734",
+    "published": "2025-03-18T21:06:21Z",
+    "summary": "General-purpose robots need a versatile body and an intelligent mind. Recent advancements in humanoid robots have shown great promise as a hardware platform for building generalist autonomy in the human world. A robot foundation model, trained on massive and diverse data sources, is essential for enabling the robots to reason about novel situations, robustly handle real-world variability, and rapidly learn new tasks. To this end, we introduce GR00T N1, an open foundation model for humanoid robots. GR00T N1 is a Vision-Language-Action (VLA) model with a dual-system architecture. The vision-language module (System 2) interprets the environment through vision and language instructions. The subsequent diffusion transformer module (System 1) generates fluid motor actions in real time. Both modules are tightly coupled and jointly trained end-to-end. We train GR00T N1 with a heterogeneous mixture of real-robot trajectories, human videos, and synthetically generated datasets. We show that our generalist robot model GR00T N1 outperforms the state-of-the-art imitation learning baselines on standard simulation benchmarks across multiple robot embodiments. Furthermore, we deploy our model on the Fourier GR-1 humanoid robot for language-conditioned bimanual manipulation tasks, achieving strong performance with high data efficiency.",
+    "title": "GR00T N1: An Open Foundation Model for Generalist Humanoid Robots",
+    "updated": "2025-03-27T02:52:43Z"
+  },
+  "2503.17352": {
+    "authors": [
+      "Yihe Deng",
+      "Hritik Bansal",
+      "Fan Yin",
+      "Nanyun Peng",
+      "Wei Wang",
+      "Kai-Wei Chang"
+    ],
+    "id": "2503.17352",
+    "published": "2025-03-21T17:52:43Z",
+    "summary": "We introduce OpenVLThinker, one of the first open-source large vision-language models (LVLMs) to exhibit sophisticated chain-of-thought reasoning, achieving notable performance gains on challenging visual reasoning tasks. While text-based reasoning models (e.g., Deepseek R1) show promising results in text-only tasks, distilling their reasoning into LVLMs via supervised fine-tuning (SFT) often results in performance degradation due to imprecise visual grounding. Conversely, purely reinforcement learning (RL)-based methods face a large search space, hindering the emergence of reflective behaviors in smaller models (e.g., 7B LVLMs). Surprisingly, alternating between SFT and RL ultimately results in significant performance improvements after a few iterations. Our analysis reveals that the base model rarely exhibits reasoning behaviors initially, but SFT effectively surfaces these latent actions and narrows the RL search space, accelerating the development of reasoning capabilities. Each subsequent RL stage further refines the model's reasoning skills, producing higher-quality SFT data for continued self-improvement. OpenVLThinker-7B consistently advances performance across six benchmarks demanding mathematical and general reasoning, notably improving MathVista by 3.8%, EMMA by 2.4%, and HallusionBench by 1.6%. Beyond demonstrating the synergy between SFT and RL for complex reasoning tasks, our findings provide early evidence towards achieving R1-style reasoning in multimodal contexts. The code, model and data are held at https://github.com/yihedeng9/OpenVLThinker.",
+    "title": "OpenVLThinker: Complex Vision-Language Reasoning via Iterative SFT-RL Cycles",
+    "updated": "2025-11-11T08:13:33Z"
+  },
+  "2503.20314": {
+    "authors": [
+      "Team Wan",
+      "Ang Wang",
+      "Baole Ai",
+      "Bin Wen",
+      "Chaojie Mao",
+      "Chen-Wei Xie",
+      "Di Chen",
+      "Feiwu Yu",
+      "Haiming Zhao",
+      "Jianxiao Yang",
+      "Jianyuan Zeng",
+      "Jiayu Wang",
+      "Jingfeng Zhang",
+      "Jingren Zhou",
+      "Jinkai Wang",
+      "Jixuan Chen",
+      "Kai Zhu",
+      "Kang Zhao",
+      "Keyu Yan",
+      "Lianghua Huang",
+      "Mengyang Feng",
+      "Ningyi Zhang",
+      "Pandeng Li",
+      "Pingyu Wu",
+      "Ruihang Chu",
+      "Ruili Feng",
+      "Shiwei Zhang",
+      "Siyang Sun",
+      "Tao Fang",
+      "Tianxing Wang",
+      "Tianyi Gui",
+      "Tingyu Weng",
+      "Tong Shen",
+      "Wei Lin",
+      "Wei Wang",
+      "Wei Wang",
+      "Wenmeng Zhou",
+      "Wente Wang",
+      "Wenting Shen",
+      "Wenyuan Yu",
+      "Xianzhong Shi",
+      "Xiaoming Huang",
+      "Xin Xu",
+      "Yan Kou",
+      "Yangyu Lv",
+      "Yifei Li",
+      "Yijing Liu",
+      "Yiming Wang",
+      "Yingya Zhang",
+      "Yitong Huang",
+      "Yong Li",
+      "You Wu",
+      "Yu Liu",
+      "Yulin Pan",
+      "Yun Zheng",
+      "Yuntao Hong",
+      "Yupeng Shi",
+      "Yutong Feng",
+      "Zeyinzi Jiang",
+      "Zhen Han",
+      "Zhi-Fan Wu",
+      "Ziyu Liu"
+    ],
+    "id": "2503.20314",
+    "published": "2025-03-26T08:25:43Z",
+    "summary": "This report presents Wan, a comprehensive and open suite of video foundation models designed to push the boundaries of video generation. Built upon the mainstream diffusion transformer paradigm, Wan achieves significant advancements in generative capabilities through a series of innovations, including our novel VAE, scalable pre-training strategies, large-scale data curation, and automated evaluation metrics. These contributions collectively enhance the model's performance and versatility. Specifically, Wan is characterized by four key features: Leading Performance: The 14B model of Wan, trained on a vast dataset comprising billions of images and videos, demonstrates the scaling laws of video generation with respect to both data and model size. It consistently outperforms the existing open-source models as well as state-of-the-art commercial solutions across multiple internal and external benchmarks, demonstrating a clear and significant performance superiority. Comprehensiveness: Wan offers two capable models, i.e., 1.3B and 14B parameters, for efficiency and effectiveness respectively. It also covers multiple downstream applications, including image-to-video, instruction-guided video editing, and personal video generation, encompassing up to eight tasks. Consumer-Grade Efficiency: The 1.3B model demonstrates exceptional resource efficiency, requiring only 8.19 GB VRAM, making it compatible with a wide range of consumer-grade GPUs. Openness: We open-source the entire series of Wan, including source code and all models, with the goal of fostering the growth of the video generation community. This openness seeks to significantly expand the creative possibilities of video production in the industry and provide academia with high-quality video foundation models. All the code and models are available at https://github.com/Wan-Video/Wan2.1.",
+    "title": "Wan: Open and Advanced Large-Scale Video Generative Models",
+    "updated": "2025-04-19T02:22:42Z"
+  },
+  "2503.22020": {
+    "authors": [
+      "Qingqing Zhao",
+      "Yao Lu",
+      "Moo Jin Kim",
+      "Zipeng Fu",
+      "Zhuoyang Zhang",
+      "Yecheng Wu",
+      "Zhaoshuo Li",
+      "Qianli Ma",
+      "Song Han",
+      "Chelsea Finn",
+      "Ankur Handa",
+      "Ming-Yu Liu",
+      "Donglai Xiang",
+      "Gordon Wetzstein",
+      "Tsung-Yi Lin"
+    ],
+    "id": "2503.22020",
+    "published": "2025-03-27T22:23:04Z",
+    "summary": "Vision-language-action models (VLAs) have shown potential in leveraging pretrained vision-language models and diverse robot demonstrations for learning generalizable sensorimotor control. While this paradigm effectively utilizes large-scale data from both robotic and non-robotic sources, current VLAs primarily focus on direct input--output mappings, lacking the intermediate reasoning steps crucial for complex manipulation tasks. As a result, existing VLAs lack temporal planning or reasoning capabilities. In this paper, we introduce a method that incorporates explicit visual chain-of-thought (CoT) reasoning into vision-language-action models (VLAs) by predicting future image frames autoregressively as visual goals before generating a short action sequence to achieve these goals. We introduce CoT-VLA, a state-of-the-art 7B VLA that can understand and generate visual and action tokens. Our experimental results demonstrate that CoT-VLA achieves strong performance, outperforming the state-of-the-art VLA model by 17% in real-world manipulation tasks and 6% in simulation benchmarks. Project website: https://cot-vla.github.io/",
+    "title": "CoT-VLA: Visual Chain-of-Thought Reasoning for Vision-Language-Action Models",
+    "updated": "2025-03-27T22:23:04Z"
+  },
+  "2504.02821": {
+    "authors": [
+      "Mateusz Pach",
+      "Shyamgopal Karthik",
+      "Quentin Bouniot",
+      "Serge Belongie",
+      "Zeynep Akata"
+    ],
+    "id": "2504.02821",
+    "published": "2025-04-03T17:58:35Z",
+    "summary": "Sparse Autoencoders (SAEs) have recently gained attention as a means to improve the interpretability and steerability of Large Language Models (LLMs), both of which are essential for AI safety. In this work, we extend the application of SAEs to Vision-Language Models (VLMs), such as CLIP, and introduce a comprehensive framework for evaluating monosemanticity at the neuron-level in visual representations. To ensure that our evaluation aligns with human perception, we propose a benchmark derived from a large-scale user study. Our experimental results reveal that SAEs trained on VLMs significantly enhance the monosemanticity of individual neurons, with sparsity and wide latents being the most influential factors. Further, we demonstrate that applying SAE interventions on CLIP's vision encoder directly steers multimodal LLM outputs (e.g., LLaVA), without any modifications to the underlying language model. These findings emphasize the practicality and efficacy of SAEs as an unsupervised tool for enhancing both interpretability and control of VLMs. Code and benchmark data are available at https://github.com/ExplainableML/sae-for-vlm.",
+    "title": "Sparse Autoencoders Learn Monosemantic Features in Vision-Language Models",
+    "updated": "2025-11-27T15:00:41Z"
+  },
+  "2504.15779": {
+    "authors": [
+      "Aaron J. Gutknecht",
+      "Fernando E. Rosas",
+      "David A. Ehrlich",
+      "Abdullah Makkeh",
+      "Pedro A. M. Mediano",
+      "Michael Wibral"
+    ],
+    "id": "2504.15779",
+    "published": "2025-04-22T10:41:38Z",
+    "summary": "Distributed systems, such as biological and artificial neural networks, process information via complex interactions engaging multiple subsystems, resulting in high-order patterns with distinct properties across scales. Investigating how these systems process information remains challenging due to difficulties in defining appropriate multivariate metrics and ensuring their scalability to large systems. To address these challenges, we introduce a novel framework based on what we call \"Shannon invariants\" -- quantities that capture essential properties of high-order information processing in a way that depends only on the definition of entropy and can be efficiently calculated for large systems. Our theoretical results demonstrate how Shannon invariants can be used to resolve long-standing ambiguities regarding the interpretation of widely used multivariate information-theoretic measures. Moreover, our practical results reveal distinctive information-processing signatures of various deep learning architectures across layers, which lead to new insights into how these systems process information and how this evolves during training. Overall, our framework resolves fundamental limitations in analyzing high-order phenomena and offers broad opportunities for theoretical developments and empirical analyses.",
+    "title": "Shannon invariants: A scalable approach to information decomposition",
+    "updated": "2025-04-22T10:41:38Z"
+  },
+  "2505.12705": {
+    "authors": [
+      "Joel Jang",
+      "Seonghyeon Ye",
+      "Zongyu Lin",
+      "Jiannan Xiang",
+      "Johan Bjorck",
+      "Yu Fang",
+      "Fengyuan Hu",
+      "Spencer Huang",
+      "Kaushil Kundalia",
+      "Yen-Chen Lin",
+      "Loic Magne",
+      "Ajay Mandlekar",
+      "Avnish Narayan",
+      "You Liang Tan",
+      "Guanzhi Wang",
+      "Jing Wang",
+      "Qi Wang",
+      "Yinzhen Xu",
+      "Xiaohui Zeng",
+      "Kaiyuan Zheng",
+      "Ruijie Zheng",
+      "Ming-Yu Liu",
+      "Luke Zettlemoyer",
+      "Dieter Fox",
+      "Jan Kautz",
+      "Scott Reed",
+      "Yuke Zhu",
+      "Linxi Fan"
+    ],
+    "id": "2505.12705",
+    "published": "2025-05-19T04:55:39Z",
+    "summary": "We introduce DreamGen, a simple yet highly effective 4-stage pipeline for training robot policies that generalize across behaviors and environments through neural trajectories - synthetic robot data generated from video world models. DreamGen leverages state-of-the-art image-to-video generative models, adapting them to the target robot embodiment to produce photorealistic synthetic videos of familiar or novel tasks in diverse environments. Since these models generate only videos, we recover pseudo-action sequences using either a latent action model or an inverse-dynamics model (IDM). Despite its simplicity, DreamGen unlocks strong behavior and environment generalization: a humanoid robot can perform 22 new behaviors in both seen and unseen environments, while requiring teleoperation data from only a single pick-and-place task in one environment. To evaluate the pipeline systematically, we introduce DreamGen Bench, a video generation benchmark that shows a strong correlation between benchmark performance and downstream policy success. Our work establishes a promising new axis for scaling robot learning well beyond manual data collection. Code available at https://github.com/NVIDIA/GR00T-Dreams.",
+    "title": "DreamGen: Unlocking Generalization in Robot Learning through Video World Models",
+    "updated": "2025-06-17T22:33:35Z"
+  },
+  "2505.18973": {
+    "authors": [
+      "Sarang Patil",
+      "Ashish Parmanand Pandey",
+      "Ioannis Koutis",
+      "Mengjia Xu"
+    ],
+    "id": "2505.18973",
+    "published": "2025-05-25T04:45:06Z",
+    "summary": "Selective state-space models excel at long-sequence modeling, but their capacity for language representation -- in complex hierarchical reasoning -- remains underexplored. Most large language models rely on \\textit{flat} Euclidean embeddings, limiting their ability to capture latent hierarchies. To address this, we propose {\\it Hierarchical Mamba (HiM)}, integrating efficient Mamba2 with hyperbolic geometry to learn hierarchy-aware language embeddings for deeper linguistic understanding. Mamba2-processed sequences are projected to the Poincar\u00e9 ball or Lorentzian manifold with ``learnable'' curvature, optimized with a hyperbolic loss. Our HiM model facilitates the capture of relational distances across varying hierarchical levels, enabling effective long-range reasoning for tasks like mixed-hop prediction and multi-hop inference in hierarchical classification. Experimental results show both HiM variants effectively capture hierarchical relationships across four linguistic and medical datasets, surpassing Euclidean baselines, with HiM-Poincar\u00e9 providing fine-grained distinctions with higher h-norms, while HiM-Lorentz offers more stable, compact, and hierarchy-preserving embeddings-favoring robustness. The source code is publicly available at https://github.com/BerryByte/HiM.",
+    "title": "Hierarchical Mamba Meets Hyperbolic Geometry: A New Paradigm for Structured Language Embeddings",
+    "updated": "2025-12-04T23:42:36Z"
+  },
+  "2505.22094": {
+    "authors": [
+      "Tonghe Zhang",
+      "Chao Yu",
+      "Sichang Su",
+      "Yu Wang"
+    ],
+    "id": "2505.22094",
+    "published": "2025-05-28T08:17:16Z",
+    "summary": "We propose ReinFlow, a simple yet effective online reinforcement learning (RL) framework that fine-tunes a family of flow matching policies for continuous robotic control. Derived from rigorous RL theory, ReinFlow injects learnable noise into a flow policy's deterministic path, converting the flow into a discrete-time Markov Process for exact and straightforward likelihood computation. This conversion facilitates exploration and ensures training stability, enabling ReinFlow to fine-tune diverse flow model variants, including Rectified Flow [35] and Shortcut Models [19], particularly at very few or even one denoising step. We benchmark ReinFlow in representative locomotion and manipulation tasks, including long-horizon planning with visual input and sparse reward. The episode reward of Rectified Flow policies obtained an average net growth of 135.36% after fine-tuning in challenging legged locomotion tasks while saving denoising steps and 82.63% of wall time compared to state-of-the-art diffusion RL fine-tuning method DPPO [43]. The success rate of the Shortcut Model policies in state and visual manipulation tasks achieved an average net increase of 40.34% after fine-tuning with ReinFlow at four or even one denoising step, whose performance is comparable to fine-tuned DDIM policies while saving computation time for an average of 23.20%. Project webpage: https://reinflow.github.io/",
+    "title": "ReinFlow: Fine-tuning Flow Matching Policy with Online Reinforcement Learning",
+    "updated": "2026-01-08T14:39:03Z"
+  },
+  "2505.22159": {
+    "authors": [
+      "Jiawen Yu",
+      "Hairuo Liu",
+      "Qiaojun Yu",
+      "Jieji Ren",
+      "Ce Hao",
+      "Haitong Ding",
+      "Guangyu Huang",
+      "Guofan Huang",
+      "Yan Song",
+      "Panpan Cai",
+      "Cewu Lu",
+      "Wenqiang Zhang"
+    ],
+    "id": "2505.22159",
+    "published": "2025-05-28T09:24:25Z",
+    "summary": "Vision-Language-Action (VLA) models have advanced general-purpose robotic manipulation by leveraging pretrained visual and linguistic representations. However, they struggle with contact-rich tasks that require fine-grained control involving force, especially under visual occlusion or dynamic uncertainty. To address these limitations, we propose ForceVLA, a novel end-to-end manipulation framework that treats external force sensing as a first-class modality within VLA systems. ForceVLA introduces FVLMoE, a force-aware Mixture-of-Experts fusion module that dynamically integrates pretrained visual-language embeddings with real-time 6-axis force feedback during action decoding. This enables context-aware routing across modality-specific experts, enhancing the robot's ability to adapt to subtle contact dynamics. We also introduce \\textbf{ForceVLA-Data}, a new dataset comprising synchronized vision, proprioception, and force-torque signals across five contact-rich manipulation tasks. ForceVLA improves average task success by 23.2% over strong pi_0-based baselines, achieving up to 80% success in tasks such as plug insertion. Our approach highlights the importance of multimodal integration for dexterous manipulation and sets a new benchmark for physically intelligent robotic control. Code and data will be released at https://sites.google.com/view/forcevla2025.",
+    "title": "ForceVLA: Enhancing VLA Models with a Force-aware MoE for Contact-rich Manipulation",
+    "updated": "2025-09-18T15:02:38Z"
+  },
+  "2505.24722": {
+    "authors": [
+      "Neil He",
+      "Rishabh Anand",
+      "Hiren Madhu",
+      "Ali Maatouk",
+      "Smita Krishnaswamy",
+      "Leandros Tassiulas",
+      "Menglin Yang",
+      "Rex Ying"
+    ],
+    "id": "2505.24722",
+    "published": "2025-05-30T15:42:42Z",
+    "summary": "Large language models (LLMs) have shown great success in text modeling tasks across domains. However, natural language exhibits inherent semantic hierarchies and nuanced geometric structure, which current LLMs do not capture completely owing to their reliance on Euclidean operations. Recent studies have also shown that not respecting the geometry of token embeddings leads to training instabilities and degradation of generative capabilities. These findings suggest that shifting to non-Euclidean geometries can better align language models with the underlying geometry of text. We thus propose to operate fully in Hyperbolic space, known for its expansive, scale-free, and low-distortion properties. We thus introduce HELM, a family of HypErbolic Large Language Models, offering a geometric rethinking of the Transformer-based LLM that addresses the representational inflexibility, missing set of necessary operations, and poor scalability of existing hyperbolic LMs. We additionally introduce a Mixture-of-Curvature Experts model, HELM-MICE, where each expert operates in a distinct curvature space to encode more fine-grained geometric structure from text, as well as a dense model, HELM-D. For HELM-MICE, we further develop hyperbolic Multi-Head Latent Attention (HMLA) for efficient, reduced-KV-cache training and inference. For both models, we develop essential hyperbolic equivalents of rotary positional encodings and RMS normalization. We are the first to train fully hyperbolic LLMs at billion-parameter scale, and evaluate them on well-known benchmarks such as MMLU and ARC, spanning STEM problem-solving, general knowledge, and commonsense reasoning. Our results show consistent gains from our HELM architectures -- up to 4% -- over popular Euclidean architectures used in LLaMA and DeepSeek, highlighting the efficacy and enhanced reasoning afforded by hyperbolic geometry in large-scale LM pretraining.",
+    "title": "HELM: Hyperbolic Large Language Models via Mixture-of-Curvature Experts",
+    "updated": "2025-11-06T01:18:03Z"
+  },
+  "2506.01034": {
+    "authors": [
+      "Benjamin Matthias Ruppik",
+      "Julius von Rohrscheidt",
+      "Carel van Niekerk",
+      "Michael Heck",
+      "Renato Vukovic",
+      "Shutong Feng",
+      "Hsien-chin Lin",
+      "Nurul Lubis",
+      "Bastian Rieck",
+      "Marcus Zibrowius",
+      "Milica Ga\u0161i\u0107"
+    ],
+    "id": "2506.01034",
+    "published": "2025-06-01T14:30:46Z",
+    "summary": "Understanding the internal mechanisms of large language models (LLMs) remains a challenging and complex endeavor. Even fundamental questions, such as how fine-tuning affects model behavior, often require extensive empirical evaluation. In this paper, we introduce a novel perspective based on the geometric properties of contextual latent embeddings to study the effects of training and fine-tuning. To that end, we measure the local dimensions of a contextual language model's latent space and analyze their shifts during training and fine-tuning. We show that the local dimensions provide insights into the model's training dynamics and generalization ability. Specifically, the mean of the local dimensions predicts when the model's training capabilities are exhausted, as exemplified in a dialogue state tracking task, overfitting, as demonstrated in an emotion recognition task, and grokking, as illustrated with an arithmetic task. Furthermore, our experiments suggest a practical heuristic: reductions in the mean local dimension tend to accompany and predict subsequent performance gains. Through this exploration, we aim to provide practitioners with a deeper understanding of the implications of fine-tuning on embedding spaces, facilitating informed decisions when configuring models for specific applications. The results of this work contribute to the ongoing discourse on the interpretability, adaptability, and generalizability of LLMs by bridging the gap between intrinsic model mechanisms and geometric properties in the respective embeddings.",
+    "title": "Less is More: Local Intrinsic Dimensions of Contextual Language Models",
+    "updated": "2025-10-27T16:17:17Z"
+  },
+  "2506.09937": {
+    "authors": [
+      "Qiao Gu",
+      "Yuanliang Ju",
+      "Shengxiang Sun",
+      "Igor Gilitschenski",
+      "Haruki Nishimura",
+      "Masha Itkina",
+      "Florian Shkurti"
+    ],
+    "id": "2506.09937",
+    "published": "2025-06-11T16:59:13Z",
+    "summary": "While vision-language-action models (VLAs) have shown promising robotic behaviors across a diverse set of manipulation tasks, they achieve limited success rates when deployed on novel tasks out of the box. To allow these policies to safely interact with their environments, we need a failure detector that gives a timely alert such that the robot can stop, backtrack, or ask for help. However, existing failure detectors are trained and tested only on one or a few specific tasks, while generalist VLAs require the detector to generalize and detect failures also in unseen tasks and novel environments. In this paper, we introduce the multitask failure detection problem and propose SAFE, a failure detector for generalist robot policies such as VLAs. We analyze the VLA feature space and find that VLAs have sufficient high-level knowledge about task success and failure, which is generic across different tasks. Based on this insight, we design SAFE to learn from VLA internal features and predict a single scalar indicating the likelihood of task failure. SAFE is trained on both successful and failed rollouts and is evaluated on unseen tasks. SAFE is compatible with different policy architectures. We test it on OpenVLA, $\u03c0_0$, and $\u03c0_0$-FAST in both simulated and real-world environments extensively. We compare SAFE with diverse baselines and show that SAFE achieves state-of-the-art failure detection performance and the best trade-off between accuracy and detection time using conformal prediction. More qualitative results and code can be found at the project webpage: https://vla-safe.github.io/",
+    "title": "SAFE: Multitask Failure Detection for Vision-Language-Action Models",
+    "updated": "2025-10-30T07:02:35Z"
+  },
+  "2506.10100": {
+    "authors": [
+      "Yantai Yang",
+      "Yuhao Wang",
+      "Zichen Wen",
+      "Luo Zhongwei",
+      "Chang Zou",
+      "Zhipeng Zhang",
+      "Chuan Wen",
+      "Linfeng Zhang"
+    ],
+    "id": "2506.10100",
+    "published": "2025-06-11T18:34:57Z",
+    "summary": "Vision-Language-Action (VLA) models, particularly diffusion-based architectures, demonstrate transformative potential for embodied intelligence but are severely hampered by high computational and memory demands stemming from extensive inherent and inference-time redundancies. While existing acceleration efforts often target isolated inefficiencies, such piecemeal solutions typically fail to holistically address the varied computational and memory bottlenecks across the entire VLA pipeline, thereby limiting practical deployability. We introduce EfficientVLA, a structured and training-free inference acceleration framework that systematically eliminates these barriers by cohesively exploiting multifaceted redundancies. EfficientVLA synergistically integrates three targeted strategies: (1) pruning of functionally inconsequential layers from the language module, guided by an analysis of inter-layer redundancies; (2) optimizing the visual processing pathway through a task-aware strategy that selects a compact, diverse set of visual tokens, balancing task-criticality with informational coverage; and (3) alleviating temporal computational redundancy within the iterative diffusion-based action head by strategically caching and reusing key intermediate features. We apply our method to a standard VLA model CogACT, yielding a 1.93X inference speedup and reduces FLOPs to 28.9%, with only a 0.6% success rate drop in the SIMPLER benchmark.",
+    "title": "EfficientVLA: Training-Free Acceleration and Compression for Vision-Language-Action Models",
+    "updated": "2025-06-11T18:34:57Z"
+  },
+  "2506.23135": {
+    "authors": [
+      "Yu Shang",
+      "Xin Zhang",
+      "Yinzhou Tang",
+      "Lei Jin",
+      "Chen Gao",
+      "Wei Wu",
+      "Yong Li"
+    ],
+    "id": "2506.23135",
+    "published": "2025-06-29T08:19:45Z",
+    "summary": "World models have become indispensable tools for embodied intelligence, serving as powerful simulators capable of generating realistic robotic videos while addressing critical data scarcity challenges. However, current embodied world models exhibit limited physical awareness, particularly in modeling 3D geometry and motion dynamics, resulting in unrealistic video generation for contact-rich robotic scenarios. In this paper, we present RoboScape, a unified physics-informed world model that jointly learns RGB video generation and physics knowledge within an integrated framework. We introduce two key physics-informed joint training tasks: temporal depth prediction that enhances 3D geometric consistency in video rendering, and keypoint dynamics learning that implicitly encodes physical properties (e.g., object shape and material characteristics) while improving complex motion modeling. Extensive experiments demonstrate that RoboScape generates videos with superior visual fidelity and physical plausibility across diverse robotic scenarios. We further validate its practical utility through downstream applications including robotic policy training with generated data and policy evaluation. Our work provides new insights for building efficient physics-informed world models to advance embodied intelligence research. The code is available at: https://github.com/tsinghua-fib-lab/RoboScape.",
+    "title": "RoboScape: Physics-informed Embodied World Model",
+    "updated": "2025-06-29T08:19:45Z"
+  },
+  "2507.04447": {
+    "authors": [
+      "Wenyao Zhang",
+      "Hongsi Liu",
+      "Zekun Qi",
+      "Yunnan Wang",
+      "Xinqiang Yu",
+      "Jiazhao Zhang",
+      "Runpei Dong",
+      "Jiawei He",
+      "Fan Lu",
+      "He Wang",
+      "Zhizheng Zhang",
+      "Li Yi",
+      "Wenjun Zeng",
+      "Xin Jin"
+    ],
+    "id": "2507.04447",
+    "published": "2025-07-06T16:14:29Z",
+    "summary": "Recent advances in vision-language-action (VLA) models have shown promise in integrating image generation with action prediction to improve generalization and reasoning in robot manipulation. However, existing methods are limited to challenging image-based forecasting, which suffers from redundant information and lacks comprehensive and critical world knowledge, including dynamic, spatial and semantic information. To address these limitations, we propose DreamVLA, a novel VLA framework that integrates comprehensive world knowledge forecasting to enable inverse dynamics modeling, thereby establishing a perception-prediction-action loop for manipulation tasks. Specifically, DreamVLA introduces a dynamic-region-guided world knowledge prediction, integrated with the spatial and semantic cues, which provide compact yet comprehensive representations for action planning. This design aligns with how humans interact with the world by first forming abstract multimodal reasoning chains before acting. To mitigate interference among the dynamic, spatial and semantic information during training, we adopt a block-wise structured attention mechanism that masks their mutual attention, preventing information leakage and keeping each representation clean and disentangled. Moreover, to model the conditional distribution over future actions, we employ a diffusion-based transformer that disentangles action representations from shared latent features. Extensive experiments on both real-world and simulation environments demonstrate that DreamVLA achieves 76.7% success rate on real robot tasks and 4.44 average length on the CALVIN ABC-D benchmarks.",
+    "title": "DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge",
+    "updated": "2025-08-26T08:23:50Z"
+  },
+  "2507.15062": {
+    "authors": [
+      "Xinyue Zhu",
+      "Binghao Huang",
+      "Yunzhu Li"
+    ],
+    "id": "2507.15062",
+    "published": "2025-07-20T17:53:59Z",
+    "summary": "Handheld grippers are increasingly used to collect human demonstrations due to their ease of deployment and versatility. However, most existing designs lack tactile sensing, despite the critical role of tactile feedback in precise manipulation. We present a portable, lightweight gripper with integrated tactile sensors that enables synchronized collection of visual and tactile data in diverse, real-world, and in-the-wild settings. Building on this hardware, we propose a cross-modal representation learning framework that integrates visual and tactile signals while preserving their distinct characteristics. The learning procedure allows the emergence of interpretable representations that consistently focus on contacting regions relevant for physical interactions. When used for downstream manipulation tasks, these representations enable more efficient and effective policy learning, supporting precise robotic manipulation based on multimodal feedback. We validate our approach on fine-grained tasks such as test tube insertion and pipette-based fluid transfer, demonstrating improved accuracy and robustness under external disturbances. Our project page is available at https://binghao-huang.github.io/touch_in_the_wild/ .",
+    "title": "Touch in the Wild: Learning Fine-Grained Manipulation with a Portable Visuo-Tactile Gripper",
+    "updated": "2025-11-12T02:16:27Z"
+  },
+  "2507.21981": {
+    "authors": [
+      "Yufei Jia",
+      "Guangyu Wang",
+      "Yuhang Dong",
+      "Junzhe Wu",
+      "Yupei Zeng",
+      "Haonan Lin",
+      "Zifan Wang",
+      "Haizhou Ge",
+      "Weibin Gu",
+      "Kairui Ding",
+      "Zike Yan",
+      "Yunjie Cheng",
+      "Yue Li",
+      "Ziming Wang",
+      "Chuxuan Li",
+      "Wei Sui",
+      "Lu Shi",
+      "Guanzhong Tian",
+      "Ruqi Huang",
+      "Guyue Zhou"
+    ],
+    "id": "2507.21981",
+    "published": "2025-07-29T16:33:32Z",
+    "summary": "We present the first unified, modular, open-source 3DGS-based simulation framework for Real2Sim2Real robot learning. It features a holistic Real2Sim pipeline that synthesizes hyper-realistic geometry and appearance of complex real-world scenarios, paving the way for analyzing and bridging the Sim2Real gap. Powered by Gaussian Splatting and MuJoCo, Discoverse enables massively parallel simulation of multiple sensor modalities and accurate physics, with inclusive supports for existing 3D assets, robot models, and ROS plugins, empowering large-scale robot learning and complex robotic benchmarks. Through extensive experiments on imitation learning, Discoverse demonstrates state-of-the-art zero-shot Sim2Real transfer performance compared to existing simulators. For code and demos: https://air-discoverse.github.io/.",
+    "title": "DISCOVERSE: Efficient Robot Simulation in Complex High-Fidelity Environments",
+    "updated": "2025-07-29T16:33:32Z"
+  },
+  "2508.19236": {
+    "authors": [
+      "Hao Shi",
+      "Bin Xie",
+      "Yingfei Liu",
+      "Lin Sun",
+      "Fengrong Liu",
+      "Tiancai Wang",
+      "Erjin Zhou",
+      "Haoqiang Fan",
+      "Xiangyu Zhang",
+      "Gao Huang"
+    ],
+    "id": "2508.19236",
+    "published": "2025-08-26T17:57:16Z",
+    "summary": "Temporal context is essential for robotic manipulation because such tasks are inherently non-Markovian, yet mainstream VLA models typically overlook it and struggle with long-horizon, temporally dependent tasks. Cognitive science suggests that humans rely on working memory to buffer short-lived representations for immediate control, while the hippocampal system preserves verbatim episodic details and semantic gist of past experience for long-term memory. Inspired by these mechanisms, we propose MemoryVLA, a Cognition-Memory-Action framework for long-horizon robotic manipulation. A pretrained VLM encodes the observation into perceptual and cognitive tokens that form working memory, while a Perceptual-Cognitive Memory Bank stores low-level details and high-level semantics consolidated from it. Working memory retrieves decision-relevant entries from the bank, adaptively fuses them with current tokens, and updates the bank by merging redundancies. Using these tokens, a memory-conditioned diffusion action expert yields temporally aware action sequences. We evaluate MemoryVLA on 150+ simulation and real-world tasks across three robots. On SimplerEnv-Bridge, Fractal, and LIBERO-5 suites, it achieves 71.9%, 72.7%, and 96.5% success rates, respectively, all outperforming state-of-the-art baselines CogACT and pi-0, with a notable +14.6 gain on Bridge. On 12 real-world tasks spanning general skills and long-horizon temporal dependencies, MemoryVLA achieves 84.0% success rate, with long-horizon tasks showing a +26 improvement over state-of-the-art baseline. Project Page: https://shihao1895.github.io/MemoryVLA",
+    "title": "MemoryVLA: Perceptual-Cognitive Memory in Vision-Language-Action Models for Robotic Manipulation",
+    "updated": "2025-08-26T17:57:16Z"
+  },
+  "2509.10534": {
+    "authors": [
+      "Anand Gopalakrishnan",
+      "Robert Csord\u00e1s",
+      "J\u00fcrgen Schmidhuber",
+      "Michael C. Mozer"
+    ],
+    "id": "2509.10534",
+    "published": "2025-09-05T14:22:27Z",
+    "summary": "The attention mechanism in a Transformer architecture matches key to query based on both content -- the what -- and position in a sequence -- the where. We present an analysis indicating that what and where are entangled in the popular RoPE rotary position embedding. This entanglement can impair performance particularly when decisions require independent matches on these two factors. We propose an improvement to RoPE, which we call Polar Coordinate Position Embeddings or PoPE, that eliminates the what-where confound. PoPE is far superior on a diagnostic task requiring indexing solely by position or by content. On autoregressive sequence modeling in music, genomic, and natural language domains, Transformers using PoPE as the positional encoding scheme outperform baselines using RoPE with respect to evaluation loss (perplexity) and downstream task performance. On language modeling, these gains persist across model scale, from 124M to 774M parameters. Crucially, PoPE shows strong zero-shot length extrapolation capabilities compared not only to RoPE but even a method designed for extrapolation, YaRN, which requires additional fine tuning and frequency interpolation.",
+    "title": "Decoupling the \"What\" and \"Where\" With Polar Coordinate Positional Embeddings",
+    "updated": "2025-12-22T20:13:10Z"
+  },
+  "2509.15937": {
+    "authors": [
+      "Shaopeng Zhai",
+      "Qi Zhang",
+      "Tianyi Zhang",
+      "Fuxian Huang",
+      "Haoran Zhang",
+      "Ming Zhou",
+      "Shengzhe Zhang",
+      "Litao Liu",
+      "Sixu Lin",
+      "Jiangmiao Pang"
+    ],
+    "id": "2509.15937",
+    "published": "2025-09-19T12:44:29Z",
+    "summary": "Robotic real-world reinforcement learning (RL) with vision-language-action (VLA) models is bottlenecked by sparse, handcrafted rewards and inefficient exploration. We introduce VLAC, a general process reward model built upon InternVL and trained on large scale heterogeneous datasets. Given pairwise observations and a language goal, it outputs dense progress delta and done signal, eliminating task-specific reward engineering, and supports one-shot in-context transfer to unseen tasks and environments. VLAC is trained on vision-language datasets to strengthen perception, dialogic and reasoning capabilities, together with robot and human trajectories data that ground action generation and progress estimation, and additionally strengthened to reject irrelevant prompts as well as detect regression or stagnation by constructing large numbers of negative and semantically mismatched samples. With prompt control, a single VLAC model alternately generating reward and action tokens, unifying critic and policy. Deployed inside an asynchronous real-world RL loop, we layer a graded human-in-the-loop protocol (offline demonstration replay, return and explore, human guided explore) that accelerates exploration and stabilizes early learning. Across four distinct real-world manipulation tasks, VLAC lifts success rates from about 30\\% to about 90\\% within 200 real-world interaction episodes; incorporating human-in-the-loop interventions yields a further 50% improvement in sample efficiency and achieves up to 100% final success.",
+    "title": "A Vision-Language-Action-Critic Model for Robotic Real-World Reinforcement Learning",
+    "updated": "2025-09-19T12:44:29Z"
+  },
+  "2509.19626": {
+    "authors": [
+      "Ryan Punamiya",
+      "Dhruv Patel",
+      "Patcharapong Aphiwetsa",
+      "Pranav Kuppili",
+      "Lawrence Y. Zhu",
+      "Simar Kareer",
+      "Judy Hoffman",
+      "Danfei Xu"
+    ],
+    "id": "2509.19626",
+    "published": "2025-09-23T22:34:47Z",
+    "summary": "Egocentric human experience data presents a vast resource for scaling up end-to-end imitation learning for robotic manipulation. However, significant domain gaps in visual appearance, sensor modalities, and kinematics between human and robot impede knowledge transfer. This paper presents EgoBridge, a unified co-training framework that explicitly aligns the policy latent spaces between human and robot data using domain adaptation. Through a measure of discrepancy on the joint policy latent features and actions based on Optimal Transport (OT), we learn observation representations that not only align between the human and robot domain but also preserve the action-relevant information critical for policy learning. EgoBridge achieves a significant absolute policy success rate improvement by 44% over human-augmented cross-embodiment baselines in three real-world single-arm and bimanual manipulation tasks. EgoBridge also generalizes to new objects, scenes, and tasks seen only in human data, where baselines fail entirely. Videos and additional information can be found at https://ego-bridge.github.io",
+    "title": "EgoBridge: Domain Adaptation for Generalizable Imitation from Egocentric Human Data",
+    "updated": "2025-09-23T22:34:47Z"
+  },
+  "2509.25358": {
+    "authors": [
+      "Qianzhong Chen",
+      "Justin Yu",
+      "Mac Schwager",
+      "Pieter Abbeel",
+      "Yide Shentu",
+      "Philipp Wu"
+    ],
+    "id": "2509.25358",
+    "published": "2025-09-29T18:07:54Z",
+    "summary": "Large-scale robot learning has recently shown promise for enabling robots to perform complex tasks by integrating perception, control, and language understanding. Yet, it struggles with long-horizon, contact-rich manipulation such as deformable object handling, where demonstration quality is inconsistent. Reward modeling offers a natural solution: by providing grounded progress signals, it transforms noisy demonstrations into stable supervision that generalizes across diverse trajectories. We introduce a stage-aware, video-based reward modeling framework that jointly predicts high-level task stages and fine-grained progress. Reward labels are automatically derived from natural language subtask annotations, ensuring consistent progress estimation across variable-length demonstrations. This design overcomes frame-index labeling, which fails in variable-duration tasks like folding a T-shirt. Our reward model demonstrates robustness to variability, generalization to out-of-distribution settings, and strong utility for policy training. Building on it, we propose Reward-Aligned Behavior Cloning (RA-BC), which filters high-quality data and reweights samples by reward. Experiments show the reward model alone outperforms baselines on validation and real robot rollouts. Integrated into RA-BC, our approach achieves 83% success on folding T-shirts from the flattened state and 67% from the crumpled state -- far surpassing vanilla behavior cloning, which attains only 8% and 0% success. Overall, our results highlight reward modeling as a key enabler for scalable, annotation-efficient, and robust imitation learning in long-horizon manipulation.",
+    "title": "SARM: Stage-Aware Reward Modeling for Long Horizon Robot Manipulation",
+    "updated": "2025-10-29T18:47:21Z"
+  },
+  "2510.04417": {
+    "authors": [
+      "Wenyuan Zhao",
+      "Adithya Balachandran",
+      "Chao Tian",
+      "Paul Pu Liang"
+    ],
+    "id": "2510.04417",
+    "published": "2025-10-06T01:08:34Z",
+    "summary": "The study of multimodality has garnered significant interest in fields where the analysis of interactions among multiple information sources can enhance predictive modeling, data fusion, and interpretability. Partial information decomposition (PID) has emerged as a useful information-theoretic framework to quantify the degree to which individual modalities independently, redundantly, or synergistically convey information about a target variable. However, existing PID methods depend on optimizing over a joint distribution constrained by estimated pairwise probability distributions, which are costly and inaccurate for continuous and high-dimensional modalities. Our first key insight is that the problem can be solved efficiently when the pairwise distributions are multivariate Gaussians, and we refer to this problem as Gaussian PID (GPID). We propose a new gradient-based algorithm that substantially improves the computational efficiency of GPID based on an alternative formulation of the underlying optimization problem. To generalize the applicability to non-Gaussian data, we learn information-preserving encoders to transform random variables of arbitrary input distributions into pairwise Gaussian random variables. Along the way, we resolved an open problem regarding the optimality of joint Gaussian solutions for GPID. Empirical validation in diverse synthetic examples demonstrates that our proposed method provides more accurate and efficient PID estimates than existing baselines. We further evaluate a series of large-scale multimodal benchmarks to show its utility in real-world applications of quantifying PID in multimodal datasets and selecting high-performing models.",
+    "title": "Partial Information Decomposition via Normalizing Flows in Latent Gaussian Distributions",
+    "updated": "2025-10-06T01:08:34Z"
+  },
+  "2510.09459": {
+    "authors": [
+      "Ralf R\u00f6mer",
+      "Adrian Kobras",
+      "Luca Worbis",
+      "Angela P. Schoellig"
+    ],
+    "id": "2510.09459",
+    "published": "2025-10-10T15:09:27Z",
+    "summary": "Imitation learning (IL) with generative models, such as diffusion and flow matching, has enabled robots to perform complex, long-horizon tasks. However, distribution shifts from unseen environments or compounding action errors can still cause unpredictable and unsafe behavior, leading to task failure. Early failure prediction during runtime is therefore essential for deploying robots in human-centered and safety-critical environments. We propose FIPER, a general framework for Failure Prediction at Runtime for generative IL policies that does not require failure data. FIPER identifies two key indicators of impending failure: (i) out-of-distribution (OOD) observations detected via random network distillation in the policy's embedding space, and (ii) high uncertainty in generated actions measured by a novel action-chunk entropy score. Both failure prediction scores are calibrated using a small set of successful rollouts via conformal prediction. A failure alarm is triggered when both indicators, aggregated over short time windows, exceed their thresholds. We evaluate FIPER across five simulation and real-world environments involving diverse failure modes. Our results demonstrate that FIPER better distinguishes actual failures from benign OOD situations and predicts failures more accurately and earlier than existing methods. We thus consider this work an important step towards more interpretable and safer generative robot policies. Code, data and videos are available at https://tum-lsy.github.io/fiper_website.",
+    "title": "Failure Prediction at Runtime for Generative Robot Policies",
+    "updated": "2025-10-13T13:29:31Z"
+  },
+  "2510.13778": {
+    "authors": [
+      "Xinyi Chen",
+      "Yilun Chen",
+      "Yanwei Fu",
+      "Ning Gao",
+      "Jiaya Jia",
+      "Weiyang Jin",
+      "Hao Li",
+      "Yao Mu",
+      "Jiangmiao Pang",
+      "Yu Qiao",
+      "Yang Tian",
+      "Bin Wang",
+      "Bolun Wang",
+      "Fangjing Wang",
+      "Hanqing Wang",
+      "Tai Wang",
+      "Ziqin Wang",
+      "Xueyuan Wei",
+      "Chao Wu",
+      "Shuai Yang",
+      "Jinhui Ye",
+      "Junqiu Yu",
+      "Jia Zeng",
+      "Jingjing Zhang",
+      "Jinyu Zhang",
+      "Shi Zhang",
+      "Feng Zheng",
+      "Bowen Zhou",
+      "Yangkun Zhu"
+    ],
+    "id": "2510.13778",
+    "published": "2025-10-15T17:30:05Z",
+    "summary": "We introduce InternVLA-M1, a unified framework for spatial grounding and robot control that advances instruction-following robots toward scalable, general-purpose intelligence. Its core idea is spatially guided vision-language-action training, where spatial grounding serves as the critical link between instructions and robot actions. InternVLA-M1 employs a two-stage pipeline: (i) spatial grounding pre-training on over 2.3M spatial reasoning data to determine ``where to act'' by aligning instructions with visual, embodiment-agnostic positions, and (ii) spatially guided action post-training to decide ``how to act'' by generating embodiment-aware actions through plug-and-play spatial prompting. This spatially guided training recipe yields consistent gains: InternVLA-M1 outperforms its variant without spatial guidance by +14.6% on SimplerEnv Google Robot, +17% on WidowX, and +4.3% on LIBERO Franka, while demonstrating stronger spatial reasoning capability in box, point, and trace prediction. To further scale instruction following, we built a simulation engine to collect 244K generalizable pick-and-place episodes, enabling a 6.2% average improvement across 200 tasks and 3K+ objects. In real-world clustered pick-and-place, InternVLA-M1 improved by 7.3%, and with synthetic co-training, achieved +20.6% on unseen objects and novel configurations. Moreover, in long-horizon reasoning-intensive scenarios, it surpassed existing works by over 10%. These results highlight spatially guided training as a unifying principle for scalable and resilient generalist robots. Code and models are available at https://github.com/InternRobotics/InternVLA-M1.",
+    "title": "InternVLA-M1: A Spatially Guided Vision-Language-Action Framework for Generalist Robot Policy",
+    "updated": "2025-10-15T17:30:05Z"
+  },
+  "2510.15141": {
+    "authors": [
+      "Zelong Bi",
+      "Pierre Lafaye de Micheaux"
+    ],
+    "id": "2510.15141",
+    "published": "2025-10-16T20:59:46Z",
+    "summary": "Local principal component analysis (Local PCA) has proven to be an effective tool for estimating the intrinsic dimension of a manifold. More recently, curvature-adjusted PCA (CA-PCA) has improved upon this approach by explicitly accounting for the curvature of the underlying manifold, rather than assuming local flatness. Building on these insights, we propose a general framework for manifold dimension estimation that captures the manifold's local graph structure by integrating PCA with regression-based techniques. Within this framework, we introduce two representative estimators: quadratic embedding (QE) and total least squares (TLS). Experiments on both synthetic and real-world datasets demonstrate that these methods perform competitively with, and often outperform, state-of-the-art alternatives.",
+    "title": "Beyond PCA: Manifold Dimension Estimation via Local Graph Structure",
+    "updated": "2025-11-01T00:45:20Z"
+  },
+  "2510.25992": {
+    "authors": [
+      "Yihe Deng",
+      "I-Hung Hsu",
+      "Jun Yan",
+      "Zifeng Wang",
+      "Rujun Han",
+      "Gufeng Zhang",
+      "Yanfei Chen",
+      "Wei Wang",
+      "Tomas Pfister",
+      "Chen-Yu Lee"
+    ],
+    "id": "2510.25992",
+    "published": "2025-10-29T22:05:08Z",
+    "summary": "Large Language Models (LLMs) often struggle with problems that require multi-step reasoning. For small-scale open-source models, Reinforcement Learning with Verifiable Rewards (RLVR) fails when correct solutions are rarely sampled even after many attempts, while Supervised Fine-Tuning (SFT) tends to overfit long demonstrations through rigid token-by-token imitation. To address this gap, we propose Supervised Reinforcement Learning (SRL), a framework that reformulates problem solving as generating a sequence of logical \"actions\". SRL trains the model to generate an internal reasoning monologue before committing to each action. It provides smoother rewards based on the similarity between the model's actions and expert actions extracted from the SFT dataset in a step-wise manner. This supervision offers richer learning signals even when all rollouts are incorrect, while encouraging flexible reasoning guided by expert demonstrations. As a result, SRL enables small models to learn challenging problems previously unlearnable by SFT or RLVR. Moreover, initializing training with SRL before refining with RLVR yields the strongest overall performance. Beyond reasoning benchmarks, SRL generalizes effectively to agentic software engineering tasks, establishing it as a robust and versatile training framework for reasoning-oriented LLMs.",
+    "title": "Supervised Reinforcement Learning: From Expert Trajectories to Step-wise Reasoning",
+    "updated": "2025-10-29T22:05:08Z"
+  },
+  "2511.01571": {
+    "authors": [
+      "Wenqi Liang",
+      "Gan Sun",
+      "Yao He",
+      "Jiahua Dong",
+      "Suyan Dai",
+      "Ivan Laptev",
+      "Salman Khan",
+      "Yang Cong"
+    ],
+    "id": "2511.01571",
+    "published": "2025-11-03T13:39:37Z",
+    "summary": "Vision-Language-Action models (VLAs) are emerging as powerful tools for learning generalizable visuomotor control policies. However, current VLAs are mostly trained on large-scale image-text-action data and remain limited in two key ways: (i) they struggle with pixel-level scene understanding, and (ii) they rely heavily on textual prompts, which reduces their flexibility in real-world settings. To address these challenges, we introduce PixelVLA, the first VLA model designed to support both pixel-level reasoning and multimodal prompting with text and visual inputs. Our approach is built on a new visuomotor instruction tuning framework that integrates a multiscale pixel-aware encoder with a visual prompting encoder. To train PixelVLA effectively, we further propose a two-stage automated annotation pipeline that generates Pixel-160K, a large-scale dataset with pixel-level annotations derived from existing robot data. Experiments on three standard VLA benchmarks and two VLA model variants show that PixelVLA improves manipulation success rates by 10.1%-17.8% over OpenVLA, while requiring only 1.5% of its pretraining cost. These results demonstrate that PixelVLA can be integrated into existing VLAs to enable more accurate, efficient, and versatile robot control in complex environments. The dataset and code will be released as open source.",
+    "title": "PixelVLA: Advancing Pixel-level Understanding in Vision-Language-Action Model",
+    "updated": "2025-11-03T13:39:37Z"
+  },
+  "2511.03713": {
+    "authors": [
+      "Sorin Dumitrescu",
+      "Charles Frances",
+      "Karin Melnick",
+      "Vincent Pecastaing",
+      "Abdelghani Zeghib"
+    ],
+    "id": "2511.03713",
+    "published": "2025-11-05T18:43:58Z",
+    "summary": "For a conformal vector field on a closed, real-analytic, Lorentzian manifold we prove that the flow is locally isometric -- that it preserves a metric in the conformal class on a neighborhood of any point -- or the metric is everywhere conformally flat. The main theorem can be viewed as a local version of the Lorentzian Lichnerowicz conjecture in the real-analytic setting. The key result is an optimal improvement of the local normal forms for conformal vector fields of [FM13], which focused on non-linearizable singularities. This article is primarily concerned with essential linearizable singularities, and the proofs include global arguments which rely on the compactness assumption.",
+    "title": "A local Lorentzian Ferrand-Obata theorem for conformal vector fields",
+    "updated": "2025-11-05T18:43:58Z"
+  },
+  "2511.11520": {
+    "authors": [
+      "Wei-Cheng Tseng",
+      "Jinwei Gu",
+      "Qinsheng Zhang",
+      "Hanzi Mao",
+      "Ming-Yu Liu",
+      "Florian Shkurti",
+      "Lin Yen-Chen"
+    ],
+    "id": "2511.11520",
+    "published": "2025-11-14T17:46:17Z",
+    "summary": "Training generalist policies for robotic manipulation has shown great promise, as they enable language-conditioned, multi-task behaviors across diverse scenarios. However, evaluating these policies remains difficult because real-world testing is expensive, time-consuming, and labor-intensive. It also requires frequent environment resets and carries safety risks when deploying unproven policies on physical robots. Manually creating and populating simulation environments with assets for robotic manipulation has not addressed these issues, primarily due to the significant engineering effort required and the substantial sim-to-real gap, both in terms of physics and rendering. In this paper, we explore the use of action-conditional video generation models as a scalable way to learn world models for policy evaluation. We demonstrate how to incorporate action conditioning into existing pre-trained video generation models. This allows leveraging internet-scale in-the-wild online videos during the pre-training stage and alleviates the need for a large dataset of paired video-action data, which is expensive to collect for robotic manipulation. Our paper examines the effect of dataset diversity, pre-trained weights, and common failure cases for the proposed evaluation pipeline. Our experiments demonstrate that across various metrics, including policy ranking and the correlation between actual policy values and predicted policy values, these models offer a promising approach for evaluating policies without requiring real-world interactions.",
+    "title": "Scalable Policy Evaluation with Video World Models",
+    "updated": "2025-12-04T04:47:47Z"
+  },
+  "2511.13720": {
+    "authors": [
+      "Tianhong Li",
+      "Kaiming He"
+    ],
+    "id": "2511.13720",
+    "published": "2025-11-17T18:59:57Z",
+    "summary": "Today's denoising diffusion models do not \"denoise\" in the classical sense, i.e., they do not directly predict clean images. Rather, the neural networks predict noise or a noised quantity. In this paper, we suggest that predicting clean data and predicting noised quantities are fundamentally different. According to the manifold assumption, natural data should lie on a low-dimensional manifold, whereas noised quantities do not. With this assumption, we advocate for models that directly predict clean data, which allows apparently under-capacity networks to operate effectively in very high-dimensional spaces. We show that simple, large-patch Transformers on pixels can be strong generative models: using no tokenizer, no pre-training, and no extra loss. Our approach is conceptually nothing more than \"$\\textbf{Just image Transformers}$\", or $\\textbf{JiT}$, as we call it. We report competitive results using JiT with large patch sizes of 16 and 32 on ImageNet at resolutions of 256 and 512, where predicting high-dimensional noised quantities can fail catastrophically. With our networks mapping back to the basics of the manifold, our research goes back to basics and pursues a self-contained paradigm for Transformer-based diffusion on raw natural data.",
+    "title": "Back to Basics: Let Denoising Generative Models Denoise",
+    "updated": "2025-11-17T18:59:57Z"
+  },
+  "2512.04797": {
+    "authors": [
+      "SIMA team",
+      "Adrian Bolton",
+      "Alexander Lerchner",
+      "Alexandra Cordell",
+      "Alexandre Moufarek",
+      "Andrew Bolt",
+      "Andrew Lampinen",
+      "Anna Mitenkova",
+      "Arne Olav Hallingstad",
+      "Bojan Vujatovic",
+      "Bonnie Li",
+      "Cong Lu",
+      "Daan Wierstra",
+      "Daniel P. Sawyer",
+      "Daniel Slater",
+      "David Reichert",
+      "Davide Vercelli",
+      "Demis Hassabis",
+      "Drew A. Hudson",
+      "Duncan Williams",
+      "Ed Hirst",
+      "Fabio Pardo",
+      "Felix Hill",
+      "Frederic Besse",
+      "Hannah Openshaw",
+      "Harris Chan",
+      "Hubert Soyer",
+      "Jane X. Wang",
+      "Jeff Clune",
+      "John Agapiou",
+      "John Reid",
+      "Joseph Marino",
+      "Junkyung Kim",
+      "Karol Gregor",
+      "Kaustubh Sridhar",
+      "Kay McKinney",
+      "Laura Kampis",
+      "Lei M. Zhang",
+      "Loic Matthey",
+      "Luyu Wang",
+      "Maria Abi Raad",
+      "Maria Loks-Thompson",
+      "Martin Engelcke",
+      "Matija Kecman",
+      "Matthew Jackson",
+      "Maxime Gazeau",
+      "Ollie Purkiss",
+      "Oscar Knagg",
+      "Peter Stys",
+      "Piermaria Mendolicchio",
+      "Raia Hadsell",
+      "Rosemary Ke",
+      "Ryan Faulkner",
+      "Sarah Chakera",
+      "Satinder Singh Baveja",
+      "Shane Legg",
+      "Sheleem Kashem",
+      "Tayfun Terzi",
+      "Thomas Keck",
+      "Tim Harley",
+      "Tim Scholtes",
+      "Tyson Roberts",
+      "Volodymyr Mnih",
+      "Yulan Liu",
+      "Zhengdong Wang",
+      "Zoubin Ghahramani"
+    ],
+    "id": "2512.04797",
+    "published": "2025-12-04T13:46:11Z",
+    "summary": "We introduce SIMA 2, a generalist embodied agent that understands and acts in a wide variety of 3D virtual worlds. Built upon a Gemini foundation model, SIMA 2 represents a significant step toward active, goal-directed interaction within an embodied environment. Unlike prior work (e.g., SIMA 1) limited to simple language commands, SIMA 2 acts as an interactive partner, capable of reasoning about high-level goals, conversing with the user, and handling complex instructions given through language and images. Across a diverse portfolio of games, SIMA 2 substantially closes the gap with human performance and demonstrates robust generalization to previously unseen environments, all while retaining the base model's core reasoning capabilities. Furthermore, we demonstrate a capacity for open-ended self-improvement: by leveraging Gemini to generate tasks and provide rewards, SIMA 2 can autonomously learn new skills from scratch in a new environment. This work validates a path toward creating versatile and continuously learning agents for both virtual and, eventually, physical worlds.",
+    "title": "SIMA 2: A Generalist Embodied Agent for Virtual Worlds",
+    "updated": "2025-12-04T13:46:11Z"
+  },
+  "2512.06963": {
+    "authors": [
+      "Yichao Shen",
+      "Fangyun Wei",
+      "Zhiying Du",
+      "Yaobo Liang",
+      "Yan Lu",
+      "Jiaolong Yang",
+      "Nanning Zheng",
+      "Baining Guo"
+    ],
+    "id": "2512.06963",
+    "published": "2025-12-07T18:57:15Z",
+    "summary": "Generalization in robot manipulation is essential for deploying robots in open-world environments and advancing toward artificial general intelligence. While recent Vision-Language-Action (VLA) models leverage large pre-trained understanding models for perception and instruction following, their ability to generalize to novel tasks, objects, and settings remains limited. In this work, we present VideoVLA, a simple approach that explores the potential of transforming large video generation models into robotic VLA manipulators. Given a language instruction and an image, VideoVLA predicts an action sequence as well as the future visual outcomes. Built on a multi-modal Diffusion Transformer, VideoVLA jointly models video, language, and action modalities, using pre-trained video generative models for joint visual and action forecasting. Our experiments show that high-quality imagined futures correlate with reliable action predictions and task success, highlighting the importance of visual imagination in manipulation. VideoVLA demonstrates strong generalization, including imitating other embodiments' skills and handling novel objects. This dual-prediction strategy - forecasting both actions and their visual consequences - explores a paradigm shift in robot learning and unlocks generalization capabilities in manipulation systems.",
+    "title": "VideoVLA: Video Generators Can Be Generalizable Robot Manipulators",
+    "updated": "2025-12-07T18:57:15Z"
+  },
+  "2512.08765": {
+    "authors": [
+      "Ruihang Chu",
+      "Yefei He",
+      "Zhekai Chen",
+      "Shiwei Zhang",
+      "Xiaogang Xu",
+      "Bin Xia",
+      "Dingdong Wang",
+      "Hongwei Yi",
+      "Xihui Liu",
+      "Hengshuang Zhao",
+      "Yu Liu",
+      "Yingya Zhang",
+      "Yujiu Yang"
+    ],
+    "id": "2512.08765",
+    "published": "2025-12-09T16:13:55Z",
+    "summary": "We present Wan-Move, a simple and scalable framework that brings motion control to video generative models. Existing motion-controllable methods typically suffer from coarse control granularity and limited scalability, leaving their outputs insufficient for practical use. We narrow this gap by achieving precise and high-quality motion control. Our core idea is to directly make the original condition features motion-aware for guiding video synthesis. To this end, we first represent object motions with dense point trajectories, allowing fine-grained control over the scene. We then project these trajectories into latent space and propagate the first frame's features along each trajectory, producing an aligned spatiotemporal feature map that tells how each scene element should move. This feature map serves as the updated latent condition, which is naturally integrated into the off-the-shelf image-to-video model, e.g., Wan-I2V-14B, as motion guidance without any architecture change. It removes the need for auxiliary motion encoders and makes fine-tuning base models easily scalable. Through scaled training, Wan-Move generates 5-second, 480p videos whose motion controllability rivals Kling 1.5 Pro's commercial Motion Brush, as indicated by user studies. To support comprehensive evaluation, we further design MoveBench, a rigorously curated benchmark featuring diverse content categories and hybrid-verified annotations. It is distinguished by larger data volume, longer video durations, and high-quality motion annotations. Extensive experiments on MoveBench and the public dataset consistently show Wan-Move's superior motion quality. Code, models, and benchmark data are made publicly available.",
+    "title": "Wan-Move: Motion-controllable Video Generation via Latent Trajectory Guidance",
+    "updated": "2025-12-09T16:13:55Z"
+  },
+  "2512.13030": {
+    "authors": [
+      "Hongzhe Bi",
+      "Hengkai Tan",
+      "Shenghao Xie",
+      "Zeyuan Wang",
+      "Shuhe Huang",
+      "Haitian Liu",
+      "Ruowen Zhao",
+      "Yao Feng",
+      "Chendong Xiang",
+      "Yinze Rong",
+      "Hongyan Zhao",
+      "Hanyu Liu",
+      "Zhizhong Su",
+      "Lei Ma",
+      "Hang Su",
+      "Jun Zhu"
+    ],
+    "id": "2512.13030",
+    "published": "2025-12-15T06:58:40Z",
+    "summary": "While a general embodied agent must function as a unified system, current methods are built on isolated models for understanding, world modeling, and control. This fragmentation prevents unifying multimodal generative capabilities and hinders learning from large-scale, heterogeneous data. In this paper, we propose Motus, a unified latent action world model that leverages existing general pretrained models and rich, sharable motion information. Motus introduces a Mixture-of-Transformer (MoT) architecture to integrate three experts (i.e., understanding, video generation, and action) and adopts a UniDiffuser-style scheduler to enable flexible switching between different modeling modes (i.e., world models, vision-language-action models, inverse dynamics models, video generation models, and video-action joint prediction models). Motus further leverages the optical flow to learn latent actions and adopts a recipe with three-phase training pipeline and six-layer data pyramid, thereby extracting pixel-level \"delta action\" and enabling large-scale action pretraining. Experiments show that Motus achieves superior performance against state-of-the-art methods in both simulation (a +15% improvement over X-VLA and a +45% improvement over Pi0.5) and real-world scenarios(improved by +11~48%), demonstrating unified modeling of all functionalities and priors significantly benefits downstream robotic tasks.",
+    "title": "Motus: A Unified Latent Action World Model",
+    "updated": "2025-12-25T08:16:05Z"
+  },
+  "2512.15716": {
+    "authors": [
+      "Jinjing Zhao",
+      "Fangyun Wei",
+      "Zhening Liu",
+      "Hongyang Zhang",
+      "Chang Xu",
+      "Yan Lu"
+    ],
+    "id": "2512.15716",
+    "published": "2025-12-17T18:59:59Z",
+    "summary": "Existing video generation models struggle to maintain long-term spatial and temporal consistency due to the dense, high-dimensional nature of video signals. To overcome this limitation, we propose Spatia, a spatial memory-aware video generation framework that explicitly preserves a 3D scene point cloud as persistent spatial memory. Spatia iteratively generates video clips conditioned on this spatial memory and continuously updates it through visual SLAM. This dynamic-static disentanglement design enhances spatial consistency throughout the generation process while preserving the model's ability to produce realistic dynamic entities. Furthermore, Spatia enables applications such as explicit camera control and 3D-aware interactive editing, providing a geometrically grounded framework for scalable, memory-driven video generation.",
+    "title": "Spatia: Video Generation with Updatable Spatial Memory",
+    "updated": "2025-12-17T18:59:59Z"
+  },
+  "2512.16662": {
+    "authors": [
+      "Philip Hendrik Matthias",
+      "Abdullah Makkeh",
+      "Michael Wibral",
+      "Aaron J. Gutknecht"
+    ],
+    "id": "2512.16662",
+    "published": "2025-12-18T15:31:06Z",
+    "summary": "Partial Information Decomposition (PID) seeks to disentangle how information about a target variable is distributed across multiple sources, separating redundant, unique, and synergistic contributions. Despite extensive theoretical development and applications across diverse fields, the search for a unique, universally accepted solution remains elusive, with numerous competing proposals offering different decompositions. A promising but underutilized strategy for making progress is to establish inconsistency results, proofs that certain combinations of intuitively appealing axioms cannot be simultaneously satisfied. Such results clarify the landscape of possibilities and force us to recognize where fundamental choices must be made. In this work, we leverage the recently developed mereological approach to PID to establish novel inconsistency results with far-reaching implications. Our main theorem demonstrates that three cornerstone properties of classical information theory, namely non-negativity, the chain rule, and invariance under invertible transformations, become mutually incompatible when extended to the PID setting. This result reveals that any PID framework must sacrifice at least one property that seems fundamental to information theory itself. Additionally, we strengthen the classical result of Rauh et al., which showed that non-negativity, the identity property, and the Williams and Beer axioms cannot coexist.",
+    "title": "Novel Inconsistency Results for Partial Information Decomposition",
+    "updated": "2025-12-18T15:31:06Z"
+  },
+  "2512.16842": {
+    "authors": [
+      "Yuxin Ray Song",
+      "Jinzhou Li",
+      "Rao Fu",
+      "Devin Murphy",
+      "Kaichen Zhou",
+      "Rishi Shiv",
+      "Yaqi Li",
+      "Haoyu Xiong",
+      "Crystal Elaine Owens",
+      "Yilun Du",
+      "Yiyue Luo",
+      "Xianyi Cheng",
+      "Antonio Torralba",
+      "Wojciech Matusik",
+      "Paul Pu Liang"
+    ],
+    "id": "2512.16842",
+    "published": "2025-12-18T18:18:17Z",
+    "summary": "The human hand is our primary interface to the physical world, yet egocentric perception rarely knows when, where, or how forcefully it makes contact. Robust wearable tactile sensors are scarce, and no existing in-the-wild datasets align first-person video with full-hand touch. To bridge the gap between visual perception and physical interaction, we present OpenTouch, the first in-the-wild egocentric full-hand tactile dataset, containing 5.1 hours of synchronized video-touch-pose data and 2,900 curated clips with detailed text annotations. Using OpenTouch, we introduce retrieval and classification benchmarks that probe how touch grounds perception and action. We show that tactile signals provide a compact yet powerful cue for grasp understanding, strengthen cross-modal alignment, and can be reliably retrieved from in-the-wild video queries. By releasing this annotated vision-touch-pose dataset and benchmark, we aim to advance multimodal egocentric perception, embodied learning, and contact-rich robotic manipulation.",
+    "title": "OPENTOUCH: Bringing Full-Hand Touch to Real-World Interaction",
+    "updated": "2025-12-18T18:18:17Z"
+  },
+  "2512.20926": {
+    "authors": [
+      "Prakash Chourasia",
+      "Sarwan Ali",
+      "Murray Patterson"
+    ],
+    "id": "2512.20926",
+    "published": "2025-12-24T04:15:36Z",
+    "summary": "The rapid advancement of large language models (LLMs) has enabled significant strides in various fields. This paper introduces a novel approach to evaluate the effectiveness of LLM embeddings in the context of inherent geometric properties. We investigate the structural properties of these embeddings through three complementary metrics $\u03b4$-hyperbolicity, Ultrametricity, and Neighbor Joining. $\u03b4$-hyperbolicity, a measure derived from geometric group theory, quantifies how much a metric space deviates from being a tree-like structure. In contrast, ultrametricity characterizes strictly hierarchical structures where distances obey a strong triangle inequality. While Neighbor Joining quantifies how tree-like the distance relationships are, it does so specifically with respect to the tree reconstructed by the Neighbor Joining algorithm. By analyzing the embeddings generated by LLMs using these metrics, we uncover to what extent the embedding space reflects an underlying hierarchical or tree-like organization. Our findings reveal that LLM embeddings exhibit varying degrees of hyperbolicity and ultrametricity, which correlate with their performance in the underlying machine learning tasks.",
+    "title": "Uncovering Hierarchical Structure in LLM Embeddings with $\u03b4$-Hyperbolicity, Ultrametricity, and Neighbor Joining",
+    "updated": "2025-12-25T17:36:52Z"
+  },
+  "2512.21970": {
+    "authors": [
+      "Shengliang Deng",
+      "Mi Yan",
+      "Yixin Zheng",
+      "Jiayi Su",
+      "Wenhao Zhang",
+      "Xiaoguang Zhao",
+      "Heming Cui",
+      "Zhizheng Zhang",
+      "He Wang"
+    ],
+    "id": "2512.21970",
+    "published": "2025-12-26T10:34:20Z",
+    "summary": "Stereo cameras closely mimic human binocular vision, providing rich spatial cues critical for precise robotic manipulation. Despite their advantage, the adoption of stereo vision in vision-language-action models (VLAs) remains underexplored. In this work, we present StereoVLA, a VLA model that leverages rich geometric cues from stereo vision. We propose a novel Geometric-Semantic Feature Extraction module that utilizes vision foundation models to extract and fuse two key features: 1) geometric features from subtle stereo-view differences for spatial perception; 2) semantic-rich features from the monocular view for instruction following. Additionally, we propose an auxiliary Interaction-Region Depth Estimation task to further enhance spatial perception and accelerate model convergence. Extensive experiments show that our approach outperforms baselines by a large margin in diverse tasks under the stereo setting and demonstrates strong robustness to camera pose variations.",
+    "title": "StereoVLA: Enhancing Vision-Language-Action Models with Stereo Vision",
+    "updated": "2025-12-26T10:34:20Z"
+  },
+  "2512.22227": {
+    "authors": [
+      "Sophie Zhao"
+    ],
+    "id": "2512.22227",
+    "published": "2025-12-23T03:37:34Z",
+    "summary": "Recent work has shown that transformer-based language models learn rich geometric structure in their embedding spaces, yet the presence of higher-level cognitive organization within these representations remains underexplored. In this work, we investigate whether sentence embeddings encode a graded, hierarchical structure aligned with human-interpretable cognitive or psychological attributes. We construct a dataset of 480 natural-language sentences annotated with continuous ordinal energy scores and discrete tier labels spanning seven ordered cognitive categories. Using fixed sentence embeddings from multiple transformer models, we evaluate the recoverability of these annotations via linear and shallow nonlinear probes. Across models, both continuous scores and tier labels are reliably decodable, with shallow nonlinear probes providing consistent performance gains over linear probes. Lexical TF-IDF baselines perform substantially worse, indicating that the observed structure is not attributable to surface word statistics alone. Nonparametric permutation tests further confirm that probe performance exceeds chance under label-randomization nulls. Qualitative analyses using UMAP visualizations and confusion matrices reveal smooth low-to-high gradients and predominantly adjacent-tier confusions in embedding space. Taken together, these results provide evidence that transformer embedding spaces exhibit a hierarchical geometric organization aligned with human-defined cognitive attributes, while remaining agnostic to claims of internal awareness or phenomenology.",
+    "title": "Hierarchical Geometry of Cognitive States in Transformer Embedding Spaces",
+    "updated": "2025-12-23T03:37:34Z"
+  },
+  "2512.22539": {
+    "authors": [
+      "Borong Zhang",
+      "Jiahao Li",
+      "Jiachen Shen",
+      "Yishuai Cai",
+      "Yuhao Zhang",
+      "Yuanpei Chen",
+      "Juntao Dai",
+      "Jiaming Ji",
+      "Yaodong Yang"
+    ],
+    "id": "2512.22539",
+    "published": "2025-12-27T09:40:54Z",
+    "summary": "While Vision-Language-Action models (VLAs) are rapidly advancing towards generalist robot policies, it remains difficult to quantitatively understand their limits and failure modes. To address this, we introduce a comprehensive benchmark called VLA-Arena. We propose a novel structured task design framework to quantify difficulty across three orthogonal axes: (1) Task Structure, (2) Language Command, and (3) Visual Observation. This allows us to systematically design tasks with fine-grained difficulty levels, enabling a precise measurement of model capability frontiers. For Task Structure, VLA-Arena's 170 tasks are grouped into four dimensions: Safety, Distractor, Extrapolation, and Long Horizon. Each task is designed with three difficulty levels (L0-L2), with fine-tuning performed exclusively on L0 to assess general capability. Orthogonal to this, language (W0-W4) and visual (V0-V4) perturbations can be applied to any task to enable a decoupled analysis of robustness. Our extensive evaluation of state-of-the-art VLAs reveals several critical limitations, including a strong tendency toward memorization over generalization, asymmetric robustness, a lack of consideration for safety constraints, and an inability to compose learned skills for long-horizon tasks. To foster research addressing these challenges and ensure reproducibility, we provide the complete VLA-Arena framework, including an end-to-end toolchain from task definition to automated evaluation and the VLA-Arena-S/M/L datasets for fine-tuning. Our benchmark, data, models, and leaderboard are available at https://vla-arena.github.io.",
+    "title": "VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models",
+    "updated": "2025-12-27T09:40:54Z"
+  },
+  "2512.22615": {
+    "authors": [
+      "Jiacheng Ye",
+      "Shansan Gong",
+      "Jiahui Gao",
+      "Junming Fan",
+      "Shuang Wu",
+      "Wei Bi",
+      "Haoli Bai",
+      "Lifeng Shang",
+      "Lingpeng Kong"
+    ],
+    "id": "2512.22615",
+    "published": "2025-12-27T14:46:24Z",
+    "summary": "While autoregressive Large Vision-Language Models (VLMs) have achieved remarkable success, their sequential generation often limits their efficacy in complex visual planning and dynamic robotic control. In this work, we investigate the potential of constructing Vision-Language Models upon diffusion-based large language models (dLLMs) to overcome these limitations. We introduce Dream-VL, an open diffusion-based VLM (dVLM) that achieves state-of-the-art performance among previous dVLMs. Dream-VL is comparable to top-tier AR-based VLMs trained on open data on various benchmarks but exhibits superior potential when applied to visual planning tasks. Building upon Dream-VL, we introduce Dream-VLA, a dLLM-based Vision-Language-Action model (dVLA) developed through continuous pre-training on open robotic datasets. We demonstrate that the natively bidirectional nature of this diffusion backbone serves as a superior foundation for VLA tasks, inherently suited for action chunking and parallel generation, leading to significantly faster convergence in downstream fine-tuning. Dream-VLA achieves top-tier performance of 97.2% average success rate on LIBERO, 71.4% overall average on SimplerEnv-Bridge, and 60.5% overall average on SimplerEnv-Fractal, surpassing leading models such as $\u03c0_0$ and GR00T-N1. We also validate that dVLMs surpass AR baselines on downstream tasks across different training objectives. We release both Dream-VL and Dream-VLA to facilitate further research in the community.",
+    "title": "Dream-VL & Dream-VLA: Open Vision-Language and Vision-Language-Action Models with Diffusion Language Model Backbone",
+    "updated": "2025-12-27T14:46:24Z"
+  },
+  "2512.23703": {
+    "authors": [
+      "Huajie Tan",
+      "Sixiang Chen",
+      "Yijie Xu",
+      "Zixiao Wang",
+      "Yuheng Ji",
+      "Cheng Chi",
+      "Yaoxu Lyu",
+      "Zhongxia Zhao",
+      "Xiansheng Chen",
+      "Peterson Co",
+      "Shaoxuan Xie",
+      "Guocai Yao",
+      "Pengwei Wang",
+      "Zhongyuan Wang",
+      "Shanghang Zhang"
+    ],
+    "id": "2512.23703",
+    "published": "2025-12-29T18:57:44Z",
+    "summary": "The primary obstacle for applying reinforcement learning (RL) to real-world robotics is the design of effective reward functions. While recently learning-based Process Reward Models (PRMs) are a promising direction, they are often hindered by two fundamental limitations: their reward models lack step-aware understanding and rely on single-view perception, leading to unreliable assessments of fine-grained manipulation progress; and their reward shaping procedures are theoretically unsound, often inducing a semantic trap that misguides policy optimization. To address these, we introduce Dopamine-Reward, a novel reward modeling method for learning a general-purpose, step-aware process reward model from multi-view inputs. At its core is our General Reward Model (GRM), trained on a vast 3,400+ hour dataset, which leverages Step-wise Reward Discretization for structural understanding and Multi-Perspective Reward Fusion to overcome perceptual limitations. Building upon Dopamine-Reward, we propose Dopamine-RL, a robust policy learning framework that employs a theoretically-sound Policy-Invariant Reward Shaping method, which enables the agent to leverage dense rewards for efficient self-improvement without altering the optimal policy, thereby fundamentally avoiding the semantic trap. Extensive experiments across diverse simulated and real-world tasks validate our approach. GRM achieves state-of-the-art accuracy in reward assessment, and Dopamine-RL built on GRM significantly improves policy learning efficiency. For instance, after GRM is adapted to a new task in a one-shot manner from a single expert trajectory, the resulting reward model enables Dopamine-RL to improve the policy from near-zero to 95% success with only 150 online rollouts (approximately 1 hour of real robot interaction), while retaining strong generalization across tasks. Project website: https://robo-dopamine.github.io",
+    "title": "Robo-Dopamine: General Process Reward Modeling for High-Precision Robotic Manipulation",
+    "updated": "2025-12-29T18:57:44Z"
+  },
+  "2512.23705": {
+    "authors": [
+      "Shaocong Xu",
+      "Songlin Wei",
+      "Qizhe Wei",
+      "Zheng Geng",
+      "Hong Li",
+      "Licheng Shen",
+      "Qianpu Sun",
+      "Shu Han",
+      "Bin Ma",
+      "Bohan Li",
+      "Chongjie Ye",
+      "Yuhang Zheng",
+      "Nan Wang",
+      "Saining Zhang",
+      "Hao Zhao"
+    ],
+    "id": "2512.23705",
+    "published": "2025-12-29T18:59:24Z",
+    "summary": "Transparent objects remain notoriously hard for perception systems: refraction, reflection and transmission break the assumptions behind stereo, ToF and purely discriminative monocular depth, causing holes and temporally unstable estimates. Our key observation is that modern video diffusion models already synthesize convincing transparent phenomena, suggesting they have internalized the optical rules. We build TransPhy3D, a synthetic video corpus of transparent/reflective scenes: 11k sequences rendered with Blender/Cycles. Scenes are assembled from a curated bank of category-rich static assets and shape-rich procedural assets paired with glass/plastic/metal materials. We render RGB + depth + normals with physically based ray tracing and OptiX denoising. Starting from a large video diffusion model, we learn a video-to-video translator for depth (and normals) via lightweight LoRA adapters. During training we concatenate RGB and (noisy) depth latents in the DiT backbone and co-train on TransPhy3D and existing frame-wise synthetic datasets, yielding temporally consistent predictions for arbitrary-length input videos. The resulting model, DKT, achieves zero-shot SOTA on real and synthetic video benchmarks involving transparency: ClearPose, DREDS (CatKnown/CatNovel), and TransPhy3D-Test. It improves accuracy and temporal consistency over strong image/video baselines, and a normal variant sets the best video normal estimation results on ClearPose. A compact 1.3B version runs at ~0.17 s/frame. Integrated into a grasping stack, DKT's depth boosts success rates across translucent, reflective and diffuse surfaces, outperforming prior estimators. Together, these results support a broader claim: \"Diffusion knows transparency.\" Generative video priors can be repurposed, efficiently and label-free, into robust, temporally coherent perception for challenging real-world manipulation.",
+    "title": "Diffusion Knows Transparency: Repurposing Video Diffusion for Transparent Object Depth and Normal Estimation",
+    "updated": "2025-12-29T18:59:24Z"
+  },
+  "2512.24125": {
+    "authors": [
+      "Yi Liu",
+      "Sukai Wang",
+      "Dafeng Wei",
+      "Xiaowei Cai",
+      "Linqing Zhong",
+      "Jiange Yang",
+      "Guanghui Ren",
+      "Jinyu Zhang",
+      "Maoqing Yao",
+      "Chuankang Li",
+      "Xindong He",
+      "Liliang Chen",
+      "Jianlan Luo"
+    ],
+    "id": "2512.24125",
+    "published": "2025-12-30T10:18:42Z",
+    "summary": "General-purpose robotic systems operating in open-world environments must achieve both broad generalization and high-precision action execution, a combination that remains challenging for existing Vision-Language-Action (VLA) models. While large Vision-Language Models (VLMs) improve semantic generalization, insufficient embodied reasoning leads to brittle behavior, and conversely, strong reasoning alone is inadequate without precise control. To provide a decoupled and quantitative assessment of this bottleneck, we introduce Embodied Reasoning Intelligence Quotient (ERIQ), a large-scale embodied reasoning benchmark in robotic manipulation, comprising 6K+ question-answer pairs across four reasoning dimensions. By decoupling reasoning from execution, ERIQ enables systematic evaluation and reveals a strong positive correlation between embodied reasoning capability and end-to-end VLA generalization. To bridge the gap from reasoning to precise execution, we propose FACT, a flow-matching-based action tokenizer that converts continuous control into discrete sequences while preserving high-fidelity trajectory reconstruction. The resulting GenieReasoner jointly optimizes reasoning and action in a unified space, outperforming both continuous-action and prior discrete-action baselines in real-world tasks. Together, ERIQ and FACT provide a principled framework for diagnosing and overcoming the reasoning-precision trade-off, advancing robust, general-purpose robotic manipulation. Project page: https://geniereasoner.github.io/GenieReasoner/",
+    "title": "Unified Embodied VLM Reasoning with Robotic Action via Autoregressive Discretized Pre-training",
+    "updated": "2026-01-01T17:42:44Z"
+  },
+  "2512.24766": {
+    "authors": [
+      "Karthik Dharmarajan",
+      "Wenlong Huang",
+      "Jiajun Wu",
+      "Li Fei-Fei",
+      "Ruohan Zhang"
+    ],
+    "id": "2512.24766",
+    "published": "2025-12-31T10:25:24Z",
+    "summary": "Generative video modeling has emerged as a compelling tool to zero-shot reason about plausible physical interactions for open-world manipulation. Yet, it remains a challenge to translate such human-led motions into the low-level actions demanded by robotic systems. We observe that given an initial image and task instruction, these models excel at synthesizing sensible object motions. Thus, we introduce Dream2Flow, a framework that bridges video generation and robotic control through 3D object flow as an intermediate representation. Our method reconstructs 3D object motions from generated videos and formulates manipulation as object trajectory tracking. By separating the state changes from the actuators that realize those changes, Dream2Flow overcomes the embodiment gap and enables zero-shot guidance from pre-trained video models to manipulate objects of diverse categories-including rigid, articulated, deformable, and granular. Through trajectory optimization or reinforcement learning, Dream2Flow converts reconstructed 3D object flow into executable low-level commands without task-specific demonstrations. Simulation and real-world experiments highlight 3D object flow as a general and scalable interface for adapting video generation models to open-world robotic manipulation. Videos and visualizations are available at https://dream2flow.github.io/.",
+    "title": "Dream2Flow: Bridging Video Generation and Open-World Manipulation with 3D Object Flow",
+    "updated": "2025-12-31T10:25:24Z"
+  }
+}

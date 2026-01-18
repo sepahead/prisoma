@@ -7,7 +7,7 @@
 > - `EXPERIMENTS.md` — Capture protocols + quality gates
 > - `pid-core` — Rust implementation context
 
-**Docset alignment:** v10.0 (this is an optional module spec; not implemented in this repo today)
+**Docset alignment:** v10.1 (this is an optional module spec; not implemented in this repo today)
 **Spec version:** 1.0
 **Date:** 2026-01-03
 **Status:** Specification (Pre-Implementation)

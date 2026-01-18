@@ -4,7 +4,7 @@
 
 Experiment 0 tests Partial Information Decomposition (PID) estimators on synthetic data with known ground truth. The results show systematic issues that need to be understood before proceeding to real VLA analysis.
 
-**Status**: PIVOT (2/3 zero-redundancy checks passed, 3/3 geometry warnings)
+**Status**: PIVOT (geometry warnings + an MI-consistency/coherence violation observed; proceed only with a validated measurement regime)
 
 ---
 
@@ -14,11 +14,11 @@ Experiment 0 tests Partial Information Decomposition (PID) estimators on synthet
 
 | Scenario | Dimension | Red(disj) | Explanation |
 |----------|-----------|-----------|-------------|
-| independent_additive | d=10 | NaN | Expected - marginal MIs near zero |
-| xor_like | d=10 | NaN | Expected - pure synergy, no redundancy to measure |
+| independent_additive | d=10 | NaN | `DisjunctionFromLocalMi` is a heuristic; it can become numerically undefined when pointwise `i(S1,S2;T)` dominates `i(S1;T), i(S2;T)` (log argument ≤ 0). Treat as method failure, not a result. |
+| xor_like | d=10 | NaN | Expected method failure: pointwise `i(S1;T)≈i(S2;T)≈0` but `i(S1,S2;T)>0` makes the disjunction log argument ≤ 0. |
 | xor_like | d=64,256 | 0.000 | Estimation collapsed entirely |
 
-**Root Cause**: The `DisjunctionFromLocalMi` estimator requires non-zero local MI structure. When I(S1;T) ≈ 0 or I(S2;T) ≈ 0, the estimator returns an error (converted to NaN by design).
+**Root Cause**: `Red(disj)` here refers to `IsxMethod::DisjunctionFromLocalMi`, a **non-paper-faithful** experimental baseline that computes `log(exp(i1)+exp(i2)−exp(i12))` from KSG local MI terms. This expression is **undefined** when `exp(i12) > exp(i1)+exp(i2)` at any sample, which can occur in strongly synergistic systems (XOR-like) and also via finite-sample noise/bias in other regimes. The implementation returns an error which this report treats as `NaN`.
 
 ### Zero MI Estimates at High Dimensions
 
@@ -63,11 +63,11 @@ This creates an **adversarial setting** for kNN estimation:
 
 ### Geometry Diagnostics Interpretation
 
-| Metric | Observed | Healthy Range | Interpretation |
+| Metric | Observed | Heuristic flag (rule-of-thumb) | Interpretation |
 |--------|----------|---------------|----------------|
-| ID(s1,s2) | 28-42 | < 15 | Data fills high-dimensional space |
-| DCcv | 0.12-0.16 | > 0.3 | Distance concentration occurring |
-| d_rel | 0.07-0.09 | > 0.15 | Tree-like/concentrated geometry |
+| ID(s1,s2) | 28-42 | “low” (e.g., < 15) | Data fills high-dimensional space |
+| DCcv | 0.12-0.16 | “not too small” (e.g., > 0.3) | Distance concentration occurring |
+| d_rel | 0.07-0.09 | “not too small” (e.g., > 0.15) | Tree-like/concentrated geometry |
 
 ---
 
@@ -90,7 +90,7 @@ This creates an **adversarial setting** for kNN estimation:
 > Continuous kNN-based PID has fundamental limitations in high dimensions.
 
 **Evidence For**:
-- With n=500, d=256: would need ~10^77 samples for uniform coverage
+- Back-of-envelope uniform coverage in high-d is astronomically large (scales exponentially in `d`; do not treat any single number as exact)
 - Distance concentration is mathematically inevitable
 - All kNN-based MI estimators share this limitation
 
@@ -136,7 +136,7 @@ These require different solutions.
    - Or use representation learning to find informative subspaces first
 
 3. **The "Flow-as-Bridge" strategy is sound**:
-   - Object flow is 3D (well within kNN estimator capabilities)
+   - Object-level flow summaries can be kept low-dimensional by construction (e.g., centroid trajectories / principal flow statistics)
    - Robot proprioception is ~7D (joint angles)
    - These sidestep the high-D problem entirely
 
@@ -159,7 +159,7 @@ This paper (arXiv:2504.15779) changes the strategic response to the geometry war
 
 We implemented $\bar{r}$ and $\bar{v}$ in Exp0 and observed:
 
-1.  **Metric Stability:** Unlike `Red(disj)` which returned `NaN` in high-d/sparse cases, $\bar{r}$ and $\bar{v}$ always return numeric values, providing a continuous diagnostic.
+1.  **Stability vs atom estimators:** Unlike `Red(disj)` (a non-paper-faithful baseline) which can be numerically undefined, $\bar{r}$ and $\bar{v}$ are defined whenever the estimated joint MI is nonzero. In practice they are often a more stable screening signal — but treat `NaN` (e.g., when joint MI collapses to ~0) as a failure mode, not as “success”.
 2.  **Diagnostic Value (Negative Vulnerability):** In the `redundant_copy` case (d=10), we observed $\bar{v} = -1.59$.
     *   Mathematically, $\bar{v} < 0$ implies that the sum of conditional mutual information terms is negative. Since conditional MI must be non-negative, this flags a fundamental estimator inconsistency.
     *   **The Specific Violation:** We observed $I(S_1; T) \approx 0.49$ but $I(S_1, S_2; T) \approx 0.27$.
@@ -167,20 +167,18 @@ We implemented $\bar{r}$ and $\bar{v}$ in Exp0 and observed:
     *   **Root Cause:** The KSG estimator bias scales with dimension. The bias at $d_{joint}=20$ is significantly more negative than at $d_{marginal}=10$, causing the estimated joint MI to collapse below the marginals.
     *   **Action:** Use $\bar{v} < 0$ as a hard "NO-GO" gate. It detects when the "curse of dimensionality" has destroyed the coherence between marginal and joint estimates.
 
-    *   **Action:** Use $\bar{v} < 0$ as a hard "NO-GO" gate. It detects when the "curse of dimensionality" has destroyed the coherence between marginal and joint estimates.
-
 ## Strategic Guide: Where to Use Which Method
 
-Based on Exp0 findings (Negative Vulnerability at $d \ge 10$) and the new Shannon Invariants strategy, use the following selection logic:
+Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `n=500`, `d=10` per source; joint `d=20`) and the Shannon-invariants strategy, use the following selection logic (treat it as a decision aid, not a theorem):
 
 ### 1. The Method Selection Matrix
 
 | Variables | Effective Dimension ($d$) | Geometry | Risk Status | Recommended Method |
 | :--- | :--- | :--- | :--- | :--- |
-| **V, L, D** (Raw) | ~4096 | Any | **Critical Failure** ($\bar{v} < 0$, NaNs) | **NONE** (Must Reduce) |
+| **V, L, D** (Raw) | ~4096 | Any | **High risk** (distance concentration; coherence-gate failures are common) | **Do not interpret atoms**; reduce/quantize or use MI-only screening |
 | **V, L, D** (Reduced) | ~20–64 | Euclidean/Flat | Bias Risk | **Shannon Invariants** ($\bar{r}, \bar{v}$) |
-| **A, Flow, Proprio** | ~3–10 | Euclidean/Flat | Safe / Accurate | **Atomic PID** ($I^{sx}_{\cap}$) |
-| **Manifolds** | Any | Curved | Geometry Mismatch | **Geodesic MI + Invariants** |
+| **A, Flow summaries, Proprio** | single-digit to low‑tens | Euclidean/Flat | Lower risk | **Atomic PID** ($I^{sx}_{\cap}$), only after Exp0 + coherence gates on the exact pipeline |
+| **Manifolds** | Any | Curved | Geometry mismatch (for atoms) | **MI-only invariants** with a geometry-aware MI estimator (research-gated; not implemented here) |
 
 ### 2. Applied V-L-A-D Scenarios
 
@@ -195,9 +193,9 @@ Based on Exp0 findings (Negative Vulnerability at $d \ge 10$) and the new Shanno
     *   **Goal:** If $\bar{r} \approx 1$ (Independent), the Policy is ignoring the Dream state (or V).
 
 *   **Scenario C: "Flow-as-Bridge" (Geometric Escape Hatch)**
-    *   **Sources:** **Flow** (3D motion, $d \approx 3-9$), **Proprio** ($d \approx 7$).
+    *   **Sources:** **Flow summaries** (e.g., object centroid trajectories or principal flow statistics; low‑d by construction), **Proprio** (~7D).
     *   **Method:** **Full Atomic PID ($I^{sx}_{\cap}$)**.
-    *   **Why:** Low dimensionality ($d \le 10$) allows safe, precise decomposition of Synergy/Unique terms.
+    *   **Why:** Lower *effective* dimension makes kNN estimation more plausible — but still require the Exp0 + coherence gates on this exact representation.
 
 ### 3. Manifold & Geometry Selection Guide
 
@@ -205,17 +203,17 @@ When standard Euclidean assumptions fail (distance concentration, hierarchy), se
 
 *   **Euclidean ($\mathbb{R}^n$):**
     *   **Use when:** Data is dense, locally flat, or pre-processed (PCA/Whitening).
-    *   **Valid Estimators:** Standard kNN MI, $I^{sx}_{\cap}$ (if $d \le 10$).
+    *   **Valid Estimators:** Standard kNN MI; continuous $I^{sx}_{\cap}$ only after Experiment 0 + coherence gates pass on the exact preprocessing pipeline (often only at low effective dimension).
 
 *   **Spherical ($\mathbb{S}^n$):**
     *   **Use when:** Embeddings are cosine-similarity based (e.g., CLIP, SigLIP, normalized vectors).
-    *   **Valid Estimators:** **Geodesic kNN MI** (using Great Circle distance).
+    *   **Valid Estimators:** Geometry-aware MI estimation (e.g., geodesic-kNN-style approaches; not implemented in this repo — research-gated).
     *   **Avoid:** $I^{sx}_{\cap}$ (volume intersection is ill-defined).
 
 *   **Hyperbolic / Poincaré ($\mathbb{H}^n$):**
     *   **Use when:** Data exhibits strong **hierarchical structure** (tree-like) or exponential volume expansion (e.g., language hierarchies, entailment cones).
     *   **Diagnostics:** Check $\delta$-hyperbolicity (Gromov product). High $\delta$ (low metric distortion on tree) $\to$ Hyperbolic.
-    *   **Valid Estimators:** **Geodesic kNN MI** (using Poincaré/Lorentz distance).
+    *   **Valid Estimators:** Geometry-aware MI estimation (research-gated; not implemented here).
     *   **Avoid:** $I^{sx}_{\cap}$.
 
 *   **Lorentzian ($\mathbb{L}^n$):**
@@ -223,25 +221,11 @@ When standard Euclidean assumptions fail (distance concentration, hierarchy), se
 
 ### From Ehrlich et al. 2024 (Continuous I^sx_∩)
 
-The paper explicitly states:
-> "We require variables on a comparable scale"
-
-This preprocessing requirement is critical. The exp0 experiment violates this implicitly - the signal dimension has deterministic structure while noise dimensions are pure iid Gaussian. The kNN search doesn't know which dimension matters.
-
-**Key validation from paper**: Table I shows the estimator works well for:
-- Redundant gate: I_∩ = 0.35 (expected 0.35)
-- Copy gate: I_∩ = 0.69 (expected 0.69)
-- Unique gate: I_∩ = 0.00 (expected 0.00)
-
-But these are all **low-dimensional** (d ≤ 3). The paper does not demonstrate high-d performance.
+High-level takeaway (verify details in the paper/official code): the continuous shared-exclusions estimator is a KSG-style kNN construction validated on low-dimensional synthetic systems. It is not evidence of robustness at VLA embedding scales, and it requires careful preprocessing/standardization choices (especially under L∞/Chebyshev geometry).
 
 ### From Kraskov et al. 2004 (KSG Estimator)
 
-Critical quote on estimation properties:
-> "Systematic errors [...] scale roughly as k/N"
-> "Statistical errors scale as 1/√N"
-
-With n=500 samples and k≈6-10 neighbors, systematic bias is ~1-2%. This explains why low-d estimates are accurate.
+High-level takeaway (verify exact statements in the paper): KSG MI exhibits a bias/variance tradeoff as a function of `k` and sample size `N`, and can fail in strong-dependence or high-dimensional regimes.
 
 **The distance concentration problem is fundamental**: In high dimensions, kNN distances become concentrated around the mean, destroying discriminative power. This is mathematical reality, not an implementation bug.
 
@@ -255,7 +239,7 @@ The geometry diagnostics (ID, DCcv, d_rel) are designed to **detect** when the e
 **The escape hatch is H7 ("Flow-as-Bridge")**:
 > "3D Object Flow as Embodiment-Agnostic Integration Diagnostic"
 
-By using 3D flow targets instead of high-d embeddings as the target T, the project sidesteps the curse of dimensionality entirely.
+By using low-dimensional **flow summaries** (and other low‑d physical targets) instead of high‑d embeddings as the target `T`, the project can often avoid the worst high‑d kNN pathologies — but still requires Exp0 + coherence gates on the exact representation.
 
 ---
 
@@ -264,18 +248,18 @@ By using 3D flow targets instead of high-d embeddings as the target T, the proje
 ### Hypothesis 1: Estimators Working Correctly
 **VERDICT: TRUE (with caveat)**
 
-The estimators are mathematically correct and behave exactly as the theory predicts. The near-zero estimates at high-d are not bugs - they reflect the fundamental inability of kNN methods to find signal in high-dimensional noise. The estimators are "working correctly" in the sense that they correctly return "I cannot reliably estimate this."
+The observed behavior is consistent with known kNN-MI pathologies under high ambient/intrinsic dimension: near-zero or unstable estimates can occur even when the true MI is non-zero, because neighborhood geometry is dominated by nuisance dimensions.
 
 **Caveat**: "Working correctly" doesn't mean "returning the true MI." The true MI is non-zero, but the estimators cannot recover it given the geometry.
 
 ### Hypothesis 2: Fundamental kNN Limitations in High-D
-**VERDICT: TRUE (unambiguously)**
+**VERDICT: TRUE (for genuinely high-dimensional/noisy regimes)**
 
-Both papers confirm this. Kraskov 2004 acknowledges the curse of dimensionality. Ehrlich 2024 only validates on low-d examples. The grandplan explicitly states the estimator was "validated on ~100 dimensions" but VLAs use 4096+.
+This failure mode is expected in regimes where data genuinely fills a high-dimensional space, and it is consistent with the qualitative limitations discussed in the kNN-MI literature and with the fact that continuous `I^sx_∩` validation is limited to low-dimensional synthetic systems (see `grandplan.md` for the project’s citation-policy boundaries).
 
 This is not a bug to fix - it's a fundamental limitation of the approach. The response is to:
 1. Use geometry gates to detect failure modes
-2. Use low-d targets (3D flow) when possible
+2. Use low-d targets (flow summaries) when possible
 3. Use supervised dimensionality reduction when high-d sources are unavoidable
 
 ### Hypothesis 3: Projection Should Recover Signal
@@ -294,11 +278,11 @@ The current hash/PCA baselines are the wrong tool for this job.
 
 ## Recommended Actions
 
-1. **DO NOT** modify the estimator - it is working correctly
-2. **DO** proceed with low-d targets (H7 Flow-as-Bridge)
-3. **DO** implement supervised projection if high-d sources are required
-4. **DO** treat geometry gate warnings as authoritative stop signals
-5. **CONSIDER** validating on real VLA data to measure actual intrinsic dimension
+1. **DO NOT** interpret continuous kNN PID atoms outside a validated regime (Exp0 + coherence gates).
+2. **DO** prefer low‑d targets (H7 Flow‑as‑Bridge via flow summaries / physical state) when possible.
+3. **DO** use supervised projections if high‑d sources are required (treat as a new measurement regime; avoid leakage).
+4. **DO** treat geometry/coherence warnings as stop signals for atom-level conclusions.
+5. **CONSIDER** validating on real VLA embeddings to measure intrinsic dimension and distance concentration before committing to a pipeline.
 
 ---
 
@@ -333,5 +317,5 @@ This destroys the discriminative power of nearest-neighbor methods.
 
 ---
 
-*Document created: 2025-01-08*
+*Last updated: 2026-01-18*
 *Based on analysis of exp0.rs and experimental output*

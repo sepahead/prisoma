@@ -11,8 +11,8 @@
 
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** 10.0 (Aligned with `grandplan.md` v10.0)  
-**Date:** 2026-01-05  
+**Version:** 10.1 (Aligned with `grandplan.md` v10.1)  
+**Date:** 2026-01-18  
 **Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, external video predictor / Dream2Flow-style pipeline, and the Agent Bridge control plane) are external or not yet implemented in this repo; treat them as specifications until built.
  
 ---
@@ -621,7 +621,7 @@ class RobotObservation:
  
 ## 3. VLA Model Setup
 
-### 3.1 Model Selection and Staging (v10.0)
+### 3.1 Model Selection and Staging (v10.1)
 
 Follow the risk-reducing sequence in `grandplan.md` §A.6:
 1) estimator gate (Exp0), 2) harness bring-up with `Flow_gt`, 3) small baseline (e.g., SmolVLA), 4) primary VLA target (e.g., OpenVLA), then optional branches (diffusion-based VLAs and predictor-driven `Flow_pred`).
@@ -632,9 +632,9 @@ Follow the risk-reducing sequence in `grandplan.md` §A.6:
 |-------|---------------------|------------------------|-------------------------------------|
 | **OpenVLA** | Primary target for Aim 1/2 | arXiv:2406.09246: Llama‑2 7B + (DINOv2, SigLIP) + ~970k demos | Action representation; exact hook points for `V/L/D`; whether/where to export pre-attention states; licensing + checkpoint provenance |
 | **SmolVLA** | Harness bring-up baseline | (model card/repo; verify) | Backbone, action rep, available intermediate dumps, licensing |
-| **InternVLA‑A1** | Diffusion / flow-matching ablation axis (optional) | Repo + project page describe a tripartite understanding/generation/action design; action generation via “Flow Matching” (verify) | License constraints (repo indicates CC BY‑NC‑SA 4.0); what the generation expert outputs (`D_gen`) and how to export it; action parameterization (“delta actions”); patched Transformers constraints; do not confuse “Flow Matching” (a generative method) with this project’s geometric `Flow_*` variables |
+| **InternVLA‑A1** | Diffusion / flow-matching ablation axis (optional) | Repo + project page describe a tripartite understanding/generation/action design; action generation via “Flow Matching” (verify) | License constraints (verify upstream; may be restrictive); what the generation expert outputs (`D_gen`) and how to export it; action parameterization (“delta actions”); patched Transformers constraints; do not confuse “Flow Matching” (a generative method) with this project’s geometric `Flow_*` variables |
 | **TraceVLA** | Temporal/history axis | arXiv:2412.10345: finetuned OpenVLA; trace-based prompting; 150K trajectories; compact Phi‑3‑Vision variant | How traces are encoded and how to separate “image vs trace” variables in logs |
-| **DreamVLA** | Explicit-`D` ablation axis | arXiv:2507.04447: world-knowledge forecasting + structured attention + diffusion-based transformer policy. **Weights available:** `WenyaoZhang/DreamVLA` (GPT-2 base, 768 hidden dim, Apache 2.0). | Output formats/dims of explicit channels; what is exposed per step; verify dynamic-region/spatial/semantic cue extraction points |
+| **DreamVLA** | Explicit-`D` ablation axis | arXiv:2507.04447: world-knowledge forecasting (dynamic/spatial/semantic cues), block-wise structured attention, and diffusion-based action modeling (abstract; optionally keep a local PDF under `.external/papers/` for offline reading). Code/weights are referenced as `WenyaoZhang/DreamVLA` (verify availability + license at time of use). | Backbone family/dims and exportable tensors; output formats/dims of explicit channels; what is exposed per step; verify dynamic-region/spatial/semantic cue extraction points |
 | **PixelVLA** | Pixel-aligned diagnostics (if integration supports it) | arXiv:2511.01571: pixel-level reasoning + multimodal prompting; Pixel‑160K; reported gains | What variables are exposed (pixel maps vs pooled); API/backbone; dataset access/licensing |
 | **PI “π” series** (`π0`, `π0.5`, `π0.6*`) | Closed-source comparator (optional) | PI vendor papers/blog posts (see `grandplan.md` §7.5 / §13.2). Treat training/perf claims as vendor claims until replicated | Access mode (API vs weights); whether per-step embeddings/hidden states can be exported (required for internal PID); determinism/replay; licensing/ToS constraints |
 
@@ -872,14 +872,21 @@ def generate_synthetic_data(n: int, d: int, scenario: str, noise: float = 0.05):
     return S1, S2, T
 ```
 
-### 4.2 Acceptance Criteria (from grandplan.md §9.1)
-| Dimension            | Max Relative Error | Decision               |
-| -------------------- | ------------------ | ---------------------- |
-| d ≤ 10               | < 5%               | GO                     |
-| d ≤ 100              | < 10%              | GO                     |
-| d ≤ 256              | < 15%              | GO with caution        |
-| d > 256              | < 20%              | PIVOT to dim reduction |
-| d > 256, error > 20% | —                  | NO-GO                  |
+### 4.2 Acceptance Criteria (coherence gates; see `grandplan.md` §9.1.3 and §8.2.3)
+
+Do not hard-code “safe” dimensions or %-error cutoffs. Accept/reject based on **MI-consistency / estimator-coherence** checks on the **exact preprocessing pipeline** you intend to use.
+
+**Primary pass criteria (GO):**
+- No `NaN`/`Inf` in MI / `I^sx_∩` / invariants for the target regime.
+- **Monotonicity:** `I(S₁,S₂;T) ≥ I(S₁;T)` and `I(S₁,S₂;T) ≥ I(S₂;T)`.
+- **CMI nonnegativity (via identities):** `I(S₁;T|S₂)=I(S₁,S₂;T)−I(S₂;T) ≥ 0` and similarly for `I(S₂;T|S₁)`.
+- **Shannon-invariant sanity (Gutknecht et al. 2025):** for `n` sources and nonzero `I(S₁…S_n;T)`, require `0 ≤ \bar{r} ≤ n` and `0 ≤ \bar{v} ≤ n`; treat `\bar{r}` or `\bar{v}` outside these bounds as “estimator incoherence”.
+- **Noise-dimension invariance:** concatenating *independent* noise dimensions must not induce systematic drift (beyond measured uncertainty) relative to the low-d “signal-only” reference.
+
+**Decision rule:**
+- **GO:** coherence gates pass on the intended pipeline; cross-checks vs analytic MI (`Gaussian channel`) and/or `csxpid` agree within measured uncertainty where applicable.
+- **PIVOT:** coherence gates fail on raw/high‑d representations but pass after more aggressive reduction/quantization, or after restricting targets to low‑d bridges (Flow‑as‑Bridge), or after switching to MI-only invariants with a different MI estimator. Proceed only in the validated regime and label it explicitly.
+- **NO-GO (for continuous kNN `I^sx_∩` atoms):** coherence gates fail even in low‑d reference systems / after best-feasible preprocessing, or `csxpid`/analytic MI cross-checks fail → do not interpret continuous kNN-based `I^sx_∩`/atoms for this regime (publish as a limits result; continue only with a different measurement pipeline).
 
 ### 4.3 Running Experiment 0
 Run the implemented Rust Experiment 0 gate (this repo):
@@ -893,6 +900,8 @@ cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv
 ```
 
 **Note:** A larger Python experiment harness is specified in `grandplan.md`/`EXPERIMENTS.md` but is not implemented in this repo yet; avoid citing non-existent scripts as runnable.
+
+**Current results:** See `findings.md` for the latest repo-local Exp0 summary and interpretation notes (treat it as a living report; update it when you rerun Exp0 under new preprocessing/estimators).
 
 ---
  

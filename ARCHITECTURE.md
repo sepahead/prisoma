@@ -442,7 +442,7 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 
 | Phase | Goal | Key Deliverable | Visualization |
 |-------|------|-----------------|---------------|
-| **1** | Validate PID estimators (Experiment 0) | GO/NO-GO gate passed | Rerun (Charts) |
+| **1** | Validate PID estimators (Experiment 0) | Exp0 gate status recorded (GO/PIVOT/NO‑GO) | Rerun (Charts) |
 | **2** | Apply to OpenVLA on LIBERO | Failure signature taxonomy | Rerun (Timeline + Logs) |
 | **3** | Compare DreamVLA vs OpenVLA | World model quality metrics | Rerun (3DGS + Ghost Splats) |
 | **4** | Embodiment transfer via Flow-as-bridge | Cross-robot PID analysis | **Tauri + SparkJS** (Interactive) |
@@ -507,10 +507,10 @@ SmolVLA (LeRobot) is a candidate lightweight baseline (planned integration; veri
 
 InternVLA‑A1 is a candidate **diffusion / flow-matching** VLA for stage-wise ablations because it explicitly separates “understanding”, “generation”, and “action” experts (verify details and interfaces from its paper/repo before use).
 
-### 9.1 Architectural Role in PID‑VLA (Docset v10.0)
+### 9.1 Architectural Role in PID‑VLA (Docset v10.1)
 - **Hierarchical PID inside one model:** treat generation-expert outputs as `D_gen` (a candidate `D_explicit`) and test `(V,L;D_gen)` and `(V,D_gen;A)` under the same data/logging contract as other VLAs.
 - **Flow comparisons:** if `D_gen` yields predicted frames/latents, derive a model-side `Flow_pred` and compare to simulator-derived `Flow_gt` under matched controls (do not conflate “Flow Matching” used to generate actions with this project’s geometric `Flow_*` variables).
-- **License caution:** the repo indicates **CC BY‑NC‑SA 4.0**; treat as non-commercial and avoid vendoring code into this MIT-licensed repo.
+- **License caution:** verify the upstream license/model card before depending on it (may be restrictive); avoid vendoring code into this MIT-licensed repo unless license compatibility is confirmed.
 
 ### 9.2 Integration Notes (Verify)
 - The repo describes patched HuggingFace Transformers modules; isolate integration in a separate service/environment and log the exact revision.

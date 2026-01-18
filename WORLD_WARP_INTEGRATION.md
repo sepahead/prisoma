@@ -5,7 +5,7 @@
 > - `EXPERIMENTS.md` — When/why to treat external world models as staged variables
 > - `DIAGRAMS.md` — Agent Bridge control plane (how services are invoked + logged)
 
-**Docset alignment:** v10.0 (optional external baseline; not implemented in this repo today)
+**Docset alignment:** v10.1 (optional external baseline; not implemented in this repo today)
 **Status:** Specification / integration notes (verify upstream claims at time of use)
 
 ## Overview

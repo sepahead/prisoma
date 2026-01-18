@@ -18,6 +18,12 @@ fmt:
 lint:
     cargo clippy --workspace -- -D warnings
 
+# Docset audits (offline; uses outputs/arxiv_ref_cache.json).
+docs-audit:
+    python scripts/audit_grandplan.py --check-italic-titles
+    python scripts/audit_grandplan_claims.py
+    python scripts/audit_docset_claims.py
+
 # Experiment 0 gate (Rust-side smoke subset).
 # Full Experiment 0 will later be orchestrated via python/experiments/.
 exp0:

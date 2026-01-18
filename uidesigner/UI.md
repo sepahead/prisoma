@@ -1,6 +1,6 @@
-# PID‑VLA UI/UX Specification (Docset v10.0)
+# PID‑VLA UI/UX Specification (Docset v10.1)
 
-This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the v10.0 `README.md` engineering plan.
+This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the v10.1 `README.md` engineering plan.
 
 The UI is **offline‑first** and **agent‑native**:
 - **Offline‑first:** the first usable UI is a **run‑log viewer** (record → replay → analyze) before any live transport.
