@@ -136,7 +136,9 @@ fn bridge_response_payload_hint(method: &str) -> &'static str {
         }
         "sim.step" => r#"{"step": integer, "timestamp_ns": integer, "flow_gt_records": integer}"#,
         "log.start" | "log.stop" => r#"{"run_id": string}"#,
-        "log.replay" => r#"{"trace_hash": string, "events": integer}"#,
+        "log.replay" => {
+            r#"{"trace_hash": string, "events": integer, "valid": boolean, "config_hash": string?}"#
+        }
         "intervention.apply" => r#"{"accepted": boolean}"#,
         "export.rerun" => r#"{"output_uri": string}"#,
         _ => "object",
@@ -557,6 +559,14 @@ mod tests {
             .find(|method| method.method == "sim.status")
             .unwrap();
         assert!(status.safe_mode_allowed);
+        let replay = contract
+            .bridge
+            .methods
+            .iter()
+            .find(|method| method.method == "log.replay")
+            .unwrap();
+        assert!(replay.safe_mode_allowed);
+        assert!(replay.response_payload.contains("trace_hash"));
     }
 
     #[test]

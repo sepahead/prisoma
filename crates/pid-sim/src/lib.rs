@@ -263,6 +263,22 @@ impl BridgeHandler for SimBridgeHandler {
                 self.sim.upsert_object(object);
                 Ok(self.status_json())
             }
+            BridgeMethod::LogReplay => {
+                let run_log_uri = request
+                    .payload
+                    .get("run_log_uri")
+                    .and_then(Value::as_str)
+                    .context("log.replay requires string run_log_uri")?;
+                let summary = pid_runlog::summarize_path(run_log_uri)?;
+                Ok(json!({
+                    "trace_hash": summary.trace_hash,
+                    "events": summary.event_count,
+                    "valid": summary.validation_errors == 0,
+                    "validation_errors": summary.validation_errors,
+                    "validation_warnings": summary.validation_warnings,
+                    "config_hash": summary.config_hash,
+                }))
+            }
             _ => bail!("unsupported sim bridge method: {}", request.method.as_str()),
         }
     }
@@ -321,6 +337,9 @@ impl<W: Write> SimBridgeSession<W> {
             );
             self.bridge.record_response(&response)?;
             return Ok(response);
+        }
+        if request.method == BridgeMethod::LogReplay {
+            self.bridge.flush()?;
         }
         let handled = self.handler.handle(request);
         let response = match handled {
@@ -773,7 +792,10 @@ pub fn demo_sim() -> DeterministicObjectSim {
 mod tests {
     use super::*;
     use pid_bridge::{BridgeMethod, BridgeRpcResponse};
-    use pid_runlog::{read_events, replay_events, ActorType, RunLogWriter};
+    use pid_runlog::{
+        canonical_json_hash, read_events, replay_events, ActorType, RunLogEvent, RunLogWriter,
+        RunStatus, RUN_LOG_SCHEMA_VERSION,
+    };
     use serde_json::json;
     use std::io::Cursor;
 
@@ -877,6 +899,73 @@ mod tests {
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.actions.len(), 0);
         assert_eq!(state.sim_snapshots, 0);
+    }
+
+    #[test]
+    fn bridge_session_safe_mode_allows_log_replay() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pid-sim-log-replay-{stamp}.jsonl"));
+        let config = json!({ "test": "log_replay" });
+        let config_hash = canonical_json_hash(&config).unwrap();
+        let mut replay_writer = RunLogWriter::create(&path).unwrap();
+        replay_writer
+            .append(&RunLogEvent::RunStarted {
+                schema_version: RUN_LOG_SCHEMA_VERSION,
+                run_id: "replay-source".to_string(),
+                timestamp_ns: 0,
+                config_hash: config_hash.clone(),
+                metadata: BTreeMap::new(),
+            })
+            .unwrap();
+        replay_writer
+            .append(&RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash,
+                config,
+            })
+            .unwrap();
+        replay_writer
+            .append(&RunLogEvent::RunEnded {
+                run_id: "replay-source".to_string(),
+                timestamp_ns: 1,
+                status: RunStatus::Succeeded,
+                message: None,
+            })
+            .unwrap();
+        replay_writer.flush().unwrap();
+
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-safe-replay-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        let request = bridge_request(
+            "req-log-replay",
+            BridgeMethod::LogReplay,
+            actor,
+            Some(0),
+            0,
+            json!({ "run_log_uri": path.display().to_string() }),
+        );
+        let response = session.dispatch(&request).unwrap();
+        assert!(response.ok, "{:?}", response.message);
+        let result = response.result.unwrap();
+        assert_eq!(result["events"], 3);
+        assert_eq!(result["valid"], true);
+        assert_eq!(result["validation_errors"], 0);
+        assert_eq!(result["trace_hash"].as_str().unwrap().len(), 64);
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events);
+        assert_eq!(state.bridge_records.len(), 2);
+        assert_eq!(state.actions.len(), 0);
+
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]

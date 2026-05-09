@@ -16,7 +16,11 @@ fn main() -> Result<()> {
         let right_hash = pid_runlog::canonical_json_hash(&right)?;
         println!("left_trace_hash={left_hash}");
         println!("right_trace_hash={right_hash}");
-        println!("match={}", left_hash == right_hash);
+        let matches = left_hash == right_hash;
+        println!("match={matches}");
+        if !matches {
+            std::process::exit(1);
+        }
         return Ok(());
     }
 
@@ -79,6 +83,9 @@ fn main() -> Result<()> {
     println!("trace_hash={trace_hash}");
     if let Some(run_id) = &state.run_id {
         println!("run_id={run_id}");
+    }
+    if let Some(config_hash) = &state.config_hash {
+        println!("config_hash={config_hash}");
     }
     if let Some(step) = state.last_step {
         println!("last_step={step}");

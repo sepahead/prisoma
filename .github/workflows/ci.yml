@@ -35,7 +35,11 @@ jobs:
           cargo run -p pid-rerun --bin runlog-to-rerun -- /tmp/pid_vla_bridge_demo.jsonl --save /tmp/pid_vla_bridge_demo.rrd
           printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- /tmp/pid_vla_bridge_stdio.jsonl
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_stdio.jsonl
-          printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode /tmp/pid_vla_bridge_stdio_safe.jsonl
+          SAFE_OUT="$(mktemp)"
+          printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"replay","method":"log.replay","params":{"run_log_uri":"/tmp/pid_vla_bridge_demo.jsonl"}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode /tmp/pid_vla_bridge_stdio_safe.jsonl | tee "$SAFE_OUT"
+          grep -q '"id":"replay"' "$SAFE_OUT"
+          grep -q '"trace_hash"' "$SAFE_OUT"
+          grep -q 'bridge safe mode blocked method sim.step' "$SAFE_OUT"
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_stdio_safe.jsonl
 
   docs:

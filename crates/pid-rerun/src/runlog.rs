@@ -349,6 +349,7 @@ mod tests {
         let manifest = RunManifest {
             schema_version: RUN_LOG_SCHEMA_VERSION,
             run_id: summary.run_id.clone(),
+            config_hash: summary.config_hash.clone(),
             run_log_uri: "memory://rerun-run.jsonl".to_string(),
             run_log_sha256: Some("abc".to_string()),
             trace_hash: summary.trace_hash.clone(),

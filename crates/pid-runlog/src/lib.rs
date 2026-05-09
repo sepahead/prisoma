@@ -41,7 +41,7 @@ pub const RUN_LOG_VALIDATION_RULES: &[&str] = &[
     "timestamps are nondecreasing",
     "steps are nondecreasing",
     "run_id is nonempty and consistent",
-    "config_hash values match canonical config JSON when config is logged",
+    "config_hash values match canonical config JSON and run_started when config is logged",
     "payload_hash values match canonical payload JSON",
     "bridge request_id values are nonempty and unique",
     "bridge responses refer to existing requests",
@@ -714,6 +714,7 @@ impl ValidationReport {
 pub struct RunLogSummary {
     pub schema_version: Option<u32>,
     pub run_id: Option<String>,
+    pub config_hash: Option<String>,
     pub status: Option<RunStatus>,
     pub event_count: usize,
     pub trace_hash: String,
@@ -750,6 +751,7 @@ pub struct ArtifactManifestEntry {
 pub struct RunManifest {
     pub schema_version: u32,
     pub run_id: Option<String>,
+    pub config_hash: Option<String>,
     pub run_log_uri: String,
     pub run_log_sha256: Option<String>,
     pub trace_hash: String,
@@ -788,6 +790,8 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
     let mut ends = 0usize;
     let mut last_timestamp = None;
     let mut last_step = None;
+    let mut run_started_config_hash: Option<(usize, String)> = None;
+    let mut config_logged_hashes: Vec<(usize, String)> = Vec::new();
     let mut bridge_requests = BTreeSet::new();
     let mut bridge_responses = BTreeSet::new();
 
@@ -828,6 +832,8 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
                 }
                 if config_hash.is_empty() {
                     report.warning(Some(idx), "config_hash is empty");
+                } else {
+                    run_started_config_hash = Some((idx, config_hash.clone()));
                 }
                 run_id = Some(id);
             }
@@ -960,6 +966,7 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
                     report.warning(Some(idx), "config_hash is empty");
                 } else {
                     validate_config_hash(&mut report, idx, config_hash, config);
+                    config_logged_hashes.push((idx, config_hash.clone()));
                 }
             }
             RunLogEvent::FrameObserved { .. } | RunLogEvent::ErrorLogged { .. } => {}
@@ -990,6 +997,16 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
             format!("bridge request without response: {request_id}"),
         );
     }
+    if let Some((_, started_hash)) = &run_started_config_hash {
+        for (idx, logged_hash) in &config_logged_hashes {
+            if logged_hash != started_hash {
+                report.error(
+                    Some(*idx),
+                    "config_logged config_hash does not match run_started",
+                );
+            }
+        }
+    }
 
     report
 }
@@ -1005,6 +1022,7 @@ pub fn summarize_events(events: &[RunLogEvent]) -> Result<RunLogSummary> {
     Ok(RunLogSummary {
         schema_version: state.schema_version,
         run_id: state.run_id,
+        config_hash: state.config_hash,
         status: state.status,
         event_count: state.events_seen,
         trace_hash,
@@ -1041,6 +1059,7 @@ pub fn manifest_for_events(path: impl AsRef<Path>, events: &[RunLogEvent]) -> Re
     Ok(RunManifest {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: summary.run_id,
+        config_hash: summary.config_hash,
         run_log_uri: path.display().to_string(),
         run_log_sha256: Some(sha256_file(path)?),
         trace_hash: summary.trace_hash,
@@ -1506,6 +1525,38 @@ mod tests {
     }
 
     #[test]
+    fn validation_catches_config_hash_mismatch_with_run_started() {
+        let config = json!({ "dt": 0.1 });
+        let config_hash = canonical_json_hash(&config).unwrap();
+        let events = vec![
+            RunLogEvent::RunStarted {
+                schema_version: RUN_LOG_SCHEMA_VERSION,
+                run_id: "run-1".to_string(),
+                timestamp_ns: 1,
+                config_hash: "different".to_string(),
+                metadata: BTreeMap::new(),
+            },
+            RunLogEvent::ConfigLogged {
+                timestamp_ns: 1,
+                config_hash,
+                config,
+            },
+            RunLogEvent::RunEnded {
+                run_id: "run-1".to_string(),
+                timestamp_ns: 2,
+                status: RunStatus::Failed,
+                message: None,
+            },
+        ];
+        let report = validate_events(&events);
+        assert!(!report.is_valid());
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("does not match run_started")));
+    }
+
+    #[test]
     fn validation_catches_bad_label() {
         let mut events = sample_events();
         if let RunLogEvent::LabelObserved { name, value, .. } = &mut events[9] {
@@ -1560,6 +1611,7 @@ mod tests {
         let events = sample_events();
         let summary = summarize_events(&events).unwrap();
         assert_eq!(summary.run_id.as_deref(), Some("run-1"));
+        assert_eq!(summary.config_hash.as_deref(), Some("cfg"));
         assert_eq!(summary.validation_errors, 0);
         assert_eq!(summary.evaluation_metrics, 1);
         assert_eq!(summary.labels, 1);
@@ -1658,6 +1710,7 @@ mod tests {
         assert_eq!(summary.run_id.as_deref(), Some("run-1"));
         assert_eq!(manifest.event_count, summary.event_count);
         assert_eq!(manifest.trace_hash, summary.trace_hash);
+        assert_eq!(manifest.config_hash, summary.config_hash);
 
         let _ = std::fs::remove_file(path);
         let _ = std::fs::remove_file(paths.validation);

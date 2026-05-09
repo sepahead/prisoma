@@ -100,7 +100,7 @@ If you don’t have `just`: run `cargo run -p pid-sim --bin pid-sim-demo -- outp
 
 Build order + acceptance criteria are in `grandplan.md` §A.7 (M0–M8): run logs + replay → Agent Bridge → minimal sim + `Flow_gt` → Rerun-based viewer → embedding harness → optional live transport/predictors → optional GauSS‑MI uncertainty + view selection.
 Note: Custom Tauri+SparkJS UI is deferred to Phase 4.
-If you use an external simulator backend (Isaac/MuJoCo/etc.), treat it as an adapter that still emits the canonical run log, logs backend/solver config via `config_logged`, and is controlled via the Agent Bridge surface.
+If you use an external simulator backend (Isaac/MuJoCo/etc.), treat it as an adapter that still emits the canonical run log, logs backend/solver config via `config_logged`, and is controlled via the Agent Bridge surface. Replay/provenance gates validate `run_started`/`config_logged` config-hash consistency, expose the surviving `config_hash` in summary/manifest sidecars, and allow read-only `log.replay` in bridge safe mode.
 
 ## Docset-Wide Final Solution
 
