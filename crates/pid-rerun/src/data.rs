@@ -5,6 +5,7 @@
 //! - Open X-Embodiment (RLDS/TFRecord)
 //! - Simple JSON/numpy for testing
 
+use anyhow::{bail, Result};
 use ndarray::{Array1, Array2};
 use serde::{Deserialize, Serialize};
 
@@ -74,6 +75,36 @@ impl VlaEpisode {
         self.frames.push(frame);
     }
 
+    pub fn validate_shapes(&self) -> Result<()> {
+        if self.frames.is_empty() {
+            return Ok(());
+        }
+        let vision_dim = self.frames[0].vision_embedding.len();
+        let action_dim = self.frames[0].action.len();
+        for (idx, frame) in self.frames.iter().enumerate() {
+            if !frame.timestamp.is_finite() {
+                bail!("frame {idx}: timestamp must be finite");
+            }
+            if frame.vision_embedding.len() != vision_dim {
+                bail!("frame {idx}: inconsistent vision embedding dimension");
+            }
+            if frame.action.len() != action_dim {
+                bail!("frame {idx}: inconsistent action dimension");
+            }
+            if let Some(language) = &frame.language_embedding {
+                if language.is_empty() {
+                    bail!("frame {idx}: language embedding must not be empty when present");
+                }
+            }
+            if let Some(positions) = &frame.object_positions {
+                if positions.ncols() != 3 {
+                    bail!("frame {idx}: object positions must have shape [n_objects, 3]");
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Get the duration of the episode in seconds.
     pub fn duration(&self) -> f64 {
         if self.frames.is_empty() {
@@ -93,7 +124,10 @@ impl VlaEpisode {
         let d = self.frames[0].vision_embedding.len();
         let mut arr = Array2::zeros((n, d));
         for (i, frame) in self.frames.iter().enumerate() {
-            arr.row_mut(i).assign(&frame.vision_embedding);
+            let width = d.min(frame.vision_embedding.len());
+            for j in 0..width {
+                arr[(i, j)] = frame.vision_embedding[j];
+            }
         }
         arr
     }
@@ -107,7 +141,10 @@ impl VlaEpisode {
         let d = self.frames[0].action.len();
         let mut arr = Array2::zeros((n, d));
         for (i, frame) in self.frames.iter().enumerate() {
-            arr.row_mut(i).assign(&frame.action);
+            let width = d.min(frame.action.len());
+            for j in 0..width {
+                arr[(i, j)] = frame.action[j];
+            }
         }
         arr
     }
@@ -135,7 +172,10 @@ pub fn generate_synthetic_episode(
         ((state >> 33) as f64) / (u32::MAX as f64) * 2.0 - 1.0
     };
 
-    let mut episode = VlaEpisode::new("synthetic_001", "pick up the red cube and place it in the bowl");
+    let mut episode = VlaEpisode::new(
+        "synthetic_001",
+        "pick up the red cube and place it in the bowl",
+    );
     episode.metadata.robot_type = Some("franka_panda".into());
     episode.metadata.task_name = Some("pick_and_place".into());
     episode.metadata.embedding_model = Some("dinov2_vitb14".into());
@@ -173,7 +213,14 @@ pub fn generate_synthetic_episode(
 
         let object_positions = Array2::from_shape_vec(
             (2, 3),
-            vec![cube_x, cube_y, cube_z, bowl_pos[0], bowl_pos[1], bowl_pos[2]],
+            vec![
+                cube_x,
+                cube_y,
+                cube_z,
+                bowl_pos[0],
+                bowl_pos[1],
+                bowl_pos[2],
+            ],
         )
         .unwrap();
 

@@ -4,16 +4,19 @@ use pid_core::{
     ksg_mi, ksg_mi_concat_xy, DistanceConcentrationConfig, HashProjector, IntrinsicDimConfig,
     IsxConfig, IsxMethod, KsgConfig, MatRef, Metric, NegativeHandling, PcaProjector, Standardizer,
 };
+use std::fs::File;
 use std::io::{self, Write};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct Args {
     csv: bool,
+    seeds: usize,
+    summary_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
 struct CaseCommon<'a> {
-    args: Args,
+    csv: bool,
     n: usize,
     ksg_cfg: &'a KsgConfig,
     hash_project_to: Option<usize>,
@@ -85,22 +88,144 @@ fn main() {
 
 fn parse_args() -> Result<Option<Args>, String> {
     let mut csv = false;
-    for arg in std::env::args().skip(1) {
+    let mut seeds = 3usize;
+    let mut summary_json = None;
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "--csv" => csv = true,
+            "--seeds" => {
+                let raw = args
+                    .next()
+                    .ok_or_else(|| "--seeds requires a positive integer".to_string())?;
+                seeds = raw
+                    .parse::<usize>()
+                    .map_err(|_| "--seeds requires a positive integer".to_string())?;
+                if seeds == 0 {
+                    return Err("--seeds requires a positive integer".to_string());
+                }
+            }
+            "--summary-json" => {
+                summary_json = Some(
+                    args.next()
+                        .ok_or_else(|| "--summary-json requires a path".to_string())?,
+                );
+            }
             "--help" | "-h" => return Ok(None),
             other => return Err(format!("unknown argument: {other}")),
         }
     }
-    Ok(Some(Args { csv }))
+    Ok(Some(Args {
+        csv,
+        seeds,
+        summary_json,
+    }))
 }
 
 fn print_usage(out: &mut dyn Write) -> io::Result<()> {
-    writeln!(out, "Usage: exp0 [--csv]")?;
+    writeln!(out, "Usage: exp0 [--csv] [--seeds N] [--summary-json PATH]")?;
     writeln!(out)?;
     writeln!(out, "  --csv   Emit machine-readable CSV (two tables).")?;
+    writeln!(
+        out,
+        "  --seeds N   Run N deterministic seeds per case (default: 3)."
+    )?;
+    writeln!(
+        out,
+        "  --summary-json PATH   Write gate summary metadata as JSON."
+    )?;
     writeln!(out, "  -h, --help   Show this help.")?;
     Ok(())
+}
+
+fn make_seeds(n: usize) -> Vec<u64> {
+    (0..n)
+        .map(|i| 42u64.wrapping_add((i as u64).wrapping_mul(1_000_003)))
+        .collect()
+}
+
+fn write_summary_json(
+    path: &str,
+    gates: &GateSummary,
+    n: usize,
+    k: usize,
+    dims: &[usize],
+    seeds: &[u64],
+    hash_project_to: Option<usize>,
+) -> io::Result<()> {
+    let mut file = File::create(path)?;
+    let config_hash = config_hash(n, k, dims, seeds, hash_project_to);
+    writeln!(file, "{{")?;
+    writeln!(file, "  \"config_hash\": \"{config_hash:016x}\",")?;
+    writeln!(file, "  \"n\": {n},")?;
+    writeln!(file, "  \"k\": {k},")?;
+    writeln!(file, "  \"dims\": {},", json_usize_array(dims))?;
+    writeln!(file, "  \"seeds\": {},", json_u64_array(seeds))?;
+    match hash_project_to {
+        Some(v) => writeln!(file, "  \"hash_project_to\": {v},")?,
+        None => writeln!(file, "  \"hash_project_to\": null,")?,
+    }
+    writeln!(file, "  \"case_results\": {},", gates.case_results)?;
+    writeln!(file, "  \"red_zero_checks\": {},", gates.red_zero_checks)?;
+    writeln!(file, "  \"red_zero_passes\": {},", gates.red_zero_passes)?;
+    writeln!(
+        file,
+        "  \"monotonicity_violations\": {},",
+        gates.monotonicity_violations
+    )?;
+    writeln!(file, "  \"cmi_violations\": {},", gates.cmi_violations)?;
+    writeln!(
+        file,
+        "  \"invariant_violations\": {},",
+        gates.invariant_violations
+    )?;
+    writeln!(
+        file,
+        "  \"geometry_warnings\": {},",
+        gates.geometry_warnings
+    )?;
+    writeln!(file, "  \"status\": \"{}\"", gates.status())?;
+    writeln!(file, "}}")?;
+    Ok(())
+}
+
+fn json_usize_array(values: &[usize]) -> String {
+    let parts: Vec<String> = values.iter().map(|v| v.to_string()).collect();
+    format!("[{}]", parts.join(","))
+}
+
+fn json_u64_array(values: &[u64]) -> String {
+    let parts: Vec<String> = values.iter().map(|v| v.to_string()).collect();
+    format!("[{}]", parts.join(","))
+}
+
+fn config_hash(
+    n: usize,
+    k: usize,
+    dims: &[usize],
+    seeds: &[u64],
+    hash_project_to: Option<usize>,
+) -> u64 {
+    let mut h = 0xcbf2_9ce4_8422_2325u64;
+    mix_u64(&mut h, n as u64);
+    mix_u64(&mut h, k as u64);
+    mix_u64(&mut h, dims.len() as u64);
+    for &d in dims {
+        mix_u64(&mut h, d as u64);
+    }
+    mix_u64(&mut h, seeds.len() as u64);
+    for &seed in seeds {
+        mix_u64(&mut h, seed);
+    }
+    mix_u64(&mut h, hash_project_to.map_or(u64::MAX, |v| v as u64));
+    h
+}
+
+fn mix_u64(h: &mut u64, value: u64) {
+    for byte in value.to_le_bytes() {
+        *h ^= byte as u64;
+        *h = h.wrapping_mul(0x0000_0100_0000_01B3);
+    }
 }
 
 fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
@@ -113,6 +238,7 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
     let k = 3usize;
     let dims = [10usize, 64, 256];
     let hash_project_to = Some(64usize);
+    let seeds = make_seeds(args.seeds);
 
     let ksg_cfg = KsgConfig {
         k,
@@ -125,7 +251,7 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
         write_case_csv_header(out)?;
     } else {
         writeln!(out, "Experiment 0 (Rust quick run)")?;
-        writeln!(out, "n={n}, k={k}, dims={dims:?}")?;
+        writeln!(out, "n={n}, k={k}, dims={dims:?}, seeds={seeds:?}")?;
         writeln!(
             out,
             "project_to={hash_project_to:?} (projection baselines: hash + PCA; S1,S2 only)"
@@ -133,69 +259,47 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
         writeln!(out)?;
     }
 
-    let mut passes = 0;
-    let mut total = 0;
-    let mut geom_warnings = 0;
+    let mut gates = GateSummary::default();
 
     let common = CaseCommon {
-        args,
+        csv: args.csv,
         n,
         ksg_cfg: &ksg_cfg,
         hash_project_to,
     };
     for d in dims {
-        for name in ["independent_additive", "redundant_copy", "unique_s1", "xor_like"] {
-            let res = run_case(
-                out,
-                common,
-                CaseSpec {
-                    name,
-                    d,
-                    seed: 42,
-                },
-            )?;
-
-            // Simple heuristic check for Independent Additive case (True MI is small but non-zero).
-            // For Redundant Copy, Red should be large.
-            // For Exp0 validation, we want to know if it's "plausible".
-            if name == "independent_additive" {
-                total += 1;
-                let rel_err = (res.metrics.red_ehrlich).abs(); // Ideally 0
-                let threshold = if d <= 10 { 0.1 } else if d <= 100 { 0.2 } else { 0.3 };
-                if rel_err < threshold {
-                    passes += 1;
-                }
-
-                // Check geometry warnings on the independent additive case as a proxy for the dimension
-                let dr_s1 = 2.0 * res.diag.gromov_s1 / res.diag.diam_s1;
-                if res.diag.id_s1 > 20.0 || res.diag.dc_cv_s1 < 0.1 || dr_s1 < 0.1 {
-                    geom_warnings += 1;
-                }
+        for &seed in &seeds {
+            for name in [
+                "independent_additive",
+                "redundant_copy",
+                "unique_s1",
+                "xor_like",
+            ] {
+                let res = run_case(out, common, CaseSpec { name, d, seed })?;
+                gates.observe_case(name, d, res.metrics, res.diag);
+            }
+            if !common.csv {
+                writeln!(out)?;
             }
         }
-        if !common.args.csv {
+        if !common.csv {
             writeln!(out)?;
         }
     }
 
-    if common.args.csv {
+    if common.csv {
         writeln!(out)?;
         write_gaussian_csv_header(out)?;
     }
-    run_gaussian_channel_strong_dependence_sweep(out, common.args, 900, &ksg_cfg, 0x51A7_2026)?;
+    run_gaussian_channel_strong_dependence_sweep(out, common.csv, 900, &ksg_cfg, 0x51A7_2026)?;
 
     if !args.csv {
         writeln!(out, "--- Experiment 0 Summary ---")?;
-        writeln!(out, "Passes (Independent Additive Zero-Redundancy check): {}/{}", passes, total)?;
-        writeln!(out, "Geometry Warnings: {}/{}", geom_warnings, dims.len())?;
-        let status = if passes == total && geom_warnings == 0 {
-            "GO"
-        } else if passes as f64 / total as f64 > 0.5 {
-            "PIVOT (High-d instability or geometry risks detected)"
-        } else {
-            "NO-GO"
-        };
-        writeln!(out, "Status: {}", status)?;
+        gates.print(out)?;
+    }
+
+    if let Some(path) = args.summary_json.as_deref() {
+        write_summary_json(path, &gates, n, k, &dims, &seeds, hash_project_to)?;
     }
 
     Ok(())
@@ -234,12 +338,13 @@ fn run_case(
         common.ksg_cfg.metric,
     );
 
-    if common.args.csv {
+    if common.csv {
         write_case_csv_row(
             out,
             common.ksg_cfg,
             CaseCsvRow {
                 name: spec.name,
+                seed: spec.seed,
                 projection: ProjectionMethod::None,
                 d,
                 n,
@@ -249,7 +354,7 @@ fn run_case(
             },
         )?;
     } else {
-        print_metrics(out, spec.name, d, baseline)?;
+        print_metrics(out, spec.name, d, spec.seed, baseline)?;
         print_intrinsic_dims(out, diag)?;
     }
 
@@ -274,12 +379,13 @@ fn run_case(
                 common.ksg_cfg.metric,
             );
             let case_name = format!("{}_hashproj", spec.name);
-            if common.args.csv {
+            if common.csv {
                 write_case_csv_row(
                     out,
                     common.ksg_cfg,
                     CaseCsvRow {
                         name: &case_name,
+                        seed: spec.seed,
                         projection: ProjectionMethod::Hash,
                         d: dout,
                         n,
@@ -289,7 +395,7 @@ fn run_case(
                     },
                 )?;
             } else {
-                print_metrics(out, &case_name, dout, projected)?;
+                print_metrics(out, &case_name, dout, spec.seed, projected)?;
                 print_intrinsic_dims(out, diag_p)?;
             }
 
@@ -310,12 +416,13 @@ fn run_case(
                 common.ksg_cfg.metric,
             );
             let case_name = format!("{}_pca", spec.name);
-            if common.args.csv {
+            if common.csv {
                 write_case_csv_row(
                     out,
                     common.ksg_cfg,
                     CaseCsvRow {
                         name: &case_name,
+                        seed: spec.seed,
                         projection: ProjectionMethod::Pca,
                         d: dout,
                         n,
@@ -325,7 +432,7 @@ fn run_case(
                     },
                 )?;
             } else {
-                print_metrics(out, &case_name, dout, projected)?;
+                print_metrics(out, &case_name, dout, spec.seed, projected)?;
                 print_intrinsic_dims(out, diag_p)?;
             }
         }
@@ -444,10 +551,10 @@ fn print_intrinsic_dims(out: &mut dyn Write, d: Diagnostics) -> io::Result<()> {
         d.dc_nnr_s12
     )?;
 
-    let dr_s1 = 2.0 * d.gromov_s1 / d.diam_s1;
-    let dr_s2 = 2.0 * d.gromov_s2 / d.diam_s2;
-    let dr_s12 = 2.0 * d.gromov_s12 / d.diam_s12;
-    let dr_t = 2.0 * d.gromov_t / d.diam_t;
+    let dr_s1 = relative_delta(d.gromov_s1, d.diam_s1);
+    let dr_s2 = relative_delta(d.gromov_s2, d.diam_s2);
+    let dr_s12 = relative_delta(d.gromov_s12, d.diam_s12);
+    let dr_t = relative_delta(d.gromov_t, d.diam_t);
 
     writeln!(
         out,
@@ -459,7 +566,7 @@ fn print_intrinsic_dims(out: &mut dyn Write, d: Diagnostics) -> io::Result<()> {
 
 fn run_gaussian_channel_strong_dependence_sweep(
     out: &mut dyn Write,
-    args: Args,
+    csv: bool,
     n: usize,
     ksg_cfg: &KsgConfig,
     seed: u64,
@@ -480,7 +587,7 @@ fn run_gaussian_channel_strong_dependence_sweep(
     let xref = MatRef::new(&x, n, 1)?;
     let (xstd, _) = Standardizer::fit_transform(xref)?;
 
-    if !args.csv {
+    if !csv {
         writeln!(out, "Strong-dependence sweep (Gaussian channel, 1D)")?;
         writeln!(out, "n={n}, k={}, metric={:?}", ksg_cfg.k, ksg_cfg.metric)?;
     }
@@ -495,7 +602,7 @@ fn run_gaussian_channel_strong_dependence_sweep(
 
         let mi_hat = ksg_mi(xstd.as_ref(), ystd.as_ref(), ksg_cfg)?;
         let mi_true = gaussian_channel_mi(sigma);
-        if args.csv {
+        if csv {
             write_gaussian_csv_row(out, sigma, n, ksg_cfg, mi_hat, mi_true)?;
         } else {
             writeln!(
@@ -508,7 +615,7 @@ fn run_gaussian_channel_strong_dependence_sweep(
             )?;
         }
     }
-    if !args.csv {
+    if !csv {
         writeln!(out)?;
     }
     Ok(())
@@ -532,6 +639,121 @@ struct Metrics {
     red_local_min: f64,
     red_disjunction: f64,
     syn_ehrlich: f64,
+}
+
+#[derive(Debug, Default, Clone)]
+struct GateSummary {
+    case_results: usize,
+    red_zero_checks: usize,
+    red_zero_passes: usize,
+    monotonicity_violations: usize,
+    cmi_violations: usize,
+    invariant_violations: usize,
+    geometry_warnings: usize,
+}
+
+impl GateSummary {
+    fn observe_case(&mut self, name: &str, d: usize, metrics: Metrics, diag: Diagnostics) {
+        const TOL: f64 = 1e-9;
+        self.case_results += 1;
+
+        if metrics.mi_s1s2_t + TOL < metrics.mi_s1_t {
+            self.monotonicity_violations += 1;
+        }
+        if metrics.mi_s1s2_t + TOL < metrics.mi_s2_t {
+            self.monotonicity_violations += 1;
+        }
+
+        if metrics.mi_s1s2_t - metrics.mi_s2_t < -TOL {
+            self.cmi_violations += 1;
+        }
+        if metrics.mi_s1s2_t - metrics.mi_s1_t < -TOL {
+            self.cmi_violations += 1;
+        }
+
+        if !bounded_degree(metrics.r_bar, 0.0, 2.0, TOL)
+            || !bounded_degree(metrics.v_bar, 0.0, 2.0, TOL)
+        {
+            self.invariant_violations += 1;
+        }
+
+        if name == "independent_additive" {
+            self.red_zero_checks += 1;
+            if metrics.red_ehrlich.abs() < red_zero_threshold(d) {
+                self.red_zero_passes += 1;
+            }
+            let dr_s1 = relative_delta(diag.gromov_s1, diag.diam_s1);
+            if diag.id_s1 > 20.0 || diag.dc_cv_s1 < 0.1 || dr_s1 < 0.1 {
+                self.geometry_warnings += 1;
+            }
+        }
+    }
+
+    fn status(&self) -> &'static str {
+        if self.case_results == 0 {
+            return "NO-GO";
+        }
+        if self.monotonicity_violations == 0
+            && self.cmi_violations == 0
+            && self.invariant_violations == 0
+            && self.geometry_warnings == 0
+            && self.red_zero_checks == self.red_zero_passes
+        {
+            "GO"
+        } else if self.red_zero_checks > 0
+            && self.red_zero_passes * 2 >= self.red_zero_checks
+            && self.invariant_violations == 0
+        {
+            "PIVOT"
+        } else {
+            "NO-GO"
+        }
+    }
+
+    fn print(&self, out: &mut dyn Write) -> io::Result<()> {
+        writeln!(
+            out,
+            "Passes (Independent Additive Zero-Redundancy check): {}/{}",
+            self.red_zero_passes, self.red_zero_checks
+        )?;
+        writeln!(out, "Case Results: {}", self.case_results)?;
+        writeln!(out, "Geometry Warnings: {}", self.geometry_warnings)?;
+        writeln!(
+            out,
+            "Monotonicity Violations: {}",
+            self.monotonicity_violations
+        )?;
+        writeln!(out, "CMI Nonnegativity Violations: {}", self.cmi_violations)?;
+        writeln!(
+            out,
+            "Invariant Bound Violations: {}",
+            self.invariant_violations
+        )?;
+        writeln!(out, "Status: {}", self.status())?;
+        Ok(())
+    }
+}
+
+fn bounded_degree(value: f64, lo: f64, hi: f64, tol: f64) -> bool {
+    value.is_finite() && value >= lo - tol && value <= hi + tol
+}
+
+fn red_zero_threshold(d: usize) -> f64 {
+    if d <= 10 {
+        0.1
+    } else if d <= 100 {
+        0.2
+    } else {
+        0.3
+    }
+}
+
+fn relative_delta(delta: f64, diameter: f64) -> f64 {
+    if delta.is_finite() && diameter.is_finite() && diameter > 0.0 {
+        2.0 * delta / diameter
+    } else {
+        f64::NAN
+    }
 }
 
 fn compute_metrics(
@@ -599,10 +821,16 @@ fn compute_metrics(
     })
 }
 
-fn print_metrics(out: &mut dyn Write, name: &str, d: usize, m: Metrics) -> io::Result<()> {
+fn print_metrics(
+    out: &mut dyn Write,
+    name: &str,
+    d: usize,
+    seed: u64,
+    m: Metrics,
+) -> io::Result<()> {
     writeln!(
         out,
-        "{name:>20} d={d:<4} | I1={:>7.3} I2={:>7.3} I12={:>7.3} CI={:>7.3} | r_bar={:>5.2} v_bar={:>5.2} | Red(ehr)={:>7.3} Syn(ehr)={:>7.3} | Red(disj)={:>7.3}",
+        "{name:>20} d={d:<4} seed={seed:<10} | I1={:>7.3} I2={:>7.3} I12={:>7.3} CI={:>7.3} | r_bar={:>5.2} v_bar={:>5.2} | Red(ehr)={:>7.3} Syn(ehr)={:>7.3} | Red(disj)={:>7.3}",
         m.mi_s1_t,
         m.mi_s2_t,
         m.mi_s1s2_t,
@@ -619,7 +847,7 @@ fn print_metrics(out: &mut dyn Write, name: &str, d: usize, m: Metrics) -> io::R
 fn write_case_csv_header(out: &mut dyn Write) -> io::Result<()> {
     writeln!(
         out,
-        "case_name,projection,d,n,k,metric,project_to,mi_s1_t,mi_s2_t,mi_s1s2_t,ci,r_bar,v_bar,red_ehrlich,red_local_min,red_disjunction,syn_ehrlich,id_s1,id_s2,id_t,id_s12,dc_cv_s1,dc_nnratio_s1,dc_cv_s2,dc_nnratio_s2,dc_cv_s12,dc_nnratio_s12,gromov_s1,gromov_s2,gromov_s12,gromov_t,dr_s1,dr_s2,dr_s12,dr_t"
+        "case_name,seed,projection,d,n,k,metric,project_to,mi_s1_t,mi_s2_t,mi_s1s2_t,ci,r_bar,v_bar,red_ehrlich,red_local_min,red_disjunction,syn_ehrlich,id_s1,id_s2,id_t,id_s12,dc_cv_s1,dc_nnratio_s1,dc_cv_s2,dc_nnratio_s2,dc_cv_s12,dc_nnratio_s12,gromov_s1,gromov_s2,gromov_s12,gromov_t,dr_s1,dr_s2,dr_s12,dr_t"
     )
 }
 
@@ -642,6 +870,7 @@ impl ProjectionMethod {
 
 struct CaseCsvRow<'a> {
     name: &'a str,
+    seed: u64,
     projection: ProjectionMethod,
     d: usize,
     n: usize,
@@ -656,15 +885,16 @@ fn write_case_csv_row(
     row: CaseCsvRow<'_>,
 ) -> io::Result<()> {
     let project_to = row.project_to.map_or_else(String::new, |v| v.to_string());
-    let dr_s1 = 2.0 * row.diag.gromov_s1 / row.diag.diam_s1;
-    let dr_s2 = 2.0 * row.diag.gromov_s2 / row.diag.diam_s2;
-    let dr_s12 = 2.0 * row.diag.gromov_s12 / row.diag.diam_s12;
-    let dr_t = 2.0 * row.diag.gromov_t / row.diag.diam_t;
+    let dr_s1 = relative_delta(row.diag.gromov_s1, row.diag.diam_s1);
+    let dr_s2 = relative_delta(row.diag.gromov_s2, row.diag.diam_s2);
+    let dr_s12 = relative_delta(row.diag.gromov_s12, row.diag.diam_s12);
+    let dr_t = relative_delta(row.diag.gromov_t, row.diag.diam_t);
 
     writeln!(
         out,
-        "{},{},{},{},{},{:?},{project_to},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e}",
+        "{},{},{},{},{},{},{:?},{project_to},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e},{:.15e}",
         row.name,
+        row.seed,
         row.projection.as_str(),
         row.d,
         row.n,

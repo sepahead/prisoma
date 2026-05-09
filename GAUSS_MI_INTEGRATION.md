@@ -12,6 +12,8 @@
 **Date:** 2026-01-03
 **Status:** Specification (Pre-Implementation)
 
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. GauSS-MI is an optional confound-control module after the canonical run-log/replay/Rerun path exists; view-selection decisions must be Agent Bridge events and must not bypass replay/provenance.
+
 ---
 
 ## 1. Executive Summary

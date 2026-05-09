@@ -13,6 +13,8 @@
 
 **Docset alignment:** This document is aligned to `grandplan.md` v10.1. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
 
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the source of truth; Rerun is the Phases 1–3 diagnostic/time-machine viewer; Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering; all clients share the Agent Bridge.
+
 ## 1. Core System Components
 
 ### 1.1 Strategy: "Rerun-First" (Phases 1–3)
@@ -42,6 +44,7 @@ SparkJS (Phase 4) allows custom shaders for "Ghost Splats" (predictive flow over
 
 **Status:**
 - **Deferred to Phase 4.** This is the "Productization" target for when the research is validated and we need highly specific interactive tools (e.g., real-time "visual force" editing) that Rerun cannot support.
+- **Not a replacement for the run log or Rerun gate workflow.** Tauri should first launch/open Rerun recordings, then optionally embed the Rerun WebViewer, and only later add SparkJS panels for custom shaders or direct manipulation. All edits still go through the Agent Bridge and become run-log events.
 
 **Stack (Phase 4):**
 ```
@@ -428,8 +431,10 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 
 | Component | Role | Rationale (design goals; benchmark-dependent) |
 |-----------|------|--------------|
-| **Rerun** | **Visualization & Logging** | **Primary P1-3 Tool.** Low-overhead, built-in timeline, 3DGS support. |
-| **Tauri+SparkJS** | Interactive App | **Deferred to P4.** For custom shaders and complex intervention UI. |
+| **Run log** | Canonical data spine | Source of truth for replay, analysis, Rerun export, and Tauri sessions. |
+| **Agent Bridge** | Shared control plane | GUI, scripts, and LLM tools call the same local API; every action is logged. |
+| **Rerun** | **Visualization & diagnostics** | **Primary P1-3 Tool.** Timeline, 3D scene, plots, ghost overlays, and replay from run logs. |
+| **Tauri+SparkJS** | Interactive App | **Deferred to P4.** For custom shaders, collider/edit tools, and complex intervention UI; never the canonical store. |
 | **Physics** | Object physics | Modular (Rapier/MuJoCo/Isaac) |
 | **Robot Sim** | Robot dynamics | Industry-standard (Gazebo/MuJoCo) |
 | **3DGS Pipeline** | Scene capture | Photorealistic captures; differentiable training pipelines exist (visualization here is non-differentiable) |

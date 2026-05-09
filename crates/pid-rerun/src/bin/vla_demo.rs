@@ -12,8 +12,9 @@
 use anyhow::Result;
 use ndarray::{s, Array2};
 use pid_core::{
-    distance_concentration_stats, intrinsic_dimension_levina_bickel, ksg_mi,
-    DistanceConcentrationConfig, IntrinsicDimConfig, KsgConfig, MatRef,
+    distance_concentration_stats, intrinsic_dimension_levina_bickel, pid2_isx,
+    DistanceConcentrationConfig, IntrinsicDimConfig, IsxConfig, KsgConfig, MatRef,
+    NegativeHandling, Pid2Config,
 };
 use pid_rerun::adapters::{PidLogger, VlaLogger};
 use pid_rerun::data::generate_synthetic_episode;
@@ -25,11 +26,24 @@ fn main() -> Result<()> {
 
     // Parse args
     let args: Vec<String> = env::args().collect();
-    let save_path = if args.len() > 2 && args[1] == "--save" {
-        Some(args[2].clone())
-    } else {
-        None
-    };
+    let mut save_path = None;
+    let mut serve = false;
+    let mut i = 1usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--save" if i + 1 < args.len() => {
+                save_path = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--serve" => {
+                serve = true;
+                i += 1;
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
 
     // Initialize Rerun
     println!("Initializing Rerun...");
@@ -51,6 +65,7 @@ fn main() -> Result<()> {
     let vision_dim = 64; // Use smaller dim for demo (real: 768-4096)
     let action_dim = 7;
     let episode = generate_synthetic_episode(n_frames, vision_dim, action_dim, 42);
+    episode.validate_shapes()?;
 
     println!(
         "  Episode: {} ({} frames, {:.1}s)",
@@ -106,25 +121,37 @@ fn main() -> Result<()> {
         // Log geometry
         pid_logger.log_geometry(timestamp, intrinsic_dim, dc_cv, None)?;
 
-        // Compute MI using a subset of dimensions (for speed)
-        let v_subset: Vec<f64> = v_window.slice(s![.., 0..3]).iter().cloned().collect();
+        // Compute PID2 using a subset of dimensions (for speed)
+        let v_source_1: Vec<f64> = v_window.slice(s![.., 0..2]).iter().cloned().collect();
+        let v_source_2: Vec<f64> = v_window.slice(s![.., 2..3]).iter().cloned().collect();
         let a_subset: Vec<f64> = a_window.slice(s![.., 0..1]).iter().cloned().collect();
 
-        let ksg_config = KsgConfig::default();
-        let v_mat = MatRef::new(&v_subset, n, 3).ok();
+        let ksg_config = KsgConfig {
+            negative_handling: NegativeHandling::Allow,
+            ..Default::default()
+        };
+        let pid_config = Pid2Config {
+            ksg: ksg_config,
+            isx: IsxConfig::default(),
+        };
+        let v1_mat = MatRef::new(&v_source_1, n, 2).ok();
+        let v2_mat = MatRef::new(&v_source_2, n, 1).ok();
         let a_mat = MatRef::new(&a_subset, n, 1).ok();
 
-        let mi_va = v_mat
-            .zip(a_mat)
-            .and_then(|(v, a)| ksg_mi(v, a, &ksg_config).ok())
-            .unwrap_or(0.0);
-
-        // Estimate PID atoms (simplified proportions for demo)
-        // In production, use pid2_isx for actual decomposition
-        let redundancy = mi_va * 0.3;
-        let unique_v = mi_va * 0.4;
-        let unique_l = mi_va * 0.1;
-        let synergy = mi_va * 0.2;
+        let (redundancy, unique_v, unique_l, synergy) = match (v1_mat, v2_mat, a_mat) {
+            (Some(v1), Some(v2), Some(a)) => match pid2_isx(v1, v2, a, &pid_config) {
+                Ok(pid) => (pid.redundancy, pid.unique_s1, pid.unique_s2, pid.synergy),
+                Err(err) => {
+                    pid_logger.log_event(
+                        timestamp,
+                        "WARN",
+                        &format!("PID2 estimate failed for demo window: {err}"),
+                    )?;
+                    (0.0, 0.0, 0.0, 0.0)
+                }
+            },
+            _ => (0.0, 0.0, 0.0, 0.0),
+        };
 
         // Log PID metrics
         pid_logger.log_pid_atoms(timestamp, redundancy, synergy, unique_v, unique_l)?;
@@ -214,10 +241,12 @@ fn main() -> Result<()> {
         println!("\nSaving recording to: {}", path);
         rec.save(path)?;
         println!("Recording saved successfully!");
-    } else {
+    } else if serve {
         // Keep running so viewer stays connected (only in interactive mode)
         println!("\nPress Ctrl+C to exit...");
         std::thread::sleep(std::time::Duration::from_secs(3600));
+    } else {
+        println!("\nRun with --serve to keep the interactive viewer connected.");
     }
 
     Ok(())

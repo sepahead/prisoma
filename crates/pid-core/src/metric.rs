@@ -1,3 +1,5 @@
+use crate::error::{PidError, PidResult};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Metric {
     /// Chebyshev / L∞ distance: max_i |a_i - b_i|
@@ -22,6 +24,20 @@ impl Metric {
             Metric::Chebyshev => chebyshev(a, b),
             Metric::HyperbolicLorentz => crate::hyperbolic::hyperbolic_distance_lorentz(a, b),
         }
+    }
+
+    #[inline]
+    pub(crate) fn checked_distance(
+        &self,
+        a: &[f64],
+        b: &[f64],
+        context: &'static str,
+    ) -> PidResult<f64> {
+        let d = self.distance(a, b);
+        if !d.is_finite() || d < 0.0 {
+            return Err(PidError::NonFiniteInput { context });
+        }
+        Ok(d)
     }
 }
 

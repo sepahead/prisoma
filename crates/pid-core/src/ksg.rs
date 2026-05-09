@@ -125,8 +125,12 @@ pub fn ksg_local_mi_terms(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidR
             if i == j {
                 continue;
             }
-            let dx = cfg.metric.distance(xi, x.row(j));
-            let dy = cfg.metric.distance(yi, y.row(j));
+            let dx = cfg
+                .metric
+                .checked_distance(xi, x.row(j), "ksg_local_mi_terms: x distance")?;
+            let dy = cfg
+                .metric
+                .checked_distance(yi, y.row(j), "ksg_local_mi_terms: y distance")?;
             scratch.push(DistPair {
                 joint: dx.max(dy),
                 dx,
@@ -234,9 +238,17 @@ pub(crate) fn ksg_local_mi_terms_xblocks<'a>(
             }
             let mut dx = 0.0f64;
             for (b_idx, b) in x_blocks.iter().enumerate() {
-                dx = dx.max(cfg.metric.distance(x_rows_i[b_idx], b.row(j)));
+                dx = dx.max(cfg.metric.checked_distance(
+                    x_rows_i[b_idx],
+                    b.row(j),
+                    "ksg_local_mi_terms_xblocks: x distance",
+                )?);
             }
-            let dy = cfg.metric.distance(yi, y.row(j));
+            let dy = cfg.metric.checked_distance(
+                yi,
+                y.row(j),
+                "ksg_local_mi_terms_xblocks: y distance",
+            )?;
             scratch.push(DistPair {
                 joint: dx.max(dy),
                 dx,

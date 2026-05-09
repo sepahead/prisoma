@@ -52,4 +52,18 @@ fn ksg_mi_runs_with_hyperbolic_lorentz_metric() {
     assert!(mi >= 0.0);
 }
 
+#[test]
+fn ksg_mi_rejects_invalid_hyperbolic_distances() {
+    let x_data = [1.0, 0.0, 1.0, 0.1, 1.0, 0.2, 1.0, 0.3, 1.0, 0.4];
+    let y_data = [0.0, 0.0, 0.0, 0.1, 0.0, 0.2, 0.0, 0.3, 0.0, 0.4];
+    let x = MatRef::new(&x_data, 5, 2).unwrap();
+    let y = MatRef::new(&y_data, 5, 2).unwrap();
+    let cfg = KsgConfig {
+        k: 2,
+        metric: Metric::HyperbolicLorentz,
+        tie_epsilon: 0.0,
+        negative_handling: NegativeHandling::Allow,
+    };
 
+    assert!(ksg_mi(x, y, &cfg).is_err());
+}

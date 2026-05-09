@@ -1,3 +1,7 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
 [project]
 name = "pid-vla"
 version = "0.1.0"
@@ -6,10 +10,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 
 # Keep the default dependency set minimal; add groups as needed.
-dependencies = []
+dependencies = [
+  "numpy>=1.26",
+]
 
 [dependency-groups]
 dev = [
+  "maturin>=1.0,<2.0",
   "pytest>=8.0",
   "ruff>=0.6",
 ]
@@ -28,3 +35,14 @@ report = [
 
 [tool.uv]
 default-groups = ["dev", "analysis"]
+
+[tool.ruff]
+extend-exclude = [
+  "meshmaker",
+  "report_gen.py",
+]
+
+[tool.maturin]
+manifest-path = "crates/pid-python/Cargo.toml"
+module-name = "pid_core_rs"
+features = ["pyo3/extension-module"]

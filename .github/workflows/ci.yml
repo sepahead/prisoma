@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+      - name: Tests
+        run: cargo test --workspace
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Audit grandplan titles
+        run: python scripts/audit_grandplan.py --check-italic-titles
+      - name: Audit grandplan claims
+        run: python scripts/audit_grandplan_claims.py
+      - name: Audit docset claims
+        run: python scripts/audit_docset_claims.py
+
+  python-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Ruff
+        run: python -m pip install ruff
+      - name: Ruff
+        run: ruff check .
+
+  python-bindings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Python test dependencies
+        run: python -m pip install maturin pytest numpy
+      - name: Build extension in editable mode
+        run: maturin develop --manifest-path crates/pid-python/Cargo.toml
+      - name: Python tests
+        run: pytest tests/python -q

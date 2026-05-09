@@ -167,9 +167,21 @@ fn isx_redundancy_ehrlich_ksg(
             if i == j {
                 continue;
             }
-            let ds1 = cfg.metric.distance(s1i, s1.row(j));
-            let ds2 = cfg.metric.distance(s2i, s2.row(j));
-            let dt = cfg.metric.distance(ti, t.row(j));
+            let ds1 = cfg.metric.checked_distance(
+                s1i,
+                s1.row(j),
+                "isx_redundancy_ehrlich_ksg: s1 distance",
+            )?;
+            let ds2 = cfg.metric.checked_distance(
+                s2i,
+                s2.row(j),
+                "isx_redundancy_ehrlich_ksg: s2 distance",
+            )?;
+            let dt = cfg.metric.checked_distance(
+                ti,
+                t.row(j),
+                "isx_redundancy_ehrlich_ksg: target distance",
+            )?;
             let ds = ds1.min(ds2);
             scratch.push(DistIsx2 {
                 joint: dt.max(ds),
@@ -344,9 +356,9 @@ fn isx_redundancy_grandplan_sketch(
         let e2 = strict_radius(eps_s2_t[i], cfg.tie_epsilon);
         let es = strict_radius(eps_s1_t[i].min(eps_s2_t[i]), cfg.tie_epsilon);
 
-        n_t_s1[i] = count_neighbors_within(t, i, e1, cfg.metric);
-        n_t_s2[i] = count_neighbors_within(t, i, e2, cfg.metric);
-        n_t_shared[i] = count_neighbors_within(t, i, es, cfg.metric);
+        n_t_s1[i] = count_neighbors_within(t, i, e1, cfg.metric)?;
+        n_t_s2[i] = count_neighbors_within(t, i, e2, cfg.metric)?;
+        n_t_shared[i] = count_neighbors_within(t, i, es, cfg.metric)?;
     }
 
     // 3) Spec-sketch estimator (grandplan Appendix B.3.4.2).

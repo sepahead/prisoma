@@ -76,7 +76,11 @@ pub fn kth_neighbor_distance_joint_max_with_scratch(
         }
         let mut dist = 0.0f64;
         for b in blocks {
-            dist = dist.max(metric.distance(b.row(i), b.row(j)));
+            dist = dist.max(metric.checked_distance(
+                b.row(i),
+                b.row(j),
+                "kth_neighbor_distance_joint_max_with_scratch: block distance",
+            )?);
         }
         scratch.push(dist);
     }
@@ -90,7 +94,12 @@ pub fn kth_neighbor_distance_joint_max_with_scratch(
 ///
 /// This uses inclusive counting (`<= eps`). For KSG-style strict-inequality semantics, pass
 /// `eps = strict_radius(eps_raw, tie_epsilon)`.
-pub fn count_neighbors_within(m: MatRef<'_>, i: usize, eps: f64, metric: Metric) -> usize {
+pub fn count_neighbors_within(
+    m: MatRef<'_>,
+    i: usize,
+    eps: f64,
+    metric: Metric,
+) -> PidResult<usize> {
     let n = m.nrows();
     let mi = m.row(i);
     let mut count = 0usize;
@@ -98,11 +107,11 @@ pub fn count_neighbors_within(m: MatRef<'_>, i: usize, eps: f64, metric: Metric)
         if i == j {
             continue;
         }
-        if metric.distance(mi, m.row(j)) <= eps {
+        if metric.checked_distance(mi, m.row(j), "count_neighbors_within: distance")? <= eps {
             count += 1;
         }
     }
-    count
+    Ok(count)
 }
 
 #[cfg(test)]

@@ -65,7 +65,7 @@ pub fn poincare_to_lorentz(u: &[f64]) -> Option<Vec<f64>> {
         }
         norm2 += ui * ui;
     }
-    if !(norm2 < 1.0) {
+    if norm2 >= 1.0 {
         return None;
     }
     let denom = 1.0 - norm2;
@@ -115,5 +115,3 @@ mod tests {
         assert!((n + 1.0).abs() < 1e-10, "lorentz norm={n}");
     }
 }
-
-

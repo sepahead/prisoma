@@ -1,4 +1,4 @@
-use crate::error::PidResult;
+use crate::error::{PidError, PidResult};
 use crate::isx::{isx_redundancy, IsxConfig};
 use crate::ksg::{ksg_mi, ksg_mi_concat_xy, KsgConfig};
 use crate::matrix::MatRef;
@@ -41,6 +41,7 @@ pub fn pid2_isx_estimate(
     t: MatRef<'_>,
     cfg: &Pid2Config,
 ) -> PidResult<Pid2Estimate> {
+    validate_pid2_config(cfg)?;
     let mi_s1_t = ksg_mi(s1, t, &cfg.ksg)?;
     let mi_s2_t = ksg_mi(s2, t, &cfg.ksg)?;
     let mi_s1s2_t = ksg_mi_concat_xy(s1, s2, t, &cfg.ksg)?;
@@ -52,6 +53,28 @@ pub fn pid2_isx_estimate(
         mi_s1s2_t,
         redundancy_isx,
     })
+}
+
+fn validate_pid2_config(cfg: &Pid2Config) -> PidResult<()> {
+    if cfg.ksg.k != cfg.isx.k {
+        return Err(PidError::InvalidConfig {
+            context: "pid2_isx_estimate",
+            message: "KSG and ISX k values must match",
+        });
+    }
+    if cfg.ksg.metric != cfg.isx.metric {
+        return Err(PidError::InvalidConfig {
+            context: "pid2_isx_estimate",
+            message: "KSG and ISX metrics must match",
+        });
+    }
+    if cfg.ksg.tie_epsilon != cfg.isx.tie_epsilon {
+        return Err(PidError::InvalidConfig {
+            context: "pid2_isx_estimate",
+            message: "KSG and ISX tie_epsilon values must match",
+        });
+    }
+    Ok(())
 }
 
 impl Pid2Result {

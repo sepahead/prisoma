@@ -28,8 +28,8 @@ mod ci;
 mod distance_matrix;
 mod error;
 mod geometry;
-mod hyperbolic;
 mod hierarchy;
+mod hyperbolic;
 mod invariants;
 mod isx;
 mod ksg;
@@ -49,11 +49,11 @@ pub use geometry::{
     DistanceConcentrationConfig, DistanceConcentrationStats, HyperbolicityConfig,
     IntrinsicDimConfig,
 };
-pub use hyperbolic::{hyperbolic_distance_lorentz, lorentz_dot, poincare_to_lorentz};
 pub use hierarchy::{
     hierarchical_pairwise, hierarchical_triplet, HierarchicalConfig, HierarchicalTriplet,
     PairSelection, PairwiseScreen,
 };
+pub use hyperbolic::{hyperbolic_distance_lorentz, lorentz_dot, poincare_to_lorentz};
 pub use invariants::{
     average_degree_of_redundancy, average_degree_of_vulnerability,
     co_information_pairwise_discrete, entropy_discrete, joint_entropy_discrete,

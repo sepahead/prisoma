@@ -45,7 +45,8 @@ pub fn symmetric_distances(m: MatRef<'_>, metric: Metric) -> PidResult<Symmetric
     for i in 0..n {
         let mi = m.row(i);
         for j in (i + 1)..n {
-            let dist = metric.distance(mi, m.row(j));
+            let dist =
+                metric.checked_distance(mi, m.row(j), "symmetric_distances: pairwise distance")?;
             data[tri_index(n, i, j)] = dist;
         }
     }

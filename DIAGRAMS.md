@@ -11,11 +11,13 @@
 
 This document contains visual representations of the PID-VLA system, the PID-Splat simulation environment, and the data processing pipelines.
 
-**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.1. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1) and the v10.1 execution plan (`grandplan.md` §A.7) for what exists today and what to build next.
+**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.1. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1), the v10.1 execution plan (`grandplan.md` §A.7), and the ten-scientist consensus decision record (`grandplan.md` §A.8) for what exists today and what to build next.
+
+**Docset-wide final solution:** the diagrams should be read through `grandplan.md` §A.8: run log as source of truth, Agent Bridge as the only control plane, Rerun as the Phases 1–3 diagnostic viewer, and Tauri/SparkJS as the deferred Phase 4 shell.
 
 ## 1. High-Level System Overview
 
-This diagram illustrates how the core components interact via the Zenoh middleware, separating the inference (VLA), simulation (PID-Splat), and analysis (PID-Core) layers.
+This diagram illustrates the target interaction pattern. The canonical Phases 1–3 data spine is **run log → replay → Rerun**; Zenoh/live middleware is optional Phase 6 transport and must still emit the same run-log events.
 
 ```mermaid
 graph TD
@@ -82,7 +84,7 @@ graph TD
 
 ## 2. PID-Splat Simulation Loop
 
-This diagram details the "Splat-First" update loop, showing how physics (Rapier) and rendering (Rerun/SparkJS) are synchronized and how PID metrics modulate the visual output.
+This diagram details the "Splat-First" update loop, showing how physics (Rapier), canonical run-log events, and rendering are synchronized: Rerun consumes the replay stream in Phases 1–3, while SparkJS can consume the same events in Phase 4.
 
 ```mermaid
 sequenceDiagram
@@ -241,7 +243,7 @@ flowchart TD
     MuJoCoR --> Ready
     NoRobot --> Ready
     
-    Ready --> Render[Default: Gaussian splats via SparkJS]
+    Ready --> Render[Default P1-3: log/replay via Rerun; P4: optional SparkJS]
 ```
 
 ### Use Case Decision Tree

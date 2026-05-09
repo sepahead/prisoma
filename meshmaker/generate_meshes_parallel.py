@@ -215,7 +215,7 @@ def generate_image(prompt: str, api_key: str) -> Optional[str]:
                 "prompt": prompt,
                 "image_size": {"width": 1024, "height": 1024},
                 "num_images": 1,
-                "enable_safety_checker": False,
+                "enable_safety_checker": True,
             },
         )
         images = result.get("images", [])

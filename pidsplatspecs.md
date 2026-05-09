@@ -23,6 +23,8 @@ This document specifies the engineering implementation of the **PID-Splat** envi
 **Visualization Strategy (v10.1): "Rerun-First"**
 To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** (https://rerun.io/) as the primary visualization, logging, and "time machine" engine. The custom Tauri/SparkJS frontend is deferred to Phase 4 for advanced interactive needs.
 
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the canonical state, Rerun is the research viewer, Tauri/SparkJS is a later control/editor/custom-rendering shell, and every control path must go through the Agent Bridge.
+
 **Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying predicted “dreams” (video‑predicted 3D flow) to visualize what a policy *expects* to happen.
 
 **Contact/collision reality check:** existing “3DGS-based” simulators still use conventional physics engines for contacts. Treat splats as the appearance layer; use explicit collision geometry (URDF/MJCF primitives/meshes) in the physics backend.
@@ -35,8 +37,8 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 
 | Component | Technology | Version / Spec | License |
 | :--- | :--- | :--- | :--- |
-| **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | Rerun SDK v0.16+ | Apache 2.0 / MIT |
-| **Renderer** | Rerun (Native) / SparkJS (Phase 4) | Pin version / git SHA | verify |
+| **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | Rerun SDK 0.28.x in Cargo; Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |
+| **Renderer** | Rerun native/WebViewer / SparkJS (Phase 4) | Pin exact package versions / git SHAs at implementation time | Rerun WebViewer: MIT; SparkJS package metadata: MIT; Three.js: MIT |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
 | **Physics Engine** | Rapier3d / MuJoCo | Rapier v0.18+ / MuJoCo v3.0+ | Apache 2.0 |
 | **Middleware** | Zenoh | Pub/sub transport; shared memory/zero-copy is config-dependent | Apache 2.0 |
@@ -97,7 +99,7 @@ Video prediction happens externally (e.g., Python/CUDA or a hosted API) and feed
 1.  **Trigger:** VLA (or the orchestrator) sends `(Image, Instruction)` to a video predictor service.
 2.  **Generate:** Video model generates a short clip (length is configurable; log FPS/frames/seed).
 3.  **Extract:** Tracking + depth estimation extract `DreamFlowTrajectory` (model-specific; log versions).
-4.  **Publish:** Rust backend receives `dream/flow/{id}` via Zenoh.
+4.  **Record:** Rust backend writes `dream/flow/{id}`-equivalent events into the canonical run log; optional Zenoh publication is only a live-transport mirror.
 
 #### 4.3 "Ghost Splat" Visualization (Rerun Implementation)
 In Rerun (Phases 1-3), we avoid complex custom shaders. Instead, we log **two distinct entities**:
@@ -119,10 +121,10 @@ In Rerun (Phases 1-3), we avoid complex custom shaders. Instead, we log **two di
 
 | Key Expression | Data Type | Frequency | Source → Dest |
 | :--- | :--- | :--- | :--- |
-| `sim/pose/{id}` | `[f32; 7]` | 60Hz | Physics → Rerun/SparkJS |
-| `scene/uncertainty` | `SceneUncertaintyMap` | Event | GauSS‑MI (optional) → UI/PID |
-| `dream/flow/{id}`| `DreamFlowTrajectory` | Event | Video predictor/flow extractor → Rerun/SparkJS |
-| `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → Rerun/SparkJS |
+| `sim/pose/{id}` | `[f32; 7]` | 60Hz | Physics → run log → Rerun (P1-3) / SparkJS (P4) |
+| `scene/uncertainty` | `SceneUncertaintyMap` | Event | GauSS‑MI (optional) → run log → UI/PID |
+| `dream/flow/{id}`| `DreamFlowTrajectory` | Event | Video predictor/flow extractor → run log → Rerun (P1-3) / SparkJS (P4) |
+| `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → run log → Rerun (P1-3) / SparkJS (P4) |
 | `vla/action` | `[f32; 7]` | ~10Hz | VLA → Physics |
 
 #### 5.2 PID Message Schema

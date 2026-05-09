@@ -1,5 +1,6 @@
 use pid_core::{
-    ksg_mi, ksg_mi_concat_xy, pid2_isx, IsxConfig, KsgConfig, MatRef, NegativeHandling, Pid2Config,
+    ksg_mi, ksg_mi_concat_xy, pid2_isx, IsxConfig, KsgConfig, MatRef, Metric, NegativeHandling,
+    Pid2Config,
 };
 
 mod common;
@@ -74,4 +75,55 @@ fn pid2_identities_hold_by_construction() {
         "identity failed: Syn mismatch: pid2={} mi-derived={syn_from_mi}",
         out.synergy
     );
+}
+
+#[test]
+fn pid2_rejects_incoherent_estimator_configs() {
+    let n = 8;
+    let s1_data = [0.0, 0.1, 0.3, 0.6, 1.0, 1.5, 2.1, 2.8];
+    let s2_data = [0.0, -0.1, -0.3, -0.6, -1.0, -1.5, -2.1, -2.8];
+    let t_data = [0.0, 0.0, 0.1, 0.2, 0.4, 0.7, 1.1, 1.6];
+
+    let s1 = MatRef::new(&s1_data, n, 1).unwrap();
+    let s2 = MatRef::new(&s2_data, n, 1).unwrap();
+    let t = MatRef::new(&t_data, n, 1).unwrap();
+
+    let cfg = Pid2Config {
+        ksg: KsgConfig {
+            k: 3,
+            ..Default::default()
+        },
+        isx: IsxConfig {
+            k: 4,
+            ..Default::default()
+        },
+    };
+    assert!(pid2_isx(s1, s2, t, &cfg)
+        .unwrap_err()
+        .to_string()
+        .contains("k values must match"));
+
+    let cfg = Pid2Config {
+        ksg: KsgConfig {
+            metric: Metric::HyperbolicLorentz,
+            ..Default::default()
+        },
+        isx: IsxConfig::default(),
+    };
+    assert!(pid2_isx(s1, s2, t, &cfg)
+        .unwrap_err()
+        .to_string()
+        .contains("metrics must match"));
+
+    let cfg = Pid2Config {
+        ksg: KsgConfig {
+            tie_epsilon: 1e-12,
+            ..Default::default()
+        },
+        isx: IsxConfig::default(),
+    };
+    assert!(pid2_isx(s1, s2, t, &cfg)
+        .unwrap_err()
+        .to_string()
+        .contains("tie_epsilon values must match"));
 }

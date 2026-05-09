@@ -230,11 +230,66 @@ This section turns the spec into an actionable build order. The goal is to make 
 - M4 improves iteration speed and produces inspectable diagnostics without making “real-time” a dependency.
 - M5–M7 are additive: they expand model coverage and external validity only after the core diagnostic loop works.
 
+#### §A.8 Ten-Scientist Consensus: Final Rerun + Tauri/SparkJS Solution (2026-05-09)
+
+This is the docset-wide decision record for how to combine **Rerun**, **Tauri/SparkJS**, the **Agent Bridge**, and the licensing/governance constraints. It supersedes any reading that treats Rerun and Tauri/SparkJS as mutually exclusive viewer choices.
+
+**Final architecture in one sentence:** the **versioned run log is the source of truth**, **Rerun is the Phases 1–3 diagnostic/time-machine viewer**, **Tauri/SparkJS is the Phase 4 control/editor/custom-rendering shell**, and **both GUI and automation act only through the Agent Bridge** so every action is replayable.
+
+##### §A.8.1 Ten scientific perspectives
+
+| Perspective | Non-negotiable concern | Consensus decision |
+|---|---|---|
+| **1. Information theorist** | PID atoms are meaningful only inside a validated estimator regime. | Keep Exp0/geometry gates upstream of any VLA claim; Rerun/Tauri only visualize gated artifacts. |
+| **2. Statistical estimator scientist** | Seed, bootstrap, monotonicity, CMI, and invariant failures must block interpretation. | Treat current strict `NO-GO`/`PIVOT` outputs as useful blockers; do not hide them behind attractive UI. |
+| **3. Geometric data scientist** | kNN PID depends on representation geometry and metric validity. | Log preprocessing, metric, intrinsic-dimension, distance-concentration, and hyperbolicity diagnostics in the run log. |
+| **4. Robotics experimentalist** | Manipulation conclusions require replayable state/action traces and controlled interventions. | Build deterministic run logs and replay before live transport or complex robot stacks. |
+| **5. Simulation/physics scientist** | Splats do not provide contact physics. | Use 3DGS as appearance; use explicit collision geometry in one physics backend per run, with cross-backend replay as a robustness control. |
+| **6. VLA/ML scientist** | Model claims require `(V,L,D,A)` contracts, failure labels, and non-PID baselines. | Add the embedding harness only after M1–M4; start with one small baseline/task before broad model comparisons. |
+| **7. Visualization/HCI scientist** | Diagnostics need timeline scrubbing and honest provenance more than custom shaders at first. | Use Rerun first; represent ghost splats as secondary point clouds/overlays; defer SparkJS shaders until the scientific loop works. |
+| **8. Reproducibility/MLOps scientist** | Manual UI clicks are not evidence unless they become replayable events. | Every GUI/script/LLM action must be an Agent Bridge RPC and a run-log event with hashes/provenance. |
+| **9. Safety/governance scientist** | External services, generated assets, and automation can create untracked side effects. | Keep risky auxiliary tooling off the critical path; require explicit opt-in, local-only bridge defaults, and logged prompts/versions/seeds. |
+| **10. Open-source/licensing scientist** | Code, dependencies, models, datasets, and assets have different license surfaces. | The MIT project can use permissive Rerun/Tauri/SparkJS/Three.js dependencies, but release builds need license fields, notices, and model/data/asset audits. |
+
+##### §A.8.2 Final 10-step solution
+
+1. **Freeze the scientific gate first (M0).** Keep Exp0 strict: seed sweeps, monotonicity, CMI nonnegativity, invariant bounds, geometry diagnostics, config hashes, and explicit GO/PIVOT/NO-GO output.
+2. **Create `pid-runlog` as the canonical data spine (M1).** Define versioned events for run start/end, config hash, observations, actions, poses, embeddings, PID metrics, geometry metrics, interventions, artifacts, and errors.
+3. **Make deterministic replay a first-class command (M1).** A run must replay into the same state/action/artifact trace before it is eligible for Rerun visualization, Tauri controls, or downstream analysis.
+4. **Implement the Agent Bridge as the only control plane (M2).** Expose localhost JSON-RPC/WebSocket methods for reset/step/replay/scene edits/interventions/exports; append every request and response summary to the run log.
+5. **Build the minimal object sim and `Flow_gt` path (M3).** Start with Rapier behind a backend trait, explicit collision geometry, object poses, and `Flow_gt` derived from logged poses; record backend/solver parameters.
+6. **Make Rerun the research viewer (M4).** Convert run logs to Rerun streams/`.rrd` recordings with a stable blueprint: 3D scene, ghost flow overlay, PID/geometry plots, action traces, event log, and gate status.
+7. **Add the VLA embedding harness only after replay works (M5).** Pin one baseline model/task first; log `(V,L,D,A)`, preprocessing, layer/contracts, failure labels, and non-PID baselines before making PID claims.
+8. **Gate optional live and predictor paths (M6–M7).** Zenoh/Gazebo/live streams and external video→flow services must emit the same run-log schema; `Flow_pred` is an additional diagnostic, not an oracle.
+9. **Use Tauri/SparkJS as the Phase 4 shell, not the source of truth (M8).** Start by launching native Rerun recordings from Tauri; then prototype embedded Rerun WebViewer; use SparkJS only for custom shaders/editors Rerun cannot support.
+10. **Ship with license and provenance discipline.** Add explicit local crate license fields, generate third-party notices, audit Rust/npm/Python dependencies, keep Tauri/Rerun sidecar notices, and treat model weights, datasets, generated meshes, and 3DGS captures as separately licensed artifacts.
+
+##### §A.8.3 Practical Rerun/Tauri integration modes
+
+| Mode | When to use | Rule |
+|---|---|---|
+| **Native Rerun sidecar** | First production-like workflow | Tauri or CLI opens a run-derived `.rrd`; Rerun remains a separate diagnostic window. |
+| **Embedded Rerun WebViewer** | After `.rrd` export and blueprint stability | Tauri hosts the web viewer for a single-window UX, but the run log remains canonical. |
+| **SparkJS custom panel** | Only for Phase 4 features Rerun cannot express | Use for editable splats, custom PID heatmap shaders, collider alignment, and visual-force handles; all edits still go through Agent Bridge. |
+
+##### §A.8.4 License decision
+
+Current package metadata checked in this repo context is compatible with the MIT project direction:
+
+- `rerun` Cargo crate: `MIT OR Apache-2.0`.
+- `@tauri-apps/api`: `Apache-2.0 OR MIT`.
+- `@sparkjsdev/spark`: `MIT`.
+- `@rerun-io/web-viewer`: `MIT`.
+- `three`: `MIT`.
+- Current important Rust dependencies are permissive (`MIT OR Apache-2.0`, `Apache-2.0`, or BSD-style); `sublime_fuzzy` uses a `LICENSE` file rather than a populated Cargo `license` field and should be handled by automated license tooling before distribution.
+
+Before any public binary/app release, add `license = "MIT"` to local crates or explicitly choose a dual license, generate `THIRD_PARTY_NOTICES.md`, and re-check exact dependency versions. Keep VLA checkpoints, video/world-model weights, datasets, generated meshes, prompts, and 3DGS captures outside the code license unless their provenance and terms are explicitly recorded.
+
 ---
 
 ### §B. Complete System Architecture
 
-> **Scope note (v10.1):** This is the **target** “full stack” architecture diagram (Phase 4+). Phases 1–3 are **Rerun-First** (offline replay + diagnostic viewer) and do **not** require a custom Tauri/SparkJS app or Zenoh/Gazebo; see §A.7 (M0–M5) and §11.1 for what exists today vs. what is planned.
+> **Scope note (v10.1):** This is the **target** “full stack” architecture diagram (Phase 4+). Phases 1–3 are **Rerun-First** (offline replay + diagnostic viewer) and do **not** require a custom Tauri/SparkJS app or Zenoh/Gazebo; see §A.7/§A.8 (M0–M8 and the ten-step consensus) plus §11.1 for what exists today vs. what is planned.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
@@ -4528,7 +4583,7 @@ To keep the diagnostics scientifically interpretable and the system maintainable
 |-----------|-----------------|--------|------|
 | Continuous MI + 2-source SxPID | `crates/pid-core` | Implemented | KSG MI + continuous `I^sx_∩` (`IsxMethod::EhrlichKsg`); a 3-source wrapper exists (`pid3_isx`) but is research/experimental and must be re-validated under the same Exp0 + geometry-gate discipline |
 | Geometry gates + screening | `crates/pid-core` | Implemented | Intrinsic dimension, distance concentration, δ/δ_rel; hierarchy helpers |
-| Python bindings (PyO3) | `crates/pid-python` → `pid_core_rs` | Implemented (extension crate) | Wheel/publish workflow is not wired yet; treat as local-dev bindings |
+| Python bindings (PyO3) | `crates/pid-python` → `pid_core_rs` | Implemented (extension crate) | Maturin build backend is wired for local builds; publishing remains planned |
 | Minimal “Experiment 0” runner | `crates/pid-core/src/bin/exp0.rs` + `just exp0` | Implemented | Smoke/validation subset; expand protocol in `EXPERIMENTS.md` |
 | Rerun diagnostic adapters | `crates/pid-rerun` | Prototype | Minimal Rerun SDK adapters and `vla_demo` binary exist; full Phase 1-3 diagnostic viewer remains a spec |
 | Interactive UI (Phase 4) | `crates/pid-tauri` | Planned | UI + GPU renderer (SparkJS/Three.js/WebGL2 or equivalent); deferred until Rerun-First phases complete |
@@ -4540,11 +4595,14 @@ To keep the diagnostics scientifically interpretable and the system maintainable
 The repo ships a PyO3 extension crate (`crates/pid-python`) that builds a Python module named `pid_core_rs` exposing:
 - `compute_mi`
 - `compute_redundancy` (continuous `I^sx_∩` redundancy for 2 sources)
+- `compute_co_information`
+- `compute_pid2`
+- `compute_invariants`
 - `estimate_intrinsic_dimension`
 - `estimate_gromov_delta`
 - `distance_stats`
 
-Packaging into a pip-installable wheel is planned; treat the snippet below as the target API once installed in your Python environment.
+Publishing a wheel is planned; local builds use the Maturin-backed `pyproject.toml`.
 
 ```python
 import numpy as np
@@ -4584,7 +4642,6 @@ pid_vla/
 ├── uidesigner/        # UI spec + prompt-loop tooling
 ├── justfile
 ├── flake.nix
-├── flake.lock
 ├── pyproject.toml
 ├── uv.lock
 └── *.md (docs)
@@ -4597,7 +4654,7 @@ pid_vla/
 
 ## 11.3 Reproducibility
 
-**Canonical (repo truth):** `flake.nix`, `flake.lock`, `pyproject.toml`, and `uv.lock` at the repo root.
+**Canonical (repo truth):** `flake.nix`, `pyproject.toml`, and `uv.lock` at the repo root; add `flake.lock` only once the Nix inputs are locked in-repo.
 
 If the examples below diverge from the repo files, **prefer the repo files**. (This document is a spec; the repo is the executable artifact.)
 
@@ -4622,13 +4679,13 @@ If the examples below diverge from the repo files, **prefer the repo files**. (T
           packages = with pkgs; [
             just
 
-            # Rust toolchain (pin via flake.lock).
+            # Rust toolchain (pin via flake.lock if committed).
             rustc
             cargo
             rustfmt
             clippy
 
-            # Python + uv (pin via flake.lock; pin deps via uv.lock).
+            # Python + uv (pin Nix via flake.lock if committed; pin deps via uv.lock).
             python311
             uv
           ];
@@ -4642,7 +4699,7 @@ If the examples below diverge from the repo files, **prefer the repo files**. (T
 }
 ```
 
-**Lockfile requirement:** commit `flake.lock` (generate/update with `nix flake lock`).
+**Lockfile note:** commit `flake.lock` once generated/updated with `nix flake lock`; until then, `uv.lock` is the tracked Python dependency lockfile.
 
 ### 11.3.2 uv for Python
 
@@ -7715,7 +7772,7 @@ GWM integration requires 3DGS scene reconstruction, which adds pipeline complexi
 - and risked being cited as “requirements” despite being unbenchmarked.
 
 **Canonical repo reality (authoritative):**
-- Tooling: `flake.nix` / `flake.lock` and `justfile`
+- Tooling: `flake.nix` and `justfile`
 - Python deps: `pyproject.toml` / `uv.lock`
 - Implemented code: `crates/pid-core` (estimators + geometry gates) and `crates/pid-python` (`pid_core_rs` bindings)
 
@@ -7751,7 +7808,7 @@ CoreML (and similar deployment runtimes) are relevant only once the project incl
 ## B.6 Nix Configuration for Reproducibility
 
 **Avoid divergence:** the authoritative reproducibility config lives in the repo root:
-- `flake.nix`, `flake.lock`
+- `flake.nix`
 - `pyproject.toml`, `uv.lock`
 - `justfile`
 

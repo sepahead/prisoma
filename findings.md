@@ -6,6 +6,8 @@ Experiment 0 tests Partial Information Decomposition (PID) estimators on synthet
 
 **Status**: PIVOT (geometry warnings + an MI-consistency/coherence violation observed; proceed only with a validated measurement regime)
 
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. These findings justify the first step of the 10-step plan: keep Exp0/geometry gates strict, then build run-log/replay/Rerun diagnostics before any Tauri/SparkJS product shell or VLA claim.
+
 ---
 
 ## Observed Results

@@ -8,6 +8,8 @@
 **Docset alignment:** v10.1 (optional external baseline; not implemented in this repo today)
 **Status:** Specification / integration notes (verify upstream claims at time of use)
 
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. WorldWarp or any external world model is optional Phase 7-style infrastructure; it must emit versioned artifacts into the run log and be visualized through the same Rerun/Tauri split rather than becoming an unlogged side channel.
+
 ## Overview
 WorldWarp (https://github.com/sepehrmn/WorldWarp) is an external framework for generating long-range, camera-conditioned scenes from a single image. In the PID‑VLA context, it can be treated as an *optional* external world-model baseline (evaluative/generative) to compare against VLA internal representations. Verify model backbones, licenses, and reproducibility constraints from the upstream repo before using it in experiments.
 
@@ -24,6 +26,6 @@ WorldWarp aligns with the "Generative World Model" component of the PID-VLA arch
 
 ## Integration Points
 1.  **Evaluative World Model:** Use WorldWarp to generate expected future frames based on robot camera motions. Treat the predicted frames/latents as an explicit staged variable (e.g., `D_worldwarp`) and analyze `(V_obs, D_worldwarp; A)` under the same contract-first logging rules as other world models.
-2.  **Simulation Environment:** Integrate generated scenes into the SparkJS/Three.js rendering pipeline as dynamic skyboxes or environment maps.
+2.  **Simulation Environment:** Record generated scenes as run-log artifacts, visualize them in Rerun during Phases 1–3, and integrate them into SparkJS/Three.js only for Phase 4 custom rendering.
 3.  **Counterfactual Analysis:** Generate "what-if" scenarios by altering camera trajectories to test VLA robustness to viewpoint shifts.
 4.  **Agent Bridge orchestration (planned):** invoke WorldWarp as an external service through the same control plane as the GUI (JSON‑RPC/MCP), and log prompts/camera paths/versions/seeds as first-class artifacts for replay.

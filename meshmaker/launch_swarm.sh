@@ -1,4 +1,8 @@
 #!/bin/bash
+if [ "${MESHDESIGNER_ALLOW_SWARM:-0}" != "1" ]; then
+   echo "Refusing to launch swarm by default. Set MESHDESIGNER_ALLOW_SWARM=1 to run."
+   exit 1
+fi
 for i in {1..10}
 do
    LOG_FILE="meshmaker/spawn_swarm_$i.log"

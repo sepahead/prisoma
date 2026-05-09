@@ -190,6 +190,12 @@ pub fn pid3_isx(
             message: "tie_epsilon must be finite and >= 0",
         });
     }
+    if cfg.metric != Metric::Chebyshev {
+        return Err(PidError::InvalidConfig {
+            context: "pid3_isx",
+            message: "PID3 ISX is validated only for Metric::Chebyshev (L∞). Other metrics are research-gated.",
+        });
+    }
 
     let n = t.nrows();
     let k = cfg.k;

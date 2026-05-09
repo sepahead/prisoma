@@ -6,6 +6,8 @@ The UI is **offline‑first** and **agent‑native**:
 - **Offline‑first:** the first usable UI is a **run‑log viewer** (record → replay → analyze) before any live transport.
 - **Agent‑native:** the GUI must call the same **Agent Bridge** API that scripts/LLM tools call; every action is logged and replayable.
 
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The UI should first expose run-library/replay/Rerun workflows, then a thin Agent Bridge control panel, then optional Tauri/SparkJS custom rendering; it must never become a second source of truth.
+
 ## 0) Design Principles (Non‑Negotiable)
 
 Aligned to `grandplan.md` §A.7.

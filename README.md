@@ -70,6 +70,30 @@ Build order + acceptance criteria are in `grandplan.md` §A.7 (M0–M8): run log
 Note: Custom Tauri+SparkJS UI is deferred to Phase 4.
 If you use an external simulator backend (Isaac/MuJoCo/etc.), treat it as an adapter that still emits the canonical run log and is controlled via the Agent Bridge surface.
 
+## Docset-Wide Final Solution
+
+The ten-scientist consensus decision record lives in `grandplan.md` §A.8. The short version is:
+
+```text
+run log = source of truth
+Agent Bridge = only control plane
+Rerun = Phases 1-3 diagnostic/time-machine viewer
+Tauri/SparkJS = Phase 4 control/editor/custom-rendering shell
+```
+
+Final 10-step build path:
+
+1. Keep Exp0/geometry gates strict.
+2. Define the canonical `pid-runlog` event schema.
+3. Implement deterministic replay.
+4. Route all GUI/script/LLM actions through the Agent Bridge.
+5. Build the minimal object sim and simulator-derived `Flow_gt`.
+6. Convert run logs into Rerun recordings/blueprints.
+7. Add one small VLA embedding harness with labels and non-PID baselines.
+8. Gate optional live transport and external `Flow_pred` services behind the same run-log schema.
+9. Add Tauri/SparkJS only after the Rerun workflow works.
+10. Add license/provenance automation for dependencies, models, datasets, generated assets, and sidecars.
+
 ## Citation
 
 ```bibtex
