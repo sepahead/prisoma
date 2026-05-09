@@ -487,35 +487,14 @@ where
         if line.trim().is_empty() {
             continue;
         }
-        let response = match serde_json::from_str::<BridgeRpcRequest>(&line) {
-            Ok(rpc) => {
-                let id = rpc.id.clone();
-                match rpc.into_bridge_request(
-                    actor.clone(),
-                    Some(session.step()),
-                    session.timestamp_ns(),
-                ) {
-                    Ok(request) => BridgeRpcResponse::from_bridge_response(
-                        &session
-                            .dispatch(&request)
-                            .unwrap_or_else(|err| BridgeResponse {
-                                request_id: id,
-                                step: Some(session.step()),
-                                timestamp_ns: session.timestamp_ns(),
-                                ok: false,
-                                message: Some(err.to_string()),
-                                result: None,
-                            }),
-                    ),
-                    Err(err) => BridgeRpcResponse::failure(id, -32601, err.to_string()),
-                }
-            }
-            Err(err) => BridgeRpcResponse::failure(
-                format!("line-{}", idx + 1),
-                -32700,
-                format!("invalid JSON-RPC request at line {}: {err}", idx + 1),
-            ),
-        };
+        let response = dispatch_rpc_text_request_with_context(
+            &line,
+            &format!("line-{}", idx + 1),
+            "line",
+            idx + 1,
+            session,
+            actor.clone(),
+        );
         serde_json::to_writer(&mut *output, &response).context("failed to write RPC response")?;
         output
             .write_all(b"\n")
@@ -523,6 +502,63 @@ where
         handled += 1;
     }
     Ok(handled)
+}
+
+pub fn dispatch_rpc_text_request<L>(
+    text: &str,
+    request_index: usize,
+    session: &mut SimBridgeSession<L>,
+    actor: Actor,
+) -> BridgeRpcResponse
+where
+    L: Write,
+{
+    dispatch_rpc_text_request_with_context(
+        text,
+        &format!("message-{request_index}"),
+        "message",
+        request_index,
+        session,
+        actor,
+    )
+}
+
+fn dispatch_rpc_text_request_with_context<L>(
+    text: &str,
+    failure_id: &str,
+    context_name: &str,
+    request_index: usize,
+    session: &mut SimBridgeSession<L>,
+    actor: Actor,
+) -> BridgeRpcResponse
+where
+    L: Write,
+{
+    match serde_json::from_str::<BridgeRpcRequest>(text) {
+        Ok(rpc) => {
+            let id = rpc.id.clone();
+            match rpc.into_bridge_request(actor, Some(session.step()), session.timestamp_ns()) {
+                Ok(request) => BridgeRpcResponse::from_bridge_response(
+                    &session
+                        .dispatch(&request)
+                        .unwrap_or_else(|err| BridgeResponse {
+                            request_id: id,
+                            step: Some(session.step()),
+                            timestamp_ns: session.timestamp_ns(),
+                            ok: false,
+                            message: Some(err.to_string()),
+                            result: None,
+                        }),
+                ),
+                Err(err) => BridgeRpcResponse::failure(id, -32601, err.to_string()),
+            }
+        }
+        Err(err) => BridgeRpcResponse::failure(
+            failure_id.to_string(),
+            -32700,
+            format!("invalid JSON-RPC request at {context_name} {request_index}: {err}"),
+        ),
+    }
 }
 
 pub fn verify_flow_gt(events: &[RunLogEvent], tolerance: f64) -> FlowVerificationReport {

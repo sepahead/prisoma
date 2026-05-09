@@ -5961,11 +5961,13 @@ name = "pid-sim"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "pid-bridge",
  "pid-core",
  "pid-runlog",
  "serde",
  "serde_json",
+ "sha1",
 ]
 
 [[package]]

@@ -61,6 +61,9 @@ runlog-bridge-stdio-safe path="outputs/demo_bridge_stdio_safe_runlog.jsonl":
 runlog-bridge-tcp path="outputs/demo_bridge_tcp_runlog.jsonl" addr="127.0.0.1:38472":
     cargo run -p pid-sim --bin pid-sim-bridge-tcp -- --bind {{addr}} {{path}}
 
+runlog-bridge-ws path="outputs/demo_bridge_ws_runlog.jsonl" addr="127.0.0.1:38473":
+    cargo run -p pid-sim --bin pid-sim-bridge-ws -- --bind {{addr}} {{path}}
+
 bridge-contract out="outputs/bridge_runlog_contract.json":
     cargo run -p pid-bridge --bin pid-bridge-contract -- --out {{out}}
 
