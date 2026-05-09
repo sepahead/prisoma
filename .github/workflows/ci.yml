@@ -41,6 +41,48 @@ jobs:
           grep -q '"trace_hash"' "$SAFE_OUT"
           grep -q 'bridge safe mode blocked method sim.step' "$SAFE_OUT"
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_stdio_safe.jsonl
+          TCP_PORT="$(python - <<'PY'
+          import socket
+          s = socket.socket()
+          s.bind(("127.0.0.1", 0))
+          print(s.getsockname()[1])
+          s.close()
+          PY
+          )"
+          cargo run -p pid-sim --bin pid-sim-bridge-tcp -- --bind "127.0.0.1:${TCP_PORT}" /tmp/pid_vla_bridge_tcp.jsonl &
+          TCP_PID="$!"
+          python - <<'PY' "$TCP_PORT" > /tmp/pid_vla_bridge_tcp.out
+          import socket, sys, time
+          port = int(sys.argv[1])
+          deadline = time.time() + 30
+          while True:
+              try:
+                  sock = socket.create_connection(("127.0.0.1", port), timeout=1)
+                  break
+              except OSError:
+                  if time.time() > deadline:
+                      raise
+                  time.sleep(0.2)
+          with sock:
+              for line in [
+                  '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}\n',
+                  '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}\n',
+              ]:
+                  sock.sendall(line.encode())
+              sock.shutdown(socket.SHUT_WR)
+              chunks = []
+              while True:
+                  chunk = sock.recv(4096)
+                  if not chunk:
+                      break
+                  chunks.append(chunk)
+          print(b"".join(chunks).decode(), end="")
+          PY
+          wait "$TCP_PID"
+          grep -q '"id":"status"' /tmp/pid_vla_bridge_tcp.out
+          grep -q '"id":"step"' /tmp/pid_vla_bridge_tcp.out
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_tcp.jsonl
+          cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_tcp.jsonl
 
   docs:
     runs-on: ubuntu-latest

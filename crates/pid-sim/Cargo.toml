@@ -22,6 +22,10 @@ name = "pid-sim-bridge-stdio"
 path = "src/bin/bridge_stdio.rs"
 
 [[bin]]
+name = "pid-sim-bridge-tcp"
+path = "src/bin/bridge_tcp.rs"
+
+[[bin]]
 name = "pid-sim-verify"
 path = "src/bin/verify.rs"
 

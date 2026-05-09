@@ -18,7 +18,7 @@ pub const BRIDGE_METHODS: &[&str] = &[
     "export.rerun",
 ];
 
-pub const BRIDGE_TRANSPORTS: &[&str] = &["local", "stdio_jsonl"];
+pub const BRIDGE_TRANSPORTS: &[&str] = &["local", "stdio_jsonl", "tcp_jsonl"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -542,6 +542,10 @@ mod tests {
             .bridge
             .transports
             .contains(&"stdio_jsonl".to_string()));
+        assert!(contract
+            .bridge
+            .transports
+            .contains(&"tcp_jsonl".to_string()));
         assert_eq!(contract.bridge.methods.len(), BRIDGE_METHODS.len());
         let step = contract
             .bridge
