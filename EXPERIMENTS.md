@@ -897,9 +897,14 @@ Run the implemented Rust Experiment 0 gate (this repo):
 ```bash
 just exp0
 just exp0-bin
+just exp0-runlog
 
 # Optional CSV output for analysis
 cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv
+
+# Optional canonical evidence export
+cargo run -p pid-core --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl
+cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/exp0_runlog.jsonl
 ```
 
 **Note:** A larger Python experiment harness is specified in `grandplan.md`/`EXPERIMENTS.md` but is not implemented in this repo yet; avoid citing non-existent scripts as runnable.

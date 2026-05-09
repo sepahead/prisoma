@@ -20,6 +20,8 @@ jobs:
         run: cargo test --workspace
       - name: Run-log smoke
         run: |
+          cargo run -p pid-core --bin exp0 -- --seeds 1 --summary-json /tmp/pid_vla_exp0_summary.json --runlog /tmp/pid_vla_exp0_runlog.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_exp0_runlog.jsonl
           cargo run -p pid-bridge --bin pid-bridge-contract -- --out /tmp/pid_vla_bridge_runlog_contract.json
           cargo run -p pid-sim --bin pid-sim-bridge-demo -- /tmp/pid_vla_bridge_demo.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_demo.jsonl

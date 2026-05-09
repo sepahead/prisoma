@@ -32,6 +32,10 @@ exp0:
 exp0-bin:
     cargo run -p pid-core --bin exp0
 
+exp0-runlog path="outputs/exp0_runlog.jsonl" summary="outputs/exp0_summary.json" seeds="1":
+    cargo run -p pid-core --bin exp0 -- --seeds {{seeds}} --summary-json {{summary}} --runlog {{path}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{path}}
+
 # M1 run-log smoke path.
 runlog-demo:
     cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl

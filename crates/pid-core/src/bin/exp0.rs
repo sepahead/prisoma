@@ -4,6 +4,8 @@ use pid_core::{
     ksg_mi, ksg_mi_concat_xy, DistanceConcentrationConfig, HashProjector, IntrinsicDimConfig,
     IsxConfig, IsxMethod, KsgConfig, MatRef, Metric, NegativeHandling, PcaProjector, Standardizer,
 };
+use pid_runlog::{RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
+use serde_json::json;
 use std::fs::File;
 use std::io::{self, Write};
 
@@ -12,6 +14,7 @@ struct Args {
     csv: bool,
     seeds: usize,
     summary_json: Option<String>,
+    runlog: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -29,10 +32,20 @@ struct CaseSpec<'a> {
     seed: u64,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Exp0RunConfig<'a> {
+    n: usize,
+    k: usize,
+    dims: &'a [usize],
+    seeds: &'a [u64],
+    hash_project_to: Option<usize>,
+}
+
 #[derive(Debug)]
 enum Exp0Error {
     Pid(pid_core::PidError),
     Io(io::Error),
+    RunLog(anyhow::Error),
 }
 
 impl From<pid_core::PidError> for Exp0Error {
@@ -44,6 +57,12 @@ impl From<pid_core::PidError> for Exp0Error {
 impl From<io::Error> for Exp0Error {
     fn from(value: io::Error) -> Self {
         Self::Io(value)
+    }
+}
+
+impl From<anyhow::Error> for Exp0Error {
+    fn from(value: anyhow::Error) -> Self {
+        Self::RunLog(value)
     }
 }
 
@@ -82,6 +101,10 @@ fn main() {
                 eprintln!("exp0: IO error: {e}");
                 std::process::exit(1);
             }
+            Exp0Error::RunLog(e) => {
+                eprintln!("exp0: run-log error: {e}");
+                std::process::exit(1);
+            }
         }
     }
 }
@@ -90,6 +113,7 @@ fn parse_args() -> Result<Option<Args>, String> {
     let mut csv = false;
     let mut seeds = 3usize;
     let mut summary_json = None;
+    let mut runlog = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -111,6 +135,12 @@ fn parse_args() -> Result<Option<Args>, String> {
                         .ok_or_else(|| "--summary-json requires a path".to_string())?,
                 );
             }
+            "--runlog" => {
+                runlog = Some(
+                    args.next()
+                        .ok_or_else(|| "--runlog requires a path".to_string())?,
+                );
+            }
             "--help" | "-h" => return Ok(None),
             other => return Err(format!("unknown argument: {other}")),
         }
@@ -119,11 +149,15 @@ fn parse_args() -> Result<Option<Args>, String> {
         csv,
         seeds,
         summary_json,
+        runlog,
     }))
 }
 
 fn print_usage(out: &mut dyn Write) -> io::Result<()> {
-    writeln!(out, "Usage: exp0 [--csv] [--seeds N] [--summary-json PATH]")?;
+    writeln!(
+        out,
+        "Usage: exp0 [--csv] [--seeds N] [--summary-json PATH] [--runlog PATH]"
+    )?;
     writeln!(out)?;
     writeln!(out, "  --csv   Emit machine-readable CSV (two tables).")?;
     writeln!(
@@ -133,6 +167,10 @@ fn print_usage(out: &mut dyn Write) -> io::Result<()> {
     writeln!(
         out,
         "  --summary-json PATH   Write gate summary metadata as JSON."
+    )?;
+    writeln!(
+        out,
+        "  --runlog PATH   Write canonical run-log events for the Exp0 summary."
     )?;
     writeln!(out, "  -h, --help   Show this help.")?;
     Ok(())
@@ -153,6 +191,11 @@ fn write_summary_json(
     seeds: &[u64],
     hash_project_to: Option<usize>,
 ) -> io::Result<()> {
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
     let mut file = File::create(path)?;
     let config_hash = config_hash(n, k, dims, seeds, hash_project_to);
     writeln!(file, "{{")?;
@@ -186,6 +229,116 @@ fn write_summary_json(
     )?;
     writeln!(file, "  \"status\": \"{}\"", gates.status())?;
     writeln!(file, "}}")?;
+    Ok(())
+}
+
+fn write_exp0_runlog(
+    path: &str,
+    summary_json_path: Option<&str>,
+    gates: &GateSummary,
+    config: Exp0RunConfig<'_>,
+) -> Result<(), Exp0Error> {
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+    let config_hash = format!(
+        "{:016x}",
+        config_hash(
+            config.n,
+            config.k,
+            config.dims,
+            config.seeds,
+            config.hash_project_to
+        )
+    );
+    let mut writer = RunLogWriter::create(path)?;
+    writer.append(&RunLogEvent::RunStarted {
+        schema_version: RUN_LOG_SCHEMA_VERSION,
+        run_id: "exp0-rust-quick-run".to_string(),
+        timestamp_ns: 0,
+        config_hash: config_hash.clone(),
+        metadata: [
+            ("source".to_string(), "pid-core-exp0".to_string()),
+            ("status".to_string(), gates.status().to_string()),
+        ]
+        .into_iter()
+        .collect(),
+    })?;
+    writer.append(&RunLogEvent::ConfigLogged {
+        timestamp_ns: 0,
+        config_hash,
+        config: json!({
+            "experiment": "exp0",
+            "n": config.n,
+            "k": config.k,
+            "dims": config.dims,
+            "seeds": config.seeds,
+            "hash_project_to": config.hash_project_to,
+        }),
+    })?;
+    write_exp0_metric_events(&mut writer, gates)?;
+    if let Some(summary_path) = summary_json_path {
+        writer.append(&RunLogEvent::ArtifactLogged {
+            timestamp_ns: 8,
+            name: "exp0_summary_json".to_string(),
+            kind: "summary_json".to_string(),
+            uri: summary_path.to_string(),
+            sha256: pid_runlog::sha256_file(summary_path).ok(),
+            metadata: [("status".to_string(), gates.status().to_string())]
+                .into_iter()
+                .collect(),
+        })?;
+    }
+    if gates.status() != "GO" {
+        writer.append(&RunLogEvent::ErrorLogged {
+            step: Some(8),
+            timestamp_ns: 9,
+            message: format!("Experiment 0 gate status: {}", gates.status()),
+            recoverable: true,
+        })?;
+    }
+    writer.append(&RunLogEvent::RunEnded {
+        run_id: "exp0-rust-quick-run".to_string(),
+        timestamp_ns: 10,
+        status: RunStatus::Succeeded,
+        message: Some(format!("Exp0 scientific gate status: {}", gates.status())),
+    })?;
+    writer.flush()?;
+    Ok(())
+}
+
+fn write_exp0_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    gates: &GateSummary,
+) -> Result<(), Exp0Error> {
+    for (idx, (name, value)) in [
+        ("exp0.case_results", gates.case_results),
+        ("exp0.red_zero_checks", gates.red_zero_checks),
+        ("exp0.red_zero_passes", gates.red_zero_passes),
+        (
+            "exp0.monotonicity_violations",
+            gates.monotonicity_violations,
+        ),
+        ("exp0.cmi_violations", gates.cmi_violations),
+        ("exp0.invariant_violations", gates.invariant_violations),
+        ("exp0.geometry_warnings", gates.geometry_warnings),
+        ("exp0.status_code", gates.status_code()),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        writer.append(&RunLogEvent::PidMetric {
+            step: idx as u64,
+            timestamp_ns: (idx + 1) as u64,
+            name: name.to_string(),
+            value: value as f64,
+            metadata: [("status".to_string(), gates.status().to_string())]
+                .into_iter()
+                .collect(),
+        })?;
+    }
     Ok(())
 }
 
@@ -300,6 +453,20 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
 
     if let Some(path) = args.summary_json.as_deref() {
         write_summary_json(path, &gates, n, k, &dims, &seeds, hash_project_to)?;
+    }
+    if let Some(path) = args.runlog.as_deref() {
+        write_exp0_runlog(
+            path,
+            args.summary_json.as_deref(),
+            &gates,
+            Exp0RunConfig {
+                n,
+                k,
+                dims: &dims,
+                seeds: &seeds,
+                hash_project_to,
+            },
+        )?;
     }
 
     Ok(())
@@ -710,6 +877,14 @@ impl GateSummary {
         }
     }
 
+    fn status_code(&self) -> usize {
+        match self.status() {
+            "GO" => 0,
+            "PIVOT" => 1,
+            _ => 2,
+        }
+    }
+
     fn print(&self, out: &mut dyn Write) -> io::Result<()> {
         writeln!(
             out,
@@ -1069,5 +1244,107 @@ impl Rng64 {
         let r = (-2.0 * u1.ln()).sqrt();
         let theta = 2.0 * std::f64::consts::PI * u2;
         r * theta.cos()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_path(name: &str) -> String {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir()
+            .join(format!("pid-vla-exp0-{name}-{stamp}"))
+            .display()
+            .to_string()
+    }
+
+    #[test]
+    fn exp0_runlog_export_is_valid_and_summarizable() {
+        let summary_path = temp_path("summary.json");
+        let runlog_path = temp_path("runlog.jsonl");
+        let gates = GateSummary {
+            case_results: 1,
+            red_zero_checks: 1,
+            red_zero_passes: 1,
+            monotonicity_violations: 0,
+            cmi_violations: 0,
+            invariant_violations: 0,
+            geometry_warnings: 0,
+        };
+        let dims = [10usize, 64, 256];
+        let seeds = [42u64];
+        write_summary_json(&summary_path, &gates, 500, 3, &dims, &seeds, Some(64)).unwrap();
+        write_exp0_runlog(
+            &runlog_path,
+            Some(&summary_path),
+            &gates,
+            Exp0RunConfig {
+                n: 500,
+                k: 3,
+                dims: &dims,
+                seeds: &seeds,
+                hash_project_to: Some(64),
+            },
+        )
+        .unwrap();
+
+        let events = pid_runlog::read_events_from_path(&runlog_path).unwrap();
+        let validation = pid_runlog::validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let summary = pid_runlog::summarize_events(&events).unwrap();
+        assert_eq!(summary.run_id.as_deref(), Some("exp0-rust-quick-run"));
+        assert_eq!(summary.pid_metrics, 8);
+        assert_eq!(summary.artifacts, 1);
+        assert_eq!(summary.errors, 0);
+
+        let _ = std::fs::remove_file(summary_path);
+        let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn exp0_runlog_records_non_go_status_as_recoverable_error() {
+        let runlog_path = temp_path("nogate.jsonl");
+        let gates = GateSummary {
+            case_results: 0,
+            red_zero_checks: 0,
+            red_zero_passes: 0,
+            monotonicity_violations: 0,
+            cmi_violations: 0,
+            invariant_violations: 0,
+            geometry_warnings: 0,
+        };
+        write_exp0_runlog(
+            &runlog_path,
+            None,
+            &gates,
+            Exp0RunConfig {
+                n: 500,
+                k: 3,
+                dims: &[10],
+                seeds: &[42],
+                hash_project_to: Some(64),
+            },
+        )
+        .unwrap();
+
+        let events = pid_runlog::read_events_from_path(&runlog_path).unwrap();
+        let validation = pid_runlog::validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let summary = pid_runlog::summarize_events(&events).unwrap();
+        assert_eq!(summary.errors, 1);
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RunLogEvent::ErrorLogged {
+                recoverable: true,
+                ..
+            }
+        )));
+
+        let _ = std::fs::remove_file(runlog_path);
     }
 }
