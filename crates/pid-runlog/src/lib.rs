@@ -23,6 +23,7 @@ pub const RUN_LOG_EVENT_TYPES: &[&str] = &[
     "pid_metric",
     "geometry_metric",
     "evaluation_metric",
+    "label_observed",
     "intervention_applied",
     "artifact_logged",
     "error_logged",
@@ -43,7 +44,8 @@ pub const RUN_LOG_VALIDATION_RULES: &[&str] = &[
     "bridge request_id values are nonempty and unique",
     "bridge responses refer to existing requests",
     "poses, velocities, flows, and metrics are finite",
-    "artifact and metric names are nonempty",
+    "artifact, metric, and label names are nonempty",
+    "label values are non-null",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -183,6 +185,13 @@ pub enum RunLogEvent {
         value: f64,
         metadata: BTreeMap<String, String>,
     },
+    LabelObserved {
+        step: u64,
+        timestamp_ns: u64,
+        name: String,
+        value: serde_json::Value,
+        metadata: BTreeMap<String, String>,
+    },
     InterventionApplied {
         step: u64,
         timestamp_ns: u64,
@@ -285,6 +294,14 @@ pub struct ArtifactRecord {
     pub sha256: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LabelRecord {
+    pub step: u64,
+    pub timestamp_ns: u64,
+    pub name: String,
+    pub value: serde_json::Value,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ReplayState {
     pub schema_version: Option<u32>,
@@ -298,6 +315,7 @@ pub struct ReplayState {
     pub pid_metrics: BTreeMap<String, MetricRecord>,
     pub geometry_metrics: BTreeMap<String, MetricRecord>,
     pub evaluation_metrics: BTreeMap<String, MetricRecord>,
+    pub labels: Vec<LabelRecord>,
     pub actions: Vec<ActionRecord>,
     pub interventions: Vec<InterventionRecord>,
     pub artifacts: Vec<ArtifactRecord>,
@@ -462,6 +480,18 @@ impl ReplayState {
                     },
                 );
             }
+            RunLogEvent::LabelObserved {
+                step,
+                timestamp_ns,
+                name,
+                value,
+                ..
+            } => self.labels.push(LabelRecord {
+                step: *step,
+                timestamp_ns: *timestamp_ns,
+                name: name.clone(),
+                value: value.clone(),
+            }),
             RunLogEvent::InterventionApplied {
                 step,
                 timestamp_ns,
@@ -512,6 +542,7 @@ impl RunLogEvent {
             | RunLogEvent::PidMetric { timestamp_ns, .. }
             | RunLogEvent::GeometryMetric { timestamp_ns, .. }
             | RunLogEvent::EvaluationMetric { timestamp_ns, .. }
+            | RunLogEvent::LabelObserved { timestamp_ns, .. }
             | RunLogEvent::InterventionApplied { timestamp_ns, .. }
             | RunLogEvent::ArtifactLogged { timestamp_ns, .. }
             | RunLogEvent::ErrorLogged { timestamp_ns, .. } => *timestamp_ns,
@@ -529,6 +560,7 @@ impl RunLogEvent {
             | RunLogEvent::PidMetric { step, .. }
             | RunLogEvent::GeometryMetric { step, .. }
             | RunLogEvent::EvaluationMetric { step, .. }
+            | RunLogEvent::LabelObserved { step, .. }
             | RunLogEvent::InterventionApplied { step, .. } => Some(*step),
             RunLogEvent::BridgeRequest { step, .. }
             | RunLogEvent::BridgeResponse { step, .. }
@@ -559,6 +591,7 @@ pub fn runlog_event_contracts() -> Vec<RunLogEventContract> {
                     | "pid_metric"
                     | "geometry_metric"
                     | "evaluation_metric"
+                    | "label_observed"
                     | "intervention_applied"
                     | "error_logged"
             ),
@@ -656,6 +689,7 @@ pub struct RunLogSummary {
     pub pid_metrics: usize,
     pub geometry_metrics: usize,
     pub evaluation_metrics: usize,
+    pub labels: usize,
     pub embeddings: usize,
     pub bridge_records: usize,
     pub sim_snapshots: usize,
@@ -849,6 +883,14 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
                     report.error(Some(idx), "metric value must be finite");
                 }
             }
+            RunLogEvent::LabelObserved { name, value, .. } => {
+                if name.is_empty() {
+                    report.error(Some(idx), "label name must not be empty");
+                }
+                if value.is_null() {
+                    report.error(Some(idx), "label value must not be null");
+                }
+            }
             RunLogEvent::EmbeddingCaptured { name, dims, .. } => {
                 if name.is_empty() {
                     report.error(Some(idx), "embedding name must not be empty");
@@ -926,6 +968,7 @@ pub fn summarize_events(events: &[RunLogEvent]) -> Result<RunLogSummary> {
         pid_metrics: state.pid_metrics.len(),
         geometry_metrics: state.geometry_metrics.len(),
         evaluation_metrics: state.evaluation_metrics.len(),
+        labels: state.labels.len(),
         embeddings: state.embeddings.len(),
         bridge_records: state.bridge_records.len(),
         sim_snapshots: state.sim_snapshots,
@@ -1239,6 +1282,13 @@ mod tests {
                 value: 0.75,
                 metadata: BTreeMap::new(),
             },
+            RunLogEvent::LabelObserved {
+                step: 0,
+                timestamp_ns: 4,
+                name: "success".to_string(),
+                value: json!(true),
+                metadata: BTreeMap::new(),
+            },
             RunLogEvent::RunEnded {
                 run_id: "run-1".to_string(),
                 timestamp_ns: 5,
@@ -1272,6 +1322,8 @@ mod tests {
         assert_eq!(state.object_poses["cube"].pose.position, [1.0, 2.0, 3.0]);
         assert_eq!(state.pid_metrics["redundancy"].value, 0.25);
         assert_eq!(state.evaluation_metrics["baseline.accuracy"].value, 0.75);
+        assert_eq!(state.labels[0].name, "success");
+        assert_eq!(state.labels[0].value, json!(true));
     }
 
     #[test]
@@ -1296,12 +1348,32 @@ mod tests {
     }
 
     #[test]
+    fn validation_catches_bad_label() {
+        let mut events = sample_events();
+        if let RunLogEvent::LabelObserved { name, value, .. } = &mut events[8] {
+            name.clear();
+            *value = serde_json::Value::Null;
+        }
+        let report = validate_events(&events);
+        assert!(!report.is_valid());
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("label name")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("label value")));
+    }
+
+    #[test]
     fn summary_and_manifest_include_trace_hash() {
         let events = sample_events();
         let summary = summarize_events(&events).unwrap();
         assert_eq!(summary.run_id.as_deref(), Some("run-1"));
         assert_eq!(summary.validation_errors, 0);
         assert_eq!(summary.evaluation_metrics, 1);
+        assert_eq!(summary.labels, 1);
         assert_eq!(summary.trace_hash.len(), 64);
         let state_hash = replay_trace_hash(&events).unwrap();
         assert_eq!(summary.trace_hash, state_hash);
@@ -1331,6 +1403,10 @@ mod tests {
             .event_types
             .iter()
             .any(|event| event.event_type == "evaluation_metric" && event.has_step));
+        assert!(contract
+            .event_types
+            .iter()
+            .any(|event| event.event_type == "label_observed" && event.has_step));
         assert!(contract.sidecars.contains(&"manifest".to_string()));
         assert!(contract.actor_types.contains(&"llm_tool".to_string()));
     }

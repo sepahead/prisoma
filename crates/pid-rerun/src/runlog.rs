@@ -97,6 +97,9 @@ impl<'a> RunLogRerunLogger<'a> {
                 )?;
                 Ok(())
             }
+            RunLogEvent::LabelObserved { name, value, .. } => {
+                self.log_text("labels/observed", "INFO", &format!("{name}: {value}"))
+            }
             RunLogEvent::ActionApplied { action_type, .. } => {
                 self.log_text("actions/applied", "INFO", action_type)
             }
@@ -173,6 +176,10 @@ impl<'a> RunLogRerunLogger<'a> {
         self.rec.log(
             "run/summary/evaluation_metrics",
             &Scalars::single(summary.evaluation_metrics as f64),
+        )?;
+        self.rec.log(
+            "run/summary/labels",
+            &Scalars::single(summary.labels as f64),
         )?;
         self.rec.log(
             "run/summary/validation_errors",

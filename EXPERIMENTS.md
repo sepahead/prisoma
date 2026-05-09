@@ -913,7 +913,7 @@ cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/exp0_runlo
 
 ### 4.4 Tiny Labeled Harness Smoke
 
-This repo includes a deterministic toy VLA/task harness that produces success labels, PID/CI features over `(vision, language; action)`, non-PID baseline accuracies, a summary JSON artifact, and a canonical run log. It is a software integration smoke, not evidence for a real VLA policy.
+This repo includes a deterministic toy VLA/task harness that produces first-class success-label events, PID/CI features over `(vision, language; action)`, non-PID baseline accuracies, a summary JSON artifact, and a canonical run log. It is a software integration smoke, not evidence for a real VLA policy.
 
 ```bash
 just toy-harness

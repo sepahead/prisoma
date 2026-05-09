@@ -4,6 +4,7 @@ use pid_core::{
 };
 use pid_runlog::{RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::Path;
@@ -130,6 +131,18 @@ pub fn write_toy_harness_runlog(
             metadata: [
                 ("episode_id".to_string(), sample.episode_id.clone()),
                 ("success".to_string(), sample.success.to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        })?;
+        writer.append(&RunLogEvent::LabelObserved {
+            step,
+            timestamp_ns,
+            name: "toy_vla.success".to_string(),
+            value: json!(sample.success),
+            metadata: [
+                ("episode_id".to_string(), sample.episode_id.clone()),
+                ("label_kind".to_string(), "success".to_string()),
             ]
             .into_iter()
             .collect(),
@@ -481,6 +494,7 @@ mod tests {
         assert_eq!(summary.run_id.as_deref(), Some("toy-vla-baseline-run"));
         assert_eq!(summary.pid_metrics, 8);
         assert_eq!(summary.evaluation_metrics, 6);
+        assert_eq!(summary.labels, 32);
         assert_eq!(summary.embeddings, 3);
         assert_eq!(summary.artifacts, 1);
         assert_eq!(summary.errors, 0);

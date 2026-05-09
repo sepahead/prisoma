@@ -72,7 +72,7 @@ See `findings.md` for the latest repo-local Exp0 interpretation notes.
 just toy-harness
 ```
 
-If you don’t have `just`: run `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`, then validate it with `cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/toy_vla_runlog.jsonl`. This is a deterministic toy task, not VLA evidence; it exists to exercise labels, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export end to end.
+If you don’t have `just`: run `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`, then validate it with `cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/toy_vla_runlog.jsonl`. This is a deterministic toy task, not VLA evidence; it exists to exercise first-class label events, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export end to end.
 
 ## Quick Start (M1 Run Log)
 
