@@ -90,3 +90,8 @@ runlog-rerun path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog.rrd":
 
 runlog-rerun-bridge path="outputs/demo_bridge_runlog.jsonl" out="outputs/demo_bridge_runlog.rrd":
     cargo run -p pid-rerun --bin runlog-to-rerun -- {{path}} --save {{out}}
+
+runlog-bridge-export-rerun source="outputs/demo_bridge_runlog.jsonl" path="outputs/demo_bridge_export_rerun_runlog.jsonl" out="outputs/demo_bridge_export_rerun.rrd":
+    cargo run -p pid-sim --bin pid-sim-bridge-demo -- {{source}}
+    printf '%s\n' '{"jsonrpc":"2.0","id":"export","method":"export.rerun","params":{"run_log_uri":"{{source}}","output_uri":"{{out}}"}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- {{path}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{path}}

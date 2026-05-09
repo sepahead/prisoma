@@ -37,13 +37,22 @@ jobs:
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_demo.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_demo.jsonl | grep -q 'flow_pred_records=10'
           cargo run -p pid-rerun --bin runlog-to-rerun -- /tmp/pid_vla_bridge_demo.jsonl --save /tmp/pid_vla_bridge_demo.rrd
+          EXPORT_OUT="$(mktemp)"
+          printf '%s\n' '{"jsonrpc":"2.0","id":"export","method":"export.rerun","params":{"run_log_uri":"/tmp/pid_vla_bridge_demo.jsonl","output_uri":"/tmp/pid_vla_bridge_export.rrd"}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- /tmp/pid_vla_bridge_export_stdio.jsonl | tee "$EXPORT_OUT"
+          grep -q '"id":"export"' "$EXPORT_OUT"
+          grep -q '"sha256"' "$EXPORT_OUT"
+          test -s /tmp/pid_vla_bridge_export.rrd
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_export_stdio.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_export_stdio.jsonl | grep -q 'artifacts=1'
           printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- /tmp/pid_vla_bridge_stdio.jsonl
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_stdio.jsonl
           SAFE_OUT="$(mktemp)"
-          printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"replay","method":"log.replay","params":{"run_log_uri":"/tmp/pid_vla_bridge_demo.jsonl"}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode /tmp/pid_vla_bridge_stdio_safe.jsonl | tee "$SAFE_OUT"
+          printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"replay","method":"log.replay","params":{"run_log_uri":"/tmp/pid_vla_bridge_demo.jsonl"}}' '{"jsonrpc":"2.0","id":"safe-export","method":"export.rerun","params":{"run_log_uri":"/tmp/pid_vla_bridge_demo.jsonl","output_uri":"/tmp/pid_vla_bridge_safe_export.rrd"}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode /tmp/pid_vla_bridge_stdio_safe.jsonl | tee "$SAFE_OUT"
           grep -q '"id":"replay"' "$SAFE_OUT"
           grep -q '"trace_hash"' "$SAFE_OUT"
+          grep -q 'bridge safe mode blocked method export.rerun' "$SAFE_OUT"
           grep -q 'bridge safe mode blocked method sim.step' "$SAFE_OUT"
+          test ! -e /tmp/pid_vla_bridge_safe_export.rrd
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_stdio_safe.jsonl
           TCP_PORT="$(python - <<'PY'
           import socket
@@ -146,6 +155,7 @@ jobs:
               for request in [
                   {"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}},
                   {"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}},
+                  {"jsonrpc":"2.0","id":"export","method":"export.rerun","params":{"run_log_uri":"/tmp/pid_vla_bridge_demo.jsonl","output_uri":"/tmp/pid_vla_bridge_ws_export.rrd"}},
               ]:
                   send_frame(sock, 0x1, json.dumps(request, separators=(",", ":")))
                   opcode, payload = recv_frame(sock)
@@ -157,8 +167,12 @@ jobs:
           wait "$WS_PID"
           grep -q '"id":"status"' /tmp/pid_vla_bridge_ws.out
           grep -q '"id":"step"' /tmp/pid_vla_bridge_ws.out
+          grep -q '"id":"export"' /tmp/pid_vla_bridge_ws.out
+          grep -q '"sha256"' /tmp/pid_vla_bridge_ws.out
+          test -s /tmp/pid_vla_bridge_ws_export.rrd
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_ws.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'flow_pred_records=2'
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'artifacts=1'
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_ws.jsonl
 
   docs:

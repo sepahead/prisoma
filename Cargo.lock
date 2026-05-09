@@ -5964,6 +5964,7 @@ dependencies = [
  "base64 0.22.1",
  "pid-bridge",
  "pid-core",
+ "pid-rerun",
  "pid-runlog",
  "serde",
  "serde_json",

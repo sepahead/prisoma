@@ -142,7 +142,9 @@ fn bridge_response_payload_hint(method: &str) -> &'static str {
             r#"{"trace_hash": string, "events": integer, "valid": boolean, "config_hash": string?}"#
         }
         "intervention.apply" => r#"{"accepted": boolean}"#,
-        "export.rerun" => r#"{"output_uri": string}"#,
+        "export.rerun" => {
+            r#"{"output_uri": string, "trace_hash": string, "events": integer, "valid": boolean, "sha256": string?}"#
+        }
         _ => "object",
     }
 }
@@ -577,6 +579,15 @@ mod tests {
             .unwrap();
         assert!(replay.safe_mode_allowed);
         assert!(replay.response_payload.contains("trace_hash"));
+        let export = contract
+            .bridge
+            .methods
+            .iter()
+            .find(|method| method.method == "export.rerun")
+            .unwrap();
+        assert!(!export.safe_mode_allowed);
+        assert!(export.request_payload.contains("run_log_uri"));
+        assert!(export.response_payload.contains("sha256"));
     }
 
     #[test]

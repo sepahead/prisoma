@@ -50,7 +50,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 
 ## Repo Status (What Actually Exists)
 
-- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest/sidecar CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core + JSON-RPC-shaped request/response conversion + contract export), `crates/pid-sim` (deterministic object sim + `Flow_gt`/baseline `flow_pred` bridge demos, stdio/TCP/WebSocket JSON-RPC bridges, flow verification, action replay checks, a labeled toy VLA/task harness, and a generic offline `(V,L,D,A)` embedding harness), `crates/pid-rerun` (prototype Rerun logging + validated run-log replay adapter with summary/provenance/validation diagnostics), and the Experiment 0 runner (`just exp0`, `just exp0-bin`, `just exp0-runlog`).
+- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest/sidecar CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core + JSON-RPC-shaped request/response conversion + contract export), `crates/pid-sim` (deterministic object sim + `Flow_gt`/baseline `flow_pred` bridge demos, stdio/TCP/WebSocket JSON-RPC bridges, safe-mode `log.replay`, bridge `export.rerun`, flow verification, action replay checks, a labeled toy VLA/task harness, and a generic offline `(V,L,D,A)` embedding harness), `crates/pid-rerun` (prototype Rerun logging + validated run-log replay adapter with summary/provenance/validation diagnostics), and the Experiment 0 runner (`just exp0`, `just exp0-bin`, `just exp0-runlog`).
 - Specified: A fuller Rerun-based diagnostic viewer (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start (Exp0 Gate)
@@ -100,9 +100,10 @@ just runlog-sidecars
 just runlog-sim-verify
 just runlog-rerun
 just runlog-rerun-bridge
+just runlog-bridge-export-rerun
 ```
 
-`runlog-bridge-stdio-safe` exercises the Agent Bridge read-only safe mode: `sim.status`/`log.replay` are allowed and a mutating `sim.step` request is logged as a blocked bridge error response. `pid-sim-bridge-tcp` exposes the newline-delimited JSON-RPC protocol on localhost for one client connection; `pid-sim-bridge-ws` exposes JSON-RPC over a local RFC6455 WebSocket connection. Both write canonical run logs.
+`runlog-bridge-stdio-safe` exercises the Agent Bridge read-only safe mode: `sim.status`/`log.replay` are allowed, while `sim.step` and file-writing `export.rerun` requests are logged as blocked bridge error responses. `export.rerun` converts a validated run log to a `.rrd` recording and logs the generated artifact. `pid-sim-bridge-tcp` exposes the newline-delimited JSON-RPC protocol on localhost for one client connection; `pid-sim-bridge-ws` exposes JSON-RPC over a local RFC6455 WebSocket connection. Both write canonical run logs.
 
 If you don’t have `just`: run `cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl`, then `cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/demo_runlog.jsonl`, then `cargo run -p pid-runlog --bin pid-runlog-replay -- outputs/demo_runlog.jsonl`.
 

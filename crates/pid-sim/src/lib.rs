@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
+use std::path::{Path, PathBuf};
 
 pub mod offline_harness;
 pub mod toy_harness;
@@ -301,6 +302,20 @@ impl BridgeHandler for SimBridgeHandler {
                     "config_hash": summary.config_hash,
                 }))
             }
+            BridgeMethod::ExportRerun => {
+                let run_log_uri = request
+                    .payload
+                    .get("run_log_uri")
+                    .and_then(Value::as_str)
+                    .context("export.rerun requires string run_log_uri")?;
+                let output_uri = request
+                    .payload
+                    .get("output_uri")
+                    .and_then(Value::as_str)
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| default_rerun_output_path(run_log_uri));
+                export_runlog_to_rerun(run_log_uri, &output_uri)
+            }
             _ => bail!("unsupported sim bridge method: {}", request.method.as_str()),
         }
     }
@@ -360,7 +375,10 @@ impl<W: Write> SimBridgeSession<W> {
             self.bridge.record_response(&response)?;
             return Ok(response);
         }
-        if request.method == BridgeMethod::LogReplay {
+        if matches!(
+            request.method,
+            BridgeMethod::LogReplay | BridgeMethod::ExportRerun
+        ) {
             self.bridge.flush()?;
         }
         let handled = self.handler.handle(request);
@@ -414,6 +432,31 @@ impl<W: Write> SimBridgeSession<W> {
                 self.bridge
                     .record_event(&self.handler.sim.snapshot_event())?;
             }
+            BridgeMethod::ExportRerun if response.ok => {
+                if let Some(result) = &response.result {
+                    if let Some(output_uri) = result.get("output_uri").and_then(Value::as_str) {
+                        self.bridge.record_event(&RunLogEvent::ArtifactLogged {
+                            timestamp_ns: response.timestamp_ns,
+                            name: "rerun_recording".to_string(),
+                            kind: "rerun_rrd".to_string(),
+                            uri: output_uri.to_string(),
+                            sha256: result
+                                .get("sha256")
+                                .and_then(Value::as_str)
+                                .map(str::to_string),
+                            metadata: result
+                                .get("trace_hash")
+                                .and_then(Value::as_str)
+                                .map(|trace_hash| {
+                                    [("trace_hash".to_string(), trace_hash.to_string())]
+                                        .into_iter()
+                                        .collect()
+                                })
+                                .unwrap_or_default(),
+                        })?;
+                    }
+                }
+            }
             _ => {}
         }
 
@@ -449,6 +492,63 @@ impl<W: Write> SimBridgeSession<W> {
             payload_hash: request.payload_hash()?,
             payload: request.payload.clone(),
         })
+    }
+}
+
+pub fn export_runlog_to_rerun(
+    run_log_uri: impl AsRef<Path>,
+    output_uri: impl AsRef<Path>,
+) -> Result<Value> {
+    let run_log_uri = run_log_uri.as_ref();
+    let output_uri = output_uri.as_ref();
+    if paths_refer_to_same_file(run_log_uri, output_uri) {
+        bail!("export.rerun output_uri must differ from run_log_uri");
+    }
+    if let Some(parent) = output_uri.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+    }
+    let events = pid_runlog::read_events_from_path(run_log_uri)?;
+    let summary = pid_runlog::summarize_events(&events)?;
+    if summary.validation_errors > 0 {
+        bail!(
+            "run log failed validation ({} error(s)); refusing export",
+            summary.validation_errors
+        );
+    }
+    let manifest = pid_runlog::manifest_for_events(run_log_uri, &events)?;
+    let output_uri = output_uri.display().to_string();
+    let rec = pid_rerun::init_recording("pid_vla_bridge_export", false)?;
+    pid_rerun::RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, Some(&manifest))?;
+    pid_rerun::save_recording(&rec, &output_uri)?;
+    let sha256 = pid_runlog::sha256_file(&output_uri)?;
+    Ok(json!({
+        "output_uri": output_uri,
+        "sha256": sha256,
+        "trace_hash": summary.trace_hash,
+        "events": summary.event_count,
+        "valid": summary.validation_errors == 0,
+        "validation_errors": summary.validation_errors,
+        "validation_warnings": summary.validation_warnings,
+        "config_hash": summary.config_hash,
+    }))
+}
+
+fn default_rerun_output_path(run_log_uri: &str) -> PathBuf {
+    let mut path = PathBuf::from(run_log_uri);
+    path.set_extension("rrd");
+    path
+}
+
+fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
+    if left == right {
+        return true;
+    }
+    match (left.canonicalize(), right.canonicalize()) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => false,
     }
 }
 
@@ -859,6 +959,46 @@ mod tests {
     };
     use serde_json::json;
     use std::io::Cursor;
+    use std::path::{Path, PathBuf};
+
+    fn temp_path(prefix: &str, extension: &str) -> PathBuf {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("{prefix}-{stamp}.{extension}"))
+    }
+
+    fn write_minimal_run_log(path: &Path, test_name: &str) {
+        let config = json!({ "test": test_name });
+        let config_hash = canonical_json_hash(&config).unwrap();
+        let mut writer = RunLogWriter::create(path).unwrap();
+        writer
+            .append(&RunLogEvent::RunStarted {
+                schema_version: RUN_LOG_SCHEMA_VERSION,
+                run_id: test_name.to_string(),
+                timestamp_ns: 0,
+                config_hash: config_hash.clone(),
+                metadata: BTreeMap::new(),
+            })
+            .unwrap();
+        writer
+            .append(&RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash: config_hash.clone(),
+                config,
+            })
+            .unwrap();
+        writer
+            .append(&RunLogEvent::RunEnded {
+                run_id: test_name.to_string(),
+                timestamp_ns: 1,
+                status: RunStatus::Succeeded,
+                message: None,
+            })
+            .unwrap();
+        writer.flush().unwrap();
+    }
 
     #[test]
     fn fixed_step_is_deterministic() {
@@ -967,39 +1107,8 @@ mod tests {
 
     #[test]
     fn bridge_session_safe_mode_allows_log_replay() {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("pid-sim-log-replay-{stamp}.jsonl"));
-        let config = json!({ "test": "log_replay" });
-        let config_hash = canonical_json_hash(&config).unwrap();
-        let mut replay_writer = RunLogWriter::create(&path).unwrap();
-        replay_writer
-            .append(&RunLogEvent::RunStarted {
-                schema_version: RUN_LOG_SCHEMA_VERSION,
-                run_id: "replay-source".to_string(),
-                timestamp_ns: 0,
-                config_hash: config_hash.clone(),
-                metadata: BTreeMap::new(),
-            })
-            .unwrap();
-        replay_writer
-            .append(&RunLogEvent::ConfigLogged {
-                timestamp_ns: 0,
-                config_hash,
-                config,
-            })
-            .unwrap();
-        replay_writer
-            .append(&RunLogEvent::RunEnded {
-                run_id: "replay-source".to_string(),
-                timestamp_ns: 1,
-                status: RunStatus::Succeeded,
-                message: None,
-            })
-            .unwrap();
-        replay_writer.flush().unwrap();
+        let path = temp_path("pid-sim-log-replay", "jsonl");
+        write_minimal_run_log(&path, "replay-source");
 
         let actor = Actor {
             actor_type: ActorType::Script,
@@ -1030,6 +1139,159 @@ mod tests {
         assert_eq!(state.actions.len(), 0);
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn bridge_session_export_rerun_writes_artifact() {
+        let source = temp_path("pid-sim-export-rerun-source", "jsonl");
+        let output = temp_path("pid-sim-export-rerun-output", "rrd");
+        write_minimal_run_log(&source, "export-rerun-source");
+
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-export-rerun-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let request = bridge_request(
+            "req-export-rerun",
+            BridgeMethod::ExportRerun,
+            actor,
+            Some(0),
+            0,
+            json!({
+                "run_log_uri": source.display().to_string(),
+                "output_uri": output.display().to_string(),
+            }),
+        );
+        let response = session.dispatch(&request).unwrap();
+        assert!(response.ok, "{:?}", response.message);
+        let result = response.result.unwrap();
+        assert_eq!(result["output_uri"], output.display().to_string());
+        assert_eq!(result["events"], 3);
+        assert_eq!(result["valid"], true);
+        assert_eq!(result["validation_errors"], 0);
+        assert_eq!(result["trace_hash"].as_str().unwrap().len(), 64);
+        assert_eq!(result["sha256"].as_str().unwrap().len(), 64);
+        assert!(output.exists());
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events);
+        assert_eq!(state.bridge_records.len(), 2);
+        assert_eq!(state.actions.len(), 0);
+        assert_eq!(state.artifacts.len(), 1);
+        assert_eq!(state.artifacts[0].kind, "rerun_rrd");
+        assert_eq!(state.artifacts[0].uri, output.display().to_string());
+        assert_eq!(state.artifacts[0].sha256.as_deref().unwrap().len(), 64);
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RunLogEvent::ArtifactLogged { metadata, .. }
+                if metadata.contains_key("trace_hash")
+        )));
+
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(output);
+    }
+
+    #[test]
+    fn bridge_session_export_rerun_requires_run_log_uri() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-export-rerun-missing-input-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let request = bridge_request(
+            "req-export-rerun-missing-input",
+            BridgeMethod::ExportRerun,
+            actor,
+            Some(0),
+            0,
+            json!({ "output_uri": temp_path("pid-sim-export-rerun-missing", "rrd") }),
+        );
+        let response = session.dispatch(&request).unwrap();
+        assert!(!response.ok);
+        assert!(response
+            .message
+            .as_deref()
+            .unwrap()
+            .contains("requires string run_log_uri"));
+    }
+
+    #[test]
+    fn bridge_session_export_rerun_rejects_source_overwrite() {
+        let source = temp_path("pid-sim-export-rerun-overwrite-source", "jsonl");
+        write_minimal_run_log(&source, "export-rerun-overwrite-source");
+
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-export-rerun-overwrite-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let request = bridge_request(
+            "req-export-rerun-overwrite",
+            BridgeMethod::ExportRerun,
+            actor,
+            Some(0),
+            0,
+            json!({
+                "run_log_uri": source.display().to_string(),
+                "output_uri": source.display().to_string(),
+            }),
+        );
+        let response = session.dispatch(&request).unwrap();
+        assert!(!response.ok);
+        assert!(response
+            .message
+            .as_deref()
+            .unwrap()
+            .contains("output_uri must differ"));
+
+        let _ = std::fs::remove_file(source);
+    }
+
+    #[test]
+    fn bridge_session_safe_mode_blocks_export_rerun() {
+        let source = temp_path("pid-sim-safe-export-rerun-source", "jsonl");
+        let output = temp_path("pid-sim-safe-export-rerun-output", "rrd");
+        write_minimal_run_log(&source, "safe-export-rerun-source");
+
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-safe-export-rerun-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        let request = bridge_request(
+            "req-safe-export-rerun",
+            BridgeMethod::ExportRerun,
+            actor,
+            Some(0),
+            0,
+            json!({
+                "run_log_uri": source.display().to_string(),
+                "output_uri": output.display().to_string(),
+            }),
+        );
+        let response = session.dispatch(&request).unwrap();
+        assert!(!response.ok);
+        assert!(response
+            .message
+            .as_deref()
+            .unwrap()
+            .contains("safe mode blocked"));
+        assert!(!output.exists());
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events);
+        assert_eq!(state.bridge_records.len(), 2);
+        assert_eq!(state.artifacts.len(), 0);
+
+        let _ = std::fs::remove_file(source);
     }
 
     #[test]
