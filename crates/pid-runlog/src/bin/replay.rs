@@ -91,6 +91,7 @@ fn main() -> Result<()> {
     println!("evaluation_metrics={}", state.evaluation_metrics.len());
     println!("labels={}", state.labels.len());
     println!("embeddings={}", state.embeddings.len());
+    println!("embedding_contracts={}", state.embedding_contracts.len());
     println!("bridge_records={}", state.bridge_records.len());
     println!("sim_snapshots={}", state.sim_snapshots);
     println!("artifacts={}", state.artifacts.len());

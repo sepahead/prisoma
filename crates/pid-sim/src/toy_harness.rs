@@ -2,7 +2,9 @@ use anyhow::{bail, Context, Result};
 use pid_core::{
     co_information_pairwise, pid2_isx, IsxConfig, KsgConfig, MatRef, NegativeHandling, Pid2Config,
 };
-use pid_runlog::{RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
+use pid_runlog::{
+    EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -103,6 +105,9 @@ pub fn write_toy_harness_runlog(
 ) -> Result<()> {
     ensure_parent(path.as_ref())?;
     let mut writer = RunLogWriter::create(path.as_ref())?;
+    let summary_uri = summary_path.map(|path| path.display().to_string());
+    let summary_sha256 = summary_path.and_then(|path| pid_runlog::sha256_file(path).ok());
+    let embedding_timestamp_base = report.samples.len() as u64 * 1_000_000 + 1_000_000;
     writer.append(&RunLogEvent::RunStarted {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: report.run_id.clone(),
@@ -148,9 +153,37 @@ pub fn write_toy_harness_runlog(
             .collect(),
         })?;
     }
+    writer.append(&RunLogEvent::EmbeddingContract {
+        timestamp_ns: embedding_timestamp_base,
+        name: "toy_vla.vlda_contract".to_string(),
+        variables: [
+            ("V", "toy_vla.vision_scalar"),
+            ("L", "toy_vla.language_scalar"),
+            ("D", "toy_vla.target_action"),
+            ("A", "toy_vla.policy_action"),
+        ]
+        .into_iter()
+        .map(|(variable, source)| EmbeddingVariableContract {
+            variable: variable.to_string(),
+            source: source.to_string(),
+            dims: vec![report.samples.len(), 1],
+            artifact_uri: summary_uri.clone(),
+            sha256: summary_sha256.clone(),
+        })
+        .collect(),
+        metadata: [
+            ("task".to_string(), "toy_pick_place_label".to_string()),
+            ("model".to_string(), "deterministic_toy_policy".to_string()),
+            ("preprocessing".to_string(), "scalar_identity".to_string()),
+            ("decomposition".to_string(), "(V,L,D,A)".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+    })?;
     for (idx, (name, dims)) in [
         ("toy_vla.vision_scalar", vec![report.samples.len(), 1]),
         ("toy_vla.language_scalar", vec![report.samples.len(), 1]),
+        ("toy_vla.target_action", vec![report.samples.len(), 1]),
         ("toy_vla.policy_action", vec![report.samples.len(), 1]),
     ]
     .into_iter()
@@ -158,24 +191,25 @@ pub fn write_toy_harness_runlog(
     {
         writer.append(&RunLogEvent::EmbeddingCaptured {
             step: report.samples.len() as u64,
-            timestamp_ns: 100_000_000 + idx as u64,
+            timestamp_ns: embedding_timestamp_base + idx as u64 + 1,
             name: name.to_string(),
             dims,
-            artifact_uri: summary_path.map(|path| path.display().to_string()),
-            sha256: summary_path.and_then(|path| pid_runlog::sha256_file(path).ok()),
+            artifact_uri: summary_uri.clone(),
+            sha256: summary_sha256.clone(),
             metadata: [("source".to_string(), "toy_harness_summary".to_string())]
                 .into_iter()
                 .collect(),
         })?;
     }
-    write_metric_events(&mut writer, report)?;
+    let metric_timestamp_base = embedding_timestamp_base + 10_000;
+    write_metric_events(&mut writer, report, metric_timestamp_base)?;
     if let Some(summary_path) = summary_path {
         writer.append(&RunLogEvent::ArtifactLogged {
-            timestamp_ns: 200_000_000,
+            timestamp_ns: metric_timestamp_base + 10_000,
             name: "toy_vla_summary_json".to_string(),
             kind: "summary_json".to_string(),
             uri: summary_path.display().to_string(),
-            sha256: pid_runlog::sha256_file(summary_path).ok(),
+            sha256: summary_sha256,
             metadata: [("task".to_string(), "toy_pick_place_label".to_string())]
                 .into_iter()
                 .collect(),
@@ -183,7 +217,7 @@ pub fn write_toy_harness_runlog(
     }
     writer.append(&RunLogEvent::RunEnded {
         run_id: report.run_id.clone(),
-        timestamp_ns: 300_000_000,
+        timestamp_ns: metric_timestamp_base + 20_000,
         status: RunStatus::Succeeded,
         message: Some(format!(
             "toy harness complete: {} episodes, {} failures",
@@ -311,6 +345,7 @@ where
 fn write_metric_events<W: Write>(
     writer: &mut RunLogWriter<W>,
     report: &ToyHarnessReport,
+    timestamp_base_ns: u64,
 ) -> Result<()> {
     let mut metrics = vec![
         (
@@ -374,7 +409,7 @@ fn write_metric_events<W: Write>(
         let event = if category == "pid" {
             RunLogEvent::PidMetric {
                 step: report.samples.len() as u64,
-                timestamp_ns: 150_000_000 + idx as u64,
+                timestamp_ns: timestamp_base_ns + idx as u64,
                 name: name.to_string(),
                 value,
                 metadata,
@@ -382,7 +417,7 @@ fn write_metric_events<W: Write>(
         } else {
             RunLogEvent::EvaluationMetric {
                 step: report.samples.len() as u64,
-                timestamp_ns: 150_000_000 + idx as u64,
+                timestamp_ns: timestamp_base_ns + idx as u64,
                 name: name.to_string(),
                 value,
                 metadata,
@@ -495,7 +530,8 @@ mod tests {
         assert_eq!(summary.pid_metrics, 8);
         assert_eq!(summary.evaluation_metrics, 6);
         assert_eq!(summary.labels, 32);
-        assert_eq!(summary.embeddings, 3);
+        assert_eq!(summary.embeddings, 4);
+        assert_eq!(summary.embedding_contracts, 1);
         assert_eq!(summary.artifacts, 1);
         assert_eq!(summary.errors, 0);
         let _ = std::fs::remove_file(summary_path);

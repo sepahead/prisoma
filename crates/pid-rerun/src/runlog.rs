@@ -126,6 +126,23 @@ impl<'a> RunLogRerunLogger<'a> {
             RunLogEvent::EmbeddingCaptured { name, dims, .. } => {
                 self.log_text("vla/embeddings", "INFO", &format!("{name}: {dims:?}"))
             }
+            RunLogEvent::EmbeddingContract {
+                name, variables, ..
+            } => self.log_text(
+                "vla/embedding_contracts",
+                "INFO",
+                &format!(
+                    "{name}: {}",
+                    variables
+                        .iter()
+                        .map(|variable| format!(
+                            "{}={} {:?}",
+                            variable.variable, variable.source, variable.dims
+                        ))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            ),
             RunLogEvent::ArtifactLogged { name, uri, .. } => {
                 self.log_text("artifacts", "INFO", &format!("{name}: {uri}"))
             }
@@ -180,6 +197,10 @@ impl<'a> RunLogRerunLogger<'a> {
         self.rec.log(
             "run/summary/labels",
             &Scalars::single(summary.labels as f64),
+        )?;
+        self.rec.log(
+            "run/summary/embedding_contracts",
+            &Scalars::single(summary.embedding_contracts as f64),
         )?;
         self.rec.log(
             "run/summary/validation_errors",

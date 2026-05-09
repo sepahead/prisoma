@@ -14,6 +14,7 @@ pub const RUN_LOG_EVENT_TYPES: &[&str] = &[
     "config_logged",
     "frame_observed",
     "embedding_captured",
+    "embedding_contract",
     "sim_snapshot",
     "bridge_request",
     "bridge_response",
@@ -44,7 +45,8 @@ pub const RUN_LOG_VALIDATION_RULES: &[&str] = &[
     "bridge request_id values are nonempty and unique",
     "bridge responses refer to existing requests",
     "poses, velocities, flows, and metrics are finite",
-    "artifact, metric, and label names are nonempty",
+    "artifact, embedding, contract, metric, and label names are nonempty",
+    "embedding contract variables have nonempty variable/source names and positive dims",
     "label values are non-null",
 ];
 
@@ -86,6 +88,15 @@ pub struct SimObjectSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EmbeddingVariableContract {
+    pub variable: String,
+    pub source: String,
+    pub dims: Vec<usize>,
+    pub artifact_uri: Option<String>,
+    pub sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RunLogEvent {
     RunStarted {
@@ -119,6 +130,12 @@ pub enum RunLogEvent {
         dims: Vec<usize>,
         artifact_uri: Option<String>,
         sha256: Option<String>,
+        metadata: BTreeMap<String, String>,
+    },
+    EmbeddingContract {
+        timestamp_ns: u64,
+        name: String,
+        variables: Vec<EmbeddingVariableContract>,
         metadata: BTreeMap<String, String>,
     },
     SimSnapshot {
@@ -267,6 +284,13 @@ pub struct EmbeddingRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EmbeddingContractRecord {
+    pub timestamp_ns: u64,
+    pub name: String,
+    pub variables: Vec<EmbeddingVariableContract>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BridgeRecord {
     pub step: Option<u64>,
     pub timestamp_ns: u64,
@@ -320,6 +344,7 @@ pub struct ReplayState {
     pub interventions: Vec<InterventionRecord>,
     pub artifacts: Vec<ArtifactRecord>,
     pub embeddings: Vec<EmbeddingRecord>,
+    pub embedding_contracts: Vec<EmbeddingContractRecord>,
     pub bridge_records: Vec<BridgeRecord>,
     pub sim_snapshots: usize,
     pub errors: Vec<String>,
@@ -367,6 +392,16 @@ impl ReplayState {
                 dims: dims.clone(),
                 artifact_uri: artifact_uri.clone(),
                 sha256: sha256.clone(),
+            }),
+            RunLogEvent::EmbeddingContract {
+                timestamp_ns,
+                name,
+                variables,
+                ..
+            } => self.embedding_contracts.push(EmbeddingContractRecord {
+                timestamp_ns: *timestamp_ns,
+                name: name.clone(),
+                variables: variables.clone(),
             }),
             RunLogEvent::SimSnapshot { .. } => {
                 self.sim_snapshots += 1;
@@ -533,6 +568,7 @@ impl RunLogEvent {
             | RunLogEvent::ConfigLogged { timestamp_ns, .. }
             | RunLogEvent::FrameObserved { timestamp_ns, .. }
             | RunLogEvent::EmbeddingCaptured { timestamp_ns, .. }
+            | RunLogEvent::EmbeddingContract { timestamp_ns, .. }
             | RunLogEvent::SimSnapshot { timestamp_ns, .. }
             | RunLogEvent::BridgeRequest { timestamp_ns, .. }
             | RunLogEvent::BridgeResponse { timestamp_ns, .. }
@@ -568,6 +604,7 @@ impl RunLogEvent {
             RunLogEvent::RunStarted { .. }
             | RunLogEvent::RunEnded { .. }
             | RunLogEvent::ConfigLogged { .. }
+            | RunLogEvent::EmbeddingContract { .. }
             | RunLogEvent::ArtifactLogged { .. } => None,
         }
     }
@@ -691,6 +728,7 @@ pub struct RunLogSummary {
     pub evaluation_metrics: usize,
     pub labels: usize,
     pub embeddings: usize,
+    pub embedding_contracts: usize,
     pub bridge_records: usize,
     pub sim_snapshots: usize,
     pub artifacts: usize,
@@ -899,6 +937,11 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
                     report.error(Some(idx), "embedding dims must be nonempty and positive");
                 }
             }
+            RunLogEvent::EmbeddingContract {
+                name, variables, ..
+            } => {
+                validate_embedding_contract(&mut report, idx, name, variables);
+            }
             RunLogEvent::ArtifactLogged { name, uri, .. } => {
                 if name.is_empty() {
                     report.error(Some(idx), "artifact name must not be empty");
@@ -970,6 +1013,7 @@ pub fn summarize_events(events: &[RunLogEvent]) -> Result<RunLogSummary> {
         evaluation_metrics: state.evaluation_metrics.len(),
         labels: state.labels.len(),
         embeddings: state.embeddings.len(),
+        embedding_contracts: state.embedding_contracts.len(),
         bridge_records: state.bridge_records.len(),
         sim_snapshots: state.sim_snapshots,
         artifacts: state.artifacts.len(),
@@ -1068,6 +1112,55 @@ fn validate_pose(report: &mut ValidationReport, event_index: usize, pose: &Pose)
     for value in pose.orientation_xyzw {
         if !value.is_finite() {
             report.error(Some(event_index), "pose orientation must be finite");
+        }
+    }
+}
+
+fn validate_embedding_contract(
+    report: &mut ValidationReport,
+    event_index: usize,
+    name: &str,
+    variables: &[EmbeddingVariableContract],
+) {
+    if name.is_empty() {
+        report.error(
+            Some(event_index),
+            "embedding contract name must not be empty",
+        );
+    }
+    if variables.is_empty() {
+        report.error(
+            Some(event_index),
+            "embedding contract must include at least one variable",
+        );
+    }
+    let mut seen = BTreeSet::new();
+    for variable in variables {
+        if variable.variable.is_empty() {
+            report.error(
+                Some(event_index),
+                "embedding contract variable name must not be empty",
+            );
+        } else if !seen.insert(variable.variable.clone()) {
+            report.error(
+                Some(event_index),
+                format!(
+                    "duplicate embedding contract variable {}",
+                    variable.variable
+                ),
+            );
+        }
+        if variable.source.is_empty() {
+            report.error(
+                Some(event_index),
+                "embedding contract source must not be empty",
+            );
+        }
+        if variable.dims.is_empty() || variable.dims.contains(&0) {
+            report.error(
+                Some(event_index),
+                "embedding contract dims must be nonempty and positive",
+            );
         }
     }
 }
@@ -1242,6 +1335,18 @@ mod tests {
                 sha256: Some("abc".to_string()),
                 metadata: BTreeMap::new(),
             },
+            RunLogEvent::EmbeddingContract {
+                timestamp_ns: 2,
+                name: "vla_tuple".to_string(),
+                variables: vec![EmbeddingVariableContract {
+                    variable: "V".to_string(),
+                    source: "V".to_string(),
+                    dims: vec![1, 3],
+                    artifact_uri: Some("artifacts/v.npy".to_string()),
+                    sha256: Some("abc".to_string()),
+                }],
+                metadata: BTreeMap::new(),
+            },
             RunLogEvent::BridgeRequest {
                 step: Some(0),
                 timestamp_ns: 2,
@@ -1318,6 +1423,8 @@ mod tests {
         assert_eq!(state.last_step, Some(0));
         assert_eq!(state.actions.len(), 1);
         assert_eq!(state.embeddings.len(), 1);
+        assert_eq!(state.embedding_contracts[0].name, "vla_tuple");
+        assert_eq!(state.embedding_contracts[0].variables[0].variable, "V");
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.object_poses["cube"].pose.position, [1.0, 2.0, 3.0]);
         assert_eq!(state.pid_metrics["redundancy"].value, 0.25);
@@ -1350,7 +1457,7 @@ mod tests {
     #[test]
     fn validation_catches_bad_label() {
         let mut events = sample_events();
-        if let RunLogEvent::LabelObserved { name, value, .. } = &mut events[8] {
+        if let RunLogEvent::LabelObserved { name, value, .. } = &mut events[9] {
             name.clear();
             *value = serde_json::Value::Null;
         }
@@ -1367,6 +1474,37 @@ mod tests {
     }
 
     #[test]
+    fn validation_catches_bad_embedding_contract() {
+        let mut events = sample_events();
+        if let RunLogEvent::EmbeddingContract {
+            name, variables, ..
+        } = &mut events[3]
+        {
+            name.clear();
+            variables.push(EmbeddingVariableContract {
+                variable: "V".to_string(),
+                source: "".to_string(),
+                dims: vec![0],
+                artifact_uri: None,
+                sha256: None,
+            });
+        }
+        let report = validate_events(&events);
+        assert!(!report.is_valid());
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("embedding contract name")));
+        assert!(report.issues.iter().any(|issue| issue
+            .message
+            .contains("duplicate embedding contract variable")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("embedding contract dims")));
+    }
+
+    #[test]
     fn summary_and_manifest_include_trace_hash() {
         let events = sample_events();
         let summary = summarize_events(&events).unwrap();
@@ -1374,6 +1512,7 @@ mod tests {
         assert_eq!(summary.validation_errors, 0);
         assert_eq!(summary.evaluation_metrics, 1);
         assert_eq!(summary.labels, 1);
+        assert_eq!(summary.embedding_contracts, 1);
         assert_eq!(summary.trace_hash.len(), 64);
         let state_hash = replay_trace_hash(&events).unwrap();
         assert_eq!(summary.trace_hash, state_hash);
@@ -1407,6 +1546,10 @@ mod tests {
             .event_types
             .iter()
             .any(|event| event.event_type == "label_observed" && event.has_step));
+        assert!(contract
+            .event_types
+            .iter()
+            .any(|event| event.event_type == "embedding_contract" && !event.has_step));
         assert!(contract.sidecars.contains(&"manifest".to_string()));
         assert!(contract.actor_types.contains(&"llm_tool".to_string()));
     }
