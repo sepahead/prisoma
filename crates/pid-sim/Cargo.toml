@@ -17,6 +17,10 @@ path = "src/bin/demo.rs"
 name = "pid-sim-bridge-demo"
 path = "src/bin/bridge_demo.rs"
 
+[[bin]]
+name = "pid-sim-verify"
+path = "src/bin/verify.rs"
+
 [dependencies]
 anyhow = "1.0"
 pid-bridge = { path = "../pid-bridge" }

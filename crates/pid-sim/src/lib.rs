@@ -346,6 +346,9 @@ pub fn verify_flow_gt(events: &[RunLogEvent], tolerance: f64) -> FlowVerificatio
             continue;
         };
         let Some(previous) = snapshots.get(&(*step - 1)).and_then(|s| s.get(object_id)) else {
+            report.issues.push(format!(
+                "missing previous snapshot for {object_id} before step {step}"
+            ));
             continue;
         };
         for vec in flow {

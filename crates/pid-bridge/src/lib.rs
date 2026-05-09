@@ -1,8 +1,10 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use pid_runlog::{canonical_json_hash, Actor, RunLogEvent, RunLogWriter};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::fmt;
 use std::io::Write;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -34,6 +36,31 @@ impl BridgeMethod {
     }
 }
 
+impl fmt::Display for BridgeMethod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for BridgeMethod {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "sim.status" | "sim_status" => Ok(BridgeMethod::SimStatus),
+            "sim.reset" | "sim_reset" => Ok(BridgeMethod::SimReset),
+            "sim.step" | "sim_step" => Ok(BridgeMethod::SimStep),
+            "log.start" | "log_start" => Ok(BridgeMethod::LogStart),
+            "log.stop" | "log_stop" => Ok(BridgeMethod::LogStop),
+            "log.replay" | "log_replay" => Ok(BridgeMethod::LogReplay),
+            "scene.set_object" | "scene_set_object" => Ok(BridgeMethod::SceneSetObject),
+            "intervention.apply" | "intervention_apply" => Ok(BridgeMethod::InterventionApply),
+            "export.rerun" | "export_rerun" => Ok(BridgeMethod::ExportRerun),
+            other => bail!("unknown bridge method: {other}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BridgeRequest {
     pub request_id: String,
@@ -45,6 +72,15 @@ pub struct BridgeRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BridgeRpcRequest {
+    pub jsonrpc: Option<String>,
+    pub id: String,
+    pub method: String,
+    #[serde(default)]
+    pub params: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BridgeResponse {
     pub request_id: String,
     pub step: Option<u64>,
@@ -52,6 +88,24 @@ pub struct BridgeResponse {
     pub ok: bool,
     pub message: Option<String>,
     pub result: Option<Value>,
+}
+
+impl BridgeRpcRequest {
+    pub fn into_bridge_request(
+        self,
+        actor: Actor,
+        step: Option<u64>,
+        timestamp_ns: u64,
+    ) -> Result<BridgeRequest> {
+        Ok(BridgeRequest {
+            request_id: self.id,
+            step,
+            timestamp_ns,
+            actor,
+            method: BridgeMethod::from_str(&self.method)?,
+            payload: self.params,
+        })
+    }
 }
 
 pub trait BridgeHandler {
@@ -227,5 +281,18 @@ mod tests {
         let state = replay_events(&events);
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.bridge_records[1].ok, Some(true));
+    }
+
+    #[test]
+    fn rpc_request_converts_dotted_method() {
+        let rpc = BridgeRpcRequest {
+            jsonrpc: Some("2.0".to_string()),
+            id: "rpc-1".to_string(),
+            method: "sim.step".to_string(),
+            params: json!({ "dt": 0.1 }),
+        };
+        let request = rpc.into_bridge_request(actor(), Some(0), 123).unwrap();
+        assert_eq!(request.method, BridgeMethod::SimStep);
+        assert_eq!(request.request_id, "rpc-1");
     }
 }

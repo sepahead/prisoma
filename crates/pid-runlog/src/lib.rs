@@ -506,6 +506,52 @@ impl ValidationReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RunLogSummary {
+    pub schema_version: Option<u32>,
+    pub run_id: Option<String>,
+    pub status: Option<RunStatus>,
+    pub event_count: usize,
+    pub trace_hash: String,
+    pub validation_errors: usize,
+    pub validation_warnings: usize,
+    pub last_step: Option<u64>,
+    pub last_timestamp_ns: Option<u64>,
+    pub actions: usize,
+    pub interventions: usize,
+    pub objects: usize,
+    pub pid_metrics: usize,
+    pub geometry_metrics: usize,
+    pub embeddings: usize,
+    pub bridge_records: usize,
+    pub sim_snapshots: usize,
+    pub artifacts: usize,
+    pub errors: usize,
+    pub flow_gt_records: usize,
+    pub validation_issues: Vec<ValidationIssue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactManifestEntry {
+    pub name: String,
+    pub kind: String,
+    pub uri: String,
+    pub sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RunManifest {
+    pub schema_version: u32,
+    pub run_id: Option<String>,
+    pub run_log_uri: String,
+    pub run_log_sha256: Option<String>,
+    pub trace_hash: String,
+    pub event_count: usize,
+    pub validation_errors: usize,
+    pub validation_warnings: usize,
+    pub artifacts: Vec<ArtifactManifestEntry>,
+}
+
 pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
     let mut report = ValidationReport {
         events: events.len(),
@@ -709,6 +755,73 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
 
 pub fn validate_events_from_path(path: impl AsRef<Path>) -> Result<ValidationReport> {
     Ok(validate_events(&read_events_from_path(path)?))
+}
+
+pub fn summarize_events(events: &[RunLogEvent]) -> Result<RunLogSummary> {
+    let state = replay_events(events);
+    let validation = validate_events(events);
+    let trace_hash = canonical_json_hash(&state)?;
+    Ok(RunLogSummary {
+        schema_version: state.schema_version,
+        run_id: state.run_id,
+        status: state.status,
+        event_count: state.events_seen,
+        trace_hash,
+        validation_errors: validation.errors,
+        validation_warnings: validation.warnings,
+        last_step: state.last_step,
+        last_timestamp_ns: state.last_timestamp_ns,
+        actions: state.actions.len(),
+        interventions: state.interventions.len(),
+        objects: state.object_poses.len(),
+        pid_metrics: state.pid_metrics.len(),
+        geometry_metrics: state.geometry_metrics.len(),
+        embeddings: state.embeddings.len(),
+        bridge_records: state.bridge_records.len(),
+        sim_snapshots: state.sim_snapshots,
+        artifacts: state.artifacts.len(),
+        errors: state.errors.len(),
+        flow_gt_records: state.flow_gt_records,
+        validation_issues: validation.issues,
+    })
+}
+
+pub fn summarize_path(path: impl AsRef<Path>) -> Result<RunLogSummary> {
+    summarize_events(&read_events_from_path(path)?)
+}
+
+pub fn manifest_for_path(path: impl AsRef<Path>) -> Result<RunManifest> {
+    let path = path.as_ref();
+    let events = read_events_from_path(path)?;
+    let summary = summarize_events(&events)?;
+    let state = replay_events(&events);
+    Ok(RunManifest {
+        schema_version: RUN_LOG_SCHEMA_VERSION,
+        run_id: summary.run_id,
+        run_log_uri: path.display().to_string(),
+        run_log_sha256: Some(sha256_file(path)?),
+        trace_hash: summary.trace_hash,
+        event_count: summary.event_count,
+        validation_errors: summary.validation_errors,
+        validation_warnings: summary.validation_warnings,
+        artifacts: state
+            .artifacts
+            .into_iter()
+            .map(|artifact| ArtifactManifestEntry {
+                name: artifact.name,
+                kind: artifact.kind,
+                uri: artifact.uri,
+                sha256: artifact.sha256,
+            })
+            .collect(),
+    })
+}
+
+pub fn write_json_file<T: Serialize>(path: impl AsRef<Path>, value: &T) -> Result<()> {
+    let file = File::create(path.as_ref())
+        .with_context(|| format!("failed to create {}", path.as_ref().display()))?;
+    serde_json::to_writer_pretty(file, value)
+        .with_context(|| format!("failed to write {}", path.as_ref().display()))
 }
 
 fn validate_payload_hash(
@@ -980,6 +1093,17 @@ mod tests {
             .issues
             .iter()
             .any(|issue| issue.message.contains("payload_hash")));
+    }
+
+    #[test]
+    fn summary_and_manifest_include_trace_hash() {
+        let events = sample_events();
+        let summary = summarize_events(&events).unwrap();
+        assert_eq!(summary.run_id.as_deref(), Some("run-1"));
+        assert_eq!(summary.validation_errors, 0);
+        assert_eq!(summary.trace_hash.len(), 64);
+        let state_hash = replay_trace_hash(&events).unwrap();
+        assert_eq!(summary.trace_hash, state_hash);
     }
 
     #[test]

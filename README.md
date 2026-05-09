@@ -50,7 +50,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 
 ## Repo Status (What Actually Exists)
 
-- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core), `crates/pid-sim` (deterministic object sim + `Flow_gt` and bridge demos), `crates/pid-rerun` (prototype Rerun logging + run-log replay adapter), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
+- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core + JSON-RPC-shaped request conversion), `crates/pid-sim` (deterministic object sim + `Flow_gt`/bridge demos and flow verification), `crates/pid-rerun` (prototype Rerun logging + validated run-log replay adapter), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
 - Specified: A fuller Rerun-based diagnostic viewer (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start (Exp0 Gate)
@@ -72,6 +72,9 @@ just runlog-demo
 just runlog-replay
 just runlog-validate
 just runlog-bridge-demo
+just runlog-summary
+just runlog-manifest
+just runlog-sim-verify
 just runlog-rerun
 ```
 

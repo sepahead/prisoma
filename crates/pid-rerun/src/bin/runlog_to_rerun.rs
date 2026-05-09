@@ -6,7 +6,7 @@ fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
     if args.len() < 2 {
         bail!(
-            "usage: {} <run-log.jsonl> [--save out.rrd] [--serve]",
+            "usage: {} <run-log.jsonl> [--save out.rrd] [--serve] [--allow-invalid]",
             args[0]
         );
     }
@@ -14,6 +14,7 @@ fn main() -> Result<()> {
     let input = PathBuf::from(&args[1]);
     let mut save_path: Option<String> = None;
     let mut serve = false;
+    let mut allow_invalid = false;
     let mut i = 2;
     while i < args.len() {
         match args[i].as_str() {
@@ -28,11 +29,22 @@ fn main() -> Result<()> {
                 serve = true;
                 i += 1;
             }
+            "--allow-invalid" => {
+                allow_invalid = true;
+                i += 1;
+            }
             other => bail!("unknown argument: {other}"),
         }
     }
 
     let events = pid_runlog::read_events_from_path(&input)?;
+    let validation = pid_runlog::validate_events(&events);
+    if !validation.is_valid() && !allow_invalid {
+        bail!(
+            "run log failed validation ({} error(s)); pass --allow-invalid to visualize anyway",
+            validation.errors
+        );
+    }
     let rec = init_recording("pid_vla_runlog", serve)?;
     RunLogRerunLogger::new(&rec).log_events(&events)?;
     if let Some(path) = save_path {

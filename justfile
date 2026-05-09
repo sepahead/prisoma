@@ -45,5 +45,14 @@ runlog-replay path="outputs/demo_runlog.jsonl":
 runlog-validate path="outputs/demo_runlog.jsonl":
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{path}}
 
+runlog-summary path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog_summary.json":
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --summary-json {{path}} {{out}}
+
+runlog-manifest path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog_manifest.json":
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --manifest-json {{path}} {{out}}
+
+runlog-sim-verify path="outputs/demo_bridge_runlog.jsonl":
+    cargo run -p pid-sim --bin pid-sim-verify -- {{path}}
+
 runlog-rerun path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog.rrd":
     cargo run -p pid-rerun --bin runlog-to-rerun -- {{path}} --save {{out}}

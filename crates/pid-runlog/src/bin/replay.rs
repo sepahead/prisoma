@@ -38,9 +38,23 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if args.len() == 4 && args.get(1).and_then(|s| s.to_str()) == Some("--summary-json") {
+        let summary = pid_runlog::summarize_path(PathBuf::from(args[2].clone()))?;
+        pid_runlog::write_json_file(PathBuf::from(args[3].clone()), &summary)?;
+        println!("wrote {}", PathBuf::from(args[3].clone()).display());
+        return Ok(());
+    }
+
+    if args.len() == 4 && args.get(1).and_then(|s| s.to_str()) == Some("--manifest-json") {
+        let manifest = pid_runlog::manifest_for_path(PathBuf::from(args[2].clone()))?;
+        pid_runlog::write_json_file(PathBuf::from(args[3].clone()), &manifest)?;
+        println!("wrote {}", PathBuf::from(args[3].clone()).display());
+        return Ok(());
+    }
+
     if args.len() != 2 {
         bail!(
-            "usage: {program} <run-log.jsonl>\n       {program} --validate <run-log.jsonl>\n       {program} --compare <left.jsonl> <right.jsonl>"
+            "usage: {program} <run-log.jsonl>\n       {program} --validate <run-log.jsonl>\n       {program} --compare <left.jsonl> <right.jsonl>\n       {program} --summary-json <run-log.jsonl> <summary.json>\n       {program} --manifest-json <run-log.jsonl> <manifest.json>"
         );
     }
 

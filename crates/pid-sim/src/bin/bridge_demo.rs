@@ -32,7 +32,9 @@ fn main() -> Result<()> {
         actor_id: "pid-sim-bridge-demo".to_string(),
         session_id: Some("bridge-demo".to_string()),
     };
-    let mut session = pid_sim::SimBridgeSession::new(writer, pid_sim::demo_sim());
+    let sim = pid_sim::demo_sim();
+    writer.append(&sim.snapshot_event())?;
+    let mut session = pid_sim::SimBridgeSession::new(writer, sim);
     for idx in 0..5 {
         let request = pid_sim::bridge_request(
             format!("req-step-{idx}"),
