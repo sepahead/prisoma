@@ -52,9 +52,17 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if args.len() == 3 && args.get(1).and_then(|s| s.to_str()) == Some("--write-sidecars") {
+        let paths = pid_runlog::write_sidecars_for_path(PathBuf::from(args[2].clone()))?;
+        println!("wrote {}", paths.validation.display());
+        println!("wrote {}", paths.summary.display());
+        println!("wrote {}", paths.manifest.display());
+        return Ok(());
+    }
+
     if args.len() != 2 {
         bail!(
-            "usage: {program} <run-log.jsonl>\n       {program} --validate <run-log.jsonl>\n       {program} --compare <left.jsonl> <right.jsonl>\n       {program} --summary-json <run-log.jsonl> <summary.json>\n       {program} --manifest-json <run-log.jsonl> <manifest.json>"
+            "usage: {program} <run-log.jsonl>\n       {program} --validate <run-log.jsonl>\n       {program} --compare <left.jsonl> <right.jsonl>\n       {program} --summary-json <run-log.jsonl> <summary.json>\n       {program} --manifest-json <run-log.jsonl> <manifest.json>\n       {program} --write-sidecars <run-log.jsonl>"
         );
     }
 

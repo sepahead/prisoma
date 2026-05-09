@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub const RUN_LOG_SCHEMA_VERSION: u32 = 1;
 
@@ -552,6 +552,20 @@ pub struct RunManifest {
     pub artifacts: Vec<ArtifactManifestEntry>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunLogSidecarPaths {
+    pub validation: PathBuf,
+    pub summary: PathBuf,
+    pub manifest: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RunLogSidecars {
+    pub validation: ValidationReport,
+    pub summary: RunLogSummary,
+    pub manifest: RunManifest,
+}
+
 pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
     let mut report = ValidationReport {
         events: events.len(),
@@ -790,11 +804,10 @@ pub fn summarize_path(path: impl AsRef<Path>) -> Result<RunLogSummary> {
     summarize_events(&read_events_from_path(path)?)
 }
 
-pub fn manifest_for_path(path: impl AsRef<Path>) -> Result<RunManifest> {
+pub fn manifest_for_events(path: impl AsRef<Path>, events: &[RunLogEvent]) -> Result<RunManifest> {
     let path = path.as_ref();
-    let events = read_events_from_path(path)?;
-    let summary = summarize_events(&events)?;
-    let state = replay_events(&events);
+    let summary = summarize_events(events)?;
+    let state = replay_events(events);
     Ok(RunManifest {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: summary.run_id,
@@ -815,6 +828,40 @@ pub fn manifest_for_path(path: impl AsRef<Path>) -> Result<RunManifest> {
             })
             .collect(),
     })
+}
+
+pub fn manifest_for_path(path: impl AsRef<Path>) -> Result<RunManifest> {
+    let path = path.as_ref();
+    manifest_for_events(path, &read_events_from_path(path)?)
+}
+
+pub fn runlog_sidecar_paths(path: impl AsRef<Path>) -> RunLogSidecarPaths {
+    let path = path.as_ref();
+    RunLogSidecarPaths {
+        validation: sidecar_path(path, "validation"),
+        summary: sidecar_path(path, "summary"),
+        manifest: sidecar_path(path, "manifest"),
+    }
+}
+
+pub fn sidecars_for_path(path: impl AsRef<Path>) -> Result<RunLogSidecars> {
+    let path = path.as_ref();
+    let events = read_events_from_path(path)?;
+    Ok(RunLogSidecars {
+        validation: validate_events(&events),
+        summary: summarize_events(&events)?,
+        manifest: manifest_for_events(path, &events)?,
+    })
+}
+
+pub fn write_sidecars_for_path(path: impl AsRef<Path>) -> Result<RunLogSidecarPaths> {
+    let path = path.as_ref();
+    let paths = runlog_sidecar_paths(path);
+    let sidecars = sidecars_for_path(path)?;
+    write_json_file(&paths.validation, &sidecars.validation)?;
+    write_json_file(&paths.summary, &sidecars.summary)?;
+    write_json_file(&paths.manifest, &sidecars.manifest)?;
+    Ok(paths)
 }
 
 pub fn write_json_file<T: Serialize>(path: impl AsRef<Path>, value: &T) -> Result<()> {
@@ -850,6 +897,14 @@ fn validate_vec3(report: &mut ValidationReport, event_index: usize, value: [f64;
     if value.iter().any(|v| !v.is_finite()) {
         report.error(Some(event_index), format!("{field} must be finite"));
     }
+}
+
+fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
+    let file_name = path
+        .file_name()
+        .map(|name| name.to_string_lossy())
+        .unwrap_or_else(|| "runlog".into());
+    path.with_file_name(format!("{file_name}.{suffix}.json"))
 }
 
 pub struct RunLogWriter<W> {
@@ -970,6 +1025,7 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::io::Cursor;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn actor() -> Actor {
         Actor {
@@ -1124,5 +1180,54 @@ mod tests {
         let err = read_events(Cursor::new(bytes)).unwrap_err();
         let msg = format!("{err:#}");
         assert!(msg.contains("line 2"));
+    }
+
+    #[test]
+    fn sidecar_paths_append_suffixes_to_runlog_name() {
+        let paths = runlog_sidecar_paths("outputs/demo.jsonl");
+        assert_eq!(
+            paths.validation,
+            PathBuf::from("outputs/demo.jsonl.validation.json")
+        );
+        assert_eq!(
+            paths.summary,
+            PathBuf::from("outputs/demo.jsonl.summary.json")
+        );
+        assert_eq!(
+            paths.manifest,
+            PathBuf::from("outputs/demo.jsonl.manifest.json")
+        );
+    }
+
+    #[test]
+    fn write_sidecars_emits_validation_summary_and_manifest() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pid-runlog-sidecars-{stamp}.jsonl"));
+        let mut writer = RunLogWriter::create(&path).unwrap();
+        for event in sample_events() {
+            writer.append(&event).unwrap();
+        }
+        writer.flush().unwrap();
+
+        let paths = write_sidecars_for_path(&path).unwrap();
+        let validation: ValidationReport =
+            serde_json::from_reader(File::open(&paths.validation).unwrap()).unwrap();
+        let summary: RunLogSummary =
+            serde_json::from_reader(File::open(&paths.summary).unwrap()).unwrap();
+        let manifest: RunManifest =
+            serde_json::from_reader(File::open(&paths.manifest).unwrap()).unwrap();
+
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        assert_eq!(summary.run_id.as_deref(), Some("run-1"));
+        assert_eq!(manifest.event_count, summary.event_count);
+        assert_eq!(manifest.trace_hash, summary.trace_hash);
+
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(paths.validation);
+        let _ = std::fs::remove_file(paths.summary);
+        let _ = std::fs::remove_file(paths.manifest);
     }
 }

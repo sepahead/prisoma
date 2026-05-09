@@ -38,6 +38,23 @@ impl FlowVerificationReport {
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct SimReplayReport {
+    pub seeded_from_step: Option<u64>,
+    pub checked_actions: usize,
+    pub checked_snapshots: usize,
+    pub checked_objects: usize,
+    pub final_logged_step: Option<u64>,
+    pub final_replayed_step: Option<u64>,
+    pub issues: Vec<String>,
+}
+
+impl SimReplayReport {
+    pub fn is_valid(&self) -> bool {
+        self.issues.is_empty()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeterministicObjectSim {
     step: u64,
@@ -69,6 +86,22 @@ impl DeterministicObjectSim {
             timestamp_ns: 0,
             objects: BTreeMap::new(),
         }
+    }
+
+    pub fn from_snapshot(step: u64, timestamp_ns: u64, objects: &[SimObjectSnapshot]) -> Self {
+        let mut sim = Self {
+            step,
+            timestamp_ns,
+            objects: BTreeMap::new(),
+        };
+        for object in objects {
+            sim.upsert_object(SimObject {
+                object_id: object.object_id.clone(),
+                pose: object.pose.clone(),
+                velocity: object.velocity,
+            });
+        }
+        sim
     }
 
     pub fn step(&self) -> u64 {
@@ -371,6 +404,213 @@ pub fn verify_flow_gt(events: &[RunLogEvent], tolerance: f64) -> FlowVerificatio
     report
 }
 
+pub fn verify_sim_replay(events: &[RunLogEvent], tolerance: f64) -> SimReplayReport {
+    let mut report = SimReplayReport::default();
+    if !tolerance.is_finite() || tolerance < 0.0 {
+        report
+            .issues
+            .push("tolerance must be nonnegative and finite".to_string());
+        return report;
+    }
+
+    let mut sim: Option<DeterministicObjectSim> = None;
+    for event in events {
+        match event {
+            RunLogEvent::SimSnapshot {
+                step,
+                timestamp_ns,
+                objects,
+                ..
+            } => {
+                report.final_logged_step = Some(*step);
+                if let Some(current) = &sim {
+                    compare_snapshot(
+                        current,
+                        *step,
+                        *timestamp_ns,
+                        objects,
+                        tolerance,
+                        &mut report,
+                    );
+                } else {
+                    report.seeded_from_step = Some(*step);
+                    sim = Some(DeterministicObjectSim::from_snapshot(
+                        *step,
+                        *timestamp_ns,
+                        objects,
+                    ));
+                }
+            }
+            RunLogEvent::ActionApplied {
+                action_type,
+                payload,
+                ..
+            } => apply_replay_action(&mut sim, action_type, payload, &mut report),
+            _ => {}
+        }
+    }
+
+    if let Some(current) = sim {
+        report.final_replayed_step = Some(current.step());
+        if report.final_logged_step != Some(current.step()) {
+            report.issues.push(format!(
+                "final replayed step {} does not match logged step {:?}",
+                current.step(),
+                report.final_logged_step
+            ));
+        }
+    } else {
+        report
+            .issues
+            .push("missing sim_snapshot seed for deterministic replay".to_string());
+    }
+    report
+}
+
+fn apply_replay_action(
+    sim: &mut Option<DeterministicObjectSim>,
+    action_type: &str,
+    payload: &Value,
+    report: &mut SimReplayReport,
+) {
+    match action_type {
+        "sim.step" | "sim_step" => {
+            let Some(current) = sim.as_mut() else {
+                report
+                    .issues
+                    .push("sim.step action appeared before any sim_snapshot seed".to_string());
+                return;
+            };
+            let dt = payload.get("dt").and_then(Value::as_f64).unwrap_or(0.1);
+            match current.step_fixed(dt) {
+                Ok(_) => report.checked_actions += 1,
+                Err(err) => report
+                    .issues
+                    .push(format!("failed to replay sim.step: {err}")),
+            }
+        }
+        "sim.reset" | "sim_reset" => {
+            let Some(current) = sim.as_mut() else {
+                report
+                    .issues
+                    .push("sim.reset action appeared before any sim_snapshot seed".to_string());
+                return;
+            };
+            current.reset();
+            report.checked_actions += 1;
+        }
+        "scene.set_object" | "scene_set_object" => {
+            match serde_json::from_value::<SimObject>(payload.clone()) {
+                Ok(object) => {
+                    sim.get_or_insert_with(DeterministicObjectSim::new)
+                        .upsert_object(object);
+                    report.checked_actions += 1;
+                }
+                Err(err) => report
+                    .issues
+                    .push(format!("failed to replay scene.set_object: {err}")),
+            }
+        }
+        _ => {}
+    }
+}
+
+fn compare_snapshot(
+    sim: &DeterministicObjectSim,
+    step: u64,
+    timestamp_ns: u64,
+    objects: &[SimObjectSnapshot],
+    tolerance: f64,
+    report: &mut SimReplayReport,
+) {
+    report.checked_snapshots += 1;
+    if sim.step() != step {
+        report.issues.push(format!(
+            "snapshot step {step} does not match replayed step {}",
+            sim.step()
+        ));
+    }
+    if sim.timestamp_ns() != timestamp_ns {
+        report.issues.push(format!(
+            "snapshot timestamp {timestamp_ns} does not match replayed timestamp {}",
+            sim.timestamp_ns()
+        ));
+    }
+    if sim.objects.len() != objects.len() {
+        report.issues.push(format!(
+            "snapshot object count {} does not match replayed count {} at step {step}",
+            objects.len(),
+            sim.objects.len()
+        ));
+    }
+
+    let mut logged = BTreeMap::new();
+    for object in objects {
+        if logged.insert(object.object_id.as_str(), object).is_some() {
+            report.issues.push(format!(
+                "duplicate snapshot object {} at step {step}",
+                object.object_id
+            ));
+        }
+    }
+    for expected in sim.objects.values() {
+        let Some(actual) = logged.get(expected.object_id.as_str()) else {
+            report.issues.push(format!(
+                "missing snapshot object {} at step {step}",
+                expected.object_id
+            ));
+            continue;
+        };
+        report.checked_objects += 1;
+        compare_slice(
+            &expected.pose.position,
+            &actual.pose.position,
+            tolerance,
+            &format!("position for {} at step {step}", expected.object_id),
+            report,
+        );
+        compare_slice(
+            &expected.pose.orientation_xyzw,
+            &actual.pose.orientation_xyzw,
+            tolerance,
+            &format!("orientation for {} at step {step}", expected.object_id),
+            report,
+        );
+        compare_slice(
+            &expected.velocity,
+            &actual.velocity,
+            tolerance,
+            &format!("velocity for {} at step {step}", expected.object_id),
+            report,
+        );
+    }
+    for actual in objects {
+        if !sim.objects.contains_key(&actual.object_id) {
+            report.issues.push(format!(
+                "unexpected snapshot object {} at step {step}",
+                actual.object_id
+            ));
+        }
+    }
+}
+
+fn compare_slice(
+    expected: &[f64],
+    actual: &[f64],
+    tolerance: f64,
+    label: &str,
+    report: &mut SimReplayReport,
+) {
+    if expected.len() != actual.len()
+        || expected
+            .iter()
+            .zip(actual)
+            .any(|(left, right)| (left - right).abs() > tolerance)
+    {
+        report.issues.push(format!("snapshot mismatch in {label}"));
+    }
+}
+
 pub fn demo_sim() -> DeterministicObjectSim {
     let mut sim = DeterministicObjectSim::new();
     sim.upsert_object(SimObject {
@@ -477,5 +717,65 @@ mod tests {
         let report = verify_flow_gt(&events, 1e-12);
         assert!(report.is_valid(), "{:?}", report.issues);
         assert_eq!(report.checked_flows, 6);
+    }
+
+    #[test]
+    fn sim_replay_verifier_checks_logged_actions_against_snapshots() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-replay-test".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::new(writer, sim);
+        for idx in 0..3 {
+            let request = bridge_request(
+                format!("req-replay-{idx}"),
+                BridgeMethod::SimStep,
+                actor.clone(),
+                Some(idx),
+                idx * 100_000_000,
+                json!({ "dt": 0.1 }),
+            );
+            assert!(session.dispatch(&request).unwrap().ok);
+        }
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let report = verify_sim_replay(&events, 1e-12);
+        assert!(report.is_valid(), "{:?}", report.issues);
+        assert_eq!(report.seeded_from_step, Some(0));
+        assert_eq!(report.checked_actions, 3);
+        assert_eq!(report.checked_snapshots, 3);
+        assert_eq!(report.final_logged_step, Some(3));
+        assert_eq!(report.final_replayed_step, Some(3));
+    }
+
+    #[test]
+    fn sim_replay_verifier_reports_snapshot_mismatch() {
+        let mut sim = demo_sim();
+        let mut events = vec![sim.snapshot_event()];
+        let payload = json!({ "dt": 0.1 });
+        events.push(RunLogEvent::ActionApplied {
+            step: 1,
+            timestamp_ns: 100_000_000,
+            actor: Actor {
+                actor_type: ActorType::Script,
+                actor_id: "sim-replay-test".to_string(),
+                session_id: None,
+            },
+            action_type: "sim.step".to_string(),
+            payload_hash: pid_runlog::canonical_json_hash(&payload).unwrap(),
+            payload,
+        });
+        sim.step_fixed(0.2).unwrap();
+        events.push(sim.snapshot_event());
+
+        let report = verify_sim_replay(&events, 1e-12);
+        assert!(!report.is_valid());
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.contains("snapshot timestamp")));
     }
 }

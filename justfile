@@ -51,6 +51,9 @@ runlog-summary path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog_summary
 runlog-manifest path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog_manifest.json":
     cargo run -p pid-runlog --bin pid-runlog-replay -- --manifest-json {{path}} {{out}}
 
+runlog-sidecars path="outputs/demo_runlog.jsonl":
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --write-sidecars {{path}}
+
 runlog-sim-verify path="outputs/demo_bridge_runlog.jsonl":
     cargo run -p pid-sim --bin pid-sim-verify -- {{path}}
 

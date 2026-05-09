@@ -4,10 +4,14 @@ use std::path::PathBuf;
 fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
     if args.len() < 2 {
-        bail!("usage: {} <run-log.jsonl> [--tolerance eps]", args[0]);
+        bail!(
+            "usage: {} <run-log.jsonl> [--tolerance eps] [--skip-replay]",
+            args[0]
+        );
     }
     let path = PathBuf::from(&args[1]);
     let mut tolerance = 1e-9;
+    let mut replay_actions = true;
     let mut i = 2;
     while i < args.len() {
         match args[i].as_str() {
@@ -17,6 +21,10 @@ fn main() -> Result<()> {
                 };
                 tolerance = value.parse()?;
                 i += 2;
+            }
+            "--skip-replay" => {
+                replay_actions = false;
+                i += 1;
             }
             other => bail!("unknown argument: {other}"),
         }
@@ -34,7 +42,24 @@ fn main() -> Result<()> {
     for issue in &flow.issues {
         println!("flow_issue={issue}");
     }
-    if !validation.is_valid() || !flow.is_valid() {
+    let replay = if replay_actions {
+        let replay = pid_sim::verify_sim_replay(&events, tolerance);
+        println!("sim_replay_valid={}", replay.is_valid());
+        println!("sim_replay_checked_actions={}", replay.checked_actions);
+        println!("sim_replay_checked_snapshots={}", replay.checked_snapshots);
+        println!("sim_replay_checked_objects={}", replay.checked_objects);
+        println!("sim_replay_issues={}", replay.issues.len());
+        for issue in &replay.issues {
+            println!("sim_replay_issue={issue}");
+        }
+        Some(replay)
+    } else {
+        None
+    };
+    if !validation.is_valid()
+        || !flow.is_valid()
+        || replay.as_ref().is_some_and(|report| !report.is_valid())
+    {
         std::process::exit(1);
     }
     Ok(())

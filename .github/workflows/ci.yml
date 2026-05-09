@@ -25,6 +25,7 @@ jobs:
           cargo run -p pid-runlog --bin pid-runlog-replay -- --compare /tmp/pid_vla_bridge_demo.jsonl /tmp/pid_vla_bridge_demo.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- --summary-json /tmp/pid_vla_bridge_demo.jsonl /tmp/pid_vla_bridge_summary.json
           cargo run -p pid-runlog --bin pid-runlog-replay -- --manifest-json /tmp/pid_vla_bridge_demo.jsonl /tmp/pid_vla_bridge_manifest.json
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --write-sidecars /tmp/pid_vla_bridge_demo.jsonl
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_demo.jsonl
 
   docs:

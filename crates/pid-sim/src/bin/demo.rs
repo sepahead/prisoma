@@ -32,6 +32,7 @@ fn main() -> Result<()> {
         session_id: Some("demo".to_string()),
     };
     let mut sim = pid_sim::demo_sim();
+    writer.append(&sim.snapshot_event())?;
     for _ in 0..5 {
         let payload = json!({ "dt": 0.1 });
         writer.append(&RunLogEvent::ActionApplied {
