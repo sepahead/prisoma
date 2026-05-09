@@ -318,7 +318,7 @@ Current residuals:
 
 - The stricter Experiment 0 gate currently reports `NO-GO` on the synthetic quick run. This is useful: it surfaces estimator monotonicity, CMI, invariant, and geometry failures that should block downstream VLA claims.
 - `meshmaker/` is still tracked legacy/auxiliary tooling. Full removal or repository split would be a destructive organizational change and should be done only with explicit confirmation.
-- `crates/pid-runlog` now provides M1 groundwork (JSONL event schema, reader/writer, validation, replay summary, manifest/summary JSON, sidecar writing, hashes), `crates/pid-bridge` provides M2 event-core/dispatcher/JSON-RPC request/response groundwork, and `crates/pid-sim` provides an M3 deterministic smoke sim with bridge demo, stdio JSON-RPC bridge, simulator-derived `Flow_gt` verification, and action replay checks; full network bridge, physics backend, and real VLA/simulator experiment harness are still future work.
+- `crates/pid-runlog` now provides M1 groundwork (JSONL event schema, reader/writer, validation, replay summary, manifest/summary JSON, sidecar writing, hashes), `crates/pid-bridge` provides M2 event-core/dispatcher/JSON-RPC request/response groundwork, `crates/pid-sim` provides an M3 deterministic smoke sim with bridge demo, stdio JSON-RPC bridge, simulator-derived `Flow_gt` verification, and action replay checks, and `crates/pid-rerun` converts run logs into Rerun recordings with summary/provenance/validation diagnostics; full network bridge, physics backend, and real VLA/simulator experiment harness are still future work.
 
 ## Ten-Scientist Consensus Follow-Up: 2026-05-09
 

@@ -45,8 +45,18 @@ fn main() -> Result<()> {
             validation.errors
         );
     }
+    let manifest = pid_runlog::manifest_for_path(&input)?;
     let rec = init_recording("pid_vla_runlog", serve)?;
-    RunLogRerunLogger::new(&rec).log_events(&events)?;
+    let summary =
+        RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, Some(&manifest))?;
+    println!(
+        "converted events={} run_id={} trace_hash={} validation_errors={} validation_warnings={}",
+        summary.event_count,
+        summary.run_id.as_deref().unwrap_or("<unknown>"),
+        summary.trace_hash,
+        summary.validation_errors,
+        summary.validation_warnings
+    );
     if let Some(path) = save_path {
         save_recording(&rec, &path)?;
         println!("saved {path}");

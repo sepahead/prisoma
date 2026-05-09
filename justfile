@@ -62,3 +62,6 @@ runlog-sim-verify path="outputs/demo_bridge_runlog.jsonl":
 
 runlog-rerun path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog.rrd":
     cargo run -p pid-rerun --bin runlog-to-rerun -- {{path}} --save {{out}}
+
+runlog-rerun-bridge path="outputs/demo_bridge_runlog.jsonl" out="outputs/demo_bridge_runlog.rrd":
+    cargo run -p pid-rerun --bin runlog-to-rerun -- {{path}} --save {{out}}
