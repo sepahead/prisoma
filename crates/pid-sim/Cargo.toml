@@ -33,6 +33,10 @@ path = "src/bin/verify.rs"
 name = "pid-toy-harness"
 path = "src/bin/toy_harness.rs"
 
+[[bin]]
+name = "pid-offline-harness"
+path = "src/bin/offline_harness.rs"
+
 [dependencies]
 anyhow = "1.0"
 pid-core = { path = "../pid-core" }

@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 
+pub mod offline_harness;
 pub mod toy_harness;
 
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";

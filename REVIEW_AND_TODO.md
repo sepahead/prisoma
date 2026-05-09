@@ -80,7 +80,7 @@ The repo knows what the scientific gates should be, but the executable gate is n
 
 #### Concerns
 
-- The simulator, Agent Bridge, run-log/replay system, and actual VLA embedding harness are still mostly planned rather than implemented.
+- A deterministic simulator, Agent Bridge groundwork, run-log/replay system, toy harness, and offline embedding artifact converter now exist; physics-backed manipulation and real VLA data capture remain planned.
 - `assets/` and `experiments/` are mostly scaffolding; a fresh clone cannot run later-stage experiments.
 - The repo needs a minimal deterministic manipulation task before expanding into the larger architecture.
 
@@ -97,7 +97,7 @@ Do not proceed to VLA claims yet. Build the early milestones before making new s
 
 #### Concerns
 
-- There is no implemented model integration, embedding extraction, layer contract, dataset loader, failure-label pipeline, or baseline classifier.
+- There is no implemented model integration, embedding extraction job, real-task dataset loader, failure-label pipeline, or learned baseline classifier; the offline `(V,L,D,A)` harness only converts already-captured embedding JSON into canonical artifacts.
 - `pid-rerun` synthetic demos are useful visually but are not ML evidence.
 - The project should define one first VLA baseline and one first task instead of keeping many optional model branches open.
 
@@ -318,8 +318,9 @@ Current residuals:
 
 - The stricter Experiment 0 gate currently reports `NO-GO` on the synthetic quick run. This is useful: it surfaces estimator monotonicity, CMI, invariant, and geometry failures that should block downstream VLA claims.
 - `meshmaker/` is still tracked legacy/auxiliary tooling. Full removal or repository split would be a destructive organizational change and should be done only with explicit confirmation.
-- `crates/pid-runlog` now provides M1 groundwork (JSONL event schema, reader/writer, validation, replay summary, manifest/summary JSON, sidecar writing, hashes, config-hash consistency gates, first-class `Flow_gt`/`flow_pred`, and contract metadata), `crates/pid-bridge` provides M2 event-core/dispatcher/JSON-RPC request/response groundwork plus bridge/run-log contract export and read-only safe-mode gates, `crates/pid-sim` provides an M3 deterministic smoke sim with backend/solver config provenance, bridge demo, stdio/TCP JSON-RPC bridges, safe-mode `log.replay`, simulator-derived `Flow_gt`, constant-velocity baseline `flow_pred`, flow verification, and action replay checks, and `crates/pid-rerun` converts run logs into Rerun recordings with summary/provenance/validation diagnostics; physics backend and real VLA/simulator experiment harness are still future work.
+- `crates/pid-runlog` now provides M1 groundwork (JSONL event schema, reader/writer, validation, replay summary, manifest/summary JSON, sidecar writing, hashes, config-hash consistency gates, first-class `Flow_gt`/`flow_pred`, and contract metadata), `crates/pid-bridge` provides M2 event-core/dispatcher/JSON-RPC request/response groundwork plus bridge/run-log contract export and read-only safe-mode gates, `crates/pid-sim` provides an M3 deterministic smoke sim with backend/solver config provenance, bridge demo, stdio/TCP JSON-RPC bridges, safe-mode `log.replay`, simulator-derived `Flow_gt`, constant-velocity baseline `flow_pred`, flow verification, action replay checks, and an offline `(V,L,D,A)` artifact-to-runlog harness, and `crates/pid-rerun` converts run logs into Rerun recordings with summary/provenance/validation diagnostics; physics backend and real VLA/simulator data capture are still future work.
 - A tiny deterministic labeled harness now exists in `pid-sim` (`pid-toy-harness` / `just toy-harness`) to exercise first-class success-label events, a replay-linked toy `(V,L,D,A)` embedding contract, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export before any real VLA claims.
+- A generic offline embedding harness now exists in `pid-sim` (`pid-offline-harness` / `just offline-harness`) to ingest captured JSON samples with `v`, `l`, `d`, `a`, labels, and metadata, then emit canonical summary/run-log artifacts with config provenance, embedding contracts, PID/evaluation metrics, and artifact records.
 
 ## Ten-Scientist Consensus Follow-Up: 2026-05-09
 

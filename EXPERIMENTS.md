@@ -927,6 +927,20 @@ cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_sum
 cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/toy_vla_runlog.jsonl
 ```
 
+### 4.5 Offline VLDA Embedding Harness Smoke
+
+`pid-offline-harness` converts captured sample JSON with `(V,L,D,A)` vectors into a canonical summary JSON plus run-log JSONL. The checked fixture lives at `crates/pid-sim/fixtures/offline_vlda_fixture.json`; each sample has a `sample_id`, optional `episode_id`, numeric `v`/`l`/`d`/`a` vectors, optional labels, and optional string metadata. The run log records `run_started`, `config_logged`, `frame_observed`, `label_observed`, `embedding_contract`, `embedding_captured`, two-source PID metrics for `(V,L;A)` plus `D→A` MI, evaluation metrics, input/summary artifacts, and `run_ended`.
+
+```bash
+just offline-harness
+
+# Equivalent without just
+cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl
+cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/offline_vlda_runlog.jsonl
+```
+
+This harness is an artifact-to-runlog converter for embedding captures. It still requires a real model/task capture process and externally meaningful labels before it can support VLA claims.
+
 ---
  
 ## 5. Experiment 1: Pick-and-Place (Baseline)

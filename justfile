@@ -40,6 +40,10 @@ toy-harness runlog="outputs/toy_vla_runlog.jsonl" summary="outputs/toy_vla_summa
     cargo run -p pid-sim --bin pid-toy-harness -- --episodes {{episodes}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
 
+offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_runlog.jsonl" summary="outputs/offline_vlda_summary.json":
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+
 # M1 run-log smoke path.
 runlog-demo:
     cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl

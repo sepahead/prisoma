@@ -50,7 +50,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 
 ## Repo Status (What Actually Exists)
 
-- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest/sidecar CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core + JSON-RPC-shaped request/response conversion + contract export), `crates/pid-sim` (deterministic object sim + `Flow_gt`/baseline `flow_pred` bridge demos, stdio and TCP JSON-RPC bridges, flow verification, action replay checks, and a labeled toy VLA/task harness), `crates/pid-rerun` (prototype Rerun logging + validated run-log replay adapter with summary/provenance/validation diagnostics), and the Experiment 0 runner (`just exp0`, `just exp0-bin`, `just exp0-runlog`).
+- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest/sidecar CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core + JSON-RPC-shaped request/response conversion + contract export), `crates/pid-sim` (deterministic object sim + `Flow_gt`/baseline `flow_pred` bridge demos, stdio and TCP JSON-RPC bridges, flow verification, action replay checks, a labeled toy VLA/task harness, and a generic offline `(V,L,D,A)` embedding harness), `crates/pid-rerun` (prototype Rerun logging + validated run-log replay adapter with summary/provenance/validation diagnostics), and the Experiment 0 runner (`just exp0`, `just exp0-bin`, `just exp0-runlog`).
 - Specified: A fuller Rerun-based diagnostic viewer (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start (Exp0 Gate)
@@ -73,6 +73,14 @@ just toy-harness
 ```
 
 If you don’t have `just`: run `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`, then validate it with `cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/toy_vla_runlog.jsonl`. This is a deterministic toy task, not VLA evidence; it exists to exercise first-class label events, a replay-linked toy `(V,L,D,A)` embedding contract, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export end to end.
+
+## Quick Start (Offline VLDA Embedding Harness)
+
+```bash
+just offline-harness
+```
+
+If you don’t have `just`: run `cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl`, then validate it with `cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/offline_vlda_runlog.jsonl`. The input schema is a JSON object with optional `run_id`/`source`/`model`/`task` fields and a `samples` array; each sample carries `sample_id`, optional `episode_id`, numeric `v`, `l`, `d`, and `a` vectors, optional `labels`, and optional string `metadata`. Current PID atoms are two-source `(V,L;A)` with an additional `D→A` MI metric. The harness is an artifact-to-runlog converter for captured embeddings, not evidence from a real VLA by itself.
 
 ## Quick Start (M1 Run Log)
 
@@ -122,7 +130,7 @@ Final 10-step build path:
 4. Route all GUI/script/LLM actions through the Agent Bridge.
 5. Build the minimal object sim and simulator-derived `Flow_gt`.
 6. Convert run logs into Rerun recordings/blueprints.
-7. Add one small VLA embedding harness with labels and non-PID baselines.
+7. Connect the offline embedding harness to one small real VLA/task capture with labels and non-PID baselines.
 8. Gate optional live transport and external `Flow_pred` services behind the same run-log schema.
 9. Add Tauri/SparkJS only after the Rerun workflow works.
 10. Add license/provenance automation for dependencies, models, datasets, generated assets, and sidecars.

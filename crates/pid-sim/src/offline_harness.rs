@@ -1,0 +1,640 @@
+use anyhow::{bail, Context, Result};
+use pid_core::{
+    co_information_pairwise, pid2_isx, IsxConfig, KsgConfig, MatRef, NegativeHandling, Pid2Config,
+};
+use pid_runlog::{
+    EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::collections::{BTreeMap, BTreeSet};
+use std::io::Write;
+use std::path::Path;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaDataset {
+    pub run_id: Option<String>,
+    pub source: Option<String>,
+    pub model: Option<String>,
+    pub task: Option<String>,
+    pub samples: Vec<OfflineVldaSample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaSample {
+    pub sample_id: String,
+    pub episode_id: Option<String>,
+    pub v: Vec<f64>,
+    pub l: Vec<f64>,
+    pub d: Vec<f64>,
+    pub a: Vec<f64>,
+    #[serde(default)]
+    pub labels: BTreeMap<String, Value>,
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfflineVldaDims {
+    pub samples: usize,
+    pub v: usize,
+    pub l: usize,
+    pub d: usize,
+    pub a: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaMetrics {
+    pub mi_v_action: f64,
+    pub mi_l_action: f64,
+    pub mi_d_action: f64,
+    pub mi_vl_action: f64,
+    pub co_information_v_l_action: f64,
+    pub redundancy_v_l_action: f64,
+    pub unique_v_action: f64,
+    pub unique_l_action: f64,
+    pub synergy_v_l_action: f64,
+    pub success_rate: Option<f64>,
+    pub majority_success_accuracy: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaReport {
+    pub run_id: String,
+    pub config_hash: String,
+    pub config: Value,
+    pub dims: OfflineVldaDims,
+    pub label_counts: BTreeMap<String, usize>,
+    pub metrics: OfflineVldaMetrics,
+}
+
+pub fn read_offline_vlda_dataset(path: impl AsRef<Path>) -> Result<OfflineVldaDataset> {
+    let file = std::fs::File::open(path.as_ref())
+        .with_context(|| format!("failed to open {}", path.as_ref().display()))?;
+    serde_json::from_reader(file)
+        .with_context(|| format!("failed to parse {}", path.as_ref().display()))
+}
+
+pub fn run_offline_vlda_harness(
+    dataset: OfflineVldaDataset,
+    input_uri: Option<String>,
+    input_sha256: Option<String>,
+) -> Result<OfflineVldaReport> {
+    let dims = validate_dataset(&dataset)?;
+    let label_counts = label_counts(&dataset.samples);
+    let metrics = compute_metrics(&dataset.samples, &dims)?;
+    let run_id = dataset
+        .run_id
+        .clone()
+        .unwrap_or_else(|| "offline-vlda-run".to_string());
+    let config = json!({
+        "harness": "offline_vlda",
+        "source": dataset.source,
+        "model": dataset.model,
+        "task": dataset.task,
+        "input_uri": input_uri,
+        "input_sha256": input_sha256,
+        "dims": dims,
+        "samples": dataset.samples.len(),
+        "metric_pipeline": {
+            "mi": "ksg",
+            "pid": "isx_ehrlich_ksg",
+            "pid_sources": ["V", "L"],
+            "target": "A",
+            "additional_metrics": ["mi_d_action"],
+            "negative_handling": "allow"
+        }
+    });
+    let config_hash = pid_runlog::canonical_json_hash(&config)?;
+    Ok(OfflineVldaReport {
+        run_id,
+        config_hash,
+        config,
+        dims,
+        label_counts,
+        metrics,
+    })
+}
+
+pub fn write_offline_vlda_summary(
+    path: impl AsRef<Path>,
+    report: &OfflineVldaReport,
+) -> Result<()> {
+    ensure_parent(path.as_ref())?;
+    pid_runlog::write_json_file(path, report)
+}
+
+pub fn write_offline_vlda_runlog(
+    path: impl AsRef<Path>,
+    summary_path: Option<&Path>,
+    input_path: Option<&Path>,
+    dataset: &OfflineVldaDataset,
+    report: &OfflineVldaReport,
+) -> Result<()> {
+    ensure_parent(path.as_ref())?;
+    let mut writer = RunLogWriter::create(path.as_ref())?;
+    let summary_sha256 = summary_path.and_then(|path| pid_runlog::sha256_file(path).ok());
+    let input_uri = input_path
+        .map(|path| path.display().to_string())
+        .or_else(|| {
+            report
+                .config
+                .get("input_uri")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        });
+    let input_sha256 = input_path
+        .and_then(|path| pid_runlog::sha256_file(path).ok())
+        .or_else(|| {
+            report
+                .config
+                .get("input_sha256")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        });
+    writer.append(&RunLogEvent::RunStarted {
+        schema_version: RUN_LOG_SCHEMA_VERSION,
+        run_id: report.run_id.clone(),
+        timestamp_ns: 0,
+        config_hash: report.config_hash.clone(),
+        metadata: [
+            ("source".to_string(), "pid-offline-harness".to_string()),
+            (
+                "task".to_string(),
+                dataset
+                    .task
+                    .clone()
+                    .unwrap_or_else(|| "offline_vlda".to_string()),
+            ),
+        ]
+        .into_iter()
+        .collect(),
+    })?;
+    writer.append(&RunLogEvent::ConfigLogged {
+        timestamp_ns: 0,
+        config_hash: report.config_hash.clone(),
+        config: report.config.clone(),
+    })?;
+    for (idx, sample) in dataset.samples.iter().enumerate() {
+        let step = idx as u64;
+        let timestamp_ns = step * 1_000_000;
+        let mut metadata = sample.metadata.clone();
+        metadata.insert("sample_id".to_string(), sample.sample_id.clone());
+        if let Some(episode_id) = &sample.episode_id {
+            metadata.insert("episode_id".to_string(), episode_id.clone());
+        }
+        writer.append(&RunLogEvent::FrameObserved {
+            step,
+            timestamp_ns,
+            observation_hash: Some(pid_runlog::canonical_json_hash(sample)?),
+            metadata,
+        })?;
+        for (label, value) in &sample.labels {
+            writer.append(&RunLogEvent::LabelObserved {
+                step,
+                timestamp_ns,
+                name: format!("offline_vlda.{label}"),
+                value: value.clone(),
+                metadata: [("sample_id".to_string(), sample.sample_id.clone())]
+                    .into_iter()
+                    .collect(),
+            })?;
+        }
+    }
+
+    let embedding_timestamp_base = dataset.samples.len() as u64 * 1_000_000 + 1_000_000;
+    writer.append(&RunLogEvent::EmbeddingContract {
+        timestamp_ns: embedding_timestamp_base,
+        name: "offline_vlda.vlda_contract".to_string(),
+        variables: [
+            ("V", "offline_vlda.V", report.dims.v),
+            ("L", "offline_vlda.L", report.dims.l),
+            ("D", "offline_vlda.D", report.dims.d),
+            ("A", "offline_vlda.A", report.dims.a),
+        ]
+        .into_iter()
+        .map(|(variable, source, dim)| EmbeddingVariableContract {
+            variable: variable.to_string(),
+            source: source.to_string(),
+            dims: vec![report.dims.samples, dim],
+            artifact_uri: input_uri.clone(),
+            sha256: input_sha256.clone(),
+        })
+        .collect(),
+        metadata: [
+            ("source".to_string(), "pid-offline-harness".to_string()),
+            ("decomposition".to_string(), "(V,L,D,A)".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+    })?;
+    for (idx, (name, dim)) in [
+        ("offline_vlda.V", report.dims.v),
+        ("offline_vlda.L", report.dims.l),
+        ("offline_vlda.D", report.dims.d),
+        ("offline_vlda.A", report.dims.a),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        writer.append(&RunLogEvent::EmbeddingCaptured {
+            step: report.dims.samples as u64,
+            timestamp_ns: embedding_timestamp_base + idx as u64 + 1,
+            name: name.to_string(),
+            dims: vec![report.dims.samples, dim],
+            artifact_uri: input_uri.clone(),
+            sha256: input_sha256.clone(),
+            metadata: [("source".to_string(), "offline_vlda_dataset".to_string())]
+                .into_iter()
+                .collect(),
+        })?;
+    }
+
+    let metric_timestamp_base = embedding_timestamp_base + 10_000;
+    write_metric_events(&mut writer, report, metric_timestamp_base)?;
+    if let Some(input_path) = input_path {
+        writer.append(&RunLogEvent::ArtifactLogged {
+            timestamp_ns: metric_timestamp_base + 10_000,
+            name: "offline_vlda_input_json".to_string(),
+            kind: "dataset_json".to_string(),
+            uri: input_path.display().to_string(),
+            sha256: input_sha256,
+            metadata: BTreeMap::new(),
+        })?;
+    }
+    if let Some(summary_path) = summary_path {
+        writer.append(&RunLogEvent::ArtifactLogged {
+            timestamp_ns: metric_timestamp_base + 10_001,
+            name: "offline_vlda_summary_json".to_string(),
+            kind: "summary_json".to_string(),
+            uri: summary_path.display().to_string(),
+            sha256: summary_sha256,
+            metadata: BTreeMap::new(),
+        })?;
+    }
+    writer.append(&RunLogEvent::RunEnded {
+        run_id: report.run_id.clone(),
+        timestamp_ns: metric_timestamp_base + 20_000,
+        status: RunStatus::Succeeded,
+        message: Some(format!(
+            "offline VLDA harness complete: {} samples",
+            report.dims.samples
+        )),
+    })?;
+    writer.flush()?;
+    Ok(())
+}
+
+fn validate_dataset(dataset: &OfflineVldaDataset) -> Result<OfflineVldaDims> {
+    if dataset.samples.len() < 8 {
+        bail!("offline VLDA dataset must contain at least 8 samples");
+    }
+    let first = dataset.samples.first().expect("checked nonempty");
+    let dims = OfflineVldaDims {
+        samples: dataset.samples.len(),
+        v: first.v.len(),
+        l: first.l.len(),
+        d: first.d.len(),
+        a: first.a.len(),
+    };
+    if dims.v == 0 || dims.l == 0 || dims.d == 0 || dims.a == 0 {
+        bail!("v/l/d/a vectors must be nonempty");
+    }
+    let mut sample_ids = BTreeSet::new();
+    for sample in &dataset.samples {
+        if sample.sample_id.is_empty() {
+            bail!("sample_id must not be empty");
+        }
+        if !sample_ids.insert(sample.sample_id.clone()) {
+            bail!("sample_id values must be unique");
+        }
+        if sample.v.len() != dims.v
+            || sample.l.len() != dims.l
+            || sample.d.len() != dims.d
+            || sample.a.len() != dims.a
+        {
+            bail!("all v/l/d/a vectors must have consistent dimensions");
+        }
+        for value in sample
+            .v
+            .iter()
+            .chain(&sample.l)
+            .chain(&sample.d)
+            .chain(&sample.a)
+        {
+            if !value.is_finite() {
+                bail!("v/l/d/a vectors must contain only finite values");
+            }
+        }
+        for (label, value) in &sample.labels {
+            if label.is_empty() {
+                bail!("label names must not be empty");
+            }
+            if value.is_null() {
+                bail!("label values must not be null");
+            }
+        }
+        if sample.metadata.keys().any(|key| key.is_empty()) {
+            bail!("metadata keys must not be empty");
+        }
+    }
+    Ok(dims)
+}
+
+fn label_counts(samples: &[OfflineVldaSample]) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    for sample in samples {
+        for label in sample.labels.keys() {
+            *counts.entry(label.clone()).or_insert(0) += 1;
+        }
+    }
+    counts
+}
+
+fn compute_metrics(
+    samples: &[OfflineVldaSample],
+    dims: &OfflineVldaDims,
+) -> Result<OfflineVldaMetrics> {
+    let v = flatten(samples, dims.v, |sample| &sample.v);
+    let l = flatten(samples, dims.l, |sample| &sample.l);
+    let d = flatten(samples, dims.d, |sample| &sample.d);
+    let a = flatten(samples, dims.a, |sample| &sample.a);
+    let n = samples.len();
+    let v = MatRef::new(&v, n, dims.v)?;
+    let l = MatRef::new(&l, n, dims.l)?;
+    let d = MatRef::new(&d, n, dims.d)?;
+    let a = MatRef::new(&a, n, dims.a)?;
+    let ksg = KsgConfig {
+        negative_handling: NegativeHandling::Allow,
+        ..Default::default()
+    };
+    let pid_cfg = Pid2Config {
+        ksg: ksg.clone(),
+        isx: IsxConfig {
+            k: ksg.k,
+            metric: ksg.metric,
+            tie_epsilon: ksg.tie_epsilon,
+            ..Default::default()
+        },
+    };
+    let pid = pid2_isx(v, l, a, &pid_cfg)?;
+    let mi_v_action = pid_core::ksg_mi(v, a, &ksg)?;
+    let mi_l_action = pid_core::ksg_mi(l, a, &ksg)?;
+    let mi_d_action = pid_core::ksg_mi(d, a, &ksg)?;
+    let mi_vl_action = pid_core::ksg_mi_concat_xy(v, l, a, &ksg)?;
+    let co_information_v_l_action = co_information_pairwise(v, l, a, &ksg)?;
+    let (success_rate, majority_success_accuracy) = success_metrics(samples);
+    Ok(OfflineVldaMetrics {
+        mi_v_action,
+        mi_l_action,
+        mi_d_action,
+        mi_vl_action,
+        co_information_v_l_action,
+        redundancy_v_l_action: pid.redundancy,
+        unique_v_action: pid.unique_s1,
+        unique_l_action: pid.unique_s2,
+        synergy_v_l_action: pid.synergy,
+        success_rate,
+        majority_success_accuracy,
+    })
+}
+
+fn flatten<F>(samples: &[OfflineVldaSample], dim: usize, values: F) -> Vec<f64>
+where
+    F: Fn(&OfflineVldaSample) -> &[f64],
+{
+    let mut out = Vec::with_capacity(samples.len() * dim);
+    for sample in samples {
+        out.extend_from_slice(values(sample));
+    }
+    out
+}
+
+fn success_metrics(samples: &[OfflineVldaSample]) -> (Option<f64>, Option<f64>) {
+    let labels = samples
+        .iter()
+        .filter_map(|sample| sample.labels.get("success").and_then(Value::as_bool))
+        .collect::<Vec<_>>();
+    if labels.len() != samples.len() {
+        return (None, None);
+    }
+    let successes = labels.iter().filter(|value| **value).count();
+    let success_rate = successes as f64 / labels.len() as f64;
+    let majority = success_rate >= 0.5;
+    let majority_success_accuracy =
+        labels.iter().filter(|value| **value == majority).count() as f64 / labels.len() as f64;
+    (Some(success_rate), Some(majority_success_accuracy))
+}
+
+fn write_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    report: &OfflineVldaReport,
+    timestamp_base_ns: u64,
+) -> Result<()> {
+    let metrics = [
+        ("offline_vlda.pid.mi_v_action", report.metrics.mi_v_action),
+        ("offline_vlda.pid.mi_l_action", report.metrics.mi_l_action),
+        ("offline_vlda.pid.mi_d_action", report.metrics.mi_d_action),
+        ("offline_vlda.pid.mi_vl_action", report.metrics.mi_vl_action),
+        (
+            "offline_vlda.pid.co_information_v_l_action",
+            report.metrics.co_information_v_l_action,
+        ),
+        (
+            "offline_vlda.pid.redundancy_v_l_action",
+            report.metrics.redundancy_v_l_action,
+        ),
+        (
+            "offline_vlda.pid.unique_v_action",
+            report.metrics.unique_v_action,
+        ),
+        (
+            "offline_vlda.pid.unique_l_action",
+            report.metrics.unique_l_action,
+        ),
+        (
+            "offline_vlda.pid.synergy_v_l_action",
+            report.metrics.synergy_v_l_action,
+        ),
+    ];
+    for (idx, (name, value)) in metrics.into_iter().enumerate() {
+        writer.append(&RunLogEvent::PidMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + idx as u64,
+            name: name.to_string(),
+            value,
+            metadata: [("category".to_string(), "pid".to_string())]
+                .into_iter()
+                .collect(),
+        })?;
+    }
+    let mut idx = metrics.len() as u64;
+    if let Some(value) = report.metrics.success_rate {
+        writer.append(&RunLogEvent::EvaluationMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + idx,
+            name: "offline_vlda.labels.success_rate".to_string(),
+            value,
+            metadata: [("category".to_string(), "label".to_string())]
+                .into_iter()
+                .collect(),
+        })?;
+        idx += 1;
+    }
+    if let Some(value) = report.metrics.majority_success_accuracy {
+        writer.append(&RunLogEvent::EvaluationMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + idx,
+            name: "offline_vlda.baseline.majority_success_accuracy".to_string(),
+            value,
+            metadata: [("category".to_string(), "baseline".to_string())]
+                .into_iter()
+                .collect(),
+        })?;
+        idx += 1;
+    }
+    for (label, count) in &report.label_counts {
+        writer.append(&RunLogEvent::EvaluationMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + idx,
+            name: format!("offline_vlda.labels.{label}.count"),
+            value: *count as f64,
+            metadata: [("category".to_string(), "label".to_string())]
+                .into_iter()
+                .collect(),
+        })?;
+        idx += 1;
+    }
+    Ok(())
+}
+
+fn ensure_parent(path: &Path) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pid_runlog::{read_events_from_path, summarize_events, validate_events};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn fixture_dataset() -> OfflineVldaDataset {
+        let samples = (0..16)
+            .map(|idx| {
+                let x = idx as f64 / 15.0;
+                let y = if idx % 2 == 0 { 1.0 } else { -1.0 };
+                let action = 0.7 * x + 0.3 * y;
+                OfflineVldaSample {
+                    sample_id: format!("sample-{idx:03}"),
+                    episode_id: Some(format!("episode-{:03}", idx / 2)),
+                    v: vec![x, x * x],
+                    l: vec![y],
+                    d: vec![action - x],
+                    a: vec![action],
+                    labels: [("success".to_string(), json!(idx % 5 != 0))]
+                        .into_iter()
+                        .collect(),
+                    metadata: BTreeMap::new(),
+                }
+            })
+            .collect();
+        OfflineVldaDataset {
+            run_id: Some("offline-fixture-run".to_string()),
+            source: Some("unit_test".to_string()),
+            model: Some("fixture_policy".to_string()),
+            task: Some("fixture_task".to_string()),
+            samples,
+        }
+    }
+
+    #[test]
+    fn offline_vlda_harness_validates_and_summarizes() {
+        let dataset = fixture_dataset();
+        let report = run_offline_vlda_harness(
+            dataset.clone(),
+            Some("memory://fixture.json".to_string()),
+            Some("abc".to_string()),
+        )
+        .unwrap();
+        assert_eq!(report.dims.samples, 16);
+        assert_eq!(report.dims.v, 2);
+        assert_eq!(report.metrics.success_rate, Some(0.75));
+        assert_eq!(report.label_counts["success"], 16);
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir();
+        let summary_path = dir.join(format!("pid-offline-vlda-{stamp}.summary.json"));
+        let runlog_path = dir.join(format!("pid-offline-vlda-{stamp}.jsonl"));
+        write_offline_vlda_summary(&summary_path, &report).unwrap();
+        write_offline_vlda_runlog(&runlog_path, Some(&summary_path), None, &dataset, &report)
+            .unwrap();
+        let events = read_events_from_path(&runlog_path).unwrap();
+        let validation = validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let contract_uri = events
+            .iter()
+            .find_map(|event| {
+                if let pid_runlog::RunLogEvent::EmbeddingContract { variables, .. } = event {
+                    variables
+                        .first()
+                        .and_then(|variable| variable.artifact_uri.clone())
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+        assert_eq!(contract_uri, "memory://fixture.json");
+        let summary = summarize_events(&events).unwrap();
+        assert_eq!(summary.embedding_contracts, 1);
+        assert_eq!(summary.embeddings, 4);
+        assert_eq!(summary.labels, 16);
+        assert_eq!(summary.pid_metrics, 9);
+        assert!(summary.evaluation_metrics >= 3);
+
+        let _ = std::fs::remove_file(summary_path);
+        let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn offline_vlda_checked_fixture_runs() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("fixtures/offline_vlda_fixture.json");
+        let dataset = read_offline_vlda_dataset(&path).unwrap();
+        let input_sha256 = pid_runlog::sha256_file(&path).unwrap();
+        let report = run_offline_vlda_harness(
+            dataset,
+            Some(path.display().to_string()),
+            Some(input_sha256),
+        )
+        .unwrap();
+        assert_eq!(report.run_id, "offline-vlda-fixture-run");
+        assert_eq!(report.dims.samples, 16);
+        assert_eq!(report.label_counts["success"], 16);
+        assert_eq!(report.metrics.success_rate, Some(0.75));
+    }
+
+    #[test]
+    fn offline_vlda_harness_rejects_bad_shapes() {
+        let mut dataset = fixture_dataset();
+        dataset.samples[1].v.pop();
+        let err = run_offline_vlda_harness(dataset, None, None).unwrap_err();
+        assert!(format!("{err:#}").contains("consistent dimensions"));
+    }
+
+    #[test]
+    fn offline_vlda_harness_rejects_duplicate_sample_ids() {
+        let mut dataset = fixture_dataset();
+        dataset.samples[1].sample_id = dataset.samples[0].sample_id.clone();
+        let err = run_offline_vlda_harness(dataset, None, None).unwrap_err();
+        assert!(format!("{err:#}").contains("unique"));
+    }
+}

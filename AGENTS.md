@@ -10,7 +10,7 @@ These notes help future coding agents work on this repo without introducing acci
 
 ## Repo reality
 
-- Implemented today: Rust estimators in `crates/pid-core`, PyO3 bindings in `crates/pid-python`, M1 run-log validation/replay/summary/manifest/sidecar groundwork in `crates/pid-runlog`, local Agent Bridge dispatch/JSON-RPC request/response and contract export groundwork in `crates/pid-bridge`, deterministic object-sim/`Flow_gt` plus baseline `flow_pred` bridge demo, stdio/TCP JSON-RPC bridges, flow checks, action replay verification code in `crates/pid-sim`, Rerun run-log conversion with summary/provenance/validation diagnostics in `crates/pid-rerun`, and the Rust Experiment 0 runner (`just exp0` / `just exp0-bin`, or run the equivalent `cargo` commands below).
+- Implemented today: Rust estimators in `crates/pid-core`, PyO3 bindings in `crates/pid-python`, M1 run-log validation/replay/summary/manifest/sidecar groundwork in `crates/pid-runlog`, local Agent Bridge dispatch/JSON-RPC request/response and contract export groundwork in `crates/pid-bridge`, deterministic object-sim/`Flow_gt` plus baseline `flow_pred` bridge demo, stdio/TCP JSON-RPC bridges, flow checks, action replay verification code, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness in `crates/pid-sim`, Rerun run-log conversion with summary/provenance/validation diagnostics in `crates/pid-rerun`, and the Rust Experiment 0 runner (`just exp0` / `just exp0-bin`, or run the equivalent `cargo` commands below).
 - Many simulation/visualization components are specifications only (see `grandplan.md` §A.7 milestones); do not claim non-existent crates/scripts/assets are runnable unless they are added in the same change.
 - Docset-wide final solution: run log is the source of truth, Agent Bridge is the only control plane, Rerun is the Phases 1–3 diagnostic viewer, and Tauri/SparkJS is deferred Phase 4 UI/custom rendering.
 
@@ -24,6 +24,8 @@ These notes help future coding agents work on this repo without introducing acci
   - `just exp0-runlog` (or `cargo run -p pid-core --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl`)
 - Toy labeled harness:
   - `just toy-harness` (or `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`)
+- Offline VLDA embedding harness:
+  - `just offline-harness` (or `cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl`)
 - Run-log smoke:
   - `just bridge-contract`
   - `just runlog-demo`
