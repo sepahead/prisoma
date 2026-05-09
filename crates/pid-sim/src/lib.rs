@@ -9,6 +9,8 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 
+pub mod toy_harness;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimObject {
     pub object_id: String,

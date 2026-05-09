@@ -22,6 +22,8 @@ These notes help future coding agents work on this repo without introducing acci
   - `just exp0` (or `cargo test -p pid-core exp0 -- --nocapture`)
   - `just exp0-bin` (or `cargo run -p pid-core --bin exp0`)
   - `just exp0-runlog` (or `cargo run -p pid-core --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl`)
+- Toy labeled harness:
+  - `just toy-harness` (or `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`)
 - Run-log smoke:
   - `just bridge-contract`
   - `just runlog-demo`

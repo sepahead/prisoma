@@ -36,6 +36,10 @@ exp0-runlog path="outputs/exp0_runlog.jsonl" summary="outputs/exp0_summary.json"
     cargo run -p pid-core --bin exp0 -- --seeds {{seeds}} --summary-json {{summary}} --runlog {{path}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{path}}
 
+toy-harness runlog="outputs/toy_vla_runlog.jsonl" summary="outputs/toy_vla_summary.json" episodes="32":
+    cargo run -p pid-sim --bin pid-toy-harness -- --episodes {{episodes}} --summary-json {{summary}} --runlog {{runlog}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+
 # M1 run-log smoke path.
 runlog-demo:
     cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl

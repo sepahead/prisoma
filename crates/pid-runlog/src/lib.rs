@@ -22,6 +22,7 @@ pub const RUN_LOG_EVENT_TYPES: &[&str] = &[
     "flow_gt",
     "pid_metric",
     "geometry_metric",
+    "evaluation_metric",
     "intervention_applied",
     "artifact_logged",
     "error_logged",
@@ -175,6 +176,13 @@ pub enum RunLogEvent {
         value: f64,
         metadata: BTreeMap<String, String>,
     },
+    EvaluationMetric {
+        step: u64,
+        timestamp_ns: u64,
+        name: String,
+        value: f64,
+        metadata: BTreeMap<String, String>,
+    },
     InterventionApplied {
         step: u64,
         timestamp_ns: u64,
@@ -289,6 +297,7 @@ pub struct ReplayState {
     pub object_poses: BTreeMap<String, PoseRecord>,
     pub pid_metrics: BTreeMap<String, MetricRecord>,
     pub geometry_metrics: BTreeMap<String, MetricRecord>,
+    pub evaluation_metrics: BTreeMap<String, MetricRecord>,
     pub actions: Vec<ActionRecord>,
     pub interventions: Vec<InterventionRecord>,
     pub artifacts: Vec<ArtifactRecord>,
@@ -437,6 +446,22 @@ impl ReplayState {
                     },
                 );
             }
+            RunLogEvent::EvaluationMetric {
+                step,
+                timestamp_ns,
+                name,
+                value,
+                ..
+            } => {
+                self.evaluation_metrics.insert(
+                    name.clone(),
+                    MetricRecord {
+                        step: *step,
+                        timestamp_ns: *timestamp_ns,
+                        value: *value,
+                    },
+                );
+            }
             RunLogEvent::InterventionApplied {
                 step,
                 timestamp_ns,
@@ -486,6 +511,7 @@ impl RunLogEvent {
             | RunLogEvent::FlowGt { timestamp_ns, .. }
             | RunLogEvent::PidMetric { timestamp_ns, .. }
             | RunLogEvent::GeometryMetric { timestamp_ns, .. }
+            | RunLogEvent::EvaluationMetric { timestamp_ns, .. }
             | RunLogEvent::InterventionApplied { timestamp_ns, .. }
             | RunLogEvent::ArtifactLogged { timestamp_ns, .. }
             | RunLogEvent::ErrorLogged { timestamp_ns, .. } => *timestamp_ns,
@@ -502,6 +528,7 @@ impl RunLogEvent {
             | RunLogEvent::FlowGt { step, .. }
             | RunLogEvent::PidMetric { step, .. }
             | RunLogEvent::GeometryMetric { step, .. }
+            | RunLogEvent::EvaluationMetric { step, .. }
             | RunLogEvent::InterventionApplied { step, .. } => Some(*step),
             RunLogEvent::BridgeRequest { step, .. }
             | RunLogEvent::BridgeResponse { step, .. }
@@ -531,6 +558,7 @@ pub fn runlog_event_contracts() -> Vec<RunLogEventContract> {
                     | "flow_gt"
                     | "pid_metric"
                     | "geometry_metric"
+                    | "evaluation_metric"
                     | "intervention_applied"
                     | "error_logged"
             ),
@@ -627,6 +655,7 @@ pub struct RunLogSummary {
     pub objects: usize,
     pub pid_metrics: usize,
     pub geometry_metrics: usize,
+    pub evaluation_metrics: usize,
     pub embeddings: usize,
     pub bridge_records: usize,
     pub sim_snapshots: usize,
@@ -811,7 +840,8 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
                 }
             }
             RunLogEvent::PidMetric { name, value, .. }
-            | RunLogEvent::GeometryMetric { name, value, .. } => {
+            | RunLogEvent::GeometryMetric { name, value, .. }
+            | RunLogEvent::EvaluationMetric { name, value, .. } => {
                 if name.is_empty() {
                     report.error(Some(idx), "metric name must not be empty");
                 }
@@ -895,6 +925,7 @@ pub fn summarize_events(events: &[RunLogEvent]) -> Result<RunLogSummary> {
         objects: state.object_poses.len(),
         pid_metrics: state.pid_metrics.len(),
         geometry_metrics: state.geometry_metrics.len(),
+        evaluation_metrics: state.evaluation_metrics.len(),
         embeddings: state.embeddings.len(),
         bridge_records: state.bridge_records.len(),
         sim_snapshots: state.sim_snapshots,
@@ -1201,6 +1232,13 @@ mod tests {
                 value: 0.25,
                 metadata: BTreeMap::new(),
             },
+            RunLogEvent::EvaluationMetric {
+                step: 0,
+                timestamp_ns: 4,
+                name: "baseline.accuracy".to_string(),
+                value: 0.75,
+                metadata: BTreeMap::new(),
+            },
             RunLogEvent::RunEnded {
                 run_id: "run-1".to_string(),
                 timestamp_ns: 5,
@@ -1233,6 +1271,7 @@ mod tests {
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.object_poses["cube"].pose.position, [1.0, 2.0, 3.0]);
         assert_eq!(state.pid_metrics["redundancy"].value, 0.25);
+        assert_eq!(state.evaluation_metrics["baseline.accuracy"].value, 0.75);
     }
 
     #[test]
@@ -1262,6 +1301,7 @@ mod tests {
         let summary = summarize_events(&events).unwrap();
         assert_eq!(summary.run_id.as_deref(), Some("run-1"));
         assert_eq!(summary.validation_errors, 0);
+        assert_eq!(summary.evaluation_metrics, 1);
         assert_eq!(summary.trace_hash.len(), 64);
         let state_hash = replay_trace_hash(&events).unwrap();
         assert_eq!(summary.trace_hash, state_hash);
@@ -1287,6 +1327,10 @@ mod tests {
             .any(|event| event.event_type == "bridge_request"
                 && event.has_step
                 && event.carries_payload_hash));
+        assert!(contract
+            .event_types
+            .iter()
+            .any(|event| event.event_type == "evaluation_metric" && event.has_step));
         assert!(contract.sidecars.contains(&"manifest".to_string()));
         assert!(contract.actor_types.contains(&"llm_tool".to_string()));
     }

@@ -90,6 +90,13 @@ impl<'a> RunLogRerunLogger<'a> {
                     .log(format!("pid/geometry/{name}"), &Scalars::single(*value))?;
                 Ok(())
             }
+            RunLogEvent::EvaluationMetric { name, value, .. } => {
+                self.rec.log(
+                    format!("evaluation/metrics/{name}"),
+                    &Scalars::single(*value),
+                )?;
+                Ok(())
+            }
             RunLogEvent::ActionApplied { action_type, .. } => {
                 self.log_text("actions/applied", "INFO", action_type)
             }
@@ -162,6 +169,10 @@ impl<'a> RunLogRerunLogger<'a> {
         self.rec.log(
             "run/summary/flow_gt_records",
             &Scalars::single(summary.flow_gt_records as f64),
+        )?;
+        self.rec.log(
+            "run/summary/evaluation_metrics",
+            &Scalars::single(summary.evaluation_metrics as f64),
         )?;
         self.rec.log(
             "run/summary/validation_errors",

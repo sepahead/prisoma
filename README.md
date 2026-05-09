@@ -50,7 +50,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 
 ## Repo Status (What Actually Exists)
 
-- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest/sidecar CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core + JSON-RPC-shaped request/response conversion + contract export), `crates/pid-sim` (deterministic object sim + `Flow_gt`/bridge demos, stdio JSON-RPC bridge, flow verification, and action replay checks), `crates/pid-rerun` (prototype Rerun logging + validated run-log replay adapter with summary/provenance/validation diagnostics), and the Experiment 0 runner (`just exp0`, `just exp0-bin`, `just exp0-runlog`).
+- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest/sidecar CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core + JSON-RPC-shaped request/response conversion + contract export), `crates/pid-sim` (deterministic object sim + `Flow_gt`/bridge demos, stdio JSON-RPC bridge, flow verification, action replay checks, and a labeled toy VLA/task harness), `crates/pid-rerun` (prototype Rerun logging + validated run-log replay adapter with summary/provenance/validation diagnostics), and the Experiment 0 runner (`just exp0`, `just exp0-bin`, `just exp0-runlog`).
 - Specified: A fuller Rerun-based diagnostic viewer (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start (Exp0 Gate)
@@ -65,6 +65,14 @@ just exp0-runlog
 
 If you don’t have `just`: `cargo test` and `cargo run -p pid-core --bin exp0`. To export canonical Exp0 evidence, run `cargo run -p pid-core --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl`, then validate it with `cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/exp0_runlog.jsonl`.
 See `findings.md` for the latest repo-local Exp0 interpretation notes.
+
+## Quick Start (Tiny Labeled Harness)
+
+```bash
+just toy-harness
+```
+
+If you don’t have `just`: run `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`, then validate it with `cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/toy_vla_runlog.jsonl`. This is a deterministic toy task, not VLA evidence; it exists to exercise labels, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export end to end.
 
 ## Quick Start (M1 Run Log)
 

@@ -25,8 +25,13 @@ path = "src/bin/bridge_stdio.rs"
 name = "pid-sim-verify"
 path = "src/bin/verify.rs"
 
+[[bin]]
+name = "pid-toy-harness"
+path = "src/bin/toy_harness.rs"
+
 [dependencies]
 anyhow = "1.0"
+pid-core = { path = "../pid-core" }
 pid-bridge = { path = "../pid-bridge" }
 pid-runlog = { path = "../pid-runlog" }
 serde = { version = "1.0", features = ["derive"] }
