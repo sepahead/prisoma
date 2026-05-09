@@ -1,10 +1,13 @@
-use anyhow::{bail, Result};
-use pid_bridge::{BridgeHandler, BridgeMethod, BridgeRequest, BridgeResponse, LocalBridge};
+use anyhow::{bail, Context, Result};
+use pid_bridge::{
+    BridgeHandler, BridgeMethod, BridgeRequest, BridgeResponse, BridgeRpcRequest,
+    BridgeRpcResponse, LocalBridge,
+};
 use pid_runlog::{Actor, Pose, RunLogEvent, RunLogWriter, SimObjectSnapshot};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
-use std::io::Write;
+use std::io::{BufRead, Write};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimObject {
@@ -283,15 +286,7 @@ impl<W: Write> SimBridgeSession<W> {
 
         match request.method {
             BridgeMethod::SimStep if response.ok => {
-                let payload_hash = request.payload_hash()?;
-                self.bridge.record_event(&RunLogEvent::ActionApplied {
-                    step: self.handler.sim.step(),
-                    timestamp_ns: self.handler.sim.timestamp_ns(),
-                    actor: request.actor.clone(),
-                    action_type: request.method.as_str().to_string(),
-                    payload_hash,
-                    payload: request.payload.clone(),
-                })?;
+                self.record_action(request)?;
                 self.bridge
                     .record_event(&self.handler.sim.snapshot_event())?;
                 for event in self.handler.sim.pose_events() {
@@ -304,6 +299,15 @@ impl<W: Write> SimBridgeSession<W> {
                 }
             }
             BridgeMethod::SceneSetObject if response.ok => {
+                self.record_action(request)?;
+                self.bridge
+                    .record_event(&self.handler.sim.snapshot_event())?;
+                for event in self.handler.sim.pose_events() {
+                    self.bridge.record_event(&event)?;
+                }
+            }
+            BridgeMethod::SimReset if response.ok => {
+                self.record_action(request)?;
                 self.bridge
                     .record_event(&self.handler.sim.snapshot_event())?;
             }
@@ -311,6 +315,14 @@ impl<W: Write> SimBridgeSession<W> {
         }
 
         Ok(response)
+    }
+
+    pub fn step(&self) -> u64 {
+        self.handler.sim.step()
+    }
+
+    pub fn timestamp_ns(&self) -> u64 {
+        self.handler.sim.timestamp_ns()
     }
 
     pub fn record_event(&mut self, event: &RunLogEvent) -> Result<()> {
@@ -323,6 +335,17 @@ impl<W: Write> SimBridgeSession<W> {
 
     pub fn into_inner(self) -> W {
         self.bridge.into_inner()
+    }
+
+    fn record_action(&mut self, request: &BridgeRequest) -> Result<()> {
+        self.bridge.record_event(&RunLogEvent::ActionApplied {
+            step: self.handler.sim.step(),
+            timestamp_ns: self.handler.sim.timestamp_ns(),
+            actor: request.actor.clone(),
+            action_type: request.method.as_str().to_string(),
+            payload_hash: request.payload_hash()?,
+            payload: request.payload.clone(),
+        })
     }
 }
 
@@ -342,6 +365,61 @@ pub fn bridge_request(
         method,
         payload,
     }
+}
+
+pub fn dispatch_rpc_lines<R, O, L>(
+    input: R,
+    output: &mut O,
+    session: &mut SimBridgeSession<L>,
+    actor: Actor,
+) -> Result<usize>
+where
+    R: BufRead,
+    O: Write,
+    L: Write,
+{
+    let mut handled = 0usize;
+    for (idx, line) in input.lines().enumerate() {
+        let line = line.with_context(|| format!("failed to read JSON-RPC line {}", idx + 1))?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let response = match serde_json::from_str::<BridgeRpcRequest>(&line) {
+            Ok(rpc) => {
+                let id = rpc.id.clone();
+                match rpc.into_bridge_request(
+                    actor.clone(),
+                    Some(session.step()),
+                    session.timestamp_ns(),
+                ) {
+                    Ok(request) => BridgeRpcResponse::from_bridge_response(
+                        &session
+                            .dispatch(&request)
+                            .unwrap_or_else(|err| BridgeResponse {
+                                request_id: id,
+                                step: Some(session.step()),
+                                timestamp_ns: session.timestamp_ns(),
+                                ok: false,
+                                message: Some(err.to_string()),
+                                result: None,
+                            }),
+                    ),
+                    Err(err) => BridgeRpcResponse::failure(id, -32601, err.to_string()),
+                }
+            }
+            Err(err) => BridgeRpcResponse::failure(
+                format!("line-{}", idx + 1),
+                -32700,
+                format!("invalid JSON-RPC request at line {}: {err}", idx + 1),
+            ),
+        };
+        serde_json::to_writer(&mut *output, &response).context("failed to write RPC response")?;
+        output
+            .write_all(b"\n")
+            .context("failed to write RPC response newline")?;
+        handled += 1;
+    }
+    Ok(handled)
 }
 
 pub fn verify_flow_gt(events: &[RunLogEvent], tolerance: f64) -> FlowVerificationReport {
@@ -635,7 +713,7 @@ pub fn demo_sim() -> DeterministicObjectSim {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pid_bridge::BridgeMethod;
+    use pid_bridge::{BridgeMethod, BridgeRpcResponse};
     use pid_runlog::{read_events, replay_events, ActorType, RunLogWriter};
     use serde_json::json;
     use std::io::Cursor;
@@ -703,6 +781,97 @@ mod tests {
         assert_eq!(state.actions.len(), 3);
         assert_eq!(state.sim_snapshots, 3);
         assert_eq!(state.flow_gt_records, 6);
+    }
+
+    #[test]
+    fn bridge_session_logs_scene_and_reset_as_actions() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-scene-test".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::new(writer, sim);
+        let set_object = bridge_request(
+            "req-set-object",
+            BridgeMethod::SceneSetObject,
+            actor.clone(),
+            Some(0),
+            0,
+            json!({
+                "object_id": "green_cube",
+                "pose": {
+                    "position": [0.4, 0.0, 0.025],
+                    "orientation_xyzw": [0.0, 0.0, 0.0, 1.0]
+                },
+                "velocity": [0.0, 0.0, 0.0]
+            }),
+        );
+        assert!(session.dispatch(&set_object).unwrap().ok);
+        let reset = bridge_request(
+            "req-reset",
+            BridgeMethod::SimReset,
+            actor,
+            Some(0),
+            0,
+            json!({}),
+        );
+        assert!(session.dispatch(&reset).unwrap().ok);
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events);
+        assert_eq!(state.actions.len(), 2);
+        assert!(state
+            .actions
+            .iter()
+            .any(|action| action.action_type == "scene.set_object"));
+        assert!(state
+            .actions
+            .iter()
+            .any(|action| action.action_type == "sim.reset"));
+        let report = verify_sim_replay(&events, 1e-12);
+        assert!(report.is_valid(), "{:?}", report.issues);
+    }
+
+    #[test]
+    fn rpc_line_processor_dispatches_requests_and_logs_replayable_events() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-rpc-test".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::new(writer, sim);
+        let input = concat!(
+            r#"{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}"#,
+            "\n",
+            r#"{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}"#,
+            "\n"
+        );
+        let mut output = Vec::new();
+        let handled =
+            dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap();
+        assert_eq!(handled, 2);
+
+        let lines = String::from_utf8(output).unwrap();
+        let responses = lines
+            .lines()
+            .map(|line| serde_json::from_str::<BridgeRpcResponse>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(responses.len(), 2);
+        assert!(responses.iter().all(BridgeRpcResponse::is_ok));
+        assert_eq!(responses[0].id, "status");
+        assert_eq!(responses[1].id, "step");
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let report = verify_sim_replay(&events, 1e-12);
+        assert!(report.is_valid(), "{:?}", report.issues);
+        assert_eq!(report.checked_actions, 1);
+        assert_eq!(report.checked_snapshots, 1);
     }
 
     #[test]

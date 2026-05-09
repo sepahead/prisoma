@@ -81,6 +81,22 @@ pub struct BridgeRpcRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BridgeRpcError {
+    pub code: i64,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BridgeRpcResponse {
+    pub jsonrpc: String,
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<BridgeRpcError>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BridgeResponse {
     pub request_id: String,
     pub step: Option<u64>,
@@ -105,6 +121,51 @@ impl BridgeRpcRequest {
             method: BridgeMethod::from_str(&self.method)?,
             payload: self.params,
         })
+    }
+}
+
+impl BridgeRpcResponse {
+    pub fn success(id: impl Into<String>, result: Value) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: id.into(),
+            result: Some(result),
+            error: None,
+        }
+    }
+
+    pub fn failure(id: impl Into<String>, code: i64, message: impl Into<String>) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: id.into(),
+            result: None,
+            error: Some(BridgeRpcError {
+                code,
+                message: message.into(),
+            }),
+        }
+    }
+
+    pub fn from_bridge_response(response: &BridgeResponse) -> Self {
+        if response.ok {
+            Self::success(
+                response.request_id.clone(),
+                response.result.clone().unwrap_or(Value::Null),
+            )
+        } else {
+            Self::failure(
+                response.request_id.clone(),
+                -32000,
+                response
+                    .message
+                    .clone()
+                    .unwrap_or_else(|| "bridge request failed".to_string()),
+            )
+        }
+    }
+
+    pub fn is_ok(&self) -> bool {
+        self.error.is_none()
     }
 }
 
@@ -294,5 +355,33 @@ mod tests {
         let request = rpc.into_bridge_request(actor(), Some(0), 123).unwrap();
         assert_eq!(request.method, BridgeMethod::SimStep);
         assert_eq!(request.request_id, "rpc-1");
+    }
+
+    #[test]
+    fn rpc_response_converts_bridge_success_and_failure() {
+        let success = BridgeResponse {
+            request_id: "ok-1".to_string(),
+            step: Some(1),
+            timestamp_ns: 10,
+            ok: true,
+            message: None,
+            result: Some(json!({ "step": 1 })),
+        };
+        let rpc = BridgeRpcResponse::from_bridge_response(&success);
+        assert!(rpc.is_ok());
+        assert_eq!(rpc.id, "ok-1");
+        assert_eq!(rpc.result, Some(json!({ "step": 1 })));
+
+        let failure = BridgeResponse {
+            request_id: "err-1".to_string(),
+            step: Some(1),
+            timestamp_ns: 10,
+            ok: false,
+            message: Some("bad request".to_string()),
+            result: None,
+        };
+        let rpc = BridgeRpcResponse::from_bridge_response(&failure);
+        assert!(!rpc.is_ok());
+        assert_eq!(rpc.error.unwrap().message, "bad request");
     }
 }

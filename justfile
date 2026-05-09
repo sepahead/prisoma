@@ -39,6 +39,9 @@ runlog-demo:
 runlog-bridge-demo:
     cargo run -p pid-sim --bin pid-sim-bridge-demo -- outputs/demo_bridge_runlog.jsonl
 
+runlog-bridge-stdio path="outputs/demo_bridge_stdio_runlog.jsonl":
+    printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- {{path}}
+
 runlog-replay path="outputs/demo_runlog.jsonl":
     cargo run -p pid-runlog --bin pid-runlog-replay -- {{path}}
 
