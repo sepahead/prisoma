@@ -6,6 +6,20 @@ use std::fmt;
 use std::io::Write;
 use std::str::FromStr;
 
+pub const BRIDGE_METHODS: &[&str] = &[
+    "sim.status",
+    "sim.reset",
+    "sim.step",
+    "log.start",
+    "log.stop",
+    "log.replay",
+    "scene.set_object",
+    "intervention.apply",
+    "export.rerun",
+];
+
+pub const BRIDGE_TRANSPORTS: &[&str] = &["local", "stdio_jsonl"];
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BridgeMethod {
@@ -33,6 +47,91 @@ impl BridgeMethod {
             BridgeMethod::InterventionApply => "intervention.apply",
             BridgeMethod::ExportRerun => "export.rerun",
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BridgeMethodContract {
+    pub method: String,
+    pub request_payload: String,
+    pub response_payload: String,
+    pub emits_action: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BridgeContract {
+    pub jsonrpc_version: String,
+    pub transports: Vec<String>,
+    pub methods: Vec<BridgeMethodContract>,
+    pub runlog_schema_version: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BridgeRunLogContract {
+    pub run_log: pid_runlog::RunLogContract,
+    pub bridge: BridgeContract,
+}
+
+pub fn bridge_method_contracts() -> Vec<BridgeMethodContract> {
+    BRIDGE_METHODS
+        .iter()
+        .map(|method| BridgeMethodContract {
+            method: (*method).to_string(),
+            request_payload: bridge_request_payload_hint(method).to_string(),
+            response_payload: bridge_response_payload_hint(method).to_string(),
+            emits_action: matches!(
+                *method,
+                "sim.reset" | "sim.step" | "scene.set_object" | "intervention.apply"
+            ),
+        })
+        .collect()
+}
+
+pub fn bridge_runlog_contract() -> BridgeRunLogContract {
+    BridgeRunLogContract {
+        run_log: pid_runlog::runlog_contract(),
+        bridge: bridge_contract(),
+    }
+}
+
+pub fn bridge_contract() -> BridgeContract {
+    BridgeContract {
+        jsonrpc_version: "2.0".to_string(),
+        transports: BRIDGE_TRANSPORTS
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect(),
+        methods: bridge_method_contracts(),
+        runlog_schema_version: pid_runlog::RUN_LOG_SCHEMA_VERSION,
+    }
+}
+
+fn bridge_request_payload_hint(method: &str) -> &'static str {
+    match method {
+        "sim.status" | "sim.reset" | "log.stop" => "{}",
+        "sim.step" => r#"{"dt": number}"#,
+        "log.start" => r#"{"run_id": string?, "metadata": object?}"#,
+        "log.replay" => r#"{"run_log_uri": string}"#,
+        "scene.set_object" => {
+            r#"{"object_id": string, "pose": Pose, "velocity": [number, number, number]}"#
+        }
+        "intervention.apply" => r#"{"intervention_type": string, "payload": object}"#,
+        "export.rerun" => r#"{"run_log_uri": string, "output_uri": string?}"#,
+        _ => "object",
+    }
+}
+
+fn bridge_response_payload_hint(method: &str) -> &'static str {
+    match method {
+        "sim.status" | "sim.reset" | "scene.set_object" => {
+            r#"{"step": integer, "timestamp_ns": integer, "objects": integer}"#
+        }
+        "sim.step" => r#"{"step": integer, "timestamp_ns": integer, "flow_gt_records": integer}"#,
+        "log.start" | "log.stop" => r#"{"run_id": string}"#,
+        "log.replay" => r#"{"trace_hash": string, "events": integer}"#,
+        "intervention.apply" => r#"{"accepted": boolean}"#,
+        "export.rerun" => r#"{"output_uri": string}"#,
+        _ => "object",
     }
 }
 
@@ -355,6 +454,36 @@ mod tests {
         let request = rpc.into_bridge_request(actor(), Some(0), 123).unwrap();
         assert_eq!(request.method, BridgeMethod::SimStep);
         assert_eq!(request.request_id, "rpc-1");
+    }
+
+    #[test]
+    fn bridge_contract_lists_methods_and_transports() {
+        let contract = bridge_runlog_contract();
+        assert_eq!(
+            contract.run_log.schema_version,
+            pid_runlog::RUN_LOG_SCHEMA_VERSION
+        );
+        assert!(contract
+            .bridge
+            .transports
+            .contains(&"stdio_jsonl".to_string()));
+        assert_eq!(contract.bridge.methods.len(), BRIDGE_METHODS.len());
+        let step = contract
+            .bridge
+            .methods
+            .iter()
+            .find(|method| method.method == "sim.step")
+            .unwrap();
+        assert!(step.emits_action);
+        assert!(step.request_payload.contains("dt"));
+    }
+
+    #[test]
+    fn bridge_method_catalog_parses_all_methods() {
+        for method in BRIDGE_METHODS {
+            let parsed = BridgeMethod::from_str(method).unwrap();
+            assert_eq!(parsed.as_str(), *method);
+        }
     }
 
     #[test]

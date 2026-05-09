@@ -8,6 +8,43 @@ use std::path::{Path, PathBuf};
 
 pub const RUN_LOG_SCHEMA_VERSION: u32 = 1;
 
+pub const RUN_LOG_EVENT_TYPES: &[&str] = &[
+    "run_started",
+    "run_ended",
+    "config_logged",
+    "frame_observed",
+    "embedding_captured",
+    "sim_snapshot",
+    "bridge_request",
+    "bridge_response",
+    "action_applied",
+    "object_pose",
+    "flow_gt",
+    "pid_metric",
+    "geometry_metric",
+    "intervention_applied",
+    "artifact_logged",
+    "error_logged",
+];
+
+pub const RUN_LOG_SIDECARS: &[&str] = &["validation", "summary", "manifest"];
+
+pub const RUN_LOG_VALIDATION_RULES: &[&str] = &[
+    "run log is nonempty",
+    "exactly one run_started event",
+    "exactly one run_ended event",
+    "run_started is first event",
+    "schema_version matches RUN_LOG_SCHEMA_VERSION",
+    "timestamps are nondecreasing",
+    "steps are nondecreasing",
+    "run_id is nonempty and consistent",
+    "payload_hash values match canonical payload JSON",
+    "bridge request_id values are nonempty and unique",
+    "bridge responses refer to existing requests",
+    "poses, velocities, flows, and metrics are finite",
+    "artifact and metric names are nonempty",
+];
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ActorType {
@@ -160,6 +197,23 @@ pub enum RunLogEvent {
         message: String,
         recoverable: bool,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunLogEventContract {
+    pub event_type: String,
+    pub has_step: bool,
+    pub carries_payload_hash: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunLogContract {
+    pub schema_version: u32,
+    pub event_types: Vec<RunLogEventContract>,
+    pub actor_types: Vec<String>,
+    pub run_statuses: Vec<String>,
+    pub sidecars: Vec<String>,
+    pub validation_rules: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -457,6 +511,57 @@ impl RunLogEvent {
             | RunLogEvent::ConfigLogged { .. }
             | RunLogEvent::ArtifactLogged { .. } => None,
         }
+    }
+}
+
+pub fn runlog_event_contracts() -> Vec<RunLogEventContract> {
+    RUN_LOG_EVENT_TYPES
+        .iter()
+        .map(|event_type| RunLogEventContract {
+            event_type: (*event_type).to_string(),
+            has_step: matches!(
+                *event_type,
+                "frame_observed"
+                    | "embedding_captured"
+                    | "sim_snapshot"
+                    | "bridge_request"
+                    | "bridge_response"
+                    | "action_applied"
+                    | "object_pose"
+                    | "flow_gt"
+                    | "pid_metric"
+                    | "geometry_metric"
+                    | "intervention_applied"
+                    | "error_logged"
+            ),
+            carries_payload_hash: matches!(
+                *event_type,
+                "bridge_request" | "action_applied" | "intervention_applied"
+            ),
+        })
+        .collect()
+}
+
+pub fn runlog_contract() -> RunLogContract {
+    RunLogContract {
+        schema_version: RUN_LOG_SCHEMA_VERSION,
+        event_types: runlog_event_contracts(),
+        actor_types: ["human_gui", "script", "llm_tool", "system"]
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        run_statuses: ["succeeded", "failed", "aborted"]
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        sidecars: RUN_LOG_SIDECARS
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect(),
+        validation_rules: RUN_LOG_VALIDATION_RULES
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect(),
     }
 }
 
@@ -1169,6 +1274,21 @@ mod tests {
         let h2 = replay_trace_hash(&events).unwrap();
         assert_eq!(h1, h2);
         assert_eq!(h1.len(), 64);
+    }
+
+    #[test]
+    fn runlog_contract_lists_current_schema_surface() {
+        let contract = runlog_contract();
+        assert_eq!(contract.schema_version, RUN_LOG_SCHEMA_VERSION);
+        assert_eq!(contract.event_types.len(), RUN_LOG_EVENT_TYPES.len());
+        assert!(contract
+            .event_types
+            .iter()
+            .any(|event| event.event_type == "bridge_request"
+                && event.has_step
+                && event.carries_payload_hash));
+        assert!(contract.sidecars.contains(&"manifest".to_string()));
+        assert!(contract.actor_types.contains(&"llm_tool".to_string()));
     }
 
     #[test]

@@ -5,6 +5,10 @@ edition = "2021"
 description = "Local Agent Bridge request schema and run-log integration for PID-VLA"
 license = "MIT"
 
+[[bin]]
+name = "pid-bridge-contract"
+path = "src/bin/contract.rs"
+
 [dependencies]
 anyhow = "1.0"
 pid-runlog = { path = "../pid-runlog" }

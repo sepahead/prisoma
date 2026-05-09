@@ -38,7 +38,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 | Component | Technology | Version / Spec | License |
 | :--- | :--- | :--- | :--- |
 | **Run log** | `crates/pid-runlog` JSONL events + replay summary | Schema v1; M1 groundwork implemented; includes embedding/sim/bridge event types, validation, replay hash comparison, summary JSON, manifest JSON, and co-located sidecar writing | MIT (project) |
-| **Agent Bridge core** | `crates/pid-bridge` | Local request/response schema, dispatcher, JSON-RPC-shaped request/response conversion, and run-log integration; network server planned | MIT (project) |
+| **Agent Bridge core** | `crates/pid-bridge` | Local request/response schema, dispatcher, JSON-RPC-shaped request/response conversion, run-log integration, and bridge/run-log contract JSON export; network server planned | MIT (project) |
 | **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio JSON-RPC bridge, flow verification CLI, and deterministic action replay checks; physics backend trait/Rapier remains planned | MIT (project) |
 | **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | Rerun SDK 0.28.x in Cargo; run-log conversion includes summary/provenance/validation diagnostic tracks; Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |
 | **Renderer** | Rerun native/WebViewer / SparkJS (Phase 4) | Pin exact package versions / git SHAs at implementation time | Rerun WebViewer: MIT; SparkJS package metadata: MIT; Three.js: MIT |
