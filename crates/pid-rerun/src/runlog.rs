@@ -80,6 +80,22 @@ impl<'a> RunLogRerunLogger<'a> {
                 }
                 Ok(())
             }
+            RunLogEvent::FlowPred {
+                source,
+                object_id,
+                flow,
+                ..
+            } => {
+                for (idx, vec) in flow.iter().enumerate() {
+                    self.rec.log(
+                        format!("flow/pred/{source}/{object_id}/{idx}"),
+                        &Scalars::single(
+                            (vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]).sqrt(),
+                        ),
+                    )?;
+                }
+                Ok(())
+            }
             RunLogEvent::PidMetric { name, value, .. } => {
                 self.rec
                     .log(format!("pid/metrics/{name}"), &Scalars::single(*value))?;
@@ -189,6 +205,10 @@ impl<'a> RunLogRerunLogger<'a> {
         self.rec.log(
             "run/summary/flow_gt_records",
             &Scalars::single(summary.flow_gt_records as f64),
+        )?;
+        self.rec.log(
+            "run/summary/flow_pred_records",
+            &Scalars::single(summary.flow_pred_records as f64),
         )?;
         self.rec.log(
             "run/summary/evaluation_metrics",

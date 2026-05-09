@@ -21,6 +21,7 @@ pub const RUN_LOG_EVENT_TYPES: &[&str] = &[
     "action_applied",
     "object_pose",
     "flow_gt",
+    "flow_pred",
     "pid_metric",
     "geometry_metric",
     "evaluation_metric",
@@ -46,7 +47,7 @@ pub const RUN_LOG_VALIDATION_RULES: &[&str] = &[
     "bridge request_id values are nonempty and unique",
     "bridge responses refer to existing requests",
     "poses, velocities, flows, and metrics are finite",
-    "artifact, embedding, contract, metric, and label names are nonempty",
+    "artifact, embedding, contract, metric, label, and flow source names are nonempty",
     "embedding contract variables have nonempty variable/source names and positive dims",
     "label values are non-null",
 ];
@@ -181,6 +182,15 @@ pub enum RunLogEvent {
         timestamp_ns: u64,
         object_id: String,
         flow: Vec<[f64; 3]>,
+    },
+    FlowPred {
+        step: u64,
+        timestamp_ns: u64,
+        source: String,
+        object_id: String,
+        horizon_steps: u64,
+        flow: Vec<[f64; 3]>,
+        metadata: BTreeMap<String, String>,
     },
     PidMetric {
         step: u64,
@@ -350,6 +360,7 @@ pub struct ReplayState {
     pub sim_snapshots: usize,
     pub errors: Vec<String>,
     pub flow_gt_records: usize,
+    pub flow_pred_records: usize,
 }
 
 impl ReplayState {
@@ -468,6 +479,9 @@ impl ReplayState {
             RunLogEvent::FlowGt { .. } => {
                 self.flow_gt_records += 1;
             }
+            RunLogEvent::FlowPred { .. } => {
+                self.flow_pred_records += 1;
+            }
             RunLogEvent::PidMetric {
                 step,
                 timestamp_ns,
@@ -576,6 +590,7 @@ impl RunLogEvent {
             | RunLogEvent::ActionApplied { timestamp_ns, .. }
             | RunLogEvent::ObjectPose { timestamp_ns, .. }
             | RunLogEvent::FlowGt { timestamp_ns, .. }
+            | RunLogEvent::FlowPred { timestamp_ns, .. }
             | RunLogEvent::PidMetric { timestamp_ns, .. }
             | RunLogEvent::GeometryMetric { timestamp_ns, .. }
             | RunLogEvent::EvaluationMetric { timestamp_ns, .. }
@@ -594,6 +609,7 @@ impl RunLogEvent {
             | RunLogEvent::ActionApplied { step, .. }
             | RunLogEvent::ObjectPose { step, .. }
             | RunLogEvent::FlowGt { step, .. }
+            | RunLogEvent::FlowPred { step, .. }
             | RunLogEvent::PidMetric { step, .. }
             | RunLogEvent::GeometryMetric { step, .. }
             | RunLogEvent::EvaluationMetric { step, .. }
@@ -626,6 +642,7 @@ pub fn runlog_event_contracts() -> Vec<RunLogEventContract> {
                     | "action_applied"
                     | "object_pose"
                     | "flow_gt"
+                    | "flow_pred"
                     | "pid_metric"
                     | "geometry_metric"
                     | "evaluation_metric"
@@ -736,6 +753,7 @@ pub struct RunLogSummary {
     pub artifacts: usize,
     pub errors: usize,
     pub flow_gt_records: usize,
+    pub flow_pred_records: usize,
     pub validation_issues: Vec<ValidationIssue>,
 }
 
@@ -918,6 +936,26 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
                     validate_vec3(&mut report, idx, *vec, "flow vector");
                 }
             }
+            RunLogEvent::FlowPred {
+                source,
+                object_id,
+                horizon_steps,
+                flow,
+                ..
+            } => {
+                if source.is_empty() {
+                    report.error(Some(idx), "flow source must not be empty");
+                }
+                if object_id.is_empty() {
+                    report.error(Some(idx), "flow object_id must not be empty");
+                }
+                if *horizon_steps == 0 {
+                    report.error(Some(idx), "flow horizon_steps must be positive");
+                }
+                for vec in flow {
+                    validate_vec3(&mut report, idx, *vec, "flow vector");
+                }
+            }
             RunLogEvent::PidMetric { name, value, .. }
             | RunLogEvent::GeometryMetric { name, value, .. }
             | RunLogEvent::EvaluationMetric { name, value, .. } => {
@@ -1044,6 +1082,7 @@ pub fn summarize_events(events: &[RunLogEvent]) -> Result<RunLogSummary> {
         artifacts: state.artifacts.len(),
         errors: state.errors.len(),
         flow_gt_records: state.flow_gt_records,
+        flow_pred_records: state.flow_pred_records,
         validation_issues: validation.issues,
     })
 }
@@ -1607,8 +1646,51 @@ mod tests {
     }
 
     #[test]
+    fn validation_catches_bad_flow_pred() {
+        let mut events = sample_events();
+        events.insert(
+            events.len() - 1,
+            RunLogEvent::FlowPred {
+                step: 0,
+                timestamp_ns: 4,
+                source: "".to_string(),
+                object_id: "".to_string(),
+                horizon_steps: 0,
+                flow: vec![[f64::NAN, 0.0, 0.0]],
+                metadata: BTreeMap::new(),
+            },
+        );
+        let report = validate_events(&events);
+        assert!(!report.is_valid());
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("flow source")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("horizon_steps")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("flow vector")));
+    }
+
+    #[test]
     fn summary_and_manifest_include_trace_hash() {
-        let events = sample_events();
+        let mut events = sample_events();
+        events.insert(
+            events.len() - 1,
+            RunLogEvent::FlowPred {
+                step: 0,
+                timestamp_ns: 4,
+                source: "constant_velocity_baseline".to_string(),
+                object_id: "cube".to_string(),
+                horizon_steps: 1,
+                flow: vec![[0.1, 0.0, 0.0]],
+                metadata: BTreeMap::new(),
+            },
+        );
         let summary = summarize_events(&events).unwrap();
         assert_eq!(summary.run_id.as_deref(), Some("run-1"));
         assert_eq!(summary.config_hash.as_deref(), Some("cfg"));
@@ -1616,6 +1698,7 @@ mod tests {
         assert_eq!(summary.evaluation_metrics, 1);
         assert_eq!(summary.labels, 1);
         assert_eq!(summary.embedding_contracts, 1);
+        assert_eq!(summary.flow_pred_records, 1);
         assert_eq!(summary.trace_hash.len(), 64);
         let state_hash = replay_trace_hash(&events).unwrap();
         assert_eq!(summary.trace_hash, state_hash);
@@ -1653,6 +1736,10 @@ mod tests {
             .event_types
             .iter()
             .any(|event| event.event_type == "embedding_contract" && !event.has_step));
+        assert!(contract
+            .event_types
+            .iter()
+            .any(|event| event.event_type == "flow_pred" && event.has_step));
         assert!(contract.sidecars.contains(&"manifest".to_string()));
         assert!(contract.actor_types.contains(&"llm_tool".to_string()));
     }

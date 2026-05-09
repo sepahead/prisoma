@@ -104,6 +104,7 @@ fn main() -> Result<()> {
     println!("artifacts={}", state.artifacts.len());
     println!("errors={}", state.errors.len());
     println!("flow_gt_records={}", state.flow_gt_records);
+    println!("flow_pred_records={}", state.flow_pred_records);
 
     Ok(())
 }

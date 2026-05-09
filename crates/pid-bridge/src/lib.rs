@@ -134,7 +134,9 @@ fn bridge_response_payload_hint(method: &str) -> &'static str {
         "sim.status" | "sim.reset" | "scene.set_object" => {
             r#"{"step": integer, "timestamp_ns": integer, "objects": integer}"#
         }
-        "sim.step" => r#"{"step": integer, "timestamp_ns": integer, "flow_gt_records": integer}"#,
+        "sim.step" => {
+            r#"{"step": integer, "timestamp_ns": integer, "flow_gt_records": integer, "flow_pred_records": integer}"#
+        }
         "log.start" | "log.stop" => r#"{"run_id": string}"#,
         "log.replay" => {
             r#"{"trace_hash": string, "events": integer, "valid": boolean, "config_hash": string?}"#

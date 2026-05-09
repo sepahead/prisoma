@@ -58,6 +58,9 @@ fn main() -> Result<()> {
         for event in step.flow_events() {
             writer.append(&event)?;
         }
+        for event in step.flow_pred_events() {
+            writer.append(&event)?;
+        }
     }
     writer.append(&RunLogEvent::RunEnded {
         run_id: "demo-run".to_string(),

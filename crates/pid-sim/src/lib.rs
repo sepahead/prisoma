@@ -11,6 +11,8 @@ use std::io::{BufRead, Write};
 
 pub mod toy_harness;
 
+pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimObject {
     pub object_id: String,
@@ -94,6 +96,7 @@ pub fn deterministic_sim_config(
             "deterministic": true,
             "integrator": "constant_velocity_euler",
             "flow_gt": "pose_delta",
+            "flow_pred": FLOW_PRED_SOURCE,
             "collision_geometry": "point_proxy",
             "solver": {
                 "contact_solver": "none",
@@ -233,6 +236,23 @@ impl SimStepResult {
             })
             .collect()
     }
+
+    pub fn flow_pred_events(&self) -> Vec<RunLogEvent> {
+        self.flow_gt
+            .iter()
+            .map(|record| RunLogEvent::FlowPred {
+                step: self.step,
+                timestamp_ns: self.timestamp_ns,
+                source: FLOW_PRED_SOURCE.to_string(),
+                object_id: record.object_id.clone(),
+                horizon_steps: 1,
+                flow: vec![record.displacement],
+                metadata: [("baseline".to_string(), "true".to_string())]
+                    .into_iter()
+                    .collect(),
+            })
+            .collect()
+    }
 }
 
 impl BridgeHandler for SimBridgeHandler {
@@ -256,6 +276,7 @@ impl BridgeHandler for SimBridgeHandler {
                     "step": step.step,
                     "timestamp_ns": step.timestamp_ns,
                     "flow_gt_records": step.flow_gt.len(),
+                    "flow_pred_records": step.flow_gt.len(),
                 }))
             }
             BridgeMethod::SceneSetObject => {
@@ -372,6 +393,9 @@ impl<W: Write> SimBridgeSession<W> {
                 }
                 if let Some(step) = &self.handler.last_step {
                     for event in step.flow_events() {
+                        self.bridge.record_event(&event)?;
+                    }
+                    for event in step.flow_pred_events() {
                         self.bridge.record_event(&event)?;
                     }
                 }
@@ -840,10 +864,12 @@ mod tests {
         let mut events = vec![sim.snapshot_event()];
         events.extend(sim.pose_events());
         events.extend(step.flow_events());
+        events.extend(step.flow_pred_events());
         let state = replay_events(&events);
         assert_eq!(state.sim_snapshots, 1);
         assert_eq!(state.object_poses.len(), 2);
         assert_eq!(state.flow_gt_records, 2);
+        assert_eq!(state.flow_pred_records, 2);
     }
 
     #[test]
@@ -872,6 +898,7 @@ mod tests {
         assert_eq!(state.actions.len(), 3);
         assert_eq!(state.sim_snapshots, 3);
         assert_eq!(state.flow_gt_records, 6);
+        assert_eq!(state.flow_pred_records, 6);
     }
 
     #[test]

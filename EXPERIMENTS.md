@@ -166,7 +166,7 @@ without changing the experimental semantics.
 
 **External simulator backends (optional):** some simulators expose an RL-style `reset/step` surface (and may already have their own WebSocket/pubsub control plane). If you run a PID‑VLA protocol on an external simulator (e.g., Isaac stacks; emerging ML-first simulators), require a thin adapter that emits the *same* run‑log events (reset/step/actions/observations/interventions) so replay + analysis remain identical and auditable across backends.
 
-**Backend provenance rule:** every sim-backed run should log backend, integrator, solver/contact settings, determinism settings, and planned fixed-step parameters via `config_logged`; the in-repo deterministic object sim uses `deterministic_object` with a constant-velocity Euler integrator, no contact solver, and `Flow_gt = pose_delta`. Validation rejects mismatches between `run_started.config_hash`, `config_logged.config_hash`, and the canonical config JSON hash; summaries and manifests expose the surviving `config_hash`.
+**Backend provenance rule:** every sim-backed run should log backend, integrator, solver/contact settings, determinism settings, and planned fixed-step parameters via `config_logged`; the in-repo deterministic object sim uses `deterministic_object` with a constant-velocity Euler integrator, no contact solver, `Flow_gt = pose_delta`, and a logged `constant_velocity_baseline` `flow_pred` event stream. Validation rejects mismatches between `run_started.config_hash`, `config_logged.config_hash`, and the canonical config JSON hash; summaries and manifests expose the surviving `config_hash`.
 
 Minimum provenance fields for any action event:
 - `actor_type`: `human_gui` | `script` | `llm_tool`
