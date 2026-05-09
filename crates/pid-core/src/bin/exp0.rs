@@ -243,16 +243,15 @@ fn write_exp0_runlog(
             std::fs::create_dir_all(parent)?;
         }
     }
-    let config_hash = format!(
-        "{:016x}",
-        config_hash(
-            config.n,
-            config.k,
-            config.dims,
-            config.seeds,
-            config.hash_project_to
-        )
-    );
+    let config_json = json!({
+        "experiment": "exp0",
+        "n": config.n,
+        "k": config.k,
+        "dims": config.dims,
+        "seeds": config.seeds,
+        "hash_project_to": config.hash_project_to,
+    });
+    let config_hash = pid_runlog::canonical_json_hash(&config_json)?;
     let mut writer = RunLogWriter::create(path)?;
     writer.append(&RunLogEvent::RunStarted {
         schema_version: RUN_LOG_SCHEMA_VERSION,
@@ -269,14 +268,7 @@ fn write_exp0_runlog(
     writer.append(&RunLogEvent::ConfigLogged {
         timestamp_ns: 0,
         config_hash,
-        config: json!({
-            "experiment": "exp0",
-            "n": config.n,
-            "k": config.k,
-            "dims": config.dims,
-            "seeds": config.seeds,
-            "hash_project_to": config.hash_project_to,
-        }),
+        config: config_json,
     })?;
     write_exp0_metric_events(&mut writer, gates)?;
     if let Some(summary_path) = summary_json_path {

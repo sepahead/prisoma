@@ -1,6 +1,5 @@
 use anyhow::{bail, Context, Result};
 use pid_runlog::{Actor, ActorType, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
-use serde_json::json;
 use std::collections::BTreeMap;
 use std::io::{self, BufReader, BufWriter, Write};
 use std::path::PathBuf;
@@ -27,6 +26,14 @@ fn main() -> Result<()> {
     }
 
     let mut writer = RunLogWriter::create(&path)?;
+    let config = pid_sim::deterministic_sim_config(
+        "pid-sim-bridge-stdio",
+        Some("stdio_jsonl"),
+        None,
+        None,
+        Some(safe_mode),
+    );
+    let config_hash = pid_runlog::canonical_json_hash(&config)?;
     let mut metadata = BTreeMap::new();
     metadata.insert("source".to_string(), "pid-sim-bridge-stdio".to_string());
     metadata.insert("safe_mode".to_string(), safe_mode.to_string());
@@ -34,10 +41,13 @@ fn main() -> Result<()> {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: "bridge-stdio-run".to_string(),
         timestamp_ns: 0,
-        config_hash: pid_runlog::canonical_json_hash(
-            &json!({"bridge": "stdio", "safe_mode": safe_mode, "sim": "deterministic_object"}),
-        )?,
+        config_hash: config_hash.clone(),
         metadata,
+    })?;
+    writer.append(&RunLogEvent::ConfigLogged {
+        timestamp_ns: 0,
+        config_hash,
+        config,
     })?;
 
     let actor = Actor {

@@ -78,6 +78,36 @@ pub struct SimBridgeSession<W> {
     handler: SimBridgeHandler,
 }
 
+pub fn deterministic_sim_config(
+    source: &str,
+    transport: Option<&str>,
+    fixed_dt_secs: Option<f64>,
+    planned_steps: Option<u64>,
+    safe_mode: Option<bool>,
+) -> Value {
+    json!({
+        "source": source,
+        "transport": transport,
+        "sim": {
+            "backend": "deterministic_object",
+            "crate_version": env!("CARGO_PKG_VERSION"),
+            "deterministic": true,
+            "integrator": "constant_velocity_euler",
+            "flow_gt": "pose_delta",
+            "collision_geometry": "point_proxy",
+            "solver": {
+                "contact_solver": "none",
+                "iterations": 0
+            }
+        },
+        "run": {
+            "fixed_dt_secs": fixed_dt_secs,
+            "planned_steps": planned_steps,
+            "safe_mode": safe_mode
+        }
+    })
+}
+
 impl Default for DeterministicObjectSim {
     fn default() -> Self {
         Self::new()
@@ -757,6 +787,16 @@ mod tests {
         }
         assert_eq!(a, b);
         assert_eq!(a.step(), 3);
+    }
+
+    #[test]
+    fn deterministic_sim_config_records_backend_solver() {
+        let config =
+            deterministic_sim_config("test", Some("stdio_jsonl"), Some(0.1), Some(5), Some(true));
+        assert_eq!(config["sim"]["backend"], "deterministic_object");
+        assert_eq!(config["sim"]["solver"]["contact_solver"], "none");
+        assert_eq!(config["run"]["fixed_dt_secs"], 0.1);
+        assert_eq!(config["run"]["safe_mode"], true);
     }
 
     #[test]

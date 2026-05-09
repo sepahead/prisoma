@@ -79,7 +79,8 @@ impl ToyHarnessReport {
 
 pub fn run_toy_harness(config: ToyHarnessConfig) -> Result<ToyHarnessReport> {
     validate_config(&config)?;
-    let config_hash = pid_runlog::canonical_json_hash(&config)?;
+    let config_json = serde_json::to_value(&config)?;
+    let config_hash = pid_runlog::canonical_json_hash(&config_json)?;
     let samples = generate_samples(&config);
     let pid = compute_pid_metrics(&samples)?;
     let baselines = compute_baselines(&samples, config.success_threshold);

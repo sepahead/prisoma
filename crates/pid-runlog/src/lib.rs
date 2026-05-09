@@ -41,6 +41,7 @@ pub const RUN_LOG_VALIDATION_RULES: &[&str] = &[
     "timestamps are nondecreasing",
     "steps are nondecreasing",
     "run_id is nonempty and consistent",
+    "config_hash values match canonical config JSON when config is logged",
     "payload_hash values match canonical payload JSON",
     "bridge request_id values are nonempty and unique",
     "bridge responses refer to existing requests",
@@ -950,9 +951,15 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
                     report.error(Some(idx), "artifact uri must not be empty");
                 }
             }
-            RunLogEvent::ConfigLogged { config_hash, .. } => {
+            RunLogEvent::ConfigLogged {
+                config_hash,
+                config,
+                ..
+            } => {
                 if config_hash.is_empty() {
                     report.warning(Some(idx), "config_hash is empty");
+                } else {
+                    validate_config_hash(&mut report, idx, config_hash, config);
                 }
             }
             RunLogEvent::FrameObserved { .. } | RunLogEvent::ErrorLogged { .. } => {}
@@ -1104,6 +1111,19 @@ fn validate_payload_hash(
         Ok(expected) if expected == payload_hash => {}
         Ok(_) => report.error(Some(event_index), "payload_hash does not match payload"),
         Err(err) => report.error(Some(event_index), format!("payload hash failed: {err}")),
+    }
+}
+
+fn validate_config_hash(
+    report: &mut ValidationReport,
+    event_index: usize,
+    config_hash: &str,
+    config: &serde_json::Value,
+) {
+    match canonical_json_hash(config) {
+        Ok(expected) if expected == config_hash => {}
+        Ok(_) => report.error(Some(event_index), "config_hash does not match config"),
+        Err(err) => report.error(Some(event_index), format!("config hash failed: {err}")),
     }
 }
 
@@ -1452,6 +1472,37 @@ mod tests {
             .issues
             .iter()
             .any(|issue| issue.message.contains("payload_hash")));
+    }
+
+    #[test]
+    fn validation_catches_bad_config_hash() {
+        let config = json!({ "dt": 0.1 });
+        let events = vec![
+            RunLogEvent::RunStarted {
+                schema_version: RUN_LOG_SCHEMA_VERSION,
+                run_id: "run-1".to_string(),
+                timestamp_ns: 1,
+                config_hash: canonical_json_hash(&config).unwrap(),
+                metadata: BTreeMap::new(),
+            },
+            RunLogEvent::ConfigLogged {
+                timestamp_ns: 1,
+                config_hash: "bad".to_string(),
+                config,
+            },
+            RunLogEvent::RunEnded {
+                run_id: "run-1".to_string(),
+                timestamp_ns: 2,
+                status: RunStatus::Failed,
+                message: None,
+            },
+        ];
+        let report = validate_events(&events);
+        assert!(!report.is_valid());
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("config_hash")));
     }
 
     #[test]

@@ -17,14 +17,27 @@ fn main() -> Result<()> {
     }
 
     let mut writer = RunLogWriter::create(&path)?;
+    let config = pid_sim::deterministic_sim_config(
+        "pid-sim-bridge-demo",
+        Some("local"),
+        Some(0.1),
+        Some(5),
+        Some(false),
+    );
+    let config_hash = pid_runlog::canonical_json_hash(&config)?;
     let mut metadata = BTreeMap::new();
     metadata.insert("source".to_string(), "pid-sim-bridge-demo".to_string());
     writer.append(&RunLogEvent::RunStarted {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: "bridge-demo-run".to_string(),
         timestamp_ns: 0,
-        config_hash: pid_runlog::canonical_json_hash(&json!({"dt": 0.1, "steps": 5}))?,
+        config_hash: config_hash.clone(),
         metadata,
+    })?;
+    writer.append(&RunLogEvent::ConfigLogged {
+        timestamp_ns: 0,
+        config_hash,
+        config,
     })?;
 
     let actor = Actor {
