@@ -31,3 +31,13 @@ exp0:
 
 exp0-bin:
     cargo run -p pid-core --bin exp0
+
+# M1 run-log smoke path.
+runlog-demo:
+    cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl
+
+runlog-replay path="outputs/demo_runlog.jsonl":
+    cargo run -p pid-runlog --bin pid-runlog-replay -- {{path}}
+
+runlog-rerun path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog.rrd":
+    cargo run -p pid-rerun --bin runlog-to-rerun -- {{path}} --save {{out}}

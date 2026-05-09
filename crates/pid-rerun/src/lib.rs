@@ -16,10 +16,12 @@
 pub mod adapters;
 pub mod data;
 pub mod entities;
+pub mod runlog;
 
 pub use adapters::{PidLogger, VlaLogger};
 pub use data::{VlaEpisode, VlaFrame};
 pub use entities::EntityPaths;
+pub use runlog::RunLogRerunLogger;
 
 use anyhow::Result;
 use rerun::{RecordingStream, RecordingStreamBuilder};

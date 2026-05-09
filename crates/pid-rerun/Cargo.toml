@@ -17,8 +17,13 @@ path = "src/bin/viewer.rs"
 name = "vla-demo"
 path = "src/bin/vla_demo.rs"
 
+[[bin]]
+name = "runlog-to-rerun"
+path = "src/bin/runlog_to_rerun.rs"
+
 [dependencies]
 pid-core = { path = "../pid-core" }
+pid-runlog = { path = "../pid-runlog" }
 rerun = "0.28.1"
 nalgebra = "0.33"
 anyhow = "1.0"

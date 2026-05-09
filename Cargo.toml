@@ -1,8 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/pid-bridge",
     "crates/pid-core",
     "crates/pid-python",
     "crates/pid-rerun",
     "crates/pid-runlog",
+    "crates/pid-sim",
 ]

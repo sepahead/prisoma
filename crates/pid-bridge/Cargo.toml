@@ -1,0 +1,12 @@
+[package]
+name = "pid-bridge"
+version = "0.1.0"
+edition = "2021"
+description = "Local Agent Bridge request schema and run-log integration for PID-VLA"
+license = "MIT"
+
+[dependencies]
+anyhow = "1.0"
+pid-runlog = { path = "../pid-runlog" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

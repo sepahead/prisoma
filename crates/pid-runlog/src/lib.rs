@@ -39,6 +39,13 @@ pub struct Pose {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SimObjectSnapshot {
+    pub object_id: String,
+    pub pose: Pose,
+    pub velocity: [f64; 3],
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RunLogEvent {
     RunStarted {
@@ -64,6 +71,38 @@ pub enum RunLogEvent {
         timestamp_ns: u64,
         observation_hash: Option<String>,
         metadata: BTreeMap<String, String>,
+    },
+    EmbeddingCaptured {
+        step: u64,
+        timestamp_ns: u64,
+        name: String,
+        dims: Vec<usize>,
+        artifact_uri: Option<String>,
+        sha256: Option<String>,
+        metadata: BTreeMap<String, String>,
+    },
+    SimSnapshot {
+        step: u64,
+        timestamp_ns: u64,
+        objects: Vec<SimObjectSnapshot>,
+        metadata: BTreeMap<String, String>,
+    },
+    BridgeRequest {
+        step: Option<u64>,
+        timestamp_ns: u64,
+        request_id: String,
+        actor: Actor,
+        method: String,
+        payload_hash: String,
+        payload: serde_json::Value,
+    },
+    BridgeResponse {
+        step: Option<u64>,
+        timestamp_ns: u64,
+        request_id: String,
+        ok: bool,
+        message: Option<String>,
+        result_hash: Option<String>,
     },
     ActionApplied {
         step: u64,
@@ -147,6 +186,26 @@ pub struct ActionRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EmbeddingRecord {
+    pub step: u64,
+    pub timestamp_ns: u64,
+    pub name: String,
+    pub dims: Vec<usize>,
+    pub artifact_uri: Option<String>,
+    pub sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BridgeRecord {
+    pub step: Option<u64>,
+    pub timestamp_ns: u64,
+    pub request_id: String,
+    pub method: String,
+    pub payload_hash: Option<String>,
+    pub ok: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InterventionRecord {
     pub step: u64,
     pub timestamp_ns: u64,
@@ -179,6 +238,9 @@ pub struct ReplayState {
     pub actions: Vec<ActionRecord>,
     pub interventions: Vec<InterventionRecord>,
     pub artifacts: Vec<ArtifactRecord>,
+    pub embeddings: Vec<EmbeddingRecord>,
+    pub bridge_records: Vec<BridgeRecord>,
+    pub sim_snapshots: usize,
     pub errors: Vec<String>,
     pub flow_gt_records: usize,
 }
@@ -209,6 +271,54 @@ impl ReplayState {
                 self.config_hash = Some(config_hash.clone());
             }
             RunLogEvent::FrameObserved { .. } => {}
+            RunLogEvent::EmbeddingCaptured {
+                step,
+                timestamp_ns,
+                name,
+                dims,
+                artifact_uri,
+                sha256,
+                ..
+            } => self.embeddings.push(EmbeddingRecord {
+                step: *step,
+                timestamp_ns: *timestamp_ns,
+                name: name.clone(),
+                dims: dims.clone(),
+                artifact_uri: artifact_uri.clone(),
+                sha256: sha256.clone(),
+            }),
+            RunLogEvent::SimSnapshot { .. } => {
+                self.sim_snapshots += 1;
+            }
+            RunLogEvent::BridgeRequest {
+                step,
+                timestamp_ns,
+                request_id,
+                method,
+                payload_hash,
+                ..
+            } => self.bridge_records.push(BridgeRecord {
+                step: *step,
+                timestamp_ns: *timestamp_ns,
+                request_id: request_id.clone(),
+                method: method.clone(),
+                payload_hash: Some(payload_hash.clone()),
+                ok: None,
+            }),
+            RunLogEvent::BridgeResponse {
+                step,
+                timestamp_ns,
+                request_id,
+                ok,
+                ..
+            } => self.bridge_records.push(BridgeRecord {
+                step: *step,
+                timestamp_ns: *timestamp_ns,
+                request_id: request_id.clone(),
+                method: "response".to_string(),
+                payload_hash: None,
+                ok: Some(*ok),
+            }),
             RunLogEvent::ActionApplied {
                 step,
                 timestamp_ns,
@@ -313,6 +423,10 @@ impl RunLogEvent {
             | RunLogEvent::RunEnded { timestamp_ns, .. }
             | RunLogEvent::ConfigLogged { timestamp_ns, .. }
             | RunLogEvent::FrameObserved { timestamp_ns, .. }
+            | RunLogEvent::EmbeddingCaptured { timestamp_ns, .. }
+            | RunLogEvent::SimSnapshot { timestamp_ns, .. }
+            | RunLogEvent::BridgeRequest { timestamp_ns, .. }
+            | RunLogEvent::BridgeResponse { timestamp_ns, .. }
             | RunLogEvent::ActionApplied { timestamp_ns, .. }
             | RunLogEvent::ObjectPose { timestamp_ns, .. }
             | RunLogEvent::FlowGt { timestamp_ns, .. }
@@ -327,13 +441,17 @@ impl RunLogEvent {
     pub fn step(&self) -> Option<u64> {
         match self {
             RunLogEvent::FrameObserved { step, .. }
+            | RunLogEvent::EmbeddingCaptured { step, .. }
+            | RunLogEvent::SimSnapshot { step, .. }
             | RunLogEvent::ActionApplied { step, .. }
             | RunLogEvent::ObjectPose { step, .. }
             | RunLogEvent::FlowGt { step, .. }
             | RunLogEvent::PidMetric { step, .. }
             | RunLogEvent::GeometryMetric { step, .. }
             | RunLogEvent::InterventionApplied { step, .. } => Some(*step),
-            RunLogEvent::ErrorLogged { step, .. } => *step,
+            RunLogEvent::BridgeRequest { step, .. }
+            | RunLogEvent::BridgeResponse { step, .. }
+            | RunLogEvent::ErrorLogged { step, .. } => *step,
             RunLogEvent::RunStarted { .. }
             | RunLogEvent::RunEnded { .. }
             | RunLogEvent::ConfigLogged { .. }
@@ -381,6 +499,14 @@ pub fn read_events_from_path(path: impl AsRef<Path>) -> Result<Vec<RunLogEvent>>
     let file = File::open(path.as_ref())
         .with_context(|| format!("failed to open run log {}", path.as_ref().display()))?;
     read_events(BufReader::new(file))
+}
+
+pub fn replay_state_from_path(path: impl AsRef<Path>) -> Result<ReplayState> {
+    Ok(replay_events(&read_events_from_path(path)?))
+}
+
+pub fn replay_trace_hash_from_path(path: impl AsRef<Path>) -> Result<String> {
+    canonical_json_hash(&replay_state_from_path(path)?)
 }
 
 pub fn read_events<R: BufRead>(reader: R) -> Result<Vec<RunLogEvent>> {
@@ -478,6 +604,24 @@ mod tests {
                 payload_hash: "payload".to_string(),
                 payload: json!({ "dt": 0.01 }),
             },
+            RunLogEvent::EmbeddingCaptured {
+                step: 0,
+                timestamp_ns: 2,
+                name: "V".to_string(),
+                dims: vec![1, 3],
+                artifact_uri: Some("artifacts/v.npy".to_string()),
+                sha256: Some("abc".to_string()),
+                metadata: BTreeMap::new(),
+            },
+            RunLogEvent::BridgeRequest {
+                step: Some(0),
+                timestamp_ns: 2,
+                request_id: "req-1".to_string(),
+                actor: actor(),
+                method: "sim.step".to_string(),
+                payload_hash: "payload".to_string(),
+                payload: json!({ "dt": 0.01 }),
+            },
             RunLogEvent::ObjectPose {
                 step: 0,
                 timestamp_ns: 3,
@@ -516,6 +660,8 @@ mod tests {
         assert_eq!(state.run_id.as_deref(), Some("run-1"));
         assert_eq!(state.last_step, Some(0));
         assert_eq!(state.actions.len(), 1);
+        assert_eq!(state.embeddings.len(), 1);
+        assert_eq!(state.bridge_records.len(), 1);
         assert_eq!(state.object_poses["cube"].pose.position, [1.0, 2.0, 3.0]);
         assert_eq!(state.pid_metrics["redundancy"].value, 0.25);
     }

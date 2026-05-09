@@ -1,0 +1,45 @@
+use anyhow::{bail, Result};
+use pid_rerun::{init_recording, save_recording, RunLogRerunLogger};
+use std::path::PathBuf;
+
+fn main() -> Result<()> {
+    let args = std::env::args().collect::<Vec<_>>();
+    if args.len() < 2 {
+        bail!(
+            "usage: {} <run-log.jsonl> [--save out.rrd] [--serve]",
+            args[0]
+        );
+    }
+
+    let input = PathBuf::from(&args[1]);
+    let mut save_path: Option<String> = None;
+    let mut serve = false;
+    let mut i = 2;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--save" => {
+                let Some(path) = args.get(i + 1) else {
+                    bail!("--save requires a path");
+                };
+                save_path = Some(path.clone());
+                i += 2;
+            }
+            "--serve" => {
+                serve = true;
+                i += 1;
+            }
+            other => bail!("unknown argument: {other}"),
+        }
+    }
+
+    let events = pid_runlog::read_events_from_path(&input)?;
+    let rec = init_recording("pid_vla_runlog", serve)?;
+    RunLogRerunLogger::new(&rec).log_events(&events)?;
+    if let Some(path) = save_path {
+        save_recording(&rec, &path)?;
+        println!("saved {path}");
+    } else {
+        println!("logged {} events", events.len());
+    }
+    Ok(())
+}
