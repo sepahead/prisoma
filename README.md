@@ -49,7 +49,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 
 ## Repo Status (What Actually Exists)
 
-- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-rerun` (prototype Rerun logging + `vla_demo`), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
+- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay summary CLI), `crates/pid-rerun` (prototype Rerun logging + `vla_demo`), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
 - Specified: A fuller Rerun-based diagnostic viewer (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start (Exp0 Gate)

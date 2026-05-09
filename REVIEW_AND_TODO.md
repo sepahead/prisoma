@@ -318,7 +318,7 @@ Current residuals:
 
 - The stricter Experiment 0 gate currently reports `NO-GO` on the synthetic quick run. This is useful: it surfaces estimator monotonicity, CMI, invariant, and geometry failures that should block downstream VLA claims.
 - `meshmaker/` is still tracked legacy/auxiliary tooling. Full removal or repository split would be a destructive organizational change and should be done only with explicit confirmation.
-- Full run-log/replay infrastructure and a real VLA/simulator experiment harness are still future work.
+- `crates/pid-runlog` now provides M1 groundwork (JSONL event schema, reader/writer, replay summary, hashes), but full simulator replay integration and a real VLA/simulator experiment harness are still future work.
 
 ## Ten-Scientist Consensus Follow-Up: 2026-05-09
 

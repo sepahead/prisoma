@@ -10,7 +10,7 @@ These notes help future coding agents work on this repo without introducing acci
 
 ## Repo reality
 
-- Implemented today: Rust estimators in `crates/pid-core`, PyO3 bindings in `crates/pid-python`, and the Rust Experiment 0 runner (`just exp0` / `just exp0-bin`, or run the equivalent `cargo` commands below).
+- Implemented today: Rust estimators in `crates/pid-core`, PyO3 bindings in `crates/pid-python`, M1 run-log groundwork in `crates/pid-runlog`, and the Rust Experiment 0 runner (`just exp0` / `just exp0-bin`, or run the equivalent `cargo` commands below).
 - Many simulation/visualization components are specifications only (see `grandplan.md` §A.7 milestones); do not claim non-existent crates/scripts/assets are runnable unless they are added in the same change.
 - Docset-wide final solution: run log is the source of truth, Agent Bridge is the only control plane, Rerun is the Phases 1–3 diagnostic viewer, and Tauri/SparkJS is deferred Phase 4 UI/custom rendering.
 

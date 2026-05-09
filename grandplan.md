@@ -4585,6 +4585,7 @@ To keep the diagnostics scientifically interpretable and the system maintainable
 | Geometry gates + screening | `crates/pid-core` | Implemented | Intrinsic dimension, distance concentration, δ/δ_rel; hierarchy helpers |
 | Python bindings (PyO3) | `crates/pid-python` → `pid_core_rs` | Implemented (extension crate) | Maturin build backend is wired for local builds; publishing remains planned |
 | Minimal “Experiment 0” runner | `crates/pid-core/src/bin/exp0.rs` + `just exp0` | Implemented | Smoke/validation subset; expand protocol in `EXPERIMENTS.md` |
+| Run-log schema + replay summary | `crates/pid-runlog` + `pid-runlog-replay` | Implemented (M1 groundwork) | Versioned JSONL event schema, reader/writer, SHA-256 helpers, deterministic replay summary; full simulator replay adapters remain planned |
 | Rerun diagnostic adapters | `crates/pid-rerun` | Prototype | Minimal Rerun SDK adapters and `vla_demo` binary exist; full Phase 1-3 diagnostic viewer remains a spec |
 | Interactive UI (Phase 4) | `crates/pid-tauri` | Planned | UI + GPU renderer (SparkJS/Three.js/WebGL2 or equivalent); deferred until Rerun-First phases complete |
 | Simulator + asset pipeline | `assets/`, `experiments/` | Planned | Repo contains scaffolding folders; full pipeline + datasets are not implemented yet (expect external/ignored data) |
@@ -4632,8 +4633,10 @@ pid_vla/
 │   │   │   ├── bin/exp0.rs
 │   │   │   └── (estimators + diagnostics)
 │   │   └── tests/
-│   └── pid-python/
-│       └── src/lib.rs
+│   ├── pid-python/
+│   │   └── src/lib.rs
+│   ├── pid-runlog/
+│   │   └── src/bin/replay.rs
 │   └── pid-rerun/
 │       └── src/bin/vla_demo.rs
 ├── assets/            # scaffolding (small sample assets; not a full pipeline yet)
@@ -4648,7 +4651,7 @@ pid_vla/
 ```
 
 **Repo status (v10.1):**
-- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner) and `crates/pid-python` (PyO3 bindings).
+- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner), `crates/pid-python` (PyO3 bindings), and `crates/pid-runlog` (M1 run-log schema/replay groundwork).
 - Prototype: `crates/pid-rerun` (minimal Rerun logging adapters and a `vla_demo` binary).
 - Planned: `crates/pid-tauri` (visualization app) and a Python experiment harness (location TBD: `python/` or `experiments/`), plus asset/tooling scripts to populate `assets/` and local datasets.
 

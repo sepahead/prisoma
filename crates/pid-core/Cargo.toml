@@ -2,6 +2,7 @@
 name = "pid-core"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 
 [lib]
 name = "pid_core"

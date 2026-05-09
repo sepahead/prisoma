@@ -3,6 +3,7 @@ name = "pid-rerun"
 version = "0.1.0"
 edition = "2021"
 description = "Rerun visualization adapters for PID-VLA diagnostics"
+license = "MIT"
 
 [lib]
 name = "pid_rerun"
