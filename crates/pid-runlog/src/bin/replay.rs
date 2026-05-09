@@ -20,16 +20,40 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if args.len() == 3 && args.get(1).and_then(|s| s.to_str()) == Some("--validate") {
+        let report = pid_runlog::validate_events_from_path(PathBuf::from(args[2].clone()))?;
+        println!("valid={}", report.is_valid());
+        println!("events={}", report.events);
+        println!("errors={}", report.errors);
+        println!("warnings={}", report.warnings);
+        for issue in &report.issues {
+            println!(
+                "{:?} event={:?}: {}",
+                issue.severity, issue.event_index, issue.message
+            );
+        }
+        if !report.is_valid() {
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
+
     if args.len() != 2 {
-        bail!("usage: {program} <run-log.jsonl>\n       {program} --compare <left.jsonl> <right.jsonl>");
+        bail!(
+            "usage: {program} <run-log.jsonl>\n       {program} --validate <run-log.jsonl>\n       {program} --compare <left.jsonl> <right.jsonl>"
+        );
     }
 
     let path = PathBuf::from(args[1].clone());
     let events = pid_runlog::read_events_from_path(&path)?;
+    let validation = pid_runlog::validate_events(&events);
     let state = pid_runlog::replay_events(&events);
     let trace_hash = pid_runlog::canonical_json_hash(&state)?;
 
     println!("events={}", state.events_seen);
+    println!("valid={}", validation.is_valid());
+    println!("validation_errors={}", validation.errors);
+    println!("validation_warnings={}", validation.warnings);
     println!("trace_hash={trace_hash}");
     if let Some(run_id) = &state.run_id {
         println!("run_id={run_id}");

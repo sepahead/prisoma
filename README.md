@@ -50,7 +50,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 
 ## Repo Status (What Actually Exists)
 
-- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay summary CLI), `crates/pid-bridge` (local Agent Bridge request/response event core), `crates/pid-sim` (deterministic object sim + `Flow_gt` demo), `crates/pid-rerun` (prototype Rerun logging + run-log replay adapter), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
+- Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core), `crates/pid-sim` (deterministic object sim + `Flow_gt` and bridge demos), `crates/pid-rerun` (prototype Rerun logging + run-log replay adapter), and the Experiment 0 runner (`just exp0`, `just exp0-bin`).
 - Specified: A fuller Rerun-based diagnostic viewer (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start (Exp0 Gate)
@@ -70,10 +70,12 @@ See `findings.md` for the latest repo-local Exp0 interpretation notes.
 ```bash
 just runlog-demo
 just runlog-replay
+just runlog-validate
+just runlog-bridge-demo
 just runlog-rerun
 ```
 
-If you don’t have `just`: run `cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl`, then `cargo run -p pid-runlog --bin pid-runlog-replay -- outputs/demo_runlog.jsonl`.
+If you don’t have `just`: run `cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl`, then `cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/demo_runlog.jsonl`, then `cargo run -p pid-runlog --bin pid-runlog-replay -- outputs/demo_runlog.jsonl`.
 
 ## Engineering Plan (To “Finish” the Project)
 

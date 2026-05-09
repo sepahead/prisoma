@@ -54,6 +54,10 @@ pub struct BridgeResponse {
     pub result: Option<Value>,
 }
 
+pub trait BridgeHandler {
+    fn handle(&mut self, request: &BridgeRequest) -> Result<Value>;
+}
+
 impl BridgeRequest {
     pub fn payload_hash(&self) -> Result<String> {
         canonical_json_hash(&self.payload)
@@ -106,6 +110,40 @@ impl<W: Write> LocalBridge<W> {
         self.writer.append(&response.to_runlog_event()?)
     }
 
+    pub fn record_event(&mut self, event: &RunLogEvent) -> Result<()> {
+        self.writer.append(event)
+    }
+
+    pub fn dispatch<H: BridgeHandler>(
+        &mut self,
+        request: &BridgeRequest,
+        handler: &mut H,
+        response_timestamp_ns: u64,
+    ) -> Result<BridgeResponse> {
+        self.record_request(request)?;
+        let handled = handler.handle(request);
+        let response = match handled {
+            Ok(result) => BridgeResponse {
+                request_id: request.request_id.clone(),
+                step: request.step,
+                timestamp_ns: response_timestamp_ns,
+                ok: true,
+                message: None,
+                result: Some(result),
+            },
+            Err(err) => BridgeResponse {
+                request_id: request.request_id.clone(),
+                step: request.step,
+                timestamp_ns: response_timestamp_ns,
+                ok: false,
+                message: Some(err.to_string()),
+                result: None,
+            },
+        };
+        self.record_response(&response)?;
+        Ok(response)
+    }
+
     pub fn flush(&mut self) -> Result<()> {
         self.writer.flush()
     }
@@ -127,6 +165,17 @@ mod tests {
             actor_type: ActorType::Script,
             actor_id: "bridge-test".to_string(),
             session_id: Some("session".to_string()),
+        }
+    }
+
+    struct EchoHandler;
+
+    impl BridgeHandler for EchoHandler {
+        fn handle(&mut self, request: &BridgeRequest) -> Result<Value> {
+            Ok(json!({
+                "method": request.method.as_str(),
+                "payload": request.payload,
+            }))
         }
     }
 
@@ -156,6 +205,27 @@ mod tests {
         let state = replay_events(&events);
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.bridge_records[0].method, "sim.step");
+        assert_eq!(state.bridge_records[1].ok, Some(true));
+    }
+
+    #[test]
+    fn dispatch_logs_request_and_response() {
+        let writer = RunLogWriter::new(Vec::new());
+        let mut bridge = LocalBridge::new(writer);
+        let request = BridgeRequest {
+            request_id: "req-dispatch".to_string(),
+            step: Some(1),
+            timestamp_ns: 10,
+            actor: actor(),
+            method: BridgeMethod::SimStatus,
+            payload: json!({}),
+        };
+        let mut handler = EchoHandler;
+        let response = bridge.dispatch(&request, &mut handler, 11).unwrap();
+        assert!(response.ok);
+        let events = read_events(Cursor::new(bridge.into_inner())).unwrap();
+        let state = replay_events(&events);
+        assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.bridge_records[1].ok, Some(true));
     }
 }

@@ -5958,6 +5958,7 @@ name = "pid-sim"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "pid-bridge",
  "pid-runlog",
  "serde",
  "serde_json",

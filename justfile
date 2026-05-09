@@ -36,8 +36,14 @@ exp0-bin:
 runlog-demo:
     cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl
 
+runlog-bridge-demo:
+    cargo run -p pid-sim --bin pid-sim-bridge-demo -- outputs/demo_bridge_runlog.jsonl
+
 runlog-replay path="outputs/demo_runlog.jsonl":
     cargo run -p pid-runlog --bin pid-runlog-replay -- {{path}}
+
+runlog-validate path="outputs/demo_runlog.jsonl":
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{path}}
 
 runlog-rerun path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog.rrd":
     cargo run -p pid-rerun --bin runlog-to-rerun -- {{path}} --save {{out}}

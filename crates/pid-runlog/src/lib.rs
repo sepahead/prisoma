@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::Path;
@@ -460,6 +460,285 @@ impl RunLogEvent {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidationSeverity {
+    Error,
+    Warning,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationIssue {
+    pub severity: ValidationSeverity,
+    pub event_index: Option<usize>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationReport {
+    pub events: usize,
+    pub errors: usize,
+    pub warnings: usize,
+    pub issues: Vec<ValidationIssue>,
+}
+
+impl ValidationReport {
+    pub fn is_valid(&self) -> bool {
+        self.errors == 0
+    }
+
+    fn error(&mut self, event_index: Option<usize>, message: impl Into<String>) {
+        self.errors += 1;
+        self.issues.push(ValidationIssue {
+            severity: ValidationSeverity::Error,
+            event_index,
+            message: message.into(),
+        });
+    }
+
+    fn warning(&mut self, event_index: Option<usize>, message: impl Into<String>) {
+        self.warnings += 1;
+        self.issues.push(ValidationIssue {
+            severity: ValidationSeverity::Warning,
+            event_index,
+            message: message.into(),
+        });
+    }
+}
+
+pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
+    let mut report = ValidationReport {
+        events: events.len(),
+        ..ValidationReport::default()
+    };
+    if events.is_empty() {
+        report.error(None, "run log is empty");
+        return report;
+    }
+
+    let mut run_id: Option<&str> = None;
+    let mut starts = 0usize;
+    let mut ends = 0usize;
+    let mut last_timestamp = None;
+    let mut last_step = None;
+    let mut bridge_requests = BTreeSet::new();
+    let mut bridge_responses = BTreeSet::new();
+
+    for (idx, event) in events.iter().enumerate() {
+        let timestamp = event.timestamp_ns();
+        if let Some(prev) = last_timestamp {
+            if timestamp < prev {
+                report.error(Some(idx), "timestamps must be nondecreasing");
+            }
+        }
+        last_timestamp = Some(timestamp);
+
+        if let Some(step) = event.step() {
+            if let Some(prev) = last_step {
+                if step < prev {
+                    report.error(Some(idx), "steps must be nondecreasing");
+                }
+            }
+            last_step = Some(step);
+        }
+
+        match event {
+            RunLogEvent::RunStarted {
+                schema_version,
+                run_id: id,
+                config_hash,
+                ..
+            } => {
+                starts += 1;
+                if idx != 0 {
+                    report.error(Some(idx), "run_started must be the first event");
+                }
+                if *schema_version != RUN_LOG_SCHEMA_VERSION {
+                    report.error(Some(idx), "unsupported run-log schema version");
+                }
+                if id.is_empty() {
+                    report.error(Some(idx), "run_id must not be empty");
+                }
+                if config_hash.is_empty() {
+                    report.warning(Some(idx), "config_hash is empty");
+                }
+                run_id = Some(id);
+            }
+            RunLogEvent::RunEnded { run_id: id, .. } => {
+                ends += 1;
+                if let Some(start_id) = run_id {
+                    if start_id != id {
+                        report.error(Some(idx), "run_ended run_id does not match run_started");
+                    }
+                }
+            }
+            RunLogEvent::ActionApplied {
+                payload_hash,
+                payload,
+                action_type,
+                ..
+            } => {
+                validate_payload_hash(&mut report, idx, payload_hash, payload);
+                if action_type.is_empty() {
+                    report.error(Some(idx), "action_type must not be empty");
+                }
+            }
+            RunLogEvent::InterventionApplied {
+                payload_hash,
+                payload,
+                intervention_type,
+                ..
+            } => {
+                validate_payload_hash(&mut report, idx, payload_hash, payload);
+                if intervention_type.is_empty() {
+                    report.error(Some(idx), "intervention_type must not be empty");
+                }
+            }
+            RunLogEvent::BridgeRequest {
+                request_id,
+                method,
+                payload_hash,
+                payload,
+                ..
+            } => {
+                validate_payload_hash(&mut report, idx, payload_hash, payload);
+                if request_id.is_empty() {
+                    report.error(Some(idx), "bridge request_id must not be empty");
+                } else if !bridge_requests.insert(request_id.clone()) {
+                    report.error(Some(idx), "duplicate bridge request_id");
+                }
+                if method.is_empty() {
+                    report.error(Some(idx), "bridge method must not be empty");
+                }
+            }
+            RunLogEvent::BridgeResponse { request_id, .. } => {
+                if request_id.is_empty() {
+                    report.error(Some(idx), "bridge response request_id must not be empty");
+                } else if !bridge_responses.insert(request_id.clone()) {
+                    report.error(Some(idx), "duplicate bridge response request_id");
+                }
+            }
+            RunLogEvent::ObjectPose {
+                object_id, pose, ..
+            } => {
+                if object_id.is_empty() {
+                    report.error(Some(idx), "object_id must not be empty");
+                }
+                validate_pose(&mut report, idx, pose);
+            }
+            RunLogEvent::SimSnapshot { objects, .. } => {
+                for object in objects {
+                    if object.object_id.is_empty() {
+                        report.error(Some(idx), "snapshot object_id must not be empty");
+                    }
+                    validate_pose(&mut report, idx, &object.pose);
+                    validate_vec3(&mut report, idx, object.velocity, "snapshot velocity");
+                }
+            }
+            RunLogEvent::FlowGt {
+                object_id, flow, ..
+            } => {
+                if object_id.is_empty() {
+                    report.error(Some(idx), "flow object_id must not be empty");
+                }
+                for vec in flow {
+                    validate_vec3(&mut report, idx, *vec, "flow vector");
+                }
+            }
+            RunLogEvent::PidMetric { name, value, .. }
+            | RunLogEvent::GeometryMetric { name, value, .. } => {
+                if name.is_empty() {
+                    report.error(Some(idx), "metric name must not be empty");
+                }
+                if !value.is_finite() {
+                    report.error(Some(idx), "metric value must be finite");
+                }
+            }
+            RunLogEvent::EmbeddingCaptured { name, dims, .. } => {
+                if name.is_empty() {
+                    report.error(Some(idx), "embedding name must not be empty");
+                }
+                if dims.is_empty() || dims.contains(&0) {
+                    report.error(Some(idx), "embedding dims must be nonempty and positive");
+                }
+            }
+            RunLogEvent::ArtifactLogged { name, uri, .. } => {
+                if name.is_empty() {
+                    report.error(Some(idx), "artifact name must not be empty");
+                }
+                if uri.is_empty() {
+                    report.error(Some(idx), "artifact uri must not be empty");
+                }
+            }
+            RunLogEvent::ConfigLogged { config_hash, .. } => {
+                if config_hash.is_empty() {
+                    report.warning(Some(idx), "config_hash is empty");
+                }
+            }
+            RunLogEvent::FrameObserved { .. } | RunLogEvent::ErrorLogged { .. } => {}
+        }
+    }
+
+    if starts != 1 {
+        report.error(
+            None,
+            format!("expected exactly one run_started event, got {starts}"),
+        );
+    }
+    if ends != 1 {
+        report.error(
+            None,
+            format!("expected exactly one run_ended event, got {ends}"),
+        );
+    }
+    for request_id in bridge_responses.difference(&bridge_requests) {
+        report.error(
+            None,
+            format!("bridge response without request: {request_id}"),
+        );
+    }
+    for request_id in bridge_requests.difference(&bridge_responses) {
+        report.warning(
+            None,
+            format!("bridge request without response: {request_id}"),
+        );
+    }
+
+    report
+}
+
+pub fn validate_events_from_path(path: impl AsRef<Path>) -> Result<ValidationReport> {
+    Ok(validate_events(&read_events_from_path(path)?))
+}
+
+fn validate_payload_hash(
+    report: &mut ValidationReport,
+    event_index: usize,
+    payload_hash: &str,
+    payload: &serde_json::Value,
+) {
+    match canonical_json_hash(payload) {
+        Ok(expected) if expected == payload_hash => {}
+        Ok(_) => report.error(Some(event_index), "payload_hash does not match payload"),
+        Err(err) => report.error(Some(event_index), format!("payload hash failed: {err}")),
+    }
+}
+
+fn validate_pose(report: &mut ValidationReport, event_index: usize, pose: &Pose) {
+    validate_vec3(report, event_index, pose.position, "pose position");
+    for value in pose.orientation_xyzw {
+        if !value.is_finite() {
+            report.error(Some(event_index), "pose orientation must be finite");
+        }
+    }
+}
+
+fn validate_vec3(report: &mut ValidationReport, event_index: usize, value: [f64; 3], field: &str) {
+    if value.iter().any(|v| !v.is_finite()) {
+        report.error(Some(event_index), format!("{field} must be finite"));
+    }
+}
+
 pub struct RunLogWriter<W> {
     writer: W,
 }
@@ -588,6 +867,8 @@ mod tests {
     }
 
     fn sample_events() -> Vec<RunLogEvent> {
+        let step_payload = json!({ "dt": 0.01 });
+        let step_payload_hash = canonical_json_hash(&step_payload).unwrap();
         vec![
             RunLogEvent::RunStarted {
                 schema_version: RUN_LOG_SCHEMA_VERSION,
@@ -601,8 +882,8 @@ mod tests {
                 timestamp_ns: 2,
                 actor: actor(),
                 action_type: "sim.step".to_string(),
-                payload_hash: "payload".to_string(),
-                payload: json!({ "dt": 0.01 }),
+                payload_hash: step_payload_hash.clone(),
+                payload: step_payload.clone(),
             },
             RunLogEvent::EmbeddingCaptured {
                 step: 0,
@@ -619,8 +900,16 @@ mod tests {
                 request_id: "req-1".to_string(),
                 actor: actor(),
                 method: "sim.step".to_string(),
-                payload_hash: "payload".to_string(),
-                payload: json!({ "dt": 0.01 }),
+                payload_hash: step_payload_hash,
+                payload: step_payload,
+            },
+            RunLogEvent::BridgeResponse {
+                step: Some(0),
+                timestamp_ns: 2,
+                request_id: "req-1".to_string(),
+                ok: true,
+                message: None,
+                result_hash: None,
             },
             RunLogEvent::ObjectPose {
                 step: 0,
@@ -637,6 +926,12 @@ mod tests {
                 name: "redundancy".to_string(),
                 value: 0.25,
                 metadata: BTreeMap::new(),
+            },
+            RunLogEvent::RunEnded {
+                run_id: "run-1".to_string(),
+                timestamp_ns: 5,
+                status: RunStatus::Succeeded,
+                message: None,
             },
         ]
     }
@@ -661,9 +956,30 @@ mod tests {
         assert_eq!(state.last_step, Some(0));
         assert_eq!(state.actions.len(), 1);
         assert_eq!(state.embeddings.len(), 1);
-        assert_eq!(state.bridge_records.len(), 1);
+        assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.object_poses["cube"].pose.position, [1.0, 2.0, 3.0]);
         assert_eq!(state.pid_metrics["redundancy"].value, 0.25);
+    }
+
+    #[test]
+    fn validation_accepts_sample_events() {
+        let report = validate_events(&sample_events());
+        assert!(report.is_valid(), "{:?}", report.issues);
+        assert_eq!(report.warnings, 0);
+    }
+
+    #[test]
+    fn validation_catches_bad_payload_hash() {
+        let mut events = sample_events();
+        if let RunLogEvent::ActionApplied { payload_hash, .. } = &mut events[1] {
+            *payload_hash = "bad".to_string();
+        }
+        let report = validate_events(&events);
+        assert!(!report.is_valid());
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("payload_hash")));
     }
 
     #[test]

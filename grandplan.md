@@ -4585,9 +4585,9 @@ To keep the diagnostics scientifically interpretable and the system maintainable
 | Geometry gates + screening | `crates/pid-core` | Implemented | Intrinsic dimension, distance concentration, δ/δ_rel; hierarchy helpers |
 | Python bindings (PyO3) | `crates/pid-python` → `pid_core_rs` | Implemented (extension crate) | Maturin build backend is wired for local builds; publishing remains planned |
 | Minimal “Experiment 0” runner | `crates/pid-core/src/bin/exp0.rs` + `just exp0` | Implemented | Smoke/validation subset; expand protocol in `EXPERIMENTS.md` |
-| Run-log schema + replay summary | `crates/pid-runlog` + `pid-runlog-replay` | Implemented (M1 groundwork) | Versioned JSONL event schema, reader/writer, SHA-256 helpers, deterministic replay summary, trace-hash comparison; full simulator replay adapters remain planned |
-| Agent Bridge event core | `crates/pid-bridge` | Implemented (M2 groundwork) | Local request/response schema and run-log integration; localhost JSON-RPC/WebSocket server remains planned |
-| Deterministic object sim + `Flow_gt` | `crates/pid-sim` + `pid-sim-demo` | Implemented (M3 smoke groundwork) | Object-only fixed-step sim writes canonical run logs and simulator-derived `Flow_gt`; physics backend trait/Rapier integration remains planned |
+| Run-log schema + replay summary | `crates/pid-runlog` + `pid-runlog-replay` | Implemented (M1 groundwork) | Versioned JSONL event schema, reader/writer, validation, SHA-256 helpers, deterministic replay summary, trace-hash comparison; full simulator replay adapters remain planned |
+| Agent Bridge event core | `crates/pid-bridge` | Implemented (M2 groundwork) | Local request/response schema, dispatcher abstraction, and run-log integration; localhost JSON-RPC/WebSocket server remains planned |
+| Deterministic object sim + `Flow_gt` | `crates/pid-sim` + demo binaries | Implemented (M3 smoke groundwork) | Object-only fixed-step sim writes canonical run logs and simulator-derived `Flow_gt`; bridge session demo and flow verification exist; physics backend trait/Rapier integration remains planned |
 | Rerun diagnostic adapters | `crates/pid-rerun` | Prototype | Minimal Rerun SDK adapters, `vla_demo`, and run-log-to-Rerun adapter/CLI exist; full Phase 1-3 diagnostic viewer remains a spec |
 | Interactive UI (Phase 4) | `crates/pid-tauri` | Planned | UI + GPU renderer (SparkJS/Three.js/WebGL2 or equivalent); deferred until Rerun-First phases complete |
 | Simulator + asset pipeline | `assets/`, `experiments/` | Planned | Repo contains scaffolding folders; full pipeline + datasets are not implemented yet (expect external/ignored data) |
@@ -4642,7 +4642,7 @@ pid_vla/
 │   ├── pid-runlog/
 │   │   └── src/bin/replay.rs
 │   ├── pid-sim/
-│   │   └── src/bin/demo.rs
+│   │   └── src/bin/
 │   └── pid-rerun/
 │       └── src/bin/
 ├── assets/            # scaffolding (small sample assets; not a full pipeline yet)
@@ -4657,7 +4657,7 @@ pid_vla/
 ```
 
 **Repo status (v10.1):**
-- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner), `crates/pid-python` (PyO3 bindings), `crates/pid-runlog` (M1 run-log schema/replay groundwork), `crates/pid-bridge` (M2 event-core groundwork), and `crates/pid-sim` (M3 deterministic smoke sim + `Flow_gt`).
+- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner), `crates/pid-python` (PyO3 bindings), `crates/pid-runlog` (M1 run-log schema/replay/validation groundwork), `crates/pid-bridge` (M2 event-core and dispatcher groundwork), and `crates/pid-sim` (M3 deterministic smoke sim, bridge demo, and `Flow_gt` verification).
 - Prototype: `crates/pid-rerun` (minimal Rerun logging adapters, a `vla_demo` binary, and run-log replay adapter).
 - Planned: `crates/pid-tauri` (visualization app) and a Python experiment harness (location TBD: `python/` or `experiments/`), plus asset/tooling scripts to populate `assets/` and local datasets.
 
