@@ -162,6 +162,8 @@ without changing the experimental semantics.
 
 **Reproducibility rule:** every intervention/scene edit/run-control action must be recorded as an event in the run log, including those initiated by an LLM tool. Avoid “click-only” steps that cannot be replayed.
 
+**Safe-mode rule:** read-only Agent Bridge sessions should allow status/replay queries while logging and rejecting mutating requests. The in-repo stdio bridge smoke exposes this as `pid-sim-bridge-stdio --safe-mode`; `sim.status` is accepted and `sim.step` is recorded as a blocked bridge error response.
+
 **External simulator backends (optional):** some simulators expose an RL-style `reset/step` surface (and may already have their own WebSocket/pubsub control plane). If you run a PID‑VLA protocol on an external simulator (e.g., Isaac stacks; emerging ML-first simulators), require a thin adapter that emits the *same* run‑log events (reset/step/actions/observations/interventions) so replay + analysis remain identical and auditable across backends.
 
 Minimum provenance fields for any action event:

@@ -263,8 +263,35 @@ impl<W: Write> SimBridgeSession<W> {
         }
     }
 
+    pub fn with_safe_mode(
+        writer: RunLogWriter<W>,
+        sim: DeterministicObjectSim,
+        safe_mode: bool,
+    ) -> Self {
+        Self {
+            bridge: LocalBridge::with_safe_mode(writer, safe_mode),
+            handler: SimBridgeHandler::new(sim),
+        }
+    }
+
+    pub fn safe_mode(&self) -> bool {
+        self.bridge.safe_mode()
+    }
+
+    pub fn set_safe_mode(&mut self, safe_mode: bool) {
+        self.bridge.set_safe_mode(safe_mode);
+    }
+
     pub fn dispatch(&mut self, request: &BridgeRequest) -> Result<BridgeResponse> {
         self.bridge.record_request(request)?;
+        if self.bridge.safe_mode() && !request.safe_mode_allowed() {
+            let response = BridgeResponse::blocked_by_safe_mode(
+                request,
+                request.timestamp_ns.max(self.handler.sim.timestamp_ns()),
+            );
+            self.bridge.record_response(&response)?;
+            return Ok(response);
+        }
         let handled = self.handler.handle(request);
         let response = match handled {
             Ok(result) => BridgeResponse {
@@ -786,6 +813,33 @@ mod tests {
     }
 
     #[test]
+    fn bridge_session_safe_mode_blocks_sim_step() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-safe-mode-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        let request = bridge_request(
+            "req-safe-step",
+            BridgeMethod::SimStep,
+            actor,
+            Some(0),
+            0,
+            json!({ "dt": 0.1 }),
+        );
+        let response = session.dispatch(&request).unwrap();
+        assert!(!response.ok);
+        assert_eq!(session.step(), 0);
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events);
+        assert_eq!(state.bridge_records.len(), 2);
+        assert_eq!(state.actions.len(), 0);
+        assert_eq!(state.sim_snapshots, 0);
+    }
+
+    #[test]
     fn bridge_session_logs_scene_and_reset_as_actions() {
         let actor = Actor {
             actor_type: ActorType::Script,
@@ -874,6 +928,48 @@ mod tests {
         assert!(report.is_valid(), "{:?}", report.issues);
         assert_eq!(report.checked_actions, 1);
         assert_eq!(report.checked_snapshots, 1);
+    }
+
+    #[test]
+    fn rpc_line_processor_safe_mode_blocks_mutation() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-rpc-safe-test".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::with_safe_mode(writer, sim, true);
+        let input = concat!(
+            r#"{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}"#,
+            "\n",
+            r#"{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}"#,
+            "\n"
+        );
+        let mut output = Vec::new();
+        let handled =
+            dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap();
+        assert_eq!(handled, 2);
+
+        let lines = String::from_utf8(output).unwrap();
+        let responses = lines
+            .lines()
+            .map(|line| serde_json::from_str::<BridgeRpcResponse>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert!(responses[0].is_ok());
+        assert!(!responses[1].is_ok());
+        assert!(responses[1]
+            .error
+            .as_ref()
+            .unwrap()
+            .message
+            .contains("safe mode blocked"));
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events);
+        assert_eq!(state.actions.len(), 0);
+        assert_eq!(state.sim_snapshots, 1);
     }
 
     #[test]

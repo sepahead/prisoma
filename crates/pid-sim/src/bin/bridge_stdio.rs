@@ -7,16 +7,20 @@ use std::path::PathBuf;
 
 fn main() -> Result<()> {
     let args = std::env::args_os().collect::<Vec<_>>();
-    if args.len() != 2 {
-        bail!(
-            "usage: {} <run-log.jsonl>",
-            args.first()
-                .and_then(|value| value.to_str())
-                .unwrap_or("pid-sim-bridge-stdio")
-        );
-    }
+    let (safe_mode, path_arg) = match args.as_slice() {
+        [_, path] => (false, path),
+        [_, flag, path] if flag.to_str() == Some("--safe-mode") => (true, path),
+        _ => {
+            bail!(
+                "usage: {} [--safe-mode] <run-log.jsonl>",
+                args.first()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("pid-sim-bridge-stdio")
+            );
+        }
+    };
 
-    let path = PathBuf::from(&args[1]);
+    let path = PathBuf::from(path_arg);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("failed to create {}", parent.display()))?;
@@ -25,12 +29,13 @@ fn main() -> Result<()> {
     let mut writer = RunLogWriter::create(&path)?;
     let mut metadata = BTreeMap::new();
     metadata.insert("source".to_string(), "pid-sim-bridge-stdio".to_string());
+    metadata.insert("safe_mode".to_string(), safe_mode.to_string());
     writer.append(&RunLogEvent::RunStarted {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: "bridge-stdio-run".to_string(),
         timestamp_ns: 0,
         config_hash: pid_runlog::canonical_json_hash(
-            &json!({"bridge": "stdio", "sim": "deterministic_object"}),
+            &json!({"bridge": "stdio", "safe_mode": safe_mode, "sim": "deterministic_object"}),
         )?,
         metadata,
     })?;
@@ -42,7 +47,7 @@ fn main() -> Result<()> {
     };
     let sim = pid_sim::demo_sim();
     writer.append(&sim.snapshot_event())?;
-    let mut session = pid_sim::SimBridgeSession::new(writer, sim);
+    let mut session = pid_sim::SimBridgeSession::with_safe_mode(writer, sim, safe_mode);
 
     let stdin = io::stdin();
     let stdout = io::stdout();

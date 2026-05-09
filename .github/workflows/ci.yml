@@ -35,6 +35,8 @@ jobs:
           cargo run -p pid-rerun --bin runlog-to-rerun -- /tmp/pid_vla_bridge_demo.jsonl --save /tmp/pid_vla_bridge_demo.rrd
           printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- /tmp/pid_vla_bridge_stdio.jsonl
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_stdio.jsonl
+          printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode /tmp/pid_vla_bridge_stdio_safe.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_stdio_safe.jsonl
 
   docs:
     runs-on: ubuntu-latest

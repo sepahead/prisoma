@@ -48,6 +48,10 @@ impl BridgeMethod {
             BridgeMethod::ExportRerun => "export.rerun",
         }
     }
+
+    pub fn safe_mode_allowed(&self) -> bool {
+        matches!(self, BridgeMethod::SimStatus | BridgeMethod::LogReplay)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,6 +60,7 @@ pub struct BridgeMethodContract {
     pub request_payload: String,
     pub response_payload: String,
     pub emits_action: bool,
+    pub safe_mode_allowed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,6 +88,9 @@ pub fn bridge_method_contracts() -> Vec<BridgeMethodContract> {
                 *method,
                 "sim.reset" | "sim.step" | "scene.set_object" | "intervention.apply"
             ),
+            safe_mode_allowed: BridgeMethod::from_str(method)
+                .map(|method| method.safe_mode_allowed())
+                .unwrap_or(false),
         })
         .collect()
 }
@@ -277,6 +285,10 @@ impl BridgeRequest {
         canonical_json_hash(&self.payload)
     }
 
+    pub fn safe_mode_allowed(&self) -> bool {
+        self.method.safe_mode_allowed()
+    }
+
     pub fn to_runlog_event(&self) -> Result<RunLogEvent> {
         Ok(RunLogEvent::BridgeRequest {
             step: self.step,
@@ -291,6 +303,20 @@ impl BridgeRequest {
 }
 
 impl BridgeResponse {
+    pub fn blocked_by_safe_mode(request: &BridgeRequest, timestamp_ns: u64) -> Self {
+        Self {
+            request_id: request.request_id.clone(),
+            step: request.step,
+            timestamp_ns,
+            ok: false,
+            message: Some(format!(
+                "bridge safe mode blocked method {}",
+                request.method.as_str()
+            )),
+            result: None,
+        }
+    }
+
     pub fn result_hash(&self) -> Result<Option<String>> {
         self.result.as_ref().map(canonical_json_hash).transpose()
     }
@@ -309,11 +335,27 @@ impl BridgeResponse {
 
 pub struct LocalBridge<W> {
     writer: RunLogWriter<W>,
+    safe_mode: bool,
 }
 
 impl<W: Write> LocalBridge<W> {
     pub fn new(writer: RunLogWriter<W>) -> Self {
-        Self { writer }
+        Self {
+            writer,
+            safe_mode: false,
+        }
+    }
+
+    pub fn with_safe_mode(writer: RunLogWriter<W>, safe_mode: bool) -> Self {
+        Self { writer, safe_mode }
+    }
+
+    pub fn safe_mode(&self) -> bool {
+        self.safe_mode
+    }
+
+    pub fn set_safe_mode(&mut self, safe_mode: bool) {
+        self.safe_mode = safe_mode;
     }
 
     pub fn record_request(&mut self, request: &BridgeRequest) -> Result<()> {
@@ -335,6 +377,11 @@ impl<W: Write> LocalBridge<W> {
         response_timestamp_ns: u64,
     ) -> Result<BridgeResponse> {
         self.record_request(request)?;
+        if self.safe_mode && !request.safe_mode_allowed() {
+            let response = BridgeResponse::blocked_by_safe_mode(request, response_timestamp_ns);
+            self.record_response(&response)?;
+            return Ok(response);
+        }
         let handled = handler.handle(request);
         let response = match handled {
             Ok(result) => BridgeResponse {
@@ -444,6 +491,32 @@ mod tests {
     }
 
     #[test]
+    fn safe_mode_blocks_mutating_dispatch() {
+        let writer = RunLogWriter::new(Vec::new());
+        let mut bridge = LocalBridge::with_safe_mode(writer, true);
+        let request = BridgeRequest {
+            request_id: "req-safe-mode".to_string(),
+            step: Some(1),
+            timestamp_ns: 10,
+            actor: actor(),
+            method: BridgeMethod::SimStep,
+            payload: json!({ "dt": 0.1 }),
+        };
+        let mut handler = EchoHandler;
+        let response = bridge.dispatch(&request, &mut handler, 11).unwrap();
+        assert!(!response.ok);
+        assert!(response
+            .message
+            .as_deref()
+            .unwrap()
+            .contains("safe mode blocked"));
+        let events = read_events(Cursor::new(bridge.into_inner())).unwrap();
+        let state = replay_events(&events);
+        assert_eq!(state.bridge_records.len(), 2);
+        assert_eq!(state.bridge_records[1].ok, Some(false));
+    }
+
+    #[test]
     fn rpc_request_converts_dotted_method() {
         let rpc = BridgeRpcRequest {
             jsonrpc: Some("2.0".to_string()),
@@ -475,7 +548,15 @@ mod tests {
             .find(|method| method.method == "sim.step")
             .unwrap();
         assert!(step.emits_action);
+        assert!(!step.safe_mode_allowed);
         assert!(step.request_payload.contains("dt"));
+        let status = contract
+            .bridge
+            .methods
+            .iter()
+            .find(|method| method.method == "sim.status")
+            .unwrap();
+        assert!(status.safe_mode_allowed);
     }
 
     #[test]

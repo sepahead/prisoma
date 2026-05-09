@@ -82,6 +82,7 @@ just bridge-contract
 just runlog-replay
 just runlog-validate
 just runlog-bridge-demo
+just runlog-bridge-stdio-safe
 just runlog-bridge-stdio
 just runlog-summary
 just runlog-manifest
@@ -90,6 +91,8 @@ just runlog-sim-verify
 just runlog-rerun
 just runlog-rerun-bridge
 ```
+
+`runlog-bridge-stdio-safe` exercises the Agent Bridge read-only safe mode: `sim.status` is allowed and a mutating `sim.step` request is logged as a blocked bridge error response.
 
 If you don’t have `just`: run `cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl`, then `cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/demo_runlog.jsonl`, then `cargo run -p pid-runlog --bin pid-runlog-replay -- outputs/demo_runlog.jsonl`.
 

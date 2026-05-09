@@ -50,6 +50,9 @@ runlog-bridge-demo:
 runlog-bridge-stdio path="outputs/demo_bridge_stdio_runlog.jsonl":
     printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- {{path}}
 
+runlog-bridge-stdio-safe path="outputs/demo_bridge_stdio_safe_runlog.jsonl":
+    printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode {{path}}
+
 bridge-contract out="outputs/bridge_runlog_contract.json":
     cargo run -p pid-bridge --bin pid-bridge-contract -- --out {{out}}
 

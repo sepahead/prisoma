@@ -28,6 +28,7 @@ These notes help future coding agents work on this repo without introducing acci
   - `just bridge-contract`
   - `just runlog-demo`
   - `just runlog-bridge-demo`
+  - `just runlog-bridge-stdio-safe`
   - `just runlog-bridge-stdio`
   - `just runlog-validate`
   - `just runlog-summary`
