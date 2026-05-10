@@ -100,6 +100,11 @@ pub struct OfflineVldaMetrics {
     pub heldout_centroid_d_success_balanced_accuracy: Option<f64>,
     pub heldout_centroid_a_success_balanced_accuracy: Option<f64>,
     pub heldout_centroid_vlda_success_balanced_accuracy: Option<f64>,
+    pub heldout_centroid_v_success_auroc: Option<f64>,
+    pub heldout_centroid_l_success_auroc: Option<f64>,
+    pub heldout_centroid_d_success_auroc: Option<f64>,
+    pub heldout_centroid_a_success_auroc: Option<f64>,
+    pub heldout_centroid_vlda_success_auroc: Option<f64>,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
 }
 
@@ -282,7 +287,12 @@ pub fn run_offline_vlda_harness(
                 "heldout_centroid_l_success_balanced_accuracy",
                 "heldout_centroid_d_success_balanced_accuracy",
                 "heldout_centroid_a_success_balanced_accuracy",
-                "heldout_centroid_vlda_success_balanced_accuracy"
+                "heldout_centroid_vlda_success_balanced_accuracy",
+                "heldout_centroid_v_success_auroc",
+                "heldout_centroid_l_success_auroc",
+                "heldout_centroid_d_success_auroc",
+                "heldout_centroid_a_success_auroc",
+                "heldout_centroid_vlda_success_auroc"
             ],
             "heldout_split": analysis.heldout_split.clone(),
             "negative_handling": "allow"
@@ -1061,6 +1071,16 @@ fn compute_metrics(
         heldout_centroid_a_success_metrics.and_then(|metrics| metrics.balanced_accuracy);
     let heldout_centroid_vlda_success_balanced_accuracy =
         heldout_centroid_vlda_success_metrics.and_then(|metrics| metrics.balanced_accuracy);
+    let heldout_centroid_v_success_auroc =
+        heldout_centroid_v_success_metrics.and_then(|metrics| metrics.auroc);
+    let heldout_centroid_l_success_auroc =
+        heldout_centroid_l_success_metrics.and_then(|metrics| metrics.auroc);
+    let heldout_centroid_d_success_auroc =
+        heldout_centroid_d_success_metrics.and_then(|metrics| metrics.auroc);
+    let heldout_centroid_a_success_auroc =
+        heldout_centroid_a_success_metrics.and_then(|metrics| metrics.auroc);
+    let heldout_centroid_vlda_success_auroc =
+        heldout_centroid_vlda_success_metrics.and_then(|metrics| metrics.auroc);
     let pid_pairs = [
         ("VL".to_string(), vl_pair.clone()),
         ("VD".to_string(), vd_pair),
@@ -1113,6 +1133,11 @@ fn compute_metrics(
         heldout_centroid_d_success_balanced_accuracy,
         heldout_centroid_a_success_balanced_accuracy,
         heldout_centroid_vlda_success_balanced_accuracy,
+        heldout_centroid_v_success_auroc,
+        heldout_centroid_l_success_auroc,
+        heldout_centroid_d_success_auroc,
+        heldout_centroid_a_success_auroc,
+        heldout_centroid_vlda_success_auroc,
         pid_pairs,
     })
 }
@@ -1539,6 +1564,7 @@ where
 struct OfflineVldaHeldoutClassifierMetrics {
     accuracy: f64,
     balanced_accuracy: Option<f64>,
+    auroc: Option<f64>,
 }
 
 fn heldout_majority_success_metrics(
@@ -1651,10 +1677,11 @@ where
             *value /= count as f64;
         }
     }
-    Some(heldout_prediction_metrics(labels, roles, |idx| {
+    Some(heldout_scored_prediction_metrics(labels, roles, |idx| {
         let false_distance = squared_euclidean(&features[idx], &centroids[0]);
         let true_distance = squared_euclidean(&features[idx], &centroids[1]);
-        true_distance < false_distance
+        let score = false_distance - true_distance;
+        (score > 0.0, score)
     }))
 }
 
@@ -1691,7 +1718,72 @@ where
     OfflineVldaHeldoutClassifierMetrics {
         accuracy: correct as f64 / total as f64,
         balanced_accuracy,
+        auroc: None,
     }
+}
+
+fn heldout_scored_prediction_metrics<F>(
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+    mut predict: F,
+) -> OfflineVldaHeldoutClassifierMetrics
+where
+    F: FnMut(usize) -> (bool, f64),
+{
+    let mut correct = 0;
+    let mut total = 0;
+    let mut class_correct = [0usize; 2];
+    let mut class_total = [0usize; 2];
+    let mut scores = Vec::new();
+    for (idx, label) in labels.iter().enumerate() {
+        if roles[idx] != OfflineVldaSplitRole::Heldout {
+            continue;
+        }
+        let class = usize::from(*label);
+        let (prediction, score) = predict(idx);
+        total += 1;
+        class_total[class] += 1;
+        scores.push((score, *label));
+        if prediction == *label {
+            correct += 1;
+            class_correct[class] += 1;
+        }
+    }
+    let balanced_accuracy = (class_total[0] > 0 && class_total[1] > 0).then_some(
+        (class_correct[0] as f64 / class_total[0] as f64
+            + class_correct[1] as f64 / class_total[1] as f64)
+            / 2.0,
+    );
+    OfflineVldaHeldoutClassifierMetrics {
+        accuracy: correct as f64 / total as f64,
+        balanced_accuracy,
+        auroc: heldout_auroc(&scores),
+    }
+}
+
+fn heldout_auroc(scores: &[(f64, bool)]) -> Option<f64> {
+    let positives = scores
+        .iter()
+        .filter_map(|(score, label)| (*label).then_some(*score))
+        .collect::<Vec<_>>();
+    let negatives = scores
+        .iter()
+        .filter_map(|(score, label)| (!*label).then_some(*score))
+        .collect::<Vec<_>>();
+    if positives.is_empty() || negatives.is_empty() {
+        return None;
+    }
+    let mut wins = 0.0;
+    for positive in &positives {
+        for negative in &negatives {
+            match positive.total_cmp(negative) {
+                Ordering::Greater => wins += 1.0,
+                Ordering::Equal => wins += 0.5,
+                Ordering::Less => {}
+            }
+        }
+    }
+    Some(wins / (positives.len() * negatives.len()) as f64)
 }
 
 fn nearest_neighbor_idx(
@@ -2166,6 +2258,49 @@ fn write_metric_events<W: Write>(
             idx += 1;
         }
     }
+    for (name, value) in [
+        (
+            "offline_vlda.baseline.heldout_centroid_v_success_auroc",
+            report.metrics.heldout_centroid_v_success_auroc,
+        ),
+        (
+            "offline_vlda.baseline.heldout_centroid_l_success_auroc",
+            report.metrics.heldout_centroid_l_success_auroc,
+        ),
+        (
+            "offline_vlda.baseline.heldout_centroid_d_success_auroc",
+            report.metrics.heldout_centroid_d_success_auroc,
+        ),
+        (
+            "offline_vlda.baseline.heldout_centroid_a_success_auroc",
+            report.metrics.heldout_centroid_a_success_auroc,
+        ),
+        (
+            "offline_vlda.baseline.heldout_centroid_vlda_success_auroc",
+            report.metrics.heldout_centroid_vlda_success_auroc,
+        ),
+    ] {
+        if let Some(value) = value {
+            let mut metadata = offline_vlda_heldout_split_metric_metadata(
+                report,
+                "train_split_nearest_centroid",
+                Some("train_standardized_euclidean"),
+                "auroc",
+            );
+            metadata.insert(
+                "score".to_string(),
+                "distance_to_failure_centroid_minus_distance_to_success_centroid".to_string(),
+            );
+            writer.append(&RunLogEvent::EvaluationMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + idx,
+                name: name.to_string(),
+                value,
+                metadata,
+            })?;
+            idx += 1;
+        }
+    }
     for (label, count) in &report.label_counts {
         writer.append(&RunLogEvent::EvaluationMetric {
             step: report.dims.samples as u64,
@@ -2524,6 +2659,14 @@ mod tests {
                 .heldout_centroid_vlda_success_balanced_accuracy,
             1.0 / 6.0,
         );
+        assert_eq!(report.metrics.heldout_centroid_v_success_auroc, Some(0.0));
+        assert_metric_close(report.metrics.heldout_centroid_l_success_auroc, 1.0 / 6.0);
+        assert_eq!(report.metrics.heldout_centroid_d_success_auroc, Some(0.0));
+        assert_metric_close(report.metrics.heldout_centroid_a_success_auroc, 1.0 / 3.0);
+        assert_eq!(
+            report.metrics.heldout_centroid_vlda_success_auroc,
+            Some(0.0)
+        );
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         assert_eq!(report.metrics.pid_pairs["VD"].source_2, "D");
         assert_eq!(report.label_counts["success"], 16);
@@ -2600,6 +2743,19 @@ mod tests {
             )
         });
         assert!(has_balanced_baseline);
+        let has_auroc_baseline = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, .. }
+                    if name == "offline_vlda.baseline.heldout_centroid_vlda_success_auroc"
+                        && metadata.get("metric").map(String::as_str) == Some("auroc")
+                        && metadata.get("score").map(String::as_str)
+                            == Some(
+                                "distance_to_failure_centroid_minus_distance_to_success_centroid"
+                            )
+            )
+        });
+        assert!(has_auroc_baseline);
         let contract_uri = events
             .iter()
             .find_map(|event| {
@@ -2619,7 +2775,7 @@ mod tests {
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 21);
         assert!(summary.geometry_metrics >= 21);
-        assert_eq!(summary.evaluation_metrics, 36);
+        assert_eq!(summary.evaluation_metrics, 41);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
@@ -2656,6 +2812,10 @@ mod tests {
         assert_eq!(
             report.metrics.heldout_centroid_vlda_success_accuracy,
             Some(0.25)
+        );
+        assert_eq!(
+            report.metrics.heldout_centroid_vlda_success_auroc,
+            Some(0.0)
         );
         assert_eq!(report.heldout_split.as_ref().unwrap().train_samples, 12);
         assert!(report.metrics.pid_pairs.contains_key("LD"));
@@ -2725,6 +2885,7 @@ mod tests {
             report.metrics.heldout_centroid_v_success_balanced_accuracy,
             None
         );
+        assert_eq!(report.metrics.heldout_centroid_v_success_auroc, None);
         assert_eq!(report.metrics.heldout_centroid_vlda_success_accuracy, None);
     }
 
@@ -2754,6 +2915,7 @@ mod tests {
             report.metrics.heldout_centroid_v_success_balanced_accuracy,
             None
         );
+        assert_eq!(report.metrics.heldout_centroid_v_success_auroc, None);
     }
 
     #[test]
