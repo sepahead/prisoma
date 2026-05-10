@@ -414,7 +414,10 @@ pub fn run_offline_vlda_harness(
                 "heldout_episode_disjoint_train_episode_count",
                 "heldout_episode_disjoint_heldout_episode_count",
                 "heldout_episode_disjoint_shared_episode_count",
-                "heldout_episode_disjoint_missing_episode_sample_count"
+                "heldout_episode_disjoint_missing_episode_sample_count",
+                "heldout_prediction_correct",
+                "heldout_prediction_score",
+                "heldout_prediction_squared_distance"
             ],
             "heldout_split": analysis.heldout_split.clone(),
             "train_split_pid": analysis.train_split_pid.as_ref().map(|report| json!({
@@ -3087,6 +3090,7 @@ fn write_metric_events<W: Write>(
         }
     }
     write_heldout_failure_diagnostic_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
+    write_heldout_prediction_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     write_heldout_class_coverage_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     write_heldout_episode_disjoint_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     for (label, count) in &report.label_counts {
@@ -3159,6 +3163,49 @@ fn write_heldout_episode_disjoint_metric_events<W: Write>(
             metadata: offline_vlda_heldout_episode_disjoint_metric_metadata(report, suffix),
         })?;
         *idx += 1;
+    }
+    Ok(())
+}
+
+fn write_heldout_prediction_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    report: &OfflineVldaReport,
+    timestamp_base_ns: u64,
+    idx: &mut u64,
+) -> Result<()> {
+    for record in &report.heldout_predictions {
+        writer.append(&RunLogEvent::EvaluationMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + *idx,
+            name: "offline_vlda.heldout_prediction.correct".to_string(),
+            value: if record.correct { 1.0 } else { 0.0 },
+            metadata: offline_vlda_heldout_prediction_metric_metadata(report, record, "correct"),
+        })?;
+        *idx += 1;
+        if let Some(value) = record.score {
+            writer.append(&RunLogEvent::EvaluationMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + *idx,
+                name: "offline_vlda.heldout_prediction.score".to_string(),
+                value,
+                metadata: offline_vlda_heldout_prediction_metric_metadata(report, record, "score"),
+            })?;
+            *idx += 1;
+        }
+        if let Some(value) = record.squared_distance {
+            writer.append(&RunLogEvent::EvaluationMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + *idx,
+                name: "offline_vlda.heldout_prediction.squared_distance".to_string(),
+                value,
+                metadata: offline_vlda_heldout_prediction_metric_metadata(
+                    report,
+                    record,
+                    "squared_distance",
+                ),
+            })?;
+            *idx += 1;
+        }
     }
     Ok(())
 }
@@ -3486,6 +3533,57 @@ fn offline_vlda_heldout_episode_disjoint_metric_metadata(
         metadata.insert(
             "shared_episodes".to_string(),
             disjoint.shared_episodes.to_string(),
+        );
+    }
+    metadata
+}
+
+fn offline_vlda_heldout_prediction_metric_metadata(
+    report: &OfflineVldaReport,
+    record: &OfflineVldaHeldoutPredictionRecord,
+    metric: &str,
+) -> BTreeMap<String, String> {
+    let mut metadata = [
+        ("category".to_string(), "heldout_prediction".to_string()),
+        ("metric".to_string(), metric.to_string()),
+        ("split".to_string(), "metadata_split_heldout".to_string()),
+        ("sample_id".to_string(), record.sample_id.clone()),
+        ("split_value".to_string(), record.split_value.clone()),
+        ("classifier".to_string(), record.classifier.clone()),
+        ("true_success".to_string(), record.true_success.to_string()),
+        (
+            "predicted_success".to_string(),
+            record.predicted_success.to_string(),
+        ),
+        ("correct".to_string(), record.correct.to_string()),
+        (
+            "target_label".to_string(),
+            "offline_vlda.success".to_string(),
+        ),
+    ]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+    if let Some(variable) = &record.variable {
+        metadata.insert("variable".to_string(), variable.clone());
+    }
+    if let Some(episode_id) = &record.episode_id {
+        metadata.insert("episode_id".to_string(), episode_id.clone());
+    }
+    if let Some(score_name) = &record.score_name {
+        metadata.insert("score_name".to_string(), score_name.clone());
+    }
+    if let Some(nearest_train_sample_id) = &record.nearest_train_sample_id {
+        metadata.insert(
+            "nearest_train_sample_id".to_string(),
+            nearest_train_sample_id.clone(),
+        );
+    }
+    if let Some(split) = &report.heldout_split {
+        metadata.insert("split_key".to_string(), split.metadata_key.clone());
+        metadata.insert("train_samples".to_string(), split.train_samples.to_string());
+        metadata.insert(
+            "heldout_samples".to_string(),
+            split.heldout_samples.to_string(),
         );
     }
     metadata
@@ -4030,7 +4128,11 @@ mod tests {
         let has_centroid_baseline = events.iter().any(|event| {
             matches!(
                 event,
-                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, .. }
+                pid_runlog::RunLogEvent::EvaluationMetric {
+                    name,
+                    metadata,
+                    ..
+                }
                     if name == "offline_vlda.baseline.heldout_centroid_vlda_success_accuracy"
                         && metadata.get("classifier").map(String::as_str)
                             == Some("train_split_nearest_centroid")
@@ -4044,7 +4146,11 @@ mod tests {
         let has_balanced_baseline = events.iter().any(|event| {
             matches!(
                 event,
-                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, .. }
+                pid_runlog::RunLogEvent::EvaluationMetric {
+                    name,
+                    metadata,
+                    ..
+                }
                     if name
                         == "offline_vlda.baseline.heldout_centroid_vlda_success_balanced_accuracy"
                         && metadata.get("metric").map(String::as_str)
@@ -4070,31 +4176,98 @@ mod tests {
         let has_failure_recall = events.iter().any(|event| {
             matches!(
                 event,
-                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, value, .. }
-                    if name == "offline_vlda.baseline.heldout_majority_failure_recall"
-                        && *value == 0.0
-                        && metadata.get("metric").map(String::as_str)
-                            == Some("failure_recall")
-                        && metadata.get("target_class").map(String::as_str)
-                            == Some("failure")
-                        && metadata.get("positive_label").map(String::as_str)
-                            == Some("success_false")
+                pid_runlog::RunLogEvent::EvaluationMetric {
+                    name,
+                    metadata,
+                    value,
+                    ..
+                } if name == "offline_vlda.baseline.heldout_majority_failure_recall"
+                    && *value == 0.0
+                    && metadata.get("metric").map(String::as_str) == Some("failure_recall")
+                    && metadata.get("target_class").map(String::as_str) == Some("failure")
+                    && metadata.get("positive_label").map(String::as_str) == Some("success_false")
             )
         });
         assert!(has_failure_recall);
         let has_failure_confusion_count = events.iter().any(|event| {
             matches!(
                 event,
-                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, value, .. }
-                    if name
-                        == "offline_vlda.baseline.heldout_nn_vlda_failure_false_negative_count"
-                        && *value >= 0.0
-                        && metadata.get("variable").map(String::as_str) == Some("VLDA")
-                        && metadata.get("metric").map(String::as_str)
-                            == Some("failure_false_negative_count")
+                pid_runlog::RunLogEvent::EvaluationMetric {
+                    name,
+                    metadata,
+                    value,
+                    ..
+                } if name == "offline_vlda.baseline.heldout_nn_vlda_failure_false_negative_count"
+                    && *value >= 0.0
+                    && metadata.get("variable").map(String::as_str) == Some("VLDA")
+                    && metadata.get("metric").map(String::as_str)
+                        == Some("failure_false_negative_count")
             )
         });
         assert!(has_failure_confusion_count);
+        let heldout_prediction_correct_events = events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    pid_runlog::RunLogEvent::EvaluationMetric { name, .. }
+                        if name == "offline_vlda.heldout_prediction.correct"
+                )
+            })
+            .count();
+        assert_eq!(heldout_prediction_correct_events, 44);
+        let heldout_prediction_score_events = events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    pid_runlog::RunLogEvent::EvaluationMetric { name, .. }
+                        if name == "offline_vlda.heldout_prediction.score"
+                )
+            })
+            .count();
+        assert_eq!(heldout_prediction_score_events, 20);
+        let heldout_prediction_distance_events = events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    pid_runlog::RunLogEvent::EvaluationMetric { name, .. }
+                        if name == "offline_vlda.heldout_prediction.squared_distance"
+                )
+            })
+            .count();
+        assert_eq!(heldout_prediction_distance_events, 20);
+        let has_prediction_record_event = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, .. }
+                    if name == "offline_vlda.heldout_prediction.correct"
+                        && metadata.get("category").map(String::as_str)
+                            == Some("heldout_prediction")
+                        && metadata.get("sample_id").map(String::as_str) == Some("sample-012")
+                        && metadata.get("classifier").map(String::as_str)
+                            == Some("train_split_1nn")
+                        && metadata.get("variable").map(String::as_str) == Some("VLDA")
+                        && metadata.get("nearest_train_sample_id").is_some()
+                        && metadata.get("true_success").map(String::as_str).is_some()
+                        && metadata.get("predicted_success").map(String::as_str).is_some()
+            )
+        });
+        assert!(has_prediction_record_event);
+        let has_centroid_score_event = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, .. }
+                    if name == "offline_vlda.heldout_prediction.score"
+                        && metadata.get("classifier").map(String::as_str)
+                            == Some("train_split_nearest_centroid")
+                        && metadata.get("variable").map(String::as_str) == Some("VLDA")
+                        && metadata.get("score_name").map(String::as_str)
+                            == Some(OFFLINE_CENTROID_SUCCESS_SCORE)
+            )
+        });
+        assert!(has_centroid_score_event);
         let has_class_coverage_pass = events.iter().any(|event| {
             matches!(
                 event,
@@ -4141,7 +4314,7 @@ mod tests {
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 42);
         assert!(summary.geometry_metrics >= 21);
-        assert_eq!(summary.evaluation_metrics, 136);
+        assert_eq!(summary.evaluation_metrics, 139);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
