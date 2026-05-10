@@ -206,6 +206,25 @@ pub struct OfflineVldaHeldoutPredictionRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaHeldoutFailureDiagnostics {
+    pub classifier: String,
+    pub variable: Option<String>,
+    pub samples: usize,
+    pub true_failures: usize,
+    pub true_successes: usize,
+    pub predicted_failures: usize,
+    pub predicted_successes: usize,
+    pub failure_true_positives: usize,
+    pub failure_false_positives: usize,
+    pub failure_true_negatives: usize,
+    pub failure_false_negatives: usize,
+    pub failure_precision: Option<f64>,
+    pub failure_recall: Option<f64>,
+    pub failure_specificity: Option<f64>,
+    pub failure_f1: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaReport {
     pub run_id: String,
     pub config_hash: String,
@@ -216,6 +235,7 @@ pub struct OfflineVldaReport {
     pub geometry: OfflineVldaGeometryReport,
     pub heldout_split: Option<OfflineVldaHeldoutSplitReport>,
     pub heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
+    pub heldout_failure_diagnostics: Vec<OfflineVldaHeldoutFailureDiagnostics>,
     pub metrics: OfflineVldaMetrics,
 }
 
@@ -311,7 +331,15 @@ pub fn run_offline_vlda_harness(
                 "heldout_centroid_l_success_auroc",
                 "heldout_centroid_d_success_auroc",
                 "heldout_centroid_a_success_auroc",
-                "heldout_centroid_vlda_success_auroc"
+                "heldout_centroid_vlda_success_auroc",
+                "heldout_failure_true_positive_count",
+                "heldout_failure_false_positive_count",
+                "heldout_failure_true_negative_count",
+                "heldout_failure_false_negative_count",
+                "heldout_failure_precision",
+                "heldout_failure_recall",
+                "heldout_failure_specificity",
+                "heldout_failure_f1"
             ],
             "heldout_split": analysis.heldout_split.clone(),
             "prediction_records": [
@@ -333,6 +361,7 @@ pub fn run_offline_vlda_harness(
         geometry: analysis.geometry,
         heldout_split: analysis.heldout_split,
         heldout_predictions: analysis.heldout_predictions,
+        heldout_failure_diagnostics: analysis.heldout_failure_diagnostics,
         metrics: analysis.metrics,
     })
 }
@@ -747,6 +776,7 @@ struct OfflineVldaAnalysis {
     geometry: OfflineVldaGeometryReport,
     heldout_split: Option<OfflineVldaHeldoutSplitReport>,
     heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
+    heldout_failure_diagnostics: Vec<OfflineVldaHeldoutFailureDiagnostics>,
 }
 
 struct PreparedVldaMatrices {
@@ -767,6 +797,7 @@ fn compute_analysis(
     let heldout_split = heldout_split_plan(samples);
     let metrics = compute_metrics(samples, &prepared, heldout_split.as_ref())?;
     let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
+    let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
     let geometry = compute_geometry_report(&prepared);
     Ok(OfflineVldaAnalysis {
         metrics,
@@ -774,6 +805,7 @@ fn compute_analysis(
         geometry,
         heldout_split: heldout_split.map(|split| split.report),
         heldout_predictions,
+        heldout_failure_diagnostics,
     })
 }
 
@@ -1607,6 +1639,83 @@ fn heldout_prediction_records(
         vlda_values,
     );
     records
+}
+
+fn heldout_failure_diagnostics(
+    records: &[OfflineVldaHeldoutPredictionRecord],
+) -> Vec<OfflineVldaHeldoutFailureDiagnostics> {
+    let mut diagnostics = Vec::new();
+    for record in records {
+        let idx =
+            diagnostics
+                .iter()
+                .position(|diagnostic: &OfflineVldaHeldoutFailureDiagnostics| {
+                    diagnostic.classifier == record.classifier
+                        && diagnostic.variable.as_deref() == record.variable.as_deref()
+                });
+        let diagnostic_idx = match idx {
+            Some(idx) => idx,
+            None => {
+                diagnostics.push(OfflineVldaHeldoutFailureDiagnostics {
+                    classifier: record.classifier.clone(),
+                    variable: record.variable.clone(),
+                    samples: 0,
+                    true_failures: 0,
+                    true_successes: 0,
+                    predicted_failures: 0,
+                    predicted_successes: 0,
+                    failure_true_positives: 0,
+                    failure_false_positives: 0,
+                    failure_true_negatives: 0,
+                    failure_false_negatives: 0,
+                    failure_precision: None,
+                    failure_recall: None,
+                    failure_specificity: None,
+                    failure_f1: None,
+                });
+                diagnostics.len() - 1
+            }
+        };
+        let diagnostic = &mut diagnostics[diagnostic_idx];
+        diagnostic.samples += 1;
+        if record.true_success {
+            diagnostic.true_successes += 1;
+        } else {
+            diagnostic.true_failures += 1;
+        }
+        if record.predicted_success {
+            diagnostic.predicted_successes += 1;
+        } else {
+            diagnostic.predicted_failures += 1;
+        }
+        match (record.true_success, record.predicted_success) {
+            (false, false) => diagnostic.failure_true_positives += 1,
+            (true, false) => diagnostic.failure_false_positives += 1,
+            (true, true) => diagnostic.failure_true_negatives += 1,
+            (false, true) => diagnostic.failure_false_negatives += 1,
+        }
+    }
+    for diagnostic in &mut diagnostics {
+        diagnostic.failure_precision = nonzero_ratio(
+            diagnostic.failure_true_positives,
+            diagnostic.predicted_failures,
+        );
+        diagnostic.failure_recall =
+            nonzero_ratio(diagnostic.failure_true_positives, diagnostic.true_failures);
+        diagnostic.failure_specificity =
+            nonzero_ratio(diagnostic.failure_true_negatives, diagnostic.true_successes);
+        diagnostic.failure_f1 = nonzero_ratio(
+            2 * diagnostic.failure_true_positives,
+            2 * diagnostic.failure_true_positives
+                + diagnostic.failure_false_positives
+                + diagnostic.failure_false_negatives,
+        );
+    }
+    diagnostics
+}
+
+fn nonzero_ratio(numerator: usize, denominator: usize) -> Option<f64> {
+    (denominator > 0).then_some(numerator as f64 / denominator as f64)
 }
 
 struct OfflineVldaHeldoutPredictionInput<'a> {
@@ -2610,6 +2719,7 @@ fn write_metric_events<W: Write>(
             idx += 1;
         }
     }
+    write_heldout_failure_diagnostic_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     for (label, count) in &report.label_counts {
         writer.append(&RunLogEvent::EvaluationMetric {
             step: report.dims.samples as u64,
@@ -2651,6 +2761,137 @@ fn offline_vlda_pid_metric_metadata(name: &str) -> BTreeMap<String, String> {
             metadata.insert("target".to_string(), "A".to_string());
         }
         _ => {}
+    }
+    metadata
+}
+
+fn write_heldout_failure_diagnostic_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    report: &OfflineVldaReport,
+    timestamp_base_ns: u64,
+    idx: &mut u64,
+) -> Result<()> {
+    for diagnostic in &report.heldout_failure_diagnostics {
+        let Some(prefix) = heldout_failure_metric_prefix(diagnostic) else {
+            continue;
+        };
+        for (suffix, metric, value) in [
+            (
+                "true_positive_count",
+                "failure_true_positive_count",
+                diagnostic.failure_true_positives,
+            ),
+            (
+                "false_positive_count",
+                "failure_false_positive_count",
+                diagnostic.failure_false_positives,
+            ),
+            (
+                "true_negative_count",
+                "failure_true_negative_count",
+                diagnostic.failure_true_negatives,
+            ),
+            (
+                "false_negative_count",
+                "failure_false_negative_count",
+                diagnostic.failure_false_negatives,
+            ),
+        ] {
+            writer.append(&RunLogEvent::EvaluationMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + *idx,
+                name: format!("{prefix}_{suffix}"),
+                value: value as f64,
+                metadata: offline_vlda_heldout_failure_metric_metadata(report, diagnostic, metric),
+            })?;
+            *idx += 1;
+        }
+        for (suffix, metric, value) in [
+            (
+                "precision",
+                "failure_precision",
+                diagnostic.failure_precision,
+            ),
+            ("recall", "failure_recall", diagnostic.failure_recall),
+            (
+                "specificity",
+                "failure_specificity",
+                diagnostic.failure_specificity,
+            ),
+            ("f1", "failure_f1", diagnostic.failure_f1),
+        ] {
+            if let Some(value) = value {
+                writer.append(&RunLogEvent::EvaluationMetric {
+                    step: report.dims.samples as u64,
+                    timestamp_ns: timestamp_base_ns + *idx,
+                    name: format!("{prefix}_{suffix}"),
+                    value,
+                    metadata: offline_vlda_heldout_failure_metric_metadata(
+                        report, diagnostic, metric,
+                    ),
+                })?;
+                *idx += 1;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn heldout_failure_metric_prefix(
+    diagnostic: &OfflineVldaHeldoutFailureDiagnostics,
+) -> Option<String> {
+    match diagnostic.classifier.as_str() {
+        "train_split_majority" => {
+            Some("offline_vlda.baseline.heldout_majority_failure".to_string())
+        }
+        "train_split_1nn" => diagnostic.variable.as_ref().map(|variable| {
+            format!(
+                "offline_vlda.baseline.heldout_nn_{}_failure",
+                variable.to_ascii_lowercase()
+            )
+        }),
+        "train_split_nearest_centroid" => diagnostic.variable.as_ref().map(|variable| {
+            format!(
+                "offline_vlda.baseline.heldout_centroid_{}_failure",
+                variable.to_ascii_lowercase()
+            )
+        }),
+        _ => None,
+    }
+}
+
+fn offline_vlda_heldout_failure_metric_metadata(
+    report: &OfflineVldaReport,
+    diagnostic: &OfflineVldaHeldoutFailureDiagnostics,
+    metric: &str,
+) -> BTreeMap<String, String> {
+    let distance = match diagnostic.classifier.as_str() {
+        "train_split_1nn" => Some("raw_euclidean"),
+        "train_split_nearest_centroid" => Some("train_standardized_euclidean"),
+        _ => None,
+    };
+    let mut metadata = offline_vlda_heldout_split_metric_metadata(
+        report,
+        &diagnostic.classifier,
+        distance,
+        metric,
+    );
+    metadata.insert("target_class".to_string(), "failure".to_string());
+    metadata.insert("positive_label".to_string(), "success_false".to_string());
+    metadata.insert(
+        "heldout_samples".to_string(),
+        diagnostic.samples.to_string(),
+    );
+    metadata.insert(
+        "true_failures".to_string(),
+        diagnostic.true_failures.to_string(),
+    );
+    metadata.insert(
+        "true_successes".to_string(),
+        diagnostic.true_successes.to_string(),
+    );
+    if let Some(variable) = &diagnostic.variable {
+        metadata.insert("variable".to_string(), variable.clone());
     }
     metadata
 }
@@ -2854,6 +3095,20 @@ mod tests {
         assert!((actual - expected).abs() < 1e-12, "{actual} != {expected}");
     }
 
+    fn failure_diagnostic<'a>(
+        report: &'a OfflineVldaReport,
+        classifier: &str,
+        variable: Option<&str>,
+    ) -> &'a OfflineVldaHeldoutFailureDiagnostics {
+        report
+            .heldout_failure_diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.classifier == classifier && diagnostic.variable.as_deref() == variable
+            })
+            .unwrap()
+    }
+
     #[test]
     fn offline_vlda_harness_validates_and_summarizes() {
         let dataset = fixture_dataset();
@@ -3006,6 +3261,23 @@ mod tests {
             .unwrap();
         assert!(nn_prediction.nearest_train_sample_id.is_some());
         assert!(nn_prediction.squared_distance.is_some());
+        assert_eq!(report.heldout_failure_diagnostics.len(), 11);
+        let majority_failure = failure_diagnostic(&report, "train_split_majority", None);
+        assert_eq!(majority_failure.samples, 4);
+        assert_eq!(majority_failure.true_failures, 1);
+        assert_eq!(majority_failure.true_successes, 3);
+        assert_eq!(majority_failure.predicted_failures, 0);
+        assert_eq!(majority_failure.failure_true_positives, 0);
+        assert_eq!(majority_failure.failure_false_positives, 0);
+        assert_eq!(majority_failure.failure_true_negatives, 3);
+        assert_eq!(majority_failure.failure_false_negatives, 1);
+        assert_eq!(majority_failure.failure_precision, None);
+        assert_eq!(majority_failure.failure_recall, Some(0.0));
+        assert_eq!(majority_failure.failure_specificity, Some(1.0));
+        assert_eq!(majority_failure.failure_f1, Some(0.0));
+        let nn_vlda_failure = failure_diagnostic(&report, "train_split_1nn", Some("VLDA"));
+        assert_eq!(nn_vlda_failure.samples, 4);
+        assert_eq!(nn_vlda_failure.true_failures, 1);
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         assert_eq!(report.metrics.pid_pairs["VD"].source_2, "D");
         assert_eq!(report.label_counts["success"], 16);
@@ -3095,6 +3367,34 @@ mod tests {
             )
         });
         assert!(has_auroc_baseline);
+        let has_failure_recall = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, value, .. }
+                    if name == "offline_vlda.baseline.heldout_majority_failure_recall"
+                        && *value == 0.0
+                        && metadata.get("metric").map(String::as_str)
+                            == Some("failure_recall")
+                        && metadata.get("target_class").map(String::as_str)
+                            == Some("failure")
+                        && metadata.get("positive_label").map(String::as_str)
+                            == Some("success_false")
+            )
+        });
+        assert!(has_failure_recall);
+        let has_failure_confusion_count = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, value, .. }
+                    if name
+                        == "offline_vlda.baseline.heldout_nn_vlda_failure_false_negative_count"
+                        && *value >= 0.0
+                        && metadata.get("variable").map(String::as_str) == Some("VLDA")
+                        && metadata.get("metric").map(String::as_str)
+                            == Some("failure_false_negative_count")
+            )
+        });
+        assert!(has_failure_confusion_count);
         let contract_uri = events
             .iter()
             .find_map(|event| {
@@ -3114,7 +3414,7 @@ mod tests {
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 21);
         assert!(summary.geometry_metrics >= 21);
-        assert_eq!(summary.evaluation_metrics, 41);
+        assert_eq!(summary.evaluation_metrics, 126);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
@@ -3157,6 +3457,7 @@ mod tests {
             Some(0.0)
         );
         assert_eq!(report.heldout_split.as_ref().unwrap().train_samples, 12);
+        assert_eq!(report.heldout_failure_diagnostics.len(), 11);
         assert!(report.metrics.pid_pairs.contains_key("LD"));
         assert_eq!(report.geometry.variables.len(), 6);
         assert_eq!(report.geometry.gates.status, "warn");
@@ -3227,6 +3528,7 @@ mod tests {
         assert_eq!(report.metrics.heldout_centroid_v_success_auroc, None);
         assert_eq!(report.metrics.heldout_centroid_vlda_success_accuracy, None);
         assert_eq!(report.heldout_predictions.len(), 24);
+        assert_eq!(report.heldout_failure_diagnostics.len(), 6);
         assert!(!report
             .heldout_predictions
             .iter()
@@ -3261,6 +3563,10 @@ mod tests {
         );
         assert_eq!(report.metrics.heldout_centroid_v_success_auroc, None);
         assert_eq!(report.heldout_predictions.len(), 44);
+        assert_eq!(report.heldout_failure_diagnostics.len(), 11);
+        let majority_failure = failure_diagnostic(&report, "train_split_majority", None);
+        assert_eq!(majority_failure.true_failures, 0);
+        assert_eq!(majority_failure.failure_recall, None);
     }
 
     #[test]
@@ -3277,6 +3583,7 @@ mod tests {
         .unwrap();
         assert_eq!(report.metrics.success_rate, None);
         assert!(report.heldout_predictions.is_empty());
+        assert!(report.heldout_failure_diagnostics.is_empty());
 
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -3331,6 +3638,7 @@ mod tests {
         assert_eq!(report.heldout_split, None);
         assert_eq!(report.metrics.heldout_majority_success_accuracy, None);
         assert!(report.heldout_predictions.is_empty());
+        assert!(report.heldout_failure_diagnostics.is_empty());
 
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
