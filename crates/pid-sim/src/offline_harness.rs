@@ -71,6 +71,12 @@ pub struct OfflineVldaMetrics {
     pub loo_nn_d_success_accuracy: Option<f64>,
     pub loo_nn_a_success_accuracy: Option<f64>,
     pub loo_nn_vlda_success_accuracy: Option<f64>,
+    pub episode_loo_majority_success_accuracy: Option<f64>,
+    pub episode_loo_nn_v_success_accuracy: Option<f64>,
+    pub episode_loo_nn_l_success_accuracy: Option<f64>,
+    pub episode_loo_nn_d_success_accuracy: Option<f64>,
+    pub episode_loo_nn_a_success_accuracy: Option<f64>,
+    pub episode_loo_nn_vlda_success_accuracy: Option<f64>,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
 }
 
@@ -210,7 +216,13 @@ pub fn run_offline_vlda_harness(
                 "loo_nn_l_success_accuracy",
                 "loo_nn_d_success_accuracy",
                 "loo_nn_a_success_accuracy",
-                "loo_nn_vlda_success_accuracy"
+                "loo_nn_vlda_success_accuracy",
+                "episode_loo_majority_success_accuracy",
+                "episode_loo_nn_v_success_accuracy",
+                "episode_loo_nn_l_success_accuracy",
+                "episode_loo_nn_d_success_accuracy",
+                "episode_loo_nn_a_success_accuracy",
+                "episode_loo_nn_vlda_success_accuracy"
             ],
             "negative_handling": "allow"
         }
@@ -694,6 +706,50 @@ fn compute_metrics(
             values
         })
     });
+    let episode_ids = episode_ids(samples);
+    let episode_loo_majority_success_accuracy = success_labels
+        .as_deref()
+        .zip(episode_ids.as_deref())
+        .map(|(labels, episode_ids)| episode_loo_majority_success_accuracy(labels, episode_ids));
+    let episode_loo_nn_v_success_accuracy = success_labels
+        .as_deref()
+        .zip(episode_ids.as_deref())
+        .map(|(labels, episode_ids)| {
+            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| sample.v.clone())
+        });
+    let episode_loo_nn_l_success_accuracy = success_labels
+        .as_deref()
+        .zip(episode_ids.as_deref())
+        .map(|(labels, episode_ids)| {
+            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| sample.l.clone())
+        });
+    let episode_loo_nn_d_success_accuracy = success_labels
+        .as_deref()
+        .zip(episode_ids.as_deref())
+        .map(|(labels, episode_ids)| {
+            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| sample.d.clone())
+        });
+    let episode_loo_nn_a_success_accuracy = success_labels
+        .as_deref()
+        .zip(episode_ids.as_deref())
+        .map(|(labels, episode_ids)| {
+            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| sample.a.clone())
+        });
+    let episode_loo_nn_vlda_success_accuracy = success_labels
+        .as_deref()
+        .zip(episode_ids.as_deref())
+        .map(|(labels, episode_ids)| {
+            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| {
+                let mut values = Vec::with_capacity(
+                    sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
+                );
+                values.extend_from_slice(&sample.v);
+                values.extend_from_slice(&sample.l);
+                values.extend_from_slice(&sample.d);
+                values.extend_from_slice(&sample.a);
+                values
+            })
+        });
     let pid_pairs = [
         ("VL".to_string(), vl_pair.clone()),
         ("VD".to_string(), vd_pair),
@@ -718,6 +774,12 @@ fn compute_metrics(
         loo_nn_d_success_accuracy,
         loo_nn_a_success_accuracy,
         loo_nn_vlda_success_accuracy,
+        episode_loo_majority_success_accuracy,
+        episode_loo_nn_v_success_accuracy,
+        episode_loo_nn_l_success_accuracy,
+        episode_loo_nn_d_success_accuracy,
+        episode_loo_nn_a_success_accuracy,
+        episode_loo_nn_vlda_success_accuracy,
         pid_pairs,
     })
 }
@@ -974,6 +1036,37 @@ fn success_metrics(labels: &Option<Vec<bool>>) -> (Option<f64>, Option<f64>) {
     (Some(success_rate), Some(majority_success_accuracy))
 }
 
+fn episode_ids(samples: &[OfflineVldaSample]) -> Option<Vec<String>> {
+    let episode_ids = samples
+        .iter()
+        .map(|sample| sample.episode_id.clone())
+        .collect::<Option<Vec<_>>>()?;
+    (episode_ids.iter().collect::<BTreeSet<_>>().len() >= 2).then_some(episode_ids)
+}
+
+fn episode_loo_majority_success_accuracy(labels: &[bool], episode_ids: &[String]) -> f64 {
+    let correct = labels
+        .iter()
+        .enumerate()
+        .filter(|(idx, label)| {
+            let mut successes = 0;
+            let mut total = 0;
+            for (candidate_idx, candidate_label) in labels.iter().enumerate() {
+                if episode_ids[candidate_idx] == episode_ids[*idx] {
+                    continue;
+                }
+                total += 1;
+                if *candidate_label {
+                    successes += 1;
+                }
+            }
+            let majority = successes * 2 >= total;
+            majority == **label
+        })
+        .count();
+    correct as f64 / labels.len() as f64
+}
+
 fn loo_nn_success_accuracy<F>(samples: &[OfflineVldaSample], labels: &[bool], values: F) -> f64
 where
     F: Fn(&OfflineVldaSample) -> Vec<f64>,
@@ -984,6 +1077,33 @@ where
         .enumerate()
         .filter(|(idx, feature)| {
             let nearest = nearest_neighbor_idx(samples, &features, *idx, feature);
+            labels[nearest] == labels[*idx]
+        })
+        .count();
+    correct as f64 / labels.len() as f64
+}
+
+fn episode_loo_nn_success_accuracy<F>(
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    episode_ids: &[String],
+    values: F,
+) -> f64
+where
+    F: Fn(&OfflineVldaSample) -> Vec<f64>,
+{
+    let features = samples.iter().map(values).collect::<Vec<_>>();
+    let correct = features
+        .iter()
+        .enumerate()
+        .filter(|(idx, feature)| {
+            let nearest = nearest_neighbor_idx_excluding_episode(
+                samples,
+                &features,
+                *idx,
+                feature,
+                episode_ids,
+            );
             labels[nearest] == labels[*idx]
         })
         .count();
@@ -1020,6 +1140,39 @@ fn nearest_neighbor_idx(
         }
     }
     best_idx.expect("validated dataset has at least two samples")
+}
+
+fn nearest_neighbor_idx_excluding_episode(
+    samples: &[OfflineVldaSample],
+    features: &[Vec<f64>],
+    idx: usize,
+    feature: &[f64],
+    episode_ids: &[String],
+) -> usize {
+    let mut best_idx: Option<usize> = None;
+    let mut best_distance = f64::INFINITY;
+    for (candidate_idx, candidate) in features.iter().enumerate() {
+        if episode_ids[candidate_idx] == episode_ids[idx] {
+            continue;
+        }
+        let distance = squared_euclidean(feature, candidate);
+        let replace = match best_idx {
+            None => true,
+            Some(current_idx) => match distance.total_cmp(&best_distance) {
+                Ordering::Less => true,
+                Ordering::Equal => {
+                    samples[candidate_idx].sample_id.as_str()
+                        < samples[current_idx].sample_id.as_str()
+                }
+                Ordering::Greater => false,
+            },
+        };
+        if replace {
+            best_idx = Some(candidate_idx);
+            best_distance = distance;
+        }
+    }
+    best_idx.expect("validated episode ids include at least two episodes")
 }
 
 fn squared_euclidean(left: &[f64], right: &[f64]) -> f64 {
@@ -1142,6 +1295,70 @@ fn write_metric_events<W: Write>(
                     ("category".to_string(), "baseline".to_string()),
                     ("classifier".to_string(), "leave_one_out_1nn".to_string()),
                     ("distance".to_string(), "raw_euclidean".to_string()),
+                ]
+                .into_iter()
+                .collect(),
+            })?;
+            idx += 1;
+        }
+    }
+    if let Some(value) = report.metrics.episode_loo_majority_success_accuracy {
+        writer.append(&RunLogEvent::EvaluationMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + idx,
+            name: "offline_vlda.baseline.episode_loo_majority_success_accuracy".to_string(),
+            value,
+            metadata: [
+                ("category".to_string(), "baseline".to_string()),
+                (
+                    "classifier".to_string(),
+                    "leave_one_episode_out_majority".to_string(),
+                ),
+                ("split".to_string(), "leave_one_episode_out".to_string()),
+                ("group_key".to_string(), "episode_id".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        })?;
+        idx += 1;
+    }
+    for (name, value) in [
+        (
+            "offline_vlda.baseline.episode_loo_nn_v_success_accuracy",
+            report.metrics.episode_loo_nn_v_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.episode_loo_nn_l_success_accuracy",
+            report.metrics.episode_loo_nn_l_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.episode_loo_nn_d_success_accuracy",
+            report.metrics.episode_loo_nn_d_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.episode_loo_nn_a_success_accuracy",
+            report.metrics.episode_loo_nn_a_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.episode_loo_nn_vlda_success_accuracy",
+            report.metrics.episode_loo_nn_vlda_success_accuracy,
+        ),
+    ] {
+        if let Some(value) = value {
+            writer.append(&RunLogEvent::EvaluationMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + idx,
+                name: name.to_string(),
+                value,
+                metadata: [
+                    ("category".to_string(), "baseline".to_string()),
+                    (
+                        "classifier".to_string(),
+                        "leave_one_episode_out_1nn".to_string(),
+                    ),
+                    ("distance".to_string(), "raw_euclidean".to_string()),
+                    ("split".to_string(), "leave_one_episode_out".to_string()),
+                    ("group_key".to_string(), "episode_id".to_string()),
                 ]
                 .into_iter()
                 .collect(),
@@ -1368,6 +1585,22 @@ mod tests {
         assert_eq!(report.metrics.loo_nn_v_success_accuracy, Some(0.5625));
         assert_eq!(report.metrics.loo_nn_l_success_accuracy, Some(0.4375));
         assert_eq!(report.metrics.loo_nn_vlda_success_accuracy, Some(0.5625));
+        assert_eq!(
+            report.metrics.episode_loo_majority_success_accuracy,
+            Some(0.75)
+        );
+        assert_eq!(
+            report.metrics.episode_loo_nn_v_success_accuracy,
+            Some(0.625)
+        );
+        assert_eq!(
+            report.metrics.episode_loo_nn_l_success_accuracy,
+            Some(0.4375)
+        );
+        assert_eq!(
+            report.metrics.episode_loo_nn_vlda_success_accuracy,
+            Some(0.5625)
+        );
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         assert_eq!(report.metrics.pid_pairs["VD"].source_2, "D");
         assert_eq!(report.label_counts["success"], 16);
@@ -1424,7 +1657,7 @@ mod tests {
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 21);
         assert!(summary.geometry_metrics >= 21);
-        assert!(summary.evaluation_metrics >= 8);
+        assert_eq!(summary.evaluation_metrics, 14);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
@@ -1448,6 +1681,10 @@ mod tests {
         assert_eq!(report.metrics.success_rate, Some(0.75));
         assert_eq!(report.metrics.loo_nn_d_success_accuracy, Some(0.5625));
         assert_eq!(report.metrics.loo_nn_a_success_accuracy, Some(0.4375));
+        assert_eq!(
+            report.metrics.episode_loo_nn_v_success_accuracy,
+            Some(0.625)
+        );
         assert!(report.metrics.pid_pairs.contains_key("LD"));
         assert_eq!(report.geometry.variables.len(), 6);
         assert_eq!(report.geometry.gates.status, "warn");
