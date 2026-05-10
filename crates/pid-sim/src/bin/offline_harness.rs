@@ -1,7 +1,8 @@
 use anyhow::{bail, Context, Result};
 use pid_sim::offline_harness::{
-    read_offline_vlda_dataset, run_offline_vlda_harness, write_offline_vlda_runlog,
-    write_offline_vlda_summary,
+    offline_vlda_geometry_gate_failure_message, read_offline_vlda_dataset,
+    run_offline_vlda_harness, write_offline_vlda_runlog_with_options, write_offline_vlda_summary,
+    OfflineVldaRunlogOptions,
 };
 use std::path::PathBuf;
 
@@ -10,6 +11,7 @@ struct Args {
     input: PathBuf,
     summary_json: PathBuf,
     runlog: PathBuf,
+    require_geometry_pass: bool,
 }
 
 fn main() -> Result<()> {
@@ -23,20 +25,27 @@ fn main() -> Result<()> {
         Some(input_sha256),
     )?;
     write_offline_vlda_summary(&args.summary_json, &report)?;
-    write_offline_vlda_runlog(
+    write_offline_vlda_runlog_with_options(
         &args.runlog,
         Some(&args.summary_json),
         Some(&args.input),
         &dataset,
         &report,
+        OfflineVldaRunlogOptions {
+            require_geometry_pass: args.require_geometry_pass,
+        },
     )?;
     println!(
-        "offline_vlda_summary={} runlog={} samples={} config_hash={}",
+        "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_gate_status={}",
         args.summary_json.display(),
         args.runlog.display(),
         report.dims.samples,
-        report.config_hash
+        report.config_hash,
+        report.geometry.gates.status
     );
+    if args.require_geometry_pass && report.geometry.gates.status != "pass" {
+        bail!("{}", offline_vlda_geometry_gate_failure_message(&report));
+    }
     Ok(())
 }
 
@@ -44,6 +53,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut input = None;
     let mut summary_json = PathBuf::from("outputs/offline_vlda_summary.json");
     let mut runlog = PathBuf::from("outputs/offline_vlda_runlog.jsonl");
+    let mut require_geometry_pass = false;
     let mut iter = args.into_iter();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
@@ -63,6 +73,9 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
             "--runlog" => {
                 runlog = PathBuf::from(iter.next().context("--runlog requires a path")?);
             }
+            "--require-geometry-pass" => {
+                require_geometry_pass = true;
+            }
             other => bail!("unknown argument: {other}"),
         }
     }
@@ -71,12 +84,13 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         input,
         summary_json,
         runlog,
+        require_geometry_pass,
     })
 }
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH]\n\
+        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts."
     );
@@ -95,10 +109,12 @@ mod tests {
             "summary.json".to_string(),
             "--runlog".to_string(),
             "runlog.jsonl".to_string(),
+            "--require-geometry-pass".to_string(),
         ])
         .unwrap();
         assert_eq!(args.input, PathBuf::from("fixture.json"));
         assert_eq!(args.summary_json, PathBuf::from("summary.json"));
         assert_eq!(args.runlog, PathBuf::from("runlog.jsonl"));
+        assert!(args.require_geometry_pass);
     }
 }

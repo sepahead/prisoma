@@ -933,11 +933,14 @@ cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/toy_vla_ru
 
 ```bash
 just offline-harness
+just offline-harness-strict
 
 # Equivalent without just
 cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl
 cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/offline_vlda_runlog.jsonl
 ```
+
+Use `--require-geometry-pass` for fail-closed analysis runs. In that mode the CLI exits nonzero if the standardized geometry gate is not `pass`, but it still writes a canonical summary and a valid run log with `run_ended.status = failed` plus an `error_logged` record for provenance.
 
 This harness is an artifact-to-runlog converter for embedding captures. It still requires a real model/task capture process and externally meaningful labels before it can support VLA claims.
 

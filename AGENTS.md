@@ -26,6 +26,7 @@ These notes help future coding agents work on this repo without introducing acci
   - `just toy-harness` (or `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`)
 - Offline VLDA embedding harness:
   - `just offline-harness` (or `cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl`)
+  - `just offline-harness-strict` exercises `--require-geometry-pass`; the checked fixture is expected to exit nonzero while writing a valid failed run log.
 - Run-log smoke:
   - `just bridge-contract`
   - `just runlog-demo`

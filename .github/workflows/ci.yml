@@ -29,6 +29,9 @@ jobs:
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'embedding_contracts=1'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'geometry_metrics=21'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metrics=8'
+          if cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_strict_summary.json --runlog /tmp/pid_vla_offline_vlda_strict_runlog.jsonl --require-geometry-pass; then exit 1; fi
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_strict_runlog.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_strict_runlog.jsonl | grep -q 'errors=1'
           cargo run -p pid-bridge --bin pid-bridge-contract -- --out /tmp/pid_vla_bridge_runlog_contract.json
           cargo run -p pid-sim --bin pid-sim-bridge-demo -- /tmp/pid_vla_bridge_demo.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_demo.jsonl
