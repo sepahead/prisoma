@@ -85,7 +85,12 @@ fn main() -> Result<()> {
 
     let sim = pid_sim::demo_sim();
     writer.append(&sim.snapshot_event())?;
-    let mut session = pid_sim::SimBridgeSession::with_safe_mode(writer, sim, safe_mode);
+    let mut session = pid_sim::SimBridgeSession::with_safe_mode_and_run_id(
+        writer,
+        sim,
+        safe_mode,
+        "bridge-ws-run",
+    );
     let actor = Actor {
         actor_type: ActorType::Script,
         actor_id: "pid-sim-bridge-ws".to_string(),
@@ -103,12 +108,10 @@ fn main() -> Result<()> {
     perform_websocket_handshake(&mut stream)?;
     let handled = dispatch_websocket_messages(&mut stream, &mut session, actor)?;
 
-    session.record_event(&RunLogEvent::RunEnded {
-        run_id: "bridge-ws-run".to_string(),
-        timestamp_ns: session.timestamp_ns(),
-        status: RunStatus::Succeeded,
-        message: Some(format!("processed {handled} request(s) from {peer_addr}")),
-    })?;
+    session.finish_run(
+        RunStatus::Succeeded,
+        Some(format!("processed {handled} request(s) from {peer_addr}")),
+    )?;
     session.flush()?;
     eprintln!("wrote {}", path.display());
     Ok(())
@@ -180,6 +183,9 @@ fn dispatch_websocket_messages<W: Write>(
                     let response = serde_json::to_string(&response)
                         .context("failed to encode JSON-RPC response")?;
                     write_websocket_frame(stream, 0x1, response.as_bytes())?;
+                    if session.run_ended() {
+                        return Ok(handled);
+                    }
                 }
             }
             WebSocketFrame::Ping(payload) => write_websocket_frame(stream, 0xA, &payload)?,

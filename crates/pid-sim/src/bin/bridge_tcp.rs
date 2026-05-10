@@ -81,7 +81,12 @@ fn main() -> Result<()> {
 
     let sim = pid_sim::demo_sim();
     writer.append(&sim.snapshot_event())?;
-    let mut session = pid_sim::SimBridgeSession::with_safe_mode(writer, sim, safe_mode);
+    let mut session = pid_sim::SimBridgeSession::with_safe_mode_and_run_id(
+        writer,
+        sim,
+        safe_mode,
+        "bridge-tcp-run",
+    );
     let actor = Actor {
         actor_type: ActorType::Script,
         actor_id: "pid-sim-bridge-tcp".to_string(),
@@ -102,12 +107,10 @@ fn main() -> Result<()> {
     let handled = pid_sim::dispatch_rpc_lines(reader, &mut output, &mut session, actor)?;
     output.flush().context("failed to flush TCP responses")?;
 
-    session.record_event(&RunLogEvent::RunEnded {
-        run_id: "bridge-tcp-run".to_string(),
-        timestamp_ns: session.timestamp_ns(),
-        status: RunStatus::Succeeded,
-        message: Some(format!("processed {handled} request(s) from {peer_addr}")),
-    })?;
+    session.finish_run(
+        RunStatus::Succeeded,
+        Some(format!("processed {handled} request(s) from {peer_addr}")),
+    )?;
     session.flush()?;
     eprintln!("wrote {}", path.display());
     Ok(())

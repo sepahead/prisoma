@@ -46,6 +46,10 @@ fn main() -> Result<()> {
         let replay = pid_sim::verify_sim_replay(&events, tolerance);
         println!("sim_replay_valid={}", replay.is_valid());
         println!("sim_replay_checked_actions={}", replay.checked_actions);
+        println!(
+            "sim_replay_checked_interventions={}",
+            replay.checked_interventions
+        );
         println!("sim_replay_checked_snapshots={}", replay.checked_snapshots);
         println!("sim_replay_checked_objects={}", replay.checked_objects);
         println!("sim_replay_issues={}", replay.issues.len());

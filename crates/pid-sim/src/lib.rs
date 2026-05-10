@@ -3,7 +3,9 @@ use pid_bridge::{
     BridgeHandler, BridgeMethod, BridgeRequest, BridgeResponse, BridgeRpcRequest,
     BridgeRpcResponse, LocalBridge,
 };
-use pid_runlog::{Actor, Pose, RunLogEvent, RunLogWriter, SimObjectSnapshot};
+use pid_runlog::{
+    canonical_json_hash, Actor, Pose, RunLogEvent, RunLogWriter, RunStatus, SimObjectSnapshot,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -14,6 +16,7 @@ pub mod offline_harness;
 pub mod toy_harness;
 
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";
+pub const DEFAULT_BRIDGE_RUN_ID: &str = "sim-bridge-run";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimObject {
@@ -35,6 +38,24 @@ pub struct SimStepResult {
     pub flow_gt: Vec<FlowGtRecord>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct SetVelocityIntervention {
+    object_id: String,
+    velocity: [f64; 3],
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct TranslateObjectIntervention {
+    object_id: String,
+    delta: [f64; 3],
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct SetPoseIntervention {
+    object_id: String,
+    pose: Pose,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FlowVerificationReport {
     pub checked_flows: usize,
@@ -51,6 +72,7 @@ impl FlowVerificationReport {
 pub struct SimReplayReport {
     pub seeded_from_step: Option<u64>,
     pub checked_actions: usize,
+    pub checked_interventions: usize,
     pub checked_snapshots: usize,
     pub checked_objects: usize,
     pub final_logged_step: Option<u64>,
@@ -80,6 +102,8 @@ pub struct SimBridgeHandler {
 pub struct SimBridgeSession<W> {
     bridge: LocalBridge<W>,
     handler: SimBridgeHandler,
+    run_id: String,
+    run_ended: bool,
 }
 
 pub fn deterministic_sim_config(
@@ -158,6 +182,64 @@ impl DeterministicObjectSim {
 
     pub fn upsert_object(&mut self, object: SimObject) {
         self.objects.insert(object.object_id.clone(), object);
+    }
+
+    pub fn apply_intervention(
+        &mut self,
+        intervention_type: &str,
+        payload: &Value,
+    ) -> Result<Value> {
+        match intervention_type {
+            "set_velocity" => {
+                let parsed: SetVelocityIntervention = serde_json::from_value(payload.clone())?;
+                validate_object_id(&parsed.object_id)?;
+                validate_vec3_finite(parsed.velocity, "velocity")?;
+                let object = self
+                    .objects
+                    .get_mut(&parsed.object_id)
+                    .with_context(|| format!("unknown object_id {}", parsed.object_id))?;
+                object.velocity = parsed.velocity;
+                Ok(json!({
+                    "object_id": parsed.object_id,
+                    "velocity": parsed.velocity,
+                }))
+            }
+            "translate_object" => {
+                let parsed: TranslateObjectIntervention =
+                    serde_json::from_value(payload.clone())?;
+                validate_object_id(&parsed.object_id)?;
+                validate_vec3_finite(parsed.delta, "delta")?;
+                let object = self
+                    .objects
+                    .get_mut(&parsed.object_id)
+                    .with_context(|| format!("unknown object_id {}", parsed.object_id))?;
+                for (position, delta) in object.pose.position.iter_mut().zip(parsed.delta) {
+                    *position += delta;
+                }
+                Ok(json!({
+                    "object_id": parsed.object_id,
+                    "delta": parsed.delta,
+                    "position": object.pose.position,
+                }))
+            }
+            "set_pose" => {
+                let parsed: SetPoseIntervention = serde_json::from_value(payload.clone())?;
+                validate_object_id(&parsed.object_id)?;
+                validate_pose_finite(&parsed.pose)?;
+                let object = self
+                    .objects
+                    .get_mut(&parsed.object_id)
+                    .with_context(|| format!("unknown object_id {}", parsed.object_id))?;
+                object.pose = parsed.pose.clone();
+                Ok(json!({
+                    "object_id": parsed.object_id,
+                    "pose": parsed.pose,
+                }))
+            }
+            other => bail!(
+                "unsupported intervention_type: {other}; supported: set_velocity, translate_object, set_pose"
+            ),
+        }
     }
 
     pub fn reset(&mut self) {
@@ -257,6 +339,28 @@ impl SimStepResult {
     }
 }
 
+fn validate_object_id(object_id: &str) -> Result<()> {
+    if object_id.is_empty() {
+        bail!("object_id must not be empty");
+    }
+    Ok(())
+}
+
+fn validate_vec3_finite(value: [f64; 3], name: &str) -> Result<()> {
+    if value.iter().any(|value| !value.is_finite()) {
+        bail!("{name} must be finite");
+    }
+    Ok(())
+}
+
+fn validate_pose_finite(pose: &Pose) -> Result<()> {
+    validate_vec3_finite(pose.position, "pose position")?;
+    if pose.orientation_xyzw.iter().any(|value| !value.is_finite()) {
+        bail!("pose orientation must be finite");
+    }
+    Ok(())
+}
+
 impl BridgeHandler for SimBridgeHandler {
     fn handle(&mut self, request: &BridgeRequest) -> Result<Value> {
         self.last_step = None;
@@ -285,6 +389,32 @@ impl BridgeHandler for SimBridgeHandler {
                 let object = serde_json::from_value::<SimObject>(request.payload.clone())?;
                 self.sim.upsert_object(object);
                 Ok(self.status_json())
+            }
+            BridgeMethod::InterventionApply => {
+                let intervention_type = request
+                    .payload
+                    .get("intervention_type")
+                    .and_then(Value::as_str)
+                    .context("intervention.apply requires string intervention_type")?;
+                if intervention_type.is_empty() {
+                    bail!("intervention_type must not be empty");
+                }
+                let payload = request
+                    .payload
+                    .get("payload")
+                    .context("intervention.apply requires payload object")?;
+                if !payload.is_object() {
+                    bail!("intervention.apply payload must be an object");
+                }
+                let details = self.sim.apply_intervention(intervention_type, payload)?;
+                Ok(json!({
+                    "accepted": true,
+                    "intervention_type": intervention_type,
+                    "step": self.sim.step(),
+                    "timestamp_ns": self.sim.timestamp_ns(),
+                    "objects": self.sim.objects().count(),
+                    "details": details,
+                }))
             }
             BridgeMethod::LogReplay => {
                 let run_log_uri = request
@@ -340,9 +470,19 @@ impl SimBridgeHandler {
 
 impl<W: Write> SimBridgeSession<W> {
     pub fn new(writer: RunLogWriter<W>, sim: DeterministicObjectSim) -> Self {
+        Self::with_run_id(writer, sim, DEFAULT_BRIDGE_RUN_ID)
+    }
+
+    pub fn with_run_id(
+        writer: RunLogWriter<W>,
+        sim: DeterministicObjectSim,
+        run_id: impl Into<String>,
+    ) -> Self {
         Self {
             bridge: LocalBridge::new(writer),
             handler: SimBridgeHandler::new(sim),
+            run_id: run_id.into(),
+            run_ended: false,
         }
     }
 
@@ -351,9 +491,20 @@ impl<W: Write> SimBridgeSession<W> {
         sim: DeterministicObjectSim,
         safe_mode: bool,
     ) -> Self {
+        Self::with_safe_mode_and_run_id(writer, sim, safe_mode, DEFAULT_BRIDGE_RUN_ID)
+    }
+
+    pub fn with_safe_mode_and_run_id(
+        writer: RunLogWriter<W>,
+        sim: DeterministicObjectSim,
+        safe_mode: bool,
+        run_id: impl Into<String>,
+    ) -> Self {
         Self {
             bridge: LocalBridge::with_safe_mode(writer, safe_mode),
             handler: SimBridgeHandler::new(sim),
+            run_id: run_id.into(),
+            run_ended: false,
         }
     }
 
@@ -365,7 +516,18 @@ impl<W: Write> SimBridgeSession<W> {
         self.bridge.set_safe_mode(safe_mode);
     }
 
+    pub fn run_id(&self) -> &str {
+        &self.run_id
+    }
+
+    pub fn run_ended(&self) -> bool {
+        self.run_ended
+    }
+
     pub fn dispatch(&mut self, request: &BridgeRequest) -> Result<BridgeResponse> {
+        if self.run_ended {
+            bail!("bridge run {} already ended", self.run_id);
+        }
         self.bridge.record_request(request)?;
         if self.bridge.safe_mode() && !request.safe_mode_allowed() {
             let response = BridgeResponse::blocked_by_safe_mode(
@@ -381,7 +543,11 @@ impl<W: Write> SimBridgeSession<W> {
         ) {
             self.bridge.flush()?;
         }
-        let handled = self.handler.handle(request);
+        let handled = match request.method {
+            BridgeMethod::LogStart => self.handle_log_start(request),
+            BridgeMethod::LogStop => self.handle_log_stop(request),
+            _ => self.handler.handle(request),
+        };
         let response = match handled {
             Ok(result) => BridgeResponse {
                 request_id: request.request_id.clone(),
@@ -432,6 +598,14 @@ impl<W: Write> SimBridgeSession<W> {
                 self.bridge
                     .record_event(&self.handler.sim.snapshot_event())?;
             }
+            BridgeMethod::InterventionApply if response.ok => {
+                self.record_intervention(request)?;
+                self.bridge
+                    .record_event(&self.handler.sim.snapshot_event())?;
+                for event in self.handler.sim.pose_events() {
+                    self.bridge.record_event(&event)?;
+                }
+            }
             BridgeMethod::ExportRerun if response.ok => {
                 if let Some(result) = &response.result {
                     if let Some(output_uri) = result.get("output_uri").and_then(Value::as_str) {
@@ -459,6 +633,12 @@ impl<W: Write> SimBridgeSession<W> {
             }
             _ => {}
         }
+        if request.method == BridgeMethod::LogStop && response.ok {
+            self.finish_run(
+                RunStatus::Succeeded,
+                Some(format!("log.stop requested by {}", request.actor.actor_id)),
+            )?;
+        }
 
         Ok(response)
     }
@@ -472,6 +652,11 @@ impl<W: Write> SimBridgeSession<W> {
     }
 
     pub fn record_event(&mut self, event: &RunLogEvent) -> Result<()> {
+        if let RunLogEvent::RunEnded { run_id, .. } = event {
+            if run_id == &self.run_id {
+                self.run_ended = true;
+            }
+        }
         self.bridge.record_event(event)
     }
 
@@ -479,8 +664,59 @@ impl<W: Write> SimBridgeSession<W> {
         self.bridge.flush()
     }
 
+    pub fn finish_run(&mut self, status: RunStatus, message: Option<String>) -> Result<bool> {
+        if self.run_ended {
+            return Ok(false);
+        }
+        let event = RunLogEvent::RunEnded {
+            run_id: self.run_id.clone(),
+            timestamp_ns: self.handler.sim.timestamp_ns(),
+            status,
+            message,
+        };
+        self.record_event(&event)?;
+        Ok(true)
+    }
+
     pub fn into_inner(self) -> W {
         self.bridge.into_inner()
+    }
+
+    fn handle_log_start(&self, request: &BridgeRequest) -> Result<Value> {
+        if let Some(requested_run_id) = request.payload.get("run_id").and_then(Value::as_str) {
+            if requested_run_id.is_empty() {
+                bail!("log.start run_id must not be empty");
+            }
+            if requested_run_id != self.run_id {
+                bail!(
+                    "log.start run_id {requested_run_id} does not match active run {}",
+                    self.run_id
+                );
+            }
+        }
+        if let Some(metadata) = request.payload.get("metadata") {
+            if !metadata.is_object() {
+                bail!("log.start metadata must be an object");
+            }
+        }
+        Ok(json!({
+            "run_id": self.run_id,
+            "active": true,
+            "step": self.handler.sim.step(),
+            "timestamp_ns": self.handler.sim.timestamp_ns(),
+        }))
+    }
+
+    fn handle_log_stop(&self, request: &BridgeRequest) -> Result<Value> {
+        if !request.payload.is_object() {
+            bail!("log.stop payload must be an object");
+        }
+        Ok(json!({
+            "run_id": self.run_id,
+            "stopped": true,
+            "step": self.handler.sim.step(),
+            "timestamp_ns": self.handler.sim.timestamp_ns(),
+        }))
     }
 
     fn record_action(&mut self, request: &BridgeRequest) -> Result<()> {
@@ -491,6 +727,27 @@ impl<W: Write> SimBridgeSession<W> {
             action_type: request.method.as_str().to_string(),
             payload_hash: request.payload_hash()?,
             payload: request.payload.clone(),
+        })
+    }
+
+    fn record_intervention(&mut self, request: &BridgeRequest) -> Result<()> {
+        let intervention_type = request
+            .payload
+            .get("intervention_type")
+            .and_then(Value::as_str)
+            .context("intervention.apply requires string intervention_type")?;
+        let payload = request
+            .payload
+            .get("payload")
+            .cloned()
+            .context("intervention.apply requires payload object")?;
+        self.bridge.record_event(&RunLogEvent::InterventionApplied {
+            step: self.handler.sim.step(),
+            timestamp_ns: self.handler.sim.timestamp_ns(),
+            actor: request.actor.clone(),
+            intervention_type: intervention_type.to_string(),
+            payload_hash: canonical_json_hash(&payload)?,
+            payload,
         })
     }
 }
@@ -600,6 +857,9 @@ where
             .write_all(b"\n")
             .context("failed to write RPC response newline")?;
         handled += 1;
+        if session.run_ended() {
+            break;
+        }
     }
     Ok(handled)
 }
@@ -763,6 +1023,11 @@ pub fn verify_sim_replay(events: &[RunLogEvent], tolerance: f64) -> SimReplayRep
                 payload,
                 ..
             } => apply_replay_action(&mut sim, action_type, payload, &mut report),
+            RunLogEvent::InterventionApplied {
+                intervention_type,
+                payload,
+                ..
+            } => apply_replay_intervention(&mut sim, intervention_type, payload, &mut report),
             _ => {}
         }
     }
@@ -782,6 +1047,26 @@ pub fn verify_sim_replay(events: &[RunLogEvent], tolerance: f64) -> SimReplayRep
             .push("missing sim_snapshot seed for deterministic replay".to_string());
     }
     report
+}
+
+fn apply_replay_intervention(
+    sim: &mut Option<DeterministicObjectSim>,
+    intervention_type: &str,
+    payload: &Value,
+    report: &mut SimReplayReport,
+) {
+    let Some(current) = sim.as_mut() else {
+        report.issues.push(format!(
+            "{intervention_type} intervention appeared before any sim_snapshot seed"
+        ));
+        return;
+    };
+    match current.apply_intervention(intervention_type, payload) {
+        Ok(_) => report.checked_interventions += 1,
+        Err(err) => report.issues.push(format!(
+            "failed to replay {intervention_type} intervention: {err}"
+        )),
+    }
 }
 
 fn apply_replay_action(
@@ -954,8 +1239,8 @@ mod tests {
     use super::*;
     use pid_bridge::{BridgeMethod, BridgeRpcResponse};
     use pid_runlog::{
-        canonical_json_hash, read_events, replay_events, ActorType, RunLogEvent, RunLogWriter,
-        RunStatus, RUN_LOG_SCHEMA_VERSION,
+        canonical_json_hash, read_events, replay_events, validate_events, ActorType, RunLogEvent,
+        RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
     };
     use serde_json::json;
     use std::io::Cursor;
@@ -969,14 +1254,17 @@ mod tests {
         std::env::temp_dir().join(format!("{prefix}-{stamp}.{extension}"))
     }
 
-    fn write_minimal_run_log(path: &Path, test_name: &str) {
+    fn append_run_prefix<W: std::io::Write>(
+        writer: &mut RunLogWriter<W>,
+        run_id: &str,
+        test_name: &str,
+    ) {
         let config = json!({ "test": test_name });
         let config_hash = canonical_json_hash(&config).unwrap();
-        let mut writer = RunLogWriter::create(path).unwrap();
         writer
             .append(&RunLogEvent::RunStarted {
                 schema_version: RUN_LOG_SCHEMA_VERSION,
-                run_id: test_name.to_string(),
+                run_id: run_id.to_string(),
                 timestamp_ns: 0,
                 config_hash: config_hash.clone(),
                 metadata: BTreeMap::new(),
@@ -985,10 +1273,15 @@ mod tests {
         writer
             .append(&RunLogEvent::ConfigLogged {
                 timestamp_ns: 0,
-                config_hash: config_hash.clone(),
+                config_hash,
                 config,
             })
             .unwrap();
+    }
+
+    fn write_minimal_run_log(path: &Path, test_name: &str) {
+        let mut writer = RunLogWriter::create(path).unwrap();
+        append_run_prefix(&mut writer, test_name, test_name);
         writer
             .append(&RunLogEvent::RunEnded {
                 run_id: test_name.to_string(),
@@ -1139,6 +1432,111 @@ mod tests {
         assert_eq!(state.actions.len(), 0);
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn bridge_session_handles_log_lifecycle_methods() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-log-lifecycle-test".to_string(),
+            session_id: None,
+        };
+        let run_id = "bridge-log-lifecycle-run";
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, run_id, "log_lifecycle");
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::with_run_id(writer, sim, run_id);
+
+        let start = bridge_request(
+            "req-log-start",
+            BridgeMethod::LogStart,
+            actor.clone(),
+            Some(0),
+            0,
+            json!({ "run_id": run_id, "metadata": { "purpose": "test" } }),
+        );
+        let start_response = session.dispatch(&start).unwrap();
+        assert!(start_response.ok, "{:?}", start_response.message);
+        let start_result = start_response.result.unwrap();
+        assert_eq!(start_result["run_id"], run_id);
+        assert_eq!(start_result["active"], true);
+
+        let stop = bridge_request(
+            "req-log-stop",
+            BridgeMethod::LogStop,
+            actor,
+            Some(0),
+            0,
+            json!({}),
+        );
+        let stop_response = session.dispatch(&stop).unwrap();
+        assert!(stop_response.ok, "{:?}", stop_response.message);
+        assert!(session.run_ended());
+        assert!(!session.finish_run(RunStatus::Succeeded, None).unwrap());
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let validation = validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        assert!(
+            matches!(events.last(), Some(RunLogEvent::RunEnded { run_id: id, .. }) if id == run_id)
+        );
+        let state = replay_events(&events);
+        assert_eq!(state.bridge_records.len(), 4);
+        assert_eq!(state.status, Some(RunStatus::Succeeded));
+    }
+
+    #[test]
+    fn bridge_session_applies_and_replays_intervention() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-intervention-test".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::new(writer, sim);
+        let intervention = bridge_request(
+            "req-intervention",
+            BridgeMethod::InterventionApply,
+            actor.clone(),
+            Some(0),
+            0,
+            json!({
+                "intervention_type": "set_velocity",
+                "payload": {
+                    "object_id": "red_cube",
+                    "velocity": [0.2, 0.0, 0.0]
+                }
+            }),
+        );
+        let response = session.dispatch(&intervention).unwrap();
+        assert!(response.ok, "{:?}", response.message);
+        let result = response.result.unwrap();
+        assert_eq!(result["accepted"], true);
+        assert_eq!(result["intervention_type"], "set_velocity");
+
+        let step = bridge_request(
+            "req-step-after-intervention",
+            BridgeMethod::SimStep,
+            actor,
+            Some(0),
+            0,
+            json!({ "dt": 0.5 }),
+        );
+        assert!(session.dispatch(&step).unwrap().ok);
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events);
+        assert_eq!(state.interventions.len(), 1);
+        assert_eq!(state.actions.len(), 1);
+        let replay = verify_sim_replay(&events, 1e-12);
+        assert!(replay.is_valid(), "{:?}", replay.issues);
+        assert_eq!(replay.checked_interventions, 1);
+        assert_eq!(replay.checked_actions, 1);
+        let flow = verify_flow_gt(&events, 1e-12);
+        assert!(flow.is_valid(), "{:?}", flow.issues);
     }
 
     #[test]
@@ -1425,6 +1823,52 @@ mod tests {
         let state = replay_events(&events);
         assert_eq!(state.actions.len(), 0);
         assert_eq!(state.sim_snapshots, 1);
+    }
+
+    #[test]
+    fn rpc_line_processor_stops_after_log_stop() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-rpc-log-stop-test".to_string(),
+            session_id: None,
+        };
+        let run_id = "rpc-log-stop-run";
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, run_id, "rpc_log_stop");
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::with_run_id(writer, sim, run_id);
+        let input = concat!(
+            r#"{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}"#,
+            "\n",
+            r#"{"jsonrpc":"2.0","id":"stop","method":"log.stop","params":{}}"#,
+            "\n",
+            r#"{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}"#,
+            "\n"
+        );
+        let mut output = Vec::new();
+        let handled =
+            dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap();
+        assert_eq!(handled, 2);
+        assert!(session.run_ended());
+
+        let lines = String::from_utf8(output).unwrap();
+        let responses = lines
+            .lines()
+            .map(|line| serde_json::from_str::<BridgeRpcResponse>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(responses.len(), 2);
+        assert_eq!(responses[0].id, "status");
+        assert_eq!(responses[1].id, "stop");
+        assert!(responses.iter().all(BridgeRpcResponse::is_ok));
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let validation = validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let state = replay_events(&events);
+        assert_eq!(state.bridge_records.len(), 4);
+        assert_eq!(state.actions.len(), 0);
+        assert_eq!(state.status, Some(RunStatus::Succeeded));
     }
 
     #[test]

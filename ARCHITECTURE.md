@@ -435,7 +435,7 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 | **Agent Bridge** | Shared control plane | GUI, scripts, and LLM tools call the same local API; every action is logged. |
 | **Rerun** | **Visualization & diagnostics** | **Primary P1-3 Tool.** Timeline, 3D scene, plots, ghost overlays, and replay from run logs. |
 
-Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status, deterministic stepping, replay, and `export.rerun`; safe mode keeps status/replay read-only and rejects mutation or file-writing exports.
+Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status, deterministic stepping, deterministic interventions, replay, run lifecycle stop, and `export.rerun`; safe mode keeps status/replay read-only and rejects mutation, run-ending, or file-writing exports.
 | **Tauri+SparkJS** | Interactive App | **Deferred to P4.** For custom shaders, collider/edit tools, and complex intervention UI; never the canonical store. |
 | **Physics** | Object physics | Modular (Rapier/MuJoCo/Isaac) |
 | **Robot Sim** | Robot dynamics | Industry-standard (Gazebo/MuJoCo) |

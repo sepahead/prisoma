@@ -47,7 +47,7 @@ fn main() -> Result<()> {
     };
     let sim = pid_sim::demo_sim();
     writer.append(&sim.snapshot_event())?;
-    let mut session = pid_sim::SimBridgeSession::new(writer, sim);
+    let mut session = pid_sim::SimBridgeSession::with_run_id(writer, sim, "bridge-demo-run");
     for idx in 0..5 {
         let request = pid_sim::bridge_request(
             format!("req-step-{idx}"),
@@ -59,12 +59,10 @@ fn main() -> Result<()> {
         );
         session.dispatch(&request)?;
     }
-    session.record_event(&RunLogEvent::RunEnded {
-        run_id: "bridge-demo-run".to_string(),
-        timestamp_ns: 500_000_000,
-        status: RunStatus::Succeeded,
-        message: Some("bridge demo complete".to_string()),
-    })?;
+    session.finish_run(
+        RunStatus::Succeeded,
+        Some("bridge demo complete".to_string()),
+    )?;
     session.flush()?;
     println!("wrote {}", path.display());
     Ok(())

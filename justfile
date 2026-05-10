@@ -52,7 +52,8 @@ runlog-bridge-demo:
     cargo run -p pid-sim --bin pid-sim-bridge-demo -- outputs/demo_bridge_runlog.jsonl
 
 runlog-bridge-stdio path="outputs/demo_bridge_stdio_runlog.jsonl":
-    printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- {{path}}
+    printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"intervention","method":"intervention.apply","params":{"intervention_type":"set_velocity","payload":{"object_id":"red_cube","velocity":[0.2,0.0,0.0]}}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' '{"jsonrpc":"2.0","id":"stop","method":"log.stop","params":{}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- {{path}}
+    cargo run -p pid-sim --bin pid-sim-verify -- {{path}}
 
 runlog-bridge-stdio-safe path="outputs/demo_bridge_stdio_safe_runlog.jsonl":
     cargo run -p pid-sim --bin pid-sim-bridge-demo -- outputs/demo_bridge_runlog.jsonl

@@ -38,6 +38,7 @@ pub const RUN_LOG_VALIDATION_RULES: &[&str] = &[
     "exactly one run_started event",
     "exactly one run_ended event",
     "run_started is first event",
+    "run_ended is last event",
     "schema_version matches RUN_LOG_SCHEMA_VERSION",
     "timestamps are nondecreasing",
     "steps are nondecreasing",
@@ -857,6 +858,9 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
             }
             RunLogEvent::RunEnded { run_id: id, .. } => {
                 ends += 1;
+                if idx + 1 != events.len() {
+                    report.error(Some(idx), "run_ended must be the last event");
+                }
                 if let Some(start_id) = run_id {
                     if start_id != id {
                         report.error(Some(idx), "run_ended run_id does not match run_started");
@@ -1593,6 +1597,23 @@ mod tests {
             .issues
             .iter()
             .any(|issue| issue.message.contains("does not match run_started")));
+    }
+
+    #[test]
+    fn validation_catches_events_after_run_ended() {
+        let mut events = sample_events();
+        events.push(RunLogEvent::ErrorLogged {
+            step: None,
+            timestamp_ns: 6,
+            message: "late event".to_string(),
+            recoverable: true,
+        });
+        let report = validate_events(&events);
+        assert!(!report.is_valid());
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("run_ended must be the last event")));
     }
 
     #[test]

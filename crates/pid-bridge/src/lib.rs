@@ -60,6 +60,7 @@ pub struct BridgeMethodContract {
     pub request_payload: String,
     pub response_payload: String,
     pub emits_action: bool,
+    pub emits_intervention: bool,
     pub safe_mode_allowed: bool,
 }
 
@@ -84,10 +85,8 @@ pub fn bridge_method_contracts() -> Vec<BridgeMethodContract> {
             method: (*method).to_string(),
             request_payload: bridge_request_payload_hint(method).to_string(),
             response_payload: bridge_response_payload_hint(method).to_string(),
-            emits_action: matches!(
-                *method,
-                "sim.reset" | "sim.step" | "scene.set_object" | "intervention.apply"
-            ),
+            emits_action: matches!(*method, "sim.reset" | "sim.step" | "scene.set_object"),
+            emits_intervention: *method == "intervention.apply",
             safe_mode_allowed: BridgeMethod::from_str(method)
                 .map(|method| method.safe_mode_allowed())
                 .unwrap_or(false),
@@ -123,7 +122,9 @@ fn bridge_request_payload_hint(method: &str) -> &'static str {
         "scene.set_object" => {
             r#"{"object_id": string, "pose": Pose, "velocity": [number, number, number]}"#
         }
-        "intervention.apply" => r#"{"intervention_type": string, "payload": object}"#,
+        "intervention.apply" => {
+            r#"{"intervention_type": "set_velocity"|"translate_object"|"set_pose", "payload": object}"#
+        }
         "export.rerun" => r#"{"run_log_uri": string, "output_uri": string?}"#,
         _ => "object",
     }
@@ -137,11 +138,18 @@ fn bridge_response_payload_hint(method: &str) -> &'static str {
         "sim.step" => {
             r#"{"step": integer, "timestamp_ns": integer, "flow_gt_records": integer, "flow_pred_records": integer}"#
         }
-        "log.start" | "log.stop" => r#"{"run_id": string}"#,
+        "log.start" => {
+            r#"{"run_id": string, "active": boolean, "step": integer, "timestamp_ns": integer}"#
+        }
+        "log.stop" => {
+            r#"{"run_id": string, "stopped": boolean, "step": integer, "timestamp_ns": integer}"#
+        }
         "log.replay" => {
             r#"{"trace_hash": string, "events": integer, "valid": boolean, "config_hash": string?}"#
         }
-        "intervention.apply" => r#"{"accepted": boolean}"#,
+        "intervention.apply" => {
+            r#"{"accepted": boolean, "intervention_type": string, "step": integer, "timestamp_ns": integer, "objects": integer, "details": object}"#
+        }
         "export.rerun" => {
             r#"{"output_uri": string, "trace_hash": string, "events": integer, "valid": boolean, "sha256": string?}"#
         }
@@ -588,6 +596,15 @@ mod tests {
         assert!(!export.safe_mode_allowed);
         assert!(export.request_payload.contains("run_log_uri"));
         assert!(export.response_payload.contains("sha256"));
+        let intervention = contract
+            .bridge
+            .methods
+            .iter()
+            .find(|method| method.method == "intervention.apply")
+            .unwrap();
+        assert!(!intervention.emits_action);
+        assert!(intervention.emits_intervention);
+        assert!(intervention.request_payload.contains("set_velocity"));
     }
 
     #[test]

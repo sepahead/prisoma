@@ -57,7 +57,12 @@ fn main() -> Result<()> {
     };
     let sim = pid_sim::demo_sim();
     writer.append(&sim.snapshot_event())?;
-    let mut session = pid_sim::SimBridgeSession::with_safe_mode(writer, sim, safe_mode);
+    let mut session = pid_sim::SimBridgeSession::with_safe_mode_and_run_id(
+        writer,
+        sim,
+        safe_mode,
+        "bridge-stdio-run",
+    );
 
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -70,12 +75,10 @@ fn main() -> Result<()> {
     )?;
     output.flush().context("failed to flush stdout")?;
 
-    session.record_event(&RunLogEvent::RunEnded {
-        run_id: "bridge-stdio-run".to_string(),
-        timestamp_ns: session.timestamp_ns(),
-        status: RunStatus::Succeeded,
-        message: Some(format!("processed {handled} request(s)")),
-    })?;
+    session.finish_run(
+        RunStatus::Succeeded,
+        Some(format!("processed {handled} request(s)")),
+    )?;
     session.flush()?;
     eprintln!("wrote {}", path.display());
     Ok(())

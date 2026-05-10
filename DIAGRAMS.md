@@ -419,7 +419,7 @@ The Agent Bridge is the “programmable face” of the simulator: a local contro
 
 **External backend note:** the Agent Bridge can also act as an *adapter surface* for third‑party simulators that already expose an RL-style `reset/step` API (or their own WebSocket/pubsub control plane). In that mode, the adapter must still write PID‑VLA run‑log events so replay and analysis are identical across backends.
 
-The deterministic in-repo bridge currently provides stdio/TCP/WebSocket JSON-RPC smokes for status, reset/step, scene edits, `log.replay`, and `export.rerun`; safe mode permits status/replay and logs blocked mutation or file-writing export requests.
+The deterministic in-repo bridge currently provides stdio/TCP/WebSocket JSON-RPC smokes for status, reset/step, scene edits, deterministic interventions, `log.replay`, `log.start`/`log.stop`, and `export.rerun`; safe mode permits status/replay and logs blocked mutation, run-ending, or file-writing export requests.
 
 ```mermaid
 graph TB

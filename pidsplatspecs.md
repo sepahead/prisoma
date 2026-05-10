@@ -39,7 +39,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 | :--- | :--- | :--- | :--- |
 | **Run log** | `crates/pid-runlog` JSONL events + replay summary | Schema v1; M1 groundwork implemented; includes embedding/sim/bridge event types, validation, replay hash comparison, summary JSON, manifest JSON, and co-located sidecar writing | MIT (project) |
 | **Agent Bridge core** | `crates/pid-bridge` | Local request/response schema, dispatcher, JSON-RPC-shaped request/response conversion, run-log integration, bridge/run-log contract JSON export, safe-mode gates, and stdio/TCP/WebSocket sim transports | MIT (project) |
-| **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`, `export.rerun`, flow verification CLI, deterministic action replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness; physics backend trait/Rapier remains planned | MIT (project) |
+| **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`, `log.start`/`log.stop`, deterministic `intervention.apply`, `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness; physics backend trait/Rapier remains planned | MIT (project) |
 | **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | Rerun SDK 0.28.x in Cargo; run-log conversion includes summary/provenance/validation diagnostic tracks; Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |
 | **Renderer** | Rerun native/WebViewer / SparkJS (Phase 4) | Pin exact package versions / git SHAs at implementation time | Rerun WebViewer: MIT; SparkJS package metadata: MIT; Three.js: MIT |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
@@ -153,7 +153,7 @@ The simulator must be **agent-native**: the GUI is not the only interface. Every
 - **JSON‑RPC 2.0 over WebSocket** on `127.0.0.1` (the deterministic sim smoke has this transport; full UI integration still builds on the same surface).
 - Optional: **MCP server wrapper** exposing the same methods as tool calls (thin adapter; no separate logic).
 
-The in-repo deterministic bridge currently exposes status/reset/step, scene edits, intervention stubs, `log.replay`, and `export.rerun`; safe mode allows status/replay and blocks mutation or file-writing export requests.
+The in-repo deterministic bridge currently exposes status/reset/step, scene edits, deterministic interventions (`set_velocity`, `translate_object`, `set_pose`), `log.replay`, `log.start`/`log.stop`, and `export.rerun`; safe mode allows status/replay and blocks mutation, run-ending, or file-writing export requests.
 
 ---
 
