@@ -530,6 +530,8 @@ mod tests {
         assert_eq!(summary.run_id.as_deref(), Some("toy-vla-baseline-run"));
         assert_eq!(summary.pid_metrics, 8);
         assert_eq!(summary.evaluation_metrics, 6);
+        assert_eq!(summary.pid_metric_events, 8);
+        assert_eq!(summary.evaluation_metric_events, 6);
         assert_eq!(summary.labels, 32);
         assert_eq!(summary.embeddings, 4);
         assert_eq!(summary.embedding_contracts, 1);

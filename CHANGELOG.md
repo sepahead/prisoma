@@ -35,6 +35,7 @@
 - Added held-out episode-disjointness reporting and `pid-offline-harness --require-heldout-episode-disjoint`, preventing `episode_id` leakage across train and held-out splits.
 - Added train-split-only offline VLDA PID screens with train-only standardization and explicit run-log provenance, so held-out embeddings are excluded from the PID evidence reported alongside held-out baselines.
 - Promoted held-out offline VLDA per-sample prediction records into canonical run-log evaluation events, preserving correctness, score, distance, nearest-train, classifier, and sample provenance outside the summary artifact.
+- Split replay metric summary semantics so existing `*_metrics` fields remain unique latest-by-name metric counts while new `*_metric_events` fields report total metric event volume, including repeated held-out prediction metrics.
 
 ## 10.1 (2026-01-08)
 

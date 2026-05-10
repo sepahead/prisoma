@@ -4315,6 +4315,9 @@ mod tests {
         assert_eq!(summary.pid_metrics, 42);
         assert!(summary.geometry_metrics >= 21);
         assert_eq!(summary.evaluation_metrics, 139);
+        assert_eq!(summary.pid_metric_events, 42);
+        assert!(summary.geometry_metric_events >= 21);
+        assert_eq!(summary.evaluation_metric_events, 220);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
@@ -4580,6 +4583,7 @@ mod tests {
         assert_eq!(summary.status, Some(RunStatus::Failed));
         assert_eq!(summary.errors, 1);
         assert_eq!(summary.geometry_metrics, 21);
+        assert_eq!(summary.geometry_metric_events, 21);
 
         let _ = std::fs::remove_file(runlog_path);
     }
@@ -4711,6 +4715,7 @@ mod tests {
         assert_eq!(summary.status, Some(RunStatus::Failed));
         assert_eq!(summary.errors, 1);
         assert_eq!(summary.evaluation_metrics, 5);
+        assert_eq!(summary.evaluation_metric_events, 5);
 
         let _ = std::fs::remove_file(runlog_path);
     }
@@ -4771,6 +4776,7 @@ mod tests {
         assert_eq!(summary.status, Some(RunStatus::Failed));
         assert_eq!(summary.errors, 1);
         assert_eq!(summary.evaluation_metrics, 14);
+        assert_eq!(summary.evaluation_metric_events, 14);
 
         let _ = std::fs::remove_file(runlog_path);
     }

@@ -96,6 +96,12 @@ fn main() -> Result<()> {
     println!("pid_metrics={}", state.pid_metrics.len());
     println!("geometry_metrics={}", state.geometry_metrics.len());
     println!("evaluation_metrics={}", state.evaluation_metrics.len());
+    println!("pid_metric_events={}", state.pid_metric_events);
+    println!("geometry_metric_events={}", state.geometry_metric_events);
+    println!(
+        "evaluation_metric_events={}",
+        state.evaluation_metric_events
+    );
     println!("labels={}", state.labels.len());
     println!("embeddings={}", state.embeddings.len());
     println!("embedding_contracts={}", state.embedding_contracts.len());

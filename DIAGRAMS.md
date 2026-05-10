@@ -503,5 +503,5 @@ graph TB
     Suggest --> Capture
 
     Wt --> PID[pid-core\n(MI/CI/PID)]
-    PID --> Log[Run log artifacts\n(metrics + provenance)]
+    PID --> Log[Run log artifacts\n(metric events + provenance)]
 ```

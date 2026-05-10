@@ -1291,6 +1291,7 @@ mod tests {
         let summary = pid_runlog::summarize_events(&events).unwrap();
         assert_eq!(summary.run_id.as_deref(), Some("exp0-rust-quick-run"));
         assert_eq!(summary.pid_metrics, 8);
+        assert_eq!(summary.pid_metric_events, 8);
         assert_eq!(summary.artifacts, 1);
         assert_eq!(summary.errors, 0);
 

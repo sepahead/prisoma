@@ -431,7 +431,7 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 
 | Component | Role | Rationale (design goals; benchmark-dependent) |
 |-----------|------|--------------|
-| **Run log** | Canonical data spine | Source of truth for replay, analysis, Rerun export, and Tauri sessions. |
+| **Run log** | Canonical data spine | Source of truth for replay, analysis, Rerun export, and Tauri sessions; summaries distinguish unique metric names from total metric events. |
 | **Agent Bridge** | Shared control plane | GUI, scripts, and LLM tools call the same local API; every action is logged. |
 | **Rerun** | **Visualization & diagnostics** | **Primary P1-3 Tool.** Timeline, 3D scene, plots, ghost overlays, and replay from run logs. |
 

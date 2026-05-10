@@ -351,6 +351,12 @@ pub struct ReplayState {
     pub pid_metrics: BTreeMap<String, MetricRecord>,
     pub geometry_metrics: BTreeMap<String, MetricRecord>,
     pub evaluation_metrics: BTreeMap<String, MetricRecord>,
+    #[serde(default)]
+    pub pid_metric_events: usize,
+    #[serde(default)]
+    pub geometry_metric_events: usize,
+    #[serde(default)]
+    pub evaluation_metric_events: usize,
     pub labels: Vec<LabelRecord>,
     pub actions: Vec<ActionRecord>,
     pub interventions: Vec<InterventionRecord>,
@@ -490,6 +496,7 @@ impl ReplayState {
                 value,
                 ..
             } => {
+                self.pid_metric_events += 1;
                 self.pid_metrics.insert(
                     name.clone(),
                     MetricRecord {
@@ -506,6 +513,7 @@ impl ReplayState {
                 value,
                 ..
             } => {
+                self.geometry_metric_events += 1;
                 self.geometry_metrics.insert(
                     name.clone(),
                     MetricRecord {
@@ -522,6 +530,7 @@ impl ReplayState {
                 value,
                 ..
             } => {
+                self.evaluation_metric_events += 1;
                 self.evaluation_metrics.insert(
                     name.clone(),
                     MetricRecord {
@@ -746,6 +755,12 @@ pub struct RunLogSummary {
     pub pid_metrics: usize,
     pub geometry_metrics: usize,
     pub evaluation_metrics: usize,
+    #[serde(default)]
+    pub pid_metric_events: usize,
+    #[serde(default)]
+    pub geometry_metric_events: usize,
+    #[serde(default)]
+    pub evaluation_metric_events: usize,
     pub labels: usize,
     pub embeddings: usize,
     pub embedding_contracts: usize,
@@ -1078,6 +1093,9 @@ pub fn summarize_events(events: &[RunLogEvent]) -> Result<RunLogSummary> {
         pid_metrics: state.pid_metrics.len(),
         geometry_metrics: state.geometry_metrics.len(),
         evaluation_metrics: state.evaluation_metrics.len(),
+        pid_metric_events: state.pid_metric_events,
+        geometry_metric_events: state.geometry_metric_events,
+        evaluation_metric_events: state.evaluation_metric_events,
         labels: state.labels.len(),
         embeddings: state.embeddings.len(),
         embedding_contracts: state.embedding_contracts.len(),
@@ -1511,8 +1529,35 @@ mod tests {
         assert_eq!(state.object_poses["cube"].pose.position, [1.0, 2.0, 3.0]);
         assert_eq!(state.pid_metrics["redundancy"].value, 0.25);
         assert_eq!(state.evaluation_metrics["baseline.accuracy"].value, 0.75);
+        assert_eq!(state.pid_metric_events, 1);
+        assert_eq!(state.geometry_metric_events, 0);
+        assert_eq!(state.evaluation_metric_events, 1);
         assert_eq!(state.labels[0].name, "success");
         assert_eq!(state.labels[0].value, json!(true));
+    }
+
+    #[test]
+    fn replay_counts_repeated_metric_events_separately_from_unique_names() {
+        let mut events = sample_events();
+        events.insert(
+            events.len() - 1,
+            RunLogEvent::EvaluationMetric {
+                step: 0,
+                timestamp_ns: 4,
+                name: "baseline.accuracy".to_string(),
+                value: 0.875,
+                metadata: BTreeMap::new(),
+            },
+        );
+
+        let state = replay_events(&events);
+        assert_eq!(state.evaluation_metrics.len(), 1);
+        assert_eq!(state.evaluation_metrics["baseline.accuracy"].value, 0.875);
+        assert_eq!(state.evaluation_metric_events, 2);
+
+        let summary = summarize_events(&events).unwrap();
+        assert_eq!(summary.evaluation_metrics, 1);
+        assert_eq!(summary.evaluation_metric_events, 2);
     }
 
     #[test]
@@ -1717,6 +1762,7 @@ mod tests {
         assert_eq!(summary.config_hash.as_deref(), Some("cfg"));
         assert_eq!(summary.validation_errors, 0);
         assert_eq!(summary.evaluation_metrics, 1);
+        assert_eq!(summary.evaluation_metric_events, 1);
         assert_eq!(summary.labels, 1);
         assert_eq!(summary.embedding_contracts, 1);
         assert_eq!(summary.flow_pred_records, 1);

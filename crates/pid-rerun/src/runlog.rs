@@ -215,6 +215,18 @@ impl<'a> RunLogRerunLogger<'a> {
             &Scalars::single(summary.evaluation_metrics as f64),
         )?;
         self.rec.log(
+            "run/summary/pid_metric_events",
+            &Scalars::single(summary.pid_metric_events as f64),
+        )?;
+        self.rec.log(
+            "run/summary/geometry_metric_events",
+            &Scalars::single(summary.geometry_metric_events as f64),
+        )?;
+        self.rec.log(
+            "run/summary/evaluation_metric_events",
+            &Scalars::single(summary.evaluation_metric_events as f64),
+        )?;
+        self.rec.log(
             "run/summary/labels",
             &Scalars::single(summary.labels as f64),
         )?;
