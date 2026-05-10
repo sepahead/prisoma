@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use pid_sim::offline_harness::{
-    offline_vlda_geometry_gate_failure_message, offline_vlda_success_label_failure_message,
+    offline_vlda_geometry_gate_failure_message, offline_vlda_heldout_split_failure_message,
+    offline_vlda_heldout_split_status, offline_vlda_success_label_failure_message,
     offline_vlda_success_label_status, read_offline_vlda_dataset, run_offline_vlda_harness,
     write_offline_vlda_runlog_with_options, write_offline_vlda_summary, OfflineVldaRunlogOptions,
 };
@@ -13,6 +14,7 @@ struct Args {
     runlog: PathBuf,
     require_geometry_pass: bool,
     require_success_labels: bool,
+    require_heldout_split: bool,
 }
 
 fn main() -> Result<()> {
@@ -35,16 +37,18 @@ fn main() -> Result<()> {
         OfflineVldaRunlogOptions {
             require_geometry_pass: args.require_geometry_pass,
             require_success_labels: args.require_success_labels,
+            require_heldout_split: args.require_heldout_split,
         },
     )?;
     println!(
-        "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_gate_status={} success_label_status={}",
+        "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_gate_status={} success_label_status={} heldout_split_status={}",
         args.summary_json.display(),
         args.runlog.display(),
         report.dims.samples,
         report.config_hash,
         report.geometry.gates.status,
-        offline_vlda_success_label_status(&report)
+        offline_vlda_success_label_status(&report),
+        offline_vlda_heldout_split_status(&report)
     );
     let mut failures = Vec::new();
     if args.require_geometry_pass && report.geometry.gates.status != "pass" {
@@ -52,6 +56,11 @@ fn main() -> Result<()> {
     }
     if args.require_success_labels && report.metrics.success_rate.is_none() {
         failures.push(offline_vlda_success_label_failure_message(
+            &dataset, &report,
+        ));
+    }
+    if args.require_heldout_split && report.metrics.heldout_majority_success_accuracy.is_none() {
+        failures.push(offline_vlda_heldout_split_failure_message(
             &dataset, &report,
         ));
     }
@@ -67,6 +76,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut runlog = PathBuf::from("outputs/offline_vlda_runlog.jsonl");
     let mut require_geometry_pass = false;
     let mut require_success_labels = false;
+    let mut require_heldout_split = false;
     let mut iter = args.into_iter();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
@@ -92,6 +102,9 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
             "--require-success-labels" => {
                 require_success_labels = true;
             }
+            "--require-heldout-split" => {
+                require_heldout_split = true;
+            }
             other => bail!("unknown argument: {other}"),
         }
     }
@@ -102,12 +115,13 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         runlog,
         require_geometry_pass,
         require_success_labels,
+        require_heldout_split,
     })
 }
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels]\n\
+        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts."
     );
@@ -128,6 +142,7 @@ mod tests {
             "runlog.jsonl".to_string(),
             "--require-geometry-pass".to_string(),
             "--require-success-labels".to_string(),
+            "--require-heldout-split".to_string(),
         ])
         .unwrap();
         assert_eq!(args.input, PathBuf::from("fixture.json"));
@@ -135,5 +150,6 @@ mod tests {
         assert_eq!(args.runlog, PathBuf::from("runlog.jsonl"));
         assert!(args.require_geometry_pass);
         assert!(args.require_success_labels);
+        assert!(args.require_heldout_split);
     }
 }

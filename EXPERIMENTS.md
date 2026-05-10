@@ -929,11 +929,12 @@ cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/toy_vla_ru
 
 ### 4.5 Offline VLDA Embedding Harness Smoke
 
-`pid-offline-harness` converts captured sample JSON with `(V,L,D,A)` vectors into a canonical summary JSON plus run-log JSONL. The checked fixture lives at `crates/pid-sim/fixtures/offline_vlda_fixture.json`; each sample has a `sample_id`, optional `episode_id`, numeric `v`/`l`/`d`/`a` vectors, optional labels, and optional string metadata. The run log records `run_started`, `config_logged`, `frame_observed`, `label_observed`, `embedding_contract`, `embedding_captured`, two-source PID metrics for all `V/L/D→A` source pairs—`(V,L;A)`, `(V,D;A)`, and `(L,D;A)`—after deterministic per-variable standardization, geometry diagnostics/gates over the standardized analysis space, evaluation metrics including deterministic sample-level and episode-grouped success-label baselines when boolean `success` labels and `episode_id` groups are present, input/summary artifacts, and `run_ended`.
+`pid-offline-harness` converts captured sample JSON with `(V,L,D,A)` vectors into a canonical summary JSON plus run-log JSONL. The checked fixture lives at `crates/pid-sim/fixtures/offline_vlda_fixture.json`; each sample has a `sample_id`, optional `episode_id`, numeric `v`/`l`/`d`/`a` vectors, optional labels, and optional string metadata. The run log records `run_started`, `config_logged`, `frame_observed`, `label_observed`, `embedding_contract`, `embedding_captured`, two-source PID metrics for all `V/L/D→A` source pairs—`(V,L;A)`, `(V,D;A)`, and `(L,D;A)`—after deterministic per-variable standardization, geometry diagnostics/gates over the standardized analysis space, evaluation metrics including deterministic sample-level, episode-grouped, and metadata-split held-out success-label baselines when boolean `success` labels plus the relevant `episode_id`/`metadata.split` provenance are present, input/summary artifacts, and `run_ended`. A recognized held-out split uses `metadata.split=train`/`training` for training samples and `test`/`validation`/`val`/`eval`/`evaluation`/`heldout`/`holdout` for held-out samples; summaries preserve split counts and sample IDs.
 
 ```bash
 just offline-harness
 just offline-harness-require-labels
+just offline-harness-require-heldout
 just offline-harness-strict
 
 # Equivalent without just
@@ -941,7 +942,7 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixture
 cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/offline_vlda_runlog.jsonl
 ```
 
-Use `--require-success-labels` for fail-closed labeled-analysis runs and `--require-geometry-pass` for fail-closed geometry-gated runs. In that mode the CLI exits nonzero if required labels are unavailable or if the standardized geometry gate is not `pass`, but it still writes a canonical summary and a valid run log with `run_ended.status = failed` plus an `error_logged` record for provenance.
+Use `--require-success-labels` for fail-closed labeled-analysis runs, `--require-heldout-split` for fail-closed train/held-out baseline runs, and `--require-geometry-pass` for fail-closed geometry-gated runs. In those modes the CLI exits nonzero if required labels, held-out split baselines, or geometry pass status are unavailable, but it still writes a canonical summary and a valid run log with `run_ended.status = failed` plus an `error_logged` record for provenance.
 
 This harness is an artifact-to-runlog converter for embedding captures. It still requires a real model/task capture process and externally meaningful labels before it can support VLA claims.
 

@@ -20,6 +20,7 @@ const OFFLINE_GEOMETRY_MIN_PAIRWISE_CV: f64 = 0.1;
 const OFFLINE_GEOMETRY_MIN_DELTA_REL: f64 = 0.1;
 const OFFLINE_GEOMETRY_INTRINSIC_K: usize = 10;
 const OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES: usize = 500;
+const OFFLINE_HELDOUT_SPLIT_METADATA_KEY: &str = "split";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaDataset {
@@ -77,6 +78,12 @@ pub struct OfflineVldaMetrics {
     pub episode_loo_nn_d_success_accuracy: Option<f64>,
     pub episode_loo_nn_a_success_accuracy: Option<f64>,
     pub episode_loo_nn_vlda_success_accuracy: Option<f64>,
+    pub heldout_majority_success_accuracy: Option<f64>,
+    pub heldout_nn_v_success_accuracy: Option<f64>,
+    pub heldout_nn_l_success_accuracy: Option<f64>,
+    pub heldout_nn_d_success_accuracy: Option<f64>,
+    pub heldout_nn_a_success_accuracy: Option<f64>,
+    pub heldout_nn_vlda_success_accuracy: Option<f64>,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
 }
 
@@ -147,6 +154,18 @@ pub struct OfflineVldaGeometryVariable {
     pub gromov_error: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfflineVldaHeldoutSplitReport {
+    pub metadata_key: String,
+    pub train_values: Vec<String>,
+    pub heldout_values: Vec<String>,
+    pub train_samples: usize,
+    pub heldout_samples: usize,
+    pub value_counts: BTreeMap<String, usize>,
+    pub train_sample_ids: Vec<String>,
+    pub heldout_sample_ids: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaReport {
     pub run_id: String,
@@ -156,6 +175,7 @@ pub struct OfflineVldaReport {
     pub label_counts: BTreeMap<String, usize>,
     pub preprocessing: OfflineVldaPreprocessingReport,
     pub geometry: OfflineVldaGeometryReport,
+    pub heldout_split: Option<OfflineVldaHeldoutSplitReport>,
     pub metrics: OfflineVldaMetrics,
 }
 
@@ -163,6 +183,7 @@ pub struct OfflineVldaReport {
 pub struct OfflineVldaRunlogOptions {
     pub require_geometry_pass: bool,
     pub require_success_labels: bool,
+    pub require_heldout_split: bool,
 }
 
 pub fn read_offline_vlda_dataset(path: impl AsRef<Path>) -> Result<OfflineVldaDataset> {
@@ -223,8 +244,15 @@ pub fn run_offline_vlda_harness(
                 "episode_loo_nn_l_success_accuracy",
                 "episode_loo_nn_d_success_accuracy",
                 "episode_loo_nn_a_success_accuracy",
-                "episode_loo_nn_vlda_success_accuracy"
+                "episode_loo_nn_vlda_success_accuracy",
+                "heldout_majority_success_accuracy",
+                "heldout_nn_v_success_accuracy",
+                "heldout_nn_l_success_accuracy",
+                "heldout_nn_d_success_accuracy",
+                "heldout_nn_a_success_accuracy",
+                "heldout_nn_vlda_success_accuracy"
             ],
+            "heldout_split": analysis.heldout_split.clone(),
             "negative_handling": "allow"
         }
     });
@@ -237,6 +265,7 @@ pub fn run_offline_vlda_harness(
         label_counts,
         preprocessing: analysis.preprocessing,
         geometry: analysis.geometry,
+        heldout_split: analysis.heldout_split,
         metrics: analysis.metrics,
     })
 }
@@ -311,12 +340,20 @@ pub fn write_offline_vlda_runlog_with_options(
                 options.require_success_labels.to_string(),
             ),
             (
+                "strict_heldout_split".to_string(),
+                options.require_heldout_split.to_string(),
+            ),
+            (
                 "geometry_gate_status".to_string(),
                 report.geometry.gates.status.clone(),
             ),
             (
                 "success_label_status".to_string(),
                 offline_vlda_success_label_status(report).to_string(),
+            ),
+            (
+                "heldout_split_status".to_string(),
+                offline_vlda_heldout_split_status(report).to_string(),
             ),
             (
                 "task".to_string(),
@@ -515,6 +552,44 @@ pub fn offline_vlda_success_label_status(report: &OfflineVldaReport) -> &'static
     }
 }
 
+pub fn offline_vlda_heldout_split_failure_message(
+    dataset: &OfflineVldaDataset,
+    report: &OfflineVldaReport,
+) -> String {
+    let split = heldout_split_diagnostics(dataset);
+    let boolean_success_labels = dataset
+        .samples
+        .iter()
+        .filter(|sample| {
+            sample
+                .labels
+                .get("success")
+                .and_then(Value::as_bool)
+                .is_some()
+        })
+        .count();
+    format!(
+        "offline VLDA held-out split unavailable: metadata.{} train={} heldout={} missing={} unrecognized={} boolean_success_labels={}/{}",
+        OFFLINE_HELDOUT_SPLIT_METADATA_KEY,
+        split.train_samples,
+        split.heldout_samples,
+        split.missing_samples,
+        split.unrecognized_samples,
+        boolean_success_labels,
+        report.dims.samples
+    )
+}
+
+pub fn offline_vlda_heldout_split_status(report: &OfflineVldaReport) -> &'static str {
+    if report.metrics.heldout_majority_success_accuracy.is_some() {
+        "available"
+    } else if report.heldout_split.is_some() {
+        "missing_success_labels"
+    } else {
+        "missing"
+    }
+}
+
 fn offline_vlda_required_failures(
     dataset: &OfflineVldaDataset,
     report: &OfflineVldaReport,
@@ -526,6 +601,9 @@ fn offline_vlda_required_failures(
     }
     if options.require_success_labels && report.metrics.success_rate.is_none() {
         failures.push(offline_vlda_success_label_failure_message(dataset, report));
+    }
+    if options.require_heldout_split && report.metrics.heldout_majority_success_accuracy.is_none() {
+        failures.push(offline_vlda_heldout_split_failure_message(dataset, report));
     }
     failures
 }
@@ -600,6 +678,7 @@ struct OfflineVldaAnalysis {
     metrics: OfflineVldaMetrics,
     preprocessing: OfflineVldaPreprocessingReport,
     geometry: OfflineVldaGeometryReport,
+    heldout_split: Option<OfflineVldaHeldoutSplitReport>,
 }
 
 struct PreparedVldaMatrices {
@@ -617,12 +696,14 @@ fn compute_analysis(
     dims: &OfflineVldaDims,
 ) -> Result<OfflineVldaAnalysis> {
     let prepared = prepare_standardized_embeddings(samples, dims)?;
-    let metrics = compute_metrics(samples, &prepared)?;
+    let heldout_split = heldout_split_plan(samples);
+    let metrics = compute_metrics(samples, &prepared, heldout_split.as_ref())?;
     let geometry = compute_geometry_report(&prepared);
     Ok(OfflineVldaAnalysis {
         metrics,
         preprocessing: prepared.preprocessing,
         geometry,
+        heldout_split: heldout_split.map(|split| split.report),
     })
 }
 
@@ -691,6 +772,7 @@ fn zero_variance_dims(data: &[f64], n: usize, dim: usize) -> usize {
 fn compute_metrics(
     samples: &[OfflineVldaSample],
     prepared: &PreparedVldaMatrices,
+    heldout_split: Option<&OfflineVldaHeldoutSplitPlan>,
 ) -> Result<OfflineVldaMetrics> {
     let v = prepared.v.as_ref();
     let l = prepared.l.as_ref();
@@ -804,6 +886,62 @@ fn compute_metrics(
                 values
             })
         });
+    let heldout_majority_success_accuracy = success_labels
+        .as_deref()
+        .zip(heldout_split)
+        .map(|(labels, split)| heldout_majority_success_accuracy(labels, &split.roles));
+    let heldout_nn_v_success_accuracy =
+        success_labels
+            .as_deref()
+            .zip(heldout_split)
+            .map(|(labels, split)| {
+                heldout_nn_success_accuracy(samples, labels, &split.roles, |sample| {
+                    sample.v.clone()
+                })
+            });
+    let heldout_nn_l_success_accuracy =
+        success_labels
+            .as_deref()
+            .zip(heldout_split)
+            .map(|(labels, split)| {
+                heldout_nn_success_accuracy(samples, labels, &split.roles, |sample| {
+                    sample.l.clone()
+                })
+            });
+    let heldout_nn_d_success_accuracy =
+        success_labels
+            .as_deref()
+            .zip(heldout_split)
+            .map(|(labels, split)| {
+                heldout_nn_success_accuracy(samples, labels, &split.roles, |sample| {
+                    sample.d.clone()
+                })
+            });
+    let heldout_nn_a_success_accuracy =
+        success_labels
+            .as_deref()
+            .zip(heldout_split)
+            .map(|(labels, split)| {
+                heldout_nn_success_accuracy(samples, labels, &split.roles, |sample| {
+                    sample.a.clone()
+                })
+            });
+    let heldout_nn_vlda_success_accuracy =
+        success_labels
+            .as_deref()
+            .zip(heldout_split)
+            .map(|(labels, split)| {
+                heldout_nn_success_accuracy(samples, labels, &split.roles, |sample| {
+                    let mut values = Vec::with_capacity(
+                        sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
+                    );
+                    values.extend_from_slice(&sample.v);
+                    values.extend_from_slice(&sample.l);
+                    values.extend_from_slice(&sample.d);
+                    values.extend_from_slice(&sample.a);
+                    values
+                })
+            });
     let pid_pairs = [
         ("VL".to_string(), vl_pair.clone()),
         ("VD".to_string(), vd_pair),
@@ -834,6 +972,12 @@ fn compute_metrics(
         episode_loo_nn_d_success_accuracy,
         episode_loo_nn_a_success_accuracy,
         episode_loo_nn_vlda_success_accuracy,
+        heldout_majority_success_accuracy,
+        heldout_nn_v_success_accuracy,
+        heldout_nn_l_success_accuracy,
+        heldout_nn_d_success_accuracy,
+        heldout_nn_a_success_accuracy,
+        heldout_nn_vlda_success_accuracy,
         pid_pairs,
     })
 }
@@ -1066,6 +1210,98 @@ where
     out
 }
 
+#[derive(Debug, Clone)]
+struct OfflineVldaHeldoutSplitPlan {
+    report: OfflineVldaHeldoutSplitReport,
+    roles: Vec<OfflineVldaSplitRole>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OfflineVldaSplitRole {
+    Train,
+    Heldout,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct OfflineVldaHeldoutSplitDiagnostics {
+    train_samples: usize,
+    heldout_samples: usize,
+    missing_samples: usize,
+    unrecognized_samples: usize,
+}
+
+fn heldout_split_plan(samples: &[OfflineVldaSample]) -> Option<OfflineVldaHeldoutSplitPlan> {
+    let mut roles = Vec::with_capacity(samples.len());
+    let mut value_counts = BTreeMap::new();
+    let mut train_sample_ids = Vec::new();
+    let mut heldout_sample_ids = Vec::new();
+    for sample in samples {
+        let value = sample.metadata.get(OFFLINE_HELDOUT_SPLIT_METADATA_KEY)?;
+        let normalized = normalize_split_value(value);
+        let role = split_role(&normalized)?;
+        *value_counts.entry(normalized).or_insert(0) += 1;
+        match role {
+            OfflineVldaSplitRole::Train => train_sample_ids.push(sample.sample_id.clone()),
+            OfflineVldaSplitRole::Heldout => heldout_sample_ids.push(sample.sample_id.clone()),
+        }
+        roles.push(role);
+    }
+    (!train_sample_ids.is_empty() && !heldout_sample_ids.is_empty()).then_some(
+        OfflineVldaHeldoutSplitPlan {
+            report: OfflineVldaHeldoutSplitReport {
+                metadata_key: OFFLINE_HELDOUT_SPLIT_METADATA_KEY.to_string(),
+                train_values: vec!["train".to_string(), "training".to_string()],
+                heldout_values: vec![
+                    "test".to_string(),
+                    "validation".to_string(),
+                    "val".to_string(),
+                    "eval".to_string(),
+                    "evaluation".to_string(),
+                    "heldout".to_string(),
+                    "holdout".to_string(),
+                    "held_out".to_string(),
+                    "hold_out".to_string(),
+                ],
+                train_samples: train_sample_ids.len(),
+                heldout_samples: heldout_sample_ids.len(),
+                value_counts,
+                train_sample_ids,
+                heldout_sample_ids,
+            },
+            roles,
+        },
+    )
+}
+
+fn heldout_split_diagnostics(dataset: &OfflineVldaDataset) -> OfflineVldaHeldoutSplitDiagnostics {
+    let mut diagnostics = OfflineVldaHeldoutSplitDiagnostics::default();
+    for sample in &dataset.samples {
+        let Some(value) = sample.metadata.get(OFFLINE_HELDOUT_SPLIT_METADATA_KEY) else {
+            diagnostics.missing_samples += 1;
+            continue;
+        };
+        match split_role(&normalize_split_value(value)) {
+            Some(OfflineVldaSplitRole::Train) => diagnostics.train_samples += 1,
+            Some(OfflineVldaSplitRole::Heldout) => diagnostics.heldout_samples += 1,
+            None => diagnostics.unrecognized_samples += 1,
+        }
+    }
+    diagnostics
+}
+
+fn normalize_split_value(value: &str) -> String {
+    value.trim().to_ascii_lowercase().replace('-', "_")
+}
+
+fn split_role(value: &str) -> Option<OfflineVldaSplitRole> {
+    match value {
+        "train" | "training" => Some(OfflineVldaSplitRole::Train),
+        "test" | "validation" | "val" | "eval" | "evaluation" | "heldout" | "holdout"
+        | "held_out" | "hold_out" => Some(OfflineVldaSplitRole::Heldout),
+        _ => None,
+    }
+}
+
 fn success_labels(samples: &[OfflineVldaSample]) -> Option<Vec<bool>> {
     let labels = samples
         .iter()
@@ -1164,6 +1400,57 @@ where
     correct as f64 / labels.len() as f64
 }
 
+fn heldout_majority_success_accuracy(labels: &[bool], roles: &[OfflineVldaSplitRole]) -> f64 {
+    let mut train_successes = 0;
+    let mut train_total = 0;
+    for (label, role) in labels.iter().zip(roles) {
+        if *role == OfflineVldaSplitRole::Train {
+            train_total += 1;
+            if *label {
+                train_successes += 1;
+            }
+        }
+    }
+    let majority = train_successes * 2 >= train_total;
+    let correct = labels
+        .iter()
+        .zip(roles)
+        .filter(|(_, role)| **role == OfflineVldaSplitRole::Heldout)
+        .filter(|(label, _)| **label == majority)
+        .count();
+    let heldout_total = roles
+        .iter()
+        .filter(|role| **role == OfflineVldaSplitRole::Heldout)
+        .count();
+    correct as f64 / heldout_total as f64
+}
+
+fn heldout_nn_success_accuracy<F>(
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+    values: F,
+) -> f64
+where
+    F: Fn(&OfflineVldaSample) -> Vec<f64>,
+{
+    let features = samples.iter().map(values).collect::<Vec<_>>();
+    let correct = features
+        .iter()
+        .enumerate()
+        .filter(|(idx, _)| roles[*idx] == OfflineVldaSplitRole::Heldout)
+        .filter(|(idx, feature)| {
+            let nearest = nearest_neighbor_idx_in_train(samples, &features, feature, roles);
+            labels[nearest] == labels[*idx]
+        })
+        .count();
+    let heldout_total = roles
+        .iter()
+        .filter(|role| **role == OfflineVldaSplitRole::Heldout)
+        .count();
+    correct as f64 / heldout_total as f64
+}
+
 fn nearest_neighbor_idx(
     samples: &[OfflineVldaSample],
     features: &[Vec<f64>],
@@ -1194,6 +1481,38 @@ fn nearest_neighbor_idx(
         }
     }
     best_idx.expect("validated dataset has at least two samples")
+}
+
+fn nearest_neighbor_idx_in_train(
+    samples: &[OfflineVldaSample],
+    features: &[Vec<f64>],
+    feature: &[f64],
+    roles: &[OfflineVldaSplitRole],
+) -> usize {
+    let mut best_idx: Option<usize> = None;
+    let mut best_distance = f64::INFINITY;
+    for (candidate_idx, candidate) in features.iter().enumerate() {
+        if roles[candidate_idx] != OfflineVldaSplitRole::Train {
+            continue;
+        }
+        let distance = squared_euclidean(feature, candidate);
+        let replace = match best_idx {
+            None => true,
+            Some(current_idx) => match distance.total_cmp(&best_distance) {
+                Ordering::Less => true,
+                Ordering::Equal => {
+                    samples[candidate_idx].sample_id.as_str()
+                        < samples[current_idx].sample_id.as_str()
+                }
+                Ordering::Greater => false,
+            },
+        };
+        if replace {
+            best_idx = Some(candidate_idx);
+            best_distance = distance;
+        }
+    }
+    best_idx.expect("validated held-out split has at least one train sample")
 }
 
 fn nearest_neighbor_idx_excluding_episode(
@@ -1420,6 +1739,57 @@ fn write_metric_events<W: Write>(
             idx += 1;
         }
     }
+    if let Some(value) = report.metrics.heldout_majority_success_accuracy {
+        writer.append(&RunLogEvent::EvaluationMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + idx,
+            name: "offline_vlda.baseline.heldout_majority_success_accuracy".to_string(),
+            value,
+            metadata: offline_vlda_heldout_split_metric_metadata(
+                report,
+                "train_split_majority",
+                None,
+            ),
+        })?;
+        idx += 1;
+    }
+    for (name, value) in [
+        (
+            "offline_vlda.baseline.heldout_nn_v_success_accuracy",
+            report.metrics.heldout_nn_v_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.heldout_nn_l_success_accuracy",
+            report.metrics.heldout_nn_l_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.heldout_nn_d_success_accuracy",
+            report.metrics.heldout_nn_d_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.heldout_nn_a_success_accuracy",
+            report.metrics.heldout_nn_a_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.heldout_nn_vlda_success_accuracy",
+            report.metrics.heldout_nn_vlda_success_accuracy,
+        ),
+    ] {
+        if let Some(value) = value {
+            writer.append(&RunLogEvent::EvaluationMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + idx,
+                name: name.to_string(),
+                value,
+                metadata: offline_vlda_heldout_split_metric_metadata(
+                    report,
+                    "train_split_1nn",
+                    Some("raw_euclidean"),
+                ),
+            })?;
+            idx += 1;
+        }
+    }
     for (label, count) in &report.label_counts {
         writer.append(&RunLogEvent::EvaluationMetric {
             step: report.dims.samples as u64,
@@ -1461,6 +1831,34 @@ fn offline_vlda_pid_metric_metadata(name: &str) -> BTreeMap<String, String> {
             metadata.insert("target".to_string(), "A".to_string());
         }
         _ => {}
+    }
+    metadata
+}
+
+fn offline_vlda_heldout_split_metric_metadata(
+    report: &OfflineVldaReport,
+    classifier: &str,
+    distance: Option<&str>,
+) -> BTreeMap<String, String> {
+    let mut metadata = [
+        ("category".to_string(), "baseline".to_string()),
+        ("classifier".to_string(), classifier.to_string()),
+        ("split".to_string(), "metadata_split_heldout".to_string()),
+    ]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+    if let Some(distance) = distance {
+        metadata.insert("distance".to_string(), distance.to_string());
+    }
+    if let Some(split) = &report.heldout_split {
+        metadata.insert("split_key".to_string(), split.metadata_key.clone());
+        metadata.insert("train_samples".to_string(), split.train_samples.to_string());
+        metadata.insert(
+            "heldout_samples".to_string(),
+            split.heldout_samples.to_string(),
+        );
+        metadata.insert("train_values".to_string(), split.train_values.join(","));
+        metadata.insert("heldout_values".to_string(), split.heldout_values.join(","));
     }
     metadata
 }
@@ -1611,7 +2009,12 @@ mod tests {
                     labels: [("success".to_string(), json!(idx % 5 != 0))]
                         .into_iter()
                         .collect(),
-                    metadata: BTreeMap::new(),
+                    metadata: [(
+                        "split".to_string(),
+                        if idx < 12 { "train" } else { "test" }.to_string(),
+                    )]
+                    .into_iter()
+                    .collect(),
                 }
             })
             .collect();
@@ -1655,6 +2058,23 @@ mod tests {
             report.metrics.episode_loo_nn_vlda_success_accuracy,
             Some(0.5625)
         );
+        let split = report.heldout_split.as_ref().unwrap();
+        assert_eq!(split.train_samples, 12);
+        assert_eq!(split.heldout_samples, 4);
+        assert_eq!(
+            split.train_sample_ids.first().map(String::as_str),
+            Some("sample-000")
+        );
+        assert_eq!(
+            split.heldout_sample_ids.first().map(String::as_str),
+            Some("sample-012")
+        );
+        assert_eq!(report.metrics.heldout_majority_success_accuracy, Some(0.75));
+        assert_eq!(report.metrics.heldout_nn_v_success_accuracy, Some(0.75));
+        assert_eq!(report.metrics.heldout_nn_l_success_accuracy, Some(0.25));
+        assert_eq!(report.metrics.heldout_nn_d_success_accuracy, Some(0.25));
+        assert_eq!(report.metrics.heldout_nn_a_success_accuracy, Some(0.0));
+        assert_eq!(report.metrics.heldout_nn_vlda_success_accuracy, Some(0.25));
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         assert_eq!(report.metrics.pid_pairs["VD"].source_2, "D");
         assert_eq!(report.label_counts["success"], 16);
@@ -1692,6 +2112,18 @@ mod tests {
             )
         });
         assert!(has_vd_synergy);
+        let has_heldout_baseline = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, .. }
+                    if name == "offline_vlda.baseline.heldout_nn_vlda_success_accuracy"
+                        && metadata.get("split").map(String::as_str)
+                            == Some("metadata_split_heldout")
+                        && metadata.get("train_samples").map(String::as_str) == Some("12")
+                        && metadata.get("heldout_samples").map(String::as_str) == Some("4")
+            )
+        });
+        assert!(has_heldout_baseline);
         let contract_uri = events
             .iter()
             .find_map(|event| {
@@ -1711,7 +2143,7 @@ mod tests {
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 21);
         assert!(summary.geometry_metrics >= 21);
-        assert_eq!(summary.evaluation_metrics, 14);
+        assert_eq!(summary.evaluation_metrics, 20);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
@@ -1739,6 +2171,9 @@ mod tests {
             report.metrics.episode_loo_nn_v_success_accuracy,
             Some(0.625)
         );
+        assert_eq!(report.metrics.heldout_majority_success_accuracy, Some(0.75));
+        assert_eq!(report.metrics.heldout_nn_vlda_success_accuracy, Some(0.25));
+        assert_eq!(report.heldout_split.as_ref().unwrap().train_samples, 12);
         assert!(report.metrics.pid_pairs.contains_key("LD"));
         assert_eq!(report.geometry.variables.len(), 6);
         assert_eq!(report.geometry.gates.status, "warn");
@@ -1770,6 +2205,7 @@ mod tests {
             OfflineVldaRunlogOptions {
                 require_geometry_pass: true,
                 require_success_labels: false,
+                require_heldout_split: false,
             },
         )
         .unwrap();
@@ -1813,6 +2249,7 @@ mod tests {
             OfflineVldaRunlogOptions {
                 require_geometry_pass: false,
                 require_success_labels: true,
+                require_heldout_split: false,
             },
         )
         .unwrap();
@@ -1831,6 +2268,59 @@ mod tests {
         assert_eq!(summary.status, Some(RunStatus::Failed));
         assert_eq!(summary.errors, 1);
         assert_eq!(summary.evaluation_metrics, 0);
+
+        let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn offline_vlda_strict_heldout_split_marks_run_failed() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples {
+            sample.metadata.remove("split");
+        }
+        let report = run_offline_vlda_harness(
+            dataset.clone(),
+            Some("memory://fixture.json".to_string()),
+            Some("abc".to_string()),
+        )
+        .unwrap();
+        assert_eq!(report.heldout_split, None);
+        assert_eq!(report.metrics.heldout_majority_success_accuracy, None);
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir();
+        let runlog_path = dir.join(format!("pid-offline-vlda-strict-heldout-{stamp}.jsonl"));
+        write_offline_vlda_runlog_with_options(
+            &runlog_path,
+            None,
+            None,
+            &dataset,
+            &report,
+            OfflineVldaRunlogOptions {
+                require_geometry_pass: false,
+                require_success_labels: false,
+                require_heldout_split: true,
+            },
+        )
+        .unwrap();
+        let events = read_events_from_path(&runlog_path).unwrap();
+        let validation = validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let has_split_error = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::ErrorLogged { message, recoverable, .. }
+                    if !recoverable && message.contains("held-out split unavailable")
+            )
+        });
+        assert!(has_split_error);
+        let summary = summarize_events(&events).unwrap();
+        assert_eq!(summary.status, Some(RunStatus::Failed));
+        assert_eq!(summary.errors, 1);
+        assert_eq!(summary.evaluation_metrics, 14);
 
         let _ = std::fs::remove_file(runlog_path);
     }

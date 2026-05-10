@@ -29,7 +29,10 @@ jobs:
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'embedding_contracts=1'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'pid_metrics=21'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'geometry_metrics=21'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metrics=14'
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metrics=20'
+          cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_heldout_summary.json --runlog /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl --require-heldout-split
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl | grep -q 'errors=0'
           python - <<'PY'
           import json
           src = "crates/pid-sim/fixtures/offline_vlda_fixture.json"
@@ -44,6 +47,20 @@ jobs:
           if cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/pid_vla_offline_vlda_unlabeled.json --summary-json /tmp/pid_vla_offline_vlda_unlabeled_summary.json --runlog /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl --require-success-labels; then exit 1; fi
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl | grep -q 'errors=1'
+          python - <<'PY'
+          import json
+          src = "crates/pid-sim/fixtures/offline_vlda_fixture.json"
+          dst = "/tmp/pid_vla_offline_vlda_unsplit.json"
+          with open(src) as f:
+              data = json.load(f)
+          for sample in data["samples"]:
+              sample.get("metadata", {}).pop("split", None)
+          with open(dst, "w") as f:
+              json.dump(data, f)
+          PY
+          if cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/pid_vla_offline_vlda_unsplit.json --summary-json /tmp/pid_vla_offline_vlda_unsplit_summary.json --runlog /tmp/pid_vla_offline_vlda_unsplit_runlog.jsonl --require-heldout-split; then exit 1; fi
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_unsplit_runlog.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_unsplit_runlog.jsonl | grep -q 'errors=1'
           if cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_strict_summary.json --runlog /tmp/pid_vla_offline_vlda_strict_runlog.jsonl --require-geometry-pass; then exit 1; fi
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_strict_runlog.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_strict_runlog.jsonl | grep -q 'errors=1'
