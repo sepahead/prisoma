@@ -200,6 +200,19 @@ pub struct OfflineVldaHeldoutClassCoverageReport {
     pub warnings: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfflineVldaHeldoutEpisodeDisjointReport {
+    pub split_metadata_key: String,
+    pub episode_key: String,
+    pub status: String,
+    pub train_episodes: usize,
+    pub heldout_episodes: usize,
+    pub shared_episodes: usize,
+    pub missing_episode_samples: usize,
+    pub shared_episode_ids: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaHeldoutPredictionRecord {
     pub sample_id: String,
@@ -246,6 +259,7 @@ pub struct OfflineVldaReport {
     pub geometry: OfflineVldaGeometryReport,
     pub heldout_split: Option<OfflineVldaHeldoutSplitReport>,
     pub heldout_class_coverage: Option<OfflineVldaHeldoutClassCoverageReport>,
+    pub heldout_episode_disjoint: Option<OfflineVldaHeldoutEpisodeDisjointReport>,
     pub heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
     pub heldout_failure_diagnostics: Vec<OfflineVldaHeldoutFailureDiagnostics>,
     pub metrics: OfflineVldaMetrics,
@@ -257,6 +271,7 @@ pub struct OfflineVldaRunlogOptions {
     pub require_success_labels: bool,
     pub require_heldout_split: bool,
     pub require_heldout_class_coverage: bool,
+    pub require_heldout_episode_disjoint: bool,
 }
 
 pub fn read_offline_vlda_dataset(path: impl AsRef<Path>) -> Result<OfflineVldaDataset> {
@@ -357,10 +372,16 @@ pub fn run_offline_vlda_harness(
                 "heldout_class_coverage_train_success_count",
                 "heldout_class_coverage_train_failure_count",
                 "heldout_class_coverage_heldout_success_count",
-                "heldout_class_coverage_heldout_failure_count"
+                "heldout_class_coverage_heldout_failure_count",
+                "heldout_episode_disjoint_pass",
+                "heldout_episode_disjoint_train_episode_count",
+                "heldout_episode_disjoint_heldout_episode_count",
+                "heldout_episode_disjoint_shared_episode_count",
+                "heldout_episode_disjoint_missing_episode_sample_count"
             ],
             "heldout_split": analysis.heldout_split.clone(),
             "heldout_class_coverage": analysis.heldout_class_coverage.clone(),
+            "heldout_episode_disjoint": analysis.heldout_episode_disjoint.clone(),
             "prediction_records": [
                 "heldout_train_split_majority",
                 "heldout_train_split_1nn",
@@ -380,6 +401,7 @@ pub fn run_offline_vlda_harness(
         geometry: analysis.geometry,
         heldout_split: analysis.heldout_split,
         heldout_class_coverage: analysis.heldout_class_coverage,
+        heldout_episode_disjoint: analysis.heldout_episode_disjoint,
         heldout_predictions: analysis.heldout_predictions,
         heldout_failure_diagnostics: analysis.heldout_failure_diagnostics,
         metrics: analysis.metrics,
@@ -464,6 +486,10 @@ pub fn write_offline_vlda_runlog_with_options(
                 options.require_heldout_class_coverage.to_string(),
             ),
             (
+                "strict_heldout_episode_disjoint".to_string(),
+                options.require_heldout_episode_disjoint.to_string(),
+            ),
+            (
                 "geometry_gate_status".to_string(),
                 report.geometry.gates.status.clone(),
             ),
@@ -478,6 +504,10 @@ pub fn write_offline_vlda_runlog_with_options(
             (
                 "heldout_class_coverage_status".to_string(),
                 offline_vlda_heldout_class_coverage_status(report).to_string(),
+            ),
+            (
+                "heldout_episode_disjoint_status".to_string(),
+                offline_vlda_heldout_episode_disjoint_status(report).to_string(),
             ),
             (
                 "task".to_string(),
@@ -737,6 +767,29 @@ pub fn offline_vlda_heldout_class_coverage_status(report: &OfflineVldaReport) ->
     }
 }
 
+pub fn offline_vlda_heldout_episode_disjoint_failure_message(report: &OfflineVldaReport) -> String {
+    match &report.heldout_episode_disjoint {
+        Some(disjoint) => format!(
+            "offline VLDA held-out episode disjointness {}: train_episodes={} heldout_episodes={} shared_episodes={} missing_episode_samples={} warning(s)={}",
+            disjoint.status,
+            disjoint.train_episodes,
+            disjoint.heldout_episodes,
+            disjoint.shared_episodes,
+            disjoint.missing_episode_samples,
+            disjoint.warnings.len()
+        ),
+        None => "offline VLDA held-out episode disjointness unavailable".to_string(),
+    }
+}
+
+pub fn offline_vlda_heldout_episode_disjoint_status(report: &OfflineVldaReport) -> &'static str {
+    match report.heldout_episode_disjoint.as_ref() {
+        Some(disjoint) if disjoint.status == "pass" => "pass",
+        Some(_) => "warn",
+        None => "missing",
+    }
+}
+
 fn offline_vlda_required_failures(
     dataset: &OfflineVldaDataset,
     report: &OfflineVldaReport,
@@ -756,6 +809,13 @@ fn offline_vlda_required_failures(
         && offline_vlda_heldout_class_coverage_status(report) != "pass"
     {
         failures.push(offline_vlda_heldout_class_coverage_failure_message(report));
+    }
+    if options.require_heldout_episode_disjoint
+        && offline_vlda_heldout_episode_disjoint_status(report) != "pass"
+    {
+        failures.push(offline_vlda_heldout_episode_disjoint_failure_message(
+            report,
+        ));
     }
     failures
 }
@@ -832,6 +892,7 @@ struct OfflineVldaAnalysis {
     geometry: OfflineVldaGeometryReport,
     heldout_split: Option<OfflineVldaHeldoutSplitReport>,
     heldout_class_coverage: Option<OfflineVldaHeldoutClassCoverageReport>,
+    heldout_episode_disjoint: Option<OfflineVldaHeldoutEpisodeDisjointReport>,
     heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
     heldout_failure_diagnostics: Vec<OfflineVldaHeldoutFailureDiagnostics>,
 }
@@ -857,6 +918,9 @@ fn compute_analysis(
         .as_ref()
         .zip(success_labels.as_deref())
         .map(|(split, labels)| heldout_class_coverage_report(labels, &split.roles));
+    let heldout_episode_disjoint = heldout_split
+        .as_ref()
+        .map(|split| heldout_episode_disjoint_report(samples, &split.roles));
     let metrics = compute_metrics(samples, &prepared, heldout_split.as_ref())?;
     let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
@@ -867,6 +931,7 @@ fn compute_analysis(
         geometry,
         heldout_split: heldout_split.map(|split| split.report),
         heldout_class_coverage,
+        heldout_episode_disjoint,
         heldout_predictions,
         heldout_failure_diagnostics,
     })
@@ -1612,6 +1677,60 @@ fn heldout_class_coverage_report(
         train_failures,
         heldout_successes,
         heldout_failures,
+        warnings,
+    }
+}
+
+fn heldout_episode_disjoint_report(
+    samples: &[OfflineVldaSample],
+    roles: &[OfflineVldaSplitRole],
+) -> OfflineVldaHeldoutEpisodeDisjointReport {
+    let mut train_episode_ids = BTreeSet::new();
+    let mut heldout_episode_ids = BTreeSet::new();
+    let mut missing_episode_samples = 0;
+    for (sample, role) in samples.iter().zip(roles) {
+        let Some(episode_id) = &sample.episode_id else {
+            missing_episode_samples += 1;
+            continue;
+        };
+        match role {
+            OfflineVldaSplitRole::Train => {
+                train_episode_ids.insert(episode_id.clone());
+            }
+            OfflineVldaSplitRole::Heldout => {
+                heldout_episode_ids.insert(episode_id.clone());
+            }
+        }
+    }
+    let shared_episode_ids = train_episode_ids
+        .intersection(&heldout_episode_ids)
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut warnings = Vec::new();
+    if missing_episode_samples > 0 {
+        warnings.push(format!(
+            "{missing_episode_samples} sample(s) missing episode_id for split leakage audit"
+        ));
+    }
+    if !shared_episode_ids.is_empty() {
+        warnings.push(format!(
+            "{} episode_id(s) appear in both train and held-out splits",
+            shared_episode_ids.len()
+        ));
+    }
+    OfflineVldaHeldoutEpisodeDisjointReport {
+        split_metadata_key: OFFLINE_HELDOUT_SPLIT_METADATA_KEY.to_string(),
+        episode_key: "episode_id".to_string(),
+        status: if warnings.is_empty() {
+            "pass".to_string()
+        } else {
+            "warn".to_string()
+        },
+        train_episodes: train_episode_ids.len(),
+        heldout_episodes: heldout_episode_ids.len(),
+        shared_episodes: shared_episode_ids.len(),
+        missing_episode_samples,
+        shared_episode_ids,
         warnings,
     }
 }
@@ -2828,6 +2947,7 @@ fn write_metric_events<W: Write>(
     }
     write_heldout_failure_diagnostic_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     write_heldout_class_coverage_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
+    write_heldout_episode_disjoint_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     for (label, count) in &report.label_counts {
         writer.append(&RunLogEvent::EvaluationMetric {
             step: report.dims.samples as u64,
@@ -2865,6 +2985,37 @@ fn write_heldout_class_coverage_metric_events<W: Write>(
             name: format!("offline_vlda.heldout_split.class_coverage_{suffix}"),
             value,
             metadata: offline_vlda_heldout_class_coverage_metric_metadata(report, suffix),
+        })?;
+        *idx += 1;
+    }
+    Ok(())
+}
+
+fn write_heldout_episode_disjoint_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    report: &OfflineVldaReport,
+    timestamp_base_ns: u64,
+    idx: &mut u64,
+) -> Result<()> {
+    let Some(disjoint) = &report.heldout_episode_disjoint else {
+        return Ok(());
+    };
+    for (suffix, value) in [
+        ("train_episode_count", disjoint.train_episodes as f64),
+        ("heldout_episode_count", disjoint.heldout_episodes as f64),
+        ("shared_episode_count", disjoint.shared_episodes as f64),
+        (
+            "missing_episode_sample_count",
+            disjoint.missing_episode_samples as f64,
+        ),
+        ("pass", if disjoint.status == "pass" { 1.0 } else { 0.0 }),
+    ] {
+        writer.append(&RunLogEvent::EvaluationMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + *idx,
+            name: format!("offline_vlda.heldout_split.episode_disjoint_{suffix}"),
+            value,
+            metadata: offline_vlda_heldout_episode_disjoint_metric_metadata(report, suffix),
         })?;
         *idx += 1;
     }
@@ -3088,6 +3239,37 @@ fn offline_vlda_heldout_class_coverage_metric_metadata(
     if let Some(coverage) = &report.heldout_class_coverage {
         metadata.insert("status".to_string(), coverage.status.clone());
         metadata.insert("warnings".to_string(), coverage.warnings.len().to_string());
+    }
+    metadata
+}
+
+fn offline_vlda_heldout_episode_disjoint_metric_metadata(
+    report: &OfflineVldaReport,
+    metric: &str,
+) -> BTreeMap<String, String> {
+    let mut metadata = [
+        ("category".to_string(), "heldout_split_quality".to_string()),
+        ("metric".to_string(), metric.to_string()),
+        ("split".to_string(), "metadata_split_heldout".to_string()),
+        ("group_key".to_string(), "episode_id".to_string()),
+    ]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+    if let Some(split) = &report.heldout_split {
+        metadata.insert("split_key".to_string(), split.metadata_key.clone());
+        metadata.insert("train_samples".to_string(), split.train_samples.to_string());
+        metadata.insert(
+            "heldout_samples".to_string(),
+            split.heldout_samples.to_string(),
+        );
+    }
+    if let Some(disjoint) = &report.heldout_episode_disjoint {
+        metadata.insert("status".to_string(), disjoint.status.clone());
+        metadata.insert("warnings".to_string(), disjoint.warnings.len().to_string());
+        metadata.insert(
+            "shared_episodes".to_string(),
+            disjoint.shared_episodes.to_string(),
+        );
     }
     metadata
 }
@@ -3324,6 +3506,14 @@ mod tests {
         assert_eq!(coverage.heldout_successes, 3);
         assert_eq!(coverage.heldout_failures, 1);
         assert!(coverage.warnings.is_empty());
+        let episode_disjoint = report.heldout_episode_disjoint.as_ref().unwrap();
+        assert_eq!(episode_disjoint.status, "pass");
+        assert_eq!(episode_disjoint.train_episodes, 6);
+        assert_eq!(episode_disjoint.heldout_episodes, 2);
+        assert_eq!(episode_disjoint.shared_episodes, 0);
+        assert_eq!(episode_disjoint.missing_episode_samples, 0);
+        assert!(episode_disjoint.shared_episode_ids.is_empty());
+        assert!(episode_disjoint.warnings.is_empty());
         assert_eq!(report.metrics.heldout_majority_success_accuracy, Some(0.75));
         assert_eq!(
             report.metrics.heldout_majority_success_balanced_accuracy,
@@ -3581,6 +3771,20 @@ mod tests {
             )
         });
         assert!(has_class_coverage_pass);
+        let has_episode_disjoint_pass = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, value, .. }
+                    if name == "offline_vlda.heldout_split.episode_disjoint_pass"
+                        && *value == 1.0
+                        && metadata.get("category").map(String::as_str)
+                            == Some("heldout_split_quality")
+                        && metadata.get("group_key").map(String::as_str) == Some("episode_id")
+                        && metadata.get("status").map(String::as_str) == Some("pass")
+                        && metadata.get("shared_episodes").map(String::as_str) == Some("0")
+            )
+        });
+        assert!(has_episode_disjoint_pass);
         let contract_uri = events
             .iter()
             .find_map(|event| {
@@ -3600,7 +3804,7 @@ mod tests {
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 21);
         assert!(summary.geometry_metrics >= 21);
-        assert_eq!(summary.evaluation_metrics, 131);
+        assert_eq!(summary.evaluation_metrics, 136);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
@@ -3641,6 +3845,7 @@ mod tests {
                 require_success_labels: false,
                 require_heldout_split: false,
                 require_heldout_class_coverage: true,
+                require_heldout_episode_disjoint: false,
             },
         )
         .unwrap();
@@ -3655,6 +3860,66 @@ mod tests {
             )
         });
         assert!(has_coverage_error);
+        let summary = summarize_events(&events).unwrap();
+        assert_eq!(summary.status, Some(RunStatus::Failed));
+        assert_eq!(summary.errors, 1);
+
+        let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn offline_vlda_strict_heldout_episode_disjoint_marks_run_failed() {
+        let mut dataset = fixture_dataset();
+        dataset.samples[12].episode_id = dataset.samples[0].episode_id.clone();
+        let report = run_offline_vlda_harness(
+            dataset.clone(),
+            Some("memory://fixture.json".to_string()),
+            Some("abc".to_string()),
+        )
+        .unwrap();
+        let disjoint = report.heldout_episode_disjoint.as_ref().unwrap();
+        assert_eq!(disjoint.status, "warn");
+        assert_eq!(disjoint.shared_episodes, 1);
+        assert_eq!(disjoint.shared_episode_ids, vec!["episode-000".to_string()]);
+        assert_eq!(
+            offline_vlda_heldout_episode_disjoint_status(&report),
+            "warn"
+        );
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir();
+        let runlog_path = dir.join(format!(
+            "pid-offline-vlda-strict-heldout-episode-disjoint-{stamp}.jsonl"
+        ));
+        write_offline_vlda_runlog_with_options(
+            &runlog_path,
+            None,
+            None,
+            &dataset,
+            &report,
+            OfflineVldaRunlogOptions {
+                require_geometry_pass: false,
+                require_success_labels: false,
+                require_heldout_split: false,
+                require_heldout_class_coverage: false,
+                require_heldout_episode_disjoint: true,
+            },
+        )
+        .unwrap();
+        let events = read_events_from_path(&runlog_path).unwrap();
+        let validation = validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let has_disjoint_error = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::ErrorLogged { message, recoverable, .. }
+                    if !recoverable && message.contains("held-out episode disjointness warn")
+            )
+        });
+        assert!(has_disjoint_error);
         let summary = summarize_events(&events).unwrap();
         assert_eq!(summary.status, Some(RunStatus::Failed));
         assert_eq!(summary.errors, 1);
@@ -3699,6 +3964,14 @@ mod tests {
             Some(0.0)
         );
         assert_eq!(report.heldout_split.as_ref().unwrap().train_samples, 12);
+        assert_eq!(
+            report
+                .heldout_episode_disjoint
+                .as_ref()
+                .unwrap()
+                .shared_episodes,
+            0
+        );
         assert_eq!(report.heldout_failure_diagnostics.len(), 11);
         assert!(report.metrics.pid_pairs.contains_key("LD"));
         assert_eq!(report.geometry.variables.len(), 6);
@@ -3733,6 +4006,7 @@ mod tests {
                 require_success_labels: false,
                 require_heldout_split: false,
                 require_heldout_class_coverage: false,
+                require_heldout_episode_disjoint: false,
             },
         )
         .unwrap();
@@ -3855,6 +4129,7 @@ mod tests {
                 require_success_labels: true,
                 require_heldout_split: false,
                 require_heldout_class_coverage: false,
+                require_heldout_episode_disjoint: false,
             },
         )
         .unwrap();
@@ -3872,7 +4147,7 @@ mod tests {
         let summary = summarize_events(&events).unwrap();
         assert_eq!(summary.status, Some(RunStatus::Failed));
         assert_eq!(summary.errors, 1);
-        assert_eq!(summary.evaluation_metrics, 0);
+        assert_eq!(summary.evaluation_metrics, 5);
 
         let _ = std::fs::remove_file(runlog_path);
     }
@@ -3890,6 +4165,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.heldout_split, None);
+        assert_eq!(report.heldout_episode_disjoint, None);
         assert_eq!(report.metrics.heldout_majority_success_accuracy, None);
         assert!(report.heldout_predictions.is_empty());
         assert!(report.heldout_failure_diagnostics.is_empty());
@@ -3911,6 +4187,7 @@ mod tests {
                 require_success_labels: false,
                 require_heldout_split: true,
                 require_heldout_class_coverage: false,
+                require_heldout_episode_disjoint: false,
             },
         )
         .unwrap();

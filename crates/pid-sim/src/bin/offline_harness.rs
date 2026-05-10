@@ -2,7 +2,9 @@ use anyhow::{bail, Context, Result};
 use pid_sim::offline_harness::{
     offline_vlda_geometry_gate_failure_message,
     offline_vlda_heldout_class_coverage_failure_message,
-    offline_vlda_heldout_class_coverage_status, offline_vlda_heldout_split_failure_message,
+    offline_vlda_heldout_class_coverage_status,
+    offline_vlda_heldout_episode_disjoint_failure_message,
+    offline_vlda_heldout_episode_disjoint_status, offline_vlda_heldout_split_failure_message,
     offline_vlda_heldout_split_status, offline_vlda_success_label_failure_message,
     offline_vlda_success_label_status, read_offline_vlda_dataset, run_offline_vlda_harness,
     write_offline_vlda_runlog_with_options, write_offline_vlda_summary, OfflineVldaRunlogOptions,
@@ -18,6 +20,7 @@ struct Args {
     require_success_labels: bool,
     require_heldout_split: bool,
     require_heldout_class_coverage: bool,
+    require_heldout_episode_disjoint: bool,
 }
 
 fn main() -> Result<()> {
@@ -42,10 +45,11 @@ fn main() -> Result<()> {
             require_success_labels: args.require_success_labels,
             require_heldout_split: args.require_heldout_split,
             require_heldout_class_coverage: args.require_heldout_class_coverage,
+            require_heldout_episode_disjoint: args.require_heldout_episode_disjoint,
         },
     )?;
     println!(
-        "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_gate_status={} success_label_status={} heldout_split_status={} heldout_class_coverage_status={}",
+        "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_gate_status={} success_label_status={} heldout_split_status={} heldout_class_coverage_status={} heldout_episode_disjoint_status={}",
         args.summary_json.display(),
         args.runlog.display(),
         report.dims.samples,
@@ -53,7 +57,8 @@ fn main() -> Result<()> {
         report.geometry.gates.status,
         offline_vlda_success_label_status(&report),
         offline_vlda_heldout_split_status(&report),
-        offline_vlda_heldout_class_coverage_status(&report)
+        offline_vlda_heldout_class_coverage_status(&report),
+        offline_vlda_heldout_episode_disjoint_status(&report)
     );
     let mut failures = Vec::new();
     if args.require_geometry_pass && report.geometry.gates.status != "pass" {
@@ -74,6 +79,13 @@ fn main() -> Result<()> {
     {
         failures.push(offline_vlda_heldout_class_coverage_failure_message(&report));
     }
+    if args.require_heldout_episode_disjoint
+        && offline_vlda_heldout_episode_disjoint_status(&report) != "pass"
+    {
+        failures.push(offline_vlda_heldout_episode_disjoint_failure_message(
+            &report,
+        ));
+    }
     if !failures.is_empty() {
         bail!("{}", failures.join("; "));
     }
@@ -88,6 +100,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut require_success_labels = false;
     let mut require_heldout_split = false;
     let mut require_heldout_class_coverage = false;
+    let mut require_heldout_episode_disjoint = false;
     let mut iter = args.into_iter();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
@@ -119,6 +132,9 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
             "--require-heldout-class-coverage" => {
                 require_heldout_class_coverage = true;
             }
+            "--require-heldout-episode-disjoint" => {
+                require_heldout_episode_disjoint = true;
+            }
             other => bail!("unknown argument: {other}"),
         }
     }
@@ -131,12 +147,13 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         require_success_labels,
         require_heldout_split,
         require_heldout_class_coverage,
+        require_heldout_episode_disjoint,
     })
 }
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage]\n\
+        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts."
     );
@@ -159,6 +176,7 @@ mod tests {
             "--require-success-labels".to_string(),
             "--require-heldout-split".to_string(),
             "--require-heldout-class-coverage".to_string(),
+            "--require-heldout-episode-disjoint".to_string(),
         ])
         .unwrap();
         assert_eq!(args.input, PathBuf::from("fixture.json"));
@@ -168,5 +186,6 @@ mod tests {
         assert!(args.require_success_labels);
         assert!(args.require_heldout_split);
         assert!(args.require_heldout_class_coverage);
+        assert!(args.require_heldout_episode_disjoint);
     }
 }

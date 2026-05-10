@@ -29,13 +29,16 @@ jobs:
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'embedding_contracts=1'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'pid_metrics=21'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'geometry_metrics=21'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metrics=131'
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metrics=136'
           cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_heldout_summary.json --runlog /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl --require-heldout-split
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl | grep -q 'errors=0'
           cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_heldout_class_coverage_summary.json --runlog /tmp/pid_vla_offline_vlda_heldout_class_coverage_runlog.jsonl --require-heldout-class-coverage
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_class_coverage_runlog.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_class_coverage_runlog.jsonl | grep -q 'errors=0'
+          cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_summary.json --runlog /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_runlog.jsonl --require-heldout-episode-disjoint
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_runlog.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_runlog.jsonl | grep -q 'errors=0'
           python - <<'PY'
           import json
           src = "crates/pid-sim/fixtures/offline_vlda_fixture.json"
@@ -79,6 +82,23 @@ jobs:
           if cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/pid_vla_offline_vlda_uncovered_class.json --summary-json /tmp/pid_vla_offline_vlda_uncovered_class_summary.json --runlog /tmp/pid_vla_offline_vlda_uncovered_class_runlog.jsonl --require-heldout-class-coverage; then exit 1; fi
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_uncovered_class_runlog.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_uncovered_class_runlog.jsonl | grep -q 'errors=1'
+          python - <<'PY'
+          import json
+          src = "crates/pid-sim/fixtures/offline_vlda_fixture.json"
+          dst = "/tmp/pid_vla_offline_vlda_leaky_episode.json"
+          with open(src) as f:
+              data = json.load(f)
+          train_episode = data["samples"][0]["episode_id"]
+          for sample in data["samples"]:
+              if sample.get("metadata", {}).get("split") == "test":
+                  sample["episode_id"] = train_episode
+                  break
+          with open(dst, "w") as f:
+              json.dump(data, f)
+          PY
+          if cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/pid_vla_offline_vlda_leaky_episode.json --summary-json /tmp/pid_vla_offline_vlda_leaky_episode_summary.json --runlog /tmp/pid_vla_offline_vlda_leaky_episode_runlog.jsonl --require-heldout-episode-disjoint; then exit 1; fi
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_leaky_episode_runlog.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_leaky_episode_runlog.jsonl | grep -q 'errors=1'
           if cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_strict_summary.json --runlog /tmp/pid_vla_offline_vlda_strict_runlog.jsonl --require-geometry-pass; then exit 1; fi
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_strict_runlog.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_strict_runlog.jsonl | grep -q 'errors=1'
