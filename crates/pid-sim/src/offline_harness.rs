@@ -189,6 +189,17 @@ pub struct OfflineVldaHeldoutSplitReport {
     pub heldout_sample_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfflineVldaHeldoutClassCoverageReport {
+    pub metadata_key: String,
+    pub status: String,
+    pub train_successes: usize,
+    pub train_failures: usize,
+    pub heldout_successes: usize,
+    pub heldout_failures: usize,
+    pub warnings: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaHeldoutPredictionRecord {
     pub sample_id: String,
@@ -234,6 +245,7 @@ pub struct OfflineVldaReport {
     pub preprocessing: OfflineVldaPreprocessingReport,
     pub geometry: OfflineVldaGeometryReport,
     pub heldout_split: Option<OfflineVldaHeldoutSplitReport>,
+    pub heldout_class_coverage: Option<OfflineVldaHeldoutClassCoverageReport>,
     pub heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
     pub heldout_failure_diagnostics: Vec<OfflineVldaHeldoutFailureDiagnostics>,
     pub metrics: OfflineVldaMetrics,
@@ -244,6 +256,7 @@ pub struct OfflineVldaRunlogOptions {
     pub require_geometry_pass: bool,
     pub require_success_labels: bool,
     pub require_heldout_split: bool,
+    pub require_heldout_class_coverage: bool,
 }
 
 pub fn read_offline_vlda_dataset(path: impl AsRef<Path>) -> Result<OfflineVldaDataset> {
@@ -339,9 +352,15 @@ pub fn run_offline_vlda_harness(
                 "heldout_failure_precision",
                 "heldout_failure_recall",
                 "heldout_failure_specificity",
-                "heldout_failure_f1"
+                "heldout_failure_f1",
+                "heldout_class_coverage_pass",
+                "heldout_class_coverage_train_success_count",
+                "heldout_class_coverage_train_failure_count",
+                "heldout_class_coverage_heldout_success_count",
+                "heldout_class_coverage_heldout_failure_count"
             ],
             "heldout_split": analysis.heldout_split.clone(),
+            "heldout_class_coverage": analysis.heldout_class_coverage.clone(),
             "prediction_records": [
                 "heldout_train_split_majority",
                 "heldout_train_split_1nn",
@@ -360,6 +379,7 @@ pub fn run_offline_vlda_harness(
         preprocessing: analysis.preprocessing,
         geometry: analysis.geometry,
         heldout_split: analysis.heldout_split,
+        heldout_class_coverage: analysis.heldout_class_coverage,
         heldout_predictions: analysis.heldout_predictions,
         heldout_failure_diagnostics: analysis.heldout_failure_diagnostics,
         metrics: analysis.metrics,
@@ -440,6 +460,10 @@ pub fn write_offline_vlda_runlog_with_options(
                 options.require_heldout_split.to_string(),
             ),
             (
+                "strict_heldout_class_coverage".to_string(),
+                options.require_heldout_class_coverage.to_string(),
+            ),
+            (
                 "geometry_gate_status".to_string(),
                 report.geometry.gates.status.clone(),
             ),
@@ -450,6 +474,10 @@ pub fn write_offline_vlda_runlog_with_options(
             (
                 "heldout_split_status".to_string(),
                 offline_vlda_heldout_split_status(report).to_string(),
+            ),
+            (
+                "heldout_class_coverage_status".to_string(),
+                offline_vlda_heldout_class_coverage_status(report).to_string(),
             ),
             (
                 "task".to_string(),
@@ -686,6 +714,29 @@ pub fn offline_vlda_heldout_split_status(report: &OfflineVldaReport) -> &'static
     }
 }
 
+pub fn offline_vlda_heldout_class_coverage_failure_message(report: &OfflineVldaReport) -> String {
+    match &report.heldout_class_coverage {
+        Some(coverage) => format!(
+            "offline VLDA held-out class coverage {}: train_successes={} train_failures={} heldout_successes={} heldout_failures={} warning(s)={}",
+            coverage.status,
+            coverage.train_successes,
+            coverage.train_failures,
+            coverage.heldout_successes,
+            coverage.heldout_failures,
+            coverage.warnings.len()
+        ),
+        None => "offline VLDA held-out class coverage unavailable".to_string(),
+    }
+}
+
+pub fn offline_vlda_heldout_class_coverage_status(report: &OfflineVldaReport) -> &'static str {
+    match report.heldout_class_coverage.as_ref() {
+        Some(coverage) if coverage.status == "pass" => "pass",
+        Some(_) => "warn",
+        None => "missing",
+    }
+}
+
 fn offline_vlda_required_failures(
     dataset: &OfflineVldaDataset,
     report: &OfflineVldaReport,
@@ -700,6 +751,11 @@ fn offline_vlda_required_failures(
     }
     if options.require_heldout_split && report.metrics.heldout_majority_success_accuracy.is_none() {
         failures.push(offline_vlda_heldout_split_failure_message(dataset, report));
+    }
+    if options.require_heldout_class_coverage
+        && offline_vlda_heldout_class_coverage_status(report) != "pass"
+    {
+        failures.push(offline_vlda_heldout_class_coverage_failure_message(report));
     }
     failures
 }
@@ -775,6 +831,7 @@ struct OfflineVldaAnalysis {
     preprocessing: OfflineVldaPreprocessingReport,
     geometry: OfflineVldaGeometryReport,
     heldout_split: Option<OfflineVldaHeldoutSplitReport>,
+    heldout_class_coverage: Option<OfflineVldaHeldoutClassCoverageReport>,
     heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
     heldout_failure_diagnostics: Vec<OfflineVldaHeldoutFailureDiagnostics>,
 }
@@ -795,6 +852,11 @@ fn compute_analysis(
 ) -> Result<OfflineVldaAnalysis> {
     let prepared = prepare_standardized_embeddings(samples, dims)?;
     let heldout_split = heldout_split_plan(samples);
+    let success_labels = success_labels(samples);
+    let heldout_class_coverage = heldout_split
+        .as_ref()
+        .zip(success_labels.as_deref())
+        .map(|(split, labels)| heldout_class_coverage_report(labels, &split.roles));
     let metrics = compute_metrics(samples, &prepared, heldout_split.as_ref())?;
     let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
@@ -804,6 +866,7 @@ fn compute_analysis(
         preprocessing: prepared.preprocessing,
         geometry,
         heldout_split: heldout_split.map(|split| split.report),
+        heldout_class_coverage,
         heldout_predictions,
         heldout_failure_diagnostics,
     })
@@ -1507,6 +1570,50 @@ fn heldout_split_diagnostics(dataset: &OfflineVldaDataset) -> OfflineVldaHeldout
         }
     }
     diagnostics
+}
+
+fn heldout_class_coverage_report(
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+) -> OfflineVldaHeldoutClassCoverageReport {
+    let mut train_successes = 0;
+    let mut train_failures = 0;
+    let mut heldout_successes = 0;
+    let mut heldout_failures = 0;
+    for (label, role) in labels.iter().zip(roles) {
+        match (role, label) {
+            (OfflineVldaSplitRole::Train, true) => train_successes += 1,
+            (OfflineVldaSplitRole::Train, false) => train_failures += 1,
+            (OfflineVldaSplitRole::Heldout, true) => heldout_successes += 1,
+            (OfflineVldaSplitRole::Heldout, false) => heldout_failures += 1,
+        }
+    }
+    let mut warnings = Vec::new();
+    if train_successes == 0 {
+        warnings.push("train split has no success=true samples".to_string());
+    }
+    if train_failures == 0 {
+        warnings.push("train split has no success=false samples".to_string());
+    }
+    if heldout_successes == 0 {
+        warnings.push("held-out split has no success=true samples".to_string());
+    }
+    if heldout_failures == 0 {
+        warnings.push("held-out split has no success=false samples".to_string());
+    }
+    OfflineVldaHeldoutClassCoverageReport {
+        metadata_key: OFFLINE_HELDOUT_SPLIT_METADATA_KEY.to_string(),
+        status: if warnings.is_empty() {
+            "pass".to_string()
+        } else {
+            "warn".to_string()
+        },
+        train_successes,
+        train_failures,
+        heldout_successes,
+        heldout_failures,
+        warnings,
+    }
 }
 
 fn normalize_split_value(value: &str) -> String {
@@ -2720,6 +2827,7 @@ fn write_metric_events<W: Write>(
         }
     }
     write_heldout_failure_diagnostic_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
+    write_heldout_class_coverage_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     for (label, count) in &report.label_counts {
         writer.append(&RunLogEvent::EvaluationMetric {
             step: report.dims.samples as u64,
@@ -2731,6 +2839,34 @@ fn write_metric_events<W: Write>(
                 .collect(),
         })?;
         idx += 1;
+    }
+    Ok(())
+}
+
+fn write_heldout_class_coverage_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    report: &OfflineVldaReport,
+    timestamp_base_ns: u64,
+    idx: &mut u64,
+) -> Result<()> {
+    let Some(coverage) = &report.heldout_class_coverage else {
+        return Ok(());
+    };
+    for (suffix, value) in [
+        ("train_success_count", coverage.train_successes as f64),
+        ("train_failure_count", coverage.train_failures as f64),
+        ("heldout_success_count", coverage.heldout_successes as f64),
+        ("heldout_failure_count", coverage.heldout_failures as f64),
+        ("pass", if coverage.status == "pass" { 1.0 } else { 0.0 }),
+    ] {
+        writer.append(&RunLogEvent::EvaluationMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + *idx,
+            name: format!("offline_vlda.heldout_split.class_coverage_{suffix}"),
+            value,
+            metadata: offline_vlda_heldout_class_coverage_metric_metadata(report, suffix),
+        })?;
+        *idx += 1;
     }
     Ok(())
 }
@@ -2922,6 +3058,36 @@ fn offline_vlda_heldout_split_metric_metadata(
         );
         metadata.insert("train_values".to_string(), split.train_values.join(","));
         metadata.insert("heldout_values".to_string(), split.heldout_values.join(","));
+    }
+    metadata
+}
+
+fn offline_vlda_heldout_class_coverage_metric_metadata(
+    report: &OfflineVldaReport,
+    metric: &str,
+) -> BTreeMap<String, String> {
+    let mut metadata = [
+        ("category".to_string(), "heldout_split_quality".to_string()),
+        ("metric".to_string(), metric.to_string()),
+        ("split".to_string(), "metadata_split_heldout".to_string()),
+        (
+            "class_label".to_string(),
+            "offline_vlda.success".to_string(),
+        ),
+    ]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+    if let Some(split) = &report.heldout_split {
+        metadata.insert("split_key".to_string(), split.metadata_key.clone());
+        metadata.insert("train_samples".to_string(), split.train_samples.to_string());
+        metadata.insert(
+            "heldout_samples".to_string(),
+            split.heldout_samples.to_string(),
+        );
+    }
+    if let Some(coverage) = &report.heldout_class_coverage {
+        metadata.insert("status".to_string(), coverage.status.clone());
+        metadata.insert("warnings".to_string(), coverage.warnings.len().to_string());
     }
     metadata
 }
@@ -3151,6 +3317,13 @@ mod tests {
             split.heldout_sample_ids.first().map(String::as_str),
             Some("sample-012")
         );
+        let coverage = report.heldout_class_coverage.as_ref().unwrap();
+        assert_eq!(coverage.status, "pass");
+        assert_eq!(coverage.train_successes, 9);
+        assert_eq!(coverage.train_failures, 3);
+        assert_eq!(coverage.heldout_successes, 3);
+        assert_eq!(coverage.heldout_failures, 1);
+        assert!(coverage.warnings.is_empty());
         assert_eq!(report.metrics.heldout_majority_success_accuracy, Some(0.75));
         assert_eq!(
             report.metrics.heldout_majority_success_balanced_accuracy,
@@ -3395,6 +3568,19 @@ mod tests {
             )
         });
         assert!(has_failure_confusion_count);
+        let has_class_coverage_pass = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, value, .. }
+                    if name == "offline_vlda.heldout_split.class_coverage_pass"
+                        && *value == 1.0
+                        && metadata.get("category").map(String::as_str)
+                            == Some("heldout_split_quality")
+                        && metadata.get("status").map(String::as_str) == Some("pass")
+                        && metadata.get("warnings").map(String::as_str) == Some("0")
+            )
+        });
+        assert!(has_class_coverage_pass);
         let contract_uri = events
             .iter()
             .find_map(|event| {
@@ -3414,9 +3600,65 @@ mod tests {
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 21);
         assert!(summary.geometry_metrics >= 21);
-        assert_eq!(summary.evaluation_metrics, 126);
+        assert_eq!(summary.evaluation_metrics, 131);
 
         let _ = std::fs::remove_file(summary_path);
+        let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn offline_vlda_strict_heldout_class_coverage_marks_run_failed() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples {
+            if sample.metadata.get("split").map(String::as_str) == Some("test") {
+                sample.labels.insert("success".to_string(), json!(true));
+            }
+        }
+        let report = run_offline_vlda_harness(
+            dataset.clone(),
+            Some("memory://fixture.json".to_string()),
+            Some("abc".to_string()),
+        )
+        .unwrap();
+        assert_eq!(offline_vlda_heldout_class_coverage_status(&report), "warn");
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir();
+        let runlog_path = dir.join(format!(
+            "pid-offline-vlda-strict-heldout-class-coverage-{stamp}.jsonl"
+        ));
+        write_offline_vlda_runlog_with_options(
+            &runlog_path,
+            None,
+            None,
+            &dataset,
+            &report,
+            OfflineVldaRunlogOptions {
+                require_geometry_pass: false,
+                require_success_labels: false,
+                require_heldout_split: false,
+                require_heldout_class_coverage: true,
+            },
+        )
+        .unwrap();
+        let events = read_events_from_path(&runlog_path).unwrap();
+        let validation = validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let has_coverage_error = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::ErrorLogged { message, recoverable, .. }
+                    if !recoverable && message.contains("held-out class coverage warn")
+            )
+        });
+        assert!(has_coverage_error);
+        let summary = summarize_events(&events).unwrap();
+        assert_eq!(summary.status, Some(RunStatus::Failed));
+        assert_eq!(summary.errors, 1);
+
         let _ = std::fs::remove_file(runlog_path);
     }
 
@@ -3490,6 +3732,7 @@ mod tests {
                 require_geometry_pass: true,
                 require_success_labels: false,
                 require_heldout_split: false,
+                require_heldout_class_coverage: false,
             },
         )
         .unwrap();
@@ -3527,6 +3770,11 @@ mod tests {
         );
         assert_eq!(report.metrics.heldout_centroid_v_success_auroc, None);
         assert_eq!(report.metrics.heldout_centroid_vlda_success_accuracy, None);
+        let coverage = report.heldout_class_coverage.as_ref().unwrap();
+        assert_eq!(coverage.status, "warn");
+        assert_eq!(coverage.train_successes, 12);
+        assert_eq!(coverage.train_failures, 0);
+        assert_eq!(coverage.warnings.len(), 1);
         assert_eq!(report.heldout_predictions.len(), 24);
         assert_eq!(report.heldout_failure_diagnostics.len(), 6);
         assert!(!report
@@ -3562,6 +3810,11 @@ mod tests {
             None
         );
         assert_eq!(report.metrics.heldout_centroid_v_success_auroc, None);
+        let coverage = report.heldout_class_coverage.as_ref().unwrap();
+        assert_eq!(coverage.status, "warn");
+        assert_eq!(coverage.heldout_successes, 4);
+        assert_eq!(coverage.heldout_failures, 0);
+        assert_eq!(coverage.warnings.len(), 1);
         assert_eq!(report.heldout_predictions.len(), 44);
         assert_eq!(report.heldout_failure_diagnostics.len(), 11);
         let majority_failure = failure_diagnostic(&report, "train_split_majority", None);
@@ -3601,6 +3854,7 @@ mod tests {
                 require_geometry_pass: false,
                 require_success_labels: true,
                 require_heldout_split: false,
+                require_heldout_class_coverage: false,
             },
         )
         .unwrap();
@@ -3656,6 +3910,7 @@ mod tests {
                 require_geometry_pass: false,
                 require_success_labels: false,
                 require_heldout_split: true,
+                require_heldout_class_coverage: false,
             },
         )
         .unwrap();

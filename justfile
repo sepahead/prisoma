@@ -44,7 +44,7 @@ offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'pid_metrics=21'
-    cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'evaluation_metrics=126'
+    cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'evaluation_metrics=131'
 
 offline-harness-require-labels input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_labeled_runlog.jsonl" summary="outputs/offline_vlda_labeled_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --require-success-labels
@@ -52,6 +52,11 @@ offline-harness-require-labels input="crates/pid-sim/fixtures/offline_vlda_fixtu
 
 offline-harness-require-heldout input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_runlog.jsonl" summary="outputs/offline_vlda_heldout_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --require-heldout-split
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'errors=0'
+
+offline-harness-require-heldout-class-coverage input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_class_coverage_runlog.jsonl" summary="outputs/offline_vlda_heldout_class_coverage_summary.json":
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --require-heldout-class-coverage
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'errors=0'
 
