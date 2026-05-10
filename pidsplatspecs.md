@@ -3,7 +3,7 @@
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan and theoretical foundations
 > - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
-> - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
+> - `EXPERIMENTS.md` — Experimental protocols for Rerun-first diagnostics, modular physics, and hypothesis testing
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
 > - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
@@ -37,7 +37,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 
 | Component | Technology | Version / Spec | License |
 | :--- | :--- | :--- | :--- |
-| **Run log** | `crates/pid-runlog` JSONL events + replay summary | Schema v1; M1 groundwork implemented; includes embedding/sim/bridge event types, validation, replay hash comparison, summary JSON with unique metric-name counts plus total metric-event counters, manifest JSON, and co-located sidecar writing | MIT (project) |
+| **Run log** | `crates/pid-runlog` JSONL events + replay summary | Schema v1; M1 groundwork implemented; includes embedding/sim/bridge event types, validation, replay hash comparison, summary JSON with unique metric-name counts plus total metric-event counters, manifest JSON, and co-located sidecar writing/verification | MIT (project) |
 | **Agent Bridge core** | `crates/pid-bridge` | Local request/response schema, dispatcher, JSON-RPC-shaped request/response conversion, run-log integration, bridge/run-log contract JSON export, safe-mode gates, and stdio/TCP/WebSocket sim transports | MIT (project) |
 | **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`, `log.start`/`log.stop`, deterministic `intervention.apply`, `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, replay-visible total metric event counts, and failure-class confusion/rate diagnostics; physics backend trait/Rapier remains planned | MIT (project) |
 | **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | Rerun SDK 0.28.x in Cargo; run-log conversion includes summary/provenance/validation diagnostic tracks; Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |

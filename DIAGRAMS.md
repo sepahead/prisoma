@@ -4,7 +4,7 @@
 > - `grandplan.md` — Master plan and theoretical foundations
 > - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
 > - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
-> - `EXPERIMENTS.md` — Experimental protocols for SparkJS and Modular Physics setup and hypothesis testing
+> - `EXPERIMENTS.md` — Experimental protocols for Rerun-first diagnostics, modular physics, and hypothesis testing
 > - `README.md` — Quick start guide
 > - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
 > - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)

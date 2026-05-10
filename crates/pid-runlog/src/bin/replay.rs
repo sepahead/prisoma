@@ -64,9 +64,26 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if args.len() == 3 && args.get(1).and_then(|s| s.to_str()) == Some("--verify-sidecars") {
+        let report = pid_runlog::verify_sidecars_for_path(PathBuf::from(args[2].clone()))?;
+        println!("valid={}", report.is_valid());
+        println!("sidecars_checked={}", report.checked);
+        println!("issues={}", report.issues.len());
+        for issue in &report.issues {
+            println!(
+                "sidecar={} path={}: {}",
+                issue.sidecar, issue.path, issue.message
+            );
+        }
+        if !report.is_valid() {
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
+
     if args.len() != 2 {
         bail!(
-            "usage: {program} <run-log.jsonl>\n       {program} --validate <run-log.jsonl>\n       {program} --compare <left.jsonl> <right.jsonl>\n       {program} --summary-json <run-log.jsonl> <summary.json>\n       {program} --manifest-json <run-log.jsonl> <manifest.json>\n       {program} --write-sidecars <run-log.jsonl>"
+            "usage: {program} <run-log.jsonl>\n       {program} --validate <run-log.jsonl>\n       {program} --compare <left.jsonl> <right.jsonl>\n       {program} --summary-json <run-log.jsonl> <summary.json>\n       {program} --manifest-json <run-log.jsonl> <manifest.json>\n       {program} --write-sidecars <run-log.jsonl>\n       {program} --verify-sidecars <run-log.jsonl>"
         );
     }
 

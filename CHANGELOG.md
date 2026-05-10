@@ -36,6 +36,7 @@
 - Added train-split-only offline VLDA PID screens with train-only standardization and explicit run-log provenance, so held-out embeddings are excluded from the PID evidence reported alongside held-out baselines.
 - Promoted held-out offline VLDA per-sample prediction records into canonical run-log evaluation events, preserving correctness, score, distance, nearest-train, classifier, and sample provenance outside the summary artifact.
 - Split replay metric summary semantics so existing `*_metrics` fields remain unique latest-by-name metric counts while new `*_metric_events` fields report total metric event volume, including repeated held-out prediction metrics.
+- Added run-log sidecar verification so validation, summary, and manifest JSON sidecars can be checked against the current JSONL run log instead of silently going stale.
 
 ## 10.1 (2026-01-08)
 

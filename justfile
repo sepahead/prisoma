@@ -110,6 +110,7 @@ runlog-manifest path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog_manife
 
 runlog-sidecars path="outputs/demo_runlog.jsonl":
     cargo run -p pid-runlog --bin pid-runlog-replay -- --write-sidecars {{path}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --verify-sidecars {{path}}
 
 runlog-sim-verify path="outputs/demo_bridge_runlog.jsonl":
     cargo run -p pid-sim --bin pid-sim-verify -- {{path}}

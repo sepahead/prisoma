@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 
 pub const RUN_LOG_SCHEMA_VERSION: u32 = 1;
@@ -809,6 +809,38 @@ pub struct RunLogSidecars {
     pub manifest: RunManifest,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SidecarVerificationReport {
+    pub checked: usize,
+    pub issues: Vec<SidecarVerificationIssue>,
+}
+
+impl SidecarVerificationReport {
+    pub fn is_valid(&self) -> bool {
+        self.issues.is_empty()
+    }
+
+    fn issue(
+        &mut self,
+        sidecar: impl Into<String>,
+        path: impl AsRef<Path>,
+        message: impl Into<String>,
+    ) {
+        self.issues.push(SidecarVerificationIssue {
+            sidecar: sidecar.into(),
+            path: path.as_ref().display().to_string(),
+            message: message.into(),
+        });
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SidecarVerificationIssue {
+    pub sidecar: String,
+    pub path: String,
+    pub message: String,
+}
+
 pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
     let mut report = ValidationReport {
         events: events.len(),
@@ -1172,6 +1204,66 @@ pub fn write_sidecars_for_path(path: impl AsRef<Path>) -> Result<RunLogSidecarPa
     write_json_file(&paths.summary, &sidecars.summary)?;
     write_json_file(&paths.manifest, &sidecars.manifest)?;
     Ok(paths)
+}
+
+pub fn verify_sidecars_for_path(path: impl AsRef<Path>) -> Result<SidecarVerificationReport> {
+    let path = path.as_ref();
+    let paths = runlog_sidecar_paths(path);
+    let expected = sidecars_for_path(path)?;
+    let mut report = SidecarVerificationReport::default();
+    verify_sidecar(
+        &mut report,
+        "validation",
+        &paths.validation,
+        &expected.validation,
+    );
+    verify_sidecar(&mut report, "summary", &paths.summary, &expected.summary);
+    verify_sidecar(&mut report, "manifest", &paths.manifest, &expected.manifest);
+    Ok(report)
+}
+
+fn verify_sidecar<T>(
+    report: &mut SidecarVerificationReport,
+    sidecar: &str,
+    path: impl AsRef<Path>,
+    expected: &T,
+) where
+    T: Serialize,
+{
+    let path = path.as_ref();
+    report.checked += 1;
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(err) if err.kind() == ErrorKind::NotFound => {
+            report.issue(sidecar, path, "sidecar is missing");
+            return;
+        }
+        Err(err) => {
+            report.issue(sidecar, path, format!("failed to open sidecar: {err}"));
+            return;
+        }
+    };
+    let actual = match serde_json::from_reader::<_, serde_json::Value>(file) {
+        Ok(actual) => actual,
+        Err(err) => {
+            report.issue(sidecar, path, format!("invalid sidecar JSON: {err}"));
+            return;
+        }
+    };
+    let expected = match serde_json::to_value(expected) {
+        Ok(expected) => expected,
+        Err(err) => {
+            report.issue(
+                sidecar,
+                path,
+                format!("failed to serialize expected sidecar: {err}"),
+            );
+            return;
+        }
+    };
+    if actual != expected {
+        report.issue(sidecar, path, "sidecar does not match current run log");
+    }
 }
 
 pub fn write_json_file<T: Serialize>(path: impl AsRef<Path>, value: &T) -> Result<()> {
@@ -1865,6 +1957,64 @@ mod tests {
         assert_eq!(manifest.event_count, summary.event_count);
         assert_eq!(manifest.trace_hash, summary.trace_hash);
         assert_eq!(manifest.config_hash, summary.config_hash);
+
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(paths.validation);
+        let _ = std::fs::remove_file(paths.summary);
+        let _ = std::fs::remove_file(paths.manifest);
+    }
+
+    #[test]
+    fn verify_sidecars_accepts_current_sidecars() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pid-runlog-verify-sidecars-{stamp}.jsonl"));
+        let mut writer = RunLogWriter::create(&path).unwrap();
+        for event in sample_events() {
+            writer.append(&event).unwrap();
+        }
+        writer.flush().unwrap();
+
+        let paths = write_sidecars_for_path(&path).unwrap();
+        let report = verify_sidecars_for_path(&path).unwrap();
+        assert!(report.is_valid(), "{:?}", report.issues);
+        assert_eq!(report.checked, 3);
+
+        let _ = std::fs::remove_file(path);
+        let _ = std::fs::remove_file(paths.validation);
+        let _ = std::fs::remove_file(paths.summary);
+        let _ = std::fs::remove_file(paths.manifest);
+    }
+
+    #[test]
+    fn verify_sidecars_reports_extra_summary_fields() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("pid-runlog-stale-sidecar-{stamp}.jsonl"));
+        let mut writer = RunLogWriter::create(&path).unwrap();
+        for event in sample_events() {
+            writer.append(&event).unwrap();
+        }
+        writer.flush().unwrap();
+
+        let paths = write_sidecars_for_path(&path).unwrap();
+        let mut stale_summary: serde_json::Value =
+            serde_json::from_reader(File::open(&paths.summary).unwrap()).unwrap();
+        stale_summary
+            .as_object_mut()
+            .unwrap()
+            .insert("stale_extra_field".to_string(), true.into());
+        write_json_file(&paths.summary, &stale_summary).unwrap();
+
+        let report = verify_sidecars_for_path(&path).unwrap();
+        assert!(!report.is_valid());
+        assert!(report.issues.iter().any(|issue| {
+            issue.sidecar == "summary" && issue.message.contains("does not match")
+        }));
 
         let _ = std::fs::remove_file(path);
         let _ = std::fs::remove_file(paths.validation);

@@ -1,37 +1,38 @@
 # PID-VLA Whole-Repo Review and To-Do List
 
 Date: 2026-05-09
+Last consistency pass: 2026-05-10
 
-This document records a whole-repo review of the PID-VLA repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism.
+This document records a whole-repo review of the PID-VLA repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism. The opening review has been updated after the follow-up implementation passes; older risks that were fixed are called out as fixed rather than left as current failures.
 
 **Docset-wide final solution:** `grandplan.md` §A.8 records the current ten-scientist consensus. The run log is the source of truth, Rerun is the Phases 1–3 diagnostic/time-machine viewer, Agent Bridge is the only control plane, and Tauri/SparkJS is the deferred Phase 4 control/editor/custom-rendering shell.
 
 ## Executive Verdict
 
-The repository is strongest as a **research specification plus a small, serious Rust estimator core**. The documentation is unusually self-critical and correctly treats PID-on-VLA as a gated hypothesis rather than a proven method. The implemented `pid-core` crate has meaningful tests and reference-value checks, and `cargo test --workspace` passed during review.
+The repository is strongest as a **research specification plus a small, serious Rust estimator/run-log core**. The documentation is intentionally self-critical and correctly treats PID-on-VLA as a gated hypothesis rather than a proven method. The implemented Rust workspace, Python extension smoke tests, run-log/replay pipeline, deterministic bridge/sim smokes, toy harness, and offline `(V,L,D,A)` artifact harness all have automated coverage.
 
-The main risks are:
+The main current risks are:
 
-1. The implemented Experiment 0 gate is weaker than the documented scientific gate.
-2. Rust formatting and Clippy checks currently fail.
-3. Python packaging/bindings are local-development oriented, not yet a robust user-facing API.
-4. `pid-rerun` is prototype-level, and one demo logs fixed PID proportions rather than actual PID atoms.
-5. `meshmaker/` is operationally and ethically high-risk clutter relative to the PID-VLA research core.
-6. The docs are mostly honest, but still contain minor drift and an overlarge target-architecture surface area.
-
-No tracked files were changed during the review itself. Running `uv run ruff ...` created an ignored `.venv/` directory.
+1. Experiment 0 is now stricter and visible, but the repo still needs a publishable measurement regime with uncertainty/block-bootstrap style evidence before downstream VLA claims.
+2. There is still no real VLA capture/extraction/failure-label pipeline; the offline harness converts already-captured embeddings into canonical artifacts.
+3. Python packaging is wired for local Maturin builds and tested, but the Python API is not yet a stable public interface.
+4. `pid-rerun` is useful for validated run-log conversion and diagnostics, but remains a prototype viewer adapter rather than the full Phase 1–3 diagnostic product.
+5. `meshmaker/` remains tracked legacy/auxiliary tooling and should be split or further quarantined before release.
+6. The docs are now aligned to the current implementation, but the target architecture is still intentionally larger than the implemented repo.
 
 ## Verification Snapshot
 
-Commands and outcomes observed during the review:
+Commands and outcomes from the current consistency pass:
 
-- `cargo test --workspace -q`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo test --workspace`: passed.
+- `cargo clippy --workspace -- -D warnings`: passed.
+- `uv run ruff check`: passed.
+- `uv run pytest -q`: passed.
 - `python scripts/audit_grandplan.py --check-italic-titles`: passed.
 - `python scripts/audit_grandplan_claims.py`: passed.
 - `python scripts/audit_docset_claims.py`: passed.
-- `cargo fmt --all -- --check`: failed due Rust formatting drift.
-- `cargo clippy --workspace -- -D warnings`: failed on `clippy::neg_cmp_op_on_partial_ord` in `crates/pid-core/src/hyperbolic.rs`.
-- `uv run ruff check scripts uidesigner meshmaker report_gen.py`: failed with 102 errors, mostly in `meshmaker/` and ignored `report_gen.py`.
+- Focused run-log sidecar smoke passed: `--write-sidecars` followed by `--verify-sidecars`, plus an exact-JSON drift failure check.
 
 ## Ten-Perspective Review
 
@@ -46,12 +47,12 @@ Commands and outcomes observed during the review:
 #### Concerns
 
 - The default KSG configuration clamps negative MI estimates to zero, which is practical for reports but risky for algebraic cancellation, co-information, and invariant checks.
-- `Pid2Config` permits independent KSG and ISX configs without validating that `k`, metric, and tie handling are coherent.
-- `pid3_isx` exposes a metric field but lacks the Chebyshev-only guard present in the two-source ISX path.
+- `Pid2Config` now rejects incoherent KSG/ISX settings for `k`, metric, and `tie_epsilon`; the remaining concern is documenting which estimator settings are appropriate for each evidence regime.
+- `pid3_isx` now rejects non-Chebyshev metrics until research-gated support is explicitly added.
 
 #### Judgment
 
-The theoretical framing is good. The API should make invalid estimator combinations harder to express.
+The theoretical framing is good. Several invalid estimator combinations are now rejected; remaining API work is mostly about making validated regimes and reporting boundaries harder to misuse.
 
 ### 2. Statistician / Estimator Scientist
 
@@ -63,9 +64,9 @@ The theoretical framing is good. The API should make invalid estimator combinati
 
 #### Concerns
 
-- The documented Experiment 0 acceptance criteria are strong, but the implemented `exp0` status only applies a weaker independent-additive redundancy threshold plus heuristic geometry warnings.
+- The documented Experiment 0 acceptance criteria are strong; the implemented runner now exposes stricter monotonicity/CMI/invariant/geometry checks, but still needs uncertainty/resampling before it can serve as a publishable measurement protocol.
 - `gromov_hyperbolicity` reports mean sampled delta, while gating usually needs worst-case or high-quantile behavior.
-- There is no implemented uncertainty quantification, block bootstrap, or seed sweep in the executable gate.
+- Seed sweeps are implemented, but uncertainty quantification and block bootstrap/trajectory resampling remain open.
 
 #### Judgment
 
@@ -115,14 +116,14 @@ The ML research question is still upstream of data collection. The next high-val
 
 #### Concerns
 
-- `cargo fmt --check` fails.
-- `cargo clippy --workspace -- -D warnings` fails in `hyperbolic.rs`.
-- Hyperbolic distance validity relies mostly on caller discipline; invalid Lorentz rows can yield `NaN`, and KSG paths do not robustly reject non-finite distances.
-- `Pid3Config` should forbid non-Chebyshev metrics until mathematically validated.
+- Rust formatting is now enforced and currently passes.
+- Clippy is now enforced and currently passes.
+- KSG/ISX/PID distance paths now reject non-finite or invalid distances instead of silently sorting `NaN`; continue adding tests when new metrics are introduced.
+- `Pid3Config` now forbids non-Chebyshev metrics until mathematically validated.
 
 #### Judgment
 
-`pid-core` is the repo's strongest implemented component, but CI-level hygiene and invalid-configuration guards need tightening.
+`pid-core` remains the repo's strongest implemented component; CI-level hygiene and several invalid-configuration guards are now in place, while publishable uncertainty protocols remain open.
 
 ### 6. Python Packaging / API Scientist
 
@@ -132,14 +133,14 @@ The ML research question is still upstream of data collection. The next high-val
 
 #### Concerns
 
-- `pyproject.toml` does not wire a maturin or scikit-build style backend for the Rust extension.
-- Python users cannot set `negative_handling` or `tie_epsilon`, so they cannot reproduce the Rust tests' estimator identity settings.
-- There are no Python tests for the extension.
-- The Python API lacks high-level `pid2`, co-information, invariants, and preprocessing bindings.
+- `pyproject.toml` now wires Maturin for local Rust-extension builds.
+- Python users can now set estimator options needed by the Rust identity tests.
+- Python extension smoke tests now exist.
+- The Python API now exposes co-information, `compute_pid2`, and invariants; publishing/stability work remains.
 
 #### Judgment
 
-The Python bindings are useful for local experiments but are not yet a stable public API.
+The Python bindings are useful for local experiments and now have local-build/test coverage, but they are not yet a stable public API.
 
 ### 7. Visualization / HCI Scientist
 
@@ -150,8 +151,8 @@ The Python bindings are useful for local experiments but are not yet a stable pu
 
 #### Concerns
 
-- `vla_demo` logs PID atoms as fixed proportions of MI; this must stay unmistakably demo-only until it computes actual PID.
-- `VlaEpisode` assumes consistent embedding/action dimensions and may panic on malformed frames.
+- `vla_demo` now computes actual `pid2_isx` atoms for its synthetic window; it remains demo-only and not VLA evidence.
+- `VlaEpisode` shape validation was added for malformed frames.
 - The viewer assumes the external `rerun` CLI is installed.
 
 #### Judgment
@@ -167,14 +168,14 @@ The visualization direction is good, but the demo should not look like real diag
 
 #### Concerns
 
-- The docs reference `flake.lock`, but no `flake.lock` is tracked.
-- `AGENTS.md` says the current docset is v10.0 while `README.md` and `CHANGELOG.md` say v10.1.
-- There is no CI configuration.
+- Historical `flake.lock` wording was removed or corrected; no tracked `flake.lock` is implied.
+- `AGENTS.md`, README, and the broader docset now align to v10.1.
+- CI now covers Rust formatting, Clippy, tests, doc audits, canonical Python lint, and run-log smokes.
 - Experiment 0 outputs are not saved/versioned by default.
 
 #### Judgment
 
-The reproducibility plan is good; the reproducibility implementation is still mostly future work.
+The reproducibility plan is now backed by run logs, validation/replay, summaries/manifests, sidecar writing/verification, trace hashes, config hashes, and CI smokes; release-grade environment/data/model provenance is still future work.
 
 ### 9. Security / Safety / Governance Reviewer
 
@@ -207,7 +208,7 @@ The reproducibility plan is good; the reproducibility implementation is still mo
 - `grandplan.md` is valuable but very large and hard to maintain.
 - Tracked `meshmaker/*.py` scripts are messy and fail linting.
 - Ignored local artifacts, `.external/`, generated PDFs, RRD files, and mesh outputs make the workspace larger and noisier than the tracked repo.
-- No CI means formatting, Clippy, and Ruff drift are easy.
+- CI now catches formatting, Clippy, Rust tests, canonical Ruff drift, doc audits, and run-log smoke regressions.
 
 #### Judgment
 
@@ -217,85 +218,60 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 
 ### P0: Blockers Before Serious Downstream Claims
 
-1. **Make implemented Experiment 0 match documented Experiment 0.**
-   - Add monotonicity gates: `I(S1,S2;T) >= I(S1;T)` and `I(S1,S2;T) >= I(S2;T)`.
-   - Add conditional MI nonnegativity gates.
-   - Add invariant bounds for `r_bar` and `v_bar`.
-   - Add seed sweeps and uncertainty intervals.
-   - Save CSV/JSON outputs with config hashes.
+1. **Promote Experiment 0 from strict smoke gate to publishable measurement protocol.**
+   - Keep the current monotonicity/CMI/invariant/geometry gates strict.
+   - Add uncertainty quantification, block bootstrap or trajectory-level resampling, and clearly documented validated preprocessing regimes.
+   - Keep treating current PIVOT/NO-GO outputs as limits evidence, not VLA conclusions.
 
-2. **Fix Rust hygiene.**
-   - Run `cargo fmt --all`.
-   - Fix the Clippy issue in `crates/pid-core/src/hyperbolic.rs`.
-   - Add CI for `cargo fmt --check`, `cargo clippy --workspace -- -D warnings`, and `cargo test --workspace`.
+2. **Build a real capture pipeline before making VLA claims.**
+   - Add one model/task integration that extracts `(V,L,D,A)` embeddings plus externally meaningful success/failure labels.
+   - Preserve sample IDs, episode IDs, train/held-out splits, config hashes, and artifacts in the canonical run log, with verified sidecars beside it.
+   - Keep non-PID baselines mandatory.
 
-3. **Harden estimator APIs against invalid configurations.**
-   - Validate `Pid2Config` consistency between KSG and ISX configs.
-   - Forbid `Metric::HyperbolicLorentz` in `pid3_isx` unless explicitly marked experimental and separately named.
-   - Reject non-finite distances inside KSG loops.
-   - Consider defaulting identity-sensitive APIs to `NegativeHandling::Allow`, or make clamping opt-in at reporting boundaries.
+3. **Quarantine or split `meshmaker/` before release.**
+   - Keep it outside canonical lint/test claims unless it is cleaned up.
+   - Move API keys and generated/cost-bearing workflows outside the repository tree.
+   - Remove or isolate non-core asset-generation content from PID-VLA scientific releases.
 
-4. **Bring Python bindings to parity with the scientific contract.**
-   - Expose `negative_handling`, `tie_epsilon`, co-information, `pid2_isx`, invariants, and preprocessing.
-   - Add a proper Rust-extension build backend such as `maturin` if Python distribution is intended.
-   - Add Python tests that mirror core Rust tests.
-
-5. **Quarantine `meshmaker/`.**
-   - Move it to a separate repository or a clearly marked scratch area outside the canonical project.
-   - Remove safety-checker disabling.
-   - Move API keys outside the repository tree.
-   - Add dry-run defaults and explicit cost controls if kept.
-   - Remove or isolate military/weapon asset generation from the PID-VLA research repo.
+4. **Define the first real VLA baseline and task.**
+   - Pick one lightweight baseline, one task, one label definition, and one run-log contract.
+   - Avoid adding more optional model branches until that path works end to end.
 
 ### P1: Needed for Publishable Engineering
 
-6. **Implement M1 run logs and replay.**
-   - Add a versioned event schema.
-   - Record config and artifact hashes.
-   - Provide a deterministic replay CLI.
-   - Log Experiment 0 results.
+5. **Add physics-backed manipulation beyond the deterministic object smoke.**
+   - Introduce a backend adapter only if it still emits canonical run-log events and can be replayed/verified.
+   - Treat cross-backend replay as a robustness/confound check rather than a claim of physics truth.
 
-7. **Make `pid-rerun` scientifically honest by construction.**
-   - Rename fake PID demo outputs or compute real `pid2_isx`.
-   - Validate shapes in `VlaFrame` and `VlaEpisode`.
-   - Avoid one-hour sleep as default non-save behavior, or add a clear `--serve` mode.
+6. **Harden release provenance.**
+   - Generate dependency notices/SBOMs for Rust/Python and, later, npm/Tauri.
+   - Record license/provenance for datasets, model checkpoints, generated meshes, prompts, 3DGS captures, and sidecars.
 
-8. **Resolve doc drift.**
-   - Update `AGENTS.md` from v10.0 to v10.1.
-   - Remove the `flake.lock` reference or add a tracked `flake.lock`.
-   - Fix "small sample assets" wording in `grandplan.md` unless those assets are actually tracked.
-   - Align `pidsplatspecs.md` Rerun version language with the actual Cargo dependency.
+7. **Turn the Rerun workflow into the first serious diagnostic viewer.**
+   - Preserve the current validated run-log-to-Rerun adapter.
+   - Add richer run-level panels only after they are backed by run-log events, summaries, or manifests.
 
-9. **Add a minimal real experiment harness.**
-   - Pick one toy/small VLA or deterministic policy.
-   - Pick one task.
-   - Pick one run-log format.
-   - Pick one failure label.
-   - Include non-PID baselines before making PID claims.
-
-10. **Add provenance discipline for generated artifacts.**
-    - Treat ignored `outputs/` reports as local artifacts unless promoted.
-    - If promoted, add generation command, source inputs, commit hash, and audit date.
+8. **Stabilize the Python API only after the Rust scientific contract settles.**
+   - Keep local Maturin builds/tests passing.
+   - Add versioned examples and packaging metadata before treating it as public.
 
 ### P2: Later Improvements
 
-11. Add approximate or parallel kNN only after correctness gates are stable.
-12. Add block bootstrap or trajectory-level resampling.
-13. Add a discrete/quantized PID fallback.
-14. Split `grandplan.md` into smaller maintainable specs while preserving one canonical index.
-15. Add benchmark fixtures comparing against external reference implementations where licensing permits.
+9. Add approximate or parallel kNN only after correctness gates are stable.
+10. Add a discrete/quantized PID fallback.
+11. Split `grandplan.md` into smaller maintainable specs while preserving one canonical index.
+12. Add benchmark fixtures comparing against external reference implementations where licensing permits.
 
 ## Suggested Immediate Sequence
 
 The next best move is not more architecture or more asset generation. A sensible execution order is:
 
-1. Fix Rust formatting and Clippy.
-2. Add CI for Rust formatting, Clippy, and tests.
-3. Strengthen Experiment 0 gates to match the documented scientific criteria.
-4. Harden estimator configuration validation.
-5. Decide whether `meshmaker/` belongs in this repository.
-6. Bring Python bindings and tests closer to the Rust scientific contract.
-7. Build run logs and deterministic replay.
+1. Keep Exp0/geometry gates strict and add uncertainty/resampling.
+2. Keep run-log sidecars verified and make deterministic replay a required artifact.
+3. Connect the offline embedding harness to one real VLA/task capture with labels.
+4. Add physics-backed manipulation only behind the same run-log/Agent Bridge contract.
+5. Continue quarantining or splitting `meshmaker/`.
+6. Stabilize Python packaging/API after the Rust evidence contract is stable.
 
 ## Implementation Pass Status: 2026-05-09
 
@@ -309,18 +285,18 @@ Completed in the follow-up implementation pass:
 - Experiment 0 now supports deterministic seed sweeps, stricter monotonicity/CMI/invariant gates, and optional JSON summaries with a config hash.
 - Python bindings now expose estimator options plus `compute_co_information`, `compute_pid2`, and `compute_invariants`; Maturin is wired in `pyproject.toml`.
 - Python tests were added for the `pid_core_rs` extension.
-- `pid-rerun` demo now computes actual `pid2_isx` atoms for its synthetic window instead of fixed PID proportions.
+- `pid-rerun` demo now computes actual `pid2_isx` atoms for its synthetic window instead of earlier placeholder proportions.
 - `VlaEpisode` shape validation was added, and the demo no longer sleeps for an hour unless `--serve` is passed.
 - `meshmaker/` remains in-repo but is quarantined from canonical Ruff lint; safety-checker disabling was removed from the main generators, and swarm launch now requires an explicit environment opt-in.
 - Doc drift fixes were applied for docset version, Rerun SDK wording, Python binding status, and `flake.lock` wording.
 
 Current residuals:
 
-- The stricter Experiment 0 gate currently reports `NO-GO` on the synthetic quick run. This is useful: it surfaces estimator monotonicity, CMI, invariant, and geometry failures that should block downstream VLA claims.
+- The stricter Experiment 0 gate currently surfaces PIVOT/NO-GO-style failures on the synthetic diagnostics. This is useful: it exposes estimator monotonicity, CMI, invariant, and geometry failures that should block downstream VLA claims.
 - `meshmaker/` is still tracked legacy/auxiliary tooling. Full removal or repository split would be a destructive organizational change and should be done only with explicit confirmation.
-- `crates/pid-runlog` now provides M1 groundwork (JSONL event schema, reader/writer, validation, replay summary, manifest/summary JSON, sidecar writing, hashes, config-hash consistency gates, first-class `Flow_gt`/`flow_pred`, and contract metadata), `crates/pid-bridge` provides M2 event-core/dispatcher/JSON-RPC request/response groundwork plus bridge/run-log contract export and read-only safe-mode gates, `crates/pid-sim` provides an M3 deterministic smoke sim with backend/solver config provenance, bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, safe-mode `log.replay`, bridge `log.start`/`log.stop`, deterministic bridge `intervention.apply`, bridge `export.rerun`, simulator-derived `Flow_gt`, constant-velocity baseline `flow_pred`, flow verification, action/intervention replay checks, and an offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, deterministic sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, held-out class-coverage and episode-disjointness reports, held-out per-sample prediction records in summaries/run logs, and held-out failure-class confusion/rate diagnostics, and `crates/pid-rerun` converts run logs into Rerun recordings with summary/provenance/validation diagnostics; physics backend and real VLA/simulator data capture are still future work.
+- `crates/pid-runlog` now provides M1 groundwork (JSONL event schema, reader/writer, validation, replay summary with unique metric-name counts plus total metric-event counters, manifest/summary JSON, sidecar writing/verification, hashes, config-hash consistency gates, first-class `Flow_gt`/`flow_pred`, and contract metadata), `crates/pid-bridge` provides M2 event-core/dispatcher/JSON-RPC request/response groundwork plus bridge/run-log contract export and read-only safe-mode gates, `crates/pid-sim` provides an M3 deterministic smoke sim with backend/solver config provenance, bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, safe-mode `log.replay`, bridge `log.start`/`log.stop`, deterministic bridge `intervention.apply`, bridge `export.rerun`, simulator-derived `Flow_gt`, constant-velocity baseline `flow_pred`, flow verification, action/intervention replay checks, and an offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, deterministic sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, held-out class-coverage and episode-disjointness reports, held-out per-sample prediction records in summaries/run logs, replay-visible total metric event counts, and held-out failure-class confusion/rate diagnostics, and `crates/pid-rerun` converts run logs into Rerun recordings with summary/provenance/validation diagnostics; physics backend and real VLA/simulator data capture are still future work.
 - A tiny deterministic labeled harness now exists in `pid-sim` (`pid-toy-harness` / `just toy-harness`) to exercise first-class success-label events, a replay-linked toy `(V,L,D,A)` embedding contract, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export before any real VLA claims.
-- A generic offline embedding harness now exists in `pid-sim` (`pid-offline-harness` / `just offline-harness`) to ingest captured JSON samples with `v`, `l`, `d`, `a`, labels, and metadata, then emit canonical summary/run-log artifacts with config provenance, embedding contracts, standardized all-pairs `V/L/D→A` PID metrics plus train-split-only PID metrics when a metadata split is present, geometry diagnostics/gates, strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, deterministic sample-level plus episode-grouped and metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, held-out class-coverage and episode-disjointness reports, held-out per-sample prediction records in summaries/run logs, held-out failure-class confusion/rate diagnostics, and artifact records. `--require-geometry-pass` / `just offline-harness-strict` fails closed on geometry warnings while preserving a valid failed run log; `--require-heldout-split` fails closed if train/held-out baselines cannot be produced; `--require-heldout-class-coverage` fails closed if either subset lacks success or failure labels; `--require-heldout-episode-disjoint` fails closed if any `episode_id` crosses the train/held-out boundary.
+- A generic offline embedding harness now exists in `pid-sim` (`pid-offline-harness` / `just offline-harness`) to ingest captured JSON samples with `v`, `l`, `d`, `a`, labels, and metadata, then emit canonical summary/run-log artifacts with config provenance, embedding contracts, standardized all-pairs `V/L/D→A` PID metrics plus train-split-only PID metrics when a metadata split is present, geometry diagnostics/gates, strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, deterministic sample-level plus episode-grouped and metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, held-out class-coverage and episode-disjointness reports, held-out per-sample prediction records in summaries/run logs, replay-visible total metric event counts, held-out failure-class confusion/rate diagnostics, and artifact records. `--require-geometry-pass` / `just offline-harness-strict` fails closed on geometry warnings while preserving a valid failed run log; `--require-heldout-split` fails closed if train/held-out baselines cannot be produced; `--require-heldout-class-coverage` fails closed if either subset lacks success or failure labels; `--require-heldout-episode-disjoint` fails closed if any `episode_id` crosses the train/held-out boundary.
 
 ## Ten-Scientist Consensus Follow-Up: 2026-05-09
 
