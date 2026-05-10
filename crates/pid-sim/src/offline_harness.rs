@@ -84,6 +84,11 @@ pub struct OfflineVldaMetrics {
     pub heldout_nn_d_success_accuracy: Option<f64>,
     pub heldout_nn_a_success_accuracy: Option<f64>,
     pub heldout_nn_vlda_success_accuracy: Option<f64>,
+    pub heldout_centroid_v_success_accuracy: Option<f64>,
+    pub heldout_centroid_l_success_accuracy: Option<f64>,
+    pub heldout_centroid_d_success_accuracy: Option<f64>,
+    pub heldout_centroid_a_success_accuracy: Option<f64>,
+    pub heldout_centroid_vlda_success_accuracy: Option<f64>,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
 }
 
@@ -250,7 +255,12 @@ pub fn run_offline_vlda_harness(
                 "heldout_nn_l_success_accuracy",
                 "heldout_nn_d_success_accuracy",
                 "heldout_nn_a_success_accuracy",
-                "heldout_nn_vlda_success_accuracy"
+                "heldout_nn_vlda_success_accuracy",
+                "heldout_centroid_v_success_accuracy",
+                "heldout_centroid_l_success_accuracy",
+                "heldout_centroid_d_success_accuracy",
+                "heldout_centroid_a_success_accuracy",
+                "heldout_centroid_vlda_success_accuracy"
             ],
             "heldout_split": analysis.heldout_split.clone(),
             "negative_handling": "allow"
@@ -942,6 +952,53 @@ fn compute_metrics(
                     values
                 })
             });
+    let heldout_centroid_v_success_accuracy = success_labels
+        .as_deref()
+        .zip(heldout_split)
+        .and_then(|(labels, split)| {
+            heldout_centroid_success_accuracy(samples, labels, &split.roles, |sample| {
+                sample.v.clone()
+            })
+        });
+    let heldout_centroid_l_success_accuracy = success_labels
+        .as_deref()
+        .zip(heldout_split)
+        .and_then(|(labels, split)| {
+            heldout_centroid_success_accuracy(samples, labels, &split.roles, |sample| {
+                sample.l.clone()
+            })
+        });
+    let heldout_centroid_d_success_accuracy = success_labels
+        .as_deref()
+        .zip(heldout_split)
+        .and_then(|(labels, split)| {
+            heldout_centroid_success_accuracy(samples, labels, &split.roles, |sample| {
+                sample.d.clone()
+            })
+        });
+    let heldout_centroid_a_success_accuracy = success_labels
+        .as_deref()
+        .zip(heldout_split)
+        .and_then(|(labels, split)| {
+            heldout_centroid_success_accuracy(samples, labels, &split.roles, |sample| {
+                sample.a.clone()
+            })
+        });
+    let heldout_centroid_vlda_success_accuracy = success_labels
+        .as_deref()
+        .zip(heldout_split)
+        .and_then(|(labels, split)| {
+            heldout_centroid_success_accuracy(samples, labels, &split.roles, |sample| {
+                let mut values = Vec::with_capacity(
+                    sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
+                );
+                values.extend_from_slice(&sample.v);
+                values.extend_from_slice(&sample.l);
+                values.extend_from_slice(&sample.d);
+                values.extend_from_slice(&sample.a);
+                values
+            })
+        });
     let pid_pairs = [
         ("VL".to_string(), vl_pair.clone()),
         ("VD".to_string(), vd_pair),
@@ -978,6 +1035,11 @@ fn compute_metrics(
         heldout_nn_d_success_accuracy,
         heldout_nn_a_success_accuracy,
         heldout_nn_vlda_success_accuracy,
+        heldout_centroid_v_success_accuracy,
+        heldout_centroid_l_success_accuracy,
+        heldout_centroid_d_success_accuracy,
+        heldout_centroid_a_success_accuracy,
+        heldout_centroid_vlda_success_accuracy,
         pid_pairs,
     })
 }
@@ -1451,6 +1513,100 @@ where
     correct as f64 / heldout_total as f64
 }
 
+fn heldout_centroid_success_accuracy<F>(
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+    values: F,
+) -> Option<f64>
+where
+    F: Fn(&OfflineVldaSample) -> Vec<f64>,
+{
+    let features = samples.iter().map(values).collect::<Vec<_>>();
+    let dim = features.first()?.len();
+    let train_total = roles
+        .iter()
+        .filter(|role| **role == OfflineVldaSplitRole::Train)
+        .count();
+    let mut mean = vec![0.0; dim];
+    for (feature, role) in features.iter().zip(roles) {
+        if *role == OfflineVldaSplitRole::Train {
+            for (sum, value) in mean.iter_mut().zip(feature) {
+                *sum += *value;
+            }
+        }
+    }
+    for value in &mut mean {
+        *value /= train_total as f64;
+    }
+    let mut variance = vec![0.0; dim];
+    for (feature, role) in features.iter().zip(roles) {
+        if *role == OfflineVldaSplitRole::Train {
+            for ((sum, value), mean) in variance.iter_mut().zip(feature).zip(&mean) {
+                let delta = value - mean;
+                *sum += delta * delta;
+            }
+        }
+    }
+    let inv_std = variance
+        .into_iter()
+        .map(|sum| {
+            if sum == 0.0 {
+                1.0
+            } else {
+                (train_total as f64 / sum).sqrt()
+            }
+        })
+        .collect::<Vec<_>>();
+    let features = features
+        .iter()
+        .map(|feature| {
+            feature
+                .iter()
+                .zip(&mean)
+                .zip(&inv_std)
+                .map(|((value, mean), inv_std)| (value - mean) * inv_std)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let mut centroids = [vec![0.0; dim], vec![0.0; dim]];
+    let mut counts = [0usize, 0usize];
+    for (idx, feature) in features.iter().enumerate() {
+        if roles[idx] != OfflineVldaSplitRole::Train {
+            continue;
+        }
+        let class = usize::from(labels[idx]);
+        counts[class] += 1;
+        for (sum, value) in centroids[class].iter_mut().zip(feature) {
+            *sum += *value;
+        }
+    }
+    if counts.contains(&0) {
+        return None;
+    }
+    for (centroid, count) in centroids.iter_mut().zip(counts) {
+        for value in centroid {
+            *value /= count as f64;
+        }
+    }
+    let correct = features
+        .iter()
+        .enumerate()
+        .filter(|(idx, _)| roles[*idx] == OfflineVldaSplitRole::Heldout)
+        .filter(|(idx, feature)| {
+            let false_distance = squared_euclidean(feature, &centroids[0]);
+            let true_distance = squared_euclidean(feature, &centroids[1]);
+            let predicted_success = true_distance < false_distance;
+            predicted_success == labels[*idx]
+        })
+        .count();
+    let heldout_total = roles
+        .iter()
+        .filter(|role| **role == OfflineVldaSplitRole::Heldout)
+        .count();
+    Some(correct as f64 / heldout_total as f64)
+}
+
 fn nearest_neighbor_idx(
     samples: &[OfflineVldaSample],
     features: &[Vec<f64>],
@@ -1790,6 +1946,43 @@ fn write_metric_events<W: Write>(
             idx += 1;
         }
     }
+    for (name, value) in [
+        (
+            "offline_vlda.baseline.heldout_centroid_v_success_accuracy",
+            report.metrics.heldout_centroid_v_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.heldout_centroid_l_success_accuracy",
+            report.metrics.heldout_centroid_l_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.heldout_centroid_d_success_accuracy",
+            report.metrics.heldout_centroid_d_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.heldout_centroid_a_success_accuracy",
+            report.metrics.heldout_centroid_a_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.heldout_centroid_vlda_success_accuracy",
+            report.metrics.heldout_centroid_vlda_success_accuracy,
+        ),
+    ] {
+        if let Some(value) = value {
+            writer.append(&RunLogEvent::EvaluationMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + idx,
+                name: name.to_string(),
+                value,
+                metadata: offline_vlda_heldout_split_metric_metadata(
+                    report,
+                    "train_split_nearest_centroid",
+                    Some("train_standardized_euclidean"),
+                ),
+            })?;
+            idx += 1;
+        }
+    }
     for (label, count) in &report.label_counts {
         writer.append(&RunLogEvent::EvaluationMetric {
             step: report.dims.samples as u64,
@@ -2075,6 +2268,26 @@ mod tests {
         assert_eq!(report.metrics.heldout_nn_d_success_accuracy, Some(0.25));
         assert_eq!(report.metrics.heldout_nn_a_success_accuracy, Some(0.0));
         assert_eq!(report.metrics.heldout_nn_vlda_success_accuracy, Some(0.25));
+        assert_eq!(
+            report.metrics.heldout_centroid_v_success_accuracy,
+            Some(0.75)
+        );
+        assert_eq!(
+            report.metrics.heldout_centroid_l_success_accuracy,
+            Some(0.25)
+        );
+        assert_eq!(
+            report.metrics.heldout_centroid_d_success_accuracy,
+            Some(0.25)
+        );
+        assert_eq!(
+            report.metrics.heldout_centroid_a_success_accuracy,
+            Some(0.25)
+        );
+        assert_eq!(
+            report.metrics.heldout_centroid_vlda_success_accuracy,
+            Some(0.25)
+        );
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         assert_eq!(report.metrics.pid_pairs["VD"].source_2, "D");
         assert_eq!(report.label_counts["success"], 16);
@@ -2124,6 +2337,20 @@ mod tests {
             )
         });
         assert!(has_heldout_baseline);
+        let has_centroid_baseline = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::EvaluationMetric { name, metadata, .. }
+                    if name == "offline_vlda.baseline.heldout_centroid_vlda_success_accuracy"
+                        && metadata.get("classifier").map(String::as_str)
+                            == Some("train_split_nearest_centroid")
+                        && metadata.get("distance").map(String::as_str)
+                            == Some("train_standardized_euclidean")
+                        && metadata.get("split").map(String::as_str)
+                            == Some("metadata_split_heldout")
+            )
+        });
+        assert!(has_centroid_baseline);
         let contract_uri = events
             .iter()
             .find_map(|event| {
@@ -2143,7 +2370,7 @@ mod tests {
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 21);
         assert!(summary.geometry_metrics >= 21);
-        assert_eq!(summary.evaluation_metrics, 20);
+        assert_eq!(summary.evaluation_metrics, 25);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
@@ -2173,6 +2400,10 @@ mod tests {
         );
         assert_eq!(report.metrics.heldout_majority_success_accuracy, Some(0.75));
         assert_eq!(report.metrics.heldout_nn_vlda_success_accuracy, Some(0.25));
+        assert_eq!(
+            report.metrics.heldout_centroid_vlda_success_accuracy,
+            Some(0.25)
+        );
         assert_eq!(report.heldout_split.as_ref().unwrap().train_samples, 12);
         assert!(report.metrics.pid_pairs.contains_key("LD"));
         assert_eq!(report.geometry.variables.len(), 6);
@@ -2218,6 +2449,26 @@ mod tests {
         assert_eq!(summary.geometry_metrics, 21);
 
         let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn offline_vlda_centroid_baseline_requires_both_train_classes() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples {
+            if sample.metadata.get("split").map(String::as_str) == Some("train") {
+                sample.labels.insert("success".to_string(), json!(true));
+            }
+        }
+        let report = run_offline_vlda_harness(
+            dataset,
+            Some("memory://fixture.json".to_string()),
+            Some("abc".to_string()),
+        )
+        .unwrap();
+        assert!(report.heldout_split.is_some());
+        assert!(report.metrics.heldout_majority_success_accuracy.is_some());
+        assert_eq!(report.metrics.heldout_centroid_v_success_accuracy, None);
+        assert_eq!(report.metrics.heldout_centroid_vlda_success_accuracy, None);
     }
 
     #[test]
