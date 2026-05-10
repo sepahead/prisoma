@@ -6,8 +6,9 @@ use pid_sim::offline_harness::{
     offline_vlda_heldout_episode_disjoint_failure_message,
     offline_vlda_heldout_episode_disjoint_status, offline_vlda_heldout_split_failure_message,
     offline_vlda_heldout_split_status, offline_vlda_success_label_failure_message,
-    offline_vlda_success_label_status, read_offline_vlda_dataset, run_offline_vlda_harness,
-    write_offline_vlda_runlog_with_options, write_offline_vlda_summary, OfflineVldaRunlogOptions,
+    offline_vlda_success_label_status, offline_vlda_train_split_pid_status,
+    read_offline_vlda_dataset, run_offline_vlda_harness, write_offline_vlda_runlog_with_options,
+    write_offline_vlda_summary, OfflineVldaRunlogOptions,
 };
 use std::path::PathBuf;
 
@@ -49,7 +50,7 @@ fn main() -> Result<()> {
         },
     )?;
     println!(
-        "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_gate_status={} success_label_status={} heldout_split_status={} heldout_class_coverage_status={} heldout_episode_disjoint_status={}",
+        "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_gate_status={} success_label_status={} heldout_split_status={} train_split_pid_status={} heldout_class_coverage_status={} heldout_episode_disjoint_status={}",
         args.summary_json.display(),
         args.runlog.display(),
         report.dims.samples,
@@ -57,6 +58,7 @@ fn main() -> Result<()> {
         report.geometry.gates.status,
         offline_vlda_success_label_status(&report),
         offline_vlda_heldout_split_status(&report),
+        offline_vlda_train_split_pid_status(&report),
         offline_vlda_heldout_class_coverage_status(&report),
         offline_vlda_heldout_episode_disjoint_status(&report)
     );

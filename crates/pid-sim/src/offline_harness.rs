@@ -111,6 +111,20 @@ pub struct OfflineVldaMetrics {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaPidScreenMetrics {
+    pub mi_v_action: f64,
+    pub mi_l_action: f64,
+    pub mi_d_action: f64,
+    pub mi_vl_action: f64,
+    pub co_information_v_l_action: f64,
+    pub redundancy_v_l_action: f64,
+    pub unique_v_action: f64,
+    pub unique_l_action: f64,
+    pub synergy_v_l_action: f64,
+    pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPidPairMetrics {
     pub source_1: String,
     pub source_2: String,
@@ -123,6 +137,21 @@ pub struct OfflineVldaPidPairMetrics {
     pub unique_source_1: f64,
     pub unique_source_2: f64,
     pub synergy: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaTrainSplitPidReport {
+    pub split_metadata_key: String,
+    pub split: String,
+    pub train_values: Vec<String>,
+    pub heldout_values: Vec<String>,
+    pub status: String,
+    pub samples: usize,
+    pub heldout_samples_excluded: usize,
+    pub train_sample_ids: Vec<String>,
+    pub preprocessing: Option<OfflineVldaPreprocessingReport>,
+    pub metrics: Option<OfflineVldaPidScreenMetrics>,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -257,6 +286,7 @@ pub struct OfflineVldaReport {
     pub label_counts: BTreeMap<String, usize>,
     pub preprocessing: OfflineVldaPreprocessingReport,
     pub geometry: OfflineVldaGeometryReport,
+    pub train_split_pid: Option<OfflineVldaTrainSplitPidReport>,
     pub heldout_split: Option<OfflineVldaHeldoutSplitReport>,
     pub heldout_class_coverage: Option<OfflineVldaHeldoutClassCoverageReport>,
     pub heldout_episode_disjoint: Option<OfflineVldaHeldoutEpisodeDisjointReport>,
@@ -306,11 +336,18 @@ pub fn run_offline_vlda_harness(
             "mi": "ksg",
             "pid": "isx_ehrlich_ksg",
             "pid_pairs": [["V", "L"], ["V", "D"], ["L", "D"]],
+            "pid_sample_scopes": if analysis.train_split_pid.as_ref().and_then(|report| report.metrics.as_ref()).is_some() {
+                vec!["all_samples", "metadata_split_train"]
+            } else {
+                vec!["all_samples"]
+            },
             "target": "A",
             "shared_source_metrics": ["mi_v_action", "mi_l_action", "mi_d_action"],
             "preprocessing": {
                 "pid_geometry_space": analysis.preprocessing.strategy.clone(),
-                "standardizer": "per_variable_center_scale_population_std"
+                "standardizer": "per_variable_center_scale_population_std",
+                "full_sample_pid_fit_scope": "all_samples",
+                "train_split_pid_fit_scope": analysis.train_split_pid.as_ref().and_then(|report| report.metrics.as_ref()).map(|_| "metadata_split_train")
             },
             "geometry": {
                 "metric": analysis.geometry.metric.clone(),
@@ -380,6 +417,15 @@ pub fn run_offline_vlda_harness(
                 "heldout_episode_disjoint_missing_episode_sample_count"
             ],
             "heldout_split": analysis.heldout_split.clone(),
+            "train_split_pid": analysis.train_split_pid.as_ref().map(|report| json!({
+                "status": report.status,
+                "split_metadata_key": report.split_metadata_key,
+                "split": report.split,
+                "samples": report.samples,
+                "heldout_samples_excluded": report.heldout_samples_excluded,
+                "preprocessing_available": report.preprocessing.is_some(),
+                "metrics_available": report.metrics.is_some()
+            })),
             "heldout_class_coverage": analysis.heldout_class_coverage.clone(),
             "heldout_episode_disjoint": analysis.heldout_episode_disjoint.clone(),
             "prediction_records": [
@@ -399,12 +445,127 @@ pub fn run_offline_vlda_harness(
         label_counts,
         preprocessing: analysis.preprocessing,
         geometry: analysis.geometry,
+        train_split_pid: analysis.train_split_pid,
         heldout_split: analysis.heldout_split,
         heldout_class_coverage: analysis.heldout_class_coverage,
         heldout_episode_disjoint: analysis.heldout_episode_disjoint,
         heldout_predictions: analysis.heldout_predictions,
         heldout_failure_diagnostics: analysis.heldout_failure_diagnostics,
         metrics: analysis.metrics,
+    })
+}
+
+fn train_split_pid_report(
+    samples: &[OfflineVldaSample],
+    dims: &OfflineVldaDims,
+    split: &OfflineVldaHeldoutSplitPlan,
+) -> OfflineVldaTrainSplitPidReport {
+    let train_samples = samples
+        .iter()
+        .zip(&split.roles)
+        .filter_map(|(sample, role)| {
+            (*role == OfflineVldaSplitRole::Train).then_some(sample.clone())
+        })
+        .collect::<Vec<_>>();
+    let train_dims = OfflineVldaDims {
+        samples: train_samples.len(),
+        v: dims.v,
+        l: dims.l,
+        d: dims.d,
+        a: dims.a,
+    };
+    let result = (|| -> Result<(OfflineVldaPreprocessingReport, OfflineVldaPidScreenMetrics)> {
+        let prepared = prepare_standardized_embeddings(&train_samples, &train_dims)?;
+        let metrics = compute_pid_screen_metrics(&prepared)?;
+        Ok((prepared.preprocessing, metrics))
+    })();
+    let (status, preprocessing, metrics, error) = match result {
+        Ok((preprocessing, metrics)) => (
+            "available".to_string(),
+            Some(preprocessing),
+            Some(metrics),
+            None,
+        ),
+        Err(err) => ("error".to_string(), None, None, Some(format!("{err:#}"))),
+    };
+    OfflineVldaTrainSplitPidReport {
+        split_metadata_key: split.report.metadata_key.clone(),
+        split: "metadata_split_train".to_string(),
+        train_values: split.report.train_values.clone(),
+        heldout_values: split.report.heldout_values.clone(),
+        status,
+        samples: train_samples.len(),
+        heldout_samples_excluded: split.report.heldout_samples,
+        train_sample_ids: split.report.train_sample_ids.clone(),
+        preprocessing,
+        metrics,
+        error,
+    }
+}
+
+fn compute_pid_screen_metrics(
+    prepared: &PreparedVldaMatrices,
+) -> Result<OfflineVldaPidScreenMetrics> {
+    let v = prepared.v.as_ref();
+    let l = prepared.l.as_ref();
+    let d = prepared.d.as_ref();
+    let a = prepared.a.as_ref();
+    let ksg = KsgConfig {
+        negative_handling: NegativeHandling::Allow,
+        ..Default::default()
+    };
+    let pid_cfg = Pid2Config {
+        ksg: ksg.clone(),
+        isx: IsxConfig {
+            k: ksg.k,
+            metric: ksg.metric,
+            tie_epsilon: ksg.tie_epsilon,
+            ..Default::default()
+        },
+    };
+    let mi_v_action = pid_core::ksg_mi(v, a, &ksg)?;
+    let mi_l_action = pid_core::ksg_mi(l, a, &ksg)?;
+    let mi_d_action = pid_core::ksg_mi(d, a, &ksg)?;
+    let v_source = OfflineVldaSourceMatrix {
+        name: "V",
+        matrix: v,
+        mi_action: mi_v_action,
+    };
+    let l_source = OfflineVldaSourceMatrix {
+        name: "L",
+        matrix: l,
+        mi_action: mi_l_action,
+    };
+    let d_source = OfflineVldaSourceMatrix {
+        name: "D",
+        matrix: d,
+        mi_action: mi_d_action,
+    };
+    let action_target = OfflineVldaTargetMatrix {
+        name: "A",
+        matrix: a,
+    };
+    let vl_pair = compute_pid_pair_metrics(v_source, l_source, action_target, &ksg, &pid_cfg)?;
+    let vd_pair = compute_pid_pair_metrics(v_source, d_source, action_target, &ksg, &pid_cfg)?;
+    let ld_pair = compute_pid_pair_metrics(l_source, d_source, action_target, &ksg, &pid_cfg)?;
+    let pid_pairs = [
+        ("VL".to_string(), vl_pair.clone()),
+        ("VD".to_string(), vd_pair),
+        ("LD".to_string(), ld_pair),
+    ]
+    .into_iter()
+    .collect();
+    Ok(OfflineVldaPidScreenMetrics {
+        mi_v_action,
+        mi_l_action,
+        mi_d_action,
+        mi_vl_action: vl_pair.mi_joint_action,
+        co_information_v_l_action: vl_pair.co_information,
+        redundancy_v_l_action: vl_pair.redundancy,
+        unique_v_action: vl_pair.unique_source_1,
+        unique_l_action: vl_pair.unique_source_2,
+        synergy_v_l_action: vl_pair.synergy,
+        pid_pairs,
     })
 }
 
@@ -500,6 +661,10 @@ pub fn write_offline_vlda_runlog_with_options(
             (
                 "heldout_split_status".to_string(),
                 offline_vlda_heldout_split_status(report).to_string(),
+            ),
+            (
+                "train_split_pid_status".to_string(),
+                offline_vlda_train_split_pid_status(report).to_string(),
             ),
             (
                 "heldout_class_coverage_status".to_string(),
@@ -669,6 +834,12 @@ pub fn write_offline_vlda_runlog_with_options(
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy)]
+struct OfflineVldaPidMetricEventScope<'a> {
+    prefix: &'static str,
+    train_pid: Option<&'a OfflineVldaTrainSplitPidReport>,
+}
+
 pub fn offline_vlda_geometry_gate_failure_message(report: &OfflineVldaReport) -> String {
     format!(
         "offline VLDA geometry gate {}: {} warning(s)",
@@ -741,6 +912,14 @@ pub fn offline_vlda_heldout_split_status(report: &OfflineVldaReport) -> &'static
         "missing_success_labels"
     } else {
         "missing"
+    }
+}
+
+pub fn offline_vlda_train_split_pid_status(report: &OfflineVldaReport) -> &'static str {
+    match report.train_split_pid.as_ref() {
+        Some(train_pid) if train_pid.metrics.is_some() => "available",
+        Some(_) => "error",
+        None => "missing",
     }
 }
 
@@ -890,6 +1069,7 @@ struct OfflineVldaAnalysis {
     metrics: OfflineVldaMetrics,
     preprocessing: OfflineVldaPreprocessingReport,
     geometry: OfflineVldaGeometryReport,
+    train_split_pid: Option<OfflineVldaTrainSplitPidReport>,
     heldout_split: Option<OfflineVldaHeldoutSplitReport>,
     heldout_class_coverage: Option<OfflineVldaHeldoutClassCoverageReport>,
     heldout_episode_disjoint: Option<OfflineVldaHeldoutEpisodeDisjointReport>,
@@ -922,6 +1102,9 @@ fn compute_analysis(
         .as_ref()
         .map(|split| heldout_episode_disjoint_report(samples, &split.roles));
     let metrics = compute_metrics(samples, &prepared, heldout_split.as_ref())?;
+    let train_split_pid = heldout_split
+        .as_ref()
+        .map(|split| train_split_pid_report(samples, dims, split));
     let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
     let geometry = compute_geometry_report(&prepared);
@@ -929,6 +1112,7 @@ fn compute_analysis(
         metrics,
         preprocessing: prepared.preprocessing,
         geometry,
+        train_split_pid,
         heldout_split: heldout_split.map(|split| split.report),
         heldout_class_coverage,
         heldout_episode_disjoint,
@@ -1004,48 +1188,7 @@ fn compute_metrics(
     prepared: &PreparedVldaMatrices,
     heldout_split: Option<&OfflineVldaHeldoutSplitPlan>,
 ) -> Result<OfflineVldaMetrics> {
-    let v = prepared.v.as_ref();
-    let l = prepared.l.as_ref();
-    let d = prepared.d.as_ref();
-    let a = prepared.a.as_ref();
-    let ksg = KsgConfig {
-        negative_handling: NegativeHandling::Allow,
-        ..Default::default()
-    };
-    let pid_cfg = Pid2Config {
-        ksg: ksg.clone(),
-        isx: IsxConfig {
-            k: ksg.k,
-            metric: ksg.metric,
-            tie_epsilon: ksg.tie_epsilon,
-            ..Default::default()
-        },
-    };
-    let mi_v_action = pid_core::ksg_mi(v, a, &ksg)?;
-    let mi_l_action = pid_core::ksg_mi(l, a, &ksg)?;
-    let mi_d_action = pid_core::ksg_mi(d, a, &ksg)?;
-    let v_source = OfflineVldaSourceMatrix {
-        name: "V",
-        matrix: v,
-        mi_action: mi_v_action,
-    };
-    let l_source = OfflineVldaSourceMatrix {
-        name: "L",
-        matrix: l,
-        mi_action: mi_l_action,
-    };
-    let d_source = OfflineVldaSourceMatrix {
-        name: "D",
-        matrix: d,
-        mi_action: mi_d_action,
-    };
-    let action_target = OfflineVldaTargetMatrix {
-        name: "A",
-        matrix: a,
-    };
-    let vl_pair = compute_pid_pair_metrics(v_source, l_source, action_target, &ksg, &pid_cfg)?;
-    let vd_pair = compute_pid_pair_metrics(v_source, d_source, action_target, &ksg, &pid_cfg)?;
-    let ld_pair = compute_pid_pair_metrics(l_source, d_source, action_target, &ksg, &pid_cfg)?;
+    let pid_screen = compute_pid_screen_metrics(prepared)?;
     let success_labels = success_labels(samples);
     let (success_rate, majority_success_accuracy) = success_metrics(&success_labels);
     let loo_nn_v_success_accuracy = success_labels
@@ -1269,23 +1412,16 @@ fn compute_metrics(
         heldout_centroid_a_success_metrics.and_then(|metrics| metrics.auroc);
     let heldout_centroid_vlda_success_auroc =
         heldout_centroid_vlda_success_metrics.and_then(|metrics| metrics.auroc);
-    let pid_pairs = [
-        ("VL".to_string(), vl_pair.clone()),
-        ("VD".to_string(), vd_pair),
-        ("LD".to_string(), ld_pair),
-    ]
-    .into_iter()
-    .collect();
     Ok(OfflineVldaMetrics {
-        mi_v_action,
-        mi_l_action,
-        mi_d_action,
-        mi_vl_action: vl_pair.mi_joint_action,
-        co_information_v_l_action: vl_pair.co_information,
-        redundancy_v_l_action: vl_pair.redundancy,
-        unique_v_action: vl_pair.unique_source_1,
-        unique_l_action: vl_pair.unique_source_2,
-        synergy_v_l_action: vl_pair.synergy,
+        mi_v_action: pid_screen.mi_v_action,
+        mi_l_action: pid_screen.mi_l_action,
+        mi_d_action: pid_screen.mi_d_action,
+        mi_vl_action: pid_screen.mi_vl_action,
+        co_information_v_l_action: pid_screen.co_information_v_l_action,
+        redundancy_v_l_action: pid_screen.redundancy_v_l_action,
+        unique_v_action: pid_screen.unique_v_action,
+        unique_l_action: pid_screen.unique_l_action,
+        synergy_v_l_action: pid_screen.synergy_v_l_action,
         success_rate,
         majority_success_accuracy,
         loo_nn_v_success_accuracy,
@@ -1326,7 +1462,7 @@ fn compute_metrics(
         heldout_centroid_d_success_auroc,
         heldout_centroid_a_success_auroc,
         heldout_centroid_vlda_success_auroc,
-        pid_pairs,
+        pid_pairs: pid_screen.pid_pairs,
     })
 }
 
@@ -2574,7 +2710,7 @@ fn write_metric_events<W: Write>(
             timestamp_ns: timestamp_base_ns + idx as u64,
             name: name.to_string(),
             value,
-            metadata: offline_vlda_pid_metric_metadata(name),
+            metadata: offline_vlda_pid_metric_metadata(report, name, None),
         })?;
     }
     let mut idx = metrics.len() as u64;
@@ -2585,11 +2721,16 @@ fn write_metric_events<W: Write>(
                 report,
                 pair,
                 pair_metrics,
+                OfflineVldaPidMetricEventScope {
+                    prefix: "offline_vlda.pid",
+                    train_pid: None,
+                },
                 timestamp_base_ns,
                 &mut idx,
             )?;
         }
     }
+    write_train_split_pid_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     write_geometry_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     if let Some(value) = report.metrics.success_rate {
         writer.append(&RunLogEvent::EvaluationMetric {
@@ -3022,32 +3163,108 @@ fn write_heldout_episode_disjoint_metric_events<W: Write>(
     Ok(())
 }
 
-fn offline_vlda_pid_metric_metadata(name: &str) -> BTreeMap<String, String> {
-    let mut metadata = [("category".to_string(), "pid".to_string())]
-        .into_iter()
-        .collect::<BTreeMap<_, _>>();
-    match name {
-        "offline_vlda.pid.mi_v_action" => {
+fn offline_vlda_pid_metric_metadata(
+    report: &OfflineVldaReport,
+    name: &str,
+    train_pid: Option<&OfflineVldaTrainSplitPidReport>,
+) -> BTreeMap<String, String> {
+    let mut metadata = offline_vlda_pid_scope_metadata(report, train_pid);
+    let metric = name
+        .strip_prefix("offline_vlda.pid.train_split.")
+        .or_else(|| name.strip_prefix("offline_vlda.pid."))
+        .unwrap_or(name);
+    match metric {
+        "mi_v_action" => {
             metadata.insert("source".to_string(), "V".to_string());
+            metadata.insert("target".to_string(), "A".to_string());
         }
-        "offline_vlda.pid.mi_l_action" => {
+        "mi_l_action" => {
             metadata.insert("source".to_string(), "L".to_string());
+            metadata.insert("target".to_string(), "A".to_string());
         }
-        "offline_vlda.pid.mi_d_action" => {
+        "mi_d_action" => {
             metadata.insert("source".to_string(), "D".to_string());
+            metadata.insert("target".to_string(), "A".to_string());
         }
-        "offline_vlda.pid.mi_vl_action"
-        | "offline_vlda.pid.co_information_v_l_action"
-        | "offline_vlda.pid.redundancy_v_l_action"
-        | "offline_vlda.pid.unique_v_action"
-        | "offline_vlda.pid.unique_l_action"
-        | "offline_vlda.pid.synergy_v_l_action" => {
+        "mi_vl_action"
+        | "co_information_v_l_action"
+        | "redundancy_v_l_action"
+        | "unique_v_action"
+        | "unique_l_action"
+        | "synergy_v_l_action" => {
             metadata.insert("pid_pair".to_string(), "VL".to_string());
             metadata.insert("source_1".to_string(), "V".to_string());
             metadata.insert("source_2".to_string(), "L".to_string());
             metadata.insert("target".to_string(), "A".to_string());
         }
         _ => {}
+    }
+    metadata
+}
+
+fn offline_vlda_pid_pair_metric_metadata(
+    report: &OfflineVldaReport,
+    pair: &str,
+    metrics: &OfflineVldaPidPairMetrics,
+    train_pid: Option<&OfflineVldaTrainSplitPidReport>,
+) -> BTreeMap<String, String> {
+    let mut metadata = offline_vlda_pid_scope_metadata(report, train_pid);
+    metadata.insert("pid_pair".to_string(), pair.to_string());
+    metadata.insert("source_1".to_string(), metrics.source_1.clone());
+    metadata.insert("source_2".to_string(), metrics.source_2.clone());
+    metadata.insert("target".to_string(), metrics.target.clone());
+    metadata
+}
+
+fn offline_vlda_pid_scope_metadata(
+    report: &OfflineVldaReport,
+    train_pid: Option<&OfflineVldaTrainSplitPidReport>,
+) -> BTreeMap<String, String> {
+    let mut metadata = [
+        ("category".to_string(), "pid".to_string()),
+        (
+            "preprocessing".to_string(),
+            "per_variable_standardized".to_string(),
+        ),
+    ]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+    if let Some(train_pid) = train_pid {
+        metadata.insert(
+            "sample_scope".to_string(),
+            "metadata_split_train".to_string(),
+        );
+        metadata.insert("split".to_string(), train_pid.split.clone());
+        metadata.insert(
+            "split_key".to_string(),
+            train_pid.split_metadata_key.clone(),
+        );
+        metadata.insert("samples".to_string(), train_pid.samples.to_string());
+        metadata.insert("train_samples".to_string(), train_pid.samples.to_string());
+        metadata.insert(
+            "heldout_samples_excluded".to_string(),
+            train_pid.heldout_samples_excluded.to_string(),
+        );
+        metadata.insert(
+            "preprocessing_fit_scope".to_string(),
+            "metadata_split_train".to_string(),
+        );
+        metadata.insert("status".to_string(), train_pid.status.clone());
+    } else {
+        metadata.insert("sample_scope".to_string(), "all_samples".to_string());
+        metadata.insert("samples".to_string(), report.dims.samples.to_string());
+        metadata.insert(
+            "preprocessing_fit_scope".to_string(),
+            "all_samples".to_string(),
+        );
+        if let Some(split) = &report.heldout_split {
+            metadata.insert("split_key".to_string(), split.metadata_key.clone());
+            metadata.insert("train_samples".to_string(), split.train_samples.to_string());
+            metadata.insert(
+                "heldout_samples_included".to_string(),
+                split.heldout_samples.to_string(),
+            );
+        }
     }
     metadata
 }
@@ -3274,11 +3491,90 @@ fn offline_vlda_heldout_episode_disjoint_metric_metadata(
     metadata
 }
 
+fn write_train_split_pid_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    report: &OfflineVldaReport,
+    timestamp_base_ns: u64,
+    idx: &mut u64,
+) -> Result<()> {
+    let Some(train_pid) = &report.train_split_pid else {
+        return Ok(());
+    };
+    let Some(metrics) = &train_pid.metrics else {
+        return Ok(());
+    };
+    for (name, value) in [
+        (
+            "offline_vlda.pid.train_split.mi_v_action",
+            metrics.mi_v_action,
+        ),
+        (
+            "offline_vlda.pid.train_split.mi_l_action",
+            metrics.mi_l_action,
+        ),
+        (
+            "offline_vlda.pid.train_split.mi_d_action",
+            metrics.mi_d_action,
+        ),
+        (
+            "offline_vlda.pid.train_split.mi_vl_action",
+            metrics.mi_vl_action,
+        ),
+        (
+            "offline_vlda.pid.train_split.co_information_v_l_action",
+            metrics.co_information_v_l_action,
+        ),
+        (
+            "offline_vlda.pid.train_split.redundancy_v_l_action",
+            metrics.redundancy_v_l_action,
+        ),
+        (
+            "offline_vlda.pid.train_split.unique_v_action",
+            metrics.unique_v_action,
+        ),
+        (
+            "offline_vlda.pid.train_split.unique_l_action",
+            metrics.unique_l_action,
+        ),
+        (
+            "offline_vlda.pid.train_split.synergy_v_l_action",
+            metrics.synergy_v_l_action,
+        ),
+    ] {
+        writer.append(&RunLogEvent::PidMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + *idx,
+            name: name.to_string(),
+            value,
+            metadata: offline_vlda_pid_metric_metadata(report, name, Some(train_pid)),
+        })?;
+        *idx += 1;
+    }
+    for pair in ["VD", "LD"] {
+        if let Some(pair_metrics) = metrics.pid_pairs.get(pair) {
+            write_pid_pair_metric_events(
+                writer,
+                report,
+                pair,
+                pair_metrics,
+                OfflineVldaPidMetricEventScope {
+                    prefix: "offline_vlda.pid.train_split",
+                    train_pid: Some(train_pid),
+                },
+                timestamp_base_ns,
+                idx,
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn write_pid_pair_metric_events<W: Write>(
     writer: &mut RunLogWriter<W>,
     report: &OfflineVldaReport,
     pair: &str,
     metrics: &OfflineVldaPidPairMetrics,
+    scope: OfflineVldaPidMetricEventScope<'_>,
     timestamp_base_ns: u64,
     idx: &mut u64,
 ) -> Result<()> {
@@ -3287,27 +3583,30 @@ fn write_pid_pair_metric_events<W: Write>(
     let pair_name = format!("{source_1}{source_2}");
     for (name, value) in [
         (
-            format!("offline_vlda.pid.mi_{pair_name}_action"),
+            format!("{}.mi_{pair_name}_action", scope.prefix),
             metrics.mi_joint_action,
         ),
         (
-            format!("offline_vlda.pid.co_information_{source_1}_{source_2}_action"),
+            format!(
+                "{}.co_information_{source_1}_{source_2}_action",
+                scope.prefix
+            ),
             metrics.co_information,
         ),
         (
-            format!("offline_vlda.pid.redundancy_{source_1}_{source_2}_action"),
+            format!("{}.redundancy_{source_1}_{source_2}_action", scope.prefix),
             metrics.redundancy,
         ),
         (
-            format!("offline_vlda.pid.unique_{source_1}_given_{source_2}_action"),
+            format!("{}.unique_{source_1}_given_{source_2}_action", scope.prefix),
             metrics.unique_source_1,
         ),
         (
-            format!("offline_vlda.pid.unique_{source_2}_given_{source_1}_action"),
+            format!("{}.unique_{source_2}_given_{source_1}_action", scope.prefix),
             metrics.unique_source_2,
         ),
         (
-            format!("offline_vlda.pid.synergy_{source_1}_{source_2}_action"),
+            format!("{}.synergy_{source_1}_{source_2}_action", scope.prefix),
             metrics.synergy,
         ),
     ] {
@@ -3316,15 +3615,7 @@ fn write_pid_pair_metric_events<W: Write>(
             timestamp_ns: timestamp_base_ns + *idx,
             name,
             value,
-            metadata: [
-                ("category".to_string(), "pid".to_string()),
-                ("pid_pair".to_string(), pair.to_string()),
-                ("source_1".to_string(), metrics.source_1.clone()),
-                ("source_2".to_string(), metrics.source_2.clone()),
-                ("target".to_string(), metrics.target.clone()),
-            ]
-            .into_iter()
-            .collect(),
+            metadata: offline_vlda_pid_pair_metric_metadata(report, pair, metrics, scope.train_pid),
         })?;
         *idx += 1;
     }
@@ -3641,6 +3932,22 @@ mod tests {
         let nn_vlda_failure = failure_diagnostic(&report, "train_split_1nn", Some("VLDA"));
         assert_eq!(nn_vlda_failure.samples, 4);
         assert_eq!(nn_vlda_failure.true_failures, 1);
+        let train_pid = report.train_split_pid.as_ref().unwrap();
+        assert_eq!(train_pid.status, "available");
+        assert_eq!(train_pid.split_metadata_key, "split");
+        assert_eq!(train_pid.split, "metadata_split_train");
+        assert_eq!(train_pid.samples, 12);
+        assert_eq!(train_pid.heldout_samples_excluded, 4);
+        assert_eq!(
+            train_pid.train_sample_ids.first().map(String::as_str),
+            Some("sample-000")
+        );
+        assert_eq!(
+            train_pid.preprocessing.as_ref().unwrap().variables["V"].input_dim,
+            2
+        );
+        assert_eq!(train_pid.metrics.as_ref().unwrap().pid_pairs.len(), 3);
+        assert_eq!(offline_vlda_train_split_pid_status(&report), "available");
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         assert_eq!(report.metrics.pid_pairs["VD"].source_2, "D");
         assert_eq!(report.label_counts["success"], 16);
@@ -3678,6 +3985,36 @@ mod tests {
             )
         });
         assert!(has_vd_synergy);
+        let has_all_sample_pid_scope = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::PidMetric { name, metadata, .. }
+                    if name == "offline_vlda.pid.synergy_v_d_action"
+                        && metadata.get("pid_pair").map(String::as_str) == Some("VD")
+                        && metadata.get("sample_scope").map(String::as_str) == Some("all_samples")
+                        && metadata.get("heldout_samples_included").map(String::as_str)
+                            == Some("4")
+                        && metadata.get("preprocessing_fit_scope").map(String::as_str)
+                            == Some("all_samples")
+            )
+        });
+        assert!(has_all_sample_pid_scope);
+        let has_train_split_pid_scope = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::PidMetric { name, metadata, .. }
+                    if name == "offline_vlda.pid.train_split.synergy_v_d_action"
+                        && metadata.get("pid_pair").map(String::as_str) == Some("VD")
+                        && metadata.get("sample_scope").map(String::as_str)
+                            == Some("metadata_split_train")
+                        && metadata.get("train_samples").map(String::as_str) == Some("12")
+                        && metadata.get("heldout_samples_excluded").map(String::as_str)
+                            == Some("4")
+                        && metadata.get("preprocessing_fit_scope").map(String::as_str)
+                            == Some("metadata_split_train")
+            )
+        });
+        assert!(has_train_split_pid_scope);
         let has_heldout_baseline = events.iter().any(|event| {
             matches!(
                 event,
@@ -3802,7 +4139,7 @@ mod tests {
         assert_eq!(summary.embedding_contracts, 1);
         assert_eq!(summary.embeddings, 4);
         assert_eq!(summary.labels, 16);
-        assert_eq!(summary.pid_metrics, 21);
+        assert_eq!(summary.pid_metrics, 42);
         assert!(summary.geometry_metrics >= 21);
         assert_eq!(summary.evaluation_metrics, 136);
 
@@ -3973,9 +4310,62 @@ mod tests {
             0
         );
         assert_eq!(report.heldout_failure_diagnostics.len(), 11);
+        assert_eq!(report.train_split_pid.as_ref().unwrap().status, "available");
         assert!(report.metrics.pid_pairs.contains_key("LD"));
         assert_eq!(report.geometry.variables.len(), 6);
         assert_eq!(report.geometry.gates.status, "warn");
+    }
+
+    #[test]
+    fn offline_vlda_train_split_pid_excludes_heldout_samples() {
+        let dataset = fixture_dataset();
+        let base_report = run_offline_vlda_harness(
+            dataset,
+            Some("memory://fixture.json".to_string()),
+            Some("abc".to_string()),
+        )
+        .unwrap();
+        let mut changed_heldout = fixture_dataset();
+        for (idx, sample) in changed_heldout.samples.iter_mut().enumerate() {
+            if sample.metadata.get("split").map(String::as_str) == Some("test") {
+                let offset = 100.0 + idx as f64;
+                for value in &mut sample.v {
+                    *value += offset;
+                }
+                for value in &mut sample.l {
+                    *value -= offset * 0.5;
+                }
+                for value in &mut sample.d {
+                    *value += offset * 0.25;
+                }
+                for value in &mut sample.a {
+                    *value -= offset * 0.75;
+                }
+            }
+        }
+        let changed_report = run_offline_vlda_harness(
+            changed_heldout,
+            Some("memory://fixture.json".to_string()),
+            Some("abc".to_string()),
+        )
+        .unwrap();
+        let base_train_pid = base_report.train_split_pid.as_ref().unwrap();
+        let changed_train_pid = changed_report.train_split_pid.as_ref().unwrap();
+        assert_eq!(base_train_pid.status, "available");
+        assert_eq!(changed_train_pid.status, "available");
+        assert_eq!(
+            base_train_pid.preprocessing,
+            changed_train_pid.preprocessing
+        );
+        assert_eq!(base_train_pid.metrics, changed_train_pid.metrics);
+        assert_ne!(
+            base_report.preprocessing, changed_report.preprocessing,
+            "full-sample preprocessing should still reflect held-out mutations"
+        );
+        assert_ne!(
+            base_report.metrics.pid_pairs, changed_report.metrics.pid_pairs,
+            "legacy all-sample PID screens should remain explicitly scoped because they include held-out samples"
+        );
     }
 
     #[test]
@@ -4166,6 +4556,8 @@ mod tests {
         .unwrap();
         assert_eq!(report.heldout_split, None);
         assert_eq!(report.heldout_episode_disjoint, None);
+        assert_eq!(report.train_split_pid, None);
+        assert_eq!(offline_vlda_train_split_pid_status(&report), "missing");
         assert_eq!(report.metrics.heldout_majority_success_accuracy, None);
         assert!(report.heldout_predictions.is_empty());
         assert!(report.heldout_failure_diagnostics.is_empty());

@@ -43,7 +43,7 @@ toy-harness runlog="outputs/toy_vla_runlog.jsonl" summary="outputs/toy_vla_summa
 offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_runlog.jsonl" summary="outputs/offline_vlda_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
-    cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'pid_metrics=21'
+    cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'pid_metrics=42'
     cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'evaluation_metrics=136'
 
 offline-harness-require-labels input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_labeled_runlog.jsonl" summary="outputs/offline_vlda_labeled_summary.json":
