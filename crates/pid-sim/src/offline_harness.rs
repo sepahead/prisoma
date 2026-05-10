@@ -7,6 +7,7 @@ use pid_runlog::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 use std::path::Path;
@@ -56,6 +57,11 @@ pub struct OfflineVldaMetrics {
     pub synergy_v_l_action: f64,
     pub success_rate: Option<f64>,
     pub majority_success_accuracy: Option<f64>,
+    pub loo_nn_v_success_accuracy: Option<f64>,
+    pub loo_nn_l_success_accuracy: Option<f64>,
+    pub loo_nn_d_success_accuracy: Option<f64>,
+    pub loo_nn_a_success_accuracy: Option<f64>,
+    pub loo_nn_vlda_success_accuracy: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -102,6 +108,14 @@ pub fn run_offline_vlda_harness(
             "pid_sources": ["V", "L"],
             "target": "A",
             "additional_metrics": ["mi_d_action"],
+            "baselines": [
+                "majority_success_accuracy",
+                "loo_nn_v_success_accuracy",
+                "loo_nn_l_success_accuracy",
+                "loo_nn_d_success_accuracy",
+                "loo_nn_a_success_accuracy",
+                "loo_nn_vlda_success_accuracy"
+            ],
             "negative_handling": "allow"
         }
     });
@@ -383,7 +397,32 @@ fn compute_metrics(
     let mi_d_action = pid_core::ksg_mi(d, a, &ksg)?;
     let mi_vl_action = pid_core::ksg_mi_concat_xy(v, l, a, &ksg)?;
     let co_information_v_l_action = co_information_pairwise(v, l, a, &ksg)?;
-    let (success_rate, majority_success_accuracy) = success_metrics(samples);
+    let success_labels = success_labels(samples);
+    let (success_rate, majority_success_accuracy) = success_metrics(&success_labels);
+    let loo_nn_v_success_accuracy = success_labels
+        .as_deref()
+        .map(|labels| loo_nn_success_accuracy(samples, labels, |sample| sample.v.clone()));
+    let loo_nn_l_success_accuracy = success_labels
+        .as_deref()
+        .map(|labels| loo_nn_success_accuracy(samples, labels, |sample| sample.l.clone()));
+    let loo_nn_d_success_accuracy = success_labels
+        .as_deref()
+        .map(|labels| loo_nn_success_accuracy(samples, labels, |sample| sample.d.clone()));
+    let loo_nn_a_success_accuracy = success_labels
+        .as_deref()
+        .map(|labels| loo_nn_success_accuracy(samples, labels, |sample| sample.a.clone()));
+    let loo_nn_vlda_success_accuracy = success_labels.as_deref().map(|labels| {
+        loo_nn_success_accuracy(samples, labels, |sample| {
+            let mut values = Vec::with_capacity(
+                sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
+            );
+            values.extend_from_slice(&sample.v);
+            values.extend_from_slice(&sample.l);
+            values.extend_from_slice(&sample.d);
+            values.extend_from_slice(&sample.a);
+            values
+        })
+    });
     Ok(OfflineVldaMetrics {
         mi_v_action,
         mi_l_action,
@@ -396,6 +435,11 @@ fn compute_metrics(
         synergy_v_l_action: pid.synergy,
         success_rate,
         majority_success_accuracy,
+        loo_nn_v_success_accuracy,
+        loo_nn_l_success_accuracy,
+        loo_nn_d_success_accuracy,
+        loo_nn_a_success_accuracy,
+        loo_nn_vlda_success_accuracy,
     })
 }
 
@@ -410,20 +454,86 @@ where
     out
 }
 
-fn success_metrics(samples: &[OfflineVldaSample]) -> (Option<f64>, Option<f64>) {
+fn success_labels(samples: &[OfflineVldaSample]) -> Option<Vec<bool>> {
     let labels = samples
         .iter()
         .filter_map(|sample| sample.labels.get("success").and_then(Value::as_bool))
         .collect::<Vec<_>>();
     if labels.len() != samples.len() {
-        return (None, None);
+        None
+    } else {
+        Some(labels)
     }
+}
+
+fn success_metrics(labels: &Option<Vec<bool>>) -> (Option<f64>, Option<f64>) {
+    let Some(labels) = labels else {
+        return (None, None);
+    };
     let successes = labels.iter().filter(|value| **value).count();
     let success_rate = successes as f64 / labels.len() as f64;
     let majority = success_rate >= 0.5;
     let majority_success_accuracy =
         labels.iter().filter(|value| **value == majority).count() as f64 / labels.len() as f64;
     (Some(success_rate), Some(majority_success_accuracy))
+}
+
+fn loo_nn_success_accuracy<F>(samples: &[OfflineVldaSample], labels: &[bool], values: F) -> f64
+where
+    F: Fn(&OfflineVldaSample) -> Vec<f64>,
+{
+    let features = samples.iter().map(values).collect::<Vec<_>>();
+    let correct = features
+        .iter()
+        .enumerate()
+        .filter(|(idx, feature)| {
+            let nearest = nearest_neighbor_idx(samples, &features, *idx, feature);
+            labels[nearest] == labels[*idx]
+        })
+        .count();
+    correct as f64 / labels.len() as f64
+}
+
+fn nearest_neighbor_idx(
+    samples: &[OfflineVldaSample],
+    features: &[Vec<f64>],
+    idx: usize,
+    feature: &[f64],
+) -> usize {
+    let mut best_idx: Option<usize> = None;
+    let mut best_distance = f64::INFINITY;
+    for (candidate_idx, candidate) in features.iter().enumerate() {
+        if candidate_idx == idx {
+            continue;
+        }
+        let distance = squared_euclidean(feature, candidate);
+        let replace = match best_idx {
+            None => true,
+            Some(current_idx) => match distance.total_cmp(&best_distance) {
+                Ordering::Less => true,
+                Ordering::Equal => {
+                    samples[candidate_idx].sample_id.as_str()
+                        < samples[current_idx].sample_id.as_str()
+                }
+                Ordering::Greater => false,
+            },
+        };
+        if replace {
+            best_idx = Some(candidate_idx);
+            best_distance = distance;
+        }
+    }
+    best_idx.expect("validated dataset has at least two samples")
+}
+
+fn squared_euclidean(left: &[f64], right: &[f64]) -> f64 {
+    left.iter()
+        .zip(right)
+        .map(|(left, right)| {
+            let delta = left - right;
+            delta * delta
+        })
+        .sum()
 }
 
 fn write_metric_events<W: Write>(
@@ -492,6 +602,45 @@ fn write_metric_events<W: Write>(
                 .collect(),
         })?;
         idx += 1;
+    }
+    for (name, value) in [
+        (
+            "offline_vlda.baseline.loo_nn_v_success_accuracy",
+            report.metrics.loo_nn_v_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.loo_nn_l_success_accuracy",
+            report.metrics.loo_nn_l_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.loo_nn_d_success_accuracy",
+            report.metrics.loo_nn_d_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.loo_nn_a_success_accuracy",
+            report.metrics.loo_nn_a_success_accuracy,
+        ),
+        (
+            "offline_vlda.baseline.loo_nn_vlda_success_accuracy",
+            report.metrics.loo_nn_vlda_success_accuracy,
+        ),
+    ] {
+        if let Some(value) = value {
+            writer.append(&RunLogEvent::EvaluationMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + idx,
+                name: name.to_string(),
+                value,
+                metadata: [
+                    ("category".to_string(), "baseline".to_string()),
+                    ("classifier".to_string(), "leave_one_out_1nn".to_string()),
+                    ("distance".to_string(), "raw_euclidean".to_string()),
+                ]
+                .into_iter()
+                .collect(),
+            })?;
+            idx += 1;
+        }
     }
     for (label, count) in &report.label_counts {
         writer.append(&RunLogEvent::EvaluationMetric {
@@ -565,6 +714,9 @@ mod tests {
         assert_eq!(report.dims.samples, 16);
         assert_eq!(report.dims.v, 2);
         assert_eq!(report.metrics.success_rate, Some(0.75));
+        assert_eq!(report.metrics.loo_nn_v_success_accuracy, Some(0.5625));
+        assert_eq!(report.metrics.loo_nn_l_success_accuracy, Some(0.4375));
+        assert_eq!(report.metrics.loo_nn_vlda_success_accuracy, Some(0.5625));
         assert_eq!(report.label_counts["success"], 16);
 
         let stamp = SystemTime::now()
@@ -598,7 +750,7 @@ mod tests {
         assert_eq!(summary.embeddings, 4);
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 9);
-        assert!(summary.evaluation_metrics >= 3);
+        assert!(summary.evaluation_metrics >= 8);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
@@ -620,6 +772,8 @@ mod tests {
         assert_eq!(report.dims.samples, 16);
         assert_eq!(report.label_counts["success"], 16);
         assert_eq!(report.metrics.success_rate, Some(0.75));
+        assert_eq!(report.metrics.loo_nn_d_success_accuracy, Some(0.5625));
+        assert_eq!(report.metrics.loo_nn_a_success_accuracy, Some(0.4375));
     }
 
     #[test]
