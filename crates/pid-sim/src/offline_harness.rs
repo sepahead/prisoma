@@ -21,6 +21,8 @@ const OFFLINE_GEOMETRY_MIN_DELTA_REL: f64 = 0.1;
 const OFFLINE_GEOMETRY_INTRINSIC_K: usize = 10;
 const OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES: usize = 500;
 const OFFLINE_HELDOUT_SPLIT_METADATA_KEY: &str = "split";
+const OFFLINE_CENTROID_SUCCESS_SCORE: &str =
+    "distance_to_failure_centroid_minus_distance_to_success_centroid";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaDataset {
@@ -188,6 +190,22 @@ pub struct OfflineVldaHeldoutSplitReport {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaHeldoutPredictionRecord {
+    pub sample_id: String,
+    pub episode_id: Option<String>,
+    pub split_value: String,
+    pub classifier: String,
+    pub variable: Option<String>,
+    pub true_success: bool,
+    pub predicted_success: bool,
+    pub correct: bool,
+    pub score: Option<f64>,
+    pub score_name: Option<String>,
+    pub nearest_train_sample_id: Option<String>,
+    pub squared_distance: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaReport {
     pub run_id: String,
     pub config_hash: String,
@@ -197,6 +215,7 @@ pub struct OfflineVldaReport {
     pub preprocessing: OfflineVldaPreprocessingReport,
     pub geometry: OfflineVldaGeometryReport,
     pub heldout_split: Option<OfflineVldaHeldoutSplitReport>,
+    pub heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
     pub metrics: OfflineVldaMetrics,
 }
 
@@ -295,6 +314,11 @@ pub fn run_offline_vlda_harness(
                 "heldout_centroid_vlda_success_auroc"
             ],
             "heldout_split": analysis.heldout_split.clone(),
+            "prediction_records": [
+                "heldout_train_split_majority",
+                "heldout_train_split_1nn",
+                "heldout_train_split_nearest_centroid"
+            ],
             "negative_handling": "allow"
         }
     });
@@ -308,6 +332,7 @@ pub fn run_offline_vlda_harness(
         preprocessing: analysis.preprocessing,
         geometry: analysis.geometry,
         heldout_split: analysis.heldout_split,
+        heldout_predictions: analysis.heldout_predictions,
         metrics: analysis.metrics,
     })
 }
@@ -721,6 +746,7 @@ struct OfflineVldaAnalysis {
     preprocessing: OfflineVldaPreprocessingReport,
     geometry: OfflineVldaGeometryReport,
     heldout_split: Option<OfflineVldaHeldoutSplitReport>,
+    heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
 }
 
 struct PreparedVldaMatrices {
@@ -740,12 +766,14 @@ fn compute_analysis(
     let prepared = prepare_standardized_embeddings(samples, dims)?;
     let heldout_split = heldout_split_plan(samples);
     let metrics = compute_metrics(samples, &prepared, heldout_split.as_ref())?;
+    let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let geometry = compute_geometry_report(&prepared);
     Ok(OfflineVldaAnalysis {
         metrics,
         preprocessing: prepared.preprocessing,
         geometry,
         heldout_split: heldout_split.map(|split| split.report),
+        heldout_predictions,
     })
 }
 
@@ -1486,6 +1514,254 @@ fn success_metrics(labels: &Option<Vec<bool>>) -> (Option<f64>, Option<f64>) {
     (Some(success_rate), Some(majority_success_accuracy))
 }
 
+fn heldout_prediction_records(
+    samples: &[OfflineVldaSample],
+    split: Option<&OfflineVldaHeldoutSplitPlan>,
+) -> Vec<OfflineVldaHeldoutPredictionRecord> {
+    let Some(labels) = success_labels(samples) else {
+        return Vec::new();
+    };
+    let Some(split) = split else {
+        return Vec::new();
+    };
+    let mut records = Vec::new();
+    append_heldout_majority_prediction_records(&mut records, samples, &labels, &split.roles);
+    append_heldout_nn_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "V",
+        |sample| sample.v.clone(),
+    );
+    append_heldout_nn_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "L",
+        |sample| sample.l.clone(),
+    );
+    append_heldout_nn_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "D",
+        |sample| sample.d.clone(),
+    );
+    append_heldout_nn_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "A",
+        |sample| sample.a.clone(),
+    );
+    append_heldout_nn_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "VLDA",
+        vlda_values,
+    );
+    append_heldout_centroid_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "V",
+        |sample| sample.v.clone(),
+    );
+    append_heldout_centroid_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "L",
+        |sample| sample.l.clone(),
+    );
+    append_heldout_centroid_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "D",
+        |sample| sample.d.clone(),
+    );
+    append_heldout_centroid_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "A",
+        |sample| sample.a.clone(),
+    );
+    append_heldout_centroid_prediction_records(
+        &mut records,
+        samples,
+        &labels,
+        &split.roles,
+        "VLDA",
+        vlda_values,
+    );
+    records
+}
+
+struct OfflineVldaHeldoutPredictionInput<'a> {
+    classifier: &'a str,
+    variable: Option<&'a str>,
+    predicted_success: bool,
+    score: Option<f64>,
+    score_name: Option<String>,
+    nearest_train_sample_id: Option<String>,
+    squared_distance: Option<f64>,
+}
+
+fn append_heldout_majority_prediction_records(
+    records: &mut Vec<OfflineVldaHeldoutPredictionRecord>,
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+) {
+    let mut train_successes = 0;
+    let mut train_total = 0;
+    for (label, role) in labels.iter().zip(roles) {
+        if *role == OfflineVldaSplitRole::Train {
+            train_total += 1;
+            if *label {
+                train_successes += 1;
+            }
+        }
+    }
+    let prediction = train_successes * 2 >= train_total;
+    for idx in heldout_indices(roles) {
+        records.push(heldout_prediction_record(
+            samples,
+            labels,
+            idx,
+            OfflineVldaHeldoutPredictionInput {
+                classifier: "train_split_majority",
+                variable: None,
+                predicted_success: prediction,
+                score: None,
+                score_name: None,
+                nearest_train_sample_id: None,
+                squared_distance: None,
+            },
+        ));
+    }
+}
+
+fn append_heldout_nn_prediction_records<F>(
+    records: &mut Vec<OfflineVldaHeldoutPredictionRecord>,
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+    variable: &str,
+    values: F,
+) where
+    F: Fn(&OfflineVldaSample) -> Vec<f64>,
+{
+    let features = samples.iter().map(values).collect::<Vec<_>>();
+    for idx in heldout_indices(roles) {
+        let (nearest_idx, squared_distance) =
+            nearest_neighbor_in_train(samples, &features, &features[idx], roles);
+        records.push(heldout_prediction_record(
+            samples,
+            labels,
+            idx,
+            OfflineVldaHeldoutPredictionInput {
+                classifier: "train_split_1nn",
+                variable: Some(variable),
+                predicted_success: labels[nearest_idx],
+                score: None,
+                score_name: None,
+                nearest_train_sample_id: Some(samples[nearest_idx].sample_id.clone()),
+                squared_distance: Some(squared_distance),
+            },
+        ));
+    }
+}
+
+fn append_heldout_centroid_prediction_records<F>(
+    records: &mut Vec<OfflineVldaHeldoutPredictionRecord>,
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+    variable: &str,
+    values: F,
+) where
+    F: Fn(&OfflineVldaSample) -> Vec<f64>,
+{
+    let Some(model) = train_standardized_centroid_model(samples, labels, roles, values) else {
+        return;
+    };
+    for idx in heldout_indices(roles) {
+        let false_distance = squared_euclidean(&model.features[idx], &model.centroids[0]);
+        let true_distance = squared_euclidean(&model.features[idx], &model.centroids[1]);
+        let score = false_distance - true_distance;
+        records.push(heldout_prediction_record(
+            samples,
+            labels,
+            idx,
+            OfflineVldaHeldoutPredictionInput {
+                classifier: "train_split_nearest_centroid",
+                variable: Some(variable),
+                predicted_success: score > 0.0,
+                score: Some(score),
+                score_name: Some(OFFLINE_CENTROID_SUCCESS_SCORE.to_string()),
+                nearest_train_sample_id: None,
+                squared_distance: None,
+            },
+        ));
+    }
+}
+
+fn heldout_prediction_record(
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    idx: usize,
+    input: OfflineVldaHeldoutPredictionInput<'_>,
+) -> OfflineVldaHeldoutPredictionRecord {
+    OfflineVldaHeldoutPredictionRecord {
+        sample_id: samples[idx].sample_id.clone(),
+        episode_id: samples[idx].episode_id.clone(),
+        split_value: samples[idx]
+            .metadata
+            .get(OFFLINE_HELDOUT_SPLIT_METADATA_KEY)
+            .map(|value| normalize_split_value(value))
+            .unwrap_or_default(),
+        classifier: input.classifier.to_string(),
+        variable: input.variable.map(str::to_string),
+        true_success: labels[idx],
+        predicted_success: input.predicted_success,
+        correct: input.predicted_success == labels[idx],
+        score: input.score,
+        score_name: input.score_name,
+        nearest_train_sample_id: input.nearest_train_sample_id,
+        squared_distance: input.squared_distance,
+    }
+}
+
+fn heldout_indices(roles: &[OfflineVldaSplitRole]) -> impl Iterator<Item = usize> + '_ {
+    roles
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, role)| (*role == OfflineVldaSplitRole::Heldout).then_some(idx))
+}
+
+fn vlda_values(sample: &OfflineVldaSample) -> Vec<f64> {
+    let mut values =
+        Vec::with_capacity(sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len());
+    values.extend_from_slice(&sample.v);
+    values.extend_from_slice(&sample.l);
+    values.extend_from_slice(&sample.d);
+    values.extend_from_slice(&sample.a);
+    values
+}
+
 fn episode_ids(samples: &[OfflineVldaSample]) -> Option<Vec<String>> {
     let episode_ids = samples
         .iter()
@@ -1567,6 +1843,11 @@ struct OfflineVldaHeldoutClassifierMetrics {
     auroc: Option<f64>,
 }
 
+struct OfflineVldaCentroidModel {
+    features: Vec<Vec<f64>>,
+    centroids: [Vec<f64>; 2],
+}
+
 fn heldout_majority_success_metrics(
     labels: &[bool],
     roles: &[OfflineVldaSplitRole],
@@ -1607,6 +1888,24 @@ fn heldout_centroid_success_metrics<F>(
     roles: &[OfflineVldaSplitRole],
     values: F,
 ) -> Option<OfflineVldaHeldoutClassifierMetrics>
+where
+    F: Fn(&OfflineVldaSample) -> Vec<f64>,
+{
+    let model = train_standardized_centroid_model(samples, labels, roles, values)?;
+    Some(heldout_scored_prediction_metrics(labels, roles, |idx| {
+        let false_distance = squared_euclidean(&model.features[idx], &model.centroids[0]);
+        let true_distance = squared_euclidean(&model.features[idx], &model.centroids[1]);
+        let score = false_distance - true_distance;
+        (score > 0.0, score)
+    }))
+}
+
+fn train_standardized_centroid_model<F>(
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+    values: F,
+) -> Option<OfflineVldaCentroidModel>
 where
     F: Fn(&OfflineVldaSample) -> Vec<f64>,
 {
@@ -1677,12 +1976,10 @@ where
             *value /= count as f64;
         }
     }
-    Some(heldout_scored_prediction_metrics(labels, roles, |idx| {
-        let false_distance = squared_euclidean(&features[idx], &centroids[0]);
-        let true_distance = squared_euclidean(&features[idx], &centroids[1]);
-        let score = false_distance - true_distance;
-        (score > 0.0, score)
-    }))
+    Some(OfflineVldaCentroidModel {
+        features,
+        centroids,
+    })
 }
 
 fn heldout_prediction_metrics<F>(
@@ -1824,6 +2121,15 @@ fn nearest_neighbor_idx_in_train(
     feature: &[f64],
     roles: &[OfflineVldaSplitRole],
 ) -> usize {
+    nearest_neighbor_in_train(samples, features, feature, roles).0
+}
+
+fn nearest_neighbor_in_train(
+    samples: &[OfflineVldaSample],
+    features: &[Vec<f64>],
+    feature: &[f64],
+    roles: &[OfflineVldaSplitRole],
+) -> (usize, f64) {
     let mut best_idx: Option<usize> = None;
     let mut best_distance = f64::INFINITY;
     for (candidate_idx, candidate) in features.iter().enumerate() {
@@ -1847,7 +2153,10 @@ fn nearest_neighbor_idx_in_train(
             best_distance = distance;
         }
     }
-    best_idx.expect("validated held-out split has at least one train sample")
+    (
+        best_idx.expect("validated held-out split has at least one train sample"),
+        best_distance,
+    )
 }
 
 fn nearest_neighbor_idx_excluding_episode(
@@ -2289,7 +2598,7 @@ fn write_metric_events<W: Write>(
             );
             metadata.insert(
                 "score".to_string(),
-                "distance_to_failure_centroid_minus_distance_to_success_centroid".to_string(),
+                OFFLINE_CENTROID_SUCCESS_SCORE.to_string(),
             );
             writer.append(&RunLogEvent::EvaluationMetric {
                 step: report.dims.samples as u64,
@@ -2667,6 +2976,36 @@ mod tests {
             report.metrics.heldout_centroid_vlda_success_auroc,
             Some(0.0)
         );
+        assert_eq!(report.heldout_predictions.len(), 44);
+        let centroid_prediction = report
+            .heldout_predictions
+            .iter()
+            .find(|record| {
+                record.sample_id == "sample-012"
+                    && record.classifier == "train_split_nearest_centroid"
+                    && record.variable.as_deref() == Some("VLDA")
+            })
+            .unwrap();
+        assert_eq!(
+            centroid_prediction.score_name.as_deref(),
+            Some(OFFLINE_CENTROID_SUCCESS_SCORE)
+        );
+        assert!(centroid_prediction.score.is_some());
+        assert_eq!(
+            centroid_prediction.correct,
+            centroid_prediction.predicted_success == centroid_prediction.true_success
+        );
+        let nn_prediction = report
+            .heldout_predictions
+            .iter()
+            .find(|record| {
+                record.sample_id == "sample-012"
+                    && record.classifier == "train_split_1nn"
+                    && record.variable.as_deref() == Some("VLDA")
+            })
+            .unwrap();
+        assert!(nn_prediction.nearest_train_sample_id.is_some());
+        assert!(nn_prediction.squared_distance.is_some());
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         assert_eq!(report.metrics.pid_pairs["VD"].source_2, "D");
         assert_eq!(report.label_counts["success"], 16);
@@ -2887,6 +3226,11 @@ mod tests {
         );
         assert_eq!(report.metrics.heldout_centroid_v_success_auroc, None);
         assert_eq!(report.metrics.heldout_centroid_vlda_success_accuracy, None);
+        assert_eq!(report.heldout_predictions.len(), 24);
+        assert!(!report
+            .heldout_predictions
+            .iter()
+            .any(|record| record.classifier == "train_split_nearest_centroid"));
     }
 
     #[test]
@@ -2916,6 +3260,7 @@ mod tests {
             None
         );
         assert_eq!(report.metrics.heldout_centroid_v_success_auroc, None);
+        assert_eq!(report.heldout_predictions.len(), 44);
     }
 
     #[test]
@@ -2931,6 +3276,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.metrics.success_rate, None);
+        assert!(report.heldout_predictions.is_empty());
 
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -2984,6 +3330,7 @@ mod tests {
         .unwrap();
         assert_eq!(report.heldout_split, None);
         assert_eq!(report.metrics.heldout_majority_success_accuracy, None);
+        assert!(report.heldout_predictions.is_empty());
 
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
