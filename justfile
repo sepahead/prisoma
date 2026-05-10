@@ -46,6 +46,10 @@ offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog
     cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'pid_metrics=21'
     cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'evaluation_metrics=14'
 
+offline-harness-require-labels input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_labeled_runlog.jsonl" summary="outputs/offline_vlda_labeled_summary.json":
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --require-success-labels
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+
 offline-harness-strict input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_strict_runlog.jsonl" summary="outputs/offline_vlda_strict_summary.json":
     if cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --require-geometry-pass; then echo "expected strict offline geometry gate failure"; exit 1; fi
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}

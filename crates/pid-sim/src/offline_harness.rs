@@ -162,6 +162,7 @@ pub struct OfflineVldaReport {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct OfflineVldaRunlogOptions {
     pub require_geometry_pass: bool,
+    pub require_success_labels: bool,
 }
 
 pub fn read_offline_vlda_dataset(path: impl AsRef<Path>) -> Result<OfflineVldaDataset> {
@@ -306,8 +307,16 @@ pub fn write_offline_vlda_runlog_with_options(
                 options.require_geometry_pass.to_string(),
             ),
             (
+                "strict_success_labels".to_string(),
+                options.require_success_labels.to_string(),
+            ),
+            (
                 "geometry_gate_status".to_string(),
                 report.geometry.gates.status.clone(),
+            ),
+            (
+                "success_label_status".to_string(),
+                offline_vlda_success_label_status(report).to_string(),
             ),
             (
                 "task".to_string(),
@@ -437,27 +446,28 @@ pub fn write_offline_vlda_runlog_with_options(
             metadata: BTreeMap::new(),
         })?;
     }
-    let gate_failed = options.require_geometry_pass && report.geometry.gates.status != "pass";
-    let run_message = if gate_failed {
-        offline_vlda_geometry_gate_failure_message(report)
+    let failures = offline_vlda_required_failures(dataset, report, options);
+    let run_failed = !failures.is_empty();
+    let run_message = if run_failed {
+        failures.join("; ")
     } else {
         format!(
             "offline VLDA harness complete: {} samples",
             report.dims.samples
         )
     };
-    if gate_failed {
+    for (idx, failure) in failures.iter().enumerate() {
         writer.append(&RunLogEvent::ErrorLogged {
             step: Some(report.dims.samples as u64),
-            timestamp_ns: metric_timestamp_base + 19_999,
-            message: run_message.clone(),
+            timestamp_ns: metric_timestamp_base + 19_900 + idx as u64,
+            message: failure.clone(),
             recoverable: false,
         })?;
     }
     writer.append(&RunLogEvent::RunEnded {
         run_id: report.run_id.clone(),
         timestamp_ns: metric_timestamp_base + 20_000,
-        status: if gate_failed {
+        status: if run_failed {
             RunStatus::Failed
         } else {
             RunStatus::Succeeded
@@ -474,6 +484,50 @@ pub fn offline_vlda_geometry_gate_failure_message(report: &OfflineVldaReport) ->
         report.geometry.gates.status,
         report.geometry.gates.warnings.len()
     )
+}
+
+pub fn offline_vlda_success_label_failure_message(
+    dataset: &OfflineVldaDataset,
+    report: &OfflineVldaReport,
+) -> String {
+    let boolean_success_labels = dataset
+        .samples
+        .iter()
+        .filter(|sample| {
+            sample
+                .labels
+                .get("success")
+                .and_then(Value::as_bool)
+                .is_some()
+        })
+        .count();
+    format!(
+        "offline VLDA success labels unavailable: {boolean_success_labels}/{} samples have boolean success labels",
+        report.dims.samples
+    )
+}
+
+pub fn offline_vlda_success_label_status(report: &OfflineVldaReport) -> &'static str {
+    if report.metrics.success_rate.is_some() {
+        "available"
+    } else {
+        "missing"
+    }
+}
+
+fn offline_vlda_required_failures(
+    dataset: &OfflineVldaDataset,
+    report: &OfflineVldaReport,
+    options: OfflineVldaRunlogOptions,
+) -> Vec<String> {
+    let mut failures = Vec::new();
+    if options.require_geometry_pass && report.geometry.gates.status != "pass" {
+        failures.push(offline_vlda_geometry_gate_failure_message(report));
+    }
+    if options.require_success_labels && report.metrics.success_rate.is_none() {
+        failures.push(offline_vlda_success_label_failure_message(dataset, report));
+    }
+    failures
 }
 
 fn validate_dataset(dataset: &OfflineVldaDataset) -> Result<OfflineVldaDims> {
@@ -1715,6 +1769,7 @@ mod tests {
             &report,
             OfflineVldaRunlogOptions {
                 require_geometry_pass: true,
+                require_success_labels: false,
             },
         )
         .unwrap();
@@ -1725,6 +1780,57 @@ mod tests {
         assert_eq!(summary.status, Some(RunStatus::Failed));
         assert_eq!(summary.errors, 1);
         assert_eq!(summary.geometry_metrics, 21);
+
+        let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn offline_vlda_strict_success_labels_marks_run_failed() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples {
+            sample.labels.clear();
+        }
+        let report = run_offline_vlda_harness(
+            dataset.clone(),
+            Some("memory://fixture.json".to_string()),
+            Some("abc".to_string()),
+        )
+        .unwrap();
+        assert_eq!(report.metrics.success_rate, None);
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir();
+        let runlog_path = dir.join(format!("pid-offline-vlda-strict-labels-{stamp}.jsonl"));
+        write_offline_vlda_runlog_with_options(
+            &runlog_path,
+            None,
+            None,
+            &dataset,
+            &report,
+            OfflineVldaRunlogOptions {
+                require_geometry_pass: false,
+                require_success_labels: true,
+            },
+        )
+        .unwrap();
+        let events = read_events_from_path(&runlog_path).unwrap();
+        let validation = validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let has_label_error = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::ErrorLogged { message, recoverable, .. }
+                    if !recoverable && message.contains("success labels unavailable")
+            )
+        });
+        assert!(has_label_error);
+        let summary = summarize_events(&events).unwrap();
+        assert_eq!(summary.status, Some(RunStatus::Failed));
+        assert_eq!(summary.errors, 1);
+        assert_eq!(summary.evaluation_metrics, 0);
 
         let _ = std::fs::remove_file(runlog_path);
     }

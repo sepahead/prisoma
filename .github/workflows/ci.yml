@@ -30,6 +30,20 @@ jobs:
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'pid_metrics=21'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'geometry_metrics=21'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metrics=14'
+          python - <<'PY'
+          import json
+          src = "crates/pid-sim/fixtures/offline_vlda_fixture.json"
+          dst = "/tmp/pid_vla_offline_vlda_unlabeled.json"
+          with open(src) as f:
+              data = json.load(f)
+          for sample in data["samples"]:
+              sample["labels"].pop("success", None)
+          with open(dst, "w") as f:
+              json.dump(data, f)
+          PY
+          if cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/pid_vla_offline_vlda_unlabeled.json --summary-json /tmp/pid_vla_offline_vlda_unlabeled_summary.json --runlog /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl --require-success-labels; then exit 1; fi
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl | grep -q 'errors=1'
           if cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_strict_summary.json --runlog /tmp/pid_vla_offline_vlda_strict_runlog.jsonl --require-geometry-pass; then exit 1; fi
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_strict_runlog.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_strict_runlog.jsonl | grep -q 'errors=1'
