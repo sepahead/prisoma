@@ -1,6 +1,9 @@
 use anyhow::{bail, Context, Result};
 use pid_core::{
-    co_information_pairwise, pid2_isx, IsxConfig, KsgConfig, MatRef, NegativeHandling, Pid2Config,
+    co_information_pairwise, concat_horiz, distance_concentration_stats, gromov_hyperbolicity,
+    intrinsic_dimension_levina_bickel, pid2_isx, DistanceConcentrationConfig, HyperbolicityConfig,
+    IntrinsicDimConfig, IsxConfig, KsgConfig, MatOwned, MatRef, Metric, NegativeHandling,
+    Pid2Config, Standardizer,
 };
 use pid_runlog::{
     EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
@@ -11,6 +14,12 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 use std::path::Path;
+
+const OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION: f64 = 20.0;
+const OFFLINE_GEOMETRY_MIN_PAIRWISE_CV: f64 = 0.1;
+const OFFLINE_GEOMETRY_MIN_DELTA_REL: f64 = 0.1;
+const OFFLINE_GEOMETRY_INTRINSIC_K: usize = 10;
+const OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES: usize = 500;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaDataset {
@@ -65,12 +74,66 @@ pub struct OfflineVldaMetrics {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaPreprocessingReport {
+    pub strategy: String,
+    pub variables: BTreeMap<String, OfflineVldaPreprocessingVariable>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaPreprocessingVariable {
+    pub input_dim: usize,
+    pub output_dim: usize,
+    pub zero_variance_dims: usize,
+    pub mean_sha256: String,
+    pub inv_std_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaGeometryReport {
+    pub space: String,
+    pub metric: String,
+    pub intrinsic_k: usize,
+    pub hyperbolicity_samples: usize,
+    pub gates: OfflineVldaGeometryGates,
+    pub variables: BTreeMap<String, OfflineVldaGeometryVariable>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaGeometryGates {
+    pub status: String,
+    pub max_intrinsic_dimension: f64,
+    pub min_pairwise_cv: f64,
+    pub min_delta_rel: f64,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaGeometryVariable {
+    pub dims: Vec<usize>,
+    pub intrinsic_dimension: Option<f64>,
+    pub intrinsic_dimension_error: Option<String>,
+    pub pairwise_count: Option<u64>,
+    pub pairwise_min: Option<f64>,
+    pub pairwise_max: Option<f64>,
+    pub pairwise_mean: Option<f64>,
+    pub pairwise_cv: Option<f64>,
+    pub nn_mean: Option<f64>,
+    pub nn_over_pairwise_mean: Option<f64>,
+    pub distance_concentration_error: Option<String>,
+    pub gromov_delta: Option<f64>,
+    pub gromov_delta_rel: Option<f64>,
+    pub gromov_error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaReport {
     pub run_id: String,
     pub config_hash: String,
     pub config: Value,
     pub dims: OfflineVldaDims,
     pub label_counts: BTreeMap<String, usize>,
+    pub preprocessing: OfflineVldaPreprocessingReport,
+    pub geometry: OfflineVldaGeometryReport,
     pub metrics: OfflineVldaMetrics,
 }
 
@@ -88,7 +151,7 @@ pub fn run_offline_vlda_harness(
 ) -> Result<OfflineVldaReport> {
     let dims = validate_dataset(&dataset)?;
     let label_counts = label_counts(&dataset.samples);
-    let metrics = compute_metrics(&dataset.samples, &dims)?;
+    let analysis = compute_analysis(&dataset.samples, &dims)?;
     let run_id = dataset
         .run_id
         .clone()
@@ -108,6 +171,18 @@ pub fn run_offline_vlda_harness(
             "pid_sources": ["V", "L"],
             "target": "A",
             "additional_metrics": ["mi_d_action"],
+            "preprocessing": {
+                "pid_geometry_space": analysis.preprocessing.strategy.clone(),
+                "standardizer": "per_variable_center_scale_population_std"
+            },
+            "geometry": {
+                "metric": analysis.geometry.metric.clone(),
+                "intrinsic_k": analysis.geometry.intrinsic_k,
+                "hyperbolicity_samples": analysis.geometry.hyperbolicity_samples,
+                "max_intrinsic_dimension": OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION,
+                "min_pairwise_cv": OFFLINE_GEOMETRY_MIN_PAIRWISE_CV,
+                "min_delta_rel": OFFLINE_GEOMETRY_MIN_DELTA_REL
+            },
             "baselines": [
                 "majority_success_accuracy",
                 "loo_nn_v_success_accuracy",
@@ -126,7 +201,9 @@ pub fn run_offline_vlda_harness(
         config,
         dims,
         label_counts,
-        metrics,
+        preprocessing: analysis.preprocessing,
+        geometry: analysis.geometry,
+        metrics: analysis.metrics,
     })
 }
 
@@ -238,6 +315,14 @@ pub fn write_offline_vlda_runlog(
         metadata: [
             ("source".to_string(), "pid-offline-harness".to_string()),
             ("decomposition".to_string(), "(V,L,D,A)".to_string()),
+            (
+                "pid_geometry_space".to_string(),
+                report.preprocessing.strategy.clone(),
+            ),
+            (
+                "geometry_metric".to_string(),
+                report.geometry.metric.clone(),
+            ),
         ]
         .into_iter()
         .collect(),
@@ -258,9 +343,16 @@ pub fn write_offline_vlda_runlog(
             dims: vec![report.dims.samples, dim],
             artifact_uri: input_uri.clone(),
             sha256: input_sha256.clone(),
-            metadata: [("source".to_string(), "offline_vlda_dataset".to_string())]
-                .into_iter()
-                .collect(),
+            metadata: [
+                ("source".to_string(), "offline_vlda_dataset".to_string()),
+                ("analysis_space".to_string(), "raw_capture".to_string()),
+                (
+                    "pid_geometry_space".to_string(),
+                    report.preprocessing.strategy.clone(),
+                ),
+            ]
+            .into_iter()
+            .collect(),
         })?;
     }
 
@@ -365,19 +457,106 @@ fn label_counts(samples: &[OfflineVldaSample]) -> BTreeMap<String, usize> {
     counts
 }
 
-fn compute_metrics(
+struct OfflineVldaAnalysis {
+    metrics: OfflineVldaMetrics,
+    preprocessing: OfflineVldaPreprocessingReport,
+    geometry: OfflineVldaGeometryReport,
+}
+
+struct PreparedVldaMatrices {
+    v: MatOwned,
+    l: MatOwned,
+    d: MatOwned,
+    a: MatOwned,
+    vl: MatOwned,
+    vlda: MatOwned,
+    preprocessing: OfflineVldaPreprocessingReport,
+}
+
+fn compute_analysis(
     samples: &[OfflineVldaSample],
     dims: &OfflineVldaDims,
-) -> Result<OfflineVldaMetrics> {
+) -> Result<OfflineVldaAnalysis> {
+    let prepared = prepare_standardized_embeddings(samples, dims)?;
+    let metrics = compute_metrics(samples, &prepared)?;
+    let geometry = compute_geometry_report(&prepared);
+    Ok(OfflineVldaAnalysis {
+        metrics,
+        preprocessing: prepared.preprocessing,
+        geometry,
+    })
+}
+
+fn prepare_standardized_embeddings(
+    samples: &[OfflineVldaSample],
+    dims: &OfflineVldaDims,
+) -> Result<PreparedVldaMatrices> {
+    let n = samples.len();
+    let mut variables = BTreeMap::new();
     let v = flatten(samples, dims.v, |sample| &sample.v);
     let l = flatten(samples, dims.l, |sample| &sample.l);
     let d = flatten(samples, dims.d, |sample| &sample.d);
     let a = flatten(samples, dims.a, |sample| &sample.a);
-    let n = samples.len();
-    let v = MatRef::new(&v, n, dims.v)?;
-    let l = MatRef::new(&l, n, dims.l)?;
-    let d = MatRef::new(&d, n, dims.d)?;
-    let a = MatRef::new(&a, n, dims.a)?;
+    let v = standardize_embedding("V", &v, n, dims.v, &mut variables)?;
+    let l = standardize_embedding("L", &l, n, dims.l, &mut variables)?;
+    let d = standardize_embedding("D", &d, n, dims.d, &mut variables)?;
+    let a = standardize_embedding("A", &a, n, dims.a, &mut variables)?;
+    let vl = concat_horiz(v.as_ref(), l.as_ref())?;
+    let vld = concat_horiz(vl.as_ref(), d.as_ref())?;
+    let vlda = concat_horiz(vld.as_ref(), a.as_ref())?;
+    Ok(PreparedVldaMatrices {
+        v,
+        l,
+        d,
+        a,
+        vl,
+        vlda,
+        preprocessing: OfflineVldaPreprocessingReport {
+            strategy: "per_variable_standardized".to_string(),
+            variables,
+        },
+    })
+}
+
+fn standardize_embedding(
+    name: &str,
+    data: &[f64],
+    n: usize,
+    dim: usize,
+    variables: &mut BTreeMap<String, OfflineVldaPreprocessingVariable>,
+) -> Result<MatOwned> {
+    let raw = MatRef::new(data, n, dim)?;
+    let (standardized, standardizer) = Standardizer::fit_transform(raw)?;
+    variables.insert(
+        name.to_string(),
+        OfflineVldaPreprocessingVariable {
+            input_dim: dim,
+            output_dim: dim,
+            zero_variance_dims: zero_variance_dims(data, n, dim),
+            mean_sha256: pid_runlog::canonical_json_hash(&standardizer.mean().to_vec())?,
+            inv_std_sha256: pid_runlog::canonical_json_hash(&standardizer.inv_std().to_vec())?,
+        },
+    );
+    Ok(standardized)
+}
+
+fn zero_variance_dims(data: &[f64], n: usize, dim: usize) -> usize {
+    (0..dim)
+        .filter(|col| {
+            let first = data[*col];
+            (1..n).all(|row| data[row * dim + *col] == first)
+        })
+        .count()
+}
+
+fn compute_metrics(
+    samples: &[OfflineVldaSample],
+    prepared: &PreparedVldaMatrices,
+) -> Result<OfflineVldaMetrics> {
+    let v = prepared.v.as_ref();
+    let l = prepared.l.as_ref();
+    let d = prepared.d.as_ref();
+    let a = prepared.a.as_ref();
     let ksg = KsgConfig {
         negative_handling: NegativeHandling::Allow,
         ..Default::default()
@@ -441,6 +620,177 @@ fn compute_metrics(
         loo_nn_a_success_accuracy,
         loo_nn_vlda_success_accuracy,
     })
+}
+
+fn compute_geometry_report(prepared: &PreparedVldaMatrices) -> OfflineVldaGeometryReport {
+    let metric = Metric::Chebyshev;
+    let intrinsic_cfg = IntrinsicDimConfig {
+        k: OFFLINE_GEOMETRY_INTRINSIC_K,
+        metric,
+    };
+    let distance_cfg = DistanceConcentrationConfig { metric };
+    let hyperbolicity_cfg = HyperbolicityConfig {
+        n_samples: OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES,
+        metric,
+        seed: 0x2026_0509,
+    };
+    let mut variables = BTreeMap::new();
+    for (name, matrix) in [
+        ("V", prepared.v.as_ref()),
+        ("L", prepared.l.as_ref()),
+        ("D", prepared.d.as_ref()),
+        ("A", prepared.a.as_ref()),
+        ("VL", prepared.vl.as_ref()),
+        ("VLDA", prepared.vlda.as_ref()),
+    ] {
+        variables.insert(
+            name.to_string(),
+            compute_geometry_variable(matrix, &intrinsic_cfg, &distance_cfg, &hyperbolicity_cfg),
+        );
+    }
+    let gates = compute_geometry_gates(&variables);
+    OfflineVldaGeometryReport {
+        space: "per_variable_standardized".to_string(),
+        metric: "chebyshev".to_string(),
+        intrinsic_k: OFFLINE_GEOMETRY_INTRINSIC_K,
+        hyperbolicity_samples: OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES,
+        gates,
+        variables,
+    }
+}
+
+fn compute_geometry_variable(
+    matrix: MatRef<'_>,
+    intrinsic_cfg: &IntrinsicDimConfig,
+    distance_cfg: &DistanceConcentrationConfig,
+    hyperbolicity_cfg: &HyperbolicityConfig,
+) -> OfflineVldaGeometryVariable {
+    let (intrinsic_dimension, intrinsic_dimension_error) =
+        match intrinsic_dimension_levina_bickel(matrix, intrinsic_cfg) {
+            Ok(value) if value.is_finite() => (Some(value), None),
+            Ok(_) => (None, Some("intrinsic dimension was non-finite".to_string())),
+            Err(err) => (None, Some(format!("{err}"))),
+        };
+    let (
+        pairwise_count,
+        pairwise_min,
+        pairwise_max,
+        pairwise_mean,
+        pairwise_cv,
+        nn_mean,
+        nn_over_pairwise_mean,
+        distance_concentration_error,
+    ) = match distance_concentration_stats(matrix, distance_cfg) {
+        Ok(stats) => (
+            Some(stats.pairwise_count),
+            finite_option(stats.pairwise_min),
+            finite_option(stats.pairwise_max),
+            finite_option(stats.pairwise_mean),
+            finite_option(stats.pairwise_cv),
+            finite_option(stats.nn_mean),
+            finite_option(stats.nn_over_pairwise_mean),
+            None,
+        ),
+        Err(err) => (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(format!("{err}")),
+        ),
+    };
+    let (gromov_delta, gromov_error) = match gromov_hyperbolicity(matrix, hyperbolicity_cfg) {
+        Ok(value) if value.is_finite() => (Some(value), None),
+        Ok(_) => (None, Some("gromov delta was non-finite".to_string())),
+        Err(err) => (None, Some(format!("{err}"))),
+    };
+    let gromov_delta_rel = match (gromov_delta, pairwise_max) {
+        (Some(delta), Some(diameter)) if diameter > 0.0 => finite_option((2.0 * delta) / diameter),
+        _ => None,
+    };
+    OfflineVldaGeometryVariable {
+        dims: vec![matrix.nrows(), matrix.ncols()],
+        intrinsic_dimension,
+        intrinsic_dimension_error,
+        pairwise_count,
+        pairwise_min,
+        pairwise_max,
+        pairwise_mean,
+        pairwise_cv,
+        nn_mean,
+        nn_over_pairwise_mean,
+        distance_concentration_error,
+        gromov_delta,
+        gromov_delta_rel,
+        gromov_error,
+    }
+}
+
+fn finite_option(value: f64) -> Option<f64> {
+    value.is_finite().then_some(value)
+}
+
+fn compute_geometry_gates(
+    variables: &BTreeMap<String, OfflineVldaGeometryVariable>,
+) -> OfflineVldaGeometryGates {
+    let mut warnings = Vec::new();
+    for (name, variable) in variables {
+        match variable.intrinsic_dimension {
+            Some(value) if value > OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION => warnings.push(
+                format!(
+                    "geometry {name} intrinsic_dimension {value:.4} exceeds {OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION:.4}"
+                ),
+            ),
+            Some(_) => {}
+            None => warnings.push(format!(
+                "geometry {name} intrinsic_dimension unavailable: {}",
+                variable
+                    .intrinsic_dimension_error
+                    .as_deref()
+                    .unwrap_or("unknown error")
+            )),
+        }
+        match variable.pairwise_cv {
+            Some(value) if value < OFFLINE_GEOMETRY_MIN_PAIRWISE_CV => warnings.push(format!(
+                "geometry {name} pairwise_cv {value:.4} is below {OFFLINE_GEOMETRY_MIN_PAIRWISE_CV:.4}"
+            )),
+            Some(_) => {}
+            None => warnings.push(format!(
+                "geometry {name} distance concentration unavailable: {}",
+                variable
+                    .distance_concentration_error
+                    .as_deref()
+                    .unwrap_or("unknown error")
+            )),
+        }
+        match variable.gromov_delta_rel {
+            Some(value) if value < OFFLINE_GEOMETRY_MIN_DELTA_REL => warnings.push(format!(
+                "geometry {name} delta_rel {value:.4} is below {OFFLINE_GEOMETRY_MIN_DELTA_REL:.4}"
+            )),
+            Some(_) => {}
+            None => warnings.push(format!(
+                "geometry {name} delta_rel unavailable: {}",
+                variable
+                    .gromov_error
+                    .as_deref()
+                    .unwrap_or("missing diameter")
+            )),
+        }
+    }
+    OfflineVldaGeometryGates {
+        status: if warnings.is_empty() {
+            "pass".to_string()
+        } else {
+            "warn".to_string()
+        },
+        max_intrinsic_dimension: OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION,
+        min_pairwise_cv: OFFLINE_GEOMETRY_MIN_PAIRWISE_CV,
+        min_delta_rel: OFFLINE_GEOMETRY_MIN_DELTA_REL,
+        warnings,
+    }
 }
 
 fn flatten<F>(samples: &[OfflineVldaSample], dim: usize, values: F) -> Vec<f64>
@@ -579,6 +929,7 @@ fn write_metric_events<W: Write>(
         })?;
     }
     let mut idx = metrics.len() as u64;
+    write_geometry_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     if let Some(value) = report.metrics.success_rate {
         writer.append(&RunLogEvent::EvaluationMetric {
             step: report.dims.samples as u64,
@@ -657,6 +1008,63 @@ fn write_metric_events<W: Write>(
     Ok(())
 }
 
+fn write_geometry_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    report: &OfflineVldaReport,
+    timestamp_base_ns: u64,
+    idx: &mut u64,
+) -> Result<()> {
+    for (variable, geometry) in &report.geometry.variables {
+        for (suffix, value) in [
+            ("intrinsic_dimension", geometry.intrinsic_dimension),
+            ("pairwise_cv", geometry.pairwise_cv),
+            ("nn_over_pairwise_mean", geometry.nn_over_pairwise_mean),
+            ("gromov_delta_rel", geometry.gromov_delta_rel),
+        ] {
+            if let Some(value) = value {
+                writer.append(&RunLogEvent::GeometryMetric {
+                    step: report.dims.samples as u64,
+                    timestamp_ns: timestamp_base_ns + *idx,
+                    name: format!("offline_vlda.geometry.{variable}.{suffix}"),
+                    value,
+                    metadata: [
+                        ("category".to_string(), "geometry".to_string()),
+                        ("variable".to_string(), variable.clone()),
+                        ("space".to_string(), report.geometry.space.clone()),
+                        ("metric".to_string(), report.geometry.metric.clone()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                })?;
+                *idx += 1;
+            }
+        }
+    }
+    writer.append(&RunLogEvent::GeometryMetric {
+        step: report.dims.samples as u64,
+        timestamp_ns: timestamp_base_ns + *idx,
+        name: "offline_vlda.geometry.gate_pass".to_string(),
+        value: if report.geometry.gates.status == "pass" {
+            1.0
+        } else {
+            0.0
+        },
+        metadata: [
+            ("category".to_string(), "geometry_gate".to_string()),
+            ("space".to_string(), report.geometry.space.clone()),
+            ("metric".to_string(), report.geometry.metric.clone()),
+            (
+                "warnings".to_string(),
+                report.geometry.gates.warnings.len().to_string(),
+            ),
+        ]
+        .into_iter()
+        .collect(),
+    })?;
+    *idx += 1;
+    Ok(())
+}
+
 fn ensure_parent(path: &Path) -> Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -718,6 +1126,17 @@ mod tests {
         assert_eq!(report.metrics.loo_nn_l_success_accuracy, Some(0.4375));
         assert_eq!(report.metrics.loo_nn_vlda_success_accuracy, Some(0.5625));
         assert_eq!(report.label_counts["success"], 16);
+        assert_eq!(report.preprocessing.strategy, "per_variable_standardized");
+        assert_eq!(report.preprocessing.variables["V"].input_dim, 2);
+        assert_eq!(report.preprocessing.variables["V"].zero_variance_dims, 0);
+        assert_eq!(report.geometry.metric, "chebyshev");
+        assert_eq!(report.geometry.variables["V"].dims, vec![16, 2]);
+        assert!(report.geometry.variables["V"].pairwise_cv.is_some());
+        assert!(report.geometry.variables["L"]
+            .intrinsic_dimension_error
+            .is_some());
+        assert_eq!(report.geometry.gates.status, "warn");
+        assert!(!report.geometry.gates.warnings.is_empty());
 
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -750,6 +1169,7 @@ mod tests {
         assert_eq!(summary.embeddings, 4);
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 9);
+        assert!(summary.geometry_metrics >= 21);
         assert!(summary.evaluation_metrics >= 8);
 
         let _ = std::fs::remove_file(summary_path);
@@ -774,6 +1194,8 @@ mod tests {
         assert_eq!(report.metrics.success_rate, Some(0.75));
         assert_eq!(report.metrics.loo_nn_d_success_accuracy, Some(0.5625));
         assert_eq!(report.metrics.loo_nn_a_success_accuracy, Some(0.4375));
+        assert_eq!(report.geometry.variables.len(), 6);
+        assert_eq!(report.geometry.gates.status, "warn");
     }
 
     #[test]

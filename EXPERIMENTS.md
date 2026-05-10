@@ -929,7 +929,7 @@ cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/toy_vla_ru
 
 ### 4.5 Offline VLDA Embedding Harness Smoke
 
-`pid-offline-harness` converts captured sample JSON with `(V,L,D,A)` vectors into a canonical summary JSON plus run-log JSONL. The checked fixture lives at `crates/pid-sim/fixtures/offline_vlda_fixture.json`; each sample has a `sample_id`, optional `episode_id`, numeric `v`/`l`/`d`/`a` vectors, optional labels, and optional string metadata. The run log records `run_started`, `config_logged`, `frame_observed`, `label_observed`, `embedding_contract`, `embedding_captured`, two-source PID metrics for `(V,L;A)` plus `D→A` MI, evaluation metrics including deterministic success-label baselines when boolean `success` labels are present, input/summary artifacts, and `run_ended`.
+`pid-offline-harness` converts captured sample JSON with `(V,L,D,A)` vectors into a canonical summary JSON plus run-log JSONL. The checked fixture lives at `crates/pid-sim/fixtures/offline_vlda_fixture.json`; each sample has a `sample_id`, optional `episode_id`, numeric `v`/`l`/`d`/`a` vectors, optional labels, and optional string metadata. The run log records `run_started`, `config_logged`, `frame_observed`, `label_observed`, `embedding_contract`, `embedding_captured`, two-source PID metrics for `(V,L;A)` plus `D→A` MI after deterministic per-variable standardization, geometry diagnostics/gates over the standardized analysis space, evaluation metrics including deterministic success-label baselines when boolean `success` labels are present, input/summary artifacts, and `run_ended`.
 
 ```bash
 just offline-harness
