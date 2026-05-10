@@ -71,6 +71,22 @@ pub struct OfflineVldaMetrics {
     pub loo_nn_d_success_accuracy: Option<f64>,
     pub loo_nn_a_success_accuracy: Option<f64>,
     pub loo_nn_vlda_success_accuracy: Option<f64>,
+    pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaPidPairMetrics {
+    pub source_1: String,
+    pub source_2: String,
+    pub target: String,
+    pub mi_source_1_action: f64,
+    pub mi_source_2_action: f64,
+    pub mi_joint_action: f64,
+    pub co_information: f64,
+    pub redundancy: f64,
+    pub unique_source_1: f64,
+    pub unique_source_2: f64,
+    pub synergy: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -173,9 +189,9 @@ pub fn run_offline_vlda_harness(
         "metric_pipeline": {
             "mi": "ksg",
             "pid": "isx_ehrlich_ksg",
-            "pid_sources": ["V", "L"],
+            "pid_pairs": [["V", "L"], ["V", "D"], ["L", "D"]],
             "target": "A",
-            "additional_metrics": ["mi_d_action"],
+            "shared_source_metrics": ["mi_v_action", "mi_l_action", "mi_d_action"],
             "preprocessing": {
                 "pid_geometry_space": analysis.preprocessing.strategy.clone(),
                 "standardizer": "per_variable_center_scale_population_std"
@@ -627,12 +643,31 @@ fn compute_metrics(
             ..Default::default()
         },
     };
-    let pid = pid2_isx(v, l, a, &pid_cfg)?;
     let mi_v_action = pid_core::ksg_mi(v, a, &ksg)?;
     let mi_l_action = pid_core::ksg_mi(l, a, &ksg)?;
     let mi_d_action = pid_core::ksg_mi(d, a, &ksg)?;
-    let mi_vl_action = pid_core::ksg_mi_concat_xy(v, l, a, &ksg)?;
-    let co_information_v_l_action = co_information_pairwise(v, l, a, &ksg)?;
+    let v_source = OfflineVldaSourceMatrix {
+        name: "V",
+        matrix: v,
+        mi_action: mi_v_action,
+    };
+    let l_source = OfflineVldaSourceMatrix {
+        name: "L",
+        matrix: l,
+        mi_action: mi_l_action,
+    };
+    let d_source = OfflineVldaSourceMatrix {
+        name: "D",
+        matrix: d,
+        mi_action: mi_d_action,
+    };
+    let action_target = OfflineVldaTargetMatrix {
+        name: "A",
+        matrix: a,
+    };
+    let vl_pair = compute_pid_pair_metrics(v_source, l_source, action_target, &ksg, &pid_cfg)?;
+    let vd_pair = compute_pid_pair_metrics(v_source, d_source, action_target, &ksg, &pid_cfg)?;
+    let ld_pair = compute_pid_pair_metrics(l_source, d_source, action_target, &ksg, &pid_cfg)?;
     let success_labels = success_labels(samples);
     let (success_rate, majority_success_accuracy) = success_metrics(&success_labels);
     let loo_nn_v_success_accuracy = success_labels
@@ -659,16 +694,23 @@ fn compute_metrics(
             values
         })
     });
+    let pid_pairs = [
+        ("VL".to_string(), vl_pair.clone()),
+        ("VD".to_string(), vd_pair),
+        ("LD".to_string(), ld_pair),
+    ]
+    .into_iter()
+    .collect();
     Ok(OfflineVldaMetrics {
         mi_v_action,
         mi_l_action,
         mi_d_action,
-        mi_vl_action,
-        co_information_v_l_action,
-        redundancy_v_l_action: pid.redundancy,
-        unique_v_action: pid.unique_s1,
-        unique_l_action: pid.unique_s2,
-        synergy_v_l_action: pid.synergy,
+        mi_vl_action: vl_pair.mi_joint_action,
+        co_information_v_l_action: vl_pair.co_information,
+        redundancy_v_l_action: vl_pair.redundancy,
+        unique_v_action: vl_pair.unique_source_1,
+        unique_l_action: vl_pair.unique_source_2,
+        synergy_v_l_action: vl_pair.synergy,
         success_rate,
         majority_success_accuracy,
         loo_nn_v_success_accuracy,
@@ -676,6 +718,53 @@ fn compute_metrics(
         loo_nn_d_success_accuracy,
         loo_nn_a_success_accuracy,
         loo_nn_vlda_success_accuracy,
+        pid_pairs,
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct OfflineVldaSourceMatrix<'a> {
+    name: &'static str,
+    matrix: MatRef<'a>,
+    mi_action: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct OfflineVldaTargetMatrix<'a> {
+    name: &'static str,
+    matrix: MatRef<'a>,
+}
+
+fn compute_pid_pair_metrics(
+    source_1: OfflineVldaSourceMatrix<'_>,
+    source_2: OfflineVldaSourceMatrix<'_>,
+    target: OfflineVldaTargetMatrix<'_>,
+    ksg: &KsgConfig,
+    pid_cfg: &Pid2Config,
+) -> Result<OfflineVldaPidPairMetrics> {
+    let pid = pid2_isx(source_1.matrix, source_2.matrix, target.matrix, pid_cfg)?;
+    Ok(OfflineVldaPidPairMetrics {
+        source_1: source_1.name.to_string(),
+        source_2: source_2.name.to_string(),
+        target: target.name.to_string(),
+        mi_source_1_action: source_1.mi_action,
+        mi_source_2_action: source_2.mi_action,
+        mi_joint_action: pid_core::ksg_mi_concat_xy(
+            source_1.matrix,
+            source_2.matrix,
+            target.matrix,
+            ksg,
+        )?,
+        co_information: co_information_pairwise(
+            source_1.matrix,
+            source_2.matrix,
+            target.matrix,
+            ksg,
+        )?,
+        redundancy: pid.redundancy,
+        unique_source_1: pid.unique_s1,
+        unique_source_2: pid.unique_s2,
+        synergy: pid.synergy,
     })
 }
 
@@ -980,12 +1069,22 @@ fn write_metric_events<W: Write>(
             timestamp_ns: timestamp_base_ns + idx as u64,
             name: name.to_string(),
             value,
-            metadata: [("category".to_string(), "pid".to_string())]
-                .into_iter()
-                .collect(),
+            metadata: offline_vlda_pid_metric_metadata(name),
         })?;
     }
     let mut idx = metrics.len() as u64;
+    for pair in ["VD", "LD"] {
+        if let Some(pair_metrics) = report.metrics.pid_pairs.get(pair) {
+            write_pid_pair_metric_events(
+                writer,
+                report,
+                pair,
+                pair_metrics,
+                timestamp_base_ns,
+                &mut idx,
+            )?;
+        }
+    }
     write_geometry_metric_events(writer, report, timestamp_base_ns, &mut idx)?;
     if let Some(value) = report.metrics.success_rate {
         writer.append(&RunLogEvent::EvaluationMetric {
@@ -1061,6 +1160,93 @@ fn write_metric_events<W: Write>(
                 .collect(),
         })?;
         idx += 1;
+    }
+    Ok(())
+}
+
+fn offline_vlda_pid_metric_metadata(name: &str) -> BTreeMap<String, String> {
+    let mut metadata = [("category".to_string(), "pid".to_string())]
+        .into_iter()
+        .collect::<BTreeMap<_, _>>();
+    match name {
+        "offline_vlda.pid.mi_v_action" => {
+            metadata.insert("source".to_string(), "V".to_string());
+        }
+        "offline_vlda.pid.mi_l_action" => {
+            metadata.insert("source".to_string(), "L".to_string());
+        }
+        "offline_vlda.pid.mi_d_action" => {
+            metadata.insert("source".to_string(), "D".to_string());
+        }
+        "offline_vlda.pid.mi_vl_action"
+        | "offline_vlda.pid.co_information_v_l_action"
+        | "offline_vlda.pid.redundancy_v_l_action"
+        | "offline_vlda.pid.unique_v_action"
+        | "offline_vlda.pid.unique_l_action"
+        | "offline_vlda.pid.synergy_v_l_action" => {
+            metadata.insert("pid_pair".to_string(), "VL".to_string());
+            metadata.insert("source_1".to_string(), "V".to_string());
+            metadata.insert("source_2".to_string(), "L".to_string());
+            metadata.insert("target".to_string(), "A".to_string());
+        }
+        _ => {}
+    }
+    metadata
+}
+
+fn write_pid_pair_metric_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    report: &OfflineVldaReport,
+    pair: &str,
+    metrics: &OfflineVldaPidPairMetrics,
+    timestamp_base_ns: u64,
+    idx: &mut u64,
+) -> Result<()> {
+    let source_1 = metrics.source_1.to_ascii_lowercase();
+    let source_2 = metrics.source_2.to_ascii_lowercase();
+    let pair_name = format!("{source_1}{source_2}");
+    for (name, value) in [
+        (
+            format!("offline_vlda.pid.mi_{pair_name}_action"),
+            metrics.mi_joint_action,
+        ),
+        (
+            format!("offline_vlda.pid.co_information_{source_1}_{source_2}_action"),
+            metrics.co_information,
+        ),
+        (
+            format!("offline_vlda.pid.redundancy_{source_1}_{source_2}_action"),
+            metrics.redundancy,
+        ),
+        (
+            format!("offline_vlda.pid.unique_{source_1}_given_{source_2}_action"),
+            metrics.unique_source_1,
+        ),
+        (
+            format!("offline_vlda.pid.unique_{source_2}_given_{source_1}_action"),
+            metrics.unique_source_2,
+        ),
+        (
+            format!("offline_vlda.pid.synergy_{source_1}_{source_2}_action"),
+            metrics.synergy,
+        ),
+    ] {
+        writer.append(&RunLogEvent::PidMetric {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + *idx,
+            name,
+            value,
+            metadata: [
+                ("category".to_string(), "pid".to_string()),
+                ("pid_pair".to_string(), pair.to_string()),
+                ("source_1".to_string(), metrics.source_1.clone()),
+                ("source_2".to_string(), metrics.source_2.clone()),
+                ("target".to_string(), metrics.target.clone()),
+            ]
+            .into_iter()
+            .collect(),
+        })?;
+        *idx += 1;
     }
     Ok(())
 }
@@ -1182,6 +1368,8 @@ mod tests {
         assert_eq!(report.metrics.loo_nn_v_success_accuracy, Some(0.5625));
         assert_eq!(report.metrics.loo_nn_l_success_accuracy, Some(0.4375));
         assert_eq!(report.metrics.loo_nn_vlda_success_accuracy, Some(0.5625));
+        assert_eq!(report.metrics.pid_pairs.len(), 3);
+        assert_eq!(report.metrics.pid_pairs["VD"].source_2, "D");
         assert_eq!(report.label_counts["success"], 16);
         assert_eq!(report.preprocessing.strategy, "per_variable_standardized");
         assert_eq!(report.preprocessing.variables["V"].input_dim, 2);
@@ -1208,6 +1396,15 @@ mod tests {
         let events = read_events_from_path(&runlog_path).unwrap();
         let validation = validate_events(&events);
         assert!(validation.is_valid(), "{:?}", validation.issues);
+        let has_vd_synergy = events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::PidMetric { name, metadata, .. }
+                    if name == "offline_vlda.pid.synergy_v_d_action"
+                        && metadata.get("pid_pair").map(String::as_str) == Some("VD")
+            )
+        });
+        assert!(has_vd_synergy);
         let contract_uri = events
             .iter()
             .find_map(|event| {
@@ -1225,7 +1422,7 @@ mod tests {
         assert_eq!(summary.embedding_contracts, 1);
         assert_eq!(summary.embeddings, 4);
         assert_eq!(summary.labels, 16);
-        assert_eq!(summary.pid_metrics, 9);
+        assert_eq!(summary.pid_metrics, 21);
         assert!(summary.geometry_metrics >= 21);
         assert!(summary.evaluation_metrics >= 8);
 
@@ -1251,6 +1448,7 @@ mod tests {
         assert_eq!(report.metrics.success_rate, Some(0.75));
         assert_eq!(report.metrics.loo_nn_d_success_accuracy, Some(0.5625));
         assert_eq!(report.metrics.loo_nn_a_success_accuracy, Some(0.4375));
+        assert!(report.metrics.pid_pairs.contains_key("LD"));
         assert_eq!(report.geometry.variables.len(), 6);
         assert_eq!(report.geometry.gates.status, "warn");
     }
