@@ -367,6 +367,17 @@ urdf_path = "assets/robots/franka_panda.urdf"
 
 **Key advantage**: DreamVLA trains with dreaming; PID-Splat *analyzes* any VLA's implicit world model without retraining.
 
+### 3.5 Attribution Methods as Diagnostic Overlays
+
+LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, saliency/SmoothGrad, occlusion/permutation, and SHAP-style attributions are complementary to PID rather than substitutes for it. PID summarizes information relationships across logged samples; attribution localizes which features, tokens, regions, layers, or concepts influenced a selected output for a model call.
+
+**Rerun-first integration:**
+- Log precomputed attribution artifacts as images, heatmaps, token bars, point/patch colors, or scalar time-series tracks alongside PID/CI metrics.
+- Keep attribution metadata with the artifact: method, target output, layer/modality, baseline/background/concept set, preprocessing, score hash, and faithfulness/sanity-check result.
+- Do not require Phase 4 custom shaders for attribution review; Phase 4 can add interactive overlays, but the canonical evidence remains the run log plus artifacts.
+
+**Interpretation rule:** if PID claims `Unq(V)`, `Unq(L)`, or `Syn(V,L;A)` is diagnostic, attribution overlays should either provide a compatible local account under matched interventions or expose a disagreement that must be reported.
+
 ---
 
 ## 3. World Model vs VLM-Based Robotics: The Core Argument
@@ -442,6 +453,7 @@ Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods 
 | **3DGS Pipeline** | Scene capture | Photorealistic captures; differentiable training pipelines exist (visualization here is non-differentiable) |
 | **Dream2Flow** | World model probe | Euclidean flow target, embodiment-agnostic |
 | **PID-Core** | Information analysis | Decomposes V-L-A integration, diagnoses failures |
+| **Attribution probes** | Local explanation baselines | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/SHAP-style artifacts triangulate PID claims when sanity checks pass |
 
 ---
 

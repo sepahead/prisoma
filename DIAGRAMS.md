@@ -389,6 +389,10 @@ graph LR
 
     H7[H7 Flow-as-bridge] --> E4[Exp4 Dream2Flow validation]
     H7 --> E5
+
+    H9[H9 Attribution triangulation] --> E1
+    H9 --> E3
+    H9 --> E4
 ```
 
 ---
@@ -504,4 +508,29 @@ graph TB
 
     Wt --> PID[pid-core\n(MI/CI/PID)]
     PID --> Log[Run log artifacts\n(metric events + provenance)]
+```
+
+---
+
+## 13. Attribution Probes as Companion Diagnostics
+
+This diagram places LRP/Integrated Gradients/DeepLIFT/Grad-CAM/TCAV/saliency/SHAP-style methods beside PID. The two branches answer different questions and should be compared only through logged samples, common targets, and matched interventions.
+
+```mermaid
+graph TB
+    Run[Canonical run log\nsamples + embeddings + targets] --> PID[PID/CI branch\nRed / Unq / Syn / CI]
+    Run --> Attr[Attribution branch\nLRP / IG / DeepLIFT / Grad-CAM / TCAV / saliency / SHAP-style]
+
+    PID --> PFeat[Per-window / per-episode\ninformation features]
+    Attr --> AFeat[Heatmaps / token scores\nconcept scores / feature rankings]
+
+    PFeat --> Compare[Triangulation layer\nH9]
+    AFeat --> Compare
+
+    Compare --> Agree[Compatible under controls\nstronger diagnostic story]
+    Compare --> Disagree[Disagreement\nrun targeted perturbations]
+    Disagree --> Intervene[Agent Bridge intervention\nocclude / ablate / swap / shuffle]
+    Intervene --> Run
+
+    Compare --> Log[Artifact manifest\nmethod + target + baseline + score hash]
 ```

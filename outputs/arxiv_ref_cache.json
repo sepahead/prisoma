@@ -34,6 +34,20 @@
     "title": "Poincar\u00e9 Embeddings for Learning Hierarchical Representations",
     "updated": "2017-05-26T17:40:55Z"
   },
+  "1706.03825": {
+    "authors": [
+      "Daniel Smilkov",
+      "Nikhil Thorat",
+      "Been Kim",
+      "Fernanda Vi\u00e9gas",
+      "Martin Wattenberg"
+    ],
+    "id": "1706.03825",
+    "published": "2017-06-12T19:53:30Z",
+    "summary": "Explaining the output of a deep network remains a challenge. In the case of an image classifier, one type of explanation is to identify pixels that strongly influence the final decision. A starting point for this strategy is the gradient of the class score function with respect to the input image. This gradient can be interpreted as a sensitivity map, and there are several techniques that elaborate on this basic idea. This paper makes two contributions: it introduces SmoothGrad, a simple method that can help visually sharpen gradient-based sensitivity maps, and it discusses lessons in the visualization of these maps. We publish the code for our experiments and a website with our results.",
+    "title": "SmoothGrad: removing noise by adding noise",
+    "updated": "2017-06-12T19:53:30Z"
+  },
   "1801.04062": {
     "authors": [
       "Mohamed Ishmael Belghazi",

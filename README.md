@@ -13,7 +13,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-PID‑VLA is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
+PID‑VLA is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls, with local attribution methods treated as baselines/triangulation probes. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
 
 ## Hypotheses (Docset v10.1)
 
@@ -29,6 +29,7 @@ The canonical registry + falsification criteria live in `grandplan.md` (§14.1).
 | **H6** | Safety tasks show distinctive V–L integration patterns (only with proper labels/controls). |
 | **H7** | Flow‑as‑Bridge enables stage‑wise diagnostics and embodiment‑agnostic comparisons. |
 | **H8** | Geometry diagnostics determine which estimator regime is valid. |
+| **H9** | Faithfulness-checked attribution probes (LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style) should triangulate, or falsify, PID-derived modality/stage claims. |
 
 ## Experiments (Run Order)
 
@@ -41,6 +42,8 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 5. **Exp4** — Flow‑as‑Bridge bring‑up with simulator `Flow_gt` (H7).
 6. **Exp5** — Cross‑embodiment replication (H4/H7).
 
+Attribution methods are comparison evidence, not a shortcut around PID validity: LRP and related methods explain one model call or concept direction, while PID/CI estimates distribution-level information across logged samples. If attribution probes disagree with PID signatures under controlled interventions, treat the disagreement as a diagnostic result.
+
 ## Doc Audits
 
 - `python scripts/audit_grandplan.py --check-italic-titles` (arXiv coverage + title drift; uses `outputs/arxiv_ref_cache.json`)
@@ -51,7 +54,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 ## Repo Status (What Actually Exists)
 
 - Implemented: `crates/pid-core`, `crates/pid-python` (`pid_core_rs`), `crates/pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest/sidecar write-and-verify CLI), `crates/pid-bridge` (local Agent Bridge request/response dispatch core + JSON-RPC-shaped request/response conversion + contract export), `crates/pid-sim` (deterministic object sim + `Flow_gt`/baseline `flow_pred` bridge demos, stdio/TCP/WebSocket JSON-RPC bridges, safe-mode `log.replay`, bridge `log.start`/`log.stop`, deterministic `intervention.apply`, bridge `export.rerun`, flow verification, action/intervention replay checks, a labeled toy VLA/task harness, and a generic offline `(V,L,D,A)` embedding harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, deterministic sample-level, episode-grouped, and metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, centroid AUROC, held-out class-coverage and episode-disjointness reports, held-out per-sample prediction records in summaries/run logs, and held-out failure-class confusion/rate diagnostics), `crates/pid-rerun` (prototype Rerun logging + validated run-log replay adapter with summary/provenance/validation diagnostics), and the Experiment 0 runner (`just exp0`, `just exp0-bin`, `just exp0-runlog`).
-- Specified: A fuller Rerun-based diagnostic viewer (Phases 1-3) and deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
+- Specified: A fuller Rerun-based diagnostic viewer (Phases 1-3), deferred Tauri/SparkJS UI (Phase 4), and H9 attribution-probe workflow. Attribution probes are not first-class run-log/Rerun features yet; until implemented, treat them as external artifacts with method/target/baseline/hash provenance. Start at `grandplan.md` §A.7.
 
 ## Quick Start (Exp0 Gate)
 
@@ -137,7 +140,7 @@ Final 10-step build path:
 4. Route all GUI/script/LLM actions through the Agent Bridge.
 5. Build the minimal object sim and simulator-derived `Flow_gt`.
 6. Convert run logs into Rerun recordings/blueprints.
-7. Connect the offline embedding harness to one small real VLA/task capture with labels and non-PID baselines.
+7. Connect the offline embedding harness to one small real VLA/task capture with labels, attribution probes, and non-PID baselines.
 8. Gate optional live transport and external `Flow_pred` services behind the same run-log schema.
 9. Add Tauri/SparkJS only after the Rerun workflow works.
 10. Add license/provenance automation for dependencies, models, datasets, generated assets, and sidecars.

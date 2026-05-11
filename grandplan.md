@@ -1330,6 +1330,21 @@ Their robotics results do NOT validate I^sx_∩ specifically. They use:
 
 Neither uses the shared-exclusions definition. Their success doesn't transfer automatically to our approach.
 
+### Warning 7: Attribution/Saliency Methods Are Not PID
+
+Layer-wise Relevance Propagation (LRP), Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, SHAP-style explanations, occlusion tests, and attention maps are useful diagnostics, but they answer a different question from PID:
+- **Attribution methods:** for one model call or concept, which input feature, token, region, layer, or concept direction affects the selected output?
+- **PID/CI:** across a logged sample distribution, how is target-relevant information decomposed across source variables (`V`, `L`, `D`, `Flow`, etc.)?
+
+First-principles separation:
+
+| Question | Object being measured | Correct evidence shape | What it cannot prove alone |
+|---|---|---|---|
+| LRP / attribution | A local score vector for a fixed model, input, target output, layer/rule/baseline | Heatmaps, token scores, concept sensitivities, deletion/occlusion effects on the same call | That information is redundant/unique/synergistic across a population |
+| PID / CI | A distributional dependence structure over random variables and targets | Logged samples, estimator gates, geometry checks, uncertainty, perturbation controls | Which exact pixel/token/neuron caused one action |
+
+Do not use an attribution heatmap as evidence that `Red`, `Unq`, or `Syn` is valid, and do not use a passing PID gate as evidence that a saliency map is faithful. Treat attribution methods as complementary baselines and triangulation probes that require their own sanity checks (model/data randomization, baseline/background sensitivity, deletion/occlusion, and intervention tests).
+
 ## 1.3 Recommended Approach
 
 Given these warnings, the recommended approach is:
@@ -1337,7 +1352,7 @@ Given these warnings, the recommended approach is:
 1. **Run Experiment 0 FIRST:** validate the estimator on synthetic data at target dimensionality before any VLA experiments.
 2. **Bring up the harness on the simplest stack:** start with simulator-derived `Flow_gt` (from logged object poses) and a small open baseline (e.g., SmolVLA, or even a toy policy) to validate logging, interventions, replay, and embedding extraction *without* adding a video predictor dependency.
 3. **Scale to the primary VLA target next (e.g., OpenVLA):** only after (1)–(2) are stable; treat diffusion-based VLAs and predictor-driven Flow as optional branches, not prerequisites.
-4. **Include strong baselines:** compare against entropy, OOD scores, PRMs/GRMs, and learned classifiers.
+4. **Include strong baselines:** compare against entropy, OOD scores, PRMs/GRMs, learned classifiers, and faithfulness-checked attribution probes.
 5. **Pre-register success criteria:** specify AUROC/effect-size targets, statistical tests, and which decompositions are “primary”.
 6. **Plan for negative results:** if baselines match or beat PID features, that is a valid (publishable) outcome with confound analysis.
 7. **Test multiple decompositions:** do not commit to V-D-A alone; test V-L-A and hierarchical pairwise variants, and add 3-way only when pairwise screening indicates value.
@@ -3221,6 +3236,7 @@ Determine which decomposition best predicts VLA failures.
 4. Compute features at multiple fidelity levels:
    - Level 0: co-information / Shannon invariants (fastest; usable broadly).
    - Level 1/2: pairwise `I^sx_∩` PID on selected windows/episodes (expensive; targeted).
+   - Companion baseline: attribution summaries (LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style) on the same logged samples, reported separately from PID atoms.
 5. Convert time series into per-trajectory features (e.g., mean/min/quantiles/%negative/peak magnitude, plus duration-above-threshold).
 6. Train and evaluate a predictor (logistic regression / small MLP) using **grouped** cross-validation; report AUROC + calibration + confidence intervals.
    - **Grouping rule:** do not let windows/timesteps from the same trajectory appear in both train and test folds.
@@ -3244,6 +3260,9 @@ Report which decomposition achieves highest AUROC.
 | Liang et al. Batch PID | Their variational estimator |
 | Liang et al. CVX PID | Their convex optimization estimator |
 | Process Reward Model (GRM) | Progress-based failure detection (Robo-Dopamine) |
+| Attribution probes | LRP/Integrated Gradients/DeepLIFT/Grad-CAM/TCAV/vanilla saliency/SmoothGrad-style/occlusion/SHAP-style summaries; use only with faithfulness sanity checks |
+
+Attention entropy/maps are allowed as weak baselines, but standard attention weights are not explanations by default; validate them with interventions before using them as rationales.
 
 ### 9.3.2 Success Criteria
 
@@ -3659,7 +3678,7 @@ This is a genuine connection to PID diagnostics:
    
    **Testable hypothesis:** Using a better depth representation for transparent objects can change PID features by reducing perception-driven noise in V. Whether this increases or decreases synergy is empirical and must be measured under controls (Exp3 perturbations + ablations).
 
-3. **Failure Mode Attribution:** Without accurate transparent object depth:
+3. **Failure Mode Diagnosis:** Without accurate transparent object depth:
    - Low Syn(V,D;A) could indicate either:
      a) World model failure (D is wrong about physics)
      b) Perception failure (V is garbage)
@@ -5232,6 +5251,18 @@ VLA-Arena Task Organization:
 - **Touch in the Wild:** Zhu, Huang, Li (2025). *Touch in the Wild: Learning Fine-Grained Manipulation with a Portable Visuo-Tactile Gripper.* arXiv:2507.15062. [Cross-modal representation learning for visual-tactile integration; in-the-wild data collection]
 - **OpenTouch:** Song et al. (2025). *OPENTOUCH: Bringing Full-Hand Touch to Real-World Interaction.* arXiv:2512.16842. [Egocentric full-hand tactile dataset with synchronized signals (paper-reported; verify scale/access/licensing)]
 
+## 13.14 Attribution and Explainability Baselines
+
+- **Layer-wise Relevance Propagation (LRP):** Bach et al. (2015). *On Pixel-Wise Explanations for Non-Linear Classifier Decisions by Layer-Wise Relevance Propagation.* PLOS ONE. [Layer-wise/pixel-wise relevance decomposition; use as local explanation baseline, not PID.]
+- **Integrated Gradients:** Sundararajan, Taly, Yan (2017). *Axiomatic Attribution for Deep Networks.* ICML (verify venue/status if citing formally). [Sensitivity + implementation-invariance framing; baseline/reference path must be logged.]
+- **DeepLIFT:** Shrikumar, Greenside, Kundaje (2017). *Learning Important Features Through Propagating Activation Differences.* ICML (verify venue/status if citing formally). [Difference-from-reference attributions; reference choice is part of the claim.]
+- **Grad-CAM:** Selvaraju et al. (2017). *Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization.* ICCV. [Coarse visual localization via gradients into a selected layer.]
+- **TCAV:** Kim et al. (2018). *Interpretability Beyond Feature Attribution: Quantitative Testing with Concept Activation Vectors (TCAV).* ICML (verify venue/status if citing formally). [Concept-direction sensitivity; concept and counterexample sets must be preregistered/logged.]
+- **SmoothGrad:** Smilkov et al. (2017). *SmoothGrad: removing noise by adding noise.* arXiv:1706.03825. [Noise-averaged sensitivity maps; log noise scale/sample count and verify maps are model-sensitive.]
+- **SHAP:** Lundberg, Lee (2017). *A Unified Approach to Interpreting Model Predictions.* NeurIPS (verify venue/status if citing formally). [Additive feature attribution / Shapley-value framing; background distribution matters.]
+- **Attention caution:** Jain, Wallace (2019). *Attention is not Explanation.* NAACL. [Treat attention maps as weak diagnostics unless intervention-tested.]
+- **Saliency sanity checks:** Adebayo et al. (2018). *Sanity Checks for Saliency Maps.* NeurIPS (verify venue/status if citing formally); Hooker et al. (2019). *A Benchmark for Interpretability Methods in Deep Neural Networks.* NeurIPS (verify venue/status if citing formally). [Model/data randomization and removal/retraining/deletion-style evaluation.]
+
 ---
 
 # 14. Confounding Factors Analysis: Proving and Disproving the Hypotheses
@@ -5240,7 +5271,7 @@ This section addresses how confounding factors could be studied and removed to r
 
 ## 14.1 Core Hypotheses and Their Falsifiability
 
-### 14.1.0 Hypothesis Registry (v10.0)
+### 14.1.0 Hypothesis Registry (v10.1)
 
 This project treats hypotheses as **falsifiable contracts**, not slogans. Status labels are about *priority and interpretability* given current estimator and logging constraints.
 
@@ -5252,8 +5283,9 @@ This project treats hypotheses as **falsifiable contracts**, not slogans. Status
 | **H4** memorization vs generalization | Core | Motivated by VLA-Arena framing; tests whether PID signatures change under structured distribution shifts |
 | **H5** temporal synergy degradation | Core | Operationalizable with windowed summaries + block bootstrap; tests long-horizon composition failures |
 | **H6** safety-aware integration | Deferred / exploratory | Include only if safety labels and matched controls are available; otherwise treat as out-of-scope for the core study |
-| **H7** Flow-as-Bridge | Core (method + hypothesis) | Makes a Euclidean diagnostic target explicit; enables stage-wise attribution and cross-embodiment comparisons |
+| **H7** Flow-as-Bridge | Core (method + hypothesis) | Makes a Euclidean diagnostic target explicit; enables stage-wise diagnostics and cross-embodiment comparisons |
 | **H8** geometry gate → estimator choice | Core (method) | Geometry/dimensionality diagnostics predict which preprocessing + estimator regime is valid (continuous vs discrete vs CI-only); prevents false positives from invalid geometry |
+| **H9** attribution probes ↔ PID claims | Exploratory / triangulation | Faithfulness-checked local attribution methods should support, sharpen, or falsify PID-derived modality/stage claims; they are baselines, not replacements for PID gates |
 
 **Extension hypotheses (optional; do not block Experiments 0–4):**
 - **H_WM1–H_WM5** (world-model comparison; §9.8): exploratory extensions comparing learned vs explicit physics world models; require additional infrastructure and careful matched controls.
@@ -5311,6 +5343,24 @@ This project treats hypotheses as **falsifiable contracts**, not slogans. Status
 - If geometry diagnostics do **not** predict estimator stability on synthetic controls (Exp0), they are not useful gates.
 - If the gates pass but estimates remain unstable across seeds/jitter/splits on real embeddings, the gating criteria are insufficient.
 - If the gates fail but continuous SxPID remains stable and predictive under controls, the diagnostics are overly conservative and should be revised.
+
+### Hypothesis H9: Attribution probes triangulate PID-derived modality/stage claims
+
+**Claim (exploratory; falsifiable):** For a VLA with accessible inputs/layers/gradients, faithfulness-checked attribution probes—LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, vanilla saliency/SmoothGrad, occlusion/permutation, or SHAP-style feature importance—should provide a compatible local account of any PID-derived modality/stage claim. For example, a high `Unq(L;A)` claim should survive language ablations and should be accompanied by token/embedding relevance on task-critical instruction content; a high `Unq(V;A)` claim should localize to task-relevant visual regions more than distractors; a high `Syn(V,L;A)` claim should require joint V+L perturbations to explain action/failure changes.
+
+**Status:** Exploratory / triangulation. H9 is not a new primary thesis and does not bypass Experiment 0. It exists to prevent PID-only storytelling and to catch cases where PID features, saliency maps, and controlled interventions disagree.
+
+**Confounds:**
+1. **Local vs distributional mismatch:** attribution explains a single output or concept direction; PID estimates source information over a sample distribution.
+2. **Gradient saturation / reference artifacts:** IG/DeepLIFT/SHAP depend on baselines/backgrounds; LRP depends on propagation rules; Grad-CAM depends on the chosen layer.
+3. **Correlated features:** attribution can assign importance to one correlated proxy while PID reports redundancy or synergy across sources.
+4. **Attention overclaiming:** attention weights can be unfaithful to model behavior unless perturbation tests validate them.
+5. **Preprocessing leakage:** using attribution to choose PID features on held-out data can leak labels or failure information.
+
+**How to disprove H9:**
+- If attribution probes pass sanity checks but consistently fail to align with PID-derived uniques/synergy under matched interventions, H9 is unsupported and PID claims need narrower interpretation.
+- If attribution probes fail model/data randomization or deletion/occlusion tests, they cannot be used as faithful baselines for H9 in that regime.
+- If PID predicts failure but attribution plus causal perturbations show the model is using a different modality/stage, prefer the intervention evidence and revise the PID variable definition.
 
 ## 14.2 Experimental Controls for Confound Removal
 
@@ -5764,6 +5814,22 @@ Before claiming "synergy predicts failure," must demonstrate one of:
 4. **Pre-attention extraction:** Effect observed in pre-RoPE embeddings
 
 **Reference:** Gopalakrishnan A, Csordás R, Schmidhuber J, Mozer MC (2025). Decoupling the "What" and "Where" With Polar Coordinate Positional Embeddings. arXiv:2509.10534.
+
+## 14.7 Attribution Method Confounds
+
+Attribution methods are useful precisely because they fail in different ways from PID. Before using them to support H9 or as H1/H3 baselines, log the method, target output, source modality/layer, preprocessing, baseline/background/concept sets, score tensor hash, and sanity-check outcome.
+
+| Confound | Affects | Control / failure criterion |
+|---|---|---|
+| **Gradient saturation / noisy sensitivity** | saliency, Input×Gradient, SmoothGrad-style, IG, Grad-CAM, DeepLIFT variants | Compare multiple attribution families; if only one saturated or smoothed method supports the claim, treat it as weak |
+| **Reference/background choice** | IG, DeepLIFT, SHAP-style methods | Report several preregistered baselines/background sets; claim must not flip under reasonable choices |
+| **LRP rule/layer support** | LRP / Deep Taylor | Log propagation rules and unsupported modules; do not compare scores across architectures without rule parity |
+| **Concept-set leakage** | TCAV | Concept examples/counterexamples must be train-split only and semantically independent of the failure label unless the concept is the hypothesis |
+| **Heatmap plausibility bias** | Grad-CAM, saliency, attention | Require deletion/occlusion or counterfactual intervention evidence; visual appeal is not evidence |
+| **Feature dependence** | SHAP/occlusion/permutation | Use background/replacement distributions that preserve valid inputs; report whether correlated features make attributions non-identifiable |
+| **PID/attribution preprocessing mismatch** | all H9 comparisons | Fit reducers/normalizers/concept classifiers on training data only; compare on the same sample IDs and logged targets |
+
+**Publication requirement for H9:** an attribution/PID alignment claim needs (1) a passed attribution sanity check, (2) a passed or explicitly scoped PID/CI measurement regime, and (3) at least one matched perturbation showing that changing top-attributed features/modality changes the downstream target in the predicted direction.
 
 ---
 
@@ -6633,7 +6699,7 @@ Before interpreting any PID atoms on a representation \(X\) (and especially befo
 |---|---|---|---|---|
 | **Modest \(\hat d\)**, **no strong concentration** (pairwise CV not tiny), **δ_rel not very small**, locally flat-ish | Euclidean/Chebyshev neighborhood logic is at least plausible | PCA/whitening → continuous `I^sx_∩` (L∞) + KSG MI, *after Experiment 0 passes on that pipeline* | **Primary:** 2‑way PID (`pid2`). **Optional:** 3‑way PID (`pid3`) only offline and only after MI/CI stability checks | H1–H6 on `(V,L;A)` or `(V,D;A)`; H7 on flow targets if available |
 | **Strong distance concentration** (very low CV; `nn_over_pairwise_mean → 1`) | kNN neighborhoods become unstable; variance/bias dominate | Reduce dimensionality aggressively; increase N; if still concentrated → MI-only or discrete | Prefer **hierarchical screening** (CI/Ω, pairwise MI/PID) | H4/H5/H6 as *comparative* diagnostics (ΔCI/ΔMI) under perturbations; avoid fine-grained atom claims |
-| **Very small δ_rel** (tree-like distances) | Continuous `I^sx_∩` derivation is not justified in this geometry | MI-only screening (CI/Ω); quantization → discrete PID; Flow-as-Bridge when possible | Prefer **hierarchical pairwise** over full 3‑way atoms; treat hyperbolic projections as optional feature engineering (re-validate) | H7 stage attribution; H4/H6 as MI/CI shifts; avoid “continuous PID atom” conclusions on raw embeddings |
+| **Very small δ_rel** (tree-like distances) | Continuous `I^sx_∩` derivation is not justified in this geometry | MI-only screening (CI/Ω); quantization → discrete PID; Flow-as-Bridge when possible | Prefer **hierarchical pairwise** over full 3‑way atoms; treat hyperbolic projections as optional feature engineering (re-validate) | H7 stage diagnostics; H4/H6 as MI/CI shifts; avoid “continuous PID atom” conclusions on raw embeddings |
 | **Strong dependence / heavy tails / autocorrelation dominates** | KSG/ISX can break even at low d | Use strong-dependence MI estimators (e.g., Gao–Ver Steeg–Galstyan) as a check; enforce block bootstrap / trajectory controls | Keep decomposition simple; emphasize uncertainty and robustness | Hypotheses become primarily about *robustness of invariants* under controls, not absolute atom values |
 
 ### 16.11.3 Minimal Sanity-Checks With Small Models (Optional)
@@ -7352,7 +7418,7 @@ These blockers could terminate the project if unmitigated. Each requires explici
 **Mitigation Options:**
 1. **Reframe as diagnostic tool:** Even if not predictive, PID may explain *why* failures occur (interpretability value)
 2. **Combine PID + baselines:** Ensemble approach where PID provides additional signal
-3. **Focus on modality attribution:** PID tells *which modality* failed even if overall prediction is similar to baselines
+3. **Focus on modality diagnostics:** PID can suggest *which modality* carries failure-related signal even if overall prediction is similar to baselines
 4. **Publish as negative result:** Valuable contribution if rigorously conducted
 
 **Go/No-Go Decision:**

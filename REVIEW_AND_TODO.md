@@ -95,10 +95,12 @@ Do not proceed to VLA claims yet. Build the early milestones before making new s
 
 - The hypothesis registry is falsifiable and baseline-aware rather than PID-triumphalist.
 - The Flow-as-Bridge idea is a promising way to avoid raw high-dimensional embedding geometry problems.
+- H9 now positions LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, saliency/SmoothGrad, occlusion, and SHAP-style probes as attribution baselines/triangulation checks rather than replacements for PID.
 
 #### Concerns
 
 - There is no implemented model integration, embedding extraction job, real-task dataset loader, or failure-label pipeline; the offline `(V,L,D,A)` harness only converts already-captured embedding JSON into canonical artifacts, though it now includes deterministic all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, held-out class-coverage and episode-disjointness reports, held-out per-sample prediction records in summaries/run logs, and held-out failure-class confusion/rate diagnostics when labels/groups/splits are present.
+- Attribution probes are documented but not implemented in the run-log schema or Rerun adapter yet; until then they should be artifact records with method/target/baseline/hash provenance.
 - `pid-rerun` synthetic demos are useful visually but are not ML evidence.
 - The project should define one first VLA baseline and one first task instead of keeping many optional model branches open.
 
@@ -157,7 +159,7 @@ The Python bindings are useful for local experiments and now have local-build/te
 
 #### Judgment
 
-The visualization direction is good, but the demo should not look like real diagnostics until it computes real PID.
+The visualization direction is good, but synthetic demos should remain clearly separated from real VLA diagnostics.
 
 ### 8. Reproducibility / MLOps Scientist
 
@@ -235,6 +237,7 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 
 4. **Define the first real VLA baseline and task.**
    - Pick one lightweight baseline, one task, one label definition, and one run-log contract.
+   - Include at least one feasible attribution probe as a non-PID baseline if the model exposes the needed layers/gradients.
    - Avoid adding more optional model branches until that path works end to end.
 
 ### P1: Needed for Publishable Engineering
@@ -255,12 +258,16 @@ The repo needs a cleanup pass that separates the canonical project from local ex
    - Keep local Maturin builds/tests passing.
    - Add versioned examples and packaging metadata before treating it as public.
 
+9. **Prototype attribution artifact logging before adding schema surface.**
+   - Start with `artifact_logged` records for attribution tensors/heatmaps plus method/target/baseline metadata.
+   - Promote a first-class `attribution_computed` event only after one real VLA/task path demonstrates which fields are stable.
+
 ### P2: Later Improvements
 
-9. Add approximate or parallel kNN only after correctness gates are stable.
-10. Add a discrete/quantized PID fallback.
-11. Split `grandplan.md` into smaller maintainable specs while preserving one canonical index.
-12. Add benchmark fixtures comparing against external reference implementations where licensing permits.
+10. Add approximate or parallel kNN only after correctness gates are stable.
+11. Add a discrete/quantized PID fallback.
+12. Split `grandplan.md` into smaller maintainable specs while preserving one canonical index.
+13. Add benchmark fixtures comparing against external reference implementations where licensing permits.
 
 ## Suggested Immediate Sequence
 

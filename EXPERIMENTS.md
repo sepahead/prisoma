@@ -3,7 +3,7 @@
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan and theoretical foundations
 > - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
-> - `ARCHITECTURE.md` — Component breakdown (Tauri, Modular Physics, 3DGS) and advantages over VLM-based robotics
+> - `ARCHITECTURE.md` — Component breakdown (Rerun-first diagnostics, deferred Tauri, modular physics, 3DGS) and advantages over VLM-based robotics
 > - `DIAGRAMS.md` — Visual architecture diagrams
 > - `README.md` — Quick start guide
 > - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
@@ -49,8 +49,8 @@
 
 ### 0.1 Hypothesis Coverage Matrix
 
-All hypotheses below inherit **two prerequisites**:
-1) the Experiment 0 estimator gate passes, and 2) geometry diagnostics do not flag a non-Euclidean regime for the chosen representation (see §4.0).
+PID/CI hypotheses below inherit **two prerequisites**:
+1) the Experiment 0 estimator gate passes, and 2) geometry diagnostics do not flag an invalid regime for the chosen representation (see §4.0). Attribution-based comparisons add their own faithfulness/stability checks; they do not make failed PID geometry gates pass.
 
 | Hypothesis | Experiments | Variables (examples) | Primary metrics | Required controls (see `grandplan.md` §14) |
 |-----------|-------------|----------------------|----------------|--------------------------------------------|
@@ -60,7 +60,9 @@ All hypotheses below inherit **two prerequisites**:
 | **H4** Memorization vs generalization | Exp1, Exp3, Exp5 + §10 | `(V,L;A)` across in-dist vs perturbed | ΔPID atoms vs Δsuccess under perturbations; OOD generalization gap | Perturbations matched for difficulty, seed controls, report distribution shift severity |
 | **H5** Temporal synergy degradation | Exp2 | windowed `(V,L;A)` over phases | Synergy trend (slope), early vs late contrast, correlation with failure time | Autocorrelation-aware sampling, block bootstrap, phase definitions pre-registered |
 | **H6** Safety constraints require V–L integration | Exp3 | safety vs baseline instructions | ΔUnq(L), ΔSyn(V,L;A); collision/near-miss rates | Matched task conditions, instruction-only changes, nuisance controls (lighting/distractors) |
-| **H7** Flow-as-bridge is embodiment-agnostic | Exp4, Exp5 | `(V,D;Flow)` and/or `(V,Flow;A)` | Cross-embodiment similarity of flow-target PID; stage attribution vs failures | Fixed flow pipeline across runs, low-d flow features, negative controls (shuffled flow / shuffled pairing) |
+| **H7** Flow-as-bridge is embodiment-agnostic | Exp4, Exp5 | `(V,D;Flow)` and/or `(V,Flow;A)` | Cross-embodiment similarity of flow-target PID; stage-level diagnostics vs failures | Fixed flow pipeline across runs, low-d flow features, negative controls (shuffled flow / shuffled pairing) |
+| **H8** Geometry gate chooses estimator regime | Exp0 | geometry diagnostics + synthetic controls | GO/PIVOT/NO-GO decision for continuous PID vs discrete PID vs MI-only screening | Noise-dimension invariance, monotonicity/CMI checks, intrinsic dimension, distance concentration |
+| **H9** Attribution probes triangulate PID claims | Exp1, Exp3, Exp4 | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style scores on the same logged samples | Agreement or principled disagreement with PID uniques/synergy under controlled interventions; incremental failure-prediction value | Model/data randomization sanity checks, baseline/background sensitivity, deletion/occlusion tests, attention-not-explanation caveat |
 
 ## Physics and Robot Backend Usage: Modular Architecture
 
@@ -189,6 +191,23 @@ Experiments must preregister which decomposition is being used and which concret
 | **2-way PID (`pid2`)** | `(V,L;A)` or `(V,D;A)` | Default for H1–H6 after gates pass | Most interpretable and most tractable; still requires geometry validation |
 | **3-way PID (`pid3`)** | `(V,L,D;A)` | Only when `D` is operationalizable and gates pass | Expensive (many atoms); use offline and report uncertainty/sensitivity |
 | **Hierarchical / screening** | pairwise PID + CI/Ω | When geometry fails or `D` is ambiguous | Prefer robust comparisons (ΔCI/ΔMI) under perturbations over atom-level claims |
+
+### 0.4 Attribution Methods as Companion Diagnostics
+
+Layer-wise Relevance Propagation (LRP) and related attribution methods answer a different question from PID. PID/CI estimates distribution-level dependence among random variables across logged samples, e.g. whether target-relevant information is redundant, unique, or synergistic across `V`, `L`, `D`, and `Flow`. Attribution methods explain a particular model call, layer, token, feature, region, or concept direction. Use them as **baselines and triangulation probes**, not as replacements for Experiment 0 or the geometry gate.
+
+| Method family | Useful for | Main caveat to log/control |
+|---|---|---|
+| LRP / Deep Taylor | Layer-wise relevance conservation over differentiable networks for a selected output | Rule choice and architecture support affect relevance flow |
+| Vanilla gradients / Input×Gradient / SmoothGrad-style ensembles | First-pass local sensitivity maps for accessible differentiable inputs or embeddings | Noisy or visually plausible maps can be model-insensitive; require randomization and deletion tests |
+| Integrated Gradients | Input or embedding attribution along a baseline-to-input path | Baseline/reference choice can dominate results |
+| DeepLIFT | Difference-from-reference contributions, often cheaper than IG | Reference choice and supported nonlinearities matter |
+| Grad-CAM / guided Grad-CAM | Coarse visual localization on convolutional/spatial layers | Usually not token-level; spatial resolution and chosen layer matter |
+| TCAV / concept activation vectors | Human-defined concept sensitivity at a layer | Concept set, random counterexamples, and statistical stability are part of the claim |
+| SHAP-style / occlusion / feature ablation | Additive or perturbation-based feature importance baselines | Background distribution and feature dependence can change scores |
+| Attention maps | Debugging signal, not a faithful explanation by default | Treat as a weak baseline unless intervention tests validate it |
+
+**H9 protocol rule:** if PID says `Unq(L)` or `Syn(V,L;A)` is the failure-critical signal, attribution should supply a compatible local story on the same sample IDs and target under matched interventions, or the disagreement must be reported. Compatible does not mean identical: gradients, relevance, occlusion, and PID measure different objects and can diverge for valid reasons such as saturation, correlated features, or deterministic decoders.
 
 ---
  
@@ -895,6 +914,20 @@ Do not hard-code “safe” dimensions or %-error cutoffs. Accept/reject based o
 - **PIVOT:** coherence gates fail on raw/high‑d representations but pass after more aggressive reduction/quantization, or after restricting targets to low‑d bridges (Flow‑as‑Bridge), or after switching to MI-only invariants with a different MI estimator. Proceed only in the validated regime and label it explicitly.
 - **NO-GO (for continuous kNN `I^sx_∩` atoms):** coherence gates fail even in low‑d reference systems / after best-feasible preprocessing, or `csxpid`/analytic MI cross-checks fail → do not interpret continuous kNN-based `I^sx_∩`/atoms for this regime (publish as a limits result; continue only with a different measurement pipeline).
 
+#### 4.2.1 Attribution Probe Sanity Checks (Separate From PID Gates)
+
+Attribution methods do not inherit the kNN geometry assumptions above, but they need their own faithfulness checks before they can support H9 or serve as a strong baseline for H1/H3:
+
+- **Model randomization:** attribution maps/scores should change when model parameters are randomized; otherwise they may be input edge detectors rather than model explanations.
+- **Data/random-label randomization:** a model trained on randomized labels should not yield the same explanatory structure as the trained task model.
+- **Reference/background sensitivity:** report IG/DeepLIFT baselines, SHAP background sets, TCAV concept/counterexample sets, and LRP rules; repeat enough variants to show conclusions are not a single-reference artifact.
+- **Smoothing/noise sensitivity:** for SmoothGrad/VarGrad-style maps, report perturbation distribution, noise scale, sample count, and whether the conclusion survives unsmoothed and smoothed variants.
+- **Deletion/occlusion or perturbation tests:** removing or corrupting top-attributed pixels/tokens/features should change the target more than removing low-attributed or random features, under a controlled replacement distribution.
+- **Jitter and seed stability:** scores should be stable enough under mild input jitter, bootstrap resampling, and attribution hyperparameter changes for the downstream comparison being claimed.
+- **Attention caveat:** attention entropy/maps are allowed as weak baselines, but should not be called explanations unless intervention tests validate that changing attended features changes the model output.
+
+These checks can pass even when PID gates fail, and vice versa. Treat that as a measurement-regime distinction, not a contradiction.
+
 ### 4.3 Running Experiment 0
 Run the implemented Rust Experiment 0 gate (this repo):
 
@@ -957,7 +990,7 @@ This harness is an artifact-to-runlog converter for embedding captures. It still
 ---
  
 ## 5. Experiment 1: Pick-and-Place (Baseline)
-Hypothesis Tested: **H1** (PID features ↔ failure labels; synergy sign is a candidate feature), **H2/H3** (redundancy/uniques under controlled perturbations)
+Hypothesis Tested: **H1** (PID features ↔ failure labels; synergy sign is a candidate feature), **H2/H3** (redundancy/uniques under controlled perturbations), and optionally **H9** (attribution/PID triangulation)
 
 ### 5.1 Task Definition
 | Property               | Value                                                        |
@@ -1079,6 +1112,8 @@ class PickPlaceEpisode:
     pid_co_information: np.ndarray        # (T/6,)
 ```
 
+Attribution artifacts for H9 should be stored as separate artifacts until the run-log schema has a first-class event for them. Minimum metadata: method name, target output, source modality/layer, baseline/background/concept set, preprocessing, score tensor URI, score tensor hash, and stability/sanity-check summary.
+
 ### 5.4 PID Computation
 ```python
 import numpy as np
@@ -1196,7 +1231,6 @@ def compute_episode_pid(episode: PickPlaceEpisode, window_size: int = 20, k: int
     }
 ```
 
-
 ### 5.5 Evaluation Metrics
 ```python
 def evaluate_exp1(episodes: List[PickPlaceEpisode]) -> dict:
@@ -1240,6 +1274,25 @@ def evaluate_exp1(episodes: List[PickPlaceEpisode]) -> dict:
         "n_failure": len(failure_eps),
     }
 ```
+
+### 5.6 Attribution Baselines and H9 Triangulation
+
+For the same episodes, run a small set of faithfulness-checked attribution probes if the model exposes the required gradients/layers:
+
+1. **Vision:** Grad-CAM or LRP/IG over visual features/patches; summarize relevance on task objects, distractors, target zones, and safety-critical regions.
+2. **Language:** Integrated Gradients, DeepLIFT, LRP, or occlusion over instruction tokens/embeddings; summarize relevance on object, relation, negation, and constraint tokens.
+3. **Concepts:** TCAV-style probes for human-defined concepts such as target color, object shape, distractor, collision-risk, or “avoid” constraints when concept examples can be defined without label leakage.
+4. **Sensitivity maps:** vanilla gradient, Input×Gradient, SmoothGrad/VarGrad-style ensembles, or embedding-gradient probes as cheap baselines when differentiable hooks exist.
+5. **Black-box/embedding baseline:** SHAP-style, permutation, or occlusion importance over reduced `V/L/D/A` features when gradients are unavailable.
+
+Compare attribution summaries against PID/CI features using preregistered tests:
+- If `Unq(L;A)` is high, language token/embedding attribution should be stronger than matched visual attribution under language-sensitive conditions, unless an intervention shows PID is tracking correlated nuisance information.
+- If `Unq(V;A)` is high, visual relevance should localize to task-relevant objects/regions more than to distractors.
+- If `Syn(V,L;A)` is high, removing either modality’s top-attributed features should produce a larger action/failure change than expected from each modality alone; test this with paired ablations rather than heatmap inspection.
+- If attribution and PID disagree, run targeted perturbations and report the disagreement as evidence about method scope, saturation, feature correlation, or estimator failure.
+
+Do not choose PID preprocessing by looking at held-out attribution/failure labels. Any learned feature selection, concept classifier, PCA, SAE, or background distribution must be fit on the training split and replayed on held-out data with logged hashes.
+
 
 ---
  
