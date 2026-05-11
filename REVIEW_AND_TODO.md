@@ -22,7 +22,7 @@ The main current risks are:
 
 ## Verification Snapshot
 
-Commands and outcomes from the current consistency pass:
+Commands and outcomes from the most recent full implementation verification pass:
 
 - `cargo fmt --all -- --check`: passed.
 - `cargo test --workspace`: passed.
@@ -33,6 +33,14 @@ Commands and outcomes from the current consistency pass:
 - `python scripts/audit_grandplan_claims.py`: passed.
 - `python scripts/audit_docset_claims.py`: passed.
 - Focused run-log sidecar smoke passed: `--write-sidecars` followed by `--verify-sidecars`, plus an exact-JSON drift failure check.
+
+Additional documentation-only consistency checks from the 2026-05-10 pass:
+
+- `python scripts/audit_grandplan.py --check-italic-titles`: passed.
+- `python scripts/audit_grandplan_claims.py`: passed.
+- `python scripts/audit_docset_claims.py`: passed.
+- `python scripts/audit_docset_claims.py --paths $(git ls-files '*.md')`: passed.
+- Local Markdown link-target check across tracked docs: passed.
 
 ## Ten-Perspective Review
 
@@ -189,7 +197,7 @@ The reproducibility plan is now backed by run logs, validation/replay, summaries
 #### Concerns
 
 - An ignored `meshmaker/api_keys.txt` exists in the workspace. It was not read during review and should live outside the repository tree.
-- `meshmaker` contains scripts that disable a safety checker for image generation.
+- `meshmaker` is still cost-bearing external-generation tooling; main generators no longer disable the image safety checker, but upstream policy behavior and generated content still need release review.
 - `meshmaker` includes military/weapon asset prompts unrelated to the core PID-VLA diagnostics.
 - `launch_swarm.sh` can spawn 10 background cloud-generation jobs with side effects and possible costs.
 

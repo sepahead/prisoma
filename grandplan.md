@@ -4664,8 +4664,8 @@ pid_vla/
 │   │   └── src/bin/
 │   └── pid-rerun/
 │       └── src/bin/
-├── assets/            # scaffolding (small sample assets; not a full pipeline yet)
-├── experiments/       # scaffolding (configs; harness is planned)
+├── assets/            # local/ignored asset drop location; no canonical tracked asset set yet
+├── experiments/       # local/ignored experiment drop location; Rust harnesses live in crates today
 ├── outputs/           # local caches/logs (e.g., arXiv ref cache)
 ├── uidesigner/        # UI spec + prompt-loop tooling
 ├── justfile
@@ -4678,7 +4678,7 @@ pid_vla/
 **Repo status (v10.1):**
 - Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner), `crates/pid-python` (PyO3 bindings), `crates/pid-runlog` (M1 run-log schema/replay/validation/summary/manifest/sidecar write-and-verify groundwork plus `Flow_gt`/`flow_pred` events), `crates/pid-bridge` (M2 event-core, dispatcher, JSON-RPC request/response groundwork, bridge/run-log contract export, and stdio/TCP/WebSocket transport coverage), and `crates/pid-sim` (M3 deterministic smoke sim, bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`/`log.start`/`log.stop`/`export.rerun`, deterministic interventions, `Flow_gt` verification, baseline `flow_pred`, action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, and failure-class confusion/rate diagnostics).
 - Prototype: `crates/pid-rerun` (minimal Rerun logging adapters, a `vla_demo` binary, and a run-log replay adapter with summary/provenance/validation diagnostics).
-- Planned: `crates/pid-tauri` (visualization app) and a Python experiment harness (location TBD: `python/` or `experiments/`), plus asset/tooling scripts to populate `assets/` and local datasets.
+- Planned: `crates/pid-tauri` (visualization app), physics-backed simulator adapters, and a Python experiment harness (location TBD: `python/` or `experiments/`), plus asset/tooling scripts to populate local/ignored assets and datasets.
 
 ## 11.3 Reproducibility
 
@@ -6738,7 +6738,7 @@ Some limitations are fundamental to kNN-based estimation on manifolds:
 
 ---
 
-# 17. Training, Compute, and Data Requirements Analysis (v5.9)
+# 17. Training, Compute, and Data Requirements Analysis
 
 This section provides a comprehensive, critical analysis of all components in the PID-VLA project that require training, with compute/data requirements and measurement-first guidance on obtaining or generating the necessary data.
 

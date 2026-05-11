@@ -66,7 +66,7 @@ PID/CI hypotheses below inherit **two prerequisites**:
 
 ## Physics and Robot Backend Usage: Modular Architecture
 
-This table clarifies the intended backend choices across experiments. Treat “recommended” as design guidance, not a claim of superiority: the right choice depends on your benchmark, hardware, and what you are trying to validate.
+This table clarifies the intended backend choices across experiments. Treat “recommended” as design guidance, not a claim of superiority or current implementation: the checked repo currently includes the deterministic object sim/logging harness, while Rapier/MuJoCo/Gazebo/Isaac-backed manipulation remains planned. The right choice depends on your benchmark, hardware, and what you are trying to validate.
 
 | Component | Engine | Purpose | Experiments |
 |-----------|--------|---------|-------------|
@@ -89,7 +89,7 @@ This table clarifies the intended backend choices across experiments. Treat “r
 
 ### Modular Physics Backend Configuration
 
-PID-Splat supports swappable physics backends. Select based on your experiment needs:
+The target PID-Splat stack supports swappable physics backends. Select based on your experiment needs once those adapters exist:
 
 ```toml
 # pid-splat.toml - Physics backend configuration
@@ -132,7 +132,7 @@ urdf_path = "assets/robots/franka_panda.urdf"
 
 **Coupling note (important):** if `robot.backend` and `physics.backend` differ and the robot is expected to make physical contact with simulated objects, you are in a **co-simulation** regime. Without an explicit coupling layer, robot–object contacts will not be physically meaningful. For most PID‑VLA claims, prefer:
 - **Single-engine contact:** robot + objects together in **MuJoCo** (benchmark-aligned), or
-- **Harness bring-up:** object-only Rapier with a kinematic end-effector proxy (then add a full robot backend later).
+- **Harness bring-up:** the in-repo deterministic object sim first, then object-only Rapier/MuJoCo with a kinematic end-effector proxy (then add a full robot backend later).
 
 **Robustness control (recommended):** replay a subset of episodes under both `rapier` and `mujoco` (same initial conditions + action log) and report divergence metrics. This helps rule out physics-backend artifacts in H1–H6 (see `grandplan.md` §E.1).
 
@@ -3183,7 +3183,7 @@ def evaluate_exp10(results: List[Exp10PIDAnalysis]) -> dict:
 
 ## Appendix A: Planned Commands (Spec Only)
 
-This repo currently ships the Rust estimator core (`pid-core`) and the `exp0` runner. The simulator stack (`pid‑splat`, UI, experiment harness scripts) is specified here but not implemented in this repository yet; treat the commands below as future targets unless/until the referenced binaries/scripts exist.
+This repo currently ships Rust estimator/Python/run-log/bridge/deterministic-sim/Rerun-adapter groundwork plus the Exp0, toy, and offline embedding harnesses described earlier in this document. The full PID-Splat manipulation environment, custom UI, and Python experiment harness scripts below are still future targets; treat the commands as planned unless/until the referenced binaries/scripts exist.
 ```bash
 # 1. Validate estimators (Experiment 0)
 # cargo run -p pid-core --bin exp0

@@ -1,6 +1,6 @@
-# Mesh Generation Report
+# Historical Mesh Generation Report
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. Mesh generation is auxiliary to the core plan; generated meshes become experiment evidence only when their hashes, prompts/configs, source service metadata, and license/provenance are recorded in the canonical run log.
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. This report is a historical snapshot of auxiliary mesh generation, not a live inventory of ignored `meshmaker/` outputs. Generated meshes become experiment evidence only when their hashes, prompts/configs, source service metadata, and license/provenance are recorded in the canonical run log.
 
 **Total Assets Tracked:** 1941
 **Fully Completed (GLB present):** 1941

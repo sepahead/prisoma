@@ -38,6 +38,7 @@
 - Split replay metric summary semantics so existing `*_metrics` fields remain unique latest-by-name metric counts while new `*_metric_events` fields report total metric event volume, including repeated held-out prediction metrics.
 - Added run-log sidecar verification so validation, summary, and manifest JSON sidecars can be checked against the current JSONL run log instead of silently going stale.
 - Integrated LRP and related attribution methods into the research docset as H9 companion diagnostics/baselines, with sanity-check requirements and explicit separation from PID/geometry gates.
+- Refreshed repo-wide documentation consistency notes: clarified planned-vs-implemented physics adapters, marked mesh generation reports as historical snapshots, added the full tracked-Markdown audit command, and removed stale v10.0/current-pass wording.
 
 ## 10.1 (2026-01-08)
 

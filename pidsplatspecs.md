@@ -18,7 +18,7 @@
 
 ### 1. Executive Summary
 
-This document specifies the engineering implementation of the **PID-Splat** environment. It bridges photorealistic 3D Gaussian Splatting (3DGS) with modular rigid-body physics (**Rapier, MuJoCo, or Isaac Gym**) and Dream2Flow-style video→flow bridges to enable reproducible PID diagnostics for VLA models.
+This document specifies the target engineering implementation of the **PID-Splat** environment. It bridges photorealistic 3D Gaussian Splatting (3DGS) with modular rigid-body physics (**Rapier, MuJoCo, or Isaac Gym**) and Dream2Flow-style video→flow bridges to enable reproducible PID diagnostics for VLA models.
 
 **Visualization Strategy (v10.1): "Rerun-First"**
 To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** (https://rerun.io/) as the primary visualization, logging, and "time machine" engine. The custom Tauri/SparkJS frontend is deferred to Phase 4 for advanced interactive needs.
@@ -29,7 +29,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 
 **Contact/collision reality check:** existing “3DGS-based” simulators still use conventional physics engines for contacts. Treat splats as the appearance layer; use explicit collision geometry (URDF/MJCF primitives/meshes) in the physics backend.
 
-**Multi-engine note (v10.0):** treat the physics backend as a **per-run** choice for contact-rich scenes. A more practical differentiator is **cross-backend replay** (re-run the same action log in Rapier vs MuJoCo and report divergence) as a robustness/confound control (see `grandplan.md` §E.1).
+**Multi-engine note (v10.1):** treat the physics backend as a **per-run** choice for contact-rich scenes. A more practical differentiator is **cross-backend replay** (re-run the same action log in Rapier vs MuJoCo and report divergence) as a robustness/confound control (see `grandplan.md` §E.1).
 
 ---
 
@@ -44,7 +44,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 | **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | Rerun SDK 0.28.x in Cargo; run-log conversion includes summary/provenance/validation diagnostic tracks; Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |
 | **Renderer** | Rerun native/WebViewer / SparkJS (Phase 4) | Pin exact package versions / git SHAs at implementation time | Rerun WebViewer: MIT; SparkJS package metadata: MIT; Three.js: MIT |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
-| **Physics Engine** | Rapier3d / MuJoCo | Rapier v0.18+ / MuJoCo v3.0+ | Apache 2.0 |
+| **Physics Engine** | Rapier3d / MuJoCo | Planned backend adapters; pin exact versions when added | Apache 2.0 |
 | **Middleware** | Zenoh | Pub/sub transport; shared memory/zero-copy is config-dependent | Apache 2.0 |
 | **Sensor Sim** | Gazebo | Harmonic (gz-sim 8.x) | Apache 2.0 |
 | **Video predictor** | Video model (external service) | Model-dependent (pin revision) | verify |
@@ -76,9 +76,9 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 
 ### 4. Dream2Flow Integration (Flow-as-Bridge)
 
-This section implements the "Unified Architecture" from `grandplan.md` §10.10.
+This section specifies the target "Unified Architecture" from `grandplan.md` §10.10.
 
-**v10.0 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor.
+**v10.1 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor.
 
 #### 4.1 3D Flow Data Structure
 We represent the "Dream" not just as a hidden state, but as explicit 3D trajectories extracted from predicted videos (Dream2Flow-style bridge).
@@ -119,7 +119,7 @@ In Rerun (Phases 1-3), we avoid complex custom shaders. Instead, we log **two di
 
 ### 5. Zenoh Middleware Protocol
 
-**Note (v10.0 execution plan):** Zenoh is an optional live/distributed transport (M6). Early milestones should be able to run entirely offline by writing the same events to the run log (M1) and replaying them (M1/M4).
+**Note (v10.1 execution plan):** Zenoh is an optional live/distributed transport (M6). Early milestones should be able to run entirely offline by writing the same events to the run log (M1) and replaying them (M1/M4).
 
 #### 5.1 Key Expressions
 
@@ -161,7 +161,7 @@ The in-repo deterministic bridge currently exposes status/reset/step, scene edit
 ### 6. Modular Physics Binding (PEGS)
 
 #### 6.1 Splat-to-Physics Mapping
-The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym**) via a unified trait interface.
+The target environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym**) via a unified trait interface. The checked repo currently has the deterministic object-sim smoke; physics backend adapters remain planned.
 *   **Manual Proxy:** User defines primitive colliders (Box, Sphere) in code/config (visualized in Rerun) or uses the Tauri editor (Phase 4) to match visual boundaries.
 *   **Visual Forces:** If `Syn(V, Flow; A)` drops, we can optionally apply "correction forces" to nudge the physics simulation toward the Dream (counterfactual analysis).
 
@@ -192,22 +192,18 @@ The environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym*
 
 ---
 
-### 10. Implementation Plan
+### 10. Implementation Plan / Current Status
 
-1.  **Infrastructure (Week 1-2):**
-    *   Set up **Rerun** + Rust workspace.
-    *   Integrate a 3DGS loader (for Rerun) and pin its version.
+1.  **Implemented groundwork:**
+    *   Rust workspace with `pid-core`, `pid-runlog`, `pid-bridge`, `pid-sim`, `pid-rerun`, and `pid-python`.
+    *   Canonical run-log schema, replay validation, summaries/manifests, sidecar write-and-verify, and a run-log-to-Rerun adapter.
+    *   Deterministic object-sim smoke with simulator-derived `Flow_gt`, constant-velocity `flow_pred`, Agent Bridge stdio/TCP/WebSocket smokes, toy labeled harness, and offline `(V,L,D,A)` artifact harness.
 
-2.  **Physics (Week 3-4):**
-    *   Implement Physics loop (Rapier by default, MuJoCo optional).
-    *   Implement **Rerun Logging Adapter** (SimState -> Rerun SDK).
-
-3.  **Dream2Flow (Week 5-6):**
-    *   Implement `DreamFlowTrajectory` struct.
-    *   Connect external video predictor output stream.
-
-4.  **Integration (Week 7-8):**
-    *   Visualize PID heatmaps on **Ghost Splats** (logged as secondary point clouds in Rerun).
+2.  **Planned next environment work:**
+    *   Integrate a 3DGS loader/asset pipeline and pin all external asset/model versions.
+    *   Add a real physics backend loop (Rapier or MuJoCo first) behind the same run-log and Agent Bridge contract.
+    *   Connect external video/flow predictors only after simulator-derived `Flow_gt` is reliable.
+    *   Visualize PID and attribution artifacts on Rerun entities first; defer custom SparkJS shaders to Phase 4.
 
 ### 11. Error Handling
 

@@ -75,6 +75,8 @@ This creates an **adversarial setting** for kNN estimation:
 
 ## Three Hypotheses
 
+Terminology note: the hypotheses in this section are local Experiment 0 diagnostic hypotheses about estimator behavior. They are not the canonical project hypothesis registry (H1–H9), which lives in `grandplan.md` §14.1 and is summarized in `README.md`.
+
 ### Hypothesis 1: Estimators Working Correctly
 > The near-zero values reflect true signal loss due to noise dimensions swamping kNN distances.
 
@@ -319,5 +321,5 @@ This destroys the discriminative power of nearest-neighbor methods.
 
 ---
 
-*Last updated: 2026-01-18*
+*Last updated: 2026-05-10*
 *Based on analysis of exp0.rs and experimental output*

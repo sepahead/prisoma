@@ -1,6 +1,6 @@
-# Final Asset Integrity Report
+# Historical Asset Integrity Report
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. This report is auxiliary asset provenance, not the scientific source of truth; any asset used in PID-VLA experiments must be referenced from the canonical run log with hashes, generation metadata, and license/provenance records.
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. This report is a historical auxiliary asset snapshot, not the scientific source of truth and not a live inventory of ignored `meshmaker/` outputs. Any asset used in PID-VLA experiments must be referenced from the canonical run log with hashes, generation metadata, and license/provenance records.
 
 ## Summary
 - **Unique IDs in Manifests:** 2231

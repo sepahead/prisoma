@@ -84,7 +84,7 @@ graph TD
 
 ## 2. PID-Splat Simulation Loop
 
-This diagram details the "Splat-First" update loop, showing how physics (Rapier), canonical run-log events, and rendering are synchronized: Rerun consumes the replay stream in Phases 1–3, while SparkJS can consume the same events in Phase 4.
+This diagram details the target "Splat-First" update loop, showing how a physics backend (Rapier shown as an example), canonical run-log events, and rendering are synchronized: Rerun consumes the replay stream in Phases 1–3, while SparkJS can consume the same events in Phase 4.
 
 ```mermaid
 sequenceDiagram
@@ -470,7 +470,7 @@ graph TB
 
 ## 11. Cross-Backend Replay (Optional Robustness Control)
 
-This diagram captures the v10.0 “differential physics” idea (`grandplan.md` §E.1): replay the same run log under different physics backends (e.g., Rapier vs MuJoCo) and quantify divergence. This is a practical way to test whether PID findings (H1–H6) are sensitive to contact-model idiosyncrasies.
+This diagram captures the v10.1 cross-backend replay idea (`grandplan.md` §E.1): replay the same run log under different physics backends (e.g., Rapier vs MuJoCo) and quantify divergence. This is a practical way to test whether PID findings (H1–H6) are sensitive to contact-model idiosyncrasies.
 
 ```mermaid
 graph LR

@@ -49,6 +49,7 @@ Attribution methods are comparison evidence, not a shortcut around PID validity:
 - `python scripts/audit_grandplan.py --check-italic-titles` (arXiv coverage + title drift; uses `outputs/arxiv_ref_cache.json`)
 - `python scripts/audit_grandplan_claims.py` (heuristic scan for unqualified venue/perf claims)
 - `python scripts/audit_docset_claims.py` (same heuristic scan across the canonical docset + `findings.md`)
+- Full tracked-Markdown sweep: `python scripts/audit_docset_claims.py --paths $(git ls-files '*.md')`
 - If you have `just`: `just docs-audit`
 
 ## Repo Status (What Actually Exists)

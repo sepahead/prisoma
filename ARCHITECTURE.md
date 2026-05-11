@@ -61,13 +61,13 @@ SparkJS (Phase 4) allows custom shaders for "Ghost Splats" (predictive flow over
 
 ### 1.3 Modular Physics Engine (Rapier, MuJoCo, Isaac Gym)
 
-**What it does:**
-- Provides rigid body physics simulation via a pluggable backend system
-- Supports **Rapier3D** (Rust-native, default), **MuJoCo** (industry standard), and **Isaac Gym** (GPU-parallel)
-- Handles collision detection, joint constraints, friction, restitution
+**Target role (planned physics adapters):**
+- Provide rigid body physics simulation via a pluggable backend system
+- Support **Rapier3D** (Rust-native default target), **MuJoCo** (industry standard), and **Isaac Gym** (GPU-parallel)
+- Handle collision detection, joint constraints, friction, restitution
 - Rapier can run at low step times for small scenes; achievable control/step rates are hardware- and scene-dependent.
 
-**Key capabilities (Rapier implementation):**
+**Target backend sketch (Rapier integration planned, not present in `crates/pid-sim` yet):**
 ```rust
 // Table collider with realistic friction
 let table_collider = ColliderBuilder::cuboid(0.60, 0.40, 0.375)
@@ -86,11 +86,11 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 - **Determinism:** Rapier aims for deterministic replay under fixed dt/ordering, but bitwise determinism can break across platforms/CPUs; verify and log settings/seeds.
 - **Modularity:** Select an engine appropriate to your trade-offs (Rapier for speed, MuJoCo for contact fidelity)
 - **Integration:** Native Rust (Rapier) = zero-copy data flow to PID-core; FFI for MuJoCo/Isaac
-- **Multi-engine reality**: per-object “Rapier walls + MuJoCo cups” is a co-simulation problem for contact-rich scenes. v10.0 recommends **one physics backend per run**, plus optional **cross-backend replay** (Rapier ↔ MuJoCo) as a robustness/confound check (see `grandplan.md` §E.1).
+- **Multi-engine reality**: per-object “Rapier walls + MuJoCo cups” is a co-simulation problem for contact-rich scenes. v10.1 carries forward the recommendation to use **one physics backend per run**, plus optional **cross-backend replay** (Rapier ↔ MuJoCo) as a robustness/confound check (see `grandplan.md` §E.1).
 
 ### 1.4 Gazebo Harmonic (Robot Simulation)
 
-**What it does:**
+**Target role (planned robot/sensor adapter):**
 - Industry-standard robot simulation (URDF/SDF support)
 - Sensor simulation (RGB-D cameras, joint encoders, force/torque)
 - Headless mode for batch experiments
@@ -119,7 +119,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 
 **Important coupling rule:** if the robot and manipulated objects are simulated in different engines, robot–object contacts are **not physically meaningful** unless you implement an explicit coupling layer (co-simulation). For most PID‑VLA experiments, prefer one of:
 - **Single-engine contact (recommended for manipulation):** simulate robot + objects together in **MuJoCo** (benchmark-aligned) or another single backend, and use PID‑Splat only for logging/overlays.
-- **Harness bring-up (recommended for early engineering):** run **object-only** physics in Rapier and drive a kinematic “end-effector proxy” for interventions/perturbations; add full robot dynamics later (see `grandplan.md` §A.7).
+- **Harness bring-up (recommended for early engineering):** use the in-repo deterministic object sim for run-log/Agent Bridge/Rerun plumbing first, then add object-only Rapier or MuJoCo physics and a kinematic “end-effector proxy” for interventions/perturbations; add full robot dynamics later (see `grandplan.md` §A.7).
 - **Advanced (optional):** multi-engine “physics islands” with restricted coupling; static colliders can be duplicated, but cross-island contacts require one solver (see `grandplan.md` §E.1).
 
 **Per-Hypothesis Engine Usage** (see `EXPERIMENTS.md` for full details):
