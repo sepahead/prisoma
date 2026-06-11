@@ -24,7 +24,9 @@
 //!   values are possible and must be representable.
 #![forbid(unsafe_code)]
 
+mod bootstrap;
 mod ci;
+mod discrete_pid;
 mod distance_matrix;
 mod error;
 mod geometry;
@@ -38,10 +40,13 @@ mod metric;
 mod nn;
 mod pid2;
 mod pid3;
+mod pls;
 mod preprocess;
 mod stats;
 
+pub use bootstrap::{block_bootstrap, block_bootstrap_paired, BootstrapConfig, BootstrapResult};
 pub use ci::{co_information_pairwise, co_information_triplet};
+pub use discrete_pid::{discrete_pid2, quantize_equal_width, DiscretePid2Result};
 pub use distance_matrix::{symmetric_distances, SymmetricDistanceMatrix};
 pub use error::{PidError, PidResult};
 pub use geometry::{
@@ -65,4 +70,5 @@ pub use matrix::{concat_horiz, MatOwned, MatRef};
 pub use metric::Metric;
 pub use pid2::{pid2_isx, pid2_isx_estimate, Pid2Config, Pid2Estimate, Pid2Result};
 pub use pid3::{pid3_isx, Antichain3, Pid3Atom, Pid3Config, Pid3Redundancy, Pid3Result};
+pub use pls::PlsProjector;
 pub use preprocess::{HashProjector, Jitter, PcaProjector, Standardizer};

@@ -83,6 +83,8 @@ result-*
 report_gen.py
 
 # Meshmaker: Ignore everything except python and bash scripts
+# Quarantined: large mesh-generation output dirs (output_batch/, output_parallel/, etc.)
 meshmaker/*
 !meshmaker/*.py
 !meshmaker/*.sh
+meshmaker/api_keys.txt

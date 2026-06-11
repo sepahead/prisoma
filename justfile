@@ -72,6 +72,10 @@ offline-harness-strict input="crates/pid-sim/fixtures/offline_vlda_fixture.json"
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'errors=1'
 
+offline-harness-highdim input="crates/pid-sim/fixtures/offline_vlda_highdim_fixture.json" runlog="outputs/offline_vlda_highdim_runlog.jsonl" summary="outputs/offline_vlda_highdim_summary.json":
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+
 # M1 run-log smoke path.
 runlog-demo:
     cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl

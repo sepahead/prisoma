@@ -41,6 +41,9 @@ path = "src/bin/toy_harness.rs"
 name = "pid-offline-harness"
 path = "src/bin/offline_harness.rs"
 
+[features]
+rapier = []
+
 [dependencies]
 anyhow = "1.0"
 base64 = "0.22"

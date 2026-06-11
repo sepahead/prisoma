@@ -373,16 +373,16 @@ impl Jitter {
 }
 
 #[derive(Clone)]
-struct SplitMix64 {
+pub(crate) struct SplitMix64 {
     state: u64,
 }
 
 impl SplitMix64 {
-    fn new(seed: u64) -> Self {
+    pub(crate) fn new(seed: u64) -> Self {
         Self { state: seed }
     }
 
-    fn next_u64(&mut self) -> u64 {
+    pub(crate) fn next_u64(&mut self) -> u64 {
         self.state = self.state.wrapping_add(0x9E37_79B9_7F4A_7C15);
         splitmix64_mix(self.state)
     }
@@ -393,7 +393,7 @@ impl SplitMix64 {
         (u as f64) * (1.0 / ((1u64 << 53) as f64))
     }
 
-    fn normal(&mut self) -> f64 {
+    pub(crate) fn normal(&mut self) -> f64 {
         // Box–Muller.
         let u1 = self.next_f64().max(1e-12);
         let u2 = self.next_f64();

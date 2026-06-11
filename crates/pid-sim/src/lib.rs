@@ -13,6 +13,7 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 pub mod offline_harness;
+pub mod physics;
 pub mod toy_harness;
 
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";

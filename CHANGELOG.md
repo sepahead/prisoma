@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added PLS supervised dimensionality reduction (NIPALS-PLS2) to `pid-core` (`pls.rs`) addressing the key finding that unsupervised projections fail when signal variance ≈ noise variance; added discrete PID via quantization (`discrete_pid.rs`) as a kNN-geometry escape hatch; added block bootstrap uncertainty quantification (`bootstrap.rs`); expanded Python bindings from 8 to 14 functions (pid3, discrete_pid2, pls_transform, standardize, pca_transform, hash_project); added `attribution_logged` event to the run-log schema (H9 attribution probe provenance); added `PhysicsBackend` trait with null adapter and Rapier3D skeleton (behind `rapier` feature) in `pid-sim`; added `--strict-gate` flag to Exp0 binary (exit code 3 on non-GO); added high-dimensional synthetic VLDA fixture (v=128, l=64, d=32, a=7, 48 samples); strengthened meshmaker quarantine in `.gitignore`; added `just offline-harness-highdim` recipe.
+
 - Added the ten-scientist consensus decision record in `grandplan.md` §A.8: canonical run log as source of truth, Rerun as Phases 1–3 diagnostic/time-machine viewer, Agent Bridge as the only control plane, and Tauri/SparkJS as the deferred Phase 4 control/editor/custom-rendering shell.
 - Aligned first-party Markdown docs to the same Rerun/Tauri/SparkJS/licensing decision and clarified that optional live transport, external world models, GauSS-MI, and generated assets must emit canonical run-log artifacts.
 - Updated the simulation spec license table for the checked Rerun/Tauri/SparkJS/Rerun WebViewer/Three.js package metadata and added release-governance reminders for local crate licenses, third-party notices, and model/data/asset audits.

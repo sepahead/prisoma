@@ -28,6 +28,7 @@ pub const RUN_LOG_EVENT_TYPES: &[&str] = &[
     "label_observed",
     "intervention_applied",
     "artifact_logged",
+    "attribution_logged",
     "error_logged",
 ];
 
@@ -237,6 +238,18 @@ pub enum RunLogEvent {
         sha256: Option<String>,
         metadata: BTreeMap<String, String>,
     },
+    AttributionLogged {
+        timestamp_ns: u64,
+        method: String,
+        target_output: String,
+        layer: Option<String>,
+        modality: Option<String>,
+        baseline: Option<String>,
+        score_hash: Option<String>,
+        faithfulness_check: Option<bool>,
+        artifact_uri: Option<String>,
+        metadata: BTreeMap<String, String>,
+    },
     ErrorLogged {
         step: Option<u64>,
         timestamp_ns: u64,
@@ -331,6 +344,19 @@ pub struct ArtifactRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AttributionRecord {
+    pub timestamp_ns: u64,
+    pub method: String,
+    pub target_output: String,
+    pub layer: Option<String>,
+    pub modality: Option<String>,
+    pub baseline: Option<String>,
+    pub score_hash: Option<String>,
+    pub faithfulness_check: Option<bool>,
+    pub artifact_uri: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LabelRecord {
     pub step: u64,
     pub timestamp_ns: u64,
@@ -361,6 +387,7 @@ pub struct ReplayState {
     pub actions: Vec<ActionRecord>,
     pub interventions: Vec<InterventionRecord>,
     pub artifacts: Vec<ArtifactRecord>,
+    pub attributions: Vec<AttributionRecord>,
     pub embeddings: Vec<EmbeddingRecord>,
     pub embedding_contracts: Vec<EmbeddingContractRecord>,
     pub bridge_records: Vec<BridgeRecord>,
@@ -580,6 +607,28 @@ impl ReplayState {
                 uri: uri.clone(),
                 sha256: sha256.clone(),
             }),
+            RunLogEvent::AttributionLogged {
+                timestamp_ns,
+                method,
+                target_output,
+                layer,
+                modality,
+                baseline,
+                score_hash,
+                faithfulness_check,
+                artifact_uri,
+                ..
+            } => self.attributions.push(AttributionRecord {
+                timestamp_ns: *timestamp_ns,
+                method: method.clone(),
+                target_output: target_output.clone(),
+                layer: layer.clone(),
+                modality: modality.clone(),
+                baseline: baseline.clone(),
+                score_hash: score_hash.clone(),
+                faithfulness_check: *faithfulness_check,
+                artifact_uri: artifact_uri.clone(),
+            }),
             RunLogEvent::ErrorLogged { message, .. } => self.errors.push(message.clone()),
         }
     }
@@ -607,6 +656,7 @@ impl RunLogEvent {
             | RunLogEvent::LabelObserved { timestamp_ns, .. }
             | RunLogEvent::InterventionApplied { timestamp_ns, .. }
             | RunLogEvent::ArtifactLogged { timestamp_ns, .. }
+            | RunLogEvent::AttributionLogged { timestamp_ns, .. }
             | RunLogEvent::ErrorLogged { timestamp_ns, .. } => *timestamp_ns,
         }
     }
@@ -632,7 +682,8 @@ impl RunLogEvent {
             | RunLogEvent::RunEnded { .. }
             | RunLogEvent::ConfigLogged { .. }
             | RunLogEvent::EmbeddingContract { .. }
-            | RunLogEvent::ArtifactLogged { .. } => None,
+            | RunLogEvent::ArtifactLogged { .. }
+            | RunLogEvent::AttributionLogged { .. } => None,
         }
     }
 }
@@ -767,6 +818,7 @@ pub struct RunLogSummary {
     pub bridge_records: usize,
     pub sim_snapshots: usize,
     pub artifacts: usize,
+    pub attributions: usize,
     pub errors: usize,
     pub flow_gt_records: usize,
     pub flow_pred_records: usize,
@@ -1046,6 +1098,18 @@ pub fn validate_events(events: &[RunLogEvent]) -> ValidationReport {
                     report.error(Some(idx), "artifact uri must not be empty");
                 }
             }
+            RunLogEvent::AttributionLogged {
+                method,
+                target_output,
+                ..
+            } => {
+                if method.is_empty() {
+                    report.error(Some(idx), "attribution method must not be empty");
+                }
+                if target_output.is_empty() {
+                    report.error(Some(idx), "attribution target_output must not be empty");
+                }
+            }
             RunLogEvent::ConfigLogged {
                 config_hash,
                 config,
@@ -1134,6 +1198,7 @@ pub fn summarize_events(events: &[RunLogEvent]) -> Result<RunLogSummary> {
         bridge_records: state.bridge_records.len(),
         sim_snapshots: state.sim_snapshots,
         artifacts: state.artifacts.len(),
+        attributions: state.attributions.len(),
         errors: state.errors.len(),
         flow_gt_records: state.flow_gt_records,
         flow_pred_records: state.flow_pred_records,

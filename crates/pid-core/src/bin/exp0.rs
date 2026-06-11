@@ -13,6 +13,7 @@ use std::io::{self, Write};
 struct Args {
     csv: bool,
     seeds: usize,
+    strict_gate: bool,
     summary_json: Option<String>,
     runlog: Option<String>,
 }
@@ -46,6 +47,7 @@ enum Exp0Error {
     Pid(pid_core::PidError),
     Io(io::Error),
     RunLog(anyhow::Error),
+    StrictGate(String),
 }
 
 impl From<pid_core::PidError> for Exp0Error {
@@ -105,6 +107,10 @@ fn main() {
                 eprintln!("exp0: run-log error: {e}");
                 std::process::exit(1);
             }
+            Exp0Error::StrictGate(status) => {
+                eprintln!("exp0: --strict-gate: gate status is {status}, expected GO");
+                std::process::exit(3);
+            }
         }
     }
 }
@@ -112,12 +118,14 @@ fn main() {
 fn parse_args() -> Result<Option<Args>, String> {
     let mut csv = false;
     let mut seeds = 3usize;
+    let mut strict_gate = false;
     let mut summary_json = None;
     let mut runlog = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--csv" => csv = true,
+            "--strict-gate" => strict_gate = true,
             "--seeds" => {
                 let raw = args
                     .next()
@@ -148,6 +156,7 @@ fn parse_args() -> Result<Option<Args>, String> {
     Ok(Some(Args {
         csv,
         seeds,
+        strict_gate,
         summary_json,
         runlog,
     }))
@@ -171,6 +180,10 @@ fn print_usage(out: &mut dyn Write) -> io::Result<()> {
     writeln!(
         out,
         "  --runlog PATH   Write canonical run-log events for the Exp0 summary."
+    )?;
+    writeln!(
+        out,
+        "  --strict-gate   Exit with code 3 if gate status is not GO."
     )?;
     writeln!(out, "  -h, --help   Show this help.")?;
     Ok(())
@@ -459,6 +472,10 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
                 hash_project_to,
             },
         )?;
+    }
+
+    if args.strict_gate && gates.status() != "GO" {
+        return Err(Exp0Error::StrictGate(gates.status().to_string()));
     }
 
     Ok(())

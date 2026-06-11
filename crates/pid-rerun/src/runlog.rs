@@ -166,6 +166,15 @@ impl<'a> RunLogRerunLogger<'a> {
                 self.log_text("run/config", "INFO", config_hash)
             }
             RunLogEvent::FrameObserved { .. } => Ok(()),
+            RunLogEvent::AttributionLogged {
+                method,
+                target_output,
+                ..
+            } => self.log_text(
+                "attributions",
+                "INFO",
+                &format!("{method} → {target_output}"),
+            ),
             RunLogEvent::ErrorLogged { message, .. } => self.log_text("errors", "ERROR", message),
         }
     }

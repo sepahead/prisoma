@@ -1,10 +1,11 @@
 use numpy::PyReadonlyArray2;
 use pid_core::{
     average_degree_of_redundancy, average_degree_of_vulnerability, co_information_pairwise,
-    distance_concentration_stats, gromov_hyperbolicity, intrinsic_dimension_levina_bickel,
-    isx_redundancy, ksg_mi, ksg_mi_concat_xy, pid2_isx, DistanceConcentrationConfig,
+    discrete_pid2, distance_concentration_stats, gromov_hyperbolicity, hierarchical_pairwise,
+    hierarchical_triplet, intrinsic_dimension_levina_bickel, isx_redundancy, ksg_mi,
+    ksg_mi_concat_xy, pid2_isx, pid3_isx, DistanceConcentrationConfig, HashProjector,
     HyperbolicityConfig, IntrinsicDimConfig, IsxConfig, IsxMethod, KsgConfig, MatRef, Metric,
-    NegativeHandling, Pid2Config,
+    NegativeHandling, PcaProjector, Pid2Config, Pid3Config, PlsProjector, Standardizer,
 };
 use pyo3::prelude::*;
 use std::collections::HashMap;
@@ -281,15 +282,226 @@ fn distance_stats(x: PyReadonlyArray2<f64>, metric: &str) -> PyResult<HashMap<St
     Ok(map)
 }
 
+/// Compute 3-source SxPID (18 atoms via Möbius inversion on the redundancy lattice).
+#[pyfunction]
+#[pyo3(signature = (s1, s2, s3, target, k=3, metric="chebyshev", tie_epsilon=0.0))]
+#[allow(clippy::too_many_arguments)]
+fn compute_pid3(
+    s1: PyReadonlyArray2<f64>,
+    s2: PyReadonlyArray2<f64>,
+    s3: PyReadonlyArray2<f64>,
+    target: PyReadonlyArray2<f64>,
+    k: usize,
+    metric: &str,
+    tie_epsilon: f64,
+) -> PyResult<HashMap<String, f64>> {
+    let s1_mat = array_to_matref(&s1)?;
+    let s2_mat = array_to_matref(&s2)?;
+    let s3_mat = array_to_matref(&s3)?;
+    let t_mat = array_to_matref(&target)?;
+    let cfg = Pid3Config {
+        k,
+        metric: parse_metric(metric)?,
+        tie_epsilon,
+    };
+    let out = pid3_isx(s1_mat, s2_mat, s3_mat, t_mat, &cfg).map_err(pid_err)?;
+
+    let mut map = HashMap::new();
+    for atom in &out.atoms {
+        map.insert(format!("{:?}", atom.antichain), atom.value);
+    }
+    Ok(map)
+}
+
+/// Compute discrete 2-source PID via quantization.
+///
+/// Useful as a fallback when continuous kNN-based estimation fails due to
+/// distance concentration (high intrinsic dimension).
+#[pyfunction]
+#[pyo3(signature = (s1, s2, target, num_bins=10))]
+fn compute_discrete_pid2(
+    s1: PyReadonlyArray2<f64>,
+    s2: PyReadonlyArray2<f64>,
+    target: PyReadonlyArray2<f64>,
+    num_bins: usize,
+) -> PyResult<HashMap<String, f64>> {
+    let s1_mat = array_to_matref(&s1)?;
+    let s2_mat = array_to_matref(&s2)?;
+    let t_mat = array_to_matref(&target)?;
+    let out = discrete_pid2(s1_mat, s2_mat, t_mat, num_bins).map_err(pid_err)?;
+
+    let mut map = HashMap::new();
+    map.insert("redundancy".to_string(), out.redundancy);
+    map.insert("unique_s1".to_string(), out.unique_s1);
+    map.insert("unique_s2".to_string(), out.unique_s2);
+    map.insert("synergy".to_string(), out.synergy);
+    map.insert("mi_s1_t".to_string(), out.mi_s1_t);
+    map.insert("mi_s2_t".to_string(), out.mi_s2_t);
+    map.insert("mi_s1s2_t".to_string(), out.mi_s1s2_t);
+    Ok(map)
+}
+
+/// Fit PLS (Partial Least Squares) supervised dimensionality reduction and project X.
+///
+/// Projects high-dimensional X onto directions maximally correlated with target Y.
+/// Unlike PCA, PLS uses label information to find the task-relevant subspace.
+/// Returns the projected data as a 2D numpy-compatible flat list + (nrows, ncols).
+#[pyfunction]
+#[pyo3(signature = (x, y, out_dim))]
+fn pls_transform(
+    x: PyReadonlyArray2<f64>,
+    y: PyReadonlyArray2<f64>,
+    out_dim: usize,
+) -> PyResult<HashMap<String, PyObject>> {
+    let x_mat = array_to_matref(&x)?;
+    let y_mat = array_to_matref(&y)?;
+    let (projected, _pls) = PlsProjector::fit_transform(x_mat, y_mat, out_dim).map_err(pid_err)?;
+
+    let ref_view = projected.as_ref();
+    let n = ref_view.nrows();
+    let d = ref_view.ncols();
+    let mut flat = Vec::with_capacity(n * d);
+    for i in 0..n {
+        flat.extend_from_slice(ref_view.row(i));
+    }
+
+    Python::with_gil(|py| {
+        let mut map = HashMap::new();
+        map.insert(
+            "data".to_string(),
+            flat.into_pyobject(py)?.into_any().unbind(),
+        );
+        map.insert(
+            "nrows".to_string(),
+            n.into_pyobject(py)?.into_any().unbind(),
+        );
+        map.insert(
+            "ncols".to_string(),
+            d.into_pyobject(py)?.into_any().unbind(),
+        );
+        Ok(map)
+    })
+}
+
+/// Standardize a matrix (zero mean, unit variance per column).
+#[pyfunction]
+#[pyo3(signature = (x))]
+fn standardize(x: PyReadonlyArray2<f64>) -> PyResult<HashMap<String, PyObject>> {
+    let x_mat = array_to_matref(&x)?;
+    let (projected, _std) = Standardizer::fit_transform(x_mat).map_err(pid_err)?;
+
+    let ref_view = projected.as_ref();
+    let n = ref_view.nrows();
+    let d = ref_view.ncols();
+    let mut flat = Vec::with_capacity(n * d);
+    for i in 0..n {
+        flat.extend_from_slice(ref_view.row(i));
+    }
+
+    Python::with_gil(|py| {
+        let mut map = HashMap::new();
+        map.insert(
+            "data".to_string(),
+            flat.into_pyobject(py)?.into_any().unbind(),
+        );
+        map.insert(
+            "nrows".to_string(),
+            n.into_pyobject(py)?.into_any().unbind(),
+        );
+        map.insert(
+            "ncols".to_string(),
+            d.into_pyobject(py)?.into_any().unbind(),
+        );
+        Ok(map)
+    })
+}
+
+/// PCA dimensionality reduction.
+#[pyfunction]
+#[pyo3(signature = (x, out_dim))]
+fn pca_transform(x: PyReadonlyArray2<f64>, out_dim: usize) -> PyResult<HashMap<String, PyObject>> {
+    let x_mat = array_to_matref(&x)?;
+    let (projected, _pca) = PcaProjector::fit_transform(x_mat, out_dim).map_err(pid_err)?;
+
+    let ref_view = projected.as_ref();
+    let n = ref_view.nrows();
+    let d = ref_view.ncols();
+    let mut flat = Vec::with_capacity(n * d);
+    for i in 0..n {
+        flat.extend_from_slice(ref_view.row(i));
+    }
+
+    Python::with_gil(|py| {
+        let mut map = HashMap::new();
+        map.insert(
+            "data".to_string(),
+            flat.into_pyobject(py)?.into_any().unbind(),
+        );
+        map.insert(
+            "nrows".to_string(),
+            n.into_pyobject(py)?.into_any().unbind(),
+        );
+        map.insert(
+            "ncols".to_string(),
+            d.into_pyobject(py)?.into_any().unbind(),
+        );
+        Ok(map)
+    })
+}
+
+/// Hash-based (CountSketch) dimensionality reduction.
+#[pyfunction]
+#[pyo3(signature = (x, out_dim, seed=42))]
+fn hash_project(
+    x: PyReadonlyArray2<f64>,
+    out_dim: usize,
+    seed: u64,
+) -> PyResult<HashMap<String, PyObject>> {
+    let x_mat = array_to_matref(&x)?;
+    let proj = HashProjector::new(x_mat.ncols(), out_dim, seed).map_err(pid_err)?;
+    let projected = proj.transform(x_mat).map_err(pid_err)?;
+
+    let ref_view = projected.as_ref();
+    let n = ref_view.nrows();
+    let d = ref_view.ncols();
+    let mut flat = Vec::with_capacity(n * d);
+    for i in 0..n {
+        flat.extend_from_slice(ref_view.row(i));
+    }
+
+    Python::with_gil(|py| {
+        let mut map = HashMap::new();
+        map.insert(
+            "data".to_string(),
+            flat.into_pyobject(py)?.into_any().unbind(),
+        );
+        map.insert(
+            "nrows".to_string(),
+            n.into_pyobject(py)?.into_any().unbind(),
+        );
+        map.insert(
+            "ncols".to_string(),
+            d.into_pyobject(py)?.into_any().unbind(),
+        );
+        Ok(map)
+    })
+}
+
 #[pymodule]
 fn pid_core_rs(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compute_mi, m)?)?;
     m.add_function(wrap_pyfunction!(compute_redundancy, m)?)?;
     m.add_function(wrap_pyfunction!(compute_co_information, m)?)?;
     m.add_function(wrap_pyfunction!(compute_pid2, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_pid3, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_discrete_pid2, m)?)?;
     m.add_function(wrap_pyfunction!(compute_invariants, m)?)?;
     m.add_function(wrap_pyfunction!(estimate_intrinsic_dimension, m)?)?;
     m.add_function(wrap_pyfunction!(estimate_gromov_delta, m)?)?;
     m.add_function(wrap_pyfunction!(distance_stats, m)?)?;
+    m.add_function(wrap_pyfunction!(pls_transform, m)?)?;
+    m.add_function(wrap_pyfunction!(standardize, m)?)?;
+    m.add_function(wrap_pyfunction!(pca_transform, m)?)?;
+    m.add_function(wrap_pyfunction!(hash_project, m)?)?;
     Ok(())
 }
