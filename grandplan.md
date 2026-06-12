@@ -30,6 +30,7 @@
 - **Supervised-projection guidance (§8.2, §17.5.3):** unsupervised projections (PCA/hash) provably fail when per-dimension signal variance ≈ noise variance (the central Exp0 lesson in `findings.md`); PLS is the implemented supervised alternative, with explicit leakage rules (fit on train only) and "new measurement regime" re-validation requirements.
 - **Reference/status refresh (hedged; verify at time of use):** OpenVLA-OFT placeholder resolved to a concrete citation (arXiv:2502.19645); DreamVLA listed as a NeurIPS 2025 paper with a public code repo (weights/license still to verify); added MI-estimator benchmark and high-dimensional MI references (arXiv:2410.10924, arXiv:2506.00330), mixed discrete–continuous PID (arXiv:2409.13506), partial information *rate* decomposition (arXiv:2502.04550), a scalable higher-order information estimator (arXiv:2506.18498), a latent-world-model VLA (VLA-JEPA, arXiv:2602.10098), and a mechanistic SAE study of VLAs (arXiv:2603.19233).
 - **Action-chunking note (§10.10.13.1):** modern VLA policies often emit action chunks; the `A` contract must record chunk length and the chosen PID target granularity.
+- **External-source review + research integration (2026-06-12; see §12.5 for the full integrated/ruled-out record):** added Qwen-VLA (arXiv:2605.30280), V-JEPA 2/-AC (arXiv:2506.09985) and the latent-predictive world-model class, NVIDIA Cosmos 3 / "World Action Model" notes and the RoboLab-120 leaderboard context, π0.7 status, AttnLRP (arXiv:2402.05602) as the concrete H9 LRP protocol (§14.7.1), GSWorld and Zenoh-in-production notes, and two world-model surveys. Added **§14.1.1 per-hypothesis PID-necessity audit** with preregistered kill criteria (PID is forced nowhere; H5 flagged as the weakest PID-specific case with a mandatory CI-only ablation; H7 honestly framed as measurement-regime engineering). Added the embodiment-in-`L` confound (§14.5.7.3).
 - **Second v10.2 slice (completed and committed 2026-06-12):** the previously in-flight extensions were finished, tested, and committed the same day: discrete 3-source PID (`discrete_pid3`, `I_min` over the 18-antichain lattice), a `pipeline.rs` composition layer in `pid-core` (PLS→PID3, per-atom block-bootstrap CIs, single-source permutation tests, LOO-CV PLS component selection, all-pairs PID2 screening), and offline-harness `--pid-mode continuous|discrete|discrete-pls` with `--discrete-bins`/`--pls-components` and per-pair `discrete_saturation` diagnostics implementing the §8.1.6 gate (smoke runs on the checked fixtures confirm ceiling-pinned discrete MI is flagged `saturation_warning=true`, as predicted).
 
 **v10.1 notes (Jan 2026 updates):**
@@ -2636,7 +2637,7 @@ PixelVLA (arXiv:2511.01571) is described in the arXiv abstract as:
 
 ## 7.4 TraceVLA (Visual Trace Prompting; arXiv:2412.10345)
 
-**TraceVLA** (arXiv:2412.10345, December 2024; venue/status should be verified) enhances VLAs with spatial-temporal awareness by overlaying visual state-action trajectories:
+**TraceVLA** (arXiv:2412.10345, December 2024; venue/status should be verified) enhances VLAs with spatial-temporal awareness by overlaying visual state-action trajectories. Release status (checked 2026-06-12 via the project page tracevla.github.io): code (`FrankZheng2022/tracevla`) and Hugging Face checkpoints (7B + a 4B Phi-3-Vision variant) are public — verify revision/license at time of use; traces are extracted with Co-Tracker (log its version as part of the `V` contract, since the trace channel is a derived input):
 
 ```
 Current Image + Historical Trace Overlay → VLA → Action
@@ -2666,7 +2667,8 @@ Current Image + Historical Trace Overlay → VLA → Action
 | **OpenVLA-OFT** | OpenVLA backbone (unchanged; verify per checkpoint) | None (fine-tuning recipe, not a new family) | Continuous actions + parallel decoding + action **chunking** + L1 objective (abstract-verified) | Kim, Finn, Liang (2025), arXiv:2502.19645. Optimized fine-tuning recipe for OpenVLA; paper reports large LIBERO gains and ~26× inference speedup vs autoregressive fine-tuning (paper-reported; protocol-sensitive). Chunked `A` changes the PID target contract — see §10.10.13.1. |
 | **GR00T N1** | (see paper) | Planner-style | Continuous | NVIDIA et al. (2025), arXiv:2503.14734. A GR00T **N1.5** open 3B revision was released mid-2025 (vendor release; verify weights/license/config at time of use). |
 | **TinyVLA** | Smaller | None | Discrete | Efficient |
-| **VLA-JEPA** | (see paper; verify) | Latent world model (JEPA-style) | (verify) | arXiv:2602.10098 (verify details). Interesting here because a JEPA-style latent world model is an explicit **`D` candidate** if its latents are exportable per step. |
+| **VLA-JEPA** | (see paper; verify) | Latent world model (JEPA-style) | (verify) | arXiv:2602.10098 (verify details). Interesting here because a JEPA-style latent world model is an explicit **`D` candidate** if its latents are exportable per step. See also V-JEPA 2 / V-JEPA 2-AC (arXiv:2506.09985): latent MPC planning makes `D` causally load-bearing (§10.1.1, §10.10.13.2). |
+| **Qwen-VLA** (v10.2) | Qwen-VL stack (verify per checkpoint) | None claimed (DiT action decoder; unified action+trajectory head) | Continuous actions + trajectory prediction (paper-reported) | arXiv:2605.30280; `QwenLM/Qwen-VLA` reported open (verify). Unified manipulation+navigation+trajectory model; paper-reported 97.9% LIBERO. **Embodiment-aware prompt conditioning** injects embodiment identity into `L` — a confound for cross-embodiment `V–L` PID comparisons (§14.5.7). |
 | **π0** | (see PI paper) | (see PI paper) | Flow-matching action chunks (paper-reported) | Physical Intelligence generalist policy (PI blog 2024‑10‑31 + paper PDF). Base `π0`/`π0-FAST` weights have been published via Hugging Face (openpi; verify license/revision); later variants (`π0.5`, `π0.6*`) remain research-publication-only — treat as black‑box unless you can export embeddings/hidden states for the `V/L/D/A` contract (https://www.pi.website/blog/pi0 ; https://www.pi.website/download/pi0.pdf). |
 | **π0.5** | (see PI paper) | (see PI paper) | (see PI paper) | Physical Intelligence “open‑world generalization” variant (PI blog 2025‑04‑22 + paper PDF). Same caveats: do not assume hook points/embeddings are available (https://www.pi.website/blog/pi05 ; https://www.pi.website/download/pi05.pdf). |
 | **π0.6\\*** | (see PI paper/model card) | (see PI paper/model card) | (see PI paper/model card) | Physical Intelligence “learns from experience” variant (PI blog 2025‑11‑17 + model card PDF). Treat training claims as vendor claims until replicated; verify access + logging contract (https://www.pi.website/blog/pistar06 ; https://website.pi-asset.com/pi06star/PI06_model_card.pdf). |
@@ -3571,11 +3573,18 @@ Understanding the different roles of "world models" is critical for proper integ
 | **Generative (Environment)** | Genie 3, Isaac Sim | Create training environments for agents | Yes (responds to agent actions) |
 | **Perceptual Foundation** | DKT, Depth-Anything | Improve visual input quality | N/A (perception preprocessing) |
 | **Video-to-Flow (v6.1)** | Dream2Flow (arXiv:2512.24766) | Extract object dynamics from video models; embodiment-agnostic intermediate representation | Via trajectory optimization or RL |
+| **Latent-predictive (JEPA-style; v10.2)** | V-JEPA 2 / V-JEPA 2-AC (arXiv:2506.09985); VLA-JEPA (arXiv:2602.10098); AtomVLA (arXiv:2603.08519, verify) | Predict future *representations* (not pixels); V-JEPA 2-AC plans actions by MPC in latent space | Yes (action-conditioned predictor) |
+| **Unified omnimodel / WAM (v10.2)** | NVIDIA Cosmos 3 (vendor release 2026-06-01: two-tower reasoning+generation "mixture-of-transformers"; Nano 16B / Super 64B checkpoints; "World Action Model" post-training path; verify claims/license OpenMDW-1.1) | One model spans reasoning, world generation, and action — blurs this table's categories | Yes (action trajectories are a native output modality, per vendor) |
 
 **Key Insight:** PID analysis operates on the **internal** world model (D) within a VLA. External world models (WAN, GWM, Genie 3, Dream2Flow) can support PID analysis by:
 1. Providing reference predictions to compare against VLA's D
 2. Generating training environments where PID patterns can be studied
 3. Improving visual input quality (V) for more interpretable PID results
+
+**v10.2 taxonomy notes (question the categories, not just the entries):**
+- **Unified omnimodels break the Internal/Evaluative/Generative split.** A Cosmos-3-class "World Action Model" is simultaneously internal (its reasoning states condition actions), evaluative (it generates predictions you could score), and generative (it synthesizes worlds). For PID the operative question is unchanged and sharper: *which intermediates are exportable per step, and which are causally upstream of the action head?* Treat "reasoning-tower states" and "generation-tower predictions" as two distinct `D` candidates with separate contracts.
+- **Latent-predictive (JEPA-style) world models give the cleanest `D` so far.** In an MPC-from-latent-world-model agent (V-JEPA 2-AC-style), the predicted latents are not a hidden-state extraction *choice* — they are the policy's actual decision variables, and intervening on them changes actions by construction. This materially strengthens the causal-validation story (Exp4/H3) relative to `D_hidden[k]` extractions.
+- **Attribute framing (external; opinion):** a World Labs essay (Fei-Fei Li, 2026-06-03, drfeifei.substack.com) describes world models via three *attributes* — generative, multimodal, interactive — rather than system types. Useful as a cross-check vocabulary; note that secondary coverage paraphrased this as "three types," which the primary text does not say (a small live lesson in verifying primary sources). Marble-class text/image→3D generators are a candidate *scene-asset source* for the splat-first pipeline (§C), not a `D` source.
 
 ### 10.1.2 Genie-like environment generators (optional; out of scope)
 
@@ -4587,7 +4596,10 @@ For every run, define and log the analysis variables explicitly:
 | **InternVLA‑A1** | GitHub + project page + HF model card (verify) | `D_explicit` from the **generation expert** (predicted future visual states / dynamics; representation depends on implementation) | Ideal for stage-wise decomposition inside one model: `(V, L; D_gen)` and `(V, D_gen; A)`; Flow-as-Bridge variant: compare `D_gen`-derived `Flow_pred` against simulator `Flow_gt` under matched controls | What the generation expert outputs (frames vs latents); how to export intermediates; action parameterization (“delta actions”; Flow‑Matching head is a generative method, not geometric flow); licensing (verify); patched Transformers constraints |
 | **PixelVLA** | arXiv:2511.01571 | Model-dependent: pixel-/prompt-conditioned representation (verify) | Spatial PID when pixel-aligned variables exist: `(V_region, Flow_region;A)`; hierarchical: region-level CI screening → targeted PID | What is actually exposed (pixel maps vs pooled); backbone/API; dataset access (Pixel‑160K) |
 | **SmolVLA** | LeRobot (verify) | Whatever is accessible (`D_hidden[k]` / `D_fused`) | Harness/debug baseline: run Experiment 0/1 quickly; do not over-interpret cross-model semantics | Everything: backbone, action rep, licensing, async semantics, hook points |
-| **PI “π” series** (`π0`, `π0.5`, `π0.6*`) | PI vendor papers/blog posts (see §7.5 / §13.2; verify access) | `D` unknown: treat as `D_hidden[k]` / `D_fused` **only if** you can export per-step embeddings/hidden states; otherwise `D` is not available | **Black-box comparator** for behavior-only metrics (success/robustness). If internals are accessible, you may apply the same `V/L/D/A` contract as OpenVLA, but preregister all hook points and rerun Exp0 + geometry gates | Access mode (API vs weights); whether internals can be logged; determinism/replay; licensing/ToS constraints |
+| **PI “π” series** (`π0`, `π0.5`, `π0.6*`, `π0.7`) | PI vendor papers/blog posts (see §7.5 / §13.2; verify access) | `D` unknown: treat as `D_hidden[k]` / `D_fused` **only if** you can export per-step embeddings/hidden states; otherwise `D` is not available. `π0.7` (PI blog 2026-04-16) reportedly steers behavior via **visual subgoals from a lightweight world model** — if those subgoal images/latents were exportable they would be a `D_explicit` candidate, but the cloud-hosted serving model makes that unlikely | **Black-box comparator** for behavior-only metrics (success/robustness). If internals are accessible, you may apply the same `V/L/D/A` contract as OpenVLA, but preregister all hook points and rerun Exp0 + geometry gates | Access mode (API vs weights); whether internals can be logged; determinism/replay; licensing/ToS constraints |
+| **Qwen-VLA** (v10.2) | arXiv:2605.30280 + `QwenLM/Qwen-VLA` (reported open weights; verify revision/license) | `D_hidden[k]` from the Qwen-VL backbone and/or DiT action-decoder conditioning states (verify exportability) | Unified manipulation+navigation in one model → cross-task PID comparisons under one backbone; cross-embodiment comparisons (with the prompt-conditioning confound below) | Which intermediates are exportable; action-chunk horizon; **embodiment-aware prompt conditioning puts embodiment identity inside `L`** — control for this before interpreting `V–L` atoms across platforms (§14.5.7) |
+| **V-JEPA 2-AC** (v10.2) | arXiv:2506.09985 | Predicted future latents from the action-conditioned predictor — *causally used* for MPC action selection | Strongest Exp4/H3 candidate: intervening on `D` provably changes `A` by construction; `(V, D_latent; A)` with planning-horizon ablations | Latent dims/pooling and geometry gates; planning-loop determinism; DROID-finetune scope |
+| **Cosmos3-Nano-Policy** (v10.2) | NVIDIA vendor release + RoboLab leaderboard listing (verify) | Reasoning-tower states (`D_reason`) and/or generation-tower predictions (`D_gen`) — two distinct candidates; verify exportability | Open checkpoint reported atop a DROID-finetuned generalist leaderboard with an explicit world-model backbone → practical V-D-A candidate at scale | Checkpoint access + OpenMDW-1.1 license terms; which tower states are exposed per step; compute requirements (16B Nano) |
 
 **Geometry note:** do not assume “d=4096” or “RoPE entanglement” for every model. If you use a RoPE-based backbone (e.g., Llama-family), consider exporting a **pre-attention residual stream** representation as one candidate `D_hidden[k]`, but treat this as an empirical mitigation and validate via the Geometry Gate + Experiment 0.
 
@@ -5025,6 +5037,38 @@ This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Ro
 
 **Critical note:** These observations come from a community synthesis (NeurIPS 2025 field notes) rather than peer-reviewed meta-analysis. Treat specific claims (e.g., "contact is harder than locomotion") as empirical priors requiring validation on PID-VLA's target benchmarks.
 
+## 12.5 External Source Review (2026-06-12): Integrated vs Ruled Out
+
+A batch of external signals (X posts, vendor pages, repos, papers) was reviewed source-by-source with independent verification. Per project policy, both integrated **and** ruled-out sources are recorded so future passes do not silently re-litigate them. Aggregator/secondary framings were checked against primaries (one observed distortion is recorded in §10.1.1). Posts that could not be resolved to verifiable content are ruled out as a matter of policy, not as a judgment of the author.
+
+**Integrated (where → what changed):**
+
+| Source | Verified claim | Where integrated |
+|---|---|---|
+| Qwen-VLA (arXiv:2605.30280; `QwenLM/Qwen-VLA`; announced ~2026-05-29) | Unified open VLA across manipulation/navigation/trajectory on the Qwen stack; embodiment-aware prompt conditioning | §7.5 row, §10.10.13.2 row, §13.2 ref; embodiment-in-`L` confound noted (§14.5.7) |
+| NVIDIA Cosmos 3 (vendor release 2026-06-01) + RoboLab-120 leaderboard | Open two-tower reasoning+generation omnimodel; "World Action Model" post-training; Nano/Super checkpoints; policy variant reported atop a DROID-finetuned generalist leaderboard (best ≈36.8% SR) | §10.1.1 taxonomy row + notes, §10.10.13.2 row, §13.2.1/§13.4 refs |
+| V-JEPA 2 / V-JEPA 2-AC (arXiv:2506.09985) | Latent-predictive world model; action-conditioned MPC planning zero-shot from <62h robot data (paper-reported) | §10.1.1 row + notes, §10.10.13.2 row, §13.4 ref; strengthens Exp4/H3 causal story |
+| AttnLRP (arXiv:2402.05602; ICML 2024 per PMLR 235 — verify if citing formally) + LXT library | Faithful LRP for transformers incl. latent attributions, single-backward-pass cost (paper-reported) | §14.7.1 protocol, §13.14 ref; upgrades H9 from method-list to concrete toolchain |
+| π0.7 (PI blog 2026-04-16) | Compositional generalization via multimodal prompting + visual subgoals from a lightweight world model; cloud-served with real-time action chunking (vendor-reported) | §7.5/§10.10.13.2 π-series rows; reinforces action-chunking contract (§10.10.13.1) and black-box caveats |
+| Fei-Fei Li World Labs essay (2026-06-03) | World models framed via three *attributes* (generative, multimodal, interactive); Marble = multimodal-prompt→3D environments | §10.1.1 v10.2 notes (opinion-piece hedge; Marble as optional §C scene-asset source) |
+| ROBOTIS Cyclo Intelligence (vendor docs; from a shortened t.co link) | Production robot stack shipping ROS 2 + **Zenoh** + LeRobot v2.x/3.0 dataset formats + MCAP capture; deploys π0/π0.5/SmolVLA/GR00T-class policies | §13.10 note: independent validation of the M6 Zenoh choice and of LeRobot/MCAP as offline-harness adapter targets |
+| TraceVLA project page (tracevla.github.io) | Code + HF checkpoints (7B, 4B Phi-3) public; Co-Tracker-derived traces | §7.4 release-status note |
+| GSWorld (arXiv:2510.20813; surfaced while researching a 3DGS account) | Closed-loop photorealistic 3DGS+physics manipulation simulation | §13.10 ref; independent support for the hybrid splats+physics premise (§A.3/§E) |
+| Surveys: World Models for Robot Learning (arXiv:2605.00080); Agentic World Modeling (arXiv:2604.22748 + `matrix-agent/awesome-agentic-world-modeling`) | Survey/curated-list coverage of the world-model space | §13.4 pointers (hedged; surveys, not evidence) |
+| AtomVLA (arXiv:2603.08519; verify) | Post-training via predictive latent world models (JEPA-family) | §10.1.1 row (hedged) |
+
+**Ruled out (cite-and-close, with reasons):**
+
+| Source | What it is | Why ruled out |
+|---|---|---|
+| `github.com/ProjectEdenGG` | Minecraft server organization (plugins, resource packs) | No connection to robotics/ML/PID; excluded on relevance |
+| Trajectory (@trajectorylabs; seed announcement ~2026-05-29) | Continual-learning post-training platform startup (funding/product news) | No verifiable methodological content for H1–H9; consistent with the §12.4.1 continual-learning gap but adds no evidence |
+| DAIR.AI top-papers post (week of 2026-06-01) | Weekly aggregator (that week: AutoLab, LCM, GLM-5) | No robotics/VLA/PID-relevant entries that week; aggregator, not primary |
+| @shreyasgite post (~Apr 2026) | Educational "demystifying robot foundation models" thread series | Commentary on primaries already cited directly |
+| @jianlanluo post (~Jun 2026) | Could not resolve specific post content (X fetch blocked) | Account context (HIL-SERL / RL-for-real-robots, Science Robotics `adds5033`) is relevant background for §12.4.3 but the specific post is unverifiable |
+| @Shreyko, @_joe_harris_ posts | Could not resolve to verifiable content | Unverifiable; nothing to integrate |
+| @mikekalilmfg (~Apr 2026) | Industry-4.0 deployment journalism (1X/Figure factory news) | Business signal only; no methodological impact on hypotheses |
+
 ---
 
 # 13. References
@@ -5069,7 +5113,8 @@ This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Ro
 - **Dream-VL & Dream-VLA (diffusion LLM backbone):** Ye et al. (2025). *Dream-VL & Dream-VLA: Open Vision-Language and Vision-Language-Action Models with Diffusion Language Model Backbone.* arXiv:2512.22615.
   - **Legacy note:** earlier drafts referenced “HKU NLP (2024), 97.2% LIBERO” without a stable citation; treat any such performance claims as unverified unless traced to a specific paper/benchmark protocol.
 - **OpenVLA-OFT:** Kim MJ, Finn C, Liang P (2025). *Fine-Tuning Vision-Language-Action Models: Optimizing Speed and Success.* arXiv:2502.19645. [Optimized fine-tuning recipe for OpenVLA: parallel decoding, action chunking, continuous actions, L1 objective; not a distinct model family]
-- **GR00T N1:** NVIDIA et al. (2025). arXiv:2503.14734. (A GR00T N1.5 open 3B revision was released mid-2025 — vendor release; verify weights/license/config.)
+- **GR00T N1:** NVIDIA et al. (2025). arXiv:2503.14734. (A GR00T N1.5 open 3B revision was released mid-2025; later revisions N1.6/N1.7 appear in vendor materials and third-party leaderboards/integrations — verify weights/license/config per revision.)
+- **Qwen-VLA:** arXiv:2605.30280. *Qwen-VLA: Unifying Vision-Language-Action Modeling across Tasks, Environments, and Robot Embodiments.* (`QwenLM/Qwen-VLA` reported open — verify; added v10.2. Embodiment-aware prompt conditioning; DiT action decoder; manipulation+navigation+trajectory in one model.)
 - **VLA-JEPA:** arXiv:2602.10098. [JEPA-style latent world model inside a VLA; candidate explicit `D` source if latents are exportable — added v10.2; verify details before use]
 - **InternVLA‑A1:** InternRobotics (2026). *InternVLA‑A1: Unifying Understanding, Generation, and Action for Robotic Manipulation.* Project page + PDF + code: https://internrobotics.github.io/internvla-a1.github.io/ and https://github.com/InternRobotics/InternVLA-A1. Model card: https://huggingface.co/InternRobotics/InternVLA-A1-3B. Repo describes a tripartite (understanding / generation / action) design with Flow‑Matching action generation; verify paper details/protocols before citing any performance numbers.
 - **InternVLA‑M1:** Chen et al. (2025). *InternVLA‑M1: A Spatially Guided Vision-Language-Action Framework for Generalist Robot Policy.* arXiv:2510.13778. (Related line; distinct from InternVLA‑A1.)
@@ -5156,7 +5201,9 @@ VLA-Arena Task Organization:
 
 - **SimplerEnv:** Lightweight simulation benchmark. Useful for rapid iteration but lacks VLA-Arena's structured difficulty axes.
 
-- **LIBERO:** Standard manipulation benchmark. Well-established but doesn't provide the perturbation structure needed for robustness testing.
+- **LIBERO:** Standard manipulation benchmark. Well-established but doesn't provide the perturbation structure needed for robustness testing. **Saturation caution (v10.2):** recent models report ≥97% LIBERO success (OpenVLA-OFT arXiv:2502.19645; Qwen-VLA arXiv:2605.30280 — paper-reported); a near-saturated benchmark yields too few failures for failure-label-hungry H1-style studies.
+
+- **RoboLab-120 (NVIDIA SRL leaderboard; added v10.2, verify protocol):** 120 tasks × 10 episodes, DROID-finetuned generalist policies, difficulty + competency axes, and a **language-specificity axis (vague/default/specific)** that is a natural graded-`L`-information manipulation for H2-style redundancy probes. Reported best success ≈36.8% (Cosmos3-Nano-Policy) — i.e., failure-rich, which is exactly what PID failure analyses need. Reported to correlate with real-world RoboArena rankings (vendor-reported; verify). Secondary to VLA-Arena, which remains primary for its perturbation structure.
 
 **Benchmark Selection Guidance:**
 
@@ -5187,6 +5234,11 @@ VLA-Arena Task Organization:
 - **WAN VACE:** Video All-in-one Creation and Editing. arXiv:2503.07598
 - **Wan-Move:** Motion-controllable Video Generation. arXiv:2512.08765 (verify venue/status)
 - **Motus:** Unified Latent Action World Model. arXiv:2512.13030
+- **V-JEPA 2 / V-JEPA 2-AC:** Meta (2025). arXiv:2506.09985. [Latent-predictive video world model; action-conditioned variant plans via MPC in latent space — paper-reported zero-shot manipulation from <62h robot data; added v10.2]
+- **NVIDIA Cosmos 3:** vendor release 2026-06-01 (nvidianews.nvidia.com; blogs.nvidia.com). [Open two-tower reasoning+generation omnimodel (Nano 16B / Super 64B); "World Action Model" post-training path; OpenMDW-1.1 license; HUE benchmark — all vendor-reported, verify before dependence; added v10.2]
+- **AtomVLA:** arXiv:2603.08519. [Post-training via predictive latent world models; JEPA-family; verify; added v10.2]
+- **Survey — World Models for Robot Learning:** arXiv:2605.00080. [Survey pointer; added v10.2]
+- **Survey — Agentic World Modeling:** arXiv:2604.22748 + curated list `matrix-agent/awesome-agentic-world-modeling`. [Survey/curated pointer; added v10.2]
 - **DreamGen:** Robot Learning via Neural Trajectories. arXiv:2505.12705
 - **VideoVLA:** VideoVLA: Video Generators Can Be Generalizable Robot Manipulators. arXiv:2512.06963
 - **Scalable Policy Evaluation:** Action-conditioned video for policy eval. arXiv:2511.11520
@@ -5266,7 +5318,8 @@ VLA-Arena Task Organization:
 - **Gazebo Harmonic:** ROS 2 compatible physics simulator
 - **SplatSim:** *SplatSim: Zero-Shot Sim2Real Transfer of RGB Manipulation Policies Using Gaussian Splatting.* arXiv:2409.10161. (3DGS rendering + **PyBullet** physics backend, per paper.)
 - **DISCOVERSE:** *DISCOVERSE: Efficient Robot Simulation in Complex High-Fidelity Environments.* arXiv:2507.21981. (3DGS rendering + **MuJoCo** physics backend, per paper.)
-- **Zenoh:** Zero-overhead pub/sub middleware (eclipse-zenoh.io)
+- **Zenoh:** Zero-overhead pub/sub middleware (eclipse-zenoh.io). (Independent production validation, checked 2026-06-12: ROBOTIS "Cyclo Intelligence" ships ROS 2 + Zenoh + LeRobot v2.x/3.0 dataset formats + MCAP capture for fleet policy workflows — vendor docs at ai.robotis.com; supports the M6 transport choice and identifies LeRobot/MCAP as natural offline-harness adapter targets.)
+- **GSWorld:** arXiv:2510.20813. *Closed-loop photo-realistic simulation suite for robotic manipulation* (3DGS + physics; added v10.2 — independent support for the hybrid splats+physics design in §A.3/§E; verify details before protocol dependence.)
 - **Tauri:** Rust + WebView desktop apps (tauri.app)
 - **SparkJS (Spark):** 3D Gaussian splatting renderer that integrates with the Three.js rendering pipeline (WebGL2). Docs: https://sparkjs.dev/ . Code: https://github.com/sparkjsdev/spark .
 - **Three.js:** WebGL/WebGPU 3D rendering library
@@ -5327,6 +5380,7 @@ VLA-Arena Task Organization:
 - **Attention caution:** Jain, Wallace (2019). *Attention is not Explanation.* NAACL. [Treat attention maps as weak diagnostics unless intervention-tested.]
 - **Saliency sanity checks:** Adebayo et al. (2018). *Sanity Checks for Saliency Maps.* NeurIPS (verify venue/status if citing formally); Hooker et al. (2019). *A Benchmark for Interpretability Methods in Deep Neural Networks.* NeurIPS (verify venue/status if citing formally). [Model/data randomization and removal/retraining/deletion-style evaluation.]
 - **Mechanistic VLA interpretability (SAE/steering):** arXiv:2603.19233. [Reported mechanistic study of VLA internals via sparse autoencoders and activation steering; candidate H9 companion evidence and §16.8 context (added v10.2; verify claims/protocols before depending on them).]
+- **AttnLRP:** Achtibat et al. (2024). *AttnLRP: Attention-Aware Layer-Wise Relevance Propagation for Transformers.* ICML 2024, PMLR 235 (verify venue/status if citing formally); arXiv:2402.05602. [Faithful LRP for attention blocks incl. latent attributions at ~one-backward-pass cost (paper-reported); primary H9 method for transformer VLAs — see §14.7.1. Library: `rachtibat/LRP-eXplains-Transformers` (pin revision).]
 
 ---
 
@@ -5358,6 +5412,28 @@ This project treats hypotheses as **falsifiable contracts**, not slogans. Status
 **Deprecated / ruled-out framing (kept for transparency):**
 - “`Syn < 0` ⇒ hallucination” as a definitional claim is **rejected** (see §1.2 Warning 1). Negative synergy is mathematically meaningful (subadditive information) but requires empirical validation to map onto failure semantics.
 - Applying the continuous `I^sx_∩` estimator by swapping in non-Euclidean distances (e.g., Lorentz/hyperbolic geodesics) is **ruled out** without a new derivation of disjunction neighborhoods and volume forms (see the estimator geometry caveat at the top of this document).
+
+### 14.1.1 Is PID Forced Here? Per-Hypothesis Necessity Audit (v10.2)
+
+This audit answers, for each hypothesis, the reviewer question the project must survive: *"could a cheaper, non-PID method answer the same question?"* The honest answers below are part of the project's claim discipline. PID is **forced nowhere**; it is **distinctively warranted** where the scientific object is the decomposition itself, and it is a **value-added test** (with publishable negative outcomes) everywhere else.
+
+| Hypothesis | Cheapest non-PID alternative | What PID distinctively adds | Honest verdict |
+|---|---|---|---|
+| **H1** failure prediction | Internal-feature failure detectors (SAFE, arXiv:2506.09937), entropy/OOD scores, learned classifiers | Not better prediction — **decomposition-level explanation** (which source interaction degraded), enabling targeted intervention rather than detection alone | PID is *not* needed to predict failure. H1 is preregistered as an added-value test: PID/CI features must add predictive or diagnostic information beyond these baselines, else report the negative result |
+| **H2** redundancy ↔ ablation robustness | Per-modality ablation curves; feature-importance under corruption | "Redundancy" is the *construct under test* — graceful degradation under single-modality loss is the operational meaning of redundant information; ablation curves measure the consequence, PID claims to measure the cause *before* ablating | PID-native: the hypothesis is literally about a PID quantity's predictive validity. If ablation curves alone predict robustness equally well *ex ante*, H2 fails informatively |
+| **H3** uniques ↔ intervention sensitivity | Gradient/attribution magnitude per modality; intervention sweeps | Same structure as H2: `Unq` is the construct; interventions are the validation, not the substitute | PID-native, same logic as H2 |
+| **H4** memorization vs generalization | Representation-drift metrics (CKA, ID shifts), success-rate deltas under VLA-Arena perturbations | Interaction structure: whether *how sources combine* (not just representations) shifts under distribution shift | Value-added test; CKA/ID baselines mandatory in the same protocol |
+| **H5** temporal degradation | Windowed MI/CI trends (no atoms needed) | The syn/red split over time — but CI trends may capture most of the signal | **Weakest PID-specific case.** Mandatory ablation: report CI-only trends alongside; if atoms add nothing beyond CI, downgrade H5 claims to MI/CI language |
+| **H6** safety integration | Safety-labeled classifiers | Deferred regardless | Deferred; no PID-necessity claim made |
+| **H7** Flow-as-Bridge | The bridge variable itself is estimator engineering, not PID | Nothing PID-specific about the bridge; PID is the *analysis run on top* of it | Honest framing: H7 is a measurement-regime hypothesis that any information-theoretic analysis benefits from; do not sell it as PID-specific. Three independent external instances of "intermediate world-state as bridge" (Dream2Flow; π0.7 visual subgoals; V-JEPA 2-AC latent plans) support the bridge premise without supporting PID per se |
+| **H8** geometry gates | n/a — this is a method hypothesis about when PID/MI estimators are valid | The gate exists *because* of PID's estimator fragility | PID-internal by construction |
+| **H9** attribution triangulation | n/a — explicitly about checking PID claims with non-PID tools | Keeps PID honest; disagreement is a result | PID-internal by construction |
+
+**Kill criteria (preregistered Occam discipline):**
+1. If Shannon-invariant / MI-only / CI-only feature sets match full PID-atom feature sets on H1/H2/H3 effect sizes (within CI overlap), **drop atom-level claims** and report the simpler quantities as the finding.
+2. If non-PID baselines (SAFE-class detectors, entropy, OOD) match or beat PID-augmented models on H1 across two task families, H1 is answered negatively — publish that with the confound analysis (§14.2–§14.5).
+3. If H5's atoms never separate from CI trends, H5 becomes an MI/CI hypothesis and is relabeled accordingly.
+4. A hypothesis may not be rescued by switching PID measure/mode post hoc (§8.1.6 regime registry; Warning 6).
 
 ### Hypothesis H1: SxPID-derived features correlate with VLA failures (including negative synergy)
 **Claim (falsifiable):** Under a validated estimator regime, a **feature set** derived from Shannon invariants (CI/Ω) and (where feasible) SxPID atoms contains predictive information about failure labels beyond strong uncertainty baselines. The **synergy sign** (including negative synergy frequency) is one candidate feature, not a definition of “hallucination”.
@@ -5731,6 +5807,8 @@ When a VLA fails, PID analysis on `(V, D, A)` cannot distinguish:
 
 #### 14.5.7.3 Control Strategies
 
+**Note (v10.2) — embodiment-in-`L` confound:** some current VLAs condition on embodiment identity *through the prompt* (e.g., Qwen-VLA's embodiment-aware prompt conditioning, arXiv:2605.30280). For such models, `L` carries embodiment information by design, so cross-embodiment differences in `V–L` atoms (or `Unq(L;A)`) can reflect the conditioning scheme rather than language grounding. Control: hold the embodiment token/segment fixed within a comparison, or log and ablate it as a separate source; never compare `L`-involving atoms across embodiments without this control.
+
 **Strategy 1: Multi-Stage PID Analysis**
 ```
 Compute PID at multiple stages along the VLA pipeline:
@@ -5895,6 +5973,29 @@ Attribution methods are useful precisely because they fail in different ways fro
 | **PID/attribution preprocessing mismatch** | all H9 comparisons | Fit reducers/normalizers/concept classifiers on training data only; compare on the same sample IDs and logged targets |
 
 **Publication requirement for H9:** an attribution/PID alignment claim needs (1) a passed attribution sanity check, (2) a passed or explicitly scoped PID/CI measurement regime, and (3) at least one matched perturbation showing that changing top-attributed features/modality changes the downstream target in the predicted direction.
+
+### 14.7.1 Concrete LRP Protocol for Transformer VLAs (v10.2)
+
+LRP is the H9 attribution method this project treats as primary for transformer-backbone VLAs, because **AttnLRP** (Achtibat et al., arXiv:2402.05602; listed in PMLR 235 / ICML 2024 — verify venue/status if citing formally) extends LRP rules to attention and reports faithful attribution of both inputs *and latent representations* at roughly single-backward-pass cost, evaluated on Llama-2-class and ViT architectures (paper-reported) — i.e., exactly the OpenVLA-style stacks targeted here. Reference implementation: the LXT library (`rachtibat/LRP-eXplains-Transformers`; pin the revision).
+
+**Protocol (preregister all choices; log via the `attribution_logged` run-log event):**
+1. **Rule composite:** use AttnLRP rules for attention/softmax blocks and standard composites elsewhere (ε-rule for linear layers; γ-type rules for lower vision layers if used). Log the exact composite per module class; do not compare relevance across models without rule parity (§14.7 table).
+2. **Targets:** attribute a declared scalar — a chosen action dimension, an action-chunk summary, or the policy log-likelihood of the taken action. Action *chunks* (§10.10.13.1) require declaring which chunk element(s) are attributed.
+3. **Conservation check:** verify per-call that relevance sums approximately to the explained output score through the layers the composite claims to conserve; log the residual. A large residual disqualifies the call from H9 evidence.
+4. **Sanity checks (mandatory, per Adebayo-style randomization):** model-randomization and data-randomization tests on the same pipeline; attribution maps must degrade. Then deletion/insertion (occlusion) curves on top-attributed tokens/patches must beat random-deletion controls.
+5. **Modality aggregation:** sum non-negative-clipped or signed relevance (declare which) over `V`-token vs `L`-token vs (if present) `D`-stream positions to get per-call modality relevance shares; these are the quantities compared against PID uniques/synergy under matched interventions.
+6. **Latent-layer use:** AttnLRP's latent attributions can rank internal neurons/heads per call; use them to *propose* `D_hidden[k]` hook points (then validate via geometry gates + Exp0), not as standalone evidence.
+
+**Triangulation matrix (what agreement/disagreement means):**
+
+| PID claim (distribution-level) | Expected LRP observation (call-level) | If they disagree |
+|---|---|---|
+| High `Unq(L;A)` | Instruction tokens carry dominant relevance on task-critical calls; language ablation changes actions | Trust the intervention; re-examine the `L` variable definition and the PID regime before the claim |
+| High `Unq(V;A)` | Task-relevant image regions dominate relevance vs distractors | Same: intervention evidence wins; check for correlated-feature attribution pathologies |
+| High `Syn(V,L;A)` | Neither modality alone shows dominant stable relevance; joint perturbations needed to flip actions | Synergy claims without joint-perturbation support are downgraded to descriptive |
+| High `Red(V,L;A)` | Either modality's top features suffice; single-modality deletion barely degrades | If deletion hurts badly, the redundancy estimate is suspect (estimator or regime issue) |
+
+**Scope honesty:** LRP explains one call; PID summarizes a distribution (Warning 7). H9 only asserts *compatibility under matched interventions*, never per-call/per-distribution equivalence.
 
 ---
 
@@ -8005,7 +8106,7 @@ Earlier drafts embedded large “kitchen sink” Nix flakes and task runners ins
 | **9.0 FINAL** | Jan 2026 | **Actionable engineering plan + docset v9.0:** (1) Added an explicit engineering execution plan (M0–M7) with acceptance criteria and a risk-reducing build order so implementation can begin without re-interpreting the spec (§A.7). (2) Restructured `README.md` to lead with hypotheses and experiments, then map to the engineering order (gate-driven, contract-first). (3) Clarified offline-first run logs + replay as core and moved live transports (Zenoh) and predictor-driven Flow to optional milestones; aligned `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` accordingly. (4) Added a multi-engine physics reality check and promoted cross-backend replay (Rapier ↔ MuJoCo) as a robustness/confound control (§E.1). |
 | **10.0 FINAL** | Jan 2026 | **Docset consistency + GauSS‑MI integration:** (1) Integrated the optional GauSS‑MI spec into the core docset: added reconstruction-uncertainty and active view selection as explicit confound controls and an optional milestone (M8; §C.2; `GAUSS_MI_INTEGRATION.md`). (2) Added diagrams for cross-backend replay and GauSS‑MI flows (`DIAGRAMS.md`). (3) Slimmed `README.md` into a brief entrypoint and aligned doc versions to v10.0. |
 | **10.1** | Jan 2026 | **DreamVLA availability update + Rerun‑First Phases 1–3:** (1) Updated DreamVLA availability status based on papers stating a release; removed “unavailable” wording and added explicit “verify repo/weights/license at time of use” cautions. (2) Reframed Phases 1–3 as Rerun‑First and updated §11 to reflect the `crates/pid-rerun` prototype status. (3) Synced docset version markers to v10.1 and added a `CHANGELOG.md` entry. |
-| **10.2 (Current)** | 2026-06-12 | **Implementation refresh + measure-identity corrections + research refresh:** (1) Documented the 2026-06-11 implementation slice (commit `20fd4bc`): PLS supervised dimensionality reduction, discrete 2-source PID via quantization, block-bootstrap uncertainty, `PhysicsBackend` trait + Rapier stub behind the `rapier` feature, run-log `attribution_logged` event, Exp0 `--strict-gate`, high-dim synthetic VLDA fixture, Python bindings 8→14 (§11.1, §11.2). (2) **Measure-identity correction:** new §8.1.6 documents that the implemented discrete redundancy is a Williams–Beer-style `I_min` functional, not discrete `i^sx_∩`; Warning 6 extended to cross-mode/measure mixing inside this repo; saturation/occupancy gate and binning-sensitivity requirements added for the discrete path; "regime registry" preregistration clause added. (3) Supervised-projection guidance: PLS added to §8.2 options + preprocessing steps with leakage/selection-inflation rules and §17.5.3 requirements. (4) Block-bootstrap implementation pointers + variance-vs-bias caveat (§8.4.3). (5) Action-chunking added to the `V/L/D/A` contract (§10.10.13.1). (6) Reference/status refresh (hedged): OpenVLA-OFT resolved to arXiv:2502.19645; DreamVLA marked NeurIPS 2025 + public code (verify weights/license); π0/π0-FAST weight availability noted; GR00T N1.5 noted; added arXiv:2410.10924, 2506.00330, 2409.13506, 2502.04550, 2506.18498, 2602.10098, 2603.19233. (7) Completed, tested, and committed the second slice the same day: discrete 3-source PID (`discrete_pid3`), `pipeline.rs` composition helpers (PLS→PID3, bootstrap CIs, permutation tests, PLS CV, PID2 screening), harness `--pid-mode continuous|discrete|discrete-pls`, per-pair `discrete_saturation` diagnostics implementing the §8.1.6 gate, and `I_min`-correct naming in code (`discrete_imin_redundancy*`). |
+| **10.2 (Current)** | 2026-06-12 | **Implementation refresh + measure-identity corrections + research refresh:** (1) Documented the 2026-06-11 implementation slice (commit `20fd4bc`): PLS supervised dimensionality reduction, discrete 2-source PID via quantization, block-bootstrap uncertainty, `PhysicsBackend` trait + Rapier stub behind the `rapier` feature, run-log `attribution_logged` event, Exp0 `--strict-gate`, high-dim synthetic VLDA fixture, Python bindings 8→14 (§11.1, §11.2). (2) **Measure-identity correction:** new §8.1.6 documents that the implemented discrete redundancy is a Williams–Beer-style `I_min` functional, not discrete `i^sx_∩`; Warning 6 extended to cross-mode/measure mixing inside this repo; saturation/occupancy gate and binning-sensitivity requirements added for the discrete path; "regime registry" preregistration clause added. (3) Supervised-projection guidance: PLS added to §8.2 options + preprocessing steps with leakage/selection-inflation rules and §17.5.3 requirements. (4) Block-bootstrap implementation pointers + variance-vs-bias caveat (§8.4.3). (5) Action-chunking added to the `V/L/D/A` contract (§10.10.13.1). (6) Reference/status refresh (hedged): OpenVLA-OFT resolved to arXiv:2502.19645; DreamVLA marked NeurIPS 2025 + public code (verify weights/license); π0/π0-FAST weight availability noted; GR00T N1.5 noted; added arXiv:2410.10924, 2506.00330, 2409.13506, 2502.04550, 2506.18498, 2602.10098, 2603.19233. (7) Completed, tested, and committed the second slice the same day: discrete 3-source PID (`discrete_pid3`), `pipeline.rs` composition helpers (PLS→PID3, bootstrap CIs, permutation tests, PLS CV, PID2 screening), harness `--pid-mode continuous|discrete|discrete-pls`, per-pair `discrete_saturation` diagnostics implementing the §8.1.6 gate, and `I_min`-correct naming in code (`discrete_imin_redundancy*`). (8) External-source review (§12.5): integrated Qwen-VLA, V-JEPA 2/-AC + latent-predictive world-model class, Cosmos 3/WAM taxonomy notes, RoboLab-120 benchmark context, π0.7, AttnLRP→§14.7.1 LRP protocol, GSWorld, Zenoh-in-production, surveys; ruled out (with citations) ProjectEdenGG, Trajectory, a DAIR.AI aggregator week, and four unverifiable X posts. (9) Added §14.1.1 PID-necessity audit with kill criteria and the embodiment-in-`L` confound (§14.5.7.3). |
 
 ---
 
