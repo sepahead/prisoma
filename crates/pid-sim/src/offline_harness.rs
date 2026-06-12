@@ -575,7 +575,8 @@ fn train_split_pid_report(
     };
     let result = (|| -> Result<(OfflineVldaPreprocessingReport, OfflineVldaPidScreenMetrics)> {
         let prepared = prepare_standardized_embeddings(&train_samples, &train_dims)?;
-        let metrics = compute_pid_screen_metrics(&prepared, pid_mode, discrete_bins, pls_components)?;
+        let metrics =
+            compute_pid_screen_metrics(&prepared, pid_mode, discrete_bins, pls_components)?;
         Ok((prepared.preprocessing, metrics))
     })();
     let (status, preprocessing, metrics, error) = match result {
@@ -1270,7 +1271,14 @@ fn compute_analysis(
         pls_components,
     )?;
     let train_split_pid = heldout_split.as_ref().map(|split| {
-        train_split_pid_report(samples, dims, split, pid_mode, discrete_bins, pls_components)
+        train_split_pid_report(
+            samples,
+            dims,
+            split,
+            pid_mode,
+            discrete_bins,
+            pls_components,
+        )
     });
     let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
@@ -4096,8 +4104,7 @@ mod tests {
             discrete_bins: 6,
             pls_components: 2,
         };
-        let report =
-            run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
+        let report = run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         for (pair_name, pair) in &report.metrics.pid_pairs {
             let saturation = pair
@@ -4123,8 +4130,7 @@ mod tests {
             discrete_bins: 6,
             pls_components: 1,
         };
-        let report =
-            run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
+        let report = run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         let vl = &report.metrics.pid_pairs["VL"];
         assert!(vl.discrete_saturation.is_some());

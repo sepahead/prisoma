@@ -173,8 +173,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 }
             }
             "--pls-components" => {
-                let components_str =
-                    iter.next().context("--pls-components requires a number")?;
+                let components_str = iter.next().context("--pls-components requires a number")?;
                 pls_components = components_str.parse::<usize>().with_context(|| {
                     format!("--pls-components: invalid number '{components_str}'")
                 })?;
