@@ -64,6 +64,21 @@ PID/CI hypotheses below inherit **two prerequisites**:
 | **H8** Geometry gate chooses estimator regime | Exp0 | geometry diagnostics + synthetic controls | GO/PIVOT/NO-GO decision for continuous PID vs discrete PID vs MI-only screening | Noise-dimension invariance, monotonicity/CMI checks, intrinsic dimension, distance concentration |
 | **H9** Attribution probes triangulate PID claims | Exp1, Exp3, Exp4 | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style scores on the same logged samples | Agreement or principled disagreement with PID uniques/synergy under controlled interventions; incremental failure-prediction value | Model/data randomization sanity checks, baseline/background sensitivity, deletion/occlusion tests, attention-not-explanation caveat |
 
+### 0.2 Runbook: What Is Executable Today vs Blocked (v10.2, 2026-06-12)
+
+This table is the self-sufficient entry point: it maps the run order onto current tooling, expected outcomes, and blockers. Commands assume `just` (each recipe wraps plain `cargo` commands listed in `README.md`/`AGENTS.md`).
+
+| Step | What | How (today) | Gate / expected outcome | Canonical reference |
+|---|---|---|---|---|
+| 1 | Toolchain + estimator gate (Exp0) | `cargo test`; `just exp0` / `just exp0-bin` / `just exp0-runlog` (CI: `--strict-gate`) | All tests pass; Exp0 verdict on synthetic high-d controls is currently **PIVOT** — expected, and blocking for continuous-atom claims | `grandplan.md` §9.1; `findings.md` |
+| 2 | Run-log spine + replay + bridge smokes | `just runlog-demo`, `runlog-validate`, `runlog-replay`, `runlog-bridge-*`, `runlog-sim-verify`, `runlog-rerun` | `valid=true`, `errors=0`; deterministic replay; simulator-derived `Flow_gt` verified | `grandplan.md` §A.8.2 steps 2–6 |
+| 3 | Labeled toy pipeline end-to-end | `just toy-harness` | Canonical labeled artifacts validate; not VLA evidence | `grandplan.md` §A.7 (M5 rehearsal) |
+| 4 | Offline `(V,L,D,A)` harness, all three PID modes | `just offline-harness`, `offline-harness-require-*`, `offline-harness-strict`, `offline-harness-discrete`, `offline-harness-discrete-pls` | Strict mode exits nonzero on geometry warnings (by design); discrete modes report `saturation_warning=true` on the tiny fixtures (by design — the §8.1.6 gate) | `grandplan.md` §8.1.6, §8.2.3 |
+| 5 | **First real VLA/task capture (open critical path)** | Not yet implemented (M5): pick model+task via `grandplan.md` §10.10.13.3; pick the `D` hook layer via the §7.6.3 physics-probe procedure; export `(V,L,D,A)` + success labels + `episode_id` + split into the harness input schema | Harness strict modes (`--require-success-labels --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint`) pass on the capture | `REVIEW_AND_TODO.md` (critical path); `grandplan.md` §10.10.13 |
+| 6 | Exp1–Exp5 protocols (§5–§9 of this document) | Blocked on step 5; analysis tooling (PID modes, baselines, bootstrap/permutation) is ready | Per-hypothesis metrics + controls per §0.1; kill criteria per `grandplan.md` §14.1.1 | `grandplan.md` §9, §14 |
+
+Two discipline rules apply at every step: (a) each (PID measure, preprocessing, estimator config) tuple is a distinct preregistered regime — continuous `I^sx_∩` and discrete `I_min` results must never be pooled (`grandplan.md` Warning 6, §8.1.6); (b) non-PID baselines and uncertainty (block bootstrap, permutation nulls) accompany every PID number.
+
 ## Physics and Robot Backend Usage: Modular Architecture
 
 This table clarifies the intended backend choices across experiments. Treat “recommended” as design guidance, not a claim of superiority or current implementation: the checked repo currently includes the deterministic object sim/logging harness, while Rapier/MuJoCo/Gazebo/Isaac-backed manipulation remains planned. The right choice depends on your benchmark, hardware, and what you are trying to validate.
@@ -822,6 +837,9 @@ if diam is not None and diam > 0:
     if delta_rel < 0.1:
         print(f"WARNING: tree-like distances suspected (δ_rel={delta_rel:.3f}); avoid continuous PID atoms on raw embeddings")
         # ACTION: Prefer Shannon invariants / MI-only screening, quantization → discrete PID, or Flow-as-Bridge.
+        # (Discrete path implemented: `pid-offline-harness --pid-mode discrete|discrete-pls`;
+        #  I_min measure + saturation diagnostics per grandplan.md §8.1.6 — a different PID
+        #  measure than continuous I^sx, so do not pool results across modes.)
 else:
     print("WARNING: cannot normalize δ (missing/degenerate diameter); report raw δ only and treat as scale-dependent.")
 ```

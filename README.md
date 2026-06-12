@@ -10,37 +10,55 @@
 > - `GAUSS_MI_INTEGRATION.md` — Optional: 3DGS uncertainty + view selection (spec)
 > - `WORLD_WARP_INTEGRATION.md` — Optional: external world‑model baseline (spec)
 > - `THIRD_PARTY_NOTICES.md` — Release-governance starter notices/checklist
+> - `findings.md` — Current estimator-status evidence (Exp0 results + interpretation)
+> - `REVIEW_AND_TODO.md` — Whole-repo review, prioritized to-do list, and the current critical path
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 PID‑VLA is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls, with local attribution methods treated as baselines/triangulation probes. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
 
+## Current Status & What To Do, In Order (v10.2, 2026-06-12)
+
+**Status in one paragraph:** the Rust estimator core, run-log/replay/bridge/sim/Rerun groundwork, and the offline `(V,L,D,A)` harness are implemented with passing tests. Experiment 0 currently reports **PIVOT** on synthetic high-dimensional controls — that is the gate *working*, not a bug (see `findings.md`): continuous kNN PID atoms are not interpretable on raw high-d embeddings. The estimator-side escape hatches (PLS supervised projection, discrete `I_min` PID with saturation diagnostics, block bootstrap, permutation tests) shipped 2026-06-11/12, so **the open critical path is data, not estimators: one real VLA/task capture with labels** (`REVIEW_AND_TODO.md`).
+
+Each step gates the next; canonical depth is in `grandplan.md` at the cited sections.
+
+1. **Verify the toolchain and see the gate fire:** `cargo test`, then `just exp0` / `just exp0-bin`. Expect a `PIVOT` verdict on the synthetic high-d diagnostics and read `findings.md` for why. Gate criteria: `grandplan.md` §9.1.
+2. **Learn the measurement-regime rules before touching real data:** one (PID measure, preprocessing, estimator config) tuple = one preregistered regime; never pool or compare continuous `I^sx_∩` atoms with discrete `I_min` atoms as if they were one quantity (`grandplan.md` Warning 6 + §8.1.6); supervised projections (PLS) are fit on training samples only and re-gated (§8.2.3 step 5).
+3. **Exercise the full pipeline on checked fixtures:** `just toy-harness`, `just offline-harness`, then the strict and discrete variants (`offline-harness-strict`, `offline-harness-discrete`, `offline-harness-discrete-pls`). The strict run exits nonzero and the discrete runs show `saturation_warning=true` on the tiny fixtures — both **by design**; they demonstrate the gates you must respect on real data.
+4. **Capture real data (open critical path; M5):** pick one model + one task via the decision matrix in `grandplan.md` §10.10.13.3; choose the `D` hook layer by the layerwise physics-probe procedure (§7.6.3) *before* geometry gating; log `(V,L,D,A)` with success labels, `episode_id`s, and a train/test split in the offline-harness input schema (below).
+5. **Analyze under the gates:** run the harness on the capture; geometry + coherence gates select continuous vs discrete vs MI-only screening (H8); report **all** regimes attempted; quantify uncertainty with block bootstrap and single-source permutation nulls (`pid-core` `bootstrap.rs`/`pipeline.rs`).
+6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines are built into the harness; add an internal-feature failure detector (SAFE-class) and one faithfulness-checked attribution probe (AttnLRP protocol: `grandplan.md` §14.7.1). The preregistered kill criteria (§14.1.1) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
+7. **Only then** run the Exp1–Exp5 protocols in `EXPERIMENTS.md` (see its §0.2 runbook for what is executable today vs blocked on step 4).
+
 ## Hypotheses (Docset v10.2)
 
 The canonical registry + falsification criteria live in `grandplan.md` (§14.1).
 
-| Hypothesis | One‑line testable claim |
-|---|---|
-| **H1** | PID/CI features predict failure labels beyond strong baselines. |
-| **H2** | Redundancy predicts robustness to single‑modality ablation (matched controls). |
-| **H3** | Uniques predict intervention sensitivity (matched‑strength perturbations). |
-| **H4** | Memorization vs generalization induces systematic PID/CI shifts. |
-| **H5** | Long‑horizon failures correlate with temporal PID/CI degradation. |
-| **H6** | Safety tasks show distinctive V–L integration patterns (only with proper labels/controls). |
-| **H7** | Flow‑as‑Bridge enables stage‑wise diagnostics and embodiment‑agnostic comparisons. |
-| **H8** | Geometry diagnostics determine which estimator regime is valid. |
-| **H9** | Faithfulness-checked attribution probes (LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style) should triangulate, or falsify, PID-derived modality/stage claims. |
+| Hypothesis | One‑line testable claim | Status | Real robotics problem addressed |
+|---|---|---|---|
+| **H1** | PID/CI features predict failure labels beyond strong baselines. | Core | Failure triage at fleet scale (frontier generalists still fail most episodes; teams triage by watching videos) |
+| **H2** | Redundancy predicts robustness to single‑modality ablation (matched controls). | Exploratory | Forecasting which skills degrade when a sensor/modality degrades, before it happens in the field |
+| **H3** | Uniques predict intervention sensitivity (matched‑strength perturbations). | Exploratory | Targeted data collection: spend teleop budget on the modality that actually moves behavior |
+| **H4** | Memorization vs generalization induces systematic PID/CI shifts. | Core | Pre-deployment generalization certification (VLA-Arena: current VLAs memorize) |
+| **H5** | Long‑horizon failures correlate with temporal PID/CI degradation. | Core (CI-only ablation mandatory) | Early warning for compositional drift in multi-stage tasks (kitting/assembly) |
+| **H6** | Safety tasks show distinctive V–L integration patterns (only with proper labels/controls). | Deferred | Safety-case evidence (needs proper labels first) |
+| **H7** | Flow‑as‑Bridge enables stage‑wise diagnostics and embodiment‑agnostic comparisons. | Core (method) | Cross-embodiment porting diagnosis: world-model failure vs execution failure |
+| **H8** | Geometry diagnostics determine which estimator regime is valid. | Core (method) | Trustworthy metrics: don't ship estimator artifacts to dashboards |
+| **H9** | Faithfulness-checked attribution probes (LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style) should triangulate, or falsify, PID-derived modality/stage claims. | Triangulation | Audit-grade incident explanations from converging evidence |
+
+PID is **forced nowhere**: `grandplan.md` §14.1.1 records, per hypothesis, the cheapest non-PID alternative, what PID distinctively adds, and the preregistered kill criteria that downgrade or drop PID-atom claims when simpler quantities suffice.
 
 ## Experiments (Run Order)
 
 Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and confounds live in `grandplan.md`.
 
-1. **Exp0** — Estimator + geometry gate (GO/PIVOT/NO‑GO).
-2. **Exp1** — Pick‑and‑place + perturbations (H1–H4).
-3. **Exp2** — Long‑horizon composition (H5).
-4. **Exp3** — Instruction/visual/physics perturbations (H1–H6).
-5. **Exp4** — Flow‑as‑Bridge bring‑up with simulator `Flow_gt` (H7).
-6. **Exp5** — Cross‑embodiment replication (H4/H7).
+1. **Exp0** — Estimator + geometry gate (GO/PIVOT/NO‑GO). *Runnable today* (`just exp0`); current verdict on synthetic high-d controls: **PIVOT** (`findings.md`). Nothing downstream is interpretable without this gate.
+2. **Exp1** — Pick‑and‑place + perturbations (H1–H4). *Blocked on the first real capture* (step 4 above); the offline harness + baselines that will analyze it are runnable today.
+3. **Exp2** — Long‑horizon composition (H5; windowed PID/CI with block bootstrap; CI-only ablation mandatory). *Blocked on capture.*
+4. **Exp3** — Instruction/visual/physics perturbations (H1–H6; matched-strength controls + placebos). *Blocked on capture.*
+5. **Exp4** — Flow‑as‑Bridge bring‑up with simulator `Flow_gt` (H7). *Sim-side `Flow_gt` + verification runnable today* (`just runlog-sim-verify`); VLA-side blocked on capture.
+6. **Exp5** — Cross‑embodiment replication (H4/H7; mind the embodiment-in-`L` confound, `grandplan.md` §14.5.7.3). *Blocked on capture.*
 
 Attribution methods are comparison evidence, not a shortcut around PID validity: LRP and related methods explain one model call or concept direction, while PID/CI estimates distribution-level information across logged samples. If attribution probes disagree with PID signatures under controlled interventions, treat the disagreement as a diagnostic result.
 
