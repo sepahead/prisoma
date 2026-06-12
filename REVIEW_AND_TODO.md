@@ -1,7 +1,7 @@
 # PID-VLA Whole-Repo Review and To-Do List
 
 Date: 2026-05-09
-Last consistency pass: 2026-05-10
+Last consistency pass: 2026-06-12 (see "Implementation Pass Status: 2026-06-12" below)
 
 This document records a whole-repo review of the PID-VLA repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism. The opening review has been updated after the follow-up implementation passes; older risks that were fixed are called out as fixed rather than left as current failures.
 
@@ -228,7 +228,7 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 
 ### P0: Blockers Before Serious Downstream Claims
 
-1. **Promote Experiment 0 from strict smoke gate to publishable measurement protocol.**
+1. **Promote Experiment 0 from strict smoke gate to publishable measurement protocol.** *(Partially done 2026-06-11/12: block bootstrap + per-atom bootstrap CIs + single-source permutation tests now exist in `pid-core` (`bootstrap.rs`, `pipeline.rs`), and PLS defines a documented supervised-projection regime (grandplan §8.2.3). Open: wiring resampling/uncertainty into the Exp0 runner itself.)*
    - Keep the current monotonicity/CMI/invariant/geometry gates strict.
    - Add uncertainty quantification, block bootstrap or trajectory-level resampling, and clearly documented validated preprocessing regimes.
    - Keep treating current PIVOT/NO-GO outputs as limits evidence, not VLA conclusions.
@@ -273,7 +273,7 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 ### P2: Later Improvements
 
 10. Add approximate or parallel kNN only after correctness gates are stable.
-11. Add a discrete/quantized PID fallback.
+11. Add a discrete/quantized PID fallback. *(Done 2026-06-11/12: 2- and 3-source discrete PID with an `I_min`-style redundancy — explicitly not discrete `i^sx_∩`, see grandplan §8.1.6 — plus harness `--pid-mode discrete|discrete-pls` and per-pair saturation diagnostics.)*
 12. Split `grandplan.md` into smaller maintainable specs while preserving one canonical index.
 13. Add benchmark fixtures comparing against external reference implementations where licensing permits.
 
@@ -312,6 +312,21 @@ Current residuals:
 - `crates/pid-runlog` now provides M1 groundwork (JSONL event schema, reader/writer, validation, replay summary with unique metric-name counts plus total metric-event counters, manifest/summary JSON, sidecar writing/verification, hashes, config-hash consistency gates, first-class `Flow_gt`/`flow_pred`, and contract metadata), `crates/pid-bridge` provides M2 event-core/dispatcher/JSON-RPC request/response groundwork plus bridge/run-log contract export and read-only safe-mode gates, `crates/pid-sim` provides an M3 deterministic smoke sim with backend/solver config provenance, bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, safe-mode `log.replay`, bridge `log.start`/`log.stop`, deterministic bridge `intervention.apply`, bridge `export.rerun`, simulator-derived `Flow_gt`, constant-velocity baseline `flow_pred`, flow verification, action/intervention replay checks, and an offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, deterministic sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, held-out class-coverage and episode-disjointness reports, held-out per-sample prediction records in summaries/run logs, replay-visible total metric event counts, and held-out failure-class confusion/rate diagnostics, and `crates/pid-rerun` converts run logs into Rerun recordings with summary/provenance/validation diagnostics; physics backend and real VLA/simulator data capture are still future work.
 - A tiny deterministic labeled harness now exists in `pid-sim` (`pid-toy-harness` / `just toy-harness`) to exercise first-class success-label events, a replay-linked toy `(V,L,D,A)` embedding contract, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export before any real VLA claims.
 - A generic offline embedding harness now exists in `pid-sim` (`pid-offline-harness` / `just offline-harness`) to ingest captured JSON samples with `v`, `l`, `d`, `a`, labels, and metadata, then emit canonical summary/run-log artifacts with config provenance, embedding contracts, standardized all-pairs `V/L/D→A` PID metrics plus train-split-only PID metrics when a metadata split is present, geometry diagnostics/gates, strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, deterministic sample-level plus episode-grouped and metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, held-out class-coverage and episode-disjointness reports, held-out per-sample prediction records in summaries/run logs, replay-visible total metric event counts, held-out failure-class confusion/rate diagnostics, and artifact records. `--require-geometry-pass` / `just offline-harness-strict` fails closed on geometry warnings while preserving a valid failed run log; `--require-heldout-split` fails closed if train/held-out baselines cannot be produced; `--require-heldout-class-coverage` fails closed if either subset lacks success or failure labels; `--require-heldout-episode-disjoint` fails closed if any `episode_id` crosses the train/held-out boundary.
+
+## Implementation Pass Status: 2026-06-12
+
+Completed since the 2026-05-09 pass (commits `20fd4bc`, `7e2c515`, `951a348`, `0b9d4a7` + this pass):
+
+- **Estimator escape hatches shipped:** PLS supervised dimensionality reduction (`pls.rs`; the fix for the Exp0 signal-in-noise finding), discrete 2- and 3-source PID via quantization (`discrete_pid.rs`), block-bootstrap uncertainty (`bootstrap.rs`), and a `pipeline.rs` composition layer (PLS→PID3, per-atom bootstrap CIs, single-source permutation tests, LOO-CV PLS component selection, all-pairs PID2 screening). This closes the library-level half of P0 item 1 and all of P2 item 11.
+- **Measure identity corrected:** the discrete redundancy is a Williams–Beer-style `I_min` functional, not discrete `i^sx_∩`; code names (`discrete_imin_redundancy*`), provenance strings (`discrete_imin`/`pls_discrete_imin`), and the docset (grandplan §8.1.6, Warning 6 extension) now say so. Cross-mode comparisons are cross-measure comparisons.
+- **Saturation gate implemented and empirically confirmed:** discrete modes emit per-pair `discrete_saturation` diagnostics; smoke fixtures show plug-in MI pinned at the `ln(n)` ceiling being flagged, as §8.1.6 predicts.
+- **Harness modes:** `pid-offline-harness --pid-mode continuous|discrete|discrete-pls` with `--discrete-bins`/`--pls-components`; `just offline-harness-discrete` / `offline-harness-discrete-pls` recipes; unit + smoke coverage for all three modes.
+- **Other June items:** `PhysicsBackend` trait + Rapier3D stub behind the `rapier` feature (P1 item 5 groundwork only — not a validated physics path), `attribution_logged` run-log event (schema only; the P1 item 9 caution about field stability still applies), Exp0 `--strict-gate`, high-dim synthetic fixture (CI smoke only), Python bindings 8→14.
+- **Docset v10.2:** measure-identity + supervised-projection + action-chunking guidance; §12.5 external-source review (integrated and ruled-out, both cited); §14.1.1 per-hypothesis PID-necessity audit with preregistered kill criteria; §14.7.1 AttnLRP/LRP protocol; world-model taxonomy update (latent-predictive/JEPA + unified omnimodel/WAM classes); Physics-Emergence-Zone hook-point prior (§7.6.3); real-robotics-problem column + failure-regime framing in the hypothesis registry (§14.1.0).
+
+Verification for this pass: `cargo test --workspace` green (35 suites), `cargo check` warning-free, all three doc audits pass, arXiv cache complete with zero italic-title drift.
+
+**Revised critical path (unchanged in substance, sharper in justification):** the single highest-value next step remains **P0 items 2 + 4 — one real VLA/task capture with externally meaningful labels**, run through the offline harness with non-PID baselines and one faithfulness-checked attribution probe (AttnLRP per grandplan §14.7.1). Every estimator-side prerequisite this review previously listed as blocking (uncertainty quantification, supervised projection, a discrete fallback, regime documentation) now exists; the remaining blockers are data and labels, not estimators. Pick the capture target by the grandplan §10.10.13.3 decision matrix; the §7.6.3 Physics-Emergence-Zone probe procedure should choose the `D_hidden[k]` hook layer before geometry gating. Secondary: wire bootstrap/permutation into the Exp0 runner (closing P0 item 1 end-to-end), and keep `meshmaker/` quarantine (P0 item 3) on the release checklist.
 
 ## Ten-Scientist Consensus Follow-Up: 2026-05-09
 
