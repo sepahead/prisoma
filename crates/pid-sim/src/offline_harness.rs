@@ -1,9 +1,9 @@
 use anyhow::{bail, Context, Result};
 use pid_core::{
-    co_information_pairwise, concat_horiz, distance_concentration_stats, gromov_hyperbolicity,
-    intrinsic_dimension_levina_bickel, pid2_isx, DistanceConcentrationConfig, HyperbolicityConfig,
-    IntrinsicDimConfig, IsxConfig, KsgConfig, MatOwned, MatRef, Metric, NegativeHandling,
-    Pid2Config, Standardizer,
+    co_information_pairwise, concat_horiz, discrete_mi, distance_concentration_stats,
+    gromov_hyperbolicity, intrinsic_dimension_levina_bickel, pid2_isx, quantize_equal_width,
+    DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig, IsxConfig, KsgConfig,
+    MatOwned, MatRef, Metric, NegativeHandling, Pid2Config, PlsProjector, Standardizer,
 };
 use pid_runlog::{
     EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
@@ -23,6 +23,51 @@ const OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES: usize = 500;
 const OFFLINE_HELDOUT_SPLIT_METADATA_KEY: &str = "split";
 const OFFLINE_CENTROID_SUCCESS_SCORE: &str =
     "distance_to_failure_centroid_minus_distance_to_success_centroid";
+/// Unique-joint-bin fraction above which discrete plug-in MI is treated as
+/// saturated (grandplan §8.1.6): estimates pinned near entropy ceilings (~ln n)
+/// reflect small-sample artifacts, not dependence.
+const OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX: f64 = 0.8;
+
+/// PID estimator mode: continuous (KSG-based kNN), discrete (quantization + counting),
+/// or discrete-pls (PLS projection + discrete PID).
+///
+/// Measure identity (grandplan §8.1.6): continuous mode estimates the
+/// shared-exclusions `I^sx_∩`; the discrete modes estimate a Williams–Beer-style
+/// `I_min` redundancy. Cross-mode comparisons are cross-measure comparisons.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum PidMode {
+    /// Continuous PID using KSG kNN mutual information and shared-exclusions redundancy.
+    #[default]
+    Continuous,
+    /// Discrete PID using equal-width quantization and counting-based entropy
+    /// (`I_min`-style redundancy, not discrete `i^sx_∩`).
+    Discrete,
+    /// PLS supervised projection toward `A` followed by discrete PID (escape hatch
+    /// for high-dimensional embeddings; projection is fitted on the samples given
+    /// to each screen, so the train-split screen fits on train samples only).
+    DiscretePls,
+}
+
+/// Options for the offline VLDA harness.
+#[derive(Debug, Clone)]
+pub struct OfflineVldaHarnessOptions {
+    /// PID estimator mode (continuous, discrete, or discrete-pls).
+    pub pid_mode: PidMode,
+    /// Number of quantization bins when `pid_mode == Discrete` or `DiscretePls`.
+    pub discrete_bins: usize,
+    /// Number of PLS latent components when `pid_mode == DiscretePls`.
+    pub pls_components: usize,
+}
+
+impl Default for OfflineVldaHarnessOptions {
+    fn default() -> Self {
+        Self {
+            pid_mode: PidMode::Continuous,
+            discrete_bins: 10,
+            pls_components: 2,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaDataset {
@@ -137,6 +182,23 @@ pub struct OfflineVldaPidPairMetrics {
     pub unique_source_1: f64,
     pub unique_source_2: f64,
     pub synergy: f64,
+    /// Discrete-mode saturation diagnostics (grandplan §8.1.6); `None` in continuous mode.
+    #[serde(default)]
+    pub discrete_saturation: Option<OfflineVldaDiscreteSaturation>,
+}
+
+/// Saturation diagnostics for discrete (quantized) PID screens.
+///
+/// When almost every sample occupies its own joint bin, plug-in entropies hit
+/// the `ln n` ceiling and MI estimates measure sample size, not dependence
+/// (grandplan §8.1.6). Treat pairs with `saturation_warning == true` as invalid.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaDiscreteSaturation {
+    pub unique_fraction_source_1: f64,
+    pub unique_fraction_source_2: f64,
+    pub unique_fraction_target: f64,
+    pub unique_fraction_joint: f64,
+    pub saturation_warning: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -316,9 +378,30 @@ pub fn run_offline_vlda_harness(
     input_uri: Option<String>,
     input_sha256: Option<String>,
 ) -> Result<OfflineVldaReport> {
+    run_offline_vlda_harness_with_options(
+        dataset,
+        input_uri,
+        input_sha256,
+        &OfflineVldaHarnessOptions::default(),
+    )
+}
+
+/// Run the offline VLDA harness with explicit options (PID mode, bin count, etc.).
+pub fn run_offline_vlda_harness_with_options(
+    dataset: OfflineVldaDataset,
+    input_uri: Option<String>,
+    input_sha256: Option<String>,
+    options: &OfflineVldaHarnessOptions,
+) -> Result<OfflineVldaReport> {
     let dims = validate_dataset(&dataset)?;
     let label_counts = label_counts(&dataset.samples);
-    let analysis = compute_analysis(&dataset.samples, &dims)?;
+    let analysis = compute_analysis(
+        &dataset.samples,
+        &dims,
+        options.pid_mode,
+        options.discrete_bins,
+        options.pls_components,
+    )?;
     let run_id = dataset
         .run_id
         .clone()
@@ -333,8 +416,18 @@ pub fn run_offline_vlda_harness(
         "dims": dims,
         "samples": dataset.samples.len(),
         "metric_pipeline": {
-            "mi": "ksg",
-            "pid": "isx_ehrlich_ksg",
+            "mi": match options.pid_mode {
+                PidMode::Continuous => "ksg",
+                PidMode::Discrete | PidMode::DiscretePls => "discrete",
+            },
+            "pid": match options.pid_mode {
+                PidMode::Continuous => "isx_ehrlich_ksg",
+                PidMode::Discrete => "discrete_imin",
+                PidMode::DiscretePls => "pls_discrete_imin",
+            },
+            "pid_mode": options.pid_mode,
+            "discrete_bins": options.discrete_bins,
+            "pls_components": options.pls_components,
             "pid_pairs": [["V", "L"], ["V", "D"], ["L", "D"]],
             "pid_sample_scopes": if analysis.train_split_pid.as_ref().and_then(|report| report.metrics.as_ref()).is_some() {
                 vec!["all_samples", "metadata_split_train"]
@@ -462,6 +555,9 @@ fn train_split_pid_report(
     samples: &[OfflineVldaSample],
     dims: &OfflineVldaDims,
     split: &OfflineVldaHeldoutSplitPlan,
+    pid_mode: PidMode,
+    discrete_bins: usize,
+    pls_components: usize,
 ) -> OfflineVldaTrainSplitPidReport {
     let train_samples = samples
         .iter()
@@ -479,7 +575,7 @@ fn train_split_pid_report(
     };
     let result = (|| -> Result<(OfflineVldaPreprocessingReport, OfflineVldaPidScreenMetrics)> {
         let prepared = prepare_standardized_embeddings(&train_samples, &train_dims)?;
-        let metrics = compute_pid_screen_metrics(&prepared)?;
+        let metrics = compute_pid_screen_metrics(&prepared, pid_mode, discrete_bins, pls_components)?;
         Ok((prepared.preprocessing, metrics))
     })();
     let (status, preprocessing, metrics, error) = match result {
@@ -508,49 +604,107 @@ fn train_split_pid_report(
 
 fn compute_pid_screen_metrics(
     prepared: &PreparedVldaMatrices,
+    pid_mode: PidMode,
+    discrete_bins: usize,
+    pls_components: usize,
 ) -> Result<OfflineVldaPidScreenMetrics> {
     let v = prepared.v.as_ref();
     let l = prepared.l.as_ref();
     let d = prepared.d.as_ref();
     let a = prepared.a.as_ref();
-    let ksg = KsgConfig {
-        negative_handling: NegativeHandling::Allow,
-        ..Default::default()
+
+    // DiscretePls: project each source toward A with PLS fitted on the samples
+    // given to this screen (train-only in the train-split path; in-sample for the
+    // all-samples screen, which the metric_pipeline provenance records). The
+    // target A stays unprojected.
+    let pls_projected = match pid_mode {
+        PidMode::DiscretePls => {
+            let v_proj = PlsProjector::fit(v, a, pls_components)?.transform(v)?;
+            let l_proj = PlsProjector::fit(l, a, pls_components)?.transform(l)?;
+            let d_proj = PlsProjector::fit(d, a, pls_components)?.transform(d)?;
+            Some((v_proj, l_proj, d_proj))
+        }
+        PidMode::Continuous | PidMode::Discrete => None,
     };
-    let pid_cfg = Pid2Config {
-        ksg: ksg.clone(),
-        isx: IsxConfig {
-            k: ksg.k,
-            metric: ksg.metric,
-            tie_epsilon: ksg.tie_epsilon,
-            ..Default::default()
-        },
+    let (v_eff, l_eff, d_eff) = match &pls_projected {
+        Some((v_proj, l_proj, d_proj)) => (v_proj.as_ref(), l_proj.as_ref(), d_proj.as_ref()),
+        None => (v, l, d),
     };
-    let mi_v_action = pid_core::ksg_mi(v, a, &ksg)?;
-    let mi_l_action = pid_core::ksg_mi(l, a, &ksg)?;
-    let mi_d_action = pid_core::ksg_mi(d, a, &ksg)?;
+
+    // Compute per-source MI with A.
+    let (mi_v_action, mi_l_action, mi_d_action) = match pid_mode {
+        PidMode::Continuous => {
+            let ksg = KsgConfig {
+                negative_handling: NegativeHandling::Allow,
+                ..Default::default()
+            };
+            (
+                pid_core::ksg_mi(v_eff, a, &ksg)?,
+                pid_core::ksg_mi(l_eff, a, &ksg)?,
+                pid_core::ksg_mi(d_eff, a, &ksg)?,
+            )
+        }
+        PidMode::Discrete | PidMode::DiscretePls => {
+            let v_bins = quantize_equal_width(v_eff, discrete_bins)?;
+            let l_bins = quantize_equal_width(l_eff, discrete_bins)?;
+            let d_bins = quantize_equal_width(d_eff, discrete_bins)?;
+            let a_bins = quantize_equal_width(a, discrete_bins)?;
+            (
+                discrete_mi(&v_bins, &a_bins, discrete_bins)?,
+                discrete_mi(&l_bins, &a_bins, discrete_bins)?,
+                discrete_mi(&d_bins, &a_bins, discrete_bins)?,
+            )
+        }
+    };
+
     let v_source = OfflineVldaSourceMatrix {
         name: "V",
-        matrix: v,
+        matrix: v_eff,
         mi_action: mi_v_action,
     };
     let l_source = OfflineVldaSourceMatrix {
         name: "L",
-        matrix: l,
+        matrix: l_eff,
         mi_action: mi_l_action,
     };
     let d_source = OfflineVldaSourceMatrix {
         name: "D",
-        matrix: d,
+        matrix: d_eff,
         mi_action: mi_d_action,
     };
     let action_target = OfflineVldaTargetMatrix {
         name: "A",
         matrix: a,
     };
-    let vl_pair = compute_pid_pair_metrics(v_source, l_source, action_target, &ksg, &pid_cfg)?;
-    let vd_pair = compute_pid_pair_metrics(v_source, d_source, action_target, &ksg, &pid_cfg)?;
-    let ld_pair = compute_pid_pair_metrics(l_source, d_source, action_target, &ksg, &pid_cfg)?;
+
+    let (vl_pair, vd_pair, ld_pair) = match pid_mode {
+        PidMode::Continuous => {
+            let ksg = KsgConfig {
+                negative_handling: NegativeHandling::Allow,
+                ..Default::default()
+            };
+            let pid_cfg = Pid2Config {
+                ksg: ksg.clone(),
+                isx: IsxConfig {
+                    k: ksg.k,
+                    metric: ksg.metric,
+                    tie_epsilon: ksg.tie_epsilon,
+                    ..Default::default()
+                },
+            };
+            (
+                compute_pid_pair_metrics(v_source, l_source, action_target, &ksg, &pid_cfg)?,
+                compute_pid_pair_metrics(v_source, d_source, action_target, &ksg, &pid_cfg)?,
+                compute_pid_pair_metrics(l_source, d_source, action_target, &ksg, &pid_cfg)?,
+            )
+        }
+        PidMode::Discrete | PidMode::DiscretePls => (
+            compute_pid_pair_metrics_discrete(v_source, l_source, action_target, discrete_bins)?,
+            compute_pid_pair_metrics_discrete(v_source, d_source, action_target, discrete_bins)?,
+            compute_pid_pair_metrics_discrete(l_source, d_source, action_target, discrete_bins)?,
+        ),
+    };
+
     let pid_pairs = [
         ("VL".to_string(), vl_pair.clone()),
         ("VD".to_string(), vd_pair),
@@ -1093,6 +1247,9 @@ struct PreparedVldaMatrices {
 fn compute_analysis(
     samples: &[OfflineVldaSample],
     dims: &OfflineVldaDims,
+    pid_mode: PidMode,
+    discrete_bins: usize,
+    pls_components: usize,
 ) -> Result<OfflineVldaAnalysis> {
     let prepared = prepare_standardized_embeddings(samples, dims)?;
     let heldout_split = heldout_split_plan(samples);
@@ -1104,10 +1261,17 @@ fn compute_analysis(
     let heldout_episode_disjoint = heldout_split
         .as_ref()
         .map(|split| heldout_episode_disjoint_report(samples, &split.roles));
-    let metrics = compute_metrics(samples, &prepared, heldout_split.as_ref())?;
-    let train_split_pid = heldout_split
-        .as_ref()
-        .map(|split| train_split_pid_report(samples, dims, split));
+    let metrics = compute_metrics(
+        samples,
+        &prepared,
+        heldout_split.as_ref(),
+        pid_mode,
+        discrete_bins,
+        pls_components,
+    )?;
+    let train_split_pid = heldout_split.as_ref().map(|split| {
+        train_split_pid_report(samples, dims, split, pid_mode, discrete_bins, pls_components)
+    });
     let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
     let geometry = compute_geometry_report(&prepared);
@@ -1190,8 +1354,11 @@ fn compute_metrics(
     samples: &[OfflineVldaSample],
     prepared: &PreparedVldaMatrices,
     heldout_split: Option<&OfflineVldaHeldoutSplitPlan>,
+    pid_mode: PidMode,
+    discrete_bins: usize,
+    pls_components: usize,
 ) -> Result<OfflineVldaMetrics> {
-    let pid_screen = compute_pid_screen_metrics(prepared)?;
+    let pid_screen = compute_pid_screen_metrics(prepared, pid_mode, discrete_bins, pls_components)?;
     let success_labels = success_labels(samples);
     let (success_rate, majority_success_accuracy) = success_metrics(&success_labels);
     let loo_nn_v_success_accuracy = success_labels
@@ -1512,6 +1679,81 @@ fn compute_pid_pair_metrics(
         unique_source_1: pid.unique_s1,
         unique_source_2: pid.unique_s2,
         synergy: pid.synergy,
+        discrete_saturation: None,
+    })
+}
+
+/// Fraction of rows whose bin pattern is unique (1.0 = every sample in its own bin).
+fn unique_row_fraction(bins: &[Vec<usize>]) -> f64 {
+    if bins.is_empty() {
+        return 0.0;
+    }
+    let unique: std::collections::HashSet<&Vec<usize>> = bins.iter().collect();
+    unique.len() as f64 / bins.len() as f64
+}
+
+/// Discrete-mode PID pair metrics: quantization + counting-based entropy instead of kNN.
+///
+/// Redundancy is the Williams–Beer-style `I_min` functional (grandplan §8.1.6), not
+/// discrete `i^sx_∩`. Saturation diagnostics flag regimes where plug-in MI is pinned
+/// to entropy ceilings by unique-bin sparsity.
+fn compute_pid_pair_metrics_discrete(
+    source_1: OfflineVldaSourceMatrix<'_>,
+    source_2: OfflineVldaSourceMatrix<'_>,
+    target: OfflineVldaTargetMatrix<'_>,
+    num_bins: usize,
+) -> Result<OfflineVldaPidPairMetrics> {
+    let pid = pid_core::discrete_pid2(source_1.matrix, source_2.matrix, target.matrix, num_bins)?;
+    // Compute MI(S1,S2;T) for the co-information term.
+    let s1s2 = concat_horiz(source_1.matrix, source_2.matrix)?;
+    let s1s2_bins = quantize_equal_width(s1s2.as_ref(), num_bins)?;
+    let t_bins = quantize_equal_width(target.matrix, num_bins)?;
+    let mi_s1s2_t = discrete_mi(&s1s2_bins, &t_bins, num_bins)?;
+    // Co-information: MI(S1;T) + MI(S2;T) - MI(S1,S2;T)
+    let co_information = pid.mi_s1_t + pid.mi_s2_t - mi_s1s2_t;
+    // Saturation diagnostics (grandplan §8.1.6).
+    let s1_bins = quantize_equal_width(source_1.matrix, num_bins)?;
+    let s2_bins = quantize_equal_width(source_2.matrix, num_bins)?;
+    let joint_bins: Vec<Vec<usize>> = s1s2_bins
+        .iter()
+        .zip(&t_bins)
+        .map(|(st, t)| {
+            let mut row = st.clone();
+            row.extend_from_slice(t);
+            row
+        })
+        .collect();
+    let unique_fraction_source_1 = unique_row_fraction(&s1_bins);
+    let unique_fraction_source_2 = unique_row_fraction(&s2_bins);
+    let unique_fraction_target = unique_row_fraction(&t_bins);
+    let unique_fraction_joint = unique_row_fraction(&joint_bins);
+    let saturation_warning = [
+        unique_fraction_source_1,
+        unique_fraction_source_2,
+        unique_fraction_target,
+        unique_fraction_joint,
+    ]
+    .iter()
+    .any(|&fraction| fraction > OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX);
+    Ok(OfflineVldaPidPairMetrics {
+        source_1: source_1.name.to_string(),
+        source_2: source_2.name.to_string(),
+        target: target.name.to_string(),
+        mi_source_1_action: pid.mi_s1_t,
+        mi_source_2_action: pid.mi_s2_t,
+        mi_joint_action: mi_s1s2_t,
+        co_information,
+        redundancy: pid.redundancy,
+        unique_source_1: pid.unique_s1,
+        unique_source_2: pid.unique_s2,
+        synergy: pid.synergy,
+        discrete_saturation: Some(OfflineVldaDiscreteSaturation {
+            unique_fraction_source_1,
+            unique_fraction_source_2,
+            unique_fraction_target,
+            unique_fraction_joint,
+            saturation_warning,
+        }),
     })
 }
 
@@ -3844,6 +4086,62 @@ mod tests {
                 diagnostic.classifier == classifier && diagnostic.variable.as_deref() == variable
             })
             .unwrap()
+    }
+
+    #[test]
+    fn discrete_mode_emits_imin_pairs_with_saturation_diagnostics() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Discrete,
+            discrete_bins: 6,
+            pls_components: 2,
+        };
+        let report =
+            run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
+        assert_eq!(report.metrics.pid_pairs.len(), 3);
+        for (pair_name, pair) in &report.metrics.pid_pairs {
+            let saturation = pair
+                .discrete_saturation
+                .as_ref()
+                .unwrap_or_else(|| panic!("{pair_name} missing saturation diagnostics"));
+            assert!(saturation.unique_fraction_joint > 0.0);
+            // I_min identities: Red <= min marginal MI, so uniques are non-negative;
+            // atoms computed exactly on one empirical joint are non-negative.
+            let eps = 1e-9;
+            assert!(pair.redundancy <= pair.mi_source_1_action.min(pair.mi_source_2_action) + eps);
+            assert!(pair.unique_source_1 >= -eps, "{pair_name} Unq1 negative");
+            assert!(pair.unique_source_2 >= -eps, "{pair_name} Unq2 negative");
+            assert!(pair.synergy >= -eps, "{pair_name} Syn negative");
+        }
+    }
+
+    #[test]
+    fn discrete_pls_mode_projects_then_quantizes() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::DiscretePls,
+            discrete_bins: 6,
+            pls_components: 1,
+        };
+        let report =
+            run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
+        assert_eq!(report.metrics.pid_pairs.len(), 3);
+        let vl = &report.metrics.pid_pairs["VL"];
+        assert!(vl.discrete_saturation.is_some());
+        assert!(vl.mi_source_1_action.is_finite());
+        // Train-split screen must also run under the PLS-projected discrete path.
+        let train_pid = report.train_split_pid.as_ref().unwrap();
+        assert_eq!(train_pid.status, "available");
+        assert_eq!(train_pid.metrics.as_ref().unwrap().pid_pairs.len(), 3);
+    }
+
+    #[test]
+    fn continuous_mode_has_no_saturation_diagnostics() {
+        let dataset = fixture_dataset();
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+        for pair in report.metrics.pid_pairs.values() {
+            assert!(pair.discrete_saturation.is_none());
+        }
     }
 
     #[test]

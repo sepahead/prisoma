@@ -1,11 +1,11 @@
 use numpy::PyReadonlyArray2;
 use pid_core::{
     average_degree_of_redundancy, average_degree_of_vulnerability, co_information_pairwise,
-    discrete_pid2, distance_concentration_stats, gromov_hyperbolicity, hierarchical_pairwise,
-    hierarchical_triplet, intrinsic_dimension_levina_bickel, isx_redundancy, ksg_mi,
-    ksg_mi_concat_xy, pid2_isx, pid3_isx, DistanceConcentrationConfig, HashProjector,
-    HyperbolicityConfig, IntrinsicDimConfig, IsxConfig, IsxMethod, KsgConfig, MatRef, Metric,
-    NegativeHandling, PcaProjector, Pid2Config, Pid3Config, PlsProjector, Standardizer,
+    discrete_pid2, distance_concentration_stats, gromov_hyperbolicity,
+    intrinsic_dimension_levina_bickel, isx_redundancy, ksg_mi, ksg_mi_concat_xy, pid2_isx,
+    pid3_isx, DistanceConcentrationConfig, HashProjector, HyperbolicityConfig, IntrinsicDimConfig,
+    IsxConfig, IsxMethod, KsgConfig, MatRef, Metric, NegativeHandling, PcaProjector, Pid2Config,
+    Pid3Config, PlsProjector, Standardizer,
 };
 use pyo3::prelude::*;
 use std::collections::HashMap;

@@ -7,8 +7,9 @@ use pid_sim::offline_harness::{
     offline_vlda_heldout_episode_disjoint_status, offline_vlda_heldout_split_failure_message,
     offline_vlda_heldout_split_status, offline_vlda_success_label_failure_message,
     offline_vlda_success_label_status, offline_vlda_train_split_pid_status,
-    read_offline_vlda_dataset, run_offline_vlda_harness, write_offline_vlda_runlog_with_options,
-    write_offline_vlda_summary, OfflineVldaRunlogOptions,
+    read_offline_vlda_dataset, run_offline_vlda_harness_with_options,
+    write_offline_vlda_runlog_with_options, write_offline_vlda_summary, OfflineVldaHarnessOptions,
+    OfflineVldaRunlogOptions, PidMode,
 };
 use std::path::PathBuf;
 
@@ -22,6 +23,9 @@ struct Args {
     require_heldout_split: bool,
     require_heldout_class_coverage: bool,
     require_heldout_episode_disjoint: bool,
+    pid_mode: PidMode,
+    discrete_bins: usize,
+    pls_components: usize,
 }
 
 fn main() -> Result<()> {
@@ -29,10 +33,16 @@ fn main() -> Result<()> {
     let input_sha256 = pid_runlog::sha256_file(&args.input)
         .with_context(|| format!("failed to hash {}", args.input.display()))?;
     let dataset = read_offline_vlda_dataset(&args.input)?;
-    let report = run_offline_vlda_harness(
+    let harness_options = OfflineVldaHarnessOptions {
+        pid_mode: args.pid_mode,
+        discrete_bins: args.discrete_bins,
+        pls_components: args.pls_components,
+    };
+    let report = run_offline_vlda_harness_with_options(
         dataset.clone(),
         Some(args.input.display().to_string()),
         Some(input_sha256),
+        &harness_options,
     )?;
     write_offline_vlda_summary(&args.summary_json, &report)?;
     write_offline_vlda_runlog_with_options(
@@ -103,6 +113,9 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut require_heldout_split = false;
     let mut require_heldout_class_coverage = false;
     let mut require_heldout_episode_disjoint = false;
+    let mut pid_mode = PidMode::Continuous;
+    let mut discrete_bins: usize = 10;
+    let mut pls_components: usize = 2;
     let mut iter = args.into_iter();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
@@ -137,6 +150,38 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
             "--require-heldout-episode-disjoint" => {
                 require_heldout_episode_disjoint = true;
             }
+            "--pid-mode" => {
+                let mode_str = iter
+                    .next()
+                    .context("--pid-mode requires 'continuous', 'discrete', or 'discrete-pls'")?;
+                pid_mode = match mode_str.as_str() {
+                    "continuous" => PidMode::Continuous,
+                    "discrete" => PidMode::Discrete,
+                    "discrete-pls" => PidMode::DiscretePls,
+                    other => bail!(
+                        "--pid-mode must be 'continuous', 'discrete', or 'discrete-pls', got '{other}'"
+                    ),
+                };
+            }
+            "--discrete-bins" => {
+                let bins_str = iter.next().context("--discrete-bins requires a number")?;
+                discrete_bins = bins_str
+                    .parse::<usize>()
+                    .with_context(|| format!("--discrete-bins: invalid number '{bins_str}'"))?;
+                if discrete_bins < 2 {
+                    bail!("--discrete-bins must be >= 2");
+                }
+            }
+            "--pls-components" => {
+                let components_str =
+                    iter.next().context("--pls-components requires a number")?;
+                pls_components = components_str.parse::<usize>().with_context(|| {
+                    format!("--pls-components: invalid number '{components_str}'")
+                })?;
+                if pls_components < 1 {
+                    bail!("--pls-components must be >= 1");
+                }
+            }
             other => bail!("unknown argument: {other}"),
         }
     }
@@ -150,14 +195,27 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         require_heldout_split,
         require_heldout_class_coverage,
         require_heldout_episode_disjoint,
+        pid_mode,
+        discrete_bins,
+        pls_components,
     })
 }
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint]\n\
+        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N]\n\
          \n\
-         Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts."
+         Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts.\n\
+         \n\
+         --pid-mode continuous   Use KSG kNN-based MI and continuous I^sx PID (default).\n\
+         --pid-mode discrete     Use equal-width quantization + counting-based discrete PID\n\
+                                 (I_min-style redundancy, not discrete i^sx; results carry\n\
+                                 saturation diagnostics — see grandplan §8.1.6).\n\
+         --pid-mode discrete-pls PLS-project V/L/D toward A, then discrete PID on the\n\
+                                 projections (fit is in-sample for the all-samples screen;\n\
+                                 train-only for the train-split screen).\n\
+         --discrete-bins N       Number of bins for discrete modes (default: 10, min: 2).\n\
+         --pls-components N      PLS components for discrete-pls (default: 2, min: 1)."
     );
 }
 
@@ -189,5 +247,49 @@ mod tests {
         assert!(args.require_heldout_split);
         assert!(args.require_heldout_class_coverage);
         assert!(args.require_heldout_episode_disjoint);
+        assert_eq!(args.pid_mode, PidMode::Continuous);
+        assert_eq!(args.discrete_bins, 10);
+        assert_eq!(args.pls_components, 2);
+    }
+
+    #[test]
+    fn parse_args_accepts_discrete_pid_mode() {
+        let args = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--pid-mode".to_string(),
+            "discrete".to_string(),
+            "--discrete-bins".to_string(),
+            "20".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(args.pid_mode, PidMode::Discrete);
+        assert_eq!(args.discrete_bins, 20);
+    }
+
+    #[test]
+    fn parse_args_accepts_discrete_pls_pid_mode() {
+        let args = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--pid-mode".to_string(),
+            "discrete-pls".to_string(),
+            "--pls-components".to_string(),
+            "3".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(args.pid_mode, PidMode::DiscretePls);
+        assert_eq!(args.pls_components, 3);
+    }
+
+    #[test]
+    fn parse_args_rejects_unknown_pid_mode() {
+        assert!(parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--pid-mode".to_string(),
+            "quantum".to_string(),
+        ])
+        .is_err());
     }
 }

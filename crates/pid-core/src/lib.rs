@@ -5,7 +5,7 @@
 //! - Wibral-group shared-exclusions redundancy `I^sx_∩(S1,S2;T)` (Makkeh et al. 2021)
 //! - Continuous shared-exclusions estimator (Ehrlich et al. 2024)
 //! - 2-source PID atoms derived from MI + `I^sx_∩`, and an optional 3-source SxPID
-//! - A hierarchical “fast→slow” screening path for many-source settings
+//! - A hierarchical "fast→slow" screening path for many-source settings
 //!
 //! # Units
 //! All information quantities are reported in **nats** (natural logarithm).
@@ -40,13 +40,17 @@ mod metric;
 mod nn;
 mod pid2;
 mod pid3;
+mod pipeline;
 mod pls;
 mod preprocess;
 mod stats;
 
 pub use bootstrap::{block_bootstrap, block_bootstrap_paired, BootstrapConfig, BootstrapResult};
 pub use ci::{co_information_pairwise, co_information_triplet};
-pub use discrete_pid::{discrete_pid2, quantize_equal_width, DiscretePid2Result};
+pub use discrete_pid::{
+    discrete_entropy, discrete_mi, discrete_pid2, discrete_pid3, quantize_equal_width,
+    DiscretePid2Result, DiscretePid3Atom, DiscretePid3Result,
+};
 pub use distance_matrix::{symmetric_distances, SymmetricDistanceMatrix};
 pub use error::{PidError, PidResult};
 pub use geometry::{
@@ -70,5 +74,11 @@ pub use matrix::{concat_horiz, MatOwned, MatRef};
 pub use metric::Metric;
 pub use pid2::{pid2_isx, pid2_isx_estimate, Pid2Config, Pid2Estimate, Pid2Result};
 pub use pid3::{pid3_isx, Antichain3, Pid3Atom, Pid3Config, Pid3Redundancy, Pid3Result};
+pub use pipeline::{
+    bootstrap_pid3, permutation_pid3, pls_cv_select_components, pls_project_then_discrete_pid3,
+    pls_project_then_pid3, screen_pid2_pairs, BootstrapPid3Result, PermutationPid3Atom,
+    PermutationPid3Result, Pid2ScreenEntry, Pid3BootstrapAtom, PlsCvResult, PlsDiscretePid3Config,
+    PlsDiscretePid3Result, PlsPid3Config, PlsPid3Result,
+};
 pub use pls::PlsProjector;
 pub use preprocess::{HashProjector, Jitter, PcaProjector, Standardizer};

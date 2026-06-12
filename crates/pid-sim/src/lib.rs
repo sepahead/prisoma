@@ -1,3 +1,7 @@
+// The offline harness builds one large provenance `json!` literal; the default
+// macro recursion limit is too small for it.
+#![recursion_limit = "256"]
+
 use anyhow::{bail, Context, Result};
 use pid_bridge::{
     BridgeHandler, BridgeMethod, BridgeRequest, BridgeResponse, BridgeRpcRequest,

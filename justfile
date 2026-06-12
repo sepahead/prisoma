@@ -76,6 +76,16 @@ offline-harness-highdim input="crates/pid-sim/fixtures/offline_vlda_highdim_fixt
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
 
+# Discrete (quantized I_min) PID mode; results carry saturation diagnostics (grandplan §8.1.6).
+offline-harness-discrete input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_discrete_runlog.jsonl" summary="outputs/offline_vlda_discrete_summary.json":
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --pid-mode discrete --discrete-bins 8
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+
+# PLS-project sources toward A, then discrete PID (high-dim escape hatch).
+offline-harness-discrete-pls input="crates/pid-sim/fixtures/offline_vlda_highdim_fixture.json" runlog="outputs/offline_vlda_highdim_dpls_runlog.jsonl" summary="outputs/offline_vlda_highdim_dpls_summary.json":
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --pid-mode discrete-pls --pls-components 2 --discrete-bins 8
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+
 # M1 run-log smoke path.
 runlog-demo:
     cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl
