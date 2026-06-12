@@ -11,7 +11,7 @@
 
 ---
 
-**Docset alignment:** This document is aligned to `grandplan.md` v10.1. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
+**Docset alignment:** This document is aligned to `grandplan.md` v10.2. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
 
 **Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the source of truth; Rerun is the Phases 1–3 diagnostic/time-machine viewer; Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering; all clients share the Agent Bridge.
 
@@ -67,7 +67,7 @@ SparkJS (Phase 4) allows custom shaders for "Ghost Splats" (predictive flow over
 - Handle collision detection, joint constraints, friction, restitution
 - Rapier can run at low step times for small scenes; achievable control/step rates are hardware- and scene-dependent.
 
-**Target backend sketch (Rapier integration planned, not present in `crates/pid-sim` yet):**
+**Target backend sketch (a `PhysicsBackend` trait with a null adapter and a Rapier3D skeleton exists in `crates/pid-sim` behind the optional `rapier` feature as of 2026-06-11; it is a stub, not a validated physics path — full integration remains planned):**
 ```rust
 // Table collider with realistic friction
 let table_collider = ColliderBuilder::cuboid(0.60, 0.40, 0.375)

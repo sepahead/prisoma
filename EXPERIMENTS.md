@@ -11,8 +11,8 @@
 
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** 10.1 (Aligned with `grandplan.md` v10.1)  
-**Date:** 2026-01-18  
+**Version:** 10.2 (Aligned with `grandplan.md` v10.2)  
+**Date:** 2026-06-12  
 **Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, external video predictor / Dream2Flow-style pipeline, and the Agent Bridge control plane) are external or not yet implemented in this repo; treat them as specifications until built.
 
 **Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. Experimental evidence must flow through the canonical run log; Rerun is the first diagnostic viewer; Tauri/SparkJS is deferred until the run-log/replay/Rerun loop is reliable; all interventions must be Agent Bridge events.

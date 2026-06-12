@@ -1,4 +1,4 @@
-# PID‑VLA UI/UX Specification (Docset v10.1)
+# PID‑VLA UI/UX Specification (Docset v10.2)
 
 This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the v10.1 `README.md` engineering plan.
 

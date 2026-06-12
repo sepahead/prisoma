@@ -15,7 +15,7 @@
 
 PID‑VLA is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls, with local attribution methods treated as baselines/triangulation probes. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
 
-## Hypotheses (Docset v10.1)
+## Hypotheses (Docset v10.2)
 
 The canonical registry + falsification criteria live in `grandplan.md` (§14.1).
 

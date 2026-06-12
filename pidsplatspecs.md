@@ -10,8 +10,8 @@
 > - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 10.1 (Rerun-First Architecture)
-**Date:** 2026-01-08
+**Version:** 10.2 (Rerun-First Architecture; implementation-status refresh)
+**Date:** 2026-06-12
 **Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
 
 ---
@@ -39,7 +39,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 | :--- | :--- | :--- | :--- |
 | **Run log** | `crates/pid-runlog` JSONL events + replay summary | Schema v1; M1 groundwork implemented; includes embedding/sim/bridge event types, validation, replay hash comparison, summary JSON with unique metric-name counts plus total metric-event counters, manifest JSON, and co-located sidecar writing/verification | MIT (project) |
 | **Agent Bridge core** | `crates/pid-bridge` | Local request/response schema, dispatcher, JSON-RPC-shaped request/response conversion, run-log integration, bridge/run-log contract JSON export, safe-mode gates, and stdio/TCP/WebSocket sim transports | MIT (project) |
-| **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`, `log.start`/`log.stop`, deterministic `intervention.apply`, `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, replay-visible total metric event counts, and failure-class confusion/rate diagnostics; physics backend trait/Rapier remains planned | MIT (project) |
+| **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`, `log.start`/`log.stop`, deterministic `intervention.apply`, `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, replay-visible total metric event counts, and failure-class confusion/rate diagnostics; a `PhysicsBackend` trait with null adapter and Rapier3D skeleton exists behind the optional `rapier` feature (stub; full physics integration remains planned) | MIT (project) |
 | **Attribution probes (H9)** | Offline explainer artifacts | Planned companion diagnostics only: LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style tensors or visualizations should be logged via existing artifact records with method/target/baseline/hash metadata until a stable first-class attribution schema is justified | Method/model-dependent; verify |
 | **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | Rerun SDK 0.28.x in Cargo; run-log conversion includes summary/provenance/validation diagnostic tracks; Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |
 | **Renderer** | Rerun native/WebViewer / SparkJS (Phase 4) | Pin exact package versions / git SHAs at implementation time | Rerun WebViewer: MIT; SparkJS package metadata: MIT; Three.js: MIT |
@@ -161,7 +161,7 @@ The in-repo deterministic bridge currently exposes status/reset/step, scene edit
 ### 6. Modular Physics Binding (PEGS)
 
 #### 6.1 Splat-to-Physics Mapping
-The target environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym**) via a unified trait interface. The checked repo currently has the deterministic object-sim smoke; physics backend adapters remain planned.
+The target environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym**) via a unified trait interface. The checked repo currently has the deterministic object-sim smoke plus a `PhysicsBackend` trait with a null adapter and a Rapier3D skeleton behind the optional `rapier` feature (stub); validated physics backend adapters remain planned.
 *   **Manual Proxy:** User defines primitive colliders (Box, Sphere) in code/config (visualized in Rerun) or uses the Tauri editor (Phase 4) to match visual boundaries.
 *   **Visual Forces:** If `Syn(V, Flow; A)` drops, we can optionally apply "correction forces" to nudge the physics simulation toward the Dream (counterfactual analysis).
 

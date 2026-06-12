@@ -309,6 +309,20 @@
     "title": "SplatSim: Zero-Shot Sim2Real Transfer of RGB Manipulation Policies Using Gaussian Splatting",
     "updated": "2024-10-07T03:37:36Z"
   },
+  "2409.13506": {
+    "authors": [
+      "Chiara Bar\u00e0",
+      "Yuri Antonacci",
+      "Marta Iovino",
+      "Ivan Lazic",
+      "Luca Faes"
+    ],
+    "id": "2409.13506",
+    "published": "2024-09-20T13:48:03Z",
+    "summary": "The framework of Partial Information Decomposition (PID) unveils complex nonlinear interactions in network systems by dissecting the mutual information (MI) between a target variable and several source variables. While PID measures have been formulated mostly for discrete variables, with only recent extensions to continuous systems, the case of mixed variables where the target is discrete and the sources are continuous is not yet covered properly. Here, we introduce a PID scheme whereby the MI between a specific state of the discrete target and (subsets of) the continuous sources is expressed as a Kullback-Leibler divergence and is estimated through a data-efficient nearest-neighbor strategy. The effectiveness of this PID is demonstrated in simulated systems of mixed variables and showcased in a physiological application. Our approach is relevant to many scientific problems, including sensory coding in neuroscience and feature selection in machine learning.",
+    "title": "Partial information decomposition for mixed discrete and continuous random variables",
+    "updated": "2024-09-20T13:48:03Z"
+  },
   "2410.04010": {
     "authors": [
       "Menglin Yang",
@@ -323,6 +337,17 @@
     "summary": "Large language models (LLMs) have demonstrated remarkable performance on various tasks. However, it remains an open question whether the default Euclidean space is the most suitable choice for embedding tokens in LLMs. In this study, we first investigate the non-Euclidean characteristics of LLMs. Our findings reveal that token frequency follows a power-law distribution, with high-frequency tokens clustering near the origin and low-frequency tokens positioned farther away. Additionally, token embeddings exhibit a high degree of hyperbolicity, indicating a latent tree-like structure in the embedding space. Building on the observation, we propose to efficiently fine-tune LLMs in hyperbolic space to better exploit the underlying complex structures. However, we found that this fine-tuning in hyperbolic space cannot be achieved with naive application of exponential and logarithmic maps, when the embedding and weight matrices both reside in Euclidean space. To address this technique issue, we introduce a new method called hyperbolic low-rank efficient fine-tuning, HypLoRA, that performs low-rank adaptation directly on the hyperbolic manifold, avoiding the cancellation effect caused by the exponential and logarithmic maps, thus preserving the hyperbolic modeling capabilities. Through extensive experiments, we demonstrate that HypLoRA significantly enhances the performance of LLMs on reasoning tasks, particularly for complex reasoning problems. In particular, HypLoRA improves the performance in the complex AQuA dataset by up to 13.0%, showcasing its effectiveness in handling complex reasoning challenges",
     "title": "Hyperbolic Fine-tuning for Large Language Models",
     "updated": "2024-10-05T02:58:25Z"
+  },
+  "2410.10924": {
+    "authors": [
+      "Kyungeun Lee",
+      "Wonjong Rhee"
+    ],
+    "id": "2410.10924",
+    "published": "2024-10-14T14:22:38Z",
+    "summary": "Mutual Information (MI) is a fundamental metric for quantifying dependency between two random variables. When we can access only the samples, but not the underlying distribution functions, we can evaluate MI using sample-based estimators. Assessment of such MI estimators, however, has almost always relied on analytical datasets including Gaussian multivariates. Such datasets allow analytical calculations of the true MI values, but they are limited in that they do not reflect the complexities of real-world datasets. This study introduces a comprehensive benchmark suite for evaluating neural MI estimators on unstructured datasets, specifically focusing on images and texts. By leveraging same-class sampling for positive pairing and introducing a binary symmetric channel trick, we show that we can accurately manipulate true MI values of real-world datasets. Using the benchmark suite, we investigate seven challenging scenarios, shedding light on the reliability of neural MI estimators for unstructured datasets.",
+    "title": "A Benchmark Suite for Evaluating Neural Mutual Information Estimators on Unstructured Datasets",
+    "updated": "2024-10-14T14:22:38Z"
   },
   "2410.19750": {
     "authors": [
@@ -422,6 +447,22 @@
     "title": "VLA-Cache: Efficient Vision-Language-Action Manipulation via Adaptive Token Caching",
     "updated": "2025-10-21T10:33:29Z"
   },
+  "2502.04550": {
+    "authors": [
+      "Luca Faes",
+      "Laura Sparacino",
+      "Gorana Mijatovic",
+      "Yuri Antonacci",
+      "Leonardo Ricci",
+      "Daniele Marinazzo",
+      "Sebastiano Stramaglia"
+    ],
+    "id": "2502.04550",
+    "published": "2025-02-06T23:01:23Z",
+    "summary": "Partial Information Decomposition (PID) is a principled and flexible method to unveil complex high-order interactions in multi-unit network systems. Though being defined exclusively for random variables, PID is ubiquitously applied to multivariate time series taken as realizations of random processes with temporal statistical structure. Here, to overcome the incorrect depiction of high-order effects by PID schemes applied to dynamic networks, we introduce the framework of Partial Information Rate Decomposition (PIRD). PIRD is first formalized applying lattice theory to decompose the information shared dynamically between a target random process and a set of source processes, and then implemented for Gaussian processes through a spectral expansion of information rates. The new framework is validated in simulated network systems and demonstrated in the practical analysis of time series from large-scale climate oscillations.",
+    "title": "Partial Information Rate Decomposition",
+    "updated": "2025-06-28T09:14:58Z"
+  },
   "2502.14671": {
     "authors": [
       "Maryam Rahimi",
@@ -433,6 +474,18 @@
     "summary": "Large language models (LLMs) not only exhibit human-like performance but also share computational principles with the brain's language processing mechanisms. While prior research has focused on mapping LLMs' internal representations to neural activity, we propose a novel approach using explainable AI (XAI) to strengthen this link. Applying attribution methods, we quantify the influence of preceding words on LLMs' next-word predictions and use these explanations to predict fMRI data from participants listening to narratives. We find that attribution methods robustly predict brain activity across the language network, revealing a hierarchical pattern: explanations from early layers align with the brain's initial language processing stages, while later layers correspond to more advanced stages. Additionally, layers with greater influence on next-word prediction$\\unicode{x2014}$reflected in higher attribution scores$\\unicode{x2014}$demonstrate stronger brain alignment. These results underscore XAI's potential for exploring the neural basis of language and suggest brain alignment for assessing the biological plausibility of explanation methods.",
     "title": "Explanations of Large Language Models Explain Language Representations in the Brain",
     "updated": "2025-04-03T21:56:08Z"
+  },
+  "2502.19645": {
+    "authors": [
+      "Moo Jin Kim",
+      "Chelsea Finn",
+      "Percy Liang"
+    ],
+    "id": "2502.19645",
+    "published": "2025-02-27T00:30:29Z",
+    "summary": "Recent vision-language-action models (VLAs) build upon pretrained vision-language models and leverage diverse robot datasets to demonstrate strong task execution, language following ability, and semantic generalization. Despite these successes, VLAs struggle with novel robot setups and require fine-tuning to achieve good performance, yet how to most effectively fine-tune them is unclear given many possible strategies. In this work, we study key VLA adaptation design choices such as different action decoding schemes, action representations, and learning objectives for fine-tuning, using OpenVLA as our representative base model. Our empirical analysis informs an Optimized Fine-Tuning (OFT) recipe that integrates parallel decoding, action chunking, a continuous action representation, and a simple L1 regression-based learning objective to altogether improve inference efficiency, policy performance, and flexibility in the model's input-output specifications. We propose OpenVLA-OFT, an instantiation of this recipe, which sets a new state of the art on the LIBERO simulation benchmark, significantly boosting OpenVLA's average success rate across four task suites from 76.5% to 97.1% while increasing action generation throughput by 26$\\times$. In real-world evaluations, our fine-tuning recipe enables OpenVLA to successfully execute dexterous, high-frequency control tasks on a bimanual ALOHA robot and outperform other VLAs ($\u03c0_0$ and RDT-1B) fine-tuned using their default recipes, as well as strong imitation learning policies trained from scratch (Diffusion Policy and ACT) by up to 15% (absolute) in average success rate. We release code for OFT and pretrained model checkpoints at https://openvla-oft.github.io/.",
+    "title": "Fine-Tuning Vision-Language-Action Models: Optimizing Speed and Success",
+    "updated": "2025-04-28T07:49:39Z"
   },
   "2503.02142": {
     "authors": [
@@ -763,6 +816,18 @@
     "title": "HELM: Hyperbolic Large Language Models via Mixture-of-Curvature Experts",
     "updated": "2025-11-06T01:18:03Z"
   },
+  "2506.00330": {
+    "authors": [
+      "Eslam Abdelaleem",
+      "K. Michael Martini",
+      "Ilya Nemenman"
+    ],
+    "id": "2506.00330",
+    "published": "2025-05-31T01:06:18Z",
+    "summary": "Mutual information (MI) quantifies statistical dependence between variables and is widely used across scientific disciplines, yet accurate estimation from finite data remains notoriously difficult. Common approaches fail in high-dimensional, undersampled regimes ($N \\lesssim K$) typical of modern experiments, and no accepted tests exist to detect when neural network-based estimators fail, making them effectively unusable as scientific instruments. We show that neural MI estimators can be made reliable when the statistical dependencies admit a low-dimensional latent representation. Sample complexity is then governed by the latent dimensionality $K_Z \\ll K$ rather than the ambient dimension -- a regime shift we confirm empirically and ground theoretically via random matrix theory. Building on this insight, we develop a practical protocol that provides neural estimators with explicit statistical consistency checks, bias correction, and confidence intervals. We additionally introduce a new class of probabilistic critics (the VSIB family) that substantially reduce bias and variance at higher MI values where standard estimators break down. We validate the protocol on synthetic benchmarks ($K=500$, $N$ as low as $256$), on the standard 40-dataset benchmark suite of Czyz et al. (2023), on noisy MNIST ($K=784$), and on CIFAR-10/100 ($K=3072$) with a ResNet-20 backbone. Our protocol consistently matches or exceeds existing methods while being the only approach to report confidence intervals and flag unreliable estimates, achieving reliable MI detection well below the ambient pixel dimension on real images.",
+    "title": "Accurate Estimation of Mutual Information in High Dimensional Data",
+    "updated": "2026-06-10T13:50:48Z"
+  },
   "2506.01034": {
     "authors": [
       "Benjamin Matthias Ruppik",
@@ -815,6 +880,20 @@
     "summary": "Vision-Language-Action (VLA) models, particularly diffusion-based architectures, demonstrate transformative potential for embodied intelligence but are severely hampered by high computational and memory demands stemming from extensive inherent and inference-time redundancies. While existing acceleration efforts often target isolated inefficiencies, such piecemeal solutions typically fail to holistically address the varied computational and memory bottlenecks across the entire VLA pipeline, thereby limiting practical deployability. We introduce EfficientVLA, a structured and training-free inference acceleration framework that systematically eliminates these barriers by cohesively exploiting multifaceted redundancies. EfficientVLA synergistically integrates three targeted strategies: (1) pruning of functionally inconsequential layers from the language module, guided by an analysis of inter-layer redundancies; (2) optimizing the visual processing pathway through a task-aware strategy that selects a compact, diverse set of visual tokens, balancing task-criticality with informational coverage; and (3) alleviating temporal computational redundancy within the iterative diffusion-based action head by strategically caching and reusing key intermediate features. We apply our method to a standard VLA model CogACT, yielding a 1.93X inference speedup and reduces FLOPs to 28.9%, with only a 0.6% success rate drop in the SIMPLER benchmark.",
     "title": "EfficientVLA: Training-Free Acceleration and Compression for Vision-Language-Action Models",
     "updated": "2025-06-11T18:34:57Z"
+  },
+  "2506.18498": {
+    "authors": [
+      "Alberto Liardi",
+      "George Blackburne",
+      "Hardik Rajpal",
+      "Fernando E. Rosas",
+      "Pedro A. M. Mediano"
+    ],
+    "id": "2506.18498",
+    "published": "2025-06-23T10:50:24Z",
+    "summary": "Our understanding of complex systems rests on our ability to characterise how they perform distributed computation and integrate information. Advances in information theory have introduced several quantities to describe complex information structures, where collective patterns of coordination emerge from higher-order (i.e. beyond-pairwise) interdependencies. Unfortunately, the use of these approaches to study large complex systems is severely hindered by the poor scalability of existing techniques. Moreover, there are relatively few measures specifically designed for multivariate time series data. Here we introduce a novel measure of information about macroscopic structures, termed M-information, which quantifies the higher-order integration of information in complex dynamical systems. We show that M-information can be calculated via a convex optimisation problem, and we derive a robust and efficient algorithm that scales gracefully with system size. Our analyses show that M-information is resilient to noise, indexes critical behaviour in artificial neuronal populations, and reflects states of consciousness and task performance in real-world macaque and mouse neuroimaging data. Furthermore, M-information can be incorporated into existing information decomposition frameworks to reveal a comprehensive taxonomy of information dynamics. Taken together, these results help us unravel collective computation in large complex systems.",
+    "title": "A scalable estimator of higher-order information in complex dynamical systems",
+    "updated": "2026-04-10T15:27:52Z"
   },
   "2506.23135": {
     "authors": [
@@ -1481,5 +1560,35 @@
     "summary": "Generative video modeling has emerged as a compelling tool to zero-shot reason about plausible physical interactions for open-world manipulation. Yet, it remains a challenge to translate such human-led motions into the low-level actions demanded by robotic systems. We observe that given an initial image and task instruction, these models excel at synthesizing sensible object motions. Thus, we introduce Dream2Flow, a framework that bridges video generation and robotic control through 3D object flow as an intermediate representation. Our method reconstructs 3D object motions from generated videos and formulates manipulation as object trajectory tracking. By separating the state changes from the actuators that realize those changes, Dream2Flow overcomes the embodiment gap and enables zero-shot guidance from pre-trained video models to manipulate objects of diverse categories-including rigid, articulated, deformable, and granular. Through trajectory optimization or reinforcement learning, Dream2Flow converts reconstructed 3D object flow into executable low-level commands without task-specific demonstrations. Simulation and real-world experiments highlight 3D object flow as a general and scalable interface for adapting video generation models to open-world robotic manipulation. Videos and visualizations are available at https://dream2flow.github.io/.",
     "title": "Dream2Flow: Bridging Video Generation and Open-World Manipulation with 3D Object Flow",
     "updated": "2025-12-31T10:25:24Z"
+  },
+  "2602.10098": {
+    "authors": [
+      "Jingwen Sun",
+      "Wenyao Zhang",
+      "Zekun Qi",
+      "Shaojie Ren",
+      "Zezhi Liu",
+      "Hanxin Zhu",
+      "Guangzhong Sun",
+      "Xin Jin",
+      "Zhibo Chen"
+    ],
+    "id": "2602.10098",
+    "published": "2026-02-10T18:58:01Z",
+    "summary": "Pretraining Vision-Language-Action (VLA) policies on internet-scale video is appealing, yet current latent-action objectives often learn the wrong thing: they remain anchored to pixel variation rather than action-relevant state transitions, making them vulnerable to appearance bias, nuisance motion, and information leakage. We introduce VLA-JEPA, a JEPA-style pretraining framework that sidesteps these pitfalls by design. The key idea is leakage-free state prediction: a target encoder produces latent representations from future frames, while the student pathway sees only the current observation -- future information is used solely as supervision targets, never as input. By predicting in latent space rather than pixel space, VLA-JEPA learns dynamics abstractions that are robust to camera motion and irrelevant background changes. This yields a simple two-stage recipe -- JEPA pretraining followed by action-head fine-tuning -- without the multi-stage complexity of prior latent-action pipelines. Experiments on LIBERO, LIBERO-Plus, SimplerEnv and real-world manipulation tasks show that VLA-JEPA achieves consistent gains in generalization and robustness over existing methods.",
+    "title": "VLA-JEPA: Enhancing Vision-Language-Action Model with Latent World Model",
+    "updated": "2026-02-14T03:00:50Z"
+  },
+  "2603.19233": {
+    "authors": [
+      "Bryce Grant",
+      "Xijia Zhao",
+      "Peng Wang"
+    ],
+    "id": "2603.19233",
+    "published": "2026-03-19T17:59:55Z",
+    "summary": "Vision-Language-Action (VLA) models combine perception, language, and motor control in a single architecture, yet how they translate multimodal inputs into actions remains poorly understood. We apply activation injection, sparse autoencoders (SAEs), and linear probes to six models spanning 80M--7B parameters across 394,000+ rollout episodes on four benchmarks. The visual pathway dominates action generation across all architectures: injecting baseline activations into null-prompt episodes recovers near-identical behavior, while cross-task injection steers robots toward source-task positions (99.8\\% of X-VLA episodes align with the source trajectory), exposing spatially bound motor programs tied to scene coordinates rather than abstract task representations. Language sensitivity depends on task structure, not model design: when visual context uniquely specifies the task, language is ignored; when multiple goals share a scene, language becomes essential (X-VLA \\texttt{libero\\_goal}: 94\\%$\\to$10\\% under wrong prompts vs.\\ \\texttt{libero\\_object}: 60--100\\% regardless). In all three multi-pathway architectures (\\pizhalf{}, SmolVLA, GR00T), expert pathways encode motor programs while VLM pathways encode goal semantics ($2\\times$ greater behavioral displacement from expert injection), and subspace injection confirms these occupy separable activation subspaces. Per-token SAE processing is essential for action fidelity on most architectures, though mean-pooling improves fidelity on X-VLA. Contrastive identification recovers 82+ manipulation concepts, and causal ablation reveals sensitivity spanning 28--92\\% zero-effect rates independent of representation width. We release \\textbf{Action Atlas} (https://action-atlas.com) for interactive exploration of VLA representations across all six models.",
+    "title": "Not All Features Are Created Equal: A Mechanistic Study of Vision-Language-Action Models",
+    "updated": "2026-03-19T17:59:55Z"
   }
 }
