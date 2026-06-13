@@ -664,6 +664,449 @@ pub fn screen_pid2_pairs(
     Ok(entries)
 }
 
+// ── Generic row-resampling uncertainty helpers ─────────────────────────────
+
+/// Bootstrap summary for one scalar statistic from [`bootstrap_rows_stats`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct RowBootstrapStat {
+    /// Statistic evaluated on the original (un-resampled, un-jittered) data.
+    pub point_estimate: f64,
+    /// Mean of the bootstrap distribution (finite resamples only).
+    pub boot_mean: f64,
+    /// Standard error (std of bootstrap distribution; finite resamples only).
+    pub boot_se: f64,
+    /// Lower percentile CI bound.
+    pub ci_low: f64,
+    /// Upper percentile CI bound.
+    pub ci_high: f64,
+    /// Number of resamples attempted.
+    pub n_attempted: usize,
+    /// Number of resamples on which this statistic evaluated to a finite value.
+    pub n_valid: usize,
+}
+
+/// Row-resampling scheme for [`bootstrap_rows_stats`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RowResampleScheme {
+    /// Moving-block bootstrap **with replacement** plus deterministic tie-breaking
+    /// jitter on the resampled rows.
+    ///
+    /// With-replacement resampling guarantees duplicate rows. The KSG-family
+    /// estimators in this crate intentionally reject zero kNN radii caused by
+    /// duplicates (`PidError::NumericalInstability`), so `jitter_rel` must be > 0
+    /// for kNN statistics (each resampled element gets an additive uniform
+    /// perturbation of amplitude `jitter_rel × column_std`, column std measured on
+    /// the original data — the tie-breaking noise recommended by Kraskov et al.
+    /// 2004 §II).
+    ///
+    /// **Caveat (empirically pinned by a test):** even with jitter, duplicated
+    /// points distort kNN local-density statistics, shifting the bootstrap mean of
+    /// KSG MI by a non-negligible amount. Naive with-replacement bootstrap is known
+    /// to be unreliable for kNN information estimators; prefer
+    /// [`RowResampleScheme::Subsample`] for KSG-based statistics.
+    BlockBootstrapJitter {
+        /// Relative jitter amplitude (e.g. `1e-9`); 0 disables jitter.
+        jitter_rel: f64,
+    },
+    /// Politis–Romano-style subsampling **without replacement**: each resample
+    /// draws `subsample_len / block_size` *distinct* contiguous blocks, yielding a
+    /// duplicate-free subsample of (approximately) `subsample_len` rows.
+    ///
+    /// Duplicate-free resamples are safe for kNN estimators with no jitter. The
+    /// resulting percentile interval describes the sampling variability of the
+    /// statistic at sample size `m = subsample_len`; for `m < n` its width
+    /// overstates the n-sample uncertainty (roughly by `sqrt(n/m)` for
+    /// root-n-rate statistics), so treat it as a conservative interval and report
+    /// `m` alongside it.
+    Subsample {
+        /// Subsample length `m` (rows; rounded down to a multiple of `block_size`).
+        subsample_len: usize,
+    },
+}
+
+/// Result of [`bootstrap_rows_stats`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct RowBootstrapResult {
+    /// Per-statistic summaries, in the order returned by the statistic closure.
+    pub stats: Vec<RowBootstrapStat>,
+    /// Number of resamples attempted.
+    pub n_boot: usize,
+    /// Block size used for the block-level resampling.
+    pub block_size: usize,
+    /// Resampling scheme used.
+    pub scheme: RowResampleScheme,
+}
+
+/// Joint block-level row resampling over several aligned matrices, for a
+/// vector-valued statistic, under a configurable [`RowResampleScheme`].
+///
+/// All matrices must share the same row count `n`. Each resample draws contiguous
+/// blocks of row indices (the same indices are applied to every matrix, preserving
+/// cross-variable alignment), then evaluates `stat` on the resampled matrices.
+/// Percentile intervals are computed from the finite resample statistics.
+///
+/// For KSG/kNN-based statistics use [`RowResampleScheme::Subsample`]; see the
+/// scheme docs for why with-replacement bootstrap is problematic there.
+///
+/// Failed resamples (statistic returns `Err`, or a non-finite entry) are recorded
+/// via `n_valid`, not silently dropped: callers should treat a low
+/// `n_valid / n_attempted` ratio as an estimator-regime warning.
+///
+/// # Errors
+///
+/// Returns an error if the matrices are empty or misaligned, if the configuration is
+/// invalid, or if the statistic fails **on the original data** (a failed point
+/// estimate makes the resampling distribution meaningless).
+pub fn bootstrap_rows_stats<F>(
+    mats: &[MatRef<'_>],
+    cfg: &BootstrapConfig,
+    scheme: RowResampleScheme,
+    stat: F,
+) -> PidResult<RowBootstrapResult>
+where
+    F: Fn(&[MatRef<'_>]) -> PidResult<Vec<f64>>,
+{
+    if mats.is_empty() {
+        return Err(PidError::InvalidConfig {
+            context: "bootstrap_rows_stats",
+            message: "mats must not be empty",
+        });
+    }
+    let n = mats[0].nrows();
+    for m in mats {
+        if m.nrows() != n {
+            return Err(PidError::RowCountMismatch {
+                context: "bootstrap_rows_stats",
+                left_rows: n,
+                right_rows: m.nrows(),
+            });
+        }
+    }
+    if cfg.n_boot == 0 {
+        return Err(PidError::InvalidConfig {
+            context: "bootstrap_rows_stats",
+            message: "n_boot must be > 0",
+        });
+    }
+    if cfg.block_size == 0 || cfg.block_size > n {
+        return Err(PidError::InvalidConfig {
+            context: "bootstrap_rows_stats",
+            message: "block_size must be in 1..=n",
+        });
+    }
+    if !(cfg.alpha > 0.0 && cfg.alpha < 1.0) {
+        return Err(PidError::InvalidConfig {
+            context: "bootstrap_rows_stats",
+            message: "alpha must be in (0, 1)",
+        });
+    }
+    let n_blocks = n / cfg.block_size;
+    // Number of distinct blocks to draw per resample, and whether to draw with
+    // replacement, depend on the scheme.
+    let (blocks_per_resample, with_replacement, jitter_rel) = match scheme {
+        RowResampleScheme::BlockBootstrapJitter { jitter_rel } => {
+            if !jitter_rel.is_finite() || jitter_rel < 0.0 {
+                return Err(PidError::InvalidConfig {
+                    context: "bootstrap_rows_stats",
+                    message: "jitter_rel must be finite and >= 0",
+                });
+            }
+            (n_blocks, true, jitter_rel)
+        }
+        RowResampleScheme::Subsample { subsample_len } => {
+            let blocks = subsample_len / cfg.block_size;
+            if blocks == 0 {
+                return Err(PidError::InvalidConfig {
+                    context: "bootstrap_rows_stats",
+                    message: "subsample_len must be >= block_size",
+                });
+            }
+            if blocks > n_blocks {
+                return Err(PidError::InvalidConfig {
+                    context: "bootstrap_rows_stats",
+                    message: "subsample_len must be <= n (in whole blocks)",
+                });
+            }
+            (blocks, false, 0.0)
+        }
+    };
+
+    let point = stat(mats)?;
+    if point.is_empty() {
+        return Err(PidError::InvalidConfig {
+            context: "bootstrap_rows_stats",
+            message: "stat must return at least one value",
+        });
+    }
+    let n_stats = point.len();
+
+    // Per-matrix, per-column population std on the original data (jitter scale).
+    let col_stds: Vec<Vec<f64>> = mats
+        .iter()
+        .map(|m| {
+            let d = m.ncols();
+            let mut mean = vec![0.0f64; d];
+            for i in 0..n {
+                for (j, v) in m.row(i).iter().enumerate() {
+                    mean[j] += v;
+                }
+            }
+            for v in &mut mean {
+                *v /= n as f64;
+            }
+            let mut var = vec![0.0f64; d];
+            for i in 0..n {
+                for (j, v) in m.row(i).iter().enumerate() {
+                    var[j] += (v - mean[j]) * (v - mean[j]);
+                }
+            }
+            var.iter().map(|v| (v / n as f64).sqrt()).collect()
+        })
+        .collect();
+
+    let mut rng = SplitMix64::new(cfg.seed);
+    // boot_values[stat_idx][resample_idx], only finite values are pushed.
+    let mut boot_values: Vec<Vec<f64>> = vec![Vec::with_capacity(cfg.n_boot); n_stats];
+
+    for _ in 0..cfg.n_boot {
+        // Draw `blocks_per_resample` block starts, with or without replacement.
+        let mut block_ids: Vec<usize> = Vec::with_capacity(blocks_per_resample);
+        if with_replacement {
+            for _ in 0..blocks_per_resample {
+                block_ids.push(rng.next_u64() as usize % n_blocks);
+            }
+        } else {
+            // Partial Fisher–Yates over [0, n_blocks): draw distinct block ids.
+            let mut pool: Vec<usize> = (0..n_blocks).collect();
+            for k in 0..blocks_per_resample {
+                let j = k + (rng.next_u64() as usize) % (n_blocks - k);
+                pool.swap(k, j);
+                block_ids.push(pool[k]);
+            }
+            // Keep temporal order of subsampled blocks for block-structure fidelity.
+            block_ids.sort_unstable();
+        }
+
+        let mut indices = Vec::with_capacity(block_ids.len() * cfg.block_size);
+        for &b in &block_ids {
+            let block_start = b * cfg.block_size;
+            for j in 0..cfg.block_size {
+                indices.push(block_start + j);
+            }
+        }
+
+        let mut owned: Vec<MatOwned> = Vec::with_capacity(mats.len());
+        for (m_idx, m) in mats.iter().enumerate() {
+            let d = m.ncols();
+            let mut data = Vec::with_capacity(indices.len() * d);
+            for &i in &indices {
+                data.extend_from_slice(m.row(i));
+            }
+            if jitter_rel > 0.0 {
+                for (flat_idx, v) in data.iter_mut().enumerate() {
+                    let col = flat_idx % d;
+                    let scale = jitter_rel * col_stds[m_idx][col];
+                    if scale > 0.0 {
+                        // Uniform in [-scale, scale]: tie-breaking only, shape irrelevant.
+                        let u = (rng.next_u64() >> 11) as f64 / (1u64 << 53) as f64;
+                        *v += scale * (2.0 * u - 1.0);
+                    }
+                }
+            }
+            owned.push(MatOwned::new(data, indices.len(), d).map_err(|_| {
+                PidError::InvalidConfig {
+                    context: "bootstrap_rows_stats",
+                    message: "resampled data must be finite",
+                }
+            })?);
+        }
+        let refs: Vec<MatRef<'_>> = owned.iter().map(|m| m.as_ref()).collect();
+        if let Ok(values) = stat(&refs) {
+            if values.len() != n_stats {
+                return Err(PidError::InvalidConfig {
+                    context: "bootstrap_rows_stats",
+                    message: "stat returned an inconsistent number of values",
+                });
+            }
+            for (idx, value) in values.into_iter().enumerate() {
+                if value.is_finite() {
+                    boot_values[idx].push(value);
+                }
+            }
+        }
+    }
+
+    let stats = point
+        .iter()
+        .enumerate()
+        .map(|(idx, &point_estimate)| {
+            let vals = &mut boot_values[idx];
+            vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            let m = vals.len();
+            if m == 0 {
+                return RowBootstrapStat {
+                    point_estimate,
+                    boot_mean: f64::NAN,
+                    boot_se: f64::NAN,
+                    ci_low: f64::NAN,
+                    ci_high: f64::NAN,
+                    n_attempted: cfg.n_boot,
+                    n_valid: 0,
+                };
+            }
+            let mean = vals.iter().sum::<f64>() / m as f64;
+            let var = vals.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / m as f64;
+            let lo_idx = ((cfg.alpha / 2.0) * m as f64).floor() as usize;
+            let hi_idx = (((1.0 - cfg.alpha / 2.0) * m as f64).ceil() as usize)
+                .saturating_sub(1)
+                .min(m - 1);
+            RowBootstrapStat {
+                point_estimate,
+                boot_mean: mean,
+                boot_se: var.sqrt(),
+                ci_low: vals[lo_idx],
+                ci_high: vals[hi_idx],
+                n_attempted: cfg.n_boot,
+                n_valid: m,
+            }
+        })
+        .collect();
+
+    Ok(RowBootstrapResult {
+        stats,
+        n_boot: cfg.n_boot,
+        block_size: cfg.block_size,
+        scheme,
+    })
+}
+
+/// Result of [`permutation_rows_pvalue`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct RowPermutationStat {
+    /// Statistic on the original data.
+    pub observed: f64,
+    /// Add-one one-sided p-value: `(1 + #{perm >= observed}) / (1 + n_valid)`.
+    pub p_value: f64,
+    /// Number of permutations attempted.
+    pub n_attempted: usize,
+    /// Number of permutations on which the statistic evaluated to a finite value.
+    pub n_valid: usize,
+    /// Index (into `mats`) of the matrix whose rows were shuffled.
+    pub shuffled_index: usize,
+}
+
+/// One-sided permutation test on a scalar statistic of several aligned matrices.
+///
+/// Shuffles the rows of `mats[shuffled_index]` (Fisher–Yates, seeded) while keeping
+/// every other matrix fixed, re-evaluating `stat` on each permuted dataset. Under the
+/// null hypothesis that the shuffled variable carries no information about the rest,
+/// the observed statistic should be exchangeable with the permuted ones.
+///
+/// Unlike [`permutation_pid3`] (kept as-is for backward compatibility), this helper
+/// uses the add-one Monte Carlo p-value `(b + 1) / (m + 1)` (Phipson & Smyth 2010),
+/// which is a valid p-value (never exactly zero) and is the convention the
+/// Experiment 0 gate relies on.
+///
+/// Permuting rows introduces no duplicate rows, so no jitter is needed here.
+///
+/// # Errors
+///
+/// Returns an error on misaligned/empty inputs, an out-of-range `shuffled_index`,
+/// `n_perm == 0`, or if the statistic fails or is non-finite on the original data.
+pub fn permutation_rows_pvalue<F>(
+    mats: &[MatRef<'_>],
+    shuffled_index: usize,
+    n_perm: usize,
+    seed: u64,
+    stat: F,
+) -> PidResult<RowPermutationStat>
+where
+    F: Fn(&[MatRef<'_>]) -> PidResult<f64>,
+{
+    if mats.is_empty() {
+        return Err(PidError::InvalidConfig {
+            context: "permutation_rows_pvalue",
+            message: "mats must not be empty",
+        });
+    }
+    let n = mats[0].nrows();
+    for m in mats {
+        if m.nrows() != n {
+            return Err(PidError::RowCountMismatch {
+                context: "permutation_rows_pvalue",
+                left_rows: n,
+                right_rows: m.nrows(),
+            });
+        }
+    }
+    if shuffled_index >= mats.len() {
+        return Err(PidError::InvalidConfig {
+            context: "permutation_rows_pvalue",
+            message: "shuffled_index out of range",
+        });
+    }
+    if n_perm == 0 {
+        return Err(PidError::InvalidConfig {
+            context: "permutation_rows_pvalue",
+            message: "n_perm must be > 0",
+        });
+    }
+
+    let observed = stat(mats)?;
+    if !observed.is_finite() {
+        return Err(PidError::InvalidConfig {
+            context: "permutation_rows_pvalue",
+            message: "observed statistic must be finite",
+        });
+    }
+
+    let mut rng = SplitMix64::new(seed);
+    let shuffled_dim = mats[shuffled_index].ncols();
+    let mut n_valid = 0usize;
+    let mut n_geq = 0usize;
+
+    for _ in 0..n_perm {
+        let mut perm: Vec<usize> = (0..n).collect();
+        for i in (1..n).rev() {
+            let j = (rng.next_u64() as usize) % (i + 1);
+            perm.swap(i, j);
+        }
+        let mut data = Vec::with_capacity(n * shuffled_dim);
+        for &i in &perm {
+            data.extend_from_slice(mats[shuffled_index].row(i));
+        }
+        let shuffled =
+            MatOwned::new(data, n, shuffled_dim).map_err(|_| PidError::InvalidConfig {
+                context: "permutation_rows_pvalue",
+                message: "shuffled data must be finite",
+            })?;
+        let mut refs: Vec<MatRef<'_>> = mats.to_vec();
+        refs[shuffled_index] = shuffled.as_ref();
+        if let Ok(value) = stat(&refs) {
+            if value.is_finite() {
+                n_valid += 1;
+                if value >= observed {
+                    n_geq += 1;
+                }
+            }
+        }
+    }
+
+    let p_value = if n_valid == 0 {
+        f64::NAN
+    } else {
+        (1.0 + n_geq as f64) / (1.0 + n_valid as f64)
+    };
+
+    Ok(RowPermutationStat {
+        observed,
+        p_value,
+        n_attempted: n_perm,
+        n_valid,
+        shuffled_index,
+    })
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -965,5 +1408,219 @@ mod tests {
         for w in entries.windows(2) {
             assert!(w[0].result.synergy >= w[1].result.synergy);
         }
+    }
+
+    /// Helper: paired (x, y) columns with y = x + noise, returned as 1-col matrices.
+    fn make_linear_pair(n: usize, noise: f64, seed: u64) -> (MatOwned, MatOwned) {
+        let mut rng = SplitMix64::new(seed);
+        let mut x_data = Vec::with_capacity(n);
+        let mut y_data = Vec::with_capacity(n);
+        for _ in 0..n {
+            let x = rng.normal();
+            x_data.push(x);
+            y_data.push(x + noise * rng.normal());
+        }
+        (
+            MatOwned::new(x_data, n, 1).unwrap(),
+            MatOwned::new(y_data, n, 1).unwrap(),
+        )
+    }
+
+    fn pearson_stat(mats: &[MatRef<'_>]) -> PidResult<Vec<f64>> {
+        let x = mats[0];
+        let y = mats[1];
+        let n = x.nrows() as f64;
+        let mx: f64 = (0..x.nrows()).map(|i| x.row(i)[0]).sum::<f64>() / n;
+        let my: f64 = (0..y.nrows()).map(|i| y.row(i)[0]).sum::<f64>() / n;
+        let mut cov = 0.0;
+        let mut vx = 0.0;
+        let mut vy = 0.0;
+        for i in 0..x.nrows() {
+            let a = x.row(i)[0] - mx;
+            let b = y.row(i)[0] - my;
+            cov += a * b;
+            vx += a * a;
+            vy += b * b;
+        }
+        Ok(vec![cov / (vx.sqrt() * vy.sqrt())])
+    }
+
+    #[test]
+    fn bootstrap_rows_stats_is_deterministic_and_brackets_point() {
+        let (x, y) = make_linear_pair(200, 0.5, 7);
+        let cfg = BootstrapConfig {
+            n_boot: 64,
+            block_size: 1,
+            seed: 11,
+            alpha: 0.05,
+        };
+        let mats = [x.as_ref(), y.as_ref()];
+        let scheme = RowResampleScheme::Subsample { subsample_len: 150 };
+        let a = bootstrap_rows_stats(&mats, &cfg, scheme, pearson_stat).unwrap();
+        let b = bootstrap_rows_stats(&mats, &cfg, scheme, pearson_stat).unwrap();
+        assert_eq!(a, b);
+        let s = &a.stats[0];
+        assert_eq!(s.n_attempted, 64);
+        assert_eq!(s.n_valid, 64);
+        assert!(s.ci_low <= s.point_estimate + 0.05);
+        assert!(s.ci_high >= s.point_estimate - 0.05);
+        assert!(s.boot_se > 0.0 && s.boot_se < 0.2, "se={}", s.boot_se);
+    }
+
+    #[test]
+    fn bootstrap_rows_stats_subsample_is_duplicate_free_for_ksg() {
+        // Subsampling draws *distinct* rows, so KSG (which rejects duplicate-induced
+        // zero kNN radii) succeeds with no jitter on every resample.
+        let (x, y) = make_linear_pair(200, 0.5, 13);
+        let ksg_cfg = crate::KsgConfig::default();
+        let stat = |mats: &[MatRef<'_>]| -> PidResult<Vec<f64>> {
+            Ok(vec![crate::ksg_mi(mats[0], mats[1], &ksg_cfg)?])
+        };
+        let cfg = BootstrapConfig {
+            n_boot: 32,
+            block_size: 1,
+            seed: 3,
+            alpha: 0.05,
+        };
+        let mats = [x.as_ref(), y.as_ref()];
+        let sub = bootstrap_rows_stats(
+            &mats,
+            &cfg,
+            RowResampleScheme::Subsample { subsample_len: 120 },
+            stat,
+        )
+        .unwrap();
+        assert_eq!(sub.stats[0].n_valid, 32);
+        assert!(sub.stats[0].ci_low.is_finite());
+        assert!(sub.stats[0].ci_high >= sub.stats[0].ci_low);
+        assert!(sub.stats[0].ci_low <= sub.stats[0].point_estimate);
+        assert!(sub.stats[0].ci_high >= sub.stats[0].point_estimate);
+    }
+
+    #[test]
+    fn bootstrap_rows_stats_with_replacement_needs_jitter_for_ksg() {
+        // With-replacement bootstrap without jitter produces duplicate rows that
+        // make KSG fail on every resample (n_valid == 0); a tiny jitter rescues
+        // validity. This pins the failure mode documented on the scheme enum.
+        let (x, y) = make_linear_pair(150, 0.5, 17);
+        let ksg_cfg = crate::KsgConfig::default();
+        let stat = |mats: &[MatRef<'_>]| -> PidResult<Vec<f64>> {
+            Ok(vec![crate::ksg_mi(mats[0], mats[1], &ksg_cfg)?])
+        };
+        let cfg = BootstrapConfig {
+            n_boot: 16,
+            block_size: 1,
+            seed: 3,
+            alpha: 0.05,
+        };
+        let mats = [x.as_ref(), y.as_ref()];
+        let without = bootstrap_rows_stats(
+            &mats,
+            &cfg,
+            RowResampleScheme::BlockBootstrapJitter { jitter_rel: 0.0 },
+            stat,
+        )
+        .unwrap();
+        assert_eq!(without.stats[0].n_valid, 0);
+        assert!(without.stats[0].ci_low.is_nan());
+
+        let with = bootstrap_rows_stats(
+            &mats,
+            &cfg,
+            RowResampleScheme::BlockBootstrapJitter { jitter_rel: 1e-9 },
+            stat,
+        )
+        .unwrap();
+        assert_eq!(with.stats[0].n_valid, 16);
+        assert!(with.stats[0].ci_low.is_finite());
+        assert!(with.stats[0].ci_high >= with.stats[0].ci_low);
+    }
+
+    #[test]
+    fn bootstrap_rows_stats_rejects_bad_config() {
+        let (x, y) = make_linear_pair(50, 0.5, 1);
+        let mats = [x.as_ref(), y.as_ref()];
+        let jit = RowResampleScheme::BlockBootstrapJitter { jitter_rel: 0.0 };
+        let mut cfg = BootstrapConfig {
+            n_boot: 0,
+            block_size: 1,
+            seed: 0,
+            alpha: 0.05,
+        };
+        assert!(bootstrap_rows_stats(&mats, &cfg, jit, pearson_stat).is_err());
+        cfg.n_boot = 8;
+        cfg.block_size = 0;
+        assert!(bootstrap_rows_stats(&mats, &cfg, jit, pearson_stat).is_err());
+        cfg.block_size = 1;
+        cfg.alpha = 1.5;
+        assert!(bootstrap_rows_stats(&mats, &cfg, jit, pearson_stat).is_err());
+        cfg.alpha = 0.05;
+        assert!(bootstrap_rows_stats(
+            &mats,
+            &cfg,
+            RowResampleScheme::BlockBootstrapJitter { jitter_rel: -1.0 },
+            pearson_stat
+        )
+        .is_err());
+        // Subsample longer than n must be rejected.
+        assert!(bootstrap_rows_stats(
+            &mats,
+            &cfg,
+            RowResampleScheme::Subsample {
+                subsample_len: 1000
+            },
+            pearson_stat
+        )
+        .is_err());
+        // Subsample shorter than block_size must be rejected.
+        cfg.block_size = 10;
+        assert!(bootstrap_rows_stats(
+            &mats,
+            &cfg,
+            RowResampleScheme::Subsample { subsample_len: 5 },
+            pearson_stat
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn permutation_rows_pvalue_detects_signal_and_respects_null() {
+        let ksg_cfg = crate::KsgConfig::default();
+        let stat =
+            |mats: &[MatRef<'_>]| -> PidResult<f64> { crate::ksg_mi(mats[0], mats[1], &ksg_cfg) };
+
+        // Strong linear signal: p should be at the add-one floor 1/(M+1).
+        let (x, y) = make_linear_pair(150, 0.3, 21);
+        let mats = [x.as_ref(), y.as_ref()];
+        let signal = permutation_rows_pvalue(&mats, 0, 99, 5, stat).unwrap();
+        assert_eq!(signal.n_valid, 99);
+        assert!(
+            (signal.p_value - 1.0 / 100.0).abs() < 1e-12,
+            "p={}",
+            signal.p_value
+        );
+
+        // Independent pair: p should be large (deterministic for this seed; the
+        // statistical claim is uniformity, this is a regression pin).
+        let (x_a, _) = make_linear_pair(150, 0.3, 100);
+        let (x_b, _) = make_linear_pair(150, 0.3, 200);
+        let mats_null = [x_a.as_ref(), x_b.as_ref()];
+        let null = permutation_rows_pvalue(&mats_null, 0, 99, 5, stat).unwrap();
+        assert!(null.p_value > 0.1, "p={}", null.p_value);
+    }
+
+    #[test]
+    fn permutation_rows_pvalue_is_deterministic_and_validates_input() {
+        let (x, y) = make_linear_pair(80, 0.5, 33);
+        let mats = [x.as_ref(), y.as_ref()];
+        let stat = pearson_stat;
+        let scalar = |m: &[MatRef<'_>]| -> PidResult<f64> { Ok(stat(m)?[0]) };
+        let a = permutation_rows_pvalue(&mats, 0, 49, 9, scalar).unwrap();
+        let b = permutation_rows_pvalue(&mats, 0, 49, 9, scalar).unwrap();
+        assert_eq!(a, b);
+        assert!(permutation_rows_pvalue(&mats, 2, 49, 9, scalar).is_err());
+        assert!(permutation_rows_pvalue(&mats, 0, 0, 9, scalar).is_err());
+        let empty: [MatRef<'_>; 0] = [];
+        assert!(permutation_rows_pvalue(&empty, 0, 9, 9, scalar).is_err());
     }
 }

@@ -1,8 +1,10 @@
 use pid_core::{
-    average_degree_of_redundancy, average_degree_of_vulnerability, co_information_pairwise,
-    concat_horiz, distance_concentration_stats, intrinsic_dimension_levina_bickel, isx_redundancy,
-    ksg_mi, ksg_mi_concat_xy, DistanceConcentrationConfig, HashProjector, IntrinsicDimConfig,
-    IsxConfig, IsxMethod, KsgConfig, MatRef, Metric, NegativeHandling, PcaProjector, Standardizer,
+    average_degree_of_redundancy, average_degree_of_vulnerability, bootstrap_rows_stats,
+    co_information_pairwise, concat_horiz, distance_concentration_stats,
+    intrinsic_dimension_levina_bickel, isx_redundancy, ksg_mi, ksg_mi_concat_xy,
+    permutation_rows_pvalue, BootstrapConfig, DistanceConcentrationConfig, HashProjector,
+    IntrinsicDimConfig, IsxConfig, IsxMethod, KsgConfig, MatRef, Metric, NegativeHandling,
+    PcaProjector, RowResampleScheme, Standardizer,
 };
 use pid_runlog::{RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
 use serde_json::json;
@@ -16,6 +18,48 @@ struct Args {
     strict_gate: bool,
     summary_json: Option<String>,
     runlog: Option<String>,
+    uncertainty: UncertaintyConfig,
+}
+
+/// Opt-in uncertainty-quantification configuration for the Exp0 gate.
+///
+/// Both `n_boot` and `n_perm` default to 0 (disabled), which keeps the default
+/// runner output byte-for-byte identical to the pre-uncertainty behaviour (the
+/// CI smoke path and the runlog unit tests rely on this). When enabled, the
+/// runner adds block-subsample bootstrap CIs and single-source permutation
+/// p-values on the d=`uncertainty_dim` cases and folds preregistered
+/// ground-truth checks into the GO/PIVOT/NO-GO verdict.
+#[derive(Debug, Clone, Copy)]
+struct UncertaintyConfig {
+    /// Number of subsample-bootstrap resamples (0 disables bootstrap CIs).
+    n_boot: usize,
+    /// Number of permutations for single-source null tests (0 disables them).
+    n_perm: usize,
+    /// Moving-block length for the resamplers (1 = i.i.d., correct for these
+    /// non-temporal synthetic scenarios).
+    block_size: usize,
+    /// Significance level for CIs and permutation decisions.
+    alpha: f64,
+    /// Base seed for the resamplers (kept separate from the data seeds).
+    seed: u64,
+}
+
+impl UncertaintyConfig {
+    fn enabled(&self) -> bool {
+        self.n_boot > 0 || self.n_perm > 0
+    }
+}
+
+impl Default for UncertaintyConfig {
+    fn default() -> Self {
+        Self {
+            n_boot: 0,
+            n_perm: 0,
+            block_size: 1,
+            alpha: 0.05,
+            seed: 0xC0FFEE,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -121,6 +165,7 @@ fn parse_args() -> Result<Option<Args>, String> {
     let mut strict_gate = false;
     let mut summary_json = None;
     let mut runlog = None;
+    let mut uncertainty = UncertaintyConfig::default();
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -149,6 +194,44 @@ fn parse_args() -> Result<Option<Args>, String> {
                         .ok_or_else(|| "--runlog requires a path".to_string())?,
                 );
             }
+            "--bootstrap" => {
+                let raw = args
+                    .next()
+                    .ok_or_else(|| "--bootstrap requires a non-negative integer".to_string())?;
+                uncertainty.n_boot = raw
+                    .parse::<usize>()
+                    .map_err(|_| "--bootstrap requires a non-negative integer".to_string())?;
+            }
+            "--permutation" => {
+                let raw = args
+                    .next()
+                    .ok_or_else(|| "--permutation requires a non-negative integer".to_string())?;
+                uncertainty.n_perm = raw
+                    .parse::<usize>()
+                    .map_err(|_| "--permutation requires a non-negative integer".to_string())?;
+            }
+            "--block-size" => {
+                let raw = args
+                    .next()
+                    .ok_or_else(|| "--block-size requires a positive integer".to_string())?;
+                uncertainty.block_size = raw
+                    .parse::<usize>()
+                    .map_err(|_| "--block-size requires a positive integer".to_string())?;
+                if uncertainty.block_size == 0 {
+                    return Err("--block-size requires a positive integer".to_string());
+                }
+            }
+            "--alpha" => {
+                let raw = args
+                    .next()
+                    .ok_or_else(|| "--alpha requires a float in (0,1)".to_string())?;
+                uncertainty.alpha = raw
+                    .parse::<f64>()
+                    .map_err(|_| "--alpha requires a float in (0,1)".to_string())?;
+                if !(uncertainty.alpha > 0.0 && uncertainty.alpha < 1.0) {
+                    return Err("--alpha requires a float in (0,1)".to_string());
+                }
+            }
             "--help" | "-h" => return Ok(None),
             other => return Err(format!("unknown argument: {other}")),
         }
@@ -159,6 +242,7 @@ fn parse_args() -> Result<Option<Args>, String> {
         strict_gate,
         summary_json,
         runlog,
+        uncertainty,
     }))
 }
 
@@ -166,6 +250,10 @@ fn print_usage(out: &mut dyn Write) -> io::Result<()> {
     writeln!(
         out,
         "Usage: exp0 [--csv] [--seeds N] [--summary-json PATH] [--runlog PATH]"
+    )?;
+    writeln!(
+        out,
+        "            [--bootstrap N] [--permutation N] [--block-size N] [--alpha F] [--strict-gate]"
     )?;
     writeln!(out)?;
     writeln!(out, "  --csv   Emit machine-readable CSV (two tables).")?;
@@ -183,6 +271,22 @@ fn print_usage(out: &mut dyn Write) -> io::Result<()> {
     )?;
     writeln!(
         out,
+        "  --bootstrap N   Subsample-bootstrap CIs (N resamples) on the d={UNCERTAINTY_DIM} cases."
+    )?;
+    writeln!(
+        out,
+        "  --permutation N   Single-source permutation null tests (N permutations) on the d={UNCERTAINTY_DIM} cases."
+    )?;
+    writeln!(
+        out,
+        "  --block-size N   Moving-block length for resamplers (default: 1 = i.i.d.)."
+    )?;
+    writeln!(
+        out,
+        "  --alpha F   Significance level for CIs / permutation decisions (default: 0.05)."
+    )?;
+    writeln!(
+        out,
         "  --strict-gate   Exit with code 3 if gate status is not GO."
     )?;
     writeln!(out, "  -h, --help   Show this help.")?;
@@ -195,6 +299,244 @@ fn make_seeds(n: usize) -> Vec<u64> {
         .collect()
 }
 
+/// Ambient dimension at which uncertainty quantification (bootstrap/permutation)
+/// is run. The smallest dimension is the regime where continuous kNN estimation is
+/// most plausible; running UQ there gives the gate its best chance of healthy
+/// recovery, so a failure here is a strong NO-GO signal rather than an expected
+/// curse-of-dimensionality artefact.
+const UNCERTAINTY_DIM: usize = 10;
+
+/// The four synthetic scenarios, with their preregistered ground-truth marginal
+/// informativeness. A source is "marginally informative" iff `I(source; T) > 0` in
+/// the data-generating process — independent of any estimator.
+///
+/// This table is the falsifiable contract the permutation null tests check:
+/// the KSG-based permutation test must call a source significant iff that source
+/// is marginally informative by construction.
+const SCENARIOS: [&str; 4] = [
+    "independent_additive",
+    "redundant_copy",
+    "unique_s1",
+    "xor_like",
+];
+
+/// Returns `(s1_informative, s2_informative)` ground truth for a scenario.
+fn marginal_truth(scenario: &str) -> (bool, bool) {
+    match scenario {
+        // T = s1[0] + s2[0] + noise → both sources marginally informative.
+        "independent_additive" => (true, true),
+        // s1[0], s2[0] are noisy copies of T → both marginally informative.
+        "redundant_copy" => (true, true),
+        // T = s1[0] + noise → only s1 marginally informative.
+        "unique_s1" => (true, false),
+        // T = sign(s1[0]*s2[0]) → neither source marginally informative (synergy only).
+        "xor_like" => (false, false),
+        _ => unreachable!("unknown scenario: {scenario}"),
+    }
+}
+
+/// Per-scenario uncertainty result at `UNCERTAINTY_DIM`.
+#[derive(Debug, Clone)]
+struct ScenarioUncertainty {
+    name: &'static str,
+    /// Bootstrap CIs for [I(S1;T), I(S2;T), I(S1,S2;T), Red_ehrlich], if enabled.
+    boot: Option<BootQuad>,
+    /// Permutation p-value for shuffle-S1 / statistic I(S1;T), if enabled.
+    perm_s1_p: Option<f64>,
+    /// Permutation p-value for shuffle-S2 / statistic I(S2;T), if enabled.
+    perm_s2_p: Option<f64>,
+    /// Number of permutations that produced a finite statistic (S1 test).
+    perm_s1_valid: usize,
+    /// Number of permutations that produced a finite statistic (S2 test).
+    perm_s2_valid: usize,
+}
+
+/// Bootstrap CI quad for the four key MI quantities.
+#[derive(Debug, Clone, Copy)]
+struct BootQuad {
+    i1: CiTriple,
+    i2: CiTriple,
+    i12: CiTriple,
+    red: CiTriple,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CiTriple {
+    point: f64,
+    ci_low: f64,
+    ci_high: f64,
+    n_valid: usize,
+}
+
+/// Aggregate uncertainty summary across scenarios, with the derived gate checks.
+#[derive(Debug, Clone, Default)]
+struct UncertaintySummary {
+    enabled: bool,
+    n_boot: usize,
+    n_perm: usize,
+    block_size: usize,
+    subsample_len: usize,
+    alpha: f64,
+    scenarios: Vec<ScenarioUncertainty>,
+    /// Number of preregistered permutation marginal-significance checks performed.
+    permutation_checks: usize,
+    /// Number of those checks where the estimator agreed with ground truth.
+    permutation_agreements: usize,
+    /// Scenarios where the joint-MI bootstrap failed on > half the resamples
+    /// (an estimator-instability signal at the most favourable dimension).
+    bootstrap_instabilities: usize,
+}
+
+/// The MI/redundancy statistic vector used for bootstrap CIs:
+/// `[I(S1;T), I(S2;T), I(S1,S2;T), Red_ehrlich(S1,S2;T)]`.
+fn uncertainty_stat_vec(mats: &[MatRef<'_>], ksg_cfg: &KsgConfig) -> pid_core::PidResult<Vec<f64>> {
+    let s1 = mats[0];
+    let s2 = mats[1];
+    let t = mats[2];
+    let i1 = ksg_mi(s1, t, ksg_cfg)?;
+    let i2 = ksg_mi(s2, t, ksg_cfg)?;
+    let i12 = ksg_mi_concat_xy(s1, s2, t, ksg_cfg)?;
+    let red = isx_redundancy(
+        s1,
+        s2,
+        t,
+        &IsxConfig {
+            k: ksg_cfg.k,
+            metric: ksg_cfg.metric,
+            tie_epsilon: ksg_cfg.tie_epsilon,
+            method: IsxMethod::EhrlichKsg,
+        },
+    )?;
+    Ok(vec![i1, i2, i12, red])
+}
+
+/// Compute opt-in uncertainty quantification for all scenarios at `UNCERTAINTY_DIM`.
+///
+/// Determinism: uses a single fixed data seed (`make_seeds(1)[0]`) and the
+/// resampler seed from `cfg`, so output is reproducible and runtime is bounded
+/// independent of `--seeds`.
+fn compute_uncertainty(
+    n: usize,
+    ksg_cfg: &KsgConfig,
+    cfg: UncertaintyConfig,
+) -> Result<UncertaintySummary, Exp0Error> {
+    let data_seed = make_seeds(1)[0];
+    let noise_std = 0.05;
+    let d = UNCERTAINTY_DIM;
+    // Subsample length: half the rows, in whole blocks. This is the
+    // Politis–Romano subsampling regime; the resulting CI is conservative
+    // (overstates n-sample uncertainty by ~sqrt(2)) but valid for kNN MI, which
+    // a naive with-replacement bootstrap is not (see pipeline::RowResampleScheme).
+    let subsample_len = ((n / 2) / cfg.block_size) * cfg.block_size;
+
+    let mut summary = UncertaintySummary {
+        enabled: true,
+        n_boot: cfg.n_boot,
+        n_perm: cfg.n_perm,
+        block_size: cfg.block_size,
+        subsample_len,
+        alpha: cfg.alpha,
+        ..Default::default()
+    };
+
+    for &name in &SCENARIOS {
+        let (s1, s2, t) = match name {
+            "independent_additive" => gen_independent_additive(n, d, noise_std, data_seed),
+            "redundant_copy" => gen_redundant_copy(n, d, noise_std, data_seed),
+            "unique_s1" => gen_unique_s1(n, d, noise_std, data_seed),
+            "xor_like" => gen_xor_like(n, d, noise_std, data_seed),
+            _ => unreachable!(),
+        };
+        let s1 = MatRef::new(&s1, n, d)?;
+        let s2 = MatRef::new(&s2, n, d)?;
+        let t = MatRef::new(&t, n, 1)?;
+        let (s1z, _) = Standardizer::fit_transform(s1)?;
+        let (s2z, _) = Standardizer::fit_transform(s2)?;
+        let (tz, _) = Standardizer::fit_transform(t)?;
+        let mats: [MatRef<'_>; 3] = [s1z.as_ref(), s2z.as_ref(), tz.as_ref()];
+
+        let mut scen = ScenarioUncertainty {
+            name,
+            boot: None,
+            perm_s1_p: None,
+            perm_s2_p: None,
+            perm_s1_valid: 0,
+            perm_s2_valid: 0,
+        };
+
+        if cfg.n_boot > 0 {
+            let boot_cfg = BootstrapConfig {
+                n_boot: cfg.n_boot,
+                block_size: cfg.block_size,
+                seed: cfg.seed,
+                alpha: cfg.alpha,
+            };
+            let scheme = RowResampleScheme::Subsample { subsample_len };
+            let res = bootstrap_rows_stats(&mats, &boot_cfg, scheme, |m| {
+                uncertainty_stat_vec(m, ksg_cfg)
+            })
+            .map_err(Exp0Error::Pid)?;
+            let to_triple = |s: &pid_core::RowBootstrapStat| CiTriple {
+                point: s.point_estimate,
+                ci_low: s.ci_low,
+                ci_high: s.ci_high,
+                n_valid: s.n_valid,
+            };
+            let quad = BootQuad {
+                i1: to_triple(&res.stats[0]),
+                i2: to_triple(&res.stats[1]),
+                i12: to_triple(&res.stats[2]),
+                red: to_triple(&res.stats[3]),
+            };
+            // Instability: joint MI bootstrap failed on > half the resamples.
+            if quad.i12.n_valid * 2 < cfg.n_boot {
+                summary.bootstrap_instabilities += 1;
+            }
+            scen.boot = Some(quad);
+        }
+
+        if cfg.n_perm > 0 {
+            // Shuffle S1 (index 0); statistic = I(S1;T).
+            let perm_s1 = permutation_rows_pvalue(&mats, 0, cfg.n_perm, cfg.seed, |m| {
+                ksg_mi(m[0], m[2], ksg_cfg)
+            })
+            .map_err(Exp0Error::Pid)?;
+            // Shuffle S2 (index 1); statistic = I(S2;T).
+            let perm_s2 =
+                permutation_rows_pvalue(&mats, 1, cfg.n_perm, cfg.seed.wrapping_add(1), |m| {
+                    ksg_mi(m[1], m[2], ksg_cfg)
+                })
+                .map_err(Exp0Error::Pid)?;
+
+            let (truth_s1, truth_s2) = marginal_truth(name);
+            // A check "agrees" iff the significance decision matches ground truth.
+            for (p, valid, truth) in [
+                (perm_s1.p_value, perm_s1.n_valid, truth_s1),
+                (perm_s2.p_value, perm_s2.n_valid, truth_s2),
+            ] {
+                summary.permutation_checks += 1;
+                // Only count a finite p-value; a degenerate test (all resamples
+                // failed) is recorded as a non-agreement (it cannot confirm truth).
+                if valid > 0 && p.is_finite() {
+                    let significant = p < cfg.alpha;
+                    if significant == truth {
+                        summary.permutation_agreements += 1;
+                    }
+                }
+            }
+            scen.perm_s1_p = Some(perm_s1.p_value);
+            scen.perm_s2_p = Some(perm_s2.p_value);
+            scen.perm_s1_valid = perm_s1.n_valid;
+            scen.perm_s2_valid = perm_s2.n_valid;
+        }
+
+        summary.scenarios.push(scen);
+    }
+
+    Ok(summary)
+}
+
+#[allow(clippy::too_many_arguments)]
 fn write_summary_json(
     path: &str,
     gates: &GateSummary,
@@ -203,6 +545,7 @@ fn write_summary_json(
     dims: &[usize],
     seeds: &[u64],
     hash_project_to: Option<usize>,
+    uncertainty: Option<&UncertaintySummary>,
 ) -> io::Result<()> {
     if let Some(parent) = std::path::Path::new(path).parent() {
         if !parent.as_os_str().is_empty() {
@@ -240,9 +583,81 @@ fn write_summary_json(
         "  \"geometry_warnings\": {},",
         gates.geometry_warnings
     )?;
-    writeln!(file, "  \"status\": \"{}\"", gates.status())?;
+    // Uncertainty block is emitted only when UQ ran, keeping default output identical.
+    if let Some(u) = uncertainty {
+        writeln!(file, "  \"status\": \"{}\",", gates.status())?;
+        let value = uncertainty_json(u);
+        let rendered = serde_json::to_string_pretty(&value)
+            .unwrap_or_else(|_| "{}".to_string())
+            .replace('\n', "\n  ");
+        writeln!(file, "  \"uncertainty\": {rendered}")?;
+    } else {
+        writeln!(file, "  \"status\": \"{}\"", gates.status())?;
+    }
     writeln!(file, "}}")?;
     Ok(())
+}
+
+/// Build the JSON value describing an uncertainty run (used by the summary JSON and
+/// as the structured payload for run-log evaluation events).
+fn uncertainty_json(u: &UncertaintySummary) -> serde_json::Value {
+    let scenarios: Vec<serde_json::Value> = u
+        .scenarios
+        .iter()
+        .map(|s| {
+            let (truth_s1, truth_s2) = marginal_truth(s.name);
+            let boot = s.boot.map(|b| {
+                json!({
+                    "i1": ci_json(&b.i1),
+                    "i2": ci_json(&b.i2),
+                    "i12": ci_json(&b.i12),
+                    "red_ehrlich": ci_json(&b.red),
+                })
+            });
+            json!({
+                "name": s.name,
+                "truth_s1_informative": truth_s1,
+                "truth_s2_informative": truth_s2,
+                "perm_s1_p": s.perm_s1_p,
+                "perm_s2_p": s.perm_s2_p,
+                "perm_s1_valid": s.perm_s1_valid,
+                "perm_s2_valid": s.perm_s2_valid,
+                "bootstrap": boot,
+            })
+        })
+        .collect();
+    json!({
+        "dim": UNCERTAINTY_DIM,
+        "n_boot": u.n_boot,
+        "n_perm": u.n_perm,
+        "block_size": u.block_size,
+        "subsample_len": u.subsample_len,
+        "subsample_scheme": "politis_romano_without_replacement",
+        "alpha": u.alpha,
+        "permutation_checks": u.permutation_checks,
+        "permutation_agreements": u.permutation_agreements,
+        "bootstrap_instabilities": u.bootstrap_instabilities,
+        "scenarios": scenarios,
+    })
+}
+
+fn ci_json(c: &CiTriple) -> serde_json::Value {
+    json!({
+        "point": json_float(c.point),
+        "ci_low": json_float(c.ci_low),
+        "ci_high": json_float(c.ci_high),
+        "n_valid": c.n_valid,
+    })
+}
+
+/// JSON-safe float: non-finite values (NaN/inf can arise from degenerate
+/// resamples) serialize to `null` rather than producing invalid JSON.
+fn json_float(x: f64) -> serde_json::Value {
+    if x.is_finite() {
+        json!(x)
+    } else {
+        serde_json::Value::Null
+    }
 }
 
 fn write_exp0_runlog(
@@ -250,6 +665,7 @@ fn write_exp0_runlog(
     summary_json_path: Option<&str>,
     gates: &GateSummary,
     config: Exp0RunConfig<'_>,
+    uncertainty: Option<&UncertaintySummary>,
 ) -> Result<(), Exp0Error> {
     if let Some(parent) = std::path::Path::new(path).parent() {
         if !parent.as_os_str().is_empty() {
@@ -284,6 +700,9 @@ fn write_exp0_runlog(
         config: config_json,
     })?;
     write_exp0_metric_events(&mut writer, gates)?;
+    if let Some(u) = uncertainty {
+        write_exp0_uncertainty_events(&mut writer, u)?;
+    }
     if let Some(summary_path) = summary_json_path {
         writer.append(&RunLogEvent::ArtifactLogged {
             timestamp_ns: 8,
@@ -343,6 +762,108 @@ fn write_exp0_metric_events<W: Write>(
                 .into_iter()
                 .collect(),
         })?;
+    }
+    Ok(())
+}
+
+/// Emit uncertainty results as `EvaluationMetric` events (kept distinct from the
+/// `PidMetric` gate events so `pid_metrics` is unchanged). All events share the
+/// step/timestamp of the last gate metric (step 7, ts 8), so timestamps and steps
+/// stay nondecreasing ahead of the artifact/error/run-ended tail. Non-finite
+/// statistics are skipped (run-log values must be finite for replay), with the
+/// validity counts carried in the aggregate metrics and the summary JSON.
+fn write_exp0_uncertainty_events<W: Write>(
+    writer: &mut RunLogWriter<W>,
+    u: &UncertaintySummary,
+) -> Result<(), Exp0Error> {
+    const STEP: u64 = 7;
+    const TS: u64 = 8;
+    let base_meta = || -> std::collections::BTreeMap<String, String> {
+        [("kind".to_string(), "uncertainty".to_string())]
+            .into_iter()
+            .collect()
+    };
+    let emit = |writer: &mut RunLogWriter<W>,
+                name: String,
+                value: f64,
+                extra: Option<(&str, String)>|
+     -> Result<(), Exp0Error> {
+        let mut metadata = base_meta();
+        if let Some((k, v)) = extra {
+            metadata.insert(k.to_string(), v);
+        }
+        writer.append(&RunLogEvent::EvaluationMetric {
+            step: STEP,
+            timestamp_ns: TS,
+            name,
+            value,
+            metadata,
+        })?;
+        Ok(())
+    };
+
+    emit(
+        writer,
+        "exp0.uncertainty.permutation_checks".to_string(),
+        u.permutation_checks as f64,
+        None,
+    )?;
+    emit(
+        writer,
+        "exp0.uncertainty.permutation_agreements".to_string(),
+        u.permutation_agreements as f64,
+        None,
+    )?;
+    emit(
+        writer,
+        "exp0.uncertainty.bootstrap_instabilities".to_string(),
+        u.bootstrap_instabilities as f64,
+        None,
+    )?;
+    emit(
+        writer,
+        "exp0.uncertainty.subsample_len".to_string(),
+        u.subsample_len as f64,
+        None,
+    )?;
+
+    for s in &u.scenarios {
+        let (truth_s1, truth_s2) = marginal_truth(s.name);
+        for (suffix, p, truth) in [
+            ("perm_s1_p", s.perm_s1_p, truth_s1),
+            ("perm_s2_p", s.perm_s2_p, truth_s2),
+        ] {
+            if let Some(p) = p {
+                if p.is_finite() {
+                    emit(
+                        writer,
+                        format!("exp0.uncertainty.{}.{}", s.name, suffix),
+                        p,
+                        Some(("truth_informative", truth.to_string())),
+                    )?;
+                }
+            }
+        }
+        if let Some(b) = &s.boot {
+            for (suffix, triple) in [
+                ("i1", &b.i1),
+                ("i2", &b.i2),
+                ("i12", &b.i12),
+                ("red_ehrlich", &b.red),
+            ] {
+                for (bound_name, bound) in [("ci_low", triple.ci_low), ("ci_high", triple.ci_high)]
+                {
+                    if bound.is_finite() {
+                        emit(
+                            writer,
+                            format!("exp0.uncertainty.{}.{}_{}", s.name, suffix, bound_name),
+                            bound,
+                            Some(("n_valid", triple.n_valid.to_string())),
+                        )?;
+                    }
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -451,13 +972,34 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
     }
     run_gaussian_channel_strong_dependence_sweep(out, common.csv, 900, &ksg_cfg, 0x51A7_2026)?;
 
+    // Opt-in uncertainty quantification at the most favourable dimension.
+    let uncertainty = if args.uncertainty.enabled() {
+        let u = compute_uncertainty(n, &ksg_cfg, args.uncertainty)?;
+        gates.observe_uncertainty(&u);
+        Some(u)
+    } else {
+        None
+    };
+
     if !args.csv {
+        if let Some(u) = uncertainty.as_ref() {
+            print_uncertainty(out, u)?;
+        }
         writeln!(out, "--- Experiment 0 Summary ---")?;
         gates.print(out)?;
     }
 
     if let Some(path) = args.summary_json.as_deref() {
-        write_summary_json(path, &gates, n, k, &dims, &seeds, hash_project_to)?;
+        write_summary_json(
+            path,
+            &gates,
+            n,
+            k,
+            &dims,
+            &seeds,
+            hash_project_to,
+            uncertainty.as_ref(),
+        )?;
     }
     if let Some(path) = args.runlog.as_deref() {
         write_exp0_runlog(
@@ -471,6 +1013,7 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
                 seeds: &seeds,
                 hash_project_to,
             },
+            uncertainty.as_ref(),
         )?;
     }
 
@@ -478,6 +1021,66 @@ fn run(out: &mut dyn Write, args: Args) -> Result<(), Exp0Error> {
         return Err(Exp0Error::StrictGate(gates.status().to_string()));
     }
 
+    Ok(())
+}
+
+/// Human-readable uncertainty report.
+fn print_uncertainty(out: &mut dyn Write, u: &UncertaintySummary) -> io::Result<()> {
+    writeln!(out)?;
+    writeln!(
+        out,
+        "--- Uncertainty Quantification (d={UNCERTAINTY_DIM}, n_boot={}, n_perm={}, block={}, subsample={}, alpha={}) ---",
+        u.n_boot, u.n_perm, u.block_size, u.subsample_len, u.alpha
+    )?;
+    writeln!(
+        out,
+        "Subsampling is Politis–Romano without replacement (KSG-safe); CIs are conservative (overstate n-sample uncertainty)."
+    )?;
+    for s in &u.scenarios {
+        let (truth_s1, truth_s2) = marginal_truth(s.name);
+        writeln!(
+            out,
+            "  {:>22}: truth(S1 info={truth_s1}, S2 info={truth_s2})",
+            s.name
+        )?;
+        if let Some(b) = &s.boot {
+            writeln!(
+                out,
+                "{:>26}  I1=[{:.3},{:.3}] I2=[{:.3},{:.3}] I12=[{:.3},{:.3}] Red=[{:.3},{:.3}] (valid I12: {}/{})",
+                "",
+                b.i1.ci_low, b.i1.ci_high,
+                b.i2.ci_low, b.i2.ci_high,
+                b.i12.ci_low, b.i12.ci_high,
+                b.red.ci_low, b.red.ci_high,
+                b.i12.n_valid, u.n_boot,
+            )?;
+        }
+        if let (Some(p1), Some(p2)) = (s.perm_s1_p, s.perm_s2_p) {
+            let mark = |p: f64, truth: bool| -> &'static str {
+                if !p.is_finite() {
+                    "??"
+                } else if (p < u.alpha) == truth {
+                    "ok"
+                } else {
+                    "XX"
+                }
+            };
+            writeln!(
+                out,
+                "{:>26}  perm p(S1;T)={:.4} [{}]  p(S2;T)={:.4} [{}]",
+                "",
+                p1,
+                mark(p1, truth_s1),
+                p2,
+                mark(p2, truth_s2),
+            )?;
+        }
+    }
+    writeln!(
+        out,
+        "  permutation agreements: {}/{}; bootstrap instabilities: {}",
+        u.permutation_agreements, u.permutation_checks, u.bootstrap_instabilities
+    )?;
     Ok(())
 }
 
@@ -826,6 +1429,12 @@ struct GateSummary {
     cmi_violations: usize,
     invariant_violations: usize,
     geometry_warnings: usize,
+    // Uncertainty-quantification contribution (all zero / false when UQ disabled,
+    // which keeps the default verdict and metric counts unchanged).
+    uncertainty_enabled: bool,
+    permutation_checks: usize,
+    permutation_agreements: usize,
+    bootstrap_instabilities: usize,
 }
 
 impl GateSummary {
@@ -865,6 +1474,23 @@ impl GateSummary {
         }
     }
 
+    /// Absorb the derived gate checks from an opt-in uncertainty run.
+    fn observe_uncertainty(&mut self, u: &UncertaintySummary) {
+        self.uncertainty_enabled = u.enabled;
+        self.permutation_checks = u.permutation_checks;
+        self.permutation_agreements = u.permutation_agreements;
+        self.bootstrap_instabilities = u.bootstrap_instabilities;
+    }
+
+    /// Total uncertainty-side violations: permutation disagreements with the
+    /// preregistered ground-truth marginal-significance table, plus joint-MI
+    /// bootstrap instabilities at the most favourable dimension. Zero when UQ
+    /// is disabled.
+    fn uncertainty_violations(&self) -> usize {
+        let perm_disagreements = self.permutation_checks - self.permutation_agreements;
+        perm_disagreements + self.bootstrap_instabilities
+    }
+
     fn status(&self) -> &'static str {
         if self.case_results == 0 {
             return "NO-GO";
@@ -874,6 +1500,7 @@ impl GateSummary {
             && self.invariant_violations == 0
             && self.geometry_warnings == 0
             && self.red_zero_checks == self.red_zero_passes
+            && self.uncertainty_violations() == 0
         {
             "GO"
         } else if self.red_zero_checks > 0
@@ -913,6 +1540,18 @@ impl GateSummary {
             "Invariant Bound Violations: {}",
             self.invariant_violations
         )?;
+        if self.uncertainty_enabled {
+            writeln!(
+                out,
+                "Permutation Marginal-Significance Agreements: {}/{}",
+                self.permutation_agreements, self.permutation_checks
+            )?;
+            writeln!(
+                out,
+                "Bootstrap Joint-MI Instabilities: {}",
+                self.bootstrap_instabilities
+            )?;
+        }
         writeln!(out, "Status: {}", self.status())?;
         Ok(())
     }
@@ -1280,14 +1919,11 @@ mod tests {
             case_results: 1,
             red_zero_checks: 1,
             red_zero_passes: 1,
-            monotonicity_violations: 0,
-            cmi_violations: 0,
-            invariant_violations: 0,
-            geometry_warnings: 0,
+            ..Default::default()
         };
         let dims = [10usize, 64, 256];
         let seeds = [42u64];
-        write_summary_json(&summary_path, &gates, 500, 3, &dims, &seeds, Some(64)).unwrap();
+        write_summary_json(&summary_path, &gates, 500, 3, &dims, &seeds, Some(64), None).unwrap();
         write_exp0_runlog(
             &runlog_path,
             Some(&summary_path),
@@ -1299,6 +1935,7 @@ mod tests {
                 seeds: &seeds,
                 hash_project_to: Some(64),
             },
+            None,
         )
         .unwrap();
 
@@ -1321,12 +1958,7 @@ mod tests {
         let runlog_path = temp_path("nogate.jsonl");
         let gates = GateSummary {
             case_results: 0,
-            red_zero_checks: 0,
-            red_zero_passes: 0,
-            monotonicity_violations: 0,
-            cmi_violations: 0,
-            invariant_violations: 0,
-            geometry_warnings: 0,
+            ..Default::default()
         };
         write_exp0_runlog(
             &runlog_path,
@@ -1339,6 +1971,7 @@ mod tests {
                 seeds: &[42],
                 hash_project_to: Some(64),
             },
+            None,
         )
         .unwrap();
 
@@ -1354,6 +1987,128 @@ mod tests {
                 ..
             }
         )));
+
+        let _ = std::fs::remove_file(runlog_path);
+    }
+
+    fn ksg_cfg_for_test() -> KsgConfig {
+        KsgConfig {
+            k: 3,
+            metric: Metric::Chebyshev,
+            tie_epsilon: 0.0,
+            negative_handling: NegativeHandling::ClampToZero,
+        }
+    }
+
+    #[test]
+    fn uncertainty_recovers_marginal_truth_table() {
+        // The preregistered, ground-truth-derived contract: the permutation null
+        // test must call a source significant iff it is marginally informative by
+        // construction. On healthy small-d data this should be recovered exactly.
+        // Small counts keep this fast under `cargo test` (debug).
+        let cfg = UncertaintyConfig {
+            n_boot: 24,
+            n_perm: 60,
+            block_size: 1,
+            alpha: 0.05,
+            seed: 0xC0FFEE,
+        };
+        let u = compute_uncertainty(240, &ksg_cfg_for_test(), cfg).unwrap();
+        // All four scenarios, both sources → 8 checks; all should agree.
+        assert_eq!(u.permutation_checks, 8);
+        assert_eq!(
+            u.permutation_agreements, 8,
+            "permutation null failed to recover marginal-informativeness truth"
+        );
+        // Subsampling is KSG-safe, so joint-MI bootstrap should be stable.
+        assert_eq!(u.bootstrap_instabilities, 0);
+        // Per-scenario sanity: unique_s1 → S1 significant, S2 not.
+        let unique = u
+            .scenarios
+            .iter()
+            .find(|s| s.name == "unique_s1")
+            .expect("unique_s1 present");
+        assert!(unique.perm_s1_p.unwrap() < cfg.alpha);
+        assert!(unique.perm_s2_p.unwrap() >= cfg.alpha);
+    }
+
+    #[test]
+    fn uncertainty_violations_block_go_but_not_when_clean() {
+        // A clean uncertainty run (agreements == checks, no instabilities) must
+        // contribute zero violations and therefore not change the verdict.
+        let mut gates = GateSummary {
+            case_results: 1,
+            red_zero_checks: 1,
+            red_zero_passes: 1,
+            ..Default::default()
+        };
+        assert_eq!(gates.status(), "GO");
+        let clean = UncertaintySummary {
+            enabled: true,
+            permutation_checks: 8,
+            permutation_agreements: 8,
+            bootstrap_instabilities: 0,
+            ..Default::default()
+        };
+        gates.observe_uncertainty(&clean);
+        assert_eq!(gates.uncertainty_violations(), 0);
+        assert_eq!(gates.status(), "GO");
+
+        // A disagreement (e.g. a pure-noise source flagged significant) must block GO.
+        let dirty = UncertaintySummary {
+            enabled: true,
+            permutation_checks: 8,
+            permutation_agreements: 6,
+            bootstrap_instabilities: 1,
+            ..Default::default()
+        };
+        gates.observe_uncertainty(&dirty);
+        assert_eq!(gates.uncertainty_violations(), 3);
+        assert_ne!(gates.status(), "GO");
+    }
+
+    #[test]
+    fn uncertainty_runlog_is_valid_and_keeps_pid_metrics_at_eight() {
+        let runlog_path = temp_path("unc-runlog.jsonl");
+        let mut gates = GateSummary {
+            case_results: 12,
+            red_zero_checks: 3,
+            red_zero_passes: 2,
+            invariant_violations: 7,
+            ..Default::default()
+        };
+        let cfg = UncertaintyConfig {
+            n_boot: 16,
+            n_perm: 40,
+            block_size: 1,
+            alpha: 0.05,
+            seed: 7,
+        };
+        let u = compute_uncertainty(200, &ksg_cfg_for_test(), cfg).unwrap();
+        gates.observe_uncertainty(&u);
+        write_exp0_runlog(
+            &runlog_path,
+            None,
+            &gates,
+            Exp0RunConfig {
+                n: 200,
+                k: 3,
+                dims: &[10],
+                seeds: &[42],
+                hash_project_to: Some(64),
+            },
+            Some(&u),
+        )
+        .unwrap();
+
+        let events = pid_runlog::read_events_from_path(&runlog_path).unwrap();
+        let validation = pid_runlog::validate_events(&events);
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let summary = pid_runlog::summarize_events(&events).unwrap();
+        // Uncertainty events are EvaluationMetric, so the 8 PidMetric gate events
+        // are unchanged; the CI smoke greps rely on this invariant.
+        assert_eq!(summary.pid_metrics, 8);
+        assert!(summary.evaluation_metrics >= 4);
 
         let _ = std::fs::remove_file(runlog_path);
     }
