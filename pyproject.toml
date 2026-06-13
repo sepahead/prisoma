@@ -42,6 +42,12 @@ extend-exclude = [
   "report_gen.py",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# `l` is the canonical "L" of the (V, L, D, A) contract and must match the JSON
+# key the Rust harness expects; it is not an ambiguous accident here.
+"experiments/safe_adapter/*" = ["E741"]
+"tests/python/test_safe_adapter.py" = ["E741"]
+
 [tool.maturin]
 manifest-path = "crates/pid-python/Cargo.toml"
 module-name = "pid_core_rs"

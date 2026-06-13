@@ -1,0 +1,159 @@
+"""Derive ``(V, L, D, A)`` per-step features from a SAFE rollout, with provenance.
+
+Honesty about what the released SAFE rollouts actually contain
+-------------------------------------------------------------
+
+The SAFE rollout datasets (``vla-safe/SAFE``) cleanly provide, per step:
+
+* ``A`` — the action vector (e.g. OpenVLA's 7-D ``dx,dy,dz,droll,dpitch,dyaw,dgripper``);
+* ``D`` — the policy backbone hidden state (``hidden_states``), the natural
+  implicit world/plan representation ``D_hidden[k]``;
+* the episode success/failure outcome, task id, and episode id.
+
+They do **not** ship a clean pre-fusion vision embedding ``V`` or a text embedding
+``L`` as separate tensors. This module is explicit about that: every variable it
+produces carries a provenance string, and it refuses to fabricate ``V``. The
+supported, non-fabricated sources are:
+
+* **token slicing** — if the *raw* per-token hidden states ``(T, n_token, d)`` and
+  the token-group index ranges are available, slice the vision / language / state
+  token groups to obtain genuine ``V`` / ``L`` / ``D`` sub-representations;
+* **explicit vision features** — a separately extracted ``(T, d_v)`` array (e.g.
+  from running a vision encoder over the rollout frames);
+* **text featurization** — a deterministic hashing featurization of the
+  instruction text for ``L`` (a transparent *proxy*, clearly labelled as such; a
+  real sentence encoder is preferred and can be supplied as ``language_features``).
+
+If a variable can only be a proxy and the caller has not opted in, extraction
+raises rather than silently emitting placeholder data.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass
+
+import numpy as np
+
+
+@dataclass
+class VariableSpec:
+    """How to source one of V/L/D for a rollout.
+
+    ``mode`` is one of:
+      * ``"hidden_pool"`` — pool the (raw or pooled) hidden states to ``(T, d)``;
+      * ``"token_slice"`` — slice a named token group from raw per-token hidden
+        states (requires ``token_group``);
+      * ``"explicit"`` — use a separately supplied ``(T, d)`` feature array;
+      * ``"text_hash"`` — deterministic hashing featurization of the instruction
+        (proxy; ``L`` only).
+    """
+
+    mode: str
+    token_group: str | None = None
+    dim: int | None = None  # required for text_hash
+
+
+def pool_tokens(hidden_states: np.ndarray, *, reduction: str = "mean") -> np.ndarray:
+    """Collapse raw ``(T, n_token, d)`` hidden states to ``(T, d)``.
+
+    Accepts already-pooled ``(T, d)`` input unchanged. ``reduction`` is ``"mean"``
+    or ``"last"`` (last token), mirroring common VLA pooling choices.
+    """
+    hs = np.asarray(hidden_states, dtype=np.float64)
+    if hs.ndim == 2:
+        return hs
+    if hs.ndim != 3:
+        raise ValueError(f"hidden_states must be 2-D or 3-D, got shape {hs.shape}")
+    if reduction == "mean":
+        return hs.mean(axis=1)
+    if reduction == "last":
+        return hs[:, -1, :]
+    raise ValueError(f"unknown reduction: {reduction!r}")
+
+
+def slice_token_group(
+    hidden_states: np.ndarray, token_group: tuple[int, int]
+) -> np.ndarray:
+    """Mean-pool a contiguous token-index range from raw ``(T, n_token, d)`` states."""
+    hs = np.asarray(hidden_states, dtype=np.float64)
+    if hs.ndim != 3:
+        raise ValueError(
+            "token slicing requires raw per-token hidden states (T, n_token, d); "
+            f"got shape {hs.shape}"
+        )
+    start, end = token_group
+    if not (0 <= start < end <= hs.shape[1]):
+        raise ValueError(
+            f"token group {token_group} out of range for n_token={hs.shape[1]}"
+        )
+    return hs[:, start:end, :].mean(axis=1)
+
+
+def text_hash_features(text: str, dim: int) -> np.ndarray:
+    """Deterministic hashing featurization of ``text`` into a length-``dim`` vector.
+
+    This is a transparent **proxy** for a real sentence encoder: it hashes word and
+    character-trigram tokens into ``dim`` buckets (signed hashing trick) and
+    L2-normalizes. It is reproducible and language-agnostic, but it is *not* a
+    learned semantic embedding — prefer supplying real ``language_features`` when a
+    text encoder is available.
+    """
+    if dim <= 0:
+        raise ValueError("dim must be positive")
+    vec = np.zeros(dim, dtype=np.float64)
+    tokens = list(text.lower().split())
+    trigrams = [text[i : i + 3] for i in range(max(0, len(text) - 2))]
+    for token in tokens + trigrams:
+        digest = hashlib.sha1(token.encode("utf-8")).digest()
+        bucket = int.from_bytes(digest[:4], "big") % dim
+        sign = 1.0 if digest[4] & 1 else -1.0
+        vec[bucket] += sign
+    norm = np.linalg.norm(vec)
+    if norm > 0:
+        vec /= norm
+    return vec
+
+
+def _broadcast_steps(vec: np.ndarray, n_steps: int) -> np.ndarray:
+    """Repeat a single per-rollout vector across ``n_steps`` rows."""
+    return np.tile(vec.reshape(1, -1), (n_steps, 1))
+
+
+def resolve_variable(
+    spec: VariableSpec,
+    *,
+    name: str,
+    hidden_states: np.ndarray,
+    n_steps: int,
+    instruction: str,
+    token_groups: dict[str, tuple[int, int]] | None,
+    explicit_features: np.ndarray | None,
+) -> tuple[np.ndarray, str]:
+    """Resolve one variable to a ``(T, d)`` array plus a provenance string."""
+    if spec.mode == "explicit":
+        if explicit_features is None:
+            raise ValueError(f"{name}: mode 'explicit' requires a feature array")
+        feats = np.asarray(explicit_features, dtype=np.float64)
+        if feats.ndim != 2 or feats.shape[0] != n_steps:
+            raise ValueError(
+                f"{name}: explicit features must be (T={n_steps}, d), got {feats.shape}"
+            )
+        return feats, "explicit_features"
+    if spec.mode == "hidden_pool":
+        return pool_tokens(hidden_states), "hidden_state_pool"
+    if spec.mode == "token_slice":
+        if not token_groups or spec.token_group not in token_groups:
+            raise ValueError(
+                f"{name}: mode 'token_slice' requires token_groups[{spec.token_group!r}]"
+            )
+        return (
+            slice_token_group(hidden_states, token_groups[spec.token_group]),
+            f"token_slice:{spec.token_group}",
+        )
+    if spec.mode == "text_hash":
+        if spec.dim is None:
+            raise ValueError(f"{name}: mode 'text_hash' requires dim")
+        vec = text_hash_features(instruction, spec.dim)
+        return _broadcast_steps(vec, n_steps), "text_hash_proxy"
+    raise ValueError(f"{name}: unknown mode {spec.mode!r}")
