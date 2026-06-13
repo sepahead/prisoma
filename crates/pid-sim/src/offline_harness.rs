@@ -3,7 +3,8 @@ use pid_core::{
     co_information_pairwise, concat_horiz, discrete_mi, distance_concentration_stats,
     gromov_hyperbolicity, intrinsic_dimension_levina_bickel, pid2_isx, quantize_equal_width,
     DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig, IsxConfig, KsgConfig,
-    MatOwned, MatRef, Metric, NegativeHandling, Pid2Config, PlsProjector, Standardizer,
+    LogisticRegression, LogisticRegressionConfig, MatOwned, MatRef, Metric, NegativeHandling,
+    Pid2Config, PlsProjector, Standardizer,
 };
 use pid_runlog::{
     EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
@@ -152,6 +153,13 @@ pub struct OfflineVldaMetrics {
     pub heldout_centroid_d_success_auroc: Option<f64>,
     pub heldout_centroid_a_success_auroc: Option<f64>,
     pub heldout_centroid_vlda_success_auroc: Option<f64>,
+    /// SAFE-class internal-feature failure detector: L2-regularized logistic
+    /// regression on the pooled, train-standardized `(V,L,D,A)` features, fit on
+    /// the train split and evaluated on the held-out split (leakage-safe). This is
+    /// the strong learned baseline H1 must beat (grandplan §3.4 / §14.1.1).
+    pub heldout_logreg_vlda_success_accuracy: Option<f64>,
+    pub heldout_logreg_vlda_success_balanced_accuracy: Option<f64>,
+    pub heldout_logreg_vlda_success_auroc: Option<f64>,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
 }
 
@@ -490,6 +498,9 @@ pub fn run_offline_vlda_harness_with_options(
                 "heldout_centroid_d_success_auroc",
                 "heldout_centroid_a_success_auroc",
                 "heldout_centroid_vlda_success_auroc",
+                "heldout_logreg_vlda_success_accuracy",
+                "heldout_logreg_vlda_success_balanced_accuracy",
+                "heldout_logreg_vlda_success_auroc",
                 "heldout_failure_true_positive_count",
                 "heldout_failure_false_positive_count",
                 "heldout_failure_true_negative_count",
@@ -1590,6 +1601,29 @@ fn compute_metrics(
         heldout_centroid_a_success_metrics.and_then(|metrics| metrics.auroc);
     let heldout_centroid_vlda_success_auroc =
         heldout_centroid_vlda_success_metrics.and_then(|metrics| metrics.auroc);
+    // SAFE-class internal-feature failure detector (logistic regression on pooled
+    // train-standardized VLDA features; fit on train, scored on held-out).
+    let heldout_logreg_vlda_success_metrics = success_labels
+        .as_deref()
+        .zip(heldout_split)
+        .and_then(|(labels, split)| {
+            heldout_logreg_success_metrics(samples, labels, &split.roles, |sample| {
+                let mut values = Vec::with_capacity(
+                    sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
+                );
+                values.extend_from_slice(&sample.v);
+                values.extend_from_slice(&sample.l);
+                values.extend_from_slice(&sample.d);
+                values.extend_from_slice(&sample.a);
+                values
+            })
+        });
+    let heldout_logreg_vlda_success_accuracy =
+        heldout_logreg_vlda_success_metrics.map(|metrics| metrics.accuracy);
+    let heldout_logreg_vlda_success_balanced_accuracy =
+        heldout_logreg_vlda_success_metrics.and_then(|metrics| metrics.balanced_accuracy);
+    let heldout_logreg_vlda_success_auroc =
+        heldout_logreg_vlda_success_metrics.and_then(|metrics| metrics.auroc);
     Ok(OfflineVldaMetrics {
         mi_v_action: pid_screen.mi_v_action,
         mi_l_action: pid_screen.mi_l_action,
@@ -1640,6 +1674,9 @@ fn compute_metrics(
         heldout_centroid_d_success_auroc,
         heldout_centroid_a_success_auroc,
         heldout_centroid_vlda_success_auroc,
+        heldout_logreg_vlda_success_accuracy,
+        heldout_logreg_vlda_success_balanced_accuracy,
+        heldout_logreg_vlda_success_auroc,
         pid_pairs: pid_screen.pid_pairs,
     })
 }
@@ -2706,6 +2743,61 @@ where
     })
 }
 
+/// SAFE-class internal-feature failure-detector baseline: fit an L2-regularized
+/// logistic regression on the train split (features standardized with train-only
+/// statistics) and score the held-out split. Leakage-safe: both the standardizer
+/// and the classifier see train rows only. Returns `None` if either class is
+/// absent from the train split or the fit fails.
+fn heldout_logreg_success_metrics<F>(
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+    values: F,
+) -> Option<OfflineVldaHeldoutClassifierMetrics>
+where
+    F: Fn(&OfflineVldaSample) -> Vec<f64>,
+{
+    // Reuse the train-only standardization machinery (and its both-classes guard)
+    // from the centroid baseline; we only need its standardized `features`.
+    let model = train_standardized_centroid_model(samples, labels, roles, values)?;
+    let dim = model.features.first()?.len();
+    if dim == 0 {
+        return None;
+    }
+
+    // Assemble the train design matrix + labels (standardized features, train rows).
+    let mut train_rows = Vec::new();
+    let mut train_labels = Vec::new();
+    for (idx, role) in roles.iter().enumerate() {
+        if *role == OfflineVldaSplitRole::Train {
+            train_rows.extend_from_slice(&model.features[idx]);
+            train_labels.push(labels[idx]);
+        }
+    }
+    let n_train = train_labels.len();
+    if n_train == 0 {
+        return None;
+    }
+    let x_train = MatOwned::new(train_rows, n_train, dim).ok()?;
+    let logreg = LogisticRegression::fit(
+        x_train.as_ref(),
+        &train_labels,
+        &LogisticRegressionConfig::default(),
+    )
+    .ok()?;
+
+    Some(heldout_scored_prediction_metrics(labels, roles, |idx| {
+        // Decision-function logit on the (train-standardized) held-out features.
+        let logit = logreg.intercept()
+            + model.features[idx]
+                .iter()
+                .zip(logreg.weights())
+                .map(|(a, b)| a * b)
+                .sum::<f64>();
+        (logit >= 0.0, logit)
+    }))
+}
+
 fn heldout_prediction_metrics<F>(
     labels: &[bool],
     roles: &[OfflineVldaSplitRole],
@@ -3329,6 +3421,43 @@ fn write_metric_events<W: Write>(
                 "score".to_string(),
                 OFFLINE_CENTROID_SUCCESS_SCORE.to_string(),
             );
+            writer.append(&RunLogEvent::EvaluationMetric {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + idx,
+                name: name.to_string(),
+                value,
+                metadata,
+            })?;
+            idx += 1;
+        }
+    }
+    // SAFE-class internal-feature failure detector (logistic regression on pooled
+    // train-standardized VLDA features). One event per metric that was produced.
+    for (name, value, metric) in [
+        (
+            "offline_vlda.baseline.heldout_logreg_vlda_success_accuracy",
+            report.metrics.heldout_logreg_vlda_success_accuracy,
+            "accuracy",
+        ),
+        (
+            "offline_vlda.baseline.heldout_logreg_vlda_success_balanced_accuracy",
+            report.metrics.heldout_logreg_vlda_success_balanced_accuracy,
+            "balanced_accuracy",
+        ),
+        (
+            "offline_vlda.baseline.heldout_logreg_vlda_success_auroc",
+            report.metrics.heldout_logreg_vlda_success_auroc,
+            "auroc",
+        ),
+    ] {
+        if let Some(value) = value {
+            let mut metadata = offline_vlda_heldout_split_metric_metadata(
+                report,
+                "train_split_logreg",
+                Some("train_standardized_l2_logistic"),
+                metric,
+            );
+            metadata.insert("score".to_string(), "decision_function_logit".to_string());
             writer.append(&RunLogEvent::EvaluationMetric {
                 step: report.dims.samples as u64,
                 timestamp_ns: timestamp_base_ns + idx,
@@ -4287,6 +4416,23 @@ mod tests {
             report.metrics.heldout_centroid_vlda_success_auroc,
             Some(0.0)
         );
+        // SAFE-class logistic-regression failure detector is produced (leakage-safe:
+        // fit on train, scored on held-out) with metrics in valid ranges.
+        let lr_acc = report
+            .metrics
+            .heldout_logreg_vlda_success_accuracy
+            .expect("logreg accuracy emitted");
+        assert!((0.0..=1.0).contains(&lr_acc));
+        let lr_bacc = report
+            .metrics
+            .heldout_logreg_vlda_success_balanced_accuracy
+            .expect("logreg balanced accuracy emitted");
+        assert!((0.0..=1.0).contains(&lr_bacc));
+        let lr_auroc = report
+            .metrics
+            .heldout_logreg_vlda_success_auroc
+            .expect("logreg auroc emitted");
+        assert!((0.0..=1.0).contains(&lr_auroc));
         assert_eq!(report.heldout_predictions.len(), 44);
         let centroid_prediction = report
             .heldout_predictions
@@ -4618,10 +4764,10 @@ mod tests {
         assert_eq!(summary.labels, 16);
         assert_eq!(summary.pid_metrics, 42);
         assert!(summary.geometry_metrics >= 21);
-        assert_eq!(summary.evaluation_metrics, 139);
+        assert_eq!(summary.evaluation_metrics, 142);
         assert_eq!(summary.pid_metric_events, 42);
         assert!(summary.geometry_metric_events >= 21);
-        assert_eq!(summary.evaluation_metric_events, 220);
+        assert_eq!(summary.evaluation_metric_events, 223);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);

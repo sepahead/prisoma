@@ -35,6 +35,7 @@ mod hyperbolic;
 mod invariants;
 mod isx;
 mod ksg;
+mod logistic;
 mod matrix;
 mod metric;
 mod nn;
@@ -70,6 +71,7 @@ pub use invariants::{
 };
 pub use isx::{isx_redundancy, IsxConfig, IsxMethod};
 pub use ksg::{ksg_local_mi_terms, ksg_mi, ksg_mi_concat_xy, KsgConfig, NegativeHandling};
+pub use logistic::{LogisticRegression, LogisticRegressionConfig};
 pub use matrix::{concat_horiz, MatOwned, MatRef};
 pub use metric::Metric;
 pub use pid2::{pid2_isx, pid2_isx_estimate, Pid2Config, Pid2Estimate, Pid2Result};

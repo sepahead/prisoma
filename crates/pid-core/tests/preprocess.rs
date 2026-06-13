@@ -169,8 +169,7 @@ fn pca_matches_svd_subspace_on_fixed_data() {
     order.sort_by(|&a, &b| svals[b].partial_cmp(&svals[a]).unwrap());
 
     let mut w2_data = Vec::with_capacity(k * d);
-    for r in 0..k {
-        let idx = order[r];
+    for &idx in order.iter().take(k) {
         for c in 0..d {
             w2_data.push(vt[(idx, c)]);
         }
