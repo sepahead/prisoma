@@ -60,6 +60,24 @@ rapier-harness runlog="outputs/rapier_push_runlog.jsonl" summary="outputs/rapier
 rapier-test:
     cargo test -p pid-sim --features rapier physics:: manipulation::
 
+# M5 capture: SAFE rollouts -> (V,L,D,A) contract, then the real harness with gates.
+safe-adapter out="outputs/safe_vlda.json" rollouts="outputs/safe_synth":
+    python -m experiments.safe_adapter synth --out {{rollouts}}
+    python -m experiments.safe_adapter convert --rollouts {{rollouts}} --out {{out}} --seen-tasks 0,1
+    python -m experiments.safe_adapter verify --input {{out}}
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{out}} --summary-json outputs/safe_vlda_summary.json --runlog outputs/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/safe_vlda_runlog.jsonl
+
+# H9 attribution probe: faithfulness-checked attribution -> attribution_logged run log.
+attribution-probe runlog="outputs/attribution_runlog.jsonl" artifacts="outputs/attribution":
+    python -m experiments.attribution demo --runlog {{runlog}} --artifacts {{artifacts}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'attributions=2'
+
+# Python experiment tests (SAFE adapter + attribution probe; numpy only).
+experiments-test:
+    python -m pytest tests/python/test_safe_adapter.py tests/python/test_attribution.py -q
+
 offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_runlog.jsonl" summary="outputs/offline_vlda_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}

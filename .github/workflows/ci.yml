@@ -279,6 +279,32 @@ jobs:
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'errors=0'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'flow_gt_records=301'
 
+  experiments:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Python deps
+        run: python -m pip install numpy pytest
+      - name: Experiment unit tests (SAFE adapter + attribution probe)
+        run: python -m pytest tests/python/test_safe_adapter.py tests/python/test_attribution.py -q
+      - name: SAFE adapter -> offline-harness contract round-trip
+        run: |
+          python -m experiments.safe_adapter synth --out /tmp/safe_synth
+          python -m experiments.safe_adapter convert --rollouts /tmp/safe_synth --out /tmp/safe_vlda.json --seen-tasks 0,1
+          python -m experiments.safe_adapter verify --input /tmp/safe_vlda.json
+          cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/safe_vlda.json --summary-json /tmp/safe_vlda_summary.json --runlog /tmp/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/safe_vlda_runlog.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/safe_vlda_runlog.jsonl | grep -q 'errors=0'
+      - name: Attribution probe -> attribution_logged run log
+        run: |
+          python -m experiments.attribution demo --runlog /tmp/attr_runlog.jsonl --artifacts /tmp/attr_artifacts
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/attr_runlog.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/attr_runlog.jsonl | grep -q 'attributions=2'
+
   docs:
     runs-on: ubuntu-latest
     steps:
