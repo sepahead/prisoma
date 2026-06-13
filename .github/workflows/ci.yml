@@ -262,6 +262,23 @@ jobs:
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'artifacts=1'
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_ws.jsonl
 
+  rapier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Clippy (rapier feature)
+        run: cargo clippy -p pid-sim --features rapier --all-targets -- -D warnings
+      - name: Physics + manipulation tests (rapier feature)
+        run: cargo test -p pid-sim --features rapier physics:: manipulation::
+      - name: Rapier manipulation harness smoke
+        run: |
+          cargo run -p pid-sim --features rapier --bin pid-rapier-harness -- \
+            --runlog /tmp/pid_vla_rapier_push.jsonl --summary-json /tmp/pid_vla_rapier_push.json --push-impulse 0.18
+          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_rapier_push.jsonl
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'errors=0'
+          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'flow_gt_records=301'
+
   docs:
     runs-on: ubuntu-latest
     steps:

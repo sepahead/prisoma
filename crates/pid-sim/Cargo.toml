@@ -41,8 +41,13 @@ path = "src/bin/toy_harness.rs"
 name = "pid-offline-harness"
 path = "src/bin/offline_harness.rs"
 
+[[bin]]
+name = "pid-rapier-harness"
+path = "src/bin/rapier_harness.rs"
+required-features = ["rapier"]
+
 [features]
-rapier = []
+rapier = ["dep:rapier3d-f64"]
 
 [dependencies]
 anyhow = "1.0"
@@ -54,3 +59,4 @@ pid-runlog = { path = "../pid-runlog" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha1 = "0.10"
+rapier3d-f64 = { version = "0.22", optional = true }

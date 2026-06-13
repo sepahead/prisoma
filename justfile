@@ -49,6 +49,17 @@ toy-harness runlog="outputs/toy_vla_runlog.jsonl" summary="outputs/toy_vla_summa
     cargo run -p pid-sim --bin pid-toy-harness -- --episodes {{episodes}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
 
+# M3 physics-backed manipulation: real Rapier3D push-to-goal episode with a
+# success label and real Flow_gt. Requires the `rapier` feature.
+rapier-harness runlog="outputs/rapier_push_runlog.jsonl" summary="outputs/rapier_push_summary.json" impulse="0.18":
+    cargo run -p pid-sim --features rapier --bin pid-rapier-harness -- --runlog {{runlog}} --summary-json {{summary}} --push-impulse {{impulse}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'errors=0'
+
+# Rapier feature build + physics/manipulation tests (heavy dependency compile).
+rapier-test:
+    cargo test -p pid-sim --features rapier physics:: manipulation::
+
 offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_runlog.jsonl" summary="outputs/offline_vlda_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
