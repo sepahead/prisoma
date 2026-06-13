@@ -1,6 +1,18 @@
 # Third-Party Notices
 
-This file is release-governance groundwork for PID-VLA. It is not a complete generated bill of materials; regenerate and review notices before distributing binaries, wheels, Tauri apps, sidecars, datasets, model weights, generated assets, or 3DGS captures.
+This file is the curated release-governance overview for PID-VLA. The machine-generated
+direct-dependency bill of materials lives in `THIRD_PARTY_NOTICES.generated.md`
+(produced by `scripts/generate_third_party_notices.py`; CI fails on drift). Neither
+file is yet a complete *transitive* BOM — regenerate and review notices with dedicated
+tooling before distributing binaries, wheels, Tauri apps, sidecars, datasets, model
+weights, generated assets, or 3DGS captures.
+
+## Generated dependency notices
+
+- `python scripts/generate_third_party_notices.py --write` regenerates
+  `THIRD_PARTY_NOTICES.generated.md` (direct Rust deps + licenses from
+  `cargo metadata`; declared Python deps + versions from `uv.lock`).
+- `--check` (run in CI) fails if the committed generated file is stale.
 
 ## Project License
 
@@ -21,8 +33,10 @@ PID-VLA project code is MIT licensed. Local Rust crates declare `license = "MIT"
 
 ## Release Checklist
 
-1. Run a Rust license audit (`cargo deny` or `cargo about`) on the locked dependency graph.
-2. Run npm license tooling when a Tauri/Web frontend is added.
-3. Include Rerun/Tauri sidecar notices if binaries are bundled.
-4. Record license/provenance for VLA checkpoints, video/world-model weights, datasets, generated meshes, prompts, 3DGS captures, and robot/sim assets separately from code.
-5. Block release on unknown, copyleft-incompatible, non-commercial, or unclear artifact licenses unless the intended distribution allows them.
+1. Regenerate `THIRD_PARTY_NOTICES.generated.md` (`--write`) and confirm `--check` is clean.
+2. Run a full transitive Rust license audit (`cargo deny` or `cargo about`) on the locked graph; the optional `rapier` feature adds `rapier3d-f64` and its tree.
+3. Resolve Python dependency licenses (`pip-licenses`) — `uv.lock` records versions but not licenses.
+4. Run npm license tooling when a Tauri/Web frontend is added; include Rerun/Tauri sidecar notices if binaries are bundled.
+5. Confirm `meshmaker/` is absent from the released tree and its `api_keys.txt` lives outside the repo (see `meshmaker/README.md`).
+6. Record license/provenance for VLA checkpoints (e.g. the SAFE rollout datasets used by `experiments/safe_adapter`), video/world-model weights, datasets, generated meshes, prompts, 3DGS captures, and robot/sim assets separately from code.
+7. Block release on unknown, copyleft-incompatible, non-commercial, or unclear artifact licenses unless the intended distribution allows them.

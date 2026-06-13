@@ -1,9 +1,8 @@
 # SAFE → (V, L, D, A) adapter (milestone M5 capture shortcut)
 
-Adapts the released **SAFE** VLA rollout datasets (`vla-safe/SAFE`, NeurIPS 2025 —
-OpenVLA on WidowX/LIBERO, π0-FAST on Franka, with success/failure outcomes) into
-this project's `(V, L, D, A)` + labels contract, so a real VLA/task capture can be
-run through `pid-offline-harness` without building capture from scratch. This is
+Adapts the released **SAFE** VLA rollout datasets into this project's `(V, L, D, A)` +
+labels contract, so a real VLA/task capture can be run through `pid-offline-harness`
+without building capture from scratch. SAFE (`vla-safe/SAFE`; NeurIPS 2025 per the repo — verify venue/license) released OpenVLA-on-WidowX/LIBERO and π0-FAST-on-Franka rollouts with success/failure outcomes. This is
 the critical-path shortcut recorded in `REVIEW_AND_TODO.md` and `grandplan.md`
 §10.10.13 / §12.5.
 

@@ -82,9 +82,9 @@ result-*
 # Local one-off tooling / report generation artifacts (keep out of the main repo unless promoted).
 report_gen.py
 
-# Meshmaker: Ignore everything except python and bash scripts
-# Quarantined: large mesh-generation output dirs (output_batch/, output_parallel/, etc.)
+# Meshmaker is quarantined out of the canonical repo (see meshmaker/README.md).
+# It is cost-bearing external asset-generation tooling unrelated to the PID-VLA
+# scientific core; only the tombstone README is tracked. Local files are kept on
+# disk (untracked), so nothing is deleted by the quarantine.
 meshmaker/*
-!meshmaker/*.py
-!meshmaker/*.sh
-meshmaker/api_keys.txt
+!meshmaker/README.md

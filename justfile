@@ -78,6 +78,13 @@ attribution-probe runlog="outputs/attribution_runlog.jsonl" artifacts="outputs/a
 experiments-test:
     python -m pytest tests/python/test_safe_adapter.py tests/python/test_attribution.py -q
 
+# Regenerate the direct-dependency third-party notices (Rust + Python).
+notices:
+    python scripts/generate_third_party_notices.py --write
+
+notices-check:
+    python scripts/generate_third_party_notices.py --check
+
 offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_runlog.jsonl" summary="outputs/offline_vlda_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}

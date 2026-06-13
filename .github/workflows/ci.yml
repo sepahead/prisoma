@@ -304,6 +304,8 @@ jobs:
           python -m experiments.attribution demo --runlog /tmp/attr_runlog.jsonl --artifacts /tmp/attr_artifacts
           cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/attr_runlog.jsonl
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/attr_runlog.jsonl | grep -q 'attributions=2'
+      - name: Third-party notices are up to date
+        run: python scripts/generate_third_party_notices.py --check
 
   docs:
     runs-on: ubuntu-latest
