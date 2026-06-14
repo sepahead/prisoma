@@ -67,7 +67,7 @@ SparkJS (Phase 4) allows custom shaders for "Ghost Splats" (predictive flow over
 - Handle collision detection, joint constraints, friction, restitution
 - Rapier can run at low step times for small scenes; achievable control/step rates are hardware- and scene-dependent.
 
-**Target backend sketch (a `PhysicsBackend` trait with a null adapter and a Rapier3D skeleton exists in `crates/pid-sim` behind the optional `rapier` feature as of 2026-06-11; it is a stub, not a validated physics path — full integration remains planned):**
+**Target backend sketch (a `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend** — gravity/contacts/friction, deterministic — exists in `crates/pid-sim` behind the optional `rapier` feature as of 2026-06-13, with a scripted push-to-goal manipulation emitting real `Flow_gt` + physics-derived labels; box-collider geometry only — mesh-collider ingestion and MuJoCo/Isaac adapters remain planned):**
 ```rust
 // Table collider with realistic friction
 let table_collider = ColliderBuilder::cuboid(0.60, 0.40, 0.375)
