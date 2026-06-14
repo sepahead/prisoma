@@ -19,6 +19,9 @@ use std::collections::HashMap;
 
 use pid_core::{discrete_pid2, MatOwned};
 
+/// A named (s1, s2, t) truth table for a logic-gate system.
+type GateSystem<'a> = (&'a str, &'a [(usize, usize, usize)]);
+
 /// Independent Williams–Beer `I_min` PID2 computed directly from the empirical
 /// joint of integer-coded variables. Returns `(redundancy, unique_s1, unique_s2,
 /// synergy, mi_s1_t, mi_s2_t, mi_s1s2_t)`.
@@ -73,17 +76,16 @@ fn reference_pid2(s1: &[usize], s2: &[usize], t: &[usize]) -> [f64; 7] {
     let mi_s2_t = mi(&c_s2t, &c_s2, &c_t);
 
     // i_spec(S; t) = Σ_s (c_st/c_t) ln( c_st * n / (c_s * c_t) ).
-    let i_spec = |c_xt: &HashMap<(usize, usize), f64>,
-                  c_x: &HashMap<usize, f64>|
-     -> HashMap<usize, f64> {
-        let mut out: HashMap<usize, f64> = HashMap::new();
-        for (&(x, tt), &cxt) in c_xt {
-            let cx = c_x[&x];
-            let ct = c_t[&tt];
-            *out.entry(tt).or_insert(0.0) += (cxt / ct) * (cxt * nf / (cx * ct)).ln();
-        }
-        out
-    };
+    let i_spec =
+        |c_xt: &HashMap<(usize, usize), f64>, c_x: &HashMap<usize, f64>| -> HashMap<usize, f64> {
+            let mut out: HashMap<usize, f64> = HashMap::new();
+            for (&(x, tt), &cxt) in c_xt {
+                let cx = c_x[&x];
+                let ct = c_t[&tt];
+                *out.entry(tt).or_insert(0.0) += (cxt / ct) * (cxt * nf / (cx * ct)).ln();
+            }
+            out
+        };
     let is1 = i_spec(&c_s1t, &c_s1);
     let is2 = i_spec(&c_s2t, &c_s2);
 
@@ -109,7 +111,14 @@ fn reference_pid2(s1: &[usize], s2: &[usize], t: &[usize]) -> [f64; 7] {
 fn build_system(
     rows: &[(usize, usize, usize)],
     reps: usize,
-) -> (MatOwned, MatOwned, MatOwned, Vec<usize>, Vec<usize>, Vec<usize>) {
+) -> (
+    MatOwned,
+    MatOwned,
+    MatOwned,
+    Vec<usize>,
+    Vec<usize>,
+    Vec<usize>,
+) {
     let mut s1 = Vec::new();
     let mut s2 = Vec::new();
     let mut t = Vec::new();
@@ -120,15 +129,18 @@ fn build_system(
             t.push(c);
         }
     }
-    let to_mat = |v: &[usize]| {
-        MatOwned::new(v.iter().map(|&x| x as f64).collect(), v.len(), 1).unwrap()
-    };
+    let to_mat =
+        |v: &[usize]| MatOwned::new(v.iter().map(|&x| x as f64).collect(), v.len(), 1).unwrap();
     let (m1, m2, mt) = (to_mat(&s1), to_mat(&s2), to_mat(&t));
     (m1, m2, mt, s1, s2, t)
 }
 
 fn assert_close(a: f64, b: f64, tol: f64, what: &str) {
-    assert!((a - b).abs() < tol, "{what}: {a} vs {b} (|Δ|={})", (a - b).abs());
+    assert!(
+        (a - b).abs() < tol,
+        "{what}: {a} vs {b} (|Δ|={})",
+        (a - b).abs()
+    );
 }
 
 /// On every canonical gate, `pid_core::discrete_pid2` must match the independent
@@ -141,7 +153,7 @@ fn discrete_pid2_matches_independent_reference() {
     let or = [(0, 0, 0), (0, 1, 1), (1, 0, 1), (1, 1, 1)];
     let copy = [(0, 0, 0), (1, 1, 1)]; // s1==s2==t: pure redundancy
     let unique_s1 = [(0, 0, 0), (0, 1, 0), (1, 0, 1), (1, 1, 1)]; // t == s1
-    let systems: [(&str, &[(usize, usize, usize)]); 5] = [
+    let systems: [GateSystem<'_>; 5] = [
         ("xor", &xor),
         ("and", &and),
         ("or", &or),
@@ -189,12 +201,7 @@ fn discrete_pid2_recovers_known_gate_structure() {
 
     // UNIQUE_S1 (t==s1, s2 carries the same bit here too via the table) — use a
     // table where s2 is independent of t to isolate unique_s1.
-    let uniq = [
-        (0, 0, 0),
-        (0, 1, 0),
-        (1, 0, 1),
-        (1, 1, 1),
-    ]; // t == s1; s2 independent of t
+    let uniq = [(0, 0, 0), (0, 1, 0), (1, 0, 1), (1, 1, 1)]; // t == s1; s2 independent of t
     let (m1, m2, mt, ..) = build_system(&uniq, 64);
     let r = discrete_pid2(m1.as_ref(), m2.as_ref(), mt.as_ref(), 2).unwrap();
     assert_close(r.mi_s2_t, 0.0, 1e-9, "uniq mi_s2_t");
