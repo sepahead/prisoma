@@ -3,6 +3,77 @@ use pid_runlog::{RunLogEvent, RunLogSummary, RunManifest, SimObjectSnapshot};
 use rerun::{Color, Points3D, RecordingStream, Scalars, TextLog};
 use std::time::Duration;
 
+/// Cap on the number of relevance values surfaced to Rerun per attribution, to keep
+/// the recording bounded for large `(T, d)` relevance tensors.
+const MAX_RELEVANCE_POINTS: usize = 1024;
+
+/// Minimal, dependency-free reader for NumPy `.npy` v1.0 arrays of little-endian
+/// `float64` in C order — the exact format `numpy.save` writes for the attribution
+/// probe's relevance arrays. Returns `(flattened_values, shape)` in C order, or
+/// `None` on any deviation (other dtype, Fortran order, version, or I/O error); the
+/// caller treats `None` as "no heatmap available" and falls back gracefully.
+fn read_npy_f64(path: &str) -> Option<(Vec<f64>, Vec<usize>)> {
+    let bytes = std::fs::read(path).ok()?;
+    if bytes.len() < 10 || &bytes[0..6] != b"\x93NUMPY" {
+        return None;
+    }
+    // Only v1.0 (2-byte little-endian header length).
+    if bytes[6] != 1 {
+        return None;
+    }
+    let header_len = u16::from_le_bytes([bytes[8], bytes[9]]) as usize;
+    let header_start = 10;
+    let data_start = header_start + header_len;
+    if bytes.len() < data_start {
+        return None;
+    }
+    let header = std::str::from_utf8(&bytes[header_start..data_start]).ok()?;
+    // Require little-endian f64, C order.
+    if !(header.contains("'<f8'") || header.contains("\"<f8\"")) {
+        return None;
+    }
+    if header.contains("'fortran_order': True") || header.contains("\"fortran_order\": True") {
+        return None;
+    }
+    let shape = parse_npy_shape(header)?;
+    let count: usize = if shape.is_empty() {
+        1
+    } else {
+        shape.iter().product()
+    };
+    let data = &bytes[data_start..];
+    if data.len() < count * 8 {
+        return None;
+    }
+    let mut values = Vec::with_capacity(count);
+    for chunk in data.chunks_exact(8).take(count) {
+        values.push(f64::from_le_bytes(chunk.try_into().ok()?));
+    }
+    if values.len() != count {
+        return None;
+    }
+    Some((values, shape))
+}
+
+/// Parse the `shape` tuple out of an `.npy` header dict string.
+fn parse_npy_shape(header: &str) -> Option<Vec<usize>> {
+    let key = header
+        .find("'shape'")
+        .or_else(|| header.find("\"shape\""))?;
+    let open = header[key..].find('(')? + key;
+    let close = header[open..].find(')')? + open;
+    let inner = &header[open + 1..close];
+    let mut dims = Vec::new();
+    for part in inner.split(',') {
+        let p = part.trim();
+        if p.is_empty() {
+            continue;
+        }
+        dims.push(p.parse::<usize>().ok()?);
+    }
+    Some(dims)
+}
+
 pub struct RunLogRerunLogger<'a> {
     rec: &'a RecordingStream,
 }
@@ -174,6 +245,7 @@ impl<'a> RunLogRerunLogger<'a> {
                 baseline,
                 faithfulness_check,
                 score_hash,
+                artifact_uri,
                 ..
             } => {
                 // Plottable faithfulness verdict (1.0 pass / 0.0 fail) so a viewer
@@ -185,6 +257,22 @@ impl<'a> RunLogRerunLogger<'a> {
                         format!("attributions/faithfulness/{method}"),
                         &Scalars::single(if *passed { 1.0 } else { 0.0 }),
                     )?;
+                }
+                // Best-effort: if the relevance was saved as a `.npy` artifact, surface
+                // the actual per-element relevance values (capped) as a multi-value
+                // Scalars series so the heatmap is inspectable in the viewer — not just
+                // the pass/fail verdict. Any read/parse failure is silently skipped.
+                if let Some(uri) = artifact_uri {
+                    if uri.ends_with(".npy") {
+                        if let Some((values, _shape)) = read_npy_f64(uri) {
+                            let capped: Vec<f64> =
+                                values.into_iter().take(MAX_RELEVANCE_POINTS).collect();
+                            self.rec.log(
+                                format!("attributions/relevance/{method}"),
+                                &Scalars::new(capped),
+                            )?;
+                        }
+                    }
                 }
                 let verdict = match faithfulness_check {
                     Some(true) => "PASS",
@@ -361,6 +449,7 @@ mod tests {
     use rerun::RecordingStreamBuilder;
     use serde_json::json;
     use std::collections::BTreeMap;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn actor() -> Actor {
         Actor {
@@ -462,6 +551,113 @@ mod tests {
         let summary = RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, None)?;
         assert_eq!(summary.validation_errors, 0);
         assert_eq!(summary.attributions, 2);
+        Ok(())
+    }
+
+    /// Write a `.npy` v1.0 little-endian f64 C-order array (matching `numpy.save`).
+    fn write_npy_f64(path: &std::path::Path, values: &[f64], shape: &[usize]) {
+        let shape_str = match shape.len() {
+            1 => format!("({},)", shape[0]),
+            _ => format!(
+                "({})",
+                shape
+                    .iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        };
+        let header =
+            format!("{{'descr': '<f8', 'fortran_order': False, 'shape': {shape_str}, }}\n");
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"\x93NUMPY");
+        bytes.push(1);
+        bytes.push(0);
+        bytes.extend_from_slice(&(header.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(header.as_bytes());
+        for v in values {
+            bytes.extend_from_slice(&v.to_le_bytes());
+        }
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn npy_reader_round_trips() {
+        let dir = std::env::temp_dir();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = dir.join(format!("pid-rerun-npy-{stamp}.npy"));
+        let values = vec![0.5, -1.25, 3.0, 0.0, 2.5, -0.75];
+        write_npy_f64(&path, &values, &[2, 3]);
+        let (got, shape) = read_npy_f64(path.to_str().unwrap()).expect("npy parses");
+        assert_eq!(shape, vec![2, 3]);
+        assert_eq!(got, values);
+        // 1-D shape too.
+        write_npy_f64(&path, &values, &[6]);
+        let (got1, shape1) = read_npy_f64(path.to_str().unwrap()).unwrap();
+        assert_eq!(shape1, vec![6]);
+        assert_eq!(got1, values);
+        // A non-existent / non-npy path returns None, never panics.
+        assert!(read_npy_f64("/no/such/file.npy").is_none());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn logs_attribution_relevance_heatmap_from_npy() -> Result<()> {
+        let dir = std::env::temp_dir();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let npy = dir.join(format!("pid-rerun-relevance-{stamp}.npy"));
+        write_npy_f64(&npy, &[0.1, 0.9, -0.4, 0.2], &[2, 2]);
+
+        let rec = RecordingStreamBuilder::new("runlog_relevance_test").buffered()?;
+        let events = vec![
+            RunLogEvent::RunStarted {
+                schema_version: RUN_LOG_SCHEMA_VERSION,
+                run_id: "rel-run".to_string(),
+                timestamp_ns: 0,
+                config_hash: pid_runlog::canonical_json_hash(&json!({"k": 1})).unwrap(),
+                metadata: BTreeMap::new(),
+            },
+            RunLogEvent::AttributionLogged {
+                timestamp_ns: 1,
+                method: "lrp_epsilon".to_string(),
+                target_output: "action_dim_0".to_string(),
+                layer: None,
+                modality: Some("vision".to_string()),
+                baseline: Some("zero".to_string()),
+                score_hash: Some("abc".to_string()),
+                faithfulness_check: Some(true),
+                artifact_uri: Some(npy.to_str().unwrap().to_string()),
+                metadata: BTreeMap::new(),
+            },
+            RunLogEvent::RunEnded {
+                run_id: "rel-run".to_string(),
+                timestamp_ns: 2,
+                status: RunStatus::Succeeded,
+                message: None,
+            },
+        ];
+        // The adapter loads the relevance .npy and logs it without error; a missing
+        // artifact must also be handled gracefully (best-effort), so re-run with a
+        // bogus uri and confirm it still succeeds.
+        let summary = RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, None)?;
+        assert_eq!(summary.validation_errors, 0);
+        assert_eq!(summary.attributions, 1);
+
+        let mut bad = events.clone();
+        if let RunLogEvent::AttributionLogged { artifact_uri, .. } = &mut bad[1] {
+            *artifact_uri = Some("/no/such/relevance.npy".to_string());
+        }
+        let rec2 = RecordingStreamBuilder::new("runlog_relevance_missing").buffered()?;
+        let summary2 = RunLogRerunLogger::new(&rec2).log_events_with_manifest(&bad, None)?;
+        assert_eq!(summary2.validation_errors, 0);
+
+        let _ = std::fs::remove_file(npy);
         Ok(())
     }
 
