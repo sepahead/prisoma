@@ -169,12 +169,45 @@ impl<'a> RunLogRerunLogger<'a> {
             RunLogEvent::AttributionLogged {
                 method,
                 target_output,
+                layer,
+                modality,
+                baseline,
+                faithfulness_check,
+                score_hash,
                 ..
-            } => self.log_text(
-                "attributions",
-                "INFO",
-                &format!("{method} → {target_output}"),
-            ),
+            } => {
+                // Plottable faithfulness verdict (1.0 pass / 0.0 fail) so a viewer
+                // can chart which attributions earned trust over the run; an
+                // attribution that fails its faithfulness check (§14.7.1) cannot
+                // corroborate or falsify a PID claim, so surface it prominently.
+                if let Some(passed) = faithfulness_check {
+                    self.rec.log(
+                        format!("attributions/faithfulness/{method}"),
+                        &Scalars::single(if *passed { 1.0 } else { 0.0 }),
+                    )?;
+                }
+                let verdict = match faithfulness_check {
+                    Some(true) => "PASS",
+                    Some(false) => "FAIL",
+                    None => "n/a",
+                };
+                let level = if matches!(faithfulness_check, Some(false)) {
+                    "WARN"
+                } else {
+                    "INFO"
+                };
+                self.log_text(
+                    format!("attributions/{method}"),
+                    level,
+                    &format!(
+                        "{method} → {target_output} | faithfulness={verdict} layer={} modality={} baseline={} score={}",
+                        layer.as_deref().unwrap_or("-"),
+                        modality.as_deref().unwrap_or("-"),
+                        baseline.as_deref().unwrap_or("-"),
+                        score_hash.as_deref().unwrap_or("-"),
+                    ),
+                )
+            }
             RunLogEvent::ErrorLogged { message, .. } => self.log_text("errors", "ERROR", message),
         }
     }
@@ -379,6 +412,56 @@ mod tests {
         assert_eq!(summary.run_id.as_deref(), Some("rerun-run"));
         assert_eq!(summary.validation_errors, 0);
         assert_eq!(summary.actions, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn logs_attribution_with_faithfulness_verdict() -> Result<()> {
+        let rec = RecordingStreamBuilder::new("runlog_attribution_test").buffered()?;
+        let events = vec![
+            RunLogEvent::RunStarted {
+                schema_version: RUN_LOG_SCHEMA_VERSION,
+                run_id: "attr-run".to_string(),
+                timestamp_ns: 0,
+                config_hash: pid_runlog::canonical_json_hash(&json!({"k": 1})).unwrap(),
+                metadata: BTreeMap::new(),
+            },
+            RunLogEvent::AttributionLogged {
+                timestamp_ns: 1,
+                method: "lrp_epsilon".to_string(),
+                target_output: "action_dim_0".to_string(),
+                layer: Some("D_hidden_7".to_string()),
+                modality: Some("vision".to_string()),
+                baseline: Some("zero".to_string()),
+                score_hash: Some("deadbeef".to_string()),
+                faithfulness_check: Some(true),
+                artifact_uri: None,
+                metadata: BTreeMap::new(),
+            },
+            RunLogEvent::AttributionLogged {
+                timestamp_ns: 2,
+                method: "grad_x_input".to_string(),
+                target_output: "action_dim_0".to_string(),
+                layer: None,
+                modality: None,
+                baseline: Some("zero".to_string()),
+                score_hash: Some("cafef00d".to_string()),
+                faithfulness_check: Some(false),
+                artifact_uri: None,
+                metadata: BTreeMap::new(),
+            },
+            RunLogEvent::RunEnded {
+                run_id: "attr-run".to_string(),
+                timestamp_ns: 3,
+                status: RunStatus::Succeeded,
+                message: None,
+            },
+        ];
+        // The adapter must process both attributions (the failing one too) without
+        // error, and the run-log summary must count them.
+        let summary = RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, None)?;
+        assert_eq!(summary.validation_errors, 0);
+        assert_eq!(summary.attributions, 2);
         Ok(())
     }
 
