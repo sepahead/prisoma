@@ -8,8 +8,13 @@ license = "MIT"
 name = "pid_core"
 path = "src/lib.rs"
 
+[features]
+# Exact data-parallel KSG kNN (identical results to the serial path; rayon-backed).
+parallel = ["dep:rayon"]
+
 [dependencies]
 anyhow = "1.0"
 nalgebra = "0.33"
 pid-runlog = { path = "../pid-runlog" }
 serde_json = "1.0"
+rayon = { version = "1.10", optional = true }

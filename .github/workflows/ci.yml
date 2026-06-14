@@ -279,6 +279,16 @@ jobs:
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'errors=0'
           cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'flow_gt_records=301'
 
+  parallel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Clippy (parallel feature)
+        run: cargo clippy -p pid-core --features parallel --all-targets -- -D warnings
+      - name: pid-core tests under the exact parallel KSG path
+        run: cargo test -p pid-core --features parallel
+
   experiments:
     runs-on: ubuntu-latest
     steps:

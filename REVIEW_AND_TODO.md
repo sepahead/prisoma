@@ -272,10 +272,10 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 
 ### P2: Later Improvements
 
-10. Add approximate or parallel kNN only after correctness gates are stable.
+10. Add approximate or parallel kNN only after correctness gates are stable. *(Exact parallel done 2026-06-14: `cargo … -p pid-core --features parallel` runs the KSG kNN data-parallel via rayon, producing results identical to the serial path — the full pid-core suite incl. the independent cross-validation passes under the feature, validated by a dedicated CI job. Only the **approximate** kNN variant — which would change results — remains deferred per the "after correctness gates are stable" caution.)*
 11. Add a discrete/quantized PID fallback. *(Done 2026-06-11/12: 2- and 3-source discrete PID with an `I_min`-style redundancy — explicitly not discrete `i^sx_∩`, see grandplan §8.1.6 — plus harness `--pid-mode discrete|discrete-pls` and per-pair saturation diagnostics.)*
-12. Split `grandplan.md` into smaller maintainable specs while preserving one canonical index.
-13. Add benchmark fixtures comparing against external reference implementations where licensing permits.
+12. Split `grandplan.md` into smaller maintainable specs while preserving one canonical index. *(Deferred: pure-maintainability refactor whose main risk is breaking the doc-audit tooling that scans `grandplan.md`; should be done with an explicit split plan, not autonomously.)*
+13. Add benchmark fixtures comparing against external reference implementations where licensing permits. *(Done 2026-06-14, self-contained: `crates/pid-core/tests/cross_validation.rs` re-derives the Williams–Beer `I_min` PID by an independent route and checks `discrete_pid2` against it + the known logic-gate structure. The external SxPID-class refs live under gitignored `.external/` and are not CI-reproducible, so an in-test independent reference is used instead.)*
 
 ## Suggested Immediate Sequence
 

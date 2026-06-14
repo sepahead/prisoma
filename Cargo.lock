@@ -5988,6 +5988,7 @@ dependencies = [
  "anyhow",
  "nalgebra",
  "pid-runlog",
+ "rayon",
  "serde_json",
 ]
 

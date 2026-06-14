@@ -60,6 +60,10 @@ rapier-harness runlog="outputs/rapier_push_runlog.jsonl" summary="outputs/rapier
 rapier-test:
     cargo test -p pid-sim --features rapier physics:: manipulation::
 
+# Exact data-parallel KSG kNN path (rayon-backed; identical results to serial).
+parallel-test:
+    cargo test -p pid-core --features parallel
+
 # M5 capture: SAFE rollouts -> (V,L,D,A) contract, then the real harness with gates.
 safe-adapter out="outputs/safe_vlda.json" rollouts="outputs/safe_synth":
     python -m experiments.safe_adapter synth --out {{rollouts}}
