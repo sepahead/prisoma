@@ -32,3 +32,25 @@ def test_redundancy_rejects_unvalidated_hyperbolic_metric():
     s1, s2, t = sample_arrays()
     with pytest.raises(RuntimeError):
         pid.compute_redundancy(s1, s2, t, metric="hyperbolic")
+
+
+def test_compute_discrete_pid3_binding():
+    # Discrete 3-source PID over the 18-atom lattice (Williams-Beer I_min).
+    n = 120
+    rng = np.random.default_rng(0)
+    s0 = rng.standard_normal((n, 1))
+    s1 = rng.standard_normal((n, 1))
+    s2 = rng.standard_normal((n, 1))
+    t = (s0[:, 0] + s1[:, 0]).reshape(-1, 1)
+    out = pid.compute_discrete_pid3(
+        np.ascontiguousarray(s0),
+        np.ascontiguousarray(s1),
+        np.ascontiguousarray(s2),
+        np.ascontiguousarray(t),
+        num_bins=4,
+    )
+    # 3-source SxPID lattice has 18 atoms; all finite.
+    assert len(out) == 18
+    assert all(np.isfinite(v) for v in out.values())
+    # I_min atoms are non-negative on empirical distributions (grandplan 8.1.6).
+    assert all(v >= -1e-9 for v in out.values())
