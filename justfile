@@ -97,6 +97,16 @@ offline-harness-require-labels input="crates/pid-sim/fixtures/offline_vlda_fixtu
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --require-success-labels
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
 
+# Opt-in PID-screen uncertainty: subsample-bootstrap CIs + single-source permutation
+# p-values on the continuous (V,L)/(V,D)/(L,D)->A atoms, written to a dedicated file
+# (the canonical runlog/summary counts are untouched). The default counts assert here
+# to prove that invariant.
+offline-harness-uncertainty input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_unc_runlog.jsonl" summary="outputs/offline_vlda_unc_summary.json" unc="outputs/offline_vlda_uncertainty.json" boot="200" perm="200":
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --bootstrap {{boot}} --permutation {{perm}} --uncertainty-json {{unc}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}
+    cargo run -p pid-runlog --bin pid-runlog-replay -- {{runlog}} | grep -q 'evaluation_metrics=142'
+    test -s {{unc}}
+
 offline-harness-require-heldout input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_runlog.jsonl" summary="outputs/offline_vlda_heldout_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --require-heldout-split
     cargo run -p pid-runlog --bin pid-runlog-replay -- --validate {{runlog}}

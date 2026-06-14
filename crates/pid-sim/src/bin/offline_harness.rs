@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use pid_sim::offline_harness::{
-    offline_vlda_geometry_gate_failure_message,
+    compute_offline_pid_uncertainty, offline_vlda_geometry_gate_failure_message,
     offline_vlda_heldout_class_coverage_failure_message,
     offline_vlda_heldout_class_coverage_status,
     offline_vlda_heldout_episode_disjoint_failure_message,
@@ -8,12 +8,13 @@ use pid_sim::offline_harness::{
     offline_vlda_heldout_split_status, offline_vlda_success_label_failure_message,
     offline_vlda_success_label_status, offline_vlda_train_split_pid_status,
     read_offline_vlda_dataset, run_offline_vlda_harness_with_options,
-    write_offline_vlda_runlog_with_options, write_offline_vlda_summary, OfflineVldaHarnessOptions,
-    OfflineVldaRunlogOptions, PidMode,
+    write_offline_pid_uncertainty, write_offline_vlda_runlog_with_options,
+    write_offline_vlda_summary, OfflineVldaHarnessOptions, OfflineVldaRunlogOptions,
+    OfflineVldaUncertaintyConfig, PidMode,
 };
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct Args {
     input: PathBuf,
     summary_json: PathBuf,
@@ -26,6 +27,11 @@ struct Args {
     pid_mode: PidMode,
     discrete_bins: usize,
     pls_components: usize,
+    bootstrap: usize,
+    permutation: usize,
+    uncertainty_block_size: usize,
+    uncertainty_alpha: f64,
+    uncertainty_json: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -59,6 +65,34 @@ fn main() -> Result<()> {
             require_heldout_episode_disjoint: args.require_heldout_episode_disjoint,
         },
     )?;
+
+    // Opt-in PID-screen uncertainty: written to a dedicated file so the canonical
+    // run-log / summary metric counts are never perturbed.
+    let uncertainty_config = OfflineVldaUncertaintyConfig {
+        n_boot: args.bootstrap,
+        n_perm: args.permutation,
+        block_size: args.uncertainty_block_size,
+        alpha: args.uncertainty_alpha,
+        ..Default::default()
+    };
+    if uncertainty_config.enabled() {
+        let uncertainty =
+            compute_offline_pid_uncertainty(&dataset, args.pid_mode, &uncertainty_config)?;
+        let path = args
+            .uncertainty_json
+            .clone()
+            .unwrap_or_else(|| args.summary_json.with_extension("uncertainty.json"));
+        write_offline_pid_uncertainty(&path, &uncertainty)?;
+        println!(
+            "pid_uncertainty={} mode={} n_boot={} n_perm={} subsample_len={} pairs={}",
+            path.display(),
+            uncertainty.mode,
+            uncertainty.n_boot,
+            uncertainty.n_perm,
+            uncertainty.subsample_len,
+            uncertainty.pairs.len(),
+        );
+    }
     println!(
         "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_gate_status={} success_label_status={} heldout_split_status={} train_split_pid_status={} heldout_class_coverage_status={} heldout_episode_disjoint_status={}",
         args.summary_json.display(),
@@ -116,6 +150,11 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut pid_mode = PidMode::Continuous;
     let mut discrete_bins: usize = 10;
     let mut pls_components: usize = 2;
+    let mut bootstrap: usize = 0;
+    let mut permutation: usize = 0;
+    let mut uncertainty_block_size: usize = 1;
+    let mut uncertainty_alpha: f64 = 0.05;
+    let mut uncertainty_json: Option<PathBuf> = None;
     let mut iter = args.into_iter();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
@@ -181,6 +220,45 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
                     bail!("--pls-components must be >= 1");
                 }
             }
+            "--bootstrap" => {
+                let raw = iter.next().context("--bootstrap requires a number")?;
+                bootstrap = raw
+                    .parse::<usize>()
+                    .with_context(|| format!("--bootstrap: invalid number '{raw}'"))?;
+            }
+            "--permutation" => {
+                let raw = iter.next().context("--permutation requires a number")?;
+                permutation = raw
+                    .parse::<usize>()
+                    .with_context(|| format!("--permutation: invalid number '{raw}'"))?;
+            }
+            "--uncertainty-block-size" => {
+                let raw = iter
+                    .next()
+                    .context("--uncertainty-block-size requires a number")?;
+                uncertainty_block_size = raw
+                    .parse::<usize>()
+                    .with_context(|| format!("--uncertainty-block-size: invalid number '{raw}'"))?;
+                if uncertainty_block_size < 1 {
+                    bail!("--uncertainty-block-size must be >= 1");
+                }
+            }
+            "--uncertainty-alpha" => {
+                let raw = iter
+                    .next()
+                    .context("--uncertainty-alpha requires a float in (0,1)")?;
+                uncertainty_alpha = raw
+                    .parse::<f64>()
+                    .with_context(|| format!("--uncertainty-alpha: invalid float '{raw}'"))?;
+                if !(uncertainty_alpha > 0.0 && uncertainty_alpha < 1.0) {
+                    bail!("--uncertainty-alpha must be in (0,1)");
+                }
+            }
+            "--uncertainty-json" => {
+                uncertainty_json = Some(PathBuf::from(
+                    iter.next().context("--uncertainty-json requires a path")?,
+                ));
+            }
             other => bail!("unknown argument: {other}"),
         }
     }
@@ -197,12 +275,17 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         pid_mode,
         discrete_bins,
         pls_components,
+        bootstrap,
+        permutation,
+        uncertainty_block_size,
+        uncertainty_alpha,
+        uncertainty_json,
     })
 }
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N]\n\
+        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N] [--bootstrap N] [--permutation N] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts.\n\
          \n\

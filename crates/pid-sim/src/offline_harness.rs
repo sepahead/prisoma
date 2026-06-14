@@ -1,10 +1,11 @@
 use anyhow::{bail, Context, Result};
 use pid_core::{
-    co_information_pairwise, concat_horiz, discrete_mi, distance_concentration_stats,
-    gromov_hyperbolicity, intrinsic_dimension_levina_bickel, pid2_isx, quantize_equal_width,
+    bootstrap_rows_stats, co_information_pairwise, concat_horiz, discrete_mi,
+    distance_concentration_stats, gromov_hyperbolicity, intrinsic_dimension_levina_bickel,
+    permutation_rows_pvalue, pid2_isx, quantize_equal_width, BootstrapConfig,
     DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig, IsxConfig, KsgConfig,
     LogisticRegression, LogisticRegressionConfig, MatOwned, MatRef, Metric, NegativeHandling,
-    Pid2Config, PlsProjector, Standardizer,
+    Pid2Config, PlsProjector, RowResampleScheme, Standardizer,
 };
 use pid_runlog::{
     EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
@@ -736,6 +737,231 @@ fn compute_pid_screen_metrics(
         synergy_v_l_action: vl_pair.synergy,
         pid_pairs,
     })
+}
+
+// ── Opt-in PID-screen uncertainty (subsample bootstrap + permutation nulls) ──
+
+/// Configuration for [`compute_offline_pid_uncertainty`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct OfflineVldaUncertaintyConfig {
+    /// Number of subsample-bootstrap resamples (0 disables CIs).
+    pub n_boot: usize,
+    /// Number of permutations for single-source unique-atom nulls (0 disables them).
+    pub n_perm: usize,
+    /// Moving-block length for the resamplers (1 = i.i.d.).
+    pub block_size: usize,
+    /// Significance level for the percentile CIs.
+    pub alpha: f64,
+    /// Base seed for the resamplers.
+    pub seed: u64,
+}
+
+impl Default for OfflineVldaUncertaintyConfig {
+    fn default() -> Self {
+        Self {
+            n_boot: 0,
+            n_perm: 0,
+            block_size: 1,
+            alpha: 0.05,
+            seed: 0xC0FFEE,
+        }
+    }
+}
+
+impl OfflineVldaUncertaintyConfig {
+    pub fn enabled(&self) -> bool {
+        self.n_boot > 0 || self.n_perm > 0
+    }
+}
+
+/// Percentile CI for one PID atom.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaAtomCi {
+    pub point: f64,
+    pub ci_low: f64,
+    pub ci_high: f64,
+    pub n_valid: usize,
+}
+
+/// Bootstrap CIs + permutation p-values for one two-source pair → A.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaPairUncertainty {
+    pub pair: String,
+    pub redundancy: Option<OfflineVldaAtomCi>,
+    pub unique_s1: Option<OfflineVldaAtomCi>,
+    pub unique_s2: Option<OfflineVldaAtomCi>,
+    pub synergy: Option<OfflineVldaAtomCi>,
+    /// One-sided permutation p-value for `unique_s1` (shuffling source 1).
+    pub unique_s1_perm_p: Option<f64>,
+    /// One-sided permutation p-value for `unique_s2` (shuffling source 2).
+    pub unique_s2_perm_p: Option<f64>,
+    pub perm_n_valid_s1: usize,
+    pub perm_n_valid_s2: usize,
+}
+
+/// Result of [`compute_offline_pid_uncertainty`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaPidUncertainty {
+    /// `"continuous"` when CIs were computed, or `"skipped:<reason>"`.
+    pub mode: String,
+    pub n_boot: usize,
+    pub n_perm: usize,
+    pub block_size: usize,
+    pub subsample_len: usize,
+    pub alpha: f64,
+    pub resample_scheme: String,
+    pub pairs: Vec<OfflineVldaPairUncertainty>,
+}
+
+/// Compute subsample-bootstrap CIs and single-source permutation p-values for the
+/// three two-source `(V,L)→A` / `(V,D)→A` / `(L,D)→A` PID screens.
+///
+/// This is the analysis-side complement to the Exp0 uncertainty gate: it quantifies
+/// uncertainty on the **continuous `I^sx_∩`** atoms (the primary atom-level measure;
+/// discrete `I_min` modes are a different measure — Warning 6 — and are reported as
+/// `skipped`). Resampling is Politis–Romano subsampling without replacement, which
+/// is safe for the KSG kNN estimator (a with-replacement bootstrap is not — see
+/// `pid_core::RowResampleScheme`); CIs are correspondingly conservative.
+///
+/// It is intentionally self-contained and written to a dedicated file by the
+/// binary, so it never perturbs the canonical run-log / summary metric counts.
+pub fn compute_offline_pid_uncertainty(
+    dataset: &OfflineVldaDataset,
+    pid_mode: PidMode,
+    config: &OfflineVldaUncertaintyConfig,
+) -> Result<OfflineVldaPidUncertainty> {
+    if pid_mode != PidMode::Continuous {
+        return Ok(OfflineVldaPidUncertainty {
+            mode: format!("skipped:non_continuous_mode_is_a_different_measure ({pid_mode:?})"),
+            n_boot: config.n_boot,
+            n_perm: config.n_perm,
+            block_size: config.block_size,
+            subsample_len: 0,
+            alpha: config.alpha,
+            resample_scheme: "politis_romano_subsample".to_string(),
+            pairs: Vec::new(),
+        });
+    }
+    if config.block_size == 0 {
+        bail!("uncertainty block_size must be >= 1");
+    }
+
+    let dims = validate_dataset(dataset)?;
+    let prepared = prepare_standardized_embeddings(&dataset.samples, &dims)?;
+    let v = prepared.v.as_ref();
+    let l = prepared.l.as_ref();
+    let d = prepared.d.as_ref();
+    let a = prepared.a.as_ref();
+    let n = v.nrows();
+
+    // Subsample length: half the rows in whole blocks (the conservative
+    // Politis–Romano regime); clamp so there is at least one block.
+    let subsample_len = (((n / 2) / config.block_size).max(1)) * config.block_size;
+
+    let ksg = KsgConfig {
+        negative_handling: NegativeHandling::Allow,
+        ..Default::default()
+    };
+    let pid_cfg = Pid2Config {
+        ksg: ksg.clone(),
+        isx: IsxConfig {
+            k: ksg.k,
+            metric: ksg.metric,
+            tie_epsilon: ksg.tie_epsilon,
+            ..Default::default()
+        },
+    };
+
+    let pairs_spec: [(&str, MatRef<'_>, MatRef<'_>); 3] =
+        [("VL", v, l), ("VD", v, d), ("LD", l, d)];
+    let mut pairs = Vec::with_capacity(3);
+    for (name, s1, s2) in pairs_spec {
+        let mats = [s1, s2, a];
+
+        let (redundancy, unique_s1, unique_s2, synergy) = if config.n_boot > 0 {
+            let boot_cfg = BootstrapConfig {
+                n_boot: config.n_boot,
+                block_size: config.block_size,
+                seed: config.seed,
+                alpha: config.alpha,
+            };
+            let scheme = RowResampleScheme::Subsample { subsample_len };
+            let res = bootstrap_rows_stats(&mats, &boot_cfg, scheme, |m| {
+                let r = pid2_isx(m[0], m[1], m[2], &pid_cfg)?;
+                Ok(vec![r.redundancy, r.unique_s1, r.unique_s2, r.synergy])
+            })
+            .map_err(|e| anyhow::anyhow!("pid2 bootstrap failed for {name}: {e}"))?;
+            let to_ci = |idx: usize| {
+                let s = &res.stats[idx];
+                Some(OfflineVldaAtomCi {
+                    point: s.point_estimate,
+                    ci_low: s.ci_low,
+                    ci_high: s.ci_high,
+                    n_valid: s.n_valid,
+                })
+            };
+            (to_ci(0), to_ci(1), to_ci(2), to_ci(3))
+        } else {
+            (None, None, None, None)
+        };
+
+        let (unique_s1_perm_p, perm_n_valid_s1, unique_s2_perm_p, perm_n_valid_s2) =
+            if config.n_perm > 0 {
+                // Shuffle source 1 → null for its unique atom; likewise source 2.
+                let p1 = permutation_rows_pvalue(&mats, 0, config.n_perm, config.seed, |m| {
+                    Ok(pid2_isx(m[0], m[1], m[2], &pid_cfg)?.unique_s1)
+                })
+                .map_err(|e| anyhow::anyhow!("pid2 permutation (s1) failed for {name}: {e}"))?;
+                let p2 = permutation_rows_pvalue(
+                    &mats,
+                    1,
+                    config.n_perm,
+                    config.seed.wrapping_add(1),
+                    |m| Ok(pid2_isx(m[0], m[1], m[2], &pid_cfg)?.unique_s2),
+                )
+                .map_err(|e| anyhow::anyhow!("pid2 permutation (s2) failed for {name}: {e}"))?;
+                (
+                    p1.p_value.is_finite().then_some(p1.p_value),
+                    p1.n_valid,
+                    p2.p_value.is_finite().then_some(p2.p_value),
+                    p2.n_valid,
+                )
+            } else {
+                (None, 0, None, 0)
+            };
+
+        pairs.push(OfflineVldaPairUncertainty {
+            pair: name.to_string(),
+            redundancy,
+            unique_s1,
+            unique_s2,
+            synergy,
+            unique_s1_perm_p,
+            unique_s2_perm_p,
+            perm_n_valid_s1,
+            perm_n_valid_s2,
+        });
+    }
+
+    Ok(OfflineVldaPidUncertainty {
+        mode: "continuous".to_string(),
+        n_boot: config.n_boot,
+        n_perm: config.n_perm,
+        block_size: config.block_size,
+        subsample_len,
+        alpha: config.alpha,
+        resample_scheme: "politis_romano_subsample".to_string(),
+        pairs,
+    })
+}
+
+/// Write a [`OfflineVldaPidUncertainty`] to a JSON file.
+pub fn write_offline_pid_uncertainty(
+    path: impl AsRef<Path>,
+    uncertainty: &OfflineVldaPidUncertainty,
+) -> Result<()> {
+    ensure_parent(path.as_ref())?;
+    pid_runlog::write_json_file(path, uncertainty)
 }
 
 pub fn write_offline_vlda_summary(
@@ -5245,5 +5471,63 @@ mod tests {
         dataset.samples[1].sample_id = dataset.samples[0].sample_id.clone();
         let err = run_offline_vlda_harness(dataset, None, None).unwrap_err();
         assert!(format!("{err:#}").contains("unique"));
+    }
+
+    #[test]
+    fn pid_uncertainty_continuous_emits_cis_and_perm_pvalues() {
+        let dataset = fixture_dataset();
+        let cfg = OfflineVldaUncertaintyConfig {
+            n_boot: 24,
+            n_perm: 40,
+            block_size: 1,
+            alpha: 0.05,
+            seed: 7,
+        };
+        let u = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
+        assert_eq!(u.mode, "continuous");
+        assert_eq!(u.pairs.len(), 3);
+        assert!(u.subsample_len >= 1);
+        // Deterministic given the same config.
+        let u2 = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
+        assert_eq!(u, u2);
+        let vl = u.pairs.iter().find(|p| p.pair == "VL").unwrap();
+        // Bootstrap CIs present and well-ordered (n_boot > 0).
+        let red = vl.redundancy.as_ref().unwrap();
+        assert!(red.ci_low <= red.ci_high);
+        assert!(red.n_valid > 0 && red.n_valid <= cfg.n_boot);
+        assert!(vl.synergy.is_some() && vl.unique_s1.is_some() && vl.unique_s2.is_some());
+        // Permutation p-values present and valid (n_perm > 0).
+        let p1 = vl.unique_s1_perm_p.unwrap();
+        let p2 = vl.unique_s2_perm_p.unwrap();
+        assert!((0.0..=1.0).contains(&p1) && (0.0..=1.0).contains(&p2));
+        assert!(vl.perm_n_valid_s1 > 0 && vl.perm_n_valid_s2 > 0);
+    }
+
+    #[test]
+    fn pid_uncertainty_skips_non_continuous_measures() {
+        let dataset = fixture_dataset();
+        let cfg = OfflineVldaUncertaintyConfig {
+            n_boot: 8,
+            n_perm: 0,
+            ..Default::default()
+        };
+        let u = compute_offline_pid_uncertainty(&dataset, PidMode::Discrete, &cfg).unwrap();
+        assert!(u.mode.starts_with("skipped"), "mode={}", u.mode);
+        assert!(u.pairs.is_empty());
+    }
+
+    #[test]
+    fn pid_uncertainty_bootstrap_only_omits_perm_pvalues() {
+        let dataset = fixture_dataset();
+        let cfg = OfflineVldaUncertaintyConfig {
+            n_boot: 16,
+            n_perm: 0,
+            ..Default::default()
+        };
+        let u = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
+        let vl = &u.pairs[0];
+        assert!(vl.redundancy.is_some());
+        assert!(vl.unique_s1_perm_p.is_none() && vl.unique_s2_perm_p.is_none());
+        assert!(!OfflineVldaUncertaintyConfig::default().enabled());
     }
 }
