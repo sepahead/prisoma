@@ -325,7 +325,7 @@ Completed since the 2026-06-12 pass (the "capture + analysis" slice — docset v
 
 **Revised critical path:** the remaining blocker is purely a **data-pull step** — point `experiments/safe_adapter` at the real downloaded SAFE rollouts (verify tensors/coverage/licenses) and run the existing analysis (PID screens + the built-in non-PID baselines incl. the SAFE-class detector + the §14.7.1 attribution probe) under the geometry/uncertainty gates; the preregistered §14.1.1 kill criteria then decide whether PID atoms earn a place. No further estimator, harness, baseline, or attribution code is required for that first study.
 
-> **Not on the critical path:** `crates/ncp-observer` (the Engram/NEST Neuro-Control-Protocol bridge) is an **optional** `(V,L,D,A)` source — grandplan does not depend on Engram, and the pure-PID stack builds/gates green with no NCP/Engram/Zenoh dependency (it is excluded from the default cargo workspace). It is exploratory-only until it meets the M5 contract (D `seq`-alignment, honest `L`, split/episode/label structure); bringing it up to bar is a self-contained task tracked in `NCP_DEV_PROMPT.md`. It does not block the SAFE data-pull above.
+> **Not on the critical path:** `crates/ncp-observer` (the Engram/NEST Neuro-Cybernetic-Protocol bridge) is an **optional** `(V,L,D,A)` source — grandplan does not depend on Engram, and the pure-PID stack builds/gates green with no NCP/Engram/Zenoh dependency (it is excluded from the default cargo workspace). It is exploratory-only until it meets the M5 contract (D `seq`-alignment, honest `L`, split/episode/label structure); bringing it up to bar is a self-contained task tracked in `NCP_DEV_PROMPT.md`. It does not block the SAFE data-pull above.
 
 ## Implementation Pass Status: 2026-06-12
 

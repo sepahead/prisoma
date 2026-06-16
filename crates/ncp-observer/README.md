@@ -1,6 +1,6 @@
-# `ncp-observer` — passive Neuro-Control Protocol tap for pid_vla
+# `ncp-observer` — passive Neuro-Cybernetic Protocol tap for pid_vla
 
-Makes **Engram** (a NEST spiking network, exposed over the Neuro-Control Protocol)
+Makes **Engram** (a NEST spiking network, exposed over the Neuro-Cybernetic Protocol)
 another `(V,L,D,A)` source for pid_vla's Partial Information Decomposition — the
 same role `experiments/safe_adapter` plays for SAFE rollouts. It is a **read-only
 observer**: it subscribes to the NCP data-plane keys over Zenoh and never drives

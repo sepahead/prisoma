@@ -87,7 +87,7 @@ Everything downstream consumes one `(V,L,D,A)`+labels contract (the `OfflineVlda
 |---|---|---|---|
 | `experiments/safe_adapter/` (released SAFE rollouts) | **Critical path** (M5) | yes | Gate-passing; honest provenance; §7.6.3 hook-probe |
 | `crates/pid-sim` fixtures + `pid-rapier-harness` / `pid-toy-harness` | Sim cross-checks | yes | Gate-passing (physics-derived labels + `Flow_gt`) |
-| `crates/ncp-observer` (Engram/NEST over the Neuro-Control Protocol) | **Optional** external bridge | n/a | **Exploratory-only — below the M5 bar** |
+| `crates/ncp-observer` (Engram/NEST over the Neuro-Cybernetic Protocol) | **Optional** external bridge | n/a | **Exploratory-only — below the M5 bar** |
 
 The pure-PID stack (the table above minus NCP) builds, tests, and clears the strict gates with **no NCP/Engram/Zenoh dependency** — `ncp-observer` is excluded from the default cargo workspace. NCP is a sound read-only tap fine for exploratory PID screens on a live Engram session, but it is **not** part of grandplan's critical path (grandplan does not depend on Engram) and is below the M5 contract until three gaps close: precise D `seq`-alignment, honest (non-zeroed) `L`, and `metadata.split`/`episode_id`/`success` structure for the strict gates and the §14.1.1 H1 audit. Bringing it up to bar is a self-contained task — see `NCP_DEV_PROMPT.md`.
 

@@ -22,7 +22,7 @@ There are several producers of that contract:
 | **`crates/ncp-observer` (this)** | **Optional** Engram/NEST bridge | **Exploratory-only — below the M5 bar** |
 
 `ncp-observer` is a **read-only passive tap**: it subscribes to a NEST/Engram session's
-Neuro-Control Protocol (NCP) data planes over Zenoh and converts each closed-loop tick
+Neuro-Cybernetic Protocol (NCP) data planes over Zenoh and converts each closed-loop tick
 into an `OfflineVldaSample`. It is **not on grandplan's critical path** (grandplan does
 not depend on Engram at all), and the pure-PID stack builds/tests/gates green with no
 NCP/Engram/Zenoh dependency. Your job is to make this optional bridge *good enough to

@@ -1,6 +1,6 @@
 //! # ncp-observer — pid_vla's passive NCP tap
 //!
-//! Engram (NEST, via the Neuro-Control Protocol) becomes another `(V,L,D,A)`
+//! Engram (NEST, via the Neuro-Cybernetic Protocol) becomes another `(V,L,D,A)`
 //! source for pid_vla's Partial Information Decomposition — exactly the role
 //! `experiments/safe_adapter` plays for SAFE rollouts. This crate is a
 //! **read-only observer**: it subscribes to the NCP data-plane keys
