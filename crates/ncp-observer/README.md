@@ -6,8 +6,9 @@ same role `experiments/safe_adapter` plays for SAFE rollouts. It is a **read-onl
 observer**: it subscribes to the NCP data-plane keys over Zenoh and never drives
 anything (the Agent Bridge stays the only control plane).
 
-It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the sibling
-**`Paper2Brain/ncp`** workspace. Spec: `Paper2Brain/NEURO_CONTROL_PROTOCOL.md`.
+It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the published
+NCP repo **<https://github.com/sepehrmn/NCP>**. Spec: `NEURO_CYBERNETIC_PROTOCOL.md`
+in that repo.
 
 ## Scope & status (read before relying on it)
 
@@ -82,20 +83,19 @@ non-invasive:
    sensor channel, the **unique / redundant / synergistic** information about the
    action. That is exactly the policy NCP's perception plane needs under a poor
    (low-bandwidth) link: **drop redundant channels, keep unique ones, bundle
-   synergistic ones** (see `Paper2Brain/ncp/RESILIENCE.md`). pid_vla computes the
+   synergistic ones** (see `RESILIENCE.md` in <https://github.com/sepehrmn/NCP>). pid_vla computes the
    policy *offline*; NCP's codec applies it *online* as static channel priorities.
 
 So the loop closes: NCP streams `(V,L,D,A)` → pid_vla decomposes it → a channel
 priority/redundancy policy feeds back into the perception codec. PID is a
 **design-time** tool (expensive, hard to estimate — pid_vla's whole domain), never
 a per-tick runtime computation. It also serves as a **sim-vs-hardware fidelity
-metric** (`Paper2Brain/ncp/NEUROMORPHIC.md` §5): does a neuromorphic chip preserve
+metric** (`NEUROMORPHIC.md` §5 in <https://github.com/sepehrmn/NCP>): does a neuromorphic chip preserve
 the same information flow as the NEST simulator?
 
 ## Build note
 
-This crate depends on the sibling `Paper2Brain/ncp` workspace (path dependency) and
-pulls Zenoh, so it is heavier than the pure-PID crates. The estimator gates
-(`just exp0`, etc.) target specific crates with `-p` and are unaffected. For a
-standalone build, switch the `ncp-core`/`ncp-zenoh` path deps to a git/crates.io
-dependency.
+This crate git-depends on the published NCP repo <https://github.com/sepehrmn/NCP>
+(tag `v0.1.0`) and pulls Zenoh, so it is heavier than the pure-PID crates. The
+estimator gates (`just exp0`, etc.) target specific crates with `-p` and are
+unaffected.

@@ -5,12 +5,12 @@ edition = "2021"
 description = "Passive Neuro-Cybernetic Protocol (NCP) observer for pid_vla: taps the NCP perception/action/observation data planes read-only and maps them to (V,L,D,A) artifacts + run-log events for Partial Information Decomposition. Engram becomes another (V,L,D,A) source — like experiments/safe_adapter."
 license = "MIT"
 
-# Cross-repo dependency on the NCP standard SDK (canonical home: the sibling
-# Paper2Brain/ncp workspace). The sibling layout is the local-dev contract; for
-# external adopters switch these to a git/crates.io dependency (one-line change).
+# Cross-repo dependency on the NCP standard SDK, pinned to the published repo
+# (canonical home: https://github.com/sepehrmn/NCP). This resolves standalone on a
+# fresh checkout (no sibling required); bump the tag to adopt a newer NCP wire.
 [dependencies]
-ncp-core = { path = "../../../Paper2Brain/ncp/ncp-core" }
-ncp-zenoh = { path = "../../../Paper2Brain/ncp/ncp-zenoh" }
+ncp-core = { git = "https://github.com/sepehrmn/NCP", tag = "v0.1.0" }
+ncp-zenoh = { git = "https://github.com/sepehrmn/NCP", tag = "v0.1.0" }
 pid-runlog = { path = "../pid-runlog" }
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -8,11 +8,9 @@ members = [
     "crates/pid-runlog",
     "crates/pid-sim",
 ]
-# `ncp-observer` is intentionally NOT a default member. It path-depends on the
-# sibling `Paper2Brain/ncp` workspace (`../../../Paper2Brain/ncp/*`), which is not
-# vendored here and is absent on a fresh checkout / CI runner. A broken path-dep in
-# a default member poisons manifest resolution for the WHOLE workspace (every
-# `cargo` command, including `-p`-scoped ones), so it is excluded to keep the
-# self-contained crates (and CI) green. Build it explicitly when the sibling is
-# present: `cargo build --manifest-path crates/ncp-observer/Cargo.toml`.
+# `ncp-observer` is intentionally NOT a default member. It now git-depends on the
+# published NCP SDK (https://github.com/sepehrmn/NCP, tag v0.1.0) and so resolves on
+# a fresh checkout, but it pulls in NCP + Zenoh — deliberately kept OFF pid_vla's
+# critical path (the pure-PID stack builds and gates with no NCP/Engram/Zenoh dep).
+# Build/test it explicitly: `cargo build --manifest-path crates/ncp-observer/Cargo.toml`.
 exclude = ["crates/ncp-observer"]

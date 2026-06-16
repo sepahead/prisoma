@@ -32,7 +32,7 @@ feed the rigorous analysis*, not to make the project depend on it.
 per NCP channel, the unique / redundant / synergistic information about the action, which
 becomes a *design-time* channel-prioritization policy for NCP's perception codec under a
 low-bandwidth link (drop redundant, keep unique, bundle synergistic). See
-`crates/ncp-observer/README.md` and `Paper2Brain/ncp/RESILIENCE.md`.
+`crates/ncp-observer/README.md` and `RESILIENCE.md` in <https://github.com/sepehrmn/NCP>.
 
 ## 2. The bar to clear ("done" = M5-grade)
 
@@ -69,9 +69,9 @@ Already correct (do not regress):
 `PID(V,D;A)` probe targets — is paired with the **most recent** observation
 (`try_complete` falls back to `latest_d`), not the observation produced for the driving
 `seq`. That biases every D-involving atom.
-- **Paper2Brain/ncp side (the real fix):** stamp `ObservationFrame` with the driving
+- **NCP side (the real fix), <https://github.com/sepehrmn/NCP>:** stamp `ObservationFrame` with the driving
   sensor `seq` (publisher emits the `seq` of the tick the readout belongs to). Update
-  `Paper2Brain/NEURO_CONTROL_PROTOCOL.md`.
+  `NEURO_CYBERNETIC_PROTOCOL.md` in that repo.
 - **pid_vla side:** already wired — `Observer::on_observation` stores `d_by_seq[obs.seq]`
   and `try_complete` consumes it. Confirm with a test once observations carry `seq`.
 - **Acceptance:** a session where D readouts arrive out of order still pairs each sample's
@@ -113,12 +113,12 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
 
 ## 6. Build & run
 
-`ncp-observer` is **excluded from the default cargo workspace** (`Cargo.toml` `exclude`)
-because it path-depends on the sibling `Paper2Brain/ncp` tree, absent on a fresh checkout.
-Build/test it explicitly when the sibling is present:
+`ncp-observer` is **kept off the default cargo workspace** (`Cargo.toml` `exclude`)
+to keep NCP/Zenoh off the critical path; it git-depends on the published NCP repo
+<https://github.com/sepehrmn/NCP> (tag `v0.1.0`). Build/test it explicitly:
 
 ```bash
-# build + test (sibling Paper2Brain/ncp must be adjacent on disk)
+# build + test (pulls NCP from https://github.com/sepehrmn/NCP, tag v0.1.0)
 cargo build --manifest-path crates/ncp-observer/Cargo.toml
 cargo test  --manifest-path crates/ncp-observer/Cargo.toml
 
@@ -129,15 +129,16 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json 
     --summary-json outputs/ncp_summary.json --runlog outputs/ncp_pid_runlog.jsonl
 ```
 
-For an external standalone build (no sibling checkout), switch the `ncp-core` / `ncp-zenoh`
-path deps in `crates/ncp-observer/Cargo.toml` to a git/crates.io dependency — at which
-point `ncp-observer` can rejoin the default workspace and regain CI coverage.
+The `ncp-core` / `ncp-zenoh` deps in `crates/ncp-observer/Cargo.toml` resolve from the
+published NCP repo <https://github.com/sepehrmn/NCP> (tag `v0.1.0`), so no sibling
+checkout is needed; the crate is kept off the default workspace to keep NCP/Zenoh off the
+critical path.
 
 ## 7. References
 
 - `crates/ncp-observer/README.md` — what it does + the closed-loop payoff.
 - `crates/ncp-observer/src/lib.rs` — `Observer` (V↔A `seq` join, `d_by_seq`, `try_complete`).
-- `Paper2Brain/NEURO_CONTROL_PROTOCOL.md` — the NCP spec (Gap 1 lives here).
+- `NEURO_CYBERNETIC_PROTOCOL.md` in <https://github.com/sepehrmn/NCP> — the NCP spec (Gap 1 lives here).
 - `experiments/safe_adapter/` — the gold-standard, gate-passing `(V,L,D,A)` producer to
   mirror for provenance and split/label structure.
 - `EXPERIMENTS.md` §0.2 (runbook) and `grandplan.md` §14.1.1 (H1 kill criteria), §7.6.3
