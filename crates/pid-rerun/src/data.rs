@@ -165,11 +165,14 @@ pub fn generate_synthetic_episode(
 ) -> VlaEpisode {
     use std::f64::consts::PI;
 
-    // Simple LCG for reproducibility
+    // Simple LCG for reproducibility. Take the top 32 bits (>>32) so the value maps
+    // onto the `u32::MAX` divisor: ratio ∈ [0, 1], rescaled to a symmetric [-1, 1).
+    // (A >>33 shift would keep only 31 bits, capping the ratio at 0.5 and yielding
+    // exclusively negative samples.)
     let mut state = seed;
     let mut rand = || {
         state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
-        ((state >> 33) as f64) / (u32::MAX as f64) * 2.0 - 1.0
+        ((state >> 32) as f64) / (u32::MAX as f64) * 2.0 - 1.0
     };
 
     let mut episode = VlaEpisode::new(

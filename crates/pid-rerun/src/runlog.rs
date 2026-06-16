@@ -36,16 +36,21 @@ fn read_npy_f64(path: &str) -> Option<(Vec<f64>, Vec<usize>)> {
         return None;
     }
     let shape = parse_npy_shape(header)?;
-    let count: usize = if shape.is_empty() {
-        1
-    } else {
-        shape.iter().product()
-    };
+    // Element count and byte size are computed with CHECKED arithmetic: a crafted
+    // (or merely absurd) shape header must yield `None`, never a wrapped count that
+    // bypasses the length guard and then aborts in `Vec::with_capacity`. `try_fold`
+    // over an empty shape yields the initial `1`, preserving scalar-array behavior.
+    let count: usize = shape
+        .iter()
+        .try_fold(1usize, |acc, &d| acc.checked_mul(d))?;
+    let n_bytes = count.checked_mul(8)?;
     let data = &bytes[data_start..];
-    if data.len() < count * 8 {
+    if data.len() < n_bytes {
         return None;
     }
-    let mut values = Vec::with_capacity(count);
+    // Only the first `MAX_RELEVANCE_POINTS` values are ever consumed downstream, so
+    // cap the allocation rather than reserving for a giant (but in-bounds) array.
+    let mut values = Vec::with_capacity(count.min(MAX_RELEVANCE_POINTS));
     for chunk in data.chunks_exact(8).take(count) {
         values.push(f64::from_le_bytes(chunk.try_into().ok()?));
     }
@@ -601,6 +606,32 @@ mod tests {
         assert_eq!(got1, values);
         // A non-existent / non-npy path returns None, never panics.
         assert!(read_npy_f64("/no/such/file.npy").is_none());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn npy_reader_rejects_overflowing_shape_without_panicking() {
+        // A header that is a valid v1.0 little-endian f8 C-order array but whose
+        // shape product overflows `usize` must return None — never abort via
+        // `Vec::with_capacity` (the documented "never panics / falls back" contract).
+        let dir = std::env::temp_dir();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = dir.join(format!("pid-rerun-npy-huge-{stamp}.npy"));
+        // 2^61 elements: count*8 wraps to 0 with naive arithmetic; checked_mul -> None.
+        let header =
+            "{'descr': '<f8', 'fortran_order': False, 'shape': (2305843009213693952,), }\n";
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"\x93NUMPY");
+        bytes.push(1);
+        bytes.push(0);
+        bytes.extend_from_slice(&(header.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(header.as_bytes());
+        bytes.extend_from_slice(&[0u8; 64]); // a little real data, far less than claimed
+        std::fs::write(&path, bytes).unwrap();
+        assert!(read_npy_f64(path.to_str().unwrap()).is_none());
         let _ = std::fs::remove_file(path);
     }
 

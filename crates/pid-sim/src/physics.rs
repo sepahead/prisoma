@@ -102,6 +102,9 @@ pub trait PhysicsBackend {
 pub struct NullPhysicsBackend {
     bodies: Vec<RigidBodyState>,
     step_count: u64,
+    /// Monotonic simulated time, accumulated from each step's `dt` so the report
+    /// timestamp stays correct even when `dt` varies between steps.
+    elapsed_ns: u64,
 }
 
 impl NullPhysicsBackend {
@@ -109,6 +112,7 @@ impl NullPhysicsBackend {
         Self {
             bodies: Vec::new(),
             step_count: 0,
+            elapsed_ns: 0,
         }
     }
 }
@@ -196,9 +200,10 @@ impl PhysicsBackend for NullPhysicsBackend {
         }
         self.step_count += 1;
         let dt_ns = (dt_secs * 1_000_000_000.0).round() as u64;
+        self.elapsed_ns = self.elapsed_ns.saturating_add(dt_ns);
         Ok(PhysicsStepReport {
             step: self.step_count,
-            timestamp_ns: self.step_count * dt_ns,
+            timestamp_ns: self.elapsed_ns,
             substeps: 1,
             contact_count: 0,
             bodies: self.bodies.clone(),
@@ -212,6 +217,7 @@ impl PhysicsBackend for NullPhysicsBackend {
     fn reset(&mut self) {
         self.bodies.clear();
         self.step_count = 0;
+        self.elapsed_ns = 0;
     }
 }
 
@@ -266,6 +272,8 @@ pub mod rapier_adapter {
         order: Vec<String>,
         last_contact_count: usize,
         step_count: u64,
+        /// Monotonic simulated time (sum of per-step `dt`), correct under variable dt.
+        elapsed_ns: u64,
     }
 
     impl RapierBackend {
@@ -293,6 +301,7 @@ pub mod rapier_adapter {
                 order: Vec::new(),
                 last_contact_count: 0,
                 step_count: 0,
+                elapsed_ns: 0,
             }
         }
 
@@ -501,9 +510,10 @@ pub mod rapier_adapter {
                 .filter(|p| p.has_any_active_contact)
                 .count();
             let dt_ns = (dt_secs * 1_000_000_000.0).round() as u64;
+            self.elapsed_ns = self.elapsed_ns.saturating_add(dt_ns);
             Ok(PhysicsStepReport {
                 step: self.step_count,
-                timestamp_ns: self.step_count * dt_ns,
+                timestamp_ns: self.elapsed_ns,
                 substeps: n_sub,
                 contact_count: self.last_contact_count,
                 bodies: self.snapshot(),

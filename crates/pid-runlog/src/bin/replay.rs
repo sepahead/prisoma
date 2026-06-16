@@ -125,6 +125,7 @@ fn main() -> Result<()> {
     println!("bridge_records={}", state.bridge_records.len());
     println!("sim_snapshots={}", state.sim_snapshots);
     println!("artifacts={}", state.artifacts.len());
+    println!("attributions={}", state.attributions.len());
     println!("errors={}", state.errors.len());
     println!("flow_gt_records={}", state.flow_gt_records);
     println!("flow_pred_records={}", state.flow_pred_records);
