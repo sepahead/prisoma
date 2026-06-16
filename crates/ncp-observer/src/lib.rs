@@ -111,8 +111,12 @@ pub struct Observer {
     mapping: Mapping,
     /// seq → partial sample (sensor seen, awaiting its command, or vice-versa).
     pending: BTreeMap<i64, Partial>,
-    /// Most recent observation readout (the D axis) for the session.
+    /// Most recent observation readout (the D axis) for the session — the
+    /// best-effort fallback when an observation carries no `seq`.
     latest_d: Vec<f64>,
+    /// D readouts keyed by the observation's `seq`, for exact alignment when the
+    /// publisher stamps observations with the driving sensor's `seq`.
+    d_by_seq: BTreeMap<i64, Vec<f64>>,
     samples: Vec<OfflineVldaSample>,
     writer: Option<RunLogWriter<BufWriter<File>>>,
     contract_emitted: bool,
@@ -137,6 +141,7 @@ impl Observer {
             mapping,
             pending: BTreeMap::new(),
             latest_d: Vec::new(),
+            d_by_seq: BTreeMap::new(),
             samples: Vec::new(),
             writer: None,
             contract_emitted: false,
@@ -207,6 +212,11 @@ impl Observer {
             }
         }
         if !d.is_empty() {
+            // Exact alignment when the publisher stamps the driving seq; the
+            // most-recent value remains the fallback for seq-less observations.
+            if obs.seq != 0 {
+                self.d_by_seq.insert(obs.seq, d.clone());
+            }
             self.latest_d = d;
         }
     }
@@ -221,6 +231,8 @@ impl Observer {
             return;
         }
         let p = self.pending.remove(&seq).unwrap();
+        // Exact D when the observation for this seq was seen; else most-recent.
+        let d = self.d_by_seq.remove(&seq).unwrap_or_else(|| self.latest_d.clone());
         let mut labels = BTreeMap::new();
         if let Some(s) = p.success {
             labels.insert("success".to_string(), s);
@@ -233,7 +245,7 @@ impl Observer {
             episode_id: self.mapping.episode_id.clone(),
             v: p.v.unwrap_or_default(),
             l: p.l.unwrap_or_default(),
-            d: self.latest_d.clone(),
+            d,
             a: p.a.unwrap_or_default(),
             labels: labels.clone(),
             metadata,
@@ -360,6 +372,27 @@ mod tests {
         assert_eq!(s.d, vec![5.0, 6.0]); // from the observation
         assert_eq!(s.a, vec![0.1, 0.0, -0.1]);
         assert_eq!(s.sample_id, "ncp-7");
+    }
+
+    #[test]
+    fn d_aligns_on_seq_not_recency() {
+        let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
+        // Observation for seq=7 (D=[5,6]), then a later one for seq=8 (D=[9,9]).
+        let mut r7 = Map::new();
+        r7.insert("rate".into(), ncp_core::Observation { values: vec![5.0, 6.0], ..Default::default() });
+        obs.on_observation(&ObservationFrame { seq: 7, records: r7, ..Default::default() });
+        let mut r8 = Map::new();
+        r8.insert("rate".into(), ncp_core::Observation { values: vec![9.0, 9.0], ..Default::default() });
+        obs.on_observation(&ObservationFrame { seq: 8, records: r8, ..Default::default() });
+        // The seq=7 tick must pick the seq=7 D, not the most-recent (seq=8) one.
+        let mut sc = Map::new();
+        sc.insert("pose".into(), ch(vec![1.0]));
+        obs.on_sensor(&SensorFrame { seq: 7, channels: sc, ..Default::default() });
+        let mut cc = Map::new();
+        cc.insert("velocity_setpoint".into(), ch(vec![0.1]));
+        obs.on_command(&CommandFrame { seq: 7, channels: cc, ..Default::default() });
+        assert_eq!(obs.sample_count(), 1);
+        assert_eq!(obs.samples[0].d, vec![5.0, 6.0], "D must align on seq 7, not recency");
     }
 
     #[test]
