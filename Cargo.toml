@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/ncp-observer",
     "crates/pid-bridge",
     "crates/pid-core",
     "crates/pid-python",

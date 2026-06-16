@@ -1,0 +1,22 @@
+[package]
+name = "ncp-observer"
+version = "0.1.0"
+edition = "2021"
+description = "Passive Neuro-Control Protocol (NCP) observer for pid_vla: taps the NCP perception/action/observation data planes read-only and maps them to (V,L,D,A) artifacts + run-log events for Partial Information Decomposition. Engram becomes another (V,L,D,A) source — like experiments/safe_adapter."
+license = "MIT"
+
+# Cross-repo dependency on the NCP standard SDK (canonical home: the sibling
+# Paper2Brain/ncp workspace). The sibling layout is the local-dev contract; for
+# external adopters switch these to a git/crates.io dependency (one-line change).
+[dependencies]
+ncp-core = { path = "../../../Paper2Brain/ncp/ncp-core" }
+ncp-zenoh = { path = "../../../Paper2Brain/ncp/ncp-zenoh" }
+pid-runlog = { path = "../pid-runlog" }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time"] }
+
+[[bin]]
+name = "ncp-observe"
+path = "src/bin/observe.rs"
