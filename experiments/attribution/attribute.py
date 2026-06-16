@@ -66,7 +66,6 @@ def lrp_epsilon(
 
     # Attention A @ V with A detached: attn_out[t,i] = sum_s A[t,s] v[s,i].
     # Route r_attn_out[t,i] to value rows proportional to A[t,s] v[s,i].
-    r_values = np.zeros_like(cache.values)  # (T, d_model)
     denom = _eps_signed(cache.attn_out, eps)  # (T, d_model)
     s_mat = r_attn_out / denom  # (T, d_model)
     # contribution to value s, feature i: sum_t A[t,s] v[s,i] s_mat[t,i]
