@@ -38,6 +38,7 @@
 
 use crate::error::{PidError, PidResult};
 use crate::matrix::MatRef;
+use std::collections::HashMap;
 
 /// Result of a discrete 2-source PID decomposition.
 #[derive(Debug, Clone)]
@@ -101,32 +102,23 @@ pub fn quantize_equal_width(x: MatRef<'_>, num_bins: usize) -> PidResult<Vec<Vec
     Ok(out)
 }
 
-/// Encode a multi-dimensional bin assignment into a single integer key.
-///
-/// Each row of `bins` is a vector of per-dimension bin indices.
-/// The key is `b[0] * num_bins^(d-1) + b[1] * num_bins^(d-2) + ... + b[d-1]`.
-fn encode_bins(bins: &[usize], num_bins: usize) -> usize {
-    let mut key = 0;
-    for &b in bins {
-        key = key * num_bins + b;
-    }
-    key
-}
-
 /// Compute discrete Shannon entropy H(X) from bin assignments.
 ///
 /// `bins` is n×d_x; entropy is computed over the joint distribution of all columns.
 /// Units: nats (natural logarithm).
+///
+/// Occupancy is counted per **distinct bin vector** (the row slice is the histogram
+/// key), so there is no packed-integer key and therefore no overflow/collision in
+/// high dimension — distinct joint states never alias. `num_bins` is accepted for
+/// interface symmetry with the quantize-based callers; the count is independent of
+/// it.
 pub fn discrete_entropy(bins: &[Vec<usize>], num_bins: usize) -> f64 {
+    let _ = num_bins;
     let n = bins.len();
     if n == 0 {
         return 0.0;
     }
-    let mut counts = std::collections::HashMap::new();
-    for row in bins {
-        let key = encode_bins(row, num_bins);
-        *counts.entry(key).or_insert(0usize) += 1;
-    }
+    let counts = count_dist(bins);
     let inv_n = 1.0 / n as f64;
     let mut h = 0.0;
     for &c in counts.values() {
@@ -220,7 +212,7 @@ pub fn discrete_pid2(
     let mi_s1s2_t = discrete_mi(&s1s2_bins, &t_bins, num_bins)?;
 
     // 3. Compute the I_min redundancy via per-target-outcome specific information.
-    let redundancy = discrete_imin_redundancy(&s1_bins, &s2_bins, &t_bins, num_bins);
+    let redundancy = discrete_imin_redundancy(&s1_bins, &s2_bins, &t_bins);
 
     // 4. Derive PID atoms.
     let unique_s1 = mi_s1_t - redundancy;
@@ -248,7 +240,6 @@ fn discrete_imin_redundancy(
     s1_bins: &[Vec<usize>],
     s2_bins: &[Vec<usize>],
     t_bins: &[Vec<usize>],
-    num_bins: usize,
 ) -> f64 {
     let n = s1_bins.len();
     if n == 0 {
@@ -258,13 +249,13 @@ fn discrete_imin_redundancy(
 
     // Build marginal distributions and conditional distributions.
     // For each source S, compute p(s) and p(s|t) and p(t|s).
-    let t_counts = count_dist(t_bins, num_bins);
-    let s1_counts = count_dist(s1_bins, num_bins);
-    let s2_counts = count_dist(s2_bins, num_bins);
+    let t_counts = count_dist(t_bins);
+    let s1_counts = count_dist(s1_bins);
+    let s2_counts = count_dist(s2_bins);
 
     // Joint counts: (s, t) for each source.
-    let s1t_counts = count_joint_dist(s1_bins, t_bins, num_bins);
-    let s2t_counts = count_joint_dist(s2_bins, t_bins, num_bins);
+    let s1t_counts = count_joint_dist(s1_bins, t_bins);
+    let s2t_counts = count_joint_dist(s2_bins, t_bins);
 
     // Compute specific information for each (source, t) pair:
     // i_spec(S;t) = Σ_s p(s|t) log(p(t|s) / p(t))
@@ -285,27 +276,27 @@ fn discrete_imin_redundancy(
     red
 }
 
-/// Count the frequency of each bin combination.
-fn count_dist(bins: &[Vec<usize>], num_bins: usize) -> std::collections::HashMap<usize, usize> {
-    let mut counts = std::collections::HashMap::new();
+/// Count the frequency of each distinct bin vector.
+///
+/// The histogram key is the bin vector itself, so distinct joint states can never
+/// collide (unlike a packed base-`num_bins` integer, which overflows `usize` once
+/// `num_bins`^d exceeds 2^64).
+fn count_dist(bins: &[Vec<usize>]) -> HashMap<Vec<usize>, usize> {
+    let mut counts = HashMap::new();
     for row in bins {
-        let key = encode_bins(row, num_bins);
-        *counts.entry(key).or_insert(0) += 1;
+        *counts.entry(row.clone()).or_insert(0) += 1;
     }
     counts
 }
 
-/// Count the joint frequency of (x_bins, y_bins) pairs.
+/// Count the joint frequency of (x_bins, y_bins) pairs, keyed on the bin vectors.
 fn count_joint_dist(
     x_bins: &[Vec<usize>],
     y_bins: &[Vec<usize>],
-    num_bins: usize,
-) -> std::collections::HashMap<(usize, usize), usize> {
-    let mut counts = std::collections::HashMap::new();
+) -> HashMap<(Vec<usize>, Vec<usize>), usize> {
+    let mut counts = HashMap::new();
     for (xr, yr) in x_bins.iter().zip(y_bins) {
-        let xk = encode_bins(xr, num_bins);
-        let yk = encode_bins(yr, num_bins);
-        *counts.entry((xk, yk)).or_insert(0) += 1;
+        *counts.entry((xr.clone(), yr.clone())).or_insert(0) += 1;
     }
     counts
 }
@@ -315,28 +306,27 @@ fn count_joint_dist(
 /// `i(S; t) = Σ_s p(s|t) log(p(s,t) * n / (p(s) * p(t) * n))`
 ///           = Σ_s [count(s,t)/count(t)] * log[count(s,t) * n / (count(s) * count(t))]
 fn specific_information(
-    st_counts: &std::collections::HashMap<(usize, usize), usize>,
-    s_counts: &std::collections::HashMap<usize, usize>,
-    t_counts: &std::collections::HashMap<usize, usize>,
+    st_counts: &HashMap<(Vec<usize>, Vec<usize>), usize>,
+    s_counts: &HashMap<Vec<usize>, usize>,
+    t_counts: &HashMap<Vec<usize>, usize>,
     n: usize,
-) -> std::collections::HashMap<usize, f64> {
-    let mut result = std::collections::HashMap::new();
+) -> HashMap<Vec<usize>, f64> {
+    let mut result = HashMap::new();
 
     // Group joint counts by t.
-    let mut by_t: std::collections::HashMap<usize, Vec<(usize, usize)>> =
-        std::collections::HashMap::new();
-    for (&(sk, tk), &cst) in st_counts {
+    let mut by_t: HashMap<&[usize], Vec<(&[usize], usize)>> = HashMap::new();
+    for ((sk, tk), &cst) in st_counts {
         by_t.entry(tk).or_default().push((sk, cst));
     }
 
     for (&tk, entries) in &by_t {
-        let ct = t_counts.get(&tk).copied().unwrap_or(0);
+        let ct = t_counts.get(tk).copied().unwrap_or(0);
         if ct == 0 {
             continue;
         }
         let mut is = 0.0;
         for &(sk, cst) in entries {
-            let cs = s_counts.get(&sk).copied().unwrap_or(0);
+            let cs = s_counts.get(sk).copied().unwrap_or(0);
             if cs == 0 || cst == 0 {
                 continue;
             }
@@ -345,7 +335,7 @@ fn specific_information(
             let log_ratio = ((cst as f64) * (n as f64) / ((cs as f64) * (ct as f64))).ln();
             is += (cst as f64 / ct as f64) * log_ratio;
         }
-        result.insert(tk, is);
+        result.insert(tk.to_vec(), is);
     }
 
     result
@@ -434,7 +424,7 @@ pub fn discrete_pid3(
     let antichains = discrete_antichains_3();
     let mut redundancies = Vec::with_capacity(18);
     for &ac in &antichains {
-        let val = discrete_imin_redundancy_3way(&sources, &t_bins, ac, num_bins);
+        let val = discrete_imin_redundancy_3way(&sources, &t_bins, ac);
         redundancies.push(val);
     }
 
@@ -512,9 +502,8 @@ fn i_spec_for_mask(
     sources: &[&[Vec<usize>]; 3],
     t_bins: &[Vec<usize>],
     mask: u8,
-    num_bins: usize,
     n: usize,
-) -> std::collections::HashMap<usize, f64> {
+) -> HashMap<Vec<usize>, f64> {
     let joint = match mask {
         0b001 => sources[0].to_vec(),
         0b010 => sources[1].to_vec(),
@@ -535,9 +524,9 @@ fn i_spec_for_mask(
             j
         }
     };
-    let s_counts = count_dist(&joint, num_bins);
-    let st_counts = count_joint_dist(&joint, t_bins, num_bins);
-    let t_counts = count_dist(t_bins, num_bins);
+    let s_counts = count_dist(&joint);
+    let st_counts = count_joint_dist(&joint, t_bins);
+    let t_counts = count_dist(t_bins);
     specific_information(&st_counts, &s_counts, &t_counts, n)
 }
 
@@ -546,7 +535,6 @@ fn discrete_imin_redundancy_3way(
     sources: &[&[Vec<usize>]; 3],
     t_bins: &[Vec<usize>],
     antichain: [u8; 3],
-    num_bins: usize,
 ) -> f64 {
     let n = t_bins.len();
     if n == 0 {
@@ -564,13 +552,13 @@ fn discrete_imin_redundancy_3way(
     };
 
     // Compute i_spec for each set in the antichain.
-    let mut i_specs: Vec<std::collections::HashMap<usize, f64>> = Vec::with_capacity(n_sets);
+    let mut i_specs: Vec<HashMap<Vec<usize>, f64>> = Vec::with_capacity(n_sets);
     for &mask in antichain.iter().take(n_sets) {
-        i_specs.push(i_spec_for_mask(sources, t_bins, mask, num_bins, n));
+        i_specs.push(i_spec_for_mask(sources, t_bins, mask, n));
     }
 
     // Red = Σ_t p(t) min_s i_spec(S_s; t)
-    let t_counts = count_dist(t_bins, num_bins);
+    let t_counts = count_dist(t_bins);
     let mut red = 0.0;
     for (t_key, &ct) in &t_counts {
         let p_t = ct as f64 * inv_n;

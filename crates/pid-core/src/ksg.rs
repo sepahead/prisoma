@@ -235,6 +235,16 @@ pub(crate) fn ksg_local_mi_terms_xblocks<'a>(
     if k == 0 || n <= k {
         return Err(PidError::InvalidK { k, n_samples: n });
     }
+    // The max-over-blocks distance equals true concatenation only under L∞/Chebyshev
+    // (max(max_b d_b, d_y) == d over the concatenated vector). For any other metric it
+    // silently computes a *different* quantity, so reject it rather than mislabel the
+    // result — matching the gating in `isx_redundancy` and `pid3_isx`.
+    if cfg.metric != Metric::Chebyshev {
+        return Err(PidError::InvalidConfig {
+            context: "ksg_local_mi_terms_xblocks",
+            message: "max-over-blocks concatenation distance is exact only for Metric::Chebyshev (L∞); other metrics are research-gated",
+        });
+    }
 
     let psi_k = digamma(k as f64);
     let psi_n = digamma(n as f64);

@@ -291,13 +291,9 @@ pub struct HyperbolicityConfig {
     /// Number of 4-point tuples to sample for estimating delta.
     pub n_samples: usize,
     pub metric: Metric,
-    /// Random seed for reproducibility (if using a seeded RNG, but here we keep it simple).
-    /// For this simple estimator, we just use the system RNG or deterministic steps if needed.
-    /// To keep dependencies minimal in pid-core, we'll use a simple PCG or just iterate strided.
-    /// For now, we'll implement exhaustive or simple random sampling if `rand` is available,
-    /// or a deterministic strided sampler to avoid adding `rand` to core if not needed.
-    ///
-    /// Let's use a deterministic strided sampler for stability without heavy deps.
+    /// Seed for the internal [`Pcg32`] PRNG used to draw distinct 4-point tuples.
+    /// Sampling is fully deterministic for a fixed `(seed, n, n_samples)`: the same
+    /// seed reproduces the same quadruples (no `rand` dependency, no system entropy).
     pub seed: u64,
 }
 
@@ -342,10 +338,10 @@ pub fn gromov_hyperbolicity(x: MatRef<'_>, cfg: &HyperbolicityConfig) -> PidResu
 
     for _ in 0..cfg.n_samples {
         // Sample 4 distinct indices
-        let i = rng.next_u64() as usize % n;
-        let j = rng.next_u64() as usize % n;
-        let k = rng.next_u64() as usize % n;
-        let l = rng.next_u64() as usize % n;
+        let i = rng.next_u32() as usize % n;
+        let j = rng.next_u32() as usize % n;
+        let k = rng.next_u32() as usize % n;
+        let l = rng.next_u32() as usize % n;
 
         if i == j || i == k || i == l || j == k || j == l || k == l {
             continue;
@@ -403,21 +399,21 @@ impl Pcg32 {
             state: 0,
             inc: (init_seq << 1) | 1,
         };
-        rng.next_u64();
+        rng.next_u32();
         rng.state = rng.state.wrapping_add(init_state);
-        rng.next_u64();
+        rng.next_u32();
         rng
     }
 
-    fn next_u64(&mut self) -> u64 {
-        // PCG-XSH-RR variant extended to 64 bits (simple)
+    /// One 32-bit PCG-XSH-RR output. (A true 32-bit generator — not zero-extended
+    /// 64-bit entropy — which is ample for the `% n` index sampling it feeds.)
+    fn next_u32(&mut self) -> u32 {
         let oldstate = self.state;
         self.state = oldstate
             .wrapping_mul(6364136223846793005)
             .wrapping_add(self.inc);
         let xorshifted = ((oldstate >> 18) ^ oldstate) >> 27;
         let rot = (oldstate >> 59) as u32;
-        let v32 = (xorshifted as u32).rotate_right(rot);
-        v32 as u64 // Just return 32 bits zero-extended for simplicity in sampling indices
+        (xorshifted as u32).rotate_right(rot)
     }
 }

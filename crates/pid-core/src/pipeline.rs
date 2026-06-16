@@ -484,21 +484,19 @@ pub fn pls_cv_select_components(
 
             match PlsProjector::fit(x_train.as_ref(), y_train.as_ref(), k) {
                 Ok(pls) => {
-                    // Predict for held-out sample.
+                    // Predict the held-out sample with the model's OWN PLS regression
+                    // (`Ŷ = (x−x̄_train)·B + ȳ_train`). This uses the training-fold
+                    // target mean as the intercept — never the full-data mean — so the
+                    // held-out target does not leak into its own prediction, and the
+                    // `W(PᵀW)⁻¹` rotation makes it exact for any number of components.
                     let x_ho =
                         MatRef::new(x.row(held_out), 1, d_x).expect("held-out row should be valid");
-                    match pls.transform(x_ho) {
-                        Ok(t_ho) => {
-                            // Reconstruct y from PLS scores: y_hat = T C^T + y_mean.
-                            let t_row = t_ho.as_ref().row(0);
+                    match pls.predict(x_ho) {
+                        Ok(y_hat) => {
+                            let pred = y_hat.as_ref().row(0);
                             let ho_row = y.row(held_out);
-                            for (j, &ym_j) in y_mean.iter().enumerate() {
-                                let mut y_hat_j = ym_j;
-                                for (comp, &t_c) in t_row.iter().enumerate().take(k) {
-                                    let c_j = pls.y_weights()[comp * d_y + j];
-                                    y_hat_j += t_c * c_j;
-                                }
-                                press += (ho_row[j] - y_hat_j).powi(2);
+                            for j in 0..d_y {
+                                press += (ho_row[j] - pred[j]).powi(2);
                             }
                         }
                         Err(_) => {

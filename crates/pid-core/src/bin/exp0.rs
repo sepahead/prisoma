@@ -572,7 +572,6 @@ fn write_summary_json(
         "  \"monotonicity_violations\": {},",
         gates.monotonicity_violations
     )?;
-    writeln!(file, "  \"cmi_violations\": {},", gates.cmi_violations)?;
     writeln!(
         file,
         "  \"invariant_violations\": {},",
@@ -745,7 +744,6 @@ fn write_exp0_metric_events<W: Write>(
             "exp0.monotonicity_violations",
             gates.monotonicity_violations,
         ),
-        ("exp0.cmi_violations", gates.cmi_violations),
         ("exp0.invariant_violations", gates.invariant_violations),
         ("exp0.geometry_warnings", gates.geometry_warnings),
         ("exp0.status_code", gates.status_code()),
@@ -767,11 +765,12 @@ fn write_exp0_metric_events<W: Write>(
 }
 
 /// Emit uncertainty results as `EvaluationMetric` events (kept distinct from the
-/// `PidMetric` gate events so `pid_metrics` is unchanged). All events share the
-/// step/timestamp of the last gate metric (step 7, ts 8), so timestamps and steps
-/// stay nondecreasing ahead of the artifact/error/run-ended tail. Non-finite
-/// statistics are skipped (run-log values must be finite for replay), with the
-/// validity counts carried in the aggregate metrics and the summary JSON.
+/// `PidMetric` gate events so `pid_metrics` is unchanged). All events share a fixed
+/// step/timestamp (step 7, ts 8) just past the 7 gate metrics (steps 0–6, ts 1–7),
+/// so timestamps and steps stay nondecreasing ahead of the artifact/error/run-ended
+/// tail. Non-finite statistics are skipped (run-log values must be finite for
+/// replay), with the validity counts carried in the aggregate metrics and the
+/// summary JSON.
 fn write_exp0_uncertainty_events<W: Write>(
     writer: &mut RunLogWriter<W>,
     u: &UncertaintySummary,
@@ -1426,7 +1425,6 @@ struct GateSummary {
     red_zero_checks: usize,
     red_zero_passes: usize,
     monotonicity_violations: usize,
-    cmi_violations: usize,
     invariant_violations: usize,
     geometry_warnings: usize,
     // Uncertainty-quantification contribution (all zero / false when UQ disabled,
@@ -1442,18 +1440,16 @@ impl GateSummary {
         const TOL: f64 = 1e-9;
         self.case_results += 1;
 
+        // Monotonicity of MI under adding a source: I(S1,S2;T) >= I(Si;T). For the
+        // joint-vs-marginal case this IS the conditional-MI nonnegativity condition
+        // (I(S1;T|S2) = I(S1,S2;T) - I(S2;T) >= 0 ⇔ I(S1,S2;T) >= I(S2;T)), so a
+        // separate "CMI nonnegativity" counter would be identical by construction —
+        // it is reported once, here.
         if metrics.mi_s1s2_t + TOL < metrics.mi_s1_t {
             self.monotonicity_violations += 1;
         }
         if metrics.mi_s1s2_t + TOL < metrics.mi_s2_t {
             self.monotonicity_violations += 1;
-        }
-
-        if metrics.mi_s1s2_t - metrics.mi_s2_t < -TOL {
-            self.cmi_violations += 1;
-        }
-        if metrics.mi_s1s2_t - metrics.mi_s1_t < -TOL {
-            self.cmi_violations += 1;
         }
 
         if !bounded_degree(metrics.r_bar, 0.0, 2.0, TOL)
@@ -1496,7 +1492,6 @@ impl GateSummary {
             return "NO-GO";
         }
         if self.monotonicity_violations == 0
-            && self.cmi_violations == 0
             && self.invariant_violations == 0
             && self.geometry_warnings == 0
             && self.red_zero_checks == self.red_zero_passes
@@ -1531,10 +1526,9 @@ impl GateSummary {
         writeln!(out, "Geometry Warnings: {}", self.geometry_warnings)?;
         writeln!(
             out,
-            "Monotonicity Violations: {}",
+            "Monotonicity Violations (= CMI nonnegativity): {}",
             self.monotonicity_violations
         )?;
-        writeln!(out, "CMI Nonnegativity Violations: {}", self.cmi_violations)?;
         writeln!(
             out,
             "Invariant Bound Violations: {}",
@@ -1944,8 +1938,8 @@ mod tests {
         assert!(validation.is_valid(), "{:?}", validation.issues);
         let summary = pid_runlog::summarize_events(&events).unwrap();
         assert_eq!(summary.run_id.as_deref(), Some("exp0-rust-quick-run"));
-        assert_eq!(summary.pid_metrics, 8);
-        assert_eq!(summary.pid_metric_events, 8);
+        assert_eq!(summary.pid_metrics, 7);
+        assert_eq!(summary.pid_metric_events, 7);
         assert_eq!(summary.artifacts, 1);
         assert_eq!(summary.errors, 0);
 
@@ -2105,9 +2099,9 @@ mod tests {
         let validation = pid_runlog::validate_events(&events);
         assert!(validation.is_valid(), "{:?}", validation.issues);
         let summary = pid_runlog::summarize_events(&events).unwrap();
-        // Uncertainty events are EvaluationMetric, so the 8 PidMetric gate events
+        // Uncertainty events are EvaluationMetric, so the 7 PidMetric gate events
         // are unchanged; the CI smoke greps rely on this invariant.
-        assert_eq!(summary.pid_metrics, 8);
+        assert_eq!(summary.pid_metrics, 7);
         assert!(summary.evaluation_metrics >= 4);
 
         let _ = std::fs::remove_file(runlog_path);

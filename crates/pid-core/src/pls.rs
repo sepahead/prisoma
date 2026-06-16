@@ -30,6 +30,7 @@
 
 use crate::error::{PidError, PidResult};
 use crate::matrix::{MatOwned, MatRef};
+use nalgebra as na;
 
 const MAX_ITER: usize = 200;
 const CONVERGENCE_TOL: f64 = 1e-10;
@@ -335,6 +336,94 @@ impl PlsProjector {
         let p = Self::fit(x, y, out_dim)?;
         let t = p.transform(x)?;
         Ok((t, p))
+    }
+
+    /// PLS regression coefficients `B` (in_dim × target_dim) mapping centered sources
+    /// to centered targets: `Ŷ = (X − x_mean) · B + y_mean`.
+    ///
+    /// `B = W (Pᵀ W)⁻¹ Cᵀ`, where `W` are the X-weights, `P` the X-loadings, and `C`
+    /// the Y-weights. The rotation `W (Pᵀ W)⁻¹` converts the raw NIPALS weights into
+    /// the operator that maps centered `X` directly to the deflated scores, so `B`
+    /// reproduces the exact in-sample NIPALS regression for **any** number of
+    /// components (unlike applying [`transform`](Self::transform)'s scores to the
+    /// Y-weights, which only coincides for a single component).
+    ///
+    /// `Pᵀ W` is upper-triangular with unit diagonal by NIPALS construction, hence
+    /// always invertible once each component is non-degenerate (guaranteed by the
+    /// `tᵀt` guards in [`fit`](Self::fit)).
+    pub fn coefficients(&self) -> PidResult<MatOwned> {
+        let k = self.out_dim;
+        let d_x = self.in_dim;
+        let d_y = self.target_dim;
+
+        // M = Pᵀ W (k×k): M[i][j] = p_i · w_j.
+        let m = na::DMatrix::<f64>::from_fn(k, k, |i, j| {
+            let mut s = 0.0;
+            for f in 0..d_x {
+                s += self.x_loadings[i * d_x + f] * self.x_weights[j * d_x + f];
+            }
+            s
+        });
+        let minv = m.try_inverse().ok_or(PidError::NumericalInstability {
+            context: "PlsProjector::coefficients: (PᵀW) is singular",
+        })?;
+
+        // B = W·Minv·Cᵀ. R = W·Minv (d_x×k); B = R·Cᵀ (d_x×d_y).
+        let mut b = vec![0.0f64; d_x * d_y];
+        let mut r = vec![0.0f64; k];
+        for f in 0..d_x {
+            for (c, rc) in r.iter_mut().enumerate() {
+                let mut s = 0.0;
+                for j in 0..k {
+                    s += self.x_weights[j * d_x + f] * minv[(j, c)];
+                }
+                *rc = s;
+            }
+            for j in 0..d_y {
+                let mut s = 0.0;
+                for (c, &rc) in r.iter().enumerate() {
+                    s += rc * self.y_weights[c * d_y + j];
+                }
+                b[f * d_y + j] = s;
+            }
+        }
+        MatOwned::new(b, d_x, d_y)
+    }
+
+    /// Predict targets for `x` (n×in_dim) via the PLS regression `Ŷ = (X−x̄)B + ȳ`.
+    ///
+    /// This is the model's actual in-sample prediction; use it (not raw scores) for
+    /// cross-validated `Q²` so the held-out point never sees its own target.
+    pub fn predict(&self, x: MatRef<'_>) -> PidResult<MatOwned> {
+        if x.ncols() != self.in_dim {
+            return Err(PidError::ShapeMismatch {
+                context: "PlsProjector::predict",
+                expected_len: self.in_dim,
+                actual_len: x.ncols(),
+            });
+        }
+        let coeffs = self.coefficients()?;
+        let b = coeffs.as_ref();
+        let n = x.nrows();
+        let d_y = self.target_dim;
+        let mut out = vec![0.0f64; n * d_y];
+        for i in 0..n {
+            let xi = x.row(i);
+            let out_row = &mut out[i * d_y..(i + 1) * d_y];
+            // Ŷ_i = y_mean + Σ_f (x_if − x_mean_f) · B[f, :].
+            out_row.copy_from_slice(&self.y_mean);
+            for (f, (&xf, &mf)) in xi.iter().zip(&self.x_mean).enumerate() {
+                let cf = xf - mf;
+                if cf == 0.0 {
+                    continue;
+                }
+                let b_row = b.row(f);
+                for (slot, &b_fj) in out_row.iter_mut().zip(b_row) {
+                    *slot += cf * b_fj;
+                }
+            }
+        }
+        MatOwned::new(out, n, d_y)
     }
 }
 

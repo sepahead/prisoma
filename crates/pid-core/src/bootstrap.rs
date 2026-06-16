@@ -5,8 +5,15 @@
 //! the statistic on each resample. This yields a bootstrap distribution from which
 //! standard errors and percentile confidence intervals can be derived.
 //!
-//! Block bootstrap (Politis & Romano 1994) preserves short-range dependence
-//! structure within blocks while allowing resampling at the block level.
+//! This implements the **moving-block bootstrap** (Künsch 1989): block starts are
+//! drawn uniformly over all `n − block_size + 1` positions (so every sample — head,
+//! interior, and tail — is equally reachable), and `⌈n / block_size⌉` blocks are
+//! concatenated and truncated to exactly `n`. Overlapping moving blocks avoid the
+//! tail-drop and grid-alignment bias of a fixed non-overlapping partition.
+//!
+//! (Note: [`crate::bootstrap_rows_stats`] is a separate, deliberately different
+//! row-resampler — with subsampling-without-replacement for kNN statistics, per
+//! Politis & Romano — and is the path Exp0 actually uses.)
 //!
 //! # Example
 //! ```
@@ -89,8 +96,10 @@ where
     assert!(cfg.n_boot > 0, "n_boot must be > 0");
 
     let n = data.len();
-    let n_blocks = n / cfg.block_size;
-    assert!(n_blocks > 0, "data.len() / block_size must be > 0");
+    // Moving-block bootstrap: every position is a valid block start, and we draw
+    // enough blocks to cover n, then truncate — so no sample is ever dropped.
+    let n_starts = n - cfg.block_size + 1;
+    let blocks_needed = n.div_ceil(cfg.block_size);
 
     // Point estimate
     let point_estimate = statistic(data);
@@ -99,12 +108,12 @@ where
     let mut boot_stats = Vec::with_capacity(cfg.n_boot);
 
     for _ in 0..cfg.n_boot {
-        let mut resample = Vec::with_capacity(n_blocks * cfg.block_size);
-        for _ in 0..n_blocks {
-            let block_idx = rng.next_u64() as usize % n_blocks;
-            let start = block_idx * cfg.block_size;
+        let mut resample = Vec::with_capacity(blocks_needed * cfg.block_size);
+        for _ in 0..blocks_needed {
+            let start = rng.next_u64() as usize % n_starts;
             resample.extend_from_slice(&data[start..start + cfg.block_size]);
         }
+        resample.truncate(n);
         boot_stats.push(statistic(&resample));
     }
 
@@ -159,8 +168,10 @@ where
     assert!(cfg.n_boot > 0, "n_boot must be > 0");
 
     let n = x.len();
-    let n_blocks = n / cfg.block_size;
-    assert!(n_blocks > 0, "data length / block_size must be > 0");
+    // Moving-block bootstrap (same scheme as `block_bootstrap`), applied jointly to
+    // the (x, y) pair so within-block pairing is preserved.
+    let n_starts = n - cfg.block_size + 1;
+    let blocks_needed = n.div_ceil(cfg.block_size);
 
     let point_estimate = statistic(x, y);
 
@@ -168,14 +179,15 @@ where
     let mut boot_stats = Vec::with_capacity(cfg.n_boot);
 
     for _ in 0..cfg.n_boot {
-        let mut rx = Vec::with_capacity(n_blocks * cfg.block_size);
-        let mut ry = Vec::with_capacity(n_blocks * cfg.block_size);
-        for _ in 0..n_blocks {
-            let block_idx = rng.next_u64() as usize % n_blocks;
-            let start = block_idx * cfg.block_size;
+        let mut rx = Vec::with_capacity(blocks_needed * cfg.block_size);
+        let mut ry = Vec::with_capacity(blocks_needed * cfg.block_size);
+        for _ in 0..blocks_needed {
+            let start = rng.next_u64() as usize % n_starts;
             rx.extend_from_slice(&x[start..start + cfg.block_size]);
             ry.extend_from_slice(&y[start..start + cfg.block_size]);
         }
+        rx.truncate(n);
+        ry.truncate(n);
         boot_stats.push(statistic(&rx, &ry));
     }
 
