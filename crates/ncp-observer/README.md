@@ -9,6 +9,28 @@ anything (the Agent Bridge stays the only control plane).
 It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the sibling
 **`Paper2Brain/ncp`** workspace. Spec: `Paper2Brain/NEURO_CONTROL_PROTOCOL.md`.
 
+## Scope & status (read before relying on it)
+
+This crate is **optional and exploratory-only**. It is **not** on grandplan's critical
+path — grandplan does not depend on Engram, and the M5 critical-path `(V,L,D,A)` producer
+is `experiments/safe_adapter/`. The pure-PID stack builds, tests, and clears the strict
+gates with no NCP/Engram/Zenoh dependency, so `ncp-observer` is **excluded from the
+default cargo workspace** (build it with `--manifest-path`, see below).
+
+It is fine for *exploratory* PID screens on a live Engram session, but it is **below the
+M5 contract** (gate-passing artifacts with honest provenance) until three gaps close:
+
+1. **D alignment** — `ObservationFrame` carries no `seq`, so D is paired by recency, not by
+   the driving `seq` (the pid_vla side already prefers `d_by_seq` once observations are
+   stamped). This biases every D-involving atom.
+2. **Honest `L`** — an absent language channel currently yields an all-zero `L`; provenance
+   must be explicit (real `L`, or a marker so zeroed-`L` samples are excluded), never
+   fabricated.
+3. **Held-out structure** — no `metadata.split` / `episode_id` / required `success` labels
+   by default, so the strict `--require-heldout-*` gates and the §14.1.1 H1 audit can't run.
+
+Bringing it up to bar is a self-contained task — see **`NCP_DEV_PROMPT.md`** at the repo root.
+
 ## What it does
 
 Subscribes to `engram/ncp/session/{id}/{sensor,command,observation}` and converts

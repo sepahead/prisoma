@@ -79,6 +79,18 @@ This table is the self-sufficient entry point: it maps the run order onto curren
 
 Two discipline rules apply at every step: (a) each (PID measure, preprocessing, estimator config) tuple is a distinct preregistered regime — continuous `I^sx_∩` and discrete `I_min` results must never be pooled (`grandplan.md` Warning 6, §8.1.6); (b) non-PID baselines and uncertainty (block bootstrap, permutation nulls) accompany every PID number.
 
+### 0.2.1 Data sources (the harness is source-agnostic)
+
+Everything downstream consumes one `(V,L,D,A)`+labels contract (the `OfflineVldaDataset` JSON the offline harness reads), so capture sources are pluggable. In `(V,L,D,A)`, **D is the Dynamics / hidden-state axis, not depth** — defined per model (`grandplan.md` §7.6.3, §10.10.13).
+
+| Source | Role | Standalone? | Status |
+|---|---|---|---|
+| `experiments/safe_adapter/` (released SAFE rollouts) | **Critical path** (M5) | yes | Gate-passing; honest provenance; §7.6.3 hook-probe |
+| `crates/pid-sim` fixtures + `pid-rapier-harness` / `pid-toy-harness` | Sim cross-checks | yes | Gate-passing (physics-derived labels + `Flow_gt`) |
+| `crates/ncp-observer` (Engram/NEST over the Neuro-Control Protocol) | **Optional** external bridge | n/a | **Exploratory-only — below the M5 bar** |
+
+The pure-PID stack (the table above minus NCP) builds, tests, and clears the strict gates with **no NCP/Engram/Zenoh dependency** — `ncp-observer` is excluded from the default cargo workspace. NCP is a sound read-only tap fine for exploratory PID screens on a live Engram session, but it is **not** part of grandplan's critical path (grandplan does not depend on Engram) and is below the M5 contract until three gaps close: precise D `seq`-alignment, honest (non-zeroed) `L`, and `metadata.split`/`episode_id`/`success` structure for the strict gates and the §14.1.1 H1 audit. Bringing it up to bar is a self-contained task — see `NCP_DEV_PROMPT.md`.
+
 ## Physics and Robot Backend Usage: Modular Architecture
 
 This table clarifies the intended backend choices across experiments. Treat “recommended” as design guidance, not a claim of superiority or current implementation: the checked repo includes the deterministic object sim/logging harness **and a real Rapier3D (`rapier3d-f64`) backend behind the `rapier` feature** (gravity/contacts/friction + a scripted push-to-goal manipulation with physics-derived labels and `Flow_gt`; `just rapier-harness`), while MuJoCo/Gazebo/Isaac-backed manipulation remains planned. The right choice depends on your benchmark, hardware, and what you are trying to validate.
