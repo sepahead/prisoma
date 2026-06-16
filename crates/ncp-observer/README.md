@@ -47,6 +47,29 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json 
     --summary-json outputs/ncp_summary.json --runlog outputs/ncp_pid_runlog.jsonl
 ```
 
+## Best integration with NCP (the closed loop)
+
+The recommended integration is **bidirectional**, and both directions are
+non-invasive:
+
+1. **Online, read-only tap (this crate).** Subscribe to the NCP data planes →
+   `(V,L,D,A)` samples aligned on `seq` → run-log + offline PID. Engram is just
+   another `(V,L,D,A)` source; the observer drives nothing (Agent Bridge stays the
+   only control plane).
+2. **Offline → online feedback (the payoff).** The PID screens here quantify, per
+   sensor channel, the **unique / redundant / synergistic** information about the
+   action. That is exactly the policy NCP's perception plane needs under a poor
+   (low-bandwidth) link: **drop redundant channels, keep unique ones, bundle
+   synergistic ones** (see `Paper2Brain/ncp/RESILIENCE.md`). pid_vla computes the
+   policy *offline*; NCP's codec applies it *online* as static channel priorities.
+
+So the loop closes: NCP streams `(V,L,D,A)` → pid_vla decomposes it → a channel
+priority/redundancy policy feeds back into the perception codec. PID is a
+**design-time** tool (expensive, hard to estimate — pid_vla's whole domain), never
+a per-tick runtime computation. It also serves as a **sim-vs-hardware fidelity
+metric** (`Paper2Brain/ncp/NEUROMORPHIC.md` §5): does a neuromorphic chip preserve
+the same information flow as the NEST simulator?
+
 ## Build note
 
 This crate depends on the sibling `Paper2Brain/ncp` workspace (path dependency) and
