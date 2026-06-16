@@ -68,7 +68,12 @@ async fn main() -> anyhow::Result<()> {
         success_channel: Some("success".into()),
         episode_id: args.episode.clone(),
     };
-    let mut observer = Observer::new(format!("ncp-{}", args.session), args.model.clone(), args.task.clone(), mapping);
+    let mut observer = Observer::new(
+        format!("ncp-{}", args.session),
+        args.model.clone(),
+        args.task.clone(),
+        mapping,
+    );
     if let Some(path) = &args.runlog {
         observer = observer.with_runlog(path)?;
     }
@@ -111,6 +116,10 @@ async fn main() -> anyhow::Result<()> {
 
     let mut guard = observer.lock().unwrap();
     guard.finalize(&args.out)?;
-    println!("[ncp-observe] wrote {} (V,L,D,A) samples → {}", guard.sample_count(), args.out);
+    println!(
+        "[ncp-observe] wrote {} (V,L,D,A) samples → {}",
+        guard.sample_count(),
+        args.out
+    );
     Ok(())
 }

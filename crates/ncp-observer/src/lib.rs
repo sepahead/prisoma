@@ -37,7 +37,9 @@
 //! observations with the driving `seq`).
 
 use ncp_core::{ChannelValue, CommandFrame, ObservationFrame, SensorFrame};
-use pid_runlog::{Actor, ActorType, EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus};
+use pid_runlog::{
+    Actor, ActorType, EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -84,14 +86,15 @@ pub struct Mapping {
 
 impl Default for Mapping {
     fn default() -> Self {
-        Self { language_channel: "instruction".into(), success_channel: None, episode_id: None }
+        Self {
+            language_channel: "instruction".into(),
+            success_channel: None,
+            episode_id: None,
+        }
     }
 }
 
-fn flatten_except<'a>(
-    channels: &BTreeMap<String, ChannelValue>,
-    except: Option<&str>,
-) -> Vec<f64> {
+fn flatten_except(channels: &BTreeMap<String, ChannelValue>, except: Option<&str>) -> Vec<f64> {
     let mut out = Vec::new();
     // BTreeMap iterates in sorted key order → deterministic concatenation.
     for (name, cv) in channels {
@@ -133,7 +136,12 @@ struct Partial {
 }
 
 impl Observer {
-    pub fn new(run_id: impl Into<String>, model: impl Into<String>, task: impl Into<String>, mapping: Mapping) -> Self {
+    pub fn new(
+        run_id: impl Into<String>,
+        model: impl Into<String>,
+        task: impl Into<String>,
+        mapping: Mapping,
+    ) -> Self {
         Self {
             run_id: run_id.into(),
             model: model.into(),
@@ -203,7 +211,7 @@ impl Observer {
     pub fn on_observation(&mut self, obs: &ObservationFrame) {
         let mut d = Vec::new();
         // Deterministic order: records is a BTreeMap keyed by port.
-        for (_port, ob) in &obs.records {
+        for ob in obs.records.values() {
             if !ob.values.is_empty() {
                 d.extend_from_slice(&ob.values);
             } else if !ob.times.is_empty() {
@@ -232,7 +240,10 @@ impl Observer {
         }
         let p = self.pending.remove(&seq).unwrap();
         // Exact D when the observation for this seq was seen; else most-recent.
-        let d = self.d_by_seq.remove(&seq).unwrap_or_else(|| self.latest_d.clone());
+        let d = self
+            .d_by_seq
+            .remove(&seq)
+            .unwrap_or_else(|| self.latest_d.clone());
         let mut labels = BTreeMap::new();
         if let Some(s) = p.success {
             labels.insert("success".to_string(), s);
@@ -255,8 +266,15 @@ impl Observer {
         self.n += 1;
     }
 
-    fn emit_runlog(&mut self, sample: &OfflineVldaSample, t: f64, labels: &BTreeMap<String, serde_json::Value>) {
-        let Some(w) = self.writer.as_mut() else { return };
+    fn emit_runlog(
+        &mut self,
+        sample: &OfflineVldaSample,
+        t: f64,
+        labels: &BTreeMap<String, serde_json::Value>,
+    ) {
+        let Some(w) = self.writer.as_mut() else {
+            return;
+        };
         let ts = (t * 1e9).max(0.0) as u64;
         if !self.contract_emitted {
             let var = |name: &str, dims: usize| EmbeddingVariableContract {
@@ -285,7 +303,12 @@ impl Observer {
             step: self.n,
             timestamp_ns: ts,
             name: "vlda".into(),
-            dims: vec![sample.v.len(), sample.l.len(), sample.d.len(), sample.a.len()],
+            dims: vec![
+                sample.v.len(),
+                sample.l.len(),
+                sample.d.len(),
+                sample.a.len(),
+            ],
             artifact_uri: None,
             sha256: None,
             metadata: meta,
@@ -330,7 +353,11 @@ impl Observer {
 
     /// The observer is a System actor (never a control authority).
     pub fn actor(&self) -> Actor {
-        Actor { actor_type: ActorType::System, actor_id: "ncp-observer".into(), session_id: None }
+        Actor {
+            actor_type: ActorType::System,
+            actor_id: "ncp-observer".into(),
+            session_id: None,
+        }
     }
 }
 
@@ -350,21 +377,37 @@ mod tests {
         let mut records = Map::new();
         records.insert(
             "rate".into(),
-            ncp_core::Observation { values: vec![5.0, 6.0], ..Default::default() },
+            ncp_core::Observation {
+                values: vec![5.0, 6.0],
+                ..Default::default()
+            },
         );
-        obs.on_observation(&ObservationFrame { records, ..Default::default() });
+        obs.on_observation(&ObservationFrame {
+            records,
+            ..Default::default()
+        });
 
         // Sensor for seq=7 (V + L).
         let mut sc = Map::new();
         sc.insert("pose".into(), ch(vec![1.0, 2.0, 3.0]));
         sc.insert("instruction".into(), ch(vec![0.5]));
-        obs.on_sensor(&SensorFrame { seq: 7, t: 1.0, channels: sc, ..Default::default() });
+        obs.on_sensor(&SensorFrame {
+            seq: 7,
+            t: 1.0,
+            channels: sc,
+            ..Default::default()
+        });
         assert_eq!(obs.sample_count(), 0, "no command yet");
 
         // Command for seq=7 (A) → completes the sample.
         let mut cc = Map::new();
         cc.insert("velocity_setpoint".into(), ch(vec![0.1, 0.0, -0.1]));
-        obs.on_command(&CommandFrame { seq: 7, t: 1.0, channels: cc, ..Default::default() });
+        obs.on_command(&CommandFrame {
+            seq: 7,
+            t: 1.0,
+            channels: cc,
+            ..Default::default()
+        });
         assert_eq!(obs.sample_count(), 1);
         let s = &obs.samples[0];
         assert_eq!(s.v, vec![1.0, 2.0, 3.0]); // pose only (instruction excluded)
@@ -379,20 +422,52 @@ mod tests {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
         // Observation for seq=7 (D=[5,6]), then a later one for seq=8 (D=[9,9]).
         let mut r7 = Map::new();
-        r7.insert("rate".into(), ncp_core::Observation { values: vec![5.0, 6.0], ..Default::default() });
-        obs.on_observation(&ObservationFrame { seq: 7, records: r7, ..Default::default() });
+        r7.insert(
+            "rate".into(),
+            ncp_core::Observation {
+                values: vec![5.0, 6.0],
+                ..Default::default()
+            },
+        );
+        obs.on_observation(&ObservationFrame {
+            seq: 7,
+            records: r7,
+            ..Default::default()
+        });
         let mut r8 = Map::new();
-        r8.insert("rate".into(), ncp_core::Observation { values: vec![9.0, 9.0], ..Default::default() });
-        obs.on_observation(&ObservationFrame { seq: 8, records: r8, ..Default::default() });
+        r8.insert(
+            "rate".into(),
+            ncp_core::Observation {
+                values: vec![9.0, 9.0],
+                ..Default::default()
+            },
+        );
+        obs.on_observation(&ObservationFrame {
+            seq: 8,
+            records: r8,
+            ..Default::default()
+        });
         // The seq=7 tick must pick the seq=7 D, not the most-recent (seq=8) one.
         let mut sc = Map::new();
         sc.insert("pose".into(), ch(vec![1.0]));
-        obs.on_sensor(&SensorFrame { seq: 7, channels: sc, ..Default::default() });
+        obs.on_sensor(&SensorFrame {
+            seq: 7,
+            channels: sc,
+            ..Default::default()
+        });
         let mut cc = Map::new();
         cc.insert("velocity_setpoint".into(), ch(vec![0.1]));
-        obs.on_command(&CommandFrame { seq: 7, channels: cc, ..Default::default() });
+        obs.on_command(&CommandFrame {
+            seq: 7,
+            channels: cc,
+            ..Default::default()
+        });
         assert_eq!(obs.sample_count(), 1);
-        assert_eq!(obs.samples[0].d, vec![5.0, 6.0], "D must align on seq 7, not recency");
+        assert_eq!(
+            obs.samples[0].d,
+            vec![5.0, 6.0],
+            "D must align on seq 7, not recency"
+        );
     }
 
     #[test]
@@ -400,10 +475,22 @@ mod tests {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
         let mut sc = Map::new();
         sc.insert("pose".into(), ch(vec![1.0]));
-        obs.on_sensor(&SensorFrame { seq: 1, channels: sc, ..Default::default() });
+        obs.on_sensor(&SensorFrame {
+            seq: 1,
+            channels: sc,
+            ..Default::default()
+        });
         let mut cc = Map::new();
         cc.insert("cmd".into(), ch(vec![0.0]));
-        obs.on_command(&CommandFrame { seq: 2, channels: cc, ..Default::default() });
-        assert_eq!(obs.sample_count(), 0, "seq 1 sensor must not pair with seq 2 command");
+        obs.on_command(&CommandFrame {
+            seq: 2,
+            channels: cc,
+            ..Default::default()
+        });
+        assert_eq!(
+            obs.sample_count(),
+            0,
+            "seq 1 sensor must not pair with seq 2 command"
+        );
     }
 }
