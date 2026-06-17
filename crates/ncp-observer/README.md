@@ -21,9 +21,10 @@ default cargo workspace** (build it with `--manifest-path`, see below).
 It is fine for *exploratory* PID screens on a live Engram session, but it is **below the
 M5 contract** (gate-passing artifacts with honest provenance) until three gaps close:
 
-1. **D alignment** — `ObservationFrame` carries no `seq`, so D is paired by recency, not by
-   the driving `seq` (the pid_vla side already prefers `d_by_seq` once observations are
-   stamped). This biases every D-involving atom.
+1. **D alignment (observer-side now)** — `ObservationFrame` **now carries `seq`** (it echoes
+   the driving `SensorFrame.seq`), so the *protocol* gap is closed; the remaining work is
+   observer-side: read `obs.seq` and join D by `seq` (`d_by_seq`) rather than by recency.
+   Until that lands, recency pairing biases every D-involving atom.
 2. **Honest `L`** — an absent language channel currently yields an all-zero `L`; provenance
    must be explicit (real `L`, or a marker so zeroed-`L` samples are excluded), never
    fabricated.
@@ -55,9 +56,10 @@ each closed-loop tick into an `OfflineVldaSample`, writing:
 V and A are joined on **`seq`** — a `CommandFrame.seq` echoes the `SensorFrame.seq`
 it was computed from, so a sample pairs the action with the sensor that produced
 it, never by arrival time (the perception plane's DROP QoS makes arrival-time
-pairing unsound). `ObservationFrame` carries no `seq` yet, so D is paired with the
-most recent observation (best-effort); precise D alignment (stamp observations
-with the driving `seq`) is a noted protocol enhancement.
+pairing unsound). `ObservationFrame` **now carries `seq` too** (it echoes the
+driving `SensorFrame.seq`), so precise D alignment is available at the protocol
+level; this observer still pairs D by recency until it is updated to read
+`obs.seq`.
 
 ## Run
 
@@ -92,6 +94,23 @@ priority/redundancy policy feeds back into the perception codec. PID is a
 a per-tick runtime computation. It also serves as a **sim-vs-hardware fidelity
 metric** (`NEUROMORPHIC.md` §5 in <https://github.com/sepehrmn/NCP>): does a neuromorphic chip preserve
 the same information flow as the NEST simulator?
+
+## Compatibility & versioning
+
+Pinned to NCP **`v0.1.0`** (`Cargo.toml`), excluded from the default workspace.
+NCP's `#10` neuron-family extension is **additive**, and this observer reads only
+the generic data planes (`SensorFrame`/`CommandFrame`/`ObservationFrame` → opaque
+value/time vectors), so it is unaffected by the new neural enums — **except** that
+an `ObservationFrame` whose `Observation.observable` is a `#10` value
+(`binary_state`) would fail to deserialize on a `v0.1.0` `ncp-core` and be silently
+dropped. **Action when NCP cuts `v0.2.0`:** bump the `ncp-core`/`ncp-zenoh` tag to
+`v0.2.0` *before* Engram emits any `#10` observation; no code change is needed.
+
+Engram is NEST today, but NCP's wire is **simulator-agnostic by design** — if a
+future Engram backend (NEURON / Brian2 / GeNN / a neuromorphic chip) serves the
+same wire, this observer is unchanged. That is exactly why it doubles as a
+**sim-vs-hardware fidelity metric** (above): does the chip preserve the same
+information flow the NEST simulator does?
 
 ## Build note
 
