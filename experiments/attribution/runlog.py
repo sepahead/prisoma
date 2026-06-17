@@ -1,7 +1,7 @@
 """Emit ``attribution_logged`` run-log events conformant to the Rust schema.
 
 The Rust ``RunLogEvent::AttributionLogged`` variant
-(``crates/pid-runlog/src/lib.rs``) already exists; this module writes a canonical
+(``pid-rs/crates/pid-runlog/src/lib.rs``) already exists; this module writes a canonical
 JSONL run log (``run_started`` / ``config_logged`` / one ``attribution_logged`` per
 probe / ``run_ended``) plus the attribution arrays as artifact files with sha256
 provenance, so the result passes ``pid-runlog-replay --validate``.

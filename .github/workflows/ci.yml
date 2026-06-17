@@ -270,6 +270,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # pid-sim path-depends into the pid-rs submodule
       - uses: dtolnay/rust-toolchain@stable
       - name: Clippy (rapier feature)
         run: cargo clippy -p pid-sim --features rapier --all-targets -- -D warnings
@@ -287,6 +289,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # builds pid-core from the pid-rs submodule
       - uses: dtolnay/rust-toolchain@stable
       - name: Clippy (parallel feature)
         run: cargo clippy --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel --all-targets -- -D warnings
@@ -297,6 +301,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # pid-sim path-depends into the pid-rs submodule
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-python@v5
         with:
@@ -351,6 +357,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # pid-python lives in the pid-rs submodule
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-python@v5
         with:
@@ -358,6 +366,6 @@ jobs:
       - name: Install Python test dependencies
         run: python -m pip install maturin pytest numpy
       - name: Build extension in editable mode
-        run: maturin develop --manifest-path crates/pid-python/Cargo.toml
+        run: maturin develop --manifest-path pid-rs/crates/pid-python/Cargo.toml
       - name: Python tests
         run: pytest tests/python -q

@@ -14,13 +14,12 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 | `base64` | 0.22.1 | MIT OR Apache-2.0 |
 | `nalgebra` | 0.33.2 | Apache-2.0 |
 | `ndarray` | 0.16.1 | MIT OR Apache-2.0 |
-| `numpy` | 0.23.0 | BSD-2-Clause |
-| `pyo3` | 0.23.5 | MIT OR Apache-2.0 |
+| `pid-core` | 0.1.0 | MIT OR Apache-2.0 |
+| `pid-runlog` | 0.1.0 | MIT OR Apache-2.0 |
 | `rerun` | 0.28.2 | MIT OR Apache-2.0 |
 | `serde` | 1.0.228 | MIT OR Apache-2.0 |
 | `serde_json` | 1.0.149 | MIT OR Apache-2.0 |
 | `sha1` | 0.10.6 | MIT OR Apache-2.0 |
-| `sha2` | 0.10.9 | MIT OR Apache-2.0 |
 
 ## Python declared dependencies (versions locked in `uv.lock`)
 

@@ -39,7 +39,7 @@
             echo ""
             echo "Next:"
             echo "  cargo test"
-            echo "  cargo run -p pid-core --bin exp0"
+            echo "  cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0"
             echo "  uv sync"
           '';
         };
