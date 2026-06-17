@@ -9,8 +9,8 @@ license = "MIT"
 # (canonical home: https://github.com/sepehrmn/NCP). This resolves standalone on a
 # fresh checkout (no sibling required); bump the tag to adopt a newer NCP wire.
 [dependencies]
-ncp-core = { git = "https://github.com/sepehrmn/NCP", tag = "v0.1.0" }
-ncp-zenoh = { git = "https://github.com/sepehrmn/NCP", tag = "v0.1.0" }
+ncp-core = { git = "https://github.com/sepehrmn/NCP", tag = "v0.2.0" }
+ncp-zenoh = { git = "https://github.com/sepehrmn/NCP", tag = "v0.2.0" }
 pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
