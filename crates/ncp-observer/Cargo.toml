@@ -11,7 +11,7 @@ license = "MIT"
 [dependencies]
 ncp-core = { git = "https://github.com/sepehrmn/NCP", tag = "v0.1.0" }
 ncp-zenoh = { git = "https://github.com/sepehrmn/NCP", tag = "v0.1.0" }
-pid-runlog = { path = "../pid-runlog" }
+pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

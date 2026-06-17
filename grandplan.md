@@ -17,7 +17,7 @@
 **Canonical:** Living spec; prior versions live in git history.
 
 **Reading guide (skim-first):**
-- **If you are here to run code:** start with Experiment 0 (Exp0) and the repo-status table in §11.1; the estimator + diagnostics in `crates/pid-core` are the current implemented core.
+- **If you are here to run code:** start with Experiment 0 (Exp0) and the repo-status table in §11.1; the estimator + diagnostics in `pid-rs/crates/pid-core` are the current implemented core.
 - **Current estimator status (repo-local):** see `findings.md` for the latest Exp0 summary (as of this version, Exp0 indicates a **PIVOT** regime; do not interpret continuous PID atoms outside a validated pipeline).
 - **If you are here for the research spec:** jump to `# Table of Contents` and read §1–§3 (warnings + aims), then §8–§9 (estimation + experiments).
 - **If you are here for the end-to-end system design:** §§A–§L are a target architecture blueprint. In v10.1, Phases 1–3 are **Rerun-First**; the custom Tauri/SparkJS UI is deferred to Phase 4.
@@ -34,7 +34,7 @@
 - **External-source review addendum (2026-06-13):** reviewed dimos / DimensionalOS (`dimensionalOS/dimos`; Apache-2.0 agentic multi-robot control OS) source-by-source. Integrated narrowly as independent external validation of the Agent Bridge "one control plane + record→replay + every action a run-log event" bet (§A.7/§A.8, §11.4) and a concrete §11.4 external-backend/adapter instance (LCM joins Zenoh/ROS 2 as an M6 typed-stream transport); ruled out as an M5 capture shortcut (no internal-activation or success/failure-label extraction per README — SAFE still dominates) and as a PID/IT method contribution. See §12.5 + §13.10.
 
 **v10.2 notes (2026-06-12 updates):**
-- **Implementation refresh (commit `20fd4bc`, 2026-06-11):** `crates/pid-core` gains PLS supervised dimensionality reduction (`pls.rs`, NIPALS-PLS2), discrete 2-source PID via quantization (`discrete_pid.rs`), and block-bootstrap uncertainty quantification (`bootstrap.rs`); `crates/pid-sim` gains a `PhysicsBackend` trait with a null adapter plus a Rapier3D skeleton behind the optional `rapier` feature (stub, not a validated physics path); the run-log schema gains an `attribution_logged` event (H9 probe provenance); the Exp0 binary gains `--strict-gate`; a high-dimensional synthetic VLDA fixture (v=128, l=64, d=32, a=7; n=48 — CI smoke only) is checked in; Python bindings expand from 8 to 14 functions. See §11.1.
+- **Implementation refresh (commit `20fd4bc`, 2026-06-11):** `pid-rs/crates/pid-core` gains PLS supervised dimensionality reduction (`pls.rs`, NIPALS-PLS2), discrete 2-source PID via quantization (`discrete_pid.rs`), and block-bootstrap uncertainty quantification (`bootstrap.rs`); `crates/pid-sim` gains a `PhysicsBackend` trait with a null adapter plus a Rapier3D skeleton behind the optional `rapier` feature (stub, not a validated physics path); the run-log schema gains an `attribution_logged` event (H9 probe provenance); the Exp0 binary gains `--strict-gate`; a high-dimensional synthetic VLDA fixture (v=128, l=64, d=32, a=7; n=48 — CI smoke only) is checked in; Python bindings expand from 8 to 14 functions. See §11.1.
 - **Measure-identity correction (read §8.1.6):** the implemented discrete redundancy is a Williams–Beer-style minimum-of-specific-information (`I_min`) functional, **not** the discrete shared-exclusions `i^sx_∩` of Makkeh et al. (2021). Continuous mode and discrete mode therefore estimate **different PID measures**; Warning 6 now applies within this repo's own toolbox, not just to external papers.
 - **Supervised-projection guidance (§8.2, §17.5.3):** unsupervised projections (PCA/hash) provably fail when per-dimension signal variance ≈ noise variance (the central Exp0 lesson in `findings.md`); PLS is the implemented supervised alternative, with explicit leakage rules (fit on train only) and "new measurement regime" re-validation requirements.
 - **Reference/status refresh (hedged; verify at time of use):** OpenVLA-OFT placeholder resolved to a concrete citation (arXiv:2502.19645); DreamVLA listed as a NeurIPS 2025 paper with a public code repo (weights/license still to verify); added MI-estimator benchmark and high-dimensional MI references (arXiv:2410.10924, arXiv:2506.00330), mixed discrete–continuous PID (arXiv:2409.13506), partial information *rate* decomposition (arXiv:2502.04550), a scalable higher-order information estimator (arXiv:2506.18498), a latent-world-model VLA (VLA-JEPA, arXiv:2602.10098), and a mechanistic SAE study of VLAs (arXiv:2603.19233).
@@ -121,11 +121,11 @@
 | **Gazebo (Classic/Ignition)** | OGRE raster | ODE/DART (varies) | Cross-platform; ROS-centric | No (instrumentation is DIY) |
 | **SplatSim** | 3DGS rendering | PyBullet (paper; physics backbone) | Research code; verify constraints | No (not a PID harness) |
 | **DISCOVERSE** | 3DGS rendering | MuJoCo (paper) | Research code; verify constraints | No (not a PID harness) |
-| **LuckyRobots / Lucky World** | “Hyperrealistic” (vendor claim; verify) | Lucky World backend (engine/solver not specified in public docs; verify) | Proprietary backend executable + Python API (WebSocket); Windows binary public as of v0.1; Linux/macOS TBD | No (not PID-centric; would still require custom harness) |
+| **LuckyRobots / Lucky World** | “Hyperrealistic” (vendor claim); Vulkan renderer | **MuJoCo**-based (per README); engine is a separate executable | Proprietary backend executable + Python API (**gRPC**, port 50051; WebSocket is only the inter-node transport); v0.1 release lists Windows/Linux/macOS all “coming soon” (no public binary yet) | No (not PID-centric; would still require custom harness) |
 | **Proposed (Modular)** | 3DGS + mesh overlays | Modular (Rapier + baselines) | Cross-platform target | Yes (explicit goal) |
 
 **Emerging “ML‑first simulator” direction (why it matters here):**
-- Public materials around LuckyRobots/Lucky World and Sentdex joining Lucky Robots to build “the robotics simulator I wish we had” emphasize an **RL‑style surface** (`reset`/`step` + observations) exposed over a **WebSocket control plane** with pub/sub and service-style request/response.
+- Public materials around LuckyRobots/Lucky World and Sentdex joining Lucky Robots to build “the robotics simulator I wish we had” emphasize an **RL‑style surface** (`reset`/`step` + observations) exposed over a **gRPC control plane** (`LuckyEngineClient`, port 50051) with service-style request/response (WebSocket appears only as the inter-node transport in the distributed-node architecture, not the primary Python API).
 - PID‑VLA’s design should stay compatible with this ergonomic norm: keep `reset/step` primitives stable, provide a **streaming event channel** (state/metrics/frames), and keep the control plane easy to call from Python (not GUI-only).
 - If you use such a simulator as a data source, treat it as an **external backend**: adapt its actions/observations/control messages into a **versioned run‑log schema** so Exp0/geometry gates and PID analyses remain identical across backends.
 - Some simulators also market “natural language scene control”; if adopted, treat it as a **compiler** that emits deterministic scene‑edit/intervention events (and log the compiler/prompt/version), not as an unlogged free‑form side channel.
@@ -224,7 +224,7 @@ This section turns the spec into an actionable build order. The goal is to make 
 
 | Milestone | What you build | Frameworks / deps | Primary outputs (artifacts) | Acceptance criteria (definition of done) |
 |-----------|----------------|-------------------|------------------------------|------------------------------------------|
-| **M0** | Estimator gate (Exp0) | Rust (`crates/pid-core`) | CSV + diagnostics | Exp0 passes GO/PIVOT/NO‑GO gates on synthetic data; results stable across seeds |
+| **M0** | Estimator gate (Exp0) | Rust (`pid-rs/crates/pid-core`) | CSV + diagnostics | Exp0 passes GO/PIVOT/NO‑GO gates on synthetic data; results stable across seeds |
 | **M1** | Run logs + replay | Rust | Versioned event schema + reader/writer + replay CLI | You can replay a run deterministically into identical state traces; logs include hashes + config |
 | **M2** | Agent Bridge API | Rust (JSON‑RPC over WS; localhost-only) | API spec + server + audit log integration | Every UI/automation action is an RPC; every RPC is appended to the run log; clients can subscribe to a versioned event stream (state/metrics); safe-mode gates |
 | **M3** | Minimal object sim + `Flow_gt` | Rapier (Rust; behind a backend trait boundary) | Deterministic sim loop + collision geometry + `Flow_gt` derived from poses | You can spawn/move objects via Agent Bridge, step deterministically, export `Flow_gt`, and record backend + solver params in the run log (enables later cross-backend replay) |
@@ -235,13 +235,13 @@ This section turns the spec into an actionable build order. The goal is to make 
 | **M8** | Custom Tauri+SparkJS UI (Phase 4) | Tauri v2 + React + Three.js | Interactive Editor + Shader Effects | (Optional) Advanced interactive tools that Rerun cannot support (e.g. real-time visual force editing) |
 
 **Recommended repo layout for new components (names are suggestions; keep scope tight):**
-- `crates/pid-runlog`: event schemas, hashing, readers/writers, replay utilities.
+- `pid-rs/crates/pid-runlog`: event schemas, hashing, readers/writers, replay utilities.
 - `crates/pid-bridge`: Agent Bridge server + JSON‑RPC method definitions (and a small client).
 - `crates/pid-sim`: deterministic object simulation loop (Rapier first) + `Flow_gt` extraction utilities.
 - `crates/pid-rerun`: Rerun logging adapters and blueprints (Phases 1-3).
 - `crates/pid-tauri`: viewer-first desktop UI (Phase 4; deferred).
 - `uidesigner/`: UI spec + prompt-iteration tooling to design the viewer-first UI before implementation.
-- Optional: `crates/pid-gauss-mi` (or `crates/pid-core::gauss_mi`): 3DGS uncertainty artifacts + view selection (M8; see `GAUSS_MI_INTEGRATION.md`).
+- Optional: `crates/pid-gauss-mi` (or `pid-rs/crates/pid-core::gauss_mi`): 3DGS uncertainty artifacts + view selection (M8; see `GAUSS_MI_INTEGRATION.md`).
 - `experiments/` (Python): embedding extraction + dataset orchestration (after M1–M3 are stable).
 
 **Why this order is the fastest path to publishable results:**
@@ -1137,7 +1137,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   - VLA-Arena: verify benchmark availability, data access, and licensing before using it as a primary evaluation source.
   - Geodesic kNN MI (Marx & Fischer-style) and Ollivier-Ricci curvature: not implemented in `pid-core` (distance helpers exist but are not a validated manifold-MI estimator).
 - **Scientific Rigor Notes:** All blockers have explicit detection criteria, mitigation options, and Go/No-Go decision frameworks. Honest assessment: project is HIGH risk but tractable if Experiment 0 succeeds.
-- **New §14.6: RoPE What-Where Entanglement Confound:** Based on Gopalakrishnan et al. (2025, arXiv:2509.10534), documents how RoPE-based VLAs (OpenVLA, Llama-based architectures) entangle content and position in embeddings. This creates a confound where PID estimates may reflect positional structure rather than pure semantic integration. Includes 5 mitigation strategies and publication requirements.
+- **New §14.6: RoPE What-Where Entanglement Confound:** Based on Gopalakrishnan et al. (2025, arXiv:2509.10534) — which shows, on language/music/genomic sequence models (**not** VLAs), that RoPE entangles content and position — from which we **infer** the same confound applies to RoPE-based VLAs (OpenVLA, Llama-based architectures) and document it. This creates a confound where PID estimates may reflect positional structure rather than pure semantic integration. Includes 5 mitigation strategies and publication requirements.
 
 **v5.8 notes (VLA-Arena Deep Integration + Memorization/Generalization Analysis):**
 - **VLA-Arena as Primary Evaluation Framework:** Deep integration of VLA-Arena (arXiv:2512.22539) as the recommended benchmark for PID-VLA experiments (§9.7.1). VLA-Arena's 170 tasks with structured difficulty axes directly align with PID diagnostic goals.
@@ -1460,9 +1460,9 @@ Ehrlich et al. (2024) derive a **kNN/KSG-style estimator** for the continuous ca
 | Property | I^sx_∩ | Implication |
 |----------|--------|-------------|
 | **Differentiability (distribution-level)** | ✓ | Differentiable as a functional of probabilities; **gradient-based training still requires a differentiable estimator** (the kNN/KSG estimator is not). |
-| **Target Chain Rule** | ✓ | Atoms sum to total MI |
+| **Target Chain Rule (TCR)** | ✓ | Decomposes a *composite* target via a conditional chain rule: `i^sx_∩(t₁,t₂:…) = i^sx_∩(t₁:…) + i^sx_∩(t₂:… given t₁)`. *(Distinct from "atoms sum to total MI", which is lattice completeness — true for any Möbius-built PID independent of the TCR.)* |
 | **Atom non-negativity** | ✗ | Some atoms can be negative (including `I^sx_∩` itself; not just synergy/unique) |
-| **Transformation Invariance** | ✗ | Traded for TCR |
+| **Transformation invariance** | partial | Discrete `I^sx_∩` **is** invariant under bijective relabelling of outcomes / duplication (Makkeh 2021; Ehrlich 2024 L297). A fully transformation-invariant *continuous* variant exists (Schick-Poland), but the **constructive kNN estimator used here** (Ehrlich 2024) is **not** invariant under arbitrary per-variable invertible transforms — its "equal-footing" single-`ε` convention is metric-dependent. **Not** "traded for the TCR": the 2512.16662 trilemma only forces dropping ≥1 of {non-negativity, TCR, invariance}, and non-negativity already satisfies that. |
 
 ### 2.2.3 Why Negative Synergy is Possible
 
@@ -1506,7 +1506,7 @@ Where:
 - k is the number of neighbors
 - N is sample size
 - n_x, n_y are marginal counts within the k-th neighbor distance
-- **Maximum norm (Chebyshev distance)** is used for BOTH k-NN search AND marginal counting
+- **Maximum norm (Chebyshev distance)** is *mandated* for the **joint** space `Z=(X,Y)` in the k-NN search; the marginal subspaces may use *any* norm (Kraskov et al. 2004, §II: "any norms can be used for ‖x−x′‖ and ‖y−y′‖"). Using the max norm for marginal counting as well is the standard, convenient choice (and what `pid-core` does), **not** a requirement of the estimator.
 
 ### 2.3.2 Extension to I^sx_∩
 
@@ -1527,7 +1527,7 @@ For each sample `i`, let `εᵢ` be the distance to the `k`-th nearest neighbor 
 - In many KSG-style presentations, neighbor counts exclude the sample itself and the formula uses `ψ(n_x(i)+1)` / `ψ(n_y(i)+1)`.
 - In other (equivalent) presentations, counts **include** the sample itself and the `+1` is absorbed into the count.
 
-This document (and `crates/pid-core`) uses the **include-self** convention for `n_α(i)` and `n_T(i)` so the digamma arguments are the inclusive counts.
+This document (and `pid-rs/crates/pid-core`) uses the **include-self** convention for `n_α(i)` and `n_T(i)` so the digamma arguments are the inclusive counts.
 
 See §8.1.3 for concrete implementation notes (tie handling and “strict radius” rules matter).
 
@@ -1535,10 +1535,11 @@ See §8.1.3 for concrete implementation notes (tie handling and “strict radius
 
 Makkeh et al. (2025, PNAS; DOI `10.1073/pnas.2408125122`) describe “infomorphic networks”: using local information-theoretic terms as **learning objectives** rather than post-hoc analysis tools. This is *conceptually adjacent* but **not required** for Aim 1 (implementing/validating `I^sx_∩` as a diagnostic).
 
-In infomorphic networks, neurons optimize:
+In infomorphic networks, each neuron's output `Y` is trained to **maximize** a local *goal function* `G` — a weighted sum of the PID atoms of `Y` with respect to its **receptive** inputs `R` and **contextual** inputs `C`, plus a residual-entropy (stochasticity) term:
 ```
-L_local = α·Redundancy + β·Unique + γ·Synergy
+G(Y : R, C) = Γ₀·Unq(Y:R) + Γ₁·Unq(Y:C) + Γ₂·Red(Y:R,C) + Γ₃·Syn(Y:R,C) + Γ₄·H(Y|R,C)
 ```
+(the weights `Γᵢ` select the neuron's "information goal"; note the **two separate** unique terms, the explicit `H(Y|R,C)` term, and that `G` is *maximized*, not a loss minimized. Makkeh et al.; cf. preprint arXiv:2306.02149 Eq. 8. The single lumped `α·Red + β·Unq + γ·Syn` form is an over-simplification.)
 
 This motivates Aim 3 as an exploratory direction *only after* Experiment 0 and the diagnostic experiments succeed, and only with a differentiable estimator (the kNN/KSG estimators in this spec are not differentiable).
 
@@ -1594,7 +1595,7 @@ Gutknecht et al. (2025) define these normalized invariants to capture the system
     *   $\bar{r} > 1$: Redundancy-dominated (sum of parts > whole).
     *   $\bar{r} < 1$: Synergy-dominated (whole > sum of parts).
     *   $\bar{r} = 1$: Independent/Additive.
-    *   *Relation to Co-Information:* $\bar{r} - 1 \propto -\text{CoInfo}$ (normalized).
+    *   *Relation to Co-Information:* $\bar{r} - 1 = +\text{CoInfo}\,/\,I(T;S_1,\dots,S_n)$ (i.e. $\propto +\text{CoInfo}$, with CoInfo $= \text{Red}-\text{Syn}$ as in §2.5.2). So `r̄ > 1 ⇔ CoInfo > 0 ⇔ redundancy-dominated` — the **same** sign as the rows above. *(Earlier drafts wrote `−CoInfo`, which is sign-inverted and self-inconsistent.)*
     *   **Sanity bound (MI-coherence):** for `n` sources and nonzero `I(T;S_1…S_n)`, require `0 ≤ \bar{r} ≤ n`. Values outside this range indicate joint-vs-marginal incoherence (estimator pathology).
 
 2.  **Average Degree of Vulnerability ($\bar{v}$):**
@@ -2201,21 +2202,21 @@ This would capture:
 
 For two sources, PID has 4 atoms: {Red, Unq₁, Unq₂, Syn}
 
-For three sources, the partial information lattice has **18 distinct antichains** (atoms):
+For three sources, the partial information lattice has **18 distinct atoms** — one per antichain of nonempty subsets of {V,L,D} (Williams–Beer redundancy lattice; the Dedekind number `d(3)=20` minus the 2 non-atom nodes). Writing an antichain as a set of source-collections (`{V}{LD}` = "info available from V alone, **or** from L-and-D together"):
 
 ```
-                        {VLD}                    ← Full synergy (all three needed)
-                       /  |  \
-                  {VL} {VD} {LD}                 ← Pairwise synergies
-                 / | \ / | \ / | \
-              {V} {L} {D}                        ← Unique information
-                 \ | / \ | / \ | /
-                  {VL∩} {VD∩} {LD∩}              ← Pairwise redundancies  
-                       \  |  /
-                        {VLD∩}                   ← Full redundancy (any one suffices)
+height 0  (synergy)      {VLD}                                   (1)
+height 1                 {VL}   {VD}   {LD}                       (3)
+height 2                 {VL}{VD}  {VL}{LD}  {VD}{LD}             (3)
+height 3                 {V}  {L}  {D}   {VL}{VD}{LD}             (4)
+height 4                 {V}{LD}   {L}{VD}   {D}{VL}              (3)
+height 5                 {V}{L}   {V}{D}   {L}{D}                 (3)
+height 6  (redundancy)   {V}{L}{D}                                (1)
 ```
 
-Estimating 18 quantities is expensive and many are hard to interpret.
+Total = 1+3+3+4+3+3+1 = **18**. **Each antichain is exactly one atom**: a pair such as `{VL}` is a *single* node, **not** both a "pairwise synergy" and a separate "pairwise redundancy" (the older shorthand that drew both double-counted and only named 11 of the 18). The top `{VLD}` is pure 3-way synergy; the bottom `{V}{L}{D}` is full redundancy (information obtainable from any one source alone).
+
+Estimating 18 quantities is expensive, many are hard to interpret, and because each atom is a signed Möbius sum of several noisy `I^sx_∩`/KSG estimates, per-atom variance *accumulates* (it does not simply "multiply"): cancellation between large opposite-signed redundancy terms inflates the variance, so confidence intervals on the full 18-atom set become impractically wide.
 
 ## 5.3 Practical Options for Three-Way Analysis
 
@@ -2236,12 +2237,13 @@ CI(V, L, D; A) = I(V;A) + I(L;A) + I(D;A)
               + I(V,L,D;A)
 ```
 
-This is the "interaction information" or "co-information":
-- Negative = synergistic (three-way cooperation)
-- Positive = redundant (three-way overlap)
+This is the 3-source "interaction information" / "co-information" `CI_3` (see §2.5):
 
-**Pros:** Single interpretable number, cheap  
-**Cons:** Loses fine-grained structure
+- **The sign interpretation is parity-flipped vs. the pairwise case and is *not* a clean synergy/redundancy indicator.** For 2 sources, `CI_2 = Red − Syn`, so *negative* = synergy-dominant. For 3 sources the highest-order term `+ I(V,L,D;A)` enters with a **positive** sign, so a pure 3-way synergy (e.g. `A = V ⊕ L ⊕ D`) gives `CI_3 = +1 > 0` — the **opposite** sign to the pairwise convention. Do **not** read "negative = synergy" here.
+- `CI_3` **conflates atoms** (§2.5, line 1624): pure 3-way synergy (`A=V⊕L⊕D`) *and* whole-set redundancy (`V=L=D=A`) **both** yield `CI_3 = +1`, so the sign alone cannot separate synergy from redundancy at `m=3`. Use `CI_3` only as a coarse screen; for an actual synergy-vs-redundancy verdict use the hierarchical pairwise PIDs (Option 3) or `I^sx_∩` atoms.
+
+**Pros:** Single cheap screening number  
+**Cons:** Loses fine-grained structure; sign is *not* directly interpretable as synergy/redundancy at `m=3` (see above)
 
 ### Option 3: Hierarchical Pairwise (RECOMMENDED)
 
@@ -2881,7 +2883,7 @@ For **two sources** `S₁,S₂` and a target `T`, under Chebyshev/L∞:
 4. Estimate redundancy:
    - `Î^sx_∩ = ψ(k) + ψ(N) − (1/N) Σ_i [ ψ(n_α(i)) + ψ(n_T(i)) ]`
 
-This matches the authors’ reference implementation (`gitlab.gwdg.de/wibral/continuouspidestimator`, Python package `csxpid`) and is implemented in this repo as `crates/pid-core/src/isx.rs` (`IsxMethod::EhrlichKsg`).
+This matches the authors’ reference implementation (`gitlab.gwdg.de/wibral/continuouspidestimator`, Python package `csxpid`) and is implemented in this repo as `pid-rs/crates/pid-core/src/isx.rs` (`IsxMethod::EhrlichKsg`).
 
 ### 8.1.4 Beyond KSG: Alternative MI/CMI Estimators (MINE, CCMI, Gao-LNC / Local Gaussian)
 
@@ -2983,7 +2985,7 @@ Interpretation rules (scientific hygiene):
 #### C) Riemannian / geodesic kNN MI as a contingency baseline (MI-only, not `I^sx_∩`)
 
 If the representation is plausibly **manifold-valued** (curved support where Euclidean distances are a poor proxy for neighborhood volumes), consider manifold-aware MI estimators as **separate baseline pipelines** for MI-only screening:
-- Marx & Fischer (2021, arXiv:2110.13883) propose **geodesic kNN** MI estimation on Riemannian manifolds.
+- Marx & Fischer (2021, arXiv:2110.13883) propose **geodesic kNN** MI estimation on a *learned data manifold* (manifold-learning framing: geodesics are approximated by kNN-graph shortest paths; the paper does **not** assume a known Riemannian metric tensor with closed-form geodesics). Applying it to the *analytically* Riemannian/hyperbolic embeddings discussed below is this project's extension, not a result of the paper.
 
 Scope and limitations for PID-VLA:
 - This can support **Shannon-invariant screening** (CI/O-information-style terms) in curved settings.
@@ -3031,7 +3033,7 @@ How we use it safely:
 
 ### 8.1.6 Implemented Discrete Quantization Path (Repo Reality, Measure Identity, and Gates) — v10.2
 
-`crates/pid-core/src/discrete_pid.rs` (committed 2026-06-11) provides the "Quantization → Discrete PID" escape hatch sketched in the geometry-mitigation list at the top of this document. Before using it, be precise about **what it actually computes**, because it is *not* the discrete `i^sx_∩` of Makkeh et al. (2021):
+`pid-rs/crates/pid-core/src/discrete_pid.rs` (committed 2026-06-11) provides the "Quantization → Discrete PID" escape hatch sketched in the geometry-mitigation list at the top of this document. Before using it, be precise about **what it actually computes**, because it is *not* the discrete `i^sx_∩` of Makkeh et al. (2021):
 
 1. **Quantization:** each variable is binned **per dimension** into `num_bins` equal-width bins over the observed `[min, max]` range (`quantize_equal_width`); joint states are the cross-product of per-dimension bins.
 2. **MI:** plug-in (counting) entropies, `I(X;Y) = H(X) + H(Y) − H(X,Y)`, in nats.
@@ -3079,7 +3081,7 @@ These are “geometry fixes,” not “information fixes,” and still require E
 | **PCA (95% variance)** | ~256 | Linear; **changes the quantity** (non-invertible); often stabilizes Euclidean kNN; re-validate |
 | **Random projection (JL)** | 64–256 | Preserves **ambient Euclidean** distances; does **not** recover geodesics; changes the quantity; re-validate |
 | **Hash projection (CountSketch)** | 64–256 | Fast baseline (`HashProjector`); approximate; changes the quantity; re-validate |
-| **PLS (supervised; implemented)** | 1–8 (typ.) | `PlsProjector` (NIPALS-PLS2, `crates/pid-core/src/pls.rs`); uses a target/label → **fit on training samples only**; changes the quantity; defines a new measurement regime; re-validate (see below) |
+| **PLS (supervised; implemented)** | 1–8 (typ.) | `PlsProjector` (NIPALS-PLS2, `pid-rs/crates/pid-core/src/pls.rs`); uses a target/label → **fit on training samples only**; changes the quantity; defines a new measurement regime; re-validate (see below) |
 | **Learned projection (AE/contrastive)** | 64 | Task-specific; changes the quantity; requires training + leakage controls |
 | **Hyperbolic embedding (Poincaré/Lorentz)** | ~2–64 | Non-Euclidean metric; **not drop-in** for Euclidean kNN/`I^sx_∩`; treat as a separate estimator pipeline |
 | **Intermediate layers** | 4096 but different | Alternative variables (not reduction); may encode different information |
@@ -3165,7 +3167,7 @@ Most kNN/KSG estimators are analyzed under an **i.i.d. sample** assumption. Robo
 - **Do not treat “frames” as i.i.d. by default.** Adjacent timesteps are autocorrelated; effective sample size can be far smaller than raw frame count.
 - **Prefer cross-trajectory sampling** when possible (e.g., one sample per rollout at a fixed phase, or a large-stride subsample) to reduce dependence.
 - **If time-resolved PID is desired**, compute on explicit windows and report window size/stride; interpret as descriptive unless causal controls support it.
-- **Uncertainty estimates must respect dependence:** prefer trajectory-level resampling or block bootstrap over naive per-frame bootstrap. **Implemented (v10.2):** `block_bootstrap` / `block_bootstrap_paired` + `BootstrapConfig` in `crates/pid-core/src/bootstrap.rs` resample contiguous row blocks jointly across variables. Choose the block length to exceed the autocorrelation time of the trajectory data and report sensitivity to it. Caveat: resampling quantifies **variance only** — in bias-dominated kNN regimes (the monotonicity-violation regime in §8.2.3), bootstrap CIs can be tight around a *biased* value, so the consistency gates still apply to every resample-based claim.
+- **Uncertainty estimates must respect dependence:** prefer trajectory-level resampling or block bootstrap over naive per-frame bootstrap. **Implemented (v10.2):** `block_bootstrap` / `block_bootstrap_paired` + `BootstrapConfig` in `pid-rs/crates/pid-core/src/bootstrap.rs` resample contiguous row blocks jointly across variables. Choose the block length to exceed the autocorrelation time of the trajectory data and report sensitivity to it. Caveat: resampling quantifies **variance only** — in bias-dominated kNN regimes (the monotonicity-violation regime in §8.2.3), bootstrap CIs can be tight around a *biased* value, so the consistency gates still apply to every resample-based claim.
 
 ---
 
@@ -4409,7 +4411,7 @@ COUNTERFACTUAL ANALYSIS PROTOCOL
 | Rendering (optional) | fps, end-to-end latency | depends on scene complexity and GPU |
 | **Total per trial** | sum | report separately for online loop vs offline analysis |
 
-**Hardware note (v10.0):** this document does not prescribe a “minimum GPU”. The implemented core (`crates/pid-core`) runs on CPU. Any additional requirements are determined by the specific VLA checkpoint(s), video predictor(s), and scene complexity you choose. Prefer offline-first pipelines and cache artifacts so that interactive diagnostics do not depend on real-time video generation.
+**Hardware note (v10.0):** this document does not prescribe a “minimum GPU”. The implemented core (`pid-rs/crates/pid-core`) runs on CPU. Any additional requirements are determined by the specific VLA checkpoint(s), video predictor(s), and scene complexity you choose. Prefer offline-first pipelines and cache artifacts so that interactive diagnostics do not depend on real-time video generation.
 
 ### 10.10.8 Comparison: VLA Internal D vs External Predictor‑Derived Flow
 
@@ -4675,15 +4677,15 @@ To keep the diagnostics scientifically interpretable and the system maintainable
 
 | Component | In repo (v10.2) | Status | Notes |
 |-----------|-----------------|--------|------|
-| Continuous MI + 2-source SxPID | `crates/pid-core` | Implemented | KSG MI + continuous `I^sx_∩` (`IsxMethod::EhrlichKsg`); a 3-source wrapper exists (`pid3_isx`) but is research/experimental and must be re-validated under the same Exp0 + geometry-gate discipline |
-| Geometry gates + screening | `crates/pid-core` | Implemented | Intrinsic dimension, distance concentration, δ/δ_rel; hierarchy helpers |
-| Supervised dim reduction (PLS) | `crates/pid-core` (`pls.rs`) | Implemented (2026-06-11) | NIPALS-PLS2 fit/transform; addresses the Exp0 finding that unsupervised projections fail when signal variance ≈ noise variance; leakage rules + regime re-validation required (§8.2.3) |
-| Discrete PID via quantization | `crates/pid-core` (`discrete_pid.rs`) | Implemented (2026-06-11/12) | Equal-width per-dimension binning + counting entropies; 2-source and 3-source (`discrete_pid3`, 18 antichains); redundancy is a Williams–Beer-style `I_min` functional, **not** discrete `i^sx_∩` — see §8.1.6 for measure identity and the saturation gate |
-| Block-bootstrap uncertainty | `crates/pid-core` (`bootstrap.rs`) | Implemented (2026-06-11) | `block_bootstrap`/`block_bootstrap_paired` + `BootstrapConfig`; joint row-block resampling; variance-only (does not correct kNN bias; §8.4.3) |
-| Pipeline composition helpers | `crates/pid-core` (`pipeline.rs`) | Implemented (2026-06-12) | `pls_project_then_pid3`, `pls_project_then_discrete_pid3`, `bootstrap_pid3` (per-atom CIs), `permutation_pid3` (single-source nulls), `pls_cv_select_components` (LOO Q²), `screen_pid2_pairs`; leakage warnings in rustdoc — train/transform discipline still applies (§8.2.3) |
-| Python bindings (PyO3) | `crates/pid-python` → `pid_core_rs` | Implemented (extension crate) | 15 exported functions as of 2026-06-13 (see §11.1.2); Maturin build backend is wired for local builds; publishing remains planned |
-| Minimal “Experiment 0” runner | `crates/pid-core/src/bin/exp0.rs` + `just exp0` | Implemented | Smoke/validation subset; `--strict-gate` exits nonzero (code 3) on non-GO for CI enforcement; expand protocol in `EXPERIMENTS.md` |
-| Run-log schema + replay summary | `crates/pid-runlog` + `pid-runlog-replay` | Implemented (M1 groundwork) | Versioned JSONL event schema, reader/writer, validation, SHA-256 helpers, deterministic replay summary with unique metric-name counts plus total metric-event counters, trace-hash comparison, summary JSON, manifest JSON, validation/summary/manifest sidecar writing and verification, and first-class `Flow_gt`/`flow_pred` events, plus an `attribution_logged` event (method, target_output, layer, modality, baseline, score_hash, faithfulness_check, artifact_uri) for H9 attribution-probe provenance (schema only — no Rerun attribution adapter yet); full simulator replay adapters remain planned |
+| Continuous MI + 2-source SxPID | `pid-rs/crates/pid-core` | Implemented | KSG MI + continuous `I^sx_∩` (`IsxMethod::EhrlichKsg`); a 3-source wrapper exists (`pid3_isx`) but is research/experimental and must be re-validated under the same Exp0 + geometry-gate discipline |
+| Geometry gates + screening | `pid-rs/crates/pid-core` | Implemented | Intrinsic dimension, distance concentration, δ/δ_rel; hierarchy helpers |
+| Supervised dim reduction (PLS) | `pid-rs/crates/pid-core` (`pls.rs`) | Implemented (2026-06-11) | NIPALS-PLS2 fit/transform; addresses the Exp0 finding that unsupervised projections fail when signal variance ≈ noise variance; leakage rules + regime re-validation required (§8.2.3) |
+| Discrete PID via quantization | `pid-rs/crates/pid-core` (`discrete_pid.rs`) | Implemented (2026-06-11/12) | Equal-width per-dimension binning + counting entropies; 2-source and 3-source (`discrete_pid3`, 18 antichains); redundancy is a Williams–Beer-style `I_min` functional, **not** discrete `i^sx_∩` — see §8.1.6 for measure identity and the saturation gate |
+| Block-bootstrap uncertainty | `pid-rs/crates/pid-core` (`bootstrap.rs`) | Implemented (2026-06-11) | `block_bootstrap`/`block_bootstrap_paired` + `BootstrapConfig`; joint row-block resampling; variance-only (does not correct kNN bias; §8.4.3) |
+| Pipeline composition helpers | `pid-rs/crates/pid-core` (`pipeline.rs`) | Implemented (2026-06-12) | `pls_project_then_pid3`, `pls_project_then_discrete_pid3`, `bootstrap_pid3` (per-atom CIs), `permutation_pid3` (single-source nulls), `pls_cv_select_components` (LOO Q²), `screen_pid2_pairs`; leakage warnings in rustdoc — train/transform discipline still applies (§8.2.3) |
+| Python bindings (PyO3) | `pid-rs/crates/pid-python` → `pid_core_rs` | Implemented (extension crate) | 15 exported functions as of 2026-06-13 (see §11.1.2); Maturin build backend is wired for local builds; publishing remains planned |
+| Minimal “Experiment 0” runner | `pid-rs/crates/pid-core/src/bin/exp0.rs` + `just exp0` | Implemented | Smoke/validation subset; `--strict-gate` exits nonzero (code 3) on non-GO for CI enforcement; expand protocol in `EXPERIMENTS.md` |
+| Run-log schema + replay summary | `pid-rs/crates/pid-runlog` + `pid-runlog-replay` | Implemented (M1 groundwork) | Versioned JSONL event schema, reader/writer, validation, SHA-256 helpers, deterministic replay summary with unique metric-name counts plus total metric-event counters, trace-hash comparison, summary JSON, manifest JSON, validation/summary/manifest sidecar writing and verification, and first-class `Flow_gt`/`flow_pred` events, plus an `attribution_logged` event (method, target_output, layer, modality, baseline, score_hash, faithfulness_check, artifact_uri) for H9 attribution-probe provenance (schema only — no Rerun attribution adapter yet); full simulator replay adapters remain planned |
 | Agent Bridge event core | `crates/pid-bridge` | Implemented (M2 groundwork) | Local request/response schema, dispatcher abstraction, JSON-RPC-shaped request/response conversion, run-log integration, bridge/run-log contract JSON export, action/intervention contract flags, safe-mode gates, and stdio/TCP/WebSocket JSON-RPC transports for the deterministic sim |
 | Deterministic object sim + `Flow_gt` | `crates/pid-sim` + demo binaries | Implemented (M3 smoke groundwork) | Object-only fixed-step sim writes canonical run logs and simulator-derived `Flow_gt` plus a constant-velocity baseline `flow_pred`; bridge session demo, stdio/TCP/WebSocket JSON-RPC bridges, read-only `log.replay`, `log.start`/`log.stop`, deterministic interventions, file-writing `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` embedding harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, replay-visible total metric event counts, and failure-class confusion/rate diagnostics exist; a `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend** (gravity, contacts, friction, deterministic substepping) exists behind the optional `rapier` feature, plus a scripted push-to-goal manipulation (`pid-rapier-harness`) emitting real `Flow_gt` and physics-derived success labels (box-collider geometry; mesh-collider ingestion and MuJoCo/Isaac adapters remain planned); the offline harness also has an opt-in `--bootstrap`/`--permutation` PID-screen uncertainty path (written to a dedicated file) and a SAFE-class logistic-regression held-out baseline; a high-dimensional synthetic VLDA fixture (v=128, l=64, d=32, a=7; n=48) exists for CI smoke only (n=48 is far below evidence-grade sample sizes) |
 | Rerun diagnostic adapters | `crates/pid-rerun` | Prototype | Minimal Rerun SDK adapters, `vla_demo`, and validating run-log-to-Rerun adapter/CLI exist with summary/provenance/validation diagnostic tracks; full Phase 1-3 diagnostic viewer remains a spec |
@@ -4693,7 +4695,7 @@ To keep the diagnostics scientifically interpretable and the system maintainable
 
 ### 11.1.2 Python Bindings
 
-The repo ships a PyO3 extension crate (`crates/pid-python`) that builds a Python module named `pid_core_rs` exposing 15 functions (as of 2026-06-13):
+The repo ships a PyO3 extension crate (`pid-rs/crates/pid-python`) that builds a Python module named `pid_core_rs` exposing 15 functions (as of 2026-06-13):
 - `compute_mi`
 - `compute_redundancy` (continuous `I^sx_∩` redundancy for 2 sources)
 - `compute_co_information`
@@ -4762,7 +4764,7 @@ pid_vla/
 ```
 
 **Repo status (v10.2):**
-- Implemented: `crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, PLS supervised dimensionality reduction (`pls.rs`), discrete 2-source PID via quantization (`discrete_pid.rs`; `I_min`-style redundancy — §8.1.6), block-bootstrap uncertainty (`bootstrap.rs`), preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner with `--strict-gate`), `crates/pid-python` (PyO3 bindings; 15 functions), `crates/pid-runlog` (M1 run-log schema/replay/validation/summary/manifest/sidecar write-and-verify groundwork plus `Flow_gt`/`flow_pred` events), `crates/pid-bridge` (M2 event-core, dispatcher, JSON-RPC request/response groundwork, bridge/run-log contract export, and stdio/TCP/WebSocket transport coverage), and `crates/pid-sim` (M3 deterministic smoke sim, bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`/`log.start`/`log.stop`/`export.rerun`, deterministic interventions, `Flow_gt` verification, baseline `flow_pred`, action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, a SAFE-class logistic-regression held-out baseline (`heldout_logreg_vlda`), an opt-in `--bootstrap`/`--permutation` PID-screen uncertainty path, and failure-class confusion/rate diagnostics; also a `PhysicsBackend` trait with null adapter and a **real `rapier3d-f64` backend** (gravity/contacts/friction) + a scripted push-to-goal manipulation (`pid-rapier-harness`) behind the optional `rapier` feature, and a high-dimensional synthetic VLDA fixture (v=128, l=64, d=32, a=7; n=48 — CI smoke only)), and Python `experiments/` (`safe_adapter` SAFE→`(V,L,D,A)` converter + §7.6.3 hook-probe; `attribution` faithfulness-checked H9 probe emitting `attribution_logged` run logs).
+- Implemented: `pid-rs/crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, PLS supervised dimensionality reduction (`pls.rs`), discrete 2-source PID via quantization (`discrete_pid.rs`; `I_min`-style redundancy — §8.1.6), block-bootstrap uncertainty (`bootstrap.rs`), preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner with `--strict-gate`), `pid-rs/crates/pid-python` (PyO3 bindings; 15 functions), `pid-rs/crates/pid-runlog` (M1 run-log schema/replay/validation/summary/manifest/sidecar write-and-verify groundwork plus `Flow_gt`/`flow_pred` events), `crates/pid-bridge` (M2 event-core, dispatcher, JSON-RPC request/response groundwork, bridge/run-log contract export, and stdio/TCP/WebSocket transport coverage), and `crates/pid-sim` (M3 deterministic smoke sim, bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`/`log.start`/`log.stop`/`export.rerun`, deterministic interventions, `Flow_gt` verification, baseline `flow_pred`, action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, a SAFE-class logistic-regression held-out baseline (`heldout_logreg_vlda`), an opt-in `--bootstrap`/`--permutation` PID-screen uncertainty path, and failure-class confusion/rate diagnostics; also a `PhysicsBackend` trait with null adapter and a **real `rapier3d-f64` backend** (gravity/contacts/friction) + a scripted push-to-goal manipulation (`pid-rapier-harness`) behind the optional `rapier` feature, and a high-dimensional synthetic VLDA fixture (v=128, l=64, d=32, a=7; n=48 — CI smoke only)), and Python `experiments/` (`safe_adapter` SAFE→`(V,L,D,A)` converter + §7.6.3 hook-probe; `attribution` faithfulness-checked H9 probe emitting `attribution_logged` run logs).
 - Prototype: `crates/pid-rerun` (minimal Rerun logging adapters, a `vla_demo` binary, and a run-log replay adapter with summary/provenance/validation diagnostics).
 - Planned: `crates/pid-tauri` (visualization app), physics-backed simulator adapters beyond the Rapier stub, and a Python experiment harness (location TBD: `python/` or `experiments/`), plus asset/tooling scripts to populate local/ignored assets and datasets.
 - Implemented (second 2026-06-12 slice): discrete 3-source PID (`discrete_pid3`; `I_min` over 18 antichains), the `pid-core` `pipeline.rs` composition layer (PLS→PID3, `bootstrap_pid3` per-atom CIs, `permutation_pid3` single-source nulls, `pls_cv_select_components`, `screen_pid2_pairs`), and offline-harness `--pid-mode continuous|discrete|discrete-pls` with `--discrete-bins`/`--pls-components` plus per-pair `discrete_saturation` diagnostics (§8.1.6 gate; `just offline-harness-discrete`, `just offline-harness-discrete-pls`).
@@ -5392,8 +5394,8 @@ VLA-Arena Task Organization:
   - Gomtsyan et al. (2019). *Geometry-Aware Maximum Likelihood Estimation of Intrinsic Dimension.* arXiv:1904.06151.
 - **Lorentzian conformal rigidity (background; mostly analogy-level for this project):**
   - Melnick, Pecastaing (2025). *A local Lorentzian Ferrand-Obata theorem for conformal vector fields.* arXiv:2511.03713.
-  - Pecastaing (2019). *The conformal group of a compact simply connected Lorentzian manifold.* arXiv:1911.06251.
-  - Frances (2025). *Conformal quotients of plane waves, and Lichnerowicz conjecture in a locally homogeneous setting.* arXiv:2503.08614.
+  - Melnick & Pecastaing (2019). *The conformal group of a compact simply connected Lorentzian manifold.* arXiv:1911.06251.
+  - Mehidi (2025). *Conformal quotients of plane waves, and Lichnerowicz conjecture in a locally homogeneous setting.* arXiv:2503.08614.
 
 ## 13.13 Multimodal Sensing: Force & Tactile (2025; verify venues/status)
 
@@ -5904,7 +5906,7 @@ Dream2Flow's staged architecture provides natural ablations:
 
 ### 14.6.1 The Problem: Content-Position Entanglement in VLA Embeddings
 
-Most modern VLAs (OpenVLA, TraceVLA, and any Llama-based architecture) use **Rotary Position Embeddings (RoPE)** for attention. Gopalakrishnan et al. (2025) demonstrate empirically that RoPE **entangles content ("what") and position ("where")** in attention scores.
+Most modern VLAs (OpenVLA, TraceVLA, and any Llama-based architecture) use **Rotary Position Embeddings (RoPE)** for attention. Gopalakrishnan et al. (2025) show — via analysis of language, music, and genomic sequence models (not VLAs directly) — that RoPE **entangles content ("what") and position ("where")** in attention scores; we treat this as a general-Transformer property that should also hold for RoPE-based VLAs.
 
 **Mathematical basis (from the paper):**
 
@@ -7091,7 +7093,7 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ### 17.5.3 PLS (Supervised Linear Projection; Implemented v10.2)
 
-**Training:** No SGD/learned-model training — deterministic NIPALS-PLS2 fit (iterative linear algebra) in `crates/pid-core/src/pls.rs`; cost is roughly per-component power-iteration over the `N×d` matrix (benchmark for your sizes; cheap relative to any neural option).
+**Training:** No SGD/learned-model training — deterministic NIPALS-PLS2 fit (iterative linear algebra) in `pid-rs/crates/pid-core/src/pls.rs`; cost is roughly per-component power-iteration over the `N×d` matrix (benchmark for your sizes; cheap relative to any neural option).
 
 **Data Requirements:** the same embeddings used for PID **plus a target** (e.g., `A`, a flow summary, or labels). Because the projection consumes the target, it is *supervised*: fit on training samples only, freeze, then transform analysis/held-out samples (§8.2.3 step 5). Component count must be selected by nested CV, not on the evaluation split.
 
@@ -7755,7 +7757,7 @@ These blockers have known workarounds and are manageable.
 | Full VLA pre-training infeasible | Known | Use LoRA fine-tuning only |
 | Some arXiv papers not peer-reviewed | Known | Verify claims independently |
 | macOS primary limits CUDA | Known | NixOS secondary target available |
-| PyO3 wheel/publish workflow not wired | Known | Use local-dev bindings (`crates/pid-python`) and pin the repo commit for reproducibility |
+| PyO3 wheel/publish workflow not wired | Known | Use local-dev bindings (`pid-rs/crates/pid-python`) and pin the repo commit for reproducibility |
 | Ball-tree/KD-tree not implemented | Known | Brute-force kNN is reference-correct |
 
 ---
@@ -8061,7 +8063,7 @@ GWM integration requires 3DGS scene reconstruction, which adds pipeline complexi
 **Canonical repo reality (authoritative):**
 - Tooling: `flake.nix` and `justfile`
 - Python deps: `pyproject.toml` / `uv.lock`
-- Implemented code: `crates/pid-core` (estimators + geometry gates) and `crates/pid-python` (`pid_core_rs` bindings)
+- Implemented code: `pid-rs/crates/pid-core` (estimators + geometry gates) and `pid-rs/crates/pid-python` (`pid_core_rs` bindings)
 
 **Engineering guidance (measurement-first):**
 - The PID estimators and geometry diagnostics run on CPU.
@@ -8084,7 +8086,7 @@ Until then, treat MLX as an external option and do not cite performance expectat
 
 **Status (v7.0):** Not implemented here.
 
-GPU kernels for kNN/KSG/PID are plausible but easy to get subtly wrong (precision, tie handling, radius conventions). If pursued, add them as a separately tested backend with parity tests against `crates/pid-core` and publish benchmark scripts + measured results in-repo.
+GPU kernels for kNN/KSG/PID are plausible but easy to get subtly wrong (precision, tie handling, radius conventions). If pursued, add them as a separately tested backend with parity tests against `pid-rs/crates/pid-core` and publish benchmark scripts + measured results in-repo.
 
 ## B.5 CoreML for Quantized Inference
 

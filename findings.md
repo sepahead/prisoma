@@ -273,7 +273,7 @@ Random projection and PCA are **unsupervised** methods. They preserve geometric 
 
 **What would work**: Supervised projection methods that use label information to find informative subspaces:
 - Linear discriminant analysis (LDA)
-- Partial least squares (PLS) — **now implemented** in `crates/pid-core/src/pls.rs` (NIPALS-PLS2 algorithm; test confirms signal recovery in signal-in-noise setting)
+- Partial least squares (PLS) — **now implemented** in `pid-rs/crates/pid-core/src/pls.rs` (NIPALS-PLS2 algorithm; test confirms signal recovery in signal-in-noise setting)
 - Projection onto directions maximizing I(projected;T)
 
 The current hash/PCA baselines are the wrong tool for this job. PLS is the recommended supervised alternative.
@@ -284,7 +284,7 @@ The current hash/PCA baselines are the wrong tool for this job. PLS is the recom
 
 1. **DO NOT** interpret continuous kNN PID atoms outside a validated regime (Exp0 + coherence gates).
 2. **DO** prefer low‑d targets (H7 Flow‑as‑Bridge via flow summaries / physical state) when possible.
-3. **DO** use supervised projections if high‑d sources are required (treat as a new measurement regime; avoid leakage). PLS (NIPALS-PLS2) is implemented in `crates/pid-core/src/pls.rs`; discrete PID via quantization is implemented in `crates/pid-core/src/discrete_pid.rs` as an escape hatch bypassing kNN geometry (note: its redundancy is a Williams–Beer-style `I_min` functional, not discrete `i^sx_∩` — cross-mode comparisons are cross-measure comparisons; see `grandplan.md` §8.1.6). Both escape hatches are wired into the offline harness as `--pid-mode discrete` and `--pid-mode discrete-pls` (PLS-project sources toward `A`, then quantize), with per-pair `discrete_saturation` diagnostics that fail-flag the `ln(n)`-ceiling regime this document describes.
+3. **DO** use supervised projections if high‑d sources are required (treat as a new measurement regime; avoid leakage). PLS (NIPALS-PLS2) is implemented in `pid-rs/crates/pid-core/src/pls.rs`; discrete PID via quantization is implemented in `pid-rs/crates/pid-core/src/discrete_pid.rs` as an escape hatch bypassing kNN geometry (note: its redundancy is a Williams–Beer-style `I_min` functional, not discrete `i^sx_∩` — cross-mode comparisons are cross-measure comparisons; see `grandplan.md` §8.1.6). Both escape hatches are wired into the offline harness as `--pid-mode discrete` and `--pid-mode discrete-pls` (PLS-project sources toward `A`, then quantize), with per-pair `discrete_saturation` diagnostics that fail-flag the `ln(n)`-ceiling regime this document describes.
 4. **DO** treat geometry/coherence warnings as stop signals for atom-level conclusions.
 5. **CONSIDER** validating on real VLA embeddings to measure intrinsic dimension and distance concentration before committing to a pipeline.
 

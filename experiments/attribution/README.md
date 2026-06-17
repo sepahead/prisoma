@@ -39,7 +39,7 @@ self-checking); a test verifies it against torch autograd when torch is installe
 ```bash
 python -m experiments.attribution demo \
     --runlog outputs/attribution_runlog.jsonl --artifacts outputs/attribution
-cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/attribution_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/attribution_runlog.jsonl
 ```
 
 Each method prints its faithfulness verdict and AOPCs; the run log carries one

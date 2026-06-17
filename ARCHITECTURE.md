@@ -234,7 +234,7 @@ Use this table as a qualitative capability map. Do not compare “sim2real %”,
 | **Isaac Sim/Lab** | RTX / OpenUSD | PhysX | NVIDIA GPU required | Strong USD tooling; heavy stack; PID harness is custom |
 | **Isaac Gym** | (Varies) | GPU physics | NVIDIA GPU required | Good for scale; visuals depend on assets/renderer |
 | **Gazebo Harmonic** | Raster (OGRE2) | Plugin-dependent | Cross-platform; ROS-centric | Strong robot/sensor ecosystem; PID harness is custom |
-| **LuckyRobots / Lucky World** | “Hyperrealistic” (vendor claim; verify) | Lucky World backend (engine/solver not specified in public docs; verify) | Proprietary world executable + Python API (WebSocket); Windows binary public as of v0.1; Linux/macOS TBD | RL-style interface surface (`reset`/`step`, observations); PID harness still custom |
+| **LuckyRobots / Lucky World** | “Hyperrealistic” (vendor claim); Vulkan renderer | **MuJoCo**-based (per README) | Proprietary world executable + Python API (**gRPC**, port 50051; WebSocket only inter-node); v0.1 lists Windows/Linux/macOS all “coming soon” (no public binary yet) | RL-style interface surface (`reset`/`step`, observations); PID harness still custom |
 | **Habitat** | Mesh + neural | Limited (navigation focus) | Cross-platform | Good for nav; not a manipulation physics stack |
 | **CARLA** | Unreal | Vehicle focus | Cross-platform | Driving-focused; not a manipulation stack |
 | **Rapier3D** | Headless / debug | Rapier | Cross-platform | Fast iteration; contact fidelity depends on task and tuning |

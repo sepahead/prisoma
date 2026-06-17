@@ -2,15 +2,17 @@
 resolver = "2"
 members = [
     "crates/pid-bridge",
-    "crates/pid-core",
-    "crates/pid-python",
     "crates/pid-rerun",
-    "crates/pid-runlog",
     "crates/pid-sim",
 ]
-# `ncp-observer` is intentionally NOT a default member. It now git-depends on the
-# published NCP SDK (https://github.com/sepehrmn/NCP, tag v0.1.0) and so resolves on
-# a fresh checkout, but it pulls in NCP + Zenoh — deliberately kept OFF pid_vla's
-# critical path (the pure-PID stack builds and gates with no NCP/Engram/Zenoh dep).
-# Build/test it explicitly: `cargo build --manifest-path crates/ncp-observer/Cargo.toml`.
-exclude = ["crates/ncp-observer"]
+# `pid-core` and `pid-runlog` are NOT vendored here. They are the canonical, single source
+# of truth at https://github.com/sepehrmn/pid-rs, pinned in this repo as the `pid-rs/` git
+# submodule (run `git submodule update --init`). The crates above path-depend into
+# `pid-rs/crates/*`; `pid-rs` is its own workspace, so it is excluded here. Build/test the
+# estimator core and run its `exp0` / `pid-runlog-replay` binaries from the submodule, e.g.
+# `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0`.
+#
+# `ncp-observer` is intentionally NOT a default member: it git-depends on the published NCP
+# SDK (https://github.com/sepehrmn/NCP, tag v0.1.0) and pulls in NCP + Zenoh — deliberately
+# kept OFF pid_vla's critical path. Build it explicitly with `--manifest-path`.
+exclude = ["crates/ncp-observer", "pid-rs"]

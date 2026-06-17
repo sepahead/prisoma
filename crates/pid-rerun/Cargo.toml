@@ -22,8 +22,8 @@ name = "runlog-to-rerun"
 path = "src/bin/runlog_to_rerun.rs"
 
 [dependencies]
-pid-core = { path = "../pid-core" }
-pid-runlog = { path = "../pid-runlog" }
+pid-core = { path = "../../pid-rs/crates/pid-core" }
+pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
 rerun = "0.28.1"
 nalgebra = "0.33"
 anyhow = "1.0"

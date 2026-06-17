@@ -967,13 +967,13 @@ just exp0-bin
 just exp0-runlog
 
 # Optional CSV output for analysis
-cargo run -p pid-core --bin exp0 -- --csv > exp0_results.csv
+cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --csv > exp0_results.csv
 
 # Optional canonical evidence export
-cargo run -p pid-core --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl
-cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/exp0_runlog.jsonl
-cargo run -p pid-runlog --bin pid-runlog-replay -- --write-sidecars outputs/exp0_runlog.jsonl
-cargo run -p pid-runlog --bin pid-runlog-replay -- --verify-sidecars outputs/exp0_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/exp0_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --write-sidecars outputs/exp0_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --verify-sidecars outputs/exp0_runlog.jsonl
 ```
 
 **Note:** A larger Python experiment harness is specified in `grandplan.md`/`EXPERIMENTS.md` but is not implemented in this repo yet; avoid citing non-existent scripts as runnable.
@@ -989,9 +989,9 @@ just toy-harness
 
 # Equivalent without just
 cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl
-cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/toy_vla_runlog.jsonl
-cargo run -p pid-runlog --bin pid-runlog-replay -- --write-sidecars outputs/toy_vla_runlog.jsonl
-cargo run -p pid-runlog --bin pid-runlog-replay -- --verify-sidecars outputs/toy_vla_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/toy_vla_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --write-sidecars outputs/toy_vla_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --verify-sidecars outputs/toy_vla_runlog.jsonl
 ```
 
 ### 4.5 Offline VLDA Embedding Harness Smoke
@@ -1008,9 +1008,9 @@ just offline-harness-strict
 
 # Equivalent without just
 cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl
-cargo run -p pid-runlog --bin pid-runlog-replay -- --validate outputs/offline_vlda_runlog.jsonl
-cargo run -p pid-runlog --bin pid-runlog-replay -- --write-sidecars outputs/offline_vlda_runlog.jsonl
-cargo run -p pid-runlog --bin pid-runlog-replay -- --verify-sidecars outputs/offline_vlda_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/offline_vlda_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --write-sidecars outputs/offline_vlda_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --verify-sidecars outputs/offline_vlda_runlog.jsonl
 ```
 
 Use `--require-success-labels` for fail-closed labeled-analysis runs, `--require-heldout-split` for fail-closed train/held-out baseline runs, `--require-heldout-class-coverage` when both train and held-out subsets must contain boolean success/failure labels, `--require-heldout-episode-disjoint` when held-out episodes must be disjoint from train episodes, and `--require-geometry-pass` for fail-closed geometry-gated runs. In those modes the CLI exits nonzero if required labels, held-out split baselines, held-out class coverage, held-out episode disjointness, or geometry pass status are unavailable, but it still writes a canonical summary and a valid run log with `run_ended.status = failed` plus an `error_logged` record for provenance.
@@ -3216,7 +3216,7 @@ def evaluate_exp10(results: List[Exp10PIDAnalysis]) -> dict:
 This repo currently ships Rust estimator/Python/run-log/bridge/deterministic-sim/Rerun-adapter groundwork plus the Exp0, toy, and offline embedding harnesses described earlier in this document. The full PID-Splat manipulation environment, custom UI, and Python experiment harness scripts below are still future targets; treat the commands as planned unless/until the referenced binaries/scripts exist.
 ```bash
 # 1. Validate estimators (Experiment 0)
-# cargo run -p pid-core --bin exp0
+# cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0
  
 # 2. Launch PID-Splat environment
 # (planned) cargo run -p pid-splat -- --scene scenes/simple_pick_place.yaml

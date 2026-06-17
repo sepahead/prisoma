@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # pid-core / pid-runlog live in the `pid-rs` submodule (single source of truth:
+          # https://github.com/sepehrmn/pid-rs). Fetch it so the path-deps resolve.
+          submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -20,28 +24,28 @@ jobs:
         run: cargo test --workspace
       - name: Run-log smoke
         run: |
-          cargo run -p pid-core --bin exp0 -- --seeds 1 --summary-json /tmp/pid_vla_exp0_summary.json --runlog /tmp/pid_vla_exp0_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_exp0_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --seeds 1 --summary-json /tmp/pid_vla_exp0_summary.json --runlog /tmp/pid_vla_exp0_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_exp0_runlog.jsonl
           cargo run -p pid-sim --bin pid-toy-harness -- --episodes 32 --summary-json /tmp/pid_vla_toy_summary.json --runlog /tmp/pid_vla_toy_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_toy_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_toy_runlog.jsonl
           cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_summary.json --runlog /tmp/pid_vla_offline_vlda_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'embedding_contracts=1'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'pid_metrics=42'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'pid_metric_events=42'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'geometry_metrics=21'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'geometry_metric_events=21'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metrics=142'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metric_events=223'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'embedding_contracts=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'pid_metrics=42'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'pid_metric_events=42'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'geometry_metrics=21'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'geometry_metric_events=21'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metrics=142'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_runlog.jsonl | grep -q 'evaluation_metric_events=223'
           cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_heldout_summary.json --runlog /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl --require-heldout-split
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl | grep -q 'errors=0'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_runlog.jsonl | grep -q 'errors=0'
           cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_heldout_class_coverage_summary.json --runlog /tmp/pid_vla_offline_vlda_heldout_class_coverage_runlog.jsonl --require-heldout-class-coverage
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_class_coverage_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_class_coverage_runlog.jsonl | grep -q 'errors=0'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_class_coverage_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_class_coverage_runlog.jsonl | grep -q 'errors=0'
           cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_summary.json --runlog /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_runlog.jsonl --require-heldout-episode-disjoint
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_runlog.jsonl | grep -q 'errors=0'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_heldout_episode_disjoint_runlog.jsonl | grep -q 'errors=0'
           python - <<'PY'
           import json
           src = "crates/pid-sim/fixtures/offline_vlda_fixture.json"
@@ -54,8 +58,8 @@ jobs:
               json.dump(data, f)
           PY
           if cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/pid_vla_offline_vlda_unlabeled.json --summary-json /tmp/pid_vla_offline_vlda_unlabeled_summary.json --runlog /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl --require-success-labels; then exit 1; fi
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl | grep -q 'errors=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_unlabeled_runlog.jsonl | grep -q 'errors=1'
           python - <<'PY'
           import json
           src = "crates/pid-sim/fixtures/offline_vlda_fixture.json"
@@ -68,8 +72,8 @@ jobs:
               json.dump(data, f)
           PY
           if cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/pid_vla_offline_vlda_unsplit.json --summary-json /tmp/pid_vla_offline_vlda_unsplit_summary.json --runlog /tmp/pid_vla_offline_vlda_unsplit_runlog.jsonl --require-heldout-split; then exit 1; fi
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_unsplit_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_unsplit_runlog.jsonl | grep -q 'errors=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_unsplit_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_unsplit_runlog.jsonl | grep -q 'errors=1'
           python - <<'PY'
           import json
           src = "crates/pid-sim/fixtures/offline_vlda_fixture.json"
@@ -83,8 +87,8 @@ jobs:
               json.dump(data, f)
           PY
           if cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/pid_vla_offline_vlda_uncovered_class.json --summary-json /tmp/pid_vla_offline_vlda_uncovered_class_summary.json --runlog /tmp/pid_vla_offline_vlda_uncovered_class_runlog.jsonl --require-heldout-class-coverage; then exit 1; fi
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_uncovered_class_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_uncovered_class_runlog.jsonl | grep -q 'errors=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_uncovered_class_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_uncovered_class_runlog.jsonl | grep -q 'errors=1'
           python - <<'PY'
           import json
           src = "crates/pid-sim/fixtures/offline_vlda_fixture.json"
@@ -100,29 +104,29 @@ jobs:
               json.dump(data, f)
           PY
           if cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/pid_vla_offline_vlda_leaky_episode.json --summary-json /tmp/pid_vla_offline_vlda_leaky_episode_summary.json --runlog /tmp/pid_vla_offline_vlda_leaky_episode_runlog.jsonl --require-heldout-episode-disjoint; then exit 1; fi
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_leaky_episode_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_leaky_episode_runlog.jsonl | grep -q 'errors=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_leaky_episode_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_leaky_episode_runlog.jsonl | grep -q 'errors=1'
           if cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/pid_vla_offline_vlda_strict_summary.json --runlog /tmp/pid_vla_offline_vlda_strict_runlog.jsonl --require-geometry-pass; then exit 1; fi
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_strict_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_strict_runlog.jsonl | grep -q 'errors=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_offline_vlda_strict_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_offline_vlda_strict_runlog.jsonl | grep -q 'errors=1'
           cargo run -p pid-bridge --bin pid-bridge-contract -- --out /tmp/pid_vla_bridge_runlog_contract.json
           cargo run -p pid-sim --bin pid-sim-bridge-demo -- /tmp/pid_vla_bridge_demo.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_demo.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --compare /tmp/pid_vla_bridge_demo.jsonl /tmp/pid_vla_bridge_demo.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --summary-json /tmp/pid_vla_bridge_demo.jsonl /tmp/pid_vla_bridge_summary.json
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --manifest-json /tmp/pid_vla_bridge_demo.jsonl /tmp/pid_vla_bridge_manifest.json
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --write-sidecars /tmp/pid_vla_bridge_demo.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --verify-sidecars /tmp/pid_vla_bridge_demo.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_demo.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --compare /tmp/pid_vla_bridge_demo.jsonl /tmp/pid_vla_bridge_demo.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --summary-json /tmp/pid_vla_bridge_demo.jsonl /tmp/pid_vla_bridge_summary.json
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --manifest-json /tmp/pid_vla_bridge_demo.jsonl /tmp/pid_vla_bridge_manifest.json
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --write-sidecars /tmp/pid_vla_bridge_demo.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --verify-sidecars /tmp/pid_vla_bridge_demo.jsonl
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_demo.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_demo.jsonl | grep -q 'flow_pred_records=10'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_bridge_demo.jsonl | grep -q 'flow_pred_records=10'
           cargo run -p pid-rerun --bin runlog-to-rerun -- /tmp/pid_vla_bridge_demo.jsonl --save /tmp/pid_vla_bridge_demo.rrd
           EXPORT_OUT="$(mktemp)"
           printf '%s\n' '{"jsonrpc":"2.0","id":"export","method":"export.rerun","params":{"run_log_uri":"/tmp/pid_vla_bridge_demo.jsonl","output_uri":"/tmp/pid_vla_bridge_export.rrd"}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- /tmp/pid_vla_bridge_export_stdio.jsonl | tee "$EXPORT_OUT"
           grep -q '"id":"export"' "$EXPORT_OUT"
           grep -q '"sha256"' "$EXPORT_OUT"
           test -s /tmp/pid_vla_bridge_export.rrd
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_export_stdio.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_export_stdio.jsonl | grep -q 'artifacts=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_export_stdio.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_bridge_export_stdio.jsonl | grep -q 'artifacts=1'
           printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"intervention","method":"intervention.apply","params":{"intervention_type":"set_velocity","payload":{"object_id":"red_cube","velocity":[0.2,0.0,0.0]}}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' '{"jsonrpc":"2.0","id":"stop","method":"log.stop","params":{}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- /tmp/pid_vla_bridge_stdio.jsonl
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_stdio.jsonl
           SAFE_OUT="$(mktemp)"
@@ -132,7 +136,7 @@ jobs:
           grep -q 'bridge safe mode blocked method export.rerun' "$SAFE_OUT"
           grep -q 'bridge safe mode blocked method sim.step' "$SAFE_OUT"
           test ! -e /tmp/pid_vla_bridge_safe_export.rrd
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_stdio_safe.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_stdio_safe.jsonl
           TCP_PORT="$(python - <<'PY'
           import socket
           s = socket.socket()
@@ -177,9 +181,9 @@ jobs:
           grep -q '"id":"intervention"' /tmp/pid_vla_bridge_tcp.out
           grep -q '"id":"step"' /tmp/pid_vla_bridge_tcp.out
           grep -q '"id":"stop"' /tmp/pid_vla_bridge_tcp.out
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_tcp.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_tcp.jsonl | grep -q 'flow_pred_records=2'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_tcp.jsonl | grep -q 'interventions=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_tcp.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_bridge_tcp.jsonl | grep -q 'flow_pred_records=2'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_bridge_tcp.jsonl | grep -q 'interventions=1'
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_tcp.jsonl
           WS_PORT="$(python - <<'PY'
           import socket
@@ -256,10 +260,10 @@ jobs:
           grep -q '"id":"export"' /tmp/pid_vla_bridge_ws.out
           grep -q '"sha256"' /tmp/pid_vla_bridge_ws.out
           test -s /tmp/pid_vla_bridge_ws_export.rrd
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_ws.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'flow_pred_records=2'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'interventions=1'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'artifacts=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_bridge_ws.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'flow_pred_records=2'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'interventions=1'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'artifacts=1'
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_ws.jsonl
 
   rapier:
@@ -275,9 +279,9 @@ jobs:
         run: |
           cargo run -p pid-sim --features rapier --bin pid-rapier-harness -- \
             --runlog /tmp/pid_vla_rapier_push.jsonl --summary-json /tmp/pid_vla_rapier_push.json --push-impulse 0.18
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/pid_vla_rapier_push.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'errors=0'
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'flow_gt_records=301'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/pid_vla_rapier_push.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'errors=0'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_rapier_push.jsonl | grep -q 'flow_gt_records=301'
 
   parallel:
     runs-on: ubuntu-latest
@@ -285,9 +289,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Clippy (parallel feature)
-        run: cargo clippy -p pid-core --features parallel --all-targets -- -D warnings
+        run: cargo clippy --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel --all-targets -- -D warnings
       - name: pid-core tests under the exact parallel KSG path
-        run: cargo test -p pid-core --features parallel
+        run: cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel
 
   experiments:
     runs-on: ubuntu-latest
@@ -307,13 +311,13 @@ jobs:
           python -m experiments.safe_adapter convert --rollouts /tmp/safe_synth --out /tmp/safe_vlda.json --seen-tasks 0,1
           python -m experiments.safe_adapter verify --input /tmp/safe_vlda.json
           cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/safe_vlda.json --summary-json /tmp/safe_vlda_summary.json --runlog /tmp/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/safe_vlda_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/safe_vlda_runlog.jsonl | grep -q 'errors=0'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/safe_vlda_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/safe_vlda_runlog.jsonl | grep -q 'errors=0'
       - name: Attribution probe -> attribution_logged run log
         run: |
           python -m experiments.attribution demo --runlog /tmp/attr_runlog.jsonl --artifacts /tmp/attr_artifacts
-          cargo run -p pid-runlog --bin pid-runlog-replay -- --validate /tmp/attr_runlog.jsonl
-          cargo run -p pid-runlog --bin pid-runlog-replay -- /tmp/attr_runlog.jsonl | grep -q 'attributions=2'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/attr_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/attr_runlog.jsonl | grep -q 'attributions=2'
       - name: Third-party notices are up to date
         run: python scripts/generate_third_party_notices.py --check
 
