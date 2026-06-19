@@ -118,10 +118,10 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
 
 `ncp-observer` is **kept off the default cargo workspace** (`Cargo.toml` `exclude`)
 to keep NCP/Zenoh off the critical path; it git-depends on the published NCP repo
-<https://github.com/sepehrmn/NCP> (tag `v0.2.2`). Build/test it explicitly:
+<https://github.com/sepehrmn/NCP> (tag `v0.2.3`). Build/test it explicitly:
 
 ```bash
-# build + test (pulls NCP from https://github.com/sepehrmn/NCP, tag v0.2.2)
+# build + test (pulls NCP from https://github.com/sepehrmn/NCP, tag v0.2.3)
 cargo build --manifest-path crates/ncp-observer/Cargo.toml
 cargo test  --manifest-path crates/ncp-observer/Cargo.toml
 
@@ -133,7 +133,7 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json 
 ```
 
 The `ncp-core` / `ncp-zenoh` deps in `crates/ncp-observer/Cargo.toml` resolve from the
-published NCP repo <https://github.com/sepehrmn/NCP> (tag `v0.2.2`), so no sibling
+published NCP repo <https://github.com/sepehrmn/NCP> (tag `v0.2.3`), so no sibling
 checkout is needed; the crate is kept off the default workspace to keep NCP/Zenoh off the
 critical path.
 
