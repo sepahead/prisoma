@@ -64,19 +64,22 @@ Already correct (do not regress):
 
 ## 4. Workstreams (the three gaps, in priority order)
 
-### Gap 1 — D alignment is best-effort (HIGH; this is the one that biases the PID)
-`ObservationFrame` carries no `seq` today, so D — the internal-state axis the whole
-`PID(V,D;A)` probe targets — is paired with the **most recent** observation
-(`try_complete` falls back to `latest_d`), not the observation produced for the driving
-`seq`. That biases every D-involving atom.
-- **NCP side (the real fix), <https://github.com/sepehrmn/NCP>:** stamp `ObservationFrame` with the driving
-  sensor `seq` (publisher emits the `seq` of the tick the readout belongs to). Update
-  `NEURO_CYBERNETIC_PROTOCOL.md` in that repo.
-- **pid_vla side:** already wired — `Observer::on_observation` stores `d_by_seq[obs.seq]`
-  and `try_complete` consumes it. Confirm with a test once observations carry `seq`.
-- **Acceptance:** a session where D readouts arrive out of order still pairs each sample's
-  D with its own `seq` (extend the existing `d_aligns_on_seq_not_recency` test to a
-  realistic interleaving); document any remaining best-effort fallback honestly.
+### Gap 1 — D alignment on `seq` (MOSTLY DONE; residual is external + a test extension)
+`ObservationFrame` **now carries `seq`**, and the pid_vla observer already joins D on it:
+`Observer::on_observation` stores each readout in `d_by_seq[obs.seq]` and `try_complete`
+prefers it, falling back to the most-recent readout (`latest_d`) only for an unstamped
+(`obs.seq == 0`) frame. The `d_aligns_on_seq_not_recency` test covers the in-order path,
+so nothing in **this repo** biases D-involving atoms anymore. What remains:
+- **NCP side (external — the only runtime gap), <https://github.com/sepehrmn/NCP>:** the
+  publisher must actually stamp each `ObservationFrame` with the driving sensor `seq` at
+  emission time (and `NEURO_CYBERNETIC_PROTOCOL.md` should document it). Until it does, a
+  live session sends `obs.seq == 0` and the observer falls back to recency — so this, not
+  any pid_vla code, is what still biases D-involving atoms in a real capture.
+- **pid_vla side:** done. Optionally extend `d_aligns_on_seq_not_recency` to a realistic
+  out-of-order interleaving for defense-in-depth.
+- **Acceptance:** with a publisher that stamps `seq`, a session where D readouts arrive out
+  of order still pairs each sample's D with its own `seq`; the recency fallback is reached
+  only for genuinely unstamped frames.
 
 ### Gap 2 — L can be fabricated as zeros (MEDIUM; provenance)
 `on_sensor` does `channels.get(language_channel).map(...).unwrap_or_default()`, so an

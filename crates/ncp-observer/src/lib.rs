@@ -31,10 +31,13 @@
 //! V and A are joined on **`seq`** — a `CommandFrame.seq` echoes the
 //! `SensorFrame.seq` it was computed from, so a sample pairs the action with the
 //! sensor that produced it (never by arrival time, which the DROP QoS on the
-//! perception plane would corrupt). `ObservationFrame` carries no `seq` today, so
-//! D is paired with the most recent observation seen for the session
-//! (best-effort); precise D alignment is a noted protocol enhancement (stamp
-//! observations with the driving `seq`).
+//! perception plane would corrupt). `ObservationFrame` now carries `seq` too, so
+//! D aligns on `seq` as well: `on_observation` stores each readout in
+//! `d_by_seq[obs.seq]` and `try_complete` prefers it, falling back to the most
+//! recent readout only when an observation arrives unstamped (`obs.seq == 0`).
+//! The remaining D-alignment dependency is runtime-side and external: the Engram
+//! publisher must stamp each `ObservationFrame` with its driving sensor `seq`
+//! (see `NCP_DEV_PROMPT.md` Gap 1).
 
 use ncp_core::{ChannelValue, CommandFrame, ObservationFrame, SensorFrame};
 use pid_runlog::{

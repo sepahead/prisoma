@@ -19,12 +19,14 @@ gates with no NCP/Engram/Zenoh dependency, so `ncp-observer` is **excluded from 
 default cargo workspace** (build it with `--manifest-path`, see below).
 
 It is fine for *exploratory* PID screens on a live Engram session, but it is **below the
-M5 contract** (gate-passing artifacts with honest provenance) until three gaps close:
+M5 contract** (gate-passing artifacts with honest provenance) until the gaps below close:
 
-1. **D alignment (observer-side now)** — `ObservationFrame` **now carries `seq`** (it echoes
-   the driving `SensorFrame.seq`), so the *protocol* gap is closed; the remaining work is
-   observer-side: read `obs.seq` and join D by `seq` (`d_by_seq`) rather than by recency.
-   Until that lands, recency pairing biases every D-involving atom.
+1. **D alignment — done in-repo, pending an external runtime stamp.** `ObservationFrame`
+   **now carries `seq`**, and this observer already joins D on it: `on_observation` stores
+   each readout in `d_by_seq[obs.seq]` and `try_complete` prefers it over recency (test
+   `d_aligns_on_seq_not_recency`). Recency is only the fallback for an unstamped
+   (`obs.seq == 0`) frame, so the lone remaining piece is external — the Engram publisher
+   must stamp each observation with its driving sensor `seq`.
 2. **Honest `L`** — an absent language channel currently yields an all-zero `L`; provenance
    must be explicit (real `L`, or a marker so zeroed-`L` samples are excluded), never
    fabricated.
@@ -57,9 +59,10 @@ V and A are joined on **`seq`** — a `CommandFrame.seq` echoes the `SensorFrame
 it was computed from, so a sample pairs the action with the sensor that produced
 it, never by arrival time (the perception plane's DROP QoS makes arrival-time
 pairing unsound). `ObservationFrame` **now carries `seq` too** (it echoes the
-driving `SensorFrame.seq`), so precise D alignment is available at the protocol
-level; this observer still pairs D by recency until it is updated to read
-`obs.seq`.
+driving `SensorFrame.seq`), so D aligns on `seq` as well: this observer stores each
+readout in `d_by_seq[obs.seq]` and prefers it, falling back to recency only for an
+unstamped (`obs.seq == 0`) frame. The lone remaining D-alignment gap is external —
+the Engram publisher must stamp observations with the driving `seq`.
 
 ## Run
 
