@@ -13,6 +13,6 @@ members = [
 # `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0`.
 #
 # `ncp-observer` is intentionally NOT a default member: it git-depends on the published NCP
-# SDK (https://github.com/sepehrmn/NCP, tag v0.2.3) and pulls in NCP + Zenoh — deliberately
+# SDK (https://github.com/sepehrmn/NCP, tag v0.2.4) and pulls in NCP + Zenoh — deliberately
 # kept OFF pid_vla's critical path. Build it explicitly with `--manifest-path`.
 exclude = ["crates/ncp-observer", "pid-rs"]
