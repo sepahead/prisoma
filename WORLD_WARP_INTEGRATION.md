@@ -11,7 +11,7 @@
 **Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. WorldWarp or any external world model is optional Phase 7-style infrastructure; it must emit versioned artifacts into the run log and be visualized through the same Rerun/Tauri split rather than becoming an unlogged side channel.
 
 ## Overview
-WorldWarp (https://github.com/sepehrmn/WorldWarp) is an external framework for generating long-range, camera-conditioned scenes from a single image. In the PID‑VLA context, it can be treated as an *optional* external world-model baseline (evaluative/generative) to compare against VLA internal representations. Verify model backbones, licenses, and reproducibility constraints from the upstream repo before using it in experiments.
+WorldWarp (https://github.com/sepahead/WorldWarp) is an external framework for generating long-range, camera-conditioned scenes from a single image. In the PID‑VLA context, it can be treated as an *optional* external world-model baseline (evaluative/generative) to compare against VLA internal representations. Verify model backbones, licenses, and reproducibility constraints from the upstream repo before using it in experiments.
 
 ## Key Features
 - **As described upstream (verify):** asynchronous chunk-wise generation, explicit camera conditioning, and an online cache intended to improve geometric consistency across frames.

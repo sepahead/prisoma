@@ -1,0 +1,341 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - 'link " ROS 2 Documentation: Rolling Logo" [ref=e6] [cursor=pointer]':
+            - /url: ../../index.html
+            - text: " ROS 2 Documentation: Rolling"
+            - img "Logo" [ref=e7]
+          - search [ref=e8]:
+            - textbox "Search docs" [ref=e10]
+        - navigation "Navigation menu" [ref=e11]:
+          - list [ref=e12]:
+            - listitem [ref=e13]:
+              - link "About ROS" [ref=e14] [cursor=pointer]:
+                - /url: ../../About-ROS.html
+            - listitem [ref=e15]:
+              - link " Installation" [ref=e16] [cursor=pointer]:
+                - /url: ../../Installation.html
+                - button "" [ref=e17]
+                - text: Installation
+              - text:    
+            - listitem [ref=e18]:
+              - link " Distributions" [ref=e19] [cursor=pointer]:
+                - /url: ../../Releases.html
+                - button "" [ref=e20]
+                - text: Distributions
+              - text:         
+            - listitem [ref=e21]:
+              - link " Tutorials" [ref=e22] [cursor=pointer]:
+                - /url: ../../Tutorials.html
+                - button "" [ref=e23]
+                - text: Tutorials
+              - text:                
+            - listitem [ref=e24]:
+              - link " How-to Guides" [ref=e25] [cursor=pointer]:
+                - /url: ../../How-To-Guides.html
+                - button "" [ref=e26]
+                - text: How-to Guides
+              - text:  
+            - listitem [ref=e27]:
+              - link " Concepts" [ref=e28] [cursor=pointer]:
+                - /url: ../../Concepts.html
+                - button "" [ref=e29]
+                - text: Concepts
+              - list [ref=e30]:
+                - listitem [ref=e31]:
+                  - link " Basic Concepts" [ref=e32] [cursor=pointer]:
+                    - /url: ../Basic.html
+                    - button "" [ref=e33]
+                    - text: Basic Concepts
+                  - text: 
+                - listitem [ref=e34]:
+                  - link " Intermediate Concepts" [ref=e35] [cursor=pointer]:
+                    - /url: ../Intermediate.html
+                    - button "" [ref=e36]
+                    - text: Intermediate Concepts
+                  - list [ref=e37]:
+                    - listitem [ref=e38]:
+                      - link "The ROS_DOMAIN_ID" [ref=e39] [cursor=pointer]:
+                        - /url: About-Domain-ID.html
+                    - listitem [ref=e40]:
+                      - link "Different ROS 2 middleware vendors" [ref=e41] [cursor=pointer]:
+                        - /url: About-Different-Middleware-Vendors.html
+                    - listitem [ref=e42]:
+                      - link "Logging and logger configuration" [ref=e43] [cursor=pointer]:
+                        - /url: About-Logging.html
+                    - listitem [ref=e44]:
+                      - link "Quality of Service settings" [ref=e45] [cursor=pointer]:
+                        - /url: About-Quality-of-Service-Settings.html
+                    - listitem [ref=e46]:
+                      - link "Executors" [ref=e47] [cursor=pointer]:
+                        - /url: About-Executors.html
+                    - listitem [ref=e48]:
+                      - link "Topic statistics" [ref=e49] [cursor=pointer]:
+                        - /url: About-Topic-Statistics.html
+                    - listitem [ref=e50]:
+                      - link "Overview and usage of RQt" [ref=e51] [cursor=pointer]:
+                        - /url: About-RQt.html
+                    - listitem [ref=e52]:
+                      - link "Composition" [ref=e53] [cursor=pointer]:
+                        - /url: About-Composition.html
+                    - listitem [ref=e54]:
+                      - link "Cross-compilation" [ref=e55] [cursor=pointer]:
+                        - /url: About-Cross-Compilation.html
+                    - listitem [ref=e56]:
+                      - link "ROS 2 Security" [expanded] [ref=e57] [cursor=pointer]:
+                        - /url: "#"
+                    - listitem [ref=e58]:
+                      - link "Tf2" [ref=e59] [cursor=pointer]:
+                        - /url: About-Tf2.html
+                    - listitem [ref=e60]:
+                      - link "About rosidl::Buffer backends" [ref=e61] [cursor=pointer]:
+                        - /url: About-Buffer-Backends.html
+                        - text: About
+                        - code [ref=e62]: rosidl::Buffer
+                        - text: backends
+                - listitem [ref=e63]:
+                  - link " Advanced Concepts" [ref=e64] [cursor=pointer]:
+                    - /url: ../Advanced.html
+                    - button "" [ref=e65]
+                    - text: Advanced Concepts
+            - listitem [ref=e66]:
+              - link "Contact" [ref=e67] [cursor=pointer]:
+                - /url: ../../Contact.html
+            - listitem [ref=e68]:
+              - link " The ROS 2 Project" [ref=e69] [cursor=pointer]:
+                - /url: ../../The-ROS2-Project.html
+                - button "" [ref=e70]
+                - text: The ROS 2 Project
+              - text:  
+            - listitem [ref=e71]:
+              - link "Package Docs" [ref=e72] [cursor=pointer]:
+                - /url: ../../Package-Docs.html
+            - listitem [ref=e73]:
+              - link " Related Projects" [ref=e74] [cursor=pointer]:
+                - /url: ../../Related-Projects.html
+                - button "" [ref=e75]
+                - text: Related Projects
+            - listitem [ref=e76]:
+              - link "Glossary" [ref=e77] [cursor=pointer]:
+                - /url: ../../Glossary.html
+            - listitem [ref=e78]:
+              - link "Citations" [ref=e79] [cursor=pointer]:
+                - /url: ../../Citations.html
+    - generic [ref=e80]:
+      - text: 
+      - generic [ref=e82]:
+        - navigation "Page navigation" [ref=e83]:
+          - list [ref=e84]:
+            - listitem [ref=e85]:
+              - link "Home" [ref=e86] [cursor=pointer]:
+                - /url: ../../index.html
+                - text: 
+            - listitem [ref=e87]:
+              - text: /
+              - link "Concepts" [ref=e88] [cursor=pointer]:
+                - /url: ../../Concepts.html
+            - listitem [ref=e89]:
+              - text: /
+              - link "Intermediate Concepts" [ref=e90] [cursor=pointer]:
+                - /url: ../Intermediate.html
+            - listitem [ref=e91]: /ROS 2 Security
+            - listitem [ref=e92]:
+              - link " Edit on GitHub" [ref=e93] [cursor=pointer]:
+                - /url: https://github.com/ros2/ros2_documentation/blob/rolling/source/Concepts/Intermediate/About-Security.rst
+          - separator [ref=e94]
+        - main [ref=e95]:
+          - generic [ref=e96]:
+            - paragraph [ref=e97]:
+              - strong [ref=e98]:
+                - text: You're reading the documentation for a development version. For the latest released version, please have a look at
+                - link "Lyrical" [ref=e99] [cursor=pointer]:
+                  - /url: ../../../lyrical/Concepts/Intermediate/About-Security.html
+                - text: .
+            - generic [ref=e100]:
+              - heading "ROS 2 Security " [level=1] [ref=e101]:
+                - text: ROS 2 Security
+                - link "" [ref=e102] [cursor=pointer]:
+                  - /url: "#ros-2-security"
+              - navigation [ref=e103]:
+                - paragraph [ref=e104]: Table of Contents
+                - list [ref=e105]:
+                  - listitem [ref=e106]:
+                    - paragraph [ref=e107]:
+                      - link "Overview" [ref=e108] [cursor=pointer]:
+                        - /url: "#overview"
+                  - listitem [ref=e109]:
+                    - paragraph [ref=e110]:
+                      - link "The Security Enclave" [ref=e111] [cursor=pointer]:
+                        - /url: "#the-security-enclave"
+                  - listitem [ref=e112]:
+                    - paragraph [ref=e113]:
+                      - link "Security Files" [ref=e114] [cursor=pointer]:
+                        - /url: "#security-files"
+                    - list [ref=e115]:
+                      - listitem [ref=e116]:
+                        - paragraph [ref=e117]:
+                          - link "Enclave Identity" [ref=e118] [cursor=pointer]:
+                            - /url: "#enclave-identity"
+                      - listitem [ref=e119]:
+                        - paragraph [ref=e120]:
+                          - link "Enclave Permissions" [ref=e121] [cursor=pointer]:
+                            - /url: "#enclave-permissions"
+                      - listitem [ref=e122]:
+                        - paragraph [ref=e123]:
+                          - link "Private Keys" [ref=e124] [cursor=pointer]:
+                            - /url: "#private-keys"
+                  - listitem [ref=e125]:
+                    - paragraph [ref=e126]:
+                      - link "Security Environment Variables" [ref=e127] [cursor=pointer]:
+                        - /url: "#security-environment-variables"
+                  - listitem [ref=e128]:
+                    - paragraph [ref=e129]:
+                      - link "Learn More" [ref=e130] [cursor=pointer]:
+                        - /url: "#learn-more"
+              - generic [ref=e131]:
+                - heading "Overview " [level=2] [ref=e132]:
+                  - link "Overview" [ref=e133] [cursor=pointer]:
+                    - /url: "#id1"
+                  - link "" [ref=e134] [cursor=pointer]:
+                    - /url: "#overview"
+                - paragraph [ref=e135]: ROS 2 includes the ability to secure communications among nodes within the ROS 2 computational graph. Similar to discovery, security happens through the underlying ROS 2 middleware (provided it has support for the corresponding security plugins). No additional software installation is needed to enable security; however, the middleware requires configuration files for each ROS graph participant. These files enable encryption and authentication, and define policies both for individual nodes and for the overall ROS graph. ROS 2 also adds a master “on/off” switch to control security behavior.
+                - paragraph [ref=e136]:
+                  - text: ROS utilities can create the authoritative
+                  - link "trust anchor" [ref=e137] [cursor=pointer]:
+                    - /url: https://en.wikipedia.org/wiki/Trust_anchor
+                  - text: for a ROS application, or an external certificate authority can be used.
+                - paragraph [ref=e138]: Built-in ROS 2 security features enable control over communications throughout the ROS graph. This not only allows for encrypting data in transit between ROS domain participants, but also enables authentication of participants sending data, ensures the integrity of data being sent, and enables domain-wide access controls.
+                - paragraph [ref=e139]:
+                  - text: ROS 2 security services are provided by the underlying
+                  - link "Data Distribution Service (DDS)" [ref=e140] [cursor=pointer]:
+                    - /url: https://www.omg.org/spec/DDS/
+                  - text: which is used for communications between nodes. DDS vendors provide open source and commercial DDS implementations that work with ROS. However, in order to create a specification-compliant implementation of DDS, all vendors must include security plugins as outlined in the
+                  - link "DDS Security Specification" [ref=e141] [cursor=pointer]:
+                    - /url: https://www.omg.org/spec/DDS-SECURITY/About-DDS-SECURITY/
+                  - text: . ROS security features take advantage of these DDS security plugins to provide policy-based encryption, authentication and access control. DDS and ROS security is enabled through predefined configuration files and environment variables.
+              - generic [ref=e142]:
+                - heading "The Security Enclave " [level=2] [ref=e143]:
+                  - link "The Security Enclave" [ref=e144] [cursor=pointer]:
+                    - /url: "#id2"
+                  - link "" [ref=e145] [cursor=pointer]:
+                    - /url: "#the-security-enclave"
+                - paragraph [ref=e146]:
+                  - text: A security enclave encapsulates a single policy for protecting ROS communications. The enclave may set policy for multiple nodes, for an entire ROS graph, or any combination of protected ROS processes and devices. Security enclaves can be flexibly mapped to processes, users, or devices at deployment. Adjusting this default behavior becomes important for optimizing communications and for complex systems. See the ROS 2 Security Enclaves
+                  - link "design document" [ref=e147] [cursor=pointer]:
+                    - /url: https://design.ros2.org/articles/ros2_security_enclaves.html
+                  - text: for additional details.
+              - generic [ref=e148]:
+                - heading "Security Files " [level=2] [ref=e149]:
+                  - link "Security Files" [ref=e150] [cursor=pointer]:
+                    - /url: "#id3"
+                  - link "" [ref=e151] [cursor=pointer]:
+                    - /url: "#security-files"
+                - paragraph [ref=e152]:
+                  - text: A
+                  - link "ROS 2 security enclave" [ref=e153] [cursor=pointer]:
+                    - /url: https://design.ros2.org/articles/ros2_security_enclaves.html
+                  - text: is established with six files as outlined by the DDS specification. Three of these files define an enclave’s identity, while three other files define the permissions to be granted to the enclave. All six files reside in a single directory, and nodes launched without a qualified enclave path use files in the default root level enclave.
+                - generic [ref=e154]:
+                  - heading "Enclave Identity " [level=3] [ref=e155]:
+                    - link "Enclave Identity" [ref=e156] [cursor=pointer]:
+                      - /url: "#id4"
+                    - link "" [ref=e157] [cursor=pointer]:
+                      - /url: "#enclave-identity"
+                  - paragraph [ref=e158]:
+                    - text: The Identity Certificate Authority file
+                    - code [ref=e159]: identity_ca.cert.pem
+                    - text: acts as the trust anchor used to identify participants. Each enclave also holds its unique identifying certificate in the file
+                    - code [ref=e160]: cert.pem
+                    - text: ", and the associated private key in the file"
+                    - code [ref=e161]: key.pem
+                    - text: . Because the
+                    - code [ref=e162]: cert.pem
+                    - text: certificate has been signed by identity certificate, when a participant presents this certificate to other domain members, they are able to validate the participant’s identity using their own copy of the identity certificate. This valid certificate exchange allows the enclave to securely establish trusted communications with other participants. The enclave does not not share the
+                    - code [ref=e163]: key.pem
+                    - text: private key, but only uses it for decryption and message signing.
+                - generic [ref=e164]:
+                  - heading "Enclave Permissions " [level=3] [ref=e165]:
+                    - link "Enclave Permissions" [ref=e166] [cursor=pointer]:
+                      - /url: "#id5"
+                    - link "" [ref=e167] [cursor=pointer]:
+                      - /url: "#enclave-permissions"
+                  - paragraph [ref=e168]:
+                    - text: The Permissions Certificate Authority file
+                    - code [ref=e169]: permissions_ca.cert.pem
+                    - text: serves as the trust anchor to grant permissions to security enclaves. This certificate is used to create the signed file
+                    - code [ref=e170]: governance.p7s
+                    - text: ", an XML document which defines domain-wide protection policies. Similarly the XML file"
+                    - code [ref=e171]: permissions.p7s
+                    - text: outlines permissions of this particular enclave and has been signed by the Permissions CA. Domain members use a copy of the permissions CA to validate these signed files and grant the requested access.
+                  - paragraph [ref=e172]: Although these two certificate authorities enable separate workflows for identity and permissions, often the same certificate serves as both the identity and the permissions authority.
+                - generic [ref=e173]:
+                  - heading "Private Keys " [level=3] [ref=e174]:
+                    - link "Private Keys" [ref=e175] [cursor=pointer]:
+                      - /url: "#id6"
+                    - link "" [ref=e176] [cursor=pointer]:
+                      - /url: "#private-keys"
+                  - paragraph [ref=e177]: The identity and permissions certificates also have associated private key files. Add new enclaves to the domain by signing their Certificate Signing Request (CSR) with the identity certificate’s private key. Similarly, grant permissions for a new enclave by signing a permissions XML document with the permission certificate’s private key.
+              - generic [ref=e178]:
+                - heading "Security Environment Variables " [level=2] [ref=e179]:
+                  - link "Security Environment Variables" [ref=e180] [cursor=pointer]:
+                    - /url: "#id7"
+                  - link "" [ref=e181] [cursor=pointer]:
+                    - /url: "#security-environment-variables"
+                - paragraph [ref=e182]:
+                  - text: The environment variable
+                  - code [ref=e183]: ROS_SECURITY_ENABLE
+                  - text: acts as the enclave’s master “on/off” switch for ROS 2 security features. Security has been turned off by default, so security features will not be enabled even when the proper security files are present. In order to enable ROS 2 security, set this environment variable to
+                  - code [ref=e184]: "true"
+                  - text: (case sensitive).
+                - paragraph [ref=e185]:
+                  - text: Once security has been enabled, the environment variable
+                  - code [ref=e186]: ROS_SECURITY_STRATEGY
+                  - text: defines how domain participants handle problems when launching participants. Security features depend on certificates and properly signed configuration files, yet by default, an improperly configured participant will still launch successfully but without security features. In order to enforce strict compliance with security settings and fail to launch non-compliant enclaves, set this environment variable to
+                  - code [ref=e187]: Enforce
+                  - text: (case sensitive).
+                - paragraph [ref=e188]:
+                  - text: Additional security-related environment variables can be found in the
+                  - link "ROS 2 DDS-Security Integration design document" [ref=e189] [cursor=pointer]:
+                    - /url: https://design.ros2.org/articles/ros2_dds_security.html
+                  - text: . These variables generally assist ROS in managing enclaves and locating the security files.
+              - generic [ref=e190]:
+                - heading "Learn More " [level=2] [ref=e191]:
+                  - link "Learn More" [ref=e192] [cursor=pointer]:
+                    - /url: "#id8"
+                  - link "" [ref=e193] [cursor=pointer]:
+                    - /url: "#learn-more"
+                - paragraph [ref=e194]:
+                  - text: For more information and hands-on exercises enabling ROS 2 communications security, see the
+                  - link "Setting up security" [ref=e195] [cursor=pointer]:
+                    - /url: ../../Tutorials/Advanced/Security/Introducing-ros2-security.html
+                  - text: .
+        - generic [ref=e196]:
+          - navigation "Footer" [ref=e197]:
+            - link "Previous" [ref=e198] [cursor=pointer]:
+              - /url: About-Cross-Compilation.html
+              - generic [ref=e199]: 
+              - text: Previous
+            - link "Next" [ref=e200] [cursor=pointer]:
+              - /url: About-Tf2.html
+              - text: Next
+              - generic [ref=e201]: 
+          - separator [ref=e202]
+          - contentinfo [ref=e203]:
+            - paragraph [ref=e204]: © Copyright 2026, Open Robotics.
+          - text: Built with
+          - link "Sphinx" [ref=e205] [cursor=pointer]:
+            - /url: https://www.sphinx-doc.org/
+          - text: using a
+          - link "theme" [ref=e206] [cursor=pointer]:
+            - /url: https://github.com/readthedocs/sphinx_rtd_theme
+          - text: provided by
+          - link "Read the Docs" [ref=e207] [cursor=pointer]:
+            - /url: https://readthedocs.org
+          - text: .
+  - note "versions" [ref=e208]:
+    - generic [ref=e209] [cursor=pointer]:
+      - generic [ref=e210]:  Other Versions
+      - text: "v: rolling"
+      - generic [ref=e211]: 

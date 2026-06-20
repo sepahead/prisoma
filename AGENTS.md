@@ -2,7 +2,7 @@
 
 These notes help future coding agents work on this repo without introducing accidental hallucinations or doc drift.
 
-> **Single source of truth for the Rust PID estimators: [`pid-rs`](https://github.com/sepehrmn/pid-rs).**
+> **Single source of truth for the Rust PID estimators: [`pid-rs`](https://github.com/sepahead/pid-rs).**
 > `pid-core` and `pid-runlog` are **not** vendored in this repo — do **not** re-add copies. They are
 > pinned as the `pid-rs/` git submodule; the other crates path-depend into `pid-rs/crates/*`. Edit
 > the estimator core upstream in `pid-rs` (then bump the submodule), never here. Run its binaries via

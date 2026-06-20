@@ -195,7 +195,7 @@ The target environment supports multiple physics backends (**Rapier, MuJoCo, Isa
 ### 10. Implementation Plan / Current Status
 
 1.  **Implemented groundwork:**
-    *   Rust workspace with `pid-bridge`, `pid-sim`, and `pid-rerun`; the `pid-core`, `pid-runlog`, and `pid-python` crates live in the [`pid-rs`](https://github.com/sepehrmn/pid-rs) submodule (single source of truth).
+    *   Rust workspace with `pid-bridge`, `pid-sim`, and `pid-rerun`; the `pid-core`, `pid-runlog`, and `pid-python` crates live in the [`pid-rs`](https://github.com/sepahead/pid-rs) submodule (single source of truth).
     *   Canonical run-log schema, replay validation, summaries/manifests, sidecar write-and-verify, and a run-log-to-Rerun adapter.
     *   Deterministic object-sim smoke with simulator-derived `Flow_gt`, constant-velocity `flow_pred`, Agent Bridge stdio/TCP/WebSocket smokes, toy labeled harness, and offline `(V,L,D,A)` artifact harness.
 

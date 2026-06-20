@@ -1,0 +1,1263 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e3]:
+      - generic:
+        - link "skip to main content" [ref=e4] [cursor=pointer]:
+          - /url: "#SkipTarget"
+        - list [ref=e5]:
+          - listitem [ref=e6]:
+            - link "Digital Library " [ref=e7] [cursor=pointer]:
+              - /url: //dl.acm.org/
+          - listitem [ref=e8]:
+            - link "CACM " [ref=e9] [cursor=pointer]:
+              - /url: //cacm.acm.org/
+          - listitem [ref=e10]:
+            - link "Queue " [ref=e11] [cursor=pointer]:
+              - /url: //queue.acm.org/
+          - listitem [ref=e12]:
+            - link "TechNews " [ref=e13] [cursor=pointer]:
+              - /url: //technews.acm.org/
+          - listitem [ref=e14]:
+            - link "Career Center " [ref=e15] [cursor=pointer]:
+              - /url: https://jobs.acm.org/
+    - generic [ref=e16]:
+      - link "ACM Logo" [ref=e19] [cursor=pointer]:
+        - /url: /
+        - img "ACM Logo" [ref=e20]
+      - generic [ref=e22]: Advancing Computing as a Science & Profession
+      - list [ref=e24]:
+        - listitem [ref=e25] [cursor=pointer]:
+          - link "Join" [ref=e26]:
+            - /url: /membership/join-acm
+        - listitem [ref=e27] [cursor=pointer]:
+          - link "Volunteer" [ref=e28]:
+            - /url: /about-acm/get-involved
+        - listitem [ref=e29] [cursor=pointer]:
+          - link "myACM" [ref=e30]:
+            - /url: /membership/myacm-at-a-glance
+        - listitem [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]:
+            - generic [ref=e33]: Search Input
+            - generic [ref=e34]:
+              - generic [ref=e35]: Search Submit
+              - generic [ref=e36]: 
+              - button "Search" [ref=e37]
+    - navigation [ref=e38]:
+      - list: 
+      - generic:
+        - text: 
+        - list:
+          - listitem [ref=e39]:
+            - link "About ACM" [ref=e40] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e42]:
+              - listitem [ref=e43]:
+                - link "About Home" [ref=e44] [cursor=pointer]:
+                  - /url: /about-acm
+                - list [ref=e45]:
+                  - listitem [ref=e46]:
+                    - link "About ACM" [ref=e47] [cursor=pointer]:
+                      - /url: /about-acm/about-the-acm-organization
+                  - listitem [ref=e48]:
+                    - link "ACM's Mission, Vision, Core Values and Goals" [ref=e49] [cursor=pointer]:
+                      - /url: /about-acm/mission-vision-values-goals
+                  - listitem [ref=e50]:
+                    - link "Governance" [ref=e51] [cursor=pointer]:
+                      - /url: /about-acm/governance
+                  - listitem [ref=e52]:
+                    - link "ACM Council" [ref=e53] [cursor=pointer]:
+                      - /url: /about-acm/acm-council
+                  - listitem [ref=e54]:
+                    - link "Boards and Committees" [ref=e55] [cursor=pointer]:
+                      - /url: /about-acm/boards-and-committees
+                  - listitem [ref=e56]:
+                    - link "Past Presidents" [ref=e57] [cursor=pointer]:
+                      - /url: /about-acm/past-presidents
+                  - listitem [ref=e58]:
+                    - link "ACM Constitution" [ref=e59] [cursor=pointer]:
+                      - /url: /about-acm/acm-constitution
+                  - listitem [ref=e60]:
+                    - link "Bylaws" [ref=e61] [cursor=pointer]:
+                      - /url: /about-acm/acm-bylaws
+                  - listitem [ref=e62]:
+                    - link "Annual Reports" [ref=e63] [cursor=pointer]:
+                      - /url: /about-acm/annual-reports-current-fy
+                  - listitem [ref=e64]:
+                    - link "History" [ref=e65] [cursor=pointer]:
+                      - /url: /about-acm/acm-history
+                  - listitem [ref=e66]:
+                    - link "Code of Ethics" [ref=e67] [cursor=pointer]:
+                      - /url: /code-of-ethics
+                  - listitem [ref=e68]:
+                    - link "Code of Ethics Enforcement Procedures" [ref=e69] [cursor=pointer]:
+                      - /url: /code-of-ethics/enforcement-procedures
+                  - listitem [ref=e70]:
+                    - link "Stop Harassment" [ref=e71] [cursor=pointer]:
+                      - /url: /about-acm/policy-against-harassment
+                  - listitem [ref=e72]:
+                    - link "Report Unacceptable Behavior" [ref=e73] [cursor=pointer]:
+                      - /url: /about-acm/reporting-unacceptable-behavior
+                  - listitem [ref=e74]:
+                    - link "Policy on Complaint Process Disclosure" [ref=e75] [cursor=pointer]:
+                      - /url: /about-acm/disclosure-policy
+                  - listitem [ref=e76]:
+                    - link "ACM Statements" [ref=e77] [cursor=pointer]:
+                      - /url: /about-acm/acm-statements
+                  - listitem [ref=e78]:
+                    - link "ACM in the News" [ref=e79] [cursor=pointer]:
+                      - /url: /media-center/acm-in-the-news
+                  - listitem [ref=e80]:
+                    - link "ACM Updates" [ref=e81] [cursor=pointer]:
+                      - /url: /media-center/acm-updates
+                  - listitem [ref=e82]:
+                    - link "Media Center" [ref=e83] [cursor=pointer]:
+                      - /url: /media-center
+                  - listitem [ref=e84]:
+                    - link "Contact Us" [ref=e85] [cursor=pointer]:
+                      - /url: /about-acm/contact-us
+              - listitem [ref=e86]:
+                - generic [ref=e87]:
+                  - paragraph [ref=e88]: About ACM
+                  - paragraph [ref=e89]: ACM, the world's largest educational and scientific computing society, delivers resources that advance computing as a science and a profession. ACM provides the computing field's premier Digital Library and serves its members and the computing profession with leading-edge publications, conferences, and career resources.
+                  - paragraph [ref=e90]:
+                    - link "[Learn More about ACM...]" [ref=e91] [cursor=pointer]:
+                      - /url: /about-acm/about-the-acm-organization
+              - listitem [ref=e92]:
+                - generic [ref=e93]:
+                  - link "Regional Councils.jpg" [ref=e94] [cursor=pointer]:
+                    - /url: /about-acm/regional-councils
+                    - img "Regional Councils.jpg" [ref=e95]
+                  - link "ACM Regional Councils" [ref=e97] [cursor=pointer]:
+                    - /url: /about-acm/regional-councils
+                - generic [ref=e98]:
+                  - link "ACM History" [ref=e99] [cursor=pointer]:
+                    - /url: /about-acm/acm-history
+                    - img "ACM History" [ref=e100]
+                  - 'link "ACM: Formed at the Dawn of Computing" [ref=e102] [cursor=pointer]':
+                    - /url: /about-acm/acm-history
+          - listitem [ref=e103]:
+            - link "Membership" [ref=e104] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e106]:
+              - listitem [ref=e107]:
+                - link "Membership Home" [ref=e108] [cursor=pointer]:
+                  - /url: /membership
+                - list [ref=e109]:
+                  - listitem [ref=e110]:
+                    - link "About Membership" [ref=e111] [cursor=pointer]:
+                      - /url: /membership/about-acm-membership
+                  - listitem [ref=e112]:
+                    - link "Membership Options" [ref=e113] [cursor=pointer]:
+                      - /url: /membership/membership-options
+                  - listitem [ref=e114]:
+                    - link "Membership Benefits" [ref=e115] [cursor=pointer]:
+                      - /url: /membership/membership-benefits
+                  - listitem [ref=e116]:
+                    - link "Ambassadors for ACM" [ref=e117] [cursor=pointer]:
+                      - /url: /membership/ambassadors-for-acm
+                  - listitem [ref=e118]:
+                    - link "People of ACM" [ref=e119] [cursor=pointer]:
+                      - /url: /membership/people-of-acm
+                  - listitem [ref=e120]:
+                    - link "Members in the News" [ref=e121] [cursor=pointer]:
+                      - /url: /media-center/members-in-the-news
+                  - listitem [ref=e122]:
+                    - link "MemberNet" [ref=e123] [cursor=pointer]:
+                      - /url: /membership/acm-membernet-archive
+                  - listitem [ref=e124]:
+                    - link "Join" [ref=e125] [cursor=pointer]:
+                      - /url: /membership/join-acm
+                  - listitem [ref=e126]:
+                    - link "Renew" [ref=e127] [cursor=pointer]:
+                      - /url: /membership/acm-membership-renewal
+                  - listitem [ref=e128]:
+                    - link "Subscribe" [ref=e129] [cursor=pointer]:
+                      - /url: /membership/subscribe-publications
+                  - listitem [ref=e130]:
+                    - link "Manage your Account / myACM" [ref=e131] [cursor=pointer]:
+                      - /url: /membership/myacm-at-a-glance
+                  - listitem [ref=e132]:
+                    - link "Distinguished Speakers " [ref=e133] [cursor=pointer]:
+                      - /url: https://speakers.acm.org/
+                  - listitem [ref=e134]:
+                    - link "Contact Us" [ref=e135] [cursor=pointer]:
+                      - /url: /membership/membership-contact
+              - listitem [ref=e136]:
+                - generic [ref=e137]:
+                  - paragraph [ref=e138]: ACM Membership
+                  - paragraph [ref=e139]: ACM offers the resources, access and tools to invent the future. No one has a larger global network of professional peers. No one has more exclusive content. No one presents more forward-looking events. Or confers more prestigious awards. Or provides a more comprehensive learning center.
+                  - paragraph [ref=e140]:
+                    - link "[Learn More about ACM Membership...]" [ref=e141] [cursor=pointer]:
+                      - /url: /membership/about-acm-membership
+              - listitem [ref=e142]:
+                - generic [ref=e143]:
+                  - link "skills-bundle.jpg" [ref=e144] [cursor=pointer]:
+                    - /url: https://learning.acm.org/skills-bundle
+                    - img "skills-bundle.jpg" [ref=e145]
+                  - link "ACM Skills Bundle Add-On " [ref=e147] [cursor=pointer]:
+                    - /url: https://learning.acm.org/skills-bundle
+                - generic [ref=e148]:
+                  - link "ACM membership FAQ" [ref=e149] [cursor=pointer]:
+                    - /url: /membership/csfaq
+                    - img "ACM membership FAQ" [ref=e150]
+                  - link "Customer Service FAQs" [ref=e152] [cursor=pointer]:
+                    - /url: /membership/csfaq
+                - generic [ref=e153]:
+                  - link "Ambassador for ACM Program" [ref=e154] [cursor=pointer]:
+                    - /url: /membership/ambassadors-for-acm/ambassadors-for-acm
+                    - img "Ambassador for ACM Program" [ref=e155]
+                  - link "Become an Ambassador for ACM" [ref=e157] [cursor=pointer]:
+                    - /url: /membership/ambassadors-for-acm/ambassadors-for-acm
+          - listitem [ref=e158]:
+            - link "Publications" [ref=e159] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e161]:
+              - listitem [ref=e162]:
+                - link "Publications Home" [ref=e163] [cursor=pointer]:
+                  - /url: /publications
+                - list [ref=e164]:
+                  - listitem [ref=e165]:
+                    - link "About Publications" [ref=e166] [cursor=pointer]:
+                      - /url: /publications/about-publications
+                  - listitem [ref=e167]:
+                    - link "Digital Library" [ref=e168] [cursor=pointer]:
+                      - /url: /publications/digital-library
+                  - listitem [ref=e169]:
+                    - link "CACM" [ref=e170] [cursor=pointer]:
+                      - /url: /cacm
+                  - listitem [ref=e171]:
+                    - link "Journals" [ref=e172] [cursor=pointer]:
+                      - /url: /publications/journals
+                  - listitem [ref=e173]:
+                    - link "Magazines" [ref=e174] [cursor=pointer]:
+                      - /url: /publications/magazines
+                  - listitem [ref=e175]:
+                    - link "Books" [ref=e176] [cursor=pointer]:
+                      - /url: /publications/acm-books
+                  - listitem [ref=e177]:
+                    - link "Conference Proceedings" [ref=e178] [cursor=pointer]:
+                      - /url: /publications/proceedings
+                  - listitem [ref=e179]:
+                    - link "ICPS" [ref=e180] [cursor=pointer]:
+                      - /url: /publications/icps
+                  - listitem [ref=e181]:
+                    - link "SIGs Newsletters" [ref=e182] [cursor=pointer]:
+                      - /url: /publications/newsletters
+                  - listitem [ref=e183]:
+                    - link "Blue Diamond Newsletter" [ref=e184] [cursor=pointer]:
+                      - /url: /publications/pubs-newsletter-archive
+                  - listitem [ref=e185]:
+                    - link "For Authors" [ref=e186] [cursor=pointer]:
+                      - /url: /publications/submit
+                  - listitem [ref=e187]:
+                    - link "Primary Article Templates" [ref=e188] [cursor=pointer]:
+                      - /url: /publications/taps/word-template-workflow
+                  - listitem [ref=e189]:
+                    - link "Open Access" [ref=e190] [cursor=pointer]:
+                      - /url: /publications/openaccess
+                  - listitem [ref=e191]:
+                    - link "Artifacts and Reproducibility" [ref=e192] [cursor=pointer]:
+                      - /url: /publications/artifacts
+                  - listitem [ref=e193]:
+                    - link "New ACM Journals" [ref=e194] [cursor=pointer]:
+                      - /url: /publications/new-journals
+                  - listitem [ref=e195]:
+                    - link "Propose New Publications" [ref=e196] [cursor=pointer]:
+                      - /url: /publications/start-a-new-acm-publication
+                  - listitem [ref=e197]:
+                    - link "Policies" [ref=e198] [cursor=pointer]:
+                      - /url: /publications/policies/toc
+                  - listitem [ref=e199]:
+                    - link "Report a Potential Violation" [ref=e200] [cursor=pointer]:
+                      - /url: /publications/policies/publications-violation
+                  - listitem [ref=e201]:
+                    - link "Ethics & Plagiarism" [ref=e202] [cursor=pointer]:
+                      - /url: /publications/policies/ethics-and-plagiarism-update
+                  - listitem [ref=e203]:
+                    - link "Reviewer Training & Certification Course " [ref=e204] [cursor=pointer]:
+                      - /url: https://reviewers.acm.org/training-course
+                  - listitem [ref=e205]:
+                    - link "Publications Board" [ref=e206] [cursor=pointer]:
+                      - /url: /publications/publications-board-committees
+                  - listitem [ref=e207]:
+                    - link "Subscribe" [ref=e208] [cursor=pointer]:
+                      - /url: /publications/subscribe
+                  - listitem [ref=e209]:
+                    - link "Advertise" [ref=e210] [cursor=pointer]:
+                      - /url: /publications/advertising
+                  - listitem [ref=e211]:
+                    - link "Contact Us" [ref=e212] [cursor=pointer]:
+                      - /url: /publications/publications-hq-staff-contacts
+              - listitem [ref=e213]:
+                - generic [ref=e214]:
+                  - paragraph [ref=e215]: About ACM Publications
+                  - paragraph [ref=e216]: For more than 60 years, the best and brightest minds in computing have come to ACM to meet, share ideas, publish their work and change the world. ACM's publications are among the most respected and highly cited in the field because of their longstanding focus on quality and their ability to attract pioneering thought leaders from both academia and industry.
+                  - paragraph [ref=e217]:
+                    - link "[Learn More about ACM Publications...]" [ref=e218] [cursor=pointer]:
+                      - /url: /publications/about-publications
+              - listitem [ref=e219]:
+                - generic [ref=e220]:
+                  - link "Publish your work" [ref=e221] [cursor=pointer]:
+                    - /url: /publications/authors
+                    - img "Publish your work" [ref=e222]
+                  - link "Publish with ACM" [ref=e224] [cursor=pointer]:
+                    - /url: /publications/authors
+                - generic [ref=e225]:
+                  - link "practical_content_journals.jpg" [ref=e226] [cursor=pointer]:
+                    - /url: /publications/papers-for-practitioners
+                    - img "practical_content_journals.jpg" [ref=e227]
+                  - link "Select Application-Oriented Papers" [ref=e229] [cursor=pointer]:
+                    - /url: /publications/papers-for-practitioners
+                - generic [ref=e230]:
+                  - link "artifact-badges.jpg" [ref=e231] [cursor=pointer]:
+                    - /url: /publications/artifacts
+                    - img "artifact-badges.jpg" [ref=e232]
+                  - link "Software and Data Artifacts in the ACM Digital Library" [ref=e234] [cursor=pointer]:
+                    - /url: /publications/artifacts
+          - listitem [ref=e235]:
+            - link "SIGs" [ref=e236] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e238]:
+              - listitem [ref=e239]:
+                - link "Special Interest Groups Home" [ref=e240] [cursor=pointer]:
+                  - /url: /special-interest-groups
+                - list [ref=e241]:
+                  - listitem [ref=e242]:
+                    - link "About SIGs" [ref=e243] [cursor=pointer]:
+                      - /url: /special-interest-groups/about-special-interest-groups
+                  - listitem [ref=e244]:
+                    - link "SIG Listing" [ref=e245] [cursor=pointer]:
+                      - /url: /special-interest-groups/sigs-by-knowledge-area
+                  - listitem [ref=e246]:
+                    - link "Emerging Interest Groups" [ref=e247] [cursor=pointer]:
+                      - /url: /special-interest-groups/eigs
+                  - listitem [ref=e248]:
+                    - link "SIG Awards " [ref=e249] [cursor=pointer]:
+                      - /url: http://awards.acm.org/sig-awards
+                  - listitem [ref=e250]:
+                    - link "SIG Chapters" [ref=e251] [cursor=pointer]:
+                      - /url: /special-interest-groups/sig-chapters
+                  - listitem [ref=e252]:
+                    - link "Publications" [ref=e253] [cursor=pointer]:
+                      - /url: /special-interest-groups/sig-newsletters
+                  - listitem [ref=e254]:
+                    - link "Conferences" [ref=e255] [cursor=pointer]:
+                      - /url: /conferences
+                  - listitem [ref=e256]:
+                    - link "Join a SIG" [ref=e257] [cursor=pointer]:
+                      - /url: /special-interest-groups/join-a-sig
+                  - listitem [ref=e258]:
+                    - link "Volunteer Resources" [ref=e259] [cursor=pointer]:
+                      - /url: /special-interest-groups/volunteer-resources
+                  - listitem [ref=e260]:
+                    - link "SIG Leaders" [ref=e261] [cursor=pointer]:
+                      - /url: /special-interest-groups/sig-governance
+                  - listitem [ref=e262]:
+                    - link "Contact Us" [ref=e263] [cursor=pointer]:
+                      - /url: /special-interest-groups/contact-sigs
+              - listitem [ref=e264]:
+                - generic [ref=e265]:
+                  - paragraph [ref=e266]: Special Interest Groups
+                  - paragraph [ref=e267]: ACM's Special Interest Groups (SIGs) represent major areas of computing, addressing the interests of technical communities that drive innovation. SIGs offer a wealth of conferences, publications and activities focused on specific computing sub-disciplines. They enable members to share expertise, discovery and best practices.
+                  - paragraph [ref=e268]:
+                    - link "[Learn More about ACM's SIGs...]" [ref=e269] [cursor=pointer]:
+                      - /url: /special-interest-groups/about-special-interest-groups
+              - listitem [ref=e270]:
+                - generic [ref=e271]:
+                  - link "Join an ACM SIG" [ref=e272] [cursor=pointer]:
+                    - /url: /special-interest-groups/join
+                    - img "Join an ACM SIG" [ref=e273]
+                  - link "Join an ACM SIG" [ref=e275] [cursor=pointer]:
+                    - /url: /special-interest-groups/join
+                - generic [ref=e276]:
+                  - link "promoting-sharing.jpg" [ref=e277] [cursor=pointer]:
+                    - /url: https://www.acm.org/virtual-conferences
+                    - img "promoting-sharing.jpg" [ref=e278]
+                  - 'link "Virtual Conferences: A Guide to Best Practices " [ref=e280] [cursor=pointer]':
+                    - /url: https://www.acm.org/virtual-conferences
+          - listitem [ref=e281]:
+            - link "Conferences" [ref=e282] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e284]:
+              - listitem [ref=e285]:
+                - link "Conferences Home" [ref=e286] [cursor=pointer]:
+                  - /url: /conferences
+                - list [ref=e287]:
+                  - listitem [ref=e288]:
+                    - link "About Conferences" [ref=e289] [cursor=pointer]:
+                      - /url: /conferences/about-conferences
+                  - listitem [ref=e290]:
+                    - link "Conferences FAQ" [ref=e291] [cursor=pointer]:
+                      - /url: /publications/open-access-model-for-acm-and-sig-sponsored-conferences-frequently-asked-questions
+                  - listitem [ref=e292]:
+                    - link "Conference Series " [ref=e293] [cursor=pointer]:
+                      - /url: http://dl.acm.org/events.cfm
+                  - listitem [ref=e294]:
+                    - link "Upcoming Conferences" [ref=e295] [cursor=pointer]:
+                      - /url: /conferences/conference-events
+                  - listitem [ref=e296]:
+                    - link "Get Conference Proceedings" [ref=e297] [cursor=pointer]:
+                      - /url: /conferences/conference-proceedings
+                  - listitem [ref=e298]:
+                    - link "Upcoming Submission Deadlines" [ref=e299] [cursor=pointer]:
+                      - /url: /conferences/upcoming-submission-deadlines
+                  - listitem [ref=e300]:
+                    - link "ACM Author Rights & Permissions " [ref=e301] [cursor=pointer]:
+                      - /url: http://authors.acm.org/
+                  - listitem [ref=e302]:
+                    - link "Best Paper Awards" [ref=e303] [cursor=pointer]:
+                      - /url: /conferences/best-paper-awards
+                  - listitem [ref=e304]:
+                    - link "Volunteer Resources" [ref=e305] [cursor=pointer]:
+                      - /url: /special-interest-groups/volunteer-resources
+                  - listitem [ref=e306]:
+                    - link "Contact Us" [ref=e307] [cursor=pointer]:
+                      - /url: /special-interest-groups/contact-sigs
+              - listitem [ref=e308]:
+                - generic [ref=e309]:
+                  - paragraph [ref=e310]: ACM and its Special Interest Groups Host More Than 170 Events Worldwide
+                  - paragraph [ref=e311]: Our conferences, workshops and symposia unite innovators like you to push computing technology forward and to continue the legacy that unites us as like-minded thinkers and makers.
+                  - paragraph [ref=e312]:
+                    - link "[Learn More about ACM Conferences...]" [ref=e313] [cursor=pointer]:
+                      - /url: /conferences/about-conferences
+              - listitem [ref=e314]:
+                - generic [ref=e315]:
+                  - link "Find a SIG Conference" [ref=e316] [cursor=pointer]:
+                    - /url: /conferences/conference-events
+                    - img "Find a SIG Conference" [ref=e317]
+                  - link "Find an ACM Conference" [ref=e319] [cursor=pointer]:
+                    - /url: /conferences/conference-events
+                - generic [ref=e320]:
+                  - link "promoting-sharing.jpg" [ref=e321] [cursor=pointer]:
+                    - /url: https://www.acm.org/virtual-conferences
+                    - img "promoting-sharing.jpg" [ref=e322]
+                  - 'link "Virtual Conferences: A Guide to Best Practices " [ref=e324] [cursor=pointer]':
+                    - /url: https://www.acm.org/virtual-conferences
+          - listitem [ref=e325]:
+            - link "Chapters" [ref=e326] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e328]:
+              - listitem [ref=e329]:
+                - link "Chapters Home" [ref=e330] [cursor=pointer]:
+                  - /url: /chapters
+                - list [ref=e331]:
+                  - listitem [ref=e332]:
+                    - link "About Chapters" [ref=e333] [cursor=pointer]:
+                      - /url: /chapters/about-chapters
+                  - listitem [ref=e334]:
+                    - link "Professional Chapters" [ref=e335] [cursor=pointer]:
+                      - /url: /chapters/professionals
+                  - listitem [ref=e336]:
+                    - link "Student Chapters" [ref=e337] [cursor=pointer]:
+                      - /url: /chapters/students
+                  - listitem [ref=e338]:
+                    - link "Meetups" [ref=e339] [cursor=pointer]:
+                      - /url: /chapters/acm-meetups
+                  - listitem [ref=e340]:
+                    - link "Newsletter" [ref=e341] [cursor=pointer]:
+                      - /url: /chapters/chapter-newsletters/chapter-newsletters-archive
+                  - listitem [ref=e342]:
+                    - link "Calendar of Local Activities" [ref=e343] [cursor=pointer]:
+                      - /url: /chapters/local-activities
+                  - listitem [ref=e344]:
+                    - link "Distinguished Speakers " [ref=e345] [cursor=pointer]:
+                      - /url: https://speakers.acm.org/
+                  - listitem [ref=e346]:
+                    - link "Annual Reports" [ref=e347] [cursor=pointer]:
+                      - /url: /chapters/chapters-annual-reports
+                  - listitem [ref=e348]:
+                    - link "Find a Chapter" [ref=e349] [cursor=pointer]:
+                      - /url: /chapters/find-a-chapter
+                  - listitem [ref=e350]:
+                    - link "Start a Chapter" [ref=e351] [cursor=pointer]:
+                      - /url: /chapters/start-chapter
+                  - listitem [ref=e352]:
+                    - link "Chapter Policies" [ref=e353] [cursor=pointer]:
+                      - /url: /chapters/chapter-policies
+                  - listitem [ref=e354]:
+                    - link "Chapter Administrative Interface" [ref=e355] [cursor=pointer]:
+                      - /url: /chapters/chapter-administrative-interface
+                  - listitem [ref=e356]:
+                    - link "Contact Us" [ref=e357] [cursor=pointer]:
+                      - /url: /chapters/chapters-contact
+              - listitem [ref=e358]:
+                - generic [ref=e359]:
+                  - paragraph [ref=e360]: About ACM Chapters
+                  - paragraph [ref=e361]: ACM’s Professional and Student chapters worldwide serve as hubs of activity for ACM members and the computing community at large. They provide seminars, lectures, learning forums and networking opportunities with peers and experts across the computing spectrum.
+                  - paragraph [ref=e362]:
+                    - text: "["
+                    - link "Learn More about ACM Chapters..." [ref=e363] [cursor=pointer]:
+                      - /url: /chapters/about-chapters
+                    - text: "]"
+              - listitem [ref=e364]:
+                - generic [ref=e365]:
+                  - link "chapter_box.jpg" [ref=e366] [cursor=pointer]:
+                    - /url: /chapters/chapter-in-a-box
+                    - img "chapter_box.jpg" [ref=e367]
+                  - 'link "Chapter-in-a-Box: Everything You Need to Run and Grow Your ACM Chapter" [ref=e369] [cursor=pointer]':
+                    - /url: /chapters/chapter-in-a-box
+                - generic [ref=e370]:
+                  - link [ref=e371] [cursor=pointer]:
+                    - /url: /chapters/chapter-administrative-interface
+                    - img [ref=e372]
+                  - link "Chapter Administrative Interface" [ref=e374] [cursor=pointer]:
+                    - /url: /chapters/chapter-administrative-interface
+                - generic [ref=e375]:
+                  - link [ref=e376] [cursor=pointer]:
+                    - /url: /chapters/start-chapter
+                    - img [ref=e377]
+                  - link "Start an ACM Chapter" [ref=e379] [cursor=pointer]:
+                    - /url: /chapters/start-chapter
+          - listitem [ref=e380]:
+            - link "Awards" [ref=e381] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e383]:
+              - listitem [ref=e384]:
+                - link "Awards Home" [ref=e385] [cursor=pointer]:
+                  - /url: /awards
+                - list [ref=e386]:
+                  - listitem [ref=e387]:
+                    - link "About Awards " [ref=e388] [cursor=pointer]:
+                      - /url: http://awards.acm.org
+                  - listitem [ref=e389]:
+                    - link "Award Recipients " [ref=e390] [cursor=pointer]:
+                      - /url: http://awards.acm.org/award_winners
+                  - listitem [ref=e391]:
+                    - link "ACM Fellows " [ref=e392] [cursor=pointer]:
+                      - /url: http://awards.acm.org/fellows
+                  - listitem [ref=e393]:
+                    - link "ACM Advanced Member Grades " [ref=e394] [cursor=pointer]:
+                      - /url: http://awards.acm.org/advanced-member-grades
+                  - listitem [ref=e395]:
+                    - link "ACM Awards Committee " [ref=e396] [cursor=pointer]:
+                      - /url: http://awards.acm.org/committees
+                  - listitem [ref=e397]:
+                    - link "Nominate " [ref=e398] [cursor=pointer]:
+                      - /url: http://awards.acm.org/award-nominations
+                  - listitem [ref=e399]:
+                    - link "Award Sponsors " [ref=e400] [cursor=pointer]:
+                      - /url: http://awards.acm.org/sponsors
+                  - listitem [ref=e401]:
+                    - link "Establish a New Award " [ref=e402] [cursor=pointer]:
+                      - /url: http://awards.acm.org/guides
+                  - listitem [ref=e403]:
+                    - link "Contact Us " [ref=e404] [cursor=pointer]:
+                      - /url: http://awards.acm.org/contact-us
+              - listitem [ref=e405]:
+                - generic [ref=e406]:
+                  - paragraph [ref=e407]: About ACM Awards
+                  - paragraph [ref=e408]: ACM recognizes excellence through its eminent awards for technical and professional achievements and contributions in computer science and information technology. It also names as Fellows and Distinguished Members those members who, in addition to professional accomplishments, have made significant contributions to ACM's mission.
+                  - paragraph [ref=e410]:
+                    - link "More on ACM Awards " [ref=e411] [cursor=pointer]:
+                      - /url: http://awards.acm.org
+              - listitem [ref=e412]:
+                - generic [ref=e413]:
+                  - link "2025 ACM A.M. Turing Award recipients Charles H. Bennett and Gilles Brassard" [ref=e414] [cursor=pointer]:
+                    - /url: https://awards.acm.org/about/2025-turing
+                    - img "2025 ACM A.M. Turing Award recipients Charles H. Bennett and Gilles Brassard" [ref=e415]
+                  - link "Charles Bennett and Gilles Brassard Receive 2025 ACM A.M. Turing Award " [ref=e417] [cursor=pointer]:
+                    - /url: https://awards.acm.org/about/2025-turing
+                - generic [ref=e418]:
+                  - link "2025 ACM Prize recipient Matei Zaharia" [ref=e419] [cursor=pointer]:
+                    - /url: https://awards.acm.org/about/2025-acm-prize
+                    - img "2025 ACM Prize recipient Matei Zaharia" [ref=e420]
+                  - link "Matei Zaharia Receives 2025 ACM Prize in Computing " [ref=e422] [cursor=pointer]:
+                    - /url: https://awards.acm.org/about/2025-acm-prize
+                - generic [ref=e423]:
+                  - link "2026-2027 ACM Athena Lecturer Monika Henzinger" [ref=e424] [cursor=pointer]:
+                    - /url: https://awards.acm.org/about/2026-athena
+                    - img "2026-2027 ACM Athena Lecturer Monika Henzinger" [ref=e425]
+                  - link "ACM Names Monika Henzinger 2026-2027 Athena Lecturer " [ref=e427] [cursor=pointer]:
+                    - /url: https://awards.acm.org/about/2026-athena
+          - listitem [ref=e428]:
+            - link "Education" [ref=e429] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e431]:
+              - listitem [ref=e432]:
+                - link "Education Home" [ref=e433] [cursor=pointer]:
+                  - /url: /education
+                - list [ref=e434]:
+                  - listitem [ref=e435]:
+                    - link "About Education" [ref=e436] [cursor=pointer]:
+                      - /url: /education/about-education
+                  - listitem [ref=e437]:
+                    - link "Curricula Recommendations" [ref=e438] [cursor=pointer]:
+                      - /url: /education/curricula-recommendations
+                  - listitem [ref=e439]:
+                    - link "Affiliated Organizations" [ref=e440] [cursor=pointer]:
+                      - /url: /education/affiliated-educational-organizations
+                  - listitem [ref=e441]:
+                    - link "ACM Learning Center " [ref=e442] [cursor=pointer]:
+                      - /url: https://learning.acm.org/
+                  - listitem [ref=e443]:
+                    - link "Resources for Educators " [ref=e444] [cursor=pointer]:
+                      - /url: https://www.csteachers.org/
+                  - listitem [ref=e445]:
+                    - link "Resources for Graduating Students" [ref=e446] [cursor=pointer]:
+                      - /url: /education/resources-for-grads
+                  - listitem [ref=e447]:
+                    - link "Education Board and Advisory Committee" [ref=e448] [cursor=pointer]:
+                      - /url: /education/education-governance
+                  - listitem [ref=e449]:
+                    - link "Reports and Studies" [ref=e450] [cursor=pointer]:
+                      - /url: /education/reports
+                  - listitem [ref=e451]:
+                    - link "Contact Us" [ref=e452] [cursor=pointer]:
+                      - /url: /education/education-contact
+              - listitem [ref=e453]:
+                - generic [ref=e454]:
+                  - paragraph [ref=e455]: Education
+                  - paragraph [ref=e456]: ACM’s educational activities, conducted primarily through our Education Board and Advisory Committee, range from the K-12 space (CSTA) and two-year programs to undergraduate, graduate, and doctoral-level education, and professional development for computing practitioners at every stage of their career...
+                  - paragraph [ref=e457]:
+                    - link "[Learn More about Education…]" [ref=e458] [cursor=pointer]:
+                      - /url: /education/about-education
+              - listitem [ref=e459]:
+                - generic [ref=e460]:
+                  - link "Image of webinar panel" [ref=e461] [cursor=pointer]:
+                    - /url: https://events.zoom.us/ev/AtuHJus2q1kd25Cg5TbA1X0xMxHycnA-Fo0hpdKranVPmnbTQ2AF~AoWR-8D8rhoKVIgc7KmIt61qrgDrhYkGYdPmS_18kyw0XESUooeHW5S2lg
+                    - img "Image of webinar panel" [ref=e462]
+                  - 'link "Ethical and Social Impacts of GenAI in Computing Education: Case Studies " [ref=e464] [cursor=pointer]':
+                    - /url: https://events.zoom.us/ev/AtuHJus2q1kd25Cg5TbA1X0xMxHycnA-Fo0hpdKranVPmnbTQ2AF~AoWR-8D8rhoKVIgc7KmIt61qrgDrhYkGYdPmS_18kyw0XESUooeHW5S2lg
+                - generic [ref=e465]:
+                  - link "Image of Angelica Lo Duca" [ref=e466] [cursor=pointer]:
+                    - /url: https://events.zoom.us/ev/AnVWkl_U-CxgGyPj9q_-i68HOJGFWwiUKKUsxY3hKq_zlAfgcmz-~AqIkLPCyvSeInFpIJynBvZcWQO8hhHS2UIs3bPP5M6KltfMMnckSTIRYcA
+                    - img "Image of Angelica Lo Duca" [ref=e467]
+                  - link "How to Extract Meaningful Insights from Data " [ref=e469] [cursor=pointer]:
+                    - /url: https://events.zoom.us/ev/AnVWkl_U-CxgGyPj9q_-i68HOJGFWwiUKKUsxY3hKq_zlAfgcmz-~AqIkLPCyvSeInFpIJynBvZcWQO8hhHS2UIs3bPP5M6KltfMMnckSTIRYcA
+                - generic [ref=e470]:
+                  - link "Image of Russ Cox" [ref=e471] [cursor=pointer]:
+                    - /url: https://learning.acm.org/bytecast/ep78-russ-cox
+                    - img "Image of Russ Cox" [ref=e472]
+                  - 'link "ByteCast Ep78: Russ Cox " [ref=e474] [cursor=pointer]':
+                    - /url: https://learning.acm.org/bytecast/ep78-russ-cox
+          - listitem [ref=e475]:
+            - link "Learning Center" [ref=e476] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e478]:
+              - listitem [ref=e479]:
+                - link "Learning Center Home " [ref=e480] [cursor=pointer]:
+                  - /url: https://learning.acm.org/
+                - list [ref=e481]:
+                  - listitem [ref=e482]:
+                    - link "About the Learning Center " [ref=e483] [cursor=pointer]:
+                      - /url: https://learning.acm.org/about
+                  - listitem [ref=e484]:
+                    - link "E-Learning " [ref=e485] [cursor=pointer]:
+                      - /url: https://learning.acm.org/e-learning
+                  - listitem [ref=e486]:
+                    - link "Member Offers " [ref=e487] [cursor=pointer]:
+                      - /url: https://learning.acm.org/member-offers
+                  - listitem [ref=e488]:
+                    - link "TechTalks " [ref=e489] [cursor=pointer]:
+                      - /url: https://learning.acm.org/techtalks
+                  - listitem [ref=e490]:
+                    - link "ByteCast " [ref=e491] [cursor=pointer]:
+                      - /url: https://learning.acm.org/bytecast
+                  - listitem [ref=e492]:
+                    - link "Resources " [ref=e493] [cursor=pointer]:
+                      - /url: https://learning.acm.org/resources
+                  - listitem [ref=e494]:
+                    - link "FAQs " [ref=e495] [cursor=pointer]:
+                      - /url: https://learning.acm.org/faq
+                  - listitem [ref=e496]:
+                    - link "Practitioner Board " [ref=e497] [cursor=pointer]:
+                      - /url: https://learning.acm.org/practitioner-board
+                  - listitem [ref=e498]:
+                    - link "Professional Development Committee " [ref=e499] [cursor=pointer]:
+                      - /url: https://learning.acm.org/professional-development-committee
+              - listitem [ref=e500]:
+                - generic [ref=e501]:
+                  - paragraph [ref=e502]: About ACM Learning Center
+                  - paragraph [ref=e503]: The ACM Learning Center offers ACM members access to lifelong learning tools and resources. Our E-Learning collections offer complimentary access to more than 80,000 online books, courses, and videos from top content publishers. The ACM TechTalk series brings leading computing luminaries and visionaries to your screen. Members enjoy exclusive offers and discounts on IT industry certifications and vendor-specific training.
+              - listitem [ref=e504]:
+                - generic [ref=e505]:
+                  - link "Image of Cynthia Rudin" [ref=e506] [cursor=pointer]:
+                    - /url: https://learning.acm.org/bytecast/ep86-cynthia-rudin
+                    - img "Image of Cynthia Rudin" [ref=e507]
+                  - 'link "ByteCast Ep86: Cynthia Rudin " [ref=e509] [cursor=pointer]':
+                    - /url: https://learning.acm.org/bytecast/ep86-cynthia-rudin
+                - generic [ref=e510]:
+                  - link "Image of Eric Allman" [ref=e511] [cursor=pointer]:
+                    - /url: https://learning.acm.org/bytecast/ep85-eric-allman
+                    - img "Image of Eric Allman" [ref=e512]
+                  - 'link "ByteCast Ep85: Eric Allman " [ref=e514] [cursor=pointer]':
+                    - /url: https://learning.acm.org/bytecast/ep85-eric-allman
+                - generic [ref=e515]:
+                  - link "Image of Peter Stone" [ref=e516] [cursor=pointer]:
+                    - /url: https://learning.acm.org/bytecast/ep84-peter-stone
+                    - img "Image of Peter Stone" [ref=e517]
+                  - 'link "ByteCast Ep84: Peter Stone " [ref=e519] [cursor=pointer]':
+                    - /url: https://learning.acm.org/bytecast/ep84-peter-stone
+          - listitem [ref=e520]:
+            - link "Public Policy" [ref=e521] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e523]:
+              - listitem [ref=e524]:
+                - link "Public Policy Home" [ref=e525] [cursor=pointer]:
+                  - /url: /public-policy
+                - list [ref=e526]:
+                  - listitem [ref=e527]:
+                    - link "About" [ref=e528] [cursor=pointer]:
+                      - /url: /public-policy/about
+                  - listitem [ref=e529]:
+                    - link "Tech Policy Council" [ref=e530] [cursor=pointer]:
+                      - /url: /public-policy/tpc
+                  - listitem [ref=e531]:
+                    - link "Europe Policy" [ref=e532] [cursor=pointer]:
+                      - /url: /public-policy/europe-tpc
+                  - listitem [ref=e533]:
+                    - link "US Policy" [ref=e534] [cursor=pointer]:
+                      - /url: /public-policy/ustpc
+                  - listitem [ref=e535]:
+                    - link "Expanding Regions" [ref=e536] [cursor=pointer]:
+                      - /url: /public-policy/ertpc
+                  - listitem [ref=e537]:
+                    - link "ACM TechBriefs" [ref=e538] [cursor=pointer]:
+                      - /url: /public-policy/techbriefs
+                  - listitem [ref=e539]:
+                    - link "Policy Products" [ref=e540] [cursor=pointer]:
+                      - /url: /public-policy/public-policy-statements
+                  - listitem [ref=e541]:
+                    - link "HotTopics Webinars" [ref=e542] [cursor=pointer]:
+                      - /url: /public-policy/ustpc/hottopics
+                  - listitem [ref=e543]:
+                    - link "Media Releases" [ref=e544] [cursor=pointer]:
+                      - /url: /media-center
+                  - listitem [ref=e545]:
+                    - link "Contact Us" [ref=e546] [cursor=pointer]:
+                      - /url: /public-policy/public-policy-contact
+              - listitem [ref=e547]:
+                - generic [ref=e548]:
+                  - paragraph [ref=e549]: Public Policy
+                  - paragraph [ref=e550]: ACM provides independent, nonpartisan, and technology-neutral research and resources to policy leaders, stakeholders, and the public about public policy issues, drawn from the deep technical expertise of the computing community.
+                  - paragraph [ref=e551]:
+                    - link "[Learn More about ACM's Public Policy Work...]" [ref=e552] [cursor=pointer]:
+                      - /url: /public-policy/about
+              - listitem [ref=e553]:
+                - generic [ref=e554]:
+                  - link "TechBrief on Action-Taking AI Systems" [ref=e555] [cursor=pointer]:
+                    - /url: https://dl.acm.org/doi/book/10.1145/3819832
+                    - img "TechBrief on Action-Taking AI Systems" [ref=e556]
+                  - link "TechBrief on Action-Taking AI Systems " [ref=e558] [cursor=pointer]:
+                    - /url: https://dl.acm.org/doi/book/10.1145/3819832
+                - generic [ref=e559]:
+                  - link "tpc-remote-proctoring-software.jpg" [ref=e560] [cursor=pointer]:
+                    - /url: /binaries/content/assets/public-policy/remote-proctoring-statement.pdf
+                    - img "tpc-remote-proctoring-software.jpg" [ref=e561]
+                  - link "USTPC Issues Revised Statement on Remote Proctoring " [ref=e563] [cursor=pointer]:
+                    - /url: /binaries/content/assets/public-policy/remote-proctoring-statement.pdf
+                - generic [ref=e564]:
+                  - link "europetpc-diggreencerts-stmt.jpg" [ref=e565] [cursor=pointer]:
+                    - /url: /binaries/content/assets/public-policy/europetpc-diggreencerts-stmt.pdf
+                    - img "europetpc-diggreencerts-stmt.jpg" [ref=e566]
+                  - link "ACM Europe TPC Statement on Digital Green Certificates " [ref=e568] [cursor=pointer]:
+                    - /url: /binaries/content/assets/public-policy/europetpc-diggreencerts-stmt.pdf
+          - listitem [ref=e569]:
+            - link "Diversity, Equity & Inclusion" [ref=e570] [cursor=pointer]:
+              - /url: "#"
+            - list [ref=e572]:
+              - listitem [ref=e573]:
+                - link "Diversity, Equity and Inclusion Home" [ref=e574] [cursor=pointer]:
+                  - /url: /diversity-inclusion
+                - list [ref=e575]:
+                  - listitem [ref=e576]:
+                    - link "About Diversity, Equity and Inclusion" [ref=e577] [cursor=pointer]:
+                      - /url: /diversity-inclusion/about
+                  - listitem [ref=e578]:
+                    - link "Forming Diverse Teams" [ref=e579] [cursor=pointer]:
+                      - /url: /diversity-inclusion/diverse-teams
+                  - listitem [ref=e580]:
+                    - link "Words Matter" [ref=e581] [cursor=pointer]:
+                      - /url: /diversity-inclusion/words-matter
+                  - listitem [ref=e582]:
+                    - link "ACM Celebrates Awareness Months" [ref=e583] [cursor=pointer]:
+                      - /url: /diversity-inclusion/awareness-months
+                  - listitem [ref=e584]:
+                    - link "ACM Code of Ethics" [ref=e585] [cursor=pointer]:
+                      - /url: /diversity-inclusion/code-of-ethics
+                  - listitem [ref=e586]:
+                    - link "Stop Harassment" [ref=e587] [cursor=pointer]:
+                      - /url: /diversity-inclusion/stop-harassment
+                  - listitem [ref=e588]:
+                    - link "Contact Us" [ref=e589] [cursor=pointer]:
+                      - /url: /diversity-inclusion/contact-us
+                  - listitem [ref=e590]:
+                    - link "Report Unacceptable Behavior" [ref=e591] [cursor=pointer]:
+                      - /url: /diversity-inclusion/report-unacceptable-behavior
+                  - listitem [ref=e592]:
+                    - link "ACM-W " [ref=e593] [cursor=pointer]:
+                      - /url: https://women.acm.org/
+              - listitem [ref=e594]:
+                - generic [ref=e595]:
+                  - paragraph [ref=e596]: Diversity, Equity, and Inclusion
+                  - paragraph [ref=e597]: Anyone, from any background, should feel encouraged to participate and contribute to ACM. ACM is committed to creating an environment that welcomes new ideas and perspectives, and where hostility or other antisocial behaviors are not tolerated.
+                  - paragraph [ref=e598]:
+                    - link "[Learn More about ACM's Commitment to Diversity, Equity, and Inclusion...]" [ref=e599] [cursor=pointer]:
+                      - /url: /diversity-inclusion/about
+              - listitem [ref=e600]:
+                - generic [ref=e601]:
+                  - link "Image with the text," [ref=e602] [cursor=pointer]:
+                    - /url: /diversity-inclusion/dei-cacm-articles
+                    - img "Image with the text," [ref=e603]
+                  - link "DEI Articles in CACM" [ref=e605] [cursor=pointer]:
+                    - /url: /diversity-inclusion/dei-cacm-articles
+                - generic [ref=e606]:
+                  - link "Image with the text," [ref=e607] [cursor=pointer]:
+                    - /url: /diversity-inclusion/dei-ce-webinars
+                    - img "Image with the text," [ref=e608]
+                  - link "DEI CE Webinars" [ref=e610] [cursor=pointer]:
+                    - /url: /diversity-inclusion/dei-ce-webinars
+                - generic [ref=e611]:
+                  - link "Image of different skin tone hands in a high-five circle" [ref=e612] [cursor=pointer]:
+                    - /url: /diversity-inclusion/diverse-teams
+                    - img "Image of different skin tone hands in a high-five circle" [ref=e613]
+                  - link "How Diverse Is Your Team?" [ref=e615] [cursor=pointer]:
+                    - /url: /diversity-inclusion/diverse-teams
+    - navigation [ref=e616]:
+      - list [ref=e618]:
+        - listitem [ref=e619]:
+          - link "Publications Home" [ref=e620] [cursor=pointer]:
+            - /url: /publications
+        - listitem [ref=e621]:
+          - link "About Publications" [ref=e622] [cursor=pointer]:
+            - /url: /publications/about-publications
+        - listitem [ref=e623]:
+          - link "Digital Library" [ref=e624] [cursor=pointer]:
+            - /url: /publications/digital-library
+        - listitem [ref=e625]:
+          - link "CACM" [ref=e626] [cursor=pointer]:
+            - /url: /cacm
+        - listitem [ref=e627]:
+          - link "Journals" [ref=e628] [cursor=pointer]:
+            - /url: /publications/journals
+        - listitem [ref=e629]:
+          - link "Magazines" [ref=e630] [cursor=pointer]:
+            - /url: /publications/magazines
+        - listitem [ref=e631]:
+          - link "Books" [ref=e632] [cursor=pointer]:
+            - /url: /publications/acm-books
+        - listitem [ref=e633]:
+          - link "Conference Proceedings" [ref=e634] [cursor=pointer]:
+            - /url: /publications/proceedings
+        - listitem [ref=e635]:
+          - link "ICPS" [ref=e636] [cursor=pointer]:
+            - /url: /publications/icps
+        - listitem [ref=e637]:
+          - link "SIGs Newsletters" [ref=e638] [cursor=pointer]:
+            - /url: /publications/newsletters
+        - listitem [ref=e639]:
+          - link "Blue Diamond Newsletter" [ref=e640] [cursor=pointer]:
+            - /url: /publications/pubs-newsletter-archive
+        - listitem [ref=e641]:
+          - link "For Authors" [ref=e642] [cursor=pointer]:
+            - /url: /publications/submit
+        - listitem [ref=e643]:
+          - link "Primary Article Templates" [ref=e644] [cursor=pointer]:
+            - /url: /publications/taps/word-template-workflow
+        - listitem [ref=e645]:
+          - link "Open Access" [ref=e646] [cursor=pointer]:
+            - /url: /publications/openaccess
+        - listitem [ref=e647]:
+          - link "Artifacts and Reproducibility" [ref=e648] [cursor=pointer]:
+            - /url: /publications/artifacts
+        - listitem [ref=e649]:
+          - link "New ACM Journals" [ref=e650] [cursor=pointer]:
+            - /url: /publications/new-journals
+        - listitem [ref=e651]:
+          - link "Propose New Publications" [ref=e652] [cursor=pointer]:
+            - /url: /publications/start-a-new-acm-publication
+        - listitem [ref=e653]:
+          - link "Policies" [ref=e654] [cursor=pointer]:
+            - /url: /publications/policies/toc
+        - listitem [ref=e655]:
+          - link "Report a Potential Violation" [ref=e656] [cursor=pointer]:
+            - /url: /publications/policies/publications-violation
+        - listitem [ref=e657]:
+          - link "Ethics & Plagiarism" [ref=e658] [cursor=pointer]:
+            - /url: /publications/policies/ethics-and-plagiarism-update
+        - listitem [ref=e659]:
+          - link "Reviewer Training & Certification Course " [ref=e660] [cursor=pointer]:
+            - /url: https://reviewers.acm.org/training-course
+        - listitem [ref=e661]:
+          - link "Publications Board" [ref=e662] [cursor=pointer]:
+            - /url: /publications/publications-board-committees
+        - listitem [ref=e663]:
+          - link "Subscribe" [ref=e664] [cursor=pointer]:
+            - /url: /publications/subscribe
+        - listitem [ref=e665]:
+          - link "Advertise" [ref=e666] [cursor=pointer]:
+            - /url: /publications/advertising
+        - listitem [ref=e667]:
+          - link "Contact Us" [ref=e668] [cursor=pointer]:
+            - /url: /publications/publications-hq-staff-contacts
+  - iframe [ref=e669]:
+    
+  - generic [ref=e671]:
+    - list [ref=e674]:
+      - listitem [ref=e675]:
+        - link "Home" [ref=e676] [cursor=pointer]:
+          - /url: /
+      - listitem [ref=e677]:
+        - text: ">"
+        - link "Publications" [ref=e678] [cursor=pointer]:
+          - /url: /publications
+      - listitem [ref=e679]:
+        - text: ">"
+        - link "Policies" [ref=e680] [cursor=pointer]:
+          - /url: /publications/policies
+      - listitem [ref=e681]:
+        - text: ">"
+        - link "Artifact Review and Badging - Current" [ref=e682]:
+          - /url: /publications/policies/artifact-review-and-badging-current
+    - article [ref=e683]:
+      - heading "Artifact Review and Badging - Current" [level=1] [ref=e686]
+      - generic [ref=e687]:
+        - generic [ref=e689]:
+          - heading "Artifact Review and Badging Version 1.1 - August 24, 2020" [level=3] [ref=e690]:
+            - strong [ref=e691]:
+              - text: Artifact Review and Badging
+              - emphasis [ref=e692]: Version 1.1 -
+            - emphasis [ref=e693]: August 24, 2020
+          - paragraph [ref=e694]:
+            - text: An experimental result is not fully established unless it can be independently reproduced. A variety of recent studies, primarily in the biomedical field, have revealed that an uncomfortably large number of research results found in the literature fail this test, because of sloppy experimental methods, flawed statistical analyses, or in rare cases, fraud. Publishers can promote the integrity of the research ecosystem by developing review processes that increase the likelihood that results can be independently replicated and reproduced. An extreme approach would be to require completely independent reproduction of results as part of the refereeing process. An intermediate approach is to require that artifacts associated with the work undergo a formal audit. By "artifact" we mean a digital object that was either created by the authors to be used as part of the study or generated by the experiment itself. For example, artifacts can be software systems, scripts used to run experiments, input datasets, raw data collected in the experiment, or scripts used to analyze results.
+            - text: Additional benefits ensue if the research artifacts are themselves made publically available so that any interested party may audit them. This also enables
+            - generic [ref=e695]: reproduction
+            - text: experiments to be performed, which, because they inevitably are done under slightly different conditions, serve to verify the robustness of the original results. And perhaps more importantly, well-formed and documented artifacts allow others to build directly upon the previous work through reuse and repurposing.
+            - text: A number of ACM conferences and journals have already instituted formal processes for artifact review. Here we provide terminology and standards for review processes of these types in order to promote a base level of uniformity which will enable labeling of successfully reviewed papers across ACM publications choosing to adopt such practices.
+            - text: Of course, there remain many circumstances in which such enhanced review will be either infeasible or not possible. As a result, such review processes are encouraged, but remain completely optional for ACM journals and conferences, and when they are made available, it is recommended that participation by authors also be made optional. Authors who do agree to such additional review, and whose work meets established standards, will be rewarded with appropriate labeling both in the text of the article and in the metadata displayed in the ACM Digital Library. Specific labels, or badges, are proposed below.
+            - strong [ref=e696]: Terminology
+            - text: A variety of research communities have embraced the goal of reproducibility in experimental science. Unfortunately, the terminology in use has not been uniform. Because of this we find it necessary to define our terms. The following are inspired by the International Vocabulary for Metrology(VIM); see the
+            - link "Appendix" [ref=e697] [cursor=pointer]:
+              - /url: "#appendix"
+            - text: for details.
+          - list [ref=e698]:
+            - listitem [ref=e699]:
+              - paragraph [ref=e700]: Repeatability (Same team, same experimental setup)
+              - list [ref=e701]:
+                - listitem [ref=e702]:
+                  - paragraph [ref=e703]: The measurement can be obtained with stated precision by the same team using the same measurement procedure, the same measuring system, under the same operating conditions, in the same location on multiple trials. For computational experiments, this means that a researcher can reliably repeat her own computation.
+            - listitem [ref=e704]:
+              - paragraph [ref=e705]: Reproducibility (Different team, same experimental setup)*
+              - list [ref=e706]:
+                - listitem [ref=e707]:
+                  - paragraph [ref=e708]: The measurement can be obtained with stated precision by a different team using the same measurement procedure, the same measuring system, under the same operating conditions, in the same or a different location on multiple trials. For computational experiments, this means that an independent group can obtain the same result using the author’s own artifacts.
+            - listitem [ref=e709]:
+              - paragraph [ref=e710]: Replicability (Different team, different experimental setup)*
+              - list [ref=e711]:
+                - listitem [ref=e712]:
+                  - paragraph [ref=e713]: The measurement can be obtained with stated precision by a different team, a different measuring system, in a different location on multiple trials. For computational experiments, this means that an independent group can obtain the same result using artifacts which they develop completely independently.
+          - paragraph [ref=e714]
+          - paragraph [ref=e715]: "*As a result of discussions with the National Information Standards Organization (NISO), it was recommended that ACM harmonize its terminology and definitions with those used in the broader scientific research community, and ACM agreed with NISO’s recommendation to swap the terms “reproducibility” and “replication” with the existing definitions used by ACM as part of its artifact review and badging initiative. ACM took action to update all prior badging to ensure consistency."
+          - paragraph [ref=e716]:
+            - link "Badging" [ref=e718] [cursor=pointer]:
+              - /url: /binaries/content/gallery/acm/publications/large-replication-badges/all-badges.png
+              - strong [ref=e719]: Badging
+            - text: "We recommend that three separate badges related to artifact review be associated with research articles in ACM publications: Artifacts Evaluated, Artifacts Available and Results Validated. These badges are considered independent and any one, two or all three can be applied to any given paper depending on review procedures developed by the journal or conference."
+            - text: Artifacts Evaluated
+            - text: "This badge is applied to papers whose associated artifacts have successfully completed an independent audit. Artifacts need not be made publicly available to be considered for this badge. However, they do need to be made available to reviewers. Two levels are distinguished, only one of which should be applied in any instance:"
+          - list [ref=e720]:
+            - listitem [ref=e721]:
+              - paragraph [ref=e722]:
+                - link "Artifacts Evaluated – Functional v1.1" [ref=e723] [cursor=pointer]:
+                  - /url: /binaries/content/gallery/acm/publications/artifact-review-v1_1-badges/artifacts_evaluated_functional_v1_1.png
+                  - emphasis [ref=e724]: Artifacts Evaluated – Functional v1.1
+                - link:
+                  - /url: /pagenotfound
+                  - emphasis
+              - text: The artifacts associated with the research are found to be documented, consistent, complete, exercisable, and include appropriate evidence of verification and validation.
+              - list [ref=e725]:
+                - listitem [ref=e726]:
+                  - paragraph [ref=e727]:
+                    - strong [ref=e728]: Notes
+                  - list [ref=e729]:
+                    - listitem [ref=e730]:
+                      - paragraph [ref=e731]:
+                        - emphasis [ref=e732]: Documented
+                        - text: ": At minimum, an inventory of artifacts is included, and sufficient description provided to enable the artifacts to be exercised."
+                    - listitem [ref=e733]:
+                      - paragraph [ref=e734]:
+                        - emphasis [ref=e735]: Consistent
+                        - text: ": The artifacts are relevant to the associated paper, and contribute in some inherent way to the generation of its main results."
+                    - listitem [ref=e736]:
+                      - paragraph [ref=e737]:
+                        - emphasis [ref=e738]: Complete
+                        - text: ": To the extent possible, all components relevant to the paper in question are included. (Proprietary artifacts need not be included. If they are required to exercise the package then this should be documented, along with instructions on how to obtain them. Proxies for proprietary data should be included so as to demonstrate the analysis.)"
+                    - listitem [ref=e739]:
+                      - paragraph [ref=e740]:
+                        - emphasis [ref=e741]: Exercisable
+                        - text: ": Included scripts and/or software used to generate the results in the associated paper can be successfully executed, and included data can be accessed and appropriately manipulated."
+            - listitem [ref=e742]:
+              - paragraph [ref=e743]:
+                - link "Artifacts Evaluated – Reusable v1.1" [ref=e744] [cursor=pointer]:
+                  - /url: /binaries/content/gallery/acm/publications/artifact-review-v1_1-badges/artifacts_evaluated_reusable_v1_1.png
+                  - emphasis [ref=e745]: Artifacts Evaluated – Reusable v1.1
+                - link [ref=e746] [cursor=pointer]:
+                  - /url: /binaries/content/gallery/acm/publications/artifact-review-v1_1-badges/artifacts_evaluated_reusable_v1_1.png
+                  - emphasis [ref=e747]
+                - link:
+                  - /url: /binaries/content/gallery/acm/publications/large-replication-badges/artifacts_evaluated_reusable.jpg
+                  - emphasis
+                - text: The artifacts associated with the paper are of a quality that significantly exceeds minimal functionality. That is, they have all the qualities of the Artifacts Evaluated – Functional level, but, in addition, they are very carefully documented and well-structured to the extent that reuse and repurposing is facilitated. In particular, norms and standards of the research community for artifacts of this type are strictly adhered to.
+          - paragraph [ref=e748]:
+            - generic [ref=e749]: Artifacts Available
+            - text: This badge is applied to papers in which associated artifacts have been made permanently available for retrieval.
+          - list [ref=e750]:
+            - listitem [ref=e751]:
+              - paragraph [ref=e752]:
+                - emphasis [ref=e753]:
+                  - generic [ref=e754]:
+                    - link "Artifacts Available v1.1" [ref=e755] [cursor=pointer]:
+                      - /url: /binaries/content/gallery/acm/publications/artifact-review-v1_1-badges/artifacts_available_v1_1.png
+                    - link [ref=e756] [cursor=pointer]:
+                      - /url: /binaries/content/gallery/acm/publications/artifact-review-v1_1-badges/artifacts_available_v1_1.png
+              - text: Author-created artifacts relevant to this paper have been placed on a publically accessible archival repository. A DOI or link to this repository along with a unique identifier for the object is provided.
+              - list [ref=e757]:
+                - listitem [ref=e758]:
+                  - paragraph [ref=e759]:
+                    - strong [ref=e760]: Notes
+                  - list [ref=e761]:
+                    - listitem [ref=e762]:
+                      - paragraph [ref=e763]: We do not mandate the use of specific repositories. Publisher repositories (such as the ACM Digital Library), institutional repositories, or open commercial repositories (e.g., figshare or Dryad) are acceptable. In all cases, repositories used to archive data should have a declared plan to enable permanent accessibility. Personal web pages are not acceptable for this purpose.
+                    - listitem [ref=e764]:
+                      - paragraph [ref=e765]: Artifacts do not need to have been formally evaluated in order for an article to receive this badge. In addition, they need not be complete in the sense described above. They simply need to be relevant to the study and add value beyond the text in the article. Such artifacts could be something as simple as the data from which the figures are drawn, or as complex as a complete software system under study.
+          - paragraph [ref=e766]:
+            - generic [ref=e767]: Results Validated
+            - text: "This badge is applied to papers in which the main results of the paper have been successfully obtained by a person or team other than the author. Two levels are distinguished:"
+          - list [ref=e768]:
+            - listitem [ref=e769]:
+              - paragraph [ref=e770]:
+                - link "Results Reproduced v1.1" [ref=e771] [cursor=pointer]:
+                  - /url: /binaries/content/gallery/acm/publications/artifact-review-v1_1-badges/results_reproduced_v1_1.png
+                  - emphasis [ref=e772]: Results Reproduced
+                  - text: v1.1
+                - text: The main results of the paper have been obtained in a subsequent study by a person or team other than the authors, using, in part, artifacts provided by the author.
+            - listitem [ref=e773]:
+              - paragraph [ref=e774]:
+                - link "Results Replicated v1.1" [ref=e775] [cursor=pointer]:
+                  - /url: /binaries/content/gallery/acm/publications/artifact-review-v1_1-badges/results_replicated_v1_1.png
+                  - emphasis [ref=e776]: Results Replicated v1.1
+                - text: The main results of the paper have been independently obtained in a subsequent study by a person or team other than the authors, without the use of author-supplied artifacts.
+          - paragraph [ref=e777]:
+            - text: In each cases, exact replication or reproduction of results is not required, or even expected. Instead, the results must be in agreement to within a tolerance deemed acceptable for experiments of the given type. In particular, differences in the results should not change the main claims made in the paper.
+            - text: It is easy to see how research articles that develop algorithms or software systems could be labeled as described above. Here, the artifacts could be implementations of algorithms or complete software systems, and replication would involve exercise of software, typically software provided by the author. However, we intend these badges to be applicable to other types of research as well. For example, artifacts associated with human-subject studies of novel human-computer interface modalities might be the collected data, as well as the scripts developed to analyze the data. "Replication" might focus on a careful inspection of the experimental protocol along with independent analysis of the collected data.
+          - paragraph [ref=e778]:
+            - strong [ref=e779]: Review Procedures
+            - text: "The descriptions of badges provided above do not specify the details of the review process itself. For example: Should reviews occur before or after acceptance of a paper? How many reviewers should there be? Should the reviewers be anonymous, or should they be allowed to interact openly with the authors? How should artifacts be packaged for review? What specific metrics should be used to assess quality? Current grassroots efforts to evaluate artifacts and formally test replicability have answered these questions in different ways. We believe that it is still too early to establish more specific guidelines for artifact and replicability review. Indeed, there is sufficient diversity among the various communities in the computing field that this may not be desirable at all. We do believe that the broad definitions provided above provide a framework that will allow badges to have general comparability among communities."
+            - text: Because there may be some variation in review procedures among ACM’s publication venues, badges included in PDFs and in ACM Digital Library metadata should be linked to a brief explanation of the particular review process which led to the awarding of the badge.
+            - text: We acknowledge that the Artifacts Available and Results Validated badges described above make sense even if they result from action that occurs after publication. Editors-in-Chiefs and Conference Steering Committee Chairs (or an appropriate SIG Chair should a conference not have an extant steering committee) will have the authority to award these badges post-publication if warranted. For Results Validated, a peer-reviewed publication which reports the replication or reproduction must be submitted as evidence, and if awarded, the badge will contain a link to this paper.
+            - text: Appendix
+            - strong [ref=e780]:
+              - emphasis [ref=e781]: Concepts from the International Vocabulary of Metrology
+            - text: The primary reference for terminology in physical measurement is
+            - emphasis [ref=e782]: International Vocabulary of Metrology – Basic and General Concepts and Associated Terms (VIM),
+            - text: 3rd edition, JCGM 200:2012,
+            - link "http://www.bipm.org/en/publications/guides/vim.html " [ref=e783] [cursor=pointer]:
+              - /url: http://www.bipm.org/en/publications/guides/vim.html
+            - text: .
+            - text: "The connection to experimental computer science is this: the result of an experiment can be thought of as a measurement, albeit one of a virtual object. As a result, the following VIM definitions of concepts such as repeatability and reproducibility are a propos."
+            - text: "Measurement repeatability: measurement precision under a set of repeatability conditions of measurement."
+          - list [ref=e784]:
+            - listitem [ref=e785]:
+              - paragraph [ref=e786]: "Measurement precision: closeness of agreement between indications or measured quantity values obtained by replicate measurements on the same or similar objects under specified conditions."
+            - listitem [ref=e787]:
+              - paragraph [ref=e788]: "Repeatability condition of measurement: condition of measurement, out of a set of conditions that includes the same measurement procedure, same operators, same measuring system, same operating conditions and same location, and replicate measurements on the same or similar objects over a short period of time."
+          - paragraph [ref=e789]: "Measurement reproducibility: measurement precision under reproducibility conditions of measurement."
+          - list [ref=e790]:
+            - listitem [ref=e791]:
+              - paragraph [ref=e792]: "Reproducibility condition of measurement: condition of measurement, out of a set of conditions that includes different locations, operators, measuring systems, and replicate measurements on the same or similar objects"
+        - generic [ref=e793]:
+          - generic [ref=e796]:
+            - generic [ref=e797]:
+              - heading "ACM Case Studies " [level=2] [ref=e798]:
+                - link "ACM Case Studies " [ref=e799] [cursor=pointer]:
+                  - /url: http://queue.acm.org/listing.cfm?typefilter=casestudy&sort=publication_date&order=desc&qc_type=casestudy&article_type=&item_topic=all&filter_type=topic&page_title=Case%20Studies&filter=all
+              - paragraph [ref=e801]: Written by leading domain experts for software engineers, ACM Case Studies provide an in-depth look at how software teams overcome specific challenges by implementing new technologies, adopting new practices, or a combination of both. Often through first-hand accounts, these pieces explore what the challenges were, the tools and techniques that were used to combat them, and the solution that was achieved.
+            - link [ref=e802] [cursor=pointer]:
+              - /url: http://queue.acm.org/listing.cfm?typefilter=casestudy&sort=publication_date&order=desc&qc_type=casestudy&article_type=&item_topic=all&filter_type=topic&page_title=Case%20Studies&filter=all
+          - generic [ref=e805]:
+            - heading "Become an ACM Distinguished Speaker!" [level=2] [ref=e807]:
+              - link "Become an ACM Distinguished Speaker!" [ref=e808] [cursor=pointer]:
+                - /url: /nominate
+            - link [ref=e809] [cursor=pointer]:
+              - /url: /nominate
+          - generic [ref=e812]:
+            - generic [ref=e813]:
+              - text: Career Resource
+              - heading "Lifelong Learning " [level=2] [ref=e814]:
+                - link "Lifelong Learning " [ref=e815] [cursor=pointer]:
+                  - /url: https://learning.acm.org/
+              - paragraph [ref=e817]: ACM offers lifelong learning resources including online books and courses from Skillsoft, TechTalks on the hottest topics in computing and IT, and more.
+            - link "techpacks" [ref=e818] [cursor=pointer]:
+              - /url: https://learning.acm.org/
+              - img "techpacks" [ref=e819]
+  - contentinfo [ref=e821]:
+    - navigation [ref=e822]:
+      - generic [ref=e823]:
+        - list [ref=e824]:
+          - listitem [ref=e825]: About ACM
+          - listitem [ref=e826]:
+            - link "About ACM" [ref=e827] [cursor=pointer]:
+              - /url: /about-acm
+          - listitem [ref=e828]:
+            - link "Volunteer" [ref=e829] [cursor=pointer]:
+              - /url: /about-acm/get-involved
+        - list [ref=e830]:
+          - listitem [ref=e831]: Membership
+          - listitem [ref=e832]:
+            - link "Join ACM" [ref=e833] [cursor=pointer]:
+              - /url: /membership/join-acm
+          - listitem [ref=e834]:
+            - link "Renew My Membership" [ref=e835] [cursor=pointer]:
+              - /url: /membership/acm-membership-renewal
+          - listitem [ref=e836]:
+            - link "Membership Options" [ref=e837] [cursor=pointer]:
+              - /url: /membership/membership-options
+          - listitem [ref=e838]:
+            - link "Membership Benefits" [ref=e839] [cursor=pointer]:
+              - /url: /membership/membership-benefits
+          - listitem [ref=e840]:
+            - link "MyACM Sign In" [ref=e841] [cursor=pointer]:
+              - /url: /membership/myacm-at-a-glance
+        - list [ref=e842]:
+          - listitem [ref=e843]: Publications
+          - listitem [ref=e844]:
+            - link "About Publications" [ref=e845] [cursor=pointer]:
+              - /url: /publications/about-publications
+          - listitem [ref=e846]:
+            - link "Digital Library" [ref=e847] [cursor=pointer]:
+              - /url: /publications/digital-library
+          - listitem [ref=e848]:
+            - link "Submit a Paper" [ref=e849] [cursor=pointer]:
+              - /url: http://dl.acm.org/pubs.cfm
+          - listitem [ref=e850]:
+            - link "Advertise with ACM" [ref=e851] [cursor=pointer]:
+              - /url: /publications/advertising
+        - list [ref=e852]:
+          - listitem [ref=e853]: Chapters
+          - listitem [ref=e854]:
+            - link "Chapter Admin Interface" [ref=e855] [cursor=pointer]:
+              - /url: /chapters/chapter-administrative-interface
+          - listitem [ref=e856]:
+            - link "Chapter Activities Calendar" [ref=e857] [cursor=pointer]:
+              - /url: /chapters/local-activities
+          - listitem [ref=e858]:
+            - link "Start a Chapter" [ref=e859] [cursor=pointer]:
+              - /url: /chapters/start-chapter
+        - list [ref=e860]:
+          - listitem [ref=e861]: Special Interest Groups
+          - listitem [ref=e862]:
+            - link "SIGs Newsletter" [ref=e863] [cursor=pointer]:
+              - /url: /special-interest-groups/sig-newsletters
+        - list [ref=e864]:
+          - listitem [ref=e865]: Awards
+          - listitem [ref=e866]:
+            - link "About ACM's Awards" [ref=e867] [cursor=pointer]:
+              - /url: /awards/about-awards
+        - list [ref=e868]:
+          - listitem [ref=e869]: Conferences
+          - listitem [ref=e870]:
+            - link "ACM's Conferences" [ref=e871] [cursor=pointer]:
+              - /url: /conferences
+        - list [ref=e872]:
+          - listitem [ref=e873]: Code of Ethics
+          - listitem [ref=e874]:
+            - link "ACM's Code of Ethics" [ref=e875] [cursor=pointer]:
+              - /url: /code-of-ethics
+          - listitem [ref=e876]:
+            - link "Enforcement Procedures" [ref=e877] [cursor=pointer]:
+              - /url: /code-of-ethics/enforcement-procedures
+        - list [ref=e878]:
+          - listitem [ref=e879]: Media Center
+          - listitem [ref=e880]:
+            - link "ACM Media Center" [ref=e881] [cursor=pointer]:
+              - /url: /media-center
+          - listitem [ref=e882]:
+            - link "Advertise with ACM" [ref=e883] [cursor=pointer]:
+              - /url: /publications/advertising
+        - list [ref=e884]:
+          - listitem [ref=e885]: Education
+          - listitem [ref=e886]:
+            - link "Education Home" [ref=e887] [cursor=pointer]:
+              - /url: /education
+        - list [ref=e888]:
+          - listitem [ref=e889]: Privacy Policy
+          - listitem [ref=e890]:
+            - link "Privacy Policy Home" [ref=e891] [cursor=pointer]:
+              - /url: /privacy-policy
+    - generic [ref=e894]:
+      - img "ACM Logo" [ref=e895]
+      - list [ref=e896]:
+        - listitem [ref=e897]:
+          - link "Facebook logo" [ref=e898] [cursor=pointer]:
+            - /url: https://www.facebook.com/AssociationForComputingMachinery/
+            - img "Facebook logo" [ref=e899]
+        - listitem [ref=e900]:
+          - link "Twitter logo" [ref=e901] [cursor=pointer]:
+            - /url: https://twitter.com/theofficialacm
+            - img "Twitter logo" [ref=e902]
+        - listitem [ref=e903]:
+          - link "LinkedIn logo" [ref=e904] [cursor=pointer]:
+            - /url: https://www.linkedin.com/company/association-for-computing-machinery
+            - img "LinkedIn logo" [ref=e905]
+        - listitem [ref=e906]:
+          - link "Reddit logo" [ref=e907] [cursor=pointer]:
+            - /url: https://www.reddit.com/user/TheOfficialACM
+            - img "Reddit logo" [ref=e908]
+        - listitem [ref=e909]:
+          - link "YouTube logo" [ref=e910] [cursor=pointer]:
+            - /url: https://www.youtube.com/user/TheOfficialACM
+            - img "YouTube logo" [ref=e911]
+        - listitem [ref=e912]:
+          - link "Instagram" [ref=e913] [cursor=pointer]:
+            - /url: https://www.instagram.com/theofficialacm/
+            - img "Instagram" [ref=e914]
+        - listitem [ref=e915]:
+          - link "Flickr" [ref=e916] [cursor=pointer]:
+            - /url: https://www.flickr.com/photos/theofficialacm
+            - img "Flickr" [ref=e917]
+        - listitem [ref=e918]:
+          - link "Mastodon" [ref=e919] [cursor=pointer]:
+            - /url: https://mastodon.acm.org/@ACM
+            - img "Mastodon" [ref=e920]
+        - listitem [ref=e921]:
+          - link "Bluesky" [ref=e922] [cursor=pointer]:
+            - /url: https://bsky.app/profile/acm.org
+            - img "Bluesky" [ref=e923]
+        - listitem [ref=e924]:
+          - link "WeChat" [ref=e925] [cursor=pointer]:
+            - /url: https://www.acm.org/binaries/content/gallery/images-mail/wechat-qr-code.png
+            - img "WeChat" [ref=e926]
+        - listitem [ref=e927]:
+          - link "Substack" [ref=e928] [cursor=pointer]:
+            - /url: https://substack.com/@theofficialacm?
+            - img "Substack" [ref=e929]
+        - listitem [ref=e930]:
+          - link "Email" [ref=e931] [cursor=pointer]:
+            - /url: /cdn-cgi/l/email-protection#9bfaf8f6f3fef7ebdbfaf8f6b5f4e9fc
+            - img "Email" [ref=e932]
+    - list [ref=e935]:
+      - listitem [ref=e936]:
+        - link "Home" [ref=e937] [cursor=pointer]:
+          - /url: /
+      - listitem [ref=e938]:
+        - link "Sitemap" [ref=e939] [cursor=pointer]:
+          - /url: /sitemap
+      - listitem [ref=e940]:
+        - link "Contact Us" [ref=e941] [cursor=pointer]:
+          - /url: https://www.acm.org/about-acm/contact-us
+      - listitem [ref=e942]:
+        - link "Member Services" [ref=e943] [cursor=pointer]:
+          - /url: https://www.acm.org/membership/acm-hq-contact
+      - listitem [ref=e944]:
+        - link "Privacy Policy" [ref=e945] [cursor=pointer]:
+          - /url: https://www.acm.org/privacy-policy
+      - listitem [ref=e946]:
+        - link "Social Media Policy" [ref=e947] [cursor=pointer]:
+          - /url: https://www.acm.org/media-center/social-media-policy
+      - listitem [ref=e948]:
+        - link "Accessibility" [ref=e949] [cursor=pointer]:
+          - /url: https://www.acm.org/accessibility
+      - listitem [ref=e950]:
+        - link "Cookie Declaration" [ref=e951] [cursor=pointer]:
+          - /url: https://www.acm.org/cookie-declaration
+      - listitem [ref=e952]: Copyright © 2026, ACM, Inc

@@ -32,7 +32,7 @@ feed the rigorous analysis*, not to make the project depend on it.
 per NCP channel, the unique / redundant / synergistic information about the action, which
 becomes a *design-time* channel-prioritization policy for NCP's perception codec under a
 low-bandwidth link (drop redundant, keep unique, bundle synergistic). See
-`crates/ncp-observer/README.md` and `RESILIENCE.md` in <https://github.com/sepehrmn/NCP>.
+`crates/ncp-observer/README.md` and `RESILIENCE.md` in <https://github.com/sepahead/NCP>.
 
 ## 2. The bar to clear ("done" = M5-grade)
 
@@ -70,7 +70,7 @@ Already correct (do not regress):
 prefers it, falling back to the most-recent readout (`latest_d`) only for an unstamped
 (`obs.seq == 0`) frame. The `d_aligns_on_seq_not_recency` test covers the in-order path,
 so nothing in **this repo** biases D-involving atoms anymore. What remains:
-- **NCP side (external — the only runtime gap), <https://github.com/sepehrmn/NCP>:** the
+- **NCP side (external — the only runtime gap), <https://github.com/sepahead/NCP>:** the
   publisher must actually stamp each `ObservationFrame` with the driving sensor `seq` at
   emission time (and `NEURO_CYBERNETIC_PROTOCOL.md` should document it). Until it does, a
   live session sends `obs.seq == 0` and the observer falls back to recency — so this, not
@@ -118,10 +118,10 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
 
 `ncp-observer` is **kept off the default cargo workspace** (`Cargo.toml` `exclude`)
 to keep NCP/Zenoh off the critical path; it git-depends on the published NCP repo
-<https://github.com/sepehrmn/NCP> (tag `v0.2.5`). Build/test it explicitly:
+<https://github.com/sepahead/NCP> (tag `v0.2.5`). Build/test it explicitly:
 
 ```bash
-# build + test (pulls NCP from https://github.com/sepehrmn/NCP, tag v0.2.5)
+# build + test (pulls NCP from https://github.com/sepahead/NCP, tag v0.2.5)
 cargo build --manifest-path crates/ncp-observer/Cargo.toml
 cargo test  --manifest-path crates/ncp-observer/Cargo.toml
 
@@ -133,7 +133,7 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json 
 ```
 
 The `ncp-core` / `ncp-zenoh` deps in `crates/ncp-observer/Cargo.toml` resolve from the
-published NCP repo <https://github.com/sepehrmn/NCP> (tag `v0.2.5`), so no sibling
+published NCP repo <https://github.com/sepahead/NCP> (tag `v0.2.5`), so no sibling
 checkout is needed; the crate is kept off the default workspace to keep NCP/Zenoh off the
 critical path.
 
@@ -141,7 +141,7 @@ critical path.
 
 - `crates/ncp-observer/README.md` — what it does + the closed-loop payoff.
 - `crates/ncp-observer/src/lib.rs` — `Observer` (V↔A `seq` join, `d_by_seq`, `try_complete`).
-- `NEURO_CYBERNETIC_PROTOCOL.md` in <https://github.com/sepehrmn/NCP> — the NCP spec (Gap 1 lives here).
+- `NEURO_CYBERNETIC_PROTOCOL.md` in <https://github.com/sepahead/NCP> — the NCP spec (Gap 1 lives here).
 - `experiments/safe_adapter/` — the gold-standard, gate-passing `(V,L,D,A)` producer to
   mirror for provenance and split/label structure.
 - `EXPERIMENTS.md` §0.2 (runbook) and `grandplan.md` §14.1.1 (H1 kill criteria), §7.6.3
