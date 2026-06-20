@@ -38,6 +38,17 @@
 //! The remaining D-alignment dependency is runtime-side and external: the Engram
 //! publisher must stamp each `ObservationFrame` with its driving sensor `seq`
 //! (see `NCP_DEV_PROMPT.md` Gap 1).
+//!
+//! ## Honesty provenance (per-sample `metadata`)
+//! Every emitted sample carries two provenance markers so a degenerate axis is
+//! never silently presented as real data:
+//! - `l_source` = `"channel"` when the language channel was present, or
+//!   `"absent_zeroed"` when `L` is a fabricated all-zero vector (Gap 2). The
+//!   offline harness additionally fails its geometry gate on any all-constant
+//!   axis, so a zeroed `L` cannot pass unflagged.
+//! - `d_source` = `"seq"` (exact alignment), `"recency_fallback"` (the publisher
+//!   sent `obs.seq == 0`, so `D` is the most-recent readout, not the driving
+//!   one — Gap 1), or `"absent"` (no `D` readout yet).
 
 use ncp_core::{ChannelValue, CommandFrame, ObservationFrame, SensorFrame};
 use pid_runlog::{
@@ -133,6 +144,11 @@ pub struct Observer {
 struct Partial {
     v: Option<Vec<f64>>,
     l: Option<Vec<f64>>,
+    /// Whether the language channel was actually present in the `SensorFrame`. When
+    /// `false`, `l` is a fabricated all-zero vector (the `unwrap_or_default()` below),
+    /// which must be stamped as such in the sample's `l_source` provenance so a
+    /// downstream consumer can exclude it from L-atoms (NCP_DEV_PROMPT Gap 2).
+    l_present: bool,
     a: Option<Vec<f64>>,
     success: Option<serde_json::Value>,
     t: f64,
@@ -176,11 +192,9 @@ impl Observer {
 
     /// Ingest a `SensorFrame` (perception plane). Supplies V and L for its `seq`.
     pub fn on_sensor(&mut self, sensor: &SensorFrame) {
-        let l = sensor
-            .channels
-            .get(&self.mapping.language_channel)
-            .map(|cv| cv.data.clone())
-            .unwrap_or_default();
+        let l_channel = sensor.channels.get(&self.mapping.language_channel);
+        let l_present = l_channel.is_some();
+        let l = l_channel.map(|cv| cv.data.clone()).unwrap_or_default();
         let v = flatten_except(&sensor.channels, Some(&self.mapping.language_channel));
         let success = self
             .mapping
@@ -192,6 +206,7 @@ impl Observer {
         let entry = self.pending.entry(sensor.seq).or_default();
         entry.v = Some(v);
         entry.l = Some(l);
+        entry.l_present = l_present;
         entry.t = sensor.t;
         if success.is_some() {
             entry.success = success;
@@ -243,10 +258,13 @@ impl Observer {
         }
         let p = self.pending.remove(&seq).unwrap();
         // Exact D when the observation for this seq was seen; else most-recent.
-        let d = self
-            .d_by_seq
-            .remove(&seq)
-            .unwrap_or_else(|| self.latest_d.clone());
+        // Stamp how D was aligned so a downstream consumer can flag/exclude
+        // recency-aligned D-atoms when the publisher did not stamp obs.seq.
+        let (d, d_source) = match self.d_by_seq.remove(&seq) {
+            Some(d) => (d, "seq"),
+            None if self.latest_d.is_empty() => (self.latest_d.clone(), "absent"),
+            None => (self.latest_d.clone(), "recency_fallback"),
+        };
         let mut labels = BTreeMap::new();
         if let Some(s) = p.success {
             labels.insert("success".to_string(), s);
@@ -254,6 +272,19 @@ impl Observer {
         let mut metadata = BTreeMap::new();
         metadata.insert("seq".to_string(), seq.to_string());
         metadata.insert("source".to_string(), "ncp".to_string());
+        // Honest provenance: never present a fabricated all-zero L as if it were a
+        // real language embedding (NCP_DEV_PROMPT Gap 2), and never present a
+        // recency-aligned D as if it were seq-aligned (Gap 1).
+        metadata.insert(
+            "l_source".to_string(),
+            if p.l_present {
+                "channel"
+            } else {
+                "absent_zeroed"
+            }
+            .to_string(),
+        );
+        metadata.insert("d_source".to_string(), d_source.to_string());
         let sample = OfflineVldaSample {
             sample_id: format!("ncp-{seq}"),
             episode_id: self.mapping.episode_id.clone(),
@@ -470,6 +501,62 @@ mod tests {
             obs.samples[0].d,
             vec![5.0, 6.0],
             "D must align on seq 7, not recency"
+        );
+        // Provenance: D was seq-aligned, and there was no language channel so L is
+        // honestly stamped as fabricated zeros.
+        assert_eq!(
+            obs.samples[0].metadata.get("d_source").map(String::as_str),
+            Some("seq")
+        );
+        assert_eq!(
+            obs.samples[0].metadata.get("l_source").map(String::as_str),
+            Some("absent_zeroed")
+        );
+    }
+
+    #[test]
+    fn provenance_marks_recency_fallback_and_present_language() {
+        let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
+        // An observation stamped seq=0 cannot be seq-aligned; it only updates
+        // latest_d, so the paired tick must fall back to recency.
+        let mut r = Map::new();
+        r.insert(
+            "rate".into(),
+            ncp_core::Observation {
+                values: vec![3.0],
+                ..Default::default()
+            },
+        );
+        obs.on_observation(&ObservationFrame {
+            seq: 0,
+            records: r,
+            ..Default::default()
+        });
+        let mut sc = Map::new();
+        sc.insert("pose".into(), ch(vec![1.0]));
+        // A present language channel must be stamped l_source="channel".
+        sc.insert(obs.mapping.language_channel.clone(), ch(vec![0.5, 0.5]));
+        obs.on_sensor(&SensorFrame {
+            seq: 4,
+            channels: sc,
+            ..Default::default()
+        });
+        let mut cc = Map::new();
+        cc.insert("velocity_setpoint".into(), ch(vec![0.1]));
+        obs.on_command(&CommandFrame {
+            seq: 4,
+            channels: cc,
+            ..Default::default()
+        });
+        assert_eq!(obs.sample_count(), 1);
+        assert_eq!(obs.samples[0].d, vec![3.0], "D falls back to recency");
+        assert_eq!(
+            obs.samples[0].metadata.get("d_source").map(String::as_str),
+            Some("recency_fallback")
+        );
+        assert_eq!(
+            obs.samples[0].metadata.get("l_source").map(String::as_str),
+            Some("channel")
         );
     }
 

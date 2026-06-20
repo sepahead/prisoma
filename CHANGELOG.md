@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Science-honesty: `ncp-observer` per-sample provenance markers (2026-06-21). Every
+  emitted `(V,L,D,A)` sample now carries `metadata.l_source` and `metadata.d_source`
+  so a degenerate axis is never silently presented as real data. `l_source` is
+  `"channel"` when the language channel was present or `"absent_zeroed"` when `L` is
+  the fabricated all-zero vector (NCP_DEV_PROMPT Gap 2); `d_source` is `"seq"`
+  (exact alignment), `"recency_fallback"` (publisher sent `obs.seq == 0`, so `D` is
+  the most-recent readout rather than the driving one — Gap 1), or `"absent"`.
+  Downstream can now filter on these; combined with the harness degenerate-axis gate
+  below, a zeroed `L` cannot pass unflagged. New test
+  `provenance_marks_recency_fallback_and_present_language`; `d_aligns_on_seq_not_recency`
+  extended to assert the markers.
+
 - Science-honesty: degenerate-axis geometry gate (2026-06-21). The offline VLDA harness
   now flags any variable whose every dimension is zero-variance (all-constant) as a
   geometry-gate warning, reusing the already-computed-but-previously-unused
