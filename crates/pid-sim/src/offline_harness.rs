@@ -2054,7 +2054,7 @@ fn compute_geometry_report(prepared: &PreparedVldaMatrices) -> OfflineVldaGeomet
             compute_geometry_variable(matrix, &intrinsic_cfg, &distance_cfg, &hyperbolicity_cfg),
         );
     }
-    let gates = compute_geometry_gates(&variables);
+    let gates = compute_geometry_gates(&variables, &prepared.preprocessing);
     OfflineVldaGeometryReport {
         space: "per_variable_standardized".to_string(),
         metric: "chebyshev".to_string(),
@@ -2141,8 +2141,25 @@ fn finite_option(value: f64) -> Option<f64> {
 
 fn compute_geometry_gates(
     variables: &BTreeMap<String, OfflineVldaGeometryVariable>,
+    preprocessing: &OfflineVldaPreprocessingReport,
 ) -> OfflineVldaGeometryGates {
     let mut warnings = Vec::new();
+    // Degenerate-axis guard: a variable whose every dimension is constant has zero
+    // variance, hence zero mutual information with anything by construction, so every
+    // PID atom that involves it is invalid (not merely small). This reuses the
+    // already-computed `zero_variance_dims` so an all-zeroed channel (e.g. a fabricated
+    // all-zero L from an absent language channel — see NCP_DEV_PROMPT Gap 2) is flagged
+    // loudly rather than silently passed through the gates.
+    for (name, variable) in &preprocessing.variables {
+        if variable.input_dim > 0 && variable.zero_variance_dims == variable.input_dim {
+            warnings.push(format!(
+                "geometry {name} is all-constant (zero_variance_dims == input_dim == {}): \
+                 zero variance implies zero mutual information by construction, so every \
+                 PID atom involving {name} is degenerate/invalid",
+                variable.input_dim
+            ));
+        }
+    }
     for (name, variable) in variables {
         match variable.intrinsic_dimension {
             Some(value) if value > OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION => warnings.push(
@@ -4449,6 +4466,69 @@ mod tests {
                 diagnostic.classifier == classifier && diagnostic.variable.as_deref() == variable
             })
             .unwrap()
+    }
+
+    fn preprocessing_variable(
+        input_dim: usize,
+        zero_variance_dims: usize,
+    ) -> OfflineVldaPreprocessingVariable {
+        OfflineVldaPreprocessingVariable {
+            input_dim,
+            output_dim: input_dim,
+            zero_variance_dims,
+            mean_sha256: String::new(),
+            inv_std_sha256: String::new(),
+        }
+    }
+
+    #[test]
+    fn geometry_gates_flag_all_constant_variable_as_degenerate() {
+        // An all-constant L (every dim zero-variance, e.g. a fabricated all-zero language
+        // channel — NCP_DEV_PROMPT Gap 2) must be flagged: zero variance ⇒ zero mutual
+        // information by construction, so any PID atom involving it is invalid.
+        let mut variables = BTreeMap::new();
+        let mut preprocessing = BTreeMap::new();
+        preprocessing.insert("V".to_string(), preprocessing_variable(4, 0));
+        preprocessing.insert("L".to_string(), preprocessing_variable(8, 8));
+        let gates = compute_geometry_gates(
+            &variables,
+            &OfflineVldaPreprocessingReport {
+                strategy: "per_variable_standardized".to_string(),
+                variables: preprocessing.clone(),
+            },
+        );
+        assert_eq!(gates.status, "warn");
+        let degenerate: Vec<_> = gates
+            .warnings
+            .iter()
+            .filter(|w| w.contains("all-constant"))
+            .collect();
+        assert_eq!(
+            degenerate.len(),
+            1,
+            "exactly L should be flagged: {:?}",
+            gates.warnings
+        );
+        assert!(degenerate[0].contains("geometry L is all-constant"));
+
+        // A non-degenerate set (no fully zero-variance variable, no geometry variables)
+        // produces no degenerate-axis warning.
+        variables.clear();
+        let mut healthy = BTreeMap::new();
+        healthy.insert("V".to_string(), preprocessing_variable(4, 1));
+        healthy.insert("L".to_string(), preprocessing_variable(8, 0));
+        let gates = compute_geometry_gates(
+            &variables,
+            &OfflineVldaPreprocessingReport {
+                strategy: "per_variable_standardized".to_string(),
+                variables: healthy,
+            },
+        );
+        assert!(
+            gates.warnings.iter().all(|w| !w.contains("all-constant")),
+            "no variable should be flagged degenerate: {:?}",
+            gates.warnings
+        );
     }
 
     #[test]
