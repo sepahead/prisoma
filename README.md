@@ -22,7 +22,7 @@
 > - `REVIEW_AND_TODO.md` — Whole-repo review, prioritized to-do list, and the current critical path
 > - `NCP_DEV_PROMPT.md` — Optional: dev handoff for the Engram/NCP `(V,L,D,A)` bridge
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
 PID‑VLA is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls, with local attribution methods treated as baselines/triangulation probes. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
 
@@ -189,3 +189,12 @@ Final 10-step build path:
   url = {https://github.com/your-org/pid-vla}
 }
 ```
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
