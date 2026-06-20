@@ -1,0 +1,78 @@
+# cargo-deny — supply-chain gate for the pid_vla workspace.
+# Run locally with `cargo deny check`; CI runs it via cargo-deny-action.
+#
+# Modelled on the canonical pid-rs/deny.toml (the pid-rs submodule's own gate) and the
+# NCP deny.toml — pid_vla's `ncp-observer` crate git-depends on NCP + Zenoh, so this
+# allowlist is the union that covers both the core estimator tree and the NCP/Zenoh
+# TLS stack. Default behaviour is DENY: anything not explicitly allowed below fails.
+#
+# Scope note: this gate covers the default workspace members AND the workspace-EXCLUDED
+# `crates/ncp-observer` (cargo-deny in CI is invoked once for the workspace root and once
+# with `--manifest-path crates/ncp-observer/Cargo.toml`). It deliberately does NOT cover
+# the vendored `.external/repos/*` trees or the `pid-rs/` submodule (pid-rs runs its own
+# cargo-deny in its own CI).
+
+[advisories]
+version = 2
+# A known-vulnerable crate fails the build. A yanked crate (pulled from crates.io after
+# publish) is also denied — it must not be in the lock.
+yanked = "deny"
+# The default-workspace advisories (bytes overflow, rustls-webpki CVEs, yanked lz4_flex via
+# the rerun/arrow stack) were FIXED by a `cargo update`, not ignored. The two ignores below
+# are TRANSITIVE advisories in the SEPARATE `ncp-observer` (zenoh = "1.9.0") pass only, with
+# no in-lock fix; they mirror NCP's deny.toml. Drop each when a zenoh bump lets us past it.
+# (They report a harmless "no crate matched" on the default-workspace pass.)
+ignore = [
+    # lz4_flex LZ4 block-API out-of-bounds read — zenoh's internal batch compression
+    # (ncp-observer pass); zenoh 1.9.0 pins an unpatched lz4_flex line.
+    "RUSTSEC-2026-0041",
+    # paste — unmaintained proc-macro (no vuln), transitive via zenoh. No upstream fix.
+    "RUSTSEC-2024-0436",
+]
+
+[licenses]
+version = 2
+# Default-deny: a dependency whose license is NOT in this allowlist fails the build.
+# This set is the union of pid-rs and NCP's allowlists and is exactly what the workspace
+# (default members + ncp-observer's NCP/Zenoh tree) resolves to — e.g. `ring`
+# (Apache-2.0 AND ISC), `webpki-roots` (CDLA-Permissive-2.0), `encoding_rs`
+# ((Apache-2.0 OR MIT) AND BSD-3-Clause). Adding a dep with a new license is a deliberate
+# review step, not a silent pass.
+confidence-threshold = 0.9
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "BSL-1.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    # CC0-1.0: public-domain dedication carried by `notify` and `tiny-keccak`
+    # (transitive via pid-sim / rerun). Permissive; equivalent to a public-domain grant.
+    "CC0-1.0",
+]
+
+[bans]
+# Multiple versions of one crate (bloat / drift) warns; a wildcard `*` dependency
+# (no version bound — unreproducible) on a registry crate is denied.
+multiple-versions = "warn"
+wildcards = "deny"
+# The first-party crates path-depend into the pid-rs submodule and each other with no
+# version field; cargo-deny treats a versionless path dep as a "wildcard". This exempts
+# ONLY path dependencies (the internal crates are marked `publish = false`), so a real
+# `*`-versioned crates.io/git dependency still fails closed.
+allow-wildcard-paths = true
+
+[sources]
+# Only crates.io and the project's own git repos are permitted dependency sources.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = [
+    # ncp-observer git-depends on the published NCP SDK (ncp-core / ncp-zenoh).
+    "https://github.com/sepahead/NCP",
+]

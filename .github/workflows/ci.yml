@@ -19,9 +19,9 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --locked --workspace -- -D warnings
       - name: Tests
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
       - name: Run-log smoke
         run: |
           cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --seeds 1 --summary-json /tmp/pid_vla_exp0_summary.json --runlog /tmp/pid_vla_exp0_runlog.jsonl
@@ -266,6 +266,39 @@ jobs:
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/pid_vla_bridge_ws.jsonl | grep -q 'artifacts=1'
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/pid_vla_bridge_ws.jsonl
 
+  supply-chain:
+    name: Supply chain (cargo-deny)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ncp-observer git-deps NCP/Zenoh and the default members path-dep the pid-rs
+          # submodule; fetch it so the manifests resolve. The vendored `.external/repos/*`
+          # trees are NOT part of either dependency graph, so cargo-deny never walks them.
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      # cargo-deny over the default workspace (members in Cargo.toml; ncp-observer and the
+      # pid-rs submodule are workspace-excluded and are NOT scanned by this invocation).
+      # Fails closed: the action exits non-zero on any deny-level finding (advisory,
+      # disallowed license, unknown git source, …) per ./deny.toml.
+      - name: cargo-deny (workspace)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --locked
+      # ncp-observer is workspace-EXCLUDED (it pulls in NCP + Zenoh, deliberately off the
+      # critical path) so it needs an explicit pass via --manifest-path. Same deny.toml.
+      - name: cargo-deny (ncp-observer)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          # `--manifest-path` is a cargo-deny GLOBAL flag, so it must be the action's
+          # dedicated `manifest-path:` input — putting it in `arguments:` makes the action
+          # pass it twice (it always sets `--manifest-path ./Cargo.toml` first) and cargo-deny
+          # rejects the duplicate, so this pass would never actually scan ncp-observer.
+          manifest-path: crates/ncp-observer/Cargo.toml
+          arguments: --locked
+
   rapier:
     runs-on: ubuntu-latest
     steps:
@@ -274,9 +307,9 @@ jobs:
           submodules: recursive  # pid-sim path-depends into the pid-rs submodule
       - uses: dtolnay/rust-toolchain@stable
       - name: Clippy (rapier feature)
-        run: cargo clippy -p pid-sim --features rapier --all-targets -- -D warnings
+        run: cargo clippy --locked -p pid-sim --features rapier --all-targets -- -D warnings
       - name: Physics + manipulation tests (rapier feature)
-        run: cargo test -p pid-sim --features rapier physics:: manipulation::
+        run: cargo test --locked -p pid-sim --features rapier physics:: manipulation::
       - name: Rapier manipulation harness smoke
         run: |
           cargo run -p pid-sim --features rapier --bin pid-rapier-harness -- \
@@ -293,9 +326,9 @@ jobs:
           submodules: recursive  # builds pid-core from the pid-rs submodule
       - uses: dtolnay/rust-toolchain@stable
       - name: Clippy (parallel feature)
-        run: cargo clippy --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel --all-targets -- -D warnings
+        run: cargo clippy --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel --all-targets -- -D warnings
       - name: pid-core tests under the exact parallel KSG path
-        run: cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel
+        run: cargo test --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel
 
   experiments:
     runs-on: ubuntu-latest

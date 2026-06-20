@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "Deterministic object-simulation harness and Flow_gt extraction for PID-VLA"
 license = "MIT"
+# Internal workspace crate (path-depends into the pid-rs submodule); never published to
+# crates.io. Lets cargo-deny's `allow-wildcard-paths` exempt the versionless path deps.
+publish = false
 
 [lib]
 name = "pid_sim"
