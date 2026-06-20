@@ -1151,8 +1151,8 @@ dependencies = [
 
 [[package]]
 name = "ncp-core"
-version = "0.2.5"
-source = "git+https://github.com/sepahead/NCP?tag=v0.2.6#89e83d03de87fc89ab2465ea3ba1da5489a7c478"
+version = "0.2.7"
+source = "git+https://github.com/sepahead/NCP?tag=v0.2.7#559e14a91111a25df91f0aa8338842376f149bcf"
 dependencies = [
  "serde",
  "serde_json",
@@ -1173,8 +1173,8 @@ dependencies = [
 
 [[package]]
 name = "ncp-zenoh"
-version = "0.2.5"
-source = "git+https://github.com/sepahead/NCP?tag=v0.2.6#89e83d03de87fc89ab2465ea3ba1da5489a7c478"
+version = "0.2.7"
+source = "git+https://github.com/sepahead/NCP?tag=v0.2.7#559e14a91111a25df91f0aa8338842376f149bcf"
 dependencies = [
  "ncp-core",
  "serde",
