@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Re-pinned `crates/ncp-observer` to NCP `v0.3.0` (2026-06-21; wire `0.2` → `0.3`, the
+  symmetric contract-hash handshake). The observer is a read-only data-plane tap (no
+  session handshake), so the bump is the `ncp-core`/`ncp-zenoh` git tag + its
+  standalone `Cargo.lock` and the doc pins; its tests pass unchanged.
+
 - Science-honesty: `ncp-observer` per-sample provenance markers (2026-06-21). Every
   emitted `(V,L,D,A)` sample now carries `metadata.l_source` and `metadata.d_source`
   so a degenerate axis is never silently presented as real data. `l_source` is
