@@ -69,7 +69,7 @@ safe-adapter out="outputs/safe_vlda.json" rollouts="outputs/safe_synth":
     python -m experiments.safe_adapter synth --out {{rollouts}}
     python -m experiments.safe_adapter convert --rollouts {{rollouts}} --out {{out}} --seen-tasks 0,1
     python -m experiments.safe_adapter verify --input {{out}}
-    cargo run -p pid-sim --bin pid-offline-harness -- --input {{out}} --summary-json outputs/safe_vlda_summary.json --runlog outputs/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{out}} --summary-json outputs/safe_vlda_summary.json --runlog outputs/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint --require-axis-provenance-honest
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/safe_vlda_runlog.jsonl
 
 # H9 attribution probe: faithfulness-checked attribution -> attribution_logged run log.

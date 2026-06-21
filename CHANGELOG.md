@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Science-honesty: `--require-axis-provenance-honest` ENFORCES axis provenance, not
+  just reports it (2026-06-21). The offline VLDA harness already surfaced per-axis
+  provenance status; this adds an opt-in gate (mirroring `--require-geometry-pass`)
+  that FAILS the run if any V/L/D/A axis is `degraded` (`text_hash_proxy` /
+  `absent_zeroed` / `recency_fallback` …) — and, crucially, if NO provenance markers
+  were stamped at all (positive attestation: honesty cannot be vacuously passed on a
+  dataset that carries no provenance). Threaded through `OfflineVldaRunlogOptions`
+  (recorded in the run-log as `strict_axis_provenance_honest`), the bin arg
+  parser/usage, and the reproducible `just safe-adapter` recipe (the honest synthetic
+  SAFE dataset passes; a provenance-stripped copy fails). New unit test
+  `axis_provenance_gate_fails_on_degraded_and_on_absent_markers`.
+
 - Science-honesty: the offline VLDA harness now surfaces `safe_adapter` axis
   provenance (2026-06-21). `axis_provenance` previously recognized only the live
   `ncp-observer` markers (`l_source`/`d_source`); running the offline `safe_adapter`

@@ -398,6 +398,12 @@ pub struct OfflineVldaRunlogOptions {
     pub require_heldout_split: bool,
     pub require_heldout_class_coverage: bool,
     pub require_heldout_episode_disjoint: bool,
+    /// Fail the run unless every V/L/D/A axis is backed by an HONEST provenance
+    /// marker (no `text_hash_proxy` / `absent_zeroed` / `recency_fallback` …) AND at
+    /// least one marker was stamped — so the gate cannot pass vacuously on a dataset
+    /// that carries no provenance at all (positive attestation). See
+    /// [`offline_vlda_axis_provenance_failure_messages`].
+    pub require_axis_provenance_honest: bool,
 }
 
 pub fn read_offline_vlda_dataset(path: impl AsRef<Path>) -> Result<OfflineVldaDataset> {
@@ -1072,6 +1078,10 @@ pub fn write_offline_vlda_runlog_with_options(
                 options.require_heldout_episode_disjoint.to_string(),
             ),
             (
+                "strict_axis_provenance_honest".to_string(),
+                options.require_axis_provenance_honest.to_string(),
+            ),
+            (
                 "geometry_gate_status".to_string(),
                 report.geometry.gates.status.clone(),
             ),
@@ -1390,6 +1400,36 @@ pub fn offline_vlda_heldout_episode_disjoint_status(report: &OfflineVldaReport) 
     }
 }
 
+/// Gate messages for `--require-axis-provenance-honest`. Returns a failure for every
+/// V/L/D/A axis whose provenance is `degraded` (a PID atom computed from a
+/// fabricated / recency-misaligned / hash-proxy axis is not trustworthy), AND — the
+/// key hardening — a single failure when NO provenance markers were stamped at all:
+/// honesty cannot be *attested* from a dataset that carries no provenance, so the
+/// gate fails closed rather than passing vacuously (positive attestation). Returns an
+/// empty vec only when at least one marker is present and none is degraded.
+pub fn offline_vlda_axis_provenance_failure_messages(
+    axis_provenance: &[OfflineVldaAxisProvenance],
+) -> Vec<String> {
+    if axis_provenance.is_empty() {
+        return vec![
+            "offline VLDA axis-provenance gate: no axis-provenance markers were stamped, so \
+             V/L/D/A honesty cannot be attested (positive attestation required)"
+                .to_string(),
+        ];
+    }
+    axis_provenance
+        .iter()
+        .filter(|p| p.status == "degraded")
+        .map(|p| {
+            format!(
+                "offline VLDA axis-provenance gate: axis {} ({}) is degraded — {} sample(s) carry \
+                 a non-honest marker",
+                p.axis, p.marker, p.degraded_samples
+            )
+        })
+        .collect()
+}
+
 fn offline_vlda_required_failures(
     dataset: &OfflineVldaDataset,
     report: &OfflineVldaReport,
@@ -1415,6 +1455,11 @@ fn offline_vlda_required_failures(
     {
         failures.push(offline_vlda_heldout_episode_disjoint_failure_message(
             report,
+        ));
+    }
+    if options.require_axis_provenance_honest {
+        failures.extend(offline_vlda_axis_provenance_failure_messages(
+            &report.axis_provenance,
         ));
     }
     failures
@@ -4659,6 +4704,31 @@ mod tests {
     }
 
     #[test]
+    fn axis_provenance_gate_fails_on_degraded_and_on_absent_markers() {
+        let prov = |axis: &str, status: &str, degraded: usize| OfflineVldaAxisProvenance {
+            marker: format!("{}_provenance", axis.to_lowercase()),
+            axis: axis.to_string(),
+            sources: BTreeMap::new(),
+            degraded_samples: degraded,
+            total_samples: degraded.max(1),
+            status: status.to_string(),
+            note: None,
+        };
+        // All-honest markers present -> the gate passes (no failures).
+        let honest = vec![prov("V", "ok", 0), prov("L", "ok", 0)];
+        assert!(offline_vlda_axis_provenance_failure_messages(&honest).is_empty());
+        // A degraded axis -> one failure naming the axis + the degraded-sample count.
+        let degraded = vec![prov("V", "ok", 0), prov("L", "degraded", 3)];
+        let msgs = offline_vlda_axis_provenance_failure_messages(&degraded);
+        assert_eq!(msgs.len(), 1);
+        assert!(msgs[0].contains("axis L") && msgs[0].contains('3'));
+        // No markers at all -> positive-attestation failure (cannot pass vacuously).
+        let absent = offline_vlda_axis_provenance_failure_messages(&[]);
+        assert_eq!(absent.len(), 1);
+        assert!(absent[0].contains("positive attestation"));
+    }
+
+    #[test]
     fn geometry_gates_flag_all_constant_variable_as_degenerate() {
         // An all-constant L (every dim zero-variance, e.g. a fabricated all-zero language
         // channel — NCP_DEV_PROMPT Gap 2) must be flagged: zero variance ⇒ zero mutual
@@ -5292,6 +5362,7 @@ mod tests {
                 require_heldout_split: false,
                 require_heldout_class_coverage: true,
                 require_heldout_episode_disjoint: false,
+                require_axis_provenance_honest: false,
             },
         )
         .unwrap();
@@ -5352,6 +5423,7 @@ mod tests {
                 require_heldout_split: false,
                 require_heldout_class_coverage: false,
                 require_heldout_episode_disjoint: true,
+                require_axis_provenance_honest: false,
             },
         )
         .unwrap();
@@ -5506,6 +5578,7 @@ mod tests {
                 require_heldout_split: false,
                 require_heldout_class_coverage: false,
                 require_heldout_episode_disjoint: false,
+                require_axis_provenance_honest: false,
             },
         )
         .unwrap();
@@ -5630,6 +5703,7 @@ mod tests {
                 require_heldout_split: false,
                 require_heldout_class_coverage: false,
                 require_heldout_episode_disjoint: false,
+                require_axis_provenance_honest: false,
             },
         )
         .unwrap();
@@ -5691,6 +5765,7 @@ mod tests {
                 require_heldout_split: true,
                 require_heldout_class_coverage: false,
                 require_heldout_episode_disjoint: false,
+                require_axis_provenance_honest: false,
             },
         )
         .unwrap();

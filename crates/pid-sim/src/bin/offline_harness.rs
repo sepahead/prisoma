@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use pid_sim::offline_harness::{
-    compute_offline_pid_uncertainty, offline_vlda_geometry_gate_failure_message,
+    compute_offline_pid_uncertainty, offline_vlda_axis_provenance_failure_messages,
+    offline_vlda_geometry_gate_failure_message,
     offline_vlda_heldout_class_coverage_failure_message,
     offline_vlda_heldout_class_coverage_status,
     offline_vlda_heldout_episode_disjoint_failure_message,
@@ -24,6 +25,7 @@ struct Args {
     require_heldout_split: bool,
     require_heldout_class_coverage: bool,
     require_heldout_episode_disjoint: bool,
+    require_axis_provenance_honest: bool,
     pid_mode: PidMode,
     discrete_bins: usize,
     pls_components: usize,
@@ -63,6 +65,7 @@ fn main() -> Result<()> {
             require_heldout_split: args.require_heldout_split,
             require_heldout_class_coverage: args.require_heldout_class_coverage,
             require_heldout_episode_disjoint: args.require_heldout_episode_disjoint,
+            require_axis_provenance_honest: args.require_axis_provenance_honest,
         },
     )?;
 
@@ -132,6 +135,11 @@ fn main() -> Result<()> {
             &report,
         ));
     }
+    if args.require_axis_provenance_honest {
+        failures.extend(offline_vlda_axis_provenance_failure_messages(
+            &report.axis_provenance,
+        ));
+    }
     if !failures.is_empty() {
         bail!("{}", failures.join("; "));
     }
@@ -147,6 +155,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut require_heldout_split = false;
     let mut require_heldout_class_coverage = false;
     let mut require_heldout_episode_disjoint = false;
+    let mut require_axis_provenance_honest = false;
     let mut pid_mode = PidMode::Continuous;
     let mut discrete_bins: usize = 10;
     let mut pls_components: usize = 2;
@@ -188,6 +197,9 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "--require-heldout-episode-disjoint" => {
                 require_heldout_episode_disjoint = true;
+            }
+            "--require-axis-provenance-honest" => {
+                require_axis_provenance_honest = true;
             }
             "--pid-mode" => {
                 let mode_str = iter
@@ -272,6 +284,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         require_heldout_split,
         require_heldout_class_coverage,
         require_heldout_episode_disjoint,
+        require_axis_provenance_honest,
         pid_mode,
         discrete_bins,
         pls_components,
@@ -285,7 +298,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N] [--bootstrap N] [--permutation N] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
+        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N] [--bootstrap N] [--permutation N] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts.\n\
          \n\
