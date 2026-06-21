@@ -27,10 +27,13 @@
   `status=ok` with their `token_slice:*`/`action_vector` sources. New unit test
   `axis_provenance_recognizes_safe_adapter_markers`.
 
-- Re-pinned `crates/ncp-observer` to NCP `v0.5.0` (wire `0.5`; the decoupling+robustness
-  release: consumer-neutral proto package, advisory contract handshake, additive-non-breaking). The observer is a read-only data-plane tap (no
-  session handshake), so the bump is the `ncp-core`/`ncp-zenoh` git tag + its
-  standalone `Cargo.lock` and the doc pins; its tests pass unchanged.
+- Re-pinned `crates/ncp-observer` to NCP `v0.5.0` (wire `0.4` → `0.5`, the stable-wire
+  cut: the command/sim `mode` strings are now proto enums (`Mode`/`SimMode`) and
+  `CONTRACT_HASH` was recomputed `2cf0763ad61e4f1c` → `24e8e6e31e1dec8a`). The observer
+  is a read-only data-plane tap (no session handshake) and the JSON wire is unchanged
+  for known values, so the bump is the `ncp-core`/`ncp-zenoh` git tag + its standalone
+  `Cargo.lock` and the doc pins; `ncp-observer` builds against the v0.5.0 tag and its
+  tests pass unchanged.
 
 - Science-honesty: `ncp-observer` per-sample provenance markers (2026-06-21). Every
   emitted `(V,L,D,A)` sample now carries `metadata.l_source` and `metadata.d_source`
