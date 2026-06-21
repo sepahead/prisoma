@@ -363,11 +363,12 @@ pub struct OfflineVldaReport {
     pub heldout_episode_disjoint: Option<OfflineVldaHeldoutEpisodeDisjointReport>,
     pub heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
     pub heldout_failure_diagnostics: Vec<OfflineVldaHeldoutFailureDiagnostics>,
-    /// Per-axis provenance honesty: aggregates the `l_source`/`d_source` markers the
-    /// capture adapter stamps on each sample (e.g. `ncp-observer`), so a PID atom
-    /// computed from a *fabricated* `L` (`l_source = "absent_zeroed"`) or a
-    /// *recency-misaligned* `D` (`d_source = "recency_fallback"`) is surfaced as
-    /// degraded rather than silently reported as trustworthy. Empty when no sample
+    /// Per-axis provenance honesty: aggregates the provenance markers the capture
+    /// adapter stamps on each sample — `l_source`/`d_source` (live `ncp-observer` tap)
+    /// and `{v,l,d,a}_provenance` (offline `safe_adapter`) — so a PID atom computed
+    /// from a *fabricated* `L` (`absent_zeroed`), a *recency-misaligned* `D`
+    /// (`recency_fallback`), or a *hash-proxy* feature (`text_hash_proxy`) is surfaced
+    /// as degraded rather than silently reported as trustworthy. Empty when no sample
     /// carries provenance markers (e.g. a pure synthetic dataset).
     pub axis_provenance: Vec<OfflineVldaAxisProvenance>,
     pub metrics: OfflineVldaMetrics,
@@ -1490,11 +1491,21 @@ fn label_counts(samples: &[OfflineVldaSample]) -> BTreeMap<String, usize> {
 /// reported only when at least one sample carries that marker; the axis is `degraded`
 /// when any sample carries a known-bad value for it.
 fn axis_provenance(samples: &[OfflineVldaSample]) -> Vec<OfflineVldaAxisProvenance> {
-    // Markers stamped by the capture adapters (e.g. ncp-observer): the value that
-    // means "this axis is not trustworthy for this sample".
+    // Markers stamped by the capture adapters, with the values that mean "this axis
+    // is not trustworthy for this sample". Two capture conventions are recognized:
+    //   - ncp-observer (live Engram/NEST tap): `l_source` / `d_source`.
+    //   - safe_adapter (offline VLA rollouts): `{v,l,d,a}_provenance`, where
+    //     `text_hash_proxy` is a hash surrogate for a missing real feature (degraded),
+    //     while `explicit_features` / `hidden_state_pool` / `token_slice:*` /
+    //     `action_vector` are honest.
+    const DEGRADED_PROV: &[&str] = &["text_hash_proxy", "absent_zeroed", "zeroed", "absent"];
     const MARKERS: &[(&str, &str, &[&str])] = &[
         ("l_source", "L", &["absent_zeroed"]),
         ("d_source", "D", &["recency_fallback", "absent"]),
+        ("v_provenance", "V", DEGRADED_PROV),
+        ("l_provenance", "L", DEGRADED_PROV),
+        ("d_provenance", "D", DEGRADED_PROV),
+        ("a_provenance", "A", DEGRADED_PROV),
     ];
     let mut out = Vec::new();
     for &(marker, axis, degraded_values) in MARKERS {
@@ -4611,6 +4622,40 @@ mod tests {
         let ok = vec![sample("channel", "seq")];
         let p = axis_provenance(&ok);
         assert!(p.iter().all(|x| x.status == "ok" && x.note.is_none()));
+    }
+
+    #[test]
+    fn axis_provenance_recognizes_safe_adapter_markers() {
+        // The safe_adapter stamps `{v,l,d,a}_provenance`; `text_hash_proxy` is a
+        // degraded (hash-surrogate) L, `token_slice:*` / `action_vector` are honest.
+        let safe = |l_prov: &str| OfflineVldaSample {
+            sample_id: "s".into(),
+            episode_id: None,
+            v: vec![0.0],
+            l: vec![0.0],
+            d: vec![0.0],
+            a: vec![0.0],
+            labels: BTreeMap::new(),
+            metadata: BTreeMap::from([
+                ("v_provenance".to_string(), "token_slice:vision".to_string()),
+                ("l_provenance".to_string(), l_prov.to_string()),
+                ("d_provenance".to_string(), "hidden_state_pool".to_string()),
+                ("a_provenance".to_string(), "action_vector".to_string()),
+            ]),
+        };
+        // Honest language -> all axes ok.
+        let prov = axis_provenance(&[safe("token_slice:language")]);
+        assert!(prov.iter().any(|p| p.axis == "L" && p.status == "ok"));
+        assert!(prov.iter().any(|p| p.axis == "V" && p.status == "ok"));
+        // Hash-proxy language -> L flagged degraded; V/D/A still ok.
+        let prov = axis_provenance(&[safe("text_hash_proxy"), safe("token_slice:language")]);
+        let l = prov
+            .iter()
+            .find(|p| p.axis == "L" && p.marker == "l_provenance")
+            .unwrap();
+        assert_eq!(l.status, "degraded");
+        assert_eq!(l.degraded_samples, 1);
+        assert!(prov.iter().find(|p| p.axis == "V").unwrap().status == "ok");
     }
 
     #[test]
