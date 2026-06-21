@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Re-pinned `crates/ncp-observer` to NCP `v0.3.0` (2026-06-21; wire `0.2` → `0.3`, the
-  symmetric contract-hash handshake). The observer is a read-only data-plane tap (no
+- Re-pinned `crates/ncp-observer` to NCP `v0.4.0` (wire `0.4`; the decoupling+robustness
+  release: consumer-neutral proto package, advisory contract handshake, additive-non-breaking). The observer is a read-only data-plane tap (no
   session handshake), so the bump is the `ncp-core`/`ncp-zenoh` git tag + its
   standalone `Cargo.lock` and the doc pins; its tests pass unchanged.
 
