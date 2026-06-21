@@ -32,7 +32,11 @@ struct Args {
 fn parse_args() -> Args {
     let mut a = Args {
         session: "default".into(),
-        realm: ncp_core::DEFAULT_REALM.into(),
+        // This observer taps an Engram deployment, whose rendezvous realm is
+        // "engram/ncp" — a DEPLOYMENT choice, named here explicitly rather than
+        // inherited from ncp_core::DEFAULT_REALM (which is the neutral "ncp": NCP the
+        // protocol names no consumer). Override with --realm for another deployment.
+        realm: "engram/ncp".into(),
         out: "ncp_vlda.json".into(),
         runlog: None,
         model: "nest".into(),
