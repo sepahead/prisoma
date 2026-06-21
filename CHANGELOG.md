@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Science-honesty: the offline VLDA harness now surfaces `safe_adapter` axis
+  provenance (2026-06-21). `axis_provenance` previously recognized only the live
+  `ncp-observer` markers (`l_source`/`d_source`); running the offline `safe_adapter`
+  pipeline end-to-end (synth→convert→verify→`pid-offline-harness`) exposed that its
+  samples carry `{v,l,d,a}_provenance` instead (`token_slice:*` / `hidden_state_pool`
+  / `action_vector` = honest; `text_hash_proxy` = hash surrogate for a missing real
+  feature = degraded), so the report came back with `axis_provenance: []` and a PID
+  atom computed from a hash-proxy axis would have been reported as trustworthy. The
+  harness now recognizes both capture conventions (extended `MARKERS` + a shared
+  `DEGRADED_PROV` value set); on the honest synthetic SAFE dataset all four axes report
+  `status=ok` with their `token_slice:*`/`action_vector` sources. New unit test
+  `axis_provenance_recognizes_safe_adapter_markers`.
+
 - Re-pinned `crates/ncp-observer` to NCP `v0.4.0` (wire `0.4`; the decoupling+robustness
   release: consumer-neutral proto package, advisory contract handshake, additive-non-breaking). The observer is a read-only data-plane tap (no
   session handshake), so the bump is the `ncp-core`/`ncp-zenoh` git tag + its
