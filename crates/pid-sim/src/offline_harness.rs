@@ -363,7 +363,31 @@ pub struct OfflineVldaReport {
     pub heldout_episode_disjoint: Option<OfflineVldaHeldoutEpisodeDisjointReport>,
     pub heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
     pub heldout_failure_diagnostics: Vec<OfflineVldaHeldoutFailureDiagnostics>,
+    /// Per-axis provenance honesty: aggregates the `l_source`/`d_source` markers the
+    /// capture adapter stamps on each sample (e.g. `ncp-observer`), so a PID atom
+    /// computed from a *fabricated* `L` (`l_source = "absent_zeroed"`) or a
+    /// *recency-misaligned* `D` (`d_source = "recency_fallback"`) is surfaced as
+    /// degraded rather than silently reported as trustworthy. Empty when no sample
+    /// carries provenance markers (e.g. a pure synthetic dataset).
+    pub axis_provenance: Vec<OfflineVldaAxisProvenance>,
     pub metrics: OfflineVldaMetrics,
+}
+
+/// Provenance summary for one `(V,L,D,A)` axis, aggregated across samples. `status`
+/// is `"degraded"` when any sample carries a known-bad provenance value for the axis
+/// (a fabricated/zeroed `L`, or a recency-misaligned/absent `D`) — in which case the
+/// PID atoms that involve this axis must be treated as not trustworthy for the
+/// affected samples (M5 honesty: never present a fabricated/misaligned axis's atoms
+/// as clean).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfflineVldaAxisProvenance {
+    pub marker: String,
+    pub axis: String,
+    pub sources: BTreeMap<String, usize>,
+    pub degraded_samples: usize,
+    pub total_samples: usize,
+    pub status: String,
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -559,6 +583,7 @@ pub fn run_offline_vlda_harness_with_options(
         heldout_episode_disjoint: analysis.heldout_episode_disjoint,
         heldout_predictions: analysis.heldout_predictions,
         heldout_failure_diagnostics: analysis.heldout_failure_diagnostics,
+        axis_provenance: axis_provenance(&dataset.samples),
         metrics: analysis.metrics,
     })
 }
@@ -1458,6 +1483,59 @@ fn label_counts(samples: &[OfflineVldaSample]) -> BTreeMap<String, usize> {
         }
     }
     counts
+}
+
+/// Aggregate the per-sample axis-provenance markers into a per-axis honesty summary
+/// (see [`OfflineVldaAxisProvenance`]). A `(marker, axis, degraded_values)` is
+/// reported only when at least one sample carries that marker; the axis is `degraded`
+/// when any sample carries a known-bad value for it.
+fn axis_provenance(samples: &[OfflineVldaSample]) -> Vec<OfflineVldaAxisProvenance> {
+    // Markers stamped by the capture adapters (e.g. ncp-observer): the value that
+    // means "this axis is not trustworthy for this sample".
+    const MARKERS: &[(&str, &str, &[&str])] = &[
+        ("l_source", "L", &["absent_zeroed"]),
+        ("d_source", "D", &["recency_fallback", "absent"]),
+    ];
+    let mut out = Vec::new();
+    for &(marker, axis, degraded_values) in MARKERS {
+        let mut sources: BTreeMap<String, usize> = BTreeMap::new();
+        let mut degraded_samples = 0usize;
+        let mut total_samples = 0usize;
+        for sample in samples {
+            if let Some(value) = sample.metadata.get(marker) {
+                *sources.entry(value.clone()).or_insert(0) += 1;
+                total_samples += 1;
+                if degraded_values.contains(&value.as_str()) {
+                    degraded_samples += 1;
+                }
+            }
+        }
+        if total_samples == 0 {
+            continue; // marker absent (e.g. a synthetic or SAFE-sourced dataset)
+        }
+        let (status, note) = if degraded_samples > 0 {
+            (
+                "degraded".to_string(),
+                Some(format!(
+                    "{degraded_samples}/{total_samples} samples carry a degraded {axis} axis \
+                     ({}); PID atoms involving {axis} are NOT trustworthy for those samples",
+                    degraded_values.join("/")
+                )),
+            )
+        } else {
+            ("ok".to_string(), None)
+        };
+        out.push(OfflineVldaAxisProvenance {
+            marker: marker.to_string(),
+            axis: axis.to_string(),
+            sources,
+            degraded_samples,
+            total_samples,
+            status,
+            note,
+        });
+    }
+    out
 }
 
 struct OfflineVldaAnalysis {
@@ -4479,6 +4557,60 @@ mod tests {
             mean_sha256: String::new(),
             inv_std_sha256: String::new(),
         }
+    }
+
+    #[test]
+    fn axis_provenance_flags_fabricated_and_misaligned_axes() {
+        // Build samples carrying the provenance markers ncp-observer stamps.
+        let sample = |l_src: &str, d_src: &str| OfflineVldaSample {
+            sample_id: "s".into(),
+            episode_id: None,
+            v: vec![0.0],
+            l: vec![0.0],
+            d: vec![0.0],
+            a: vec![0.0],
+            labels: BTreeMap::new(),
+            metadata: BTreeMap::from([
+                ("l_source".to_string(), l_src.to_string()),
+                ("d_source".to_string(), d_src.to_string()),
+            ]),
+        };
+        // Two clean, one fabricated-L, one recency-misaligned-D.
+        let samples = vec![
+            sample("channel", "seq"),
+            sample("channel", "seq"),
+            sample("absent_zeroed", "seq"),
+            sample("channel", "recency_fallback"),
+        ];
+        let prov = axis_provenance(&samples);
+        let l = prov.iter().find(|p| p.axis == "L").expect("L provenance");
+        assert_eq!(l.status, "degraded");
+        assert_eq!(l.degraded_samples, 1);
+        assert_eq!(l.total_samples, 4);
+        assert_eq!(l.sources["channel"], 3);
+        assert_eq!(l.sources["absent_zeroed"], 1);
+        assert!(l.note.as_ref().unwrap().contains("NOT trustworthy"));
+        let d = prov.iter().find(|p| p.axis == "D").expect("D provenance");
+        assert_eq!(d.status, "degraded");
+        assert_eq!(d.degraded_samples, 1);
+
+        // No markers -> no provenance rows (a pure synthetic dataset).
+        let clean = vec![OfflineVldaSample {
+            sample_id: "s".into(),
+            episode_id: None,
+            v: vec![0.0],
+            l: vec![0.0],
+            d: vec![0.0],
+            a: vec![0.0],
+            labels: BTreeMap::new(),
+            metadata: BTreeMap::new(),
+        }];
+        assert!(axis_provenance(&clean).is_empty());
+
+        // All-clean markers -> status ok, no note.
+        let ok = vec![sample("channel", "seq")];
+        let p = axis_provenance(&ok);
+        assert!(p.iter().all(|x| x.status == "ok" && x.note.is_none()));
     }
 
     #[test]
