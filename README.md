@@ -183,7 +183,7 @@ Final 10-step build path:
 ## Citation
 
 ```bibtex
-@software{pid_vla,
+@software{prisoma,
   title = {PID-VLA: Partial Information Decomposition for Vision-Language-Action Models},
   year = {2026},
   url = {https://github.com/your-org/pid-vla}

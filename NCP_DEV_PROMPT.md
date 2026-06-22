@@ -1,12 +1,12 @@
 # NCP Observer — Developer Handoff Prompt
 
 > Copy-pasteable brief for a developer (or coding agent) bringing the `ncp-observer`
-> Engram bridge up to the standard the pid_vla analysis requires. Self-contained;
+> Engram bridge up to the standard the prisoma analysis requires. Self-contained;
 > read it top to bottom before touching code.
 
 ## 1. Context (what this is and is not)
 
-**pid_vla** is a Partial Information Decomposition (PID) toolkit for Vision-Language-Action
+**prisoma** is a Partial Information Decomposition (PID) toolkit for Vision-Language-Action
 (VLA) policies. Its analysis is **source-agnostic**: everything downstream consumes
 `(V,L,D,A)`+labels artifacts in one schema (the `OfflineVldaDataset` JSON the
 `pid-offline-harness` reads). In `(V,L,D,A)`, **D is the Dynamics / internal-state
@@ -28,7 +28,7 @@ not depend on Engram at all), and the pure-PID stack builds/tests/gates green wi
 NCP/Engram/Zenoh dependency. Your job is to make this optional bridge *good enough to
 feed the rigorous analysis*, not to make the project depend on it.
 
-**Why it matters anyway:** the payoff is a closed loop — pid_vla's PID screens quantify,
+**Why it matters anyway:** the payoff is a closed loop — prisoma's PID screens quantify,
 per NCP channel, the unique / redundant / synergistic information about the action, which
 becomes a *design-time* channel-prioritization policy for NCP's perception codec under a
 low-bandwidth link (drop redundant, keep unique, bundle synergistic). See
@@ -58,14 +58,14 @@ Already correct (do not regress):
   time (the perception plane's DROP QoS makes arrival-time pairing unsound).
 - Deterministic channel ordering (sorted `BTreeMap` keys), read-only, System actor, and
   canonical run-log emission (`EmbeddingContract` / `EmbeddingCaptured` / `LabelObserved`).
-- An **exact D-alignment path already exists in pid_vla**: `Observer` keeps `d_by_seq` and
+- An **exact D-alignment path already exists in prisoma**: `Observer` keeps `d_by_seq` and
   `try_complete` prefers it over the most-recent fallback — it just needs the publisher to
   stamp the driving `seq` (see Gap 1).
 
 ## 4. Workstreams (the three gaps, in priority order)
 
 ### Gap 1 — D alignment on `seq` (MOSTLY DONE; residual is external + a test extension)
-`ObservationFrame` **now carries `seq`**, and the pid_vla observer already joins D on it:
+`ObservationFrame` **now carries `seq`**, and the prisoma observer already joins D on it:
 `Observer::on_observation` stores each readout in `d_by_seq[obs.seq]` and `try_complete`
 prefers it, falling back to the most-recent readout (`latest_d`) only for an unstamped
 (`obs.seq == 0`) frame. The `d_aligns_on_seq_not_recency` test covers the in-order path,
@@ -74,8 +74,8 @@ so nothing in **this repo** biases D-involving atoms anymore. What remains:
   publisher must actually stamp each `ObservationFrame` with the driving sensor `seq` at
   emission time (and `NEURO_CYBERNETIC_PROTOCOL.md` should document it). Until it does, a
   live session sends `obs.seq == 0` and the observer falls back to recency — so this, not
-  any pid_vla code, is what still biases D-involving atoms in a real capture.
-- **pid_vla side:** done. Optionally extend `d_aligns_on_seq_not_recency` to a realistic
+  any prisoma code, is what still biases D-involving atoms in a real capture.
+- **prisoma side:** done. Optionally extend `d_aligns_on_seq_not_recency` to a realistic
   out-of-order interleaving for defense-in-depth.
 - **Acceptance:** with a publisher that stamps `seq`, a session where D readouts arrive out
   of order still pairs each sample's D with its own `seq`; the recency fallback is reached
@@ -109,7 +109,7 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
    the canonical run-log events; the JSON artifact is a convenience view.
 2. **The observer drives nothing.** It is read-only; the Agent Bridge stays the *only*
    control plane. Never add a publish/command path here.
-3. **The NCP-specific mapping lives in pid_vla** (`crates/ncp-observer`), not in Engram.
+3. **The NCP-specific mapping lives in prisoma** (`crates/ncp-observer`), not in Engram.
 4. **Do not fabricate axes** (Gap 2) and **do not touch the `pid-core` estimators** — this
    is a capture-adapter task, not an estimator change.
 5. **D is hidden states, not depth.** Keep the mapping and docs consistent with that.
@@ -149,6 +149,6 @@ critical path.
 
 ## 8. Out of scope
 
-- Making pid_vla depend on Engram/NCP for any core result (it must stay standalone).
+- Making prisoma depend on Engram/NCP for any core result (it must stay standalone).
 - Changing PID estimators, the harness gate logic, or the run-log schema.
 - Any write/control path from the observer.

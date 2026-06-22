@@ -1,7 +1,7 @@
-# `ncp-observer` — passive Neuro-Cybernetic Protocol tap for pid_vla
+# `ncp-observer` — passive Neuro-Cybernetic Protocol tap for prisoma
 
 Makes **Engram** (a NEST spiking network, exposed over the Neuro-Cybernetic Protocol)
-another `(V,L,D,A)` source for pid_vla's Partial Information Decomposition — the
+another `(V,L,D,A)` source for prisoma's Partial Information Decomposition — the
 same role `experiments/safe_adapter` plays for SAFE rollouts. It is a **read-only
 observer**: it subscribes to the NCP data-plane keys over Zenoh and never drives
 anything (the Agent Bridge stays the only control plane).
@@ -88,12 +88,12 @@ non-invasive:
    sensor channel, the **unique / redundant / synergistic** information about the
    action. That is exactly the policy NCP's perception plane needs under a poor
    (low-bandwidth) link: **drop redundant channels, keep unique ones, bundle
-   synergistic ones** (see `RESILIENCE.md` in <https://github.com/sepahead/NCP>). pid_vla computes the
+   synergistic ones** (see `RESILIENCE.md` in <https://github.com/sepahead/NCP>). prisoma computes the
    policy *offline*; NCP's codec applies it *online* as static channel priorities.
 
-So the loop closes: NCP streams `(V,L,D,A)` → pid_vla decomposes it → a channel
+So the loop closes: NCP streams `(V,L,D,A)` → prisoma decomposes it → a channel
 priority/redundancy policy feeds back into the perception codec. PID is a
-**design-time** tool (expensive, hard to estimate — pid_vla's whole domain), never
+**design-time** tool (expensive, hard to estimate — prisoma's whole domain), never
 a per-tick runtime computation. It also serves as a **sim-vs-hardware fidelity
 metric** (`NEUROMORPHIC.md` §5 in <https://github.com/sepahead/NCP>): does a neuromorphic chip preserve
 the same information flow as the NEST simulator?

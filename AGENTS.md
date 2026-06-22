@@ -1,4 +1,4 @@
-# Agent Notes (pid_vla)
+# Agent Notes (prisoma)
 
 These notes help future coding agents work on this repo without introducing accidental hallucinations or doc drift.
 

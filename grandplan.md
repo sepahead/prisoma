@@ -4733,7 +4733,7 @@ This section distinguishes the **current repo layout** from the **target layout*
 **Current (in this repo, v10.2):**
 
 ```
-pid_vla/
+prisoma/
 ├── Cargo.toml
 ├── Cargo.lock
 ├── crates/
@@ -4779,7 +4779,7 @@ If the examples below diverge from the repo files, **prefer the repo files**. (T
 
 ```nix
 {
-  description = "pid_vla (macOS-first): reproducible dev shell for Rust + Python (uv)";
+  description = "prisoma (macOS-first): reproducible dev shell for Rust + Python (uv)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";

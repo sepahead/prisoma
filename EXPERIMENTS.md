@@ -1823,7 +1823,7 @@ def save_episode(episode: PickPlaceEpisode, filepath: str):
 Example schema (values below are illustrative placeholders; populate from actual run metadata and measured statistics):
 ```json
 {
-  "dataset_id": "pid_vla_exp1_v1",
+  "dataset_id": "prisoma_exp1_v1",
   "created": "2026-01-15T10:30:00Z",
   "experiment": "exp1_pick_place",
   "n_episodes": 400,
@@ -1954,7 +1954,7 @@ environment:
   hardware: Apple M4 Max (64GB)
   
 software:
-  pid_vla_commit: abc123def456
+  prisoma_commit: abc123def456
   python_version: 3.11.7
   rust_version: 1.75.0
   
