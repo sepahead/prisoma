@@ -321,5 +321,5 @@ This destroys the discriminative power of nearest-neighbor methods.
 
 ---
 
-*Last updated: 2026-06-12*
+*Last updated: 2026-06-22 (docset v10.4)*
 *Based on analysis of exp0.rs, experimental output, and implementation of PLS + discrete PID (now wired into the offline harness with saturation diagnostics)*

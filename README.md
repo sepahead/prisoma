@@ -26,9 +26,29 @@
 
 prisoma is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls, with local attribution methods treated as baselines/triangulation probes. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
 
-## Current Status & What To Do, In Order (v10.3, 2026-06-13)
+## Current Status & What To Do, In Order (v10.4, 2026-06-22)
 
-**Status in one paragraph:** the Rust estimator core, run-log/replay/bridge/sim/Rerun groundwork, and the offline `(V,L,D,A)` harness are implemented with passing tests. Experiment 0 reports **PIVOT/NO-GO** on synthetic high-dimensional controls — that is the gate *working*, not a bug (see `findings.md`): continuous kNN PID atoms are not interpretable on raw high-d embeddings. As of v10.3 the estimator/analysis side is wired end to end: Exp0 has an opt-in uncertainty gate (`--bootstrap`/`--permutation` with a preregistered marginal-significance check), the offline harness carries a SAFE-class logistic-regression failure detector alongside the other non-PID baselines, a real Rapier3D manipulation produces physics-derived labels + `Flow_gt`, `experiments/safe_adapter/` converts released SAFE VLA rollouts into the harness contract (the M5 capture shortcut), and `experiments/attribution/` is a faithfulness-checked H9 attribution probe. **The open critical path is now running this on real downloaded VLA data** — the adapter and the full analysis/baseline/attribution path are in place (`REVIEW_AND_TODO.md`).
+**Status in one paragraph:** the Rust estimator core, run-log/replay/bridge/sim/Rerun groundwork, and the offline `(V,L,D,A)` harness are implemented with passing tests. Experiment 0 reports **PIVOT/NO-GO** on synthetic high-dimensional controls — that is the gate *working*, not a bug (see `findings.md`): continuous kNN PID atoms are not interpretable on raw high-d embeddings. As of v10.4 the estimator/analysis side is wired end to end: Exp0 has an opt-in uncertainty gate (`--bootstrap`/`--permutation` with a preregistered marginal-significance check), the offline harness carries a SAFE-class logistic-regression failure detector alongside the other non-PID baselines, a real Rapier3D manipulation produces physics-derived labels + `Flow_gt`, `experiments/safe_adapter/` converts released SAFE VLA rollouts into the harness contract (the M5 capture shortcut) and now surfaces honest per-axis `{v,l,d,a}_provenance` markers, and `experiments/attribution/` is a faithfulness-checked H9 attribution probe. New in v10.4 (mechanical, science status unchanged): the axis-provenance honesty gate is now **ENFORCED** — `--require-axis-provenance-honest` fails the run on degraded or absent `(V,L,D,A)` provenance markers (mirroring `--require-geometry-pass`), and `crates/ncp-observer` is re-pinned to NCP v0.5.0 (wire 0.4 → 0.5). **The open critical path is STILL running this on real downloaded VLA data** — the adapter and the full analysis/baseline/attribution path are in place, but no real-VLA capture result exists yet (`REVIEW_AND_TODO.md`).
+
+```mermaid
+flowchart LR
+    classDef run fill:#1b5e20,stroke:#2e7d32,color:#fff;
+    classDef gate fill:#e65100,stroke:#ef6c00,color:#fff;
+    classDef blocked fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
+
+    Exp0["Exp0 gate<br/>PIVOT verdict<br/>(runnable: just exp0)"]:::gate
+    Harness["Offline (V,L,D,A) harness<br/>+ baselines + attribution<br/>+ axis-provenance gate ENFORCED<br/>(runnable today)"]:::run
+    Adapter["safe_adapter → contract<br/>honest provenance<br/>(runnable: just safe-adapter)"]:::run
+    Capture["OPEN CRITICAL PATH<br/>real downloaded VLA capture<br/>(NOT done)"]:::blocked
+    Exps["Exp1–Exp5 protocols<br/>(blocked on capture)"]:::blocked
+
+    Exp0 --> Harness
+    Harness --> Adapter
+    Adapter --> Capture
+    Capture -. blocks .-> Exps
+```
+
+*Caption: What runs today (green/orange) vs what is blocked (red, dashed). The Exp0 gate and full analysis/adapter path are runnable now; Exp1–Exp5 remain blocked on the still-open real-VLA capture.*
 
 Each step gates the next; canonical depth is in `grandplan.md` at the cited sections.
 
@@ -40,7 +60,7 @@ Each step gates the next; canonical depth is in `grandplan.md` at the cited sect
 6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (`heldout_logreg_vlda`) are built into the harness; add one faithfulness-checked attribution probe (`experiments/attribution/`, the §14.7.1 AttnLRP protocol; `just attribution-probe`). The preregistered kill criteria (§14.1.1) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
 7. **Only then** run the Exp1–Exp5 protocols in `EXPERIMENTS.md` (see its §0.2 runbook for what is executable today vs blocked on step 4).
 
-## Hypotheses (Docset v10.3)
+## Hypotheses (Docset v10.4)
 
 The canonical registry + falsification criteria live in `grandplan.md` (§14.1).
 

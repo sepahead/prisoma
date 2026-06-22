@@ -11,7 +11,7 @@ These notes help future coding agents work on this repo without introducing acci
 
 ## Ground rules
 
-- `grandplan.md` is the canonical research + engineering spec; keep `README.md`, `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` consistent with it (current docset: v10.3). The Rerun/Tauri/SparkJS decision record is `grandplan.md` §A.8.
+- `grandplan.md` is the canonical research + engineering spec; keep `README.md`, `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` consistent with it (current docset: v10.4). The Rerun/Tauri/SparkJS decision record is `grandplan.md` §A.8.
 - Avoid hard-coded performance, cost, or roadmap claims unless they are backed by a committed source or a clearly labeled measurement in this repo.
 - Network access may be restricted; prefer `outputs/arxiv_ref_cache.json` for source verification when possible.
 - Do not add Claude, AI assistants, or agents as commit/PR co-authors — no `Co-Authored-By:` trailer and no "Generated with Claude Code" / 🤖 line in commit messages or pull-request descriptions.

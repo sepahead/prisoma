@@ -27,9 +27,14 @@ M5 contract** (gate-passing artifacts with honest provenance) until the gaps bel
    `d_aligns_on_seq_not_recency`). Recency is only the fallback for an unstamped
    (`obs.seq == 0`) frame, so the lone remaining piece is external — the Engram publisher
    must stamp each observation with its driving sensor `seq`.
-2. **Honest `L`** — an absent language channel currently yields an all-zero `L`; provenance
-   must be explicit (real `L`, or a marker so zeroed-`L` samples are excluded), never
-   fabricated.
+2. **Honest `L` — provenance marked, exclusion still external.** An absent language
+   channel yields an all-zero `L`, but this is **never fabricated silently**: every
+   sample now carries a per-sample provenance marker (`metadata.l_source = "channel"`
+   when present, `"absent_zeroed"` when the channel was missing; test
+   `provenance_marks_recency_fallback_and_present_language`); the offline harness
+   additionally fails its geometry gate on any all-constant axis, so a zeroed `L`
+   cannot pass `--require-geometry-pass` unflagged. The remaining gap is downstream —
+   a consumer must still act on the marker to exclude zeroed-`L` samples.
 3. **Held-out structure** — no `metadata.split` / `episode_id` / required `success` labels
    by default, so the strict `--require-heldout-*` gates and the §14.1.1 H1 audit can't run.
 
@@ -61,8 +66,11 @@ it, never by arrival time (the perception plane's DROP QoS makes arrival-time
 pairing unsound). `ObservationFrame` **now carries `seq` too** (it echoes the
 driving `SensorFrame.seq`), so D aligns on `seq` as well: this observer stores each
 readout in `d_by_seq[obs.seq]` and prefers it, falling back to recency only for an
-unstamped (`obs.seq == 0`) frame. The lone remaining D-alignment gap is external —
-the Engram publisher must stamp observations with the driving `seq`.
+unstamped (`obs.seq == 0`) frame. Each sample records which path was taken via a
+per-sample provenance marker (`metadata.d_source = "seq"` for exact alignment,
+`"recency_fallback"` for an unstamped frame, `"absent"` when no `D` readout exists
+yet). The lone remaining D-alignment gap is external — the Engram publisher must
+stamp observations with the driving `seq`.
 
 ## Run
 

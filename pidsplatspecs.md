@@ -10,8 +10,8 @@
 > - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 10.3 (Rerun-First Architecture; implementation-status refresh)
-**Date:** 2026-06-12
+**Version:** 10.4 (Rerun-First Architecture; implementation-status refresh)
+**Date:** 2026-06-22
 **Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
 
 ---

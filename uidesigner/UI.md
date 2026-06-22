@@ -1,6 +1,6 @@
-# prisoma UI/UX Specification (Docset v10.3)
+# prisoma UI/UX Specification (Docset v10.4)
 
-This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the v10.1 `README.md` engineering plan.
+This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the `README.md` engineering plan.
 
 The UI is **offline‑first** and **agent‑native**:
 - **Offline‑first:** the first usable UI is a **run‑log viewer** (record → replay → analyze) before any live transport.

@@ -43,8 +43,13 @@ with all of:
 ```
 cargo run -p pid-sim --bin pid-offline-harness -- --input <ncp_vlda.json> \
   --require-success-labels --require-heldout-split \
-  --require-heldout-class-coverage --require-heldout-episode-disjoint
+  --require-heldout-class-coverage --require-heldout-episode-disjoint \
+  --require-axis-provenance-honest
 ```
+
+(`--require-axis-provenance-honest` is the opt-in gate — mirroring `--require-geometry-pass` —
+that fails the run on degraded or absent axis-provenance markers; the `just safe-adapter`
+recipe already runs it alongside the three held-out gates.)
 
 …exiting 0, and it can feed the **H1 necessity audit** (does PID/CI beat the SAFE-class
 held-out logistic-regression failure detector — grandplan §14.1.1). Until then it is
@@ -81,17 +86,19 @@ so nothing in **this repo** biases D-involving atoms anymore. What remains:
   of order still pairs each sample's D with its own `seq`; the recency fallback is reached
   only for genuinely unstamped frames.
 
-### Gap 2 — L can be fabricated as zeros (MEDIUM; provenance)
+### Gap 2 — L can be fabricated as zeros (provenance marker DONE; residual is the L policy)
 `on_sensor` does `channels.get(language_channel).map(...).unwrap_or_default()`, so an
 absent language channel yields an **all-zero L** — a degenerate axis. grandplan's M5
-contract is "never fabricated."
-- **Fix:** make the L policy explicit — either (a) require the language channel and skip /
-  flag samples without it, or (b) carry an honest provenance marker in `metadata`
-  (e.g. `l_source = "instruction" | "absent_zeroed" | "text_proxy"`) so downstream can
-  exclude zeroed-L samples from L-atoms. Do **not** silently emit zeros as if they were a
-  language embedding.
-- **Acceptance:** no sample carries a zero L without an explicit provenance marker; the
-  harness can filter on it.
+contract is "never fabricated." Option (b) below is now implemented: each sample carries an
+honest `metadata.l_source` marker (`"channel"` when the language channel was present,
+`"absent_zeroed"` when L is a fabricated all-zero vector), and `--require-axis-provenance-honest`
+treats the degraded marker accordingly — so downstream is no longer silently fed zeros as if
+they were a language embedding.
+- **Residual:** decide the L policy for a real capture — either keep (b) and have the
+  analysis exclude `l_source = "absent_zeroed"` samples from L-atoms, or move to (a):
+  require the language channel and skip / flag samples without it.
+- **Acceptance:** no sample carries a zero L without the explicit `l_source` marker (met);
+  the harness can filter on it.
 
 ### Gap 3 — no held-out split / episode / label structure (MEDIUM; unlocks the gates + H1)
 The artifact currently emits one optional `episode_id`, no `metadata.split`, and labels

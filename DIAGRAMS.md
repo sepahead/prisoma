@@ -11,9 +11,115 @@
 
 This document contains visual representations of the prisoma system, the PID-Splat simulation environment, and the data processing pipelines.
 
-**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.3. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1), the v10.1 execution plan (`grandplan.md` §A.7), and the ten-scientist consensus decision record (`grandplan.md` §A.8) for what exists today and what to build next.
+**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.4. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1), the v10.1 execution plan (`grandplan.md` §A.7), and the ten-scientist consensus decision record (`grandplan.md` §A.8) for what exists today and what to build next.
 
 **Docset-wide final solution:** the diagrams should be read through `grandplan.md` §A.8: run log as source of truth, Agent Bridge as the only control plane, Rerun as the Phases 1–3 diagnostic viewer, and Tauri/SparkJS as the deferred Phase 4 shell.
+
+## 0. Docset v10.4 Status Dashboard (Pipeline State)
+
+This chart is the honest, gate-driven snapshot for the v10.4 cut: Exp0 reports **PIVOT** (the gate working, not a bug), the offline analysis/adapter path is runnable today, the real-VLA capture is the **still-open critical path**, and Exp1–Exp5 stay blocked on that capture. Nothing here upgrades the research/experiment status, which is unchanged from v10.3.
+
+```mermaid
+flowchart TD
+    classDef run fill:#1b5e20,stroke:#2e7d32,color:#fff;
+    classDef gate fill:#e65100,stroke:#ef6c00,color:#fff;
+    classDef blocked fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
+
+    Exp0["Exp0 estimator + geometry gate<br/>verdict = PIVOT on synthetic high-d<br/>(runnable: just exp0 / just exp0-bin)"]:::gate
+
+    subgraph Today["Runnable today (gate-passing analysis spine)"]
+        Harness["Offline (V,L,D,A) harness<br/>PID screens + non-PID baselines"]:::run
+        ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest (v10.4)"]:::run
+        Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (v10.4)"]:::run
+        Attr["attribution probe (H9, faithfulness-checked)"]:::run
+        Obs["ncp-observer tap re-pinned NCP v0.5.0 (v10.4)<br/>exploratory, off critical path"]:::run
+    end
+
+    Capture["OPEN CRITICAL PATH<br/>real downloaded VLA capture + labels<br/>(NOT done)"]:::blocked
+
+    subgraph Blocked["Blocked on first real capture"]
+        E1["Exp1 pick-and-place (H1–H4)"]:::blocked
+        E2["Exp2 long-horizon (H5)"]:::blocked
+        E3["Exp3 perturbations (H1–H6)"]:::blocked
+        E4["Exp4 Flow-as-Bridge (H7)"]:::blocked
+        E5["Exp5 cross-embodiment (H4/H7)"]:::blocked
+    end
+
+    Exp0 --> Harness
+    Harness --> ProvGate
+    Harness --> Adapter
+    Harness --> Attr
+    Adapter --> Capture
+    Capture -. blocks .-> E1 & E2 & E3 & E4 & E5
+```
+
+*Caption: v10.4 pipeline state — orange = Exp0 gate (PIVOT, runnable); green = runnable analysis/adapter/observer spine; red dashed = the still-open real-VLA capture and the Exp1–Exp5 protocols it blocks.*
+
+---
+
+## 0.1 Hypothesis Status (H1–H9)
+
+Hypotheses grouped by their `grandplan.md` §14.1 status. Status is unchanged at v10.4; all hypothesis tests remain blocked on the real-VLA capture (only H8 geometry diagnostics and the H9 probe machinery run today on fixtures/synthetic).
+
+```mermaid
+flowchart TB
+    classDef core fill:#0d47a1,stroke:#1565c0,color:#fff;
+    classDef expl fill:#4a148c,stroke:#6a1b9a,color:#fff;
+    classDef defer fill:#424242,stroke:#616161,color:#fff;
+    classDef tri fill:#1b5e20,stroke:#2e7d32,color:#fff;
+
+    subgraph Core["Core"]
+        H1["H1 PID/CI predicts failure beyond baselines"]:::core
+        H4["H4 Memorization vs generalization PID shifts"]:::core
+        H5["H5 Long-horizon temporal PID/CI degradation<br/>(CI-only ablation mandatory)"]:::core
+        H7["H7 Flow-as-Bridge stage-wise diagnostics (method)"]:::core
+        H8["H8 Geometry diagnostics select estimator regime (method)"]:::core
+    end
+
+    subgraph Exploratory["Exploratory"]
+        H2["H2 Redundancy predicts ablation robustness"]:::expl
+        H3["H3 Uniques predict intervention sensitivity"]:::expl
+    end
+
+    subgraph Deferred["Deferred"]
+        H6["H6 Safety-task V–L integration (needs proper labels)"]:::defer
+    end
+
+    subgraph Triangulation["Triangulation"]
+        H9["H9 Faithfulness-checked attribution triangulates/falsifies PID"]:::tri
+    end
+```
+
+*Caption: H1–H9 by status (Core / Exploratory / Deferred / Triangulation). Status is unchanged at v10.4; all hypothesis verdicts remain pending the open real-VLA capture.*
+
+---
+
+## 0.2 Milestone / Critical-Path Roadmap (M0–M8)
+
+Build order from `grandplan.md` §A.7. "Implemented" reflects verified in-repo crates/harnesses; M5 capture is the open critical path; M6–M8 are specified/optional. This is engineering state, not a research result.
+
+```mermaid
+flowchart TD
+    classDef done fill:#1b5e20,stroke:#2e7d32,color:#fff;
+    classDef active fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
+    classDef spec fill:#424242,stroke:#616161,color:#fff;
+
+    M0["M0 Run logs + replay<br/>pid-runlog (implemented)"]:::done
+    M1["M1 JSONL schema + validate/summary/manifest<br/>(implemented)"]:::done
+    M2["M2 Agent Bridge control plane<br/>stdio/TCP/WS, safe mode (implemented)"]:::done
+    M3["M3 Minimal sim + Flow_gt<br/>pid-sim, Rapier harness (implemented)"]:::done
+    M4["M4 Rerun-based viewer adapter<br/>pid-rerun (implemented; full viewer specified)"]:::done
+    M5["M5 Embedding harness on REAL capture<br/>safe_adapter ready; capture OPEN (not done)"]:::active
+    M6["M6 Optional live transport / Flow_pred<br/>(specified)"]:::spec
+    M7["M7 GauSS-MI uncertainty + view selection<br/>(specified, optional)"]:::spec
+    M8["M8 License/provenance automation<br/>(partial: notices, audit scripts)"]:::spec
+
+    M0 --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7 --> M8
+```
+
+*Caption: M0–M8 roadmap — green = implemented in-repo, red dashed = M5 open critical path (adapter ready, real capture not done), grey = specified/optional. Engineering state only; the research verdict is still gated on M5.*
+
+---
 
 ## 1. High-Level System Overview
 

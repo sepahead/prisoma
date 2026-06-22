@@ -11,7 +11,7 @@
 
 ---
 
-**Docset alignment:** This document is aligned to `grandplan.md` v10.3. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
+**Docset alignment:** This document is aligned to `grandplan.md` v10.4. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
 
 **Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the source of truth; Rerun is the Phases 1–3 diagnostic/time-machine viewer; Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering; all clients share the Agent Bridge.
 

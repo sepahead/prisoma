@@ -5,7 +5,7 @@
 > - `EXPERIMENTS.md` — When/why to treat external world models as staged variables
 > - `DIAGRAMS.md` — Agent Bridge control plane (how services are invoked + logged)
 
-**Docset alignment:** v10.3 (optional external baseline; not implemented in this repo today)
+**Docset alignment:** v10.4 (optional external baseline; not implemented in this repo today)
 **Status:** Specification / integration notes (verify upstream claims at time of use)
 
 **Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. WorldWarp or any external world model is optional Phase 7-style infrastructure; it must emit versioned artifacts into the run log and be visualized through the same Rerun/Tauri split rather than becoming an unlogged side channel.

@@ -1,7 +1,7 @@
 # prisoma Whole-Repo Review and To-Do List
 
 Date: 2026-05-09
-Last consistency pass: 2026-06-12 (see "Implementation Pass Status: 2026-06-12" below)
+Last consistency pass: 2026-06-22 (docset v10.4; see "Implementation Pass Status: 2026-06-22" below)
 
 This document records a whole-repo review of the prisoma repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism. The opening review has been updated after the follow-up implementation passes; older risks that were fixed are called out as fixed rather than left as current failures.
 
@@ -326,6 +326,18 @@ Completed since the 2026-06-12 pass (the "capture + analysis" slice — docset v
 **Revised critical path:** the remaining blocker is purely a **data-pull step** — point `experiments/safe_adapter` at the real downloaded SAFE rollouts (verify tensors/coverage/licenses) and run the existing analysis (PID screens + the built-in non-PID baselines incl. the SAFE-class detector + the §14.7.1 attribution probe) under the geometry/uncertainty gates; the preregistered §14.1.1 kill criteria then decide whether PID atoms earn a place. No further estimator, harness, baseline, or attribution code is required for that first study.
 
 > **Not on the critical path:** `crates/ncp-observer` (the Engram/NEST Neuro-Cybernetic-Protocol bridge) is an **optional** `(V,L,D,A)` source — grandplan does not depend on Engram, and the pure-PID stack builds/gates green with no NCP/Engram/Zenoh dependency (it is excluded from the default cargo workspace). It is exploratory-only until it meets the M5 contract (D `seq`-alignment, honest `L`, split/episode/label structure); bringing it up to bar is a self-contained task tracked in `NCP_DEV_PROMPT.md`. It does not block the SAFE data-pull above.
+
+## Implementation Pass Status: 2026-06-22
+
+Completed since the 2026-06-13 pass (docset v10.4 cut). This is a science-honesty + integration patch; the research/estimator/experiment status is **unchanged** from v10.3 — no new capture, hypothesis, or experiment result is claimed:
+
+- **Axis-provenance enforcement gate (new science-honesty gate).** `--require-axis-provenance-honest` now ENFORCES axis provenance (an opt-in gate mirroring `--require-geometry-pass`; it fails the run on degraded V/L/D/A or absent provenance markers), threaded through `OfflineVldaRunlogOptions`, the bin parser, and the `just safe-adapter` recipe; covered by `axis_provenance_gate_fails_on_degraded_and_on_absent_markers`.
+- **Offline VLDA harness surfaces `safe_adapter` axis provenance.** `{v,l,d,a}_provenance` markers (token_slice:* / hidden_state_pool / action_vector are honest; text_hash_proxy is degraded); covered by `axis_provenance_recognizes_safe_adapter_markers`.
+- **`crates/ncp-observer` re-pinned to NCP v0.5.0** (wire 0.4 -> 0.5; proto-enum mode strings; CONTRACT_HASH `2cf0763ad61e4f1c` -> `24e8e6e31e1dec8a`); read-only data-plane tap, JSON wire unchanged for known values. Per-sample provenance markers (`metadata.l_source` / `d_source`) were added (tests `provenance_marks_recency_fallback_and_present_language`, extended `d_aligns_on_seq_not_recency`). `ncp-observer` remains off the critical path and excluded from the default workspace.
+- **Degenerate-axis geometry gate** now flags all-constant (zero-variance) variables as a geometry-gate warning (fails `--require-geometry-pass`); test `geometry_gates_flag_all_constant_variable_as_degenerate`.
+- **Naming:** the repo/package/crate rename `pid_vla` -> `prisoma` is complete repo-wide (no `pid_vla` references remain).
+
+**Critical path (UNCHANGED, still open):** the remaining blocker is still the **data-pull step** — point `experiments/safe_adapter` at the real downloaded SAFE rollouts (verify tensors/coverage/licenses) and run the existing analysis under the geometry/uncertainty *and now axis-provenance* gates; the preregistered §14.1.1 kill criteria then decide whether PID atoms earn a place. Exp0 still reports PIVOT/NO-GO on the synthetic high-d controls. No experiment/capture/hypothesis result has been upgraded in this pass.
 
 ## Implementation Pass Status: 2026-06-12
 

@@ -11,8 +11,8 @@
 
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** 10.3 (Aligned with `grandplan.md` v10.3)  
-**Date:** 2026-06-12  
+**Version:** 10.4 (Aligned with `grandplan.md` v10.4)  
+**Date:** 2026-06-22  
 **Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, external video predictor / Dream2Flow-style pipeline, and the Agent Bridge control plane) are external or not yet implemented in this repo; treat them as specifications until built.
 
 **Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. Experimental evidence must flow through the canonical run log; Rerun is the first diagnostic viewer; Tauri/SparkJS is deferred until the run-log/replay/Rerun loop is reliable; all interventions must be Agent Bridge events.
@@ -64,7 +64,7 @@ PID/CI hypotheses below inherit **two prerequisites**:
 | **H8** Geometry gate chooses estimator regime | Exp0 | geometry diagnostics + synthetic controls | GO/PIVOT/NO-GO decision for continuous PID vs discrete PID vs MI-only screening | Noise-dimension invariance, monotonicity/CMI checks, intrinsic dimension, distance concentration |
 | **H9** Attribution probes triangulate PID claims | Exp1, Exp3, Exp4 | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style scores on the same logged samples | Agreement or principled disagreement with PID uniques/synergy under controlled interventions; incremental failure-prediction value | Model/data randomization sanity checks, baseline/background sensitivity, deletion/occlusion tests, attention-not-explanation caveat |
 
-### 0.2 Runbook: What Is Executable Today vs Blocked (v10.3, 2026-06-13)
+### 0.2 Runbook: What Is Executable Today vs Blocked (v10.4, 2026-06-22)
 
 This table is the self-sufficient entry point: it maps the run order onto current tooling, expected outcomes, and blockers. Commands assume `just` (each recipe wraps plain `cargo` commands listed in `README.md`/`AGENTS.md`).
 

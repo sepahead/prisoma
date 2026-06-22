@@ -73,8 +73,15 @@ cargo run -p pid-sim --bin pid-offline-harness -- \
     --summary-json outputs/safe_vlda_summary.json \
     --runlog outputs/safe_vlda_runlog.jsonl \
     --require-heldout-split --require-heldout-class-coverage \
-    --require-heldout-episode-disjoint
+    --require-heldout-episode-disjoint --require-axis-provenance-honest
 ```
+
+`--require-axis-provenance-honest` is an opt-in gate (mirroring
+`--require-geometry-pass`) that fails the run on degraded or absent axis
+provenance markers; the offline VLDA harness surfaces the per-axis
+`{v,l,d,a}_provenance` it checks (`token_slice:*` / `hidden_state_pool` /
+`action_vector` are honest, `text_hash_proxy` is degraded). The `just
+safe-adapter` recipe passes this flag plus the three held-out gates.
 
 For real SAFE downloads, point `--rollouts` at the unpacked rollout directory
 (`task*.csv` + `task*.pkl`) and pass the seen-task ids SAFE used for that benchmark.
