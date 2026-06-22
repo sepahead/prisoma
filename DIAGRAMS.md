@@ -129,12 +129,12 @@ This diagram illustrates the target interaction pattern. The canonical Phases 1�
 graph TD
     subgraph "Automation Clients"
         Claude[Claude Code / Codex / opencode]
-        Scripts[Scripts (Python/Rust)]
+        Scripts["Scripts (Python/Rust)"]
     end
 
     subgraph "Inference Layer (External)"
-        VLA[Target VLA (e.g., SmolVLA/OpenVLA/DreamVLA/InternVLA‑A1)]
-        WAN[Video Gen Model (WAN-like)]
+        VLA["Target VLA (e.g., SmolVLA/OpenVLA/DreamVLA/InternVLA‑A1)"]
+        WAN["Video Gen Model (WAN-like)"]
         Vis[Vision Foundation Models]
         
         VLA -->|Action| Z_ACT[Zenoh: vla/action]
@@ -155,7 +155,7 @@ graph TD
         subgraph "Backend"
             Phys[Physics Engine]
             PID_Core[pid-core Estimator]
-            Agent[Agent Bridge (JSON-RPC/MCP)]
+            Agent["Agent Bridge (JSON-RPC/MCP)"]
             
             Z_ACT --> Phys
             Phys -->|Pose| Spark_Bridge
@@ -171,8 +171,8 @@ graph TD
         end
         
         subgraph "Frontend (Rerun Viewer / SparkJS)"
-            Vis[Rerun Viewer (P1-3) / SparkJS (P4)]
-            Ghost[Ghost Splats (Rerun PointCloud)]
+            Vis["Rerun Viewer (P1-3) / SparkJS (P4)"]
+            Ghost["Ghost Splats (Rerun PointCloud)"]
             
             Spark_Bridge --> Vis
             Z_PID --> Ghost
@@ -233,13 +233,13 @@ For δ-hyperbolicity thresholds, use a normalized `δ_rel` (e.g., `δ_rel = 2δ 
 
 ```mermaid
 flowchart TD
-    Start[Input embeddings (V, D, A)] --> Diag[Step 0: Geometry diagnostics]
+    Start["Input embeddings (V, D, A)"] --> Diag[Step 0: Geometry diagnostics]
 
     subgraph "Diagnostics"
-        Diag --> ID[Intrinsic dimension (Levina–Bickel / GRIDE)]
-        Diag --> DC[Distance concentration (pairwise CV, nn/mean)]
-        Diag --> Delta[δ-hyperbolicity (4-point sampling)]
-        Diag --> Flat[Local flatness / curvature proxy (e.g., neighborhood PCA residual; ORC if available)]
+        Diag --> ID["Intrinsic dimension (Levina–Bickel / GRIDE)"]
+        Diag --> DC["Distance concentration (pairwise CV, nn/mean)"]
+        Diag --> Delta["δ-hyperbolicity (4-point sampling)"]
+        Diag --> Flat["Local flatness / curvature proxy (e.g., neighborhood PCA residual; ORC if available)"]
     end
 
     DC --> ConcQ{Concentration?}
@@ -249,18 +249,18 @@ flowchart TD
     ConcQ -- No --> Tree{δ_rel very small?}
     Tree -- Yes --> Hier[Tree-like regime]
     Hier --> SI[Use Shannon invariants / MI-only screening]
-    Hier --> Note1[Avoid interpreting continuous I^sx_∩ atoms (no non-Euclidean derivation)]
+    Hier --> Note1["Avoid interpreting continuous I^sx_∩ atoms (no non-Euclidean derivation)"]
 
     Tree -- No --> FlatQ{Locally flat-ish?}
     Flat --> FlatQ
 
-    FlatQ -- Yes --> Euclid[PCA + L∞ I^sx_∩ (after Experiment 0 gate)]
+    FlatQ -- Yes --> Euclid["PCA + L∞ I^sx_∩ (after Experiment 0 gate)"]
     Euclid --> Gate{Experiment 0 passes?}
-    Gate -- No --> Pivot[Pivot: quantization (discrete PID) or MI-only]
+    Gate -- No --> Pivot["Pivot: quantization (discrete PID) or MI-only"]
 
     FlatQ -- No --> Curved[High curvature, non-hierarchical]
     Curved --> Quant[Quantization → discrete PID]
-    Curved --> Unroll[Manifold unrolling → L∞ estimator (then re-validate)]
+    Curved --> Unroll["Manifold unrolling → L∞ estimator (then re-validate)"]
 ```
 
 ---
@@ -387,26 +387,26 @@ This diagram captures the intended hybrid approach: use 3DGS splats for photorea
 ```mermaid
 graph TB
     subgraph "Visual Scene (Appearance)"
-        Splats[3DGS Splats\n(static background / captured assets)]
+        Splats["3DGS Splats<br/>(static background / captured assets)"]
         Vis[Rerun / SparkJS\nSplat Renderer]
         Splats --> Vis
     end
 
     subgraph "Dynamics Scene (Geometry)"
-        Mesh[Meshes/URDFs\n(robots + collision proxies)]
-        Three[Three.js (WebGL2/WebGPU)\nMesh Renderer]
+        Mesh["Meshes/URDFs<br/>(robots + collision proxies)"]
+        Three["Three.js (WebGL2/WebGPU)<br/>Mesh Renderer"]
         Mesh --> Three
     end
 
     subgraph "Physics"
-        Phys[Physics Engine\n(Rapier/MuJoCo)]
+        Phys["Physics Engine<br/>(Rapier/MuJoCo)"]
         Mesh -->|Collision shapes| Phys
         Phys -->|Pose/Transforms| Mesh
     end
 
     subgraph "Diagnostics"
-        PID[pid-core metrics\n(Syn/Red/Unq, CI/Ω)]
-        PID --> Overlay[GPU overlays\n(Dynos / heatmaps)]
+        PID["pid-core metrics<br/>(Syn/Red/Unq, CI/Ω)"]
+        PID --> Overlay["GPU overlays<br/>(Dynos / heatmaps)"]
         Overlay --> Vis
         Overlay --> Three
     end
@@ -431,13 +431,13 @@ graph LR
     subgraph "Video Prediction (External)"
         IMG --> VP[Video Predictor Service]
         TXT --> VP
-        VP --> VIDEO[Predicted Video Clip (T frames)]
+        VP --> VIDEO["Predicted Video Clip (T frames)"]
     end
 
     subgraph "Flow Extraction"
-        VIDEO --> SAM[Segmentation (model-agnostic)]
-        VIDEO --> DEPTH[Depth (relative or metric)]
-        VIDEO --> TRACK[Tracking (model-agnostic)]
+        VIDEO --> SAM["Segmentation (model-agnostic)"]
+        VIDEO --> DEPTH["Depth (relative or metric)"]
+        VIDEO --> TRACK["Tracking (model-agnostic)"]
         
         SAM --> LIFT[2D to 3D Lifting]
         DEPTH --> LIFT
@@ -451,7 +451,7 @@ graph LR
         
         SOURCE --> EST[PID Estimator]
         TARGET --> EST
-        EST --> VIZ[PID Overlays (Splats/Mesh)]
+        EST --> VIZ["PID Overlays (Splats/Mesh)"]
     end
 ```
 
@@ -463,8 +463,8 @@ This diagram summarizes the required estimator/geometry validation loop before a
 
 ```mermaid
 flowchart TD
-    Start[Choose representation (V/L/D/A/Flow)] --> Geo[Run geometry diagnostics]
-    Geo -->|OK| Exp0[Run Experiment 0 (synthetic validation)]
+    Start["Choose representation (V/L/D/A/Flow)"] --> Geo[Run geometry diagnostics]
+    Geo -->|OK| Exp0["Run Experiment 0 (synthetic validation)"]
     Geo -->|Flags non-Euclidean / concentration| PivotGeom[Pivot representation: reduce/quantize/Flow target]
     PivotGeom --> Geo
 
@@ -509,16 +509,16 @@ This diagram summarizes the LeIsaac/Isaac Sim interoperability pattern reference
 
 ```mermaid
 graph LR
-    PLY[3DGS Splats (.ply)] --> GRUT[NVIDIA 3DGrut\nply_to_usd]
-    GRUT --> USDZ[USDZ (packaged OpenUSD)]
+    PLY["3DGS Splats (.ply)"] --> GRUT[NVIDIA 3DGrut\nply_to_usd]
+    GRUT --> USDZ["USDZ (packaged OpenUSD)"]
 
-    MESH[Collision mesh (.glb/.gltf)] --> ISAAC[Isaac Sim / LeIsaac\nUSD stage composition]
+    MESH["Collision mesh (.glb/.gltf)"] --> ISAAC[Isaac Sim / LeIsaac\nUSD stage composition]
     USDZ --> ISAAC
 
-    ISAAC --> USD[Composed background scene (.usd/.usda/.usdc)]
+    ISAAC --> USD["Composed background scene (.usd/.usda/.usdc)"]
 
     USD --> NOTE[Optional: validate alignment/colliders\nin USD tooling]
-    USD --> IMPORT[Optional: convert/import into\nPID‑Splat scene graph (planned)]
+    USD --> IMPORT["Optional: convert/import into<br/>PID‑Splat scene graph (planned)"]
 ```
 
 ---
@@ -534,23 +534,23 @@ The deterministic in-repo bridge currently provides stdio/TCP/WebSocket JSON-RPC
 ```mermaid
 graph TB
     subgraph Clients
-        UI[GUI (Tauri)]
+        UI["GUI (Tauri)"]
         LLM[Claude Code / Codex / opencode]
-        Script[Scripts (Python/Rust)]
+        Script["Scripts (Python/Rust)"]
     end
 
     subgraph ControlPlane
-        RPC[Agent Bridge\n(JSON-RPC over WebSocket)]
-        MCP[Optional MCP wrapper\n(thin adapter)]
+        RPC["Agent Bridge<br/>(JSON-RPC over WebSocket)"]
+        MCP["Optional MCP wrapper<br/>(thin adapter)"]
     end
 
     subgraph Core
-        Sim[Deterministic sim loop\n(threaded)]
-        Scene[Scene graph\n(splats+meshes+URDF)]
-        Intervene[Intervention engine\n(perturb/apply/undo/branch)]
-        Log[Run log + replay\n(artifacts + audit)]
-        PID[PID workers\n(CI/Ω/SxPID)]
-        Events[Event stream\n(state/metrics/frames)]
+        Sim["Deterministic sim loop<br/>(threaded)"]
+        Scene["Scene graph<br/>(splats+meshes+URDF)"]
+        Intervene["Intervention engine<br/>(perturb/apply/undo/branch)"]
+        Log["Run log + replay<br/>(artifacts + audit)"]
+        PID["PID workers<br/>(CI/Ω/SxPID)"]
+        Events["Event stream<br/>(state/metrics/frames)"]
     end
 
     UI --> RPC
@@ -580,16 +580,16 @@ This diagram captures the v10.1 cross-backend replay idea (`grandplan.md` §E.1)
 
 ```mermaid
 graph LR
-    Log[Run log\n(initial state + actions + interventions)] -->|Replay| R[Rapier backend]
+    Log["Run log<br/>(initial state + actions + interventions)"] -->|Replay| R[Rapier backend]
     Log -->|Replay| M[MuJoCo backend]
 
     R --> TR[State/contact trace]
     M --> TM[State/contact trace]
 
-    TR --> D[Diff + divergence metrics\n(state, contacts, success)]
+    TR --> D["Diff + divergence metrics<br/>(state, contacts, success)"]
     TM --> D
 
-    D --> Report[Sensitivity report\n(PID vs backend)]
+    D --> Report["Sensitivity report<br/>(PID vs backend)"]
 ```
 
 ---
@@ -600,20 +600,20 @@ This diagram summarizes the proposed GauSS‑MI integration (`GAUSS_MI_INTEGRATI
 
 ```mermaid
 graph TB
-    Capture[Scene capture views] --> Train[3DGS training\n(PLY/SPZ)]
+    Capture[Scene capture views] --> Train["3DGS training<br/>(PLY/SPZ)"]
     Train --> Render[Render held-out views]
-    Render --> Resid[Residuals\n(I_obs vs I_render)]
-    Resid --> UMap[SceneUncertaintyMap\n(per-Gaussian uncertainty)]
+    Render --> Resid["Residuals<br/>(I_obs vs I_render)"]
+    Resid --> UMap["SceneUncertaintyMap<br/>(per-Gaussian uncertainty)"]
 
-    UMap --> UI[UI overlay\n(color by uncertainty)]
-    UMap --> Gate[Quality gate\n(N_eff, fraction unreliable)]
-    UMap --> Wt[Optional weighting\n(weighted MI/PID)]
+    UMap --> UI["UI overlay<br/>(color by uncertainty)"]
+    UMap --> Gate["Quality gate<br/>(N_eff, fraction unreliable)"]
+    UMap --> Wt["Optional weighting<br/>(weighted MI/PID)"]
 
     Gate -->|Needs more coverage| Suggest[Suggest next viewpoints]
     Suggest --> Capture
 
-    Wt --> PID[pid-core\n(MI/CI/PID)]
-    PID --> Log[Run log artifacts\n(metric events + provenance)]
+    Wt --> PID["pid-core<br/>(MI/CI/PID)"]
+    PID --> Log["Run log artifacts<br/>(metric events + provenance)"]
 ```
 
 ---
