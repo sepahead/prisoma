@@ -1,5 +1,5 @@
 {
-  description = "pid_vla (macOS-first): reproducible dev shell for Rust + Python (uv)";
+  description = "prisoma (macOS-first): reproducible dev shell for Rust + Python (uv)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
@@ -31,7 +31,7 @@
           UV_PYTHON_DOWNLOADS = "never";
 
           shellHook = ''
-            echo "pid_vla dev shell (Nix)"
+            echo "prisoma dev shell (Nix)"
             echo "  Rust:   $(rustc --version)"
             echo "  Cargo:  $(cargo --version)"
             echo "  Python: $(python --version)"

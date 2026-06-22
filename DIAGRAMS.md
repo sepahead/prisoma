@@ -9,7 +9,7 @@
 > - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
 > - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 
-This document contains visual representations of the PID-VLA system, the PID-Splat simulation environment, and the data processing pipelines.
+This document contains visual representations of the prisoma system, the PID-Splat simulation environment, and the data processing pipelines.
 
 **Docset alignment:** These diagrams are aligned to `grandplan.md` v10.3. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1), the v10.1 execution plan (`grandplan.md` §A.7), and the ten-scientist consensus decision record (`grandplan.md` §A.8) for what exists today and what to build next.
 
@@ -421,7 +421,7 @@ graph LR
 
 The Agent Bridge is the “programmable face” of the simulator: a local control plane that exposes the same operations the GUI uses (scene editing, interventions, run control, replay, exports). It is designed to be called by scripts and LLM coding tools without introducing irreproducible “manual steps”.
 
-**External backend note:** the Agent Bridge can also act as an *adapter surface* for third‑party simulators that already expose an RL-style `reset/step` API (or their own WebSocket/pubsub control plane). In that mode, the adapter must still write PID‑VLA run‑log events so replay and analysis are identical across backends.
+**External backend note:** the Agent Bridge can also act as an *adapter surface* for third‑party simulators that already expose an RL-style `reset/step` API (or their own WebSocket/pubsub control plane). In that mode, the adapter must still write prisoma run‑log events so replay and analysis are identical across backends.
 
 The deterministic in-repo bridge currently provides stdio/TCP/WebSocket JSON-RPC smokes for status, reset/step, scene edits, deterministic interventions, `log.replay`, `log.start`/`log.stop`, and `export.rerun`; safe mode permits status/replay and logs blocked mutation, run-ending, or file-writing export requests.
 

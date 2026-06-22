@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "pid-vla"
+name = "prisoma"
 version = "0.1.0"
 description = "Wibral-group shared-exclusions PID (I^sx_∩) for VLA diagnostics"
 readme = "README.md"

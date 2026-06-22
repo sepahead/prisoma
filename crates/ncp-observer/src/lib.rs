@@ -1,7 +1,7 @@
-//! # ncp-observer — pid_vla's passive NCP tap
+//! # ncp-observer — prisoma's passive NCP tap
 //!
 //! Engram (NEST, via the Neuro-Cybernetic Protocol) becomes another `(V,L,D,A)`
-//! source for pid_vla's Partial Information Decomposition — exactly the role
+//! source for prisoma's Partial Information Decomposition — exactly the role
 //! `experiments/safe_adapter` plays for SAFE rollouts. This crate is a
 //! **read-only observer**: it subscribes to the NCP data-plane keys
 //! (`…/session/{id}/{sensor,command,observation}`) and converts each closed-loop
@@ -13,9 +13,9 @@
 //!    declaring the `(V,L,D,A)` variables, an `EmbeddingCaptured` per sample, and
 //!    a `LabelObserved` per success label.
 //!
-//! It honors pid_vla's three rules — the run log is the source of truth, the
+//! It honors prisoma's three rules — the run log is the source of truth, the
 //! observer never drives anything (the Agent Bridge stays the only control
-//! plane), and the NCP-specific mapping lives here in pid_vla, not in Engram.
+//! plane), and the NCP-specific mapping lives here in prisoma, not in Engram.
 //!
 //! ## Mapping (V, L, D, A)
 //! - **V** (vision/sensory) ← `SensorFrame` channels (all but the language

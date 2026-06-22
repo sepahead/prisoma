@@ -1,4 +1,4 @@
-# .ncp-consumer — how pid_vla pins NCP (the read-only ncp-observer tap, excluded
+# .ncp-consumer — how prisoma pins NCP (the read-only ncp-observer tap, excluded
 # from the default workspace). NCP discovers us via this file; see NCP/INTEGRATING.md.
 cargo_tag   crates/ncp-observer/Cargo.toml
 cargo_lock  crates/ncp-observer/Cargo.lock

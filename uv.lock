@@ -555,7 +555,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pid-vla"
+name = "prisoma"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

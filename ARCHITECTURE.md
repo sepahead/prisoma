@@ -117,7 +117,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 | **Physics Engine** | Object manipulation physics (fast, deterministic) | Object-object interactions, perturbations, fast iteration |
 | **Robot Sim** | Robot kinematics/dynamics, sensor simulation | Robot URDF loading, sensor data, cross-embodiment |
 
-**Important coupling rule:** if the robot and manipulated objects are simulated in different engines, robot–object contacts are **not physically meaningful** unless you implement an explicit coupling layer (co-simulation). For most PID‑VLA experiments, prefer one of:
+**Important coupling rule:** if the robot and manipulated objects are simulated in different engines, robot–object contacts are **not physically meaningful** unless you implement an explicit coupling layer (co-simulation). For most prisoma experiments, prefer one of:
 - **Single-engine contact (recommended for manipulation):** simulate robot + objects together in **MuJoCo** (benchmark-aligned) or another single backend, and use PID‑Splat only for logging/overlays.
 - **Harness bring-up (recommended for early engineering):** use the in-repo deterministic object sim for run-log/Agent Bridge/Rerun plumbing first, then add object-only Rapier or MuJoCo physics and a kinematic “end-effector proxy” for interventions/perturbations; add full robot dynamics later (see `grandplan.md` §A.7).
 - **Advanced (optional):** multi-engine “physics islands” with restricted coupling; static colliders can be duplicated, but cross-island contacts require one solver (see `grandplan.md` §E.1).
@@ -227,7 +227,7 @@ Current Image + Instruction
 
 Use this table as a qualitative capability map. Do not compare “sim2real %”, fps, or latency across platforms unless you run a matched benchmark + hardware + protocol.
 
-| Simulator | Rendering | Physics | Availability / constraints | Notes for PID‑VLA |
+| Simulator | Rendering | Physics | Availability / constraints | Notes for prisoma |
 |-----------|-----------|---------|----------------------------|------------------|
 | **MuJoCo / robosuite** | Raster (OpenGL) | MuJoCo | Cross-platform | Strong contact baseline; visuals are not photoreal by default |
 | **PyBullet** | Raster (OpenGL) | Bullet | Cross-platform | Widely used but not state-of-the-art for contacts/visuals |
@@ -242,7 +242,7 @@ Use this table as a qualitative capability map. Do not compare “sim2real %”,
 
 ### 2.2 Why Each Simulator Falls Short for VLA Diagnostics
 
-| Simulator | Limitation for PID-VLA |
+| Simulator | Limitation for prisoma |
 |-----------|------------------------|
 | **MuJoCo/robosuite** | Synthetic visuals can create sim2real gaps for vision-heavy policies unless carefully randomized/photorealistic |
 | **PyBullet** | Outdated rendering, poor visual fidelity |
@@ -515,7 +515,7 @@ SmolVLA (LeRobot) is a candidate lightweight baseline (planned integration; veri
 - **Action head / representation:** Implementation-specific; verify (continuous delta actions vs discretized tokens/bins).
 - **Inference:** May support async pipelines (verify and measure on your stack).
 
-### 8.2 Architectural Role in PID-VLA
+### 8.2 Architectural Role in prisoma
 - **Iteration Speed:** Smaller models can make the PID pipeline easier to iterate on (measure inference latency on your hardware).
 - **Control Rate:** Async inference can raise effective control rates (benchmark; depends on policy and environment).
 - **Fine-tuning:** Seamless integration with Hugging Face LeRobot datasets (SO-100, LIBERO).
@@ -526,7 +526,7 @@ SmolVLA (LeRobot) is a candidate lightweight baseline (planned integration; veri
 
 InternVLA‑A1 is a candidate **diffusion / flow-matching** VLA for stage-wise ablations because it explicitly separates “understanding”, “generation”, and “action” experts (verify details and interfaces from its paper/repo before use).
 
-### 9.1 Architectural Role in PID‑VLA (Docset v10.1)
+### 9.1 Architectural Role in prisoma (Docset v10.1)
 - **Hierarchical PID inside one model:** treat generation-expert outputs as `D_gen` (a candidate `D_explicit`) and test `(V,L;D_gen)` and `(V,D_gen;A)` under the same data/logging contract as other VLAs.
 - **Flow comparisons:** if `D_gen` yields predicted frames/latents, derive a model-side `Flow_pred` and compare to simulator-derived `Flow_gt` under matched controls (do not conflate “Flow Matching” used to generate actions with this project’s geometric `Flow_*` variables).
 - **License caution:** verify the upstream license/model card before depending on it (may be restrictive); avoid vendoring code into this MIT-licensed repo unless license compatibility is confirmed.

@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-This file is the curated release-governance overview for PID-VLA. The machine-generated
+This file is the curated release-governance overview for prisoma. The machine-generated
 direct-dependency bill of materials lives in `THIRD_PARTY_NOTICES.generated.md`
 (produced by `scripts/generate_third_party_notices.py`; CI fails on drift). Neither
 file is yet a complete *transitive* BOM — regenerate and review notices with dedicated
@@ -16,7 +16,7 @@ weights, generated assets, or 3DGS captures.
 
 ## Project License
 
-PID-VLA project code is MIT licensed. Local Rust crates declare `license = "MIT"`.
+prisoma project code is MIT licensed. Local Rust crates declare `license = "MIT"`.
 
 ## Checked Core Dependencies
 

@@ -1,4 +1,4 @@
-# Task runner for pid_vla (macOS-first; M4 Max).
+# Task runner for prisoma (macOS-first; M4 Max).
 #
 # Install just:
 #   cargo install just

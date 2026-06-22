@@ -1,4 +1,4 @@
-# PID-VLA Experimental Protocols
+# prisoma Experimental Protocols
 
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan and theoretical foundations
@@ -157,7 +157,7 @@ urdf_path = "assets/robots/franka_panda.urdf"
 | Accurate robot kinematics | `gazebo` | Industry-standard URDFs |
 | Contact-rich manipulation | `mujoco` | Strong contact solver baseline |
 
-**Coupling note (important):** if `robot.backend` and `physics.backend` differ and the robot is expected to make physical contact with simulated objects, you are in a **co-simulation** regime. Without an explicit coupling layer, robot–object contacts will not be physically meaningful. For most PID‑VLA claims, prefer:
+**Coupling note (important):** if `robot.backend` and `physics.backend` differ and the robot is expected to make physical contact with simulated objects, you are in a **co-simulation** regime. Without an explicit coupling layer, robot–object contacts will not be physically meaningful. For most prisoma claims, prefer:
 - **Single-engine contact:** robot + objects together in **MuJoCo** (benchmark-aligned), or
 - **Harness bring-up:** the in-repo deterministic object sim first, then object-only Rapier/MuJoCo with a kinematic end-effector proxy (then add a full robot backend later).
 
@@ -193,7 +193,7 @@ without changing the experimental semantics.
 
 **Safe-mode rule:** read-only Agent Bridge sessions should allow status/replay queries while logging and rejecting mutating/file-writing/lifecycle-ending requests. The in-repo stdio bridge smoke exposes this as `pid-sim-bridge-stdio --safe-mode`; `sim.status` and `log.replay` are accepted, while `sim.step`, `intervention.apply`, `log.stop`, and `export.rerun` are recorded as blocked bridge error responses. Outside safe mode, `intervention.apply` supports deterministic `set_velocity`, `translate_object`, and `set_pose` interventions, `log.stop` finalizes the run log without trailing events, and `export.rerun` converts a validated run log to a `.rrd` recording and records the generated artifact. The same JSON-RPC surface is also available over loopback TCP JSONL (`pid-sim-bridge-tcp --bind 127.0.0.1:PORT`) and loopback WebSocket (`pid-sim-bridge-ws --bind 127.0.0.1:PORT`), with the same canonical run-log emission and replay validation requirements.
 
-**External simulator backends (optional):** some simulators expose an RL-style `reset/step` surface (and may already have their own WebSocket/pubsub control plane). If you run a PID‑VLA protocol on an external simulator (e.g., Isaac stacks; emerging ML-first simulators), require a thin adapter that emits the *same* run‑log events (reset/step/actions/observations/interventions) so replay + analysis remain identical and auditable across backends.
+**External simulator backends (optional):** some simulators expose an RL-style `reset/step` surface (and may already have their own WebSocket/pubsub control plane). If you run a prisoma protocol on an external simulator (e.g., Isaac stacks; emerging ML-first simulators), require a thin adapter that emits the *same* run‑log events (reset/step/actions/observations/interventions) so replay + analysis remain identical and auditable across backends.
 
 **Backend provenance rule:** every sim-backed run should log backend, integrator, solver/contact settings, determinism settings, transport, and planned fixed-step parameters via `config_logged`; the in-repo deterministic object sim uses `deterministic_object` with a constant-velocity Euler integrator, no contact solver, `Flow_gt = pose_delta`, and a logged `constant_velocity_baseline` `flow_pred` event stream. Validation rejects mismatches between `run_started.config_hash`, `config_logged.config_hash`, and the canonical config JSON hash; summaries and manifests expose the surviving `config_hash`. Implemented local transports now cover stdio JSONL, TCP JSONL, and WebSocket JSON-RPC.
 

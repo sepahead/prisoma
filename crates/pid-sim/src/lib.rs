@@ -783,7 +783,7 @@ pub fn export_runlog_to_rerun(
     }
     let manifest = pid_runlog::manifest_for_events(run_log_uri, &events)?;
     let output_uri = output_uri.display().to_string();
-    let rec = pid_rerun::init_recording("pid_vla_bridge_export", false)?;
+    let rec = pid_rerun::init_recording("prisoma_bridge_export", false)?;
     pid_rerun::RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, Some(&manifest))?;
     pid_rerun::save_recording(&rec, &output_uri)?;
     let sha256 = pid_runlog::sha256_file(&output_uri)?;

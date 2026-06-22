@@ -7,7 +7,7 @@
 //! - `vla/embeddings`: Embedding geometry
 //! - `vla/action`: VLA control outputs
 
-/// Standard entity paths for PID-VLA visualization.
+/// Standard entity paths for prisoma visualization.
 pub struct EntityPaths;
 
 impl EntityPaths {

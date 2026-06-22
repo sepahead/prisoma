@@ -1,4 +1,4 @@
-//! `pid-rerun`: Rerun visualization adapters for PID-VLA diagnostics.
+//! `pid-rerun`: Rerun visualization adapters for prisoma diagnostics.
 //!
 //! This crate provides logging adapters to visualize:
 //! - PID metrics (redundancy, synergy, unique information) over time
@@ -29,7 +29,7 @@ use rerun::{RecordingStream, RecordingStreamBuilder};
 // Re-export rerun for convenience
 pub use rerun;
 
-/// Initialize a Rerun recording stream for PID-VLA visualization.
+/// Initialize a Rerun recording stream for prisoma visualization.
 pub fn init_recording(app_id: &str, spawn_viewer: bool) -> Result<RecordingStream> {
     let builder = RecordingStreamBuilder::new(app_id);
 

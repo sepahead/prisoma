@@ -1,9 +1,9 @@
-# PID-VLA Whole-Repo Review and To-Do List
+# prisoma Whole-Repo Review and To-Do List
 
 Date: 2026-05-09
 Last consistency pass: 2026-06-12 (see "Implementation Pass Status: 2026-06-12" below)
 
-This document records a whole-repo review of the PID-VLA repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism. The opening review has been updated after the follow-up implementation passes; older risks that were fixed are called out as fixed rather than left as current failures.
+This document records a whole-repo review of the prisoma repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism. The opening review has been updated after the follow-up implementation passes; older risks that were fixed are called out as fixed rather than left as current failures.
 
 **Docset-wide final solution:** `grandplan.md` §A.8 records the current ten-scientist consensus. The run log is the source of truth, Rerun is the Phases 1–3 diagnostic/time-machine viewer, Agent Bridge is the only control plane, and Tauri/SparkJS is the deferred Phase 4 control/editor/custom-rendering shell.
 
@@ -198,7 +198,7 @@ The reproducibility plan is now backed by run logs, validation/replay, summaries
 
 - An ignored `meshmaker/api_keys.txt` exists in the workspace. It was not read during review and should live outside the repository tree.
 - `meshmaker` is still cost-bearing external-generation tooling; main generators no longer disable the image safety checker, but upstream policy behavior and generated content still need release review.
-- `meshmaker` includes military/weapon asset prompts unrelated to the core PID-VLA diagnostics.
+- `meshmaker` includes military/weapon asset prompts unrelated to the core prisoma diagnostics.
 - `launch_swarm.sh` can spawn 10 background cloud-generation jobs with side effects and possible costs.
 
 #### Judgment
@@ -241,7 +241,7 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 3. **Quarantine or split `meshmaker/` before release.**
    - Keep it outside canonical lint/test claims unless it is cleaned up.
    - Move API keys and generated/cost-bearing workflows outside the repository tree.
-   - Remove or isolate non-core asset-generation content from PID-VLA scientific releases.
+   - Remove or isolate non-core asset-generation content from prisoma scientific releases.
 
 4. **Define the first real VLA baseline and task.**
    - Pick one lightweight baseline, one task, one label definition, and one run-log contract.

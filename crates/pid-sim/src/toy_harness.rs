@@ -483,7 +483,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("pid-vla-toy-harness-{name}-{stamp}"))
+        std::env::temp_dir().join(format!("prisoma-toy-harness-{name}-{stamp}"))
     }
 
     #[test]

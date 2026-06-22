@@ -46,7 +46,7 @@ fn main() -> Result<()> {
         );
     }
     let manifest = pid_runlog::manifest_for_path(&input)?;
-    let rec = init_recording("pid_vla_runlog", serve)?;
+    let rec = init_recording("prisoma_runlog", serve)?;
     let summary =
         RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, Some(&manifest))?;
     println!(

@@ -1,4 +1,4 @@
-# Comprehensive PID-VLA Specification
+# Comprehensive prisoma Specification
 
 > **Documentation Set Cross-Reference**: This is the master plan. See also:
 > - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
@@ -49,7 +49,7 @@
   - `WenyaoZhang/DreamVLA` (arXiv:2507.04447; world-knowledge forecasting; backbone details are not in the abstract — verify in paper/code/checkpoint)
   - `Dream-org/Dream-VLA-7B` (arXiv:2512.22615; diffusion language model backbone; repo name suggests “7B” — verify model size/config)
   - This may mitigate blocker §18.2.2 *if* the referenced weights are accessible under an acceptable license and the needed intermediates can be exported for logging.
-- Added §12.4: NeurIPS 2025 Embodied AI Research Landscape synthesis with critical analysis of community observations for PID-VLA relevance.
+- Added §12.4: NeurIPS 2025 Embodied AI Research Landscape synthesis with critical analysis of community observations for prisoma relevance.
 - Updated §7.2 with explicit claim-status boundaries (abstract-verified vs. verify-in-paper/code) and a “log your checkpoint dims” requirement; do not assume DreamVLA backbone details from this document.
 - All "DreamVLA unavailable" claims corrected throughout the document.
 - **Added 2025 paper citations to §13 References (venues/status should be verified):**
@@ -126,7 +126,7 @@
 
 **Emerging “ML‑first simulator” direction (why it matters here):**
 - Public materials around LuckyRobots/Lucky World and Sentdex joining Lucky Robots to build “the robotics simulator I wish we had” emphasize an **RL‑style surface** (`reset`/`step` + observations) exposed over a **gRPC control plane** (`LuckyEngineClient`, port 50051) with service-style request/response (WebSocket appears only as the inter-node transport in the distributed-node architecture, not the primary Python API).
-- PID‑VLA’s design should stay compatible with this ergonomic norm: keep `reset/step` primitives stable, provide a **streaming event channel** (state/metrics/frames), and keep the control plane easy to call from Python (not GUI-only).
+- prisoma’s design should stay compatible with this ergonomic norm: keep `reset/step` primitives stable, provide a **streaming event channel** (state/metrics/frames), and keep the control plane easy to call from Python (not GUI-only).
 - If you use such a simulator as a data source, treat it as an **external backend**: adapt its actions/observations/control messages into a **versioned run‑log schema** so Exp0/geometry gates and PID analyses remain identical across backends.
 - Some simulators also market “natural language scene control”; if adopted, treat it as a **compiler** that emits deterministic scene‑edit/intervention events (and log the compiler/prompt/version), not as an unlogged free‑form side channel.
 
@@ -164,7 +164,7 @@ This project’s scientific contribution is PID‑based diagnostics under contro
 2. **Synchronized capture of** `(V,L,D,A)` **representations** alongside simulator state, prompts, and labels
 3. **One control plane for both GUI and automation** so manual runs and LLM/tool-driven runs are comparable and auditable
 
-If these properties can be achieved with acceptable effort on Isaac Sim/Lab, MuJoCo, or Gazebo for the target tasks, then PID‑VLA should use those systems and focus engineering effort on the experiment harness.
+If these properties can be achieved with acceptable effort on Isaac Sim/Lab, MuJoCo, or Gazebo for the target tasks, then prisoma should use those systems and focus engineering effort on the experiment harness.
 
 #### §A.2 Why Tauri (and why SparkJS is optional)
 
@@ -312,7 +312,7 @@ Before any public binary/app release, add `license = "MIT"` to local crates or e
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                           PID-VLA UNIFIED SIMULATION ENVIRONMENT                         │
+│                           PRISOMA UNIFIED SIMULATION ENVIRONMENT                         │
 │                              (Tauri + SparkJS + Modular Physics)                         │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                          │
@@ -419,7 +419,7 @@ LeIsaac’s Marble tutorial illustrates a concrete OpenUSD bridge for Gaussian s
 3. Reference a collision mesh (e.g., a decimated `.glb`) under `/World/Xform`, align transforms so splats and mesh overlap, and configure colliders.
 4. Export a single `.usd` stage as the “background scene” for downstream task composition.
 
-This is optional in PID‑VLA: it is an interoperability path for OpenUSD ecosystems, not a requirement for the Tauri/SparkJS/Gazebo stack.
+This is optional in prisoma: it is an interoperability path for OpenUSD ecosystems, not a requirement for the Tauri/SparkJS/Gazebo stack.
 
 #### §C.2 Optional: GauSS‑MI uncertainty + active view selection (proposed; this repo)
 
@@ -505,7 +505,7 @@ class VisualForceCorrector {
 
 It is tempting to ask for “Rapier walls + MuJoCo cups” (or similar). In general, **contact-rich scenes want a single constraint solver**: mixing physics engines at the object level is not a normal feature of robotics simulators, because contacts/joints form one coupled system.
 
-For PID‑VLA, the practical options are:
+For prisoma, the practical options are:
 1. **One backend per run (recommended default):** pick Rapier for fast, instrumented iteration or MuJoCo as a contact-physics baseline. This keeps replay, attribution, and intervention semantics clean.
 2. **Cross-backend replay (recommended robustness check):** record the same initial state + action log and replay it under a different backend, then report divergence metrics (state/contacts/success). This directly tests whether a PID finding is an artifact of one simulator’s contact model.
 3. **Physics “islands” (advanced; restricted coupling):** you can simulate disjoint object groups in different engines **only if cross-island contacts are not required**. Coupling is typically one-way (e.g., a MuJoCo subscene treats the rest of the world as kinematic colliders duplicated into MuJoCo). If a MuJoCo object must collide with a wall, that wall must exist as collision geometry in MuJoCo as well—having the wall “in Rapier” does not help that contact.
@@ -846,7 +846,7 @@ class MeshEditor {
 │  3. DATA GENERATION                                                          │
 │     ├── Teleoperation: SpaceNav/keyboard → Robot Sim → Physics sync        │
 │     ├── OR scripted policies: Predefined trajectories with noise           │
-│     ├── OR RL training: PPO/SAC with PID-VLA reward shaping                │
+│     ├── OR RL training: PPO/SAC with prisoma reward shaping                │
 │     └── Domain randomization applied per-episode                            │
 │                                                                              │
 │  4. DATA RECORDING                                                           │
@@ -910,7 +910,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
 
 **v6.6 notes (3DGS Integration + Video Model Selection + Tauri/SparkJS/Gazebo Architecture):**
 
-- **Where 3DGS fits in the PID-VLA pipeline — 4 distinct roles:**
+- **Where 3DGS fits in the prisoma pipeline — 4 distinct roles:**
   | Role | What It Does | When To Use |
   |------|--------------|-------------|
   | **1. PID Visualization** | Color splats by (Syn, Red, Unq); opacity = MI magnitude | Recommended for debugging/paper figures |
@@ -932,7 +932,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   - Described as maintaining a 3D point-cloud “spatial memory” used during generation
   - Described as updating this representation over time (method details depend on the paper/implementation)
   - Described as enabling explicit camera control during generation
-  - **Relevance to PID-VLA:**
+  - **Relevance to prisoma:**
     - Alternative to WAN for spatially-consistent video generation
     - Natural integration with 3DGS visualization pipeline
     - Camera control enables systematic viewpoint variation for PID robustness testing
@@ -943,7 +943,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
   - Object grounding (focus on specific objects) and scene navigation
   - **Limited relevance:** More useful for evaluating VLA spatial understanding than for generation
 
-- **Recommended video model configuration for PID-VLA:**
+- **Recommended video model configuration for prisoma:**
   ```
   PRIMARY PIPELINE (Interactive debugging; benchmark-dependent):
   ───────────────────────────────────────────────────
@@ -1068,7 +1068,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
 - **New analysis: 3D Object Flow vs Latent Action Space Diffusion** — Addresses the question "why not diffusion on latent actions instead of 3D positional space?":
   - **3D Object Flow (Dream2Flow):** Operates on D (world model); **explicitly Euclidean** (typically \(\mathbb{R}^{3T}\) before aggregation); embodiment-agnostic; can improve estimator tractability when summarized into low‑D object-level features; useful for cross-stage failure attribution
   - **Latent Action Diffusion:** Operates on A (policy head); compact learned representation; embodiment-specific; doesn't solve the D-side estimator validity problem
-  - **For PID-VLA specifically:** 3D flow is more useful because the bottleneck is measuring information in high-dimensional D/V embeddings, not action space. 3D flow can be a “geometry escape hatch” (avoid non‑Euclidean metrics) when represented/aggregated in a way that passes the same Experiment 0 + geometry gates.
+  - **For prisoma specifically:** 3D flow is more useful because the bottleneck is measuring information in high-dimensional D/V embeddings, not action space. 3D flow can be a “geometry escape hatch” (avoid non‑Euclidean metrics) when represented/aggregated in a way that passes the same Experiment 0 + geometry gates.
   - **Both can coexist:** Use latent action diffusion in the VLA being studied, but use 3D flow as an external D validation to diagnose where failures occur
 - **Updated Hypothesis H7 context:** The choice of 3D flow over latent actions is deliberate — it enables the decomposition of failures into video→flow→execution stages, which maps directly to PID diagnostic goals
 
@@ -1140,7 +1140,7 @@ Hardware needs are workload-dependent (scene size, splat count, physics engine, 
 - **New §14.6: RoPE What-Where Entanglement Confound:** Based on Gopalakrishnan et al. (2025, arXiv:2509.10534) — which shows, on language/music/genomic sequence models (**not** VLAs), that RoPE entangles content and position — from which we **infer** the same confound applies to RoPE-based VLAs (OpenVLA, Llama-based architectures) and document it. This creates a confound where PID estimates may reflect positional structure rather than pure semantic integration. Includes 5 mitigation strategies and publication requirements.
 
 **v5.8 notes (VLA-Arena Deep Integration + Memorization/Generalization Analysis):**
-- **VLA-Arena as Primary Evaluation Framework:** Deep integration of VLA-Arena (arXiv:2512.22539) as the recommended benchmark for PID-VLA experiments (§9.7.1). VLA-Arena's 170 tasks with structured difficulty axes directly align with PID diagnostic goals.
+- **VLA-Arena as Primary Evaluation Framework:** Deep integration of VLA-Arena (arXiv:2512.22539) as the recommended benchmark for prisoma experiments (§9.7.1). VLA-Arena's 170 tasks with structured difficulty axes directly align with PID diagnostic goals.
 - **New Testable Hypothesis — Memorization vs Generalization (§3.6):** VLA-Arena's key finding that VLAs exhibit "memorization over generalization" motivates a new, falsifiable hypothesis: PID signatures (specifically, the stability of synergy under input perturbations) may distinguish memorized from generalized task performance. This is treated as a candidate sub-hypothesis requiring empirical validation, not an a priori claim.
 - **Perturbation-Based PID Robustness Protocol (§9.7.2):** VLA-Arena's orthogonal V0-V4 (visual) and W0-W4 (language) perturbation axes provide a principled framework for testing whether PID estimates are robust to controlled distribution shifts. Asymmetric robustness patterns (V-perturbations affecting PID differently than L-perturbations) would provide evidence for modality-specific integration failures.
 - **Expanded Confound Analysis (§14.5):** Added VLA-Arena-derived confounds including task difficulty stratification (L0/L1/L2), perturbation-induced distribution shift, memorization/generalization confound, modality asymmetry confound, and compositional failure confound. These must be controlled before attributing PID patterns to "integration quality."
@@ -2073,7 +2073,7 @@ Dream2Flow reports that, given an initial image and task instruction, video gene
 - If object flow quality (as a measurable intermediate) does not correlate with PID estimates, the conceptual link between PID and Dream2Flow's paradigm is weak.
 - If embodiment has no effect on the synergy-failure relationship, the "embodiment gap" confound is negligible.
 
-**Relevance to PID-VLA:**
+**Relevance to prisoma:**
 This hypothesis does NOT require implementing Dream2Flow. Rather, it motivates:
 1. Using `A*` (optimal action) as target when possible (reduces embodiment confound)
 2. Adding embodiment/robot type as a covariate in failure analysis
@@ -2380,7 +2380,7 @@ This document uses “WAN” to refer to the open Wan video foundation model fam
 
 Action conditioning is not a single switch; it is a design choice about *what you condition on* (robot actions, object trajectories, constraints) and what the predictor is expected to produce (video, flow, latent plans). Treat it as a separate engineering project from PID estimation.
 
-| Approach | Related work | PID‑VLA relevance |
+| Approach | Related work | prisoma relevance |
 |----------|--------------|------------------|
 | **Embodiment adaptation + action recovery** | DreamGen (arXiv:2505.12705) | Generates synthetic videos (“neural trajectories”) and recovers pseudo‑actions via latent action model or IDM; useful context, not a direct PID estimator |
 | **Unified creation/editing conditioning** | VACE (arXiv:2503.07598) | Provides a structured conditioning interface; may be useful for constructing controlled counterfactual video edits (verify suitability for robot‑state conditioning) |
@@ -2399,7 +2399,7 @@ Policy latents and video‑model latents are not naturally aligned. For PID, pre
 
 #### Concern 3: Computational Cost (Often Offline‑Only)
 
-Video generation is often expensive (seconds→minutes per clip, depending on model/hardware/settings). For PID‑VLA, assume **offline** unless you have measured an interactive loop on your hardware. Use caching and precompute Flow targets for analysis runs.
+Video generation is often expensive (seconds→minutes per clip, depending on model/hardware/settings). For prisoma, assume **offline** unless you have measured an interactive loop on your hardware. Use caching and precompute Flow targets for analysis runs.
 
 #### Concern 4: Circular Reasoning Risk (STILL VALID BUT MANAGEABLE)
 
@@ -2724,7 +2724,7 @@ Selected references on transformer embedding geometry (use as motivation; do not
 | Measures ID of token embeddings across model sizes and during training; reports a rapid ID drop early in training | [Measuring ID, arXiv:2503.02142](https://arxiv.org/abs/2503.02142) |
 | Layerwise probing of video world models reports a sharp intermediate-depth **"Physics Emergence Zone"**: physical variables (speed/acceleration early; motion *direction* only at the zone) become decodable, peak shortly after it, and **degrade toward output layers**; direction is encoded in a high-dimensional population structure with circular geometry | [Interpreting Physics in Video World Models, arXiv:2602.07050](https://arxiv.org/abs/2602.07050) (added v10.2; verify protocols before transplanting layer choices) |
 
-**Implication for PID-VLA**: The intrinsic dimension of VLA embeddings is **layer-dependent**, **training-dependent**, and likely **much lower** than d=4096. However, the exact ID for VLA-specific embeddings is **not yet measured** and should be part of Experiment 0 diagnostics.
+**Implication for prisoma**: The intrinsic dimension of VLA embeddings is **layer-dependent**, **training-dependent**, and likely **much lower** than d=4096. However, the exact ID for VLA-specific embeddings is **not yet measured** and should be part of Experiment 0 diagnostics.
 
 **Hook-point prior (v10.2):** the Physics Emergence Zone finding (arXiv:2602.07050) converts "treat `D_hidden[k]` layer choice as an experimental variable" into a concrete, cheap procedure: before committing to a hook layer, run layerwise linear probes for a few physical quantities (object speed/direction/contact) on the candidate backbone and hook `D` near the probe-accuracy peak — *then* run the geometry gate there. Two corollaries worth preregistering: (a) late layers are expected to be action-formatted rather than world-informative, so a near-output `D_hidden` that shows high `I(D;A)` but low physics decodability is measuring output formatting, not a world model; (b) the reported *circular* population geometry for direction is a concrete instance of non-Euclidean local structure in exactly the representations this project analyzes — empirical support for running §16 geometry diagnostics rather than assuming flatness.
 
@@ -2748,7 +2748,7 @@ This is a contingency plan if (a) a target VLA is unavailable or too expensive t
 
 ### 7.7.1 Motivation
 
-If **DreamVLA weights were previously unavailable** (§18.2.2): as of Jan 2026, the DreamVLA and Dream‑VL/Dream‑VLA papers state a release, and this document references candidate model repositories `WenyaoZhang/DreamVLA` (arXiv:2507.04447) and `Dream-org/Dream-VLA-7B` (arXiv:2512.22615). **Verify actual weight availability, model size/config, and licensing at time of use.** If running the full models is too heavy for rapid iteration on your hardware, consider training a small, explicitly documented model solely for **pipeline validation**. This is not required for the scientific core of PID‑VLA unless you plan to publish the model and its training data.
+If **DreamVLA weights were previously unavailable** (§18.2.2): as of Jan 2026, the DreamVLA and Dream‑VL/Dream‑VLA papers state a release, and this document references candidate model repositories `WenyaoZhang/DreamVLA` (arXiv:2507.04447) and `Dream-org/Dream-VLA-7B` (arXiv:2512.22615). **Verify actual weight availability, model size/config, and licensing at time of use.** If running the full models is too heavy for rapid iteration on your hardware, consider training a small, explicitly documented model solely for **pipeline validation**. This is not required for the scientific core of prisoma unless you plan to publish the model and its training data.
 
 ### 7.7.2 Design Goals (what matters for this project)
 
@@ -2764,7 +2764,7 @@ Any “small custom VLA” used here should:
 - Prefer supervised imitation on a small task suite first; do not jump to RL until the estimator gates and logging are stable.
 - Record *everything* needed to reproduce training (data hashes, code commit, hyperparameters); otherwise the model is not a credible scientific object.
 
-### 7.7.4 Advantages for PID‑VLA
+### 7.7.4 Advantages for prisoma
 
 - Faster iteration on the end-to-end experiment harness (logging, interventions, replay, diagnostics).
 - Cleaner ablations (fewer moving parts) if you keep encoders frozen and only change fusion/projection.
@@ -2987,7 +2987,7 @@ Interpretation rules (scientific hygiene):
 If the representation is plausibly **manifold-valued** (curved support where Euclidean distances are a poor proxy for neighborhood volumes), consider manifold-aware MI estimators as **separate baseline pipelines** for MI-only screening:
 - Marx & Fischer (2021, arXiv:2110.13883) propose **geodesic kNN** MI estimation on a *learned data manifold* (manifold-learning framing: geodesics are approximated by kNN-graph shortest paths; the paper does **not** assume a known Riemannian metric tensor with closed-form geodesics). Applying it to the *analytically* Riemannian/hyperbolic embeddings discussed below is this project's extension, not a result of the paper.
 
-Scope and limitations for PID-VLA:
+Scope and limitations for prisoma:
 - This can support **Shannon-invariant screening** (CI/O-information-style terms) in curved settings.
 - It does **not** automatically provide `I^sx_∩`, because the disjunction-neighborhood construction would need to be re-derived for Riemannian/hyperbolic spaces (volume forms and product-neighborhood cancellations are nontrivial).
 
@@ -3017,7 +3017,7 @@ What is solid (mathematics, broadly standard):
 - **Conformal maps preserve causal structure** (light cones) in Lorentzian geometry; they preserve “possibility of influence” but not distances.
 - **PID impossibility results exist:** it is correct that Matthias–Makkeh–Wibral–Gutknecht (2025, arXiv:2512.16662) establish strong inconsistency/impossibility statements that force trade-offs among desirable PID axioms.
 
-What is plausible background but not an actionable method for PID-VLA (needs careful scoping):
+What is plausible background but not an actionable method for prisoma (needs careful scoping):
 - **Rigidity-theorem analogy:** comparing “axiom rigidity” (PID) to “symmetry/curvature rigidity” (Lorentzian conformal geometry) can be a useful intuition pump, but it does not produce estimator-level guarantees for `I^sx_∩` on embeddings.
 - **Lorentz (hyperboloid) model link:** emphasis on Lorentzian signatures is indirectly relevant because modern **hyperbolic embedding** methods often use the Lorentz model, but that is a representational choice, not a proof about PID atoms.
 
@@ -3025,7 +3025,7 @@ What is speculative / not currently supported for this project (treat as hypothe
 - **Direct identification of PID atoms with timelike/null/spacelike geometry:** mapping {Red, Unq, Syn} onto Lorentzian causal classes is metaphorical; PID is defined on probability distributions, not spacetime intervals.
 - **“Synergy requires spacelike separation”** or similar causal-geometry necessity claims: synergy/redundancy are statistical/functional properties and can arise in many causal graph configurations; Lorentzian geometry is not a general constraint in VLA inference.
 - **Claims about Wibral-lab using Lorentzian PSD fits + “spectral PID” as a core method:** may be true in some neuroscience contexts, but this is **not cited to a specific Wibral-group PID paper** and is not part of the validated `I^sx_∩` estimator line (Makkeh 2021; Ehrlich 2024; Gutknecht 2025).
-- **Consciousness interpretations (redundancy↔unconscious, synergy↔conscious):** outside scope for PID-VLA; treat as speculative neuroscience interpretation, not an engineering objective.
+- **Consciousness interpretations (redundancy↔unconscious, synergy↔conscious):** outside scope for prisoma; treat as speculative neuroscience interpretation, not an engineering objective.
 
 How we use it safely:
 - Keep it as *conceptual background* and as motivation to (i) treat invariances carefully, and (ii) explicitly measure geometry/intrinsic dimension before trusting kNN at scale.
@@ -3530,7 +3530,7 @@ Observing these null results is **valid scientific outcome** that would redirect
 
 ### 9.7.7 Dream2Flow Stage Taxonomy as PID Diagnostic Framework (v10.0)
 
-Dream2Flow (arXiv:2512.24766) motivates a methodology that is directly useful for PID: if you can expose intermediate artifacts (generated video, extracted flow, executed trajectory), you can avoid misattributing “end‑to‑end failure” to the wrong mechanism. PID‑VLA adopts the same *stage-wise logging* idea whenever a Dream2Flow‑style bridge is used.
+Dream2Flow (arXiv:2512.24766) motivates a methodology that is directly useful for PID: if you can expose intermediate artifacts (generated video, extracted flow, executed trajectory), you can avoid misattributing “end‑to‑end failure” to the wrong mechanism. prisoma adopts the same *stage-wise logging* idea whenever a Dream2Flow‑style bridge is used.
 
 **Stage-wise logging schema (required when using Flow-as-Bridge):**
 
@@ -3606,7 +3606,7 @@ Understanding the different roles of "world models" is critical for proper integ
 
 ### 10.1.2 Genie-like environment generators (optional; out of scope)
 
-Some work explores generative models that produce **interactive environments** (e.g., “Genie”-style systems). They may be useful for synthetic data generation or RL fine-tuning, but they are not required for PID‑VLA and introduce additional confounds (the generator’s physics validity becomes part of the experimental condition).
+Some work explores generative models that produce **interactive environments** (e.g., “Genie”-style systems). They may be useful for synthetic data generation or RL fine-tuning, but they are not required for prisoma and introduce additional confounds (the generator’s physics validity becomes part of the experimental condition).
 
 If such a generator is used, treat it as another **versioned experimental variable** with the same provenance requirements (pinned revision, logged prompts/actions, and explicit “no oracle” framing).
 
@@ -3640,11 +3640,11 @@ Wan (arXiv:2503.20314) is described as a diffusion‑transformer family for vide
 
 ### 10.2.4 Limitations (Revised)
 
-**Base model limitations (relevance to PID‑VLA):**
+**Base model limitations (relevance to prisoma):**
 - Not trained specifically on robot manipulation (domain mismatch is likely).
 - Not natively a closed‑loop, action‑conditioned simulator; extensions may support motion guidance or structured conditioning.
 - Latent spaces are not aligned with VLA representations; avoid direct latent comparisons unless you justify the variable definition.
-- Use in PID‑VLA is primarily as a *reference predictor* and as a generator of artifacts for Flow reconstruction (stage‑wise logged; §9.7.7).
+- Use in prisoma is primarily as a *reference predictor* and as a generator of artifacts for Flow reconstruction (stage‑wise logged; §9.7.7).
 
 ### 10.2.5 Conditioning Approaches (Pseudocode‑Level)
 
@@ -3711,7 +3711,7 @@ Current Frame → Shared Vision Encoder → V
 | Stereo vision | True geometry, accurate | Requires calibrated stereo pair |
 | RGB-D sensor | Direct depth | Limited range, sensor cost |
 
-**Integration with PID-VLA:**
+**Integration with prisoma:**
 ```
 Stereo Pair → Disparity Estimation → 3D Point Cloud → VLA Visual Encoder
                                                     ↓
@@ -3758,7 +3758,7 @@ This is a genuine connection to PID diagnostics:
 
 4. **Avoid over-interpretation:** Even if DKT improves depth, this does not imply “physics understanding”. Treat it as a statistical prior that can reduce a confound in PID analysis.
 
-**When to Use DKT in PID-VLA Pipeline:**
+**When to Use DKT in prisoma Pipeline:**
 | Scenario | Recommendation |
 |----------|----------------|
 | Tasks involving glass/plastic | Use DKT for V preprocessing |
@@ -3856,7 +3856,7 @@ When deployed in reality:
 
 ### 10.7.3 Generative Priors as a Testable Premise (Not an Assumption)
 
-Large generative models (video predictors, depth estimators, simulators with learned dynamics, etc.) may encode priors that resemble aspects of physical dynamics. PID‑VLA treats this as a **testable premise**, not a fact: “plausible video” is not the same as physically correct state transitions.
+Large generative models (video predictors, depth estimators, simulators with learned dynamics, etc.) may encode priors that resemble aspects of physical dynamics. prisoma treats this as a **testable premise**, not a fact: “plausible video” is not the same as physically correct state transitions.
 
 **Implication for PID (conservative):**
 1. If a VLA (or auxiliary predictor) encodes useful dynamics priors, predicted‑future quality (or flow plausibility) should correlate with task success under preregistered metrics and persist under controlled perturbations.
@@ -3937,7 +3937,7 @@ Sensors     ─────────(measure)──────→ Process �
 Total input lag (report measured): data path + render path + OS scheduling jitter
 ```
 
-### 10.8.3 Why This Architecture for PID-VLA
+### 10.8.3 Why This Architecture for prisoma
 
 | Benefit | Explanation |
 |---------|-------------|
@@ -3994,7 +3994,7 @@ Hardware requirements are benchmark-dependent and should not be stated as fixed 
 
 ### 10.8.7 PixelVLA Integration with Headless Gazebo + Tauri
 
-Pixel-level prompting is treated as a **controlled intervention**, not a UI-only feature. Some VLAs support multimodal prompting with visual inputs (e.g., PixelVLA arXiv:2511.01571). For PID‑VLA, the critical requirements are:
+Pixel-level prompting is treated as a **controlled intervention**, not a UI-only feature. Some VLAs support multimodal prompting with visual inputs (e.g., PixelVLA arXiv:2511.01571). For prisoma, the critical requirements are:
 - visual prompt actions are routed through the **Agent Bridge** control plane (so they are scriptable and logged),
 - prompt semantics are preregistered (is the prompt part of V, or a separate source P?),
 - and any model-specific tensor shapes/keys are isolated behind a per‑model adapter (do not bake unverified internals into the simulator spec).
@@ -4019,9 +4019,9 @@ await agentBridge.call("prompt.set", {
 
 ### 10.9.1 Overview
 
-**Dream2Flow** (Dharmarajan et al. 2025, arXiv:2512.24766) introduces a paradigm that is conceptually relevant to PID-VLA: using **3D object flow** as an intermediate representation to bridge video generation models and robotic manipulation.
+**Dream2Flow** (Dharmarajan et al. 2025, arXiv:2512.24766) introduces a paradigm that is conceptually relevant to prisoma: using **3D object flow** as an intermediate representation to bridge video generation models and robotic manipulation.
 
-**Key idea (paper-motivated; validate on your distribution):** video predictors can often synthesize plausible *object motion* even when robot–object interaction details are wrong. Dream2Flow proposes using **3D object flow** as an explicit intermediate so “world dynamics” and “embodiment/control” can fail separately, which is exactly the separation PID‑VLA needs for hypothesis H7 and confound control (§9.7.7, §14.5.7).
+**Key idea (paper-motivated; validate on your distribution):** video predictors can often synthesize plausible *object motion* even when robot–object interaction details are wrong. Dream2Flow proposes using **3D object flow** as an explicit intermediate so “world dynamics” and “embodiment/control” can fail separately, which is exactly the separation prisoma needs for hypothesis H7 and confound control (§9.7.7, §14.5.7).
 
 ### 10.9.2 Architecture and Pipeline
 
@@ -4051,7 +4051,7 @@ await agentBridge.call("prompt.set", {
 
 ### 10.9.3 Empirical Findings (How to Use Them Safely)
 
-Dream2Flow reports simulation and real-world results and motivates 3D object flow as a general interface for converting video predictions into manipulation objectives. PID‑VLA does **not** assume Dream2Flow’s measured success rates transfer to other predictors/trackers/robots; instead, it adopts the *stage separation* as an instrumentation requirement (§9.7.7).
+Dream2Flow reports simulation and real-world results and motivates 3D object flow as a general interface for converting video predictions into manipulation objectives. prisoma does **not** assume Dream2Flow’s measured success rates transfer to other predictors/trackers/robots; instead, it adopts the *stage separation* as an instrumentation requirement (§9.7.7).
 
 **Requirement:** when using Flow‑as‑Bridge (H7), log stage outcomes (S1/S2/S3) and intermediate artifacts, and stratify PID analyses by these labels before interpreting any “world model quality” claims.
 
@@ -4067,7 +4067,7 @@ Dream2Flow reports simulation and real-world results and motivates 3D object flo
 
 **Key comparison:** VLA's "D" (dream/world model state) is an **implicit** representation learned end-to-end. Dream2Flow's 3D object flow is an **explicit** intermediate representation extracted from a separate video model.
 
-### 10.9.5 Implications for PID-VLA
+### 10.9.5 Implications for prisoma
 
 #### Implication 1: Decoupling World Model Quality from Action Execution
 
@@ -4094,7 +4094,7 @@ This is related to the GWM comparison approach (§10.3) but uses video-derived f
 
 #### Implication 3: Flow as Reward Signal for PID-Informed RL
 
-Dream2Flow formulates manipulation as object trajectory tracking and can optimize or learn controllers against a flow‑tracking objective. For PID‑VLA Aim 3 (RL fine-tuning), treat flow‑tracking rewards as a baseline objective; PID‑derived rewards are optional and require careful estimator/gradient surrogates.
+Dream2Flow formulates manipulation as object trajectory tracking and can optimize or learn controllers against a flow‑tracking objective. For prisoma Aim 3 (RL fine-tuning), treat flow‑tracking rewards as a baseline objective; PID‑derived rewards are optional and require careful estimator/gradient surrogates.
 
 ```python
 # Dream2Flow-style: reward from object flow
@@ -4252,7 +4252,7 @@ This section describes an ambitious but tractable integration that combines:
 
 ### 10.10.3 Why Prefer Local/Open Predictors Over API‑Only Services
 
-Dream2Flow can be run with either API‑hosted video predictors or locally runnable/open‑weights predictors. For PID‑VLA, the core scientific need is **reproducibility + artifact logging**, not allegiance to a specific vendor/model.
+Dream2Flow can be run with either API‑hosted video predictors or locally runnable/open‑weights predictors. For prisoma, the core scientific need is **reproducibility + artifact logging**, not allegiance to a specific vendor/model.
 
 | Dimension | API‑only services | Local/open predictors (when available) |
 |----------|--------------------|----------------------------------------|
@@ -4822,7 +4822,7 @@ If the examples below diverge from the repo files, **prefer the repo files**. (T
 
 ```toml
 [project]
-name = "pid-vla"
+name = "prisoma"
 version = "0.1.0"
 description = "Wibral-group shared-exclusions PID (I^sx_∩) for VLA diagnostics"
 readme = "README.md"
@@ -4868,7 +4868,7 @@ The PID‑Splat simulator is intended to be **interactive** (GUI) *and* **progra
 
 **Interoperability note (ML‑first simulators):**
 - Many training-oriented simulators expose a `reset/step` API plus a streaming channel for observations/state. Treat this as a *compatibility target* for the Agent Bridge: keep the RL-style subset small, stable, and easy to call from Python.
-- If a simulator already has its own WebSocket pub/sub + service layer (e.g., LuckyRobots’ documented node architecture, or dimos / DimensionalOS’s own LCM typed‑stream modules plus `McpServer`/`McpClient` agent RPC — Apache‑2.0, checked 2026‑06‑13), prefer a thin **adapter** that maps its messages into PID‑VLA’s run‑log events, rather than forking the analysis stack per simulator.
+- If a simulator already has its own WebSocket pub/sub + service layer (e.g., LuckyRobots’ documented node architecture, or dimos / DimensionalOS’s own LCM typed‑stream modules plus `McpServer`/`McpClient` agent RPC — Apache‑2.0, checked 2026‑06‑13), prefer a thin **adapter** that maps its messages into prisoma’s run‑log events, rather than forking the analysis stack per simulator.
 - **Read-only external `(V,L,D,A)` sources (optional; out of critical path).** An external embodied system can be made *another `(V,L,D,A)` source* via a passive read-only tap that emits the offline-harness contract + canonical run-log events and **drives nothing** (the Agent Bridge stays the only control plane). `crates/ncp-observer` is the worked example: it taps an Engram/NEST session over the Neuro-Cybernetic Protocol (Zenoh). This is **optional** and **not on the M5 critical path** — the canonical `(V,L,D,A)` producer is `experiments/safe_adapter` (§10.10.13), and the pure-PID stack has no Engram/NCP/Zenoh dependency (`ncp-observer` is excluded from the default cargo workspace). Such a tap is exploratory-only until it meets the M5 contract (gate-passing artifacts, honest provenance — `seq`-aligned D, non-fabricated `L`, split/episode/label structure for §14.1.1). See `NCP_DEV_PROMPT.md` and `crates/ncp-observer/README.md`.
 
 **Async/concurrency sketch (Rust-side):**
@@ -4948,21 +4948,21 @@ Can PID profiles predict how well a policy will transfer across:
 
 ## 12.4 NeurIPS 2025 Embodied AI Research Landscape (Community Observations)
 
-This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Robotics tracks, based on Ralf Römer's conference field notes (Dec 2025, @ralfroemer99). These are **personal observations from a PhD researcher attending the conference**, not authoritative consensus statements. Each observation is evaluated critically for PID-VLA relevance, and claims should be validated against primary sources before depending on them.
+This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Robotics tracks, based on Ralf Römer's conference field notes (Dec 2025, @ralfroemer99). These are **personal observations from a PhD researcher attending the conference**, not authoritative consensus statements. Each observation is evaluated critically for prisoma relevance, and claims should be validated against primary sources before depending on them.
 
 ### 12.4.1 Continual Learning Gap
 
 **Community observation:** The ability to learn from experience is still largely missing in embodied agents. Continual deep learning (avoiding forgetting and plasticity loss) does not yet work well.
 
-**PID-VLA relevance:** This is orthogonal to PID diagnostics. PID measures information integration at inference time, not learning dynamics. However, if continual learning were solved, PID could diagnose whether newly learned representations integrate properly with prior knowledge (synergy between old and new task representations).
+**prisoma relevance:** This is orthogonal to PID diagnostics. PID measures information integration at inference time, not learning dynamics. However, if continual learning were solved, PID could diagnose whether newly learned representations integrate properly with prior knowledge (synergy between old and new task representations).
 
-**Implication:** PID-VLA focuses on diagnosing *deployed* policies, not training dynamics. Continual learning remains an upstream challenge.
+**Implication:** prisoma focuses on diagnosing *deployed* policies, not training dynamics. Continual learning remains an upstream challenge.
 
 ### 12.4.2 Imitation Learning Efficiency Limits
 
 **Community observation:** Learning from teleoperation data (imitation learning) is too inefficient to achieve long-term general autonomy on its own. Even for LLMs, supervised fine-tuning (imitation) on all internet data has plateaued, motivating RL-based approaches.
 
-**PID-VLA relevance:** This supports the project's diagnostic framing: if imitation alone cannot achieve reliable autonomy, understanding *why* policies fail becomes critical. PID can help identify whether failures stem from:
+**prisoma relevance:** This supports the project's diagnostic framing: if imitation alone cannot achieve reliable autonomy, understanding *why* policies fail becomes critical. PID can help identify whether failures stem from:
 - Insufficient V-L integration (missing grounding)
 - World model mismatch (D diverges from reality)
 - Compositional failure (H5: temporal synergy degradation)
@@ -4973,7 +4973,7 @@ This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Ro
 
 **Community observation:** RL for flow matching is being actively studied (e.g., ReinFlow, CQN-AS), but sample efficiency remains a challenge. For RL fine-tuning of VLAs on hard real-world tasks, a strong base policy and targeted exploration will be crucial.
 
-**PID-VLA relevance:** This directly supports Aim 3 (RL fine-tuning with PID-derived signals). Key implications:
+**prisoma relevance:** This directly supports Aim 3 (RL fine-tuning with PID-derived signals). Key implications:
 - **Sample efficiency:** PID-derived rewards (if validated) could improve sample efficiency by providing dense integration-quality signals, complementing sparse task rewards.
 - **Strong base policy requirement:** Validates the approach of using pretrained VLAs (OpenVLA, DreamVLA) as the base for PID analysis rather than training from scratch.
 - **Targeted exploration:** PID signatures could potentially guide exploration toward states where V-D integration is weak (high uncertainty regions).
@@ -4989,7 +4989,7 @@ This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Ro
 
 **Community observation:** World models have become quite powerful (e.g., MindJourney, PlayerOne) and are starting to become real-time capable. In autonomous driving, they already work well at larger scale, but things are harder for manipulation due to contact physics.
 
-**PID-VLA relevance:** This validates the project's focus on manipulation as a challenging testbed. The "contact challenge" maps directly to:
+**prisoma relevance:** This validates the project's focus on manipulation as a challenging testbed. The "contact challenge" maps directly to:
 - **H7 (Flow-as-Bridge):** Dream2Flow-style 3D object flow can capture rigid-body motion but struggles with contact-rich deformables.
 - **World model uses in robotics (per community):**
   1. **Data generation for policy training** (BOOM, Newt, RoboScape)
@@ -5004,7 +5004,7 @@ This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Ro
 
 **Community observation:** Learning from videos is progressing (e.g., EgoBridge, Object-centric 3D Motion Field, KungfuBot), and it seems to be easier for locomotion than for manipulation, where the embodiment gap is often bigger.
 
-**PID-VLA relevance:** This directly supports H7 (§3.6.6) and the Dream2Flow integration (§10.9):
+**prisoma relevance:** This directly supports H7 (§3.6.6) and the Dream2Flow integration (§10.9):
 - **Embodiment gap as confound (§14.5.7):** PID on (V,D,A) may conflate world model quality with action-execution failures.
 - **Video-to-flow paradigm:** Extracting object-level motion from video models can provide embodiment-agnostic intermediate representations.
 
@@ -5014,7 +5014,7 @@ This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Ro
 
 **Community observation:** Inference speed is not really a bottleneck anymore for VLAs thanks to new tokenization (e.g., BEAST), caching (e.g., VLA-Cache, EfficientVLA), and fast-sampling methods (e.g., Two-Steps Diffusion Policy, MeanFlow).
 
-**PID-VLA relevance:** This has mixed implications:
+**prisoma relevance:** This has mixed implications:
 - **Positive:** Fast VLA inference enables more rollouts per compute budget, improving PID sample sizes.
 - **Neutral for PID:** PID estimation cost is dominated by kNN computation, not VLA forward passes. Real-time PID remains challenging regardless of VLA speed (see §12.2 Q6).
 
@@ -5024,7 +5024,7 @@ This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Ro
 
 **Community observation:** VLAs still fail in many situations. Offline safety alignment (e.g., SafeVLA) and combining online failure detection (e.g., FIPER, SAFE) with data-efficient human-in-the-loop learning (e.g., Compliant Residual DAgger, APO) hold promise for improving VLA safety.
 
-**PID-VLA relevance:** This strongly supports Use Case 5 (§3.4, Real-Time Intervention Selection) and H6 (Safety-aware integration):
+**prisoma relevance:** This strongly supports Use Case 5 (§3.4, Real-Time Intervention Selection) and H6 (Safety-aware integration):
 - **Failure detection:** PID/CI features could complement existing failure detectors (FIPER, SAFE) by providing interpretable *why* signals.
 - **Human-in-the-loop:** PID-derived signals could prioritize which rollouts need human review (high uncertainty × low synergy).
 - **SafeVLA context:** Offline safety alignment methods could potentially incorporate PID-derived constraints (e.g., "avoid states with extreme negative synergy", validated under controls).
@@ -5035,16 +5035,16 @@ This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Ro
 
 **Community observation:** It's still an open question to what extent other sensing modalities are needed and how to best fuse them, but there are promising works in this direction (e.g., Force VLA, Touch-in-the-Wild).
 
-**PID-VLA relevance:** This suggests future extensions beyond V-L-D-A:
+**prisoma relevance:** This suggests future extensions beyond V-L-D-A:
 - **Proprioception (P):** Already implicit in some VLA state representations.
 - **Force/torque (F):** Contact-rich manipulation may require explicit force sensing; PID could decompose Syn(V,F;A).
 - **Tactile (T):** Touch-in-the-Wild suggests tactile features for fine manipulation.
 
-**Implication for PID-VLA:** The current V-L-D-A decomposition focuses on vision and language. Force/tactile sensing would introduce new sources, increasing PID atom count (§5.2). The hierarchical pairwise approach (§5.3 Option 3) becomes even more important with additional modalities.
+**Implication for prisoma:** The current V-L-D-A decomposition focuses on vision and language. Force/tactile sensing would introduce new sources, increasing PID atom count (§5.2). The hierarchical pairwise approach (§5.3 Option 3) becomes even more important with additional modalities.
 
-### 12.4.9 Synthesis: NeurIPS 2025 Takeaways for PID-VLA Roadmap
+### 12.4.9 Synthesis: NeurIPS 2025 Takeaways for prisoma Roadmap
 
-| NeurIPS Observation | PID-VLA Impact | Action Item |
+| NeurIPS Observation | prisoma Impact | Action Item |
 |---------------------|----------------|-------------|
 | Continual learning gap | Orthogonal | None (focus on deployed policies) |
 | Imitation efficiency limits | Supports diagnostic focus | Validates "why failures occur" framing |
@@ -5056,7 +5056,7 @@ This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Ro
 | Safety/failure detection active | Supports Use Case 5 | Add SAFE/FIPER as baselines |
 | Multimodal sensing open | Future direction | Consider force/tactile extensions post-v1.0 |
 
-**Critical note:** These observations come from a community synthesis (NeurIPS 2025 field notes) rather than peer-reviewed meta-analysis. Treat specific claims (e.g., "contact is harder than locomotion") as empirical priors requiring validation on PID-VLA's target benchmarks.
+**Critical note:** These observations come from a community synthesis (NeurIPS 2025 field notes) rather than peer-reviewed meta-analysis. Treat specific claims (e.g., "contact is harder than locomotion") as empirical priors requiring validation on prisoma's target benchmarks.
 
 ## 12.5 External Source Review (2026-06-12): Integrated vs Ruled Out
 
@@ -5160,13 +5160,13 @@ A batch of external signals (X posts, vendor pages, repos, papers) was reviewed 
 
 ## 13.2.1 VLA Benchmarks and Evaluation (v5.8)
 
-### VLA-Arena (Primary Recommended Benchmark for PID-VLA)
+### VLA-Arena (Primary Recommended Benchmark for prisoma)
 
 **Citation:** Zhang et al. (2025). *VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models.* arXiv:2512.22539.
 
 **Why VLA-Arena is recommended for PID experiments:**
 
-| Property | VLA-Arena Value | PID-VLA Benefit |
+| Property | VLA-Arena Value | prisoma Benefit |
 |----------|-----------------|-----------------|
 | **Structured difficulty** | L0/L1/L2 levels | Enables memorization vs generalization testing (H4) |
 | **Orthogonal perturbation axes** | V0-V4 (visual), W0-W4 (language) | Decoupled testing of V and L integration robustness |
@@ -5213,7 +5213,7 @@ VLA-Arena Task Organization:
 | **VLA-Arena-M** | Medium-scale fine-tuning set | Primary experiments (Experiments 1-4) |
 | **VLA-Arena-L** | Large-scale fine-tuning set | Full-scale validation, publication-ready results |
 
-**Key Findings Relevant to PID-VLA:**
+**Key Findings Relevant to prisoma:**
 
 1. **"Memorization over generalization"**: VLAs show strong tendency to memorize training tasks rather than learning generalizable skills. This motivates H4 (§3.6.2).
 
@@ -5421,7 +5421,7 @@ VLA-Arena Task Organization:
 
 # 14. Confounding Factors Analysis: Proving and Disproving the Hypotheses
 
-This section addresses how confounding factors could be studied and removed to rigorously prove or disprove the core hypotheses of PID-VLA. Grant reviewers will scrutinize whether observed correlations reflect genuine causal relationships or are artifacts of confounding variables.
+This section addresses how confounding factors could be studied and removed to rigorously prove or disprove the core hypotheses of prisoma. Grant reviewers will scrutinize whether observed correlations reflect genuine causal relationships or are artifacts of confounding variables.
 
 ## 14.1 Core Hypotheses and Their Falsifiability
 
@@ -5830,7 +5830,7 @@ When computing PID on VLA variables `(V, D, A)`, we implicitly assume that failu
 | **Physical execution** | Correct A command → wrong outcome | PID looks normal, task still fails | Robot/environment mismatch |
 
 **Dream2Flow empirical evidence (qualitative; verify numbers in the paper if you need them):**
-Dream2Flow reports that stage-wise success can be substantially higher than end-to-end success, highlighting that failures arise in **multiple decoupled stages** and that errors can compound and interact. For PID‑VLA, treat this as a requirement to **log and analyze stage outcomes explicitly** rather than attributing all failures to “integration quality”.
+Dream2Flow reports that stage-wise success can be substantially higher than end-to-end success, highlighting that failures arise in **multiple decoupled stages** and that errors can compound and interact. For prisoma, treat this as a requirement to **log and analyze stage outcomes explicitly** rather than attributing all failures to “integration quality”.
 
 #### 14.5.7.2 Why This Confounds PID Analysis
 
@@ -6413,7 +6413,7 @@ A practical “shortcut distortion” diagnostic is to compare Euclidean distanc
 | **Autoencoders (VAE)** | Learned nonlinear projection | Changes the quantity; requires re-validation |
 | **Hyperbolic embeddings** | Hierarchical / tree-like structure | Non-Euclidean metric; would require a new MI/`I^sx_∩` estimator (not drop-in) |
 
-**Recommendation for PID-VLA:**
+**Recommendation for prisoma:**
 1. **First:** Try PCA with high variance retention (≥95%) + Experiment 0 re-validation
 2. **If PCA fails:** Use random projections / feature hashing (preserves ambient Euclidean distances; not a geodesic fix) + re-validation
 3. **If random projection fails:** Consider Isomap + re-validation, or accept that kNN-based PID is invalid
@@ -6659,9 +6659,9 @@ Heuristic thresholds (e.g., “δ_rel < 0.1”) only make sense in terms of \(δ
 
 ### 16.7.2 What Literature Uses δ For (and How to Use It Here)
 
-[arXiv:2512.20926](https://arxiv.org/abs/2512.20926) uses δ-hyperbolicity, ultrametricity, and neighbor-joining tree fits to probe hierarchical structure in embedding spaces. Their quantitative values depend on the metric, normalization, sampling scheme, and preprocessing; for PID‑VLA, treat this paper as a **method template** and recompute the statistics on your own embeddings rather than transplanting numbers.
+[arXiv:2512.20926](https://arxiv.org/abs/2512.20926) uses δ-hyperbolicity, ultrametricity, and neighbor-joining tree fits to probe hierarchical structure in embedding spaces. Their quantitative values depend on the metric, normalization, sampling scheme, and preprocessing; for prisoma, treat this paper as a **method template** and recompute the statistics on your own embeddings rather than transplanting numbers.
 
-**Implication for PID‑VLA (careful version):**
+**Implication for prisoma (careful version):**
 - If \(δ_rel\) is very small, the embedding distances behave in a strongly tree‑like way. This flags a regime where the **Euclidean/Chebyshev volume logic** underlying the validated continuous `I^sx_∩` estimator is not currently justified.
 - In that regime, prefer **Shannon invariants (MI-only)**, **quantization → discrete PID**, or **Flow-as-Bridge** rather than interpreting continuous PID atoms on raw embeddings.
 
@@ -6689,7 +6689,7 @@ HYPERBOLICITY DECISION TREE
 
 ### 16.7.4 Do You Need to Train a Hyperbolic Embedding Model? (v5.7)
 
-**Short answer:** Usually NO for PID-VLA. Here's the decision framework:
+**Short answer:** Usually NO for prisoma. Here's the decision framework:
 
 | Scenario | Train Hyperbolic Model? | Recommendation |
 |----------|------------------------|----------------|
@@ -6718,7 +6718,7 @@ HYPERBOLICITY DECISION TREE
 3. **For SAE analysis**: SAEs operate in Euclidean space
 4. **For full `I^sx_∩`**: The L∞ estimator is Euclidean; hyperbolic `I^sx_∩` doesn't exist yet
 
-**Practical recommendation for PID-VLA:**
+**Practical recommendation for prisoma:**
 ```
 1. Extract embeddings from pre-trained VLA (OpenVLA, PixelVLA, etc.)
 2. Compute δ-hyperbolicity
@@ -6869,7 +6869,7 @@ This subsection is a cautionary note: architecture differences can change anisot
 | **δ-hyperbolicity** | [arXiv:2512.20926](https://arxiv.org/abs/2512.20926) | Paper reports lower δ / more hierarchical structure in some modern models vs older baselines (verify the exact numbers and sampling method) |
 | **Brain alignment** | [arXiv:2502.14671](https://arxiv.org/html/2502.14671v1) | Paper reports layer-wise differences in brain alignment (verify dataset/metric) |
 | **Hyperbolic LLMs** | [HELM](https://arxiv.org/abs/2505.24722) | Hyperbolic LLM variants; improvements are benchmark-dependent and need replication |
-### 16.10.3 What to Do in PID‑VLA (Instead of Assuming)
+### 16.10.3 What to Do in prisoma (Instead of Assuming)
 
 For any candidate VLA (small-transformer-backed or Llama‑backed):
 1. Measure geometry **per layer and per representation** (ID, distance concentration, δ_rel) on the embeddings you actually plan to analyze.
@@ -6935,7 +6935,7 @@ Some limitations are fundamental to kNN-based estimation on manifolds:
 
 3. **Non-compact manifolds:** If the manifold is unbounded or has holes, geodesic distances can be undefined or infinite.
 
-**Implication for PID-VLA:** Accept that there may be regimes where no kNN-based estimator works reliably. In such cases:
+**Implication for prisoma:** Accept that there may be regimes where no kNN-based estimator works reliably. In such cases:
 - Use Shannon invariants (CI, O-information) as the primary diagnostic
 - Report kNN-based `I^sx_∩` with explicit caveats
 - Consider neural MI estimators (MINE, etc.) as cross-checks
@@ -6944,7 +6944,7 @@ Some limitations are fundamental to kNN-based estimation on manifolds:
 
 # 17. Training, Compute, and Data Requirements Analysis
 
-This section provides a comprehensive, critical analysis of all components in the PID-VLA project that require training, with compute/data requirements and measurement-first guidance on obtaining or generating the necessary data.
+This section provides a comprehensive, critical analysis of all components in the prisoma project that require training, with compute/data requirements and measurement-first guidance on obtaining or generating the necessary data.
 
 ## 17.1 Executive Summary: Training Requirements Classification
 
@@ -7052,9 +7052,9 @@ This section provides a comprehensive, critical analysis of all components in th
 
 ### 17.4.2 Full VLA Pre-training (Extreme Compute)
 
-**When Needed:** Only if training VLA from scratch (not recommended for PID-VLA project).
+**When Needed:** Only if training VLA from scratch (not recommended for prisoma project).
 
-**Recommendation (scope discipline):** Use pre-trained VLAs. Full pre-training is out of scope for PID‑VLA unless the study explicitly targets training dynamics. If you do pre-train, report measured compute, data, and costs for your exact setup and treat it as a separate project with its own reproducibility package.
+**Recommendation (scope discipline):** Use pre-trained VLAs. Full pre-training is out of scope for prisoma unless the study explicitly targets training dynamics. If you do pre-train, report measured compute, data, and costs for your exact setup and treat it as a separate project with its own reproducibility package.
 
 ### 17.4.3 Moondream-Inspired Small VLA (Alternative to DreamVLA)
 
@@ -7215,14 +7215,14 @@ Treat environment generators as an optional, separate track. Availability and ca
 
 ### 17.9.1 GRM (General Reward Model — Robo-Dopamine)
 
-**Scope note:** Training large process reward models is typically data- and compute-intensive and is out of scope for PID‑VLA. Use pre-trained weights as a baseline only if they are available under an acceptable license.
+**Scope note:** Training large process reward models is typically data- and compute-intensive and is out of scope for prisoma. Use pre-trained weights as a baseline only if they are available under an acceptable license.
 
 **Data Source for Reproduction:**
 - The GRM paper uses diverse robot manipulation videos
 - Collecting a multi-thousand-hour dataset is a major data engineering effort (the arXiv abstract mentions 3,400+ hours)
 - Alternative: Use pre-trained GRM weights if released
 
-**For PID-VLA (Baseline Use Only):**
+**For prisoma (Baseline Use Only):**
 - Use pre-trained GRM for failure prediction baseline
 - Do NOT train GRM from scratch (out of scope)
 
@@ -7401,7 +7401,7 @@ This stage uses three model *classes*: segmentation, point tracking, and depth. 
 
 ### 17.17.2 Video Prediction (Local or API)
 
-Video prediction is typically the dominant compute in a Dream2Flow‑style pipeline and is treated as **offline** for PID‑VLA (unless you have verified real‑time capability on your hardware).
+Video prediction is typically the dominant compute in a Dream2Flow‑style pipeline and is treated as **offline** for prisoma (unless you have verified real‑time capability on your hardware).
 
 Model choice (and whether inference is local or API‑hosted) is an **experimental variable**; do not assume any particular latency/cost/quality.
 
@@ -8092,7 +8092,7 @@ GPU kernels for kNN/KSG/PID are plausible but easy to get subtly wrong (precisio
 
 **Status (v7.0):** Not implemented here.
 
-CoreML (and similar deployment runtimes) are relevant only once the project includes a committed inference stack. For PID‑VLA, the scientific bottleneck is estimator validity + experiment design, not a specific inference runtime.
+CoreML (and similar deployment runtimes) are relevant only once the project includes a committed inference stack. For prisoma, the scientific bottleneck is estimator validity + experiment design, not a specific inference runtime.
 
 ## B.6 Nix Configuration for Reproducibility
 
@@ -8133,7 +8133,7 @@ Earlier drafts embedded large “kitchen sink” Nix flakes and task runners ins
 | **6.1** | Jan 2026 | **Dream2Flow Integration + Embodiment-Agnostic Analysis:** (1) Dream2Flow (arXiv:2512.24766) integration as related paradigm for 3D object flow extraction. (2) New §10.9: Dream2Flow and Video-to-Flow Paradigm. (3) New Hypothesis H7: 3D object flow as embodiment-agnostic intermediate. (4) New §14.5.7: Embodiment gap confound. (5) Updated §9.7: Dream2Flow failure taxonomy. |
 | **6.2** | Jan 2026 | **Unified Architecture: Dream2Flow + Video Predictors + PID + Gaussian Splatting:** (1) New §10.10: complete integration stack. (2) Treated video prediction as plug‑in (local or API) with measurement‑first logging/caching (no hard‑coded cost/latency). (3) Segmentation/tracking/depth model classes for 3D Flow reconstruction. (4) PID analysis at staged intervention points. (5) Gaussian splat visualization concept. (6) Added §17.17 measurement-first integration requirements. |
 | **6.3** | Jan 2026 | **Manifold-Geometry Integration + VLA Compatibility Matrix:** (1) New §10.10.12: Manifold geometry per pipeline stage. (2) Key insight: 3D flow is low-dim Euclidean — bypasses manifold issues. (3) New §10.10.13: VLA integration matrix. (4) Updated vision-model placeholders (segmentation/tracking/depth; versions vary). |
-| **6.4** | Jan 2026 | **VLM→World Model Transition + 3D Flow vs Latent Action Analysis:** (1) Documented paradigm shift from VLM-based VLAs (Gen 1: OpenVLA, RT-2) to World Model-based (Gen 2: Dream2Flow, DreamVLA, Motus). (2) Analyzed 3D Object Flow vs Latent Action Space Diffusion: 3D flow operates on D (world model) enabling PID validity; latent action diffusion operates on A (policy) and doesn't solve D-side estimation. (3) For PID-VLA, 3D flow serves as "geometry escape hatch." (4) Both approaches can coexist. |
+| **6.4** | Jan 2026 | **VLM→World Model Transition + 3D Flow vs Latent Action Analysis:** (1) Documented paradigm shift from VLM-based VLAs (Gen 1: OpenVLA, RT-2) to World Model-based (Gen 2: Dream2Flow, DreamVLA, Motus). (2) Analyzed 3D Object Flow vs Latent Action Space Diffusion: 3D flow operates on D (world model) enabling PID validity; latent action diffusion operates on A (policy) and doesn't solve D-side estimation. (3) For prisoma, 3D flow serves as "geometry escape hatch." (4) Both approaches can coexist. |
 | **6.5** | Jan 2026 | **Hierarchical 3-Way PID for Dream2Flow Analysis (with v6.5.1 corrections):** (1) Hierarchical Pairwise PID (§5.3) maps to Dream2Flow stages: `Syn(V,D_wan;Flow)`, `Syn(V,Flow;A)`. (2) **CORRECTED:** Execution-stage PID removed ("Sim" was undefined). (3) **CORRECTED:** 3D flow dimensionality properly specified — full representation is 3NT (can be 100s-1000s dims); "d≈6-30" only valid for aggregated single-object statistics. (4) **CORRECTED:** v5.5 (geometric validity) vs curse-of-d (statistical reliability) are separate issues; low-d Euclidean addresses both, high-d Euclidean only violates curse-of-d. (5) **CORRECTED:** "Bridge variable" claim removed — disjunction neighborhood doesn't rescue high-d sources; V requires PCA→256 regardless of Flow dimension. (6) Experiment 0 must validate mixed-dimension joint estimation. (7) Latent action diffusion remains complementary (policy) not competing (diagnostic). |
 | **6.6** | Jan 2026 | **3DGS Integration + Video Model Selection + Tauri/SparkJS/Gazebo Architecture:** (1) Defined 4 roles for 3DGS in pipeline: PID visualization, spatial failure localization, GWM representation, and spatial‑memory‑style context. (2) Compared candidate predictor families (Wan, Spatia) and optional acceleration methods (treat all speedups as benchmark‑dependent). (3) Integrated Tauri+SparkJS+Gazebo architecture diagram with external Video/Flow service placement. (4) Standardized 3DGS‑PID visualization encoding (R=Syn, G=Red, B=Unq(V), opacity=MI, size=uncertainty). (5) Updated implementation priority and hardware guidance as benchmark‑dependent targets. |
 | **6.7 FINAL** | Jan 2026 | **Unified Splat-First Simulation Environment — Complete Architecture:** (1) **Critical comparison with competitors** (§A): Analysis vs Isaac Sim, Omniverse, MuJoCo, Gazebo, SplatSim, DISCOVERSE (benchmark required; avoid cross-task “sim2real %” comparisons). (2) **Complete system architecture** (§B): Tauri+SparkJS+Modular Physics stack diagram with PEGS-style dual Gaussian-Particle representation. (3) **Asset pipeline** (§C): PLY/SPZ/SPLAT/KSPLAT/SOG/GLB/URDF support with COLMAP→SparkJS workflow. (4) **PEGS-style physics** (§D): Rust implementation of particle-Gaussian binding with visual force correction. (5) **FOCI collision detection** (§E): Gaussian overlap integral for splat-splat collision + hybrid mesh approach + splat raycasting. (6) **Environment simulation** (§F): SparkJS Dyno-based weather/lighting/domain randomization. (7) **Camera system** (§G): Virtual cameras with raycast depth, Zenoh streaming, click-to-place. (8) **Real-time editing** (§H): Splat selection (box/raycast), transform, delete, clone + mesh collision adjustment. (9) **Sim2Real strategy** (§I): Multi-layer approach with measurement/ablation plan (avoid pre-committed transfer percentages). (10) **Data collection pipeline** (§J): Workflow from scene setup to RLDS/HDF5/Zarr export. (11) **VLA setup analysis** (§K): Gap analysis of open-source VLA simulation stacks. (12) **Hardware requirements** (§L): Footprint claims are hardware/config-dependent; benchmark for your deployment. |

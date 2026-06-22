@@ -1,8 +1,8 @@
-# cargo-deny — supply-chain gate for the pid_vla workspace.
+# cargo-deny — supply-chain gate for the prisoma workspace.
 # Run locally with `cargo deny check`; CI runs it via cargo-deny-action.
 #
 # Modelled on the canonical pid-rs/deny.toml (the pid-rs submodule's own gate) and the
-# NCP deny.toml — pid_vla's `ncp-observer` crate git-depends on NCP + Zenoh, so this
+# NCP deny.toml — prisoma's `ncp-observer` crate git-depends on NCP + Zenoh, so this
 # allowlist is the union that covers both the core estimator tree and the NCP/Zenoh
 # TLS stack. Default behaviour is DENY: anything not explicitly allowed below fails.
 #

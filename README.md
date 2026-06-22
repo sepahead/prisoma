@@ -1,4 +1,4 @@
-# PID-VLA
+# prisoma
 
 > **Rust PID estimators + Python bindings live in [`pid-rs`](https://github.com/sepahead/pid-rs) — the single source of truth.**
 > `pid-core`, `pid-runlog`, and the `pid-python` (`pid_core_rs`) bindings are **not** vendored here;
@@ -24,7 +24,7 @@
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-PID‑VLA is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls, with local attribution methods treated as baselines/triangulation probes. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
+prisoma is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies using **Partial Information Decomposition (PID)** (shared‑exclusions `I^sx_∩`) and related information‑theoretic controls, with local attribution methods treated as baselines/triangulation probes. The project is **gate‑driven**: do not interpret PID atoms on real embeddings until the estimator + geometry gates pass.
 
 ## Current Status & What To Do, In Order (v10.3, 2026-06-13)
 
@@ -184,9 +184,9 @@ Final 10-step build path:
 
 ```bibtex
 @software{prisoma,
-  title = {PID-VLA: Partial Information Decomposition for Vision-Language-Action Models},
+  title = {Prisoma: Partial Information Decomposition for Vision-Language-Action Models},
   year = {2026},
-  url = {https://github.com/your-org/pid-vla}
+  url = {https://github.com/sepahead/prisoma}
 }
 ```
 

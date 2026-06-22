@@ -1,4 +1,4 @@
-//! VLA Demo: Demonstrate PID-VLA visualization with synthetic data.
+//! VLA Demo: Demonstrate prisoma visualization with synthetic data.
 //!
 //! This binary:
 //! 1. Generates synthetic VLA episode data
@@ -22,7 +22,7 @@ use rerun::RecordingStreamBuilder;
 use std::env;
 
 fn main() -> Result<()> {
-    println!("=== PID-VLA Demo with Rerun Visualization ===\n");
+    println!("=== prisoma Demo with Rerun Visualization ===\n");
 
     // Parse args
     let args: Vec<String> = env::args().collect();
@@ -49,10 +49,10 @@ fn main() -> Result<()> {
     println!("Initializing Rerun...");
     let rec = if save_path.is_some() {
         // Use buffered mode when saving to file
-        RecordingStreamBuilder::new("pid_vla_demo").buffered()?
+        RecordingStreamBuilder::new("prisoma_demo").buffered()?
     } else {
         // Spawn viewer for interactive use
-        RecordingStreamBuilder::new("pid_vla_demo").spawn()?
+        RecordingStreamBuilder::new("prisoma_demo").spawn()?
     };
 
     // Create loggers

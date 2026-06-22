@@ -1,4 +1,4 @@
-# PID‑VLA UI/UX Specification (Docset v10.3)
+# prisoma UI/UX Specification (Docset v10.3)
 
 This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the v10.1 `README.md` engineering plan.
 
@@ -61,7 +61,7 @@ Purpose: select a run, inspect provenance, open viewer/compare, export artifacts
 **ASCII sketch (attempt A)**
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ PID‑VLA ─ Runs                                              [Import] [New]   │
+│ prisoma ─ Runs                                              [Import] [New]   │
 ├───────┬──────────────────────────────────────────────────────┬───────────────┤
 │ NAV   │ Search: [__________]  Filters: Exp ▾ Model ▾ Backend ▾ │ RUN DETAILS  │
 │ Runs  │                                                      │ ┌───────────┐ │
@@ -104,7 +104,7 @@ Purpose: select a run, inspect provenance, open viewer/compare, export artifacts
     "Selected run details panel shows provenance (hash/revision) and buttons: Open Viewer, Compare, Export.",
     "Design is offline-first: shows local run logs / imports; no cloud dashboards."
   ],
-  "prompt_seed": "High-fidelity product UI mockup of a cross-platform desktop app called PID-VLA. Dark theme, clean typography, high contrast. Left sidebar navigation: Runs, Viewer, Compare, Capture, Settings. Main content is a Run Library: search bar and filter chips (Experiment, Model, Physics backend, Date, Outcome). A table of runs with columns Run ID, Experiment, Model, Physics, Date, Outcome. Right-hand details panel for selected run showing config hash/revision, artifact badges (Flow_gt, PID metrics), and buttons Open Viewer, Open Compare, Export. Minimalistic, modern, realistic spacing, legible text.",
+  "prompt_seed": "High-fidelity product UI mockup of a cross-platform desktop app called prisoma. Dark theme, clean typography, high contrast. Left sidebar navigation: Runs, Viewer, Compare, Capture, Settings. Main content is a Run Library: search bar and filter chips (Experiment, Model, Physics backend, Date, Outcome). A table of runs with columns Run ID, Experiment, Model, Physics, Date, Outcome. Right-hand details panel for selected run showing config hash/revision, artifact badges (Flow_gt, PID metrics), and buttons Open Viewer, Open Compare, Export. Minimalistic, modern, realistic spacing, legible text.",
   "negative_prompt": "low resolution, blurry, illegible text, mobile UI, browser UI, neon, clutter, random charts without labels",
   "image": {"width": 1600, "height": 1000},
   "score_threshold": 9.0,
@@ -164,7 +164,7 @@ Purpose: expose local control plane status and make the UI obviously scriptable.
     "Shows safe-mode defaults (read-only external sessions) and capability toggles.",
     "Consistent visual style with the rest of the app."
   ],
-  "prompt_seed": "High-fidelity desktop app settings panel titled 'Agent Bridge' for PID-VLA. Dark theme. Shows status (running), local WebSocket endpoint ws://127.0.0.1:9123, an auth token field with a Copy button, a list of connected clients (UI, script, llm tools), Safe Mode toggle (ON) with note 'external default: read-only', capability toggles (scene.edit, run.control, export; network disabled), and a small table of recent RPC calls with request_id and actor. Clean and readable.",
+  "prompt_seed": "High-fidelity desktop app settings panel titled 'Agent Bridge' for prisoma. Dark theme. Shows status (running), local WebSocket endpoint ws://127.0.0.1:9123, an auth token field with a Copy button, a list of connected clients (UI, script, llm tools), Safe Mode toggle (ON) with note 'external default: read-only', capability toggles (scene.edit, run.control, export; network disabled), and a small table of recent RPC calls with request_id and actor. Clean and readable.",
   "negative_prompt": "terminal screenshot, code editor, mobile settings screen",
   "image": {"width": 1400, "height": 900},
   "score_threshold": 9.0,
@@ -194,7 +194,7 @@ Purpose: replay a run deterministically, inspect events, overlays, and metrics, 
 **ASCII sketch (attempt A)**
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ PID‑VLA Viewer  Run: #42  [⏮] [⏯] [⏭] speed:1.0x  Overlays ▾  Export ▾       │
+│ prisoma Viewer  Run: #42  [⏮] [⏯] [⏭] speed:1.0x  Overlays ▾  Export ▾       │
 ├───────┬──────────────────────────────────────────────────────┬───────────────┤
 │ Scene │                                                      │ Inspector     │
 │ ▸ obj │   ┌──────────────────────── 3D VIEW ───────────────┐ │ Selected: cup │
@@ -238,7 +238,7 @@ Purpose: replay a run deterministically, inspect events, overlays, and metrics, 
     "A clear call-to-action for branching from a replay checkpoint (e.g., 'Branch from here').",
     "Design emphasizes offline replay mode (no live streaming implied)."
   ],
-  "prompt_seed": "High-fidelity product UI mockup of a cross-platform desktop app called PID-VLA in Viewer (Replay) mode. Dark theme, modern and minimal. Top toolbar: Play/Pause, Step, speed dropdown, overlay toggles, Export. Center is a large 3D viewport placeholder showing splats + mesh robot with a subtle PID overlay. Always-visible legend: R=Syn+ G=Red B=Unq(V). Bottom has a timeline scrubber with event markers and small strip charts for Syn/Red/Unq over time. Right side has an Inspector + Event Log listing interventions with actor type and request id. Include a prominent 'Branch from here' button near the timeline. Crisp layout, readable text, realistic spacing.",
+  "prompt_seed": "High-fidelity product UI mockup of a cross-platform desktop app called prisoma in Viewer (Replay) mode. Dark theme, modern and minimal. Top toolbar: Play/Pause, Step, speed dropdown, overlay toggles, Export. Center is a large 3D viewport placeholder showing splats + mesh robot with a subtle PID overlay. Always-visible legend: R=Syn+ G=Red B=Unq(V). Bottom has a timeline scrubber with event markers and small strip charts for Syn/Red/Unq over time. Right side has an Inspector + Event Log listing interventions with actor type and request id. Include a prominent 'Branch from here' button near the timeline. Crisp layout, readable text, realistic spacing.",
   "negative_prompt": "mobile UI, web browser chrome, tiny illegible labels, messy rainbow colors, fantasy sci-fi UI",
   "image": {"width": 1800, "height": 1100},
   "score_threshold": 9.0,
@@ -299,7 +299,7 @@ Purpose: compare two runs (often Rapier vs MuJoCo replay) and quantify divergenc
     "Shared timeline scrubber and a divergence summary panel (pose/contact/success).",
     "Design is consistent with Viewer screen styling and emphasizes reproducible comparison."
   ],
-  "prompt_seed": "High-fidelity product UI mockup of PID-VLA in Compare mode. Dark theme. Top bar shows Run A (Rapier) vs Run B (MuJoCo) with Sync enabled. Two large synchronized 3D viewports side-by-side, each labeled with backend and run id. Right-side panel titled Divergence Summary with metrics like pose delta, contact mismatch, success mismatch, and a small divergence chart. Bottom shared timeline scrubber with markers and a divergence plot. Clean, professional, readable typography.",
+  "prompt_seed": "High-fidelity product UI mockup of prisoma in Compare mode. Dark theme. Top bar shows Run A (Rapier) vs Run B (MuJoCo) with Sync enabled. Two large synchronized 3D viewports side-by-side, each labeled with backend and run id. Right-side panel titled Divergence Summary with metrics like pose delta, contact mismatch, success mismatch, and a small divergence chart. Bottom shared timeline scrubber with markers and a divergence plot. Clean, professional, readable typography.",
   "negative_prompt": "split-screen video editor, mobile UI, gaming HUD, clutter",
   "image": {"width": 1800, "height": 1100},
   "score_threshold": 9.0,
@@ -360,7 +360,7 @@ Purpose: treat 3DGS reconstruction quality as a confound control (`grandplan.md`
     "A stats panel shows N_eff and fraction unreliable; export actions are present.",
     "Design communicates this is optional and diagnostic (not a required runtime dependency)."
   ],
-  "prompt_seed": "High-fidelity product UI mockup of PID-VLA in a Capture/Uncertainty mode labeled 'GauSS-MI (Optional)'. Dark theme. Left/center large 3D viewport showing a gaussian-splat scene with an uncertainty heat overlay and a clear legend (low to high uncertainty). Right panel lists 'Suggested next viewpoints' with 3-5 camera candidates and an estimated information gain score for each, with a button 'Send plan to Agent Bridge'. Another panel shows uncertainty stats including N_eff and fraction unreliable, plus Export buttons for SceneUncertaintyMap. Clean, scientific tool aesthetic, readable text.",
+  "prompt_seed": "High-fidelity product UI mockup of prisoma in a Capture/Uncertainty mode labeled 'GauSS-MI (Optional)'. Dark theme. Left/center large 3D viewport showing a gaussian-splat scene with an uncertainty heat overlay and a clear legend (low to high uncertainty). Right panel lists 'Suggested next viewpoints' with 3-5 camera candidates and an estimated information gain score for each, with a button 'Send plan to Agent Bridge'. Another panel shows uncertainty stats including N_eff and fraction unreliable, plus Export buttons for SceneUncertaintyMap. Clean, scientific tool aesthetic, readable text.",
   "negative_prompt": "medical UI, finance dashboard, illegible labels, noisy gradients",
   "image": {"width": 1800, "height": 1100},
   "score_threshold": 9.0,

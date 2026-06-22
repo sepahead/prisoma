@@ -87,7 +87,7 @@ result-*
 report_gen.py
 
 # Meshmaker is quarantined out of the canonical repo (see meshmaker/README.md).
-# It is cost-bearing external asset-generation tooling unrelated to the PID-VLA
+# It is cost-bearing external asset-generation tooling unrelated to the prisoma
 # scientific core; only the tombstone README is tracked. Local files are kept on
 # disk (untracked), so nothing is deleted by the quarantine.
 meshmaker/*

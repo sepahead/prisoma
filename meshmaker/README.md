@@ -1,8 +1,8 @@
-# meshmaker — QUARANTINED (not part of the canonical PID-VLA repo)
+# meshmaker — QUARANTINED (not part of the canonical prisoma repo)
 
 This directory held cost-bearing, external asset-generation tooling (3D mesh /
 asset generation via paid cloud APIs, batch/swarm launchers, and associated
-prompts). It is **not** part of the PID-VLA scientific core — the estimators, run
+prompts). It is **not** part of the prisoma scientific core — the estimators, run
 log, bridge, sim, harnesses, and experiments — and has been **quarantined out of
 version control**.
 
@@ -25,7 +25,7 @@ P0 item 3) flagged this tooling as:
   cloud jobs);
 - a secret-handling risk (`api_keys.txt` in the working tree);
 - containing asset prompts unrelated to — and potentially distracting from — the
-  PID-VLA diagnostics;
+  prisoma diagnostics;
 
 and recommended isolating it from the canonical project and from all lint / test /
 release claims. (`grandplan.md` §A.8 already records that meshmaker is not on the

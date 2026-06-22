@@ -1,4 +1,4 @@
-//! PID-VLA Viewer: Simple Rerun visualization launcher.
+//! prisoma Viewer: Simple Rerun visualization launcher.
 //!
 //! Usage:
 //!   cargo run -p pid-rerun --bin pid-viewer

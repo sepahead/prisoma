@@ -1,4 +1,4 @@
-# Pre-commit hooks for pid_vla. Lightweight: secret scanning only.
+# Pre-commit hooks for prisoma. Lightweight: secret scanning only.
 # Install once with `pip install pre-commit && pre-commit install`.
 #
 # This hook blocks commits that would INTRODUCE secrets (API keys, tokens, private
@@ -7,7 +7,7 @@
 #
 # The `pid-rs/` git submodule and the vendored `.external/repos/*` trees are excluded:
 # they are owned/scanned upstream and pre-commit only sees staged files in this repo
-# anyway, but the explicit exclude keeps the scan fast and scoped to pid_vla's own code.
+# anyway, but the explicit exclude keeps the scan fast and scoped to prisoma's own code.
 repos:
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.21.2
