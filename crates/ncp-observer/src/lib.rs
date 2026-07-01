@@ -21,7 +21,12 @@
 //! - **V** (vision/sensory) ← `SensorFrame` channels (all but the language
 //!   channel), flattened.
 //! - **L** (language/instruction) ← a named `SensorFrame` channel (default
-//!   `instruction`); zeros if absent.
+//!   `instruction`); an **empty** vector if absent (stamped `l_source =
+//!   "absent_zeroed"`). NB: absent-L is emitted as a zero-length vector, *not* a
+//!   fixed-dim zero vector — a session with **no** language channel therefore
+//!   cannot yet be run through `pid-offline-harness` (which requires a nonempty,
+//!   consistent-dim L axis). A fixed-dim zero backfill is tracked future work
+//!   (NCP_DEV_PROMPT Gap 2); until then this crate stays exploratory-only.
 //! - **D** (dynamics / internal world-model) ← `ObservationFrame` record-port
 //!   readouts — the neural state *before* the motor head, the "internal
 //!   simulation" the PID(V,D;A) probe targets.
@@ -43,9 +48,10 @@
 //! Every emitted sample carries two provenance markers so a degenerate axis is
 //! never silently presented as real data:
 //! - `l_source` = `"channel"` when the language channel was present, or
-//!   `"absent_zeroed"` when `L` is a fabricated all-zero vector (Gap 2). The
-//!   offline harness additionally fails its geometry gate on any all-constant
-//!   axis, so a zeroed `L` cannot pass unflagged.
+//!   `"absent_zeroed"` when `L` is absent and emitted as an empty vector (Gap 2 —
+//!   a fixed-dim zero backfill so the artifact runs through `pid-offline-harness`
+//!   is future work). The offline harness additionally fails its geometry gate on
+//!   any all-constant axis, so a zeroed `L` cannot pass unflagged.
 //! - `d_source` = `"seq"` (exact alignment), `"recency_fallback"` (the publisher
 //!   sent `obs.seq == 0`, so `D` is the most-recent readout, not the driving
 //!   one — Gap 1), or `"absent"` (no `D` readout yet).
@@ -53,6 +59,7 @@
 use ncp_core::{ChannelValue, CommandFrame, ObservationFrame, SensorFrame};
 use pid_runlog::{
     Actor, ActorType, EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus,
+    RUN_LOG_SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -108,16 +115,33 @@ impl Default for Mapping {
     }
 }
 
-fn flatten_except(channels: &BTreeMap<String, ChannelValue>, except: Option<&str>) -> Vec<f64> {
+fn flatten_except(channels: &BTreeMap<String, ChannelValue>, except: &[&str]) -> Vec<f64> {
     let mut out = Vec::new();
     // BTreeMap iterates in sorted key order → deterministic concatenation.
     for (name, cv) in channels {
-        if Some(name.as_str()) == except {
+        if except.contains(&name.as_str()) {
             continue;
         }
         out.extend_from_slice(&cv.data);
     }
     out
+}
+
+/// Cap on the number of in-flight partial samples and unmatched D readouts kept
+/// in memory. A long-running tap can accumulate `seq`s that never complete (a
+/// sensor with no matching command, or vice-versa) or observations whose tick
+/// never arrives; without a bound these `BTreeMap`s grow without limit. When the
+/// cap is exceeded the lowest (oldest) `seq` is evicted — stale by construction,
+/// since real ticks complete within a few frames.
+const MAX_INFLIGHT: usize = 4096;
+
+/// Append a run-log event, surfacing (rather than silently swallowing) a write
+/// failure. The run log is the source of truth, so a dropped event is a real
+/// integrity loss and must at least be reported on stderr — never `let _ = `.
+fn log_append(w: &mut RunLogWriter<BufWriter<File>>, ev: &RunLogEvent) {
+    if let Err(e) = w.append(ev) {
+        eprintln!("[ncp-observer] run-log append failed (event dropped): {e}");
+    }
 }
 
 /// Accumulates NCP frames into `(V,L,D,A)` samples, joining V↔A on `seq`.
@@ -145,9 +169,10 @@ struct Partial {
     v: Option<Vec<f64>>,
     l: Option<Vec<f64>>,
     /// Whether the language channel was actually present in the `SensorFrame`. When
-    /// `false`, `l` is a fabricated all-zero vector (the `unwrap_or_default()` below),
-    /// which must be stamped as such in the sample's `l_source` provenance so a
-    /// downstream consumer can exclude it from L-atoms (NCP_DEV_PROMPT Gap 2).
+    /// `false`, `l` is an **empty** vector (`unwrap_or_default()` yields `Vec::new()`,
+    /// not a fixed-dim zero vector — NCP_DEV_PROMPT Gap 2), which must be stamped as
+    /// such in the sample's `l_source` provenance so a downstream consumer can exclude
+    /// it from L-atoms.
     l_present: bool,
     a: Option<Vec<f64>>,
     success: Option<serde_json::Value>,
@@ -180,7 +205,7 @@ impl Observer {
     pub fn with_runlog(mut self, path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let mut w = RunLogWriter::create(path)?;
         w.append(&RunLogEvent::RunStarted {
-            schema_version: 1,
+            schema_version: RUN_LOG_SCHEMA_VERSION,
             run_id: self.run_id.clone(),
             timestamp_ns: 0,
             config_hash: "ncp-observer".into(),
@@ -195,7 +220,15 @@ impl Observer {
         let l_channel = sensor.channels.get(&self.mapping.language_channel);
         let l_present = l_channel.is_some();
         let l = l_channel.map(|cv| cv.data.clone()).unwrap_or_default();
-        let v = flatten_except(&sensor.channels, Some(&self.mapping.language_channel));
+        // Exclude BOTH the language channel (it IS the L axis) and the success
+        // channel (it IS the outcome label) from V — otherwise the per-tick
+        // success outcome would leak into the V feature vector and any PID(V;A)
+        // screen on this artifact would be measuring the label, not perception.
+        let mut v_except: Vec<&str> = vec![self.mapping.language_channel.as_str()];
+        if let Some(sc) = self.mapping.success_channel.as_deref() {
+            v_except.push(sc);
+        }
+        let v = flatten_except(&sensor.channels, &v_except);
         let success = self
             .mapping
             .success_channel
@@ -212,17 +245,32 @@ impl Observer {
             entry.success = success;
         }
         self.try_complete(sensor.seq);
+        self.enforce_bounds();
     }
 
     /// Ingest a `CommandFrame` (action plane). Supplies A for its `seq`.
     pub fn on_command(&mut self, command: &CommandFrame) {
-        let a = flatten_except(&command.channels, None);
+        let a = flatten_except(&command.channels, &[]);
         let entry = self.pending.entry(command.seq).or_default();
         entry.a = Some(a);
         if entry.t == 0.0 {
             entry.t = command.t;
         }
         self.try_complete(command.seq);
+        self.enforce_bounds();
+    }
+
+    /// Evict the oldest in-flight state once either map exceeds [`MAX_INFLIGHT`],
+    /// bounding memory for a long-running tap. Completed samples are already
+    /// removed from `pending` by `try_complete`; what accumulates here is
+    /// never-completed `seq`s, which are stale and safe to drop.
+    fn enforce_bounds(&mut self) {
+        while self.pending.len() > MAX_INFLIGHT {
+            self.pending.pop_first();
+        }
+        while self.d_by_seq.len() > MAX_INFLIGHT {
+            self.d_by_seq.pop_first();
+        }
     }
 
     /// Ingest an `ObservationFrame` (neural readback). Updates the D axis.
@@ -245,6 +293,7 @@ impl Observer {
             }
             self.latest_d = d;
         }
+        self.enforce_bounds();
     }
 
     fn try_complete(&mut self, seq: i64) {
@@ -318,17 +367,20 @@ impl Observer {
                 artifact_uri: None,
                 sha256: None,
             };
-            let _ = w.append(&RunLogEvent::EmbeddingContract {
-                timestamp_ns: ts,
-                name: "vlda".into(),
-                variables: vec![
-                    var("v", sample.v.len()),
-                    var("l", sample.l.len()),
-                    var("d", sample.d.len()),
-                    var("a", sample.a.len()),
-                ],
-                metadata: BTreeMap::new(),
-            });
+            log_append(
+                w,
+                &RunLogEvent::EmbeddingContract {
+                    timestamp_ns: ts,
+                    name: "vlda".into(),
+                    variables: vec![
+                        var("v", sample.v.len()),
+                        var("l", sample.l.len()),
+                        var("d", sample.d.len()),
+                        var("a", sample.a.len()),
+                    ],
+                    metadata: BTreeMap::new(),
+                },
+            );
             self.contract_emitted = true;
         }
         let mut meta = BTreeMap::new();
@@ -348,13 +400,16 @@ impl Observer {
             metadata: meta,
         });
         for (name, value) in labels {
-            let _ = w.append(&RunLogEvent::LabelObserved {
-                step: self.n,
-                timestamp_ns: ts,
-                name: name.clone(),
-                value: value.clone(),
-                metadata: BTreeMap::new(),
-            });
+            log_append(
+                w,
+                &RunLogEvent::LabelObserved {
+                    step: self.n,
+                    timestamp_ns: ts,
+                    name: name.clone(),
+                    value: value.clone(),
+                    metadata: BTreeMap::new(),
+                },
+            );
         }
     }
 
@@ -582,5 +637,73 @@ mod tests {
             0,
             "seq 1 sensor must not pair with seq 2 command"
         );
+    }
+
+    #[test]
+    fn success_channel_is_excluded_from_v() {
+        // With a success channel configured (as the `ncp-observe` binary does),
+        // the per-tick outcome must become the `success` LABEL and must NOT leak
+        // into the V feature vector.
+        let mapping = Mapping {
+            language_channel: "instruction".into(),
+            success_channel: Some("success".into()),
+            episode_id: None,
+        };
+        let mut obs = Observer::new("run", "nest", "reach", mapping);
+        let mut sc = Map::new();
+        sc.insert("pose".into(), ch(vec![1.0, 2.0]));
+        sc.insert("instruction".into(), ch(vec![0.5]));
+        sc.insert("success".into(), ch(vec![1.0]));
+        obs.on_sensor(&SensorFrame {
+            seq: 3,
+            t: 1.0,
+            channels: sc,
+            ..Default::default()
+        });
+        let mut cc = Map::new();
+        cc.insert("velocity_setpoint".into(), ch(vec![0.1]));
+        obs.on_command(&CommandFrame {
+            seq: 3,
+            t: 1.0,
+            channels: cc,
+            ..Default::default()
+        });
+        assert_eq!(obs.sample_count(), 1);
+        let s = &obs.samples[0];
+        // V is `pose` only — neither the language channel nor the success channel.
+        assert_eq!(
+            s.v,
+            vec![1.0, 2.0],
+            "success/instruction must not leak into V"
+        );
+        assert_eq!(s.l, vec![0.5]);
+        assert_eq!(
+            s.labels.get("success"),
+            Some(&serde_json::json!(true)),
+            "the success outcome must surface as a label"
+        );
+    }
+
+    #[test]
+    fn inflight_maps_are_bounded() {
+        // A long-running tap that sees many never-completing seqs must not grow
+        // `pending`/`d_by_seq` without bound.
+        let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
+        for seq in 0..(MAX_INFLIGHT as i64 + 500) {
+            let mut sc = Map::new();
+            sc.insert("pose".into(), ch(vec![1.0]));
+            // Only a sensor (no matching command) → this seq never completes.
+            obs.on_sensor(&SensorFrame {
+                seq,
+                channels: sc,
+                ..Default::default()
+            });
+        }
+        assert!(
+            obs.pending.len() <= MAX_INFLIGHT,
+            "pending must stay bounded by MAX_INFLIGHT, got {}",
+            obs.pending.len()
+        );
+        assert_eq!(obs.sample_count(), 0, "no seq completed");
     }
 }

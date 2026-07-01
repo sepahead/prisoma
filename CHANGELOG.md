@@ -2,6 +2,74 @@
 
 ## Unreleased
 
+## Docset v10.5 (2026-07-01)
+
+Repo-wide consistency + robustness slice. **No research/estimator/experiment status
+change** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls and the open
+critical path is still the first real-VLA capture (not done). The discrete-harness
+**measure identity is unchanged**: `--pid-mode discrete` still uses the Williams–Beer
+`I_min` functional (`discrete_pid.rs`), not discrete `i^sx_∩`.
+
+### Integrations
+
+- **pid-rs submodule re-pinned `v0.2.0` → `v0.3.0`** (adopt current upstream). 0.3.0
+  adds a *genuine* discrete shared-exclusions PID (`sxpid.rs`: `discrete_sxpid2` /
+  `discrete_sxpid3`, plus general n-source SxPID), numerical-stability hardening across
+  the estimators, criterion benchmarks, and a run-log `logical_trace_hash` (wall-clock-
+  excluded logical hash). prisoma's `crates/pid-rerun` was updated for the new
+  `pid_runlog::RunManifest.logical_trace_hash` field; the whole workspace + the excluded
+  `ncp-observer` build and test green against 0.3.0. NB: the new discrete `sxpid.rs`
+  estimator is **not yet wired into the offline harness** (`--pid-mode discrete` remains
+  `I_min`); wiring it in is tracked follow-up (see `grandplan.md` §8.1.6).
+- **NCP observer pin doc propagation `v0.5.0` → `v0.5.2`.** The manifest/lockfile were
+  bumped to NCP `v0.5.2` earlier; the doc set now matches. `v0.5.1`/`v0.5.2` are
+  wire-identical patch bumps on the 0.5 stable wire cut at `v0.5.0`, so `NCP_VERSION`
+  stays `0.5` and `CONTRACT_HASH` stays `24e8e6e31e1dec8a`. Read-only data-plane tap;
+  no behavior change.
+
+### Fixed (correctness / robustness)
+
+- **`ncp-observer`: success label no longer leaks into V.** When a `success_channel`
+  is configured (the `ncp-observe` binary sets `success`), that channel was being
+  flattened into the V feature vector *and* emitted as the outcome label, so any
+  PID(V;A) screen would have measured the label. V now excludes both the language and
+  the success channels. New test `success_channel_is_excluded_from_v`.
+- **`ncp-observer`: bounded in-flight state.** `pending` and `d_by_seq` are now capped
+  (`MAX_INFLIGHT`, oldest-`seq` eviction) so a long-running tap with never-completing
+  `seq`s cannot grow memory without bound. New test `inflight_maps_are_bounded`.
+- **`ncp-observer`: run-log integrity + CLI robustness.** `emit_runlog` no longer
+  swallows `RunLogWriter::append` errors with `let _ =` (a dropped "source of truth"
+  event is now reported); `RunStarted` uses `pid_runlog::RUN_LOG_SCHEMA_VERSION` instead
+  of a hard-coded `1`; the arg parser advances unknown flags by one (no longer swallows
+  the next real flag) and reports a value-less trailing flag; `finalize` recovers a
+  poisoned mutex instead of panicking away every buffered sample.
+- **`pid-rerun`: episode outcome timestamp.** `log_episode` logged the success/failure
+  annotation at the *relative* `duration()` on an absolute timeline; it now uses the
+  failure time or the last frame's absolute timestamp. 3D point logging
+  (`log_frame`/`log_flow`/`log_ghost_splat`) is panic-safe on positions arrays with
+  fewer than 3 columns (`row_to_point3`).
+- **`pid-sim`: silent held-out void surfaced.** A single sample with a missing/unrecognized
+  `split` value voids the entire held-out analysis; the harness now warns (in non-strict
+  mode) instead of dropping all held-out metrics silently.
+
+### Docs (consistency / honesty)
+
+- `THIRD_PARTY_NOTICES.md` now states the project is **dual-licensed MIT OR Apache-2.0**
+  (crates declare `license = "MIT OR Apache-2.0"`), correcting a stale "MIT only" notice.
+- `ncp-observer` honest provenance docs: the absent-language path emits an **empty** L
+  vector (not a fixed-dim "all-zero" vector as the comments claimed); the
+  `--require-axis-provenance-honest` gate doc now states it checks the *stamped* axes and
+  does not (yet) require all four to be independently attested. Both are pre-existing
+  behaviors now accurately documented (Gap 2 / per-axis coverage remain tracked follow-ups).
+
+### Known follow-ups
+
+- arXiv `2306.02149` is referenced in `grandplan.md` but not yet in
+  `outputs/arxiv_ref_cache.json` (refresh with
+  `python scripts/update_arxiv_ref_cache.py --ids 2306.02149`; needs network).
+- `ncp-observer` fixed-dim zero backfill for absent-L, and a 4-axis provenance-coverage
+  gate, remain behavioral follow-ups (docs updated to match current behavior).
+
 ## Docset v10.4 (2026-06-22)
 
 - Naming: repo/package/crate renamed `pid_vla` → `prisoma` (complete repo-wide; no

@@ -16,7 +16,8 @@ weights, generated assets, or 3DGS captures.
 
 ## Project License
 
-prisoma project code is MIT licensed. Local Rust crates declare `license = "MIT"`.
+prisoma project code is dual-licensed **MIT OR Apache-2.0** (see `LICENSE-MIT` and
+`LICENSE-APACHE`). Local Rust crates declare `license = "MIT OR Apache-2.0"`.
 
 ## Checked Core Dependencies
 

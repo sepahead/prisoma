@@ -108,13 +108,15 @@ the same information flow as the NEST simulator?
 
 ## Compatibility & versioning
 
-Pinned to NCP **`v0.5.0`** (`Cargo.toml`), excluded from the default workspace.
+Pinned to NCP **`v0.5.2`** (`Cargo.toml`), excluded from the default workspace.
+(`v0.5.1`/`v0.5.2` are wire-identical patch bumps on the 0.5 stable wire that was
+cut at `v0.5.0`, so `CONTRACT_HASH` is unchanged at `24e8e6e31e1dec8a`.)
 This observer reads only the generic data planes
 (`SensorFrame`/`CommandFrame`/`ObservationFrame` → opaque value/time vectors), so it
 is unaffected by NCP's neural enums. The one frame the old `v0.1.0` pin could not
 handle was an `ObservationFrame` whose `Observation.observable` is the `#10` value
 (`binary_state`), which would fail to deserialize and be silently dropped; the
-`v0.5.0` pin (proto-native wire) decodes it, so this observer now ingests `#10`
+`v0.5.x` pin (proto-native wire) decodes it, so this observer now ingests `#10`
 observations too. **Re-pin rule:** bump the `ncp-core`/`ncp-zenoh` tag in lockstep
 with any future additive NCP wire extension *before* Engram emits it; no code change
 is needed.
@@ -128,6 +130,6 @@ information flow the NEST simulator does?
 ## Build note
 
 This crate git-depends on the published NCP repo <https://github.com/sepahead/NCP>
-(tag `v0.5.0`) and pulls Zenoh, so it is heavier than the pure-PID crates. The
+(tag `v0.5.2`) and pulls Zenoh, so it is heavier than the pure-PID crates. The
 estimator gates (`just exp0`, etc.) target specific crates with `-p` and are
 unaffected.

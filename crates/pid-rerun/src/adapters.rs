@@ -127,7 +127,15 @@ impl<'a> VlaLogger<'a> {
             } else {
                 "Episode failed"
             };
-            let t = episode.failure_timestamp.unwrap_or(episode.duration());
+            // Frames are logged at their ABSOLUTE timestamps, so the outcome
+            // annotation must land at an absolute time too — the failure time if
+            // known, otherwise the last frame's timestamp. `duration()` is a
+            // relative span (last - first) and would misplace the marker whenever
+            // the episode does not start at t = 0.
+            let t = episode
+                .failure_timestamp
+                .or_else(|| episode.frames.last().map(|f| f.timestamp))
+                .unwrap_or(0.0);
             self.set_time(t);
             self.rec
                 .log("episode/outcome", &TextLog::new(msg).with_level(level))?;
@@ -150,11 +158,7 @@ impl<'a> VlaLogger<'a> {
 
         // Log object positions as 3D points
         if let Some(ref positions) = frame.object_positions {
-            let points: Vec<[f32; 3]> = positions
-                .rows()
-                .into_iter()
-                .map(|row| [row[0] as f32, row[1] as f32, row[2] as f32])
-                .collect();
+            let points: Vec<[f32; 3]> = positions.rows().into_iter().map(row_to_point3).collect();
 
             // Color by object index
             let colors: Vec<Color> = (0..points.len())
@@ -186,11 +190,7 @@ impl<'a> VlaLogger<'a> {
         self.set_time(timestamp_secs);
 
         // Predicted flow as blue points
-        let pred_points: Vec<[f32; 3]> = predicted
-            .rows()
-            .into_iter()
-            .map(|row| [row[0] as f32, row[1] as f32, row[2] as f32])
-            .collect();
+        let pred_points: Vec<[f32; 3]> = predicted.rows().into_iter().map(row_to_point3).collect();
 
         self.rec.log(
             EntityPaths::FLOW_PREDICTED,
@@ -200,11 +200,7 @@ impl<'a> VlaLogger<'a> {
         )?;
 
         // Actual flow as green points
-        let actual_points: Vec<[f32; 3]> = actual
-            .rows()
-            .into_iter()
-            .map(|row| [row[0] as f32, row[1] as f32, row[2] as f32])
-            .collect();
+        let actual_points: Vec<[f32; 3]> = actual.rows().into_iter().map(row_to_point3).collect();
 
         self.rec.log(
             EntityPaths::FLOW_ACTUAL,
@@ -221,11 +217,9 @@ impl<'a> VlaLogger<'a> {
                 .into_iter()
                 .zip(actual.rows())
                 .map(|(p, a)| {
-                    [
-                        (a[0] - p[0]) as f32,
-                        (a[1] - p[1]) as f32,
-                        (a[2] - p[2]) as f32,
-                    ]
+                    let p = row_to_point3(p);
+                    let a = row_to_point3(a);
+                    [a[0] - p[0], a[1] - p[1], a[2] - p[2]]
                 })
                 .collect();
 
@@ -249,11 +243,7 @@ impl<'a> VlaLogger<'a> {
     ) -> Result<()> {
         self.set_time(timestamp_secs);
 
-        let points: Vec<[f32; 3]> = positions
-            .rows()
-            .into_iter()
-            .map(|row| [row[0] as f32, row[1] as f32, row[2] as f32])
-            .collect();
+        let points: Vec<[f32; 3]> = positions.rows().into_iter().map(row_to_point3).collect();
 
         // Color by PID value: blue (low) -> red (high)
         let colors: Vec<Color> = pid_values
@@ -275,6 +265,18 @@ impl<'a> VlaLogger<'a> {
 
         Ok(())
     }
+}
+
+/// Map an ndarray row to a 3D point, tolerating rows with fewer than 3 columns
+/// (missing coordinates default to `0.0`). Positions are `[n, 3]` by contract;
+/// this logs a best-effort point instead of panicking on an out-of-bounds index
+/// when a malformed array slips through.
+fn row_to_point3(row: ndarray::ArrayView1<f64>) -> [f32; 3] {
+    [
+        row.get(0).copied().unwrap_or(0.0) as f32,
+        row.get(1).copied().unwrap_or(0.0) as f32,
+        row.get(2).copied().unwrap_or(0.0) as f32,
+    ]
 }
 
 #[cfg(test)]

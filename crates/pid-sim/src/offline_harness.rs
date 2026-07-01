@@ -398,11 +398,16 @@ pub struct OfflineVldaRunlogOptions {
     pub require_heldout_split: bool,
     pub require_heldout_class_coverage: bool,
     pub require_heldout_episode_disjoint: bool,
-    /// Fail the run unless every V/L/D/A axis is backed by an HONEST provenance
-    /// marker (no `text_hash_proxy` / `absent_zeroed` / `recency_fallback` …) AND at
-    /// least one marker was stamped — so the gate cannot pass vacuously on a dataset
-    /// that carries no provenance at all (positive attestation). See
-    /// [`offline_vlda_axis_provenance_failure_messages`].
+    /// Fail the run if any *stamped* V/L/D/A provenance marker is degraded (a
+    /// `text_hash_proxy` / `absent_zeroed` / `recency_fallback` … value), AND fail
+    /// if NO marker was stamped at all — so the gate cannot pass vacuously on a
+    /// dataset that carries no provenance (positive attestation). NB: this checks
+    /// only the axes that actually carry a marker; it does **not** (yet) require all
+    /// four axes to be independently attested. A capture that stamps a subset (e.g.
+    /// `ncp-observer` stamps `l_source`/`d_source` but nothing for V or A) passes as
+    /// long as the stamped axes are honest; the `safe_adapter` path stamps all four
+    /// (`{v,l,d,a}_provenance`). Requiring per-axis coverage of all four is tracked
+    /// follow-up. See [`offline_vlda_axis_provenance_failure_messages`].
     pub require_axis_provenance_honest: bool,
 }
 
@@ -1625,6 +1630,38 @@ fn compute_analysis(
 ) -> Result<OfflineVldaAnalysis> {
     let prepared = prepare_standardized_embeddings(samples, dims)?;
     let heldout_split = heldout_split_plan(samples);
+    if heldout_split.is_none() {
+        // `heldout_split_plan` is all-or-nothing: a single sample missing the split
+        // key or carrying an unrecognized value voids the ENTIRE plan. If the dataset
+        // nonetheless carries recognized split values, that silent void is almost
+        // certainly a data error, so surface it instead of dropping all held-out
+        // analysis without a word (pass --require-heldout-split to fail hard).
+        let mut recognized = 0usize;
+        let mut missing = 0usize;
+        let mut unrecognized = 0usize;
+        for sample in samples {
+            match sample.metadata.get(OFFLINE_HELDOUT_SPLIT_METADATA_KEY) {
+                None => missing += 1,
+                Some(value) => {
+                    if split_role(&normalize_split_value(value)).is_some() {
+                        recognized += 1;
+                    } else {
+                        unrecognized += 1;
+                    }
+                }
+            }
+        }
+        if recognized > 0 {
+            eprintln!(
+                "[pid-offline-harness] WARNING: held-out split disabled despite {recognized} \
+                 sample(s) with a recognized '{}' value — the plan needs both a train and a \
+                 held-out class and every sample must carry a recognized value ({missing} missing \
+                 the key, {unrecognized} unrecognized). ALL held-out analysis is skipped; fix the \
+                 split metadata or pass --require-heldout-split to fail hard.",
+                OFFLINE_HELDOUT_SPLIT_METADATA_KEY
+            );
+        }
+    }
     let success_labels = success_labels(samples);
     let heldout_class_coverage = heldout_split
         .as_ref()

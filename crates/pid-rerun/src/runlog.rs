@@ -48,8 +48,11 @@ fn read_npy_f64(path: &str) -> Option<(Vec<f64>, Vec<usize>)> {
     if data.len() < n_bytes {
         return None;
     }
-    // Only the first `MAX_RELEVANCE_POINTS` values are ever consumed downstream, so
-    // cap the allocation rather than reserving for a giant (but in-bounds) array.
+    // The caller keeps only the first `MAX_RELEVANCE_POINTS` values, so cap the
+    // initial RESERVATION at that — not the final length: the equality check below
+    // still reads all `count` in-bounds values, so the vec may grow past the hint.
+    // (`count` is already bounded by the `data.len() < n_bytes` guard above, i.e.
+    // by the actual file size, so this cannot over-allocate for a truncated file.)
     let mut values = Vec::with_capacity(count.min(MAX_RELEVANCE_POINTS));
     for chunk in data.chunks_exact(8).take(count) {
         values.push(f64::from_le_bytes(chunk.try_into().ok()?));
@@ -704,6 +707,7 @@ mod tests {
             run_log_uri: "memory://rerun-run.jsonl".to_string(),
             run_log_sha256: Some("abc".to_string()),
             trace_hash: summary.trace_hash.clone(),
+            logical_trace_hash: summary.logical_trace_hash.clone(),
             event_count: summary.event_count,
             validation_errors: summary.validation_errors,
             validation_warnings: summary.validation_warnings,

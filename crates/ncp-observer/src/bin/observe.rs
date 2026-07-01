@@ -47,17 +47,45 @@ fn parse_args() -> Args {
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i < argv.len() {
-        let next = || argv.get(i + 1).cloned().unwrap_or_default();
-        match argv[i].as_str() {
-            "--session" => a.session = next(),
-            "--realm" => a.realm = next(),
-            "--out" => a.out = next(),
-            "--runlog" => a.runlog = Some(next()),
-            "--model" => a.model = next(),
-            "--task" => a.task = next(),
-            "--language-channel" => a.language_channel = next(),
-            "--episode" => a.episode = Some(next()),
-            other => eprintln!("[ncp-observe] ignoring unknown arg {other:?}"),
+        let flag = argv[i].clone();
+        // Every recognized flag takes exactly one value argument. Unknown args
+        // advance by ONE (so they never swallow the following real flag), and a
+        // value-less trailing flag is reported rather than silently set to "".
+        let known = matches!(
+            flag.as_str(),
+            "--session"
+                | "--realm"
+                | "--out"
+                | "--runlog"
+                | "--model"
+                | "--task"
+                | "--language-channel"
+                | "--episode"
+        );
+        if !known {
+            eprintln!("[ncp-observe] ignoring unknown arg {flag:?}");
+            i += 1;
+            continue;
+        }
+        let value = match argv.get(i + 1) {
+            Some(v) => v.clone(),
+            None => {
+                eprintln!(
+                    "[ncp-observe] flag {flag:?} expects a value but none was given; ignoring"
+                );
+                break;
+            }
+        };
+        match flag.as_str() {
+            "--session" => a.session = value,
+            "--realm" => a.realm = value,
+            "--out" => a.out = value,
+            "--runlog" => a.runlog = Some(value),
+            "--model" => a.model = value,
+            "--task" => a.task = value,
+            "--language-channel" => a.language_channel = value,
+            "--episode" => a.episode = Some(value),
+            _ => unreachable!("known flag handled above"),
         }
         i += 2;
     }
@@ -88,7 +116,9 @@ async fn main() -> anyhow::Result<()> {
     let o = observer.clone();
     bus.subscribe_sensors(&args.session, move |_k, bytes| {
         if let Ok(f) = serde_json::from_slice::<SensorFrame>(&bytes) {
-            o.lock().unwrap().on_sensor(&f);
+            o.lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .on_sensor(&f);
         }
     })
     .await
@@ -97,7 +127,9 @@ async fn main() -> anyhow::Result<()> {
     let o = observer.clone();
     bus.subscribe_commands(&args.session, move |_k, bytes| {
         if let Ok(f) = serde_json::from_slice::<CommandFrame>(&bytes) {
-            o.lock().unwrap().on_command(&f);
+            o.lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .on_command(&f);
         }
     })
     .await
@@ -106,7 +138,9 @@ async fn main() -> anyhow::Result<()> {
     let o = observer.clone();
     bus.subscribe_observations(&args.session, move |_k, bytes| {
         if let Ok(f) = serde_json::from_slice::<ObservationFrame>(&bytes) {
-            o.lock().unwrap().on_observation(&f);
+            o.lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .on_observation(&f);
         }
     })
     .await
@@ -118,7 +152,9 @@ async fn main() -> anyhow::Result<()> {
     );
     tokio::signal::ctrl_c().await?;
 
-    let mut guard = observer.lock().unwrap();
+    let mut guard = observer
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     guard.finalize(&args.out)?;
     println!(
         "[ncp-observe] wrote {} (V,L,D,A) samples → {}",
