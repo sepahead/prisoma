@@ -11,7 +11,7 @@
 
 ---
 
-**Docset alignment:** This document is aligned to `grandplan.md` v10.4. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
+**Docset alignment:** This document is aligned to `grandplan.md` v10.6. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
 
 **Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the source of truth; Rerun is the Phases 1–3 diagnostic/time-machine viewer; Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering; all clients share the Agent Bridge.
 
@@ -380,9 +380,9 @@ LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, saliency/SmoothGrad, occlus
 
 ---
 
-## 3. World Model vs VLM-Based Robotics: The Core Argument
+## 3A. World Model vs VLM-Based Robotics: The Core Argument
 
-### 3.1 The Problem with Pure VLM-Based Robotics
+### 3A.1 The Problem with Pure VLM-Based Robotics
 
 Current VLAs (OpenVLA, PixelVLA) are essentially:
 ```
@@ -395,7 +395,7 @@ Image + Instruction → LLM → Action Tokens
 3. **Opaque integration:** it is often hard to attribute failures to V vs L vs internal state without targeted probes/interventions
 4. **Embodiment coupling:** policies may overfit to specific camera viewpoints, control frequencies, or embodiments
 
-### 3.2 The World Model Advantage
+### 3A.2 The World Model Advantage
 
 PID-Splat enables **world model based robotics** by:
 
@@ -420,7 +420,7 @@ I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 - Long-horizon tasks: Does synergy degrade over time? (H5)
 - If yes → world model loses coherence over long plans
 
-### 3.3 Why Gaussian Splats + Modular Physics Enable This
+### 3A.3 Why Gaussian Splats + Modular Physics Enable This
 
 | Traditional Sim | PID-Splat |
 |-----------------|-----------|

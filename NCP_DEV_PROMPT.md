@@ -60,45 +60,60 @@ fine for *exploratory* PID screens only.
 Already correct (do not regress):
 - **V↔A join on `seq`** — `CommandFrame.seq` echoes the `SensorFrame.seq` it was computed
   from, so a sample pairs the action with the sensor that produced it, never by arrival
-  time (the perception plane's DROP QoS makes arrival-time pairing unsound).
+  time (the perception plane's DROP QoS makes arrival-time pairing unsound). `seq == 0`
+  sensor/command frames are treated as unstamped (the upstream convention) and are
+  dropped + counted rather than merged into one bogus tick.
 - Deterministic channel ordering (sorted `BTreeMap` keys), read-only, System actor, and
-  canonical run-log emission (`EmbeddingContract` / `EmbeddingCaptured` / `LabelObserved`).
-- An **exact D-alignment path already exists in prisoma**: `Observer` keeps `d_by_seq` and
-  `try_complete` prefers it over the most-recent fallback — it just needs the publisher to
-  stamp the driving `seq` (see Gap 1).
+  canonical run-log emission (`EmbeddingContract` / `EmbeddingCaptured` / `LabelObserved`,
+  plus a finalize-time `ArtifactLogged` registering the dataset artifact with its sha256).
+  Run-log timestamps ride a monotonic clock (out-of-order sensor `t` values are clamped),
+  so the emitted log passes `pid-runlog-replay --validate`.
+- **Exact D alignment in prisoma, including arrival reordering**: readouts are stored in
+  `d_by_seq[obs.seq]` and preferred over recency; completed ticks are held for a short
+  reorder grace window so a readout arriving after its tick's command still claims its
+  own tick, and later-still readouts patch the in-memory sample (`d_source = "seq_late"`,
+  counted). It just needs the publisher to stamp the driving `seq` (see Gap 1).
+- **Bounded, reset-safe in-flight state**: FIFO (insertion-order) eviction, session `seq`
+  resets start a new epoch (state cleared so epochs never cross-pair; `sample_id =
+  ncp-{epoch}-{seq}` stays unique), and every exclusion/eviction path is counted in the
+  `ObserverStats` finalize report.
 
 ## 4. Workstreams (the three gaps, in priority order)
 
-### Gap 1 — D alignment on `seq` (MOSTLY DONE; residual is external + a test extension)
-`ObservationFrame` **now carries `seq`**, and the prisoma observer already joins D on it:
-`Observer::on_observation` stores each readout in `d_by_seq[obs.seq]` and `try_complete`
-prefers it, falling back to the most-recent readout (`latest_d`) only for an unstamped
-(`obs.seq == 0`) frame. The `d_aligns_on_seq_not_recency` test covers the in-order path,
-so nothing in **this repo** biases D-involving atoms anymore. What remains:
+### Gap 1 — D alignment on `seq` (DONE in-repo; residual is purely external)
+`ObservationFrame` **carries `seq`**, and the prisoma observer joins D on it:
+`Observer::on_observation` stores each readout in `d_by_seq[obs.seq]`, completed ticks
+are held for a reorder grace window so a readout that arrives *after* its tick's
+command (the likely ordering: the action plane outranks the observation plane in QoS)
+still claims its own tick, and a readout arriving after emission still patches the
+in-memory sample (`d_source = "seq_late"`, counted in the finalize report). The
+most-recent readout (`latest_d`) is the fallback only for an unstamped
+(`obs.seq == 0`) frame. Tests cover the in-order, reordered-within-grace, and
+post-emission-patch paths, so nothing in **this repo** biases D-involving atoms
+anymore. What remains:
 - **NCP side (external — the only runtime gap), <https://github.com/sepahead/NCP>:** the
   publisher must actually stamp each `ObservationFrame` with the driving sensor `seq` at
   emission time (and `NEURO_CYBERNETIC_PROTOCOL.md` should document it). Until it does, a
   live session sends `obs.seq == 0` and the observer falls back to recency — so this, not
   any prisoma code, is what still biases D-involving atoms in a real capture.
-- **prisoma side:** done. Optionally extend `d_aligns_on_seq_not_recency` to a realistic
-  out-of-order interleaving for defense-in-depth.
-- **Acceptance:** with a publisher that stamps `seq`, a session where D readouts arrive out
-  of order still pairs each sample's D with its own `seq`; the recency fallback is reached
-  only for genuinely unstamped frames.
+- **Acceptance (met in-repo):** a session where D readouts arrive out of order still pairs
+  each sample's D with its own `seq`; the recency fallback is reached only for genuinely
+  unstamped frames.
 
-### Gap 2 — L can be fabricated as zeros (provenance marker DONE; residual is the L policy)
-`on_sensor` does `channels.get(language_channel).map(...).unwrap_or_default()`, so an
-absent language channel yields an **all-zero L** — a degenerate axis. grandplan's M5
-contract is "never fabricated." Option (b) below is now implemented: each sample carries an
-honest `metadata.l_source` marker (`"channel"` when the language channel was present,
-`"absent_zeroed"` when L is a fabricated all-zero vector), and `--require-axis-provenance-honest`
-treats the degraded marker accordingly — so downstream is no longer silently fed zeros as if
-they were a language embedding.
-- **Residual:** decide the L policy for a real capture — either keep (b) and have the
-  analysis exclude `l_source = "absent_zeroed"` samples from L-atoms, or move to (a):
-  require the language channel and skip / flag samples without it.
-- **Acceptance:** no sample carries a zero L without the explicit `l_source` marker (met);
-  the harness can filter on it.
+### Gap 2 — absent-L ticks are excluded, not fabricated (residual is the retention policy)
+A tick with no language channel yields an empty (zero-length) `L`. grandplan's M5
+contract is "never fabricated", and the observer honors it the strict way: **empty-axis
+ticks are excluded from the artifact and counted** (`excluded_empty_l` in the
+`ObserverStats` finalize report) — one empty axis would make `pid-offline-harness`
+reject the whole dataset anyway. Kept samples always carry the honest
+`metadata.l_source = "channel"` marker.
+- **Residual:** decide whether absent-L ticks should be *retained* via a fixed-dim
+  zero backfill stamped `l_source = "absent_zeroed"` (which the harness's
+  `--require-axis-provenance-honest` gate rejects as degraded), or whether exclusion
+  (the current behavior) is the permanent policy. Exclusion is safer; backfill only
+  helps exploratory screens on mixed-language sessions.
+- **Acceptance:** no sample ever reaches the artifact with a fabricated or empty L (met);
+  the exclusion count makes the loss visible (met).
 
 ### Gap 3 — no held-out split / episode / label structure (MEDIUM; unlocks the gates + H1)
 The artifact currently emits one optional `episode_id`, no `metadata.split`, and labels
@@ -133,7 +148,9 @@ cargo build --manifest-path crates/ncp-observer/Cargo.toml
 cargo test  --manifest-path crates/ncp-observer/Cargo.toml
 
 # tap a live session, then analyze the artifact through the standard harness
-cargo run -p ncp-observer --bin ncp-observe -- \
+# (the crate is workspace-excluded, so `-p ncp-observer` does NOT resolve from the
+# repo root — always go through --manifest-path)
+cargo run --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
     --session <id> --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
 cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
     --summary-json outputs/ncp_summary.json --runlog outputs/ncp_pid_runlog.jsonl

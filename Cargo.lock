@@ -278,7 +278,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-foundation 0.3.2",
- "parking_lot 0.12.5",
+ "parking_lot",
  "percent-encoding",
  "windows-sys 0.60.2",
  "x11rb",
@@ -536,7 +536,7 @@ version = "0.38.0+1.3.281"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bb44936d800fea8f016d7f2311c6a4f97aebd5dc86f09906139ec848cf3a46f"
 dependencies = [
- "libloading 0.8.9",
+ "libloading",
 ]
 
 [[package]]
@@ -1742,7 +1742,7 @@ dependencies = [
  "bitflags 2.10.0",
  "crossterm_winapi",
  "document-features",
- "parking_lot 0.12.5",
+ "parking_lot",
  "rustix 1.1.3",
  "winapi",
 ]
@@ -1856,7 +1856,7 @@ dependencies = [
  "hashbrown 0.14.5",
  "lock_api",
  "once_cell",
- "parking_lot_core 0.9.12",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -1904,7 +1904,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "object_store",
- "parking_lot 0.12.5",
+ "parking_lot",
  "rand 0.9.2",
  "regex",
  "sqlparser",
@@ -1936,7 +1936,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "object_store",
- "parking_lot 0.12.5",
+ "parking_lot",
  "tokio",
 ]
 
@@ -2096,7 +2096,7 @@ dependencies = [
  "futures",
  "log",
  "object_store",
- "parking_lot 0.12.5",
+ "parking_lot",
  "rand 0.9.2",
  "tempfile",
  "url",
@@ -2233,7 +2233,7 @@ dependencies = [
  "datafusion-common",
  "datafusion-expr",
  "datafusion-physical-plan",
- "parking_lot 0.12.5",
+ "parking_lot",
  "paste",
 ]
 
@@ -2313,7 +2313,7 @@ dependencies = [
  "indexmap",
  "itertools 0.14.0",
  "log",
- "parking_lot 0.12.5",
+ "parking_lot",
  "paste",
  "petgraph",
 ]
@@ -2392,7 +2392,7 @@ dependencies = [
  "indexmap",
  "itertools 0.14.0",
  "log",
- "parking_lot 0.12.5",
+ "parking_lot",
  "pin-project-lite",
  "tokio",
 ]
@@ -2435,7 +2435,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "object_store",
- "parking_lot 0.12.5",
+ "parking_lot",
  "tokio",
 ]
 
@@ -2531,7 +2531,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.8.9",
+ "libloading",
 ]
 
 [[package]]
@@ -2601,7 +2601,7 @@ dependencies = [
  "objc2 0.5.2",
  "objc2-app-kit 0.2.2",
  "objc2-foundation 0.2.2",
- "parking_lot 0.12.5",
+ "parking_lot",
  "percent-encoding",
  "pollster",
  "profiling",
@@ -2964,7 +2964,7 @@ dependencies = [
  "epaint_default_fonts",
  "log",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "profiling",
  "rayon",
  "serde",
@@ -3458,7 +3458,7 @@ dependencies = [
  "glutin_egl_sys",
  "glutin_glx_sys",
  "glutin_wgl_sys",
- "libloading 0.8.9",
+ "libloading",
  "objc2 0.6.3",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
@@ -3644,62 +3644,6 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.2.0",
-]
-
-[[package]]
-name = "hdf5"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdcd9b131fd67bb827b386d0dc63d3e74196a14616ef800acf87ca5fef741a10"
-dependencies = [
- "bitflags 1.3.2",
- "cfg-if",
- "hdf5-derive",
- "hdf5-sys",
- "hdf5-types",
- "lazy_static",
- "libc",
- "ndarray 0.15.6",
- "parking_lot 0.11.2",
- "paste",
-]
-
-[[package]]
-name = "hdf5-derive"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5a77ac6a41e6880594d506118c0b8bc665ec959fe4636e0c84809756d224820"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "hdf5-sys"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4842d5980dc311a7c8933c7b45534fdae84df5ae7939a0ae8e449a56d4beb3d2"
-dependencies = [
- "libc",
- "libloading 0.7.4",
- "pkg-config",
- "regex",
- "serde",
- "serde_derive",
- "winreg",
-]
-
-[[package]]
-name = "hdf5-types"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b47268c0dfb499b1ffe5638b6e7694e7a87fe49fb92eca998a4346e5483e428f"
-dependencies = [
- "ascii",
- "cfg-if",
- "hdf5-sys",
- "libc",
 ]
 
 [[package]]
@@ -4176,15 +4120,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "instant"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "integer-encoding"
 version = "3.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4347,7 +4282,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6aae1df220ece3c0ada96b8153459b67eebe9ae9212258bb0134ae60416fdf76"
 dependencies = [
  "libc",
- "libloading 0.8.9",
+ "libloading",
  "pkg-config",
 ]
 
@@ -4456,16 +4391,6 @@ name = "libc"
 version = "0.2.179"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5a2d376baa530d1238d133232d15e239abad80d05838b4b59354e5268af431f"
-
-[[package]]
-name = "libloading"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67380fd3b2fbe7527a606e18729d21c6f3951633d0500574c4dc22d2d638b9f"
-dependencies = [
- "cfg-if",
- "winapi",
-]
 
 [[package]]
 name = "libloading"
@@ -4899,19 +4824,6 @@ name = "natord"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "308d96db8debc727c3fd9744aac51751243420e46edf401010908da7f8d5e57c"
-
-[[package]]
-name = "ndarray"
-version = "0.15.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adb12d4e967ec485a5f71c6311fe28158e9d6f4bc4a447b474184d0f91a8fa32"
-dependencies = [
- "matrixmultiply",
- "num-complex",
- "num-integer",
- "num-traits",
- "rawpointer",
-]
 
 [[package]]
 name = "ndarray"
@@ -5528,7 +5440,7 @@ dependencies = [
  "http",
  "humantime",
  "itertools 0.14.0",
- "parking_lot 0.12.5",
+ "parking_lot",
  "percent-encoding",
  "thiserror 2.0.17",
  "tokio",
@@ -5722,37 +5634,12 @@ checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 
 [[package]]
 name = "parking_lot"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d17b78036a60663b797adeaee46f5c9dfebb86948d1255007a1d6be0271ff99"
-dependencies = [
- "instant",
- "lock_api",
- "parking_lot_core 0.8.6",
-]
-
-[[package]]
-name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
 dependencies = [
  "lock_api",
- "parking_lot_core 0.9.12",
-]
-
-[[package]]
-name = "parking_lot_core"
-version = "0.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60a2cfe6f0ad2bfc16aefa463b497d5c7a5ecd44a23efa72aa342d90177356dc"
-dependencies = [
- "cfg-if",
- "instant",
- "libc",
- "redox_syscall 0.2.16",
- "smallvec",
- "winapi",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -5972,9 +5859,8 @@ name = "pid-rerun"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "hdf5",
  "nalgebra",
- "ndarray 0.16.1",
+ "ndarray",
  "pid-core",
  "pid-runlog",
  "rerun",
@@ -6217,7 +6103,7 @@ checksum = "e4500adecd7af8e0e9f4dbce15cfee07ce913fbf6ad605cc468b83f2d531ee94"
 dependencies = [
  "dtoa",
  "itoa",
- "parking_lot 0.12.5",
+ "parking_lot",
  "prometheus-client-derive-encode",
 ]
 
@@ -6287,7 +6173,7 @@ dependencies = [
  "itertools 0.10.5",
  "lz4_flex 0.11.6",
  "once_cell",
- "parking_lot 0.12.5",
+ "parking_lot",
  "serde",
 ]
 
@@ -6300,7 +6186,7 @@ dependencies = [
  "anyhow",
  "crossbeam-channel",
  "log",
- "parking_lot 0.12.5",
+ "parking_lot",
  "puffin",
 ]
 
@@ -6616,7 +6502,7 @@ dependencies = [
  "jiff",
  "js-sys",
  "jsonwebtoken",
- "parking_lot 0.12.5",
+ "parking_lot",
  "rand 0.9.2",
  "re_analytics",
  "re_log",
@@ -6758,7 +6644,7 @@ dependencies = [
  "indent",
  "itertools 0.14.0",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_arrow_util",
  "re_byte_size",
  "re_chunk",
@@ -6865,7 +6751,7 @@ dependencies = [
  "econtext",
  "itertools 0.14.0",
  "libc",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_analytics",
  "re_build_info",
 ]
@@ -6886,7 +6772,7 @@ dependencies = [
  "mcap",
  "memmap2 0.9.9",
  "notify",
- "parking_lot 0.12.5",
+ "parking_lot",
  "parquet",
  "rayon",
  "re_arrow_util",
@@ -7008,7 +6894,7 @@ dependencies = [
  "itertools 0.14.0",
  "jiff",
  "ordered-float 5.1.0",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_arrow_util",
  "re_chunk_store",
  "re_component_ui",
@@ -7044,7 +6930,7 @@ dependencies = [
  "futures-util",
  "getrandom 0.3.4",
  "log",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_arrow_util",
  "re_dataframe",
  "re_log_types",
@@ -7073,7 +6959,7 @@ dependencies = [
  "indexmap",
  "itertools 0.14.0",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_arrow_util",
  "re_build_info",
  "re_byte_size",
@@ -7147,7 +7033,7 @@ checksum = "810bc50684f93754fc2cf471bff55ed05936b3d335f545819ed4f49437697e63"
 dependencies = [
  "anyhow",
  "itertools 0.14.0",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_byte_size",
  "re_chunk",
  "re_format",
@@ -7190,7 +7076,7 @@ dependencies = [
  "js-sys",
  "log",
  "log-once",
- "parking_lot 0.12.5",
+ "parking_lot",
  "tracing",
  "wasm-bindgen",
 ]
@@ -7204,7 +7090,7 @@ dependencies = [
  "arrow",
  "async-channel",
  "crossbeam",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_log_encoding",
  "re_log_types",
  "re_tracing",
@@ -7227,7 +7113,7 @@ dependencies = [
  "itertools 0.14.0",
  "js-sys",
  "lz4_flex 0.12.2",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_arrow_util",
  "re_build_info",
  "re_chunk",
@@ -7323,7 +7209,7 @@ dependencies = [
  "itertools 0.14.0",
  "memory-stats",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_format",
  "re_log",
  "re_tracing",
@@ -7366,7 +7252,7 @@ dependencies = [
  "opentelemetry-http",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
- "parking_lot 0.12.5",
+ "parking_lot",
  "prometheus-client",
  "serde",
  "serde_json",
@@ -7420,7 +7306,7 @@ dependencies = [
  "indent",
  "itertools 0.14.0",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "paste",
  "re_arrow_util",
  "re_byte_size",
@@ -7450,7 +7336,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "nasm-rs",
- "parking_lot 0.12.5",
+ "parking_lot",
  "paste",
  "raw-cpuid",
  "static_assertions",
@@ -7572,7 +7458,7 @@ dependencies = [
  "never",
  "notify",
  "ordered-float 5.1.0",
- "parking_lot 0.12.5",
+ "parking_lot",
  "pathdiff",
  "profiling",
  "re_build_tools",
@@ -7632,7 +7518,7 @@ dependencies = [
  "itertools 0.14.0",
  "libc",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "percent-encoding",
  "re_arrow_combinators",
  "re_build_info",
@@ -7677,7 +7563,7 @@ dependencies = [
  "itertools 0.14.0",
  "macaw",
  "mime_guess2",
- "ndarray 0.16.1",
+ "ndarray",
  "nohash-hasher",
  "ply-rs-bw",
  "re_byte_size",
@@ -7766,7 +7652,7 @@ checksum = "23b01a898feb021f605d03c49602774294a1d2d3280a88dc8b12aa44e90c93b3"
 dependencies = [
  "ahash",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "serde",
  "static_assertions",
 ]
@@ -7783,7 +7669,7 @@ dependencies = [
  "glam",
  "itertools 0.14.0",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_arrow_util",
  "re_byte_size",
  "re_chunk_store",
@@ -7893,7 +7779,7 @@ dependencies = [
  "notify",
  "num-traits",
  "objc2-app-kit 0.3.2",
- "parking_lot 0.12.5",
+ "parking_lot",
  "raw-window-handle",
  "re_analytics",
  "re_build_tools",
@@ -7941,7 +7827,7 @@ dependencies = [
  "h264-reader",
  "itertools 0.14.0",
  "js-sys",
- "parking_lot 0.12.5",
+ "parking_lot",
  "poll-promise",
  "re_byte_size",
  "re_log",
@@ -8141,7 +8027,7 @@ dependencies = [
  "bytemuck",
  "egui",
  "half",
- "ndarray 0.16.1",
+ "ndarray",
  "re_chunk_store",
  "re_data_ui",
  "re_log_types",
@@ -8244,7 +8130,7 @@ dependencies = [
  "itertools 0.14.0",
  "jiff",
  "js-sys",
- "parking_lot 0.12.5",
+ "parking_lot",
  "poll-promise",
  "rayon",
  "re_analytics",
@@ -8339,9 +8225,9 @@ dependencies = [
  "itertools 0.14.0",
  "linked-hash-map",
  "macaw",
- "ndarray 0.16.1",
+ "ndarray",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "rayon",
  "re_arrow_ui",
  "re_arrow_util",
@@ -8423,7 +8309,7 @@ dependencies = [
  "egui_tiles",
  "itertools 0.14.0",
  "nohash-hasher",
- "parking_lot 0.12.5",
+ "parking_lot",
  "re_chunk",
  "re_chunk_store",
  "re_entity_db",
@@ -8451,15 +8337,6 @@ dependencies = [
  "re_log",
  "thiserror 2.0.17",
  "tiny_http",
-]
-
-[[package]]
-name = "redox_syscall"
-version = "0.2.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
-dependencies = [
- "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -10676,7 +10553,7 @@ dependencies = [
  "js-sys",
  "log",
  "naga",
- "parking_lot 0.12.5",
+ "parking_lot",
  "portable-atomic",
  "profiling",
  "raw-window-handle",
@@ -10708,7 +10585,7 @@ dependencies = [
  "log",
  "naga",
  "once_cell",
- "parking_lot 0.12.5",
+ "parking_lot",
  "portable-atomic",
  "profiling",
  "raw-window-handle",
@@ -10784,7 +10661,7 @@ dependencies = [
  "js-sys",
  "khronos-egl",
  "libc",
- "libloading 0.8.9",
+ "libloading",
  "log",
  "metal",
  "naga",
@@ -10792,7 +10669,7 @@ dependencies = [
  "objc",
  "once_cell",
  "ordered-float 5.1.0",
- "parking_lot 0.12.5",
+ "parking_lot",
  "portable-atomic",
  "portable-atomic-util",
  "profiling",
@@ -11437,16 +11314,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "winreg"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
-dependencies = [
- "serde",
- "winapi",
-]
-
-[[package]]
 name = "wit-bindgen"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11478,7 +11345,7 @@ dependencies = [
  "as-raw-xcb-connection",
  "gethostname",
  "libc",
- "libloading 0.8.9",
+ "libloading",
  "once_cell",
  "rustix 1.1.3",
  "x11rb-protocol",

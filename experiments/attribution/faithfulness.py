@@ -40,6 +40,9 @@ class FaithfulnessResult:
     margin: float
     passed: bool
     n_steps: int
+    # Both curves are |f0 - f| DROP series (not raw outputs), so they can be
+    # plotted on the same axes: deletion_curve follows the attribution's
+    # most-important-first order; random_curve is the mean over random orders.
     deletion_curve: list[float]
     random_curve: list[float]
 
@@ -124,7 +127,10 @@ def faithfulness_check(
         curve = _deletion_curve(predict, x, order, baseline, n_steps)
         method_aopcs.append(np.mean([abs(f0 - f) for f in curve]))
         if method_curve is None:
-            method_curve = curve  # representative curve for reporting
+            # Report the |f0 - f| DROP series, matching `random_curve` (line
+            # above) so the two curves are directly comparable — a raw-output
+            # method curve vs a drop random curve would be a plotting trap.
+            method_curve = np.abs(f0 - np.asarray(curve)).tolist()
     method_aopc = float(np.mean(method_aopcs))
 
     # Pass requires beating the random-control MEAN by the caller's `margin` plus a

@@ -315,7 +315,9 @@ jobs:
       - name: Clippy (rapier feature)
         run: cargo clippy --locked -p pid-sim --features rapier --all-targets -- -D warnings
       - name: Physics + manipulation tests (rapier feature)
-        run: cargo test --locked -p pid-sim --features rapier physics:: manipulation::
+        # NB: this line MUST stay quoted — `physics:: manipulation::` contains ": "
+        # which is illegal YAML in a plain scalar and silently kills the whole workflow.
+        run: 'cargo test --locked -p pid-sim --features rapier physics:: manipulation::'
       - name: Rapier manipulation harness smoke
         run: |
           cargo run -p pid-sim --features rapier --bin pid-rapier-harness -- \
@@ -405,6 +407,14 @@ jobs:
       - name: Install Python test dependencies
         run: python -m pip install maturin pytest numpy
       - name: Build extension in editable mode
-        run: maturin develop --manifest-path pid-rs/crates/pid-python/Cargo.toml
+        # `maturin develop` refuses to run outside a virtualenv; create one and
+        # carry it into the following steps via GITHUB_ENV/GITHUB_PATH.
+        run: |
+          python -m venv .ci-venv
+          source .ci-venv/bin/activate
+          python -m pip install maturin pytest numpy
+          maturin develop --manifest-path pid-rs/crates/pid-python/Cargo.toml
+          echo "VIRTUAL_ENV=$PWD/.ci-venv" >> "$GITHUB_ENV"
+          echo "$PWD/.ci-venv/bin" >> "$GITHUB_PATH"
       - name: Python tests
         run: pytest tests/python -q

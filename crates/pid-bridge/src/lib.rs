@@ -195,10 +195,29 @@ pub struct BridgeRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BridgeRpcRequest {
     pub jsonrpc: Option<String>,
-    pub id: String,
+    /// JSON-RPC 2.0 ids may be a String, a Number, or Null (a request without an
+    /// `id` — a notification — deserializes to Null too, and this bridge answers
+    /// it with a Null-id response rather than staying silent). Validate with
+    /// [`BridgeRpcRequest::validated_id`]; anything else is a -32600 Invalid
+    /// Request. The id is echoed back VERBATIM in the response.
+    #[serde(default)]
+    pub id: Value,
     pub method: String,
     #[serde(default)]
     pub params: Value,
+}
+
+/// Render a (valid) JSON-RPC id as the string `request_id` used in run-log
+/// events. Distinct JSON ids can render identically (`1` vs `"1"`); run-log
+/// request ids are provenance labels, not correlation keys, so that is fine —
+/// wire responses echo the original [`Value`] verbatim.
+pub fn rpc_id_to_request_id(id: &Value) -> String {
+    match id {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Null => "null".to_string(),
+        other => other.to_string(),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -210,7 +229,8 @@ pub struct BridgeRpcError {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BridgeRpcResponse {
     pub jsonrpc: String,
-    pub id: String,
+    /// Echoes the request id verbatim (String, Number, or Null per JSON-RPC 2.0).
+    pub id: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -228,14 +248,24 @@ pub struct BridgeResponse {
 }
 
 impl BridgeRpcRequest {
+    /// JSON-RPC 2.0 restricts `id` to String, Number, or Null; arrays/objects/
+    /// booleans are a -32600 Invalid Request.
+    pub fn validated_id(&self) -> Result<&Value> {
+        match &self.id {
+            Value::String(_) | Value::Number(_) | Value::Null => Ok(&self.id),
+            other => bail!("invalid JSON-RPC id (must be string, number, or null): {other}"),
+        }
+    }
+
     pub fn into_bridge_request(
         self,
         actor: Actor,
         step: Option<u64>,
         timestamp_ns: u64,
     ) -> Result<BridgeRequest> {
+        self.validated_id()?;
         Ok(BridgeRequest {
-            request_id: self.id,
+            request_id: rpc_id_to_request_id(&self.id),
             step,
             timestamp_ns,
             actor,
@@ -246,7 +276,7 @@ impl BridgeRpcRequest {
 }
 
 impl BridgeRpcResponse {
-    pub fn success(id: impl Into<String>, result: Value) -> Self {
+    pub fn success(id: impl Into<Value>, result: Value) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
             id: id.into(),
@@ -255,7 +285,7 @@ impl BridgeRpcResponse {
         }
     }
 
-    pub fn failure(id: impl Into<String>, code: i64, message: impl Into<String>) -> Self {
+    pub fn failure(id: impl Into<Value>, code: i64, message: impl Into<String>) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
             id: id.into(),
@@ -267,15 +297,15 @@ impl BridgeRpcResponse {
         }
     }
 
-    pub fn from_bridge_response(response: &BridgeResponse) -> Self {
+    /// Build a response from a [`BridgeResponse`], echoing `id` VERBATIM (the
+    /// original request id [`Value`] — a numeric id must come back as a number,
+    /// not as the stringified `request_id` recorded in the run log).
+    pub fn from_bridge_response_with_id(response: &BridgeResponse, id: Value) -> Self {
         if response.ok {
-            Self::success(
-                response.request_id.clone(),
-                response.result.clone().unwrap_or(Value::Null),
-            )
+            Self::success(id, response.result.clone().unwrap_or(Value::Null))
         } else {
             Self::failure(
-                response.request_id.clone(),
+                id,
                 -32000,
                 response
                     .message
@@ -283,6 +313,13 @@ impl BridgeRpcResponse {
                     .unwrap_or_else(|| "bridge request failed".to_string()),
             )
         }
+    }
+
+    /// Convenience for callers that only have the stringified `request_id`
+    /// (e.g. tests replaying run-log records); wire dispatch paths should use
+    /// [`Self::from_bridge_response_with_id`] to echo the original id type.
+    pub fn from_bridge_response(response: &BridgeResponse) -> Self {
+        Self::from_bridge_response_with_id(response, Value::String(response.request_id.clone()))
     }
 
     pub fn is_ok(&self) -> bool {
@@ -534,13 +571,47 @@ mod tests {
     fn rpc_request_converts_dotted_method() {
         let rpc = BridgeRpcRequest {
             jsonrpc: Some("2.0".to_string()),
-            id: "rpc-1".to_string(),
+            id: json!("rpc-1"),
             method: "sim.step".to_string(),
             params: json!({ "dt": 0.1 }),
         };
         let request = rpc.into_bridge_request(actor(), Some(0), 123).unwrap();
         assert_eq!(request.method, BridgeMethod::SimStep);
         assert_eq!(request.request_id, "rpc-1");
+    }
+
+    #[test]
+    fn rpc_request_accepts_numeric_and_null_ids() {
+        // JSON-RPC 2.0 ids are String | Number | Null; numeric ids are the most
+        // common client convention and must not be rejected as a parse error.
+        let numeric: BridgeRpcRequest =
+            serde_json::from_str(r#"{"jsonrpc":"2.0","id":7,"method":"sim.status","params":{}}"#)
+                .unwrap();
+        assert_eq!(numeric.validated_id().unwrap(), &json!(7));
+        let request = numeric.into_bridge_request(actor(), Some(0), 1).unwrap();
+        assert_eq!(request.request_id, "7");
+
+        // A request without an id (a notification) deserializes to Null.
+        let notif: BridgeRpcRequest =
+            serde_json::from_str(r#"{"jsonrpc":"2.0","method":"sim.status","params":{}}"#).unwrap();
+        assert_eq!(notif.validated_id().unwrap(), &Value::Null);
+        assert_eq!(
+            notif
+                .into_bridge_request(actor(), Some(0), 1)
+                .unwrap()
+                .request_id,
+            "null"
+        );
+    }
+
+    #[test]
+    fn rpc_request_rejects_structured_ids() {
+        let bad: BridgeRpcRequest = serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":[1,2],"method":"sim.status","params":{}}"#,
+        )
+        .unwrap();
+        assert!(bad.validated_id().is_err());
+        assert!(bad.into_bridge_request(actor(), Some(0), 1).is_err());
     }
 
     #[test]
@@ -627,7 +698,7 @@ mod tests {
         };
         let rpc = BridgeRpcResponse::from_bridge_response(&success);
         assert!(rpc.is_ok());
-        assert_eq!(rpc.id, "ok-1");
+        assert_eq!(rpc.id, json!("ok-1"));
         assert_eq!(rpc.result, Some(json!({ "step": 1 })));
 
         let failure = BridgeResponse {

@@ -1217,26 +1217,34 @@ pub fn write_offline_vlda_runlog_with_options(
     }
 
     let metric_timestamp_base = embedding_timestamp_base + 10_000;
-    write_metric_events(&mut writer, report, metric_timestamp_base)?;
+    // Metric events are stamped metric_timestamp_base + i for i in 0..count,
+    // and count scales with the dataset (≈21 events per labeled held-out
+    // sample). Everything appended after them must continue from the RETURNED
+    // count — a fixed offset would be overtaken on realistic capture sizes and
+    // the log would fail pid-runlog's nondecreasing-timestamp validation.
+    let metric_events = write_metric_events(&mut writer, report, metric_timestamp_base)?;
+    let mut next_timestamp_ns = metric_timestamp_base + metric_events;
     if let Some(input_path) = input_path {
         writer.append(&RunLogEvent::ArtifactLogged {
-            timestamp_ns: metric_timestamp_base + 10_000,
+            timestamp_ns: next_timestamp_ns,
             name: "offline_vlda_input_json".to_string(),
             kind: "dataset_json".to_string(),
             uri: input_path.display().to_string(),
             sha256: input_sha256,
             metadata: BTreeMap::new(),
         })?;
+        next_timestamp_ns += 1;
     }
     if let Some(summary_path) = summary_path {
         writer.append(&RunLogEvent::ArtifactLogged {
-            timestamp_ns: metric_timestamp_base + 10_001,
+            timestamp_ns: next_timestamp_ns,
             name: "offline_vlda_summary_json".to_string(),
             kind: "summary_json".to_string(),
             uri: summary_path.display().to_string(),
             sha256: summary_sha256,
             metadata: BTreeMap::new(),
         })?;
+        next_timestamp_ns += 1;
     }
     let failures = offline_vlda_required_failures(dataset, report, options);
     let run_failed = !failures.is_empty();
@@ -1248,17 +1256,18 @@ pub fn write_offline_vlda_runlog_with_options(
             report.dims.samples
         )
     };
-    for (idx, failure) in failures.iter().enumerate() {
+    for failure in failures.iter() {
         writer.append(&RunLogEvent::ErrorLogged {
             step: Some(report.dims.samples as u64),
-            timestamp_ns: metric_timestamp_base + 19_900 + idx as u64,
+            timestamp_ns: next_timestamp_ns,
             message: failure.clone(),
             recoverable: false,
         })?;
+        next_timestamp_ns += 1;
     }
     writer.append(&RunLogEvent::RunEnded {
         run_id: report.run_id.clone(),
-        timestamp_ns: metric_timestamp_base + 20_000,
+        timestamp_ns: next_timestamp_ns,
         status: if run_failed {
             RunStatus::Failed
         } else {
@@ -3193,12 +3202,22 @@ where
         return None;
     }
     let x_train = MatOwned::new(train_rows, n_train, dim).ok()?;
-    let logreg = LogisticRegression::fit(
+    // The SAFE-class logistic baseline is the H1 comparison point — if the fit
+    // fails, the metric must not vanish without a trace.
+    let logreg = match LogisticRegression::fit(
         x_train.as_ref(),
         &train_labels,
         &LogisticRegressionConfig::default(),
-    )
-    .ok()?;
+    ) {
+        Ok(model) => model,
+        Err(err) => {
+            eprintln!(
+                "[pid-offline-harness] heldout_logreg_vlda baseline dropped: \
+                 logistic fit failed: {err}"
+            );
+            return None;
+        }
+    };
 
     Some(heldout_scored_prediction_metrics(labels, roles, |idx| {
         // Decision-function logit on the (train-standardized) held-out features.
@@ -3432,11 +3451,13 @@ fn squared_euclidean(left: &[f64], right: &[f64]) -> f64 {
         .sum()
 }
 
+/// Writes every metric event at `timestamp_base_ns + i` and returns the number
+/// of events written, so the caller can continue the timeline from there.
 fn write_metric_events<W: Write>(
     writer: &mut RunLogWriter<W>,
     report: &OfflineVldaReport,
     timestamp_base_ns: u64,
-) -> Result<()> {
+) -> Result<u64> {
     let metrics = [
         ("offline_vlda.pid.mi_v_action", report.metrics.mi_v_action),
         ("offline_vlda.pid.mi_l_action", report.metrics.mi_l_action),
@@ -3898,7 +3919,7 @@ fn write_metric_events<W: Write>(
         })?;
         idx += 1;
     }
-    Ok(())
+    Ok(idx)
 }
 
 fn write_heldout_class_coverage_metric_events<W: Write>(
@@ -5360,6 +5381,47 @@ mod tests {
         assert_eq!(summary.evaluation_metric_events, 223);
 
         let _ = std::fs::remove_file(summary_path);
+        let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn offline_vlda_runlog_timestamps_stay_monotonic_at_capture_scale() {
+        // A real VLA capture emits ~21 metric events per labeled held-out
+        // sample; once the total passes 10,000 the old fixed ArtifactLogged/
+        // ErrorLogged/RunEnded offsets were overtaken and the run log failed
+        // its own advertised `pid-runlog-replay --validate` step. Inflate the
+        // held-out prediction records past that threshold and require the
+        // emitted log to stay valid.
+        let dataset = fixture_dataset();
+        let mut report = run_offline_vlda_harness(dataset.clone(), None, None).unwrap();
+        assert!(
+            !report.heldout_predictions.is_empty(),
+            "fixture must produce held-out prediction records"
+        );
+        let originals = report.heldout_predictions.clone();
+        while report.heldout_predictions.len() < 12_000 {
+            report.heldout_predictions.extend(originals.iter().cloned());
+        }
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let runlog_path =
+            std::env::temp_dir().join(format!("pid-offline-vlda-monotonic-scale-{stamp}.jsonl"));
+        write_offline_vlda_runlog(&runlog_path, None, None, &dataset, &report).unwrap();
+        let validation = pid_runlog::validate_events_from_path(&runlog_path).unwrap();
+        assert_eq!(
+            validation.errors,
+            0,
+            "capture-scale run log must validate: {:?}",
+            validation
+                .issues
+                .iter()
+                .filter(|issue| issue.severity == pid_runlog::ValidationSeverity::Error)
+                .take(3)
+                .collect::<Vec<_>>()
+        );
         let _ = std::fs::remove_file(runlog_path);
     }
 

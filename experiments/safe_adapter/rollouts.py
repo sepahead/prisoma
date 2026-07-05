@@ -110,10 +110,24 @@ def load_safe_rollout_dir(
         pkl_path = csv_path.with_suffix(".pkl")
         if not pkl_path.exists():
             raise FileNotFoundError(f"missing rollout pickle: {pkl_path}")
-        with pkl_path.open("rb") as handle:
-            meta = pickle.load(handle)  # noqa: S301 - trusted local rollout data
+        try:
+            with pkl_path.open("rb") as handle:
+                meta = pickle.load(handle)  # noqa: S301 - trusted local rollout data
+        except (pickle.UnpicklingError, EOFError, ValueError) as exc:
+            raise ValueError(
+                f"corrupt or unreadable rollout pickle {pkl_path}: {exc}"
+            ) from exc
+        if not isinstance(meta, dict):
+            raise ValueError(
+                f"rollout pickle {pkl_path} must contain a dict, got {type(meta).__name__}"
+            )
         if "eposide_idx" in meta and "episode_idx" not in meta:
             meta["episode_idx"] = meta.pop("eposide_idx")
+        if "hidden_states" not in meta:
+            raise ValueError(
+                f"rollout pickle {pkl_path} is missing required key 'hidden_states' "
+                f"(keys: {sorted(meta)})"
+            )
         hidden = _hidden_states_to_array(meta["hidden_states"])
         rollouts.append(
             SafeRollout(

@@ -86,7 +86,7 @@ def probe_layer(
 
     Returns ``(metric_name, score, n_train, n_heldout)``. Continuous targets use
     held-out R²; boolean targets use held-out accuracy of a ridge classifier
-    thresholded at the train-mean prediction.
+    thresholded at 0.5 (targets are coded 0/1).
     """
     held_mask = ~train_mask
     n_train = int(train_mask.sum())

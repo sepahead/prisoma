@@ -12,7 +12,7 @@ const MAX_RELEVANCE_POINTS: usize = 1024;
 /// probe's relevance arrays. Returns `(flattened_values, shape)` in C order, or
 /// `None` on any deviation (other dtype, Fortran order, version, or I/O error); the
 /// caller treats `None` as "no heatmap available" and falls back gracefully.
-fn read_npy_f64(path: &str) -> Option<(Vec<f64>, Vec<usize>)> {
+fn read_npy_f64(path: impl AsRef<std::path::Path>) -> Option<(Vec<f64>, Vec<usize>)> {
     let bytes = std::fs::read(path).ok()?;
     if bytes.len() < 10 || &bytes[0..6] != b"\x93NUMPY" {
         return None;
@@ -28,8 +28,20 @@ fn read_npy_f64(path: &str) -> Option<(Vec<f64>, Vec<usize>)> {
         return None;
     }
     let header = std::str::from_utf8(&bytes[header_start..data_start]).ok()?;
-    // Require little-endian f64, C order.
-    if !(header.contains("'<f8'") || header.contains("\"<f8\"")) {
+    // Require a plain little-endian f64 descr, C order. A substring match on
+    // "'<f8'" would also accept a STRUCTURED dtype that merely contains an
+    // "<f8" field (e.g. `[('a','<f8'),('b','<i4')]`), whose bytes are not a
+    // flat f64 array and would decode to garbage — so match the exact
+    // `'descr': '<f8'` (single- or double-quoted) form instead.
+    let descr_ok = [
+        "'descr': '<f8'",
+        "'descr':'<f8'",
+        "\"descr\": \"<f8\"",
+        "\"descr\":\"<f8\"",
+    ]
+    .iter()
+    .any(|needle| header.contains(needle));
+    if !descr_ok {
         return None;
     }
     if header.contains("'fortran_order': True") || header.contains("\"fortran_order\": True") {
@@ -84,20 +96,41 @@ fn parse_npy_shape(header: &str) -> Option<Vec<usize>> {
 
 pub struct RunLogRerunLogger<'a> {
     rec: &'a RecordingStream,
+    /// Directory that relative `artifact_uri`s resolve against — normally the
+    /// run log's own directory. Without it a relative uri would resolve against
+    /// the converter's current working directory, so an attribution relevance
+    /// artifact written next to the run log would be silently skipped when the
+    /// converter runs from elsewhere.
+    artifact_base_dir: Option<std::path::PathBuf>,
 }
 
 impl<'a> RunLogRerunLogger<'a> {
     pub fn new(rec: &'a RecordingStream) -> Self {
-        Self { rec }
+        Self {
+            rec,
+            artifact_base_dir: None,
+        }
+    }
+
+    /// Resolve relative `artifact_uri`s against `dir` (typically the run log's
+    /// parent directory).
+    pub fn with_artifact_base_dir(mut self, dir: impl Into<std::path::PathBuf>) -> Self {
+        self.artifact_base_dir = Some(dir.into());
+        self
+    }
+
+    /// Resolve an artifact uri: absolute paths as-is, relative paths against the
+    /// configured base dir (falling back to the raw uri if none is set).
+    fn resolve_artifact_uri(&self, uri: &str) -> std::path::PathBuf {
+        let path = std::path::Path::new(uri);
+        match &self.artifact_base_dir {
+            Some(base) if path.is_relative() => base.join(path),
+            _ => path.to_path_buf(),
+        }
     }
 
     pub fn log_events(&self, events: &[RunLogEvent]) -> Result<()> {
-        let summary = pid_runlog::summarize_events(events)?;
-        self.log_summary(&summary)?;
-        for event in events {
-            self.log_event(event)?;
-        }
-        Ok(())
+        self.log_events_with_manifest(events, None).map(|_| ())
     }
 
     pub fn log_events_with_manifest(
@@ -117,10 +150,12 @@ impl<'a> RunLogRerunLogger<'a> {
     }
 
     pub fn log_event(&self, event: &RunLogEvent) -> Result<()> {
-        self.rec.set_time(
-            "time",
-            Duration::from_secs_f64(event.timestamp_ns() as f64 / 1_000_000_000.0),
-        );
+        // Integer nanoseconds → Duration directly; going through f64 seconds
+        // loses precision at epoch-scale timestamps (f64 has ~15–16 significant
+        // digits, and ns-since-epoch already needs ~19), collapsing distinct
+        // ticks onto the same Rerun time.
+        self.rec
+            .set_time("time", Duration::from_nanos(event.timestamp_ns()));
         match event {
             RunLogEvent::RunStarted { run_id, .. } => self.log_text("run/status", "INFO", run_id),
             RunLogEvent::RunEnded {
@@ -244,6 +279,10 @@ impl<'a> RunLogRerunLogger<'a> {
             RunLogEvent::ConfigLogged { config_hash, .. } => {
                 self.log_text("run/config", "INFO", config_hash)
             }
+            // FrameObserved carries an opaque image/frame reference with no 3D
+            // or scalar payload the run-log→Rerun adapter can plot, so it is
+            // intentionally not surfaced here (the raw frame lives in its own
+            // artifact). This is the one event type with no Rerun representation.
             RunLogEvent::FrameObserved { .. } => Ok(()),
             RunLogEvent::AttributionLogged {
                 method,
@@ -272,13 +311,30 @@ impl<'a> RunLogRerunLogger<'a> {
                 // the pass/fail verdict. Any read/parse failure is silently skipped.
                 if let Some(uri) = artifact_uri {
                     if uri.ends_with(".npy") {
-                        if let Some((values, _shape)) = read_npy_f64(uri) {
-                            let capped: Vec<f64> =
-                                values.into_iter().take(MAX_RELEVANCE_POINTS).collect();
-                            self.rec.log(
-                                format!("attributions/relevance/{method}"),
-                                &Scalars::new(capped),
-                            )?;
+                        let resolved = self.resolve_artifact_uri(uri);
+                        match read_npy_f64(&resolved) {
+                            Some((values, _shape)) => {
+                                let capped: Vec<f64> =
+                                    values.into_iter().take(MAX_RELEVANCE_POINTS).collect();
+                                self.rec.log(
+                                    format!("attributions/relevance/{method}"),
+                                    &Scalars::new(capped),
+                                )?;
+                            }
+                            None => {
+                                // Surface the miss rather than dropping it: a
+                                // relevance artifact that exists but cannot be
+                                // read (moved, wrong dtype, truncated) should be
+                                // visible in the viewer, not silently absent.
+                                self.log_text(
+                                    format!("attributions/relevance/{method}"),
+                                    "WARN",
+                                    &format!(
+                                        "relevance artifact unreadable: {}",
+                                        resolved.display()
+                                    ),
+                                )?;
+                            }
                         }
                     }
                 }
@@ -635,6 +691,33 @@ mod tests {
         bytes.extend_from_slice(&[0u8; 64]); // a little real data, far less than claimed
         std::fs::write(&path, bytes).unwrap();
         assert!(read_npy_f64(path.to_str().unwrap()).is_none());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn npy_reader_rejects_structured_dtype_containing_f8_field() {
+        // A STRUCTURED dtype descr that merely contains an "<f8" field is not a
+        // flat f64 array; a substring match would accept it and decode garbage.
+        let dir = std::env::temp_dir();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = dir.join(format!("pid-rerun-npy-struct-{stamp}.npy"));
+        let header =
+            "{'descr': [('a', '<f8'), ('b', '<i4')], 'fortran_order': False, 'shape': (2,), }\n";
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"\x93NUMPY");
+        bytes.push(1);
+        bytes.push(0);
+        bytes.extend_from_slice(&(header.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(header.as_bytes());
+        bytes.extend_from_slice(&[0u8; 24]);
+        std::fs::write(&path, bytes).unwrap();
+        assert!(
+            read_npy_f64(path.to_str().unwrap()).is_none(),
+            "structured dtype must be rejected, not decoded as flat f64"
+        );
         let _ = std::fs::remove_file(path);
     }
 

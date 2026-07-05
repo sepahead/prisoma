@@ -1,21 +1,28 @@
 //! `ncp-observe` — run the passive NCP → (V,L,D,A) observer.
 //!
-//! Subscribes read-only to a session's NCP data planes over Zenoh and, on Ctrl-C,
-//! writes an `OfflineVldaDataset` artifact (run it through `pid-offline-harness`)
-//! plus a provenance run log. It drives nothing — the Agent Bridge stays the only
-//! control plane.
+//! Subscribes read-only to a session's NCP data planes over Zenoh and, on
+//! SIGINT/SIGTERM/SIGHUP, writes an `OfflineVldaDataset` artifact (run it
+//! through `pid-offline-harness`) plus a provenance run log. It drives nothing —
+//! the Agent Bridge stays the only control plane.
 //!
 //! ```bash
-//! cargo run -p ncp-observer --bin ncp-observe -- \
+//! # ncp-observer is excluded from the default workspace; run it by manifest path:
+//! cargo run --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
 //!     --session uav3 --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
 //! # then:
 //! cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json ...
 //! ```
+//!
+//! Zenoh connectivity: `ncp-zenoh` reads the standard Zenoh configuration (e.g.
+//! the `ZENOH_CONFIG` file/env conventions of the pinned Zenoh release) — if the
+//! tap prints its banner but captures nothing, check that the observer can reach
+//! the session's Zenoh routers/peers before suspecting the mapping.
 
 use ncp_core::keys::Keys;
 use ncp_core::{CommandFrame, ObservationFrame, SensorFrame};
 use ncp_observer::{Mapping, Observer};
 use ncp_zenoh::ZenohBus;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 struct Args {
@@ -92,6 +99,29 @@ fn parse_args() -> Args {
     a
 }
 
+/// Wait for any terminating signal. SIGINT alone is not enough: SIGTERM is the
+/// default for `docker stop` / systemd / plain `kill`, and losing an hours-long
+/// capture because the supervisor sent the polite signal is not acceptable.
+async fn shutdown_signal() -> anyhow::Result<()> {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut term = signal(SignalKind::terminate())?;
+        let mut hup = signal(SignalKind::hangup())?;
+        tokio::select! {
+            r = tokio::signal::ctrl_c() => r?,
+            _ = term.recv() => {}
+            _ = hup.recv() => {}
+        }
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        tokio::signal::ctrl_c().await?;
+        Ok(())
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = parse_args();
@@ -110,56 +140,93 @@ async fn main() -> anyhow::Result<()> {
         observer = observer.with_runlog(path)?;
     }
     let observer = Arc::new(Mutex::new(observer));
+    // A frame that fails to deserialize (e.g. a wire-version-mismatched Engram)
+    // must not vanish silently: count per plane and report at finalize, so an
+    // empty capture is diagnosable instead of mysterious.
+    let sensor_decode_failures = Arc::new(AtomicU64::new(0));
+    let command_decode_failures = Arc::new(AtomicU64::new(0));
+    let observation_decode_failures = Arc::new(AtomicU64::new(0));
 
     let bus = ZenohBus::open_realm(Keys::new(args.realm.clone())).await?;
 
     let o = observer.clone();
-    bus.subscribe_sensors(&args.session, move |_k, bytes| {
-        if let Ok(f) = serde_json::from_slice::<SensorFrame>(&bytes) {
-            o.lock()
+    let fails = sensor_decode_failures.clone();
+    bus.subscribe_sensors(
+        &args.session,
+        move |_k, bytes| match serde_json::from_slice::<SensorFrame>(&bytes) {
+            Ok(f) => o
+                .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .on_sensor(&f);
-        }
-    })
+                .on_sensor(&f),
+            Err(_) => {
+                fails.fetch_add(1, Ordering::Relaxed);
+            }
+        },
+    )
     .await
     .map_err(|e| anyhow::anyhow!("subscribe sensors: {e}"))?;
 
     let o = observer.clone();
-    bus.subscribe_commands(&args.session, move |_k, bytes| {
-        if let Ok(f) = serde_json::from_slice::<CommandFrame>(&bytes) {
-            o.lock()
+    let fails = command_decode_failures.clone();
+    bus.subscribe_commands(
+        &args.session,
+        move |_k, bytes| match serde_json::from_slice::<CommandFrame>(&bytes) {
+            Ok(f) => o
+                .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .on_command(&f);
-        }
-    })
+                .on_command(&f),
+            Err(_) => {
+                fails.fetch_add(1, Ordering::Relaxed);
+            }
+        },
+    )
     .await
     .map_err(|e| anyhow::anyhow!("subscribe commands: {e}"))?;
 
     let o = observer.clone();
-    bus.subscribe_observations(&args.session, move |_k, bytes| {
-        if let Ok(f) = serde_json::from_slice::<ObservationFrame>(&bytes) {
-            o.lock()
+    let fails = observation_decode_failures.clone();
+    bus.subscribe_observations(
+        &args.session,
+        move |_k, bytes| match serde_json::from_slice::<ObservationFrame>(&bytes) {
+            Ok(f) => o
+                .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .on_observation(&f);
-        }
-    })
+                .on_observation(&f),
+            Err(_) => {
+                fails.fetch_add(1, Ordering::Relaxed);
+            }
+        },
+    )
     .await
     .map_err(|e| anyhow::anyhow!("subscribe observations: {e}"))?;
 
     println!(
-        "[ncp-observe] tapping '{}/session/{}/{{sensor,command,observation}}' (read-only). Ctrl-C to finalize → {}",
+        "[ncp-observe] tapping '{}/session/{}/{{sensor,command,observation}}' (read-only). \
+         Ctrl-C / SIGTERM to finalize → {}",
         args.realm, args.session, args.out
     );
-    tokio::signal::ctrl_c().await?;
+    shutdown_signal().await?;
 
     let mut guard = observer
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    guard.finalize(&args.out)?;
+    let stats = guard.finalize(&args.out)?;
     println!(
         "[ncp-observe] wrote {} (V,L,D,A) samples → {}",
-        guard.sample_count(),
-        args.out
+        stats.kept_samples, args.out
     );
+    println!("[ncp-observe] capture quality: {stats:?}");
+    let (sf, cf, of) = (
+        sensor_decode_failures.load(Ordering::Relaxed),
+        command_decode_failures.load(Ordering::Relaxed),
+        observation_decode_failures.load(Ordering::Relaxed),
+    );
+    if sf + cf + of > 0 {
+        eprintln!(
+            "[ncp-observe] WARNING: dropped undecodable frames (sensor={sf} command={cf} \
+             observation={of}) — check the NCP wire version of the publisher against the \
+             pinned ncp-core"
+        );
+    }
     Ok(())
 }

@@ -30,7 +30,10 @@ def test_pid2_and_invariants_bindings():
 
 def test_redundancy_rejects_unvalidated_hyperbolic_metric():
     s1, s2, t = sample_arrays()
-    with pytest.raises(RuntimeError):
+    # The pinned pid-rs (v0.3.0 line) maps an unvalidated estimator/metric combo
+    # to PidError::InvalidConfig, which the bindings surface as ValueError
+    # (RuntimeError is reserved for NumericalInstability). See pid-python's pid_err.
+    with pytest.raises(ValueError, match="research-gated"):
         pid.compute_redundancy(s1, s2, t, metric="hyperbolic")
 
 

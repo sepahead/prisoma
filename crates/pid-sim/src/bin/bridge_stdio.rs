@@ -7,7 +7,10 @@ use std::path::PathBuf;
 fn main() -> Result<()> {
     let args = std::env::args_os().collect::<Vec<_>>();
     let (safe_mode, path_arg) = match args.as_slice() {
-        [_, path] => (false, path),
+        // `--safe-mode` with the path omitted must NOT match this arm — it
+        // would silently run with safe mode OFF and a run log named
+        // `--safe-mode`.
+        [_, path] if path.to_str() != Some("--safe-mode") => (false, path),
         [_, flag, path] if flag.to_str() == Some("--safe-mode") => (true, path),
         _ => {
             bail!(
@@ -63,6 +66,7 @@ fn main() -> Result<()> {
         safe_mode,
         "bridge-stdio-run",
     );
+    session.set_run_log_path(&path);
 
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -72,14 +76,24 @@ fn main() -> Result<()> {
         &mut output,
         &mut session,
         actor,
-    )?;
-    output.flush().context("failed to flush stdout")?;
+    )
+    .and_then(|handled| {
+        output.flush().context("failed to flush stdout")?;
+        Ok(handled)
+    });
 
-    session.finish_run(
-        RunStatus::Succeeded,
-        Some(format!("processed {handled} request(s)")),
-    )?;
+    // ALWAYS seal the run log: a transport error (e.g. a client that closed
+    // stdout before reading responses) must still leave a validating run log
+    // with run_ended — the failed sessions are exactly the ones worth auditing.
+    let (status, message) = match &handled {
+        Ok(count) => (
+            RunStatus::Succeeded,
+            format!("processed {count} request(s)"),
+        ),
+        Err(err) => (RunStatus::Failed, format!("transport error: {err:#}")),
+    };
+    session.finish_run(status, Some(message))?;
     session.flush()?;
     eprintln!("wrote {}", path.display());
-    Ok(())
+    handled.map(|_| ())
 }

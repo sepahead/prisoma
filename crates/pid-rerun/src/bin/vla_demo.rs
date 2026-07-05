@@ -103,7 +103,6 @@ fn main() -> Result<()> {
 
         // Convert to contiguous slice for pid-core
         let v_flat: Vec<f64> = v_window.iter().cloned().collect();
-        let _a_flat: Vec<f64> = a_window.iter().cloned().collect();
 
         // Check geometry using pid-core MatRef API
         let id_config = IntrinsicDimConfig::default();
@@ -138,7 +137,12 @@ fn main() -> Result<()> {
         let v2_mat = MatRef::new(&v_source_2, n, 1).ok();
         let a_mat = MatRef::new(&a_subset, n, 1).ok();
 
-        let (redundancy, unique_v, unique_l, synergy) = match (v1_mat, v2_mat, a_mat) {
+        // NB: this synthetic demo decomposes two VISION subspaces (dims 0..2
+        // vs dim 2), so `unique_s2` is a second-vision-subspace term, not a
+        // language term. It is fed into the `unique_l` slot below only to
+        // exercise the plotting path — a real (V,L)→A screen would put an
+        // actual language source here.
+        let (redundancy, unique_v, unique_v2, synergy) = match (v1_mat, v2_mat, a_mat) {
             (Some(v1), Some(v2), Some(a)) => match pid2_isx(v1, v2, a, &pid_config) {
                 Ok(pid) => (pid.redundancy, pid.unique_s1, pid.unique_s2, pid.synergy),
                 Err(err) => {
@@ -153,8 +157,8 @@ fn main() -> Result<()> {
             _ => (0.0, 0.0, 0.0, 0.0),
         };
 
-        // Log PID metrics
-        pid_logger.log_pid_atoms(timestamp, redundancy, synergy, unique_v, unique_l)?;
+        // Log PID metrics (unique_v2 occupies the unique_l slot — see note above).
+        pid_logger.log_pid_atoms(timestamp, redundancy, synergy, unique_v, unique_v2)?;
 
         // Log events at interesting points
         if intrinsic_dim > 20.0 {

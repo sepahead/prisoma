@@ -11,7 +11,7 @@
 
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** 10.4 (Aligned with `grandplan.md` v10.4)  
+**Version:** 10.6 (Aligned with `grandplan.md` v10.6)  
 **Date:** 2026-06-22  
 **Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, external video predictor / Dream2Flow-style pipeline, and the Agent Bridge control plane) are external or not yet implemented in this repo; treat them as specifications until built.
 
@@ -64,7 +64,7 @@ PID/CI hypotheses below inherit **two prerequisites**:
 | **H8** Geometry gate chooses estimator regime | Exp0 | geometry diagnostics + synthetic controls | GO/PIVOT/NO-GO decision for continuous PID vs discrete PID vs MI-only screening | Noise-dimension invariance, monotonicity/CMI checks, intrinsic dimension, distance concentration |
 | **H9** Attribution probes triangulate PID claims | Exp1, Exp3, Exp4 | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style scores on the same logged samples | Agreement or principled disagreement with PID uniques/synergy under controlled interventions; incremental failure-prediction value | Model/data randomization sanity checks, baseline/background sensitivity, deletion/occlusion tests, attention-not-explanation caveat |
 
-### 0.2 Runbook: What Is Executable Today vs Blocked (v10.4, 2026-06-22)
+### 0.2 Runbook: What Is Executable Today vs Blocked (v10.6, 2026-07-05)
 
 This table is the self-sufficient entry point: it maps the run order onto current tooling, expected outcomes, and blockers. Commands assume `just` (each recipe wraps plain `cargo` commands listed in `README.md`/`AGENTS.md`).
 
@@ -91,7 +91,7 @@ Everything downstream consumes one `(V,L,D,A)`+labels contract (the `OfflineVlda
 
 The pure-PID stack (the table above minus NCP) builds, tests, and clears the strict gates with **no NCP/Engram/Zenoh dependency** — `ncp-observer` is excluded from the default cargo workspace. NCP is a sound read-only tap fine for exploratory PID screens on a live Engram session, but it is **not** part of grandplan's critical path (grandplan does not depend on Engram) and is below the M5 contract until three gaps close: precise D `seq`-alignment, honest (non-zeroed) `L`, and `metadata.split`/`episode_id`/`success` structure for the strict gates and the §14.1.1 H1 audit. Bringing it up to bar is a self-contained task — see `NCP_DEV_PROMPT.md`.
 
-## Physics and Robot Backend Usage: Modular Architecture
+## 0.5 Physics and Robot Backend Usage: Modular Architecture
 
 This table clarifies the intended backend choices across experiments. Treat “recommended” as design guidance, not a claim of superiority or current implementation: the checked repo includes the deterministic object sim/logging harness **and a real Rapier3D (`rapier3d-f64`) backend behind the `rapier` feature** (gravity/contacts/friction + a scripted push-to-goal manipulation with physics-derived labels and `Flow_gt`; `just rapier-harness`), while MuJoCo/Gazebo/Isaac-backed manipulation remains planned. The right choice depends on your benchmark, hardware, and what you are trying to validate.
 
@@ -182,7 +182,7 @@ urdf_path = "assets/robots/franka_panda.urdf"
 - Testing cross-embodiment (different robot URDFs)
 - Industry-standard robot fidelity is required
 
-### 0.2 Agent Bridge + Live Intervention (Protocol Requirement)
+### 0.5.1 Agent Bridge + Live Intervention (Protocol Requirement)
 
 The PID‑Splat environment is specified to have a strong GUI *and* an **agent-native automation interface** (“Agent Bridge”). Experiments should be runnable:
 - manually via the GUI, and
@@ -209,7 +209,7 @@ Minimum provenance fields for any action event:
 - Prefer applying interventions at a **named checkpoint** (`pause → apply → resume` or `step`) so “when” is reproducible.
 - Heavy computations (video prediction, flow extraction, large bootstraps) are offline-first but should still be orchestrated through the same control plane so the artifacts and provenance are logged.
 
-### 0.3 Decomposition Choice (2-way vs 3-way vs hierarchical)
+### 0.5.2 Decomposition Choice (2-way vs 3-way vs hierarchical)
 
 Experiments must preregister which decomposition is being used and which concrete representations instantiate `(V,L,D,A)` for the tested model. Use the Geometry Gate + Experiment 0 results to decide which analyses are publishable (see `grandplan.md` §16.11.2).
 
@@ -219,7 +219,7 @@ Experiments must preregister which decomposition is being used and which concret
 | **3-way PID (`pid3`)** | `(V,L,D;A)` | Only when `D` is operationalizable and gates pass | Expensive (many atoms); use offline and report uncertainty/sensitivity |
 | **Hierarchical / screening** | pairwise PID + CI/Ω | When geometry fails or `D` is ambiguous | Prefer robust comparisons (ΔCI/ΔMI) under perturbations over atom-level claims |
 
-### 0.4 Attribution Methods as Companion Diagnostics
+### 0.5.3 Attribution Methods as Companion Diagnostics
 
 Layer-wise Relevance Propagation (LRP) and related attribution methods answer a different question from PID. PID/CI estimates distribution-level dependence among random variables across logged samples, e.g. whether target-relevant information is redundant, unique, or synergistic across `V`, `L`, `D`, and `Flow`. Attribution methods explain a particular model call, layer, token, feature, region, or concept direction. Use them as **baselines and triangulation probes**, not as replacements for Experiment 0 or the geometry gate.
 

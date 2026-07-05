@@ -1,9 +1,13 @@
 //! VLA data structures for loading and processing.
 //!
-//! Supports common VLA dataset formats:
-//! - LIBERO (HDF5)
-//! - Open X-Embodiment (RLDS/TFRecord)
-//! - Simple JSON/numpy for testing
+//! This module currently provides only the in-memory `VlaEpisode` / `VlaFrame`
+//! structs plus a synthetic-episode generator (`generate_synthetic_episode`)
+//! used by the demos. It does **not** yet load any on-disk dataset format —
+//! LIBERO (HDF5), Open X-Embodiment (RLDS/TFRecord), and JSON/numpy episode
+//! loaders are planned but unimplemented. The canonical capture path is the
+//! run-log adapter (`runlog.rs`), which consumes `pid-runlog` events; real
+//! `(V,L,D,A)` captures come through `experiments/safe_adapter` or the
+//! `pid-offline-harness` contract, not through this module.
 
 use anyhow::{bail, Result};
 use ndarray::{Array1, Array2};

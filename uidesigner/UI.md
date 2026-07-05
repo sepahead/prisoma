@@ -1,4 +1,4 @@
-# prisoma UI/UX Specification (Docset v10.4)
+# prisoma UI/UX Specification (Docset v10.6)
 
 This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the `README.md` engineering plan.
 

@@ -105,16 +105,28 @@ fn main() -> Result<()> {
     eprintln!("listening {local_addr}");
     let (mut stream, peer_addr) = listener.accept().context("failed to accept TCP client")?;
     eprintln!("accepted {peer_addr}");
-    perform_websocket_handshake(&mut stream)?;
-    let handled = dispatch_websocket_messages(&mut stream, &mut session, actor)?;
+    session.set_run_log_path(&path);
+    let handled = perform_websocket_handshake(&mut stream)
+        .and_then(|()| dispatch_websocket_messages(&mut stream, &mut session, actor));
 
-    session.finish_run(
-        RunStatus::Succeeded,
-        Some(format!("processed {handled} request(s) from {peer_addr}")),
-    )?;
+    // ALWAYS seal the run log: a mid-session protocol/transport error (client
+    // RST, oversized or unsupported frame, non-UTF8 text) must still leave a
+    // validating run log with run_ended — the failed sessions are exactly the
+    // ones worth auditing.
+    let (status, message) = match &handled {
+        Ok(count) => (
+            RunStatus::Succeeded,
+            format!("processed {count} request(s) from {peer_addr}"),
+        ),
+        Err(err) => (
+            RunStatus::Failed,
+            format!("websocket error from {peer_addr}: {err:#}"),
+        ),
+    };
+    session.finish_run(status, Some(message))?;
     session.flush()?;
     eprintln!("wrote {}", path.display());
-    Ok(())
+    handled.map(|_| ())
 }
 
 fn perform_websocket_handshake(stream: &mut TcpStream) -> Result<()> {

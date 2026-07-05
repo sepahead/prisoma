@@ -4,8 +4,8 @@
 
 use anyhow::{bail, Context, Result};
 use pid_bridge::{
-    BridgeHandler, BridgeMethod, BridgeRequest, BridgeResponse, BridgeRpcRequest,
-    BridgeRpcResponse, LocalBridge,
+    rpc_id_to_request_id, BridgeHandler, BridgeMethod, BridgeRequest, BridgeResponse,
+    BridgeRpcRequest, BridgeRpcResponse, LocalBridge,
 };
 use pid_runlog::{
     canonical_json_hash, Actor, Pose, RunLogEvent, RunLogWriter, RunStatus, SimObjectSnapshot,
@@ -110,6 +110,10 @@ pub struct SimBridgeSession<W> {
     handler: SimBridgeHandler,
     run_id: String,
     run_ended: bool,
+    /// Where this session's own run log lives, when file-backed. `export.rerun`
+    /// must never be allowed to write over it: the run log is the source of
+    /// truth, and `pid_rerun::save_recording` truncates its target.
+    run_log_path: Option<PathBuf>,
 }
 
 pub fn deterministic_sim_config(
@@ -373,15 +377,27 @@ impl BridgeHandler for SimBridgeHandler {
         match request.method {
             BridgeMethod::SimStatus => Ok(self.status_json()),
             BridgeMethod::SimReset => {
+                // A reset zeroes the sim's step/timestamp counters; recording
+                // post-reset events into the SAME run log would regress both
+                // counters and fail pid-runlog's nondecreasing validation (and
+                // poison Flow_gt verification). One run log = one monotonic
+                // timeline: reset is only valid before the first step.
+                if self.sim.step() > 0 {
+                    bail!(
+                        "sim.reset after sim.step would regress run-log step/time; \
+                         finish this run (log.stop) and start a new bridge run instead"
+                    );
+                }
                 self.sim.reset();
                 Ok(self.status_json())
             }
             BridgeMethod::SimStep => {
-                let dt = request
-                    .payload
-                    .get("dt")
-                    .and_then(Value::as_f64)
-                    .unwrap_or(0.1);
+                let dt = match request.payload.get("dt") {
+                    None | Some(Value::Null) => 0.1,
+                    Some(value) => value
+                        .as_f64()
+                        .with_context(|| format!("sim.step dt must be a number, got {value}"))?,
+                };
                 let step = self.sim.step_fixed(dt)?;
                 self.last_step = Some(step.clone());
                 Ok(json!({
@@ -489,6 +505,7 @@ impl<W: Write> SimBridgeSession<W> {
             handler: SimBridgeHandler::new(sim),
             run_id: run_id.into(),
             run_ended: false,
+            run_log_path: None,
         }
     }
 
@@ -511,7 +528,14 @@ impl<W: Write> SimBridgeSession<W> {
             handler: SimBridgeHandler::new(sim),
             run_id: run_id.into(),
             run_ended: false,
+            run_log_path: None,
         }
+    }
+
+    /// Tell the session where its own run log lives so `export.rerun` can
+    /// refuse to overwrite it. File-backed transports should always set this.
+    pub fn set_run_log_path(&mut self, path: impl Into<PathBuf>) {
+        self.run_log_path = Some(path.into());
     }
 
     pub fn safe_mode(&self) -> bool {
@@ -552,6 +576,9 @@ impl<W: Write> SimBridgeSession<W> {
         let handled = match request.method {
             BridgeMethod::LogStart => self.handle_log_start(request),
             BridgeMethod::LogStop => self.handle_log_stop(request),
+            BridgeMethod::ExportRerun => self
+                .validate_export_target(request)
+                .and_then(|()| self.handler.handle(request)),
             _ => self.handler.handle(request),
         };
         let response = match handled {
@@ -655,6 +682,57 @@ impl<W: Write> SimBridgeSession<W> {
 
     pub fn timestamp_ns(&self) -> u64 {
         self.handler.sim.timestamp_ns()
+    }
+
+    /// Refuse an `export.rerun` whose resolved output path is this session's
+    /// own run log: `pid_rerun::save_recording` truncates its target, and a
+    /// client (any process that can reach the TCP/WS port) must not be able to
+    /// destroy the source-of-truth log of the run in progress.
+    fn validate_export_target(&self, request: &BridgeRequest) -> Result<()> {
+        let Some(own) = &self.run_log_path else {
+            return Ok(());
+        };
+        let run_log_uri = request
+            .payload
+            .get("run_log_uri")
+            .and_then(Value::as_str)
+            .context("export.rerun requires string run_log_uri")?;
+        let output_uri = request
+            .payload
+            .get("output_uri")
+            .and_then(Value::as_str)
+            .map(PathBuf::from)
+            .unwrap_or_else(|| default_rerun_output_path(run_log_uri));
+        if paths_resolve_to_same_target(&output_uri, own) {
+            bail!(
+                "export.rerun output_uri {} resolves to this session's own run log; refusing",
+                output_uri.display()
+            );
+        }
+        Ok(())
+    }
+
+    /// Record a rejected RPC message (malformed JSON, invalid id, unknown
+    /// method) as a failed bridge response so the provenance log captures
+    /// probing and malformed traffic too — grandplan's control-plane rule is
+    /// "append every request and response summary to the run log". Best-effort:
+    /// a run-log write failure is reported on stderr rather than masking the
+    /// protocol error already being returned to the client.
+    pub fn record_rejected_rpc(&mut self, request_id: &str, message: &str) {
+        if self.run_ended {
+            return;
+        }
+        let response = BridgeResponse {
+            request_id: request_id.to_string(),
+            step: Some(self.handler.sim.step()),
+            timestamp_ns: self.handler.sim.timestamp_ns(),
+            ok: false,
+            message: Some(message.to_string()),
+            result: None,
+        };
+        if let Err(err) = self.bridge.record_response(&response) {
+            eprintln!("[pid-sim-bridge] failed to record rejected request in run log: {err}");
+        }
     }
 
     pub fn record_event(&mut self, event: &RunLogEvent) -> Result<()> {
@@ -767,6 +845,14 @@ pub fn export_runlog_to_rerun(
     if paths_refer_to_same_file(run_log_uri, output_uri) {
         bail!("export.rerun output_uri must differ from run_log_uri");
     }
+    // save_recording truncates its target; requiring the Rerun extension keeps
+    // a mistyped (or malicious) output_uri from overwriting arbitrary files.
+    if output_uri.extension().and_then(|ext| ext.to_str()) != Some("rrd") {
+        bail!(
+            "export.rerun output_uri must end in .rrd, got {}",
+            output_uri.display()
+        );
+    }
     if let Some(parent) = output_uri.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent)
@@ -815,6 +901,28 @@ fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
     }
 }
 
+/// Like [`paths_refer_to_same_file`], but also correct when one side does not
+/// exist yet (an export target): canonicalize the parent directory (which does
+/// exist for the live run log) and reattach the file name, so `./x.jsonl` and
+/// `outputs/../x.jsonl` compare equal even before the target is created.
+fn paths_resolve_to_same_target(left: &Path, right: &Path) -> bool {
+    if paths_refer_to_same_file(left, right) {
+        return true;
+    }
+    fn resolve(path: &Path) -> PathBuf {
+        let file_name = path
+            .file_name()
+            .map(|n| n.to_os_string())
+            .unwrap_or_default();
+        let parent = match path.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+            _ => PathBuf::from("."),
+        };
+        parent.canonicalize().unwrap_or(parent).join(file_name)
+    }
+    resolve(left) == resolve(right)
+}
+
 pub fn bridge_request(
     request_id: impl Into<String>,
     method: BridgeMethod,
@@ -833,8 +941,13 @@ pub fn bridge_request(
     }
 }
 
+/// Upper bound on one JSON-RPC line (bytes, including the newline). Matches the
+/// WebSocket transport's frame cap; without it a client can grow memory without
+/// limit by never sending a newline.
+const MAX_RPC_LINE_BYTES: u64 = 1024 * 1024;
+
 pub fn dispatch_rpc_lines<R, O, L>(
-    input: R,
+    mut input: R,
     output: &mut O,
     session: &mut SimBridgeSession<L>,
     actor: Actor,
@@ -845,16 +958,28 @@ where
     L: Write,
 {
     let mut handled = 0usize;
-    for (idx, line) in input.lines().enumerate() {
-        let line = line.with_context(|| format!("failed to read JSON-RPC line {}", idx + 1))?;
+    let mut idx = 0usize;
+    loop {
+        idx += 1;
+        let mut line = String::new();
+        // UFCS so `take` borrows `input` (`Take<&mut R>`) instead of moving it.
+        let read = std::io::Read::take(&mut input, MAX_RPC_LINE_BYTES)
+            .read_line(&mut line)
+            .with_context(|| format!("failed to read JSON-RPC line {idx}"))?;
+        if read == 0 {
+            break;
+        }
+        if read as u64 == MAX_RPC_LINE_BYTES && !line.ends_with('\n') {
+            bail!("JSON-RPC line {idx} exceeds {MAX_RPC_LINE_BYTES} bytes");
+        }
         if line.trim().is_empty() {
             continue;
         }
         let response = dispatch_rpc_text_request_with_context(
             &line,
-            &format!("line-{}", idx + 1),
+            &format!("line-{idx}"),
             "line",
-            idx + 1,
+            idx,
             session,
             actor.clone(),
         );
@@ -862,6 +987,10 @@ where
         output
             .write_all(b"\n")
             .context("failed to write RPC response newline")?;
+        // Flush per response: an interactive client (TCP without half-close,
+        // a REPL over stdio) deadlocks waiting for a reply that is sitting in
+        // this side's BufWriter.
+        output.flush().context("failed to flush RPC response")?;
         handled += 1;
         if session.run_ended() {
             break;
@@ -902,86 +1031,157 @@ where
 {
     match serde_json::from_str::<BridgeRpcRequest>(text) {
         Ok(rpc) => {
-            let id = rpc.id.clone();
+            let id = match rpc.validated_id() {
+                Ok(id) => id.clone(),
+                Err(err) => {
+                    let message = format!(
+                        "invalid JSON-RPC request at {context_name} {request_index}: {err}"
+                    );
+                    session.record_rejected_rpc(failure_id, &message);
+                    // The id is structurally invalid, so it cannot be echoed;
+                    // JSON-RPC 2.0 says respond with id null.
+                    return BridgeRpcResponse::failure(Value::Null, -32600, message);
+                }
+            };
+            let request_id = rpc_id_to_request_id(&id);
             match rpc.into_bridge_request(actor, Some(session.step()), session.timestamp_ns()) {
-                Ok(request) => BridgeRpcResponse::from_bridge_response(
-                    &session
-                        .dispatch(&request)
-                        .unwrap_or_else(|err| BridgeResponse {
-                            request_id: id,
+                Ok(request) => {
+                    let response = session.dispatch(&request).unwrap_or_else(|err| {
+                        // dispatch itself failed (e.g. a run-log write
+                        // error) — the response below may not be in the
+                        // log; record the failure best-effort so the
+                        // audit trail sees it.
+                        let message = err.to_string();
+                        session.record_rejected_rpc(&request_id, &message);
+                        BridgeResponse {
+                            request_id: request_id.clone(),
                             step: Some(session.step()),
                             timestamp_ns: session.timestamp_ns(),
                             ok: false,
-                            message: Some(err.to_string()),
+                            message: Some(message),
                             result: None,
-                        }),
-                ),
-                Err(err) => BridgeRpcResponse::failure(id, -32601, err.to_string()),
+                        }
+                    });
+                    BridgeRpcResponse::from_bridge_response_with_id(&response, id)
+                }
+                Err(err) => {
+                    // Unknown/unsupported method: return -32601 AND leave a
+                    // trace — method probing is exactly the traffic a control-
+                    // plane audit log must capture.
+                    let message = err.to_string();
+                    session.record_rejected_rpc(&request_id, &message);
+                    BridgeRpcResponse::failure(id, -32601, message)
+                }
             }
         }
-        Err(err) => BridgeRpcResponse::failure(
-            failure_id.to_string(),
-            -32700,
-            format!("invalid JSON-RPC request at {context_name} {request_index}: {err}"),
-        ),
+        Err(err) => {
+            let message =
+                format!("invalid JSON-RPC request at {context_name} {request_index}: {err}");
+            session.record_rejected_rpc(failure_id, &message);
+            // Unparseable JSON: the request id is unknowable; JSON-RPC 2.0
+            // says respond with id null (the message keeps the line/frame
+            // context for correlation).
+            BridgeRpcResponse::failure(Value::Null, -32700, message)
+        }
     }
 }
 
 pub fn verify_flow_gt(events: &[RunLogEvent], tolerance: f64) -> FlowVerificationReport {
-    let mut snapshots: BTreeMap<u64, BTreeMap<String, [f64; 3]>> = BTreeMap::new();
-    for event in events {
-        if let RunLogEvent::SimSnapshot { step, objects, .. } = event {
-            snapshots.insert(
-                *step,
-                objects
-                    .iter()
-                    .map(|object| (object.object_id.clone(), object.pose.position))
-                    .collect(),
-            );
-        }
+    let mut report = FlowVerificationReport::default();
+    if !tolerance.is_finite() || tolerance < 0.0 {
+        // A NaN tolerance would pass every comparison (false PASS verdicts);
+        // a negative one would fail every honest log.
+        report
+            .issues
+            .push("tolerance must be nonnegative and finite".to_string());
+        return report;
     }
 
-    let mut report = FlowVerificationReport::default();
+    // Pair each FlowGt with the snapshots as they stood IN STREAM ORDER, not
+    // via a global last-wins step index: interventions and scene edits emit a
+    // second SimSnapshot at the same step, and the flow logged by the NEXT
+    // sim.step integrates from that later snapshot. Keying a map by step would
+    // make the post-intervention snapshot retroactively "become" the step's
+    // state and flag honest flows as mismatches.
+    type Positions = BTreeMap<String, [f64; 3]>;
+    let mut previous: Option<(u64, Positions)> = None;
+    let mut current: Option<(u64, Positions)> = None;
     for event in events {
-        let RunLogEvent::FlowGt {
-            step,
-            object_id,
-            flow,
-            ..
-        } = event
-        else {
-            continue;
-        };
-        if *step == 0 {
-            continue;
-        }
-        let Some(current) = snapshots.get(step).and_then(|s| s.get(object_id)) else {
-            report.issues.push(format!(
-                "missing current snapshot for {object_id} at step {step}"
-            ));
-            continue;
-        };
-        let Some(previous) = snapshots.get(&(*step - 1)).and_then(|s| s.get(object_id)) else {
-            report.issues.push(format!(
-                "missing previous snapshot for {object_id} before step {step}"
-            ));
-            continue;
-        };
-        for vec in flow {
-            let expected = [
-                current[0] - previous[0],
-                current[1] - previous[1],
-                current[2] - previous[2],
-            ];
-            report.checked_flows += 1;
-            if (vec[0] - expected[0]).abs() > tolerance
-                || (vec[1] - expected[1]).abs() > tolerance
-                || (vec[2] - expected[2]).abs() > tolerance
-            {
-                report
-                    .issues
-                    .push(format!("flow mismatch for {object_id} at step {step}"));
+        match event {
+            RunLogEvent::SimSnapshot { step, objects, .. } => {
+                let positions: Positions = objects
+                    .iter()
+                    .map(|object| (object.object_id.clone(), object.pose.position))
+                    .collect();
+                match &current {
+                    // Same-step re-snapshot (intervention / scene edit): it
+                    // replaces the current state; `previous` is untouched.
+                    Some((current_step, _)) if *current_step == *step => {
+                        current = Some((*step, positions));
+                    }
+                    Some(_) => {
+                        previous = current.take();
+                        current = Some((*step, positions));
+                    }
+                    None => current = Some((*step, positions)),
+                }
             }
+            RunLogEvent::FlowGt {
+                step,
+                object_id,
+                flow,
+                ..
+            } => {
+                if *step == 0 {
+                    continue;
+                }
+                let Some((current_step, current_positions)) = &current else {
+                    report.issues.push(format!(
+                        "missing current snapshot for {object_id} at step {step}"
+                    ));
+                    continue;
+                };
+                if current_step != step {
+                    report.issues.push(format!(
+                        "flow for {object_id} at step {step} does not follow its snapshot \
+                         (latest snapshot is step {current_step})"
+                    ));
+                    continue;
+                }
+                let Some(current_position) = current_positions.get(object_id) else {
+                    report.issues.push(format!(
+                        "missing current snapshot for {object_id} at step {step}"
+                    ));
+                    continue;
+                };
+                let previous_position = previous
+                    .as_ref()
+                    .filter(|(previous_step, _)| *previous_step + 1 == *step)
+                    .and_then(|(_, positions)| positions.get(object_id));
+                let Some(previous_position) = previous_position else {
+                    report.issues.push(format!(
+                        "missing previous snapshot for {object_id} before step {step}"
+                    ));
+                    continue;
+                };
+                for vec in flow {
+                    let expected = [
+                        current_position[0] - previous_position[0],
+                        current_position[1] - previous_position[1],
+                        current_position[2] - previous_position[2],
+                    ];
+                    report.checked_flows += 1;
+                    if (vec[0] - expected[0]).abs() > tolerance
+                        || (vec[1] - expected[1]).abs() > tolerance
+                        || (vec[2] - expected[2]).abs() > tolerance
+                    {
+                        report
+                            .issues
+                            .push(format!("flow mismatch for {object_id} at step {step}"));
+                    }
+                }
+            }
+            _ => {}
         }
     }
     report
@@ -1596,6 +1796,265 @@ mod tests {
 
         let _ = std::fs::remove_file(source);
         let _ = std::fs::remove_file(output);
+    }
+
+    #[test]
+    fn bridge_session_export_rerun_refuses_own_run_log_and_non_rrd_output() {
+        let source = temp_path("pid-sim-export-guard-source", "jsonl");
+        write_minimal_run_log(&source, "export-guard-source");
+        let own_log = temp_path("pid-sim-export-guard-own", "jsonl");
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-export-guard-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        session.set_run_log_path(&own_log);
+
+        // Writing over the session's own run log must be refused outright.
+        let overwrite = bridge_request(
+            "req-export-own-log",
+            BridgeMethod::ExportRerun,
+            actor.clone(),
+            Some(0),
+            0,
+            json!({
+                "run_log_uri": source.display().to_string(),
+                "output_uri": own_log.display().to_string(),
+            }),
+        );
+        let response = session.dispatch(&overwrite).unwrap();
+        assert!(!response.ok);
+        assert!(
+            response
+                .message
+                .as_deref()
+                .unwrap_or("")
+                .contains("own run log"),
+            "{:?}",
+            response.message
+        );
+
+        // Any non-.rrd output is refused (save_recording truncates its target).
+        let non_rrd = temp_path("pid-sim-export-guard-other", "jsonl");
+        let bad_ext = bridge_request(
+            "req-export-bad-ext",
+            BridgeMethod::ExportRerun,
+            actor,
+            Some(0),
+            0,
+            json!({
+                "run_log_uri": source.display().to_string(),
+                "output_uri": non_rrd.display().to_string(),
+            }),
+        );
+        let response = session.dispatch(&bad_ext).unwrap();
+        assert!(!response.ok);
+        assert!(
+            response.message.as_deref().unwrap_or("").contains(".rrd"),
+            "{:?}",
+            response.message
+        );
+        assert!(!non_rrd.exists(), "refused export must not create the file");
+
+        let _ = std::fs::remove_file(source);
+    }
+
+    #[test]
+    fn rpc_dispatch_echoes_numeric_id_and_logs_rejections() {
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "rpc-id-test".to_string(),
+            session_id: None,
+        };
+        // Numeric ids are valid JSON-RPC 2.0 and must be echoed VERBATIM.
+        let ok = dispatch_rpc_text_request(
+            r#"{"jsonrpc":"2.0","id":7,"method":"sim.status","params":{}}"#,
+            1,
+            &mut session,
+            actor.clone(),
+        );
+        assert!(ok.is_ok(), "{:?}", ok.error);
+        assert_eq!(ok.id, json!(7));
+        // Unknown method → -32601 with the id echoed, and a run-log trace.
+        let unknown = dispatch_rpc_text_request(
+            r#"{"jsonrpc":"2.0","id":"probe","method":"sim.destroy","params":{}}"#,
+            2,
+            &mut session,
+            actor.clone(),
+        );
+        assert_eq!(unknown.error.as_ref().unwrap().code, -32601);
+        assert_eq!(unknown.id, json!("probe"));
+        // Malformed JSON → -32700, id null per JSON-RPC 2.0, and a trace.
+        let malformed = dispatch_rpc_text_request("{nope", 3, &mut session, actor.clone());
+        assert_eq!(malformed.error.as_ref().unwrap().code, -32700);
+        assert_eq!(malformed.id, Value::Null);
+        // Structured (array) id → -32600 Invalid Request, id null, and a trace.
+        let bad_id = dispatch_rpc_text_request(
+            r#"{"jsonrpc":"2.0","id":[1],"method":"sim.status","params":{}}"#,
+            4,
+            &mut session,
+            actor,
+        );
+        assert_eq!(bad_id.error.as_ref().unwrap().code, -32600);
+        assert_eq!(bad_id.id, Value::Null);
+
+        // Every rejected message must have left a failed bridge_response event:
+        // probing/malformed traffic is exactly what the audit trail must keep.
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let rejected: Vec<String> = events
+            .iter()
+            .filter_map(|event| match event {
+                RunLogEvent::BridgeResponse {
+                    ok: false,
+                    request_id,
+                    ..
+                } => Some(request_id.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(rejected.len(), 3, "{rejected:?}");
+        assert!(rejected.contains(&"probe".to_string()), "{rejected:?}");
+        assert!(
+            rejected
+                .iter()
+                .filter(|id| id.starts_with("message-"))
+                .count()
+                == 2,
+            "parse/id failures must be traceable: {rejected:?}"
+        );
+    }
+
+    #[test]
+    fn sim_reset_is_rejected_after_stepping() {
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "reset-guard-test".to_string(),
+            session_id: None,
+        };
+        // Reset before the first step is allowed.
+        let early = session
+            .dispatch(&bridge_request(
+                "reset-early",
+                BridgeMethod::SimReset,
+                actor.clone(),
+                Some(session.step()),
+                session.timestamp_ns(),
+                json!({}),
+            ))
+            .unwrap();
+        assert!(early.ok, "{:?}", early.message);
+        let stepped = session
+            .dispatch(&bridge_request(
+                "step-1",
+                BridgeMethod::SimStep,
+                actor.clone(),
+                Some(session.step()),
+                session.timestamp_ns(),
+                json!({ "dt": 0.1 }),
+            ))
+            .unwrap();
+        assert!(stepped.ok, "{:?}", stepped.message);
+        // Reset after stepping would regress run-log step/time — refuse it.
+        let late = session
+            .dispatch(&bridge_request(
+                "reset-late",
+                BridgeMethod::SimReset,
+                actor,
+                Some(session.step()),
+                session.timestamp_ns(),
+                json!({}),
+            ))
+            .unwrap();
+        assert!(!late.ok);
+        // The refusal keeps the log monotonic: no step/timestamp regressions
+        // (run_started/run_ended framing is the transport binaries' job, so
+        // only ordering errors are asserted here).
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let report = pid_runlog::validate_events(&events);
+        let ordering_issues: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|issue| issue.message.contains("nondecreasing"))
+            .collect();
+        assert!(ordering_issues.is_empty(), "{ordering_issues:?}");
+    }
+
+    #[test]
+    fn sim_step_rejects_non_numeric_dt() {
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "dt-test".to_string(),
+            session_id: None,
+        };
+        let response = session
+            .dispatch(&bridge_request(
+                "step-bad-dt",
+                BridgeMethod::SimStep,
+                actor,
+                Some(0),
+                0,
+                json!({ "dt": "fast" }),
+            ))
+            .unwrap();
+        assert!(
+            !response.ok,
+            "a non-numeric dt must not silently become 0.1"
+        );
+        assert!(
+            response.message.as_deref().unwrap_or("").contains("dt"),
+            "{:?}",
+            response.message
+        );
+    }
+
+    #[test]
+    fn verify_flow_gt_accepts_intervention_after_step() {
+        // A pose intervention emits a second SimSnapshot at the SAME step; the
+        // flows already logged for that step must not be retro-flagged, and the
+        // NEXT step's flow must be measured from the post-intervention state.
+        let sim = demo_sim();
+        let mut writer = RunLogWriter::new(Vec::new());
+        // Seed snapshot at step 0, as every transport binary writes.
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::new(writer, sim);
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "flow-intervention-test".to_string(),
+            session_id: None,
+        };
+        for (id, method, payload) in [
+            ("s1", BridgeMethod::SimStep, json!({ "dt": 0.1 })),
+            (
+                "i1",
+                BridgeMethod::InterventionApply,
+                json!({
+                    "intervention_type": "translate_object",
+                    "payload": { "object_id": "red_cube", "delta": [1.0, 0.0, 0.0] },
+                }),
+            ),
+            ("s2", BridgeMethod::SimStep, json!({ "dt": 0.1 })),
+        ] {
+            let response = session
+                .dispatch(&bridge_request(id, method, actor.clone(), None, 0, payload))
+                .unwrap();
+            assert!(response.ok, "{id}: {:?}", response.message);
+        }
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let report = verify_flow_gt(&events, 1e-9);
+        assert!(
+            report.issues.is_empty(),
+            "honest post-intervention log flagged: {:?}",
+            report.issues
+        );
+        assert!(report.checked_flows > 0);
     }
 
     #[test]

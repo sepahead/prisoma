@@ -6,7 +6,9 @@ fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
     if args.len() < 2 {
         bail!(
-            "usage: {} <run-log.jsonl> [--save out.rrd] [--serve] [--allow-invalid]",
+            "usage: {} <run-log.jsonl> [--save out.rrd] [--serve] [--allow-invalid]\n\
+             (with neither --save nor --serve, the run log is converted and validated but the \
+             recording is discarded — a dry run)",
             args[0]
         );
     }
@@ -47,8 +49,16 @@ fn main() -> Result<()> {
     }
     let manifest = pid_runlog::manifest_for_path(&input)?;
     let rec = init_recording("prisoma_runlog", serve)?;
-    let summary =
-        RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, Some(&manifest))?;
+    // Relative attribution artifact_uris are written next to the run log, so
+    // resolve them against its directory, not the converter's CWD.
+    let mut logger = RunLogRerunLogger::new(&rec);
+    if let Some(parent) = input.parent().filter(|p| !p.as_os_str().is_empty()) {
+        logger = logger.with_artifact_base_dir(parent);
+    }
+    let summary = logger.log_events_with_manifest(&events, Some(&manifest))?;
+    if save_path.is_none() && !serve {
+        println!("note: neither --save nor --serve given; recording will be discarded (dry run)");
+    }
     println!(
         "converted events={} run_id={} trace_hash={} validation_errors={} validation_warnings={}",
         summary.event_count,

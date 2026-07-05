@@ -40,6 +40,9 @@ default-groups = ["dev", "analysis"]
 extend-exclude = [
   "meshmaker",
   "report_gen.py",
+  # The pid-rs submodule is a separate upstream project with its own lint policy;
+  # `ruff check .` from the repo root must not walk it (it fails on its files).
+  "pid-rs",
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -191,6 +191,21 @@
     "title": "DLME: Deep Local-flatness Manifold Embedding",
     "updated": "2022-07-26T00:47:01Z"
   },
+  "2306.02149": {
+    "authors": [
+      "Abdullah Makkeh",
+      "Marcel Graetz",
+      "Andreas C. Schneider",
+      "David A. Ehrlich",
+      "Viola Priesemann",
+      "Michael Wibral"
+    ],
+    "id": "2306.02149",
+    "published": "2023-06-03T16:34:25Z",
+    "summary": "Despite the impressive performance of biological and artificial networks, an intuitive understanding of how their local learning dynamics contribute to network-level task solutions remains a challenge to this date. Efforts to bring learning to a more local scale indeed lead to valuable insights, however, a general constructive approach to describe local learning goals that is both interpretable and adaptable across diverse tasks is still missing. We have previously formulated a local information processing goal that is highly adaptable and interpretable for a model neuron with compartmental structure. Building on recent advances in Partial Information Decomposition (PID), we here derive a corresponding parametric local learning rule, which allows us to introduce 'infomorphic' neural networks. We demonstrate the versatility of these networks to perform tasks from supervised, unsupervised and memory learning. By leveraging the interpretable nature of the PID framework, infomorphic networks represent a valuable tool to advance our understanding of the intricate structure of local learning.",
+    "title": "A General Framework for Interpretable Neural Learning based on Local Information-Theoretic Goal Functions",
+    "updated": "2025-03-26T16:12:04Z"
+  },
   "2311.05928": {
     "authors": [
       "Anton Razzhigaev",

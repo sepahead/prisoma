@@ -30,7 +30,13 @@ SCHEMA_VERSION = 1
 
 def canonical_hash(value: object) -> str:
     """Reproduce ``pid_runlog::canonical_json_hash`` for str/int/bool-only values."""
-    payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    # ``ensure_ascii=False`` is REQUIRED: serde_json writes raw UTF-8, while
+    # Python's default escapes non-ASCII to ``\uXXXX`` — so a config value such as
+    # ``I^sx_∩`` (which the docset uses freely) would otherwise hash differently
+    # in Python than in Rust and fail ``pid-runlog-replay --validate``.
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 

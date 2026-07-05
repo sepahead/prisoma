@@ -87,6 +87,7 @@ fn main() -> Result<()> {
         safe_mode,
         "bridge-tcp-run",
     );
+    session.set_run_log_path(&path);
     let actor = Actor {
         actor_type: ActorType::Script,
         actor_id: "pid-sim-bridge-tcp".to_string(),
@@ -104,14 +105,27 @@ fn main() -> Result<()> {
 
     let reader = BufReader::new(stream.try_clone().context("failed to clone TCP stream")?);
     let mut output = BufWriter::new(stream);
-    let handled = pid_sim::dispatch_rpc_lines(reader, &mut output, &mut session, actor)?;
-    output.flush().context("failed to flush TCP responses")?;
+    let handled =
+        pid_sim::dispatch_rpc_lines(reader, &mut output, &mut session, actor).and_then(|handled| {
+            output.flush().context("failed to flush TCP responses")?;
+            Ok(handled)
+        });
 
-    session.finish_run(
-        RunStatus::Succeeded,
-        Some(format!("processed {handled} request(s) from {peer_addr}")),
-    )?;
+    // ALWAYS seal the run log: a client RST / broken pipe must still leave a
+    // validating run log with run_ended — the crashed sessions are exactly the
+    // ones worth auditing.
+    let (status, message) = match &handled {
+        Ok(count) => (
+            RunStatus::Succeeded,
+            format!("processed {count} request(s) from {peer_addr}"),
+        ),
+        Err(err) => (
+            RunStatus::Failed,
+            format!("transport error from {peer_addr}: {err:#}"),
+        ),
+    };
+    session.finish_run(status, Some(message))?;
     session.flush()?;
     eprintln!("wrote {}", path.display());
-    Ok(())
+    handled.map(|_| ())
 }

@@ -21,20 +21,26 @@ default cargo workspace** (build it with `--manifest-path`, see below).
 It is fine for *exploratory* PID screens on a live Engram session, but it is **below the
 M5 contract** (gate-passing artifacts with honest provenance) until the gaps below close:
 
-1. **D alignment — done in-repo, pending an external runtime stamp.** `ObservationFrame`
-   **now carries `seq`**, and this observer already joins D on it: `on_observation` stores
-   each readout in `d_by_seq[obs.seq]` and `try_complete` prefers it over recency (test
-   `d_aligns_on_seq_not_recency`). Recency is only the fallback for an unstamped
-   (`obs.seq == 0`) frame, so the lone remaining piece is external — the Engram publisher
-   must stamp each observation with its driving sensor `seq`.
-2. **Honest `L` — provenance marked, exclusion still external.** An absent language
-   channel yields an all-zero `L`, but this is **never fabricated silently**: every
-   sample now carries a per-sample provenance marker (`metadata.l_source = "channel"`
-   when present, `"absent_zeroed"` when the channel was missing; test
-   `provenance_marks_recency_fallback_and_present_language`); the offline harness
-   additionally fails its geometry gate on any all-constant axis, so a zeroed `L`
-   cannot pass `--require-geometry-pass` unflagged. The remaining gap is downstream —
-   a consumer must still act on the marker to exclude zeroed-`L` samples.
+1. **D alignment — done in-repo (including arrival reordering), pending an external
+   runtime stamp.** `ObservationFrame` **carries `seq`**, and this observer joins D on
+   it: readouts are stored in `d_by_seq[obs.seq]` and preferred over recency (test
+   `d_aligns_on_seq_not_recency`). Because the observation plane rides a lower QoS
+   priority than the action plane, a tick's readout routinely arrives *after* its
+   command — completed ticks are therefore held for a short **reorder grace window**
+   before emission so a late readout still claims its own tick (test
+   `late_observation_within_grace_is_seq_aligned`), and a readout arriving even later
+   still patches the in-memory sample (`d_source = "seq_late"`, counted). Recency is
+   only the fallback for an unstamped (`obs.seq == 0`) frame, so the lone remaining
+   piece is external — the Engram publisher must stamp each observation with its
+   driving sensor `seq`.
+2. **Honest `L` — absent-language ticks are excluded, never fabricated.** A tick with
+   no language channel yields an empty (zero-length) `L`; such ticks are **excluded
+   from the artifact and counted** (`excluded_empty_l` in the finalize report),
+   because one empty axis would make `pid-offline-harness` reject the whole dataset.
+   Kept samples always carry `metadata.l_source = "channel"`. The tracked follow-up
+   (Gap 2) is a fixed-dim zero *backfill* that would retain such ticks under the
+   degraded `l_source = "absent_zeroed"` marker, which the harness's
+   `--require-axis-provenance-honest` gate rejects.
 3. **Held-out structure** — no `metadata.split` / `episode_id` / required `success` labels
    by default, so the strict `--require-heldout-*` gates and the §14.1.1 H1 audit can't run.
 
@@ -48,8 +54,16 @@ each closed-loop tick into an `OfflineVldaSample`, writing:
 1. an **`OfflineVldaDataset` JSON artifact** — run it through `pid-offline-harness`
    (`V/L/D → A` PID screens), exactly like the SAFE adapter's output; and
 2. **canonical run-log events** (the source of truth): one `EmbeddingContract`
-   declaring the `(V,L,D,A)` variables, an `EmbeddingCaptured` per sample, and a
-   `LabelObserved` per success label.
+   declaring the `(V,L,D,A)` variables, an `EmbeddingCaptured` per kept sample, a
+   `LabelObserved` per success label, and — at finalize — an `ArtifactLogged`
+   registering the dataset artifact (uri + sha256) so the run log can locate and
+   verify the data it describes.
+
+Ticks that can never pass the harness (an empty axis: no language channel yet, no
+observation yet) are **excluded and counted**, dims are held to the declared
+contract, session `seq` resets start a new epoch (`sample_id = ncp-{epoch}-{seq}`),
+and the finalize report (`ObserverStats`) surfaces every exclusion/eviction path so
+a small artifact is diagnosable rather than mysterious.
 
 ### (V, L, D, A) mapping
 - **V** ← `SensorFrame` channels (all but the language channel), flattened.
@@ -63,20 +77,26 @@ each closed-loop tick into an `OfflineVldaSample`, writing:
 V and A are joined on **`seq`** — a `CommandFrame.seq` echoes the `SensorFrame.seq`
 it was computed from, so a sample pairs the action with the sensor that produced
 it, never by arrival time (the perception plane's DROP QoS makes arrival-time
-pairing unsound). `ObservationFrame` **now carries `seq` too** (it echoes the
-driving `SensorFrame.seq`), so D aligns on `seq` as well: this observer stores each
-readout in `d_by_seq[obs.seq]` and prefers it, falling back to recency only for an
-unstamped (`obs.seq == 0`) frame. Each sample records which path was taken via a
-per-sample provenance marker (`metadata.d_source = "seq"` for exact alignment,
-`"recency_fallback"` for an unstamped frame, `"absent"` when no `D` readout exists
-yet). The lone remaining D-alignment gap is external — the Engram publisher must
-stamp observations with the driving `seq`.
+pairing unsound). `ObservationFrame` carries `seq` too (it echoes the driving
+`SensorFrame.seq`), so D aligns on `seq` as well: readouts are stored in
+`d_by_seq[obs.seq]` and preferred over recency, completed ticks are held for a
+short reorder grace window so a readout that arrives *after* its tick's command
+still claims its own tick, and later-still readouts patch the in-memory sample.
+Each sample records which path was taken via a per-sample provenance marker
+(`metadata.d_source = "seq"` for exact alignment, `"seq_late"` for a
+post-emission patch, `"recency_fallback"` for an unstamped frame); ticks with no
+readout at all (empty D) are excluded from the artifact and counted. `seq == 0`
+sensor/command frames are treated as unstamped (the upstream convention) and are
+dropped + counted rather than merged into one bogus tick. The lone remaining
+D-alignment gap is external — the Engram publisher must stamp observations with
+the driving `seq`.
 
 ## Run
 
 ```bash
-# tap a live session and write the artifact + run log on Ctrl-C
-cargo run -p ncp-observer --bin ncp-observe -- \
+# tap a live session and write the artifact + run log on Ctrl-C / SIGTERM
+# (ncp-observer is excluded from the default workspace; use --manifest-path)
+cargo run --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
     --session uav3 --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
 # then run the PID screens on it
 cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \

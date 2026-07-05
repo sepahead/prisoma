@@ -71,8 +71,18 @@ def rollout_to_samples(
         explicit_features=None,
     )
     a = np.asarray(rollout.actions, dtype=np.float64)
-    if a.shape[0] != n:
-        raise ValueError("action/hidden-state step-count mismatch")
+    # `n` IS `actions.shape[0]`, so comparing `a.shape[0]` to `n` is a tautology
+    # that never fires. The real alignment risk is the hidden-state-derived
+    # V/L/D disagreeing with the action count (a SAFE pickle can carry an extra
+    # pre-action state, or a truncated tail): validate those against `n` so a
+    # misaligned rollout raises a clear contract error instead of silently
+    # truncating in the per-step loop below or dying with a raw IndexError.
+    for name, arr in (("V", v), ("L", l), ("D", d)):
+        if arr.shape[0] != n:
+            raise ValueError(
+                f"{name}/action step-count mismatch in {rollout.episode_id()}: "
+                f"{arr.shape[0]} rows vs {n} actions"
+            )
 
     split = split_token(rollout.seen, train_if_seen=config.train_if_seen)
     episode_id = rollout.episode_id()

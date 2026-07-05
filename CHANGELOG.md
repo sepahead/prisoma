@@ -2,6 +2,103 @@
 
 ## Unreleased
 
+## Docset v10.6 (2026-07-05)
+
+Whole-repo review + correctness/robustness slice. **No research/estimator/experiment
+status change** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls and the
+open critical path is still the first real-VLA capture (not done). The discrete-harness
+measure identity is unchanged (`--pid-mode discrete` remains Williams–Beer `I_min`).
+
+### Fixed (CI / release-gate integrity)
+
+- **CI had silently not run since 2026-06-13.** `.github/workflows/ci.yml` contained an
+  unquoted `physics:: manipulation::` scalar (a `": "` sequence is illegal in a YAML
+  plain scalar), so GitHub failed to parse the workflow and created **zero jobs** on
+  every push — no fmt/clippy/test, no cargo-deny, no notices-drift check, no docs audit
+  had executed for three weeks. The line is now quoted and the whole file parses. The
+  `python-bindings` job also now creates a venv before `maturin develop` (which refuses
+  to run outside one).
+- **Third-party notices refreshed.** `THIRD_PARTY_NOTICES.generated.md` was stale after
+  the pid-rs 0.1.0→0.3.0 adoption (listed `pid-core`/`pid-runlog` as 0.1.0); regenerated
+  to 0.3.0 so the CI `--check` gate passes.
+- **Docset audit gate green.** `arXiv:2306.02149` (Makkeh et al.) is now in
+  `outputs/arxiv_ref_cache.json`, so `just docs-audit` / the CI docs job pass; two
+  paper-reported figures in `RESEARCH_VLA_D_NCP.md` are now explicitly qualified.
+
+### Fixed (correctness / robustness — Rust)
+
+- **Offline harness run logs stayed valid at capture scale.** `ArtifactLogged` /
+  `ErrorLogged` / `RunEnded` were stamped at fixed `metric_base + 10_000/19_900/20_000`
+  offsets while metric-event timestamps grow one-per-event; past ~10,000 metric events
+  (≈470 held-out samples) the fixed offsets were overtaken and the emitted run log failed
+  its own `pid-runlog-replay --validate`. Timestamps now continue from the running
+  metric-event counter. New test at ~12,000 events.
+- **Agent Bridge `export.rerun` can no longer overwrite the live run log.** The handler
+  wrote any client-supplied `output_uri` (`save_recording` truncates its target), so a
+  socket client could destroy the session's own source-of-truth run log or any writable
+  file. It now rejects an `output_uri` that resolves to the session's run log and
+  requires a `.rrd` extension.
+- **JSON-RPC ids honor the spec.** `BridgeRpcRequest.id` was typed `String`, so a numeric
+  id (`"id": 1`, the most common client convention) was rejected as a parse error with a
+  fabricated id. Ids are now `String | Number | Null`, echoed verbatim; structured ids →
+  −32600, unparseable JSON → −32700 (id null), unknown method → −32601.
+- **Rejected/malformed RPC traffic is now audited.** Parse/id/unknown-method failures
+  previously never reached the run log; they now emit a failed `bridge_response` so the
+  control-plane audit trail is complete.
+- **Transports always seal the run log.** `stdio`/`tcp`/`ws` bridges skipped
+  `finish_run` on any transport error, leaving a run log with no `run_ended` (fails
+  validation). They now finalize with `RunStatus::Failed` on error. `dispatch_rpc_lines`
+  also flushes per response (interactive clients no longer deadlock) and caps line length.
+- **`sim.reset` after `sim.step` is refused** (it would regress run-log step/time and fail
+  validation); **`verify_flow_gt`** was rewritten to pair flows with snapshots in stream
+  order (a post-step intervention's second snapshot no longer causes false "flow mismatch"),
+  and now rejects a non-finite/negative tolerance; **`sim.step`** rejects a non-numeric `dt`
+  instead of silently substituting 0.1; **`--safe-mode`** with the path omitted no longer
+  runs with safe mode off.
+
+### Changed (NCP integration — ncp-observer brought up toward the M5 bar)
+
+- **Emitted run log now validates.** `RunEnded` used `timestamp_ns: 0` after nonzero
+  sample timestamps (violating the nondecreasing rule) and zero-dim `EmbeddingContract`/
+  `EmbeddingCaptured` for absent L/D (schema errors). The observer now rides a monotonic
+  clock, defers the contract to the first fully-populated sample, and **excludes empty-axis
+  ticks** (counted) so the artifact passes both `pid-runlog-replay --validate` and
+  `pid-offline-harness`'s `validate_dataset`.
+- **Dataset artifact is registered** in the run log at finalize (`ArtifactLogged` with
+  sha256), so the source-of-truth log can locate and verify the data (NCP_DEV_PROMPT hard
+  constraint 1). The dataset writer is now flushed explicitly.
+- **D reordering handled in-repo.** A reorder grace window lets a seq-stamped observation
+  that arrives after its tick's command still claim its own tick (the likely ordering,
+  since the action plane outranks the observation plane in QoS); a later-still readout
+  patches the sample (`d_source = "seq_late"`). Provenance markers are mirrored into the
+  run-log events.
+- **Session/seq resets are safe.** Eviction is now FIFO (insertion-order), not lowest-key
+  (which starved new low-seq ticks after a reset); a reset starts a new epoch with cleared
+  state (no cross-epoch pairing) and epoch-qualified `sample_id`s. `EmbeddingCaptured`
+  append no longer uses `let _ =`.
+- **Clean shutdown.** `ncp-observe` finalizes on SIGTERM/SIGHUP too (not just SIGINT), so
+  `docker stop` / systemd no longer lose an entire capture; undecodable frames are counted
+  and reported. All exclusion/eviction paths surface in an `ObserverStats` finalize report.
+
+### Fixed (correctness / robustness — Python + pid-rerun)
+
+- **SAFE adapter step-count guard was dead code** (`a.shape[0] != n` compared a value to
+  itself); it now validates the hidden-state-derived V/L/D against the action count and
+  raises a clear per-episode contract error instead of silently truncating or dying with
+  an `IndexError`.
+- **`canonical_hash` matched Rust for non-ASCII** — `json.dumps` defaulted to
+  `ensure_ascii=True` (escaping to `\uXXXX`) while serde_json writes raw UTF-8, so a
+  non-ASCII config value would diverge and fail sidecar validation; now `ensure_ascii=False`.
+- **Test `test_redundancy_rejects_unvalidated_hyperbolic_metric`** expected `RuntimeError`
+  but pid-rs 0.3.0's bindings map `InvalidConfig` → `ValueError`; updated.
+- **pid-rerun**: dropped the dead `hdf5`/`hdf5-data` optional dependency + feature (unused,
+  abandoned upstream, dragged a duplicate ndarray into the lockfile); nanosecond timestamps
+  now convert via `Duration::from_nanos` (no epoch-scale precision loss); the `.npy` dtype
+  check is exact (`'descr': '<f8'`, not a substring that matched structured dtypes); relative
+  attribution `artifact_uri`s resolve against the run-log directory and an unreadable
+  artifact is surfaced as a WARN, not silently dropped; the LIBERO/OXE loader claim in
+  `data.rs` (no such loaders exist) was corrected.
+
 ## Docset v10.5 (2026-07-01)
 
 Repo-wide consistency + robustness slice. **No research/estimator/experiment status
@@ -12,7 +109,10 @@ critical path is still the first real-VLA capture (not done). The discrete-harne
 
 ### Integrations
 
-- **pid-rs submodule re-pinned `v0.2.0` → `v0.3.0`** (adopt current upstream). 0.3.0
+- **pid-rs submodule advanced from `v0.2.0` to the 0.3.0 line** (adopt current upstream).
+  NB: the pin is the commit `7e8f16d` — one commit past the `release: 0.3.0` commit, whose
+  workspace version is `0.3.0`; upstream has **not** cut a `v0.3.0` git *tag* yet, so
+  `git describe` reports `v0.2.0-22-g7e8f16d`. The crate version, not a tag, is 0.3.0. 0.3.0
   adds a *genuine* discrete shared-exclusions PID (`sxpid.rs`: `discrete_sxpid2` /
   `discrete_sxpid3`, plus general n-source SxPID), numerical-stability hardening across
   the estimators, criterion benchmarks, and a run-log `logical_trace_hash` (wall-clock-

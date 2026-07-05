@@ -1,7 +1,7 @@
 # prisoma Whole-Repo Review and To-Do List
 
 Date: 2026-05-09
-Last consistency pass: 2026-06-22 (docset v10.4; see "Implementation Pass Status: 2026-06-22" below)
+Last consistency pass: 2026-07-05 (docset v10.6; whole-repo review + correctness/robustness slice — see CHANGELOG "Docset v10.6")
 
 This document records a whole-repo review of the prisoma repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism. The opening review has been updated after the follow-up implementation passes; older risks that were fixed are called out as fixed rather than left as current failures.
 
