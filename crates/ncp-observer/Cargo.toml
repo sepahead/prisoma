@@ -12,8 +12,8 @@ publish = false
 # (canonical home: https://github.com/sepahead/NCP). This resolves standalone on a
 # fresh checkout (no sibling required); bump the tag to adopt a newer NCP wire.
 [dependencies]
-ncp-core = { git = "https://github.com/sepahead/NCP", tag = "v0.5.2" }
-ncp-zenoh = { git = "https://github.com/sepahead/NCP", tag = "v0.5.2" }
+ncp-core = { git = "https://github.com/sepahead/NCP", tag = "v0.5.3" }
+ncp-zenoh = { git = "https://github.com/sepahead/NCP", tag = "v0.5.3" }
 pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -342,7 +342,10 @@ impl Observer {
             self.stats.unstamped_frames_dropped += 1;
             return false;
         }
-        if seq + RESET_MARGIN < self.max_seq {
+        // `saturating_add`: `seq` is attacker-controlled off the wire, so a
+        // near-`i64::MAX` value must not overflow (debug panic in the Zenoh
+        // callback / release wrap that wedges reset detection).
+        if seq.saturating_add(RESET_MARGIN) < self.max_seq {
             // Session/seq reset: flush what completed, then clear per-epoch
             // state so an old epoch's V can never pair with a new epoch's A
             // (and an old epoch's D can never leak into new-epoch samples).
@@ -452,8 +455,9 @@ impl Observer {
                 } else {
                     self.stats.late_d_dropped += 1;
                 }
-            } else if obs.seq + RESET_MARGIN < self.max_seq {
-                // Older than anything we could still patch or pair.
+            } else if obs.seq.saturating_add(RESET_MARGIN) < self.max_seq {
+                // Older than anything we could still patch or pair (saturating:
+                // obs.seq is attacker-controlled, must not overflow).
                 self.stats.late_d_dropped += 1;
             } else {
                 if !self.d_by_seq.contains_key(&obs.seq) {
@@ -505,7 +509,7 @@ impl Observer {
     /// Emit every V+A-complete tick old enough to have cleared the reorder
     /// grace window, in ascending seq order.
     fn emit_ready(&mut self) {
-        let cutoff = self.max_seq - REORDER_GRACE;
+        let cutoff = self.max_seq.saturating_sub(REORDER_GRACE);
         let ready: Vec<i64> = self
             .pending
             .range(..=cutoff)
@@ -1089,6 +1093,21 @@ mod tests {
             Some("recency_fallback"),
             "cross-epoch D must never claim exact alignment"
         );
+    }
+
+    #[test]
+    fn adversarial_extreme_seq_does_not_panic() {
+        // A hostile/garbage peer can send seq near i64::MAX/MIN; the reset-detection
+        // and reorder arithmetic must saturate, never overflow (debug panic in the
+        // Zenoh callback / release wrap that wedges the capture).
+        let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
+        obs.on_observation(&observation(i64::MAX, vec![1.0]));
+        obs.on_sensor(&sensor(i64::MAX, 0.0, &[("pose", vec![1.0]), ("instruction", vec![0.5])]));
+        obs.on_command(&command(i64::MAX, 0.0, &[("v", vec![0.1])]));
+        obs.on_sensor(&sensor(i64::MIN + 1, 0.0, &[("pose", vec![2.0])]));
+        obs.on_command(&command(i64::MIN + 1, 0.0, &[("v", vec![0.2])]));
+        // No panic reaching here is the assertion; also flush cleanly.
+        obs.flush_complete();
     }
 
     #[test]
