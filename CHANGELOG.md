@@ -140,6 +140,49 @@ round of repairs; no research-conclusion change.
 - **Docs:** `AGENTS.md`, `CLAUDE.md`, `README.md` professionally restructured
   (content-preserving; AGENTS.md's two ~600-word single-bullet inventories are now
   organized sections).
+- **Every-markdown sweep (four review agents across both repos):**
+  - **Deleted** `FINAL_INTEGRITY_REPORT.md` and `GENERATION_REPORT.md` — one-off,
+    machine-generated inventories of untracked/quarantined `meshmaker/` asset outputs
+    (zero inbound references; mutually contradictory counts; carried military-asset
+    listings the governance review wanted out of scientific releases; git history
+    preserves them; the run-log provenance rule lives in grandplan §A.8 and the
+    `THIRD_PARTY_NOTICES.md` checklist).
+  - **`THIRD_PARTY_NOTICES.generated.md` regenerated** for the pid-rs 0.4.0 re-pin
+    (pid-core/pid-runlog rows 0.3.0 → 0.4.0; the CI `--check` gate had been failing).
+  - **`EXPERIMENTS.md` aligned to v10.7:** §0.1 rows now carry the §14.8.1 primary
+    endpoints with predicted directions (H1 incremental ΔAUROC; H2 across-tasks ρ;
+    H3 mean per-case τ; H4 SSI := −IQR); H5 row + §6.4 rebased on the pooled-window
+    rule (per-episode `analyze_temporal_pid` demoted to exploratory visualization);
+    **new §6.5 H5 windowing preregistration stub** (the section grandplan §3.6.3
+    promises); Exp3 rebadged H2/H3 (§9.7.2b) with H6 exploratory-only (Deferred);
+    H7 split; the `independent_additive` "Red≈0, Syn≈0" ground-truth comment
+    corrected (I^sx redundancy is genuinely positive there; additive ≠ independent);
+    one-sided synergy test → two-sided; §0.2 rows gained the §14.8.3 power-capture
+    gate; §4.5 now names the implemented `heldout_logreg_vlda` baseline; SmolVLA
+    cited; perturbation-library logging rules for SSI/H3 added.
+  - **Status/spec docs synced:** `REVIEW_AND_TODO.md` (P0–P2 done-annotations, new
+    2026-07-05/06 pass section, MIT→dual-license fix, meshmaker-quarantine status,
+    CI-dead-period note); `RESEARCH_VLA_D_NCP.md` (observer behavior updated to
+    post-v10.6 reality: absent-L excluded not zeroed, `d_source` set corrected);
+    `crates/ncp-observer/README.md` (`-p` → `--manifest-path` gate description;
+    "internal simulation" downgraded to "world-model status untested — what the
+    probe would test"); `NCP_DEV_PROMPT.md` (+2 hard constraints: no D claims
+    without a §7.6.3-style probe; exclusion-over-backfill for absent L);
+    `DIAGRAMS.md` (M0–M8 roadmap realigned to grandplan §A.7 — M0=Exp0 gate,
+    M7=Flow_pred, M8=Tauri UI; duplicate `Vis` mermaid node id split; H6/H7 nodes
+    relabeled); `ARCHITECTURE.md` (§4 table un-broken — a prose paragraph sat mid-
+    table; "validated ISX" → NO-GO-aware wording; H6/H7 rows; 3DGS claim hedged);
+    `pidsplatspecs.md` (v10.7 stamp; per-timestep synergy comment corrected to
+    windowed-ensemble; Zenoh dual-license); `GAUSS_MI_INTEGRATION.md` (v10.7 stamp;
+    weighted-KSG formula marked "heuristic ansatz, not a derived estimator";
+    SparkJS next-step rewritten Rerun-first; submodule-rule note on the module
+    tree); `WORLD_WARP_INTEGRATION.md` (v10.7 stamp); `uidesigner/UI.md` (v10.7
+    stamp; GauSS-MI screen unmislabeled from M8 — it is an optional add-on, not a
+    milestone; Phase-4 scope note; mock badge honesty).
+  - **pid-rs markdown sweep** (upstream commit `d662b11`): SECURITY 0.4.x, scripts/
+    README consumer rename, dead v0.1.0 changelog link, PR-template accuracy,
+    AGENTS test-map completeness. All other pid-rs files verified clean, including
+    a byte-for-byte check of AGENTS.md's expected example output.
 
 ## Docset v10.6 (2026-07-05)
 

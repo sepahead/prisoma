@@ -1,4 +1,4 @@
-# prisoma UI/UX Specification (Docset v10.6)
+# prisoma UI/UX Specification (Docset v10.7)
 
 This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the `README.md` engineering plan.
 
@@ -66,7 +66,7 @@ Purpose: select a run, inspect provenance, open viewer/compare, export artifacts
 │ NAV   │ Search: [__________]  Filters: Exp ▾ Model ▾ Backend ▾ │ RUN DETAILS  │
 │ Runs  │                                                      │ ┌───────────┐ │
 │ Viewer│  ┌────────────────────────────────────────────────┐  │ │ Run: #42  │ │
-│ Compare│ │ Run ID  Exp  Model   Phys   Date     Outcome   │  │ │ GO: Exp0  │ │
+│ Compare│ │ Run ID  Exp  Model   Phys   Date     Outcome   │  │ │ Exp0:NO-GO  │ │
 │ Capture│ ├────────────────────────────────────────────────┤  │ │ hashes…   │ │
 │ Settings│ │ 42     Exp1 SmolVLA Rapier 2026‑01‑05 fail     │  │ │ artifacts │ │
 │       │ │ 43     Exp1 OpenVLA MuJoCo 2026‑01‑05 pass     │  │ │ [Viewer]  │ │
@@ -292,7 +292,7 @@ Purpose: compare two runs (often Rapier vs MuJoCo replay) and quantify divergenc
   "type": "ui_part",
   "id": "compare_cross_backend",
   "title": "Compare Screen (Cross-Backend Replay)",
-  "milestone": "M6+",
+  "milestone": "M6+/optional (grandplan §E.1)",
   "requirements": [
     "Desktop compare screen with two synchronized viewports (Run A vs Run B).",
     "Visible labels for physics backend per side (e.g., Rapier vs MuJoCo).",
@@ -310,7 +310,7 @@ Purpose: compare two runs (often Rapier vs MuJoCo replay) and quantify divergenc
 
 ---
 
-### 3.5 GauSS‑MI Capture & Uncertainty Screen (M8, Optional)
+### 3.5 GauSS‑MI Capture & Uncertainty Screen (Optional add-on — not a numbered milestone; grandplan §C.2)
 
 Purpose: treat 3DGS reconstruction quality as a confound control (`grandplan.md` §C.2; `GAUSS_MI_INTEGRATION.md`).
 
@@ -352,7 +352,7 @@ Purpose: treat 3DGS reconstruction quality as a confound control (`grandplan.md`
   "type": "ui_part",
   "id": "gauss_mi_uncertainty",
   "title": "Capture/Uncertainty Screen (GauSS‑MI, Optional)",
-  "milestone": "M8",
+  "milestone": "optional (grandplan §C.2)",
   "requirements": [
     "Desktop screen titled Capture/Uncertainty (GauSS-MI).",
     "Central viewport shows a 3DGS scene with an uncertainty overlay and a clear legend.",

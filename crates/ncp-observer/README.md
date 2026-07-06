@@ -68,9 +68,11 @@ a small artifact is diagnosable rather than mysterious.
 ### (V, L, D, A) mapping
 - **V** ← `SensorFrame` channels (all but the language channel), flattened.
 - **L** ← the `instruction` `SensorFrame` channel (configurable).
-- **D** ← `ObservationFrame` record-port readouts — the neural state *before* the
-  motor head (the "internal simulation" the `PID(V,D;A)` probe targets). Note: in
-  `(V,L,D,A)`, **D is the Dynamics / world-model axis**, not depth.
+- **D** ← `ObservationFrame` record-port readouts — the pre-motor neural state
+  (world-model status **untested**: no §7.6.3-style physics probe has been run on
+  these ports; "internal simulation" is what the `PID(V,D;A)` probe would *test*,
+  not an established property). Note: in `(V,L,D,A)`, **D is the Dynamics /
+  world-model axis**, not depth.
 - **A** ← `CommandFrame` channels, flattened.
 
 ### Alignment (correctness)
@@ -153,5 +155,5 @@ information flow the NEST simulator does?
 
 This crate git-depends on the published NCP repo <https://github.com/sepahead/NCP>
 (tag `v0.5.3`) and pulls Zenoh, so it is heavier than the pure-PID crates. The
-estimator gates (`just exp0`, etc.) target specific crates with `-p` and are
-unaffected.
+estimator gates (`just exp0`, `just exp0-bin`, etc.) run the pid-rs crates via
+`--manifest-path pid-rs/crates/...` and are unaffected.

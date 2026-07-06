@@ -53,3 +53,9 @@ faithfulness check distinguishing a real attribution from an uninformative one, 
 the emitted run log validating with the real Rust replay tool. Applying it to a real
 VLA is gated on capture hardware / the LXT integration — the same honest gating as the
 SAFE capture adapter; no contract change is expected.
+
+**Preregister against the v10.7 H9 criterion** (`grandplan.md` §14.1): per matched case,
+Kendall τ between the PID-derived and attribution-derived modality orderings; the H9
+statistic is the mean per-case τ across ≥ 20 cases with a family-blocked case-resampling
+bootstrap — supported only if the CI is entirely > 0 AND the top-modality match rate is
+≥ 70%; a CI entirely < 0 is affirmative disconfirmation.

@@ -25,7 +25,7 @@ Instead of building a custom simulator frontend from scratch immediately, we uti
 **Why this decision (v10.1):**
 - **Engineering Efficiency:** Building a custom 3D engine with timeline scrubbing, camera controls, and state management (Tauri+SparkJS) is a massive upfront cost. Rerun provides these "for free" via a simple SDK (`cargo add rerun`).
 - **The "Time Machine":** Rerun's core feature is recording streams of data and allowing instant replay/scrubbing. This is critical for diagnosing VLA failures (e.g., "rewind to 2 seconds before the drop").
-- **3DGS Support:** Rerun supports logging Gaussian Splats directly.
+- **3DGS Support:** splat data can be logged to Rerun (point clouds/ellipsoids); verify native 3DGS rendering in the pinned Rerun 0.28.x before relying on it.
 - **Focus on Science:** Allows the team to focus on `pid-core`, physics bindings, and experiment logic (the novel parts) rather than boilerplate UI code.
 
 **Implementation Detail: Ghost Splats in Rerun**
@@ -129,8 +129,8 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 | H1 (PID features ↔ failure labels) | ✓ | ✓ | Object poses + robot state; synergy sign is a candidate feature, not a definition |
 | H4 (Memorization vs generalization) | ✓ | | Mass/friction perturbations |
 | H5 (Temporal degradation) | ✓ | ✓ | Long-horizon contact physics |
-| H6 (Safety-aware V-L integration) | ✓ | ✓ | Collision detection for safety |
-| H7 (Flow-as-bridge) | | | Flow from an external video predictor; no physics sim needed for flow extraction itself |
+| H6 (Safety-aware V-L integration) — **Deferred** (grandplan §14.1) | ✓ | ✓ | Collision detection for safety; deferred until proper safety labels exist |
+| H7a/H7b (Flow-as-bridge; §14.1 v10.7 split) | | | Flow from an external video predictor; no physics sim needed for flow extraction itself |
 
 ### 1.5 Gaussian Splatting (3DGS) Pipeline
 
@@ -146,7 +146,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 ns-train splatfacto \
     --data ./captures/scene/ \
     --max-num-iterations 30000 \
-    --pipeline.model.num-gaussians 800000
+    --pipeline.model.num-gaussians 800000   # flags illustrative; verify against your nerfstudio version
 
 # 3. Export
 ns-export gaussian-splat \
@@ -180,7 +180,7 @@ ns-export gaussian-splat \
 - Segmentation + point tracking + depth estimation extract 3D object flow from dreamed videos
 - 3D Flow becomes a **target variable** for PID analysis
 
-> **Why Flow-as-Bridge is Critical**: The validated ISX estimator (`EhrlichKsg`) only supports Chebyshev (L∞) geometry and does **not** currently have a derivation for hyperbolic/Lorentzian manifolds. If high‑D embeddings exhibit tree‑like or curved geometry, shifting the diagnostic target to explicit 3D object flow can avoid non‑Euclidean metric issues; you still must validate dimensionality/distance concentration (flow is Euclidean but can be high‑D as \(\mathbb{R}^{3T}\)).
+> **Why Flow-as-Bridge is Critical**: The ISX estimator (`EhrlichKsg`) — whose Exp0 gate currently reports **NO-GO** on synthetic high-d controls (`findings.md`) — only supports Chebyshev (L∞) geometry and does **not** currently have a derivation for hyperbolic/Lorentzian manifolds. If high‑D embeddings exhibit tree‑like or curved geometry, shifting the diagnostic target to explicit 3D object flow can avoid non‑Euclidean metric issues; you still must validate dimensionality/distance concentration (flow is Euclidean but can be high‑D as \(\mathbb{R}^{3T}\)).
 
 **Pipeline:**
 ```
@@ -325,7 +325,7 @@ urdf_path = "assets/robots/franka_panda.urdf"
 
 | Aspect | OpenVLA et al. | PID-Splat |
 |--------|----------------|-----------|
-| **Simulation** | MuJoCo/PyBullet (mesh-based) | Gaussian Splats + Rapier (photorealistic + fast) |
+| **Simulation** | MuJoCo/PyBullet (mesh-based) | Gaussian Splats + Rapier (photoreal capture + low-latency physics; benchmark-dependent) |
 | **Visual Fidelity** | Synthetic renders can introduce domain gaps | Real-captured splats can reduce visual domain gaps (benchmark-dependent) |
 | **Analysis** | Task success rate only | PID decomposition reveals *why* success/failure |
 | **World Model** | Implicit in LLM hidden states | Explicit 3D flow extraction for validation |
@@ -426,7 +426,7 @@ I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 |-----------------|-----------|
 | Synthetic renders → domain gap → VLA sees different inputs than real | Splat captures → photorealism → VLA sees real-like inputs |
 | MuJoCo physics → slow, non-Rust → IPC overhead | Modular physics → Rust-native (Rapier) or FFI (MuJoCo) |
-| Offline evaluation → no real-time feedback | **Rerun Time Machine** → scrub through failure cases instanty |
+| Offline evaluation → no real-time feedback | **Rerun Time Machine** → scrub through failure cases instantly |
 
 **The key insight**: To diagnose VLAs, we need:
 1. **Photorealistic inputs** (so VLA behavior matches real-world)
@@ -445,8 +445,6 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 | **Run log** | Canonical data spine | Source of truth for replay, analysis, Rerun export, and Tauri sessions; summaries distinguish unique metric names from total metric events. |
 | **Agent Bridge** | Shared control plane | GUI, scripts, and LLM tools call the same local API; every action is logged. |
 | **Rerun** | **Visualization & diagnostics** | **Primary P1-3 Tool.** Timeline, 3D scene, plots, ghost overlays, and replay from run logs. |
-
-Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status, deterministic stepping, deterministic interventions, replay, run lifecycle stop, and `export.rerun`; safe mode keeps status/replay read-only and rejects mutation, run-ending, or file-writing exports.
 | **Tauri+SparkJS** | Interactive App | **Deferred to P4.** For custom shaders, collider/edit tools, and complex intervention UI; never the canonical store. |
 | **Physics** | Object physics | Modular (Rapier/MuJoCo/Isaac) |
 | **Robot Sim** | Robot dynamics | Industry-standard (Gazebo/MuJoCo) |
@@ -454,6 +452,8 @@ Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods 
 | **Dream2Flow** | World model probe | Euclidean flow target, embodiment-agnostic |
 | **PID-Core** | Information analysis | Decomposes V-L-A integration, diagnoses failures |
 | **Attribution probes** | Local explanation baselines | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/SHAP-style artifacts triangulate PID claims when sanity checks pass |
+
+Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status, deterministic stepping, deterministic interventions, replay, run lifecycle stop, and `export.rerun`; safe mode keeps status/replay read-only and rejects mutation, run-ending, or file-writing exports.
 
 ---
 
@@ -493,13 +493,13 @@ The architecture supports a head-to-head comparison between two dominant world m
 - **Mechanism:** Uses a 3D Variational Encoder to map 3DGS scenes to a latent space $Z$. Future states are predicted as $Z_{t+1} = f(Z_t, A_t)$.
 - **PID Role:** Used to measure the fidelity of the latent world model: $Syn(V, L; Z)$.
 - **Strength:** Captures complex, hard-to-model dynamics directly from data.
-- **Weakness:** Poor generalization to novel objects (requires retraining).
+- **Weakness:** Poor generalization to novel objects (requires retraining) (reported/expected; verify against upstream papers).
 
 ### 7.2 PEGS (Explicit Particle-Based Physics)
 - **Paradigm:** Hybrid explicit simulation with visual correction.
 - **Mechanism:** Binds Gaussians to a PBD (Position-Based Dynamics) particle system. Real-time "visual forces" nudge particles to match photometric observations.
 - **PID Role:** Used to measure the benefit of visual correction: $Syn(P_{pred}, V_{obs}; P_{corr})$.
-- **Strength:** High generalization (physics laws don't change); handles deformables natively.
+- **Strength:** High generalization (physics laws don't change); handles deformables natively (reported/expected; verify against upstream papers).
 - **Weakness:** Requires accurate manual proxy/mesh definitions for novel objects.
 
 ---

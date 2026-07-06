@@ -5,9 +5,9 @@
 > - `pidsplatspecs.md` — Simulation environment (PID-Splat)
 > - `DIAGRAMS.md` — System diagrams (GauSS‑MI overview)
 > - `EXPERIMENTS.md` — Capture protocols + quality gates
-> - `pid-core` — Rust implementation context
+> - `pid-rs/crates/pid-core` (submodule) — Rust implementation context (estimator changes land upstream in pid-rs, then the submodule is bumped; estimator code is never added to this repo directly)
 
-**Docset alignment:** v10.4 (this is an optional module spec; not implemented in this repo today)
+**Docset alignment:** v10.7 (this is an optional module spec; not implemented in this repo today)
 **Spec version:** 1.0
 **Date:** 2026-01-03
 **Status:** Specification (Pre-Implementation)
@@ -87,7 +87,8 @@ pid-core/
 │   ├── pid2.rs                   # Existing 2-source PID
 │   ├── pid3.rs                   # Existing 3-source PID
 │   │
-│   ├── gauss_mi/                 # NEW: GauSS-MI integration
+│   ├── gauss_mi/                 # NEW: GauSS-MI integration (tree lives in the upstream
+│   │                             #   pid-rs repo, or a separate crates/pid-gauss-mi — §A.7)
 │   │   ├── mod.rs                # Module exports
 │   │   ├── uncertainty.rs        # Per-Gaussian uncertainty model
 │   │   ├── weighted_ksg.rs       # Uncertainty-weighted KSG
@@ -175,7 +176,7 @@ impl GaussianUncertainty {
     /// Compute weight for PID estimation (higher weight = more certain)
     pub fn pid_weight(&self) -> f64 {
         // Inverse of composite uncertainty, normalized
-        // w_i = 1 / (1 + σ²_i)
+        // w_i = 1 / (1 + composite_score); composite_score ∈ [0,1] ⇒ w_i ∈ [0.5, 1]
         1.0 / (1.0 + self.composite_score)
     }
     
@@ -270,6 +271,8 @@ Where:
 - $n_x^w, n_y^w$ are weighted neighbor counts
 - $w_i$ are sample weights from GauSS-MI uncertainty
 
+**Status: heuristic ansatz, not a derived estimator.** Substituting $\psi(N_{eff})$ for $\psi(N)$ has no derivation (KSG's neighbor-count terms rest on a local-uniformity probability-mass argument that importance-weighting breaks), $n_x^w$ is not yet defined explicitly, and no bias/consistency analysis exists. This estimator must pass its own synthetic validation gate (a weighted Exp0 analogue — the §1 rigour note) before any output is interpreted.
+
 ### 5.2 Implementation Strategy
 ```rust
 /// Configuration for uncertainty-weighted KSG estimator
@@ -307,4 +310,4 @@ pub fn weighted_ksg_mi(
 
 1.  **Dependencies**: Add `gauss-mi-core` (hypothetical crate) or implement uncertainty logic in `pid-core`.
 2.  **Validation**: Test weighted estimator against analytic ground truth for Gaussian channels with known heteroscedastic noise.
-3.  **Integration**: Connect to SparkJS renderer to feed real-time uncertainty estimates into the PID loop.
+3.  **Integration**: Log `SceneUncertaintyMap` artifacts into the canonical run log and visualize via Rerun (Phases 1–3; see `DIAGRAMS.md` §12); defer real-time SparkJS overlays to Phase 4.

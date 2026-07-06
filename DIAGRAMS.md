@@ -104,15 +104,15 @@ flowchart TD
     classDef active fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
     classDef spec fill:#424242,stroke:#616161,color:#fff;
 
-    M0["M0 Run logs + replay<br/>pid-runlog (implemented)"]:::done
-    M1["M1 JSONL schema + validate/summary/manifest<br/>(implemented)"]:::done
+    M0["M0 Exp0 estimator gate<br/>pid-rs pid-core (implemented; NO-GO on synthetic controls)"]:::done
+    M1["M1 Run logs + replay<br/>pid-runlog: JSONL schema, validate/summary/manifest (implemented)"]:::done
     M2["M2 Agent Bridge control plane<br/>stdio/TCP/WS, safe mode (implemented)"]:::done
     M3["M3 Minimal sim + Flow_gt<br/>pid-sim, Rapier harness (implemented)"]:::done
     M4["M4 Rerun-based viewer adapter<br/>pid-rerun (implemented; full viewer specified)"]:::done
     M5["M5 Embedding harness on REAL capture<br/>safe_adapter ready; capture OPEN (not done)"]:::active
-    M6["M6 Optional live transport / Flow_pred<br/>(specified)"]:::spec
-    M7["M7 GauSS-MI uncertainty + view selection<br/>(specified, optional)"]:::spec
-    M8["M8 License/provenance automation<br/>(partial: notices, audit scripts)"]:::spec
+    M6["M6 Optional live transport + robot sim<br/>(specified)"]:::spec
+    M7["M7 Optional predictor-driven Flow_pred<br/>(specified)"]:::spec
+    M8["M8 Custom Tauri+SparkJS UI (Phase 4)<br/>(specified, deferred)"]:::spec
 
     M0 --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7 --> M8
 ```
@@ -135,12 +135,12 @@ graph TD
     subgraph "Inference Layer (External)"
         VLA["Target VLA (e.g., SmolVLA/OpenVLA/DreamVLA/InternVLA‑A1)"]
         WAN["Video Gen Model (WAN-like)"]
-        Vis[Vision Foundation Models]
+        VFM[Vision Foundation Models]
         
         VLA -->|Action| Z_ACT[Zenoh: vla/action]
         VLA -->|Embeddings| Z_EMB[Zenoh: vla/embeddings]
-        WAN --> Vis
-        Vis -->|3D Flow| Z_FLOW[Zenoh: dream/flow]
+        WAN --> VFM
+        VFM -->|3D Flow| Z_FLOW[Zenoh: dream/flow]
     end
 
     subgraph "Middleware (Zenoh)"
@@ -158,7 +158,7 @@ graph TD
             Agent["Agent Bridge (JSON-RPC/MCP)"]
             
             Z_ACT --> Phys
-            Phys -->|Pose| Spark_Bridge
+            Phys -->|Pose| PoseBridge
             
             Z_EMB --> PID_Core
             Z_FLOW --> PID_Core
@@ -174,7 +174,7 @@ graph TD
             Vis["Rerun Viewer (P1-3) / SparkJS (P4)"]
             Ghost["Ghost Splats (Rerun PointCloud)"]
             
-            Spark_Bridge --> Vis
+            PoseBridge --> Vis
             Z_PID --> Ghost
             Ghost --> Vis
         end
@@ -491,9 +491,9 @@ graph LR
 
     H5[H5 Temporal synergy degradation] --> E2[Exp2 Long-horizon assembly]
 
-    H6[H6 Safety-aware integration] --> E3
+    H6["H6 Safety-aware integration (Deferred)"] --> E3
 
-    H7[H7 Flow-as-bridge] --> E4[Exp4 Dream2Flow validation]
+    H7["H7a/H7b Flow-as-bridge (split v10.7)"] --> E4[Exp4 Dream2Flow validation]
     H7 --> E5
 
     H9[H9 Attribution triangulation] --> E1

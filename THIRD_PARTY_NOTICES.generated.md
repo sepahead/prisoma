@@ -14,8 +14,8 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 | `base64` | 0.22.1 | MIT OR Apache-2.0 |
 | `nalgebra` | 0.33.2 | Apache-2.0 |
 | `ndarray` | 0.16.1 | MIT OR Apache-2.0 |
-| `pid-core` | 0.3.0 | MIT OR Apache-2.0 |
-| `pid-runlog` | 0.3.0 | MIT OR Apache-2.0 |
+| `pid-core` | 0.4.0 | MIT OR Apache-2.0 |
+| `pid-runlog` | 0.4.0 | MIT OR Apache-2.0 |
 | `rerun` | 0.28.2 | MIT OR Apache-2.0 |
 | `serde` | 1.0.228 | MIT OR Apache-2.0 |
 | `serde_json` | 1.0.149 | MIT OR Apache-2.0 |

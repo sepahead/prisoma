@@ -10,8 +10,8 @@
 > - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 10.6 (Rerun-First Architecture; implementation-status refresh)
-**Date:** 2026-06-22
+**Version:** 10.7 (Rerun-First Architecture; docset-stamp sync)
+**Date:** 2026-07-06
 **Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
 
 ---
@@ -45,7 +45,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 | **Renderer** | Rerun native/WebViewer / SparkJS (Phase 4) | Pin exact package versions / git SHAs at implementation time | Rerun WebViewer: MIT; SparkJS package metadata: MIT; Three.js: MIT |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
 | **Physics Engine** | Rapier3d / MuJoCo | Planned backend adapters; pin exact versions when added | Apache 2.0 |
-| **Middleware** | Zenoh | Pub/sub transport; shared memory/zero-copy is config-dependent | Apache 2.0 |
+| **Middleware** | Zenoh | Pub/sub transport; shared memory/zero-copy is config-dependent | EPL-2.0 OR Apache-2.0 |
 | **Sensor Sim** | Gazebo | Harmonic (gz-sim 8.x) | Apache 2.0 |
 | **Video predictor** | Video model (external service) | Model-dependent (pin revision) | verify |
 | **Flow Tracker** | Point tracker (e.g., CoTracker) | Model-dependent (pin revision) | verify |
@@ -93,6 +93,8 @@ struct DreamFlowTrajectory {
     /// Confidence/Opacity per point (from the tracker)
     confidence: Vec<f32>,
     /// PID Synergy at each point Syn(V, D; Flow_t)
+    /// Windowed ensemble estimate Syn(V, D; Flow_t) aligned to each timestep
+    /// (NOT a single-sample pointwise PID; regime per grandplan §9.0/§14.1)
     synergy: Vec<f32>,
 }
 ```
@@ -182,7 +184,7 @@ The target environment supports multiple physics backends (**Rapier, MuJoCo, Isa
 
 *   **Target:** We compute PID on **Flow** trajectories (Euclidean) to bypass the manifold geometry issues of raw embeddings (Flow-as-bridge).
 *   **Metric:** `Syn(V_embedding, D_embedding; Flow_trajectory)`.
-*   **Windowing:** Rolling window of T=10 to T=50 timesteps.
+*   **Windowing:** Rolling window of T=10 to T=50 timesteps (illustrative; final windows per the preregistered plan, grandplan §14.8/§9.0).
 
 ---
 

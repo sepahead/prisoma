@@ -135,6 +135,15 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
 4. **Do not fabricate axes** (Gap 2) and **do not touch the `pid-core` estimators** — this
    is a capture-adapter task, not an estimator change.
 5. **D is hidden states, not depth.** Keep the mapping and docs consistent with that.
+6. **Do not call any record-port a principled D without a probe.** Today D is
+   first-available-ports in BTreeMap order; before any world-model claim, run a
+   `grandplan.md` §7.6.3-style physics/world-model probe on the candidate ports —
+   a pre-motor readout is the locus most at risk of measuring action formatting
+   (see `RESEARCH_VLA_D_NCP.md` §6.1).
+7. **Prefer exclusion over backfill for absent L.** The research memo's position
+   (`RESEARCH_VLA_D_NCP.md` §6.2): if Engram never grows a real language channel,
+   keep excluding absent-L ticks permanently and restrict Engram screens to
+   D/V-involving atoms — do not accept any zero/hash proxy for L.
 
 ## 6. Build & run
 

@@ -1,7 +1,7 @@
 # prisoma Whole-Repo Review and To-Do List
 
 Date: 2026-05-09
-Last consistency pass: 2026-07-05 (docset v10.6; whole-repo review + correctness/robustness slice — see CHANGELOG "Docset v10.6")
+Last consistency pass: 2026-07-06 (docset v10.7 + same-day addendum; first-principles spec audit, statistics plan, pid-rs 0.4.0 adoption — see CHANGELOG "Docset v10.7")
 
 This document records a whole-repo review of the prisoma repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism. The opening review has been updated after the follow-up implementation passes; older risks that were fixed are called out as fixed rather than left as current failures.
 
@@ -13,11 +13,11 @@ The repository is strongest as a **research specification plus a small, serious 
 
 The main current risks are:
 
-1. Experiment 0 is now stricter and visible, but the repo still needs a publishable measurement regime with uncertainty/block-bootstrap style evidence before downstream VLA claims.
+1. Experiment 0 is now stricter and visible, the uncertainty machinery now exists (Exp0 `--bootstrap`/`--permutation`; pid-rs 0.4.0 true moving-block bootstrap), but the repo still needs a validated measurement regime that passes the gates — Exp0 on synthetic high-d controls is NO-GO under pid-rs 0.4.0 (PIVOT under 0.3.0).
 2. There is still no real VLA capture/extraction/failure-label pipeline; the offline harness converts already-captured embeddings into canonical artifacts.
 3. Python packaging is wired for local Maturin builds and tested, but the Python API is not yet a stable public interface.
 4. `pid-rerun` is useful for validated run-log conversion and diagnostics, but remains a prototype viewer adapter rather than the full Phase 1–3 diagnostic product.
-5. `meshmaker/` remains tracked legacy/auxiliary tooling and should be split or further quarantined before release.
+5. `meshmaker/` was quarantined out of tracking 2026-06-13 (tombstone README only); release residual: `api_keys.txt` must live outside the tree. The orphaned asset reports `FINAL_INTEGRITY_REPORT.md`/`GENERATION_REPORT.md` were deleted 2026-07-06.
 6. The docs are now aligned to the current implementation, but the target architecture is still intentionally larger than the implemented repo.
 
 ## Verification Snapshot
@@ -72,9 +72,9 @@ The theoretical framing is good. Several invalid estimator combinations are now 
 
 #### Concerns
 
-- The documented Experiment 0 acceptance criteria are strong; the implemented runner now exposes stricter monotonicity/CMI/invariant/geometry checks, but still needs uncertainty/resampling before it can serve as a publishable measurement protocol.
+- The documented Experiment 0 acceptance criteria are strong; the implemented runner now exposes stricter monotonicity/CMI/invariant/geometry checks, uncertainty/resampling were wired into the Exp0 runner 2026-06-13 (`--bootstrap`/`--permutation`) and upgraded by pid-rs 0.4.0 (true moving-block bootstrap); the remaining gap is a validated preprocessing/estimator regime that passes the gates.
 - `gromov_hyperbolicity` reports mean sampled delta, while gating usually needs worst-case or high-quantile behavior.
-- Seed sweeps are implemented, but uncertainty quantification and block bootstrap/trajectory resampling remain open.
+- Seed sweeps, subsample-bootstrap CIs, single-source permutation nulls, and (pid-rs 0.4.0) a true moving-block bootstrap are implemented; a grandplan §14.8 preregistered statistics plan (one primary endpoint per hypothesis, gatekeeping + BH-FDR, power analysis as an M5 gate) now exists.
 
 #### Judgment
 
@@ -180,7 +180,7 @@ The visualization direction is good, but synthetic demos should remain clearly s
 
 - Historical `flake.lock` wording was removed or corrected; no tracked `flake.lock` is implied.
 - `AGENTS.md`, README, and the broader docset now align to v10.1.
-- CI now covers Rust formatting, Clippy, tests, doc audits, canonical Python lint, and run-log smokes.
+- CI covers Rust formatting, Clippy, tests, doc audits, canonical Python lint, and run-log smokes — but note it was silently dead 2026-06-13→2026-07-05 (an unquoted YAML scalar produced zero jobs on every push); resurrected in docset v10.6.
 - Experiment 0 outputs are not saved/versioned by default.
 
 #### Judgment
@@ -203,14 +203,14 @@ The reproducibility plan is now backed by run logs, validation/replay, summaries
 
 #### Judgment
 
-`meshmaker/` should be quarantined or split out. It is not aligned with the scientific core and increases operational, cost, and safety risk.
+`meshmaker/` should be quarantined or split out. It is not aligned with the scientific core and increases operational, cost, and safety risk. *(Quarantine executed 2026-06-13 — `git rm --cached` + tombstone README + `.gitignore`. Residual: `api_keys.txt` must live outside the tree before release. The historical asset reports `FINAL_INTEGRITY_REPORT.md` / `GENERATION_REPORT.md` — zero inbound references, untracked-tooling inventories — were deleted 2026-07-06; git history preserves them.)*
 
 ### 10. Open-Source Maintainer
 
 #### Strengths
 
 - The README clearly distinguishes implemented components from planned/specification-only components.
-- The license is MIT.
+- The project is dual-licensed MIT OR Apache-2.0 (LICENSE-MIT / LICENSE-APACHE).
 - The Rust workspace is small and understandable.
 
 #### Concerns
@@ -228,33 +228,33 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 
 ### P0: Blockers Before Serious Downstream Claims
 
-1. **Promote Experiment 0 from strict smoke gate to publishable measurement protocol.** *(Partially done 2026-06-11/12: block bootstrap + per-atom bootstrap CIs + single-source permutation tests now exist in `pid-core` (`bootstrap.rs`, `pipeline.rs`), and PLS defines a documented supervised-projection regime (grandplan §8.2.3). Open: wiring resampling/uncertainty into the Exp0 runner itself.)*
+1. **Promote Experiment 0 from strict smoke gate to publishable measurement protocol.** *(Done 2026-06-13: Exp0 gained opt-in `--bootstrap`/`--permutation` with subsample-bootstrap CIs + permutation nulls folded into the GO/PIVOT/NO-GO verdict; pid-rs 0.4.0 (2026-07-06) adds the true moving-block bootstrap and `NegativeHandling::Allow`. Under 0.4.0 the synthetic-control verdict is **NO-GO** — the stricter, more honest reading. The remaining open piece is a validated preprocessing/estimator regime that passes the gates, plus the grandplan §14.8 power analysis before capture.)*
    - Keep the current monotonicity/CMI/invariant/geometry gates strict.
    - Add uncertainty quantification, block bootstrap or trajectory-level resampling, and clearly documented validated preprocessing regimes.
    - Keep treating current PIVOT/NO-GO outputs as limits evidence, not VLA conclusions.
 
-2. **Build a real capture pipeline before making VLA claims.**
+2. **Build a real capture pipeline before making VLA claims.** *(Adapter shipped 2026-06-13: `experiments/safe_adapter` with honest provenance, all strict gates passing on the schema-faithful fixture. OPEN residual — the critical path: the real SAFE data pull, now also gated by the grandplan §14.8.3 power analysis.)*
    - Add one model/task integration that extracts `(V,L,D,A)` embeddings plus externally meaningful success/failure labels.
    - Preserve sample IDs, episode IDs, train/held-out splits, config hashes, and artifacts in the canonical run log, with verified sidecars beside it.
    - Keep non-PID baselines mandatory.
 
-3. **Quarantine or split `meshmaker/` before release.**
+3. **Quarantine or split `meshmaker/` before release.** *(Done 2026-06-13: quarantined out of tracking; 2026-07-06: orphaned asset reports deleted. Release residual: `api_keys.txt` outside the tree.)*
    - Keep it outside canonical lint/test claims unless it is cleaned up.
    - Move API keys and generated/cost-bearing workflows outside the repository tree.
    - Remove or isolate non-core asset-generation content from prisoma scientific releases.
 
-4. **Define the first real VLA baseline and task.**
+4. **Define the first real VLA baseline and task.** *(Done in design 2026-06-13: baseline = SAFE rollouts (OpenVLA / π0-FAST), `heldout_logreg_vlda` built into the harness, faithfulness-checked attribution probe in `experiments/attribution`. Execution pending the same data pull.)*
    - Pick one lightweight baseline, one task, one label definition, and one run-log contract.
    - Include at least one feasible attribution probe as a non-PID baseline if the model exposes the needed layers/gradients.
    - Avoid adding more optional model branches until that path works end to end.
 
 ### P1: Needed for Publishable Engineering
 
-5. **Add physics-backed manipulation beyond the deterministic object smoke.**
+5. **Add physics-backed manipulation beyond the deterministic object smoke.** *(Shipped 2026-06-13: real `rapier3d-f64` backend + `pid-rapier-harness` with physics-derived labels and `Flow_gt`; dedicated CI job.)*
    - Introduce a backend adapter only if it still emits canonical run-log events and can be replayed/verified.
    - Treat cross-backend replay as a robustness/confound check rather than a claim of physics truth.
 
-6. **Harden release provenance.**
+6. **Harden release provenance.** *(Partially done 2026-06-13: `scripts/generate_third_party_notices.py` direct-dep SBOM + CI `--check` gate; regenerated 2026-07-06 for the pid-rs 0.4.0 re-pin — the gate is green. Datasets/checkpoints/asset provenance remain open.)*
    - Generate dependency notices/SBOMs for Rust/Python and, later, npm/Tauri.
    - Record license/provenance for datasets, model checkpoints, generated meshes, prompts, 3DGS captures, and sidecars.
 
@@ -266,7 +266,7 @@ The repo needs a cleanup pass that separates the canonical project from local ex
    - Keep local Maturin builds/tests passing.
    - Add versioned examples and packaging metadata before treating it as public.
 
-9. **Prototype attribution artifact logging before adding schema surface.**
+9. **Prototype attribution artifact logging before adding schema surface.** *(Done: `attribution_logged` schema event (2026-06-12) + `experiments/attribution` emitting validated `attribution_logged` run logs (2026-06-13).)*
    - Start with `artifact_logged` records for attribution tensors/heatmaps plus method/target/baseline metadata.
    - Promote a first-class `attribution_computed` event only after one real VLA/task path demonstrates which fields are stable.
 
@@ -307,7 +307,7 @@ Completed in the follow-up implementation pass:
 
 Current residuals:
 
-- The stricter Experiment 0 gate currently surfaces PIVOT/NO-GO-style failures on the synthetic diagnostics. This is useful: it exposes estimator monotonicity, CMI, invariant, and geometry failures that should block downstream VLA claims.
+- The stricter Experiment 0 gate surfaces gate failures on the synthetic diagnostics — verdict NO-GO under pid-rs 0.4.0 (2026-07-06; PIVOT under 0.3.0). This is stricter estimation (unclamped MI, bias-corrected Levina–Bickel: ID(t) 1.14 → 1.01), not new science. This is useful: it exposes estimator monotonicity, CMI, invariant, and geometry failures that should block downstream VLA claims.
 - `meshmaker/` is still tracked legacy/auxiliary tooling. Full removal or repository split would be a destructive organizational change and should be done only with explicit confirmation.
 - `pid-rs/crates/pid-runlog` now provides M1 groundwork (JSONL event schema, reader/writer, validation, replay summary with unique metric-name counts plus total metric-event counters, manifest/summary JSON, sidecar writing/verification, hashes, config-hash consistency gates, first-class `Flow_gt`/`flow_pred`, and contract metadata), `crates/pid-bridge` provides M2 event-core/dispatcher/JSON-RPC request/response groundwork plus bridge/run-log contract export and read-only safe-mode gates, `crates/pid-sim` provides an M3 deterministic smoke sim with backend/solver config provenance, bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, safe-mode `log.replay`, bridge `log.start`/`log.stop`, deterministic bridge `intervention.apply`, bridge `export.rerun`, simulator-derived `Flow_gt`, constant-velocity baseline `flow_pred`, flow verification, action/intervention replay checks, and an offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, deterministic sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, held-out class-coverage and episode-disjointness reports, held-out per-sample prediction records in summaries/run logs, replay-visible total metric event counts, and held-out failure-class confusion/rate diagnostics, and `crates/pid-rerun` converts run logs into Rerun recordings with summary/provenance/validation diagnostics; physics backend and real VLA/simulator data capture are still future work.
 - A tiny deterministic labeled harness now exists in `pid-sim` (`pid-toy-harness` / `just toy-harness`) to exercise first-class success-label events, a replay-linked toy `(V,L,D,A)` embedding contract, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export before any real VLA claims.
@@ -326,6 +326,16 @@ Completed since the 2026-06-12 pass (the "capture + analysis" slice — docset v
 **Revised critical path:** the remaining blocker is purely a **data-pull step** — point `experiments/safe_adapter` at the real downloaded SAFE rollouts (verify tensors/coverage/licenses) and run the existing analysis (PID screens + the built-in non-PID baselines incl. the SAFE-class detector + the §14.7.1 attribution probe) under the geometry/uncertainty gates; the preregistered §14.1.1 kill criteria then decide whether PID atoms earn a place. No further estimator, harness, baseline, or attribution code is required for that first study.
 
 > **Not on the critical path:** `crates/ncp-observer` (the Engram/NEST Neuro-Cybernetic-Protocol bridge) is an **optional** `(V,L,D,A)` source — grandplan does not depend on Engram, and the pure-PID stack builds/gates green with no NCP/Engram/Zenoh dependency (it is excluded from the default cargo workspace). It is exploratory-only until it meets the M5 contract (D `seq`-alignment, honest `L`, split/episode/label structure); bringing it up to bar is a self-contained task tracked in `NCP_DEV_PROMPT.md`. It does not block the SAFE data-pull above.
+
+## Implementation Pass Status: 2026-07-05/06 (docset v10.6 + v10.7 + addendum)
+
+Two slices; **no research-conclusion change** — no new capture, hypothesis, or experiment result:
+
+- **v10.6 (2026-07-05), correctness/robustness:** CI resurrected (an unquoted YAML scalar had produced **zero jobs on every push since 2026-06-13**); offline-harness run-log timestamps stay monotonic at capture scale; Agent Bridge hardening (`export.rerun` overwrite guard, spec-conformant JSON-RPC ids, audited rejects, transports always seal the run log); `ncp-observer` brought toward the M5 bar (validating run log, `ArtifactLogged` + sha256, `seq_late` reorder grace, FIFO eviction + epochs, empty-L exclusion, SIGTERM finalize) and NCP re-pinned v0.5.3; SAFE-adapter step-count guard + non-ASCII `canonical_hash` fixes.
+- **v10.7 (2026-07-06), spec audit + statistics plan:** five-agent grandplan audit + 104-agent adversarially-verified literature sweep; math fixes (δ-direction in findings.md was backwards, digamma, r̄ scoping, CI₃ sign scope, Beyer conditioning); **§14.8 preregistered statistical analysis plan** (one primary endpoint per hypothesis with predicted direction, gatekeeping + BH-FDR, ex-ante regime selection, power analysis as an M5 capture gate, mandatory minimal baseline set) + **§9.7.2b** H2/H3 protocol; H7 split H7a/H7b; H6 Deferred; SSI := −IQR(Syn); discrete-regime preregistration (discrete SxPID upstream, 2–4 sources, not yet harness-wired); July-2026 literature refresh (§12.6 — novelty re-verified: no PID-on-VLA anywhere; "VLDA" unclaimed); NCP pin prose synced v0.5.3.
+- **v10.7 addendum (same day):** triple-check repairs to the new statistical content (H2 units → tasks; H3 → mean per-case Kendall τ; outcome-independent strength matching; distribution-centered permutation placebo; fully specified H9; regime-multiplicity + error-rate statement); **pid-rs 0.4.0 adopted** (upstream v0.3.0/v0.4.0 tags; CountSketch sign fix, true moving-block bootstrap, `NegativeHandling::Allow`, bias-corrected Levina–Bickel) → **Exp0 verdict on synthetic controls now NO-GO** (ID(t) 1.14 → 1.01 confirms the old value was estimator bias; stricter gate, same science); `AGENTS.md`/`CLAUDE.md`/`README.md` rewritten; orphaned asset reports deleted; notices regenerated (CI gate green).
+
+**Critical path UNCHANGED, still open:** the first real-VLA capture — point `experiments/safe_adapter` at the real downloaded SAFE rollouts and run the analysis under the geometry/uncertainty/axis-provenance gates **and the §14.8 statistics plan**; the preregistered kill criteria then decide whether PID atoms earn a place.
 
 ## Implementation Pass Status: 2026-06-22
 
