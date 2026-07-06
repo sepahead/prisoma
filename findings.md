@@ -194,7 +194,7 @@ Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `
 *   **Scenario B: V-D-A (World Model Consistency)**
     *   **Sources:** $V_{red}$ (20d), $D_{red}$ (20d).
     *   **Method:** **Shannon Invariants ($\bar{r}$)**.
-    *   **Goal:** If $\bar{r} \approx 1$ (Independent), the Policy is ignoring the Dream state (or V).
+    *   **Goal:** $\bar{r} \approx 1$ means *additive* MI, which is **consistent with** the policy ignoring the Dream state (or V) — but additivity can also arise from Red ≈ Syn cancellation, so confirm with interventions before concluding "ignored".
 
 *   **Scenario C: "Flow-as-Bridge" (Geometric Escape Hatch)**
     *   **Sources:** **Flow summaries** (e.g., object centroid trajectories or principal flow statistics; low‑d by construction), **Proprio** (~7D).
@@ -216,7 +216,7 @@ When standard Euclidean assumptions fail (distance concentration, hierarchy), se
 
 *   **Hyperbolic / Poincaré ($\mathbb{H}^n$):**
     *   **Use when:** Data exhibits strong **hierarchical structure** (tree-like) or exponential volume expansion (e.g., language hierarchies, entailment cones).
-    *   **Diagnostics:** Check $\delta$-hyperbolicity (Gromov product). High $\delta$ (low metric distortion on tree) $\to$ Hyperbolic.
+    *   **Diagnostics:** Check $\delta$-hyperbolicity (Gromov 4-point condition). **Low** $\delta$ relative to scale (trees have $\delta = 0$; low metric distortion vs. a tree) $\to$ Hyperbolic. (Direction fixed v10.7 — an earlier revision had this backwards; see `grandplan.md` §16.7.)
     *   **Valid Estimators:** Geometry-aware MI estimation (research-gated; not implemented here).
     *   **Avoid:** $I^{sx}_{\cap}$.
 
@@ -231,7 +231,7 @@ High-level takeaway (verify details in the paper/official code): the continuous 
 
 High-level takeaway (verify exact statements in the paper): KSG MI exhibits a bias/variance tradeoff as a function of `k` and sample size `N`, and can fail in strong-dependence or high-dimensional regimes.
 
-**The distance concentration problem is fundamental**: In high dimensions, kNN distances become concentrated around the mean, destroying discriminative power. This is mathematical reality, not an implementation bug.
+**The distance concentration problem is fundamental** *for iid-like/isotropic high-dimensional distributions* (the Beyer et al. 1999 conditions): kNN distances concentrate around the mean, destroying discriminative power. This is mathematical reality, not an implementation bug — but it is **not unconditional**: data with low intrinsic dimension or strong cluster structure escapes it, which is exactly what the geometry gates test for.
 
 ### From grandplan.md (Project Strategy)
 
@@ -313,7 +313,7 @@ I(X;Y) = 0.5 * ln(1 + 1/σ²)
 ```
 
 ### Distance Concentration
-In high dimensions, for random points:
+In high dimensions, for random points with iid-like/isotropic coordinates (Beyer et al. 1999 conditions — not unconditional; low intrinsic dimension escapes it):
 ```
 max_distance / min_distance → 1 as d → ∞
 ```
@@ -321,5 +321,5 @@ This destroys the discriminative power of nearest-neighbor methods.
 
 ---
 
-*Last updated: 2026-06-22 (docset v10.4)*
+*Last updated: 2026-07-06 (docset v10.7 — δ-hyperbolicity direction corrected, r̄≈1 reading narrowed to "additive", distance-concentration claims conditioned on the Beyer et al. hypotheses)*
 *Based on analysis of exp0.rs, experimental output, and implementation of PLS + discrete PID (now wired into the offline harness with saturation diagnostics)*

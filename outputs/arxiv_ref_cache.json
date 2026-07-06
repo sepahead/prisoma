@@ -135,6 +135,18 @@
     "title": "The conformal group of a compact simply connected Lorentzian manifold",
     "updated": "2021-07-14T08:06:57Z"
   },
+  "2002.03356": {
+    "authors": [
+      "Abdullah Makkeh",
+      "Aaron J. Gutknecht",
+      "Michael Wibral"
+    ],
+    "id": "2002.03356",
+    "published": "2020-02-09T12:52:14Z",
+    "summary": "Partial information decomposition (PID) of the multivariate mutual information describes the distinct ways in which a set of source variables contains information about a target variable. The groundbreaking work of Williams and Beer has shown that this decomposition cannot be determined from classic information theory without making additional assumptions, and several candidate measures have been proposed, often drawing on principles from related fields such as decision theory. None of these measures is differentiable with respect to the underlying probability mass function. We here present a novel measure that satisfies this property, emerges solely from information-theoretic principles, and has the form of a local mutual information. We show how the measure can be understood from the perspective of exclusions of probability mass, a principle that is foundational to the original definition of the mutual information by Fano. Since our measure is well-defined for individual realizations of the random variables it lends itself for example to local learning in artificial neural networks. We also show that it has a meaningful M\u00f6bius inversion on a redundancy lattice and obeys a target chain rule. We give an operational interpretation of the measure based on the decisions that an agent should take if given only the shared information.",
+    "title": "Introducing a differentiable measure of pointwise shared information",
+    "updated": "2021-03-30T08:45:45Z"
+  },
   "2003.12039": {
     "authors": [
       "Zachary Teed",
@@ -145,6 +157,21 @@
     "summary": "We introduce Recurrent All-Pairs Field Transforms (RAFT), a new deep network architecture for optical flow. RAFT extracts per-pixel features, builds multi-scale 4D correlation volumes for all pairs of pixels, and iteratively updates a flow field through a recurrent unit that performs lookups on the correlation volumes. RAFT achieves state-of-the-art performance. On KITTI, RAFT achieves an F1-all error of 5.10%, a 16% error reduction from the best published result (6.10%). On Sintel (final pass), RAFT obtains an end-point-error of 2.855 pixels, a 30% error reduction from the best published result (4.098 pixels). In addition, RAFT has strong cross-dataset generalization as well as high efficiency in inference time, training speed, and parameter count. Code is available at https://github.com/princeton-vl/RAFT.",
     "title": "RAFT: Recurrent All-Pairs Field Transforms for Optical Flow",
     "updated": "2020-08-25T15:49:48Z"
+  },
+  "2106.12393": {
+    "authors": [
+      "Kyle Schick-Poland",
+      "Abdullah Makkeh",
+      "Aaron J. Gutknecht",
+      "Patricia Wollstadt",
+      "Anja Sturm",
+      "Michael Wibral"
+    ],
+    "id": "2106.12393",
+    "published": "2021-06-23T13:36:33Z",
+    "summary": "Conceptually, partial information decomposition (PID) is concerned with separating the information contributions several sources hold about a certain target by decomposing the corresponding joint mutual information into contributions such as synergistic, redundant, or unique information. Despite PID conceptually being defined for any type of random variables, so far, PID could only be quantified for the joint mutual information of discrete systems. Recently, a quantification for PID in continuous settings for two or three source variables was introduced. Nonetheless, no ansatz has managed to both quantify PID for more than three variables and cover general measure-theoretic random variables, such as mixed discrete-continuous, or continuous random variables yet. In this work we will propose an information quantity, defining the terms of a PID, which is well-defined for any number or type of source or target random variable. This proposed quantity is tightly related to a recently developed local shared information quantity for discrete random variables based on the idea of shared exclusions. Further, we prove that this newly proposed information-measure fulfills various desirable properties, such as satisfying a set of local PID axioms, invariance under invertible transformations, differentiability with respect to the underlying probability density, and admitting a target chain rule.",
+    "title": "A partial information decomposition for discrete and continuous variables",
+    "updated": "2021-06-24T09:44:54Z"
   },
   "2110.13883": {
     "authors": [
@@ -191,6 +218,27 @@
     "title": "DLME: Deep Local-flatness Manifold Embedding",
     "updated": "2022-07-26T00:47:01Z"
   },
+  "2302.12247": {
+    "authors": [
+      "Paul Pu Liang",
+      "Yun Cheng",
+      "Xiang Fan",
+      "Chun Kai Ling",
+      "Suzanne Nie",
+      "Richard Chen",
+      "Zihao Deng",
+      "Nicholas Allen",
+      "Randy Auerbach",
+      "Faisal Mahmood",
+      "Ruslan Salakhutdinov",
+      "Louis-Philippe Morency"
+    ],
+    "id": "2302.12247",
+    "published": "2023-02-23T18:59:05Z",
+    "summary": "The recent explosion of interest in multimodal applications has resulted in a wide selection of datasets and methods for representing and integrating information from different modalities. Despite these empirical advances, there remain fundamental research questions: How can we quantify the interactions that are necessary to solve a multimodal task? Subsequently, what are the most suitable multimodal models to capture these interactions? To answer these questions, we propose an information-theoretic approach to quantify the degree of redundancy, uniqueness, and synergy relating input modalities with an output task. We term these three measures as the PID statistics of a multimodal distribution (or PID for short), and introduce two new estimators for these PID statistics that scale to high-dimensional distributions. To validate PID estimation, we conduct extensive experiments on both synthetic datasets where the PID is known and on large-scale multimodal benchmarks where PID estimations are compared with human annotations. Finally, we demonstrate their usefulness in (1) quantifying interactions within multimodal datasets, (2) quantifying interactions captured by multimodal models, (3) principled approaches for model selection, and (4) three real-world case studies engaging with domain experts in pathology, mood prediction, and robotic perception where our framework helps to recommend strong multimodal models for each application.",
+    "title": "Quantifying & Modeling Multimodal Interactions: An Information Decomposition Framework",
+    "updated": "2023-12-10T19:54:36Z"
+  },
   "2306.02149": {
     "authors": [
       "Abdullah Makkeh",
@@ -220,6 +268,21 @@
     "summary": "In this study, we present an investigation into the anisotropy dynamics and intrinsic dimension of embeddings in transformer architectures, focusing on the dichotomy between encoders and decoders. Our findings reveal that the anisotropy profile in transformer decoders exhibits a distinct bell-shaped curve, with the highest anisotropy concentrations in the middle layers. This pattern diverges from the more uniformly distributed anisotropy observed in encoders. In addition, we found that the intrinsic dimension of embeddings increases in the initial phases of training, indicating an expansion into higher-dimensional space. Which is then followed by a compression phase towards the end of training with dimensionality decrease, suggesting a refinement into more compact representations. Our results provide fresh insights to the understanding of encoders and decoders embedding properties.",
     "title": "The Shape of Learning: Anisotropy and Intrinsic Dimensions in Transformer-Based Models",
     "updated": "2024-02-26T06:46:17Z"
+  },
+  "2311.06373": {
+    "authors": [
+      "David A. Ehrlich",
+      "Kyle Schick-Poland",
+      "Abdullah Makkeh",
+      "Felix Lanfermann",
+      "Patricia Wollstadt",
+      "Michael Wibral"
+    ],
+    "id": "2311.06373",
+    "published": "2023-11-10T20:02:28Z",
+    "summary": "Describing statistical dependencies is foundational to empirical scientific research. For uncovering intricate and possibly non-linear dependencies between a single target variable and several source variables within a system, a principled and versatile framework can be found in the theory of Partial Information Decomposition (PID). Nevertheless, the majority of existing PID measures are restricted to categorical variables, while many systems of interest in science are continuous. In this paper, we present a novel analytic formulation for continuous redundancy--a generalization of mutual information--drawing inspiration from the concept of shared exclusions in probability space as in the discrete PID definition of $I^\\mathrm{sx}_\\cap$. Furthermore, we introduce a nearest-neighbor based estimator for continuous PID, and showcase its effectiveness by applying it to a simulated energy management system provided by the Honda Research Institute Europe GmbH. This work bridges the gap between the measure-theoretically postulated existence proofs for a continuous $I^\\mathrm{sx}_\\cap$ and its practical application to real-world scientific problems.",
+    "title": "Partial Information Decomposition for Continuous Variables based on Shared Exclusions: Analytical Formulation and Estimation",
+    "updated": "2024-03-27T10:06:31Z"
   },
   "2402.05602": {
     "authors": [
@@ -368,6 +431,18 @@
     "summary": "Large language models (LLMs) have demonstrated remarkable performance on various tasks. However, it remains an open question whether the default Euclidean space is the most suitable choice for embedding tokens in LLMs. In this study, we first investigate the non-Euclidean characteristics of LLMs. Our findings reveal that token frequency follows a power-law distribution, with high-frequency tokens clustering near the origin and low-frequency tokens positioned farther away. Additionally, token embeddings exhibit a high degree of hyperbolicity, indicating a latent tree-like structure in the embedding space. Building on the observation, we propose to efficiently fine-tune LLMs in hyperbolic space to better exploit the underlying complex structures. However, we found that this fine-tuning in hyperbolic space cannot be achieved with naive application of exponential and logarithmic maps, when the embedding and weight matrices both reside in Euclidean space. To address this technique issue, we introduce a new method called hyperbolic low-rank efficient fine-tuning, HypLoRA, that performs low-rank adaptation directly on the hyperbolic manifold, avoiding the cancellation effect caused by the exponential and logarithmic maps, thus preserving the hyperbolic modeling capabilities. Through extensive experiments, we demonstrate that HypLoRA significantly enhances the performance of LLMs on reasoning tasks, particularly for complex reasoning problems. In particular, HypLoRA improves the performance in the complex AQuA dataset by up to 13.0%, showcasing its effectiveness in handling complex reasoning challenges",
     "title": "Hyperbolic Fine-tuning for Large Language Models",
     "updated": "2024-10-05T02:58:25Z"
+  },
+  "2410.06224": {
+    "authors": [
+      "Abel Jansma",
+      "Pedro A. M. Mediano",
+      "Fernando E. Rosas"
+    ],
+    "id": "2410.06224",
+    "published": "2024-10-08T17:31:57Z",
+    "summary": "The partial information decomposition (PID) and its extension integrated information decomposition ($\u03a6$ID) are promising frameworks to investigate information phenomena involving multiple variables. An important limitation of these approaches is the high computational cost involved in their calculation. Here we leverage fundamental algebraic properties of these decompositions to enable a computationally-efficient method to estimate them, which we call the fast M\u00f6bius transform. Our approach is based on a novel formula for estimating the M\u00f6bius function that circumvents important computational bottlenecks. We showcase the capabilities of this approach by presenting two analyses that would be unfeasible without this method: decomposing the information that neural activity at different frequency bands yield about the brain's macroscopic functional organisation, and identifying distinctive dynamical properties of the interactions between multiple voices in baroque music. Overall, our proposed approach illuminates the value of algebraic facets of information decomposition and opens the way to a wide range of future analyses.",
+    "title": "The Fast M\u00f6bius Transform: An algebraic approach to information decomposition",
+    "updated": "2024-10-08T17:31:57Z"
   },
   "2410.10924": {
     "authors": [
@@ -879,6 +954,29 @@
     "title": "Less is More: Local Intrinsic Dimensions of Contextual Language Models",
     "updated": "2025-10-27T16:17:17Z"
   },
+  "2506.01844": {
+    "authors": [
+      "Mustafa Shukor",
+      "Dana Aubakirova",
+      "Francesco Capuano",
+      "Pepijn Kooijmans",
+      "Steven Palma",
+      "Adil Zouitine",
+      "Michel Aractingi",
+      "Caroline Pascal",
+      "Martino Russi",
+      "Andres Marafioti",
+      "Simon Alibert",
+      "Matthieu Cord",
+      "Thomas Wolf",
+      "Remi Cadene"
+    ],
+    "id": "2506.01844",
+    "published": "2025-06-02T16:30:19Z",
+    "summary": "Vision-language models (VLMs) pretrained on large-scale multimodal datasets encode rich visual and linguistic knowledge, making them a strong foundation for robotics. Rather than training robotic policies from scratch, recent approaches adapt VLMs into vision-language-action (VLA) models that enable natural language-driven perception and control. However, existing VLAs are typically massive--often with billions of parameters--leading to high training costs and limited real-world deployability. Moreover, they rely on academic and industrial datasets, overlooking the growing availability of community-collected data from affordable robotic platforms. In this work, we present SmolVLA, a small, efficient, and community-driven VLA that drastically reduces both training and inference costs, while retaining competitive performance. SmolVLA is designed to be trained on a single GPU and deployed on consumer-grade GPUs or even CPUs. To further improve responsiveness, we introduce an asynchronous inference stack decoupling perception and action prediction from action execution, allowing higher control rates with chunked action generation. Despite its compact size, SmolVLA achieves performance comparable to VLAs that are 10x larger. We evaluate SmolVLA on a range of both simulated as well as real-world robotic benchmarks and release all code, pretrained models, and training data.",
+    "title": "SmolVLA: A Vision-Language-Action Model for Affordable and Efficient Robotics",
+    "updated": "2025-06-02T16:30:19Z"
+  },
   "2506.09937": {
     "authors": [
       "Qiao Gu",
@@ -964,6 +1062,27 @@
     "summary": "Our understanding of complex systems rests on our ability to characterise how they perform distributed computation and integrate information. Advances in information theory have introduced several quantities to describe complex information structures, where collective patterns of coordination emerge from higher-order (i.e. beyond-pairwise) interdependencies. Unfortunately, the use of these approaches to study large complex systems is severely hindered by the poor scalability of existing techniques. Moreover, there are relatively few measures specifically designed for multivariate time series data. Here we introduce a novel measure of information about macroscopic structures, termed M-information, which quantifies the higher-order integration of information in complex dynamical systems. We show that M-information can be calculated via a convex optimisation problem, and we derive a robust and efficient algorithm that scales gracefully with system size. Our analyses show that M-information is resilient to noise, indexes critical behaviour in artificial neuronal populations, and reflects states of consciousness and task performance in real-world macaque and mouse neuroimaging data. Furthermore, M-information can be incorporated into existing information decomposition frameworks to reveal a comprehensive taxonomy of information dynamics. Taken together, these results help us unravel collective computation in large complex systems.",
     "title": "A scalable estimator of higher-order information in complex dynamical systems",
     "updated": "2026-04-10T15:27:52Z"
+  },
+  "2506.21539": {
+    "authors": [
+      "Jun Cen",
+      "Chaohui Yu",
+      "Hangjie Yuan",
+      "Yuming Jiang",
+      "Siteng Huang",
+      "Jiayan Guo",
+      "Xin Li",
+      "Yibing Song",
+      "Hao Luo",
+      "Fan Wang",
+      "Deli Zhao",
+      "Hao Chen"
+    ],
+    "id": "2506.21539",
+    "published": "2025-06-26T17:55:40Z",
+    "summary": "We present WorldVLA, an autoregressive action world model that unifies action and image understanding and generation. Our WorldVLA intergrates Vision-Language-Action (VLA) model and world model in one single framework. The world model predicts future images by leveraging both action and image understanding, with the purpose of learning the underlying physics of the environment to improve action generation. Meanwhile, the action model generates the subsequent actions based on image observations, aiding in visual understanding and in turn helps visual generation of the world model. We demonstrate that WorldVLA outperforms standalone action and world models, highlighting the mutual enhancement between the world model and the action model. In addition, we find that the performance of the action model deteriorates when generating sequences of actions in an autoregressive manner. This phenomenon can be attributed to the model's limited generalization capability for action prediction, leading to the propagation of errors from earlier actions to subsequent ones. To address this issue, we propose an attention mask strategy that selectively masks prior actions during the generation of the current action, which shows significant performance improvement in the action chunk generation task.",
+    "title": "WorldVLA: Towards Autoregressive Action World Model",
+    "updated": "2025-06-26T17:55:40Z"
   },
   "2506.23135": {
     "authors": [
@@ -1297,6 +1416,29 @@
     "summary": "Today's denoising diffusion models do not \"denoise\" in the classical sense, i.e., they do not directly predict clean images. Rather, the neural networks predict noise or a noised quantity. In this paper, we suggest that predicting clean data and predicting noised quantities are fundamentally different. According to the manifold assumption, natural data should lie on a low-dimensional manifold, whereas noised quantities do not. With this assumption, we advocate for models that directly predict clean data, which allows apparently under-capacity networks to operate effectively in very high-dimensional spaces. We show that simple, large-patch Transformers on pixels can be strong generative models: using no tokenizer, no pre-training, and no extra loss. Our approach is conceptually nothing more than \"$\\textbf{Just image Transformers}$\", or $\\textbf{JiT}$, as we call it. We report competitive results using JiT with large patch sizes of 16 and 32 on ImageNet at resolutions of 256 and 512, where predicting high-dimensional noised quantities can fail catastrophically. With our networks mapping back to the basics of the manifold, our research goes back to basics and pursues a self-contained paradigm for Transformer-based diffusion on raw natural data.",
     "title": "Back to Basics: Let Denoising Generative Models Denoise",
     "updated": "2025-11-17T18:59:57Z"
+  },
+  "2511.17502": {
+    "authors": [
+      "Jun Cen",
+      "Siteng Huang",
+      "Yuqian Yuan",
+      "Kehan Li",
+      "Hangjie Yuan",
+      "Chaohui Yu",
+      "Bohan Hou",
+      "Yuming Jiang",
+      "Jiayan Guo",
+      "Xin Li",
+      "Hao Luo",
+      "Fan Wang",
+      "Deli Zhao",
+      "Hao Chen"
+    ],
+    "id": "2511.17502",
+    "published": "2025-11-21T18:59:32Z",
+    "summary": "We introduce RynnVLA-002, a unified Vision-Language-Action (VLA) and world model. The world model leverages action and visual inputs to predict future image states, learning the underlying physics of the environment to refine action generation. Conversely, the VLA model produces subsequent actions from image observations, enhancing visual understanding and supporting the world model's image generation. The unified framework of RynnVLA-002 enables joint learning of environmental dynamics and action planning. Our experiments show that RynnVLA-002 surpasses individual VLA and world models, demonstrating their mutual enhancement. We evaluate RynnVLA-002 in both simulation and real-world robot tasks. RynnVLA-002 achieves 97.4% success rate on the LIBERO simulation benchmark without pretraining, while in real-world LeRobot experiments, its integrated world model boosts the overall success rate by 50%.",
+    "title": "RynnVLA-002: A Unified Vision-Language-Action and World Model",
+    "updated": "2026-05-30T03:49:39Z"
   },
   "2512.04797": {
     "authors": [
@@ -1684,6 +1826,20 @@
     "title": "VLA-JEPA: Enhancing Vision-Language-Action Model with Latent World Model",
     "updated": "2026-02-14T03:00:50Z"
   },
+  "2603.06678": {
+    "authors": [
+      "Alberto Liardi",
+      "Keenan J. A. Down",
+      "George Blackburne",
+      "Matteo Neri",
+      "Pedro A. M. Mediano"
+    ],
+    "id": "2603.06678",
+    "published": "2026-03-03T17:57:22Z",
+    "summary": "Partial Information Decomposition (PID) has become one of the most prominent information-theoretic frameworks for describing the structure and quality of information in complex systems. Despite its widespread utility, there exists no unique solution constraining precisely how a PID should be constructed, leading to a multiverse of different formalisms with different mathematical commitments. In this work, we provide a comprehensive overview of the mathematical landscape of PID. By integrating existing PID measures into a common language, we systematically examine all major approaches to the PID framework that have emerged so far, determining for each measure whether or not each known property holds. In addition, we derive a web of all known theorems mapping the relationships and incompatibilities between these properties, before also revealing some novel interdependency results. In doing so, we chart a brief history of the framework, promote a unified perspective for its discussions, and offer a path towards both theoretical refinement and informed empirical applications for the future of this powerful method.",
+    "title": "The mathematical landscape of partial information decomposition: A comprehensive review of properties and measures",
+    "updated": "2026-06-01T17:27:29Z"
+  },
   "2603.08519": {
     "authors": [
       "Xiaoquan Sun",
@@ -1716,6 +1872,32 @@
     "summary": "Vision-Language-Action (VLA) models combine perception, language, and motor control in a single architecture, yet how they translate multimodal inputs into actions remains poorly understood. We apply activation injection, sparse autoencoders (SAEs), and linear probes to six models spanning 80M--7B parameters across 394,000+ rollout episodes on four benchmarks. The visual pathway dominates action generation across all architectures: injecting baseline activations into null-prompt episodes recovers near-identical behavior, while cross-task injection steers robots toward source-task positions (99.8\\% of X-VLA episodes align with the source trajectory), exposing spatially bound motor programs tied to scene coordinates rather than abstract task representations. Language sensitivity depends on task structure, not model design: when visual context uniquely specifies the task, language is ignored; when multiple goals share a scene, language becomes essential (X-VLA \\texttt{libero\\_goal}: 94\\%$\\to$10\\% under wrong prompts vs.\\ \\texttt{libero\\_object}: 60--100\\% regardless). In all three multi-pathway architectures (\\pizhalf{}, SmolVLA, GR00T), expert pathways encode motor programs while VLM pathways encode goal semantics ($2\\times$ greater behavioral displacement from expert injection), and subspace injection confirms these occupy separable activation subspaces. Per-token SAE processing is essential for action fidelity on most architectures, though mean-pooling improves fidelity on X-VLA. Contrastive identification recovers 82+ manipulation concepts, and causal ablation reveals sensitivity spanning 28--92\\% zero-effect rates independent of representation width. We release \\textbf{Action Atlas} (https://action-atlas.com) for interactive exploration of VLA representations across all six models.",
     "title": "Not All Features Are Created Equal: A Mechanistic Study of Vision-Language-Action Models",
     "updated": "2026-03-19T17:59:55Z"
+  },
+  "2604.03869": {
+    "authors": [
+      "Aobo Lyu",
+      "Andrew Clark",
+      "Netanel Raviv"
+    ],
+    "id": "2604.03869",
+    "published": "2026-04-04T21:23:54Z",
+    "summary": "Partial Information Decomposition (PID) represents multivariate mutual information via antichain-lattice that aims to specify which source groups can recover which informational components of a target. For three or more sources, widely desired PID axioms become mutually incompatible. This is often treated as an axiomatic tuning issue. This paper argues that the obstruction is representational, rooted in the antichain indexing itself, so that purely axiomatic adjustments within an antichain-lattice structure cannot resolve it in general. We first introduce System Information Decomposition (SID) for the special target-free three-variable setting, obtaining a self-consistent entropy decomposition with an operational redundancy definition. More fundamentally, we then show that for general multivariate PID, there is no universal rule that recovers the decomposed mutual information from the antichain-indexed information atoms. In particular, two systems can share identical atoms regardless of any axioms while having different mutual information. These results reveal the limits of antichain-lattice and motivate relation-based foundations for multivariate information measures.",
+    "title": "Structural Impossibility of Antichain-Lattice Partial Information Decomposition",
+    "updated": "2026-04-14T16:21:34Z"
+  },
+  "2604.05323": {
+    "authors": [
+      "Chuhang Liu",
+      "Yayun He",
+      "Zuheng Kang",
+      "Xiaoyang Qu",
+      "Jianzong Wang"
+    ],
+    "id": "2604.05323",
+    "published": "2026-04-07T01:52:42Z",
+    "summary": "Vision-Language-Action (VLA) models integrate visual perception, language understanding, and action decision-making for cross-modal semantic alignment, exhibiting broad application potential. However, the joint processing of high-dimensional visual features, complex linguistic inputs, and continuous action sequences incurs significant computational overhead and low inference efficiency, thereby hindering real-time deployment and reliability. To address this issue, we use image entropy to quantify the grayscale distribution characteristics of each visual token and introduce attention entropy to capture the distribution of attention scores over task-related text. Visual entropy identifies texture-rich or structurally informative regions, while attention entropy pinpoints semantically relevant tokens. Combined with timestep information, these metrics enable a dynamic transition strategy that shifts the model's focus from global visual features to attention-guided local informative regions. Thus, the resulting VLA-InfoEntropy method integrates spatial, semantic, and temporal cues to reduce redundancy while preserving critical content. Extensive experiments show that our method reduces inference parameters, accelerates inference speed, and outperforms existing approaches.",
+    "title": "VLA-InfoEntropy: A Training-Free Vision-Attention Information Entropy Approach for Vision-Language-Action Models Inference Acceleration and Success",
+    "updated": "2026-04-07T01:52:42Z"
   },
   "2604.22748": {
     "authors": [
@@ -1851,6 +2033,33 @@
     "summary": "Embodied intelligence is often studied through specialized models for individual tasks such as manipulation or navigation, resulting in fragmented capabilities and limited generalization across tasks, environments, and robot embodiments. In this work, we study whether heterogeneous embodied decision-making problems can be unified within a single vision-language-action model. We present Qwen-VLA, a unified embodied foundation model that extends Qwen's vision-language modeling stack from perception, understanding, and reasoning to continuous action and trajectory generation through a DiT-based action decoder. Qwen-VLA is trained with a large-scale joint pretraining recipe over diverse data sources, including robotics manipulation trajectories, human egocentric demonstrations, synthetic simulation data, vision-and-language navigation data, trajectory-centric supervision, and auxiliary vision-language data. To support multiple robot platforms, we introduce embodiment-aware prompt conditioning, where robot-specific textual descriptions specify the current embodiment and control convention. We further cast manipulation, navigation, and trajectory prediction into a unified action-and-trajectory prediction framework, enabling transferable visual grounding, spatial reasoning, and continuous action generation across robot morphologies, task families, and environments. Experiments on manipulation, navigation, and trajectory-centric benchmarks show consistent multi-task performance and out-of-distribution generalization under variations in scene layout, background, lighting, object configuration, and robot embodiment. Qwen-VLA-Instruct achieves 97.9% on LIBERO, 73.7% on Simpler-WidowX, 86.1%/87.2% on RoboTwin-Easy/Hard, 69.0% OSR on R2R, 59.6% SR on RxR, 76.9% average OOD success in real-world ALOHA experiments, and 26.6% zero-shot success on DOMINO dynamic manipulation.",
     "title": "Qwen-VLA: Unifying Vision-Language-Action Modeling across Tasks, Environments, and Robot Embodiments",
     "updated": "2026-06-01T13:48:35Z"
+  },
+  "2606.00113": {
+    "authors": [
+      "Fangyuan Wang",
+      "Ziyuan Wang",
+      "Guorui Pei",
+      "Mengshi Zhang",
+      "Canxi Liang",
+      "Jun Hu",
+      "Zhongxuan Li",
+      "Jinsong Wu",
+      "Ning Han",
+      "Zeqing Zhang",
+      "Jiaming Qi",
+      "Hongmin Wu",
+      "Shiyao Zhang",
+      "Pai Zheng",
+      "Jia Pan",
+      "David Navarro-Alarcon",
+      "Sichao Liu",
+      "Peng Zhou"
+    ],
+    "id": "2606.00113",
+    "published": "2026-05-27T05:32:17Z",
+    "summary": "Robotic manipulation depends on the ability to anticipate how actions reshape objects, contacts, and scene geometry before execution. Learned world models provide this capability by predicting task-relevant future evolution under robot intervention, yet the term now spans latent dynamics models, action-conditioned video generators, three- and four-dimensional scene predictors, physics-informed simulators, and predictive modules inside vision-language-action systems. This breadth has fragmented the literature and obscured the design choices that matter for manipulation. We survey world models for robotic manipulation through three questions: what future representation is predicted, how prediction is connected to action, and when prediction is used in the robot-learning pipeline. We operationally define a world model as an action-conditioned predictive system and distinguish it from perception modules, inverse models, policies, rewards, and value functions. We then organize existing work into five representation families, develop a functional taxonomy that separates integrated prediction-action models from explicit predictive planners, and characterize infrastructure roles including synthetic experience generation, candidate filtering, search-based evaluation, learned environments, and outcome verification. We further map these roles across pretraining, post-training, and inference adaptation, review 34 manipulation datasets, and synthesize evaluation protocols for predictive fidelity, task performance, and simulator reliability. This survey shows that world models are evolving from task-specific dynamics predictors into predictive infrastructure for robot learning, while exposing open challenges in contact modeling, hallucination control, action alignment, and benchmarking under closed-loop use.",
+    "title": "World Models for Robotic Manipulation: A Survey",
+    "updated": "2026-05-27T05:32:17Z"
   },
   "2606.12403": {
     "authors": [

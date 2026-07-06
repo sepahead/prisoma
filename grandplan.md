@@ -11,9 +11,9 @@
 ## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
 ### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
 
-**Version:** 10.6 (Whole-repo review + correctness/robustness slice: CI resurrected (invalid-YAML workflow that had silently created zero jobs since 2026-06-13), Agent Bridge JSON-RPC/`export.rerun`/transport-finalize hardening, offline-harness run-log timestamp overflow fixed, ncp-observer brought toward the M5 bar (valid run log, D reordering, reset-safe eviction, SIGTERM, artifact registration), pid-rerun dead-dep + npy + precision fixes, Python step-count/hash fixes — research status unchanged from v10.4)
-**Date:** 2026-07-05
-**Status:** Research Specification + Implementation Blueprint (v10.6 updated)
+**Version:** 10.7 (First-principles spec audit + statistics-plan slice: math/precision corrections (δ-direction, digamma, r̄ identities, CI₃ sign scope, distance-concentration conditions), hypothesis-system hardening (H7a/H7b split, H5 operationalization, H2 availability-vs-use, discrete-regime preregistration, §14.8 preregistered statistical analysis plan, §9.7.2b H2/H3 protocol, reconciled publication gates, sign-safe SSI), July-2026 literature refresh (§12.6; novelty re-verified — still no PID-on-VLA anywhere), NCP pin doc sync v0.5.2→v0.5.3 — research status unchanged from v10.4)
+**Date:** 2026-07-06
+**Status:** Research Specification + Implementation Blueprint (v10.7 updated)
 **Canonical:** Living spec; prior versions live in git history.
 
 **Reading guide (skim-first):**
@@ -24,6 +24,12 @@
 
 **Quick links:** [Table of Contents](#table-of-contents) · [Experimental Design](#9-experimental-design) · [Technical Implementation](#11-technical-implementation) · [Critical Blockers](#18-critical-blockers-and-risk-analysis)
 
+**v10.7 notes (2026-07-06 cut):** first-principles spec audit + statistics-plan slice. **No research/estimator/experiment status changes from v10.4** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls; the open critical path is still the first real-VLA capture (not done). Driven by a five-agent spec audit (grandplan vs pid-rs code, grandplan vs NCP, first-principles math check, hostile hypothesis review, citation verification) plus a 104-agent adversarially-verified literature sweep. New content:
+- **Math/precision corrections:** findings.md's δ-hyperbolicity direction was backwards (low δ = tree-like/hyperbolic — the one outright error found); small-x digamma expansion fixed (ψ(x) ≈ −1/x − γ, §15.1.2 retitled pole-not-underflow); r̄−1 = CoInfo/I identity scoped to n=2; r̄=1 reading narrowed to "additive" (not "independent"); CI-sign convention scoped to CI₂ only; "7 MI estimates" → 6 for the pairwise-CI trio; distance-concentration claims conditioned on the Beyer et al. hypotheses; strong-dependence sample-complexity restated as exponential-in-MI; PCA "preserves distances" softened; mean-δ vs sup-δ caveat added (§16.7.1); Ehrlich validation envelope corrected from "~100 dimensions" to low-d (Warning 3).
+- **Hypothesis-system hardening (§14.1, §3.6, §9.6/§9.7, §14.5, §18.2.5):** falsifiability index consolidated into §14.1 (registry now genuinely canonical); H7 split into H7a (method) / H7b (falsifiable claim); H5 operationalized (phase-aligned windows pooled across episodes, preregistered trend endpoint); H2's availability-vs-use gap named with a preregistered asymmetric-outcome reading; H4 "or requires refinement" bounded to preregistered variants + held-out replication; H6 unified as Deferred with an explicit disproof; discrete regimes preregistered as first-class H1–H5 formulations (closes the PIVOT-era H2/H3 dead end); **new §14.8 preregistered statistical analysis plan** (one primary endpoint per hypothesis, gatekeeping + BH-FDR multiplicity, simulation-based power analysis as an M5 capture gate, mandatory minimal baseline set); **new §9.7.2b** dedicated H2/H3 ablation-sensitivity protocol; publication gates reconciled (OOD + difficulty must-pass; §14.5.7.5 defers to §14.5.6); SSI made sign-safe (IQR/|median|+ε); permutation placebo threshold moved from the fixed 0.55 to permutation-distribution quantiles; memorization-index stratification restricted to pre-outcome quantities; §18.2.5 "unique interpretability" GO operationalized; H9 given a quantitative Kendall-τ/sign-agreement criterion; RoPE entanglement-score estimation defined.
+- **July-2026 literature refresh (new §12.6):** PID field-status review arXiv:2603.06678 + second impossibility line arXiv:2604.03869 added; continuous-`I^sx_∩` validation ceiling re-confirmed current (low-d only through mid-2026); negative-atom nuances added to §2.2.4 (empirical negatives are *unique* atoms, not synergy; authors sanction time-series clamping — clamped/unclamped preregistration required); r̄/v̄ anchored to arXiv:2504.15779 Props. 1–2; world-model-VLA family surveyed (arXiv:2606.00113) with WorldVLA/FlowVLA/RynnVLA-002/3D-VLA added to §7.5; VLA-Arena resolved to ICML 2026 and TraceVLA to ICLR 2025 (venues checked against arXiv listings 2026-07-06; re-verify at submission); SmolVLA cited (arXiv:2506.01844) and §7.8.1 updated; PixelVLA improvement range version-pinned (v1 17.8% vs current-revision 28.7%); Ehrlich/Liang/Schick-Poland/Makkeh arXiv IDs added; novelty re-verified 2026-07-06 (no PID-on-VLA; closest = VLA-InfoEntropy arXiv:2604.05323; "VLDA" unclaimed).
+- **Repo-truth corrections:** §11.2 project tree redrawn (pid-rs is a submodule, estimator crates are NOT under `crates/`; `experiments/{safe_adapter,attribution}` are tracked packages); "general n-source SxPID" corrected to 2–4 sources everywhere; pid-rs 0.3.0 noted as crate-version/commit pin (no upstream v0.3.0 tag); §15.2.1–15.2.2 SIMD/streaming sketches labeled not-implemented (the real path is the `parallel` rayon feature); NCP pin prose synced to **v0.5.3** across README/AGENTS/NCP_DEV_PROMPT/observer-README/DIAGRAMS/Cargo comments (wire-identical; CONTRACT_HASH unchanged `24e8e6e31e1dec8a`; v0.5.3 = NCP-local fail-closed safety hardening).
+
 **v10.6 notes (2026-07-05 cut):** whole-repo review + correctness/robustness slice. **No research/estimator/experiment status changes from v10.4** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls and the open critical path is still the first real-VLA capture (not done). The discrete-harness measure identity is unchanged (`--pid-mode discrete` is Williams–Beer `I_min`, **not** discrete `i^sx_∩` — §8.1.6). New content (full detail in `CHANGELOG.md` "Docset v10.6"):
 - **CI resurrected:** `.github/workflows/ci.yml` had an unquoted `physics:: manipulation::` scalar (illegal YAML), so GitHub parsed nothing and created **zero jobs** on every push since 2026-06-13 — three weeks with no fmt/clippy/test/cargo-deny/notices/docs gate actually running. Quoted; the `python-bindings` job now creates a venv for `maturin develop`.
 - **Agent Bridge hardening:** `export.rerun` can no longer overwrite the session's own live run log (or any non-`.rrd` path); JSON-RPC ids are `String|Number|Null` (numeric ids were rejected) and echoed verbatim; rejected/malformed traffic is now audited into the run log; `stdio`/`tcp`/`ws` transports always `finish_run` (a transport error no longer leaves a run log without `run_ended`) and flush per response; `sim.reset` after `sim.step` is refused; `verify_flow_gt` pairs flows with snapshots in stream order (no false mismatch after a pose intervention).
@@ -32,7 +38,7 @@
 - **pid-rerun / Python:** dropped the dead `hdf5`/`hdf5-data` dep+feature; ns→`Duration::from_nanos` (no precision loss); exact `.npy` dtype check; artifact URIs resolve against the run-log dir; corrected the LIBERO/OXE loader claim in `data.rs`; SAFE-adapter step-count guard now actually validates V/L/D vs actions; `canonical_hash` uses `ensure_ascii=False`; the hyperbolic-metric test expects `ValueError`.
 
 **v10.5 notes (2026-07-01 cut):** consistency + robustness slice. **No research/estimator/experiment status changes from v10.4** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls and the open critical path is still the first real-VLA capture (not done). The discrete-harness measure identity is unchanged (`--pid-mode discrete` is still Williams–Beer `I_min`, **not** discrete `i^sx_∩` — see §8.1.6). New content:
-- **pid-rs submodule → v0.3.0:** adopted current upstream `pid-rs` (was v0.2.0). 0.3.0 adds a *genuine* discrete shared-exclusions PID (`sxpid.rs`: `discrete_sxpid2`/`discrete_sxpid3` + general n-source SxPID), numerical-stability hardening, and a run-log `logical_trace_hash` (wall-clock-excluded logical hash). `crates/pid-rerun` was updated for the new `RunManifest.logical_trace_hash` field; the workspace + the excluded `ncp-observer` build and test green against 0.3.0. The new discrete SxPID estimator is **not yet wired into the offline harness** (§8.1.6).
+- **pid-rs submodule → 0.3.0:** adopted current upstream `pid-rs` at crate version 0.3.0 (commit-pinned two commits past the `release: 0.3.0` commit; upstream has no `v0.3.0` git tag yet — only `v0.2.0`). 0.3.0 adds a *genuine* discrete shared-exclusions PID (`sxpid.rs`: `discrete_sxpid2`/`discrete_sxpid3` + n-source SxPID for **2–4 sources** — `discrete_sxpid_n` errors above 4), numerical-stability hardening, and a run-log `logical_trace_hash` (wall-clock-excluded logical hash). `crates/pid-rerun` was updated for the new `RunManifest.logical_trace_hash` field; the workspace + the excluded `ncp-observer` build and test green against 0.3.0. The new discrete SxPID estimator is **not yet wired into the offline harness** (§8.1.6).
 - **NCP observer pin → v0.5.2:** `crates/ncp-observer` doc pins now match the manifest (NCP `v0.5.2` — a wire-identical patch bump on the 0.5 wire cut at v0.5.0; `CONTRACT_HASH` unchanged `24e8e6e31e1dec8a`).
 - **ncp-observer robustness/correctness:** the per-tick success label no longer leaks into V; in-flight buffers are bounded (`MAX_INFLIGHT`); run-log append errors are surfaced instead of swallowed; CLI arg parsing is robust; `finalize` survives a poisoned mutex.
 - **pid-rerun / pid-sim:** the episode outcome is logged at the absolute end time (was a relative `duration()`); 3D point logging is panic-safe on short arrays; a held-out split voided by a bad `split` value now warns instead of silently vanishing.
@@ -1322,7 +1328,7 @@ The action A is **deterministically computed** from (V, D, L). This creates prob
 ### Warning 3: The KSG Estimator May Fail at VLA Scale
 
 The continuous I^sx_∩ estimator (Ehrlich et al., 2024) was validated on:
-- Low-dimensional systems (~100 dimensions)
+- Low-dimensional synthetic systems (single-digit to low-tens of dimensions per variable; verify the exact envelope against the paper before citing a number)
 - Thousands of samples
 - Well-behaved distributions
 
@@ -1508,6 +1514,10 @@ This means: Red + Unq₁ + Unq₂ > I(S₁, S₂; T)
 4. **Estimator/pathology:** high dimension, strong dependence, ties/quantization, and trajectory autocorrelation can all produce artifactual negative atoms; treat “unexpected signs” as a prompt to run controls, not as a conclusion.
 5. **Informative vs misinformative split (interpretation aid):** Makkeh et al. (2021) describe splitting the pointwise shared information into informative and misinformative components (`i^{sx+}_∩` and `i^{sx-}_∩`), yielding nonnegative “+” and “−” atom contributions. When an atom (e.g., synergy) is negative, it can be understood as the misinformative component outweighing the informative one for that atom (verify exact definitions in the paper before implementing).
 
+**Two publication-critical nuances (v10.7; verified against the source papers):**
+- The *documented empirical* negative atoms in the continuous paper (Ehrlich et al. 2024) are **unique** atoms (e.g., Π_unq ≈ −5.5 bits in the "unique gate"; a negative time-of-day unique atom in their energy-system analysis), **not synergy** — so H1 may cite this line for "negative atoms are meaningful", but **not** as empirical precedent for negative *synergy* specifically.
+- For **time-series data**, the continuous-SxPID authors themselves call negative atoms "a distracting technicality" and sanction **clamping to non-negative values**. prisoma analyzes trajectories, so any negative-atom claim must explicitly defend the ensemble-average (memoryless-agent) interpretation for trajectory data — and preregister whether clamped, unclamped, or both variants are reported (both, with the same conclusion required from each, is the safe default).
+
 **NOT a valid interpretation:** "The sources are fighting each other" or "conflict" in any intuitive sense. This is a seductive but potentially misleading metaphor.
 
 ## 2.3 Continuous Variable Extension
@@ -1608,14 +1618,14 @@ Instead of computing all PID atoms, Shannon invariants provide interpretable num
 
 **Average Degree of Redundancy ($\bar{r}$) and Vulnerability ($\bar{v}$):**
 
-Gutknecht et al. (2025) define these normalized invariants to capture the system's global position on the redundancy-synergy spectrum:
+Gutknecht et al. (2025, arXiv:2504.15779, Propositions 1–2) define these normalized invariants to capture the system's global position on the redundancy-synergy spectrum — both are provably computable from Shannon MI terms alone (linearly many in the number of sources), measure-agnostically, which is the published formal anchor for using them as H2/H3 screening quantities:
 
 1.  **Average Degree of Redundancy ($\bar{r}$):**
     $$ \bar{r}(T; S_1, \dots, S_n) = \frac{\sum_{i=1}^n I(T; S_i)}{I(T; S_1, \dots, S_n)} $$
     *   $\bar{r} > 1$: Redundancy-dominated (sum of parts > whole).
     *   $\bar{r} < 1$: Synergy-dominated (whole > sum of parts).
-    *   $\bar{r} = 1$: Independent/Additive.
-    *   *Relation to Co-Information:* $\bar{r} - 1 = +\text{CoInfo}\,/\,I(T;S_1,\dots,S_n)$ (i.e. $\propto +\text{CoInfo}$, with CoInfo $= \text{Red}-\text{Syn}$ as in §2.5.2). So `r̄ > 1 ⇔ CoInfo > 0 ⇔ redundancy-dominated` — the **same** sign as the rows above. *(Earlier drafts wrote `−CoInfo`, which is sign-inverted and self-inconsistent.)*
+    *   $\bar{r} = 1$: Additive MI. **Not** a proof of "independent contributions": additivity also arises from Red ≈ Syn cancellation, and independent sources need not give $\bar{r}=1$ (XOR has independent sources and $\bar{r}=0$). Treat $\bar{r}\approx 1$ as "consistent with additive/unique-only" and confirm with interventions.
+    *   *Relation to Co-Information (n=2 only):* $\bar{r} - 1 = +\text{CoInfo}\,/\,I(T;S_1,S_2)$ (i.e. $\propto +\text{CoInfo}$, with CoInfo $= \text{Red}-\text{Syn}$ as in §2.5.2). So `r̄ > 1 ⇔ CoInfo > 0 ⇔ redundancy-dominated` — the **same** sign as the rows above. *(Earlier drafts wrote `−CoInfo`, which is sign-inverted and self-inconsistent. For n≥3 this identity does **not** hold as written: `CI_m` contains pairwise-joint terms that `r̄ − 1` lacks.)*
     *   **Sanity bound (MI-coherence):** for `n` sources and nonzero `I(T;S_1…S_n)`, require `0 ≤ \bar{r} ≤ n`. Values outside this range indicate joint-vs-marginal incoherence (estimator pathology).
 
 2.  **Average Degree of Vulnerability ($\bar{v}$):**
@@ -1640,7 +1650,7 @@ CI_m(X₁,…,X_m; Y) := Σ_{∅≠S⊆{1..m}} (-1)^{|S|+1} I(X_S; Y)
 
 For `m=2`, this reduces to `CI_2(X₁,X₂;Y)=I(X₁;Y)+I(X₂;Y)-I(X₁,X₂;Y)=Red−Syn` (a Shannon invariant for any bivariate PID).
 
-**Sign convention warning:** literature flips signs and names (co-information vs interaction information) depending on author. In this document, **negative CI is treated as “synergy-dominant”** (i.e., `Syn > Red` for the corresponding bivariate PID), and **positive CI** as “redundancy-dominant”.
+**Sign convention warning:** literature flips signs and names (co-information vs interaction information) depending on author. In this document, **negative CI is treated as “synergy-dominant”** (i.e., `Syn > Red` for the corresponding bivariate PID), and **positive CI** as “redundancy-dominant” — **for pairwise `CI_2` only**. This reading is *invalid* at `m=3`: the parity of the highest-order term flips, so a pure 3-way synergy gives `CI_3 > 0` (see §5.3 Option 2 for the proof by example).
 
 **Important:** `CI_m` is a Shannon-invariant summary computed from MI terms. It is **not** a PID and it conflates multiple PID atoms for `m≥3`. Use it as a screening statistic, not as a substitute for `I^sx_∩`.
 
@@ -1744,7 +1754,8 @@ CI_LD = I(L;A) + I(D;A) - I(L,D;A)
 training_data = [(CI_VL, CI_VD, CI_LD, failure_label) for trajectory in training_set]
 ci_to_failure_model = train_classifier(training_data)
 
-# Online: Fast inference using only CI (7 MI estimates)
+# Online: Fast inference using only CI (6 MI estimates for the 3 pairwise CIs:
+# 3 singles + 3 pairs, with caching; the 7th term I(V,L,D;A) is only needed for CI_3)
 ci_vec = [co_info_2way(V, L, A), co_info_2way(V, D, A), co_info_2way(L, D, A)]
 failure_prob = ci_to_failure_model.predict(ci_vec)
 ```
@@ -1770,6 +1781,8 @@ This hierarchical approach balances speed with interpretability, using Shannon i
 ## 3.1 Primary Question
 
 **Do shared-exclusions PID (SxPID / `I^sx_∩`) features provide statistically reliable signal for VLA failure detection and diagnosis beyond strong uncertainty baselines?**
+
+*(This primary question **is H1** in the §14.1.0 registry — same contract, same falsification criteria; it is not an additional unlabeled hypothesis.)*
 
 This is the critical validation gate. The **synergy sign** (including negative synergy) is one candidate feature, but treat it as a hypothesis rather than a privileged statistic. If SxPID/CI features do not significantly outperform baselines under a validated estimator regime, report negative results.
 
@@ -1997,7 +2010,7 @@ should be analyzed for policy invariance properties.
 
 ## 3.6 Memorization vs Generalization: A VLA-Arena-Derived Hypothesis (v5.8)
 
-VLA-Arena (arXiv:2512.22539) identifies a critical limitation of current VLAs: **"a strong tendency toward memorization over generalization."** This finding has direct implications for PID-based diagnostics and motivates new testable hypotheses.
+VLA-Arena (arXiv:2512.22539; accepted ICML 2026 — re-verify at submission) identifies a critical limitation of current VLAs: **"a strong tendency toward memorization over generalization."** This finding has direct implications for PID-based diagnostics and motivates new testable hypotheses.
 
 ### 3.6.1 The Phenomenon (Empirical Observation, Not PID Theory)
 
@@ -2035,7 +2048,7 @@ VLA-Arena's structured difficulty levels (L0→L1→L2) reveal that VLAs:
 3. **Redundancy patterns:** Memorization may paradoxically show high redundancy on training data (both V and L independently "recall" the same stored action) but near-zero MI on OOD data. Generalization should show more consistent MI across distributions.
 
 **How to disprove H4:**
-- If synergy stability under perturbation does not correlate with L0→L1→L2 performance degradation, H4 is false or requires refinement.
+- If synergy stability under perturbation does not correlate with L0→L1→L2 performance degradation, H4 is **false**. (Refinement is permitted only among the *preregistered* variants — the two constructs in "Predicted empirical signatures" above and the CI-only versions — and any refined variant must be tested on a held-out task family; post-hoc variant invention does not rescue H4.)
 - If simpler metrics (entropy, confidence) predict memorization/generalization equally well, PID adds no value for this diagnostic.
 - If estimator variance at VLA scale is too large to distinguish regimes, H4 is untestable with current methods.
 
@@ -2047,6 +2060,12 @@ VLA-Arena's structured difficulty levels (L0→L1→L2) reveal that VLAs:
 - Compositional skill requires maintaining context and integrating current observations with task history
 - If the model fails to compose, `Syn(V_t, D_t; A_t)` (or `Syn(V_t, V_{t-history}; A_t)`) should degrade as the task progresses and requires more composition
 - Alternatively, temporal synergy (synergy between current and past states) should be low when composition fails
+
+**Operationalization (preregistered; v10.7 — H5 is untestable without this):**
+- **Primary construct:** windowed `Syn(V_t, D_t; A_t)` (and its mandatory CI-only twin, §14.1.1), computed per phase-aligned window **pooled across episodes** — never within a single trajectory (per-window kNN inside one autocorrelated trajectory at N≈tens is not estimable; §9.0).
+- **Windowing:** windows are defined by task phase (approach/grasp/transport/place where annotatable, else fixed fractions of normalized episode time); window count, stride, and the minimum pooled samples-per-window (`N_win ≥` the Exp0-validated minimum for the active regime) are fixed in `EXPERIMENTS.md` before capture.
+- **Secondary (exploratory only):** the history-synergy variant `Syn(V_t, V_{t−h}; A_t)`; it may generate hypotheses but not headline claims.
+- **Statistic:** the preregistered H5 endpoint is the trend (slope / early-vs-late contrast) of the windowed primary construct against composition-stage index, with episode-level block bootstrap CIs.
 
 **Predicted empirical signatures:**
 1. **Synergy half-life:** On long-horizon tasks, measure how synergy evolves over timesteps. Models that fail to compose should show earlier synergy degradation than models that succeed.
@@ -2065,7 +2084,13 @@ VLA-Arena's structured difficulty levels (L0→L1→L2) reveal that VLAs:
 - Unlike goal-directed tasks where V and L reinforce the same action, safety may involve V signaling "danger" while L specifies "avoid"
 - This could manifest as specific PID patterns (e.g., higher unique information from V when safety is relevant)
 
-**Status:** This is an exploratory hypothesis with lower confidence than H4/H5. It is included for completeness but should not be prioritized over the core validation experiments.
+**Status:** **Deferred** (registry §14.1.0): include only if safety labels and matched controls become available. This matches the registry and README; earlier "exploratory" phrasing is superseded.
+
+**How to disprove H6 (consolidated here from §9.7.3):** if `Syn(V,L;A)` and the V/L unique-information profile are statistically indistinguishable between VLA-Arena Safety tasks and matched non-safety tasks (same difficulty stratum, matched perturbation levels), H6 is unsupported. If safety labels of adequate quality never materialize, H6 stays deferred and makes no claim.
+
+### 3.6.5 (number intentionally retired)
+
+*(This subsection number is vacant after an earlier draft reorganization; it is retired rather than renumbered so external cross-references to §3.6.6/§3.6.7 stay stable. No hypothesis is missing — the canonical, complete registry is H1–H9 in §14.1.0.)*
 
 ### 3.6.6 Hypothesis H7: 3D Object Flow as Embodiment-Agnostic Integration Diagnostic (Dream2Flow-Inspired)
 
@@ -2088,10 +2113,11 @@ Dream2Flow reports that, given an initial image and task instruction, video gene
 2. **Embodiment-independent synergy:** When comparing the same task across different robot embodiments (Dream2Flow reports cross-embodiment applicability; verify the exact embodiments), `Syn(V,D;A*)` computed against *optimal* action should be more stable than `Syn(V,D;A)` against actual action.
 3. **Stage-wise alignment (no fixed percentages):** Dream2Flow’s staged perspective implies separable failure sources: video generation / world prediction, flow reconstruction, and robot control/execution. If PID synergy is meant to track world-model quality, it should correlate more with **flow-quality metrics** (world prediction and reconstruction) than with downstream execution errors, once you condition on/stratify by stage outcomes.
 
-**How to disprove H7:**
+**How to disprove H7 (the falsifiable claim, H7b — see the §14.1.0 registry for the H7a/H7b split):**
 - If `Syn(V,D;A)` correlates equally with all failure stages (generation, extraction, execution), the hypothesis that synergy specifically tracks world model quality is unsupported.
 - If object flow quality (as a measurable intermediate) does not correlate with PID estimates, the conceptual link between PID and Dream2Flow's paradigm is weak.
-- If embodiment has no effect on the synergy-failure relationship, the "embodiment gap" confound is negligible.
+
+*(A third item previously listed here — "if embodiment has no effect, the embodiment-gap confound is negligible" — is a conclusion about the §14.5.7 confound, not a disproof of H7; it now lives there.)*
 
 **Relevance to prisoma:**
 This hypothesis does NOT require implementing Dream2Flow. Rather, it motivates:
@@ -2105,7 +2131,7 @@ This hypothesis does NOT require implementing Dream2Flow. Rather, it motivates:
 |----------------|-------------|-------------------|
 | H4 (Mem vs Gen) | Aim 1 (Comparative Evaluation) | VLA-Arena L0/L1/L2 stratification |
 | H5 (Compositional Failure) | Aim 2 (Synergy Dynamics) | VLA-Arena Long-Horizon tasks |
-| H6 (Safety) | Exploratory (Aim 1 extension) | VLA-Arena Safety tasks |
+| H6 (Safety) | **Deferred** (Aim 1 extension, only if safety labels + matched controls exist) | VLA-Arena Safety tasks |
 | H7 (Embodiment Gap) | Aim 3 (Causal Validation) | Cross-embodiment comparison; A* vs A targets |
 
 **Critical constraint:** All new hypotheses inherit the Experiment 0 gate. If the estimator is invalid at VLA scale, these hypotheses cannot be tested with kNN-based `I^sx_∩`. In that case, fall back to Shannon invariants (CI screening) and treat H4-H7 as future directions contingent on estimator improvements.
@@ -2245,7 +2271,7 @@ Estimating 18 quantities is expensive, many are hard to interpret, and because e
 Compute all 18 atoms.
 
 **Pros:** Complete picture  
-**Cons:** Expensive, hard to interpret, estimation variance multiplies
+**Cons:** Expensive, hard to interpret, per-atom variance accumulates through signed Möbius sums (see §5.2)
 
 ### Option 2: Shannon Invariants / Co-Information
 
@@ -2430,14 +2456,14 @@ If we fine-tune WAN on robot data, it learns similar biases. Mitigation:
 
 ### 6.2.5 Recommended Alternative: GWM (Gaussian World Model)
 
-GWM (Gaussian World Model; see the corresponding paper/code and verify venue/status) may be more appropriate for **analytical** purposes:
+GWM (Gaussian World Model; see the corresponding paper/code and verify venue/status) may be more appropriate for **analytical** purposes. All GWM cells below are **paper-reported claims, not verified capabilities** (no citation ID has been pinned for GWM yet — §13.4):
 
-| Property | WAN (base) | WAN (fine-tuned) | GWM |
+| Property | WAN (base) | WAN (fine-tuned) | GWM (paper-reported; verify) |
 |----------|------------|------------------|-----|
-| Trained on robot data | No | Yes (LoRA) | **Yes (native)** |
-| 3D representation | No (2D video) | No | **Yes (3DGS)** |
-| Action-conditioned | No | **Yes** | **Yes** |
-| Latent space alignment | Poor | Medium | **High** |
+| Trained on robot data | No | Yes (LoRA) | Yes (native) |
+| 3D representation | No (2D video) | No | Yes (3DGS) |
+| Action-conditioned | No | **Yes** | Yes |
+| Latent space alignment | Poor | Medium | High |
 | Inference speed | Slow | Slow | Model/implementation-dependent (benchmark) |
 
 ### 6.2.6 When to Use WAN vs GWM vs Neither
@@ -2656,7 +2682,7 @@ PixelVLA (arXiv:2511.01571) is described in the arXiv abstract as:
 - supporting **pixel-level reasoning** and **multimodal prompting** (text + visual inputs),
 - integrating a **multiscale pixel-aware encoder** with a **visual prompting encoder**,
 - proposing a two-stage automated pipeline that generates **Pixel‑160K** (pixel-level annotations derived from existing robot data),
-- improving manipulation success rates by **10.1%–17.8%** over OpenVLA on three benchmarks while requiring **1.5%** of its pretraining cost (paper-reported; protocol-sensitive),
+- improving manipulation success rates over OpenVLA on three benchmarks while requiring **1.5%** of its pretraining cost (paper-reported; protocol-sensitive; **version-sensitive**: the v1 abstract reported **10.1%–17.8%**, the current arXiv revision reports **10.1%–28.7%** — cite the specific arXiv version),
 - releasing dataset and code as open source (paper-reported; verify availability/licensing).
 
 **Not verified in the abstract (do not assume without a source):** the exact backbone family/dimensions, action representation (discrete/continuous), prompt encoder provenance (e.g., SAM), and any specific LoRA settings.
@@ -2669,7 +2695,7 @@ PixelVLA (arXiv:2511.01571) is described in the arXiv abstract as:
 
 ## 7.4 TraceVLA (Visual Trace Prompting; arXiv:2412.10345)
 
-**TraceVLA** (arXiv:2412.10345, December 2024; venue/status should be verified) enhances VLAs with spatial-temporal awareness by overlaying visual state-action trajectories. Release status (checked 2026-06-12 via the project page tracevla.github.io): code (`FrankZheng2022/tracevla`) and Hugging Face checkpoints (7B + a 4B Phi-3-Vision variant) are public — verify revision/license at time of use; traces are extracted with Co-Tracker (log its version as part of the `V` contract, since the trace channel is a derived input):
+**TraceVLA** (arXiv:2412.10345, December 2024; ICLR 2025 — re-verify proceedings) enhances VLAs with spatial-temporal awareness by overlaying visual state-action trajectories. Release status (checked 2026-06-12 via the project page tracevla.github.io): code (`FrankZheng2022/tracevla`) and Hugging Face checkpoints (7B + a 4B Phi-3-Vision variant) are public — verify revision/license at time of use; traces are extracted with Co-Tracker (log its version as part of the `V` contract, since the trace channel is a derived input):
 
 ```
 Current Image + Historical Trace Overlay → VLA → Action
@@ -2693,6 +2719,8 @@ Current Image + Historical Trace Overlay → VLA → Action
 **PID Relevance:** TraceVLA encodes temporal history visually. This means V implicitly contains D-like information (past states). The V-D boundary becomes blurred—interesting for testing whether PID can detect this encoding.
 
 ## 7.5 Other VLAs (For Future Reference)
+
+> **v10.7 field note:** the world-model-inside-VLA class this table samples is now a *surveyed, named family* — arXiv:2606.00113 (May 2026) classifies "integrated prediction-action models" (joint world-action generative modeling / prediction-augmented policy learning) vs "explicit predictive planners". Members verified present in that survey and not yet rowed below: **WorldVLA** (arXiv:2506.21539), **FlowVLA**, **RynnVLA-002** (arXiv:2511.17502), **3D-VLA** (ICML 2024) — venues as listed by the survey/arXiv; re-verify at time of citation. Candidate `D` hooks should be picked from this family first (§10.10.13.3).
 
 | VLA | Backbone | World Model | Action Representation | Notes |
 |-----|----------|-------------|----------------------|-------|
@@ -2812,15 +2840,21 @@ Use a small custom model only if it materially accelerates Experiment 0/1 engine
 
 ## 7.8 SmolVLA (LeRobot)
 
-**Source:** LeRobot “SmolVLA” (model card / repo; verify at time of use)
+**Source:** *SmolVLA: A Vision-Language-Action Model for Affordable and Efficient Robotics* (arXiv:2506.01844, Jun 2025) + the LeRobot model card / repo (verify revisions at time of use)
 
 SmolVLA is treated here as a **lightweight baseline** for fast iteration and pipeline debugging. It is not used as primary evidence about the internals of large VLAs.
 
-### 7.8.1 What must be verified (do not assume)
-- Backbone (vision encoder + language model), hidden sizes, context length
-- Action representation (discrete tokens vs continuous vector) and control-rate assumptions
-- Training data (datasets, episodes, embodiments) and licensing
-- Whether it supports asynchronous inference, and what that means operationally (e.g., perception at lower rate than control)
+### 7.8.1 What is paper-reported vs must still be verified
+Paper-reported (arXiv:2506.01844; verify against the checkpoint you actually load):
+- ~450M parameters; SmolVLM-2-derived backbone (SigLIP vision encoder + SmolLM2 language model)
+- Flow-matching-style action expert producing continuous action chunks
+- Asynchronous inference stack (perception decoupled from action execution)
+- Trained on community/LeRobot datasets; code, models, and data released
+
+Still verify per checkpoint (do not assume):
+- Exact hidden sizes, context length, and revision-specific config
+- Control-rate assumptions and what async inference means operationally for capture alignment
+- Dataset licensing for your use
 - Which intermediate representations can be exported reproducibly for `V/L/D` and how they align to PID variables
 
 ### 7.8.2 How it is used in this study
@@ -3055,7 +3089,7 @@ How we use it safely:
 
 `pid-rs/crates/pid-core/src/discrete_pid.rs` (committed 2026-06-11) provides the "Quantization → Discrete PID" escape hatch sketched in the geometry-mitigation list at the top of this document. Before using it, be precise about **what it actually computes**, because it is *not* the discrete `i^sx_∩` of Makkeh et al. (2021):
 
-> **v10.5 note — a genuine discrete `i^sx_∩` now exists upstream, but the harness still uses `I_min`.** With the `pid-rs` v0.3.0 adoption, `pid-core` ships a *separate* module `sxpid.rs` (`discrete_sxpid2` / `discrete_sxpid3`, plus general n-source SxPID) that computes the genuine discrete shared-exclusions PID. prisoma's offline harness `--pid-mode discrete` is **still** the Williams–Beer `I_min` functional described below (`discrete_pid.rs`); wiring the discrete `i^sx_∩` estimator into the harness — which would make discrete and continuous mode the *same* measure across regimes — is tracked follow-up. Until then, everything in this section (the measure-identity distinction, the cross-measure warning, and the saturation gate) stands.
+> **v10.5 note — a genuine discrete `i^sx_∩` now exists upstream, but the harness still uses `I_min`.** With the `pid-rs` v0.3.0 adoption, `pid-core` ships a *separate* module `sxpid.rs` (`discrete_sxpid2` / `discrete_sxpid3`, plus n-source SxPID for 2–4 sources — `discrete_sxpid_n` returns `NotImplemented` above 4) that computes the genuine discrete shared-exclusions PID. prisoma's offline harness `--pid-mode discrete` is **still** the Williams–Beer `I_min` functional described below (`discrete_pid.rs`); wiring the discrete `i^sx_∩` estimator into the harness — which would make discrete and continuous mode the *same* measure across regimes — is tracked follow-up. Until then, everything in this section (the measure-identity distinction, the cross-measure warning, and the saturation gate) stands.
 
 1. **Quantization:** each variable is binned **per dimension** into `num_bins` equal-width bins over the observed `[min, max]` range (`quantize_equal_width`); joint states are the cross-product of per-dimension bins.
 2. **MI:** plug-in (counting) entropies, `I(X;Y) = H(X) + H(Y) − H(X,Y)`, in nats.
@@ -3145,9 +3179,11 @@ For `N` samples, `d` dimensions, and `k` neighbors, kNN-based estimators can ran
 ### 8.3.2 Rust Implementation
 
 For real-time use, implement in Rust with:
-- SIMD for distance calculations
-- Ball trees for efficient counting
-- Parallelization across samples
+- SIMD for distance calculations *(not implemented — §15.2.2 sketch only)*
+- Ball trees for efficient counting *(not implemented — `nn.rs` is brute-force exact)*
+- Parallelization across samples *(implemented: the optional `parallel` rayon feature in `pid-core`, exact and deterministic)*
+
+Of these, only the parallelization exists today; the other two are future guidance.
 
 ### 8.3.3 Expected Latency
 
@@ -3350,6 +3386,8 @@ Report which decomposition achieves highest AUROC.
 
 Attention entropy/maps are allowed as weak baselines, but standard attention weights are not explanations by default; validate them with interventions before using them as rationales.
 
+**Mandatory vs best-effort (v10.7):** the four-baseline mandatory minimal set that must run in every H1 report is fixed in §14.8.4 (SAFE-class logistic regression, predictive entropy, majority/1-NN/centroid, one ensemble/temperature uncertainty variant). The rest of this table — notably GRM (weights availability unestablished, §18.3.5) and the Liang Batch/CVX estimators — is best-effort; dropping a best-effort baseline is a reported limitation, never silent.
+
 ### 9.3.2 Success Criteria
 
 SxPID-derived features achieve AUROC **statistically significantly** > best baseline (paired bootstrap, p < 0.05) with a preregistered effect size, OR yield a well-supported negative result with clear analysis.
@@ -3416,7 +3454,7 @@ If PID-derived signals have causal relevance: interventions that degrade `D` in 
 |---------|----------------|--------|
 | SxPID-derived features outperform the best baseline with statistical significance (paired bootstrap, p < 0.05) and a preregistered effect size | **Strong success** | Proceed with Aim 2, 3 |
 | SxPID-derived features are competitive but gains are small/unstable across seeds/splits | **Moderate / uncertain** | Proceed cautiously; refine sampling/preprocessing and re-test |
-| A different PID feature (not synergy) is consistently best | **Conditional success** | Pivot to the best-performing atom/summary |
+| A different PID feature (not synergy) is consistently best | **Conditional success** | Pivot to the best-performing atom/summary — but (v10.7) the pivoted feature must **replicate on an untouched task family or held-out split** before "conditional success" is claimed; a feature selected and celebrated on the same data is a forking-paths artifact, not a result |
 | Baselines match or beat SxPID (with clear significance) | **Negative result** | Prefer simpler methods; write up limits/lessons |
 
 ## 9.7 VLA-Arena Integration and Experimental Alignment (v5.8)
@@ -3477,9 +3515,26 @@ FOR each task family in VLA-Arena:
 
 | Metric | Definition | Interpretation |
 |--------|------------|----------------|
-| **Synergy Stability Index (SSI)** | `1 - Var(Syn)/Mean(Syn)` across perturbation levels | Higher = more robust integration |
+| **Synergy Stability Index (SSI)** | `1 − IQR(Syn) / (|median(Syn)| + ε)` across perturbation levels (ε = a preregistered small constant, e.g. 0.01 nats; v10.7 — the earlier `1 − Var/Mean` form was sign-unsafe: Syn can be ≈0 or negative under `I^sx_∩`, making Var/Mean explode or flip sign, and Var/Mean is not even dimensionally coherent) | Higher = more robust integration; report the raw IQR and median alongside, and prefer the rank-based alternative (Spearman of Syn vs perturbation level) when `|median| < ε` |
 | **Modality Asymmetry Ratio (MAR)** | `|ΔSyn_V|/|ΔSyn_W|` for matched perturbation severity | >1 = V-sensitive; <1 = W-sensitive |
 | **Generalization Synergy Gap (GSG)** | `Syn_L0 - Syn_L2` | Positive = synergy degrades with generalization demand |
+
+#### 9.7.2b Dedicated H2/H3 Ablation-Sensitivity Protocol (v10.7)
+
+H2 and H3 previously had no dedicated experiment (the §3.6.7 mapping covers H4–H7; Exp4 intervenes on D only). This sub-protocol closes that gap using the same V0–V4/W0–W4 instrument as §9.7.2:
+
+**H2 (redundancy → corruption robustness):**
+1. On unperturbed (V0/W0) held-out episodes, estimate `Red(V,L;A)` per task family under the active validated regime (continuous, discrete, or CI-proxy — label the measure).
+2. Run matched-strength single-modality corruption curves (V1→V3 with W0; W1→W3 with V0); record the success-degradation slope per modality per task family.
+3. Primary endpoint (§14.8.1): Spearman ρ between step-1 `Red` and step-2 graceful-degradation, across task families.
+4. **Preregistered informative failure mode:** the availability-vs-use asymmetry (§14.1 H2) — redundancy predicting robustness only w.r.t. the less-used source is reported as a finding, not suppressed.
+
+**H3 (uniques → intervention sensitivity):**
+1. On unperturbed episodes, estimate `Unq(V;A)`, `Unq(L;A)` (and `Unq(D;A)` where D interventions exist) with symmetric preprocessing across modalities (§14.1 H3 confounds).
+2. Apply matched-strength interventions per modality (perturbation severity equalized by a preregistered behavioral yardstick, e.g. equal success-rate impact on a calibration split — not equal nominal noise).
+3. Primary endpoint: Spearman ρ between the `Unq` ordering and the intervention effect-size ordering.
+
+Both sub-protocols inherit the §9.0 sampling-unit rules, the §14.8 statistics plan, and the Exp0/H8 gates.
 
 ### 9.7.3 Mapping VLA-Arena Dimensions to PID Predictions
 
@@ -3513,7 +3568,7 @@ FOR each task family in VLA-Arena:
 
 ### 9.7.4 VLA-Arena Datasets for PID Experiments
 
-VLA-Arena provides three dataset scales for fine-tuning:
+VLA-Arena provides three dataset scales for fine-tuning (paper/repo-reported; verify availability, revisions, and licensing at time of use — the house rule applies to third-party assets even when they were confirmed public at review time):
 
 | Dataset | Size | Recommended Use for PID |
 |---------|------|------------------------|
@@ -4727,7 +4782,7 @@ The repo ships a PyO3 extension crate (`pid-rs/crates/pid-python`) that builds a
 - `compute_discrete_pid3` (3-source quantized `I_min` over the 18-atom lattice; different measure — do not pool with continuous atoms, §8.1.6)
 - `compute_discrete_sxpid2` (2-source genuine discrete shared-exclusions `i^sx_∩`; new in pid-rs 0.3.0)
 - `compute_discrete_sxpid3` (3-source genuine discrete shared-exclusions `i^sx_∩`; new in pid-rs 0.3.0)
-- `compute_discrete_sxpid_n` (general n-source discrete SxPID; new in pid-rs 0.3.0)
+- `compute_discrete_sxpid_n` (n-source discrete SxPID, n = 2–4 — errors above 4; new in pid-rs 0.3.0)
 - `compute_invariants`
 - `estimate_intrinsic_dimension`
 - `estimate_gromov_delta`
@@ -4755,36 +4810,34 @@ syn = I_vd_a - I_v_a - I_d_a + R
 
 This section distinguishes the **current repo layout** from the **target layout** described in the broader system spec.
 
-**Current (in this repo, v10.2):**
+**Current (in this repo, v10.7):**
 
 ```
 prisoma/
-├── Cargo.toml
-├── Cargo.lock
+├── Cargo.toml / Cargo.lock   # workspace members: pid-bridge, pid-rerun, pid-sim
+│                             # (crates/ncp-observer and pid-rs/ are workspace-EXCLUDED)
+├── pid-rs/                   # git SUBMODULE — estimator core lives upstream, not here
+│   └── crates/
+│       ├── pid-core/         # KSG MI, continuous I^sx_∩, PLS, discrete I_min + SxPID,
+│       │                     # geometry diagnostics, pipeline.rs, bin/exp0.rs
+│       ├── pid-python/       # PyO3 bindings (pid_core_rs; 18 functions)
+│       └── pid-runlog/       # M1 run-log schema + replay/validate/summary CLI
 ├── crates/
-│   ├── pid-core/
-│   │   ├── src/
-│   │   │   ├── bin/exp0.rs
-│   │   │   └── (estimators + diagnostics)
-│   │   └── tests/
-│   ├── pid-bridge/
-│   │   └── src/lib.rs
-│   ├── pid-python/
-│   │   └── src/lib.rs
-│   ├── pid-runlog/
-│   │   └── src/bin/replay.rs
-│   ├── pid-sim/
-│   │   └── src/bin/
-│   └── pid-rerun/
-│       └── src/bin/
-├── assets/            # local/ignored asset drop location; no canonical tracked asset set yet
-├── experiments/       # local/ignored experiment drop location; Rust harnesses live in crates today
-├── outputs/           # local caches/logs (e.g., arXiv ref cache)
-├── uidesigner/        # UI spec + prompt-loop tooling
+│   ├── pid-bridge/           # Agent Bridge dispatch + JSON-RPC + contract export
+│   ├── pid-sim/              # deterministic sim + toy/offline/Rapier harness bins
+│   ├── pid-rerun/            # run-log → Rerun conversion + replay adapter
+│   └── ncp-observer/         # optional read-only NCP tap (workspace-excluded)
+├── experiments/              # TRACKED Python packages: safe_adapter/ (M5 critical
+│                             # path) and attribution/ (H9 faithfulness probe)
+├── scripts/                  # doc-audit + repo tooling (audit_*.py, …)
+├── tests/                    # workspace-level tests
+├── assets/                   # local/ignored asset drop location; no tracked asset set
+├── outputs/                  # local caches/logs (e.g., arXiv ref cache)
+├── uidesigner/               # UI spec + prompt-loop tooling
+├── meshmaker/                # asset tooling
 ├── justfile
 ├── flake.nix
-├── pyproject.toml
-├── uv.lock
+├── pyproject.toml / uv.lock
 └── *.md (docs)
 ```
 
@@ -5110,7 +5163,7 @@ A batch of external signals (X posts, vendor pages, repos, papers) was reviewed 
 | SAFE rollout datasets (`vla-safe/SAFE`, NeurIPS 2025 repo; checked 2026-06-12) | Released rollouts of π0-FAST (Franka) and OpenVLA (WidowX) with success/failure outcomes, plus code that runs VLAs in sim and extracts internal features | **M5 critical-path shortcut:** adapt SAFE's rollout-generation/extraction code to emit this project's `(V,L,D,A)`+labels contract instead of building capture from scratch (verify exact released tensors, per-step coverage, and licenses) — §10.10.13, `REVIEW_AND_TODO.md` |
 | dimos / DimensionalOS (`dimensionalOS/dimos`; Apache-2.0, © Dimensional Inc.; checked 2026-06-13) | Agentic "LLM/MCP-first" multi-robot control OS: modules exchange typed message streams over an **LCM** transport, wired declaratively (blueprints + `autoconnect` by name/type); agents run as native modules via composable `McpServer`/`McpClient`; sessions support record + `--replay`. Per README (verify): integrates VLMs for perception but extracts **no** internal VLA/VLM activations and emits **no** episode success/failure labels; no PID/MI/information-theoretic content. | **§13.10 + §11.4 interoperability note:** independent external validation of the Agent Bridge architecture bet — one control plane, record→replay before live, every action a loggable run-log event (§A.7/§A.8/§11.4) — and a concrete instance of the §11.4 "system with its own pub/sub control plane → thin adapter that maps its messages into canonical run-log events" pattern (LCM joins Zenoh/ROS 2 as an M6 typed-stream transport option). **Ruled out (cite-and-close):** not an M5 capture shortcut (no internal-activation or label extraction → SAFE strictly dominates for `(V,L,D,A)`+labels); not a PID/IT method contribution; SLAM/route-planning/spatio-temporal-RAG/spatial-memory out of scope for distribution-level PID diagnostics. |
 
-**Novelty status (checked 2026-06-12; re-verify before any submission):** targeted searches found **no published application of PID to VLA policies**. The nearest lines remain Liang et al.'s multimodal-interaction quantification (different PID measures — Warning 6), SAFE-style internal-feature failure detection (not decomposition), and information-theoretic fusion architectures (not PID). Absence in two dated searches is not proof of absence; treat this as a standing related-work check, not a claim.
+**Novelty status (re-checked 2026-07-06 via an adversarially-verified multi-agent literature sweep; re-verify before any submission):** still **no published application of PID or information decomposition to VLA policies** found through early July 2026. The 25-page June-2026 world-models-for-manipulation survey (arXiv:2606.00113; 116 "VLA" mentions) contains **zero** hits for "mutual information", "information decomposition", "partial information", "synergy", or "redundancy", and its open-challenges list omits modality-interaction diagnostics entirely. Closest adjacent work surfaced: **VLA-InfoEntropy** (arXiv:2604.05323) — vision-attention entropy for inference acceleration, not a decomposition. The nearest lines otherwise remain Liang et al.'s multimodal-interaction quantification (different PID measures — Warning 6), SAFE-style internal-feature failure detection (not decomposition), and information-theoretic fusion architectures (not PID). "VLDA" (vision-language-dynamics-action) is **not an established term** anywhere (zero hits in the survey; targeted web searches empty) — the field's vocabulary is "world models inside VLA systems", so the term is available if this project wants to coin it. Absence in dated searches is not proof of absence; treat this as a standing related-work check, not a claim.
 
 **Ruled out (cite-and-close, with reasons):**
 
@@ -5124,6 +5177,24 @@ A batch of external signals (X posts, vendor pages, repos, papers) was reviewed 
 | @Shreyko, @_joe_harris_ posts | Could not resolve to verifiable content | Unverifiable; nothing to integrate |
 | @mikekalilmfg (~Apr 2026) | Industry-4.0 deployment journalism (1X/Figure factory news) | Business signal only; no methodological impact on hypotheses |
 
+## 12.6 Mid-2026 Literature Refresh (v10.7; checked 2026-07-06)
+
+A dated addendum from an adversarially-verified multi-agent literature sweep (each claim below survived a 3-vote refutation pipeline against primary sources unless marked otherwise). §12.4 remains a Dec-2025 personal-notes snapshot; where they conflict, this section is newer.
+
+**PID theory (verified against primary sources):**
+- **Field-status review exists:** arXiv:2603.06678 (Liardi, Down, Blackburne, Neri, Mediano; Mar 2026, rev. Jun 2026) — comprehensive PID measure/property review; confirms the SxPID lineage attribution, the 4/18/166 atom counts (Dedekind growth; 7,579 at 5 sources), and that `I^sx_∩` is among the few measures extending to generic continuous distributions. Use as the related-work backbone.
+- **Continuous `I^sx_∩` validation ceiling re-confirmed current:** Ehrlich et al.'s entire published validation remains scalar-toy + a simulated 2–3-scalar-source energy system (N = 10⁵); **no high-dimensional or real-embedding validation exists through mid-2026** — the Exp0/H8 gates address a genuinely open gap, not a solved problem.
+- **Negative-atom nuances for H1:** see the §2.2.4 v10.7 additions (documented empirical negatives are unique atoms, not synergy; the authors sanction clamping for time-series).
+- **New estimation lines (different measures — Warning 6 applies):** normalizing-flows latent-Gaussian PID (arXiv:2510.04417), mixed discrete-continuous PID (arXiv:2409.13506), Fast Möbius Transform for lattice computation (arXiv:2410.06224 — accelerates, does not remove super-exponential atom growth). *(This bullet: verifier side-evidence, not 3-vote verified.)*
+- **Second impossibility line:** arXiv:2604.03869 (§13.1.1) — position against both critiques in any submission.
+
+**VLA landscape (verified):**
+- **World-model VLAs are now a named, surveyed family:** arXiv:2606.00113 ("World Models for Robotic Manipulation: A Survey", May 2026) classifies integrated prediction-action models (DreamVLA — NeurIPS 2025; CoT-VLA — CVPR 2025; VLA-JEPA, FlowVLA, 3D-VLA — ICML 2024; WorldVLA arXiv:2506.21539; RynnVLA-002 arXiv:2511.17502) vs explicit predictive planners (venues as reported by the survey; re-verify at time of citation). The project's `D` axis targets a real, growing architectural class.
+- **VLA-Arena is accepted at ICML 2026** (v3 revised 2026-07-02; re-verify at submission); its Safety dimension remains the natural H6 substrate.
+- **"VLDA" is unclaimed:** zero hits in the survey and in targeted searches — available to coin, but expect to define it against the "world models inside VLAs" vocabulary.
+
+**Novelty (verified negative evidence):** no PID/information-decomposition analysis of VLA or robot policies found through 2026-07-06; closest adjacent work is VLA-InfoEntropy (arXiv:2604.05323; attention entropy for inference speed-up, not decomposition). Full statement + scope limits: the novelty-status note in §12.5.
+
 ---
 
 # 13. References
@@ -5134,16 +5205,21 @@ A batch of external signals (X posts, vendor pages, repos, papers) was reviewed 
 
 ### 13.1.1 Papers
 
-- **Makkeh A, Gutknecht AJ, Wibral M (2021).** Introducing a differentiable measure of pointwise shared information. *Phys Rev E* 103:032149. DOI: `10.1103/PhysRevE.103.032149`. [Defines I^sx_∩]
+- **Makkeh A, Gutknecht AJ, Wibral M (2021).** Introducing a differentiable measure of pointwise shared information. *Phys Rev E* 103:032149. DOI: `10.1103/PhysRevE.103.032149`. arXiv:2002.03356. [Defines I^sx_∩ — discrete/finite-alphabet only in this founding paper; the continuous case is explicitly deferred to later work]
 
-- **Ehrlich DA, Schick-Poland K, Makkeh A, Lanfermann F, Wollstadt P, Wibral M (2024).** Partial Information Decomposition for Continuous Variables based on Shared Exclusions. *Phys Rev E* 110:014115. DOI: `10.1103/PhysRevE.110.014115`. [Continuous extension]
+- **Schick-Poland K, Makkeh A, Gutknecht AJ, Wollstadt P, Wibral M (2021).** A partial information decomposition for discrete and continuous variables. arXiv:2106.12393. [Measure-theoretic (non-constructive) continuous I^sx_∩ definition — the existence-proof step between Makkeh 2021 and the constructive Ehrlich 2024 estimator]
+
+- **Ehrlich DA, Schick-Poland K, Makkeh A, Lanfermann F, Wollstadt P, Wibral M (2024).** Partial Information Decomposition for Continuous Variables based on Shared Exclusions. *Phys Rev E* 110:014115. DOI: `10.1103/PhysRevE.110.014115`. arXiv:2311.06373. [Continuous extension]
 
 - **Makkeh A, Graetz M, Schneider AC, Ehrlich DA, Priesemann V, Wibral M (2025).** A General Framework for Interpretable Neural Learning based on Local Information-Theoretic Goal Functions. *PNAS* 122:e2408125122. DOI: `10.1073/pnas.2408125122`. [Infomorphic networks]
 
-- **Gutknecht AJ, Rosas FE, Ehrlich DA, Makkeh A, Mediano PAM, Wibral M (2025).** Shannon Invariants: A Scalable Approach to Information Decomposition. arXiv:2504.15779. [Scalability]
+- **Gutknecht AJ, Rosas FE, Ehrlich DA, Makkeh A, Mediano PAM, Wibral M (2025).** Shannon Invariants: A Scalable Approach to Information Decomposition. arXiv:2504.15779. [Scalability. Prop. 1: r̄ = Σᵢ I(Xᵢ;Y) / I(X;Y); Prop. 2: v̄ = Σⱼ I(Xⱼ;Y|X₋ⱼ) / I(X;Y) — measure-agnostic, MI-terms-only; exactly the `pid-core` `invariants.rs` formulas. Still an arXiv preprint (no peer-reviewed venue confirmed as of 2026-07-06).]
 
-- **Matthias PH, Makkeh A, Wibral M, Gutknecht AJ (2025).** Novel Inconsistency Results for Partial Information Decomposition. arXiv:2512.16662. [Impossibility theorems]
+- **Liardi A, Down E, Blackburne G, Neri I, Mediano PAM (2026).** The Mathematical Landscape of Partial Information Decomposition: A Comprehensive Review of Properties and Measures. arXiv:2603.06678 (submitted 2026-03-03, rev. 2026-06-01). [Independent June-2026 review; confirms the SxPID lineage/attribution, the 4/18/166 atom counts, and that `I^sx_∩` is among "only a small subset" of PID measures extending to generic continuous distributions — cite this as the field-status reference]
+
+- **Matthias PH, Makkeh A, Wibral M, Gutknecht AJ (2025).** Novel Inconsistency Results for Partial Information Decomposition. arXiv:2512.16662. [Impossibility theorems. Author surname "Matthias" verified correct on arXiv (Philip Hendrik Matthias) — do not "fix" it to a Wibral-group first name.]
   - Related (added v10.2; verify relationship and venue before citing): a 2026 multivariate treatment, *Multivariate partial information decomposition: Constructions, inconsistencies, and alternative measures* (Wibral & Makkeh, reported March 2026), is described as deriving PID from part-whole relationships and logical constraints — possibly the expanded/journal form of the inconsistency line.
+  - **Second critique line (added v10.7; verify before citing):** *Structural Impossibility of Antichain-Lattice Partial Information Decomposition* (arXiv:2604.03869, Apr 2026) attacks the lattice representation itself. Neither critique disputes the atom counts, the Shannon-invariant identities, or the Ehrlich estimator specifically — but any prisoma publication should cite and position against **both** impossibility lines.
 
 ### 13.1.2 Authoritative Code Repositories (v5.7)
 
@@ -5158,13 +5234,13 @@ A batch of external signals (X posts, vendor pages, repos, papers) was reviewed 
 
 ## 13.2 VLA Models
 
-- **GalaxeaVLA:** Open-source VLA model and platform. [GitHub](https://github.com/OpenGalaxea/GalaxeaVLA)
+- **GalaxeaVLA:** Open-source VLA model and platform (repo-reported; verify availability/license at time of use). [GitHub](https://github.com/OpenGalaxea/GalaxeaVLA)
 - **Physical Intelligence “π” series (vendor papers; access/embeddings must be verified):**
   - **`π0` (pi-zero):** *Our First Generalist Policy* (PI blog, 2024‑10‑31) + paper PDF: https://www.pi.website/blog/pi0 and https://www.pi.website/download/pi0.pdf
   - **`π0.5`:** *a VLA with Open‑World Generalization* (PI blog, 2025‑04‑22) + paper PDF: https://www.pi.website/blog/pi05 and https://www.pi.website/download/pi05.pdf
   - **`π0.6*` (“Pi‑star”):** *a VLA that Learns from Experience* (PI blog, 2025‑11‑17) + model card PDF: https://www.pi.website/blog/pistar06 and https://website.pi-asset.com/pi06star/PI06_model_card.pdf
 - **OpenVLA:** Kim et al. (2024). *OpenVLA: An Open-Source Vision-Language-Action Model.* arXiv:2406.09246.
-- **SmolVLA (LeRobot):** Lightweight baseline policy for harness bring-up and pipeline debugging (verify model card/repo + exact action parameterization at time of use).
+- **SmolVLA (LeRobot):** arXiv:2506.01844 (Jun 2025). ~450M-param VLA (SmolVLM-2 backbone: SigLIP + SmolLM2; flow-matching action expert; async inference; code/models/data released). Lightweight baseline policy for harness bring-up and pipeline debugging (verify checkpoint revision + exact action parameterization at time of use).
 - **DreamVLA:** Zhang et al. (2025). *DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge.* arXiv:2507.04447. (World-knowledge forecasting + inverse dynamics; diffusion-style framing in the abstract.)
 - **Dream-VL & Dream-VLA (diffusion LLM backbone):** Ye et al. (2025). *Dream-VL & Dream-VLA: Open Vision-Language and Vision-Language-Action Models with Diffusion Language Model Backbone.* arXiv:2512.22615.
   - **Legacy note:** earlier drafts referenced “HKU NLP (2024), 97.2% LIBERO” without a stable citation; treat any such performance claims as unverified unless traced to a specific paper/benchmark protocol.
@@ -5177,7 +5253,7 @@ A batch of external signals (X posts, vendor pages, repos, papers) was reviewed 
 - **InternVLA‑A1:** InternRobotics (2026). *InternVLA‑A1: Unifying Understanding, Generation, and Action for Robotic Manipulation.* Project page + PDF + code: https://internrobotics.github.io/internvla-a1.github.io/ and https://github.com/InternRobotics/InternVLA-A1. Model card: https://huggingface.co/InternRobotics/InternVLA-A1-3B. Repo describes a tripartite (understanding / generation / action) design with Flow‑Matching action generation; verify paper details/protocols before citing any performance numbers.
 - **InternVLA‑M1:** Chen et al. (2025). *InternVLA‑M1: A Spatially Guided Vision-Language-Action Framework for Generalist Robot Policy.* arXiv:2510.13778. (Related line; distinct from InternVLA‑A1.)
 - **PixelVLA:** Liang et al. (2025). *PixelVLA: Advancing Pixel-level Understanding in Vision-Language-Action Model.* arXiv:2511.01571. Pixel-level understanding with multiscale encoder and visual prompting.
-- **TraceVLA:** Zheng et al. (2024). *TraceVLA: Visual Trace Prompting Enhances Spatial-Temporal Awareness for Generalist Robotic Policies.* arXiv:2412.10345. Visual trace prompting for spatial-temporal awareness.
+- **TraceVLA:** Zheng et al. (2024). *TraceVLA: Visual Trace Prompting Enhances Spatial-Temporal Awareness for Generalist Robotic Policies.* arXiv:2412.10345; ICLR 2025 (checked 2026-07-06; re-verify proceedings). Visual trace prompting for spatial-temporal awareness.
 - **MemoryVLA:** Shi et al. (2025). arXiv:2508.19236. Perceptual-cognitive memory for long-horizon manipulation.
 - **CoT-VLA:** Zhao et al. (2025). arXiv:2503.22020. Visual chain-of-thought reasoning for VLA.
 - **Related (VLM reasoning; optional background for "L"/reasoning traces):** Deng et al. (2025). *OpenVLThinker: Complex Vision-Language Reasoning via Iterative SFT-RL Cycles.* arXiv:2503.17352. (Not a VLA policy paper per se, but relevant to how RL fine-tuning affects visual grounding and intermediate reasoning traces.)
@@ -5187,7 +5263,7 @@ A batch of external signals (X posts, vendor pages, repos, papers) was reviewed 
 
 ### VLA-Arena (Primary Recommended Benchmark for prisoma)
 
-**Citation:** Zhang et al. (2025). *VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models.* arXiv:2512.22539.
+**Citation:** Zhang et al. (2025). *VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models.* arXiv:2512.22539 (v3 2026-07-02; **accepted ICML 2026** — re-verify at submission).
 
 **Why VLA-Arena is recommended for PID experiments:**
 
@@ -5196,7 +5272,7 @@ A batch of external signals (X posts, vendor pages, repos, papers) was reviewed 
 | **Structured difficulty** | L0/L1/L2 levels | Enables memorization vs generalization testing (H4) |
 | **Orthogonal perturbation axes** | V0-V4 (visual), W0-W4 (language) | Decoupled testing of V and L integration robustness |
 | **Task dimensions** | Safety, Distractor, Extrapolation, Long-Horizon | Maps directly to PID hypotheses (H4, H5, H6) |
-| **Scale** | 170 tasks | Sufficient statistical power for PID signature analysis |
+| **Scale** | 170 tasks | Large task inventory — but do **not** equate task count with statistical power for PID claims; power depends on episodes-per-condition and the grouped/episode-level sampling unit (§9.0), and must be established by the §14.8 power analysis before capture |
 | **Open-source** | Full toolchain provided | Reproducibility and community adoption |
 
 **VLA-Arena Task Structure (Detailed):**
@@ -5275,7 +5351,7 @@ VLA-Arena Task Organization:
 
 ## 13.3 Multimodal PID
 
-- **Liang PP, Cheng Y, Fan X, Ling CK, et al. (2023).** Quantifying & Modeling Multimodal Interactions: An Information Decomposition Framework. NeurIPS 2023 (verify). [Uses BATCH/CVX estimators, NOT I^sx_∩. Code: github.com/pliang279/PID]
+- **Liang PP, Cheng Y, Fan X, Ling CK, et al. (2023).** Quantifying & Modeling Multimodal Interactions: An Information Decomposition Framework. NeurIPS 2023 (checked 2026-07-06; re-verify at submission). arXiv:2302.12247. [Uses BATCH/CVX estimators, NOT I^sx_∩. Code: github.com/pliang279/PID]
 
 - **IDTxl:** Wollstadt P, Lizier JT, et al. (2019). IDTxl: The Information Dynamics Toolkit xl. JOSS 4(34):1081. [Comprehensive PID toolkit. Code: github.com/pwollstadt/IDTxl]
 
@@ -5288,7 +5364,7 @@ VLA-Arena Task Organization:
 - **Dream2Flow:** Dharmarajan et al. (2025). *Dream2Flow: Bridging Video Generation and Open-World Manipulation with 3D Object Flow.* arXiv:2512.24766. [3D object flow as intermediate representation; embodiment-agnostic; zero-shot video-to-action. Website: https://dream2flow.github.io/]
 - **GWM:** Gaussian World Model (3DGS + diffusion for robotics; verify venue/status).
 - **Physically Embodied Gaussian Splatting:** (paper; verify venue/status). Real-time correctable world model.
-- **WAN:** Wanxiang Video Model, Alibaba 2025. arXiv:2503.20314
+- **WAN:** *Wan: Open and Advanced Large-Scale Video Generative Models* (Alibaba "Wanxiang" family), 2025. arXiv:2503.20314. [1.3B + 14B DiT video models]
 - **WAN VACE:** Video All-in-one Creation and Editing. arXiv:2503.07598
 - **Wan-Move:** Motion-controllable Video Generation. arXiv:2512.08765 (verify venue/status)
 - **Motus:** Unified Latent Action World Model. arXiv:2512.13030
@@ -5304,7 +5380,7 @@ VLA-Arena Task Organization:
 - **Genie 3:** DeepMind blog/release (verify details; listed as background inspiration, not a dependency of this project).
 - **Genie 2:** DeepMind blog/release (verify details; background only).
 - **Genie 1:** Bruce et al. (Feb 2024). Generative Interactive Environments. arXiv:2402.15391
-- **SIMA 2:** DeepMind (Nov 2025). Gemini-powered generalist agent for 3D virtual worlds. arXiv:2512.04797
+- **SIMA 2:** DeepMind (blog Nov 2025; arXiv report Dec 2025). Gemini-powered generalist agent for 3D virtual worlds. arXiv:2512.04797
 - **Diffusion modeling note (background; optional):** Li & He (2025). *Back to Basics: Let Denoising Generative Models Denoise.* arXiv:2511.13720. (Relevant to how “denoising” vs “noise prediction” parameterizations can change representation geometry; treat as background for diffusion-based world models, not a PID paper.)
 - **RoboScape:** Shang et al. (2025). *RoboScape: Physics-informed Embodied World Model.* arXiv:2506.23135. [Physics-informed embodied world model (paper-reported; verify details/protocols)]
 
@@ -5317,7 +5393,7 @@ VLA-Arena Task Organization:
 - **VL-Uncertainty:** Zhang et al. (2024). arXiv:2411.11919
 - **SAFE:** Multitask VLA failure detection. arXiv:2506.09937
 - **FIPER:** Römer et al. (2025). *Failure Prediction at Runtime for Generative Robot Policies.* arXiv:2510.09459. [Failure prediction at runtime for generative robot policies (paper-reported; verify details/protocols)]
-- **PRE-HAL:** Dempster-Shafer for VLM hallucination
+- **PRE-HAL:** Dempster-Shafer for VLM hallucination (no citation located at review time — supply an arXiv ID/venue before relying on it, or drop)
 
 ## 13.6 Process Reward Models (PRMs)
 
@@ -5330,7 +5406,7 @@ VLA-Arena Task Organization:
 ## 13.6.1 RL for VLAs & Flow Matching (2024–2025; verify venues/status)
 
 - **ReinFlow:** Zhang et al. (2025). *ReinFlow: Fine-tuning Flow Matching Policy with Online Reinforcement Learning.* arXiv:2505.22094. [Online RL fine-tuning for flow-matching policies (paper-reported; verify protocols/results)]
-- **CQN-AS:** Seo, Abbeel (2025). *Coarse-to-fine Q-Network with Action Sequence for Data-Efficient Reinforcement Learning.* arXiv:2411.12155. [Value-based RL with action sequences (paper-reported; verify details)]
+- **CQN-AS:** Seo, Abbeel (arXiv Nov 2024; verify venue year). *Coarse-to-fine Q-Network with Action Sequence for Data-Efficient Reinforcement Learning.* arXiv:2411.12155. [Value-based RL with action sequences (paper-reported; verify details)]
 - **CQN (original):** Seo, Uruç, James (2024). *Continuous Control with Coarse-to-fine Reinforcement Learning.* arXiv:2407.07787. [Coarse-to-fine discretization for continuous action RL (paper-reported; verify details)]
 
 ## 13.7 Information Theory
@@ -5450,7 +5526,7 @@ This section addresses how confounding factors could be studied and removed to r
 
 ## 14.1 Core Hypotheses and Their Falsifiability
 
-### 14.1.0 Hypothesis Registry (v10.1)
+### 14.1.0 Hypothesis Registry (v10.1; falsifiability consolidated + H7 split v10.7)
 
 This project treats hypotheses as **falsifiable contracts**, not slogans. Status labels are about *priority and interpretability* given current estimator and logging constraints.
 
@@ -5462,7 +5538,7 @@ This project treats hypotheses as **falsifiable contracts**, not slogans. Status
 | **H4** memorization vs generalization | Core | Motivated by VLA-Arena framing; tests whether PID signatures change under structured distribution shifts | **Pre-deployment generalization certification:** VLA-Arena's headline finding is that current VLAs memorize rather than generalize. A signature that flags memorization *without* running the full perturbation sweep on every new scene would cut evaluation cost |
 | **H5** temporal synergy degradation | Core | Operationalizable with windowed summaries + block bootstrap; tests long-horizon composition failures. **CI-only ablation mandatory (§14.1.1)** | **Long-horizon progress monitoring:** kitting/assembly/multi-stage tasks fail by compositional drift long before the terminal error. An early-warning trend over windows targets the long-horizon failure mode benchmarks identify as unsolved |
 | **H6** safety-aware integration | Deferred / exploratory | Include only if safety labels and matched controls are available; otherwise treat as out-of-scope for the core study | **Safety-case evidence** (deferred until proper labels exist) |
-| **H7** Flow-as-Bridge | Core (method + hypothesis) | Makes a Euclidean diagnostic target explicit; enables stage-wise diagnostics and cross-embodiment comparisons; honestly framed as measurement-regime engineering (§14.1.1) | **Cross-embodiment porting diagnosis:** when a policy adapted from human/video data (the GEN-1-style recipe) or ported to a new arm fails, was the *world model* wrong or the *execution mapping*? Object-flow targets separate the two — the embodiment gap is where industrial pretraining recipes live |
+| **H7** Flow-as-Bridge — split (v10.7): **H7a** (method): the low-d flow bridge enables stage-wise diagnostics and cross-embodiment comparisons — judged by engineering acceptance criteria (gates pass on flow targets), not falsification. **H7b** (falsifiable): `Syn(V,D;A)` tracks world-model quality independent of execution success — disproof criteria in §3.6.6 | Core (H7a method + H7b hypothesis) | Makes a Euclidean diagnostic target explicit; honestly framed as measurement-regime engineering (§14.1.1); the *scientific contract* is H7b | **Cross-embodiment porting diagnosis:** when a policy adapted from human/video data (the GEN-1-style recipe) or ported to a new arm fails, was the *world model* wrong or the *execution mapping*? Object-flow targets separate the two — the embodiment gap is where industrial pretraining recipes live |
 | **H8** geometry gate → estimator choice | Core (method) | Geometry/dimensionality diagnostics predict which preprocessing + estimator regime is valid (continuous vs discrete vs CI-only); prevents false positives from invalid geometry | **Trustworthy metrics infrastructure:** prevents shipping estimator artifacts to dashboards — the information-theoretic analogue of not alerting on a broken sensor |
 | **H9** attribution probes ↔ PID claims | Exploratory / triangulation | Faithfulness-checked local attribution methods should support, sharpen, or falsify PID-derived modality/stage claims; they are baselines, not replacements for PID gates | **Audit-grade incident explanations:** post-incident reports need converging evidence, not one method's heatmap; triangulated PID+attribution+intervention evidence is the deliverable |
 
@@ -5497,6 +5573,10 @@ This audit answers, for each hypothesis, the reviewer question the project must 
 3. If H5's atoms never separate from CI trends, H5 becomes an MI/CI hypothesis and is relabeled accordingly.
 4. A hypothesis may not be rescued by switching PID measure/mode post hoc (§8.1.6 regime registry; Warning 6).
 
+**Regime preregistration (v10.7; closes the H2/H3 dead end):** because H1–H5 are conditioned on a validated estimator regime and Exp0 currently reports PIVOT on synthetic high-d controls, the **discrete regimes are preregistered NOW, before any real capture, as first-class formulations** — not fallbacks: (a) discrete `I_min` mode (`--pid-mode discrete`/`discrete-pls`, §8.1.6) and (b) the genuine discrete SxPID (`sxpid.rs`; once wired into the harness) each define preregistered H1/H2/H3/H5 variants with the same falsification criteria, reported under their own measure label. Testing H2/H3 under a discrete regime is therefore preregistration, not the post-hoc measure-switching banned by kill criterion 4. If **no** regime (continuous, discrete, CI-only) validates, H2/H3 are reported as *untestable under current estimators* — explicitly, not silently.
+
+**Falsifiability index (v10.7; makes this section genuinely canonical):** H1 → below; H2 → below; H3 → below; **H4 → §3.6.2** (correlation of synergy-stability with L0→L2 degradation; preregistered-variant refinement only); **H5 → §3.6.3** (windowed primary construct + trend endpoint; CI-only twin mandatory); **H6 → §3.6.4** (deferred; Safety-vs-matched-non-safety indistinguishability = unsupported); **H7b → §3.6.6** (stage-specific synergy-failure correlation); H8 → below; H9 → below (with the §14.7.1 quantitative agreement criterion).
+
 ### Hypothesis H1: SxPID-derived features correlate with VLA failures (including negative synergy)
 **Claim (falsifiable):** Under a validated estimator regime, a **feature set** derived from Shannon invariants (CI/Ω) and (where feasible) SxPID atoms contains predictive information about failure labels beyond strong uncertainty baselines. The **synergy sign** (including negative synergy frequency) is one candidate feature, not a definition of “hallucination”.
 
@@ -5515,6 +5595,8 @@ This audit answers, for each hypothesis, the reviewer question the project must 
 
 **Status:** Exploratory. Redundancy can increase for trivial reasons (task simplicity, dataset artifacts, representation leakage), so H2 is only meaningful under matched controls and alongside generalization tests (H4).
 
+**Primary threat — availability vs use (v10.7; name the gap explicitly):** PID measures information *available in* the sources about `A` under the data distribution, **not** information *causally used through* each pathway. Canonical counterexample: the policy reads only `L`, but `V` duplicates `L`'s content in the logged distribution (the scene always matches the instruction) → measured `Red(V,L;A)` is high, yet ablating `L` is catastrophic — H2's prediction fails for reasons that are *not* estimator error. Consequences (preregistered): (a) the **asymmetric outcome** — redundancy predicts robustness only w.r.t. the less-used source — is an anticipated, *informative* failure mode, not an anomaly; (b) interpreting high-`Red` as robustness requires converging attribution/intervention evidence of dual-pathway use (H9 + §14.2.3), never `Red` alone.
+
 **Confounds:**
 1. **Triviality confound:** If the task is trivial (e.g., "do nothing"), all sources may redundantly encode the same null information.
 2. **Overfitting confound:** High redundancy in training data might indicate memorization rather than generalization.
@@ -5522,6 +5604,7 @@ This audit answers, for each hypothesis, the reviewer question the project must 
 
 **How to disprove H2:**
 - If high-redundancy episodes are *not* more robust under controlled single-modality ablations, redundancy is not a useful robustness indicator in this setting.
+- Dedicated protocol: §9.7.2b (measure `Red` first, then run matched-strength single-modality corruption curves).
 
 ### Hypothesis H3: Unique information predicts intervention sensitivity
 **Claim (operational; falsifiable):** Unique information estimates predict **intervention sensitivity**. If `Unq(V;A)` is high (under a validated regime), then targeted corruption of `V` (holding other sources fixed) should measurably change the action distribution and/or success more than matched corruptions of other sources. Analogously for `Unq(L;A)` and `Unq(D;A)`.
@@ -5532,6 +5615,8 @@ This audit answers, for each hypothesis, the reviewer question the project must 
 1. **Representation bias:** If one modality has higher-dimensional embeddings, it may have artificially higher unique information due to estimation artifacts.
 2. **Preprocessing asymmetry:** Different preprocessing per modality can shift apparent unique contributions.
 3. **Intervention mismatch:** If a “corruption” changes semantics for one modality but not another, sensitivity comparisons are not meaningful; design matched-strength interventions.
+
+**Dedicated protocol:** §9.7.2b (estimate `Unq` ordering first, then matched-strength interventions calibrated by behavioral impact).
 
 ### Hypothesis H8: Geometry gate metrics predict a valid estimator regime (method)
 
@@ -5552,6 +5637,8 @@ This audit answers, for each hypothesis, the reviewer question the project must 
 **Claim (exploratory; falsifiable):** For a VLA with accessible inputs/layers/gradients, faithfulness-checked attribution probes—LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, vanilla saliency/SmoothGrad, occlusion/permutation, or SHAP-style feature importance—should provide a compatible local account of any PID-derived modality/stage claim. For example, a high `Unq(L;A)` claim should survive language ablations and should be accompanied by token/embedding relevance on task-critical instruction content; a high `Unq(V;A)` claim should localize to task-relevant visual regions more than distractors; a high `Syn(V,L;A)` claim should require joint V+L perturbations to explain action/failure changes.
 
 **Status:** Exploratory / triangulation. H9 is not a new primary thesis and does not bypass Experiment 0. It exists to prevent PID-only storytelling and to catch cases where PID features, saliency maps, and controlled interventions disagree.
+
+**Quantitative agreement criterion (preregistered, v10.7 — "compatible account" is otherwise undecidable):** for each matched intervention case, compute (i) the PID-derived modality ordering (rank of `Unq(V)`, `Unq(L)`, `Unq(D)`, with `Syn` flagged when it dominates) and (ii) the attribution-derived modality relevance shares from the §14.7.1 protocol (step 5). H9 is **supported** in a regime if rank agreement (Kendall's τ between the two orderings) is positive with a block-bootstrap CI excluding 0 across ≥ 20 matched cases, and the sign of the top-modality assignment agrees in ≥ 70% of cases; H9 is **unsupported** if τ's CI includes 0 or the sign-agreement rate is ≤ 50%. Between those bands, report as inconclusive. (Thresholds are preregistered here; changing them post hoc is a protocol violation.)
 
 **Confounds:**
 1. **Local vs distributional mismatch:** attribution explains a single output or concept direction; PID estimates source information over a sample distribution.
@@ -5606,7 +5693,7 @@ Distribution-shift control:
 - Randomly permute trajectory labels within each task family
 - Re-compute synergy-failure AUROC
 - The permuted AUROC should be ~0.5 (no better than chance)
-- If permuted AUROC > 0.55, there is label leakage or confounding
+- Compare the observed permuted AUROC against the **permutation distribution's quantiles** (e.g., flag if it exceeds the 97.5th percentile of AUROCs across ≥ 1000 label permutations) — do **not** use a fixed constant like 0.55, which chance alone exceeds at small episode counts (v10.7)
 
 **Temporal shuffling test:**
 - Shuffle timesteps within trajectories
@@ -5752,6 +5839,13 @@ MEMORIZATION DETECTION PROTOCOL
    - Task similarity to training set (embedding distance to training tasks)
    - Response stereotype (action sequence similarity to training)
    - Confidence-calibration gap (high confidence on failures)
+   ⚠ OUTCOME-CONDITIONING GUARD (v10.7): indicators (b) and (c) are computed
+   from the same rollouts whose PID-failure correlation is under test, and (c)
+   is explicitly outcome-bearing — stratifying on them risks collider/selection
+   bias. Therefore: the PRIMARY memorization index uses only pre-outcome
+   quantities (indicator (a): embedding distance to training tasks); (b)/(c)
+   may enter only if computed on a separate calibration split never reused for
+   the PID-failure test.
 
 2. Stratify by memorization score:
    - High memorization: Tasks similar to training, stereotyped responses
@@ -5838,13 +5932,15 @@ COMPOSITIONAL FAILURE ANALYSIS
 | **Modality asymmetry** | Baseline-normalized ΔUnq | Pattern identical across architectures |
 | **Compositional length** | Segment-level analysis + matched comparison | Timestep explains all variance |
 
-**Publication gate:** At least 3 of 5 confound controls must be passed (effect persists after controlling) before claiming "PID synergy predicts VLA failure."
+**Publication gate (v10.7 — reconciled with §14.5.7.5; this is the single canonical rule):** the **OOD/distribution-shift and task-difficulty controls are must-pass** — no number of other passes can rescue a claim that dies after OOD or difficulty control (the doc's own interpretation matrix says a synergy effect that vanishes after OOD control is an OOD effect, not a PID effect). Of the remaining controls (memorization, modality asymmetry, compositional length, embodiment gap where applicable), **a majority must pass** (effect persists after controlling) before claiming "PID synergy predicts VLA failure."
 
 ### 14.5.7 Embodiment Gap Confound (Dream2Flow-Derived)
 
 **Source:** Dharmarajan et al. (2025), "Dream2Flow: Leveraging Video Generative Models for Embodied Action Planning" (arXiv:2512.24766)
 
 #### 14.5.7.1 The Problem: Conflating World Model Quality with Execution Failure
+
+*(Negative control for this confound, moved here from the H7 disproof list: if embodiment has **no** effect on the synergy–failure relationship in the cross-embodiment comparison, this confound is empirically negligible for that setting and the staged analysis below simplifies.)*
 
 When computing PID on VLA variables `(V, D, A)`, we implicitly assume that failures in `A` reflect failures in information integration. However, Dream2Flow's staged analysis reveals that **failures can occur at multiple decoupled stages**:
 
@@ -5923,7 +6019,7 @@ Dream2Flow's staged architecture provides natural ablations:
 | **Compositional length** | Segment-level analysis | Timestep explains all variance |
 | **Embodiment gap** | Multi-stage PID + counterfactual A* | Effect localizes to action decoder, not D |
 
-**Updated publication gate:** At least 4 of 6 confound controls must be passed before claiming "PID synergy predicts VLA failure." The embodiment gap control is particularly important for any claim about world model quality.
+**Updated publication gate:** superseded (v10.7) — the single canonical rule lives in §14.5.6: OOD and task-difficulty controls are **must-pass**; a majority of the remaining controls must also pass. The embodiment-gap control is additionally **must-pass for any claim about world-model quality** (H7b).
 
 ## 14.6 Positional Encoding Confound (RoPE What-Where Entanglement)
 
@@ -6006,6 +6102,7 @@ All of these positions are entangled with their respective content. PID analysis
 Entanglement Score = Var(PID | position) / Var(PID | semantics)
 ```
 
+- **Estimation (v10.7; both terms must be defined the same way):** `Var(PID | position)` = variance of the PID estimate across position-permuted/shifted variants of the same semantic content; `Var(PID | semantics)` = variance across semantically distinct episodes matched to the same positional layout (same token positions/sequence lengths). Both are computed on the same estimator regime and sample size; report both raw variances, not only the ratio.
 - High score: position dominates; RoPE confound is severe
 - Low score: semantics dominates; RoPE confound is minor
 - Calibrate thresholds using synthetic controls and report sensitivity
@@ -6059,6 +6156,43 @@ LRP is the H9 attribution method this project treats as primary for transformer-
 
 **Scope honesty:** LRP explains one call; PID summarizes a distribution (Warning 7). H9 only asserts *compatibility under matched interventions*, never per-call/per-distribution equivalence.
 
+## 14.8 Preregistered Statistical Analysis Plan (v10.7)
+
+Everything in §14.2–§14.7 controls *what* may confound a claim; this section fixes *how* claims are tested. Without it, the atoms × decompositions × layers × perturbation-levels × task-dimensions grid guarantees false positives at p < 0.05. These rules bind Exp1–Exp5 and every H1–H9 claim.
+
+### 14.8.1 One primary endpoint per hypothesis
+
+Each core hypothesis names **exactly one** preregistered primary endpoint; everything else it reports is exploratory and labeled as such:
+
+| Hypothesis | Primary endpoint (statistic, unit of analysis) |
+|---|---|
+| H1 | Held-out episode-level AUROC gain of {baseline features + PID/CI features} over {baseline features alone} for failure prediction, paired episode-level block bootstrap |
+| H2 | Spearman correlation between pre-ablation `Red` and the matched single-modality corruption-curve degradation slope, across task families (§9.7.2b) |
+| H3 | Spearman correlation between pre-intervention `Unq` ordering and matched-strength intervention effect-size ordering (§9.7.2b) |
+| H4 | Correlation of the preregistered synergy-stability statistic (SSI, §9.7.2) with L0→L2 success degradation, across tasks |
+| H5 | Trend statistic of the windowed primary construct (§3.6.3 operationalization) vs composition-stage index |
+| H7b | Difference in synergy–failure correlation between world-model-stage failures and execution-stage failures |
+| H8 | Agreement rate between geometry-gate verdicts and realized estimator stability on synthetic + real controls |
+| H9 | The §14.1 Kendall-τ / sign-agreement criterion |
+
+### 14.8.2 Multiplicity discipline
+
+- **Hierarchical gatekeeping:** a hypothesis's exploratory grid is examined only if its primary endpoint passes (two-sided α = 0.05 on the episode-level bootstrap/permutation test).
+- **Exploratory grid:** Benjamini–Hochberg FDR at q = 0.10 *within* each hypothesis's grid (atoms × decompositions × layers × perturbation levels); report the number of tests alongside every discovery.
+- The Bonferroni-for-2 rule in §14.5.2 governs its own two-test comparison and is unchanged; it is not a substitute for this plan.
+- Post-hoc feature pivots additionally require the §9.6 held-out replication rule.
+
+### 14.8.3 Power analysis is a capture gate
+
+- Before the first real capture (M5), run a **simulation-based power analysis** on synthetic/toy-harness data with the actual grouped/episode-level bootstrap: episodes needed to detect the preregistered effect size at 80% power.
+- **Preregistered minimum effect sizes:** H1 ΔAUROC ≥ 0.05 (primary; the §18.2.5 ΔAUROC ≤ 0.02 line is the *equivalence/futility* bound, not the target); H2/H3/H4 |ρ| ≥ 0.3. These are commitments — changing them after seeing data is a protocol violation.
+- If the feasible capture cannot power the primary endpoint, say so *before* running it and either scale the capture or downgrade the claim to estimation-with-CIs (no hypothesis test).
+- No document may claim a dataset provides "sufficient statistical power" without pointing at this analysis (§9.7.4's task-count table explicitly does not).
+
+### 14.8.4 Mandatory minimal baseline set
+
+The full §9.3.1 baseline list is aspirational in parts (GRM availability, Liang Batch/CVX compute). The **mandatory minimal set that must run in every H1 report** — chosen because each is implemented or trivially runnable today — is: (1) the SAFE-class held-out logistic-regression detector on internal features (implemented, `heldout_logreg_vlda`), (2) action predictive entropy, (3) majority/1-NN/centroid label baselines (implemented), and (4) one ensemble-or-temperature uncertainty variant. The remaining §9.3.1 baselines are best-effort; dropping one must be reported as a limitation, dropping one of the mandatory four invalidates the comparison.
+
 ---
 
 # 15. Numerical Stability and Optimization: Technical Guidance
@@ -6096,16 +6230,17 @@ fn remove_duplicates(data: &mut Vec<Vec<f64>>) -> usize {
 
 **⚠️ WARNING:** Do NOT silently add jitter. Always log when jitter is applied and quantify its effect on estimates.
 
-### 15.1.2 Digamma Underflow for Small Arguments
+### 15.1.2 Digamma Pole at Non-Positive Arguments
 
 **Symptom:** NaN or Inf in MI estimates when counts are very small
 
-**Cause:** `digamma(x)` diverges as x → 0; if neighbor counts approach 0 due to sparse data, results become unstable.
+**Cause:** `digamma(x)` has a **pole** at 0 (ψ(x) → −∞ as x → 0⁺; this is divergence, not floating-point underflow). Under the include-self/`+1` counting conventions used here the digamma argument is ≥ 1 by construction (ψ(1) = −γ, finite) — so reaching x < 1 indicates an off-by-one counting bug, not "sparse data".
 
 **Solution (implemented in `stats.rs`):**
 ```rust
-// Use the asymptotic expansion for small x:
-// ψ(x) ≈ -1/x - 1/(2x²) for small x (but we shouldn't reach x < 1 in practice)
+// Near 0 the Laurent expansion is ψ(x) = −1/x − γ + O(x)  (NOT the large-x
+// asymptotic ψ(x) ~ ln x − 1/(2x) − 1/(12x²)); but we should never reach
+// x < 1 in practice — treat that as a counting-convention bug.
 
 // Better: Ensure n > k + 1 always, and use a precomputed table for digamma(1..n)
 pub fn digamma_int_table(n: usize) -> Vec<f64> {
@@ -6119,7 +6254,7 @@ pub fn digamma_int_table(n: usize) -> Vec<f64> {
 
 **Symptom:** MI estimates collapse to near-zero or become highly variable as d increases.
 
-**Mathematical basis:** In high dimensions, the ratio of nearest-neighbor distance to average distance converges to 1 (Beyer et al., 1999). This makes kNN neighborhoods meaningless.
+**Mathematical basis:** In high dimensions, for data satisfying the Beyer et al. (1999) hypotheses (iid-like/isotropic coordinates; `Var(‖X‖/E‖X‖) → 0`), the ratio of nearest-neighbor distance to average distance converges to 1. This makes kNN neighborhoods meaningless — but it is **not unconditional**: low intrinsic dimension or strong cluster structure escapes it (that loophole is precisely what the geometry gates and Flow-as-Bridge exploit).
 
 **Diagnostic (implemented in `geometry.rs`):**
 ```rust
@@ -6157,7 +6292,7 @@ if stats.pairwise_cv < 0.1 {
 **Solutions:**
 1. For MI-only: Use local Gaussian MI estimator (Gao et al., 2015, arXiv:1508.00536)
 2. For `I^sx_∩`: Accept that noiseless signals may not be estimable; add explicit noise floor to target
-3. Increase sample size significantly (quadratic in 1/noise for strongly dependent pairs)
+3. Increase sample size significantly — required N grows ~exponentially in the true MI (Gao et al. 2015; see Warning 4), so strongly dependent pairs get expensive fast
 
 ## 15.2 Optimization Strategies
 
@@ -6192,7 +6327,11 @@ fn streaming_knn(data: MatRef<'_>, k: usize, metric: Metric) -> Vec<(Vec<usize>,
 
 ### 15.2.2 SIMD Acceleration for Distance Computation
 
-The distance computation hotloop benefits significantly from SIMD:
+> **Status: guidance only — NOT implemented.** `pid-core` contains no SIMD code (no
+> `std::arch` / `target_feature` anywhere). The sketch below is a starting point for
+> future optimization; do not cite it as an existing capability. (Same status for the
+> §15.2.1 `streaming_knn` sketch above — the shipped path is the brute-force exact kNN
+> in `nn.rs`.)
 
 ```rust
 #[cfg(target_arch = "x86_64")]
@@ -6228,6 +6367,10 @@ unsafe fn chebyshev_distance_avx2(a: &[f64], b: &[f64]) -> f64 {
 ```
 
 ### 15.2.3 Parallelization Strategy
+
+> **Status: implemented.** `pid-core` ships a real rayon path behind the optional
+> `parallel` cargo feature (`par.rs`), documented bit-identical to the serial path.
+> The snippet below is illustrative of the strategy, not the literal shipped function.
 
 kNN computation is embarrassingly parallel across query points:
 
@@ -6356,7 +6499,7 @@ PCA finds directions of maximum **linear** variance. On curved manifolds, this c
 
 2. **Distort local neighborhoods:**
    - Two points close in geodesic distance may be far in Euclidean distance
-   - PCA preserves Euclidean distances, not geodesic distances
+   - PCA works with (and can only shrink, being a projection) Euclidean distances — it approximates large-scale Euclidean structure in a least-squares sense and is blind to geodesic distances
    - After PCA, kNN may find "wrong" neighbors
 
 3. **Introduce artifacts at high curvature:**
@@ -6673,7 +6816,7 @@ Let \(L ≥ M ≥ S\) be these three sums sorted. Then the per-quadruple value i
 ```
 The space is δ-hyperbolic if \(δ(a,b,c,d)\) is uniformly bounded over all quadruples.
 
-**Implementation note (`pid-core`)**: `gromov_hyperbolicity(...)` samples quadruples, computes \(δ(a,b,c,d)\) using the chosen `Metric` (default Chebyshev/L∞), and returns the **mean raw δ** over samples. Raw δ is scale-dependent.
+**Implementation note (`pid-core`)**: `gromov_hyperbolicity(...)` samples quadruples, computes \(δ(a,b,c,d)\) using the chosen `Metric` (default Chebyshev/L∞), and returns the **mean raw δ** over samples. Raw δ is scale-dependent. **Caveat:** the Gromov constant is defined as the *supremum* over quadruples; the sampled *mean* is a different, much smaller, distribution-dependent statistic, and the 4-point form is equivalent to the thin-triangles definition only up to constant factors. Thresholds such as "δ_rel < 0.1" are therefore calibrated to the mean-δ statistic under a stated metric/normalization — never compare them against sup-δ values from the literature.
 
 **Recommended normalization (scale-invariant reporting):**
 ```
@@ -7661,7 +7804,7 @@ These blockers could terminate the project if unmitigated. Each requires explici
 4. **Publish as negative result:** Valuable contribution if rigorously conducted
 
 **Go/No-Go Decision:**
-- **GO:** PID provides statistically significant improvement OR unique interpretability
+- **GO:** PID provides statistically significant improvement OR passes the *operationalized* diagnostic-value test (v10.7 — "unique interpretability" alone is not a GO): a preregistered Use-Case-5-style comparison in which PID-guided intervention/data-collection selection beats entropy-guided selection on a matched budget, with episode-level bootstrap CIs excluding zero
 - **PIVOT:** Reframe as diagnostic/interpretability tool rather than predictor
 - **NO-GO:** No advantage over baselines AND no interpretability → publish negative result
 
@@ -8168,7 +8311,9 @@ Earlier drafts embedded large “kitchen sink” Nix flakes and task runners ins
 | **9.0 FINAL** | Jan 2026 | **Actionable engineering plan + docset v9.0:** (1) Added an explicit engineering execution plan (M0–M7) with acceptance criteria and a risk-reducing build order so implementation can begin without re-interpreting the spec (§A.7). (2) Restructured `README.md` to lead with hypotheses and experiments, then map to the engineering order (gate-driven, contract-first). (3) Clarified offline-first run logs + replay as core and moved live transports (Zenoh) and predictor-driven Flow to optional milestones; aligned `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` accordingly. (4) Added a multi-engine physics reality check and promoted cross-backend replay (Rapier ↔ MuJoCo) as a robustness/confound control (§E.1). |
 | **10.0 FINAL** | Jan 2026 | **Docset consistency + GauSS‑MI integration:** (1) Integrated the optional GauSS‑MI spec into the core docset: added reconstruction-uncertainty and active view selection as explicit confound controls and an optional milestone (M8; §C.2; `GAUSS_MI_INTEGRATION.md`). (2) Added diagrams for cross-backend replay and GauSS‑MI flows (`DIAGRAMS.md`). (3) Slimmed `README.md` into a brief entrypoint and aligned doc versions to v10.0. |
 | **10.1** | Jan 2026 | **DreamVLA availability update + Rerun‑First Phases 1–3:** (1) Updated DreamVLA availability status based on papers stating a release; removed “unavailable” wording and added explicit “verify repo/weights/license at time of use” cautions. (2) Reframed Phases 1–3 as Rerun‑First and updated §11 to reflect the `crates/pid-rerun` prototype status. (3) Synced docset version markers to v10.1 and added a `CHANGELOG.md` entry. |
-| **10.5 (Current)** | 2026-07-01 | **Consistency + robustness slice (no research/experiment status change from v10.4):** (1) Adopted the `pid-rs` submodule v0.2.0 → v0.3.0 (upstream: genuine discrete SxPID `sxpid.rs` + n-source SxPID, numerical hardening, run-log `logical_trace_hash`); `crates/pid-rerun` updated for the new `RunManifest.logical_trace_hash`; workspace + `ncp-observer` green. The new discrete SxPID estimator is **not yet wired into the harness** (`--pid-mode discrete` stays `I_min`; §8.1.6). (2) NCP observer pin docs propagated v0.5.0 → v0.5.2 (wire-identical patch bump; `CONTRACT_HASH` unchanged `24e8e6e31e1dec8a`). (3) `ncp-observer` correctness/robustness: success label no longer leaks into V, bounded in-flight buffers, surfaced run-log append errors, robust CLI parsing, poison-safe finalize. (4) `pid-rerun` outcome-at-absolute-time + panic-safe point mapping; `pid-sim` held-out-void warning. (5) `THIRD_PARTY_NOTICES.md` dual MIT OR Apache-2.0; honest ncp-observer provenance docs. Exp0 still reports PIVOT/NO-GO on synthetic high-d controls; the open critical path is still the first real-VLA capture (not done). |
+| **10.7 (Current)** | 2026-07-06 | **First-principles spec audit + statistics-plan slice (no research/experiment status change from v10.4):** five-agent spec audit (pid-rs code, NCP, math, hypotheses, citations) + 104-agent adversarially-verified literature sweep. (1) Math corrections: findings.md δ-hyperbolicity direction fixed (was backwards); digamma small-x expansion; r̄ identities scoped (n=2; additive ≠ independent); CI₃ sign-scope; Beyer-conditioned distance concentration; exponential-in-MI sample complexity; mean-δ vs sup-δ caveat. (2) Hypothesis hardening: §14.1 falsifiability index; H7a/H7b split; H5 operationalized; H2 availability-vs-use; discrete-regime preregistration; **new §14.8 statistics plan** (primary endpoints, gatekeeping+BH-FDR, power-analysis capture gate, mandatory baselines); **new §9.7.2b** H2/H3 protocol; publication gates reconciled (OOD+difficulty must-pass); sign-safe SSI; permutation-quantile placebo; pre-outcome memorization index; operationalized §18.2.5 GO; quantitative H9 criterion. (3) Literature refresh §12.6 (checked 2026-07-06): PID review arXiv:2603.06678; impossibility line arXiv:2604.03869; negative-atom nuances (unique-not-synergy empirical negatives; time-series clamping); r̄/v̄ ← arXiv:2504.15779 Props 1–2; world-model-VLA survey arXiv:2606.00113 (+WorldVLA/FlowVLA/RynnVLA-002/3D-VLA); VLA-Arena → ICML 2026 and TraceVLA → ICLR 2025 (re-verify at submission); SmolVLA → arXiv:2506.01844; PixelVLA range version-pinned; novelty re-verified (no PID-on-VLA; "VLDA" unclaimed). (4) Repo truth: §11.2 tree redrawn (submodule reality); SxPID "general n-source" → 2–4; SIMD sketches labeled unimplemented; NCP pin prose → v0.5.3 everywhere. Exp0 still PIVOT/NO-GO on synthetic high-d controls; open critical path still the first real-VLA capture (not done). |
+| **10.6** | 2026-07-05 | **Whole-repo review + correctness/robustness slice (no research/experiment status change from v10.4):** (1) CI resurrected — `.github/workflows/ci.yml` had illegal YAML (unquoted `physics:: manipulation::`) and had created **zero jobs** since 2026-06-13; quoted + venv for `maturin develop`. (2) Agent Bridge hardening: `export.rerun` overwrite guard; JSON-RPC id types echoed verbatim; malformed traffic audited; transports always `finish_run`; `sim.reset`-after-`sim.step` refused; `verify_flow_gt` stream-order pairing. (3) Offline-harness run-log timestamps continue from the metric-event counter (validated at capture scale). (4) ncp-observer toward M5: validating run log, artifact registration + sha256, D reorder grace window, reset-safe eviction/epochs, SIGTERM/SIGHUP finalize, `ObserverStats`. (5) pid-rerun/Python: dead hdf5 dep dropped, ns precision, exact `.npy` dtype, artifact URI resolution, loader-claim fix, step-count guard, `canonical_hash` ascii fix. Exp0 still PIVOT/NO-GO; open critical path still the first real-VLA capture (not done). |
+| **10.5** | 2026-07-01 | **Consistency + robustness slice (no research/experiment status change from v10.4):** (1) Adopted the `pid-rs` submodule v0.2.0 → v0.3.0 (upstream: genuine discrete SxPID `sxpid.rs` + n-source SxPID (2–4 sources), numerical hardening, run-log `logical_trace_hash`); `crates/pid-rerun` updated for the new `RunManifest.logical_trace_hash`; workspace + `ncp-observer` green. The new discrete SxPID estimator is **not yet wired into the harness** (`--pid-mode discrete` stays `I_min`; §8.1.6). (2) NCP observer pin docs propagated v0.5.0 → v0.5.2 (wire-identical patch bump; `CONTRACT_HASH` unchanged `24e8e6e31e1dec8a`). (3) `ncp-observer` correctness/robustness: success label no longer leaks into V, bounded in-flight buffers, surfaced run-log append errors, robust CLI parsing, poison-safe finalize. (4) `pid-rerun` outcome-at-absolute-time + panic-safe point mapping; `pid-sim` held-out-void warning. (5) `THIRD_PARTY_NOTICES.md` dual MIT OR Apache-2.0; honest ncp-observer provenance docs. Exp0 still reports PIVOT/NO-GO on synthetic high-d controls; the open critical path is still the first real-VLA capture (not done). |
 | **10.4** | 2026-06-22 | **Science-honesty + tooling slice (no research/experiment status change from v10.3):** (1) `--require-axis-provenance-honest` now ENFORCES axis provenance — an opt-in gate (mirroring `--require-geometry-pass`) that fails the run on degraded or absent `(V,L,D,A)` provenance markers. (2) The offline VLDA harness surfaces `safe_adapter` axis provenance (`{v,l,d,a}_provenance`: `token_slice:*`/`hidden_state_pool`/`action_vector` honest, `text_hash_proxy` degraded). (3) `crates/ncp-observer` re-pinned to NCP v0.5.0 (wire `0.4`→`0.5`). (4) Repo/package/crate rename `pid_vla`→`prisoma` (complete repo-wide; no wire/behavior change). Exp0 still reports PIVOT/NO-GO on synthetic high-d controls; the open critical path is still the first real-VLA capture (not done). |
 | **10.3** | 2026-06-13 | **Capture + analysis implementation slice** (every previously-blocking estimator prerequisite wired end to end, plus the first M5 capture path): (1) Exp0 uncertainty gate — opt-in `--bootstrap`/`--permutation` with subsample-bootstrap CIs + single-source permutation nulls and a preregistered marginal-significance check folded into the verdict (closes P0 item 1); `pid-core` `bootstrap_rows_stats`/`permutation_rows_pvalue`. (2) Real `rapier3d-f64` physics backend (gravity/contacts/friction, deterministic) + scripted push-to-goal manipulation with real `Flow_gt` and physics-derived success labels (`pid-rapier-harness`; `rapier` CI job). (3) SAFE-class failure detector — `pid-core` `logistic.rs` (Newton-IRLS) wired as the leakage-safe `heldout_logreg_vlda` offline-harness baseline (H1). (4) M5 SAFE capture adapter (`experiments/safe_adapter/`) converting released SAFE rollouts to the `(V,L,D,A)`+labels contract with honest provenance + the §7.6.3 layerwise physics-probe; verified end to end into the real harness with all leakage gates. (5) H9 attribution probe (`experiments/attribution/`): epsilon-/AttnLRP + gradient×input, deletion-AOPC faithfulness check vs random control, schema-conformant `attribution_logged` emission. (6) `meshmaker/` quarantined out of tracking (non-destructive `git rm --cached` + tombstone); `scripts/generate_third_party_notices.py` direct-dependency SBOM with CI drift check. |
 | **10.2** | 2026-06-12 | **Implementation refresh + measure-identity corrections + research refresh:** (1) Documented the 2026-06-11 implementation slice (commit `20fd4bc`): PLS supervised dimensionality reduction, discrete 2-source PID via quantization, block-bootstrap uncertainty, `PhysicsBackend` trait + Rapier stub behind the `rapier` feature, run-log `attribution_logged` event, Exp0 `--strict-gate`, high-dim synthetic VLDA fixture, Python bindings 8→14 (§11.1, §11.2). (2) **Measure-identity correction:** new §8.1.6 documents that the implemented discrete redundancy is a Williams–Beer-style `I_min` functional, not discrete `i^sx_∩`; Warning 6 extended to cross-mode/measure mixing inside this repo; saturation/occupancy gate and binning-sensitivity requirements added for the discrete path; "regime registry" preregistration clause added. (3) Supervised-projection guidance: PLS added to §8.2 options + preprocessing steps with leakage/selection-inflation rules and §17.5.3 requirements. (4) Block-bootstrap implementation pointers + variance-vs-bias caveat (§8.4.3). (5) Action-chunking added to the `V/L/D/A` contract (§10.10.13.1). (6) Reference/status refresh (hedged): OpenVLA-OFT resolved to arXiv:2502.19645; DreamVLA marked NeurIPS 2025 + public code (verify weights/license); π0/π0-FAST weight availability noted; GR00T N1.5 noted; added arXiv:2410.10924, 2506.00330, 2409.13506, 2502.04550, 2506.18498, 2602.10098, 2603.19233. (7) Completed, tested, and committed the second slice the same day: discrete 3-source PID (`discrete_pid3`), `pipeline.rs` composition helpers (PLS→PID3, bootstrap CIs, permutation tests, PLS CV, PID2 screening), harness `--pid-mode continuous|discrete|discrete-pls`, per-pair `discrete_saturation` diagnostics implementing the §8.1.6 gate, and `I_min`-correct naming in code (`discrete_imin_redundancy*`). (8) External-source review (§12.5): integrated Qwen-VLA, V-JEPA 2/-AC + latent-predictive world-model class, Cosmos 3/WAM taxonomy notes, RoboLab-120 benchmark context, π0.7, AttnLRP→§14.7.1 LRP protocol, GSWorld, Zenoh-in-production, surveys; ruled out (with citations) ProjectEdenGG, Trajectory, a DAIR.AI aggregator week, and four unverifiable X posts. (9) Added §14.1.1 PID-necessity audit with kill criteria and the embodiment-in-`L` confound (§14.5.7.3). (10) Third source batch: World Pilot (arXiv:2606.12403; pathway-ablation interventions), physics-interpretability of video world models (arXiv:2602.07050; Physics-Emergence-Zone hook-point prior, §7.6.3), GEN-1 vendor post (black-box; embodiment gap); added the real-robotics-problem column + failure-regime framing to the §14.1.0 registry. (11) Final pass: CI parity restored (rustfmt), duplicate §2.5.4 header fixed (→§2.5.5), dated novelty check recorded (§12.5: no published PID-on-VLA found), SAFE rollout datasets identified as the M5 capture shortcut, hedged pointer to the reported 2026 Wibral–Makkeh multivariate PID paper (§13.1). |

@@ -11,13 +11,13 @@
 
 This document contains visual representations of the prisoma system, the PID-Splat simulation environment, and the data processing pipelines.
 
-**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.6. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1), the v10.1 execution plan (`grandplan.md` §A.7), and the ten-scientist consensus decision record (`grandplan.md` §A.8) for what exists today and what to build next.
+**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.7. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1), the v10.1 execution plan (`grandplan.md` §A.7), and the ten-scientist consensus decision record (`grandplan.md` §A.8) for what exists today and what to build next.
 
 **Docset-wide final solution:** the diagrams should be read through `grandplan.md` §A.8: run log as source of truth, Agent Bridge as the only control plane, Rerun as the Phases 1–3 diagnostic viewer, and Tauri/SparkJS as the deferred Phase 4 shell.
 
-## 0. Docset v10.6 Status Dashboard (Pipeline State)
+## 0. Docset v10.7 Status Dashboard (Pipeline State)
 
-This chart is the honest, gate-driven snapshot for the v10.6 cut: Exp0 reports **PIVOT** (the gate working, not a bug), the offline analysis/adapter path is runnable today, the real-VLA capture is the **still-open critical path**, and Exp1–Exp5 stay blocked on that capture. Nothing here upgrades the research/experiment status, which is unchanged since v10.3 (the v10.6 slice is correctness/robustness only — see CHANGELOG). The `(v10.4)`/`(v10.5)` tags below mark when a component first landed.
+This chart is the honest, gate-driven snapshot for the v10.7 cut: Exp0 reports **PIVOT** (the gate working, not a bug), the offline analysis/adapter path is runnable today, the real-VLA capture is the **still-open critical path**, and Exp1–Exp5 stay blocked on that capture. Nothing here upgrades the research/experiment status, which is unchanged since v10.3 (the v10.6/v10.7 slices are correctness/robustness + spec-audit/statistics-plan only — see CHANGELOG). The `(v10.4)`/`(v10.5)` tags below mark when a component first landed.
 
 ```mermaid
 flowchart TD
@@ -32,7 +32,7 @@ flowchart TD
         ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest (v10.4)"]:::run
         Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (v10.4)"]:::run
         Attr["attribution probe (H9, faithfulness-checked)"]:::run
-        Obs["ncp-observer tap pinned NCP v0.5.2 (v10.5)<br/>exploratory, off critical path"]:::run
+        Obs["ncp-observer tap pinned NCP v0.5.3 (v10.7)<br/>exploratory, off critical path"]:::run
     end
 
     Capture["OPEN CRITICAL PATH<br/>real downloaded VLA capture + labels<br/>(NOT done)"]:::blocked
@@ -53,13 +53,13 @@ flowchart TD
     Capture -. blocks .-> E1 & E2 & E3 & E4 & E5
 ```
 
-*Caption: v10.6 pipeline state — orange = Exp0 gate (PIVOT, runnable); green = runnable analysis/adapter/observer spine; red dashed = the still-open real-VLA capture and the Exp1–Exp5 protocols it blocks.*
+*Caption: v10.7 pipeline state — orange = Exp0 gate (PIVOT, runnable); green = runnable analysis/adapter/observer spine; red dashed = the still-open real-VLA capture and the Exp1–Exp5 protocols it blocks.*
 
 ---
 
 ## 0.1 Hypothesis Status (H1–H9)
 
-Hypotheses grouped by their `grandplan.md` §14.1 status. Status is unchanged at v10.6; all hypothesis tests remain blocked on the real-VLA capture (only H8 geometry diagnostics and the H9 probe machinery run today on fixtures/synthetic).
+Hypotheses grouped by their `grandplan.md` §14.1 status. Status is unchanged at v10.7; all hypothesis tests remain blocked on the real-VLA capture (only H8 geometry diagnostics and the H9 probe machinery run today on fixtures/synthetic).
 
 ```mermaid
 flowchart TB
@@ -90,7 +90,7 @@ flowchart TB
     end
 ```
 
-*Caption: H1–H9 by status (Core / Exploratory / Deferred / Triangulation). Status is unchanged at v10.6; all hypothesis verdicts remain pending the open real-VLA capture.*
+*Caption: H1–H9 by status (Core / Exploratory / Deferred / Triangulation). Status is unchanged at v10.7; all hypothesis verdicts remain pending the open real-VLA capture.*
 
 ---
 

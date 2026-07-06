@@ -2,6 +2,99 @@
 
 ## Unreleased
 
+## Docset v10.7 (2026-07-06)
+
+First-principles spec audit + statistics-plan slice. **No research/estimator/experiment
+status change** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls and the
+open critical path is still the first real-VLA capture (not done). Produced by a
+five-agent audit of `grandplan.md` against the pid-rs code, the NCP repo, first-principles
+mathematics, hostile study-design review, and citation verification, plus a 104-agent
+adversarially-verified July-2026 literature sweep. No Rust code changed in this slice.
+
+### Fixed (mathematical/precision errors in the docset)
+
+- **`findings.md` δ-hyperbolicity direction was backwards** ("High δ → Hyperbolic"):
+  trees have δ = 0; LOW δ indicates tree-like/hyperbolic structure. This contradicted
+  `grandplan.md` §16.7 (which was correct). The one outright error found by the audit.
+- Small-x digamma expansion corrected (`ψ(x) ≈ −1/x − γ`, not `−1/x − 1/(2x²)`);
+  §15.1.2 retitled pole-not-underflow, with the counting-convention argument-≥1 guarantee.
+- `r̄ − 1 = CoInfo/I` identity scoped to n=2; `r̄ = 1` reading narrowed to "additive MI"
+  (independence neither implies nor is implied); findings.md Scenario-B inference softened.
+- CI-sign convention ("negative = synergy-dominant") explicitly scoped to CI₂ (invalid at
+  m=3 by the §5.3 parity-flip); "7 MI estimates" for the pairwise-CI trio corrected to 6.
+- Distance-concentration statements conditioned on the Beyer et al. (1999) hypotheses in
+  both files; strong-dependence sample complexity restated as exponential-in-MI (was
+  "quadratic in 1/noise"); "PCA preserves Euclidean distances" softened (projection);
+  mean-δ vs sup-δ estimator caveat added (§16.7.1); Ehrlich validation envelope in
+  Warning 3 corrected from "~100 dimensions" to low-d (verify against the paper).
+
+### Changed (hypothesis system / preregistration — grandplan.md)
+
+- §14.1 registry now carries a falsifiability index covering H4–H7 (previously scattered);
+  H7 split into H7a (method) / H7b (falsifiable claim); H6 unified as Deferred with an
+  explicit in-section disproof; H4 refinement bounded to preregistered variants; H5
+  operationalized (phase-aligned windows pooled across episodes; preregistered trend
+  endpoint); H2's availability-vs-use gap named with the asymmetric outcome preregistered;
+  H9 given a quantitative Kendall-τ/sign-agreement criterion.
+- Discrete estimator regimes (I_min mode and, once wired, discrete SxPID) preregistered
+  NOW as first-class H1–H5 formulations — closes the H2/H3 "untestable while Exp0 stays
+  PIVOT" dead end without violating the anti-measure-switching kill criterion.
+- **New §14.8 Preregistered Statistical Analysis Plan:** one primary endpoint per
+  hypothesis, hierarchical gatekeeping + BH-FDR over the exploratory grid, a
+  simulation-based power analysis as an M5 capture gate (with preregistered minimum
+  effect sizes), and a mandatory minimal baseline set (SAFE-class logreg, predictive
+  entropy, majority/1-NN/centroid, one ensemble/temperature variant).
+- **New §9.7.2b:** dedicated H2/H3 ablation-sensitivity protocol on the V0–V4/W0–W4 axes.
+- Decision rules repaired: SSI made sign-safe (`1 − IQR/(|median|+ε)`; the old
+  `1 − Var/Mean` explodes when median Syn ≈ 0 or flips sign); the 3-of-5 vs 4-of-6
+  publication gates reconciled into one canonical rule (OOD + task-difficulty must-pass;
+  embodiment-gap must-pass for H7b claims); the permutation placebo now uses
+  permutation-distribution quantiles (fixed 0.55 exceeds chance at small n); §9.6
+  "conditional success" pivots require held-out replication; §18.2.5 "unique
+  interpretability" GO operationalized as a PID-vs-entropy guided-intervention test;
+  memorization-index stratification restricted to pre-outcome quantities; VLA-Arena
+  "sufficient statistical power" claim replaced with a §14.8 pointer.
+
+### Changed (July-2026 literature refresh — verified against primary sources)
+
+- **New §12.6 (checked 2026-07-06):** PID field-status review added
+  (arXiv:2603.06678, Liardi et al. 2026); second impossibility line added
+  (arXiv:2604.03869) with a position-against-both note; continuous-`I^sx_∩` validation
+  ceiling re-confirmed current (still low-d synthetic only through mid-2026); §2.2.4
+  gains two publication-critical negative-atom nuances (documented empirical negatives
+  are *unique* atoms, not synergy; the authors sanction time-series clamping — prisoma
+  must preregister clamped/unclamped reporting); r̄/v̄ anchored to arXiv:2504.15779
+  Propositions 1–2 (and noted as matching `invariants.rs`).
+- VLA landscape: world-model-VLA family recognized as surveyed (arXiv:2606.00113), with
+  WorldVLA/FlowVLA/RynnVLA-002/3D-VLA noted in §7.5; VLA-Arena resolved to **ICML 2026** (re-verify at submission)
+  and TraceVLA to ICLR 2025 (re-verify at submission); SmolVLA cited (arXiv:2506.01844; §7.8.1 updated to
+  paper-reported vs still-verify); PixelVLA improvement range version-pinned (v1
+  10.1–17.8% vs current revision 10.1–28.7%); missing arXiv IDs added (Ehrlich
+  2311.06373, Liang 2302.12247, Schick-Poland 2106.12393, Makkeh 2002.03356); WAN title
+  aligned; SIMA 2 / CQN-AS date mismatches fixed; PRE-HAL/GalaxeaVLA/GWM/VLA-Arena-asset
+  hedging added. Novelty re-verified 2026-07-06: **no PID/information-decomposition
+  analysis of VLA or robot policies found**; closest adjacent work is VLA-InfoEntropy
+  (arXiv:2604.05323); "VLDA" is unclaimed as a term. (`arXiv:2512.16662`'s author
+  "Matthias PH" verified correct — Philip Hendrik Matthias — do not "fix" it.)
+
+### Fixed (repo-truth drift)
+
+- §11.2 project tree redrawn to reality (pid-rs is a submodule — estimator crates are
+  NOT under `crates/`; `experiments/{safe_adapter,attribution}` are tracked packages;
+  `scripts/`, `tests/`, `meshmaker/`, `crates/ncp-observer` shown).
+- "General n-source SxPID" corrected to **2–4 sources** everywhere (`discrete_sxpid_n`
+  errors above 4); pid-rs 0.3.0 noted as a crate-version/commit pin (upstream has no
+  v0.3.0 git tag); §15.2.1–15.2.2 SIMD/streaming sketches labeled **not implemented**
+  (the shipped path is brute-force exact kNN + the optional `parallel` rayon feature);
+  §8.3.2 marks which of its three recommendations exist.
+- NCP pin prose synced to **v0.5.3** (manifest was re-pinned in `ea779fd` but nine doc
+  sites still said v0.5.2: `README.md`, `AGENTS.md`, `NCP_DEV_PROMPT.md` ×3,
+  `crates/ncp-observer/README.md` ×2, root `Cargo.toml` comment, `DIAGRAMS.md`,
+  `RESEARCH_VLA_D_NCP.md`, `REVIEW_AND_TODO.md`). Wire-identical; `CONTRACT_HASH`
+  unchanged `24e8e6e31e1dec8a`; v0.5.3 is NCP-local fail-closed safety hardening.
+- `grandplan.md` B.7 version-history table had no v10.6 row and still marked 10.5 as
+  "(Current)"; added 10.6 + 10.7 rows and moved the marker.
+
 ## Docset v10.6 (2026-07-05)
 
 Whole-repo review + correctness/robustness slice. **No research/estimator/experiment
