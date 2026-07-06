@@ -5846,7 +5846,7 @@ dependencies = [
 
 [[package]]
 name = "pid-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "nalgebra",
@@ -5870,7 +5870,7 @@ dependencies = [
 
 [[package]]
 name = "pid-runlog"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "serde",

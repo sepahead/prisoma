@@ -17,7 +17,7 @@ This document contains visual representations of the prisoma system, the PID-Spl
 
 ## 0. Docset v10.7 Status Dashboard (Pipeline State)
 
-This chart is the honest, gate-driven snapshot for the v10.7 cut: Exp0 reports **PIVOT** (the gate working, not a bug), the offline analysis/adapter path is runnable today, the real-VLA capture is the **still-open critical path**, and Exp1–Exp5 stay blocked on that capture. Nothing here upgrades the research/experiment status, which is unchanged since v10.3 (the v10.6/v10.7 slices are correctness/robustness + spec-audit/statistics-plan only — see CHANGELOG). The `(v10.4)`/`(v10.5)` tags below mark when a component first landed.
+This chart is the honest, gate-driven snapshot for the v10.7 cut: Exp0 reports **NO-GO** (the gate working, not a bug — stricter under pid-rs 0.4.0's bias-corrected diagnostics; PIVOT under 0.3.0), the offline analysis/adapter path is runnable today, the real-VLA capture is the **still-open critical path**, and Exp1–Exp5 stay blocked on that capture. Nothing here upgrades the research/experiment status, which is unchanged since v10.3 (the v10.6/v10.7 slices are correctness/robustness + spec-audit/statistics-plan only — see CHANGELOG). The `(v10.4)`/`(v10.5)` tags below mark when a component first landed.
 
 ```mermaid
 flowchart TD
@@ -25,14 +25,14 @@ flowchart TD
     classDef gate fill:#e65100,stroke:#ef6c00,color:#fff;
     classDef blocked fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
 
-    Exp0["Exp0 estimator + geometry gate<br/>verdict = PIVOT on synthetic high-d<br/>(runnable: just exp0 / just exp0-bin)"]:::gate
+    Exp0["Exp0 estimator + geometry gate<br/>verdict = NO-GO on synthetic high-d (pid-rs 0.4.0)<br/>(runnable: just exp0 / just exp0-bin)"]:::gate
 
     subgraph Today["Runnable today (gate-passing analysis spine)"]
         Harness["Offline (V,L,D,A) harness<br/>PID screens + non-PID baselines"]:::run
         ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest (v10.4)"]:::run
         Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (v10.4)"]:::run
         Attr["attribution probe (H9, faithfulness-checked)"]:::run
-        Obs["ncp-observer tap pinned NCP v0.5.3 (v10.7)<br/>exploratory, off critical path"]:::run
+        Obs["ncp-observer tap pinned NCP v0.5.3 (v10.5)<br/>exploratory, off critical path"]:::run
     end
 
     Capture["OPEN CRITICAL PATH<br/>real downloaded VLA capture + labels<br/>(NOT done)"]:::blocked
@@ -53,7 +53,7 @@ flowchart TD
     Capture -. blocks .-> E1 & E2 & E3 & E4 & E5
 ```
 
-*Caption: v10.7 pipeline state — orange = Exp0 gate (PIVOT, runnable); green = runnable analysis/adapter/observer spine; red dashed = the still-open real-VLA capture and the Exp1–Exp5 protocols it blocks.*
+*Caption: v10.7 pipeline state — orange = Exp0 gate (NO-GO, runnable); green = runnable analysis/adapter/observer spine; red dashed = the still-open real-VLA capture and the Exp1–Exp5 protocols it blocks.*
 
 ---
 
@@ -72,7 +72,7 @@ flowchart TB
         H1["H1 PID/CI predicts failure beyond baselines"]:::core
         H4["H4 Memorization vs generalization PID shifts"]:::core
         H5["H5 Long-horizon temporal PID/CI degradation<br/>(CI-only ablation mandatory)"]:::core
-        H7["H7 Flow-as-Bridge stage-wise diagnostics (method)"]:::core
+        H7["H7a method + H7b hypothesis<br/>(Flow-as-Bridge; §14.1 v10.7 split)"]:::core
         H8["H8 Geometry diagnostics select estimator regime (method)"]:::core
     end
 

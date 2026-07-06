@@ -4,12 +4,14 @@
 
 ## Docset v10.7 (2026-07-06)
 
-First-principles spec audit + statistics-plan slice. **No research/estimator/experiment
-status change** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls and the
-open critical path is still the first real-VLA capture (not done). Produced by a
+First-principles spec audit + statistics-plan slice. **No research-conclusion
+change** — the Exp0 gate still blocks continuous-atom interpretation on synthetic
+high-d controls (verdict label now **NO-GO** under pid-rs 0.4.0, see the Addendum;
+PIVOT under 0.3.0) and the open critical path is still the first real-VLA capture
+(not done). Produced by a
 five-agent audit of `grandplan.md` against the pid-rs code, the NCP repo, first-principles
 mathematics, hostile study-design review, and citation verification, plus a 104-agent
-adversarially-verified July-2026 literature sweep. No Rust code changed in this slice.
+adversarially-verified July-2026 literature sweep. No prisoma Rust code changed in this slice (the Addendum bumps the pid-rs submodule pointer + lockfile).
 
 ### Fixed (mathematical/precision errors in the docset)
 
@@ -45,11 +47,14 @@ adversarially-verified July-2026 literature sweep. No Rust code changed in this 
   effect sizes), and a mandatory minimal baseline set (SAFE-class logreg, predictive
   entropy, majority/1-NN/centroid, one ensemble/temperature variant).
 - **New §9.7.2b:** dedicated H2/H3 ablation-sensitivity protocol on the V0–V4/W0–W4 axes.
-- Decision rules repaired: SSI made sign-safe (`1 − IQR/(|median|+ε)`; the old
-  `1 − Var/Mean` explodes when median Syn ≈ 0 or flips sign); the 3-of-5 vs 4-of-6
+- Decision rules repaired: SSI made sign-safe — final form (same-day addendum)
+  `SSI := −IQR(Syn)` per preregistered perturbation axis, Tukey quartiles, in nats
+  (the old `1 − Var/Mean` explodes when median Syn ≈ 0 or flips sign, and the
+  intermediate `1 − IQR/(|median|+ε)` normalization was still unstable near zero); the 3-of-5 vs 4-of-6
   publication gates reconciled into one canonical rule (OOD + task-difficulty must-pass;
-  embodiment-gap must-pass for H7b claims); the permutation placebo now uses
-  permutation-distribution quantiles (fixed 0.55 exceeds chance at small n); §9.6
+  embodiment-gap must-pass for H7b claims); the permutation placebo criterion
+  replaced (final form in the Addendum: distribution-centered-at-chance test; the
+  old fixed 0.55 threshold exceeds chance at small episode counts); §9.6
   "conditional success" pivots require held-out replication; §18.2.5 "unique
   interpretability" GO operationalized as a PID-vs-entropy guided-intervention test;
   memorization-index stratification restricted to pre-outcome quantities; VLA-Arena
@@ -82,18 +87,59 @@ adversarially-verified July-2026 literature sweep. No Rust code changed in this 
 - §11.2 project tree redrawn to reality (pid-rs is a submodule — estimator crates are
   NOT under `crates/`; `experiments/{safe_adapter,attribution}` are tracked packages;
   `scripts/`, `tests/`, `meshmaker/`, `crates/ncp-observer` shown).
-- "General n-source SxPID" corrected to **2–4 sources** everywhere (`discrete_sxpid_n`
+- "General n-source SxPID" corrected to **2–4 sources** at every current-state site (`discrete_sxpid_n`
   errors above 4); pid-rs 0.3.0 noted as a crate-version/commit pin (upstream has no
   v0.3.0 git tag); §15.2.1–15.2.2 SIMD/streaming sketches labeled **not implemented**
   (the shipped path is brute-force exact kNN + the optional `parallel` rayon feature);
   §8.3.2 marks which of its three recommendations exist.
-- NCP pin prose synced to **v0.5.3** (manifest was re-pinned in `ea779fd` but nine doc
-  sites still said v0.5.2: `README.md`, `AGENTS.md`, `NCP_DEV_PROMPT.md` ×3,
+- NCP pin prose synced to **v0.5.3** (manifest was re-pinned in `ea779fd` but eight files
+  — 11 prose sites — still said v0.5.2: `README.md`, `AGENTS.md`, `NCP_DEV_PROMPT.md` ×3,
   `crates/ncp-observer/README.md` ×2, root `Cargo.toml` comment, `DIAGRAMS.md`,
   `RESEARCH_VLA_D_NCP.md`, `REVIEW_AND_TODO.md`). Wire-identical; `CONTRACT_HASH`
   unchanged `24e8e6e31e1dec8a`; v0.5.3 is NCP-local fail-closed safety hardening.
 - `grandplan.md` B.7 version-history table had no v10.6 row and still marked 10.5 as
   "(Current)"; added 10.6 + 10.7 rows and moved the marker.
+
+### Addendum (same day — triple-check pass)
+
+Three independent verification passes (hunk-by-hunk diff verifier, upstream pid-rs
+auditor, hostile referee review of the new statistical content) drove a second
+round of repairs; no research-conclusion change.
+
+- **Statistical repairs to the v10.7 additions themselves:** H2 primary endpoint
+  re-unitized from task families (n≈4 — untestable) to **tasks** with family-blocked
+  bootstrap; H3 endpoint redefined as **mean per-case Kendall τ** across ≥ 20 matched
+  cases (a 3-item Spearman is not a statistic; minimum effect τ̄ ≥ 1/3); §9.7.2b
+  strength matching made outcome-independent (equal-success-impact calibration was
+  circular for H3); §14.2.2 permutation placebo re-based on the
+  distribution-centered-at-chance test (the quantile-of-own-distribution version
+  fired 2.5% always and missed wholesale leakage); H9 criterion fully specified
+  (per-case τ, tie/Syn-dominance rules, family-blocked case bootstrap, negative CI =
+  affirmative disconfirmation, argmax-identity wording); §14.8.2 gained the
+  regime-multiplicity rule + an explicit error-rate statement; §14.8.3 scoped to
+  H1–H4 with per-endpoint analysis units and a CI-based H1 futility bound;
+  clamped/unclamped reporting scoped by claim type (negativity claims are
+  unclamped-only by definition); H5 windowing now inherits §9.0 fully (within-window
+  stride, post-stride `N_win`, outcome stratification); RoPE score notation fixed
+  (`Var_pos/Var_sem`); directional α; §9.3.2 aligned to the incremental H1 contrast.
+- **Verifier fixes:** three GFM-breaking table rows (raw pipes in cells: SSI, MAR,
+  B.7 v10.2) escaped; Bonferroni cross-ref §14.5.2 → §14.5.1; survey date
+  standardized (June 2026); H6 registry cell → "Deferred"; `ARCHITECTURE.md` /
+  `EXPERIMENTS.md` stamps → v10.7; DIAGRAMS H7 node split + observer landing-tag
+  restored (v10.5); PixelVLA range un-abbreviated in the notes; memorization
+  indicators labeled (a)/(b)/(c).
+- **pid-rs 0.4.0 adopted:** upstream audited clean of every docset error class;
+  **v0.4.0 released** upstream (CountSketch sign fix, true moving-block bootstrap,
+  exp0 `NegativeHandling::Allow`, bias-corrected Levina–Bickel, Python API cleanup —
+  breaking under 0.x, hence 0.4.0) with retroactive v0.3.0 + release v0.4.0 tags;
+  submodule re-pinned `7e8f16d` → v0.4.0; `repin-pidrs.sh` consumer default renamed
+  pid_vla → prisoma. **Consequence: the Exp0 verdict on the synthetic high-d
+  controls is now NO-GO** (3 invariant-bound violations surfaced, e.g. v̄ ≈ −26.6 on
+  `unique_s1_pca` d=64; ID(t) 1.14 → 1.01 confirms the old value was estimator
+  bias) — a stricter gate, not a science change; `findings.md` updated.
+- **Docs:** `AGENTS.md`, `CLAUDE.md`, `README.md` professionally restructured
+  (content-preserving; AGENTS.md's two ~600-word single-bullet inventories are now
+  organized sections).
 
 ## Docset v10.6 (2026-07-05)
 
@@ -207,7 +253,7 @@ critical path is still the first real-VLA capture (not done). The discrete-harne
   workspace version is `0.3.0`; upstream has **not** cut a `v0.3.0` git *tag* yet, so
   `git describe` reports `v0.2.0-22-g7e8f16d`. The crate version, not a tag, is 0.3.0. 0.3.0
   adds a *genuine* discrete shared-exclusions PID (`sxpid.rs`: `discrete_sxpid2` /
-  `discrete_sxpid3`, plus general n-source SxPID), numerical-stability hardening across
+  `discrete_sxpid3`, plus n-source SxPID [sic — 2–4 sources; see v10.7]), numerical-stability hardening across
   the estimators, criterion benchmarks, and a run-log `logical_trace_hash` (wall-clock-
   excluded logical hash). prisoma's `crates/pid-rerun` was updated for the new
   `pid_runlog::RunManifest.logical_trace_hash` field; the whole workspace + the excluded

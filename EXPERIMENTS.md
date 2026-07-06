@@ -11,7 +11,7 @@
 
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** 10.6 (Aligned with `grandplan.md` v10.6)  
+**Version:** 10.7 (Aligned with `grandplan.md` v10.7)  
 **Date:** 2026-06-22  
 **Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, external video predictor / Dream2Flow-style pipeline, and the Agent Bridge control plane) are external or not yet implemented in this repo; treat them as specifications until built.
 
@@ -64,13 +64,13 @@ PID/CI hypotheses below inherit **two prerequisites**:
 | **H8** Geometry gate chooses estimator regime | Exp0 | geometry diagnostics + synthetic controls | GO/PIVOT/NO-GO decision for continuous PID vs discrete PID vs MI-only screening | Noise-dimension invariance, monotonicity/CMI checks, intrinsic dimension, distance concentration |
 | **H9** Attribution probes triangulate PID claims | Exp1, Exp3, Exp4 | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style scores on the same logged samples | Agreement or principled disagreement with PID uniques/synergy under controlled interventions; incremental failure-prediction value | Model/data randomization sanity checks, baseline/background sensitivity, deletion/occlusion tests, attention-not-explanation caveat |
 
-### 0.2 Runbook: What Is Executable Today vs Blocked (v10.6, 2026-07-05)
+### 0.2 Runbook: What Is Executable Today vs Blocked (v10.7, 2026-07-06)
 
 This table is the self-sufficient entry point: it maps the run order onto current tooling, expected outcomes, and blockers. Commands assume `just` (each recipe wraps plain `cargo` commands listed in `README.md`/`AGENTS.md`).
 
 | Step | What | How (today) | Gate / expected outcome | Canonical reference |
 |---|---|---|---|---|
-| 1 | Toolchain + estimator gate (Exp0) | `cargo test`; `just exp0` / `just exp0-bin` / `just exp0-runlog` (CI: `--strict-gate`); opt-in uncertainty: `just exp0-uncertainty` (`--bootstrap`/`--permutation`) | All tests pass; Exp0 verdict on synthetic high-d controls is currently **PIVOT/NO-GO** — expected, and blocking for continuous-atom claims. With UQ enabled, the preregistered permutation marginal-significance check is 8/8 at the favourable dimension | `grandplan.md` §9.1; `findings.md` |
+| 1 | Toolchain + estimator gate (Exp0) | `cargo test`; `just exp0` / `just exp0-bin` / `just exp0-runlog` (CI: `--strict-gate`); opt-in uncertainty: `just exp0-uncertainty` (`--bootstrap`/`--permutation`) | All tests pass; Exp0 verdict on synthetic high-d controls is currently **NO-GO** (pid-rs 0.4.0; PIVOT under 0.3.0) — expected, and blocking for continuous-atom claims. With UQ enabled, the preregistered permutation marginal-significance check is 8/8 at the favourable dimension | `grandplan.md` §9.1; `findings.md` |
 | 2 | Run-log spine + replay + bridge smokes | `just runlog-demo`, `runlog-validate`, `runlog-replay`, `runlog-bridge-*`, `runlog-sim-verify`, `runlog-rerun` | `valid=true`, `errors=0`; deterministic replay; simulator-derived `Flow_gt` verified | `grandplan.md` §A.8.2 steps 2–6 |
 | 3 | Labeled toy pipeline end-to-end | `just toy-harness` | Canonical labeled artifacts validate; not VLA evidence | `grandplan.md` §A.7 (M5 rehearsal) |
 | 4 | Offline `(V,L,D,A)` harness, all three PID modes | `just offline-harness`, `offline-harness-require-*`, `offline-harness-strict`, `offline-harness-discrete`, `offline-harness-discrete-pls` | Strict mode exits nonzero on geometry warnings (by design); discrete modes report `saturation_warning=true` on the tiny fixtures (by design — the §8.1.6 gate) | `grandplan.md` §8.1.6, §8.2.3 |

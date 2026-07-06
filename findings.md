@@ -4,7 +4,7 @@
 
 Experiment 0 tests Partial Information Decomposition (PID) estimators on synthetic data with known ground truth. The results show systematic issues that need to be understood before proceeding to real VLA analysis.
 
-**Status**: PIVOT (geometry warnings + an MI-consistency/coherence violation observed; proceed only with a validated measurement regime)
+**Status**: **NO-GO under pid-rs 0.4.0** (2026-07-06 re-run; was PIVOT under 0.3.0). The 0.4.0 correctness pass — bias-corrected Levina–Bickel intrinsic dimension, unclamped MI terms (`NegativeHandling::Allow`), the true moving-block bootstrap, and the CountSketch sign fix — surfaces **3 invariant-bound violations** (e.g. r̄ ≈ 28.6, v̄ ≈ −26.6 on `unique_s1_pca` d=64) that clamping had masked, on top of the unchanged geometry warnings. This is the gate getting *stricter*, not the science changing: continuous kNN PID atoms remain uninterpretable on these synthetic high-d controls, now with a harder verdict. Proceed only with a validated measurement regime.
 
 **Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. These findings justify the first step of the 10-step plan: keep Exp0/geometry gates strict, then build run-log/replay/Rerun diagnostics before any Tauri/SparkJS product shell or VLA claim.
 
@@ -32,9 +32,9 @@ Experiment 0 tests Partial Information Decomposition (PID) estimators on synthet
 
 **Root Cause**: Curse of dimensionality for kNN-based estimation.
 
-### Constant ID(t) ≈ 1.14
+### Constant ID(t) ≈ 1.01 (was ≈ 1.14 under pid-rs 0.3.0)
 
-The target T is always 1-dimensional (scalar). The ~14% overestimate is typical finite-sample bias in Levina-Bickel ID estimation.
+The target T is always 1-dimensional (scalar). Under pid-rs 0.3.0 the estimate was ≈ 1.14 — the documented ~14% finite-sample bias of uncorrected Levina–Bickel. pid-rs 0.4.0's bias-corrected estimator (the k−2 correction) now reads ID(t) ≈ 1.01, confirming that interpretation: the bias was estimator-side, and correcting it recovers the true dimension almost exactly.
 
 ---
 
@@ -67,7 +67,7 @@ This creates an **adversarial setting** for kNN estimation:
 
 | Metric | Observed | Heuristic flag (rule-of-thumb) | Interpretation |
 |--------|----------|---------------|----------------|
-| ID(s1,s2) | 28-42 | “low” (e.g., < 15) | Data fills high-dimensional space |
+| ID(s1,s2) | ≈26–37 (pid-rs 0.4.0 bias-corrected; 28–42 under 0.3.0) | “low” (e.g., < 15) | Data fills high-dimensional space |
 | DCcv | 0.12-0.16 | “not too small” (e.g., > 0.3) | Distance concentration occurring |
 | d_rel | 0.07-0.09 | “not too small” (e.g., > 0.15) | Tree-like/concentrated geometry |
 
@@ -238,7 +238,7 @@ High-level takeaway (verify exact statements in the paper): KSG MI exhibits a bi
 The project anticipated this issue:
 > "H8: Geometry gate metrics predict a valid estimator regime"
 
-The geometry diagnostics (ID, DCcv, d_rel) are designed to **detect** when the estimator will fail - not to fix it. The exp0 "PIVOT" status is the geometry gate working as designed.
+The geometry diagnostics (ID, DCcv, d_rel) are designed to **detect** when the estimator will fail - not to fix it. The exp0 verdict on these controls ("PIVOT" under pid-rs 0.3.0, "NO-GO" under 0.4.0's stricter unclamped/bias-corrected diagnostics) is the gate working as designed.
 
 **The escape hatch is H7 ("Flow-as-Bridge")**:
 > "3D Object Flow as Embodiment-Agnostic Integration Diagnostic"
@@ -321,5 +321,5 @@ This destroys the discriminative power of nearest-neighbor methods.
 
 ---
 
-*Last updated: 2026-07-06 (docset v10.7 — δ-hyperbolicity direction corrected, r̄≈1 reading narrowed to "additive", distance-concentration claims conditioned on the Beyer et al. hypotheses)*
+*Last updated: 2026-07-06 (docset v10.7 — δ-hyperbolicity direction corrected, r̄≈1 reading narrowed to "additive", distance-concentration claims conditioned on the Beyer et al. hypotheses; same-day addendum: re-run under pid-rs 0.4.0 — verdict PIVOT → NO-GO, ID(t) 1.14 → 1.01, joint-ID range updated)*
 *Based on analysis of exp0.rs, experimental output, and implementation of PLS + discrete PID (now wired into the offline harness with saturation diagnostics)*
