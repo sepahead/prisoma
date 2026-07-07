@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Changed
+
+- **Re-pinned `ncp-observer` to NCP `v0.6.0` (the wire-0.6 enforcement cut) and
+  enforced the wire contract on ingress** (commit `c48d70b`). Wire 0.6 is a
+  *semantic* break with an unchanged serialization, so `CONTRACT_HASH` stays
+  `24e8e6e31e1dec8a` — the `ncp_version` string (`0.5` → `0.6`), not the hash,
+  gates compatibility. The three data-plane subscribers now decode through
+  `ncp_core::decode_validated`, so a version-less, incompatible, or unstamped
+  (`seq < 1`) frame is dropped and counted instead of being fed into the
+  `(V, L, D, A)` join; a new `accept_observation` helper additionally counts
+  valid-but-unstamped plane observations (`seq == 0`, recency-fallback D) so a
+  D-degraded capture is diagnosable. **Gap 1 (D `seq`-alignment): the protocol
+  half is now resolved** — wire 0.6 makes plane-published
+  `ObservationFrame.seq >= 1` (echoing the driving `SensorFrame.seq`) normative
+  and the observer enforces it; the residual is purely that the Engram publisher
+  must stamp `obs.seq`. The pinned pid-rs submodule is unchanged.
+
 ## Docset v10.7 (2026-07-06)
 
 First-principles spec audit + statistics-plan slice. **No research-conclusion
