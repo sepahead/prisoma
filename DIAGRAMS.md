@@ -32,7 +32,7 @@ flowchart TD
         ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest (v10.4)"]:::run
         Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (v10.4)"]:::run
         Attr["attribution probe (H9, faithfulness-checked)"]:::run
-        Obs["ncp-observer tap pinned NCP v0.5.3 (v10.5)<br/>exploratory, off critical path"]:::run
+        Obs["ncp-observer tap pinned NCP v0.6.0<br/>exploratory, off critical path"]:::run
     end
 
     Capture["OPEN CRITICAL PATH<br/>real downloaded VLA capture + labels<br/>(NOT done)"]:::blocked

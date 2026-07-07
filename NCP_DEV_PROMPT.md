@@ -80,7 +80,15 @@ Already correct (do not regress):
 
 ## 4. Workstreams (the three gaps, in priority order)
 
-### Gap 1 — D alignment on `seq` (DONE in-repo; residual is purely external)
+### Gap 1 — D alignment on `seq` (DONE in-repo + protocol now mandates it; residual is purely the producer)
+
+**Update (NCP v0.6.0):** wire 0.6 makes plane-published `ObservationFrame.seq >= 1`
+(echoing the driving `SensorFrame.seq`) **normative** — the NCP side is resolved and
+the observer now enforces it on ingress (`decode_validated` drops version-less/
+incompatible/unstamped frames; a valid-but-unstamped plane observation is counted so
+a recency-degraded capture is diagnosable). The only residual is that the Engram
+publisher must actually stamp `obs.seq`, which the contract now requires.
+
 `ObservationFrame` **carries `seq`**, and the prisoma observer joins D on it:
 `Observer::on_observation` stores each readout in `d_by_seq[obs.seq]`, completed ticks
 are held for a reorder grace window so a readout that arrives *after* its tick's
@@ -149,10 +157,10 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
 
 `ncp-observer` is **kept off the default cargo workspace** (`Cargo.toml` `exclude`)
 to keep NCP/Zenoh off the critical path; it git-depends on the published NCP repo
-<https://github.com/sepahead/NCP> (tag `v0.5.3`). Build/test it explicitly:
+<https://github.com/sepahead/NCP> (tag `v0.6.0`). Build/test it explicitly:
 
 ```bash
-# build + test (pulls NCP from https://github.com/sepahead/NCP, tag v0.5.3)
+# build + test (pulls NCP from https://github.com/sepahead/NCP, tag v0.6.0)
 cargo build --manifest-path crates/ncp-observer/Cargo.toml
 cargo test  --manifest-path crates/ncp-observer/Cargo.toml
 
@@ -166,7 +174,7 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json 
 ```
 
 The `ncp-core` / `ncp-zenoh` deps in `crates/ncp-observer/Cargo.toml` resolve from the
-published NCP repo <https://github.com/sepahead/NCP> (tag `v0.5.3`), so no sibling
+published NCP repo <https://github.com/sepahead/NCP> (tag `v0.6.0`), so no sibling
 checkout is needed; the crate is kept off the default workspace to keep NCP/Zenoh off the
 critical path.
 

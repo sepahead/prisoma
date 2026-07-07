@@ -130,11 +130,16 @@ the same information flow as the NEST simulator?
 
 ## Compatibility & versioning
 
-Pinned to NCP **`v0.5.3`** (`Cargo.toml`), excluded from the default workspace.
-(`v0.5.1`–`v0.5.3` are wire-identical patch bumps on the 0.5 stable wire that was
-cut at `v0.5.0`, so `CONTRACT_HASH` is unchanged at `24e8e6e31e1dec8a`; `v0.5.3`
-additionally hardens NCP's local fail-closed safety behaviour, which does not
-affect this read-only tap's decoding.)
+Pinned to NCP **`v0.6.0`** (`Cargo.toml`), excluded from the default workspace.
+`v0.6.0` is the **wire-0.6 enforcement cut**: a *semantic* break (`ncp_version`
+mandatory on every message; `sensor_frame`/`command_frame` must stamp `seq >= 1`;
+an `observation_frame` published on the plane must echo the driving
+`SensorFrame.seq >= 1`) with an **unchanged serialization**, so `CONTRACT_HASH`
+stays `24e8e6e31e1dec8a` — the `ncp_version` string (`0.5 → 0.6`), not the hash,
+gates compatibility. This tap enforces it on ingress: `decode_validated` drops (and
+counts) a version-less / incompatible / unstamped frame, and it counts
+plane-published observations that arrive without a stamped `seq` (recency-fallback
+D join) so a degraded capture is diagnosable rather than silent.
 This observer reads only the generic data planes
 (`SensorFrame`/`CommandFrame`/`ObservationFrame` → opaque value/time vectors), so it
 is unaffected by NCP's neural enums. The one frame the old `v0.1.0` pin could not
@@ -154,6 +159,6 @@ information flow the NEST simulator does?
 ## Build note
 
 This crate git-depends on the published NCP repo <https://github.com/sepahead/NCP>
-(tag `v0.5.3`) and pulls Zenoh, so it is heavier than the pure-PID crates. The
+(tag `v0.6.0`) and pulls Zenoh, so it is heavier than the pure-PID crates. The
 estimator gates (`just exp0`, `just exp0-bin`, etc.) run the pid-rs crates via
 `--manifest-path pid-rs/crates/...` and are unaffected.

@@ -1151,8 +1151,8 @@ dependencies = [
 
 [[package]]
 name = "ncp-core"
-version = "0.5.3"
-source = "git+https://github.com/sepahead/NCP?tag=v0.5.3#bcd6db978f3182531c7e8baabd2e55ff504bdb6d"
+version = "0.6.0"
+source = "git+https://github.com/sepahead/NCP?tag=v0.6.0#02f3d7be7db39feb3eb59253c6fb5b7260cbf1e7"
 dependencies = [
  "serde",
  "serde_json",
@@ -1173,8 +1173,8 @@ dependencies = [
 
 [[package]]
 name = "ncp-zenoh"
-version = "0.5.3"
-source = "git+https://github.com/sepahead/NCP?tag=v0.5.3#bcd6db978f3182531c7e8baabd2e55ff504bdb6d"
+version = "0.6.0"
+source = "git+https://github.com/sepahead/NCP?tag=v0.6.0#02f3d7be7db39feb3eb59253c6fb5b7260cbf1e7"
 dependencies = [
  "ncp-core",
  "serde",
@@ -1445,7 +1445,7 @@ dependencies = [
 
 [[package]]
 name = "pid-runlog"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "serde",

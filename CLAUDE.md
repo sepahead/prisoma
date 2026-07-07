@@ -50,11 +50,11 @@ equivalents in `AGENTS.md`. `just test` / `just docs-audit` wrap the above.
 - **pid-rs is a submodule.** After cloning, `git submodule update --init`. Estimator
   binaries run via `--manifest-path pid-rs/crates/pid-core/Cargo.toml`.
 - **ncp-observer is workspace-excluded.** It git-depends on the published NCP repo (tag pin,
-  currently `v0.5.3`) and pulls Zenoh, so build it with
+  currently `v0.6.0`) and pulls Zenoh, so build it with
   `--manifest-path crates/ncp-observer/Cargo.toml`, never `-p` from the repo root. It is an
   optional, exploratory-only `(V,L,D,A)` source — not on the M5 critical path (which is
   `experiments/safe_adapter`).
 - **NCP is a sibling repo** (`../NCP`), pinned by tag. If you change the NCP wire, this
   repo's `ncp-observer` must be re-pinned and re-verified, **and every doc site stating the
-  pin must be updated in the same change** (the v0.5.2→v0.5.3 re-pin initially left nine
+  pin must be updated in the same change** (the v0.5.2→v0.6.0 re-pin initially left nine
   stale prose sites; don't repeat that). See `../NCP/AGENTS.md`.

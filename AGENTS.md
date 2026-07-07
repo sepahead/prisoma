@@ -135,7 +135,7 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
   nothing (the Agent Bridge stays the only control plane), and all NCP-specific mapping
   lives in this crate.
 - **Pinned dependency:** git-depends on the published NCP repo
-  (<https://github.com/sepahead/NCP>, tag `v0.5.3`) and pulls Zenoh — no sibling checkout
+  (<https://github.com/sepahead/NCP>, tag `v0.6.0`) and pulls Zenoh — no sibling checkout
   required.
 - **Workspace-excluded by design:** it is in `Cargo.toml` `exclude`, not a member, because a
   broken dependency in a *member* would fail manifest resolution for **every** `cargo`

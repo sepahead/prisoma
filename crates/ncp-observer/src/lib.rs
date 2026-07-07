@@ -1102,7 +1102,11 @@ mod tests {
         // Zenoh callback / release wrap that wedges the capture).
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
         obs.on_observation(&observation(i64::MAX, vec![1.0]));
-        obs.on_sensor(&sensor(i64::MAX, 0.0, &[("pose", vec![1.0]), ("instruction", vec![0.5])]));
+        obs.on_sensor(&sensor(
+            i64::MAX,
+            0.0,
+            &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+        ));
         obs.on_command(&command(i64::MAX, 0.0, &[("v", vec![0.1])]));
         obs.on_sensor(&sensor(i64::MIN + 1, 0.0, &[("pose", vec![2.0])]));
         obs.on_command(&command(i64::MIN + 1, 0.0, &[("v", vec![0.2])]));
