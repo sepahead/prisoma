@@ -409,6 +409,14 @@ impl BridgeHandler for SimBridgeHandler {
             }
             BridgeMethod::SceneSetObject => {
                 let object = serde_json::from_value::<SimObject>(request.payload.clone())?;
+                // Same fail-closed input discipline as intervention.apply: an
+                // accepted-but-invalid object (empty id, non-finite pose or
+                // velocity) would be rejected only later, when the emitted
+                // SimSnapshot fails run-log validation — poisoning the log
+                // instead of the request that caused it.
+                validate_object_id(&object.object_id)?;
+                validate_pose_finite(&object.pose)?;
+                validate_vec3_finite(object.velocity, "object velocity")?;
                 self.sim.upsert_object(object);
                 Ok(self.status_json())
             }
@@ -2177,6 +2185,86 @@ mod tests {
         assert_eq!(state.artifacts.len(), 0);
 
         let _ = std::fs::remove_file(source);
+    }
+
+    #[test]
+    fn scene_set_object_rejects_invalid_input_without_poisoning_the_log() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-scene-validate".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "scene-validate");
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::new(writer, sim);
+
+        // Empty object_id: rejected at the request (same discipline as
+        // intervention.apply), instead of being accepted and poisoning the
+        // next SimSnapshot's validation.
+        let bad = bridge_request(
+            "req-empty-id",
+            BridgeMethod::SceneSetObject,
+            actor.clone(),
+            Some(0),
+            0,
+            json!({
+                "object_id": "",
+                "pose": {
+                    "position": [0.0, 0.0, 0.0],
+                    "orientation_xyzw": [0.0, 0.0, 0.0, 1.0]
+                },
+                "velocity": [0.0, 0.0, 0.0]
+            }),
+        );
+        let response = session.dispatch(&bad).unwrap();
+        assert!(!response.ok, "empty object_id must be rejected");
+        assert!(
+            response
+                .message
+                .as_deref()
+                .unwrap_or_default()
+                .contains("object_id"),
+            "{:?}",
+            response.message
+        );
+
+        // A valid request afterwards still succeeds, the rejected one left no
+        // scene action, and the whole log still validates.
+        let good = bridge_request(
+            "req-good-object",
+            BridgeMethod::SceneSetObject,
+            actor,
+            Some(0),
+            0,
+            json!({
+                "object_id": "green_cube",
+                "pose": {
+                    "position": [0.4, 0.0, 0.025],
+                    "orientation_xyzw": [0.0, 0.0, 0.0, 1.0]
+                },
+                "velocity": [0.0, 0.0, 0.0]
+            }),
+        );
+        assert!(session.dispatch(&good).unwrap().ok);
+        session
+            .finish_run(RunStatus::Succeeded, None)
+            .expect("finish run");
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events);
+        let scene_actions = state
+            .actions
+            .iter()
+            .filter(|action| action.action_type == "scene.set_object")
+            .count();
+        assert_eq!(scene_actions, 1, "only the valid set_object is an action");
+        let report = pid_runlog::validate_events(&events);
+        assert!(
+            report.is_valid(),
+            "rejected scene.set_object must not poison run-log validity: {:?}",
+            report.issues
+        );
     }
 
     #[test]
