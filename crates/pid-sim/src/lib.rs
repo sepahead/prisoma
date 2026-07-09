@@ -331,6 +331,16 @@ impl SimStepResult {
             .collect()
     }
 
+    /// Baseline flow "predictions" for this step.
+    ///
+    /// **Read the semantics before citing numbers from this.** The
+    /// constant-velocity baseline is emitted at the *same* step whose
+    /// `flow_gt` it echoes, so in the no-intervention case its prediction
+    /// error is trivially zero — which is *correct* for this deterministic
+    /// kinematic sim (constant velocity is the exact model), but it is a
+    /// baseline record for the run-log schema, **not** evidence about any
+    /// predictor. A real predictor evaluation needs a forecast emitted before
+    /// the ground truth it is scored against.
     pub fn flow_pred_events(&self) -> Vec<RunLogEvent> {
         self.flow_gt
             .iter()

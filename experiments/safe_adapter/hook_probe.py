@@ -67,11 +67,23 @@ def _ridge_fit(x: np.ndarray, y: np.ndarray, l2: float) -> np.ndarray:
 
 
 def _r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    ss_res = float(np.sum((y_true - y_pred) ** 2))
-    ss_tot = float(np.sum((y_true - y_true.mean()) ** 2))
-    if ss_tot == 0.0:
+    """Multioutput R² with **per-column** means (uniform average).
+
+    Using the global scalar mean for ``ss_tot`` inflates the total sum of
+    squares whenever target columns have different means (e.g. heterogeneous
+    physical units), which inflates R² and can reorder ``peak_layer``. This is
+    the ``sklearn.metrics.r2_score(..., multioutput="uniform_average")``
+    convention, computed per column and averaged over columns with nonzero
+    variance.
+    """
+    y_true = np.atleast_2d(y_true.T).T  # (n,) -> (n, 1); (n, k) unchanged
+    y_pred = np.atleast_2d(y_pred.T).T
+    ss_res = np.sum((y_true - y_pred) ** 2, axis=0)
+    ss_tot = np.sum((y_true - y_true.mean(axis=0)) ** 2, axis=0)
+    valid = ss_tot > 0.0
+    if not np.any(valid):
         return 0.0
-    return 1.0 - ss_res / ss_tot
+    return float(np.mean(1.0 - ss_res[valid] / ss_tot[valid]))
 
 
 def probe_layer(
