@@ -408,6 +408,8 @@ fn write_metric_events<W: Write>(
         let mut metadata = BTreeMap::new();
         metadata.insert("category".to_string(), category.to_string());
         let event = if category == "pid" {
+            // Information quantities are in nats (pid-core convention).
+            metadata.insert("units".to_string(), "nats".to_string());
             RunLogEvent::PidMetric {
                 step: report.samples.len() as u64,
                 timestamp_ns: timestamp_base_ns + idx as u64,

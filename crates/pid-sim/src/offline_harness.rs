@@ -4070,6 +4070,10 @@ fn offline_vlda_pid_metric_metadata(
     train_pid: Option<&OfflineVldaTrainSplitPidReport>,
 ) -> BTreeMap<String, String> {
     let mut metadata = offline_vlda_pid_scope_metadata(report, train_pid);
+    // Every information quantity in this crate is in nats (pid-core convention,
+    // both KSG/I^sx continuous and plug-in discrete paths). Stamp it so a
+    // standalone JSONL consumer never has to guess nats vs bits.
+    metadata.insert("units".to_string(), "nats".to_string());
     let metric = name
         .strip_prefix("offline_vlda.pid.train_split.")
         .or_else(|| name.strip_prefix("offline_vlda.pid."))
