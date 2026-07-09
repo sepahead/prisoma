@@ -447,8 +447,17 @@ struct ToyRng {
 
 impl ToyRng {
     fn new(seed: u64) -> Self {
+        // xorshift has a single absorbing zero state, and `seed ^ CONST` hits it
+        // for the (user-settable) seed == 0x9E37_79B9_7F4A_7C15 — which would
+        // degenerate the whole stream to a constant. Remap that one state to a
+        // fixed odd constant so every seed yields a full-period stream.
+        let state = seed ^ 0x9E37_79B9_7F4A_7C15;
         Self {
-            state: seed ^ 0x9E37_79B9_7F4A_7C15,
+            state: if state == 0 {
+                0x2545_F491_4F6C_DD1D
+            } else {
+                state
+            },
         }
     }
 
@@ -478,6 +487,16 @@ impl ToyRng {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn toy_rng_survives_the_zero_state_seed() {
+        // seed == the xor constant used to hit the xorshift absorbing zero state.
+        let mut rng = ToyRng::new(0x9E37_79B9_7F4A_7C15);
+        let a = rng.next_u64();
+        let b = rng.next_u64();
+        assert!(a != 0 || b != 0, "stream is stuck at zero");
+        assert_ne!(a, b, "stream is constant");
+    }
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_path(name: &str) -> std::path::PathBuf {

@@ -57,7 +57,9 @@ pub struct PhysicsStepReport {
 
 /// Trait abstracting over rigid-body physics engines.
 ///
-/// Implementations must be deterministic given the same seed and inputs.
+/// Implementations must be deterministic given the same inputs. The trait
+/// carries no RNG seed; a stochastic backend must own a seeded RNG and
+/// document it.
 pub trait PhysicsBackend {
     /// Human-readable backend name (e.g. "rapier3d", "deterministic_object").
     fn name(&self) -> &str;
@@ -98,7 +100,8 @@ pub trait PhysicsBackend {
 // Null backend (always available, used for testing the trait contract)
 // ---------------------------------------------------------------------------
 
-/// A no-op physics backend for testing the trait contract.
+/// A minimal kinematic backend for testing the trait contract: no forces,
+/// collisions, or gravity — it Euler-integrates each body's constant velocity.
 pub struct NullPhysicsBackend {
     bodies: Vec<RigidBodyState>,
     step_count: u64,

@@ -48,8 +48,12 @@ def test_contract_rejects_ragged_and_nonfinite():
 
 
 def test_contract_round_trips_and_writes(tmp_path):
+    # >= 8 samples: verify.py mirrors the Rust harness's hard minimum.
     ds = VldaDataset(
-        samples=[_sample("e0--t0", success=True), _sample("e1--t0", success=False, split="test")],
+        samples=[
+            _sample(f"e{i}--t0", success=(i % 2 == 0), split="train" if i < 6 else "test")
+            for i in range(8)
+        ],
         run_id="r",
         source="vla-safe/SAFE",
     )
@@ -131,18 +135,21 @@ def test_pooled_mode_requires_no_token_groups(tmp_path):
 
 def test_verify_flags_class_coverage_and_episode_leak():
     # Held-out split missing the failure class -> coverage incomplete.
+    # (8 samples: verify.py mirrors the harness's hard minimum, so a smaller
+    # fixture would fail structural validity for the wrong reason.)
     ds = VldaDataset(
         samples=[
-            _sample("tr0--t0", success=True, split="train"),
-            _sample("tr1--t0", success=False, split="train"),
+            *[_sample(f"tr{i}--t0", success=(i % 2 == 0), split="train") for i in range(6)],
             _sample("he0--t0", success=True, split="test"),
+            _sample("he1--t0", success=True, split="test"),
         ]
     )
     report = verify_contract_obj(ds.to_json())
     assert report.ok  # structurally valid
     assert not report.heldout_class_coverage_ok()
 
-    # Same episode id in train and held-out -> leak.
+    # Same episode id in train and held-out -> leak. (The episode-disjointness
+    # verdict is independent of the sample-count structural issue.)
     leak = VldaDataset(
         samples=[
             VldaSample("shared--t0", [1.0], [1.0], [1.0], [1.0], True, "shared", {"split": "train"}),
@@ -152,6 +159,8 @@ def test_verify_flags_class_coverage_and_episode_leak():
     leak_report = verify_contract_obj(leak.to_json())
     assert not leak_report.episode_disjoint_ok()
     assert leak_report.shared_episode_ids == ["shared"]
+    # And the under-minimum fixture is itself flagged, mirroring the harness.
+    assert any("requires >= 8" in issue for issue in leak_report.issues)
 
 
 def test_layerwise_physics_probe_finds_intermediate_peak():

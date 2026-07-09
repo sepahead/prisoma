@@ -9,6 +9,7 @@ harness's ``--require-*`` strict modes gate on.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -54,6 +55,10 @@ def verify_contract_obj(obj: dict) -> ContractReport:
         report.issues.append("'samples' must be a non-empty array")
         return report
     report.n_samples = len(samples)
+    if len(samples) < 8:
+        # Mirrors the Rust harness's hard minimum (offline_harness.rs: "must
+        # contain at least 8 samples").
+        report.issues.append(f"dataset has {len(samples)} samples; the harness requires >= 8")
 
     expected_dims: dict[str, int] | None = None
     seen_ids: set[str] = set()
@@ -73,6 +78,13 @@ def verify_contract_obj(obj: dict) -> ContractReport:
         for key, n in dims.items():
             if n == 0:
                 report.issues.append(f"sample {idx}: empty or missing {key!r}")
+            else:
+                values = sample.get(key) or []
+                if any(
+                    not isinstance(x, (int, float)) or not math.isfinite(float(x))
+                    for x in values
+                ):
+                    report.issues.append(f"sample {idx}: non-finite value in {key!r}")
         if expected_dims is None:
             expected_dims = dims
             report.dims = dims
@@ -84,7 +96,9 @@ def verify_contract_obj(obj: dict) -> ContractReport:
         labels = sample.get("labels") or {}
         success = labels.get("success")
         metadata = sample.get("metadata") or {}
-        split = str(metadata.get("split", "")).lower()
+        # Mirror the Rust harness's split normalization exactly
+        # (offline_harness.rs: trim + ASCII-lowercase + '-' -> '_').
+        split = str(metadata.get("split", "")).strip().lower().replace("-", "_")
         episode_id = sample.get("episode_id")
 
         if success is None:

@@ -842,6 +842,21 @@ pub struct OfflineVldaAtomCi {
     pub ci_low: f64,
     pub ci_high: f64,
     pub n_valid: usize,
+    /// Mean of the m-out-of-n subsample distribution. KSG/`I^sx` bias is
+    /// sample-size dependent (it grows as samples shrink), so this estimates
+    /// `E[θ̂_m]` at `m = subsample_len`, **not** `E[θ̂_n]` — the subsample
+    /// distribution is *mis-centered* relative to the full-n point estimate,
+    /// not merely wider. Read the percentile interval as a width-conservative
+    /// variability band, not calibrated coverage for the population atom.
+    /// `None` on artifacts written before this field existed.
+    #[serde(default)]
+    pub boot_mean: Option<f64>,
+    /// `boot_mean − point` — the m-dependent-bias diagnostic, precomputed for
+    /// artifact consumers: a gap large relative to `ci_high − ci_low` flags
+    /// that the CI's center (and hence its coverage) is dominated by
+    /// small-sample estimator bias. `None` on old artifacts.
+    #[serde(default)]
+    pub bias_vs_point: Option<f64>,
 }
 
 /// Bootstrap CIs + permutation p-values for one two-source pair → A.
@@ -965,6 +980,8 @@ pub fn compute_offline_pid_uncertainty(
                     ci_low: s.ci_low,
                     ci_high: s.ci_high,
                     n_valid: s.n_valid,
+                    boot_mean: Some(s.boot_mean),
+                    bias_vs_point: Some(s.boot_mean - s.point_estimate),
                 })
             };
             (to_ci(0), to_ci(1), to_ci(2), to_ci(3))
@@ -5972,6 +5989,11 @@ mod tests {
         let red = vl.redundancy.as_ref().unwrap();
         assert!(red.ci_low <= red.ci_high);
         assert!(red.n_valid > 0 && red.n_valid <= cfg.n_boot);
+        // Subsample-bias diagnostic: the m-out-of-n center is exposed alongside
+        // the point estimate, and the precomputed gap is exactly their difference.
+        let boot_mean = red.boot_mean.expect("boot_mean present on new artifacts");
+        let gap = red.bias_vs_point.expect("bias_vs_point present");
+        assert!((gap - (boot_mean - red.point)).abs() < 1e-12);
         assert!(vl.synergy.is_some() && vl.unique_s1.is_some() && vl.unique_s2.is_some());
         // Permutation p-values present and valid (n_perm > 0).
         let p1 = vl.unique_s1_perm_p.unwrap();
