@@ -163,6 +163,12 @@ pub struct ObserverStats {
     pub late_d_dropped: usize,
     /// `seq == 0` sensor/command frames dropped as unstamped (unjoinable).
     pub unstamped_frames_dropped: usize,
+    /// Sensor/command frames dropped because their `seq` already emitted a
+    /// sample this epoch (transport re-delivery): re-admitting one would
+    /// re-emit a second sample with the same `sample_id` (`ncp-{epoch}-{seq}`),
+    /// double-counting the (V,L,D,A) row and violating the harness's
+    /// `sample_id` uniqueness.
+    pub redelivered_frames_dropped: usize,
     /// Never-completed in-flight ticks evicted by the [`MAX_INFLIGHT`] bound.
     pub evicted_incomplete: usize,
     /// Unclaimed seq-stamped D readouts evicted by the [`MAX_INFLIGHT`] bound.
@@ -370,6 +376,14 @@ impl Observer {
         if !self.admit_seq(sensor.seq) {
             return;
         }
+        if self.emitted_by_seq.contains_key(&sensor.seq) {
+            // Same guard the observation path has: this seq already emitted
+            // this epoch, so this is transport re-delivery — drop it instead of
+            // re-creating a pending entry that would re-emit a duplicate
+            // sample_id.
+            self.stats.redelivered_frames_dropped += 1;
+            return;
+        }
         let l_channel = sensor.channels.get(&self.mapping.language_channel);
         let l_present = l_channel.is_some();
         let l = l_channel.map(|cv| cv.data.clone()).unwrap_or_default();
@@ -407,6 +421,10 @@ impl Observer {
     /// Ingest a `CommandFrame` (action plane). Supplies A for its `seq`.
     pub fn on_command(&mut self, command: &CommandFrame) {
         if !self.admit_seq(command.seq) {
+            return;
+        }
+        if self.emitted_by_seq.contains_key(&command.seq) {
+            self.stats.redelivered_frames_dropped += 1;
             return;
         }
         let a = flatten_except(&command.channels, &[]);
@@ -464,9 +482,14 @@ impl Observer {
                     self.d_order.push_back(obs.seq);
                 }
                 self.d_by_seq.insert(obs.seq, d.clone());
-                if obs.seq > self.max_seq {
-                    self.max_seq = obs.seq;
-                }
+                // Deliberately do NOT advance `max_seq` from an observation:
+                // the watermark drives the reorder cutoff and session-reset
+                // detection, and observation seqs skip `admit_seq`'s
+                // discipline — one inflated `obs.seq` would misclassify every
+                // subsequent legitimate sensor/command frame as a session
+                // reset and prematurely flush pending ticks. D readouts are
+                // passengers on the control loop's clock (their seq pairs via
+                // `d_by_seq`); only sensor/command ingress moves the clock.
             }
         }
         self.latest_d = d;
@@ -478,6 +501,35 @@ impl Observer {
     /// [`MAX_INFLIGHT`]. Completed ticks are removed by `emit_ready`, so what
     /// accumulates here is never-completed `seq`s and unclaimed readouts.
     fn enforce_bounds(&mut self) {
+        // The order deques record one entry per seq ever inserted, but
+        // completed seqs leave the MAPS via emit_ready/emit_sample without
+        // touching the deques — in a healthy long session the deques would
+        // grow one stale i64 per tick, forever. Drain the stale front
+        // (amortized O(1); eviction only needs the deques' relative order of
+        // still-present keys, which front-popping preserves) …
+        while let Some(seq) = self.pending_order.front() {
+            if self.pending.contains_key(seq) {
+                break;
+            }
+            self.pending_order.pop_front();
+        }
+        while let Some(seq) = self.d_order.front() {
+            if self.d_by_seq.contains_key(seq) {
+                break;
+            }
+            self.d_order.pop_front();
+        }
+        // … and compact outright in the pathological case where a stuck live
+        // front hides unbounded stale entries behind it, so deque length is
+        // strictly bounded by 2×MAX_INFLIGHT.
+        if self.pending_order.len() > 2 * MAX_INFLIGHT {
+            let pending = &self.pending;
+            self.pending_order.retain(|seq| pending.contains_key(seq));
+        }
+        if self.d_order.len() > 2 * MAX_INFLIGHT {
+            let d_by_seq = &self.d_by_seq;
+            self.d_order.retain(|seq| d_by_seq.contains_key(seq));
+        }
         while self.pending.len() > MAX_INFLIGHT {
             // Skip order entries whose key already completed (removed).
             match self.pending_order.pop_front() {
@@ -593,17 +645,13 @@ impl Observer {
         metadata.insert("epoch".to_string(), self.epoch.to_string());
         metadata.insert("source".to_string(), "ncp".to_string());
         // Honest provenance: never present a recency-aligned D as if it were
-        // seq-aligned (Gap 1). Kept samples always have a present language
-        // channel (empty-L ticks were excluded above).
-        metadata.insert(
-            "l_source".to_string(),
-            if p.l_present {
-                "channel"
-            } else {
-                "absent_zeroed"
-            }
-            .to_string(),
-        );
+        // seq-aligned (Gap 1). A kept sample's L is nonempty (empty-L ticks
+        // were excluded above), and a nonempty L can only come from a present
+        // language channel — so `l_source` is always `"channel"` here; the
+        // old `"absent_zeroed"` branch was unreachable and misled readers
+        // into thinking absent-L ticks were retained-and-marked.
+        debug_assert!(p.l_present, "kept sample implies present language channel");
+        metadata.insert("l_source".to_string(), "channel".to_string());
         metadata.insert("d_source".to_string(), d_source.to_string());
         let sample = OfflineVldaSample {
             // Epoch-qualified so ids stay unique across session seq resets.
@@ -1042,6 +1090,110 @@ mod tests {
             Some(&serde_json::json!(true)),
             "the success outcome must surface as a label"
         );
+    }
+
+    #[test]
+    fn order_deques_stay_bounded_in_healthy_long_sessions() {
+        // Every tick COMPLETES here (sensor + command + observation per seq),
+        // so the maps stay small — but before the fix the order deques kept
+        // one stale i64 per seq forever. They must now stay bounded too.
+        let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
+        let total = MAX_INFLIGHT as i64 + 500;
+        for seq in 1..=total {
+            obs.on_observation(&observation(seq, vec![seq as f64]));
+            obs.on_sensor(&sensor(
+                seq,
+                seq as f64 * 0.01,
+                &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+            ));
+            obs.on_command(&command(
+                seq,
+                seq as f64 * 0.01,
+                &[("velocity_setpoint", vec![0.1])],
+            ));
+        }
+        assert!(
+            obs.sample_count() > MAX_INFLIGHT,
+            "healthy session emits (got {})",
+            obs.sample_count()
+        );
+        let bound = 2 * MAX_INFLIGHT;
+        assert!(
+            obs.pending_order.len() <= bound && obs.d_order.len() <= bound,
+            "order deques must stay bounded: pending_order={} d_order={}",
+            obs.pending_order.len(),
+            obs.d_order.len()
+        );
+        // In the fully-healthy steady state they should in fact be tiny
+        // (bounded by the reorder grace window plus the still-pending tail).
+        assert!(
+            obs.pending_order.len() <= (REORDER_GRACE as usize) + 2,
+            "steady-state pending_order should be ~grace-window sized, got {}",
+            obs.pending_order.len()
+        );
+    }
+
+    #[test]
+    fn redelivered_frames_do_not_duplicate_sample_ids() {
+        let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
+        // Emit seqs 1..=3 (advance the watermark past the grace window so they
+        // emit through the normal path).
+        for seq in 1..=(REORDER_GRACE + 3) {
+            obs.on_observation(&observation(seq, vec![seq as f64]));
+            obs.on_sensor(&sensor(
+                seq,
+                0.0,
+                &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+            ));
+            obs.on_command(&command(seq, 0.0, &[("velocity_setpoint", vec![0.1])]));
+        }
+        let emitted_before = obs.sample_count();
+        assert!(emitted_before >= 3, "got {emitted_before}");
+        // Transport re-delivery of an already-emitted tick's pair.
+        obs.on_sensor(&sensor(
+            1,
+            0.0,
+            &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+        ));
+        obs.on_command(&command(1, 0.0, &[("velocity_setpoint", vec![0.1])]));
+        obs.flush_complete();
+        assert_eq!(obs.stats.redelivered_frames_dropped, 2);
+        let mut ids: Vec<&str> = (0..obs.sample_count())
+            .map(|i| obs.sample(i).sample_id.as_str())
+            .collect();
+        let n = ids.len();
+        ids.sort_unstable();
+        ids.dedup();
+        assert_eq!(ids.len(), n, "sample_ids must stay unique");
+    }
+
+    #[test]
+    fn inflated_observation_seq_does_not_fragment_the_session() {
+        let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
+        for seq in 1..=5 {
+            obs.on_sensor(&sensor(
+                seq,
+                0.0,
+                &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+            ));
+            obs.on_command(&command(seq, 0.0, &[("velocity_setpoint", vec![0.1])]));
+        }
+        // A garbage/inflated observation seq far above the control loop's
+        // watermark must not move the clock: before the fix it made every
+        // subsequent legitimate frame look like a session reset.
+        obs.on_observation(&observation(1_000_000, vec![9.0]));
+        for seq in 6..=20 {
+            obs.on_sensor(&sensor(
+                seq,
+                0.0,
+                &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+            ));
+            obs.on_command(&command(seq, 0.0, &[("velocity_setpoint", vec![0.1])]));
+        }
+        obs.flush_complete();
+        assert_eq!(obs.stats.seq_resets, 0, "no session reset");
+        assert_eq!(obs.epoch, 0, "single epoch");
+        assert_eq!(obs.sample_count(), 20, "all ticks emitted");
     }
 
     #[test]
