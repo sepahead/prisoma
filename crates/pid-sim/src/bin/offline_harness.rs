@@ -11,7 +11,7 @@ use pid_sim::offline_harness::{
     read_offline_vlda_dataset, run_offline_vlda_harness_with_options,
     write_offline_pid_uncertainty, write_offline_vlda_runlog_with_options,
     write_offline_vlda_summary, OfflineVldaHarnessOptions, OfflineVldaRunlogOptions,
-    OfflineVldaUncertaintyConfig, PermutationScheme, PidMode,
+    OfflineVldaUncertaintyConfig, PermutationScheme, PidMode, PlsComponentSelection,
 };
 use std::path::PathBuf;
 
@@ -28,7 +28,7 @@ struct Args {
     require_axis_provenance_honest: bool,
     pid_mode: PidMode,
     discrete_bins: usize,
-    pls_components: usize,
+    pls: PlsComponentSelection,
     bootstrap: usize,
     permutation: usize,
     uncertainty_block_size: usize,
@@ -45,7 +45,7 @@ fn main() -> Result<()> {
     let harness_options = OfflineVldaHarnessOptions {
         pid_mode: args.pid_mode,
         discrete_bins: args.discrete_bins,
-        pls_components: args.pls_components,
+        pls: args.pls,
     };
     let report = run_offline_vlda_harness_with_options(
         dataset.clone(),
@@ -169,7 +169,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut require_axis_provenance_honest = false;
     let mut pid_mode = PidMode::Continuous;
     let mut discrete_bins: usize = 10;
-    let mut pls_components: usize = 2;
+    let mut pls = PlsComponentSelection::Fixed(2);
     let mut bootstrap: usize = 0;
     let mut permutation: usize = 0;
     let mut uncertainty_block_size: usize = 1;
@@ -236,13 +236,30 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 }
             }
             "--pls-components" => {
-                let components_str = iter.next().context("--pls-components requires a number")?;
-                pls_components = components_str.parse::<usize>().with_context(|| {
-                    format!("--pls-components: invalid number '{components_str}'")
-                })?;
-                if pls_components < 1 {
-                    bail!("--pls-components must be >= 1");
-                }
+                let raw = iter
+                    .next()
+                    .context("--pls-components requires a number, 'cv', or 'cv:MAX'")?;
+                pls = if raw == "cv" {
+                    PlsComponentSelection::CvQ2 { max_components: 8 }
+                } else if let Some(max) = raw.strip_prefix("cv:") {
+                    let max = max
+                        .parse::<usize>()
+                        .with_context(|| format!("--pls-components: invalid cv max '{raw}'"))?;
+                    if max < 1 {
+                        bail!("--pls-components cv:MAX must have MAX >= 1");
+                    }
+                    PlsComponentSelection::CvQ2 {
+                        max_components: max,
+                    }
+                } else {
+                    let k = raw
+                        .parse::<usize>()
+                        .with_context(|| format!("--pls-components: invalid number '{raw}'"))?;
+                    if k < 1 {
+                        bail!("--pls-components must be >= 1");
+                    }
+                    PlsComponentSelection::Fixed(k)
+                };
             }
             "--bootstrap" => {
                 let raw = iter.next().context("--bootstrap requires a number")?;
@@ -311,7 +328,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         require_axis_provenance_honest,
         pid_mode,
         discrete_bins,
-        pls_components,
+        pls,
         bootstrap,
         permutation,
         uncertainty_block_size,
@@ -323,7 +340,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N] [--bootstrap N] [--permutation N] [--permutation-scheme full-shuffle|circular-shift] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
+        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N|cv|cv:MAX] [--bootstrap N] [--permutation N] [--permutation-scheme full-shuffle|circular-shift] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts.\n\
          \n\
@@ -335,7 +352,14 @@ fn print_usage() {
                                  projections (fit is in-sample for the all-samples screen;\n\
                                  train-only for the train-split screen).\n\
          --discrete-bins N       Number of bins for discrete modes (default: 10, min: 2).\n\
-         --pls-components N      PLS components for discrete-pls (default: 2, min: 1).\n\
+         --pls-components X      PLS components for discrete-pls: a fixed count N
+                                 (default: 2), or 'cv' / 'cv:MAX' for per-source LOO-CV
+                                 Q² selection (default MAX: 8) - the preregistered
+                                 grandplan §8.2.3 step 5(d) method. In discrete-pls mode
+                                 the summary also carries a shuffled-target permutation
+                                 control (the selection-inflation floor); read the real
+                                 atoms relative to it, and treat in-sample discrete-pls
+                                 output as screening-only.\n\
          --permutation-scheme    Null for --permutation p-values (default: full-shuffle).\n\
                                  full-shuffle assumes exchangeable (i.i.d.) rows and is\n\
                                  anti-conservative on autocorrelated per-step captures;\n\
@@ -375,7 +399,7 @@ mod tests {
         assert!(args.require_heldout_episode_disjoint);
         assert_eq!(args.pid_mode, PidMode::Continuous);
         assert_eq!(args.discrete_bins, 10);
-        assert_eq!(args.pls_components, 2);
+        assert_eq!(args.pls, PlsComponentSelection::Fixed(2));
     }
 
     #[test]
@@ -405,7 +429,36 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(args.pid_mode, PidMode::DiscretePls);
-        assert_eq!(args.pls_components, 3);
+        assert_eq!(args.pls, PlsComponentSelection::Fixed(3));
+    }
+
+    #[test]
+    fn parse_args_accepts_cv_component_selection() {
+        let args = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--pid-mode".to_string(),
+            "discrete-pls".to_string(),
+            "--pls-components".to_string(),
+            "cv".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(args.pls, PlsComponentSelection::CvQ2 { max_components: 8 });
+        let args = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--pls-components".to_string(),
+            "cv:4".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(args.pls, PlsComponentSelection::CvQ2 { max_components: 4 });
+        assert!(parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--pls-components".to_string(),
+            "cv:0".to_string(),
+        ])
+        .is_err());
     }
 
     #[test]

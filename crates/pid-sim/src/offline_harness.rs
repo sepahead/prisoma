@@ -2,10 +2,10 @@ use anyhow::{bail, Context, Result};
 use pid_core::{
     bootstrap_rows_stats, co_information_pairwise, concat_horiz, discrete_mi,
     distance_concentration_stats, gromov_hyperbolicity, intrinsic_dimension_levina_bickel,
-    permutation_rows_pvalue_with, pid2_isx, quantize_equal_width, BootstrapConfig,
-    DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig, IsxConfig, KsgConfig,
-    LogisticRegression, LogisticRegressionConfig, MatOwned, MatRef, Metric, NegativeHandling,
-    Pid2Config, PlsProjector, RowResampleScheme, Standardizer,
+    permutation_rows_pvalue_with, pid2_isx, pls_cv_select_components, quantize_equal_width,
+    BootstrapConfig, DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig,
+    IsxConfig, KsgConfig, LogisticRegression, LogisticRegressionConfig, MatOwned, MatRef, Metric,
+    NegativeHandling, Pid2Config, PlsProjector, RowResampleScheme, Standardizer,
 };
 // Re-exported so the harness CLI (and downstream callers) can pick the permutation
 // null without importing pid-core directly.
@@ -60,8 +60,40 @@ pub struct OfflineVldaHarnessOptions {
     pub pid_mode: PidMode,
     /// Number of quantization bins when `pid_mode == Discrete` or `DiscretePls`.
     pub discrete_bins: usize,
-    /// Number of PLS latent components when `pid_mode == DiscretePls`.
-    pub pls_components: usize,
+    /// PLS component selection when `pid_mode == DiscretePls`.
+    pub pls: PlsComponentSelection,
+}
+
+/// How the number of PLS latent components is chosen in `discrete-pls` mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlsComponentSelection {
+    /// A fixed count (the historical `--pls-components N`; default 2).
+    Fixed(usize),
+    /// Per-source leave-one-out CV Q² selection over `1..=max_components`
+    /// (`--pls-components cv[:MAX]`) — the preregistered grandplan §8.2.3
+    /// step 5(d) method, via `pid_core::pls_cv_select_components`. The chosen
+    /// counts and their Q² are recorded in the screen's `pls_selection`.
+    CvQ2 {
+        /// Upper bound on the candidate component counts.
+        max_components: usize,
+    },
+}
+
+/// Per-source PLS component-selection provenance for a `discrete-pls` screen.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaPlsSelection {
+    /// `"fixed"` or `"cv_q2"`.
+    pub method: String,
+    pub components_v: usize,
+    pub components_l: usize,
+    pub components_d: usize,
+    /// LOO-CV Q² at the chosen count (CV mode only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub q2_v: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub q2_l: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub q2_d: Option<f64>,
 }
 
 impl Default for OfflineVldaHarnessOptions {
@@ -69,7 +101,7 @@ impl Default for OfflineVldaHarnessOptions {
         Self {
             pid_mode: PidMode::Continuous,
             discrete_bins: 10,
-            pls_components: 2,
+            pls: PlsComponentSelection::Fixed(2),
         }
     }
 }
@@ -165,6 +197,16 @@ pub struct OfflineVldaMetrics {
     pub heldout_logreg_vlda_success_balanced_accuracy: Option<f64>,
     pub heldout_logreg_vlda_success_auroc: Option<f64>,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
+    /// `discrete-pls` only — see `OfflineVldaPidScreenMetrics::pls_selection`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pls_selection: Option<OfflineVldaPlsSelection>,
+    /// `discrete-pls` only — the shuffled-target permutation control (the
+    /// selection-inflation floor); see
+    /// `OfflineVldaPidScreenMetrics::pls_shuffled_target_control`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pls_shuffled_target_control: Option<Box<OfflineVldaPidScreenMetrics>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pls_control_seed: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -179,6 +221,21 @@ pub struct OfflineVldaPidScreenMetrics {
     pub unique_l_action: f64,
     pub synergy_v_l_action: f64,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
+    /// `discrete-pls` only: how many components each source's projector used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pls_selection: Option<OfflineVldaPlsSelection>,
+    /// `discrete-pls` only: the **shuffled-target permutation control** — the
+    /// identical pipeline (PLS fit + discrete PID) run against a seeded row
+    /// shuffle of the target `A` (grandplan §8.2.3 step 5(c)). With the true
+    /// X↔A dependence destroyed, everything these control atoms show is
+    /// selection inflation from fitting the projection on the same rows the
+    /// PID is computed on. Read the real screen **relative to this floor**,
+    /// and treat in-sample `discrete-pls` output as screening-only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pls_shuffled_target_control: Option<Box<OfflineVldaPidScreenMetrics>>,
+    /// Seed of the control's target shuffle (recorded for reproducibility).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pls_control_seed: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -448,7 +505,7 @@ pub fn run_offline_vlda_harness_with_options(
         &dims,
         options.pid_mode,
         options.discrete_bins,
-        options.pls_components,
+        options.pls,
     )?;
     let run_id = dataset
         .run_id
@@ -475,7 +532,10 @@ pub fn run_offline_vlda_harness_with_options(
             },
             "pid_mode": options.pid_mode,
             "discrete_bins": options.discrete_bins,
-            "pls_components": options.pls_components,
+            "pls_components": match options.pls {
+                PlsComponentSelection::Fixed(k) => json!(k),
+                PlsComponentSelection::CvQ2 { max_components } => json!({"cv_max": max_components}),
+            },
             "pid_pairs": [["V", "L"], ["V", "D"], ["L", "D"]],
             "pid_sample_scopes": if analysis.train_split_pid.as_ref().and_then(|report| report.metrics.as_ref()).is_some() {
                 vec!["all_samples", "metadata_split_train"]
@@ -609,7 +669,7 @@ fn train_split_pid_report(
     split: &OfflineVldaHeldoutSplitPlan,
     pid_mode: PidMode,
     discrete_bins: usize,
-    pls_components: usize,
+    pls: PlsComponentSelection,
 ) -> OfflineVldaTrainSplitPidReport {
     let train_samples = samples
         .iter()
@@ -628,7 +688,7 @@ fn train_split_pid_report(
     let result = (|| -> Result<(OfflineVldaPreprocessingReport, OfflineVldaPidScreenMetrics)> {
         let prepared = prepare_standardized_embeddings(&train_samples, &train_dims)?;
         let metrics =
-            compute_pid_screen_metrics(&prepared, pid_mode, discrete_bins, pls_components)?;
+            compute_pid_screen_metrics_with_control(&prepared, pid_mode, discrete_bins, pls)?;
         Ok((prepared.preprocessing, metrics))
     })();
     let (status, preprocessing, metrics, error) = match result {
@@ -659,7 +719,7 @@ fn compute_pid_screen_metrics(
     prepared: &PreparedVldaMatrices,
     pid_mode: PidMode,
     discrete_bins: usize,
-    pls_components: usize,
+    pls: PlsComponentSelection,
 ) -> Result<OfflineVldaPidScreenMetrics> {
     let v = prepared.v.as_ref();
     let l = prepared.l.as_ref();
@@ -670,11 +730,39 @@ fn compute_pid_screen_metrics(
     // given to this screen (train-only in the train-split path; in-sample for the
     // all-samples screen, which the metric_pipeline provenance records). The
     // target A stays unprojected.
+    let mut pls_selection = None;
     let pls_projected = match pid_mode {
         PidMode::DiscretePls => {
-            let v_proj = PlsProjector::fit(v, a, pls_components)?.transform(v)?;
-            let l_proj = PlsProjector::fit(l, a, pls_components)?.transform(l)?;
-            let d_proj = PlsProjector::fit(d, a, pls_components)?.transform(d)?;
+            // Per-source component choice: fixed, or LOO-CV Q² selection
+            // (grandplan §8.2.3 step 5(d)).
+            let choose = |x: MatRef<'_>| -> Result<(usize, Option<f64>)> {
+                match pls {
+                    PlsComponentSelection::Fixed(k) => Ok((k, None)),
+                    PlsComponentSelection::CvQ2 { max_components } => {
+                        let cv = pls_cv_select_components(x, a, max_components)?;
+                        let q2 = cv.q2.get(cv.best_components.saturating_sub(1)).copied();
+                        Ok((cv.best_components, q2))
+                    }
+                }
+            };
+            let (kv, q2v) = choose(v)?;
+            let (kl, q2l) = choose(l)?;
+            let (kd, q2d) = choose(d)?;
+            let v_proj = PlsProjector::fit(v, a, kv)?.transform(v)?;
+            let l_proj = PlsProjector::fit(l, a, kl)?.transform(l)?;
+            let d_proj = PlsProjector::fit(d, a, kd)?.transform(d)?;
+            pls_selection = Some(OfflineVldaPlsSelection {
+                method: match pls {
+                    PlsComponentSelection::Fixed(_) => "fixed".to_string(),
+                    PlsComponentSelection::CvQ2 { .. } => "cv_q2".to_string(),
+                },
+                components_v: kv,
+                components_l: kl,
+                components_d: kd,
+                q2_v: q2v,
+                q2_l: q2l,
+                q2_d: q2d,
+            });
             Some((v_proj, l_proj, d_proj))
         }
         PidMode::Continuous | PidMode::Discrete => None,
@@ -776,6 +864,72 @@ fn compute_pid_screen_metrics(
         unique_l_action: vl_pair.unique_source_2,
         synergy_v_l_action: vl_pair.synergy,
         pid_pairs,
+        pls_selection,
+        pls_shuffled_target_control: None,
+        pls_control_seed: None,
+    })
+}
+
+/// Fixed, recorded seed of the discrete-pls shuffled-target control.
+const PLS_CONTROL_SEED: u64 = 0x51AF_F1ED;
+
+/// [`compute_pid_screen_metrics`], plus — in `discrete-pls` mode — the
+/// **shuffled-target permutation control**: the identical pipeline re-run with
+/// the target `A`'s rows shuffled by a seeded permutation, attached to the
+/// returned metrics. See `OfflineVldaPidScreenMetrics::pls_shuffled_target_control`.
+fn compute_pid_screen_metrics_with_control(
+    prepared: &PreparedVldaMatrices,
+    pid_mode: PidMode,
+    discrete_bins: usize,
+    pls: PlsComponentSelection,
+) -> Result<OfflineVldaPidScreenMetrics> {
+    let mut metrics = compute_pid_screen_metrics(prepared, pid_mode, discrete_bins, pls)?;
+    if pid_mode == PidMode::DiscretePls {
+        let shuffled = prepared_with_shuffled_target(prepared, PLS_CONTROL_SEED)?;
+        let control = compute_pid_screen_metrics(&shuffled, pid_mode, discrete_bins, pls)?;
+        metrics.pls_shuffled_target_control = Some(Box::new(control));
+        metrics.pls_control_seed = Some(PLS_CONTROL_SEED);
+    }
+    Ok(metrics)
+}
+
+/// A copy of `prepared` whose target `A` rows are permuted by a seeded
+/// Fisher–Yates shuffle (SplitMix64 stream), destroying the true X↔A
+/// dependence while preserving `A`'s marginal exactly.
+fn prepared_with_shuffled_target(
+    prepared: &PreparedVldaMatrices,
+    seed: u64,
+) -> Result<PreparedVldaMatrices> {
+    let a = prepared.a.as_ref();
+    let n = a.nrows();
+    let dim = a.ncols();
+    let mut perm: Vec<usize> = (0..n).collect();
+    let mut state = seed;
+    let mut next_u64 = move || -> u64 {
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    };
+    for i in (1..n).rev() {
+        let j = (next_u64() as usize) % (i + 1);
+        perm.swap(i, j);
+    }
+    let mut data = Vec::with_capacity(n * dim);
+    for &i in &perm {
+        data.extend_from_slice(a.row(i));
+    }
+    let shuffled_a =
+        MatOwned::new(data, n, dim).map_err(|e| anyhow::anyhow!("shuffled target: {e}"))?;
+    Ok(PreparedVldaMatrices {
+        v: prepared.v.clone(),
+        l: prepared.l.clone(),
+        d: prepared.d.clone(),
+        a: shuffled_a,
+        vl: prepared.vl.clone(),
+        vlda: prepared.vlda.clone(),
+        preprocessing: prepared.preprocessing.clone(),
     })
 }
 
@@ -1692,7 +1846,7 @@ fn compute_analysis(
     dims: &OfflineVldaDims,
     pid_mode: PidMode,
     discrete_bins: usize,
-    pls_components: usize,
+    pls: PlsComponentSelection,
 ) -> Result<OfflineVldaAnalysis> {
     let prepared = prepare_standardized_embeddings(samples, dims)?;
     let heldout_split = heldout_split_plan(samples);
@@ -1742,18 +1896,11 @@ fn compute_analysis(
         heldout_split.as_ref(),
         pid_mode,
         discrete_bins,
-        pls_components,
+        pls,
     )?;
-    let train_split_pid = heldout_split.as_ref().map(|split| {
-        train_split_pid_report(
-            samples,
-            dims,
-            split,
-            pid_mode,
-            discrete_bins,
-            pls_components,
-        )
-    });
+    let train_split_pid = heldout_split
+        .as_ref()
+        .map(|split| train_split_pid_report(samples, dims, split, pid_mode, discrete_bins, pls));
     let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
     let geometry = compute_geometry_report(&prepared);
@@ -1838,9 +1985,10 @@ fn compute_metrics(
     heldout_split: Option<&OfflineVldaHeldoutSplitPlan>,
     pid_mode: PidMode,
     discrete_bins: usize,
-    pls_components: usize,
+    pls: PlsComponentSelection,
 ) -> Result<OfflineVldaMetrics> {
-    let pid_screen = compute_pid_screen_metrics(prepared, pid_mode, discrete_bins, pls_components)?;
+    let pid_screen =
+        compute_pid_screen_metrics_with_control(prepared, pid_mode, discrete_bins, pls)?;
     let success_labels = success_labels(samples);
     let (success_rate, majority_success_accuracy) = success_metrics(&success_labels);
     let loo_nn_v_success_accuracy = success_labels
@@ -2097,6 +2245,9 @@ fn compute_metrics(
         unique_v_action: pid_screen.unique_v_action,
         unique_l_action: pid_screen.unique_l_action,
         synergy_v_l_action: pid_screen.synergy_v_l_action,
+        pls_selection: pid_screen.pls_selection.clone(),
+        pls_shuffled_target_control: pid_screen.pls_shuffled_target_control.clone(),
+        pls_control_seed: pid_screen.pls_control_seed,
         success_rate,
         majority_success_accuracy,
         loo_nn_v_success_accuracy,
@@ -4903,7 +5054,7 @@ mod tests {
         let options = OfflineVldaHarnessOptions {
             pid_mode: PidMode::Discrete,
             discrete_bins: 6,
-            pls_components: 2,
+            pls: PlsComponentSelection::Fixed(2),
         };
         let report = run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
         assert_eq!(report.metrics.pid_pairs.len(), 3);
@@ -4929,17 +5080,81 @@ mod tests {
         let options = OfflineVldaHarnessOptions {
             pid_mode: PidMode::DiscretePls,
             discrete_bins: 6,
-            pls_components: 1,
+            pls: PlsComponentSelection::Fixed(1),
         };
         let report = run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         let vl = &report.metrics.pid_pairs["VL"];
         assert!(vl.discrete_saturation.is_some());
         assert!(vl.mi_source_1_action.is_finite());
+        // Preregistered mitigations (grandplan §8.2.3 step 5): selection
+        // provenance and the shuffled-target permutation control ride along.
+        let sel = report.metrics.pls_selection.as_ref().unwrap();
+        assert_eq!(sel.method, "fixed");
+        assert_eq!(
+            (sel.components_v, sel.components_l, sel.components_d),
+            (1, 1, 1)
+        );
+        let control = report
+            .metrics
+            .pls_shuffled_target_control
+            .as_ref()
+            .expect("discrete-pls carries its selection-inflation control");
+        assert!(report.metrics.pls_control_seed.is_some());
+        assert_eq!(control.pid_pairs.len(), 3);
+        // The control ran the identical pipeline against a shuffled target;
+        // its values must be finite, and it must not recurse into its own
+        // control. NOTE the fixture is small enough that the binned joint
+        // table has all-singleton cells under BOTH pairings, so the discrete
+        // MI here saturates to a pure function of the marginals and the
+        // control EQUALS the real screen — which is precisely the verdict the
+        // control exists to deliver: in a saturated regime the discrete-pls
+        // numbers are all selection/saturation artifact, zero evidence. (The
+        // per-pair `discrete_saturation` diagnostic flags the same regime.)
+        assert!(control.mi_v_action.is_finite());
+        assert_eq!(
+            control.mi_v_action, report.metrics.mi_v_action,
+            "saturated fixture: the inflation floor equals the signal"
+        );
+        assert!(control.pls_shuffled_target_control.is_none());
         // Train-split screen must also run under the PLS-projected discrete path.
         let train_pid = report.train_split_pid.as_ref().unwrap();
         assert_eq!(train_pid.status, "available");
         assert_eq!(train_pid.metrics.as_ref().unwrap().pid_pairs.len(), 3);
+    }
+
+    #[test]
+    fn discrete_pls_cv_selection_reports_components_and_q2() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::DiscretePls,
+            discrete_bins: 6,
+            pls: PlsComponentSelection::CvQ2 { max_components: 3 },
+        };
+        let report =
+            run_offline_vlda_harness_with_options(dataset.clone(), None, None, &options).unwrap();
+        let sel = report.metrics.pls_selection.as_ref().unwrap();
+        assert_eq!(sel.method, "cv_q2");
+        for k in [sel.components_v, sel.components_l, sel.components_d] {
+            assert!((1..=3).contains(&k), "selected components {k} out of range");
+        }
+        assert!(sel.q2_v.is_some() && sel.q2_l.is_some() && sel.q2_d.is_some());
+        // Deterministic given the same inputs.
+        let report2 = run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
+        assert_eq!(report.metrics.pls_selection, report2.metrics.pls_selection);
+        assert_eq!(
+            report.metrics.pls_shuffled_target_control,
+            report2.metrics.pls_shuffled_target_control
+        );
+    }
+
+    #[test]
+    fn non_pls_modes_carry_no_pls_provenance() {
+        let dataset = fixture_dataset();
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+        assert!(report.metrics.pls_selection.is_none());
+        assert!(report.metrics.pls_shuffled_target_control.is_none());
+        assert!(report.metrics.pls_control_seed.is_none());
     }
 
     #[test]
