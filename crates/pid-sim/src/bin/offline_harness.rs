@@ -11,7 +11,7 @@ use pid_sim::offline_harness::{
     read_offline_vlda_dataset, run_offline_vlda_harness_with_options,
     write_offline_pid_uncertainty, write_offline_vlda_runlog_with_options,
     write_offline_vlda_summary, OfflineVldaHarnessOptions, OfflineVldaRunlogOptions,
-    OfflineVldaUncertaintyConfig, PidMode,
+    OfflineVldaUncertaintyConfig, PermutationScheme, PidMode,
 };
 use std::path::PathBuf;
 
@@ -33,6 +33,7 @@ struct Args {
     permutation: usize,
     uncertainty_block_size: usize,
     uncertainty_alpha: f64,
+    permutation_scheme_circular: bool,
     uncertainty_json: Option<PathBuf>,
 }
 
@@ -76,6 +77,15 @@ fn main() -> Result<()> {
         n_perm: args.permutation,
         block_size: args.uncertainty_block_size,
         alpha: args.uncertainty_alpha,
+        permutation_scheme: if args.permutation_scheme_circular {
+            // min_shift = the block size: the same dependence length the user
+            // already sizes for the moving-block bootstrap.
+            PermutationScheme::CircularShift {
+                min_shift: args.uncertainty_block_size,
+            }
+        } else {
+            PermutationScheme::FullShuffle
+        },
         ..Default::default()
     };
     if uncertainty_config.enabled() {
@@ -87,11 +97,12 @@ fn main() -> Result<()> {
             .unwrap_or_else(|| args.summary_json.with_extension("uncertainty.json"));
         write_offline_pid_uncertainty(&path, &uncertainty)?;
         println!(
-            "pid_uncertainty={} mode={} n_boot={} n_perm={} subsample_len={} pairs={}",
+            "pid_uncertainty={} mode={} n_boot={} n_perm={} perm_scheme={} subsample_len={} pairs={}",
             path.display(),
             uncertainty.mode,
             uncertainty.n_boot,
             uncertainty.n_perm,
+            uncertainty.permutation_scheme,
             uncertainty.subsample_len,
             uncertainty.pairs.len(),
         );
@@ -163,6 +174,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut permutation: usize = 0;
     let mut uncertainty_block_size: usize = 1;
     let mut uncertainty_alpha: f64 = 0.05;
+    let mut permutation_scheme_circular = false;
     let mut uncertainty_json: Option<PathBuf> = None;
     let mut iter = args.into_iter();
     while let Some(arg) = iter.next() {
@@ -244,6 +256,18 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
                     .parse::<usize>()
                     .with_context(|| format!("--permutation: invalid number '{raw}'"))?;
             }
+            "--permutation-scheme" => {
+                let raw = iter
+                    .next()
+                    .context("--permutation-scheme requires full-shuffle|circular-shift")?;
+                permutation_scheme_circular = match raw.as_str() {
+                    "full-shuffle" => false,
+                    "circular-shift" => true,
+                    other => bail!(
+                        "--permutation-scheme: expected full-shuffle|circular-shift, got '{other}'"
+                    ),
+                };
+            }
             "--uncertainty-block-size" => {
                 let raw = iter
                     .next()
@@ -292,13 +316,14 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         permutation,
         uncertainty_block_size,
         uncertainty_alpha,
+        permutation_scheme_circular,
         uncertainty_json,
     })
 }
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N] [--bootstrap N] [--permutation N] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
+        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N] [--bootstrap N] [--permutation N] [--permutation-scheme full-shuffle|circular-shift] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts.\n\
          \n\
@@ -310,7 +335,13 @@ fn print_usage() {
                                  projections (fit is in-sample for the all-samples screen;\n\
                                  train-only for the train-split screen).\n\
          --discrete-bins N       Number of bins for discrete modes (default: 10, min: 2).\n\
-         --pls-components N      PLS components for discrete-pls (default: 2, min: 1)."
+         --pls-components N      PLS components for discrete-pls (default: 2, min: 1).\n\
+         --permutation-scheme    Null for --permutation p-values (default: full-shuffle).\n\
+                                 full-shuffle assumes exchangeable (i.i.d.) rows and is\n\
+                                 anti-conservative on autocorrelated per-step captures;\n\
+                                 circular-shift preserves each source's own serial\n\
+                                 dependence (rotation null; min_shift = the\n\
+                                 --uncertainty-block-size dependence length)."
     );
 }
 

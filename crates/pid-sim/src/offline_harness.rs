@@ -2,11 +2,14 @@ use anyhow::{bail, Context, Result};
 use pid_core::{
     bootstrap_rows_stats, co_information_pairwise, concat_horiz, discrete_mi,
     distance_concentration_stats, gromov_hyperbolicity, intrinsic_dimension_levina_bickel,
-    permutation_rows_pvalue, pid2_isx, quantize_equal_width, BootstrapConfig,
+    permutation_rows_pvalue_with, pid2_isx, quantize_equal_width, BootstrapConfig,
     DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig, IsxConfig, KsgConfig,
     LogisticRegression, LogisticRegressionConfig, MatOwned, MatRef, Metric, NegativeHandling,
     Pid2Config, PlsProjector, RowResampleScheme, Standardizer,
 };
+// Re-exported so the harness CLI (and downstream callers) can pick the permutation
+// null without importing pid-core directly.
+pub use pid_core::PermutationScheme;
 use pid_runlog::{
     EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
 };
@@ -791,6 +794,14 @@ pub struct OfflineVldaUncertaintyConfig {
     pub alpha: f64,
     /// Base seed for the resamplers.
     pub seed: u64,
+    /// How the permutation null rearranges the shuffled source's rows.
+    /// `FullShuffle` simulates **exchangeable (i.i.d.) rows** — on per-step
+    /// captures with within-episode autocorrelation it is anti-conservative.
+    /// `CircularShift { min_shift }` preserves the source's own serial
+    /// dependence (rotations) and is the dependence-respecting null for
+    /// stationary trajectory data; set `min_shift` to the dependence length
+    /// (the same order as `block_size`).
+    pub permutation_scheme: PermutationScheme,
 }
 
 impl Default for OfflineVldaUncertaintyConfig {
@@ -801,6 +812,19 @@ impl Default for OfflineVldaUncertaintyConfig {
             block_size: 1,
             alpha: 0.05,
             seed: 0xC0FFEE,
+            permutation_scheme: PermutationScheme::FullShuffle,
+        }
+    }
+}
+
+/// Stable string label for the permutation scheme, recorded in the uncertainty
+/// artifact so a standalone JSON consumer can tell which null produced the
+/// p-values.
+fn permutation_scheme_label(scheme: PermutationScheme) -> String {
+    match scheme {
+        PermutationScheme::FullShuffle => "full_shuffle".to_string(),
+        PermutationScheme::CircularShift { min_shift } => {
+            format!("circular_shift(min_shift={min_shift})")
         }
     }
 }
@@ -847,6 +871,11 @@ pub struct OfflineVldaPidUncertainty {
     pub subsample_len: usize,
     pub alpha: f64,
     pub resample_scheme: String,
+    /// Which permutation null produced the p-values (`"full_shuffle"` or
+    /// `"circular_shift(min_shift=N)"`). Defaults to empty on artifacts written
+    /// before the field existed.
+    #[serde(default)]
+    pub permutation_scheme: String,
     pub pairs: Vec<OfflineVldaPairUncertainty>,
 }
 
@@ -876,6 +905,7 @@ pub fn compute_offline_pid_uncertainty(
             subsample_len: 0,
             alpha: config.alpha,
             resample_scheme: "politis_romano_subsample".to_string(),
+            permutation_scheme: permutation_scheme_label(config.permutation_scheme),
             pairs: Vec::new(),
         });
     }
@@ -945,15 +975,24 @@ pub fn compute_offline_pid_uncertainty(
         let (unique_s1_perm_p, perm_n_valid_s1, unique_s2_perm_p, perm_n_valid_s2) =
             if config.n_perm > 0 {
                 // Shuffle source 1 → null for its unique atom; likewise source 2.
-                let p1 = permutation_rows_pvalue(&mats, 0, config.n_perm, config.seed, |m| {
-                    Ok(pid2_isx(m[0], m[1], m[2], &pid_cfg)?.unique_s1)
-                })
+                // The scheme decides the null: FullShuffle assumes exchangeable
+                // rows; CircularShift preserves within-series autocorrelation
+                // (the honest null for per-step trajectory captures).
+                let p1 = permutation_rows_pvalue_with(
+                    &mats,
+                    0,
+                    config.n_perm,
+                    config.seed,
+                    config.permutation_scheme,
+                    |m| Ok(pid2_isx(m[0], m[1], m[2], &pid_cfg)?.unique_s1),
+                )
                 .map_err(|e| anyhow::anyhow!("pid2 permutation (s1) failed for {name}: {e}"))?;
-                let p2 = permutation_rows_pvalue(
+                let p2 = permutation_rows_pvalue_with(
                     &mats,
                     1,
                     config.n_perm,
                     config.seed.wrapping_add(1),
+                    config.permutation_scheme,
                     |m| Ok(pid2_isx(m[0], m[1], m[2], &pid_cfg)?.unique_s2),
                 )
                 .map_err(|e| anyhow::anyhow!("pid2 permutation (s2) failed for {name}: {e}"))?;
@@ -988,6 +1027,7 @@ pub fn compute_offline_pid_uncertainty(
         subsample_len,
         alpha: config.alpha,
         resample_scheme: "politis_romano_subsample".to_string(),
+        permutation_scheme: permutation_scheme_label(config.permutation_scheme),
         pairs,
     })
 }
@@ -5913,11 +5953,13 @@ mod tests {
             block_size: 1,
             alpha: 0.05,
             seed: 7,
+            permutation_scheme: PermutationScheme::FullShuffle,
         };
         let u = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
         assert_eq!(u.mode, "continuous");
         assert_eq!(u.pairs.len(), 3);
         assert!(u.subsample_len >= 1);
+        assert_eq!(u.permutation_scheme, "full_shuffle");
         // Deterministic given the same config.
         let u2 = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
         assert_eq!(u, u2);
@@ -5960,5 +6002,30 @@ mod tests {
         assert!(vl.redundancy.is_some());
         assert!(vl.unique_s1_perm_p.is_none() && vl.unique_s2_perm_p.is_none());
         assert!(!OfflineVldaUncertaintyConfig::default().enabled());
+    }
+
+    #[test]
+    fn pid_uncertainty_circular_shift_null_is_supported_and_recorded() {
+        // The dependence-respecting null for per-step trajectory captures:
+        // rotations preserve each source's own autocorrelation while breaking
+        // its alignment with the others. The fixture has n = 48 rows, so
+        // min_shift = 4 leaves 41 admissible offsets — well-formed.
+        let dataset = fixture_dataset();
+        let cfg = OfflineVldaUncertaintyConfig {
+            n_perm: 40,
+            permutation_scheme: PermutationScheme::CircularShift { min_shift: 4 },
+            ..Default::default()
+        };
+        let u = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
+        assert_eq!(u.mode, "continuous");
+        assert_eq!(u.permutation_scheme, "circular_shift(min_shift=4)");
+        let vl = u.pairs.iter().find(|p| p.pair == "VL").unwrap();
+        let p1 = vl.unique_s1_perm_p.unwrap();
+        let p2 = vl.unique_s2_perm_p.unwrap();
+        assert!((0.0..=1.0).contains(&p1) && (0.0..=1.0).contains(&p2));
+        assert!(vl.perm_n_valid_s1 > 0 && vl.perm_n_valid_s2 > 0);
+        // Deterministic given the same config.
+        let u2 = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
+        assert_eq!(u, u2);
     }
 }
