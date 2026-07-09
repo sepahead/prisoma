@@ -713,24 +713,27 @@ impl<W: Write> SimBridgeSession<W> {
     }
 
     /// Record a rejected RPC message (malformed JSON, invalid id, unknown
-    /// method) as a failed bridge response so the provenance log captures
-    /// probing and malformed traffic too — grandplan's control-plane rule is
-    /// "append every request and response summary to the run log". Best-effort:
+    /// method) in the provenance log — grandplan's control-plane rule is
+    /// "append every request and response summary to the run log". The trace
+    /// is an [`RunLogEvent::ErrorLogged`] event, **not** a `BridgeResponse`:
+    /// a rejected message has no recordable `BridgeRequest` (its method may be
+    /// unknown, its id structurally invalid, or its JSON unparseable), and an
+    /// unpaired response makes the canonical run-log validation fail — the old
+    /// encoding let one probing/malformed message poison the validity of the
+    /// very log this hook exists to keep audit-complete. Best-effort:
     /// a run-log write failure is reported on stderr rather than masking the
     /// protocol error already being returned to the client.
     pub fn record_rejected_rpc(&mut self, request_id: &str, message: &str) {
         if self.run_ended {
             return;
         }
-        let response = BridgeResponse {
-            request_id: request_id.to_string(),
+        let event = RunLogEvent::ErrorLogged {
             step: Some(self.handler.sim.step()),
             timestamp_ns: self.handler.sim.timestamp_ns(),
-            ok: false,
-            message: Some(message.to_string()),
-            result: None,
+            message: format!("rejected rpc {request_id}: {message}"),
+            recoverable: true,
         };
-        if let Err(err) = self.bridge.record_response(&response) {
+        if let Err(err) = self.bridge.record_event(&event) {
             eprintln!("[pid-sim-bridge] failed to record rejected request in run log: {err}");
         }
     }
@@ -1863,7 +1866,9 @@ mod tests {
 
     #[test]
     fn rpc_dispatch_echoes_numeric_id_and_logs_rejections() {
-        let writer = RunLogWriter::new(Vec::new());
+        let mut writer = RunLogWriter::new(Vec::new());
+        // A canonical run prefix, so the log can be validated end to end below.
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "rpc-id-test");
         let mut session = SimBridgeSession::new(writer, demo_sim());
         let actor = Actor {
             actor_type: ActorType::Script,
@@ -1902,29 +1907,46 @@ mod tests {
         assert_eq!(bad_id.error.as_ref().unwrap().code, -32600);
         assert_eq!(bad_id.id, Value::Null);
 
-        // Every rejected message must have left a failed bridge_response event:
+        // Every rejected message must have left an error_logged trace:
         // probing/malformed traffic is exactly what the audit trail must keep.
+        // (Not a bridge_response — an unpaired response would fail canonical
+        // validation, letting one probe poison the log's validity.)
+        session
+            .finish_run(RunStatus::Succeeded, None)
+            .expect("finish run");
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
         let rejected: Vec<String> = events
             .iter()
             .filter_map(|event| match event {
-                RunLogEvent::BridgeResponse {
-                    ok: false,
-                    request_id,
-                    ..
-                } => Some(request_id.clone()),
+                RunLogEvent::ErrorLogged { message, .. }
+                    if message.starts_with("rejected rpc ") =>
+                {
+                    Some(message.clone())
+                }
                 _ => None,
             })
             .collect();
         assert_eq!(rejected.len(), 3, "{rejected:?}");
-        assert!(rejected.contains(&"probe".to_string()), "{rejected:?}");
+        assert!(
+            rejected.iter().any(|m| m.contains("rejected rpc probe:")),
+            "{rejected:?}"
+        );
         assert!(
             rejected
                 .iter()
-                .filter(|id| id.starts_with("message-"))
+                .filter(|m| m.starts_with("rejected rpc message-"))
                 .count()
                 == 2,
             "parse/id failures must be traceable: {rejected:?}"
+        );
+
+        // The regression that motivated the ErrorLogged encoding: a log that
+        // captured rejected traffic must still pass canonical validation.
+        let report = pid_runlog::validate_events(&events);
+        assert!(
+            report.is_valid(),
+            "rejected RPCs must not poison run-log validity: {:?}",
+            report.issues
         );
     }
 
