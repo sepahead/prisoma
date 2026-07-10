@@ -19,8 +19,15 @@ impl<'a> PidLogger<'a> {
 
     /// Set the time for subsequent logs.
     fn set_time(&self, timestamp_secs: f64) {
-        self.rec
-            .set_time("time", Duration::from_secs_f64(timestamp_secs));
+        // Duration::from_secs_f64 PANICS on negative/NaN input; a converter
+        // must not be crashable by one bad row. validate_shapes rejects such
+        // timestamps up front — this is the belt for direct callers: clamp to
+        // zero on stderr rather than abort.
+        let duration = Duration::try_from_secs_f64(timestamp_secs).unwrap_or_else(|_| {
+            eprintln!("[pid-rerun] non-finite/negative timestamp {timestamp_secs}; clamping to 0");
+            Duration::ZERO
+        });
+        self.rec.set_time("time", duration);
     }
 
     /// Log PID atoms at a given timestamp.
@@ -97,8 +104,15 @@ impl<'a> VlaLogger<'a> {
 
     /// Set the time for subsequent logs.
     fn set_time(&self, timestamp_secs: f64) {
-        self.rec
-            .set_time("time", Duration::from_secs_f64(timestamp_secs));
+        // Duration::from_secs_f64 PANICS on negative/NaN input; a converter
+        // must not be crashable by one bad row. validate_shapes rejects such
+        // timestamps up front — this is the belt for direct callers: clamp to
+        // zero on stderr rather than abort.
+        let duration = Duration::try_from_secs_f64(timestamp_secs).unwrap_or_else(|_| {
+            eprintln!("[pid-rerun] non-finite/negative timestamp {timestamp_secs}; clamping to 0");
+            Duration::ZERO
+        });
+        self.rec.set_time("time", duration);
     }
 
     /// Log a complete VLA episode.

@@ -86,8 +86,10 @@ impl VlaEpisode {
         let vision_dim = self.frames[0].vision_embedding.len();
         let action_dim = self.frames[0].action.len();
         for (idx, frame) in self.frames.iter().enumerate() {
-            if !frame.timestamp.is_finite() {
-                bail!("frame {idx}: timestamp must be finite");
+            if !frame.timestamp.is_finite() || frame.timestamp < 0.0 {
+                // Negative would also PANIC downstream in
+                // Duration::from_secs_f64 when building the Rerun timeline.
+                bail!("frame {idx}: timestamp must be finite and non-negative");
             }
             if frame.vision_embedding.len() != vision_dim {
                 bail!("frame {idx}: inconsistent vision embedding dimension");
@@ -120,37 +122,47 @@ impl VlaEpisode {
     }
 
     /// Get vision embeddings as a 2D array [n_frames, embed_dim].
-    pub fn vision_embeddings(&self) -> Array2<f64> {
+    pub fn vision_embeddings(&self) -> Result<Array2<f64>> {
         if self.frames.is_empty() {
-            return Array2::zeros((0, 0));
+            return Ok(Array2::zeros((0, 0)));
         }
         let n = self.frames.len();
         let d = self.frames[0].vision_embedding.len();
         let mut arr = Array2::zeros((n, d));
         for (i, frame) in self.frames.iter().enumerate() {
-            let width = d.min(frame.vision_embedding.len());
-            for j in 0..width {
+            // Fail loud on ragged frames: silently zero-padding/truncating a
+            // dim-inconsistent embedding would fabricate data for any caller
+            // that skipped validate_shapes.
+            if frame.vision_embedding.len() != d {
+                bail!(
+                    "frame {i}: vision embedding dim {} != {d}",
+                    frame.vision_embedding.len()
+                );
+            }
+            for j in 0..d {
                 arr[(i, j)] = frame.vision_embedding[j];
             }
         }
-        arr
+        Ok(arr)
     }
 
     /// Get actions as a 2D array [n_frames, action_dim].
-    pub fn actions(&self) -> Array2<f64> {
+    pub fn actions(&self) -> Result<Array2<f64>> {
         if self.frames.is_empty() {
-            return Array2::zeros((0, 0));
+            return Ok(Array2::zeros((0, 0)));
         }
         let n = self.frames.len();
         let d = self.frames[0].action.len();
         let mut arr = Array2::zeros((n, d));
         for (i, frame) in self.frames.iter().enumerate() {
-            let width = d.min(frame.action.len());
-            for j in 0..width {
+            if frame.action.len() != d {
+                bail!("frame {i}: action dim {} != {d}", frame.action.len());
+            }
+            for j in 0..d {
                 arr[(i, j)] = frame.action[j];
             }
         }
-        arr
+        Ok(arr)
     }
 
     /// Get timestamps as a 1D array.
@@ -251,6 +263,27 @@ pub fn generate_synthetic_episode(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn negative_timestamps_are_rejected() {
+        // Would otherwise panic downstream in Duration::from_secs_f64 when
+        // building the Rerun timeline.
+        let mut episode = generate_synthetic_episode(4, 3, 2, 7);
+        episode.frames[2].timestamp = -1.0;
+        let err = episode.validate_shapes().unwrap_err();
+        assert!(format!("{err:#}").contains("non-negative"), "{err:#}");
+    }
+
+    #[test]
+    fn ragged_frames_error_instead_of_silent_padding() {
+        let mut episode = generate_synthetic_episode(4, 3, 2, 7);
+        episode.frames[1].vision_embedding = Array1::zeros(2); // 3 expected
+        episode.frames[1].action = Array1::zeros(5); // 2 expected
+        assert!(episode.vision_embeddings().is_err(), "ragged V must error");
+        assert!(episode.actions().is_err(), "ragged A must error");
+        // And the pre-flight rejects the same episode up front.
+        assert!(episode.validate_shapes().is_err());
+    }
     use super::*;
 
     #[test]

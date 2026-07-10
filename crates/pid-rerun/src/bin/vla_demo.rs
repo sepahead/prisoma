@@ -84,8 +84,8 @@ fn main() -> Result<()> {
     let window_size = 20;
     let step_size = 5;
 
-    let vision_embeddings = episode.vision_embeddings();
-    let actions = episode.actions();
+    let vision_embeddings = episode.vision_embeddings()?;
+    let actions = episode.actions()?;
     let timestamps = episode.timestamps();
 
     let mut window_start = 0;
