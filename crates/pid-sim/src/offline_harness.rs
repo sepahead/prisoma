@@ -300,6 +300,41 @@ pub struct OfflineVldaPreprocessingVariable {
     pub inv_std_sha256: String,
 }
 
+/// Per-axis temporal-dependence diagnostic (audit item 25). Per-step rows are
+/// **not** i.i.d. when episodes autocorrelate, and every kNN estimate in this
+/// harness assumes they are — this quantifies how far a capture is from that
+/// validated regime and what block length the dependence-aware tools need.
+/// Non-gating: a high lag-1 does not fail the run; it tells the analyst to
+/// (a) read point estimates as computed on `effective_sample_size`, not `n`,
+/// and (b) feed `recommended_block_len` to `--uncertainty-block-size` and the
+/// circular-shift null.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaTemporalReport {
+    /// One entry per axis (V/L/D/A).
+    pub variables: BTreeMap<String, OfflineVldaTemporalVariable>,
+    /// Max over axes of the per-axis recommendation — the single block length
+    /// to hand the moving-block bootstrap and `CircularShift { min_shift }`.
+    pub recommended_block_len: usize,
+    /// `"within_episode"` when episode ids exist (lag products never cross an
+    /// episode boundary); `"row_order"` otherwise (boundaries mix in).
+    pub scope: String,
+}
+
+/// One axis's temporal diagnostic.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaTemporalVariable {
+    /// Dimension-averaged lag-1 autocorrelation of the standardized columns
+    /// (products pooled across episode segments; global standardization, so
+    /// per-segment means are not re-removed).
+    pub lag1_autocorr: f64,
+    /// AR(1)-approximate effective sample size `n·(1−r)/(1+r)`, clamped to
+    /// `[1, n]` — the honest denominator for reading the point estimates.
+    pub effective_sample_size: f64,
+    /// AR(1) integrated autocorrelation time `(1+r)/(1−r)` rounded up, ≥ 1 —
+    /// the dependence length for block-based tools.
+    pub recommended_block_len: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaGeometryReport {
     pub space: String,
@@ -417,6 +452,7 @@ pub struct OfflineVldaReport {
     pub label_counts: BTreeMap<String, usize>,
     pub preprocessing: OfflineVldaPreprocessingReport,
     pub geometry: OfflineVldaGeometryReport,
+    pub temporal: OfflineVldaTemporalReport,
     pub train_split_pid: Option<OfflineVldaTrainSplitPidReport>,
     pub heldout_split: Option<OfflineVldaHeldoutSplitReport>,
     pub heldout_class_coverage: Option<OfflineVldaHeldoutClassCoverageReport>,
@@ -652,6 +688,7 @@ pub fn run_offline_vlda_harness_with_options(
         label_counts,
         preprocessing: analysis.preprocessing,
         geometry: analysis.geometry,
+        temporal: analysis.temporal,
         train_split_pid: analysis.train_split_pid,
         heldout_split: analysis.heldout_split,
         heldout_class_coverage: analysis.heldout_class_coverage,
@@ -1823,6 +1860,7 @@ struct OfflineVldaAnalysis {
     metrics: OfflineVldaMetrics,
     preprocessing: OfflineVldaPreprocessingReport,
     geometry: OfflineVldaGeometryReport,
+    temporal: OfflineVldaTemporalReport,
     train_split_pid: Option<OfflineVldaTrainSplitPidReport>,
     heldout_split: Option<OfflineVldaHeldoutSplitReport>,
     heldout_class_coverage: Option<OfflineVldaHeldoutClassCoverageReport>,
@@ -1904,10 +1942,12 @@ fn compute_analysis(
     let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
     let geometry = compute_geometry_report(&prepared);
+    let temporal = compute_temporal_report(samples, &prepared);
     Ok(OfflineVldaAnalysis {
         metrics,
         preprocessing: prepared.preprocessing,
         geometry,
+        temporal,
         train_split_pid,
         heldout_split: heldout_split.map(|split| split.report),
         heldout_class_coverage,
@@ -2411,6 +2451,95 @@ fn compute_pid_pair_metrics_discrete(
             saturation_warning,
         }),
     })
+}
+
+/// Dimension-averaged lag-1 autocorrelation of one standardized axis matrix,
+/// with lag products pooled across episode segments (never crossing an episode
+/// boundary when ids exist). Returns `(r1, n_rows)`.
+fn axis_lag1_autocorr(matrix: &MatOwned, segments: &[std::ops::Range<usize>]) -> f64 {
+    let m = matrix.as_ref();
+    let d = m.ncols();
+    if d == 0 {
+        return 0.0;
+    }
+    let mut num = 0.0f64;
+    let mut den = 0.0f64;
+    for segment in segments {
+        for t in segment.clone() {
+            let row = m.row(t);
+            for value in row {
+                den += value * value;
+            }
+            if t + 1 < segment.end {
+                let next = m.row(t + 1);
+                for (a, b) in row.iter().zip(next) {
+                    num += a * b;
+                }
+            }
+        }
+    }
+    if den <= 0.0 {
+        return 0.0;
+    }
+    (num / den).clamp(-0.99, 0.99)
+}
+
+/// See [`OfflineVldaTemporalReport`]. Segments are maximal runs of consecutive
+/// rows sharing an `episode_id`; without ids the whole row order is one segment
+/// (and the report says so).
+fn compute_temporal_report(
+    samples: &[OfflineVldaSample],
+    prepared: &PreparedVldaMatrices,
+) -> OfflineVldaTemporalReport {
+    let n = samples.len();
+    let have_ids = samples.iter().all(|sample| sample.episode_id.is_some());
+    let mut segments: Vec<std::ops::Range<usize>> = Vec::new();
+    if have_ids {
+        let mut start = 0usize;
+        for idx in 1..=n {
+            let boundary = idx == n || samples[idx].episode_id != samples[idx - 1].episode_id;
+            if boundary {
+                segments.push(start..idx);
+                start = idx;
+            }
+        }
+    } else {
+        segments.push(0..n);
+    }
+
+    let mut variables = BTreeMap::new();
+    let mut recommended_block_len = 1usize;
+    for (name, matrix) in [
+        ("V", &prepared.v),
+        ("L", &prepared.l),
+        ("D", &prepared.d),
+        ("A", &prepared.a),
+    ] {
+        let r1 = axis_lag1_autocorr(matrix, &segments);
+        let n_eff = (n as f64 * (1.0 - r1) / (1.0 + r1)).clamp(1.0, n as f64);
+        // Integrated autocorrelation time under AR(1); only positive
+        // dependence lengthens the required block.
+        let tau = ((1.0 + r1) / (1.0 - r1)).max(1.0);
+        let block = tau.ceil() as usize;
+        recommended_block_len = recommended_block_len.max(block);
+        variables.insert(
+            name.to_string(),
+            OfflineVldaTemporalVariable {
+                lag1_autocorr: r1,
+                effective_sample_size: n_eff,
+                recommended_block_len: block,
+            },
+        );
+    }
+    OfflineVldaTemporalReport {
+        variables,
+        recommended_block_len,
+        scope: if have_ids {
+            "within_episode".to_string()
+        } else {
+            "row_order".to_string()
+        },
+    }
 }
 
 fn compute_geometry_report(prepared: &PreparedVldaMatrices) -> OfflineVldaGeometryReport {
@@ -4815,6 +4944,60 @@ mod tests {
     use super::*;
     use pid_runlog::{read_events_from_path, summarize_events, validate_events};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn temporal_report_distinguishes_persistent_from_alternating_series() {
+        // One long episode; V is a slow ramp (lag-1 near +1), L alternates
+        // sign every step (lag-1 near -1). The diagnostic must give the ramp a
+        // small effective sample size and a block length > 1, and the
+        // alternating axis the full n with block 1 (negative dependence does
+        // not lengthen blocks).
+        let n = 32usize;
+        let samples: Vec<OfflineVldaSample> = (0..n)
+            .map(|idx| {
+                let ramp = idx as f64;
+                let alt = if idx % 2 == 0 { 1.0 } else { -1.0 };
+                OfflineVldaSample {
+                    sample_id: format!("s{idx:03}"),
+                    episode_id: Some("ep-0".to_string()),
+                    v: vec![ramp],
+                    l: vec![alt],
+                    d: vec![ramp * 0.5 + alt],
+                    a: vec![ramp * 0.25 + if idx % 3 == 0 { 0.5 } else { -0.5 }],
+                    labels: [("success".to_string(), json!(idx % 2 == 0))]
+                        .into_iter()
+                        .collect(),
+                    metadata: BTreeMap::new(),
+                }
+            })
+            .collect();
+        let dataset = OfflineVldaDataset {
+            samples,
+            ..fixture_dataset()
+        };
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+        let t = &report.temporal;
+        assert_eq!(t.scope, "within_episode");
+        let v = &t.variables["V"];
+        let l = &t.variables["L"];
+        assert!(v.lag1_autocorr > 0.8, "ramp lag1 = {}", v.lag1_autocorr);
+        assert!(
+            l.lag1_autocorr < -0.8,
+            "alternating lag1 = {}",
+            l.lag1_autocorr
+        );
+        assert!(
+            v.effective_sample_size < n as f64 / 4.0,
+            "persistent axis must shrink n_eff: {}",
+            v.effective_sample_size
+        );
+        assert!(v.recommended_block_len > 1);
+        assert_eq!(l.recommended_block_len, 1, "negative r1 needs no block");
+        assert!(t.recommended_block_len >= v.recommended_block_len);
+        // The fixture's own report carries the diagnostic too.
+        let base = run_offline_vlda_harness(fixture_dataset(), None, None).unwrap();
+        assert_eq!(base.temporal.variables.len(), 4);
+    }
 
     fn fixture_dataset() -> OfflineVldaDataset {
         let samples = (0..16)

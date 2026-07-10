@@ -107,7 +107,10 @@ def faithfulness_check(
         arr = np.abs(f0 - np.asarray(curve))
         random_curve_acc = arr if random_curve_acc is None else random_curve_acc + arr
     random_aopc = float(np.mean(random_aopcs))
-    random_std = float(np.std(random_aopcs))
+    # Sample std (ddof=1): this feeds the 3-SEM pass threshold, and the biased
+    # ddof=0 form understates the spread at small n_random, marginally
+    # loosening the gate.
+    random_std = float(np.std(random_aopcs, ddof=1)) if len(random_aopcs) > 1 else 0.0
     random_curve = (random_curve_acc / n_random).tolist() if random_curve_acc is not None else []
 
     # Method ordering: most-important-first by |attribution|, with ties broken at
