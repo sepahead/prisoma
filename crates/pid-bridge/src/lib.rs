@@ -207,10 +207,13 @@ pub struct BridgeRpcRequest {
     pub params: Value,
 }
 
-/// Render a (valid) JSON-RPC id as the string `request_id` used in run-log
-/// events. Distinct JSON ids can render identically (`1` vs `"1"`); run-log
-/// request ids are provenance labels, not correlation keys, so that is fine —
-/// wire responses echo the original [`Value`] verbatim.
+/// Render a (valid) JSON-RPC id as a bare string. Distinct JSON ids can render
+/// identically (`1` vs `"1"`, every notification → `"null"`), and clients may
+/// legally reuse ids — so this rendering is **not unique** and must not be used
+/// as a run-log `request_id` on its own: `pid-runlog` validation hard-errors on
+/// duplicate request/response ids, so a spec-valid client could invalidate the
+/// log. Use [`rpc_id_to_unique_request_id`] for run-log recording; wire
+/// responses echo the original [`Value`] verbatim either way.
 pub fn rpc_id_to_request_id(id: &Value) -> String {
     match id {
         Value::String(s) => s.clone(),
@@ -218,6 +221,24 @@ pub fn rpc_id_to_request_id(id: &Value) -> String {
         Value::Null => "null".to_string(),
         other => other.to_string(),
     }
+}
+
+/// Render a (valid) JSON-RPC id as a run-log `request_id` that is **unique by
+/// construction** and **type-unambiguous**: prefixed with the session-monotone
+/// message index (so id reuse and cross-type collisions cannot produce
+/// duplicate run-log ids) and tagged by JSON type (`n:` number, `s:` string,
+/// `null` notification) so provenance stays greppable back to the wire id.
+///
+/// `1` at message 4 → `"message-4:n:1"`; `"1"` at message 5 →
+/// `"message-5:s:1"`; a notification at message 6 → `"message-6:null"`.
+pub fn rpc_id_to_unique_request_id(id: &Value, message_index: usize) -> String {
+    let tagged = match id {
+        Value::String(s) => format!("s:{s}"),
+        Value::Number(n) => format!("n:{n}"),
+        Value::Null => "null".to_string(),
+        other => format!("j:{other}"),
+    };
+    format!("message-{message_index}:{tagged}")
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

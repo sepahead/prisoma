@@ -1,11 +1,11 @@
 use anyhow::{bail, Context, Result};
 use pid_core::{
-    bootstrap_rows_stats, co_information_pairwise, concat_horiz, discrete_mi,
-    distance_concentration_stats, gromov_hyperbolicity, intrinsic_dimension_levina_bickel,
-    permutation_rows_pvalue_with, pid2_isx, pls_cv_select_components, quantize_equal_width,
-    BootstrapConfig, DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig,
-    IsxConfig, KsgConfig, LogisticRegression, LogisticRegressionConfig, MatOwned, MatRef, Metric,
-    NegativeHandling, Pid2Config, PlsProjector, RowResampleScheme, Standardizer,
+    bootstrap_rows_stats, concat_horiz, discrete_mi, distance_concentration_stats,
+    gromov_hyperbolicity, intrinsic_dimension_levina_bickel, permutation_rows_pvalue_with,
+    pid2_isx, pls_cv_select_components, quantize_equal_width, BootstrapConfig,
+    DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig, IsxConfig, KsgConfig,
+    LogisticRegression, LogisticRegressionConfig, MatOwned, MatRef, Metric, NegativeHandling,
+    Pid2Config, PlsProjector, RowResampleScheme, Standardizer,
 };
 // Re-exported so the harness CLI (and downstream callers) can pick the permutation
 // null without importing pid-core directly.
@@ -834,9 +834,9 @@ fn compute_pid_screen_metrics(
                 },
             };
             (
-                compute_pid_pair_metrics(v_source, l_source, action_target, &ksg, &pid_cfg)?,
-                compute_pid_pair_metrics(v_source, d_source, action_target, &ksg, &pid_cfg)?,
-                compute_pid_pair_metrics(l_source, d_source, action_target, &ksg, &pid_cfg)?,
+                compute_pid_pair_metrics(v_source, l_source, action_target, &pid_cfg)?,
+                compute_pid_pair_metrics(v_source, d_source, action_target, &pid_cfg)?,
+                compute_pid_pair_metrics(l_source, d_source, action_target, &pid_cfg)?,
             )
         }
         PidMode::Discrete | PidMode::DiscretePls => (
@@ -2312,28 +2312,25 @@ fn compute_pid_pair_metrics(
     source_1: OfflineVldaSourceMatrix<'_>,
     source_2: OfflineVldaSourceMatrix<'_>,
     target: OfflineVldaTargetMatrix<'_>,
-    ksg: &KsgConfig,
     pid_cfg: &Pid2Config,
 ) -> Result<OfflineVldaPidPairMetrics> {
-    let pid = pid2_isx(source_1.matrix, source_2.matrix, target.matrix, pid_cfg)?;
+    // One estimator pass. `pid2_isx_estimate` already computes the two marginal
+    // MIs, the joint MI, and the I^sx redundancy; the atoms, the joint, and the
+    // co-information are algebraic in those terms, so recomputing them with
+    // standalone `ksg_mi_concat_xy` / `co_information_pairwise` calls (as this
+    // fn previously did) was ~2× redundant O(n²) kNN work per pair for
+    // bit-identical results (same estimator code paths, `Allow` forced).
+    let est =
+        pid_core::pid2_isx_estimate(source_1.matrix, source_2.matrix, target.matrix, pid_cfg)?;
+    let pid = pid_core::Pid2Result::from_estimate(est.clone());
     Ok(OfflineVldaPidPairMetrics {
         source_1: source_1.name.to_string(),
         source_2: source_2.name.to_string(),
         target: target.name.to_string(),
         mi_source_1_action: source_1.mi_action,
         mi_source_2_action: source_2.mi_action,
-        mi_joint_action: pid_core::ksg_mi_concat_xy(
-            source_1.matrix,
-            source_2.matrix,
-            target.matrix,
-            ksg,
-        )?,
-        co_information: co_information_pairwise(
-            source_1.matrix,
-            source_2.matrix,
-            target.matrix,
-            ksg,
-        )?,
+        mi_joint_action: est.mi_s1s2_t,
+        co_information: est.mi_s1_t + est.mi_s2_t - est.mi_s1s2_t,
         redundancy: pid.redundancy,
         unique_source_1: pid.unique_s1,
         unique_source_2: pid.unique_s2,

@@ -4,7 +4,7 @@
 
 use anyhow::{bail, Context, Result};
 use pid_bridge::{
-    rpc_id_to_request_id, BridgeHandler, BridgeMethod, BridgeRequest, BridgeResponse,
+    rpc_id_to_unique_request_id, BridgeHandler, BridgeMethod, BridgeRequest, BridgeResponse,
     BridgeRpcRequest, BridgeRpcResponse, LocalBridge,
 };
 use pid_runlog::{
@@ -1064,9 +1064,13 @@ where
                     return BridgeRpcResponse::failure(Value::Null, -32600, message);
                 }
             };
-            let request_id = rpc_id_to_request_id(&id);
+            // Unique-by-construction run-log id: clients may reuse ids and
+            // `1` vs `"1"` collide under the bare rendering, and duplicate
+            // request ids hard-fail canonical run-log validation.
+            let request_id = rpc_id_to_unique_request_id(&id, request_index);
             match rpc.into_bridge_request(actor, Some(session.step()), session.timestamp_ns()) {
-                Ok(request) => {
+                Ok(mut request) => {
+                    request.request_id = request_id.clone();
                     let response = session.dispatch(&request).unwrap_or_else(|err| {
                         // dispatch itself failed (e.g. a run-log write
                         // error) — the response below may not be in the
@@ -1945,17 +1949,19 @@ mod tests {
             })
             .collect();
         assert_eq!(rejected.len(), 3, "{rejected:?}");
+        // The unknown-method probe keeps its wire id greppable inside the
+        // unique, type-tagged run-log id (message-2:s:probe).
         assert!(
-            rejected.iter().any(|m| m.contains("rejected rpc probe:")),
+            rejected
+                .iter()
+                .any(|m| m.contains("rejected rpc message-2:s:probe:")),
             "{rejected:?}"
         );
         assert!(
             rejected
                 .iter()
-                .filter(|m| m.starts_with("rejected rpc message-"))
-                .count()
-                == 2,
-            "parse/id failures must be traceable: {rejected:?}"
+                .all(|m| m.starts_with("rejected rpc message-")),
+            "every rejection is message-indexed: {rejected:?}"
         );
 
         // The regression that motivated the ErrorLogged encoding: a log that
@@ -1964,6 +1970,56 @@ mod tests {
         assert!(
             report.is_valid(),
             "rejected RPCs must not poison run-log validity: {:?}",
+            report.issues
+        );
+    }
+
+    #[test]
+    fn colliding_and_reused_rpc_ids_do_not_invalidate_the_log() {
+        // JSON-RPC clients may legally send `1` and "1", reuse an id after
+        // completion, and fire multiple notifications (null id). Under the old
+        // bare rendering all of these produced duplicate run-log request ids,
+        // which canonical validation hard-rejects — a spec-valid client could
+        // invalidate the source-of-truth log.
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "rpc-collide-test".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "rpc-collide");
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let lines = [
+            r#"{"jsonrpc":"2.0","id":1,"method":"sim.status","params":{}}"#,
+            r#"{"jsonrpc":"2.0","id":"1","method":"sim.status","params":{}}"#,
+            r#"{"jsonrpc":"2.0","id":"1","method":"sim.status","params":{}}"#,
+            r#"{"jsonrpc":"2.0","method":"sim.status","params":{}}"#,
+            r#"{"jsonrpc":"2.0","method":"sim.status","params":{}}"#,
+        ];
+        for (idx, line) in lines.iter().enumerate() {
+            let response = dispatch_rpc_text_request(line, idx + 1, &mut session, actor.clone());
+            assert!(response.is_ok(), "{:?}", response.error);
+        }
+        session
+            .finish_run(RunStatus::Succeeded, None)
+            .expect("finish run");
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let mut ids: Vec<String> = events
+            .iter()
+            .filter_map(|event| match event {
+                RunLogEvent::BridgeRequest { request_id, .. } => Some(request_id.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(ids.len(), 5);
+        let n = ids.len();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), n, "request ids must be unique: {ids:?}");
+        let report = pid_runlog::validate_events(&events);
+        assert!(
+            report.is_valid(),
+            "colliding wire ids must not invalidate the log: {:?}",
             report.issues
         );
     }
