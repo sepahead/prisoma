@@ -1,0 +1,574 @@
+{
+  "config": {
+    "h1_episodes_grid": [
+      40,
+      80,
+      160,
+      320,
+      480,
+      640,
+      960
+    ],
+    "h1_delta_grid": [
+      0.0,
+      0.03,
+      0.05,
+      0.08
+    ],
+    "h1_baseline_auroc": 0.65,
+    "h1_failure_rate": 0.3,
+    "h1_heldout_frac": 0.5,
+    "h2h4_tasks_grid": [
+      8,
+      12,
+      16,
+      24,
+      32,
+      48,
+      64,
+      96,
+      128
+    ],
+    "h2h4_rho": 0.3,
+    "h2h4_family_size": 4,
+    "h2h4_family_sd": 0.3,
+    "h3_cases_grid": [
+      20,
+      30,
+      40,
+      60
+    ],
+    "h3_mean_tau": 0.3333333333333333,
+    "h3_family_size": 4,
+    "n_boot": 500,
+    "replicates": 400,
+    "alpha": 0.05,
+    "h1_min_effect": 0.05,
+    "h1_futility_bound": 0.02,
+    "target_power": 0.8,
+    "seed": 5251
+  },
+  "h1": [
+    {
+      "n_units": 40,
+      "effect": 0.0,
+      "significance_rate": 0.045,
+      "power": 0.045,
+      "futility_rate": 0.145,
+      "mean_point_estimate": -0.01643355622222205,
+      "replicates": 400
+    },
+    {
+      "n_units": 40,
+      "effect": 0.03,
+      "significance_rate": 0.075,
+      "power": 0.075,
+      "futility_rate": 0.1575,
+      "mean_point_estimate": 0.012364080404889228,
+      "replicates": 400
+    },
+    {
+      "n_units": 40,
+      "effect": 0.05,
+      "significance_rate": 0.085,
+      "power": 0.085,
+      "futility_rate": 0.1125,
+      "mean_point_estimate": 0.03195656636105551,
+      "replicates": 400
+    },
+    {
+      "n_units": 40,
+      "effect": 0.08,
+      "significance_rate": 0.145,
+      "power": 0.145,
+      "futility_rate": 0.065,
+      "mean_point_estimate": 0.07651585225006757,
+      "replicates": 400
+    },
+    {
+      "n_units": 80,
+      "effect": 0.0,
+      "significance_rate": 0.0375,
+      "power": 0.035,
+      "futility_rate": 0.165,
+      "mean_point_estimate": -0.016109223185556895,
+      "replicates": 400
+    },
+    {
+      "n_units": 80,
+      "effect": 0.03,
+      "significance_rate": 0.1175,
+      "power": 0.105,
+      "futility_rate": 0.1125,
+      "mean_point_estimate": 0.01088015293697988,
+      "replicates": 400
+    },
+    {
+      "n_units": 80,
+      "effect": 0.05,
+      "significance_rate": 0.155,
+      "power": 0.1475,
+      "futility_rate": 0.06,
+      "mean_point_estimate": 0.04090993577217895,
+      "replicates": 400
+    },
+    {
+      "n_units": 80,
+      "effect": 0.08,
+      "significance_rate": 0.225,
+      "power": 0.2175,
+      "futility_rate": 0.03,
+      "mean_point_estimate": 0.06950987096028333,
+      "replicates": 400
+    },
+    {
+      "n_units": 160,
+      "effect": 0.0,
+      "significance_rate": 0.0075,
+      "power": 0.0025,
+      "futility_rate": 0.3325,
+      "mean_point_estimate": -0.013916122152998677,
+      "replicates": 400
+    },
+    {
+      "n_units": 160,
+      "effect": 0.03,
+      "significance_rate": 0.185,
+      "power": 0.1575,
+      "futility_rate": 0.07,
+      "mean_point_estimate": 0.022171868499383574,
+      "replicates": 400
+    },
+    {
+      "n_units": 160,
+      "effect": 0.05,
+      "significance_rate": 0.26,
+      "power": 0.22,
+      "futility_rate": 0.035,
+      "mean_point_estimate": 0.04533508230161092,
+      "replicates": 400
+    },
+    {
+      "n_units": 160,
+      "effect": 0.08,
+      "significance_rate": 0.4375,
+      "power": 0.4225,
+      "futility_rate": 0.005,
+      "mean_point_estimate": 0.08046678501728452,
+      "replicates": 400
+    },
+    {
+      "n_units": 320,
+      "effect": 0.0,
+      "significance_rate": 0.0125,
+      "power": 0.0025,
+      "futility_rate": 0.635,
+      "mean_point_estimate": -0.009209540355203175,
+      "replicates": 400
+    },
+    {
+      "n_units": 320,
+      "effect": 0.03,
+      "significance_rate": 0.25,
+      "power": 0.145,
+      "futility_rate": 0.0475,
+      "mean_point_estimate": 0.024209765554153016,
+      "replicates": 400
+    },
+    {
+      "n_units": 320,
+      "effect": 0.05,
+      "significance_rate": 0.37,
+      "power": 0.3125,
+      "futility_rate": 0.0175,
+      "mean_point_estimate": 0.0445579673838677,
+      "replicates": 400
+    },
+    {
+      "n_units": 320,
+      "effect": 0.08,
+      "significance_rate": 0.615,
+      "power": 0.595,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.0779705913365432,
+      "replicates": 400
+    },
+    {
+      "n_units": 480,
+      "effect": 0.0,
+      "significance_rate": 0.03,
+      "power": 0.0,
+      "futility_rate": 0.7725,
+      "mean_point_estimate": -0.0055334301873279455,
+      "replicates": 400
+    },
+    {
+      "n_units": 480,
+      "effect": 0.03,
+      "significance_rate": 0.3425,
+      "power": 0.1275,
+      "futility_rate": 0.045,
+      "mean_point_estimate": 0.024241157863499025,
+      "replicates": 400
+    },
+    {
+      "n_units": 480,
+      "effect": 0.05,
+      "significance_rate": 0.5925,
+      "power": 0.4225,
+      "futility_rate": 0.0025,
+      "mean_point_estimate": 0.04844811925584735,
+      "replicates": 400
+    },
+    {
+      "n_units": 480,
+      "effect": 0.08,
+      "significance_rate": 0.7275,
+      "power": 0.7025,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.07496491448474289,
+      "replicates": 400
+    },
+    {
+      "n_units": 640,
+      "effect": 0.0,
+      "significance_rate": 0.0175,
+      "power": 0.0,
+      "futility_rate": 0.8575,
+      "mean_point_estimate": -0.004067052712458347,
+      "replicates": 400
+    },
+    {
+      "n_units": 640,
+      "effect": 0.03,
+      "significance_rate": 0.4375,
+      "power": 0.125,
+      "futility_rate": 0.02,
+      "mean_point_estimate": 0.026528376423601917,
+      "replicates": 400
+    },
+    {
+      "n_units": 640,
+      "effect": 0.05,
+      "significance_rate": 0.6525,
+      "power": 0.445,
+      "futility_rate": 0.0025,
+      "mean_point_estimate": 0.04749074161974651,
+      "replicates": 400
+    },
+    {
+      "n_units": 640,
+      "effect": 0.08,
+      "significance_rate": 0.835,
+      "power": 0.795,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.0771077716992831,
+      "replicates": 400
+    },
+    {
+      "n_units": 960,
+      "effect": 0.0,
+      "significance_rate": 0.02,
+      "power": 0.0,
+      "futility_rate": 0.97,
+      "mean_point_estimate": -0.00342041421485922,
+      "replicates": 400
+    },
+    {
+      "n_units": 960,
+      "effect": 0.03,
+      "significance_rate": 0.5225,
+      "power": 0.09,
+      "futility_rate": 0.0075,
+      "mean_point_estimate": 0.026583164013651545,
+      "replicates": 400
+    },
+    {
+      "n_units": 960,
+      "effect": 0.05,
+      "significance_rate": 0.765,
+      "power": 0.4675,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.04768206135381521,
+      "replicates": 400
+    },
+    {
+      "n_units": 960,
+      "effect": 0.08,
+      "significance_rate": 0.9475,
+      "power": 0.8975,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.07883227093839668,
+      "replicates": 400
+    }
+  ],
+  "h2h4": [
+    {
+      "n_units": 8,
+      "effect": 0.3,
+      "significance_rate": 0.435,
+      "power": 0.435,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.29285714285714287,
+      "replicates": 400
+    },
+    {
+      "n_units": 12,
+      "effect": 0.3,
+      "significance_rate": 0.395,
+      "power": 0.395,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.2644405594405595,
+      "replicates": 400
+    },
+    {
+      "n_units": 16,
+      "effect": 0.3,
+      "significance_rate": 0.3025,
+      "power": 0.3025,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.25709558823529444,
+      "replicates": 400
+    },
+    {
+      "n_units": 24,
+      "effect": 0.3,
+      "significance_rate": 0.4175,
+      "power": 0.4175,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.28378478260869594,
+      "replicates": 400
+    },
+    {
+      "n_units": 32,
+      "effect": 0.3,
+      "significance_rate": 0.4875,
+      "power": 0.4875,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.2772653958944282,
+      "replicates": 400
+    },
+    {
+      "n_units": 48,
+      "effect": 0.3,
+      "significance_rate": 0.655,
+      "power": 0.655,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.28085730568823297,
+      "replicates": 400
+    },
+    {
+      "n_units": 64,
+      "effect": 0.3,
+      "significance_rate": 0.7775,
+      "power": 0.7775,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.28699668040293036,
+      "replicates": 400
+    },
+    {
+      "n_units": 96,
+      "effect": 0.3,
+      "significance_rate": 0.895,
+      "power": 0.895,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.28510706049918605,
+      "replicates": 400
+    },
+    {
+      "n_units": 128,
+      "effect": 0.3,
+      "significance_rate": 0.94,
+      "power": 0.94,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.283930098081853,
+      "replicates": 400
+    }
+  ],
+  "h2h4_null": [
+    {
+      "n_units": 8,
+      "effect": 0.0,
+      "significance_rate": 0.21,
+      "power": 0.21,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.00845238095238096,
+      "replicates": 400
+    },
+    {
+      "n_units": 12,
+      "effect": 0.0,
+      "significance_rate": 0.115,
+      "power": 0.115,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.023199300699300714,
+      "replicates": 400
+    },
+    {
+      "n_units": 16,
+      "effect": 0.0,
+      "significance_rate": 0.0975,
+      "power": 0.0975,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.014691176470588223,
+      "replicates": 400
+    },
+    {
+      "n_units": 24,
+      "effect": 0.0,
+      "significance_rate": 0.07,
+      "power": 0.07,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.002478260869565227,
+      "replicates": 400
+    },
+    {
+      "n_units": 32,
+      "effect": 0.0,
+      "significance_rate": 0.0725,
+      "power": 0.0725,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.007971041055718477,
+      "replicates": 400
+    },
+    {
+      "n_units": 48,
+      "effect": 0.0,
+      "significance_rate": 0.065,
+      "power": 0.065,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.0017395788102475024,
+      "replicates": 400
+    },
+    {
+      "n_units": 64,
+      "effect": 0.0,
+      "significance_rate": 0.05,
+      "power": 0.05,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.0043954899267399285,
+      "replicates": 400
+    },
+    {
+      "n_units": 96,
+      "effect": 0.0,
+      "significance_rate": 0.05,
+      "power": 0.05,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.008824335322843184,
+      "replicates": 400
+    },
+    {
+      "n_units": 128,
+      "effect": 0.0,
+      "significance_rate": 0.0575,
+      "power": 0.0575,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.0003813261078557058,
+      "replicates": 400
+    }
+  ],
+  "h3": [
+    {
+      "n_units": 20,
+      "effect": 0.3333333333333333,
+      "significance_rate": 0.7775,
+      "power": 0.7775,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.3225,
+      "replicates": 400
+    },
+    {
+      "n_units": 30,
+      "effect": 0.3333333333333333,
+      "significance_rate": 0.9125,
+      "power": 0.9125,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.3315000000000003,
+      "replicates": 400
+    },
+    {
+      "n_units": 40,
+      "effect": 0.3333333333333333,
+      "significance_rate": 0.9525,
+      "power": 0.9525,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.33020833333333327,
+      "replicates": 400
+    },
+    {
+      "n_units": 60,
+      "effect": 0.3333333333333333,
+      "significance_rate": 1.0,
+      "power": 1.0,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.3249999999999996,
+      "replicates": 400
+    }
+  ],
+  "h3_null": [
+    {
+      "n_units": 20,
+      "effect": 0.0,
+      "significance_rate": 0.0775,
+      "power": 0.0775,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.017833333333333333,
+      "replicates": 400
+    },
+    {
+      "n_units": 30,
+      "effect": 0.0,
+      "significance_rate": 0.0725,
+      "power": 0.0725,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.0025000000000000022,
+      "replicates": 400
+    },
+    {
+      "n_units": 40,
+      "effect": 0.0,
+      "significance_rate": 0.0675,
+      "power": 0.0675,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.00858333333333333,
+      "replicates": 400
+    },
+    {
+      "n_units": 60,
+      "effect": 0.0,
+      "significance_rate": 0.08,
+      "power": 0.08,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.0015555555555555568,
+      "replicates": 400
+    }
+  ],
+  "verdicts": [
+    {
+      "endpoint": "H1 incremental ΔAUROC",
+      "unit": "episodes",
+      "min_effect": 0.05,
+      "min_units_for_target_power": null,
+      "null_significance_rate": 0.02,
+      "passed": false
+    },
+    {
+      "endpoint": "H2/H4 Spearman ρ",
+      "unit": "tasks",
+      "min_effect": 0.3,
+      "min_units_for_target_power": 96,
+      "null_significance_rate": 0.0575,
+      "passed": true
+    },
+    {
+      "endpoint": "H3 mean per-case Kendall τ",
+      "unit": "matched cases",
+      "min_effect": 0.3333333333333333,
+      "min_units_for_target_power": 30,
+      "null_significance_rate": 0.08,
+      "passed": true
+    }
+  ],
+  "passed": false
+}

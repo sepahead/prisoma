@@ -13,6 +13,10 @@ name = "pid_sim"
 path = "src/lib.rs"
 
 [[bin]]
+name = "pid-sim-power-gate"
+path = "src/bin/power_gate.rs"
+
+[[bin]]
 name = "pid-sim-demo"
 path = "src/bin/demo.rs"
 

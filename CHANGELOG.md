@@ -2,7 +2,31 @@
 
 ## Unreleased
 
+### Added
+
+- **§14.8.3 power gate implemented and first-run** (`crates/pid-sim/src/power.rs`,
+  binary `pid-sim-power-gate`, artifacts in `docs/power-gate/`). Simulation-based
+  power analysis for the H1–H4 primary endpoints using the *preregistered
+  procedures themselves* at the correct analysis units: H1 = episode-level paired
+  bootstrap of the incremental held-out ΔAUROC on a binormal feature model whose
+  injected effect is exact by construction (`d = √2·Φ⁻¹(AUROC)`); H2/H4 =
+  family-blocked bootstrap of Spearman ρ across *tasks* (Gaussian-copula
+  calibrated, `r = 2·sin(πρ/6)`); H3 = family-blocked case-resampling bootstrap of
+  mean per-case Kendall τ (noise calibrated to E[τ] = 1/3 by deterministic
+  bisection). Results (400 replicates/cell, 500 bootstraps, one-sided α = 0.05):
+  **H3 powered at 30 matched cases** (the "≥ 20" floor alone is underpowered),
+  **H2/H4 at 96 tasks** (episodes cannot substitute — the §14.8.3 category-error
+  warning, quantified), **H1 at ~640 episodes for a design effect ΔAUROC ≥ 0.08**,
+  and a pre-data structural finding: the H1 dual success criterion (significant
+  AND point ≥ 0.05) has an asymptotic ~0.5 power ceiling when the true effect
+  equals the preregistered minimum — forcing the §14.8.3 scale-or-downgrade
+  choice explicitly. Null-cell sizes verified on all three endpoints; the H1
+  futility rule fires under the null in 77–97% of replicates at 480–960
+  episodes. Six unit tests (quantile round-trip, AUROC/Spearman/Kendall
+  hand-checks, binormal calibration, τ calibration, small-grid sanity).
+
 ### Changed
+
 
 - **Re-pinned `ncp-observer` to NCP `v0.6.0` (the wire-0.6 enforcement cut) and
   enforced the wire contract on ingress** (commit `c48d70b`). Wire 0.6 is a

@@ -19,6 +19,7 @@ use std::path::{Path, PathBuf};
 pub mod manipulation;
 pub mod offline_harness;
 pub mod physics;
+pub mod power;
 pub mod toy_harness;
 
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";
