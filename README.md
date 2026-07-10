@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/prisoma-logo.svg" alt="Prisoma prism — a dark cyberpunk prism splits one incoming beam into three component beams: unique, redundant, synergistic." width="200" height="200" />
+</p>
+
 # prisoma
 
 > **Rust PID estimators + Python bindings live in [`pid-rs`](https://github.com/sepahead/pid-rs) — the single source of truth.**
