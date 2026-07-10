@@ -1,26 +1,27 @@
 //! §14.8.3 simulation-based **power gate** for the H1–H4 primary endpoints.
 //!
-//! `grandplan.md` §14.8.3 makes a power analysis a *capture gate*: before the
-//! first real capture (M5) is analyzed, a simulation-based power analysis must
-//! run — with the **actual grouped/episode-level bootstrap** and the **correct
-//! analysis unit per endpoint** (episodes for H1, *tasks* for H2/H4, *matched
-//! cases* for H3; adding episodes never adds tasks, so an episode-only power
-//! calculation is a category error for the correlational endpoints).
+//! `grandplan.md` §14.8.3 requires a simulation-based power analysis before the
+//! first real capture (M5) is analyzed. This module exercises the specified
+//! grouped/episode-level bootstrap with the correct analysis unit per endpoint
+//! (episodes for H1, tasks for H2/H4, matched cases for H3). Counts selected
+//! from the finite grids are idealized planning sensitivities, not capture
+//! requirements or guarantees.
 //!
 //! Preregistered minimum effect sizes (§14.8.3 — commitments, not estimates):
 //! - **H1**: incremental held-out episode-level ΔAUROC ≥ 0.05
 //!   ({baselines + PID/CI} over {baselines alone}; paired episode-level
 //!   bootstrap; success = one-sided significance AND point ≥ 0.05; futility =
 //!   95% CI upper bound < 0.02).
-//! - **H2/H4**: |Spearman ρ| ≥ 0.3 across tasks (families are *clusters*,
-//!   handled by family-blocked bootstrap — never the analysis unit).
+//! - **H2**: Spearman ρ ≥ 0.3 across tasks; **H4**: Spearman ρ ≤ -0.3
+//!   across tasks (families are clusters, handled by family-blocked bootstrap
+//!   — never the analysis unit).
 //! - **H3**: mean per-case Kendall τ ≥ 1/3 across ≥ 20 matched cases
 //!   (family-blocked case-resampling bootstrap).
 //!
 //! Each simulator draws data at the preregistered minimum effect (and at a
 //! null cell to verify the test's size), runs the *preregistered statistical
 //! procedure itself* — not an analytic shortcut — and reports empirical power
-//! per candidate capture size. The H1 feature model is binormal, so the
+//! per candidate analysis-unit count. The H1 feature model is binormal, so the
 //! injected incremental effect is *exact by construction*:
 //! `d = √2·Φ⁻¹(AUROC)`, and an independent PID feature with
 //! `d₂ = √(d²_target − d²_base)` yields the target combined AUROC under the
@@ -153,7 +154,7 @@ fn auroc(scores: &[(f64, bool)]) -> Option<f64> {
         return None;
     }
     let mut idx: Vec<usize> = (0..scores.len()).collect();
-    idx.sort_by(|&a, &b| scores[a].0.partial_cmp(&scores[b].0).unwrap());
+    idx.sort_by(|&a, &b| scores[a].0.total_cmp(&scores[b].0));
     let mut ranks = vec![0.0; scores.len()];
     let mut i = 0;
     while i < idx.len() {
@@ -180,7 +181,7 @@ fn auroc(scores: &[(f64, bool)]) -> Option<f64> {
 /// Average ranks (midranks for ties).
 fn ranks_of(xs: &[f64]) -> Vec<f64> {
     let mut idx: Vec<usize> = (0..xs.len()).collect();
-    idx.sort_by(|&a, &b| xs[a].partial_cmp(&xs[b]).unwrap());
+    idx.sort_by(|&a, &b| xs[a].total_cmp(&xs[b]));
     let mut r = vec![0.0; xs.len()];
     let mut i = 0;
     while i < idx.len() {
@@ -282,8 +283,8 @@ fn logistic_fit(x: &[Vec<f64>], y: &[bool], ridge: f64) -> Vec<f64> {
         let mut b = g.clone();
         for col in 0..d {
             let piv = (col..d)
-                .max_by(|&r1, &r2| a[r1][col].abs().partial_cmp(&a[r2][col].abs()).unwrap())
-                .unwrap();
+                .max_by(|&r1, &r2| a[r1][col].abs().total_cmp(&a[r2][col].abs()))
+                .unwrap_or(col);
             a.swap(col, piv);
             b.swap(col, piv);
             if a[col][col].abs() < 1e-12 {
@@ -332,7 +333,7 @@ fn logistic_score(w: &[f64], features: &[f64]) -> f64 {
 /// One grid cell of a power surface: `n_units` at injected `effect` → `power`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerCell {
-    /// Analysis units in the simulated capture (episodes / tasks / cases).
+    /// Analysis units in this idealized grid cell (episodes / tasks / cases).
     pub n_units: usize,
     /// Injected true effect on the endpoint's own scale (ΔAUROC / ρ / mean τ).
     pub effect: f64,
@@ -351,7 +352,7 @@ pub struct PowerCell {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerGateConfig {
-    /// Candidate H1 capture sizes (episodes).
+    /// Candidate H1 analysis-unit counts (episodes), not capture requirements.
     pub h1_episodes_grid: Vec<usize>,
     /// H1 injected incremental ΔAUROC values (must include the preregistered
     /// minimum 0.05).
@@ -362,20 +363,23 @@ pub struct PowerGateConfig {
     pub h1_failure_rate: f64,
     /// Fraction of episodes held out for the endpoint contrast.
     pub h1_heldout_frac: f64,
-    /// Candidate H2/H4 capture sizes (tasks).
+    /// Candidate H2/H4 analysis-unit counts (tasks), not capture requirements.
     pub h2h4_tasks_grid: Vec<usize>,
-    /// Injected Spearman ρ (preregistered minimum 0.3).
+    /// Injected marginal Spearman |ρ| (preregistered minimum 0.3).
     pub h2h4_rho: f64,
     /// Tasks per family (families are resampling blocks).
     pub h2h4_family_size: usize,
     /// Between-family random-effect SD on the outcome variable.
     pub h2h4_family_sd: f64,
-    /// Candidate H3 capture sizes (matched cases).
+    /// Candidate H3 analysis-unit counts (cases), not capture requirements.
     pub h3_cases_grid: Vec<usize>,
     /// Injected mean per-case Kendall τ (preregistered minimum 1/3).
     pub h3_mean_tau: f64,
     /// Cases per family (families are resampling blocks).
     pub h3_family_size: usize,
+    /// Gaussian score-error ICC between cases in one H3 family. This is a
+    /// latent-noise ICC, not the nonlinear ICC of the resulting Kendall taus.
+    pub h3_family_icc: f64,
     /// Bootstrap resamples per replicate.
     pub n_boot: usize,
     /// Monte-Carlo replicates per grid cell.
@@ -406,6 +410,7 @@ impl Default for PowerGateConfig {
             h3_cases_grid: vec![20, 30, 40, 60],
             h3_mean_tau: 1.0 / 3.0,
             h3_family_size: 4,
+            h3_family_icc: 0.3,
             n_boot: 500,
             replicates: 400,
             alpha: 0.05,
@@ -417,33 +422,319 @@ impl Default for PowerGateConfig {
     }
 }
 
-/// Verdict for one endpoint: the smallest simulated capture size whose power
-/// at the preregistered minimum effect reaches the target, if any.
+/// Configuration error detected before any simulation is run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PowerGateConfigError {
+    pub field: String,
+    pub reason: String,
+}
+
+impl PowerGateConfigError {
+    fn new(field: &str, reason: impl Into<String>) -> Self {
+        Self {
+            field: field.to_string(),
+            reason: reason.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for PowerGateConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "power-gate `{}`: {}", self.field, self.reason)
+    }
+}
+
+impl std::error::Error for PowerGateConfigError {}
+
+fn has_duplicate_usize(values: &[usize]) -> bool {
+    let mut sorted = values.to_vec();
+    sorted.sort_unstable();
+    sorted.windows(2).any(|pair| pair[0] == pair[1])
+}
+
+fn approximately_equal(a: f64, b: f64) -> bool {
+    (a - b).abs() <= 1e-12
+}
+
+impl PowerGateConfig {
+    /// Rejects values that make a labeled DGP or its bootstrap undefined.
+    pub fn validate(&self) -> Result<(), PowerGateConfigError> {
+        if self.replicates == 0 {
+            return Err(PowerGateConfigError::new(
+                "replicates",
+                "must be greater than zero",
+            ));
+        }
+        if self.n_boot < 2 {
+            return Err(PowerGateConfigError::new("n_boot", "must be at least two"));
+        }
+        if !self.alpha.is_finite() || self.alpha <= 0.0 || self.alpha >= 0.5 {
+            return Err(PowerGateConfigError::new(
+                "alpha",
+                "must be finite and in (0, 0.5)",
+            ));
+        }
+        if self.n_boot as f64 * self.alpha < 1.0 {
+            return Err(PowerGateConfigError::new(
+                "n_boot",
+                "must provide at least one bootstrap draw in the alpha tail",
+            ));
+        }
+        if self.replicates as f64 * self.alpha < 1.0 {
+            return Err(PowerGateConfigError::new(
+                "replicates",
+                "must provide at least one Monte-Carlo replicate at the nominal alpha rate",
+            ));
+        }
+        if !self.target_power.is_finite() || self.target_power <= 0.0 || self.target_power > 1.0 {
+            return Err(PowerGateConfigError::new(
+                "target_power",
+                "must be finite and in (0, 1]",
+            ));
+        }
+
+        if self.h1_episodes_grid.is_empty()
+            || self.h1_episodes_grid.iter().any(|&n| n < 4)
+            || has_duplicate_usize(&self.h1_episodes_grid)
+        {
+            return Err(PowerGateConfigError::new(
+                "h1_episodes_grid",
+                "must contain unique counts of at least four episodes",
+            ));
+        }
+        if !self.h1_baseline_auroc.is_finite()
+            || self.h1_baseline_auroc <= 0.0
+            || self.h1_baseline_auroc >= 1.0
+        {
+            return Err(PowerGateConfigError::new(
+                "h1_baseline_auroc",
+                "must be finite and in (0, 1)",
+            ));
+        }
+        if !self.h1_failure_rate.is_finite()
+            || self.h1_failure_rate <= 0.0
+            || self.h1_failure_rate >= 1.0
+        {
+            return Err(PowerGateConfigError::new(
+                "h1_failure_rate",
+                "must be finite and in (0, 1)",
+            ));
+        }
+        if !self.h1_heldout_frac.is_finite()
+            || self.h1_heldout_frac <= 0.0
+            || self.h1_heldout_frac >= 1.0
+        {
+            return Err(PowerGateConfigError::new(
+                "h1_heldout_frac",
+                "must be finite and in (0, 1)",
+            ));
+        }
+        if self.h1_episodes_grid.iter().any(|&n| {
+            let n_train = (n as f64 * (1.0 - self.h1_heldout_frac)).round() as usize;
+            n_train < 2 || n.saturating_sub(n_train) < 2
+        }) {
+            return Err(PowerGateConfigError::new(
+                "h1_heldout_frac",
+                "must leave at least two train and two held-out episodes at every grid count",
+            ));
+        }
+        if self.h1_delta_grid.is_empty()
+            || self
+                .h1_delta_grid
+                .iter()
+                .any(|delta| !delta.is_finite() || *delta < 0.0)
+        {
+            return Err(PowerGateConfigError::new(
+                "h1_delta_grid",
+                "must contain finite non-negative effects",
+            ));
+        }
+        let mut deltas = self.h1_delta_grid.clone();
+        deltas.sort_by(f64::total_cmp);
+        if deltas
+            .windows(2)
+            .any(|pair| approximately_equal(pair[0], pair[1]))
+        {
+            return Err(PowerGateConfigError::new(
+                "h1_delta_grid",
+                "must not contain duplicate effects",
+            ));
+        }
+        if !self
+            .h1_delta_grid
+            .iter()
+            .any(|&delta| approximately_equal(delta, 0.0))
+            || !self
+                .h1_delta_grid
+                .iter()
+                .any(|&delta| approximately_equal(delta, self.h1_min_effect))
+        {
+            return Err(PowerGateConfigError::new(
+                "h1_delta_grid",
+                "must contain both the null and h1_min_effect cells",
+            ));
+        }
+        if !self.h1_min_effect.is_finite() || self.h1_min_effect <= 0.0 {
+            return Err(PowerGateConfigError::new(
+                "h1_min_effect",
+                "must be finite and positive",
+            ));
+        }
+        if self
+            .h1_delta_grid
+            .iter()
+            .any(|delta| self.h1_baseline_auroc + delta >= 1.0)
+        {
+            return Err(PowerGateConfigError::new(
+                "h1_delta_grid",
+                "baseline AUROC plus every injected delta must be below one",
+            ));
+        }
+        if !self.h1_futility_bound.is_finite()
+            || self.h1_futility_bound < 0.0
+            || self.h1_futility_bound >= self.h1_min_effect
+        {
+            return Err(PowerGateConfigError::new(
+                "h1_futility_bound",
+                "must be finite, non-negative, and below h1_min_effect",
+            ));
+        }
+
+        if self.h2h4_tasks_grid.is_empty()
+            || self.h2h4_tasks_grid.iter().any(|&n| n < 3)
+            || has_duplicate_usize(&self.h2h4_tasks_grid)
+        {
+            return Err(PowerGateConfigError::new(
+                "h2h4_tasks_grid",
+                "must contain unique counts of at least three tasks",
+            ));
+        }
+        if self.h2h4_family_size == 0 {
+            return Err(PowerGateConfigError::new(
+                "h2h4_family_size",
+                "must be greater than zero",
+            ));
+        }
+        if self
+            .h2h4_tasks_grid
+            .iter()
+            .any(|&n| n.div_ceil(self.h2h4_family_size) < 2)
+        {
+            return Err(PowerGateConfigError::new(
+                "h2h4_family_size",
+                "must yield at least two family blocks at every task-grid count",
+            ));
+        }
+        if !self.h2h4_family_sd.is_finite() || self.h2h4_family_sd < 0.0 {
+            return Err(PowerGateConfigError::new(
+                "h2h4_family_sd",
+                "must be finite and non-negative",
+            ));
+        }
+        if !self.h2h4_rho.is_finite() || self.h2h4_rho <= 0.0 || self.h2h4_rho >= 1.0 {
+            return Err(PowerGateConfigError::new(
+                "h2h4_rho",
+                "must be a finite magnitude in (0, 1)",
+            ));
+        }
+        calibrated_latent_pearson(self.h2h4_rho, self.h2h4_family_sd)?;
+
+        if self.h3_cases_grid.is_empty()
+            || self.h3_cases_grid.iter().any(|&n| n < 20)
+            || has_duplicate_usize(&self.h3_cases_grid)
+        {
+            return Err(PowerGateConfigError::new(
+                "h3_cases_grid",
+                "must contain unique counts of at least 20 matched cases",
+            ));
+        }
+        if self.h3_family_size == 0 {
+            return Err(PowerGateConfigError::new(
+                "h3_family_size",
+                "must be greater than zero",
+            ));
+        }
+        if self
+            .h3_cases_grid
+            .iter()
+            .any(|&n| n.div_ceil(self.h3_family_size) < 2)
+        {
+            return Err(PowerGateConfigError::new(
+                "h3_family_size",
+                "must yield at least two family blocks at every case-grid count",
+            ));
+        }
+        if !self.h3_family_icc.is_finite() || self.h3_family_icc < 0.0 || self.h3_family_icc >= 1.0
+        {
+            return Err(PowerGateConfigError::new(
+                "h3_family_icc",
+                "must be finite and in [0, 1)",
+            ));
+        }
+        if !self.h3_mean_tau.is_finite() || self.h3_mean_tau <= 0.0 || self.h3_mean_tau >= 1.0 {
+            return Err(PowerGateConfigError::new(
+                "h3_mean_tau",
+                "must be finite and in (0, 1) for this ordered-noise DGP",
+            ));
+        }
+        h3_calibrate_sigma(self.h3_mean_tau)?;
+
+        Ok(())
+    }
+}
+
+/// Preregistered one-sided endpoint direction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PredictedDirection {
+    Positive,
+    Negative,
+}
+
+/// Verdict for one idealized endpoint surface.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EndpointVerdict {
+    pub endpoint_id: String,
     pub endpoint: String,
+    pub dgp_tag: String,
     pub unit: String,
-    pub min_effect: f64,
-    /// Smallest n on the grid with power ≥ target at the minimum effect.
-    pub min_units_for_target_power: Option<usize>,
-    /// Empirical one-sided type-I rate at the null cell for the largest n
-    /// (should be ≤ alpha plus Monte-Carlo slack).
-    pub null_significance_rate: f64,
+    pub predicted_direction: PredictedDirection,
+    pub minimum_effect_magnitude: f64,
+    /// Smallest evaluated grid n meeting both target power and its same-n null
+    /// size tolerance. This is not a capture requirement or guarantee.
+    pub smallest_passing_grid_n: Option<usize>,
+    /// Empirical null rate for `smallest_passing_grid_n`, never another n.
+    pub null_rate_at_smallest_passing_grid_n: Option<f64>,
+    /// Maximum accepted null rate at the selected n (alpha + 3 MC SEs).
+    pub null_size_tolerance_at_smallest_passing_grid_n: Option<f64>,
     pub passed: bool,
+}
+
+/// Machine-readable caveat attached to every report.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PowerGateLimitation {
+    pub code: String,
+    pub detail: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerGateReport {
+    pub schema_version: String,
     pub config: PowerGateConfig,
     pub h1: Vec<PowerCell>,
-    pub h2h4: Vec<PowerCell>,
-    pub h2h4_null: Vec<PowerCell>,
+    pub h2: Vec<PowerCell>,
+    pub h2_null: Vec<PowerCell>,
     pub h3: Vec<PowerCell>,
     pub h3_null: Vec<PowerCell>,
+    pub h4: Vec<PowerCell>,
+    pub h4_null: Vec<PowerCell>,
     pub verdicts: Vec<EndpointVerdict>,
-    /// True iff every covered endpoint has a feasible capture size on the grid
-    /// and every null cell's size is within Monte-Carlo slack of alpha.
-    pub passed: bool,
+    /// True iff every idealized endpoint surface has a same-n power/size cell.
+    pub idealized_sensitivity_gate_passed: bool,
+    /// Always false: this idealized simulation alone cannot validate a real
+    /// capture inventory, estimator error, or pilot-derived dependence model.
+    pub capture_ready: bool,
+    pub limitations: Vec<PowerGateLimitation>,
 }
 
 // ─────────────────────────────── H1 simulator ───────────────────────────────
@@ -525,7 +816,7 @@ fn h1_replicate(
         if deltas.len() < cfg.n_boot / 2 {
             return None;
         }
-        deltas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        deltas.sort_by(f64::total_cmp);
         let q_alpha = percentile(&deltas, cfg.alpha);
         let q_hi = percentile(&deltas, 0.975);
         let significant = q_alpha > 0.0;
@@ -538,32 +829,81 @@ fn h1_replicate(
 
 // ───────────────────────────── H2/H4 simulator ──────────────────────────────
 
-/// One H2/H4 replicate at the task level with family clustering.
-fn h2h4_replicate(
+/// Conditional copula correlation required to retain `marginal_rho` after an
+/// outcome-only Gaussian family random effect is added.
+fn calibrated_latent_pearson(
+    marginal_rho: f64,
+    family_sd: f64,
+) -> Result<f64, PowerGateConfigError> {
+    let marginal_pearson = 2.0 * (std::f64::consts::PI * marginal_rho / 6.0).sin();
+    let attenuation = (1.0 + family_sd * family_sd).sqrt();
+    let latent_pearson = marginal_pearson * attenuation;
+    if !latent_pearson.is_finite() || latent_pearson.abs() > 1.0 {
+        let max_rho = 6.0 / std::f64::consts::PI * (1.0 / (2.0 * attenuation)).asin();
+        return Err(PowerGateConfigError::new(
+            "h2h4_rho",
+            format!(
+                "|rho|={:.6} is impossible with family_sd={:.6}; maximum marginal |rho| is {:.6}",
+                marginal_rho.abs(),
+                family_sd,
+                max_rho
+            ),
+        ));
+    }
+    Ok(latent_pearson)
+}
+
+fn h2h4_task_sample(
     rng: &mut Rng,
     tasks: usize,
-    rho: f64,
+    latent_pearson: f64,
     cfg: &PowerGateConfig,
-) -> Option<(f64, bool)> {
-    // Gaussian copula: Pearson r giving Spearman ρ under bivariate normality.
-    let r = 2.0 * (std::f64::consts::PI * rho / 6.0).sin();
+) -> (Vec<f64>, Vec<f64>, Vec<usize>) {
     let n_fam = tasks.div_ceil(cfg.h2h4_family_size);
     let mut fam_of = Vec::with_capacity(tasks);
     let mut xs = Vec::with_capacity(tasks);
     let mut ys = Vec::with_capacity(tasks);
     for f in 0..n_fam {
-        let u_f = rng.next_gaussian() * cfg.h2h4_family_sd;
+        let family_effect = rng.next_gaussian() * cfg.h2h4_family_sd;
         for _ in 0..cfg.h2h4_family_size {
             if xs.len() == tasks {
                 break;
             }
-            let z = rng.next_gaussian();
-            let e = rng.next_gaussian();
-            xs.push(z);
-            ys.push(r * z + (1.0 - r * r).sqrt() * e + u_f);
+            let x = rng.next_gaussian();
+            let residual = rng.next_gaussian();
+            xs.push(x);
+            ys.push(
+                latent_pearson * x
+                    + (1.0 - latent_pearson * latent_pearson).max(0.0).sqrt() * residual
+                    + family_effect,
+            );
             fam_of.push(f);
         }
     }
+    (xs, ys, fam_of)
+}
+
+fn directional_significance(
+    sorted_bootstrap: &[f64],
+    alpha: f64,
+    direction: PredictedDirection,
+) -> bool {
+    match direction {
+        PredictedDirection::Positive => percentile(sorted_bootstrap, alpha) > 0.0,
+        PredictedDirection::Negative => percentile(sorted_bootstrap, 1.0 - alpha) < 0.0,
+    }
+}
+
+/// One H2 or H4 replicate at the task level with family clustering.
+fn h2h4_replicate(
+    rng: &mut Rng,
+    tasks: usize,
+    latent_pearson: f64,
+    direction: PredictedDirection,
+    cfg: &PowerGateConfig,
+) -> Option<(f64, bool)> {
+    let n_fam = tasks.div_ceil(cfg.h2h4_family_size);
+    let (xs, ys, fam_of) = h2h4_task_sample(rng, tasks, latent_pearson, cfg);
     let point = spearman(&xs, &ys)?;
 
     // Family-blocked bootstrap: resample families with replacement, pool tasks.
@@ -589,40 +929,84 @@ fn h2h4_replicate(
     if boots.len() < cfg.n_boot / 2 {
         return None;
     }
-    boots.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let significant = percentile(&boots, cfg.alpha) > 0.0;
+    boots.sort_by(f64::total_cmp);
+    let significant = directional_significance(&boots, cfg.alpha, direction);
     Some((point, significant))
 }
 
 // ─────────────────────────────── H3 simulator ───────────────────────────────
 
-/// Calibrate the rank-noise SD so that E[per-case τ] over 3-modality cases
-/// equals `target_tau` (deterministic Monte-Carlo bisection).
-fn h3_calibrate_sigma(target_tau: f64, seed: u64) -> f64 {
-    let mean_tau_at = |sigma: f64| -> f64 {
-        let mut rng = Rng::new(seed ^ 0xCA11_B4A7E);
-        let m = 40_000;
-        let mut acc = 0.0;
-        for _ in 0..m {
-            let unq = [1.0, 2.0, 3.0];
-            let eff: Vec<f64> = unq
-                .iter()
-                .map(|u| u + sigma * rng.next_gaussian())
-                .collect();
-            acc += kendall_tau(&unq, &eff);
+/// Exact marginal E[per-case Kendall tau] for the three ordered scores under
+/// independent equal-variance Gaussian score noise.
+fn h3_expected_tau(sigma: f64) -> f64 {
+    if sigma == 0.0 {
+        return 1.0;
+    }
+    let pair_tau = |gap: f64| 2.0 * phi(gap / (std::f64::consts::SQRT_2 * sigma)) - 1.0;
+    (2.0 * pair_tau(1.0) + pair_tau(2.0)) / 3.0
+}
+
+/// Calibrate score-noise SD to the target marginal mean tau. The H3 family
+/// decomposition preserves this marginal variance for every configured ICC.
+fn h3_calibrate_sigma(target_tau: f64) -> Result<f64, PowerGateConfigError> {
+    if !target_tau.is_finite() || target_tau <= 0.0 || target_tau >= 1.0 {
+        return Err(PowerGateConfigError::new(
+            "h3_mean_tau",
+            "must be finite and in (0, 1) for this ordered-noise DGP",
+        ));
+    }
+    let mut hi = 1.0;
+    while h3_expected_tau(hi) > target_tau {
+        hi *= 2.0;
+        if !hi.is_finite() {
+            return Err(PowerGateConfigError::new(
+                "h3_mean_tau",
+                "could not calibrate a finite score-noise scale",
+            ));
         }
-        acc / m as f64
-    };
-    let (mut lo, mut hi) = (0.05_f64, 20.0_f64);
-    for _ in 0..40 {
+    }
+    let mut lo = 0.0;
+    for _ in 0..80 {
         let mid = 0.5 * (lo + hi);
-        if mean_tau_at(mid) > target_tau {
-            lo = mid; // more noise still leaves τ above target → raise noise
+        if h3_expected_tau(mid) > target_tau {
+            lo = mid;
         } else {
             hi = mid;
         }
     }
-    0.5 * (lo + hi)
+    Ok(0.5 * (lo + hi))
+}
+
+fn h3_case_sample(
+    rng: &mut Rng,
+    cases: usize,
+    signal_scale: f64,
+    sigma: f64,
+    cfg: &PowerGateConfig,
+) -> (Vec<f64>, Vec<usize>) {
+    let n_fam = cases.div_ceil(cfg.h3_family_size);
+    let family_weight = cfg.h3_family_icc.sqrt();
+    let case_weight = (1.0 - cfg.h3_family_icc).sqrt();
+    let unq = [1.0, 2.0, 3.0];
+    let mut taus = Vec::with_capacity(cases);
+    let mut fam_of = Vec::with_capacity(cases);
+    for f in 0..n_fam {
+        let family_noise: [f64; 3] = std::array::from_fn(|_| rng.next_gaussian());
+        for _ in 0..cfg.h3_family_size {
+            if taus.len() == cases {
+                break;
+            }
+            let effect: [f64; 3] = std::array::from_fn(|modality| {
+                signal_scale * unq[modality]
+                    + sigma
+                        * (family_weight * family_noise[modality]
+                            + case_weight * rng.next_gaussian())
+            });
+            taus.push(kendall_tau(&unq, &effect));
+            fam_of.push(f);
+        }
+    }
+    (taus, fam_of)
 }
 
 /// One H3 replicate: mean per-case Kendall τ with family-blocked
@@ -630,26 +1014,12 @@ fn h3_calibrate_sigma(target_tau: f64, seed: u64) -> f64 {
 fn h3_replicate(
     rng: &mut Rng,
     cases: usize,
+    signal_scale: f64,
     sigma: f64,
     cfg: &PowerGateConfig,
 ) -> Option<(f64, bool)> {
     let n_fam = cases.div_ceil(cfg.h3_family_size);
-    let mut taus = Vec::with_capacity(cases);
-    let mut fam_of = Vec::with_capacity(cases);
-    for f in 0..n_fam {
-        for _ in 0..cfg.h3_family_size {
-            if taus.len() == cases {
-                break;
-            }
-            let unq = [1.0, 2.0, 3.0];
-            let eff: Vec<f64> = unq
-                .iter()
-                .map(|u| u + sigma * rng.next_gaussian())
-                .collect();
-            taus.push(kendall_tau(&unq, &eff));
-            fam_of.push(f);
-        }
-    }
+    let (taus, fam_of) = h3_case_sample(rng, cases, signal_scale, sigma, cfg);
     let point = taus.iter().sum::<f64>() / taus.len() as f64;
 
     let mut fam_cases: Vec<Vec<usize>> = vec![Vec::new(); n_fam];
@@ -674,15 +1044,109 @@ fn h3_replicate(
     if boots.len() < cfg.n_boot / 2 {
         return None;
     }
-    boots.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    boots.sort_by(f64::total_cmp);
     let significant = percentile(&boots, cfg.alpha) > 0.0;
     Some((point, significant))
 }
 
 // ─────────────────────────────── the gate itself ────────────────────────────
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PassingGridCell {
+    n_units: usize,
+    null_rate: f64,
+    null_size_tolerance: f64,
+}
+
+fn null_size_tolerance(alpha: f64, replicates: usize) -> Option<f64> {
+    (replicates > 0)
+        .then(|| (alpha + 3.0 * (alpha * (1.0 - alpha) / replicates as f64).sqrt()).min(1.0))
+}
+
+fn select_smallest_passing_grid_n(
+    cells: &[PowerCell],
+    effect: f64,
+    null_cells: &[PowerCell],
+    cfg: &PowerGateConfig,
+) -> Option<PassingGridCell> {
+    let mut candidates: Vec<&PowerCell> = cells
+        .iter()
+        .filter(|cell| {
+            approximately_equal(cell.effect, effect)
+                && cell.power.is_finite()
+                && cell.power >= cfg.target_power
+        })
+        .collect();
+    candidates.sort_by_key(|cell| cell.n_units);
+    candidates.into_iter().find_map(|candidate| {
+        let null = null_cells.iter().find(|cell| {
+            cell.n_units == candidate.n_units && approximately_equal(cell.effect, 0.0)
+        })?;
+        let tolerance = null_size_tolerance(cfg.alpha, null.replicates)?;
+        (null.significance_rate.is_finite() && null.significance_rate <= tolerance).then_some(
+            PassingGridCell {
+                n_units: candidate.n_units,
+                null_rate: null.significance_rate,
+                null_size_tolerance: tolerance,
+            },
+        )
+    })
+}
+
+struct VerdictSpec<'a> {
+    endpoint_id: &'a str,
+    endpoint: &'a str,
+    dgp_tag: &'a str,
+    unit: &'a str,
+    predicted_direction: PredictedDirection,
+    minimum_effect_magnitude: f64,
+    signed_effect: f64,
+}
+
+fn endpoint_verdict(
+    spec: VerdictSpec<'_>,
+    cells: &[PowerCell],
+    null_cells: &[PowerCell],
+    cfg: &PowerGateConfig,
+) -> EndpointVerdict {
+    let selected = select_smallest_passing_grid_n(cells, spec.signed_effect, null_cells, cfg);
+    EndpointVerdict {
+        endpoint_id: spec.endpoint_id.to_string(),
+        endpoint: spec.endpoint.to_string(),
+        dgp_tag: spec.dgp_tag.to_string(),
+        unit: spec.unit.to_string(),
+        predicted_direction: spec.predicted_direction,
+        minimum_effect_magnitude: spec.minimum_effect_magnitude,
+        smallest_passing_grid_n: selected.map(|cell| cell.n_units),
+        null_rate_at_smallest_passing_grid_n: selected.map(|cell| cell.null_rate),
+        null_size_tolerance_at_smallest_passing_grid_n: selected
+            .map(|cell| cell.null_size_tolerance),
+        passed: selected.is_some(),
+    }
+}
+
+fn require_complete_replicates(
+    endpoint: &str,
+    n_units: usize,
+    effect: f64,
+    valid: usize,
+    requested: usize,
+) -> Result<(), PowerGateConfigError> {
+    if valid != requested {
+        return Err(PowerGateConfigError::new(
+            "replicates",
+            format!(
+                "{endpoint} n={n_units} effect={effect:.6} retained {valid}/{requested} replicates; refusing a conditionally filtered rate"
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// Run the §14.8.3 power gate. Deterministic for a fixed config.
-pub fn run_power_gate(cfg: &PowerGateConfig) -> PowerGateReport {
+pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGateConfigError> {
+    cfg.validate()?;
+
     // H1 surface over (episodes × delta), including the null column.
     let mut h1 = Vec::new();
     for (gi, &n) in cfg.h1_episodes_grid.iter().enumerate() {
@@ -704,20 +1168,28 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> PowerGateReport {
                     fut += f as usize;
                 }
             }
+            require_complete_replicates("H1", n, delta, valid, cfg.replicates)?;
             h1.push(PowerCell {
                 n_units: n,
                 effect: delta,
-                significance_rate: sig as f64 / valid.max(1) as f64,
-                power: succ as f64 / valid.max(1) as f64,
-                futility_rate: fut as f64 / valid.max(1) as f64,
-                mean_point_estimate: points / valid.max(1) as f64,
+                significance_rate: sig as f64 / valid as f64,
+                power: succ as f64 / valid as f64,
+                futility_rate: fut as f64 / valid as f64,
+                mean_point_estimate: points / valid as f64,
                 replicates: valid,
             });
         }
     }
 
-    // H2/H4 surface over tasks at the preregistered ρ, plus a null row per n.
-    let run_h2h4 = |rho: f64, tag: u64| -> Vec<PowerCell> {
+    // H2 and H4 use separate directional surfaces and seeds. Their common
+    // Gaussian copula is calibrated to the labeled marginal rho after the
+    // outcome-only family effect is added.
+    let latent_rho = calibrated_latent_pearson(cfg.h2h4_rho, cfg.h2h4_family_sd)?;
+    let run_h2h4 = |effect: f64,
+                    latent_pearson: f64,
+                    direction: PredictedDirection,
+                    tag: u64|
+     -> Result<Vec<PowerCell>, PowerGateConfigError> {
         cfg.h2h4_tasks_grid
             .iter()
             .enumerate()
@@ -727,31 +1199,50 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> PowerGateReport {
                 let mut valid = 0usize;
                 for rep in 0..cfg.replicates {
                     let mut rng = Rng::new(cfg.seed ^ tag ^ ((gi as u64) << 32) ^ rep as u64);
-                    if let Some((point, s)) = h2h4_replicate(&mut rng, n, rho, cfg) {
+                    if let Some((point, s)) =
+                        h2h4_replicate(&mut rng, n, latent_pearson, direction, cfg)
+                    {
                         valid += 1;
                         points += point;
                         sig += s as usize;
                     }
                 }
-                let rate = sig as f64 / valid.max(1) as f64;
-                PowerCell {
+                require_complete_replicates("H2/H4", n, effect, valid, cfg.replicates)?;
+                let rate = sig as f64 / valid as f64;
+                Ok(PowerCell {
                     n_units: n,
-                    effect: rho,
+                    effect,
                     significance_rate: rate,
                     power: rate,
                     futility_rate: 0.0,
-                    mean_point_estimate: points / valid.max(1) as f64,
+                    mean_point_estimate: points / valid as f64,
                     replicates: valid,
-                }
+                })
             })
             .collect()
     };
-    let h2h4 = run_h2h4(cfg.h2h4_rho, 0x22_0000);
-    let h2h4_null = run_h2h4(0.0, 0x22_1111);
+    let h2 = run_h2h4(
+        cfg.h2h4_rho,
+        latent_rho,
+        PredictedDirection::Positive,
+        0x22_0000,
+    )?;
+    let h2_null = run_h2h4(0.0, 0.0, PredictedDirection::Positive, 0x22_1111)?;
+    let h4 = run_h2h4(
+        -cfg.h2h4_rho,
+        -latent_rho,
+        PredictedDirection::Negative,
+        0x44_0000,
+    )?;
+    let h4_null = run_h2h4(0.0, 0.0, PredictedDirection::Negative, 0x44_1111)?;
 
     // H3 surface over matched cases at mean τ = 1/3, plus null.
-    let sigma_alt = h3_calibrate_sigma(cfg.h3_mean_tau, cfg.seed);
-    let run_h3 = |sigma: f64, effect: f64, tag: u64| -> Vec<PowerCell> {
+    let sigma_alt = h3_calibrate_sigma(cfg.h3_mean_tau)?;
+    let run_h3 = |signal_scale: f64,
+                  sigma: f64,
+                  effect: f64,
+                  tag: u64|
+     -> Result<Vec<PowerCell>, PowerGateConfigError> {
         cfg.h3_cases_grid
             .iter()
             .enumerate()
@@ -761,123 +1252,166 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> PowerGateReport {
                 let mut valid = 0usize;
                 for rep in 0..cfg.replicates {
                     let mut rng = Rng::new(cfg.seed ^ tag ^ ((gi as u64) << 32) ^ rep as u64);
-                    if let Some((point, s)) = h3_replicate(&mut rng, n, sigma, cfg) {
+                    if let Some((point, s)) = h3_replicate(&mut rng, n, signal_scale, sigma, cfg) {
                         valid += 1;
                         points += point;
                         sig += s as usize;
                     }
                 }
-                let rate = sig as f64 / valid.max(1) as f64;
-                PowerCell {
+                require_complete_replicates("H3", n, effect, valid, cfg.replicates)?;
+                let rate = sig as f64 / valid as f64;
+                Ok(PowerCell {
                     n_units: n,
                     effect,
                     significance_rate: rate,
                     power: rate,
                     futility_rate: 0.0,
-                    mean_point_estimate: points / valid.max(1) as f64,
+                    mean_point_estimate: points / valid as f64,
                     replicates: valid,
-                }
+                })
             })
             .collect()
     };
-    let h3 = run_h3(sigma_alt, cfg.h3_mean_tau, 0x33_0000);
-    // Null: effects i.i.d. of the unq ordering ⇒ enormous noise.
-    let h3_null = run_h3(1.0e6, 0.0, 0x33_1111);
+    let h3 = run_h3(1.0, sigma_alt, cfg.h3_mean_tau, 0x33_0000)?;
+    // Removing the ordered signal gives an exact marginal null while retaining
+    // the configured family dependence.
+    let h3_null = run_h3(0.0, 1.0, 0.0, 0x33_1111)?;
 
-    // Verdicts. Monte-Carlo slack on the null size check: 3 SEs of a binomial
-    // at alpha with `replicates` draws.
-    let slack = 3.0 * (cfg.alpha * (1.0 - cfg.alpha) / cfg.replicates as f64).sqrt();
-    let min_units = |cells: &[PowerCell], effect: f64| -> Option<usize> {
-        let mut ns: Vec<usize> = cells
-            .iter()
-            .filter(|c| (c.effect - effect).abs() < 1e-12 && c.power >= cfg.target_power)
-            .map(|c| c.n_units)
-            .collect();
-        ns.sort_unstable();
-        ns.first().copied()
-    };
-    let h1_null_rate = h1
-        .iter()
-        .filter(|c| c.effect == 0.0)
-        .max_by_key(|c| c.n_units)
-        .map(|c| c.significance_rate)
-        .unwrap_or(f64::NAN);
-    let h2h4_null_rate = h2h4_null
-        .iter()
-        .max_by_key(|c| c.n_units)
-        .map(|c| c.significance_rate)
-        .unwrap_or(f64::NAN);
-    let h3_null_rate = h3_null
-        .iter()
-        .max_by_key(|c| c.n_units)
-        .map(|c| c.significance_rate)
-        .unwrap_or(f64::NAN);
-
-    let mk = |endpoint: &str, unit: &str, min_effect: f64, mu: Option<usize>, null_rate: f64| {
-        EndpointVerdict {
-            endpoint: endpoint.to_string(),
-            unit: unit.to_string(),
-            min_effect,
-            min_units_for_target_power: mu,
-            null_significance_rate: null_rate,
-            passed: mu.is_some() && null_rate <= cfg.alpha + slack,
-        }
-    };
     let verdicts = vec![
-        mk(
-            "H1 incremental ΔAUROC",
-            "episodes",
-            cfg.h1_min_effect,
-            min_units(&h1, cfg.h1_min_effect),
-            h1_null_rate,
+        endpoint_verdict(
+            VerdictSpec {
+                endpoint_id: "h1",
+                endpoint: "H1 incremental ΔAUROC",
+                dgp_tag: "h1_binormal_incremental_auroc_v1",
+                unit: "episodes",
+                predicted_direction: PredictedDirection::Positive,
+                minimum_effect_magnitude: cfg.h1_min_effect,
+                signed_effect: cfg.h1_min_effect,
+            },
+            &h1,
+            &h1,
+            cfg,
         ),
-        mk(
-            "H2/H4 Spearman ρ",
-            "tasks",
-            cfg.h2h4_rho,
-            min_units(&h2h4, cfg.h2h4_rho),
-            h2h4_null_rate,
+        endpoint_verdict(
+            VerdictSpec {
+                endpoint_id: "h2",
+                endpoint: "H2 Red vs ablation-slope Spearman rho",
+                dgp_tag: "h2_positive_marginal_spearman_family_outcome_re_v2",
+                unit: "tasks",
+                predicted_direction: PredictedDirection::Positive,
+                minimum_effect_magnitude: cfg.h2h4_rho,
+                signed_effect: cfg.h2h4_rho,
+            },
+            &h2,
+            &h2_null,
+            cfg,
         ),
-        mk(
-            "H3 mean per-case Kendall τ",
-            "matched cases",
-            cfg.h3_mean_tau,
-            min_units(&h3, cfg.h3_mean_tau),
-            h3_null_rate,
+        endpoint_verdict(
+            VerdictSpec {
+                endpoint_id: "h3",
+                endpoint: "H3 mean per-case Kendall tau",
+                dgp_tag: "h3_ordered_gaussian_score_noise_family_icc_v2",
+                unit: "matched cases",
+                predicted_direction: PredictedDirection::Positive,
+                minimum_effect_magnitude: cfg.h3_mean_tau,
+                signed_effect: cfg.h3_mean_tau,
+            },
+            &h3,
+            &h3_null,
+            cfg,
+        ),
+        endpoint_verdict(
+            VerdictSpec {
+                endpoint_id: "h4",
+                endpoint: "H4 SSI vs L0-to-L2 degradation Spearman rho",
+                dgp_tag: "h4_negative_marginal_spearman_family_outcome_re_v2",
+                unit: "tasks",
+                predicted_direction: PredictedDirection::Negative,
+                minimum_effect_magnitude: cfg.h2h4_rho,
+                signed_effect: -cfg.h2h4_rho,
+            },
+            &h4,
+            &h4_null,
+            cfg,
         ),
     ];
-    let passed = verdicts.iter().all(|v| v.passed);
-    PowerGateReport {
+    let idealized_sensitivity_gate_passed = verdicts.iter().all(|verdict| verdict.passed);
+    let limitations = vec![
+        PowerGateLimitation {
+            code: "grid_counts_not_capture_requirements".to_string(),
+            detail: "Selected n values are the smallest passing points on finite idealized grids; they are not capture requirements or guarantees.".to_string(),
+        },
+        PowerGateLimitation {
+            code: "idealized_endpoint_dgps".to_string(),
+            detail: "H2/H4 use calibrated Gaussian-copula endpoint pairs and H3 uses ordered Gaussian score noise; real endpoint measurement error and estimator instability are not simulated.".to_string(),
+        },
+        PowerGateLimitation {
+            code: "no_nested_capture_allocation".to_string(),
+            detail: "The simulator has no family→task/case→episode→severity/window allocation, binomial outcomes, instruction-eligibility gate, or fitted-transform uncertainty; H2 and H4 still share one idealized copula family rather than endpoint-specific capture DGPs.".to_string(),
+        },
+        PowerGateLimitation {
+            code: "coarse_monte_carlo_size_tolerance".to_string(),
+            detail: "The same-n size screen uses alpha plus three binomial Monte-Carlo standard errors. It is a transparent simulation tolerance, not evidence that a real test is calibrated exactly at nominal alpha.".to_string(),
+        },
+        PowerGateLimitation {
+            code: "h1_feature_path_not_implemented".to_string(),
+            detail: "The H1 binormal feature model does not supply the train-reference local PID/CI scores, leakage tests, censoring rules, or missing mandatory baselines required by the scientific endpoint.".to_string(),
+        },
+        PowerGateLimitation {
+            code: "pilot_dependence_calibration_required".to_string(),
+            detail: "Family sizes, H2/H4 outcome random-effect SD, and H3 latent score-error ICC require pilot justification before capture planning.".to_string(),
+        },
+    ];
+    Ok(PowerGateReport {
+        schema_version: "2.0".to_string(),
         config: cfg.clone(),
         h1,
-        h2h4,
-        h2h4_null,
+        h2,
+        h2_null,
         h3,
         h3_null,
+        h4,
+        h4_null,
         verdicts,
-        passed,
-    }
+        idealized_sensitivity_gate_passed,
+        capture_ready: false,
+        limitations,
+    })
 }
 
 /// Render the report as a compact markdown document (for `docs/`).
 pub fn power_gate_markdown(r: &PowerGateReport) -> String {
     let mut s = String::new();
-    s.push_str("# §14.8.3 Power Gate — simulation-based power analysis (H1–H4 primaries)\n\n");
+    s.push_str("# §14.8.3 Power Gate — idealized endpoint-sensitivity analysis (H1–H4)\n\n");
     s.push_str(&format!(
         "Replicates/cell: {} · bootstrap: {} · one-sided α = {} · target power = {}\n\n",
         r.config.replicates, r.config.n_boot, r.config.alpha, r.config.target_power
     ));
-    s.push_str("## Verdicts\n\n| Endpoint | Unit | Min effect | Min units for power ≥ target | Null sig. rate | Passed |\n|---|---|---|---|---|---|\n");
+    s.push_str("The grid counts below are idealized planning sensitivities, **not capture requirements or guarantees**. A count is selected only when its own same-n null cell meets the Monte-Carlo size tolerance. H2 and H4 use separate endpoint labels, DGP tags, seeds, and preregistered directions.\n\n");
+    s.push_str("## Verdicts\n\n| Endpoint | DGP tag | Direction | Unit | Min | Smallest passing grid n (not a requirement) | Same-n null rate / tolerance | Idealized pass |\n|---|---|---|---|---|---|---|---|\n");
     for v in &r.verdicts {
+        let direction = match v.predicted_direction {
+            PredictedDirection::Positive => "positive",
+            PredictedDirection::Negative => "negative",
+        };
+        let selected = v
+            .smallest_passing_grid_n
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "NOT REACHED WITH VALID SAME-n NULL".to_string());
+        let null_check = v
+            .null_rate_at_smallest_passing_grid_n
+            .zip(v.null_size_tolerance_at_smallest_passing_grid_n)
+            .map(|(rate, tolerance)| format!("{rate:.3} / {tolerance:.3}"))
+            .unwrap_or_else(|| "n/a".to_string());
         s.push_str(&format!(
-            "| {} | {} | {:.3} | {} | {:.3} | {} |\n",
+            "| {} | `{}` | {} | {} | {:.3} | {} | {} | {} |\n",
             v.endpoint,
+            v.dgp_tag,
+            direction,
             v.unit,
-            v.min_effect,
-            v.min_units_for_target_power
-                .map(|n| n.to_string())
-                .unwrap_or_else(|| "NOT REACHED ON GRID".to_string()),
-            v.null_significance_rate,
+            v.minimum_effect_magnitude,
+            selected,
+            null_check,
             if v.passed { "✅" } else { "❌" }
         ));
     }
@@ -913,18 +1447,43 @@ pub fn power_gate_markdown(r: &PowerGateReport) -> String {
         &r.h1,
         true,
     );
-    table(&mut s, "H2/H4 (tasks at ρ = min effect)", &r.h2h4, false);
     table(
         &mut s,
-        "H2/H4 null (ρ = 0; size check)",
-        &r.h2h4_null,
+        "H2 (tasks; predicted marginal Spearman rho > 0)",
+        &r.h2,
+        false,
+    );
+    table(
+        &mut s,
+        "H2 null (marginal rho = 0; positive-tail size check)",
+        &r.h2_null,
         false,
     );
     table(&mut s, "H3 (matched cases at mean τ = 1/3)", &r.h3, false);
     table(&mut s, "H3 null (size check)", &r.h3_null, false);
+    table(
+        &mut s,
+        "H4 (tasks; predicted marginal Spearman rho < 0)",
+        &r.h4,
+        false,
+    );
+    table(
+        &mut s,
+        "H4 null (marginal rho = 0; negative-tail size check)",
+        &r.h4_null,
+        false,
+    );
+    s.push_str("\n## Machine-readable limitations\n\n");
+    for limitation in &r.limitations {
+        s.push_str(&format!("- `{}`: {}\n", limitation.code, limitation.detail));
+    }
     s.push_str(&format!(
-        "\n**Gate: {}**\n",
-        if r.passed { "PASSED" } else { "NOT PASSED" }
+        "\n**Idealized sensitivity gate: {}. Capture readiness: NOT ESTABLISHED.**\n",
+        if r.idealized_sensitivity_gate_passed {
+            "PASSED"
+        } else {
+            "NOT PASSED"
+        }
     ));
     s
 }
@@ -986,54 +1545,182 @@ mod tests {
     }
 
     #[test]
-    fn h3_noise_calibration_hits_target_tau() {
-        let sigma = h3_calibrate_sigma(1.0 / 3.0, 7);
-        let mut rng = Rng::new(99);
-        let m = 20_000;
-        let mut acc = 0.0;
-        for _ in 0..m {
-            let unq = [1.0, 2.0, 3.0];
-            let eff: Vec<f64> = unq
-                .iter()
-                .map(|u| u + sigma * rng.next_gaussian())
-                .collect();
-            acc += kendall_tau(&unq, &eff);
-        }
-        let mean = acc / m as f64;
+    fn h2_family_effect_calibration_hits_labeled_marginal_spearman_rho() {
+        let cfg = PowerGateConfig {
+            h2h4_family_sd: 0.8,
+            ..Default::default()
+        };
+        let latent = calibrated_latent_pearson(cfg.h2h4_rho, cfg.h2h4_family_sd).unwrap();
+        let mut rng = Rng::new(0xCA11_BA7E);
+        let (xs, ys, _) = h2h4_task_sample(&mut rng, 100_000, latent, &cfg);
+        let realized = spearman(&xs, &ys).unwrap();
         assert!(
-            (mean - 1.0 / 3.0).abs() < 0.03,
+            (realized - cfg.h2h4_rho).abs() < 0.015,
+            "realized marginal rho {realized:.4}"
+        );
+    }
+
+    #[test]
+    fn h2_calibration_rejects_effect_impossible_after_family_attenuation() {
+        let cfg = PowerGateConfig {
+            h2h4_rho: 0.9,
+            h2h4_family_sd: 10.0,
+            ..Default::default()
+        };
+        let error = cfg.validate().unwrap_err();
+        assert_eq!(error.field, "h2h4_rho");
+    }
+
+    #[test]
+    fn h4_direction_uses_the_negative_bootstrap_tail() {
+        let negative_bootstrap = [-0.6, -0.4, -0.2];
+        assert!(directional_significance(
+            &negative_bootstrap,
+            0.05,
+            PredictedDirection::Negative
+        ));
+    }
+
+    #[test]
+    fn h3_family_clustering_preserves_target_marginal_tau() {
+        let sigma = h3_calibrate_sigma(1.0 / 3.0).unwrap();
+        let cfg = PowerGateConfig {
+            h3_family_icc: 0.6,
+            ..Default::default()
+        };
+        let mut rng = Rng::new(99);
+        let (taus, _) = h3_case_sample(&mut rng, 40_000, 1.0, sigma, &cfg);
+        let mean = taus.iter().sum::<f64>() / taus.len() as f64;
+        assert!(
+            (mean - 1.0 / 3.0).abs() < 0.02,
             "calibrated mean τ {mean:.3}"
         );
     }
 
     #[test]
-    fn power_gate_runs_and_is_sane_on_a_small_grid() {
+    fn h3_family_clustering_induces_within_family_tau_dependence() {
+        let sigma = h3_calibrate_sigma(1.0 / 3.0).unwrap();
         let cfg = PowerGateConfig {
-            h1_episodes_grid: vec![40, 240],
-            h1_delta_grid: vec![0.0, 0.08],
-            h2h4_tasks_grid: vec![8, 48],
-            h3_cases_grid: vec![20, 60],
-            n_boot: 200,
-            replicates: 60,
+            h3_family_icc: 0.6,
             ..Default::default()
         };
-        let r = run_power_gate(&cfg);
-        let cell = |n: usize, e: f64| {
-            r.h1.iter()
-                .find(|c| c.n_units == n && (c.effect - e).abs() < 1e-12)
-                .unwrap()
-                .clone()
+        let mut rng = Rng::new(0x1CC);
+        let (taus, _) = h3_case_sample(&mut rng, 40_000, 1.0, sigma, &cfg);
+        let first: Vec<f64> = taus.iter().step_by(cfg.h3_family_size).copied().collect();
+        let second: Vec<f64> = taus
+            .iter()
+            .skip(1)
+            .step_by(cfg.h3_family_size)
+            .copied()
+            .collect();
+        let within_family_rho = spearman(&first, &second).unwrap();
+        assert!(
+            within_family_rho > 0.1,
+            "within-family tau rho {within_family_rho:.3}"
+        );
+    }
+
+    #[test]
+    fn h3_clustered_zero_signal_dgp_has_zero_marginal_tau() {
+        let cfg = PowerGateConfig {
+            h3_family_icc: 0.6,
+            ..Default::default()
         };
-        // Power grows with n and with effect.
-        assert!(cell(240, 0.08).significance_rate > cell(40, 0.08).significance_rate - 0.05);
-        assert!(cell(240, 0.08).significance_rate > cell(240, 0.0).significance_rate);
-        // Null cells: one-sided size within generous Monte-Carlo slack.
-        assert!(cell(240, 0.0).significance_rate <= 0.05 + 3.0 * (0.05f64 * 0.95 / 60.0).sqrt());
-        let h2_large = r.h2h4.iter().find(|c| c.n_units == 48).unwrap();
-        let h2_small = r.h2h4.iter().find(|c| c.n_units == 8).unwrap();
-        assert!(h2_large.power >= h2_small.power - 0.05);
-        // Markdown renders.
+        let mut rng = Rng::new(0x0BAD_5EED);
+        let (taus, _) = h3_case_sample(&mut rng, 40_000, 0.0, 1.0, &cfg);
+        let mean = taus.iter().sum::<f64>() / taus.len() as f64;
+        assert!(mean.abs() < 0.02, "clustered null mean tau {mean:.3}");
+    }
+
+    #[test]
+    fn config_validation_rejects_undefined_family_and_icc_settings() {
+        let invalid = [
+            (
+                PowerGateConfig {
+                    h2h4_family_size: 0,
+                    ..Default::default()
+                },
+                "h2h4_family_size",
+            ),
+            (
+                PowerGateConfig {
+                    h3_family_size: 0,
+                    ..Default::default()
+                },
+                "h3_family_size",
+            ),
+            (
+                PowerGateConfig {
+                    h3_family_icc: 1.0,
+                    ..Default::default()
+                },
+                "h3_family_icc",
+            ),
+        ];
+        for (cfg, expected_field) in invalid {
+            assert_eq!(cfg.validate().unwrap_err().field, expected_field);
+        }
+    }
+
+    #[test]
+    fn smallest_grid_n_requires_a_passing_null_cell_at_the_same_n() {
+        let cell = |n_units: usize, effect: f64, power: f64, significance_rate: f64| PowerCell {
+            n_units,
+            effect,
+            significance_rate,
+            power,
+            futility_rate: 0.0,
+            mean_point_estimate: effect,
+            replicates: 400,
+        };
+        let cfg = PowerGateConfig::default();
+        let alternatives = [cell(20, 0.3, 0.9, 0.9), cell(40, 0.3, 0.85, 0.85)];
+        let nulls = [cell(20, 0.0, 0.15, 0.15), cell(40, 0.0, 0.05, 0.05)];
+        let selected = select_smallest_passing_grid_n(&alternatives, 0.3, &nulls, &cfg).unwrap();
+        assert_eq!(selected.n_units, 40);
+    }
+
+    #[test]
+    fn smallest_grid_n_reports_the_selected_cells_null_rate() {
+        let cell = |n_units: usize, effect: f64, power: f64, significance_rate: f64| PowerCell {
+            n_units,
+            effect,
+            significance_rate,
+            power,
+            futility_rate: 0.0,
+            mean_point_estimate: effect,
+            replicates: 400,
+        };
+        let cfg = PowerGateConfig::default();
+        let alternatives = [cell(20, 0.3, 0.9, 0.9), cell(40, 0.3, 0.9, 0.9)];
+        let nulls = [cell(20, 0.0, 0.04, 0.04), cell(40, 0.0, 0.2, 0.2)];
+        let selected = select_smallest_passing_grid_n(&alternatives, 0.3, &nulls, &cfg).unwrap();
+        assert!((selected.null_rate - 0.04).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn power_gate_separates_h2_and_h4_and_marks_capture_unready() {
+        let cfg = PowerGateConfig {
+            h1_episodes_grid: vec![40],
+            h1_delta_grid: vec![0.0, 0.05],
+            h2h4_tasks_grid: vec![20],
+            h3_cases_grid: vec![20],
+            n_boot: 100,
+            replicates: 20,
+            ..Default::default()
+        };
+        let r = run_power_gate(&cfg).unwrap();
+        assert_eq!(r.schema_version, "2.0");
+        let endpoint_ids: Vec<&str> = r
+            .verdicts
+            .iter()
+            .map(|verdict| verdict.endpoint_id.as_str())
+            .collect();
+        assert_eq!(endpoint_ids, ["h1", "h2", "h3", "h4"]);
+        assert!(r.h2[0].mean_point_estimate > 0.0);
+        assert!(r.h4[0].mean_point_estimate < 0.0);
+        assert!(!r.capture_ready);
         let md = power_gate_markdown(&r);
-        assert!(md.contains("Verdicts") && md.contains("H3"));
+        assert!(md.contains("not capture requirements or guarantees"));
     }
 }

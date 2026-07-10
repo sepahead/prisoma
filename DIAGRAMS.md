@@ -11,13 +11,13 @@
 
 This document contains visual representations of the prisoma system, the PID-Splat simulation environment, and the data processing pipelines.
 
-**Docset alignment:** These diagrams are aligned to `grandplan.md` v10.7. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, external video predictors, and the Agent Bridge control plane) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1), the v10.1 execution plan (`grandplan.md` §A.7), and the ten-scientist consensus decision record (`grandplan.md` §A.8) for what exists today and what to build next.
+**Docset alignment:** These diagrams are aligned to the current 2026-07-10 corrective addendum in `grandplan.md` v10.7. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, and external video predictors) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1), the execution plan (`grandplan.md` §A.7), and the decision record (`grandplan.md` §A.8) for what exists today and what to build next.
 
-**Docset-wide final solution:** the diagrams should be read through `grandplan.md` §A.8: run log as source of truth, Agent Bridge as the only control plane, Rerun as the Phases 1–3 diagnostic viewer, and Tauri/SparkJS as the deferred Phase 4 shell.
+**Docset-wide final solution:** the diagrams should be read through `grandplan.md` §A.8: run log as source of truth, Agent Bridge as the only control plane, Rerun as the read-only Phases 1–3 diagnostic viewer, and Tauri/SparkJS as the deferred Phase 4 shell. VLA actions, interventions, pause/resume/step transitions, and correction forces always traverse **client → Agent Bridge → canonical command event → backend**. PID, observers, Zenoh, and Rerun never actuate the system.
 
 ## 0. Docset v10.7 Status Dashboard (Pipeline State)
 
-This chart is the honest, gate-driven snapshot for the v10.7 cut: Exp0 reports **NO-GO** (the gate working, not a bug — stricter under pid-rs 0.4.0's bias-corrected diagnostics; PIVOT under 0.3.0), the offline analysis/adapter path is runnable today, the real-VLA capture is the **still-open critical path**, and Exp1–Exp5 stay blocked on that capture. Nothing here upgrades the research/experiment status, which is unchanged since v10.3 (the v10.6/v10.7 slices are correctness/robustness + spec-audit/statistics-plan only — see CHANGELOG). The `(v10.4)`/`(v10.5)` tags below mark when a component first landed.
+This chart is the honest, gate-driven snapshot after the corrective audit. Exp0 has a **split status**: its default high-dimensional MI/coherence sweep is **NO-GO**, while continuous `I^sx_∩` atom validation has **no valid automated gate yet**. The offline tooling is runnable, but it is not a gate-passing atom-analysis spine. The first real-VLA capture, the nested capture-sizing gate, and the episode-local H1 feature path remain open; Exp1–Exp5 therefore remain blocked.
 
 ```mermaid
 flowchart TD
@@ -25,16 +25,17 @@ flowchart TD
     classDef gate fill:#e65100,stroke:#ef6c00,color:#fff;
     classDef blocked fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
 
-    Exp0["Exp0 estimator + geometry gate<br/>verdict = NO-GO on synthetic high-d (pid-rs 0.4.0)<br/>(runnable: just exp0 / just exp0-bin)"]:::gate
+    Exp0["Exp0 split status<br/>MI/coherence = NO-GO on default high-d sweep<br/>continuous-atom gate = NOT VALID YET<br/>(runner is executable)"]:::gate
 
-    subgraph Today["Runnable today (gate-passing analysis spine)"]
+    subgraph Today["Runnable tooling today (not gate-passing VLA evidence)"]
         Harness["Offline (V,L,D,A) harness<br/>PID screens + non-PID baselines"]:::run
         ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest (v10.4)"]:::run
         Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (v10.4)"]:::run
-        Attr["attribution probe (H9, faithfulness-checked)"]:::run
+        Attr["attribution reference probe + Rerun adapter<br/>faithfulness/provenance/relevance implemented"]:::run
         Obs["ncp-observer tap pinned NCP v0.6.0<br/>exploratory, off critical path"]:::run
     end
 
+    Power["CAPTURE GATE NOT READY / NOT PASSED<br/>idealized power simulator exists;<br/>nested capture model + H1 prospective features missing"]:::blocked
     Capture["OPEN CRITICAL PATH<br/>real downloaded VLA capture + labels<br/>(NOT done)"]:::blocked
 
     subgraph Blocked["Blocked on first real capture"]
@@ -50,10 +51,11 @@ flowchart TD
     Harness --> Adapter
     Harness --> Attr
     Adapter --> Capture
+    Power -. blocks .-> Capture
     Capture -. blocks .-> E1 & E2 & E3 & E4 & E5
 ```
 
-*Caption: v10.7 pipeline state — orange = Exp0 gate (NO-GO, runnable); green = runnable analysis/adapter/observer spine; red dashed = the still-open real-VLA capture and the Exp1–Exp5 protocols it blocks.*
+*Caption: corrected v10.7 pipeline state — orange = executable Exp0 with split scientific status; green = runnable tooling, not validated atom evidence; red dashed = unresolved capture design/data gates and the Exp1–Exp5 protocols they block.*
 
 ---
 
@@ -101,14 +103,15 @@ Build order from `grandplan.md` §A.7. "Implemented" reflects verified in-repo c
 ```mermaid
 flowchart TD
     classDef done fill:#1b5e20,stroke:#2e7d32,color:#fff;
+    classDef partial fill:#e65100,stroke:#ef6c00,color:#fff;
     classDef active fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
     classDef spec fill:#424242,stroke:#616161,color:#fff;
 
-    M0["M0 Exp0 estimator gate<br/>pid-rs pid-core (implemented; NO-GO on synthetic controls)"]:::done
+    M0["M0 Exp0 runner implemented<br/>MI/coherence high-d = NO-GO;<br/>continuous-atom gate not valid yet"]:::partial
     M1["M1 Run logs + replay<br/>pid-runlog: JSONL schema, validate/summary/manifest (implemented)"]:::done
-    M2["M2 Agent Bridge control plane<br/>stdio/TCP/WS, safe mode (implemented)"]:::done
+    M2["M2 Agent Bridge control plane<br/>stdio/TCP/WS + safe mode implemented;<br/>full target control/subscription contract PARTIAL"]:::partial
     M3["M3 Minimal sim + Flow_gt<br/>pid-sim, Rapier harness (implemented)"]:::done
-    M4["M4 Rerun-based viewer adapter<br/>pid-rerun (implemented; full viewer specified)"]:::done
+    M4["M4 Rerun adapter implemented<br/>validation + attribution tracks;<br/>full viewer blueprint PARTIAL"]:::partial
     M5["M5 Embedding harness on REAL capture<br/>safe_adapter ready; capture OPEN (not done)"]:::active
     M6["M6 Optional live transport + robot sim<br/>(specified)"]:::spec
     M7["M7 Optional predictor-driven Flow_pred<br/>(specified)"]:::spec
@@ -117,7 +120,7 @@ flowchart TD
     M0 --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7 --> M8
 ```
 
-*Caption: M0–M8 roadmap — green = implemented in-repo, red dashed = M5 open critical path (adapter ready, real capture not done), grey = specified/optional. Engineering state only; the research verdict is still gated on M5.*
+*Caption: M0–M8 roadmap — green = implemented acceptance slice, orange = implemented groundwork with an unmet scientific/milestone contract, red dashed = M5 open critical path, grey = specified/optional. Engineering state only.*
 
 ---
 
@@ -136,15 +139,14 @@ graph TD
         VLA["Target VLA (e.g., SmolVLA/OpenVLA/DreamVLA/InternVLA‑A1)"]
         WAN["Video Gen Model (WAN-like)"]
         VFM[Vision Foundation Models]
-        
-        VLA -->|Action| Z_ACT[Zenoh: vla/action]
+
+        VLA -->|Action request| Agent
         VLA -->|Embeddings| Z_EMB[Zenoh: vla/embeddings]
         WAN --> VFM
         VFM -->|3D Flow| Z_FLOW[Zenoh: dream/flow]
     end
 
-    subgraph "Middleware (Zenoh)"
-        Z_ACT
+    subgraph "Optional data transport (Zenoh; never control)"
         Z_EMB
         Z_FLOW
         Z_SENS[Zenoh: sim/sensors]
@@ -154,35 +156,44 @@ graph TD
     subgraph "Simulation & Vis Layer (Rust/Rerun)"
         subgraph "Backend"
             Phys[Physics Engine]
-            PID_Core[pid-core Estimator]
+            PID_Core["pid-core Estimator<br/>(read-only analysis)"]
             Agent["Agent Bridge (JSON-RPC/MCP)"]
-            
-            Z_ACT --> Phys
-            Phys -->|Pose| PoseBridge
-            
-            Z_EMB --> PID_Core
-            Z_FLOW --> PID_Core
-            PID_Core -->|Synergy/Red/Unq| Z_PID
+            Log["Canonical run log<br/>(source of truth)"]
+
+            Agent -->|Append command before execution| Log
+            Agent -->|Dispatch only after log append| Phys
+            Phys -->|Pose / contact / Flow_gt events| Log
+
+            Z_EMB -->|Captured data| Log
+            Z_FLOW -->|Captured data| Log
+            Log -->|Samples only| PID_Core
+            PID_Core -->|Analysis metric events| Log
+            PID_Core -->|Optional live mirror| Z_PID
 
             Claude --> Agent
             Scripts --> Agent
-            Agent -->|Scene edits / interventions| Phys
-            Agent -->|Compute requests| PID_Core
         end
-        
-        subgraph "Frontend (Rerun Viewer / SparkJS)"
-            Vis["Rerun Viewer (P1-3) / SparkJS (P4)"]
+
+        subgraph "Frontend"
+            Replay["Run-log replay / Rerun adapter"]
+            Rerun["Rerun Viewer (P1-3, read-only)"]
+            Spark["Tauri/SparkJS shell (P4)"]
             Ghost["Ghost Splats (Rerun PointCloud)"]
-            
-            PoseBridge --> Vis
-            Z_PID --> Ghost
-            Ghost --> Vis
+
+            Log --> Replay --> Rerun
+            Replay --> Spark
+            Log --> Ghost
+            Ghost --> Rerun
+            Ghost --> Spark
+            Spark -->|Control requests only| Agent
         end
     end
 
     subgraph "Sensor Support"
         Gazebo[Headless Gazebo]
         Gazebo -->|RGB-D/LiDAR| Z_SENS
+        Z_SENS -->|Captured observations| Log
+        Z_SENS -->|Observation data| VLA
     end
 ```
 
@@ -194,31 +205,38 @@ This diagram details the target "Splat-First" update loop, showing how a physics
 
 ```mermaid
 sequenceDiagram
-    participant Agent as Agent Bridge / UI
+    participant Client as UI / script client
     participant VLA as VLA Agent
-    participant Zenoh as Zenoh Bus
+    participant Bridge as Agent Bridge
+    participant Log as Canonical Run Log
     participant Phys as Physics (Rust)
-    participant PID as PID-Core
-    participant Vis as Rerun / SparkJS
+    participant Zenoh as Zenoh Data Bus
+    participant PID as PID-Core (read-only)
+    participant Vis as Rerun (read-only) / SparkJS
 
-    Note over Phys,Vis: Example frame budget (hardware-dependent)
+    Note over Bridge,Phys: Every mutating command is logged before backend dispatch
 
     par Physics Step
-        VLA->>Zenoh: Publish Action (Joints)
-        Zenoh->>Phys: Apply Forces
+        VLA->>Bridge: Submit action / action chunk
+        Bridge->>Log: Append canonical action event
+        Bridge->>Phys: Dispatch recorded action
         Phys->>Phys: Step Simulation (dt=1/60)
-        Phys->>Zenoh: Publish Object Poses
-        Agent->>Phys: Apply intervention (pause/step-safe)
+        Phys->>Log: Append poses / contacts / Flow_gt
+        Phys->>Zenoh: Optional pose-data mirror
+        Client->>Bridge: Request pause / step / intervention / correction
+        Bridge->>Log: Append canonical control event
+        Bridge->>Phys: Dispatch recorded control
     and PID Computation
         VLA->>Zenoh: Publish Embeddings (V, D)
-        Zenoh->>PID: Update Buffer
+        Zenoh->>Log: Append captured embedding events
+        Log->>PID: Read analysis samples
         PID->>PID: Compute I_sx_intersect
-        PID->>Zenoh: Publish (Syn, Red, Unq)
+        PID->>Log: Append analysis metrics (Syn, Red, Unq)
+        PID->>Zenoh: Optional metric-data mirror
     end
 
-    par Rendering
-        Zenoh->>Vis: Log Transforms
-        Zenoh->>Vis: Log Ghost Splats (PID)
+    par Read-only Rendering
+        Log->>Vis: Replay converted transforms / metrics / artifacts
         Vis->>Vis: Render Timeline
         Vis->>Vis: Rasterize 3DGS
     end
@@ -228,39 +246,34 @@ sequenceDiagram
 
 ## 3. Geometry-First Analysis Protocol
 
-This flowchart implements the decision logic from `grandplan.md` §16.11, determining whether to use Euclidean, Manifold, or Hierarchical analysis methods.
-For δ-hyperbolicity thresholds, use a normalized `δ_rel` (e.g., `δ_rel = 2δ / diam(X)`) rather than raw δ; see `grandplan.md` §16.7.
+This flowchart implements the corrected decision logic from `grandplan.md` §16.11. Every variable and every concatenation actually passed to an estimator is diagnosed. Sampled mean `δ_rel` is reported as a descriptive tree-likeness statistic only: it is **not** a Euclidean-validity pass/fail gate (a Euclidean line is the immediate counterexample).
 
 ```mermaid
 flowchart TD
-    Start["Input embeddings (V, D, A)"] --> Diag[Step 0: Geometry diagnostics]
+    Start["Input embeddings and every estimator concatenation"] --> Diag[Step 0: Geometry / dependence diagnostics]
 
     subgraph "Diagnostics"
         Diag --> ID["Intrinsic dimension (Levina–Bickel / GRIDE)"]
         Diag --> DC["Distance concentration (pairwise CV, nn/mean)"]
-        Diag --> Delta["δ-hyperbolicity (4-point sampling)"]
-        Diag --> Flat["Local flatness / curvature proxy (e.g., neighborhood PCA residual; ORC if available)"]
+        Diag --> Ties["Ties / duplicate distances / dependence"]
+        Diag --> Delta["Sampled mean δ_rel<br/>(descriptive only)"]
+        Diag --> Flat["Calibrated local-flatness diagnostics"]
     end
 
-    DC --> ConcQ{Concentration?}
-    ConcQ -- Yes --> Reduce[Reduce/quantize or MI-only]
+    Delta --> DeltaNote["Report; never use alone to pass/fail Euclidean kNN"]
+    ID --> GeoGate{Recovery-supporting geometry?}
+    DC --> GeoGate
+    Ties --> GeoGate
+    Flat --> GeoGate
+
+    GeoGate -- No --> Reduce[Reduce/quantize or use a different MI pipeline]
     Reduce --> Note0[Re-run diagnostics + Experiment 0 after pivot]
-
-    ConcQ -- No --> Tree{δ_rel very small?}
-    Tree -- Yes --> Hier[Tree-like regime]
-    Hier --> SI[Use Shannon invariants / MI-only screening]
-    Hier --> Note1["Avoid interpreting continuous I^sx_∩ atoms (no non-Euclidean derivation)"]
-
-    Tree -- No --> FlatQ{Locally flat-ish?}
-    Flat --> FlatQ
-
-    FlatQ -- Yes --> Euclid["PCA + L∞ I^sx_∩ (after Experiment 0 gate)"]
-    Euclid --> Gate{Experiment 0 passes?}
-    Gate -- No --> Pivot["Pivot: quantization (discrete PID) or MI-only"]
-
-    FlatQ -- No --> Curved[High curvature, non-hierarchical]
-    Curved --> Quant[Quantization → discrete PID]
-    Curved --> Unroll["Manifold unrolling → L∞ estimator (then re-validate)"]
+    GeoGate -- Yes --> Exp0["Run measure-independent MI recovery checks<br/>and a measure-specific atom oracle"]
+    Exp0 --> MI{MI/coherence gate passes?}
+    MI -- No --> Pivot["NO-GO/PIVOT for this pipeline"]
+    MI -- Yes --> Atom{Valid measure-specific atom gate passes?}
+    Atom -- No or unavailable --> NoAtoms["Do not interpret continuous atoms"]
+    Atom -- Yes --> Euclid["Preregistered continuous I^sx_∩ regime may proceed"]
 ```
 
 ---
@@ -272,13 +285,16 @@ This diagram shows the composable backend system where rendering (Gaussian Splat
 ```mermaid
 graph TB
     subgraph "Application Layer"
-        App[Rust App / Rerun Logger]
+        Bridge["Agent Bridge<br/>(only control plane)"]
+        Log["Canonical run log"]
+        App["Run-log replay / Rerun adapter"]
         Config[pid-splat.toml]
+        Controls["Tauri/SparkJS control UI (P4)"]
     end
 
     subgraph "Rendering Layer (Fixed)"
         Splats[Gaussian Splats]
-        Vis[Rerun / SparkJS]
+        Vis["Rerun (read-only) / SparkJS panels"]
         Ghost[Ghost Splats]
         
         Splats --> Vis
@@ -317,21 +333,26 @@ graph TB
         Zenoh[Zenoh Bus]
     end
 
-    Config --> App
-    App --> Vis
-    App --> PhysTrait
-    App --> RobotTrait
-    
-    PhysTrait <--> Zenoh
-    RobotTrait <--> Zenoh
-    Vis <--> Zenoh
+    Config --> Bridge
+    Controls -->|Control requests| Bridge
+    Bridge -->|Append command| Log
+    Bridge -->|Dispatch only after append| PhysTrait
+    Bridge -->|Dispatch only after append| RobotTrait
+    PhysTrait -->|State / contact events| Log
+    RobotTrait -->|State / sensor events| Log
+    Log --> App --> Vis
+
+    Log -->|Optional data mirror| Zenoh
+    Zenoh -->|Captured external observations only| Log
 ```
 
 ### Backend Selection Logic
 
 ```mermaid
 flowchart TD
-    Start[Read pid-splat.toml] --> CheckPhys{physics.backend?}
+    Start[Read pid-splat.toml] --> Bridge[Agent Bridge validates configuration]
+    Bridge --> ConfigLog[Append canonical config event]
+    ConfigLog --> CheckPhys{physics.backend?}
     
     CheckPhys -->|rapier| Rapier[Initialize Rapier3D]
     CheckPhys -->|mujoco| MuJoCo[Initialize MuJoCo FFI]
@@ -411,7 +432,7 @@ graph TB
         Overlay --> Three
     end
 
-    Cam[Shared camera + UI state] --> Vis
+    Cam[Viewer-only camera + UI state] --> Vis
     Cam --> Three
 ```
 
@@ -457,22 +478,24 @@ graph LR
 
 ---
 
-## 7. Experiment 0 Validation Gate (GO/PIVOT/NO-GO)
+## 7. Experiment 0: Separate MI/Coherence and Atom-Validation Gates
 
-This diagram summarizes the required estimator/geometry validation loop before applying PID to real VLA embeddings (`grandplan.md` §9.1, §16; `EXPERIMENTS.md` §4).
+This diagram summarizes the corrected validation loop before applying PID to real VLA embeddings (`grandplan.md` corrective addendum, §9.1, §16; `EXPERIMENTS.md` §4). The existing aggregate Exp0 label must not be presented as continuous-atom validation.
 
 ```mermaid
 flowchart TD
     Start["Choose representation (V/L/D/A/Flow)"] --> Geo[Run geometry diagnostics]
     Geo -->|OK| Exp0["Run Experiment 0 (synthetic validation)"]
-    Geo -->|Flags non-Euclidean / concentration| PivotGeom[Pivot representation: reduce/quantize/Flow target]
+    Geo -->|Recovery / ID / concentration / ties / local-flatness warnings| PivotGeom[Pivot representation: reduce/quantize/Flow target]
     PivotGeom --> Geo
 
-    Exp0 --> Gate{Meets coherence gates?}
-    Gate -->|GO| Proceed[Proceed to real embeddings + preregistered analyses]
-    Gate -->|PIVOT| PivotEst[Pivot estimator/representation; re-run Geo + Exp0]
-    Gate -->|NO-GO| Stop[Stop: do not interpret PID atoms]
+    Exp0 --> MIGate{Measure-independent MI/coherence passes?}
+    MIGate -->|NO-GO on current default high-d sweep| StopMI[Stop/pivot this MI pipeline]
+    MIGate -->|Passes after a validated pivot| AtomGate{Measure-specific atom oracle + pinned cross-check pass?}
+    AtomGate -->|Unavailable today| StopAtoms[Do not interpret continuous I^sx atoms]
+    AtomGate -->|Future pass| Proceed[Proceed to preregistered real-embedding analyses]
 
+    StopMI --> PivotEst[Pivot estimator/representation]
     PivotEst --> Geo
 ```
 
@@ -525,9 +548,9 @@ graph LR
 
 ## 10. Agent Bridge Control Plane (LLM‑First)
 
-The Agent Bridge is the “programmable face” of the simulator: a local control plane that exposes the same operations the GUI uses (scene editing, interventions, run control, replay, exports). It is designed to be called by scripts and LLM coding tools without introducing irreproducible “manual steps”.
+The Agent Bridge is the **only** programmable control plane: it exposes the same operations to the GUI, VLA-policy adapter, scripts, and LLM coding tools (actions, scene editing, interventions, pause/resume/step, correction forces, replay, and exports). Each mutating request is appended to the canonical run log before backend dispatch.
 
-**External backend note:** the Agent Bridge can also act as an *adapter surface* for third‑party simulators that already expose an RL-style `reset/step` API (or their own WebSocket/pubsub control plane). In that mode, the adapter must still write prisoma run‑log events so replay and analysis are identical across backends.
+**External backend note:** the Agent Bridge is also the *adapter surface* for third‑party simulators that expose an RL-style `reset/step` API (or their own WebSocket/pubsub interface). Their native interface sits behind the bridge; it is not a second prisoma control plane. The adapter records prisoma command events before dispatch so replay and analysis are identical across backends.
 
 The deterministic in-repo bridge currently provides stdio/TCP/WebSocket JSON-RPC smokes for status, reset/step, scene edits, deterministic interventions, `log.replay`, `log.start`/`log.stop`, and `export.rerun`; safe mode permits status/replay and logs blocked mutation, run-ending, or file-writing export requests.
 
@@ -535,6 +558,7 @@ The deterministic in-repo bridge currently provides stdio/TCP/WebSocket JSON-RPC
 graph TB
     subgraph Clients
         UI["GUI (Tauri)"]
+        VLA["VLA-policy adapter"]
         LLM[Claude Code / Codex / opencode]
         Script["Scripts (Python/Rust)"]
     end
@@ -554,16 +578,18 @@ graph TB
     end
 
     UI --> RPC
+    VLA --> RPC
     Script --> RPC
     LLM --> MCP --> RPC
 
-    RPC --> Sim
-    RPC --> Scene
-    RPC --> Intervene
-    RPC --> Log
-    RPC --> PID
+    RPC -->|Append request/response audit first| Log
+    RPC -->|Dispatch recorded command| Sim
+    RPC -->|Dispatch recorded command| Scene
+    RPC -->|Dispatch recorded command| Intervene
 
     Sim --> Events
+    Log -->|Captured samples| PID
+    PID -->|Analysis metrics only| Log
     PID --> Events
     Log --> Events
 
@@ -580,8 +606,10 @@ This diagram captures the v10.1 cross-backend replay idea (`grandplan.md` §E.1)
 
 ```mermaid
 graph LR
-    Log["Run log<br/>(initial state + actions + interventions)"] -->|Replay| R[Rapier backend]
-    Log -->|Replay| M[MuJoCo backend]
+    Client["UI / script client"] -->|log.replay request| Bridge[Agent Bridge]
+    Log["Run log<br/>(initial state + actions + interventions)"] -->|Replay data| Bridge
+    Bridge -->|Dispatch recorded replay| R[Rapier backend]
+    Bridge -->|Dispatch recorded replay| M[MuJoCo backend]
 
     R --> TR[State/contact trace]
     M --> TM[State/contact trace]
@@ -600,8 +628,10 @@ This diagram summarizes the proposed GauSS‑MI integration (`GAUSS_MI_INTEGRATI
 
 ```mermaid
 graph TB
-    Capture[Scene capture views] --> Train["3DGS training<br/>(PLY/SPZ)"]
+    Capture[Scene capture views] --> Train["3DGS training + Nerfstudio export<br/>(PLY)"]
+    Train --> Convert["Optional separately pinned<br/>PLY → SPZ converter"]
     Train --> Render[Render held-out views]
+    Convert --> Render
     Render --> Resid["Residuals<br/>(I_obs vs I_render)"]
     Resid --> UMap["SceneUncertaintyMap<br/>(per-Gaussian uncertainty)"]
 
@@ -610,7 +640,9 @@ graph TB
     UMap --> Wt["Optional weighting<br/>(weighted MI/PID)"]
 
     Gate -->|Needs more coverage| Suggest[Suggest next viewpoints]
-    Suggest --> Capture
+    Suggest --> Accept[Human/script accepts proposal]
+    Accept --> Bridge[Agent Bridge records capture decision]
+    Bridge --> Capture
 
     Wt --> PID["pid-core<br/>(MI/CI/PID)"]
     PID --> Log["Run log artifacts<br/>(metric events + provenance)"]
@@ -636,7 +668,9 @@ graph TB
     Compare --> Agree[Compatible under controls\nstronger diagnostic story]
     Compare --> Disagree[Disagreement\nrun targeted perturbations]
     Disagree --> Intervene[Agent Bridge intervention\nocclude / ablate / swap / shuffle]
-    Intervene --> Run
+    Intervene -->|Append command before dispatch| Run
+    Intervene -->|Dispatch recorded command| Target[Model/backend perturbation handler]
+    Target -->|New samples/results| Run
 
     Compare --> Log[Artifact manifest\nmethod + target + baseline + score hash]
 ```

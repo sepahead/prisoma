@@ -10,8 +10,8 @@
 > - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 10.7 (Rerun-First Architecture; docset-stamp sync)
-**Date:** 2026-07-06
+**Version:** 10.7 (2026-07-10 corrective implementation-reality alignment)
+**Date:** 2026-07-10
 **Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
 
 ---
@@ -21,9 +21,11 @@
 This document specifies the target engineering implementation of the **PID-Splat** environment. It bridges photorealistic 3D Gaussian Splatting (3DGS) with modular rigid-body physics (**Rapier, MuJoCo, or Isaac Gym**) and Dream2Flow-style video→flow bridges to enable reproducible PID diagnostics for VLA models.
 
 **Visualization Strategy (v10.1): "Rerun-First"**
-To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** (https://rerun.io/) as the primary visualization, logging, and "time machine" engine. The custom Tauri/SparkJS frontend is deferred to Phase 4 for advanced interactive needs.
+To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** (https://rerun.io/) as the primary visualization and "time machine" viewer. The canonical run log remains the authoritative record. The custom Tauri/SparkJS frontend is deferred to Phase 4 for advanced interactive needs.
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the canonical state, Rerun is the research viewer, Tauri/SparkJS is a later control/editor/custom-rendering shell, and every control path must go through the Agent Bridge.
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the canonical state, the Agent Bridge is the only control plane, Rerun is a read-only research viewer, and Tauri/SparkJS is a later control/editor/custom-rendering shell. Every VLA action, scene edit, intervention, pause/resume/step transition, and correction force must enter through the Agent Bridge and be recorded before execution. Observers and PID workers are read-only analyzers; Zenoh is optional data transport; none of them may actuate physics.
+
+**Current estimator status:** the default high-dimensional Exp0 MI/coherence sweep is **NO-GO**; continuous `I^sx_∩` atom validation is **not yet covered by a valid automated gate**. `--strict-gate` only enforces the curated d=1 Gaussian **MI** band and does not validate the atoms or the default high-dimensional sweep. See the current `grandplan.md` corrective addendum and `findings.md`.
 
 **Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying predicted “dreams” (video‑predicted 3D flow) to visualize what a policy *expects* to happen.
 
@@ -37,19 +39,19 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 
 | Component | Technology | Version / Spec | License |
 | :--- | :--- | :--- | :--- |
-| **Run log** | `pid-rs/crates/pid-runlog` JSONL events + replay summary | Schema v1; M1 groundwork implemented; includes embedding/sim/bridge event types, validation, replay hash comparison, summary JSON with unique metric-name counts plus total metric-event counters, manifest JSON, and co-located sidecar writing/verification | MIT (project) |
-| **Agent Bridge core** | `crates/pid-bridge` | Local request/response schema, dispatcher, JSON-RPC-shaped request/response conversion, run-log integration, bridge/run-log contract JSON export, safe-mode gates, and stdio/TCP/WebSocket sim transports | MIT (project) |
-| **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`, `log.start`/`log.stop`, deterministic `intervention.apply`, `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, replay-visible total metric event counts, and failure-class confusion/rate diagnostics; a `PhysicsBackend` trait with a null adapter and a real `rapier3d-f64` backend (gravity/contacts/friction, deterministic) + a scripted push-to-goal manipulation exists behind the optional `rapier` feature (box-collider geometry; mesh-collider ingestion and MuJoCo/Isaac adapters remain planned) | MIT (project) |
-| **Attribution probes (H9)** | Offline explainer artifacts | Planned companion diagnostics only: LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style tensors or visualizations should be logged via existing artifact records with method/target/baseline/hash metadata until a stable first-class attribution schema is justified | Method/model-dependent; verify |
-| **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | Rerun SDK 0.28.x in Cargo; run-log conversion includes summary/provenance/validation diagnostic tracks; Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |
+| **Run log** | `pid-rs/crates/pid-runlog` JSONL events + replay summary | Schema v1; M1 groundwork implemented; includes embedding/sim/bridge event types, validation, replay hash comparison, summary JSON with unique metric-name counts plus total metric-event counters, manifest JSON, and co-located sidecar writing/verification | MIT OR Apache-2.0 (project) |
+| **Agent Bridge core** | `crates/pid-bridge` | **Partial M2 groundwork:** local request/response schema, dispatcher, JSON-RPC-shaped conversion, run-log integration, contract export, safe-mode gates, and stdio/TCP/WebSocket deterministic-sim transports. Full target UI/VLA/backend control coverage and versioned subscriptions remain | MIT OR Apache-2.0 (project) |
+| **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`, `log.start`/`log.stop`, deterministic `intervention.apply`, `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics plus a legacy fail-closed aggregate (software smoke only; corrected scientific eligibility does not gate on sampled mean `δ_rel`), strict label/held-out-split/class-coverage/episode-disjoint modes, sample-level, episode-grouped, metadata-split held-out majority/1-NN/nearest-centroid/logistic baselines, prediction/confusion diagnostics, and replay-visible metric-event counts; a `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend** (gravity/contacts/friction, deterministic) + a scripted push-to-goal manipulation exists behind the optional `rapier` feature (box-collider geometry; mesh-collider ingestion and MuJoCo/Isaac adapters remain planned) | MIT OR Apache-2.0 (project) |
+| **Attribution probes (H9)** | `experiments/attribution` + `attribution_logged` + `pid-rerun` | Implemented reference slice: epsilon-/AttnLRP and gradient×input on a small reference model, deletion-AOPC vs random faithfulness check, first-class run-log events, and Rerun faithfulness/provenance plus compatible `.npy` relevance series (capped at 1024). Production VLA/LXT hooks and richer panels remain planned | MIT OR Apache-2.0 (project); model-dependent inputs must be verified |
+| **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | **Partial M4 groundwork:** Rerun SDK 0.28.x and validating run-log conversion with summary/provenance/validation and attribution tracks are implemented; the complete viewer blueprint remains specified. Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |
 | **Renderer** | Rerun native/WebViewer / SparkJS (Phase 4) | Pin exact package versions / git SHAs at implementation time | Rerun WebViewer: MIT; SparkJS package metadata: MIT; Three.js: MIT |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
-| **Physics Engine** | Rapier3d / MuJoCo | Planned backend adapters; pin exact versions when added | Apache 2.0 |
+| **Physics Engine** | Rapier3d / MuJoCo | Real pinned `rapier3d-f64` backend implemented behind `rapier`; MuJoCo/Isaac adapters remain planned and must be pinned when added | Apache-2.0 |
 | **Middleware** | Zenoh | Pub/sub transport; shared memory/zero-copy is config-dependent | EPL-2.0 OR Apache-2.0 |
 | **Sensor Sim** | Gazebo | Harmonic (gz-sim 8.x) | Apache 2.0 |
 | **Video predictor** | Video model (external service) | Model-dependent (pin revision) | verify |
 | **Flow Tracker** | Point tracker (e.g., CoTracker) | Model-dependent (pin revision) | verify |
-| **Agent Bridge (control plane)** | JSON‑RPC over WebSocket (+ optional MCP wrapper) | Versioned local API for live interventions + automation | MIT (project) |
+| **Agent Bridge (control plane)** | JSON‑RPC over WebSocket (+ optional MCP wrapper) | Versioned local API for live interventions + automation; M2 acceptance remains partial | MIT OR Apache-2.0 (project) |
 
 ---
 
@@ -62,13 +64,14 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 **Training Pipeline:**
 1.  **Capture:** Polycam/Luma (iOS) or DSLR video.
 2.  **Process:** `ns-train splatfacto --data <data_dir>` (Nerfstudio/gsplat backend).
-3.  **Export:** `ns-export gaussian-splat --load-config <config> --output-format spz`.
+3.  **Export PLY:** `ns-export gaussian-splat --load-config <config> --output-dir <dir>`.
+4.  **Optional SPZ conversion:** use a separately selected and pinned PLY→SPZ converter. Record its executable/revision, license, exact command, and input/output hashes; SPZ is not an `ns-export gaussian-splat` output-format flag.
 
 **Optional OpenUSD / USDZ interop (Isaac Sim / LeIsaac workflows):**
 - Convert splat `.ply` → `.usdz` (packaged OpenUSD) using NVIDIA 3DGrut, then compose splats + collision mesh in Isaac Sim to export a single `.usd` background stage (see `grandplan.md` §C.1 and `DIAGRAMS.md` §9).
 
 #### 3.2 LOD Strategy
-*   **Starting range (benchmark-dependent):** ~0.5M–2M gaussians per scene.
+*   **Asset-specific count:** measure the exported Gaussian count and renderer memory/time for each scene; do not impose an unsupported universal range.
 *   **Distance-based culling:** Alpha cull threshold increases with distance.
 *   **Frustum culling:** Octree-based spatial indexing.
 
@@ -100,9 +103,9 @@ struct DreamFlowTrajectory {
 ```
 
 #### 4.2 Video Predictor Integration Pipeline
-Video prediction happens externally (e.g., Python/CUDA or a hosted API) and feeds into the visualization via Zenoh.
+Video prediction happens externally (e.g., Python/CUDA or a hosted API). Results are registered in the canonical run log; Zenoh may mirror data to live consumers but is not a control plane.
 
-1.  **Trigger:** VLA (or the orchestrator) sends `(Image, Instruction)` to a video predictor service.
+1.  **Trigger:** an Agent Bridge request records and triggers the `(Image, Instruction)` predictor job; a VLA or orchestration client may originate that request but may not bypass the bridge.
 2.  **Generate:** Video model generates a short clip (length is configurable; log FPS/frames/seed).
 3.  **Extract:** Tracking + depth estimation extract `DreamFlowTrajectory` (model-specific; log versions).
 4.  **Record:** Rust backend writes `dream/flow/{id}`-equivalent events into the canonical run log; optional Zenoh publication is only a live-transport mirror.
@@ -123,6 +126,8 @@ In Rerun (Phases 1-3), we avoid complex custom shaders. Instead, we log **two di
 
 **Note (v10.1 execution plan):** Zenoh is an optional live/distributed transport (M6). Early milestones should be able to run entirely offline by writing the same events to the run log (M1) and replaying them (M1/M4).
 
+**Control boundary:** Zenoh key expressions carry observations, embeddings, metrics, and optional live mirrors. A Zenoh subscriber must never apply an action, intervention, pause, resume, step, or correction directly. Such a message is first submitted to the Agent Bridge, recorded as a canonical command event, and only then dispatched to a backend.
+
 #### 5.1 Key Expressions
 
 | Key Expression | Data Type | Frequency | Source → Dest |
@@ -131,7 +136,7 @@ In Rerun (Phases 1-3), we avoid complex custom shaders. Instead, we log **two di
 | `scene/uncertainty` | `SceneUncertaintyMap` | Event | GauSS‑MI (optional) → run log → UI/PID |
 | `dream/flow/{id}`| `DreamFlowTrajectory` | Event | Video predictor/flow extractor → run log → Rerun (P1-3) / SparkJS (P4) |
 | `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → run log → Rerun (P1-3) / SparkJS (P4) |
-| `vla/action` | `[f32; 7]` | ~10Hz | VLA → Physics |
+| `vla/action` | model-specific action vector/chunk | Event | VLA adapter → Agent Bridge → canonical action event → Physics; optional Zenoh mirror is data-only |
 
 #### 5.2 PID Message Schema
 ```rust
@@ -150,7 +155,7 @@ struct PidMetricMsg {
 
 The simulator must be **agent-native**: the GUI is not the only interface. Every operation that matters scientifically (scene edits, interventions, run control, replay, exports) must be callable through a stable API that works well with **Claude Code / Codex / opencode‑style tooling**.
 
-**Core rule:** the UI uses the same control plane as external tools (no hidden manual paths). All API calls emit an **audit event** into the run log for reproducibility.
+**Core rule:** the UI, VLA-policy adapter, scripts, and external tools use the same control plane (no hidden manual paths). Every mutating request—including VLA actions, reset/step, pause/resume, scene edits, interventions, and correction forces—is appended to the canonical run log before dispatch. PID workers, observers, Zenoh, Rerun, and offline harnesses never issue control commands.
 
 **Recommended transport:**
 - **JSON‑RPC 2.0 over WebSocket** on `127.0.0.1` (the deterministic sim smoke has this transport; full UI integration still builds on the same surface).
@@ -164,8 +169,8 @@ The in-repo deterministic bridge currently exposes status/reset/step, scene edit
 
 #### 6.1 Splat-to-Physics Mapping
 The target environment supports multiple physics backends (**Rapier, MuJoCo, Isaac Gym**) via a unified trait interface. The checked repo currently has the deterministic object-sim smoke plus a `PhysicsBackend` trait with a null adapter and a real `rapier3d-f64` backend (gravity/contacts/friction) + a scripted push-to-goal manipulation behind the optional `rapier` feature; MuJoCo/Isaac backend adapters remain planned.
-*   **Manual Proxy:** User defines primitive colliders (Box, Sphere) in code/config (visualized in Rerun) or uses the Tauri editor (Phase 4) to match visual boundaries.
-*   **Visual Forces:** If `Syn(V, Flow; A)` drops, we can optionally apply "correction forces" to nudge the physics simulation toward the Dream (counterfactual analysis).
+*   **Manual Proxy:** collider definitions from code/config are registered as canonical configuration events; Phase 4 Tauri edits submit the same Agent Bridge scene-edit request. Rerun only visualizes the resulting proxy/state.
+*   **Visual Forces (target counterfactual):** a preregistered client may request a correction force, but PID never triggers it automatically. The request must pass through the Agent Bridge, be written to the canonical run log, and then be dispatched to physics.
 
 ---
 
@@ -173,7 +178,7 @@ The target environment supports multiple physics backends (**Rapier, MuJoCo, Isa
 
 #### 7.1 Integration Points
 1.  **Observation:** VLA subscribes to `sim/camera/rgb`.
-2.  **Action:** VLA publishes to `vla/action`.
+2.  **Action:** the VLA-policy adapter submits each action/chunk to the Agent Bridge. The bridge records the canonical action event before dispatching it to physics; optional `vla/action` publication is a data mirror only.
 3.  **Embedding Extraction:**
     *   **Publisher:** `vla/embeddings` sends `(timestamp, layer_id, vector_f32)`.
     *   **Used By:** `pid-core` to compute `Syn(V, D; Flow)`.
@@ -198,20 +203,24 @@ The target environment supports multiple physics backends (**Rapier, MuJoCo, Isa
 
 1.  **Implemented groundwork:**
     *   Rust workspace with `pid-bridge`, `pid-sim`, and `pid-rerun`; the `pid-core`, `pid-runlog`, and `pid-python` crates live in the [`pid-rs`](https://github.com/sepahead/pid-rs) submodule (single source of truth).
-    *   Canonical run-log schema, replay validation, summaries/manifests, sidecar write-and-verify, and a run-log-to-Rerun adapter.
-    *   Deterministic object-sim smoke with simulator-derived `Flow_gt`, constant-velocity `flow_pred`, Agent Bridge stdio/TCP/WebSocket smokes, toy labeled harness, and offline `(V,L,D,A)` artifact harness.
+    *   Canonical run-log schema, replay validation, summaries/manifests, sidecar write-and-verify, and a validating run-log-to-Rerun adapter. This is partial M4; the complete diagnostic blueprint/viewer is not built.
+    *   Deterministic object-sim smoke with simulator-derived `Flow_gt`, constant-velocity `flow_pred`, Agent Bridge stdio/TCP/WebSocket smokes, toy labeled harness, and offline `(V,L,D,A)` artifact harness. The bridge is partial M2; target-wide UI/VLA/backend control coverage and subscriptions are not complete.
+    *   A real `rapier3d-f64` gravity/contact/friction backend and scripted push-to-goal harness behind the `rapier` feature.
+    *   A faithfulness-checked reference attribution producer plus first-class run-log and Rerun attribution handling.
 
 2.  **Planned next environment work:**
     *   Integrate a 3DGS loader/asset pipeline and pin all external asset/model versions.
-    *   Add a real physics backend loop (Rapier or MuJoCo first) behind the same run-log and Agent Bridge contract.
+    *   Extend the implemented Rapier path beyond its box-collider scripted harness; add and pin MuJoCo/Isaac adapters only behind the same run-log and Agent Bridge contract.
     *   Connect external video/flow predictors only after simulator-derived `Flow_gt` is reliable.
-    *   Visualize PID and attribution artifacts on Rerun entities first; defer custom SparkJS shaders to Phase 4.
+    *   Expand the existing attribution faithfulness/provenance/relevance tracks into richer Rerun panels; defer custom SparkJS shaders to Phase 4.
 
-### 11. Error Handling
+### 11. Target Failure Policies (Specified, Not Fully Implemented)
 
-*   **Video predictor failure:** If the predictor fails to generate flow, "Ghost Splats" do not appear; simulation continues with physics only.
-*   **Rerun Disconnect:** Simulation continues running headless; logs are preserved.
-*   **Zenoh Disconnect:** Physics pauses; UI shows "Reconnecting...".
+These are target policies, not claims about completed end-to-end failure handling:
+
+*   **Video predictor failure:** record the error and missing-flow status; the target default is to continue physics without ghost-flow data unless a preregistered Agent Bridge policy requests and logs a pause.
+*   **Rerun disconnect:** because Rerun is a read-only viewer, the target default is for the headless run and canonical logging to continue.
+*   **Zenoh disconnect:** Zenoh itself must not pause physics. Record transport loss; any pause/resume/fail-closed decision is an explicit Agent Bridge command written to the run log before execution.
 
 ---
 

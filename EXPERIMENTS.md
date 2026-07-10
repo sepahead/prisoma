@@ -11,11 +11,11 @@
 
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** 10.7 (Aligned with `grandplan.md` v10.7)  
-**Date:** 2026-07-06  
-**Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines the estimator-level validation gate (Experiment 0) and the analysis logic; this file focuses on what to run in the environment and what to log. Some components (PID‑Splat simulation stack, external video predictor / Dream2Flow-style pipeline, and the Agent Bridge control plane) are external or not yet implemented in this repo; treat them as specifications until built.
+**Version:** 10.7 (Aligned with the 2026-07-10 corrective addendum in `grandplan.md`)
+**Date:** 2026-07-10
+**Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the hypotheses in `grandplan.md`. `grandplan.md` defines estimator validation and the analysis logic; this file focuses on what to run and log. The deterministic Agent Bridge/Rapier/Rerun/attribution slices are implemented groundwork, but M2 and M4 remain partial; external video predictors and the fuller PID‑Splat environment remain specifications until built.
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. Experimental evidence must flow through the canonical run log; Rerun is the first diagnostic viewer; Tauri/SparkJS is deferred until the run-log/replay/Rerun loop is reliable; all interventions must be Agent Bridge events.
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. Experimental evidence must flow through the canonical run log; the Agent Bridge is the only control plane; Rerun is a read-only diagnostic viewer; and Tauri/SparkJS is deferred until the run-log/replay/Rerun loop is reliable. Every VLA action, intervention, scene edit, pause/resume/step transition, and correction force must be recorded as an Agent Bridge command before execution. PID, observers, Zenoh, Rerun, and offline harnesses do not actuate the system.
  
 ---
  
@@ -33,7 +33,7 @@
 9. [Experiment 5: Cross-Embodiment (Generalization)](#9-experiment-5-cross-embodiment-generalization)
 10. [Perturbation Library](#10-perturbation-library)
 11. [Data Formats & Storage](#11-data-formats--storage)
-12. [Compute Requirements](#12-compute-requirements)
+12. [Compute and Storage Planning](#12-compute-and-storage-planning)
 13. [Reproducibility Checklist](#13-reproducibility-checklist)
 
 *(Optional extensions §§14–19 — world-model comparisons Exp6–10 — and Appendices follow below; they must not block Experiments 0–4.)*
@@ -51,35 +51,39 @@
 
 ### 0.1 Hypothesis Coverage Matrix
 
-PID/CI hypotheses below inherit **two prerequisites**:
-1) the Experiment 0 estimator gate passes, and 2) geometry diagnostics do not flag an invalid regime for the chosen representation (see §4.0). Attribution-based comparisons add their own faithfulness/stability checks; they do not make failed PID geometry gates pass.
+PID/CI hypotheses below inherit distinct prerequisites:
+1) the measure-independent MI/coherence gate passes for the exact pipeline, 2) a measure-specific oracle/cross-check validates the claimed atoms, and 3) recovery, intrinsic dimension, distance concentration/ties, dependence, and calibrated local-flatness diagnostics support every variable and concatenation passed to the estimator (see §4.0). Today the default high-dimensional MI/coherence sweep is **NO-GO**, and the continuous `I^sx_∩` atom gate is **not yet valid/implemented**. Attribution-based comparisons add their own faithfulness/stability checks; they do not repair either PID gate.
+
+For every active V–L endpoint, preregister instruction diversity and pass an instruction occupancy/entropy gate; otherwise make V–D primary. Cross-task atom comparisons require a declared information-scale denominator with estimator uncertainty propagated. Fit all learned preprocessing once on disjoint V0/W0 training data, freeze it across perturbation cells, and record its transform hash.
 
 | Hypothesis | Experiments | Variables (examples) | Primary metrics | Required controls (see `grandplan.md` §14) |
 |-----------|-------------|----------------------|----------------|--------------------------------------------|
-| **H1** Grounding failures ↔ PID features | Exp1, Exp3 | `(V,L;A)` or `(V,D;A)` | **Primary (`grandplan.md` §14.8.1):** held-out episode-level incremental ΔAUROC of {baselines + PID/CI} over {baselines alone}, paired episode-level block bootstrap, predicted gain > 0; calibration exploratory | Label leakage checks, stratified splits, nested CV/held-out test, geometry gate + Exp0; mandatory minimal baseline set (`grandplan.md` §14.8.4) |
-| **H2** Redundancy ↔ robustness-to-ablation | Exp1, Exp3 | `(V,L;A)` under single-modality corruptions; optional graded-`L` probe via language-specificity levels (vague/default/specific, RoboLab-120-style; `grandplan.md` §13.2.1) | **Primary (`grandplan.md` §14.8.1, §9.7.2b):** Spearman ρ between pre-ablation `Red` and the single-modality success-vs-severity slope, **across tasks**, family-blocked bootstrap CIs; predicted ρ > 0. Graded-`L` probe exploratory | Matched difficulty, nuisance controls, geometry gate + Exp0; §9.7.2b protocol; availability-vs-use asymmetry reported as a finding |
-| **H3** Uniques ↔ intervention sensitivity | Exp1, Exp3 | `(V,L;A)` under modality-isolated perturbations | **Primary (`grandplan.md` §14.8.1, §9.7.2b):** mean per-case Kendall τ between the `Unq` ordering and the matched-intervention effect-size ordering, ≥ 20 matched cases, family-blocked case-resampling bootstrap; predicted mean τ > 0 | Perturbations isolated to one modality; **outcome-independent strength matching** (equal embedding displacement or MI destroyed — never equal-success-impact; §9.7.2b), placebo perturbations, symmetric preprocessing across modalities |
-| **H4** Memorization vs generalization | Exp1, Exp3, Exp5 + §10 | `(V,L;A)` across in-dist vs perturbed | **Primary (`grandplan.md` §14.8.1):** Spearman ρ between **SSI := −IQR(Syn)** (nats, per preregistered axis — `SSI_V` over V0→V3 at W0 primary; Tukey quartiles; `grandplan.md` §9.7.2) and L0→L2 success degradation, across tasks; predicted ρ < 0. ΔPID-vs-Δsuccess and the OOD gap exploratory | Perturbations matched for difficulty, seed controls, report distribution shift severity |
-| **H5** Temporal synergy degradation | Exp2 | windowed `Syn(V_t,D_t;A_t)` (primary) + mandatory CI-only twin; phase-aligned windows **pooled across episodes** (`grandplan.md` §3.6.3) | Trend (slope / early-vs-late contrast) vs composition-stage index; episode-level block bootstrap; predicted decline in failing vs succeeding episodes (`grandplan.md` §14.8.1) | Pooling across episodes (never per-trajectory windows), within-window stride ≥ decorrelation length, post-stride `N_win` ≥ Exp0-validated minimum, outcome stratification, phase definitions preregistered (§6.5); **mandatory CI-only ablation** (`grandplan.md` §14.1.1) |
+| **H1** Grounding failures ↔ PID features | Exp1, Exp3 | `(V,L;A)` or `(V,D;A)` | **Primary (`grandplan.md` §14.8.1):** held-out episode-level incremental ΔAUROC of {baselines + PID/CI} over {baselines alone}, paired episode-level block bootstrap, predicted gain > 0; calibration exploratory | Label leakage checks, stratified splits, nested CV/held-out test, corrected sampling/geometry diagnostics + separate MI/atom gates; mandatory minimal baseline set (`grandplan.md` §14.8.4) |
+| **H2** Redundancy ↔ robustness-to-ablation | Exp1, Exp3 | `(V,L;A)` under single-modality corruptions; optional graded-`L` probe via language-specificity levels (vague/default/specific, RoboLab-120-style; `grandplan.md` §13.2.1) | **Primary (`grandplan.md` §14.8.1, §9.7.2b):** Spearman ρ between pre-ablation `Red` and the single-modality success-vs-severity slope, **across tasks**, family-blocked bootstrap CIs; predicted ρ > 0. Graded-`L` probe exploratory | Instruction diversity/occupancy gate, matched difficulty, nuisance controls, frozen transform hash, separate MI/atom gates; §9.7.2b protocol; availability-vs-use asymmetry reported as a finding |
+| **H3** Uniques ↔ intervention sensitivity | Exp1, Exp3 | `(V,L;A)` under modality-isolated perturbations | **Primary (`grandplan.md` §14.8.1, §9.7.2b):** mean per-case Kendall τ between the `Unq` ordering and the matched-intervention effect-size ordering, ≥ 20 matched cases, family-blocked case-resampling bootstrap; predicted mean τ > 0 | Instruction diversity/occupancy gate; perturbations isolated to one modality; **outcome-independent strength matching** (equal embedding displacement or MI destroyed — never equal-success-impact; §9.7.2b); placebo perturbations; one frozen transform across cells |
+| **H4** Memorization vs generalization | Exp1, Exp3, Exp5 + §10 | `(V,L;A)` across in-dist vs perturbed | **Primary (`grandplan.md` §14.8.1):** Spearman ρ between **SSI := −IQR(Syn)** (nats, per preregistered axis — `SSI_V` over V0→V3 at W0 primary; Tukey quartiles; `grandplan.md` §9.7.2) and L0→L2 success degradation, across tasks; predicted ρ < 0. ΔPID-vs-Δsuccess and the OOD gap exploratory | Instruction diversity/occupancy gate, information-scale denominator with propagated estimator uncertainty, frozen transform hash, matched perturbation difficulty, seed controls |
+| **H5** Temporal synergy degradation | Exp2 | windowed `Syn(V_t,D_t;A_t)` (primary) + mandatory CI-only twin; phase-aligned windows **pooled across episodes** (`grandplan.md` §3.6.3) | Trend (slope / early-vs-late contrast) vs composition-stage index; episode-level block bootstrap; predicted decline in failing vs succeeding episodes (`grandplan.md` §14.8.1) | Pooling across episodes (never per-trajectory windows), within-window stride ≥ decorrelation length, post-stride `N_win` ≥ a future measure-specific validated minimum, outcome stratification, phase definitions preregistered (§6.5); **mandatory CI-only ablation** (`grandplan.md` §14.1.1) |
 | **H6** Safety constraints require V–L integration **(Deferred — `grandplan.md` §14.1.0; no claims until safety labels + matched controls exist)** | Exp3 | safety vs baseline instructions | ΔUnq(L), ΔSyn(V,L;A); collision/near-miss rates | Matched task conditions, instruction-only changes, nuisance controls (lighting/distractors) |
 | **H7a** (method) Flow-as-bridge enables stage-wise/cross-embodiment diagnostics; **H7b** (falsifiable) `Syn(V,D;A)` tracks world-model quality independent of execution success (`grandplan.md` §14.1.0 split, §3.6.6) | Exp4, Exp5 | `(V,D;Flow)` and/or `(V,Flow;A)` | H7a: engineering acceptance (gates pass on flow targets). H7b (`grandplan.md` §14.8.1): difference in synergy–failure correlation between world-model-stage and execution-stage failures; predicted stronger for world-model-stage | Fixed flow pipeline across runs, low-d flow features, negative controls (shuffled flow / shuffled pairing), stage labels per `grandplan.md` §9.7.7 |
-| **H8** Geometry gate chooses estimator regime | Exp0 | geometry diagnostics + synthetic controls | GO/PIVOT/NO-GO decision for continuous PID vs discrete PID vs MI-only screening | Noise-dimension invariance, monotonicity/CMI checks, intrinsic dimension, distance concentration |
+| **H8** Diagnostics choose estimator regime | Exp0 | recovery controls + geometry/dependence diagnostics | Separate MI/coherence and measure-specific atom verdicts for continuous PID vs a preregistered alternative | Analytic MI recovery; measure-specific atom oracle/cross-check; intrinsic dimension; concentration/ties; dependence; calibrated local flatness. Sampled mean `δ_rel` is descriptive only |
 | **H9** Attribution probes triangulate PID claims | Exp1, Exp3, Exp4 | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style scores on the same logged samples | Agreement or principled disagreement with PID uniques/synergy under controlled interventions; incremental failure-prediction value | Model/data randomization sanity checks, baseline/background sensitivity, deletion/occlusion tests, attention-not-explanation caveat |
 
-### 0.2 Runbook: What Is Executable Today vs Blocked (v10.7, 2026-07-06)
+### 0.2 Runbook: What Is Executable Today vs Blocked (v10.7, 2026-07-10)
 
 This table is the self-sufficient entry point: it maps the run order onto current tooling, expected outcomes, and blockers. Commands assume `just` (each recipe wraps plain `cargo` commands listed in `README.md`/`AGENTS.md`).
 
 | Step | What | How (today) | Gate / expected outcome | Canonical reference |
 |---|---|---|---|---|
-| 1 | Toolchain + estimator gate (Exp0) | `cargo test`; `just exp0` / `just exp0-bin` / `just exp0-runlog` (CI runs the default sweep; `--strict-gate` is a local/just invocation, not a CI gate); opt-in uncertainty: `just exp0-uncertainty` (`--bootstrap`/`--permutation`) | All tests pass; Exp0 verdict on synthetic high-d controls is currently **NO-GO** (pid-rs 0.4.0; PIVOT under 0.3.0) — expected, and blocking for continuous-atom claims. With UQ enabled, the preregistered permutation marginal-significance check is 8/8 at the favourable dimension | `grandplan.md` §9.1; `findings.md` |
+| 1 | Toolchain + estimator diagnostics (Exp0) | `cargo test`; `just exp0` / `just exp0-bin` / `just exp0-runlog`; opt-in uncertainty: `just exp0-uncertainty` (`--bootstrap`/`--permutation`). `--strict-gate` is a direct CLI opt-in that implies `--strict-band` and exits 3 unless the curated d=1 Gaussian **MI** grid is GO; it does not gate the default high-d sweep or continuous atoms | Split status: default high-d MI/coherence = **NO-GO**; continuous `I^sx_∩` atom gate = **not valid/implemented**. The curated strict band and favourable-dimension UQ diagnostics do not override either status | `grandplan.md` corrective addendum + §9.1; `findings.md` |
 | 2 | Run-log spine + replay + bridge smokes | `just runlog-demo`, `runlog-validate`, `runlog-replay`, `runlog-bridge-*`, `runlog-sim-verify`, `runlog-rerun` | `valid=true`, `errors=0`; deterministic replay; simulator-derived `Flow_gt` verified | `grandplan.md` §A.8.2 steps 2–6 |
 | 3 | Labeled toy pipeline end-to-end | `just toy-harness` | Canonical labeled artifacts validate; not VLA evidence | `grandplan.md` §A.7 (M5 rehearsal) |
-| 4 | Offline `(V,L,D,A)` harness, all three PID modes | `just offline-harness`, `offline-harness-require-*`, `offline-harness-strict`, `offline-harness-discrete`, `offline-harness-discrete-pls` | Strict mode exits nonzero on geometry warnings (by design); discrete modes report `saturation_warning=true` on the tiny fixtures (by design — the §8.1.6 gate) | `grandplan.md` §8.1.6, §8.2.3 |
-| 5 | **First real VLA/task capture (open critical path — capture tooling now implemented; only the data-pull remains)** | Capture **converter** implemented: `just safe-adapter` (`experiments/safe_adapter/`) maps released SAFE rollouts → the harness `(V,L,D,A)`+labels contract with the §7.6.3 hook-probe; a real Rapier3D physics task (`just rapier-harness`) emits labels + `Flow_gt`. The remaining step is a **data-pull**: point the adapter at the real downloaded `vla-safe/SAFE` rollouts (verify tensors/licenses), pick model+task via §10.10.13.3 and the `D` hook via §7.6.3 | Harness strict modes (`--require-success-labels --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint`) pass on the capture (already verified on the synthetic SAFE fixture); **§14.8.3 capture gate:** the simulation-based power analysis for the H1–H4 primaries (episodes for H1, tasks for H2/H4, matched cases for H3) must run and pass first — **implemented and first-run 2026-07-10** (`cargo run --release -p pid-sim --bin pid-sim-power-gate`; artifacts + interpretation in `docs/power-gate/`): H3 powered at **30 matched cases**, H2/H4 at **96 tasks**, H1 at **~640 episodes for a design effect ΔAUROC ≥ 0.08**; at the bare minimum 0.05 the dual success criterion has a structural ~0.5 power ceiling (see `docs/power-gate/README.md`), so the capture decision must pick §14.8.3 option 1 (scale for ≥ 0.08) or 2 (downgrade H1 to estimation-with-CIs) | `REVIEW_AND_TODO.md` (critical path); `grandplan.md` §10.10.13, §12.5 |
-| 6 | Exp1–Exp5 protocols (§5–§9 of this document) | Blocked on the step-5 data-pull (and its §14.8.3 power gate); the *screen-level* tooling is ready — PID modes, the built-in non-PID baselines (majority/1-NN/centroid **+ SAFE-class logistic regression**), opt-in harness uncertainty (`--bootstrap`/`--permutation`, incl. the circular-shift null), and the faithfulness-checked attribution probe (`just attribution-probe`) — but the **H1 primary-endpoint machinery is not yet written**: per-episode/windowed PID feature extraction, the held-out episode-level ΔAUROC of {baselines+PID} vs {baselines} with a paired block bootstrap (`grandplan.md` §14.8.1), remain to be implemented after the data-pull (the **§14.8.3 power-analysis script is implemented and run** — `pid-sim-power-gate`, see step 5 and `docs/power-gate/`) | Per-hypothesis metrics + controls per §0.1; kill criteria per `grandplan.md` §14.1.1; statistics per `grandplan.md` §14.8 (one primary endpoint per hypothesis, BH-FDR exploratory grid, ex-ante regime selection) | `grandplan.md` §9, §14 |
+| 4 | Offline `(V,L,D,A)` harness, all three PID modes | `just offline-harness`, `offline-harness-require-*`, `offline-harness-strict`, `offline-harness-discrete`, `offline-harness-discrete-pls` | Strict mode exits nonzero on its implemented legacy geometry aggregate (software smoke only; not corrected scientific eligibility); discrete modes report `saturation_warning=true` on the tiny fixtures (by design — the §8.1.6 gate) | `grandplan.md` corrective addendum, §8.1.6, §8.2.3 |
+| 5 | **First real VLA/task capture (open critical path; adapter groundwork implemented)** | `just safe-adapter` maps released SAFE rollouts to the harness `(V,L,D,A)`+labels contract with the §7.6.3 hook-probe; `just rapier-harness` exercises a real Rapier3D task with labels + `Flow_gt`. Still required: real licensed data capture/pull, model/task/hook selection, the prospective episode-local H1 feature path, and a scientifically adequate capture-sizing gate | Strict harness modes have been exercised on the synthetic SAFE fixture only. The implemented `pid-sim-power-gate` is an idealized endpoint-level sensitivity simulator; it omits the required family → task/case → episode nesting, PID/SSI measurement error, binary outcomes, severity allocation, and selected-design type-I error. Its first-run counts are withdrawn as capture requirements. Capture sizing is **NOT READY / NOT PASSED** | `grandplan.md` corrective addendum, §10.10.13, §14.8.3 |
+| 6 | Exp1–Exp5 protocols (§5–§9 of this document) | Blocked on step 5 and both estimator gates. Screen-level PID modes, non-PID baselines, uncertainty helpers, the reference attribution probe, and its Rerun adapter are implemented, but the H1 prospective per-episode/windowed feature extraction and held-out ΔAUROC machinery are not | Per-hypothesis metrics + controls per §0.1; kill criteria per `grandplan.md` §14.1.1; statistics per `grandplan.md` §14.8. No capture-size claim may be made from the current idealized simulator | `grandplan.md` §9, §14 |
 
-Two discipline rules apply at every step: (a) each (PID measure, preprocessing, estimator config) tuple is a distinct preregistered regime — continuous `I^sx_∩` and discrete `I_min` results must never be pooled (`grandplan.md` Warning 6, §8.1.6); (b) non-PID baselines and uncertainty (block bootstrap, permutation nulls) accompany every PID number; (c) each active hypothesis has exactly one preregistered primary endpoint with a predicted direction — everything else is exploratory under BH-FDR q = 0.10, and the active estimator regime is selected ex ante by the Exp0/H8 gates (`grandplan.md` §14.8).
+**Binding power status:** `cargo run --release -p pid-sim --bin pid-sim-power-gate` is implemented and useful as an idealized endpoint-sensitivity simulator. It is **not capture-ready**, and its 2026-07-10 first-run task/case/episode counts are withdrawn—not lower bounds, recommendations, or requirements. A replacement capture gate must simulate the nested family/task-or-case/episode design, PID/SSI measurement error, binary outcomes, severity allocation, and type-I error under the selected analysis, after the prospective H1 feature path exists.
+
+Three discipline rules apply at every step: (a) each (PID measure, preprocessing, estimator config) tuple is a distinct preregistered regime — continuous `I^sx_∩` and discrete `I_min` results must never be pooled (`grandplan.md` Warning 6, §8.1.6); (b) non-PID baselines and uncertainty (block bootstrap, permutation nulls) accompany every PID number; (c) each active hypothesis has exactly one preregistered primary endpoint with a predicted direction — everything else is exploratory under BH-FDR q = 0.10, and the active estimator regime is selected ex ante by the separate Exp0/H8 gates (`grandplan.md` §14.8).
 
 ### 0.2.1 Data sources (the harness is source-agnostic)
 
@@ -87,11 +91,11 @@ Everything downstream consumes one `(V,L,D,A)`+labels contract (the `OfflineVlda
 
 | Source | Role | Standalone? | Status |
 |---|---|---|---|
-| `experiments/safe_adapter/` (released SAFE rollouts) | **Critical path** (M5) | yes | Gate-passing; honest provenance; §7.6.3 hook-probe |
-| `crates/pid-sim` fixtures + `pid-rapier-harness` / `pid-toy-harness` | Sim cross-checks | yes | Gate-passing (physics-derived labels + `Flow_gt`) |
+| `experiments/safe_adapter/` (released SAFE rollouts) | **Critical path** (M5) | yes | Converter/hook-probe implemented and fixture-validated; real capture and scientific gates still open |
+| `crates/pid-sim` fixtures + `pid-rapier-harness` / `pid-toy-harness` | Sim cross-checks | yes | Runnable software/physics smokes with physics-derived labels + `Flow_gt`; not VLA evidence |
 | `crates/ncp-observer` (Engram/NEST over the Neuro-Cybernetic Protocol) | **Optional** external bridge | n/a | **Exploratory-only — below the M5 bar** |
 
-The pure-PID stack (the table above minus NCP) builds, tests, and clears the strict gates with **no NCP/Engram/Zenoh dependency** — `ncp-observer` is excluded from the default cargo workspace. NCP is a sound read-only tap fine for exploratory PID screens on a live Engram session, but it is **not** part of grandplan's critical path (grandplan does not depend on Engram) and is below the M5 contract until three gaps close: precise D `seq`-alignment, honest (non-zeroed) `L`, and `metadata.split`/`episode_id`/`success` structure for the strict gates and the §14.1.1 H1 audit. Bringing it up to bar is a self-contained task — see `NCP_DEV_PROMPT.md`.
+The pure-PID stack (the table above minus NCP) builds and its software smokes run with **no NCP/Engram/Zenoh dependency** — `ncp-observer` is excluded from the default cargo workspace. That does not imply that the scientific estimator/capture gates pass. NCP is a read-only exploratory tap, not a controller and not part of grandplan's critical path. It remains below the M5 contract until precise D `seq`-alignment, honest (non-zeroed) `L`, and `metadata.split`/`episode_id`/`success` structure exist for the strict harness checks and §14.1.1 H1 audit. See `NCP_DEV_PROMPT.md`.
 
 ## 0.5 Physics and Robot Backend Usage: Modular Architecture
 
@@ -191,16 +195,16 @@ The PID‑Splat environment is specified to have a strong GUI *and* an **agent-n
 - programmatically via scripts or LLM coding tools (Claude Code/Codex/opencode-style),
 without changing the experimental semantics.
 
-**Reproducibility rule:** every intervention/scene edit/run-control action must be recorded as an event in the run log, including those initiated by an LLM tool. Avoid “click-only” steps that cannot be replayed.
+**Control and reproducibility rule:** the Agent Bridge is the only control plane. Every VLA action/action chunk, intervention, scene edit, reset/step, pause/resume transition, correction force, and lifecycle command must enter through it and be appended to the canonical run log before backend dispatch. Avoid direct GUI→physics, VLA→Zenoh→physics, observer→physics, PID-triggered correction, or other hidden paths. Zenoh is data transport; Rerun and NCP observers are read-only.
 
 **Safe-mode rule:** read-only Agent Bridge sessions should allow status/replay queries while logging and rejecting mutating/file-writing/lifecycle-ending requests. The in-repo stdio bridge smoke exposes this as `pid-sim-bridge-stdio --safe-mode`; `sim.status` and `log.replay` are accepted, while `sim.step`, `intervention.apply`, `log.stop`, and `export.rerun` are recorded as blocked bridge error responses. Outside safe mode, `intervention.apply` supports deterministic `set_velocity`, `translate_object`, and `set_pose` interventions, `log.stop` finalizes the run log without trailing events, and `export.rerun` converts a validated run log to a `.rrd` recording and records the generated artifact. The same JSON-RPC surface is also available over loopback TCP JSONL (`pid-sim-bridge-tcp --bind 127.0.0.1:PORT`) and loopback WebSocket (`pid-sim-bridge-ws --bind 127.0.0.1:PORT`), with the same canonical run-log emission and replay validation requirements.
 
-**External simulator backends (optional):** some simulators expose an RL-style `reset/step` surface (and may already have their own WebSocket/pubsub control plane). If you run a prisoma protocol on an external simulator (e.g., Isaac stacks; emerging ML-first simulators), require a thin adapter that emits the *same* run‑log events (reset/step/actions/observations/interventions) so replay + analysis remain identical and auditable across backends.
+**External simulator backends (optional):** some simulators expose an RL-style `reset/step` surface (and may already have their own WebSocket/pubsub interface). Put that native interface *behind* an Agent Bridge adapter; it is not a second prisoma control plane. The adapter must append the same command events before dispatch and emit the same observation events afterward so replay + analysis remain identical and auditable across backends.
 
 **Backend provenance rule:** every sim-backed run should log backend, integrator, solver/contact settings, determinism settings, transport, and planned fixed-step parameters via `config_logged`; the in-repo deterministic object sim uses `deterministic_object` with a constant-velocity Euler integrator, no contact solver, `Flow_gt = pose_delta`, and a logged `constant_velocity_baseline` `flow_pred` event stream. Validation rejects mismatches between `run_started.config_hash`, `config_logged.config_hash`, and the canonical config JSON hash; summaries and manifests expose the surviving `config_hash`. Implemented local transports now cover stdio JSONL, TCP JSONL, and WebSocket JSON-RPC.
 
 Minimum provenance fields for any action event:
-- `actor_type`: `human_gui` | `script` | `llm_tool`
+- `actor_type`: `vla_policy` | `human_gui` | `script` | `llm_tool`
 - `actor_id`: stable identifier (e.g., OS user, script name, tool name)
 - `session_id`: run-scoped ID for an interactive session
 - `request_id`: unique per API call (idempotency key)
@@ -208,12 +212,14 @@ Minimum provenance fields for any action event:
 - optional `prompt_hash`: hash of the LLM prompt/context that produced the action (store full text only if policy allows)
 
 **Live intervention guidance:**
-- Prefer applying interventions at a **named checkpoint** (`pause → apply → resume` or `step`) so “when” is reproducible.
+- Prefer applying interventions at a **named checkpoint** (`pause → apply → resume` or `step`) so “when” is reproducible; each transition is a separate Agent Bridge request/event, never an observer- or transport-side side effect.
 - Heavy computations (video prediction, flow extraction, large bootstraps) are offline-first but should still be orchestrated through the same control plane so the artifacts and provenance are logged.
+
+The implemented stdio/TCP/WebSocket deterministic-sim surface is **partial M2 groundwork**. Full target UI/VLA/backend command coverage and a versioned subscription stream remain to be built.
 
 ### 0.5.2 Decomposition Choice (2-way vs 3-way vs hierarchical)
 
-Experiments must preregister which decomposition is being used and which concrete representations instantiate `(V,L,D,A)` for the tested model. Use the Geometry Gate + Experiment 0 results to decide which analyses are publishable (see `grandplan.md` §16.11.2).
+Experiments must preregister which decomposition is being used and which concrete representations instantiate `(V,L,D,A)` for the tested model. Use the corrected recovery/geometry diagnostics plus the separate MI/coherence and measure-specific atom results to decide which analyses are publishable (see `grandplan.md` §16.11.2 and the corrective addendum).
 
 | Decomposition | Example variables | When to use | Notes |
 |---|---|---|---|
@@ -253,22 +259,19 @@ Layer-wise Relevance Propagation (LRP) and related attribution methods answer a 
  
 **3DGS Capture Protocol:**
 ```bash
-# Capture
-# Device: iPhone 15 Pro with Polycam app
-# Method: 360° orbit around table, 2 minutes, 4K @30fps
-# Lighting: Diffuse overhead (avoid harsh shadows) 
- 
-# Training
-ns-train splatfacto \
-    --data ./captures/table_v1/ \
-    --max-num-iterations 30000 \
-    --pipeline.model.num-gaussians 800000
- 
-# Export
+# Capture settings are scene/device-specific; record the actual device, views, codec,
+# resolution, lighting, and hashes in the run manifest.
+
+# Train
+ns-train splatfacto --data ./captures/table_v1/
+
+# Export PLY with Nerfstudio
 ns-export gaussian-splat \
-    --load-config outputs/table_v1/splatfacto/config.yml \
-    --output-dir ./assets/splats/ \
-    --output-format spz
+    --load-config <config> \
+    --output-dir <dir>
+
+# Optional SPZ is a separate conversion step. Pin the converter/revision and record
+# its exact command, license, and PLY/SPZ hashes; do not pass --output-format spz here.
 ```
 
 **Optional 3DGS quality diagnostic (GauSS‑MI; proposed):**
@@ -292,30 +295,27 @@ let table_body = RigidBodyBuilder::fixed()
 ```
 
 #### Manipulation Objects
-| Object ID      | Real Dimensions | Mass | Gaussian Count | Physics Proxy |
-| -------------- | --------------- | ---- | -------------- | ------------- |
-|  red_cube        | 5×5×5 cm        | 100g | ~15,000        | Cuboid        |
-|  blue_cylinder   | r=3cm, h=8cm    | 150g | ~20,000        | Cylinder      |
-|  green_sphere    | r=4cm           | 200g | ~25,000        | Ball          |
-|  ycb_mustard     | 19×6×6 cm       | 600g | ~40,000        | Convex Hull   |
-|  ycb_spam        | 9×8×6 cm        | 350g | ~30,000        | Cuboid        |
-|  ycb_bowl        | r=8cm, h=5cm    | 180g | ~35,000        | Trimesh       |
-|  blue_plate      | r=10cm, h=1cm   | 250g | ~20,000        | Cylinder      |
-|  wooden_block_A  | 10×5×3 cm       | 120g | ~18,000        | Cuboid        |
-|  wooden_block_B  | 8×4×4 cm        | 100g | ~16,000        | Cuboid        |
+| Object ID      | Nominal dimensions | Nominal mass | Physics proxy |
+| -------------- | ------------------ | ------------ | ------------- |
+|  red_cube        | 5×5×5 cm        | 100g | Cuboid        |
+|  blue_cylinder   | r=3cm, h=8cm    | 150g | Cylinder      |
+|  green_sphere    | r=4cm           | 200g | Ball          |
+|  ycb_mustard     | 19×6×6 cm       | 600g | Convex Hull   |
+|  ycb_spam        | 9×8×6 cm        | 350g | Cuboid        |
+|  ycb_bowl        | r=8cm, h=5cm    | 180g | Trimesh       |
+|  blue_plate      | r=10cm, h=1cm   | 250g | Cylinder      |
+|  wooden_block_A  | 10×5×3 cm       | 120g | Cuboid        |
+|  wooden_block_B  | 8×4×4 cm        | 100g | Cuboid        |
+
+Measure and log the actual exported Gaussian count, dimensions, mass, collision proxy, and renderer memory/time for every asset; none of the nominal values above is a universal capture requirement.
 
 **Object Capture Protocol:**
 ```bash
-# For each object:
-# 1. Place on turntable with neutral background
-# 2. Capture 360° video (iPhone, 1 minute, 4K)
-# 3. Train with object-centric settings:
+# For each object, record an object-centric capture protocol and train:
+ns-train splatfacto --data ./captures/red_cube/
 
-ns-train splatfacto \
-    --data ./captures/red_cube/ \
-    --max-num-iterations 15000 \
-    --pipeline.model.num-gaussians 20000 \
-    --pipeline.model.background-color white
+# Export PLY with the same command contract shown above; convert to SPZ only with
+# the separately pinned converter when the selected renderer requires SPZ.
 ```
 
 **Physics Proxy Definitions:**
@@ -689,7 +689,7 @@ Follow the risk-reducing sequence in `grandplan.md` §A.6:
 | **SmolVLA** | Harness bring-up baseline | arXiv:2506.01844 (~450M; SmolVLM-2 backbone; flow-matching action expert — paper-reported; verify checkpoint revision) | Available intermediate dumps, licensing, revision-specific config |
 | **InternVLA‑A1** | Diffusion / flow-matching ablation axis (optional) | Repo + project page describe a tripartite understanding/generation/action design; action generation via “Flow Matching” (verify) | License constraints (verify upstream; may be restrictive); what the generation expert outputs (`D_gen`) and how to export it; action parameterization (“delta actions”); patched Transformers constraints; do not confuse “Flow Matching” (a generative method) with this project’s geometric `Flow_*` variables |
 | **TraceVLA** | Temporal/history axis | arXiv:2412.10345: finetuned OpenVLA; trace-based prompting; 150K trajectories; compact Phi‑3‑Vision variant | How traces are encoded and how to separate “image vs trace” variables in logs |
-| **DreamVLA** | Explicit-`D` ablation axis | arXiv:2507.04447: world-knowledge forecasting (dynamic/spatial/semantic cues), block-wise structured attention, and diffusion-based action modeling (abstract; optionally keep a local PDF under `.external/papers/` for offline reading). Code/weights are referenced as `WenyaoZhang/DreamVLA` (verify availability + license at time of use). | Backbone family/dims and exportable tensors; output formats/dims of explicit channels; what is exposed per step; verify dynamic-region/spatial/semantic cue extraction points |
+| **DreamVLA** | Within-model explicit-`D` stage/channel ablation axis | arXiv:2507.04447: world-knowledge forecasting (dynamic/spatial/semantic cues), block-wise structured attention, and diffusion-based action modeling (abstract; optionally keep a local PDF under `.external/papers/` for offline reading). Code/weights are referenced as `WenyaoZhang/DreamVLA` (verify availability + license at time of use). | Backbone family/dims and exportable tensors; output formats/dims of explicit channels; what is exposed per step; verify dynamic-region/spatial/semantic cue extraction points |
 | **PixelVLA** | Pixel-aligned diagnostics (if integration supports it) | arXiv:2511.01571: pixel-level reasoning + multimodal prompting; Pixel‑160K; reported gains | What variables are exposed (pixel maps vs pooled); API/backbone; dataset access/licensing |
 | **PI “π” series** (`π0`, `π0.5`, `π0.6*`) | Closed-source comparator (optional) | PI vendor papers/blog posts (see `grandplan.md` §7.5 / §13.2). Treat training/perf claims as vendor claims until replicated | Access mode (API vs weights); whether per-step embeddings/hidden states can be exported (required for internal PID); determinism/replay; licensing/ToS constraints |
 
@@ -707,6 +707,8 @@ Treat `grandplan.md` §10.10.13 as the contract: do not assume layer names or fi
 - `A`: action output (continuous or discrete; representation is model-specific).
 
 **Extraction rule:** export *multiple* candidate `D` definitions in early bring-up runs. Later, preregister which `D` is “primary” for each model.
+
+**Causal-comparison rule:** do not interpret DreamVLA-versus-OpenVLA PID differences as the effect of an explicit world model. Model family, training data, action head, and even the operational definition of `D` all differ. Use within-checkpoint DreamVLA channel/stage ablations (or equivalent within-model interventions) for causal claims; treat cross-model comparisons as descriptive replication only.
 
 **Minimal extraction sketch (pseudocode):**
 ```python
@@ -732,146 +734,114 @@ def run_inference(model, processor, image, instruction):
 
 
 ### 3.3 Dimensionality Reduction for PID
-Since raw embeddings are high-dimensional (1024-4096), we reduce before PID:
+Raw embeddings may be high-dimensional, so reduction is a candidate measurement regime—not an automatic repair. Fit it once on disjoint V0/W0 training data, freeze it across every perturbation cell, and log a hash of the serialized transform. Never z-score or fit PCA independently per episode/condition.
+
 ```python
-import numpy as np
-
-# Optional dependency: scikit-learn (recommended for PCA).
-try:
-    from sklearn.decomposition import PCA
-except ImportError:
-    PCA = None
-
-def zscore(x: np.ndarray, eps: float = 1e-8) -> np.ndarray:
-    mu = x.mean(axis=0, keepdims=True)
-    sd = x.std(axis=0, keepdims=True) + eps
-    return (x - mu) / sd
-
-def random_project(x: np.ndarray, d_out: int, seed: int) -> np.ndarray:
-    rng = np.random.default_rng(seed)
-    w = rng.standard_normal((x.shape[1], d_out), dtype=np.float64)
-    return x @ w
+from sklearn.decomposition import PCA
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.random_projection import GaussianRandomProjection
 
 class EmbeddingReducer:
-    """
-    Reduce embedding dimensions for tractable kNN estimation.
+    """One train-fitted, frozen transform per axis; illustrative pseudocode."""
 
-    Notes:
-    - PCA is linear; it preserves Euclidean structure better than nonlinear embeddings, but still
-      must be validated (Experiment 0 + geometry checks).
-    - Random projection here is a simple deterministic baseline; it does not “fix” manifold issues.
-    """
-
-    def __init__(self, target_dim: int = 64, method: str = "pca"):
+    def __init__(self, target_dim: int, method: str, seed: int):
         self.target_dim = target_dim
         self.method = method
-        self.fitted = False
+        self.seed = seed
+        self.axes = {}
 
-        if method == "pca":
-            if PCA is None:
-                raise ImportError("scikit-learn is required for PCA reduction in this example")
-            self.reducer_V = PCA(n_components=target_dim)
-            self.reducer_L = PCA(n_components=target_dim)
-            self.reducer_D = PCA(n_components=target_dim)
-
-    def fit(self, V_batch: np.ndarray, L_batch: np.ndarray, D_batch: np.ndarray):
+    def _pipeline(self, axis_seed: int):
         if self.method == "pca":
-            self.reducer_V.fit(zscore(V_batch))
-            self.reducer_L.fit(zscore(L_batch))
-            self.reducer_D.fit(zscore(D_batch))
-        self.fitted = True
-
-    def transform(self, V: np.ndarray, L: np.ndarray, D: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        if not self.fitted:
-            raise RuntimeError("call fit() before transform()")
-
-        if self.method == "pca":
-            Vz = zscore(V.reshape(1, -1))
-            Lz = zscore(L.reshape(1, -1))
-            Dz = zscore(D.reshape(1, -1))
-            return (
-                self.reducer_V.transform(Vz).flatten(),
-                self.reducer_L.transform(Lz).flatten(),
-                self.reducer_D.transform(Dz).flatten(),
+            reduce = PCA(n_components=self.target_dim)
+        elif self.method == "random_projection":
+            reduce = GaussianRandomProjection(
+                n_components=self.target_dim,
+                random_state=axis_seed,
             )
+        else:
+            raise ValueError(f"unknown method: {self.method}")
+        return make_pipeline(StandardScaler(), reduce)
 
-        if self.method == "random_projection":
-            return (
-                random_project(zscore(V.reshape(1, -1)), self.target_dim, 0xA11CE).flatten(),
-                random_project(zscore(L.reshape(1, -1)), self.target_dim, 0xB22CE).flatten(),
-                random_project(zscore(D.reshape(1, -1)), self.target_dim, 0xC33CE).flatten(),
-            )
+    def fit_on_disjoint_v0_w0(self, train_by_axis: dict):
+        for i, axis in enumerate(("V", "L", "D", "A")):
+            pipe = self._pipeline(self.seed + i)
+            self.axes[axis] = pipe.fit(train_by_axis[axis])
+        # Serialize scaler/reducer parameters and record their cryptographic hash.
+        self.transform_hash = hash_serialized_transforms(self.axes)
+        return self
 
-        raise ValueError(f"unknown method: {self.method}")
+    def transform(self, axis: str, rows):
+        # Reuse this exact object/hash for baseline and every perturbation cell.
+        return self.axes[axis].transform(rows)
 ```
+
+PCA/random projection still require recovery and geometry/dependence validation on all resulting estimator inputs and concatenations. PLS or any other target-supervised transform additionally requires train-only fitting and nested selection; it defines a distinct preregistered regime.
 
 ---
  
 ## 4. Experiment 0: Estimator Validation
-Purpose: Validate that PID estimators work at the target dimensions before running real experiments.
+Purpose: separately validate measure-independent MI/coherence and measure-specific atoms for the exact target pipeline before interpreting real experiments.
 
-### 4.0 Geometry Validation Gate (REQUIRED)
+### 4.0 Geometry, Dependence, and Recovery Diagnostics (REQUIRED)
 
-**Critical**: Before running PID estimation on VLA embeddings, you MUST validate the geometric assumptions.
+**Critical:** before running PID estimation, diagnose every individual variable and every concatenation actually passed to the estimator. Geometry diagnostics are supporting evidence; recovery on controls and the separate MI/atom gates decide eligibility.
 
 #### Why This Matters
 
-The KSG/ISX estimators assume Euclidean-like geometry (specifically Chebyshev/L∞). VLA embeddings may lie on curved manifolds (hyperbolic, Lorentzian) where these estimators produce invalid results.
+The implemented KSG/ISX estimators use Chebyshev/L∞ neighborhoods. Their behavior depends on intrinsic dimension, concentration/ties, dependence, local geometry, sample size, and preprocessing. Sampled mean Gromov `δ_rel` describes tree-likeness; it does **not** establish that Euclidean kNN is invalid and is not a pass/fail gate.
 
 #### Geometry Diagnostics
 
-| Diagnostic | Method | Pass Criterion | Interpretation | Action if Fail |
-|------------|--------|----------------|----------------|----------------|
-| **Intrinsic Dimension** | Levina-Bickel (kNN MLE) | Heuristic: `d̂` “small” (e.g., < 20) | Lower `d̂` is generally better for kNN estimators | Reduce dimension / change representation; re-run Exp0 |
-| **δ-Hyperbolicity** | Gromov 4-point sampling | Heuristic: δ_rel not “too small” (e.g., ≥ 0.1, under an explicit normalization) | Very small δ_rel suggests tree-like structure | Prefer Shannon invariants or Flow-as-Bridge; avoid interpreting continuous `I^sx_∩` atoms on raw embeddings |
-| **Distance Concentration** | Pairwise distance CV | Heuristic: CV not “too small” (e.g., > 0.1) | Very low CV indicates distance concentration | Reduce dimension / increase N; re-run Exp0 |
+| Diagnostic | Method | Scientific use | Action on warning |
+|------------|--------|----------------|-------------------|
+| **Estimator recovery** | Synthetic controls passed through the exact frozen transform | Primary empirical evidence that the pipeline recovers analytic MI and measure-specific atoms | Pivot estimator/representation; re-run all diagnostics |
+| **Intrinsic dimension** | Levina–Bickel (kNN MLE) plus sensitivity to `k` | Calibrate against recovery controls; no universal cutoff | Reduce/change representation or increase independent sampling |
+| **Distance concentration and ties** | Pairwise/nearest-neighbor summaries, duplicate/tie counts | Detect neighborhood degeneration under the estimator metric | Pivot metric-compatible representation/estimator and re-test |
+| **Dependence / effective sampling** | Episode structure, autocorrelation/decorrelation diagnostics | Prevent treating correlated frames as independent rows | Stride/block/group at the episode level and re-size capture |
+| **Local flatness** | Calibrated neighborhood residual/curvature diagnostics | Supporting check for the chosen local metric | Change representation or estimator; validate on controls |
+| **Sampled mean `δ_rel`** | Gromov four-point sampling under a stated normalization | Descriptive tree-likeness statistic only | Report it; never use it alone to pass/fail Euclidean kNN |
 
 #### Running Geometry Diagnostics
 
 ```python
 import pid_core_rs as pid
 
-# 1. Check intrinsic dimension
+# Run this for V, L, D, A, Flow, and every source/target concatenation used.
+# 1. Report intrinsic dimension (calibrate against recovery controls; no fixed cutoff)
 d_hat = pid.estimate_intrinsic_dimension(embeddings, k=10, metric="chebyshev")
-if d_hat > 20:
-    print(f"WARNING: intrinsic dimension estimate is high (d̂={d_hat:.1f}); kNN may be unstable")
-    # ACTION: Apply more aggressive reduction / change representation, then re-run Experiment 0.
+print(f"intrinsic dimension estimate: {d_hat:.1f}")
 
-# 2. Check distance concentration + diameter (used for δ_rel normalization)
+# 2. Report concentration/ties and compare to the validated control envelope
 stats = pid.distance_stats(embeddings, metric="chebyshev")
-if stats["pairwise_cv"] < 0.1:
-    print(f"WARNING: distance concentration detected (pairwise CV={stats['pairwise_cv']:.3f})")
-    # ACTION: Reduce dimension, increase N, or switch representation; then re-run Experiment 0.
+print(f"pairwise CV: {stats['pairwise_cv']:.3f}")
 
-# 3. Check hyperbolicity (report δ_rel = 2δ / diam)
+# 3. Report sampled mean hyperbolicity descriptively (δ_rel = 2δ / diam)
 delta = pid.estimate_gromov_delta(embeddings, n_samples=1000, metric="chebyshev")
 diam = stats.get("pairwise_max", None)
 if diam is not None and diam > 0:
     delta_rel = (2.0 * delta) / diam
-    if delta_rel < 0.1:
-        print(f"WARNING: tree-like distances suspected (δ_rel={delta_rel:.3f}); avoid continuous PID atoms on raw embeddings")
-        # ACTION: Prefer Shannon invariants / MI-only screening, quantization → discrete PID, or Flow-as-Bridge.
-        # (Discrete path implemented: `pid-offline-harness --pid-mode discrete|discrete-pls`;
-        #  I_min measure + saturation diagnostics per grandplan.md §8.1.6 — a different PID
-        #  measure than continuous I^sx, so do not pool results across modes.)
+    print(f"descriptive sampled mean δ_rel={delta_rel:.3f} (not a pass/fail gate)")
 else:
-    print("WARNING: cannot normalize δ (missing/degenerate diameter); report raw δ only and treat as scale-dependent.")
+    print("cannot normalize δ; report raw δ as scale-dependent descriptive output")
 ```
 
 #### Hyperbolic/Lorentzian Limitation
 
-> **⚠️ IMPORTANT**: The validated ISX estimator (`EhrlichKsg`) **only supports Chebyshev (L∞) metric**. Hyperbolic/Lorentzian PID estimation is NOT currently supported.
+> **⚠️ IMPORTANT**: The implemented ISX estimator (`EhrlichKsg`) **only supports Chebyshev (L∞) metric**. Hyperbolic/Lorentzian PID estimation is not currently supported, and continuous-atom validation is not yet covered by a valid automated gate.
 >
-> **Workaround**: Use **Flow-as-Bridge** (see Experiment 4, §8). By using 3D Object Flow as the PID target instead of high-dimensional embeddings, you avoid non‑Euclidean metric issues; you still need to validate dimensionality and distance concentration (flow is typically Euclidean but can be high‑D as \(\mathbb{R}^{3T}\)).
+> **Mitigation**: Use **Flow-as-Bridge** (see Experiment 4, §8). A low-dimensional 3D object-flow target can reduce target-side geometry and ambient-dimension burden, but it does not validate the source variables or their concatenations. Re-run recovery, dependence, intrinsic-dimension, concentration/tie, and local-flatness checks; raw flow can itself be high-dimensional as \(\mathbb{R}^{3T}\).
 
-#### Geometry Gate Pass/Fail
+#### Scientific Eligibility Summary
 
-| Check | Pass Criterion | Interpretation | Fail Action |
-|-------|----------------|----------------|-------------|
-| Intrinsic dim `d̂` | Heuristic: not too high | Lower `d̂` generally makes kNN estimation more plausible | Reduce dimension / change representation; re-run Exp0 |
-| δ-hyperbolicity | Heuristic: δ_rel not very small (under stated normalization) | Very small δ_rel suggests tree-like distances | Prefer Shannon invariants / MI-only, quantization, or Flow-as-Bridge |
-| Distance CV | Heuristic: not too low | Very low CV suggests distance concentration | Reduce dimension / increase N; re-run Exp0 |
-| **All checks + Exp0** | Geometry checks + Exp0 pass | Estimation may be viable for this representation | If any fail: pivot representation/estimator before downstream claims |
+| Check | Required evidence | Fail action |
+|-------|-------------------|-------------|
+| MI/coherence | Analytic recovery and coherence on the exact frozen pipeline | NO-GO/PIVOT for that MI pipeline |
+| Measure-specific atoms | Committed oracle plus pinned independent cross-check with uncertainty | Do not interpret continuous atoms |
+| Sampling/geometry | Recovery-calibrated intrinsic dimension, concentration/ties, dependence, and local-flatness diagnostics on every estimator input/concatenation | Change representation/sampling/estimator and repeat |
+| Sampled mean `δ_rel` | Report only | Never a stand-alone fail action |
+
+The current harness's `--require-geometry-pass` is an implementation-level fail-closed switch, not sufficient scientific eligibility by itself. Reports must expose the component diagnostics; publication decisions follow the corrected criteria above, not a legacy aggregate that includes a `δ_rel` threshold.
 
 ### 4.1 Synthetic Test Cases
 ```python
@@ -935,21 +905,27 @@ def generate_synthetic_data(n: int, d: int, scenario: str, noise: float = 0.05):
     return S1, S2, T
 ```
 
-### 4.2 Acceptance Criteria (coherence gates; see `grandplan.md` §9.1.3 and §8.2.3)
+### 4.2 Acceptance Criteria: Separate MI/Coherence and Atom Gates
 
-Do not hard-code “safe” dimensions or %-error cutoffs. Accept/reject based on **MI-consistency / estimator-coherence** checks on the **exact preprocessing pipeline** you intend to use.
+Do not hard-code “safe” dimensions or generic %-error cutoffs. Validate the **exact frozen preprocessing pipeline** and keep measure-independent MI recovery separate from measure-specific atom recovery.
 
-**Primary pass criteria (GO):**
-- No `NaN`/`Inf` in MI / `I^sx_∩` / invariants for the target regime.
+**MI/coherence gate criteria:**
+- No `NaN`/`Inf` in the relevant MI terms/invariants.
 - **Monotonicity:** `I(S₁,S₂;T) ≥ I(S₁;T)` and `I(S₁,S₂;T) ≥ I(S₂;T)`.
 - **CMI nonnegativity (via identities):** `I(S₁;T|S₂)=I(S₁,S₂;T)−I(S₂;T) ≥ 0` and similarly for `I(S₂;T|S₁)`.
 - **Shannon-invariant sanity (Gutknecht et al. 2025):** for `n` sources and nonzero `I(S₁…S_n;T)`, require `0 ≤ \bar{r} ≤ n` and `0 ≤ \bar{v} ≤ n`; treat `\bar{r}` or `\bar{v}` outside these bounds as “estimator incoherence”.
-- **Noise-dimension invariance:** concatenating *independent* noise dimensions must not induce systematic drift (beyond measured uncertainty) relative to the low-d “signal-only” reference.
+- **Independent-noise MI invariance:** in controls where nuisance dimensions are analytically irrelevant, the relevant Gaussian-channel MI terms should remain within measured uncertainty. This does **not** imply continuous shared-exclusions redundancy is invariant to those dimensions.
+
+**Continuous-atom gate criteria:**
+- Use a committed Gaussian `I^sx_∩` oracle in its supported low-dimensional regime and a pinned independent implementation.
+- Remove the known-false additive-control `Red≈0` target: it is an MMI expectation, not an `I^sx_∩` truth.
+- Treat high-dimensional atom drift as functional-plus-estimator sensitivity until a dimension-specific oracle exists.
+- Propagate uncertainty and require agreement under the exact frozen transform; MI/coherence success alone cannot pass this gate.
 
 **Decision rule:**
-- **GO:** coherence gates pass on the intended pipeline; cross-checks vs analytic MI (`Gaussian channel`) and/or `csxpid` agree within measured uncertainty where applicable.
-- **PIVOT:** coherence gates fail on raw/high‑d representations but pass after more aggressive reduction/quantization, or after restricting targets to low‑d bridges (Flow‑as‑Bridge), or after switching to MI-only invariants with a different MI estimator. Proceed only in the validated regime and label it explicitly.
-- **NO-GO (for continuous kNN `I^sx_∩` atoms):** coherence gates fail even in low‑d reference systems / after best-feasible preprocessing, or `csxpid`/analytic MI cross-checks fail → do not interpret continuous kNN-based `I^sx_∩`/atoms for this regime (publish as a limits result; continue only with a different measurement pipeline).
+- **MI_GATE GO/PIVOT/NO-GO:** decide from analytic MI recovery and coherence only. The current default high-dimensional sweep is **NO-GO**.
+- **ISX_GATE GO/PIVOT/NO-GO:** decide only from the measure-specific oracle/cross-check above. This valid automated gate is **not yet implemented**, so current continuous atoms remain uninterpretable on real embeddings.
+- `--strict-gate` does not change that status: it implies `--strict-band` and exits with code 3 unless a curated d=1 Gaussian grid passes its **three measure-independent MI checks**. The lower-dimensional four-scenario diagnostics, default high-dimensional sweep, and atoms are non-gating for that flag.
 
 #### 4.2.1 Attribution Probe Sanity Checks (Separate From PID Gates)
 
@@ -966,7 +942,7 @@ Attribution methods do not inherit the kNN geometry assumptions above, but they 
 These checks can pass even when PID gates fail, and vice versa. Treat that as a measurement-regime distinction, not a contradiction.
 
 ### 4.3 Running Experiment 0
-Run the implemented Rust Experiment 0 gate (this repo):
+Run the implemented Rust Experiment 0 diagnostics (this repo):
 
 ```bash
 just exp0
@@ -981,11 +957,14 @@ cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --summ
 cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/exp0_runlog.jsonl
 cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --write-sidecars outputs/exp0_runlog.jsonl
 cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --verify-sidecars outputs/exp0_runlog.jsonl
+
+# Optional curated d=1 Gaussian MI gate (not an atom/high-d gate)
+cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --strict-gate
 ```
 
 **Note:** A larger Python experiment harness is specified in `grandplan.md`/`EXPERIMENTS.md` but is not implemented in this repo yet; avoid citing non-existent scripts as runnable.
 
-**Current results:** See `findings.md` for the latest repo-local Exp0 summary and interpretation notes (treat it as a living report; update it when you rerun Exp0 under new preprocessing/estimators).
+**Current results:** the default high-dimensional MI/coherence path is **NO-GO**. Continuous `I^sx_∩` atom validation has no valid automated gate yet, so the existing aggregate verdict must not be presented as an atom-validation verdict. See the current `grandplan.md` corrective addendum and `findings.md`.
 
 ### 4.4 Tiny Labeled Harness Smoke
 
@@ -1149,7 +1128,7 @@ class PickPlaceEpisode:
     pid_co_information: np.ndarray        # (T/6,)
 ```
 
-Attribution artifacts for H9 should be stored as separate artifacts until the run-log schema has a first-class event for them. Minimum metadata: method name, target output, source modality/layer, baseline/background/concept set, preprocessing, score tensor URI, score tensor hash, and stability/sanity-check summary.
+Attribution artifacts for H9 use the implemented first-class `attribution_logged` event: method, target output, layer, modality, baseline, score hash, faithfulness check, and artifact URI. `experiments/attribution/` currently produces epsilon-/AttnLRP and gradient×input evidence on a small reference model with deletion-AOPC vs random; the Rerun adapter surfaces faithfulness/provenance and compatible NumPy relevance values (capped at 1024). Record any additional preprocessing/stability metadata in the linked artifact/manifest. Production VLA/LXT hooks remain future work.
 
 ### 5.4 PID Computation
 ```python
@@ -1182,7 +1161,12 @@ def pid2_isx_window(s1: np.ndarray, s2: np.ndarray, t: np.ndarray, k: int = 3) -
     syn = i12 - i1 - i2 + red
     return {"red": red, "unq_s1": unq1, "unq_s2": unq2, "syn": syn}
 
-def compute_episode_pid(episode: PickPlaceEpisode, window_size: int = 20, k: int = 3) -> dict:
+def compute_episode_pid(
+    episode: PickPlaceEpisode,
+    frozen_transforms: dict,
+    window_size: int = 20,
+    k: int = 3,
+) -> dict:
     """
     Compute PID metrics over sliding windows.
     
@@ -1206,30 +1190,17 @@ def compute_episode_pid(episode: PickPlaceEpisode, window_size: int = 20, k: int
     flow_3d = episode.object_poses[target_object][:, :3]
     flow_3d = flow_3d[::6]
     
-    # Standardize inputs (Z-score). Use float64 for stable kNN numerics.
-    V = zscore(episode.embeddings_V_reduced.astype(np.float64))
-    D = zscore(episode.embeddings_D_reduced.astype(np.float64))
-    A = zscore(actions.astype(np.float64))
-    T = zscore(flow_3d.astype(np.float64))
+    # Apply transforms fitted once on disjoint V0/W0 training data. Never refit per
+    # episode or perturbation cell; persist frozen_transforms[axis].hash in the run log.
+    V = frozen_transforms["V"].transform(episode.embeddings_V_reduced).astype(np.float64)
+    D = frozen_transforms["D"].transform(episode.embeddings_D_reduced).astype(np.float64)
+    A = frozen_transforms["A"].transform(actions).astype(np.float64)
+    T = frozen_transforms["Flow"].transform(flow_3d).astype(np.float64)
 
-    # Optional: geometry risk indicators (heuristics; the real gate is Experiment 0).
-    # Run these on a representative batch in practice (not per episode).
-    v_id = pid.estimate_intrinsic_dimension(V, k=10, metric="chebyshev")
-    v_delta = pid.estimate_gromov_delta(V, n_samples=500, metric="chebyshev")
-    v_stats = pid.distance_stats(V, metric="chebyshev")
-    v_diam = v_stats.get("pairwise_max", None)
-    v_delta_rel = (2.0 * v_delta) / v_diam if (v_diam is not None and v_diam > 0) else None
-
-    geom_risk = (v_id > 20) or (v_stats["pairwise_cv"] < 0.1)
-    if v_delta_rel is not None:
-        geom_risk = geom_risk or (v_delta_rel < 0.1)
-
-    if geom_risk:
-        delta_msg = f"δ_rel={v_delta_rel:.3f}" if v_delta_rel is not None else f"δ(raw)={v_delta:.3f}"
-        print(
-            f"WARNING: geometry risk indicators for V (d̂={v_id:.1f}, {delta_msg}, CV={v_stats['pairwise_cv']:.3f}); "
-            "prefer stronger reduction / Flow-as-Bridge / MI-only screening, and re-run Experiment 0."
-        )
+    # Report diagnostics on representative pooled batches for every estimator input and
+    # concatenation (V, D, A, Flow, [V,D], ...), not per episode. Calibrate ID/CV/ties/
+    # local-flatness readings against recovery controls; no universal numeric threshold.
+    # Sampled mean δ_rel may also be reported, but is descriptive and never changes a gate.
     
     results = {
         "action": {"syn": [], "red": [], "unq_v": [], "unq_d": []},
@@ -1515,8 +1486,8 @@ conditions:
 ```
 
 ### 7.3 PID Metric Analysis
-**H2 (per `grandplan.md` §9.7.2b):** estimate `Red(V,L;A)` per task on unperturbed held-out episodes, then run single-modality corruption curves (V1→V3 at W0; W1→W3 at V0) and record the success-vs-severity slope. Endpoint: Spearman ρ between `Red` and slope **across tasks** (family-blocked bootstrap; predicted ρ > 0). The availability-vs-use asymmetry is a preregistered informative failure mode.
-**H3 (per `grandplan.md` §9.7.2b):** estimate `Unq(V;A)`, `Unq(L;A)` with symmetric preprocessing, then apply matched-strength interventions per modality. **Strength matching is outcome-independent** (equal embedding displacement or equal MI destroyed, `I(X_corrupt;X_clean)`) — never equal-success-impact, which is circular; an equal-impact variant calibrated on a disjoint split is a robustness check only. Endpoint: mean per-case Kendall τ across ≥ 20 matched cases (predicted mean τ > 0).
+**H2 (per `grandplan.md` §9.7.2b):** first pass the preregistered instruction diversity/occupancy/entropy gate; otherwise make V–D primary. Fit preprocessing once on disjoint V0/W0 training data, freeze its hash across cells, and estimate `Red(V,L;A)` per task on unperturbed held-out episodes. Run single-modality corruption curves (V1→V3 at W0; W1→W3 at V0) and record the success-vs-severity slope. Endpoint: Spearman ρ between an information-scale-adjusted `Red` endpoint and slope **across tasks**, with estimator uncertainty propagated and family-blocked bootstrap (predicted ρ > 0). The availability-vs-use asymmetry is a preregistered informative failure mode.
+**H3 (per `grandplan.md` §9.7.2b):** after the same instruction and frozen-transform gates, estimate `Unq(V;A)`, `Unq(L;A)` with symmetric preprocessing, then apply matched-strength interventions per modality. **Strength matching is outcome-independent** (equal embedding displacement or equal MI destroyed, `I(X_corrupt;X_clean)`) — never equal-success-impact, which is circular; an equal-impact variant calibrated on a disjoint split is a robustness check only. Endpoint: mean per-case Kendall τ across ≥ 20 matched cases (predicted mean τ > 0), with estimator uncertainty propagated.
 **Exploratory (H6-adjacent, Deferred — no claim):** `Unq(L)` / `Syn(V,L;A)` contrasts between the `safety_constraint` and baseline conditions may be logged but are not evidence for H6.
 
 ---
@@ -1634,7 +1605,7 @@ def pid2_atoms_isx(s1: np.ndarray, s2: np.ndarray, t: np.ndarray, *, k: int = 3,
     }
 ```
 
-**Important:** KSG/ISX estimates are not reliable with very small `n` (e.g., a single 48‑frame clip). For H7 you typically need to aggregate across many clips and/or subsample to reduce autocorrelation (see `grandplan.md` §18.2.4). Also keep the **flow target low-dimensional** (avoid raw 3×N×T trajectories); aggregate (centroids/velocities) or reduce, then re-run the Experiment 0 gate on the resulting representation.
+**Important:** KSG/ISX estimates are not reliable with very small `n` (e.g., a single 48‑frame clip). For H7 you typically need to aggregate across many clips and/or subsample to reduce autocorrelation (see `grandplan.md` §18.2.4). Also keep the **flow target low-dimensional** (avoid raw 3×N×T trajectories); aggregate (centroids/velocities) or reduce, then re-run both the MI/coherence and measure-specific atom validation on the resulting representation.
 
 ---
 
@@ -1655,7 +1626,7 @@ Avoid undefined atoms like `Syn(D; A_robot)`; synergy is a two-source construct.
  
 ## 10. Perturbation Library
 
-**Implementation note (planned):** every perturbation below should be exposed both as a GUI action and as an Agent Bridge call (e.g., `intervention.apply`), and must emit a logged intervention event with parameters and timestamps.
+**Implementation note (planned):** every perturbation below is an Agent Bridge call (e.g., `intervention.apply`); a GUI merely submits that same call. The bridge appends parameters and simulation/wall-clock timestamps before the perturbation handler runs. No renderer, observer, PID worker, or Zenoh subscriber applies a perturbation directly.
 
 ### 10.1 Visual Perturbations
 ```python
@@ -1798,8 +1769,11 @@ embodiment_battery:
 
 **v10.7 logging rule:** perturbation sweeps used for H4 must log per-severity-level `Syn`
 estimates (with block-bootstrap CIs) so SSI := −IQR(Syn) per axis is computable
-(`grandplan.md` §9.7.2); sweeps used for H3 must log the outcome-independent strength
-yardstick (embedding displacement or MI destroyed) per level (`grandplan.md` §9.7.2b).
+(`grandplan.md` §9.7.2), the preregistered information-scale denominator, propagated
+estimator uncertainty, instruction occupancy/entropy, and the single V0/W0-fitted transform
+hash frozen across all cells. If the instruction gate fails, V–D—not V–L—is primary. Sweeps
+used for H3 must also log the outcome-independent strength yardstick (embedding displacement
+or MI destroyed) per level (`grandplan.md` §9.7.2b).
 
 ---
  
@@ -1906,15 +1880,13 @@ Example schema (values below are illustrative placeholders; populate from actual
 
 ---
  
-## 12. Compute Requirements
+## 12. Compute and Storage Planning
 
-### 12.1 Hardware Specifications
-| Component     | Minimum         | Recommended         |
-| --------------- | --------------- | ------------------- |
-| Apple Silicon | Any supported dev machine | More RAM helps for large datasets |
-| NVIDIA GPU    | Any CUDA GPU (if running models locally) | High-VRAM GPU if running heavy video/world models locally (otherwise use remote service) |
-| RAM           | 32GB            | 64GB                |
-| Storage       | 500GB SSD       | 2TB NVMe            |
+### 12.1 Hardware Envelope (Measure Before Capture)
+
+There is no evidence-backed universal CPU, GPU, RAM, VRAM, or storage minimum for these protocols. The envelope depends on the chosen model/checkpoint, local versus remote inference, capture codec/resolution/rate, retained artifacts, scene complexity, and estimator `(n,d,k)`.
+
+Run a representative pilot and record peak RAM/VRAM, median/p95 latency, thermal/throttling behavior where relevant, bytes per episode, temporary conversion space, and retained size. Choose hardware and storage from those measurements plus a declared margin; illustrative development machines elsewhere in this document are provenance examples, not requirements.
 
 ### 12.2 Per-Component Resource Usage
 This section is intentionally **measurement-first**. Do not report fixed “ms/frame” or “s/video” values without benchmarking your exact stack.
@@ -1935,17 +1907,13 @@ For reporting, compute:
 `control_hz ≈ 1 / (t_vla + t_phys + t_pid + t_render + t_overhead)`
 and record measured `(median, p95)` for each term.
 
-### 12.4 Storage Estimates
+### 12.4 Storage Sizing
 
-These are rough, codec-dependent planning estimates; measure on your logging format and do not cite as fixed requirements.
-| Data Type                 | Per Episode | 100 Episodes |
-| ------------------------- | ----------- | ------------ |
-| Wrist images (30fps, 30s) | ~1.5 GB     | 150 GB       |
-| Overhead images           | ~3.0 GB     | 300 GB       |
-| Embeddings (5Hz)          | ~50 MB      | 5 GB         |
-| Trajectories              | ~5 MB       | 500 MB       |
-| PID metrics               | ~1 MB       | 100 MB       |
-| Total (compressed)        | ~1 GB       | 100 GB       |
+Do not use generic per-episode GB figures. Measure each enabled stream on a representative pilot using the exact codec, shape, dtype, rate, compression, and retention policy. For each stream, report:
+
+`bytes_per_episode = measured_bytes / completed_pilot_episodes`
+
+Then size the capture as `sum(bytes_per_episode × planned_episodes)` plus measured temporary conversion/cache space, replicas/backups, and an explicit margin. Recompute after the scientifically adequate nested capture design is selected; capture sizing is currently **NOT READY / NOT PASSED**.
 
 ---
  
@@ -2000,9 +1968,9 @@ experiment:
   duration_hours: 4.5
  
 environment:
-  hostname: research-mac-01
-  os: macOS 15.2
-  hardware: Apple M4 Max (64GB)
+  hostname: <record-host-or-anonymized-id>
+  os: <record-os-and-version>
+  hardware: <record-cpu-gpu-ram-vram>
   
 software:
   prisoma_commit: abc123def456
@@ -2047,7 +2015,7 @@ If any experiment uses the Agent Bridge (scripts or LLM tools) for live interven
 
 To keep runs replayable:
 - Log every intervention with a **simulation-time coordinate** (e.g., `t_step`, `t_seconds`) and a wall-clock timestamp.
-- Prefer checkpointed application (`pause/step → apply → resume`) for interventions that change task difficulty.
+- Prefer checkpointed application (`pause/step → apply → resume`) for interventions that change task difficulty; each transition and the intervention itself is a separate Agent Bridge request appended before dispatch.
 - Record whether a run is “strict replayable” (deterministic + fixed ordering) vs “best-effort replayable” (nondeterminism tolerated but logged).
 
 ---
@@ -2058,6 +2026,8 @@ To keep runs replayable:
 ## 14. World Model Comparison: ManiGaussian vs PEGS
 
 **Priority note (`grandplan.md` §9.8, §14.1.0):** Experiments 6–10 (H_WM1–H_WM5) are optional exploratory extensions and must not block Experiments 0–4.
+
+**Control-plane rule:** every PEGS visual-correction toggle/force and every matched ManiGaussian intervention in §§14–19 is an Agent Bridge command appended to the canonical run log before execution. PID outputs may be analysis inputs to a preregistered client decision, but PID workers never trigger corrections directly.
 
 ### 14.1 Overview and Motivation
 

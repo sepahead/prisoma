@@ -11,20 +11,20 @@
 
 ---
 
-**Docset alignment:** This document is aligned to `grandplan.md` v10.7. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
+**Docset alignment:** This document is aligned to the current 2026-07-10 corrective addendum in `grandplan.md` v10.7. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the source of truth; Rerun is the Phases 1–3 diagnostic/time-machine viewer; Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering; all clients share the Agent Bridge.
+**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the source of truth; the Agent Bridge is the **only control plane**; Rerun is the read-only Phases 1–3 diagnostic/time-machine viewer; and Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering. Every VLA action, scene edit, intervention, pause/resume/step transition, and correction-force command must enter through the Agent Bridge and be appended to the canonical run log before execution. PID workers and observers analyze data; Zenoh transports data; Rerun renders replayed data. None may actuate the simulator.
 
 ## 1. Core System Components
 
 ### 1.1 Strategy: "Rerun-First" (Phases 1–3)
 
 **What it is:**
-Instead of building a custom simulator frontend from scratch immediately, we utilize **Rerun** (https://rerun.io/) as the primary visualization, logging, and "time machine" engine for the initial research phases.
+Instead of building a custom simulator frontend from scratch immediately, we utilize **Rerun** (https://rerun.io/) as the primary visualization and "time machine" viewer for the initial research phases. The canonical run log—not a Rerun recording—is the authoritative record.
 
 **Why this decision (v10.1):**
 - **Engineering Efficiency:** Building a custom 3D engine with timeline scrubbing, camera controls, and state management (Tauri+SparkJS) is a massive upfront cost. Rerun provides these "for free" via a simple SDK (`cargo add rerun`).
-- **The "Time Machine":** Rerun's core feature is recording streams of data and allowing instant replay/scrubbing. This is critical for diagnosing VLA failures (e.g., "rewind to 2 seconds before the drop").
+- **The "Time Machine":** Rerun can display converted run-log streams with replay/scrubbing. This is critical for diagnosing VLA failures (e.g., "rewind to 2 seconds before the drop") while keeping the viewer read-only.
 - **3DGS Support:** splat data can be logged to Rerun (point clouds/ellipsoids); verify native 3DGS rendering in the pinned Rerun 0.28.x before relying on it.
 - **Focus on Science:** Allows the team to focus on `pid-core`, physics bindings, and experiment logic (the novel parts) rather than boilerplate UI code.
 
@@ -97,17 +97,18 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 
 **Integration architecture (Rerun-First):**
 ```
-┌─────────────────┐    Zenoh    ┌─────────────────────┐
-│ Gazebo Harmonic │◄──────────►│  Rust Backend       │
-│ (Headless)      │            │  ├─ PID-Core        │
-│ ├─ Robot URDF   │            │  ├─ Controls        │
-│ ├─ Sensors      │            │  └─ Rerun SDK       │
-│ └─ ros_gz_bridge│            └──────────┬──────────┘
-└─────────────────┘                       │
-                                          ▼
-                                   ┌──────────────┐
-                                   │ Rerun Viewer │
-                                   └──────────────┘
+┌──────────────────┐   command   ┌────────────────┐   append first   ┌───────────────────┐
+│ GUI / VLA / tool │────────────▶│  Agent Bridge  │────────────────▶│ Canonical run log │
+└──────────────────┘             └───────┬────────┘                 └─────────┬─────────┘
+                                         │ dispatch recorded command          │ replay
+                                         ▼                                    ▼
+                              ┌─────────────────────┐              ┌───────────────────┐
+                              │ Gazebo / backend    │              │ Rerun adapter/view │
+                              │ robot + sensors     │              │ (read-only)       │
+                              └──────────┬──────────┘              └───────────────────┘
+                                         └── observations/events ──▶ run log
+
+                     Zenoh, when enabled, mirrors data only; it is not a control path.
 ```
 
 **Robot vs object simulation (coupling constraints)**
@@ -137,34 +138,37 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 **What it does:**
 - Captures real-world scenes/objects via photogrammetry (iPhone + Polycam)
 - Trains neural radiance representation (Nerfstudio splatfacto)
-- Exports compressed `.spz` files for real-time rendering
+- Exports Nerfstudio Gaussian splats as `.ply`; a separately selected and pinned converter may then produce `.spz` for a renderer that requires it
 
 **Pipeline:**
 ```bash
 # 1. Capture (phone/DSLR video; e.g., Polycam; capture protocol is dataset- and scene-dependent)
 # 2. Train
-ns-train splatfacto \
-    --data ./captures/scene/ \
-    --max-num-iterations 30000 \
-    --pipeline.model.num-gaussians 800000   # flags illustrative; verify against your nerfstudio version
+ns-train splatfacto --data ./captures/scene/
 
-# 3. Export
+# 3. Export PLY with Nerfstudio
 ns-export gaussian-splat \
-    --load-config outputs/scene/splatfacto/config.yml \
-    --output-dir ./assets/splats/ \
-    --output-format spz
+    --load-config <config> \
+    --output-dir <dir>
 
-# 4. Load in Rerun (Phases 1-3) or SparkJS (Phase 4)
+# 4. Optional SPZ conversion is a separate tool step.
+# Pin the converter executable/revision and record its exact command plus PLY/SPZ hashes.
+
+# 5. Load in Rerun (Phases 1-3) or SparkJS (Phase 4)
 ```
+
+Nerfstudio's `gaussian-splat` exporter is the PLY-producing step above. Do not pass an invented Gaussian-count training flag or an `--output-format spz` exporter flag. Treat any PLY→SPZ conversion as a distinct dependency with its own version, license, command, and provenance.
 
 **Asset specifications:**
 
-| Object | Gaussian Count (illustrative; scene/export dependent) | Physics Proxy |
-|--------|----------------|---------------|
-| red_cube | ~15,000 | Cuboid |
-| blue_cylinder | ~20,000 | Cylinder |
-| ycb_mustard | ~40,000 | Convex Hull |
-| tabletop_scene | ~800,000 | Static mesh |
+| Object class | Physics proxy example |
+|--------------|-----------------------|
+| box-like object | Cuboid |
+| cylindrical object | Cylinder |
+| irregular rigid object | Validated convex hull or mesh |
+| tabletop/background scene | Static collision geometry separate from the splats |
+
+Measure and log the actual Gaussian count, renderer memory/time, collision geometry, and export hashes per asset; there is no universal target count.
 
 **Why it matters:**
 - **Real2Sim photorealism**: Captured splats look like real images (can reduce synthetic domain gaps; benchmark-dependent)
@@ -180,7 +184,7 @@ ns-export gaussian-splat \
 - Segmentation + point tracking + depth estimation extract 3D object flow from dreamed videos
 - 3D Flow becomes a **target variable** for PID analysis
 
-> **Why Flow-as-Bridge is Critical**: The ISX estimator (`EhrlichKsg`) — whose Exp0 gate currently reports **NO-GO** on synthetic high-d controls (`findings.md`) — only supports Chebyshev (L∞) geometry and does **not** currently have a derivation for hyperbolic/Lorentzian manifolds. If high‑D embeddings exhibit tree‑like or curved geometry, shifting the diagnostic target to explicit 3D object flow can avoid non‑Euclidean metric issues; you still must validate dimensionality/distance concentration (flow is Euclidean but can be high‑D as \(\mathbb{R}^{3T}\)).
+> **Why Flow-as-Bridge is Critical**: The implemented `EhrlichKsg` path only supports Chebyshev (L∞) geometry and does **not** currently have a derivation for hyperbolic/Lorentzian manifolds. Current Exp0 status is split: the default high-dimensional MI/coherence path is **NO-GO**, while continuous `I^sx_∩` atom validation is **not yet represented by a valid automated gate** (`grandplan.md` corrective addendum; `findings.md`). If high‑D embeddings exhibit problematic local geometry or distance concentration, shifting the diagnostic target to explicit 3D object flow can reduce the ambient-dimension burden; flow still needs estimator-recovery, intrinsic-dimension, concentration/tie, dependence, and local-flatness checks.
 
 **Pipeline:**
 ```
@@ -332,7 +336,7 @@ urdf_path = "assets/robots/franka_panda.urdf"
 | **Embodiment Transfer** | Per-robot fine-tuning | Flow-as-bridge tests embodiment-agnostic understanding |
 
 **What PID adds (hypothesis; validate empirically):** typical benchmarks emphasize task success and sometimes auxiliary diagnostics; PID offers an additional, information-theoretic decomposition that *may* help localize which inputs drive decisions:
-- **Grounding failure signatures:** candidate correlations between PID atoms and failures (H1/H2; see `grandplan.md` warnings + Experiment 0 gate)
+- **Grounding failure signatures:** candidate correlations between PID atoms and failures (H1/H2; see `grandplan.md` warnings + the separate MI/coherence and measure-specific atom gates)
 - **Memorization vs generalization:** test whether PID patterns differ across held-out compositions (H4)
 - **Long-horizon composition:** test whether temporal PID summaries degrade before failure (H5)
 
@@ -357,15 +361,15 @@ urdf_path = "assets/robots/franka_panda.urdf"
 
 **Key advantage**: Original Dream2Flow uses flow for action generation. PID-Splat uses flow to *test* whether the VLA's world model (D) is consistent with physics, independent of the action decoder.
 
-### 3.4 Comparison with DreamVLA
+### 3.4 DreamVLA as a Within-Model Stage-Analysis Candidate
 
-| Aspect | DreamVLA | PID-Splat |
-|--------|----------|-----------|
-| **World Model** | Explicit world-knowledge forecasting (dynamic/spatial/semantic cues; verify) | D can be internal (hidden states) or external; Flow is used as a diagnostic intermediate |
-| **Analysis** | Task performance | PID(V, D; Flow) reveals world model quality |
-| **Architecture** | Fixed training objective | Post-hoc analysis, any VLA |
+| Stage-analysis question | Candidate variable / intervention |
+|-------------------------|-----------------------------------|
+| Are exposed world-knowledge channels informative about future motion? | Within the same DreamVLA checkpoint, test preregistered `D_explicit` channels against `Flow_gt` after the estimator gates pass |
+| Does the policy causally use an exposed channel? | Ablate, shuffle, or replace that channel within the same model and compare logged action/outcome changes |
+| Where does an end-to-end failure arise? | Keep the model, task, preprocessing, and checkpoint fixed while separating world-model, action-decoding, and physical-execution stages |
 
-**Key advantage**: DreamVLA trains with dreaming; PID-Splat *analyzes* any VLA's implicit world model without retraining.
+Do **not** treat a DreamVLA-versus-OpenVLA PID difference as a causal effect of "dreaming": their architectures, action heads, training data, and definitions of `D` differ. Cross-model results are descriptive replication only. The causal design is the within-model stage/channel intervention above.
 
 ### 3.5 Attribution Methods as Diagnostic Overlays
 
@@ -375,6 +379,8 @@ LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, saliency/SmoothGrad, occlus
 - Log precomputed attribution artifacts as images, heatmaps, token bars, point/patch colors, or scalar time-series tracks alongside PID/CI metrics.
 - Keep attribution metadata with the artifact: method, target output, layer/modality, baseline/background/concept set, preprocessing, score hash, and faithfulness/sanity-check result.
 - Do not require Phase 4 custom shaders for attribution review; Phase 4 can add interactive overlays, but the canonical evidence remains the run log plus artifacts.
+
+**Implemented slice:** `experiments/attribution/` runs epsilon-/AttnLRP and gradient×input on a small reference model, checks deletion-AOPC against a random control, and emits first-class `attribution_logged` events. The `pid-rerun` adapter surfaces the faithfulness verdict, provenance text, and up to 1024 values from compatible NumPy relevance artifacts. Production VLA adapters and richer 2-D panels remain future work.
 
 **Interpretation rule:** if PID claims `Unq(V)`, `Unq(L)`, or `Syn(V,L;A)` is diagnostic, attribution overlays should either provide a compatible local account under matched interventions or expose a disagreement that must be reported.
 
@@ -443,17 +449,17 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 | Component | Role | Rationale (design goals; benchmark-dependent) |
 |-----------|------|--------------|
 | **Run log** | Canonical data spine | Source of truth for replay, analysis, Rerun export, and Tauri sessions; summaries distinguish unique metric names from total metric events. |
-| **Agent Bridge** | Shared control plane | GUI, scripts, and LLM tools call the same local API; every action is logged. |
-| **Rerun** | **Visualization & diagnostics** | **Primary P1-3 Tool.** Timeline, 3D scene, plots, ghost overlays, and replay from run logs. |
+| **Agent Bridge** | Only control plane | GUI, scripts, LLM tools, and VLA-policy adapters submit every mutating command through the same local API; the command is recorded in the run log before execution. |
+| **Rerun** | **Read-only visualization & diagnostics** | **Primary P1-3 Tool.** Timeline, 3D scene, plots, ghost overlays, and replay from run logs; it never drives the simulator. |
 | **Tauri+SparkJS** | Interactive App | **Deferred to P4.** For custom shaders, collider/edit tools, and complex intervention UI; never the canonical store. |
 | **Physics** | Object physics | Modular (Rapier/MuJoCo/Isaac) |
 | **Robot Sim** | Robot dynamics | Industry-standard (Gazebo/MuJoCo) |
 | **3DGS Pipeline** | Scene capture | Photorealistic captures; differentiable training pipelines exist (visualization here is non-differentiable) |
 | **Dream2Flow** | World model probe | Euclidean flow target, embodiment-agnostic |
-| **PID-Core** | Information analysis | Decomposes V-L-A integration, diagnoses failures |
-| **Attribution probes** | Local explanation baselines | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/SHAP-style artifacts triangulate PID claims when sanity checks pass |
+| **PID-Core** | Read-only information analysis | Computes candidate diagnostics from logged/captured data; it never triggers actions, pauses, or corrections |
+| **Attribution probes** | Local explanation baselines | Reference epsilon-/AttnLRP + gradient×input probe and Rerun adapter are implemented; other methods/production-VLA hooks remain extensions |
 
-Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status, deterministic stepping, deterministic interventions, replay, run lifecycle stop, and `export.rerun`; safe mode keeps status/replay read-only and rejects mutation, run-ending, or file-writing exports.
+Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status, deterministic stepping, deterministic interventions, replay, run lifecycle stop, and `export.rerun`; safe mode keeps status/replay read-only and rejects mutation, run-ending, or file-writing exports. This is **partial M2 groundwork**, not completion of the full M2 acceptance contract (all target UI/VLA/backend controls plus a versioned subscription stream). Likewise, the validating run-log-to-Rerun converter is **partial M4 groundwork**; the complete blueprint/viewer remains specified, not built.
 
 ---
 
@@ -461,25 +467,20 @@ Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods 
 
 | Phase | Goal | Key Deliverable | Visualization |
 |-------|------|-----------------|---------------|
-| **1** | Validate PID estimators (Experiment 0) | Exp0 gate status recorded (GO/PIVOT/NO‑GO) | Rerun (Charts) |
+| **1** | Validate estimators (Experiment 0) | Separate MI/coherence verdict from measure-specific continuous-atom validation; current status is MI/coherence **NO-GO** on the default high-d sweep and atom gate **not yet valid/implemented** | Rerun (Charts) |
 | **2** | Apply to OpenVLA on LIBERO | Failure signature taxonomy | Rerun (Timeline + Logs) |
-| **3** | Compare DreamVLA vs OpenVLA | World model quality metrics | Rerun (3DGS + Ghost Splats) |
+| **3** | Within-model stage/channel ablations | World-model-stage vs action-decoding vs execution diagnostics under fixed model/checkpoint/task | Rerun (3DGS + Ghost Splats) |
 | **4** | Embodiment transfer via Flow-as-bridge | Cross-robot PID analysis | **Tauri + SparkJS** (Interactive) |
 
 **Ultimate goal**: Move from "does this VLA work?" to "how does this VLA understand the world?" — enabling principled debugging and improvement of vision-language-action models.
 
 ---
 
-## 6. Hardware Requirements
+## 6. Hardware and Storage Planning (No Universal Minimum)
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| Apple Silicon | Any supported dev machine | More RAM helps for large datasets |
-| NVIDIA GPU | Any CUDA GPU (if running models locally) | High-VRAM GPU if running heavy video/world models locally (otherwise use remote service) |
-| RAM | 32GB | 64GB |
-| Storage | 500GB SSD | 2TB NVMe |
+The repository has no evidence-backed RAM, VRAM, disk, or device minimum for the target stack. Requirements depend on the selected VLA/video models, capture codec and retention policy, scene size, estimator regime, and whether inference is local or remote.
 
-**Latency note:** Any ms-level budget is hardware/model dependent; treat numbers as estimates until measured. For rigorous reporting, benchmark each component and report measured ranges (see `EXPERIMENTS.md` §12).
+Before capture, benchmark the exact configuration and record peak RAM/VRAM, median/p95 latency, bytes per episode, temporary conversion space, and retained-artifact size. Size hardware and storage from those measurements plus an explicit safety margin; do not reuse illustrative machine specifications as requirements. See `EXPERIMENTS.md` §12.
 
 
 ---
@@ -497,7 +498,7 @@ The architecture supports a head-to-head comparison between two dominant world m
 
 ### 7.2 PEGS (Explicit Particle-Based Physics)
 - **Paradigm:** Hybrid explicit simulation with visual correction.
-- **Mechanism:** Binds Gaussians to a PBD (Position-Based Dynamics) particle system. Real-time "visual forces" nudge particles to match photometric observations.
+- **Mechanism:** Binds Gaussians to a PBD (Position-Based Dynamics) particle system. A target implementation may use "visual forces" to nudge particles toward photometric observations, but every correction command must be an Agent Bridge request recorded in the canonical run log before it reaches physics.
 - **PID Role:** Used to measure the benefit of visual correction: $Syn(P_{pred}, V_{obs}; P_{corr})$.
 - **Strength:** High generalization (physics laws don't change); handles deformables natively (reported/expected; verify against upstream papers).
 - **Weakness:** Requires accurate manual proxy/mesh definitions for novel objects.
@@ -529,7 +530,7 @@ InternVLA‑A1 is a candidate **diffusion / flow-matching** VLA for stage-wise a
 ### 9.1 Architectural Role in prisoma (Docset v10.1)
 - **Hierarchical PID inside one model:** treat generation-expert outputs as `D_gen` (a candidate `D_explicit`) and test `(V,L;D_gen)` and `(V,D_gen;A)` under the same data/logging contract as other VLAs.
 - **Flow comparisons:** if `D_gen` yields predicted frames/latents, derive a model-side `Flow_pred` and compare to simulator-derived `Flow_gt` under matched controls (do not conflate “Flow Matching” used to generate actions with this project’s geometric `Flow_*` variables).
-- **License caution:** verify the upstream license/model card before depending on it (may be restrictive); avoid vendoring code into this MIT-licensed repo unless license compatibility is confirmed.
+- **License caution:** verify the upstream license/model card before depending on it (may be restrictive); avoid vendoring code into this dual-licensed **MIT OR Apache-2.0** repo unless license compatibility is confirmed.
 
 ### 9.2 Integration Notes (Verify)
 - The repo describes patched HuggingFace Transformers modules; isolate integration in a separate service/environment and log the exact revision.

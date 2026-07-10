@@ -3,6 +3,14 @@
 Date: 2026-05-09
 Last consistency pass: 2026-07-06 (docset v10.7 + same-day addendum; first-principles spec audit, statistics plan, pid-rs 0.4.0 adoption — see CHANGELOG "Docset v10.7")
 
+> **2026-07-10 status:** the detailed perspective sections below are historical and contain
+> stale implementation claims. Use the current `grandplan.md` corrective addendum,
+> `findings.md`, `AGENTS.md`, and the dated code-review artifact under `docs/` for active
+> status. The current critical path is not simply “capture”: MI is NO-GO on the high-d
+> controls; the continuous-`I^sx` gate is not validated; H1 local features/baselines and the
+> nested power design are missing; and the code review records NCP, bridge, artifact, and
+> provenance blockers.
+
 This document records a whole-repo review of the prisoma repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism. The opening review has been updated after the follow-up implementation passes; older risks that were fixed are called out as fixed rather than left as current failures.
 
 **Docset-wide final solution:** `grandplan.md` §A.8 records the current ten-scientist consensus. The run log is the source of truth, Rerun is the Phases 1–3 diagnostic/time-machine viewer, Agent Bridge is the only control plane, and Tauri/SparkJS is the deferred Phase 4 control/editor/custom-rendering shell.
@@ -11,14 +19,17 @@ This document records a whole-repo review of the prisoma repository from ten sci
 
 The repository is strongest as a **research specification plus a small, serious Rust estimator/run-log core**. The documentation is intentionally self-critical and correctly treats PID-on-VLA as a gated hypothesis rather than a proven method. The implemented Rust workspace, Python extension smoke tests, run-log/replay pipeline, deterministic bridge/sim smokes, toy harness, and offline `(V,L,D,A)` artifact harness all have automated coverage.
 
-The main current risks are:
+The main current risks (superseded/updated 2026-07-10) are:
 
-1. Experiment 0 is now stricter and visible, the uncertainty machinery now exists (Exp0 `--bootstrap`/`--permutation`; pid-rs 0.4.0 true moving-block bootstrap), but the repo still needs a validated measurement regime that passes the gates — Exp0 on synthetic high-d controls is NO-GO under pid-rs 0.4.0 (PIVOT under 0.3.0).
-2. There is still no real VLA capture/extraction/failure-label pipeline; the offline harness converts already-captured embeddings into canonical artifacts.
+1. High-d MI/coherence is NO-GO; continuous `I^sx` is NOT VALIDATED because Exp0 needs a
+   measure-specific gate. The m-out-of-n output is a stability envelope, not a calibrated CI.
+2. SAFE conversion exists, but evidentiary capture is blocked on H1 local scores/baselines,
+   frozen perturbation transforms, task eligibility, and a nested power design.
 3. Python packaging is wired for local Maturin builds and tested, but the Python API is not yet a stable public interface.
 4. `pid-rerun` is useful for validated run-log conversion and diagnostics, but remains a prototype viewer adapter rather than the full Phase 1–3 diagnostic product.
 5. `meshmaker/` was quarantined out of tracking 2026-06-13 (tombstone README only); release residual: `api_keys.txt` must live outside the tree. The orphaned asset reports `FINAL_INTEGRITY_REPORT.md`/`GENERATION_REPORT.md` were deleted 2026-07-06.
-6. The docs are now aligned to the current implementation, but the target architecture is still intentionally larger than the implemented repo.
+6. The 2026-07-10 audit found substantive doc drift despite green heuristic audits; companion
+   docs and audit enforcement are being corrected in the same change.
 
 ## Verification Snapshot
 

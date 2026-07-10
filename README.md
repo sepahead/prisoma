@@ -37,7 +37,9 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 
 ## Prerequisites
 
-- **Rust** — a stable toolchain that satisfies the workspace MSRV of **1.88** (required by the pinned `rerun 0.28`). Install via [rustup](https://rustup.rs/).
+- **Rust** — a stable toolchain new enough for the current local dependency graph (Rerun
+  0.28 declares Rust 1.88). The root workspace does not currently declare an enforced MSRV;
+  the separate `pid-rs` workspace targets 1.80. Install via [rustup](https://rustup.rs/).
 - **Git submodule** — `git submodule update --init` after cloning (fetches `pid-rs`, the estimator core). There are no nested submodules, so `--recursive` is not required. The submodule URL is SSH (`git@github.com:sepahead/pid-rs.git`); if you cloned over HTTPS without SSH keys, either configure SSH or add a `git config --global url."https://github.com/".insteadOf git@github.com:` rewrite first.
 - **Python 3.11+** with [`uv`](https://docs.astral.sh/uv/) — only for the `experiments/` (SAFE adapter + attribution probe) and the doc-audit scripts. `numpy` is the sole hard runtime dep; `uv sync` installs the dev/analysis groups.
 - **`just`** (optional) — a task runner; every `just` recipe below has a plain `cargo`/`python` equivalent. Install with `cargo install just`.
@@ -51,14 +53,26 @@ cargo test --workspace
 cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0   # prints the GO/PIVOT/NO-GO verdict
 ```
 
-## Current Status & What To Do, In Order (v10.7, 2026-07-06)
+## Current Status & What To Do, In Order (v10.7 corrective audit, 2026-07-10)
 
 **Status at a glance:**
 
-- **Implemented and green:** the Rust estimator core, run-log/replay/bridge/sim/Rerun groundwork, and the offline `(V,L,D,A)` harness, all with passing tests. The estimator/screen side is wired end to end: Exp0 carries an opt-in uncertainty gate (`--bootstrap`/`--permutation` with a preregistered marginal-significance check); the offline harness ships a SAFE-class logistic-regression failure detector alongside the other non-PID baselines; a real Rapier3D manipulation produces physics-derived labels + `Flow_gt`; `experiments/safe_adapter/` converts released SAFE VLA rollouts into the harness contract (the M5 capture shortcut) with honest per-axis `{v,l,d,a}_provenance` markers; and `experiments/attribution/` is a faithfulness-checked H9 attribution probe.
-- **Gate verdict:** Experiment 0 reports **NO-GO** on synthetic high-dimensional controls (under pid-rs 0.4.0's bias-corrected diagnostics; PIVOT under 0.3.0) — that is the gate *working*, not a bug (`findings.md`): continuous kNN PID atoms are not interpretable on raw high-d embeddings.
+- **Implemented, with passing baseline tests:** the Rust estimator, run-log/replay,
+  bridge/sim/Rerun groundwork, offline `(V,L,D,A)` harness, Rapier manipulation, SAFE adapter,
+  and reference attribution probe. Passing tests establish current behavior, not production or
+  scientific validity; the dated code review lists unresolved integrity/security blockers.
+- **Two estimator statuses:** the high-dimensional **MI/coherence gate is NO-GO**. The
+  continuous **`I^sx_∩` gate is NOT VALIDATED**: default Exp0 includes a known-wrong
+  zero-redundancy target for the adopted measure, while `--strict-gate` enforces the curated
+  low-dimensional MI band and only reports atoms. See `findings.md`; never quote the binary's
+  aggregate label as an atom-validity verdict.
 - **Recent docset slices** (research status unchanged throughout): **v10.6** (2026-07-05) was correctness/robustness — CI resurrected after an invalid-YAML workflow had silently created zero jobs since 2026-06-13, Agent Bridge and offline-harness run-log paths hardened, `crates/ncp-observer` brought toward the M5 bar (`CHANGELOG.md`). **v10.7** (2026-07-06) is a first-principles spec audit + statistics plan — math/precision corrections (one outright error fixed: findings.md's δ-hyperbolicity direction was backwards), a hardened hypothesis system (H7a/H7b split, H5 operationalized, discrete-regime preregistration, the new `grandplan.md` §14.8 statistical analysis plan and §9.7.2b H2/H3 protocol), a July-2026 literature refresh (`grandplan.md` §12.6 — novelty re-verified: still no published PID-on-VLA anywhere; VLA-Arena is now ICML 2026 — re-verify at submission), and NCP pin prose synced to v0.6.0. A same-day triple-check addendum then repaired the new statistical content under hostile review (endpoint units, regime multiplicity, placebo criterion — see the grandplan v10.7 addendum bullet) and re-pinned the pid-rs submodule to the new upstream **v0.4.0** (correctness release; this is what moved the Exp0 verdict label from PIVOT to NO-GO).
-- **Open critical path:** running the analysis on **real downloaded VLA data**. The adapter, the dataset-level PID screens, the baselines, and the attribution probe are in place — but no real-VLA capture result exists yet, and the **H1 primary-endpoint machinery still has to be written** before any H1–H5 verdict can be computed: per-episode/windowed PID features, the held-out episode-level ΔAUROC endpoint with paired block bootstrap (`grandplan.md` §14.8.1), and the §14.8.3 power-analysis script (`REVIEW_AND_TODO.md`, `docs/AUDIT-2026-07-09.md` item 9).
+- **Open critical path:** do **not** begin an evidentiary real-VLA capture yet. Required first:
+  repair upstream `ISX_GATE`; implement leakage-safe episode-local H1 scores plus action-
+  entropy and ensemble/temperature baselines; freeze transforms and task eligibility for
+  H2–H4; and replace the implemented idealized power sensitivity tool with the nested capture
+  design in §14.8.3. The first power report is overall NOT PASSED and its task/case counts are
+  withdrawn as capture requirements.
 
 ```mermaid
 flowchart LR
@@ -66,10 +80,10 @@ flowchart LR
     classDef gate fill:#e65100,stroke:#ef6c00,color:#fff;
     classDef blocked fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
 
-    Exp0["Exp0 gate<br/>NO-GO verdict<br/>(runnable: just exp0-bin)"]:::gate
+    Exp0["Exp0 diagnostics<br/>MI: NO-GO; I^sx: NOT VALIDATED<br/>(runnable: just exp0-bin)"]:::gate
     Harness["Offline (V,L,D,A) harness<br/>+ baselines + attribution<br/>+ axis-provenance gate ENFORCED<br/>(runnable today)"]:::run
     Adapter["safe_adapter → contract<br/>honest provenance<br/>(runnable: just safe-adapter)"]:::run
-    Capture["OPEN CRITICAL PATH<br/>real downloaded VLA capture<br/>(NOT done)"]:::blocked
+    Capture["OPEN CRITICAL PATH<br/>gate + endpoint + power repairs,<br/>then real VLA capture"]:::blocked
     Exps["Exp1–Exp5 protocols<br/>(blocked on capture)"]:::blocked
 
     Exp0 --> Harness
@@ -78,15 +92,23 @@ flowchart LR
     Capture -. blocks .-> Exps
 ```
 
-*Caption: What runs today (green/orange) vs what is blocked (red, dashed). The Exp0 gate and full analysis/adapter path are runnable now; Exp1–Exp5 remain blocked on the still-open real-VLA capture.*
+*Caption: Runnable plumbing is not a scientific pass. Exp1–Exp5 remain blocked on estimator,
+endpoint, power, and then capture prerequisites.*
 
 Each step gates the next; canonical depth is in `grandplan.md` at the cited sections.
 
-1. **Verify the toolchain and see the gate fire:** `cargo test`, then `just exp0` / `just exp0-bin`. `just exp0` runs the estimator smoke tests; **`just exp0-bin` prints the actual GO/PIVOT/NO-GO verdict** (currently `NO-GO` on the synthetic high-d diagnostics under pid-rs 0.4.0 — read `findings.md` for why). Gate criteria: `grandplan.md` §9.1.
+1. **Verify the toolchain and inspect diagnostics:** `cargo test`, then `just exp0` /
+   `just exp0-bin`. The printed aggregate is diagnostic output, not a valid `I^sx` verdict;
+   the current split status is MI NO-GO / `I^sx` NOT VALIDATED (§9.1, `findings.md`).
 2. **Learn the measurement-regime rules before touching real data:** one (PID measure, preprocessing, estimator config) tuple = one preregistered regime; never pool or compare continuous `I^sx_∩` atoms with discrete `I_min` atoms as if they were one quantity (`grandplan.md` Warning 6 + §8.1.6); supervised projections (PLS) are fit on training samples only and re-gated (§8.2.3 step 5).
-3. **Exercise the full pipeline on checked fixtures:** `just toy-harness`, `just offline-harness`, then the strict and discrete variants (`offline-harness-strict`, `offline-harness-discrete`, `offline-harness-discrete-pls`). Note: `just offline-harness-strict` *asserts an expected failure* — the harness invocation exits nonzero on the tiny fixture (by design, demonstrating `--require-geometry-pass` fails closed), and the recipe wraps that assertion so the recipe itself exits 0; the discrete runs show `saturation_warning=true`, also by design.
-4. **Capture real data (open critical path; M5):** pick one model + one task via the decision matrix in `grandplan.md` §10.10.13.3; choose the `D` hook layer by the layerwise physics-probe procedure (§7.6.3) *before* geometry gating; log `(V,L,D,A)` with success labels, `episode_id`s, and a train/test split in the offline-harness input schema (below). The fastest path is implemented: `experiments/safe_adapter/` converts released SAFE rollouts (`vla-safe/SAFE`; OpenVLA + π0-FAST, with outcomes — verify tensors/licenses) into this contract, with honest per-variable provenance and the §7.6.3 hook-probe (`python -m experiments.safe_adapter`, or `just safe-adapter`). For a physics task instead, the real Rapier3D manipulation (`just rapier-harness`) emits labels + `Flow_gt`.
-5. **Analyze under the gates:** run the harness on the capture; geometry + coherence gates select continuous vs discrete vs MI-only screening (H8); report **all** regimes attempted; quantify uncertainty with the built-in opt-in `--bootstrap N --permutation N` flags (written to a dedicated `--uncertainty-json` file so the canonical run-log counts are untouched), or call the `pid-core` helpers (`bootstrap_rows_stats`/`permutation_rows_pvalue`) directly.
+3. **Exercise plumbing on checked fixtures:** strict geometry and discrete fixtures intentionally
+   warn/fail. Their thresholds are not validated scientific gates, and discrete saturation is
+   currently advisory rather than a strict failure path.
+4. **Prepare, but do not treat as evidentiary capture yet:** the SAFE adapter and Rapier path
+   can exercise the contract. H1–H4 capture waits for the blockers above.
+5. **Analyze only after gates exist:** geometry diagnostics do not currently select a valid
+   regime. The m-out-of-n raw percentile output is a stability envelope at size m, not an
+   n-sample confidence interval; endpoint inference must resample the correct outer units.
 6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (surfaced under the `heldout_logreg_vlda_success_*` metric names) are built into the harness; add one faithfulness-checked attribution probe (`experiments/attribution/`, the §14.7.1 AttnLRP protocol; `just attribution-probe`). The preregistered kill criteria (§14.1.1) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
 7. **Only then** run the Exp1–Exp5 protocols in `EXPERIMENTS.md` (see its §0.2 runbook for what is executable today vs blocked on step 4).
 
@@ -96,14 +118,14 @@ The canonical registry + falsification criteria live in `grandplan.md` (§14.1, 
 
 | Hypothesis | One‑line testable claim | Status | Real robotics problem addressed |
 |---|---|---|---|
-| **H1** | PID/CI features predict failure labels beyond strong baselines. | Core | Failure triage at fleet scale (frontier generalists still fail most episodes; teams triage by watching videos) |
+| **H1** | PID/CI features predict failure labels beyond strong baselines. | Blocked: local scores + two baselines | Failure triage at fleet scale |
 | **H2** | Redundancy predicts robustness to single‑modality ablation (matched controls). | Exploratory | Forecasting which skills degrade when a sensor/modality degrades, before it happens in the field |
 | **H3** | Uniques predict intervention sensitivity (matched‑strength perturbations). | Exploratory | Targeted data collection: spend teleop budget on the modality that actually moves behavior |
 | **H4** | Memorization vs generalization induces systematic PID/CI shifts. | Core | Pre-deployment generalization certification (VLA-Arena: current VLAs memorize) |
 | **H5** | Long‑horizon failures correlate with temporal PID/CI degradation. | Core (CI-only ablation mandatory) | Early warning for compositional drift in multi-stage tasks (kitting/assembly) |
 | **H6** | Safety tasks show distinctive V–L integration patterns (only with proper labels/controls). | Deferred | Safety-case evidence (needs proper labels first) |
 | **H7** | Split (v10.7): **H7a** — the flow bridge enables stage‑wise diagnostics and embodiment‑agnostic comparisons (method, judged by acceptance criteria); **H7b** — `Syn(V,D;A)` tracks world‑model quality independent of execution success (falsifiable). | Core (H7a method + H7b hypothesis) | Cross-embodiment porting diagnosis: world-model failure vs execution failure |
-| **H8** | Geometry diagnostics determine which estimator regime is valid. | Core (method) | Trustworthy metrics: don't ship estimator artifacts to dashboards |
+| **H8** | A calibrated geometry/regime classifier predicts oracle-defined estimator validity on held-out controls. | Core method; blocked on calibration | Trustworthy metrics: don't ship estimator artifacts to dashboards |
 | **H9** | Faithfulness-checked attribution probes (LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style) should triangulate, or falsify, PID-derived modality/stage claims. | Triangulation | Audit-grade incident explanations from converging evidence |
 
 PID is **forced nowhere**: `grandplan.md` §14.1.1 records, per hypothesis, the cheapest non-PID alternative, what PID distinctively adds, and the preregistered kill criteria that downgrade or drop PID-atom claims when simpler quantities suffice. Attribution methods are comparison evidence, not a shortcut around PID validity: they explain one model call or concept direction, while PID/CI estimates distribution-level information across logged samples. Disagreement under controlled interventions is itself a diagnostic result.
@@ -132,9 +154,20 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In brief:
 
 - **Implemented (Rust, in `pid-rs/` submodule):** `pid-core` (KSG MI with an optional exact-parallel `parallel` feature, continuous `I^sx_∩`, PLS supervised reduction, discrete 2-/3-source `I_min` PID + saturation diagnostics, genuine discrete SxPID `i^sx_∩` in `sxpid.rs` (2–4 sources) — *not yet wired into the offline harness*, block bootstrap, `bootstrap_rows_stats`/`permutation_rows_pvalue`, an L2 logistic classifier, and a `pipeline.rs` composition layer), `pid-python` (`pid_core_rs`; **18 exported functions**), and `pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest/sidecar CLI).
-- **Implemented (Rust, local crates):** `pid-bridge` (Agent Bridge request/response dispatch + JSON-RPC conversion + contract export), `pid-sim` (deterministic object sim + a real `rapier3d-f64` backend behind the `rapier` feature + a scripted push-to-goal manipulation with physics-derived labels and `Flow_gt`; stdio/TCP/WebSocket JSON-RPC bridges; safe-mode `log.replay`; deterministic `intervention.apply`; `export.rerun`; the toy VLA harness; and the offline `(V,L,D,A)` embedding harness with all-pairs `V/L/D→A` PID screens, standardization provenance, geometry gates, strict fail-closed modes, and the full non-PID baseline suite), and `pid-rerun` (run-log→Rerun conversion + validated replay adapter, incl. the H9 `attribution_logged` surfacing).
+- **Implemented (Rust, local crates):** `pid-bridge` (Agent Bridge dispatch/JSON-RPC-shaped
+  conversion/contract export), `pid-sim` (deterministic sim, real optional Rapier backend,
+  manipulation harness, transports, and offline VLDA screens), and `pid-rerun`. Implemented
+  baselines are majority, 1-NN, nearest-centroid, and held-out logistic regression; action
+  predictive entropy and ensemble/temperature uncertainty are still missing. The code review
+  also identifies network-authentication, transactional logging, reconstructability, and
+  artifact-integrity work before production use.
 - **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **critical-path producer is `experiments/safe_adapter/`**; `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth** (`grandplan.md` §7.6.3).
-- **Optional Engram bridge:** `crates/ncp-observer` is a read-only NCP tap turning an Engram/NEST session into another `(V,L,D,A)` source. It is **not on the critical path**, is **kept off the default cargo workspace** (it git-depends on the published NCP repo <https://github.com/sepahead/NCP>, tag v0.6.0, and pulls Zenoh; build via `cargo build --manifest-path crates/ncp-observer/Cargo.toml`), and is **exploratory-only** until the external Engram publisher stamps observation `seq` (which NCP wire 0.6 now makes normative and the observer enforces on ingress) and provides honest `L` + split/episode/label structure. As of v10.6 its emitted run log validates, it registers the dataset artifact, and it is D-reorder-, reset-, and SIGTERM-safe. The pure-PID stack builds and gates green with **no NCP/Engram/Zenoh dependency**. Bringing it up to the M5 bar is a self-contained task — `NCP_DEV_PROMPT.md`.
+- **Optional Engram bridge:** `crates/ncp-observer` is a read-only NCP v0.6.0 tap, excluded
+  from the default workspace and off the critical path. It emits validating smoke logs and an
+  artifact, but remains exploratory: audit found a future-D recency fallback, late-patch
+  run-log/artifact divergence, swallowed append/hash failures, and destructive pre-write
+  finalization. It also lacks honest L/split/episode/label structure. Do not use it as an M5
+  producer until those integrity findings and external sequence alignment are fixed.
 - **Specified (not yet built):** a fuller Rerun-based diagnostic viewer (Phases 1-3) and the deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start — Exp0 Gate
@@ -180,7 +213,13 @@ just offline-harness-discrete
 just offline-harness-discrete-pls
 ```
 
-**PID estimator modes** (`--pid-mode`): `continuous` (default; KSG + continuous `I^sx_∩`), `discrete` (equal-width quantization + a Williams–Beer-style `I_min` redundancy — a *different* PID measure; see `grandplan.md` §8.1.6), and `discrete-pls` (PLS-project `V/L/D` toward `A`, then discrete PID; `--pls-components N`). Discrete modes attach per-pair `discrete_saturation` diagnostics; pairs with `saturation_warning=true` are estimator artifacts, not evidence (expected on the tiny checked fixtures).
+**PID estimator modes** (`--pid-mode`): `continuous`, `discrete` (`I_min`, a different
+measure), and `discrete-pls`. PLS selection accepts `--pls-components N|cv|cv:MAX`; all fitted
+transforms still need a frozen train-fit/apply-held-out scientific path. Discrete saturation
+warnings mark non-evidence but do not currently fail the CLI, so discrete mode is not an
+active-regime gate. Permutation choices are `--permutation-scheme
+full-shuffle|circular-shift`: full shuffle assumes IID/exchangeable rows; circular shift
+requires an approximately stationary series and is not a grouped-episode null.
 
 **Input schema.** A JSON object with optional `run_id`/`source`/`model`/`task` and a `samples` array. Each sample carries `sample_id`, optional `episode_id`, numeric `v`/`l`/`d`/`a` vectors, optional `labels`, and optional string `metadata`. `metadata.split` values recognized as **train**: `train`, `training`; as **held-out**: `test`, `validation`, `val`, `eval`, `evaluation`, `heldout`, `holdout`, `held_out`, `hold_out`.
 
@@ -222,6 +261,10 @@ just runlog-bridge-export-rerun
 ```
 
 > **Note:** `just runlog-bridge-tcp` and `just runlog-bridge-ws` start a server that **blocks waiting for one client to connect** — they do not self-terminate. Run them in a separate terminal and connect a client (the CI job in `.github/workflows/ci.yml` shows a minimal Python client for each). They are omitted from the list above for that reason.
+
+> **Security note:** TCP/WebSocket transports are development smokes, not hardened remote
+> control planes. They currently lack authentication/origin enforcement and should remain
+> loopback-only and safe-mode until the dated code-review findings are fixed.
 
 **Safe mode.** The Agent Bridge read-only safe mode allows only the two non-mutating methods, `sim.status` and `log.replay`. Every mutating method — `sim.step`, `sim.reset`, `scene.set_object`, `intervention.apply`, `log.start`, `log.stop`, and file-writing `export.rerun` — is logged as a blocked bridge error response. Outside safe mode, `intervention.apply` supports deterministic `set_velocity`, `translate_object`, and `set_pose`; `log.stop` finalizes the run log; `export.rerun` converts a validated run log to a `.rrd` recording (and refuses to overwrite the session's own run log). `pid-sim-bridge-tcp` exposes newline-delimited JSON-RPC on localhost; `pid-sim-bridge-ws` exposes JSON-RPC over a local RFC6455 WebSocket. Both write canonical run logs and finalize (with `run_ended`) even on a transport error.
 

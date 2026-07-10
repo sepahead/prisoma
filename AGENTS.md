@@ -20,10 +20,12 @@ being true as the code moves).
    it (current docset: **v10.7**). The Rerun/Tauri/SparkJS decision record is `grandplan.md`
    §A.8; the hypothesis registry and falsifiability contracts are §14.1; the preregistered
    statistical analysis plan is §14.8.
-2. **Gate discipline.** Do not interpret PID atoms on real embeddings until the Exp0 +
-   geometry gates pass (Exp0 currently reports **NO-GO** on synthetic high-d controls — stricter
-   under pid-rs 0.4.0's bias-corrected diagnostics, PIVOT under 0.3.0; that
-   is the gate working, see `findings.md`). One (PID measure, preprocessing, estimator
+2. **Gate discipline.** Do not interpret PID atoms on real embeddings. The current high-d
+   **MI/coherence gate is NO-GO**, while the automated continuous-`I^sx_∩` gate is **NOT
+   VALIDATED**: default Exp0 includes a known-wrong zero-redundancy target for the adopted
+   measure, and `--strict-gate` gates the curated low-d MI band while only reporting atoms.
+   Geometry diagnostics are not a substitute; sampled-mean δ is descriptive only. See
+   `findings.md` and `grandplan.md` §9.1. One (PID measure, preprocessing, estimator
    config) tuple = one preregistered regime; never pool continuous `I^sx_∩` atoms with
    discrete `I_min` atoms (`grandplan.md` Warning 6 + §8.1.6).
 3. **Honesty over roadmap.** No hard-coded performance, cost, or roadmap claims unless backed
@@ -57,14 +59,15 @@ being true as the code moves).
   quantization with a Williams–Beer-style `I_min` minimum-specific-information redundancy —
   **not** discrete `i^sx_∩` (pid-core 0.3.0 additionally ships a genuine discrete `i^sx_∩`
   in `sxpid.rs` for 2–4 sources, but it is **not yet wired into the offline harness**; see
-  `grandplan.md` §8.1.6) — block-bootstrap uncertainty quantification, a `pipeline.rs`
+  `grandplan.md` §8.1.6) — block resampling plus an m-out-of-n **stability envelope** (not an
+  n-sample CI), a `pipeline.rs`
   composition layer (PLS→PID3, per-atom bootstrap CIs, single-source permutation tests,
   LOO-CV PLS component selection, all-pairs PID2 screening, generic
   `bootstrap_rows_stats`/`permutation_rows_pvalue` row-resampling helpers), an
   L2-regularized logistic-regression classifier (`logistic.rs`, Newton-IRLS), geometry and
   intrinsic-dimension diagnostics, and the Experiment 0 runner (`bin/exp0.rs`) with a
-  `--strict-gate` flag for CI enforcement and the opt-in `--bootstrap`/`--permutation`
-  uncertainty gate.
+  `--strict-gate` flag for curated low-d-band CI enforcement plus opt-in resampling and
+  permutation diagnostics. Repair its separate MI/atom verdicts upstream in `pid-rs`.
 - **`pid-python`** — PyO3 bindings (`pid_core_rs`; 18 exported functions, including
   `compute_pid3`, `compute_discrete_pid2`/`3`, the three 0.3.0
   `compute_discrete_sxpid2`/`3`/`_n` (n = 2–4), `pls_transform`, `standardize`,
@@ -145,12 +148,12 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
 - **Off the critical path:** an optional `(V,L,D,A)` source only — grandplan does not depend
   on Engram; the M5 critical path is `experiments/safe_adapter`, and the pure-PID stack
   builds/tests/gates green with no NCP/Engram/Zenoh dependency.
-- **Current state (as of docset v10.6):** emits a **validating** run log (monotonic clock;
-  contract deferred to the first fully-populated sample; empty-axis ticks excluded and
-  counted), **registers the dataset artifact** (`ArtifactLogged` + sha256), handles D
-  **arrival reordering** (grace window + `seq_late` patch), is **reset-safe** (FIFO
-  eviction + epochs), finalizes on **SIGTERM/SIGHUP**, and reports capture quality
-  (`ObserverStats`).
+- **Current state (audited 2026-07-10):** emits validating smoke logs and registers an
+  artifact, but is not integrity-safe for evidence. A future-D recency fallback can align
+  seq N+1 to sample N; late artifact patches lack correction events in the canonical log;
+  append/hash failures can be swallowed; and finalization clears buffered samples before a
+  durable artifact write. Treat it as exploratory until these dated code-review findings are
+  fixed and tested.
 - **Still exploratory-only** (below the M5 contract) until the external Engram publisher
   stamps observation `seq` (so D is exactly aligned, not recency-fallback), a language
   channel is present (so `L` is real, not excluded), and `metadata.split`/`episode_id`/
@@ -194,7 +197,7 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
   - `just offline-harness-require-heldout-episode-disjoint` — exercises `--require-heldout-episode-disjoint`; the checked fixture has disjoint train/test `episode_id` sets and passes.
   - `just offline-harness-strict` — exercises `--require-geometry-pass`; the checked fixture is *expected* to exit nonzero while writing a valid failed run log (fail-closed demonstration).
   - `just offline-harness-highdim` — the high-dimensional synthetic fixture (v=128, l=64, d=32, a=7, 48 samples).
-  - `just offline-harness-discrete` — `--pid-mode discrete --discrete-bins 8` (quantized `I_min` PID with per-pair `discrete_saturation` diagnostics; expect `saturation_warning=true` on the tiny smoke fixtures — that is the §8.1.6 gate working).
+  - `just offline-harness-discrete` — `--pid-mode discrete --discrete-bins 8` (quantized `I_min` PID with per-pair `discrete_saturation` diagnostics; expect `saturation_warning=true` on the tiny smoke fixtures. The warning is advisory today, so the strict fail-closed gate remains unimplemented).
   - `just offline-harness-discrete-pls` — `--pid-mode discrete-pls --pls-components 2 --discrete-bins 8` on the high-dim fixture (PLS-project sources toward `A`, then discrete PID).
 - Run-log smoke:
   - `just bridge-contract`

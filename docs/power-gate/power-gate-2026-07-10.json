@@ -1,4 +1,5 @@
 {
+  "schema_version": "2.0",
   "config": {
     "h1_episodes_grid": [
       40,
@@ -40,6 +41,7 @@
     ],
     "h3_mean_tau": 0.3333333333333333,
     "h3_family_size": 4,
+    "h3_family_icc": 0.3,
     "n_boot": 500,
     "replicates": 400,
     "alpha": 0.05,
@@ -302,90 +304,90 @@
       "replicates": 400
     }
   ],
-  "h2h4": [
+  "h2": [
     {
       "n_units": 8,
       "effect": 0.3,
-      "significance_rate": 0.435,
-      "power": 0.435,
+      "significance_rate": 0.45,
+      "power": 0.45,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.29285714285714287,
+      "mean_point_estimate": 0.3052380952380954,
       "replicates": 400
     },
     {
       "n_units": 12,
       "effect": 0.3,
-      "significance_rate": 0.395,
-      "power": 0.395,
+      "significance_rate": 0.4075,
+      "power": 0.4075,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.2644405594405595,
+      "mean_point_estimate": 0.2757692307692306,
       "replicates": 400
     },
     {
       "n_units": 16,
       "effect": 0.3,
-      "significance_rate": 0.3025,
-      "power": 0.3025,
+      "significance_rate": 0.32,
+      "power": 0.32,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.25709558823529444,
+      "mean_point_estimate": 0.2684926470588238,
       "replicates": 400
     },
     {
       "n_units": 24,
       "effect": 0.3,
-      "significance_rate": 0.4175,
-      "power": 0.4175,
+      "significance_rate": 0.4525,
+      "power": 0.4525,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.28378478260869594,
+      "mean_point_estimate": 0.29596304347826075,
       "replicates": 400
     },
     {
       "n_units": 32,
       "effect": 0.3,
-      "significance_rate": 0.4875,
-      "power": 0.4875,
+      "significance_rate": 0.52,
+      "power": 0.52,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.2772653958944282,
+      "mean_point_estimate": 0.28963526392961886,
       "replicates": 400
     },
     {
       "n_units": 48,
       "effect": 0.3,
-      "significance_rate": 0.655,
-      "power": 0.655,
+      "significance_rate": 0.6775,
+      "power": 0.6775,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.28085730568823297,
+      "mean_point_estimate": 0.29331198436821543,
       "replicates": 400
     },
     {
       "n_units": 64,
       "effect": 0.3,
-      "significance_rate": 0.7775,
-      "power": 0.7775,
+      "significance_rate": 0.805,
+      "power": 0.805,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.28699668040293036,
+      "mean_point_estimate": 0.29953445512820515,
       "replicates": 400
     },
     {
       "n_units": 96,
       "effect": 0.3,
-      "significance_rate": 0.895,
-      "power": 0.895,
+      "significance_rate": 0.9275,
+      "power": 0.9275,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.28510706049918605,
+      "mean_point_estimate": 0.2977061177428103,
       "replicates": 400
     },
     {
       "n_units": 128,
       "effect": 0.3,
-      "significance_rate": 0.94,
-      "power": 0.94,
+      "significance_rate": 0.95,
+      "power": 0.95,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.283930098081853,
+      "mean_point_estimate": 0.2964899543352865,
       "replicates": 400
     }
   ],
-  "h2h4_null": [
+  "h2_null": [
     {
       "n_units": 8,
       "effect": 0.0,
@@ -472,37 +474,37 @@
     {
       "n_units": 20,
       "effect": 0.3333333333333333,
-      "significance_rate": 0.7775,
-      "power": 0.7775,
+      "significance_rate": 0.6825,
+      "power": 0.6825,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.3225,
+      "mean_point_estimate": 0.3305,
       "replicates": 400
     },
     {
       "n_units": 30,
       "effect": 0.3333333333333333,
-      "significance_rate": 0.9125,
-      "power": 0.9125,
+      "significance_rate": 0.8175,
+      "power": 0.8175,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.3315000000000003,
+      "mean_point_estimate": 0.3382777777777782,
       "replicates": 400
     },
     {
       "n_units": 40,
       "effect": 0.3333333333333333,
-      "significance_rate": 0.9525,
-      "power": 0.9525,
+      "significance_rate": 0.86,
+      "power": 0.86,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.33020833333333327,
+      "mean_point_estimate": 0.3315416666666667,
       "replicates": 400
     },
     {
       "n_units": 60,
       "effect": 0.3333333333333333,
-      "significance_rate": 1.0,
-      "power": 1.0,
+      "significance_rate": 0.96,
+      "power": 0.96,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.3249999999999996,
+      "mean_point_estimate": 0.3342499999999999,
       "replicates": 400
     }
   ],
@@ -510,19 +512,19 @@
     {
       "n_units": 20,
       "effect": 0.0,
-      "significance_rate": 0.0775,
-      "power": 0.0775,
+      "significance_rate": 0.085,
+      "power": 0.085,
       "futility_rate": 0.0,
-      "mean_point_estimate": -0.017833333333333333,
+      "mean_point_estimate": -0.010916666666666677,
       "replicates": 400
     },
     {
       "n_units": 30,
       "effect": 0.0,
-      "significance_rate": 0.0725,
-      "power": 0.0725,
+      "significance_rate": 0.1025,
+      "power": 0.1025,
       "futility_rate": 0.0,
-      "mean_point_estimate": -0.0025000000000000022,
+      "mean_point_estimate": 0.0056111111111111075,
       "replicates": 400
     },
     {
@@ -531,44 +533,261 @@
       "significance_rate": 0.0675,
       "power": 0.0675,
       "futility_rate": 0.0,
-      "mean_point_estimate": -0.00858333333333333,
+      "mean_point_estimate": -0.000583333333333333,
       "replicates": 400
     },
     {
       "n_units": 60,
       "effect": 0.0,
+      "significance_rate": 0.06,
+      "power": 0.06,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.0002500000000000014,
+      "replicates": 400
+    }
+  ],
+  "h4": [
+    {
+      "n_units": 8,
+      "effect": -0.3,
+      "significance_rate": 0.4,
+      "power": 0.4,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.2867857142857143,
+      "replicates": 400
+    },
+    {
+      "n_units": 12,
+      "effect": -0.3,
+      "significance_rate": 0.415,
+      "power": 0.415,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.2875699300699302,
+      "replicates": 400
+    },
+    {
+      "n_units": 16,
+      "effect": -0.3,
+      "significance_rate": 0.3925,
+      "power": 0.3925,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.2866397058823529,
+      "replicates": 400
+    },
+    {
+      "n_units": 24,
+      "effect": -0.3,
+      "significance_rate": 0.4575,
+      "power": 0.4575,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.3056891304347826,
+      "replicates": 400
+    },
+    {
+      "n_units": 32,
+      "effect": -0.3,
+      "significance_rate": 0.5075,
+      "power": 0.5075,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.28014296187683285,
+      "replicates": 400
+    },
+    {
+      "n_units": 48,
+      "effect": -0.3,
+      "significance_rate": 0.67,
+      "power": 0.67,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.28889817629179326,
+      "replicates": 400
+    },
+    {
+      "n_units": 64,
+      "effect": -0.3,
+      "significance_rate": 0.7575,
+      "power": 0.7575,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.294663118131868,
+      "replicates": 400
+    },
+    {
+      "n_units": 96,
+      "effect": -0.3,
+      "significance_rate": 0.9,
+      "power": 0.9,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.2908696758003257,
+      "replicates": 400
+    },
+    {
+      "n_units": 128,
+      "effect": -0.3,
+      "significance_rate": 0.9825,
+      "power": 0.9825,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.29838888825306736,
+      "replicates": 400
+    }
+  ],
+  "h4_null": [
+    {
+      "n_units": 8,
+      "effect": 0.0,
+      "significance_rate": 0.2075,
+      "power": 0.2075,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.009107142857142852,
+      "replicates": 400
+    },
+    {
+      "n_units": 12,
+      "effect": 0.0,
+      "significance_rate": 0.11,
+      "power": 0.11,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.030332167832167842,
+      "replicates": 400
+    },
+    {
+      "n_units": 16,
+      "effect": 0.0,
+      "significance_rate": 0.0975,
+      "power": 0.0975,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.006198529411764701,
+      "replicates": 400
+    },
+    {
+      "n_units": 24,
+      "effect": 0.0,
       "significance_rate": 0.08,
       "power": 0.08,
       "futility_rate": 0.0,
-      "mean_point_estimate": 0.0015555555555555568,
+      "mean_point_estimate": 0.010234782608695668,
+      "replicates": 400
+    },
+    {
+      "n_units": 32,
+      "effect": 0.0,
+      "significance_rate": 0.0575,
+      "power": 0.0575,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.004149560117302048,
+      "replicates": 400
+    },
+    {
+      "n_units": 48,
+      "effect": 0.0,
+      "significance_rate": 0.0675,
+      "power": 0.0675,
+      "futility_rate": 0.0,
+      "mean_point_estimate": 0.004245820668693002,
+      "replicates": 400
+    },
+    {
+      "n_units": 64,
+      "effect": 0.0,
+      "significance_rate": 0.055,
+      "power": 0.055,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.005645375457875459,
+      "replicates": 400
+    },
+    {
+      "n_units": 96,
+      "effect": 0.0,
+      "significance_rate": 0.0675,
+      "power": 0.0675,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.006813042593597397,
+      "replicates": 400
+    },
+    {
+      "n_units": 128,
+      "effect": 0.0,
+      "significance_rate": 0.0625,
+      "power": 0.0625,
+      "futility_rate": 0.0,
+      "mean_point_estimate": -0.007450029184215346,
       "replicates": 400
     }
   ],
   "verdicts": [
     {
+      "endpoint_id": "h1",
       "endpoint": "H1 incremental ΔAUROC",
+      "dgp_tag": "h1_binormal_incremental_auroc_v1",
       "unit": "episodes",
-      "min_effect": 0.05,
-      "min_units_for_target_power": null,
-      "null_significance_rate": 0.02,
+      "predicted_direction": "positive",
+      "minimum_effect_magnitude": 0.05,
+      "smallest_passing_grid_n": null,
+      "null_rate_at_smallest_passing_grid_n": null,
+      "null_size_tolerance_at_smallest_passing_grid_n": null,
       "passed": false
     },
     {
-      "endpoint": "H2/H4 Spearman ρ",
+      "endpoint_id": "h2",
+      "endpoint": "H2 Red vs ablation-slope Spearman rho",
+      "dgp_tag": "h2_positive_marginal_spearman_family_outcome_re_v2",
       "unit": "tasks",
-      "min_effect": 0.3,
-      "min_units_for_target_power": 96,
-      "null_significance_rate": 0.0575,
+      "predicted_direction": "positive",
+      "minimum_effect_magnitude": 0.3,
+      "smallest_passing_grid_n": 64,
+      "null_rate_at_smallest_passing_grid_n": 0.05,
+      "null_size_tolerance_at_smallest_passing_grid_n": 0.08269174207655505,
       "passed": true
     },
     {
-      "endpoint": "H3 mean per-case Kendall τ",
+      "endpoint_id": "h3",
+      "endpoint": "H3 mean per-case Kendall tau",
+      "dgp_tag": "h3_ordered_gaussian_score_noise_family_icc_v2",
       "unit": "matched cases",
-      "min_effect": 0.3333333333333333,
-      "min_units_for_target_power": 30,
-      "null_significance_rate": 0.08,
+      "predicted_direction": "positive",
+      "minimum_effect_magnitude": 0.3333333333333333,
+      "smallest_passing_grid_n": 40,
+      "null_rate_at_smallest_passing_grid_n": 0.0675,
+      "null_size_tolerance_at_smallest_passing_grid_n": 0.08269174207655505,
+      "passed": true
+    },
+    {
+      "endpoint_id": "h4",
+      "endpoint": "H4 SSI vs L0-to-L2 degradation Spearman rho",
+      "dgp_tag": "h4_negative_marginal_spearman_family_outcome_re_v2",
+      "unit": "tasks",
+      "predicted_direction": "negative",
+      "minimum_effect_magnitude": 0.3,
+      "smallest_passing_grid_n": 96,
+      "null_rate_at_smallest_passing_grid_n": 0.0675,
+      "null_size_tolerance_at_smallest_passing_grid_n": 0.08269174207655505,
       "passed": true
     }
   ],
-  "passed": false
+  "idealized_sensitivity_gate_passed": false,
+  "capture_ready": false,
+  "limitations": [
+    {
+      "code": "grid_counts_not_capture_requirements",
+      "detail": "Selected n values are the smallest passing points on finite idealized grids; they are not capture requirements or guarantees."
+    },
+    {
+      "code": "idealized_endpoint_dgps",
+      "detail": "H2/H4 use calibrated Gaussian-copula endpoint pairs and H3 uses ordered Gaussian score noise; real endpoint measurement error and estimator instability are not simulated."
+    },
+    {
+      "code": "no_nested_capture_allocation",
+      "detail": "The simulator has no family→task/case→episode→severity/window allocation, binomial outcomes, instruction-eligibility gate, or fitted-transform uncertainty; H2 and H4 still share one idealized copula family rather than endpoint-specific capture DGPs."
+    },
+    {
+      "code": "coarse_monte_carlo_size_tolerance",
+      "detail": "The same-n size screen uses alpha plus three binomial Monte-Carlo standard errors. It is a transparent simulation tolerance, not evidence that a real test is calibrated exactly at nominal alpha."
+    },
+    {
+      "code": "h1_feature_path_not_implemented",
+      "detail": "The H1 binormal feature model does not supply the train-reference local PID/CI scores, leakage tests, censoring rules, or missing mandatory baselines required by the scientific endpoint."
+    },
+    {
+      "code": "pilot_dependence_calibration_required",
+      "detail": "Family sizes, H2/H4 outcome random-effect SD, and H3 latent score-error ICC require pilot justification before capture planning."
+    }
+  ]
 }

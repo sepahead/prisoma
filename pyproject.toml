@@ -26,6 +26,9 @@ analysis = [
   "scipy>=1.11",
   "pandas>=2.2",
   "matplotlib>=3.8",
+  # Security floor: matplotlib's unconstrained transitive Pillow dependency otherwise
+  # permits releases affected by the 2026 image-decoder advisories.
+  "pillow>=12.2.0",
   "seaborn>=0.13",
 ]
 

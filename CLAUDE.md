@@ -14,10 +14,10 @@ bump the submodule; never re-add copies to this repo.
 
 ## The rules you cannot get wrong
 
-1. **Gate discipline.** Do not interpret PID atoms on real embeddings until the Exp0 +
-   geometry gates pass. Exp0 currently reports **NO-GO** on synthetic high-d controls
-   (`findings.md`; stricter verdict under pid-rs 0.4.0's bias-corrected diagnostics — PIVOT
-   under 0.3.0) — that is the gate working. One (PID measure, preprocessing, estimator
+1. **Gate discipline.** Do not interpret PID atoms on real embeddings. The high-d
+   MI/coherence gate is **NO-GO**, while the continuous `I^sx_∩` gate is **NOT VALIDATED**
+   because default Exp0 uses a known-wrong atom target and the strict band gates MI rather
+   than atoms (`findings.md`). Sampled-mean δ is descriptive, not a validity gate. One (PID measure, preprocessing, estimator
    config) tuple = one preregistered regime; never pool continuous `I^sx_∩` atoms with
    discrete `I_min` atoms (Warning 6 + §8.1.6). Hypothesis claims are additionally bound by
    the §14.1 falsifiability contracts and the §14.8 preregistered statistical analysis plan.
@@ -54,7 +54,6 @@ equivalents in `AGENTS.md`. `just test` / `just docs-audit` wrap the above.
   `--manifest-path crates/ncp-observer/Cargo.toml`, never `-p` from the repo root. It is an
   optional, exploratory-only `(V,L,D,A)` source — not on the M5 critical path (which is
   `experiments/safe_adapter`).
-- **NCP is a sibling repo** (`../NCP`), pinned by tag. If you change the NCP wire, this
-  repo's `ncp-observer` must be re-pinned and re-verified, **and every doc site stating the
-  pin must be updated in the same change** (the v0.5.2→v0.6.0 re-pin initially left nine
-  stale prose sites; don't repeat that). See `../NCP/AGENTS.md`.
+- **NCP is a pinned git dependency**, currently tag `v0.6.0`; no sibling checkout is
+  required. If the wire pin changes, re-pin/re-verify `ncp-observer` and update every active
+  doc site in the same change.

@@ -1,12 +1,14 @@
-//! §14.8.3 power gate runner: simulate the H1–H4 primary endpoints at their
-//! preregistered minimum effect sizes and report power per candidate capture
-//! size. Writes a JSON artifact and a markdown report.
+//! §14.8.3 power gate runner: simulate idealized H1–H4 endpoint sensitivities
+//! at their preregistered minimum effects. Evaluated task/case counts are grid
+//! points, not capture requirements or guarantees. Writes JSON and markdown.
 //!
 //! Usage: pid-sim-power-gate [--quick] [--out report.json] [--md report.md]
 
+use std::error::Error;
+
 use pid_sim::power::{power_gate_markdown, run_power_gate, PowerGateConfig};
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
     let flag = |name: &str| -> Option<String> {
         args.iter()
@@ -18,22 +20,19 @@ fn main() {
         cfg.replicates = 100;
         cfg.n_boot = 200;
     }
-    let report = run_power_gate(&cfg);
+    let report = run_power_gate(&cfg)?;
     let md = power_gate_markdown(&report);
     if let Some(path) = flag("--out") {
-        std::fs::write(
-            &path,
-            serde_json::to_string_pretty(&report).expect("serialize"),
-        )
-        .expect("write json");
+        std::fs::write(&path, serde_json::to_string_pretty(&report)?)?;
         eprintln!("[power-gate] wrote {path}");
     }
     if let Some(path) = flag("--md") {
-        std::fs::write(&path, &md).expect("write md");
+        std::fs::write(&path, &md)?;
         eprintln!("[power-gate] wrote {path}");
     }
     println!("{md}");
-    if !report.passed {
+    if !report.idealized_sensitivity_gate_passed {
         std::process::exit(1);
     }
+    Ok(())
 }

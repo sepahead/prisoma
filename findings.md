@@ -4,7 +4,21 @@
 
 Experiment 0 tests Partial Information Decomposition (PID) estimators on synthetic data with known ground truth. The results show systematic issues that need to be understood before proceeding to real VLA analysis.
 
-**Status**: **NO-GO under pid-rs 0.4.0** (2026-07-06 re-run; was PIVOT under 0.3.0). The 0.4.0 correctness pass — bias-corrected Levina–Bickel intrinsic dimension, unclamped MI terms (`NegativeHandling::Allow`), the true moving-block bootstrap, and the CountSketch sign fix — surfaces **3 invariant-bound violations** (e.g. r̄ ≈ 28.6, v̄ ≈ −26.6 on `unique_s1_pca` d=64) that clamping had masked, on top of the unchanged geometry warnings. This is the gate getting *stricter*, not the science changing: continuous kNN PID atoms remain uninterpretable on these synthetic high-d controls, now with a harder verdict. Proceed only with a validated measurement regime.
+**Status (corrected 2026-07-10): publish two verdicts, not one.**
+
+- **MI/coherence gate: NO-GO** on the high-dimensional nuisance controls. pid-rs 0.4.0
+  exposes three invariant-bound violations (for example `r̄≈28.6`, `v̄≈−26.6` on
+  `unique_s1_pca`, d=64), so those MI terms cannot support atoms or Shannon invariants.
+- **Continuous `I^sx_∩` gate: NOT VALIDATED.** The default Exp0 aggregate tests
+  `independent_additive` redundancy against zero even though the implementation and committed
+  Gaussian oracle say genuine shared-exclusions redundancy is positive (about 0.2 nats in
+  the low-dimensional reference). The strict band avoids that target but gates MI terms and
+  only reports atoms. Therefore the binary's printed aggregate **NO-GO** must not be presented
+  as a clean `I^sx_∩` verdict. Upstream Exp0 needs separate `MI_GATE`/`ISX_GATE` outputs and a
+  measure-specific oracle at each tested dimension.
+
+The operational conclusion is unchanged and stronger: do not interpret continuous atoms on
+real embeddings, but state the reason precisely.
 
 **Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. These findings justify the first step of the 10-step plan: keep Exp0/geometry gates strict, then build run-log/replay/Rerun diagnostics before any Tauri/SparkJS product shell or VLA claim.
 
@@ -52,13 +66,18 @@ For all scenarios:
 This creates an **adversarial setting** for kNN estimation:
 - Signal lives in a 1-D subspace of ℝ^d
 - kNN distances are dominated by the (d-1) noise dimensions
-- Chebyshev metric (max over dimensions) is especially vulnerable
+- Chebyshev distances are dominated by nuisance-coordinate maxima
+
+Independent nuisance coordinates preserve the relevant MI terms, but they do **not**
+generally preserve continuous shared-exclusions redundancy because its source-density
+weights change. Atom drift across d therefore mixes a change in the mathematical functional
+with estimator error unless a dimension-specific `I^sx_∩` oracle is supplied.
 
 ### Why Projection Baselines Failed
 
 | Method | Why It Failed |
 |--------|---------------|
-| Hash projection (256→64) | Random projection preserves distances but doesn't isolate signal |
+| Hash projection (256→64) | Approximately preserves some pairwise geometry under its JL-style regime, but has no target signal with which to identify the distinguished coordinate |
 | PCA projection (256→64) | Unsupervised; signal variance ≈ noise variance per dimension |
 
 **Key insight**: Both projections are unsupervised. The signal dimension has variance σ²=1, identical to each noise dimension. PCA cannot distinguish signal from noise without label information.
@@ -69,7 +88,7 @@ This creates an **adversarial setting** for kNN estimation:
 |--------|----------|---------------|----------------|
 | ID(s1,s2) | ≈26–37 (pid-rs 0.4.0 bias-corrected; 28–42 under 0.3.0) | “low” (e.g., < 15) | Data fills high-dimensional space |
 | DCcv | 0.12-0.16 | “not too small” (e.g., > 0.3) | Distance concentration occurring |
-| d_rel | 0.07-0.09 | “not too small” (e.g., > 0.15) | Tree-like/concentrated geometry |
+| d_rel | 0.07-0.09 | no validity threshold | Sampled-metric tree-likeness only; a Euclidean line has δ=0, so this does not invalidate kNN |
 
 ---
 
@@ -124,15 +143,18 @@ Terminology note: the hypotheses in this section are local Experiment 0 diagnost
 
 ### The Core Problem
 
-The experiment tests the wrong thing. It conflates:
+The current aggregate conflates:
 1. **kNN estimation fidelity** (can we estimate MI given good geometry?)
 2. **Signal discovery** (can we find signal hidden in noise?)
+3. **Functional sensitivity** (continuous `I^sx_∩` itself can change after adding source noise)
 
 These require different solutions.
 
 ### Recommended Path Forward
 
-1. **For estimator validation**: Generate S1, S2 with full-rank signal (all dimensions informative)
+1. **For estimator validation**: keep analytic MI controls, add the committed low-d Gaussian
+   `I^sx_∩` oracle plus a pinned independent `csxpid` fixture, and use a dimension-specific
+   atom reference rather than assuming invariance
 
 2. **For real VLA application**:
    - Use low-dimensional physical targets (3D flow, 6D pose)
@@ -156,8 +178,9 @@ This paper (arXiv:2504.15779) changes the strategic response to the geometry war
 
 **The Solution:** The paper introduces **Average Degree of Redundancy ($\bar{r}$)** and **Vulnerability ($\bar{v}$)**.
 *   These are **Shannon Invariants**: they depend *only* on Mutual Information terms ($I(S;T)$), not on specific PID atom definitions.
-*   **Implication:** For manifold-valued data (Warning 5.5), we do not need to derive a "Hyperbolic PID Estimator" (which is mathematically fraught). We only need a valid **Geodesic MI Estimator**.
-*   If we can estimate $I(V;A)$ and $I(D;A)$ reliably (using geodesic distances), we can compute $\bar{r}$ to diagnose redundancy vs. synergy without ever calculating the unstable intersection volumes.
+*   **Implication:** Shannon invariants avoid choosing a redundancy functional, but they do
+    not avoid estimator validation. Every constituent marginal and joint MI term—including
+    its product-space metric—must pass a gate before `r̄`/`v̄` is meaningful.
 
 ## Experiment 0 Update: Shannon Invariants Results
 
@@ -180,16 +203,17 @@ Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `
 | Variables | Effective Dimension ($d$) | Geometry | Risk Status | Recommended Method |
 | :--- | :--- | :--- | :--- | :--- |
 | **V, L, D** (Raw) | ~4096 | Any | **High risk** (distance concentration; coherence-gate failures are common) | **Do not interpret atoms**; reduce/quantize or use MI-only screening |
-| **V, L, D** (Reduced) | ~20–64 | Euclidean/Flat | Bias Risk | **Shannon Invariants** ($\bar{r}, \bar{v}$) |
-| **A, Flow summaries, Proprio** | single-digit to low‑tens | Euclidean/Flat | Lower risk | **Atomic PID** ($I^{sx}_{\cap}$), only after Exp0 + coherence gates on the exact pipeline |
-| **Manifolds** | Any | Curved | Geometry mismatch (for atoms) | **MI-only invariants** with a geometry-aware MI estimator (research-gated; not implemented here) |
+| **V, L, D** (Reduced) | measured, not assumed | candidate Euclidean chart | Bias risk | MI/Shannon invariants only if every constituent MI passes `MI_GATE` |
+| **A, Flow summaries, Proprio** | often single-digit to low-tens | validate | Lower, not zero, risk | Atomic PID only after both `MI_GATE` and `ISX_GATE` pass on the exact pipeline |
+| **Possible manifolds** | measured | unknown until calibrated | Geometry/model risk | No default; compare separately validated MI pipelines, and make no atom claim without a measure-specific derivation/oracle |
 
 ### 2. Applied V-L-A-D Scenarios
 
 *   **Scenario A: V-L-A (Vision-Language Alignment)**
     *   **Sources:** $V_{red}$ (PCA/SAE $\to$ 20d), $L_{red}$ (PCA/SAE $\to$ 20d).
-    *   **Method:** **Shannon Invariants ($\bar{r}, \bar{v}$)**.
-    *   **Goal:** Measure global redundancy ($\bar{r}$). High $\bar{r}$ implies V and L provide overlapping info (good grounding).
+    *   **Method candidate:** Shannon invariants, only after all MI terms validate.
+    *   **Goal:** screen additive/redundancy–synergy balance. High `r̄` does not imply good
+        grounding without external targets and interventions.
 
 *   **Scenario B: V-D-A (World Model Consistency)**
     *   **Sources:** $V_{red}$ (20d), $D_{red}$ (20d).
@@ -216,7 +240,9 @@ When standard Euclidean assumptions fail (distance concentration, hierarchy), se
 
 *   **Hyperbolic / Poincaré ($\mathbb{H}^n$):**
     *   **Use when:** Data exhibits strong **hierarchical structure** (tree-like) or exponential volume expansion (e.g., language hierarchies, entailment cones).
-    *   **Diagnostics:** Check $\delta$-hyperbolicity (Gromov 4-point condition). **Low** $\delta$ relative to scale (trees have $\delta = 0$; low metric distortion vs. a tree) $\to$ Hyperbolic. (Direction fixed v10.7 — an earlier revision had this backwards; see `grandplan.md` §16.7.)
+    *   **Diagnostics:** Low sampled-mean δ can describe tree-likeness under a declared metric,
+        but does not prove hyperbolic curvature or invalidate Euclidean kNN; a Euclidean line
+        also has δ=0. Use matched controls and direct estimator recovery.
     *   **Valid Estimators:** Geometry-aware MI estimation (research-gated; not implemented here).
     *   **Avoid:** $I^{sx}_{\cap}$.
 
@@ -231,14 +257,18 @@ High-level takeaway (verify details in the paper/official code): the continuous 
 
 High-level takeaway (verify exact statements in the paper): KSG MI exhibits a bias/variance tradeoff as a function of `k` and sample size `N`, and can fail in strong-dependence or high-dimensional regimes.
 
-**The distance concentration problem is fundamental** *for iid-like/isotropic high-dimensional distributions* (the Beyer et al. 1999 conditions): kNN distances concentrate around the mean, destroying discriminative power. This is mathematical reality, not an implementation bug — but it is **not unconditional**: data with low intrinsic dimension or strong cluster structure escapes it, which is exactly what the geometry gates test for.
+**The distance concentration problem is fundamental** under the stated iid-like/isotropic
+high-dimensional conditions, but not unconditional. Geometry diagnostics are correlates and
+warnings; only held-out recovery controls establish whether an estimator regime works.
 
 ### From grandplan.md (Project Strategy)
 
 The project anticipated this issue:
 > "H8: Geometry gate metrics predict a valid estimator regime"
 
-The geometry diagnostics (ID, DCcv, d_rel) are designed to **detect** when the estimator will fail - not to fix it. The exp0 verdict on these controls ("PIVOT" under pid-rs 0.3.0, "NO-GO" under 0.4.0's stricter unclamped/bias-corrected diagnostics) is the gate working as designed.
+ID, concentration, ties, and dependence help explain risk; sampled-mean `d_rel` is
+descriptive. None detects failure by itself. The observed high-d MI/coherence violations are
+the direct NO-GO evidence; the atom gate remains unvalidated as explained above.
 
 **The escape hatch is H7 ("Flow-as-Bridge")**:
 > "3D Object Flow as Embodiment-Agnostic Integration Diagnostic"
@@ -250,33 +280,38 @@ By using low-dimensional **flow summaries** (and other low‑d physical targets)
 ## Final Verdict on Hypotheses
 
 ### Hypothesis 1: Estimators Working Correctly
-**VERDICT: TRUE (with caveat)**
+**VERDICT: NOT A CORRECTNESS CLAIM; FAILURE MECHANISM SUPPORTED**
 
 The observed behavior is consistent with known kNN-MI pathologies under high ambient/intrinsic dimension: near-zero or unstable estimates can occur even when the true MI is non-zero, because neighborhood geometry is dominated by nuisance dimensions.
 
-**Caveat**: "Working correctly" doesn't mean "returning the true MI." The true MI is non-zero, but the estimators cannot recover it given the geometry.
+The estimator fails its recovery objective in this regime. The collapse is explainable by
+known neighborhood pathologies; that explanation does not turn the estimate into a valid one.
 
 ### Hypothesis 2: Fundamental kNN Limitations in High-D
 **VERDICT: TRUE (for genuinely high-dimensional/noisy regimes)**
 
 This failure mode is expected in regimes where data genuinely fills a high-dimensional space, and it is consistent with the qualitative limitations discussed in the kNN-MI literature and with the fact that continuous `I^sx_∩` validation is limited to low-dimensional synthetic systems (see `grandplan.md` for the project’s citation-policy boundaries).
 
-This is not a bug to fix - it's a fundamental limitation of the approach. The response is to:
-1. Use geometry gates to detect failure modes
+This is a regime limitation, not proof that every high-ambient-dimensional representation
+fails. The response is to:
+1. Use direct recovery/coherence gates, with geometry diagnostics as supporting evidence
 2. Use low-d targets (flow summaries) when possible
 3. Use supervised dimensionality reduction when high-d sources are unavoidable
 
 ### Hypothesis 3: Projection Should Recover Signal
 **VERDICT: FALSE (as implemented)**
 
-Random projection and PCA are **unsupervised** methods. They preserve geometric properties (distances, variance) but cannot identify which dimensions carry task-relevant information.
+In this isotropic equal-variance construction, the tested random projection and PCA baselines
+have no target signal with which to identify the distinguished coordinate. This result is not
+a theorem about every unsupervised method or structured distribution.
 
 **What would work**: Supervised projection methods that use label information to find informative subspaces:
 - Linear discriminant analysis (LDA)
 - Partial least squares (PLS) — **now implemented** in `pid-rs/crates/pid-core/src/pls.rs` (NIPALS-PLS2 algorithm; test confirms signal recovery in signal-in-noise setting)
 - Projection onto directions maximizing I(projected;T)
 
-The current hash/PCA baselines are the wrong tool for this job. PLS is the recommended supervised alternative.
+PLS is an implemented candidate, not a free fix: fit it on disjoint training data, freeze the
+transform, test on held-out data, and include shuffled-target selection controls.
 
 ---
 
@@ -284,7 +319,10 @@ The current hash/PCA baselines are the wrong tool for this job. PLS is the recom
 
 1. **DO NOT** interpret continuous kNN PID atoms outside a validated regime (Exp0 + coherence gates).
 2. **DO** prefer low‑d targets (H7 Flow‑as‑Bridge via flow summaries / physical state) when possible.
-3. **DO** use supervised projections if high‑d sources are required (treat as a new measurement regime; avoid leakage). PLS (NIPALS-PLS2) is implemented in `pid-rs/crates/pid-core/src/pls.rs`; discrete PID via quantization is implemented in `pid-rs/crates/pid-core/src/discrete_pid.rs` as an escape hatch bypassing kNN geometry (note: its redundancy is a Williams–Beer-style `I_min` functional, not discrete `i^sx_∩` — cross-mode comparisons are cross-measure comparisons; see `grandplan.md` §8.1.6). Both escape hatches are wired into the offline harness as `--pid-mode discrete` and `--pid-mode discrete-pls` (PLS-project sources toward `A`, then quantize), with per-pair `discrete_saturation` diagnostics that fail-flag the `ln(n)`-ceiling regime this document describes.
+3. **CONSIDER** supervised projection if high-d sources are required, as a new frozen and
+   leakage-controlled regime. Discrete `I_min` modes are also wired, but the emitted
+   saturation warning is currently advisory rather than a strict fail-closed gate, so they
+   cannot be the active scientific regime until that gap is closed.
 4. **DO** treat geometry/coherence warnings as stop signals for atom-level conclusions.
 5. **CONSIDER** validating on real VLA embeddings to measure intrinsic dimension and distance concentration before committing to a pipeline.
 
@@ -321,5 +359,7 @@ This destroys the discriminative power of nearest-neighbor methods.
 
 ---
 
-*Last updated: 2026-07-06 (docset v10.7 — δ-hyperbolicity direction corrected, r̄≈1 reading narrowed to "additive", distance-concentration claims conditioned on the Beyer et al. hypotheses; same-day addendum: re-run under pid-rs 0.4.0 — verdict PIVOT → NO-GO, ID(t) 1.14 → 1.01, joint-ID range updated)*
+*Last updated: 2026-07-10 (docset v10.7 corrective audit — MI/coherence NO-GO separated
+from `I^sx` NOT VALIDATED; nuisance-dimension atom invariance and δ validity-gate claims
+withdrawn)*
 *Based on analysis of exp0.rs, experimental output, and implementation of PLS + discrete PID (now wired into the offline harness with saturation diagnostics)*
