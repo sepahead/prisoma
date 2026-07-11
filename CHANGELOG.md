@@ -27,6 +27,13 @@
 
 ### Changed
 
+- **Repaired `ncp-observer` evidence integrity and adopted the immutable NCP
+  `v0.7.0` / wire-0.7 release:** exact
+  seq-only D with seq-0/late drops, bounded callback-to-worker handoff,
+  `Keys::try_new`, explicit open vs fail-closed secure client modes, immutable
+  sample/events, and atomic durable artifact + reconstructed run-log finalization.
+  Append/hash/write failures now propagate while preserving retry state; focused
+  tests prove deterministic reconstruction without duplicate events.
 
 - **Re-pinned `ncp-observer` to NCP `v0.6.0` (the wire-0.6 enforcement cut) and
   enforced the wire contract on ingress** (commit `c48d70b`). Wire 0.6 is a

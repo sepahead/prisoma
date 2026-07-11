@@ -69,44 +69,51 @@ Already correct (do not regress):
   Run-log timestamps ride a monotonic clock (out-of-order sensor `t` values are clamped),
   so the emitted log passes `pid-runlog-replay --validate`.
 - **Exact D alignment in prisoma, including arrival reordering**: readouts are stored in
-  `d_by_seq[obs.seq]` and preferred over recency; completed ticks are held for a short
-  reorder grace window so a readout arriving after its tick's command still claims its
-  own tick, and later-still readouts patch the in-memory sample (`d_source = "seq_late"`,
-  counted). It just needs the publisher to stamp the driving `seq` (see Gap 1).
+  `d_by_seq[obs.seq]`; completed ticks are held for a short reorder grace window so a
+  matching readout arriving after its command still claims its own tick. `seq == 0`
+  observations and post-emission readouts are dropped/counted, never promoted by recency
+  or patched into an already-logged row.
 - **Bounded, reset-safe in-flight state**: FIFO (insertion-order) eviction, session `seq`
   resets start a new epoch (state cleared so epochs never cross-pair; `sample_id =
   ncp-{epoch}-{seq}` stays unique), and every exclusion/eviction path is counted in the
   `ObserverStats` finalize report.
+- **Failure-safe finalization**: callbacks enqueue into a bounded handoff and one worker owns
+  observer state. Canonical sample events remain buffered and immutable; artifact and run log
+  are written via same-directory temporary files, flushed/fsynced, and atomically renamed.
+  The first finalization attempt seals ingestion and binds its artifact path. Append/hash/write
+  failures propagate without clearing samples, and exact same-path retries reconstruct the
+  complete log without duplicates (including an exact install completed before a reported
+  directory-fsync error).
+- **Fail-closed ingress identity and transport**: `--secure` or `--open` must be chosen
+  explicitly, unknown CLI options are rejected, realm/session key segments are validated, and
+  each decoded `ObservationFrame.session_id` must equal the subscribed session (sensor/command
+  session identity is carried only by the subscribed key). `--runlog` is mandatory, and the
+  library refuses artifact finalization unless logging was attached before ingestion.
 
 ## 4. Workstreams (the three gaps, in priority order)
 
-### Gap 1 — D alignment on `seq` (DONE in-repo + protocol now mandates it; residual is purely the producer)
+### Gap 1 — D alignment on `seq` (exact-only in-repo; residual is the live producer)
 
-**Update (NCP v0.6.0):** wire 0.6 makes plane-published `ObservationFrame.seq >= 1`
-(echoing the driving `SensorFrame.seq`) **normative** — the NCP side is resolved and
-the observer now enforces it on ingress (`decode_validated` drops version-less/
-incompatible/unstamped frames; a valid-but-unstamped plane observation is counted so
-a recency-degraded capture is diagnosable). The only residual is that the Engram
-publisher must actually stamp `obs.seq`, which the contract now requires.
+**Update (NCP `v0.7.0`, wire 0.7):** a plane-published
+`ObservationFrame.seq >= 1` echoes the driving `SensorFrame.seq`. The observer enforces
+that medium boundary: version-less/incompatible/invalid frames and valid pull-form
+`seq == 0` observations are dropped and counted. The manifest and lockfile pin the
+immutable `v0.7.0` release.
 
 `ObservationFrame` **carries `seq`**, and the prisoma observer joins D on it:
-`Observer::on_observation` stores each readout in `d_by_seq[obs.seq]`, completed ticks
-are held for a reorder grace window so a readout that arrives *after* its tick's
-command (the likely ordering: the action plane outranks the observation plane in QoS)
-still claims its own tick, and a readout arriving after emission still patches the
-in-memory sample (`d_source = "seq_late"`, counted in the finalize report). The
-most-recent readout (`latest_d`) is the fallback only for an unstamped
-(`obs.seq == 0`) frame. Tests cover the in-order, reordered-within-grace, and
-post-emission-patch paths, so nothing in **this repo** biases D-involving atoms
-anymore. What remains:
-- **NCP side (external — the only runtime gap), <https://github.com/sepahead/NCP>:** the
-  publisher must actually stamp each `ObservationFrame` with the driving sensor `seq` at
-  emission time (and `NEURO_CYBERNETIC_PROTOCOL.md` should document it). Until it does, a
-  live session sends `obs.seq == 0` and the observer falls back to recency — so this, not
-  any prisoma code, is what still biases D-involving atoms in a real capture.
+`Observer::on_observation` stores each readout in `d_by_seq[obs.seq]`; completed ticks
+are held for a reorder grace window so a matching readout that arrives *after* its
+command can still claim its own tick. Once emitted, a sample and its canonical event
+are immutable. There is no `latest_d`, recency fallback, or post-emission patch path.
+Tests cover in-order, reordered-within-grace, seq-0 drop, and immutable late-D paths.
+What remains:
+- **Live producer (external — the only runtime gap):** the wire contract requires the
+  publisher to stamp each `ObservationFrame` with the driving sensor `seq` at emission
+  time. A nonconforming live session that sends `obs.seq == 0` is dropped, and the
+  corresponding tick is excluded for missing D. That prevents biased atoms but can leave
+  no analyzable rows.
 - **Acceptance (met in-repo):** a session where D readouts arrive out of order still pairs
-  each sample's D with its own `seq`; the recency fallback is reached only for genuinely
-  unstamped frames.
+  each sample's D with its own `seq`; unstamped/future D is never paired.
 
 ### Gap 2 — absent-L ticks are excluded, not fabricated (residual is the retention policy)
 A tick with no language channel yields an empty (zero-length) `L`. grandplan's M5
@@ -157,10 +164,10 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
 
 `ncp-observer` is **kept off the default cargo workspace** (`Cargo.toml` `exclude`)
 to keep NCP/Zenoh off the critical path; it git-depends on the published NCP repo
-<https://github.com/sepahead/NCP> (tag `v0.6.0`). Build/test it explicitly:
+<https://github.com/sepahead/NCP> (tag `v0.7.0`). Build/test it explicitly:
 
 ```bash
-# build + test (pulls NCP from https://github.com/sepahead/NCP, tag v0.6.0)
+# Build + test the workspace-excluded observer directly:
 cargo build --manifest-path crates/ncp-observer/Cargo.toml
 cargo test  --manifest-path crates/ncp-observer/Cargo.toml
 
@@ -168,20 +175,19 @@ cargo test  --manifest-path crates/ncp-observer/Cargo.toml
 # (the crate is workspace-excluded, so `-p ncp-observer` does NOT resolve from the
 # repo root — always go through --manifest-path)
 cargo run --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
-    --session <id> --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
+    --open --session <id> --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
 cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
     --summary-json outputs/ncp_summary.json --runlog outputs/ncp_pid_runlog.jsonl
 ```
 
-The `ncp-core` / `ncp-zenoh` deps in `crates/ncp-observer/Cargo.toml` resolve from the
-published NCP repo <https://github.com/sepahead/NCP> (tag `v0.6.0`), so no sibling
-checkout is needed; the crate is kept off the default workspace to keep NCP/Zenoh off the
-critical path.
+The `ncp-core` / `ncp-zenoh` dependencies pin the immutable published `v0.7.0` tag in
+lockstep. The crate stays off the default workspace so NCP/Zenoh resolution cannot break
+the PID gates.
 
 ## 7. References
 
 - `crates/ncp-observer/README.md` — what it does + the closed-loop payoff.
-- `crates/ncp-observer/src/lib.rs` — `Observer` (V↔A `seq` join, `d_by_seq`, `try_complete`).
+- `crates/ncp-observer/src/lib.rs` — `Observer` (V↔A `seq` join, `d_by_seq`, `emit_ready`).
 - `NEURO_CYBERNETIC_PROTOCOL.md` in <https://github.com/sepahead/NCP> — the NCP spec (Gap 1 lives here).
 - `experiments/safe_adapter/` — the gold-standard, gate-passing `(V,L,D,A)` producer to
   mirror for provenance and split/label structure.

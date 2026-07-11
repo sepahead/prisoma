@@ -137,8 +137,8 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
 - **Honours the three invariants:** the run log is the source of truth, the observer drives
   nothing (the Agent Bridge stays the only control plane), and all NCP-specific mapping
   lives in this crate.
-- **Pinned dependency:** git-depends on the published NCP repo
-  (<https://github.com/sepahead/NCP>, tag `v0.6.0`) and pulls Zenoh — no sibling checkout
+- **Pinned dependency:** the manifest pins the immutable NCP `v0.7.0` release and
+  resolves from the published repository; no sibling checkout or path override is
   required.
 - **Workspace-excluded by design:** it is in `Cargo.toml` `exclude`, not a member, because a
   broken dependency in a *member* would fail manifest resolution for **every** `cargo`
@@ -148,14 +148,18 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
 - **Off the critical path:** an optional `(V,L,D,A)` source only — grandplan does not depend
   on Engram; the M5 critical path is `experiments/safe_adapter`, and the pure-PID stack
   builds/tests/gates green with no NCP/Engram/Zenoh dependency.
-- **Current state (audited 2026-07-10):** emits validating smoke logs and registers an
-  artifact, but is not integrity-safe for evidence. A future-D recency fallback can align
-  seq N+1 to sample N; late artifact patches lack correction events in the canonical log;
-  append/hash failures can be swallowed; and finalization clears buffered samples before a
-  durable artifact write. Treat it as exploratory until these dated code-review findings are
-  fixed and tested.
+- **Integrity repair (2026-07-10):** D is exact-seq only (`seq == 0` observations are
+  dropped), emitted rows/events are immutable, callback work crosses a bounded handoff to
+  one owning worker, and finalization atomically/fsync-durably installs the artifact and
+  reconstructed canonical log. The first attempt seals ingestion and binds its artifact path;
+  append/hash/write failures propagate while samples/events remain exact-retryable, including
+  a completed install whose final fsync reports failure. Ingress also requires an explicit
+  secure/open choice and rejects observation-payload/session-key mismatches. Focused
+  failure-injection tests cover every stage. The CLI requires `--runlog`, and library
+  finalization refuses to publish an artifact unless its canonical log was attached before
+  ingestion.
 - **Still exploratory-only** (below the M5 contract) until the external Engram publisher
-  stamps observation `seq` (so D is exactly aligned, not recency-fallback), a language
+  stamps observation `seq` (otherwise the frame is dropped), a language
   channel is present (so `L` is real, not excluded), and `metadata.split`/`episode_id`/
   `success` structure lands. See `crates/ncp-observer/README.md` and the developer handoff
   `NCP_DEV_PROMPT.md`.

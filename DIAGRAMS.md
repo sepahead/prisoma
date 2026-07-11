@@ -32,7 +32,7 @@ flowchart TD
         ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest (v10.4)"]:::run
         Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (v10.4)"]:::run
         Attr["attribution reference probe + Rerun adapter<br/>faithfulness/provenance/relevance implemented"]:::run
-        Obs["ncp-observer tap pinned NCP v0.6.0<br/>exploratory, off critical path"]:::run
+        Obs["ncp-observer tap pinned NCP v0.7.0<br/>exploratory, off critical path"]:::run
     end
 
     Power["CAPTURE GATE NOT READY / NOT PASSED<br/>idealized power simulator exists;<br/>nested capture model + H1 prospective features missing"]:::blocked

@@ -43,25 +43,22 @@
 //! aligns on `seq` as well. Because the observation plane rides a lower-priority
 //! QoS class than the action plane, a tick's D routinely *arrives after* its
 //! command: completed ticks are therefore held for a **reorder grace window**
-//! ([`REORDER_GRACE`] newer seqs) before emission, so a late seq-stamped readout
-//! still claims its own tick. A readout arriving after emission but with matching
-//! dims still patches the in-memory sample (`d_source = "seq_late"`); only
-//! readouts later than that are dropped — and counted. The remaining
-//! D-alignment dependency is runtime-side and external: the Engram publisher
-//! must stamp each `ObservationFrame` with its driving sensor `seq`
-//! (see `NCP_DEV_PROMPT.md` Gap 1); unstamped (`seq == 0`) readouts only ever
-//! update the most-recent fallback.
+//! (`REORDER_GRACE` newer seqs) before emission, so a late seq-stamped readout
+//! still claims its own tick. After a tick emits, its artifact row and canonical
+//! event are immutable: later readouts are dropped and counted, never patched.
+//! Observation-plane `seq == 0` is the pull/RPC form and is dropped; there is no
+//! recency fallback or future-D pairing.
 //!
 //! ## Sessions, resets, and unstamped frames
 //! - `seq == 0` sensor/command frames are treated as **unstamped** (the same
 //!   convention `ObservationFrame` documents upstream: "0 = no controller seq")
 //!   — they cannot be joined reliably, so they are dropped and counted.
-//! - A stamped seq arriving more than [`MAX_INFLIGHT`] behind the watermark is
+//! - A stamped seq arriving more than `MAX_INFLIGHT` behind the watermark is
 //!   treated as a **session/seq reset**: complete in-flight ticks are flushed,
 //!   per-epoch state is cleared (so an old epoch's V can never pair with a new
 //!   epoch's A), and `sample_id`s carry the epoch (`ncp-{epoch}-{seq}`) so they
 //!   stay unique across resets.
-//! - In-flight state is bounded by [`MAX_INFLIGHT`] with **insertion-order
+//! - In-flight state is bounded by `MAX_INFLIGHT` with **insertion-order
 //!   (FIFO) eviction** — never lowest-key eviction, which would starve new
 //!   low-seq ticks after a reset.
 //!
@@ -71,28 +68,27 @@
 //! `EmbeddingCaptured` metadata so the run log records them independently:
 //! - `l_source` = `"channel"` (the language channel was present; empty-L ticks
 //!   are excluded, see above).
-//! - `d_source` = `"seq"` (exact alignment), `"seq_late"` (exact alignment via a
-//!   post-emission patch; the streamed `EmbeddingCaptured` predates the patch and
-//!   still says `recency_fallback` — the finalize report counts these),
-//!   `"recency_fallback"` (the publisher sent `obs.seq == 0`, so `D` is the
-//!   most-recent readout, not the driving one — Gap 1). `"absent"`-D ticks are
-//!   excluded from the artifact (empty axis) and counted.
+//! - `d_source` = `"seq"` only. Missing or unstamped D never enters an artifact;
+//!   those ticks are excluded and counted.
 //! - `seq` and `epoch` — the join key and reset epoch for reconstruction.
 
+use anyhow::Context as _;
 use ncp_core::{ChannelValue, CommandFrame, ObservationFrame, SensorFrame};
 use pid_runlog::{
     Actor, ActorType, EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus,
     RUN_LOG_SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, VecDeque};
-use std::fs::File;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::ffi::OsString;
+use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write as _};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// One `(V,L,D,A)` sample — mirrors `pid-sim`'s `OfflineVldaSample` so the
 /// emitted artifact runs directly through `pid-offline-harness`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaSample {
     pub sample_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -108,7 +104,7 @@ pub struct OfflineVldaSample {
 }
 
 /// The dataset wrapper `pid-offline-harness` consumes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaDataset {
     pub run_id: String,
     pub source: String,
@@ -141,9 +137,10 @@ impl Default for Mapping {
 /// Capture-quality counters, reported by [`Observer::finalize`]. Every path that
 /// silently loses or degrades data in a long-running tap is counted here so the
 /// operator sees it instead of discovering an inexplicably small artifact.
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
 pub struct ObserverStats {
-    /// Samples written to the dataset artifact.
+    /// Samples retained for the dataset artifact (and preserved across failed
+    /// finalization attempts).
     pub kept_samples: usize,
     /// Ticks excluded because an axis was empty (per axis). Empty-axis samples
     /// can never pass `pid-offline-harness`'s `validate_dataset`, and one such
@@ -155,23 +152,29 @@ pub struct ObserverStats {
     /// Ticks excluded because their dims differed from the emitted
     /// `EmbeddingContract` (first kept sample's dims).
     pub dim_mismatch_dropped: usize,
-    /// Seq-stamped D readouts that arrived after their tick was emitted but
-    /// still patched the in-memory sample (`d_source = "seq_late"`).
-    pub late_d_patched: usize,
-    /// Seq-stamped D readouts that arrived too late (tick evicted from the
-    /// patch window) or with mismatched dims, and were dropped.
+    /// Seq-stamped D readouts that arrived after their tick was closed, or were
+    /// too old to pair exactly, and were dropped without mutating an artifact row.
     pub late_d_dropped: usize,
-    /// `seq == 0` sensor/command frames dropped as unstamped (unjoinable).
+    /// `seq == 0` frames dropped as unstamped (unjoinable on a data plane).
     pub unstamped_frames_dropped: usize,
+    /// Wire frames rejected by the binary's validated decoder before they
+    /// reached the observer state machine.
+    pub ingress_decode_dropped: u64,
+    /// Pull/RPC-form observations (`seq == 0`) rejected by the binary at the
+    /// observation-plane medium boundary.
+    pub ingress_unstamped_observations_dropped: u64,
+    /// Frames rejected because the bounded callback-to-worker handoff was full
+    /// or closed.
+    pub ingress_handoff_dropped: u64,
     /// Sensor/command frames dropped because their `seq` already emitted a
     /// sample this epoch (transport re-delivery): re-admitting one would
     /// re-emit a second sample with the same `sample_id` (`ncp-{epoch}-{seq}`),
     /// double-counting the (V,L,D,A) row and violating the harness's
     /// `sample_id` uniqueness.
     pub redelivered_frames_dropped: usize,
-    /// Never-completed in-flight ticks evicted by the [`MAX_INFLIGHT`] bound.
+    /// Never-completed in-flight ticks evicted by the `MAX_INFLIGHT` bound.
     pub evicted_incomplete: usize,
-    /// Unclaimed seq-stamped D readouts evicted by the [`MAX_INFLIGHT`] bound.
+    /// Unclaimed seq-stamped D readouts evicted by the `MAX_INFLIGHT` bound.
     pub evicted_unclaimed_d: usize,
     /// Session/seq resets detected (each starts a new epoch).
     pub seq_resets: u32,
@@ -181,16 +184,20 @@ impl ObserverStats {
     fn summary(&self) -> String {
         format!(
             "kept={} excluded(empty v/l/d/a)={}/{}/{}/{} dim_mismatch={} \
-             late_d(patched/dropped)={}/{} unstamped={} evicted(pending/d)={}/{} seq_resets={}",
+             late_d_dropped={} unstamped={} ingress(decode/seq0/handoff)={}/{}/{} \
+             redelivered={} evicted(pending/d)={}/{} seq_resets={}",
             self.kept_samples,
             self.excluded_empty_v,
             self.excluded_empty_l,
             self.excluded_empty_d,
             self.excluded_empty_a,
             self.dim_mismatch_dropped,
-            self.late_d_patched,
             self.late_d_dropped,
             self.unstamped_frames_dropped,
+            self.ingress_decode_dropped,
+            self.ingress_unstamped_observations_dropped,
+            self.ingress_handoff_dropped,
+            self.redelivered_frames_dropped,
             self.evicted_incomplete,
             self.evicted_unclaimed_d,
             self.seq_resets,
@@ -231,15 +238,6 @@ const REORDER_GRACE: i64 = 8;
 /// evicted is treated as a new epoch.
 const RESET_MARGIN: i64 = MAX_INFLIGHT as i64;
 
-/// Append a run-log event, surfacing (rather than silently swallowing) a write
-/// failure. The run log is the source of truth, so a dropped event is a real
-/// integrity loss and must at least be reported on stderr — never `let _ = `.
-fn log_append(w: &mut RunLogWriter<BufWriter<File>>, ev: &RunLogEvent) {
-    if let Err(e) = w.append(ev) {
-        eprintln!("[ncp-observer] run-log append failed (event dropped): {e}");
-    }
-}
-
 /// Accumulates NCP frames into `(V,L,D,A)` samples, joining V↔A (and D) on `seq`.
 pub struct Observer {
     run_id: String,
@@ -250,9 +248,6 @@ pub struct Observer {
     pending: BTreeMap<i64, Partial>,
     /// Insertion order of `pending` keys, for FIFO eviction.
     pending_order: VecDeque<i64>,
-    /// Most recent observation readout (the D axis) for the session — the
-    /// best-effort fallback when an observation carries no `seq`.
-    latest_d: Vec<f64>,
     /// D readouts keyed by the observation's `seq`, for exact alignment when the
     /// publisher stamps observations with the driving sensor's `seq`.
     d_by_seq: BTreeMap<i64, Vec<f64>>,
@@ -262,8 +257,10 @@ pub struct Observer {
     max_seq: i64,
     /// Session/seq-reset epoch (0 for the first).
     epoch: u32,
-    /// seq → index into `samples`, current epoch only, for late-D patching.
-    emitted_by_seq: BTreeMap<i64, usize>,
+    /// Seqs already emitted or excluded this epoch. Once closed, a seq is
+    /// immutable: redelivery and late D are dropped rather than reconstructing
+    /// a second row or mutating an already-buffered event.
+    closed_seqs: BTreeSet<i64>,
     /// Monotonic run-log clock: the max timestamp stamped so far. Sensor `t`
     /// values can complete out of order; clamping to the running max keeps the
     /// run log valid under pid-runlog's nondecreasing-timestamp rule.
@@ -271,9 +268,20 @@ pub struct Observer {
     /// Dims of the first kept sample == the emitted `EmbeddingContract`.
     contract_dims: Option<[usize; 4]>,
     samples: Vec<OfflineVldaSample>,
-    writer: Option<RunLogWriter<BufWriter<File>>>,
+    runlog_path: Option<PathBuf>,
+    /// Canonical events buffered in lockstep with immutable samples. Finalize
+    /// reconstructs the complete log atomically from this source on every retry.
+    runlog_events: Vec<RunLogEvent>,
     stats: ObserverStats,
     n: u64,
+    /// Set before the first artifact write. Once finalization begins, frame
+    /// ingestion stays sealed even if I/O fails, so an exact retry cannot be
+    /// invalidated by post-failure mutation.
+    finalization_started: bool,
+    /// Canonical destination bound by the first finalization attempt. Retries
+    /// cannot redirect the same event buffer to a different artifact.
+    finalize_dataset_target: Option<PathBuf>,
+    finalized: bool,
 }
 
 #[derive(Default)]
@@ -286,6 +294,159 @@ struct Partial {
     a: Option<Vec<f64>>,
     success: Option<serde_json::Value>,
     t: f64,
+}
+
+static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn create_temp_file(path: &Path) -> anyhow::Result<(PathBuf, File)> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| anyhow::anyhow!("output path has no file name: {}", path.display()))?;
+    for _ in 0..128 {
+        let nonce = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let mut temp_name = OsString::from(".");
+        temp_name.push(file_name);
+        temp_name.push(format!(".tmp-{}-{nonce}", std::process::id()));
+        let temp_path = parent.join(temp_name);
+        match OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&temp_path)
+        {
+            Ok(file) => return Ok((temp_path, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!("failed to create temporary file for {}", path.display())
+                });
+            }
+        }
+    }
+    anyhow::bail!(
+        "failed to allocate a unique temporary file for {}",
+        path.display()
+    )
+}
+
+/// Write a same-directory temporary file, fsync it, atomically rename it into
+/// place, then fsync the directory entry. The destination is untouched when the
+/// write/flush/fsync phase fails.
+fn atomic_write_with<F>(path: &Path, write: F) -> anyhow::Result<()>
+where
+    F: FnOnce(&mut BufWriter<File>) -> anyhow::Result<()>,
+{
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let (temp_path, file) = create_temp_file(path)?;
+    let result = (|| {
+        let mut writer = BufWriter::new(file);
+        write(&mut writer)?;
+        writer
+            .flush()
+            .with_context(|| format!("failed to flush temporary file for {}", path.display()))?;
+        writer
+            .get_ref()
+            .sync_all()
+            .with_context(|| format!("failed to fsync temporary file for {}", path.display()))?;
+        drop(writer);
+        std::fs::rename(&temp_path, path).with_context(|| {
+            format!(
+                "failed to atomically install {} from {}",
+                path.display(),
+                temp_path.display()
+            )
+        })?;
+        #[cfg(unix)]
+        File::open(parent)
+            .and_then(|directory| directory.sync_all())
+            .with_context(|| format!("failed to fsync directory {}", parent.display()))?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp_path);
+    }
+    result
+}
+
+/// Resolve a not-yet-created output through its canonical parent directory.
+/// This catches aliases such as `artifact.json` versus `./artifact.json` and
+/// symlinked parents before two logical outputs overwrite the same file.
+fn output_target(path: &Path) -> anyhow::Result<PathBuf> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| anyhow::anyhow!("output path has no file name: {}", path.display()))?;
+    let canonical_parent = std::fs::canonicalize(parent)
+        .with_context(|| format!("failed to resolve output directory {}", parent.display()))?;
+    Ok(canonical_parent.join(file_name))
+}
+
+/// Re-establish durability when a previous atomic install reached `rename` but
+/// its final directory fsync reported an error. Exact retries may adopt only a
+/// byte-for-byte matching file, then fsync both the file and directory again.
+fn sync_installed_file(path: &Path) -> anyhow::Result<()> {
+    File::open(path)
+        .and_then(|file| file.sync_all())
+        .with_context(|| format!("failed to fsync installed file {}", path.display()))?;
+    #[cfg(unix)]
+    {
+        let parent = path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        File::open(parent)
+            .and_then(|directory| directory.sync_all())
+            .with_context(|| format!("failed to fsync directory {}", parent.display()))?;
+    }
+    Ok(())
+}
+
+trait FinalizeIo {
+    fn write_artifact(&mut self, path: &Path, dataset: &OfflineVldaDataset) -> anyhow::Result<()>;
+    fn hash_artifact(&mut self, path: &Path) -> anyhow::Result<String>;
+    fn append_runlog(&mut self, events: &[RunLogEvent]) -> anyhow::Result<Vec<u8>>;
+    fn write_runlog(&mut self, path: &Path, bytes: &[u8]) -> anyhow::Result<()>;
+}
+
+struct FsFinalizeIo;
+
+impl FinalizeIo for FsFinalizeIo {
+    fn write_artifact(&mut self, path: &Path, dataset: &OfflineVldaDataset) -> anyhow::Result<()> {
+        atomic_write_with(path, |writer| {
+            serde_json::to_writer_pretty(writer, dataset)
+                .context("failed to serialize NCP observer artifact")
+        })
+    }
+
+    fn hash_artifact(&mut self, path: &Path) -> anyhow::Result<String> {
+        pid_runlog::sha256_file(path).context("failed to hash NCP observer artifact")
+    }
+
+    fn append_runlog(&mut self, events: &[RunLogEvent]) -> anyhow::Result<Vec<u8>> {
+        let mut writer = RunLogWriter::new(Vec::new());
+        for event in events {
+            writer.append(event)?;
+        }
+        writer.flush()?;
+        Ok(writer.into_inner())
+    }
+
+    fn write_runlog(&mut self, path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+        atomic_write_with(path, |writer| {
+            writer
+                .write_all(bytes)
+                .context("failed to write reconstructed NCP observer run log")
+        })
+    }
 }
 
 impl Observer {
@@ -302,33 +463,56 @@ impl Observer {
             mapping,
             pending: BTreeMap::new(),
             pending_order: VecDeque::new(),
-            latest_d: Vec::new(),
             d_by_seq: BTreeMap::new(),
             d_order: VecDeque::new(),
             max_seq: 0,
             epoch: 0,
-            emitted_by_seq: BTreeMap::new(),
+            closed_seqs: BTreeSet::new(),
             max_ts: 0,
             contract_dims: None,
             samples: Vec::new(),
-            writer: None,
+            runlog_path: None,
+            runlog_events: Vec::new(),
             stats: ObserverStats::default(),
             n: 0,
+            finalization_started: false,
+            finalize_dataset_target: None,
+            finalized: false,
         }
     }
 
     /// Attach a run-log so provenance events are emitted alongside the dataset.
     pub fn with_runlog(mut self, path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let mut w = RunLogWriter::create(path)?;
-        w.append(&RunLogEvent::RunStarted {
+        if self.runlog_path.is_some()
+            || self.n != 0
+            || !self.pending.is_empty()
+            || !self.d_by_seq.is_empty()
+            || !self.closed_seqs.is_empty()
+            || self.stats != ObserverStats::default()
+        {
+            anyhow::bail!("run log must be attached exactly once, before frame ingestion");
+        }
+        self.runlog_path = Some(path.as_ref().to_path_buf());
+        self.runlog_events.push(RunLogEvent::RunStarted {
             schema_version: RUN_LOG_SCHEMA_VERSION,
             run_id: self.run_id.clone(),
             timestamp_ns: 0,
             config_hash: "ncp-observer".into(),
             metadata: BTreeMap::from([("source".into(), "ncp".into())]),
-        })?;
-        self.writer = Some(w);
+        });
         Ok(self)
+    }
+
+    fn ensure_capturing(&self) -> anyhow::Result<()> {
+        if self.finalized {
+            anyhow::bail!("observer is finalized; refusing post-event artifact mutation");
+        }
+        if self.finalization_started {
+            anyhow::bail!(
+                "observer finalization has started; refusing mutation while an exact retry is pending"
+            );
+        }
+        Ok(())
     }
 
     /// Monotonic run-log timestamp for a sensor time `t` (seconds).
@@ -341,11 +525,12 @@ impl Observer {
     /// Watermark + session-reset bookkeeping for a stamped (nonzero) seq.
     /// Returns `false` when the frame is unstamped and must be dropped.
     fn admit_seq(&mut self, seq: i64) -> bool {
-        if seq == 0 {
+        if seq < 1 {
             // Upstream convention (ObservationFrame.seq docs): 0 = no controller
-            // seq. An unstamped sensor/command cannot be joined reliably — all
-            // seq-0 frames would merge into one bogus mixed sample.
-            self.stats.unstamped_frames_dropped += 1;
+            // seq. An unstamped/invalid sensor or command cannot be joined
+            // reliably — all seq-0 frames would merge into one bogus sample.
+            self.stats.unstamped_frames_dropped =
+                self.stats.unstamped_frames_dropped.saturating_add(1);
             return false;
         }
         // `saturating_add`: `seq` is attacker-controlled off the wire, so a
@@ -355,15 +540,14 @@ impl Observer {
             // Session/seq reset: flush what completed, then clear per-epoch
             // state so an old epoch's V can never pair with a new epoch's A
             // (and an old epoch's D can never leak into new-epoch samples).
-            self.flush_complete();
+            self.flush_complete_unchecked();
             self.pending.clear();
             self.pending_order.clear();
             self.d_by_seq.clear();
             self.d_order.clear();
-            self.latest_d.clear();
-            self.emitted_by_seq.clear();
-            self.epoch += 1;
-            self.stats.seq_resets += 1;
+            self.closed_seqs.clear();
+            self.epoch = self.epoch.saturating_add(1);
+            self.stats.seq_resets = self.stats.seq_resets.saturating_add(1);
             self.max_seq = seq;
         } else if seq > self.max_seq {
             self.max_seq = seq;
@@ -372,17 +556,19 @@ impl Observer {
     }
 
     /// Ingest a `SensorFrame` (perception plane). Supplies V and L for its `seq`.
-    pub fn on_sensor(&mut self, sensor: &SensorFrame) {
+    pub fn on_sensor(&mut self, sensor: &SensorFrame) -> anyhow::Result<()> {
+        self.ensure_capturing()?;
         if !self.admit_seq(sensor.seq) {
-            return;
+            return Ok(());
         }
-        if self.emitted_by_seq.contains_key(&sensor.seq) {
+        if self.closed_seqs.contains(&sensor.seq) {
             // Same guard the observation path has: this seq already emitted
             // this epoch, so this is transport re-delivery — drop it instead of
             // re-creating a pending entry that would re-emit a duplicate
             // sample_id.
-            self.stats.redelivered_frames_dropped += 1;
-            return;
+            self.stats.redelivered_frames_dropped =
+                self.stats.redelivered_frames_dropped.saturating_add(1);
+            return Ok(());
         }
         let l_channel = sensor.channels.get(&self.mapping.language_channel);
         let l_present = l_channel.is_some();
@@ -416,16 +602,19 @@ impl Observer {
         }
         self.enforce_bounds();
         self.emit_ready();
+        Ok(())
     }
 
     /// Ingest a `CommandFrame` (action plane). Supplies A for its `seq`.
-    pub fn on_command(&mut self, command: &CommandFrame) {
+    pub fn on_command(&mut self, command: &CommandFrame) -> anyhow::Result<()> {
+        self.ensure_capturing()?;
         if !self.admit_seq(command.seq) {
-            return;
+            return Ok(());
         }
-        if self.emitted_by_seq.contains_key(&command.seq) {
-            self.stats.redelivered_frames_dropped += 1;
-            return;
+        if self.closed_seqs.contains(&command.seq) {
+            self.stats.redelivered_frames_dropped =
+                self.stats.redelivered_frames_dropped.saturating_add(1);
+            return Ok(());
         }
         let a = flatten_except(&command.channels, &[]);
         if !self.pending.contains_key(&command.seq) {
@@ -438,10 +627,20 @@ impl Observer {
         }
         self.enforce_bounds();
         self.emit_ready();
+        Ok(())
     }
 
     /// Ingest an `ObservationFrame` (neural readback). Updates the D axis.
-    pub fn on_observation(&mut self, obs: &ObservationFrame) {
+    pub fn on_observation(&mut self, obs: &ObservationFrame) -> anyhow::Result<()> {
+        self.ensure_capturing()?;
+        if obs.seq < 1 {
+            // `seq == 0` is only valid for pull/RPC replies. Promoting it to a
+            // most-recent value can pair future D with an earlier tick, so a
+            // passive plane observer must drop it rather than guess.
+            self.stats.unstamped_frames_dropped =
+                self.stats.unstamped_frames_dropped.saturating_add(1);
+            return Ok(());
+        }
         let mut d = Vec::new();
         // Deterministic order: records is a BTreeMap keyed by port.
         for ob in obs.records.values() {
@@ -453,48 +652,27 @@ impl Observer {
             }
         }
         if d.is_empty() {
-            return;
+            return Ok(());
         }
-        // Exact alignment when the publisher stamps the driving seq; the
-        // most-recent value remains the fallback for seq-less observations.
-        if obs.seq != 0 {
-            if let Some(&idx) = self.emitted_by_seq.get(&obs.seq) {
-                // The tick already emitted (readout later than the grace
-                // window). Patch the in-memory sample when dims allow, so the
-                // artifact still gets the exactly-aligned D; the streamed
-                // EmbeddingCaptured predates the patch, which the finalize
-                // report makes visible via the late_d_patched count.
-                if self.samples[idx].d.len() == d.len() {
-                    self.samples[idx].d = d.clone();
-                    self.samples[idx]
-                        .metadata
-                        .insert("d_source".to_string(), "seq_late".to_string());
-                    self.stats.late_d_patched += 1;
-                } else {
-                    self.stats.late_d_dropped += 1;
-                }
-            } else if obs.seq.saturating_add(RESET_MARGIN) < self.max_seq {
-                // Older than anything we could still patch or pair (saturating:
-                // obs.seq is attacker-controlled, must not overflow).
-                self.stats.late_d_dropped += 1;
-            } else {
-                if !self.d_by_seq.contains_key(&obs.seq) {
-                    self.d_order.push_back(obs.seq);
-                }
-                self.d_by_seq.insert(obs.seq, d.clone());
-                // Deliberately do NOT advance `max_seq` from an observation:
-                // the watermark drives the reorder cutoff and session-reset
-                // detection, and observation seqs skip `admit_seq`'s
-                // discipline — one inflated `obs.seq` would misclassify every
-                // subsequent legitimate sensor/command frame as a session
-                // reset and prematurely flush pending ticks. D readouts are
-                // passengers on the control loop's clock (their seq pairs via
-                // `d_by_seq`); only sensor/command ingress moves the clock.
-            }
+        if self.closed_seqs.contains(&obs.seq)
+            || obs.seq.saturating_add(RESET_MARGIN) < self.max_seq
+        {
+            // Once a row's canonical event exists it is immutable. A late
+            // exact-seq readout is evidence of loss/reordering, not authority
+            // to patch the artifact behind the run log's back.
+            self.stats.late_d_dropped = self.stats.late_d_dropped.saturating_add(1);
+            return Ok(());
         }
-        self.latest_d = d;
+        if !self.d_by_seq.contains_key(&obs.seq) {
+            self.d_order.push_back(obs.seq);
+        }
+        self.d_by_seq.insert(obs.seq, d);
+        // Deliberately do NOT advance `max_seq` from an observation: D is a
+        // passenger on the control-loop clock, and a hostile inflated seq must
+        // not force a reset or premature emission.
         self.enforce_bounds();
         self.emit_ready();
+        Ok(())
     }
 
     /// Evict oldest-inserted in-flight state once either map exceeds
@@ -535,7 +713,8 @@ impl Observer {
             match self.pending_order.pop_front() {
                 Some(seq) => {
                     if self.pending.remove(&seq).is_some() {
-                        self.stats.evicted_incomplete += 1;
+                        self.stats.evicted_incomplete =
+                            self.stats.evicted_incomplete.saturating_add(1);
                     }
                 }
                 None => break, // unreachable: order tracks every insertion
@@ -545,16 +724,17 @@ impl Observer {
             match self.d_order.pop_front() {
                 Some(seq) => {
                     if self.d_by_seq.remove(&seq).is_some() {
-                        self.stats.evicted_unclaimed_d += 1;
+                        self.stats.evicted_unclaimed_d =
+                            self.stats.evicted_unclaimed_d.saturating_add(1);
                     }
                 }
                 None => break,
             }
         }
-        // Bound the late-D patch window the same way (oldest seqs first is
-        // correct here: `emitted_by_seq` is per-epoch, so keys are comparable).
-        while self.emitted_by_seq.len() > MAX_INFLIGHT {
-            self.emitted_by_seq.pop_first();
+        // Bound the closed-seq replay guard. Keys are per-epoch and therefore
+        // comparable; oldest numeric seqs leave first.
+        while self.closed_seqs.len() > MAX_INFLIGHT {
+            self.closed_seqs.pop_first();
         }
     }
 
@@ -569,14 +749,21 @@ impl Observer {
             .map(|(&s, _)| s)
             .collect();
         for seq in ready {
-            let p = self.pending.remove(&seq).expect("collected above");
-            self.emit_sample(seq, p);
+            if let Some(partial) = self.pending.remove(&seq) {
+                self.emit_sample(seq, partial);
+            }
         }
     }
 
     /// Emit ALL currently-complete ticks regardless of the grace window (used by
     /// `finalize`, session resets, and tests).
-    pub fn flush_complete(&mut self) {
+    pub fn flush_complete(&mut self) -> anyhow::Result<()> {
+        self.ensure_capturing()?;
+        self.flush_complete_unchecked();
+        Ok(())
+    }
+
+    fn flush_complete_unchecked(&mut self) {
         let ready: Vec<i64> = self
             .pending
             .iter()
@@ -584,17 +771,18 @@ impl Observer {
             .map(|(&s, _)| s)
             .collect();
         for seq in ready {
-            let p = self.pending.remove(&seq).expect("collected above");
-            self.emit_sample(seq, p);
+            if let Some(partial) = self.pending.remove(&seq) {
+                self.emit_sample(seq, partial);
+            }
         }
     }
 
     fn emit_sample(&mut self, seq: i64, p: Partial) {
-        // Exact D when the observation for this seq was seen; else most-recent.
+        self.closed_seqs.insert(seq);
+        // D is admissible only when it carries this exact driving seq.
         let (d, d_source) = match self.d_by_seq.remove(&seq) {
             Some(d) => (d, "seq"),
-            None if self.latest_d.is_empty() => (Vec::new(), "absent"),
-            None => (self.latest_d.clone(), "recency_fallback"),
+            None => (Vec::new(), "absent"),
         };
         let v = p.v.unwrap_or_default();
         let l = p.l.unwrap_or_default();
@@ -605,19 +793,19 @@ impl Observer {
         // artifact — exclude and count instead of fabricating an axis (Gap 2).
         let mut excluded = false;
         if v.is_empty() {
-            self.stats.excluded_empty_v += 1;
+            self.stats.excluded_empty_v = self.stats.excluded_empty_v.saturating_add(1);
             excluded = true;
         }
         if l.is_empty() {
-            self.stats.excluded_empty_l += 1;
+            self.stats.excluded_empty_l = self.stats.excluded_empty_l.saturating_add(1);
             excluded = true;
         }
         if d.is_empty() {
-            self.stats.excluded_empty_d += 1;
+            self.stats.excluded_empty_d = self.stats.excluded_empty_d.saturating_add(1);
             excluded = true;
         }
         if a.is_empty() {
-            self.stats.excluded_empty_a += 1;
+            self.stats.excluded_empty_a = self.stats.excluded_empty_a.saturating_add(1);
             excluded = true;
         }
         if excluded {
@@ -630,7 +818,7 @@ impl Observer {
                 // A sample contradicting the declared contract would fail the
                 // harness's consistent-dims validation and misdescribe the run
                 // log's EmbeddingContract — exclude and count.
-                self.stats.dim_mismatch_dropped += 1;
+                self.stats.dim_mismatch_dropped = self.stats.dim_mismatch_dropped.saturating_add(1);
                 return;
             }
             Some(_) => {}
@@ -644,8 +832,8 @@ impl Observer {
         metadata.insert("seq".to_string(), seq.to_string());
         metadata.insert("epoch".to_string(), self.epoch.to_string());
         metadata.insert("source".to_string(), "ncp".to_string());
-        // Honest provenance: never present a recency-aligned D as if it were
-        // seq-aligned (Gap 1). A kept sample's L is nonempty (empty-L ticks
+        // Honest provenance: D is exact-seq or the tick is excluded. A kept
+        // sample's L is nonempty (empty-L ticks
         // were excluded above), and a nonempty L can only come from a present
         // language channel — so `l_source` is always `"channel"` here; the
         // old `"absent_zeroed"` branch was unreachable and misled readers
@@ -664,14 +852,14 @@ impl Observer {
             labels: labels.clone(),
             metadata,
         };
-        self.emit_runlog(&sample, p.t, &labels);
-        self.emitted_by_seq.insert(seq, self.samples.len());
+        self.buffer_runlog(&sample, p.t, &labels);
         self.samples.push(sample);
-        self.stats.kept_samples += 1;
-        self.n += 1;
+        self.stats.kept_samples = self.stats.kept_samples.saturating_add(1);
+        self.n = self.n.saturating_add(1);
+        self.enforce_bounds();
     }
 
-    fn emit_runlog(
+    fn buffer_runlog(
         &mut self,
         sample: &OfflineVldaSample,
         t: f64,
@@ -679,9 +867,9 @@ impl Observer {
     ) {
         let ts = self.stamp(t);
         let step = self.n;
-        let Some(w) = self.writer.as_mut() else {
+        if self.runlog_path.is_none() {
             return;
-        };
+        }
         if let Some(dims) = self.contract_dims {
             // First kept sample: declare the contract (dims are all nonzero by
             // construction — empty-axis ticks never reach this point).
@@ -693,20 +881,17 @@ impl Observer {
                     artifact_uri: None,
                     sha256: None,
                 };
-                log_append(
-                    w,
-                    &RunLogEvent::EmbeddingContract {
-                        timestamp_ns: ts,
-                        name: "vlda".into(),
-                        variables: vec![
-                            var("v", dims[0]),
-                            var("l", dims[1]),
-                            var("d", dims[2]),
-                            var("a", dims[3]),
-                        ],
-                        metadata: BTreeMap::new(),
-                    },
-                );
+                self.runlog_events.push(RunLogEvent::EmbeddingContract {
+                    timestamp_ns: ts,
+                    name: "vlda".into(),
+                    variables: vec![
+                        var("v", dims[0]),
+                        var("l", dims[1]),
+                        var("d", dims[2]),
+                        var("a", dims[3]),
+                    ],
+                    metadata: BTreeMap::new(),
+                });
             }
         }
         // Mirror the honesty provenance into the run log so the source of truth
@@ -718,34 +903,28 @@ impl Observer {
                 meta.insert(key.to_string(), value.clone());
             }
         }
-        log_append(
-            w,
-            &RunLogEvent::EmbeddingCaptured {
+        self.runlog_events.push(RunLogEvent::EmbeddingCaptured {
+            step,
+            timestamp_ns: ts,
+            name: "vlda".into(),
+            dims: vec![
+                sample.v.len(),
+                sample.l.len(),
+                sample.d.len(),
+                sample.a.len(),
+            ],
+            artifact_uri: None,
+            sha256: None,
+            metadata: meta,
+        });
+        for (name, value) in labels {
+            self.runlog_events.push(RunLogEvent::LabelObserved {
                 step,
                 timestamp_ns: ts,
-                name: "vlda".into(),
-                dims: vec![
-                    sample.v.len(),
-                    sample.l.len(),
-                    sample.d.len(),
-                    sample.a.len(),
-                ],
-                artifact_uri: None,
-                sha256: None,
-                metadata: meta,
-            },
-        );
-        for (name, value) in labels {
-            log_append(
-                w,
-                &RunLogEvent::LabelObserved {
-                    step,
-                    timestamp_ns: ts,
-                    name: name.clone(),
-                    value: value.clone(),
-                    metadata: BTreeMap::new(),
-                },
-            );
+                name: name.clone(),
+                value: value.clone(),
+                metadata: BTreeMap::new(),
+            });
         }
     }
 
@@ -753,62 +932,163 @@ impl Observer {
         self.samples.len()
     }
 
+    /// Merge callback/decoder drop counts into the canonical finalization
+    /// summary before writing the artifact and run log.
+    pub fn record_ingress_drops(
+        &mut self,
+        decode_dropped: u64,
+        unstamped_observations_dropped: u64,
+        handoff_dropped: u64,
+    ) -> anyhow::Result<()> {
+        self.ensure_capturing()?;
+        self.stats.ingress_decode_dropped = self
+            .stats
+            .ingress_decode_dropped
+            .saturating_add(decode_dropped);
+        self.stats.ingress_unstamped_observations_dropped = self
+            .stats
+            .ingress_unstamped_observations_dropped
+            .saturating_add(unstamped_observations_dropped);
+        self.stats.ingress_handoff_dropped = self
+            .stats
+            .ingress_handoff_dropped
+            .saturating_add(handoff_dropped);
+        Ok(())
+    }
+
     #[cfg(test)]
     fn sample(&self, idx: usize) -> &OfflineVldaSample {
         &self.samples[idx]
     }
 
-    /// Finish: flush complete in-flight ticks, write the `(V,L,D,A)` dataset
-    /// artifact, register it in the run log (uri + sha256), and close the run
-    /// log with a monotonic timestamp and a capture-quality summary message.
+    /// Atomically finalize the dataset and its canonical run log.
+    ///
+    /// Samples and buffered events remain owned by the observer until every
+    /// write, hash, append, fsync, and rename succeeds. On error the caller may
+    /// retry: the complete run log is reconstructed from the immutable event
+    /// buffer, so a partial append can never create duplicates or data loss.
     pub fn finalize(&mut self, dataset_path: impl AsRef<Path>) -> anyhow::Result<ObserverStats> {
-        self.flush_complete();
+        let mut io = FsFinalizeIo;
+        self.finalize_with_io(dataset_path.as_ref(), &mut io)
+    }
+
+    fn finalize_with_io<I: FinalizeIo>(
+        &mut self,
+        dataset_path: &Path,
+        io: &mut I,
+    ) -> anyhow::Result<ObserverStats> {
+        if self.finalized {
+            anyhow::bail!("observer is already finalized");
+        }
+        let runlog_path = self.runlog_path.clone().ok_or_else(|| {
+            anyhow::anyhow!(
+                "canonical run log is required; attach it with with_runlog before ingestion"
+            )
+        })?;
+        let dataset_target = output_target(dataset_path)?;
+        let runlog_target = output_target(&runlog_path)?;
+        if runlog_target == dataset_target {
+            anyhow::bail!("dataset and run-log paths must be different");
+        }
+        if self.finalization_started {
+            if self.finalize_dataset_target.as_ref() != Some(&dataset_target) {
+                anyhow::bail!(
+                    "finalization retry must use the original dataset path {}",
+                    self.finalize_dataset_target.as_deref().map_or_else(
+                        || "<unknown>".to_string(),
+                        |path| path.display().to_string()
+                    )
+                );
+            }
+        } else {
+            if dataset_path.exists() {
+                anyhow::bail!(
+                    "refusing to overwrite an existing artifact {}",
+                    dataset_path.display()
+                );
+            }
+            if runlog_path.exists() {
+                anyhow::bail!("refusing to overwrite an existing run log");
+            }
+            self.flush_complete_unchecked();
+            self.finalize_dataset_target = Some(dataset_target);
+            self.finalization_started = true;
+        }
         let dataset = OfflineVldaDataset {
             run_id: self.run_id.clone(),
             source: "ncp".into(),
             model: self.model.clone(),
             task: self.task.clone(),
-            samples: std::mem::take(&mut self.samples),
+            samples: self.samples.clone(),
         };
-        let path = dataset_path.as_ref();
-        let file = File::create(path)?;
-        let mut bw = BufWriter::new(file);
-        serde_json::to_writer_pretty(&mut bw, &dataset)?;
-        // BufWriter's Drop swallows flush errors; flush explicitly so a short
-        // write surfaces instead of silently truncating the artifact.
-        bw.flush()?;
-        drop(bw);
-        let stats = self.stats.clone();
-        if let Some(mut w) = self.writer.take() {
-            let ts = self.max_ts;
-            let sha256 = pid_runlog::sha256_file(path)
-                .map_err(|e| eprintln!("[ncp-observer] dataset sha256 failed: {e}"))
-                .ok();
-            // Register the artifact so the run log (source of truth) can locate
-            // and verify the dataset it describes.
-            w.append(&RunLogEvent::ArtifactLogged {
-                timestamp_ns: ts,
-                name: "ncp_vlda_dataset".to_string(),
-                kind: "dataset_json".to_string(),
-                uri: path.display().to_string(),
-                sha256,
-                metadata: BTreeMap::from([(
-                    "kept_samples".to_string(),
-                    stats.kept_samples.to_string(),
-                )]),
-            })?;
-            w.append(&RunLogEvent::RunEnded {
-                run_id: self.run_id.clone(),
-                timestamp_ns: ts,
-                status: RunStatus::Succeeded,
-                message: Some(format!(
-                    "{} (V,L,D,A) samples from NCP [{}]",
-                    dataset.samples.len(),
-                    stats.summary()
-                )),
-            })?;
-            w.flush()?;
+        if dataset_path.exists() {
+            let existing: OfflineVldaDataset =
+                serde_json::from_slice(&std::fs::read(dataset_path).with_context(|| {
+                    format!(
+                        "failed to read existing artifact {} for retry",
+                        dataset_path.display()
+                    )
+                })?)
+                .with_context(|| {
+                    format!(
+                        "existing artifact {} is not a valid observer dataset",
+                        dataset_path.display()
+                    )
+                })?;
+            if existing != dataset {
+                anyhow::bail!(
+                    "refusing to overwrite non-matching artifact {}",
+                    dataset_path.display()
+                );
+            }
+            sync_installed_file(dataset_path)?;
+        } else {
+            io.write_artifact(dataset_path, &dataset)?;
         }
+        let stats = self.stats.clone();
+        let ts = self.max_ts;
+        let sha256 = io.hash_artifact(dataset_path)?;
+        let mut final_events = self.runlog_events.clone();
+        final_events.push(RunLogEvent::ArtifactLogged {
+            timestamp_ns: ts,
+            name: "ncp_vlda_dataset".to_string(),
+            kind: "dataset_json".to_string(),
+            uri: dataset_path.display().to_string(),
+            sha256: Some(sha256),
+            metadata: BTreeMap::from([
+                ("kept_samples".to_string(), stats.kept_samples.to_string()),
+                ("capture_quality".to_string(), stats.summary()),
+            ]),
+        });
+        final_events.push(RunLogEvent::RunEnded {
+            run_id: self.run_id.clone(),
+            timestamp_ns: ts,
+            status: RunStatus::Succeeded,
+            message: Some(format!(
+                "{} (V,L,D,A) samples from NCP [{}]",
+                dataset.samples.len(),
+                stats.summary()
+            )),
+        });
+        let runlog_bytes = io.append_runlog(&final_events)?;
+        if runlog_path.exists() {
+            let existing = std::fs::read(&runlog_path).with_context(|| {
+                format!(
+                    "failed to read existing run log {} for retry",
+                    runlog_path.display()
+                )
+            })?;
+            if existing != runlog_bytes {
+                anyhow::bail!(
+                    "refusing to overwrite non-matching run log {}",
+                    runlog_path.display()
+                );
+            }
+            sync_installed_file(&runlog_path)?;
+        } else {
+            io.write_runlog(&runlog_path, &runlog_bytes)?;
+        }
+        self.finalized = true;
         Ok(stats)
     }
 
@@ -826,6 +1106,94 @@ impl Observer {
 mod tests {
     use super::*;
     use ncp_core::Map;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum FailStage {
+        ArtifactWrite,
+        Hash,
+        Append,
+        RunlogWrite,
+    }
+
+    struct FailOnceIo {
+        stage: Option<FailStage>,
+        fs: FsFinalizeIo,
+    }
+
+    struct FailAfterRunlogInstallIo {
+        failed: bool,
+        fs: FsFinalizeIo,
+    }
+
+    impl FailOnceIo {
+        fn new(stage: FailStage) -> Self {
+            Self {
+                stage: Some(stage),
+                fs: FsFinalizeIo,
+            }
+        }
+
+        fn fail(&mut self, stage: FailStage) -> anyhow::Result<()> {
+            if self.stage == Some(stage) {
+                self.stage = None;
+                anyhow::bail!("injected {stage:?} failure");
+            }
+            Ok(())
+        }
+    }
+
+    impl FinalizeIo for FailOnceIo {
+        fn write_artifact(
+            &mut self,
+            path: &Path,
+            dataset: &OfflineVldaDataset,
+        ) -> anyhow::Result<()> {
+            self.fail(FailStage::ArtifactWrite)?;
+            self.fs.write_artifact(path, dataset)
+        }
+
+        fn hash_artifact(&mut self, path: &Path) -> anyhow::Result<String> {
+            self.fail(FailStage::Hash)?;
+            self.fs.hash_artifact(path)
+        }
+
+        fn append_runlog(&mut self, events: &[RunLogEvent]) -> anyhow::Result<Vec<u8>> {
+            self.fail(FailStage::Append)?;
+            self.fs.append_runlog(events)
+        }
+
+        fn write_runlog(&mut self, path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+            self.fail(FailStage::RunlogWrite)?;
+            self.fs.write_runlog(path, bytes)
+        }
+    }
+
+    impl FinalizeIo for FailAfterRunlogInstallIo {
+        fn write_artifact(
+            &mut self,
+            path: &Path,
+            dataset: &OfflineVldaDataset,
+        ) -> anyhow::Result<()> {
+            self.fs.write_artifact(path, dataset)
+        }
+
+        fn hash_artifact(&mut self, path: &Path) -> anyhow::Result<String> {
+            self.fs.hash_artifact(path)
+        }
+
+        fn append_runlog(&mut self, events: &[RunLogEvent]) -> anyhow::Result<Vec<u8>> {
+            self.fs.append_runlog(events)
+        }
+
+        fn write_runlog(&mut self, path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+            self.fs.write_runlog(path, bytes)?;
+            if !self.failed {
+                self.failed = true;
+                anyhow::bail!("injected post-install runlog failure");
+            }
+            Ok(())
+        }
+    }
 
     fn ch(data: Vec<f64>) -> ChannelValue {
         ChannelValue { data, unit: None }
@@ -873,19 +1241,92 @@ mod tests {
         }
     }
 
+    fn unique_test_dir(name: &str) -> PathBuf {
+        let nonce = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "ncp_observer_{name}_{}_{nonce}",
+            std::process::id()
+        ))
+    }
+
+    fn observer_with_exact_sample(runlog: &Path) -> Observer {
+        let mut observer = Observer::new("run", "nest", "reach", Mapping::default())
+            .with_runlog(runlog)
+            .unwrap();
+        observer.on_observation(&observation(7, vec![3.0])).unwrap();
+        observer
+            .on_sensor(&sensor(
+                7,
+                1.0,
+                &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+            ))
+            .unwrap();
+        observer
+            .on_command(&command(7, 1.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        observer.flush_complete().unwrap();
+        observer
+    }
+
+    fn assert_finalize_retry_reconstructs(stage: FailStage) {
+        let dir = unique_test_dir("retry");
+        std::fs::create_dir_all(&dir).unwrap();
+        let runlog = dir.join("runlog.jsonl");
+        let dataset = dir.join("vlda.json");
+        let mut observer = observer_with_exact_sample(&runlog);
+        let sample_before = observer.sample(0).clone();
+
+        let mut failing = FailOnceIo::new(stage);
+        let error = observer
+            .finalize_with_io(&dataset, &mut failing)
+            .unwrap_err();
+        assert!(error.to_string().contains("injected"), "{error:#}");
+        assert_eq!(observer.sample_count(), 1, "retry state must be preserved");
+        assert_eq!(observer.sample(0).sample_id, sample_before.sample_id);
+        assert!(!observer.finalized, "failed finalize must remain retryable");
+        assert!(
+            !runlog.exists(),
+            "failed finalize must not publish a partial canonical log"
+        );
+
+        observer.finalize(&dataset).unwrap();
+        let written: OfflineVldaDataset =
+            serde_json::from_slice(&std::fs::read(&dataset).unwrap()).unwrap();
+        assert_eq!(written.samples.len(), 1);
+        assert_eq!(written.samples[0].sample_id, sample_before.sample_id);
+        let events = pid_runlog::read_events_from_path(&runlog).unwrap();
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, RunLogEvent::EmbeddingCaptured { .. }))
+                .count(),
+            1,
+            "retry must reconstruct exactly one canonical sample event"
+        );
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RunLogEvent::ArtifactLogged {
+                sha256: Some(_),
+                ..
+            }
+        )));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
     #[test]
     fn joins_v_and_a_on_seq() {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        // Observation arrives first → sets D (unstamped: recency fallback).
-        obs.on_observation(&observation(0, vec![5.0, 6.0]));
+        // The exact-seq observation may arrive before the sensor/action pair.
+        obs.on_observation(&observation(7, vec![5.0, 6.0])).unwrap();
 
         // Sensor for seq=7 (V + L).
         obs.on_sensor(&sensor(
             7,
             1.0,
             &[("pose", vec![1.0, 2.0, 3.0]), ("instruction", vec![0.5])],
-        ));
-        obs.flush_complete();
+        ))
+        .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.sample_count(), 0, "no command yet");
 
         // Command for seq=7 (A) → completes the sample (held for the grace
@@ -894,9 +1335,10 @@ mod tests {
             7,
             1.0,
             &[("velocity_setpoint", vec![0.1, 0.0, -0.1])],
-        ));
+        ))
+        .unwrap();
         assert_eq!(obs.sample_count(), 0, "held for the reorder grace window");
-        obs.flush_complete();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.sample_count(), 1);
         let s = obs.sample(0);
         assert_eq!(s.v, vec![1.0, 2.0, 3.0]); // pose only (instruction excluded)
@@ -910,16 +1352,18 @@ mod tests {
     fn d_aligns_on_seq_not_recency() {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
         // Observation for seq=7 (D=[5,6]), then a later one for seq=8 (D=[9,9]).
-        obs.on_observation(&observation(7, vec![5.0, 6.0]));
-        obs.on_observation(&observation(8, vec![9.0, 9.0]));
+        obs.on_observation(&observation(7, vec![5.0, 6.0])).unwrap();
+        obs.on_observation(&observation(8, vec![9.0, 9.0])).unwrap();
         // The seq=7 tick must pick the seq=7 D, not the most-recent (seq=8) one.
         obs.on_sensor(&sensor(
             7,
             0.0,
             &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-        ));
-        obs.on_command(&command(7, 0.0, &[("velocity_setpoint", vec![0.1])]));
-        obs.flush_complete();
+        ))
+        .unwrap();
+        obs.on_command(&command(7, 0.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.sample_count(), 1);
         assert_eq!(
             obs.sample(0).d,
@@ -942,18 +1386,20 @@ mod tests {
         // plane, so D often arrives AFTER the tick's command. The grace window
         // must let it claim its own tick.
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        obs.on_observation(&observation(0, vec![9.9])); // stale recency value
         obs.on_sensor(&sensor(
             7,
             0.0,
             &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-        ));
-        obs.on_command(&command(7, 0.0, &[("velocity_setpoint", vec![0.1])]));
+        ))
+        .unwrap();
+        obs.on_command(&command(7, 0.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
         assert_eq!(obs.sample_count(), 0, "held for the grace window");
         // The tick's own readout arrives late but within the grace window …
-        obs.on_observation(&observation(7, vec![5.5]));
+        obs.on_observation(&observation(7, vec![5.5])).unwrap();
         // … then the watermark advances far enough to emit seq 7.
-        obs.on_sensor(&sensor(7 + REORDER_GRACE, 0.0, &[("pose", vec![1.0])]));
+        obs.on_sensor(&sensor(7 + REORDER_GRACE, 0.0, &[("pose", vec![1.0])]))
+            .unwrap();
         assert_eq!(obs.sample_count(), 1, "emitted once past the grace window");
         assert_eq!(obs.sample(0).d, vec![5.5], "late D claimed its own tick");
         assert_eq!(
@@ -963,56 +1409,45 @@ mod tests {
     }
 
     #[test]
-    fn observation_after_emission_patches_sample_as_seq_late() {
+    fn observation_after_emission_is_dropped_without_mutating_sample() {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        obs.on_observation(&observation(0, vec![9.9])); // recency fallback source
+        obs.on_observation(&observation(7, vec![4.4])).unwrap();
         obs.on_sensor(&sensor(
             7,
             0.0,
             &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-        ));
-        obs.on_command(&command(7, 0.0, &[("velocity_setpoint", vec![0.1])]));
-        obs.flush_complete(); // force emission before the readout arrives
+        ))
+        .unwrap();
+        obs.on_command(&command(7, 0.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.sample_count(), 1);
+        let before = obs.sample(0).clone();
+        obs.on_observation(&observation(7, vec![5.5])).unwrap();
+        assert_eq!(obs.sample(0).d, before.d);
         assert_eq!(
             obs.sample(0).metadata.get("d_source").map(String::as_str),
-            Some("recency_fallback")
+            Some("seq")
         );
-        // The seq-stamped readout arrives after emission with matching dims:
-        // it must still patch the in-memory sample (the artifact is written at
-        // finalize) and be counted.
-        obs.on_observation(&observation(7, vec![5.5]));
-        assert_eq!(obs.sample(0).d, vec![5.5]);
-        assert_eq!(
-            obs.sample(0).metadata.get("d_source").map(String::as_str),
-            Some("seq_late")
-        );
-        assert_eq!(obs.stats.late_d_patched, 1);
+        assert_eq!(obs.stats.late_d_dropped, 1);
     }
 
     #[test]
-    fn provenance_marks_recency_fallback() {
+    fn seq_zero_observation_is_dropped_without_future_d_pairing() {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        // An observation stamped seq=0 cannot be seq-aligned; it only updates
-        // latest_d, so the paired tick must fall back to recency.
-        obs.on_observation(&observation(0, vec![3.0]));
+        obs.on_observation(&observation(0, vec![3.0])).unwrap();
         obs.on_sensor(&sensor(
             4,
             0.0,
             &[("pose", vec![1.0]), ("instruction", vec![0.5, 0.5])],
-        ));
-        obs.on_command(&command(4, 0.0, &[("velocity_setpoint", vec![0.1])]));
-        obs.flush_complete();
-        assert_eq!(obs.sample_count(), 1);
-        assert_eq!(obs.sample(0).d, vec![3.0], "D falls back to recency");
-        assert_eq!(
-            obs.sample(0).metadata.get("d_source").map(String::as_str),
-            Some("recency_fallback")
-        );
-        assert_eq!(
-            obs.sample(0).metadata.get("l_source").map(String::as_str),
-            Some("channel")
-        );
+        ))
+        .unwrap();
+        obs.on_command(&command(4, 0.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
+        assert_eq!(obs.sample_count(), 0, "unstamped D must never be promoted");
+        assert_eq!(obs.stats.unstamped_frames_dropped, 1);
+        assert_eq!(obs.stats.excluded_empty_d, 1);
     }
 
     #[test]
@@ -1021,10 +1456,12 @@ mod tests {
         // excluded from the artifact (one empty-axis sample would make
         // pid-offline-harness reject the WHOLE dataset) and counted.
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        obs.on_observation(&observation(0, vec![3.0]));
-        obs.on_sensor(&sensor(4, 0.0, &[("pose", vec![1.0])])); // no "instruction"
-        obs.on_command(&command(4, 0.0, &[("velocity_setpoint", vec![0.1])]));
-        obs.flush_complete();
+        obs.on_observation(&observation(4, vec![3.0])).unwrap();
+        obs.on_sensor(&sensor(4, 0.0, &[("pose", vec![1.0])]))
+            .unwrap(); // no "instruction"
+        obs.on_command(&command(4, 0.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.sample_count(), 0, "empty-L tick excluded");
         assert_eq!(obs.stats.excluded_empty_l, 1);
         // Same for a tick before any observation arrived (empty D).
@@ -1033,9 +1470,11 @@ mod tests {
             4,
             0.0,
             &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-        ));
-        obs.on_command(&command(4, 0.0, &[("velocity_setpoint", vec![0.1])]));
-        obs.flush_complete();
+        ))
+        .unwrap();
+        obs.on_command(&command(4, 0.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.sample_count(), 0, "empty-D tick excluded");
         assert_eq!(obs.stats.excluded_empty_d, 1);
     }
@@ -1043,9 +1482,11 @@ mod tests {
     #[test]
     fn mismatched_seq_does_not_pair() {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        obs.on_sensor(&sensor(1, 0.0, &[("pose", vec![1.0])]));
-        obs.on_command(&command(2, 0.0, &[("cmd", vec![0.0])]));
-        obs.flush_complete();
+        obs.on_sensor(&sensor(1, 0.0, &[("pose", vec![1.0])]))
+            .unwrap();
+        obs.on_command(&command(2, 0.0, &[("cmd", vec![0.0])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(
             obs.sample_count(),
             0,
@@ -1064,7 +1505,7 @@ mod tests {
             episode_id: None,
         };
         let mut obs = Observer::new("run", "nest", "reach", mapping);
-        obs.on_observation(&observation(0, vec![3.0]));
+        obs.on_observation(&observation(3, vec![3.0])).unwrap();
         obs.on_sensor(&sensor(
             3,
             1.0,
@@ -1073,9 +1514,11 @@ mod tests {
                 ("instruction", vec![0.5]),
                 ("success", vec![1.0]),
             ],
-        ));
-        obs.on_command(&command(3, 1.0, &[("velocity_setpoint", vec![0.1])]));
-        obs.flush_complete();
+        ))
+        .unwrap();
+        obs.on_command(&command(3, 1.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.sample_count(), 1);
         let s = obs.sample(0);
         // V is `pose` only — neither the language channel nor the success channel.
@@ -1100,17 +1543,20 @@ mod tests {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
         let total = MAX_INFLIGHT as i64 + 500;
         for seq in 1..=total {
-            obs.on_observation(&observation(seq, vec![seq as f64]));
+            obs.on_observation(&observation(seq, vec![seq as f64]))
+                .unwrap();
             obs.on_sensor(&sensor(
                 seq,
                 seq as f64 * 0.01,
                 &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-            ));
+            ))
+            .unwrap();
             obs.on_command(&command(
                 seq,
                 seq as f64 * 0.01,
                 &[("velocity_setpoint", vec![0.1])],
-            ));
+            ))
+            .unwrap();
         }
         assert!(
             obs.sample_count() > MAX_INFLIGHT,
@@ -1139,13 +1585,16 @@ mod tests {
         // Emit seqs 1..=3 (advance the watermark past the grace window so they
         // emit through the normal path).
         for seq in 1..=(REORDER_GRACE + 3) {
-            obs.on_observation(&observation(seq, vec![seq as f64]));
+            obs.on_observation(&observation(seq, vec![seq as f64]))
+                .unwrap();
             obs.on_sensor(&sensor(
                 seq,
                 0.0,
                 &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-            ));
-            obs.on_command(&command(seq, 0.0, &[("velocity_setpoint", vec![0.1])]));
+            ))
+            .unwrap();
+            obs.on_command(&command(seq, 0.0, &[("velocity_setpoint", vec![0.1])]))
+                .unwrap();
         }
         let emitted_before = obs.sample_count();
         assert!(emitted_before >= 3, "got {emitted_before}");
@@ -1154,9 +1603,11 @@ mod tests {
             1,
             0.0,
             &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-        ));
-        obs.on_command(&command(1, 0.0, &[("velocity_setpoint", vec![0.1])]));
-        obs.flush_complete();
+        ))
+        .unwrap();
+        obs.on_command(&command(1, 0.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.stats.redelivered_frames_dropped, 2);
         let mut ids: Vec<&str> = (0..obs.sample_count())
             .map(|i| obs.sample(i).sample_id.as_str())
@@ -1171,26 +1622,35 @@ mod tests {
     fn inflated_observation_seq_does_not_fragment_the_session() {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
         for seq in 1..=5 {
+            obs.on_observation(&observation(seq, vec![seq as f64]))
+                .unwrap();
             obs.on_sensor(&sensor(
                 seq,
                 0.0,
                 &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-            ));
-            obs.on_command(&command(seq, 0.0, &[("velocity_setpoint", vec![0.1])]));
+            ))
+            .unwrap();
+            obs.on_command(&command(seq, 0.0, &[("velocity_setpoint", vec![0.1])]))
+                .unwrap();
         }
         // A garbage/inflated observation seq far above the control loop's
         // watermark must not move the clock: before the fix it made every
         // subsequent legitimate frame look like a session reset.
-        obs.on_observation(&observation(1_000_000, vec![9.0]));
+        obs.on_observation(&observation(1_000_000, vec![9.0]))
+            .unwrap();
         for seq in 6..=20 {
+            obs.on_observation(&observation(seq, vec![seq as f64]))
+                .unwrap();
             obs.on_sensor(&sensor(
                 seq,
                 0.0,
                 &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-            ));
-            obs.on_command(&command(seq, 0.0, &[("velocity_setpoint", vec![0.1])]));
+            ))
+            .unwrap();
+            obs.on_command(&command(seq, 0.0, &[("velocity_setpoint", vec![0.1])]))
+                .unwrap();
         }
-        obs.flush_complete();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.stats.seq_resets, 0, "no session reset");
         assert_eq!(obs.epoch, 0, "single epoch");
         assert_eq!(obs.sample_count(), 20, "all ticks emitted");
@@ -1203,7 +1663,8 @@ mod tests {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
         for seq in 1..(MAX_INFLIGHT as i64 + 500) {
             // Only a sensor (no matching command) → this seq never completes.
-            obs.on_sensor(&sensor(seq, 0.0, &[("pose", vec![1.0])]));
+            obs.on_sensor(&sensor(seq, 0.0, &[("pose", vec![1.0])]))
+                .unwrap();
         }
         assert!(
             obs.pending.len() <= MAX_INFLIGHT,
@@ -1217,23 +1678,24 @@ mod tests {
     #[test]
     fn seq_reset_starts_new_epoch_and_does_not_starve() {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        obs.on_observation(&observation(0, vec![3.0]));
         // Fill pending with stale, never-completing high seqs, past the cap.
         for seq in 100_000..(100_000 + MAX_INFLIGHT as i64 + 10) {
-            obs.on_sensor(&sensor(seq, 0.0, &[("pose", vec![1.0])]));
+            obs.on_sensor(&sensor(seq, 0.0, &[("pose", vec![1.0])]))
+                .unwrap();
         }
         // Session restarts at seq 1: the new tick must still produce a sample
         // (lowest-key eviction would evict it before its command arrived), and
-        // it must NOT pair with any stale pre-reset state. The reset clears
-        // latest_d, so give the new epoch its own readout.
+        // it must NOT pair with any stale pre-reset state.
         obs.on_sensor(&sensor(
             1,
             0.0,
             &[("pose", vec![7.0]), ("instruction", vec![0.5])],
-        ));
-        obs.on_observation(&observation(0, vec![4.0]));
-        obs.on_command(&command(1, 0.0, &[("velocity_setpoint", vec![0.2])]));
-        obs.flush_complete();
+        ))
+        .unwrap();
+        obs.on_observation(&observation(1, vec![4.0])).unwrap();
+        obs.on_command(&command(1, 0.0, &[("velocity_setpoint", vec![0.2])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.sample_count(), 1, "post-reset tick must complete");
         assert_eq!(obs.stats.seq_resets, 1);
         let s = obs.sample(0);
@@ -1242,8 +1704,8 @@ mod tests {
         assert_eq!(s.d, vec![4.0], "new-epoch D only (pre-reset D was cleared)");
         assert_eq!(
             s.metadata.get("d_source").map(String::as_str),
-            Some("recency_fallback"),
-            "cross-epoch D must never claim exact alignment"
+            Some("seq"),
+            "new-epoch D must be joined exactly"
         );
     }
 
@@ -1253,17 +1715,22 @@ mod tests {
         // and reorder arithmetic must saturate, never overflow (debug panic in the
         // Zenoh callback / release wrap that wedges the capture).
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        obs.on_observation(&observation(i64::MAX, vec![1.0]));
+        obs.on_observation(&observation(i64::MAX, vec![1.0]))
+            .unwrap();
         obs.on_sensor(&sensor(
             i64::MAX,
             0.0,
             &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-        ));
-        obs.on_command(&command(i64::MAX, 0.0, &[("v", vec![0.1])]));
-        obs.on_sensor(&sensor(i64::MIN + 1, 0.0, &[("pose", vec![2.0])]));
-        obs.on_command(&command(i64::MIN + 1, 0.0, &[("v", vec![0.2])]));
+        ))
+        .unwrap();
+        obs.on_command(&command(i64::MAX, 0.0, &[("v", vec![0.1])]))
+            .unwrap();
+        obs.on_sensor(&sensor(i64::MIN + 1, 0.0, &[("pose", vec![2.0])]))
+            .unwrap();
+        obs.on_command(&command(i64::MIN + 1, 0.0, &[("v", vec![0.2])]))
+            .unwrap();
         // No panic reaching here is the assertion; also flush cleanly.
-        obs.flush_complete();
+        obs.flush_complete().unwrap();
     }
 
     #[test]
@@ -1273,32 +1740,36 @@ mod tests {
             0,
             0.0,
             &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-        ));
-        obs.on_command(&command(0, 0.0, &[("velocity_setpoint", vec![0.1])]));
-        obs.flush_complete();
+        ))
+        .unwrap();
+        obs.on_command(&command(0, 0.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
         assert_eq!(obs.sample_count(), 0, "seq-0 frames are unjoinable");
         assert_eq!(obs.stats.unstamped_frames_dropped, 2);
     }
 
     #[test]
     fn finalize_writes_valid_runlog_with_artifact_registration() {
-        let dir = std::env::temp_dir().join(format!("ncp_observer_test_{}", std::process::id()));
+        let dir = unique_test_dir("valid_finalize");
         std::fs::create_dir_all(&dir).unwrap();
         let runlog = dir.join("runlog.jsonl");
         let dataset = dir.join("vlda.json");
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default())
             .with_runlog(&runlog)
             .unwrap();
-        obs.on_observation(&observation(0, vec![3.0]));
         // Ticks with DESCENDING sensor times: the monotonic run-log clock must
         // clamp so validation still passes.
         for seq in [7i64, 8, 9] {
+            obs.on_observation(&observation(seq, vec![3.0])).unwrap();
             obs.on_sensor(&sensor(
                 seq,
                 (10 - seq) as f64,
                 &[("pose", vec![1.0]), ("instruction", vec![0.5])],
-            ));
-            obs.on_command(&command(seq, (10 - seq) as f64, &[("v", vec![0.1])]));
+            ))
+            .unwrap();
+            obs.on_command(&command(seq, (10 - seq) as f64, &[("v", vec![0.1])]))
+                .unwrap();
         }
         let stats = obs.finalize(&dataset).unwrap();
         assert_eq!(stats.kept_samples, 3);
@@ -1318,5 +1789,159 @@ mod tests {
             "finalize must register the dataset artifact with a sha256"
         );
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn artifact_write_failure_preserves_samples_for_retry() {
+        assert_finalize_retry_reconstructs(FailStage::ArtifactWrite);
+    }
+
+    #[test]
+    fn hash_failure_preserves_samples_for_retry() {
+        assert_finalize_retry_reconstructs(FailStage::Hash);
+    }
+
+    #[test]
+    fn runlog_append_failure_reconstructs_without_duplicate_events() {
+        assert_finalize_retry_reconstructs(FailStage::Append);
+    }
+
+    #[test]
+    fn runlog_write_failure_reconstructs_without_duplicate_events() {
+        assert_finalize_retry_reconstructs(FailStage::RunlogWrite);
+    }
+
+    #[test]
+    fn finalize_without_canonical_runlog_fails_before_writing_artifact() {
+        let dir = unique_test_dir("missing_runlog");
+        std::fs::create_dir_all(&dir).unwrap();
+        let dataset = dir.join("vlda.json");
+        let mut observer = Observer::new("run", "nest", "reach", Mapping::default());
+
+        let error = observer.finalize(&dataset).unwrap_err();
+
+        assert!(error.to_string().contains("canonical run log is required"));
+        assert!(!dataset.exists());
+        assert!(!observer.finalization_started);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn failed_finalize_seals_capture_but_remains_retryable() {
+        let dir = unique_test_dir("failed_seal");
+        std::fs::create_dir_all(&dir).unwrap();
+        let runlog = dir.join("runlog.jsonl");
+        let dataset = dir.join("vlda.json");
+        let mut observer = observer_with_exact_sample(&runlog);
+        let mut failing = FailOnceIo::new(FailStage::ArtifactWrite);
+
+        observer
+            .finalize_with_io(&dataset, &mut failing)
+            .unwrap_err();
+        let mutation_error = observer
+            .on_observation(&observation(8, vec![9.0]))
+            .unwrap_err();
+
+        assert!(mutation_error
+            .to_string()
+            .contains("finalization has started"));
+        observer.finalize(&dataset).unwrap();
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn failed_finalize_cannot_be_retried_to_a_different_artifact() {
+        let dir = unique_test_dir("retry_path");
+        std::fs::create_dir_all(&dir).unwrap();
+        let runlog = dir.join("runlog.jsonl");
+        let first = dir.join("first.json");
+        let second = dir.join("second.json");
+        let mut observer = observer_with_exact_sample(&runlog);
+        let mut failing = FailOnceIo::new(FailStage::ArtifactWrite);
+        observer.finalize_with_io(&first, &mut failing).unwrap_err();
+
+        let error = observer.finalize(&second).unwrap_err();
+
+        assert!(error.to_string().contains("original dataset path"));
+        observer.finalize(&first).unwrap();
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn aliased_dataset_and_runlog_paths_are_rejected() {
+        let dir = unique_test_dir("aliased_paths");
+        std::fs::create_dir_all(&dir).unwrap();
+        let dataset = dir.join("artifact.json");
+        let aliased_runlog = dir.join(".").join("artifact.json");
+        let mut observer = Observer::new("run", "nest", "reach", Mapping::default())
+            .with_runlog(aliased_runlog)
+            .unwrap();
+
+        let error = observer.finalize(&dataset).unwrap_err();
+
+        assert!(error.to_string().contains("must be different"));
+        assert!(!observer.finalization_started);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn retry_adopts_an_exact_runlog_installed_before_an_io_error() {
+        let dir = unique_test_dir("post_install_retry");
+        std::fs::create_dir_all(&dir).unwrap();
+        let runlog = dir.join("runlog.jsonl");
+        let dataset = dir.join("vlda.json");
+        let mut observer = observer_with_exact_sample(&runlog);
+        let mut failing = FailAfterRunlogInstallIo {
+            failed: false,
+            fs: FsFinalizeIo,
+        };
+
+        let error = observer
+            .finalize_with_io(&dataset, &mut failing)
+            .unwrap_err();
+        assert!(error.to_string().contains("post-install"));
+        assert!(
+            runlog.exists(),
+            "the complete atomic install already occurred"
+        );
+
+        observer.finalize(&dataset).unwrap();
+        let report = pid_runlog::validate_events_from_path(&runlog).unwrap();
+        assert_eq!(report.errors, 0, "retry must preserve a canonical run log");
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn atomic_write_failure_leaves_existing_artifact_untouched() {
+        let dir = unique_test_dir("atomic_failure");
+        std::fs::create_dir_all(&dir).unwrap();
+        let artifact = dir.join("artifact.json");
+        std::fs::write(&artifact, b"original").unwrap();
+        let error = atomic_write_with(&artifact, |writer| {
+            writer.write_all(b"partial")?;
+            anyhow::bail!("injected short write")
+        })
+        .unwrap_err();
+        assert!(error.to_string().contains("injected short write"));
+        assert_eq!(std::fs::read(&artifact).unwrap(), b"original");
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn successful_finalize_seals_observer_against_post_event_mutation() {
+        let dir = unique_test_dir("sealed");
+        std::fs::create_dir_all(&dir).unwrap();
+        let runlog = dir.join("runlog.jsonl");
+        let dataset = dir.join("vlda.json");
+        let mut observer = observer_with_exact_sample(&runlog);
+        observer.finalize(&dataset).unwrap();
+        let artifact_before = std::fs::read(&dataset).unwrap();
+
+        let error = observer
+            .on_observation(&observation(7, vec![99.0]))
+            .unwrap_err();
+        assert!(error.to_string().contains("finalized"));
+        assert_eq!(std::fs::read(&dataset).unwrap(), artifact_before);
+        std::fs::remove_dir_all(dir).ok();
     }
 }

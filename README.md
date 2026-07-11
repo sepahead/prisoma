@@ -66,7 +66,7 @@ cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0   # print
   zero-redundancy target for the adopted measure, while `--strict-gate` enforces the curated
   low-dimensional MI band and only reports atoms. See `findings.md`; never quote the binary's
   aggregate label as an atom-validity verdict.
-- **Recent docset slices** (research status unchanged throughout): **v10.6** (2026-07-05) was correctness/robustness — CI resurrected after an invalid-YAML workflow had silently created zero jobs since 2026-06-13, Agent Bridge and offline-harness run-log paths hardened, `crates/ncp-observer` brought toward the M5 bar (`CHANGELOG.md`). **v10.7** (2026-07-06) is a first-principles spec audit + statistics plan — math/precision corrections (one outright error fixed: findings.md's δ-hyperbolicity direction was backwards), a hardened hypothesis system (H7a/H7b split, H5 operationalized, discrete-regime preregistration, the new `grandplan.md` §14.8 statistical analysis plan and §9.7.2b H2/H3 protocol), a July-2026 literature refresh (`grandplan.md` §12.6 — novelty re-verified: still no published PID-on-VLA anywhere; VLA-Arena is now ICML 2026 — re-verify at submission), and NCP pin prose synced to v0.6.0. A same-day triple-check addendum then repaired the new statistical content under hostile review (endpoint units, regime multiplicity, placebo criterion — see the grandplan v10.7 addendum bullet) and re-pinned the pid-rs submodule to the new upstream **v0.4.0** (correctness release; this is what moved the Exp0 verdict label from PIVOT to NO-GO).
+- **Recent docset slices** (research status unchanged throughout): **v10.6** (2026-07-05) was correctness/robustness — CI resurrected after an invalid-YAML workflow had silently created zero jobs since 2026-06-13, Agent Bridge and offline-harness run-log paths hardened, `crates/ncp-observer` brought toward the M5 bar (`CHANGELOG.md`). **v10.7** (2026-07-06) is a first-principles spec audit + statistics plan — math/precision corrections (one outright error fixed: findings.md's δ-hyperbolicity direction was backwards), a hardened hypothesis system (H7a/H7b split, H5 operationalized, discrete-regime preregistration, the new `grandplan.md` §14.8 statistical analysis plan and §9.7.2b H2/H3 protocol), a July-2026 literature refresh (`grandplan.md` §12.6 — novelty re-verified: still no published PID-on-VLA anywhere; VLA-Arena is now ICML 2026 — re-verify at submission), and NCP pin prose synced to the then-current release. A same-day triple-check addendum then repaired the new statistical content under hostile review (endpoint units, regime multiplicity, placebo criterion — see the grandplan v10.7 addendum bullet) and re-pinned the pid-rs submodule to the new upstream **v0.4.0** (correctness release; this is what moved the Exp0 verdict label from PIVOT to NO-GO).
 - **Open critical path:** do **not** begin an evidentiary real-VLA capture yet. Required first:
   repair upstream `ISX_GATE`; implement leakage-safe episode-local H1 scores plus action-
   entropy and ensemble/temperature baselines; freeze transforms and task eligibility for
@@ -162,12 +162,15 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   also identifies network-authentication, transactional logging, reconstructability, and
   artifact-integrity work before production use.
 - **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **critical-path producer is `experiments/safe_adapter/`**; `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth** (`grandplan.md` §7.6.3).
-- **Optional Engram bridge:** `crates/ncp-observer` is a read-only NCP v0.6.0 tap, excluded
-  from the default workspace and off the critical path. It emits validating smoke logs and an
-  artifact, but remains exploratory: audit found a future-D recency fallback, late-patch
-  run-log/artifact divergence, swallowed append/hash failures, and destructive pre-write
-  finalization. It also lacks honest L/split/episode/label structure. Do not use it as an M5
-  producer until those integrity findings and external sequence alignment are fixed.
+- **Optional Engram bridge:** `crates/ncp-observer` is a read-only NCP tap, excluded
+  from the default workspace and off the critical path. Its integrity repair ships against
+  wire 0.7, pinned to the immutable NCP `v0.7.0` release:
+  exact-seq-only D, bounded callback handoff, immutable sample/events, and atomic durable,
+  sealed same-path-retryable artifact/run-log finalization with failure-injection tests. It
+  also requires an explicit secure/open transport choice and rejects observation-payload/
+  session-key mismatches; artifact finalization requires a canonical run log. It remains exploratory
+  because honest L/split/episode/label structure and a conforming live publisher are still
+  required before it can be an M5 producer.
 - **Specified (not yet built):** a fuller Rerun-based diagnostic viewer (Phases 1-3) and the deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
 
 ## Quick Start — Exp0 Gate
