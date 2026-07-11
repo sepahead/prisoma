@@ -27,6 +27,12 @@
 
 ### Changed
 
+- **Re-pinned `ncp-observer` to immutable NCP `v0.7.1`.** This is a
+  wire-identical patch on wire 0.7 (`CONTRACT_HASH = f05e328cad20959d`): observer
+  behavior and exact-`seq` D alignment are unchanged. The manifest and lockfile
+  now resolve the Rust 1.88-compatible release commit in lockstep, and active pin
+  documentation (including the stale root workspace comment) is synchronized.
+
 - **Repaired `ncp-observer` evidence integrity and adopted the immutable NCP
   `v0.7.0` / wire-0.7 release:** exact
   seq-only D with seq-0/late drops, bounded callback-to-worker handoff,

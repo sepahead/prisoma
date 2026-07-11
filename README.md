@@ -164,7 +164,7 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
 - **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **critical-path producer is `experiments/safe_adapter/`**; `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth** (`grandplan.md` §7.6.3).
 - **Optional Engram bridge:** `crates/ncp-observer` is a read-only NCP tap, excluded
   from the default workspace and off the critical path. Its integrity repair ships against
-  wire 0.7, pinned to the immutable NCP `v0.7.0` release:
+  wire 0.7, pinned to the immutable NCP `v0.7.1` release:
   exact-seq-only D, bounded callback handoff, immutable sample/events, and atomic durable,
   sealed same-path-retryable artifact/run-log finalization with failure-injection tests. It
   also requires an explicit secure/open transport choice and rejects observation-payload/

@@ -65,7 +65,7 @@ conflicting claims in the 2026-07-06 notes and the first generated power report.
   artifact under `docs/`.
 - **Current pins:** the estimator submodule is exact commit
   `8a5a9dda601556443f956a2fba164cccc913ed2e` (crate version 0.4.0, two commits past tag
-  `v0.4.0`); the optional NCP dependency is tag `v0.7.0`. Older pin values below are
+  `v0.4.0`); the optional NCP dependency is tag `v0.7.1`. Older pin values below are
   historical at-cut notes, not current instructions.
 
 **v10.7 notes (2026-07-06 cut):** first-principles spec audit + statistics-plan slice. **No research-conclusion changes from v10.4** — the Exp0 gate still blocks continuous-atom interpretation on synthetic high-d controls (verdict label now **NO-GO** under pid-rs 0.4.0, see the addendum bullet; PIVOT under 0.3.0); the open critical path is still the first real-VLA capture (not done). Driven by a five-agent spec audit (grandplan vs pid-rs code, grandplan vs NCP, first-principles math check, hostile hypothesis review, citation verification) plus a 104-agent adversarially-verified literature sweep. New content:

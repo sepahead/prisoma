@@ -94,11 +94,11 @@ Already correct (do not regress):
 
 ### Gap 1 — D alignment on `seq` (exact-only in-repo; residual is the live producer)
 
-**Update (NCP `v0.7.0`, wire 0.7):** a plane-published
+**Update (NCP `v0.7.1`, wire 0.7):** a plane-published
 `ObservationFrame.seq >= 1` echoes the driving `SensorFrame.seq`. The observer enforces
 that medium boundary: version-less/incompatible/invalid frames and valid pull-form
 `seq == 0` observations are dropped and counted. The manifest and lockfile pin the
-immutable `v0.7.0` release.
+immutable `v0.7.1` release.
 
 `ObservationFrame` **carries `seq`**, and the prisoma observer joins D on it:
 `Observer::on_observation` stores each readout in `d_by_seq[obs.seq]`; completed ticks
@@ -164,7 +164,7 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
 
 `ncp-observer` is **kept off the default cargo workspace** (`Cargo.toml` `exclude`)
 to keep NCP/Zenoh off the critical path; it git-depends on the published NCP repo
-<https://github.com/sepahead/NCP> (tag `v0.7.0`). Build/test it explicitly:
+<https://github.com/sepahead/NCP> (tag `v0.7.1`). Build/test it explicitly:
 
 ```bash
 # Build + test the workspace-excluded observer directly:
@@ -180,7 +180,7 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json 
     --summary-json outputs/ncp_summary.json --runlog outputs/ncp_pid_runlog.jsonl
 ```
 
-The `ncp-core` / `ncp-zenoh` dependencies pin the immutable published `v0.7.0` tag in
+The `ncp-core` / `ncp-zenoh` dependencies pin the immutable published `v0.7.1` tag in
 lockstep. The crate stays off the default workspace so NCP/Zenoh resolution cannot break
 the PID gates.
 

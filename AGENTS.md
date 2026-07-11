@@ -137,7 +137,7 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
 - **Honours the three invariants:** the run log is the source of truth, the observer drives
   nothing (the Agent Bridge stays the only control plane), and all NCP-specific mapping
   lives in this crate.
-- **Pinned dependency:** the manifest pins the immutable NCP `v0.7.0` release and
+- **Pinned dependency:** the manifest pins the immutable NCP `v0.7.1` release and
   resolves from the published repository; no sibling checkout or path override is
   required.
 - **Workspace-excluded by design:** it is in `Cargo.toml` `exclude`, not a member, because a

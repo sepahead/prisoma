@@ -131,7 +131,7 @@ the same information flow as the NEST simulator?
 
 ## Compatibility & versioning
 
-The manifest and lockfile pin the immutable NCP **`v0.7.0`** release
+The manifest and lockfile pin the immutable NCP **`v0.7.1`** release
 (`CONTRACT_HASH = f05e328cad20959d`) and use its fallible realm constructor and
 explicit secure client open. Wire 0.7 keeps
 plane observations exact (`seq >= 1`), strengthens cross-language validation, and
@@ -166,7 +166,7 @@ information flow the NEST simulator does?
 ## Build note
 
 This crate git-depends on the published NCP repo <https://github.com/sepahead/NCP>
-(tag `v0.7.0`) and pulls Zenoh, so it is heavier
+(tag `v0.7.1`) and pulls Zenoh, so it is heavier
 than the pure-PID crates. The
 estimator gates (`just exp0`, `just exp0-bin`, etc.) run the pid-rs crates via
 `--manifest-path pid-rs/crates/...` and are unaffected.
