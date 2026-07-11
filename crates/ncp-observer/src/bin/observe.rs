@@ -26,20 +26,24 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-/// Accept an observation frame off the plane under the NCP wire-0.7 contract.
+/// Accept an observation frame off the plane under the NCP wire-0.8 contract.
 ///
 /// The observer is a passive, read-only tap, so it must never panic and never
 /// drive anything — a frame that fails the wire contract is DROPPED and COUNTED,
 /// exactly like a serde decode failure. `decode_validated` enforces the right
 /// `kind`, a compatible `ncp_version` (an absent/incompatible version is rejected,
-/// never coerced — the wire-0.7 gate), and the kind's `seq` bound
-/// (`observation_frame` allows `seq >= 0`: `0` is the pull/RPC-reply form, `>= 1`
-/// is the plane form that echoes the driving `SensorFrame.seq`).
+/// never coerced — the wire-0.8 gate), the wire-0.8 stream identity (a canonical
+/// `stream.epoch`, `stream.seq >= 1`, well-formed `session_id`, and a canonical
+/// `session.generation`), and — when present — a valid `source`.
+///
+/// The plane form carries a `source` echoing the driving `SensorFrame.stream`
+/// (the cross-plane join key); the pull/RPC-reply form is distinguished by
+/// `source` ABSENCE (the wire-0.8 successor to the retired `seq == 0` sentinel).
 ///
 /// Returns the accepted frame, or an `AcceptError` telling the caller which
 /// counter to bump: `Invalid` (version-less / incompatible / wrong kind /
-/// unparseable) vs `Unstamped` (a valid pull/RPC-form frame whose `seq == 0`).
-/// Both are dropped; a plane observer never promotes seq-less D by recency.
+/// unparseable) vs `Unstamped` (a valid pull/RPC-form frame with no `source`).
+/// Both are dropped; a plane observer never promotes source-less D by recency.
 enum AcceptError {
     Invalid,
     Unstamped,
@@ -47,9 +51,9 @@ enum AcceptError {
 
 fn accept_observation(bytes: &[u8]) -> Result<ObservationFrame, AcceptError> {
     match decode_validated::<ObservationFrame>(bytes) {
-        Ok(f) if f.seq >= 1 => Ok(f),
-        // Valid frame, wrong medium: seq 0 is the pull/RPC-reply form and has no
-        // exact driving tick, so it must not enter the observation-plane join.
+        Ok(f) if f.source.is_some() => Ok(f),
+        // Valid frame, wrong medium: no `source` is the pull/RPC-reply form and has
+        // no exact driving tick, so it must not enter the observation-plane join.
         Ok(_) => Err(AcceptError::Unstamped),
         Err(_) => Err(AcceptError::Invalid),
     }
@@ -284,7 +288,11 @@ async fn main() -> anyhow::Result<()> {
         args.model.clone(),
         args.task.clone(),
         mapping,
-    );
+    )
+    // Wire 0.8 carries `session_id` + `session.generation` on the data plane; the
+    // observer validates every frame's payload identity against the captured
+    // session and the first-seen live incarnation.
+    .with_expected_session(args.session.clone());
     let runlog_path = args
         .runlog
         .as_deref()
@@ -421,7 +429,11 @@ async fn main() -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ncp_core::NCP_VERSION;
+    use ncp_core::{SessionRef, StreamPosition, NCP_VERSION};
+
+    // Canonical wire-0.8 UUIDv4s for a valid stream identity in constructed frames.
+    const EPOCH: &str = "00000000-0000-4000-8000-0000000000a1";
+    const GENERATION: &str = "00000000-0000-4000-8000-0000000000c3";
 
     fn argv(args: &[&str]) -> Vec<String> {
         std::iter::once("ncp-observe")
@@ -430,40 +442,51 @@ mod tests {
             .collect()
     }
 
-    fn obs_json(ver: &str, seq: i64) -> Vec<u8> {
+    /// A wire-0.8 observation with a valid own `stream`, `session_id`, and
+    /// `session.generation`; `source_seq` present = plane form, `None` = pull/RPC.
+    fn obs_json(ver: &str, source_seq: Option<i64>) -> Vec<u8> {
         let frame = ObservationFrame {
             ncp_version: ver.to_string(),
             session_id: "s".to_string(),
-            seq,
+            stream: StreamPosition {
+                epoch: EPOCH.to_string(),
+                seq: 1,
+            },
+            source: source_seq.map(|seq| StreamPosition {
+                epoch: EPOCH.to_string(),
+                seq,
+            }),
+            session: SessionRef {
+                generation: GENERATION.to_string(),
+            },
             ..Default::default()
         };
         serde_json::to_vec(&frame).unwrap()
     }
 
     #[test]
-    fn accept_observation_enforces_wire_0_7_plane_seq() {
-        // A stamped, current-wire plane frame is accepted for exact-seq join.
-        assert!(accept_observation(&obs_json(NCP_VERSION, 1)).is_ok());
-        // A valid pull/RPC-form frame is rejected on the observation plane.
+    fn accept_observation_enforces_wire_0_8_plane_source() {
+        // A stamped, current-wire plane frame (carrying a source) is accepted.
+        assert!(accept_observation(&obs_json(NCP_VERSION, Some(1))).is_ok());
+        // A valid pull/RPC-form frame (no source) is rejected on the plane.
         assert!(matches!(
-            accept_observation(&obs_json(NCP_VERSION, 0)),
+            accept_observation(&obs_json(NCP_VERSION, None)),
             Err(AcceptError::Unstamped)
         ));
         // A previous-wire frame is incompatible and dropped, never coerced.
         assert!(matches!(
-            accept_observation(&obs_json("0.6", 1)),
+            accept_observation(&obs_json("0.6", Some(1))),
             Err(AcceptError::Invalid)
         ));
         // A version-less frame is dropped.
         assert!(matches!(
-            accept_observation(br#"{"kind":"observation_frame","session_id":"s","seq":1}"#),
+            accept_observation(br#"{"kind":"observation_frame","session_id":"s"}"#),
             Err(AcceptError::Invalid)
         ));
         // A wrong-kind or unparseable payload is dropped.
         assert!(matches!(
             accept_observation(
-                format!(r#"{{"kind":"sensor_frame","ncp_version":"{NCP_VERSION}","seq":1}}"#)
-                    .as_bytes()
+                format!(r#"{{"kind":"sensor_frame","ncp_version":"{NCP_VERSION}"}}"#).as_bytes()
             ),
             Err(AcceptError::Invalid)
         ));
@@ -535,7 +558,7 @@ mod tests {
     async fn capture_worker_rejects_observation_payload_for_another_session() {
         let (sender, receiver) = mpsc::channel(1);
         sender
-            .send(Ingress::Observation(obs_json(NCP_VERSION, 1)))
+            .send(Ingress::Observation(obs_json(NCP_VERSION, Some(1))))
             .await
             .unwrap();
         drop(sender);

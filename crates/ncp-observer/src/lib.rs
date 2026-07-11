@@ -36,31 +36,42 @@
 //! - **A** (action) ← `CommandFrame` channels, flattened.
 //!
 //! ## Alignment (the correctness rule)
-//! V and A are joined on **`seq`** — a `CommandFrame.seq` echoes the
-//! `SensorFrame.seq` it was computed from, so a sample pairs the action with the
-//! sensor that produced it (never by arrival time, which the DROP QoS on the
-//! perception plane would corrupt). `ObservationFrame` carries `seq` too, so D
-//! aligns on `seq` as well. Because the observation plane rides a lower-priority
-//! QoS class than the action plane, a tick's D routinely *arrives after* its
-//! command: completed ticks are therefore held for a **reorder grace window**
-//! (`REORDER_GRACE` newer seqs) before emission, so a late seq-stamped readout
-//! still claims its own tick. After a tick emits, its artifact row and canonical
-//! event are immutable: later readouts are dropped and counted, never patched.
-//! Observation-plane `seq == 0` is the pull/RPC form and is dropped; there is no
-//! recency fallback or future-D pairing.
+//! V and A are joined on the driving **sensor `StreamPosition`** (`{epoch, seq}`)
+//! — wire 0.8's typed source-correlation key. A `SensorFrame` IS the origin, so it
+//! contributes its OWN `stream`; a `CommandFrame.source` echoes the
+//! `SensorFrame.stream` it was computed from, and an `ObservationFrame.source`
+//! echoes the driving `SensorFrame.stream` too. A sample therefore pairs the
+//! action (and the neural readout) with the exact sensor that produced it — on the
+//! full `{epoch, seq}`, never on the bare seq (a sensor restart reuses seqs under a
+//! fresh epoch) and never by arrival time (which the DROP QoS on the perception
+//! plane would corrupt). Because the observation plane rides a lower-priority QoS
+//! class than the action plane, a tick's D routinely *arrives after* its command:
+//! completed ticks are held for a **reorder grace window** (`REORDER_GRACE` newer
+//! source seqs) before emission, so a late source-stamped readout still claims its
+//! own tick. After a tick emits, its artifact row and canonical event are
+//! immutable: later readouts are dropped and counted, never patched. An
+//! observation with NO `source` is the pull/RPC form and is dropped (source
+//! ABSENCE, not the retired `seq == 0` sentinel); there is no recency fallback or
+//! future-D pairing.
 //!
-//! ## Sessions, resets, and unstamped frames
-//! - `seq == 0` sensor/command frames are treated as **unstamped** (the same
-//!   convention `ObservationFrame` documents upstream: "0 = no controller seq")
-//!   — they cannot be joined reliably, so they are dropped and counted.
-//! - A stamped seq arriving more than `MAX_INFLIGHT` behind the watermark is
-//!   treated as a **session/seq reset**: complete in-flight ticks are flushed,
-//!   per-epoch state is cleared (so an old epoch's V can never pair with a new
-//!   epoch's A), and `sample_id`s carry the epoch (`ncp-{epoch}-{seq}`) so they
-//!   stay unique across resets.
+//! ## Sessions, epochs, and unstamped frames
+//! - An unstamped join position is dropped and counted: a `SensorFrame` whose own
+//!   `stream` is unset (`stream.seq < 1`), a `CommandFrame` with no `source`
+//!   (open-loop / uncorrelatable), and an `ObservationFrame` with no `source`
+//!   (pull/RPC) all fail the source-correlation join.
+//! - Wire 0.8 carries a canonical `stream.epoch` per incarnation, so a sensor
+//!   restart is detected DIRECTLY as a change of the active epoch (retiring the
+//!   0.7 `RESET_MARGIN` seq-distance heuristic). On an epoch transition complete
+//!   in-flight ticks are flushed, per-epoch state is cleared (so an old epoch's V
+//!   can never pair with a new epoch's A), the old epoch is retired (a late
+//!   straggler from it is dropped, never re-triggering a reset), and `sample_id`s
+//!   carry the epoch (`ncp-{epoch}-{seq}`) so they stay unique across restarts.
+//! - Every frame's payload `session_id` (must equal the captured session) and
+//!   `session.generation` (the live incarnation, locked to the first seen) are
+//!   validated; a stale/foreign-session frame is dropped and counted.
 //! - In-flight state is bounded by `MAX_INFLIGHT` with **insertion-order
 //!   (FIFO) eviction** — never lowest-key eviction, which would starve new
-//!   low-seq ticks after a reset.
+//!   low-seq ticks after a restart.
 //!
 //! ## Honesty provenance (per-sample `metadata`, mirrored into the run log)
 //! Every kept sample carries provenance markers so a degraded axis is never
@@ -68,9 +79,10 @@
 //! `EmbeddingCaptured` metadata so the run log records them independently:
 //! - `l_source` = `"channel"` (the language channel was present; empty-L ticks
 //!   are excluded, see above).
-//! - `d_source` = `"seq"` only. Missing or unstamped D never enters an artifact;
-//!   those ticks are excluded and counted.
-//! - `seq` and `epoch` — the join key and reset epoch for reconstruction.
+//! - `d_source` = `"source"` only. Missing or unstamped D never enters an
+//!   artifact; those ticks are excluded and counted.
+//! - `seq` and `epoch` — the driving sensor `{epoch, seq}` join key, for
+//!   reconstruction.
 
 use anyhow::Context as _;
 use ncp_core::{ChannelValue, CommandFrame, ObservationFrame, SensorFrame};
@@ -155,12 +167,20 @@ pub struct ObserverStats {
     /// Seq-stamped D readouts that arrived after their tick was closed, or were
     /// too old to pair exactly, and were dropped without mutating an artifact row.
     pub late_d_dropped: usize,
-    /// `seq == 0` frames dropped as unstamped (unjoinable on a data plane).
+    /// Frames dropped as unstamped/uncorrelatable: a sensor whose own `stream`
+    /// is unset, or a command/observation with no `source` (open-loop / pull-RPC).
     pub unstamped_frames_dropped: usize,
+    /// Frames dropped because their payload `session_id` did not match the
+    /// captured session, or their `session.generation` was a stale/foreign
+    /// incarnation (or either identity field was missing).
+    pub session_mismatch_dropped: usize,
+    /// Late stragglers from an already-retired `stream.epoch` — dropped rather
+    /// than thrashing the active stream back to an old incarnation.
+    pub retired_epoch_frames_dropped: usize,
     /// Wire frames rejected by the binary's validated decoder before they
     /// reached the observer state machine.
     pub ingress_decode_dropped: u64,
-    /// Pull/RPC-form observations (`seq == 0`) rejected by the binary at the
+    /// Pull/RPC-form observations (no `source`) rejected by the binary at the
     /// observation-plane medium boundary.
     pub ingress_unstamped_observations_dropped: u64,
     /// Frames rejected because the bounded callback-to-worker handoff was full
@@ -176,7 +196,8 @@ pub struct ObserverStats {
     pub evicted_incomplete: usize,
     /// Unclaimed seq-stamped D readouts evicted by the `MAX_INFLIGHT` bound.
     pub evicted_unclaimed_d: usize,
-    /// Session/seq resets detected (each starts a new epoch).
+    /// Epoch transitions detected (each retires the old incarnation and starts a
+    /// new one); the wire-0.8 successor to 0.7's seq-distance reset heuristic.
     pub seq_resets: u32,
 }
 
@@ -184,8 +205,9 @@ impl ObserverStats {
     fn summary(&self) -> String {
         format!(
             "kept={} excluded(empty v/l/d/a)={}/{}/{}/{} dim_mismatch={} \
-             late_d_dropped={} unstamped={} ingress(decode/seq0/handoff)={}/{}/{} \
-             redelivered={} evicted(pending/d)={}/{} seq_resets={}",
+             late_d_dropped={} unstamped={} session_mismatch={} retired_epoch={} \
+             ingress(decode/nosource/handoff)={}/{}/{} \
+             redelivered={} evicted(pending/d)={}/{} epoch_transitions={}",
             self.kept_samples,
             self.excluded_empty_v,
             self.excluded_empty_l,
@@ -194,6 +216,8 @@ impl ObserverStats {
             self.dim_mismatch_dropped,
             self.late_d_dropped,
             self.unstamped_frames_dropped,
+            self.session_mismatch_dropped,
+            self.retired_epoch_frames_dropped,
             self.ingress_decode_dropped,
             self.ingress_unstamped_observations_dropped,
             self.ingress_handoff_dropped,
@@ -218,25 +242,26 @@ fn flatten_except(channels: &BTreeMap<String, ChannelValue>, except: &[&str]) ->
 }
 
 /// Cap on the number of in-flight partial samples and unmatched D readouts kept
-/// in memory. A long-running tap can accumulate `seq`s that never complete (a
-/// sensor with no matching command, or vice-versa) or observations whose tick
+/// in memory. A long-running tap can accumulate source seqs that never complete
+/// (a sensor with no matching command, or vice-versa) or observations whose tick
 /// never arrives; without a bound these maps grow without limit. Eviction is
-/// **insertion-order (FIFO)**, never lowest-key: after a session seq reset the
+/// **insertion-order (FIFO)**, never lowest-key: after an epoch transition the
 /// lowest keys are the *newest* entries, and lowest-key eviction would starve
 /// every new tick while retaining the stale ones forever.
 const MAX_INFLIGHT: usize = 4096;
 
-/// How many newer stamped seqs must be observed before a V+A-complete tick is
+/// How many newer source seqs must be observed before a V+A-complete tick is
 /// emitted. The observation plane rides a lower QoS priority than the action
-/// plane, so a tick's seq-stamped D readout routinely arrives *after* its
+/// plane, so a tick's source-stamped D readout routinely arrives *after* its
 /// command; holding completed ticks for a few seqs lets that readout claim its
 /// own tick instead of being silently dropped. `finalize` flushes regardless.
 const REORDER_GRACE: i64 = 8;
 
-/// A stamped seq this far behind the watermark is a session/seq reset, not a
-/// straggler. Matches [`MAX_INFLIGHT`] so anything old enough to have been
-/// evicted is treated as a new epoch.
-const RESET_MARGIN: i64 = MAX_INFLIGHT as i64;
+/// How many retired `stream.epoch`s to remember. A late straggler from a retired
+/// epoch is dropped rather than mistaken for a fresh incarnation (which would
+/// thrash the active stream); a modest bound covers realistic restart counts
+/// without unbounded growth from a hostile stream of novel epochs.
+const MAX_RETIRED_EPOCHS: usize = 64;
 
 /// Accumulates NCP frames into `(V,L,D,A)` samples, joining V↔A (and D) on `seq`.
 pub struct Observer {
@@ -244,20 +269,35 @@ pub struct Observer {
     model: String,
     task: String,
     mapping: Mapping,
-    /// seq → partial sample (sensor seen, awaiting its command, or vice-versa).
+    /// source-seq → partial sample (sensor seen, awaiting its command, or
+    /// vice-versa) — keyed by the driving sensor's `stream.seq` within the active
+    /// epoch (state is cleared on an epoch transition, so seq alone disambiguates).
     pending: BTreeMap<i64, Partial>,
     /// Insertion order of `pending` keys, for FIFO eviction.
     pending_order: VecDeque<i64>,
-    /// D readouts keyed by the observation's `seq`, for exact alignment when the
-    /// publisher stamps observations with the driving sensor's `seq`.
-    d_by_seq: BTreeMap<i64, Vec<f64>>,
+    /// D readouts keyed by the driving sensor's `source.seq`, each tagged with its
+    /// `source.epoch` so a buffered readout can only ever fill a same-epoch tick
+    /// (the full `{epoch, seq}` join).
+    d_by_seq: BTreeMap<i64, (String, Vec<f64>)>,
     /// Insertion order of `d_by_seq` keys, for FIFO eviction.
     d_order: VecDeque<i64>,
-    /// Highest stamped seq seen this epoch (the emission watermark).
+    /// Highest source seq seen this epoch (the emission watermark).
     max_seq: i64,
-    /// Session/seq-reset epoch (0 for the first).
-    epoch: u32,
-    /// Seqs already emitted or excluded this epoch. Once closed, a seq is
+    /// The live incarnation's `stream.epoch` (canonical UUIDv4); `None` until the
+    /// first stamped sensor/command establishes it.
+    active_epoch: Option<String>,
+    /// Retired epochs (past incarnations), so a late straggler is dropped rather
+    /// than mistaken for a new incarnation. FIFO-bounded by [`MAX_RETIRED_EPOCHS`].
+    retired_epochs: BTreeSet<String>,
+    retired_order: VecDeque<String>,
+    /// The captured session's logical id; every frame's payload `session_id` must
+    /// equal it. `None` disables the check (bare-library use / focused unit tests).
+    expected_session: Option<String>,
+    /// The live `session.generation`, locked to the first seen; a frame from a
+    /// different (stale/foreign) incarnation is rejected — one observer captures
+    /// ONE session incarnation.
+    expected_generation: Option<String>,
+    /// source seqs already emitted or excluded this epoch. Once closed, a seq is
     /// immutable: redelivery and late D are dropped rather than reconstructing
     /// a second row or mutating an already-buffered event.
     closed_seqs: BTreeSet<i64>,
@@ -466,7 +506,11 @@ impl Observer {
             d_by_seq: BTreeMap::new(),
             d_order: VecDeque::new(),
             max_seq: 0,
-            epoch: 0,
+            active_epoch: None,
+            retired_epochs: BTreeSet::new(),
+            retired_order: VecDeque::new(),
+            expected_session: None,
+            expected_generation: None,
             closed_seqs: BTreeSet::new(),
             max_ts: 0,
             contract_dims: None,
@@ -503,6 +547,15 @@ impl Observer {
         Ok(self)
     }
 
+    /// Bind the captured session's logical `session_id`. Every ingested frame's
+    /// payload `session_id` must then equal it (wire 0.8 carries `session_id` on
+    /// the data plane too), so a frame addressed to another session is dropped and
+    /// counted rather than blended into this capture. Must be set before ingestion.
+    pub fn with_expected_session(mut self, session_id: impl Into<String>) -> Self {
+        self.expected_session = Some(session_id.into());
+        self
+    }
+
     fn ensure_capturing(&self) -> anyhow::Result<()> {
         if self.finalized {
             anyhow::bail!("observer is finalized; refusing post-event artifact mutation");
@@ -522,35 +575,106 @@ impl Observer {
         self.max_ts
     }
 
-    /// Watermark + session-reset bookkeeping for a stamped (nonzero) seq.
-    /// Returns `false` when the frame is unstamped and must be dropped.
-    fn admit_seq(&mut self, seq: i64) -> bool {
-        if seq < 1 {
-            // Upstream convention (ObservationFrame.seq docs): 0 = no controller
-            // seq. An unstamped/invalid sensor or command cannot be joined
-            // reliably — all seq-0 frames would merge into one bogus sample.
+    /// Validate the wire-0.8 identity envelope carried on every session-scoped
+    /// frame BEFORE it can influence any state. Returns `false` (and counts the
+    /// drop) when the frame addresses a different/absent session or a
+    /// stale/foreign incarnation, so hostile or stale traffic never blends into
+    /// the capture.
+    fn accept_identity(&mut self, session_id: &str, generation: &str) -> bool {
+        // `session_id` is required on the data plane; when a captured session is
+        // bound it must match exactly (case-sensitive, no repair from a key).
+        if session_id.is_empty()
+            || self
+                .expected_session
+                .as_deref()
+                .is_some_and(|expected| expected != session_id)
+        {
+            self.stats.session_mismatch_dropped =
+                self.stats.session_mismatch_dropped.saturating_add(1);
+            return false;
+        }
+        // `session.generation` fences incarnations. Lock onto the first live
+        // generation seen; a frame from any other generation is stale/foreign and
+        // is rejected (a reopened session needs a fresh observer run). A missing
+        // generation is invalid on the 0.8 data plane.
+        if generation.is_empty() {
+            self.stats.session_mismatch_dropped =
+                self.stats.session_mismatch_dropped.saturating_add(1);
+            return false;
+        }
+        match self.expected_generation.as_deref() {
+            None => self.expected_generation = Some(generation.to_string()),
+            Some(active) if active == generation => {}
+            Some(_) => {
+                self.stats.session_mismatch_dropped =
+                    self.stats.session_mismatch_dropped.saturating_add(1);
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Retire the outgoing `stream.epoch` so a late straggler from it is dropped
+    /// rather than re-triggering a reset. FIFO-bounded by [`MAX_RETIRED_EPOCHS`].
+    fn retire_epoch(&mut self, epoch: String) {
+        if self.retired_epochs.insert(epoch.clone()) {
+            self.retired_order.push_back(epoch);
+            while self.retired_order.len() > MAX_RETIRED_EPOCHS {
+                if let Some(old) = self.retired_order.pop_front() {
+                    self.retired_epochs.remove(&old);
+                }
+            }
+        }
+    }
+
+    /// Establish/advance the active epoch + watermark for a stamped join position
+    /// (a sensor's OWN `stream`, or the driving `source` of a command). Wire 0.8
+    /// replaces 0.7's `RESET_MARGIN` seq-distance heuristic: a restart is a change
+    /// of `stream.epoch`. Returns `false` when the position is unstamped or from a
+    /// retired incarnation and must be dropped.
+    fn admit(&mut self, epoch: &str, seq: i64) -> bool {
+        if epoch.is_empty() || seq < 1 {
+            // An unset own-stream/source cannot be joined reliably.
             self.stats.unstamped_frames_dropped =
                 self.stats.unstamped_frames_dropped.saturating_add(1);
             return false;
         }
-        // `saturating_add`: `seq` is attacker-controlled off the wire, so a
-        // near-`i64::MAX` value must not overflow (debug panic in the Zenoh
-        // callback / release wrap that wedges reset detection).
-        if seq.saturating_add(RESET_MARGIN) < self.max_seq {
-            // Session/seq reset: flush what completed, then clear per-epoch
-            // state so an old epoch's V can never pair with a new epoch's A
-            // (and an old epoch's D can never leak into new-epoch samples).
-            self.flush_complete_unchecked();
-            self.pending.clear();
-            self.pending_order.clear();
-            self.d_by_seq.clear();
-            self.d_order.clear();
-            self.closed_seqs.clear();
-            self.epoch = self.epoch.saturating_add(1);
-            self.stats.seq_resets = self.stats.seq_resets.saturating_add(1);
-            self.max_seq = seq;
-        } else if seq > self.max_seq {
-            self.max_seq = seq;
+        match self.active_epoch.as_deref() {
+            None => {
+                self.active_epoch = Some(epoch.to_string());
+                self.max_seq = seq;
+            }
+            Some(active) if active == epoch => {
+                if seq > self.max_seq {
+                    self.max_seq = seq;
+                }
+            }
+            Some(_) => {
+                // A different incarnation. A late straggler from an already-retired
+                // epoch must NOT re-trigger a reset (that would thrash the active
+                // stream back and forth); drop and count it.
+                if self.retired_epochs.contains(epoch) {
+                    self.stats.retired_epoch_frames_dropped =
+                        self.stats.retired_epoch_frames_dropped.saturating_add(1);
+                    return false;
+                }
+                // Restart transition (constrained single-publisher passive tap):
+                // flush what completed, retire the old epoch, clear per-epoch state
+                // so an old epoch's V can never pair with a new epoch's A (and an
+                // old epoch's D can never leak into new-epoch samples), adopt new.
+                self.flush_complete_unchecked();
+                if let Some(old) = self.active_epoch.take() {
+                    self.retire_epoch(old);
+                }
+                self.pending.clear();
+                self.pending_order.clear();
+                self.d_by_seq.clear();
+                self.d_order.clear();
+                self.closed_seqs.clear();
+                self.stats.seq_resets = self.stats.seq_resets.saturating_add(1);
+                self.active_epoch = Some(epoch.to_string());
+                self.max_seq = seq;
+            }
         }
         true
     }
@@ -558,10 +682,16 @@ impl Observer {
     /// Ingest a `SensorFrame` (perception plane). Supplies V and L for its `seq`.
     pub fn on_sensor(&mut self, sensor: &SensorFrame) -> anyhow::Result<()> {
         self.ensure_capturing()?;
-        if !self.admit_seq(sensor.seq) {
+        if !self.accept_identity(&sensor.session_id, &sensor.session.generation) {
             return Ok(());
         }
-        if self.closed_seqs.contains(&sensor.seq) {
+        // A `SensorFrame` IS the origin: it contributes its OWN `stream` position
+        // (no `source`), which downstream command/observation join keys copy.
+        let seq = sensor.stream.seq;
+        if !self.admit(&sensor.stream.epoch, seq) {
+            return Ok(());
+        }
+        if self.closed_seqs.contains(&seq) {
             // Same guard the observation path has: this seq already emitted
             // this epoch, so this is transport re-delivery — drop it instead of
             // re-creating a pending entry that would re-emit a duplicate
@@ -589,10 +719,10 @@ impl Observer {
             .and_then(|c| sensor.channels.get(c))
             .and_then(|cv| cv.data.first().copied())
             .map(|x| serde_json::json!(x != 0.0));
-        if !self.pending.contains_key(&sensor.seq) {
-            self.pending_order.push_back(sensor.seq);
+        if !self.pending.contains_key(&seq) {
+            self.pending_order.push_back(seq);
         }
-        let entry = self.pending.entry(sensor.seq).or_default();
+        let entry = self.pending.entry(seq).or_default();
         entry.v = Some(v);
         entry.l = Some(l);
         entry.l_present = l_present;
@@ -605,42 +735,76 @@ impl Observer {
         Ok(())
     }
 
-    /// Ingest a `CommandFrame` (action plane). Supplies A for its `seq`.
+    /// Ingest a `CommandFrame` (action plane). Supplies A, correlated to the
+    /// driving sensor via `command.source` (never the command's OWN `stream`,
+    /// which is the action plane's delivery position — binding to it would create
+    /// an independent counter that never joins V, the §11 "silent zero-sample"
+    /// trap).
     pub fn on_command(&mut self, command: &CommandFrame) -> anyhow::Result<()> {
         self.ensure_capturing()?;
-        if !self.admit_seq(command.seq) {
+        if !self.accept_identity(&command.session_id, &command.session.generation) {
             return Ok(());
         }
-        if self.closed_seqs.contains(&command.seq) {
+        // CORRELATION join: the command binds to the SENSOR that drove it. A
+        // command with no `source` is open-loop / negotiated — there is no driving
+        // tick to correlate a (V,L,D,A) sample against, so it is dropped (source
+        // ABSENCE, the wire-0.8 successor to the retired `seq == 0` sentinel).
+        let source = match command.source.as_ref() {
+            Some(source) => source,
+            None => {
+                self.stats.unstamped_frames_dropped =
+                    self.stats.unstamped_frames_dropped.saturating_add(1);
+                return Ok(());
+            }
+        };
+        let seq = source.seq;
+        if !self.admit(&source.epoch, seq) {
+            return Ok(());
+        }
+        if self.closed_seqs.contains(&seq) {
             self.stats.redelivered_frames_dropped =
                 self.stats.redelivered_frames_dropped.saturating_add(1);
             return Ok(());
         }
         let a = flatten_except(&command.channels, &[]);
-        if !self.pending.contains_key(&command.seq) {
-            self.pending_order.push_back(command.seq);
+        if !self.pending.contains_key(&seq) {
+            self.pending_order.push_back(seq);
         }
-        let entry = self.pending.entry(command.seq).or_default();
+        let entry = self.pending.entry(seq).or_default();
         entry.a = Some(a);
         if entry.t == 0.0 {
-            entry.t = command.t;
+            // Prefer the driving sensor's time (`source_t`) as the tick clock; fall
+            // back to the command's own creation time when it was left unset.
+            entry.t = if command.source_t != 0.0 {
+                command.source_t
+            } else {
+                command.t
+            };
         }
         self.enforce_bounds();
         self.emit_ready();
         Ok(())
     }
 
-    /// Ingest an `ObservationFrame` (neural readback). Updates the D axis.
+    /// Ingest an `ObservationFrame` (neural readback). Updates the D axis,
+    /// correlated to the driving sensor via `obs.source` (the cross-plane join
+    /// key), on the full `{epoch, seq}`.
     pub fn on_observation(&mut self, obs: &ObservationFrame) -> anyhow::Result<()> {
         self.ensure_capturing()?;
-        if obs.seq < 1 {
-            // `seq == 0` is only valid for pull/RPC replies. Promoting it to a
-            // most-recent value can pair future D with an earlier tick, so a
-            // passive plane observer must drop it rather than guess.
-            self.stats.unstamped_frames_dropped =
-                self.stats.unstamped_frames_dropped.saturating_add(1);
+        if !self.accept_identity(&obs.session_id, &obs.session.generation) {
             return Ok(());
         }
+        // The pull/RPC reply form carries NO `source` (source ABSENCE, replacing
+        // the retired `seq == 0` sentinel): it has no exact driving tick, so a
+        // passive plane observer drops it rather than pairing future D by recency.
+        let source = match obs.source.as_ref() {
+            Some(source) if !source.epoch.is_empty() && source.seq >= 1 => source,
+            _ => {
+                self.stats.unstamped_frames_dropped =
+                    self.stats.unstamped_frames_dropped.saturating_add(1);
+                return Ok(());
+            }
+        };
         let mut d = Vec::new();
         // Deterministic order: records is a BTreeMap keyed by port.
         for ob in obs.records.values() {
@@ -654,22 +818,33 @@ impl Observer {
         if d.is_empty() {
             return Ok(());
         }
-        if self.closed_seqs.contains(&obs.seq)
-            || obs.seq.saturating_add(RESET_MARGIN) < self.max_seq
+        // A readout whose driving sensor is not the live incarnation cannot join
+        // the active tick stream (full {epoch, seq} join; never cross-epoch).
+        if self
+            .active_epoch
+            .as_deref()
+            .is_some_and(|active| active != source.epoch)
         {
+            self.stats.late_d_dropped = self.stats.late_d_dropped.saturating_add(1);
+            return Ok(());
+        }
+        let seq = source.seq;
+        if self.closed_seqs.contains(&seq) {
             // Once a row's canonical event exists it is immutable. A late
-            // exact-seq readout is evidence of loss/reordering, not authority
+            // exact-source readout is evidence of loss/reordering, not authority
             // to patch the artifact behind the run log's back.
             self.stats.late_d_dropped = self.stats.late_d_dropped.saturating_add(1);
             return Ok(());
         }
-        if !self.d_by_seq.contains_key(&obs.seq) {
-            self.d_order.push_back(obs.seq);
+        if !self.d_by_seq.contains_key(&seq) {
+            self.d_order.push_back(seq);
         }
-        self.d_by_seq.insert(obs.seq, d);
-        // Deliberately do NOT advance `max_seq` from an observation: D is a
-        // passenger on the control-loop clock, and a hostile inflated seq must
-        // not force a reset or premature emission.
+        // Tag the readout with its `source.epoch` so it can only ever fill a
+        // same-epoch tick, even if buffered before the active epoch was known.
+        self.d_by_seq.insert(seq, (source.epoch.clone(), d));
+        // Deliberately do NOT advance `max_seq` or the epoch from an observation:
+        // D is a passenger on the control-loop clock, and a hostile inflated
+        // source must not force a reset or premature emission.
         self.enforce_bounds();
         self.emit_ready();
         Ok(())
@@ -779,10 +954,13 @@ impl Observer {
 
     fn emit_sample(&mut self, seq: i64, p: Partial) {
         self.closed_seqs.insert(seq);
-        // D is admissible only when it carries this exact driving seq.
+        let epoch = self.active_epoch.clone().unwrap_or_default();
+        // D is admissible only when its driving `source` matches this tick's exact
+        // {epoch, seq} — a buffered readout from another incarnation is treated as
+        // absent, never mis-joined.
         let (d, d_source) = match self.d_by_seq.remove(&seq) {
-            Some(d) => (d, "seq"),
-            None => (Vec::new(), "absent"),
+            Some((d_epoch, d)) if d_epoch == epoch => (d, "source"),
+            _ => (Vec::new(), "absent"),
         };
         let v = p.v.unwrap_or_default();
         let l = p.l.unwrap_or_default();
@@ -830,10 +1008,10 @@ impl Observer {
         }
         let mut metadata = BTreeMap::new();
         metadata.insert("seq".to_string(), seq.to_string());
-        metadata.insert("epoch".to_string(), self.epoch.to_string());
+        metadata.insert("epoch".to_string(), epoch.clone());
         metadata.insert("source".to_string(), "ncp".to_string());
-        // Honest provenance: D is exact-seq or the tick is excluded. A kept
-        // sample's L is nonempty (empty-L ticks
+        // Honest provenance: D is exact-source ({epoch, seq}) or the tick is
+        // excluded. A kept sample's L is nonempty (empty-L ticks
         // were excluded above), and a nonempty L can only come from a present
         // language channel — so `l_source` is always `"channel"` here; the
         // old `"absent_zeroed"` branch was unreachable and misled readers
@@ -842,8 +1020,8 @@ impl Observer {
         metadata.insert("l_source".to_string(), "channel".to_string());
         metadata.insert("d_source".to_string(), d_source.to_string());
         let sample = OfflineVldaSample {
-            // Epoch-qualified so ids stay unique across session seq resets.
-            sample_id: format!("ncp-{}-{seq}", self.epoch),
+            // Epoch-qualified so ids stay unique across incarnation restarts.
+            sample_id: format!("ncp-{epoch}-{seq}"),
             episode_id: self.mapping.episode_id.clone(),
             v,
             l,
@@ -1105,7 +1283,29 @@ impl Observer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ncp_core::Map;
+    use ncp_core::{Map, SessionRef, StreamPosition};
+
+    // Canonical wire-0.8 test identity: two `stream.epoch` incarnations (A, B)
+    // under ONE live `session.generation`, plus a valid `session_id`. Frames
+    // stamp these so the observer's identity + stream/source joins exercise the
+    // real 0.8 envelope.
+    const EPOCH_A: &str = "00000000-0000-4000-8000-0000000000a1";
+    const EPOCH_B: &str = "00000000-0000-4000-8000-0000000000b2";
+    const GEN: &str = "00000000-0000-4000-8000-0000000000c3";
+    const SID: &str = "sess";
+
+    fn spos(epoch: &str, seq: i64) -> StreamPosition {
+        StreamPosition {
+            epoch: epoch.into(),
+            seq,
+        }
+    }
+
+    fn gen() -> SessionRef {
+        SessionRef {
+            generation: GEN.into(),
+        }
+    }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum FailStage {
@@ -1199,33 +1399,63 @@ mod tests {
         ChannelValue { data, unit: None }
     }
 
-    fn sensor(seq: i64, t: f64, channels: &[(&str, Vec<f64>)]) -> SensorFrame {
+    /// A `SensorFrame` stamped with its OWN `stream` (the origin position the
+    /// downstream command/observation `source` copies), on incarnation `epoch`.
+    fn sensor_ep(epoch: &str, seq: i64, t: f64, channels: &[(&str, Vec<f64>)]) -> SensorFrame {
         let mut sc = Map::new();
         for (name, data) in channels {
             sc.insert((*name).into(), ch(data.clone()));
         }
         SensorFrame {
-            seq,
             t,
             channels: sc,
+            stream: spos(epoch, seq),
+            session: gen(),
+            session_id: SID.into(),
             ..Default::default()
         }
     }
 
-    fn command(seq: i64, t: f64, channels: &[(&str, Vec<f64>)]) -> CommandFrame {
+    fn sensor(seq: i64, t: f64, channels: &[(&str, Vec<f64>)]) -> SensorFrame {
+        sensor_ep(EPOCH_A, seq, t, channels)
+    }
+
+    /// A closed-loop `CommandFrame` whose `source` echoes the driving sensor's
+    /// `stream` (epoch, seq) — the correlation join key.
+    fn command_ep(epoch: &str, seq: i64, t: f64, channels: &[(&str, Vec<f64>)]) -> CommandFrame {
         let mut cc = Map::new();
         for (name, data) in channels {
             cc.insert((*name).into(), ch(data.clone()));
         }
         CommandFrame {
-            seq,
             t,
             channels: cc,
+            // The command's OWN action-plane stream is deliberately distinct from
+            // its `source`; the observer must join on `source`, never `stream`.
+            stream: spos(epoch, seq),
+            source: Some(spos(epoch, seq)),
+            source_t: t,
+            session: gen(),
+            session_id: SID.into(),
             ..Default::default()
         }
     }
 
-    fn observation(seq: i64, values: Vec<f64>) -> ObservationFrame {
+    fn command(seq: i64, t: f64, channels: &[(&str, Vec<f64>)]) -> CommandFrame {
+        command_ep(EPOCH_A, seq, t, channels)
+    }
+
+    /// An open-loop command with NO `source` — uncorrelatable to a driving sensor.
+    fn command_open_loop(t: f64, channels: &[(&str, Vec<f64>)]) -> CommandFrame {
+        let mut frame = command_ep(EPOCH_A, 1, t, channels);
+        frame.source = None;
+        frame
+    }
+
+    /// A plane `ObservationFrame` whose `source` echoes the driving sensor's
+    /// `stream` (epoch, seq); its own `stream` is a distinct observation-plane
+    /// position the observer does not join on.
+    fn observation_ep(epoch: &str, seq: i64, values: Vec<f64>) -> ObservationFrame {
         let mut records = Map::new();
         records.insert(
             "rate".into(),
@@ -1235,10 +1465,25 @@ mod tests {
             },
         );
         ObservationFrame {
-            seq,
             records,
+            stream: spos(epoch, seq),
+            source: Some(spos(epoch, seq)),
+            session: gen(),
+            session_id: SID.into(),
             ..Default::default()
         }
+    }
+
+    fn observation(seq: i64, values: Vec<f64>) -> ObservationFrame {
+        observation_ep(EPOCH_A, seq, values)
+    }
+
+    /// A pull/RPC-form observation with NO `source` (the wire-0.8 successor to the
+    /// retired `seq == 0` sentinel).
+    fn observation_pull(values: Vec<f64>) -> ObservationFrame {
+        let mut frame = observation_ep(EPOCH_A, 1, values);
+        frame.source = None;
+        frame
     }
 
     fn unique_test_dir(name: &str) -> PathBuf {
@@ -1345,7 +1590,7 @@ mod tests {
         assert_eq!(s.l, vec![0.5]);
         assert_eq!(s.d, vec![5.0, 6.0]); // from the observation
         assert_eq!(s.a, vec![0.1, 0.0, -0.1]);
-        assert_eq!(s.sample_id, "ncp-0-7");
+        assert_eq!(s.sample_id, format!("ncp-{EPOCH_A}-7"));
     }
 
     #[test]
@@ -1372,7 +1617,7 @@ mod tests {
         );
         assert_eq!(
             obs.sample(0).metadata.get("d_source").map(String::as_str),
-            Some("seq")
+            Some("source")
         );
         assert_eq!(
             obs.sample(0).metadata.get("l_source").map(String::as_str),
@@ -1404,7 +1649,7 @@ mod tests {
         assert_eq!(obs.sample(0).d, vec![5.5], "late D claimed its own tick");
         assert_eq!(
             obs.sample(0).metadata.get("d_source").map(String::as_str),
-            Some("seq")
+            Some("source")
         );
     }
 
@@ -1427,15 +1672,17 @@ mod tests {
         assert_eq!(obs.sample(0).d, before.d);
         assert_eq!(
             obs.sample(0).metadata.get("d_source").map(String::as_str),
-            Some("seq")
+            Some("source")
         );
         assert_eq!(obs.stats.late_d_dropped, 1);
     }
 
     #[test]
-    fn seq_zero_observation_is_dropped_without_future_d_pairing() {
+    fn sourceless_observation_is_dropped_without_future_d_pairing() {
+        // A pull/RPC-form observation (no `source`) has no exact driving tick and
+        // must never be promoted into a later tick's D by recency.
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        obs.on_observation(&observation(0, vec![3.0])).unwrap();
+        obs.on_observation(&observation_pull(vec![3.0])).unwrap();
         obs.on_sensor(&sensor(
             4,
             0.0,
@@ -1651,8 +1898,12 @@ mod tests {
                 .unwrap();
         }
         obs.flush_complete().unwrap();
-        assert_eq!(obs.stats.seq_resets, 0, "no session reset");
-        assert_eq!(obs.epoch, 0, "single epoch");
+        assert_eq!(obs.stats.seq_resets, 0, "no epoch transition");
+        assert_eq!(
+            obs.active_epoch.as_deref(),
+            Some(EPOCH_A),
+            "single incarnation"
+        );
         assert_eq!(obs.sample_count(), 20, "all ticks emitted");
     }
 
@@ -1676,44 +1927,61 @@ mod tests {
     }
 
     #[test]
-    fn seq_reset_starts_new_epoch_and_does_not_starve() {
+    fn epoch_transition_starts_new_incarnation_and_does_not_starve() {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
-        // Fill pending with stale, never-completing high seqs, past the cap.
+        // Fill pending with stale, never-completing seqs on incarnation A, past
+        // the cap.
         for seq in 100_000..(100_000 + MAX_INFLIGHT as i64 + 10) {
-            obs.on_sensor(&sensor(seq, 0.0, &[("pose", vec![1.0])]))
+            obs.on_sensor(&sensor_ep(EPOCH_A, seq, 0.0, &[("pose", vec![1.0])]))
                 .unwrap();
         }
-        // Session restarts at seq 1: the new tick must still produce a sample
-        // (lowest-key eviction would evict it before its command arrived), and
-        // it must NOT pair with any stale pre-reset state.
-        obs.on_sensor(&sensor(
+        // The sensor stream restarts under a FRESH `stream.epoch` (B) at seq 1
+        // (wire 0.8 signals the restart by the epoch change, not a seq jump): the
+        // new tick must still produce a sample (lowest-key eviction would evict it
+        // before its command arrived) and must NOT pair with any stale A state.
+        obs.on_sensor(&sensor_ep(
+            EPOCH_B,
             1,
             0.0,
             &[("pose", vec![7.0]), ("instruction", vec![0.5])],
         ))
         .unwrap();
-        obs.on_observation(&observation(1, vec![4.0])).unwrap();
-        obs.on_command(&command(1, 0.0, &[("velocity_setpoint", vec![0.2])]))
+        obs.on_observation(&observation_ep(EPOCH_B, 1, vec![4.0]))
             .unwrap();
+        obs.on_command(&command_ep(
+            EPOCH_B,
+            1,
+            0.0,
+            &[("velocity_setpoint", vec![0.2])],
+        ))
+        .unwrap();
         obs.flush_complete().unwrap();
-        assert_eq!(obs.sample_count(), 1, "post-reset tick must complete");
+        assert_eq!(obs.sample_count(), 1, "post-transition tick must complete");
         assert_eq!(obs.stats.seq_resets, 1);
         let s = obs.sample(0);
-        assert_eq!(s.sample_id, "ncp-1-1", "epoch-qualified id");
-        assert_eq!(s.v, vec![7.0], "new-epoch V only");
-        assert_eq!(s.d, vec![4.0], "new-epoch D only (pre-reset D was cleared)");
+        assert_eq!(
+            s.sample_id,
+            format!("ncp-{EPOCH_B}-1"),
+            "epoch-qualified id"
+        );
+        assert_eq!(s.v, vec![7.0], "new-incarnation V only");
+        assert_eq!(
+            s.d,
+            vec![4.0],
+            "new-incarnation D only (pre-transition D was cleared)"
+        );
         assert_eq!(
             s.metadata.get("d_source").map(String::as_str),
-            Some("seq"),
-            "new-epoch D must be joined exactly"
+            Some("source"),
+            "new-incarnation D must be joined exactly"
         );
     }
 
     #[test]
     fn adversarial_extreme_seq_does_not_panic() {
-        // A hostile/garbage peer can send seq near i64::MAX/MIN; the reset-detection
-        // and reorder arithmetic must saturate, never overflow (debug panic in the
-        // Zenoh callback / release wrap that wedges the capture).
+        // A hostile/garbage peer can send a source seq near i64::MAX/MIN; the
+        // watermark + reorder arithmetic must saturate, never overflow (debug
+        // panic in the Zenoh callback / release wrap that wedges the capture).
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
         obs.on_observation(&observation(i64::MAX, vec![1.0]))
             .unwrap();
@@ -1734,19 +2002,82 @@ mod tests {
     }
 
     #[test]
-    fn unstamped_sensor_and_command_frames_are_dropped() {
+    fn unstamped_sensor_and_sourceless_command_frames_are_dropped() {
         let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
+        // A sensor whose OWN `stream` is unset (seq 0) cannot be joined.
         obs.on_sensor(&sensor(
             0,
             0.0,
             &[("pose", vec![1.0]), ("instruction", vec![0.5])],
         ))
         .unwrap();
-        obs.on_command(&command(0, 0.0, &[("velocity_setpoint", vec![0.1])]))
+        // An open-loop command with NO `source` cannot be correlated to a tick.
+        obs.on_command(&command_open_loop(0.0, &[("velocity_setpoint", vec![0.1])]))
             .unwrap();
         obs.flush_complete().unwrap();
-        assert_eq!(obs.sample_count(), 0, "seq-0 frames are unjoinable");
+        assert_eq!(obs.sample_count(), 0, "unjoinable frames produce no sample");
         assert_eq!(obs.stats.unstamped_frames_dropped, 2);
+    }
+
+    #[test]
+    fn foreign_session_and_stale_generation_frames_are_rejected() {
+        let mut obs =
+            Observer::new("run", "nest", "reach", Mapping::default()).with_expected_session(SID);
+
+        // A frame addressed to a DIFFERENT session_id must never blend in.
+        let mut wrong_session = sensor(1, 0.0, &[("pose", vec![1.0])]);
+        wrong_session.session_id = "other".into();
+        obs.on_sensor(&wrong_session).unwrap();
+        assert_eq!(obs.stats.session_mismatch_dropped, 1);
+
+        // The first accepted frame locks the live generation.
+        obs.on_sensor(&sensor(
+            1,
+            0.0,
+            &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+        ))
+        .unwrap();
+        obs.on_observation(&observation(1, vec![3.0])).unwrap();
+
+        // A later frame from a STALE/foreign generation (a different incarnation)
+        // is rejected, not mixed into the capture.
+        let mut stale_gen = command(1, 0.0, &[("velocity_setpoint", vec![0.1])]);
+        stale_gen.session.generation = "00000000-0000-4000-8000-0000000000d4".into();
+        obs.on_command(&stale_gen).unwrap();
+        assert_eq!(obs.stats.session_mismatch_dropped, 2);
+
+        // The live-generation command still joins its sensor.
+        obs.on_command(&command(1, 0.0, &[("velocity_setpoint", vec![0.1])]))
+            .unwrap();
+        obs.flush_complete().unwrap();
+        assert_eq!(obs.sample_count(), 1, "live-incarnation tick completes");
+    }
+
+    #[test]
+    fn command_joins_on_source_not_its_own_stream() {
+        // The correlation trap: a command's OWN action-plane `stream` differs from
+        // the driving sensor `source`. Joining on `stream` would never pair V — a
+        // silent zero-sample regression. Build a command whose own stream is a
+        // DIFFERENT epoch/seq than its source and confirm it still pairs its sensor.
+        let mut obs = Observer::new("run", "nest", "reach", Mapping::default());
+        obs.on_observation(&observation(5, vec![3.0])).unwrap();
+        obs.on_sensor(&sensor(
+            5,
+            0.0,
+            &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+        ))
+        .unwrap();
+        let mut cmd = command(5, 0.0, &[("velocity_setpoint", vec![0.1])]);
+        // Own action-plane stream is unrelated to the driving sensor position.
+        cmd.stream = spos(EPOCH_B, 999);
+        obs.on_command(&cmd).unwrap();
+        obs.flush_complete().unwrap();
+        assert_eq!(
+            obs.sample_count(),
+            1,
+            "command must join on source (sensor 5), not its own stream"
+        );
+        assert_eq!(obs.sample(0).sample_id, format!("ncp-{EPOCH_A}-5"));
     }
 
     #[test]

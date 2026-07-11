@@ -22,12 +22,14 @@ It is fine for *exploratory* PID screens on a live Engram session, but it is **b
 M5 contract** (gate-passing artifacts with honest provenance) until the gaps below close:
 
 1. **D alignment — exact-only and immutable in-repo.** `ObservationFrame` carries
-   the driving `seq`, and this observer joins D only on that exact value. A short
-   reorder grace window admits a matching readout that arrives after its command;
-   once a row's canonical event exists, later readouts are dropped and counted,
-   never patched. Observation-plane `seq == 0` is the pull/RPC form and is dropped:
-   there is no recency fallback or future-D pairing. A conforming producer must
-   therefore stamp every published observation.
+   a `source` echoing the driving `SensorFrame.stream`, and this observer joins D
+   only on that exact `{epoch, seq}`. A short reorder grace window admits a matching
+   readout that arrives after its command; once a row's canonical event exists,
+   later readouts are dropped and counted, never patched. An observation with **no
+   `source`** is the pull/RPC form and is dropped (source ABSENCE, the wire-0.8
+   successor to the retired `seq == 0` sentinel): there is no recency fallback or
+   future-D pairing. A conforming producer must therefore stamp every published
+   plane observation with its driving `source`.
 2. **Honest `L` — absent-language ticks are excluded, never fabricated.** A tick with
    no language channel yields an empty (zero-length) `L`; such ticks are **excluded
    from the artifact and counted** (`excluded_empty_l` in the finalize report),
@@ -64,9 +66,10 @@ each closed-loop tick into an `OfflineVldaSample`, writing:
 
 Ticks that can never pass the harness (an empty axis: no language channel yet, no
 observation yet) are **excluded and counted**, dims are held to the declared
-contract, session `seq` resets start a new epoch (`sample_id = ncp-{epoch}-{seq}`),
-and the finalize report (`ObserverStats`) surfaces every exclusion/eviction path so
-a small artifact is diagnosable rather than mysterious.
+contract, a sensor restart (a change of `stream.epoch`) starts a new incarnation
+(`sample_id = ncp-{epoch}-{seq}`), and the finalize report (`ObserverStats`)
+surfaces every exclusion/eviction path so a small artifact is diagnosable rather
+than mysterious.
 
 ### (V, L, D, A) mapping
 - **V** ← `SensorFrame` channels (all but the language channel), flattened.
@@ -79,20 +82,24 @@ a small artifact is diagnosable rather than mysterious.
 - **A** ← `CommandFrame` channels, flattened.
 
 ### Alignment (correctness)
-V and A are joined on **`seq`** — a `CommandFrame.seq` echoes the `SensorFrame.seq`
+V and A are joined on the driving sensor's **`StreamPosition` (`{epoch, seq}`)** —
+wire 0.8's typed source-correlation key. A `SensorFrame` IS the origin, so it
+contributes its OWN `stream`; a `CommandFrame.source` echoes the `SensorFrame.stream`
 it was computed from, so a sample pairs the action with the sensor that produced
 it, never by arrival time (the perception plane's DROP QoS makes arrival-time
-pairing unsound). `ObservationFrame` carries `seq` too (it echoes the driving
-`SensorFrame.seq`), so D aligns on `seq` as well: readouts are stored in
-`d_by_seq[obs.seq]`; completed ticks are held for a
-short reorder grace window so a readout that arrives *after* its tick's command
-still claims its own tick. Later-still readouts are dropped without changing an
-already-buffered artifact row or run-log event. Every kept sample records
-`metadata.d_source = "seq"`; ticks with no exact readout are excluded and counted.
-`seq == 0`
-sensor/command frames are treated as unstamped (the upstream convention) and are
-dropped + counted rather than merged into one bogus tick, and seq-0 observations
-are also dropped rather than promoted by recency.
+pairing unsound) and never on the bare seq (a sensor restart reuses seqs under a
+fresh epoch). `ObservationFrame.source` echoes the driving `SensorFrame.stream` too,
+so D aligns on the full `{epoch, seq}` as well: readouts are stored tagged with
+their `source.epoch`; completed ticks are held for a short reorder grace window so a
+readout that arrives *after* its tick's command still claims its own tick.
+Later-still readouts are dropped without changing an already-buffered artifact row
+or run-log event. Every kept sample records `metadata.d_source = "source"`; ticks
+with no exact readout are excluded and counted. A `SensorFrame` with an unset own
+`stream`, and a `CommandFrame`/`ObservationFrame` with **no `source`**, are
+uncorrelatable and are dropped + counted rather than merged into one bogus tick.
+Each frame's payload `session_id` (must equal the captured session) and
+`session.generation` (the live incarnation, locked to the first seen) are validated;
+a stale/foreign-session frame is dropped and counted.
 
 ## Run
 
@@ -112,7 +119,8 @@ The recommended integration is **bidirectional**, and both directions are
 non-invasive:
 
 1. **Online, read-only tap (this crate).** Subscribe to the NCP data planes →
-   `(V,L,D,A)` samples aligned on `seq` → run-log + offline PID. Engram is just
+   `(V,L,D,A)` samples aligned on the driving sensor `{epoch, seq}` → run-log +
+   offline PID. Engram is just
    another `(V,L,D,A)` source; the observer drives nothing (Agent Bridge stays the
    only control plane).
 2. **Offline → online feedback (the payoff).** The PID screens here quantify, per
@@ -131,20 +139,24 @@ the same information flow as the NEST simulator?
 
 ## Compatibility & versioning
 
-The manifest and lockfile pin the immutable NCP **`v0.7.1`** release
-(`CONTRACT_HASH = f05e328cad20959d`) and use its fallible realm constructor and
-explicit secure client open. Wire 0.7 keeps
-plane observations exact (`seq >= 1`), strengthens cross-language validation, and
-this tap drops/counts every version-less, incompatible, wrong-kind, or seq-0 plane
-frame rather than degrading D alignment.
+The manifest and lockfile currently pin the NCP **`wire-0.8-stream-identity`**
+branch (`NCP_VERSION = 0.8`, `CONTRACT_HASH = d1b50a2d8a265276`) for the wire-0.8
+migration; this is a **temporary** build pin — the final pin to the immutable
+`v0.8.0` tag is the maintainer's post-release step (the tag does not exist yet).
+Wire 0.8 splits the overloaded top-level `seq` into a typed `stream` (this frame's
+own position) and `source` (the frame that drove it), carries `session_id` +
+`session.generation` on the data plane, and this tap drops/counts every
+version-less, incompatible, wrong-kind, source-less-plane, or wrong-session frame
+rather than degrading D alignment.
 
 Connection mode is explicit: `--open` uses the unauthenticated/scouting-off NCP
 client default and prints a warning; `--secure` calls `ZenohBus::open_secure` and
 fails closed unless `NCP_ZENOH_CONFIG` names a strict TLS-only NCP client config.
 Omitting both modes, combining them, or passing an unknown option is a startup
 error. The realm is validated with `Keys::try_new` before either open path, and
-an `ObservationFrame` payload's `session_id` must match the subscribed session key
-(sensor/command frames carry session identity in the key, not the payload).
+every frame's payload `session_id` must match the subscribed session — wire 0.8
+carries `session_id` + `session.generation` in the payload on all three planes
+(transport-neutral identity), not only in the routing key.
 `--runlog` is mandatory: the observer refuses to publish an artifact without the
 canonical log that registers and reconstructs its evidence.
 This observer reads only the generic data planes
@@ -165,8 +177,9 @@ information flow the NEST simulator does?
 
 ## Build note
 
-This crate git-depends on the published NCP repo <https://github.com/sepahead/NCP>
-(tag `v0.7.1`) and pulls Zenoh, so it is heavier
+This crate git-depends on the NCP repo <https://github.com/sepahead/NCP>
+(temporarily the `wire-0.8-stream-identity` branch; re-pin to the `v0.8.0` tag once
+cut) and pulls Zenoh, so it is heavier
 than the pure-PID crates. The
 estimator gates (`just exp0`, `just exp0-bin`, etc.) run the pid-rs crates via
 `--manifest-path pid-rs/crates/...` and are unaffected.
