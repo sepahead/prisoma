@@ -5,10 +5,10 @@
 > - `EXPERIMENTS.md` — When/why to treat external world models as staged variables
 > - `DIAGRAMS.md` — Agent Bridge control plane (how services are invoked + logged)
 
-**Docset alignment:** v10.7 (optional external baseline; not implemented in this repo today)
+**Docset alignment:** docset v12.5 (optional external comparator — evidence-ladder **E1** interface spec per grandplan §8.9; pre-implementation, not built in this repo today, not a direct ecosystem edge)
 **Status:** Specification / integration notes (verify upstream claims at time of use)
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. WorldWarp or any external world model is optional Phase 7-style infrastructure; it must emit versioned artifacts into the run log and be visualized through the same Rerun/Tauri split rather than becoming an unlogged side channel.
+**Docset-wide final solution:** `grandplan.md` §16 is the decision log. WorldWarp or any external world model is an optional external comparator (evidence-ladder E1, grandplan §8.9); it must emit versioned artifacts into the run log and be visualized through the same Rerun/Tauri split rather than becoming an unlogged side channel.
 
 ## Overview
 WorldWarp (https://github.com/sepahead/WorldWarp) is an external framework for generating long-range, camera-conditioned scenes from a single image. In the prisoma context, it can be treated as an *optional* external world-model baseline (evaluative/generative) to compare against VLA internal representations. Verify model backbones, licenses, and reproducibility constraints from the upstream repo before using it in experiments.
@@ -21,7 +21,7 @@ WorldWarp (https://github.com/sepahead/WorldWarp) is an external framework for g
 ## Relevance to prisoma
 WorldWarp aligns with the "Generative World Model" component of the prisoma architecture.
 - **Environment Generation:** Can generate diverse, consistent background scenes for robot simulation from a single seed image.
-- **Visual Forecasting:** Serves as a predictive model for what a robot *should* see after a camera movement, providing a "D" (Dream) reference for PID comparison.
+- **Visual Forecasting:** Serves as a predictive model for what a robot *should* see after a camera movement, providing a candidate "D" (Dynamics / world-model axis — never depth) reference for PID comparison.
 - **Data Augmentation:** Capable of creating novel viewpoints of existing datasets to robustify VLA training.
 
 ## Integration Points

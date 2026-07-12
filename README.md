@@ -14,7 +14,7 @@
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-prisoma is a research toolkit for diagnosing **Vision‑Language‑Action (VLA)** policies with **Partial Information Decomposition (PID)** — specifically the shared‑exclusions measure `I^sx_∩` — plus Shannon‑invariant screening and non‑PID controls, with local attribution methods treated strictly as baselines/triangulation probes. The project is **gate‑driven**: PID atoms are never interpreted on real embeddings until the estimator and geometry gates pass, hypothesis claims are bound by preregistered falsification contracts (`grandplan.md` §14.1) and a preregistered statistical analysis plan (§14.8), and negative results are first‑class publishable outcomes.
+prisoma is a research toolkit providing **auditable experiment semantics** for **intervention‑grounded diagnosis** of **Vision‑Language‑Action (VLA)** policies: a provenance‑complete capture–intervention–replay substrate for testing whether genuinely pre‑treatment diagnostics predict intervention response and future failure beyond strong baselines. **Partial Information Decomposition (PID)** — the shared‑exclusions measure `I^sx_∩` — is one **conditional** candidate diagnostic, central only if it passes preregistered population, measure, estimator, and application gates (`grandplan.md` §7.1). The project is **gate‑driven**: PID atoms are never interpreted on real embeddings until those gates pass; confirmatory claims are bound by the `grandplan.md` §4 claim registry (EC1, H1–H4), the §3.8 PID kill rules, and the §6 statistical analysis plan; and negative results are first‑class publishable outcomes.
 
 ## Documentation map
 
@@ -23,7 +23,7 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | Document | What it is |
 |---|---|
 | `grandplan.md` | Canonical spec — definitions, gates, hypotheses, engineering plan |
-| `EXPERIMENTS.md` | What to run + what to log (protocols; §0.2 runbook = executable-today vs blocked) |
+| `EXPERIMENTS.md` | What to run + what to log (protocols; runbook = executable-today vs blocked) |
 | `ARCHITECTURE.md` | Target system design (PID‑Splat) |
 | `DIAGRAMS.md` | Architecture + control-plane diagrams (status dashboards up top) |
 | `pidsplatspecs.md` | Simulation/spec details (PID‑Splat) |
@@ -53,7 +53,7 @@ cargo test --workspace
 cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0   # prints the GO/PIVOT/NO-GO verdict
 ```
 
-## Current Status & What To Do, In Order (v10.7 corrective audit, 2026-07-10)
+## Current Status & What To Do, In Order (docset v12.5, 2026-07-12)
 
 **Status at a glance:**
 
@@ -61,17 +61,24 @@ cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0   # print
   bridge/sim/Rerun groundwork, offline `(V,L,D,A)` harness, Rapier manipulation, SAFE adapter,
   and reference attribution probe. Passing tests establish current behavior, not production or
   scientific validity; the dated code review lists unresolved integrity/security blockers.
-- **Two estimator statuses:** the high-dimensional **MI/coherence gate is NO-GO**. The
-  continuous **`I^sx_∩` gate is NOT VALIDATED**: default Exp0 includes a known-wrong
-  zero-redundancy target for the adopted measure, while `--strict-gate` enforces the curated
+- **Four separated PID gates** (`grandplan.md` §7.1: population, measure, estimator, application).
+  The high-dimensional **MI/coherence (estimator) path is NO-GO**; continuous **`I^sx_∩` atoms on
+  real embeddings are BLOCKED / NOT APPLICATION-VALIDATED**: default Experiment 0 includes a
+  measure-mismatched zero-redundancy target, while `--strict-gate` enforces the curated
   low-dimensional MI band and only reports atoms. See `findings.md`; never quote the binary's
   aggregate label as an atom-validity verdict.
-- **Recent docset slices** (research status unchanged throughout): **v10.6** (2026-07-05) was correctness/robustness — CI resurrected after an invalid-YAML workflow had silently created zero jobs since 2026-06-13, Agent Bridge and offline-harness run-log paths hardened, `crates/ncp-observer` brought toward the M5 bar (`CHANGELOG.md`). **v10.7** (2026-07-06) is a first-principles spec audit + statistics plan — math/precision corrections (one outright error fixed: findings.md's δ-hyperbolicity direction was backwards), a hardened hypothesis system (H7a/H7b split, H5 operationalized, discrete-regime preregistration, the new `grandplan.md` §14.8 statistical analysis plan and §9.7.2b H2/H3 protocol), a July-2026 literature refresh (`grandplan.md` §12.6 — novelty re-verified: still no published PID-on-VLA anywhere; VLA-Arena is now ICML 2026 — re-verify at submission), and NCP pin prose synced to the then-current release. A same-day triple-check addendum then repaired the new statistical content under hostile review (endpoint units, regime multiplicity, placebo criterion — see the grandplan v10.7 addendum bullet) and re-pinned the pid-rs submodule to the new upstream **v0.4.0** (correctness release; this is what moved the Exp0 verdict label from PIVOT to NO-GO).
-- **Open critical path:** do **not** begin an evidentiary real-VLA capture yet. Required first:
-  repair upstream `ISX_GATE`; implement leakage-safe episode-local H1 scores plus action-
-  entropy and ensemble/temperature baselines; freeze transforms and task eligibility for
-  H2–H4; and replace the implemented idealized power sensitivity tool with the nested capture
-  design in §14.8.3. The first power report is overall NOT PASSED and its task/case counts are
+- **Docset v12.5 (2026-07-12)** adopts the second-round adversarial review: the thesis is reframed
+  around auditable experiment semantics with PID as a conditional candidate, replacing the v10.7
+  plan (archived at `docs/archive/grandplan-v10.7.md`; review bundle at
+  `docs/reviews/2026-07-12-grandplan-v12.5/`). Key changes: the EC1 + H1–H4 confirmatory registry
+  (Protocol A/B split for H1, censoring-aware H2, conditional H3, availability–use H4), the S0–S7
+  gate sequence, M0–M7 milestones, four PID gates, an E0–E5 ecosystem evidence ladder, and a
+  dependency firebreak. Earlier docset history (v10.4–v10.7) is in `CHANGELOG.md`.
+- **Open critical path:** do **not** begin an evidentiary real-VLA capture yet. Required first (S0–S3):
+  repair the upstream continuous application gate; implement leakage-safe episode-local H1 scores
+  plus action-entropy and ensemble/temperature baselines; freeze transforms and task eligibility;
+  and replace the implemented idealized power tool with the nested capture design in
+  `grandplan.md` §6.8. The first power report is overall NOT PASSED and its task/case counts are
   withdrawn as capture requirements.
 
 ```mermaid
@@ -80,11 +87,11 @@ flowchart LR
     classDef gate fill:#e65100,stroke:#ef6c00,color:#fff;
     classDef blocked fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
 
-    Exp0["Exp0 diagnostics<br/>MI: NO-GO; I^sx: NOT VALIDATED<br/>(runnable: just exp0-bin)"]:::gate
-    Harness["Offline (V,L,D,A) harness<br/>+ baselines + attribution<br/>+ axis-provenance gate ENFORCED<br/>(runnable today)"]:::run
-    Adapter["safe_adapter → contract<br/>honest provenance<br/>(runnable: just safe-adapter)"]:::run
-    Capture["OPEN CRITICAL PATH<br/>gate + endpoint + power repairs,<br/>then real VLA capture"]:::blocked
-    Exps["Exp1–Exp5 protocols<br/>(blocked on capture)"]:::blocked
+    Exp0["S1 estimator gate (Exp0 diagnostics)<br/>MI: NO-GO; I^sx: BLOCKED<br/>(runnable: just exp0-bin)"]:::gate
+    Harness["Offline (V,L,D,A) harness<br/>+ baselines + attribution<br/>+ axis-provenance gate ENFORCED<br/>(EC1 groundwork, runnable today)"]:::run
+    Adapter["safe_adapter → contract (S2/EC1)<br/>honest provenance<br/>(runnable: just safe-adapter)"]:::run
+    Capture["OPEN CRITICAL PATH (S3→S4)<br/>gate + endpoint + power repairs,<br/>then real VLA capture"]:::blocked
+    Exps["H1–H4 confirmatory studies<br/>(blocked on capture)"]:::blocked
 
     Exp0 --> Harness
     Harness --> Adapter
@@ -92,58 +99,60 @@ flowchart LR
     Capture -. blocks .-> Exps
 ```
 
-*Caption: Runnable plumbing is not a scientific pass. Exp1–Exp5 remain blocked on estimator,
-endpoint, power, and then capture prerequisites.*
+*Caption: Runnable plumbing is not a scientific pass. The H1–H4 confirmatory studies remain
+blocked on estimator, endpoint, power, and then capture prerequisites.*
 
 Each step gates the next; canonical depth is in `grandplan.md` at the cited sections.
 
 1. **Verify the toolchain and inspect diagnostics:** `cargo test`, then `just exp0` /
    `just exp0-bin`. The printed aggregate is diagnostic output, not a valid `I^sx` verdict;
-   the current split status is MI NO-GO / `I^sx` NOT VALIDATED (§9.1, `findings.md`).
-2. **Learn the measurement-regime rules before touching real data:** one (PID measure, preprocessing, estimator config) tuple = one preregistered regime; never pool or compare continuous `I^sx_∩` atoms with discrete `I_min` atoms as if they were one quantity (`grandplan.md` Warning 6 + §8.1.6); supervised projections (PLS) are fit on training samples only and re-gated (§8.2.3 step 5).
+   the current split status is MI NO-GO / `I^sx` application gate BLOCKED (`grandplan.md`
+   §7.2, §7.9; `findings.md`).
+2. **Learn the measurement-regime rules before touching real data:** one (PID measure, preprocessing, estimator config) tuple = one preregistered regime; never pool or compare continuous `I^sx_∩` atoms with discrete `I_min` atoms as if they were one quantity — `--pid-mode discrete` is Williams–Beer `I_min`, not discrete `i^sx_∩` (`grandplan.md` §7.6); supervised projections (PLS) are fit on training samples only and re-gated (`grandplan.md` §6.2).
 3. **Exercise plumbing on checked fixtures:** strict geometry and discrete fixtures intentionally
    warn/fail. Their thresholds are not validated scientific gates, and discrete saturation is
    currently advisory rather than a strict failure path.
 4. **Prepare, but do not treat as evidentiary capture yet:** the SAFE adapter and Rapier path
-   can exercise the contract. H1–H4 capture waits for the blockers above.
+   can exercise the EC1 contract. H1–H4 capture waits for the blockers above.
 5. **Analyze only after gates exist:** geometry diagnostics do not currently select a valid
    regime. The m-out-of-n raw percentile output is a stability envelope at size m, not an
    n-sample confidence interval; endpoint inference must resample the correct outer units.
-6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (surfaced under the `heldout_logreg_vlda_success_*` metric names) are built into the harness; add one faithfulness-checked attribution probe (`experiments/attribution/`, the §14.7.1 AttnLRP protocol; `just attribution-probe`). The preregistered kill criteria (§14.1.1) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
-7. **Only then** run the Exp1–Exp5 protocols in `EXPERIMENTS.md` (see its §0.2 runbook for what is executable today vs blocked on step 4).
+6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (surfaced under the `heldout_logreg_vlda_success_*` metric names) are built into the harness; add one faithfulness-checked attribution baseline (`experiments/attribution/`, an AttnLRP protocol, `grandplan.md` §6.10, §10.2; `just attribution-probe`). The preregistered PID kill rules (`grandplan.md` §3.8) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
+7. **Only then** run the H1–H4 study protocols in `EXPERIMENTS.md` (see its runbook for what is executable today vs blocked on step 4).
 
-## Hypotheses (Docset v10.7)
+## Confirmatory claim registry (Docset v12.5)
 
-The canonical registry + falsification criteria live in `grandplan.md` (§14.1, including the v10.7 falsifiability index covering H4–H7); the preregistered statistical analysis plan (primary endpoints, multiplicity, power gates) is `grandplan.md` §14.8.
+The canonical registry and its claim-to-evidence matrix live in `grandplan.md` §4 (with the §3.8 PID kill rules); the preregistered statistical analysis plan (estimands, endpoints, multiplicity, power gates) is `grandplan.md` §6. The thesis holds no more than three confirmatory scientific claims; engineering acceptance (EC1) is separate.
 
-| Hypothesis | One‑line testable claim | Status | Real robotics problem addressed |
+| Claim | One‑line testable claim | Type | Status |
 |---|---|---|---|
-| **H1** | PID/CI features predict failure labels beyond strong baselines. | Blocked: local scores + two baselines | Failure triage at fleet scale |
-| **H2** | Redundancy predicts robustness to single‑modality ablation (matched controls). | Exploratory | Forecasting which skills degrade when a sensor/modality degrades, before it happens in the field |
-| **H3** | Uniques predict intervention sensitivity (matched‑strength perturbations). | Exploratory | Targeted data collection: spend teleop budget on the modality that actually moves behavior |
-| **H4** | Memorization vs generalization induces systematic PID/CI shifts. | Core | Pre-deployment generalization certification (VLA-Arena: current VLAs memorize) |
-| **H5** | Long‑horizon failures correlate with temporal PID/CI degradation. | Core (CI-only ablation mandatory) | Early warning for compositional drift in multi-stage tasks (kitting/assembly) |
-| **H6** | Safety tasks show distinctive V–L integration patterns (only with proper labels/controls). | Deferred | Safety-case evidence (needs proper labels first) |
-| **H7** | Split (v10.7): **H7a** — the flow bridge enables stage‑wise diagnostics and embodiment‑agnostic comparisons (method, judged by acceptance criteria); **H7b** — `Syn(V,D;A)` tracks world‑model quality independent of execution success (falsifiable). | Core (H7a method + H7b hypothesis) | Cross-embodiment porting diagnosis: world-model failure vs execution failure |
-| **H8** | A calibrated geometry/regime classifier predicts oracle-defined estimator validity on held-out controls. | Core method; blocked on calibration | Trustworthy metrics: don't ship estimator artifacts to dashboards |
-| **H9** | Faithfulness-checked attribution probes (LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style) should triangulate, or falsify, PID-derived modality/stage claims. | Triangulation | Audit-grade incident explanations from converging evidence |
+| **EC1** | **Provenance-complete replay** — the capture/intervention/replay contract records the declared causal + temporal variables, detects contract violations, and reproduces exact events or tolerance-bounded outcomes, benchmarked against conventional scripts and standard containers. | Engineering acceptance | Run-log/replay groundwork implemented; external benchmark pending |
+| **H1** | Genuinely **pre-treatment** diagnostics predict intervention response — **Protocol A** (paired frozen-snapshot algorithmic sensitivity) and/or **Protocol B** (randomized closed-loop effect modification), scored by effect-specific criteria, not factual-outcome fit. | Confirmatory | Blocked on pilot + capture |
+| **H2** | Diagnostics improve **prospective, censoring-aware** failure prediction beyond strong baselines (Tri-Info / SAFE / Hide-and-Seek / ActProbe / Rewind-IL / VLAConf / Foresight …) under a frozen alarm policy and process-level safety outcomes. | Confirmatory | Blocked on capture |
+| **H3** | PID adds **incremental value only inside its validated support envelope** (all four gates), vs MI/CMI, uncertainty, temporal, geometry, attribution, and learned baselines. | Conditional | Blocked on the estimator application gate |
+| **H4** | Representational **availability** (held-out decodability) can diverge from causal **policy use** — the availability–use gap. Replaces H3 as a thesis paper if PID fails; a first-order problem, not a consolation prize. | Confirmatory / fallback | Blocked on capture |
 
-PID is **forced nowhere**: `grandplan.md` §14.1.1 records, per hypothesis, the cheapest non-PID alternative, what PID distinctively adds, and the preregistered kill criteria that downgrade or drop PID-atom claims when simpler quantities suffice. Attribution methods are comparison evidence, not a shortcut around PID validity: they explain one model call or concept direction, while PID/CI estimates distribution-level information across logged samples. Disagreement under controlled interventions is itself a diagnostic result.
+**Exploratory:** memorization under structured perturbation; temporal transitions before failure; low-dimensional object/contact flow as a portable target; process-level safety cost; cross-embodiment transport of relationships (not raw atom magnitudes); diagnostic-guided intervention/fallback selection.
+
+**Retired/deferred:** real-time continuous PID as an online safety monitor; PID safety certification; full three-source PID as a required analysis; atom signs as direct evidence of memorization/grounding/world-modeling; universal cross-model atom comparisons; a custom simulator/Tauri shell/SparkJS renderer/Gaussian-splat editor as a thesis dependency (`grandplan.md` §4).
+
+PID is **forced nowhere**: `grandplan.md` §3.8 records the PID kill rules and §4's claim-to-evidence matrix records, per claim, the minimal evidence, replication requirement, and main disqualifier. Attribution methods are comparison evidence, not a shortcut around PID validity, and any reasoning/trace claim must be grounded in action and counterfactual effects (`grandplan.md` §10.2). Disagreement under controlled interventions is itself a diagnostic result.
 
 ## Experiments (Run Order)
 
 Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and confounds live in `grandplan.md`.
 
-1. **Exp0** — Estimator + geometry gate (GO/PIVOT/NO‑GO). *Runnable today* (`just exp0-bin`); current verdict on synthetic high-d controls: **NO-GO** under pid-rs 0.4.0 (`findings.md`). Nothing downstream is interpretable without this gate.
-2. **Exp1** — Pick‑and‑place + perturbations (H1–H4). *Blocked on the first real capture* (step 4 above); the offline harness + baselines that will analyze it are runnable today.
-3. **Exp2** — Long‑horizon composition (H5; windowed PID/CI with block bootstrap; CI-only ablation mandatory). *Blocked on capture.*
-4. **Exp3** — Instruction/visual/physics perturbations (H1–H6; matched-strength controls + placebos). *Blocked on capture.*
-5. **Exp4** — Flow‑as‑Bridge bring‑up with simulator `Flow_gt` (H7). *Sim-side `Flow_gt` + verification runnable today* (`just runlog-sim-verify`); VLA-side blocked on capture.
-6. **Exp5** — Cross‑embodiment replication (H4/H7; mind the embodiment-in-`L` confound, `grandplan.md` §14.5.7.3). *Blocked on capture.*
+1. **Exp0 — estimator + geometry gate (S1).** GO/PIVOT/NO‑GO. *Runnable today* (`just exp0-bin`); current verdict on synthetic high‑d controls: **NO‑GO** under pid-rs 0.4.0 (`findings.md`). Nothing downstream is interpretable without this gate (`grandplan.md` §7).
+2. **EC1 capture/replay + adapter (S2).** The offline `(V,L,D,A)` harness, SAFE adapter, and sim/Rapier `Flow_gt` cross‑checks are *runnable today* (`just runlog-sim-verify`); the external infrastructure benchmark and a second adapter are pending (`grandplan.md` §8.8).
+3. **Intervention pilot (S3).** Dose / target‑engagement / placebo / OOD checks on one interpretable intervention. *Blocked on capture* (`grandplan.md` §5.4, §5.6).
+4. **H1 — pre‑treatment diagnostics predict intervention response** (Protocol A paired and/or Protocol B randomized). *Blocked on capture* (`grandplan.md` §6.3).
+5. **H2 — prospective, censoring‑aware failure prediction** vs the comparator frontier. *Blocked on capture* (`grandplan.md` §6.4).
+6. **H3 or H4 — conditional PID incremental value, or the availability–use gap.** *Blocked on the estimator application gate / capture* (`grandplan.md` §7, §4).
+7. **Transport replication (S7)** — second task family, policy, simulator, or embodiment; mind the embodiment‑in‑`L` confound. *Blocked on capture* (`grandplan.md` §5.11).
 
 ## Doc Audits
 
-- `python scripts/audit_grandplan.py --check-italic-titles` (arXiv coverage + title drift; uses `outputs/arxiv_ref_cache.json`)
+- `python scripts/audit_grandplan.py` (validates the R1–R112 reference ledger: contiguous IDs, all defined + cited, no undefined/unused/duplicate, URLs)
 - `python scripts/audit_grandplan_claims.py` (heuristic scan for unqualified venue/perf claims)
 - `python scripts/audit_docset_claims.py` (same heuristic scan across the canonical docset + `findings.md`)
 - Full tracked-Markdown sweep: `python scripts/audit_docset_claims.py --paths $(git ls-files '*.md')`
@@ -153,7 +162,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 
 The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In brief:
 
-- **Implemented (Rust, in `pid-rs/` submodule):** `pid-core` (KSG MI with an optional exact-parallel `parallel` feature, continuous `I^sx_∩`, PLS supervised reduction, discrete 2-/3-source `I_min` PID + saturation diagnostics, genuine discrete SxPID `i^sx_∩` in `sxpid.rs` (2–4 sources) — *not yet wired into the offline harness*, block bootstrap, `bootstrap_rows_stats`/`permutation_rows_pvalue`, an L2 logistic classifier, and a `pipeline.rs` composition layer), `pid-python` (`pid_core_rs`; **18 exported functions**), and `pid-runlog` (M1 JSONL schema + replay/validate/compare/summary/manifest/sidecar CLI).
+- **Implemented (Rust, in `pid-rs/` submodule):** `pid-core` (KSG MI with an optional exact-parallel `parallel` feature, continuous `I^sx_∩`, PLS supervised reduction, discrete 2-/3-source `I_min` PID + saturation diagnostics, genuine discrete SxPID `i^sx_∩` in `sxpid.rs` (2–4 sources) — *not yet wired into the offline harness*, block bootstrap, `bootstrap_rows_stats`/`permutation_rows_pvalue`, an L2 logistic classifier, and a `pipeline.rs` composition layer), `pid-python` (`pid_core_rs`; **18 exported functions**), and `pid-runlog` (the canonical EC1 JSONL run-log schema + replay/validate/compare/summary/manifest/sidecar CLI).
 - **Implemented (Rust, local crates):** `pid-bridge` (Agent Bridge dispatch/JSON-RPC-shaped
   conversion/contract export), `pid-sim` (deterministic sim, real optional Rapier backend,
   manipulation harness, transports, and offline VLDA screens), and `pid-rerun`. Implemented
@@ -161,17 +170,18 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   predictive entropy and ensemble/temperature uncertainty are still missing. The code review
   also identifies network-authentication, transactional logging, reconstructability, and
   artifact-integrity work before production use.
-- **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **critical-path producer is `experiments/safe_adapter/`**; `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth** (`grandplan.md` §7.6.3).
-- **Optional Engram bridge:** `crates/ncp-observer` is a read-only NCP tap, excluded
-  from the default workspace and off the critical path. Its integrity repair ships against
-  wire 0.7, pinned to the immutable NCP `v0.7.1` release:
+- **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **reference producer is `experiments/safe_adapter/`** (the S2/EC1 adapter); `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth**, and semantic labels require architecture evidence (`grandplan.md` §9.1, §3.5).
+- **Optional Engram bridge:** `crates/ncp-observer` is a read-only NCP tap (an E2 optional
+  edge, `grandplan.md` §8.9), excluded from the default workspace and off the critical path. Its
+  integrity repair ships against wire 0.8, pinned to the immutable NCP `v0.8.0` release:
   exact-seq-only D, bounded callback handoff, immutable sample/events, and atomic durable,
   sealed same-path-retryable artifact/run-log finalization with failure-injection tests. It
   also requires an explicit secure/open transport choice and rejects observation-payload/
   session-key mismatches; artifact finalization requires a canonical run log. It remains exploratory
   because honest L/split/episode/label structure and a conforming live publisher are still
-  required before it can be an M5 producer.
-- **Specified (not yet built):** a fuller Rerun-based diagnostic viewer (Phases 1-3) and the deferred Tauri/SparkJS UI (Phase 4). Start at `grandplan.md` §A.7.
+  required before it can be an S2/EC1 producer.
+- **Specified (not yet built):** a fuller Rerun-based diagnostic viewer and the deferred
+  Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
 
 ## Quick Start — Exp0 Gate
 
@@ -275,32 +285,41 @@ Without `just`: `cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.
 
 ## Engineering Plan (To "Finish" the Project)
 
-Build order + acceptance criteria are in `grandplan.md` §A.7 (**M0–M8**):
+The research milestones and stop rules are `grandplan.md` §12 (**M0–M7**: freeze contracts →
+version estimator gates → core + ecosystem conformance benchmark → intervention pilot → locked H1 →
+locked H2 → H3/H4 → transport replication). The infrastructure that supports them is specified in
+§8 (**infrastructure as a scientific contribution**, whose acceptance claim is EC1).
 
-**M0** Exp0 estimator gate → **M1** run logs + replay → **M2** Agent Bridge control plane → **M3** minimal sim + `Flow_gt` → **M4** Rerun-based viewer → **M5** embedding-capture harness on a real VLA → **M6** optional live transport + robot sim → **M7** optional predictor-driven `Flow_pred` → **M8** custom Tauri+SparkJS UI (Phase 4).
+The concrete build order for the capture/intervention/replay substrate:
 
-GauSS‑MI uncertainty + view selection is an **optional confound-control add-on** (`GAUSS_MI_INTEGRATION.md` / `grandplan.md` §C.2), **not** a numbered milestone.
+Exp0 estimator gate → canonical `pid-runlog` event schema → deterministic replay → Agent Bridge
+control plane → minimal sim + `Flow_gt` → Rerun-based viewer → embedding-capture harness on a real
+VLA (the S2/EC1 adapter, `experiments/safe_adapter`) → optional live transport + robot sim →
+optional predictor-driven `Flow_pred` → optional Tauri+SparkJS UI.
+
+GauSS‑MI uncertainty + view selection is an **optional, pre-implementation (E1) confound-control
+add-on** (`GAUSS_MI_INTEGRATION.md`; `grandplan.md` §8.9), **not** a milestone.
 
 If you use an external simulator backend (Isaac/MuJoCo/etc.), treat it as an adapter that still emits the canonical run log, logs backend/solver config via `config_logged`, and is controlled via the Agent Bridge surface.
 
 ### Docset-wide final solution
 
-The ten-scientist consensus decision record lives in `grandplan.md` §A.8:
+The decision record lives in `grandplan.md` §16:
 
 ```text
 run log      = source of truth
 Agent Bridge = only control plane
-Rerun        = Phases 1-3 diagnostic/time-machine viewer
-Tauri/SparkJS = Phase 4 control/editor/custom-rendering shell
+Rerun        = read-only diagnostic/time-machine viewer
+Tauri/SparkJS = optional control/editor/custom-rendering shell
 ```
 
-Final 10-step build path: (1) keep Exp0/geometry gates strict; (2) define the canonical `pid-runlog` event schema; (3) implement deterministic replay; (4) route all GUI/script/LLM actions through the Agent Bridge; (5) build the minimal object sim and simulator-derived `Flow_gt`; (6) convert run logs into Rerun recordings/blueprints; (7) connect the offline embedding harness to one small real VLA/task capture with labels, attribution probes, and non-PID baselines; (8) gate optional live transport and external `Flow_pred` services behind the same run-log schema; (9) add Tauri/SparkJS only after the Rerun workflow works; (10) add license/provenance automation for dependencies, models, datasets, generated assets, and sidecars.
+Build path: (1) keep Exp0/geometry gates strict; (2) define the canonical `pid-runlog` event schema; (3) implement deterministic replay; (4) route all GUI/script/LLM actions through the Agent Bridge; (5) build the minimal object sim and simulator-derived `Flow_gt`; (6) convert run logs into Rerun recordings/blueprints; (7) connect the offline embedding harness to one small real VLA/task capture with labels, attribution probes, and non-PID baselines; (8) gate optional live transport and external `Flow_pred` services behind the same run-log schema; (9) add Tauri/SparkJS only after the Rerun workflow works; (10) add license/provenance automation for dependencies, models, datasets, generated assets, and sidecars.
 
 ## Citation
 
 ```bibtex
 @software{prisoma,
-  title  = {Prisoma: Partial Information Decomposition for Vision-Language-Action Models},
+  title  = {Prisoma: Intervention-Grounded Diagnostics for Sequential Embodied Policies},
   author = {Mahmoudian, Sepehr},
   year   = {2026},
   url    = {https://github.com/sepahead/prisoma}

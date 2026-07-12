@@ -305,7 +305,16 @@ def iter_line_contexts(path: Path, lines: list[str]) -> Iterable[LineContext]:
     fence_language = ""
     heading_stack: list[tuple[int, bool]] = []
     version_notes_block = False
-    whole_file_history = path.name.casefold() in {"changelog.md", "history.md"}
+    # Whole-file historical records: changelogs, plus anything under an archive/ or reviews/
+    # directory (superseded docset versions and frozen review-provenance bundles). These
+    # legitimately reference retired section numbers and old dependency pins, so architecture,
+    # pin, and section-reference drift checks do not apply.
+    _posix = path.as_posix().casefold()
+    whole_file_history = (
+        path.name.casefold() in {"changelog.md", "history.md"}
+        or "/archive/" in _posix
+        or "/reviews/" in _posix
+    )
 
     for line_no, line in enumerate(lines, start=1):
         stripped = line.lstrip()

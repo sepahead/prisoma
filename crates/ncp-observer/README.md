@@ -45,7 +45,7 @@ M5 contract** (gate-passing artifacts with honest provenance) until the gaps bel
    samples; the first finalization attempt seals ingestion and binds its output
    path, and an exact retry reconstructs one event per sample with no duplicates.
 4. **Held-out structure** — no `metadata.split` / `episode_id` / required `success` labels
-   by default, so the strict `--require-heldout-*` gates and the §14.1.1 H1 audit can't run.
+   by default, so the strict `--require-heldout-*` gates and the grandplan §4 H1 confirmatory-claim audit can't run.
 
 Bringing it up to bar is a self-contained task — see **`NCP_DEV_PROMPT.md`** at the repo root.
 
@@ -75,8 +75,9 @@ than mysterious.
 - **V** ← `SensorFrame` channels (all but the language channel), flattened.
 - **L** ← the `instruction` `SensorFrame` channel (configurable).
 - **D** ← `ObservationFrame` record-port readouts — the pre-motor neural state
-  (world-model status **untested**: no §7.6.3-style physics probe has been run on
-  these ports; "internal simulation" is what the `PID(V,D;A)` probe would *test*,
+  (world-model status **untested**: no architecture-evidence probe (grandplan §9.1 —
+  a fused hidden state may not be called a "world model"/"dynamics" axis without it)
+  has been run on these ports; "internal simulation" is what the `PID(V,D;A)` probe would *test*,
   not an established property). Note: in `(V,L,D,A)`, **D is the Dynamics /
   world-model axis**, not depth.
 - **A** ← `CommandFrame` channels, flattened.
@@ -139,10 +140,10 @@ the same information flow as the NEST simulator?
 
 ## Compatibility & versioning
 
-The manifest and lockfile currently pin the NCP **`wire-0.8-stream-identity`**
-branch (`NCP_VERSION = 0.8`, `CONTRACT_HASH = d1b50a2d8a265276`) for the wire-0.8
-migration; this is a **temporary** build pin — the final pin to the immutable
-`v0.8.0` tag is the maintainer's post-release step (the tag does not exist yet).
+The manifest and lockfile pin the immutable NCP **`v0.8.0`** tag
+(`NCP_VERSION = 0.8`, `CONTRACT_HASH = d1b50a2d8a265276`) — the wire-0.8
+stream-identity release — and resolve it from the published repository; no sibling
+checkout or path override is required.
 Wire 0.8 splits the overloaded top-level `seq` into a typed `stream` (this frame's
 own position) and `source` (the frame that drove it), carries `session_id` +
 `session.generation` on the data plane, and this tap drops/counts every
@@ -178,8 +179,7 @@ information flow the NEST simulator does?
 ## Build note
 
 This crate git-depends on the NCP repo <https://github.com/sepahead/NCP>
-(temporarily the `wire-0.8-stream-identity` branch; re-pin to the `v0.8.0` tag once
-cut) and pulls Zenoh, so it is heavier
+(pinned to the immutable `v0.8.0` tag, wire 0.8) and pulls Zenoh, so it is heavier
 than the pure-PID crates. The
 estimator gates (`just exp0`, `just exp0-bin`, etc.) run the pid-rs crates via
 `--manifest-path pid-rs/crates/...` and are unaffected.

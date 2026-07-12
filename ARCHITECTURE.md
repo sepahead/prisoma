@@ -11,9 +11,11 @@
 
 ---
 
-**Docset alignment:** This document is aligned to the current 2026-07-10 corrective addendum in `grandplan.md` v10.7. It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
+**Docset alignment:** This document is aligned to `grandplan.md` docset v12.5 (seventh adversarial revision; scientific cut 2026-07-12). It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the source of truth; the Agent Bridge is the **only control plane**; Rerun is the read-only Phases 1–3 diagnostic/time-machine viewer; and Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering. Every VLA action, scene edit, intervention, pause/resume/step transition, and correction-force command must enter through the Agent Bridge and be appended to the canonical run log before execution. PID workers and observers analyze data; Zenoh transports data; Rerun renders replayed data. None may actuate the simulator.
+**v10.7 → v12.5 migration note:** the legacy H1–H9 / Exp0–Exp10 scheme is retired. The confirmatory registry (`grandplan.md` §4) is now **EC1** (provenance-complete replay) plus **H1** (pre-treatment diagnostics predict intervention response; Protocol A paired vs Protocol B randomized), **H2** (censoring-aware failure prediction), **H3** (conditional PID incremental value), and **H4** (availability can diverge from causal policy use). Gates are the **S0–S7** sequence (§5.1); build order is **milestones M0–M7** (§12); estimator validation ("Experiment 0") is now the **S1 gate / §7** and is judged against four gates — population, measure, estimator, application (§7.1). Legacy H-labels below are remapped accordingly.
+
+**Docset-wide final solution:** `grandplan.md` §16 is the decision log (see also §8.2, §8.11, §8.13, §15.4). The run log is the source of truth; the Agent Bridge is the **only control plane**; Rerun is the read-only Phases 1–3 diagnostic/time-machine viewer; and Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering. Every VLA action, scene edit, intervention, pause/resume/step transition, and correction-force command must enter through the Agent Bridge and be appended to the canonical run log before execution. PID workers and observers analyze data; Zenoh transports data; Rerun renders replayed data. None may actuate the simulator.
 
 ## 1. Core System Components
 
@@ -86,7 +88,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 - **Determinism:** Rapier aims for deterministic replay under fixed dt/ordering, but bitwise determinism can break across platforms/CPUs; verify and log settings/seeds.
 - **Modularity:** Select an engine appropriate to your trade-offs (Rapier for speed, MuJoCo for contact fidelity)
 - **Integration:** Native Rust (Rapier) = zero-copy data flow to PID-core; FFI for MuJoCo/Isaac
-- **Multi-engine reality**: per-object “Rapier walls + MuJoCo cups” is a co-simulation problem for contact-rich scenes. v10.1 carries forward the recommendation to use **one physics backend per run**, plus optional **cross-backend replay** (Rapier ↔ MuJoCo) as a robustness/confound check (see `grandplan.md` §E.1).
+- **Multi-engine reality**: per-object “Rapier walls + MuJoCo cups” is a co-simulation problem for contact-rich scenes. The recommendation is to use **one physics backend per run**, plus optional **cross-backend replay** (Rapier ↔ MuJoCo) as a robustness/confound check (see `grandplan.md` §8.5 replay levels; §6.10 robustness/falsification).
 
 ### 1.4 Gazebo Harmonic (Robot Simulation)
 
@@ -120,18 +122,19 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 
 **Important coupling rule:** if the robot and manipulated objects are simulated in different engines, robot–object contacts are **not physically meaningful** unless you implement an explicit coupling layer (co-simulation). For most prisoma experiments, prefer one of:
 - **Single-engine contact (recommended for manipulation):** simulate robot + objects together in **MuJoCo** (benchmark-aligned) or another single backend, and use PID‑Splat only for logging/overlays.
-- **Harness bring-up (recommended for early engineering):** use the in-repo deterministic object sim for run-log/Agent Bridge/Rerun plumbing first, then add object-only Rapier or MuJoCo physics and a kinematic “end-effector proxy” for interventions/perturbations; add full robot dynamics later (see `grandplan.md` §A.7).
-- **Advanced (optional):** multi-engine “physics islands” with restricted coupling; static colliders can be duplicated, but cross-island contacts require one solver (see `grandplan.md` §E.1).
+- **Harness bring-up (recommended for early engineering):** use the in-repo deterministic object sim for run-log/Agent Bridge/Rerun plumbing first, then add object-only Rapier or MuJoCo physics and a kinematic “end-effector proxy” for interventions/perturbations; add full robot dynamics later (see `grandplan.md` §12 milestones).
+- **Advanced (optional):** multi-engine “physics islands” with restricted coupling; static colliders can be duplicated, but cross-island contacts require one solver (see `grandplan.md` §8.5).
 
-**Per-Hypothesis Engine Usage** (see `EXPERIMENTS.md` for full details):
+**Per-claim engine usage** (see `EXPERIMENTS.md` for full details):
 
-| Hypothesis | Physics | Robot | Notes |
+| Claim | Physics | Robot | Notes |
 |------------|--------|--------|-------|
-| H1 (PID features ↔ failure labels) | ✓ | ✓ | Object poses + robot state; synergy sign is a candidate feature, not a definition |
-| H4 (Memorization vs generalization) | ✓ | | Mass/friction perturbations |
-| H5 (Temporal degradation) | ✓ | ✓ | Long-horizon contact physics |
-| H6 (Safety-aware V-L integration) — **Deferred** (grandplan §14.1) | ✓ | ✓ | Collision detection for safety; deferred until proper safety labels exist |
-| H7a/H7b (Flow-as-bridge; §14.1 v10.7 split) | | | Flow from an external video predictor; no physics sim needed for flow extraction itself |
+| H1 (pre-treatment diagnostics predict intervention response) | ✓ | ✓ | Object poses + robot state; needs the paired/randomized intervention fork (grandplan §6.3); synergy sign is a candidate feature, not a definition |
+| H2 (censoring-aware prospective failure prediction) | ✓ | ✓ | Long-horizon contact physics; frozen alarm policy, lead time (grandplan §6.4) |
+| H3 (conditional PID incremental value) | ✓ | | Only inside the validated support envelope (grandplan §7.14) |
+| H4 (availability can diverge from causal policy use) | ✓ | | Mass/friction perturbations; availability-vs-use asymmetry reported as a finding |
+| Flow-as-bridge (Exploratory — grandplan §9.6) | | | Flow from an external video predictor; no physics sim needed for flow extraction itself |
+| Safety-aware V–L integration (Retired/deferred — grandplan §4) | ✓ | ✓ | Collision detection for safety; deferred until proper safety labels + matched controls exist |
 
 ### 1.5 Gaussian Splatting (3DGS) Pipeline
 
@@ -184,7 +187,7 @@ Measure and log the actual Gaussian count, renderer memory/time, collision geome
 - Segmentation + point tracking + depth estimation extract 3D object flow from dreamed videos
 - 3D Flow becomes a **target variable** for PID analysis
 
-> **Why Flow-as-Bridge is Critical**: The implemented `EhrlichKsg` path only supports Chebyshev (L∞) geometry and does **not** currently have a derivation for hyperbolic/Lorentzian manifolds. Current Exp0 status is split: the default high-dimensional MI/coherence path is **NO-GO**, while continuous `I^sx_∩` atom validation is **not yet represented by a valid automated gate** (`grandplan.md` corrective addendum; `findings.md`). If high‑D embeddings exhibit problematic local geometry or distance concentration, shifting the diagnostic target to explicit 3D object flow can reduce the ambient-dimension burden; flow still needs estimator-recovery, intrinsic-dimension, concentration/tie, dependence, and local-flatness checks.
+> **Why Flow-as-Bridge is Critical**: The implemented `EhrlichKsg` path only supports Chebyshev (L∞) geometry and does **not** currently have a derivation for hyperbolic/Lorentzian manifolds. Under the four PID gates (`grandplan.md` §7.1), the high-dimensional MI/coherence path is **NO-GO**, while continuous shared-exclusions atoms on real embeddings are **BLOCKED / not application-validated** (`grandplan.md` §7.2; `findings.md`). If high‑D embeddings exhibit problematic local geometry or distance concentration, shifting the diagnostic target to explicit 3D object flow can reduce the ambient-dimension burden; flow still needs estimator-recovery, intrinsic-dimension, concentration/tie, dependence, and local-flatness checks.
 
 **Pipeline:**
 ```
@@ -218,7 +221,7 @@ Current Image + Instruction
 └─────────────────┘
 ```
 
-**Why it matters (Critical for Hypothesis H7):**
+**Why it matters (flow-as-bridge; Exploratory — `grandplan.md` §9.6):**
 - **Embodiment-agnostic**: 3D flow is independent of robot morphology
 - **Euclidean target**: Avoids manifold geometry problems of high-D embeddings
 - **World model probe**: Tests if VLA's internal model predicts physically consistent futures
@@ -336,9 +339,9 @@ urdf_path = "assets/robots/franka_panda.urdf"
 | **Embodiment Transfer** | Per-robot fine-tuning | Flow-as-bridge tests embodiment-agnostic understanding |
 
 **What PID adds (hypothesis; validate empirically):** typical benchmarks emphasize task success and sometimes auxiliary diagnostics; PID offers an additional, information-theoretic decomposition that *may* help localize which inputs drive decisions:
-- **Grounding failure signatures:** candidate correlations between PID atoms and failures (H1/H2; see `grandplan.md` warnings + the separate MI/coherence and measure-specific atom gates)
-- **Memorization vs generalization:** test whether PID patterns differ across held-out compositions (H4)
-- **Long-horizon composition:** test whether temporal PID summaries degrade before failure (H5)
+- **Grounding failure signatures:** candidate correlations between PID atoms and failures (H1/H2; see `grandplan.md` §4 registry + the four PID gates §7.1)
+- **Availability vs use:** test whether representational availability diverges from causal policy use across held-out compositions (H4)
+- **Long-horizon composition:** test whether temporal PID summaries degrade before failure (exploratory temporal analysis)
 
 ### 3.2 Comparison with VLA-Arena
 
@@ -414,7 +417,7 @@ PID-Splat enables **world model based robotics** by:
 I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 ```
 - **High Syn**: information about `A` is present only in the joint `(V,L)` beyond either alone (interpretation is task-dependent; validate under controls)
-- **Negative Syn**: allowed under `I^sx_∩`; treat as a candidate diagnostic feature and rule out estimator/geometry artifacts via Experiment 0 + perturbation controls
+- **Negative Syn**: allowed under `I^sx_∩`; treat as a candidate diagnostic feature and rule out estimator/geometry artifacts via the S1 estimator/measure gate (`grandplan.md` §7) + perturbation controls
 - **High Unq(L) in a visually dominated task**: can indicate language reliance; test with instruction perturbations and placebo controls
 
 **3. Embodiment-agnostic evaluation:**
@@ -423,7 +426,7 @@ I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 - Same world model understanding → different action decoders
 
 **4. Compositional verification:**
-- Long-horizon tasks: Does synergy degrade over time? (H5)
+- Long-horizon tasks: Does synergy degrade over time? (exploratory temporal analysis)
 - If yes → world model loses coherence over long plans
 
 ### 3A.3 Why Gaussian Splats + Modular Physics Enable This
@@ -467,7 +470,7 @@ Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods 
 
 | Phase | Goal | Key Deliverable | Visualization |
 |-------|------|-----------------|---------------|
-| **1** | Validate estimators (Experiment 0) | Separate MI/coherence verdict from measure-specific continuous-atom validation; current status is MI/coherence **NO-GO** on the default high-d sweep and atom gate **not yet valid/implemented** | Rerun (Charts) |
+| **1** | Validate estimators (S1 gate / `grandplan.md` §7) | Four PID gates (population/measure/estimator/application, §7.1); current status is MI/coherence **NO-GO** on the high-d sweep and continuous shared-exclusions atoms on real embeddings **BLOCKED / not application-validated** | Rerun (Charts) |
 | **2** | Apply to OpenVLA on LIBERO | Failure signature taxonomy | Rerun (Timeline + Logs) |
 | **3** | Within-model stage/channel ablations | World-model-stage vs action-decoding vs execution diagnostics under fixed model/checkpoint/task | Rerun (3DGS + Ghost Splats) |
 | **4** | Embodiment transfer via Flow-as-bridge | Cross-robot PID analysis | **Tauri + SparkJS** (Interactive) |

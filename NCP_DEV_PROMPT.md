@@ -11,15 +11,15 @@
 `(V,L,D,A)`+labels artifacts in one schema (the `OfflineVldaDataset` JSON the
 `pid-offline-harness` reads). In `(V,L,D,A)`, **D is the Dynamics / internal-state
 ("hidden states") axis, not depth** — defined per model as an experimental variable
-(grandplan §10.10.13, §7.6.3).
+(grandplan §9.1 warns against pre-labelling V/L/D; §9.2 pathway-source selection).
 
 There are several producers of that contract:
 
 | Producer | Role | Status |
 |---|---|---|
-| `experiments/safe_adapter/` (SAFE rollouts) | **Critical path** (grandplan M5) | Gate-passing, honest provenance |
+| `experiments/safe_adapter/` (SAFE rollouts) | **Critical-path producer** (S2/EC1 reference adapter; grandplan §5.1, §8.7) | Gate-passing, honest provenance |
 | `crates/pid-sim` fixtures + Rapier/toy harnesses | Standalone sim sources | Gate-passing |
-| **`crates/ncp-observer` (this)** | **Optional** Engram/NEST bridge | **Exploratory-only — below the M5 bar** |
+| **`crates/ncp-observer` (this)** | **Optional** Engram/NEST bridge | **Exploratory-only — below the S2/EC1 conformance bar (optional M2 ecosystem item)** |
 
 `ncp-observer` is a **read-only passive tap**: it subscribes to a NEST/Engram session's
 Neuro-Cybernetic Protocol (NCP) data planes over Zenoh and converts each closed-loop tick
@@ -34,7 +34,7 @@ becomes a *design-time* channel-prioritization policy for NCP's perception codec
 low-bandwidth link (drop redundant, keep unique, bundle synergistic). See
 `crates/ncp-observer/README.md` and `RESILIENCE.md` in <https://github.com/sepahead/NCP>.
 
-## 2. The bar to clear ("done" = M5-grade)
+## 2. The bar to clear ("done" = S2/EC1 conformance-grade)
 
 An `ncp-observer` capture is "up to the task" when its artifact passes the offline
 harness's **strict leakage gates** and carries **honest provenance**, i.e. it can be run
@@ -51,9 +51,9 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input <ncp_vlda.json> \
 that fails the run on degraded or absent axis-provenance markers; the `just safe-adapter`
 recipe already runs it alongside the three held-out gates.)
 
-…exiting 0, and it can feed the **H1 necessity audit** (does PID/CI beat the SAFE-class
-held-out logistic-regression failure detector — grandplan §14.1.1). Until then it is
-fine for *exploratory* PID screens only.
+…exiting 0, and it can feed the **PID-necessity audit** (does PID/CI beat the SAFE-class
+held-out logistic-regression baseline — grandplan §3.8 PID kill rules, §6.5 baseline
+hierarchy, in service of H1/H2). Until then it is fine for *exploratory* PID screens only.
 
 ## 3. Current state
 
@@ -94,11 +94,11 @@ Already correct (do not regress):
 
 ### Gap 1 — D alignment on `seq` (exact-only in-repo; residual is the live producer)
 
-**Update (NCP `v0.7.1`, wire 0.7):** a plane-published
+**Update (NCP `v0.8.0`, wire 0.8):** a plane-published
 `ObservationFrame.seq >= 1` echoes the driving `SensorFrame.seq`. The observer enforces
 that medium boundary: version-less/incompatible/invalid frames and valid pull-form
 `seq == 0` observations are dropped and counted. The manifest and lockfile pin the
-immutable `v0.7.1` release.
+immutable `v0.8.0` release.
 
 `ObservationFrame` **carries `seq`**, and the prisoma observer joins D on it:
 `Observer::on_observation` stores each readout in `d_by_seq[obs.seq]`; completed ticks
@@ -116,8 +116,8 @@ What remains:
   each sample's D with its own `seq`; unstamped/future D is never paired.
 
 ### Gap 2 — absent-L ticks are excluded, not fabricated (residual is the retention policy)
-A tick with no language channel yields an empty (zero-length) `L`. grandplan's M5
-contract is "never fabricated", and the observer honors it the strict way: **empty-axis
+A tick with no language channel yields an empty (zero-length) `L`. grandplan's adapter
+contract (§8.7) is "never fabricated", and the observer honors it the strict way: **empty-axis
 ticks are excluded from the artifact and counted** (`excluded_empty_l` in the
 `ObserverStats` finalize report) — one empty axis would make `pid-offline-harness`
 reject the whole dataset anyway. Kept samples always carry the honest
@@ -130,15 +130,15 @@ reject the whole dataset anyway. Kept samples always carry the honest
 - **Acceptance:** no sample ever reaches the artifact with a fabricated or empty L (met);
   the exclusion count makes the loss visible (met).
 
-### Gap 3 — no held-out split / episode / label structure (MEDIUM; unlocks the gates + H1)
+### Gap 3 — no held-out split / episode / label structure (MEDIUM; unlocks the gates + H-experiments)
 The artifact currently emits one optional `episode_id`, no `metadata.split`, and labels
-only if a `success_channel` is configured — so the strict gates and the H1 audit can't run.
+only if a `success_channel` is configured — so the strict gates and the PID-necessity audit can't run.
 - **Fix:** map NEST trials → `episode_id`; assign each sample a `metadata.split`
   (`train`/`test`, episode-disjoint); and source a real per-tick or per-episode `success`
   label from the task outcome (not a placeholder). Keep the split assignment deterministic
   and leakage-safe (no `episode_id` in both train and test).
 - **Acceptance:** the four `--require-*` strict modes above all pass on a real session
-  capture, and `heldout_logreg_vlda` (the H1 baseline) runs.
+  capture, and `heldout_logreg_vlda` (the learned baseline, grandplan §6.5) runs.
 
 ## 5. Hard constraints (do not violate)
 
@@ -152,7 +152,7 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
 5. **D is hidden states, not depth.** Keep the mapping and docs consistent with that.
 6. **Do not call any record-port a principled D without a probe.** Today D is
    first-available-ports in BTreeMap order; before any world-model claim, run a
-   `grandplan.md` §7.6.3-style physics/world-model probe on the candidate ports —
+   `grandplan.md` §9.2-style physics/world-model probe on the candidate ports —
    a pre-motor readout is the locus most at risk of measuring action formatting
    (see `RESEARCH_VLA_D_NCP.md` §6.1).
 7. **Prefer exclusion over backfill for absent L.** The research memo's position
@@ -164,7 +164,7 @@ only if a `success_channel` is configured — so the strict gates and the H1 aud
 
 `ncp-observer` is **kept off the default cargo workspace** (`Cargo.toml` `exclude`)
 to keep NCP/Zenoh off the critical path; it git-depends on the published NCP repo
-<https://github.com/sepahead/NCP> (tag `v0.7.1`). Build/test it explicitly:
+<https://github.com/sepahead/NCP> (tag `v0.8.0`). Build/test it explicitly:
 
 ```bash
 # Build + test the workspace-excluded observer directly:
@@ -180,7 +180,7 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json 
     --summary-json outputs/ncp_summary.json --runlog outputs/ncp_pid_runlog.jsonl
 ```
 
-The `ncp-core` / `ncp-zenoh` dependencies pin the immutable published `v0.7.1` tag in
+The `ncp-core` / `ncp-zenoh` dependencies pin the immutable published `v0.8.0` tag in
 lockstep. The crate stays off the default workspace so NCP/Zenoh resolution cannot break
 the PID gates.
 
@@ -191,8 +191,8 @@ the PID gates.
 - `NEURO_CYBERNETIC_PROTOCOL.md` in <https://github.com/sepahead/NCP> — the NCP spec (Gap 1 lives here).
 - `experiments/safe_adapter/` — the gold-standard, gate-passing `(V,L,D,A)` producer to
   mirror for provenance and split/label structure.
-- `EXPERIMENTS.md` §0.2 (runbook) and `grandplan.md` §14.1.1 (H1 kill criteria), §7.6.3
-  (D hook selection), §11.4 (one-control-plane rule).
+- `EXPERIMENTS.md` §0.2 (runbook) and `grandplan.md` §3.8 (PID kill rules) + §6.5 (baseline
+  hierarchy), §9.2 (pathway-source / D selection), §8.11 (one-control-plane rule).
 
 ## 8. Out of scope
 

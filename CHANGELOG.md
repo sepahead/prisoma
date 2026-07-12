@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### Docset v12.5 — adopt the second-round intervention-grounded plan (2026-07-12)
+
+- **Adopted `grandplan.md` docset v12.5**, replacing the v10.7 "Comprehensive prisoma
+  Specification" with the intervention-grounded plan from the 2026-07-12 second-round
+  adversarial review. The thesis is reframed around **auditable experiment semantics** with
+  **PID as a conditional candidate**. New structure: the **EC1 + H1–H4** confirmatory claim
+  registry (a Protocol A paired frozen-snapshot vs Protocol B randomized closed-loop split for
+  H1; a censoring-aware H2 with the 2026 monitor comparator frontier and a frozen alarm policy;
+  a conditional H3; an availability–use H4), the **S0–S7** gate sequence, **M0–M7** research
+  milestones, **four separated PID gates** (population/measure/estimator/application), an
+  **E0–E5** ecosystem evidence ladder (only `pid-rs` and NCP are direct edges), a **dependency
+  firebreak**, and an **R1–R112** reference ledger. The outgoing plan is archived at
+  `docs/archive/grandplan-v10.7.md`; the review bundle is vendored at
+  `docs/reviews/2026-07-12-grandplan-v12.5/`. (The v11/v12 intermediate review versions were
+  not adopted directly — v11 was the first-round replacement.)
+- **Migrated the whole docset to v12.5.** Restamped and retargeted every companion doc
+  (`README.md`, `AGENTS.md`, `CLAUDE.md`, `findings.md`, `ARCHITECTURE.md`, `DIAGRAMS.md`,
+  `EXPERIMENTS.md`, `pidsplatspecs.md`, `NCP_DEV_PROMPT.md`, `RESEARCH_VLA_D_NCP.md`,
+  `REVIEW_AND_TODO.md`, the optional-spec and observer READMEs) to the new section numbers, the
+  EC1/H1–H4 registry, the four PID gates, and the E0–E5 ecosystem language — preserving the
+  runnable "what exists today" content and the control-plane invariants (run log = source of
+  truth; Agent Bridge = only control plane; observers/PID/Zenoh/Rerun never actuate).
+- **Migrated the doc-audit scripts.** `scripts/audit_grandplan.py` now validates the R1–R112
+  reference ledger (contiguous IDs, all defined + cited, no undefined/unused/duplicate) instead
+  of arXiv-cache coverage; the venue heuristic in `audit_grandplan_claims.py` /
+  `audit_docset_claims.py` is bibliography-aware; and `audit_docset_claims.py` treats
+  `docs/archive/**` and `docs/reviews/**` as whole-file historical records.
+
 ### Added
 
 - **§14.8.3 power gate implemented and first-run** (`crates/pid-sim/src/power.rs`,
@@ -26,6 +54,12 @@
   hand-checks, binormal calibration, τ calibration, small-grid sanity).
 
 ### Changed
+
+- **Finalized the NCP wire-0.8 migration: re-pinned `ncp-observer` to the immutable NCP
+  `v0.8.0` release (wire 0.8).** Moved `ncp-core`/`ncp-zenoh` from the
+  `wire-0.8-stream-identity` branch to the `v0.8.0` tag and refreshed the crate lockfile; all
+  active NCP-pin references across the docset were reconciled to `v0.8.0`/wire 0.8. The
+  `meshmaker/` tombstone records its relocation to `relief-atlas`.
 
 - **Re-pinned `ncp-observer` to immutable NCP `v0.7.1`.** This is a
   wire-identical patch on wire 0.7 (`CONTRACT_HASH = f05e328cad20959d`): observer

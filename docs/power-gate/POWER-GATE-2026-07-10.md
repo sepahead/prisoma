@@ -1,4 +1,9 @@
-# §14.8.3 Power Gate — idealized endpoint-sensitivity analysis (H1–H4)
+# Power gate (grandplan §6.8, formerly §14.8.3) — idealized endpoint-sensitivity analysis (H1–H4)
+
+> **Docset v12.5 note:** dated 2026-07-10 machine-generated report. The `H1`–`H4` endpoint
+> names and `DGP tag` strings below are emitted identifiers from that run and are kept
+> verbatim; they predate the v12.5 confirmatory registry (EC1 + H1–H4, `grandplan.md` §4)
+> and are not a one-to-one map onto it. The power/design plan is now §6.8.
 
 Replicates/cell: 400 · bootstrap: 500 · one-sided α = 0.05 · target power = 0.8
 

@@ -10,9 +10,9 @@
 > - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
 ## Technical Blueprint for the "Splat-First" Research Platform
 
-**Version:** 10.7 (2026-07-10 corrective implementation-reality alignment)
-**Date:** 2026-07-10
-**Context:** Canonical implementation spec for the simulation layer defined in `grandplan.md` §10.8 and §10.10.
+**Version:** 12.5 (2026-07-12 docset v12.5 alignment)
+**Date:** 2026-07-12
+**Context:** Canonical implementation spec for the infrastructure/simulation and visualization layer defined in `grandplan.md` §8 (Infrastructure as a scientific contribution — esp. §8.6 interoperability and §8.13 visualization/rendering).
 
 ---
 
@@ -23,15 +23,15 @@ This document specifies the target engineering implementation of the **PID-Splat
 **Visualization Strategy (v10.1): "Rerun-First"**
 To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** (https://rerun.io/) as the primary visualization and "time machine" viewer. The canonical run log remains the authoritative record. The custom Tauri/SparkJS frontend is deferred to Phase 4 for advanced interactive needs.
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The run log is the canonical state, the Agent Bridge is the only control plane, Rerun is a read-only research viewer, and Tauri/SparkJS is a later control/editor/custom-rendering shell. Every VLA action, scene edit, intervention, pause/resume/step transition, and correction force must enter through the Agent Bridge and be recorded before execution. Observers and PID workers are read-only analyzers; Zenoh is optional data transport; none of them may actuate physics.
+**Docset-wide final solution:** `grandplan.md` §16 is the decision log (see also §8.2 event model, §8.11 control plane, §8.13 visualization). The run log is the canonical state, the Agent Bridge is the only control plane, Rerun is a read-only research viewer, and Tauri/SparkJS is a later control/editor/custom-rendering shell. Every VLA action, scene edit, intervention, pause/resume/step transition, and correction force must enter through the Agent Bridge and be recorded before execution. Observers and PID workers are read-only analyzers; Zenoh is optional data transport; none of them may actuate physics.
 
-**Current estimator status:** the default high-dimensional Exp0 MI/coherence sweep is **NO-GO**; continuous `I^sx_∩` atom validation is **not yet covered by a valid automated gate**. `--strict-gate` only enforces the curated d=1 Gaussian **MI** band and does not validate the atoms or the default high-dimensional sweep. See the current `grandplan.md` corrective addendum and `findings.md`.
+**Current estimator status (four-gate model, `grandplan.md` §7.1):** the high-dimensional **MI/coherence path is NO-GO** (population/measure/estimator gates fail on nuisance-dimension controls); continuous shared-exclusions atoms on **real embeddings are BLOCKED / NOT APPLICATION-VALIDATED** (application gate un-cleared). The `exp0` binary implements part of the §7 estimator/measure validation (S1 gate); its default aggregate is **not** an atom-validity verdict, and `--strict-gate` only enforces the curated d=1 Gaussian **MI** band, not the atoms or the high-dimensional sweep. `--pid-mode discrete` is Williams–Beer `I_min`, **not** discrete `i^sx_∩` (`grandplan.md` §7.6). See `grandplan.md` §7.2 and `findings.md`.
 
 **Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying predicted “dreams” (video‑predicted 3D flow) to visualize what a policy *expects* to happen.
 
 **Contact/collision reality check:** existing “3DGS-based” simulators still use conventional physics engines for contacts. Treat splats as the appearance layer; use explicit collision geometry (URDF/MJCF primitives/meshes) in the physics backend.
 
-**Multi-engine note (v10.1):** treat the physics backend as a **per-run** choice for contact-rich scenes. A more practical differentiator is **cross-backend replay** (re-run the same action log in Rapier vs MuJoCo and report divergence) as a robustness/confound control (see `grandplan.md` §E.1).
+**Multi-engine note (v10.1):** treat the physics backend as a **per-run** choice for contact-rich scenes. A more practical differentiator is **cross-backend replay** (re-run the same action log in Rapier vs MuJoCo and report divergence) as a robustness/confound control (see `grandplan.md` §6.10 robustness/falsification and §8.5 replay levels).
 
 ---
 
@@ -42,7 +42,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 | **Run log** | `pid-rs/crates/pid-runlog` JSONL events + replay summary | Schema v1; M1 groundwork implemented; includes embedding/sim/bridge event types, validation, replay hash comparison, summary JSON with unique metric-name counts plus total metric-event counters, manifest JSON, and co-located sidecar writing/verification | MIT OR Apache-2.0 (project) |
 | **Agent Bridge core** | `crates/pid-bridge` | **Partial M2 groundwork:** local request/response schema, dispatcher, JSON-RPC-shaped conversion, run-log integration, contract export, safe-mode gates, and stdio/TCP/WebSocket deterministic-sim transports. Full target UI/VLA/backend control coverage and versioned subscriptions remain | MIT OR Apache-2.0 (project) |
 | **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`, `log.start`/`log.stop`, deterministic `intervention.apply`, `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics plus a legacy fail-closed aggregate (software smoke only; corrected scientific eligibility does not gate on sampled mean `δ_rel`), strict label/held-out-split/class-coverage/episode-disjoint modes, sample-level, episode-grouped, metadata-split held-out majority/1-NN/nearest-centroid/logistic baselines, prediction/confusion diagnostics, and replay-visible metric-event counts; a `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend** (gravity/contacts/friction, deterministic) + a scripted push-to-goal manipulation exists behind the optional `rapier` feature (box-collider geometry; mesh-collider ingestion and MuJoCo/Isaac adapters remain planned) | MIT OR Apache-2.0 (project) |
-| **Attribution probes (H9)** | `experiments/attribution` + `attribution_logged` + `pid-rerun` | Implemented reference slice: epsilon-/AttnLRP and gradient×input on a small reference model, deletion-AOPC vs random faithfulness check, first-class run-log events, and Rerun faithfulness/provenance plus compatible `.npy` relevance series (capped at 1024). Production VLA/LXT hooks and richer panels remain planned | MIT OR Apache-2.0 (project); model-dependent inputs must be verified |
+| **Attribution probes (triangulation baseline; `grandplan.md` §6.5 Level 3 / §3.7)** | `experiments/attribution` + `attribution_logged` + `pid-rerun` | Implemented reference slice: epsilon-/AttnLRP and gradient×input on a small reference model, deletion-AOPC vs random faithfulness check, first-class run-log events, and Rerun faithfulness/provenance plus compatible `.npy` relevance series (capped at 1024). Production VLA/LXT hooks and richer panels remain planned | MIT OR Apache-2.0 (project); model-dependent inputs must be verified |
 | **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | **Partial M4 groundwork:** Rerun SDK 0.28.x and validating run-log conversion with summary/provenance/validation and attribution tracks are implemented; the complete viewer blueprint remains specified. Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |
 | **Renderer** | Rerun native/WebViewer / SparkJS (Phase 4) | Pin exact package versions / git SHAs at implementation time | Rerun WebViewer: MIT; SparkJS package metadata: MIT; Three.js: MIT |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
@@ -68,7 +68,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 4.  **Optional SPZ conversion:** use a separately selected and pinned PLY→SPZ converter. Record its executable/revision, license, exact command, and input/output hashes; SPZ is not an `ns-export gaussian-splat` output-format flag.
 
 **Optional OpenUSD / USDZ interop (Isaac Sim / LeIsaac workflows):**
-- Convert splat `.ply` → `.usdz` (packaged OpenUSD) using NVIDIA 3DGrut, then compose splats + collision mesh in Isaac Sim to export a single `.usd` background stage (see `grandplan.md` §C.1 and `DIAGRAMS.md` §9).
+- Convert splat `.ply` → `.usdz` (packaged OpenUSD) using NVIDIA 3DGrut, then compose splats + collision mesh in Isaac Sim to export a single `.usd` background stage (see `grandplan.md` §8.6 interoperability and `DIAGRAMS.md` §9).
 
 #### 3.2 LOD Strategy
 *   **Asset-specific count:** measure the exported Gaussian count and renderer memory/time for each scene; do not impose an unsupported universal range.
@@ -79,7 +79,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 
 ### 4. Dream2Flow Integration (Flow-as-Bridge)
 
-This section specifies the target "Unified Architecture" from `grandplan.md` §10.10.
+This section specifies the target unified infrastructure architecture from `grandplan.md` §8 (esp. §8.6 interoperability and §8.7 adapter contract).
 
 **v10.1 sequencing note:** bring up Flow-as-Bridge using **simulator-derived `Flow_gt`** (from logged object poses) before introducing any stochastic video predictor.
 
@@ -97,7 +97,7 @@ struct DreamFlowTrajectory {
     confidence: Vec<f32>,
     /// PID Synergy at each point Syn(V, D; Flow_t)
     /// Windowed ensemble estimate Syn(V, D; Flow_t) aligned to each timestep
-    /// (NOT a single-sample pointwise PID; regime per grandplan §9.0/§14.1)
+    /// (NOT a single-sample pointwise PID; regime per grandplan §2.5/§4)
     synergy: Vec<f32>,
 }
 ```
@@ -189,13 +189,13 @@ The target environment supports multiple physics backends (**Rapier, MuJoCo, Isa
 
 *   **Target:** We compute PID on **Flow** trajectories (Euclidean) to bypass the manifold geometry issues of raw embeddings (Flow-as-bridge).
 *   **Metric:** `Syn(V_embedding, D_embedding; Flow_trajectory)`.
-*   **Windowing:** Rolling window of T=10 to T=50 timesteps (illustrative; final windows per the preregistered plan, grandplan §14.8/§9.0).
+*   **Windowing:** Rolling window of T=10 to T=50 timesteps (illustrative; final windows per the preregistered statistical analysis plan, grandplan §6, with the unit-of-inference and dependence rules in §2.5/§6.7).
 
 ---
 
 ### 9. Performance Budget & Targets
 
-**Measurement-first:** treat latency/throughput as empirical properties of your hardware + scene + models. For interactive work, start with offline playback and progressively move components in-loop only after you have measured budgets and uncertainty (see `grandplan.md` §A and `EXPERIMENTS.md` §12).
+**Measurement-first:** treat latency/throughput as empirical properties of your hardware + scene + models. For interactive work, start with offline playback and progressively move components in-loop only after you have measured budgets and uncertainty (see `grandplan.md` §12 milestones and `EXPERIMENTS.md` §12).
 
 ---
 
@@ -235,19 +235,19 @@ The following OBJ and MTL definitions are intended as ground truth for physics p
 #### 12.1.1 Hollow Cylinder (Tube)
 **File:** `assets/meshes/hollow_cylinder.obj`
 - **Dimensions:** Outer R=0.03m, Inner R=0.02m, Height=0.08m
-- **Purpose:** Novel geometry challenge (Exp 7)
+- **Purpose:** Novel geometry challenge (exploratory novel-geometry manipulation task)
 - **Material:** `hollow_cylinder.mtl` (Plastic)
 
 #### 12.1.2 Dice Cup
 **File:** `assets/meshes/dice_cup.obj`
 - **Dimensions:** Outer R=0.04m, Height=0.06m
-- **Purpose:** Containment target for weighted die (Exp 7)
+- **Purpose:** Containment target for weighted die (exploratory novel-geometry manipulation task)
 - **Material:** `dice_cup.mtl` (Leather/Plastic)
 
 #### 12.1.3 L-Shaped Block
 **File:** `assets/meshes/l_block.obj`
 - **Dimensions:** 0.08m x 0.04m x 0.04m (Horizontal), 0.04m x 0.04m x 0.08m (Vertical)
-- **Purpose:** Compound geometry grasp planning (Exp 7)
+- **Purpose:** Compound geometry grasp planning (exploratory novel-geometry manipulation task)
 - **Material:** `l_block.mtl` (Wood)
 
 #### 12.1.4 Target Platform
@@ -265,7 +265,7 @@ The following OBJ and MTL definitions are intended as ground truth for physics p
 #### 12.1.6 Glass Cube
 **File:** `assets/meshes/glass_cube.obj`
 - **Dimensions:** 0.06m x 0.06m x 0.06m
-- **Purpose:** Transparent object physics proxy (Exp 7)
+- **Purpose:** Transparent object physics proxy (exploratory novel-geometry manipulation task)
 - **Material:** `glass_cube.mtl` (Transparent, index of refraction 1.52)
 
 ### 12.2 Material Definitions (MTL)

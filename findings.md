@@ -4,12 +4,14 @@
 
 Experiment 0 tests Partial Information Decomposition (PID) estimators on synthetic data with known ground truth. The results show systematic issues that need to be understood before proceeding to real VLA analysis.
 
-**Status (corrected 2026-07-10): publish two verdicts, not one.**
+**Status: publish separate gate verdicts, not one.** These map onto the four PID validity
+gates in `grandplan.md` §7.1 — population, measure, estimator, and **application**.
 
-- **MI/coherence gate: NO-GO** on the high-dimensional nuisance controls. pid-rs 0.4.0
-  exposes three invariant-bound violations (for example `r̄≈28.6`, `v̄≈−26.6` on
+- **MI/coherence (estimator) gate: NO-GO** on the high-dimensional nuisance controls. pid-rs
+  0.4.0 exposes three invariant-bound violations (for example `r̄≈28.6`, `v̄≈−26.6` on
   `unique_s1_pca`, d=64), so those MI terms cannot support atoms or Shannon invariants.
-- **Continuous `I^sx_∩` gate: NOT VALIDATED.** The default Exp0 aggregate tests
+- **Continuous `I^sx_∩` application gate: NOT APPLICATION-VALIDATED (blocked).** The default
+  Experiment 0 aggregate tests
   `independent_additive` redundancy against zero even though the implementation and committed
   Gaussian oracle say genuine shared-exclusions redundancy is positive (about 0.2 nats in
   the low-dimensional reference). The strict band avoids that target but gates MI terms and
@@ -20,7 +22,7 @@ Experiment 0 tests Partial Information Decomposition (PID) estimators on synthet
 The operational conclusion is unchanged and stronger: do not interpret continuous atoms on
 real embeddings, but state the reason precisely.
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. These findings justify the first step of the 10-step plan: keep Exp0/geometry gates strict, then build run-log/replay/Rerun diagnostics before any Tauri/SparkJS product shell or VLA claim.
+**Docset-wide final solution:** `grandplan.md` §16 is the decision record and §5.1 is the S0–S7 gate sequence. These findings justify the estimator gate (S1): keep the Experiment 0 / geometry gates strict, then build the EC1 provenance-complete run-log/replay/Rerun substrate before any Tauri/SparkJS product shell or high-dimensional VLA atom claim.
 
 ---
 
@@ -94,7 +96,7 @@ with estimator error unless a dimension-specific `I^sx_∩` oracle is supplied.
 
 ## Three Hypotheses
 
-Terminology note: the hypotheses in this section are local Experiment 0 diagnostic hypotheses about estimator behavior. They are not the canonical project hypothesis registry (H1–H9), which lives in `grandplan.md` §14.1 and is summarized in `README.md`.
+Terminology note: the hypotheses in this section are local Experiment 0 diagnostic hypotheses about estimator behavior. They are not the canonical confirmatory claim registry (EC1, H1–H4), which lives in `grandplan.md` §4 and is summarized in `README.md`.
 
 ### Hypothesis 1: Estimators Working Correctly
 > The near-zero values reflect true signal loss due to noise dimensions swamping kNN distances.
@@ -263,17 +265,18 @@ warnings; only held-out recovery controls establish whether an estimator regime 
 
 ### From grandplan.md (Project Strategy)
 
-The project anticipated this issue:
-> "H8: Geometry gate metrics predict a valid estimator regime"
+The plan anticipated this (v12.5 §7.9, "Geometry diagnostics are diagnostics, not proofs"):
+geometry metrics may flag risk but do not prove estimator validity, and may enter a hard gate
+only after they predict oracle-defined estimator validity on held-out synthetic families.
 
 ID, concentration, ties, and dependence help explain risk; sampled-mean `d_rel` is
 descriptive. None detects failure by itself. The observed high-d MI/coherence violations are
-the direct NO-GO evidence; the atom gate remains unvalidated as explained above.
+the direct NO-GO evidence; the continuous application gate remains blocked as explained above.
 
-**The escape hatch is H7 ("Flow-as-Bridge")**:
-> "3D Object Flow as Embodiment-Agnostic Integration Diagnostic"
+**The escape hatch is flow-as-a-bridge** (v12.5 §9.6, an exploratory low-dimensional,
+embodiment-portable target — object/contact flow):
 
-By using low-dimensional **flow summaries** (and other low‑d physical targets) instead of high‑d embeddings as the target `T`, the project can often avoid the worst high‑d kNN pathologies — but still requires Exp0 + coherence gates on the exact representation.
+By using low-dimensional **flow summaries** (and other low‑d physical targets) instead of high‑d embeddings as the target `T`, the project can often avoid the worst high‑d kNN pathologies — but still requires the estimator (S1) + coherence gates on the exact representation.
 
 ---
 
@@ -359,7 +362,8 @@ This destroys the discriminative power of nearest-neighbor methods.
 
 ---
 
-*Last updated: 2026-07-10 (docset v10.7 corrective audit — MI/coherence NO-GO separated
-from `I^sx` NOT VALIDATED; nuisance-dimension atom invariance and δ validity-gate claims
-withdrawn)*
+*Last updated: 2026-07-12 (docset v12.5 — gate verdicts mapped onto the four PID gates
+of `grandplan.md` §7.1; MI/coherence estimator gate NO-GO separated from the continuous
+`I^sx_∩` application gate BLOCKED / NOT APPLICATION-VALIDATED; nuisance-dimension atom
+invariance and δ validity-gate claims withdrawn)*
 *Based on analysis of exp0.rs, experimental output, and implementation of PLS + discrete PID (now wired into the offline harness with saturation diagnostics)*

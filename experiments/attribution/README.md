@@ -1,12 +1,18 @@
-# Faithfulness-checked attribution probe (grandplan §14.7.1 / H9)
+# Faithfulness-checked attribution probe (exploratory triangulation; grandplan §3.8 kill rules, §13 Lens 8)
 
-The H9 attribution protocol, end to end: attribute a **declared scalar target** of a
+> **Docset v12.5 note:** the old H9 hypothesis id is retired. Attribution is not a
+> confirmatory claim in the v12.5 registry (EC1, H1–H4; grandplan §4); it is an
+> **exploratory triangulation** comparator whose disagreement-under-intervention with PID
+> is itself a diagnostic, bounded by the PID kill rules (§3.8) and the mechanistic-
+> interpretability lens (§13 Lens 8).
+
+The attribution protocol, end to end: attribute a **declared scalar target** of a
 transformer to its inputs, **faithfulness-check** the attribution against a random
 control, and emit schema-conformant `attribution_logged` run-log events with artifact
-provenance. H9 attributions are triangulation evidence for (or against) PID claims —
-and §14.7.1 is explicit that an attribution which fails its own faithfulness check
-cannot corroborate or falsify a PID signature. This package enforces exactly that
-guard.
+provenance. These attributions are triangulation evidence for (or against) PID claims —
+and grandplan §3.8 (PID kill rules) is explicit that an attribution which fails its own
+faithfulness check cannot corroborate or falsify a PID signature. This package enforces
+exactly that guard.
 
 ## What is real here, and what is a stand-in
 
@@ -54,8 +60,9 @@ the emitted run log validating with the real Rust replay tool. Applying it to a 
 VLA is gated on capture hardware / the LXT integration — the same honest gating as the
 SAFE capture adapter; no contract change is expected.
 
-**Preregister against the v10.7 H9 criterion** (`grandplan.md` §14.1): per matched case,
-Kendall τ between the PID-derived and attribution-derived modality orderings; the H9
-statistic is the mean per-case τ across ≥ 20 cases with a family-blocked case-resampling
-bootstrap — supported only if the CI is entirely > 0 AND the top-modality match rate is
-≥ 70%; a CI entirely < 0 is affirmative disconfirmation.
+**Preregister as an exploratory triangulation check** (`grandplan.md` §4 exploratory
+questions; §3.8 kill rules): per matched case, Kendall τ between the PID-derived and
+attribution-derived modality orderings; the statistic is the mean per-case τ across ≥ 20
+cases with a family-blocked case-resampling bootstrap — supported only if the CI is
+entirely > 0 AND the top-modality match rate is ≥ 70%; a CI entirely < 0 is affirmative
+disconfirmation.

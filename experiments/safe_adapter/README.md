@@ -1,10 +1,10 @@
-# SAFE → (V, L, D, A) adapter (milestone M5 capture shortcut)
+# SAFE → (V, L, D, A) adapter (S2/EC1 reference capture adapter)
 
 Adapts the released **SAFE** VLA rollout datasets into this project's `(V, L, D, A)` +
 labels contract, so a real VLA/task capture can be run through `pid-offline-harness`
 without building capture from scratch. SAFE (`vla-safe/SAFE`; NeurIPS 2025 per the repo — verify venue/license) released OpenVLA-on-WidowX/LIBERO and π0-FAST-on-Franka rollouts with success/failure outcomes. This is
-the critical-path shortcut recorded in `REVIEW_AND_TODO.md` and `grandplan.md`
-§10.10.13 / §12.5.
+the reference capture adapter for the S2/EC1 gate recorded in `REVIEW_AND_TODO.md` and
+`grandplan.md` §8.7 (adapter contract) / §8.9.4 (adapter promotion contract).
 
 ## What the released SAFE tensors actually give you (read this first)
 
@@ -44,7 +44,7 @@ silent.
 > coverage, and licenses (the SAFE repo is unlicensed at time of writing; the
 > rollout downloads are linked from its README).
 
-## Choosing the `D` hook layer (grandplan §7.6.3)
+## Choosing the `D` hook layer (grandplan §9.1 / §8.4)
 
 When you export multiple candidate hidden layers, use
 `layerwise_physics_probe(...)` to run the Physics-Emergence-Zone procedure before

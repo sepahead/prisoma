@@ -1,4 +1,4 @@
-# prisoma UI/UX Specification (Docset v10.7)
+# prisoma UI/UX Specification (Docset v12.5)
 
 This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the `README.md` engineering plan.
 
@@ -6,13 +6,13 @@ The UI is **offline‑first** and **agent‑native**:
 - **Offline‑first:** the first usable UI is a **run‑log viewer** (record → replay → analyze) before any live transport.
 - **Agent‑native:** the GUI must call the same **Agent Bridge** API that scripts/LLM tools call; every action is logged and replayable.
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. The UI should first expose run-library/replay/Rerun workflows, then a thin Agent Bridge control panel, then optional Tauri/SparkJS custom rendering; it must never become a second source of truth.
+**Docset-wide final solution:** `grandplan.md` §16 is the decision log (control plane §8.11, visualization §8.13). The UI should first expose run-library/replay/Rerun workflows, then a thin Agent Bridge control panel, then optional Tauri/SparkJS custom rendering; it must never become a second source of truth.
 
 ## 0) Design Principles (Non‑Negotiable)
 
-Aligned to `grandplan.md` §A.7.
+Aligned to `grandplan.md` §12 (milestones M0–M7) and §5.1 (gate sequence).
 
-1. **Gate-driven:** make Exp0/geometry status visible; avoid “pretty but unscientific” controls.
+1. **Gate-driven:** make estimator-gate (S1) / geometry status visible; avoid “pretty but unscientific” controls.
 2. **No hidden state:** everything that changes the run (interventions, branch, config) must show provenance + be in the run log.
 3. **One control plane:** the UI is a *client* of Agent Bridge; it cannot do secret local mutations.
 4. **Viewer-first:** deliver value before “live mode”:
@@ -20,7 +20,7 @@ Aligned to `grandplan.md` §A.7.
    - M2: Agent Bridge status + safety (GUI actions are RPC)
    - M4: 3D playback + timeline + overlays
 5. **Physics is explicit:** splats are appearance; collisions/contacts come from collision geometry.
-6. **Color semantics are explicit:** default overlay convention is **R = Syn⁺**, **G = Red**, **B = Unq(V)** (`grandplan.md` §10.10.4). The UI must always show a legend and allow exporting the mapping.
+6. **Color semantics are explicit:** default overlay convention is **R = Syn⁺**, **G = Red**, **B = Unq(V)** (`grandplan.md` §8.13). The UI must always show a legend and allow exporting the mapping.
 7. **Accessible & legible:** high contrast, readable typography, colorblind-aware palettes; never rely only on color (use labels/markers).
 
 ## 1) Information Architecture (Navigation)
@@ -49,9 +49,9 @@ The UI is anchored on the **run log** (M1). Everything else is derived:
 Purpose: select a run, inspect provenance, open viewer/compare, export artifacts.
 
 **Must-have UI elements**
-- Search + filters: experiment (Exp1..Exp5), model, physics backend, date, outcome, tags.
+- Search + filters: experiment (H1–H4 programme / S-gates), model, physics backend, date, outcome, tags.
 - Run table/list with stable identifiers and quick status badges:
-  - Exp0 gate status for that run (GO/PIVOT/NO‑GO) if available
+  - estimator-gate (S1) status for that run (GO/PIVOT/NO‑GO) if available
   - physics backend
   - presence/absence of `V/L/D/A`, `Flow_gt`, `Flow_pred`
 - Right‑hand details panel for selected run:
@@ -251,7 +251,7 @@ Purpose: replay a run deterministically, inspect events, overlays, and metrics, 
 
 ### 3.4 Compare Screen (Cross‑Backend Replay) — “Run A vs Run B”
 
-Purpose: compare two runs (often Rapier vs MuJoCo replay) and quantify divergence (`grandplan.md` §E.1; `DIAGRAMS.md` §11).
+Purpose: compare two runs (often Rapier vs MuJoCo replay) and quantify divergence (`grandplan.md` §8.5 replay levels / §6.10 robustness; `DIAGRAMS.md` §11).
 
 **Must-have UI elements**
 - Side‑by‑side synchronized viewports or “difference mode”.
@@ -292,7 +292,7 @@ Purpose: compare two runs (often Rapier vs MuJoCo replay) and quantify divergenc
   "type": "ui_part",
   "id": "compare_cross_backend",
   "title": "Compare Screen (Cross-Backend Replay)",
-  "milestone": "M6+/optional (grandplan §E.1)",
+  "milestone": "optional (grandplan §8.5 replay levels / §6.10 robustness)",
   "requirements": [
     "Desktop compare screen with two synchronized viewports (Run A vs Run B).",
     "Visible labels for physics backend per side (e.g., Rapier vs MuJoCo).",
@@ -310,9 +310,9 @@ Purpose: compare two runs (often Rapier vs MuJoCo replay) and quantify divergenc
 
 ---
 
-### 3.5 GauSS‑MI Capture & Uncertainty Screen (Optional add-on — not a numbered milestone; grandplan §C.2)
+### 3.5 GauSS‑MI Capture & Uncertainty Screen (Optional add-on — not a numbered milestone; grandplan §8.9, E1 candidate)
 
-Purpose: treat 3DGS reconstruction quality as a confound control (`grandplan.md` §C.2; `GAUSS_MI_INTEGRATION.md`).
+Purpose: treat 3DGS reconstruction quality as a confound control (`grandplan.md` §8.9 ecosystem, E1 optional pre-implementation spec; `GAUSS_MI_INTEGRATION.md`).
 
 **Must-have UI elements**
 - Uncertainty overlay toggle + legend.
@@ -352,7 +352,7 @@ Purpose: treat 3DGS reconstruction quality as a confound control (`grandplan.md`
   "type": "ui_part",
   "id": "gauss_mi_uncertainty",
   "title": "Capture/Uncertainty Screen (GauSS‑MI, Optional)",
-  "milestone": "optional (grandplan §C.2)",
+  "milestone": "optional (grandplan §8.9, E1 candidate)",
   "requirements": [
     "Desktop screen titled Capture/Uncertainty (GauSS-MI).",
     "Central viewport shows a 3DGS scene with an uncertainty overlay and a clear legend.",

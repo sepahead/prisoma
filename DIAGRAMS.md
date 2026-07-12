@@ -11,13 +11,15 @@
 
 This document contains visual representations of the prisoma system, the PID-Splat simulation environment, and the data processing pipelines.
 
-**Docset alignment:** These diagrams are aligned to the current 2026-07-10 corrective addendum in `grandplan.md` v10.7. Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, and external video predictors) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` “Repo status” (§11.1), the execution plan (`grandplan.md` §A.7), and the decision record (`grandplan.md` §A.8) for what exists today and what to build next.
+**Docset alignment:** These diagrams are aligned to `grandplan.md` docset v12.5 (seventh adversarial revision; scientific cut 2026-07-12). Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, and external video predictors) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` current-versus-target implementation (§8.10), the research milestones M0–M7 (`grandplan.md` §12), and the decision log (`grandplan.md` §16) for what exists today and what to build next.
 
-**Docset-wide final solution:** the diagrams should be read through `grandplan.md` §A.8: run log as source of truth, Agent Bridge as the only control plane, Rerun as the read-only Phases 1–3 diagnostic viewer, and Tauri/SparkJS as the deferred Phase 4 shell. VLA actions, interventions, pause/resume/step transitions, and correction forces always traverse **client → Agent Bridge → canonical command event → backend**. PID, observers, Zenoh, and Rerun never actuate the system.
+**v10.7 → v12.5 migration note:** the old H1–H9 / Exp0–Exp10 scheme is retired. The confirmatory registry is now **EC1** (provenance-complete replay) plus **H1–H4** (`grandplan.md` §4); the estimator/experiment ordering is the **S0–S7 gate sequence** (§5.1); build order is **milestones M0–M7** (§12). Legacy "Exp0" estimator validation is now the **S1 gate / §7**. These diagrams are retargeted accordingly.
 
-## 0. Docset v10.7 Status Dashboard (Pipeline State)
+**Docset-wide final solution:** the diagrams should be read through `grandplan.md` §16 (decision log; see also §8.2, §8.11, §8.13, §15.4): run log as source of truth, Agent Bridge as the only control plane, Rerun as the read-only Phases 1–3 diagnostic viewer, and Tauri/SparkJS as the deferred Phase 4 shell. VLA actions, interventions, pause/resume/step transitions, and correction forces always traverse **client → Agent Bridge → canonical command event → backend**. PID, observers, Zenoh, and Rerun never actuate the system.
 
-This chart is the honest, gate-driven snapshot after the corrective audit. Exp0 has a **split status**: its default high-dimensional MI/coherence sweep is **NO-GO**, while continuous `I^sx_∩` atom validation has **no valid automated gate yet**. The offline tooling is runnable, but it is not a gate-passing atom-analysis spine. The first real-VLA capture, the nested capture-sizing gate, and the episode-local H1 feature path remain open; Exp1–Exp5 therefore remain blocked.
+## 0. Docset v12.5 Status Dashboard (Pipeline State)
+
+This chart is the honest, gate-driven snapshot. Estimator/measure validation (the **S1 gate**, `grandplan.md` §7) is judged against four separate PID gates — population, measure, estimator, and application (§7.1). The high-dimensional **MI/coherence path is NO-GO** (nuisance-dimension controls); continuous shared-exclusions atoms on **real VLA embeddings are BLOCKED / not application-validated**; the `pid-rs` pin does carry real low-dimensional additive-Gaussian oracle and discrete SxPID reference evidence. The first real-VLA capture, the capture-sizing/power gate (§6.8), the intervention pilot (S3), and the episode-local H1 feature path remain open; the confirmatory EC1/H1–H4 claims therefore remain blocked.
 
 ```mermaid
 flowchart TD
@@ -25,80 +27,78 @@ flowchart TD
     classDef gate fill:#e65100,stroke:#ef6c00,color:#fff;
     classDef blocked fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
 
-    Exp0["Exp0 split status<br/>MI/coherence = NO-GO on default high-d sweep<br/>continuous-atom gate = NOT VALID YET<br/>(runner is executable)"]:::gate
+    S1["S1 estimator/measure gate (§7)<br/>four gates: population / measure / estimator / application<br/>MI/coherence = NO-GO on high-d<br/>continuous i^sx atoms on real embeddings = BLOCKED<br/>low-d Gaussian oracle + discrete SxPID reference = PASS"]:::gate
 
-    subgraph Today["Runnable tooling today (not gate-passing VLA evidence)"]
+    subgraph Today["Runnable tooling today (not application-validated VLA evidence)"]
         Harness["Offline (V,L,D,A) harness<br/>PID screens + non-PID baselines"]:::run
-        ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest (v10.4)"]:::run
-        Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (v10.4)"]:::run
+        ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest"]:::run
+        Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (S2/EC1 reference adapter)"]:::run
         Attr["attribution reference probe + Rerun adapter<br/>faithfulness/provenance/relevance implemented"]:::run
-        Obs["ncp-observer tap pinned NCP v0.7.1<br/>exploratory, off critical path"]:::run
+        Obs["ncp-observer tap pinned NCP v0.8.0 (wire 0.8)<br/>optional read-only, off critical path"]:::run
     end
 
-    Power["CAPTURE GATE NOT READY / NOT PASSED<br/>idealized power simulator exists;<br/>nested capture model + H1 prospective features missing"]:::blocked
+    Power["CAPTURE / POWER GATE NOT READY (§6.8)<br/>idealized power simulator exists;<br/>nested capture model + H1 prospective features missing"]:::blocked
     Capture["OPEN CRITICAL PATH<br/>real downloaded VLA capture + labels<br/>(NOT done)"]:::blocked
 
-    subgraph Blocked["Blocked on first real capture"]
-        E1["Exp1 pick-and-place (H1–H4)"]:::blocked
-        E2["Exp2 long-horizon (H5)"]:::blocked
-        E3["Exp3 perturbations (H1–H6)"]:::blocked
-        E4["Exp4 Flow-as-Bridge (H7)"]:::blocked
-        E5["Exp5 cross-embodiment (H4/H7)"]:::blocked
+    subgraph Blocked["Blocked on capture + intervention pilot (S2/S3)"]
+        EC1["EC1 provenance-complete replay"]:::blocked
+        H1["H1 pre-treatment diagnostics predict intervention response"]:::blocked
+        H2["H2 censoring-aware failure prediction"]:::blocked
+        H3["H3 conditional PID incremental value"]:::blocked
+        H4["H4 availability vs causal use"]:::blocked
     end
 
-    Exp0 --> Harness
+    S1 --> Harness
     Harness --> ProvGate
     Harness --> Adapter
     Harness --> Attr
     Adapter --> Capture
     Power -. blocks .-> Capture
-    Capture -. blocks .-> E1 & E2 & E3 & E4 & E5
+    Capture -. blocks .-> EC1 & H1 & H2 & H3 & H4
 ```
 
-*Caption: corrected v10.7 pipeline state — orange = executable Exp0 with split scientific status; green = runnable tooling, not validated atom evidence; red dashed = unresolved capture design/data gates and the Exp1–Exp5 protocols they block.*
+*Caption: v12.5 pipeline state — orange = the S1 estimator/measure gate (four-gate status); green = runnable tooling, not application-validated atom evidence; red dashed = unresolved capture/power gates (§6.8) and the EC1/H1–H4 confirmatory claims they block.*
 
 ---
 
-## 0.1 Hypothesis Status (H1–H9)
+## 0.1 Confirmatory Claim Status (EC1, H1–H4)
 
-Hypotheses grouped by their `grandplan.md` §14.1 status. Status is unchanged at v10.7; all hypothesis tests remain blocked on the real-VLA capture (only H8 geometry diagnostics and the H9 probe machinery run today on fixtures/synthetic).
+Claims grouped by their `grandplan.md` §4 confirmatory-registry role (kill rules in §3.8; falsifiability in §13 Lens 20). All confirmatory tests remain blocked on the real-VLA capture and the intervention pilot; only the estimator-validation and attribution-probe machinery run today on fixtures/synthetic.
 
 ```mermaid
 flowchart TB
     classDef core fill:#0d47a1,stroke:#1565c0,color:#fff;
-    classDef expl fill:#4a148c,stroke:#6a1b9a,color:#fff;
+    classDef eng fill:#1b5e20,stroke:#2e7d32,color:#fff;
+    classDef cond fill:#4a148c,stroke:#6a1b9a,color:#fff;
     classDef defer fill:#424242,stroke:#616161,color:#fff;
-    classDef tri fill:#1b5e20,stroke:#2e7d32,color:#fff;
 
-    subgraph Core["Core"]
-        H1["H1 PID/CI predicts failure beyond baselines"]:::core
-        H4["H4 Memorization vs generalization PID shifts"]:::core
-        H5["H5 Long-horizon temporal PID/CI degradation<br/>(CI-only ablation mandatory)"]:::core
-        H7["H7a method + H7b hypothesis<br/>(Flow-as-Bridge; §14.1 v10.7 split)"]:::core
-        H8["H8 Geometry diagnostics select estimator regime (method)"]:::core
+    subgraph Engineering["Engineering acceptance"]
+        EC1["EC1 provenance-complete replay"]:::eng
     end
 
-    subgraph Exploratory["Exploratory"]
-        H2["H2 Redundancy predicts ablation robustness"]:::expl
-        H3["H3 Uniques predict intervention sensitivity"]:::expl
+    subgraph Confirmatory["Confirmatory"]
+        H1["H1 pre-treatment diagnostics predict intervention response<br/>(Protocol A paired vs Protocol B randomized)"]:::core
+        H2["H2 censoring-aware prospective failure prediction"]:::core
     end
 
-    subgraph Deferred["Deferred"]
-        H6["H6 Safety-task V–L integration (needs proper labels)"]:::defer
+    subgraph Conditional["Conditional (validated support envelope)"]
+        H3["H3 PID adds incremental value only inside its validated envelope"]:::cond
+        H4["H4 representational availability can diverge from causal use"]:::cond
     end
 
-    subgraph Triangulation["Triangulation"]
-        H9["H9 Faithfulness-checked attribution triangulates/falsifies PID"]:::tri
+    subgraph ExplDefer["Exploratory / retired-deferred (§4)"]
+        EXP["Exploratory questions (e.g. flow-as-bridge §9.6)"]:::defer
+        RET["Retired/deferred legacy H-claims"]:::defer
     end
 ```
 
-*Caption: H1–H9 by status (Core / Exploratory / Deferred / Triangulation). Status is unchanged at v10.7; all hypothesis verdicts remain pending the open real-VLA capture.*
+*Caption: EC1 + H1–H4 by role (engineering / confirmatory / conditional / exploratory-deferred) per `grandplan.md` §4. All confirmatory verdicts remain pending the open real-VLA capture and intervention pilot.*
 
 ---
 
-## 0.2 Milestone / Critical-Path Roadmap (M0–M8)
+## 0.2 Research Milestone / Critical-Path Roadmap (M0–M7)
 
-Build order from `grandplan.md` §A.7. "Implemented" reflects verified in-repo crates/harnesses; M5 capture is the open critical path; M6–M8 are specified/optional. This is engineering state, not a research result.
+Build order from `grandplan.md` §12 (research milestones M0–M7; gate sequence §5.1). The old repo used M1–M5 for *infrastructure* (run logs, Agent Bridge, sim, Rerun); those are now the event-model + control-plane parts of §8 and feed the research milestones as groundwork. "Implemented" reflects verified in-repo crates/harnesses; the real capture + intervention pilot (M3) is the open critical path; M4–M7 are downstream/specified. This is engineering state, not a research result.
 
 ```mermaid
 flowchart TD
@@ -107,20 +107,21 @@ flowchart TD
     classDef active fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
     classDef spec fill:#424242,stroke:#616161,color:#fff;
 
-    M0["M0 Exp0 runner implemented<br/>MI/coherence high-d = NO-GO;<br/>continuous-atom gate not valid yet"]:::partial
-    M1["M1 Run logs + replay<br/>pid-runlog: JSONL schema, validate/summary/manifest (implemented)"]:::done
-    M2["M2 Agent Bridge control plane<br/>stdio/TCP/WS + safe mode implemented;<br/>full target control/subscription contract PARTIAL"]:::partial
-    M3["M3 Minimal sim + Flow_gt<br/>pid-sim, Rapier harness (implemented)"]:::done
-    M4["M4 Rerun adapter implemented<br/>validation + attribution tracks;<br/>full viewer blueprint PARTIAL"]:::partial
-    M5["M5 Embedding harness on REAL capture<br/>safe_adapter ready; capture OPEN (not done)"]:::active
-    M6["M6 Optional live transport + robot sim<br/>(specified)"]:::spec
-    M7["M7 Optional predictor-driven Flow_pred<br/>(specified)"]:::spec
-    M8["M8 Custom Tauri+SparkJS UI (Phase 4)<br/>(specified, deferred)"]:::spec
+    Infra["Infrastructure groundwork (§8 event model + control plane)<br/>run logs + replay, Agent Bridge, pid-sim/Rapier, Rerun adapter — implemented"]:::done
 
-    M0 --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7 --> M8
+    M0["M0 freeze scientific + identification contracts"]:::partial
+    M1["M1 repair + version estimator gates (S1 / §7)<br/>MI/coherence high-d = NO-GO"]:::partial
+    M2["M2 core + ecosystem conformance benchmark<br/>(incl. dependency firebreak: NCP-off + estimator-off H1/H2, §8.9.3)"]:::partial
+    M3["M3 intervention pilot (S3)<br/>real capture OPEN (not done)"]:::active
+    M4["M4 locked H1 experiment"]:::spec
+    M5["M5 locked H2 experiment"]:::spec
+    M6["M6 H3 or H4"]:::spec
+    M7["M7 transport replication"]:::spec
+
+    Infra --> M0 --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7
 ```
 
-*Caption: M0–M8 roadmap — green = implemented acceptance slice, orange = implemented groundwork with an unmet scientific/milestone contract, red dashed = M5 open critical path, grey = specified/optional. Engineering state only.*
+*Caption: research milestones M0–M7 (`grandplan.md` §12) — green = implemented infrastructure groundwork (§8), orange = partially met research contracts, red dashed = M3 intervention pilot blocked on the open real capture, grey = specified/downstream. Engineering state only, not a research result.*
 
 ---
 
@@ -246,7 +247,7 @@ sequenceDiagram
 
 ## 3. Geometry-First Analysis Protocol
 
-This flowchart implements the corrected decision logic from `grandplan.md` §16.11. Every variable and every concatenation actually passed to an estimator is diagnosed. Sampled mean `δ_rel` is reported as a descriptive tree-likeness statistic only: it is **not** a Euclidean-validity pass/fail gate (a Euclidean line is the immediate counterexample).
+This flowchart implements the geometry/dependence decision logic from `grandplan.md` §7.9 (geometry diagnostics are diagnostics, not proofs; see also §7.10 on metric substitution). Every variable and every concatenation actually passed to an estimator is diagnosed. Sampled mean `δ_rel` is reported as a descriptive tree-likeness statistic only: it is **not** a Euclidean-validity pass/fail gate (a Euclidean line is the immediate counterexample).
 
 ```mermaid
 flowchart TD
@@ -403,7 +404,7 @@ flowchart TD
 
 ## 5. Hybrid Rendering: Splats + Mesh + Physics Proxies
 
-This diagram captures the intended hybrid approach: use 3DGS splats for photoreal appearance, and meshes/URDFs for articulated robots, collision proxies, and precise interactive edits. This aligns with `grandplan.md` §A and §16 (geometry/diagnostics are independent of the renderer, but the renderer must support inspectable overlays).
+This diagram captures the intended hybrid approach: use 3DGS splats for photoreal appearance, and meshes/URDFs for articulated robots, collision proxies, and precise interactive edits. This aligns with `grandplan.md` §8.13 (visualization and rendering) and §7.9 (geometry/diagnostics are independent of the renderer, but the renderer must support inspectable overlays).
 
 ```mermaid
 graph TB
@@ -440,7 +441,7 @@ graph TB
 
 ## 6. Dream2Flow Data Pipeline
 
-Visualizing a model-agnostic Dream2Flow-style bridge: external video prediction → 3D flow extraction → PID targets (see `grandplan.md` §9.7.7, §10.10). The video predictor is treated as an interchangeable, versioned service (no oracle framing).
+Visualizing a model-agnostic Dream2Flow-style bridge: external video prediction → 3D flow extraction → PID targets (flow as a bridge; see `grandplan.md` §9.6). The video predictor is treated as an interchangeable, versioned service (no oracle framing).
 
 ```mermaid
 graph LR
@@ -478,21 +479,21 @@ graph LR
 
 ---
 
-## 7. Experiment 0: Separate MI/Coherence and Atom-Validation Gates
+## 7. Estimator/Measure Validation (S1): The Four Gates and Atom Validation
 
-This diagram summarizes the corrected validation loop before applying PID to real VLA embeddings (`grandplan.md` corrective addendum, §9.1, §16; `EXPERIMENTS.md` §4). The existing aggregate Exp0 label must not be presented as continuous-atom validation.
+This diagram summarizes the estimator/measure validation loop — the **S1 gate** — before applying PID to real VLA embeddings (`grandplan.md` §7; the four gates population/measure/estimator/application in §7.1; continuous shared-exclusions gate §7.5; discrete PID gate §7.6). The aggregate estimator-validation label must not be presented as continuous shared-exclusions atom validation.
 
 ```mermaid
 flowchart TD
     Start["Choose representation (V/L/D/A/Flow)"] --> Geo[Run geometry diagnostics]
-    Geo -->|OK| Exp0["Run Experiment 0 (synthetic validation)"]
+    Geo -->|OK| S1["Run S1 synthetic validation matrix (§7.3)"]
     Geo -->|Recovery / ID / concentration / ties / local-flatness warnings| PivotGeom[Pivot representation: reduce/quantize/Flow target]
     PivotGeom --> Geo
 
-    Exp0 --> MIGate{Measure-independent MI/coherence passes?}
-    MIGate -->|NO-GO on current default high-d sweep| StopMI[Stop/pivot this MI pipeline]
-    MIGate -->|Passes after a validated pivot| AtomGate{Measure-specific atom oracle + pinned cross-check pass?}
-    AtomGate -->|Unavailable today| StopAtoms[Do not interpret continuous I^sx atoms]
+    S1 --> MIGate{Measure-independent MI/coherence passes? (§7.7)}
+    MIGate -->|NO-GO on high-d| StopMI[Stop/pivot this MI pipeline]
+    MIGate -->|Passes after a validated pivot| AtomGate{Application gate: real-embedding regime near a validated support envelope? (§7.14)}
+    AtomGate -->|BLOCKED / not application-validated today| StopAtoms[Do not interpret continuous i^sx atoms]
     AtomGate -->|Future pass| Proceed[Proceed to preregistered real-embedding analyses]
 
     StopMI --> PivotEst[Pivot estimator/representation]
@@ -501,34 +502,30 @@ flowchart TD
 
 ---
 
-## 8. Hypotheses → Experiments Map
+## 8. Confirmatory Claims → Experimental Programme Map
 
 ```mermaid
 graph LR
-    H1[H1 Grounding failures] --> E1[Exp1 Pick-and-place]
-    H1 --> E3[Exp3 Instruction perturbation]
+    EC1[EC1 provenance-complete replay] --> INFRA["§8.8 infrastructure conformance benchmark"]
 
-    H4[H4 Memorization vs generalization] --> E1
-    H4 --> E3
-    H4 --> E5[Exp5 Cross-embodiment]
+    H1[H1 pre-treatment diagnostics predict intervention response] --> PA["§6.3 Protocol A paired algorithmic response"]
+    H1 --> PB["§6.3 Protocol B randomized closed-loop response"]
 
-    H5[H5 Temporal synergy degradation] --> E2[Exp2 Long-horizon assembly]
+    H2[H2 censoring-aware failure prediction] --> H2A["§6.4 prospective failure with time + censoring"]
 
-    H6["H6 Safety-aware integration (Deferred)"] --> E3
+    H3[H3 conditional PID incremental value] --> ENV["§7.14 application-support envelope"]
+    H4[H4 availability vs causal use] --> ENV
 
-    H7["H7a/H7b Flow-as-bridge (split v10.7)"] --> E4[Exp4 Dream2Flow validation]
-    H7 --> E5
-
-    H9[H9 Attribution triangulation] --> E1
-    H9 --> E3
-    H9 --> E4
+    PA --> PROG["§5 experimental programme + §5.4 intervention taxonomy"]
+    PB --> PROG
+    H2A --> PROG
 ```
 
 ---
 
 ## 9. OpenUSD / USDZ Interop (Optional)
 
-This diagram summarizes the LeIsaac/Isaac Sim interoperability pattern referenced in `grandplan.md` §C.1: convert splats to OpenUSD for composition/validation in USD tooling, then (optionally) bring the composed result back into the PID‑Splat workflow.
+This diagram summarizes the LeIsaac/Isaac Sim interoperability pattern (interoperability, not reinvention; `grandplan.md` §8.6): convert splats to OpenUSD for composition/validation in USD tooling, then (optionally) bring the composed result back into the PID‑Splat workflow.
 
 ```mermaid
 graph LR
@@ -602,7 +599,7 @@ graph TB
 
 ## 11. Cross-Backend Replay (Optional Robustness Control)
 
-This diagram captures the v10.1 cross-backend replay idea (`grandplan.md` §E.1): replay the same run log under different physics backends (e.g., Rapier vs MuJoCo) and quantify divergence. This is a practical way to test whether PID findings (H1–H6) are sensitive to contact-model idiosyncrasies.
+This diagram captures the cross-backend replay idea (`grandplan.md` §8.5 replay levels; robustness/falsification §6.10): replay the same run log under different physics backends (e.g., Rapier vs MuJoCo) and quantify divergence. This is a practical way to test whether PID findings (H1–H4) are sensitive to contact-model idiosyncrasies.
 
 ```mermaid
 graph LR

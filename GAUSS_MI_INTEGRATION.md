@@ -7,12 +7,12 @@
 > - `EXPERIMENTS.md` — Capture protocols + quality gates
 > - `pid-rs/crates/pid-core` (submodule) — Rust implementation context (estimator changes land upstream in pid-rs, then the submodule is bumped; estimator code is never added to this repo directly)
 
-**Docset alignment:** v10.7 (this is an optional module spec; not implemented in this repo today)
+**Docset alignment:** docset v12.5 (optional module spec — evidence-ladder **E1** interface spec per grandplan §8.9; pre-implementation, not built in this repo today, not a direct ecosystem edge)
 **Spec version:** 1.0
 **Date:** 2026-01-03
 **Status:** Specification (Pre-Implementation)
 
-**Docset-wide final solution:** `grandplan.md` §A.8 is the decision record. GauSS-MI is an optional confound-control module after the canonical run-log/replay/Rerun path exists; view-selection decisions must be Agent Bridge events and must not bypass replay/provenance.
+**Docset-wide final solution:** `grandplan.md` §16 is the decision log. GauSS-MI is an optional confound-control module (evidence-ladder E1, grandplan §8.9) after the canonical run-log/replay/Rerun path exists; view-selection decisions must be Agent Bridge events and must not bypass replay/provenance.
 
 ---
 
@@ -32,7 +32,7 @@ Standard PID estimators treat all samples equally. GauSS-MI integration allows u
 - Visual features from well-reconstructed regions dominate the analysis
 - PID estimates include confidence intervals based on reconstruction quality
 
-**Rigour note:** weighted kNN/KSG-style estimators and weighted PID atoms require a dedicated validation gate (analogous to Experiment 0). Treat all weighted-estimator outputs as *experimental* until they are validated on synthetic ground truth cases and stress-tested for bias/variance.
+**Rigour note:** weighted kNN/KSG-style estimators and weighted PID atoms require a dedicated validation gate (analogous to the S1 estimator/measure-validation gate, grandplan §7). Treat all weighted-estimator outputs as *experimental* until they are validated on synthetic ground truth cases and stress-tested for bias/variance.
 
 ---
 
@@ -88,7 +88,7 @@ pid-core/
 │   ├── pid3.rs                   # Existing 3-source PID
 │   │
 │   ├── gauss_mi/                 # NEW: GauSS-MI integration (tree lives in the upstream
-│   │                             #   pid-rs repo, or a separate crates/pid-gauss-mi — §A.7)
+│   │                             #   pid-rs repo, or a separate crates/pid-gauss-mi — grandplan §12)
 │   │   ├── mod.rs                # Module exports
 │   │   ├── uncertainty.rs        # Per-Gaussian uncertainty model
 │   │   ├── weighted_ksg.rs       # Uncertainty-weighted KSG
@@ -271,7 +271,7 @@ Where:
 - $n_x^w, n_y^w$ are weighted neighbor counts
 - $w_i$ are sample weights from GauSS-MI uncertainty
 
-**Status: heuristic ansatz, not a derived estimator.** Substituting $\psi(N_{eff})$ for $\psi(N)$ has no derivation (KSG's neighbor-count terms rest on a local-uniformity probability-mass argument that importance-weighting breaks), $n_x^w$ is not yet defined explicitly, and no bias/consistency analysis exists. This estimator must pass its own synthetic validation gate (a weighted Exp0 analogue — the §1 rigour note) before any output is interpreted.
+**Status: heuristic ansatz, not a derived estimator.** Substituting $\psi(N_{eff})$ for $\psi(N)$ has no derivation (KSG's neighbor-count terms rest on a local-uniformity probability-mass argument that importance-weighting breaks), $n_x^w$ is not yet defined explicitly, and no bias/consistency analysis exists. This estimator must pass its own synthetic validation gate (a weighted analogue of the S1 estimator-validation gate, grandplan §7 — the §1 rigour note above) before any output is interpreted.
 
 ### 5.2 Implementation Strategy
 ```rust

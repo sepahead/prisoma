@@ -1,7 +1,9 @@
 # prisoma Whole-Repo Review and To-Do List
 
 Date: 2026-05-09
-Last consistency pass: 2026-07-06 (docset v10.7 + same-day addendum; first-principles spec audit, statistics plan, pid-rs 0.4.0 adoption — see CHANGELOG "Docset v10.7")
+Last consistency pass: 2026-07-12 (docset v12.5 migration — active cross-references retargeted to the v12.5 grandplan scheme; see CHANGELOG. The dated "Implementation Pass Status" logs below are historical and keep their as-of-date docset stamps, hypothesis/experiment IDs, and section numbers.)
+
+> **Docset v12.5 mapping (2026-07-12):** the confirmatory registry is now **EC1** (provenance-complete replay) + **H1–H4** (grandplan §4); the gate sequence is **S0–S7** (§5.1); research milestones are **M0–M7** (§12); and PID validity is judged by **four gates** — population/measure/estimator/application (§7.1). The dated review below predates this scheme and its old H1–H9 / Exp0–Exp10 / infra-M1–M5 IDs and §14.x references are retained as history.
 
 > **2026-07-10 status:** the detailed perspective sections below are historical and contain
 > stale implementation claims. Use the current `grandplan.md` corrective addendum,
@@ -13,7 +15,7 @@ Last consistency pass: 2026-07-06 (docset v10.7 + same-day addendum; first-princ
 
 This document records a whole-repo review of the prisoma repository from ten scientific/engineering perspectives, followed by a prioritized to-do list. It is intentionally direct and conservative: it distinguishes implemented functionality from specified/planned architecture and prioritizes scientific validity over roadmap optimism. The opening review has been updated after the follow-up implementation passes; older risks that were fixed are called out as fixed rather than left as current failures.
 
-**Docset-wide final solution:** `grandplan.md` §A.8 records the current ten-scientist consensus. The run log is the source of truth, Rerun is the Phases 1–3 diagnostic/time-machine viewer, Agent Bridge is the only control plane, and Tauri/SparkJS is the deferred Phase 4 control/editor/custom-rendering shell.
+**Docset-wide final solution:** `grandplan.md` §16 (Decision log) records the current consensus. The run log is the source of truth, Rerun is the Phases 1–3 diagnostic/time-machine viewer, Agent Bridge is the only control plane, and Tauri/SparkJS is the deferred Phase 4 control/editor/custom-rendering shell.
 
 ## Executive Verdict
 
@@ -85,7 +87,7 @@ The theoretical framing is good. Several invalid estimator combinations are now 
 
 - The documented Experiment 0 acceptance criteria are strong; the implemented runner now exposes stricter monotonicity/CMI/invariant/geometry checks, uncertainty/resampling were wired into the Exp0 runner 2026-06-13 (`--bootstrap`/`--permutation`) and upgraded by pid-rs 0.4.0 (true moving-block bootstrap); the remaining gap is a validated preprocessing/estimator regime that passes the gates.
 - `gromov_hyperbolicity` reports mean sampled delta, while gating usually needs worst-case or high-quantile behavior.
-- Seed sweeps, subsample-bootstrap CIs, single-source permutation nulls, and (pid-rs 0.4.0) a true moving-block bootstrap are implemented; a grandplan §14.8 preregistered statistics plan (one primary endpoint per hypothesis, gatekeeping + BH-FDR, power analysis as an M5 gate) now exists.
+- Seed sweeps, subsample-bootstrap CIs, single-source permutation nulls, and (pid-rs 0.4.0) a true moving-block bootstrap are implemented; a grandplan §6 preregistered statistical analysis plan (one primary endpoint per confirmatory claim, gatekeeping + BH-FDR, power/design analysis as a capture gate) now exists.
 
 #### Judgment
 
@@ -190,7 +192,7 @@ The visualization direction is good, but synthetic demos should remain clearly s
 #### Concerns
 
 - Historical `flake.lock` wording was removed or corrected; no tracked `flake.lock` is implied.
-- `AGENTS.md`, README, and the broader docset now align to v10.1.
+- `AGENTS.md`, README, and the broader docset now align to docset v12.5.
 - CI covers Rust formatting, Clippy, tests, doc audits, canonical Python lint, and run-log smokes — but note it was silently dead 2026-06-13→2026-07-05 (an unquoted YAML scalar produced zero jobs on every push); resurrected in docset v10.6.
 - Experiment 0 outputs are not saved/versioned by default.
 
@@ -239,12 +241,12 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 
 ### P0: Blockers Before Serious Downstream Claims
 
-1. **Promote Experiment 0 from strict smoke gate to publishable measurement protocol.** *(Done 2026-06-13: Exp0 gained opt-in `--bootstrap`/`--permutation` with subsample-bootstrap CIs + permutation nulls folded into the GO/PIVOT/NO-GO verdict; pid-rs 0.4.0 (2026-07-06) adds the true moving-block bootstrap and `NegativeHandling::Allow`. Under 0.4.0 the synthetic-control verdict is **NO-GO** — the stricter, more honest reading. The remaining open piece is a validated preprocessing/estimator regime that passes the gates, plus the grandplan §14.8 power analysis before capture.)*
+1. **Promote Experiment 0 from strict smoke gate to publishable measurement protocol.** *(Done 2026-06-13: Exp0 gained opt-in `--bootstrap`/`--permutation` with subsample-bootstrap CIs + permutation nulls folded into the GO/PIVOT/NO-GO verdict; pid-rs 0.4.0 (2026-07-06) adds the true moving-block bootstrap and `NegativeHandling::Allow`. Under 0.4.0 the synthetic-control verdict is **NO-GO** — the stricter, more honest reading. The remaining open piece is a validated preprocessing/estimator regime that passes the gates, plus the grandplan §6.8 power and design analysis before capture.)*
    - Keep the current monotonicity/CMI/invariant/geometry gates strict.
    - Add uncertainty quantification, block bootstrap or trajectory-level resampling, and clearly documented validated preprocessing regimes.
    - Keep treating current PIVOT/NO-GO outputs as limits evidence, not VLA conclusions.
 
-2. **Build a real capture pipeline before making VLA claims.** *(Adapter shipped 2026-06-13: `experiments/safe_adapter` with honest provenance, all strict gates passing on the schema-faithful fixture. OPEN residual — the critical path: the real SAFE data pull, now also gated by the grandplan §14.8.3 power analysis.)*
+2. **Build a real capture pipeline before making VLA claims.** *(Adapter shipped 2026-06-13: `experiments/safe_adapter` with honest provenance, all strict gates passing on the schema-faithful fixture. OPEN residual — the critical path: the real SAFE data pull, now also gated by the grandplan §6.8 power and design analysis.)*
    - Add one model/task integration that extracts `(V,L,D,A)` embeddings plus externally meaningful success/failure labels.
    - Preserve sample IDs, episode IDs, train/held-out splits, config hashes, and artifacts in the canonical run log, with verified sidecars beside it.
    - Keep non-PID baselines mandatory.
@@ -284,7 +286,7 @@ The repo needs a cleanup pass that separates the canonical project from local ex
 ### P2: Later Improvements
 
 10. Add approximate or parallel kNN only after correctness gates are stable. *(Exact parallel done 2026-06-14: `cargo … --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel` runs the KSG kNN data-parallel via rayon, producing results identical to the serial path — the full pid-core suite incl. the independent cross-validation passes under the feature, validated by a dedicated CI job. Only the **approximate** kNN variant — which would change results — remains deferred per the "after correctness gates are stable" caution.)*
-11. Add a discrete/quantized PID fallback. *(Done 2026-06-11/12: 2- and 3-source discrete PID with an `I_min`-style redundancy — explicitly not discrete `i^sx_∩`, see grandplan §8.1.6 — plus harness `--pid-mode discrete|discrete-pls` and per-pair saturation diagnostics.)*
+11. Add a discrete/quantized PID fallback. *(Done 2026-06-11/12: 2- and 3-source discrete PID with an `I_min`-style redundancy (Williams–Beer, explicitly not discrete `i^sx_∩`, see grandplan §7.6 Discrete PID gate) — plus harness `--pid-mode discrete|discrete-pls` and per-pair saturation diagnostics.)*
 12. Split `grandplan.md` into smaller maintainable specs while preserving one canonical index. *(Deferred: pure-maintainability refactor whose main risk is breaking the doc-audit tooling that scans `grandplan.md`; should be done with an explicit split plan, not autonomously.)*
 13. Add benchmark fixtures comparing against external reference implementations where licensing permits. *(Done 2026-06-14, self-contained: `pid-rs/crates/pid-core/tests/cross_validation.rs` re-derives the Williams–Beer `I_min` PID by an independent route and checks `discrete_pid2` against it + the known logic-gate structure. The external SxPID-class refs live under gitignored `.external/` and are not CI-reproducible, so an in-test independent reference is used instead.)*
 

@@ -26,7 +26,8 @@ committed.
 ## History
 
 Prior to this move, `meshmaker/` was *quarantined* out of prisoma version control
-(only this tombstone was tracked; see `grandplan.md` §A.8 and the git history of
-this file for the original quarantine rationale). Historical references to
+(only this tombstone was tracked; see the git history of this file and the archived
+decision record `docs/archive/grandplan-v10.7.md` for the original quarantine
+rationale). Historical references to
 `meshmaker/` elsewhere in this repo (CHANGELOG, audits, grandplan) are retained as
 records and are not rewritten.

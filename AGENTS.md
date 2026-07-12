@@ -17,17 +17,19 @@ being true as the code moves).
 
 1. **`grandplan.md` is canonical.** It is the research + engineering spec; keep `README.md`,
    `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` consistent with
-   it (current docset: **v10.7**). The Rerun/Tauri/SparkJS decision record is `grandplan.md`
-   §A.8; the hypothesis registry and falsifiability contracts are §14.1; the preregistered
-   statistical analysis plan is §14.8.
-2. **Gate discipline.** Do not interpret PID atoms on real embeddings. The current high-d
-   **MI/coherence gate is NO-GO**, while the automated continuous-`I^sx_∩` gate is **NOT
-   VALIDATED**: default Exp0 includes a known-wrong zero-redundancy target for the adopted
-   measure, and `--strict-gate` gates the curated low-d MI band while only reporting atoms.
+   it (current docset: **v12.5**). The Rerun/Tauri/SparkJS decision record is `grandplan.md`
+   §16; the confirmatory claim registry (EC1, H1–H4) and PID kill rules are §4 and §3.8; the
+   preregistered statistical analysis plan is §6.
+2. **Gate discipline.** Do not interpret PID atoms on real embeddings. PID validity splits into
+   four gates — population, measure, estimator, application (`grandplan.md` §7.1). The current
+   high-d **MI/coherence path is NO-GO**; the continuous `I^sx_∩` **application gate is BLOCKED /
+   NOT APPLICATION-VALIDATED**: default Experiment 0 includes a measure-mismatched zero-redundancy
+   target, and `--strict-gate` gates the curated low-d MI band while only reporting atoms.
    Geometry diagnostics are not a substitute; sampled-mean δ is descriptive only. See
-   `findings.md` and `grandplan.md` §9.1. One (PID measure, preprocessing, estimator
-   config) tuple = one preregistered regime; never pool continuous `I^sx_∩` atoms with
-   discrete `I_min` atoms (`grandplan.md` Warning 6 + §8.1.6).
+   `findings.md` and `grandplan.md` §7.2, §7.9. One (PID measure, preprocessing, estimator
+   config) tuple = one preregistered regime; never pool continuous `I^sx_∩` atoms with discrete
+   `I_min` atoms — `--pid-mode discrete` is Williams–Beer `I_min`, not discrete `i^sx_∩`
+   (`grandplan.md` §7.6).
 3. **Honesty over roadmap.** No hard-coded performance, cost, or roadmap claims unless backed
    by a committed source or a clearly labeled in-repo measurement. Do not claim non-existent
    crates/scripts/assets are runnable unless they are added in the same change. The doc-audit
@@ -59,7 +61,7 @@ being true as the code moves).
   quantization with a Williams–Beer-style `I_min` minimum-specific-information redundancy —
   **not** discrete `i^sx_∩` (pid-core 0.3.0 additionally ships a genuine discrete `i^sx_∩`
   in `sxpid.rs` for 2–4 sources, but it is **not yet wired into the offline harness**; see
-  `grandplan.md` §8.1.6) — block resampling plus an m-out-of-n **stability envelope** (not an
+  `grandplan.md` §7.6) — block resampling plus an m-out-of-n **stability envelope** (not an
   n-sample CI), a `pipeline.rs`
   composition layer (PLS→PID3, per-atom bootstrap CIs, single-source permutation tests,
   LOO-CV PLS component selection, all-pairs PID2 screening, generic
@@ -72,9 +74,10 @@ being true as the code moves).
   `compute_pid3`, `compute_discrete_pid2`/`3`, the three 0.3.0
   `compute_discrete_sxpid2`/`3`/`_n` (n = 2–4), `pls_transform`, `standardize`,
   `pca_transform`, `hash_project`).
-- **`pid-runlog`** — M1 run-log schema with validation/replay/summary/manifest/sidecar
-  write-and-verify, the `attribution_logged` event schema for H9 probes, and the
-  wall-clock-excluded `logical_trace_hash`.
+- **`pid-runlog`** — the canonical (EC1) run-log schema (`grandplan.md` §8.2) with
+  validation/replay/summary/manifest/sidecar write-and-verify, the `attribution_logged` event
+  schema for attribution/mechanistic probes (H4 / exploratory), and the wall-clock-excluded
+  `logical_trace_hash`.
 
 ### Local crates (`crates/`)
 
@@ -105,18 +108,19 @@ being true as the code moves).
 
 ### Python experiments (`experiments/`, tracked packages)
 
-- **`safe_adapter/`** — the **M5 critical-path producer**: converts released SAFE VLA
-  rollouts into the `(V,L,D,A)`+labels harness contract with honest per-axis
-  `{v,l,d,a}_provenance` markers and the §7.6.3 hook-probe.
-- **`attribution/`** — faithfulness-checked H9 probe (epsilon-/AttnLRP + grad×input on a
-  small reference model; deletion-AOPC vs random control) emitting `attribution_logged`
-  events that pass `pid-runlog-replay --validate`. Production VLAs should swap the
-  reference model for LXT/AttnLRP.
+- **`safe_adapter/`** — the **reference `(V,L,D,A)` producer** for the confirmatory
+  H-experiments (the S2/EC1 adapter contract): converts released SAFE VLA rollouts into the
+  `(V,L,D,A)`+labels harness contract with honest per-axis `{v,l,d,a}_provenance` markers and a
+  **diagnostic-noninterference hook-probe** (`grandplan.md` §6.3 common preflight).
+- **`attribution/`** — faithfulness-checked attribution/mechanistic probe (H4 / exploratory;
+  epsilon-/AttnLRP + grad×input on a small reference model; deletion-AOPC vs random control)
+  emitting `attribution_logged` events that pass `pid-runlog-replay --validate`. Production VLAs
+  should swap the reference model for LXT/AttnLRP.
 
-### Attribution / H9 tooling
+### Attribution / mechanistic-probe tooling (H4 / exploratory)
 
 Attribution methods (LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV,
-saliency/SmoothGrad, occlusion, SHAP-style probes) are **H9 companion
+saliency/SmoothGrad, occlusion, SHAP-style probes) are **H4/exploratory companion
 diagnostics/baselines**, never substitutes for PID gates. The `attribution_logged` run-log
 event carries method, target_output, layer, modality, baseline, score_hash,
 faithfulness_check, and artifact_uri. The `pid-rerun` adapter surfaces each event as a
@@ -125,8 +129,9 @@ a provenance text line, and — when `artifact_uri` points to a NumPy `.npy` as 
 writes — the per-element relevance values (capped at 1024) as a `Scalars` series at
 `attributions/relevance/{method}`, via a small dependency-free `.npy` parser (best-effort;
 missing/unparseable artifacts are skipped). Multi-panel 2-D heatmap blueprints remain
-future work. The quantitative H9 agreement criterion is preregistered in `grandplan.md`
-§14.1.
+future work. Attribution agreement is an H4/exploratory diagnostic and must be grounded in
+action and counterfactual effects, not treated as faithfulness by itself (`grandplan.md` §4,
+§10.2).
 
 ### NCP observer (`crates/ncp-observer`, optional)
 
@@ -137,7 +142,7 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
 - **Honours the three invariants:** the run log is the source of truth, the observer drives
   nothing (the Agent Bridge stays the only control plane), and all NCP-specific mapping
   lives in this crate.
-- **Pinned dependency:** the manifest pins the immutable NCP `v0.7.1` release and
+- **Pinned dependency:** the manifest pins the immutable NCP `v0.8.0` (wire 0.8) release and
   resolves from the published repository; no sibling checkout or path override is
   required.
 - **Workspace-excluded by design:** it is in `Cargo.toml` `exclude`, not a member, because a
@@ -145,9 +150,11 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
   command (including `-p`-scoped ones). Exclusion keeps the PID estimator gates green on
   fresh checkouts and CI. Build it explicitly:
   `cargo build --manifest-path crates/ncp-observer/Cargo.toml`.
-- **Off the critical path:** an optional `(V,L,D,A)` source only — grandplan does not depend
-  on Engram; the M5 critical path is `experiments/safe_adapter`, and the pure-PID stack
-  builds/tests/gates green with no NCP/Engram/Zenoh dependency.
+- **Off the critical path:** an optional, read-only `(V,L,D,A)` source only — grandplan does
+  not depend on Engram; the reference producer for the confirmatory H-experiments is
+  `experiments/safe_adapter`, and the core builds with NCP disabled and runs H1/H2 with PID
+  disabled (dependency firebreak, `grandplan.md` §8.9.3). The pure-PID stack builds/tests/gates
+  green with no NCP/Engram/Zenoh dependency.
 - **Integrity repair (2026-07-10):** D is exact-seq only (`seq == 0` observations are
   dropped), emitted rows/events are immutable, callback work crosses a bounded handoff to
   one owning worker, and finalization atomically/fsync-durably installs the artifact and
@@ -158,7 +165,7 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
   failure-injection tests cover every stage. The CLI requires `--runlog`, and library
   finalization refuses to publish an artifact unless its canonical log was attached before
   ingestion.
-- **Still exploratory-only** (below the M5 contract) until the external Engram publisher
+- **Still exploratory-only** (below the S2/EC1 adapter contract) until the external Engram publisher
   stamps observation `seq` (otherwise the frame is dropped), a language
   channel is present (so `L` is real, not excluded), and `metadata.split`/`episode_id`/
   `success` structure lands. See `crates/ncp-observer/README.md` and the developer handoff
@@ -167,8 +174,8 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
 ### Specified but not built
 
 Several simulation/visualization components are specifications only (see `grandplan.md`
-§A.7 milestones) — notably the fuller Rerun-based viewer phases and the deferred
-Tauri/SparkJS shell. Do not describe them as runnable.
+§12 milestones and §8.10 current-vs-target implementation) — notably the fuller Rerun-based
+viewer phases and the deferred Tauri/SparkJS shell. Do not describe them as runnable.
 
 ## Gates before any PR or commit
 
@@ -177,7 +184,7 @@ cargo fmt --all -- --check
 cargo clippy --workspace -- -D warnings
 cargo test --workspace
 python scripts/audit_docset_claims.py
-python scripts/audit_grandplan.py --check-italic-titles
+python scripts/audit_grandplan.py   # validates the R1-R112 reference ledger
 ```
 
 Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
