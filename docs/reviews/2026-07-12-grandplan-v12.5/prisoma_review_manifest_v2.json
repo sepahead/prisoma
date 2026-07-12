@@ -1,0 +1,219 @@
+{
+  "schema_version": "2.0",
+  "review_date": "2026-07-12",
+  "package_root": "prisoma_grandplan_review_v12_5_2026-07-12",
+  "source": {
+    "repository": "sepahead/prisoma",
+    "commit": "64bd881248463e7142d022bb95a5850bcf8fced2",
+    "original_sha256": "1a768ef2cd6bbf512b369bf8f0b70865093e31de49a26be06428b336822bf500"
+  },
+  "canonical": {
+    "file": "grandplan_v12_5.md",
+    "sha256": "7906c6814d26824d802e93aed17e9da79d74a7a898c00232ff78140d25ce5356",
+    "version": "12.5"
+  },
+  "archive_policy": {
+    "entry_order": "lexicographic",
+    "fixed_timestamp": "2026-07-12T12:00:00",
+    "compression": "deflate level 9",
+    "permissions": "0644",
+    "manifest_self_hash": "excluded to avoid recursion",
+    "outer_archive_hash": "distributed in prisoma_grandplan_review_v12_5_2026-07-12.zip.sha256"
+  },
+  "declared_entry_count": 33,
+  "hashed_file_count": 32,
+  "files": [
+    {
+      "relative_path": "PACKAGE_FILELIST.txt",
+      "bytes": 990,
+      "sha256": "5b7dbfe3a989416c2f035d188e6fe306609f34ceb0deb0553849f3ac4a7c2a88",
+      "role": "sorted payload inventory"
+    },
+    {
+      "relative_path": "PRISOMA_REVIEW_README.md",
+      "bytes": 3045,
+      "sha256": "44e295984d291d94a028d010a5202bba199e684ed3dda5d368881edd1df2e185",
+      "role": "first-round provenance"
+    },
+    {
+      "relative_path": "PRISOMA_REVIEW_README_v2.md",
+      "bytes": 6257,
+      "sha256": "3cc104859e1c06bbae8348f6e61067d07910a0abf397f95fb6ca952fb7b30b30",
+      "role": "final bundle guide"
+    },
+    {
+      "relative_path": "VALIDATION_REPORT.md",
+      "bytes": 1138,
+      "sha256": "247d212338aad8b31c20327d7c6100df95a54fb06bfdac8f55d25d61d5b9b5f4",
+      "role": "first-round provenance"
+    },
+    {
+      "relative_path": "VALIDATION_REPORT_v2.md",
+      "bytes": 6482,
+      "sha256": "7c749180b0adfa3f35cbe5304459d0a3239e3269f9e47f11ed14eda034ef70d7",
+      "role": "final human-readable validation report"
+    },
+    {
+      "relative_path": "grandplan_citation_disposition_2026-07-12.csv",
+      "bytes": 52147,
+      "sha256": "0dfdde9db395fffc2946ace4887ccc54295b11c13fb34387253dec9025a91356",
+      "role": "original citation audit"
+    },
+    {
+      "relative_path": "grandplan_deep_review_2026-07-12.md",
+      "bytes": 36809,
+      "sha256": "47cc48aedac2018f527a53d95eef1502fd65658c816ce73ca98e1b2279005801",
+      "role": "first-round scientific review"
+    },
+    {
+      "relative_path": "grandplan_deep_review_v2_2026-07-12.md",
+      "bytes": 31355,
+      "sha256": "e4926592bb09607b4e0b9747b2334f551fddf3b02e0b7fdd12a357458fb84d86",
+      "role": "second-round scientific review"
+    },
+    {
+      "relative_path": "grandplan_original.md",
+      "bytes": 706682,
+      "sha256": "1a768ef2cd6bbf512b369bf8f0b70865093e31de49a26be06428b336822bf500",
+      "role": "reviewed source snapshot"
+    },
+    {
+      "relative_path": "grandplan_section_disposition_2026-07-12.csv",
+      "bytes": 193357,
+      "sha256": "8ea910f663f740dbdaa8ff1d60edb8531e0f9ea8e840914d4d9f2088cdfa65a3",
+      "role": "original section coverage ledger"
+    },
+    {
+      "relative_path": "grandplan_sentence_audit_2026-07-12.csv",
+      "bytes": 3384797,
+      "sha256": "2ab583fe67e4a587b39bcedc4a6721831e5da43dd03807d36b738ae65ba39094",
+      "role": "original sentence coverage ledger"
+    },
+    {
+      "relative_path": "grandplan_v11.md",
+      "bytes": 113828,
+      "sha256": "dad36ccee5c612341db2e6233a32a3f9607ca67dd8950a6ddd3ec0f67b69f7c7",
+      "role": "first-round canonical replacement"
+    },
+    {
+      "relative_path": "grandplan_v11_replacement.patch",
+      "bytes": 829857,
+      "sha256": "dc83e77b7c2e93e8eb2bcc4aed4695e4cd8171f843287335e55507a6a4cf131c",
+      "role": "reproducible patch"
+    },
+    {
+      "relative_path": "grandplan_v11_to_v12_5.patch",
+      "bytes": 128823,
+      "sha256": "21cd0b118ad74f63fe5cf26e4dd413625f172927f72ad35c38a36fdbefede9a1",
+      "role": "reproducible patch"
+    },
+    {
+      "relative_path": "grandplan_v11_to_v12_5_change_log.md",
+      "bytes": 10403,
+      "sha256": "917a5ce7d06135bcdb434725118d8c425119cd63f4d94f5df85c104e020497d3",
+      "role": "review artifact"
+    },
+    {
+      "relative_path": "grandplan_v12.md",
+      "bytes": 167259,
+      "sha256": "e2e89b605845daacebeebcc756ef0a2b1c630fb3f8741dc9be2f3979ad9b1d56",
+      "role": "second-round revision history"
+    },
+    {
+      "relative_path": "grandplan_v12_1.md",
+      "bytes": 183654,
+      "sha256": "9d81a618f14d6e61f53a0be848785d0402fa4cd1fe725e00faa12e8d3f6db8b0",
+      "role": "second-round revision history"
+    },
+    {
+      "relative_path": "grandplan_v12_2.md",
+      "bytes": 191888,
+      "sha256": "1d6e934894823c1edc5b9b6ed532a56bf56708060e1dd47451178378c6136629",
+      "role": "second-round revision history"
+    },
+    {
+      "relative_path": "grandplan_v12_3.md",
+      "bytes": 195692,
+      "sha256": "5c8dd28338ade383cb3e917801a6208892ba20b8335641a605a42a754a6adb45",
+      "role": "second-round revision history"
+    },
+    {
+      "relative_path": "grandplan_v12_4.md",
+      "bytes": 198710,
+      "sha256": "ad2c69a2bb1cf54f9f6e8836d8f544fd1660783c05805f9a52b018df65d59919",
+      "role": "second-round revision history"
+    },
+    {
+      "relative_path": "grandplan_v12_4_to_v12_5.patch",
+      "bytes": 8871,
+      "sha256": "8471ee9618a2697b06f236bc3b8c8b7b10a271f4d243dde2c037c4b50eaa456e",
+      "role": "reproducible patch"
+    },
+    {
+      "relative_path": "grandplan_v12_5.md",
+      "bytes": 198502,
+      "sha256": "7906c6814d26824d802e93aed17e9da79d74a7a898c00232ff78140d25ce5356",
+      "role": "canonical revised plan"
+    },
+    {
+      "relative_path": "grandplan_v12_5.md.sha256",
+      "bytes": 85,
+      "sha256": "facf874ca55558af4e0f514a50b1387ba8cea41c1b17aa540ee93657458c1453",
+      "role": "checksum"
+    },
+    {
+      "relative_path": "grandplan_v12_5_reference_audit.csv",
+      "bytes": 17147,
+      "sha256": "239fe7dc3615fca4a569608bcb12af8efa84f4ee4e02cacb6ad8e26af40ef479",
+      "role": "v12.5 reference audit"
+    },
+    {
+      "relative_path": "grandplan_v12_5_replacement.patch",
+      "bytes": 914942,
+      "sha256": "cbfaa2a3eb444ac903f63add5a27eb63dddc32ec13d4cfde97a8959de19bf337",
+      "role": "reproducible patch"
+    },
+    {
+      "relative_path": "prisoma_ecosystem_evidence_2026-07-12.csv",
+      "bytes": 11863,
+      "sha256": "47d5397c9c22d5d020178495b10cfcb20bb8928aeb167d7c4eaa36a12f76c4b0",
+      "role": "structured ecosystem evidence"
+    },
+    {
+      "relative_path": "prisoma_ecosystem_integration_audit_2026-07-12.md",
+      "bytes": 28321,
+      "sha256": "f737acd49a0d146729a9fd136eb51424f0b554928b7b5e288ed94a37e33cf927",
+      "role": "public-repository ecosystem audit"
+    },
+    {
+      "relative_path": "prisoma_grandplan_review_2026-07-12.zip",
+      "bytes": 810541,
+      "sha256": "f695a8479b4f0dbd21fdc30e81b0fff3614fbcdad512e6b12317ad95b7234993",
+      "role": "nested first-round review archive"
+    },
+    {
+      "relative_path": "prisoma_grandplan_review_2026-07-12.zip.sha256",
+      "bytes": 106,
+      "sha256": "43fb6d957c71c894b044a584832d76ca09fffa8cf42b01c8b1ffc51e3caeed74",
+      "role": "checksum"
+    },
+    {
+      "relative_path": "prisoma_review_manifest.json",
+      "bytes": 4698,
+      "sha256": "15c75146211824b4f435622f0dc27fbd68d7e4cdef65fdfd6778714fef1863d0",
+      "role": "first-round provenance"
+    },
+    {
+      "relative_path": "validation_checks.json",
+      "bytes": 1509,
+      "sha256": "86ab0e49ac7b422249815d0610c8486d6ad92fdc342ddc9e7f7e0cc7160687b0",
+      "role": "first-round provenance"
+    },
+    {
+      "relative_path": "validation_checks_v2.json",
+      "bytes": 16294,
+      "sha256": "d2e58279657ed99a041aeff5d07902bb40bab2297cea3802f781366c89ea0181",
+      "role": "final machine-readable validation checks"
+    }
+  ]
+}

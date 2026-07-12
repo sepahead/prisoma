@@ -1,0 +1,612 @@
+{
+  "audit_version": "v2-final",
+  "date": "2026-07-12",
+  "canonical_file": "grandplan_v12_5.md",
+  "overall_prepackage_pass": true,
+  "pass_1_structural": {
+    "file": "grandplan_v12_5.md",
+    "bytes": 198502,
+    "lines": 2536,
+    "words": 24640,
+    "sha256": "7906c6814d26824d802e93aed17e9da79d74a7a898c00232ff78140d25ce5356",
+    "utf8": true,
+    "final_newline": true,
+    "nul_count": 0,
+    "trailing_whitespace_lines": [],
+    "tab_lines": [],
+    "fence_events": [
+      [
+        1336,
+        "open",
+        "`"
+      ],
+      [
+        1352,
+        "close",
+        "`"
+      ],
+      [
+        2369,
+        "open",
+        "`"
+      ],
+      [
+        2411,
+        "close",
+        "`"
+      ]
+    ],
+    "fences_balanced": true,
+    "heading_count": 222,
+    "duplicate_headings": {},
+    "heading_jumps": []
+  },
+  "pass_1_reference_and_markup": {
+    "definitions": 112,
+    "ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112
+    ],
+    "missing_sequence": [],
+    "duplicate_ids": {},
+    "unique_cited_ids": 112,
+    "total_citation_mentions": 276,
+    "undefined_citations": [],
+    "unused_definitions": [],
+    "unparsed_citation_groups": [],
+    "url_count": 114,
+    "unique_url_count": 114,
+    "duplicate_urls": {},
+    "malformed_urls": [],
+    "table_blocks": 11,
+    "table_column_issues": [],
+    "odd_dollar_lines": [],
+    "r113_occurrences": 0,
+    "foresight_safety_url_count": 1
+  },
+  "pass_2_semantic_assertions": [
+    {
+      "name": "canonical version is v12.5",
+      "pass": true,
+      "evidence": "v12.5; Seventh adversarial revision"
+    },
+    {
+      "name": "H1 declares paired Protocol A",
+      "pass": true,
+      "evidence": "Protocol A — paired frozen-snapshot algorithmic response"
+    },
+    {
+      "name": "H1 declares randomized Protocol B",
+      "pass": true,
+      "evidence": "Protocol B — randomized closed-loop response"
+    },
+    {
+      "name": "algorithmic response is not physical ITE",
+      "pass": true,
+      "evidence": "does not identify a physical-trajectory individual treatment effect"
+    },
+    {
+      "name": "primary moderators are pre-treatment",
+      "pass": true,
+      "evidence": "primary moderator before treatment is assigned or applied"
+    },
+    {
+      "name": "diagnostic instrumentation noninterference required",
+      "pass": true,
+      "evidence": "diagnostic capture is noninterfering"
+    },
+    {
+      "name": "Protocol B uses effect-specific validation",
+      "pass": true,
+      "evidence": "cross-fitted R-loss or doubly robust effect-prediction loss; policy value/regret"
+    },
+    {
+      "name": "factual outcome fit is secondary only",
+      "pass": true,
+      "evidence": "Factual-outcome proper loss is only a secondary outcome-model diagnostic"
+    },
+    {
+      "name": "finite/superpopulation/transport targets separated",
+      "pass": true,
+      "evidence": "finite benchmark; task-family superpopulation; transport population"
+    },
+    {
+      "name": "H2 handles censoring and competing risks",
+      "pass": true,
+      "evidence": "censoring; competing events"
+    },
+    {
+      "name": "H2 comparator present: SAFE",
+      "pass": true,
+      "evidence": "SAFE"
+    },
+    {
+      "name": "H2 comparator present: Hide-and-Seek",
+      "pass": true,
+      "evidence": "Hide-and-Seek"
+    },
+    {
+      "name": "H2 comparator present: ActProbe",
+      "pass": true,
+      "evidence": "ActProbe"
+    },
+    {
+      "name": "H2 comparator present: Rewind-IL",
+      "pass": true,
+      "evidence": "Rewind-IL"
+    },
+    {
+      "name": "H2 comparator present: VLAConf",
+      "pass": true,
+      "evidence": "VLAConf"
+    },
+    {
+      "name": "H2 comparator present: perturbation-induced action disagreement",
+      "pass": true,
+      "evidence": "perturbation-induced action disagreement"
+    },
+    {
+      "name": "H2 comparator present: activation-probe warning",
+      "pass": true,
+      "evidence": "activation-warning"
+    },
+    {
+      "name": "H2 comparator present: Foresight-style",
+      "pass": true,
+      "evidence": "Foresight"
+    },
+    {
+      "name": "H2 comparator present: temporal-difference success calibration",
+      "pass": true,
+      "evidence": "temporal-difference"
+    },
+    {
+      "name": "H2 comparator present: Tri-Info",
+      "pass": true,
+      "evidence": "Tri-Info"
+    },
+    {
+      "name": "alarm policy fully frozen",
+      "pass": true,
+      "evidence": "frozen alarm policy"
+    },
+    {
+      "name": "lead-time selection bias identified",
+      "pass": true,
+      "evidence": "Conditional lead time among detected failures alone is selection-biased"
+    },
+    {
+      "name": "process-level safety outcomes included",
+      "pass": true,
+      "evidence": "process-level safety"
+    },
+    {
+      "name": "PID four gates separated",
+      "pass": true,
+      "evidence": "Population gate:; Measure gate:; Estimator gate:; Application gate:"
+    },
+    {
+      "name": "high-dimensional PID remains blocked/conditional",
+      "pass": true,
+      "evidence": "Continuous atoms on real embeddings therefore remain blocked"
+    },
+    {
+      "name": "pid-rs pin and post-pin main distinguished",
+      "pass": true,
+      "evidence": "8a5a9dda601556443f956a2fba164cccc913ed2e; 70b45f7b75fac06777ea215a73df01209490311a"
+    },
+    {
+      "name": "NCP is read-only optional",
+      "pass": true,
+      "evidence": "optional NCP observer; read-only"
+    },
+    {
+      "name": "only direct ecosystem edges are pid-rs and NCP",
+      "pass": true,
+      "evidence": "The direct audited dependencies are the pinned `pid-rs` submodule and the optional NCP observer"
+    },
+    {
+      "name": "WorldWarp and GauSS-MI remain preimplementation/optional",
+      "pass": true,
+      "evidence": "WorldWarp and GauSS-MI are optional pre-implementation specifications"
+    },
+    {
+      "name": "lineage is not validation",
+      "pass": true,
+      "evidence": "scientific lineage; not integration or validation"
+    },
+    {
+      "name": "core survives PID NO-GO",
+      "pass": true,
+      "evidence": "must survive a PID NO-GO"
+    },
+    {
+      "name": "reference duplicate removed",
+      "pass": true,
+      "evidence": "R112"
+    }
+  ],
+  "pass_2_all_semantic_assertions_pass": true,
+  "auxiliary_markdown": {
+    "grandplan_deep_review_v2_2026-07-12.md": {
+      "file": "grandplan_deep_review_v2_2026-07-12.md",
+      "bytes": 31355,
+      "lines": 427,
+      "words": 3954,
+      "sha256": "e4926592bb09607b4e0b9747b2334f551fddf3b02e0b7fdd12a357458fb84d86",
+      "utf8": true,
+      "final_newline": true,
+      "nul_count": 0,
+      "trailing_whitespace_lines": [],
+      "tab_lines": [],
+      "fence_events": [],
+      "fences_balanced": true,
+      "heading_count": 57,
+      "duplicate_headings": {},
+      "heading_jumps": []
+    },
+    "prisoma_ecosystem_integration_audit_2026-07-12.md": {
+      "file": "prisoma_ecosystem_integration_audit_2026-07-12.md",
+      "bytes": 28321,
+      "lines": 334,
+      "words": 3481,
+      "sha256": "f737acd49a0d146729a9fd136eb51424f0b554928b7b5e288ed94a37e33cf927",
+      "utf8": true,
+      "final_newline": true,
+      "nul_count": 0,
+      "trailing_whitespace_lines": [],
+      "tab_lines": [],
+      "fence_events": [],
+      "fences_balanced": true,
+      "heading_count": 38,
+      "duplicate_headings": {},
+      "heading_jumps": []
+    },
+    "grandplan_v11_to_v12_5_change_log.md": {
+      "file": "grandplan_v11_to_v12_5_change_log.md",
+      "bytes": 10403,
+      "lines": 216,
+      "words": 1211,
+      "sha256": "917a5ce7d06135bcdb434725118d8c425119cd63f4d94f5df85c104e020497d3",
+      "utf8": true,
+      "final_newline": true,
+      "nul_count": 0,
+      "trailing_whitespace_lines": [],
+      "tab_lines": [],
+      "fence_events": [],
+      "fences_balanced": true,
+      "heading_count": 28,
+      "duplicate_headings": {},
+      "heading_jumps": []
+    },
+    "PRISOMA_REVIEW_README_v2.md": {
+      "file": "PRISOMA_REVIEW_README_v2.md",
+      "bytes": 6257,
+      "lines": 103,
+      "words": 639,
+      "sha256": "3cc104859e1c06bbae8348f6e61067d07910a0abf397f95fb6ca952fb7b30b30",
+      "utf8": true,
+      "final_newline": true,
+      "nul_count": 0,
+      "trailing_whitespace_lines": [],
+      "tab_lines": [],
+      "fence_events": [
+        [
+          23,
+          "open",
+          "`"
+        ],
+        [
+          28,
+          "close",
+          "`"
+        ],
+        [
+          32,
+          "open",
+          "`"
+        ],
+        [
+          34,
+          "close",
+          "`"
+        ]
+      ],
+      "fences_balanced": true,
+      "heading_count": 11,
+      "duplicate_headings": {},
+      "heading_jumps": []
+    },
+    "VALIDATION_REPORT_v2.md": {
+      "file": "VALIDATION_REPORT_v2.md",
+      "bytes": 6482,
+      "lines": 117,
+      "words": 771,
+      "sha256": "7c749180b0adfa3f35cbe5304459d0a3239e3269f9e47f11ed14eda034ef70d7",
+      "utf8": true,
+      "final_newline": true,
+      "nul_count": 0,
+      "trailing_whitespace_lines": [],
+      "tab_lines": [],
+      "fence_events": [],
+      "fences_balanced": true,
+      "heading_count": 8,
+      "duplicate_headings": {},
+      "heading_jumps": []
+    }
+  },
+  "csv_validation": {
+    "reference_audit": {
+      "file": "grandplan_v12_5_reference_audit.csv",
+      "rows": 112,
+      "columns": [
+        "reference_id",
+        "definition_line",
+        "title_or_entry",
+        "urls",
+        "citation_count",
+        "definition_count",
+        "status"
+      ],
+      "missing_required_columns": [],
+      "empty_required_cells": 0,
+      "sha256": "239fe7dc3615fca4a569608bcb12af8efa84f4ee4e02cacb6ad8e26af40ef479"
+    },
+    "ecosystem_evidence": {
+      "file": "prisoma_ecosystem_evidence_2026-07-12.csv",
+      "rows": 21,
+      "columns": [
+        "project",
+        "category",
+        "relationship",
+        "evidence_level",
+        "evidence_observed",
+        "direct_reference_scope",
+        "scientific_role",
+        "prohibited_claim",
+        "promotion_requirements",
+        "checked_date",
+        "source_urls"
+      ],
+      "missing_required_columns": [],
+      "empty_required_cells": 0,
+      "sha256": "47d5397c9c22d5d020178495b10cfcb20bb8928aeb167d7c4eaa36a12f76c4b0"
+    },
+    "sentence_audit_v11": {
+      "file": "grandplan_sentence_audit_2026-07-12.csv",
+      "rows": 6117,
+      "columns": [
+        "unit_id",
+        "source_line",
+        "original_section",
+        "original_text",
+        "claim_type",
+        "has_proximal_citation",
+        "causal_language_flag",
+        "strong_claim_flag",
+        "numerical_claim_flag",
+        "time_sensitive_flag",
+        "semantic_overreach_risk_flag",
+        "citation_or_artifact_needed",
+        "review_priority",
+        "disposition",
+        "replacement_destination",
+        "required_evidence_class",
+        "review_rationale",
+        "source_sha256_16"
+      ],
+      "missing_required_columns": [],
+      "empty_required_cells": 0,
+      "sha256": "2ab583fe67e4a587b39bcedc4a6721831e5da43dd03807d36b738ae65ba39094"
+    },
+    "section_disposition_v11": {
+      "file": "grandplan_section_disposition_2026-07-12.csv",
+      "rows": 574,
+      "columns": [
+        "start_line",
+        "end_line",
+        "level",
+        "original_heading",
+        "original_path",
+        "disposition",
+        "replacement_destination",
+        "review_rationale"
+      ],
+      "missing_required_columns": [],
+      "empty_required_cells": 0,
+      "sha256": "8ea910f663f740dbdaa8ff1d60edb8531e0f9ea8e840914d4d9f2088cdfa65a3"
+    },
+    "citation_disposition_v11": {
+      "file": "grandplan_citation_disposition_2026-07-12.csv",
+      "rows": 138,
+      "columns": [
+        "citation_type",
+        "identifier_or_url",
+        "occurrence_count",
+        "source_lines",
+        "first_section",
+        "canonical_status",
+        "destination_or_reason",
+        "audit_note"
+      ],
+      "missing_required_columns": [],
+      "empty_required_cells": 0,
+      "sha256": "0dfdde9db395fffc2946ace4887ccc54295b11c13fb34387253dec9025a91356"
+    }
+  },
+  "pass_3_patch_reproducibility": {
+    "original_to_v12_5": {
+      "patch_file": "grandplan_v12_5_replacement.patch",
+      "patch_bytes": 914942,
+      "patch_sha256": "cbfaa2a3eb444ac903f63add5a27eb63dddc32ec13d4cfde97a8959de19bf337",
+      "git_apply_check": true,
+      "applied_byte_identical": true,
+      "reverse_check": true,
+      "reversed_byte_identical": true,
+      "base_sha256": "1a768ef2cd6bbf512b369bf8f0b70865093e31de49a26be06428b336822bf500",
+      "target_sha256": "7906c6814d26824d802e93aed17e9da79d74a7a898c00232ff78140d25ce5356"
+    },
+    "v11_to_v12_5": {
+      "patch_file": "grandplan_v11_to_v12_5.patch",
+      "patch_bytes": 128823,
+      "patch_sha256": "21cd0b118ad74f63fe5cf26e4dd413625f172927f72ad35c38a36fdbefede9a1",
+      "git_apply_check": true,
+      "applied_byte_identical": true,
+      "reverse_check": true,
+      "reversed_byte_identical": true,
+      "base_sha256": "dad36ccee5c612341db2e6233a32a3f9607ca67dd8950a6ddd3ec0f67b69f7c7",
+      "target_sha256": "7906c6814d26824d802e93aed17e9da79d74a7a898c00232ff78140d25ce5356"
+    },
+    "v12_4_to_v12_5": {
+      "patch_file": "grandplan_v12_4_to_v12_5.patch",
+      "patch_bytes": 8871,
+      "patch_sha256": "8471ee9618a2697b06f236bc3b8c8b7b10a271f4d243dde2c037c4b50eaa456e",
+      "git_apply_check": true,
+      "applied_byte_identical": true,
+      "reverse_check": true,
+      "reversed_byte_identical": true,
+      "base_sha256": "ad2c69a2bb1cf54f9f6e8836d8f544fd1660783c05805f9a52b018df65d59919",
+      "target_sha256": "7906c6814d26824d802e93aed17e9da79d74a7a898c00232ff78140d25ce5356"
+    }
+  },
+  "source_snapshot": {
+    "repository": "sepahead/prisoma",
+    "commit": "64bd881248463e7142d022bb95a5850bcf8fced2",
+    "original_sha256": "1a768ef2cd6bbf512b369bf8f0b70865093e31de49a26be06428b336822bf500",
+    "v11_sha256": "dad36ccee5c612341db2e6233a32a3f9607ca67dd8950a6ddd3ec0f67b69f7c7",
+    "v12_4_sha256": "ad2c69a2bb1cf54f9f6e8836d8f544fd1660783c05805f9a52b018df65d59919",
+    "v12_5_sha256": "7906c6814d26824d802e93aed17e9da79d74a7a898c00232ff78140d25ce5356"
+  },
+  "package_validation": {
+    "status": "pass",
+    "archive_name": "prisoma_grandplan_review_v12_5_2026-07-12.zip",
+    "entry_count": 33,
+    "unzip_test": true,
+    "entry_set_exact": true,
+    "entry_order_sorted": true,
+    "fixed_timestamp": "2026-07-12T12:00:00",
+    "safe_paths": true,
+    "duplicate_names": false,
+    "manifest_payload_hashes_match": true,
+    "manifest_self_hash_excluded": true,
+    "canonical_hash_matches": true,
+    "deterministic_rebuild_hash_match": true,
+    "outer_sha256_recorded_in": "prisoma_grandplan_review_v12_5_2026-07-12.zip.sha256"
+  },
+  "limitations": [
+    "No live HTTP sweep of all 114 URLs was made from the artifact container; load-bearing current sources were manually verified through the web research tool.",
+    "Semantic assertions test required safeguards and wording; they do not empirically validate hypotheses or prove every sentence true.",
+    "Public-repository negative findings are bounded to inspected public surfaces."
+  ],
+  "overall_final_pass": true
+}

@@ -1,8619 +1,2537 @@
-# Comprehensive prisoma Specification
+# PRISOMA: Intervention-Grounded Diagnostics for Sequential Embodied Policies
 
-> **Documentation Set Cross-Reference**: This is the master plan. See also:
-> - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
-> - `ARCHITECTURE.md` — Component breakdown (Rerun-first diagnostics, deferred Tauri, modular physics, 3DGS) and advantages over VLM-based robotics
-> - `EXPERIMENTS.md` — Experimental protocols for Rerun-first diagnostics, modular physics, and hypothesis testing
-> - `DIAGRAMS.md` — Visual architecture diagrams
-> - `README.md` — Quick start guide
-> - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
-> - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
-## Partial Information Decomposition for Vision-Language-Action Model Diagnostics
-### A Critical Technical Analysis with Full Discussion of Approaches, Limitations, and Open Questions
+- **Document:** canonical `grandplan.md` — **docset v12.5** (living spec; prior versions in git history; the outgoing v10.7 is archived at `docs/archive/grandplan-v10.7.md`)
+- **Scientific cut:** 2026-07-12
+- **Repository snapshot reviewed:** `sepahead/prisoma@64bd881248463e7142d022bb95a5850bcf8fced2`; second-round review bundle preserved at `docs/reviews/2026-07-12-grandplan-v12.5/`
+- **Status:** preregistration-grade research specification; not a claim of completed empirical validation
+- **Repo-truth note (post-review):** the reviewed snapshot pinned NCP `v0.7.1`/wire 0.7; the repository has since migrated to NCP **`v0.8.0`/wire 0.8** (`crates/ncp-observer/Cargo.toml`), so the active pin references below are stated at the current pin
+- **Seventh adversarial revision:** paired-estimand separation, causal-heterogeneity scoring repair, expanded 2025–2026 monitor/calibration/safety comparators, estimator-status reconciliation, post-pin `pid-rs` development review, full public-repository ecosystem audit, alarm-policy specification, and reference deduplication completed 2026-07-12
 
-**Version:** 10.7 (2026-07-10 corrective scientific, statistical, implementation-reality,
-and supply-chain audit; earlier v10.7 notes below are historical and are superseded where
-the corrective addendum says so)
-**Date:** 2026-07-10
-**Status:** Research Specification + Implementation Blueprint; estimator and capture gates remain blocked
-**Canonical:** Living spec; prior versions live in git history.
-
-**Reading guide (skim-first):**
-- **If you are here to run code:** start with Experiment 0 (Exp0) and the repo-status table in §11.1; the estimator + diagnostics in `pid-rs/crates/pid-core` are the current implemented core.
-- **Current estimator status (repo-local):** separate two questions. The MI/coherence checks
-  fail on the synthetic high-dimensional controls, so that pipeline is **NO-GO**. The adopted
-  continuous `I^sx_∩` atoms do **not yet have a valid automated gate**: the default Exp0
-  aggregate includes a zero-redundancy target that its own implementation identifies as an
-  MMI expectation, not an `I^sx_∩` truth, while the strict band gates MI terms and merely
-  reports the atoms. See `findings.md`. Until upstream Exp0 exposes separate `MI_GATE` and
-  `ISX_GATE` verdicts with a measure-specific oracle, do not present its aggregate label as an
-  `I^sx_∩` validation verdict and do not interpret continuous atoms on real embeddings.
-- **If you are here for the research spec:** jump to `# Table of Contents` and read §1–§3 (warnings + aims), then §8–§9 (estimation + experiments).
-- **If you are here for the end-to-end system design:** §§A–§L are a target architecture blueprint. In v10.1, Phases 1–3 are **Rerun-First**; the custom Tauri/SparkJS UI is deferred to Phase 4.
-
-**Quick links:** [Table of Contents](#table-of-contents) · [Experimental Design](#9-experimental-design) · [Technical Implementation](#11-technical-implementation) · [Critical Blockers](#18-critical-blockers-and-risk-analysis)
-
-**v10.7 corrective audit addendum (2026-07-10; current):** this addendum supersedes
-conflicting claims in the 2026-07-06 notes and the first generated power report.
-
-- **Exp0:** split estimator coherence from measure validation. Independent nuisance
-  dimensions preserve the relevant Gaussian-channel MI but need not preserve continuous
-  shared-exclusions redundancy. Remove the known-false `Red≈0` criterion, validate low-d
-  atoms against the committed Gaussian oracle and a pinned independent implementation, and
-  label high-d atom drift as functional-plus-estimator sensitivity until a dimension-specific
-  oracle exists. This repair belongs upstream in the canonical `pid-rs` repository.
-- **Hypothesis estimands:** H2/H3/H4 may not estimate task-local V–L atoms when language is
-  fixed. Every active V–L endpoint now requires preregistered instruction diversity and an
-  occupancy/entropy gate; otherwise V–D is primary. Cross-task atom comparisons must adjust
-  for an information-scale denominator and propagate estimator uncertainty. All fitted
-  preprocessing is learned once on disjoint V0/W0 training data, frozen across perturbation
-  cells, and identified by a transform hash.
-- **Power:** the 2026-07-10 first-run task/case counts were generated by an idealized
-  endpoint-level sensitivity simulator, not a nested capture model, and are withdrawn as
-  capture requirements. A capture gate must simulate family → task/case → episode, PID/SSI
-  measurement error, binary outcomes, severity allocation, and type-I error at the selected
-  design. H1 also lacks the specified episode-local prospective feature path. Therefore M5
-  capture sizing remains **NOT READY / NOT PASSED**.
-- **Geometry:** sampled mean `δ_rel` is a descriptive tree-likeness statistic, not evidence
-  that Euclidean kNN is invalid—a Euclidean line is the immediate counterexample. It is
-  removed from pass/fail gates. Estimator recovery on controls, intrinsic dimension,
-  distance concentration/ties, dependence, and calibrated local-flatness diagnostics do the
-  gating; every concatenation actually passed to an estimator is diagnosed.
-- **Implementation reality:** the Rerun attribution adapter and Rapier backend are built;
-  Rerun/Tauri phase boundaries and Agent-Bridge-only control remain unchanged. Dependency
-  audit remediation and exact remaining code blockers are recorded in the dated review
-  artifact under `docs/`.
-- **Current pins:** the estimator submodule is exact commit
-  `8a5a9dda601556443f956a2fba164cccc913ed2e` (crate version 0.4.0, two commits past tag
-  `v0.4.0`); the optional NCP dependency is tag `v0.7.1`. Older pin values below are
-  historical at-cut notes, not current instructions.
-
-**v10.7 notes (2026-07-06 cut):** first-principles spec audit + statistics-plan slice. **No research-conclusion changes from v10.4** — the Exp0 gate still blocks continuous-atom interpretation on synthetic high-d controls (verdict label now **NO-GO** under pid-rs 0.4.0, see the addendum bullet; PIVOT under 0.3.0); the open critical path is still the first real-VLA capture (not done). Driven by a five-agent spec audit (grandplan vs pid-rs code, grandplan vs NCP, first-principles math check, hostile hypothesis review, citation verification) plus a 104-agent adversarially-verified literature sweep. New content:
-- **Math/precision corrections:** findings.md's δ-hyperbolicity direction was backwards (low δ = tree-like/hyperbolic — the one outright error found); small-x digamma expansion fixed (ψ(x) ≈ −1/x − γ, §15.1.2 retitled pole-not-underflow); r̄−1 = CoInfo/I identity scoped to n=2; r̄=1 reading narrowed to "additive" (not "independent"); CI-sign convention scoped to CI₂ only; "7 MI estimates" → 6 for the pairwise-CI trio; distance-concentration claims conditioned on the Beyer et al. hypotheses; strong-dependence sample-complexity restated as exponential-in-MI; PCA "preserves distances" softened; mean-δ vs sup-δ caveat added (§16.7.1); Ehrlich validation envelope corrected from "~100 dimensions" to low-d (Warning 3).
-- **Hypothesis-system hardening (§14.1, §3.6, §9.6/§9.7, §14.5, §18.2.5):** falsifiability index consolidated into §14.1 (registry now genuinely canonical); H7 split into H7a (method) / H7b (falsifiable claim); H5 operationalized (phase-aligned windows pooled across episodes, preregistered trend endpoint); H2's availability-vs-use gap named with a preregistered asymmetric-outcome reading; H4 "or requires refinement" bounded to preregistered variants + held-out replication; H6 unified as Deferred with an explicit disproof; discrete regimes preregistered as first-class H1–H5 formulations (closes the PIVOT-era H2/H3 dead end); **new §14.8 preregistered statistical analysis plan** (one primary endpoint per hypothesis, gatekeeping + BH-FDR multiplicity, simulation-based power analysis as an M5 capture gate, mandatory minimal baseline set); **new §9.7.2b** dedicated H2/H3 ablation-sensitivity protocol; publication gates reconciled (OOD + difficulty must-pass; §14.5.7.5 defers to §14.5.6); SSI made sign-safe (IQR/|median|+ε); permutation placebo threshold moved from the fixed 0.55 to permutation-distribution quantiles; memorization-index stratification restricted to pre-outcome quantities; §18.2.5 "unique interpretability" GO operationalized; H9 given a quantitative Kendall-τ/sign-agreement criterion; RoPE entanglement-score estimation defined.
-- **July-2026 literature refresh (new §12.6):** PID field-status review arXiv:2603.06678 + second impossibility line arXiv:2604.03869 added; continuous-`I^sx_∩` validation ceiling re-confirmed current (low-d only through mid-2026); negative-atom nuances added to §2.2.4 (empirical negatives are *unique* atoms, not synergy; authors sanction time-series clamping — clamped/unclamped preregistration required; verify exact values in the papers before quoting in a manuscript); r̄/v̄ anchored to arXiv:2504.15779 Props. 1–2; world-model-VLA family surveyed (arXiv:2606.00113) with WorldVLA/FlowVLA/RynnVLA-002/3D-VLA added to §7.5; VLA-Arena resolved to ICML 2026 and TraceVLA to ICLR 2025 (venues checked against arXiv listings 2026-07-06; re-verify at submission); SmolVLA cited (arXiv:2506.01844) and §7.8.1 updated; PixelVLA improvement range version-pinned (v1 10.1–17.8% vs current revision 10.1–28.7%); Ehrlich/Liang/Schick-Poland/Makkeh arXiv IDs added; novelty re-verified 2026-07-06 (no PID-on-VLA; closest = VLA-InfoEntropy arXiv:2604.05323; "VLDA" unclaimed).
-- **Repo-truth corrections:** §11.2 project tree redrawn (pid-rs is a submodule, estimator crates are NOT under `crates/`; `experiments/{safe_adapter,attribution}` are tracked packages); "general n-source SxPID" corrected to 2–4 sources at every current-state site; pid-rs 0.3.0 noted as crate-version/commit pin; §15.2.1–15.2.2 SIMD/streaming sketches labeled not-implemented (the real path is the `parallel` rayon feature); NCP pin prose synced to **v0.5.3** across all doc sites (README/AGENTS/NCP_DEV_PROMPT/observer-README/DIAGRAMS/RESEARCH_VLA_D_NCP/REVIEW_AND_TODO/Cargo comments) (wire-identical; CONTRACT_HASH unchanged `24e8e6e31e1dec8a`; v0.5.3 = NCP-local fail-closed safety hardening).
-- **Triple-check addendum (same day):** three independent verification passes (hunk-by-hunk diff verifier, upstream pid-rs auditor, hostile top-tier-referee review of the new statistical content) drove a second round of repairs. (1) *Statistical repairs to the v10.7 additions themselves:* H2's primary endpoint re-unitized from task *families* (n≈4 — arithmetically untestable) to **tasks** with family-blocked bootstrap; H3's endpoint redefined as **mean per-case Kendall τ** (a 3-item Spearman is not a statistic) with minimum effect τ̄ ≥ 1/3; the §9.7.2b strength-matching yardstick made outcome-independent (equal-success-impact calibration would have zeroed the very effect-size differences H3 tests); the §14.2.2 permutation placebo re-based on the *distribution-centered-at-chance* test (a draw compared to its own distribution's quantile flags 2.5% always and wholesale leakage never); the H9 criterion fully specified (per-case τ, Syn-dominance/tie rules, family-blocked case bootstrap, negative-CI = affirmative disconfirmation); SSI finalized as unnormalized **−IQR(Syn)** per preregistered axis (the intermediate `1−IQR/(\|median\|+ε)` was still unstable exactly where `I^sx_∩` synergy lives); §14.8.2 gained the regime-multiplicity rule (ex-ante active-regime selection; sensitivity-not-substitute; Bonferroni if multiple primaries) and an explicit error-rate statement (no family-wise claim across hypotheses); §14.8.3 scoped to H1–H4 with per-endpoint analysis units and the CI-based futility bound; the clamped/unclamped rule scoped by claim type (negativity claims are unclamped-only by definition); H5 windowing inherits §9.0 fully (within-window stride, post-stride `N_win`, outcome stratification); RoPE score notation fixed (`Var_pos/Var_sem`). (2) *Verifier fixes:* three GFM-breaking table rows escaped (SSI/MAR/B.7-10.2); Bonferroni cross-ref §14.5.2→§14.5.1; survey date standardized to June 2026; H6 registry cell "Deferred"; `ARCHITECTURE.md`/`EXPERIMENTS.md` stamps bumped to v10.7; DIAGRAMS H7 node split, observer landing-tag restored (v10.5); PixelVLA range un-abbreviated in the notes. (3) *pid-rs upstream:* audited clean of every docset error class; **v0.4.0 released** (CountSketch sign fix, true moving-block bootstrap, exp0 `NegativeHandling::Allow`, bias-corrected Levina–Bickel, Python API cleanup — breaking under 0.x, hence 0.4.0 not 0.3.1) with retroactive v0.3.0 + v0.4.0 tags; prisoma submodule re-pinned 7e8f16d → v0.4.0; consumer-rename fix in `repin-pidrs.sh` (pid_vla → prisoma). (4) *Consequence:* the Exp0 verdict on the synthetic high-d controls is now **NO-GO** (3 invariant-bound violations surfaced by the unclamped, bias-corrected diagnostics — e.g. v̄ ≈ −26.6 on `unique_s1_pca` d=64; ID(t) now ≈ 1.01, confirming the old ≈ 1.14 was estimator bias; all in-repo measured values, `findings.md`); `findings.md` updated. This is the gate getting stricter, not a research-status change. (5) `AGENTS.md`/`CLAUDE.md`/`README.md` professionally restructured (content-preserving). (6) *Every-markdown sweep* (four review agents across prisoma + pid-rs): orphaned asset reports `FINAL_INTEGRITY_REPORT.md`/`GENERATION_REPORT.md` **deleted**; `THIRD_PARTY_NOTICES.generated.md` regenerated for 0.4.0 (CI gate was failing); `EXPERIMENTS.md` fully aligned (endpoint rows, pooled-window H5 + new §6.5 preregistration stub, Exp3→H2/H3 rebadge, corrected `independent_additive` ground-truth comment, two-sided tests); status/spec docs synced (details: CHANGELOG v10.7 Addendum).
-
-**v10.6 notes (2026-07-05 cut):** whole-repo review + correctness/robustness slice. **No research/estimator/experiment status changes from v10.4** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls and the open critical path is still the first real-VLA capture (not done). The discrete-harness measure identity is unchanged (`--pid-mode discrete` is Williams–Beer `I_min`, **not** discrete `i^sx_∩` — §8.1.6). New content (full detail in `CHANGELOG.md` "Docset v10.6"):
-- **CI resurrected:** `.github/workflows/ci.yml` had an unquoted `physics:: manipulation::` scalar (illegal YAML), so GitHub parsed nothing and created **zero jobs** on every push since 2026-06-13 — three weeks with no fmt/clippy/test/cargo-deny/notices/docs gate actually running. Quoted; the `python-bindings` job now creates a venv for `maturin develop`.
-- **Agent Bridge hardening:** `export.rerun` can no longer overwrite the session's own live run log (or any non-`.rrd` path); JSON-RPC ids are `String|Number|Null` (numeric ids were rejected) and echoed verbatim; rejected/malformed traffic is now audited into the run log; `stdio`/`tcp`/`ws` transports always `finish_run` (a transport error no longer leaves a run log without `run_ended`) and flush per response; `sim.reset` after `sim.step` is refused; `verify_flow_gt` pairs flows with snapshots in stream order (no false mismatch after a pose intervention).
-- **Offline-harness run logs stay valid at capture scale:** the `ArtifactLogged`/`ErrorLogged`/`RunEnded` timestamps were fixed offsets overtaken past ~10k metric events (≈470 held-out samples), producing logs that failed `pid-runlog-replay --validate`; now they continue from the running metric-event counter.
-- **ncp-observer toward M5:** emitted run log now validates (monotonic clock; contract deferred to the first fully-populated sample; empty-axis ticks excluded + counted); dataset artifact registered (`ArtifactLogged` + sha256); D reordering handled via a grace window (`seq_late`); session/seq resets are FIFO-eviction- and epoch-safe; SIGTERM/SIGHUP finalize; `ObserverStats` capture-quality report.
-- **pid-rerun / Python:** dropped the dead `hdf5`/`hdf5-data` dep+feature; ns→`Duration::from_nanos` (no precision loss); exact `.npy` dtype check; artifact URIs resolve against the run-log dir; corrected the LIBERO/OXE loader claim in `data.rs`; SAFE-adapter step-count guard now actually validates V/L/D vs actions; `canonical_hash` uses `ensure_ascii=False`; the hyperbolic-metric test expects `ValueError`.
-
-**v10.5 notes (2026-07-01 cut):** consistency + robustness slice. **No research/estimator/experiment status changes from v10.4** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls and the open critical path is still the first real-VLA capture (not done). The discrete-harness measure identity is unchanged (`--pid-mode discrete` is still Williams–Beer `I_min`, **not** discrete `i^sx_∩` — see §8.1.6). New content:
-- **pid-rs submodule → 0.3.0:** adopted current upstream `pid-rs` at crate version 0.3.0 (commit-pinned two commits past the `release: 0.3.0` commit; at the time upstream had no `v0.3.0` git tag — retroactive `v0.3.0` and release `v0.4.0` tags were cut 2026-07-06, see the v10.7 addendum). 0.3.0 adds a *genuine* discrete shared-exclusions PID (`sxpid.rs`: `discrete_sxpid2`/`discrete_sxpid3` + n-source SxPID for **2–4 sources** — `discrete_sxpid_n` errors above 4), numerical-stability hardening, and a run-log `logical_trace_hash` (wall-clock-excluded logical hash). `crates/pid-rerun` was updated for the new `RunManifest.logical_trace_hash` field; the workspace + the excluded `ncp-observer` build and test green against 0.3.0. The new discrete SxPID estimator is **not yet wired into the offline harness** (§8.1.6).
-- **NCP observer pin → v0.5.2:** `crates/ncp-observer` doc pins now match the manifest (NCP `v0.5.2` — a wire-identical patch bump on the 0.5 wire cut at v0.5.0; `CONTRACT_HASH` unchanged `24e8e6e31e1dec8a`).
-- **ncp-observer robustness/correctness:** the per-tick success label no longer leaks into V; in-flight buffers are bounded (`MAX_INFLIGHT`); run-log append errors are surfaced instead of swallowed; CLI arg parsing is robust; `finalize` survives a poisoned mutex.
-- **pid-rerun / pid-sim:** the episode outcome is logged at the absolute end time (was a relative `duration()`); 3D point logging is panic-safe on short arrays; a held-out split voided by a bad `split` value now warns instead of silently vanishing.
-- **Docs:** `THIRD_PARTY_NOTICES.md` corrected to dual **MIT OR Apache-2.0**; ncp-observer honest-provenance docs (empty-L, provenance-gate scope) aligned with actual behavior.
-
-**v10.4 notes (2026-06-22 cut):** science-honesty + tooling slice. **No research/estimator/experiment status changes from v10.3** — Exp0 still reports PIVOT/NO-GO on synthetic high-d controls and the open critical path is still running on real downloaded VLA data (not done). The only new content is four mechanical changes:
-- **Enforced axis-provenance gate:** `--require-axis-provenance-honest` now ENFORCES axis provenance (opt-in gate mirroring `--require-geometry-pass`; fails the run on degraded V/L/D/A or absent provenance markers), 2026-06-21; threaded through `OfflineVldaRunlogOptions`, the bin parser, and the `just safe-adapter` recipe; new test `axis_provenance_gate_fails_on_degraded_and_on_absent_markers`.
-- **safe_adapter provenance surfacing:** the offline VLDA harness now surfaces `safe_adapter` axis provenance (`{v,l,d,a}_provenance`: token_slice:*/hidden_state_pool/action_vector honest, text_hash_proxy degraded), 2026-06-21; new test `axis_provenance_recognizes_safe_adapter_markers`.
-- **NCP v0.5.0 observer re-pin:** `crates/ncp-observer` re-pinned to NCP v0.5.0 (wire 0.4 → 0.5; proto-enum mode strings; CONTRACT_HASH `2cf0763ad61e4f1c` → `24e8e6e31e1dec8a`); read-only data-plane tap, JSON wire unchanged for known values.
-- **Naming:** the repo/package/crate naming was renamed `pid_vla` → `prisoma` (rename complete repo-wide; no `pid_vla` references remain).
-
-**v10.3 notes (2026-06-13 updates):** capture-and-analysis implementation slice. Every estimator-side prerequisite the review listed as blocking is now wired end to end, plus the first real M5 capture path.
-- **Exp0 uncertainty gate (closes P0 item 1 end-to-end):** the Exp0 binary gains opt-in `--bootstrap`/`--permutation` (with `--block-size`/`--alpha`). It runs subsample-bootstrap CIs (Politis–Romano, KSG-safe — the naive with-replacement bootstrap is documented as unreliable for kNN MI) and single-source permutation null tests at the most favourable dimension, then folds a **preregistered, ground-truth-derived marginal-significance check** into the GO/PIVOT/NO-GO verdict: the permutation null must call a source significant iff it is marginally informative by construction (calibrated 8/8 on the four synthetic scenarios). `pid-core` gains generic `bootstrap_rows_stats` (with a `RowResampleScheme`) and `permutation_rows_pvalue` (add-one Monte-Carlo p-value). Default runs are byte-identical (uncertainty fields default off), so CI counts/`pid_metrics` are unchanged.
-- **Real Rapier3D manipulation (M3 advanced; P1 item 5):** the fake `RapierBackend` stub is replaced by a real single-threaded `rapier3d-f64` pipeline (gravity, contacts, friction, deterministic substepping) behind the `rapier` feature, plus a scripted push-to-goal manipulation task (`crates/pid-sim/src/manipulation.rs`) emitting canonical run-log events with real `Flow_gt` and an externally meaningful success label (both classes arise from the physics, not a hand-set flag). Flow-consistent and deterministically self-reproducible; honestly **not** constant-velocity replayable (that model is for the kinematic sim). New `pid-rapier-harness` binary + `rapier` CI job.
-- **SAFE-class failure detector (H1 baseline):** `pid-core` gains an L2-regularized logistic regression (Newton-IRLS, `logistic.rs`); the offline harness adds a leakage-safe `heldout_logreg_vlda` baseline (train-fit, held-out-scored; accuracy/balanced-accuracy/AUROC). This is the strong learned baseline H1 must beat (§3.4 / §14.1.1).
-- **M5 capture adapter (the critical path — REVIEW_AND_TODO P0 items 2+4):** `experiments/safe_adapter/` converts released SAFE VLA rollouts into the `(V,L,D,A)`+labels harness contract, with **honest provenance** (SAFE cleanly gives D=hidden states, A=actions, labels; V/L are token-sliced, explicitly supplied, or a labelled text proxy — never fabricated) and the §7.6.3 layerwise physics-probe for `D_hidden[k]` hook selection. Verified end to end into the real harness with all leakage gates passing.
-- **H9 attribution probe (§14.7.1):** `experiments/attribution/` implements epsilon-LRP (AttnLRP-style detached-softmax) + gradient×input on a small reference transformer, the deletion-AOPC **faithfulness check** vs a random control, and schema-conformant `attribution_logged` run-log emission that passes `pid-runlog-replay --validate`. For production VLAs, swap in LXT/AttnLRP — the faithfulness/provenance/run-log contract is unchanged.
-- **Release governance (P0 item 3 / P1 item 6):** `meshmaker/` is quarantined out of tracking (`git rm --cached`; local files kept, tombstone README, `.gitignore` hardened); `scripts/generate_third_party_notices.py` generates a direct-dependency SBOM (Rust licenses via `cargo metadata`, Python versions via `uv.lock`) with a CI drift check.
-- **External-source review addendum (2026-06-13):** reviewed dimos / DimensionalOS (`dimensionalOS/dimos`; Apache-2.0 agentic multi-robot control OS) source-by-source. Integrated narrowly as independent external validation of the Agent Bridge "one control plane + record→replay + every action a run-log event" bet (§A.7/§A.8, §11.4) and a concrete §11.4 external-backend/adapter instance (LCM joins Zenoh/ROS 2 as an M6 typed-stream transport); ruled out as an M5 capture shortcut (no internal-activation or success/failure-label extraction per README — SAFE still dominates) and as a PID/IT method contribution. See §12.5 + §13.10.
-
-**v10.2 notes (2026-06-12 updates):**
-- **Implementation refresh (commit `20fd4bc`, 2026-06-11):** `pid-rs/crates/pid-core` gains PLS supervised dimensionality reduction (`pls.rs`, NIPALS-PLS2), discrete 2-source PID via quantization (`discrete_pid.rs`), and block-bootstrap uncertainty quantification (`bootstrap.rs`); `crates/pid-sim` gains a `PhysicsBackend` trait with a null adapter plus a Rapier3D skeleton behind the optional `rapier` feature (stub, not a validated physics path); the run-log schema gains an `attribution_logged` event (H9 probe provenance); the Exp0 binary gains `--strict-gate`; a high-dimensional synthetic VLDA fixture (v=128, l=64, d=32, a=7; n=48 — CI smoke only) is checked in; Python bindings expand from 8 to 14 functions. See §11.1.
-- **Measure-identity correction (read §8.1.6):** the implemented discrete redundancy is a Williams–Beer-style minimum-of-specific-information (`I_min`) functional, **not** the discrete shared-exclusions `i^sx_∩` of Makkeh et al. (2021). Continuous mode and discrete mode therefore estimate **different PID measures**; Warning 6 now applies within this repo's own toolbox, not just to external papers.
-- **Supervised-projection guidance (§8.2, §17.5.3):** unsupervised projections (PCA/hash) provably fail when per-dimension signal variance ≈ noise variance (the central Exp0 lesson in `findings.md`); PLS is the implemented supervised alternative, with explicit leakage rules (fit on train only) and "new measurement regime" re-validation requirements.
-- **Reference/status refresh (hedged; verify at time of use):** OpenVLA-OFT placeholder resolved to a concrete citation (arXiv:2502.19645); DreamVLA listed as a NeurIPS 2025 paper with a public code repo (weights/license still to verify); added MI-estimator benchmark and high-dimensional MI references (arXiv:2410.10924, arXiv:2506.00330), mixed discrete–continuous PID (arXiv:2409.13506), partial information *rate* decomposition (arXiv:2502.04550), a scalable higher-order information estimator (arXiv:2506.18498), a latent-world-model VLA (VLA-JEPA, arXiv:2602.10098), and a mechanistic SAE study of VLAs (arXiv:2603.19233).
-- **Action-chunking note (§10.10.13.1):** modern VLA policies often emit action chunks; the `A` contract must record chunk length and the chosen PID target granularity.
-- **Third source batch (2026-06-12, later the same day):** integrated World Pilot (arXiv:2606.12403 — WAM steering via separable latent/action pathways; model-native Exp4/H3 interventions), the video-world-model physics-interpretability study (arXiv:2602.07050 — "Physics Emergence Zone"; converts `D_hidden[k]` layer choice into a probe-then-gate procedure, §7.6.3), and Generalist AI's GEN-1 vendor post (black-box comparator; wearable-human-pretraining embodiment-gap instance). Added a **"Real robotics problem addressed" column to the hypothesis registry** (§14.1.0) plus an explicit failure-regime framing (failure-rich generalist suites are the feasible study regime; 99%-reliability rare-event triage is out of scope for distribution-level claims).
-- **External-source review + research integration (2026-06-12; see §12.5 for the full integrated/ruled-out record):** added Qwen-VLA (arXiv:2605.30280), V-JEPA 2/-AC (arXiv:2506.09985) and the latent-predictive world-model class, NVIDIA Cosmos 3 / "World Action Model" notes and the RoboLab-120 leaderboard context, π0.7 status, AttnLRP (arXiv:2402.05602) as the concrete H9 LRP protocol (§14.7.1), GSWorld and Zenoh-in-production notes, and two world-model surveys. Added **§14.1.1 per-hypothesis PID-necessity audit** with preregistered kill criteria (PID is forced nowhere; H5 flagged as the weakest PID-specific case with a mandatory CI-only ablation; H7 honestly framed as measurement-regime engineering). Added the embodiment-in-`L` confound (§14.5.7.3).
-- **Second v10.2 slice (completed and committed 2026-06-12):** the previously in-flight extensions were finished, tested, and committed the same day: discrete 3-source PID (`discrete_pid3`, `I_min` over the 18-antichain lattice), a `pipeline.rs` composition layer in `pid-core` (PLS→PID3, per-atom block-bootstrap CIs, single-source permutation tests, LOO-CV PLS component selection, all-pairs PID2 screening), and offline-harness `--pid-mode continuous|discrete|discrete-pls` with `--discrete-bins`/`--pls-components` and per-pair `discrete_saturation` diagnostics implementing the §8.1.6 gate (smoke runs on the checked fixtures confirm ceiling-pinned discrete MI is flagged `saturation_warning=true`, as predicted).
-
-**v10.1 notes (Jan 2026 updates):**
-- **Architecture Shift:** Adopted 'Rerun-First' strategy for Phases 1-3 to accelerate research iteration; custom Tauri/SparkJS UI deferred to Phase 4 (see §A.7).
-- **CRITICAL UPDATE:** DreamVLA availability status updated. Both DreamVLA papers state a release and this doc references candidate model repositories; **verify** weight availability, model revisions, and licensing at time of use:
-  - `WenyaoZhang/DreamVLA` (arXiv:2507.04447; world-knowledge forecasting; backbone details are not in the abstract — verify in paper/code/checkpoint)
-  - `Dream-org/Dream-VLA-7B` (arXiv:2512.22615; diffusion language model backbone; repo name suggests “7B” — verify model size/config)
-  - This may mitigate blocker §18.2.2 *if* the referenced weights are accessible under an acceptable license and the needed intermediates can be exported for logging.
-- Added §12.4: NeurIPS 2025 Embodied AI Research Landscape synthesis with critical analysis of community observations for prisoma relevance.
-- Updated §7.2 with explicit claim-status boundaries (abstract-verified vs. verify-in-paper/code) and a “log your checkpoint dims” requirement; do not assume DreamVLA backbone details from this document.
-- All "DreamVLA unavailable" claims corrected throughout the document.
-- **Added 2025 paper citations to §13 References (venues/status should be verified):**
-  - §13.4.1: Learning from Videos (EgoBridge)
-  - §13.5: FIPER for failure detection
-  - §13.6.1: RL for VLAs (ReinFlow, CQN-AS)
-  - §13.11.1: VLA Inference Efficiency (VLA-Cache, EfficientVLA)
-  - §13.13: Multimodal Sensing (ForceVLA, Touch in the Wild, OpenTouch)
-  - §13.4: RoboScape world model
-
-**v10.0 FINAL notes (Consistency + optional uncertainty controls):**
-- Preserved the v9.0 execution plan and added an explicit optional milestone for 3DGS uncertainty/view selection (GauSS‑MI) as a confound control (see §A.7 and §C.2).
-- Integrated the GauSS‑MI spec into the main docset (protocol notes + diagrams) without claiming it is implemented (`GAUSS_MI_INTEGRATION.md` is a pre‑implementation spec).
-- Slimmed `README.md` into a brief “how to proceed” entrypoint that points to the canonical documents (keep detail in `grandplan.md`/`EXPERIMENTS.md`).
-- Preserved earlier factual corrections: SparkJS “Spark” is Three.js/WebGL2; “3DGS-based” simulators still use conventional physics backends (SplatSim→PyBullet; DISCOVERSE→MuJoCo); and geometry diagnostics gate estimator regime selection (H8).
-
-> **⚠️ Key caveat (estimator geometry):** The continuous `I^sx_∩` estimator (Ehrlich et al. 2024) relies on Chebyshev (L∞) geometry for exact product-ball cancellations. It **cannot** be applied directly to hyperbolic/Lorentz/manifold embeddings without a **new mathematical derivation** of the disjunction neighborhoods and volume forms in that geometry. Do not simply plug manifold distances into the current estimator.
-
-> **Geometry mitigations (choose one, then re-run the Geometry Gate + Experiment 0):**
-> 
-> 1.  **The "Shannon Invariants" Approach (Geodesic MI → $\bar{r}, \bar{v}$):**
->     **PRIMARY RECOMMENDATION for Manifolds.** Do not attempt to calculate atomic PID ($I^{sx}_{\cap}$) on curved manifolds, as the intersection volumes are ill-defined. Instead, use a manifold-aware **Mutual Information estimator** (e.g., Geodesic kNN, MINE, or optimization-based MI) to compute the Shannon Invariants $\bar{r}$ and $\bar{v}$ (Gutknecht et al. 2025). This bypasses the volume-cancellation geometry problem entirely while still diagnosing Redundancy vs. Synergy.
-> 
-> 2.  **The "Manifold Unrolling" Approach (Isomap/AE → Standard Estimator):**
->     **Fallback.** Use Isomap or Contractive Autoencoders to flatten the manifold into a lower-dimensional Euclidean space (e.g., d=32), then run the standard Ehrlich `I^sx_∩` estimator. This "unrolls" the geometry so L∞ distances become valid proxies, but introduces distortion.
-> 
-> 3.  **The "Linear Projection" Approach (PCA → Standard Estimator):**
->     Pragmatic baseline. Use PCA to reduce to ~256 dims, then re-run the Geometry Gate + Experiment 0 on that *exact* preprocessing pipeline. PCA does **not** “fix” manifold geometry (and L∞ neighborhoods are not rotation-invariant); it is a linear projection that can reduce effective dimension and improve kNN estimator behavior in practice.
-> 
-> 4.  **The "Quantization" Approach (Clustering → Discrete PID):**
->     Map continuous embeddings to discrete cluster IDs (k=100..1000) using k-means/VQ. Use the classic Discrete `I^sx_∩` estimator (Makkeh et al. 2021), effectively bypassing geometry issues by counting mass instead of volumes.
-> 
-> 5.  **The "Copula Transform" Approach (Rank Transform → Standard Estimator):**
->     Apply empirical CDF transform to every dimension to force Uniform marginals. This mitigates "empty space" issues in high-d L∞ metrics and maximizes estimator efficiency, though it ignores dependencies during the transform.
->
-> **Excluded approaches (why they are not default):**
-> 
-> *   **Naive Geodesic kNN (for PID atoms):** **Violates the estimator-geometry caveat above.** The Ehrlich estimator relies on Euclidean product-volume cancellation ($Vol_{XY} \approx Vol_X \cdot Vol_Y$). Curvature breaks this exact cancellation, making atom estimates invalid. (Contrast with Method 1, which restricts itself to MI/Shannon Invariants where this cancellation is not required).
-
-**System architecture blueprint (target stack; many components are spec-only):**
-
-> **🎯 Design Goal:** A hardware-free simulation environment for VLA data collection, training, and PID analysis, optimized for fast iteration and splat-first rendering; benchmark against Isaac Sim / Omniverse / Gazebo on matched tasks (avoid “outperforms” claims without a shared protocol).
+> **Thesis in one sentence.** Prisoma is a provenance-complete capture–intervention–replay system for testing whether genuinely pre-treatment diagnostics of embodied policies—including, but not limited to Partial Information Decomposition (PID)—predict frozen-snapshot algorithmic sensitivity, randomized closed-loop effect modification, and future failures beyond strong simpler baselines, while preserving enough experiment semantics to make each conclusion auditable and transportable.
 
 ---
 
-> **Navigation note:** §§A–§L are the target-stack blueprint (pre‑ToC). The numbered sections starting at `# 1. Executive Summary and Critical Warnings` are the main research spec and are indexed in `# Table of Contents`.
+## Executive decision
 
-### §A. Critical Analysis: Why This Architecture Over Competitors
+The scientifically defensible project is **not** “apply PID to Vision–Language–Action (VLA) models and interpret the atoms.” That formulation assumes four unproven propositions: that the population estimand is meaningful, that the finite-sample estimator recovers it in the intended regime, that observational information in a representation reflects causal use by the policy, and that PID adds value over simpler diagnostics. None may be assumed.
 
-**From first principles, what does *PID-based VLA diagnosis* require (beyond “a simulator”)?**
-1. **Closed-loop instrumentation** → time-synchronized logging of `(obs, state, actions, embeddings, interventions)` with reproducible replay
-2. **Controlled interventions** → perturb vision/language/physics/world-model inputs *without* changing task identity (placebo + nuisance controls)
-3. **External targets/labels** → `A*` (teacher/optimal action), success/failure labels, and counterfactual hooks to ground “failure” claims
-4. **Rendering + physics appropriate to the task** → visual realism helps *reduce* domain gaps; contact fidelity matters for manipulation; both must be benchmarked
-5. **Iteration speed + cross-platform** → rapid ablations on researcher hardware; avoid locking the entire pipeline to one vendor/runtime
-6. **Hybrid scene representations** → splats for photoreal views, meshes/URDFs for collisions/robots (and for “what-if” edits)
-7. **World-model integration** → a clean interface to plug in WAN-like video models and flow extraction as *experimental variables*
-8. **Agent-native control plane** → the GUI is not a dead-end: provide a stable automation API for live scene edits, interventions, and inspection (designed for LLM coding tools), and log every remote action as a first-class event for reproducibility
+Prisoma should instead make three separable contributions:
 
-**Honest comparison with existing platforms:**
+1. **Experimental infrastructure.** A source-agnostic contract records synchronized observations, instructions, internal states, policy distributions, controller transformations, executed actions, interventions, and outcomes with sufficient provenance to reproduce and audit an embodied-agent experiment.
+2. **Intervention-grounded science.** Exact paired software interventions establish bounded frozen-snapshot algorithmic responses, while randomized closed-loop interventions establish population-level behavioral effects. Observational diagnostics are judged against the reference appropriate to the claim and against prospective failures on held-out task families.
+3. **Conditional PID contribution.** PID is one candidate diagnostic family. It becomes thesis-central only when the chosen measure and estimator pass preregistered gates and its features provide reproducible incremental value over mutual information, uncertainty, temporal, geometry, attribution, and learned baselines.
 
-**Note on comparisons:** Use these as capability notes, not a performance ranking. Any “sim2real %”, fps, latency, footprint, or “better physics” claim must be tied to a specific benchmark + hardware + protocol.
+The project therefore remains valuable if continuous PID fails. A negative result can be scientifically strong when it identifies the failure regime, calibrates abstention, compares alternative diagnostics, and releases a reusable benchmark. Conversely, a visually polished simulator or dashboard without a defensible estimand, intervention design, and external comparison is not a scientific contribution.
 
-| Platform | Rendering | Physics | Availability / constraints | PID-centric diagnostic loop |
-|----------|-----------|---------|----------------------------|-----------------------------|
-| **Isaac Sim/Lab** | Omniverse RTX / OpenUSD | PhysX | NVIDIA GPU required (verify supported OS/driver) | No (requires custom harness) |
-| **Omniverse (general)** | Omniverse RTX / OpenUSD | PhysX | NVIDIA GPU required | No (not PID-centric) |
-| **MuJoCo** | OpenGL raster | MuJoCo | Cross-platform | No (instrumentation is DIY) |
-| **Gazebo (Classic/Ignition)** | OGRE raster | ODE/DART (varies) | Cross-platform; ROS-centric | No (instrumentation is DIY) |
-| **SplatSim** | 3DGS rendering | PyBullet (paper; physics backbone) | Research code; verify constraints | No (not a PID harness) |
-| **DISCOVERSE** | 3DGS rendering | MuJoCo (paper) | Research code; verify constraints | No (not a PID harness) |
-| **LuckyRobots / Lucky World** | “Hyperrealistic” (vendor claim); Vulkan renderer | **MuJoCo**-based (per README); engine is a separate executable | Proprietary backend executable + Python API (**gRPC**, port 50051; WebSocket is only the inter-node transport); v0.1 release lists Windows/Linux/macOS all “coming soon” (no public binary yet) | No (not PID-centric; would still require custom harness) |
-| **Proposed (Modular)** | 3DGS + mesh overlays | Modular (Rapier + baselines) | Cross-platform target | Yes (explicit goal) |
+### Primary question
 
-**Emerging “ML‑first simulator” direction (why it matters here):**
-- Public materials around LuckyRobots/Lucky World and Sentdex joining Lucky Robots to build “the robotics simulator I wish we had” emphasize an **RL‑style surface** (`reset`/`step` + observations) exposed over a **gRPC control plane** (`LuckyEngineClient`, port 50051) with service-style request/response (WebSocket appears only as the inter-node transport in the distributed-node architecture, not the primary Python API).
-- prisoma’s design should stay compatible with this ergonomic norm: keep `reset/step` primitives stable, provide a **streaming event channel** (state/metrics/frames), and keep the control plane easy to call from Python (not GUI-only).
-- If you use such a simulator as a data source, treat it as an **external backend**: adapt its actions/observations/control messages into a **versioned run‑log schema** so Exp0/geometry gates and PID analyses remain identical across backends.
-- Some simulators also market “natural language scene control”; if adopted, treat it as a **compiler** that emits deterministic scene‑edit/intervention events (and log the compiler/prompt/version), not as an unlogged free‑form side channel.
+> **Can a reproducible diagnostic system identify which input or internal pathways an embodied policy actually uses, and can pre-outcome signals predict intervention sensitivity and future failure under task, scene, and embodiment shifts?**
 
-**Do current systems provide the closed-loop PID diagnostics needed here?**
-- **They can be instrumented, but it is not “turn-key”.** Isaac Sim/Lab, MuJoCo, and Gazebo all support logging and Python integration, but none ship a PID-centric experiment harness with geometry gates, preregistered interventions, and synchronized `(V,L,D,A)` embedding capture as a first-class feature.
-- **This project’s goal is not “a better simulator”; it is a better *diagnostic loop*.** The architectural differentiation is the explicit contract for (a) interventions and provenance, (b) synchronized logging/replay, and (c) in-loop computation/visualization of information-theoretic diagnostics.
+### Conditional PID question
 
-**WAN-like video models and Dream2Flow-style bridges**
-- Most simulators do not include “world model → flow → diagnostic target” pipelines out of the box. Here they are treated as external services with pinned versions, and as experimental variables rather than infrastructure assumptions.
-- **Optional camera-motion world model baseline:** WorldWarp-style camera-conditioned scene generation can be treated as an additional external predictor for viewpoint changes (evaluative/generative; verify upstream claims and licensing). See `WORLD_WARP_INTEGRATION.md`.
+> **After measure-specific and finite-sample validation, does PID provide information about joint-source organization that improves causal-effect prediction, failure prediction, or mechanism discrimination beyond simpler non-PID diagnostics?**
 
-**Hybrid splats + meshes (and why Three.js/GPU compositing matters)**
-- 3DGS is strong for photoreal *views* of captured scenes; meshes/URDFs remain the practical choice for articulated robots, collision proxies, and precise interactive edits. The proposed stack assumes hybrid rendering/physics: splats for appearance, meshes for dynamics and contact.
+### Non-claims
 
-**Key advantages of proposed architecture:**
-1. **Splat-first rendering (visual realism when capture is good)** — 3DGS can reduce *visual* domain gaps on some tasks; SplatSim reports 86.25% average zero-shot sim2real success on their benchmark (arXiv:2409.10161). Treat transfer rates as benchmark-specific.
-2. **Hybrid splats + meshes** — Use splats for photoreal views and meshes/URDFs for collisions, robots, and precise “what-if” edits (e.g., Three.js + SparkJS can render both; other GPU renderers are acceptable).
-3. **Programmable overlays (Dynos)** — GPU-side splat recoloring/annotation makes PID diagnostics inspectable in real time (treat SparkJS implementation details as external).
-4. **Modular physics choice (plus differential replay)** — use one physics backend per run (Rapier for fast iteration/determinism; MuJoCo/PhysX-class engines as contact baselines). Optionally replay the same run log across backends as a robustness/confound check; true per-object mixed backends is a co-simulation problem and is treated as an advanced, restricted option (§E.1).
-5. **Closed-loop PID instrumentation as a first-class requirement** — explicit hooks for perturbations, provenance, and synchronized logs to make PID hypotheses testable.
-6. **World-model integration is explicit** — WAN-like video models + flow extraction are treated as plug-in experimental variables, not baked into the simulator.
-7. **Lower operational footprint (by design)** — a Tauri app with a GPU-accelerated web renderer (WebGL2/WebGPU, depending on implementation) can be substantially lighter to install/run than full Omniverse/Isaac stacks; exact size/throughput is packaging- and hardware-dependent, and other shells (Electron/Qt/Unity) remain viable.
-8. **UI + automation are the same surface** — every action possible in the GUI (spawn/move objects, apply perturbations, scrub timeline, export logs) is also exposed via a stable local API (“Agent Bridge”), enabling reproducible live interventions by scripts and LLM tools (no hidden manual steps).
+Prisoma will not claim that:
 
-**Honest disadvantages:**
-- **Not a GPU-parallel RL factory** — Isaac Gym/Lab can run O(10³) environments and some platforms explicitly optimize for large-scale synthetic episode generation (e.g., LuckyRobots; claims must be verified). This architecture prioritizes instrumented, reproducible runs (interactive or small-batch).
-- **Physics validity is an empirical question** — Rapier is not the gold standard for contact-rich manipulation; use MuJoCo/PhysX baselines when physics fidelity is central.
-- **Rendering trade-offs** — 3DGS is typically rasterized and does not automatically provide RTX-grade lighting/material effects; dynamic/interactive edits require hybrid representations.
-- **Dependency/roadmap risk** — do not justify the research plan on third-party roadmap or marketing claims (e.g., “500M splats”, “multiplayer”); treat as unverified until benchmarked.
+- information encoded in a representation is necessarily used by the policy;
+- a PID atom is a causal effect, mechanism, semantic concept, or safety certificate;
+- redundancy necessarily causes robustness, uniqueness necessarily causes sensitivity, or synergy necessarily causes compositional competence;
+- negative atoms mean hallucination, misinformation, or harmful behavior without measure-specific theory and intervention evidence;
+- a geometry heuristic proves estimator validity;
+- agreement between observational explanation methods proves faithfulness;
+- a generic logger, viewer, dataset format, simulator, or renderer is novel by itself;
+- one benchmark result establishes real-world reliability, safety, or universal generalization;
+- a profile diagram, README statement, dependency declaration, successful build, or shared maintainer proves end-to-end integration;
+- a post-treatment variable may be used as if it were a baseline effect moderator;
+- physical or closed-loop individual treatment effects are directly observed in an ordinary parallel-arm experiment; exact paired software replays instead identify only the declared frozen-snapshot algorithmic contrast under their clone and random-number-coupling assumptions.
 
-#### §A.1 Value Proposition (and when it is *not* justified)
+### Evidence hierarchy
 
-This project’s scientific contribution is PID‑based diagnostics under controlled interventions—not “a new simulator”. A custom stack is justified only if it enables experiments that are otherwise impractical or error-prone to reproduce. The minimum bar for justification is:
-1. **Intervention + replay as a first-class primitive** (episode-level, not just logs)
-2. **Synchronized capture of** `(V,L,D,A)` **representations** alongside simulator state, prompts, and labels
-3. **One control plane for both GUI and automation** so manual runs and LLM/tool-driven runs are comparable and auditable
+Every claim must follow this order:
 
-If these properties can be achieved with acceptable effort on Isaac Sim/Lab, MuJoCo, or Gazebo for the target tasks, then prisoma should use those systems and focus engineering effort on the experiment harness.
+1. define the scientific variable and target;
+2. define the population estimand and sampling regime;
+3. state the target population and establish identification—consistency, assignment mechanism, positivity, timing, interference, missingness, and measurement—or label the result associational;
+4. validate the estimator at the intended dimension, dependence structure, sample size, and preprocessing;
+5. run leakage-safe and dependence-aware experiments;
+6. compare against strong simpler alternatives;
+7. interpret or operationalize only what survived the earlier gates.
 
-#### §A.2 Why Tauri (and why SparkJS is optional)
-
-- **Tauri (shell):** provides a cross-platform desktop host with a Rust backend (for PID computation, run logging, and the Agent Bridge) and a WebView frontend (for a modern GPU UI).
-- **Renderer (pluggable):** SparkJS (“Spark”; https://sparkjs.dev/ ; https://github.com/sparkjsdev/spark) integrates with the Three.js rendering pipeline and targets broad WebGL2 support; WebGPU-native renderers are also acceptable if they meet interface requirements (version pinning, stable camera model, mesh overlays, and metric‑driven overlays).
-- **Do not rely on ecosystem narratives:** “future-proof” arguments based on third‑party funding/roadmaps are not scientific evidence. Pin revisions, benchmark, and design for swap‑ability.
-
-#### §A.3 Hybrid scene geometry: splats + meshes (+ anything the renderer can draw)
-
-- **Splats are appearance, not physics.** Use 3DGS for photoreal views of captured scenes; use meshes/URDFs/primitive colliders for contacts, robots, and interactive edits.
-- **This matches current 3DGS simulators:** SplatSim (arXiv:2409.10161) uses a standard physics simulator (PyBullet) with splat-based rendering; DISCOVERSE (arXiv:2507.21981) couples 3DGS rendering with MuJoCo and MJCF physical models. “3DGS-based” is a rendering/material pipeline upgrade, not a replacement for collision geometry.
-- **Compositing is a requirement:** 3DGS background + mesh robots/objects + optional point clouds/voxels/SDF debug views + annotation gizmos (selection, transforms, constraints).
-- **Why this matters for PID hypotheses:** it enables controlled *visual* perturbations without changing physical state, controlled *physics* perturbations without changing appearance, and “what‑if” edits whose provenance is logged and replayable.
-
-#### §A.4 Expert-perspective design review (10 lenses)
-
-| Expert lens | Likely objection | Design response / constraint |
-|---|---|---|
-| Robotics simulation engineer | “You’ll reinvent Isaac/MuJoCo poorly.” | Do not compete on generality; benchmark on matched tasks; keep physics swappable; keep experiments the focus. |
-| Graphics/renderer engineer | “3DGS can’t handle dynamics/materials.” | Treat splats as a static appearance layer; dynamic entities are meshes; overlays are diagnostic, not photoreal PT. |
-| Control/robotics researcher | “Where is the ground truth / teacher?” | Require `A*` or external labels where causal claims are made; stage-wise logging prevents misattribution. |
-| PID / information theory expert | “Estimator validity dominates conclusions.” | Enforce Geometry Gate + Experiment 0; downgrade to MI/CI/Ω/discrete PID when geometry fails. |
-| VLA researcher | “D is ill-defined across models.” | Define D per model (explicit vs implicit); prefer decompositions that match operational variables; treat D extraction as an experimental variable. |
-| Systems/performance engineer | “Real-time budgets are fantasy.” | Default to offline-first; measure budgets; make in-loop components opt-in and logged. |
-| MLOps/reproducibility engineer | “Your runs won’t be replayable.” | Event-sourced run logs; deterministic seeds/settings; artifact hashes; same control plane for GUI and API. |
-| Security/privacy engineer | “LLM tooling + local control plane is risky.” | Localhost-only by default; explicit auth token; audit logs; capability gating; safe-mode that disallows file/network actions. |
-| HCI/UX designer | “Diagnostics will be unreadable.” | Timeline-first UI; semantic overlays; consistent encodings; every visualization maps to an exported numeric artifact. |
-| Open-source maintainer | “Scope creep will kill the project.” | Keep simulator minimal; prioritize Experiment 0→3; treat world-model extras as optional modules with clear boundaries. |
-
-#### §A.5 Utility beyond PID (why the broader community might care)
-
-Even if PID results are negative, the infrastructure can remain useful as a **general VLA diagnostics harness**: stage-wise logging/replay, intervention tooling, hybrid 3DGS+mesh visualization, and an agent-native control plane for automated debugging and dataset generation.
-
-#### §A.6 Recommended sequencing (risk-reducing “expert consensus”)
-
-The lowest-risk path is to add complexity only after each prior layer is validated:
-
-1. **Estimator gate (Exp0):** validate the estimator regime on synthetic data (including strong-dependence cases) before touching VLA embeddings.
-2. **Harness bring-up (no predictor):** build logging/interventions/replay and compute **`Flow_gt`** from simulator object poses (no video model; no oracle claims).
-3. **Small baseline (SmolVLA or toy policy):** validate embedding extraction + run metadata + geometry gate behavior on a cheap, reproducible model.
-4. **Primary VLA target (OpenVLA or equivalent):** run Aim 1/2 experiments under matched controls; treat diffusion-based VLAs as a separate axis to test *after* baseline replication.
-5. **Predictor-driven Flow (Dream2Flow/WAN):** integrate external video→flow only when you need embodiment-gap studies or when you want to compare `Flow_pred` to `Flow_gt` as an additional diagnostic layer.
-
-**Why not start with video predictors?** They add major confounds (stochastic generation, heavy compute, opaque failure modes). Starting with `Flow_gt` tests the PID hypotheses about integration with a clean Euclidean variable before introducing an additional model.
-
-#### §A.7 Engineering Execution Plan (v10.1; make it buildable)
-
-This section turns the spec into an actionable build order. The goal is to make **engineering begin** without ambiguity while preserving scientific rigor (Exp0 + geometry gates; no-oracle; contract-first).
-
-**Principles (non-negotiable):**
-1. **Interface-first:** define schemas and APIs before adding UI/features so every interaction is loggable and replayable.
-2. **Offline-first:** build **record → replay → analysis** before “live mode”; real-time is optional and must be measured.
-3. **Hybrid-by-default:** splats are appearance; collisions are mesh/URDF/MJCF geometry in the physics engine (§A.3, §E).
-4. **One control plane:** GUI actions and automation both go through the same Agent Bridge API; every call becomes a run-log event.
-
-**Milestones (implement in order):**
-
-| Milestone | What you build | Frameworks / deps | Primary outputs (artifacts) | Acceptance criteria (definition of done) |
-|-----------|----------------|-------------------|------------------------------|------------------------------------------|
-| **M0** | Estimator gate (Exp0) | Rust (`pid-rs/crates/pid-core`) | CSV + diagnostics | Exp0 passes GO/PIVOT/NO‑GO gates on synthetic data; results stable across seeds |
-| **M1** | Run logs + replay | Rust | Versioned event schema + reader/writer + replay CLI | You can replay a run deterministically into identical state traces; logs include hashes + config |
-| **M2** | Agent Bridge API | Rust (JSON‑RPC over WS; localhost-only) | API spec + server + audit log integration | Every UI/automation action is an RPC; every RPC is appended to the run log; clients can subscribe to a versioned event stream (state/metrics); safe-mode gates |
-| **M3** | Minimal object sim + `Flow_gt` | Rapier (Rust; behind a backend trait boundary) | Deterministic sim loop + collision geometry + `Flow_gt` derived from poses | You can spawn/move objects via Agent Bridge, step deterministically, export `Flow_gt`, and record backend + solver params in the run log (enables later cross-backend replay) |
-| **M4** | Rerun-based Diagnostic Viewer (Phases 1-3) | Rerun SDK (Rust) | Rerun blueprint + logging adapters | Offline replay in Rerun works with timeline; ghost splats visible as secondary point clouds; timeline scrub works |
-| **M5** | VLA embedding capture harness | Python 3.11 (`uv`) + HF/LeRobot (as needed) | Cached `(V,L,D,A)` artifacts + provenance | Contract-first logging works on a small baseline (SmolVLA/toy); artifacts are replay-linked |
-| **M6** | Optional live transport + robot sim | Zenoh + Gazebo (optional) | Live sensor/action streams + synchronized logs | Live mode reproduces the same run-log format; disconnects are handled and logged |
-| **M7** | Optional predictor-driven Flow | External service (WAN-like) + tracking/depth | `Flow_pred` + stage labels + caches | Stage-wise artifacts are persisted; Flow pipelines have negative controls; no “oracle” framing |
-| **M8** | Custom Tauri+SparkJS UI (Phase 4) | Tauri v2 + React + Three.js | Interactive Editor + Shader Effects | (Optional) Advanced interactive tools that Rerun cannot support (e.g. real-time visual force editing) |
-
-**Recommended repo layout for new components (names are suggestions; keep scope tight):**
-- `pid-rs/crates/pid-runlog`: event schemas, hashing, readers/writers, replay utilities.
-- `crates/pid-bridge`: Agent Bridge server + JSON‑RPC method definitions (and a small client).
-- `crates/pid-sim`: deterministic object simulation loop (Rapier first) + `Flow_gt` extraction utilities.
-- `crates/pid-rerun`: Rerun logging adapters and blueprints (Phases 1-3).
-- `crates/pid-tauri`: viewer-first desktop UI (Phase 4; deferred).
-- `uidesigner/`: UI spec + prompt-iteration tooling to design the viewer-first UI before implementation.
-- Optional: `crates/pid-gauss-mi` (or `pid-rs/crates/pid-core::gauss_mi`): 3DGS uncertainty artifacts + view selection (optional confound-control add-on, **not** a numbered milestone — M8 is the Tauri+SparkJS UI; see `GAUSS_MI_INTEGRATION.md` / §C.2).
-- `experiments/` (Python): embedding extraction + dataset orchestration (after M1–M3 are stable).
-
-**Why this order is the fastest path to publishable results:**
-- M1–M3 make the experiments *reproducible* and isolate estimator/geometry issues from UI and predictor confounds.
-- M4 improves iteration speed and produces inspectable diagnostics without making “real-time” a dependency.
-- M5–M7 are additive: they expand model coverage and external validity only after the core diagnostic loop works.
-
-#### §A.8 Ten-Scientist Consensus: Final Rerun + Tauri/SparkJS Solution (2026-05-09)
-
-This is the docset-wide decision record for how to combine **Rerun**, **Tauri/SparkJS**, the **Agent Bridge**, and the licensing/governance constraints. It supersedes any reading that treats Rerun and Tauri/SparkJS as mutually exclusive viewer choices.
-
-**Final architecture in one sentence:** the **versioned run log is the source of truth**, **Rerun is the Phases 1–3 diagnostic/time-machine viewer**, **Tauri/SparkJS is the Phase 4 control/editor/custom-rendering shell**, and **both GUI and automation act only through the Agent Bridge** so every action is replayable.
-
-##### §A.8.1 Ten scientific perspectives
-
-| Perspective | Non-negotiable concern | Consensus decision |
-|---|---|---|
-| **1. Information theorist** | PID atoms are meaningful only inside a validated estimator regime. | Keep Exp0/geometry gates upstream of any VLA claim; Rerun/Tauri only visualize gated artifacts. |
-| **2. Statistical estimator scientist** | Seed, bootstrap, monotonicity, CMI, and invariant failures must block interpretation. | Treat current strict `NO-GO`/`PIVOT` outputs as useful blockers; do not hide them behind attractive UI. |
-| **3. Geometric data scientist** | kNN PID depends on representation geometry and metric validity. | Log preprocessing, metric, intrinsic-dimension, distance-concentration, and hyperbolicity diagnostics in the run log. |
-| **4. Robotics experimentalist** | Manipulation conclusions require replayable state/action traces and controlled interventions. | Build deterministic run logs and replay before live transport or complex robot stacks. |
-| **5. Simulation/physics scientist** | Splats do not provide contact physics. | Use 3DGS as appearance; use explicit collision geometry in one physics backend per run, with cross-backend replay as a robustness control. |
-| **6. VLA/ML scientist** | Model claims require `(V,L,D,A)` contracts, failure labels, and non-PID baselines. | Use the offline embedding harness only after M1–M4; connect it to one small baseline/task before broad model comparisons. |
-| **7. Visualization/HCI scientist** | Diagnostics need timeline scrubbing and honest provenance more than custom shaders at first. | Use Rerun first; represent ghost splats as secondary point clouds/overlays; defer SparkJS shaders until the scientific loop works. |
-| **8. Reproducibility/MLOps scientist** | Manual UI clicks are not evidence unless they become replayable events. | Every GUI/script/LLM action must be an Agent Bridge RPC and a run-log event with hashes/provenance. |
-| **9. Safety/governance scientist** | External services, generated assets, and automation can create untracked side effects. | Keep risky auxiliary tooling off the critical path; require explicit opt-in, local-only bridge defaults, and logged prompts/versions/seeds. |
-| **10. Open-source/licensing scientist** | Code, dependencies, models, datasets, and assets have different license surfaces. | The MIT project can use permissive Rerun/Tauri/SparkJS/Three.js dependencies, but release builds need license fields, notices, and model/data/asset audits. |
-
-##### §A.8.2 Final 10-step solution
-
-1. **Freeze the scientific gate first (M0).** Keep Exp0 strict: seed sweeps, monotonicity, CMI nonnegativity, invariant bounds, geometry diagnostics, config hashes, and explicit GO/PIVOT/NO-GO output.
-2. **Create `pid-runlog` as the canonical data spine (M1).** Define versioned events for run start/end, config hash, observations, actions, poses, embeddings, PID metrics, geometry metrics, interventions, artifacts, and errors.
-3. **Make deterministic replay a first-class command (M1).** A run must replay into the same state/action/artifact trace before it is eligible for Rerun visualization, Tauri controls, or downstream analysis.
-4. **Implement the Agent Bridge as the only control plane (M2).** Expose localhost JSON-RPC/WebSocket methods for reset/step/replay/scene edits/interventions/exports; append every request and response summary to the run log.
-5. **Build the minimal object sim and `Flow_gt` path (M3).** Start with Rapier behind a backend trait, explicit collision geometry, object poses, and `Flow_gt` derived from logged poses; record backend/solver parameters.
-6. **Make Rerun the research viewer (M4).** Convert run logs to Rerun streams/`.rrd` recordings with a stable blueprint: 3D scene, ghost flow overlay, PID/geometry plots, action traces, event log, and gate status.
-7. **Connect the offline VLA embedding harness only after replay works (M5).** Pin one baseline model/task first; log `(V,L,D,A)`, preprocessing, layer/contracts, failure labels, and non-PID baselines before making PID claims.
-8. **Gate optional live and predictor paths (M6–M7).** Zenoh/Gazebo/live streams and external video→flow services must emit the same run-log schema; `Flow_pred` is an additional diagnostic, not an oracle.
-9. **Use Tauri/SparkJS as the Phase 4 shell, not the source of truth (M8).** Start by launching native Rerun recordings from Tauri; then prototype embedded Rerun WebViewer; use SparkJS only for custom shaders/editors Rerun cannot support.
-10. **Ship with license and provenance discipline.** Add explicit local crate license fields, generate third-party notices, audit Rust/npm/Python dependencies, keep Tauri/Rerun sidecar notices, and treat model weights, datasets, generated meshes, and 3DGS captures as separately licensed artifacts.
-
-##### §A.8.3 Practical Rerun/Tauri integration modes
-
-| Mode | When to use | Rule |
-|---|---|---|
-| **Native Rerun sidecar** | First production-like workflow | Tauri or CLI opens a run-derived `.rrd`; Rerun remains a separate diagnostic window. |
-| **Embedded Rerun WebViewer** | After `.rrd` export and blueprint stability | Tauri hosts the web viewer for a single-window UX, but the run log remains canonical. |
-| **SparkJS custom panel** | Only for Phase 4 features Rerun cannot express | Use for editable splats, custom PID heatmap shaders, collider alignment, and visual-force handles; all edits still go through Agent Bridge. |
-
-##### §A.8.4 License decision
-
-Current package metadata checked in this repo context is compatible with the MIT project direction:
-
-- `rerun` Cargo crate: `MIT OR Apache-2.0`.
-- `@tauri-apps/api`: `Apache-2.0 OR MIT`.
-- `@sparkjsdev/spark`: `MIT`.
-- `@rerun-io/web-viewer`: `MIT`.
-- `three`: `MIT`.
-- Current important Rust dependencies are permissive (`MIT OR Apache-2.0`, `Apache-2.0`, or BSD-style); `sublime_fuzzy` uses a `LICENSE` file rather than a populated Cargo `license` field and should be handled by automated license tooling before distribution.
-
-Before any public binary/app release, add `license = "MIT"` to local crates or explicitly choose a dual license, generate `THIRD_PARTY_NOTICES.md`, and re-check exact dependency versions. Keep VLA checkpoints, video/world-model weights, datasets, generated meshes, prompts, and 3DGS captures outside the code license unless their provenance and terms are explicitly recorded.
+Failure at an earlier level blocks later claims.
 
 ---
 
-### §B. Complete System Architecture
+# 1. Scientific positioning and novelty
 
-> **Scope note (v10.1):** This is the **target** “full stack” architecture diagram (Phase 4+). Phases 1–3 are **Rerun-First** (offline replay + diagnostic viewer) and do **not** require a custom Tauri/SparkJS app or Zenoh/Gazebo; see §A.7/§A.8 (M0–M8 and the ten-step consensus) plus §11.1 for what exists today vs. what is planned.
+## 1.1 What the 2026 literature changes
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                           PRISOMA UNIFIED SIMULATION ENVIRONMENT                         │
-│                              (Tauri + SparkJS + Modular Physics)                         │
-├─────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────────────────────┐│
-│  │                              TAURI APPLICATION SHELL                                 ││
-│  │  ┌─────────────────────────────────────────────────────────────────────────────────┐││
-│  │  │        SPARKJS / THREE.JS RENDERING LAYER (WebGL2; WebGPU alt optional)        │││
-│  │  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌─────────────────┐  │││
-│  │  │  │  3DGS Splats  │  │  Mesh Overlay │  │  UI Overlays  │  │  PID Heatmaps   │  │││
-│  │  │  │  (PLY/SPZ/    │  │  (GLB/GLTF)   │  │  (Three.js)   │  │  (Syn/Red/Unq)  │  │││
-│  │  │  │   SPLAT/SOG)  │  │  Collision    │  │  Camera feeds │  │  Color-coded    │  │││
-│  │  │  └───────────────┘  └───────────────┘  └───────────────┘  └─────────────────┘  │││
-│  │  │                              ↕ Dyno Pipeline                                    │││
-│  │  │  ┌─────────────────────────────────────────────────────────────────────────────┐│││
-│  │  │  │  PROCEDURAL SPLAT SYSTEM (SparkJS Dynos)                                    ││││
-│  │  │  │  • Weather effects (rain, fog, dust as dynamic splats)                      ││││
-│  │  │  │  • Lighting changes (time-of-day, shadows via splat opacity)                ││││
-│  │  │  │  • Domain randomization (procedural texture/color variation)                 ││││
-│  │  │  │  • Real-time splat editing (select, move, scale, delete, clone)             ││││
-│  │  │  └─────────────────────────────────────────────────────────────────────────────┘│││
-│  │  └─────────────────────────────────────────────────────────────────────────────────┘││
-│  │                                         ↕ IPC                                        ││
-│  │  ┌─────────────────────────────────────────────────────────────────────────────────┐││
-│  │  │                           RUST BACKEND (Tauri Core)                             │││
-│  │  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌─────────────────┐  ┌─────────────────┐  │││
-│  │  │  │ Physics Engine │  │  pid-core     │  │  Asset Manager│  │  Zenoh Client   │  │  Agent Bridge   │  │││
-│  │  │  │ (Rapier/MuJoCo)│  │  (I^sx_∩)     │  │  (PLY/SPZ/GLB)│  │  (ROS 2 bridge) │  │ (MCP/JSON-RPC)  │  │││
-│  │  │  │ • Collision  │  │  • Estimator  │  │  • Import     │  │  • Pub/Sub      │  │  • Live control │  │││
-│  │  │  │ • Dynamics   │  │  • Bootstrap  │  │  • Convert    │  │  • Zero-copy    │  │  • Introspection│  │││
-│  │  │  │ • Raycasting │  │  • Stream     │  │  • LOD        │  │  • Latency: measure ││  • Audit log    │  │││
-│  │  │  └───────┬───────┘  └───────┬───────┘  └───────┬───────┘  └────────┬────────┘  └────────┬────────┘  │││
-│  │  │          │                  │                  │                   │                   │           │││
-│  │  │          └──────────────────┴──────────────────┴───────────────────┴───────────────────┘           │││
-│  │  │                                    ↕                                            │││
-│  │  │  ┌─────────────────────────────────────────────────────────────────────────────┐│││
-│  │  │  │  PEGS-STYLE DUAL REPRESENTATION                                             ││││
-│  │  │  │  ┌─────────────────────────────┐  ┌─────────────────────────────────────┐   ││││
-│  │  │  │  │  PARTICLE LAYER (Physics)   │  │  GAUSSIAN LAYER (Rendering)         │   ││││
-│  │  │  │  │  • Rapier rigid bodies      │←→│  • SparkJS splats (visual)          │   ││││
-│  │  │  │  │  • Collision shapes         │  │  • Attached to particles            │   ││││
-│  │  │  │  │  • Joint constraints        │  │  • "Visual forces" correction       │   ││││
-│  │  │  │  │  • Contact forces           │  │  • Predicted vs observed sync       │   ││││
-│  │  │  │  └─────────────────────────────┘  └─────────────────────────────────────┘   ││││
-│  │  │  └─────────────────────────────────────────────────────────────────────────────┘│││
-│  │  └─────────────────────────────────────────────────────────────────────────────────┘││
-│  └─────────────────────────────────────────────────────────────────────────────────────┘│
-│                                          ↕ Zenoh (latency: measure)                      │
-│  ┌─────────────────────────────────────────────────────────────────────────────────────┐│
-│  │                         HEADLESS GAZEBO (Physics + Sensors)                          ││
-│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌─────────────────────┐  ││
-│  │  │  Robot URDF   │  │  Sensor Sim   │  │  World State  │  │  ROS 2 Interface    │  ││
-│  │  │  • Franka     │  │  • RGB-D      │  │  • Poses      │  │  • /joint_states    │  ││
-│  │  │  • WidowX     │  │  • LiDAR      │  │  • Velocities │  │  • /cmd_vel         │  ││
-│  │  │  • GR1       │  │  • Force/Torque│  │  • Contacts   │  │  • /camera/image    │  ││
-│  │  │  • Custom    │  │  • IMU        │  │  • Scene graph│  │  • /tf              │  ││
-│  │  └───────────────┘  └───────────────┘  └───────────────┘  └─────────────────────┘  ││
-│  └─────────────────────────────────────────────────────────────────────────────────────┘│
-│                                          ↕ Zenoh                                        │
-│  ┌─────────────────────────────────────────────────────────────────────────────────────┐│
-│  │                              VLA INFERENCE (External)                                ││
-│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌─────────────────────┐  ││
-│  │  │  OpenVLA      │  │  DreamVLA     │  │  PixelVLA     │  │  Custom Policy      │  ││
-│  │  │  (7B, CUDA)   │  │  (D states)   │  │  (visual)     │  │  (external)         │  ││
-│  │  └───────────────┘  └───────────────┘  └───────────────┘  └─────────────────────┘  ││
-│  └─────────────────────────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-```
+The novelty case in v10.7 is too broad. By July 12, 2026:
+
+- an ICLR 2026 paper already applies PID across 26 large vision–language models, tasks, layers, and training dynamics [R18];
+- a July 2026 multimodal foundation-model paper already uses a self-supervised PID-guided objective with counterfactual modality dropping and swapping, further narrowing any generic claim of novelty for “PID in multimodal learning” [R100];
+- VLA failure prediction already includes explicit information-theoretic signals and cross-domain evaluation, making Tri-Info a mandatory baseline [R25];
+- runtime VLA monitoring and calibration now includes SAFE, Hide-and-Seek, Rewind-IL, architecture-stratified black-box action monitors, Foresight, ActProbe, VLAConf, perturbation-based uncertainty, activation-warning studies, and temporal-difference calibration; together they span supervised internal features, coarsely supervised temporal localization, action-chunk self-consistency, kinematic signals, world-model latents, one-class confidence, perturbation disagreement, conformal calibration, simulation, and real robots [R95, R101–R105, R109–R112];
+- VLA diagnosis already combines representation tracing, attention knockout, causal masking, sparse-feature intervention, and closed-loop behavior tracing [R26–R31];
+- new benchmarks explicitly separate apparent capability from action-grounded use, test controlled physical reasoning, expose shortcutting or memorization, question whether task success identifies mechanism, and add process-level safety costs and risk-exposure time rather than relying on binary success alone [R27, R32–R36, R56];
+- robotics ecosystems already provide timestamped multimodal containers, standardized episodic datasets, cross-embodiment corpora, visualization, and replay [R42–R48].
+
+Prisoma should therefore claim novelty only for the **combination** of:
+
+1. an explicit availability–use–effect distinction;
+2. paired frozen-snapshot responses and randomized closed-loop effects as distinct, claim-matched reference criteria;
+3. estimator validation and abstention tied to the exact regime;
+4. prospective, leakage-safe prediction on held-out task families;
+5. a portable capture/intervention/replay contract; and
+6. a head-to-head test of PID’s incremental value.
+
+This is a dated, documented-search statement, not an absolute priority claim. Before submission, rerun the search with saved queries, databases, inclusion criteria, screening decisions, and a machine-readable ledger.
+
+## 1.2 Why the project matters even if niche
+
+Embodied policies are sequential systems in which perception, instruction conditioning, internal state, action generation, controller filtering, and physical dynamics interact. Aggregate success can hide distinct failure mechanisms. An intervention-grounded diagnostic substrate can:
+
+- distinguish “the model represented the relevant fact” from “the action pathway used it”;
+- locate whether a failure entered through perception, conditioning, memory, action decoding, control, or execution;
+- test whether an explanation predicts behavior under controlled perturbation;
+- compare architectures without pretending that unlike hidden states are the same variable;
+- evaluate prospective early-warning signals without temporal leakage;
+- produce reusable, auditable experiment records.
+
+The infrastructure contribution is not a “PID viewer.” It is an **experiment-semantics layer** binding interventions, internal-state provenance, replay, and estimands to standard robotics data.
+
+## 1.3 Contribution counterfactual
+
+Every infrastructure feature must answer:
+
+> What scientific result becomes possible, more reliable, or cheaper because Prisoma exists, compared with MCAP/ROS bags, LeRobot/RLDS, Rerun, and an ordinary experiment script?
+
+A feature counts as a research contribution only if it is externally benchmarked on a measurable axis such as timestamp alignment, dropped-event detection, intervention-assignment integrity, replay fidelity, provenance completeness, adapter effort, estimator abstention, or cross-policy portability.
 
 ---
 
-### §C. Asset Pipeline and Format Support
+# 2. First-principles model
 
-**Target formats (renderer support varies; verify with chosen stack):**
+## 2.1 Sequential causal system
 
-| Format | Type | Use Case | Import Method |
-|--------|------|----------|---------------|
-| **.PLY** | Point cloud / Splats | 3DGS scenes, COLMAP output | Renderer-native (SparkJS or equivalent) |
-| **.SPZ** | Compressed splats | Optimized 3DGS storage | Renderer-native (SparkJS or equivalent) |
-| **.SPLAT** | Raw splats | Fast loading | Renderer-native (SparkJS or equivalent) |
-| **.KSPLAT** | Keyframed splats | Animated splats | Renderer-native (SparkJS or equivalent) |
-| **.SOG** | Structured splats | Semantic splats | Renderer-native (SparkJS or equivalent) |
-| **.GLB/.GLTF** | Mesh + materials | Collision geometry, robots | Three.js loader → collision mesh |
-| **.URDF** | Robot description | Gazebo robots | Gazebo native |
-| **.USD/.USDA/.USDC** | OpenUSD scene | Isaac Sim / LeIsaac interop; scene composition | Isaac Sim native; optional converter into PID‑Splat scene graph (planned) |
-| **.USDZ** | Packaged OpenUSD | Bundle USD + textures/assets for distribution | Unpack to `.usda/.usdc` (e.g., LeIsaac workflow); import method depends on tooling |
+Model an episode as a partially observed controlled dynamical system. At time \(t\):
 
-**Asset workflow:**
-```
-Real Scene Capture    3DGS Reconstruction    Renderer Import   Physics Binding
-─────────────────    ──────────────────    ──────────────    ──────────────────
-iPhone/DSLR video → COLMAP + gsplat/nerfstudio → .PLY/.SPZ → Collision proxies (separate meshes/primitives/URDF)
-                                                    ↓
-                                              Dyno pipeline
-                                              (edit, randomize)
-```
+- \(X_t\): latent physical/environment state;
+- \(O_t^m\): observation in modality \(m\), e.g. RGB, depth, tactile, audio, or proprioception;
+- \(L\): instruction, goal, or task specification;
+- \(H_t\): observable history available to the policy;
+- \(R_{t,\ell}^{q}\): internal representation at declared module/layer \(\ell\) and provenance axis \(q\);
+- \(\Pi_t(\cdot\mid H_t,L)\): policy distribution over an action, token sequence, trajectory, or action chunk;
+- \(A_t^{\pi}\): sampled or decoded policy proposal;
+- \(C_t\): controller, safety filter, inverse kinematics, smoothing, chunk truncation, or post-processing state;
+- \(A_t^{\mathrm{exec}}=g(A_t^{\pi},C_t)\): executed command;
+- \(X_{t+1}\sim P(\cdot\mid X_t,A_t^{\mathrm{exec}},E_t)\): next state under exogenous factors \(E_t\);
+- \(Z_{t:t+h}\): downstream outcome, such as contact, object motion, progress, collision, or failure;
+- \(J_t\): assigned experimental intervention, including target, dose, block, assignment probability, and seed.
 
-#### §C.1 Optional: PLY → USDZ → USD (Isaac Sim / LeIsaac Interop)
+The schema must preserve these distinctions. **Policy output, executed command, and physical outcome are different targets.**
 
-LeIsaac’s Marble tutorial illustrates a concrete OpenUSD bridge for Gaussian splats:
+## 2.2 Three target families
 
-1. Convert splats to USDZ (packaged OpenUSD) using 3DGrut:
-   - `python -m threedgrut.export.scripts.ply_to_usd path/to/your/splats.ply --output_file path/to/output.usdz`
-2. Unpack the `.usdz` (it contains a `default.usda` stage) and load it in Isaac Sim for rendering.
-3. Reference a collision mesh (e.g., a decimated `.glb`) under `/World/Xform`, align transforms so splats and mesh overlap, and configure colliders.
-4. Export a single `.usd` stage as the “background scene” for downstream task composition.
+### Policy decision target
 
-This is optional in prisoma: it is an interoperability path for OpenUSD ecosystems, not a requirement for the Tauri/SparkJS/Gazebo stack.
+Examples: action-token distribution, continuous action density, denoising trajectory, action chunk, or a declared low-dimensional functional of the policy distribution. This asks what is associated with the learned policy’s decision before downstream control.
 
-#### §C.2 Optional: GauSS‑MI uncertainty + active view selection (proposed; this repo)
+### Executed-action target
 
-If you use 3DGS scenes, **reconstruction quality becomes a confound**: PID features can shift simply because parts of the scene are poorly reconstructed (few views, high residual error, transparent/specular surfaces). This repo’s proposed “GauSS‑MI” module (see `GAUSS_MI_INTEGRATION.md`) treats 3DGS uncertainty as a first-class diagnostic signal:
+This includes inverse kinematics, clipping, collision checking, force limiting, smoothing, latency compensation, and human override. It asks what information survives into actuation.
 
-- **Per‑Gaussian uncertainty map:** estimate uncertainty from residual image loss for each Gaussian (and derived scene‑level summary stats).
-- **Uncertainty‑aware diagnostics:** report *effective sample size* (`N_eff`) and “uncertainty corruption” indicators so you can detect when visual unreliability drives PID results.
-- **(Optional) uncertainty‑weighted estimators:** down‑weight unreliable samples/features when computing MI/PID (requires a dedicated validation gate; do not assume correctness without tests).
-- **Active view selection:** choose additional camera viewpoints to reduce uncertainty (information-gain framing) and log the decision as a reproducible intervention.
+### Physical-outcome target
 
-**Scientific role:** this strengthens H1–H6 by adding a negative control against “PID signal == reconstruction artifact”. Treat it as an **optional module** until it is implemented and validated in‑repo.
+Examples: next-state change, object flow, contact state, safety cost, progress, or success. This target mixes policy behavior with controller and environment dynamics.
 
----
+Every analysis must name its target. A claim about policy output cannot be generalized silently to physical outcome.
 
-### §D. PEGS-Style Dual Gaussian-Particle Representation
+## 2.3 Three estimand classes
 
-> **Status:** The code blocks in §§D–§H are illustrative pseudocode for the *target* stack. They are not implemented in this repo today unless explicitly stated elsewhere (see §11.1 for implementation status).
+### Observational information
 
-**Implementation in Modular Physics + SparkJS:**
+For sources \(S_1,S_2\) and target \(Y\),
 
-```rust
-// Rust backend: Particle-Physics layer (Generic Trait over Rapier/MuJoCo)
-pub struct PhysicsParticle {
-    body_handle: PhysicsBodyHandle,         // Backend-specific handle
-    collider_handle: PhysicsColliderHandle, // Backend-specific handle
-    bindings: Vec<GaussianBinding>,         // Attached splats + local offsets
-    mass: f32,
-    material: PhysicsMaterial,
-}
+\[
+I_{P_{\mathrm{obs}}}(S_1,S_2;Y)
+\]
 
-pub struct GaussianBinding {
-    splat_id: u32,         // Renderer-side ID / index
-    local_offset: Vec3,    // Offset from particle center
-    scale_factor: f32,     // Scale relative to particle
-}
+is a functional of the observational distribution induced by policy, task mixture, intervention mixture, sampling, preprocessing, and temporal aggregation. It measures dependence in that regime. It does not establish causal use.
 
-// Sync loop: Physics → Rendering
-pub fn sync_particles_to_splats(
-    physics: &dyn PhysicsBackend,      // Modular backend trait
-    splat_transforms: &mut SplatTransformBuffer,
-) {
-    for particle in physics.particles().iter() {
-        let transform = physics.get_body_transform(particle.body_handle);
-        for binding in particle.bindings.iter() {
-            let splat_idx = binding.splat_id as usize;
-            // Pseudocode: apply the rigid-body transform plus a local binding offset/scale.
-            splat_transforms[splat_idx] =
-                transform * Transform::from_offset_and_scale(binding.local_offset, binding.scale_factor);
-        }
-    }
-}
-```
+### Interventional effect
 
-```typescript
-// SparkJS frontend: Visual correction (PEGS-style "visual forces")
-class VisualForceCorrector {
-    computeVisualForces(predicted: RenderBuffer, observed: CameraFrame): ForceField {
-        // Compare predicted render vs actual camera feed
-        const diff = this.imageDifference(predicted, observed);
+For treatment \(J\) and closed-loop outcome \(Y\), a causal estimand may be
 
-        // Convert pixel differences to 3D forces on splats
-        const forces = this.backprojectToForces(diff, this.camera);
+\[
+\tau(x)=\mathbb{E}[Y(1)-Y(0)\mid X=x].
+\]
 
-        // Send corrections to Rust backend
-        return forces;
-    }
-}
-```
+Identification of this quantity requires randomized assignment or explicit exchangeability, positivity, consistency, interference, and missingness assumptions. It is the reference for claims about the behavioral or physical effect of the implemented intervention in the declared population.
+
+A **paired frozen-snapshot algorithmic response** is a different estimand: a divergence between policy outputs computed from two immutable software clones under a prespecified state-reset and random-number coupling contract. It may be directly computable for the instrumented software under that contract, but it is not an observed physical individual treatment effect and does not identify a closed-loop causal effect. It is the appropriate reference only for bounded claims about algorithmic sensitivity at the cloned state.
+
+### Prospective prediction
+
+For landmark \(t_0\) and horizon \(h\), define
+
+\[
+F_{t_0,h}=\mathbb{1}\{\text{failure in }(t_0,t_0+h]\}.
+\]
+
+Only information available by \(t_0\) may be used. This estimates predictive utility, not causality.
+
+## 2.4 Availability, use, and effect
+
+A representation may encode a fact that downstream action generation ignores. For a task-relevant variable \(Q\), define:
+
+1. **Availability \(A_Q\):** held-out decodability of \(Q\) from \(R\);
+2. **Policy use \(U_Q\):** causal effect of a targeted input/pathway/internal intervention on the policy output;
+3. **Closed-loop effect \(E_Q\):** causal effect on executed behavior or physical outcome.
+
+The object of interest is
+
+\[
+G_Q=(A_Q,U_Q,E_Q),
+\]
+
+not any component alone. High \(A_Q\) with near-zero \(U_Q\) is an availability–use gap. High \(U_Q\) with low \(E_Q\) can indicate controller compensation or environmental irrelevance. Recent action-grounding and mechanistic VLA studies make this distinction central [R26–R36].
+
+## 2.5 Unit of inference
+
+The default independent unit is the randomized **case** or **episode**, not a frame. A case is a reproducible tuple of task family, scene specification, initial condition, policy checkpoint, and intervention assignment. Frames and overlapping windows within a case are repeated measures.
+
+Allowed units must be declared:
+
+- task family for transfer claims;
+- case/initial-condition seed for paired intervention claims;
+- episode for outcome prediction;
+- episode landmark only with clustered or survival methods;
+- robot/embodiment for cross-embodiment claims.
+
+Effective sample size is not the number of logged frames.
 
 ---
 
-### §E. Collision and Contact Handling (Hybrid; splats are render-only by default)
+## 2.6 Identification assumptions are part of the estimand
 
-**Reality check from existing 3DGS simulators:** “3DGS-based” does not mean “3DGS-only physics”.
-- **SplatSim** uses Gaussian splats for photoreal rendering while using an existing physics simulator (**PyBullet**, per the paper) for dynamics, contacts, and collisions.
-- **DISCOVERSE** explicitly couples Gaussian splatting with a physics engine (**MuJoCo**, per the paper) and supports mesh assets and MJCF physical models for interactive objects/robots.
+Exact paired computational response requires an immutable clone, explicit cache/memory reset, a declared random-number coupling, and a deterministic evaluation-order contract. Randomized closed-loop effects require a separately declared experiment. For every confirmatory contrast, freeze the applicable assumptions and the evidence used to assess them [R87–R91].
 
-**Implication for PID‑Splat:** treat 3DGS as the **appearance layer**. Contacts/collisions should be handled by the chosen physics backend (Rapier/MuJoCo/etc.) using explicit collision geometry (URDF/MJCF primitives, convex decompositions, or decimated meshes). This matches standard simulator practice and keeps “physics validity” separate from “visual realism”.
+### Treatment definition and consistency
 
-**Optional research (not required for core PID experiments):** splat-field collisions can be explored as a *broad-phase proximity heuristic* or for editor tooling, but should not be the default contact model for contact-rich manipulation until benchmarked against mesh/primitive baselines.
+Each intervention is a versioned operation, not a label such as “vision ablation.” Record target, site, timing, dose, replacement distribution, random seed, duration, downstream controller state, and treatment receipt. The potential outcome notation
 
-#### E.1 Multi-engine physics (per-object backends) — what is feasible
+\[
+Y_i(j)
+\]
 
-It is tempting to ask for “Rapier walls + MuJoCo cups” (or similar). In general, **contact-rich scenes want a single constraint solver**: mixing physics engines at the object level is not a normal feature of robotics simulators, because contacts/joints form one coupled system.
+is meaningful only when treatment version \(j\) is sufficiently well specified that two nominally identical assignments do not hide scientifically different manipulations. If multiple versions are intentionally pooled, define the mixture and its assignment probabilities. A claim applies to that intervention family, not to every conceivable way of changing the source.
 
-For prisoma, the practical options are:
-1. **One backend per run (recommended default):** pick Rapier for fast, instrumented iteration or MuJoCo as a contact-physics baseline. This keeps replay, attribution, and intervention semantics clean.
-2. **Cross-backend replay (recommended robustness check):** record the same initial state + action log and replay it under a different backend, then report divergence metrics (state/contacts/success). This directly tests whether a PID finding is an artifact of one simulator’s contact model.
-3. **Physics “islands” (advanced; restricted coupling):** you can simulate disjoint object groups in different engines **only if cross-island contacts are not required**. Coupling is typically one-way (e.g., a MuJoCo subscene treats the rest of the world as kinematic colliders duplicated into MuJoCo). If a MuJoCo object must collide with a wall, that wall must exist as collision geometry in MuJoCo as well—having the wall “in Rapier” does not help that contact.
+### Randomization, exchangeability, and positivity
 
-**Why this matters for the hypotheses:** physics mismatch is a confound for H1–H6 (failures can be contact-model artifacts). Treating the physics backend as an explicit experimental variable—and adding cross-backend replay as a negative control—strengthens claims about *V–L integration* vs environment idiosyncrasies.
+The primary causal analysis is intention-to-treat (ITT) with the recorded assignment probability. Verify that assignment was generated before treatment, could not be overwritten by the policy or operator, and has support in every prespecified analysis stratum. Report realized treatment counts and probabilities by task family, checkpoint, block, and dose. Empty or near-empty cells change the target or force pooling; they are not solved by a flexible model.
 
-**FOCI-inspired approach (Field Overlap Collision Integral):**
+Randomization does not repair post-assignment exclusions. Crashes, reset failures, missing sensors, and policy timeouts are outcomes or censoring events until a prespecified rule says otherwise. A complete-case analysis requires an additional missingness assumption and is secondary.
 
-```rust
-// Optional: Gaussian-Gaussian proximity via overlap integral.
-// Treat as an editor/broad-phase heuristic unless validated against mesh/primitive baselines.
-pub fn gaussian_overlap_collision(
-    g1: &GaussianSplat,
-    g2: &GaussianSplat,
-) -> Option<CollisionContact> {
-    // Compute overlap integral between two Gaussians
-    let overlap = compute_gaussian_overlap(
-        g1.mean, g1.covariance,
-        g2.mean, g2.covariance,
-    );
+### No anticipation and temporal ordering
 
-    if overlap > COLLISION_THRESHOLD {
-        // Penetration depth proportional to overlap
-        let depth = overlap.ln() / COLLISION_SENSITIVITY;
-        let normal = (g2.mean - g1.mean).normalize();
+A diagnostic used to moderate H1 must be available before the randomized intervention is assigned or applied, except for immutable design variables. Features computed from treated activations, post-intervention policy outputs, target engagement, downstream controller behavior, or future frames are post-treatment variables and cannot be primary baseline moderators. They may be manipulation checks, mediators, or outcomes under a separate estimand.
 
-        Some(CollisionContact {
-            point: (g1.mean + g2.mean) / 2.0,
-            normal,
-            depth,
-        })
-    } else {
-        None
-    }
-}
+For sequential assignments, define decision times and eligibility before observing the current treatment. If treatment at time \(t\) changes eligibility, diagnostics, or outcomes at later times, use a longitudinal estimand rather than pretending repeated frames are independent parallel trials.
 
-// Hybrid approach: Gaussian for proximity, mesh for precision
-pub struct HybridCollider {
-    gaussian_cloud: Vec<GaussianSplat>,  // Fast broad-phase
-    collision_mesh: TriMesh,              // Precise narrow-phase (from GLB)
-}
-```
+### Interference and shared state
 
-**Raycasting on splat fields:**
+The stable-unit assumption is not automatic in robotics. Interference can arise through persistent simulator state, object wear, battery/thermal state, shared maps, adaptive controllers, human learning, cached model state, network congestion, or simultaneous robots. Declare the interference unit and reset boundary. When episodes share state, randomize and infer at the independent cluster level or model the exposure mapping explicitly. “Same seed” is not proof of independent counterfactual worlds.
 
-**Implementation note:** the naive O(|splats|) scan below is for illustration only. Any usable depth/raycast pipeline needs an acceleration structure (BVH/grid/kd-tree or GPU raster techniques) and should composite meshes/URDF geometry with the splat appearance layer.
+### Treatment receipt and noncompliance
 
-```rust
-pub fn raycast_splats(
-    ray: Ray,
-    splats: &SplatCloud,
-    max_hits: usize,
-) -> Vec<SplatHit> {
-    let mut hits = Vec::new();
+Record assignment \(J\), attempted application, actual treatment receipt \(R\), target-engagement measures, and any downstream compensation. ITT remains primary. Per-protocol, complier, or dose-received effects are secondary because conditioning on receipt can destroy randomization. Such estimates require an explicit instrumental-variable, principal-stratum, or structural model and its assumptions; they must not be presented as a cleaner ITT.
 
-    for (idx, splat) in splats.iter().enumerate() {
-        // Ray-ellipsoid intersection (splat as 3D Gaussian ellipsoid)
-        if let Some(t) = ray_gaussian_intersection(&ray, splat) {
-            hits.push(SplatHit {
-                splat_index: idx,
-                distance: t,
-                point: ray.origin + ray.direction * t,
-                density: splat.opacity_at(ray.origin + ray.direction * t),
-            });
-        }
-    }
+### Measurement validity
 
-    hits.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
-    hits.truncate(max_hits);
-    hits
-}
-```
+The intervention outcome must measure the declared target. Policy divergence, executed-action change, contact, progress, safety cost, and task success answer different questions. Measurement error in source tensors, clocks, transforms, labels, and outcome detectors can attenuate or fabricate moderation. Every primary measure needs a versioned algorithm, calibration or validation evidence, and a blind error audit on held-out records.
 
----
+### Identified versus mechanistic conclusions
 
-### §F. Environment Simulation (Lighting, Weather, Domain Randomization)
+A randomized perturbation identifies the effect of the implemented perturbation under the studied policy–environment distribution. It does not by itself prove that the perturbed variable is the unique natural mechanism, because an intervention may be off-support, non-modular, or compensated downstream. Mechanism claims require target engagement, specificity, dose response, alternative intervention constructions, positive and negative controls, and replication at another site or task family.
 
-**SparkJS Dyno-based procedural effects:**
+## 2.7 Three generalization targets
 
-**Reproducibility note:** treat each effect as a parameterized intervention. Use a seeded RNG (avoid unlogged `Math.random()`), clamp color/opacity ranges, and record parameters + seeds in the run log so perturbation suites are replayable.
+Every result must choose one of three targets and use language that matches it.
 
-```typescript
-// Weather as dynamic splat modification
-class WeatherDyno extends SparkDyno {
-    // Rain: spawn temporary splats with downward velocity
-    rain(intensity: number): void {
-        const rainSplats = this.generateRainDrops(intensity);
-        this.splats.addTemporary(rainSplats, { lifetime: 2.0 });
-    }
+1. **Finite benchmark target.** The average over the exact sampled cases, seeds, tasks, policy checkpoint, controller, and software revisions. Randomization supports causal inference for this finite set, subject to execution integrity.
+2. **Task-family superpopulation target.** An expectation over a declared sampling process for layouts, objects, instructions, initial states, and stochastic executions within named task families. Generalization requires that cases were sampled or weighted to represent that process and that uncertainty reflects the family hierarchy.
+3. **Transport target.** The effect or predictive performance under a different policy, embodiment, simulator, sensor suite, controller, institution, or real environment. Transport requires explicit effect modifiers, overlap, a selection diagram or equivalent transport assumptions, and external validation. A second benchmark is not automatically representative of deployment.
 
-    // Fog: modify all splat opacities based on distance
-    fog(density: number, falloff: number): void {
-        this.splats.forEach(splat => {
-            const distance = splat.position.distanceTo(this.camera.position);
-            splat.opacity *= Math.exp(-density * distance / falloff);
-        });
-    }
+Report both the empirical distribution and the intended target distribution. Where deployment prevalence, task mix, or sensor quality differs, evaluate reweighting and recalibration, and present unweighted results as the benchmark-specific quantity. Do not use “generalizes” without naming the axes varied, held fixed, and excluded.
 
-    // Dust: particle system using splats
-    dust(windDirection: Vec3, particleCount: number): void {
-        const dustSplats = this.generateDustParticles(particleCount);
-        dustSplats.forEach(s => s.velocity = windDirection.multiplyScalar(Math.random()));
-        this.splats.addDynamic(dustSplats);
-    }
-}
+# 3. PID: admissible claims and gates
 
-// Lighting as splat color/opacity modification
-class LightingDyno extends SparkDyno {
-    timeOfDay(hour: number): void {
-        const sunAngle = (hour - 6) * Math.PI / 12;  // 6am = 0, 6pm = π
-        const sunColor = this.computeSunColor(sunAngle);
-        const shadowDirection = new Vec3(Math.cos(sunAngle), -Math.sin(sunAngle), 0);
+## 3.1 PID is measure-relative
 
-        this.splats.forEach(splat => {
-            // Ambient occlusion approximation
-            const occlusion = this.computeOcclusion(splat, shadowDirection);
-            splat.color = splat.baseColor.multiply(sunColor).multiply(1 - occlusion * 0.5);
-        });
-    }
-}
+For two sources \(S_1,S_2\) and target \(Y\), a PID seeks atoms satisfying
 
-// Domain randomization for sim2real
-class DomainRandomizationDyno extends SparkDyno {
-    randomizeTextures(variance: number): void {
-        this.splats.forEach(splat => {
-            splat.color.r += (Math.random() - 0.5) * variance;
-            splat.color.g += (Math.random() - 0.5) * variance;
-            splat.color.b += (Math.random() - 0.5) * variance;
-        });
-    }
+\[
+I(S_1,S_2;Y)=R+U_1+U_2+S,
+\]
+\[
+I(S_1;Y)=R+U_1,\qquad I(S_2;Y)=R+U_2.
+\]
 
-    randomizeLighting(variance: number): void {
-        const perturbation = new Vec3(
-            (Math.random() - 0.5) * variance,
-            (Math.random() - 0.5) * variance,
-            (Math.random() - 0.5) * variance,
-        );
-        this.lightDirection = this.baseLightDirection.add(perturbation).normalize();
-    }
-}
-```
+These equations underdetermine redundancy \(R\), uniques \(U_i\), and synergy \(S\); a redundancy or uniqueness principle is required. Different measures embody different mathematical commitments and may disagree [R01–R10]. Results must therefore be named precisely, e.g. “shared-exclusions redundancy under estimator E and preprocessing P,” not “the redundancy.”
+
+## 3.2 Shared-exclusions PID
+
+Shared-exclusions PID defines redundancy through overlap in how source realizations exclude target outcomes. It has discrete, pointwise, measure-theoretic continuous, and kNN-estimated continuous formulations [R05–R07]. It is attractive because it is localizable and can represent informative and misinformative contributions. It is not uniquely forced by universal axioms, and signed values do not authorize semantic relabeling.
+
+The repository’s status must be stated at four levels. First, its high-dimensional MI/coherence checks are **NO-GO**. Second, the `pid-rs` revision pinned by the reviewed Prisoma snapshot has semi-analytic low-dimensional additive-Gaussian continuous-redundancy oracle checks with closed-form pointwise terms and discrete SxPID reference agreement, so it is inaccurate to say that no estimator validation exists. Third, Prisoma’s current Experiment 0 aggregate cannot adjudicate atom validity because one default target is inappropriate for the selected measure and the strict path gates MI while only reporting atoms. Fourth, post-pin `pid-rs` main at `70b45f7b75fac06777ea215a73df01209490311a` reports a reproducible fixture against the authors’ public `csxpid` implementation, agreement within `1e-12` nats on that fixture, fail-closed continuous-support contracts, and stronger result provenance. Prisoma does not inherit those later changes while its submodule remains pinned to `8a5a9dda601556443f956a2fba164cccc913ed2e`; even after a reviewed upgrade, fixture agreement would not validate dependent, high-dimensional VLA embeddings. Continuous atoms on real embeddings therefore remain blocked [R61, R73].
+
+## 3.3 Multisource PID is exploratory
+
+Three or more sources introduce many antichain-indexed atoms, stronger ambiguity, and recent structural impossibility results. The 2025–2026 literature documents incompatibilities among desirable properties and challenges antichain-lattice formulations [R08–R10]. Therefore:
+
+- full three-source PID is exploratory;
+- pairwise or conditional analyses must map to a declared scientific question;
+- Shannon invariants or co-information may screen high-order structure only after every constituent MI estimate passes validation [R11];
+- no high-order scalar substitutes for intervention evidence.
+
+## 3.4 Deterministic continuous mappings
+
+For continuous \(X\) and a non-constant deterministic map \(f\), \(I(X;f(X))\) can be infinite. Neural representations and action heads often contain deterministic or near-deterministic paths [R14–R15]. A finite estimator output does not make the population quantity finite.
+
+Admissible strategies are:
+
+1. analyze a genuinely stochastic policy distribution or sampled output with declared randomness;
+2. define an explicitly quantized estimand and report quantizer sensitivity;
+3. define a fixed, scientifically justified noise-smoothed estimand;
+4. use a discrete outcome target;
+5. choose a different dependence or causal-effect estimand.
+
+## 3.5 Source choice is part of the estimand
+
+“Vision,” “language,” and “dynamics” are not natural variables waiting to be measured. They may be raw inputs, pre-fusion tokens, post-fusion residual states, action-expert states, memory, or learned projections. If \(D\) is downstream of \(V\) and \(L\), treating \(V\) and \(D\) as independent conceptual modalities is misleading. If \(L\) is constant within a task, task-local V–L PID is degenerate.
+
+Every source requires:
+
+- exact producer module and tensor site;
+- timing relative to fusion and action generation;
+- shape, dtype, mask, pooling, and aggregation;
+- deterministic ancestry;
+- preprocessing hash and fit split;
+- occupancy/entropy eligibility checks;
+- a semantic label no stronger than provenance supports.
+
+Use neutral labels \(R^{(1)},R^{(2)}\) until semantic naming is justified.
+
+## 3.6 Population invariance is not estimator invariance
+
+Population MI is invariant to suitable invertible reparameterizations; finite-sample estimators generally are not. Layer normalization, scale, whitening, pooling, PCA, PLS, discretization, and learned projection can change estimates materially. Cross-layer and cross-model atom magnitudes are not directly comparable without frozen transformations, matched validation, and sensitivity analysis. Primary comparisons should be within a fixed representation site and across randomized conditions.
+
+## 3.7 What PID must uniquely add
+
+PID earns a central role only if it does at least one of the following beyond simpler quantities:
+
+- distinguishes systems with similar lower-order MI but different source organization and predicts their intervention pattern;
+- improves held-out prediction of paired algorithmic response or randomized closed-loop effect modification under the protocol-specific score;
+- improves prospective failure prediction beyond strong baselines;
+- yields a stable, measure-aware mechanism taxonomy that predicts closed-loop behavior;
+- detects a joint-source phenomenon missed by individual MI, joint MI, co-information, uncertainty, temporal consistency, and learned features.
+
+A visually intuitive decomposition is insufficient.
+
+## 3.8 PID kill rules
+
+Remove PID from a confirmatory claim when:
+
+- the population estimand is undefined or scientifically unhelpful;
+- oracle recovery or uncertainty coverage fails at the planned regime;
+- conclusions reverse across reasonable measures without an a priori selection argument;
+- results depend materially on unvalidated projection, binning, scale, or metric;
+- simpler baselines meet or exceed performance within the minimum useful margin;
+- atoms do not predict the preregistered paired algorithmic response or randomized closed-loop effect-modification endpoint;
+- the episode/task-family sample size cannot support stable inference.
+
+Infrastructure and non-PID science continue under these outcomes.
 
 ---
 
-### §G. Camera System and Streaming
+# 4. Confirmatory claim registry
 
-**Note:** In the hybrid stack, depth/segmentation should be composed from mesh robots/collision proxies **and** the splat appearance layer. The per-pixel raycast sketch below is illustrative and requires acceleration (GPU depth pass or spatial index) to be practical. Zenoh streaming is optional (see §A.7 M6).
+The thesis should contain no more than three confirmatory scientific claims. Engineering acceptance claims are separate.
 
-```typescript
-// Virtual camera with raycast-based depth
-class VirtualCamera {
-    position: Vec3;
-    orientation: Quat;
-    fov: number;
-    resolution: [number, number];
+## EC1 — provenance-complete replay
 
-    // Render to offscreen buffer
-    render(scene: SparkScene): ImageBuffer {
-        return this.renderer.renderToBuffer(scene, this);
-    }
+For each supported policy–environment adapter, Prisoma records the declared causal and temporal variables, detects contract violations, and reproduces exact events or tolerance-bounded derived outcomes under replay. Test this against conventional scripts and standard containers; do not infer it from implementation alone.
 
-    // Raycast depth (on splat field, not mesh)
-    getDepthMap(): Float32Array {
-        const depth = new Float32Array(this.resolution[0] * this.resolution[1]);
-        for (let y = 0; y < this.resolution[1]; y++) {
-            for (let x = 0; x < this.resolution[0]; x++) {
-                const ray = this.pixelToRay(x, y);
-                const hits = raycast_splats(ray, this.scene.splats, 1);
-                depth[y * this.resolution[0] + x] = hits[0]?.distance ?? Infinity;
-            }
-        }
-        return depth;
-    }
+## H1 — pre-treatment diagnostics predict intervention response
 
-    // Stream via Zenoh to ROS 2
-    stream(zenohSession: ZenohSession, topic: string): void {
-        setInterval(() => {
-            const frame = this.render(this.scene);
-            zenohSession.put(topic, frame.toBytes());
-        }, 1000 / this.fps);
-    }
-}
+**Question.** Do diagnostics available before intervention identify cases in which a policy will be sensitive to a declared manipulation?
 
-// Camera placement via raycasting
-class CameraPlacementTool {
-    placeCamera(clickPosition: Vec2, scene: SparkScene): VirtualCamera {
-        const ray = this.screenToRay(clickPosition);
-        const hit = raycast_splats(ray, scene.splats, 1)[0];
+**Mandatory design fork.** Two scientifically valid but non-interchangeable protocols are available. Every study must designate one as primary before opening the confirmatory holdout.
 
-        if (hit) {
-            const camera = new VirtualCamera();
-            camera.position = hit.point.add(hit.normal.multiplyScalar(0.5));
-            camera.lookAt(hit.point);
-            return camera;
-        }
-        return null;
-    }
-}
-```
+1. **Protocol A — paired frozen-snapshot algorithmic response.** Clone or exactly replay one pre-treatment computational state and evaluate both treatment versions. This identifies a response of the policy computation under the declared snapshot and random-number coupling; it does not identify a physical-trajectory individual treatment effect.
+2. **Protocol B — randomized closed-loop response.** Randomize treatment across independent episodes, case-periods, or valid reset blocks and estimate average or conditional effects on future policy, execution, or physical outcomes. Ordinary parallel-arm data do not reveal both physical potential outcomes for one unit.
 
----
+**Unit and target population.** For Protocol A, the unit is a baseline snapshot or case defined before either clone is evaluated. For Protocol B, the unit is the randomized case or case-period defined before assignment, clustered at the interference/reset level. In both protocols, declare whether inference targets the finite benchmark, a task-family superpopulation, or a transport population.
 
-### §H. Real-Time Splat Editing
+**Treatment and timing.** The manipulation has a unique version, dose, target, placebo, positive control, manipulation checks, and receipt definition. Capture the primary moderator before treatment is assigned or applied. For Protocol B, record assignment probability, noncompliance, carryover, and reset diagnostics; ITT is primary. A time-varying treatment that changes later eligibility or diagnostics requires a longitudinal estimand rather than a static interaction model.
 
-**Semantics note:** splat edits are **visual by default** (they perturb observations without changing physics). If an edit must change collisions/dynamics, apply a separate, explicit “collision proxy edit” to the physics backend and log it as such; do not silently couple appearance edits to physics.
+**Eligible moderators.** Only variables computed from the untreated baseline state, using train-only fitted transformations, may enter the primary moderator vector \(D_i\). A feature from a treated forward pass, treatment-engagement check, downstream controller state, or future frame is post-treatment and ineligible. Diagnostic extraction must itself be noninterfering: instrumented and uninstrumented baseline outputs and timing must agree within a frozen tolerance.
 
-```typescript
-// Selection and manipulation
-class SplatEditor {
-    selectedSplats: Set<number> = new Set();
+### Protocol A estimand
 
-    // Box select
-    selectBox(min: Vec2, max: Vec2): void {
-        this.scene.splats.forEach((splat, idx) => {
-            const screenPos = this.camera.project(splat.position);
-            if (screenPos.x >= min.x && screenPos.x <= max.x &&
-                screenPos.y >= min.y && screenPos.y <= max.y) {
-                this.selectedSplats.add(idx);
-            }
-        });
-    }
+Let \(W_i\) be the immutable pre-treatment snapshot and let \(\Pi_i^{(j)}(\cdot\mid W_i)\) denote the policy output distribution under treatment version \(j\in\{0,1\}\). When the full distributions are available, define
 
-    // Raycast select
-    selectRaycast(screenPos: Vec2): void {
-        const ray = this.camera.screenToRay(screenPos);
-        const hits = raycast_splats(ray, this.scene.splats, 1);
-        if (hits.length > 0) {
-            this.selectedSplats.add(hits[0].splat_index);
-        }
-    }
+\[
+S_i=d\!\left(\Pi_i^{(1)}(\cdot\mid W_i),\Pi_i^{(0)}(\cdot\mid W_i)\right),
+\]
 
-    // Transform selected
-    translate(delta: Vec3): void {
-        this.selectedSplats.forEach(idx => {
-            this.scene.splats[idx].position.add(delta);
-        });
-        this.syncToPhysics();
-    }
+using a preregistered divergence or physically scaled action functional. If only stochastic samples are available, define the target over a declared coupling \(C\) of policy random numbers,
 
-    scale(factor: number): void {
-        this.selectedSplats.forEach(idx => {
-            this.scene.splats[idx].scale.multiplyScalar(factor);
-        });
-    }
+\[
+S_i(C)=\mathbb{E}_{C}\!\left[d\!\left(\widetilde A_i^{(1)},\widetilde A_i^{(0)}\right)\mid W_i\right],
+\]
 
-    delete(): void {
-        this.selectedSplats.forEach(idx => {
-            this.scene.splats.markDeleted(idx);
-        });
-        this.scene.splats.compact();  // Remove deleted
-        this.selectedSplats.clear();
-    }
+and estimate it with enough paired or independent replicates to quantify Monte Carlo error. Common random numbers are a variance-reduction device, not a neutral default: report both the coupling and a sensitivity analysis with independent streams when feasible. Randomize clone order and worker placement; reset caches, recurrent memory, samplers, and mutable hooks; and hash the starting state. A deterministic clone pair can make \(S_i\) directly observable as an algorithmic contrast, but it remains conditional on the frozen snapshot and treatment implementation.
 
-    clone(): void {
-        const newSplats = [];
-        this.selectedSplats.forEach(idx => {
-            newSplats.push(this.scene.splats[idx].clone());
-        });
-        this.scene.splats.addAll(newSplats);
-    }
+**Protocol A analysis.** Predict \(S_i\) out of sample with task-family-blocked nested resampling. Compare a design-only model with the same model plus \(D_i\), using a prespecified proper predictive score—such as negative log predictive density or CRPS for a distributional predictor, or squared error for a point predictor—and absolute calibration across held-out response bins. Propagate replicate-level Monte Carlo uncertainty rather than treating a noisy estimate of \(S_i\) as exact. A causal forest or treatment learner is unnecessary when both algorithmic responses are directly computed.
 
-    // Optional: if splats are bound to physics particles/collision proxies, propagate the edit via the control plane.
-    // Otherwise treat this as a visual-only intervention (log + replay) with no physics side effects.
-    syncToPhysics(): void {
-        this.tauriBackend.invoke('scene.apply_splat_edit', {
-            changes: this.pendingChanges
-        });
-    }
-}
+### Protocol B estimand
 
-// Mesh editing (for collision geometry)
-class MeshEditor {
-    selectedMesh: GLBMesh | null = null;
+For binary randomized assignment \(J\),
 
-    importGLB(file: File): Promise<GLBMesh> {
-        return this.gltfLoader.load(file).then(gltf => {
-            const mesh = new GLBMesh(gltf);
-            this.scene.addMesh(mesh);
-            // Auto-generate collision shape
-            mesh.collider = this.generateConvexHull(mesh);
-            return mesh;
-        });
-    }
+\[
+\tau(d)=\mathbb{E}[Y(1)-Y(0)\mid D=d],
+\]
 
-    adjustCollider(mesh: GLBMesh, type: 'convex' | 'trimesh' | 'box'): void {
-        switch (type) {
-            case 'convex':
-                mesh.collider = this.generateConvexHull(mesh);
-                break;
-            case 'trimesh':
-                mesh.collider = this.generateTriMesh(mesh);
-                break;
-            case 'box':
-                mesh.collider = this.generateBoundingBox(mesh);
-                break;
-        }
-        this.syncColliderToRapier(mesh);
-    }
-}
-```
+or a prespecified low-dimensional projection/partition of \(D\). Report the population-average ITT effect even when heterogeneity is absent. For multiple doses, freeze a dose-response contrast or monotonicity functional rather than selecting the most favorable dose after inspection.
+
+**Protocol B outcomes.** Keep three families distinct: (i) post-assignment policy-output change, (ii) executed-action/controller change, and (iii) progress, safety cost, or task outcome. Matched exogenous seeds are permitted only when the simulator’s reset and random-draw coupling preserve the target intervention; otherwise use randomized repeated trials. A policy-level effect cannot be silently upgraded to a physical-outcome effect.
+
+**Protocol B analysis.** Fit the treatment-response learner inside nested, task-family-blocked cross-fitting. Candidate models may include a prespecified interaction model, causal forest, R-learner, doubly robust learner, or deliberately simple score, but model class and tuning budget are frozen before the outer holdout [R89–R91]. Because individual effects are unobserved, do not choose or validate an effect model solely by factual-outcome prediction: prognostic fit can improve while effect ranking worsens. Freeze a causal validation stack consisting of (i) a cross-fitted R-loss or doubly robust effect-prediction loss with nuisance diagnostics, (ii) causal calibration using train-defined prediction bins and held-out randomized contrasts, (iii) a rank-weighted average-treatment-effect or equivalent prioritization statistic when ranking is a goal, and (iv) policy value/regret under known assignment probabilities. Factual-outcome proper loss is only a secondary outcome-model diagnostic [R106–R108]. Do not score against naive same-data “individual effects”: physical individual treatment effects are not jointly observed.
+
+A simple prespecified working model remains useful,
+
+\[
+Y_{ijk}=\alpha+b_{f(j)}+c_i+\beta J_{ijk}+\gamma^\top D_{ij}
++\delta^\top(J_{ijk}D_{ij})+\eta^\top X_{ij}+\varepsilon_{ijk},
+\]
+
+but coefficient significance is not the success criterion. Flexible and simple models use identical outer splits and comparable tuning budgets.
+
+**Held-out endpoints.** Freeze endpoints separately by protocol.
+
+- **Protocol A:** improvement in the primary predictive score for \(S_i\); calibration of predicted algorithmic response; stability across clone order, coupling, and valid output metrics; and decision value if the response prediction selects a diagnostic intervention or fallback.
+- **Protocol B:** improvement in the frozen causal effect-prediction loss rather than factual-outcome fit alone; causal calibration via train-defined bins and held-out randomized contrasts; a prespecified rank/prioritization statistic when relevant; value or regret of a prespecified treatment-allocation rule; and randomization-based or cluster-aware uncertainty for the global no-effect-modification null. A model that predicts outcomes well but fails these effect-specific checks does not pass H1.
+
+**Prohibited endpoints.** Do not correlate diagnostics with a same-data per-case difference from non-cloned physical episodes and call it treatment-effect prediction. Do not discover and evaluate subgroups on the same units. Do not blend Protocol A and B scores into one endpoint or describe a Protocol A success as evidence of closed-loop robustness.
+
+**Null.** Diagnostics do not improve the locked held-out endpoint beyond design variables and strong non-PID baselines by the minimum useful margin.
+
+**Success and permitted language.** Protocol A success permits the bounded statement that pre-treatment diagnostics predict frozen-snapshot algorithmic sensitivity in the evaluated regime. A claim about embodied closed-loop effect moderation requires Protocol B, acceptable manipulation/specificity evidence, and directional replication in another task family or policy. A significant interaction without held-out utility, or a Protocol A result without a closed-loop test, is insufficient for a physical-mechanism claim.
+
+## H2 — diagnostics improve prospective, censoring-aware failure prediction
+
+**Question.** Do signals available by landmark \(t_0\) predict a prespecified future failure type within horizon \(h\), beyond strong baselines, under the task mix and prevalence relevant to use?
+
+**Unit.** Episode landmark. All landmarks from an episode, case seed, or persistent world state remain in one outer fold. Repeated landmarks are handled as longitudinal observations rather than independent rows.
+
+**Time zero and eligibility.** For each landmark, freeze eligibility, feature cutoff, prediction horizon, competing events, and censoring rule before reading future data. A signal whose computation uses a future normalization constant, full-episode transform, final success label, or post-landmark intervention is leakage.
+
+**Predictors.** Only timestamped data at or before \(t_0\). A global dataset PID atom is not an episode feature. Local information scores require a train-reference distribution, cross-fitting, an eligibility verdict, and a frozen episode/window aggregation. Missingness indicators may be predictors only when they would be observable at deployment.
+
+**Outcome.** Use a mutually exclusive failure ontology where possible. For “failure by \(h\),” success, timeout, human takeover, reset, and other failure modes may be competing events rather than ordinary negatives. Report cause-specific and cumulative-incidence targets when the distinction changes the scientific question.
+
+**Mandatory baselines.** Base rate; policy entropy/action uncertainty; ensemble or stochastic-pass disagreement when available; action smoothness/chunk inconsistency; state/dynamics prediction error; OOD distance; progress; and a capacity-matched learned latent baseline. Reproduce, or implement an input/supervision-matched analogue of, the strongest applicable families: SAFE-style supervised internal-state detection; Tri-Info signals; Hide-and-Seek temporal localization; ActProbe action-chunk magnitude and temporal-consistency signals; Rewind-IL/TIDE inter-chunk discrepancy; architecture-stratified black-box action features such as reversal, jerk, momentum coherence, and stall; VLAConf-style one-class internal-representation confidence; perturbation-induced action disagreement; activation-probe warning signals; Foresight-style action-conditioned world-model latents; and temporal-difference success calibration when action probabilities are available [R25, R95, R101–R105, R109–R112]. Add simple time/task/checkpoint and action-head-family indicators so complex diagnostics do not receive credit for prevalence or architecture drift. Compare methods at matched information access, supervision, action resampling, external-model use, latency, and compute; otherwise report a cost–accuracy–timeliness Pareto frontier rather than a misleading single ranking.
+
+**Validation.** Use leave-task-family-out, temporal, or external validation matching intended use. Hyperparameters, transforms, feature selection, censoring models, and calibration are fitted inside nested training folds. A deployment claim requires an untouched external or later-time test; random frame splits are prohibited.
+
+**Metrics.** Primary: held-out log loss or time-dependent Brier score with prespecified handling of censoring [R92]. For a dynamically updated confidence sequence, also test temporal calibration or a locked sequential proper-score analogue rather than averaging unrelated per-step calibration numbers; temporal-difference calibration is a comparator, not a guarantee of deployment validity [R112]. Secondary: precision–recall AUC at stated prevalence; calibration intercept/slope and reliability curve; event-level sensitivity at fixed false-alarm burden; alarms per episode or operating hour; a lead-time distribution that explicitly retains undetected failures; and one decision-utility analysis [R93–R94]. Conditional lead time among detected failures alone is selection-biased and cannot rank monitors. ROC AUC alone is inadequate. Converting repeated risk scores into alarms requires a frozen alarm policy—threshold, persistence/debounce rule, refractory period, event-matching window, reset behavior, and missing-score handling—tuned only in training data; otherwise false-alarm and lead-time comparisons are underdefined. If a conformal warning set or threshold is used, also report empirical coverage, set size or abstention, false-alarm burden, and subgroup/task coverage. Report uncertainty clustered at the highest independent unit and publish independent episode, event, and task-family counts.
+
+**Shift, conformal validity, and recalibration.** Evaluate performance by task family, policy checkpoint, failure type, sensor quality, and prevalence. Standard split-conformal marginal coverage relies on exchangeability; task, temporal, policy, or embodiment shift does not preserve that guarantee automatically. Use a method whose weighted, group-conditional, online, or sequential assumptions match the design, or describe target-domain coverage as empirical rather than guaranteed [R96]. When the test prevalence is artificial, report both sampled-population and target-prevalence metrics. Recalibration or conformal recalibration on target data is a separate procedure and data split, not a hidden test-set refit.
+
+**Null.** Adding the diagnostic family does not improve the primary proper score or decision utility by the minimum useful margin over the strongest baseline under the locked external-validity target.
+
+**Success.** Improvement replicates on an external task family/time block, calibration remains within tolerance or succeeds under a prespecified recalibration protocol, warning is early enough to act, and subgroup degradation is bounded. A useful monitor may still fail to identify a mechanism; predictive and mechanistic claims remain separate.
+
+## H3 — PID adds incremental value only inside its validated support envelope
+
+H3 activates only after population, measure, estimator, and application gates in Section 7. The PID configuration is a tuple—not a generic method—containing source/target definitions, sampling law, measure, dimensionality, scaling/projection, estimator, neighborhood parameters, dependence treatment, local-score construction, and abstention rules.
+
+Compare capacity- and tuning-budget-matched nested models:
+
+- \(M_0\): design variables, assignment terms, base rate, and naive baselines;
+- \(M_1\): \(M_0\) plus MI/CMI, co-information or Shannon-invariant screens, uncertainty, temporal, geometry, attribution, OOD, progress, and learned features;
+- \(M_2\): \(M_1\) plus preregistered PID features generated only from training-reference fits that passed all gates.
+
+**Primary endpoint.** Out-of-sample improvement of \(M_2\) over \(M_1\) under the endpoint appropriate to the active claim: direct response-prediction score for H1 Protocol A; prespecified causal effect-prediction loss, causal calibration, or policy value for H1 Protocol B; and a censoring-aware proper predictive score for H2. Use nested cross-fitting and task-family-blocked uncertainty. The minimum useful margin and a smallest effect of interest are frozen before the holdout. An equality or noninferiority region is reported; “not significant” is not evidence that methods are equivalent.
+
+**Secondary endpoints.** Mechanism discrimination on synthetic or controlled systems with matched lower-order dependence; calibration; stability under justified nuisance transformations; and the fraction of eligible deployment cases for which PID does not abstain.
+
+**Local-feature validity.** Episode-local or window-local PID features may not be invented by running a global estimator on a handful of within-episode samples. The construction must be derived for the named measure or clearly labelled a surrogate, use a frozen train-reference population, and pass oracle and null tests for both local ranking and aggregate reconstruction. Fit, eligibility, and evaluation folds are disjoint.
+
+**Shared-code limitation.** Prisoma and Galadriel using the same `pid-rs` implementation is reuse, not cross-implementation validation. Independent validation requires a mathematically equivalent implementation or reference calculation whose errors are not inherited from the same core [R72–R75].
+
+**Kill criterion.** PID becomes a negative/methodological result when the gain is below the useful margin, the eligible support is too narrow for the intended use, abstention is excessive, conclusions reverse across equally justified measures or preprocessing regimes, or replication fails. The infrastructure and H1/H2 programme continue unchanged.
+
+## H4 — representational availability can diverge from causal policy use
+
+H4 may replace H3 as a thesis paper if PID fails. It is not a consolation prize: the availability–use distinction is a first-order scientific problem for embodied agents.
+
+For a task-relevant variable \(Q\), define:
+
+- \(A_Q\): preregistered out-of-sample availability from a locked probe or decoder;
+- \(U_Q^{(k)}\): the ITT effect of intervention construction \(k\) on a policy-decision target;
+- \(E_Q^{(k)}\): the ITT effect of the same intervention on executed action or physical outcome;
+- \(G_Q^{(k)}\): target engagement, specificity, and off-support diagnostics.
+
+Use at least two intervention constructions where feasible—for example input-level counterfactual replacement and internal-state patching—because a null under one construction can reflect poor engagement or downstream compensation. Compare dose-response shape, affected layers/times, and policy-versus-physical effects. Include a positive-control variable known to affect the action and a negative-control site or variable expected not to.
+
+The primary estimands are the prevalence and magnitude of prespecified discordant states, such as high \(A_Q\) with near-zero validated \(U_Q\), and the task, architecture, layer, memory, controller, or intervention factors that explain them. Thresholds for “high” and “near zero” are based on held-out probe performance and equivalence margins, not visual inspection.
+
+Permitted conclusion: the representation contains decodable information while the tested intervention family produces little policy-use effect in the evaluated regime, conditional on engagement and support checks. Prohibited conclusion: the system never uses \(Q\), the probe reveals the natural code, or the patched activation is a modular causal variable.
+
+## Exploratory questions
+
+- generalization and memorization under structured perturbation;
+- temporal transitions before failure under a fixed horizon;
+- low-dimensional object/contact flow as a portable target;
+- process-level safety costs under controlled benchmarks;
+- cross-embodiment transport of relationships, not raw atom magnitudes;
+- diagnostic-guided intervention or fallback selection in a prospective trial.
+
+## Retired/deferred claims
+
+- real-time continuous PID as an online safety monitor;
+- PID-based safety certification;
+- full three-source PID as a required analysis;
+- atom signs as direct evidence of memorization, grounding, or world modeling;
+- universal cross-model atom comparisons;
+- PID as a reward before observational and intervention validity; infomorphic-network results show that local information-theoretic objectives can be trained in other settings, but they do not establish usefulness or stability for VLAs [R19];
+- a custom simulator, Tauri shell, SparkJS renderer, or Gaussian-splat editor as a thesis dependency.
 
 ---
 
-### §I. Sim2Real Gap Closure Strategy
+## Claim-to-evidence matrix
 
-**Multi-layered approach motivated by 3DGS-based simulation work (SplatSim, arXiv:2409.10161; DISCOVERSE, arXiv:2507.21981) and PEGS-style explicit physics:**
+No prose claim may outrun this matrix. The final manuscript should instantiate one row per reported claim and link it to immutable artifacts.
 
-| Layer | Strategy | Implementation | What to Measure (avoid pre-committing %) |
-|-------|----------|----------------|---------------------|
-| **Visual** | 3DGS rendering | SparkJS splat-first | Δ zero-shot transfer vs mesh baseline on the *same tasks*; report CIs |
-| **Domain Randomization** | Dyno-based procedural | Weather, lighting, texture variance | Robustness under perturbation suites; ablation vs no-randomization |
-| **Physics Alignment** | PEGS visual forces | Predicted vs observed correction | Trajectory/contact error vs reference; downstream effect on transfer |
-| **Sensor Noise** | Gazebo sensor models | Realistic camera/depth noise | Sensitivity to sensor corruption; calibration against real sensors |
-| **Action Noise** | Randomized execution | Torque/velocity perturbations | Robustness to execution noise; transfer across controllers |
-
-**Outcome target:** define success metrics on a named benchmark and report improvements via controlled ablations; do not treat the layers as additively contributing “% improvements” unless measured.
-
----
-
-### §J. Complete Data Collection Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        DATA COLLECTION WORKFLOW                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. SCENE SETUP                                                              │
-│     ├── Import 3DGS scene (.PLY/.SPZ from real capture or synthetic)        │
-│     ├── Import robot URDF (Gazebo)                                          │
-│     ├── Place virtual cameras (raycast click-to-place)                      │
-│     └── Configure domain randomization (weather, lighting, textures)        │
-│                                                                              │
-│  2. TASK DEFINITION                                                          │
-│     ├── Define goal states (object positions, gripper states)               │
-│     ├── Specify reward function (for RL) or demonstration protocol          │
-│     └── Set episode length and termination conditions                       │
-│                                                                              │
-│  3. DATA GENERATION                                                          │
-│     ├── Teleoperation: SpaceNav/keyboard → Robot Sim → Physics sync        │
-│     ├── OR scripted policies: Predefined trajectories with noise           │
-│     ├── OR RL training: PPO/SAC with prisoma reward shaping                │
-│     └── Domain randomization applied per-episode                            │
-│                                                                              │
-│  4. DATA RECORDING                                                           │
-│     ├── RGB frames: SparkJS render @ 30Hz → Zenoh → HDF5                   │
-│     ├── Depth: Splat raycast depth @ 30Hz                                   │
-│     ├── Actions: Joint positions/velocities @ 100Hz                         │
-│     ├── States: Object poses, contacts @ 100Hz                              │
-│     ├── VLA embeddings: V, D, A per timestep                                │
-│     └── PID metrics: Syn(V,D;A) offline (optional inline)                   │
-│                                                                              │
-│  5. EXPORT                                                                   │
-│     ├── RLDS format (TensorFlow Datasets) for OpenVLA fine-tuning          │
-│     ├── HDF5 for custom training                                            │
-│     └── Zarr for large-scale storage                                        │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### §K. VLA Paper Simulation Setups Analysis
-
-**How existing VLAs collect data and train:**
-
-| VLA | Primary Simulator | Physics | Rendering | Data Format | Notes |
-|-----|-------------------|---------|-----------|-------------|-------|
-| **OpenVLA** | SimplerEnv/LIBERO | MuJoCo | OpenGL raster | RLDS | Large RLDS-scale dataset (paper; verify counts before quoting) |
-| **DreamVLA** | Unspecified | Unspecified | Unspecified | Unspecified | Focus on world model, not sim |
-| **PixelVLA** | Pixel-160K dataset | Various | Various | Custom | Visual prompting focus |
-| **TraceVLA** | SimplerEnv | MuJoCo | OpenGL raster | RLDS | Visual trace overlays |
-| **RT-2** | Proprietary | Proprietary | Photorealistic | Proprietary | Google internal |
-| **SpatialVLA** | SimplerEnv | MuJoCo | OpenGL raster | RLDS | Spatial reasoning focus |
-| **Dream2Flow** | Real robot + sim | Unknown | Video generation | Unknown | Video→flow→action |
-
-**Gap analysis:**
-- Many widely-used public VLA benchmarks/pipelines (e.g., LIBERO/SimplerEnv) use MuJoCo + raster rendering, but simulator/renderer choices vary across papers; verify per model before making “all” claims.
-- 3DGS-based rendering is not yet a default in mainstream VLA training pipelines (as of the papers reviewed here). Treat SplatSim’s transfer numbers as benchmark-specific evidence, not a guarantee.
-- Interactive scene composition/editing exists in some simulators (e.g., OpenUSD tooling in Omniverse/Isaac Sim), but is not typically integrated as a PID-centric *intervention harness* for controlled experiments.
-- PID/SxPID diagnostics are not standard evaluation metrics in open-source VLA training loops; this work makes them first-class (after Experiment 0 + geometry gates).
-
-**Proposed system fills these gaps.**
-
----
-
-### §L. Hardware Requirements
-
-Hardware needs are workload-dependent (scene size, splat count, physics engine, and whether you run external video/world models locally). Treat the table below as planning guidance; measure and report on your actual hardware.
-
-| Profile | CPU/GPU | RAM | Storage | Use Case |
-|---------|---------|-----|---------|----------|
-| **Estimator dev (Experiment 0)** | CPU-only OK; GPU optional | Workload-dependent (record measured peak RSS) | Modest | `cargo test`, `just exp0`, geometry diagnostics |
-| **Renderer/sim prototyping** | GPU capable of the chosen renderer (WebGL2 on most systems; WebGPU optional) | Workload-dependent (record measured peak RSS) | Fast local SSD recommended | Interactive splat+mesh visualization; small-batch rollouts |
-| **Video/world-model experiments** | CUDA GPU *or* remote service | Workload-dependent (record measured peak RAM/VRAM) | Large local SSD recommended (for caching) | WAN-like predictors, Dream2Flow-style generation/flow caching |
-
-**Comparison with Isaac Sim:**
-- Isaac Sim/Lab typically requires an NVIDIA RTX-class GPU and substantial disk footprint; use NVIDIA’s official requirements for your target version.
-- This repo’s **implemented** core (PID estimators + geometry gates) runs on CPU and is macOS-friendly; GPU-heavy components (rendering large splat scenes, video predictors) are optional and can be offloaded or run on Linux/CUDA.
-- **Footprint note:** treat any “× smaller” comparisons as benchmark-dependent; measure on your deployment.
-
----
-
-**v6.6 notes (3DGS Integration + Video Model Selection + Tauri/SparkJS/Gazebo Architecture):**
-
-- **Where 3DGS fits in the prisoma pipeline — 4 distinct roles:**
-  | Role | What It Does | When To Use |
-  |------|--------------|-------------|
-  | **1. PID Visualization** | Color splats by (Syn, Red, Unq); opacity = MI magnitude | Recommended for debugging/paper figures |
-  | **2. Spatial Failure Localization** | Project PID metrics onto 3D scene geometry | When failures have spatial structure |
-  | **3. World Model Representation (GWM)** | 3DGS as internal state for Gaussian World Model | Analytical comparison with VLA D |
-  | **4. 3D memory (Spatia-like; optional)** | 3D scene memory as context for long-horizon prediction | When spatial consistency across long clips matters (paper-verify) |
-
-- **Candidate video/flow predictors for Dream2Flow-style pipelines (examples; verify):**
-  | Approach | Speed | Spatial Consistency | Conditioning | Use (hypothesis; verify) |
-  |-------|-------------------|---------------------|-------------|--------------------------|
-  | **WAN (arXiv:2503.20314)** | benchmark | unknown; measure | text/image conditioning (paper) | Baseline predictor for offline Flow extraction |
-  | **Spatia** (arXiv:2512.15716) | benchmark | high (paper claim) | conditioned on spatial memory | Long-horizon spatial consistency studies |
-  | **Motion-controlled predictors** (e.g., Wan‑Move, arXiv:2512.08765) | benchmark | benchmark | motion/trajectory guidance | Counterfactual “what‑if” motion probes (verify applicability) |
-
-- **Acceleration techniques (optional; verify):**
-  - Some work reports inference acceleration for diffusion video models (e.g., distillation/consistency, attention optimizations, sparsity). Treat as engineering exploration; benchmark end‑to‑end throughput on your hardware.
-
-- **Spatia (arXiv:2512.15716) — For spatial coherence (paper-verify details):**
-  - Described as maintaining a 3D point-cloud “spatial memory” used during generation
-  - Described as updating this representation over time (method details depend on the paper/implementation)
-  - Described as enabling explicit camera control during generation
-  - **Relevance to prisoma:**
-    - Alternative to WAN for spatially-consistent video generation
-    - Natural integration with 3DGS visualization pipeline
-    - Camera control enables systematic viewpoint variation for PID robustness testing
-  - **Trade-off:** Speed vs spatial consistency is benchmark-dependent; measure end-to-end throughput and quality under your protocol.
-
-- **Video4Spatial — For spatial reasoning evaluation:**
-  - Tests visuospatial intelligence in video models
-  - Object grounding (focus on specific objects) and scene navigation
-  - **Limited relevance:** More useful for evaluating VLA spatial understanding than for generation
-
-- **Recommended video model configuration for prisoma:**
-  ```
-  PRIMARY PIPELINE (Interactive debugging; benchmark-dependent):
-  ───────────────────────────────────────────────────
-  Gazebo RGB-D → video predictor (+ optional acceleration) → 3D Flow → PID → SparkJS
-
-  SPATIAL CONSISTENCY PIPELINE (Long-horizon, offline analysis):
-  ────────────────────────────────────────────────────────────────
-  Gazebo RGB-D → 3D-memory predictor (Spatia-like; optional) → 3D Flow → PID → SparkJS
-
-  COUNTERFACTUAL PIPELINE (Action-conditioned "what-if"):
-  ────────────────────────────────────────────────────────
-  Gazebo RGB-D + A* → motion/trajectory-conditioned predictor (if supported) → 3D Flow → PID comparison
-  ```
-
-- **Tauri + SparkJS + Headless Gazebo architecture integration:**
-  ```
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         INTEGRATED ARCHITECTURE                          │
-  ├─────────────────────────────────────────────────────────────────────────┤
-  │                                                                          │
-  │  Headless Gazebo ──Zenoh──→ Tauri Backend ──→ SparkJS Frontend          │
-  │                    (Rust)         (Three.js/WebGL2)                       │
-  │                                │                    │                    │
-  │                     ┌──────────┴──────────┐        │                    │
-  │                     │                     │        │                    │
-  │                     ▼                     ▼        ▼                    │
-  │         Video/Flow Service*      PID Analysis   3DGS Render             │
-  │         ┌──────────────────┐     ┌──────────┐   ┌──────────┐            │
-  │         │ WAN-like model    │     │ pid-core │   │ SparkJS  │            │
-  │         │ + flow extraction │     │ (Rust)   │   │ (WebGL2) │            │
-  │         └──────────────────┘     └──────────┘   └──────────┘            │
-  │                     │                     │              │              │
-  │                     └──────────┬──────────┘              │              │
-  │                                │                         │              │
-  │                                ▼                         ▼              │
-  │                  3D Flow (aggregated; d≈few–tens)  PID-colored           │
-  │                        + PID metrics               3DGS splats           │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-  ```
-
-  \* Runs out-of-process (e.g., Python/CUDA). Tauri orchestrates requests, caches artifacts (video/flow), and logs model versions/seeds for reproducibility.
-
-- **3DGS visualization encoding for PID:**
-  | Splat Property | PID Mapping | Interpretation |
-  |----------------|-------------|----------------|
-  | **Color R** | Synergy | Red = high synergy (V,D cooperate) |
-  | **Color G** | Redundancy | Green = high redundancy (V,D overlap) |
-  | **Color B** | Unique(V) | Blue = vision-only information |
-  | **Opacity** | MI magnitude | Transparent = low information |
-  | **Size** | Uncertainty (bootstrap σ) | Large = uncertain estimate |
-
-- **Hardware planning note:** Requirements depend on (a) splat scene size, (b) physics/contact workload, and (c) whether external video/world models run locally. Avoid “minimum VRAM” tables; measure peak VRAM/RAM and end‑to‑end latency on your deployment.
-
-- **Implementation priority for Tauri+SparkJS+Gazebo setup:**
-  1. **Phase 1:** Headless simulator → IPC → basic visualization + synchronized logging (no 3DGS)
-  2. **Phase 2:** Add 3DGS splat rendering + static PID overlays (offline → playback first)
-  3. **Phase 3:** Add external “Video Predictor Service*” + flow extraction + stage outcome labels (optional)
-  4. **Phase 4:** Add additional world-model baselines (optional) for matched comparisons (no oracle framing)
-  5. **Phase 5:** Stream PID overlays from live inference if latency budgets are met; otherwise keep PID computation offline
-
-**v6.5 notes (Hierarchical 3-Way PID Applicability to Dream2Flow — Corrected after first-principles review):**
-
-> **⚠️ Scientific Corrections (v6.5.1):** This section was revised after rigorous first-principles verification. Key corrections: (1) "bridge variable" claim was misleading and removed; (2) 3D flow dimensionality now properly specified; (3) execution-stage PID removed (undefined variable); (4) v5.5 vs curse-of-d distinction clarified.
-
-- **Hierarchical Pairwise PID (§5.3 Option 3) maps to Dream2Flow stages** — but with important caveats:
-  - `Syn(V, D_wan; Flow)` — World model quality (video generation stage)
-  - `Syn(V, Flow; A)` — Flow-to-action translation (flow extraction + policy stage)
-  - ~~`Syn(A_cmd, Sim; A_out)`~~ — **REMOVED: "Sim" was undefined; execution-stage PID requires further specification (robot state? simulation state?)**
-
-- **3D Flow Dimensionality — Precise Definition Required:**
-  - **Full representation:** N objects × 3 coordinates × T frames = 3NT dimensions (e.g., 10 objects × 24 frames = 720 dimensions — NOT "6-30")
-  - **For PID-tractable representation, must aggregate:** single-object centroid trajectory (d=3T), mean flow vector (d=3), or principal flow statistics (single-digit to low‑tens)
-  - **Claim "d≈6-30" is valid ONLY for:** single-object centroid over 2-10 frames, OR aggregated flow statistics
-  - **If using full multi-object trajectories:** dimension can be 100s-1000s; v5.6 mitigations still required
-
-- **v5.5 vs Curse of Dimensionality — Separate Issues:**
-  | Issue | What It Is | When It Applies | How to Address |
-  |-------|-----------|-----------------|----------------|
-  | **v5.5 (Geometric)** | Chebyshev volume cancellation requires flat Euclidean space | Curved manifolds (hyperbolic, Lorentz) | Cannot apply L∞ I^sx_∩; use geodesic MI or quantization |
-  | **Curse of d (Statistical)** | kNN becomes unreliable as effective d increases (distance concentration) | High-dimensional Euclidean (large effective d relative to N) | Dimensionality reduction (PCA, SAE, quantization) |
-  - **Low-d Euclidean:** geometry is at least compatible with the Ehrlich/KSG-style derivation, but kNN MI/`I^sx_∩` can still fail under strong dependence, nuisance dimensions that dominate distances, small effective sample size, or ties/quantization. Always apply Experiment 0 + MI-consistency gates (§9.1, §8.2.3).
-  - **High-d Euclidean:** geometry is flat (v5.5 can hold), but curse-of-dimensionality and joint-vs-marginal bias can make kNN estimates incoherent (e.g., monotonicity violations). Dimensionality reduction and/or switching to MI-only screening is typically required; validate on the exact preprocessing pipeline.
-  - **Curved manifold (any d):** v5.5 is violated regardless of dimension → cannot use L∞ `I^sx_∩` without a new derivation; prefer MI-only invariants, quantization → discrete PID, or Flow-as-Bridge.
-
-- **Disjunction neighborhood does NOT "save" high-d sources:**
-  - The I^sx_∩ estimator computes: `d_S_disj(i,j) = min(d(S₁), d(S₂))`
-  - Counting `n_α(i)` uses the UNION of balls in both source spaces
-  - If one source (e.g., V at d=4096) has distance concentration, it affects the union ball count even if the other source (Flow) is well-behaved
-  - **Conclusion:** high‑D sources like `V` require aggressive preprocessing (standardization + reduction/quantization) regardless of Flow’s dimensionality; Flow does not “rescue” unstable source geometry. Treat “PCA→256” as a common *starting point for MI-only screening*, not as an automatic green light for interpreting PID atoms.
-
-- **Corrected v5.6 applicability per variable:**
-  | Variable | Dimension | v5.5 (Geometry) | Curse of d | Mitigation Required |
-  |----------|-----------|-----------------|------------|---------------------|
-  | **Aggregated Flow** | d=3-30 | ✓ OK (Euclidean) | ✓ OK | No special mitigation beyond the standard Exp0 + coherence gates |
-  | **Full Flow (N×T)** | d=100-1000 | ✓ OK (Euclidean) | ✗ Problem | PCA or time-windowing |
-  | **A** (actions) | d=7 | ✓ OK | ✓ OK | None |
-  | **V** (vision) | d=4096 | ⚠️ Check manifold | ✗ Problem | Standardize + reduce/quantize; validate with Exp0 + MI-coherence gates |
-  | **D_wan** | d=4096+ | ⚠️ Check manifold | ✗ Problem | Quantization or unrolling |
-
-- **Corrected recommendations for Dream2Flow PID:**
-  - `Syn(PCA(V)→256, D_wan_quantized; Flow_agg)`: candidate *if* Exp0 + MI-consistency gates pass on the exact preprocessing (otherwise restrict to MI-only screening / CI).
-  - `Syn(PCA(V)→256, Flow_agg; A)`: candidate *if* Exp0 + MI-consistency gates pass; often the most tractable *directionally* because `A` is low‑D, but do not assume `V` at 256 is safe without validation.
-  - **Execution stage:** Requires defining what "Sim" means before PID can be specified
-
-- **What Experiment 0 must validate for Dream2Flow:**
-  1. `I^sx_∩` estimator reliability under your chosen preprocessing (often start by testing PCA→256 for MI-only screening, but atomic PID may require more aggressive reduction) with mixed source dimensions
-  2. Stability under the specific aggregation method chosen for Flow
-  3. Whether joint estimation (one source reduced, one native low-d) introduces systematic bias
-
-- **Latent action diffusion remains complementary:**
-  - Operates on A (policy output), not D (world model intermediate)
-  - Doesn't solve the diagnostic problem of measuring information in D
-  - Both approaches can coexist in same system
-
-**v6.4 notes (VLM→World Model Transition + 3D Flow vs Latent Action Analysis):**
-- **Historical v6.4 addition (now integrated into §§7 and 10.10): the VLM→world-model
-  paradigm framing** — documents the emerging transition in robotics foundation models:
-  - **Generation 1 (VLM-based VLAs):** OpenVLA, RT-2, PaLM-E (and smaller open baselines such as SmolVLA) — language-model backbones with largely **implicit** world knowledge in weights; action parameterization varies by implementation (do not assume “action tokens appended to language output” universally).
-  - **Generation 2 (World Model-based):** Dream2Flow, DreamVLA, Motus, UniSim — explicit world model with video/flow intermediate representations
-  - Key architectural difference: where physics/dynamics knowledge is encoded
-- **New lightweight baseline:** SmolVLA (LeRobot) is treated as a low-resource baseline for rapid Experiment 0/1 iteration and pipeline debugging; do not assume its internal variable semantics match larger VLAs (§7.8).
-- **New analysis: 3D Object Flow vs Latent Action Space Diffusion** — Addresses the question "why not diffusion on latent actions instead of 3D positional space?":
-  - **3D Object Flow (Dream2Flow):** Operates on D (world model); **explicitly Euclidean** (typically \(\mathbb{R}^{3T}\) before aggregation); embodiment-agnostic; can improve estimator tractability when summarized into low‑D object-level features; useful for cross-stage failure attribution
-  - **Latent Action Diffusion:** Operates on A (policy head); compact learned representation; embodiment-specific; doesn't solve the D-side estimator validity problem
-  - **For prisoma specifically:** 3D flow is more useful because the bottleneck is measuring information in high-dimensional D/V embeddings, not action space. 3D flow can be a “geometry escape hatch” (avoid non‑Euclidean metrics) when represented/aggregated in a way that passes the same Experiment 0 + geometry gates.
-  - **Both can coexist:** Use latent action diffusion in the VLA being studied, but use 3D flow as an external D validation to diagnose where failures occur
-- **Updated Hypothesis H7 context:** The choice of 3D flow over latent actions is deliberate — it enables the decomposition of failures into video→flow→execution stages, which maps directly to PID diagnostic goals
-
-**v6.3 notes (Manifold-Geometry Integration + VLA Compatibility Matrix + Updated Vision Models):**
-- **New §10.10.12: Manifold Geometry Considerations** — Connects v5.5/v5.6 manifold challenges to Dream2Flow pipeline:
-  - Geometry analysis at each pipeline stage (WAN D_wan vs 3D Flow vs VLA embeddings)
-  - **Key insight:** 3D object flow is an explicitly Euclidean target; after aggregation to low‑D features it can reduce reliance on non‑Euclidean latent distances (still validate dimension/concentration)
-  - How v5.6 approaches (Isomap, Geodesic MI, PCA, Quantization, Copula) apply to each stage
-  - Hyperbolic/Lorentzian connection: "Flow-as-bridge" — use flow targets to reduce dependence on `D_wan` geometry; avoid interpreting continuous PID atoms on non‑Euclidean embeddings without new derivations
-  - Hierarchical PID and 3-source scaling with SAE integration (§16.8)
-- **New §10.10.13: VLA Integration Matrix** — Per-VLA integration details:
-  - v7.0 reframes this section as **contract-first**: define `V/L/D/A` explicitly per checkpoint and avoid assuming internal module names/shapes.
-  - “Per‑VLA details” are restricted to abstract-supported facts and explicit verification; everything else is treated as “verify”.
-  - The decision matrix is expressed in terms of analysis constraints (what variables are exposed, whether pixel-aligned variables exist, whether explicit `D` is available) rather than assumed architecture internals.
-- **Updated vision foundation model placeholders (verify availability/licensing):**
-  - **Segmentation:** SAM2 (promptable segmentation) or equivalent; use newer successors if/when released.
-  - **Point tracking:** CoTracker (or equivalent point tracker).
-  - **Depth:** a monocular depth model such as Depth-Anything v2 (relative depth) and/or a metric-depth baseline (e.g., Metric3D); calibrate if absolute scale is required.
-  - Do not assume specific speed/latency improvements; benchmark your pipeline.
-- **Cross-references added:** §16 geometry sections now connected to §10.10 pipeline
-
-**v6.2 notes (Unified Architecture: Dream2Flow + WAN + PID + Gaussian Splatting):**
-- **New §10.10: Unified Architecture** — Complete integration stack combining:
-  - **Dream2Flow** pipeline (video → flow → action) with a WAN-like *local* video model as a replacement candidate for proprietary video APIs (do not assume equivalence; benchmark/validate)
-  - **Vision foundation models:** segmentation (e.g., SAM2), point tracking (e.g., CoTracker), and depth estimation (e.g., Depth-Anything v2 / metric-depth baseline) for 3D flow extraction
-  - **PID analysis at 4 stages:** World model quality, flow extraction, policy integration, embodiment gap
-  - **Gaussian Splatting visualization:** PID-colored 3D splats where RGB = (Syn, Red, Unq)
-  - **Tauri + SparkJS** frontend for interactive flow visualization and debugging
-- **New §17.17: Dream2Flow Integration Requirements** — Measurement-first compute/data requirements:
-  - Record per-clip wall-clock time, peak VRAM/RAM, and artifact sizes for *your* chosen models/hardware
-  - Treat per-call API costs (if any) as a variable input; do not hard-code pricing into scientific claims
-- **Novel concept:** Gaussian splats as PID visualization — encode synergy/redundancy/uniqueness as splat colors, MI magnitude as opacity, uncertainty as size
-- **Optional motion control conditioning:** Wan-Move-style latent trajectory guidance can be used for counterfactual motion control *if* the chosen video model supports it; verify compatibility per paper/release.
-- **Research payoff:** Localize VLA failures to specific stages, compare VLA internal D vs WAN-derived flows, visualize information integration in 3D
-
-**v6.1 notes (Dream2Flow Integration + Embodiment-Agnostic Analysis):**
-- **Dream2Flow integration (arXiv:2512.24766):** Added Dream2Flow (Dharmarajan et al. 2025) as a related paradigm demonstrating that video generation models encode implicit world knowledge that can be extracted via **3D object flow** as an intermediate representation. Key findings:
-  - Video generation models can often synthesize plausible *object motion* even when robot–object interaction details are wrong; treat this as a paper-motivated premise to be validated on the chosen model/task distribution.
-  - **Embodiment gap bypass:** Separating "what should move" (object) from "how to move it" (actuator) enables zero-shot transfer
-  - The paper reports both simulation and real-world experiments across multiple object categories and embodiments; refer to the paper for specific tasks/robots and measured success rates (do not assume fixed rates in this spec).
-- **New §10.9: Dream2Flow and Video-to-Flow Paradigm:** Detailed analysis of how video generation as implicit world model relates to VLA internal world models
-- **New Hypothesis H7 (§3.6.6):** 3D object flow as an embodiment-agnostic intermediate representation may correlate with PID synergy patterns when V-D integration is successful
-- **New confound §14.5.7:** Embodiment gap confound — PID on (V,D,A) may conflate world model quality with action-execution failures
-- **Updated §9.7:** Dream2Flow failure taxonomy as structured framework for PID failure mode analysis
-- **Updated §13.4:** Added Dream2Flow citation with project URL
-
-**v6.0 notes (Critical Blockers Analysis + Training/Compute Requirements):**
-- **New §17: Training, Compute, and Data Requirements Analysis:** Comprehensive audit of all methods in the document, classifying each by training requirements (none, low, medium, high, extreme), compute needs (inference-only vs training), and data availability. Covers:
-  - §17.1: Executive classification table (25+ methods assessed)
-  - §17.2-§17.3: Core PID estimators and VLA embedding extraction (no training required)
-  - §17.4: VLA fine-tuning compute burden (LoRA vs full pretraining; measure on your setup)
-  - §17.5-§17.6: Dimensionality reduction (PCA vs learned SAE/VAE)
-  - §17.7: Neural MI estimators (MINE, CCMI) with per-task training costs
-  - §17.8-§17.9: World models and PRMs (extreme compute, infeasible for this project)
-  - §17.10-§17.12: Failure classifiers, depth estimation, synthetic data
-  - §17.13-§17.16: Data strategy, compute budget recommendations, licensing, and critical challenges
-- **New §18: Critical Blockers and Risk Analysis:** Systematic risk assessment with explicit Go/No-Go decision criteria:
-  - **5 Show-Stopper Blockers (Category 1):** Experiment 0 fails the MI-consistency / coherence gates under feasible preprocessing (i.e., kNN MI/`I^sx_∩` cannot be validated for the measurement pipeline you need), ~~DreamVLA unavailability~~ (MITIGATED: papers state release; verify repos/license; see §18.2.2), strong dependence (unbounded MI), i.i.d. assumption violation, baselines consistently match/beat PID features
-  - **7 Major Blockers (Category 2):** Geodesic kNN MI baseline (Marx & Fischer-style) not implemented, Ollivier-Ricci not implemented, no hyperbolic `I^sx_∩`, Pixel-160K access TBD, GRM weights TBD, no ground truth for "world model quality", scope exceeds PhD timeline
-  - **8 Minor Blockers (Category 3):** SAE training, MINE retraining, Isomap cost, macOS CUDA limits, etc.
-  - Risk mitigation timeline (Month 1-7 decision gates)
-  - Fallback scope hierarchy (Core → Important → Stretch → Future Work)
-- **Verification of key blockers (v10.0 audit level = arXiv abstracts + repo reality):**
-  - DreamVLA: abstract omits backbone dims; do not assume backbone family/dimensions without a primary citation; weight availability and licensing must be verified in the referenced repos.
-  - OpenVLA: abstract claims open-source checkpoints/code; verify repository/weights availability and license before depending on it.
-  - VLA-Arena: verify benchmark availability, data access, and licensing before using it as a primary evaluation source.
-  - Geodesic kNN MI (Marx & Fischer-style) and Ollivier-Ricci curvature: not implemented in `pid-core` (distance helpers exist but are not a validated manifold-MI estimator).
-- **Scientific Rigor Notes:** All blockers have explicit detection criteria, mitigation options, and Go/No-Go decision frameworks. Honest assessment: project is HIGH risk but tractable if Experiment 0 succeeds.
-- **New §14.6: RoPE What-Where Entanglement Confound:** Based on Gopalakrishnan et al. (2025, arXiv:2509.10534) — which shows, on language/music/genomic sequence models (**not** VLAs), that RoPE entangles content and position — from which we **infer** the same confound applies to RoPE-based VLAs (OpenVLA, Llama-based architectures) and document it. This creates a confound where PID estimates may reflect positional structure rather than pure semantic integration. Includes 5 mitigation strategies and publication requirements.
-
-**v5.8 notes (VLA-Arena Deep Integration + Memorization/Generalization Analysis):**
-- **VLA-Arena as Primary Evaluation Framework:** Deep integration of VLA-Arena (arXiv:2512.22539) as the recommended benchmark for prisoma experiments (§9.7.1). VLA-Arena's 170 tasks with structured difficulty axes directly align with PID diagnostic goals.
-- **New Testable Hypothesis — Memorization vs Generalization (§3.6):** VLA-Arena's key finding that VLAs exhibit "memorization over generalization" motivates a new, falsifiable hypothesis: PID signatures (specifically, the stability of synergy under input perturbations) may distinguish memorized from generalized task performance. This is treated as a candidate sub-hypothesis requiring empirical validation, not an a priori claim.
-- **Perturbation-Based PID Robustness Protocol (§9.7.2):** VLA-Arena's orthogonal V0-V4 (visual) and W0-W4 (language) perturbation axes provide a principled framework for testing whether PID estimates are robust to controlled distribution shifts. Asymmetric robustness patterns (V-perturbations affecting PID differently than L-perturbations) would provide evidence for modality-specific integration failures.
-- **Expanded Confound Analysis (§14.5):** Added VLA-Arena-derived confounds including task difficulty stratification (L0/L1/L2), perturbation-induced distribution shift, memorization/generalization confound, modality asymmetry confound, and compositional failure confound. These must be controlled before attributing PID patterns to "integration quality."
-- **New §9.7: VLA-Arena Alignment and Experimental Mapping:** Complete subsection mapping VLA-Arena's 4 task dimensions (Safety, Distractor, Extrapolation, Long-Horizon) to specific PID predictions, with falsifiability criteria and expected null results.
-- **Long-Horizon and Compositional Failure Analysis (§3.6.3):** VLA-Arena's finding that VLAs cannot compose learned skills for long-horizon tasks suggests that temporal synergy dynamics (synergy half-life, synergy stability across task phases) may be diagnostically valuable. This extends Aim 2 with concrete experimental targets.
-- **Safety Dimension Integration (§3.6.4):** VLA-Arena's Safety task axis (collision avoidance, constraint satisfaction) is integrated as a potential PID test case: safety-aware behavior may require specific V-L integration patterns that differ from goal-oriented behavior.
-- **Expanded §13.2.1:** VLA-Arena benchmark details including task structure, perturbation protocols, and VLA-Arena-S/M/L dataset specifications.
-- **Scientific Rigor Notes:** All VLA-Arena-derived hypotheses are explicitly marked as requiring Experiment 0 validation + controlled experiments. The "memorization over generalization" phenomenon is treated as an empirical observation from VLA-Arena, not as a definitional property of PID.
-
-**v5.7 notes (changes without deleting prior work):**
-- **Closed v5.6 as stable.** All v5.6 manifold approaches remain valid; this version adds empirical validation methods and VLA-specific guidance.
-- **VLA claim status:** Cross-checked key arXiv abstracts (see §7.6; treat non-abstract specifics as derived/unverified unless cited):
-  - OpenVLA (arXiv:2406.09246): abstract states 7B parameters, Llama 2 backbone, and visual features from DINOv2 + SigLIP.
-  - DreamVLA (arXiv:2507.04447): abstract describes world-knowledge forecasting and a diffusion-based transformer; backbone dims are unspecified in the abstract.
-  - PixelVLA: details remain unverified here; add a primary citation before using numeric specs.
-  - TraceVLA (arXiv:2412.10345): abstract states it fine-tunes OpenVLA and mentions a 4B Phi‑3‑Vision compact variant.
-- **First-Principles Geometry Analysis (§16.6-§16.11):**
-  - §16.6: 4 empirically validated local flatness testing methods
-  - §16.7: δ-hyperbolicity testing with Gromov 4-point condition
-  - §16.8: SAE analysis for VLA (e.g., VLM SAE work; arXiv:2504.02821)
-  - §16.9: Chebyshev/PixelVLA geometry transition analysis
-  - §16.10: GPT-2 vs modern LLMs hierarchy evidence
-  - §16.11: Unified Geometry-First Protocol + NanoGPT foundational study
-- **Authoritative Code Sources:** Added Wibral GitLab repos (infomorphic_networks, continuouspidestimator) to §13
-- **New VLA Research Integration:**
-  - VLA-Arena benchmark: "memorization over generalization" finding (arXiv:2512.22539)
-  - GenieReasoner/FACT tokenizer: flow-matching action discretization (arXiv:2512.24125)
-  - Hierarchical geometry of cognitive states in transformer embeddings (arXiv:2512.22227)
-- **Hyperbolic Training Guidance:** Added explicit guidance on when/where hyperbolic embedding training is needed (§16.7.4)
-
-**v5.6 notes (changes without deleting prior work):**
-- **Added Top 5 Manifold Solutions:** Explicitly listed "Manifold Unrolling", "Geodesic MI", "Linear Projection", "Quantization", and "Copula Transform" as practical engineering paths to address the v5.5 geometry warning.
-- **Documented Exclusions:** Explicitly noted why KDE, Harmonic Math, and Naive Geodesic kNN are suboptimal or dangerous in this context.
-
-**v5.6 Architecture notes (superseded by §7.6):**
-  - Older “✓ verified” claims should be treated as historical notes unless a primary citation (paper section/code commit/model card) is added.
-- **Added §7.6 Architecture Claim Status:** Tracks what is abstract-verified vs derived vs unverified, to avoid overstating certainty.
-- **First-Principles Geometry Analysis (Jan 2026):** Major additions to §16:
-  - **§16.6 Local Flatness Testing:** 4 empirically validated methods (manifold curvature via subspace angles, Ollivier-Ricci curvature, DLME constraint, curvature-adjusted PCA)
-  - **§16.7 δ-Hyperbolicity Testing:** Gromov 4-point condition; literature pointers on tree-likeness diagnostics (replicate on your embeddings; do not transplant values)
-  - **§16.8 SAE Analysis for VLA:** Application of Sparse Autoencoders to VLM/VLA components (e.g., arXiv:2504.02821), concrete protocol for PID analysis
-  - **§16.9 Chebyshev/PixelVLA Analysis:** Geometry transition analysis showing where L∞ is appropriate vs hierarchical methods
-  - **§16.10 GPT-2 vs Modern LLMs:** Architectural differences affecting geometry, layer-wise hierarchy evidence
-  - **§16.11 Unified Geometry-First Protocol:** Complete decision framework integrating all diagnostics + NanoGPT foundational study protocol
-
-**v5.5 notes (changes without deleting prior work):**
-- **Critical Documentation Fix:** Explicitly documented that Wibral PID (`I^sx_∩`) on manifolds/Lorentz spaces requires new derivations (volume forms/disjunctions).
-- Added top-level warning to prevent naive application of Euclidean estimators to curved spaces.
-
-**v5.4 notes (VLA integration):**
-- Cross-checked key VLA + Shannon-invariants citations via `outputs/arxiv_ref_cache.json` (cached arXiv metadata: titles/authors/dates):
-  - OpenVLA — arXiv:2406.09246
-  - DreamVLA — arXiv:2507.04447
-  - Dream-VL & Dream-VLA — arXiv:2512.22615
-  - PixelVLA — arXiv:2511.01571
-  - TraceVLA — arXiv:2412.10345
-  - Shannon invariants — arXiv:2504.15779
-- Clarified how OpenVLA/DreamVLA/PixelVLA/TraceVLA affect **what variables exist** (what “D” can mean) and therefore which decompositions are scientifically clean (§6.1, §7).
-- Clarified the **primary hypothesis** vs. **candidate sub-hypotheses/features** and made the hypothesis↔aims mapping explicit (§1.3, §3.3).
-- Tightened the “hierarchy vs geometry” story: Shannon invariants/hierarchical screening address **source-count scaling**, while manifold/high‑d diagnostics address **estimator validity at (N,d)** (§8.1.5, §16).
-- Tightened dimensionality-reduction language so the table cannot be misread as “random projection fixes manifolds” or “hyperbolic is drop‑in” (§8.2, §16.4).
-
-**v5.1–v5.3 notes (restored):**
-- **v5.3 (Hierarchy vs Geometry):** Distinguished source-count scaling (hierarchy) from estimator validity (geometry).
-- **v5.2 (PixelVLA & TraceVLA):** Added citations and scope for visual prompting and trace-based architectures.
-- **v5.1 (OpenVLA & DreamVLA):** Clarified variable definitions and world model ("D") extraction.
-
-**v5.0 final audit notes (changes without deleting prior work):**
-- Added confounding factors analysis (§14)
-- Added numerical stability guidance (§15)
-- Added manifold/PCA/kNN limitations section (§16) with detailed diagnostics and decision flowcharts
-- Integrated information geometry methods and intrinsic dimension estimation
-- Code audit complete — implementation cross-checked against reference implementations
-- Grant-ready documentation with full provenance tracking
-
-**Reference verification status (important):**
-- Core `I^sx_∩` / KSG papers: if you keep local PDFs for offline use, store them under `.external/papers/` (ignored by git) and treat those PDFs as the primary sources for any detailed/quotable claims.
-- arXiv IDs in this document: cross-checked against `outputs/arxiv_ref_cache.json` when present (cached arXiv metadata: title/authors/date). If an arXiv ID is missing from the cache, treat any summary text here as a placeholder and verify directly against the paper.
-- Maintenance helpers: `python scripts/audit_grandplan.py` lists arXiv IDs referenced in `grandplan.md` that are missing from the local cache; `python scripts/update_arxiv_ref_cache.py` refreshes the cache (requires network).
-- Detailed architecture claims, runtime/latency numbers, and some “ecosystem” descriptions are treated as **unverified unless explicitly sourced**; keep them as ideas/design sketches, not facts.
-
----
-
-# Table of Contents
-
-1. [Executive Summary and Critical Warnings](#1-executive-summary-and-critical-warnings)
-2. [Theoretical Foundations](#2-theoretical-foundations)
-3. [The Core Research Questions](#3-the-core-research-questions)
-4. [Decomposition Strategies: What Variables to Analyze](#4-decomposition-strategies-what-variables-to-analyze)
-5. [Three-Way PID: I(V, L, D; A)](#5-three-way-pid-iv-l-d-a)
-6. [Discarded Approaches and Why](#6-discarded-approaches-and-why)
-7. [VLA Architecture Analysis](#7-vla-architecture-analysis)
-8. [Estimation and Implementation](#8-estimation-and-implementation)
-9. [Experimental Design](#9-experimental-design)
-10. [World Model Integration (WAN, GWM, 3DGS)](#10-world-model-integration-wan-gwm-3dgs)
-11. [Technical Implementation](#11-technical-implementation)
-12. [Open Questions and Future Directions](#12-open-questions-and-future-directions)
-13. [References](#13-references)
-14. [Confounding Factors Analysis: Proving and Disproving the Hypotheses](#14-confounding-factors-analysis-proving-and-disproving-the-hypotheses)
-15. [Numerical Stability and Optimization: Technical Guidance](#15-numerical-stability-and-optimization-technical-guidance)
-16. [Why PCA and kNN Are Suboptimal for Manifold-Valued Embeddings](#16-why-pca-and-knn-are-suboptimal-for-manifold-valued-embeddings)
-17. [Training, Compute, and Data Requirements Analysis](#17-training-compute-and-data-requirements-analysis)
-18. [Critical Blockers and Risk Analysis](#18-critical-blockers-and-risk-analysis)
-A. [Appendix A: Glossary](#appendix-a-glossary)
-B. [Appendix B: Decision Log and Implementation Reference](#appendix-b-decision-log-and-implementation-reference)
-C. [Appendix C: Modern Rendering Stack (SparkJS, Three.js, and GPU Rendering)](#appendix-c-modern-rendering-stack-sparkjs-threejs-and-gpu-rendering)
-
----
-
-# 1. Executive Summary and Critical Warnings
-
-## 1.1 What This Document Is
-
-This document provides a comprehensive specification for applying Partial Information Decomposition (PID), specifically the shared-exclusions measure I^sx_∩ from the Wibral group at Göttingen, to diagnose grounding failures ("hallucinations") in Vision-Language-Action (VLA) models.
-
-**Scope constraint (PhD-critical):**
-- This document is intentionally anchored on the **Wibral/Göttingen line of work**: shared-exclusions PID (`I^sx_∩`, “SxPID”) and the related **Shannon-invariants** program (Gutknecht et al. 2025).
-- Other PID measures/tools may be mentioned for contrast or baselines, but **they are not the scientific object of this project**.
-
-**First-principles epistemic split (do not blur):**
-- The **quantity** `I^sx_∩` is a mathematical functional of the data-generating distribution.
-- Any **estimator** (kNN/KSG, variational, etc.) is a finite-sample algorithm with bias/variance/failure modes. Most “surprising” effects at VLA scale are more likely estimator/pathology than new science unless ruled out by Experiment 0.
-
-**Units (avoid silent mismatches):**
-- Papers often use `log2` (bits). This repo’s Rust implementation uses natural `log` (nats).
-- Convert via: `bits = nats / ln(2)` and `nats = bits * ln(2)`.
-
-## 1.2 ⚠️ CRITICAL WARNINGS: Read Before Proceeding
-
-This project underwent extensive first-principles review that revealed **fundamental conceptual issues** that must be understood before any implementation:
-
-### Warning 1: The Core Hypothesis May Be Unfounded
-
-**Claim in original proposal:** "Negative synergy (Syn < 0) indicates hallucination because V and D conflict"
-
-**What the mathematics actually says:** for a two-source PID,
-`Syn = I(S₁,S₂;T) − I(S₁;T) − I(S₂;T) + Red = Red − CI₂`. Therefore
-`Syn < 0` means that the chosen redundancy functional is smaller than the Shannon
-co-information for that distribution. It is a property of this decomposition—not, by
-itself, a loss of predictive power, causal conflict, or model failure.
-
-Negative synergy could arise from:
-- Estimation artifacts at high dimensions (curse of dimensionality)
-- High correlation between V and D (double-counting effects)
-- General model uncertainty (unrelated to hallucination)
-- Pointwise misinformation (observing sources makes target less likely)
-
-**Status:** This is a HYPOTHESIS requiring empirical validation, not a definitional truth. In this spec it is treated as a *candidate sub-hypothesis / feature* inside the primary evaluation aim (see §3.3), not as the project’s sole thesis.
-
-### Warning 2: The V-D-A Decomposition May Be Degenerate
-
-In a VLA model:
-```python
-action = vla_forward(vision, dream_state, language_instruction)
-```
-
-The action A is **deterministically computed** from (V, D, L). This creates problems:
-
-1. **Triviality when conditioning on all inputs:** for a **discrete or explicitly
-   quantized** target, deterministic `A=f(V,D,L)` gives `I(V,D,L;A)=H(A)`. For a
-   non-degenerate continuous deterministic target, the corresponding differential-entropy
-   identity is not valid: MI can be infinite or undefined because the joint law is singular.
-   In either case, a 3-source PID of `(V,L,D)→A` can reduce to a property of the policy map
-   and does not by itself validate grounding or correctness. Add inference noise only as a
-   declared measurement model, not as a mathematical patch.
-2. **Pairwise MI depends on what varies:** `I(V,D;A)` can be informative when `L` varies across samples, but it can approach `H(A)` if `L` is constant (or effectively redundant) in the dataset. Always report the sampling unit and which inputs are included in the decomposition.
-3. **Grounding/failure diagnosis needs an external target or counterfactual:** Prefer `A*` (teacher/optimal action), a success/failure label, or controlled interventions/counterfactuals. Otherwise you risk measuring only the model’s internal consistency rather than “hallucination.”
-
-### Warning 3: The KSG Estimator May Fail at VLA Scale
-
-The continuous I^sx_∩ estimator (Ehrlich et al., 2024) was validated on:
-- Low-dimensional synthetic systems (single-digit to low-tens of dimensions per variable; verify the exact envelope against the paper before citing a number)
-- Thousands of samples
-- Well-behaved distributions
-
-Candidate VLA embeddings are often:
-- hundreds to thousands of ambient dimensions (architecture/layer dependent)
-- a protocol-dependent number of samples per trajectory, often with strong serial dependence
-- Unknown distributional properties
-
-At d=4096, k-NN methods suffer from the curse of dimensionality: "nearest neighbors" become nearly equidistant.
-
-### Warning 4: Strong Dependence Can Break kNN MI Even at Low Dimension
-
-There is a separate (often missed) failure mode from “high dimension”: **strong statistical dependence** (very large true MI, e.g., near-deterministic relationships) can make KSG MI estimators require **prohibitively many samples** even when `d` is small.
-
-Gao, Ver Steeg, and Galstyan (AISTATS 2015; arXiv:1411.2003) show that popular KSG MI estimators can have sample complexity that scales **exponentially in the true MI** for strongly dependent variables, due to an implicit local-uniformity assumption. They propose corrections/alternatives (e.g., local non-uniformity correction; local Gaussian approximations, arXiv:1508.00536) that can reduce bias in this regime.
-
-Why this matters here:
-- VLA pipelines often contain **near-deterministic mappings** (e.g., `A = f(V,D,L)`; deterministic decoders; cached embeddings; quantized actions).
-- If variables are treated as continuous, **MI may be effectively unbounded** in the deterministic/noiseless limit. Estimator output can be dominated by numerical/finite-precision effects rather than meaningful “information integration.”
-
-Design implication:
-- Experiment 0 must include **strong-dependence** synthetic cases (not just “high `d`”) and explicitly test estimator stability under near-determinism.
-- When using MI/PID on VLA signals, you must be explicit about the noise model / discretization / stochasticity that makes the quantity finite and interpretable.
-
-### Warning 5: kNN Estimators Assume i.i.d. Samples (Trajectory Autocorrelation Is a Confound)
-
-The KSG family (and the Ehrlich et al. `I^sx_∩` estimator built on it) is typically analyzed under an **i.i.d. sample** assumption.
-
-But VLA data is usually collected as **trajectories**:
-- Adjacent timesteps are strongly autocorrelated → “N frames” is not “N independent samples”.
-- Some variables are constant within a trajectory (e.g., instruction `L`) → within-trajectory MI/PID can be degenerate or misleading.
-
-**Implication:** Treating every frame as an i.i.d. sample can inflate apparent sample size, distort variance estimates, and change neighbor geometry. Any “real-time” claims must state the sampling unit (frames vs windows vs trajectories) and the effective sample size.
-
-**Mitigations (design choices, not afterthoughts):**
-- Prefer **across-trajectory** datasets where each sample is an episode/timepoint chosen by a reproducible rule (or use large stride subsampling).
-- Use **block bootstrap** / trajectory-level resampling for uncertainty estimates when temporal dependence is unavoidable.
-
-### Warning 6: Liang et al. (2023) Use DIFFERENT PID Measures
-
-Their robotics results do NOT validate I^sx_∩ specifically. They use:
-- "Batch estimator" based on variational bounds
-- "CVX estimator" using convex optimization over discrete clusters
-
-Neither uses the shared-exclusions definition. Their success doesn't transfer automatically to our approach.
-
-**This warning now applies inside this repo's own toolbox (v10.2).** The repo ships more than one PID measure:
-- **Continuous mode** estimates `I^sx_∩` (Ehrlich et al. 2024, KSG-style disjunction neighborhoods).
-- **Discrete mode** (`discrete_pid.rs`) estimates a Williams–Beer-style `I_min` redundancy (minimum of specific informations per target outcome) on quantized data — see §8.1.6. `I_min` is non-negative by construction, so "negative redundancy/synergy" features that exist under `I^sx_∩` are *definitionally absent* in discrete mode.
-- Gaussian/normalizing-flow PID estimators (e.g., arXiv:2510.04417) implement yet another measure.
-
-Cross-measure agreement is a useful **robustness check**; it is never a license to pool atoms across measures, average them, or attribute discrete-mode results to `I^sx_∩`. Every reported atom must name its measure and estimator mode.
-
-### Warning 7: Attribution/Saliency Methods Are Not PID
-
-Layer-wise Relevance Propagation (LRP), Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, SHAP-style explanations, occlusion tests, and attention maps are useful diagnostics, but they answer a different question from PID:
-- **Attribution methods:** for one model call or concept, which input feature, token, region, layer, or concept direction affects the selected output?
-- **PID/CI:** across a logged sample distribution, how is target-relevant information decomposed across source variables (`V`, `L`, `D`, `Flow`, etc.)?
-
-First-principles separation:
-
-| Question | Object being measured | Correct evidence shape | What it cannot prove alone |
+| Claim class | Minimal evidence | Replication requirement | Main disqualifier |
 |---|---|---|---|
-| LRP / attribution | A local score vector for a fixed model, input, target output, layer/rule/baseline | Heatmaps, token scores, concept sensitivities, deletion/occlusion effects on the same call | That information is redundant/unique/synergistic across a population |
-| PID / CI | A distributional dependence structure over random variables and targets | Logged samples, estimator gates, geometry checks, uncertainty, perturbation controls | Which exact pixel/token/neuron caused one action |
+| EC1 experiment semantics | schema conformance, injected faults, replay comparison, baseline stack benchmark | second independent adapter | tested only on self-generated happy paths |
+| Average intervention effect | assignment integrity, ITT contrast, manipulation check, cluster-aware uncertainty | second task family for broad language | post-assignment exclusion or treatment ambiguity |
+| Paired algorithmic response | immutable pre-treatment snapshot, exact clone/reset contract, declared RNG coupling, direct paired response, outer-fold prediction | second intervention construction or policy | mutable shared state, unquantified Monte Carlo error, or physical-effect language |
+| Closed-loop effect moderation | pre-treatment feature, assignment integrity, outer-fold evaluation on randomized outcomes, calibration, useful-margin test | directional replication | post-treatment moderator, in-sample subgrouping, or paired-software contrast substituted for physical outcomes |
+| Prospective monitor | landmark freeze, censoring/competing-risk handling, external/temporal holdout, calibration, decision utility | external task/time block | frame leakage or prevalence-obscured metric |
+| PID incremental value | all four gates, matched baselines, nested cross-fitting, abstention denominator | second regime/policy | unsupported local score or shared-code “validation” |
+| Mechanistic use | valid intervention, engagement/specificity, multiple constructions, policy-level effect | second site/construction | off-support perturbation with no specificity evidence |
+| Transport | named target population, overlap, effect-modifier audit, external data | another site/embodiment when claimed | “different benchmark” without transport assumptions |
+| Safety relevance | process/outcome measure, failure coverage, intervention evaluation | operational context | certification language or unmeasured hazards |
 
-Do not use an attribution heatmap as evidence that `Red`, `Unq`, or `Syn` is valid, and do not use a passing PID gate as evidence that a saliency map is faithful. Treat attribution methods as complementary baselines and triangulation probes that require their own sanity checks (model/data randomization, baseline/background sensitivity, deletion/occlusion, and intervention tests).
+A claim is downgraded automatically when any required cell is missing. Statistical significance cannot upgrade a design whose identifying assumptions failed.
 
-## 1.3 Recommended Approach
+# 5. Experimental programme
 
-Given these warnings, the recommended approach is:
+## 5.1 Gate sequence
 
-1. **Run Experiment 0 FIRST:** validate the estimator on synthetic data at target dimensionality before any VLA experiments.
-2. **Bring up the harness on the simplest stack:** start with simulator-derived `Flow_gt` (from logged object poses) and a small open baseline (e.g., SmolVLA, or even a toy policy) to validate logging, interventions, replay, and embedding extraction *without* adding a video predictor dependency.
-3. **Scale to the primary VLA target next (e.g., OpenVLA):** only after (1)–(2) are stable; treat diffusion-based VLAs and predictor-driven Flow as optional branches, not prerequisites.
-4. **Include strong baselines:** compare against entropy, OOD scores, PRMs/GRMs, learned classifiers, and faithfulness-checked attribution probes.
-5. **Pre-register success criteria:** specify AUROC/effect-size targets, statistical tests, and which decompositions are “primary”.
-6. **Plan for negative results:** if baselines match or beat PID features, that is a valid (publishable) outcome with confound analysis.
-7. **Test multiple decompositions:** do not commit to V-D-A alone; test V-L-A and hierarchical pairwise variants, and add 3-way only when pairwise screening indicates value.
+The programme is staged. Later results cannot rescue an earlier failed gate through post-hoc reinterpretation.
 
-**Coherence note (why §1 highlights “one hypothesis” but §3 has multiple aims):**
-- The original “Syn < 0 ⇒ hallucination” claim is *not* the project thesis; it is one candidate feature/sub-hypothesis.
-- The project thesis is broader: under a **validated estimator regime**, a **feature set** derived from Shannon invariants (Gutknecht et al. 2025) and (where feasible) SxPID (`I^sx_∩`) should add predictive/diagnostic value beyond strong uncertainty baselines.
-- §3.3 rewrites the aims to match this hierarchy and makes the gating explicit.
-
-## 1.4 How the Pieces Fit Together (VLA Architecture × Hierarchy × Manifolds)
-
-This project has three *separable* axes that are easy to conflate:
-
-1. **What variables exist (model/architecture):** what “V”, “L”, “D”, and “A” mean depends on the VLA.
-   - **DreamVLA (arXiv:2507.04447):** proposes explicit world‑knowledge forecasts → “D” is more operationalizable *if* those outputs are exposed/loggable (and interventionable).
-   - **OpenVLA (arXiv:2406.09246):** no explicit “dream/world model” output → any “D” is a hidden-state extraction (definition choice).
-   - **PixelVLA (arXiv:2511.01571):** introduces **multiscale V** and **visual prompts** → many candidate “sources” (hierarchy becomes useful).
-   - **TraceVLA (arXiv:2412.10345):** injects history via **visual traces** → temporal information is partly “inside V,” blurring V/D boundaries.
-
-2. **How we scale to many sources (hierarchy):** Shannon invariants / hierarchical screening (Gutknecht et al., arXiv:2504.15779) address **combinatorial explosion in source count**, not high‑dimensional geometry.
-   - Level 1: MI-only invariants (CI/Ω) to screen many candidate sources/windows.
-   - Level 2: targeted pairwise SxPID (`I^sx_∩`) where meaningful.
-   - Level 3: optional full 3-way SxPID (18 atoms) offline.
-
-3. **Whether estimation is valid at all (geometry/manifolds):** kNN/KSG and disjunction‑kNN `I^sx_∩` can collapse at high effective dimension or under strong dependence.
-   - Always run geometry diagnostics (intrinsic dimension + distance concentration proxies) and the Experiment 0 gate **after** any projection/preprocessing.
-   - If kNN-based `I^sx_∩` is invalid even after reduction, restrict claims to Shannon invariants / MI-only baselines and treat them as a different pipeline (not “`I^sx_∩` results”).
-
----
-
-# 2. Theoretical Foundations
-
-## 2.1 Partial Information Decomposition (PID)
-
-PID addresses the question: Given two (or more) source variables S₁, S₂ and a target variable T, how can we decompose the total mutual information I(S₁, S₂; T) into components that capture:
-
-- **Redundancy:** Information available from EITHER source alone
-- **Unique Information:** Information available from ONE source but not the other
-- **Synergy:** Information available ONLY from both sources together
-
-For two sources, the decomposition is:
-```
-I(S₁, S₂; T) = Red(S₁, S₂; T) + Unq(S₁; T) + Unq(S₂; T) + Syn(S₁, S₂; T)
-```
-
-### 2.1.1 The Problem: PID is Underdetermined
-
-Shannon's information theory doesn't uniquely specify how to compute these atoms. Multiple PID measures exist, each with different properties and trade-offs.
-
-## 2.2 The I^sx_∩ (Shared-Exclusions) Measure
-
-We adopt I^sx_∩ from Makkeh, Gutknecht, and Wibral (2021), extended to continuous variables by Ehrlich et al. (2024).
-
-### 2.2.1 Definition
-
-The shared-exclusions redundancy `I^sx_∩` is defined via **exclusions of probability mass** and can be written as a **local mutual information** induced by an auxiliary “statement” variable `W` (Makkeh et al. 2021, Eq. 17):
-```
-i^sx_∩(t : s₁; s₂) := i(t : W_{s₁,s₂}=1) = log[ p(t | W_{s₁,s₂}=1) / p(t) ]
-
-I^sx_∩(S₁, S₂; T) := E_{t,s₁,s₂}[ i^sx_∩(t : s₁; s₂) ]
-```
-
-Where `i(·;·)` is the **pointwise mutual information**:
-```
-i(s; t) = log[p(s, t) / (p(s)·p(t))]
-```
-
-**Subtle but important (do not gloss over):**
-- The *local* term `i(t : W_{s₁,s₂}=1)` is a pointwise mutual information with an auxiliary statement variable.
-- The *global* redundancy `I^sx_∩(S₁,S₂;T)` is **not** the mutual information `I(T;W)` because the expectation is taken over `p(t,s₁,s₂)` (Makkeh et al. 2021 note under Eq. 17), not over `p(t,W)`.
-- Consequence: even the **redundancy itself** can be negative at the distribution level; negative values are not automatically “bugs,” but they do require careful interpretation and estimator validation.
-
-Ehrlich et al. (2024) derive a **kNN/KSG-style estimator** for the continuous case by replacing conjunction (intersection) neighborhoods with disjunction (union) neighborhoods; see §8.1.3 for the concrete estimator form.
-
-**Important:** Do **not** confuse `I^sx_∩` with Williams & Beer’s `I_min`, which is defined using a minimum over “specific information” terms; `I_min` is a different redundancy measure.
-
-### 2.2.2 Key Properties
-
-| Property | I^sx_∩ | Implication |
-|----------|--------|-------------|
-| **Differentiability (distribution-level)** | ✓ | Differentiable as a functional of probabilities; **gradient-based training still requires a differentiable estimator** (the kNN/KSG estimator is not). |
-| **Target Chain Rule (TCR)** | ✓ | Decomposes a *composite* target via a conditional chain rule: `i^sx_∩(t₁,t₂:…) = i^sx_∩(t₁:…) + i^sx_∩(t₂:… given t₁)`. *(Distinct from "atoms sum to total MI", which is lattice completeness — true for any Möbius-built PID independent of the TCR.)* |
-| **Atom non-negativity** | ✗ | Some atoms can be negative (including `I^sx_∩` itself; not just synergy/unique) |
-| **Transformation invariance** | partial | Discrete `I^sx_∩` **is** invariant under bijective relabelling of outcomes / duplication (Makkeh 2021; Ehrlich 2024 L297). A fully transformation-invariant *continuous* variant exists (Schick-Poland), but the **constructive kNN estimator used here** (Ehrlich 2024) is **not** invariant under arbitrary per-variable invertible transforms — its "equal-footing" single-`ε` convention is metric-dependent. The structural incompatibility result says that no measure can have all three of non-negativity, TCR, and invariance; it does not establish a unique causal trade between any chosen pair. |
-
-### 2.2.3 Why Negative Synergy is Possible
-
-The impossibility results from Matthias et al. (2025, arXiv:2512.16662) prove that:
-
-> Non-negativity + Target Chain Rule + Transformation Invariance are **mutually incompatible**
-
-`I^sx_∩` has the Target Chain Rule and permits negative atoms. The incompatibility theorem
-rules out possessing all three properties simultaneously, but does not by itself prove that
-the TCR *causes* negative synergy. Whether a negative atom correlates with grounding failure
-is an empirical question requiring controlled validation and strong baselines.
-
-### 2.2.4 What Negative Synergy Actually Means (Mathematically)
-
-For a two-source decomposition:
-```
-Syn = I(S₁,S₂;T) - I(S₁;T) - I(S₂;T) + Red
-    = Red - CI₂
-```
-
-Thus `Syn < 0` is exactly `Red < CI₂` under the selected redundancy functional.
-
-**Interpretation options:**
-1. **Measure-specific allocation:** different redundancy functionals give different `Red`,
-   and hence different `Syn`, while all Shannon MI terms stay fixed. At fixed MI terms,
-   increasing `Red` increases `Syn`; a negative synergy is therefore not evidence of a
-   "redundancy-leaning" allocation.
-2. **Decomposition relation:** the atom is negative because the chosen `Red` lies below
-   `CI₂`. Do not restate that algebra as reduced joint predictiveness: total joint MI remains
-   the directly relevant predictive-information quantity.
-3. **Pointwise misinformation:** at specific points, observing `(s₁,s₂)` can make `t` less likely than marginally expected (negative local information), which can propagate into negative PID atoms depending on the measure.
-4. **Estimator/pathology:** high dimension, strong dependence, ties/quantization, and trajectory autocorrelation can all produce artifactual negative atoms; treat “unexpected signs” as a prompt to run controls, not as a conclusion.
-5. **Informative vs misinformative split (interpretation aid):** Makkeh et al. (2021) describe splitting the pointwise shared information into informative and misinformative components (`i^{sx+}_∩` and `i^{sx-}_∩`), yielding nonnegative “+” and “−” atom contributions. When an atom (e.g., synergy) is negative, it can be understood as the misinformative component outweighing the informative one for that atom (verify exact definitions in the paper before implementing).
-
-**Two publication-critical nuances (v10.7; verified against the source papers):**
-- The *documented empirical* negative atoms in the continuous paper (Ehrlich et al. 2024) are **unique** atoms (e.g., Π_unq ≈ −5.5 bits in the "unique gate"; a negative time-of-day unique atom in their energy-system analysis), **not synergy** — so H1 may cite this line for "negative atoms are meaningful", but **not** as empirical precedent for negative *synergy* specifically.
-- For **time-series data**, the continuous-SxPID authors themselves call negative atoms "a distracting technicality" and sanction **clamping to non-negative values**. prisoma analyzes trajectories, so any negative-atom claim must explicitly defend the ensemble-average (memoryless-agent) interpretation for trajectory data. **Preregistered reporting rule (scoped by claim type, v10.7):** for claims about atom *magnitudes, orderings, or trends*, both clamped and unclamped variants are reported and must reach the same conclusion — if they disagree, the result is reported as **regime-sensitive and no claim is made**. Claims about *negativity itself* (e.g., negative-synergy frequency in H1's feature set) are by definition **unclamped-only** — under clamping their value is identically zero, so demanding clamped agreement would make them unfalsifiable-by-construction; their robustness check is instead the §14.2 controls plus the informative/misinformative split (item 5 above), with the clamped variant reported for completeness.
-
-**NOT a valid interpretation:** "The sources are fighting each other" or "conflict" in any intuitive sense. This is a seductive but potentially misleading metaphor.
-
-## 2.3 Continuous Variable Extension
-
-Ehrlich et al. (2024) extended I^sx_∩ to continuous variables using k-nearest neighbor (k-NN) estimation, building on the KSG estimator (Kraskov et al., 2004).
-
-### 2.3.1 KSG Estimator
-
-The KSG formula for mutual information:
-```
-I(X; Y) = ψ(k) + ψ(N) - ⟨ψ(n_x + 1) + ψ(n_y + 1)⟩
-```
-
-Where:
-- ψ is the digamma function
-- k is the number of neighbors
-- N is sample size
-- n_x, n_y are marginal counts within the k-th neighbor distance
-- **Maximum norm (Chebyshev distance)** is *mandated* for the **joint** space `Z=(X,Y)` in the k-NN search; the marginal subspaces may use *any* norm (Kraskov et al. 2004, §II: "any norms can be used for ‖x−x′‖ and ‖y−y′‖"). Using the max norm for marginal counting as well is the standard, convenient choice (and what `pid-core` does), **not** a requirement of the estimator.
-
-### 2.3.2 Extension to I^sx_∩
-
-Ehrlich et al. (2024) derive a **KSG-style kNN estimator** for continuous `I^sx_∩`. It is **not** “take the minimum of pointwise MI terms.”
-
-The key adaptation is that the shared-exclusions “OR” in Makkeh et al. (2021) becomes a **disjunction neighborhood** in source space. Under Chebyshev/L∞:
-
-- `d_S_disj(i,j) = min( d(S₁ᵢ,S₁ⱼ), d(S₂ᵢ,S₂ⱼ) )`
-- `d_ST_disj(i,j) = max( d(Tᵢ,Tⱼ), d_S_disj(i,j) )`
-
-For each sample `i`, let `εᵢ` be the distance to the `k`-th nearest neighbor under `d_ST_disj`. Count `n_α(i)` neighbors in the source-disjunction ball and `n_T(i)` neighbors in target space within `εᵢ`, then estimate:
-
-```
-Î^sx_∩ = ψ(k) + ψ(N) − (1/N) Σ_i [ ψ(n_α(i)) + ψ(n_T(i)) ]
-```
-
-**Counting convention (make this explicit; it affects off-by-one bugs):**
-- In many KSG-style presentations, neighbor counts exclude the sample itself and the formula uses `ψ(n_x(i)+1)` / `ψ(n_y(i)+1)`.
-- In other (equivalent) presentations, counts **include** the sample itself and the `+1` is absorbed into the count.
-
-This document (and `pid-rs/crates/pid-core`) uses the **include-self** convention for `n_α(i)` and `n_T(i)` so the digamma arguments are the inclusive counts.
-
-See §8.1.3 for concrete implementation notes (tie handling and “strict radius” rules matter).
-
-## 2.4 Infomorphic Networks (Optional / Exploratory)
-
-Makkeh et al. (2025, PNAS; DOI `10.1073/pnas.2408125122`) describe “infomorphic networks”: using local information-theoretic terms as **learning objectives** rather than post-hoc analysis tools. This is *conceptually adjacent* but **not required** for Aim 1 (implementing/validating `I^sx_∩` as a diagnostic).
-
-In infomorphic networks, each neuron's output `Y` is trained to **maximize** a local *goal function* `G` — a weighted sum of the PID atoms of `Y` with respect to its **receptive** inputs `R` and **contextual** inputs `C`, plus a residual-entropy (stochasticity) term:
-```
-G(Y : R, C) = Γ₀·Unq(Y:R) + Γ₁·Unq(Y:C) + Γ₂·Red(Y:R,C) + Γ₃·Syn(Y:R,C) + Γ₄·H(Y|R,C)
-```
-(the weights `Γᵢ` select the neuron's "information goal"; note the **two separate** unique terms, the explicit `H(Y|R,C)` term, and that `G` is *maximized*, not a loss minimized. Makkeh et al.; cf. preprint arXiv:2306.02149 Eq. 8. The single lumped `α·Red + β·Unq + γ·Syn` form is an over-simplification.)
-
-This motivates Aim 3 as an exploratory direction *only after* Experiment 0 and the diagnostic experiments succeed, and only with a differentiable estimator (the kNN/KSG estimators in this spec are not differentiable).
-
-## 2.5 Shannon Invariants as Problem-Solvers
-
-Gutknecht et al. (2025, arXiv:2504.15779) introduced Shannon invariants to address PID's scalability limitations. Here we explore how they can solve specific problems in our VLA application.
-
-### 2.5.1 The Scalability Problem
-
-- Full PID grows super-exponentially with the number of variables
-- For 2 sources: 4 atoms
-- For 3 sources: 18 atoms
-- For 4 sources: 166 atoms
-
-For three variables (V, L, D), estimating all 18 atoms is computationally expensive and many atoms are hard to interpret.
-
-### 2.5.2 What Makes an Invariant "Shannon"?
-
-**Key Insight from Gutknecht et al. (2025):** A "Shannon invariant" is a quantity that:
-1. Captures meaningful properties of information decomposition
-2. **Depends only on Shannon's entropy definition** (not on which PID measure you choose)
-3. Can be computed efficiently from standard MI estimates
-
-**Why This Matters:** Different PID measures (I^sx_∩, I_min, I_BROJA, etc.) give different values for redundancy and synergy. But Shannon invariants have the **same value regardless of which PID measure you use**. This makes them theoretically robust and practically useful.
-
-**Units note (bits vs nats):**
-- Gutknecht et al. (arXiv:2504.15779) primarily report in **bits** (`log2`).
-- This repo’s Rust estimators report in **nats** (`ln`).
-- Changing log base multiplies all MI/entropy/PID quantities by a constant: `bits = nats / ln(2)`.
-  - Signs (e.g., `CI < 0`) and rank-order comparisons are unchanged.
-  - Any numeric thresholds (e.g., “MI > 4 nats”) must be converted when comparing across papers.
-
-**The Key Example - Co-Information:**
-
-For any bivariate PID measure, the following identity holds:
-
-```
-CI(X₁, X₂; Y) = I(X₁;Y) + I(X₂;Y) - I(X₁,X₂;Y) = Red - Syn
-```
-
-This equals Redundancy minus Synergy for **any** valid PID measure. The individual values of Red and Syn depend on your measure choice, but their difference is invariant.
-
-### 2.5.3 Shannon Invariants: Scalar Summaries
-
-Instead of computing all PID atoms, Shannon invariants provide interpretable numbers:
-
-**Average Degree of Redundancy ($\bar{r}$) and Vulnerability ($\bar{v}$):**
-
-Gutknecht et al. (2025, arXiv:2504.15779, Propositions 1–2) define these normalized invariants to capture the system's global position on the redundancy-synergy spectrum — both are provably computable from Shannon MI terms alone (linearly many in the number of sources), measure-agnostically, which is the published formal anchor for using them as H2/H3 screening quantities:
-
-1.  **Average Degree of Redundancy ($\bar{r}$):**
-    $$ \bar{r}(T; S_1, \dots, S_n) = \frac{\sum_{i=1}^n I(T; S_i)}{I(T; S_1, \dots, S_n)} $$
-    *   $\bar{r} > 1$: Redundancy-dominated (sum of parts > whole).
-    *   $\bar{r} < 1$: Synergy-dominated (whole > sum of parts).
-    *   $\bar{r} = 1$: Additive MI. **Not** a proof of "independent contributions": additivity also arises from Red ≈ Syn cancellation, and independent sources need not give $\bar{r}=1$ (XOR has independent sources and $\bar{r}=0$). Treat $\bar{r}\approx 1$ as "consistent with additive/unique-only" and confirm with interventions.
-    *   *Relation to Co-Information (n=2 only):* $\bar{r} - 1 = +\text{CoInfo}\,/\,I(T;S_1,S_2)$ (i.e. $\propto +\text{CoInfo}$, with CoInfo $= \text{Red}-\text{Syn}$ as in §2.5.2). So `r̄ > 1 ⇔ CoInfo > 0 ⇔ redundancy-dominated` — the **same** sign as the rows above. *(Earlier drafts wrote `−CoInfo`, which is sign-inverted and self-inconsistent. For n≥3 this identity does **not** hold as written: `CI_m` contains pairwise-joint terms that `r̄ − 1` lacks.)*
-    *   **Sanity bound (MI-coherence):** for `n` sources and nonzero `I(T;S_1…S_n)`, require `0 ≤ \bar{r} ≤ n`. Values outside this range indicate joint-vs-marginal incoherence (estimator pathology).
-
-2.  **Average Degree of Vulnerability ($\bar{v}$):**
-    $$ \bar{v}(T; S_1, \dots, S_n) = \frac{\sum_{i=1}^n I(T; S_i | S_{-i})}{I(T; S_1, \dots, S_n)} $$
-    *   Measures how much information is lost when a single source is removed.
-    *   Low $\bar{v}$ indicates robustness (information is distributed).
-    *   **Sanity bound (MI-coherence):** for `n` sources and nonzero `I(T;S_1…S_n)`, require `0 ≤ \bar{v} ≤ n`. Values outside this range indicate MI/CMI incoherence (estimator pathology).
-
-**Co-Information (Interaction Information) for 3 Variables:**
-```
-CI(V, L, D; A) = I(V;A) + I(L;A) + I(D;A) 
-              - I(V,L;A) - I(V,D;A) - I(L,D;A) 
-              + I(V,L,D;A)
-```
-
-**Interpretation:**
-This is the natural higher-order extension of the pairwise “interaction information” with a distinguished target:
-
-```
-CI_m(X₁,…,X_m; Y) := Σ_{∅≠S⊆{1..m}} (-1)^{|S|+1} I(X_S; Y)
-```
-
-For `m=2`, this reduces to `CI_2(X₁,X₂;Y)=I(X₁;Y)+I(X₂;Y)-I(X₁,X₂;Y)=Red−Syn` (a Shannon invariant for any bivariate PID).
-
-**Sign convention warning:** literature flips signs and names (co-information vs interaction information) depending on author. In this document, **negative CI is treated as “synergy-dominant”** (i.e., `Syn > Red` for the corresponding bivariate PID), and **positive CI** as “redundancy-dominant” — **for pairwise `CI_2` only**. This reading is *invalid* at `m=3`: the parity of the highest-order term flips, so a pure 3-way synergy gives `CI_3 > 0` (see §5.3 Option 2 for the proof by example).
-
-**Important:** `CI_m` is a Shannon-invariant summary computed from MI terms. It is **not** a PID and it conflates multiple PID atoms for `m≥3`. Use it as a screening statistic, not as a substitute for `I^sx_∩`.
-
-**O-Information (for n > 3 variables):**
-
-O-information (Rosas et al., 2019) is a **synergy-vs-redundancy bias** scalar defined for a *set of variables* (no distinguished target). A standard entropy-form definition is:
-
-```
-Ω(X₁,…,Xₙ) = (n-2)·H(X₁,…,Xₙ) + Σᵢ H(Xᵢ) − Σᵢ H(X_{-i})
-```
-
-where `X_{-i}` denotes the collection of all variables except `Xᵢ`. Equivalently, `Ω = TC − DTC` (total correlation minus dual total correlation).
-
-For `n=3`, `Ω(X,Y,Z)` equals the (3-variable) co-information / interaction information (up to sign conventions).
-
-**How to use it here (and where it does *not* help):**
-- It can summarize whether a *chosen small set* (e.g., `{V,L,D,A}` or `{V,L,D}`) is globally synergy-leaning (`Ω<0`) vs redundancy-leaning (`Ω>0`).
-- It is **not automatically scalable** to “hundreds of attention heads” in the raw sense: estimating the required high-order entropies/CMIs in high-dimensional continuous spaces can be harder than PID itself unless you introduce strong structure (coarse-graining, factorization, parametric assumptions, or dedicated estimators).
-- Treat `Ω` as a screening/description statistic that may motivate where to apply the hierarchical SxPID pipeline (Level 1 CI → Level 2 targeted `I^sx_∩`).
-
-**Application to VLA:** `Ω` can be useful once you have **a small, well-defined set of variables** (or a **coarse-grained** representation of many units). It is not a “free lunch” for hundreds of raw attention heads unless you add structure (clustering/SAE, factor models, or other dimensionality reduction) and re-validate estimator behavior.
-
-### 2.5.4 How Shannon Invariants Solve Our Problems
-
-#### Problem 1: Combinatorial Explosion in 3-Way PID
-
-**Problem:** Computing I(V, L, D; A) decomposition requires 18 atoms.
-
-**Shannon Invariant Solution:** `CI₃` gives a coarse higher-order interaction screen from
-seven MI terms without estimating all 18 atoms. Its sign cannot classify the interaction as
-synergistic versus redundant: pure three-way XOR and whole-set redundancy can share the same
-sign (§5.3 Option 2).
-
-```python
-def co_information(V, L, D, A, k=5):
-    """Three-source/one-target CI3 from singleton, joint-pair, and joint-triple MI."""
-    I_V_A = ksg_mi(V, A, k)
-    I_L_A = ksg_mi(L, A, k)
-    I_D_A = ksg_mi(D, A, k)
-    I_VL_A = ksg_mi(np.hstack([V, L]), A, k)
-    I_VD_A = ksg_mi(np.hstack([V, D]), A, k)
-    I_LD_A = ksg_mi(np.hstack([L, D]), A, k)
-    I_VLD_A = ksg_mi(np.hstack([V, L, D]), A, k)
-    
-    return I_V_A + I_L_A + I_D_A - I_VL_A - I_VD_A - I_LD_A + I_VLD_A
-```
-
-**Cost:** 7 MI estimates instead of 18 PID atoms.
-
-#### Problem 2: Which Decomposition to Use (V-D-A vs V-L-A)?
-
-**Problem:** We don't know a priori whether V-D-A or V-L-A is more informative.
-
-**Shannon Invariant Solution:** Compare co-information across decompositions:
-
-```python
-CI_VD = co_information_2way(V, D, A)  # Standard: I(V;A) + I(D;A) - I(V,D;A)
-CI_VL = co_information_2way(V, L, A)
-CI_LD = co_information_2way(L, D, A)
-```
-
-**Interpretation (cautious):**
-- CI is a Shannon-invariant summary: for any bivariate PID, `CI = Red − Syn`.
-- If CI_VL is strongly negative relative to CI_VD, the V–L pair is more “synergy-dominant” than V–D (a candidate to prioritize in deeper analysis).
-- If CI_VD is strongly negative relative to CI_VL, the V–D pair is more “synergy-dominant” than V–L (a candidate to prioritize in deeper analysis).
-- If all are similar, either (a) the system is genuinely symmetric, or (b) the estimator regime is too noisy to differentiate pairs.
-
-#### Problem 3: Localizing Failure Mode Without Full 3-Way PID
-
-**Problem:** We want to know WHERE the failure is (V-L? V-D? L-D?) without computing all 18 atoms.
-
-**Shannon Invariant Solution:** Hierarchical pairwise co-information pattern:
-
-```python
-# Compute pairwise co-information (simpler than full PID)
-CI_VL = I(V;A) + I(L;A) - I(V,L;A)  # Negative = synergistic
-CI_VD = I(V;A) + I(D;A) - I(V,D;A)
-CI_LD = I(L;A) + I(D;A) - I(L,D;A)
-```
-
-**Heuristic interpretation (requires validation):**
-
-| CI_VL | CI_VD | CI_LD | Interpretation (heuristic) |
-|-------|-------|-------|----------------|
-| < 0 | < 0 | < 0 | All pairs synergy-dominant (Syn > Red for each pair) |
-| > 0 | < 0 | < 0 | V–L redundancy-dominant (Red > Syn) while others are synergy-dominant |
-| < 0 | > 0 | < 0 | V–D redundancy-dominant while others are synergy-dominant |
-| < 0 | < 0 | > 0 | L–D redundancy-dominant while others are synergy-dominant |
-| > 0 | > 0 | < 0 | Both V–L and V–D are redundancy-dominant relative to L–D |
-| > 0 | < 0 | > 0 | V–L and L–D are redundancy-dominant relative to V–D |
-| < 0 | > 0 | > 0 | V–D and L–D are redundancy-dominant relative to V–L |
-| > 0 | > 0 | > 0 | All pairs redundancy-dominant (Red > Syn for each pair) |
-
-**Note:** This uses classical interaction information (MI-based), not I^sx_∩. While less fine-grained, it's much cheaper to compute.
-
-#### Problem 4: Real-Time Monitoring
-
-**Problem:** full distribution-level PID may be too slow for a live rolling-window
-intervention loop. Runtime depends on window size, dimension, implementation, and hardware;
-benchmark it rather than assigning a per-sample latency.
-
-**Shannon Invariant Solution:** Pre-compute PID on training data to learn a mapping from CI to failure probability:
-
-```python
-# Offline: Learn relationship
-training_data = [(CI_VL, CI_VD, CI_LD, failure_label) for trajectory in training_set]
-ci_to_failure_model = train_classifier(training_data)
-
-# Online: estimate CI on a declared rolling/reference sample distribution—not on an
-# instantaneous row. The three pairwise CIs reuse 6 MI estimates (3 singleton + 3 joint-pair);
-# the 7th term I(V,L,D;A) is needed only for CI3.
-ci_vec = [co_info_2way(V, L, A), co_info_2way(V, D, A), co_info_2way(L, D, A)]
-failure_prob = ci_to_failure_model.predict(ci_vec)
-```
-
-**Expected computational difference:** the three pairwise CIs require six cached MI fits;
-`CI₃` requires seven. Full `I^sx_∩` additionally estimates shared-exclusions redundancy.
-Whether this is fast enough—and the actual speedup—must be measured on the exact rolling
-window, preprocessing, and hardware.
-
-### 2.5.5 Recommended Strategy: Hierarchical Approach
-
-**Level 1 (Fast screening; MI-only):** Compute CI_VL, CI_VD, CI_LD using KSG. Use for triage / monitoring.
-
-**Level 2 (Targeted, slower):** Compute full pairwise `I^sx_∩` PID for the most suspicious pair (identified by Level 1).
-
-**Level 3 (Slow, offline):** Compute full 3-way decomposition or run detailed analysis for failure diagnosis.
-
-**Latency note (do not oversell):** Wall-clock time depends strongly on `(N, d, k)` and on the kNN backend. A brute-force O(N²) implementation is not “real-time” at N in the thousands; any ms-level budgets are design targets that presume aggressive dimensionality reduction and/or accelerated kNN.
-
-This hierarchical approach balances speed with interpretability, using Shannon invariants as a fast screening layer.
-
----
-
-# 3. The Core Research Questions
-
-## 3.1 Primary Question
-
-**Do shared-exclusions PID (SxPID / `I^sx_∩`) features provide statistically reliable signal for VLA failure detection and diagnosis beyond strong uncertainty baselines?**
-
-*(This primary question **is H1** in the §14.1.0 registry — same contract, same falsification criteria; it is not an additional unlabeled hypothesis.)*
-
-This is the critical validation gate. The **synergy sign** (including negative synergy) is one candidate feature, but treat it as a hypothesis rather than a privileged statistic. If SxPID/CI features do not significantly outperform baselines under a validated estimator regime, report negative results.
-
-**Diagnostic-first stance (recommended):**
-- It is scientifically reasonable to treat PID primarily as a **diagnostic / interpretability** tool (explaining *which sources matter and how*), even if it does not beat entropy/PRMs on AUROC.
-- It is *not* scientifically justified to reduce PID to “synergy only” a priori. In practice, the most reliable signal may come from a **feature set** that includes MI terms, CI, redundancy, uniques, synergy, and derived summaries—then letting Experiments 1–2 determine what actually predicts failures.
-
-## 3.2 Secondary Questions
-
-1. **Which decomposition is most predictive?** V-D-A? V-L-A? Three-way? Something else?
-2. **At what dimensionality does the estimator work?** Raw 4096-dim? PCA to 256? Learned projections?
-3. **Is synergy causal or merely correlated with failure?** Can interventions on D cause synergy changes?
-4. **Does synergy dynamics predict success?** Does synergy half-life correlate with task completion?
-
-## 3.3 Specific Aims
-
-**Non-negotiable gate:** All aims below assume Experiment 0 establishes a validated estimator regime (possibly only **after** explicit dimensionality reduction). If Experiment 0 is **NO-GO** even after reduction (e.g., at \(d \approx 256\)), we do not claim results about kNN-based `I^sx_∩` on VLA embeddings; we pivot to Shannon-invariant screening and non-`I^sx_∩` baselines.
-
-### Aim 1 (Primary): Comparative Evaluation (Experiments 1–2)
-
-**Primary hypothesis (falsifiable; pre-register):** Under a validated estimator regime, a feature set derived from Shannon invariants (CI/Ω) and (where feasible) SxPID atoms from plausible decompositions (e.g., V–D–A, V–L–A, hierarchical pairwise) contains predictive information about failure labels beyond the best baseline.
-
-**Candidate sub-hypothesis (not privileged):** The “synergy sign / frequency of negative-synergy windows” contributes additional signal beyond MI/entropy alone; it may also fail entirely (estimator/pathology or irrelevance).
-
-**Baselines:**
-1. Predictive entropy: H(A|V, L)
-2. Semantic entropy (VL-Uncertainty)
-3. Snapshot ensemble variance
-4. Cross-modal attention entropy
-5. Learned failure classifier
-6. Liang et al. Batch/CVX estimators (different PID family; baseline only)
-7. **Process Reward Model (GRM):** Progress-based failure detection (Robo-Dopamine)
-
-**Success criteria:** statistically significant improvement over best baseline (paired bootstrap or matched test; p < 0.05) with a practically meaningful effect size (pre-registered), OR a well-supported negative result (no improvement) with analysis of failure causes (estimator regime, confounds, variable choice).
-
-### Aim 2: Regime Mapping for High‑d / Manifold‑Valued Embeddings (Experiment 3 + Exp0 subsets)
-
-**Question:** At what effective dimensionality and preprocessing does the estimator become stable enough to support Aim 1?
-
-**Deliverable:** a regime map and a single recommended measurement pipeline (e.g., Raw vs PCA95 vs random/Hash projection), with geometry diagnostics (intrinsic dimension, distance concentration proxies) recorded at each stage and explicit GO/PIVOT/NO-GO outcomes.
-
-### Aim 3: Causal Validation for Diagnosis (Experiment 4)
-
-**Question:** Are decomposition signatures merely correlational, or do controlled interventions / counterfactual targets (`A*`) produce predictable, reproducible changes?
-
-**Design note:** causal claims require interventions (on `D`/`V`/`L`) or external targets; otherwise VLA self-consistency can masquerade as “information integration.”
-
-### Optional extensions (only if Aim 1 succeeds AND Aim 2 yields a stable regime)
-
-- **Synergy dynamics:** test whether time-resolved summaries (e.g., a “synergy half-life” under explicit windowing/stride + dependence-aware uncertainty) add signal beyond static features.
-- **RL fine-tuning (exploratory):** kNN/KSG estimators are not differentiable and are unlikely to be safe as direct rewards. If pursued, follow Wibral-group “infomorphic networks” framing (Makkeh et al. 2025) or train an offline differentiable surrogate to predict SxPID-derived features; treat generic PRM/SRL methods as baseline controls.
-
-## 3.4 Where PID Provides Unique Value (Six Use Cases)
-
-**Important framing:** PID may not outperform entropy for pure AUROC on failure detection. Its unique value lies in **interpretable decomposition**. Here are six specific use cases where decomposition provides value that entropy cannot:
-
-### Use Case 1: Failure Mode Diagnosis (Post-Hoc)
-
-**Scenario:** Robot fails a task. We want to know WHY.
-
-**What entropy tells us:** "The model was uncertain."
-
-**What PID decomposition may suggest (hypotheses that require validation):**
-
-| Pattern (estimated) | Hypothesis | Next Check |
-|---------|-----------|-------------------|
-| High Unq(V), low Unq(D) | Policy relies mostly on V for T | Intervention on D should have limited effect |
-| Low Unq(V), high Unq(D) | Policy relies mostly on D for T | Intervention on V (occlusion/corruption) should strongly affect |
-| High Syn (positive) | Joint V–D interaction contributes | Check whether synergy tracks task phase or known fusion modules |
-| Low/negative Syn | Subadditivity / possible integration anomaly | Distinguish (a) estimator pathology, (b) redundancy inflation, (c) true “misinformation” via controls |
-| High Unq(L) (V–L–A) | Language heavily determines T | Check instruction perturbations / paraphrases |
-
-### Use Case 2: Architecture Design Feedback
-
-**Scenario:** Comparing two VLA architectures on the same task.
-
-**What entropy tells us:** "Architecture A is more certain than B."
-
-**What PID decomposition tells us:**
-- "Architecture A shows higher Syn, suggesting better multimodal fusion"
-- "Architecture B shows higher Unq(V), suggesting it relies more on vision"
-- "Architecture A shows higher Red, suggesting V and D encode similar information (potential redundancy)"
-
-This informs which architectural choices improve integration vs. reliance on individual modalities.
-
-### Use Case 3: Training Curriculum Design
-
-**Scenario:** Designing a training curriculum for VLA fine-tuning.
-
-**What entropy tells us:** "Train on examples where the model is uncertain."
-
-**What PID decomposition tells us:**
-- *(Hypotheses; require a validated estimator regime + controls for confounds like task difficulty and distribution shift.)*
-- "Model shows persistently low/unstable Syn on manipulation tasks → candidate integration weakness → prioritize targeted manipulation data"
-- "Model shows high Unq(D) and low Unq(V) (relative to validated baselines) → candidate over-reliance on internal state → add visual grounding data"
-- "Model shows atypical V–L interaction signatures (e.g., CI_VL strongly negative or `Syn_VL` consistently extreme) → candidate language–vision alignment issue → add alignment data"
-
-**Proposed curriculum objective:**
-```python
-curriculum_priority = α*|Syn| + β*imbalance(Unq_V, Unq_D) + γ*task_importance
-```
-
-### Use Case 4: Targeted Data Collection
-
-**Scenario:** Limited budget for collecting new robot demonstrations.
-
-**What entropy tells us:** "Collect data for high-uncertainty scenarios."
-
-**What PID decomposition tells us:**
-- *(Hypotheses; PID atoms can be negative under `I^sx_∩` and can be estimator-sensitive at high `d`.)*
-- "Model needs visual grounding data (e.g., Unq(V) systematically low relative to Unq(D) under validated preprocessing)"
-- "Model needs language–vision alignment data (e.g., V–L pair shows abnormal CI/PID signatures compared to controls)"
-- "Model needs action diversity / disambiguation (e.g., redundancy-dominant signatures across task variants; verify with controlled task splits)"
-
-This enables **targeted** data collection rather than blanket uncertainty-based collection.
-
-### Use Case 5: Real-Time Intervention Selection
-
-**Scenario:** Robot is about to fail. What help should we provide?
-
-**What entropy tells us:** "Robot is uncertain → request help."
-
-**What PID decomposition tells us:**
-- *(Heuristic; only meaningful if the estimator regime is validated and the mapping is learned/calibrated on held-out data.)*
-- High Unq(D), low Unq(V) → "Show me what you see" (visual confirmation)
-- High Unq(V), low Unq(D) → "What do you expect to happen?" (prediction query)  
-- V–L signatures suggest mismatch → "Did you understand the instruction?" (language clarification)
-
-**Note:** This requires diagnostics fast enough for live intervention, which is currently challenging for full SxPID on high‑d signals. A practical approach is to compute PID offline and deploy only lightweight screening (CI/Ω) or a learned classifier online.
-
-### Use Case 6: Interpretability for Safety Certification
-
-**Scenario:** Certifying a VLA for deployment in safety-critical settings.
-
-**What entropy tells us:** "Model uncertainty stays below threshold X."
-
-**What PID decomposition tells us:**
-- "Model avoids extreme negative-atom regimes outside those seen in validated controls" (a stability check, not a guarantee of “coherence”)
-- "Model shows stable information signatures across task variations under fixed preprocessing" (robustness evidence if replicated)
-- "Failure modes are *more traceable* to specific information sources" (interpretability hypothesis; validate against intervention tests)
-
-This provides an **audit trail** for safety certification that entropy alone cannot provide.
-
-### Summary: When to Use PID vs. Entropy
-
-| Goal | Use Entropy | Use PID |
-|------|-------------|---------|
-| Simple failure detection | ✓ (faster, comparable AUROC) | |
-| Understanding WHY failure occurred | | ✓ (decomposition) |
-| Comparing architectures | | ✓ (multimodal integration metrics) |
-| Training curriculum design | | ✓ (targeted improvement) |
-| Data collection prioritization | | ✓ (specific capability gaps) |
-| Safety certification | | ✓ (audit trail) |
-
-**Positioning Statement:** PID is complementary to entropy, not a replacement. Use entropy for speed and simplicity; use PID for interpretability and actionable insights.
-
-## 3.5 PID vs. Process Reward Models (PRMs)
-
-### 3.5.1 What Are Process Reward Models?
-
-Process Reward Models (PRMs) are vision-language models trained to predict task progress from visual observations. Unlike outcome reward models (ORMs) that only provide sparse binary success/failure signals, PRMs provide dense, step-by-step progress estimates.
-
-**Recent Example: Robo-Dopamine (arXiv:2512.23703)**
-
-Robo-Dopamine introduces a General Reward Model (GRM) trained on a large multi-view dataset (the arXiv abstract states 3,400+ hours; verify any sample-count figures in the paper/code):
-- **Step-wise Reward Discretization:** Step-wise discretization for structural understanding (verify exact label construction)
-- **Multi-Perspective Progress Fusion:** Multi-view/multi-perspective fusion to overcome perceptual limitations (verify exact fusion scheme)
-- **Policy-Invariant Reward Shaping:** Avoids "semantic trap" where agent stagnates in high-progress states
-- **Results (abstract-level):** after one-shot task adaptation from a single expert trajectory, improves policy from near-zero to 95% success with 150 online rollouts (~1 hour of real robot interaction) *(paper-reported; protocol-sensitive).*
-
-### 3.5.2 Comparison: PID vs. PRM
-
-| Aspect | PID (I^sx_∩) | PRM (e.g., GRM) |
-|--------|--------------|-----------------|
-| **What it measures** | Information structure between V, D, A | Task progress toward goal |
-| **Output** | Syn, Red, Unq decomposition | Progress estimate Φ ∈ [0,1] |
-| **Interpretability** | WHY failure occurred | HOW FAR along task |
-| **Computational cost** | O(n² × d) per pair | O(1) forward pass |
-| **Training required** | None (estimator-based) | Large dataset (abstract mentions 3,400+ hours; verify sample counts) |
-| **Multi-view support** | Implicit in embeddings | Explicit (GRM uses multi-view fusion) |
-| **Real-time feasible** | Shannon invariants only (fastest; depends on n,d and kNN backend) | Yes (single forward pass; hardware-dependent) |
-
-### 3.5.3 When to Use Each
-
-| Scenario | Use PID | Use PRM |
-|----------|---------|---------|
-| Diagnosing WHY failure occurred | ✓ | |
-| Dense reward for RL fine-tuning | | ✓ |
-| Comparing multimodal fusion quality | ✓ | |
-| One-shot task adaptation | | ✓ (GRM adapts from 1 demo) |
-| Architecture design feedback | ✓ | |
-| Policy learning efficiency | | ✓ |
-| Understanding V-D integration | ✓ | |
-| Progress monitoring in deployment | | ✓ |
-
-### 3.5.4 Potential Synergies
-
-PID and PRMs can be complementary:
-
-1. **PRM-guided PID sampling:** Use GRM progress estimates to identify critical transitions, then apply PID for detailed diagnosis
-2. **PID-augmented rewards:** Add PID-based synergy term to PRM rewards for multimodal coherence:
-   ```
-   r_combined = r_GRM + α·Syn(V,D;A)
-   ```
-3. **OOD detection fusion:** GRM's consistency checking (forward vs backward anchored disagreement) + PID synergy-sign features could provide robust failure detection
-4. **Multi-Perspective Fusion analogy:** GRM's fusion of {incremental, forward-anchored, backward-anchored} predictions mirrors how we might fuse {Syn_VD, Syn_VL, Syn_LD} in hierarchical PID
-
-### 3.5.5 Key Insight from Robo-Dopamine: The Semantic Trap
-
-Robo-Dopamine identifies a critical failure mode in naive reward shaping:
-
-**Problem:** Using r(s,a,s') = Φ(s') - Φ(s) as dense reward creates perverse incentives. The agent learns to reach high-progress states and stagnate rather than complete tasks.
-
-**Their Solution:** Policy-Invariant Reward Shaping:
-```
-r_GRM = r_gold + γΦ(s') - Φ(s)
-```
-where r_gold = 1 at task completion. This telescopes to a boundary term, preserving optimal policy.
-
-**Relevance to PID:** A similar trap could occur if using Syn as intrinsic reward. Our proposed:
-```
-r_intrinsic = α·Syn(V,D;A) - γ·max(0, -Syn)
-```
-should be analyzed for policy invariance properties.
-
-## 3.6 Memorization vs Generalization: A VLA-Arena-Derived Hypothesis (v5.8)
-
-VLA-Arena (arXiv:2512.22539; accepted ICML 2026 — re-verify at submission) identifies a critical limitation of current VLAs: **"a strong tendency toward memorization over generalization."** This finding has direct implications for PID-based diagnostics and motivates new testable hypotheses.
-
-### 3.6.1 The Phenomenon (Empirical Observation, Not PID Theory)
-
-VLA-Arena's structured difficulty levels (L0→L1→L2) reveal that VLAs:
-- Perform well on L0 tasks (training distribution)
-- Degrade significantly on L1/L2 tasks (distribution shifts requiring generalization)
-- Show **asymmetric robustness**: visual perturbations (V0→V4) and language perturbations (W0→W4) affect performance differently
-
-**Critical epistemic note:** This is an empirical observation about current VLA architectures, not a theorem about information theory. The following hypotheses translate this observation into PID-testable predictions, but they require validation and may be false.
-
-### 3.6.2 Hypothesis H4: PID Signatures Differ Between Memorization and Generalization Regimes
-
-**Claim (falsifiable):** When a VLA memorizes a task, PID signatures on training-distribution inputs will differ systematically from PID signatures on OOD/generalization-requiring inputs.
-
-> **⚠️ Epistemic status: Correlational hypothesis, not causal identification.** Synergy stability is *at best* a heuristic correlate of generalization vs memorization. It does **not** by itself identify memorization, because:
-> - Distribution shifts can change synergy patterns even in well-generalizing models (changed input statistics, not changed integration quality).
-> - Memorizing models can show stable synergy if train and test share spurious features.
-> - Synergy stability must be combined with **outcome-based evidence** (accuracy, OOD robustness) to make claims about generalization.
->
-> This hypothesis tests whether PID patterns *correlate* with known generalization failures, not whether they *define* or *prove* memorization vs generalization.
-
-**Theoretical motivation (speculative, requiring validation):**
-
-| Regime | Information-Theoretic Characterization | Expected PID Pattern |
-|--------|---------------------------------------|---------------------|
-| **Memorization** | `(V,L)→A` approximates a lookup table; model has stored specific input-output mappings | High `I(V;A\|L)` and `I(L;A\|V)` on training examples (each input independently "indexes" the answer); potentially high redundancy (both sources point to same stored action) |
-| **Generalization** | Model has learned compositional/abstract mappings that transfer to novel inputs | Synergy may be higher (V and L must be *combined* in a meaningful way, not just matched); synergy should be *stable* under perturbations |
-
-**Predicted empirical signatures (testable):**
-
-1. **Synergy stability under perturbation:** A generalizing model should show relatively stable `Syn(V,L;A)` across V0→V2 and W0→W2 perturbations (within some tolerance). A memorizing model should show rapid synergy degradation because the lookup fails.
-
-2. **Cross-task synergy consistency:** A generalizing model should show similar synergy patterns across L0/L1/L2 difficulty levels for the same task family. A memorizing model should show high synergy only on L0 (exact match to training).
-
-3. **Redundancy patterns:** Memorization may paradoxically show high redundancy on training data (both V and L independently "recall" the same stored action) but near-zero MI on OOD data. Generalization should show more consistent MI across distributions.
-
-**How to disprove H4:**
-- If synergy stability under perturbation does not correlate with L0→L1→L2 performance degradation, H4 is **false**. (Refinement is permitted only among the *preregistered* variants — signatures 1 and 2 above (synergy stability under perturbation; cross-task synergy consistency) plus their CI-only twins — and any refined variant must be tested on a held-out task family; post-hoc variant invention does not rescue H4. Signature 3 (redundancy patterns) is exploratory context, not a refinement target.)
-- If simpler metrics (entropy, confidence) predict memorization/generalization equally well, PID adds no value for this diagnostic.
-- If estimator variance at VLA scale is too large to distinguish regimes, H4 is untestable with current methods.
-
-### 3.6.3 Hypothesis H5: Compositional Failure Correlates with Temporal Synergy Degradation
-
-**Claim (falsifiable):** VLA-Arena's finding that VLAs "cannot compose learned skills for long-horizon tasks" should manifest as synergy degradation over time within a trajectory.
-
-**Theoretical motivation:**
-- Compositional skill requires maintaining context and integrating current observations with task history
-- If the model fails to compose, `Syn(V_t, D_t; A_t)` (or `Syn(V_t, V_{t-history}; A_t)`) should degrade as the task progresses and requires more composition
-- Alternatively, temporal synergy (synergy between current and past states) should be low when composition fails
-
-**Operationalization (preregistered; v10.7 — H5 is untestable without this):**
-- **Primary construct:** windowed `Syn(V_t, D_t; A_t)` (and its mandatory CI-only twin, §14.1.1), computed per phase-aligned window **pooled across episodes** — never within a single trajectory (per-window kNN inside one autocorrelated trajectory at N≈tens is not estimable; §9.0).
-- **Windowing:** windows are defined by task phase (approach/grasp/transport/place where annotatable, else fixed fractions of normalized episode time); window count, stride, and the minimum pooled samples-per-window (`N_win ≥` the Exp0-validated minimum for the active regime) are fixed in `EXPERIMENTS.md` before capture.
-- **Within-window sampling (v10.7; §9.0 inherited fully, not just the bootstrap):** within a window, frames are subsampled at a preregistered stride ≥ the estimated decorrelation length (or capped at ≤ m frames per episode per window) — consecutive same-episode frames are near-duplicates that bias kNN *point estimates* (neighborhoods collapse onto one episode), which the episode-level bootstrap alone does not fix. `N_win` counts **post-stride** samples. Report the episodes-contributing count per window, and stratify (or covary) the trend by episode outcome: with fixed-fraction windows, window identity is tied to episode length, and failed episodes stall/time out — late windows are not phase-comparable across outcomes without this control.
-- **Secondary (exploratory only):** the history-synergy variant `Syn(V_t, V_{t−h}; A_t)`; it may generate hypotheses but not headline claims.
-- **Statistic:** the H5 primary is the Theil–Sen slope of the windowed normalized construct
-  against fixed phase midpoint, recomputed inside an episode-block bootstrap; the endpoint is
-  failing-minus-succeeding slope contrast. Early-vs-late contrast is exploratory only.
-
-**Predicted empirical signatures:**
-1. **Synergy half-life:** On long-horizon tasks, measure how synergy evolves over timesteps. Models that fail to compose should show earlier synergy degradation than models that succeed.
-2. **Phase-specific synergy:** For tasks with distinct phases (approach, grasp, place), synergy patterns should differ by phase if the model composes skills vs. executes a single memorized trajectory.
-
-**How to disprove H5:**
-- If synergy dynamics do not predict long-horizon task success beyond simple trajectory length, H5 is false.
-- If all VLAs show similar temporal synergy patterns regardless of compositional ability, H5 lacks discriminative power.
-
-### 3.6.4 Hypothesis H6: Safety-Aware Behavior Requires Specific V-L Integration
-
-**Claim (exploratory, lower confidence):** VLA-Arena's Safety task axis (collision avoidance, constraint satisfaction) may require distinctive V-L integration patterns.
-
-**Motivation:**
-- Safety often requires integrating visual perception of hazards with language-specified constraints
-- Unlike goal-directed tasks where V and L reinforce the same action, safety may involve V signaling "danger" while L specifies "avoid"
-- This could manifest as specific PID patterns (e.g., higher unique information from V when safety is relevant)
-
-**Status:** **Deferred** (registry §14.1.0): include only if safety labels and matched controls become available. This matches the registry and README; earlier "exploratory" phrasing is superseded.
-
-**How to disprove H6 (consolidated here from §9.7.3):** if `Syn(V,L;A)` and the V/L unique-information profile are statistically indistinguishable between VLA-Arena Safety tasks and matched non-safety tasks (same difficulty stratum, matched perturbation levels), H6 is unsupported. If safety labels of adequate quality never materialize, H6 stays deferred and makes no claim.
-
-### 3.6.5 (number intentionally retired)
-
-*(This subsection number is vacant after an earlier draft reorganization; it is retired rather than renumbered so external cross-references to §3.6.6/§3.6.7 stay stable. No hypothesis is missing — the canonical, complete registry is H1–H9 in §14.1.0.)*
-
-### 3.6.6 Hypothesis H7: 3D Object Flow as Embodiment-Agnostic Integration Diagnostic (Dream2Flow-Inspired)
-
-**Source:** Dream2Flow (Dharmarajan et al. 2025, arXiv:2512.24766) demonstrates that video generation models encode implicit world knowledge that can be extracted via **3D object flow** as an intermediate representation.
-
-**Key empirical observation (paper summary):**
-Dream2Flow reports that, given an initial image and task instruction, video generation models often synthesize **sensible object motions** even though converting those motions into robot actions is non-trivial. This motivates treating *object motion* as a diagnostic intermediate and treating the “embodiment gap” (realizing state changes with a specific robot/controller) as a distinct failure mode from world prediction.
-
-**Claim (falsifiable):** When a VLA's internal world model (D) correctly predicts object-level dynamics, `Syn(V,D;A)` should be higher than when D fails to predict plausible object motion — *independent of whether the final action execution succeeds*.
-
-**Theoretical motivation:**
-- Dream2Flow separates "what should move" (object flow) from "how to move it" (robot policy)
-- This decoupling suggests that **failures in (V,D)→A may conflate two distinct phenomena**:
-  1. World model quality (does D predict plausible object dynamics?)
-  2. Action execution (does the policy translate good D into correct A?)
-- PID on (V,D;A) measures information integration but cannot distinguish these sources of failure without additional structure
-
-**Predicted empirical signatures:**
-1. **Object flow as D proxy:** If 3D object flow can be extracted from VLA's D representation (or from an external world model conditioned on D), the correlation between flow quality and `Syn(V,D;A)` should be positive.
-2. **Embodiment-independent synergy:** When comparing the same task across different robot embodiments (Dream2Flow reports cross-embodiment applicability; verify the exact embodiments), `Syn(V,D;A*)` computed against *optimal* action should be more stable than `Syn(V,D;A)` against actual action.
-3. **Stage-wise alignment (no fixed percentages):** Dream2Flow’s staged perspective implies separable failure sources: video generation / world prediction, flow reconstruction, and robot control/execution. If PID synergy is meant to track world-model quality, it should correlate more with **flow-quality metrics** (world prediction and reconstruction) than with downstream execution errors, once you condition on/stratify by stage outcomes.
-
-**How to disprove H7 (the falsifiable claim, H7b — see the §14.1.0 registry for the H7a/H7b split):**
-- If `Syn(V,D;A)` correlates equally with all failure stages (generation, extraction, execution), the hypothesis that synergy specifically tracks world model quality is unsupported.
-- If object flow quality (as a measurable intermediate) does not correlate with PID estimates, the conceptual link between PID and Dream2Flow's paradigm is weak.
-
-*(A third item previously listed here — "if embodiment has no effect, the embodiment-gap confound is negligible" — is a conclusion about the §14.5.7 confound, not a disproof of H7; it now lives there.)*
-
-**Relevance to prisoma:**
-This hypothesis does NOT require implementing Dream2Flow. Rather, it motivates:
-1. Using `A*` (optimal action) as target when possible (reduces embodiment confound)
-2. Adding embodiment/robot type as a covariate in failure analysis
-3. Considering object-level predictions as a D operationalization in addition to hidden states
-
-### 3.6.7 Relationship to Existing Aims
-
-| New Hypothesis | Maps to Aim | Experimental Locus |
-|----------------|-------------|-------------------|
-| H4 (Mem vs Gen) | Aim 1 (Comparative Evaluation) | VLA-Arena L0/L1/L2 stratification |
-| H5 (Compositional Failure) | Aim 2 (Synergy Dynamics) | VLA-Arena Long-Horizon tasks |
-| H6 (Safety) | **Deferred** (Aim 1 extension, only if safety labels + matched controls exist) | VLA-Arena Safety tasks |
-| H7 (Embodiment Gap) | Aim 3 (Causal Validation) | Cross-embodiment comparison; A* vs A targets |
-
-**Critical constraint:** All new hypotheses inherit the Experiment 0 gate. If the estimator is invalid at VLA scale, these hypotheses cannot be tested with kNN-based `I^sx_∩`. In that case, fall back to Shannon invariants (CI screening) and treat H4-H7 as future directions contingent on estimator improvements.
-
----
-
-# 4. Decomposition Strategies: What Variables to Analyze
-
-## 4.1 The Original Proposal: V-D-A
-
-```
-I(V, D; A) = Red(V,D;A) + Unq(V;A) + Unq(D;A) + Syn(V,D;A)
-```
-
-Where:
-- **V** = Vision (observed scene, from vision encoder)
-- **D** = Dream (internal world model state)
-- **A** = Action (motor output)
-
-### 4.1.1 Problems with V-D-A
-
-1. **Potential degeneracy:** because `A` is computed from `(V,D,L)`, `I(V,D;A)` can become close to `H(A)` when `L` is constant/redundant and inference is near-deterministic. Treat this as a *dataset- and inference-protocol-dependent risk*, not an identity (see Warning 2 in §1.2).
-2. **L is ignored:** Language instruction is not in the decomposition
-3. **D is often implicit:** In autoregressive VLAs like OpenVLA, there's no explicit "dream" state
-
-## 4.2 Alternative: V-L-A (Vision-Language-Action)
-
-```
-I(V, L; A) = Red(V,L;A) + Unq(V;A) + Unq(L;A) + Syn(V,L;A)
-```
-
-### 4.2.1 Advantages of V-L-A
-
-| Advantage | Explanation |
-|-----------|-------------|
-| **L is (usually) available** | Language is typically provided externally; no need to extract hidden states |
-| **L is externally specified intent** | It encodes what the human requested (often the closest available “ground truth” for intent, but can be ambiguous) |
-| **Language grounding failures are common** | "Pick up red cup" → picks blue |
-| **Often more interpretable than D** | Language is more interpretable than an implicit “dream” state, but negative-synergy regimes still require careful controls/validation (see §2.2.3). |
-
-### 4.2.2 Interpretation of V-L-A Atoms
-
-| PID Atom | Interpretation |
-|----------|----------------|
-| Unq(L;A) | Action determined purely by instruction (ignoring scene) |
-| Unq(V;A) | Action determined purely by visual scene (ignoring instruction) |
-| Syn(V,L;A) > 0 | Joint V–L interaction appears important (candidate “integration” signal) |
-| **Syn(V,L;A) < 0** | Negative synergy is possible in SxPID (see §2.2.3). Interpret carefully: it can reflect misinformative contributions and/or a mismatch between sources and target; validate under controls and an Experiment 0‑validated estimator regime. |
-
-### 4.2.3 Why V-L-A Might Be Better Than V-D-A
-
-Many VLA failures are specifically **language grounding failures**:
-- "Pick up the red cup" → robot picks up blue cup
-- "Place it on the left" → robot places on right
-- Instruction ambiguity → wrong interpretation
-
-V-D-A cannot distinguish these from other V–D internal mismatch hypotheses without language-side controls.
-
-## 4.3 The Question of Ignoring L
-
-### 4.3.1 Arguments FOR Ignoring L (Original Approach)
-
-1. **L is static within a trajectory** - doesn't change mid-execution
-2. **D encodes L-conditioned predictions** - already incorporated
-3. **Simplicity** - three-variable PID is tractable
-
-> **⚠️ Critical implication of "L is static within a trajectory":** If L is constant (or nearly constant) within an episode, per-timestep PID on (V_t, L; A_t) using samples indexed by time t within that single episode **cannot recover language contributions**. From the estimator's perspective, L has no variation, so I(L;A_t) ≈ 0 and any synergy/unique involving L is numerically unstable or meaningless.
->
-> **Consequence for experimental design:**
-> - Per-timestep PID is appropriate for **(V_t, D_t → A_t)** within a trajectory.
-> - Language contributions must be studied **across episodes/prompts**—using pooled samples across episodes with different L, or grouping by prompt type.
-> - Claims about "language contribution to action" require cross-trajectory designs, not within-trajectory time-series analysis.
-
-### 4.3.2 Arguments AGAINST Ignoring L
-
-1. **Language grounding failures are major failure mode** - can't detect them without L
-2. **V-L-A decomposition is more interpretable** - external signals only
-3. **D may not be cleanly separable** - especially in autoregressive models
-4. **Liang et al. include language** - validated approach includes L
-
-### 4.3.3 Recommendation
-
-**Elevate V-L-A to co-primary status with V-D-A.** Test both and compare predictive power.
-
-## 4.4 Other Decomposition Options
-
-| Decomposition | Sources | Target | Hypothesis |
-|---------------|---------|--------|------------|
-| V-D-A | Vision, Dream | Action | V–D mismatch may correlate with certain failures (requires controls) |
-| V-D-A* | Vision, Dream | Optimal Action | Measures error, not tautology |
-| V-L-A | Vision, Language | Action | V–L mismatch may correlate with language-grounding failures (requires controls) |
-| D_t-D_{t-1}-A | Current Dream, Previous Dream | Action | Temporal inconsistency → failure |
-| V-A*-Error | Vision, Optimal Action | Prediction Error | Directly predicts failure magnitude |
-
----
-
-# 5. Three-Way PID: I(V, L, D; A)
-
-## 5.1 Motivation
-
-Rather than choosing between V-D-A or V-L-A, we could analyze all three sources simultaneously:
-
-```
-I(V, L, D; A) = ?
-```
-
-This would capture:
-- Vision–language mismatches
-- Vision–dream mismatches  
-- Language–dream mismatches (e.g., instruction misinterpretation vs world-state representation)
-- Three-way synergies and redundancies
-
-## 5.2 The Problem: Combinatorial Explosion
-
-For two sources, PID has 4 atoms: {Red, Unq₁, Unq₂, Syn}
-
-For three sources, the partial information lattice has **18 distinct atoms** — one per antichain of nonempty subsets of {V,L,D} (Williams–Beer redundancy lattice; the Dedekind number `d(3)=20` minus the 2 non-atom nodes). Writing an antichain as a set of source-collections (`{V}{LD}` = "info available from V alone, **or** from L-and-D together"):
-
-```
-height 0  (synergy)      {VLD}                                   (1)
-height 1                 {VL}   {VD}   {LD}                       (3)
-height 2                 {VL}{VD}  {VL}{LD}  {VD}{LD}             (3)
-height 3                 {V}  {L}  {D}   {VL}{VD}{LD}             (4)
-height 4                 {V}{LD}   {L}{VD}   {D}{VL}              (3)
-height 5                 {V}{L}   {V}{D}   {L}{D}                 (3)
-height 6  (redundancy)   {V}{L}{D}                                (1)
-```
-
-Total = 1+3+3+4+3+3+1 = **18**. **Each antichain is exactly one atom**: a pair such as `{VL}` is a *single* node, **not** both a "pairwise synergy" and a separate "pairwise redundancy" (the older shorthand that drew both double-counted and only named 11 of the 18). The top `{VLD}` is pure 3-way synergy; the bottom `{V}{L}{D}` is full redundancy (information obtainable from any one source alone).
-
-Estimating 18 quantities is expensive, many are hard to interpret, and because each atom is a signed Möbius sum of several noisy `I^sx_∩`/KSG estimates, per-atom variance *accumulates* (it does not simply "multiply"): cancellation between large opposite-signed redundancy terms inflates the variance, so confidence intervals on the full 18-atom set become impractically wide.
-
-## 5.3 Practical Options for Three-Way Analysis
-
-### Option 1: Full 3-Source PID
-
-Compute all 18 atoms.
-
-**Pros:** Complete picture  
-**Cons:** Expensive, hard to interpret, per-atom variance accumulates through signed Möbius sums (see §5.2)
-
-### Option 2: Shannon Invariants / Co-Information
-
-Compute a summary statistic:
-
-```python
-CI(V, L, D; A) = I(V;A) + I(L;A) + I(D;A) 
-              - I(V,L;A) - I(V,D;A) - I(L,D;A) 
-              + I(V,L,D;A)
-```
-
-This is the 3-source "interaction information" / "co-information" `CI_3` (see §2.5):
-
-- **The sign interpretation is parity-flipped vs. the pairwise case and is *not* a clean synergy/redundancy indicator.** For 2 sources, `CI_2 = Red − Syn`, so *negative* = synergy-dominant. For 3 sources the highest-order term `+ I(V,L,D;A)` enters with a **positive** sign, so a pure 3-way synergy (e.g. `A = V ⊕ L ⊕ D`) gives `CI_3 = +1 > 0` — the **opposite** sign to the pairwise convention. Do **not** read "negative = synergy" here.
-- `CI_3` **conflates atoms** (§2.5, line 1624): pure 3-way synergy (`A=V⊕L⊕D`) *and* whole-set redundancy (`V=L=D=A`) **both** yield `CI_3 = +1`, so the sign alone cannot separate synergy from redundancy at `m=3`. Use `CI_3` only as a coarse screen; for an actual synergy-vs-redundancy verdict use the hierarchical pairwise PIDs (Option 3) or `I^sx_∩` atoms.
-
-**Pros:** Single cheap screening number  
-**Cons:** Loses fine-grained structure; sign is *not* directly interpretable as synergy/redundancy at `m=3` (see above)
-
-### Option 3: Hierarchical Pairwise (RECOMMENDED)
-
-Compute three separate 2-source PIDs:
-
-```
-PID(V, L; A)  → Syn_VL  (vision-language coherence)
-PID(V, D; A)  → Syn_VD  (vision-dream coherence)
-PID(L, D; A)  → Syn_LD  (language-dream coherence)
-```
-
-**Diagnostic Matrix:**
-
-| Syn_VL | Syn_VD | Syn_LD | Hypothesis (requires validation) |
-|--------|--------|--------|----------------|
-| + | + | + | Pairwise synergies appear positive (suggests interaction-dominant regime) |
-| - | + | + | V–L interaction appears weak/subadditive relative to other pairs (check language perturbations) |
-| + | - | + | V–D interaction appears weak/subadditive (check D corruption / vision occlusion controls) |
-| + | + | - | L–D interaction appears weak/subadditive (check instruction changes and D dependence) |
-| - | - | + | V appears atypical relative to (L,D) (could be occlusion/OOD; check estimator stability) |
-| - | + | - | L appears atypical relative to (V,D) (could be instruction ambiguity; check paraphrase robustness) |
-| + | - | - | D appears atypical relative to (V,L) (could be world-model mismatch; check D interventions) |
-| - | - | - | Broad subadditivity across pairs (could be estimator breakdown; run controls + Experiment 0-style checks) |
-
-**Pros:**
-- Requires three separate 2-source PID runs (one per pair)
-- Each pairwise synergy is interpretable
-- Pattern across all three is diagnostic
-- Localizes failure mode
-
-**Cons:**
-- Doesn't capture true 3-way synergy
-- Some redundant computation
-
-### Option 4: Conditional PID
-
-Compute PID conditioned on the third variable:
-
-```
-PID(V, D; A | L)  → "Given the instruction, how do vision and dream interact?"
-```
-
-**Pros:** Controls for task variation  
-**Cons:** Requires more samples per conditioning value; conditional MI estimation is itself hard in high dimension. If conditioning becomes central, consider dedicated conditional-MI estimators as baselines (e.g., CCMI, arXiv:1906.01824), but treat that as a separate validated estimator pipeline (not automatically compatible with `I^sx_∩`).
-
-## 5.4 Recommendation
-
-**Start with Option 3 (Hierarchical Pairwise)**, with co-information (Option 2) as a summary.
-
-The pattern {Syn_VL, Syn_VD, Syn_LD} can help generate and localize **testable hypotheses**:
-- All negative → broad subadditivity across pairs (could be genuine mismatch or estimator breakdown; investigate with controls)
-- Only Syn_VL negative → candidate V–L integration issue (validate with language-side perturbations)
-- Only Syn_VD negative → candidate V–D mismatch (validate with D/V interventions and estimator controls)
-- Only Syn_LD negative → candidate L–D mismatch (validate with instruction changes and D dependence)
-
----
-
-# 6. Discarded Approaches and Why
-
-## 6.1 OpenVLA vs DreamVLA Architectural Comparison
-
-### 6.1.1 The Original Idea
-
-Compare PID profiles between:
-- **OpenVLA (arXiv:2406.09246; Kim et al. 2024):** Llama 2‑based VLA with no explicit “dream/world model” prediction head; the abstract states a fused DINOv2+SigLIP visual encoder and 7B parameters. Action parameterization details should be treated as **paper/code details** (verify before using as a variable definition).
-- **DreamVLA (arXiv:2507.04447; Zhang et al. 2025):** VLA framework with explicit world-knowledge forecasting channels (dynamic-region-guided prediction plus spatial and semantic cues) and diffusion-based action modeling; the abstract does not specify backbone family/dimensions, so do not assume “GPT‑2” without a primary citation.
-  - Related but distinct: **Dream‑VL & Dream‑VLA (arXiv:2512.22615; Ye et al. 2025)** uses a diffusion language-model backbone; do not conflate its architectural details with DreamVLA unless explicitly matched.
-
-**Hypothesis (weaker / testable):** Architectures with explicit predicted world-knowledge channels may yield different PID signatures than those without such channels, *under matched variable definitions and matched targets*. Whether those differences correlate with “grounding failures” remains empirical.
-
-### 6.1.2 Why It Was Discarded
-
-#### Reason 1: The Core Hypothesis Became Questionable
-
-During first-principles review, we discovered that “negative synergy = hallucination” is not mathematically rigorous. It can be a hypothesis/feature, not a definition.
-
-#### Reason 2: Too Many Confounding Variables
-
-| Aspect | OpenVLA | DreamVLA |
-|--------|---------|----------|
-| Backbone | Llama 2 (abstract) | Unspecified in abstract (verify paper/code) |
-| Action representation | Unspecified in abstract (verify) | Diffusion-based transformer (abstract); exact action representation verify |
-| World model | Implicit/none (no explicit prediction heads) | Explicit world-knowledge forecasting (dynamic/spatial/semantic cues; abstract) |
-| Vision encoder | Fused DINOv2 + SigLIP features (abstract) | Unspecified in abstract (verify paper/code) |
-| Attention | Causal (autoregressive) | Block-wise structured |
-| Training data | 970k real-world demos (abstract) | Unspecified in abstract (verify) |
-
-If we observe different PID profiles, we CANNOT attribute the difference to "world model quality" because too many variables differ.
-
-#### Reason 3: “D” Exists Explicitly in One Model but Not the Other (Definition Mismatch)
-
-DreamVLA proposes explicit world‑knowledge forecasts (dynamic/spatial/semantic cues; abstract). This makes a **concrete “D”** operationalization plausible *within DreamVLA* *if* those outputs are exposed and loggable per step (and supports targeted interventions on D).
-
-OpenVLA does not provide an explicit “dream/world model” output channel by default. Any “D” you define in OpenVLA is necessarily an **extracted hidden state**, which changes the scientific question (and makes cross‑model comparisons fragile).
-
-As a result, an OpenVLA↔DreamVLA PID comparison risks becoming circular or uninterpretable: observed differences may reflect **variable-definition choices**, not “world model quality.”
-
-#### Reason 4: "D" is Ill-Defined for OpenVLA
-
-DreamVLA has explicit world‑knowledge outputs (dynamic-region guidance plus spatial and semantic cues; abstract; verify what is exportable in your checkpoint). For OpenVLA, "D" would need to be extracted from intermediate hidden states, which is:
-- Arbitrary (which layer? which tokens?)
-- Not comparable to DreamVLA's explicit D
-- May not represent world model at all
-
-### 6.1.3 Why It Might Still Be Interesting
-
-Despite these issues, the comparison could be valuable IF:
-1. We first validate PID on a single architecture
-2. We carefully control for confounds
-3. We interpret results cautiously
-
-**Recommendation:** Defer until after core validation (Experiments 0-3).
-
-## 6.2 Using WAN for Analytical (Not Just Visualization) Purposes
-
-### 6.2.1 The Original Idea
-
-WAN's 3D Causal VAE (Wan-VAE) is itself a learned world model. We could:
-1. Use it as a **proxy** for what a "good" world model should predict
-2. Compare VLA's synergy against WAN's synergy
-3. Treat large, systematic gaps (e.g., `Syn_VLA << Syn_WAN` under *matched variable definitions*) as a **hypothesis** about failure modes, not a diagnostic; validate with labels and controlled interventions.
-
-### 6.2.2 WAN Ecosystem Overview (Conservative, Source‑Bound)
-
-This document uses “WAN” to refer to the open Wan video foundation model family described in arXiv:2503.20314. Many “version” labels circulate publicly; do not assume features/speeds beyond what you can cite and reproduce.
-
-| Component | Source | What is safe to claim here |
-|----------|--------|----------------------------|
-| **Wan** | arXiv:2503.20314 | Open video foundation models built on diffusion transformer paradigm; paper mentions 1.3B and 14B models and an associated public code/model release |
-| **VACE** | arXiv:2503.07598 | All‑in‑one framework for video creation/editing with a unified conditioning interface (VCU) |
-| **Wan‑Move** | arXiv:2512.08765 | Motion control for video generation via latent trajectory guidance (dense point trajectories) |
-
-### 6.2.3 Can WAN Be Made Action‑ or Motion‑Conditioned?
-
-Action conditioning is not a single switch; it is a design choice about *what you condition on* (robot actions, object trajectories, constraints) and what the predictor is expected to produce (video, flow, latent plans). Treat it as a separate engineering project from PID estimation.
-
-| Approach | Related work | prisoma relevance |
-|----------|--------------|------------------|
-| **Embodiment adaptation + action recovery** | DreamGen (arXiv:2505.12705) | Generates synthetic videos (“neural trajectories”) and recovers pseudo‑actions via latent action model or IDM; useful context, not a direct PID estimator |
-| **Unified creation/editing conditioning** | VACE (arXiv:2503.07598) | Provides a structured conditioning interface; may be useful for constructing controlled counterfactual video edits (verify suitability for robot‑state conditioning) |
-| **Motion control via trajectory guidance** | Wan‑Move (arXiv:2512.08765) | Encodes desired motion with dense point trajectories; useful for counterfactual motion probes, not a closed‑loop robot simulator |
-| **Unified models** | Motus (arXiv:2512.13030) | Integrates understanding, video generation, and action experts; consider as a separate baseline rather than assuming it is “WAN inside” |
-
-### 6.2.4 Why Original Concerns Remain Partially Valid
-
-#### Concern 1: Distribution Mismatch (Still a Primary Risk)
-
-Video foundation models are typically trained on broad internet video, not contact‑rich robot manipulation. This can create distribution mismatch (contacts, tool use, occlusion patterns, embodiment geometry). Adaptation may require task‑ or domain‑specific conditioning/fine‑tuning; treat that as an empirical dependency and report the data/protocol you used.
-
-#### Concern 2: Latent Space Incompatibility (Still Valid)
-
-Policy latents and video‑model latents are not naturally aligned. For PID, prefer analyzing variables that you can define cleanly and validate (e.g., VLA latents after preprocessing + Experiment 0; or explicit Flow targets), and treat WAN primarily as an external predictor/visualization tool unless you can justify a specific intermediate as a scientifically meaningful variable.
-
-#### Concern 3: Computational Cost (Often Offline‑Only)
-
-Video generation is often expensive (seconds→minutes per clip, depending on model/hardware/settings). For prisoma, assume **offline** unless you have measured an interactive loop on your hardware. Use caching and precompute Flow targets for analysis runs.
-
-#### Concern 4: Circular Reasoning Risk (STILL VALID BUT MANAGEABLE)
-
-If we fine-tune WAN on robot data, it learns similar biases. Mitigation:
-- Use WAN fine-tuned on **different** robot datasets than VLA
-- Use WAN only for visualization, not analytical comparison
-- Use independent world models (GWM, Cosmos) for synergy comparison
-
-### 6.2.5 Recommended Alternative: GWM (Gaussian World Model)
-
-GWM (Gaussian World Model; see the corresponding paper/code and verify venue/status) may be more appropriate for **analytical** purposes. All GWM cells below are **paper-reported claims, not verified capabilities** (no citation ID has been pinned for GWM yet — §13.4):
-
-| Property | WAN (base) | WAN (fine-tuned) | GWM (paper-reported; verify) |
-|----------|------------|------------------|-----|
-| Trained on robot data | No | Yes (LoRA) | Yes (native) |
-| 3D representation | No (2D video) | No | Yes (3DGS) |
-| Action-conditioned | No | **Yes** | Yes |
-| Latent space alignment | Poor | Medium | High |
-| Inference speed | Slow | Slow | Model/implementation-dependent (benchmark) |
-
-### 6.2.6 When to Use WAN vs GWM vs Neither
-
-| Use Case | Recommendation |
-|----------|----------------|
-| Core PID validation (Aims 1-2) | **Neither** - compute PID on VLA latents only |
-| Debugging specific failures | **GWM** - 3D spatial localization |
-| Paper figures / demos | **WAN** - video visualization (benchmark-dependent) |
-| Training data augmentation | **VACE** or **GWM** - controlled edits / 3D-aware augmentation (verify) |
-| Unified world model baseline | **Motus** - separate integrated model baseline (see paper) |
-| Real-time intervention | **Neither** - too slow, use entropy |
-
-### 6.2.7 Key Resources
-
-```
-WAN Official:
-- GitHub (per paper): https://github.com/Wan-Video/Wan2.1
-- Paper: arXiv:2503.20314
-
-Extensions:
-- Wan-Move: arxiv.org/abs/2512.08765 (motion control)
-- VACE: arxiv.org/abs/2503.07598 (all-in-one editing)
-- Motus: arxiv.org/abs/2512.13030 (unified latent action world model)
-- DreamGen: arxiv.org/abs/2505.12705 (robot learning via neural trajectories)
-```
-
-## 6.3 Using Full 3-Source PID from the Start
-
-### 6.3.1 Why It Was Discarded
-
-- 18 atoms to estimate (expensive)
-- Many atoms are hard to interpret
-- Estimation variance multiplies
-- Hierarchical pairwise gives most of the benefit
-
-### 6.3.2 Why It's Still Potentially Interesting
-
-True three-way synergy (information requiring ALL THREE of V, L, D) might be important for complex tasks. Worth exploring after pairwise validation.
-
-## 6.4 Using Raw 4096-dim Embeddings
-
-### 6.4.1 Why It's Problematic
-
-Curse of dimensionality: at d=4096, k-NN methods fail because nearest neighbors become nearly equidistant.
-
-### 6.4.2 Mitigation
-
-Test dimensionality reduction:
-1. PCA to 256-dim (retaining 95% variance)
-2. Learned projections to 64-dim
-3. Use intermediate VLA layers instead of final embeddings
-
----
-
-# 7. VLA Architecture Analysis
-
-## 7.0 Conceptual Framing: Dual-Process Theory Analogy (With Caveats)
-
-### 7.0.1 The Analogy
-
-An intriguing conceptual parallel exists between our V-D decomposition and dual-process theories of cognition (Kahneman, 2011). In cognitive psychology:
-
-| System | Characteristics | Proposed VLA Analogue |
-|--------|----------------|----------------------|
-| **System 1** | Fast, automatic, reactive, feedforward | **V** (Vision): Direct perceptual features from early layers |
-| **System 2** | Slow, deliberate, predictive, requires working memory | **D** (Dream): World model predictions requiring temporal integration |
-
-Under this framing:
-- **High synergy** might indicate coherent integration between reactive perception and predictive reasoning—analogous to healthy System 1/2 coordination
-- **Low/negative synergy** might indicate a failure to integrate—analogous to the cognitive conflict when "gut feeling" contradicts deliberation
-
-This parallel is particularly apt for **DreamVLA**, which explicitly separates:
-- Vision encoder (feedforward, "System 1-like")
-- World-knowledge forecasting components (dynamic/spatial/semantic cues; "System 2-like" in this loose analogy)
-- Action head that conditions on the predicted knowledge (paper reports a diffusion-based action model; verify details)
-
-### 7.0.2 Why This Analogy Is LIMITED (Important Caveats)
-
-**We emphasize this is a loose conceptual analogy, NOT a mechanistic claim:**
-
-1. **Timescales don't match:** Dual-process theories posit substantially different timescales for fast vs slow cognition. In VLAs, V and D are computed in the same forward pass with similar latency.
-
-2. **Architecture doesn't match:** Human dual-process theory involves distinct neural circuits (e.g., Default Mode Network vs. Prefrontal Cortex). VLAs have a single unified architecture.
-
-3. **We are NOT testing dual-process theory:** Our decomposition is grounded in information theory (PID), not cognitive architecture. We make no claims about VLAs "implementing" System 1/2.
-
-4. **The analogy could mislead:** Reviewers familiar with cognitive science may object to loose application of these terms.
-
-### 7.0.3 When This Framing IS Useful
-
-- **Grant motivation:** Helps non-technical reviewers understand the intuition
-- **Discussion section:** Situates findings in broader cognitive science context
-- **Future directions:** Could motivate architectures with explicit fast/slow pathways
-
-### 7.0.4 When to AVOID This Framing
-
-- **Core hypothesis:** Don't claim "PID measures System 1/2 integration"
-- **Technical sections:** Use precise information-theoretic language
-- **Wibral group review:** They are mathematically rigorous; lead with PID formalism
-
-### 7.0.5 The Scientifically Defensible Claim
-
-**What we CAN say:**
-
-> "Our V-D decomposition separates early visual features from later integrated representations that incorporate world model predictions. PID quantifies how these two information streams combine to determine actions. This is conceptually analogous to—though mechanistically distinct from—the integration of fast reactive processing with slower deliberative reasoning in dual-process cognitive theories."
-
-**What we CANNOT say:**
-
-> "PID measures System 1/2 integration in VLAs" ❌
-
-## 7.1 OpenVLA (arXiv:2406.09246)
-
-### 7.1.1 What the abstract claims (minimum verification bar)
-
-OpenVLA (arXiv:2406.09246) is described in the arXiv abstract as:
-- a **7B‑parameter** open-source VLA,
-- built on a **Llama 2** language model,
-- with a visual encoder that fuses pretrained features from **DINOv2** and **SigLIP**,
-- trained on **970k** real‑world robot demonstrations (paper-reported),
-- released with checkpoints and a PyTorch codebase (paper-reported; verify availability/licensing before depending on it).
-
-**Not verified in the abstract (do not assume without a source):** exact action representation (tokens/bins/continuous), exact fusion/projection architecture, vision encoder parameter counts, and patch/tokenization details.
-
-### 7.1.2 Key Properties for PID Analysis
-
-- **No explicit world model:** "D" must be inferred from hidden states
-- **Causal attention:** Each token only attends to previous tokens
-- **Hidden states:** if the backbone is Llama 2 7B, hidden states are 4096‑dim across 32 layers by the standard config (derived prior; verify in implementation)
-- **Layer-specific encoding:** object-state vs action-state localization is *often* reported in probing studies for large transformers, but treat any specific layer claim here as **unverified until you cite a concrete probing result for OpenVLA**.
-
-**Backbone priors (derived from Llama 2 7B config; verify in code if you cite them):**
-| Component | Value |
-|-----------|-------|
-| Hidden size | 4096 |
-| Transformer layers | 32 |
-| Attention heads | 32 |
-
-### 7.1.3 Where to Extract "D"?
-
-Options:
-1. **Layer 16 (middle):** candidate “mid-level” representation (heuristic; requires model-specific probing)
-2. **Layer 24:** candidate “late” representation (heuristic; requires model-specific probing)
-3. **Average across layers:** Lose layer-specific information
-4. **Don't use D at all:** Focus on V-L-A decomposition
-
-## 7.2 DreamVLA (arXiv:2507.04447)
-
-### 7.2.1 What the abstract claims (minimum verification bar)
-
-DreamVLA (arXiv:2507.04447) is described in the arXiv abstract as a VLA framework that:
-- integrates **world-knowledge forecasting** (dynamic-region-guided prediction plus spatial and semantic cues) to support a perception–prediction–action loop,
-- uses **block-wise structured attention** to mitigate interference among dynamic/spatial/semantic information (verify the exact masking scheme before claiming disentanglement),
-- uses a **diffusion-based transformer** to model the conditional distribution over future actions (verify the action representation used in your analysis),
-- reports success on real-robot tasks and CALVIN ABC‑D (paper-reported; protocol-sensitive).
-
-**Code/weights pointers (external; verify at time of use):**
-- Publication status: listed as a **NeurIPS 2025** paper (per the code repo and the NeurIPS virtual site; verify the proceedings entry at time of citation).
-- Referenced model repo: `WenyaoZhang/DreamVLA` (verify that weights are present and review the model card + license before depending on it).
-- Referenced code repo: https://github.com/Zhangwenyao1/DreamVLA (public as of June 2026; verify exact revision, weight availability, and license).
-
-**Abstract-verified components (safe to cite from the arXiv abstract):**
-- World-knowledge forecasting with dynamic-region guidance plus spatial and semantic cues.
-- Block-wise structured attention to mitigate interference among dynamic/spatial/semantic information (verify the exact masking scheme before claiming disentanglement).
-- A diffusion-based transformer for conditional action modeling (verify the action representation you treat as `A`).
-
-**Not specified in the abstract (verify before using as an experimental variable):**
-- Backbone family/dimensions and cross-modal integration details (do **not** assume “GPT‑2” from this document).
-- Which concrete models are used to produce dynamic/spatial/semantic cues (trackers/segmenters/encoders) and which intermediate tensors are exportable per step (and their shapes).
-
-**Dimension note (must be checked in your checkpoint):**
-The arXiv abstract does not specify backbone dimensionality. Log `{n_layer, n_head, hidden_size}` (or equivalent) and any cross-modal projection dims in your experiment manifest; do not infer sizes from this spec.
-
-**What you can and cannot assume:**
-| Claim | Status | Source |
-|------|--------|--------|
-| Backbone family/dimensions | Verify (not in abstract) | DreamVLA abstract omits backbone details; check paper/code/checkpoint before citing |
-| World knowledge forecasting (dynamic + spatial + semantic) | Abstract-verified | DreamVLA arXiv:2507.04447 abstract |
-| Block-wise structured attention | Abstract-verified | DreamVLA arXiv:2507.04447 abstract |
-| Diffusion-based action modeling | Abstract-verified | DreamVLA arXiv:2507.04447 abstract |
-| Weights publicly available | Verify | Referenced model repo (external; verify) |
-
-**Diffusion parameterization note (optional, but estimator-relevant):**
-Diffusion models differ in whether they predict *noise/noised quantities* vs. *clean data*. Li & He (2025, arXiv:2511.13720) argue that predicting clean data can better respect the manifold assumption. For PID/MI estimation, this matters because it may change:
-- the intrinsic dimension and local geometry of latents,
-- the degree of apparent determinism between latents and outputs.
-If you analyze diffusion-model internal representations (DreamVLA actions or predicted world knowledge), record the model’s diffusion parameterization and which representation you treat as the variable in PID.
-
-**Dream-VL & Dream-VLA (arXiv:2512.22615, Ye et al. 2025)** is a related but distinct line:
-- Uses a **diffusion LLM backbone** (“dLLM”) for VL/VLA, emphasizing bidirectionality and parallel generation.
-- Reports strong LIBERO/SimplerEnv results; treat performance numbers as benchmark-dependent and verify protocols before using as “ground truth” comparisons.
-
-**Implementation note:** If you need a small, controllable model for end-to-end pipeline validation (logging/interventions/estimators), see §7.7; do not infer DreamVLA’s backbone choice from this document without a primary citation.
-
-### 7.2.2 Key Properties for PID Analysis
-
-- **Explicit D (operationalizable):** world-knowledge predictions provide a concrete candidate “D” variable (dynamic/spatial/semantic outputs and/or intermediate “world embedding”)
-- **Partial stream separation:** block-wise attention is intended to reduce cross-talk between predicted knowledge components (verify exact masking scheme before treating as “disentangled”)
-- **Action structure:** the action model may predict sequences/chunks depending on implementation; verify what “A” is (single-step vs chunk) before interpreting MI/PID across time
-- **Caveat:** “designed for PID” is too strong; the claim we can defend is only that the architecture makes D extraction less arbitrary than in models without explicit prediction heads/tokens.
-
-### 7.2.3 Why DreamVLA is Better for V-D-A Analysis
-
-Relative to models with no explicit world-knowledge outputs, DreamVLA can be **more amenable** to V–D–A analysis because:
-1. “D” can be defined as an explicit predicted representation (rather than “some hidden state we decided to call D”).
-2. You can test interventions that specifically corrupt predicted knowledge (e.g., corrupt depth vs corrupt semantics) and see whether PID features move as expected (§9.5).
-3. You can probe whether the model actually uses predicted knowledge by comparing PID features with/without access to that channel (ablation-style).
-
-This still does not remove the degeneracy/strong-dependence concerns in §1.2: if `A` is effectively deterministic and continuous, you must define the noise/discretization model that makes the information quantities finite and interpretable.
-
-## 7.3 PixelVLA (Pixel-Level Understanding; arXiv:2511.01571)
-
-### 7.3.1 What the abstract claims (minimum verification bar)
-
-PixelVLA (arXiv:2511.01571) is described in the arXiv abstract as:
-- supporting **pixel-level reasoning** and **multimodal prompting** (text + visual inputs),
-- integrating a **multiscale pixel-aware encoder** with a **visual prompting encoder**,
-- proposing a two-stage automated pipeline that generates **Pixel‑160K** (pixel-level annotations derived from existing robot data),
-- improving manipulation success rates over OpenVLA on three benchmarks while requiring **1.5%** of its pretraining cost (paper-reported; protocol-sensitive; **version-sensitive**: the v1 abstract reported **10.1%–17.8%**, the current arXiv revision reports **10.1%–28.7%** — cite the specific arXiv version),
-- releasing dataset and code as open source (paper-reported; verify availability/licensing).
-
-**Not verified in the abstract (do not assume without a source):** the exact backbone family/dimensions, action representation (discrete/continuous), prompt encoder provenance (e.g., SAM), and any specific LoRA settings.
-
-### 7.3.2 PID-relevant implications (conditional)
-
-- PixelVLA introduces an explicit *visual prompt* input channel. Decide whether to treat this as part of **V** or as a separate source **P** (and preregister that choice) before running PID.
-- Pixel-level and multiscale representations can have different geometry than pooled “global” embeddings; re-run the Geometry Gate at the exact extraction points you will publish.
-- The scientific question is not “PixelVLA is better”, but whether adding prompt channels and pixel-level structure changes redundancy/synergy patterns under matched controls (Exp1/Exp3).
-
-## 7.4 TraceVLA (Visual Trace Prompting; arXiv:2412.10345)
-
-**TraceVLA** (arXiv:2412.10345, December 2024; ICLR 2025 — re-verify proceedings) enhances VLAs with spatial-temporal awareness by overlaying visual state-action trajectories. Release status (checked 2026-06-12 via the project page tracevla.github.io): code (`FrankZheng2022/tracevla`) and Hugging Face checkpoints (7B + a 4B Phi-3-Vision variant) are public — verify revision/license at time of use; traces are extracted with Co-Tracker (log its version as part of the `V` contract, since the trace channel is a derived input):
-
-```
-Current Image + Historical Trace Overlay → VLA → Action
-```
-
-- Fine-tuned from OpenVLA (7B parameters) on 150K trajectories with visual traces
-- Dual visual streams: current observation + trace-overlaid image, separated by special token
-- Reported gains: ~10% on SimplerEnv and ~3.5× on real-robot tasks (paper-reported; protocol-sensitive)
-- Also released as a compact TraceVLA‑Phi3 variant (4B parameters, Phi‑3‑Vision backbone; paper-reported).
-
-**Claim status (based on arXiv abstracts + backbone configuration priors; verify in code if needed):**
-| Component | Dimension | Source |
-|-----------|-----------|--------|
-| Backbone | OpenVLA (Llama 2 7B) | arXiv:2412.10345 (abstract) |
-| Parameters | 7B | arXiv:2412.10345 (abstract) |
-| Hidden size | 4096 | Derived from Llama 2 7B config (verify in implementation) |
-| Transformer layers | 32 | Derived from Llama 2 7B config (verify in implementation) |
-| Action discretization | (unverified in abstract) | Check OpenVLA/TraceVLA code/paper before citing |
-| Compact variant | TraceVLA‑Phi3 (4B) | arXiv:2412.10345 (abstract) |
-
-**PID Relevance:** TraceVLA encodes temporal history visually. This means V implicitly contains D-like information (past states). The V-D boundary becomes blurred—interesting for testing whether PID can detect this encoding.
-
-## 7.5 Other VLAs (For Future Reference)
-
-> **v10.7 field note:** the world-model-inside-VLA class this table samples is now a *surveyed, named family* — arXiv:2606.00113 (June 2026) classifies "integrated prediction-action models" (joint world-action generative modeling / prediction-augmented policy learning) vs "explicit predictive planners". Members verified present in that survey and not yet rowed below: **WorldVLA** (arXiv:2506.21539), **FlowVLA**, **RynnVLA-002** (arXiv:2511.17502), **3D-VLA** (ICML 2024) — venues as listed by the survey/arXiv; re-verify at time of citation. Candidate `D` hooks should be picked from this family first (§10.10.13.3).
-
-| VLA | Backbone | World Model | Action Representation | Notes |
-|-----|----------|-------------|----------------------|-------|
-| **OpenVLA-OFT** | OpenVLA backbone (unchanged; verify per checkpoint) | None (fine-tuning recipe, not a new family) | Continuous actions + parallel decoding + action **chunking** + L1 objective (abstract-verified) | Kim, Finn, Liang (2025), arXiv:2502.19645. Optimized fine-tuning recipe for OpenVLA; paper reports large LIBERO gains and ~26× inference speedup vs autoregressive fine-tuning (paper-reported; protocol-sensitive). Chunked `A` changes the PID target contract — see §10.10.13.1. |
-| **GR00T N1** | (see paper) | Planner-style | Continuous | NVIDIA et al. (2025), arXiv:2503.14734. A GR00T **N1.5** open 3B revision was released mid-2025 (vendor release; verify weights/license/config at time of use). |
-| **TinyVLA** | Smaller | None | Discrete | Efficient |
-| **VLA-JEPA** | (see paper; verify) | Latent world model (JEPA-style) | (verify) | arXiv:2602.10098 (verify details). Interesting here because a JEPA-style latent world model is an explicit **`D` candidate** if its latents are exportable per step. See also V-JEPA 2 / V-JEPA 2-AC (arXiv:2506.09985): latent MPC planning makes `D` causally load-bearing (§10.1.1, §10.10.13.2). |
-| **Qwen-VLA** (v10.2) | Qwen-VL stack (verify per checkpoint) | None claimed (DiT action decoder; unified action+trajectory head) | Continuous actions + trajectory prediction (paper-reported) | arXiv:2605.30280; `QwenLM/Qwen-VLA` reported open (verify). Unified manipulation+navigation+trajectory model; paper-reported 97.9% LIBERO. **Embodiment-aware prompt conditioning** injects embodiment identity into `L` — a confound for cross-embodiment `V–L` PID comparisons (§14.5.7). |
-| **World Pilot** (v10.2) | (see paper; verify) | World-Action Model priors injected via **two named pathways**: Latent Steering (perception conditioned on predicted scene evolution) and Action Steering (trajectory-level guidance to the action head) | (see paper; verify) | arXiv:2606.12403 (verify details). Paper-reported 84.7% on the LIBERO-Plus zero-shot OOD benchmark. PID-relevant: the dual-pathway design is an *architecture-level decomposition of where world information enters* — pathway on/off ablations are built-in causal handles for Exp4/H3 (§10.10.13.2). |
-| **GEN-1** (Generalist AI; v10.2) | Vendor blog (generalistai.com/blog/gen-1); no paper/weights | Vendor mentions prior world-model work; GEN-1 described as an action-emitting model | Real-time actions (vendor-reported) | Vendor-reported: pretrained on 500k+ hours of *wearable human* interaction data (no teleop), ~1h robot data per task adaptation, and vendor-reported 99% success rates on selected tasks (the vendor explicitly notes not all attempted tasks reach this — selective reporting; verify independently before citing). **Black-box comparator only**; the human-pretraining→robot-adaptation recipe is a prominent industrial instance of the embodiment gap (H7/§14.5.7). |
-| **π0** | (see PI paper) | (see PI paper) | Flow-matching action chunks (paper-reported) | Physical Intelligence generalist policy (PI blog 2024‑10‑31 + paper PDF). Base `π0`/`π0-FAST` weights have been published via Hugging Face (openpi; verify license/revision); later variants (`π0.5`, `π0.6*`) remain research-publication-only — treat as black‑box unless you can export embeddings/hidden states for the `V/L/D/A` contract (https://www.pi.website/blog/pi0 ; https://www.pi.website/download/pi0.pdf). |
-| **π0.5** | (see PI paper) | (see PI paper) | (see PI paper) | Physical Intelligence “open‑world generalization” variant (PI blog 2025‑04‑22 + paper PDF). Same caveats: do not assume hook points/embeddings are available (https://www.pi.website/blog/pi05 ; https://www.pi.website/download/pi05.pdf). |
-| **π0.6\\*** | (see PI paper/model card) | (see PI paper/model card) | (see PI paper/model card) | Physical Intelligence “learns from experience” variant (PI blog 2025‑11‑17 + model card PDF). Treat training claims as vendor claims until replicated; verify access + logging contract (https://www.pi.website/blog/pistar06 ; https://website.pi-asset.com/pi06star/PI06_model_card.pdf). |
-| **MemoryVLA** | VLM + memory bank | Working + long-term | Continuous | Shi et al. (2025), arXiv:2508.19236 |
-| **CoT-VLA** | 7B + visual CoT | Predicts visual goals | Mixed | Zhao et al. (2025), arXiv:2503.22020 (performance deltas are benchmark-dependent; verify protocol) |
-
-## 7.6 Architecture Verification Summary (Jan 2026)
-
-This section tracks *claim status* for VLA architecture details. Treat arXiv abstracts as the minimum verification bar; treat any non-abstract details as “derived from known backbone configs” or “unverified” unless you cite a concrete source (paper section, code commit, model card).
-
-### 7.6.1 Verified Dimension Summary
-
-| VLA | Hidden Dim | Layers | Action Type | Verification Status |
-|-----|------------|--------|-------------|---------------------|
-| **OpenVLA** | 4096 (Llama 2 7B prior) | 32 (Llama 2 7B prior) | (unverified in abstract) | Abstract verifies: 7B + Llama 2 + (DINOv2, SigLIP); other specifics require a citation |
-| **DreamVLA** | Unknown | Unknown | Diffusion-based transformer (abstract) | Abstract does not specify backbone dims; do not assume GPT‑2 sizes |
-| **PixelVLA** | Unknown (abstract) | Unknown (abstract) | Unknown (abstract) | Abstract verifies pixel-level reasoning + multimodal prompting + Pixel‑160K; numeric architecture details require paper/code |
-| **TraceVLA** | 4096 (inherits OpenVLA) | 32 (inherits OpenVLA) | (unverified in abstract) | Abstract verifies it fine-tunes OpenVLA; action discretization requires a citation |
-
-### 7.6.2 Implications for Geometry Analysis
-
-**Practical prior (from reported backbones, not from geometry):** Some VLAs targeted here are reported to use a Llama 2 7B language backbone (e.g., OpenVLA arXiv:2406.09246; TraceVLA arXiv:2412.10345). If so, the LM hidden size is 4096 by the Llama 2 7B configuration. This is not a substitute for the Geometry Gate: the *effective* dimension and local geometry of the extracted representations must still be measured.
-
-Implications for estimator planning:
-- Treat **4096** as a plausible **upper bound** for certain extraction points; pooled/projected embeddings can be lower-dimensional.
-- DreamVLA’s backbone dimensionality is **not stated in the abstract** (arXiv:2507.04447); do not assume GPT‑2 sizes without checking the paper/code.
-- PCA (or other reduction) is a common starting point, but must be validated with the Geometry Gate + Experiment 0 on the exact pipeline you will publish.
-
-### 7.6.3 Intrinsic Dimension Research (Transformer Embeddings)
-
-Selected references on transformer embedding geometry (use as motivation; do not transplant numeric claims across models/datasets):
-
-| Finding | Source |
-|---------|--------|
-| Decoder embedding **anisotropy** shows a bell-shaped curve across layers (peak in middle layers) | [The Shape of Learning, arXiv:2311.05928](https://arxiv.org/abs/2311.05928) |
-| Studies how Intrinsic Dimension (ID) evolves during supervised fine-tuning (SFT) and varies with number of demonstrations in in-context learning (ICL) | [Comparative Study, arXiv:2412.06245](https://arxiv.org/abs/2412.06245) |
-| Heuristic: reductions in mean local dimension tend to accompany and predict subsequent performance gains (task- and protocol-dependent) | [Less is More, arXiv:2506.01034](https://arxiv.org/abs/2506.01034) |
-| In-context learning induces **higher ID** than supervised fine-tuning | [Comparative Study, arXiv:2412.06245](https://arxiv.org/abs/2412.06245) |
-| Measures ID of token embeddings across model sizes and during training; reports a rapid ID drop early in training | [Measuring ID, arXiv:2503.02142](https://arxiv.org/abs/2503.02142) |
-| Layerwise probing of video world models reports a sharp intermediate-depth **"Physics Emergence Zone"**: physical variables (speed/acceleration early; motion *direction* only at the zone) become decodable, peak shortly after it, and **degrade toward output layers**; direction is encoded in a high-dimensional population structure with circular geometry | [Interpreting Physics in Video World Models, arXiv:2602.07050](https://arxiv.org/abs/2602.07050) (added v10.2; verify protocols before transplanting layer choices) |
-
-**Implication for prisoma**: The intrinsic dimension of VLA embeddings is **layer-dependent**, **training-dependent**, and likely **much lower** than d=4096. However, the exact ID for VLA-specific embeddings is **not yet measured** and should be part of Experiment 0 diagnostics.
-
-**Hook-point prior (v10.2):** the Physics Emergence Zone finding (arXiv:2602.07050) converts "treat `D_hidden[k]` layer choice as an experimental variable" into a concrete, cheap procedure: before committing to a hook layer, run layerwise linear probes for a few physical quantities (object speed/direction/contact) on the candidate backbone and hook `D` near the probe-accuracy peak — *then* run the geometry gate there. Two corollaries worth preregistering: (a) late layers are expected to be action-formatted rather than world-informative, so a near-output `D_hidden` that shows high `I(D;A)` but low physics decodability is measuring output formatting, not a world model; (b) the reported *circular* population geometry for direction is a concrete instance of non-Euclidean local structure in exactly the representations this project analyzes — empirical support for running §16 geometry diagnostics rather than assuming flatness.
-
-### 7.6.4 Geometry Mitigation Options (when d is large / geometry fails)
-
-Many target VLAs expose high-dimensional embeddings (often O(10³) dims; e.g., Llama‑family hidden size 4096 is a common prior). Treat the exact dimensionality and geometry of the *extracted* representations as empirical and re-check via the Geometry Gate + Exp0 for the specific hook points you will publish.
-
-| Approach | Assessment | Notes |
-|----------|------------|-------|
-| **Manifold unrolling (Isomap/AE)** | When geometry fails but you still want continuous `I^sx_∩` | Requires validating that the learned embedding supports L∞ neighborhoods; re-run gates. |
-| **Geodesic MI / CI screening** | When you need geometry-respecting *screening* | Prefer MI/CI/Ω over continuous PID atoms; do not claim atom-level conclusions. |
-| **Linear projection (PCA)** | Baseline if representation is locally flat-ish | Valid only if the Geometry Gate + Experiment 0 pass on the exact preprocessing. |
-| **Quantization → discrete PID** | When high‑D/concentration makes kNN unstable | Trades geometric fidelity for count-based robustness; report sensitivity to k. |
-| **Copula / rank transform** | Preprocessing for L∞ estimators | Can mitigate empty-space artifacts; validate empirically (can also destroy structure). |
-
-**Key point:** Treat these as *options*, not guarantees. The Geometry Gate + Experiment 0 determine which (if any) are publishable for a given representation.
-
-## 7.7 Optional: Small Custom Model for Pipeline Validation (Fallback)
-
-This is a contingency plan if (a) a target VLA is unavailable or too expensive to run for rapid iteration, and (b) you need a controllable model to validate logging, intervention semantics, and PID plumbing.
-
-### 7.7.1 Motivation
-
-If **DreamVLA weights were previously unavailable** (§18.2.2): as of Jan 2026, the DreamVLA and Dream‑VL/Dream‑VLA papers state a release, and this document references candidate model repositories `WenyaoZhang/DreamVLA` (arXiv:2507.04447) and `Dream-org/Dream-VLA-7B` (arXiv:2512.22615). **Verify actual weight availability, model size/config, and licensing at time of use.** If running the full models is too heavy for rapid iteration on your hardware, consider training a small, explicitly documented model solely for **pipeline validation**. This is not required for the scientific core of prisoma unless you plan to publish the model and its training data.
-
-### 7.7.2 Design Goals (what matters for this project)
-
-Any “small custom VLA” used here should:
-- expose well-defined `(V,L,D,A)` (or a justified subset) for logging,
-- be cheap enough to run repeatedly for Experiment 0/1 plumbing,
-- have weights/code that can be redistributed (or at minimum, reproducibly rebuilt),
-- be evaluated only as a baseline/debugging target unless it is benchmarked under matched protocols.
-
-### 7.7.3 Training Sketch (high level; verify against your chosen backbone)
-
-- Keep the architecture simple (frozen encoders + small trainable projection + action head) so that changes in PID statistics are interpretable.
-- Prefer supervised imitation on a small task suite first; do not jump to RL until the estimator gates and logging are stable.
-- Record *everything* needed to reproduce training (data hashes, code commit, hyperparameters); otherwise the model is not a credible scientific object.
-
-### 7.7.4 Advantages for prisoma
-
-- Faster iteration on the end-to-end experiment harness (logging, interventions, replay, diagnostics).
-- Cleaner ablations (fewer moving parts) if you keep encoders frozen and only change fusion/projection.
-
-### 7.7.5 Disadvantages / risks
-
-- No guarantee of relevance to large VLAs; treat as a plumbing check unless benchmarked.
-- Risk of confounding: PID patterns can reflect projection/head idiosyncrasies rather than modality integration (see §14.7).
-
-### 7.7.6 Compute and budget note (measurement-first)
-
-Do not cite fixed time/cost estimates here. Compute depends on model choice, dataset size, optimizer, precision, and hardware. If this fallback is used, report **measured** training time, peak memory, and throughput for your exact configuration.
-
-### 7.7.7 Relevance to blockers
-
-This can mitigate “model unavailable” and “iteration too slow” blockers, but it does **not** solve estimator validity, geometry pathologies, or the need for interventions/labels.
-
-### 7.7.8 Decision criteria (when to use it)
-
-Use a small custom model only if it materially accelerates Experiment 0/1 engineering and you can document it well enough to be scientifically defensible. Otherwise, prioritize running the target VLA(s) with aggressive measurement-first profiling and caching.
-
-### 7.7.9 Summary
-
-**Status:** Optional fallback for pipeline validation. Not required for the core PID study unless you intend to publish the model + training artifacts.
-
-## 7.8 SmolVLA (LeRobot)
-
-**Source:** *SmolVLA: A Vision-Language-Action Model for Affordable and Efficient Robotics* (arXiv:2506.01844, Jun 2025) + the LeRobot model card / repo (verify revisions at time of use)
-
-SmolVLA is treated here as a **lightweight baseline** for fast iteration and pipeline debugging. It is not used as primary evidence about the internals of large VLAs.
-
-### 7.8.1 What is paper-reported vs must still be verified
-Paper-reported (arXiv:2506.01844; verify against the checkpoint you actually load):
-- ~450M parameters; SmolVLM-2-derived backbone (SigLIP vision encoder + SmolLM2 language model)
-- Flow-matching-style action expert producing continuous action chunks
-- Asynchronous inference stack (perception decoupled from action execution)
-- Trained on community/LeRobot datasets; code, models, and data released
-
-Still verify per checkpoint (do not assume):
-- Exact hidden sizes, context length, and revision-specific config
-- Control-rate assumptions and what async inference means operationally for capture alignment
-- Dataset licensing for your use
-- Which intermediate representations can be exported reproducibly for `V/L/D` and how they align to PID variables
-
-### 7.8.2 How it is used in this study
-- **Primary role:** Exercise the end-to-end harness (logging, interventions, replay, geometry gate, Experiment 0/1) on a model that is cheaper to run than 7B‑class VLAs.
-- **Not a substitute:** Do not generalize PID patterns from SmolVLA to OpenVLA/DreamVLA without explicit cross‑model replication.
-
-### 7.8.3 Minimal integration contract (same as any VLA)
-- Inputs: `(obs_rgb[, obs_depth], instruction[, state])`
-- Outputs: action `A` + optional representation dumps: `V`, `L`, and one or more candidate `D` definitions (layer IDs / named hooks)
-- Log: model id/revision, seed, preprocessing, layer choice, and any throttling/async semantics as part of the run metadata
-
-SmolVLA is a practical low-resource baseline for Experiment 0/1 iteration, not a core scientific object unless you preregister its training/setup and publish artifacts.
-
----
-
-# 8. Estimation and Implementation
-
-## 8.1 The KSG Estimator in Detail
-
-### 8.1.1 Algorithm
-
-```python
-def ksg_mutual_information(X, Y, k=3):
-    """
-    KSG estimator for I(X; Y).
-    Uses maximum norm (Chebyshev distance) for BOTH k-NN search AND counting.
-    """
-    N = len(X)
-    XY = np.hstack([X, Y])
-    
-    # Build k-NN tree using Chebyshev (max norm) distance
-    tree = KDTree(XY, metric='chebyshev')
-    
-    # For each point, find distance to k-th neighbor
-    distances, _ = tree.query(XY, k=k+1)  # k+1 because point is its own neighbor
-    eps_raw = distances[:, k]  # k-th neighbor distance for each point
-    # KSG uses strict inequality (< eps_raw) for marginal counts; many radius queries are <=.
-    # Implement strictness by shrinking the radius in floating point.
-    eps = np.nextafter(eps_raw, 0.0)
-    
-    # Count points in marginal balls
-    tree_x = KDTree(X, metric='chebyshev')
-    tree_y = KDTree(Y, metric='chebyshev')
-    
-    n_x = np.array([len(tree_x.query_ball_point(X[i], eps[i])) - 1 for i in range(N)])
-    n_y = np.array([len(tree_y.query_ball_point(Y[i], eps[i])) - 1 for i in range(N)])
-    
-    # KSG formula
-    from scipy.special import digamma
-    I = digamma(k) + digamma(N) - np.mean(digamma(n_x + 1) + digamma(n_y + 1))
-    
-    return I
-```
-
-### 8.1.2 Critical Implementation Notes
-
-1. **Use Chebyshev (max norm) for EVERYTHING:** Both k-NN search and marginal counting
-2. **The digamma function:** scipy.special.digamma, NOT np.log
-3. **Handle edge cases:** n_x or n_y could be 0 at boundary points
-4. **Normalize inputs:** Scale each dimension to [0, 1] or standardize
-5. **Tie handling matters:** document whether you implement strict `< eps_raw` via `eps = nextafter(eps_raw, 0)` + inclusive `<= eps` counting (recommended), and test it.
-6. **Duplicates/quantization:** if many points are identical (or nearly so), kNN radii can collapse to 0. Detect this and either (a) add small seeded jitter, or (b) reject the run and change preprocessing.
-
-### 8.1.3 Extension to I^sx_∩
-
-The continuous `I^sx_∩` estimator in **Ehrlich et al. (2024)** is **not** implemented as “take the minimum of pointwise MI terms.”
-
-Instead, it adapts KSG by replacing conjunction (intersection) neighborhoods with the **disjunction (union)** neighborhoods implied by shared exclusions.
-
-For **two sources** `S₁,S₂` and a target `T`, under Chebyshev/L∞:
-
-1. For each sample `i`, compute the joint disjunction distance to every other sample `j`:
-   - `d_S_disj(i,j) = min( d(S₁ᵢ,S₁ⱼ), d(S₂ᵢ,S₂ⱼ) )`
-   - `d_ST_disj(i,j) = max( d(Tᵢ,Tⱼ), d_S_disj(i,j) )`
-2. Let `εᵢ_raw` be the distance to the `k`-th nearest neighbor under `d_ST_disj`.
-   - Use **strict** semantics for marginal counts (`< εᵢ_raw`) via `εᵢ = nextafter(εᵢ_raw, 0)` (or an equivalent strict-radius rule).
-3. Count neighbors within `εᵢ`:
-   - `n_α(i)` = number of samples within `εᵢ` of the **source disjunction** (`d_S_disj(i,j) <= εᵢ`), including the query point
-   - `n_T(i)` = number of samples within `εᵢ` in target space (`d(Tᵢ,Tⱼ) <= εᵢ`), including the query point
-4. Estimate redundancy:
-   - `Î^sx_∩ = ψ(k) + ψ(N) − (1/N) Σ_i [ ψ(n_α(i)) + ψ(n_T(i)) ]`
-
-This matches the authors’ reference implementation (`gitlab.gwdg.de/wibral/continuouspidestimator`, Python package `csxpid`) and is implemented in this repo as `pid-rs/crates/pid-core/src/isx.rs` (`IsxMethod::EhrlichKsg`).
-
-### 8.1.4 Beyond KSG: Alternative MI/CMI Estimators (MINE, CCMI, Gao-LNC / Local Gaussian)
-
-This project’s *scientific object* is **Wibral-group shared-exclusions redundancy** `I^sx_∩` and the derived PID atoms. For continuous variables, the only paper-faithful estimator in scope is the **Ehrlich et al. (2024) disjunction-kNN/KSG-style estimator** (§8.1.3).
-
-However, two realities force us to consider additional estimators as **baselines / contingency options**:
-1. **High dimension** (distance concentration) can break kNN geometry.
-2. **Strong dependence** (very large true MI; near-deterministic relationships) can break kNN MI even at low dimension (Gao et al., arXiv:1411.2003).
-
-It is crucial to keep roles separate:
-- **`I^sx_∩` redundancy** is *not* obtainable from a generic MI estimator unless you implement the shared-exclusions logic (statement-variable / disjunction neighborhoods).
-- **Shannon invariants / co-information screening** depend only on MI/CMI terms, so in principle they can be computed with *any* MI/CMI estimator (but estimator bias can still change conclusions).
-
-#### A) Gao et al.: kNN Robustness for Strong Dependence (still nonparametric)
-
-Gao, Ver Steeg, and Galstyan show that common KSG MI estimators can require sample sizes scaling exponentially in the **true MI** for strongly dependent variables, due to local-uniformity assumptions (arXiv:1411.2003). They propose improved estimators that account for **local non-uniformity**.
-
-Follow-up work by the same authors proposes a **local Gaussian approximation** MI estimator (arXiv:1508.00536), which locally fits a Gaussian around each sample to better approximate densities.
-
-How this fits here:
-- **Pros:** Targets exactly one of our biggest conceptual confounds: near-determinism / very strong dependence (common in learned models).
-- **Cons:** Does not remove the curse of dimensionality; still relies on local neighborhoods; integration into the disjunction-kNN `I^sx_∩` estimator is **non-trivial** (the elegance of KSG-style cancellation relies on specific ball/rectangle volume terms).
-
-Recommendation:
-- Treat Gao-style estimators as **MI baselines** (for CI/O-information screening) and as a diagnostic tool for “KSG is failing because MI is huge,” not as a drop-in replacement for `I^sx_∩`.
-
-#### B) MINE (Belghazi et al., 2018): Neural MI Estimation (variational)
-
-MINE (arXiv:1801.04062) estimates MI by optimizing a neural critic over samples (Donsker–Varadhan-style variational bounds).
-
-How this fits here:
-- **Pros:** Scales to high-dimensional inputs; does not explicitly depend on nearest-neighbor geometry; can be trained with minibatches.
-- **Cons (PhD-critical):** Optimization instability, estimator bias/variance trade-offs, dependence on architecture/regularization, and reproducibility challenges. MINE estimates are typically **lower bounds** and can be sensitive to training protocol; “same data, different seed” can change the number unless carefully controlled.
-
-Recommendation:
-- Use MINE as an **optional baseline** for MI-only invariants when kNN collapses in high `d` (PIVOT path).
-- Do **not** mix estimator families inside a PID identity (e.g., do not compute `Syn = I(S1,S2;T) - I(S1;T) - I(S2;T) + Red` with `I(·;·)` from MINE and `Red` from disjunction-kNN).
-
-#### C) CCMI / Neural CMI: Conditional MI in High Dimension (classifier-based)
-
-Conditional MI is relevant when conditioning on confounders (e.g., “given instruction L, how do V and D interact?”) or when using conditional PID variants.
-
-Classifier-based CMI estimators such as CCMI (Mukherjee et al., arXiv:1906.01824) train a classifier to distinguish samples from the joint distribution vs. a product distribution to estimate KL divergences, then assemble CMI.
-
-How this fits here:
-- **Pros:** Can handle high-dimensional `Z` (conditioning variable) where kNN CMI struggles.
-- **Cons:** Requires careful negative-sample construction and classifier calibration; adds another training loop; provides an estimator of CMI, not `I^sx_∩`.
-
-Recommendation:
-- If conditional analyses become central (e.g., PID conditioned on L), prefer to treat CCMI/CMI-NN estimators as **separate baseline pipelines** and validate them with synthetic conditional systems before using on VLA data.
-
-#### Relationship to the Wibral/Gutknecht “hierarchical” strategy
-
-The Wibral/Gutknecht strategy (Shannon invariants + hierarchical screening) primarily addresses **scaling in number of sources** (avoiding 18+ atoms unless needed). It does **not** by itself solve high-dimensional or strong-dependence estimator pathologies.
-
-Therefore, a scientifically clean hierarchy is:
-1. **Estimator validity gate (Experiment 0):** determine what MI estimator family is trustworthy at your `(N,d)` and dependence regime.
-2. **Variable-count hierarchy:** use Shannon invariants/co-information for screening across many candidate sources/windows.
-3. **Full `I^sx_∩` PID:** only where (1) and (2) indicate it is meaningful, and only with paper-faithful `I^sx_∩` estimation.
-
-### 8.1.5 Differential Geometry / Manifold-Aware Contingencies (When kNN/Hierarchical PID Fail)
-
-This section integrates differential-geometry ideas **only where they produce actionable changes** for this project: diagnosing when kNN estimators are invalid, designing safer preprocessing, and (optionally) using manifold-aware MI estimators as MI-only baselines.
-
-It is important to separate:
-- **Scientific object (fixed):** Wibral-group shared-exclusions redundancy `I^sx_∩` (Makkeh 2021) + its continuous disjunction-kNN estimator (Ehrlich 2024).
-- **Estimator geometry (variable):** how we choose coordinates/metrics/projections to make finite-sample estimation behave.
-- **Metaphor vs method:** differential-geometry analogies (e.g., Lorentzian rigidity ↔ PID axiom rigidity) can be useful intuition pumps, but they are **not** evidence and do not directly yield a new `I^sx_∩` estimator. Treat them as background intuition, not as a correctness source.
-
-#### A) First principles: what transformations are truly “free”
-
-For continuous variables, **mutual information is invariant under per-variable diffeomorphisms** (invertible, differentiable reparameterizations applied separately):
-- `I(X;Y) = I(f(X); g(Y))` for invertible smooth `f`, `g` (and similarly for multivariate blocks), even though *differential entropies* change by Jacobian terms.
-
-Practical consequence:
-- Prefer **invertible** preprocessing steps (standardization, whitening, monotone marginal Gaussianization) before resorting to non-invertible dimension reduction, because invertible reparameterizations can improve kNN geometry **without changing the true MI**.
-
-For PID:
-- **Do not assume “free invariance” the way you can for MI.** In discrete settings, `I^sx_∩` is trivially invariant under relabelings (permutations). In continuous settings, the *estimator* (and the “treat sources on equal footing” convention in Ehrlich et al. 2024) introduces metric/scale choices; even invertible reparameterizations can change finite-sample behavior and can effectively redefine what you are measuring unless carefully controlled.
-- Practical rule: treat preprocessing as part of the measurement definition; keep it explicit, keep it fixed across runs, and re-validate after substantial changes (Experiment 0 subset).
-
-Hard constraint (do not violate):
-- Do **not** apply transforms that mix variables (no PCA/ICA on `[S1|S2|T]` concatenations). Mixing can change the target quantity and can also change what “source” means scientifically.
-
-#### B) Manifold hypothesis: intrinsic dimension matters more than ambient dimension
-
-The “curse of dimensionality” for kNN is controlled by the **intrinsic** dimension of the support, not the raw embedding size:
-- Many learned representations empirically lie near a **lower-dimensional manifold** embedded in ℝᵈ.
-- kNN estimators can still fail if intrinsic dimension is high, or if curvature/noise makes the local-neighborhood assumption false.
-
-Actionable integration (add to Experiment 0, not post-hoc):
-- Measure **intrinsic dimension estimates** for each variable block (`V`, `D`, `L`, `A`, and their joint concatenations used for MI) on your intended sampling unit.
-- Track **distance concentration diagnostics** (e.g., nearest-neighbor distance ratios, coefficient of variation of pairwise distances) as a “geometry health check.”
-
-Interpretation rules (scientific hygiene):
-- If intrinsic dimension is still large (or unstable across subsamples), treat KSG-based MI/`I^sx_∩` as likely invalid at that operating point, even if `d_total` was reduced by PCA.
-- If intrinsic dimension is low and stable, kNN may be viable *after* Experiment 0 establishes quantitative accuracy.
-
-#### C) Riemannian / geodesic kNN MI as a contingency baseline (MI-only, not `I^sx_∩`)
-
-If the representation is plausibly **manifold-valued** (curved support where Euclidean distances are a poor proxy for neighborhood volumes), consider manifold-aware MI estimators as **separate baseline pipelines** for MI-only screening:
-- Marx & Fischer (2021, arXiv:2110.13883) propose **geodesic kNN** MI estimation on a *learned data manifold* (manifold-learning framing: geodesics are approximated by kNN-graph shortest paths; the paper does **not** assume a known Riemannian metric tensor with closed-form geodesics). Applying it to the *analytically* Riemannian/hyperbolic embeddings discussed below is this project's extension, not a result of the paper.
-
-Scope and limitations for prisoma:
-- This can support **Shannon-invariant screening** (CI/O-information-style terms) in curved settings.
-- It does **not** automatically provide `I^sx_∩`, because the disjunction-neighborhood construction would need to be re-derived for Riemannian/hyperbolic spaces (volume forms and product-neighborhood cancellations are nontrivial).
-
-#### D) Hyperbolic geometry for hierarchical structure (Poincaré / Lorentz model) — optional, research-gated
-
-Hyperbolic spaces (constant negative curvature) can represent tree-like/hierarchical structures with low distortion, motivating their use as **learned low-dimensional projections** when hierarchies are central:
-- Nickel & Kiela (2017, arXiv:1705.08039): Poincaré embeddings for hierarchies.
-- Nickel & Kiela (2018, arXiv:1806.03417): efficient training in the **Lorentz (hyperboloid) model**.
-- Ganea et al. (2018, arXiv:1805.09112): hyperbolic neural networks.
-
-Why Lorentzian geometry shows up here (mathematically, not physically):
-- The Lorentz model represents hyperbolic space as a Riemannian manifold embedded in a Minkowski space with a **Lorentzian** bilinear form (signature `(-,+,...,+)`), which makes optimization and distance computation numerically convenient.
-
-How this could help (hypotheses; must be tested):
-- As a **hierarchy-friendly projection**, hyperbolic embeddings may capture coarse semantic structure with fewer dimensions than Euclidean PCA (useful if “hierarchy” is the relevant inductive bias).
-
-How this could fail:
-- Any non-invertible projection (including hyperbolic embedding to low dimension) changes the information quantities. Treat it like a learned projection: re-run Experiment 0-style validation and report it as a different measurement regime.
-- Hyperbolic embeddings come with a **non-Euclidean distance** (Poincaré/Lorentz). Feeding hyperbolic coordinates into a Euclidean/Chebyshev kNN estimator is not principled; treat “hyperbolic + MI/PID” as a **separate estimator pipeline** (research-gated), not a drop-in preprocessing step.
-
-#### E) Differential-geometry analogies: audit and safe usage (Jan 2026)
-
-This repo-local PDF is best read as a *conceptual synthesis note*, not as a technical specification. Below is a line-by-line-level **classification** of its major claims into: (i) correct math, (ii) plausible but not directly useful here, and (iii) speculative/unsupported.
-
-What is solid (mathematics, broadly standard):
-- **Lorentzian vs Riemannian metrics:** signature `(-,+,...,+)` vs `(+, +, ..., +)` and the induced timelike/null/spacelike classification.
-- **Conformal maps preserve causal structure** (light cones) in Lorentzian geometry; they preserve “possibility of influence” but not distances.
-- **PID impossibility results exist:** it is correct that Matthias–Makkeh–Wibral–Gutknecht (2025, arXiv:2512.16662) establish strong inconsistency/impossibility statements that force trade-offs among desirable PID axioms.
-
-What is plausible background but not an actionable method for prisoma (needs careful scoping):
-- **Rigidity-theorem analogy:** comparing “axiom rigidity” (PID) to “symmetry/curvature rigidity” (Lorentzian conformal geometry) can be a useful intuition pump, but it does not produce estimator-level guarantees for `I^sx_∩` on embeddings.
-- **Lorentz (hyperboloid) model link:** emphasis on Lorentzian signatures is indirectly relevant because modern **hyperbolic embedding** methods often use the Lorentz model, but that is a representational choice, not a proof about PID atoms.
-
-What is speculative / not currently supported for this project (treat as hypotheses at best):
-- **Direct identification of PID atoms with timelike/null/spacelike geometry:** mapping {Red, Unq, Syn} onto Lorentzian causal classes is metaphorical; PID is defined on probability distributions, not spacetime intervals.
-- **“Synergy requires spacelike separation”** or similar causal-geometry necessity claims: synergy/redundancy are statistical/functional properties and can arise in many causal graph configurations; Lorentzian geometry is not a general constraint in VLA inference.
-- **Claims about Wibral-lab using Lorentzian PSD fits + “spectral PID” as a core method:** may be true in some neuroscience contexts, but this is **not cited to a specific Wibral-group PID paper** and is not part of the validated `I^sx_∩` estimator line (Makkeh 2021; Ehrlich 2024; Gutknecht 2025).
-- **Consciousness interpretations (redundancy↔unconscious, synergy↔conscious):** outside scope for prisoma; treat as speculative neuroscience interpretation, not an engineering objective.
-
-How we use it safely:
-- Keep it as *conceptual background* and as motivation to (i) treat invariances carefully, and (ii) explicitly measure geometry/intrinsic dimension before trusting kNN at scale.
-- Do not treat it as evidence about `I^sx_∩` on VLA embeddings, and do not borrow its metaphors as “explanations” for observed PID signs without controlled experiments.
-
-### 8.1.6 Implemented Discrete Quantization Path (Repo Reality, Measure Identity, and Gates) — v10.2
-
-`pid-rs/crates/pid-core/src/discrete_pid.rs` (committed 2026-06-11) provides the "Quantization → Discrete PID" escape hatch sketched in the geometry-mitigation list at the top of this document. Before using it, be precise about **what it actually computes**, because it is *not* the discrete `i^sx_∩` of Makkeh et al. (2021):
-
-> **v10.5 note — a genuine discrete `i^sx_∩` now exists upstream, but the harness still uses `I_min`.** With the `pid-rs` v0.3.0 adoption, `pid-core` ships a *separate* module `sxpid.rs` (`discrete_sxpid2` / `discrete_sxpid3`, plus n-source SxPID for 2–4 sources — `discrete_sxpid_n` returns `NotImplemented` above 4) that computes the genuine discrete shared-exclusions PID. prisoma's offline harness `--pid-mode discrete` is **still** the Williams–Beer `I_min` functional described below (`discrete_pid.rs`); wiring the discrete `i^sx_∩` estimator into the harness — which would make discrete and continuous mode the *same* measure across regimes — is tracked follow-up. Until then, everything in this section (the measure-identity distinction, the cross-measure warning, and the saturation gate) stands.
-
-1. **Quantization:** each variable is binned **per dimension** into `num_bins` equal-width bins over the observed `[min, max]` range (`quantize_equal_width`); joint states are the cross-product of per-dimension bins.
-2. **MI:** plug-in (counting) entropies, `I(X;Y) = H(X) + H(Y) − H(X,Y)`, in nats.
-3. **Redundancy:** `Red(S₁,S₂;T) = Σ_t p(t) · min(i_spec(S₁;t), i_spec(S₂;t))`, where `i_spec(S;t) = Σ_s p(s|t) log(p(t|s)/p(t))` is the specific information. **This is the Williams–Beer `I_min` functional (arXiv:1004.2515).** Recall §2.3.2: the shared-exclusions measure is explicitly *not* "take the minimum of pointwise terms" — so the discrete path is a **different PID measure**, with different axiomatics (e.g., `I_min` atoms are non-negative; `I_min` famously conflates "same amount" with "same content" of information, the standard identity-axiom critique).
-4. **Atoms:** standard 2-source Möbius identities (`Unq_i = I(S_i;T) − Red`, `Syn = I(S₁,S₂;T) − I(S₁;T) − I(S₂;T) + Red`).
-
-**Consequences (do not blur):**
-- Discrete-mode results must be reported as `I_min`-based atoms on a quantized space, never as "`I^sx_∩` results". Cross-mode comparisons are **cross-measure comparisons** (Warning 6).
-- Because `I_min`-redundancy ≥ 0 and the lattice is non-negative under Williams–Beer axioms, "negative synergy" hypotheses (H1 candidate features) are **not testable in discrete mode**; only magnitude/ordering features transfer.
-
-**Mandatory saturation/occupancy gate (plug-in MI failure mode):**
-- The joint bin space has `num_bins^d` cells per variable group. When `d` is more than a few dimensions, almost every sample lands in its own joint bin; then `H(X) → ln(n)` and `I(X;Y) → ln(n)` — a pure small-sample artifact (the estimate saturates at the `ln(n)` ceiling regardless of true dependence).
-- Gate: report the fraction of unique joint-bin patterns per variable (and joint); if occupied cells ≈ `n` (e.g., unique-row fraction > ~0.8) or estimated MI approaches `ln(n)`, **fail closed** — the discrete estimate is invalid for that variable set. Quantize only *low-dimensional* variables (scalar/aggregated targets, or projections to ≤ a handful of dims), exactly as the module's own documentation requires.
-- **Implementation gap (audited 2026-07-10):** the offline harness emits per-pair
-  `discrete_saturation` diagnostics and a `saturation_warning`, but no strict CLI failure path
-  currently consumes that flag. Therefore “fail closed” is a protocol requirement, **not an
-  implemented gate**. Until a strict flag excludes/fails every primary flagged pair, discrete
-  mode is diagnostic-only and cannot be selected as the active regime. The checked tiny
-  fixtures deliberately saturate and are non-evidence.
-- Plug-in entropies are **biased downward** (Miller–Madow regime) and the bias differs between marginal and joint terms; treat discrete-mode monotonicity checks (`I(S₁,S₂;T) ≥ max I(S_i;T)`) as required gates here too.
-
-**Binning sensitivity:**
-- Equal-width binning is **not invariant** under monotone reparameterizations and is sensitive to outliers/heavy tails (a single extreme value stretches the range and collapses the bulk into few bins). Standardization happens upstream, but heavy tails persist. Report a sensitivity sweep over `num_bins` (e.g., 5/10/20) and, where feasible, cross-check with rank/equal-frequency binning before trusting qualitative conclusions.
-- For mixed discrete–continuous settings, see arXiv:2409.13506 (PID for mixed variable types; verify fit before adopting).
-
-**Regime registry (anti-garden-of-forking-paths):**
-- Every tuple `(PID measure, preprocessing/projection, quantization scheme + bins, estimator config)` is a **distinct measurement regime**. Preregister which regime is primary, log every regime attempted in the run log, and report all of them. Switching regimes after seeing results — without reporting the switch — is the multiple-comparisons failure mode this section exists to prevent.
-
-## 8.2 Dimensionality Reduction Strategies
-
-### 8.2.1 Why Dimensionality Reduction is Necessary
-
-At d=4096, k-NN suffers from:
-- **Distance concentration:** All points become nearly equidistant
-- **Exponential sample requirements:** Sample needs grow rapidly with intrinsic dimension; at `d≈4096`, naive kNN is typically unusable without strong low-dimensional structure and/or explicit dimensionality reduction.
-- **Computational cost:** O(N² d) for naive k-NN
-
-### 8.2.2 Options
-
-Before non-invertible dimensionality reduction, consider **invertible reparameterizations**:
-- For **MI-only terms** (KSG MI, CI screening), per-variable invertible transforms can improve kNN geometry **without changing the true MI**.
-- For **`I^sx_∩`**, treat such transforms as an explicit part of the measurement definition (the estimator has metric/scale conventions); keep them fixed and validate them.
-
-These are “geometry fixes,” not “information fixes,” and still require Experiment 0 validation.
-
-| Method | Dimensions | Properties |
-|--------|------------|------------|
-| **Invertible per-variable reparameterization** (standardize; marginal Gaussianization) | 4096 | Preserves true MI; can improve kNN geometry; still validate for `I^sx_∩` |
-| **Raw embeddings** | 4096 | Often unusable (distance concentration / curvature) |
-| **PCA (95% variance)** | ~256 | Linear; **changes the quantity** (non-invertible); often stabilizes Euclidean kNN; re-validate |
-| **Random projection (JL)** | 64–256 | Preserves **ambient Euclidean** distances; does **not** recover geodesics; changes the quantity; re-validate |
-| **Hash projection (CountSketch)** | 64–256 | Fast baseline (`HashProjector`); approximate; changes the quantity; re-validate |
-| **PLS (supervised; implemented)** | 1–8 (typ.) | `PlsProjector` (NIPALS-PLS2, `pid-rs/crates/pid-core/src/pls.rs`); uses a target/label → **fit on training samples only**; changes the quantity; defines a new measurement regime; re-validate (see below) |
-| **Learned projection (AE/contrastive)** | 64 | Task-specific; changes the quantity; requires training + leakage controls |
-| **Hyperbolic embedding (Poincaré/Lorentz)** | ~2–64 | Non-Euclidean metric; **not drop-in** for Euclidean kNN/`I^sx_∩`; treat as a separate estimator pipeline |
-| **Intermediate layers** | 4096 but different | Alternative variables (not reduction); may encode different information |
-
-### 8.2.3 Recommendation
-
-> **⚠️ Critical finding from Experiment 0 (`findings.md`):** At `n=500`, a `redundant_copy` synthetic case with `d=10` per source (joint `d=20`) produced **monotonicity violations** (`I(S₁,S₂;T) < I(S₁;T)`) and negative vulnerability (`\bar{v} < 0`). Treat this as a hard “estimator incoherence” signal: do not interpret PID atoms in any regime where these basic MI consistency checks fail.
-
-**Consistency gates (cheap sanity checks for kNN MI/PID terms):**
-- **Monotonicity:** require `I(S₁,S₂;T) ≥ max(I(S₁;T), I(S₂;T))` within tolerance; if violated, kNN bias is dominating the joint term.
-- **Shannon-invariant bounds:** for `n` sources and nonzero `I(S₁…S_n;T)`, require `0 ≤ \bar{r} ≤ n` and `0 ≤ \bar{v} ≤ n`; values outside these bounds are a strong symptom of MI/joint-vs-marginal incoherence.
-
-**Operational guidance (do not hard-code dimension cutoffs):**
-- **Atomic continuous PID (`I^sx_∩`)** is most defensible on *low effective dimension* variables (often single digits) and only after passing Experiment 0 + the consistency gates on the **exact preprocessing pipeline**.
-- For higher-dimensional representations, prefer **MI-only screening** (CI/`\bar{r}`/`\bar{v}`), **quantization → discrete PID**, or **Flow-as-Bridge** rather than interpreting continuous PID atoms.
-
-**Preprocessing steps (in order):**
-1. **Run geometry diagnostics first** (intrinsic dimension + distance concentration +
-   ties/duplicates + dependence; local-flatness diagnostics where calibrated).
-   `δ`-hyperbolicity is descriptive only and does not pass or fail kNN. See §16.6–§16.7.
-2. **Normalize per-dimension scales**: Apply z-score standardization or rank/CDF (copula) transform before using L∞ distances. Without this, L∞ geometry can be dominated by arbitrary scale differences across embedding dimensions.
-3. If dimensionality reduction is needed, **start with PCA** (e.g., retain 95% variance) and treat ~256 dims as an initial engineering target for MI-only screening. For atomic PID, aim for *single-digit effective dimension* after reduction (and verify with Experiment 0 on the same pipeline). **⚠️ Caveat**: PCA requires local flatness assumption; test with methods in §16.6.4.
-4. Compare against a random projection baseline.
-5. **If the declared unsupervised baselines fail and a target is available, consider
-   supervised projection (PLS; implemented).** In Exp0's isotropic equal-variance
-   construction, PCA, JL, and CountSketch have no target signal with which to identify the
-   distinguished coordinate; that result does not rule out every unsupervised method or
-   every structured distribution. Rules: (a) fit `PlsProjector` on **training samples only**
-   and transform held-out samples with the frozen projector; (b) treat the projected space as
-   a **new measurement regime**—re-run Experiment 0 + consistency gates on the exact PLS
-   pipeline; (c) because the projection is optimized toward the PID target, in-sample PID is
-   selection-inflated—report held-out estimates and a shuffled-target PLS control; (d) select
-   components by nested cross-validation, never on the evaluation split.
-6. Report normalized sampled-mean `δ` as a descriptive tree-likeness statistic only. It may
-   motivate a hyperbolic feature-engineering comparison, but it never selects or rejects an
-   MI/PID estimator without direct recovery/calibration evidence (§16.7.3).
-7. Consider **SAE decomposition** before PID — may yield lower effective dimension with interpretable features. See §16.8.
-8. If needed, train learned projections optimized for the downstream diagnostic objective (and re-run Experiment 0 at the resulting dimension).
-
-**Updated Decision Framework**: See §16.11 for the unified Geometry-First Protocol that integrates all diagnostics.
-
-## 8.3 Computational Considerations
-
-### 8.3.1 Complexity
-
-For `N` samples, `d` dimensions, and `k` neighbors, kNN-based estimators can range from “toy-problem fast” to completely infeasible depending on intrinsic dimension and backend:
-
-- **Brute-force exact kNN (current reference path):** `O(N²·d)` distance work per estimate.
-- **Tree-based exact kNN (KD/ball tree):** typically `O(N log N)` build + `O(N log N)` queries at *low intrinsic dimension*, but degrades toward brute force as `d` grows.
-- **Approximate kNN (e.g., HNSW/FAISS-style):** potentially sub-quadratic, but introduces estimator bias; only acceptable behind an explicit “approx” mode + re-validation (subset of Experiment 0).
-
-### 8.3.2 Rust Implementation
-
-For real-time use, implement in Rust with:
-- SIMD for distance calculations *(not implemented — §15.2.2 sketch only)*
-- Ball trees for efficient counting *(not implemented — `nn.rs` is brute-force exact)*
-- Parallelization across samples *(implemented: the optional `parallel` rayon feature in `pid-core`, exact and deterministic)*
-
-Of these, only the parallelization exists today; the other two are future guidance.
-
-### 8.3.3 Expected Latency
-
-Do not treat any ms-level numbers as “spec truth”: wall-clock depends strongly on `(N, d, k)` and on the kNN backend (exact vs approximate, CPU vs GPU, and whether dimensionality reduction is applied).
-
-Engineering posture:
-- Use brute-force exact kNN for **Experiment 0 + correctness**.
-- Treat any “real-time monitoring” goal as **Level 0/Level 1 only** (Shannon invariants / co-information), and only after aggressive dimensionality reduction and benchmarking on your target hardware.
-
-## 8.4 Validation Strategy
-
-### 8.4.1 Synthetic Data with Known PID
-
-Be explicit about what is “known”:
-
-1. **Discrete, definition-level sanity checks (lattice bookkeeping):**
-   - XOR / copy / unique toy systems have clear *qualitative* structure (redundant vs synergistic vs unique-dominant), but **numeric atom values depend on the PID measure** (and some measures allow negative atoms even in simple systems).
-   - Use these to sanity-check antichain ordering, atom identities, and qualitative behavior via a *discrete* SxPID implementation (e.g., `Abzinger/SxPID`).
-   - These do **not** validate the continuous kNN estimator.
-
-2. **Continuous estimator validation (two separate Experiment 0 gates):**
-   - For `MI_GATE`, use i.i.d. continuous systems with analytic MI (for example correlated
-     Gaussians). Adding independent source nuisance coordinates preserves those MI terms.
-   - For `ISX_GATE`, use a measure-specific continuous shared-exclusions oracle at every
-     tested dimension. Independent source nuisance coordinates do **not** generally preserve
-     `I^sx_∩`, because the functional's source-density weights change. Low-dimensional atoms
-     must agree with the committed Gaussian oracle and a version-pinned independent
-     `csxpid` fixture before atom claims are allowed.
-   - See §9.1 for the full protocol.
-
-### 8.4.2 Scaling Test
-
-Test estimator accuracy at:
-- d = 10, 100, 1000, 4096
-- N = 100, 1000, 10000
-- k = 3, 10, 30
-
-**Go/No-Go:** Use the Experiment 0 gate criteria in §9.1. If estimates collapse at d=4096, pivot to dimensionality reduction and re-validate.
-
-### 8.4.3 Temporal Dependence and Sampling (Trajectory Data)
-
-Most kNN/KSG estimators are analyzed under an **i.i.d. sample** assumption. Robotics/VLA data is naturally **temporal** (trajectories), so sampling design is part of estimator validity:
-
-- **Do not treat “frames” as i.i.d. by default.** Adjacent timesteps are autocorrelated; effective sample size can be far smaller than raw frame count.
-- **Prefer cross-trajectory sampling** when possible (e.g., one sample per rollout at a fixed phase, or a large-stride subsample) to reduce dependence.
-- **If time-resolved PID is desired**, compute on explicit windows and report window size/stride; interpret as descriptive unless causal controls support it.
-- **Uncertainty estimates must respect dependence:** prefer trajectory-level resampling or block bootstrap over naive per-frame bootstrap. **Implemented (v10.2):** `block_bootstrap` / `block_bootstrap_paired` + `BootstrapConfig` in `pid-rs/crates/pid-core/src/bootstrap.rs` resample contiguous row blocks jointly across variables. Choose the block length to exceed the autocorrelation time of the trajectory data and report sensitivity to it. Caveat: resampling quantifies **variance only** — in bias-dominated kNN regimes (the monotonicity-violation regime in §8.2.3), bootstrap CIs can be tight around a *biased* value, so the consistency gates still apply to every resample-based claim.
-- **Subsampling is not automatically a confidence interval:** the current upstream
-  `SubsampleWithoutReplacement` path reports raw percentiles of a statistic computed at
-  `m<n`. Those are a **subsample stability envelope at size m**, not a confidence interval for
-  the n-sample statistic, and may not drive significance or a gate. Valid subsampling
-  inference needs a justified centering/scaling rate or simulation-calibrated coverage.
-  Endpoint-level episode/task resampling remains the scientific inference path.
-
----
-
-# 9. Experimental Design
-
-## 9.0 Sampling Unit, Pointwise Outputs, and Autocorrelation (Read Before Running AUROCs)
-
-Information estimators require multiple samples. In VLA settings, it is easy to accidentally compute a quantity that is *mathematically well-defined* but *experimentally meaningless* because the sampling unit is wrong.
-
-Key distinctions:
-- **Estimation dataset:** the collection of samples used to estimate MI / `I^sx_∩` / PID atoms (kNN geometry depends on this).
-- **Prediction target:** what you want to predict (often a trajectory-level failure label).
-
-Common pitfalls (and fixes):
-1. **Within-trajectory estimation vs. i.i.d. assumptions**
-   - Treating every timestep as an i.i.d. sample can be misleading due to autocorrelation.
-   - Mitigation: large-stride subsampling, explicit windows, and trajectory-level/block bootstrap for uncertainty.
-2. **Per-trajectory prediction needs per-trajectory features**
-   - A single global PID computed “across all trajectories” is not directly usable for AUROC per trajectory.
-   - H1 requires mathematically specified local contributions evaluated against a
-     train-fitted reference distribution and aggregated per held-out episode without labels.
-     That path is not implemented today.
-   - Within-trajectory window PID is descriptive only unless each window independently meets
-     ESS/sample-size and estimator gates; small autocorrelated windows cannot substitute for
-     the missing local-score path.
-3. **Static variables inside a trajectory**
-   - Instruction `L` is often constant within a rollout; within-trajectory MI(L;·) is degenerate.
-   - For V–L analyses, prefer cross-trajectory designs (different `L` across samples) or define a target `T` that is trajectory-level (with appropriate estimators).
-
-This section’s experiments should explicitly state the sampling unit (frames vs windows vs trajectories) and how per-trajectory features are derived.
-
-## 9.1 Experiment 0: Estimator Validation (MANDATORY FIRST)
-
-### 9.1.1 Purpose
-
-Validate that I^sx_∩ estimation works at VLA scale before any VLA experiments.
-
-### 9.1.2 Protocol
-
-Design principle: keep analytic MI and measure-specific `I^sx_∩` references distinct.
-Independent nuisance dimensions give a clean MI stress test. They are an `I^sx_∩` stress test
-only when a dimension-specific oracle supplies the changed reference value.
-
-1. **Generate i.i.d. synthetic systems** (not trajectories) with clear qualitative structure:
-   - **Redundant/copy-like:** both sources observe (noisy) versions of the same latent that drives `T`
-   - **Unique:** `T` depends on only one source
-   - **Synergy/XOR-like:** `T` depends on an interaction (e.g., discrete XOR; or continuous “XOR-like” via thresholded signs)
-2. **Define a low-dimensional “signal” representation** (e.g., `d_signal = 1..10`) for each system, with **controlled rank**:
-   - **Full-rank signal (estimator validation focus):** distribute signal across the `d_signal` coordinates so kNN distances reflect informative variation (useful when evaluating whether dimensionality reduction can recover a valid regime).
-   - **Low-rank + nuisance (worst-case stress test):** place signal in a small subspace and add many nuisance dimensions to test distance domination and “signal hiding”.
-   - **Note:** Unsupervised projections like PCA cannot recover a 1‑D signal if its variance is indistinguishable from per-dimension nuisance variance; interpret “PCA didn’t help” as an experimental result about the projection regime, not as a proof that kNN MI is invalid in all reduced spaces.
-3. **Embed into high dimension by concatenating independent noise features**:
-   - `S1' = [S1_signal | N1]`, `S2' = [S2_signal | N2]`, with `N1,N2` independent of everything (and of each other).
-   - This preserves the listed MI terms about `T` and stresses kNN geometry. It does not, in
-     general, preserve continuous shared-exclusions redundancy or its derived atoms.
-4. Sweep:
-   - `d_total ∈ {10, 100, 1000, 4096}` via noise concatenation,
-   - `N ∈ {100, 1000, 10000}` (and higher if feasible),
-   - `k ∈ {3, 10, 30}`.
-4b. **Strong-dependence sweep (separate axis from “high d”):**
-   - Even at low dimension, kNN MI can fail when the *true MI is large* (Gao et al., arXiv:1411.2003).
-   - Add a 1D (or low-d) Gaussian-channel family where the analytic MI is known and controllable:
-     - Example: `X ~ N(0,1)`, `Y = X + σ·N`, `N~N(0,1)`, so `I(X;Y) = 0.5 ln(1 + 1/σ²)` and grows without bound as `σ→0`.
-   - Sweep `σ` logarithmically (e.g., `σ ∈ {1, 0.3, 0.1, 0.03, 0.01, 0.003, ...}`) at fixed `N,k`.
-   - Goal: empirically map the **safe MI regime** for KSG and for the continuous `I^sx_∩` estimator (and/or show that the noiseless/near-noiseless regime is fundamentally ill-posed for continuous targets).
-4c. **Geometry diagnostics (separate axis from “high d” and “strong dependence”):**
-   - Estimate **intrinsic dimension** of each variable block (and of the joint spaces used in MI) using nearest-neighbor-based intrinsic-dimension estimators (e.g., Levina–Bickel MLE; TwoNN-style estimators; or other validated ID estimators).
-   - Compute **distance concentration** proxies (e.g., nearest-neighbor distance ratio distributions; coefficient of variation of pairwise distances).
-   - Use these as a “geometry health check”:
-     - Low, stable intrinsic dimension is a prerequisite for believing kNN results after dimensionality reduction.
-     - If intrinsic dimension remains large/unstable, treat KSG-based MI/`I^sx_∩` as likely invalid at that operating point (even if `d_total` was reduced).
-   - Optional (MI-only baseline): if the representation is plausibly manifold-valued/curved, compare MI terms against **geodesic kNN MI** (Marx & Fischer, arXiv:2110.13883). Treat this as a separate estimator pipeline; do not claim it estimates `I^sx_∩`.
-5. For each setting, measure:
-   - estimate mean + variance across random seeds,
-   - runtime and peak memory,
-   - failure modes (ties/duplicate points, NaNs/Infs, implausible drift with `d_total`).
-6. **Cross-check correctness where possible:**
-   - MI terms: compare against analytic Gaussian-channel MI in low dimensions.
-   - `I^sx_∩` redundancy: compare against `csxpid` (authors’ reference implementation) for small `d_total` and fixed datasets.
-7. **Optional estimator baselines (keep separate from `I^sx_∩` correctness):**
-   - If you implement or adopt them, compare MI-only terms against:
-     - Gao et al. strong-dependence corrections (LNC / local Gaussian MI; arXiv:1411.2003, arXiv:1508.00536),
-     - MINE (arXiv:1801.04062) for high-dimensional MI (treat as a trained estimator; record architecture/seed/training steps),
-     - CCMI / neural CMI (arXiv:1906.01824, arXiv:1911.02277) for conditional MI when conditioning becomes central.
-   - Use these baselines to decide whether MI-only **screening** can be made reliable when kNN collapses; do not treat them as “estimating `I^sx_∩`.”
-
-### 9.1.3 Success Criteria
-
-Publish **two verdicts**. `MI_GATE` compares each MI term with its analytic reference and
-checks coherence as dimension changes. `ISX_GATE` compares redundancy/atoms with a
-measure-specific oracle at the same dimension and preprocessing. Never infer an atom
-reference by assuming nuisance-dimension invariance. Without an oracle, report atom drift as
-combined functional-plus-estimator sensitivity and set `ISX_GATE = NOT_VALIDATED`.
-
-**Primary `MI_GATE` criteria (coherence gates; do not hard-code dimension cutoffs):**
-- **No NaN/Inf** in MI or invariants for the settings you intend to use.
-- **MI monotonicity:** `I(S₁,S₂;T) ≥ I(S₁;T)` and `I(S₁,S₂;T) ≥ I(S₂;T)` (adding a source must not reduce total information).
-- **CMI nonnegativity (via identities):** `I(S₁;T|S₂) = I(S₁,S₂;T) − I(S₂;T) ≥ 0` and similarly for `I(S₂;T|S₁)`.
-- **Shannon-invariant sanity:** for `n` sources, require `0 ≤ \bar{r} ≤ n` and `0 ≤ \bar{v} ≤ n` when `I(S₁…S_n;T)` is nonzero; treat `\bar{r}` or `\bar{v}` outside these bounds as “estimator incoherence” (see §8.2.3 and `findings.md`).
-- **Noise-dimension MI invariance:** as you concatenate independent source noise, the
-  estimated MI terms should remain statistically consistent with their analytic references.
-
-**Primary `ISX_GATE` criteria:** no NaN/Inf; atom identities close within numerical tolerance;
-low-dimensional redundancy and atoms recover their measure-specific oracle within a
-preregistered error/coverage tolerance across seeds and `k`; and the same conclusion holds in
-a pinned independent implementation fixture. High-dimensional settings without an oracle
-cannot pass this gate.
-
-**Error definition:** use relative error when the reference magnitude is non-trivial; use absolute error thresholds for atoms expected near zero (to avoid meaningless relative blow-ups).
-
-### 9.1.4 If Validation Fails
-
-Before “PIVOT” decisions, diagnose *why* validation failed (high intrinsic dimension,
-distance concentration, strong dependence, ties/quantization, preprocessing, or inadequate
-sample size). Tree-likeness alone is not a failure explanation.
-
-1. **Run geometry + dependence diagnostics:** inspect the strong-dependence sweep (4b) and geometry diagnostics (4c) to distinguish “MI is huge” vs “intrinsic dimension is huge/unstable” vs “duplicate/tie pathology”.
-2. **Try invertible geometry fixes (still same true MI):** re-run after per-variable standardization/whitening and (optionally) monotone marginal Gaussianization. If conclusions change wildly, treat the kNN estimator regime as unstable.
-3. **Use PCA to reduce to 256-dim** (or a dimension justified by the intrinsic-dimension diagnostics).
-4. **Re-validate at the reduced dimension**
-5. **If still fails, use learned projections** (explicitly trained for the downstream objective; report as a different measurement regime).
-6. **If still fails, abandon kNN-based `I^sx_∩`** for this regime and pivot to validated alternatives (Shannon invariants as primary; or non-KSG MI estimators for MI-only screening), clearly reporting that `I^sx_∩` was not estimable.
-
-Additional contingency (MI-only screening, not full `I^sx_∩`):
-- If the disjunction-kNN `I^sx_∩` estimator is unusable at your `(N,d)` even after dimensionality reduction, you may still be able to run **Shannon-invariant** screening (CI/O-information) with non-KSG MI estimators (e.g., MINE / classifier-based MI), but treat this as a *different scientific pipeline* and do not claim results about `I^sx_∩` without a validated `I^sx_∩` estimator.
-- Optional geometry-aware MI-only baseline: geodesic kNN MI (Marx & Fischer, arXiv:2110.13883) for manifold-valued variables; treat as a separate validated pipeline.
-
-## 9.2 Experiment 1: Decomposition Comparison
-
-### 9.2.1 Purpose
-
-Determine which decomposition best predicts VLA failures.
-
-### 9.2.2 Decompositions to Test
-
-1. **V-D-A:** Vision, Dream → Action
-2. **V-L-A:** Vision, Language → Action
-3. **V-D-A*:** Vision, Dream → Optimal Action
-4. **Hierarchical:** All three pairwise PIDs
-
-### 9.2.3 Protocol
-
-1. Collect rollouts (e.g., LIBERO-10), with clear success/failure labels and enough coverage of failure modes.
-2. Decide the **sampling unit** per decomposition (see §9.0):
-   - V–D–A and V–D–A*: typically windowed within-trajectory (V,D,A vary over time).
-   - V–L–A: `L` is often constant within a trajectory, so prefer cross-trajectory designs or a trajectory-level target.
-3. Extract embeddings (V, L, D, A, and optionally A*) with explicit pooling rules and logged preprocessing.
-   - **Leakage rule (critical):** any fitted preprocessing (PCA, learned projection, SAE, normalization learned from data) must be fit on the training split only, then applied to validation/test. Never fit PCA on the full dataset if you report predictive performance.
-4. Compute features at multiple fidelity levels:
-   - Level 0: co-information / Shannon invariants (fastest; usable broadly).
-   - Level 1/2: pairwise `I^sx_∩` PID on selected windows/episodes (expensive; targeted).
-   - Companion baseline: attribution summaries (LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style) on the same logged samples, reported separately from PID atoms.
-5. Convert time series into per-trajectory features (e.g., mean/min/quantiles/%negative/peak magnitude, plus duration-above-threshold).
-6. Train and evaluate a predictor (logistic regression / small MLP) using **grouped** cross-validation; report AUROC + calibration + confidence intervals.
-   - **Grouping rule:** do not let windows/timesteps from the same trajectory appear in both train and test folds.
-   - If you evaluate across multiple tasks/instructions, consider grouping by task family or instruction template to test generalization (not just memorization).
-
-### 9.2.4 Expected Outcome
-
-Report which decomposition achieves highest AUROC.
-
-## 9.3 Experiment 2: Baseline Comparison (Rigorous)
-
-### 9.3.1 Baselines
-
-| Baseline | Description |
-|----------|-------------|
-| Action predictive entropy | Entropy of the model’s action distribution/logits (for deterministic policies, use stochastic decoding temperature and/or ensembles) |
-| Semantic uncertainty (VL-Uncertainty-style) | Uncertainty signals derived from multimodal semantics (as in VL-Uncertainty / related work) |
-| Ensemble variance | 4 checkpoint ensemble |
-| Attention entropy | Mean cross-modal attention entropy |
-| Learned classifier | MLP on (V, D) features |
-| Liang et al. Batch PID | Their variational estimator |
-| Liang et al. CVX PID | Their convex optimization estimator |
-| Process Reward Model (GRM) | Progress-based failure detection (Robo-Dopamine) |
-| Attribution probes | LRP/Integrated Gradients/DeepLIFT/Grad-CAM/TCAV/vanilla saliency/SmoothGrad-style/occlusion/SHAP-style summaries; use only with faithfulness sanity checks |
-
-Attention entropy/maps are allowed as weak baselines, but standard attention weights are not explanations by default; validate them with interventions before using them as rationales.
-
-**Mandatory vs best-effort (v10.7):** the four-baseline mandatory minimal set that must run in every H1 report is fixed in §14.8.4 (SAFE-class logistic regression, predictive entropy, majority/1-NN/centroid, one ensemble/temperature uncertainty variant). The rest of this table — notably GRM (weights availability unestablished, §18.3.5) and the Liang Batch/CVX estimators — is best-effort; dropping a best-effort baseline is a reported limitation, never silent.
-
-### 9.3.2 Success Criteria
-
-SxPID-derived features achieve AUROC **statistically significantly** > best baseline (paired bootstrap, p < 0.05) with a preregistered effect size, OR yield a well-supported negative result with clear analysis.
-
-**Contrast alignment (v10.7):** the H1 *primary* contrast is the **incremental** one fixed in §14.8.1 — {baseline features + PID/CI features} vs {baseline features alone} — with the §14.8.3 success/futility bounds; the "PID features vs best standalone baseline" comparison above is reported alongside as descriptive context, not as the primary test.
-
-**Evaluation hygiene (avoid overclaiming):** select hyperparameters and “best baseline” variants using training/validation only (nested CV or a held-out test set for the final claim).
-
-## 9.4 Experiment 3: Dimensionality Study
-
-### 9.4.1 Purpose
-
-Determine optimal dimensionality for PID estimation.
-
-### 9.4.2 Conditions
-
-1. Raw embeddings (4096-dim)
-2. PCA to 256-dim
-3. PCA to 64-dim
-4. Random projection to 256-dim
-5. Learned projection to 64-dim
-6. Intermediate VLA layers (layer 16, layer 24)
-
-### 9.4.3 Metric
-
-Primary: AUROC for failure detection at each dimensionality.
-
-Also report (because “best AUROC” can hide estimator collapse):
-- estimator diagnostics (tie rate / zero radii, distance concentration proxies, intrinsic-dimension estimates),
-- variance across seeds (bootstrap / repeated splits),
-- runtime and memory (so “best” is not infeasible).
-
-## 9.5 Experiment 4: Causal Validation
-
-### 9.5.1 Purpose
-
-Test whether PID-derived signals respond to controlled interventions in a way consistent with a causal interpretation (not merely correlation).
-
-### 9.5.2 Protocol
-
-This experiment is only meaningful if **D is operationally interventionable** (e.g., an explicit predicted channel in DreamVLA) and if you define a target that avoids the “A is deterministic” tautology (prefer `A*` or an external failure/success label).
-
-1. **Paired rollout design (reduce confounds):** for each initial state/instruction seed, run a baseline rollout and an intervention rollout that differs only in the D-intervention (same environment seed when possible).
-2. **Intervention family (explicitly enumerate):**
-   - **Ablation:** drop/mask a D channel (e.g., depth tokens) before fusion.
-   - **Noise injection:** add calibrated noise to D (sweep noise level).
-   - **Permutation (dependence-breaking) control:** randomly permute D across samples/episodes to break dependence on V while preserving D’s marginal distribution (offline analysis; or online if architecture allows swapping).
-3. **Measurement:** compute the relevant PID/Shannon-invariant features under a fixed preprocessing pipeline:
-   - If using `A*`: compute PID on `(V,D)→A*` (or on error `E=A−A*`) so the target is external.
-   - If using a failure label: treat this as a mixed discrete/continuous setting; either discretize appropriately or use MI-only screening features as the primary statistic (do not pretend continuous kNN PID applies unchanged).
-4. **Predictions (pre-register):**
-   - D-degrading interventions should reduce `I(D;A*)` and shift the corresponding PID signatures (e.g., Unq(D) and/or Syn(V,D;A*) depending on architecture).
-   - Dependence-breaking interventions (permutation) should collapse D-related terms toward 0 under ideal estimation (a strong estimator sanity check).
-5. **Outcomes:** compare paired failure rates and PID feature shifts with paired statistical tests (e.g., paired bootstrap over seeds/episodes).
-6. **Controls (“placebo”):** include at least one intervention expected to be task-irrelevant (e.g., perturb a D subspace empirically shown to be unused by the policy) and verify it does not systematically change either PID features or failure rate.
-
-**Critical caveat:** an intervention can change PID features without being “the cause of failure” if it induces broader distribution shift. Interpret this experiment as *intervention consistency evidence*, not as full causal identification.
-
-### 9.5.3 Expected Outcome
-
-If PID-derived signals have causal relevance: interventions that degrade `D` in task-relevant ways should shift the corresponding PID metrics in the predicted direction *and* increase failure rates; controls should not.
-
-## 9.6 Success Criteria Summary
-
-| Outcome | Interpretation | Action |
-|---------|----------------|--------|
-| SxPID-derived features outperform the best baseline with statistical significance (paired bootstrap, p < 0.05) and a preregistered effect size | **Strong success** | Proceed with Aim 2, 3 |
-| SxPID-derived features are competitive but gains are small/unstable across seeds/splits | **Moderate / uncertain** | Proceed cautiously; refine sampling/preprocessing and re-test |
-| A different PID feature (not synergy) is consistently best | **Conditional success** | Pivot to the best-performing atom/summary — but (v10.7) the pivoted feature must **replicate on an untouched task family or held-out split** before "conditional success" is claimed; a feature selected and celebrated on the same data is a forking-paths artifact, not a result |
-| Baselines match or beat SxPID (with clear significance) | **Negative result** | Prefer simpler methods; write up limits/lessons |
-
-## 9.7 VLA-Arena Integration and Experimental Alignment (v5.8)
-
-VLA-Arena (arXiv:2512.22539) provides a structured benchmark that directly aligns with PID diagnostic goals. This section specifies how PID experiments should leverage VLA-Arena's framework.
-
-### 9.7.1 VLA-Arena Structure Overview
-
-**Three Orthogonal Difficulty Axes:**
-
-| Axis | Levels | Description | PID Relevance |
-|------|--------|-------------|---------------|
-| **Task Structure** | L0→L1→L2 | Fine-tuning on L0 only; L1/L2 test generalization | Tests H4 (memorization vs generalization) |
-| **Language (W)** | W0→W4 | Perturbation levels for language commands | Tests V-L synergy robustness |
-| **Visual (V)** | V0→V4 | Perturbation levels for visual observations | Tests V-D synergy robustness |
-
-**Four Task Dimensions (170 total tasks):**
-
-| Dimension | Description | PID Prediction (Hypothesis) |
-|-----------|-------------|---------------------------|
-| **Safety** | Collision avoidance, constraint satisfaction | H6: Safety-aware integration may show distinct V-L patterns |
-| **Distractor** | Irrelevant objects/information in scene | Robust synergy should ignore distractors; fragile synergy should degrade |
-| **Extrapolation** | Novel object/scene configurations | Tests generalization; synergy stability predicts success (H4) |
-| **Long Horizon** | Multi-step compositional tasks | Tests temporal synergy dynamics (H5) |
-
-### 9.7.2 Experimental Protocol: Perturbation-Based PID Robustness
-
-**Goal:** Determine whether PID estimates are robust to controlled distribution shifts and whether robustness predicts task performance.
-
-**Protocol:**
-
-Before the loop, reserve disjoint V0/W0 transform-fit data. Fit standardizers, PCA/PLS
-projectors, and quantization/bin edges **once**, serialize their parameters, and log a
-cryptographic transform hash. Apply those frozen parameters to every task, severity, outcome,
-and held-out split. Re-fitting a method separately in each cell changes the measurement and
-can erase the perturbation; such a run is ineligible for H2–H5.
-
-```
-FOR each task family in VLA-Arena:
-    1. Run VLA on L0 tasks (training distribution)
-       - Extract embeddings (V, L, D, A)
-       - Compute PID features: Syn, Red, Unq_V, Unq_L, CI
-       - Record success rate
-    
-    2. Run VLA on same tasks with V-perturbations (V1, V2, V3)
-       - Compute PID features at each perturbation level
-       - Record success rate
-       - Measure: |ΔPID|/|ΔSuccess| (sensitivity ratio)
-    
-    3. Run VLA on same tasks with W-perturbations (W1, W2, W3)
-       - Same measurements as step 2
-    
-    4. Compare V-perturbation sensitivity vs W-perturbation sensitivity
-       - Asymmetric robustness → modality-specific integration weakness
-       - Symmetric robustness → balanced integration
-    
-    5. Test L1, L2 difficulty levels
-       - Compare PID patterns to L0
-       - If PID stable but performance drops → generalization failure unrelated to integration
-       - If PID degrades and performance drops → potential integration-based explanation
-```
-
-**Metrics to Report:**
-
-| Metric | Definition | Interpretation |
-|--------|------------|----------------|
-| **Normalized Synergy Stability Index (SSI)** | `SSI := −IQR(Syn)/J₀`, where `J₀=I(S₁,S₂;A)` is the task's V0/W0 joint MI under the same frozen regime. `SSI_V` over V0→V3 at W0 is primary; `SSI_W` is secondary. Quartiles use the inclusive Tukey convention; every level and `J₀` carries a nested/bootstrap interval. Eligibility requires a preregistered positive lower confidence bound for `J₀`; otherwise the task is excluded as information-degenerate. | Higher (closer to 0) = more stable relative to the task's baseline information scale. This avoids calling low-information tasks mechanically stable while remaining sign-safe. It is still a coarse four-level statistic; the monotone severity trend is exploratory and never substitutes for SSI. |
-| **Modality Asymmetry Ratio (MAR)** | `\|ΔSyn_V\|/\|ΔSyn_W\|` for matched perturbation severity | >1 = V-sensitive; <1 = W-sensitive |
-| **Generalization Synergy Gap (GSG)** | `Syn_L0 - Syn_L2` | Positive = synergy degrades with generalization demand |
-
-### 9.7.2b Dedicated H2/H3 Ablation-Sensitivity Protocol (v10.7)
-
-H2 and H3 previously had no dedicated experiment (the §3.6.7 mapping covers H4–H7; Exp4 intervenes on D only). This sub-protocol uses the same V0–V4/W0–W4 instrument as §9.7.2, subject to two eligibility gates:
-
-1. **Variation gate:** task-local V–L PID is eligible only when the task contains at least
-   three preregistered semantically distinct instruction IDs, the plug-in effective category
-   count `exp(Ĥ(L_id)) ≥ 2.5`, and every instruction cell meets the regime's validated
-   independent-unit minimum after ESS adjustment. Repeated paraphrases are distinct only if
-   the registry says so before capture. If this gate fails, V–D is the primary pair; a fresh
-   PID on a constant `L` is not an estimate of V–L integration.
-2. **Scale gate:** define `J₀=I(S₁,S₂;A)` on V0/W0 transform-fit-independent data. Its lower
-   confidence bound must exceed a preregistered `ε_J`; report `Red/J₀`, `Unq_i/J₀`, and
-   normalized SSI across tasks. Raw-nat correlations are sensitivity analyses because target
-   entropy, signal strength, and estimator variance differ by task.
-
-**H2 (redundancy → corruption robustness):**
-1. On unperturbed held-out episodes, estimate eligible-pair `Red/J₀` per task under the active
-   validated regime (continuous, discrete, or CI proxy—label the measure).
-2. Run single-modality corruption curves (V1→V3 with W0; W1→W3 with V0); record the success-vs-severity **slope** per modality per task.
-3. Primary endpoint (§14.8.1): Spearman ρ between step-1 `Red` and the step-2 slope, **across tasks**, with family-blocked bootstrap CIs (families are clusters, not the analysis unit — there are far too few of them). H2 predicts **ρ > 0**: higher `Red` ⇒ less-negative slope (gentler degradation).
-4. **Preregistered informative failure mode:** the availability-vs-use asymmetry (§14.1 H2) — redundancy predicting robustness only w.r.t. the less-used source is reported as a finding, not suppressed.
-
-**H3 (uniques → intervention sensitivity):**
-1. On unperturbed episodes, estimate eligible `Unq_i/J₀` values with symmetric, frozen
-   preprocessing across modalities (§14.1 H3 confounds).
-2. Apply matched-strength interventions per modality. **Primary strength-matching yardstick (outcome-independent):** equalize by input/embedding-space displacement or by information destroyed, `I(X_corrupt; X_clean)` — never by behavioral impact, because calibrating severities to *equal success-rate impact* would zero out (in expectation) the very between-modality effect-size differences the endpoint tests, leaving only calibration noise (circularity). An equal-success-impact-matched variant, calibrated on a **disjoint** split, is run as a preregistered *robustness check only*, with this attenuation named.
-3. Primary endpoint (§14.8.1): **mean per-case Kendall τ** between the `Unq` ordering and the intervention effect-size ordering across ≥ 20 matched cases (per-case τ over 2–3 modalities; family-blocked case-resampling bootstrap; predicted mean τ > 0). A 2–3-item ordering supports no per-case inference on its own — only the across-case mean does.
-
-Both sub-protocols inherit the §9.0 sampling-unit rules, the §14.8 statistics plan, and the Exp0/H8 gates.
-
-### 9.7.3 Mapping VLA-Arena Dimensions to PID Predictions
-
-**Dimension: Safety**
-
-| VLA-Arena Observation | PID Prediction | Falsification Criterion |
-|-----------------------|----------------|------------------------|
-| VLAs ignore safety constraints | Safety tasks may require integrating "avoid" signals from V with "constraint" signals from L | If Syn(V,L;A) is indistinguishable on safety vs non-safety tasks, H6 is unsupported |
-| Collision avoidance failures | High `Unq(V)` may indicate model sees danger but doesn't integrate with task | If collision failures don't correlate with PID patterns, simpler metrics suffice |
-
-**Dimension: Distractor**
-
-| VLA-Arena Observation | PID Prediction | Falsification Criterion |
-|-----------------------|----------------|------------------------|
-| Performance degrades with distractors | Robust integration should show stable synergy despite distractors | If synergy degrades proportionally to distractor count but success doesn't, synergy is noise-sensitive |
-| Models attend to irrelevant objects | `Unq(V)` may increase (visual information not integrated with language) | If attention-based metrics predict distractor failures better than PID, prefer attention |
-
-**Dimension: Extrapolation**
-
-| VLA-Arena Observation | PID Prediction | Falsification Criterion |
-|-----------------------|----------------|------------------------|
-| VLAs fail to extrapolate to novel configurations | Memorizing models: synergy stable on training, unstable on novel | If synergy stability doesn't predict extrapolation success, H4 is wrong |
-| "Memorization over generalization" | PID patterns may differ systematically between L0 (memorized) and L2 (requires generalization) | If PID patterns are identical on L0 and L2, this hypothesis fails |
-
-**Dimension: Long Horizon**
-
-| VLA-Arena Observation | PID Prediction | Falsification Criterion |
-|-----------------------|----------------|------------------------|
-| Cannot compose learned skills | Temporal synergy may degrade as task progresses | If temporal synergy is stable but composition still fails, synergy is not the bottleneck |
-| Multi-step tasks fail | Phase-specific synergy patterns may reveal where composition breaks | If all phases show similar synergy but some fail, synergy lacks diagnostic power |
-
-### 9.7.4 VLA-Arena Datasets for PID Experiments
-
-VLA-Arena provides three dataset scales for fine-tuning (paper/repo-reported; verify availability, revisions, and licensing at time of use — the house rule applies to third-party assets even when they were confirmed public at review time):
-
-| Dataset | Size | Recommended Use for PID |
-|---------|------|------------------------|
-| **VLA-Arena-S** | Small | Initial Experiment 0 validation + rapid iteration |
-| **VLA-Arena-M** | Medium | Primary experiments (Experiments 1-3) |
-| **VLA-Arena-L** | Large | Full-scale validation if M shows positive results |
-
-**Fine-tuning Protocol (matching VLA-Arena):**
-- Fine-tune only on L0 tasks
-- Evaluate on L0 (in-distribution), L1, L2 (generalization)
-- Apply V and W perturbations independently
-- This aligns PID experiments with VLA-Arena's evaluation protocol for comparability
-
-### 9.7.5 Expected Null Results (Pre-Registration)
-
-For scientific rigor, we pre-register expected null results:
-
-1. **PID may not distinguish memorization from generalization** if the phenomenon is purely about lookup vs. computation, not information integration.
-
-2. **Synergy stability may not predict perturbation robustness** if robustness is dominated by low-level perceptual factors.
-
-3. **Long-horizon failures may not correlate with temporal synergy** if composition failures are architectural (context length, recurrence) rather than information-theoretic.
-
-4. **Safety task patterns may not differ** if safety is handled by the same integration mechanisms as goal-directed behavior.
-
-Observing these null results is **valid scientific outcome** that would redirect focus to simpler baselines.
-
-### 9.7.6 Success Criteria for VLA-Arena Integration
-
-| Outcome | Interpretation | Next Steps |
-|---------|----------------|------------|
-| Synergy stability predicts L0→L2 performance drop | **Strong support for H4** | Publish memorization/generalization diagnostic |
-| V/W asymmetry in PID correlates with asymmetric robustness | **Support for modality-specific diagnosis** | Develop modality-specific interventions |
-| Temporal synergy predicts long-horizon success | **Support for H5** | Develop synergy-based curriculum |
-| None of the above | **Null result** | Report limits; prefer simpler baselines |
-
-### 9.7.7 Dream2Flow Stage Taxonomy as PID Diagnostic Framework (v10.0)
-
-Dream2Flow (arXiv:2512.24766) motivates a methodology that is directly useful for PID: if you can expose intermediate artifacts (generated video, extracted flow, executed trajectory), you can avoid misattributing “end‑to‑end failure” to the wrong mechanism. prisoma adopts the same *stage-wise logging* idea whenever a Dream2Flow‑style bridge is used.
-
-**Stage-wise logging schema (required when using Flow-as-Bridge):**
-
-| Stage | Artifact(s) to persist | Typical failure modes (examples) | PID interpretation / action |
-|-------|-------------------------|----------------------------------|-----------------------------|
-| **S1: Video prediction** | Prompt, seed, generated clip(s), per-frame metadata/uncertainty if available | Identity drift, object morphing, instruction mismatch, implausible contacts | Treat the predictor output as a *proposal*, not ground truth; do not interpret PID deltas as “the VLA is wrong” until S1 plausibility is checked |
-| **S2: Flow reconstruction** | Masks/segments, 2D tracks + confidence, depth/spatial cues + calibration metadata, lifted 3D trajectories | Track drift, occlusion failure, depth scale ambiguity, segmentation leakage | Perception/measurement confound: if S2 fails, Flow targets are unreliable and PID results are not interpretable without controls (§14.5, §10.4) |
-| **S3: Control / execution** | Controller inputs, planned trajectory, executed trajectory, constraint violations | Actuator limits, contact mismatch, planner infeasibility | Embodiment gap: compare against `A*`/planned trajectories when possible; avoid blaming “world model quality” for execution infeasibility |
-
-**How to use the taxonomy for PID analysis (examples):**
-1. **Attribute failures before interpreting atoms:** label each episode with `(S1_ok, S2_ok, S3_ok)` and stratify all PID plots by these labels.
-2. **Separate “prediction quality” from “control realizability”:** analyze `Syn(V, D_ext; Flow)` (prediction agreement) separately from `Syn(V, Flow; A)` / `I(Flow; A)` (realizability).
-3. **Avoid “oracle” framing:** the generated video/flow is *not* ground truth; validate Flow plausibility against simulator/sensor trajectories when available.
-
-**Caveats:**
-- Dream2Flow motivates stage separation, but stage outcomes depend on the chosen video model, tracker, and controller; report your measured stage rates rather than assuming fixed success rates.
-- If you cannot log intermediate artifacts, this taxonomy is inapplicable and failures collapse back to standard end‑to‑end evaluation.
-
-## 9.8 Extended Comparisons: World Models & Deformables (Experiments 6-10)
-
-**Priority note:** These are optional extensions and should not block Experiments 0–4.
-
-This section extends the experimental suite to address advanced world model capabilities and deformable object manipulation, comparing **ManiGaussian** (learned/implicit) vs **PEGS** (explicit/PBD).
-
-| Exp | Name | Hypothesis | Key Metric |
-|-----|------|------------|------------|
-| **6** | **Prediction Fidelity** | **H_WM1 (exploratory):** learned predictors may outperform explicit physics in-distribution; explicit physics may degrade more gracefully under distribution shift (verify under matched controls) | `I(Prediction; P_GT)` |
-| **7** | **Novel Object Generalization** | **H_WM2 (exploratory):** explicit physics may generalize better to novel geometry/mass when parameters are known; learned models may match if trained (treat as empirical) | Success rate drop |
-| **8** | **Physics Perturbation** | **H_WM3 (exploratory):** visual correction loops may compensate for mismatched mass/friction and reduce performance collapse vs no-correction baselines | Synergy variance |
-| **9** | **Temporal Coherence** | **H_WM4 (exploratory):** explicit state/proxy tracking may maintain long-horizon coherence more reliably than purely implicit learned latents (benchmark-dependent) | Synergy degradation slope |
-| **10** | **Deformable Objects** | **H_WM5 (exploratory):** particle-based explicit simulators may handle rope/cloth better than rigid assumptions; learned models may require dedicated representations/training | Task success rate |
-
-**See `EXPERIMENTS.md` Sections 14-19 for detailed protocols.**
-
----
-
-# 10. World Model Integration (WAN, GWM, 3DGS)
-
-## 10.1 Overview
-
-External world models can serve as:
-1. **Visualization tools:** Render what the VLA "thinks" will happen
-2. **Analytical baselines:** Compare VLA predictions against reference predictions
-3. **Data augmentation:** Generate synthetic training data
-4. **Training environment generation:** Create unlimited simulation scenarios
-
-**Scope / verification note:** this entire section is *optional* and contains a mix of (a) paper-reported capabilities and (b) engineering design sketches. Treat architecture diagrams and runtime/latency numbers as **to-be-verified on your hardware and data**, and do not let this section block the core PID validation (Experiment 0 + Experiments 1–3).
-
-### 10.1.1 World Model Taxonomy
-
-Understanding the different roles of "world models" is critical for proper integration:
-
-| Type | Example | Role in Pipeline | Action-Conditioned? |
-|------|---------|------------------|---------------------|
-| **Internal (VLA)** | DreamVLA world-knowledge forecasting (dynamic/spatial/semantic; arXiv:2507.04447) | Predicts world knowledge used for action decisions | Yes (in the sense of conditioning action on predicted knowledge; verify exact conditioning) |
-| **Evaluative** | WAN, GWM | Visualize/validate VLA predictions | Via LoRA/VACE fine-tuning |
-| **Generative (Environment)** | Genie 3, Isaac Sim | Create training environments for agents | Yes (responds to agent actions) |
-| **Perceptual Foundation** | DKT, Depth-Anything | Improve visual input quality | N/A (perception preprocessing) |
-| **Video-to-Flow (v6.1)** | Dream2Flow (arXiv:2512.24766) | Extract object dynamics from video models; embodiment-agnostic intermediate representation | Via trajectory optimization or RL |
-| **Latent-predictive (JEPA-style; v10.2)** | V-JEPA 2 / V-JEPA 2-AC (arXiv:2506.09985); VLA-JEPA (arXiv:2602.10098); AtomVLA (arXiv:2603.08519, verify) | Predict future *representations* (not pixels); V-JEPA 2-AC plans actions by MPC in latent space | Yes (action-conditioned predictor) |
-| **Unified omnimodel / WAM (v10.2)** | NVIDIA Cosmos 3 (vendor release 2026-06-01: two-tower reasoning+generation "mixture-of-transformers"; Nano 16B / Super 64B checkpoints; "World Action Model" post-training path; verify claims/license OpenMDW-1.1) | One model spans reasoning, world generation, and action — blurs this table's categories | Yes (action trajectories are a native output modality, per vendor) |
-
-**Key Insight:** PID analysis operates on the **internal** world model (D) within a VLA. External world models (WAN, GWM, Genie 3, Dream2Flow) can support PID analysis by:
-1. Providing reference predictions to compare against VLA's D
-2. Generating training environments where PID patterns can be studied
-3. Improving visual input quality (V) for more interpretable PID results
-
-**v10.2 taxonomy notes (question the categories, not just the entries):**
-- **Unified omnimodels break the Internal/Evaluative/Generative split.** A Cosmos-3-class "World Action Model" is simultaneously internal (its reasoning states condition actions), evaluative (it generates predictions you could score), and generative (it synthesizes worlds). For PID the operative question is unchanged and sharper: *which intermediates are exportable per step, and which are causally upstream of the action head?* Treat "reasoning-tower states" and "generation-tower predictions" as two distinct `D` candidates with separate contracts.
-- **Latent-predictive (JEPA-style) world models give the cleanest `D` so far.** In an MPC-from-latent-world-model agent (V-JEPA 2-AC-style), the predicted latents are not a hidden-state extraction *choice* — they are the policy's actual decision variables, and intervening on them changes actions by construction. This materially strengthens the causal-validation story (Exp4/H3) relative to `D_hidden[k]` extractions.
-- **Steering-pathway architectures provide model-native interventions.** World Pilot (arXiv:2606.12403; verify) injects World-Action-Model priors through two *separable* pathways (latent steering into perception; action steering into the action head) — turning each pathway off is a built-in, semantics-preserving intervention on where world information enters, far cleaner than input corruption. Note the terminology convergence: "World Action Model (WAM)" now appears in both vendor (Cosmos 3) and academic (World Pilot) usage with related but non-identical meanings — define the term per citation.
-- **Attribute framing (external; opinion):** a World Labs essay (Fei-Fei Li, 2026-06-03, drfeifei.substack.com) describes world models via three *attributes* — generative, multimodal, interactive — rather than system types. Useful as a cross-check vocabulary; note that secondary coverage paraphrased this as "three types," which the primary text does not say (a small live lesson in verifying primary sources). Marble-class text/image→3D generators are a candidate *scene-asset source* for the splat-first pipeline (§C), not a `D` source.
-
-### 10.1.2 Genie-like environment generators (optional; out of scope)
-
-Some work explores generative models that produce **interactive environments** (e.g., “Genie”-style systems). They may be useful for synthetic data generation or RL fine-tuning, but they are not required for prisoma and introduce additional confounds (the generator’s physics validity becomes part of the experimental condition).
-
-If such a generator is used, treat it as another **versioned experimental variable** with the same provenance requirements (pinned revision, logged prompts/actions, and explicit “no oracle” framing).
-
-## 10.2 WAN (Wan Video Model Family)
-
-### 10.2.1 Architecture (High‑Level; Source‑Bound)
-
-Wan (arXiv:2503.20314) is described as a diffusion‑transformer family for video generation with a VAE‑style video autoencoder. Treat detailed latent shapes/compression ratios and any “versioned” architecture claims as implementation‑specific; verify directly from the paper/release you use before relying on them for scientific arguments.
-
-**Reported model sizes (paper):** 1.3B and 14B. The paper reports the 1.3B model can run with ~8.19 GB VRAM in their setting; benchmark on your hardware/runtime.
-
-### 10.2.2 Extensions Relevant to Robotics
-
-| Extension | Paper | Capability |
-|-----------|-------|------------|
-| **VACE** | arXiv:2503.07598 | All-in-one video creation/editing with Video Condition Unit |
-| **Wan‑Move** | arXiv:2512.08765 | Motion control via latent trajectory guidance |
-| **DreamGen** | arXiv:2505.12705 | Robot learning via neural trajectories (video‑model‑driven synthetic data + action recovery) |
-| **Motus** | arXiv:2512.13030 | Unified latent action world model integrating understanding/video generation/action experts (do not assume it is “WAN inside”) |
-
-### 10.2.3 Potential Uses (Revised)
-
-| Use Case | Feasibility (indicative) | Notes |
-|----------|-------------|-------|
-| Dream visualization | Medium‑High | Render predicted futures (benchmark-dependent) |
-| Hallucination visualization | Medium‑High | Compare predicted vs actual under controlled conditions |
-| Analytical baseline | Medium | Use as *reference predictor* only; avoid oracle framing |
-| Motion/action conditioning | Medium | Requires method support and/or training (verify) |
-| Unified world model baseline | Medium | Consider Motus/VideoVLA/Dream‑VLA as separate baselines |
-| Real-time intervention | Low | Video prediction is usually too slow for tight control loops |
-
-### 10.2.4 Limitations (Revised)
-
-**Base model limitations (relevance to prisoma):**
-- Not trained specifically on robot manipulation (domain mismatch is likely).
-- Not natively a closed‑loop, action‑conditioned simulator; extensions may support motion guidance or structured conditioning.
-- Latent spaces are not aligned with VLA representations; avoid direct latent comparisons unless you justify the variable definition.
-- Use in prisoma is primarily as a *reference predictor* and as a generator of artifacts for Flow reconstruction (stage‑wise logged; §9.7.7).
-
-### 10.2.5 Conditioning Approaches (Pseudocode‑Level)
-
-Implementation details vary rapidly across releases and libraries. Treat the following as **conceptual categories**, not guaranteed APIs:
-1. **Adapter/fine‑tuning:** add lightweight adapters and fine‑tune on robot trajectories (if licensing/data allow).
-2. **Structured conditioning/editing:** use creation/editing frameworks (e.g., VACE) to apply controlled edits/conditions.
-3. **Trajectory guidance:** apply motion control mechanisms (e.g., Wan‑Move) to impose desired point‑trajectory motion.
-
-## 10.3 GWM (Gaussian World Model)
-
-### 10.3.1 Why GWM is Better for Analysis
-
-| Property | WAN (base) | WAN (fine-tuned/VACE) | GWM |
-|----------|------------|----------------------|-----|
-| Trained on robot data | No | Partially (LoRA) | **Yes (native)** |
-| 3D representation | No (2D video) | No | **Yes (3DGS)** |
-| Action-conditioned | No | **Yes** | **Yes** |
-| Latent space alignment | Low | Medium | **High** |
-| Inference speed | Slow | Slow | **Faster** |
-| Modification required | None | LoRA + data | None |
-
-**When to Choose:**
-- **GWM:** Analytical comparison, synergy baseline, 3D spatial reasoning
-- **WAN (fine-tuned):** Visualization, data augmentation, unified models (Motus)
-- **WAN (base):** Paper figures, demos only
-
-### 10.3.2 Integration Architecture
-
-```
-Current Frame → Shared Vision Encoder → V
-                       ↓
-            ┌─────────────────────┐
-            ↓                     ↓
-       VLA World Model      GWM World Model
-            ↓                     ↓
-         D_vla                 D_gwm
-            ↓                     ↓
-            └─────────────────────┘
-                       ↓
-               PID Comparison
-          Syn(V, D_vla; A) vs Syn(V, D_gwm; A)
-```
-
-## 10.4 Depth Perception Methods
-
-### 10.4.1 Monocular Depth Estimation
-
-| Method (examples; verify current versions) | Output | Notes |
-|--------|--------|-------|
-| **Depth-Anything (v2 or similar)** | Relative depth | Widely used; scale ambiguity unless calibrated |
-| **Metric3D (or similar)** | Metric/scale-aware depth | Better for absolute geometry if calibrated; often slower/heavier |
-| **Video depth models** | Temporally consistent depth | Useful when depth flicker is a confound |
-| **Diffusion-based depth (optional)** | Depth with strong priors | Potentially robust in hard cases; benchmark carefully |
-
-**Recommendation:** Start with a well-supported relative-depth model (e.g., Depth-Anything v2) and validate on your scenes. If you need absolute scale, use a metric-depth baseline (e.g., Metric3D) or calibrate relative depth; benchmark for accuracy and latency on your deployment.
-
-### 10.4.2 Stereo Vision (StereoVLA Approach)
-
-**Key Insight from StereoVLA (arXiv:2512.21970):** Rather than relying on monocular depth estimation, stereo vision provides direct 3D geometry from binocular disparity.
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| Monocular depth | Single camera, any setup | Estimated, not measured |
-| Stereo vision | True geometry, accurate | Requires calibrated stereo pair |
-| RGB-D sensor | Direct depth | Limited range, sensor cost |
-
-**Integration with prisoma:**
-```
-Stereo Pair → Disparity Estimation → 3D Point Cloud → VLA Visual Encoder
-                                                    ↓
-                                              Enhanced V with native depth
-```
-
-StereoVLA shows improved spatial reasoning by providing the VLA with native 3D information rather than requiring the model to infer depth from monocular cues.
-
-### 10.4.3 Transparent Object Depth (DKT)
-
-**Problem:** Standard depth methods (RGB-D sensors, stereo, monocular estimation) fail on transparent, translucent, and reflective objects due to:
-- Light refraction through glass/plastic
-- Specular reflections on shiny surfaces
-- Time-of-flight sensors receive corrupted signals
-- Stereo correspondence fails on textureless transparent regions
-
-**The “Diffusion Knows Transparency” principle (interpret cautiously):**
-
-DKT (arXiv:2512.23705) argues that strong video diffusion priors can help infer depth for transparent/reflective objects. Interpret this as **learned statistical regularities** that are often consistent with light transport (refraction/reflection), not as evidence that the model “understands physics” in a mechanistic sense.
-
-**Implementation note:** The base model, datasets, outputs (depth/normals), and runtime characteristics are paper-specific. Do not copy architecture diagrams or speed numbers into this spec without a primary citation and a local benchmark; treat DKT as an optional perception preprocessor whose value must be validated on your scenes and tasks.
-
-**PID Relevance: Why Transparent Object Depth Matters for V-D Analysis**
-
-This is a genuine connection to PID diagnostics:
-
-1. **V quality affects interpretability:** if the visual representation `V` is dominated by perception artifacts (e.g., transparent-object depth failures), the resulting MI/PID quantities are still mathematically well-defined but can become **semantically uninterpretable** for “integration quality” questions:
-   ```
-   Perception artifact → V no longer tracks scene geometry → PID reflects the artifact regime
-   ```
-
-2. **V-D Mismatch from Perception Failure:** When standard depth sensors fail on glass:
-   - V contains incorrect geometric information
-   - D (world model) may predict correct physics
-   - This creates *apparent* V-D mismatch that is actually a perception failure, not a world model failure
-   
-   **Testable hypothesis:** Using a better depth representation for transparent objects can change PID features by reducing perception-driven noise in V. Whether this increases or decreases synergy is empirical and must be measured under controls (Exp3 perturbations + ablations).
-
-3. **Failure Mode Diagnosis:** Without accurate transparent object depth:
-   - Low Syn(V,D;A) could indicate either:
-     a) World model failure (D is wrong about physics)
-     b) Perception failure (V is garbage)
-   - DKT removes (b) from the equation, enabling cleaner diagnosis
-
-4. **Avoid over-interpretation:** Even if DKT improves depth, this does not imply “physics understanding”. Treat it as a statistical prior that can reduce a confound in PID analysis.
-
-**When to Use DKT in prisoma Pipeline:**
-| Scenario | Recommendation |
-|----------|----------------|
-| Tasks involving glass/plastic | Use DKT for V preprocessing |
-| Diagnosing transparent object failures | Essential for valid PID |
-| General manipulation (opaque) | A standard depth estimator (e.g., Depth-Anything v2 or similar) may suffice (validate on your scenes) |
-| Speed-critical real-time | DKT may be too slow; consider stereo/RGB-D or simpler depth baselines |
-
-## 10.5 3DGS (3D Gaussian Splatting)
-
-### 10.5.1 Role in Pipeline
-
-- **SHARP:** Single-image to 3DGS conversion (latency is hardware/model dependent; benchmark)
-- **Depth model:** Depth estimation (relative or metric; calibrate if absolute scale is required)
-- **SparkJS:** 3DGS rendering in browser
-
-### 10.5.2 When 3DGS Adds Value
-
-- Debugging spatial reasoning failures
-- Visualizing occlusion/depth errors
-- Training data for 3D-aware policies
-
-### 10.5.3 When 3DGS is Overkill
-
-- Core PID diagnostics (2D sufficient)
-- Real-time intervention (too slow)
-- Most failure modes don't require 3D
-
-## 10.6 Recommendation
-
-| Task | Tool | Notes |
-|------|------|-------|
-| Core PID (Aims 1-2) | None (VLA latents only) | Avoid world model confounds |
-| Failure debugging | GWM | 3D spatial localization |
-| Paper figures | WAN (base) | Highest visual quality |
-| Action-conditioned visualization | WAN VACE / Motus | Via conditioning pipeline |
-| Data augmentation | WAN (fine-tuned) or GWM | Both support actions |
-| Unified world model baseline | Motus | Integrated video+action baseline (see arXiv:2512.13030; do not assume underlying video model) |
-| 3D spatial analysis | SHARP + 3DGS | Single-image 3D |
-| Real-time monitoring | Entropy (not PID) | <100ms requirement |
-| Simulation + visualization | Headless Gazebo + Tauri | Low-latency interactive |
-| Transparent object depth | DKT | Essential for glass/plastic manipulation |
-| RL environment generation | Genie 3 | Unlimited interactive training scenarios |
-| VLA pre-training environments | Genie 3 + SIMA 2 | Procedural world generation |
-
-## 10.7 World Model Paradigms and PID Implications
-
-### 10.7.1 Theoretical Framework
-
-Different world models serve different roles. Understanding this prevents category errors in PID analysis:
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       WORLD MODEL PARADIGMS                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  1. INTERNAL (D in PID)        2. EVALUATIVE              3. GENERATIVE │
-│  ─────────────────────         ────────────              ───────────────│
-│  Lives inside VLA              External reference         Creates envs   │
-│  Predicts s' from (s,a)        Validates predictions      For training   │
-│                                                                          │
-│  Examples:                     Examples:                  Examples:      │
-│  • DreamVLA world-knowledge    • WAN video gen           • Genie 3      │
-│  • Hidden states               • GWM 3D prediction       • Isaac Sim    │
-│  • Implicit in attention       • DKT depth               • Gazebo       │
-│                                                                          │
-│  PID measures THIS       →     Can compare with D   →    D learns from  │
-│         ↓                              ↓                        ↓        │
-│  Syn(V, D_internal; A)         Syn(V, D_internal; A)    Quality affects │
-│                                vs Syn(V, D_external; A)  what D learns  │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 10.7.2 How External World Models Affect Internal D
-
-**Training in Genie 3 → Effect on VLA's D:**
-
-When a VLA trains in Genie 3-generated environments:
-1. The VLA's internal world model D learns from Genie 3's emergent physics
-2. Genie 3's physics are learned via self-supervision (not hardcoded)
-3. If Genie 3's physics diverge from reality, D learns incorrect dynamics
-
-**PID Prediction:**
-```
-VLA trained in Genie 3         VLA trained in real world
-────────────────────────       ─────────────────────────
-D_genie                        D_real
-
-When deployed in reality:
-• If Genie 3 physics ≈ real physics: Syn(V,D_genie;A) ≈ Syn(V,D_real;A)
-• If Genie 3 physics ≠ real physics: Syn(V,D_genie;A) < Syn(V,D_real;A)
-                                     (V shows real physics, D expects Genie physics)
-```
-
-**Testable Hypothesis:** VLAs trained in Genie 3 will show lower synergy on tasks where Genie 3's emergent physics differ most from reality (e.g., precise contact dynamics, fluid interactions).
-
-### 10.7.3 Generative Priors as a Testable Premise (Not an Assumption)
-
-Large generative models (video predictors, depth estimators, simulators with learned dynamics, etc.) may encode priors that resemble aspects of physical dynamics. prisoma treats this as a **testable premise**, not a fact: “plausible video” is not the same as physically correct state transitions.
-
-**Implication for PID (conservative):**
-1. If a VLA (or auxiliary predictor) encodes useful dynamics priors, predicted‑future quality (or flow plausibility) should correlate with task success under preregistered metrics and persist under controlled perturbations.
-2. If not, treat the predictor as a visualization instrument only; avoid attributing PID differences to “physics understanding.”
-
-**Exploratory hypothesis (requires matched protocols):**
-Policies with explicit prediction loops (predicting intermediate future cues/flows) may show different PID signatures on physics‑heavy tasks than purely reactive policies, but this must be tested on the same tasks, with the same variable definitions, after the Experiment 0 + geometry gates.
-
-### 10.7.4 Perception Quality as PID Prerequisite
-
-**The DKT lesson:** Before attributing low synergy to world model failure, verify perception quality.
-
-```
-Failure Mode Diagnostic Tree:
-                         Low Syn(V,D;A)
-                              │
-                 ┌────────────┴────────────┐
-                 │                         │
-        V is accurate?              V is corrupted?
-        (use DKT/stereo)            (depth sensor failure)
-                 │                         │
-          D is wrong                 Fix V first
-      (true world model failure)    (not a D problem)
-```
-
-**Practical Protocol:**
-1. For transparent/reflective objects: Prefer DKT-style preprocessing (if available) and validate depth quality
-2. For stereo setups: Verify calibration before PID analysis
-3. Log V quality metrics alongside PID measurements
-4. If V quality degrades, discount PID findings
-
-## 10.8 Headless Gazebo + Tauri Visualization System
-
-### 10.8.1 Architecture Overview
-
-A low-latency simulation and visualization system optimized for robotics research:
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              TAURI APP                                   │
-├─────────────────────────────────────────────────────────────────────────┤
-│                      SparkJS / Three.js                                  │
-│                   (WebGL2; WebGPU optional)                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│                         Rust Backend                                     │
-│  ┌─────────────────┬─────────────────┬─────────────────┐                │
-│  │  Zenoh Client   │  ML Inference   │  Platform Utils │                │
-│  │  (cross-plat)   │  (abstracted)   │                 │                │
-│  └────────┬────────┴────────┬────────┴─────────────────┘                │
-│           │                 │                                            │
-│     ┌─────▼─────┐     ┌─────▼─────┐                                     │
-│     │  macOS    │     │  Linux    │                                     │
-│     │ Backend   │     │ Backend   │                                     │
-│     │• CoreML   │     │• CUDA     │                                     │
-│     │• MLX      │     │• TensorRT │                                     │
-│     │• Metal    │     │• cuDNN    │                                     │
-│     └───────────┘     └───────────┘                                     │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 10.8.2 Latency Path
-
-**Note:** The numbers below are *illustrative budgets* (order-of-magnitude). Measure end-to-end latency on your hardware/configuration before making any real-time claims.
-
-```
-Gazebo (headless)                    Tauri + SparkJS
-─────────────────                    ────────────────
-
-                      Zenoh
-Physics     ─────────(measure)──────→ State update ──→ Three.js
-step rate (configurable)        shared mem/zero-copy (config-dependent)      render @ interactive rate
-
-Camera      ─────────(measure)──────→ Texture update ─→ Three.js
-frame rate (configurable)        zero-copy (config-dependent)                plane/quad
-
-Sensors     ─────────(measure)──────→ Process ──→ Overlay ──→ render
-
-Total input lag (report measured): data path + render path + OS scheduling jitter
-```
-
-### 10.8.3 Why This Architecture for prisoma
-
-| Benefit | Explanation |
-|---------|-------------|
-| **Target low-latency UI loop (goal; measure)** | Enables interactive debugging of VLA decisions |
-| **Zenoh middleware (optional)** | Pub/sub transport; can bridge to ROS 2; shared-memory/zero-copy behavior is configuration-dependent |
-| **SparkJS for 3DGS (or equivalent)** | Renders Gaussian splats via Three.js/WebGL2 (SparkJS “Spark”) or via WebGPU (if you choose a WebGPU-native renderer) |
-| **Platform abstraction (goal)** | Keep ML inference pluggable (macOS/Metal vs Linux/CUDA); do not assume identical throughput |
-| **Headless sim option** | Decouple physics stepping from rendering; actual Hz depends on world complexity |
-| **Three.js flexibility** | Overlay PID diagnostics, trajectories, flow vectors, and mesh/URDF debug geometry |
-
-### 10.8.4 Integration with PID Monitoring
-
-```rust
-// Rust backend receives VLA embeddings via Zenoh
-async fn pid_monitor_loop(zenoh_session: &Session) {
-    let subscriber = zenoh_session
-        .declare_subscriber("vla/embeddings")
-        .await
-        .unwrap();
-    
-    while let Ok(sample) = subscriber.recv_async().await {
-        // Decode embeddings (zero-copy from shared memory)
-        let embeddings: VLAEmbeddings = deserialize(&sample.payload);
-        
-        // Compute fast Shannon invariants (fastest; runtime depends on n,d and kNN backend)
-        let ci = co_information_pairwise(
-            &embeddings.vision,
-            &embeddings.dream,
-            &embeddings.action,
-        );
-        
-        // Publish to visualization
-        zenoh_session
-            .put("pid/co_information", serialize(&ci))
-            .await
-            .unwrap();
-    }
-}
-```
-
-### 10.8.5 Visualization Overlays
-
-The Tauri + Three.js frontend can overlay:
-
-1. **Real-time PID metrics** (co-information, synergy estimates)
-2. **Attention heatmaps** from VLA transformer layers
-3. **Depth estimation** (a monocular depth model or stereo disparity)
-4. **3DGS point clouds** rendered via SparkJS
-5. **Action trajectory predictions** from world model
-
-### 10.8.6 Hardware Requirements
-
-Hardware requirements are benchmark-dependent and should not be stated as fixed “minimum/recommended” tables in this document. Measure end-to-end latency and peak memory for your exact stack (scene size, physics backend, rendering settings, and any external video/flow models).
-
-### 10.8.7 PixelVLA Integration with Headless Gazebo + Tauri
-
-Pixel-level prompting is treated as a **controlled intervention**, not a UI-only feature. Some VLAs support multimodal prompting with visual inputs (e.g., PixelVLA arXiv:2511.01571). For prisoma, the critical requirements are:
-- visual prompt actions are routed through the **Agent Bridge** control plane (so they are scriptable and logged),
-- prompt semantics are preregistered (is the prompt part of V, or a separate source P?),
-- and any model-specific tensor shapes/keys are isolated behind a per‑model adapter (do not bake unverified internals into the simulator spec).
-
-**High-level data flow (conceptual; model-specific shapes/topics vary):**
-1. Simulator renders observation(s) and publishes them to the VLA interface.
-2. VLA consumes observation + instruction (+ optional visual prompt) and emits action plus any representations chosen for analysis.
-3. PID‑core computes diagnostics on preregistered representations (offline-first; in-loop only if measured budgets allow).
-4. UI overlays diagnostics and exposes prompt tools; every prompt event is logged with provenance and is replayable.
-
-**Conceptual example: prompt routed through Agent Bridge (so external tools can reproduce it):**
-```typescript
-await agentBridge.call("prompt.set", {
-  kind: "point",
-  x: point.x,
-  y: point.y,
-  tag: "region_of_interest"
-});
-```
-
-## 10.9 Dream2Flow: Video→Flow Bridge for Manipulation (v10.0)
-
-### 10.9.1 Overview
-
-**Dream2Flow** (Dharmarajan et al. 2025, arXiv:2512.24766) introduces a paradigm that is conceptually relevant to prisoma: using **3D object flow** as an intermediate representation to bridge video generation models and robotic manipulation.
-
-**Key idea (paper-motivated; validate on your distribution):** video predictors can often synthesize plausible *object motion* even when robot–object interaction details are wrong. Dream2Flow proposes using **3D object flow** as an explicit intermediate so “world dynamics” and “embodiment/control” can fail separately, which is exactly the separation prisoma needs for hypothesis H7 and confound control (§9.7.7, §14.5.7).
-
-### 10.9.2 Architecture and Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     DREAM2FLOW PIPELINE                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  1. VIDEO GENERATION                                                     │
-│     Input: image + task instruction (+ optional depth/metadata)          │
-│     Model: video predictor (choice is an experimental variable)          │
-│     Output: generated clip(s) + metadata                                 │
-│                                                                          │
-│  2. 3D FLOW EXTRACTION                                                   │
-│     - SAM / open-vocab segmentation → Object masks                       │
-│     - Video depth estimation (Depth-Anything/DKT)                        │
-│     - 2D point tracking (CoTracker / TAPIR)                             │
-│     → Lift 2D tracks to 3D → Object flow trajectories                   │
-│                                                                          │
-│  3. ROBOT POLICY                                                         │
-│     - Trajectory optimization (MPC-style) OR                             │
-│     - Reinforcement learning with 3D flow as reward                      │
-│     → Executable low-level actions                                       │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 10.9.3 Empirical Findings (How to Use Them Safely)
-
-Dream2Flow reports simulation and real-world results and motivates 3D object flow as a general interface for converting video predictions into manipulation objectives. prisoma does **not** assume Dream2Flow’s measured success rates transfer to other predictors/trackers/robots; instead, it adopts the *stage separation* as an instrumentation requirement (§9.7.7).
-
-**Requirement:** when using Flow‑as‑Bridge (H7), log stage outcomes (S1/S2/S3) and intermediate artifacts, and stratify PID analyses by these labels before interpreting any “world model quality” claims.
-
-### 10.9.4 Relationship to VLA Internal World Models
-
-| Aspect | VLA Internal D | Dream2Flow 3D Flow |
-|--------|----------------|-------------------|
-| **Source** | Learned within VLA | Extracted from pre-trained video model |
-| **Format** | Hidden state (high‑D; model-dependent) | 3D trajectories (explicit geometry) |
-| **Training** | End-to-end with policy | Predictor + reconstruction + control pipeline (may include optimization/RL; typically no task-specific demos) |
-| **Interpretability** | Low (implicit) | High (visualizable trajectories) |
-| **Embodiment** | Tied to specific robot | Agnostic |
-
-**Key comparison:** VLA's "D" (dream/world model state) is an **implicit** representation learned end-to-end. Dream2Flow's 3D object flow is an **explicit** intermediate representation extracted from a separate video model.
-
-### 10.9.5 Implications for prisoma
-
-#### Implication 1: Decoupling World Model Quality from Action Execution
-
-Dream2Flow's staged pipeline (video → flow → action) enables attributing failures to specific components. This motivates a similar decomposition for PID analysis:
-
-```
-PID on (V, D; A)  ← Conflates world model quality with execution
-        vs
-PID on (V, D; Flow)  ← Isolates world model contribution
-PID on (Flow; A)     ← Isolates execution contribution
-```
-
-**Testable hypothesis (H7, §3.6.6):** If object flow can be extracted as an intermediate variable, PID on (V,D;Flow) should correlate with video generation success, while PID on (Flow;A) should correlate with execution success.
-
-#### Implication 2: Video Models as D Proxies
-
-For VLAs without explicit D (e.g., OpenVLA), a pre-trained video model could provide a **reference D**:
-
-1. Condition video model on VLA's current state + instruction
-2. Extract predicted object flow as "what the video model thinks should happen"
-3. Compare to VLA's implicit predictions via PID
-
-This is related to the GWM comparison approach (§10.3) but uses video-derived flow instead of 3DGS-derived predictions.
-
-#### Implication 3: Flow as Reward Signal for PID-Informed RL
-
-Dream2Flow formulates manipulation as object trajectory tracking and can optimize or learn controllers against a flow‑tracking objective. For prisoma Aim 3 (RL fine-tuning), treat flow‑tracking rewards as a baseline objective; PID‑derived rewards are optional and require careful estimator/gradient surrogates.
-
-```python
-# Dream2Flow-style: reward from object flow
-r_flow = -||extracted_flow - target_flow||
-
-# PID-informed alternative: reward from synergy
-r_pid = alpha * Syn(V, D; A*) - gamma * max(0, -Syn)
-
-# Potential combination
-r_combined = beta1 * r_flow + beta2 * r_pid
-```
-
-**Caution:** The PID-based reward requires a differentiable surrogate (kNN estimators are not differentiable).
-
-### 10.9.6 When to Consider Dream2Flow-Style Analysis
-
-| Scenario | Recommendation |
-|----------|---------------|
-| **Core PID validation (Experiments 0-3)** | Do NOT use Dream2Flow; compute PID on VLA latents directly |
-| **Failure mode attribution** | Consider Dream2Flow's staged analysis as a template |
-| **Embodiment-independent D proxy** | Consider video-derived flow if VLA has no explicit D |
-| **RL reward design (Aim 3)** | Consider flow-based reward as a baseline for PID-based reward |
-| **Visualization / interpretability** | Use Dream2Flow's 3D flow for intuitive failure visualization |
-
-### 10.9.7 Limitations and Caveats
-
-1. **Video model access/licensing:** some predictors are API-only or have restrictive licenses; open alternatives may differ in quality and failure modes. Treat the predictor choice as an experimental variable and report versions/settings.
-
-2. **Flow extraction fidelity:** The 2D-to-3D lifting depends on depth estimation quality (see DKT discussion in §10.4.3).
-
-3. **Not a PID estimator:** Dream2Flow does not compute information-theoretic quantities. Its relevance is conceptual (embodiment gap, failure taxonomy) rather than methodological.
-
-4. **Object-centric assumption:** Dream2Flow's flow extraction assumes objects can be segmented. This may not apply to deformable/granular materials without extensions.
-
-### 10.9.8 Code and Resources
-
-- **Project website:** https://dream2flow.github.io/
-- **Paper:** arXiv:2512.24766 (Dec 2025)
-- Code/models: see the project website for current availability.
-
-## 10.10 Unified Architecture: Dream2Flow + WAN + PID + Gaussian Splatting (v6.2)
-
-> **Status: SPECIFICATION ONLY (as of v10.1).** This section describes a target architecture for future integration. None of these components are implemented in this repository. The core PID experiments (Exp0–Exp3) do not depend on this stack; it is intended for optional H7 (Flow-as-Bridge) experiments and Phase 4+ work. Do not treat diagrams or pipeline descriptions as current capabilities.
-
-### 10.10.1 Vision: A Complete PID-Aware Robotics Stack
-
-This section describes an ambitious but tractable integration that combines:
-- **Dream2Flow** (§10.9): 3D object flow extraction from video generation
-- **WAN** (§10.2): Open-source video/world model (replaces proprietary APIs)
-- **Wibral PID** (§2): Partial information decomposition for diagnostics
-- **Gaussian Splatting** (§10.5): 3D scene representation
-- **SparkJS/Tauri** (§10.8): Browser-based visualization
-- **Gazebo** (§10.8): Headless robot simulation
-
-**Key insight:** Dream2Flow’s staged architecture provides natural intervention points for PID analysis. A locally runnable predictor (e.g., Wan, arXiv:2503.20314) can improve reproducibility and artifact logging, but the architecture is intentionally model‑agnostic: treat the predictor as a plug‑in experimental variable.
-
-### 10.10.2 Full Stack Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│              PID-DREAM2FLOW-VIDEO/FLOW-GAUSSIANSPLAT INTEGRATION STACK           │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
-│  STAGE 1: INPUT + VIDEO GENERATION                                               │
-│  ─────────────────────────────────                                               │
-│  ┌───────────────┐    ┌────────────────────────────────────┐                    │
-│  │ Gazebo        │    │       Video Predictor Service*     │                    │
-│  │ (RGB-D +      │───▶│  • Image + instruction → clip(s)   │                    │
-│  │  task instr)  │    │  • Optional intermediates (if any) │                    │
-│  └───────────────┘    │  • Local or API inference          │                    │
-│                       └───────────────┬────────────────────┘                    │
-│                                       │                                          │
-│  STAGE 2: VISION FOUNDATION MODELS    │                                          │
-│  ─────────────────────────────────    ▼                                          │
-│  ┌────────────────────────────────────────────────────────────────────┐         │
-│  │                                                                     │         │
-│  │   Segmentation      Point tracking       Depth estimation          │         │
-│  │   (e.g., SAM2)      (e.g., CoTracker)    (depth model / DKT opt.)  │         │
-│  │   (versions/APIs vary; benchmark VRAM/latency on your hardware)    │         │
-│  │                                                                     │         │
-│  └────────────────────────────────┬───────────────────────────────────┘         │
-│                                   │                                              │
-│  STAGE 3: 3D FLOW EXTRACTION      ▼                                              │
-│  ───────────────────────────────────                                             │
-│  ┌────────────────────────────────────────────────────────────────────┐         │
-│  │           3D Object Flow Reconstruction                             │         │
-│  │                                                                     │         │
-│  │   2D tracks + Depth → 3D point trajectories                        │         │
-│  │   Output: Per-object flow fields (Gaussian Splat representation)   │         │
-│  │                                                                     │         │
-│  │   Novel: Represent flows as animated Gaussian Splats where:        │         │
-│  │   • Splat position = point in flow trajectory                      │         │
-│  │   • Splat color = PID signature (RGB = Syn, Red, Unq)             │         │
-│  │   • Splat opacity = MI magnitude / confidence                      │         │
-│  │   • Splat size = variance / uncertainty                            │         │
-│  └────────────────────────────────┬───────────────────────────────────┘         │
-│                                   │                                              │
-│  STAGE 4: DIAGNOSTICS (RUST)      │                                              │
-│  ───────────────────────────      ▼                                              │
-│  ┌────────────────────────────────────────────────────────────────────┐         │
-│  │                    Wibral PID Analysis Layer                        │         │
-│  │                                                                     │         │
-│  │   PID Decomposition Points:                                         │         │
-│  │                                                                     │         │
-│  │   ① Flow quality (preferred):                                      │         │
-│  │      quality(Flow_pred, Flow_gt) → predictor correctness            │         │
-│  │      (only when Flow_gt exists; no oracle claims otherwise)         │         │
-│  │                                                                     │         │
-│  │   ② Integration summaries (screen → targeted PID):                  │         │
-│  │      CI/PID on (V, L, D_vla, Flow_pred; A_cmd or A*)                │         │
-│  │      "Which sources are used, redundantly or synergistically?"      │         │
-│  │                                                                     │         │
-│  │   ③ Execution outcome (not PID by default):                         │         │
-│  │      success/failure labels + state deltas + contact events         │         │
-│  │      "Did the environment/state change as intended?"                │         │
-│  │                                                                     │         │
-│  │   ④ Temporal diagnostics:                                           │         │
-│  │      synergy/CI half-life, phase-wise summaries, bootstrapped CIs   │         │
-│  │      (only after Exp0 + geometry gates for the chosen variables)    │         │
-│  │                                                                     │         │
-│  └────────────────────────────────┬───────────────────────────────────┘         │
-│                                   │                                              │
-│  STAGE 5: VISUALIZATION           ▼                                              │
-│  ──────────────────────────────────                                              │
-│  ┌────────────────────────────────────────────────────────────────────┐         │
-│  │              Tauri + SparkJS + Three.js Visualization               │         │
-│  │                                                                     │         │
-│  │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐   │         │
-│  │   │ Gaussian Splat  │  │ 3D Object Flow  │  │ PID Diagnostic  │   │         │
-│  │   │ Scene View      │  │ Animation       │  │ Overlays        │   │         │
-│  │   │ (SparkJS/WebGL2)│  │ (trajectories)  │  │ (synergy maps)  │   │         │
-│  │   └─────────────────┘  └─────────────────┘  └─────────────────┘   │         │
-│  │                                                                     │         │
-│  │   Interactive Features:                                             │         │
-│  │   • Scrub through flow timeline                                     │         │
-│  │   • Click points to see local PID values                           │         │
-│  │   • Compare WAN-generated vs VLA-generated flows                    │         │
-│  │   • Overlay failure mode annotations                                │         │
-│  │                                                                     │         │
-│  └────────────────────────────────┬───────────────────────────────────┘         │
-│                                   │                                              │
-│  STAGE 6: ROBOT EXECUTION         ▼                                              │
-│  ─────────────────────────────────                                               │
-│  ┌────────────────────────────────────────────────────────────────────┐         │
-│  │                 Gazebo Simulation / Real Robot                      │         │
-│  │                                                                     │         │
-│  │   • Trajectory optimization (MPC) on 3D flow targets               │         │
-│  │   • RL with flow-derived + PID-derived rewards                     │         │
-│  │   • Closed-loop execution with PID monitoring                      │         │
-│  │                                                                     │         │
-│  └────────────────────────────────────────────────────────────────────┘         │
-│                                                                                  │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 10.10.3 Why Prefer Local/Open Predictors Over API‑Only Services
-
-Dream2Flow can be run with either API‑hosted video predictors or locally runnable/open‑weights predictors. For prisoma, the core scientific need is **reproducibility + artifact logging**, not allegiance to a specific vendor/model.
-
-| Dimension | API‑only services | Local/open predictors (when available) |
-|----------|--------------------|----------------------------------------|
-| **Reproducibility** | Versioning can change; seeds/metadata may be limited | You can pin weights/commits and record full settings |
-| **Artifact logging** | May restrict intermediate outputs | Full control over clips, seeds, failure cases, caching |
-| **Cost/latency** | Variable; depends on provider/network | Variable; depends on hardware/model |
-| **“Access to D”** | Usually unavailable | Sometimes possible *if* the implementation exposes intermediates (optional; not required for Flow‑as‑Bridge) |
-
-**PID note:** Flow‑as‑Bridge does not require hidden states from the video predictor. If intermediates are exposed, you may treat them as a candidate external “D” for exploratory comparisons, but all such analyses must still pass the Experiment 0 + geometry gates and avoid oracle framing (§9.7.7, §16.11).
-
-### 10.10.4 Gaussian Splatting as PID Representation
-
-**Novel visualization concept:** Represent 3D object flows as animated Gaussian splats where visual properties encode PID quantities:
-
-```
-GAUSSIAN SPLAT ↔ PID MAPPING
-════════════════════════════
-
-Splat Property          PID Quantity              Interpretation
-────────────────────────────────────────────────────────────────────
-Position (x,y,z)        Flow trajectory point     Where in 3D space
-Color (RGB)             (Syn⁺, Red, Unq(V))      Information structure
-  R channel             Synergy (clipped)         Joint integration signal (visualize negative synergy separately; interpret per §2.2.3 and validate under controls)
-  G channel             Redundancy                Overlapping information
-  B channel             Unique(V)                 Vision-only contribution (use alternate view for Unq(D))
-Opacity (α)             |I(V,D;Flow)|            Total information
-Size (σ)                Variance / uncertainty    Estimation confidence
-
-Animation over time:
-  • Splat moves along flow trajectory
-  • Color changes as PID changes
-  • Opacity pulses on significant MI events
-  • Size grows when uncertainty increases
-```
-
-**Implementation sketch (SparkJS/Three.js):**
-
-```typescript
-// PID-colored Gaussian Splat renderer
-interface PIDSplat {
-  position: [number, number, number];  // 3D flow point
-  synergy: number;      // [-1, 1] normalized
-  redundancy: number;   // [0, 1] normalized  
-  unique_v: number;     // [0, 1] normalized
-  mi_magnitude: number; // [0, ∞) → mapped to opacity
-  variance: number;     // [0, ∞) → mapped to size
-}
-
-function pidToColor(splat: PIDSplat): THREE.Color {
-  // Minimal convention: R=Syn⁺, G=Red, B=Unq(V) (align docset color semantics).
-  const r = Math.max(0, splat.synergy);
-  const g = Math.max(0, splat.redundancy);
-  const b = Math.max(0, splat.unique_v);
-  return new THREE.Color(r, g, b);
-}
-
-function renderPIDFlow(splats: PIDSplat[], timestamp: number) {
-  const geometry = new SplatGeometry(splats.length);
-  
-  for (let i = 0; i < splats.length; i++) {
-    geometry.setPosition(i, splats[i].position);
-    geometry.setColor(i, pidToColor(splats[i]));
-    geometry.setOpacity(i, Math.tanh(splats[i].mi_magnitude));
-    geometry.setSize(i, 0.01 + 0.05 * Math.sqrt(splats[i].variance));
-  }
-  
-  // SparkJS/Three.js handles rendering (backend depends on chosen renderer)
-  sparkRenderer.render(geometry, camera);
-}
-```
-
-### 10.10.5 PID Analysis Points in the Pipeline
-
-The staged architecture supports **stage-wise diagnostics**, but not all stages should be framed as PID. v10.0 adopts a **no-oracle, contract-first** stance: use explicit quality metrics where possible, and apply PID only to variables that are well-defined for your run and that pass the Geometry Gate + Experiment 0.
-
-**Per-run variable definitions (log them):**
-- `Flow_pred`: reconstructed object-level 3D trajectories from a predictor (Dream2Flow-style).
-- `Flow_gt`: object-level 3D trajectories from simulator logs (when available).
-- `A_cmd`: policy output action command.
-- `A*`: teacher/optimal action (when available).
-- `D_vla`: chosen VLA internal representation (explicit or hidden; layer choice is part of the experiment).
-- `D_pred` (optional): predictor internal representation, *only if* it is actually exposed (rare; do not assume).
-
-**Recommended stage metrics (minimum viable):**
-| Stage | Primary metric(s) | What it measures | Notes |
-|-------|-------------------|------------------|-------|
-| **1. Predictor** | `quality(Flow_pred, Flow_gt)` (if `Flow_gt` exists) | World-model correctness | Use trajectory error metrics + confidence; if no `Flow_gt`, treat as qualitative/heuristic only |
-| **2. Flow extraction** | failure rate + confidence distributions | Pipeline health | Track “could not reconstruct”, lost tracks, depth failures; stratify later analysis by these codes |
-| **3. Policy integration** | hierarchical CI/PID on `(V, L, D_vla, Flow_pred; A_cmd or A*)` | Integration diagnostics | Apply only after preprocessing + Exp0 gate; start with CI screening, then targeted SxPID |
-| **4. Execution** | task success + state deltas | Embodiment/physics/control error | Do not force a PID definition here unless all variables are rigorously defined and justified |
-
-**Optional (exploratory) PID points (only if variables exist):**
-- `Syn(V, L; D_pred)` or `Syn(V, D_pred; Flow_pred)` to probe predictor internals **if** exposed.
-- `Syn(V, D_vla; Flow_gt)` when you can compute `Flow_gt` from simulator logs (bypasses video predictor geometry entirely).
-
-**Failure localization protocol (v10.0):** do not hard-code synergy thresholds. Instead, learn or calibrate a stage classifier on held-out tasks using the stage metrics above (and report uncertainty).
-
-```python
-def localize_failure(trial: Trial, clf) -> FailureStage:
-    feats = {
-        # Predictor quality (if GT exists)
-        "flow_err": flow_error(trial.Flow_pred, trial.Flow_gt) if trial.Flow_gt is not None else None,
-        "flow_conf_mean": float(np.mean(trial.Flow_pred.confidence)) if trial.Flow_pred is not None else None,
-
-        # Extraction / reconstruction health
-        "recon_failed": int(trial.stage_codes.flow_recon_failed),
-        "track_drop_rate": float(trial.stage_codes.track_drop_rate),
-
-        # Integration summaries (screening-friendly)
-        "ci_vl_a": trial.CI_VL_A,
-        "ci_vflow_a": trial.CI_VFlow_A,
-        # ... optionally: selected PID atoms, only if Exp0+geometry gates pass
-    }
-    return clf.predict(feats)
-```
-
-### 10.10.6 WAN Action Conditioning for Counterfactual Analysis
-
-WAN can be made motion/action-conditioned via Wan-Move (arXiv:2512.08765). The exact conditioning mechanism (guidance vs LoRA fine-tuning vs other adapters) is implementation-specific; verify the paper details before treating the conditioning signal as “actions”. This enables **counterfactual PID analysis**:
-
-```
-COUNTERFACTUAL ANALYSIS PROTOCOL
-════════════════════════════════
-
-1. Generate baseline video:
-   V_base = WAN(image, instruction)
-   Flow_base = extract_flow(V_base)
-
-2. Generate action-conditioned video:
-   V_action = WAN_Move(image, instruction, A_proposed)
-   Flow_action = extract_flow(V_action)
-
-3. Compute counterfactual PID:
-   ΔSyn = Syn(V, D_wan; Flow_action) - Syn(V, D_wan; Flow_base)
-
-4. Interpretation:
-   Treat ΔSyn as a candidate feature, not a ground-truth utility signal:
-   - ΔSyn may correlate with better predicted flow quality or downstream success, or it may not.
-   - Any use of ΔSyn for “action selection” requires calibration on held-out tasks, uncertainty estimates, and ablations that rule out trivial confounds (e.g., action magnitude).
-```
-
-**Use case (optional / exploratory):** before executing a VLA-proposed action, simulate it in a predictor and compute *changes in diagnostics* (ΔCI/ΔPID/Δflow-quality). Do not assume the predictor is an oracle; validate against simulator or sensor-derived trajectories when making “improves/degrades” claims.
-
-### 10.10.7 Computational Requirements Summary
-
-**Per-trial breakdown (benchmark on your hardware; avoid treating any numbers as guarantees):**
-
-| Component | What to measure | Notes |
-|-----------|-----------------|------|
-| Video generation (local or API) | wall-clock time, peak VRAM | record model name/revision, frames/resolution, prompt, seed |
-| Segmentation | time/image, VRAM | often run once per clip; propagate masks if supported |
-| Point tracking | time/clip, VRAM | depends on number of points and clip length |
-| Depth estimation | time/frame, VRAM | relative vs metric depth; calibrate if absolute scale is required |
-| 3D flow reconstruction | time/clip, CPU/GPU | unprojection + filtering; log failures and confidence |
-| PID analysis (4 stages) | time/window, memory | depends on `(n,d,k)` and kNN backend; run Exp0 gate first |
-| Rendering (optional) | fps, end-to-end latency | depends on scene complexity and GPU |
-| **Total per trial** | sum | report separately for online loop vs offline analysis |
-
-**Hardware note (v10.0):** this document does not prescribe a “minimum GPU”. The implemented core (`pid-rs/crates/pid-core`) runs on CPU. Any additional requirements are determined by the specific VLA checkpoint(s), video predictor(s), and scene complexity you choose. Prefer offline-first pipelines and cache artifacts so that interactive diagnostics do not depend on real-time video generation.
-
-### 10.10.8 Comparison: VLA Internal D vs External Predictor‑Derived Flow
-
-This architecture enables direct comparison between VLA internal representations and an external predictor’s reconstructed Flow targets (when available):
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│              VLA vs EXTERNAL PREDICTOR (FLOW) COMPARISON                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Same input (V, L)                                                           │
-│       │                                                                      │
-│       ├──────────────────────┬────────────────────────┐                     │
-│       ▼                      ▼                        ▼                     │
-│  ┌─────────────┐      ┌─────────────┐         ┌─────────────┐              │
-│  │   OpenVLA   │      │  DreamVLA   │         │ Video/Flow  │              │
-│  │             │      │             │         │  Predictor  │              │
-│  └──────┬──────┘      └──────┬──────┘         └──────┬──────┘              │
-│         │                    │                       │                      │
-│         ▼                    ▼                       ▼                      │
-│  D_openvla (implicit)  D_dreamvla (predicted world knowledge)  Flow_3D (explicit)│
-│         │                    │                       │                      │
-│         └────────────────────┴───────────────────────┘                      │
-│                              │                                               │
-│                              ▼                                               │
-│                    PID Comparison Matrix:                                    │
-│                                                                              │
-│  Syn(V, D_openvla; A)  vs  Syn(V, D_dreamvla; A)  vs  Syn(V, Flow; A)       │
-│                                                                              │
-│  Questions answered:                                                         │
-│  • Which “D” proxy is more informative about A under matched controls?      │
-│  • Does an explicit flow intermediate provide a cleaner diagnostic target   │
-│    than high‑D latent “D” proxies (after geometry + Experiment 0 gates)?    │
-│  • Do synergy/CI patterns correlate with task success under preregistered   │
-│    confound controls?                                                      │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 10.10.9 Research Payoffs
-
-If this integration succeeds:
-
-1. **Diagnostic power:** Localize VLA failures to specific stages (world model vs action decoder vs embodiment)
-2. **Reference predictor:** Use WAN-like video models as a comparison baseline for world prediction (not a ground-truth oracle)
-3. **Visualization:** Intuitive 3D visualization of information integration via PID-colored Gaussian splats
-4. **Counterfactual analysis:** Test "what if" scenarios with action-/motion-conditioned predictors (when supported)
-5. **Reward design:** Use PID + flow as combined reward signal for RL fine-tuning
-
-### 10.10.10 Limitations and Caveats
-
-1. **Computational cost:** Often offline-scale and workload-dependent. Pre-compute flows for offline analysis and report measured runtimes.
-
-2. **Predictor quality variance:** predictor failure modes vary widely. Validate Flow reconstruction quality and bias before drawing conclusions.
-
-3. **Not a replacement for Experiment 0:** This architecture is post-Experiment-0 work. The core PID estimator must be validated on synthetics first.
-
-4. **Embodiment transfer is empirical:** do not assume PID patterns transfer across embodiments; evaluate under matched task/scene controls.
-
-5. **Action/motion conditioning may require training:** treat conditioning fine-tunes as a separate, data/compute‑heavy project; only pursue if it materially improves the diagnostic question.
-
-### 10.10.11 Implementation Roadmap
-
-| Phase | Components | Order only (not a schedule) | Dependencies |
-|-------|------------|----------|--------------|
-| **0** | Experiment 0 validation | First / blocking | pid-core gate repair complete |
-| **1** | Video predictor service (local or API) | After Phase 0 | Predictor available + logging/caching |
-| **2** | Vision foundation model integration | After Phase 0 | Segmentation + tracking + depth models (versions vary; benchmark) |
-| **3** | 3D flow extraction | After Phase 2 | Phase 2 complete |
-| **4** | PID analysis on flows | After Phase 3 | Phase 3 + validated estimator regime |
-| **5** | Gaussian splat visualization | After diagnostic need exists | Rerun-first acceptance; SparkJS/Tauri remains Phase 4 |
-| **6** | Counterfactual analysis (optional) | After Phase 4 evidence | Motion/action conditioning method (verify) |
-
-**Go/No-Go gates:**
-- After Phase 0: If Experiment 0 fails, entire integration is blocked
-- After Phase 3: If flow extraction quality is poor, fall back to VLA-only PID
-- After Phase 4: If PID on flows shows no signal, reconsider integration value
-
-### 10.10.12 Manifold Geometry Considerations (v6.3)
-
-The Dream2Flow + WAN + PID pipeline operates on high-dimensional embeddings where manifold structure matters. This section connects the v5.5/v5.6 manifold challenges to the unified architecture.
-
-#### 10.10.12.1 Geometry at Each Pipeline Stage
-
-| Stage | Representation | Dimension | Geometry Concern | Mitigation |
-|-------|---------------|-----------|------------------|------------|
-| **WAN hidden states (D_wan)** | Transformer activations | High‑D (model-specific; verify) | May be anisotropic/concentrated/hierarchical | Run §16 diagnostics first; avoid assuming Euclidean validity |
-| **3D Object Flow** | Point trajectories | 3×T (Euclidean; can be high-d) | No non-Euclidean metric issue, but high-d concentration/autocorrelation can still bite | Aggregate to low-d object features; run §16 diagnostics + Experiment 0 |
-| **VLA embeddings (D_vla)** | Policy/world-model latents | High‑D (model-specific; verify) | High-d anisotropy/concentration and representation-dependent geometry | Apply §16 diagnostics; reduce/quantize as needed |
-| **PID-colored splats** | Visualization only | 3D + color | N/A | No estimation, just rendering |
-
-**Key insight:** The 3D object flow target (Stage 3) is **explicitly Euclidean**. When represented as low‑dimensional aggregated object trajectories (rather than a full \(3NT\) tensor), it can reduce reliance on non‑Euclidean latent distances; you still must run geometry diagnostics + Experiment 0 on the chosen flow representation.
-
-#### 10.10.12.2 How v5.6 Manifold Approaches Apply
-
-| v5.6 Approach | Applicable To | Integration Notes |
-|---------------|--------------|-------------------|
-| **Manifold Unrolling (Isomap/AE)** | D_wan, D_vla | Apply before comparing to Flow |
-| **Geodesic MI** | D_wan↔Flow, D_vla↔Flow | Use for MI-only comparisons |
-| **Linear Projection (PCA)** | D_wan, D_vla | Test local flatness first (§16.6) |
-| **Quantization** | D_wan, D_vla | Maps to discrete clusters; bypasses geometry |
-| **Copula Transform** | D_wan, D_vla | Mitigates empty-space at d=4096 |
-
-**Recommended protocol:**
-```
-GEOMETRY-AWARE DREAM2FLOW-PID PROTOCOL
-═══════════════════════════════════════
-
-1. Extract `D_wan` (if exposed) from the predictor run (dimension is model-specific)
-2. Extract 3D Flow from vision models (Euclidean representation; may still be high‑D before aggregation)
-3. Run geometry diagnostics on D_wan:
-   ├── Intrinsic dimension (Levina-Bickel)
-   ├── δ-hyperbolicity (Gromov 4-point)
-   ├── Local curvature (Ollivier-Ricci)
-   └── Decision (no universal thresholds):
-       ├── If diagnostics suggest locally flat-ish + not strongly concentrated → PCA/whitening may make continuous SxPID plausible (still requires Experiment 0 on the full pipeline)
-       └── Otherwise → MI-only screening / quantization / Flow-as-Bridge (avoid “continuous PID atom” claims on raw embeddings)
-
-4. PID Analysis:
-   ├── Syn(V, D_wan_reduced; Flow)  ← D_wan after transform
-   ├── Syn(V, Flow; A)               ← Flow is already low-d
-   └── Full I^sx_∩ valid for Flow-based analysis
-```
-
-#### 10.10.12.3 The Hyperbolic/Lorentzian Connection
-
-Some studies report evidence of **hierarchical/hyperbolic structure** in modern embeddings (§16.7, §16.10); treat this as a measurable property, not a premise:
-
-| Evidence | Source | Implication |
-|----------|--------|-------------|
-| Some studies report hyperbolic structure in token embeddings | HypLoRA (arXiv:2410.04010) | WAN `D_wan` may have hierarchical geometry |
-| Some studies report low δ-hyperbolicity / ultrametric tendencies | arXiv:2512.20926 | Consider hyperbolic/hierarchical diagnostics (verify the exact setup/metric) |
-| HELM explores hyperbolic LLMs; improvements are benchmark-dependent | arXiv:2505.24722 | Hyperbolic projection is plausible but must be validated |
-
-**If D_wan is hyperbolic:**
-1. **For MI-only screening (CI):** Use geodesic MI estimator (Marx & Fischer 2021)
-2. **For full I^sx_∩:** Currently blocked — no hyperbolic I^sx_∩ exists (§16.4.2)
-3. **Workaround:** Use Flow as the bridge — it's Euclidean and connects V to A
-
-**The Flow-as-bridge insight:**
-```
-                 EUCLIDEAN          HYPERBOLIC?         EUCLIDEAN
-                 (3D points)        (4096d manifold)    (3D points)
-                     │                    │                  │
-    V ───────────────┼────→ D_wan ───────┼────→ Flow ───────┼────→ A
-    (image)          │    (WAN hidden)   │  (3D trajectory) │   (robot)
-                     │                    │                  │
-                     └────────────────────┴──────────────────┘
-                              Hyperbolic issues
-                              contained to D_wan
-                              
-    By computing PID on (V, Flow; A) instead of (V, D_wan; A),
-    we bypass the hyperbolic geometry challenge entirely.
-```
-
-#### 10.10.12.4 Hierarchical PID and 3-Source Scaling
-
-The Dream2Flow pipeline enables **natural 3-source decompositions** that relate to §16 hierarchy discussions:
-
-**3-Source candidates:**
-- `(V, D_wan, Flow; A)` — Vision + WAN world model + explicit flow → Action
-- `(V_coarse, V_fine, Flow; A)` — Multiscale vision + flow (PixelVLA-style)
-- `(V, Flow_object, Flow_robot; A)` — Separate object vs robot motion
-
-**Hierarchy implications:**
-1. **Level 1 screening:** Compute CI on all pairs — O(n²) per pair, fast
-2. **Level 2 targeted PID:** Full I^sx_∩ on suspicious pairs
-3. **Level 3 full 3-way:** Only if 2-way shows interesting patterns
-
-**Connection to §16.8 SAE analysis:**
-- Apply SAE to D_wan before PID
-- Reduce to interpretable features (e.g., 64 SAE latents)
-- Compute PID on (V, SAE_latents; Flow) — lower dimension, more interpretable
-
-### 10.10.13 VLA Integration Matrix (v10.0)
-
-This section maps how each VLA architecture integrates with the Dream2Flow + WAN + PID pipeline. v10.0 uses a **contract-first** framing: avoid assuming internal module names or fixed tensor shapes unless you have verified them for your exact checkpoint.
-
-#### 10.10.13.1 VLA ↔ PID Variable Contract (model-agnostic)
-
-For every run, define and log the analysis variables explicitly:
-- `V`: a **pre-fusion** vision representation (e.g., pooled vision tokens or a chosen vision-layer summary).
-- `L`: a **text/instruction** representation (token pool or selected layer summary).
-- `D`: a **world/plan** representation. This can be:
-  - **Explicit** (`D_explicit`): predicted world-knowledge channels/cues, if the model exposes them (preferred when available).
-  - **Implicit** (`D_hidden[k]`): selected hidden state(s) of the policy backbone (treat layer choice as an experimental variable).
-  - **Fused** (`D_fused`): a post-fusion representation that mixes vision + language.
-- `A`: the action output (continuous or discrete; representation is model-specific).
-  - **Action chunking (v10.2):** many current VLAs emit action *chunks* rather than single steps (e.g., π0-family flow policies; OpenVLA-OFT's parallel-decoded chunks, arXiv:2502.19645). The contract must record the chunk horizon `H` and an explicit choice of PID target: per-step action, full chunk (dimension `H × d_a`), or a declared chunk summary. Chunking changes both the target dimensionality (estimator regime!) and the effective sampling unit (§9.0); do not mix chunk- and step-level targets across runs being compared.
-
-**Hard requirement:** the harness must log `model_id`, revision/commit hash, preprocessing, seed(s), layer IDs for any extracted representations, and timestamp alignment with simulator state.
-
-#### 10.10.13.2 Candidate VLAs and Operational “D” Definitions (known vs verify)
-
-| VLA | Primary source | `D` for PID (candidate) | Best-fit hypotheses / decompositions | Verify before using |
-|-----|----------------|-------------------------|--------------------------------------|---------------------|
-| **OpenVLA** | arXiv:2406.09246 | `D_hidden[k]` (selected backbone state) or `D_fused` | Baseline 2-way: `(V,D;A)`; Flow-as-bridge: `(V,D;Flow)` and `(V,Flow;A)`; optional 3-way/hierarchical with `Flow` | Action parameterization; where to hook `V/L/D`; geometry gate results for chosen reps |
-| **TraceVLA** | arXiv:2412.10345 | `D_hidden[k]` plus an explicit **trace input** channel (treat as an additional source) | Temporal hypotheses: H5-style “synergy half-life”; 3-way candidates: `(V_now, V_trace, Flow;A)` or `(V_with_trace, D_wan;Flow_future)` | How traces are encoded; how to separate “trace vs image” in logged variables |
-| **DreamVLA** | arXiv:2507.04447 | `D_explicit` (world-knowledge forecasting outputs) if exposed; else `D_hidden[k]` | Cleanest for ablations: compare `(V, D_explicit; Flow)` against `(V, D_wan; Flow)`; channel-wise ablations for dynamic/spatial/semantic cues | Exact output formats/dims; weights/code availability; whether explicit channels are logged per-step |
-| **InternVLA‑A1** | GitHub + project page + HF model card (verify) | `D_explicit` from the **generation expert** (predicted future visual states / dynamics; representation depends on implementation) | Ideal for stage-wise decomposition inside one model: `(V, L; D_gen)` and `(V, D_gen; A)`; Flow-as-Bridge variant: compare `D_gen`-derived `Flow_pred` against simulator `Flow_gt` under matched controls | What the generation expert outputs (frames vs latents); how to export intermediates; action parameterization (“delta actions”; Flow‑Matching head is a generative method, not geometric flow); licensing (verify); patched Transformers constraints |
-| **PixelVLA** | arXiv:2511.01571 | Model-dependent: pixel-/prompt-conditioned representation (verify) | Spatial PID when pixel-aligned variables exist: `(V_region, Flow_region;A)`; hierarchical: region-level CI screening → targeted PID | What is actually exposed (pixel maps vs pooled); backbone/API; dataset access (Pixel‑160K) |
-| **SmolVLA** | LeRobot (verify) | Whatever is accessible (`D_hidden[k]` / `D_fused`) | Harness/debug baseline: run Experiment 0/1 quickly; do not over-interpret cross-model semantics | Everything: backbone, action rep, licensing, async semantics, hook points |
-| **PI “π” series** (`π0`, `π0.5`, `π0.6*`, `π0.7`) | PI vendor papers/blog posts (see §7.5 / §13.2; verify access) | `D` unknown: treat as `D_hidden[k]` / `D_fused` **only if** you can export per-step embeddings/hidden states; otherwise `D` is not available. `π0.7` (PI blog 2026-04-16) reportedly steers behavior via **visual subgoals from a lightweight world model** — if those subgoal images/latents were exportable they would be a `D_explicit` candidate, but the cloud-hosted serving model makes that unlikely | **Black-box comparator** for behavior-only metrics (success/robustness). If internals are accessible, you may apply the same `V/L/D/A` contract as OpenVLA, but preregister all hook points and rerun Exp0 + geometry gates | Access mode (API vs weights); whether internals can be logged; determinism/replay; licensing/ToS constraints |
-| **Qwen-VLA** (v10.2) | arXiv:2605.30280 + `QwenLM/Qwen-VLA` (reported open weights; verify revision/license) | `D_hidden[k]` from the Qwen-VL backbone and/or DiT action-decoder conditioning states (verify exportability) | Unified manipulation+navigation in one model → cross-task PID comparisons under one backbone; cross-embodiment comparisons (with the prompt-conditioning confound below) | Which intermediates are exportable; action-chunk horizon; **embodiment-aware prompt conditioning puts embodiment identity inside `L`** — control for this before interpreting `V–L` atoms across platforms (§14.5.7) |
-| **V-JEPA 2-AC** (v10.2) | arXiv:2506.09985 | Predicted future latents from the action-conditioned predictor — *causally used* for MPC action selection | Strongest Exp4/H3 candidate: intervening on `D` provably changes `A` by construction; `(V, D_latent; A)` with planning-horizon ablations | Latent dims/pooling and geometry gates; planning-loop determinism; DROID-finetune scope |
-| **Cosmos3-Nano-Policy** (v10.2) | NVIDIA vendor release + RoboLab leaderboard listing (verify) | Reasoning-tower states (`D_reason`) and/or generation-tower predictions (`D_gen`) — two distinct candidates; verify exportability | Open checkpoint reported atop a DROID-finetuned generalist leaderboard with an explicit world-model backbone → practical V-D-A candidate at scale | Checkpoint access + OpenMDW-1.1 license terms; which tower states are exposed per step; compute requirements (16B Nano) |
-| **World Pilot** (v10.2) | arXiv:2606.12403 (verify) | WAM priors via two separable injection pathways: `D_latent_steer` (conditions perception) and `D_action_steer` (guides the action head) | **Best built-in intervention surface seen so far:** disabling/zeroing one pathway at a time is a model-native intervention for H3/Exp4 — compare `Unq(D;A)` predictions against pathway-ablation effects without constructing artificial perturbations | Whether pathway activations are exportable per step and whether pathways can be ablated independently at inference; checkpoint/code availability; action representation |
-
-**Geometry note:** do not assume “d=4096” or “RoPE entanglement” for every model. If you use a RoPE-based backbone (e.g., Llama-family), consider exporting a **pre-attention residual stream** representation as one candidate `D_hidden[k]`, but treat this as an empirical mitigation and validate via the Geometry Gate + Experiment 0.
-
-#### 10.10.13.3 Decision Matrix: Which VLA for Which Analysis (v10.0)
-
-| Analysis goal | Suggested VLA | Reason (constraint-first) |
-|---------------|---------------|---------------------------|
-| **Harness + estimator bring-up** | SmolVLA (or any small open baseline) | Faster iteration for logging/interventions/geometry gating before scaling up |
-| **Diffusion / flow-matching baseline** | InternVLA‑A1 (if runnable/licensing ok) | Tripartite “understanding/generation/action” design makes an explicit generative intermediate available; good for stage-wise ablations without adding a separate video predictor |
-| **Core PID study on a widely used target** | OpenVLA | Most likely to be runnable and comparable; `D` is implicit but extractable |
-| **Explicit world-model ablations** | DreamVLA (if accessible; see §7.2) | Operational `D_explicit` makes interventions and interpretation cleaner |
-| **Temporal dynamics / history effects** | TraceVLA | Trace input explicitly manipulates history dependence |
-| **Spatial / pixel-aligned diagnostics** | PixelVLA (if integration supports it) | Pixel-level variables enable localized PID/CI analyses |
-| **Closed-source black-box baseline** | PI “π” series (if you can run it) | Useful to contextualize behavior-level performance/robustness, but **do not** claim internal PID on `V/L/D` unless per-step representations are exportable and logged |
-
-#### 10.10.13.4 Vision Model Placeholders (v10.0 note; verify)
-
-Earlier drafts referenced specific “v3/3” releases for segmentation/tracking/depth. Treat those as **placeholders** for whichever *current, available* models you can actually run and license. For scientific rigor, log the exact model name, version/commit hash, and license for every run.
-
-| Category | Example choices (non-exhaustive) | Notes |
-|----------|----------------------------------|-------|
-| Segmentation | SAM2 or equivalent promptable segmenter | Validate mask quality and temporal consistency for your scenes |
-| Tracking | CoTracker (or equivalent point tracker) | Log number of points, confidence, and failure modes |
-| Depth | Depth-Anything v2 (relative) and/or a metric-depth baseline (e.g., Metric3D), plus RGB-D when available | Calibrate if absolute scale is required; handle transparents separately (e.g., DKT) |
-
-**Performance:** Do not assume fixed ms/frame latencies or “2× speedups”. Benchmark your pipeline on your hardware and report measured ranges.
-
-#### 10.10.13.5 Integration Contract: Tauri ↔ “Dream” Services (Dream2Flow / DreamVLA / Similar)
-
-To keep the diagnostics scientifically interpretable and the system maintainable, treat world models and flow extractors as **external, versioned services**. The Tauri app should orchestrate requests, cache artifacts, and provide synchronized playback/overlays; it should not silently “bake in” a particular video model as ground truth.
-
-**Minimum request payload (inputs):**
-- `obs_rgb` (+ optional `obs_depth`), camera intrinsics/extrinsics, timestamp
-- `instruction` (text) and task metadata
-- optional `state` (robot joints, gripper, object poses if privileged)
-- `model_id` / revision + `seed` (for reproducibility)
-
-**Minimum response payload (outputs):**
-- optional `video` (frames + metadata) for qualitative inspection
-- `flow` in an explicit Euclidean form (prefer **object-level trajectories** or other low‑D summaries over full \(3NT\) tensors)
-- optional `world_knowledge` (DreamVLA-style): dynamic-region cue + spatial cue(s) + semantic cue(s), plus any intermediate “world embedding” if exposed
-- per-stage confidence/error codes (generation / reconstruction / control), so analysis can stratify by stage outcome
-
-**PID/analysis requirements:**
-- Define `D` explicitly for each run (what tensor is “D”? predicted cues, intermediate embedding, hidden state layer, etc.).
-- Run geometry diagnostics + Experiment 0 on **the exact variables used** (`V`, `D`, `Flow`, and their joint concatenations after preprocessing).
-- Treat generated video/flow as a **predictor output**, not a ground-truth oracle; validate “flow quality” against simulator logs or real sensor-derived trajectories when making claims about world-model correctness.
-
----
-
-# 11. Technical Implementation
-
-## 11.1 Technology Stack
-
-### 11.1.1 Core Components
-
-| Component | In repo (audited 2026-07-10) | Status | Notes |
-|-----------|-----------------|--------|------|
-| Continuous MI + 2-source SxPID | `pid-rs/crates/pid-core` | Implemented | KSG MI + continuous `I^sx_∩` (`IsxMethod::EhrlichKsg`); a 3-source wrapper exists (`pid3_isx`) but is research/experimental and must be re-validated under the same Exp0 + geometry-gate discipline |
-| Geometry diagnostics + screening | `pid-rs/crates/pid-core`; local harness integration | Partially implemented | Intrinsic dimension, distance concentration, sampled-mean δ/δ_rel. δ is descriptive, not a gate. The local strict geometry gate still needs δ removal, calibrated thresholds, and VD/LD joint-space coverage before H8 activation. |
-| Supervised dim reduction (PLS) | `pid-rs/crates/pid-core` (`pls.rs`) | Implemented (2026-06-11) | NIPALS-PLS2 fit/transform for target-aware projection. It does not prove all unsupervised methods fail; leakage controls, a frozen train-fit transform, shuffled-target control, and regime re-validation are required (§8.2.3). |
-| Discrete PID via quantization | `pid-rs/crates/pid-core` (`discrete_pid.rs`) | Implemented (2026-06-11/12) | Equal-width per-dimension binning + counting entropies; 2-source and 3-source (`discrete_pid3`, 18 antichains); redundancy is a Williams–Beer-style `I_min` functional, **not** discrete `i^sx_∩` — see §8.1.6 for measure identity and the saturation gate |
-| Resampling uncertainty | `pid-rs/crates/pid-core` (`bootstrap.rs`, `pipeline.rs`) | Implemented with scope limits | Moving/block resampling is variance-only and needs stationarity/block calibration. Raw m-out-of-n percentiles are a **stability envelope at m**, not an n-sample CI; do not use them for significance (§8.4.3). |
-| Pipeline composition helpers | `pid-rs/crates/pid-core` (`pipeline.rs`) | Implemented (2026-06-12) | `pls_project_then_pid3`, `pls_project_then_discrete_pid3`, `bootstrap_pid3` (per-atom CIs), `permutation_pid3` (single-source nulls), `pls_cv_select_components` (LOO Q²), `screen_pid2_pairs`; leakage warnings in rustdoc — train/transform discipline still applies (§8.2.3) |
-| Python bindings (PyO3) | `pid-rs/crates/pid-python` → `pid_core_rs` | Implemented (extension crate) | 18 exported functions as of the pid-rs 0.3.0 adoption (see §11.1.2); Maturin build backend is wired for local builds; publishing remains planned |
-| Minimal “Experiment 0” runner | `pid-rs/crates/pid-core/src/bin/exp0.rs` + `just exp0` | Implemented; gate repair required upstream | High-d MI/coherence path is NO-GO. Default aggregate contains a known-wrong `I^sx` atom target; `--strict-gate` enforces a curated low-d MI band and reports rather than gates atoms. Split `MI_GATE`/`ISX_GATE` before scientific use (§9.1). |
-| Run-log schema + replay summary | `pid-rs/crates/pid-runlog` + `pid-runlog-replay` | Implemented (M1 groundwork) | Versioned JSONL events, validation, hashes/manifests/sidecars, replay summaries, `Flow_gt`/`flow_pred`, and first-class `attribution_logged`. The local Rerun adapter surfaces attribution faithfulness/provenance and capped `.npy` values; bounded streaming/hash/path hardening remains open. |
-| Agent Bridge event core | `crates/pid-bridge` | Implemented (M2 groundwork) | Local request/response schema, dispatcher abstraction, JSON-RPC-shaped request/response conversion, run-log integration, bridge/run-log contract JSON export, action/intervention contract flags, safe-mode gates, and stdio/TCP/WebSocket JSON-RPC transports for the deterministic sim |
-| Deterministic object sim + `Flow_gt` | `crates/pid-sim` + demo binaries | Implemented (M3 smoke groundwork) | Object-only fixed-step sim writes canonical run logs and simulator-derived `Flow_gt` plus a constant-velocity baseline `flow_pred`; bridge session demo, stdio/TCP/WebSocket JSON-RPC bridges, read-only `log.replay`, `log.start`/`log.stop`, deterministic interventions, file-writing `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` embedding harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, replay-visible total metric event counts, and failure-class confusion/rate diagnostics exist; a `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend** (gravity, contacts, friction, deterministic substepping) exists behind the optional `rapier` feature, plus a scripted push-to-goal manipulation (`pid-rapier-harness`) emitting real `Flow_gt` and physics-derived success labels (box-collider geometry; mesh-collider ingestion and MuJoCo/Isaac adapters remain planned); the offline harness also has an opt-in `--bootstrap`/`--permutation` PID-screen uncertainty path (written to a dedicated file) and a SAFE-class logistic-regression held-out baseline; a high-dimensional synthetic VLDA fixture (v=128, l=64, d=32, a=7; n=48) exists for CI smoke only (n=48 is far below evidence-grade sample sizes) |
-| Rerun diagnostic adapters | `crates/pid-rerun` | Prototype | SDK adapters, `vla_demo`, validating run-log conversion, summary/provenance/validation tracks, and attribution tracks exist; full Phase 1–3 viewer/blueprints remain a spec. |
-| Interactive UI (Phase 4) | `crates/pid-tauri` | Planned | UI + GPU renderer (SparkJS/Three.js/WebGL2 or equivalent); deferred until Rerun-First phases complete |
-| Experiments + assets | `experiments/{safe_adapter,attribution}`, `assets/prisoma-logo.svg` | Partial | SAFE conversion and reference attribution packages plus the logo are tracked. A full 3DGS asset/dataset pipeline is not implemented; quarantined `meshmaker` material is not a runnable asset tool. |
-| Statistical power sensitivity | `crates/pid-sim/src/power.rs`, `docs/power-gate/` | Implemented but **not capture-ready** | First-run idealized endpoint simulator and audit artifacts exist. H4 direction, nesting, effect calibration, ICC, measurement error, and selected-design type-I issues prevent capture sizing (§14.8.3). |
-| World-model / video predictor | Out-of-process service | Planned | Versioned external dependency (no oracle framing); logs seeds/artifacts |
-
-### 11.1.2 Python Bindings
-
-The repo ships a PyO3 extension crate (`pid-rs/crates/pid-python`) that builds a Python module named `pid_core_rs` exposing 18 functions (as of the pid-rs 0.3.0 adoption; the three `compute_discrete_sxpid*` genuine discrete-`i^sx_∩` estimators are new in 0.3.0 and not yet wired into the offline harness — §8.1.6):
-- `compute_mi`
-- `compute_redundancy` (continuous `I^sx_∩` redundancy for 2 sources)
-- `compute_co_information`
-- `compute_pid2`
-- `compute_pid3` (3-source SxPID; research/experimental — same Exp0 + gate discipline)
-- `compute_discrete_pid2` (quantization path; `I_min`-style redundancy, **not** `i^sx_∩` — see §8.1.6)
-- `compute_discrete_pid3` (3-source quantized `I_min` over the 18-atom lattice; different measure — do not pool with continuous atoms, §8.1.6)
-- `compute_discrete_sxpid2` (2-source genuine discrete shared-exclusions `i^sx_∩`; new in pid-rs 0.3.0)
-- `compute_discrete_sxpid3` (3-source genuine discrete shared-exclusions `i^sx_∩`; new in pid-rs 0.3.0)
-- `compute_discrete_sxpid_n` (n-source discrete SxPID, n = 2–4 — errors above 4; new in pid-rs 0.3.0)
-- `compute_invariants`
-- `estimate_intrinsic_dimension`
-- `estimate_gromov_delta`
-- `distance_stats`
-- `pls_transform` (supervised PLS projection; leakage rules in §8.2.3)
-- `standardize`
-- `pca_transform`
-- `hash_project`
-
-Publishing a wheel is planned; local builds use the Maturin-backed `pyproject.toml`.
-
-```python
-import numpy as np
-import pid_core_rs as pid
-
-# Two-source SxPID sketch (V,D -> A). Shapes: (N,dv), (N,dd), (N,da)
-I_v_a = pid.compute_mi(V, A, k=3)
-I_d_a = pid.compute_mi(D, A, k=3)
-I_vd_a = pid.compute_mi(np.concatenate([V, D], axis=1), A, k=3)
-R = pid.compute_redundancy(V, D, A, k=3)
-syn = I_vd_a - I_v_a - I_d_a + R
-```
-
-## 11.2 Project Structure
-
-This section distinguishes the **current repo layout** from the **target layout** described in the broader system spec.
-
-**Current (in this repo, v10.7):**
-
-```
-prisoma/
-├── Cargo.toml / Cargo.lock   # workspace members: pid-bridge, pid-rerun, pid-sim
-│                             # (crates/ncp-observer and pid-rs/ are workspace-EXCLUDED)
-├── pid-rs/                   # git SUBMODULE — estimator core lives upstream, not here
-│   └── crates/
-│       ├── pid-core/         # KSG MI, continuous I^sx_∩, PLS, discrete I_min + SxPID,
-│       │                     # geometry diagnostics, pipeline.rs, bin/exp0.rs
-│       ├── pid-python/       # PyO3 bindings (pid_core_rs; 18 functions)
-│       └── pid-runlog/       # M1 run-log schema + replay/validate/summary CLI
-├── crates/
-│   ├── pid-bridge/           # Agent Bridge dispatch + JSON-RPC + contract export
-│   ├── pid-sim/              # deterministic sim + toy/offline/Rapier harness bins
-│   ├── pid-rerun/            # run-log → Rerun conversion + replay adapter
-│   └── ncp-observer/         # optional read-only NCP tap (workspace-excluded)
-├── experiments/              # TRACKED Python packages: safe_adapter/ (M5 critical
-│                             # path) and attribution/ (H9 faithfulness probe)
-├── scripts/                  # doc-audit + repo tooling (audit_*.py, …)
-├── tests/                    # workspace-level tests
-├── assets/                   # local/ignored asset drop location; no tracked asset set
-├── outputs/                  # local caches/logs (e.g., arXiv ref cache)
-├── uidesigner/               # UI spec + prompt-loop tooling
-├── meshmaker/                # asset tooling
-├── justfile
-├── flake.nix
-├── pyproject.toml / uv.lock
-└── *.md (docs)
-```
-
-**Repo status (v10.2):**
-- Implemented: `pid-rs/crates/pid-core` (KSG MI, continuous `I^sx_∩` via `IsxMethod::EhrlichKsg`, 2-way and 3-way wrappers, PLS supervised dimensionality reduction (`pls.rs`), discrete 2-source PID via quantization (`discrete_pid.rs`; `I_min`-style redundancy — §8.1.6), block-bootstrap uncertainty (`bootstrap.rs`), preprocessing hooks, intrinsic-dimension diagnostics, geometry diagnostics, distance concentration, and a Rust `exp0` runner with `--strict-gate`), `pid-rs/crates/pid-python` (PyO3 bindings; 18 functions), `pid-rs/crates/pid-runlog` (M1 run-log schema/replay/validation/summary/manifest/sidecar write-and-verify groundwork plus `Flow_gt`/`flow_pred` events), `crates/pid-bridge` (M2 event-core, dispatcher, JSON-RPC request/response groundwork, bridge/run-log contract export, and stdio/TCP/WebSocket transport coverage), and `crates/pid-sim` (M3 deterministic smoke sim, bridge demo, stdio/TCP/WebSocket JSON-RPC bridges, `log.replay`/`log.start`/`log.stop`/`export.rerun`, deterministic interventions, `Flow_gt` verification, baseline `flow_pred`, action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics/gates, fail-closed strict label/geometry/held-out-split/held-out-class-coverage/held-out-episode-disjoint modes, sample-level, episode-grouped, plus metadata-split held-out majority/1-NN/nearest-centroid success-label baselines with accuracy, balanced accuracy, and centroid AUROC, plus held-out class-coverage and episode-disjointness reports, per-sample prediction records in summaries/run logs, a SAFE-class logistic-regression held-out baseline (`heldout_logreg_vlda`), an opt-in `--bootstrap`/`--permutation` PID-screen uncertainty path, and failure-class confusion/rate diagnostics; also a `PhysicsBackend` trait with null adapter and a **real `rapier3d-f64` backend** (gravity/contacts/friction) + a scripted push-to-goal manipulation (`pid-rapier-harness`) behind the optional `rapier` feature, and a high-dimensional synthetic VLDA fixture (v=128, l=64, d=32, a=7; n=48 — CI smoke only)), and Python `experiments/` (`safe_adapter` SAFE→`(V,L,D,A)` converter + §7.6.3 hook-probe; `attribution` faithfulness-checked H9 probe emitting `attribution_logged` run logs).
-- Prototype: `crates/pid-rerun` (minimal Rerun logging adapters, a `vla_demo` binary, and a run-log replay adapter with summary/provenance/validation diagnostics).
-- Planned: `crates/pid-tauri` (visualization app), physics-backed simulator adapters beyond the Rapier stub, and a Python experiment harness (location TBD: `python/` or `experiments/`), plus asset/tooling scripts to populate local/ignored assets and datasets.
-- Implemented (second 2026-06-12 slice): discrete 3-source PID (`discrete_pid3`; `I_min` over 18 antichains), the `pid-core` `pipeline.rs` composition layer (PLS→PID3, `bootstrap_pid3` per-atom CIs, `permutation_pid3` single-source nulls, `pls_cv_select_components`, `screen_pid2_pairs`), and offline-harness `--pid-mode continuous|discrete|discrete-pls` with `--discrete-bins`/`--pls-components` plus per-pair `discrete_saturation` diagnostics (§8.1.6 gate; `just offline-harness-discrete`, `just offline-harness-discrete-pls`).
-
-## 11.3 Reproducibility
-
-**Canonical (repo truth):** `flake.nix`, `pyproject.toml`, and `uv.lock` at the repo root; add `flake.lock` only once the Nix inputs are locked in-repo.
-
-If the examples below diverge from the repo files, **prefer the repo files**. (This document is a spec; the repo is the executable artifact.)
-
-### 11.3.1 Nix Flake
-
-```nix
-{
-  description = "prisoma (macOS-first): reproducible dev shell for Rust + Python (uv)";
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
-    flake-utils.url = "github:numtide/flake-utils";
-  };
-
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            just
-
-            # Rust toolchain (pin via flake.lock if committed).
-            rustc
-            cargo
-            rustfmt
-            clippy
-
-            # Python + uv (pin Nix via flake.lock if committed; pin deps via uv.lock).
-            python311
-            uv
-          ];
-
-          # Prefer a system/Nix-provided Python; do not auto-download Pythons.
-          UV_NO_MANAGED_PYTHON = "1";
-          UV_PYTHON_DOWNLOADS = "never";
-        };
-      }
-    );
-}
-```
-
-**Lockfile note:** commit `flake.lock` once generated/updated with `nix flake lock`; until then, `uv.lock` is the tracked Python dependency lockfile.
-
-### 11.3.2 uv for Python
-
-```toml
-[project]
-name = "prisoma"
-version = "0.1.0"
-description = "Wibral-group shared-exclusions PID (I^sx_∩) for VLA diagnostics"
-readme = "README.md"
-requires-python = ">=3.11"
-
-# Keep base dependencies minimal; add groups as needed.
-dependencies = []
-
-[dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.6"]
-analysis = ["numpy>=1.26", "scipy>=1.11", "pandas>=2.2", "matplotlib>=3.8", "seaborn>=0.13"]
-report = ["reportlab>=4.0"]
-
-[tool.uv]
-default-groups = ["dev", "analysis"]
-```
-
-**Lockfile requirement:** commit `uv.lock` and use `uv sync --frozen` for deterministic installs.
-
----
-
-## 11.4 Agent Bridge (Automation + Live Intervention)
-
-The PID‑Splat simulator is intended to be **interactive** (GUI) *and* **programmable** (automation). A key design requirement is that the GUI is not a dead end: every operation that matters for experiments (scene edits, perturbations, run control, data export, replay) must be callable through a stable interface that works well with **Claude Code / Codex / opencode‑style tooling**.
-
-**Design goals:**
-- **Single source of truth:** the UI uses the same API as external tools (no “hidden clicks” that break reproducibility).
-- **Live intervention:** apply perturbations while the sim is running (with bounded latency and backpressure); heavy computations remain offline-first.
-- **Auditability:** every remote action is appended to the run log with `actor`, `client_id`, and payload hash; this makes “LLM-in-the-loop” experiments reproducible.
-- **Safety:** local-only by default; explicit opt-in for remote access; capability/permission gating for destructive operations.
-
-**Recommended transport (planned):**
-- **Control plane:** JSON‑RPC 2.0 over WebSocket on `127.0.0.1` (easy from Rust/TS/Python).
-- **LLM tooling:** optional MCP server wrapper that exposes the same methods as tool calls (thin adapter; no separate logic).
-
-**Minimum method surface (sketch; versioned):**
-- `sim.start|pause|step|reset|status`
-- `scene.load|save|list|add_object|set_transform|set_material|remove_object`
-- `camera.get|set|keyframe|render_snapshot`
-- `obs.get|subscribe` (RGB/RGB‑D/proprio/state; in replay this is served from the run log)
-- `intervention.apply|list|undo|branch` (all interventions are log events)
-- `log.start|stop|export|replay`
-
-**Interoperability note (ML‑first simulators):**
-- Many training-oriented simulators expose a `reset/step` API plus a streaming channel for observations/state. Treat this as a *compatibility target* for the Agent Bridge: keep the RL-style subset small, stable, and easy to call from Python.
-- If a simulator already has its own WebSocket pub/sub + service layer (e.g., LuckyRobots’ documented node architecture, or dimos / DimensionalOS’s own LCM typed‑stream modules plus `McpServer`/`McpClient` agent RPC — Apache‑2.0, checked 2026‑06‑13), prefer a thin **adapter** that maps its messages into prisoma’s run‑log events, rather than forking the analysis stack per simulator.
-- **Read-only external `(V,L,D,A)` sources (optional; out of critical path).** An external embodied system can be made *another `(V,L,D,A)` source* via a passive read-only tap that emits the offline-harness contract + canonical run-log events and **drives nothing** (the Agent Bridge stays the only control plane). `crates/ncp-observer` is the worked example: it taps an Engram/NEST session over the Neuro-Cybernetic Protocol (Zenoh). This is **optional** and **not on the M5 critical path** — the canonical `(V,L,D,A)` producer is `experiments/safe_adapter` (§10.10.13), and the pure-PID stack has no Engram/NCP/Zenoh dependency (`ncp-observer` is excluded from the default cargo workspace). Such a tap is exploratory-only until it meets the M5 contract (gate-passing artifacts, honest provenance — `seq`-aligned D, non-fabricated `L`, split/episode/label structure for §14.1.1). See `NCP_DEV_PROMPT.md` and `crates/ncp-observer/README.md`.
-
-**Async/concurrency sketch (Rust-side):**
-- Keep physics stepping deterministic in a single “sim thread” or single-threaded task; apply interventions only at explicit checkpoints (`pause → apply → step/resume`).
-- Run I/O-heavy components (Zenoh pub/sub, JSON‑RPC WebSocket server, file export) on an async runtime and communicate with the sim loop via bounded channels (backpressure instead of unbounded queues).
-- Write the run log via an append-only writer task so GUI/LLM actions are recorded even if the UI crashes.
-
-This control plane is an *engineering enabler* for the scientific goals: it makes the preregistered intervention protocol (§9/§14) executable, reviewable, and repeatable.
-
-# 12. Open Questions and Future Directions
-
-## 12.1 Theoretical Open Questions
-
-### Q1: What Does Negative Synergy REALLY Mean for VLAs?
-
-The mathematical definition (subadditive information) doesn't directly map to "hallucination." We need empirical validation that Syn < 0 correlates with human-labeled failures.
-
-**Possible outcomes:**
-- Strong correlation → proceed with PID
-- Weak correlation → entropy may suffice
-- No correlation → abandon PID approach
-
-### Q2: Is the V-D-A Decomposition Fundamental?
-
-Why these three variables? Alternatives:
-- Proprioception vs Vision
-- Short-term vs Long-term memory
-- Task-specific vs General features
-
-### Q3: Can PID Be Used for Training (Not Just Diagnosis)?
-
-Infomorphic networks use PID as a training objective. Can we do the same for VLAs?
-- Requires differentiable PID
-- May be too noisy for gradient-based optimization
-- Aim 3 explores this
-
-## 12.2 Empirical Open Questions
-
-### Q4: At What Scale Does PID Work?
-
-The estimator is validated at ~100 dimensions. VLAs use 4096+. What's the practical limit?
-
-### Q5: How Much Data is Needed?
-
-PID estimation requires many samples. Is a single trajectory enough? Do we need thousands of rollouts?
-
-### Q6: Is Real-Time PID Feasible?
-
-For live intervention, diagnostics must be low-latency and stable. Is this achievable on the target hardware and scene/model sizes, or should “real-time” be restricted to CI/Ω screening with offline PID?
-
-## 12.3 Future Directions
-
-### Direction 1: Multi-Task PID Profiles
-
-Characterize PID signatures across tasks:
-- Do some tasks naturally have higher synergy?
-- Can PID predict which tasks a VLA will struggle with?
-
-### Direction 2: PID-Guided Data Collection
-
-Use PID to identify high-synergy demonstrations for training data augmentation.
-
-### Direction 3: Hierarchical PID
-
-Apply PID at multiple levels:
-- Token-level
-- Timestep-level
-- Trajectory-level
-- Task-level
-
-### Direction 4: Cross-Architecture Transfer
-
-Can PID profiles predict how well a policy will transfer across:
-- Embodiments
-- Environments
-- Task distributions
-
-## 12.4 NeurIPS 2025 Embodied AI Research Landscape (Community Observations)
-
-This section synthesizes key observations from the NeurIPS 2025 Embodied AI & Robotics tracks, based on Ralf Römer's conference field notes (Dec 2025, @ralfroemer99). These are **personal observations from a PhD researcher attending the conference**, not authoritative consensus statements. Each observation is evaluated critically for prisoma relevance, and claims should be validated against primary sources before depending on them.
-
-### 12.4.1 Continual Learning Gap
-
-**Community observation:** The ability to learn from experience is still largely missing in embodied agents. Continual deep learning (avoiding forgetting and plasticity loss) does not yet work well.
-
-**prisoma relevance:** This is orthogonal to PID diagnostics. PID measures information integration at inference time, not learning dynamics. However, if continual learning were solved, PID could diagnose whether newly learned representations integrate properly with prior knowledge (synergy between old and new task representations).
-
-**Implication:** prisoma focuses on diagnosing *deployed* policies, not training dynamics. Continual learning remains an upstream challenge.
-
-### 12.4.2 Imitation Learning Efficiency Limits
-
-**Community observation:** Learning from teleoperation data (imitation learning) is too inefficient to achieve long-term general autonomy on its own. Even for LLMs, supervised fine-tuning (imitation) on all internet data has plateaued, motivating RL-based approaches.
-
-**prisoma relevance:** This supports the project's diagnostic framing: if imitation alone cannot achieve reliable autonomy, understanding *why* policies fail becomes critical. PID can help identify whether failures stem from:
-- Insufficient V-L integration (missing grounding)
-- World model mismatch (D diverges from reality)
-- Compositional failure (H5: temporal synergy degradation)
-
-**Critical assessment:** The parallel to LLM SFT plateaus is apt but incomplete. Robot manipulation has fundamentally different data distributions (contact physics, embodiment constraints) than internet text. The bottleneck may be data *quality* and *coverage*, not just quantity.
-
-### 12.4.3 RL for VLAs: Emerging Hot Topic
-
-**Community observation:** RL for flow matching is being actively studied (e.g., ReinFlow, CQN-AS), but sample efficiency remains a challenge. For RL fine-tuning of VLAs on hard real-world tasks, a strong base policy and targeted exploration will be crucial.
-
-**prisoma relevance:** This directly supports Aim 3 (RL fine-tuning with PID-derived signals). Key implications:
-- **Sample efficiency:** PID-derived rewards (if validated) could improve sample efficiency by providing dense integration-quality signals, complementing sparse task rewards.
-- **Strong base policy requirement:** Validates the approach of using pretrained VLAs (OpenVLA, DreamVLA) as the base for PID analysis rather than training from scratch.
-- **Targeted exploration:** PID signatures could potentially guide exploration toward states where V-D integration is weak (high uncertainty regions).
-
-**Critical assessment:** The kNN-based `I^sx_∩` estimator is not differentiable, so direct PID-as-reward is not straightforward. Requires either:
-1. Differentiable surrogate trained to predict PID features (added training cost)
-2. Discretized/binned PID used as reward shaping (loses continuous precision)
-3. Offline PID analysis to design curriculum/replay prioritization (avoids online estimation)
-
-**Connection to existing work:** Aligns with §3.5.5 discussion of Robo-Dopamine's reward shaping and the "semantic trap" problem.
-
-### 12.4.4 World Models: Powerful but Contact-Challenged
-
-**Community observation:** World models have become quite powerful (e.g., MindJourney, PlayerOne) and are starting to become real-time capable. In autonomous driving, they already work well at larger scale, but things are harder for manipulation due to contact physics.
-
-**prisoma relevance:** This validates the project's focus on manipulation as a challenging testbed. The "contact challenge" maps directly to:
-- **H7 (Flow-as-Bridge):** Dream2Flow-style 3D object flow can capture rigid-body motion but struggles with contact-rich deformables.
-- **World model uses in robotics (per community):**
-  1. **Data generation for policy training** (BOOM, Newt, RoboScape)
-  2. **Safe policy evaluation** (AutoVLA, ReSim)
-  3. **Better representations via world-modeling objectives** (DreamVLA)
-
-**Critical assessment:** The third use (representation learning) is directly relevant: DreamVLA's explicit world-knowledge forecasting creates an explicit candidate “D” for PID analysis (extractability depends on checkpoint/export hooks). The community's observation that world-modeling objectives help learn better representations supports the hypothesis that explicit D should show cleaner PID signatures than implicit hidden states.
-
-**Updated model context (Jan 2026):** DreamVLA papers state a release and this doc references candidate repos (see §7.2, §18.2.2); verify weight availability/licensing and logging access before treating “tractable” as solved.
-
-### 12.4.5 Learning from Videos: Embodiment Gap
-
-**Community observation:** Learning from videos is progressing (e.g., EgoBridge, Object-centric 3D Motion Field, KungfuBot), and it seems to be easier for locomotion than for manipulation, where the embodiment gap is often bigger.
-
-**prisoma relevance:** This directly supports H7 (§3.6.6) and the Dream2Flow integration (§10.9):
-- **Embodiment gap as confound (§14.5.7):** PID on (V,D,A) may conflate world model quality with action-execution failures.
-- **Video-to-flow paradigm:** Extracting object-level motion from video models can provide embodiment-agnostic intermediate representations.
-
-**Critical assessment:** The observation that locomotion is "easier" than manipulation for video learning suggests that PID analysis should stratify results by task type. Locomotion tasks may show different V-D integration patterns than contact-rich manipulation.
-
-### 12.4.6 Inference Speed: No Longer a Bottleneck
-
-**Community observation:** Inference speed is not really a bottleneck anymore for VLAs thanks to new tokenization (e.g., BEAST), caching (e.g., VLA-Cache, EfficientVLA), and fast-sampling methods (e.g., Two-Steps Diffusion Policy, MeanFlow).
-
-**prisoma relevance:** This has mixed implications:
-- **Positive:** Fast VLA inference enables more rollouts per compute budget, improving PID sample sizes.
-- **Neutral for PID:** PID estimation cost is dominated by kNN computation, not VLA forward passes. Real-time PID remains challenging regardless of VLA speed (see §12.2 Q6).
-
-**Practical implication:** The bottleneck for "real-time PID monitoring" is the estimator, not the policy. Confirms the recommendation to use Shannon invariants (CI) for online screening and full `I^sx_∩` offline.
-
-### 12.4.7 VLA Safety: Alignment and Failure Detection
-
-**Community observation:** VLAs still fail in many situations. Offline safety alignment (e.g., SafeVLA) and combining online failure detection (e.g., FIPER, SAFE) with data-efficient human-in-the-loop learning (e.g., Compliant Residual DAgger, APO) hold promise for improving VLA safety.
-
-**prisoma relevance:** This strongly supports Use Case 5 (§3.4, Real-Time Intervention Selection) and H6 (Safety-aware integration):
-- **Failure detection:** PID/CI features could complement existing failure detectors (FIPER, SAFE) by providing interpretable *why* signals.
-- **Human-in-the-loop:** PID-derived signals could prioritize which rollouts need human review (high uncertainty × low synergy).
-- **SafeVLA context:** Offline safety alignment methods could potentially incorporate PID-derived constraints (e.g., "avoid states with extreme negative synergy", validated under controls).
-
-**Critical assessment:** The community identifies online failure detection as important. This reinforces that PID's practical deployment may be as a *diagnostic* (identifying failure modes post-hoc) rather than a real-time safety gate. SAFE (arXiv:2506.09937) and similar methods should be treated as baselines in Experiment 2.
-
-### 12.4.8 Beyond Vision: Multimodal Sensing
-
-**Community observation:** It's still an open question to what extent other sensing modalities are needed and how to best fuse them, but there are promising works in this direction (e.g., Force VLA, Touch-in-the-Wild).
-
-**prisoma relevance:** This suggests future extensions beyond V-L-D-A:
-- **Proprioception (P):** Already implicit in some VLA state representations.
-- **Force/torque (F):** Contact-rich manipulation may require explicit force sensing; PID could decompose Syn(V,F;A).
-- **Tactile (T):** Touch-in-the-Wild suggests tactile features for fine manipulation.
-
-**Implication for prisoma:** The current V-L-D-A decomposition focuses on vision and language. Force/tactile sensing would introduce new sources, increasing PID atom count (§5.2). The hierarchical pairwise approach (§5.3 Option 3) becomes even more important with additional modalities.
-
-### 12.4.9 Synthesis: NeurIPS 2025 Takeaways for prisoma Roadmap
-
-| NeurIPS Observation | prisoma Impact | Action Item |
-|---------------------|----------------|-------------|
-| Continual learning gap | Orthogonal | None (focus on deployed policies) |
-| Imitation efficiency limits | Supports diagnostic focus | Validates "why failures occur" framing |
-| RL for VLAs emerging | Supports Aim 3 | Investigate non-differentiable PID-as-shaping |
-| World models contact-challenged | Validates manipulation focus | Stratify results by contact complexity |
-| DreamVLA-style objectives help | Direct support for V-D-A | Papers state a release; verify weights/license before use (§7.2) |
-| Video learning embodiment gap | Supports H7 | Include embodiment as covariate |
-| Inference speed solved | Neutral for PID | Focus estimator optimization, not VLA speed |
-| Safety/failure detection active | Supports Use Case 5 | Add SAFE/FIPER as baselines |
-| Multimodal sensing open | Future direction | Consider force/tactile extensions post-v1.0 |
-
-**Critical note:** These observations come from a community synthesis (NeurIPS 2025 field notes) rather than peer-reviewed meta-analysis. Treat specific claims (e.g., "contact is harder than locomotion") as empirical priors requiring validation on prisoma's target benchmarks.
-
-## 12.5 External Source Review (2026-06-12): Integrated vs Ruled Out
-
-A batch of external signals (X posts, vendor pages, repos, papers) was reviewed source-by-source with independent verification. Per project policy, both integrated **and** ruled-out sources are recorded so future passes do not silently re-litigate them. Aggregator/secondary framings were checked against primaries (one observed distortion is recorded in §10.1.1). Posts that could not be resolved to verifiable content are ruled out as a matter of policy, not as a judgment of the author.
-
-**2026-06-13 addendum (single-source review):** dimos / DimensionalOS was reviewed source-by-source and is recorded in the integrated table below — integrated *narrowly* (architecture validation + external-backend adapter), with its out-of-scope aspects ruled out in the same row — plus a §13.10 middleware note and a §11.4 interoperability cross-reference.
-
-**Integrated (where → what changed):**
-
-| Source | Verified claim | Where integrated |
-|---|---|---|
-| Qwen-VLA (arXiv:2605.30280; `QwenLM/Qwen-VLA`; announced ~2026-05-29) | Unified open VLA across manipulation/navigation/trajectory on the Qwen stack; embodiment-aware prompt conditioning | §7.5 row, §10.10.13.2 row, §13.2 ref; embodiment-in-`L` confound noted (§14.5.7) |
-| NVIDIA Cosmos 3 (vendor release 2026-06-01) + RoboLab-120 leaderboard | Open two-tower reasoning+generation omnimodel; "World Action Model" post-training; Nano/Super checkpoints; policy variant reported atop a DROID-finetuned generalist leaderboard (best ≈36.8% SR) | §10.1.1 taxonomy row + notes, §10.10.13.2 row, §13.2.1/§13.4 refs |
-| V-JEPA 2 / V-JEPA 2-AC (arXiv:2506.09985) | Latent-predictive world model; action-conditioned MPC planning zero-shot from <62h robot data (paper-reported) | §10.1.1 row + notes, §10.10.13.2 row, §13.4 ref; strengthens Exp4/H3 causal story |
-| AttnLRP (arXiv:2402.05602; ICML 2024 per PMLR 235 — verify if citing formally) + LXT library | Faithful LRP for transformers incl. latent attributions, single-backward-pass cost (paper-reported) | §14.7.1 protocol, §13.14 ref; upgrades H9 from method-list to concrete toolchain |
-| π0.7 (PI blog 2026-04-16) | Compositional generalization via multimodal prompting + visual subgoals from a lightweight world model; cloud-served with real-time action chunking (vendor-reported) | §7.5/§10.10.13.2 π-series rows; reinforces action-chunking contract (§10.10.13.1) and black-box caveats |
-| Fei-Fei Li World Labs essay (2026-06-03) | World models framed via three *attributes* (generative, multimodal, interactive); Marble = multimodal-prompt→3D environments | §10.1.1 v10.2 notes (opinion-piece hedge; Marble as optional §C scene-asset source) |
-| ROBOTIS Cyclo Intelligence (vendor docs; from a shortened t.co link) | Production robot stack shipping ROS 2 + **Zenoh** + LeRobot v2.x/3.0 dataset formats + MCAP capture; deploys π0/π0.5/SmolVLA/GR00T-class policies | §13.10 note: independent validation of the M6 Zenoh choice and of LeRobot/MCAP as offline-harness adapter targets |
-| TraceVLA project page (tracevla.github.io) | Code + HF checkpoints (7B, 4B Phi-3) public; Co-Tracker-derived traces | §7.4 release-status note |
-| GSWorld (arXiv:2510.20813; surfaced while researching a 3DGS account) | Closed-loop photorealistic 3DGS+physics manipulation simulation | §13.10 ref; independent support for the hybrid splats+physics premise (§A.3/§E) |
-| Surveys: World Models for Robot Learning (arXiv:2605.00080); Agentic World Modeling (arXiv:2604.22748 + `matrix-agent/awesome-agentic-world-modeling`) | Survey/curated-list coverage of the world-model space | §13.4 pointers (hedged; surveys, not evidence) |
-| AtomVLA (arXiv:2603.08519; verify) | Post-training via predictive latent world models (JEPA-family) | §10.1.1 row (hedged) |
-| World Pilot (arXiv:2606.12403; from a shortened t.co link; verify) | VLA steered by WAM priors via separable latent/action pathways; 84.7% LIBERO-Plus OOD (paper-reported) | §7.5 + §10.10.13.2 rows, §10.1.1 note, §13.2 ref; pathway ablations as model-native Exp4/H3 interventions |
-| Interpreting Physics in Video World Models (arXiv:2602.07050) | "Physics Emergence Zone" at intermediate depth; physics decodability degrades toward outputs; circular direction geometry | §7.6.3 finding + hook-point prior, §13.4 ref; converts `D_hidden[k]` layer choice into a probe-then-gate procedure |
-| GEN-1 (Generalist AI vendor blog, 2026) | 500k+ hr wearable-human pretraining; ~1h per-task adaptation; 99% on selected tasks (selective reporting acknowledged by vendor) | §7.5 row (black-box comparator), §13.2 ref; motivates the failure-regime framing in §14.1.0 and the embodiment-gap relevance of H7 |
-| SAFE rollout datasets (`vla-safe/SAFE`, NeurIPS 2025 repo; checked 2026-06-12) | Released rollouts of π0-FAST (Franka) and OpenVLA (WidowX) with success/failure outcomes, plus code that runs VLAs in sim and extracts internal features | **M5 critical-path shortcut:** adapt SAFE's rollout-generation/extraction code to emit this project's `(V,L,D,A)`+labels contract instead of building capture from scratch (verify exact released tensors, per-step coverage, and licenses) — §10.10.13, `REVIEW_AND_TODO.md` |
-| dimos / DimensionalOS (`dimensionalOS/dimos`; Apache-2.0, © Dimensional Inc.; checked 2026-06-13) | Agentic "LLM/MCP-first" multi-robot control OS: modules exchange typed message streams over an **LCM** transport, wired declaratively (blueprints + `autoconnect` by name/type); agents run as native modules via composable `McpServer`/`McpClient`; sessions support record + `--replay`. Per README (verify): integrates VLMs for perception but extracts **no** internal VLA/VLM activations and emits **no** episode success/failure labels; no PID/MI/information-theoretic content. | **§13.10 + §11.4 interoperability note:** independent external validation of the Agent Bridge architecture bet — one control plane, record→replay before live, every action a loggable run-log event (§A.7/§A.8/§11.4) — and a concrete instance of the §11.4 "system with its own pub/sub control plane → thin adapter that maps its messages into canonical run-log events" pattern (LCM joins Zenoh/ROS 2 as an M6 typed-stream transport option). **Ruled out (cite-and-close):** not an M5 capture shortcut (no internal-activation or label extraction → SAFE strictly dominates for `(V,L,D,A)`+labels); not a PID/IT method contribution; SLAM/route-planning/spatio-temporal-RAG/spatial-memory out of scope for distribution-level PID diagnostics. |
-
-**Novelty status (re-checked 2026-07-06 via an adversarially-verified multi-agent literature sweep; re-verify before any submission):** still **no published application of PID or information decomposition to VLA policies** found through early July 2026. The 25-page June-2026 world-models-for-manipulation survey (arXiv:2606.00113; 116 "VLA" mentions) contains **zero** hits for "mutual information", "information decomposition", "partial information", "synergy", or "redundancy", and its open-challenges list omits modality-interaction diagnostics entirely. Closest adjacent work surfaced: **VLA-InfoEntropy** (arXiv:2604.05323) — vision-attention entropy for inference acceleration, not a decomposition. The nearest lines otherwise remain Liang et al.'s multimodal-interaction quantification (different PID measures — Warning 6), SAFE-style internal-feature failure detection (not decomposition), and information-theoretic fusion architectures (not PID). "VLDA" (vision-language-dynamics-action) is **not an established term** anywhere (zero hits in the survey; targeted web searches empty) — the field's vocabulary is "world models inside VLA systems", so the term is available if this project wants to coin it. Absence in dated searches is not proof of absence; treat this as a standing related-work check, not a claim.
-
-**Ruled out (cite-and-close, with reasons):**
-
-| Source | What it is | Why ruled out |
-|---|---|---|
-| `github.com/ProjectEdenGG` | Minecraft server organization (plugins, resource packs) | No connection to robotics/ML/PID; excluded on relevance |
-| Trajectory (@trajectorylabs; seed announcement ~2026-05-29) | Continual-learning post-training platform startup (funding/product news) | No verifiable methodological content for H1–H9; consistent with the §12.4.1 continual-learning gap but adds no evidence |
-| DAIR.AI top-papers post (week of 2026-06-01) | Weekly aggregator (that week: AutoLab, LCM, GLM-5) | No robotics/VLA/PID-relevant entries that week; aggregator, not primary |
-| @shreyasgite post (~Apr 2026) | Educational "demystifying robot foundation models" thread series | Commentary on primaries already cited directly |
-| @jianlanluo post (~Jun 2026) | Could not resolve specific post content (X fetch blocked) | Account context (HIL-SERL / RL-for-real-robots, Science Robotics `adds5033`) is relevant background for §12.4.3 but the specific post is unverifiable |
-| @Shreyko, @_joe_harris_ posts | Could not resolve to verifiable content | Unverifiable; nothing to integrate |
-| @mikekalilmfg (~Apr 2026) | Industry-4.0 deployment journalism (1X/Figure factory news) | Business signal only; no methodological impact on hypotheses |
-
-## 12.6 Mid-2026 Literature Refresh (v10.7; checked 2026-07-06)
-
-A dated addendum from an adversarially-verified multi-agent literature sweep (each claim below survived a 3-vote refutation pipeline against primary sources unless marked otherwise). §12.4 remains a Dec-2025 personal-notes snapshot; where they conflict, this section is newer.
-
-**PID theory (verified against primary sources):**
-- **Field-status review exists:** arXiv:2603.06678 (Liardi, Down, Blackburne, Neri, Mediano; Mar 2026, rev. Jun 2026) — comprehensive PID measure/property review; confirms the SxPID lineage attribution, the 4/18/166 atom counts (Dedekind growth; 7,579 at 5 sources), and that `I^sx_∩` is among the few measures extending to generic continuous distributions. Use as the related-work backbone.
-- **Continuous `I^sx_∩` validation ceiling re-confirmed current:** Ehrlich et al.'s entire published validation remains scalar-toy + a simulated 2–3-scalar-source energy system (N = 10⁵); **no high-dimensional or real-embedding validation exists through mid-2026** — the Exp0/H8 gates address a genuinely open gap, not a solved problem.
-- **Negative-atom nuances for H1:** see the §2.2.4 v10.7 additions (documented empirical negatives are unique atoms, not synergy; the authors sanction clamping for time-series).
-- **New estimation lines (different measures — Warning 6 applies):** normalizing-flows latent-Gaussian PID (arXiv:2510.04417), mixed discrete-continuous PID (arXiv:2409.13506), Fast Möbius Transform for lattice computation (arXiv:2410.06224 — accelerates, does not remove super-exponential atom growth). *(This bullet: verifier side-evidence, not 3-vote verified.)*
-- **Second impossibility line:** arXiv:2604.03869 (§13.1.1) — position against both critiques in any submission.
-
-**VLA landscape (verified):**
-- **World-model VLAs are now a named, surveyed family:** arXiv:2606.00113 ("World Models for Robotic Manipulation: A Survey", June 2026) classifies integrated prediction-action models (DreamVLA — NeurIPS 2025; CoT-VLA — CVPR 2025; VLA-JEPA, FlowVLA, 3D-VLA — ICML 2024; WorldVLA arXiv:2506.21539; RynnVLA-002 arXiv:2511.17502) vs explicit predictive planners (venues as reported by the survey; re-verify at time of citation). The project's `D` axis targets a real, growing architectural class.
-- **VLA-Arena is accepted at ICML 2026** (v3 revised 2026-07-02; re-verify at submission); its Safety dimension remains the natural H6 substrate.
-- **"VLDA" is unclaimed:** zero hits in the survey and in targeted searches — available to coin, but expect to define it against the "world models inside VLAs" vocabulary.
-
-**Novelty (verified negative evidence):** no PID/information-decomposition analysis of VLA or robot policies found through 2026-07-06; closest adjacent work is VLA-InfoEntropy (arXiv:2604.05323; attention entropy for inference speed-up, not decomposition). Full statement + scope limits: the novelty-status note in §12.5.
-
----
-
-# 13. References
-
-> **Citation verification note:** References dated 2025 or later (arXiv IDs 25xx) are included as planning context based on abstracts and publicly available information at the time of writing. Exact architectural details, performance numbers, and implementation specifics must be verified against the final published versions and official releases before being used in quantitative claims. If you keep local PDFs for offline use, store them under `.external/papers/` (ignored by git) and cite the PDF as the primary source when making detailed/quotable claims.
-
-## 13.1 Core Wibral Group PID Work
-
-### 13.1.1 Papers
-
-- **Makkeh A, Gutknecht AJ, Wibral M (2021).** Introducing a differentiable measure of pointwise shared information. *Phys Rev E* 103:032149. DOI: `10.1103/PhysRevE.103.032149`. arXiv:2002.03356. [Defines I^sx_∩ — discrete/finite-alphabet only in this founding paper; the continuous case is explicitly deferred to later work]
-
-- **Schick-Poland K, Makkeh A, Gutknecht AJ, Wollstadt P, Wibral M (2021).** A partial information decomposition for discrete and continuous variables. arXiv:2106.12393. [Measure-theoretic (non-constructive) continuous I^sx_∩ definition — the existence-proof step between Makkeh 2021 and the constructive Ehrlich 2024 estimator]
-
-- **Ehrlich DA, Schick-Poland K, Makkeh A, Lanfermann F, Wollstadt P, Wibral M (2024).** Partial Information Decomposition for Continuous Variables based on Shared Exclusions. *Phys Rev E* 110:014115. DOI: `10.1103/PhysRevE.110.014115`. arXiv:2311.06373. [Continuous extension]
-
-- **Makkeh A, Graetz M, Schneider AC, Ehrlich DA, Priesemann V, Wibral M (2025).** A General Framework for Interpretable Neural Learning based on Local Information-Theoretic Goal Functions. *PNAS* 122:e2408125122. DOI: `10.1073/pnas.2408125122`. [Infomorphic networks]
-
-- **Gutknecht AJ, Rosas FE, Ehrlich DA, Makkeh A, Mediano PAM, Wibral M (2025).** Shannon Invariants: A Scalable Approach to Information Decomposition. arXiv:2504.15779. [Scalability. Prop. 1: r̄ = Σᵢ I(Xᵢ;Y) / I(X;Y); Prop. 2: v̄ = Σⱼ I(Xⱼ;Y|X₋ⱼ) / I(X;Y) — measure-agnostic, MI-terms-only; exactly the `pid-core` `invariants.rs` formulas. Still an arXiv preprint (no peer-reviewed venue confirmed as of 2026-07-06).]
-
-- **Liardi A, Down E, Blackburne G, Neri I, Mediano PAM (2026).** The Mathematical Landscape of Partial Information Decomposition: A Comprehensive Review of Properties and Measures. arXiv:2603.06678 (submitted 2026-03-03, rev. 2026-06-01). [Independent June-2026 review; confirms the SxPID lineage/attribution, the 4/18/166 atom counts, and that `I^sx_∩` is among "only a small subset" of PID measures extending to generic continuous distributions — cite this as the field-status reference]
-
-- **Matthias PH, Makkeh A, Wibral M, Gutknecht AJ (2025).** Novel Inconsistency Results for Partial Information Decomposition. arXiv:2512.16662. [Impossibility theorems. Author surname "Matthias" verified correct on arXiv (Philip Hendrik Matthias) — do not "fix" it to a Wibral-group first name.]
-  - Related (added v10.2; verify relationship and venue before citing): a 2026 multivariate treatment, *Multivariate partial information decomposition: Constructions, inconsistencies, and alternative measures* (Wibral & Makkeh, reported March 2026), is described as deriving PID from part-whole relationships and logical constraints — possibly the expanded/journal form of the inconsistency line.
-  - **Second critique line (added v10.7; verify before citing):** *Structural Impossibility of Antichain-Lattice Partial Information Decomposition* (arXiv:2604.03869, Apr 2026) attacks the lattice representation itself. Neither critique disputes the atom counts, the Shannon-invariant identities, or the Ehrlich estimator specifically — but any prisoma publication should cite and position against **both** impossibility lines.
-
-### 13.1.2 Authoritative Code Repositories (v5.7)
-
-| Repository | Description | License | Status |
-|------------|-------------|---------|--------|
-| **[continuouspidestimator](https://gitlab.gwdg.de/wibral/continuouspidestimator)** (`csxpid`) | Reference implementation of continuous `I^sx_∩` estimator (Ehrlich et al. 2024) | BSD-3 (per repo; verify) | ✓ Canonical reference |
-| **[infomorphic_networks](https://gitlab.gwdg.de/wibral/infomorphic_networks)** | Experiments with infomorphic networks; learning rule code in "PIDnets" repo (Abed) | GPL-3.0+ (per repo; verify) | Research code |
-| **[SxPID](https://github.com/Abzinger/SxPID)** | Discrete `I^sx_∩` reference implementation | — | ✓ Canonical reference |
-| **[sae_analysis](https://github.com/Abzinger/sae_analysis)** | Shannon invariants for SAE latents (Red°, Vul°) | — | Experimental |
-
-**Note:** `infomorphic_networks` delegates core learning rules to "PIDnets" (Abed's repository). Use `continuouspidestimator` for validating continuous `I^sx_∩` estimates.
-
-## 13.2 VLA Models
-
-- **GalaxeaVLA:** Open-source VLA model and platform (repo-reported; verify availability/license at time of use). [GitHub](https://github.com/OpenGalaxea/GalaxeaVLA)
-- **Physical Intelligence “π” series (vendor papers; access/embeddings must be verified):**
-  - **`π0` (pi-zero):** *Our First Generalist Policy* (PI blog, 2024‑10‑31) + paper PDF: https://www.pi.website/blog/pi0 and https://www.pi.website/download/pi0.pdf
-  - **`π0.5`:** *a VLA with Open‑World Generalization* (PI blog, 2025‑04‑22) + paper PDF: https://www.pi.website/blog/pi05 and https://www.pi.website/download/pi05.pdf
-  - **`π0.6*` (“Pi‑star”):** *a VLA that Learns from Experience* (PI blog, 2025‑11‑17) + model card PDF: https://www.pi.website/blog/pistar06 and https://website.pi-asset.com/pi06star/PI06_model_card.pdf
-- **OpenVLA:** Kim et al. (2024). *OpenVLA: An Open-Source Vision-Language-Action Model.* arXiv:2406.09246.
-- **SmolVLA (LeRobot):** arXiv:2506.01844 (Jun 2025). ~450M-param VLA (SmolVLM-2 backbone: SigLIP + SmolLM2; flow-matching action expert; async inference; code/models/data released). Lightweight baseline policy for harness bring-up and pipeline debugging (verify checkpoint revision + exact action parameterization at time of use).
-- **DreamVLA:** Zhang et al. (2025). *DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge.* arXiv:2507.04447. (World-knowledge forecasting + inverse dynamics; diffusion-style framing in the abstract.)
-- **Dream-VL & Dream-VLA (diffusion LLM backbone):** Ye et al. (2025). *Dream-VL & Dream-VLA: Open Vision-Language and Vision-Language-Action Models with Diffusion Language Model Backbone.* arXiv:2512.22615.
-  - **Legacy note:** earlier drafts referenced “HKU NLP (2024), 97.2% LIBERO” without a stable citation; treat any such performance claims as unverified unless traced to a specific paper/benchmark protocol.
-- **OpenVLA-OFT:** Kim MJ, Finn C, Liang P (2025). *Fine-Tuning Vision-Language-Action Models: Optimizing Speed and Success.* arXiv:2502.19645. [Optimized fine-tuning recipe for OpenVLA: parallel decoding, action chunking, continuous actions, L1 objective; not a distinct model family]
-- **GR00T N1:** NVIDIA et al. (2025). arXiv:2503.14734. (A GR00T N1.5 open 3B revision was released mid-2025; later revisions N1.6/N1.7 appear in vendor materials and third-party leaderboards/integrations — verify weights/license/config per revision.)
-- **Qwen-VLA:** arXiv:2605.30280. *Qwen-VLA: Unifying Vision-Language-Action Modeling across Tasks, Environments, and Robot Embodiments.* (`QwenLM/Qwen-VLA` reported open — verify; added v10.2. Embodiment-aware prompt conditioning; DiT action decoder; manipulation+navigation+trajectory in one model.)
-- **World Pilot:** arXiv:2606.12403. [VLA steered by World-Action-Model priors via separable latent-steering + action-steering pathways; paper-reported 84.7% LIBERO-Plus zero-shot OOD; pathway ablations are model-native interventions for Exp4/H3 — added v10.2; verify]
-- **GEN-1 (Generalist AI):** vendor blog, generalistai.com/blog/gen-1 (2026). [Vendor-reported: 500k+ hour wearable-human pretraining, ~1h per-task robot adaptation, 99% success on selected tasks with selective reporting acknowledged; black-box comparator; industrial embodiment-gap instance — added v10.2; no paper/weights to verify]
-- **VLA-JEPA:** arXiv:2602.10098. [JEPA-style latent world model inside a VLA; candidate explicit `D` source if latents are exportable — added v10.2; verify details before use]
-- **InternVLA‑A1:** InternRobotics (2026). *InternVLA‑A1: Unifying Understanding, Generation, and Action for Robotic Manipulation.* Project page + PDF + code: https://internrobotics.github.io/internvla-a1.github.io/ and https://github.com/InternRobotics/InternVLA-A1. Model card: https://huggingface.co/InternRobotics/InternVLA-A1-3B. Repo describes a tripartite (understanding / generation / action) design with Flow‑Matching action generation; verify paper details/protocols before citing any performance numbers.
-- **InternVLA‑M1:** Chen et al. (2025). *InternVLA‑M1: A Spatially Guided Vision-Language-Action Framework for Generalist Robot Policy.* arXiv:2510.13778. (Related line; distinct from InternVLA‑A1.)
-- **PixelVLA:** Liang et al. (2025). *PixelVLA: Advancing Pixel-level Understanding in Vision-Language-Action Model.* arXiv:2511.01571. Pixel-level understanding with multiscale encoder and visual prompting.
-- **TraceVLA:** Zheng et al. (2024). *TraceVLA: Visual Trace Prompting Enhances Spatial-Temporal Awareness for Generalist Robotic Policies.* arXiv:2412.10345; ICLR 2025 (checked 2026-07-06; re-verify proceedings). Visual trace prompting for spatial-temporal awareness.
-- **MemoryVLA:** Shi et al. (2025). arXiv:2508.19236. Perceptual-cognitive memory for long-horizon manipulation.
-- **CoT-VLA:** Zhao et al. (2025). arXiv:2503.22020. Visual chain-of-thought reasoning for VLA.
-- **Related (VLM reasoning; optional background for "L"/reasoning traces):** Deng et al. (2025). *OpenVLThinker: Complex Vision-Language Reasoning via Iterative SFT-RL Cycles.* arXiv:2503.17352. (Not a VLA policy paper per se, but relevant to how RL fine-tuning affects visual grounding and intermediate reasoning traces.)
-- **GenieReasoner/FACT:** Liu et al. (2025). *Unified Embodied VLM Reasoning with Robotic Action via Autoregressive Discretized Pre-training.* arXiv:2512.24125. [FACT tokenizer: flow-matching action discretization; ERIQ benchmark for embodied reasoning]
-
-## 13.2.1 VLA Benchmarks and Evaluation (v5.8)
-
-### VLA-Arena (Primary Recommended Benchmark for prisoma)
-
-**Citation:** Zhang et al. (2025). *VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models.* arXiv:2512.22539 (v3 2026-07-02; **accepted ICML 2026** — re-verify at submission).
-
-**Why VLA-Arena is recommended for PID experiments:**
-
-| Property | VLA-Arena Value | prisoma Benefit |
-|----------|-----------------|-----------------|
-| **Structured difficulty** | L0/L1/L2 levels | Enables memorization vs generalization testing (H4) |
-| **Orthogonal perturbation axes** | V0-V4 (visual), W0-W4 (language) | Decoupled testing of V and L integration robustness |
-| **Task dimensions** | Safety, Distractor, Extrapolation, Long-Horizon | Maps directly to PID hypotheses (H4, H5, H6) |
-| **Scale** | 170 tasks | Large task inventory — but do **not** equate task count with statistical power for PID claims; power depends on episodes-per-condition and the grouped/episode-level sampling unit (§9.0), and must be established by the §14.8 power analysis before capture |
-| **Open-source** | Full toolchain provided | Reproducibility and community adoption |
-
-**VLA-Arena Task Structure (Detailed):**
-
-```
-VLA-Arena Task Organization:
-├── Safety (collision avoidance, constraint satisfaction)
-│   ├── L0: Training distribution
-│   ├── L1: Mild generalization
-│   └── L2: Strong generalization
-├── Distractor (irrelevant objects in scene)
-│   ├── L0, L1, L2 difficulty levels
-│   └── Cross-product with V0-V4, W0-W4
-├── Extrapolation (novel configurations)
-│   ├── L0, L1, L2 difficulty levels
-│   └── Key test for memorization vs generalization
-└── Long Horizon (multi-step compositional tasks)
-    ├── L0, L1, L2 difficulty levels
-    └── Key test for temporal synergy dynamics
-```
-
-**Perturbation Protocols (V0-V4, W0-W4):**
-
-| Level | Visual (V) Perturbations | Language (W) Perturbations |
-|-------|-------------------------|---------------------------|
-| **0** | Clean observation | Original instruction |
-| **1** | Minor noise/lighting | Synonym substitution |
-| **2** | Moderate occlusion | Paraphrasing |
-| **3** | Significant viewpoint change | Instruction simplification/elaboration |
-| **4** | Severe corruption | Ambiguous/underspecified instructions |
-
-*Note: Exact perturbation specifications should be verified against VLA-Arena documentation.*
-
-**VLA-Arena Datasets:**
-
-| Dataset | Description | Recommended PID Use |
-|---------|-------------|---------------------|
-| **VLA-Arena-S** | Small-scale fine-tuning set | Experiment 0 validation, rapid prototyping |
-| **VLA-Arena-M** | Medium-scale fine-tuning set | Primary experiments (Experiments 1-4) |
-| **VLA-Arena-L** | Large-scale fine-tuning set | Full-scale validation, publication-ready results |
-
-**Key Findings Relevant to prisoma:**
-
-1. **"Memorization over generalization"**: VLAs show strong tendency to memorize training tasks rather than learning generalizable skills. This motivates H4 (§3.6.2).
-
-2. **Asymmetric robustness**: V-perturbations and W-perturbations affect VLA performance differently. This suggests modality-specific integration weaknesses detectable by PID.
-
-3. **Compositional failure on long-horizon tasks**: VLAs cannot compose learned skills. This motivates temporal synergy analysis (H5, §3.6.3).
-
-4. **Safety constraint ignorance**: VLAs often fail to consider safety constraints. This motivates H6 (§3.6.4).
-
-**Resources:**
-- Website: https://vla-arena.github.io
-- Leaderboard: Available at project website
-- Code: Full end-to-end toolchain from task definition to automated evaluation
-
-### Other VLA Benchmarks
-
-- **ERIQ:** Liu et al. (2025). Embodied Reasoning Intelligence Quotient benchmark, 6000+ QA pairs. (Part of GenieReasoner work, arXiv:2512.24125). Useful for reasoning-focused VLA evaluation but less structured for PID analysis than VLA-Arena.
-
-- **SimplerEnv:** Lightweight simulation benchmark. Useful for rapid iteration but lacks VLA-Arena's structured difficulty axes.
-
-- **LIBERO:** Standard manipulation benchmark. Well-established but doesn't provide the perturbation structure needed for robustness testing. **Saturation caution (v10.2):** recent models report ≥97% LIBERO success (OpenVLA-OFT arXiv:2502.19645; Qwen-VLA arXiv:2605.30280 — paper-reported); a near-saturated benchmark yields too few failures for failure-label-hungry H1-style studies.
-
-- **RoboLab-120 (NVIDIA SRL leaderboard; added v10.2, verify protocol):** 120 tasks × 10 episodes, DROID-finetuned generalist policies, difficulty + competency axes, and a **language-specificity axis (vague/default/specific)** that is a natural graded-`L`-information manipulation for H2-style redundancy probes. Reported best success ≈36.8% (Cosmos3-Nano-Policy) — i.e., failure-rich, which is exactly what PID failure analyses need. Reported to correlate with real-world RoboArena rankings (vendor-reported; verify). Secondary to VLA-Arena, which remains primary for its perturbation structure.
-
-**Benchmark Selection Guidance:**
-
-| Research Question | Recommended Benchmark | Rationale |
-|-------------------|----------------------|-----------|
-| Memorization vs generalization | VLA-Arena | L0/L1/L2 structure directly tests this |
-| V-L integration robustness | VLA-Arena | V0-V4 / W0-W4 perturbation axes |
-| Temporal synergy dynamics | VLA-Arena (Long Horizon) | Multi-step tasks with clear phase structure |
-| Rapid PID validation | SimplerEnv or VLA-Arena-S | Lower computational cost |
-| Publication-ready results | VLA-Arena-M/L | Community standard, reproducible |
-
-## 13.3 Multimodal PID
-
-- **Liang PP, Cheng Y, Fan X, Ling CK, et al. (2023).** Quantifying & Modeling Multimodal Interactions: An Information Decomposition Framework. NeurIPS 2023 (checked 2026-07-06; re-verify at submission). arXiv:2302.12247. [Uses BATCH/CVX estimators, NOT I^sx_∩. Code: github.com/pliang279/PID]
-
-- **IDTxl:** Wollstadt P, Lizier JT, et al. (2019). IDTxl: The Information Dynamics Toolkit xl. JOSS 4(34):1081. [Comprehensive PID toolkit. Code: github.com/pwollstadt/IDTxl]
-
-- **SxPID:** Discrete `I^sx_∩` reference implementation (Python). [Code: https://github.com/Abzinger/SxPID]
-
-- **sae_analysis:** WIP toolbox for Shannon-invariants-style analysis of SAE latents (degree of redundancy / vulnerability from Gutknecht et al. 2025). [Code: https://github.com/Abzinger/sae_analysis; experimental/not yet fully validated]
-
-## 13.4 World Models
-
-- **Dream2Flow:** Dharmarajan et al. (2025). *Dream2Flow: Bridging Video Generation and Open-World Manipulation with 3D Object Flow.* arXiv:2512.24766. [3D object flow as intermediate representation; embodiment-agnostic; zero-shot video-to-action. Website: https://dream2flow.github.io/]
-- **GWM:** Gaussian World Model (3DGS + diffusion for robotics; verify venue/status).
-- **Physically Embodied Gaussian Splatting:** (paper; verify venue/status). Real-time correctable world model.
-- **WAN:** *Wan: Open and Advanced Large-Scale Video Generative Models* (Alibaba "Wanxiang" family), 2025. arXiv:2503.20314. [1.3B + 14B DiT video models]
-- **WAN VACE:** Video All-in-one Creation and Editing. arXiv:2503.07598
-- **Wan-Move:** Motion-controllable Video Generation. arXiv:2512.08765 (verify venue/status)
-- **Motus:** Unified Latent Action World Model. arXiv:2512.13030
-- **V-JEPA 2 / V-JEPA 2-AC:** Meta (2025). arXiv:2506.09985. [Latent-predictive video world model; action-conditioned variant plans via MPC in latent space — paper-reported zero-shot manipulation from <62h robot data; added v10.2]
-- **NVIDIA Cosmos 3:** vendor release 2026-06-01 (nvidianews.nvidia.com; blogs.nvidia.com). [Open two-tower reasoning+generation omnimodel (Nano 16B / Super 64B); "World Action Model" post-training path; OpenMDW-1.1 license; HUE benchmark — all vendor-reported, verify before dependence; added v10.2]
-- **AtomVLA:** arXiv:2603.08519. [Post-training via predictive latent world models; JEPA-family; verify; added v10.2]
-- **Survey — World Models for Robot Learning:** arXiv:2605.00080. [Survey pointer; added v10.2]
-- **Survey — Agentic World Modeling:** arXiv:2604.22748 + curated list `matrix-agent/awesome-agentic-world-modeling`. [Survey/curated pointer; added v10.2]
-- **Interpreting Physics in Video World Models:** arXiv:2602.07050. [Layerwise probing of video transformers: "Physics Emergence Zone" at intermediate depth; physics decodability degrades toward output layers; circular population geometry for direction. Directly informs `D_hidden[k]` hook-point selection (§7.6.3) and supports geometry-first analysis (§16) — added v10.2; verify]
-- **DreamGen:** Robot Learning via Neural Trajectories. arXiv:2505.12705
-- **VideoVLA:** VideoVLA: Video Generators Can Be Generalizable Robot Manipulators. arXiv:2512.06963
-- **Scalable Policy Evaluation:** Action-conditioned video for policy eval. arXiv:2511.11520
-- **Genie 3:** DeepMind blog/release (verify details; listed as background inspiration, not a dependency of this project).
-- **Genie 2:** DeepMind blog/release (verify details; background only).
-- **Genie 1:** Bruce et al. (Feb 2024). Generative Interactive Environments. arXiv:2402.15391
-- **SIMA 2:** DeepMind (blog Nov 2025; arXiv report Dec 2025). Gemini-powered generalist agent for 3D virtual worlds. arXiv:2512.04797
-- **Diffusion modeling note (background; optional):** Li & He (2025). *Back to Basics: Let Denoising Generative Models Denoise.* arXiv:2511.13720. (Relevant to how “denoising” vs “noise prediction” parameterizations can change representation geometry; treat as background for diffusion-based world models, not a PID paper.)
-- **RoboScape:** Shang et al. (2025). *RoboScape: Physics-informed Embodied World Model.* arXiv:2506.23135. [Physics-informed embodied world model (paper-reported; verify details/protocols)]
-
-## 13.4.1 Learning from Videos (2025; verify venues/status)
-
-- **EgoBridge:** Punamiya et al. (2025). *EgoBridge: Domain Adaptation for Generalizable Imitation from Egocentric Human Data.* arXiv:2509.19626. [Optimal-transport domain adaptation for human-to-robot transfer; verify venue/status and protocols]
-
-## 13.5 Uncertainty & Hallucination Detection
-
-- **VL-Uncertainty:** Zhang et al. (2024). arXiv:2411.11919
-- **SAFE:** Multitask VLA failure detection. arXiv:2506.09937
-- **FIPER:** Römer et al. (2025). *Failure Prediction at Runtime for Generative Robot Policies.* arXiv:2510.09459. [Failure prediction at runtime for generative robot policies (paper-reported; verify details/protocols)]
-- **PRE-HAL:** Dempster-Shafer for VLM hallucination (no citation located at review time — supply an arXiv ID/venue before relying on it, or drop)
-
-## 13.6 Process Reward Models (PRMs)
-
-- **Robo-Dopamine:** Tan et al. (2025). arXiv:2512.23703. [GRM for step-aware progress rewards]
-- **GVL:** Vision-language in-context value learners. Ma et al. (2024). [Progress prediction]
-- **VLAC:** Vision-language action critic. Zhai et al. (2025). arXiv:2509.15937
-- **SARM:** Stage-aware reward modeling. Chen et al. (2025). arXiv:2509.25358
-- **LIV:** Language-image representations for rewards. Ma et al. (2023). ICML (verify)
-
-## 13.6.1 RL for VLAs & Flow Matching (2024–2025; verify venues/status)
-
-- **ReinFlow:** Zhang et al. (2025). *ReinFlow: Fine-tuning Flow Matching Policy with Online Reinforcement Learning.* arXiv:2505.22094. [Online RL fine-tuning for flow-matching policies (paper-reported; verify protocols/results)]
-- **CQN-AS:** Seo, Abbeel (arXiv Nov 2024; verify venue year). *Coarse-to-fine Q-Network with Action Sequence for Data-Efficient Reinforcement Learning.* arXiv:2411.12155. [Value-based RL with action sequences (paper-reported; verify details)]
-- **CQN (original):** Seo, Uruç, James (2024). *Continuous Control with Coarse-to-fine Reinforcement Learning.* arXiv:2407.07787. [Coarse-to-fine discretization for continuous action RL (paper-reported; verify details)]
-
-## 13.7 Information Theory
-
-- **KSG Estimator:** Kraskov et al. (2004). *Phys Rev E* 69:066138. DOI: `10.1103/PhysRevE.69.066138`.
-- **O-information (Ω; synergy-vs-redundancy bias for a set of variables):** introduced by Rosas et al. (2019). *(Bibliographic details should be verified; included as optional background, not part of the Wibral-group `I^sx_∩` line.)*
-- **kNN MI under strong dependence (limitations + fixes):**
-  - Gao, Ver Steeg, Galstyan (2015). *Efficient Estimation of Mutual Information for Strongly Dependent Variables.* arXiv:1411.2003.
-  - Gao, Ver Steeg, Galstyan (2015). *Estimating Mutual Information by Local Gaussian Approximation.* arXiv:1508.00536.
-- **Neural / classifier-based MI estimation (baselines for MI/CMI; not `I^sx_∩`):**
-  - Belghazi et al. (2018). *MINE: Mutual Information Neural Estimation.* arXiv:1801.04062.
-  - Mukherjee, Asnani, Kannan (2019). *CCMI : Classifier based Conditional Mutual Information Estimation.* arXiv:1906.01824.
-  - Molavipour, Bassi, Skoglund (2019). *Conditional Mutual Information Neural Estimator.* arXiv:1911.02277.
-- **MI estimation practice on real embeddings (added v10.2; verify before depending on specifics):**
-  - Benchmark suite for neural MI estimators on unstructured data (images, sentence embeddings): arXiv:2410.10924. [Useful for choosing MI baselines beyond KSG at moderate-to-high d]
-  - High-dimensional MI estimation: arXiv:2506.00330. [Check assumptions/regimes before adopting]
-- **Williams & Beer (2010).** Original PID formulation (`I_min`; arXiv:1004.2515). [The repo's discrete quantization path computes an `I_min`-style redundancy — see §8.1.6]
-
-## 13.8 Scalable PID Methods
-
-- **Shannon Invariants:** Gutknecht et al. (2025). arXiv:2504.15779. [Scalable summaries]
-- **Gaussian PID:** Barrett et al. (2023). NeurIPS (verify). [Bias-corrected high-d estimation]
-- **Normalizing-flow PID in latent Gaussian space:** Zhao et al. (2025). arXiv:2510.04417. (Earlier drafts referred to this as “Thin-PID”; the arXiv title is *Partial Information Decomposition via Normalizing Flows in Latent Gaussian Distributions*.)
-- **Representational Complexity:** Ehrlich et al. (2022). Trans. ML Res. [Coarse-graining]
-- **Mixed discrete–continuous PID:** arXiv:2409.13506. [Relevant when quantized and continuous variables coexist (added v10.2; verify fit before adopting)]
-- **Partial information *rate* decomposition (processes):** arXiv:2502.04550. [Candidate framing for temporal/windowed PID (H5); a rate decomposition is not the same object as per-sample atoms (added v10.2; verify)]
-- **Scalable higher-order information estimation:** arXiv:2506.18498. [MI-only/higher-order screening at scale (added v10.2; verify)]
-- **dit Library:** Python library for discrete information theory (dit.distributions)
-- **IDTxl:** Comprehensive information dynamics toolkit (pwollstadt/IDTxl)
-
-## 13.9 Depth Estimation & 3D Perception
-
-- **Depth-Anything v2/v3:** Yang et al. (2024-2025). Monocular depth foundation models.
-- **Video Depth Anything:** Temporally consistent video depth estimation.
-- **RollingDepth:** Video depth without video models. arXiv:2411.19189. [LDM-based]
-- **RAFT (optical flow baseline):** Teed, Deng (2020). *RAFT: Recurrent All-Pairs Field Transforms for Optical Flow.* arXiv:2003.12039. (Useful as a non-generative motion baseline when deriving `Flow_obs` from RGB/RGB‑D.)
-- **StereoVLA:** Deng et al. (2025). arXiv:2512.21970. [Stereo vision for VLAs]
-- **DKT (Diffusion Knows Transparency):** arXiv:2512.23705. [Transparent object depth via WAN]
-- **Metric3D v2:** Absolute depth with metric scale recovery.
-- **SHARP:** Single-image to 3DGS conversion.
-
-## 13.10 Simulation & Middleware
-
-- **Gazebo Harmonic:** ROS 2 compatible physics simulator
-- **SplatSim:** *SplatSim: Zero-Shot Sim2Real Transfer of RGB Manipulation Policies Using Gaussian Splatting.* arXiv:2409.10161. (3DGS rendering + **PyBullet** physics backend, per paper.)
-- **DISCOVERSE:** *DISCOVERSE: Efficient Robot Simulation in Complex High-Fidelity Environments.* arXiv:2507.21981. (3DGS rendering + **MuJoCo** physics backend, per paper.)
-- **Zenoh:** Zero-overhead pub/sub middleware (eclipse-zenoh.io). (Independent production validation, checked 2026-06-12: ROBOTIS "Cyclo Intelligence" ships ROS 2 + Zenoh + LeRobot v2.x/3.0 dataset formats + MCAP capture for fleet policy workflows — vendor docs at ai.robotis.com; supports the M6 transport choice and identifies LeRobot/MCAP as natural offline-harness adapter targets.)
-- **dimos / DimensionalOS:** Apache-2.0 agentic ("LLM/MCP-first") multi-robot control OS (`github.com/dimensionalOS/dimos`, © Dimensional Inc.; checked 2026-06-13). Modules exchange typed message streams over an **LCM** transport, wired declaratively (blueprints + `autoconnect`), with agents as native modules (`McpServer`/`McpClient`) and session record/`--replay`. Independent external validation of this project's M1/M2 bets — one control plane, record→replay before live, every action a loggable event (§A.7/§A.8, §11.4) — and a concrete instance of the §11.4 interoperability pattern (a system with its own pub/sub control plane gets a thin adapter that maps its messages into canonical run-log events; LCM is another typed-stream transport alongside Zenoh/ROS 2). Per README (verify), it extracts no internal VLA/VLM activations and emits no success/failure labels, so it is **not** an M5 capture source — SAFE remains the `(V,L,D,A)`+labels path; no PID/IT content. Verify terms before any code reuse.
-- **GSWorld:** arXiv:2510.20813. *Closed-loop photo-realistic simulation suite for robotic manipulation* (3DGS + physics; added v10.2 — independent support for the hybrid splats+physics design in §A.3/§E; verify details before protocol dependence.)
-- **Tauri:** Rust + WebView desktop apps (tauri.app)
-- **SparkJS (Spark):** 3D Gaussian splatting renderer that integrates with the Three.js rendering pipeline (WebGL2). Docs: https://sparkjs.dev/ . Code: https://github.com/sparkjsdev/spark .
-- **Three.js:** WebGL/WebGPU 3D rendering library
-
-## 13.11 Training Infrastructure
-
-- **NanoGPT:** Karpathy. GPT-2 reproduction in ~600 lines. (github.com/karpathy/nanoGPT)
-- **nanochat:** Karpathy (2025). Full-stack ChatGPT training. (github.com/karpathy/nanochat)
-- **llm.c:** Karpathy. C/CUDA LLM training (performance-focused). (github.com/karpathy/llm.c)
-- **modded-nanogpt:** Speedrun benchmark for LLM training optimization
-- **SRL (step-wise reasoning training; optional):** Deng et al. (2025). *Supervised Reinforcement Learning: From Expert Trajectories to Step-wise Reasoning.* arXiv:2510.25992. (Potentially relevant to Aim 3 / PRM-style training loops; not PID-specific.)
-
-## 13.11.1 VLA Inference Efficiency (2025; verify venues/status)
-
-- **VLA-Cache:** Xu et al. (2025). *VLA-Cache: Efficient Vision-Language-Action Manipulation via Adaptive Token Caching.* arXiv:2502.02175. [paper-reported efficiency via visual token caching; verify exact speedups/protocols]
-- **EfficientVLA:** Yang et al. (2025). *EfficientVLA: Training-Free Acceleration and Compression for Vision-Language-Action Models.* arXiv:2506.10100. [paper-reported efficiency via pruning/token selection; verify exact speedups/protocols]
-
-## 13.12 Differential Geometry & Non-Euclidean Representation (Optional)
-
-- Differential-geometry contingency notes are integrated into §8.1.5 (optional background; not a correctness source).
-- **Manifold-aware MI estimation:** Marx, Fischer (2021). *Estimating Mutual Information via Geodesic kNN.* arXiv:2110.13883. (Riemannian/geodesic kNN MI; useful as MI-only baseline in curved settings.)
-- **Hyperbolic embeddings for hierarchies:**
-  - Nickel, Kiela (2017). *Poincaré Embeddings for Learning Hierarchical Representations.* arXiv:1705.08039.
-  - Nickel, Kiela (2018). *Learning Continuous Hierarchies in the Lorentz Model of Hyperbolic Geometry.* arXiv:1806.03417.
-  - Ganea, Bécigneul, Hofmann (2018). *Hyperbolic Neural Networks.* arXiv:1805.09112.
-  - Yang et al. (2022). *Hyperbolic Graph Neural Networks: A Review of Methods and Applications.* arXiv:2202.13852.
-- **Hyperbolic LLMs and fine-tuning (v5.7):**
-  - **HELM:** First billion-scale hyperbolic LLM. arXiv:2505.24722.
-  - **HypLoRA:** Hyperbolic fine-tuning for LLMs; reports evidence of hierarchical/hyperbolic structure in some embedding settings (check metric/setup). arXiv:2410.04010.
-  - **Hypformer:** Efficient hyperbolic transformer with linear complexity. arXiv:2407.01290.
-  - **Hierarchical Mamba:** Projects Mamba2 representations into Poincaré/Lorentz manifolds. arXiv:2505.18973.
-- **Hierarchical structure in LLM embeddings (v5.7):**
-  - **δ-hyperbolicity analysis:** arXiv:2512.20926. (Uses δ-hyperbolicity + ultrametricity to compare tree-likeness across embedding spaces; replicate on your embeddings—do not transplant exact values.)
-  - **Cognitive state hierarchy:** Zhao (2025). *Hierarchical Geometry of Cognitive States in Transformer Embedding Spaces.* arXiv:2512.22227. [Demonstrates decodable hierarchical structure aligned with cognitive attributes]
-- **Intrinsic dimension estimation (geometry diagnostics for kNN validity):**
-  - Levina, Bickel (2005). *Maximum likelihood estimation of intrinsic dimension.* (Foundational intrinsic-dimension estimator; use as a diagnostic, not a guarantee.)
-  - Gomtsyan et al. (2019). *Geometry-Aware Maximum Likelihood Estimation of Intrinsic Dimension.* arXiv:1904.06151.
-- **Lorentzian conformal rigidity (background; mostly analogy-level for this project):**
-  - Melnick, Pecastaing (2025). *A local Lorentzian Ferrand-Obata theorem for conformal vector fields.* arXiv:2511.03713.
-  - Melnick & Pecastaing (2019). *The conformal group of a compact simply connected Lorentzian manifold.* arXiv:1911.06251.
-  - Mehidi (2025). *Conformal quotients of plane waves, and Lichnerowicz conjecture in a locally homogeneous setting.* arXiv:2503.08614.
-
-## 13.13 Multimodal Sensing: Force & Tactile (2025; verify venues/status)
-
-- **ForceVLA:** Yu et al. (2025). *ForceVLA: Enhancing VLA Models with a Force-aware MoE for Contact-rich Manipulation.* arXiv:2505.22159. [Force/torque as a first-class modality for contact-rich manipulation (paper-reported; verify protocols/results)]
-- **Touch in the Wild:** Zhu, Huang, Li (2025). *Touch in the Wild: Learning Fine-Grained Manipulation with a Portable Visuo-Tactile Gripper.* arXiv:2507.15062. [Cross-modal representation learning for visual-tactile integration; in-the-wild data collection]
-- **OpenTouch:** Song et al. (2025). *OPENTOUCH: Bringing Full-Hand Touch to Real-World Interaction.* arXiv:2512.16842. [Egocentric full-hand tactile dataset with synchronized signals (paper-reported; verify scale/access/licensing)]
-
-## 13.14 Attribution and Explainability Baselines
-
-- **Layer-wise Relevance Propagation (LRP):** Bach et al. (2015). *On Pixel-Wise Explanations for Non-Linear Classifier Decisions by Layer-Wise Relevance Propagation.* PLOS ONE. [Layer-wise/pixel-wise relevance decomposition; use as local explanation baseline, not PID.]
-- **Integrated Gradients:** Sundararajan, Taly, Yan (2017). *Axiomatic Attribution for Deep Networks.* ICML (verify venue/status if citing formally). [Sensitivity + implementation-invariance framing; baseline/reference path must be logged.]
-- **DeepLIFT:** Shrikumar, Greenside, Kundaje (2017). *Learning Important Features Through Propagating Activation Differences.* ICML (verify venue/status if citing formally). [Difference-from-reference attributions; reference choice is part of the claim.]
-- **Grad-CAM:** Selvaraju et al. (2017). *Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization.* ICCV. [Coarse visual localization via gradients into a selected layer.]
-- **TCAV:** Kim et al. (2018). *Interpretability Beyond Feature Attribution: Quantitative Testing with Concept Activation Vectors (TCAV).* ICML (verify venue/status if citing formally). [Concept-direction sensitivity; concept and counterexample sets must be preregistered/logged.]
-- **SmoothGrad:** Smilkov et al. (2017). *SmoothGrad: removing noise by adding noise.* arXiv:1706.03825. [Noise-averaged sensitivity maps; log noise scale/sample count and verify maps are model-sensitive.]
-- **SHAP:** Lundberg, Lee (2017). *A Unified Approach to Interpreting Model Predictions.* NeurIPS (verify venue/status if citing formally). [Additive feature attribution / Shapley-value framing; background distribution matters.]
-- **Attention caution:** Jain, Wallace (2019). *Attention is not Explanation.* NAACL. [Treat attention maps as weak diagnostics unless intervention-tested.]
-- **Saliency sanity checks:** Adebayo et al. (2018). *Sanity Checks for Saliency Maps.* NeurIPS (verify venue/status if citing formally); Hooker et al. (2019). *A Benchmark for Interpretability Methods in Deep Neural Networks.* NeurIPS (verify venue/status if citing formally). [Model/data randomization and removal/retraining/deletion-style evaluation.]
-- **Mechanistic VLA interpretability (SAE/steering):** arXiv:2603.19233. [Reported mechanistic study of VLA internals via sparse autoencoders and activation steering; candidate H9 companion evidence and §16.8 context (added v10.2; verify claims/protocols before depending on them).]
-- **AttnLRP:** Achtibat et al. (2024). *AttnLRP: Attention-Aware Layer-Wise Relevance Propagation for Transformers.* ICML 2024, PMLR 235 (verify venue/status if citing formally); arXiv:2402.05602. [Faithful LRP for attention blocks incl. latent attributions at ~one-backward-pass cost (paper-reported); primary H9 method for transformer VLAs — see §14.7.1. Library: `rachtibat/LRP-eXplains-Transformers` (pin revision).]
-
----
-
-# 14. Confounding Factors Analysis: Proving and Disproving the Hypotheses
-
-This section addresses how confounding factors could be studied and removed to rigorously prove or disprove the core hypotheses of prisoma. Grant reviewers will scrutinize whether observed correlations reflect genuine causal relationships or are artifacts of confounding variables.
-
-## 14.1 Core Hypotheses and Their Falsifiability
-
-### 14.1.0 Hypothesis Registry (v10.1; falsifiability consolidated + H7 split v10.7)
-
-This project treats hypotheses as **falsifiable contracts**, not slogans. Status labels are about *priority and interpretability* given current estimator and logging constraints.
-
-| Hypothesis | Status | Rationale / notes | Real robotics problem addressed (v10.2) |
-|------------|--------|-------------------|------------------------------------------|
-| **H1** PID features ↔ failure labels | **Core** | Primary evaluative claim; must beat strong baselines under controls; synergy sign is a candidate feature, not a definition | **Failure triage at fleet scale:** generalist policies fail constantly on frontier benchmarks (the best DROID-finetuned policy on RoboLab-120 still fails ≈63% of episodes; weaker ones >90% — leaderboard-reported, verify); teams triage by watching videos. A decomposition-level signal ("the failure cohort lost V–L integration, not perception") prioritizes debugging where per-task monitors don't exist |
-| **H2** redundancy ↔ robustness-to-ablation | Exploratory | Redundancy is easily confounded; treat as “robustness to single-modality corruption” under matched difficulty + nuisance controls, not a general claim about “understanding” | **Degradation forecasting before deployment:** cameras fog, instructions get vague, sensors drop out. Predicting *which skills* degrade gracefully under single-modality loss — before it happens in the field — informs sensor-redundancy and fallback design |
-| **H3** uniques ↔ intervention sensitivity | Exploratory | Operationally useful: uniques should predict which targeted ablations/interventions change actions; requires symmetry in preprocessing to avoid estimator artifacts | **Targeted data collection / intervention budgeting:** teleop hours are the binding cost in robot learning. If `Unq` estimates predict which modality's perturbation moves behavior, they predict where new data or augmentation buys the most (Use Case 4) |
-| **H4** memorization vs generalization | Core | Motivated by VLA-Arena framing; tests whether PID signatures change under structured distribution shifts | **Pre-deployment generalization certification:** VLA-Arena's headline finding is that current VLAs memorize rather than generalize. A signature that flags memorization *without* running the full perturbation sweep on every new scene would cut evaluation cost |
-| **H5** temporal synergy degradation | Core | Operationalizable with windowed summaries + block bootstrap; tests long-horizon composition failures. **CI-only ablation mandatory (§14.1.1)** | **Long-horizon progress monitoring:** kitting/assembly/multi-stage tasks fail by compositional drift long before the terminal error. An early-warning trend over windows targets the long-horizon failure mode benchmarks identify as unsolved |
-| **H6** safety-aware integration | Deferred | Include only if safety labels and matched controls are available; otherwise treat as out-of-scope for the core study | **Safety-case evidence** (deferred until proper labels exist) |
-| **H7** Flow-as-Bridge — split (v10.7): **H7a** (method): the low-d flow bridge enables stage-wise diagnostics and cross-embodiment comparisons — judged by engineering acceptance criteria (gates pass on flow targets), not falsification. **H7b** (falsifiable): `Syn(V,D;A)` tracks world-model quality independent of execution success — disproof criteria in §3.6.6 | Core (H7a method + H7b hypothesis) | Makes a Euclidean diagnostic target explicit; honestly framed as measurement-regime engineering (§14.1.1); the *scientific contract* is H7b | **Cross-embodiment porting diagnosis:** when a policy adapted from human/video data (the GEN-1-style recipe) or ported to a new arm fails, was the *world model* wrong or the *execution mapping*? Object-flow targets separate the two — the embodiment gap is where industrial pretraining recipes live |
-| **H8** geometry gate → estimator choice | Core (method) | Geometry/dimensionality diagnostics predict which preprocessing + estimator regime is valid (continuous vs discrete vs CI-only); prevents false positives from invalid geometry | **Trustworthy metrics infrastructure:** prevents shipping estimator artifacts to dashboards — the information-theoretic analogue of not alerting on a broken sensor |
-| **H9** attribution probes ↔ PID claims | Exploratory / triangulation | Faithfulness-checked local attribution methods should support, sharpen, or falsify PID-derived modality/stage claims; they are baselines, not replacements for PID gates | **Audit-grade incident explanations:** post-incident reports need converging evidence, not one method's heatmap; triangulated PID+attribution+intervention evidence is the deliverable |
-
-**Failure-regime framing (v10.2; where these problems actually live):** the field is bifurcating. Vendor systems report 99%-class reliability on narrow, selected tasks (e.g., GEN-1 vendor blog — selective reporting acknowledged), while open generalists score ~28–37% on frontier suites (RoboLab-120 leaderboard; verify). PID-style distributional diagnostics need failures to learn from, so the **feasible** study regime is the failure-rich generalist one — Exp1–Exp5 target it. The 99%-regime *use case* (rare-event triage at deployment) is real but statistically different: per-sample pointwise diagnostics at n_failures ≈ a handful is out of scope for distribution-level PID claims, and this document does not claim otherwise. State which regime any result applies to.
-
-**Extension hypotheses (optional; do not block Experiments 0–4):**
-- **H_WM1–H_WM5** (world-model comparison; §9.8): exploratory extensions comparing learned vs explicit physics world models; require additional infrastructure and careful matched controls.
-
-**Deprecated / ruled-out framing (kept for transparency):**
-- “`Syn < 0` ⇒ hallucination” as a definitional claim is **rejected** (see §1.2 Warning 1). Negative synergy is mathematically meaningful (subadditive information) but requires empirical validation to map onto failure semantics.
-- Applying the continuous `I^sx_∩` estimator by swapping in non-Euclidean distances (e.g., Lorentz/hyperbolic geodesics) is **ruled out** without a new derivation of disjunction neighborhoods and volume forms (see the estimator geometry caveat at the top of this document).
-
-### 14.1.1 Is PID Forced Here? Per-Hypothesis Necessity Audit (v10.2)
-
-This audit answers, for each hypothesis, the reviewer question the project must survive: *"could a cheaper, non-PID method answer the same question?"* The honest answers below are part of the project's claim discipline. PID is **forced nowhere**; it is **distinctively warranted** where the scientific object is the decomposition itself, and it is a **value-added test** (with publishable negative outcomes) everywhere else.
-
-| Hypothesis | Cheapest non-PID alternative | What PID distinctively adds | Honest verdict |
+| Stage | Purpose | Required output | Gate |
 |---|---|---|---|
-| **H1** failure prediction | Internal-feature failure detectors (SAFE, arXiv:2506.09937), entropy/OOD scores, learned classifiers | Not better prediction — **decomposition-level explanation** (which source interaction degraded), enabling targeted intervention rather than detection alone | PID is *not* needed to predict failure. H1 is preregistered as an added-value test: PID/CI features must add predictive or diagnostic information beyond these baselines, else report the negative result |
-| **H2** redundancy ↔ ablation robustness | Per-modality ablation curves; feature-importance under corruption | "Redundancy" is the *construct under test* — graceful degradation under single-modality loss is the operational meaning of redundant information; ablation curves measure the consequence, PID claims to measure the cause *before* ablating | PID-native: the hypothesis is literally about a PID quantity's predictive validity. If ablation curves alone predict robustness equally well *ex ante*, H2 fails informatively |
-| **H3** uniques ↔ intervention sensitivity | Gradient/attribution magnitude per modality; intervention sweeps | Same structure as H2: `Unq` is the construct; interventions are the validation, not the substitute | PID-native, same logic as H2 |
-| **H4** memorization vs generalization | Representation-drift metrics (CKA, ID shifts), success-rate deltas under VLA-Arena perturbations | Interaction structure: whether *how sources combine* (not just representations) shifts under distribution shift | Value-added test; CKA/ID baselines mandatory in the same protocol |
-| **H5** temporal degradation | Windowed MI/CI trends (no atoms needed) | The syn/red split over time — but CI trends may capture most of the signal | **Weakest PID-specific case.** Mandatory ablation: report CI-only trends alongside; if atoms add nothing beyond CI, downgrade H5 claims to MI/CI language |
-| **H6** safety integration | Safety-labeled classifiers | Deferred regardless | Deferred; no PID-necessity claim made |
-| **H7** Flow-as-Bridge | The bridge variable itself is estimator engineering, not PID | Nothing PID-specific about the bridge; PID is the *analysis run on top* of it | Honest framing: H7 is a measurement-regime hypothesis that any information-theoretic analysis benefits from; do not sell it as PID-specific. Three independent external instances of "intermediate world-state as bridge" (Dream2Flow; π0.7 visual subgoals; V-JEPA 2-AC latent plans) support the bridge premise without supporting PID per se |
-| **H8** geometry gates | n/a — this is a method hypothesis about when PID/MI estimators are valid | The gate exists *because* of PID's estimator fragility | PID-internal by construction |
-| **H9** attribution triangulation | n/a — explicitly about checking PID claims with non-PID tools | Keeps PID honest; disagreement is a result | PID-internal by construction |
-
-**Kill criteria (preregistered Occam discipline):**
-1. If Shannon-invariant / MI-only / CI-only feature sets match full PID-atom feature sets on H1/H2/H3 effect sizes (within CI overlap), **drop atom-level claims** and report the simpler quantities as the finding.
-2. If non-PID baselines (SAFE-class detectors, entropy, OOD) match or beat PID-augmented models on H1 across two task families, H1 is answered negatively — publish that with the confound analysis (§14.2–§14.5).
-3. If H5's atoms never separate from CI trends, H5 becomes an MI/CI hypothesis and is relabeled accordingly.
-4. A hypothesis may not be rescued by switching PID measure/mode post hoc (§8.1.6 regime registry; Warning 6).
-
-**Regime preregistration:** H1–H5 require separate validated `MI_GATE` and, for atom
-claims, `ISX_GATE` verdicts. The current high-d MI/coherence path is NO-GO and the automated
-`I^sx_∩` gate is not yet valid (§9.1). Discrete `I_min`, discrete SxPID once wired, and CI-only
-formulations are preregistered regimes—not post-hoc rescues—but only an ex-ante regime that
-passes its own disjoint-data gate may be primary (§14.8.2). If none validates, the hypothesis
-is reported untestable under current estimators.
-
-**Falsifiability index (v10.7; makes this section genuinely canonical):** H1 → below; H2 → below; H3 → below; **H4 → §3.6.2** (correlation of synergy-stability with L0→L2 degradation; preregistered-variant refinement only); **H5 → §3.6.3** (windowed primary construct + trend endpoint; CI-only twin mandatory); **H6 → §3.6.4** (deferred; Safety-vs-matched-non-safety indistinguishability = unsupported); **H7b → §3.6.6** (stage-specific synergy-failure correlation); H8 → below; H9 → below (with the §14.7.1 quantitative agreement criterion).
-
-### Hypothesis H1: SxPID-derived features correlate with VLA failures (including negative synergy)
-**Claim (falsifiable, currently BLOCKED):** under a validated estimator regime, a frozen
-episode-level feature set derived from MI/CI and, where gated, SxPID atoms improves
-retrospective held-out failure diagnosis beyond the mandatory uncertainty baselines. The
-synergy sign is a candidate feature, not a definition of hallucination. The current public
-estimator/harness emits distribution-level aggregate atoms, not leakage-safe episode-local
-scores, and two mandatory baselines are missing; therefore the §14.8.1 endpoint cannot yet
-run.
-
-**Separate estimands:** H1a is post-hoc episode diagnosis and may aggregate only local scores
-defined relative to a train-fitted reference distribution. H1b is prospective early warning:
-it must freeze a prediction landmark and horizon, exclude every future/post-failure sample,
-handle censoring, and use time-dependent performance metrics. H1a evidence cannot be sold as
-H1b evidence.
-
-**Confounds to rule out:**
-1. **Task difficulty confound:** Negative synergy might correlate with inherently harder tasks (longer horizons, more object interactions), not with model failure per se.
-2. **Distribution shift confound:** Negative synergy might arise when inputs are out-of-distribution, which also causes failures—but the failure is due to OOD inputs, not synergy.
-3. **Embedding quality confound:** If embeddings are poorly learned, both synergy estimates and task performance degrade together, creating spurious correlation.
-
-**How to disprove:**
-- Control for task difficulty by stratifying experiments (same task family, varying synergy).
-- Add explicit OOD detection baselines and test whether synergy provides signal beyond OOD scores.
-- Test on multiple VLA architectures; if synergy-failure correlation appears only in one, it may be architecture-specific rather than fundamental.
-
-### Hypothesis H2: Redundancy predicts robustness to single-modality ablation
-**Claim (narrowed; falsifiable):** under matched task difficulty and a frozen preprocessing
-transform, higher eligible baseline redundancy **normalized by positive baseline joint MI**
-(`Red/J₀`) predicts robustness to single-modality corruption. V–L is eligible only when the
-§9.7.2b instruction-diversity gate passes; otherwise V–D is primary.
-
-**Status:** Exploratory. Redundancy can increase for trivial reasons (task simplicity, dataset artifacts, representation leakage), so H2 is only meaningful under matched controls and alongside generalization tests (H4).
-
-**Primary threat — availability vs use (v10.7; name the gap explicitly):** PID measures information *available in* the sources about `A` under the data distribution, **not** information *causally used through* each pathway. Canonical counterexample: the policy reads only `L`, but `V` duplicates `L`'s content in the logged distribution (the scene always matches the instruction) → measured `Red(V,L;A)` is high, yet ablating `L` is catastrophic — H2's prediction fails for reasons that are *not* estimator error. Consequences (preregistered): (a) the **asymmetric outcome** — redundancy predicts robustness only w.r.t. the less-used source — is an anticipated, *informative* failure mode, not an anomaly; (b) interpreting high-`Red` as robustness requires converging attribution/intervention evidence of dual-pathway use (H9 + §14.2.3), never `Red` alone.
-
-**Confounds:**
-1. **Triviality confound:** If the task is trivial (e.g., "do nothing"), all sources may redundantly encode the same null information.
-2. **Overfitting confound:** High redundancy in training data might indicate memorization rather than generalization.
-3. **Leakage confound:** If one modality contains a proxy for another (e.g., instruction text embedded in pixels), redundancy can be artificially inflated.
-
-**How to disprove H2:**
-- If high-redundancy episodes are *not* more robust under controlled single-modality ablations, redundancy is not a useful robustness indicator in this setting.
-- Dedicated protocol: §9.7.2b (measure `Red` first, then run matched-strength single-modality corruption curves).
-
-### Hypothesis H3: Unique information predicts intervention sensitivity
-**Claim (operational; falsifiable):** eligible, baseline-joint-MI-normalized unique information
-estimates (`Unq_i/J₀`) predict intervention sensitivity. A modality with a larger normalized
-unique atom should show a larger response to its matched, outcome-independent intervention.
-Constant-language cases are ineligible for a V–L ordering (§9.7.2b).
-
-**Status:** Exploratory but operationally useful for interventions. Interpreting uniques requires careful symmetry in preprocessing and dimensionality reduction across modalities to avoid estimation artifacts.
-
-**Confounds:**
-1. **Representation bias:** If one modality has higher-dimensional embeddings, it may have artificially higher unique information due to estimation artifacts.
-2. **Preprocessing asymmetry:** Different preprocessing per modality can shift apparent unique contributions.
-3. **Intervention mismatch:** If a “corruption” changes semantics for one modality but not another, sensitivity comparisons are not meaningful; design matched-strength interventions.
-
-**Dedicated protocol:** §9.7.2b (estimate `Unq` ordering first, then matched-strength interventions with the outcome-independent yardstick — equal embedding displacement or MI destroyed; behavioral-impact calibration is circular and demoted to a robustness check).
-
-### Hypothesis H8: Geometry gate metrics predict a valid estimator regime (method)
-
-**Claim (falsifiable):** Embedding-geometry diagnostics (intrinsic dimension, distance concentration, kNN degeneracy/ties, and stability under mild jitter/PCA seeds) predict which analysis regime is valid for a given `(V,L,D,A)` definition:
-- **Continuous SxPID** (Ehrlich `I^sx_∩`) only when Euclidean/L∞ assumptions are adequately met after preprocessing.
-- **Discrete PID** (clustered/quantized) when continuous volumes are unreliable but discretization is stable.
-- **MI/CMI/Ω screening only** when neither PID regime is stable at feasible sample sizes.
-
-**Why this matters:** Without H8-style gating, apparent “PID signatures” can be estimator artifacts from invalid geometry rather than properties of the VLA.
-
-**How to disprove H8:**
-- If geometry diagnostics do **not** predict estimator stability on synthetic controls (Exp0), they are not useful gates.
-- If the gates pass but estimates remain unstable across seeds/jitter/splits on real embeddings, the gating criteria are insufficient.
-- If the gates fail but continuous SxPID remains stable and predictive under controls, the diagnostics are overly conservative and should be revised.
-
-### Hypothesis H9: Attribution probes triangulate PID-derived modality/stage claims
-
-**Claim (exploratory; falsifiable):** For a VLA with accessible inputs/layers/gradients, faithfulness-checked attribution probes—LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, vanilla saliency/SmoothGrad, occlusion/permutation, or SHAP-style feature importance—should provide a compatible local account of any PID-derived modality/stage claim. For example, a high `Unq(L;A)` claim should survive language ablations and should be accompanied by token/embedding relevance on task-critical instruction content; a high `Unq(V;A)` claim should localize to task-relevant visual regions more than distractors; a high `Syn(V,L;A)` claim should require joint V+L perturbations to explain action/failure changes.
+| S0 | Freeze variables, estimands, outcomes, and causal assumptions | variable dictionary, causal graph, analysis specification | all targets and units are unambiguous |
+| S1 | Validate information estimators and preprocessing | oracle recovery, coverage, stability, abstention map | at least one eligible diagnostic regime |
+| S2 | Validate capture, timing, intervention, and replay | conformance and external benchmark report | no unresolved corruption; replay tolerance met |
+| S3 | Pilot interventions | target-engagement, dose, carryover, placebo, OOD checks | nontrivial and interpretable intervention |
+| S4 | Confirmatory H1 | locked intervention-response study | held-out family result and replication plan |
+| S5 | Confirmatory H2 | prospective failure study | locked temporal/family holdout and calibration |
+| S6 | Conditional H3 or H4 | incremental PID or availability–use result | second family/model replication |
+| S7 | Transport study | cross-embodiment or real-robot replication | bounded claim of external validity |
 
-**Status:** Exploratory / triangulation. H9 is not a new primary thesis and does not bypass Experiment 0. It exists to prevent PID-only storytelling and to catch cases where PID features, saliency maps, and controlled interventions disagree.
+## 5.2 Policy and environment selection
 
-**Quantitative agreement criterion (preregistered, v10.7 — "compatible account" is otherwise undecidable):** per matched intervention case, compute (i) the PID-derived modality ordering (rank of `Unq(V)`, `Unq(L)`, `Unq(D)`; ties broken by a preregistered rule; cases where flagged `Syn` dominance prevents a modality ordering are **excluded and counted**) and (ii) the attribution-derived modality relevance ordering from the §14.7.1 protocol (step 5). Per case, Kendall's τ between the two 2–3-element orderings takes values in {−1, −1/3, +1/3, +1}; the H9 statistic is the **mean per-case τ** across ≥ 20 matched cases, with a case-resampling bootstrap **blocked by task family** (cases within a family are correlated). **Supported:** mean-τ CI entirely > 0 AND top-modality (argmax-identity) match rate ≥ 70%. **Unsupported:** mean-τ CI entirely < 0 (affirmative disconfirmation), OR the match rate ≤ 50%. Otherwise: insufficient evidence — report the CI. (Chance-level argmax match for 3 modalities is 1/3, so the ≤ 50% band is deliberately conservative. Thresholds are preregistered here; changing them post hoc is a protocol violation.)
+The first policy should maximize identifiability, not benchmark prestige. Required properties are:
 
-**Confounds:**
-1. **Local vs distributional mismatch:** attribution explains a single output or concept direction; PID estimates source information over a sample distribution.
-2. **Gradient saturation / reference artifacts:** IG/DeepLIFT/SHAP depend on baselines/backgrounds; LRP depends on propagation rules; Grad-CAM depends on the chosen layer.
-3. **Correlated features:** attribution can assign importance to one correlated proxy while PID reports redundancy or synergy across sources.
-4. **Attention overclaiming:** attention weights can be unfaithful to model behavior unless perturbation tests validate them.
-5. **Preprocessing leakage:** using attribution to choose PID features on held-out data can leak labels or failure information.
+- legally instrumentable weights and inference code;
+- controllable randomness or sufficiently repeatable inference;
+- a documented representation site before or at a meaningful fusion/action boundary;
+- access to a policy distribution, logits, denoising path, or repeated samples rather than only one opaque action;
+- tractable closed-loop compute;
+- a reproducible environment with meaningful perturbations;
+- sufficient task and instruction diversity.
 
-**How to disprove H9:**
-- If attribution probes pass sanity checks but consistently fail to align with PID-derived uniques/synergy under matched interventions, H9 is unsupported and PID claims need narrower interpretation.
-- If attribution probes fail model/data randomization or deletion/occlusion tests, they cannot be used as faithful baselines for H9 in that regime.
-- If PID predicts failure but attribution plus causal perturbations show the model is using a different modality/stage, prefer the intervention evidence and revise the PID variable definition.
+The second policy should differ on one scientifically relevant axis—such as autoregressive action tokens versus continuous action chunks—while keeping tasks, outcomes, and instrumentation as comparable as possible. A comparison that changes architecture, data, embodiment, simulator, tasks, source definitions, and controller simultaneously is descriptive, not causal.
 
-## 14.2 Experimental Controls for Confound Removal
+Candidate ecosystems include OpenVLA/OpenVLA-OFT, Octo, SmolVLA, and other open policies with stable hooks [R21–R24, R49–R51]. Final selection must follow a frozen access-and-instrumentation audit. Proprietary systems can support black-box external validation but not internal-mechanism claims without access to the relevant variables.
 
-### 14.2.1 Matched Control Experiments
+## 5.3 Factorial task design
 
-For every "synergy predicts failure" claim, implement:
+Where feasible, cross these factors:
 
-```
-CONTROL DESIGN MATRIX
-=====================
+- task family;
+- scene/layout and initial condition;
+- object identity and visual appearance;
+- instruction semantics and paraphrase;
+- intervention type and dose;
+- policy checkpoint or training regime;
+- action horizon/controller setting;
+- embodiment only in the transport stage.
 
-Primary comparison (within-task):
-┌──────────────────────────────────────────────────────────────┐
-│  Same task template    Same initial state seed               │
-│  Same language instruction    Same environment physics       │
-│  Different: VLA internal state / D representation            │
-│                                                              │
-│  Measure: ΔSynergy vs ΔFailure rate                          │
-│  Prediction: Correlation should persist after matching       │
-└──────────────────────────────────────────────────────────────┘
+Use a balanced or documented fractional-factorial design rather than an unstructured collection of failures. The design must preserve independent variation among instruction, scene, state, decision, and execution factors.
 
-Task-difficulty control:
-- Bin tasks by objective difficulty metrics (horizon length, object count, precision required)
-- Test synergy-failure correlation WITHIN each difficulty bin
-- If correlation disappears within bins, task difficulty is the true predictor
+### Instruction-diversity gate
 
-Distribution-shift control:
-- Compute OOD score (e.g., Mahalanobis distance in embedding space, uncertainty calibration)
-- Test whether synergy provides INCREMENTAL predictive power beyond OOD score
-- Regression: Failure ~ OOD_score + Synergy + OOD_score×Synergy
-```
+A language source is eligible only when the evaluated population has genuine instruction variation. Report:
 
-### 14.2.2 Placebo Tests (Sanity Checks)
+- unique semantic goals and surface forms;
+- empirical occupancy and entropy after the declared representation or quantization;
+- paraphrase, negation, contradiction, and compositional balance;
+- whether instruction is constant within the estimation unit;
+- train/test separation of templates and semantic compositions.
 
-**Null intervention test:**
-- Apply a "placebo" intervention that should NOT change synergy (e.g., add imperceptible noise to V)
-- If measured synergy changes significantly, the estimator is sensitive to irrelevant variations
+When language is constant or nearly constant, V–L PID is ineligible. Use a population spanning instructions or a different source pair.
 
-**Permutation test for spurious correlation:**
-- Randomly permute trajectory labels within each task family
-- Re-compute synergy-failure AUROC
-- The permuted AUROC should be ~0.5 (no better than chance)
-- **Leakage criterion (v10.7, corrected):** refit the full pipeline under ≥ 1000 label permutations (a procedural minimum, not a measured value) and test whether the **permutation distribution itself is centered at chance** — flag leakage if the mean permuted AUROC differs from 0.5 by more than the analytic null tolerance for the episode count, or if the distribution's 2.5th percentile exceeds 0.5. Do **not** compare a single permuted draw against its own distribution's quantiles (any draw exceeds its own 97.5th percentile 2.5% of the time by construction, and wholesale leakage shifts the *whole* distribution so no single draw ever looks extreme), and do not use a fixed constant like 0.55 (chance alone exceeds it at small episode counts)
+## 5.4 Intervention taxonomy
 
-**Temporal shuffling test:**
-- Shuffle timesteps within trajectories
-- Re-estimate PID terms
-- If estimates remain stable despite broken temporal structure, the estimator may not capture meaningful dynamics
+Every intervention is a treatment with a causal target, dose, assignment mechanism, placebo, manipulation check, and limitation statement.
 
-### 14.2.3 Intervention Evidence and Limits of Identification
+### 5.4.1 Input interventions
 
-- A paired randomized intervention on `D`, with other inputs/seeds held fixed, supports an
-  intervention-consistency claim (§9.5). It is not automatically a complete causal effect of
-  “D quality” because the intervention can change other pathways/distributions.
-- A training-procedure perturbation is **not an instrumental variable** unless relevance,
-  exclusion, independence, and monotonicity assumptions are defended; ordinary training
-  changes can affect `A` through many routes besides `D`.
-- Adjacent checkpoints around an arbitrary training step are **not regression
-  discontinuity**. RD requires an assignment rule that changes at a known threshold while
-  potential outcomes vary smoothly through it. Without that mechanism, call the analysis a
-  checkpoint comparison.
+Examples include:
 
-## 14.3 Alternative Interpretations of Results
+- object- or region-specific visual masking with matched low-level statistics;
+- illumination, texture, viewpoint, distractor, or occlusion changes;
+- instruction paraphrases preserving intent;
+- instruction substitutions or contradictions changing one semantic factor;
+- proprioceptive noise, delay, dropout, or calibration shifts;
+- tactile/contact perturbations for contact-rich tasks.
 
-### 14.3.1 If Negative Synergy Does NOT Predict Failure
+A black image is not a surgical removal of vision; it may create an extreme out-of-distribution input. Include naturalistic counterfactuals and explicit OOD diagnostics.
 
-**Interpretation 1: Synergy is architecture-dependent, not failure-predictive**
-- Action: Report as valid negative result; pivot to simpler entropy/confidence baselines
+### 5.4.2 Internal interventions
 
-**Interpretation 2: Estimator is broken at VLA scale**
-- Action: Verify via Experiment 0; if estimator collapsed, negative result is uninformative
+Examples include:
 
-**Interpretation 3: Task distribution lacks sufficient failure diversity**
-- Action: Expand benchmark to include more failure modes; re-test
+- activation patching from a matched control case;
+- component ablation with mean, resampled, or conditional replacement;
+- sparse-feature steering or ablation;
+- attention/pathway knockout;
+- recurrent-memory reset or controlled truncation.
 
-### 14.3.2 If Positive Results Appear
+Required checks:
 
-**Alternative explanation 1: Confounding by entropy**
-- Test: Include action entropy as covariate; if synergy becomes non-significant, entropy suffices
+- intervention magnitude relative to the natural activation distribution;
+- local-density or classifier-based divergence from natural states;
+- specificity to the target site;
+- effects on unrelated probes;
+- dose–response behavior where expected;
+- an equal-norm or equal-compute sham.
 
-**Alternative explanation 2: Confounding by model uncertainty**
-- Test: Include ensemble variance or explicit uncertainty estimate as covariate
+An intervention can change behavior yet remain mechanistically uninterpretable when it creates states far outside the model’s natural activation distribution. Intervention support, dose, and geometric stability must therefore be measured rather than assumed [R53].
 
-**Alternative explanation 3: P-hacking through feature selection**
-- Mitigation: Pre-register primary analysis; report ALL synergy variants tested, not just significant ones
+### 5.4.3 Decision and execution interventions
 
-## 14.4 Robustness Checks Required for Publication
+Examples include:
 
-| Check | Description | Pass Criterion |
-|-------|-------------|----------------|
-| **Seed robustness** | Run with 10+ random seeds | Effect size stable (heuristic; e.g., CV < 30%) |
-| **K robustness** | Test k ∈ {3, 5, 7, 10} | Direction consistent, magnitude stable (heuristic) |
-| **Preprocessing robustness** | Frozen preregistered transforms; jitter only as a separately gated sensitivity regime | Primary conclusion holds in its active regime; changes are reported as regime sensitivity, never searched for a pass |
-| **Dimensionality robustness** | Raw vs preregistered PCA dimensions | Active regime passes its oracle gate and held-out test; “at least one significant regime” is not a criterion |
-| **Temporal sampling** | Different stride/window sizes | Effect persists across reasonable ranges |
-| **Cross-architecture** | Test on 2+ VLA architectures | Effect appears in majority |
-| **Cross-benchmark** | Test on 2+ task distributions | Effect generalizes |
+- action-chunk truncation or a replanning trigger;
+- controller gain, filter, or latency changes;
+- safety-filter on/off in safe simulation conditions;
+- bounded action remapping or noise;
+- object displacement, contact perturbation, or execution disturbance.
 
-## 14.5 VLA-Arena-Derived Confounds
+These separate policy sensitivity from controller and environmental effects. Recent work on VLA correction and adaptive replanning supports treating horizon and execution dynamics as independent failure channels [R54–R55].
 
-VLA-Arena (arXiv:2512.22539) provides systematic evidence of VLA behavioral patterns that introduce specific confounds for PID analysis. These must be controlled before attributing PID patterns to "integration quality."
+## 5.5 Randomization, pairing, and carryover
 
-### 14.5.1 Task Difficulty Stratification Confound (L0/L1/L2)
+### Assignment integrity
 
-**The confound:** VLA-Arena defines three task structure levels that correlate with both failure rate and expected synergy:
+- Generate assignments before execution from a versioned design file.
+- Record randomization probability, block, seed, treatment, dose, and timestamp.
+- Block on task family, scene, checkpoint, and initial-condition class.
+- Conceal assignment from manual outcome annotators when feasible.
+- Never reconstruct assignment from observed data when a direct log should exist.
 
-| Level | Structure | Example | Failure Expectation | Synergy Confound |
-|-------|-----------|---------|---------------------|------------------|
-| **L0** | Single primitive | "Pick up the apple" | Low failure | Simple V-L mapping; synergy naturally low |
-| **L1** | Conditioned primitive | "Pick the red object, not the blue" | Medium failure | Disambiguation requires synergy |
-| **L2** | Composed actions | "Move X to Y, then Z to W" | High failure | Temporal composition; synergy across time |
+### Pairing
 
-**Control protocol:**
-```
-TASK-LEVEL STRATIFIED ANALYSIS
-==============================
+In simulation, use common random numbers and identical initial-condition seeds when that preserves the intervention’s meaning. On physical robots, use randomized repeated trials, measured initial state, and randomized order.
 
-1. Stratify all trajectories by L-level (L0, L1, L2)
-2. Compute PID terms WITHIN each level
-3. Test synergy-failure correlation WITHIN each level separately
-4. Only claim "synergy predicts failure" if effect persists within L1 and L2
-   (L0 may have floor effects due to low failure rates)
+### Carryover
 
-Null hypothesis per level:
-- H0(L1): Within L1 tasks, synergy is uncorrelated with failure (ρ = 0)
-- H0(L2): Within L2 tasks, synergy is uncorrelated with failure (ρ = 0)
+For stateful policies or physical trials:
 
-Pre-registered adjustment: Bonferroni correction for 2 independent tests (α = 0.025)
-```
-
-**Why this matters:** If PID synergy only predicts failure when comparing L0 vs L2 tasks (trivially different difficulty), the finding is confounded. The PID metric must provide signal **within** difficulty strata to be useful.
-
-### 14.5.2 Perturbation-Induced Distribution Shift Confound
-
-**The confound:** VLA-Arena applies systematic perturbations (W0-W4 for language, V0-V4 for visual) that shift inputs out of distribution. Both synergy and failure may increase due to OOD inputs, not due to integration failure.
-
-**Perturbation taxonomy:**
-
-| Axis | Levels | Examples | OOD Severity |
-|------|--------|----------|--------------|
-| **Language (W)** | W0-W4 | Original → Synonym → Paraphrase → Typos → Irrelevant | Increasing |
-| **Visual (V)** | V0-V4 | Original → Lighting → Texture → Background → Distractor | Increasing |
-
-**Control protocol:**
-```
-OOD-ADJUSTED SYNERGY ANALYSIS
-=============================
-
-Step 1: Quantify distribution shift
-- Compute embedding-space OOD score for each (V, L) pair
-- Methods: Mahalanobis distance, k-NN density, calibrated uncertainty
-
-Step 2: Regression with OOD control
-  Failure ~ OOD_score_V + OOD_score_L + Synergy + interactions
-
-Step 3: Interpretation matrix
-┌─────────────────────────────────────────────────────────────────┐
-│ If Synergy significant after OOD control: adjusted association│
-│ If Synergy non-significant after OOD control: OOD confound     │
-│ If interaction (Synergy × OOD) significant: Context-dependent  │
-└─────────────────────────────────────────────────────────────────┘
-
-Step 4: Report incremental R² from synergy beyond OOD baseline
-```
-
-**The VLA-Arena finding to verify:** VLAs show asymmetric robustness (more robust to V than L perturbations). PID should detect this as:
-- `Unq_L` increases under L perturbation (language becomes less redundantly encoded)
-- `Red_{V,L;A}` decreases under L perturbation (integration breaks down)
-
-### 14.5.3 Memorization vs Generalization Confound
-
-**The confound:** VLA-Arena's key finding is "memorization over generalization"—VLAs perform well on training-similar tasks but fail on novel compositions. Synergy patterns may simply reflect memorization confidence rather than integration quality.
-
-**Diagnostic signatures:**
-
-| Behavior | Memorized Response | Generalized Response |
-|----------|-------------------|----------------------|
-| Synergy pattern | Low variance (stable) | High variance (uncertain) |
-| Response to perturbation | Abrupt failure | Graceful degradation |
-| PID interpretation | Overfit to training synergy patterns | True integration |
-
-**Control protocol:**
-```
-MEMORIZATION DETECTION PROTOCOL
-===============================
-
-1. Identify "memorization indicators" from VLA-Arena:
-   - (a) Task similarity to training set (embedding distance to training tasks)
-   - (b) Response stereotype (action sequence similarity to training)
-   - (c) Confidence-calibration gap (high confidence on failures)
-   ⚠ OUTCOME-CONDITIONING GUARD (v10.7): indicators (b) and (c) are computed
-   from the same rollouts whose PID-failure correlation is under test, and (c)
-   is explicitly outcome-bearing — stratifying on them risks collider/selection
-   bias. Therefore: the PRIMARY memorization index uses only pre-outcome
-   quantities (indicator (a): embedding distance to training tasks); (b)/(c)
-   may enter only if computed on a separate calibration split never reused for
-   the PID-failure test.
-
-2. Stratify by memorization score:
-   - High memorization: Tasks similar to training, stereotyped responses
-   - Low memorization: Novel compositions, variable responses
-
-3. Test PID-failure correlation within each stratum:
-   - If effect only in "high memorization": Synergy tracks overfitting
-   - If effect only in "low memorization": Synergy tracks true integration
-   - If effect in both: Synergy is robust across regimes
+- define reset and washout criteria;
+- randomize or counterbalance order;
+- log model-memory reset, environment reset, and calibration state;
+- test treatment-by-order interaction;
+- exclude or model reset failures under a preregistered rule.
 
-4. Report memorization index alongside all PID results
-```
+## 5.6 Manipulation checks and controls
 
-**Critical insight:** A VLA that has memorized a perfect V-L-A mapping will show high redundancy and low synergy (the signature of "robust integration"), but this is an artifact of overfitting, not genuine understanding.
+Required checks are:
 
-### 14.5.4 Asymmetric Modality Robustness Confound
+1. **Target engagement:** the intended input, activation, pathway, or controller variable changed by the planned amount.
+2. **Specificity:** unrelated channels stayed within tolerance or their changes are modeled.
+3. **Support:** classify the treatment as in-distribution, plausible deployment shift, or intentionally adversarial OOD.
+4. **Dose calibration:** set dose from intervention mechanics or an independent pilot, not the outcome to be explained.
+5. **Placebo:** use an equal-cost or equal-norm intervention not expected to target the mechanism.
+6. **Positive control:** include a treatment known to change the policy or outcome.
+7. **Negative-control outcome:** include an outcome that should not change on causal grounds.
 
-**The confound:** VLA-Arena shows VLAs are more robust to visual perturbations than language perturbations. This asymmetry could create systematic biases in PID decomposition that reflect architecture bias rather than task structure.
+“Matched behavioral impact” is circular when behavior is the endpoint. Match dose, low-level input distance, activation norm, or an independently measured nuisance effect instead.
 
-**Observed asymmetry (from VLA-Arena):**
-```
-┌────────────────────────────────────────────────────────────────┐
-│              Perturbation Robustness Asymmetry                 │
-├────────────────────────────────────────────────────────────────┤
-│   Visual perturbations (V1-V4):                                │
-│   - VLAs maintain performance longer                           │
-│   - Synergy degrades gradually                                 │
-│                                                                │
-│   Language perturbations (W1-W4):                              │
-│   - VLAs fail more abruptly                                    │
-│   - Synergy shows discontinuous drops                          │
-│                                                                │
-│   Implication for PID:                                         │
-│   - Unq_V may appear stable (robust pathway)                   │
-│   - Unq_L may appear critical (fragile pathway)                │
-│   - This is ARCHITECTURE-DRIVEN, not task-driven               │
-└────────────────────────────────────────────────────────────────┘
-```
+## 5.7 Outcome definitions
 
-**Control protocol:**
-1. Normalize PID terms by baseline modality contribution (from unperturbed samples)
-2. Report relative change: `ΔUnq_V / Unq_V(baseline)` vs `ΔUnq_L / Unq_L(baseline)`
-3. Compare asymmetry across architectures (OpenVLA vs π₀ vs others)
-4. If asymmetry pattern is identical across architectures, it reflects training data bias; if different, it reflects architecture
+### Immediate policy outcomes
 
-**Pre-registration:** State expected direction of asymmetry before running experiments. VLA-Arena predicts L > V fragility; if PID shows opposite, either the estimator or the hypothesis is wrong.
+Match the metric to the output:
 
-### 14.5.5 Compositional Failure Confound (Long-Horizon Tasks)
+- categorical actions: Jensen–Shannon divergence, cross-entropy shift, or probability assigned to preregistered action sets;
+- continuous distributions: energy distance, Wasserstein distance, or symmetrized KL only when well defined;
+- deterministic chunks: physically scaled trajectory distance plus sensitivity to noise/quantization definitions;
+- denoising/flow paths: iteration-aligned integrated path deviation;
+- sequences: time-aligned distance and first-deviation time.
 
-**The confound:** VLA-Arena shows VLAs cannot compose learned skills for long-horizon tasks. This creates a confound where synergy degradation over time might reflect:
-- (a) True integration failure (the hypothesis)
-- (b) Simple action-sequence length effects (confound)
-- (c) Compounding error from early mistakes (confound)
+Report physical units and scale choices. Do not combine translation, rotation, gripper, and force dimensions without a declared metric.
 
-**Control protocol:**
-```
-COMPOSITIONAL FAILURE ANALYSIS
-==============================
+### Closed-loop outcomes
 
-1. Segment long-horizon tasks into sub-goals (if ground truth available)
-2. Compute PID terms per sub-goal segment, not just per trajectory
-3. Test whether synergy degradation:
-   - Occurs at sub-goal boundaries (compositional failure)
-   - Accumulates gradually (compounding error)
-   - Correlates with sub-goal novelty (generalization failure)
+At minimum record:
 
-4. Control for trajectory position:
-   - Regression: Synergy ~ timestep + sub_goal_index + error_so_far
-   - If timestep explains all variance, it's a length confound
+- externally defined task success;
+- progress/subgoal completion;
+- collision, contact, cumulative process-level safety cost, and risk-exposure duration;
+- object-state error;
+- steps or time to completion;
+- intervention/replanning count;
+- recovery after perturbation.
 
-5. Matched comparison:
-   - Compare same-length trajectories with different composition requirements
-   - L1 (single primitive, 50 steps) vs L2 (composed, 50 steps)
-   - If synergy patterns differ, composition matters
-```
+Binary success alone is insufficient for mechanism diagnosis: a nominally successful episode may still be unsafe, and a failed episode may have very different exposure severity or duration. Safety work must report process-level outcomes, distinguish safe success, unsafe success, safe failure, and unsafe failure when applicable, and must not be called certification [R56–R58].
 
-### 14.5.6 Summary: Required Controls Before Publication
+### Failure ontology
 
-| Confound | Control Method | Failure Criterion |
-|----------|----------------|-------------------|
-| **Task difficulty (L0/L1/L2)** | Stratified analysis | Effect disappears within strata |
-| **Distribution shift (OOD)** | OOD score regression | Synergy non-significant after OOD control |
-| **Memorization** | Memorization index stratification | Effect only in high-memorization stratum |
-| **Modality asymmetry** | Baseline-normalized ΔUnq | Pattern identical across architectures |
-| **Compositional length** | Segment-level analysis + matched comparison | Timestep explains all variance |
+Labels should distinguish, when observable:
 
-**Publication gate (v10.7 — reconciled with §14.5.7.5; this is the single canonical rule):** the **OOD/distribution-shift and task-difficulty controls are must-pass** — no number of other passes can rescue a claim that dies after OOD or difficulty control (the doc's own interpretation matrix says a synergy effect that vanishes after OOD control is an OOD effect, not a PID effect; task difficulty is must-pass per H1 confound 1, §14.1). Of the remaining controls (memorization, modality asymmetry, compositional length, embodiment gap where applicable), **a majority must pass** (effect persists after controlling) before claiming "PID synergy predicts VLA failure."
+- target-selection or semantic failure;
+- visual localization/grounding failure;
+- state-memory failure;
+- action-generation failure;
+- controller or inverse-kinematics failure;
+- contact/execution failure;
+- safety-filter intervention;
+- timeout or infrastructure failure;
+- ambiguous/unresolved.
 
-### 14.5.7 Embodiment Gap Confound (Dream2Flow-Derived)
+Diagnostic results must not be used to assign the ground-truth label being predicted.
 
-**Source:** Dharmarajan et al. (2025), "Dream2Flow: Leveraging Video Generative Models for Embodied Action Planning" (arXiv:2512.24766)
+## 5.8 Splits and replication
 
-#### 14.5.7.1 The Problem: Conflating World Model Quality with Execution Failure
+Use three disjoint levels:
 
-*(Negative control for this confound, moved here from the H7 disproof list: if embodiment has **no** effect on the synergy–failure relationship in the cross-embodiment comparison, this confound is empirically negligible for that setting and the staged analysis below simplifies.)*
+1. **Development:** estimator calibration, feature engineering, intervention pilot, and code debugging.
+2. **Locked internal test:** held-out task families, scenes, objects, and seeds.
+3. **External or transport test:** second policy, simulator, embodiment, laboratory session, or dataset.
 
-When computing PID on VLA variables `(V, D, A)`, we implicitly assume that failures in `A` reflect failures in information integration. However, Dream2Flow's staged analysis reveals that **failures can occur at multiple decoupled stages**:
+A random frame split is prohibited. A random episode split is insufficient for a claim about unseen task families when near-duplicate scenes or instructions cross folds.
 
-| Stage | What Fails | PID Manifestation | True Cause |
-|-------|-----------|-------------------|------------|
-| **World model** | D encodes incorrect dynamics | Low `I(D;A)` and `Syn(V,D;A)` | Internal representation error |
-| **Action decoding** | Correct D → wrong A | Low `I(D;A)` despite correct D | Decoder/head failure |
-| **Physical execution** | Correct A command → wrong outcome | PID looks normal, task still fails | Robot/environment mismatch |
+Replication must predefine what is invariant. The strongest target is replication of the **relationship** between diagnostics and effects, not equality of raw atom values across architectures.
 
-**Dream2Flow empirical evidence (qualitative; verify numbers in the paper if you need them):**
-Dream2Flow reports that stage-wise success can be substantially higher than end-to-end success, highlighting that failures arise in **multiple decoupled stages** and that errors can compound and interact. For prisoma, treat this as a requirement to **log and analyze stage outcomes explicitly** rather than attributing all failures to “integration quality”.
+---
 
-#### 14.5.7.2 Why This Confounds PID Analysis
+## 5.9 Stochastic policies, environments, and interference
 
-When a VLA fails, PID analysis on `(V, D, A)` cannot distinguish:
+Separate at least four random sources: case sampling, environment transition noise, policy sampling/decoding noise, and treatment assignment. Store their seeds and generator versions independently. Reusing one global seed can create accidental coupling or deterministic aliases that understate uncertainty.
 
-1. **D is wrong** (world model failure): PID correctly identifies integration failure
-2. **D is right but A is wrong** (action decoder failure): PID on D shows high synergy, but A fails anyway
-3. **A is right but outcome is wrong** (embodiment gap): PID shows success signature, task fails
+For matched counterfactual simulation, common random numbers may improve precision only when treatment does not change the semantic meaning or number of subsequent random draws. Validate coupling with a draw ledger or counter-based random streams. If an intervention changes branch structure, report that the paired worlds are only approximately coupled and use repeated independent executions.
 
-**Critical implication:** Correlating low `Syn(V,D;A)` with failure conflates these three distinct failure modes. A VLA could have a perfect world model (high synergy at D) but fail due to action decoding or embodiment mismatch.
+When policies are deterministic under fixed inputs, repeated identical runs do not increase the independent sample size. Vary a scientifically meaningful exogenous unit—initial condition, observation noise, environment stochasticity, or randomized case—not merely a logging seed. Conversely, stochastic decoding requires enough repeats to distinguish policy-distribution change from Monte Carlo noise.
 
-#### 14.5.7.3 Control Strategies
+Persistent memory, adaptive maps, human operators, shared robots, or thermal/battery state can couple nominal episodes. Define a washout/reset protocol, verify reset observables, and include reset failures in the flow diagram. If interference remains, randomize batches or sessions and use those as inference clusters.
 
-**Note (v10.2) — embodiment-in-`L` confound:** some current VLAs condition on embodiment identity *through the prompt* (e.g., Qwen-VLA's embodiment-aware prompt conditioning, arXiv:2605.30280). For such models, `L` carries embodiment information by design, so cross-embodiment differences in `V–L` atoms (or `Unq(L;A)`) can reflect the conditioning scheme rather than language grounding. Control: hold the embodiment token/segment fixed within a comparison, or log and ablate it as a separate source; never compare `L`-involving atoms across embodiments without this control.
+## 5.10 Holdout contamination and near-duplicate audit
 
-**Strategy 1: Multi-Stage PID Analysis**
-```
-Compute PID at multiple stages along the VLA pipeline:
+Task-family holdout is credible only when training and test cases are not near duplicates under the representation that matters. Before unblinding outcomes:
 
-1. Early layers: Syn(V,L;D_early) — sensory integration
-2. Middle layers: Syn(V,D;D_late) — world model formation  
-3. Output layers: I(D;A) — action decoding quality (a simple dependence check, not a PID atom)
-4. Execution: Compare A_commanded vs A_achieved (if measurable)
+- hash exact assets, instructions, trajectories, scene graphs, and generated seeds;
+- detect semantic paraphrase overlap, asset-family clones, mirrored layouts, trajectory subsequences, and model-training benchmark contamination where evidence is available;
+- define an exclusion or grouping threshold using training data only;
+- keep all members of a duplicate/lineage group in one fold;
+- report performance as a function of distance from training support rather than a single “unseen” label;
+- preserve a contamination ledger, including unresolved model-pretraining uncertainty.
 
-If failure correlates with stage 3 but not stages 1-2, the world model
-is intact but action decoding fails.
-```
+A contamination audit does not prove absence of memorization in a foundation model. It limits known benchmark leakage and makes the remaining uncertainty explicit.
 
-**Strategy 2: Counterfactual Action Evaluation**
-- For failed trials, extract the internal representation D at the failure point
-- Use an oracle policy (privileged access or human teleop) to determine optimal A*
-- Compute `I(D;A*)` vs `I(D;A_actual)`
-- If `I(D;A*) >> I(D;A_actual)`, the D representation was correct but action decoding failed
+## 5.11 Transport and dataset-shift design
 
-**Strategy 3: Embodiment-Matched Comparison**
-- Compare the same VLA checkpoint across different robots (if available)
-- Embodiment-independent PID patterns (same across robots) → reflect world model quality
-- Embodiment-dependent PID patterns → may reflect action decoder overfitting
+Before claiming cross-policy, cross-simulator, cross-embodiment, or real-world relevance, list variables that differ between source and target: morphology, action parameterization, camera geometry, controller, dynamics, instruction distribution, object set, failure prevalence, latency, and observation noise. Mark each as measured, harmonized, adjusted, intentionally varied, or unobserved.
 
-**Strategy 4: Simulation-to-Real Gap Analysis**
-- Compute PID in simulation (where embodiment gap is zero by construction)
-- Compare to PID on same policy in real environment
-- Divergence indicates embodiment confound magnitude
+Use a transport split that withholds the complete target domain during model selection. Evaluate overlap of prespecified effect modifiers and diagnostic support. Where overlap is weak, abstain or report target-restricted results rather than extrapolating. Any reweighting uses train/source data plus a separately defined target covariate sample; final target outcomes remain untouched until evaluation.
 
-#### 14.5.7.4 Dream2Flow as Diagnostic Ground Truth
+# 6. Statistical analysis plan
 
-Dream2Flow's staged architecture provides natural ablations:
+## 6.1 A complete estimand table is mandatory
 
-| Comparison | What It Reveals |
-|------------|-----------------|
-| Video correct, flow incorrect | Representation bottleneck (not world model) |
-| Flow correct, execution incorrect | Embodiment gap (action execution failure) |
-| Video incorrect, everything else N/A | World model failure (true D deficiency) |
+Before collection, create one row per primary or secondary estimand with these fields:
 
-**Recommendation:** When ground-truth video predictions are available (Dream2Flow, video prediction VLAs, or world model benchmarks), use video accuracy as an **upper bound** on world model quality. If video is correct but actions fail, the failure is downstream of D.
-
-#### 14.5.7.5 Updated Confound Control Table
-
-| Confound | Control Method | Failure Criterion |
-|----------|----------------|-------------------|
-| **Task difficulty (L0/L1/L2)** | Stratified analysis | Effect disappears within strata |
-| **Distribution shift (OOD)** | OOD score regression | Synergy non-significant after OOD control |
-| **Memorization** | Memorization index stratification | Effect only in high-memorization stratum |
-| **Modality asymmetry** | Baseline-normalized ΔUnq | Pattern identical across architectures |
-| **Compositional length** | Segment-level analysis | Timestep explains all variance |
-| **Embodiment gap** | Multi-stage PID + counterfactual A* | Effect localizes to action decoder, not D |
-
-**Updated publication gate:** superseded (v10.7) — the single canonical rule lives in §14.5.6: OOD and task-difficulty controls are **must-pass**; a majority of the remaining controls must also pass. The embodiment-gap control is additionally **must-pass for any claim about world-model quality** (H7b).
-
-## 14.6 Positional Encoding Confound (RoPE What-Where Entanglement)
-
-**Source:** Gopalakrishnan et al. (2025), "Decoupling the 'What' and 'Where' With Polar Coordinate Positional Embeddings" (arXiv:2509.10534)
-
-### 14.6.1 The Problem: Content-Position Entanglement in VLA Embeddings
-
-Most modern VLAs (OpenVLA, TraceVLA, and any Llama-based architecture) use **Rotary Position Embeddings (RoPE)** for attention. Gopalakrishnan et al. (2025) show — via analysis of language, music, and genomic sequence models (not VLAs directly) — that RoPE **entangles content ("what") and position ("where")** in attention scores; we treat this as a general-Transformer property that should also hold for RoPE-based VLAs.
-
-**Mathematical basis (from the paper):**
-
-In RoPE, the attention score between query at position t and key at position s is:
-```
-a_ts^RoPE = Σ_c μ_q_tc · μ_k_sc · cos((s-t)θ_c + φ_k_sc - φ_q_tc)
-```
-
-The interaction term `φ_k_sc - φ_q_tc` means that **both the key and query influence the effective phase (position)**. Content and position are confounded in the same representation.
-
-**Empirical evidence:**
-- On an "Indirect Indexing" diagnostic task requiring position-only or content-only matching:
-  - The paper reports that PoPE is far superior than RoPE (verify exact accuracies/metrics).
-- The paper reports that improvements persist across model scales (124M to 774M parameters).
-
-### 14.6.2 Implications for PID Analysis
-
-| PID Component | How RoPE Confound Affects It |
-|---------------|------------------------------|
-| **I(V;A)** | Vision has spatial structure; RoPE conflates "what object" with "where in image/sequence" |
-| **I(L;A)** | Language instruction position (word order) is entangled with word semantics |
-| **I(V,L;A) synergy** | May reflect position-content joint encoding, not pure semantic integration |
-| **Trajectory-level PID** | Action at timestep t has position t entangled with action content |
-
-**Critical concern:** When computing `I(V,D;A)` across a trajectory, we may be measuring:
-1. True semantic integration (intended)
-2. Positional structure of the trajectory (confound)
-3. A mixture of both (likely reality)
-
-### 14.6.3 Why This Matters for VLA Specifically
-
-VLA data has **multiple position axes** that RoPE entangles:
-
-1. **Token position within context window:** Standard RoPE position
-2. **Timestep within trajectory:** Action sequences are temporally ordered
-3. **Spatial position in visual input:** ViT patch positions (often also use positional encoding)
-4. **Word position in instruction:** Language has syntactic position
-
-All of these positions are entangled with their respective content. PID analysis cannot cleanly separate "does the model integrate V and L semantically?" from "does the model use V and L positions jointly?"
-
-### 14.6.4 Control and Mitigation Strategies
-
-**Strategy 1: Use Pre-Attention Embeddings**
-- Extract embeddings **before** RoPE rotation is applied
-- In Llama-style architectures: use residual stream before attention, not after
-- Limitation: Loses information about how the model uses position
-
-**Strategy 2: Cross-Position Averaging**
-- Compute PID for the same semantic content at different trajectory positions
-- If PID estimates are stable across positions → position confound is minor
-- If PID estimates vary with position → position confound is significant
-
-**Strategy 3: Position-Matched Controls**
-- Compare success vs failure cases **at the same trajectory timestep**
-- This controls for position effects when comparing PID signatures
-
-**Strategy 4: Explicit Position Regression**
-- Include trajectory timestep as a covariate in statistical analysis
-- Test whether PID effects persist after controlling for position
-- `Syn ~ failure + timestep + (failure × timestep)`
-
-**Strategy 5: Use Non-RoPE Models (If Available)**
-- If a target VLA uses non‑RoPE positional embeddings (e.g., learned absolute embeddings), this confound may be reduced (verify in the actual implementation)
-- Compare PID patterns between RoPE-based (OpenVLA) and non-RoPE models
-- Difference in patterns may indicate RoPE-specific artifacts
-
-### 14.6.5 Diagnostic: Position-Content Entanglement Score
-
-**Proposed metric:** Measure how much PID estimates vary with trajectory position for semantically matched samples.
-
-```
-Entanglement Score = Var_pos(PID) / Var_sem(PID)
-```
-
-- **Estimation (v10.7; both terms must be defined the same way — note the notation):** write `Var_pos(PID)` for the variance of the PID estimate across position-permuted/shifted variants of the *same* semantic content (semantics held fixed), and `Var_sem(PID)` for the variance across semantically distinct episodes matched to the *same* positional layout (positions held fixed); the score is `Var_pos / Var_sem`. (The conditional-bar notation `Var(PID | position)` is avoided — read literally it denotes the opposite conditioning.) Both terms are computed on the same estimator regime and sample size; report both raw variances, not only the ratio.
-- High score: position dominates; RoPE confound is severe
-- Low score: semantics dominates; RoPE confound is minor
-- Calibrate thresholds using synthetic controls and report sensitivity
-
-### 14.6.6 Publication Requirement
-
-Before claiming "synergy predicts failure," must demonstrate one of:
-1. **Position control:** Effect persists after controlling for trajectory timestep
-2. **Cross-position stability:** Same semantic content shows stable PID across positions
-3. **Architecture comparison:** Effect replicates in non-RoPE architecture
-4. **Pre-attention extraction:** Effect observed in pre-RoPE embeddings
-
-**Reference:** Gopalakrishnan A, Csordás R, Schmidhuber J, Mozer MC (2025). Decoupling the "What" and "Where" With Polar Coordinate Positional Embeddings. arXiv:2509.10534.
-
-## 14.7 Attribution Method Confounds
-
-Attribution methods are useful precisely because they fail in different ways from PID. Before using them to support H9 or as H1/H3 baselines, log the method, target output, source modality/layer, preprocessing, baseline/background/concept sets, score tensor hash, and sanity-check outcome.
-
-| Confound | Affects | Control / failure criterion |
-|---|---|---|
-| **Gradient saturation / noisy sensitivity** | saliency, Input×Gradient, SmoothGrad-style, IG, Grad-CAM, DeepLIFT variants | Compare multiple attribution families; if only one saturated or smoothed method supports the claim, treat it as weak |
-| **Reference/background choice** | IG, DeepLIFT, SHAP-style methods | Report several preregistered baselines/background sets; claim must not flip under reasonable choices |
-| **LRP rule/layer support** | LRP / Deep Taylor | Log propagation rules and unsupported modules; do not compare scores across architectures without rule parity |
-| **Concept-set leakage** | TCAV | Concept examples/counterexamples must be train-split only and semantically independent of the failure label unless the concept is the hypothesis |
-| **Heatmap plausibility bias** | Grad-CAM, saliency, attention | Require deletion/occlusion or counterfactual intervention evidence; visual appeal is not evidence |
-| **Feature dependence** | SHAP/occlusion/permutation | Use background/replacement distributions that preserve valid inputs; report whether correlated features make attributions non-identifiable |
-| **PID/attribution preprocessing mismatch** | all H9 comparisons | Fit reducers/normalizers/concept classifiers on training data only; compare on the same sample IDs and logged targets |
-
-**Publication requirement for H9:** an attribution/PID alignment claim needs (1) a passed attribution sanity check, (2) a passed or explicitly scoped PID/CI measurement regime, and (3) at least one matched perturbation showing that changing top-attributed features/modality changes the downstream target in the predicted direction.
-
-### 14.7.1 Concrete LRP Protocol for Transformer VLAs (v10.2)
-
-LRP is the H9 attribution method this project treats as primary for transformer-backbone VLAs, because **AttnLRP** (Achtibat et al., arXiv:2402.05602; listed in PMLR 235 / ICML 2024 — verify venue/status if citing formally) extends LRP rules to attention and reports faithful attribution of both inputs *and latent representations* at roughly single-backward-pass cost, evaluated on Llama-2-class and ViT architectures (paper-reported) — i.e., exactly the OpenVLA-style stacks targeted here. Reference implementation: the LXT library (`rachtibat/LRP-eXplains-Transformers`; pin the revision).
-
-**Protocol (preregister all choices; log via the `attribution_logged` run-log event):**
-1. **Rule composite:** use AttnLRP rules for attention/softmax blocks and standard composites elsewhere (ε-rule for linear layers; γ-type rules for lower vision layers if used). Log the exact composite per module class; do not compare relevance across models without rule parity (§14.7 table).
-2. **Targets:** attribute a declared scalar — a chosen action dimension, an action-chunk summary, or the policy log-likelihood of the taken action. Action *chunks* (§10.10.13.1) require declaring which chunk element(s) are attributed.
-3. **Conservation check:** verify per-call that relevance sums approximately to the explained output score through the layers the composite claims to conserve; log the residual. A large residual disqualifies the call from H9 evidence.
-4. **Sanity checks (mandatory, per Adebayo-style randomization):** model-randomization and data-randomization tests on the same pipeline; attribution maps must degrade. Then deletion/insertion (occlusion) curves on top-attributed tokens/patches must beat random-deletion controls.
-5. **Modality aggregation:** sum non-negative-clipped or signed relevance (declare which) over `V`-token vs `L`-token vs (if present) `D`-stream positions to get per-call modality relevance shares; these are the quantities compared against PID uniques/synergy under matched interventions.
-6. **Latent-layer use:** AttnLRP's latent attributions can rank internal neurons/heads per call; use them to *propose* `D_hidden[k]` hook points (then validate via geometry gates + Exp0), not as standalone evidence.
-
-**Triangulation matrix (what agreement/disagreement means):**
-
-| PID claim (distribution-level) | Expected LRP observation (call-level) | If they disagree |
-|---|---|---|
-| High `Unq(L;A)` | Instruction tokens carry dominant relevance on task-critical calls; language ablation changes actions | Trust the intervention; re-examine the `L` variable definition and the PID regime before the claim |
-| High `Unq(V;A)` | Task-relevant image regions dominate relevance vs distractors | Same: intervention evidence wins; check for correlated-feature attribution pathologies |
-| High `Syn(V,L;A)` | Neither modality alone shows dominant stable relevance; joint perturbations needed to flip actions | Synergy claims without joint-perturbation support are downgraded to descriptive |
-| High `Red(V,L;A)` | Either modality's top features suffice; single-modality deletion barely degrades | If deletion hurts badly, the redundancy estimate is suspect (estimator or regime issue) |
-
-**Scope honesty:** LRP explains one call; PID summarizes a distribution (Warning 7). H9 only asserts *compatibility under matched interventions*, never per-call/per-distribution equivalence.
-
-## 14.8 Preregistered Statistical Analysis Plan (v10.7)
-
-Everything in §14.2–§14.7 controls *what* may confound a claim; this section fixes *how* claims are tested. Without it, the atoms × decompositions × layers × perturbation-levels × task-dimensions grid guarantees false positives at p < 0.05. These rules bind Exp1–Exp5 and every H1–H9 claim.
-
-### 14.8.1 One primary endpoint per active hypothesis
-
-An endpoint becomes active only when its full machine-readable contract is frozen before
-capture: feature names, pair/target, measure and clamp rule, reference distribution,
-transform hash, analysis unit, split hierarchy, missingness rule, statistic, direction,
-resampling/null procedure, success rule, and futility rule. If any field is unresolved, the
-hypothesis is **BLOCKED**, not “preregistered enough.” Everything outside the one active
-endpoint is exploratory.
-
-| Hypothesis | Primary endpoint (statistic, unit of analysis, predicted direction) |
+| Field | Required content |
 |---|---|
-| H1 | **BLOCKED.** Retrospective endpoint: held-out episode AUROC gain of a frozen baseline+PID/CI L2-logistic model over the same baseline-only model, paired by episode/family. Activation requires train-reference-fitted local information scores, an episode aggregation rule, leakage tests, and the two missing mandatory uncertainty baselines. Prospective early warning is a separate exploratory H1b with a frozen landmark/horizon, no post-landmark data, censoring rules, and time-dependent AUROC. Global dataset atoms are not episode features. |
-| H2 | Spearman ρ across eligible tasks between baseline `Red/J₀` and the single-modality success-vs-severity slope, family-block bootstrap; **ρ > 0**. `J₀=I(S₁,S₂;A)` is fitted at V0/W0 and must have a positive lower confidence bound. V–L is eligible only after the instruction-diversity gate below; otherwise V–D is primary. |
-| H3 | Mean per-case Kendall τ between the 2–3-element baseline `Unq_i/J₀` ordering and the matched-intervention effect-size ordering; family-blocked case bootstrap; **mean τ > 0**. The same denominator and V–L eligibility gates apply. |
-| H4 | Spearman ρ across tasks between normalized `SSI := −IQR(Syn)/J₀` and positive L0→L2 success degradation, family-block bootstrap; **ρ < 0** (closer-to-zero SSI means more stable and should accompany less degradation). Tasks with an unstable/nonpositive `J₀` are ineligible, not assigned zero. |
-| H5 | Theil–Sen slope of the preregistered normalized primary construct across fixed phase-aligned window midpoints, with episodes resampled in blocks before recomputing every window estimate; contrast is failing minus succeeding episodes; **predicted contrast < 0**. Early-vs-late is exploratory only. |
-| H7b | **BLOCKED until stage labels exist.** Planned endpoint: difference between family-blocked partial Spearman correlations of normalized `Syn(V,D;Flow)` with external world-model error in world-model-labelled versus execution-labelled task-stage units, after rank-residualizing preregistered difficulty and execution success; **predicted difference > 0**. |
-| H8 | Balanced accuracy of the locked geometry/regime classifier for oracle-defined estimator-valid versus invalid cells on held-out synthetic families; thresholds calibrated on disjoint families and tested once against a label-permutation null; **predicted accuracy > chance**. Descriptive `δ_rel` is not an input to a hard gate unless this calibration independently validates it. |
-| H9 | Governed by its own §14.1 criterion (mean per-case τ + argmax agreement bands); **exempt from the §14.8.2 α-gate mechanics** |
+| Scientific question | one sentence, independent of method branding |
+| Target population | finite benchmark, task-family superpopulation, or transport population |
+| Unit / cluster | assignment unit, outcome unit, interference cluster, repeated-measure structure |
+| Eligibility / time zero | when a unit enters and what is known then |
+| Treatment or predictor | exact version, timing, dose, preprocessing, availability |
+| Comparator | control, placebo, baseline model, or alternative diagnostic |
+| Outcome | target level, horizon, algorithm/version, competing events |
+| Potential-outcome or predictive estimand | mathematical definition and scale |
+| Assignment / sampling mechanism | probabilities, blocks, case sampling, weighting |
+| Identification assumptions | consistency, exchangeability, positivity, no anticipation, interference, censoring, measurement |
+| Estimator | model, cross-fitting, weights, uncertainty, finite-sample correction |
+| Missingness / receipt | ITT rule, crash/censoring handling, secondary per-protocol assumptions |
+| Multiplicity family | primary family, hierarchy, correction or gatekeeping |
+| Minimum useful effect | superiority/equivalence/noninferiority region |
+| Validation target | outer holdout, external site/time/task, calibration plan |
+| Abstention rule | unsupported cases and denominator |
+| Permitted interpretation | exact conclusion if passed |
 
-### 14.8.2 Multiplicity discipline
+Changing any bold scientific field after unblinding creates a new estimand and must be labelled exploratory. A software configuration file is not a substitute for the table because it rarely records causal assumptions or the permitted conclusion.
 
-- **Hierarchical gatekeeping:** a hypothesis's exploratory grid is examined only if its primary endpoint passes at α = 0.05 **in the preregistered direction** (each endpoint's predicted sign is in the §14.8.1 table; a significant *wrong-signed* result does not open the grid — it is reported as disconfirming evidence).
-- **Exploratory grid:** use Benjamini–Yekutieli FDR at q = 0.10 within each
-  hypothesis's dependent grid by default. BH may replace BY only if independence or PRDS is
-  justified before seeing the p-values. A preregistered test that fails numerically counts as
-  `p=1`; outcome-dependent omission invalidates the family. Report attempted, valid, failed,
-  and rejected test counts.
-- **Regime multiplicity (binds the §14.1 regime preregistration):** for each hypothesis, the *active* regime (continuous / discrete `I_min` / discrete SxPID / CI-only) is selected **ex ante** by the Exp0/H8 gates on data disjoint from the hypothesis test; only that regime's variant is the primary endpoint. Variants under other validating regimes are preregistered **sensitivity analyses**, never substitute passes. If more than one regime is declared primary-eligible before capture, α is Bonferroni-split across them.
-- **Error-rate statement (what this plan does and does not control):** per-hypothesis type-I error at α = 0.05 on the primary endpoint, plus within-grid FDR at q = 0.10 on the exploratory grid. It makes **no family-wise claim across hypotheses** — each hypothesis is reported with its own error rate, and any cross-hypothesis "k of n confirmed" summary must say so explicitly.
-- The Bonferroni-for-2 rule in §14.5.1 governs its own two-test comparison and is unchanged; it is not a substitute for this plan.
-- Post-hoc feature pivots additionally require the §9.6 held-out replication rule.
-- H8 uses the verdict-permutation null stated in its row; H9 uses its own §14.1 mechanics — neither runs through the episode-level bootstrap machinery above.
+## 6.2 Leakage and fitted preprocessing
 
-### 14.8.3 Power analysis is a capture gate
+Any learned transform—including normalization, PCA, PLS, SAE, clustering, codebook, probe, local-information reference distribution, imputation, threshold, or feature selector—must be fit inside the training fold. Nested cross-fitting is required when the transform and outcome model are both learned.
 
-- **Current status (2026-07-10): NOT READY / NOT PASSED.** The implemented first-run tool
-  is an idealized endpoint-level sensitivity simulator. Its published 96-task/30-case/~640-
-  episode figures are withdrawn as capture requirements: it attenuated the configured H2
-  effect after adding family noise, checked null size at the largest rather than selected
-  design, grouped iid H3 cases without an ICC, and tested H4 with H2's positive direction.
-  The committed report remains audit evidence, not authorization to capture.
-- Before M5, run a **nested simulation-based design analysis** with the actual inference
-  procedure. The hierarchy is family → task/case → episode → severity/window. It must simulate
-  instruction eligibility, fitted-transform uncertainty, PID/SSI measurement error,
-  binomial outcomes, missingness, per-severity episode allocation, family ICC sensitivity,
-  and the complete resampling/refitting procedure. H2 and H4 require separate DGPs and
-  opposite directional tests.
-- Count the correct outer analysis units—episodes for H1, tasks for H2/H4, matched cases for
-  H3—while also sizing episodes **within** every task/cell. Extra episodes sharpen a task
-  estimate but cannot substitute for tasks.
-- **Scope:** this capture gate covers the H1–H4 primaries. H5 is powered through its own §3.6.3 windowing rule (post-stride `N_win` minimum); H7b remains exploratory-scale until stage labels exist; H8/H9 are governed by their own mechanics (§14.8.2).
-- **Preregistered minimum effect sizes:** H1 ΔAUROC ≥ 0.05; H2/H4 |ρ| ≥ 0.3
-  (across eligible tasks); H3 mean per-case τ ≥ 1/3. These remain design commitments, not
-  measured or currently powered effects.
-- **Success vs futility for H1 (operationalizing §18.2.5's detection line):** success requires *both* directional significance *and* point estimate ≥ 0.05 (preregistered thresholds — commitments, not measurements; do not treat as empirical claims). **Futility** is declared when the 95% CI upper bound of the incremental ΔAUROC (the §14.8.1 contrast) is < 0.02 — this turns §18.2.5's "AUROC ≤ baseline + 0.02" risk-detection trigger into a testable CI criterion rather than a point-estimate eyeball. A significant gain in [0.02, 0.05) is reported as "significant but below the preregistered minimum effect" (the §9.6 moderate/uncertain outcome). §9.3.2's baseline comparison inherits this same incremental contrast.
-- For every candidate design, estimate the corresponding null rejection rate. A selected
-  design passes only if power and type-I calibration both pass at that exact allocation, with
-  a prespecified Monte-Carlo uncertainty interval/tolerance. Checking a different or merely
-  largest grid cell is invalid.
-- If feasible capture cannot power a primary endpoint, say so before running it and either
-  scale capture or downgrade the hypothesis to estimation-with-CIs—preregistered as such.
-- No document may claim a dataset provides "sufficient statistical power" without pointing at this analysis (§9.7.4's task-count table explicitly does not).
+A transform record must include:
 
-### 14.8.4 Mandatory minimal baseline set
+- training sample IDs and time cutoff;
+- code/weights/configuration hash;
+- fitted parameters or artifact hash;
+- source tensor contract;
+- random seed;
+- intended reuse scope.
 
-The full §9.3.1 baseline list is aspirational in parts. The **mandatory minimal set** is:
-(1) the SAFE-class held-out logistic detector (`heldout_logreg_vlda`, implemented), (2) action
-predictive entropy (**not implemented**), (3) majority/1-NN/centroid label baselines
-(implemented), and (4) one ensemble-or-temperature uncertainty variant (**not
-implemented**). The missing implementations block H1 activation; “straightforward” is not
-the same as runnable. Dropping a mandatory family invalidates the comparison.
+Using all episodes to fit PCA and then cross-validating a classifier is leakage even when labels were not explicitly used, because test-distribution geometry informed the features. For temporal claims, transforms must also respect time order.
+
+## 6.3 H1 analysis: paired algorithmic and randomized closed-loop response
+
+The analysis begins with a common preflight and then follows exactly one primary protocol. The other protocol may be a hierarchically secondary replication, but their endpoints and claim language remain separate.
+
+### Common preflight
+
+1. Freeze the baseline-state boundary, moderator timestamp, treatment version, intervention site, dose, output metric, reset boundary, and target population.
+2. Verify that diagnostic capture is observational: compare instrumented and uninstrumented policy outputs, latency, memory state, and controller timing on blinded fixtures.
+3. Construct all moderators without treatment or outcome leakage. Unsupervised transforms use outer-training predictors only; supervised diagnostic learning is nested. Freeze missing-value handling and PID abstention.
+4. Keep all snapshots, clone replicates, landmarks, and episodes from one persistent case or task-family cluster in the same outer fold.
+5. Predeclare whether the scientific claim is frozen-snapshot algorithmic sensitivity or randomized closed-loop effect moderation.
+
+### Protocol A — paired algorithmic response
+
+Clone from a content-addressed immutable snapshot after \(D_i\) is captured and immediately before the intervention site. Record model/checkpoint, weights, adapters, recurrent/cache state, preprocessing state, numerical precision, device/kernel versions, decoder state, policy RNG state, and all intervention code/configuration.
+
+For deterministic policies or exact output distributions, compute both responses once after passing repeatability tests. For sampled or diffusion/flow policies, estimate the declared response functional with repeated draws. Use counter-based streams or a draw ledger; report whether streams are common, antithetic, or independent. Re-run a subset with reversed evaluation order, different worker/process placement, and independent streams to detect cache, scheduler, or state contamination.
+
+Fit the response predictor only on outer-training cases and evaluate directly against held-out \(S_i\) or its replicate distribution. The primary score is frozen before inspection. Report:
+
+- absolute and baseline-relative predictive score;
+- calibration of predicted versus observed response across held-out bins;
+- response reliability and Monte Carlo standard error;
+- sensitivity to a second valid output metric and random-number coupling;
+- performance by intervention type, task family, and response magnitude;
+- failure and abstention denominators.
+
+A same-snapshot paired contrast is unusually valuable because both computational responses can be executed, but its scope is correspondingly narrow. It establishes sensitivity of the declared algorithm under a frozen state; it does not include state-transition, controller, contact, or recovery effects.
+
+### Protocol B — randomized closed-loop response
+
+Reproduce assignment from the archived randomization ledger; compare planned and realized probabilities; and report assignment, attempted treatment, receipt, reset failures, crashes, censoring, exclusions, and outcomes by arm. Estimate the overall ITT effect before heterogeneity. Infer at the randomized/interference unit using randomization inference, cluster-robust methods, or a justified hierarchical model.
+
+Fit candidate treatment-response models in outer training folds. Select and evaluate them with effect-specific criteria because factual outcome fit alone is not a valid proxy for heterogeneous-effect accuracy [R106]. The locked stack is:
+
+- cross-fitted R-loss or a doubly robust effect-prediction loss, with propensity and outcome-nuisance diagnostics and truncation rules;
+- causal calibration: define bins or a monotone calibrator without the outer test outcomes, then compare predicted effects with held-out randomized within-bin contrasts [R107];
+- a rank-weighted average-treatment-effect/prioritization statistic when the use case ranks cases for intervention;
+- treatment-policy value and regret relative to treat-all, treat-none, and design-only rules under the recorded assignment probabilities;
+- stability across task-family blocks, seeds, and model classes;
+- factual-outcome proper loss only as a secondary check of the nuisance/outcome model.
+
+No single metric is universally reliable across data-generating regimes, and recent large-trial evidence shows that many causal-ML effect estimates fail internal and external validation; synthetic oracle studies and empirical negative controls are therefore mandatory before trusting a selected learner [R106, R108].
+
+Never score against an unobserved physical “true individual effect.” Synthetic systems may use oracle effects for method validation; exact simulator clone pairs may be reported as Protocol A or under a separately declared paired-world target, not as ordinary parallel-arm truth. Secondary per-protocol or complier analyses must retain the ITT result and state their extra assumptions.
+
+### Confirmatory contrast and multiplicity
+
+The confirmatory contrast is the locked model family with diagnostic features versus the strongest design/non-PID baseline under identical outer folds, information access, and tuning budget. Report the score difference, interval, useful-margin comparison, absolute calibration, and all abstentions. Broad model or hyperparameter search belongs inside nested resampling.
+
+For multiple treatments or doses, either use a prespecified multinomial/dose-response learner or define a small contrast family. Pairwise fishing across modalities, layers, doses, outcomes, metrics, couplings, and horizons is not one H1 test. If Protocol A and Protocol B are both run, specify a testing hierarchy; Protocol B is required before using language about closed-loop robustness or physical outcome moderation.
+
+## 6.4 H2 analysis: prospective failure with time and censoring
+
+Choose the prediction target before model selection:
+
+- binary failure within a fixed horizon among units event-free at \(t_0\);
+- cause-specific hazard for a named failure;
+- cumulative incidence under competing risks;
+- remaining time to failure;
+- dynamic risk updated at prespecified landmarks.
+
+The data pipeline must prevent future leakage. All landmarks from an episode stay together. Window normalization, reference distributions, feature selection, censoring weights, imputation, and calibration are fitted only in the outer training data.
+
+For fixed-horizon binary targets with complete follow-up, use log loss and Brier score. Under censoring, use a prespecified valid approach such as inverse-probability-of-censoring weighted Brier score, with the censoring model cross-fitted and stress-tested [R92]. When competing events preclude the named failure, distinguish cause-specific risk from cumulative incidence; treating every competing event as an ordinary nonfailure changes the estimand.
+
+Evaluate:
+
+1. discrimination and proper scoring at the frozen horizon;
+2. calibration-in-the-large, slope, and reliability by risk range;
+3. event-level detection probability at fixed false-alarm burden, alarms per episode/time, and lead time with undetected failures retained explicitly rather than omitted, under a preregistered threshold/persistence/refractory/event-matching policy;
+4. decision utility under explicit costs, fallback capacity, and intervention latency [R93];
+5. robustness to task/prevalence shift and missing sensors;
+6. external or later-time validation without refitting, followed separately by prespecified recalibration if needed.
+
+Capacity-match learned baselines by training examples, labels, tuning trials, and compute budget. Reproduce applicable representatives of supervised internal-state monitoring, coarsely supervised temporal localization, pure action-space and inter-chunk monitoring, architecture-stratified kinematic monitoring, one-class internal confidence, perturbation disagreement, activation probes, information-theoretic signals, action-conditioned world-model latents, and sequential calibration—or state precisely why an interface is unavailable [R25, R95, R101–R105, R109–R112]. Compare not only predictive performance but annotation burden, white-box access, action-resampling cost, external-model cost, latency, warning time, recovery coupling, and conformal abstention/coverage. Report failure prevalence and independent episode, event, and family counts with every metric. Precision–recall summaries are interpreted at that prevalence [R94].
+
+Conformal calibration is nested inside training/calibration folds. Report the exact nonconformity score, calibration unit, exchangeability or shift assumption, finite-sample correction, and whether repeated landmarks violate the nominal unit. Under task-family or temporal shift, coverage is an empirical transport result unless the chosen weighted/group/sequential method supplies a theorem whose assumptions were checked [R96].
+
+## 6.5 Baseline hierarchy
+
+Baselines must be built and frozen before examining PID’s confirmatory endpoint.
+
+### Level 0: design and naive baselines
+
+- prevalence-only predictor;
+- task family, horizon, severity, and initial-state variables;
+- last action or simple progress trend.
+
+### Level 1: policy uncertainty and temporal baselines
+
+- action entropy or sample dispersion;
+- ensemble/stochastic-pass disagreement;
+- action smoothness and chunk inconsistency;
+- dynamics/world-model prediction error;
+- OOD or representation-distance score;
+- Tri-Info’s diagnostic families implemented as faithfully as access permits [R25];
+- SAFE-style supervised internal-state scores and Hide-and-Seek-style coarsely supervised temporal localization when matched labels and interfaces exist [R95, R110];
+- action-space TCE/ACM features (ActProbe family), Rewind-IL/TIDE inter-chunk discrepancy, architecture-stratified reversal/jerk/momentum/stall features, one-class internal-state confidence (VLAConf family), perturbation disagreement, and activation-probe warning scores when the required interface exists [R102–R105, R109, R111];
+- action-conditioned world-model latent prediction error or features when a matched external model and compute budget are available (Foresight family) [R101];
+- temporal-difference or other explicitly sequential calibration baseline when policy action probabilities and the required trajectory supervision are available [R112].
+
+### Level 2: information baselines
+
+- individual and joint MI/CMI only where validated;
+- co-information or Shannon invariants only where constituent terms pass gates;
+- simple cross-correlation, canonical correlation, or predictive likelihood;
+- discrete contingency statistics for categorical targets.
+
+### Level 3: learned baselines
+
+- capacity-matched regularized classifier/regressor on frozen representations;
+- a temporal model when the endpoint is temporal;
+- attribution or intervention-derived features when available;
+- VLA-Trace/BeTTER-style mechanism features where technically comparable [R26–R27].
+
+PID must be compared with the strongest valid baseline, not merely entropy or majority class.
+
+## 6.6 Multiplicity and researcher degrees of freedom
+
+The analysis tree includes many source pairs, layers, targets, measures, estimators, dimensions, windows, horizons, tasks, and doses. Uncontrolled search makes nominal p-values meaningless.
+
+Use hierarchical gatekeeping:
+
+1. estimator eligibility;
+2. one primary source/target contract;
+3. one primary endpoint for H1 and H2;
+4. one locked PID measure/regime for H3;
+5. secondary families controlled with false-discovery-rate procedures or simultaneous intervals;
+6. all unregistered variants labelled exploratory.
+
+Do not select a layer, projection dimension, PID measure, or temporal window because it maximizes the test statistic. A multiverse may be reported, but the confirmatory result must remain the locked branch.
+
+## 6.7 Uncertainty and dependence
+
+Use uncertainty at the level supporting the claim:
+
+- task-family block bootstrap for transfer claims;
+- case/episode cluster bootstrap for repeated frames/windows;
+- randomization inference for randomized treatment assignments where feasible;
+- hierarchical-model intervals with small-cluster corrections or sensitivity checks;
+- paired bootstrap for matched control/treatment cases;
+- nested resampling when preprocessing or feature selection is fit.
+
+A moving-block bootstrap over frames does not create new independent task families. Report the number of independent clusters and the distribution of cluster sizes.
+
+Estimator uncertainty and downstream prediction uncertainty must both be propagated. Treating an estimated PID atom as error-free can attenuate or destabilize downstream effects.
+
+## 6.8 Power and design analysis
+
+Power is a capture gate, not a generic sample-count paragraph. Use simulation based on the complete nested design:
+
+- task-family heterogeneity;
+- case and episode random effects;
+- treatment assignment and dose;
+- outcome prevalence and severity;
+- repeated measures and autocorrelation;
+- missing/aborted runs;
+- diagnostic measurement error;
+- estimator abstention;
+- selected hypothesis test or predictive comparison;
+- multiplicity and planned validation split.
+
+Define a minimum useful effect before simulation. Report operating characteristics across plausible nuisance parameters, not a single optimistic count. For H1 Protocol B, simulate effect-model selection and calibration under null, weak, nonlinear, and sign-changing heterogeneity rather than powering only the average effect. For H2, vary the number of independent failures, episodes, task families, censoring patterns, and false-alarm opportunities; the number of landmarks is not the event count. The final design must include enough independent families or embodiments for the claimed generalization level; more frames do not compensate for one family.
+
+## 6.9 Missingness, crashes, and intervention failures
+
+Create a run-status ontology before collection:
+
+- completed and scorable;
+- completed but outcome ambiguous;
+- intervention not delivered;
+- reset failure;
+- sensor/log corruption;
+- policy or simulator crash;
+- human safety stop;
+- infrastructure timeout.
+
+Never silently delete crashes or safety stops: they can be outcome-related. Report all assignments, treatment receipt, exclusions, and a flow diagram. Use intention-to-treat as the primary causal analysis when assignment is randomized, with treatment-received analyses secondary and explicitly assumption-dependent.
+
+## 6.10 Robustness and falsification checks
+
+Required checks include:
+
+- label and assignment permutation under the same cluster structure;
+- negative-control source, treatment, and outcome;
+- placebo interventions;
+- alternative but justified metrics/scales;
+- leave-one-family-out influence analysis;
+- model/data randomization for attribution methods;
+- intervention-dose and OOD sensitivity;
+- sensitivity to task mixture and prevalence;
+- replication after freezing all decisions;
+- comparison of conclusions with and without high-leverage cases;
+- direct reporting of null and contradictory results.
+
+No robustness analysis may be used to replace the primary result post hoc.
 
 ---
 
-# 15. Numerical Stability and Optimization: Technical Guidance
+## 6.11 Sensitivity analyses tied to assumptions
 
-This section documents known numerical issues, failure modes, and optimization strategies for making the estimators robust at scale.
+Sensitivity analyses are not an unbounded menu. Each addresses a named assumption:
 
-## 15.1 Known Numerical Failure Modes
+| Assumption | Prespecified diagnostic or sensitivity analysis |
+|---|---|
+| treatment consistency | analyze intervention versions/doses separately; inspect target-engagement distributions |
+| assignment integrity | exact randomization reconstruction; balance as a corruption check, not a validity test |
+| positivity | assignment/support tables and effective sample size by stratum |
+| no anticipation | automated timestamp lineage and feature-availability audit |
+| no interference | alternative clustering/reset exclusions; batch/session analysis |
+| missing at random / censoring | worst-case bounds, pattern-mixture or weighting sensitivity where defensible |
+| outcome validity | blinded relabel sample and alternative locked detector |
+| model specification | simple versus flexible learner under the same outer folds |
+| transport overlap | support plots, target restriction, bounded extrapolation |
+| PID regime validity | measure/preprocessing alternatives labelled as separate estimands |
 
-### 15.1.1 kNN Radius Collapse (Most Common)
+A robustness result that changes the estimand must be reported as such, not as confirmation of the original one.
 
-**Symptom:** `PidError::NumericalInstability: kNN radius is non-positive`
+# 7. Estimator and measure validation
 
-**Causes:**
-1. **Duplicate points:** Identical samples in the dataset
-2. **Quantization:** Low-precision embeddings creating effective duplicates
-3. **Constant dimensions:** Columns with zero variance
+## 7.1 Separate four questions
 
-**Solutions (in order of preference):**
-```rust
-// 1. FIRST: Check for and remove exact duplicates
-fn remove_duplicates(data: &mut Vec<Vec<f64>>) -> usize {
-    let original_len = data.len();
-    data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    data.dedup();
-    original_len - data.len()
-}
+The current documentation sometimes compresses distinct failures into one verdict. Use four independent gates:
 
-// 2. SECOND: Add small jitter (ONLY if duplicates cannot be avoided)
-// Use Jitter::new(std, seed) with std ≈ 1e-10 to 1e-8
-// WARNING: Jitter changes the quantity being estimated; re-validate
+1. **Population gate:** is the intended quantity finite, defined, and scientifically meaningful?
+2. **Measure gate:** does the chosen PID functional have the properties needed for the claim in the specified source/target class?
+3. **Estimator gate:** does the implementation recover the functional with acceptable bias, uncertainty coverage, and failure detection at the planned regime?
+4. **Application gate:** are the real embeddings and sampling process sufficiently close to a validated regime for interpretation?
 
-// 3. THIRD: Increase k if sample size permits (reduces tie sensitivity)
-// But this increases bias; trade-off depends on n/d ratio
-```
+Passing an MI coherence check does not validate a PID measure. Passing a low-dimensional PID fixture does not validate high-dimensional embeddings. Stability across seeds does not establish correctness.
 
-**⚠️ WARNING:** Do NOT silently add jitter. Always log when jitter is applied and quantify its effect on estimates.
+## 7.2 Current repository status
 
-### 15.1.2 Digamma Pole at Non-Positive Arguments
+At the reviewed Prisoma snapshot and its pinned `pid-rs` revision:
 
-**Symptom:** NaN or Inf in MI estimates when counts are very small
+- the high-dimensional MI/coherence path is **NO-GO** on nuisance-dimension controls;
+- `pid-rs` has meaningful low-dimensional implementation evidence: continuous shared-exclusions redundancy is checked against a semi-analytic additive-Gaussian oracle with closed-form pointwise terms and a paired finite-sample Monte Carlo expectation, and discrete SxPID is checked bit-faithfully against reference values; these results validate named fixtures, not arbitrary embedding regimes [R73];
+- Prisoma’s default Experiment 0 aggregate label is still **not** an atom-validity verdict because one legacy redundancy target is measure-mismatched and the strict band gates analytically known MI terms rather than the full VLA application;
+- at the pinned Prisoma dependency, reproducible external continuous cross-implementation provenance was still documented as pending; post-pin `pid-rs` main at `70b45f7…` now reports a committed `csxpid` fixture with agreement within `1e-12` nats, but that later evidence is not part of the frozen Prisoma build until the submodule is deliberately upgraded and its integration suite rerun [R73];
+- continuous shared-exclusions for the intended high-dimensional, dependent, transformed VLA tensors remains **NOT APPLICATION-VALIDATED**: a low-dimensional cross-implementation fixture does not establish broad estimator consistency or application validity, atom components combine estimators with different bias profiles, uncertainty procedures have kNN-specific caveats, and the application-support envelope has not passed [R61, R73];
+- no evidentiary real-VLA capture has yet passed all estimator, endpoint, power, and application-support prerequisites [R61].
 
-**Cause:** `digamma(x)` has a **pole** at 0 (ψ(x) → −∞ as x → 0⁺; this is divergence, not floating-point underflow). Under the include-self/`+1` counting conventions used here the digamma argument is ≥ 1 by construction (ψ(1) = −γ, finite) — so reaching x < 1 indicates an off-by-one counting bug, not "sparse data".
+The v12.5 plan preserves these distinctions. Low-dimensional oracle success is real evidence; it is neither zero evidence nor permission to interpret high-dimensional VLA atoms.
 
-**Solution (implemented in `stats.rs`):**
-```rust
-// Near 0 the Laurent expansion is ψ(x) = −1/x − γ + O(x)  (NOT the large-x
-// asymptotic ψ(x) ~ ln x − 1/(2x) − 1/(12x²)); but we should never reach
-// x < 1 in practice — treat that as a counting-convention bug.
+The preregistration must freeze one estimator environment. The preferred path is to evaluate `pid-rs@70b45f7…` as a **candidate upgrade**, not silently float to `main`: first reproduce the new external fixture and support-contract behavior in an isolated branch; then compare old and new outputs on every preregistered synthetic family; finally record whether changed APIs, support rejections, preprocessing metadata, or atoms alter the estimand. Until that migration report passes, the reviewed `8a5a9dd…` environment remains the reproducibility reference and is ineligible for claims that depend on the later fixture.
 
-// Better: Ensure n > k + 1 always, and use a precomputed table for digamma(1..n)
-pub fn digamma_int_table(n: usize) -> Vec<f64> {
-    // Precompute ψ(1), ψ(2), ..., ψ(n) using the recurrence:
-    // ψ(x+1) = ψ(x) + 1/x
-    // ...
-}
-```
+## 7.3 Synthetic validation matrix
 
-### 15.1.3 Distance Concentration at High Dimension
+Validation must span families chosen to isolate failure modes, not just familiar XOR/copy examples.
 
-**Symptom:** MI estimates collapse to near-zero or become highly variable as d increases.
+### A. Analytic or numerical-oracle families
 
-**Mathematical basis:** In high dimensions, for data satisfying the Beyer et al. (1999) hypotheses (iid-like/isotropic coordinates; `Var(‖X‖/E‖X‖) → 0`), the ratio of nearest-neighbor distance to average distance converges to 1. This makes kNN neighborhoods meaningless — but it is **not unconditional**: low intrinsic dimension or strong cluster structure escapes it (that loophole is precisely what the geometry gates and Flow-as-Bridge exploit).
+- independent Gaussian channels with known MI;
+- correlated Gaussian systems with analytic MMI/BROJA-compatible comparisons where applicable;
+- discrete copy, unique, XOR, AND/OR, noisy XOR, and mixtures;
+- low-dimensional shared-exclusions examples reproduced from the reference implementation;
+- continuous mixtures with numerical integration or high-precision Monte Carlo oracle;
+- mixed discrete–continuous targets when intended in application.
 
-**Diagnostic (implemented in `geometry.rs`):**
-```rust
-// Compute the coefficient of variation of pairwise distances
-// If CV < 0.1, distances are concentrated and kNN is likely unreliable
-let stats = distance_concentration_stats(data, &cfg)?;
-if stats.pairwise_cv < 0.1 {
-    warn!("Distance concentration detected (CV={:.3}); kNN estimates may be unreliable", stats.pairwise_cv);
-}
-
-// Also check: nn_over_pairwise_mean should be << 1 for kNN to work
-// If nn/pairwise_mean > 0.5, neighbors are not meaningfully "near"
-```
-
-**Solutions:**
-1. Reduce dimensionality via PCA/projection BEFORE estimating
-2. Use intrinsic dimension estimate to set appropriate k
-3. Accept that kNN-based `I^sx_∩` may be invalid above some d threshold
-
-### 15.1.4 Strong Dependence Pathology
+### B. Geometry and nuisance families
 
-**Symptom:** MI estimates have huge variance or are biased at low noise levels (high true MI).
+- added independent nuisance dimensions;
+- anisotropic scaling and rotations;
+- nonlinear invertible warps;
+- manifolds with known coordinates;
+- duplicates, ties, quantization, and low-precision tensors;
+- sparse and heavy-tailed distributions;
+- mixtures with varying local dimension.
 
-**Cause:** When X nearly determines Y (or vice versa), the nearest neighbors in joint space are the same as in marginal space, breaking the KSG estimator's assumptions (Gao et al., 2015).
+### C. Dependence families
 
-**Diagnostic:**
-```rust
-// Compute the empirical correlation or a proxy for dependence strength
-// If |corr(X, Y)| > 0.95, warn about strong-dependence regime
-
-// Better: Check if the 1-NN distance in joint space equals the marginal 1-NN distance
-// for a large fraction of points (indicates near-determinism)
-```
-
-**Solutions:**
-1. For MI-only: Use local Gaussian MI estimator (Gao et al., 2015, arXiv:1508.00536)
-2. For `I^sx_∩`: Accept that noiseless signals may not be estimable; add explicit noise floor to target
-3. Increase sample size significantly — required N grows ~exponentially in the true MI (Gao et al. 2015; see Warning 4), so strongly dependent pairs get expensive fast
-
-## 15.2 Optimization Strategies
-
-### 15.2.1 Memory-Efficient Distance Computation
-
-For large n, storing the full n×n distance matrix is prohibitive. Use on-the-fly computation:
-
-```rust
-// Instead of: let distances = pairwise_distances(data); // O(n²) memory
-
-// Use streaming kNN that computes distances row-by-row:
-fn streaming_knn(data: MatRef<'_>, k: usize, metric: Metric) -> Vec<(Vec<usize>, Vec<f64>)> {
-    let n = data.nrows();
-    let mut results = Vec::with_capacity(n);
-
-    for i in 0..n {
-        // Compute distances from point i to all other points
-        let mut dists: Vec<(usize, f64)> = (0..n)
-            .filter(|&j| j != i)
-            .map(|j| (j, metric.distance(data.row(i), data.row(j))))
-            .collect();
-
-        // Partial sort to find k smallest
-        dists.select_nth_unstable_by(k - 1, |a, b| a.1.partial_cmp(&b.1).unwrap());
-
-        let (indices, distances): (Vec<_>, Vec<_>) = dists[..k].iter().cloned().unzip();
-        results.push((indices, distances));
-    }
-    results
-}
-```
-
-### 15.2.2 SIMD Acceleration for Distance Computation
-
-> **Status: guidance only — NOT implemented.** `pid-core` contains no SIMD code (no
-> `std::arch` / `target_feature` anywhere). The sketch below is a starting point for
-> future optimization; do not cite it as an existing capability. (Same status for the
-> §15.2.1 `streaming_knn` sketch above — the shipped path is the brute-force exact kNN
-> in `nn.rs`.)
-
-```rust
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
-
-#[inline]
-#[target_feature(enable = "avx2")]
-unsafe fn chebyshev_distance_avx2(a: &[f64], b: &[f64]) -> f64 {
-    debug_assert_eq!(a.len(), b.len());
-    let n = a.len();
-    let mut max_diff = _mm256_setzero_pd();
-
-    let chunks = n / 4;
-    for i in 0..chunks {
-        let va = _mm256_loadu_pd(a.as_ptr().add(i * 4));
-        let vb = _mm256_loadu_pd(b.as_ptr().add(i * 4));
-        let diff = _mm256_sub_pd(va, vb);
-        let abs_diff = _mm256_andnot_pd(_mm256_set1_pd(-0.0), diff); // abs via sign bit clear
-        max_diff = _mm256_max_pd(max_diff, abs_diff);
-    }
-
-    // Horizontal max reduction
-    let mut arr = [0.0f64; 4];
-    _mm256_storeu_pd(arr.as_mut_ptr(), max_diff);
-    let mut result = arr.iter().cloned().fold(0.0, f64::max);
-
-    // Handle remainder
-    for i in (chunks * 4)..n {
-        result = result.max((a[i] - b[i]).abs());
-    }
-    result
-}
-```
-
-### 15.2.3 Parallelization Strategy
-
-> **Status: implemented.** `pid-core` ships a real rayon path behind the optional
-> `parallel` cargo feature (`par.rs`), documented bit-identical to the serial path.
-> The snippet below is illustrative of the strategy, not the literal shipped function.
-
-kNN computation is embarrassingly parallel across query points:
-
-```rust
-use rayon::prelude::*;
-
-fn parallel_knn_mi(x: MatRef<'_>, y: MatRef<'_>, cfg: &KsgConfig) -> PidResult<f64> {
-    let n = x.nrows();
-
-    // Compute per-point contributions in parallel
-    let contributions: Vec<f64> = (0..n)
-        .into_par_iter()
-        .map(|i| {
-            // Compute kNN contribution for point i
-            compute_point_contribution(i, x, y, cfg)
-        })
-        .collect();
-
-    // Aggregate (sum + normalization)
-    Ok(contributions.iter().sum::<f64>() / (n as f64))
-}
-```
-
-**Caution:** Ensure thread-local RNG states if any stochastic element is involved.
-
-### 15.2.4 Approximate kNN (Use With Extreme Caution)
-
-For very large n, exact kNN becomes infeasible. Approximate methods (HNSW, FAISS) introduce bias:
-
-```
-APPROXIMATE kNN DECISION TREE
-=============================
-
-Is n > 100,000 AND d < 100?
-├── YES: Consider ball-tree (exact but faster)
-└── NO: Continue
-
-Is n > 1,000,000?
-├── YES: Consider approximate kNN with validation
-│   └── REQUIRED: Run Experiment 0 subset with exact vs approx
-│   └── REQUIRED: Report approximation error bound
-│   └── REQUIRED: Use conservative recall target (≥0.99)
-└── NO: Use brute-force (it's fast enough)
-
-NEVER use approximate kNN without explicit validation.
-NEVER silently switch from exact to approximate based on n.
-```
-
-## 15.3 Numerical Precision Recommendations
-
-| Operation | Recommended Precision | Rationale |
-|-----------|----------------------|-----------|
-| Distance computation | f64 | Avoid cancellation in differences |
-| Distance storage (if needed) | f64 | Sorting/comparison sensitivity |
-| Digamma evaluation | f64 | Series expansion needs precision |
-| Final MI/PID output | f64 | But report with appropriate sig figs |
-| Random projection matrix | f32 sufficient | Johnson-Lindenstrauss doesn't need f64 |
-
-## 15.4 Debugging Checklist for Numerical Issues
-
-```
-WHEN ESTIMATES LOOK WRONG, CHECK:
-================================
-
-1. [ ] Are there NaN or Inf values in input data?
-   → Use: data.iter().all(|x| x.is_finite())
-
-2. [ ] Are there duplicate rows?
-   → Count unique rows; if < n, investigate source
-
-3. [ ] Are any columns constant?
-   → Check column variance; remove or warn
-
-4. [ ] Is k appropriate for n?
-   → Rule of thumb: k << sqrt(n), and n > 10*k minimum
-
-5. [ ] Is d appropriate for n?
-   → If d > n/10, expect degradation; check intrinsic dim
-
-6. [ ] Is the true MI huge (strong dependence)?
-   → Add noise to target and check if estimates stabilize
-
-7. [ ] Are preprocessing parameters logged?
-   → Verify standardization was applied, check for NaN in mean/std
-
-8. [ ] Is the random seed fixed for reproducibility?
-   → Run twice with same seed; results must be identical
-```
+- AR and state-space trajectories with controlled autocorrelation;
+- phase-locked or overlapping windows;
+- repeated episodes with family-level random effects;
+- policy-like deterministic mappings with controlled stochasticity;
+- covariate shift between transform-fit and evaluation distributions.
+
+### D. Mechanism-discrimination families
+
+Construct matched systems with similar marginal MI or prediction accuracy but different source organization. These are the strongest synthetic tests of whether a PID feature adds anything scientifically distinctive.
+
+## 7.4 Validation outputs
+
+For every cell and sample size report:
+
+- point bias and relative error where the oracle is nonzero;
+- root mean squared error;
+- confidence-interval coverage and width;
+- failure/abstention rate;
+- sensitivity to \(k\), metric, jitter, scale, and seed;
+- monotonicity only when guaranteed by the data-generating family;
+- runtime and peak memory;
+- cross-implementation agreement;
+- whether the population quantity changed under the transformation.
+
+A quantity that changes after adding source noise may reflect a change in the functional, estimator error, or both. Do not assume invariance without a theorem.
+
+## 7.5 Continuous shared-exclusions gate
+
+A continuous \(I_\cap^{sx}\) regime is eligible only when all of the following hold:
+
+1. target and sources define a finite population problem;
+2. the exact implementation matches the paper/reference code on committed fixtures;
+3. the full atom vector, not just MI terms, is validated against a measure-specific oracle or independent implementation in the relevant low-dimensional family;
+4. empirical coverage and abstention meet preregistered tolerances at the intended \(N,d,k\);
+5. preprocessing is frozen and separately validated;
+6. dependence-aware uncertainty is supported;
+7. conclusions are stable across a narrow justified hyperparameter region;
+8. no known numerical fallback silently substitutes another functional.
+
+High-dimensional atom drift without an oracle is labelled **sensitivity**, not estimator validation.
+
+## 7.6 Discrete PID gate
+
+Discrete PID is not an automatic escape from continuous geometry. It changes the estimand and introduces discretization bias.
+
+Required checks:
+
+- codebook/binning fitted on training data only;
+- minimum cell occupancy and effective support;
+- held-out assignment stability;
+- sensitivity to codebook size and seed;
+- bias correction or Bayesian/smoothed estimates where justified;
+- saturation diagnostics;
+- cross-measure analysis when scientific conclusions depend on the PID measure;
+- explicit statement that continuous and discrete atoms are different quantities.
+
+For categorical outcomes and deliberately discrete mechanism variables, discrete PID may be the cleanest primary route. For arbitrary clustered hidden states, it is exploratory until stability and meaning are established.
+
+## 7.7 Mutual information and Shannon-invariant gate
+
+KSG-type estimators have useful asymptotic properties but can fail under high dimension, strong dependence, ties, anisotropy, and finite samples [R12–R13]. Shannon invariants avoid choosing a PID measure but still inherit every constituent MI-estimation problem [R11].
+
+Required checks for each MI term:
+
+- exact concatenation and metric diagnosed;
+- finite population estimand;
+- synthetic recovery at matched dimension and dependence;
+- positive joint-MI denominator separated from numerical zero;
+- uncertainty propagated through ratios;
+- no bound violations attributed to “interesting negative structure” before estimator failure is ruled out.
+
+If one constituent MI term fails, the derived invariant abstains.
+
+## 7.8 Neural and variational estimators
+
+MINE or other neural estimators may be used as sensitivity analyses, not as unquestioned ground truth. They require critic training, held-out evaluation, optimization diagnostics, multiple seeds, and awareness that variational bounds can be loose or unstable [R16–R17].
+
+A neural estimator is eligible only when it:
+
+- recovers the validation matrix at the planned regime;
+- generalizes to held-out synthetic families;
+- reports lower/upper-bound semantics correctly;
+- avoids reusing outcome-test data for critic training;
+- is compared with analytic/discrete/kNN alternatives;
+- has a preregistered failure and early-stopping rule.
+
+## 7.9 Geometry diagnostics are diagnostics, not proofs
+
+Intrinsic dimension, distance concentration, neighbor ties, local linearity, subspace angles, and perturbation stability can identify risk. They do not prove consistency of a PID estimator. Sampled \(\delta\)-hyperbolicity is especially unsuitable as a hard Euclidean-validity gate: a Euclidean line is tree-like and has \(\delta=0\).
+
+A geometry feature may enter a hard gate only after it predicts oracle-defined estimator validity on held-out synthetic families with calibrated error. Even then, it is an empirical abstention classifier limited to its training support.
+
+## 7.10 Manifolds and metric substitution
+
+Replacing Euclidean or max-norm distances with geodesic or hyperbolic distances inside a published estimator is a new estimator, not a harmless implementation option. Product-volume cancellation and neighborhood definitions may change. Such a method requires derivation and independent validation.
+
+Manifold-aware MI may be explored where justified, but no resulting MI estimate licenses shared-exclusions atoms without a compatible measure/estimator derivation. Isomap, autoencoders, or hyperbolic heads are learned transformations and must be fit and validated inside training folds.
+
+## 7.11 Local scores and prospective features
+
+A global PID estimate for a dataset is not an episode-level predictor. To use local scores prospectively:
+
+- define a train-reference distribution;
+- fit all neighborhoods/densities/transforms using training data only;
+- compute evaluation scores without future or peer-outcome information;
+- define a fixed episode/window aggregation;
+- validate score calibration and stability on synthetic data;
+- propagate estimation error;
+- prevent evaluation episodes from changing the reference structure.
+
+Leave-one-out computation over the full evaluation set is not prospective when each test point influences the reference used for other test points.
+
+## 7.12 Signed values and clamping
+
+Do not clamp negative atoms in the primary analysis unless clamping is part of the published measure and estimand. Clamping changes the functional and can hide estimator failure.
+
+Report:
+
+- signed and, if scientifically motivated, separately decomposed informative/misinformative components;
+- numerical tolerances near zero;
+- sensitivity to bias correction;
+- frequency and magnitude of negative values in oracle controls;
+- whether a negative aggregate is permitted by the chosen measure;
+- semantic interpretation only after intervention validation.
+
+## 7.13 Minimum acceptance criteria
+
+The preregistration must replace placeholders below with domain-justified values:
+
+| Gate | Example criterion structure |
+|---|---|
+| Oracle bias | median absolute error below \(\epsilon_b\) over eligible cells |
+| Coverage | empirical \((1-\alpha)\) coverage within \([c_{lo},c_{hi}]\) |
+| Abstention | at least \(1-\epsilon_a\) sensitivity to known-invalid cells and bounded false abstention |
+| Stability | conclusion invariant across locked neighboring \(k\)/seed settings |
+| Cross-implementation | discrepancy below \(\epsilon_x\) on fixtures |
+| Dependence | clustered interval retains nominal coverage in simulated trajectories |
+| Application | real-data diagnostics fall inside validated support or analysis abstains |
+
+Thresholds must be fixed before the real outcome analysis. “Looks stable” is not a gate.
 
 ---
 
-# 16. Geometry Diagnostics Under a Possible Manifold Structure
+## 7.14 Application-support envelope and abstention denominator
 
-This section treats manifold structure as a hypothesis to test. PCA and Euclidean kNN can be
-appropriate on a flat or sufficiently local chart; they can fail when curvature, folds,
-concentration, boundaries, noise, or sampling density make neighborhoods unreliable. No
-single proxy below proves validity or invalidity—direct estimator recovery controls do.
+For each estimator configuration, publish a machine-readable support envelope containing:
 
-## 16.1 The Manifold Hypothesis for Neural Embeddings
+- population-law assumptions and variable support type;
+- permitted source/target dimensions and metric/scaling requirements;
+- dependence and effective-sample-size conditions;
+- validated sample-size and signal-strength grid;
+- oracle bias, variance, coverage, false-positive, and ranking performance;
+- preprocessing and observation-noise models;
+- known failure signatures and structured reason codes;
+- eligible, warning, and reject states;
+- semantic version and exact implementation revision.
 
-Some neural representations are well approximated by lower-dimensional structure in parts
-of their support. Whether a particular VLA layer is low-dimensional, smooth, curved, or even
-manifold-like is empirical; a low intrinsic-dimension estimate alone does not establish it.
+At application time, every requested estimate receives one of three statuses: **eligible**, **eligible with declared warning**, or **abstain**. Report the denominator: total candidate cases/windows, cases reaching each diagnostic stage, eligible cases, successful estimates, warnings, and abstentions by reason. Predictive performance among the small easiest subset is not deployment performance.
 
-```
-MANIFOLD STRUCTURE ILLUSTRATION
-===============================
+A support classifier trained on synthetic regimes is itself a predictive model. Validate it on held-out synthetic families and adversarial near-boundary cases; do not present geometry heuristics as ground truth. When no validated estimator covers the application regime, return no atom and continue with non-PID diagnostics.
 
-True data geometry:         What PCA/kNN assume:
+# 8. Infrastructure as a scientific contribution
 
-    ╭─────────────╮              •  •  •  •
-   ╱               ╲             •  •  •  •
-  │    M ⊂ ℝᵈ      │            •  •  •  •
-  │  (curved)      │            (uniform in ℝᵈ)
-   ╲               ╱
-    ╰─────────────╯
+## 8.1 Design principle
 
-Geodesic and ambient distance can differ globally
-Intrinsic dimension may be smaller than ambient dimension
-```
+Prisoma should be a thin, composable experiment-semantics layer rather than a replacement for simulators, dataset formats, viewers, or robot middleware. It should import/export standard ecosystems and enforce the pieces they do not define together:
 
-## 16.2 Why PCA Fails on Manifolds
+- scientific variable provenance;
+- randomized intervention assignment and treatment receipt;
+- internal-state tensor contracts;
+- policy-versus-execution separation;
+- frozen-transform lineage;
+- estimator eligibility/abstention;
+- exact or tolerance-bounded replay;
+- outcome and exclusion provenance.
 
-### 16.2.1 Mathematical Failure Mode
+## 8.2 Canonical event model
 
-PCA finds directions of maximum **linear** variance. On curved manifolds, this can:
+The authoritative record is append-only and schema-versioned. Minimum event families are:
 
-1. **Conflate intrinsic and extrinsic variance:**
-   - A spiral in 3D has high variance in all 3 axes but intrinsic dimension 1
-   - PCA retains all 3 components, failing to discover the 1D structure
+### Run and environment
 
-2. **Distort neighborhoods when the chart folds or the projection drops relevant axes:**
-   - On a smooth manifold, ambient and geodesic distances agree to first order in a
-     sufficiently small neighborhood; the problem is not universal at local scale.
-   - Globally, folds can place geodesically distant points close in ambient distance, and a
-     projection can merge distinct regions.
+- `run_started`, `run_ended`, `run_status`;
+- code, dependency, container, model, dataset, scene, and hardware identifiers;
+- simulator/robot/controller versions and settings;
+- wall-clock and monotonic clocks with synchronization metadata;
+- random seeds and determinism mode.
 
-3. **Introduce artifacts at high curvature:**
-   - Regions of high curvature project onto overlapping linear subspaces
-   - Distinct manifold regions become indistinguishable
+### Sampling and task
 
-### 16.2.2 Empirical Diagnostic
+- task family, semantic goal, instruction ID, scene ID, initial-condition ID;
+- episode/case/landmark IDs;
+- split assignment fixed before outcome analysis;
+- policy checkpoint and adapter version.
 
-```rust
-// Test for PCA inadequacy:
-// 1. Estimate intrinsic dimension before and after PCA
-// 2. A PCA dimension below a stable ID estimate is a warning.
-// 3. A PCA dimension above ID is neither proof of safety nor of information preservation;
-//    validate target information and neighborhoods directly.
+### Observation and internal state
 
-let id_raw = intrinsic_dimension_levina_bickel(raw_data, &cfg)?;
-let id_pca = intrinsic_dimension_levina_bickel(pca_data, &cfg)?;
+- timestamps, sensor frame IDs, calibration, masks, and dropped-frame flags;
+- tensor-site ID, producer module, layer, pre/post-hook semantics;
+- tensor shape, dtype, device, token mask, reduction, and artifact hash;
+- deterministic ancestry and relation to fusion/action modules.
 
-if pca_dims < id_raw * 0.8 {
-    warn!("PCA may destroy manifold structure: ID_raw={:.1}, ID_pca={:.1}, PCA_dims={}",
-          id_raw, id_pca, pca_dims);
-}
-```
+### Policy, controller, and execution
 
-### 16.2.3 When PCA Is Acceptable
+- policy distribution or samples where available;
+- decoding/sampling configuration;
+- proposed action/chunk;
+- controller transformation and safety-filter decision;
+- executed command and acknowledgement;
+- observed state transition.
 
-PCA is acceptable when:
-1. The manifold is approximately **linear** (low curvature everywhere)
-2. Target-relevant information and neighborhood recovery pass held-out controls; retaining
-   95% variance alone is insufficient because signal can live in low-variance directions
-3. Experiment 0 re-validation passes after PCA
-4. Intrinsic-dimension and concentration diagnostics remain stable
+### Intervention
 
-## 16.3 Why Euclidean kNN Fails on Manifolds
+- assignment ID, block, probability, seed, target, dose, and planned time;
+- treatment-delivery status and actual parameters;
+- placebo/positive-control flag;
+- manipulation-check artifacts;
+- reset/washout status;
+- operator or agent invocation provenance.
 
-### 16.3.1 The Shortcut Problem
+### Outcome and annotation
 
-kNN with Euclidean distance finds "shortcuts" through the ambient space that do not exist on the manifold:
+- process-level metrics and terminal outcome;
+- annotation rubric, annotator/blinding metadata, disagreement;
+- failure ontology and uncertainty;
+- censoring, abort, crash, or safety-stop reason.
 
-```
-SHORTCUT PROBLEM
-================
+### Derived artifact and gate
 
-Manifold path (geodesic):      Euclidean path:
-    A ───────╮                    A
-             │                     ╲
-    (long geodesic)                 ╲ (short Euclidean)
-             │                       ╲
-    B ───────╯                        B
+- transform-fit record and hash;
+- estimator configuration, software revision, fixture version;
+- gate result with reason codes;
+- derived feature lineage back to raw event IDs;
+- analysis plan version and output hash.
 
-kNN may declare A and B as neighbors even though
-they are far apart on the manifold.
-```
+## 8.3 Time and synchronization contract
 
-### 16.3.2 Impact on MI/PID Estimation
+Every stream must expose:
 
-1. **Neighbor misidentification:** kNN finds "wrong" neighbors, leading to incorrect density estimates
-2. **Volume estimation error:** The KSG estimator uses neighborhood volumes; Euclidean balls have wrong volume on curved manifolds
-3. **Finite-sample bias can worsen rapidly with dimension:** the rate depends on density,
-   smoothness, dependence, metric, and estimator; do not claim a universal exponential law
+- source timestamp and clock domain;
+- ingestion timestamp;
+- sequence number;
+- expected rate and tolerance;
+- interpolation/alignment rule;
+- late, duplicate, and dropped-event handling;
+- synchronization quality estimate.
 
-### 16.3.3 Quantifying the Problem
+The system must detect impossible orderings, nonmonotonic timestamps, missing action acknowledgements, and intervention events outside declared checkpoints. “Nearest timestamp” is not a universal alignment rule; each variable requires a declared causal timing relationship.
 
-A practical “shortcut distortion” diagnostic is to compare Euclidean distances to approximate geodesic distances on a kNN graph:
+## 8.4 Tensor provenance contract
 
-1. Build a kNN graph (Euclidean) with `k_graph` neighbors.
-2. For a small set of anchor points (or random pairs), compute shortest-path distances on this graph (Dijkstra).
-3. Compare ratios \(d_\text{graph}(i,j) / d_\text{ambient}(i,j)\), while varying graph `k`.
-   Large or unstable ratios may indicate folds, disconnected sampling, or a bad kNN graph;
-   thresholds must be calibrated on synthetic flat/curved controls rather than fixed at 2.
+For every extracted representation, store a machine-readable descriptor:
 
-**Status:** This graph-geodesic distortion diagnostic is not implemented in `pid-core` yet; today we rely on intrinsic-dimension + distance-concentration proxies (§16.5).
-
-## 16.4 Alternatives to PCA and Euclidean kNN
-
-### 16.4.1 For Dimensionality Reduction
-
-| Method | When to Use | Limitations |
-|--------|-------------|-------------|
-| **UMAP/t-SNE** | Visualization only | Non-invertible, distorts global structure |
-| **Isomap** | When geodesic structure matters | Sensitive to noise, holes in manifold |
-| **Diffusion Maps** | Multi-scale manifold structure | Computational cost, parameter sensitivity |
-| **Autoencoders (VAE)** | Learned nonlinear projection | Changes the quantity; requires re-validation |
-| **Hyperbolic embeddings** | Hierarchical / tree-like structure | Non-Euclidean metric; would require a new MI/`I^sx_∩` estimator (not drop-in) |
-
-**Recommendation for prisoma:**
-1. **First:** Try PCA with high variance retention (≥95%) + Experiment 0 re-validation
-2. **If PCA fails:** Use random projections / feature hashing (preserves ambient Euclidean distances; not a geodesic fix) + re-validation
-3. **If random projection fails:** Consider Isomap + re-validation, or accept that kNN-based PID is invalid
-
-### 16.4.2 For Manifold-Aware MI Estimation
-
-**Geodesic kNN MI (Marx & Fischer, 2021):**
-- Replace Euclidean distances with geodesic distances
-- Requires manifold to be explicitly estimated or approximated
-- Computational cost: O(n² log n) for geodesic computation
-- Does NOT directly provide `I^sx_∩`; use for MI-only screening
-
-```python
-# Pseudocode for geodesic kNN MI (not Rust; research prototype)
-def geodesic_knn_mi(X, Y, k):
-    # 1. Build k-NN graph on X
-    # 2. Compute shortest-path geodesic distances
-    # 3. Use geodesic distances in KSG estimator
-    # 4. Repeat for Y and (X,Y) joint
-    pass
+```yaml
+tensor_contract:
+  policy_id: open-policy@sha256:...
+  module_path: model.action_expert.blocks.17
+  hook: output_after_residual
+  logical_role: candidate_action_state
+  capture_time: before_action_sampling
+  shape: [tokens, hidden]
+  dtype: float16
+  token_semantics: [vision, language, state, action_query]
+  mask_artifact: sha256:...
+  reduction:
+    type: masked_mean
+    fitted: false
+  transform_artifact: sha256:...
+  ancestry: [vision_encoder, language_encoder, fusion_stack]
 ```
 
-**⚠️ WARNING:** Geodesic kNN MI is not implemented in `pid-core`. If manifold effects are suspected, treat this as a research direction, not a ready tool.
-
-#### Hyperbolic embeddings: a concrete MI-only estimator pipeline (implemented; research-gated)
-
-If you use **hyperbolic embeddings** (Poincaré/Lorentz) as a learned projection, you must also change the estimator’s notion of “neighborhood” to the **hyperbolic geodesic distance**. A minimal, defensible *MI-only* pipeline is:
-
-1. **Represent points in the Lorentz (hyperboloid) model** of \(\mathbb{H}^d\) (constant curvature \(-1\)):
-   - Points live in \(\mathbb{R}^{d+1}\) with Minkowski bilinear form \(\langle x,y\rangle_L = -x_0y_0 + \sum_{i=1}^d x_i y_i\)
-   - Valid points satisfy \(\langle x,x\rangle_L = -1\) and \(x_0>0\)
-2. **Use geodesic distance** \(d_\mathbb{H}(x,y) = \operatorname{arcosh}(-\langle x,y\rangle_L)\).
-3. **Estimate MI terms using KSG with a product (L∞) joint metric**:
-   - For MI `I(X;Y)`, use the joint distance \(d((x,y),(x',y')) = \max(d_\mathbb{H}(x,x'), d_\mathbb{H}(y,y'))\), then KSG counts in the marginals using the same \(\varepsilon_i\) radius (standard KSG structure).
-4. **Compute Shannon-invariant screening terms** (CI/Ω) from these MI estimates.
-
-**Status in this repo:** `pid-core` provides an **experimental**
-`Metric::HyperbolicLorentz` path for a single `ksg_mi(X,Y,...)` call. The current
-multi-source concatenation helpers used by `co_information_pairwise` and
-`co_information_triplet` reject non-Chebyshev metrics, so full hyperbolic CI is **not
-implemented**. It would require consistently defined product spaces and validation for every
-MI term.
-
-**Important limitations (do not overclaim):**
-- This is an MI/CI pipeline only. It does **not** make the continuous shared-exclusions `I^sx_∩` estimator “hyperbolic-correct” automatically; the Ehrlich et al. (2024) estimator is validated under the Euclidean/L∞ convention. Treat “hyperbolic + `I^sx_∩`” as research, requiring a re-derivation + a new Experiment 0 gate.
-- A learned hyperbolic projection is non-invertible and therefore **changes the measured quantity**; report it as a different measurement regime.
+Semantic labels such as “world model” or “dynamics” require architecture evidence. Otherwise use neutral module/site identifiers.
 
-**Paper check (important): why we treat this as research-gated**
-- Kraskov et al. (KSG MI) and the continuous shared-exclusions estimator of Ehrlich et al. explicitly use the **maximum norm / L∞** construction so that a joint-space “ball” factorizes into a product of marginal balls and the relevant volume terms cancel in KSG-style expressions.
-- Ehrlich et al. also note that other *Euclidean* norms can yield asymptotically consistent density estimates under standard “nicely shrinking” conditions, but the exact KSG-style cancellation logic (and our cross-checks vs `csxpid`) are tied to the L∞ convention at finite sample sizes.
-- Hyperbolic geodesic neighborhoods are not covered by that Euclidean-norm argument; curvature changes local volume elements and the disjunction-neighborhood construction would need to be re-derived. Therefore, we do **not** claim `I^sx_∩` on hyperbolic embeddings without a fresh derivation + Experiment 0 validation.
-
-## 16.5 Determining Whether Manifold Methods Are Necessary
+## 8.5 Replay levels
 
-### 16.5.1 Decision Flowchart
+Replay must be graded rather than declared binary:
+
+1. **Event replay:** reproduce the logged sequence and derived artifact graph.
+2. **Policy replay:** same recorded inputs produce policy outputs within declared exact/tolerance criteria.
+3. **Controller replay:** proposed actions reproduce executed commands.
+4. **Simulator replay:** same initial condition/actions reproduce states within physical tolerances.
+5. **Counterfactual replay:** a changed intervention is applied while all declared exogenous variables are held fixed.
+6. **Physical repeatability:** repeated real trials quantify, rather than assume, irreducible variability.
 
-```
-MANIFOLD METHODS DECISION TREE
-==============================
+Floating-point, GPU, physics, and asynchronous systems may prevent bitwise equality. Tolerances must be variable-specific, empirically justified, and versioned.
 
-1. Calibrate diagnostics on flat, curved, clustered, tied, and high-dimensional controls.
-2. On the target representation, measure ID stability, concentration/ties, dependence,
-   density/boundary sensitivity, and neighborhood stability across k/seed/preprocessing.
-3. If a graph-geodesic diagnostic is used, verify graph connectivity and k sensitivity;
-   treat its distortion as evidence about that graph, not ground-truth curvature.
-4. Compare candidate pipelines by oracle recovery on disjoint synthetic/control families.
-5. Lock the best validating pipeline, then test it once on held-out controls.
-6. Re-run both MI_GATE and ISX_GATE after every non-invertible projection.
-```
+## 8.6 Interoperability, not reinvention
 
-### 16.5.2 Practical Checklist for VLA Embeddings
+Use existing formats according to their strengths:
 
-```
-MANIFOLD ANALYSIS CHECKLIST
-===========================
+- **MCAP/rosbag2** for high-rate timestamped robotics streams and transport interoperability [R43, R46];
+- **LeRobot Dataset v3** for episodic robot datasets, media, metadata, and Hub distribution [R44];
+- **RLDS** for step/episode-oriented sequential datasets and dataset transformations [R42];
+- **Rerun** for multimodal, time-aware visualization and recording [R45];
+- **Open X-Embodiment-compatible schemas** for cross-dataset/embodiment mappings where useful [R37];
+- **RO-Crate/W3C PROV-style provenance** for portable research-object metadata [R62].
 
-Before running PID on VLA embeddings:
+Prisoma’s canonical semantics can be stored in or alongside these formats. A custom JSONL log may remain an internal source of truth, but exporters/importers and conformance tests are required.
 
-[ ] Compute intrinsic dimension estimate
-    → Record: ID_V, ID_L, ID_D, ID_A, and joint IDs
+## 8.7 Adapter contract
 
-[ ] Check distance concentration
-    → Record: pairwise CV for each variable
+An adapter is accepted only if it passes:
 
-[ ] If ID << ambient dim:
-    [ ] Compare PCA-reduced ID to original ID
-    [ ] If PCA destroys structure, consider alternatives
+- schema completeness for required variables;
+- timestamp and sequence tests under load;
+- dropped/duplicate-event injection tests;
+- intervention assignment and receipt tests;
+- policy/controller/execution separation;
+- representation hook reproducibility;
+- replay tests;
+- deterministic fixture and failure-injection tests;
+- licensing and model-access audit.
 
-[ ] If using PCA:
-    [ ] Record variance retained
-    [ ] Re-run Experiment 0 subset
-    [ ] Compare estimates before/after
+Adapter-specific omissions must be explicit capabilities, not null fields silently interpreted as data.
 
-[ ] If estimates are unstable across methods:
-    [ ] Report instability as a finding
-    [ ] Consider that kNN-based I^sx_∩ may not be appropriate
-    [ ] Fall back to Shannon invariants (CI screening)
-```
+## 8.8 External benchmark for the infrastructure claim
 
-## 16.6 Local-Regularity Diagnostics Requiring Calibration (Jan 2026)
+Compare Prisoma with at least:
 
-The local Euclidean approximation underpins standard kNN density estimation. The methods
-below are candidate diagnostics, not pass/fail theorems for VLA embeddings; each requires a
-dimensionless definition and calibration on controls.
+1. an ordinary model-specific experiment script plus files;
+2. MCAP/rosbag2 logging with handwritten metadata;
+3. a LeRobot/RLDS episodic export;
+4. a Rerun-only visualization pipeline.
 
-### 16.6.1 Method 1: Manifold Curvature via Subspace Angles ([IEEE 2023](https://ieeexplore.ieee.org/document/10020561/))
+Use preregistered tasks such as:
 
-Compute principal angles between local subspaces at nearby points. The earlier sketch
-multiplied an angle by `1/distance` and then compared it with thresholds in radians; that
-statistic has inverse-distance units and those thresholds were invalid. A conceptual
-dimensionless alternative is:
+- add a new policy and capture one internal site;
+- run a blocked randomized intervention;
+- trace one diagnostic feature back to source frames and transform fit;
+- detect a deliberately dropped intervention event;
+- replay a case and reproduce a summary;
+- migrate a run between two supported storage formats;
+- audit whether test data leaked into preprocessing.
 
-```python
-def manifold_curvature_estimate(X, k=20, pca_dims=10):
-    """
-    Estimate manifold curvature at each point.
-    Returns per-point curvature and global average.
-    """
-    N = len(X)
-    curvatures = []
+Candidate endpoints:
 
-    for i in range(N):
-        # 1. Find k nearest neighbors
-        neighbors_i = knn(X, X[i], k)
+- setup/adapter engineering effort under a fixed rubric;
+- schema error detection rate;
+- intervention-assignment fidelity;
+- timestamp alignment error;
+- replay discrepancy;
+- provenance completeness;
+- time to answer a blinded audit question;
+- proportion of invalid analyses automatically blocked.
 
-        # 2. Compute local PCA subspace at point i
-        S_i = local_pca(X[neighbors_i], n_components=pca_dims)
+The benchmark must include negative cases. A system that records valid runs but fails to reject invalid ones has not established scientific value.
 
-        # 3. For each neighbor j, compute subspace S_j
-        angles = []
-        for j in neighbors_i:
-            neighbors_j = knn(X, X[j], k)
-            S_j = local_pca(X[neighbors_j], n_components=pca_dims)
+## 8.9 Repository ecosystem: evidence, boundaries, and useful roles
 
-            # 4. Principal angle between subspaces
-            angle = subspace_angle(S_i, S_j)
-            angles.append(angle)  # radians; keep distance in a separate covariate/bin
+The public `sepahead` profile depicts a broad project graph, but a profile diagram is architectural intent, not implementation evidence [R85]. Repository relationships are classified by auditable evidence:
 
-        # 5. Robust local subspace variation; calibrate by radius and sampling density
-        curvatures.append(np.median(angles))
+- **E0 — intention:** profile, roadmap, issue, or prose says projects should connect;
+- **E1 — interface specification:** schemas, adapter design, or integration document exists, but no build-tested adapter;
+- **E2 — declared immutable dependency:** submodule, lockfile, exact git tag/revision, or consumer manifest creates a reproducible code relationship;
+- **E3 — build-tested adapter:** producer and consumer compile/test together against golden fixtures at pinned revisions;
+- **E4 — end-to-end scientific conformance:** live or replayed data traverse the boundary with schema, time, frame, intervention, provenance, fault-injection, and outcome checks;
+- **E5 — independent replication:** another team or independently maintained implementation reproduces the integration and scientific result.
 
-    return curvatures, np.mean(curvatures)
-```
+Use **connected** only for E2 or above, **integrated** only for E3 or above, and **validated integration** only for E4 or above. Shared ownership or shared code does not supply independence.
 
-**What the paper reports (paraphrase; verify on your setting):** curvature proxies based on local subspace-angle statistics can decrease across layers during training for the models/tasks studied.
+### 8.9.1 Audited relationship matrix at the reviewed snapshot
 
-**Interpretation:** smaller angle variation at matched radius is consistent with local
-flatness. No universal 0.1/0.5-radian threshold is preregistered; sampling density,
-subspace dimension, neighborhood radius, and noise all change the distribution.
+| Repository | Audited relationship to Prisoma | Evidence level | Scientifically useful role | Boundary / required next evidence |
+|---|---|---:|---|---|
+| `pid-rs` | Direct git submodule at `8a5a9dda601556443f956a2fba164cccc913ed2e`; Prisoma crates path-depend on its estimator/run-log crates | E2; parts may be E3 within Prisoma CI | canonical estimator implementation, run-log schema, low-dimensional analytic oracle, discrete reference fixtures, abstention reports | the pin predates current main’s committed `csxpid` fixture and fail-closed support contracts; upgrade only through an explicit reviewed revision, then rerun all Prisoma conformance tests; fixture validation is not VLA application validation and shared code is not independent corroboration [R72–R73] |
+| `NCP` | Optional `ncp-observer`, excluded from default workspace, pinned to immutable NCP `v0.8.0` (wire 0.8); observation-plane role only | E2; local tests may support E3 for fixtures | optional source of versioned observations from neural/robotic systems; test polyglot/protocol provenance | retain read-only authority; require conforming live producer, secure realm, sequence/drop tests, and E4 report [R72, R74] |
+| `galadriel` | No direct Prisoma dependency found; it pins `pid-rs` and NCP but documents that no production publisher or end-to-end mTLS deployment test exists | E0 between projects; E2 to shared dependencies | external diagnostic comparator for cross-sensor consistency, NIS/CUSUM, signed correlation, and optional PID evidence | compilation is not live integration; shared `pid-rs` results are one correlated method family, not replication [R75] |
+| `crebain` | No direct Prisoma reference found; its NCP surfaces are dormant and off by default, with no always-on Crebain↔Engram loop | E0 between projects; E2/E3 only for the specific dormant NCP build surfaces tested | candidate non-manipulation embodiment, multimodal tracking/fusion testbed, timing/fault-injection producer | define and test a read-only export adapter, frames, clocks, labels, safety boundaries, secure deployment, and golden trajectories before calling it integrated [R76] |
+| `manwe` | Explicitly states no drop-in Prisoma adapter; schemas, tensors, clocks, frames, and statistical assumptions differ | E0/E1 | candidate perception producer and shift/latency testbed; useful negative example for adapter discipline | satisfy its documented promotion gates; never infer compatibility from Rust/Python or shared maintainer [R77] |
+| `engram` | Public repository is a placeholder and says code will be opened after publication; NCP describes an illustrative commander role | E0 | future source of neural-state streams and memory/dynamics interventions if released and instrumentable | cannot be a thesis dependency; require public revision, license, executable fixture, variable semantics, and NCP E4 evidence [R74, R78] |
+| `melkor` | No direct Prisoma reference found | E0 | optional 3D reconstruction/uncertainty or scene-variation producer | separate reconstruction uncertainty from policy uncertainty; require calibrated geometry, licenses, and an adapter benchmark [R79] |
+| `WorldWarp` | Prisoma has an optional integration specification; no implemented adapter was verified; upstream repository is a forked scene-generation system | E1 | external world-model/counterfactual-scene baseline under a bounded research question | high compute, generated-scene support, causal validity, and license/provenance must pass; never put on critical path [R80] |
+| GauSS-MI concept | Prisoma document explicitly labels the module pre-implementation and its weighted KSG proposal heuristic | E1 | possible reconstruction-quality covariate or active-view experiment | requires estimator derivation and separate oracle gate; it is not currently an estimator capability [R81] |
+| `cobot-atlas` | No direct adapter/reference found; public mesh dataset and generation pipeline | E0 | asset diversity for controlled object/appearance/layout factors | freeze asset revision, physics/collision validation, lineage, near-duplicate groups, and per-asset license/provenance [R82] |
+| `relief-atlas` | No direct adapter/reference found; large generated mesh collection with per-asset licensing caveat | E0 | optional stress-test domain for disaster-response scenes, not a primary manipulation benchmark | perform asset-level licensing, quality, collision, realism, and safety/ethics audit; avoid scope expansion [R83] |
+| `cortexel` | No direct Prisoma reference found; visualization-oriented project | E0 | possible renderer of scientific artifacts after a stable schema exists | visual agreement is not analysis validation; add only through a versioned export contract [R84] |
+| `haldir` | Public repository supplied insufficient implementation/metadata to verify a relation | E0/unknown | possible future security/attestation layer | no scientific or security reliance until code, threat model, contract, tests, and immutable release exist [R86] |
+| `brojapid-activationfunctions` | No software edge to Prisoma; a released BROJA-PID analysis of activation functions linked to prior reproduction work | E0 edge; public code/release evidence | candidate discrete mechanism fixture and cross-measure sensitivity study | BROJA unique information is a different PID measure; atom names or magnitudes are not interchangeable with shared-exclusions [R97] |
+| `mahmoudian-2020-rescience` | No software edge to Prisoma; published ReScience C replication and archived code | E0 edge; publication/reproducibility lineage | evidence of prior reproducibility practice and a source of controlled transfer-function fixtures | does not validate `pid-rs`, continuous shared-exclusions, VLA hypotheses, or present infrastructure [R98] |
+| `nest-simulator` | Public fork advertises PID/information-theoretic work on feature branches; no direct Prisoma root reference or pinned adapter was verified | E0 | candidate neural-state producer through a future read-only NCP adapter | pin the exact branch/commit, separate fork changes from upstream NEST, publish a fixture, and pass E4 semantics/security tests [R99] |
 
-### 16.6.2 Method 2: Ollivier-Ricci Curvature ([Nature Comm. 2021](https://www.nature.com/articles/s41467-021-24884-1))
+“No direct reference found” is a bounded statement about the reviewed public material, not proof that no private branch or unpublished adapter exists. Anonymous GitHub search is incomplete; therefore the evidence ledger records both positive evidence and search limitations.
 
-Ollivier-Ricci curvature (ORC) is a discrete curvature notion with convergence results in some regimes; it is **not unique** among discrete curvature proposals, and its practical behavior depends strongly on graph construction (e.g., kNN graph quality) and the choice of neighborhood measures.
+### 8.9.2 Current implementation boundary
 
-```
-ORC(x, y) = 1 - W₁(μ_x, μ_y) / d(x, y)
+At `prisoma@64bd881…`, the only repository relationships that should be described as direct are:
 
-Where:
-- W₁ = Wasserstein-1 distance between neighborhood distributions
-- μ_x = uniform distribution over k-NN of x
-- d(x,y) = distance between x and y
-```
+1. `pid-rs` as the pinned canonical estimator/run-log submodule; and
+2. NCP as an optional pinned dependency of the excluded read-only observer crate.
 
-**Interpretation:** ORC summarizes transport geometry on the **constructed graph**. Its sign
-can reflect curvature, clustering, bottlenecks, boundary effects, or graph choices; negative
-ORC alone does not prove global hyperbolicity or select a hyperbolic MI estimator.
+The core thesis must run with NCP disabled and must survive a PID NO-GO. WorldWarp, GauSS-MI, Engram, sibling visualization projects, generated-asset collections, and UAV testbeds are optional producers, comparators, or future transport settings—not prerequisites.
 
-**Implementation status**: Not in `pid-core` yet. Python reference: `GraphRicciCurvature` package.
+### 8.9.3 Dependency firebreak
 
-### 16.6.3 Method 3: DLME Local Flatness Constraint ([arXiv:2207.03160](https://arxiv.org/abs/2207.03160))
+A release candidate passes the firebreak only when:
 
-The Deep Local-flatness Manifold Embedding adds a second-order curvature penalty:
+- the capture/intervention/replay core builds and executes without NCP;
+- H1/H2 baselines execute with PID disabled and without `pid-rs` atoms;
+- an ordinary local-file or standard-format adapter can replace every sibling repository;
+- no private repository, unpublished model, personal token, or sibling checkout is required for the minimum viable thesis;
+- optional world-model, 3D, viewer, and asset components can fail without changing assignments, primary outcomes, or provenance of already-recorded runs;
+- producer repositories cannot read outcome labels, holdout membership, treatment schedules beyond their necessary command, or fitted analysis transforms;
+- all cross-repository artifacts are content-addressed and revision-pinned.
 
-```
-L_flatness = Σᵢ ||∇²f(x_i)||²_F
+### 8.9.4 Adapter promotion contract
 
-Where ∇²f is the Hessian of the embedding function
-```
+A candidate ecosystem edge advances from E1/E2 to E3/E4 only after an integration report records:
 
-**Application to VLA**: Can be used to **train** flat embeddings, not just diagnose.
+1. exact revisions, lockfiles, licenses, SBOM, and build environment;
+2. source and target schemas, units, dtypes, shapes, missingness, and allowed ranges;
+3. clock domains, synchronization uncertainty, sequence semantics, buffering, and drop/duplicate/reorder behavior;
+4. coordinate frames, transforms, calibration lineage, action convention, and embodiment identity;
+5. assignment, treatment-attempt, treatment-receipt, and outcome boundaries;
+6. authentication/authorization, transport security, least privilege, and data retention;
+7. golden fixtures plus malformed, delayed, duplicated, reordered, truncated, incompatible-version, and crash-recovery tests;
+8. latency/throughput/resource measurements at the scientific operating point;
+9. replay equivalence and provenance completeness against the canonical event model;
+10. a scientific conformance test showing the adapter does not change the estimand or silently fit on holdout information.
 
-### 16.6.4 Method 4: Curvature-Adjusted PCA Diagnostic
+A status badge or successful `cargo build` is E3 evidence at most, and only for the tested revisions. E4 requires data and scientific semantics, not merely type compatibility.
 
-Standard local PCA assumes flatness. Test the assumption:
+### 8.9.5 NCP-specific boundary
 
-```python
-def local_flatness_diagnostic(X, k_values=[10, 20, 50, 100]):
-    """
-    Sensitivity screen only; changes may reflect curvature, density, boundaries, noise,
-    finite-sample bias, or estimator k-dependence.
-    """
-    id_estimates = []
-    for k in k_values:
-        id_k = intrinsic_dimension_levina_bickel(X, k=k)
-        id_estimates.append(id_k)
+Prisoma’s NCP component is a **read-only observation client**. It must never acquire command authority merely because NCP supports an action plane [R74]. For each session, record realm, route, NCP tag/wire/contract hash, peer identities, authorization mode, encryption/ACL profile, session ID, sequence numbers, source timestamps, local receipt times, synchronization uncertainty, drops/reorders/duplicates, payload schema, and disconnect/reconnect events.
 
-    return id_estimates  # compare with calibrated control envelopes; no universal cutoff
-```
+Open/default transport is unsuitable for untrusted deployment; use an isolated realm or the documented secure profile and verify it. A local mode/TTL governor is defense in depth, not network authentication. Observer failure must not alter the robot/controller, and backpressure must drop or spool diagnostics according to a declared policy rather than perturb control timing.
 
-**Key point:** systematic k-sensitivity is a warning, not a curvature diagnosis. Curvature is
-one possible cause; density heterogeneity, boundaries, noise, dependence, and finite-sample
-bias must be separated with controls. Verify any stronger claim against the cited primary
-paper before publication.
-
-## 16.7 δ-Hyperbolicity: Testing for Hierarchical Structure (Jan 2026)
-
-> **Cross-reference (v6.3):** For application to Dream2Flow pipeline, see §10.10.12.3 ("The Hyperbolic/Lorentzian Connection"). The "Flow-as-bridge" idea can reduce reliance on non-Euclidean `D_wan` embeddings by using an explicitly Euclidean flow representation as the diagnostic target; you still must check flow dimensionality and distance concentration before interpreting kNN-based estimates.
-
-### 16.7.1 The Gromov δ-Hyperbolicity Measure
-
-δ-hyperbolicity measures how "tree-like" a metric space is. Trees have δ = 0; higher δ indicates deviation from tree structure.
-
-**4-point (quadrilateral) form** (equivalent, and what `pid-core` implements):
-For any four points \(a,b,c,d\), define:
-```
-s1 = d(a,b) + d(c,d)
-s2 = d(a,c) + d(b,d)
-s3 = d(a,d) + d(b,c)
-```
-Let \(L ≥ M ≥ S\) be these three sums sorted. Then the per-quadruple value is:
-```
-δ(a,b,c,d) = (L - M) / 2
-```
-The space is δ-hyperbolic if \(δ(a,b,c,d)\) is uniformly bounded over all quadruples.
+### 8.9.6 `pid-rs`-specific boundary
 
-**Implementation note (`pid-core`)**: `gromov_hyperbolicity(...)` samples quadruples and
-returns the **mean raw δ**. The Gromov constant is a supremum; this mean is a different,
-distribution-dependent descriptive statistic. It is scale-dependent and has no calibrated
-validity threshold in this project. Never compare it with a literature sup-δ value or use it
-as an estimator gate.
+`pid-rs` is the canonical implementation dependency, not external corroboration. Prisoma must pin the exact submodule revision, archive its run configuration and structured report, and fail closed when support is unspecified. The reviewed Prisoma pin has a real low-dimensional Gaussian-oracle check but predates the reproducible external `csxpid` fixture and stricter support/provenance contracts now documented on `pid-rs` main at `70b45f7…`. A deliberate upgrade should be treated as a scientific migration: review the API and estimand changes, regenerate lockfiles and reports, rerun synthetic and adapter conformance suites, and preserve the old environment for exact replay. Even after upgrade, a low-dimensional fixture is not independent validation of broad estimator behavior or of the intended high-dimensional/dependent VLA application. Mixed-dimensional continuous three-source analysis remains exploratory. Application eligibility is decided by Section 7, not by a passing unit test or the fact that an API returns a number [R73].
 
-**Recommended normalization (scale-invariant reporting):**
-```
-δ_rel = 2 δ / diam(X)
-diam(X) ≈ max_{i<j} d(x_i, x_j)   (under the same metric)
-```
-Report `δ_rel` with the metric, preprocessing, sampling scheme, and uncertainty. Numeric
-bands are descriptive only after calibration against declared controls.
-
-### 16.7.2 What Literature Uses δ For (and How to Use It Here)
-
-[arXiv:2512.20926](https://arxiv.org/abs/2512.20926) uses δ-hyperbolicity, ultrametricity, and neighbor-joining tree fits to probe hierarchical structure in embedding spaces. Their quantitative values depend on the metric, normalization, sampling scheme, and preprocessing; for prisoma, treat this paper as a **method template** and recompute the statistics on your own embeddings rather than transplanting numbers.
-
-**Implication for prisoma (careful version):**
-- Small sampled-mean `δ_rel` is evidence that the sampled metric looks tree-like under the
-  declared metric, normalization, and quadruple distribution. It is not evidence that the
-  observed coordinate chart has hyperbolic curvature or that Euclidean/Chebyshev kNN fails:
-  a finite sample on a Euclidean line has `δ=0` and is a canonical flat low-dimensional case.
-- Use `δ_rel` only to motivate descriptive hierarchy analysis or an optional representation
-  comparison. Estimator selection remains governed by oracle recovery, local neighborhood
-  quality, dimension/concentration, dependence, and ties.
-
-### 16.7.3 When to Use Hyperbolic vs Euclidean
-
-```
-TREE-LIKENESS ANALYSIS (DESCRIPTIVE, NOT A GATE)
-================================================
-
-1. Report raw sampled-mean δ, δ_rel, metric, normalization, sample/quadruple scheme,
-   uncertainty, and sensitivity to preprocessing.
-2. Compare with matched Euclidean-line, flat-cloud, tree, clustered, and curved controls.
-3. If hierarchy is substantively relevant, compare a hyperbolic projection as a separate
-   feature-engineering regime.
-4. Select any MI/PID regime only by held-out oracle recovery. Never infer that large δ makes
-   Euclidean methods acceptable or that small δ invalidates them.
-```
-
-### 16.7.4 Do You Need to Train a Hyperbolic Embedding Model? (v5.7)
-
-**Short answer:** Usually NO for prisoma. Here's the decision framework:
-
-| Scenario | Train Hyperbolic Model? | Recommendation |
-|----------|------------------------|----------------|
-| **Using pre-trained VLA (OpenVLA, PixelVLA, TraceVLA)** | ❌ NO | Measure several diagnostics; `δ` does not decide the analysis method |
-| **Dimensionality reduction for PID** | ⚠️ MAYBE | Compare hyperbolic projection only if hierarchy is a declared representation hypothesis; validate against PCA and controls |
-| **Shannon invariant screening (CI)** | ❌ NO | CI still requires every constituent MI estimator to validate; it is not geometry-free |
-| **Full `I^sx_∩` on Llama hidden states** | ❌ NO | Use Experiment 0 to validate L∞ estimator; if fails, use quantization |
-| **Custom VLA from scratch** | ⚠️ MAYBE | Consider HELM/Hypformer architecture if hierarchy is central |
+### 8.9.7 Ecosystem opportunity without thesis capture
 
-**Where hyperbolic training IS needed:**
-
-1. **If you want a hyperbolic projection layer** for dimensionality reduction:
-   - Train a Poincaré/Lorentz projection head on top of frozen VLA
-   - Use HypLoRA ([arXiv:2410.04010](https://arxiv.org/abs/2410.04010)) for efficient fine-tuning
-   - Target: ~64-256 hyperbolic dimensions
+The ecosystem can create notable experiments once the core is stable:
 
-2. **If you want to compare Euclidean vs Hyperbolic representations:**
-   - Train parallel projection heads (one Euclidean, one hyperbolic)
-   - Compare downstream PID diagnostics
-   - This is a research experiment, not a requirement
+- use `crebain` or Manwe-derived streams as a transport test of timing, multimodal fusion, and non-manipulation embodiment;
+- compare Prisoma’s prospective diagnostics with Galadriel’s consistency-monitor outputs while accounting for shared dependencies;
+- use NCP to test protocol-version, sequence-loss, and provenance faults with a read-only observer;
+- use cobot-atlas assets for prespecified object/appearance diversity after physics and duplication audits;
+- evaluate reconstruction uncertainty from `melkor` as a covariate or nuisance factor, not as a replacement for estimator uncertainty;
+- use an external world model such as WorldWarp only for a separate counterfactual-support study.
 
-**Where hyperbolic training is NOT needed:**
+Each is optional. The scientific contribution is the ability to test such systems under one explicit experiment contract, not the number of sibling repositories shown in a graph.
 
-1. **For geometry diagnostics** (δ-hyperbolicity, curvature): Just compute on existing embeddings
-2. **For Shannon invariants (CI, Ω)**: Works with standard MI estimators
-3. **For SAE analysis**: SAEs operate in Euclidean space
-4. **For full `I^sx_∩`**: The L∞ estimator is Euclidean; hyperbolic `I^sx_∩` doesn't exist yet
+### 8.9.8 Scientific lineage and candidate producers are not integrations
 
-**Practical recommendation for prisoma:**
-```
-1. Extract embeddings from pre-trained VLA (OpenVLA, PixelVLA, etc.)
-2. Compute ID stability, concentration/ties, dependence, local-neighborhood diagnostics,
-   and descriptive δ/δ_rel on every marginal and joint estimator space
-3. Compare candidate transforms on calibration controls; freeze their fitted parameters
-4. Select only a pipeline that passes held-out MI_GATE and, for atoms, ISX_GATE
-5. Treat hyperbolic training as optional comparative representation research
-```
-
-## 16.8 SAE Analysis for VLA Embeddings (Jan 2026)
+The public ecosystem also contains two information-theoretic lineage artifacts and a possible neural-simulation producer. The 2020 ReScience C repository documents a successful replication of a three-way information-theoretic transfer-function study, and `brojapid-activationfunctions` applies the BROJA unique-information measure to activation functions [R97–R98]. They are useful sources of controlled fixtures, reproducibility practices, and cross-measure disagreement tests. They do not validate shared-exclusions, `pid-rs`, the VLA estimand, or Prisoma’s software. Cross-measure comparisons must ask whether qualitative mechanism discrimination survives; they must not compare atom labels or magnitudes as though BROJA and \(I_\cap^{sx}\) were the same functional.
 
-### 16.8.1 What Sparse Autoencoders Reveal
+The `nest-simulator` fork is a plausible future producer of neural-state streams, especially through NCP, but repository-level mention of PID branches is E0 evidence only [R99]. Promotion requires an exact branch/commit, a delta against upstream NEST, executable model fixture, variable semantics, clock and sequence contract, read-only authority, and an E4 end-to-end report. None of these repositories belongs on the minimum thesis path.
 
-Sparse Autoencoders (SAEs) decompose polysemantic activations into sparse, more interpretable feature dictionaries. Recent work ([arXiv:2504.02821](https://arxiv.org/abs/2504.02821)) extends SAE analysis to vision-language models (e.g., CLIP) and evaluates monosemanticity with a user-study-derived benchmark.
+## 8.10 Current versus target implementation
 
-**Key findings**:
-- **Multi-scale structure** in SAE feature spaces (small-scale “crystals”, intermediate “lobes”) has been reported in LLM SAE dictionaries ([arXiv:2410.19750](https://arxiv.org/abs/2410.19750)); validate whether analogous structure appears in VLA/VLM components.
-- **Geometric regularities** (e.g., parallelogram/trapezoid relations generalizing classic word-embedding analogies) appear in some SAE feature dictionaries ([arXiv:2410.19750](https://arxiv.org/abs/2410.19750)).
-- **Steering capability**: intervening on SAE latents in a VLM vision encoder can steer multimodal LLM outputs (e.g., LLaVA) without modifying the underlying LLM ([arXiv:2504.02821](https://arxiv.org/abs/2504.02821)).
-- **VLA-specific mechanistic evidence (added v10.2; verify)**: a reported mechanistic study applies SAEs and activation steering directly to VLA policies (arXiv:2603.19233), motivated by robustness collapse under perturbation. If its protocols hold up, it is direct precedent for the SAE-then-screen pipeline below and a natural H9 companion.
-
-### 16.8.2 SAE Application to VLA Components
-
-| VLA Component | SAE Applicability | Benefit |
-|---------------|-------------------|---------|
-| **SigLIP/CLIP-like vision encoder** | ✓ Demonstrated for VLMs (arXiv:2504.02821; validate for your exact encoder/layer) | Decompose V into more monosemantic visual features; targeted interventions |
-| **DinoV2-like vision features** | ✓ Plausible but unverified | Feature separation; dimensionality reduction targets |
-| **LLM hidden states** | ✓ Used in mechanistic-interpretability SAE work (validate for your model/activation point) | Interpretable L/D representations; feature-based ablations |
-| **Action decoder / policy head** | ? Unclear | May reveal action primitives, but depends on architecture and supervision |
-
-### 16.8.3 SAE for PID Analysis: Concrete Protocol
+Maintain a generated capability matrix with columns: feature, status (`implemented`, `tested`, `validated`, `specified`, `deferred`), exact revision, test command, evidence artifact, known limitations, evidence level E0–E5, and thesis dependency. Documentation must not call a feature “integrated” unless its evidence level meets Section 8.9.
 
-```python
-# 1. Train SAE on vision encoder (e.g., SigLIP layer in OpenVLA)
-sae = SparseAutoencoder(
-    d_input=1024,      # SigLIP output dim
-    expansion=16,       # 1024 → 16384 sparse features
-    sparsity_penalty=0.04
-)
-sae.train(vision_embeddings)
-
-# 2. Extract sparse features
-V_sparse = sae.encode(vision_embedding)  # Sparse, ~100 active features
+The reviewed snapshot has meaningful estimator/run-log and adapter groundwork, but current repository prose also records blocked scientific capture and invalidated high-dimensional regimes [R61, R72]. Treat passing unit tests as evidence of software behavior, not causal identification, estimator validity, deployment security, or paper-level novelty.
 
-# 3. Compute PID on SAE features
-# - Lower effective dimension (only active features)
-# - More interpretable decomposition
-# - Can identify WHICH features drive actions
-
-# 4. Feature ablation for failure diagnosis
-for feature_idx in top_active_features:
-    V_ablated = ablate_feature(V_sparse, feature_idx)
-    action_change = model.forward(V_ablated) - model.forward(V_sparse)
-    if action_change > threshold:
-        print(f"Feature {feature_idx} drives action prediction")
-```
-
-### 16.8.4 Geometric Implications of SAE
-
-SAE features have structure at three scales ([arXiv:2410.19750](https://arxiv.org/abs/2410.19750)):
-
-1. **Atomic scale**: "Crystals" — parallelogram/trapezoid faces (analogy relations)
-2. **Intermediate scale**: "Lobes" — modular clustering (math, code, language)
-3. **Global scale**: Hierarchical organization of concept space
+## 8.11 Control plane and agent access
 
-**Implication**: SAE features may have LOWER effective dimensionality and MORE hierarchical structure than raw embeddings, making them better candidates for:
-- Shannon invariant screening (CI)
-- Hyperbolic projection
-- Interpretable PID decomposition
+GUI, scripts, notebooks, and LLM agents must invoke the same typed control plane. Every mutating request must produce:
 
-## 16.9 Chebyshev Distance and PixelVLA: Geometry Transition Analysis (Jan 2026)
+- authenticated caller/session;
+- method and validated parameters;
+- current run state;
+- assignment/protocol authorization;
+- request/response timestamps;
+- effect or rejection code;
+- resulting event IDs.
 
-### 16.9.1 Chebyshev in Image Processing
+Safe mode should be fail-closed. An LLM-accessible API is an automation feature, not a scientific contribution unless it improves reproducibility under benchmark.
 
-Chebyshev distance (L∞) is natural for pixel operations:
+## 8.12 Security, privacy, and governance
 
-| Operation | Distance Metric | Structuring Element |
-|-----------|-----------------|---------------------|
-| **8-connected dilation/erosion** | Chebyshev (L∞) | Square (3×3) |
-| **4-connected dilation/erosion** | Manhattan (L1) | Cross/Diamond |
-| **Edge detection (8-neighbor)** | Chebyshev | Square kernel |
-| **Pattern recognition** | Often L∞ | Square windows |
+Minimum controls:
 
-### 16.9.2 Geometry Transition in VLA Pipeline
+- localhost-only default for mutating control;
+- explicit authentication and authorization before remote access;
+- append-only audit records and tamper-evident artifact hashes;
+- path sandboxing and refusal to overwrite source data;
+- secrets never stored in run logs;
+- configurable redaction for human video/audio and instruction text;
+- dataset consent, retention, and deletion metadata;
+- dependency/model/dataset/asset licenses tracked separately;
+- model-generated interventions constrained by the preregistered design and safety envelope.
 
-```
-GEOMETRY TRANSITION IN VLAs
-============================
+The system does not become safe because actions are logged. Logging enables audit; prevention requires independent controls.
 
-              PIXEL SPACE                    SEMANTIC SPACE
-    ─────────────────────────────────────────────────────────
+## 8.13 Visualization and rendering
 
-    Vision Encoder                              LLM Backbone
-    (DinoV2, SigLIP)                           (Llama 2 7B)
+Rerun-first visualization is appropriate because it supports time-aware multimodal inspection without making a custom UI the scientific bottleneck [R45]. Tauri, SparkJS, WebGPU, Gaussian splatting, and editable scenes are optional presentation or experiment-authoring layers.
 
-    • L∞ neighborhoods match 8-connectivity      • Geometry is empirical: may be anisotropic,
-      on pixel grids                              concentrated, or hierarchical
-    • Learned features: do not assume           • Diagnose via ID/DC/δ_rel (do not assume)
-      “L∞ is natural” post-encoder
-    • ~1024 dim (example)                       • 4096 dim (example)
+Rules:
 
-    APPROPRIATE:                                APPROPRIATE:
-    L∞ estimator (only after Exp0 + geometry)   MI-only screening (CI/Ω) or discrete PID
-    PCA may work if locally flat                Hyperbolic claims must be measured
-    SAE for feature decomposition               Flow-as-Bridge when available
-```
-
-### 16.9.3 Where Chebyshev Is Appropriate in PixelVLA
-
-This table is about whether an **L∞ neighborhood shape** is a reasonable heuristic for kNN queries at that stage. It is *not* a proof of estimator validity; the Experiment 0 + geometry gates still apply.
-
-| Stage | Geometry | L∞ neighborhood heuristic? |
-|-------|----------|------------------|
-| **Raw image input** | Pixel grid | Yes (8-connectivity), but PID is not usually run on raw pixels |
-| **DinoV2 patches** | Patch embeddings | Unknown; measure ID/DC/δ_rel and validate |
-| **SigLIP output** | Global features | Unknown; measure + validate |
-| **Multiscale encoder** | Hierarchical features | Unknown; measure + validate |
-| **MLP projector output** | LLM-aligned | Unknown; often high-d; measure + validate |
-| **LLM hidden states** | Semantic space | Unknown; often high-d/concentrated; expect MI-only/quantization to be safer unless gates pass |
-| **Action decoder** | Continuous actions | Often low-d; likely acceptable if locally flat (still validate) |
-
-### 16.9.4 Recommendation for PixelVLA PID Analysis
-
-1. **Choose the representation first, then validate**: run geometry diagnostics + Experiment 0 on the exact stage you plan to analyze (patches vs pooled features vs projector output).
-2. **If the gates pass (after reduction if needed)**: PCA→(≤256) + L∞ `I^sx_∩` is a candidate for two-source PID on that representation.
-3. **If the gates fail on high‑D stages (common for LLM-aligned features)**: prefer MI-only screening (CI/Ω), quantization → discrete PID, or Flow‑as‑Bridge rather than interpreting continuous PID atoms.
-4. **Actions** are usually low-dimensional; they are often the safest target variable, but still require i.i.d./autocorrelation controls.
-
-## 16.10 Hierarchical Structure: GPT-2 vs Modern LLMs (Jan 2026)
-
-This subsection is a cautionary note: architecture differences can change anisotropy, intrinsic dimension, and tree-likeness, but the direction is not reliably predictable. GPT‑2 is used here only as a concrete “small transformer” reference point; do not infer that any target VLA uses GPT‑2 unless you have verified it. Treat “model X is more hierarchical than model Y” as a **measurable hypothesis**, not a premise.
-
-### 16.10.1 Architecture Differences That Might Affect Geometry (Hypotheses)
-
-| Feature | GPT-2 | Llama 2 | Why it might matter (hypothesis; must be measured) |
-|---------|-------|---------|-----------------------------------------------------|
-| **Position encoding** | Absolute (learned) | RoPE (rotary) | Changes similarity structure across positions; effect on δ_rel/ID is empirical |
-| **MLP nonlinearity** | GELU (typical GPT-2) | SwiGLU | Different nonlinearities can affect anisotropy and effective dimension |
-| **Attention** | Multi-head (MHA) | Grouped-query (GQA) | Changes parameterization and may change representational geometry |
-| **Context length** | ~1k (common configs) | ~4k (common configs) | Longer context can change representation mixing and long-range structure |
-| **Depth (example)** | 12 layers (GPT-2 small) | 32 layers (Llama 2 7B) | Depth changes compositional capacity; geometry may evolve across layers |
-
-### 16.10.2 Empirical Evidence for Hierarchy Evolution
-
-| Evidence | Source | Finding |
-|----------|--------|---------|
-| **Token embeddings** | [HypLoRA](https://arxiv.org/abs/2410.04010) | Paper reports high hyperbolicity in token embeddings (verify metric/setting) |
-| **δ-hyperbolicity** | [arXiv:2512.20926](https://arxiv.org/abs/2512.20926) | Paper reports lower δ / more hierarchical structure in some modern models vs older baselines (verify the exact numbers and sampling method) |
-| **Brain alignment** | [arXiv:2502.14671](https://arxiv.org/html/2502.14671v1) | Paper reports layer-wise differences in brain alignment (verify dataset/metric) |
-| **Hyperbolic LLMs** | [HELM](https://arxiv.org/abs/2505.24722) | Hyperbolic LLM variants; improvements are benchmark-dependent and need replication |
-### 16.10.3 What to Do in prisoma (Instead of Assuming)
-
-For any candidate VLA (small-transformer-backed or Llama‑backed):
-1. Measure geometry **per layer and per representation** (ID, distance concentration, δ_rel) on the embeddings you actually plan to analyze.
-2. Apply the Experiment 0 gate on the chosen preprocessing (e.g., z‑score + PCA→256).
-3. Only then decide whether continuous PID atoms are interpretable, or whether you should pivot to MI‑only / discrete / Flow‑as‑Bridge.
-
-## 16.11 Unified Geometry-First Protocol (Jan 2026)
-
-Based on the first-principles analysis, here is the recommended protocol:
-
-> **Cross-reference (v6.3):** For Dream2Flow + WAN integration, see §10.10.12 which applies this protocol to specific pipeline stages. Note that 3D object flow lives in Euclidean \(\mathbb{R}^{3T}\) (though it can still be high-dimensional for large \(T\)), so it avoids *non-Euclidean metric* issues but not the curse-of-dimensionality or autocorrelation pitfalls.
-
-### 16.11.1 What To Compute (Implemented Diagnostics + Optional Extensions)
-
-Before interpreting any PID atoms on a representation \(X\) (and especially before moving from 2‑way → 3‑way PID), compute diagnostics on:
-- each marginal \(V, L, D, A\) you will use, and
-- the **joint concatenations** that appear in your estimator calls (e.g., \([V;L]\), \([V;D]\), \([V;L;D]\)).
-
-**Implemented in `pid-core` (Experiment‑0 scale, O(n²)):**
-- **Intrinsic dimension** \(\hat d\) (Levina–Bickel): `intrinsic_dimension_levina_bickel`
-- **Distance concentration** (pairwise CV, `nn_over_pairwise_mean`): `distance_concentration_stats`
-- **δ-hyperbolicity** (4‑point sampling): `gromov_hyperbolicity` (raw δ); report `δ_rel = 2δ / diam(X)` with `diam(X)` measured under the same metric
-
-**Optional external methods (not implemented here):**
-- Neighborhood PCA residuals / subspace-angle curvature proxies (§16.6.1)
-- Graph-based curvatures like Ollivier–Ricci on a kNN graph (§16.6.2), noting that poor kNN graphs in high‑D can make these unreliable
-
-### 16.11.2 Geometry → Estimator / Decomposition Decision Matrix
-
-| Diagnostic regime (heuristic) | What it means for estimation | Recommended estimation strategy | Decomposition strategy | Hypotheses you can still test cleanly |
-|---|---|---|---|---|
-| **Modest stable \(\hat d\)**, no strong concentration/ties, weak dependence pathology, calibrated local-neighborhood recovery | Euclidean/Chebyshev neighborhood logic is plausible, not proven | Frozen PCA/whitening → continuous `I^sx_∩` (L∞) + KSG MI, only after separate MI_GATE and ISX_GATE pass | **Primary:** 2‑way PID (`pid2`). **Optional:** 3‑way only after its own oracle/coherence validation | Eligible H1–H6 pairs; H7 on flow targets if available |
-| **Strong distance concentration** (very low CV; `nn_over_pairwise_mean → 1`) | kNN neighborhoods become unstable; variance/bias dominate | Reduce dimensionality aggressively; increase N; if still concentrated → MI-only or discrete | Prefer **hierarchical screening** (CI/Ω, pairwise MI/PID) | H4/H5/H6 as *comparative* diagnostics (ΔCI/ΔMI) under perturbations; avoid fine-grained atom claims |
-| **Very small sampled-mean δ_rel** | Descriptive tree-likeness under the sampled metric; no estimator-validity conclusion | Keep the pipeline chosen by oracle recovery; optionally compare a hyperbolic representation as a separate regime | No decomposition choice follows from δ alone | Descriptive hierarchy claim only unless other gates independently validate an endpoint |
-| **Strong dependence / heavy tails / autocorrelation dominates** | KSG/ISX can break even at low d | Use strong-dependence MI estimators (e.g., Gao–Ver Steeg–Galstyan) as a check; enforce block bootstrap / trajectory controls | Keep decomposition simple; emphasize uncertainty and robustness | Hypotheses become primarily about *robustness of invariants* under controls, not absolute atom values |
-
-### 16.11.3 Minimal Sanity-Checks With Small Models (Optional)
-
-Use a small, fast model (NanoGPT‑class) to validate the *plumbing* of geometry diagnostics and logging before spending effort on VLAs:
-
-```python
-# NanoGPT-based geometry sanity-check (conceptual)
-model = NanoGPT(d_model=256, n_layers=6, n_heads=4)
-model.train(action_prediction_dataset)
-
-for layer in range(model.n_layers):
-    emb = model.get_hidden(validation_set, layer)
-    d_hat = levina_bickel_mle(emb, k=10)
-    dc = distance_concentration_stats(emb)
-    delta = gromov_hyperbolicity(emb, n_samples=1000)
-    # Convert to δ_rel using an explicit diameter estimate.
-```
-
-Do not assume monotonic trends (e.g., “curvature decreases with layer”) without measuring them; use this to confirm that diagnostics behave sensibly on controlled data and are stable across seeds.
-
-## 16.12 Assumption Violations and Finite-Sample Risks
-
-These are risks to calibrate, not universal impossibility theorems:
-
-1. **Volume/density regularity:** curvature, boundaries, singularities, or density
-   heterogeneity can change finite-radius neighbor counts. A consistent manifold-aware
-   estimator may account for local volume; the current implementation has not established
-   that correction.
-2. **Dimension heterogeneity:** variable local dimension can bias global ID and fixed-k
-   estimators. It does not automatically make every kNN estimator inconsistent; stratified or
-   adaptive methods require separate theory and validation.
-3. **Noncompactness and holes:** noncompactness alone does not make geodesic distances infinite
-   (Euclidean space is noncompact). Disconnected support, incomplete sampling, or graph
-   construction can yield unreachable graph pairs; distinguish those issues explicitly.
-
-**Implication for prisoma:** some regimes may remain unvalidated. Shannon invariants do not
-escape a broken MI estimator—they are valid only when every constituent MI term passes its
-gate. In an unvalidated regime, report no information-theoretic claim; candidate neural or
-geometry-aware MI estimators are separate research pipelines requiring calibration.
+- visualization consumes validated artifacts; it is not the source of truth;
+- rendered colors must not imply calibrated uncertainty without a legend and scale;
+- edits route through the intervention/control plane;
+- screenshots are not evidence unless linked to run IDs and underlying data;
+- 3D Gaussian splats are appearance representations, not collision geometry;
+- renderer novelty is outside the core thesis unless separately benchmarked.
 
 ---
 
-# 17. Training, Compute, and Data Requirements Analysis
+# 9. Source, representation, and target selection
 
-This section provides a comprehensive, critical analysis of all components in the prisoma project that require training, with compute/data requirements and measurement-first guidance on obtaining or generating the necessary data.
+## 9.1 Do not begin with the labels V, L, and D
 
-## 17.1 Executive Summary: Training Requirements Classification
+Begin with a structural map of the model. For each candidate tensor, answer:
 
-| Category | Components | Training Required? | Data-Heavy? | Compute-Heavy? |
-|----------|------------|-------------------|-------------|----------------|
-| **Core PID Estimators** | KSG MI, `I^sx_∩`, Shannon invariants | ❌ No training | ❌ No | ⚠️ Moderate (kNN is O(N²d)) |
-| **VLA Models (inference only)** | OpenVLA, DreamVLA, PixelVLA, TraceVLA | ❌ No training (use pre-trained) | ❌ No | ⚠️ Moderate (7B inference) |
-| **VLA Fine-tuning** | LoRA adaptation | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Dimensionality Reduction** | PCA, Random Projection, Hash Projection | ❌ No training | ❌ No | ❌ Minimal |
-| **Learned Projections** | Autoencoders, Contrastive | ✅ Yes | ⚠️ Moderate | ⚠️ Moderate |
-| **SAE (Sparse Autoencoders)** | Vision/LLM decomposition | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Hyperbolic Embeddings** | Poincaré/Lorentz projection | ✅ Yes | ⚠️ Moderate | ⚠️ Moderate |
-| **Neural MI Estimators** | MINE, CCMI | ✅ Yes | ⚠️ Moderate | ⚠️ Moderate |
-| **World Models** | WAN, GWM, Genie 3 | ✅ Yes (if fine-tuning) | ✅ Yes | ✅✅ Very High |
-| **Process Reward Models** | GRM (Robo-Dopamine) | ✅ Yes | ✅✅ Very High | ✅✅ Very High |
-| **Failure Classifiers** | Learned baselines | ✅ Yes | ⚠️ Moderate | ⚠️ Moderate |
-| **Depth Estimation** | DKT, Depth-Anything | ✅ Yes (if fine-tuning) | ✅ Yes | ✅ Yes |
+- what inputs are its deterministic ancestors?
+- has multimodal fusion already occurred?
+- can downstream modules bypass it?
+- is it before or after recurrence, action conditioning, and decoding?
+- does its token axis have stable semantics?
+- is the same site available under every treatment?
+- is the tensor comparable across time and checkpoints?
 
-## 17.2 Core PID Estimators (No Training Required)
+Only then assign a scientific role. A hidden state downstream of vision, language, and proprioception is a fused representation, not a pure “dynamics” source. “D” must not stand for depth in one analysis and dynamics in another.
 
-### 17.2.1 KSG Mutual Information
+## 9.2 Recommended source families
 
-**Training:** None — the KSG estimator is a non-parametric algorithm.
+### A. Input-source experiments
 
-**Compute requirements (measurement-first):**
-- Naive exact kNN scales as `O(N² d)`; storing a full pairwise distance matrix is `O(N²)` memory (avoid at large `N`).
-- Tree/graph methods can help when intrinsic dimension is modest; approximate kNN can help but changes estimator behavior (validate under Experiment 0).
-- Report measured wall-clock and peak memory for your chosen `(N,d,k)` and backend (exact vs approximate; CPU vs GPU).
+Use raw or frozen-encoder summaries of instruction, vision, proprioception, tactile sensing, or history. These are easiest to perturb semantically, but observational PID can still reflect common causes and dataset structure.
 
-**Sample size:** requirements grow rapidly with intrinsic dimension and dependence strength; treat any “works at (N,d)” claim as empirical until validated (Experiment 0 + Geometry Gate).
+### B. Pathway-source experiments
 
-### 17.2.2 Continuous `I^sx_∩` Redundancy
+Use pre-fusion pathways or separately routed modules when architecture supports them. This is a better match to causal intervention, but only when bypass and residual connections are mapped.
 
-**Training:** None — Ehrlich et al. (2024) estimator is non-parametric.
+### C. Temporal-source experiments
 
-**Compute Requirements:**
-- Same as KSG MI but with additional disjunction-distance computation
-- Typically higher than standard KSG MI due to additional disjunction-distance computation (measure on your backend and `(N,d,k)`)
-- Full pairwise distance matrix required: O(N²) memory or streaming computation
+Compare short-history and long-memory states, current observation and recurrent memory, or predicted and observed state. The sampling and target horizon must prevent one source from containing the target by construction.
 
-**Data Requirements:**
-- Experiment 0 validation: synthetic data spanning your planned `d` and dependence regimes (see §9.1 and `EXPERIMENTS.md` §4)
-- VLA analysis: extract embeddings from trajectories (see §17.3)
+### D. Model–execution experiments
 
-### 17.2.3 Shannon Invariants (CI, Ω)
+Compare a policy proposal representation with controller/execution state. This can separate learned decision error from downstream control error and may be more identifiable than assigning semantics to fused transformer layers.
 
-**Training:** None — computed from MI terms.
+### E. World-model experiments
 
-**Compute requirements (measurement-first):**
-- Computed from a small fixed set of MI/CMI terms (often substantially cheaper than estimating full multi-source PID atoms).
-- Still inherits the MI estimator’s scaling and geometry pathologies; use as **screening** and validate stability under controls.
+Use an explicit predictive state, rollout, object flow, contact prediction, or next-state distribution only when it is a documented model output. Evaluate it first against external predictive error. A representation called “world knowledge” by a paper is not automatically a world-model state for Prisoma.
 
-**Why This Matters:** Shannon invariants are the recommended "Level 0" screening layer precisely because they require NO training and have moderate compute cost.
+## 9.3 Target hierarchy
 
-## 17.3 VLA Embedding Extraction (Pre-trained Inference)
+Primary targets should progress from most identifiable to most consequential:
 
-### 17.3.1 OpenVLA / PixelVLA / TraceVLA (Llama 2 7B backbone)
+1. discrete synthetic or task variable for estimator validation;
+2. policy distribution or sampled action under controlled input;
+3. executed action after controller transformation;
+4. low-dimensional physical state change, object flow, or contact event;
+5. progress/failure outcome.
 
-**Training:** None required for embedding extraction — use pre-trained weights.
+A low-dimensional target can improve estimation but does not solve high-dimensional source geometry. A flow target may be embodiment-portable only after coordinate frame, object correspondence, visibility, and contact semantics are standardized.
 
-**Inference compute (benchmark-dependent):**
-- **Memory:** weights-only memory is an approximate lower bound: `params × bytes_per_param` (e.g., fp16 ≈ 2 bytes/param). A 7B-parameter model is ~14GB for weights alone; runtime overhead (optimizer state, activations, KV cache, batching) can add substantially—do not treat this as a “fits in X GB” guarantee.
-- **Latency/throughput:** depends on runtime (CUDA/Metal/CoreML), quantization, sequence length, batch size, and kernel choices. Do not report fixed ms numbers without measurement on your exact setup.
+## 9.4 Token and temporal aggregation
 
-**Data sources / benchmarks (examples; verify sizes/licensing before citing):**
-| Source | Purpose | Notes |
-|--------|---------|-------|
-| Open‑X Embodiment | Pretraining provenance / broad evaluation | Verify access terms and exact subsets used |
-| VLA‑Arena | Perturbation axes for robustness tests | Verify dataset availability and protocol |
-| LIBERO | Standard manipulation benchmark | Verify task definitions and splits |
-| SimplerEnv | Lightweight iteration / sanity checks | Verify task parity with your study |
-| Pixel‑160K (PixelVLA) | Pixel-level prompting analysis | Abstract says “will be released”; verify availability |
+Pooling is a scientific choice. Candidate approaches include:
 
-**Estimated data volume (illustrative; measure on your logging schema):**
-- `10k trajectories × 100 timesteps × 4096 dims × 4 bytes ≈ 16GB` per variable if you store dense float32 arrays (V/L/D/A) without compression.
-- In practice, you should log only the representations you analyze, prefer float16/quantized storage where valid, and compress/chunk data formats (see `EXPERIMENTS.md` §11).
+- a predefined token subset with architecture semantics;
+- attention-independent masked means;
+- a fixed learned projection trained only on development data;
+- task-variable probes whose outputs, not hidden vectors, become interpretable low-dimensional sources;
+- phase-aligned summaries.
 
-### 17.3.2 DreamVLA (backbone unspecified in abstract; verify checkpoint)
+Do not average tokens merely because it is convenient. Report sensitivity to a small preregistered set of plausible aggregations. Token selection based on the outcome or intervention effect must occur inside nested training folds.
 
-**Training:** None for embedding extraction *if* weights and an inference API are available.
+For temporal aggregation:
 
-**Critical gap (still real):** The abstract does not specify the backbone family/dimensions, and “DreamVLA” includes multiple components; the exact tensors you can export (and their dims) are implementation-dependent. Verify your exact checkpoint configuration and the per-step intermediates you will log before making any “smaller than X” or “tractable at d=Y” claim.
+- use non-overlapping or explicitly dependent windows;
+- align by observable task phase only if phase is defined without future outcome;
+- avoid using terminal failure to retrospectively define “pre-failure” phase in the primary prospective analysis;
+- record variable latency and action-chunk timing;
+- distinguish decision time from execution and observation feedback time.
 
-**Inference compute:** model- and runtime-dependent; report measured latency/throughput and peak memory on your deployment.
+## 9.5 Cross-model analysis
 
-## 17.4 VLA Fine-tuning (High Compute, High Data)
+Cross-model claims should use one of three designs:
 
-### 17.4.1 LoRA Adaptation of OpenVLA
+1. **Within-model replication:** test the same qualitative diagnostic–effect relationship separately in each model.
+2. **Common external variable:** project each model to a shared, independently defined target such as object pose, action distribution, or task variable; validate each projection separately.
+3. **Matched representational test:** use CKA/CCA or another similarity analysis only to characterize alignment, then run interventions in each model. Similar representation geometry does not guarantee intervention equivalence.
 
-**When Needed:** Task-specific fine-tuning for new domains, benchmarks, or custom robots.
+Do not concatenate hidden states from different models into one estimator or compare normalized atom magnitudes without a justified common scale and validation.
 
-**Training requirements (measurement-first):**
-- Pre-trained base weights + a reproducible fine-tuning codepath.
-- A declared LoRA/adapter configuration (rank, target modules, precision) recorded in the run manifest.
-- Domain/task data with explicit licensing and provenance.
-- Measured training throughput, peak memory, and wall-clock on your hardware/runtime (do not cite generic “X hours on Y GPU” numbers).
+## 9.6 Flow as a bridge
 
-**Data sources (examples; verify availability and licensing):**
-| Source | Notes |
-|--------|------|
-| Existing benchmarks (e.g., LIBERO, SimplerEnv) | Useful for matched comparisons; ensure protocol parity |
-| Collect in simulation | Cheap iteration; validate sim realism for your claim scope |
-| Collect on real robot | High fidelity; higher operational overhead and safety constraints |
-| Perturbation benchmarks (e.g., VLA‑Arena) | Useful for robustness analyses; verify access terms |
+Object/contact flow is useful when it is:
 
-### 17.4.2 Full VLA Pre-training (Extreme Compute)
+- defined in a shared world/object coordinate frame;
+- derived from simulator ground truth or independently calibrated perception;
+- accompanied by visibility and correspondence confidence;
+- evaluated separately for rigid, articulated, deformable, and contact-rich motion;
+- distinguished as predicted flow, desired flow, executed flow, and observed flow.
 
-**When Needed:** Only if training VLA from scratch (not recommended for prisoma project).
+A scientifically useful decomposition is:
 
-**Recommendation (scope discipline):** Use pre-trained VLAs. Full pre-training is out of scope for prisoma unless the study explicitly targets training dynamics. If you do pre-train, report measured compute, data, and costs for your exact setup and treat it as a separate project with its own reproducibility package.
+\[
+\text{prediction error} \rightarrow \text{policy mapping error} \rightarrow
+\text{controller/execution error} \rightarrow \text{outcome error}.
+\]
 
-### 17.4.3 Moondream-Inspired Small VLA (Alternative to DreamVLA)
-
-**When Needed:** If DreamVLA models are too large for rapid iteration (see §7.7 for full architecture details). **Note (Jan 2026):** Both DreamVLA papers state a release and this doc references candidate repos; verify weight availability/licensing and treat “availability” as a potential mitigation, not a guarantee.
-
-**Scope note:** This is an *engineering contingency* for pipeline validation (logging/interventions/estimator plumbing), not a primary scientific target. If used, it must be documented and reproducible enough to be a credible object of study (see §7.7).
-
-**Training requirements (measurement-first):**
-- Choose a small open backbone and a simple, explicit fusion/projection mechanism.
-- Record data provenance/licensing, commit hashes, hyperparameters, and seeds.
-- Report measured training/inference throughput and peak memory for your configuration; do not cite generic “X days on Y GPUs” estimates.
-
-**Advantages:** faster iteration for engineering and cleaner ablations if encoders are frozen.
-
-**Disadvantages:** not automatically representative of large VLAs; cannot substitute for DreamVLA/OpenVLA claims unless benchmarked under matched protocols.
-
-**Recommendation:** Use only if it materially accelerates Experiment 0/1 engineering; otherwise prioritize pre-trained VLAs.
-
-## 17.5 Dimensionality Reduction (No Training)
-
-### 17.5.1 PCA (Linear Projection)
-
-**Training:** None — SVD on data matrix.
-
-**Compute (measurement-first):** exact SVD is expensive at large `N`/`d`; randomized/incremental PCA is often preferred. Benchmark your PCA implementation and record runtime/memory for your dataset size and target dimension.
-
-**Data Requirements:** Same embeddings used for PID (no additional data).
-
-### 17.5.2 Random Projection / Hash Projection
-
-**Training:** None — random matrix generation (seeded).
-
-**Compute:** O(Nd × d_target) — matrix multiply, very fast.
-
-**Data Requirements:** None.
-
-### 17.5.3 PLS (Supervised Linear Projection; Implemented v10.2)
-
-**Training:** No SGD/learned-model training — deterministic NIPALS-PLS2 fit (iterative linear algebra) in `pid-rs/crates/pid-core/src/pls.rs`; cost is roughly per-component power-iteration over the `N×d` matrix (benchmark for your sizes; cheap relative to any neural option).
-
-**Data Requirements:** the same embeddings used for PID **plus a target** (e.g., `A`, a flow summary, or labels). Because the projection consumes the target, it is *supervised*: fit on training samples only, freeze, then transform analysis/held-out samples (§8.2.3 step 5). Component count must be selected by nested CV, not on the evaluation split.
-
-**Why it exists:** the Exp0 signal-in-noise finding (`findings.md`) — PCA/hash projections cannot isolate signal whose variance matches per-dimension noise; PLS can, because it maximizes covariance with the target. The projected space is a **new measurement regime** (re-run Exp0 + consistency gates on it).
-
-## 17.6 Learned Dimensionality Reduction (Training Required)
-
-### 17.6.1 Sparse Autoencoders (SAE)
-
-**When Needed:**
-- Interpretable feature decomposition (§16.8)
-- Lower effective dimension for PID
-- Monosemantic feature identification
-
-**Training requirements (measurement-first):**
-- Choose an SAE architecture/expansion factor and record it (do not assume a “typical” default is optimal).
-- Training data are activation vectors from frozen VLA forward passes; report the extraction point(s) and dataset provenance.
-- Report measured training throughput and peak memory; avoid fixed hour/GB claims.
-
-**Data Sources:**
-- Run frozen VLA on existing trajectory datasets
-- Extract activations at target layer(s)
-- No new robot data collection required
-
-**Compute note:** SAE cost depends strongly on activation dimension, dataset size, expansion factor, optimizer settings, and hardware. Treat cost as empirical: benchmark on a small subset, then scale.
-
-**Code Resources:**
-- [SAELens](https://github.com/jbloomAus/SAELens) — well-maintained SAE training library
-- [sae_analysis](https://github.com/Abzinger/sae_analysis) — Makkeh's Shannon invariants for SAE
-
-### 17.6.2 Contractive/Variational Autoencoders
-
-**Training requirements (measurement-first):**
-- Choose an encoder/decoder architecture and objective (contractive/variational/reconstruction) and record it in the manifest.
-- Use embedding vectors from the frozen VLA stage you analyze (same source as PID inputs).
-- Report measured training throughput and peak memory for your setup; do not cite generic hour/GB figures.
-
-**Data Sources:** Same as SAE — run frozen VLA on trajectory datasets.
-
-### 17.6.3 Hyperbolic Projection Heads (HypLoRA-style)
-
-**When Needed:**
-- A hierarchy-preserving representation is a declared, independently motivated hypothesis
-- Matched controls show a Euclidean projection loses the hierarchy statistic of interest
-- Research comparison with Euclidean methods
-
-**Training requirements (measurement-first):**
-- Define the projection geometry (e.g., Lorentz/Poincaré) and loss; record it.
-- Use embeddings with an explicit structure-preserving objective (contrastive/reconstruction); report dataset provenance.
-- Report measured training/inference cost for your implementation; avoid fixed hour/GB claims.
-
-**⚠️ Critical Note:** Hyperbolic MI/PID estimators are research-gated (§16.4.2, §16.7.4). Training a hyperbolic projection changes the measured quantity and requires re-validation.
-
-## 17.7 Neural MI Estimators (Training Required)
-
-### 17.7.1 MINE (Mutual Information Neural Estimation)
-
-**When Needed:**
-- KSG fails at high dimension (Experiment 0 NO-GO)
-- MI-only screening (not full `I^sx_∩`)
-- Cross-check for kNN estimates
-
-**Training requirements (measurement-first):**
-- A critic network + optimizer; record architecture, objective variant, and early-stopping criteria.
-- Training data is the same samples used by kNN MI (no extra data), but optimization stability can vary widely; report variance across seeds.
-- Report measured per‑estimate time and peak memory for your configuration.
-
-**Critical Challenge:** MINE must be **retrained for each MI estimate**. This makes it expensive for full PID decomposition (which requires multiple MI terms).
-
-**Data Sources:** Same embeddings as kNN-based methods (no additional data).
-
-### 17.7.2 CCMI (Conditional MI)
-
-**Training requirements (measurement-first):**
-- A classifier-based estimator for conditional MI; record architecture/objective/negative sampling scheme.
-- Conditional estimation can be brittle; report stability checks and sensitivity to hyperparameters.
-
-**When Needed:** Conditional analyses (e.g., I(V;A|L)).
-
-## 17.8 World Models (Very High Compute/Data)
-
-### 17.8.1 WAN (Wan) Fine-tuning
-
-**When Needed:**
-- Action-conditioned video generation for VLA visualization
-- Data augmentation for VLA training
-
-**Pre-trained inference (no training):**
-- The Wan paper (arXiv:2503.20314) reports 1.3B and 14B models and claims the 1.3B model can run with ~8.19 GB VRAM in their setting.
-- Inference time/VRAM depend strongly on runtime, precision, resolution, and clip length; measure on your hardware and report configuration details.
-
-**Fine-tuning/adapters for robot domain or conditioning:**
-- Treat as a separate, high‑compute project: data requirements, training time, and cost depend on the conditioning scheme and target tasks.
-- If you fine‑tune, report dataset provenance and consider circularity/confound risks (a fine‑tuned predictor may learn the same biases as the VLA you are diagnosing).
-
-**Data Sources:**
-| Source | Availability | Robot-specific? |
-|--------|--------------|-----------------|
-| Open-X Embodiment videos | Public | ✅ Yes |
-| RoboMimic datasets | Public | ✅ Yes |
-| Simulate in Isaac Sim/Gazebo | Generate yourself | ✅ Yes |
-| Internet video | Public (varies) | ❌ No |
-
-### 17.8.2 GWM (Gaussian World Model)
-
-**Compute trade-off:** can be lighter than large diffusion video models in some implementations, but requires 3DGS scene reconstruction; benchmark on your hardware and report measured ranges.
-
-| Component | Compute | Notes |
-|-----------|---------|-------|
-| 3DGS scene fit | Benchmark | Depends on capture quality, views, and training config |
-| GWM inference | Benchmark | Runtime/model dependent; do not assume “faster than WAN” without matched settings |
-| Training GWM | Benchmark | Depends on dataset scale and architecture |
-
-### 17.8.3 Genie 3 / SIMA 2 (DeepMind)
-
-Treat environment generators as an optional, separate track. Availability and capabilities vary; verify access/licensing and treat the generator’s physics fidelity as part of the experimental condition.
-
-## 17.9 Process Reward Models (Very High Data Requirements)
-
-### 17.9.1 GRM (General Reward Model — Robo-Dopamine)
-
-**Scope note:** Training large process reward models is typically data- and compute-intensive and is out of scope for prisoma. Use pre-trained weights as a baseline only if they are available under an acceptable license.
-
-**Data Source for Reproduction:**
-- The GRM paper uses diverse robot manipulation videos
-- Collecting a multi-thousand-hour dataset is a major data engineering effort (the arXiv abstract mentions 3,400+ hours)
-- Alternative: Use pre-trained GRM weights if released
-
-**For prisoma (Baseline Use Only):**
-- Use pre-trained GRM for failure prediction baseline
-- Do NOT train GRM from scratch (out of scope)
-
-## 17.10 Failure Classifiers (Moderate Requirements)
-
-### 17.10.1 Learned Failure Predictor (Baseline)
-
-**Training requirements (measurement-first):**
-- A lightweight supervised model (e.g., logistic regression/MLP) over logged representations and/or PID features.
-- A labeled dataset with clear success/failure definitions and split protocol.
-- Report measured training cost and calibration/robustness metrics; avoid generic time/memory claims.
-
-**Data Sources:**
-| Approach | Effort | Labels |
-|----------|--------|--------|
-| LIBERO benchmark | Low | Automatic (task completion) |
-| VLA-Arena | Low | Automatic (structured tasks) |
-| Manual annotation | High | Human-labeled failure modes |
-| Simulation auto-label | Medium | Physics-based success criteria |
-
-## 17.11 Depth Estimation (High Compute for Training)
-
-### 17.11.1 Depth-Anything (Inference Only)
-
-**Training:** None — use pre-trained.
-
-**Inference (benchmark on your hardware):**
-| Model | Notes |
-|-------|-------|
-| Depth-Anything v2 (or similar) | Relative depth; validate whether calibration is required for your tasks |
-| Metric depth baseline (e.g., Metric3D) | Use if absolute scale is required; validate and benchmark |
-
-### 17.11.2 DKT (Diffusion Knows Transparency)
-
-Treat diffusion-based depth for transparent/reflective objects as an optional perception preprocessor. Use pre-trained models if available and benchmark on your scenes; avoid committing to base-model/dataset/training-time claims in this document without a primary citation and a local benchmark.
-
-## 17.12 Synthetic Data Generation
-
-### 17.12.1 When Synthetic Data Is Sufficient
-
-| Use Case | Synthetic OK? | Notes |
-|----------|---------------|-------|
-| **Experiment 0 (Estimator Validation)** | ✅ Yes | Required synthetic validation |
-| **PID estimator development** | ✅ Yes | Gaussian/XOR systems |
-| **VLA fine-tuning** | ⚠️ Partial | Sim-to-real gap |
-| **Failure detection training** | ⚠️ Partial | Need diverse failure modes |
-| **World model training** | ⚠️ Partial | Physics fidelity matters |
-
-### 17.12.2 Synthetic Data Generation Tools
-
-| Tool | Purpose | Compute | Realism |
-|------|---------|---------|---------|
-| **Isaac Sim** | Robot simulation | High (GPU required) | High |
-| **Gazebo** | Robot simulation | Moderate | Moderate |
-| **Mujoco** | Physics simulation | Low | Moderate |
-| **Blender/Cycles** | Synthetic rendering | Moderate | Very High |
-| **Procedural generators** | Domain randomization | Low | Variable |
-
-### 17.12.3 Experiment 0 Synthetic Data Protocol
-
-**Purpose:** Validate PID estimators at target dimensionality.
-
-**Data Generation:**
-```python
-# No external data needed — generate in-memory
-for d_total in [10, 100, 1000, 4096]:
-    for n_samples in [1000, 5000, 10000, 50000]:
-        # Signal variables (low-d, known structure)
-        s1_signal = generate_redundant_source(d=5)
-        s2_signal = generate_xor_source(d=5)
-        target = generate_target(s1_signal, s2_signal)
-        
-        # Embed in high-d by concatenating noise
-        s1 = concat([s1_signal, noise(d=d_total-5)])
-        s2 = concat([s2_signal, noise(d=d_total-5)])
-        
-        # Run estimator validation
-        ...
-```
-
-**Compute:** benchmark-dependent; record measured runtime and peak memory for your chosen grid size and backend.
-
-## 17.13 Data Collection Strategy Summary
-
-### 17.13.1 Recommended Data Collection Priority
-
-| Priority | Data Type | Source | Effort | Required For |
-|----------|-----------|--------|--------|--------------|
-| **1** | Synthetic validation | Generate yourself | Very Low | Experiment 0 |
-| **2** | VLA-Arena trajectories | Public download | Low | Experiments 1-4 |
-| **3** | LIBERO/SimplerEnv | Public download | Low | Baseline comparison |
-| **4** | Open-X Embodiment subset | Public download | Low-Medium | VLA fine-tuning |
-| **5** | SAE training activations | Run frozen VLA | Medium | SAE analysis (§16.8) |
-| **6** | Custom robot demos | Collect yourself | High | Domain-specific |
-
-### 17.13.2 Total Data Requirements Estimate
-
-Data volume is highly dependent on what you log (raw video vs embeddings vs flows), representation precision, compression, and episode count. Treat storage as an engineering variable: prefer chunked, compressed formats and log only the representations you analyze (see `EXPERIMENTS.md` §11).
-
-## 17.14 Compute Budget Recommendations
-
-### 17.14.1 Minimum Viable Setup (PhD Project)
-
-**Measurement-first recommendation:** start with the hardware you have, run Experiment 0, and measure the actual bottlenecks (PID kNN, embedding extraction, video prediction, flow extraction). Upgrade only for the bottleneck you cannot mitigate via caching, reduction, or offline scheduling.
-
-### 17.14.2 Compute Time Estimates
-
-Do not cite generic time/cost estimates in this document. Record measured runtime ranges (median/p95), peak memory, and configuration for each pipeline stage and report those in your experiment manifests.
-
-### 17.14.3 What NOT to Train (Out of Scope)
-
-| Component | Why Out of Scope | Alternative |
-|-----------|-----------------|-------------|
-| VLA from scratch | Training dynamics are not the object here | Use pre-trained VLAs |
-| Large PRM/GRM from scratch | Data/compute heavy; separate research program | Use pre-trained baseline if available |
-| Video foundation model from scratch | Data/compute heavy; separate research program | Use pre-trained predictor; treat as experimental variable |
-| Environment generators | Adds confounds and scope | Treat as optional future work |
-
-## 17.15 Data Access and Licensing
-
-Do not assume licenses from memory. For every dataset/model you use, record:
-- the license (or lack thereof),
-- access conditions/registration,
-- exact version/commit and checksum,
-- and whether redistribution is permitted.
-If you cannot legally redistribute an artifact required to reproduce the study, treat that as a publication blocker.
-
-## 17.16 Critical Challenges and Mitigations
-
-### 17.16.1 Challenge: kNN at d=4096
-
-**Problem:** Brute-force kNN is O(N²d), prohibitive at d=4096.
-
-**Mitigations:**
-1. PCA to d=256 (recommended first attempt)
-2. GPU-accelerated kNN (cuML, FAISS)
-3. Approximate kNN (with Experiment 0 re-validation)
-4. SAE decomposition (reduce effective dimension)
-
-### 17.16.2 Challenge: Strong Dependence (Near-Deterministic VLA)
-
-**Problem:** VLA `A = f(V,D,L)` is nearly deterministic; MI can be huge/undefined.
-
-**Mitigations:**
-1. Add calibrated noise to action predictions
-2. Use temperature in VLA decoding
-3. Target external labels (`A*`, success/failure) instead of raw action
-4. Strong-dependence synthetic sweep in Experiment 0
-
-### 17.16.3 Challenge: Trajectory Autocorrelation
-
-**Problem:** Consecutive timesteps are correlated; "N frames" ≠ "N i.i.d. samples".
-
-**Mitigations:**
-1. Cross-trajectory sampling (one sample per rollout)
-2. Large-stride subsampling (every 10th frame)
-3. Block bootstrap for uncertainty estimation
-4. Trajectory-level PID features (mean/min over windows)
-
-## 17.17 Dream2Flow Integration Requirements (v6.2)
-
-This section provides detailed computational and data requirements for the unified Dream2Flow + WAN + PID + Gaussian Splatting architecture described in §10.10.
-
-### 17.17.1 Vision Foundation Models (Inference Only)
-
-This stage uses three model *classes*: segmentation, point tracking, and depth. Specific implementations change quickly; treat any named models as examples and benchmark on your hardware.
-
-| Category | Example models (verify availability/licensing) | Outputs to log | Notes |
-|----------|-----------------------------------------------|----------------|-------|
-| Segmentation | SAM2 or equivalent promptable segmenter | masks, prompts, per-object confidence | Often run once per clip; propagate masks if supported |
-| Point tracking | CoTracker (or equivalent) | 2D tracks, confidence, failure cases | Runtime depends on number of points and clip length |
-| Depth | Depth-Anything v2 (relative) and/or a metric-depth baseline (e.g., Metric3D), plus RGB-D when available | depth maps + calibration metadata | Metric depth typically needs calibration; handle transparents separately |
-| Transparent depth (optional) | DKT (or other transparency-aware depth) | depth + uncertainty | Only needed for glass/plastic/etc. scenes |
-
-**Measurement protocol:** For every run, record wall-clock time per frame/clip, peak memory, and model version/commit hash. Do not report fixed ms/frame values without measurement.
-
-### 17.17.2 Video Prediction (Local or API)
-
-Video prediction is typically the dominant compute in a Dream2Flow‑style pipeline and is treated as **offline** for prisoma (unless you have verified real‑time capability on your hardware).
-
-Model choice (and whether inference is local or API‑hosted) is an **experimental variable**; do not assume any particular latency/cost/quality.
-
-**What to log (minimum):**
-- Predictor name + version/commit; weights checksum (local) or provider/model-id (API)
-- Conditioning inputs (image(s), instruction, optional action), prompts, seeds, sampler settings, clip length/resolution
-- Wall‑clock time, peak VRAM/RAM, failure modes (OOM/timeouts), output hashes for caching
-- If API‑hosted: request IDs, rate limits, costs, and any provider‑side versioning metadata
-
-**Reproducibility guidance:**
-- Prefer pinned local inference when possible; otherwise cache returned clips and treat the provider as non‑stationary.
-- Treat the generated clip as a *proposal*, not a label; validate downstream Flow plausibility against simulator/sensor trajectories when available (§9.7.7).
-
-**Optional motion/action conditioning:**
-- Motion control methods (e.g., latent trajectory guidance) can support counterfactual “what‑if” generation if supported by the chosen predictor; verify compatibility per method (e.g., Wan‑Move, arXiv:2512.08765) before committing engineering time.
-
-### 17.17.3 3D Flow Reconstruction (Segmentation/Tracking/Depth)
-
-Flow reconstruction is a **measurement pipeline**. Its failure modes are perception confounds that must be logged and stratified (do not interpret PID results if Flow targets are unreliable).
-
-**Minimum steps (model-agnostic):**
-1. Segment objects (or select points) to define object identities.
-2. Track points through the generated clip; log confidence and track failures.
-3. Estimate depth/spatial cues (or use RGB‑D if available); record calibration/scale handling.
-4. Lift 2D tracks to 3D trajectories and aggregate into a Flow target representation (e.g., low‑D per‑object statistics vs full \(3T\) trajectories).
-
-**Performance note:** runtime depends on clip length, number of tracked points, and chosen models; report measured wall‑clock and peak memory.
-
-### 17.17.4 PID Analysis (Rust, CPU)
-
-PID runtime depends on sample size \(n\), working dimension \(d\), kNN backend, and how many terms you compute. Do not report fixed ms/estimate without measured hardware + configuration details.
-
-**Practical guidance:**
-- Use Shannon invariants (CI/Ω) for continuous screening; trigger full `I^sx_∩` decomposition only on selected windows/episodes.
-- Treat any Flow representation as a new target variable: re-run geometry diagnostics + Experiment 0 on the exact preprocessing pipeline you plan to publish (§16.11, §9.1).
-
-### 17.17.5 Gaussian Splat Visualization (Real-Time)
-
-| Component | Target | Notes |
-|-----------|--------|-------|
-| SparkJS rendering | Interactive frame rate | SparkJS targets WebGL2; benchmark on your scene complexity and splat count |
-| PID-colored overlays | Interactive for small scenes; offline for heavy runs | GPU budget depends on splat count + shader complexity + update rate |
-| Timeline scrubbing | Responsive interaction | Depends on caching strategy + IO; measure end-to-end |
-| Multi-view | Responsive interaction | Scene complexity and GPU memory are the limiting factors |
-
-**Browser requirements:**
-- Recent Chrome/Edge/Firefox with WebGL2 support (SparkJS) or WebGPU enabled (if you choose a WebGPU-native renderer)
-- Sufficient GPU VRAM for your scene size (benchmark-dependent)
-- Sufficient system RAM for cached assets and logs (benchmark-dependent)
-
-### 17.17.6 Full Pipeline Per-Trial Summary
-
-Do not treat any per‑trial time/VRAM/cost numbers as stable. For every run, log:
-- stage-level wall-clock time (median/p95),
-- peak memory (RAM/VRAM),
-- and configuration (model IDs, resolution, frames, seeds, tracker settings).
-Assume offline-first unless you have demonstrated interactive throughput on your hardware.
-
-### 17.17.7 Hardware Recommendations
-
-Hardware requirements depend on which components you run locally:
-- **Estimator-only (PID on embeddings):** CPU + enough RAM for kNN workloads; GPU not required.
-- **Embedding extraction / video prediction / flow extraction:** typically benefits from GPU acceleration; exact VRAM requirements depend on the chosen models and resolutions.
-- **Visualization:** any GPU that can run the chosen renderer (WebGL2/WebGPU) can work, but large scenes require more VRAM.
-Prefer profiling-first: run a small pilot, record peak memory and latency, then scale.
-
-### 17.17.8 Data Requirements
-
-Minimum required artifacts are:
-- observations (RGB or RGB‑D),
-- task instructions/prompts,
-- success/failure labels or external targets,
-- executed trajectories,
-- and the extracted representations used for PID.
-Exact volumes depend on episode length, frame rate, representation precision, and how much you cache; measure and report.
-
-### 17.17.9 What NOT to Build (Out of Scope)
-
-| Component | Why Out of Scope | Alternative |
-|-----------|------------------|-------------|
-| Custom video model | Separate high-compute research program | Use a pre-trained predictor; treat as experimental variable |
-| Custom depth model | Not core contribution | Use Depth-Anything/DKT |
-| Custom tracking model | Not core contribution | Use CoTracker (or equivalent) |
-| Real robot experiments | High cost, safety, time | Use Gazebo simulation |
-| Large-scale RL training | Separate research program | Small-scale validation only |
+The flow bridge is an optional measurement design, not proof of embodiment independence and not a reason to build a video world model as infrastructure.
 
 ---
 
-# 18. Critical Blockers and Risk Analysis
+# 10. Related work and dated prior-art boundary
 
-This section provides a systematic assessment of blockers that could prevent project success, organized by severity. Each blocker includes explicit mitigation strategies and Go/No-Go decision criteria.
+## 10.1 Information decomposition
 
-## 18.1 Executive Summary: Risk Classification
+PID is a family of measure-relative decompositions originating with Williams and Beer and expanded through unique-information, common-change-in-surprisal, shared-exclusions, and continuous formulations [R01–R08]. The 2026 field review emphasizes the absence of a universally accepted measure [R08]. Recent inconsistency and structural-impossibility results further caution against treating high-order lattice atoms as uniquely determined natural objects [R09–R10]. Shannon invariants provide scalable measure-agnostic summaries but remain dependent on valid MI estimates [R11].
 
-The old fixed blocker counts drifted as code landed. This current ledger is authoritative;
-later category sections retain detailed failure-mode analysis but not an exact count.
+Multimodal interaction decomposition was already developed for multimodal machine learning before this project, using measure choices that are not interchangeable with shared-exclusions PID [R20]. The closest recent precedent is the ICLR 2026 study applying PID to 26 large vision–language models [R18]. BrainFIBRE additionally uses a self-supervised PID-guided multimodal objective with counterfactual modality dropping/swapping in neuroimaging [R100]. Prisoma must cite these lines of work and distinguish itself by sequential policies, policy/execution/outcome separation, paired and randomized interventions, prospective failure prediction, and estimator abstention—not by the generic use of PID or counterfactual modality perturbations.
 
-| Current blocker (2026-07-10) | Status | Unblock condition |
+## 10.2 VLA diagnosis and interpretability
+
+Mandatory comparison families include:
+
+| Work/family | What it already contributes | What Prisoma must add or test |
 |---|---|---|
-| MI coherence on high-d controls | **NO-GO** | A candidate frozen pipeline passes analytic MI recovery/coherence on held-out controls |
-| Continuous `I^sx` validation | **NOT VALIDATED** | Upstream split `MI_GATE`/`ISX_GATE`; remove false zero target; recover dimension-matched oracle + pinned independent fixture |
-| H1 endpoint | **BLOCKED** | Train-reference local scores, episode aggregation/leakage tests, and missing action-entropy + ensemble/temperature baselines |
-| H2/H3/H4 estimands | **BLOCKED** | Instruction-diversity and `J₀` gates, frozen transforms, normalized atoms, nested uncertainty |
-| Capture power | **NOT READY / NOT PASSED** | Separate nested H2/H4 DGPs, H3 ICC, within-task episodes, measurement error, selected-design type-I calibration |
-| Evidence integrity/security | **BLOCKED for production** | Fix NCP alignment/durability, transactional bridge logging, WS/TCP auth/origin/export confinement, unsafe pickle trust boundary, artifact bounds/hash/path checks |
-| Full viewer/product shell | Planned | Rerun Phase 1–3 acceptance before deferred Tauri/SparkJS Phase 4 |
+| Tri-Info [R25] | information-theoretic VLA failure prediction from action diversity, temporal consistency, and action–state coupling | independent implementation/benchmark; incremental value of intervention-grounded and PID features |
+| SAFE [R110] | multitask supervised failure detection from VLA internal features across multiple policies and simulated/real settings | capacity- and supervision-matched internal-feature baseline; explicit outer-task holdout, calibration, censoring, and access-cost accounting |
+| Hide-and-Seek [R95] | coarsely supervised temporal localization of VLA failure signals; runtime accuracy–timeliness analysis and conformal prediction across three policies, simulation benchmarks, and a real robot | matched-input and matched-cost H2 comparison; explicit censoring, calibration, transport, and conformal-assumption audit |
+| Rewind-IL / black-box action monitoring / temporal-difference calibration [R109, R111–R112] | inter-chunk discrepancy and recovery, architecture-dependent kinematic monitor signatures, and explicitly sequential success calibration | separate detection from recovery effects; stratify by action architecture; compare sequential calibration, false alarms, lead time, and utility under identical trajectory access |
+| Foresight / ActProbe / VLAConf / perturbation and activation monitors [R101–R105] | strong 2026 alternatives spanning action-conditioned world-model latents, pure action-space features, one-class internal confidence, hidden-activation perturbation disagreement, and activation probes | interface-matched comparator suite; separate gains from supervision, white-box access, resampling, external models, and compute; compare calibration, event recall, false alarms, lead time, and transport |
+| VLA-Trace [R26] | multi-level tracing, CKA, attention knockout, rollout probes | common capture contract, prospective prediction, and external intervention validation |
+| BeTTER [R27] | controlled physical-reasoning interventions and real-world validation | broader provenance/replay substrate and explicit availability–use analysis |
+| SAE/feature intervention studies [R28–R30] | sparse features, causal steering/ablation, closed-loop behavioral tests | intervention OOD checks, standardized outcome semantics, cross-policy replication |
+| Embodied-reasoning faithfulness / Pinocchio [R31] | distinguishes functional performance from faithful reasoning traces and proposes a behavioral faithfulness critic | do not equate verbalized reasoning with mechanism; ground any trace claim in action and counterfactual effects |
+| RoboSemanticBench / physical-reasoning identifiability work [R32–R33] | separates semantic grounding or benchmark success from evidence of action-level use and physical generalization | generalized availability–use–effect benchmark across modalities and pathways |
+| VLA-Arena, LIBERO-PRO, Colosseum V2 [R34–R36] | perturbation/generalization/shortcut benchmarks | internal-state and intervention provenance plus held-out predictive tests |
 
-**Overall assessment:** research plumbing is substantial, but no atom interpretation, H1–H4
-capture, or networked production deployment is authorized by the present state.
+Prisoma should not claim to be the first VLA diagnostic framework. Its novelty depends on enforcing common experimental semantics and testing diagnostic claims against paired algorithmic responses, randomized closed-loop effects, and prospective external validation at the level appropriate to each claim.
 
----
+### Developments indexed 8–9 July 2026
 
-## 18.2 Category 1: Show-Stopper Blockers
+Four last-week developments sharpen the design without changing its core hypothesis:
 
-These blockers could terminate the project if unmitigated. Each requires explicit Go/No-Go decision before proceeding.
+- **LaMem-VLA** makes short- and long-term latent memory explicit, reinforcing that memory state and reset semantics should be first-class captured variables rather than hidden inside a generic `D` axis [R68].
+- **TouchWorld** combines predictive tactile modeling with a faster reactive contact pathway, reinforcing the need to admit tactile/contact sources and to separate high-level policy decisions from low-level feedback control [R69].
+- **LEEVLA** models task-relevant latent environment evolution, adding another candidate internal predictive representation whose semantic label and causal use must be tested rather than inferred from architecture [R70].
+- **Harness VLA** places a memory-guided agentic harness and retryable manipulation primitives around a frozen VLA under deployment perturbations, creating direct adjacent work for Prisoma’s monitor/intervention layer; Prisoma must distinguish itself through randomized experiment semantics, internal-state provenance, and auditable estimator abstention [R71].
 
-### 18.2.1 Experiment 0 / Measure Gate Fails Under Feasible Preprocessing
+These are new preprints, not settled evidence. Their role in this plan is to update the competing-system and variable-selection landscape, not to import their performance claims.
 
-**Risk:** kNN-based MI/`I^sx_∩` may be fundamentally unreliable for the measurement pipeline you need, even after reasonable preprocessing (standardization, dimensionality reduction, quantization).
+## 10.3 Embodied datasets and logging
 
-**Evidence for Concern:**
-- Distance concentration is exponential in dimension
-- No published validation of continuous `I^sx_∩` at d > 100
-- Ehrlich et al. 2024 validation was on low-d synthetic data only
+RLDS, LeRobot, MCAP/rosbag2, Open X-Embodiment, DROID, and Rerun establish strong prior art for episodic datasets, streaming logs, cross-embodiment data, and visualization [R37–R48]. The project should build adapters and conformance tests rather than a closed proprietary format.
 
-**Detection:**
-- **MI-consistency violations** (monotonicity/CMI nonnegativity failures; `\bar{r}`/`\bar{v}` outside their valid bounds) on the exact preprocessing pipeline you plan to use.
-- **Systematic MI drift under independent source noise dimensions.** Continuous
-  shared-exclusions atoms are compared only with a dimension-matched measure oracle; they are
-  not generally nuisance-dimension invariant.
-- **Instability across seeds / k / small preprocessing changes** that is comparable to or larger than the signal you hope to interpret.
-- **Cross-check failures at low d:** disagreement with `csxpid` (fixed datasets) or with analytic MI families (Gaussian channel sweep) beyond measured uncertainty.
+## 10.4 World models and flow
 
-**Mitigation Options:**
-1. **PIVOT to Shannon invariants only:** only if every constituent MI term validates
-2. **PIVOT to discrete PID:** use a separately validated low-dimensional discrete regime.
-   The current harness exposes `I_min`, not discrete `i^sx`; saturation is advisory and must
-   become fail-closed before active use
-3. **PIVOT to neural MI:** Use MINE/CCMI for MI estimation; compute CI from neural MI (but NOT `I^sx_∩`)
+World-model VLAs and explicit predictive planners are a substantial 2026 research family [R51–R52]. Reflective VLA further illustrates why observation–action–consequence history can be a scientifically meaningful source rather than generic context [R66], while the July 2026 roadmap paper underscores that the term *world model* still spans incompatible definitions [R67]. Prisoma can instrument such systems, but a catalogue of model names is not a contribution. The relevant scientific questions are:
 
-**Go/No-Go Decision:**
-- **GO:** both `MI_GATE` and, for atom claims, dimension-matched `ISX_GATE` pass on the exact
-  frozen pipeline.
-- **PIVOT:** Coherence gates fail on raw/high-d representations but pass after more aggressive reduction/quantization or after restricting the problem to low-dimensional targets (e.g., Flow-as-Bridge). Proceed only in the validated regime and clearly label the pipeline.
-- **NO-GO (for kNN-based `I^sx_∩` atoms):** Coherence gates fail even in low-dimensional reference systems / after best-feasible preprocessing, or cross-checks vs `csxpid`/analytic MI fail → treat continuous kNN-based `I^sx_∩` as invalid for this project’s regime and publish as a negative/limits result (pivot to MI-only/different estimators if continuing).
+- is the predicted variable externally accurate?
+- is it causally used by action generation?
+- does its diagnostic relationship survive execution and embodiment changes?
+- does it outperform simpler state-prediction or uncertainty baselines?
 
-**Sequencing:** clear this before capture or downstream atom interpretation; no calendar claim
-is made without a resourced schedule.
+## 10.5 Safety and correction
 
----
+Current work studies safety benchmarks, safety-aware planning, correction, and replanning [R54–R58]. ForesightSafety-VLA further makes process-level cumulative safety cost, risk-exposure time, and safe/unsafe success/failure quadrants explicit across controlled visual, language, and scene variations [R56]. Prisoma may contribute process-level evidence and failure tracing. It must not claim certification or operational safety solely from diagnostic performance.
 
-### 18.2.2 DreamVLA Weights/Architecture ~~Unavailable~~ **MITIGATED (verify)**
+## 10.6 Internal repository ecosystem is context, not prior-art evidence
 
-**Update (June 2026):** DreamVLA (arXiv:2507.04447) is listed as a NeurIPS 2025 paper (verify the proceedings entry) with a public code repo (`Zhangwenyao1/DreamVLA`); this strengthens the mitigation, but verify weight availability and licensing before any dependency.
+Prisoma exists within a public ecosystem of estimator, protocol, robotics, perception, asset, and visualization projects [R72–R86]. This can reduce engineering cost and create transport settings, but it must not inflate novelty or validation claims.
 
-**Update (Jan 2026):** Both papers state a release, and this document references candidate repositories for weights/code. **Verify availability and licensing at time of use:**
-- **DreamVLA (arXiv:2507.04447, Zhang et al.):** abstract describes world-knowledge forecasting (dynamic/spatial/semantic cues) and a diffusion-based transformer; referenced model repo: `WenyaoZhang/DreamVLA` (verify weights/license; verify backbone details and exportable tensors).
-- **Dream‑VL & Dream‑VLA (arXiv:2512.22615, Ye et al.):** title/abstract describe a diffusion language model backbone and discuss model release; referenced model repo: `Dream-org/Dream-VLA-7B` (verify weights/license; repo name suggests “7B” — verify model size/config).
+The direct audited dependencies are the pinned `pid-rs` submodule and the optional NCP observer. Galadriel and Crebain share dependencies or protocol context but no direct Prisoma integration was verified; each repository explicitly exposes limits on live NCP integration. Manwe documents that adaptation is required. Engram is not publicly available as an executable implementation. WorldWarp and GauSS-MI are optional pre-implementation specifications. The ReScience/BROJA repositories are scientific lineage, and the NEST fork is a candidate producer—not integration or validation. Mesh and visualization repositories are candidate inputs or outputs, not scientific evidence.
 
-**Status:** Mitigated *if* (a) the referenced repos are accessible under an acceptable license, and (b) the required intermediates can be exported per-step for logging. Otherwise treat as an active blocker and use the fallback options in §18.6.
+For related-work purposes, cite the scientific or software artifact that actually supports a statement. The maintainer’s profile graph is evidence of intended architecture only. Shared authorship does not constitute independent replication, and shared estimator code creates correlated implementation risk.
 
-**Previous Risk (historical):** ~~DreamVLA (arXiv:2507.04447) is the only VLA with explicitly extractable world model states ("D"). If unavailable, the V-D-A decomposition becomes impossible.~~
+## 10.7 Literature-search protocol
 
-**Remaining considerations:**
-- Verify that the explicit world-knowledge outputs (dynamic region, spatial cues, semantic cues) can be logged per-step for PID analysis, and define `D` precisely (what tensor, what shape, what timestep alignment).
-- Verify the model size/config and hardware requirements for the specific checkpoint you plan to run; do not infer “small vs large” from repo names alone.
+Before each submission:
+
+1. search arXiv, OpenReview, Crossref, Semantic Scholar, Google Scholar, ACM DL, IEEE Xplore, and robotics conference proceedings;
+2. save exact Boolean queries, dates, filters, and result counts;
+3. screen titles/abstracts with two-person or independently replicated decisions for novelty-critical categories;
+4. maintain inclusion/exclusion reasons;
+5. identify newer versions, venues, retractions, code, and licenses;
+6. distinguish primary papers from blogs, leaderboards, press releases, and social-media observations;
+7. archive a machine-readable bibliography and evidence table.
+
+The dated search must include at least: `partial information decomposition robot`, `information decomposition vision language action`, `VLA failure diagnosis`, `embodied mechanistic interpretability`, `causal intervention VLA`, `action grounding benchmark`, and `robot policy internal state logging`.
 
 ---
 
-### 18.2.3 Strong Dependence Makes MI Unbounded
+# 11. Thesis architecture and publication strategy
 
-**Risk:** VLA actions can be nearly deterministic functions of inputs. For a discrete target,
-`I(X;f(X))=H(f(X))`, not generally `H(X)`. For a non-degenerate continuous deterministic
-mapping, the joint law can be singular and MI infinite/undefined. Near-determinism also
-creates severe finite-sample KSG bias.
+## 11.1 Minimum viable thesis
 
-**Evidence for Concern:**
-- VLA decoding is typically argmax (deterministic)
-- Even with temperature, entropy of action distribution may be very low
-- Gao et al. 2015 shows KSG MI estimators fail catastrophically in strong-dependence regimes
+The minimum defensible thesis does not require PID success:
 
-**Detection:**
-- MI estimates grow without bound as k decreases
-- Estimates are unstable across seeds (high variance)
-- Strong-dependence synthetic sweep in Experiment 0 fails
+### Paper A — experiment semantics and benchmark
 
-**Mitigation Options:**
-1. **Add calibrated noise:** Inject noise to action outputs before MI estimation (but this changes the quantity being estimated)
-2. **Use temperature decoding:** Force VLA to output distributions, not argmax
-3. **Target external labels:** Estimate I(V,L,D; Success) where Success is a binary external label (avoids determinism)
-4. **Use binned/discrete actions:** Discretize action space to 256-1000 bins (as in OpenVLA); use discrete MI
+**Contribution:** an open capture/intervention/replay contract plus adapters and a benchmark showing when it prevents invalid embodied-agent analyses.
 
-**Go/No-Go Decision:**
-- **GO:** Strong-dependence sweep in Experiment 0 shows bounded MI with actionable mitigations
-- **PIVOT:** Switch to discrete targets (Success/Failure) or binned actions
-- **NO-GO:** Continuous action-based PID fundamentally impossible → reframe to classification/reward prediction
+**Required evidence:** external baselines, fault injection, blinded audit tasks, replay tolerance, provenance completeness, and at least two policy/environment adapters.
 
-**Sequencing:** detect in the strong-dependence Exp0 sweep before choosing the target.
+### Paper B — intervention-grounded diagnostics
 
----
+**Contribution:** a randomized study of whether observational diagnostics predict policy and closed-loop intervention effects on held-out task families.
 
-### 18.2.4 i.i.d. Assumption Fundamentally Violated
+**Required evidence:** strong baselines, manipulation checks, hierarchical inference, replication, and availability–use analysis.
 
-**Risk:** PID estimators assume i.i.d. samples. VLA rollouts are temporally correlated; consecutive frames are nearly identical.
+### Paper C — conditional information-decomposition study
 
-**Evidence for Concern:**
-- Adjacent frames in a trajectory often share substantial visual content (high autocorrelation)
-- Action sequences are smooth (kinematic constraints)
-- "10,000 frames" may represent far fewer effective i.i.d. samples (order-of-magnitude smaller, depending on stride/task dynamics)
+**Contribution:** either (a) validated PID adds reproducible incremental value, or (b) a rigorous map shows where PID fails or adds no value and which alternatives succeed.
 
-**Detection:**
-- Effective sample size (ESS) << nominal N
-- Block bootstrap CIs can be much wider than naive i.i.d. CIs
-- Estimates change dramatically with subsampling stride
+**Required evidence:** measure/estimator gates, oracle matrix, negative results, and second-model/family replication.
 
-**Mitigation Options:**
-1. **Cross-trajectory sampling:** One sample per rollout (approximately independent if rollouts are independently reset/seeded)
-2. **Large-stride subsampling:** Every 10th-30th frame within trajectory
-3. **Block bootstrap:** Use trajectory-aware blocks for uncertainty quantification
-4. **Train-reference local features:** for H1, aggregate validated local scores per held-out
-   episode. Small within-trajectory PID windows are not a substitute unless each window meets
-   its own ESS and estimator gates
+If Paper C cannot support a meaningful PID estimand, replace it with a dedicated availability–use–effect or estimator-abstention paper. This preserves thesis coherence rather than forcing PID.
 
-**Go/No-Go Decision:**
-- **GO:** ESS/N > 0.1 with reasonable subsampling
-- **PIVOT:** Switch to cross-trajectory only (requires more rollouts)
-- **NO-GO:** Insufficient independent samples available → collect more data or abandon temporal claims
+## 11.2 Stretch papers
 
-**Sequencing:** test immediately on the first non-evidentiary capture pilot.
+Only after the core:
 
----
+- flow/world-model stage diagnosis;
+- cross-embodiment transport;
+- prospective monitor/corrector trial;
+- real-robot safety-process evidence;
+- methodological work on a new continuous or manifold-compatible estimator.
 
-### 18.2.5 All Baselines Beat PID
+## 11.3 Authorship-worthy infrastructure
 
-**Risk:** Simpler baselines (entropy, uncertainty, GRM reward) may outperform PID for failure prediction, rendering the contribution trivial.
+Infrastructure is paper-worthy when it contains a generalizable abstraction, a credible comparison, and scientific evidence—not merely code volume. Candidate generalizable abstractions are:
 
-**Evidence for Concern:**
-- Entropy baselines are well-established and cheap
-- GRM (Robo-Dopamine) already achieves strong failure prediction
-- PID adds complexity without guaranteed benefit
+- intervention assignment/receipt as first-class robotics data;
+- internal-state provenance linked to action and outcome;
+- graded replay semantics;
+- estimator eligibility and abstention events;
+- leakage-auditable transform lineage;
+- policy/controller/execution separation.
 
-**Detection:**
-- PID-based classifier AUROC ≤ baseline + 0.02
-- No statistically significant improvement
-- PID atoms do not provide interpretable signal
+## 11.4 Negative-result publication
 
-**Mitigation Options:**
-1. **Reframe as diagnostic tool:** Even if not predictive, PID may explain *why* failures occur (interpretability value)
-2. **Combine PID + baselines:** Ensemble approach where PID provides additional signal
-3. **Focus on modality diagnostics:** PID can suggest *which modality* carries failure-related signal even if overall prediction is similar to baselines
-4. **Publish as negative result:** Valuable contribution if rigorously conducted
+A PID-negative result is publishable only if it is stronger than “our estimates were noisy.” It should establish:
 
-**Go/No-Go Decision:**
-- **GO:** PID provides statistically significant improvement OR passes the *operationalized* diagnostic-value test (v10.7 — "unique interpretability" alone is not a GO): a preregistered Use-Case-5-style comparison in which PID-guided intervention/data-collection selection beats entropy-guided selection on a matched budget, with episode-level bootstrap CIs excluding zero
-- **PIVOT:** Reframe as diagnostic/interpretability tool rather than predictor
-- **NO-GO:** No advantage over baselines AND no interpretability → publish negative result
+- which population quantities were meaningful;
+- which measures and estimators were tested;
+- matched oracle regimes and sample sizes;
+- exact failure modes and abstention performance;
+- whether simpler diagnostics worked;
+- whether intervention effects were predictable by other means;
+- the boundary of generalization.
 
-**Sequencing:** discoverable only after the H1 endpoint and baseline comparison are runnable.
+Release fixtures and failure cases so others can reproduce the boundary.
 
 ---
 
-## 18.3 Category 2: Major Blockers
+# 12. Milestones, gates, and stop rules
 
-These blockers require significant scope pivots but do not terminate the project.
+## M0 — freeze scientific and identification contracts
 
-### 18.3.1 Geodesic kNN MI Not Implemented
+Deliver:
 
-**Status:** NOT implemented in `pid-core`
+- causal graph, variable dictionary, treatment-version ontology, and interference/reset boundary;
+- source/target tensor contracts and measurement-validation plan;
+- complete H1/H2 estimand table, target populations, and minimum useful effects;
+- pre-treatment feature whitelist and automated lineage rule;
+- baseline, intervention, outcome, competing-event, and censoring definitions;
+- transport/contamination ledger and dated literature ledger;
+- ecosystem evidence ledger, dependency firebreak, and optional-component map.
 
-**Impact:** Cannot test manifold-aware MI estimation directly. Limited to Euclidean approximations.
+**Stop:** unresolved ambiguity about treatment, target, time zero, unit, target population, causal interpretation, or whether a component is a dependency versus an optional testbed.
 
-**Mitigation:** Use Isomap/contractive AE to "unroll" manifold first, then apply standard KSG. OR use PCA and accept linear approximation. Geodesic kNN is a future enhancement.
+## M1 — repair and version estimator gates
 
-**Priority:** LOW for v1.0 experiments.
+Deliver:
 
----
+- separate population, measure, estimator, and application verdicts;
+- committed oracle fixtures;
+- cross-implementation tests;
+- matched-regime synthetic matrix;
+- abstention reason codes.
 
-### 18.3.2 Ollivier-Ricci Curvature Not Implemented
+**Stop PID path:** no regime passes at feasible sample size. Continue infrastructure and non-PID experiments.
 
-**Status:** NOT implemented in `pid-core`
+## M2 — complete core and ecosystem conformance benchmark
 
-**Impact:** Cannot directly test local curvature of embedding spaces. Must rely on δ-hyperbolicity and indirect diagnostics.
+Deliver:
 
-**Mitigation:** Use δ-hyperbolicity (4-point condition) as proxy. Ollivier-Ricci is computationally expensive (O(n²) optimal transport per edge) anyway.
+- schema validators, sequence/time/frame checks, and fault injection;
+- MCAP, LeRobot/RLDS, and Rerun adapters or justified substitutes;
+- one non-sibling local/standard producer and one structurally different adapter;
+- graded replay report and external baseline comparison;
+- E0–E5 evidence ledger for every claimed repository edge;
+- NCP read-only observer report if activated, including secure/open realm choice;
+- dependency-firebreak test with NCP disabled and PID-disabled H1/H2 path;
+- supply-chain manifest, exact revisions, licenses, and adapter promotion reports.
 
-**Priority:** LOW for v1.0 experiments.
+**Stop infrastructure-paper claim:** no material advantage over a simpler stack, or the minimum viable experiments require unpublished/private sibling components. Continue with the simpler stack and keep Prisoma as project software.
 
----
+## M3 — intervention pilot
 
-### 18.3.3 No Hyperbolic `I^sx_∩` Estimator Exists
+Deliver:
 
-**Status:** NO mathematical derivation exists for `I^sx_∩` in hyperbolic geometry
+- dose curves;
+- target engagement and specificity;
+- placebo/positive controls;
+- OOD and carryover diagnostics;
+- preliminary design-analysis parameters.
 
-**Impact:** Cannot directly apply hyperbolic projections for full PID analysis. The v5.5 warning explicitly forbids this.
+**Stop treatment:** no nontrivial dose changes the intended mechanism without uncontrolled degradation.
 
-**Mitigation:** 
-1. Use hyperbolic geometry for hierarchy visualization ONLY
-2. Use hyperbolic projections for MI-only screening (geodesic MI is valid)
-3. Apply "unrolling" approaches before `I^sx_∩` estimation
+## M4 — locked H1 experiment
 
-**Priority:** HIGH conceptual barrier; must be clearly communicated in all publications.
+Deliver:
 
----
+- preregistration and immutable split manifest;
+- completed assignment flow diagram;
+- treatment-moderation result;
+- held-out proper scoring and calibration;
+- baseline comparison.
 
-### 18.3.4 Pixel-160K Dataset Access TBD
+**Stop mechanism claim:** diagnostics fail to predict randomized effects or results do not replicate.
 
-**Status:** Access not publicly announced (as of Jan 2026)
+## M5 — locked H2 experiment
 
-**Impact:** Cannot replicate PixelVLA experiments with original training data.
+Deliver:
 
-**Mitigation:** Use alternative VLAs (OpenVLA, TraceVLA) on publicly available benchmarks (LIBERO, VLA-Arena).
+- prospective features and landmark rules;
+- task-family/temporal holdout;
+- proper scoring, calibration, and decision utility;
+- leakage audit;
+- error and subgroup analysis.
 
-**Priority:** MEDIUM; affects PixelVLA-specific experiments only.
+**Stop monitor claim:** no minimum useful improvement or unacceptable calibration.
 
----
+## M6 — H3 or H4
 
-### 18.3.5 GRM Weights May Not Be Released
+Activate H3 only if PID passed M1 and non-PID experiments established a useful problem. Otherwise execute H4.
 
-**Status:** Robo-Dopamine paper does not guarantee weight release
+**Stop PID-central thesis:** no stable incremental PID value after replication. Publish the boundary and retain PID as a secondary result.
 
-**Impact:** Cannot use GRM as baseline without retraining (prohibitive: multi-thousand-hour datasets per the paper’s abstract).
+## M7 — transport replication
 
-**Mitigation:**
-1. Contact authors for weights
-2. Use simpler reward model baselines (GVL, VLAC)
-3. Train lightweight reward classifier on smaller data
-
-**Priority:** MEDIUM; affects Experiment 2 baseline comparisons.
-
----
-
-### 18.3.6 No Ground Truth for "World Model Quality"
-
-**Status:** No external metric for validating world model representations
-
-**Impact:** Cannot prove that PID measures "world model quality" rather than something else.
-
-**Mitigation:**
-1. Use controlled interventions (change D, observe behavior changes)
-2. Correlate PID with downstream task success
-3. Treat "world model quality" as latent construct, not ground truth
-
-**Priority:** HIGH conceptual issue; requires careful framing in publications.
-
----
-
-### 18.3.7 Document Scope Exceeds PhD Timeline
-
-**Status:** grandplan.md describes ~5 years of work
-
-**Impact:** Risk of scope creep, never finishing, burnout.
-
-**Mitigation:**
-1. Strict prioritization: Experiments 0-2 are core; 3-4 are stretch goals
-2. Aim 3 (RL fine-tuning) is explicitly optional
-3. VLA-Arena integration is additive, not required
-4. World model integration (§10) is future work
-
-**Priority:** HIGH; requires active scope management.
+Use a second task family, policy, simulator, embodiment, or real-robot setting. Match the claimed population. Do not generalize beyond the variation actually replicated.
 
 ---
 
-## 18.4 Category 3: Minor Blockers
+# 13. Twenty-lens adversarial review incorporated into the plan
 
-These blockers have known workarounds and are manageable.
+This section records the independent questions that must be answered before a claim survives. It is not a rhetorical “expert consensus.” Each lens has a concrete failure condition.
 
-| Blocker | Status | Workaround |
-|---------|--------|------------|
-| SAE training for VLA | Not implemented | Use pre-trained SAE (Jiang et al. 2025) |
-| MINE must be retrained per estimate | Known limitation | Pre-train on VLA distribution once |
-| Isomap expensive (O(n³)) | Known | Use sparse Isomap or landmarks |
-| Full VLA pre-training infeasible | Known | Use LoRA fine-tuning only |
-| Some arXiv papers not peer-reviewed | Known | Verify claims independently |
-| macOS primary limits CUDA | Known | NixOS secondary target available |
-| PyO3 wheel/publish workflow not wired | Known | Use local-dev bindings (`pid-rs/crates/pid-python`) and pin the repo commit for reproducibility |
-| Ball-tree/KD-tree not implemented | Known | Brute-force kNN is reference-correct |
+## Lens 1 — information theory
 
----
+**Question:** Is the quantity defined, finite, measure-specific, and invariant only under transformations for which invariance is proved?
 
-## 18.5 Risk Mitigation Timeline
+**Failure condition:** atom labels are treated as universal, deterministic continuous MI is assumed finite, or a different PID measure is substituted without changing the claim.
 
-| Month | Gate | Critical Decision |
-|-------|------|-------------------|
-| 1 | DreamVLA access | GO (verified accessible + license OK) / PIVOT (OpenVLA hidden states) |
-| 1-2 | Experiment 0 | GO (coherence gates pass on intended pipeline) / PIVOT (reduction/quantization/MI-only) / NO-GO (atoms infeasible) |
-| 2-3 | Strong dependence | GO (bounded) / PIVOT (discrete targets) |
-| 3-4 | ESS estimation | GO (ESS/N > 0.1) / PIVOT (cross-trajectory) |
-| 5-7 | Baseline comparison | GO (PID adds value) / PIVOT (interpretability) / NO-GO (negative result) |
+**Design consequence:** name the measure; validate the exact functional; make PID conditional.
 
----
+## Lens 2 — causal inference
 
-## 18.6 Fallback Scope Hierarchy
+**Question:** What intervention or identification assumption connects an observational diagnostic to policy use?
 
-If blockers force scope reduction, reduce in this order (highest priority first):
+**Failure condition:** correlation, decodability, or mutual information is described as causal use.
 
-1. **Core (MUST complete):**
-   - Experiment 0: Estimator validation
-   - V-L-A decomposition on OpenVLA
-   - Basic failure prediction comparison
+**Design consequence:** randomized intervention effects are the reference; availability, use, and outcome effect are separate.
 
-2. **Important (SHOULD complete):**
-   - V-D-A decomposition (if DreamVLA available)
-   - VLA-Arena integration
-   - Baseline comparison (Experiment 2)
+## Lens 3 — statistical estimation
 
-3. **Stretch (COULD complete):**
-   - Experiment 3: Dimensionality study
-   - Experiment 4: Causal validation
-   - PixelVLA/TraceVLA analysis
+**Question:** Does the estimator recover the target with calibrated uncertainty in the intended \(N,d\), dependence, support, and preprocessing regime?
 
-4. **Future work (WON'T in PhD):**
-   - Aim 3: RL fine-tuning with PID reward
-   - Full 3-way PID (18 atoms)
-   - Custom world model training
+**Failure condition:** synthetic stability or a low-dimensional fixture is extrapolated to high-dimensional real embeddings.
 
----
+**Design consequence:** matched-regime oracle matrix and abstention.
 
-## 18.7 Decision Framework Summary
+## Lens 4 — experimental design
 
-```
-BLOCKER RESOLUTION PROTOCOL
-===========================
+**Question:** Are treatments randomized, dosed, checked, counterbalanced, and compared with placebos/positive controls?
 
-1. Identify blocker category (1/2/3)
-2. Check detection criteria
-3. If detected:
-   a. Cat 1 → Immediate Go/Pivot/No-Go decision
-   b. Cat 2 → Apply mitigation; document scope change
-   c. Cat 3 → Apply workaround; continue
-4. Document all decisions in Appendix B
-5. Update timeline and deliverables
-```
+**Failure condition:** convenience perturbations confound mechanism, OOD degradation, and task difficulty.
 
-**Final Note:** This analysis assumes honest scientific inquiry. If Experiment 0 fails, that is a legitimate (and publishable) finding about the limits of continuous `I^sx_∩` estimation. The goal is truth, not confirmation of hypotheses.
+**Design consequence:** assignment/receipt logs, manipulation checks, common random numbers, and carryover tests.
 
----
+## Lens 5 — sequential decision-making
 
-# Appendix A: Glossary
+**Question:** Are history, policy distribution, chunk timing, feedback, and horizon represented correctly?
 
-| Term | Definition |
-|------|------------|
-| **VLA** | Vision-Language-Action model |
-| **PID** | Partial Information Decomposition |
-| **I^sx_∩** | Shared-exclusions redundancy measure |
-| **Synergy** | Information available only from multiple sources together |
-| **Redundancy** | Information available from any single source |
-| **KSG** | Kraskov-Stögbauer-Grassberger MI estimator |
-| **3DGS** | 3D Gaussian Splatting |
-| **GWM** | Gaussian World Model |
-| **WAN** | Wanxiang video generation model (Alibaba) |
-| **VACE** | Video All-in-one Creation and Editing (WAN extension) |
-| **MoE** | Mixture of Experts architecture |
-| **DiT** | Diffusion Transformer |
-| **CI** | Co-Information (Shannon invariant) |
-| **Ω** | O-Information (generalized co-information) |
-| **GPID** | Gaussian Partial Information Decomposition |
-| **LoRA** | Low-Rank Adaptation (fine-tuning method) |
-| **Zenoh** | Zero-overhead pub/sub middleware for robotics |
-| **NanoGPT** | Minimal GPT-2 training codebase (Karpathy) |
-| **StereoVLA** | VLA enhanced with stereo vision |
-| **DKT** | Diffusion Knows Transparency (transparent object depth) |
-| **PRM** | Process Reward Model (dense progress-based rewards) |
-| **GRM** | General Reward Model (Robo-Dopamine's step-aware PRM) |
-| **ORM** | Outcome Reward Model (sparse success/failure rewards) |
-| **VOC** | Value-Order Consistency (PRM evaluation metric) |
-| **PBRS** | Potential-Based Reward Shaping |
-| **Genie 3** | DeepMind's general-purpose interactive world model |
-| **SIMA 2** | Scalable Instructable Multiworld Agent (DeepMind) |
-| **TransPhy3D** | Synthetic transparent object video dataset (11k scenes) |
-| **Emergent Physics** | Physics learned via self-supervision, not hardcoded |
-| **PixelVLA** | VLA with pixel-level understanding and visual prompting |
-| **TraceVLA** | VLA with visual trace prompting for spatial-temporal awareness |
-| **Multiscale Pixel-Aware Encoder** | PixelVLA component for pixel-level feature injection |
-| **Visual Prompting Encoder** | PixelVLA component for processing points, masks, regions |
-| **Pixel-160K** | PixelVLA's pixel-annotated visuomotor dataset (160K trajectories) |
-| **sae_analysis** | Makkeh's Shannon invariant toolkit for SAE analysis |
-| **Red° (Degree of Redundancy)** | Shannon invariant: avg. extent info accessible from multiple sources |
-| **Vul° (Degree of Vulnerability)** | Shannon invariant: avg. extent info lost when sources removed |
-| **Dream2Flow** | Framework bridging video generation and robot control via 3D object flow |
-| **3D Object Flow** | Explicit 3D point trajectories extracted from video (embodiment-agnostic) |
-| **SAM2** | Segment Anything Model 2 (Meta) — promptable segmentation; use for video mask initialization |
-| **CoTracker** | Point tracking model — tracks 2D points through video frames (use the latest available release) |
-| **Wan-Move** | WAN LoRA fine-tuning for robot action conditioning |
-| **PID-Colored Splats** | Gaussian splats with RGB = (Synergy, Redundancy, Unique) for visualization |
-| **Embodiment Gap** | Mismatch between intended action and physical execution due to robot differences |
-| **D_wan** | WAN's internal hidden states used as world model proxy |
+**Failure condition:** frames are treated as IID, future data enters a “real-time” score, or action chunks are collapsed without timing semantics.
 
----
+**Design consequence:** landmarks, hazard/longitudinal models, and explicit decision/execution clocks.
 
-# Appendix B: Decision Log and Implementation Reference
+## Lens 6 — control and robotics
 
-**Scope note:** This appendix contains decision history and engineering sketches. Treat any hardware, performance, or cost numbers as historical placeholders unless they are tied to a primary citation or a committed benchmark in this repo; benchmark on your setup before using.
+**Question:** Is failure caused by the learned policy, post-processing/controller, execution, contact, or environment dynamics?
 
-## B.1 Decision Log (Detailed)
+**Failure condition:** policy output and executed action are conflated.
 
-### Decision 1: Discard OpenVLA vs DreamVLA Comparison
+**Design consequence:** log proposal, transformation, command, acknowledgement, and state transition separately.
 
-| Attribute | Value |
-|-----------|-------|
-| **Date** | December 2025 |
-| **Status** | REJECTED |
-| **Category** | Experimental Design |
+## Lens 7 — representation learning
 
-**Original Proposal:**
-Compare PID decomposition signatures between OpenVLA (no explicit world-model output) and DreamVLA (explicit world‑knowledge prediction outputs) to argue that architectures with explicit “D” have higher synergy.
+**Question:** What does a tensor’s architecture and ancestry justify calling it?
 
-**Why Rejected:**
+**Failure condition:** a fused hidden state is called “vision,” “language,” or “world model” for interpretive convenience.
 
-1. **Confounds are insurmountable:** The architectures differ in backbone (Llama 2 vs backbone unspecified in DreamVLA’s abstract), training data, action representation, and attention/conditioning design. Any observed PID difference could be attributed to any of these factors.
+**Design consequence:** neutral site IDs, tensor contracts, and architecture-specific causal maps.
 
-2. **Circular reasoning risk:** If we define "D" differently for each architecture (hidden states for OpenVLA, explicit world‑knowledge outputs for DreamVLA), we may end up measuring the operationalization rather than an intrinsic property.
+## Lens 8 — mechanistic interpretability
 
-3. **No ground truth:** We have no independent measure of "world model quality" to validate against. We'd be correlating one unknown (PID signature) with another unknown (implicit world model strength).
+**Question:** Does an intervention remain on-support and specifically affect the claimed mechanism?
 
-4. **Publication risk:** Reviewers would correctly identify these confounds and reject the comparison as methodologically unsound.
+**Failure condition:** a large steering vector changes behavior and is treated as faithful mechanistic proof.
 
-**Alternative Adopted:**
-Focus on within-architecture analysis wherever possible. Treat DreamVLA-style explicit world‑knowledge prediction as a strong candidate when available (because “D” is more operationalizable), but do not rely on model availability; maintain a V‑L‑A and/or Flow‑as‑Bridge path as the primary fallbacks.
+**Design consequence:** divergence, dose, sham, specificity, and closed-loop tests; intervention-support and geometric-stability diagnostics [R53].
 
----
+## Lens 9 — prediction science
 
-### Decision 2: Elevate V-L-A to Co-Primary Status
+**Question:** Is the prediction truly prospective, calibrated, externally validated, and useful relative to strong baselines?
 
-| Attribute | Value |
-|-----------|-------|
-| **Date** | December 2025 |
-| **Status** | ADOPTED |
-| **Category** | Decomposition Strategy |
+**Failure condition:** global dataset atoms or future windows become episode features; AUROC alone supports deployment claims.
 
-**Original Proposal:**
-V-D-A (Vision-Dream-Action) as primary decomposition, with V-L-A as secondary.
+**Design consequence:** locked landmarks, proper scores, calibration, decision utility, and TRIPOD+AI/PROBAST+AI review [R59–R60].
 
-**Why Changed:**
+## Lens 10 — benchmark science
 
-1. **L is externally specified intent:** Language instructions are human-provided and are often the closest available “ground truth” for task intent, but they can still be ambiguous/underspecified. “Ignoring L” must be operationalized carefully (dataset semantics, annotation policy, and task context).
+**Question:** Does the benchmark vary the factors required to identify the claim and prevent template leakage or shortcutting?
 
-2. **D is model-internal:** The "Dream" representation is whatever the model learned. It might be wrong, incomplete, or encode biases. Using D as a reference conflates model failures with reference failures.
+**Failure condition:** near-duplicate scenes/instructions cross folds or one task family supports a general claim.
 
-3. **Language grounding failures are common:** Empirical observation shows VLAs often execute plausible-but-wrong actions that ignore instruction specifics (e.g., "pick up the RED cup" → picks up nearest cup regardless of color).
+**Design consequence:** family, semantics, object, scene, severity, and temporal holdouts; compare with current perturbation benchmarks [R34–R36].
 
-4. **Direct interpretability:** Low Syn_{V,L→A} immediately suggests "model isn't integrating vision with language instruction." Low Syn_{V,D→A} is harder to interpret because D is opaque.
+## Lens 11 — software architecture
 
-**Current Status:**
-- V-L-A: Co-primary (recommended starting point)
-- V-D-A: Co-primary (for DreamVLA specifically)
-- V-L-D-A: Three-way analysis after pairwise validation
+**Question:** Is Prisoma the minimal layer that enforces scientific semantics while composing with existing tools?
+
+**Failure condition:** custom storage, viewer, simulator, and renderer duplicate mature systems without measurable advantage.
+
+**Design consequence:** adapters, conformance tests, thin core, and replaceable backends.
+
+## Lens 12 — distributed systems and timing
+
+**Question:** Are clocks, ordering, backpressure, dropped events, retries, and partial failures explicit?
+
+**Failure condition:** timestamps are assumed synchronized or a GUI action is not part of the authoritative log.
+
+**Design consequence:** clock domains, sequence numbers, bounded queues, append-only events, and fault injection.
+
+## Lens 13 — reproducibility and provenance
+
+**Question:** Can every derived value be traced to source events, transform fit, code, weights, data, and configuration?
+
+**Failure condition:** a result depends on an unrecorded notebook, UI action, or mutable remote artifact.
+
+**Design consequence:** content hashes, immutable manifests, provenance graph, and replay grades.
+
+## Lens 14 — human factors and visualization
+
+**Question:** Does the interface help a user detect uncertainty and invalidity rather than create false confidence?
+
+**Failure condition:** colorful atom maps imply calibrated local explanations or hide abstention.
+
+**Design consequence:** gate status, provenance, uncertainty, and noninterpretability warnings are first-class visual elements.
+
+## Lens 15 — safety and assurance
+
+**Question:** What concrete safety process/outcome is measured, and what evidence tier is justified?
+
+**Failure condition:** diagnostic association is described as certification, assurance, or safe deployment.
+
+**Design consequence:** process-level safety metrics, safety stops, negative outcomes retained, and claims limited to evidence generation.
+
+## Lens 16 — security and agent governance
+
+**Question:** Can an automated agent mutate experiments or files outside the authorized design?
+
+**Failure condition:** remote or LLM control is enabled without authentication, capability limits, and complete audit.
+
+**Design consequence:** fail-closed local defaults, typed authorization, sandboxing, and immutable assignment rules.
+
+## Lens 17 — ethics, privacy, and data governance
+
+**Question:** Are human video/audio, operator actions, instructions, and annotations collected and retained under clear governance?
+
+**Failure condition:** a technically reproducible log violates consent, privacy, or deletion obligations.
+
+**Design consequence:** consent/provenance fields, minimization, redaction, retention, and restricted exports.
+
+## Lens 18 — licensing and supply chain
+
+**Question:** Can code, weights, data, scenes, generated assets, and binaries be redistributed under their separate terms?
+
+**Failure condition:** the project’s code license is assumed to cover models or datasets.
+
+**Design consequence:** software bill of materials, pinned dependencies, notices, artifact-level licenses, and reproducible builds.
+
+## Lens 19 — thesis scope and project management
+
+**Question:** What is the smallest sequence that yields a defensible paper even when optional components fail?
+
+**Failure condition:** custom rendering, simulator work, world-model training, real-time PID, and multiple robot stacks all become prerequisites.
+
+**Design consequence:** Paper A/B/C structure, strict gates, optional adapters, and kill rules.
+
+## Lens 20 — philosophy of science and falsifiability
+
+**Question:** What result would make the project abandon, narrow, or reverse its favored explanation?
+
+**Failure condition:** every null result is redescribed as evidence that PID needs refinement.
+
+**Design consequence:** minimum useful effects, disconfirming outcomes, immutable primary endpoints, and a PID-independent success path.
 
 ---
 
-### Decision 3: Recommend Hierarchical Pairwise PID
+# 14. Risk register
 
-| Attribute | Value |
-|-----------|-------|
-| **Date** | December 2025 |
-| **Status** | ADOPTED |
-| **Category** | Estimation Strategy |
+| Risk | Probability | Impact | Leading indicator | Mitigation | Decision |
+|---|---:|---:|---|---|---|
+| No meaningful finite PID estimand for chosen tensors | high | high | deterministic/near-deterministic path; oracle mismatch | change target, discretize by design, or use non-PID estimand | kill H3 if unresolved |
+| Continuous estimator fails planned regime | high | high | bias/coverage/abstention failure | lower-dimensional scientifically defined variables; discrete or MI-free path | continue H1/H2/H4 |
+| Intervention is OOD or nonspecific | high | high | activation/input divergence; broad probe changes | conditional replacements, naturalistic counterfactuals, dose/sham checks | reject treatment |
+| Language source is degenerate | medium | high | low entropy/occupancy | redesign task/instruction population | V–L ineligible |
+| Too few independent task families | high | high | design analysis shows cluster-limited power | narrow population claim; collect families, not frames | do not claim transfer |
+| Temporal leakage | medium | high | features depend on future/reference test set | landmarks, train-reference fits, automated audit | invalidate affected result |
+| Sim-to-real or embodiment transport fails | high | medium | relationship reverses under second platform | publish bounded simulation claim; analyze moderators | no universal claim |
+| Strong baselines match PID | high | medium | M2≈M1 | publish negative/incremental-value boundary | PID secondary |
+| Generic infrastructure offers no advantage | medium | high | benchmark parity with simple stack | simplify; contribute conformance spec only | no infrastructure novelty claim |
+| Model access/hooks change | medium | medium | upstream API/weights unavailable | adapter abstraction; pin artifacts; second open model | drop opaque model |
+| Outcome labels are unreliable | medium | high | low inter-rater agreement; ambiguous states | objective process metrics, adjudication, uncertainty labels | narrow endpoint |
+| Crashes/safety stops cause informative missingness | medium | high | imbalance by treatment | intention-to-treat, explicit status, sensitivity analysis | report as outcomes |
+| Multiple-testing inflation | high | high | many layers/measures/windows | gatekeeping, locked branch, FDR for secondary work | exploratory labels |
+| Compute/runtime prevents required resampling | medium | medium | pilot exceeds budget | approximate only after validation; cache distances; narrow grid | reduce scope |
+| Repository/spec drift | high | medium | docs disagree with tests/manifests | generated capability matrix, CI documentation checks | block release |
+| Security/privacy incident | low–medium | high | remote mutation or personal data exposure | local defaults, access control, redaction, retention | halt affected collection |
+| PhD scope expands into product building | high | high | optional UI/simulator blocks experiments | enforce milestone dependencies and paper deliverables | defer M8-style work |
 
-**Original Proposal:**
-Compute full three-way PID I(V, L, D; A) with 18 atoms from the start.
+## 14.1 Top three existential risks
 
-**Why Changed:**
-
-1. **Estimation cost:** 18 atoms require many kNN-based estimates. With exact/brute-force kNN this scales at least like O(n²·d) per estimate; at VLA scale (d≈4096), this becomes prohibitively expensive without aggressive dimensionality reduction and/or accelerated kNN.
-
-2. **Interpretation burden:** Most of the 18 atoms have no clear operational meaning. What does "information uniquely provided by V, but redundantly available in L and D" mean for robot control?
-
-3. **Variance multiplication:** Each additional atom adds estimation variance. With 18 atoms, confidence intervals become uselessly wide.
-
-4. **Pairwise captures most value:** The key insights (which source dominates? is there synergy or subadditivity?) are available from pairwise decompositions.
-
-**Recommended Hierarchical Strategy:**
-
-```
-Level 0: Shannon invariants (fastest; MI-only)
-├── Compute CI_VL, CI_VD, CI_LD (co-information)
-├── Use for: Real-time monitoring, screening
-└── Proceed to Level 1 if: Any CI is suspicious (outside normal range)
-
-Level 1: Pairwise PID (slower; targeted)
-├── Compute full I^sx_∩(V, L; A) or I^sx_∩(V, D; A)
-├── Use for: Failure diagnosis, architecture comparison
-└── Proceed to Level 2 if: Need three-way interactions
-
-Level 2: Three-way PID (offline only)
-├── Compute full I^sx_∩(V, L, D; A)
-├── Use for: Detailed post-hoc analysis, publication figures
-└── Only after pairwise validation complete
-```
-
-**Latency note:** Any ms-level budgets depend strongly on `(n,d,k)` and on the kNN backend. Brute-force exact kNN is not real-time at large `n`; treat timings as design targets, not guarantees.
+1. **The observational quantity does not map to causal use.** H1/H4 interventions address this directly.
+2. **The estimator cannot recover the quantity in the application regime.** S1 abstention prevents invalid interpretation.
+3. **The project builds infrastructure without proving scientific advantage.** The external conformance benchmark makes the value claim falsifiable.
 
 ---
 
-### Decision 4: Mandate Experiment 0 First
+# 15. Reproducibility, reporting, and open science
 
-| Attribute | Value |
-|-----------|-------|
-| **Date** | December 2025 |
-| **Status** | MANDATORY |
-| **Category** | Validation Protocol |
+## 15.1 Preregistration package
 
-**Original Proposal:**
-Start with VLA experiments immediately, validate estimator in parallel.
+Commit and archive before confirmatory collection:
 
-**Why Changed:**
+- research questions and claim hierarchy;
+- causal graph and estimand table;
+- inclusion/exclusion and failure ontology;
+- intervention assignments and dose rules;
+- source/target contracts;
+- estimator/measure gates and thresholds;
+- preprocessing and split manifests;
+- baseline definitions and capacities;
+- primary/secondary endpoints;
+- power/design simulation code and assumptions;
+- multiplicity rule;
+- stopping, missingness, and deviation rules.
 
-1. **Unknown operating regime:** The continuous I^sx_∩ estimator (Ehrlich et al., 2024) was validated on d≤100. VLA embeddings are d=4096. We have no evidence it works at this scale.
+Use an immutable DOI-bearing archive when feasible. Amendments must be dated, justified, and separated from the original plan.
 
-2. **Garbage in, garbage out:** If the estimator produces nonsense at d=4096, all downstream conclusions are invalid. We'd waste months chasing artifacts.
+## 15.2 Reproducible artifact and ecosystem bundle
 
-3. **Fast validation:** Synthetic data experiments should be materially faster than data collection and model training. The cost of validation is low; the cost of skipping validation is potentially the entire project.
+Each reported result must include:
 
-4. **Publishable regardless of outcome:** If Experiment 0 shows the estimator fails at high dimensions, that's a valid contribution to the PID literature.
+- exact Prisoma revision, dirty-state flag, and patch/manifest hashes;
+- exact revisions/tags and lockfiles for every sibling or external repository;
+- dependency lockfiles, SBOM, container/Nix image digest, compiler/runtime versions;
+- model, dataset, asset, and calibration revisions/checksums plus licenses;
+- environment, simulator, controller, driver, hardware, and policy-decoding metadata;
+- raw assignment, attempted-treatment, receipt, reset, run-status, censoring, and outcome ledgers;
+- schema, event ontology, NCP wire/contract/security profile when used, and validator versions;
+- clock domains, synchronization estimates, sequence/drop/reorder records, and frame transforms;
+- fitted transforms with training IDs and feature-availability timestamps;
+- estimator support verdicts, warnings, abstentions, and full candidate denominator;
+- analysis command/configuration, nested split manifests, and randomization probabilities;
+- generated tables/figures with source hashes and claim–evidence rows;
+- known nondeterminism, counterfactual-coupling limits, and replay tolerances;
+- adapter evidence level and E3/E4 conformance report where claimed;
+- a machine-readable license/provenance manifest and disclosure of inaccessible/unpublished dependencies.
 
-**Experiment 0 Protocol:**
+The archive must reproduce the reported result without access to a private sibling repository. Optional nonredistributable assets require a verifier and acquisition instructions, not an unrecorded local path.
 
-```python
-# Experiment 0 is about estimator validity, not a priori “truth” claims at d=4096.
-# Use i.i.d. synthetic systems + noise-dimension embeddings where true information
-# quantities are invariant to added nuisance dimensions.
+## 15.3 Reporting standards
 
-for dim in [64, 256, 1024, 4096]:
-    for n_samples in [1000, 5000, 10000, 50000]:
-        # 1) Generate low-d "signal" variables (e.g., 1–10 dims).
-        # 2) Concatenate independent noise dims to reach `dim`.
-        # 3) Compare estimates against reference values computed on the signal system
-        #    (cross-checked with `csxpid` for redundancy and analytic MI where available).
-        pass
-```
+- Use a study flow diagram from assignments to analyzed units.
+- Report all prespecified outcomes, including nulls and gate failures.
+- Separate confirmatory, secondary, exploratory, and post-hoc analyses.
+- Report effect sizes and uncertainty, not only significance.
+- Report calibration and prevalence for prediction.
+- Report independent cluster counts.
+- Report estimator abstentions and excluded regimes.
+- Include a limitations table mapping each claim to its unsupported extrapolations.
+- Follow TRIPOD+AI/PROBAST+AI for prediction components [R59–R60].
+- Provide model/data cards and a datasheet-style description for released artifacts [R63–R65].
 
-**Go/No-Go Criteria:**
-- **GO:** On the intended preprocessing pipeline, Experiment 0 passes the **coherence gates** (monotonicity/CMI nonnegativity; `\bar{r},\bar{v}` sanity) and shows no systematic drift under independent noise dimensions; cross-checks vs `csxpid`/analytic MI agree within measured uncertainty where applicable.
-- **PIVOT:** Coherence gates fail on raw/high‑d embeddings but pass after more aggressive reduction/quantization or after restricting the diagnostic to low-dimensional targets (Flow-as-Bridge). Proceed only in the validated regime and label it explicitly.
-- **NO-GO:** Coherence gates fail even in low‑d reference systems / after best-feasible preprocessing, or cross-checks vs `csxpid`/analytic MI fail → treat kNN-based `I^sx_∩` as invalid for this project’s regime and pivot to MI-only/different estimators or publish a negative/limits result.
+## 15.4 Scientific integrity and ecosystem checks in CI
 
----
+CI should fail when:
 
-### Decision 5: Recommend GWM over WAN for Analysis
+- a derived artifact lacks source lineage or a content hash;
+- a test/holdout identifier appears in transform fitting, feature selection, calibration, or model tuning;
+- a primary H1 moderator is timestamped after assignment or treatment application;
+- assignment, attempted treatment, receipt, reset, censoring, or run-status events are missing or altered;
+- policy proposal, controller output, executed action, and physical outcome are conflated;
+- an analysis treats repeated frames as independent randomized units;
+- a PID result is emitted after a support/eligibility gate failed or without the abstention denominator;
+- an analysis uses a nonlocked endpoint as “primary” or changes the target population silently;
+- a document claims `connected`, `integrated`, or `validated integration` below E2, E3, or E4 respectively;
+- an optional sibling component becomes required by the core firebreak test;
+- NCP observer code can publish commands or omits wire/contract/security/sequence provenance;
+- a dependency/tag/submodule/consumer-manifest hash differs from the archived evidence ledger;
+- a document claims a component is implemented without a passing capability test;
+- a citation key is missing, duplicated, undefined, or unused;
+- the capability/status/evidence table is stale relative to manifests and tests;
+- the release ZIP fails hash, patch-application, byte-identity, schema, or archive-integrity validation.
 
-| Attribute | Value |
-|-----------|-------|
-| **Date** | December 2025 |
-| **Status** | ADOPTED (with caveats) |
-| **Category** | World Model Integration |
+CI cannot validate scientific truth, independence, or external validity. It can prevent many protocol, provenance, leakage, and status-inflation errors.
 
-**Context:**
-Both GWM (Gaussian World Model) and WAN (Wanxiang) were considered for providing ground-truth world state predictions to validate against VLA internal representations.
+# 16. Decision log
 
-**Comparison (capability notes; avoid declaring a “winner” without a matched benchmark):**
-
-| Criterion | WAN (video foundation model) | GWM (Gaussian world model; if built) |
-|-----------|------------------------------|--------------------------------------|
-| Training distribution | Broad video (paper; not robot-specialized by default) | Robot/scene dependent (you choose) |
-| Representation | 2D video frames | 3D (e.g., 3DGS / scene state) |
-| Action conditioning | Possible via fine-tuning/conditioning schemes (verify) | Native by design (predicts next state from action) |
-| Runtime / footprint | Benchmark-dependent | Benchmark-dependent |
-| Visual quality | Often high (paper claims; benchmark-dependent) | Scene/capture dependent |
-| Weights/code | Paper claims open release (verify licensing) | Research/implementation dependent |
-
-**When to Use Each:**
-
-- **GWM:** Core analysis, failure localization, training data augmentation
-- **WAN:** Paper figures, demos, qualitative visualization
-- **Neither:** Real-time intervention (both too slow; use entropy)
-
-**Implementation Note:**
-GWM integration requires 3DGS scene reconstruction, which adds pipeline complexity. For initial experiments, compute PID on VLA latents alone without external world model reference.
-
----
-
-## B.2 Platform Implementation Reference
-
-**v7.0 scope change:** earlier drafts included detailed, hardware-specific implementation sketches (Apple Silicon targets, CUDA targets, MLX/Metal/CoreML acceleration ideas). Those blocks were removed in v7.0 because they:
-- contained unsourced hardware/performance assertions,
-- described non-existent modules/scripts in this repository,
-- and risked being cited as “requirements” despite being unbenchmarked.
-
-**Canonical repo reality (authoritative):**
-- Tooling: `flake.nix` and `justfile`
-- Python deps: `pyproject.toml` / `uv.lock`
-- Implemented code: `pid-rs/crates/pid-core` (estimators + geometry gates) and `pid-rs/crates/pid-python` (`pid_core_rs` bindings)
-
-**Engineering guidance (measurement-first):**
-- The PID estimators and geometry diagnostics run on CPU.
-- GPU acceleration (CUDA/Metal) and deployment backends (CoreML/TensorRT) are optional engineering work and should only be specified once there is a committed implementation + benchmark protocol in this repo.
-
-If you need the historical platform notes, consult git history prior to v7.0 and treat them as unverified until benchmarked.
-
-## B.3 MLX Framework Integration
-
-**Status (v7.0):** Not part of the implemented repo and not required for the scientific claims.
-
-MLX integration is a reasonable future direction for running certain models locally on Apple Silicon, but any integration should be tracked as an engineering proposal with:
-- a pinned dependency/version,
-- a benchmark + correctness protocol,
-- and a clear mapping to the experiment harness (logging/interventions/replay).
-
-Until then, treat MLX as an external option and do not cite performance expectations from this document.
-
-## B.4 Metal Compute for PID Estimation
-
-**Status (v7.0):** Not implemented here.
-
-GPU kernels for kNN/KSG/PID are plausible but easy to get subtly wrong (precision, tie handling, radius conventions). If pursued, add them as a separately tested backend with parity tests against `pid-rs/crates/pid-core` and publish benchmark scripts + measured results in-repo.
-
-## B.5 CoreML for Quantized Inference
-
-**Status (v7.0):** Not implemented here.
-
-CoreML (and similar deployment runtimes) are relevant only once the project includes a committed inference stack. For prisoma, the scientific bottleneck is estimator validity + experiment design, not a specific inference runtime.
-
-## B.6 Nix Configuration for Reproducibility
-
-**Avoid divergence:** the authoritative reproducibility config lives in the repo root:
-- `flake.nix`
-- `pyproject.toml`, `uv.lock`
-- `justfile`
-
-Earlier drafts embedded large “kitchen sink” Nix flakes and task runners inside this document. Those were removed in v7.0 so the documentation cannot drift away from the executable repo. If you need expanded Nix/CUDA scaffolding, add it to the repo as real files and reference them here.
-
-## B.7 Version History
-
-**Note:** Older entries may contain legacy performance/latency/cost figures and engineering sketches that were later removed or rewritten. Treat those as historical placeholders unless they are tied to a primary citation or a committed benchmark; consult git history for removed appendices; v7.0 adopts measurement-first language.
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | Dec 2025 | Initial specification |
-| 2.0 | Dec 2025 | Comprehensive revision with critical analysis, discarded approaches, three-way PID discussion |
-| 2.1 | Dec 2025 | Added six use cases, Shannon invariants section, dual-process theory framing |
-| 2.2 | Dec 2025 | Added complete Apple M4 implementation reference (Appendix B) |
-| 2.3 | Dec 2025 | Added existing PID code availability analysis and a Rust `I^sx_∩` implementation with validation scenarios; aligned terminology with the Wibral-group `I^sx_∩` line (not older Williams & Beer `I_min`) |
-| 2.4 | Dec 2025 | **Major update:** (1) Clarified WAN-related scope and conditioning options (VACE, Wan‑Move) without hard‑coding unverified “version”/speed claims. (2) Added comprehensive §B.3.5 on scaling 3‑way PID: Shannon invariants, Gaussian PID, NF‑PID (“Thin‑PID” legacy) via normalizing flows, coarse‑graining approaches. (3) Added new references for scalable PID methods and video‑based robotics baselines (Motus, DreamGen, VideoVLA) without asserting shared backbones. |
-| 2.5 | Dec 2025 | **Additions:** (1) Added §10.4 Depth Perception Methods: monocular depth (Depth-Anything v2/v3, Metric3D v2, RollingDepth), stereo vision (StereoVLA approach from arXiv:2512.21970), transparent object depth (DKT). (2) Added Headless Gazebo + Tauri Visualization System with Zenoh middleware, SparkJS/Three.js rendering, and illustrative latency-budget language (measure on target hardware), plus cross-platform ML backends (CoreML/MLX/Metal on macOS, CUDA/TensorRT on Linux). (3) Added NanoGPT/nanochat note to DreamVLA backbone section - clarified GPT-2 refers to pretrained architecture, NanoGPT useful for custom training. (4) Expanded references: Depth Estimation & 3D Perception, Simulation & Middleware, Training Infrastructure. (5) Updated glossary with Zenoh, NanoGPT, StereoVLA, DKT. |
-| 2.6 | Jan 2026 | **Process Reward Models integration:** (1) Added §3.5 PID vs. Process Reward Models (PRMs) - comprehensive comparison of PID approach with Robo-Dopamine's General Reward Model (GRM), including when to use each, potential synergies, and the "semantic trap" insight for reward shaping. (2) Added GRM as baseline #7 in experimental design. (3) Added §13.6 Process Reward Models references (Robo-Dopamine, GVL, VLAC, SARM, LIV). (4) Updated glossary with PRM, GRM, ORM, VOC, PBRS terms. |
-| 2.7 | Jan 2026 | **World model paradigms & DKT deep dive:** (1) Added §10.1 world model taxonomy (Internal/Evaluative/Generative) with Genie 3 as environment generator. (2) Expanded §10.4.3 DKT section with "Diffusion Knows Transparency" principle, technical details, robot grasping results, and genuine PID relevance (perception quality as prerequisite for valid PID). (3) Added §10.7 World Model Paradigms and PID Implications: theoretical framework for how external world models (Genie 3, WAN) affect internal D; "Diffusion Knows Physics" principle; perception quality diagnostic tree. (4) Added Genie 3, SIMA 2, Genie 2 to world models references. (5) Updated glossary with Genie 3, SIMA 2, TransPhy3D, Emergent Physics. (6) Renumbered sections 10.7→10.8 for Gazebo+Tauri. |
-| 2.8 | Jan 2026 | **NixOS CUDA secondary target:** (1) Restructured §B.2 as "Platform Implementation Reference" with primary (Apple M4) and secondary (NixOS + CUDA) targets. (2) Added §B.2.4 NixOS + CUDA Implementation with complete configuration.nix for NVIDIA drivers, flake.nix with CUDA-enabled PyTorch and Rust toolchain, CUDA software stack diagram. (3) Added GPU-accelerated PID implementation: CUDAKSGEstimator and CUDAPIDEstimator classes with chunked distance computation for OOM prevention. (4) Added NixOS troubleshooting guide and multi-GPU configuration (NCCL). (5) Fixed §B.3 subsection numbering: B.3.5→B.3.3, B.3.6→B.3.4, B.3.7→B.3.5 with correct heading levels. |
-| 2.9 | Jan 2026 | **PixelVLA integration & sae_analysis notes:** (1) Added §7.3 PixelVLA architecture: multiscale pixel-aware encoder, visual prompting encoder, continuous action decoder, Pixel-160K dataset. (2) Added §7.4 TraceVLA: visual trace prompting for spatial-temporal awareness. (3) Added §10.8.7 PixelVLA + Headless Gazebo + Tauri integration: data flow diagram, visual prompting in Tauri (TypeScript), PixelVLA-specific PID analysis (Rust), and illustrative latency-budget language (measure on target hardware). (4) Added §B.3.3.2 Abzinger/sae_analysis: Shannon invariants (Red°, Vul°) for SAE analysis, comparison with our approach. (5) Updated §B.3.3.5 to clarify sae_analysis is **not** an `I^sx_∩` estimator; added implementation-level definitions of Red°/Vul° and safe integration guidance (SAE compression + screening), not a correctness validation for `I^sx_∩`. (6) Updated §7.5 with MemoryVLA, CoT-VLA. (7) Added PixelVLA, TraceVLA, sae_analysis to references (§13.2, §13.3). (8) Updated glossary with PixelVLA, TraceVLA, Red°, Vul°, multiscale pixel-aware encoder, Pixel-160K. |
-| 3.0 | Jan 2026 | **First-principles audit pass:** (1) Reframed “synergy sign” (including negative synergy) as a falsifiable hypothesis (not a definition); clarified deterministic-target degeneracy in VLA decompositions and the need for external targets/counterfactuals. (2) Tightened estimator risk framing and strengthened Experiment 0 as a scientific gate before any VLA claims. (3) Added/expanded i.i.d. vs trajectory autocorrelation guidance (sampling unit, block bootstrap). |
-| 4.0 (Draft) | Jan 2026 | **Audited + citation-verified pass:** (1) Added explicit reference verification policy and downgraded unsourced architecture/latency statements to “unverified sketches”. (2) Added strong-dependence warning (Gao et al. 2015) and integrated a Gaussian-channel strong-dependence sweep into Experiment 0. (3) Added MI/CMI estimator comparison section (Gao-LNC/local Gaussian, MINE, CCMI) strictly as MI/CMI baselines (do not mix estimator families inside SxPID identities). (4) Cross-checked key VLA citations against arXiv abstracts and introduced claim-status tracking (avoid overstating non-abstract details); added optional background papers (OpenVLThinker, SRL, diffusion parameterization). (5) Cleaned up NF-PID (“Thin-PID” legacy) naming and other citation/notation fixes. (6) Corrected/clarified Shannon-invariant definitions (CI sign conventions; Ω vs target co-information) and reconciled scaling sketches. (7) Aligned reproducibility guidance with repo-canonical `flake.nix` + `uv.lock` workflow (macOS-first). (8) Integrated differential-geometry contingencies into §8.1.5 without relying on a repo-local PDF. |
-| 5.0 | Jan 2026 | **Final audit release:** Added confounding factors analysis (§14), numerical stability guidance (§15), manifold/PCA/kNN limitations (§16). Integrated information geometry methods and intrinsic dimension estimation. Code audit complete (implementation cross-checked). Grant-ready documentation with full provenance tracking. |
-| 5.1-5.3 | Jan 2026 | **Refinements:** Clarified variable definitions for OpenVLA/DreamVLA, added scope for visual prompting/trace architectures, and distinguished source-count scaling (hierarchy) from estimator validity (geometry). |
-| 5.4 | Jan 2026 | **VLA Integration:** Cross-checked key VLA + Shannon-invariants citations (OpenVLA, DreamVLA, PixelVLA, TraceVLA) and clarified what is abstract-verified vs unverified. Clarified primary hypothesis vs. candidate sub-hypotheses and mapped them to aims. |
-| 5.5 | Jan 2026 | **Critical Geometry Fix:** Documented that Wibral PID (`I^sx_∩`) on manifolds/Lorentz spaces requires new derivations. Added top-level warning against naive Euclidean application. |
-| 5.6 | Jan 2026 | **Manifold Approaches (WIP):** Added Top 5 manifold-compatible engineering approaches (Unrolling, Geodesic MI, Linear Projection, Quantization, Copula Transform) to address the v5.5 discovery. |
-| **5.7** | Jan 2026 | **First-Principles Geometry Analysis + VLA Claim Status:** (1) Added/updated claim-status tracking for OpenVLA/DreamVLA/PixelVLA/TraceVLA (avoid overstating non-abstract details as “verified”). (2) Added §16.6-§16.11: local flatness testing, δ-hyperbolicity testing, SAE analysis for VLA, and a unified Geometry-First Protocol with a small-model sanity-check sketch. (3) Added Wibral GitLab repos as authoritative code sources. (4) Integrated VLA-Arena as a benchmark context (protocol-sensitive). (5) Added explicit hyperbolic-geometry cautions (no drop-in `I^sx_∩`). |
-| **5.8** | Jan 2026 | **VLA-Arena Deep Integration + Memorization/Generalization Analysis:** (1) VLA-Arena as primary evaluation framework (§9.7.1). (2) New §3.6: Memorization vs Generalization hypotheses (H4-H6). (3) Perturbation-based PID robustness protocol (§9.7.2). (4) Expanded confound analysis (§14.5). (5) Long-horizon and compositional failure analysis. (6) Safety dimension integration. |
-| **6.0** | Jan 2026 | **Critical Blockers Analysis + Training/Compute Requirements:** (1) New §17: Training, Compute, and Data Requirements Analysis covering 25+ methods, VLA fine-tuning costs, compute budget recommendations. (2) New §18: Critical Blockers and Risk Analysis with 5 show-stoppers, 7 major blockers, 8 minor blockers, Go/No-Go decision frameworks, and fallback scope hierarchy. (3) Added explicit “verify availability/licensing at time of use” cautions for key external dependencies (e.g., DreamVLA/OpenVLA/VLA-Arena). (4) Risk assessment: HIGH but tractable if Experiment 0 succeeds. |
-| **6.1** | Jan 2026 | **Dream2Flow Integration + Embodiment-Agnostic Analysis:** (1) Dream2Flow (arXiv:2512.24766) integration as related paradigm for 3D object flow extraction. (2) New §10.9: Dream2Flow and Video-to-Flow Paradigm. (3) New Hypothesis H7: 3D object flow as embodiment-agnostic intermediate. (4) New §14.5.7: Embodiment gap confound. (5) Updated §9.7: Dream2Flow failure taxonomy. |
-| **6.2** | Jan 2026 | **Unified Architecture: Dream2Flow + Video Predictors + PID + Gaussian Splatting:** (1) New §10.10: complete integration stack. (2) Treated video prediction as plug‑in (local or API) with measurement‑first logging/caching (no hard‑coded cost/latency). (3) Segmentation/tracking/depth model classes for 3D Flow reconstruction. (4) PID analysis at staged intervention points. (5) Gaussian splat visualization concept. (6) Added §17.17 measurement-first integration requirements. |
-| **6.3** | Jan 2026 | **Manifold-Geometry Integration + VLA Compatibility Matrix:** (1) New §10.10.12: Manifold geometry per pipeline stage. (2) Key insight: 3D flow is low-dim Euclidean — bypasses manifold issues. (3) New §10.10.13: VLA integration matrix. (4) Updated vision-model placeholders (segmentation/tracking/depth; versions vary). |
-| **6.4** | Jan 2026 | **VLM→World Model Transition + 3D Flow vs Latent Action Analysis:** (1) Documented paradigm shift from VLM-based VLAs (Gen 1: OpenVLA, RT-2) to World Model-based (Gen 2: Dream2Flow, DreamVLA, Motus). (2) Analyzed 3D Object Flow vs Latent Action Space Diffusion: 3D flow operates on D (world model) enabling PID validity; latent action diffusion operates on A (policy) and doesn't solve D-side estimation. (3) For prisoma, 3D flow serves as "geometry escape hatch." (4) Both approaches can coexist. |
-| **6.5** | Jan 2026 | **Hierarchical 3-Way PID for Dream2Flow Analysis (with v6.5.1 corrections):** (1) Hierarchical Pairwise PID (§5.3) maps to Dream2Flow stages: `Syn(V,D_wan;Flow)`, `Syn(V,Flow;A)`. (2) **CORRECTED:** Execution-stage PID removed ("Sim" was undefined). (3) **CORRECTED:** 3D flow dimensionality properly specified — full representation is 3NT (can be 100s-1000s dims); "d≈6-30" only valid for aggregated single-object statistics. (4) **CORRECTED:** v5.5 (geometric validity) vs curse-of-d (statistical reliability) are separate issues; low-d Euclidean addresses both, high-d Euclidean only violates curse-of-d. (5) **CORRECTED:** "Bridge variable" claim removed — disjunction neighborhood doesn't rescue high-d sources; V requires PCA→256 regardless of Flow dimension. (6) Experiment 0 must validate mixed-dimension joint estimation. (7) Latent action diffusion remains complementary (policy) not competing (diagnostic). |
-| **6.6** | Jan 2026 | **3DGS Integration + Video Model Selection + Tauri/SparkJS/Gazebo Architecture:** (1) Defined 4 roles for 3DGS in pipeline: PID visualization, spatial failure localization, GWM representation, and spatial‑memory‑style context. (2) Compared candidate predictor families (Wan, Spatia) and optional acceleration methods (treat all speedups as benchmark‑dependent). (3) Integrated Tauri+SparkJS+Gazebo architecture diagram with external Video/Flow service placement. (4) Standardized 3DGS‑PID visualization encoding (R=Syn, G=Red, B=Unq(V), opacity=MI, size=uncertainty). (5) Updated implementation priority and hardware guidance as benchmark‑dependent targets. |
-| **6.7 FINAL** | Jan 2026 | **Unified Splat-First Simulation Environment — Complete Architecture:** (1) **Critical comparison with competitors** (§A): Analysis vs Isaac Sim, Omniverse, MuJoCo, Gazebo, SplatSim, DISCOVERSE (benchmark required; avoid cross-task “sim2real %” comparisons). (2) **Complete system architecture** (§B): Tauri+SparkJS+Modular Physics stack diagram with PEGS-style dual Gaussian-Particle representation. (3) **Asset pipeline** (§C): PLY/SPZ/SPLAT/KSPLAT/SOG/GLB/URDF support with COLMAP→SparkJS workflow. (4) **PEGS-style physics** (§D): Rust implementation of particle-Gaussian binding with visual force correction. (5) **FOCI collision detection** (§E): Gaussian overlap integral for splat-splat collision + hybrid mesh approach + splat raycasting. (6) **Environment simulation** (§F): SparkJS Dyno-based weather/lighting/domain randomization. (7) **Camera system** (§G): Virtual cameras with raycast depth, Zenoh streaming, click-to-place. (8) **Real-time editing** (§H): Splat selection (box/raycast), transform, delete, clone + mesh collision adjustment. (9) **Sim2Real strategy** (§I): Multi-layer approach with measurement/ablation plan (avoid pre-committed transfer percentages). (10) **Data collection pipeline** (§J): Workflow from scene setup to RLDS/HDF5/Zarr export. (11) **VLA setup analysis** (§K): Gap analysis of open-source VLA simulation stacks. (12) **Hardware requirements** (§L): Footprint claims are hardware/config-dependent; benchmark for your deployment. |
-| **6.8 FINAL** | Jan 2026 | **SmolVLA baseline + world-model comparison (draft; details later revised):** (1) Added SmolVLA (LeRobot) as a lightweight baseline for harness bring-up and pipeline debugging (§7.8; model internals must be verified). (2) Added a conceptual ManiGaussian vs PEGS comparison as a framing device for “learned implicit” vs “explicit physics + correction” world models (verify any implementation claims before use). (3) Sketched additional experiment ideas (Exps 6–10) but did not treat them as core aims. |
-| **7.0 FINAL** | Jan 2026 | **Scientific audit + docset alignment:** (1) Reworked architecture/competitor comparisons into capability notes (removed star ratings and roadmap/marketing framing). (2) Removed or labeled unverified performance/latency/hardware “requirements”; made measurement-first language consistent across the docset. (3) Clarified repo reality in §11 (current layout vs planned), fixed Python binding examples to use the real `pid_core_rs` API, and updated task-runner documentation. (4) Made Dream2Flow/WAN integration model-agnostic (“Video Predictor Service”), removed hard-coded clip lengths and vendor-specific assertions, and tightened “no oracle” language. (5) Added OpenUSD/USDZ interop notes and diagrams (LeIsaac Marble tutorial; NVIDIA 3DGrut `.ply → .usdz` bridge) as an optional workflow. (6) Added/updated SmolVLA mentions as a lightweight baseline. (7) Docset consistency sweep across `README.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, `ARCHITECTURE.md`, and `pidsplatspecs.md`, plus repo guidance via `AGENTS.md`. (8) Added an agent-native control plane requirement (“Agent Bridge” via JSON‑RPC/MCP) so GUI actions and live interventions are reproducible and callable from LLM coding tools. |
-| **8.0 FINAL** | Jan 2026 | **Renderer clarification + hypothesis/method updates:** (1) Corrected SparkJS assumptions (SparkJS “Spark” integrates with Three.js and targets WebGL2; WebGPU treated as an optional backend). (2) Updated the hypothesis set: added H8 (geometry gate → estimator regime choice) and narrowed H2/H3 into falsifiable ablation/intervention claims; softened optional world-model extension hypotheses (H_WM1–H_WM5). (3) Expanded the survey with a non-generative flow baseline (RAFT; arXiv:2003.12039) and updated model references (SmolVLA). (4) Docset bump to v8.0 + consistency sweep (including Appendix C rendering notes). |
-| **9.0 FINAL** | Jan 2026 | **Actionable engineering plan + docset v9.0:** (1) Added an explicit engineering execution plan (M0–M7) with acceptance criteria and a risk-reducing build order so implementation can begin without re-interpreting the spec (§A.7). (2) Restructured `README.md` to lead with hypotheses and experiments, then map to the engineering order (gate-driven, contract-first). (3) Clarified offline-first run logs + replay as core and moved live transports (Zenoh) and predictor-driven Flow to optional milestones; aligned `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` accordingly. (4) Added a multi-engine physics reality check and promoted cross-backend replay (Rapier ↔ MuJoCo) as a robustness/confound control (§E.1). |
-| **10.0 FINAL** | Jan 2026 | **Docset consistency + GauSS‑MI integration:** (1) Integrated the optional GauSS‑MI spec into the core docset: added reconstruction-uncertainty and active view selection as explicit confound controls and an optional milestone (M8; §C.2; `GAUSS_MI_INTEGRATION.md`). (2) Added diagrams for cross-backend replay and GauSS‑MI flows (`DIAGRAMS.md`). (3) Slimmed `README.md` into a brief entrypoint and aligned doc versions to v10.0. |
-| **10.1** | Jan 2026 | **DreamVLA availability update + Rerun‑First Phases 1–3:** (1) Updated DreamVLA availability status based on papers stating a release; removed “unavailable” wording and added explicit “verify repo/weights/license at time of use” cautions. (2) Reframed Phases 1–3 as Rerun‑First and updated §11 to reflect the `crates/pid-rerun` prototype status. (3) Synced docset version markers to v10.1 and added a `CHANGELOG.md` entry. |
-| **10.7 corrective addendum** | 2026-07-10 | **Adversarial science/reality/code audit:** split MI coherence from `I^sx` validation; withdrew nuisance-dimension atom invariance and the default `Red≈0` target; blocked H1 until local-score/baseline machinery exists; added instruction-diversity, positive-information-scale, normalized-SSI, and frozen-transform gates for H2–H4; made endpoints and dependent-grid correction exact; withdrew first-run power counts as capture requirements; removed sampled-mean δ from estimator gating and corrected manifold claims; reconciled current dependency pins and implementation reality. M5 remains blocked. |
-| **10.7 (Current)** | 2026-07-06 | **First-principles spec audit + statistics-plan slice (no research/experiment status change from v10.4):** five-agent spec audit (pid-rs code, NCP, math, hypotheses, citations) + 104-agent adversarially-verified literature sweep. (1) Math corrections: findings.md δ-hyperbolicity direction fixed (was backwards); digamma small-x expansion; r̄ identities scoped (n=2; additive ≠ independent); CI₃ sign-scope; Beyer-conditioned distance concentration; exponential-in-MI sample complexity; mean-δ vs sup-δ caveat. (2) Hypothesis hardening: §14.1 falsifiability index; H7a/H7b split; H5 operationalized; H2 availability-vs-use; discrete-regime preregistration; **new §14.8 statistics plan** (primary endpoints, gatekeeping+BH-FDR, power-analysis capture gate, mandatory baselines); **new §9.7.2b** H2/H3 protocol; publication gates reconciled (OOD+difficulty must-pass); sign-safe SSI; permutation-quantile placebo; pre-outcome memorization index; operationalized §18.2.5 GO; quantitative H9 criterion. (3) Literature refresh §12.6 (checked 2026-07-06): PID review arXiv:2603.06678; impossibility line arXiv:2604.03869; negative-atom nuances (unique-not-synergy empirical negatives; time-series clamping); r̄/v̄ ← arXiv:2504.15779 Props 1–2; world-model-VLA survey arXiv:2606.00113 (+WorldVLA/FlowVLA/RynnVLA-002/3D-VLA); VLA-Arena → ICML 2026 and TraceVLA → ICLR 2025 (re-verify at submission); SmolVLA → arXiv:2506.01844; PixelVLA range version-pinned; novelty re-verified (no PID-on-VLA; "VLDA" unclaimed). (4) Repo truth: §11.2 tree redrawn (submodule reality); SxPID "general n-source" → 2–4; SIMD sketches labeled unimplemented; NCP pin prose → v0.5.3 everywhere. (5) Same-day triple-check addendum: hostile-review repairs to the new statistical content (H2 units → tasks; H3 → mean per-case τ; outcome-independent strength matching; distribution-centered placebo; fully specified H9; SSI → −IQR per axis; regime-multiplicity + error-rate statement; clamp rule scoped by claim type; H5 within-window stride); verifier fixes (table pipes, §14.5.1 xref, June-2026 survey date, H6 cell, ARCHITECTURE/EXPERIMENTS stamps); **pid-rs → 0.4.0** (upstream v0.3.0/v0.4.0 tags cut; submodule re-pinned) — **Exp0 verdict now NO-GO** on the synthetic controls (bias-corrected diagnostics surface 3 invariant violations; ID(t) 1.14 → 1.01), a stricter gate, not a research-status change; AGENTS/CLAUDE/README professionally restructured. Open critical path still the first real-VLA capture (not done). |
-| **10.6** | 2026-07-05 | **Whole-repo review + correctness/robustness slice (no research/experiment status change from v10.4):** (1) CI resurrected — `.github/workflows/ci.yml` had illegal YAML (unquoted `physics:: manipulation::`) and had created **zero jobs** since 2026-06-13; quoted + venv for `maturin develop`. (2) Agent Bridge hardening: `export.rerun` overwrite guard; JSON-RPC id types echoed verbatim; malformed traffic audited; transports always `finish_run`; `sim.reset`-after-`sim.step` refused; `verify_flow_gt` stream-order pairing. (3) Offline-harness run-log timestamps continue from the metric-event counter (validated at capture scale). (4) ncp-observer toward M5: validating run log, artifact registration + sha256, D reorder grace window, reset-safe eviction/epochs, SIGTERM/SIGHUP finalize, `ObserverStats`. (5) pid-rerun/Python: dead hdf5 dep dropped, ns precision, exact `.npy` dtype, artifact URI resolution, loader-claim fix, step-count guard, `canonical_hash` ascii fix. Exp0 still PIVOT/NO-GO; open critical path still the first real-VLA capture (not done). |
-| **10.5** | 2026-07-01 | **Consistency + robustness slice (no research/experiment status change from v10.4):** (1) Adopted the `pid-rs` submodule v0.2.0 → v0.3.0 (upstream: genuine discrete SxPID `sxpid.rs` + n-source SxPID (2–4 sources), numerical hardening, run-log `logical_trace_hash`); `crates/pid-rerun` updated for the new `RunManifest.logical_trace_hash`; workspace + `ncp-observer` green. The new discrete SxPID estimator is **not yet wired into the harness** (`--pid-mode discrete` stays `I_min`; §8.1.6). (2) NCP observer pin docs propagated v0.5.0 → v0.5.2 (wire-identical patch bump; `CONTRACT_HASH` unchanged `24e8e6e31e1dec8a`). (3) `ncp-observer` correctness/robustness: success label no longer leaks into V, bounded in-flight buffers, surfaced run-log append errors, robust CLI parsing, poison-safe finalize. (4) `pid-rerun` outcome-at-absolute-time + panic-safe point mapping; `pid-sim` held-out-void warning. (5) `THIRD_PARTY_NOTICES.md` dual MIT OR Apache-2.0; honest ncp-observer provenance docs. Exp0 still reports PIVOT/NO-GO on synthetic high-d controls; the open critical path is still the first real-VLA capture (not done). |
-| **10.4** | 2026-06-22 | **Science-honesty + tooling slice (no research/experiment status change from v10.3):** (1) `--require-axis-provenance-honest` now ENFORCES axis provenance — an opt-in gate (mirroring `--require-geometry-pass`) that fails the run on degraded or absent `(V,L,D,A)` provenance markers. (2) The offline VLDA harness surfaces `safe_adapter` axis provenance (`{v,l,d,a}_provenance`: `token_slice:*`/`hidden_state_pool`/`action_vector` honest, `text_hash_proxy` degraded). (3) `crates/ncp-observer` re-pinned to NCP v0.5.0 (wire `0.4`→`0.5`). (4) Repo/package/crate rename `pid_vla`→`prisoma` (complete repo-wide; no wire/behavior change). Exp0 still reports PIVOT/NO-GO on synthetic high-d controls; the open critical path is still the first real-VLA capture (not done). |
-| **10.3** | 2026-06-13 | **Capture + analysis implementation slice** (every previously-blocking estimator prerequisite wired end to end, plus the first M5 capture path): (1) Exp0 uncertainty gate — opt-in `--bootstrap`/`--permutation` with subsample-bootstrap CIs + single-source permutation nulls and a preregistered marginal-significance check folded into the verdict (closes P0 item 1); `pid-core` `bootstrap_rows_stats`/`permutation_rows_pvalue`. (2) Real `rapier3d-f64` physics backend (gravity/contacts/friction, deterministic) + scripted push-to-goal manipulation with real `Flow_gt` and physics-derived success labels (`pid-rapier-harness`; `rapier` CI job). (3) SAFE-class failure detector — `pid-core` `logistic.rs` (Newton-IRLS) wired as the leakage-safe `heldout_logreg_vlda` offline-harness baseline (H1). (4) M5 SAFE capture adapter (`experiments/safe_adapter/`) converting released SAFE rollouts to the `(V,L,D,A)`+labels contract with honest provenance + the §7.6.3 layerwise physics-probe; verified end to end into the real harness with all leakage gates. (5) H9 attribution probe (`experiments/attribution/`): epsilon-/AttnLRP + gradient×input, deletion-AOPC faithfulness check vs random control, schema-conformant `attribution_logged` emission. (6) `meshmaker/` quarantined out of tracking (non-destructive `git rm --cached` + tombstone); `scripts/generate_third_party_notices.py` direct-dependency SBOM with CI drift check. |
-| **10.2** | 2026-06-12 | **Implementation refresh + measure-identity corrections + research refresh:** (1) Documented the 2026-06-11 implementation slice (commit `20fd4bc`): PLS supervised dimensionality reduction, discrete 2-source PID via quantization, block-bootstrap uncertainty, `PhysicsBackend` trait + Rapier stub behind the `rapier` feature, run-log `attribution_logged` event, Exp0 `--strict-gate`, high-dim synthetic VLDA fixture, Python bindings 8→14 (§11.1, §11.2). (2) **Measure-identity correction:** new §8.1.6 documents that the implemented discrete redundancy is a Williams–Beer-style `I_min` functional, not discrete `i^sx_∩`; Warning 6 extended to cross-mode/measure mixing inside this repo; saturation/occupancy gate and binning-sensitivity requirements added for the discrete path; "regime registry" preregistration clause added. (3) Supervised-projection guidance: PLS added to §8.2 options + preprocessing steps with leakage/selection-inflation rules and §17.5.3 requirements. (4) Block-bootstrap implementation pointers + variance-vs-bias caveat (§8.4.3). (5) Action-chunking added to the `V/L/D/A` contract (§10.10.13.1). (6) Reference/status refresh (hedged): OpenVLA-OFT resolved to arXiv:2502.19645; DreamVLA marked NeurIPS 2025 + public code (verify weights/license); π0/π0-FAST weight availability noted; GR00T N1.5 noted; added arXiv:2410.10924, 2506.00330, 2409.13506, 2502.04550, 2506.18498, 2602.10098, 2603.19233. (7) Completed, tested, and committed the second slice the same day: discrete 3-source PID (`discrete_pid3`), `pipeline.rs` composition helpers (PLS→PID3, bootstrap CIs, permutation tests, PLS CV, PID2 screening), harness `--pid-mode continuous\|discrete\|discrete-pls`, per-pair `discrete_saturation` diagnostics implementing the §8.1.6 gate, and `I_min`-correct naming in code (`discrete_imin_redundancy*`). (8) External-source review (§12.5): integrated Qwen-VLA, V-JEPA 2/-AC + latent-predictive world-model class, Cosmos 3/WAM taxonomy notes, RoboLab-120 benchmark context, π0.7, AttnLRP→§14.7.1 LRP protocol, GSWorld, Zenoh-in-production, surveys; ruled out (with citations) ProjectEdenGG, Trajectory, a DAIR.AI aggregator week, and four unverifiable X posts. (9) Added §14.1.1 PID-necessity audit with kill criteria and the embodiment-in-`L` confound (§14.5.7.3). (10) Third source batch: World Pilot (arXiv:2606.12403; pathway-ablation interventions), physics-interpretability of video world models (arXiv:2602.07050; Physics-Emergence-Zone hook-point prior, §7.6.3), GEN-1 vendor post (black-box; embodiment gap); added the real-robotics-problem column + failure-regime framing to the §14.1.0 registry. (11) Final pass: CI parity restored (rustfmt), duplicate §2.5.4 header fixed (→§2.5.5), dated novelty check recorded (§12.5: no published PID-on-VLA found), SAFE rollout datasets identified as the M5 capture shortcut, hedged pointer to the reported 2026 Wibral–Makkeh multivariate PID paper (§13.1). |
+| Decision | Rationale | Revisit condition |
+|---|---|---|
+| PID is conditional, not foundational | estimand, measure, estimator, and incremental value are unproven | validated regime plus replicated added value |
+| Randomized effects ground pathway-use claims | availability is not causal use | only if a stronger identification design is justified |
+| H1/H2 are primary | they produce useful science independent of PID | pilot shows no measurable treatment or prospective target |
+| H4 is fallback/companion | current 2026 literature makes availability–use gap important | evidence shows near-universal alignment |
+| Full three-source PID is exploratory | combinatorics and foundational limitations | new measure/estimator with relevant validation |
+| No safety-certification language | diagnostics are one evidence source | formal assurance programme with domain standards |
+| Rerun/standard formats first | existing tools solve viewing/storage well | benchmark demonstrates a missing capability requiring custom work |
+| Tauri/SparkJS/3DGS optional | not required for scientific claims | separate HCI/rendering research question |
+| Flow is a candidate target, not universal bridge | coordinate/contact/visibility assumptions | replicated cross-embodiment relationship |
+| Cross-model raw atom comparisons avoided | variables and estimators are not matched | validated common representation/scale |
+| Negative results are planned outcomes | prevents PID forcing and protects thesis coherence | never; only interpretation changes |
+| Repository graph is not implementation evidence | avoids claiming integrations from profile/README intent | advance only with E2–E5 artifacts |
+| `pid-rs` is dependency, not independent validation | shared implementation errors are correlated | external reference implementation/calculation exists |
+| NCP observer remains read-only and optional | protects control timing, authority, and thesis scope | separate reviewed control research project |
+| Pre-treatment moderators only for primary H1 | prevents post-treatment bias and leakage | separate mediation/longitudinal estimand |
+| ITT is primary under nonreceipt | preserves randomization | explicit IV/principal-stratum assumptions justify secondary target |
+| Generalization language names its target | benchmark, superpopulation, and transport claims differ | never; target may be expanded with evidence |
 
 ---
 
-# Appendix C: Modern Rendering Stack (SparkJS, Three.js, and GPU Rendering)
+# 17. Reference policy
 
-**Context:** The simulation environment described in §10.8 relies on a novel "Splat-First" rendering stack. This appendix details the technical specifications for the visualization layer.
+- Prefer the final peer-reviewed version when available; cite arXiv version/date when it contains the current technical record.
+- For 2025–2026 work, record the version accessed and recheck venue/status at submission.
+- Architectural claims require paper, official code, and model-card verification where possible.
+- Vendor blogs and leaderboards may motivate a question but must not carry a scientific performance claim without a reproducible protocol.
+- Software capabilities and licenses must be checked against the exact pinned revision; a README is evidence of a claim, while tests and artifacts determine its evidence level.
+- Every quantitative claim in a manuscript needs a row in a claim–evidence ledger with source location, version, population, and caveat.
 
-### C.1 SparkJS (Spark) Integration (Three.js/WebGL2)
 
-This spec assumes a **GPU 3D Gaussian Splatting renderer**. If you use SparkJS (“Spark”; https://sparkjs.dev/ ; https://github.com/sparkjsdev/spark), it integrates with the **Three.js** rendering pipeline and targets broad **WebGL2** support. A WebGPU-native renderer is also acceptable if it meets the same interface requirements.
+---
 
-Core requirements for PID‑Splat visualization (renderer-agnostic):
-1. **Low-latency splat updates**: per-frame updates to positions/colors/scales without expensive CPU→GPU copies.
-2. **Deterministic, inspectable overlay stages** (“Dynos” concept): a programmable pass that maps PID metrics → visual encodings.
-3. **Scalable sorting/LOD strategy**: enough throughput to remain interactive at the splat counts required by your scenes (benchmark on target hardware).
-4. **Hybrid compositing**: splats + meshes/URDF overlays + gizmos must render together so visual vs physics interventions can be separated cleanly.
+# References
 
-Do not rely on vendor roadmaps or marketing claims for performance; treat the renderer as an interchangeable component behind a stable interface.
+References are version-pinned where the revision materially affects the claim. For 2025–2026 preprints, publication status and the cited version must be rechecked at manuscript submission. A preprint is evidence of prior art and reported results, not independent replication.
 
-### C.2 Programmable Overlays (“Dynos”) Across Backends
+## Partial information decomposition and information estimation
 
-**Concept:** A “Dyno” is a programmable stage that modifies splat attributes (color/opacity/size, optional displacement) based on PID metrics and other state. In SparkJS, this maps naturally to shader-graph/material-style customization; in a WebGPU-native renderer, this may be implemented as a compute pass.
+- **[R01]** Williams, P. L.; Beer, R. D. (2010). *Nonnegative Decomposition of Multivariate Information*. arXiv:1004.2515. https://arxiv.org/abs/1004.2515
+- **[R02]** Bertschinger, N.; Rauh, J.; Olbrich, E.; Jost, J.; Ay, N. (2014). *Quantifying Unique Information*. **Entropy** 16(4):2161–2183. https://doi.org/10.3390/e16042161
+- **[R03]** Ince, R. A. A. (2017). *Measuring Multivariate Redundant Information with Pointwise Common Change in Surprisal*. **Entropy** 19(7):318. https://doi.org/10.3390/e19070318
+- **[R04]** Finn, C.; Lizier, J. T. (2018). *Pointwise Partial Information Decomposition Using the Specificity and Ambiguity Lattices*. **Entropy** 20(4):297. https://doi.org/10.3390/e20040297
+- **[R05]** Makkeh, A.; Gutknecht, A. J.; Wibral, M. (2021). *Introducing a Differentiable Measure of Pointwise Shared Information*. **Physical Review E** 103:032149. arXiv:2002.03356. https://doi.org/10.1103/PhysRevE.103.032149
+- **[R06]** Schick-Poland, K.; Makkeh, A.; Gutknecht, A. J.; Wollstadt, P.; Wibral, M. (2021). *A Partial Information Decomposition for Discrete and Continuous Variables*. arXiv:2106.12393. https://arxiv.org/abs/2106.12393
+- **[R07]** Ehrlich, D. A.; Schick-Poland, K.; Makkeh, A.; Lanfermann, F.; Wollstadt, P.; Wibral, M. (2024). *Partial Information Decomposition for Continuous Variables Based on Shared Exclusions*. **Physical Review E** 110:014115. arXiv:2311.06373. https://doi.org/10.1103/PhysRevE.110.014115
+- **[R08]** Liardi, A.; Down, E.; Blackburne, G.; Neri, I.; Mediano, P. A. M. (2026). *The Mathematical Landscape of Partial Information Decomposition: A Comprehensive Review of Properties and Measures*. arXiv:2603.06678v2, 1 June 2026. https://arxiv.org/abs/2603.06678
+- **[R09]** Matthias, P. H.; Makkeh, A.; Wibral, M.; Gutknecht, A. J. (2025). *Novel Inconsistency Results for Partial Information Decomposition*. arXiv:2512.16662. https://arxiv.org/abs/2512.16662
+- **[R10]** Lyu, S. et al. (2026). *Structural Impossibility of Antichain-Lattice Partial Information Decomposition*. arXiv:2604.03869v2. https://arxiv.org/abs/2604.03869
+- **[R11]** Gutknecht, A. J.; Rosas, F. E.; Ehrlich, D. A.; Makkeh, A.; Mediano, P. A. M.; Wibral, M. (2025). *Shannon Invariants: A Scalable Approach to Information Decomposition*. arXiv:2504.15779. https://arxiv.org/abs/2504.15779
+- **[R12]** Kraskov, A.; Stögbauer, H.; Grassberger, P. (2004). *Estimating Mutual Information*. **Physical Review E** 69:066138. https://doi.org/10.1103/PhysRevE.69.066138
+- **[R13]** Gao, S.; Ver Steeg, G.; Galstyan, A. (2015). *Efficient Estimation of Mutual Information for Strongly Dependent Variables*. AISTATS. arXiv:1411.2003. https://arxiv.org/abs/1411.2003
+- **[R14]** Amjad, R. A.; Geiger, B. C. (2019). *Learning Representations for Neural Network-Based Classification Using the Information Bottleneck Principle*. **IEEE TPAMI**. arXiv:1802.09766. https://arxiv.org/abs/1802.09766
+- **[R15]** Goldfeld, Z.; van den Berg, E.; Greenewald, K.; Melnyk, I.; Nguyen, N.; Kingsbury, B.; Polyanskiy, Y. (2019). *Estimating Information Flow in Deep Neural Networks*. ICML. arXiv:1810.05728. https://arxiv.org/abs/1810.05728
+- **[R16]** Song, J.; Ermon, S. (2020). *Understanding the Limitations of Variational Mutual Information Estimators*. AISTATS. arXiv:1910.06222. https://arxiv.org/abs/1910.06222
+- **[R17]** Belghazi, M. I. et al. (2018). *Mutual Information Neural Estimation*. ICML. arXiv:1801.04062. https://arxiv.org/abs/1801.04062
+- **[R18]** Xiu, Z.; Luo, Y.; Nakayama, H. (2026). *A Comprehensive Information-Decomposition Analysis of Large Vision-Language Models*. ICLR 2026. arXiv:2603.29676. https://arxiv.org/abs/2603.29676
+- **[R19]** Makkeh, A.; Graetz, M.; Schneider, A. C.; Ehrlich, D. A.; Priesemann, V.; Wibral, M. (2025). *A General Framework for Interpretable Neural Learning Based on Local Information-Theoretic Goal Functions*. **PNAS** 122:e2408125122. https://doi.org/10.1073/pnas.2408125122
+- **[R20]** Liang, P. P. et al. (2023). *Quantifying & Modeling Multimodal Interactions: An Information Decomposition Framework*. NeurIPS 2023. arXiv:2302.12247v5. https://arxiv.org/abs/2302.12247
 
-**WebGPU-native example (WGSL; illustrative, not SparkJS-specific):**
-```wgsl
-struct PidMetric {
-    synergy: f32,
-    redundancy: f32,
-    unique_v: f32,
-}
+## VLA models, diagnostics, and embodied evaluation
 
-@group(0) @binding(0) var<storage, read> pid_buffer: array<PidMetric>;
-@group(0) @binding(1) var<storage, read_write> splat_colors: array<vec4f>;
+- **[R21]** Kim, M. J. et al. (2024/2025). *OpenVLA: An Open-Source Vision-Language-Action Model*. CoRL 2024; arXiv:2406.09246. https://arxiv.org/abs/2406.09246
+- **[R22]** Octo Model Team et al. (2024). *Octo: An Open-Source Generalist Robot Policy*. RSS 2024; arXiv:2405.12213. https://arxiv.org/abs/2405.12213
+- **[R23]** Black, K. et al. (2024). *π0: A Vision-Language-Action Flow Model for General Robot Control*. arXiv:2410.24164. https://arxiv.org/abs/2410.24164
+- **[R24]** Physical Intelligence et al. (2025). *π0.5: A Vision-Language-Action Model with Open-World Generalization*. arXiv:2504.16054. https://arxiv.org/abs/2504.16054
+- **[R25]** Yang, J. et al. (2026). *Tri-Info: Generalizable, Interpretable Failure Prediction for VLA Models via Information Theory*. arXiv:2606.19998. https://arxiv.org/abs/2606.19998
+- **[R26]** Shi, H. et al. (2026). *VLA-Trace: Diagnosing Vision-Language-Action Models through Representation and Behavior Tracing*. arXiv:2605.30117. https://arxiv.org/abs/2605.30117
+- **[R27]** Xu, H. et al. (2026). *Unmasking the Illusion of Embodied Reasoning in Vision-Language-Action Models*. arXiv:2604.18000. https://arxiv.org/abs/2604.18000
+- **[R28]** Grant, B.; Zhao, X.; Wang, P. (2026). *Not All Features Are Created Equal: A Mechanistic Study of Vision-Language-Action Models*. arXiv:2603.19233. https://arxiv.org/abs/2603.19233
+- **[R29]** Zhang, H.; Xu, M.; Dhafer, A.; Yue, S.; Dong, H.; Hao, Z. D. (2026). *Embodied Interpretability: Linking Causal Understanding to Generalization in Vision-Language-Action Models*. arXiv:2605.00321. https://arxiv.org/abs/2605.00321
+- **[R30]** Jin, X.; Chatterjee, A.; Kumar, P.; Paleja, R. (2026). *Event-Grounded Sparse Autoencoders for Vision-Language-Action Policies*. arXiv:2605.17204. https://arxiv.org/abs/2605.17204
+- **[R31]** Foutter, M. et al. (2026). *Do Vision-Language-Action Models Mean What They Say? On the Role of Faithfulness in Embodied Reasoning*. arXiv:2607.04681, 6 July 2026. https://arxiv.org/abs/2607.04681
+- **[R32]** Yu, B. et al. (2026). *RoboSemanticBench: Diagnosing Semantic Grounding in Action Prediction for VLA Models*. arXiv:2606.02277. https://arxiv.org/abs/2606.02277
+- **[R33]** Chen, T.; Manchester, I.; Chen, H. (2026). *Position: Vision-Language-Action Models Cannot Be Verified to Perform Physical Reasoning*. arXiv:2606.30686. https://arxiv.org/abs/2606.30686
+- **[R34]** Zhang, B. et al. (2026). *VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models*. ICML 2026; arXiv:2512.22539v3. https://arxiv.org/abs/2512.22539
+- **[R35]** Zhou, X. et al. (2026). *LIBERO-PRO: Towards Robust and Fair Evaluation of Vision-Language-Action Models Beyond Memorization*. arXiv:2510.03827v2. https://arxiv.org/abs/2510.03827
+- **[R36]** Morgan, J. et al. (2026). *Colosseum V2: Benchmarking Generalization for Vision Language Action Models*. arXiv:2605.27759. https://arxiv.org/abs/2605.27759
 
-@compute @workgroup_size(256)
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let i = global_id.x;
-    let pid = pid_buffer[i];
-    
-    // Diverging colormap: Red (Syn) -> Gray (Red) -> Blue (Unq)
-    let syn_color = vec3f(1.0, 0.0, 0.0);
-    let red_color = vec3f(0.5, 0.5, 0.5);
-    let unq_color = vec3f(0.0, 0.0, 1.0);
-    
-    // Mix based on dominant metric
-    var final_color = red_color;
-    if (pid.synergy > pid.redundancy && pid.synergy > pid.unique_v) {
-        final_color = mix(red_color, syn_color, pid.synergy);
-    } else if (pid.unique_v > pid.redundancy) {
-        final_color = mix(red_color, unq_color, pid.unique_v);
+## Embodied datasets, formats, and infrastructure
+
+- **[R37]** Open X-Embodiment Collaboration (2023/2024). *Open X-Embodiment: Robotic Learning Datasets and RT-X Models*. arXiv:2310.08864. https://arxiv.org/abs/2310.08864
+- **[R38]** Khazatsky, A. et al. (2024). *DROID: A Large-Scale In-the-Wild Robot Manipulation Dataset*. arXiv:2403.12945. https://arxiv.org/abs/2403.12945
+- **[R39]** Liu, B. et al. (2023). *LIBERO: Benchmarking Knowledge Transfer for Lifelong Robot Learning*. NeurIPS 2023; arXiv:2306.03310. https://arxiv.org/abs/2306.03310
+- **[R40]** Nasiriany, S. et al. (2024). *RoboCasa: Large-Scale Simulation of Everyday Tasks for Generalist Robots*. arXiv:2406.02523. https://arxiv.org/abs/2406.02523
+- **[R41]** Li, X. et al. (2024). *Evaluating Real-World Robot Manipulation Policies in Simulation* (SimplerEnv). arXiv:2405.05941. https://arxiv.org/abs/2405.05941
+- **[R42]** Ramos, F. et al. (2021). *RLDS: An Ecosystem to Generate, Share, and Use Datasets in Reinforcement Learning*. arXiv:2111.02767. https://arxiv.org/abs/2111.02767
+- **[R43]** Foxglove. *MCAP Specification*. Accessed 12 July 2026. https://mcap.dev/spec
+- **[R44]** Hugging Face. *LeRobotDataset v3.0 Documentation*. Accessed 12 July 2026. https://huggingface.co/docs/lerobot/lerobot-dataset-v3
+- **[R45]** Rerun. *Rerun Documentation*. Accessed 12 July 2026. https://rerun.io/docs
+- **[R46]** ROS Tooling. *rosbag2_storage_mcap*. Accessed 12 July 2026. https://github.com/ros-tooling/rosbag2_storage_mcap
+- **[R47]** robomimic contributors. *robomimic Dataset and Experiment Documentation*. Accessed 12 July 2026. https://robomimic.github.io/
+- **[R48]** Zhang, T. et al. (2025). *Robo-DM: Data Management for Large-Scale Robot Learning*. arXiv:2505.15558. https://arxiv.org/abs/2505.15558
+- **[R49]** Shukor, M. et al. (2025). *SmolVLA: A Vision-Language-Action Model for Affordable and Efficient Robotics*. arXiv:2506.01844. https://arxiv.org/abs/2506.01844
+- **[R50]** Kim, M. J.; Finn, C.; Liang, P. (2025). *Fine-Tuning Vision-Language-Action Models: Optimizing Speed and Success* (OpenVLA-OFT). arXiv:2502.19645. https://arxiv.org/abs/2502.19645
+- **[R51]** Zhang, J. et al. (2025). *DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge*. arXiv:2507.04447. https://arxiv.org/abs/2507.04447
+- **[R52]** Wang, F. et al. (2026). *World Models for Robotic Manipulation: A Survey*. arXiv:2606.00113. https://arxiv.org/abs/2606.00113
+
+## Intervention quality, correction, safety, and reporting
+
+- **[R53]** Raju, P. C. (2026). *Geometric Stability: The Missing Axis of Representations*. arXiv:2601.09173v5, 6 July 2026. https://arxiv.org/abs/2601.09173
+- **[R54]** Pan, Y. et al. (2026). *VLA-Corrector: Lightweight Detect-and-Correct Inference for Adaptive Action Horizon*. arXiv:2607.01804. https://arxiv.org/abs/2607.01804
+- **[R55]** Feng, X. et al. (2026). *Denoising Tells When to Replan: Denoising-Variance Adaptive Chunking for Flow-Based Robot Policies*. arXiv:2606.03847. https://arxiv.org/abs/2606.03847
+- **[R56]** Lyu, M. et al. (2026). *ForesightSafety-VLA: A Unified Diagnostic Safety Benchmark for Vision-Language-Action Models*. arXiv:2606.27079v2. https://arxiv.org/abs/2606.27079
+- **[R57]** Cui, R. et al. (2026). *LIBERO-Safety: A Comprehensive Benchmark for Physical and Semantic Safety in Vision-Language-Action Models*. ECCV 2026; arXiv:2606.23686v2. https://arxiv.org/abs/2606.23686
+- **[R58]** Panpatil, S. et al. (2026). *EgoSafetyBench: A Diagnostic Egocentric Video Benchmark for Evaluating Embodied VLMs as Runtime Safety Guards*. arXiv:2607.00218. https://arxiv.org/abs/2607.00218
+- **[R59]** Collins, G. S. et al. (2024). *TRIPOD+AI Statement: Updated Guidance for Reporting Clinical Prediction Models that Use Regression or Machine Learning Methods*. **BMJ** 385:e078378. https://www.bmj.com/content/385/bmj-2023-078378
+- **[R60]** Moons, K. G. M. et al. (2025). *PROBAST+AI: An Updated Quality, Risk-of-Bias, and Applicability Assessment Tool for Prediction Models Using Regression or Artificial Intelligence Methods*. **BMJ**. https://www.bmj.com/content/388/bmj-2024-082505
+- **[R61]** Prisoma repository. *PID Experiment 0 Findings*, snapshot reviewed 12 July 2026. https://github.com/sepahead/prisoma/blob/64bd881248463e7142d022bb95a5850bcf8fced2/findings.md
+- **[R62]** W3C. *PROV-O: The PROV Ontology*; RO-Crate Research Object Crate specification. https://www.w3.org/TR/prov-o/ ; https://www.researchobject.org/ro-crate/
+- **[R63]** Mitchell, M. et al. (2019). *Model Cards for Model Reporting*. FAT* / FAccT. https://doi.org/10.1145/3287560.3287596
+- **[R64]** Gebru, T. et al. (2021). *Datasheets for Datasets*. **Communications of the ACM** 64(12):86–92. https://doi.org/10.1145/3458723
+- **[R65]** Pineau, J. et al. (2021). *Improving Reproducibility in Machine Learning Research: A Report from the NeurIPS 2019 Reproducibility Program*. **JMLR** 22(164):1–20. https://jmlr.org/papers/v22/20-303.html
+
+## July 2026 additions
+
+- **[R66]** Lian, Q.; Yu, K.; Zhang, L. (2026). *Reflective VLA: In-Context Action Consequences Make VLAs Generalize*. arXiv:2606.25215. https://arxiv.org/abs/2606.25215
+- **[R67]** Chen, X. et al. (2026). *A Definition and Roadmap for World Models*. arXiv:2607.06401, 7 July 2026. https://arxiv.org/abs/2607.06401
+- **[R68]** Qu, H. et al. (2026). *Dual Latent Memory in Vision-Language-Action Models for Robotic Manipulation*. arXiv:2607.07608, 8 July 2026. https://arxiv.org/abs/2607.07608
+- **[R69]** Zhou, J. et al. (2026). *TouchWorld: A Predictive and Reactive Tactile Foundation Model for Dexterous Manipulation*. arXiv:2607.07287v2, 9 July 2026. https://arxiv.org/abs/2607.07287
+- **[R70]** Lyu, Q. et al. (2026). *LEEVLA: Seeing What Matters in Latent Environment Evolution for Vision-Language-Action*. arXiv:2607.08182, 9 July 2026. https://arxiv.org/abs/2607.08182
+- **[R71]** Zhang, Y. et al. (2026). *Harness VLA: Steering Frozen VLAs into Reliable Manipulation Primitives via Memory-Guided Agents*. arXiv:2607.08448, 9 July 2026. https://arxiv.org/abs/2607.08448
+
+## Repository ecosystem and causal/predictive design additions
+
+- **[R72]** Prisoma repository, snapshot `64bd881248463e7142d022bb95a5850bcf8fced2` (12 July 2026). Root workspace, `.gitmodules`, `.ncp-consumer`, README, and `crates/ncp-observer`; `pid-rs` submodule shown at `8a5a9dda601556443f956a2fba164cccc913ed2e`. https://github.com/sepahead/prisoma/tree/64bd881248463e7142d022bb95a5850bcf8fced2
+- **[R73]** `sepahead/pid-rs`. *Shared-exclusions partial information decomposition and mutual-information estimators in Rust*. Prisoma-pinned revision `8a5a9dda601556443f956a2fba164cccc913ed2e` and post-pin main revision `70b45f7b75fac06777ea215a73df01209490311a`, accessed 12 July 2026. The pinned revision records a semi-analytic additive-Gaussian oracle for continuous redundancy, bit-faithful discrete SxPID reference checks, cross-estimator atom-bias caveats, high-dimensional/dependence warnings, and that reproducible external continuous cross-validation was pending. The later main revision reports a committed fixture generated with the authors’ public `csxpid` implementation at pinned commit `7bb984611a422cf7944ece68993fe3a27e2eadec`, agreement within `1e-12` nats after recorded unit conversion, fail-closed population-support contracts, and stronger structured provenance. These later changes are not inherited by the reviewed Prisoma submodule pin and do not establish high-dimensional VLA application validity. https://github.com/sepahead/pid-rs/tree/8a5a9dda601556443f956a2fba164cccc913ed2e ; https://github.com/sepahead/pid-rs/commit/70b45f7b75fac06777ea215a73df01209490311a
+- **[R74]** `sepahead/NCP`, immutable release `v0.8.0`, wire 0.8. *Neuro-Cybernetic Protocol*. Accessed 12 July 2026 (reviewed snapshot pinned `v0.7.1`/wire 0.7; the repository has since migrated to `v0.8.0`/wire 0.8). Prisoma is described as a read-only observer; default/open action-plane security limitations are documented. https://github.com/sepahead/NCP/tree/v0.8.0
+- **[R75]** `sepahead/galadriel`. *Fail-closed cross-sensor statistical-consistency monitoring in safe Rust*. Accessed 12 July 2026. Pins `pid-rs` and NCP and explicitly states compilation is not live-integration evidence. https://github.com/sepahead/galadriel
+- **[R76]** `sepahead/crebain`. *Multi-UAV simulation and airspace-awareness research testbed*. Accessed 12 July 2026. Contains dormant, off-by-default NCP surfaces and no always-on Crebain↔Engram loop; no direct Prisoma reference was found in the reviewed public repository. https://github.com/sepahead/crebain
+- **[R77]** `sepahead/manwe`. *Airspace perception research workbench*. Accessed 12 July 2026. The repository states that it does not ship a drop-in adapter for Prisoma and identifies schema, tensor, clock, frame, and statistical-assumption gaps. https://github.com/sepahead/manwe
+- **[R78]** `sepahead/engram`. *Engram Neural Modeling Labs*. Accessed 12 July 2026. The public repository contains a placeholder README stating that code will be open sourced after publication. https://github.com/sepahead/engram
+- **[R79]** `sepahead/melkor`. *Gaussian splatting pipelines and depth analysis for 3D reconstruction*. Accessed 12 July 2026. No direct Prisoma reference was found in the reviewed public repository. https://github.com/sepahead/melkor
+- **[R80]** Prisoma repository. *WORLD_WARP_INTEGRATION.md*, snapshot `64bd881248463e7142d022bb95a5850bcf8fced2`; optional external world-model integration specification, not verified as implemented. https://github.com/sepahead/prisoma/blob/64bd881248463e7142d022bb95a5850bcf8fced2/WORLD_WARP_INTEGRATION.md
+- **[R81]** Prisoma repository. *GAUSS_MI_INTEGRATION.md*, snapshot `64bd881248463e7142d022bb95a5850bcf8fced2`; status “Specification (Pre-Implementation)” and weighted KSG described as a heuristic requiring its own validation gate. https://github.com/sepahead/prisoma/blob/64bd881248463e7142d022bb95a5850bcf8fced2/GAUSS_MI_INTEGRATION.md
+- **[R82]** `sepahead/cobot-atlas`. *3D mesh-generation pipeline and dataset*. Accessed 12 July 2026. Repository reports 2,024 GLB files in the hosted dataset. https://github.com/sepahead/cobot-atlas
+- **[R83]** `sepahead/relief-atlas`. *10K+ 3D mesh assets for disaster relief and civil protection*. Accessed 12 July 2026. Repository reports 10,079 items and directs users to individual asset metadata for licensing. https://github.com/sepahead/relief-atlas
+- **[R84]** `sepahead/cortexel`. Scientific-visualization project. Accessed 12 July 2026. No direct Prisoma reference was found in the reviewed public repository. https://github.com/sepahead/cortexel
+- **[R85]** `sepahead` GitHub profile and six public repository-index pages. Accessed 12 July 2026; metadata for 174 public repositories were screened. The profile project graph is treated as architectural intention rather than executable integration evidence; anonymous GitHub code search required sign-in, so negative findings are bounded to public metadata and inspected repository surfaces. https://github.com/sepahead?tab=repositories
+- **[R86]** `sepahead/haldir`. Public repository inspected 12 July 2026; insufficient public implementation metadata was available to establish a Prisoma relationship. https://github.com/sepahead/haldir
+- **[R87]** Hernán, M. A.; Robins, J. M. (2020). *Causal Inference: What If*. Chapman & Hall/CRC. https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/
+- **[R88]** Rubin, D. B. (1980). *Randomization Analysis of Experimental Data: The Fisher Randomization Test Comment*. **Journal of the American Statistical Association** 75(371):591–593. https://doi.org/10.1080/01621459.1980.10477512
+- **[R89]** Imai, K.; King, G.; Stuart, E. A. (2008). *Misunderstandings Between Experimentalists and Observationalists about Causal Inference*. **Journal of the Royal Statistical Society: Series A** 171(2):481–502. https://doi.org/10.1111/j.1467-985X.2007.00527.x
+- **[R90]** Chernozhukov, V. et al. (2018). *Double/Debiased Machine Learning for Treatment and Structural Parameters*. **The Econometrics Journal** 21(1):C1–C68. https://doi.org/10.1111/ectj.12097
+- **[R91]** Kennedy, E. H. (2023). *Towards Optimal Doubly Robust Estimation of Heterogeneous Causal Effects*. **Electronic Journal of Statistics** 17(2):3008–3049. https://doi.org/10.1214/23-EJS2157
+- **[R92]** Gerds, T. A.; Schumacher, M. (2006). *Consistent Estimation of the Expected Brier Score in General Survival Models with Right-Censored Event Times*. **Biometrical Journal** 48(6):1029–1040. https://doi.org/10.1002/bimj.200610301
+- **[R93]** Vickers, A. J.; Elkin, E. B. (2006). *Decision Curve Analysis: A Novel Method for Evaluating Prediction Models*. **Medical Decision Making** 26(6):565–574. https://doi.org/10.1177/0272989X06295361
+- **[R94]** Saito, T.; Rehmsmeier, M. (2015). *The Precision-Recall Plot Is More Informative than the ROC Plot When Evaluating Binary Classifiers on Imbalanced Datasets*. **PLoS ONE** 10(3):e0118432. https://doi.org/10.1371/journal.pone.0118432
+- **[R95]** Park, S.; Li, W.; Oh, C.; Yeh, S.; Kira, Z.; Hagenow, M.; Li, S. (2026). *Hide-and-Seek in Trajectories: Discovering Failure Signals for VLA Runtime Monitoring*. arXiv:2605.30834, 29 May 2026. https://arxiv.org/abs/2605.30834
+- **[R96]** Barber, R. F.; Candès, E. J.; Ramdas, A.; Tibshirani, R. J. (2023). *Conformal Prediction Beyond Exchangeability*. **The Annals of Statistics** 51(2):816–845. https://doi.org/10.1214/23-AOS2276
+- **[R97]** `sepahead/brojapid-activationfunctions`. *BROJA Partial Information Decomposition analysis of neural activation functions*. Release lineage accessed 12 July 2026; uses the BROJA unique-information measure and cites the 2020 reproduction study. https://github.com/sepahead/brojapid-activationfunctions
+- **[R98]** Mahmoudian, S. (2020). *[Re] Measures for Investigating the Contextual Modulation of Information Transmission*. **ReScience C** 6(3), article 2; code at `sepahead/mahmoudian-2020-rescience`. https://doi.org/10.5281/zenodo.3885793
+- **[R99]** `sepahead/nest-simulator`. Public NEST simulator fork whose repository description points to feature branches for PID/information-theoretic work. Accessed 12 July 2026; no direct Prisoma adapter was verified. https://github.com/sepahead/nest-simulator
+- **[R100]** Dong, Z.; Lin, Y.; Fang, J.; Zhou, J.; Ng, K. K.; Zhou, J. H. (2026). *BrainFIBRE: A Foundation Model via Information Decomposition for Brain Microstructure*. arXiv:2607.00573, 1 July 2026; ECCV 2026. https://arxiv.org/abs/2607.00573
+- **[R101]** Zhang, H.; Lu, Y.; Wang, B.; Kang, X.; Kuo, Y.-L.; Cheng, Z.; Wang, M.; Jenkins, O. C. (2026). *Foresight: Failure Detection for Long-Horizon Robotic Manipulation with Action-Conditioned World Model Latents*. arXiv:2606.23085, 22 June 2026. https://arxiv.org/abs/2606.23085
+- **[R102]** Huang, B.; Li, X.; Wang, X.; Mi, L.; Hao, Z.; Wang, W.; Wu, H.; Li, K.; Liu, Y.; Cao, T. (2026). *ActProbe: Action-Space Probe for Early Failure Detection of Generative Robot Policies*. arXiv:2606.08508, 7 June 2026. https://arxiv.org/abs/2606.08508
+- **[R103]** Huang, D.; Gu, A.; Zhang, C.; Zou, B.; Dong, W.; Cen, Z.; Wang, Y.; Zhang, H. (2026). *VLAConf: Calibrated Task-Success Confidence for Vision-Language-Action Models*. arXiv:2605.29605, 28 May 2026. https://arxiv.org/abs/2605.29605
+- **[R104]** Lee, Y.; Har, D. (2026). *Perturbation-Based Uncertainty for Failure Detection in Vision-Language-Action Models*. arXiv:2606.20754, 18 June 2026. https://arxiv.org/abs/2606.20754
+- **[R105]** Mahato, D. T.; Ren, R. (2026). *Early Warning Signals for OpenVLA Failure under Visual Distribution Shift*. arXiv:2606.29699, 29 June 2026. https://arxiv.org/abs/2606.29699
+- **[R106]** Curth, A.; van der Schaar, M. (2023). *In Search of Insights, Not Magic Bullets: Towards Demystification of the Model Selection Dilemma in Heterogeneous Treatment Effect Estimation*. ICML 2023, PMLR 202:6623–6642. https://proceedings.mlr.press/v202/curth23b.html
+- **[R107]** van der Laan, L.; Ulloa-Pérez, E.; Carone, M.; Luedtke, A. (2023). *Causal Isotonic Calibration for Heterogeneous Treatment Effects*. ICML 2023, PMLR 202:34831–34854. https://proceedings.mlr.press/v202/van-der-laan23a.html
+- **[R108]** Chen, H.; Aebersold, H.; Puhan, M. A.; Serra-Burriel, M. (2026). *Machine Learning Methods for Estimating Personalized Treatment Effects—Insights on Validity from Two Large Trials*. **American Journal of Epidemiology**. https://doi.org/10.1093/aje/kwag065
+- **[R109]** Gupta, K. (2026). *How VLAs Fail Differently: Black-Box Action Monitoring Reveals Architecture-Specific Failure Signatures*. arXiv:2605.28726, 27 May 2026. https://arxiv.org/abs/2605.28726
+- **[R110]** Gu, Q.; Ju, Y.; Sun, S.; Gilitschenski, I.; Nishimura, H.; Itkina, M.; Shkurti, F. (2025). *SAFE: Multitask Failure Detection for Vision-Language-Action Models*. arXiv:2506.09937, 11 June 2025. https://arxiv.org/abs/2506.09937
+- **[R111]** Zheng, G.; Seenivasan, S.; Johnson-Roberson, M.; Zhi, W. (2026). *Rewind-IL: Online Failure Detection and State Respawning for Imitation Learning*. arXiv:2604.16683, 17 April 2026. https://arxiv.org/abs/2604.16683
+- **[R112]** Francis-Meretzki, S.; Mutti, M.; Romano, Y.; Tamar, A. (2026). *Temporal Difference Calibration in Sequential Tasks: Application to Vision-Language-Action Models*. arXiv:2604.20472, 22 April 2026. https://arxiv.org/abs/2604.20472
+---
+
+# Appendix A. Minimal canonical event envelope
+
+The following is illustrative. The repository schema remains authoritative only after conformance tests and versioning are implemented.
+
+```json
+{
+  "schema_version": "prisoma.event/1.0",
+  "run_id": "uuid",
+  "event_id": "monotone-or-uuid",
+  "event_type": "intervention.applied",
+  "producer": {
+    "component": "policy-adapter",
+    "version": "git-sha-or-image-digest",
+    "host_clock": "monotonic-clock-id"
+  },
+  "time": {
+    "monotonic_ns": 0,
+    "source_ns": 0,
+    "episode_step": 0,
+    "uncertainty_ns": 0
+  },
+  "causal": {
+    "case_id": "case-id",
+    "episode_id": "episode-id",
+    "assignment_id": "assignment-id",
+    "parent_event_ids": ["event-id"],
+    "intervention_id": "intervention-id",
+    "randomization_probability": 0.5
+  },
+  "artifact_refs": [
+    {
+      "uri": "artifacts/activations.zarr#tensor-key",
+      "sha256": "...",
+      "dtype": "float32",
+      "shape": [1, 32, 4096],
+      "semantic_site": "pre_action_fusion.layer_12",
+      "preprocess_hash": "..."
     }
-    
-    splat_colors[i] = vec4f(final_color, 1.0);
+  ],
+  "payload": {
+    "target": "vision.region.object_3",
+    "operation": "mask_with_matched_texture",
+    "dose": 0.25,
+    "sham": false
+  }
 }
 ```
 
----
+Required properties:
 
-*End of Document*
+- immutable event identity;
+- explicit producer and schema version;
+- monotonic and source time with synchronization uncertainty;
+- case, episode, assignment, and causal parentage;
+- content-addressed external tensors rather than giant inline arrays;
+- exact representation site and transform hash;
+- intervention dose and sham status;
+- fail-closed validation for missing causal or provenance fields.
+
+# Appendix B. Analysis-freeze checklist
+
+Before opening a confirmatory holdout:
+
+- [ ] causal diagram and target level frozen;
+- [ ] unit of inference and cluster structure frozen;
+- [ ] eligibility gates passed;
+- [ ] treatment assignment and manipulation checks validated;
+- [ ] all preprocessing fitted on training data and hashed;
+- [ ] baselines, model capacities, and hyperparameter budgets frozen;
+- [ ] minimum useful effect and primary protocol-specific score frozen;
+- [ ] missingness, exclusion, reset-failure, and censoring rules frozen;
+- [ ] multiplicity family and exploratory labels frozen;
+- [ ] simulation-based design analysis passed;
+- [ ] code, container, and environment digests recorded;
+- [ ] holdout access audited;
+- [ ] negative and positive controls passed;
+- [ ] result interpretation table drafted before unblinding.
+
+# Appendix C. Result-interpretation table
+
+| Observed result | Permitted conclusion | Prohibited conclusion |
+|---|---|---|
+| Diagnostic predicts paired frozen-snapshot response | diagnostic is useful for algorithmic-sensitivity prediction under the declared clone/coupling contract | diagnostic atom is a physical mechanism or closed-loop effect moderator |
+| Diagnostic predicts randomized closed-loop effect modification under effect-specific validation | diagnostic is useful for effect moderation in the evaluated regime | diagnostic atom is the causal mechanism or an observed individual effect |
+| PID beats full baseline set and replicates | PID adds conditional empirical value under named measure/estimator | PID is universally superior or necessary |
+| PID does not beat baselines | no demonstrated incremental value in the evaluated regime | PID theory is false |
+| Probe decodes, intervention has no effect | availability–use gap under tested intervention validity | represented concept is never used anywhere |
+| Estimator gate fails | abstain from the blocked quantitative claim | atom is zero or absent |
+| Safety benchmark improves | evidence of benchmark-specific risk reduction | certification or deployment safety |
+| Cross-embodiment relation replicates | transportability of the tested relation across named embodiments | embodiment invariance of raw representations |
+
+# Appendix D. Repository integration evidence ledger
+
+Create one version-controlled row for every claimed edge.
+
+| Field | Meaning |
+|---|---|
+| edge ID | stable producer→consumer identifier |
+| source / target | repositories and component paths |
+| exact revisions | commit/tag/submodule/lockfile hashes |
+| relationship claim | intended, specified, dependent, build-tested, end-to-end, replicated |
+| evidence level | E0–E5 with date |
+| data/control direction | observation, analysis artifact, command, bidirectional |
+| authority | read-only, advisory, command-capable, safety-gating |
+| schema / wire | version, contract hash, encoding |
+| semantics | units, shapes, frames, clocks, missingness, labels |
+| security | realm, authentication, ACL, encryption, threat boundary |
+| fixtures | golden and adversarial fixture identifiers |
+| conformance report | command, result, artifact hash |
+| scientific impact | which estimand or benchmark the edge enables |
+| independence | shared code/maintainer and correlated-error risks |
+| license/provenance | code, model, data, and asset obligations |
+| status caveat | strongest prohibited wording |
+| owner / review date | accountable maintainer and expiry |
+
+Evidence expires when either endpoint, schema, wire, model, or adapter revision changes. A new build may preserve E3 but E4 must be rerun whenever semantics or scientific operating conditions change.
+
+# Appendix E. Causal and predictive preflight checklist
+
+Before H1 execution:
+
+- [ ] Protocol A or Protocol B is designated primary and their claims/endpoints are not blended;
+- [ ] treatment versions, sites, doses, and baseline-state boundary are uniquely identified;
+- [ ] primary moderators are provably pre-treatment and diagnostic capture is noninterfering;
+- [ ] for Protocol A, clone state, cache/memory reset, RNG coupling, evaluation order, output metric, and Monte Carlo precision are frozen;
+- [ ] for Protocol B, assignment probabilities and blocks are generated and archived before treatment;
+- [ ] interference, carryover, and reset boundaries are tested;
+- [ ] ITT outcome and treatment receipt are both recorded for Protocol B;
+- [ ] policy, execution, and physical outcome families are separate;
+- [ ] manipulation, specificity, positive-control, and placebo checks are frozen;
+- [ ] response predictor or conditional-effect learner, effect-specific validation metric, and outer-fold scoring are locked; factual outcome fit alone is not used to select an effect model;
+- [ ] no physical individual-treatment-effect proxy is used as observed truth;
+- [ ] useful margin, calibration bins, allocation rule, testing hierarchy, and replication target are frozen.
+
+Before H2 landmarking:
+
+- [ ] time zero, horizon, eligibility, and prediction update schedule are frozen;
+- [ ] all feature computations stop at the landmark;
+- [ ] repeated landmarks and persistent-world groups stay in one fold;
+- [ ] failure types, competing events, censoring, and missingness are defined;
+- [ ] test prevalence and target prevalence are recorded;
+- [ ] censoring model, calibration, and thresholds are trained only inside outer folds;
+- [ ] proper score, calibration, warning time, and decision utility are frozen;
+- [ ] external/temporal holdout remains untouched;
+- [ ] recalibration data are distinct from final evaluation data;
+- [ ] any conformal method records its calibration unit, exchangeability/shift assumptions, finite-sample correction, empirical coverage, set size/abstention, and subgroup/task coverage.
+
+Before any transport claim:
+
+- [ ] source and target populations are named;
+- [ ] changed and invariant causal/measurement variables are listed;
+- [ ] effect modifiers and support overlap are assessed;
+- [ ] adapters pass frame, clock, schema, and outcome conformance;
+- [ ] model/asset/dataset contamination and licensing are audited;
+- [ ] claim language is bounded to the axes actually replicated.
+
+# Appendix F. Ecosystem-specific experiment opportunities
+
+These are optional experiments, ordered by scientific value rather than visual appeal.
+
+1. **Protocol-fault observatory.** Feed a conforming read-only NCP producer through controlled delay, drop, reorder, duplicate, version-mismatch, disconnect, and security-profile conditions. Measure Prisoma’s detection, provenance, replay, and control noninterference. This can strengthen Paper A without requiring Engram.
+2. **Cross-domain diagnostic transport.** Export temporally aligned Crebain or Manwe-style perception/fusion streams through an adapter and test whether H2 diagnostics retain calibration under a non-manipulation embodiment. The primary result is transport failure or success under named shifts, not a universal VLA claim.
+3. **Independent-monitor comparison.** Compare Galadriel consistency signals, ordinary uncertainty/OOD signals, and Prisoma diagnostics on the same randomized faults. Treat shared `pid-rs` outputs as one method family, not independent votes.
+4. **Asset-diversity stress test.** Use a quality-controlled, license-cleared, physically validated subset of cobot-atlas to create prespecified object-appearance and geometry shifts. Keep generated assets grouped by lineage to avoid near-duplicate leakage.
+5. **Reconstruction uncertainty as nuisance.** Use Melkor-derived reconstruction quality as a measured nuisance/effect modifier. First ask whether it predicts diagnostic failure; do not jump to unvalidated uncertainty-weighted PID.
+6. **World-model counterfactual support.** Compare generated scenes against simulator-ground-truth interventions under explicit support and realism metrics. WorldWarp/GauSS-MI remain separate exploratory work until their adapters and estimators pass E4 and Section 7 gates.
+7. **Cross-measure mechanism fixtures.** Reproduce selected activation-function systems from the ReScience/BROJA lineage and compare qualitative mechanism discrimination under BROJA, shared-exclusions, MI/CMI, and intervention ground truth. Treat measure disagreement as a result; never equate atom labels or magnitudes across functionals.
+8. **Neural-simulation producer trial.** After pinning a specific NEST-fork branch and documenting its delta from upstream, export a small neural-state fixture through a read-only NCP path. Evaluate clock/sequence semantics, provenance, replay, and noninterference before any neuroscience or embodiment claim.
+
+None of these experiments is required for a successful thesis. Their value is that the same event and estimand contract makes heterogeneous embodied-agent investigations comparable without pretending their representations, clocks, action spaces, or causal targets are identical.
+
+*End of canonical v12.5 proposal.*

@@ -1,0 +1,113 @@
+reference_id,definition_line,title_or_entry,urls,citation_count,definition_count,status
+R1,2236,Nonnegative Decomposition of Multivariate Information,https://arxiv.org/abs/1004.2515,2,1,defined_and_cited
+R2,2237,Quantifying Unique Information,https://doi.org/10.3390/e16042161,2,1,defined_and_cited
+R3,2238,Measuring Multivariate Redundant Information with Pointwise Common Change in Surprisal,https://doi.org/10.3390/e19070318,2,1,defined_and_cited
+R4,2239,Pointwise Partial Information Decomposition Using the Specificity and Ambiguity Lattices,https://doi.org/10.3390/e20040297,2,1,defined_and_cited
+R5,2240,Introducing a Differentiable Measure of Pointwise Shared Information,https://doi.org/10.1103/PhysRevE.103.032149,3,1,defined_and_cited
+R6,2241,A Partial Information Decomposition for Discrete and Continuous Variables,https://arxiv.org/abs/2106.12393,3,1,defined_and_cited
+R7,2242,Partial Information Decomposition for Continuous Variables Based on Shared Exclusions,https://doi.org/10.1103/PhysRevE.110.014115,3,1,defined_and_cited
+R8,2243,The Mathematical Landscape of Partial Information Decomposition: A Comprehensive Review of Properties and Measures,https://arxiv.org/abs/2603.06678,4,1,defined_and_cited
+R9,2244,Novel Inconsistency Results for Partial Information Decomposition,https://arxiv.org/abs/2512.16662,3,1,defined_and_cited
+R10,2245,Structural Impossibility of Antichain-Lattice Partial Information Decomposition,https://arxiv.org/abs/2604.03869,3,1,defined_and_cited
+R11,2246,Shannon Invariants: A Scalable Approach to Information Decomposition,https://arxiv.org/abs/2504.15779,3,1,defined_and_cited
+R12,2247,Estimating Mutual Information,https://doi.org/10.1103/PhysRevE.69.066138,1,1,defined_and_cited
+R13,2248,Efficient Estimation of Mutual Information for Strongly Dependent Variables,https://arxiv.org/abs/1411.2003,1,1,defined_and_cited
+R14,2249,Learning Representations for Neural Network-Based Classification Using the Information Bottleneck Principle,https://arxiv.org/abs/1802.09766,1,1,defined_and_cited
+R15,2250,Estimating Information Flow in Deep Neural Networks,https://arxiv.org/abs/1810.05728,1,1,defined_and_cited
+R16,2251,Understanding the Limitations of Variational Mutual Information Estimators,https://arxiv.org/abs/1910.06222,1,1,defined_and_cited
+R17,2252,Mutual Information Neural Estimation,https://arxiv.org/abs/1801.04062,1,1,defined_and_cited
+R18,2253,A Comprehensive Information-Decomposition Analysis of Large Vision-Language Models,https://arxiv.org/abs/2603.29676,2,1,defined_and_cited
+R19,2254,A General Framework for Interpretable Neural Learning Based on Local Information-Theoretic Goal Functions,https://doi.org/10.1073/pnas.2408125122,1,1,defined_and_cited
+R20,2255,Quantifying & Modeling Multimodal Interactions: An Information Decomposition Framework,https://arxiv.org/abs/2302.12247,1,1,defined_and_cited
+R21,2259,OpenVLA: An Open-Source Vision-Language-Action Model,https://arxiv.org/abs/2406.09246,1,1,defined_and_cited
+R22,2260,Octo: An Open-Source Generalist Robot Policy,https://arxiv.org/abs/2405.12213,1,1,defined_and_cited
+R23,2261,π0: A Vision-Language-Action Flow Model for General Robot Control,https://arxiv.org/abs/2410.24164,1,1,defined_and_cited
+R24,2262,π0.5: A Vision-Language-Action Model with Open-World Generalization,https://arxiv.org/abs/2504.16054,1,1,defined_and_cited
+R25,2263,"Tri-Info: Generalizable, Interpretable Failure Prediction for VLA Models via Information Theory",https://arxiv.org/abs/2606.19998,5,1,defined_and_cited
+R26,2264,VLA-Trace: Diagnosing Vision-Language-Action Models through Representation and Behavior Tracing,https://arxiv.org/abs/2605.30117,4,1,defined_and_cited
+R27,2265,Unmasking the Illusion of Embodied Reasoning in Vision-Language-Action Models,https://arxiv.org/abs/2604.18000,5,1,defined_and_cited
+R28,2266,Not All Features Are Created Equal: A Mechanistic Study of Vision-Language-Action Models,https://arxiv.org/abs/2603.19233,3,1,defined_and_cited
+R29,2267,Embodied Interpretability: Linking Causal Understanding to Generalization in Vision-Language-Action Models,https://arxiv.org/abs/2605.00321,3,1,defined_and_cited
+R30,2268,Event-Grounded Sparse Autoencoders for Vision-Language-Action Policies,https://arxiv.org/abs/2605.17204,3,1,defined_and_cited
+R31,2269,Do Vision-Language-Action Models Mean What They Say? On the Role of Faithfulness in Embodied Reasoning,https://arxiv.org/abs/2607.04681,3,1,defined_and_cited
+R32,2270,RoboSemanticBench: Diagnosing Semantic Grounding in Action Prediction for VLA Models,https://arxiv.org/abs/2606.02277,3,1,defined_and_cited
+R33,2271,Position: Vision-Language-Action Models Cannot Be Verified to Perform Physical Reasoning,https://arxiv.org/abs/2606.30686,3,1,defined_and_cited
+R34,2272,VLA-Arena: An Open-Source Framework for Benchmarking Vision-Language-Action Models,https://arxiv.org/abs/2512.22539,4,1,defined_and_cited
+R35,2273,LIBERO-PRO: Towards Robust and Fair Evaluation of Vision-Language-Action Models Beyond Memorization,https://arxiv.org/abs/2510.03827,4,1,defined_and_cited
+R36,2274,Colosseum V2: Benchmarking Generalization for Vision Language Action Models,https://arxiv.org/abs/2605.27759,4,1,defined_and_cited
+R37,2278,Open X-Embodiment: Robotic Learning Datasets and RT-X Models,https://arxiv.org/abs/2310.08864,2,1,defined_and_cited
+R38,2279,DROID: A Large-Scale In-the-Wild Robot Manipulation Dataset,https://arxiv.org/abs/2403.12945,1,1,defined_and_cited
+R39,2280,LIBERO: Benchmarking Knowledge Transfer for Lifelong Robot Learning,https://arxiv.org/abs/2306.03310,1,1,defined_and_cited
+R40,2281,RoboCasa: Large-Scale Simulation of Everyday Tasks for Generalist Robots,https://arxiv.org/abs/2406.02523,1,1,defined_and_cited
+R41,2282,Evaluating Real-World Robot Manipulation Policies in Simulation,https://arxiv.org/abs/2405.05941,1,1,defined_and_cited
+R42,2283,"RLDS: An Ecosystem to Generate, Share, and Use Datasets in Reinforcement Learning",https://arxiv.org/abs/2111.02767,3,1,defined_and_cited
+R43,2284,MCAP Specification,https://mcap.dev/spec,3,1,defined_and_cited
+R44,2285,LeRobotDataset v3.0 Documentation,https://huggingface.co/docs/lerobot/lerobot-dataset-v3,3,1,defined_and_cited
+R45,2286,Rerun Documentation,https://rerun.io/docs,4,1,defined_and_cited
+R46,2287,rosbag2_storage_mcap,https://github.com/ros-tooling/rosbag2_storage_mcap,3,1,defined_and_cited
+R47,2288,robomimic Dataset and Experiment Documentation,https://robomimic.github.io/,2,1,defined_and_cited
+R48,2289,Robo-DM: Data Management for Large-Scale Robot Learning,https://arxiv.org/abs/2505.15558,2,1,defined_and_cited
+R49,2290,SmolVLA: A Vision-Language-Action Model for Affordable and Efficient Robotics,https://arxiv.org/abs/2506.01844,1,1,defined_and_cited
+R50,2291,Fine-Tuning Vision-Language-Action Models: Optimizing Speed and Success,https://arxiv.org/abs/2502.19645,1,1,defined_and_cited
+R51,2292,DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge,https://arxiv.org/abs/2507.04447,2,1,defined_and_cited
+R52,2293,World Models for Robotic Manipulation: A Survey,https://arxiv.org/abs/2606.00113,1,1,defined_and_cited
+R53,2297,Geometric Stability: The Missing Axis of Representations,https://arxiv.org/abs/2601.09173,2,1,defined_and_cited
+R54,2298,VLA-Corrector: Lightweight Detect-and-Correct Inference for Adaptive Action Horizon,https://arxiv.org/abs/2607.01804,2,1,defined_and_cited
+R55,2299,Denoising Tells When to Replan: Denoising-Variance Adaptive Chunking for Flow-Based Robot Policies,https://arxiv.org/abs/2606.03847,2,1,defined_and_cited
+R56,2300,ForesightSafety-VLA: A Unified Diagnostic Safety Benchmark for Vision-Language-Action Models,https://arxiv.org/abs/2606.27079,4,1,defined_and_cited
+R57,2301,LIBERO-Safety: A Comprehensive Benchmark for Physical and Semantic Safety in Vision-Language-Action Models,https://arxiv.org/abs/2606.23686,2,1,defined_and_cited
+R58,2302,EgoSafetyBench: A Diagnostic Egocentric Video Benchmark for Evaluating Embodied VLMs as Runtime Safety Guards,https://arxiv.org/abs/2607.00218,2,1,defined_and_cited
+R59,2303,TRIPOD+AI Statement: Updated Guidance for Reporting Clinical Prediction Models that Use Regression or Machine Learning Methods,https://www.bmj.com/content/385/bmj-2023-078378,2,1,defined_and_cited
+R60,2304,"PROBAST+AI: An Updated Quality, Risk-of-Bias, and Applicability Assessment Tool for Prediction Models Using Regression or Artificial Intelligence Methods",https://www.bmj.com/content/388/bmj-2024-082505,2,1,defined_and_cited
+R61,2305,PID Experiment 0 Findings,https://github.com/sepahead/prisoma/blob/64bd881248463e7142d022bb95a5850bcf8fced2/findings.md,4,1,defined_and_cited
+R62,2306,PROV-O: The PROV Ontology,https://www.w3.org/TR/prov-o/ ; https://www.researchobject.org/ro-crate/,1,1,defined_and_cited
+R63,2307,Model Cards for Model Reporting,https://doi.org/10.1145/3287560.3287596,1,1,defined_and_cited
+R64,2308,Datasheets for Datasets,https://doi.org/10.1145/3458723,1,1,defined_and_cited
+R65,2309,Improving Reproducibility in Machine Learning Research: A Report from the NeurIPS 2019 Reproducibility Program,https://jmlr.org/papers/v22/20-303.html,1,1,defined_and_cited
+R66,2313,Reflective VLA: In-Context Action Consequences Make VLAs Generalize,https://arxiv.org/abs/2606.25215,1,1,defined_and_cited
+R67,2314,A Definition and Roadmap for World Models,https://arxiv.org/abs/2607.06401,1,1,defined_and_cited
+R68,2315,Dual Latent Memory in Vision-Language-Action Models for Robotic Manipulation,https://arxiv.org/abs/2607.07608,1,1,defined_and_cited
+R69,2316,TouchWorld: A Predictive and Reactive Tactile Foundation Model for Dexterous Manipulation,https://arxiv.org/abs/2607.07287,1,1,defined_and_cited
+R70,2317,LEEVLA: Seeing What Matters in Latent Environment Evolution for Vision-Language-Action,https://arxiv.org/abs/2607.08182,1,1,defined_and_cited
+R71,2318,Harness VLA: Steering Frozen VLAs into Reliable Manipulation Primitives via Memory-Guided Agents,https://arxiv.org/abs/2607.08448,1,1,defined_and_cited
+R72,2322,"Prisoma repository, snapshot `64bd881248463e7142d022bb95a5850bcf8fced2` (12 July 2026). Root workspace, `.gitmodules`, `.ncp-consumer`, README, and `crates/ncp-observer`; `pid-rs` submodule shown at `8a5a9dda601556443f956a2fba164cccc913ed2e`.",https://github.com/sepahead/prisoma/tree/64bd881248463e7142d022bb95a5850bcf8fced2,5,1,defined_and_cited
+R73,2323,Shared-exclusions partial information decomposition and mutual-information estimators in Rust,https://github.com/sepahead/pid-rs/tree/8a5a9dda601556443f956a2fba164cccc913ed2e ; https://github.com/sepahead/pid-rs/commit/70b45f7b75fac06777ea215a73df01209490311a,8,1,defined_and_cited
+R74,2324,Neuro-Cybernetic Protocol,https://github.com/sepahead/NCP/tree/v0.7.1,5,1,defined_and_cited
+R75,2325,Fail-closed cross-sensor statistical-consistency monitoring in safe Rust,https://github.com/sepahead/galadriel,3,1,defined_and_cited
+R76,2326,Multi-UAV simulation and airspace-awareness research testbed,https://github.com/sepahead/crebain,2,1,defined_and_cited
+R77,2327,Airspace perception research workbench,https://github.com/sepahead/manwe,2,1,defined_and_cited
+R78,2328,Engram Neural Modeling Labs,https://github.com/sepahead/engram,2,1,defined_and_cited
+R79,2329,Gaussian splatting pipelines and depth analysis for 3D reconstruction,https://github.com/sepahead/melkor,2,1,defined_and_cited
+R80,2330,WORLD_WARP_INTEGRATION.md,https://github.com/sepahead/prisoma/blob/64bd881248463e7142d022bb95a5850bcf8fced2/WORLD_WARP_INTEGRATION.md,2,1,defined_and_cited
+R81,2331,GAUSS_MI_INTEGRATION.md,https://github.com/sepahead/prisoma/blob/64bd881248463e7142d022bb95a5850bcf8fced2/GAUSS_MI_INTEGRATION.md,2,1,defined_and_cited
+R82,2332,3D mesh-generation pipeline and dataset,https://github.com/sepahead/cobot-atlas,2,1,defined_and_cited
+R83,2333,10K+ 3D mesh assets for disaster relief and civil protection,https://github.com/sepahead/relief-atlas,2,1,defined_and_cited
+R84,2334,`sepahead/cortexel`. Scientific-visualization project. Accessed 12 July 2026. No direct Prisoma reference was found in the reviewed public repository.,https://github.com/sepahead/cortexel,2,1,defined_and_cited
+R85,2335,"`sepahead` GitHub profile and six public repository-index pages. Accessed 12 July 2026; metadata for 174 public repositories were screened. The profile project graph is treated as architectural intention rather than executable integration evidence; anonymous GitHub code search required sign-in, so negative findings are bounded to public metadata and inspected repository surfaces.",https://github.com/sepahead?tab=repositories,2,1,defined_and_cited
+R86,2336,`sepahead/haldir`. Public repository inspected 12 July 2026; insufficient public implementation metadata was available to establish a Prisoma relationship.,https://github.com/sepahead/haldir,2,1,defined_and_cited
+R87,2337,Causal Inference: What If,https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/,1,1,defined_and_cited
+R88,2338,Randomization Analysis of Experimental Data: The Fisher Randomization Test Comment,https://doi.org/10.1080/01621459.1980.10477512,1,1,defined_and_cited
+R89,2339,Misunderstandings Between Experimentalists and Observationalists about Causal Inference,https://doi.org/10.1111/j.1467-985X.2007.00527.x,2,1,defined_and_cited
+R90,2340,Double/Debiased Machine Learning for Treatment and Structural Parameters,https://doi.org/10.1111/ectj.12097,2,1,defined_and_cited
+R91,2341,Towards Optimal Doubly Robust Estimation of Heterogeneous Causal Effects,https://doi.org/10.1214/23-EJS2157,2,1,defined_and_cited
+R92,2342,Consistent Estimation of the Expected Brier Score in General Survival Models with Right-Censored Event Times,https://doi.org/10.1002/bimj.200610301,2,1,defined_and_cited
+R93,2343,Decision Curve Analysis: A Novel Method for Evaluating Prediction Models,https://doi.org/10.1177/0272989X06295361,2,1,defined_and_cited
+R94,2344,The Precision-Recall Plot Is More Informative than the ROC Plot When Evaluating Binary Classifiers on Imbalanced Datasets,https://doi.org/10.1371/journal.pone.0118432,2,1,defined_and_cited
+R95,2345,Hide-and-Seek in Trajectories: Discovering Failure Signals for VLA Runtime Monitoring,https://arxiv.org/abs/2605.30834,5,1,defined_and_cited
+R96,2346,Conformal Prediction Beyond Exchangeability,https://doi.org/10.1214/23-AOS2276,2,1,defined_and_cited
+R97,2347,BROJA Partial Information Decomposition analysis of neural activation functions,https://github.com/sepahead/brojapid-activationfunctions,2,1,defined_and_cited
+R98,2348,[Re] Measures for Investigating the Contextual Modulation of Information Transmission,https://doi.org/10.5281/zenodo.3885793,2,1,defined_and_cited
+R99,2349,`sepahead/nest-simulator`. Public NEST simulator fork whose repository description points to feature branches for PID/information-theoretic work. Accessed 12 July 2026; no direct Prisoma adapter was verified.,https://github.com/sepahead/nest-simulator,2,1,defined_and_cited
+R100,2350,BrainFIBRE: A Foundation Model via Information Decomposition for Brain Microstructure,https://arxiv.org/abs/2607.00573,2,1,defined_and_cited
+R101,2351,Foresight: Failure Detection for Long-Horizon Robotic Manipulation with Action-Conditioned World Model Latents,https://arxiv.org/abs/2606.23085,5,1,defined_and_cited
+R102,2352,ActProbe: Action-Space Probe for Early Failure Detection of Generative Robot Policies,https://arxiv.org/abs/2606.08508,5,1,defined_and_cited
+R103,2353,VLAConf: Calibrated Task-Success Confidence for Vision-Language-Action Models,https://arxiv.org/abs/2605.29605,5,1,defined_and_cited
+R104,2354,Perturbation-Based Uncertainty for Failure Detection in Vision-Language-Action Models,https://arxiv.org/abs/2606.20754,5,1,defined_and_cited
+R105,2355,Early Warning Signals for OpenVLA Failure under Visual Distribution Shift,https://arxiv.org/abs/2606.29699,5,1,defined_and_cited
+R106,2356,"In Search of Insights, Not Magic Bullets: Towards Demystification of the Model Selection Dilemma in Heterogeneous Treatment Effect Estimation",https://proceedings.mlr.press/v202/curth23b.html,3,1,defined_and_cited
+R107,2357,Causal Isotonic Calibration for Heterogeneous Treatment Effects,https://proceedings.mlr.press/v202/van-der-laan23a.html,2,1,defined_and_cited
+R108,2358,Machine Learning Methods for Estimating Personalized Treatment Effects—Insights on Validity from Two Large Trials,https://doi.org/10.1093/aje/kwag065,2,1,defined_and_cited
+R109,2359,How VLAs Fail Differently: Black-Box Action Monitoring Reveals Architecture-Specific Failure Signatures,https://arxiv.org/abs/2605.28726,5,1,defined_and_cited
+R110,2360,SAFE: Multitask Failure Detection for Vision-Language-Action Models,https://arxiv.org/abs/2506.09937,5,1,defined_and_cited
+R111,2361,Rewind-IL: Online Failure Detection and State Respawning for Imitation Learning,https://arxiv.org/abs/2604.16683,5,1,defined_and_cited
+R112,2362,Temporal Difference Calibration in Sequential Tasks: Application to Vision-Language-Action Models,https://arxiv.org/abs/2604.20472,6,1,defined_and_cited
