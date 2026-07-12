@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="assets/prisoma-logo.svg" alt="Prisoma prism — a dark cyberpunk prism splits one incoming beam into three component beams: unique, redundant, synergistic." width="200" height="200" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img alt="Prisoma logo — the summit prism from the sepahead project graph: incoming beams meet a rising mirror blade on a violet hill and disperse into their spectral component rays." src="assets/logo-light.svg" width="200">
+  </picture>
 </p>
 
 # prisoma
