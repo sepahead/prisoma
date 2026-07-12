@@ -59,7 +59,8 @@ being true as the code moves).
   SxPID, hierarchical screening, Shannon invariants (`invariants.rs`: r̄/v̄), PLS supervised
   dimensionality reduction (`pls.rs`, NIPALS-PLS2), discrete 2- and 3-source PID via
   quantization with a Williams–Beer-style `I_min` minimum-specific-information redundancy —
-  **not** discrete `i^sx_∩` (pid-core 0.3.0 additionally ships a genuine discrete `i^sx_∩`
+  **not** discrete `i^sx_∩` (pid-core additionally ships — since 0.3.0, present in the pinned
+  0.4.0 — a genuine discrete `i^sx_∩`
   in `sxpid.rs` for 2–4 sources, but it is **not yet wired into the offline harness**; see
   `grandplan.md` §7.6) — block resampling plus an m-out-of-n **stability envelope** (not an
   n-sample CI), a `pipeline.rs`

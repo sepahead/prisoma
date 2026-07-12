@@ -321,7 +321,7 @@ transform, test on held-out data, and include shuffled-target selection controls
 ## Recommended Actions
 
 1. **DO NOT** interpret continuous kNN PID atoms outside a validated regime (Exp0 + coherence gates).
-2. **DO** prefer low‑d targets (H7 Flow‑as‑Bridge via flow summaries / physical state) when possible.
+2. **DO** prefer low‑d targets (flow‑as‑bridge via flow summaries / physical state; exploratory, `grandplan.md` §9.6) when possible.
 3. **CONSIDER** supervised projection if high-d sources are required, as a new frozen and
    leakage-controlled regime. Discrete `I_min` modes are also wired, but the emitted
    saturation warning is currently advisory rather than a strict fail-closed gate, so they

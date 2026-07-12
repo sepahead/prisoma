@@ -355,7 +355,7 @@ fn print_usage() {
          --pls-components X      PLS components for discrete-pls: a fixed count N
                                  (default: 2), or 'cv' / 'cv:MAX' for per-source LOO-CV
                                  Q² selection (default MAX: 8) - the preregistered
-                                 grandplan §8.2.3 step 5(d) method. In discrete-pls mode
+                                 grandplan §6.2 leakage-safe fitted preprocessing method. In discrete-pls mode
                                  the summary also carries a shuffled-target permutation
                                  control (the selection-inflation floor); read the real
                                  atoms relative to it, and treat in-sample discrete-pls

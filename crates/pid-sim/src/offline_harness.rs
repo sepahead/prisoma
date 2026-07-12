@@ -70,7 +70,7 @@ pub enum PlsComponentSelection {
     /// A fixed count (the historical `--pls-components N`; default 2).
     Fixed(usize),
     /// Per-source leave-one-out CV Q² selection over `1..=max_components`
-    /// (`--pls-components cv[:MAX]`) — the preregistered grandplan §8.2.3
+    /// (`--pls-components cv[:MAX]`) — the preregistered grandplan §6.2
     /// step 5(d) method, via `pid_core::pls_cv_select_components`. The chosen
     /// counts and their Q² are recorded in the screen's `pls_selection`.
     CvQ2 {
@@ -227,7 +227,7 @@ pub struct OfflineVldaPidScreenMetrics {
     pub pls_selection: Option<OfflineVldaPlsSelection>,
     /// `discrete-pls` only: the **shuffled-target permutation control** — the
     /// identical pipeline (PLS fit + discrete PID) run against a seeded row
-    /// shuffle of the target `A` (grandplan §8.2.3 step 5(c)). With the true
+    /// shuffle of the target `A` (grandplan §6.2 leakage-safe fitted preprocessing). With the true
     /// X↔A dependence destroyed, everything these control atoms show is
     /// selection inflation from fitting the projection on the same rows the
     /// PID is computed on. Read the real screen **relative to this floor**,
@@ -772,7 +772,7 @@ fn compute_pid_screen_metrics(
     let pls_projected = match pid_mode {
         PidMode::DiscretePls => {
             // Per-source component choice: fixed, or LOO-CV Q² selection
-            // (grandplan §8.2.3 step 5(d)).
+            // (grandplan §6.2 leakage-safe fitted preprocessing).
             let choose = |x: MatRef<'_>| -> Result<(usize, Option<f64>)> {
                 match pls {
                     PlsComponentSelection::Fixed(k) => Ok((k, None)),
@@ -5268,7 +5268,7 @@ mod tests {
         let vl = &report.metrics.pid_pairs["VL"];
         assert!(vl.discrete_saturation.is_some());
         assert!(vl.mi_source_1_action.is_finite());
-        // Preregistered mitigations (grandplan §8.2.3 step 5): selection
+        // Preregistered mitigations (grandplan §6.2 leakage-safe fitted preprocessing): selection
         // provenance and the shuffled-target permutation control ride along.
         let sel = report.metrics.pls_selection.as_ref().unwrap();
         assert_eq!(sel.method, "fixed");

@@ -738,8 +738,9 @@ impl Observer {
     /// Ingest a `CommandFrame` (action plane). Supplies A, correlated to the
     /// driving sensor via `command.source` (never the command's OWN `stream`,
     /// which is the action plane's delivery position — binding to it would create
-    /// an independent counter that never joins V, the §11 "silent zero-sample"
-    /// trap).
+    /// an independent counter that never joins V — the "silent zero-sample" trap
+    /// (grandplan §8.7 adapter contract: adapter-specific omissions must be explicit
+    /// capabilities, not null fields silently interpreted as data)).
     pub fn on_command(&mut self, command: &CommandFrame) -> anyhow::Result<()> {
         self.ensure_capturing()?;
         if !self.accept_identity(&command.session_id, &command.session.generation) {

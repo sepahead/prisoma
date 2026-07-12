@@ -356,7 +356,7 @@ Completed since the 2026-06-13 pass (docset v10.4 cut). This is a science-honest
 
 - **Axis-provenance enforcement gate (new science-honesty gate).** `--require-axis-provenance-honest` now ENFORCES axis provenance (an opt-in gate mirroring `--require-geometry-pass`; it fails the run on degraded V/L/D/A or absent provenance markers), threaded through `OfflineVldaRunlogOptions`, the bin parser, and the `just safe-adapter` recipe; covered by `axis_provenance_gate_fails_on_degraded_and_on_absent_markers`.
 - **Offline VLDA harness surfaces `safe_adapter` axis provenance.** `{v,l,d,a}_provenance` markers (token_slice:* / hidden_state_pool / action_vector are honest; text_hash_proxy is degraded); covered by `axis_provenance_recognizes_safe_adapter_markers`.
-- **`crates/ncp-observer` pins immutable NCP v0.7.1 / wire 0.7.** The observer now uses
+- **`crates/ncp-observer` pins immutable NCP v0.8.0 / wire 0.8.** (This bullet is kept synced to the current pin, per the CLAUDE.md rule to update every active pin site; the wire-0.8 migration superseded the earlier v0.7.x line.) The observer now uses
   fallible realm validation and explicit open/secure client modes; accepts only
   exact-seq D (`seq == 0` plane observations are dropped); never patches a row
   after its canonical event; moves callback work through a bounded handoff to one

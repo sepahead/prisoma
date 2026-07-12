@@ -659,7 +659,7 @@ graph TB
     PID --> PFeat[Per-window / per-episode\ninformation features]
     Attr --> AFeat[Heatmaps / token scores\nconcept scores / feature rankings]
 
-    PFeat --> Compare[Triangulation layer\nH9]
+    PFeat --> Compare[Triangulation layer\nH4 / exploratory]
     AFeat --> Compare
 
     Compare --> Agree[Compatible under controls\nstronger diagnostic story]
