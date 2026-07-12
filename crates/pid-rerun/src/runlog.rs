@@ -361,6 +361,13 @@ impl<'a> RunLogRerunLogger<'a> {
                 )
             }
             RunLogEvent::ErrorLogged { message, .. } => self.log_text("errors", "ERROR", message),
+            // `RunLogEvent` is `#[non_exhaustive]` upstream. A viewer may not silently drop an
+            // event it cannot render: surface the variant tag so the run log stays auditable.
+            other => self.log_text(
+                "run/unhandled",
+                "WARN",
+                &format!("unrendered run-log event: {}", event_tag(other)),
+            ),
         }
     }
 
@@ -443,6 +450,9 @@ impl<'a> RunLogRerunLogger<'a> {
                 match issue.severity {
                     pid_runlog::ValidationSeverity::Error => "ERROR",
                     pid_runlog::ValidationSeverity::Warning => "WARN",
+                    // `ValidationSeverity` is `#[non_exhaustive]` upstream; never hide an issue
+                    // whose severity this build does not model.
+                    _ => "WARN",
                 },
                 &format!("event={:?}: {}", issue.event_index, issue.message.as_str()),
             )?;
@@ -504,6 +514,19 @@ impl<'a> RunLogRerunLogger<'a> {
             .log(path.into(), &TextLog::new(message).with_level(level))?;
         Ok(())
     }
+}
+
+/// The `type` tag of an event, as serialized in the canonical run log.
+fn event_tag(event: &RunLogEvent) -> String {
+    serde_json::to_value(event)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("type")
+                .and_then(|tag| tag.as_str())
+                .map(str::to_owned)
+        })
+        .unwrap_or_else(|| "unknown".to_owned())
 }
 
 #[cfg(test)]
@@ -586,7 +609,9 @@ mod tests {
                 layer: Some("D_hidden_7".to_string()),
                 modality: Some("vision".to_string()),
                 baseline: Some("zero".to_string()),
-                score_hash: Some("deadbeef".to_string()),
+                score_hash: Some(
+                    "68deff9edee31c80d3a9252f3ac95e4935cd47c1bdb651dd8f1f2c6c0aa61fed".to_string(),
+                ),
                 faithfulness_check: Some(true),
                 artifact_uri: None,
                 metadata: BTreeMap::new(),
@@ -598,7 +623,9 @@ mod tests {
                 layer: None,
                 modality: None,
                 baseline: Some("zero".to_string()),
-                score_hash: Some("cafef00d".to_string()),
+                score_hash: Some(
+                    "9bcc817d29aa98682819e1034eec7e8ccc3facf374520bddc87ee89491dd9668".to_string(),
+                ),
                 faithfulness_check: Some(false),
                 artifact_uri: None,
                 metadata: BTreeMap::new(),
@@ -747,7 +774,9 @@ mod tests {
                 layer: None,
                 modality: Some("vision".to_string()),
                 baseline: Some("zero".to_string()),
-                score_hash: Some("abc".to_string()),
+                score_hash: Some(
+                    "e1e1f202d19d2784d1bc5241db134ebe9bd68a78ba3ecf3f2c84f2f4a708ebeb".to_string(),
+                ),
                 faithfulness_check: Some(true),
                 artifact_uri: Some(npy.to_str().unwrap().to_string()),
                 metadata: BTreeMap::new(),
@@ -782,23 +811,26 @@ mod tests {
     fn logs_manifest_diagnostics() -> Result<()> {
         let rec = RecordingStreamBuilder::new("runlog_manifest_test").buffered()?;
         let events = sample_events();
-        let summary = pid_runlog::summarize_events(&events)?;
-        let manifest = RunManifest {
-            schema_version: RUN_LOG_SCHEMA_VERSION,
-            run_id: summary.run_id.clone(),
-            config_hash: summary.config_hash.clone(),
-            run_log_uri: "memory://rerun-run.jsonl".to_string(),
-            run_log_sha256: Some("abc".to_string()),
-            trace_hash: summary.trace_hash.clone(),
-            logical_trace_hash: summary.logical_trace_hash.clone(),
-            event_count: summary.event_count,
-            validation_errors: summary.validation_errors,
-            validation_warnings: summary.validation_warnings,
-            artifacts: Vec::new(),
-        };
+        // `RunManifest` is `#[non_exhaustive]` in pid-runlog 1.0, so build it through the real
+        // constructor against a real run log rather than hand-rolling the struct.
+        let dir = std::env::temp_dir();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = dir.join(format!("pid-rerun-manifest-{stamp}.jsonl"));
+        let mut writer = pid_runlog::RunLogWriter::create(&path)?;
+        for event in &events {
+            writer.append(event)?;
+        }
+        drop(writer);
+
+        let manifest = pid_runlog::manifest_for_events(&path, &events)?;
         let logged =
             RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, Some(&manifest))?;
         assert_eq!(logged.trace_hash, manifest.trace_hash);
+
+        let _ = std::fs::remove_file(&path);
         Ok(())
     }
 }

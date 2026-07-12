@@ -5,6 +5,15 @@ repository. The purpose of this file is to prevent two failure modes: **hallucin
 capabilities** (claiming things exist that don't) and **doc drift** (statements that stop
 being true as the code moves).
 
+> **Estimator environment: `pid-rs` 1.0.0 (submodule `ac4a780`).** 1.0 makes continuous support
+> **declared, never inferred** — a bare continuous config fails closed. Continuous shared
+> exclusions, pipelines, hierarchy and hyperbolic paths are default-off `experimental-*` features.
+> Datasets declare per-axis population support; every requested estimate is `eligible` /
+> `eligible_with_warning` / `abstained` with a stable reason code, and an **abstained estimate has
+> no numeric placeholder** (no zero, no NaN, no metric event). Exact ties reject a *sample*, never
+> the population law. Never auto-route a failed continuous term to discrete `I_min`: different
+> measure, different estimand, never pooled.
+
 > **Single source of truth for the Rust PID estimators: [`pid-rs`](https://github.com/sepahead/pid-rs).**
 > `pid-core`, `pid-python`, and `pid-runlog` are **not** vendored here — do **not** re-add copies.
 > They are pinned as the `pid-rs/` git submodule; the local crates path-depend into

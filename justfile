@@ -152,6 +152,13 @@ offline-harness-highdim input="crates/pid-sim/fixtures/offline_vlda_highdim_fixt
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{runlog}}
 
+# Positive-path continuous fixture: every axis DECLARED absolutely continuous, equal ambient source
+# dimensions (continuous shared exclusions requires them), tie-free. All 6 requested estimates are
+# produced — the counterpart to `offline-harness`, whose binary-L fixture abstains.
+offline-harness-continuous input="crates/pid-sim/fixtures/offline_vlda_continuous_fixture.json" runlog="outputs/offline_vlda_continuous_runlog.jsonl" summary="outputs/offline_vlda_continuous_summary.json":
+    cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{runlog}}
+
 # Discrete (quantized I_min) PID mode; results carry saturation diagnostics (grandplan §8.1.6).
 offline-harness-discrete input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_discrete_runlog.jsonl" summary="outputs/offline_vlda_discrete_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --pid-mode discrete --discrete-bins 8

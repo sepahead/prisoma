@@ -1,15 +1,27 @@
 use anyhow::{bail, Context, Result};
-use pid_core::{
-    bootstrap_rows_stats, concat_horiz, discrete_mi, distance_concentration_stats,
-    gromov_hyperbolicity, intrinsic_dimension_levina_bickel, permutation_rows_pvalue_with,
-    pid2_isx, pls_cv_select_components, quantize_equal_width, BootstrapConfig,
-    DistanceConcentrationConfig, HyperbolicityConfig, IntrinsicDimConfig, IsxConfig, KsgConfig,
-    LogisticRegression, LogisticRegressionConfig, MatOwned, MatRef, Metric, NegativeHandling,
-    Pid2Config, PlsProjector, RowResampleScheme, Standardizer,
+use pid_core::diagnostics::{
+    distance_concentration_stats, entropy_discrete, intrinsic_dimension_levina_bickel,
+    joint_entropy_discrete, sampled_four_point_delta_summary, DistanceConcentrationConfig,
+    HyperbolicityConfig, IntrinsicDimConfig,
 };
+use pid_core::experimental::continuous::raw_scalars::ksg_mi;
+use pid_core::experimental::continuous::{
+    pid2_isx, pid2_isx_estimate, pid2_resource_estimate, IsxConfig, Pid2Config, Pid2Result,
+};
+use pid_core::experimental::pipelines::{
+    bootstrap_rows_stats, permutation_rows_pvalue_with, pls_cv_select_components,
+    BlockLengthSelection, BootstrapConfig, LogisticRegression, LogisticRegressionConfig,
+    PlsCvCandidateStatus, PlsProjector, ResamplingValidityDeclaration, RowResampleScheme,
+    StatisticCallbackDeclaration,
+};
+use pid_core::stable::continuous::{KsgConfig, NegativeHandling};
+use pid_core::stable::imin::imin_pid2;
+use pid_core::stable::preprocessing::{ConstantColumnPolicy, Standardizer};
+use pid_core::stable::quantized::{EqualWidthQuantizer, QuantizedData, QuantizerConfig};
+use pid_core::{concat_horiz, MatOwned, MatRef, Metric};
 // Re-exported so the harness CLI (and downstream callers) can pick the permutation
 // null without importing pid-core directly.
-pub use pid_core::PermutationScheme;
+pub use pid_core::experimental::pipelines::PermutationScheme;
 use pid_runlog::{
     EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
 };
@@ -106,12 +118,174 @@ impl Default for OfflineVldaHarnessOptions {
     }
 }
 
+/// Declared population support for one `(V,L,D,A)` axis.
+///
+/// Support is **declared by the capture adapter, never inferred from observed values**
+/// (`grandplan.md` §7.14). Exact ties or low observed cardinality can reject a *sample* for a
+/// continuous estimator; they never prove the population law is discrete.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OfflineVldaDeclaredSupport {
+    /// Absolutely continuous, full-dimensional, regular — the only law the continuous
+    /// shared-exclusions / KSG estimators accept.
+    ContinuousRegularFullDimensional,
+    /// Categorical / discrete-valued by construction (e.g. a binary instruction indicator).
+    Categorical,
+    /// Declared, but neither purely continuous nor purely categorical.
+    Mixed,
+}
+
+impl OfflineVldaDeclaredSupport {
+    fn is_continuous(self) -> bool {
+        matches!(self, Self::ContinuousRegularFullDimensional)
+    }
+}
+
+/// Why a requested estimate was not produced.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OfflineVldaAbstainReason {
+    /// An axis in the tuple is declared categorical/mixed: the continuous shared-exclusions
+    /// estimand is not defined for it.
+    DeclaredSupportIncompatibleContinuous,
+    /// No population support was declared for an axis in the tuple. Fail closed.
+    SupportContractUnspecified,
+    /// The observed sample carries exact ties, incompatible with the estimator's ideal i.i.d.,
+    /// unrounded continuous-sample conditions. Rejects the *sample*, not the population law.
+    ObservedSampleIncompatibleExactTies,
+    /// The estimator rejected the k-th-neighbour shell as ambiguous.
+    AmbiguousNeighborShell,
+    /// Continuous shared exclusions requires equal ambient source dimensions (pid-core 1.0). This
+    /// is an estimator-applicability limit — the small-ball gauge is only defined for equal ambient
+    /// dimensions — not a statement about the population law.
+    EstimatorRequiresEqualSourceDimensions,
+}
+
+impl OfflineVldaAbstainReason {
+    /// Stable reason code. These strings are a data contract — do not rename.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::DeclaredSupportIncompatibleContinuous => {
+                "declared_support_incompatible_continuous"
+            }
+            Self::SupportContractUnspecified => "support_contract_unspecified",
+            Self::ObservedSampleIncompatibleExactTies => "observed_sample_incompatible_exact_ties",
+            Self::AmbiguousNeighborShell => "ambiguous_neighbor_shell",
+            Self::EstimatorRequiresEqualSourceDimensions => {
+                "estimator_requires_equal_source_dimensions"
+            }
+        }
+    }
+}
+
+/// Typed outcome of one requested estimate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OfflineVldaEstimateStatus {
+    Eligible,
+    EligibleWithWarning,
+    Abstained,
+}
+
+/// Observed-sample evidence for one axis. Evidence only — never a population-support finding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfflineVldaAxisDiagnostics {
+    pub axis: String,
+    pub rows: usize,
+    pub unique_rows: usize,
+    pub max_row_multiplicity: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declared_support: Option<OfflineVldaDeclaredSupport>,
+}
+
+/// Eligibility/abstention denominators over every *requested* estimate (`grandplan.md` §7.14:
+/// "Report the denominator … Predictive performance among the small easiest subset is not
+/// deployment performance.").
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfflineVldaEstimateDenominators {
+    pub requested: usize,
+    pub support_eligible: usize,
+    pub preflight_passed: usize,
+    pub estimated: usize,
+    pub warned: usize,
+    pub abstained: usize,
+    pub abstained_by_reason: BTreeMap<String, usize>,
+}
+
+impl OfflineVldaEstimateDenominators {
+    fn record(&mut self, outcome: &OfflineVldaOutcome) {
+        self.requested += 1;
+        match outcome.reason_code {
+            None => {
+                self.support_eligible += 1;
+                self.preflight_passed += 1;
+                self.estimated += 1;
+                if outcome.status == OfflineVldaEstimateStatus::EligibleWithWarning {
+                    self.warned += 1;
+                }
+            }
+            Some(reason) => {
+                // A tuple rejected only by finite-sample preflight was still support-eligible.
+                if matches!(
+                    reason,
+                    OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies
+                        | OfflineVldaAbstainReason::AmbiguousNeighborShell
+                        | OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions
+                ) {
+                    self.support_eligible += 1;
+                }
+                self.abstained += 1;
+                *self
+                    .abstained_by_reason
+                    .entry(reason.as_str().to_string())
+                    .or_insert(0) += 1;
+            }
+        }
+    }
+}
+
+/// Status/provenance of one requested estimate, shared by scalar-MI and PID-pair outcomes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaOutcome {
+    pub status: OfflineVldaEstimateStatus,
+    /// The requested measure — `continuous_isx_pid2`, `ksg_mi`, `quantized_imin_pid2`, …
+    pub measure: String,
+    /// Exact estimator revision the value would have come from.
+    pub estimator_revision: String,
+    pub axes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<OfflineVldaAbstainReason>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason_detail: Option<String>,
+    pub axis_diagnostics: Vec<OfflineVldaAxisDiagnostics>,
+}
+
+impl OfflineVldaOutcome {
+    pub fn abstained(&self) -> bool {
+        self.status == OfflineVldaEstimateStatus::Abstained
+    }
+}
+
+/// A requested scalar mutual-information estimate. `value` is present **only** when produced —
+/// there is no numeric placeholder for an abstention.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OfflineVldaMiEstimate {
+    #[serde(flatten)]
+    pub outcome: OfflineVldaOutcome,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<f64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaDataset {
     pub run_id: Option<String>,
     pub source: Option<String>,
     pub model: Option<String>,
     pub task: Option<String>,
+    /// Declared population support per axis (`"v"`, `"l"`, `"d"`, `"a"`). An axis with no
+    /// declaration fails closed as `support_contract_unspecified`.
+    #[serde(default)]
+    pub support: BTreeMap<String, OfflineVldaDeclaredSupport>,
     pub samples: Vec<OfflineVldaSample>,
 }
 
@@ -140,15 +314,27 @@ pub struct OfflineVldaDims {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaMetrics {
-    pub mi_v_action: f64,
-    pub mi_l_action: f64,
-    pub mi_d_action: f64,
-    pub mi_vl_action: f64,
-    pub co_information_v_l_action: f64,
-    pub redundancy_v_l_action: f64,
-    pub unique_v_action: f64,
-    pub unique_l_action: f64,
-    pub synergy_v_l_action: f64,
+    /// Requested marginal-MI estimates. A value is present only when produced; an abstained
+    /// estimate carries a stable reason code and no numeric placeholder.
+    pub mi_v_action: OfflineVldaMiEstimate,
+    pub mi_l_action: OfflineVldaMiEstimate,
+    pub mi_d_action: OfflineVldaMiEstimate,
+    /// `(V,L)→A` aggregates, mirrored from the `VL` pair. Absent when that pair abstained.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mi_vl_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub co_information_v_l_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redundancy_v_l_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unique_v_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unique_l_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub synergy_v_l_action: Option<f64>,
+    /// Eligibility/abstention denominators over every requested estimate (grandplan §7.14).
+    #[serde(default)]
+    pub estimate_denominators: OfflineVldaEstimateDenominators,
     pub success_rate: Option<f64>,
     pub majority_success_accuracy: Option<f64>,
     pub loo_nn_v_success_accuracy: Option<f64>,
@@ -212,15 +398,27 @@ pub struct OfflineVldaMetrics {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPidScreenMetrics {
-    pub mi_v_action: f64,
-    pub mi_l_action: f64,
-    pub mi_d_action: f64,
-    pub mi_vl_action: f64,
-    pub co_information_v_l_action: f64,
-    pub redundancy_v_l_action: f64,
-    pub unique_v_action: f64,
-    pub unique_l_action: f64,
-    pub synergy_v_l_action: f64,
+    /// Requested marginal-MI estimates. A value is present only when produced; an abstained
+    /// estimate carries a stable reason code and no numeric placeholder.
+    pub mi_v_action: OfflineVldaMiEstimate,
+    pub mi_l_action: OfflineVldaMiEstimate,
+    pub mi_d_action: OfflineVldaMiEstimate,
+    /// `(V,L)→A` aggregates, mirrored from the `VL` pair. Absent when that pair abstained.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mi_vl_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub co_information_v_l_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redundancy_v_l_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unique_v_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unique_l_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub synergy_v_l_action: Option<f64>,
+    /// Eligibility/abstention denominators over every requested estimate (grandplan §7.14).
+    #[serde(default)]
+    pub estimate_denominators: OfflineVldaEstimateDenominators,
     pub pid_pairs: BTreeMap<String, OfflineVldaPidPairMetrics>,
     /// `discrete-pls` only: how many components each source's projector used.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -244,14 +442,27 @@ pub struct OfflineVldaPidPairMetrics {
     pub source_1: String,
     pub source_2: String,
     pub target: String,
-    pub mi_source_1_action: f64,
-    pub mi_source_2_action: f64,
-    pub mi_joint_action: f64,
-    pub co_information: f64,
-    pub redundancy: f64,
-    pub unique_source_1: f64,
-    pub unique_source_2: f64,
-    pub synergy: f64,
+    /// Status, requested measure, estimator revision, reason code, and observed axis evidence.
+    #[serde(flatten)]
+    pub outcome: OfflineVldaOutcome,
+    /// Atoms and MI terms exist **only** when the estimate was produced. An abstained pair carries
+    /// no numeric placeholder — not zero, not NaN.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mi_source_1_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mi_source_2_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mi_joint_action: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub co_information: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redundancy: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unique_source_1: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unique_source_2: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub synergy: Option<f64>,
     /// Discrete-mode saturation diagnostics (grandplan §7.6); `None` in continuous mode.
     #[serde(default)]
     pub discrete_saturation: Option<OfflineVldaDiscreteSaturation>,
@@ -539,6 +750,7 @@ pub fn run_offline_vlda_harness_with_options(
     let label_counts = label_counts(&dataset.samples);
     let analysis = compute_analysis(
         &dataset.samples,
+        &dataset.support,
         &dims,
         options.pid_mode,
         options.discrete_bins,
@@ -703,6 +915,7 @@ pub fn run_offline_vlda_harness_with_options(
 
 fn train_split_pid_report(
     samples: &[OfflineVldaSample],
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     dims: &OfflineVldaDims,
     split: &OfflineVldaHeldoutSplitPlan,
     pid_mode: PidMode,
@@ -725,8 +938,13 @@ fn train_split_pid_report(
     };
     let result = (|| -> Result<(OfflineVldaPreprocessingReport, OfflineVldaPidScreenMetrics)> {
         let prepared = prepare_standardized_embeddings(&train_samples, &train_dims)?;
-        let metrics =
-            compute_pid_screen_metrics_with_control(&prepared, pid_mode, discrete_bins, pls)?;
+        let metrics = compute_pid_screen_metrics_with_control(
+            &prepared,
+            support,
+            pid_mode,
+            discrete_bins,
+            pls,
+        )?;
         Ok((prepared.preprocessing, metrics))
     })();
     let (status, preprocessing, metrics, error) = match result {
@@ -755,6 +973,7 @@ fn train_split_pid_report(
 
 fn compute_pid_screen_metrics(
     prepared: &PreparedVldaMatrices,
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     pid_mode: PidMode,
     discrete_bins: usize,
     pls: PlsComponentSelection,
@@ -778,8 +997,20 @@ fn compute_pid_screen_metrics(
                     PlsComponentSelection::Fixed(k) => Ok((k, None)),
                     PlsComponentSelection::CvQ2 { max_components } => {
                         let cv = pls_cv_select_components(x, a, max_components)?;
-                        let q2 = cv.q2.get(cv.best_components.saturating_sub(1)).copied();
-                        Ok((cv.best_components, q2))
+                        // pid-core 1.0: `best_components` is `None` when no candidate completed
+                        // every predeclared fold, and Q² now lives on the candidate outcome.
+                        let best = cv.best_components.context(
+                            "PLS CV selected no component count (no candidate completed every fold)",
+                        )?;
+                        let q2 = cv
+                            .candidates
+                            .iter()
+                            .find(|candidate| candidate.components == best)
+                            .and_then(|candidate| match candidate.status {
+                                PlsCvCandidateStatus::Complete { q2 } => Some(q2),
+                                _ => None,
+                            });
+                        Ok((best, q2))
                     }
                 }
             };
@@ -810,46 +1041,37 @@ fn compute_pid_screen_metrics(
         None => (v, l, d),
     };
 
-    // Compute per-source MI with A.
+    // Per-source marginal MI with A. Each is a *requested* estimate that may abstain.
     let (mi_v_action, mi_l_action, mi_d_action) = match pid_mode {
         PidMode::Continuous => {
-            let ksg = KsgConfig {
-                negative_handling: NegativeHandling::Allow,
-                ..Default::default()
-            };
+            let ksg = ksg_config();
             (
-                pid_core::ksg_mi(v_eff, a, &ksg)?,
-                pid_core::ksg_mi(l_eff, a, &ksg)?,
-                pid_core::ksg_mi(d_eff, a, &ksg)?,
+                continuous_mi_estimate("V", v_eff, "A", a, support, &ksg)?,
+                continuous_mi_estimate("L", l_eff, "A", a, support, &ksg)?,
+                continuous_mi_estimate("D", d_eff, "A", a, support, &ksg)?,
             )
         }
-        PidMode::Discrete | PidMode::DiscretePls => {
-            let v_bins = quantize_equal_width(v_eff, discrete_bins)?;
-            let l_bins = quantize_equal_width(l_eff, discrete_bins)?;
-            let d_bins = quantize_equal_width(d_eff, discrete_bins)?;
-            let a_bins = quantize_equal_width(a, discrete_bins)?;
-            (
-                discrete_mi(&v_bins, &a_bins, discrete_bins)?,
-                discrete_mi(&l_bins, &a_bins, discrete_bins)?,
-                discrete_mi(&d_bins, &a_bins, discrete_bins)?,
-            )
-        }
+        PidMode::Discrete | PidMode::DiscretePls => (
+            quantized_mi_estimate("V", v_eff, "A", a, support, discrete_bins)?,
+            quantized_mi_estimate("L", l_eff, "A", a, support, discrete_bins)?,
+            quantized_mi_estimate("D", d_eff, "A", a, support, discrete_bins)?,
+        ),
     };
 
     let v_source = OfflineVldaSourceMatrix {
         name: "V",
         matrix: v_eff,
-        mi_action: mi_v_action,
+        mi_action: mi_v_action.value,
     };
     let l_source = OfflineVldaSourceMatrix {
         name: "L",
         matrix: l_eff,
-        mi_action: mi_l_action,
+        mi_action: mi_l_action.value,
     };
     let d_source = OfflineVldaSourceMatrix {
         name: "D",
         matrix: d_eff,
-        mi_action: mi_d_action,
+        mi_action: mi_d_action.value,
     };
     let action_target = OfflineVldaTargetMatrix {
         name: "A",
@@ -858,31 +1080,51 @@ fn compute_pid_screen_metrics(
 
     let (vl_pair, vd_pair, ld_pair) = match pid_mode {
         PidMode::Continuous => {
-            let ksg = KsgConfig {
-                negative_handling: NegativeHandling::Allow,
-                ..Default::default()
-            };
-            let pid_cfg = Pid2Config {
-                ksg: ksg.clone(),
-                isx: IsxConfig {
-                    k: ksg.k,
-                    metric: ksg.metric,
-                    tie_epsilon: ksg.tie_epsilon,
-                    ..Default::default()
-                },
-            };
+            let ksg = ksg_config();
+            let pid_cfg = pid2_config(&ksg);
             (
-                compute_pid_pair_metrics(v_source, l_source, action_target, &pid_cfg)?,
-                compute_pid_pair_metrics(v_source, d_source, action_target, &pid_cfg)?,
-                compute_pid_pair_metrics(l_source, d_source, action_target, &pid_cfg)?,
+                compute_pid_pair_metrics(v_source, l_source, action_target, support, &pid_cfg)?,
+                compute_pid_pair_metrics(v_source, d_source, action_target, support, &pid_cfg)?,
+                compute_pid_pair_metrics(l_source, d_source, action_target, support, &pid_cfg)?,
             )
         }
         PidMode::Discrete | PidMode::DiscretePls => (
-            compute_pid_pair_metrics_discrete(v_source, l_source, action_target, discrete_bins)?,
-            compute_pid_pair_metrics_discrete(v_source, d_source, action_target, discrete_bins)?,
-            compute_pid_pair_metrics_discrete(l_source, d_source, action_target, discrete_bins)?,
+            compute_pid_pair_metrics_discrete(
+                v_source,
+                l_source,
+                action_target,
+                support,
+                discrete_bins,
+            )?,
+            compute_pid_pair_metrics_discrete(
+                v_source,
+                d_source,
+                action_target,
+                support,
+                discrete_bins,
+            )?,
+            compute_pid_pair_metrics_discrete(
+                l_source,
+                d_source,
+                action_target,
+                support,
+                discrete_bins,
+            )?,
         ),
     };
+
+    // Denominators over every requested estimate: three marginal MIs plus three pairs.
+    let mut estimate_denominators = OfflineVldaEstimateDenominators::default();
+    for outcome in [
+        &mi_v_action.outcome,
+        &mi_l_action.outcome,
+        &mi_d_action.outcome,
+    ] {
+        estimate_denominators.record(outcome);
+    }
+    for pair in [&vl_pair, &vd_pair, &ld_pair] {
+        estimate_denominators.record(&pair.outcome);
+    }
 
     let pid_pairs = [
         ("VL".to_string(), vl_pair.clone()),
@@ -895,12 +1137,15 @@ fn compute_pid_screen_metrics(
         mi_v_action,
         mi_l_action,
         mi_d_action,
+        // The `(V,L)→A` aggregates mirror the VL pair, so a VL abstention propagates: a partial
+        // summary must never imply that all three pairs were estimated.
         mi_vl_action: vl_pair.mi_joint_action,
         co_information_v_l_action: vl_pair.co_information,
         redundancy_v_l_action: vl_pair.redundancy,
         unique_v_action: vl_pair.unique_source_1,
         unique_l_action: vl_pair.unique_source_2,
         synergy_v_l_action: vl_pair.synergy,
+        estimate_denominators,
         pid_pairs,
         pls_selection,
         pls_shuffled_target_control: None,
@@ -917,14 +1162,15 @@ const PLS_CONTROL_SEED: u64 = 0x51AF_F1ED;
 /// returned metrics. See `OfflineVldaPidScreenMetrics::pls_shuffled_target_control`.
 fn compute_pid_screen_metrics_with_control(
     prepared: &PreparedVldaMatrices,
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     pid_mode: PidMode,
     discrete_bins: usize,
     pls: PlsComponentSelection,
 ) -> Result<OfflineVldaPidScreenMetrics> {
-    let mut metrics = compute_pid_screen_metrics(prepared, pid_mode, discrete_bins, pls)?;
+    let mut metrics = compute_pid_screen_metrics(prepared, support, pid_mode, discrete_bins, pls)?;
     if pid_mode == PidMode::DiscretePls {
         let shuffled = prepared_with_shuffled_target(prepared, PLS_CONTROL_SEED)?;
-        let control = compute_pid_screen_metrics(&shuffled, pid_mode, discrete_bins, pls)?;
+        let control = compute_pid_screen_metrics(&shuffled, support, pid_mode, discrete_bins, pls)?;
         metrics.pls_shuffled_target_control = Some(Box::new(control));
         metrics.pls_control_seed = Some(PLS_CONTROL_SEED);
     }
@@ -961,12 +1207,12 @@ fn prepared_with_shuffled_target(
     let shuffled_a =
         MatOwned::new(data, n, dim).map_err(|e| anyhow::anyhow!("shuffled target: {e}"))?;
     Ok(PreparedVldaMatrices {
-        v: prepared.v.clone(),
-        l: prepared.l.clone(),
-        d: prepared.d.clone(),
+        v: clone_mat(&prepared.v)?,
+        l: clone_mat(&prepared.l)?,
+        d: clone_mat(&prepared.d)?,
         a: shuffled_a,
-        vl: prepared.vl.clone(),
-        vlda: prepared.vlda.clone(),
+        vl: clone_mat(&prepared.vl)?,
+        vlda: clone_mat(&prepared.vlda)?,
         preprocessing: prepared.preprocessing.clone(),
     })
 }
@@ -1018,6 +1264,12 @@ fn permutation_scheme_label(scheme: PermutationScheme) -> String {
         PermutationScheme::CircularShift { min_shift } => {
             format!("circular_shift(min_shift={min_shift})")
         }
+        PermutationScheme::BlockShuffle { block_size } => {
+            format!("block_shuffle(block_size={block_size})")
+        }
+        // `PermutationScheme` is `#[non_exhaustive]`: never silently mislabel the null that
+        // produced a p-value.
+        other => format!("unknown({other:?})"),
     }
 }
 
@@ -1055,6 +1307,14 @@ pub struct OfflineVldaAtomCi {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPairUncertainty {
     pub pair: String,
+    /// `eligible` or `abstained` — uncertainty is only computed for a pair the continuous
+    /// estimator will actually run.
+    #[serde(default = "eligible_status")]
+    pub status: OfflineVldaEstimateStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<OfflineVldaAbstainReason>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_detail: Option<String>,
     pub redundancy: Option<OfflineVldaAtomCi>,
     pub unique_s1: Option<OfflineVldaAtomCi>,
     pub unique_s2: Option<OfflineVldaAtomCi>,
@@ -1065,6 +1325,10 @@ pub struct OfflineVldaPairUncertainty {
     pub unique_s2_perm_p: Option<f64>,
     pub perm_n_valid_s1: usize,
     pub perm_n_valid_s2: usize,
+}
+
+fn eligible_status() -> OfflineVldaEstimateStatus {
+    OfflineVldaEstimateStatus::Eligible
 }
 
 /// Result of [`compute_offline_pid_uncertainty`].
@@ -1132,48 +1396,91 @@ pub fn compute_offline_pid_uncertainty(
     // Politis–Romano regime); clamp so there is at least one block.
     let subsample_len = (((n / 2) / config.block_size).max(1)) * config.block_size;
 
-    let ksg = KsgConfig {
-        negative_handling: NegativeHandling::Allow,
-        ..Default::default()
-    };
-    let pid_cfg = Pid2Config {
-        ksg: ksg.clone(),
-        isx: IsxConfig {
-            k: ksg.k,
-            metric: ksg.metric,
-            tie_epsilon: ksg.tie_epsilon,
-            ..Default::default()
-        },
-    };
+    let ksg = ksg_config();
+    let pid_cfg = pid2_config(&ksg);
 
-    let pairs_spec: [(&str, MatRef<'_>, MatRef<'_>); 3] =
-        [("VL", v, l), ("VD", v, d), ("LD", l, d)];
+    let pairs_spec: [(&str, &'static str, &'static str, MatRef<'_>, MatRef<'_>); 3] = [
+        ("VL", "V", "L", v, l),
+        ("VD", "V", "D", v, d),
+        ("LD", "L", "D", l, d),
+    ];
     let mut pairs = Vec::with_capacity(3);
-    for (name, s1, s2) in pairs_spec {
+    for (name, axis_1, axis_2, s1, s2) in pairs_spec {
         let mats = [s1, s2, a];
 
+        // Uncertainty is only meaningful for a pair the continuous estimator will actually run.
+        // Preflight exactly as the screens do, and abstain rather than crash.
+        let (_, rejection) =
+            continuous_preflight(&[(axis_1, s1), (axis_2, s2), ("A", a)], &dataset.support);
+        // `pid2_resource_estimate` also rejects structurally-inapplicable pairs (e.g. unequal
+        // ambient source dimensions), so consult it before doing any resampling work.
+        let rejection = rejection.or_else(|| {
+            pid2_resource_estimate(s1, s2, a, &pid_cfg)
+                .err()
+                .map(|err| {
+                    let message = err.to_string();
+                    let reason = abstain_reason_for_error(&message)
+                        .unwrap_or(OfflineVldaAbstainReason::AmbiguousNeighborShell);
+                    (reason, message)
+                })
+        });
+        if let Some((reason, detail)) = rejection {
+            pairs.push(OfflineVldaPairUncertainty {
+                pair: name.to_string(),
+                status: OfflineVldaEstimateStatus::Abstained,
+                reason_code: Some(reason),
+                reason_detail: Some(detail),
+                redundancy: None,
+                unique_s1: None,
+                unique_s2: None,
+                synergy: None,
+                unique_s1_perm_p: None,
+                unique_s2_perm_p: None,
+                perm_n_valid_s1: 0,
+                perm_n_valid_s2: 0,
+            });
+            continue;
+        }
+
         let (redundancy, unique_s1, unique_s2, synergy) = if config.n_boot > 0 {
-            let boot_cfg = BootstrapConfig {
-                n_boot: config.n_boot,
-                block_size: config.block_size,
-                seed: config.seed,
-                alpha: config.alpha,
-            };
+            // pid-core 1.0 requires an explicit resampling-validity declaration. These rows are
+            // episode-grouped and autocorrelated — which is *why* the harness block-subsamples —
+            // so declare weak stationary dependence at the configured block length rather than
+            // asserting independent rows. `--block-size` is fixed before the resampling outcomes
+            // are seen, hence `FixedAPriori`.
+            let validity = ResamplingValidityDeclaration::weakly_dependent_stationary(
+                config.block_size,
+                BlockLengthSelection::FixedAPriori,
+            )?;
+            let boot_cfg = BootstrapConfig::new(
+                config.n_boot,
+                config.block_size,
+                config.seed,
+                config.alpha,
+                validity,
+            )?;
             let scheme = RowResampleScheme::Subsample { subsample_len };
-            let res = bootstrap_rows_stats(&mats, &boot_cfg, scheme, |m| {
+            // pid-core 1.0 preflights the callback's cost, so its output width and per-call
+            // resources must be declared up front. Four atoms per invocation.
+            let per_call = pid2_resource_estimate(s1, s2, a, &pid_cfg)
+                .map_err(|e| anyhow::anyhow!("pid2 resource estimate for {name}: {e}"))?;
+            let callback = StatisticCallbackDeclaration::vector(4, per_call)?;
+            let res = bootstrap_rows_stats(&mats, &boot_cfg, scheme, callback, |m| {
                 let r = pid2_isx(m[0], m[1], m[2], &pid_cfg)?;
                 Ok(vec![r.redundancy, r.unique_s1, r.unique_s2, r.synergy])
             })
             .map_err(|e| anyhow::anyhow!("pid2 bootstrap failed for {name}: {e}"))?;
+            // `stats` is `None` when any replicate failed: pid-core 1.0 refuses to summarize the
+            // successful subset selectively. Abstain from the CI rather than report a biased one.
             let to_ci = |idx: usize| {
-                let s = &res.stats[idx];
+                let s = res.stats.as_ref()?.get(idx)?;
                 Some(OfflineVldaAtomCi {
                     point: s.point_estimate,
-                    ci_low: s.ci_low,
-                    ci_high: s.ci_high,
+                    ci_low: s.percentile_lower,
+                    ci_high: s.percentile_upper,
                     n_valid: s.n_valid,
-                    boot_mean: Some(s.boot_mean),
-                    bias_vs_point: Some(s.boot_mean - s.point_estimate),
+                    boot_mean: Some(s.resample_mean),
+                    bias_vs_point: Some(s.resample_mean - s.point_estimate),
                 })
             };
             (to_ci(0), to_ci(1), to_ci(2), to_ci(3))
@@ -1187,12 +1494,16 @@ pub fn compute_offline_pid_uncertainty(
                 // The scheme decides the null: FullShuffle assumes exchangeable
                 // rows; CircularShift preserves within-series autocorrelation
                 // (the honest null for per-step trajectory captures).
+                let per_call = pid2_resource_estimate(s1, s2, a, &pid_cfg)
+                    .map_err(|e| anyhow::anyhow!("pid2 resource estimate for {name}: {e}"))?;
+                let callback = StatisticCallbackDeclaration::scalar(per_call);
                 let p1 = permutation_rows_pvalue_with(
                     &mats,
                     0,
                     config.n_perm,
                     config.seed,
                     config.permutation_scheme,
+                    callback,
                     |m| Ok(pid2_isx(m[0], m[1], m[2], &pid_cfg)?.unique_s1),
                 )
                 .map_err(|e| anyhow::anyhow!("pid2 permutation (s1) failed for {name}: {e}"))?;
@@ -1202,13 +1513,15 @@ pub fn compute_offline_pid_uncertainty(
                     config.n_perm,
                     config.seed.wrapping_add(1),
                     config.permutation_scheme,
+                    callback,
                     |m| Ok(pid2_isx(m[0], m[1], m[2], &pid_cfg)?.unique_s2),
                 )
                 .map_err(|e| anyhow::anyhow!("pid2 permutation (s2) failed for {name}: {e}"))?;
+                // `p_value` became `tail_fraction: Option<f64>` — `None` when a transform failed.
                 (
-                    p1.p_value.is_finite().then_some(p1.p_value),
+                    p1.tail_fraction.filter(|value| value.is_finite()),
                     p1.n_valid,
-                    p2.p_value.is_finite().then_some(p2.p_value),
+                    p2.tail_fraction.filter(|value| value.is_finite()),
                     p2.n_valid,
                 )
             } else {
@@ -1217,6 +1530,9 @@ pub fn compute_offline_pid_uncertainty(
 
         pairs.push(OfflineVldaPairUncertainty {
             pair: name.to_string(),
+            status: OfflineVldaEstimateStatus::Eligible,
+            reason_code: None,
+            reason_detail: None,
             redundancy,
             unique_s1,
             unique_s2,
@@ -1882,6 +2198,7 @@ struct PreparedVldaMatrices {
 
 fn compute_analysis(
     samples: &[OfflineVldaSample],
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     dims: &OfflineVldaDims,
     pid_mode: PidMode,
     discrete_bins: usize,
@@ -1931,15 +2248,16 @@ fn compute_analysis(
         .map(|split| heldout_episode_disjoint_report(samples, &split.roles));
     let metrics = compute_metrics(
         samples,
+        support,
         &prepared,
         heldout_split.as_ref(),
         pid_mode,
         discrete_bins,
         pls,
     )?;
-    let train_split_pid = heldout_split
-        .as_ref()
-        .map(|split| train_split_pid_report(samples, dims, split, pid_mode, discrete_bins, pls));
+    let train_split_pid = heldout_split.as_ref().map(|split| {
+        train_split_pid_report(samples, support, dims, split, pid_mode, discrete_bins, pls)
+    });
     let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
     let geometry = compute_geometry_report(&prepared);
@@ -1997,7 +2315,11 @@ fn standardize_embedding(
     variables: &mut BTreeMap<String, OfflineVldaPreprocessingVariable>,
 ) -> Result<MatOwned> {
     let raw = MatRef::new(data, n, dim)?;
-    let (standardized, standardizer) = Standardizer::fit_transform(raw)?;
+    // `LeaveCentered` is documented upstream as the pre-1.0 behavior: a constant column stays in
+    // the output, mean-centered but unscaled. Any other policy would change the standardization
+    // provenance hashed below.
+    let (standardized, standardizer) =
+        Standardizer::fit_transform(raw, ConstantColumnPolicy::LeaveCentered)?;
     variables.insert(
         name.to_string(),
         OfflineVldaPreprocessingVariable {
@@ -2005,7 +2327,7 @@ fn standardize_embedding(
             output_dim: dim,
             zero_variance_dims: zero_variance_dims(data, n, dim),
             mean_sha256: pid_runlog::canonical_json_hash(&standardizer.mean().to_vec())?,
-            inv_std_sha256: pid_runlog::canonical_json_hash(&standardizer.inv_std().to_vec())?,
+            inv_std_sha256: pid_runlog::canonical_json_hash(&standardizer.inv_std()?)?,
         },
     );
     Ok(standardized)
@@ -2022,6 +2344,7 @@ fn zero_variance_dims(data: &[f64], n: usize, dim: usize) -> usize {
 
 fn compute_metrics(
     samples: &[OfflineVldaSample],
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     prepared: &PreparedVldaMatrices,
     heldout_split: Option<&OfflineVldaHeldoutSplitPlan>,
     pid_mode: PidMode,
@@ -2029,7 +2352,7 @@ fn compute_metrics(
     pls: PlsComponentSelection,
 ) -> Result<OfflineVldaMetrics> {
     let pid_screen =
-        compute_pid_screen_metrics_with_control(prepared, pid_mode, discrete_bins, pls)?;
+        compute_pid_screen_metrics_with_control(prepared, support, pid_mode, discrete_bins, pls)?;
     let success_labels = success_labels(samples);
     let (success_rate, majority_success_accuracy) = success_metrics(&success_labels);
     let loo_nn_v_success_accuracy = success_labels
@@ -2286,6 +2609,7 @@ fn compute_metrics(
         unique_v_action: pid_screen.unique_v_action,
         unique_l_action: pid_screen.unique_l_action,
         synergy_v_l_action: pid_screen.synergy_v_l_action,
+        estimate_denominators: pid_screen.estimate_denominators.clone(),
         pls_selection: pid_screen.pls_selection.clone(),
         pls_shuffled_target_control: pid_screen.pls_shuffled_target_control.clone(),
         pls_control_seed: pid_screen.pls_control_seed,
@@ -2340,7 +2664,8 @@ fn compute_metrics(
 struct OfflineVldaSourceMatrix<'a> {
     name: &'static str,
     matrix: MatRef<'a>,
-    mi_action: f64,
+    /// The source's marginal MI with the target — `None` when that estimate abstained.
+    mi_action: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2353,39 +2678,412 @@ fn compute_pid_pair_metrics(
     source_1: OfflineVldaSourceMatrix<'_>,
     source_2: OfflineVldaSourceMatrix<'_>,
     target: OfflineVldaTargetMatrix<'_>,
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     pid_cfg: &Pid2Config,
 ) -> Result<OfflineVldaPidPairMetrics> {
+    let axes = [source_1.name, source_2.name, target.name];
+    let empty = |outcome: OfflineVldaOutcome| OfflineVldaPidPairMetrics {
+        source_1: source_1.name.to_string(),
+        source_2: source_2.name.to_string(),
+        target: target.name.to_string(),
+        outcome,
+        mi_source_1_action: None,
+        mi_source_2_action: None,
+        mi_joint_action: None,
+        co_information: None,
+        redundancy: None,
+        unique_source_1: None,
+        unique_source_2: None,
+        synergy: None,
+        discrete_saturation: None,
+    };
+
+    // The estimate is requested only when the COMPLETE source-target tuple is support-compatible
+    // and its observed sample survives preflight.
+    let (diagnostics, rejection) = continuous_preflight(
+        &[
+            (source_1.name, source_1.matrix),
+            (source_2.name, source_2.matrix),
+            (target.name, target.matrix),
+        ],
+        support,
+    );
+    if let Some((reason, detail)) = rejection {
+        return Ok(empty(abstained_outcome(
+            MEASURE_CONTINUOUS_PID2,
+            &axes,
+            diagnostics,
+            reason,
+            detail,
+        )));
+    }
+
     // One estimator pass. `pid2_isx_estimate` already computes the two marginal
     // MIs, the joint MI, and the I^sx redundancy; the atoms, the joint, and the
     // co-information are algebraic in those terms, so recomputing them with
     // standalone `ksg_mi_concat_xy` / `co_information_pairwise` calls (as this
     // fn previously did) was ~2× redundant O(n²) kNN work per pair for
     // bit-identical results (same estimator code paths, `Allow` forced).
-    let est =
-        pid_core::pid2_isx_estimate(source_1.matrix, source_2.matrix, target.matrix, pid_cfg)?;
-    let pid = pid_core::Pid2Result::from_estimate(est.clone());
+    let est = match pid2_isx_estimate(source_1.matrix, source_2.matrix, target.matrix, pid_cfg) {
+        Ok(est) => est,
+        Err(err) => {
+            let message = err.to_string();
+            return match abstain_reason_for_error(&message) {
+                Some(reason) => Ok(empty(abstained_outcome(
+                    MEASURE_CONTINUOUS_PID2,
+                    &axes,
+                    diagnostics,
+                    reason,
+                    message,
+                ))),
+                None => Err(anyhow::anyhow!(
+                    "pid2_isx({}, {} -> {}) failed: {message}",
+                    source_1.name,
+                    source_2.name,
+                    target.name
+                )),
+            };
+        }
+    };
+    let pid = Pid2Result::from_estimate(est)?;
     Ok(OfflineVldaPidPairMetrics {
         source_1: source_1.name.to_string(),
         source_2: source_2.name.to_string(),
         target: target.name.to_string(),
+        outcome: eligible_outcome(MEASURE_CONTINUOUS_PID2, &axes, diagnostics),
         mi_source_1_action: source_1.mi_action,
         mi_source_2_action: source_2.mi_action,
-        mi_joint_action: est.mi_s1s2_t,
-        co_information: est.mi_s1_t + est.mi_s2_t - est.mi_s1s2_t,
-        redundancy: pid.redundancy,
-        unique_source_1: pid.unique_s1,
-        unique_source_2: pid.unique_s2,
-        synergy: pid.synergy,
+        mi_joint_action: Some(est.mi_s1s2_t),
+        co_information: Some(est.mi_s1_t + est.mi_s2_t - est.mi_s1s2_t),
+        redundancy: Some(pid.redundancy),
+        unique_source_1: Some(pid.unique_s1),
+        unique_source_2: Some(pid.unique_s2),
+        synergy: Some(pid.synergy),
         discrete_saturation: None,
     })
 }
 
+/// Exact estimator revision stamped on every requested estimate. Update with the submodule pin.
+const ESTIMATOR_REVISION: &str = "pid-core 1.0.0 (pid-rs ac4a780)";
+
+const MEASURE_CONTINUOUS_MI: &str = "ksg_mi";
+const MEASURE_CONTINUOUS_PID2: &str = "continuous_isx_pid2";
+const MEASURE_QUANTIZED_MI: &str = "plugin_quantized_mi";
+const MEASURE_QUANTIZED_PID2: &str = "quantized_imin_pid2";
+
+/// Observed-sample evidence for one axis.
+///
+/// Evidence, not a population-support finding: exact ties reject the sample for a continuous
+/// estimator but do not establish that the population law is discrete.
+fn axis_diagnostics(
+    axis: &str,
+    matrix: MatRef<'_>,
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
+) -> OfflineVldaAxisDiagnostics {
+    let mut counts: BTreeMap<Vec<u64>, usize> = BTreeMap::new();
+    for i in 0..matrix.nrows() {
+        let key: Vec<u64> = matrix.row(i).iter().map(|value| value.to_bits()).collect();
+        *counts.entry(key).or_insert(0) += 1;
+    }
+    OfflineVldaAxisDiagnostics {
+        axis: axis.to_string(),
+        rows: matrix.nrows(),
+        unique_rows: counts.len(),
+        max_row_multiplicity: counts.values().copied().max().unwrap_or(0),
+        declared_support: support.get(&axis.to_ascii_lowercase()).copied(),
+    }
+}
+
+/// Declared-support, then observed-sample, preflight for a continuous estimate over `axes`.
+///
+/// A continuous estimate is requested only when **every** axis of the complete source–target tuple
+/// declares an absolutely-continuous population law *and* the observed sample survives the
+/// exact-tie check. The declared checks run first: they are statements about the estimand and hold
+/// regardless of what this particular sample looks like.
+fn continuous_preflight(
+    axes: &[(&str, MatRef<'_>)],
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
+) -> (
+    Vec<OfflineVldaAxisDiagnostics>,
+    Option<(OfflineVldaAbstainReason, String)>,
+) {
+    let diagnostics: Vec<OfflineVldaAxisDiagnostics> = axes
+        .iter()
+        .map(|(name, matrix)| axis_diagnostics(name, *matrix, support))
+        .collect();
+
+    let undeclared: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.declared_support.is_none())
+        .map(|d| d.axis.as_str())
+        .collect();
+    if !undeclared.is_empty() {
+        let detail = format!(
+            "no declared population support for axis/axes: {}",
+            undeclared.join(", ")
+        );
+        return (
+            diagnostics,
+            Some((OfflineVldaAbstainReason::SupportContractUnspecified, detail)),
+        );
+    }
+
+    let incompatible: Vec<String> = diagnostics
+        .iter()
+        .filter(|d| d.declared_support.is_some_and(|s| !s.is_continuous()))
+        .map(|d| format!("{} declared {:?}", d.axis, d.declared_support.unwrap()))
+        .collect();
+    if !incompatible.is_empty() {
+        let detail = format!(
+            "continuous shared-exclusions estimand is undefined for: {}",
+            incompatible.join(", ")
+        );
+        return (
+            diagnostics,
+            Some((
+                OfflineVldaAbstainReason::DeclaredSupportIncompatibleContinuous,
+                detail,
+            )),
+        );
+    }
+
+    let tied: Vec<String> = diagnostics
+        .iter()
+        .filter(|d| d.max_row_multiplicity > 1)
+        .map(|d| {
+            format!(
+                "{} ({} unique rows of {}, max multiplicity {})",
+                d.axis, d.unique_rows, d.rows, d.max_row_multiplicity
+            )
+        })
+        .collect();
+    if !tied.is_empty() {
+        let detail = format!(
+            "observed exact ties reject this sample for the continuous estimator; they do not \
+             identify the population law: {}",
+            tied.join("; ")
+        );
+        return (
+            diagnostics,
+            Some((
+                OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies,
+                detail,
+            )),
+        );
+    }
+
+    (diagnostics, None)
+}
+
+/// Classify a pid-core estimator failure as an abstention reason.
+///
+/// `None` means the error is not a known support / finite-sample rejection and must propagate — a
+/// genuine bug is never silently converted into an abstention.
+fn abstain_reason_for_error(message: &str) -> Option<OfflineVldaAbstainReason> {
+    let lowered = message.to_ascii_lowercase();
+    if lowered.contains("dimension mismatch") || lowered.contains("equal ambient source dimensions")
+    {
+        Some(OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions)
+    } else if lowered.contains("shell") || lowered.contains("ambiguous") {
+        Some(OfflineVldaAbstainReason::AmbiguousNeighborShell)
+    } else if lowered.contains("ties") || lowered.contains("continuous-sample") {
+        Some(OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies)
+    } else {
+        None
+    }
+}
+
+fn abstained_outcome(
+    measure: &str,
+    axes: &[&str],
+    diagnostics: Vec<OfflineVldaAxisDiagnostics>,
+    reason: OfflineVldaAbstainReason,
+    detail: String,
+) -> OfflineVldaOutcome {
+    OfflineVldaOutcome {
+        status: OfflineVldaEstimateStatus::Abstained,
+        measure: measure.to_string(),
+        estimator_revision: ESTIMATOR_REVISION.to_string(),
+        axes: axes.iter().map(|a| (*a).to_string()).collect(),
+        reason_code: Some(reason),
+        reason_detail: Some(detail),
+        axis_diagnostics: diagnostics,
+    }
+}
+
+fn eligible_outcome(
+    measure: &str,
+    axes: &[&str],
+    diagnostics: Vec<OfflineVldaAxisDiagnostics>,
+) -> OfflineVldaOutcome {
+    OfflineVldaOutcome {
+        status: OfflineVldaEstimateStatus::Eligible,
+        measure: measure.to_string(),
+        estimator_revision: ESTIMATOR_REVISION.to_string(),
+        axes: axes.iter().map(|a| (*a).to_string()).collect(),
+        reason_code: None,
+        reason_detail: None,
+        axis_diagnostics: diagnostics,
+    }
+}
+
+/// One requested continuous marginal MI, `I(source; target)`.
+fn continuous_mi_estimate(
+    source_name: &'static str,
+    source: MatRef<'_>,
+    target_name: &'static str,
+    target: MatRef<'_>,
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
+    ksg: &KsgConfig,
+) -> Result<OfflineVldaMiEstimate> {
+    let axes = [source_name, target_name];
+    let (diagnostics, rejection) =
+        continuous_preflight(&[(source_name, source), (target_name, target)], support);
+    if let Some((reason, detail)) = rejection {
+        return Ok(OfflineVldaMiEstimate {
+            outcome: abstained_outcome(MEASURE_CONTINUOUS_MI, &axes, diagnostics, reason, detail),
+            value: None,
+        });
+    }
+    match ksg_mi(source, target, ksg) {
+        Ok(value) => Ok(OfflineVldaMiEstimate {
+            outcome: eligible_outcome(MEASURE_CONTINUOUS_MI, &axes, diagnostics),
+            value: Some(value),
+        }),
+        Err(err) => {
+            let message = err.to_string();
+            match abstain_reason_for_error(&message) {
+                Some(reason) => Ok(OfflineVldaMiEstimate {
+                    outcome: abstained_outcome(
+                        MEASURE_CONTINUOUS_MI,
+                        &axes,
+                        diagnostics,
+                        reason,
+                        message,
+                    ),
+                    value: None,
+                }),
+                None => Err(anyhow::anyhow!(
+                    "ksg_mi({source_name}, {target_name}) failed: {message}"
+                )),
+            }
+        }
+    }
+}
+
+/// One requested quantized marginal MI.
+///
+/// The quantized estimand is defined for any declared support, so it carries no continuity
+/// preflight. It is a **different measure** with its own estimand identity and output namespace —
+/// never a substitute for an abstained continuous estimate (`grandplan.md` §7.6).
+fn quantized_mi_estimate(
+    source_name: &'static str,
+    source: MatRef<'_>,
+    target_name: &'static str,
+    target: MatRef<'_>,
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
+    bins: usize,
+) -> Result<OfflineVldaMiEstimate> {
+    let axes = [source_name, target_name];
+    let diagnostics = vec![
+        axis_diagnostics(source_name, source, support),
+        axis_diagnostics(target_name, target, support),
+    ];
+    let source_bins = quantize_rows(source, bins)?;
+    let target_bins = quantize_rows(target, bins)?;
+    Ok(OfflineVldaMiEstimate {
+        outcome: eligible_outcome(MEASURE_QUANTIZED_MI, &axes, diagnostics),
+        value: Some(plugin_discrete_mi(&source_bins, &target_bins)?),
+    })
+}
+
+/// The KSG configuration used by every continuous screen in this harness.
+///
+/// pid-core 1.0 fails closed on `SupportContract::Unspecified`: the caller must state the
+/// population-law assumption. `assume_regular_full_dimensional` asserts that every marginal and
+/// joint law in the call is full-dimensional and absolutely continuous. It is an *assertion*, not
+/// a proof; eligibility for a given tuple is decided by `continuous_preflight`.
+///
+/// `NegativeHandling::Allow` is mandatory, not a preference: clamping an MI term before the
+/// subtraction breaks the PID identity `Red + Unq1 + Unq2 + Syn = I(S1,S2;T)`.
+fn ksg_config() -> KsgConfig {
+    KsgConfig::assume_regular_full_dimensional().with_negative_handling(NegativeHandling::Allow)
+}
+
+/// The continuous 2-source PID configuration, carrying the same support assertion as [`ksg_config`].
+fn pid2_config(ksg: &KsgConfig) -> Pid2Config {
+    Pid2Config {
+        ksg: ksg.clone(),
+        isx: IsxConfig {
+            k: ksg.k,
+            metric: ksg.metric,
+            tie_epsilon: ksg.tie_epsilon,
+            ..IsxConfig::assume_regular_full_dimensional()
+        },
+    }
+}
+
+/// Fit an equal-width codebook on `x` and quantize `x` with it.
+///
+/// pid-core 1.0 removed the free `quantize_equal_width`; binning now goes through a fitted
+/// `EqualWidthQuantizer` whose edges are part of the estimand. Fitting on `x` itself reproduces the
+/// pre-1.0 in-sample binning exactly. `grandplan.md` §7.6 requires the codebook to be fit on
+/// training rows only in an inferential workflow; these screens are descriptive, and the caller
+/// passes the train split where one exists.
+fn quantize(x: MatRef<'_>, bins: usize) -> Result<QuantizedData> {
+    let quantizer = EqualWidthQuantizer::fit(x, bins, QuantizerConfig::default())
+        .map_err(|e| anyhow::anyhow!("quantizer fit: {e}"))?;
+    quantizer
+        .transform_with_report(x)
+        .map_err(|e| anyhow::anyhow!("quantizer transform: {e}"))
+}
+
+/// Collapse each row's bin tuple into one category id, preserving row-tuple equality.
+fn category_ids(quantized: &QuantizedData) -> Result<Vec<u32>> {
+    let matrix = quantized.matrix.as_ref();
+    // Deterministic tuple->id assignment (BTreeMap, never HashMap — pid-rs determinism convention).
+    let mut ids = BTreeMap::new();
+    let mut out = Vec::with_capacity(matrix.nrows());
+    for i in 0..matrix.nrows() {
+        let next = u32::try_from(ids.len()).context("too many distinct bin tuples for u32")?;
+        let id = *ids.entry(matrix.row(i).to_vec()).or_insert(next);
+        out.push(id);
+    }
+    Ok(out)
+}
+
+fn quantize_rows(x: MatRef<'_>, bins: usize) -> Result<Vec<u32>> {
+    category_ids(&quantize(x, bins)?)
+}
+
+/// Plug-in discrete MI, `H(X) + H(Y) - H(X,Y)`, over row-tuple categories.
+///
+/// Replaces pid-core's removed `discrete_mi`, which computed exactly this.
+fn plugin_discrete_mi(x: &[u32], y: &[u32]) -> Result<f64> {
+    let h_x = entropy_discrete(x).map_err(|e| anyhow::anyhow!("entropy: {e}"))?;
+    let h_y = entropy_discrete(y).map_err(|e| anyhow::anyhow!("entropy: {e}"))?;
+    let h_xy =
+        joint_entropy_discrete(&[x, y]).map_err(|e| anyhow::anyhow!("joint entropy: {e}"))?;
+    Ok(h_x + h_y - h_xy)
+}
+
+/// pid-core 1.0 drops `Clone` on `MatOwned`; rebuild it row-wise.
+fn clone_mat(m: &MatOwned) -> Result<MatOwned> {
+    let source = m.as_ref();
+    let (nrows, ncols) = (source.nrows(), source.ncols());
+    let mut data = Vec::with_capacity(nrows * ncols);
+    for i in 0..nrows {
+        data.extend_from_slice(source.row(i));
+    }
+    MatOwned::new(data, nrows, ncols).map_err(|e| anyhow::anyhow!("clone matrix: {e}"))
+}
+
 /// Fraction of rows whose bin pattern is unique (1.0 = every sample in its own bin).
-fn unique_row_fraction(bins: &[Vec<usize>]) -> f64 {
+fn unique_row_fraction<T: std::hash::Hash + Eq>(bins: &[T]) -> f64 {
     if bins.is_empty() {
         return 0.0;
     }
-    let unique: std::collections::HashSet<&Vec<usize>> = bins.iter().collect();
+    let unique: std::collections::HashSet<&T> = bins.iter().collect();
     unique.len() as f64 / bins.len() as f64
 }
 
@@ -2398,32 +3096,47 @@ fn compute_pid_pair_metrics_discrete(
     source_1: OfflineVldaSourceMatrix<'_>,
     source_2: OfflineVldaSourceMatrix<'_>,
     target: OfflineVldaTargetMatrix<'_>,
+    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     num_bins: usize,
 ) -> Result<OfflineVldaPidPairMetrics> {
-    let pid = pid_core::discrete_pid2(source_1.matrix, source_2.matrix, target.matrix, num_bins)?;
-    // Compute MI(S1,S2;T) for the co-information term.
-    let s1s2 = concat_horiz(source_1.matrix, source_2.matrix)?;
-    let s1s2_bins = quantize_equal_width(s1s2.as_ref(), num_bins)?;
-    let t_bins = quantize_equal_width(target.matrix, num_bins)?;
-    let mi_s1s2_t = discrete_mi(&s1s2_bins, &t_bins, num_bins)?;
+    let axes = [source_1.name, source_2.name, target.name];
+    // The quantized `I_min` estimand is defined for any declared support, so there is no continuity
+    // preflight here. It is a DIFFERENT measure with its own estimand identity and output
+    // namespace — never an automatic substitute for an abstained continuous estimate, and never
+    // pooled with one (grandplan §7.6).
+    let pair_diagnostics = vec![
+        axis_diagnostics(source_1.name, source_1.matrix, support),
+        axis_diagnostics(source_2.name, source_2.matrix, support),
+        axis_diagnostics(target.name, target.matrix, support),
+    ];
+    let s1_q = quantize(source_1.matrix, num_bins)?;
+    let s2_q = quantize(source_2.matrix, num_bins)?;
+    let t_q = quantize(target.matrix, num_bins)?;
+    let pid = imin_pid2(
+        s1_q.matrix.as_ref(),
+        s2_q.matrix.as_ref(),
+        t_q.matrix.as_ref(),
+    )?;
+    // `IminPid2Result` carries the joint MI of the same quantized variables, so the atoms and the
+    // co-information stay on one consistent decomposition (Red + U1 + U2 + Syn = mi_s1s2_t).
+    // Recomputing it from a separately-binned concat could break that identity.
+    let mi_s1s2_t = pid.mi_s1s2_t;
     // Co-information: MI(S1;T) + MI(S2;T) - MI(S1,S2;T)
     let co_information = pid.mi_s1_t + pid.mi_s2_t - mi_s1s2_t;
     // Saturation diagnostics (grandplan §7.6).
-    let s1_bins = quantize_equal_width(source_1.matrix, num_bins)?;
-    let s2_bins = quantize_equal_width(source_2.matrix, num_bins)?;
-    let joint_bins: Vec<Vec<usize>> = s1s2_bins
+    let s1_ids = category_ids(&s1_q)?;
+    let s2_ids = category_ids(&s2_q)?;
+    let t_ids = category_ids(&t_q)?;
+    let joint_ids: Vec<(u32, u32, u32)> = s1_ids
         .iter()
-        .zip(&t_bins)
-        .map(|(st, t)| {
-            let mut row = st.clone();
-            row.extend_from_slice(t);
-            row
-        })
+        .zip(&s2_ids)
+        .zip(&t_ids)
+        .map(|((&s1, &s2), &t)| (s1, s2, t))
         .collect();
-    let unique_fraction_source_1 = unique_row_fraction(&s1_bins);
-    let unique_fraction_source_2 = unique_row_fraction(&s2_bins);
-    let unique_fraction_target = unique_row_fraction(&t_bins);
-    let unique_fraction_joint = unique_row_fraction(&joint_bins);
+    let unique_fraction_source_1 = unique_row_fraction(&s1_ids);
+    let unique_fraction_source_2 = unique_row_fraction(&s2_ids);
+    let unique_fraction_target = unique_row_fraction(&t_ids);
+    let unique_fraction_joint = unique_row_fraction(&joint_ids);
     let saturation_warning = [
         unique_fraction_source_1,
         unique_fraction_source_2,
@@ -2432,18 +3145,28 @@ fn compute_pid_pair_metrics_discrete(
     ]
     .iter()
     .any(|&fraction| fraction > OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX);
+    let mut outcome = eligible_outcome(MEASURE_QUANTIZED_PID2, &axes, pair_diagnostics);
+    if saturation_warning {
+        outcome.status = OfflineVldaEstimateStatus::EligibleWithWarning;
+        outcome.reason_detail = Some(
+            "quantized plug-in entropies are saturated: nearly every sample occupies its own \
+             joint bin, so MI measures sample size rather than dependence (grandplan §7.6)"
+                .to_string(),
+        );
+    }
     Ok(OfflineVldaPidPairMetrics {
         source_1: source_1.name.to_string(),
         source_2: source_2.name.to_string(),
         target: target.name.to_string(),
-        mi_source_1_action: pid.mi_s1_t,
-        mi_source_2_action: pid.mi_s2_t,
-        mi_joint_action: mi_s1s2_t,
-        co_information,
-        redundancy: pid.redundancy,
-        unique_source_1: pid.unique_s1,
-        unique_source_2: pid.unique_s2,
-        synergy: pid.synergy,
+        outcome,
+        mi_source_1_action: Some(pid.mi_s1_t),
+        mi_source_2_action: Some(pid.mi_s2_t),
+        mi_joint_action: Some(mi_s1s2_t),
+        co_information: Some(co_information),
+        redundancy: Some(pid.redundancy),
+        unique_source_1: Some(pid.unique_s1),
+        unique_source_2: Some(pid.unique_s2),
+        synergy: Some(pid.synergy),
         discrete_saturation: Some(OfflineVldaDiscreteSaturation {
             unique_fraction_source_1,
             unique_fraction_source_2,
@@ -2545,16 +3268,14 @@ fn compute_temporal_report(
 
 fn compute_geometry_report(prepared: &PreparedVldaMatrices) -> OfflineVldaGeometryReport {
     let metric = Metric::Chebyshev;
-    let intrinsic_cfg = IntrinsicDimConfig {
-        k: OFFLINE_GEOMETRY_INTRINSIC_K,
-        metric,
-    };
-    let distance_cfg = DistanceConcentrationConfig { metric };
-    let hyperbolicity_cfg = HyperbolicityConfig {
-        n_samples: OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES,
-        metric,
-        seed: 0x2026_0509,
-    };
+    let intrinsic_cfg = IntrinsicDimConfig::default()
+        .with_k(OFFLINE_GEOMETRY_INTRINSIC_K)
+        .with_metric(metric);
+    let distance_cfg = DistanceConcentrationConfig::default().with_metric(metric);
+    let hyperbolicity_cfg = HyperbolicityConfig::default()
+        .with_n_samples(OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES)
+        .with_metric(metric)
+        .with_seed(0x2026_0509);
     let mut variables = BTreeMap::new();
     for (name, matrix) in [
         ("V", prepared.v.as_ref()),
@@ -2623,11 +3344,15 @@ fn compute_geometry_variable(
             Some(format!("{err}")),
         ),
     };
-    let (gromov_delta, gromov_error) = match gromov_hyperbolicity(matrix, hyperbolicity_cfg) {
-        Ok(value) if value.is_finite() => (Some(value), None),
-        Ok(_) => (None, Some("gromov delta was non-finite".to_string())),
-        Err(err) => (None, Some(format!("{err}"))),
-    };
+    // pid-core 1.0 renamed `gromov_hyperbolicity` to `sampled_four_point_delta_summary` and returns
+    // a distribution rather than one number. `.mean` is the same sampled-mean delta this field
+    // always held — descriptive only, never a validity gate (`grandplan.md` §7.9).
+    let (gromov_delta, gromov_error) =
+        match sampled_four_point_delta_summary(matrix, hyperbolicity_cfg) {
+            Ok(summary) if summary.mean.is_finite() => (Some(summary.mean), None),
+            Ok(_) => (None, Some("gromov delta was non-finite".to_string())),
+            Err(err) => (None, Some(format!("{err}"))),
+        };
     let gromov_delta_rel = match (gromov_delta, pairwise_max) {
         (Some(delta), Some(diameter)) if diameter > 0.0 => finite_option((2.0 * delta) / diameter),
         _ => None,
@@ -3793,10 +4518,22 @@ fn write_metric_events<W: Write>(
     report: &OfflineVldaReport,
     timestamp_base_ns: u64,
 ) -> Result<u64> {
-    let metrics = [
-        ("offline_vlda.pid.mi_v_action", report.metrics.mi_v_action),
-        ("offline_vlda.pid.mi_l_action", report.metrics.mi_l_action),
-        ("offline_vlda.pid.mi_d_action", report.metrics.mi_d_action),
+    // An abstained estimate emits NO `PidMetric`: there is no numeric placeholder for a value that
+    // was never produced. Its status/reason is emitted as a structured `LabelObserved` instead, so
+    // run-log replay reconstructs the abstention rather than silently seeing a missing metric.
+    let metrics: [(&str, Option<f64>); 9] = [
+        (
+            "offline_vlda.pid.mi_v_action",
+            report.metrics.mi_v_action.value,
+        ),
+        (
+            "offline_vlda.pid.mi_l_action",
+            report.metrics.mi_l_action.value,
+        ),
+        (
+            "offline_vlda.pid.mi_d_action",
+            report.metrics.mi_d_action.value,
+        ),
         ("offline_vlda.pid.mi_vl_action", report.metrics.mi_vl_action),
         (
             "offline_vlda.pid.co_information_v_l_action",
@@ -3819,16 +4556,56 @@ fn write_metric_events<W: Write>(
             report.metrics.synergy_v_l_action,
         ),
     ];
-    for (idx, (name, value)) in metrics.into_iter().enumerate() {
+    let mut idx = 0u64;
+    for (name, value) in metrics {
+        let Some(value) = value else { continue };
         writer.append(&RunLogEvent::PidMetric {
             step: report.dims.samples as u64,
-            timestamp_ns: timestamp_base_ns + idx as u64,
+            timestamp_ns: timestamp_base_ns + idx,
             name: name.to_string(),
             value,
             metadata: offline_vlda_pid_metric_metadata(report, name, None),
         })?;
+        idx += 1;
     }
-    let mut idx = metrics.len() as u64;
+
+    // Structured abstention records + the eligibility denominators.
+    for estimate in [
+        &report.metrics.mi_v_action,
+        &report.metrics.mi_l_action,
+        &report.metrics.mi_d_action,
+    ] {
+        if estimate.outcome.abstained() {
+            writer.append(&RunLogEvent::LabelObserved {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + idx,
+                name: "offline_vlda.pid.abstained".to_string(),
+                value: serde_json::to_value(&estimate.outcome)?,
+                metadata: BTreeMap::new(),
+            })?;
+            idx += 1;
+        }
+    }
+    for (pair_name, pair) in &report.metrics.pid_pairs {
+        if pair.outcome.abstained() {
+            writer.append(&RunLogEvent::LabelObserved {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + idx,
+                name: format!("offline_vlda.pid.abstained.{pair_name}"),
+                value: serde_json::to_value(&pair.outcome)?,
+                metadata: BTreeMap::new(),
+            })?;
+            idx += 1;
+        }
+    }
+    writer.append(&RunLogEvent::LabelObserved {
+        step: report.dims.samples as u64,
+        timestamp_ns: timestamp_base_ns + idx,
+        name: "offline_vlda.pid.estimate_denominators".to_string(),
+        value: serde_json::to_value(&report.metrics.estimate_denominators)?,
+        metadata: BTreeMap::new(),
+    })?;
+    idx += 1;
     for pair in ["VD", "LD"] {
         if let Some(pair_metrics) = report.metrics.pid_pairs.get(pair) {
             write_pid_pair_metric_events(
@@ -4757,15 +5534,15 @@ fn write_train_split_pid_metric_events<W: Write>(
     for (name, value) in [
         (
             "offline_vlda.pid.train_split.mi_v_action",
-            metrics.mi_v_action,
+            metrics.mi_v_action.value,
         ),
         (
             "offline_vlda.pid.train_split.mi_l_action",
-            metrics.mi_l_action,
+            metrics.mi_l_action.value,
         ),
         (
             "offline_vlda.pid.train_split.mi_d_action",
-            metrics.mi_d_action,
+            metrics.mi_d_action.value,
         ),
         (
             "offline_vlda.pid.train_split.mi_vl_action",
@@ -4792,6 +5569,8 @@ fn write_train_split_pid_metric_events<W: Write>(
             metrics.synergy_v_l_action,
         ),
     ] {
+        // Abstained train-split estimates emit no metric event and no placeholder.
+        let Some(value) = value else { continue };
         writer.append(&RunLogEvent::PidMetric {
             step: report.dims.samples as u64,
             timestamp_ns: timestamp_base_ns + *idx,
@@ -4861,6 +5640,8 @@ fn write_pid_pair_metric_events<W: Write>(
             metrics.synergy,
         ),
     ] {
+        // An abstained pair emits no metric events at all — no zero, no NaN.
+        let Some(value) = value else { continue };
         writer.append(&RunLogEvent::PidMetric {
             step: report.dims.samples as u64,
             timestamp_ns: timestamp_base_ns + *idx,
@@ -5030,8 +5811,41 @@ mod tests {
             source: Some("unit_test".to_string()),
             model: Some("fixture_policy".to_string()),
             task: Some("fixture_task".to_string()),
+            // Mixed-support regression fixture. `L` is a binary instruction/condition indicator by
+            // construction — that is a property of this fixture's DGP, declared here, NOT inferred
+            // from the observed cardinality. It exists to prove that unsupported inputs produce a
+            // clean, auditable abstention.
+            support: declared_support(&[
+                (
+                    "v",
+                    OfflineVldaDeclaredSupport::ContinuousRegularFullDimensional,
+                ),
+                ("l", OfflineVldaDeclaredSupport::Categorical),
+                (
+                    "d",
+                    OfflineVldaDeclaredSupport::ContinuousRegularFullDimensional,
+                ),
+                (
+                    "a",
+                    OfflineVldaDeclaredSupport::ContinuousRegularFullDimensional,
+                ),
+            ]),
             samples,
         }
+    }
+
+    /// pid-runlog schema 2 requires a real 64-character hex SHA-256 digest; a stub like "abc" is
+    /// now a validation ERROR rather than a legacy warning.
+    const TEST_INPUT_SHA256: &str =
+        "834c3f1794205b56bc0446f7524d4625fe90809341db76e5acdfa1d581c019f6";
+
+    fn declared_support(
+        entries: &[(&str, OfflineVldaDeclaredSupport)],
+    ) -> BTreeMap<String, OfflineVldaDeclaredSupport> {
+        entries
+            .iter()
+            .map(|(axis, support)| ((*axis).to_string(), *support))
+            .collect()
     }
 
     fn assert_metric_close(actual: Option<f64>, expected: f64) {
@@ -5064,6 +5878,19 @@ mod tests {
             mean_sha256: String::new(),
             inv_std_sha256: String::new(),
         }
+    }
+
+    /// Positive-path fixture: the committed all-continuous dataset.
+    ///
+    /// Declared continuous on every axis, **equal ambient source dimensions** (continuous shared
+    /// exclusions requires them), and tie-free — so the continuous KSG / `I^sx` path stays covered
+    /// even though the mixed-support fixture abstains from it. Loaded from the real committed
+    /// fixture so the tests exercise exactly what ships.
+    pub(super) fn continuous_fixture_dataset() -> OfflineVldaDataset {
+        serde_json::from_str(include_str!(
+            "../fixtures/offline_vlda_continuous_fixture.json"
+        ))
+        .expect("continuous fixture parses")
     }
 
     #[test]
@@ -5248,10 +6075,18 @@ mod tests {
             // I_min identities: Red <= min marginal MI, so uniques are non-negative;
             // atoms computed exactly on one empirical joint are non-negative.
             let eps = 1e-9;
-            assert!(pair.redundancy <= pair.mi_source_1_action.min(pair.mi_source_2_action) + eps);
-            assert!(pair.unique_source_1 >= -eps, "{pair_name} Unq1 negative");
-            assert!(pair.unique_source_2 >= -eps, "{pair_name} Unq2 negative");
-            assert!(pair.synergy >= -eps, "{pair_name} Syn negative");
+            let (red, mi1, mi2, u1, u2, syn) = (
+                pair.redundancy.unwrap(),
+                pair.mi_source_1_action.unwrap(),
+                pair.mi_source_2_action.unwrap(),
+                pair.unique_source_1.unwrap(),
+                pair.unique_source_2.unwrap(),
+                pair.synergy.unwrap(),
+            );
+            assert!(red <= mi1.min(mi2) + eps);
+            assert!(u1 >= -eps, "{pair_name} Unq1 negative");
+            assert!(u2 >= -eps, "{pair_name} Unq2 negative");
+            assert!(syn >= -eps, "{pair_name} Syn negative");
         }
     }
 
@@ -5267,7 +6102,7 @@ mod tests {
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         let vl = &report.metrics.pid_pairs["VL"];
         assert!(vl.discrete_saturation.is_some());
-        assert!(vl.mi_source_1_action.is_finite());
+        assert!(vl.mi_source_1_action.unwrap().is_finite());
         // Preregistered mitigations (grandplan §6.2 leakage-safe fitted preprocessing): selection
         // provenance and the shuffled-target permutation control ride along.
         let sel = report.metrics.pls_selection.as_ref().unwrap();
@@ -5292,9 +6127,9 @@ mod tests {
         // control exists to deliver: in a saturated regime the discrete-pls
         // numbers are all selection/saturation artifact, zero evidence. (The
         // per-pair `discrete_saturation` diagnostic flags the same regime.)
-        assert!(control.mi_v_action.is_finite());
+        assert!(control.mi_v_action.value.unwrap().is_finite());
         assert_eq!(
-            control.mi_v_action, report.metrics.mi_v_action,
+            control.mi_v_action.value, report.metrics.mi_v_action.value,
             "saturated fixture: the inflation floor equals the signal"
         );
         assert!(control.pls_shuffled_target_control.is_none());
@@ -5353,7 +6188,7 @@ mod tests {
         let report = run_offline_vlda_harness(
             dataset.clone(),
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         assert_eq!(report.dims.samples, 16);
@@ -5590,47 +6425,43 @@ mod tests {
         write_offline_vlda_runlog(&runlog_path, Some(&summary_path), None, &dataset, &report)
             .unwrap();
         let events = read_events_from_path(&runlog_path).unwrap();
-        let validation = validate_events(&events);
+        let validation = validate_events(&events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
-        let has_vd_synergy = events.iter().any(|event| {
+        // This is the MIXED-SUPPORT regression fixture: `L` is declared categorical, so every
+        // L-involving continuous term abstains, and `V`(2-d) vs `D`(1-d) is structurally
+        // inapplicable to continuous shared exclusions (equal ambient source dimensions required).
+        // No pair is eligible here, so NO pid metric event may be emitted for any of them — an
+        // abstained estimate has no numeric placeholder, not zero and not NaN.
+        let emitted_pid_pair_metric = events.iter().any(|event| {
             matches!(
                 event,
-                pid_runlog::RunLogEvent::PidMetric { name, metadata, .. }
-                    if name == "offline_vlda.pid.synergy_v_d_action"
-                        && metadata.get("pid_pair").map(String::as_str) == Some("VD")
+                pid_runlog::RunLogEvent::PidMetric { metadata, .. }
+                    if metadata.contains_key("pid_pair")
             )
         });
-        assert!(has_vd_synergy);
-        let has_all_sample_pid_scope = events.iter().any(|event| {
+        assert!(
+            !emitted_pid_pair_metric,
+            "abstained pairs must emit no pid metric events"
+        );
+        // The abstention itself is preserved in the run log, with its stable reason code.
+        for pair in ["VL", "VD", "LD"] {
+            let has_abstention = events.iter().any(|event| {
+                matches!(
+                    event,
+                    pid_runlog::RunLogEvent::LabelObserved { name, .. }
+                        if name == &format!("offline_vlda.pid.abstained.{pair}")
+                )
+            });
+            assert!(has_abstention, "{pair} abstention missing from the run log");
+        }
+        let has_denominators = events.iter().any(|event| {
             matches!(
                 event,
-                pid_runlog::RunLogEvent::PidMetric { name, metadata, .. }
-                    if name == "offline_vlda.pid.synergy_v_d_action"
-                        && metadata.get("pid_pair").map(String::as_str) == Some("VD")
-                        && metadata.get("sample_scope").map(String::as_str) == Some("all_samples")
-                        && metadata.get("heldout_samples_included").map(String::as_str)
-                            == Some("4")
-                        && metadata.get("preprocessing_fit_scope").map(String::as_str)
-                            == Some("all_samples")
+                pid_runlog::RunLogEvent::LabelObserved { name, .. }
+                    if name == "offline_vlda.pid.estimate_denominators"
             )
         });
-        assert!(has_all_sample_pid_scope);
-        let has_train_split_pid_scope = events.iter().any(|event| {
-            matches!(
-                event,
-                pid_runlog::RunLogEvent::PidMetric { name, metadata, .. }
-                    if name == "offline_vlda.pid.train_split.synergy_v_d_action"
-                        && metadata.get("pid_pair").map(String::as_str) == Some("VD")
-                        && metadata.get("sample_scope").map(String::as_str)
-                            == Some("metadata_split_train")
-                        && metadata.get("train_samples").map(String::as_str) == Some("12")
-                        && metadata.get("heldout_samples_excluded").map(String::as_str)
-                            == Some("4")
-                        && metadata.get("preprocessing_fit_scope").map(String::as_str)
-                            == Some("metadata_split_train")
-            )
-        });
-        assert!(has_train_split_pid_scope);
+        assert!(has_denominators);
         let has_heldout_baseline = events.iter().any(|event| {
             matches!(
                 event,
@@ -5829,12 +6660,31 @@ mod tests {
         let summary = summarize_events(&events).unwrap();
         assert_eq!(summary.embedding_contracts, 1);
         assert_eq!(summary.embeddings, 4);
-        assert_eq!(summary.labels, 16);
-        assert_eq!(summary.pid_metrics, 42);
-        assert!(summary.geometry_metrics >= 21);
+        // 16 success labels, plus the structured abstention records and the estimate denominators
+        // (both `LabelObserved`, so that replay reconstructs the abstentions).
+        let success_labels = events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    pid_runlog::RunLogEvent::LabelObserved { name, .. }
+                        if name == "offline_vlda.success"
+                )
+            })
+            .count();
+        assert_eq!(success_labels, 16);
+        assert!(summary.labels > success_labels);
+        // Only the two support-eligible marginal MIs survive on this mixed-support fixture
+        // (`V→A`, `D→A`). Every pair abstains, and the train-split screen abstains too (12 rows
+        // put the continuous estimator into an ambiguous k-th-neighbor shell). 42 -> 2.
+        assert_eq!(summary.pid_metrics, 2);
+        // `L` is binary: duplicate rows give a zero nearest-neighbor distance, so pid-core 1.0
+        // fails its geometry diagnostics closed (degenerate data / ambiguous shell) and records the
+        // reason instead of emitting a number. 21 -> 19.
+        assert!(summary.geometry_metrics >= 19);
         assert_eq!(summary.evaluation_metrics, 142);
-        assert_eq!(summary.pid_metric_events, 42);
-        assert!(summary.geometry_metric_events >= 21);
+        assert_eq!(summary.pid_metric_events, 2);
+        assert!(summary.geometry_metric_events >= 19);
         assert_eq!(summary.evaluation_metric_events, 223);
 
         let _ = std::fs::remove_file(summary_path);
@@ -5893,7 +6743,7 @@ mod tests {
         let report = run_offline_vlda_harness(
             dataset.clone(),
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         assert_eq!(offline_vlda_heldout_class_coverage_status(&report), "warn");
@@ -5923,7 +6773,7 @@ mod tests {
         )
         .unwrap();
         let events = read_events_from_path(&runlog_path).unwrap();
-        let validation = validate_events(&events);
+        let validation = validate_events(&events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
         let has_coverage_error = events.iter().any(|event| {
             matches!(
@@ -5947,7 +6797,7 @@ mod tests {
         let report = run_offline_vlda_harness(
             dataset.clone(),
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         let disjoint = report.heldout_episode_disjoint.as_ref().unwrap();
@@ -5984,7 +6834,7 @@ mod tests {
         )
         .unwrap();
         let events = read_events_from_path(&runlog_path).unwrap();
-        let validation = validate_events(&events);
+        let validation = validate_events(&events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
         let has_disjoint_error = events.iter().any(|event| {
             matches!(
@@ -6059,7 +6909,7 @@ mod tests {
         let base_report = run_offline_vlda_harness(
             dataset,
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         let mut changed_heldout = fixture_dataset();
@@ -6083,7 +6933,7 @@ mod tests {
         let changed_report = run_offline_vlda_harness(
             changed_heldout,
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         let base_train_pid = base_report.train_split_pid.as_ref().unwrap();
@@ -6111,7 +6961,7 @@ mod tests {
         let report = run_offline_vlda_harness(
             dataset.clone(),
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         assert_eq!(report.geometry.gates.status, "warn");
@@ -6139,13 +6989,17 @@ mod tests {
         )
         .unwrap();
         let events = read_events_from_path(&runlog_path).unwrap();
-        let validation = validate_events(&events);
+        let validation = validate_events(&events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
         let summary = summarize_events(&events).unwrap();
         assert_eq!(summary.status, Some(RunStatus::Failed));
         assert_eq!(summary.errors, 1);
-        assert_eq!(summary.geometry_metrics, 21);
-        assert_eq!(summary.geometry_metric_events, 21);
+        // 19, not 21: `L` is a binary axis, so its duplicate rows give a zero nearest-neighbor
+        // distance. pid-core 1.0 fails those geometry diagnostics closed (degenerate data /
+        // ambiguous k-th-neighbor shell) instead of emitting a number, and the reasons are
+        // recorded as `intrinsic_dimension_error` / `distance_concentration_error` in the summary.
+        assert_eq!(summary.geometry_metrics, 19);
+        assert_eq!(summary.geometry_metric_events, 19);
 
         let _ = std::fs::remove_file(runlog_path);
     }
@@ -6161,7 +7015,7 @@ mod tests {
         let report = run_offline_vlda_harness(
             dataset,
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         assert!(report.heldout_split.is_some());
@@ -6197,7 +7051,7 @@ mod tests {
         let report = run_offline_vlda_harness(
             dataset,
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         assert!(report.metrics.heldout_majority_success_accuracy.is_some());
@@ -6234,7 +7088,7 @@ mod tests {
         let report = run_offline_vlda_harness(
             dataset.clone(),
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         assert_eq!(report.metrics.success_rate, None);
@@ -6264,7 +7118,7 @@ mod tests {
         )
         .unwrap();
         let events = read_events_from_path(&runlog_path).unwrap();
-        let validation = validate_events(&events);
+        let validation = validate_events(&events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
         let has_label_error = events.iter().any(|event| {
             matches!(
@@ -6292,7 +7146,7 @@ mod tests {
         let report = run_offline_vlda_harness(
             dataset.clone(),
             Some("memory://fixture.json".to_string()),
-            Some("abc".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
         )
         .unwrap();
         assert_eq!(report.heldout_split, None);
@@ -6326,7 +7180,7 @@ mod tests {
         )
         .unwrap();
         let events = read_events_from_path(&runlog_path).unwrap();
-        let validation = validate_events(&events);
+        let validation = validate_events(&events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
         let has_split_error = events.iter().any(|event| {
             matches!(
@@ -6363,7 +7217,7 @@ mod tests {
 
     #[test]
     fn pid_uncertainty_continuous_emits_cis_and_perm_pvalues() {
-        let dataset = fixture_dataset();
+        let dataset = continuous_fixture_dataset();
         let cfg = OfflineVldaUncertaintyConfig {
             n_boot: 24,
             n_perm: 40,
@@ -6413,14 +7267,18 @@ mod tests {
 
     #[test]
     fn pid_uncertainty_bootstrap_only_omits_perm_pvalues() {
-        let dataset = fixture_dataset();
+        let dataset = continuous_fixture_dataset();
         let cfg = OfflineVldaUncertaintyConfig {
-            n_boot: 16,
+            n_boot: 24,
             n_perm: 0,
-            ..Default::default()
+            block_size: 1,
+            alpha: 0.05,
+            seed: 7,
+            permutation_scheme: PermutationScheme::FullShuffle,
         };
         let u = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
         let vl = &u.pairs[0];
+        assert_eq!(vl.status, OfflineVldaEstimateStatus::Eligible);
         assert!(vl.redundancy.is_some());
         assert!(vl.unique_s1_perm_p.is_none() && vl.unique_s2_perm_p.is_none());
         assert!(!OfflineVldaUncertaintyConfig::default().enabled());
@@ -6432,7 +7290,7 @@ mod tests {
         // rotations preserve each source's own autocorrelation while breaking
         // its alignment with the others. The fixture has n = 48 rows, so
         // min_shift = 4 leaves 41 admissible offsets — well-formed.
-        let dataset = fixture_dataset();
+        let dataset = continuous_fixture_dataset();
         let cfg = OfflineVldaUncertaintyConfig {
             n_perm: 40,
             permutation_scheme: PermutationScheme::CircularShift { min_shift: 4 },

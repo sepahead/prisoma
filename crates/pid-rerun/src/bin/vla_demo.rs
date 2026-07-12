@@ -11,11 +11,13 @@
 
 use anyhow::Result;
 use ndarray::{s, Array2};
-use pid_core::{
-    distance_concentration_stats, intrinsic_dimension_levina_bickel, pid2_isx,
-    DistanceConcentrationConfig, IntrinsicDimConfig, IsxConfig, KsgConfig, MatRef,
-    NegativeHandling, Pid2Config,
+use pid_core::diagnostics::{
+    distance_concentration_stats, intrinsic_dimension_levina_bickel, DistanceConcentrationConfig,
+    IntrinsicDimConfig,
 };
+use pid_core::experimental::continuous::{pid2_isx, IsxConfig, Pid2Config};
+use pid_core::stable::continuous::{KsgConfig, NegativeHandling};
+use pid_core::MatRef;
 use pid_rerun::adapters::{PidLogger, VlaLogger};
 use pid_rerun::data::generate_synthetic_episode;
 use rerun::RecordingStreamBuilder;
@@ -125,13 +127,13 @@ fn main() -> Result<()> {
         let v_source_2: Vec<f64> = v_window.slice(s![.., 2..3]).iter().cloned().collect();
         let a_subset: Vec<f64> = a_window.slice(s![.., 0..1]).iter().cloned().collect();
 
-        let ksg_config = KsgConfig {
-            negative_handling: NegativeHandling::Allow,
-            ..Default::default()
-        };
+        // pid-core 1.0 fails closed on an unspecified support contract; this demo runs on
+        // synthetic continuous data, so the full-dimensional assertion holds by construction.
+        let ksg_config = KsgConfig::assume_regular_full_dimensional()
+            .with_negative_handling(NegativeHandling::Allow);
         let pid_config = Pid2Config {
             ksg: ksg_config,
-            isx: IsxConfig::default(),
+            isx: IsxConfig::assume_regular_full_dimensional(),
         };
         let v1_mat = MatRef::new(&v_source_1, n, 2).ok();
         let v2_mat = MatRef::new(&v_source_2, n, 1).ok();

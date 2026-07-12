@@ -535,7 +535,7 @@ mod tests {
         bridge.record_request(&request).unwrap();
         bridge.record_response(&response).unwrap();
         let events = read_events(Cursor::new(bridge.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.bridge_records[0].method, "sim.step");
         assert_eq!(state.bridge_records[1].ok, Some(true));
@@ -557,7 +557,7 @@ mod tests {
         let response = bridge.dispatch(&request, &mut handler, 11).unwrap();
         assert!(response.ok);
         let events = read_events(Cursor::new(bridge.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.bridge_records[1].ok, Some(true));
     }
@@ -583,7 +583,7 @@ mod tests {
             .unwrap()
             .contains("safe mode blocked"));
         let events = read_events(Cursor::new(bridge.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.bridge_records[1].ok, Some(false));
     }

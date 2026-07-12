@@ -26,6 +26,39 @@ real embeddings, but state the reason precisely.
 
 ---
 
+## Update (2026-07-12): `pid-rs` 1.0 and the binary-`L` support mismatch
+
+The submodule now pins `pid-rs` **1.0.0** (`ac4a780`). 1.0 makes continuous support **declared,
+never inferred**, and fails closed when a tuple falls outside it. Running the migrated harness
+surfaced a defect that pid-rs 0.4 had been hiding:
+
+**`crates/pid-sim/fixtures/offline_vlda_fixture.json` has a binary `L`** — exactly two values,
+`{-1.0, +1.0}`, eight samples each. Every continuous `(V,L)→A` and `(L,D)→A` screen, and `MI(L;A)`,
+had therefore been running an absolutely-continuous KSG/`I^sx_∩` estimator over a two-valued
+variable. pid-rs 0.4 returned numbers for it; 1.0 refuses (`ambiguous k-th-neighbor shell`).
+
+This is a **corrected scientific status, not a regression in estimator capability**. Those estimates
+were outside the estimator's valid support contract all along. They are now reported as structured
+abstentions with stable reason codes, and the harness produces no numeric placeholder for them.
+
+Two further constraints surfaced the same way, and are reported honestly rather than worked around:
+
+- Continuous shared exclusions requires **equal ambient source dimensions**, so `V` (2-d) paired
+  with `D` (1-d) is structurally inapplicable on that fixture
+  (`estimator_requires_equal_source_dimensions`).
+- The binary `L` axis is degenerate for the geometry diagnostics too (duplicate rows give a zero
+  nearest-neighbour distance), so its intrinsic-dimension and distance-concentration diagnostics now
+  fail closed and record a reason instead of emitting a number.
+
+Note the direction of the inference: exact ties and low observed cardinality reject a **sample** for
+the continuous estimator. They do **not** prove the population law is discrete. Support is declared
+by the capture adapter; it is never read off the data.
+
+`exp0`'s aggregate verdict is **unchanged** under 1.0: `Status: NO-GO`, 6/9 independent-additive
+passes, 9 monotonicity violations, 3 invariant-bound violations. The gate verdicts below stand.
+
+---
+
 ## Observed Results
 
 ### NaN Values for Red(disj)

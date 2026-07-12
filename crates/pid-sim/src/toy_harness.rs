@@ -1,7 +1,10 @@
 use anyhow::{bail, Context, Result};
-use pid_core::{
-    co_information_pairwise, pid2_isx, IsxConfig, KsgConfig, MatRef, NegativeHandling, Pid2Config,
+use pid_core::experimental::continuous::raw_scalars::{
+    co_information_pairwise, ksg_mi, ksg_mi_concat_xy,
 };
+use pid_core::experimental::continuous::{pid2_isx, IsxConfig, Pid2Config};
+use pid_core::stable::continuous::{KsgConfig, NegativeHandling};
+use pid_core::MatRef;
 use pid_runlog::{
     EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
 };
@@ -283,23 +286,25 @@ fn compute_pid_metrics(samples: &[ToyEpisodeSample]) -> Result<ToyPidMetrics> {
     let vision = MatRef::new(&vision, n, 1)?;
     let language = MatRef::new(&language, n, 1)?;
     let action = MatRef::new(&action, n, 1)?;
-    let ksg = KsgConfig {
-        negative_handling: NegativeHandling::Allow,
-        ..Default::default()
-    };
+    // pid-core 1.0 fails closed unless the caller asserts the population law. The toy harness's
+    // (V,L,A) are synthetic continuous variables, so the full-dimensional absolutely-continuous
+    // assertion holds by construction. `Allow` preserves the PID identity (never clamp before the
+    // subtraction).
+    let ksg = KsgConfig::assume_regular_full_dimensional()
+        .with_negative_handling(NegativeHandling::Allow);
     let pid_cfg = Pid2Config {
         ksg: ksg.clone(),
         isx: IsxConfig {
             k: ksg.k,
             metric: ksg.metric,
             tie_epsilon: ksg.tie_epsilon,
-            ..Default::default()
+            ..IsxConfig::assume_regular_full_dimensional()
         },
     };
     let pid = pid2_isx(vision, language, action, &pid_cfg)?;
-    let mi_vision_action = pid_core::ksg_mi(vision, action, &ksg)?;
-    let mi_language_action = pid_core::ksg_mi(language, action, &ksg)?;
-    let mi_joint_action = pid_core::ksg_mi_concat_xy(vision, language, action, &ksg)?;
+    let mi_vision_action = ksg_mi(vision, action, &ksg)?;
+    let mi_language_action = ksg_mi(language, action, &ksg)?;
+    let mi_joint_action = ksg_mi_concat_xy(vision, language, action, &ksg)?;
     let co_information = co_information_pairwise(vision, language, action, &ksg)?;
     Ok(ToyPidMetrics {
         mi_vision_action,
@@ -545,7 +550,7 @@ mod tests {
         write_toy_harness_summary(&summary_path, &report).unwrap();
         write_toy_harness_runlog(&runlog_path, Some(&summary_path), &report).unwrap();
         let events = pid_runlog::read_events_from_path(&runlog_path).unwrap();
-        let validation = pid_runlog::validate_events(&events);
+        let validation = pid_runlog::validate_events(&events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
         let summary = pid_runlog::summarize_events(&events).unwrap();
         assert_eq!(summary.run_id.as_deref(), Some("toy-vla-baseline-run"));

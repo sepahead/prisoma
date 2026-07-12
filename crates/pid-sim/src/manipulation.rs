@@ -328,7 +328,7 @@ mod tests {
         };
         let episode =
             run_push_episode(&mut backend, &PhysicsWorldConfig::default(), &params).unwrap();
-        let validation = pid_runlog::validate_events(&episode.events);
+        let validation = pid_runlog::validate_events(&episode.events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
         // Flow_gt equals consecutive pose deltas.
         let flow = crate::verify_flow_gt(&episode.events, 1e-9);
@@ -374,7 +374,7 @@ mod tests {
         #[test]
         fn rapier_push_episode_log_is_valid_and_flow_consistent() {
             let ep = run_with_impulse(0.2);
-            let validation = pid_runlog::validate_events(&ep.events);
+            let validation = pid_runlog::validate_events(&ep.events).unwrap();
             assert!(validation.is_valid(), "{:?}", validation.issues);
             // Real contacts occurred (cube on ground).
             assert!(ep.max_contact_count >= 1);

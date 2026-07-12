@@ -31,7 +31,7 @@ fn main() -> Result<()> {
     }
 
     let events = pid_runlog::read_events_from_path(&path)?;
-    let validation = pid_runlog::validate_events(&events);
+    let validation = pid_runlog::validate_events(&events)?;
     let flow = pid_sim::verify_flow_gt(&events, tolerance);
     println!("runlog_valid={}", validation.is_valid());
     println!("runlog_errors={}", validation.errors);

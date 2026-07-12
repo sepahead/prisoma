@@ -59,7 +59,13 @@ rapier = ["dep:rapier3d-f64"]
 [dependencies]
 anyhow = "1.0"
 base64 = "0.22"
-pid-core = { path = "../../pid-rs/crates/pid-core" }
+# pid-core 1.0 ships an empty default feature set: the continuous shared-exclusions estimators and
+# the resampling/PLS pipelines the harnesses depend on are default-off research surfaces. Enabling a
+# feature is a software switch, not a validity claim (`grandplan.md` §7.1).
+pid-core = { path = "../../pid-rs/crates/pid-core", features = [
+    "experimental-continuous",
+    "experimental-pipelines",
+] }
 pid-bridge = { path = "../pid-bridge" }
 pid-rerun = { path = "../pid-rerun" }
 pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }

@@ -3,22 +3,380 @@
   "source": "checked_in_fixture",
   "model": "deterministic_fixture_policy",
   "task": "offline_vlda_fixture_task",
+  "support": {
+    "v": "continuous_regular_full_dimensional",
+    "l": "categorical",
+    "d": "continuous_regular_full_dimensional",
+    "a": "continuous_regular_full_dimensional"
+  },
   "samples": [
-    {"sample_id":"sample-000","episode_id":"episode-000","v":[0.0,0.0],"l":[1.0],"d":[0.3],"a":[0.3],"labels":{"success":false},"metadata":{"split":"train"}},
-    {"sample_id":"sample-001","episode_id":"episode-000","v":[0.066666666667,0.004444444444],"l":[-1.0],"d":[-0.32],"a":[-0.253333333333],"labels":{"success":true},"metadata":{"split":"train"}},
-    {"sample_id":"sample-002","episode_id":"episode-001","v":[0.133333333333,0.017777777778],"l":[1.0],"d":[0.26],"a":[0.393333333333],"labels":{"success":true},"metadata":{"split":"train"}},
-    {"sample_id":"sample-003","episode_id":"episode-001","v":[0.2,0.04],"l":[-1.0],"d":[-0.36],"a":[-0.16],"labels":{"success":true},"metadata":{"split":"train"}},
-    {"sample_id":"sample-004","episode_id":"episode-002","v":[0.266666666667,0.071111111111],"l":[1.0],"d":[0.22],"a":[0.486666666667],"labels":{"success":true},"metadata":{"split":"train"}},
-    {"sample_id":"sample-005","episode_id":"episode-002","v":[0.333333333333,0.111111111111],"l":[-1.0],"d":[-0.4],"a":[-0.066666666667],"labels":{"success":false},"metadata":{"split":"train"}},
-    {"sample_id":"sample-006","episode_id":"episode-003","v":[0.4,0.16],"l":[1.0],"d":[0.18],"a":[0.58],"labels":{"success":true},"metadata":{"split":"train"}},
-    {"sample_id":"sample-007","episode_id":"episode-003","v":[0.466666666667,0.217777777778],"l":[-1.0],"d":[-0.44],"a":[0.026666666667],"labels":{"success":true},"metadata":{"split":"train"}},
-    {"sample_id":"sample-008","episode_id":"episode-004","v":[0.533333333333,0.284444444444],"l":[1.0],"d":[0.14],"a":[0.673333333333],"labels":{"success":true},"metadata":{"split":"train"}},
-    {"sample_id":"sample-009","episode_id":"episode-004","v":[0.6,0.36],"l":[-1.0],"d":[-0.48],"a":[0.12],"labels":{"success":true},"metadata":{"split":"train"}},
-    {"sample_id":"sample-010","episode_id":"episode-005","v":[0.666666666667,0.444444444444],"l":[1.0],"d":[0.1],"a":[0.766666666667],"labels":{"success":false},"metadata":{"split":"train"}},
-    {"sample_id":"sample-011","episode_id":"episode-005","v":[0.733333333333,0.537777777778],"l":[-1.0],"d":[-0.52],"a":[0.213333333333],"labels":{"success":true},"metadata":{"split":"train"}},
-    {"sample_id":"sample-012","episode_id":"episode-006","v":[0.8,0.64],"l":[1.0],"d":[0.06],"a":[0.86],"labels":{"success":true},"metadata":{"split":"test"}},
-    {"sample_id":"sample-013","episode_id":"episode-006","v":[0.866666666667,0.751111111111],"l":[-1.0],"d":[-0.56],"a":[0.306666666667],"labels":{"success":true},"metadata":{"split":"test"}},
-    {"sample_id":"sample-014","episode_id":"episode-007","v":[0.933333333333,0.871111111111],"l":[1.0],"d":[0.02],"a":[0.953333333333],"labels":{"success":true},"metadata":{"split":"test"}},
-    {"sample_id":"sample-015","episode_id":"episode-007","v":[1.0,1.0],"l":[-1.0],"d":[-0.6],"a":[0.4],"labels":{"success":false},"metadata":{"split":"test"}}
+    {
+      "sample_id": "sample-000",
+      "episode_id": "episode-000",
+      "v": [
+        0.0,
+        0.0
+      ],
+      "l": [
+        1.0
+      ],
+      "d": [
+        0.3
+      ],
+      "a": [
+        0.3
+      ],
+      "labels": {
+        "success": false
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-001",
+      "episode_id": "episode-000",
+      "v": [
+        0.066666666667,
+        0.004444444444
+      ],
+      "l": [
+        -1.0
+      ],
+      "d": [
+        -0.32
+      ],
+      "a": [
+        -0.253333333333
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-002",
+      "episode_id": "episode-001",
+      "v": [
+        0.133333333333,
+        0.017777777778
+      ],
+      "l": [
+        1.0
+      ],
+      "d": [
+        0.26
+      ],
+      "a": [
+        0.393333333333
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-003",
+      "episode_id": "episode-001",
+      "v": [
+        0.2,
+        0.04
+      ],
+      "l": [
+        -1.0
+      ],
+      "d": [
+        -0.36
+      ],
+      "a": [
+        -0.16
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-004",
+      "episode_id": "episode-002",
+      "v": [
+        0.266666666667,
+        0.071111111111
+      ],
+      "l": [
+        1.0
+      ],
+      "d": [
+        0.22
+      ],
+      "a": [
+        0.486666666667
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-005",
+      "episode_id": "episode-002",
+      "v": [
+        0.333333333333,
+        0.111111111111
+      ],
+      "l": [
+        -1.0
+      ],
+      "d": [
+        -0.4
+      ],
+      "a": [
+        -0.066666666667
+      ],
+      "labels": {
+        "success": false
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-006",
+      "episode_id": "episode-003",
+      "v": [
+        0.4,
+        0.16
+      ],
+      "l": [
+        1.0
+      ],
+      "d": [
+        0.18
+      ],
+      "a": [
+        0.58
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-007",
+      "episode_id": "episode-003",
+      "v": [
+        0.466666666667,
+        0.217777777778
+      ],
+      "l": [
+        -1.0
+      ],
+      "d": [
+        -0.44
+      ],
+      "a": [
+        0.026666666667
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-008",
+      "episode_id": "episode-004",
+      "v": [
+        0.533333333333,
+        0.284444444444
+      ],
+      "l": [
+        1.0
+      ],
+      "d": [
+        0.14
+      ],
+      "a": [
+        0.673333333333
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-009",
+      "episode_id": "episode-004",
+      "v": [
+        0.6,
+        0.36
+      ],
+      "l": [
+        -1.0
+      ],
+      "d": [
+        -0.48
+      ],
+      "a": [
+        0.12
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-010",
+      "episode_id": "episode-005",
+      "v": [
+        0.666666666667,
+        0.444444444444
+      ],
+      "l": [
+        1.0
+      ],
+      "d": [
+        0.1
+      ],
+      "a": [
+        0.766666666667
+      ],
+      "labels": {
+        "success": false
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-011",
+      "episode_id": "episode-005",
+      "v": [
+        0.733333333333,
+        0.537777777778
+      ],
+      "l": [
+        -1.0
+      ],
+      "d": [
+        -0.52
+      ],
+      "a": [
+        0.213333333333
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "train"
+      }
+    },
+    {
+      "sample_id": "sample-012",
+      "episode_id": "episode-006",
+      "v": [
+        0.8,
+        0.64
+      ],
+      "l": [
+        1.0
+      ],
+      "d": [
+        0.06
+      ],
+      "a": [
+        0.86
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "test"
+      }
+    },
+    {
+      "sample_id": "sample-013",
+      "episode_id": "episode-006",
+      "v": [
+        0.866666666667,
+        0.751111111111
+      ],
+      "l": [
+        -1.0
+      ],
+      "d": [
+        -0.56
+      ],
+      "a": [
+        0.306666666667
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "test"
+      }
+    },
+    {
+      "sample_id": "sample-014",
+      "episode_id": "episode-007",
+      "v": [
+        0.933333333333,
+        0.871111111111
+      ],
+      "l": [
+        1.0
+      ],
+      "d": [
+        0.02
+      ],
+      "a": [
+        0.953333333333
+      ],
+      "labels": {
+        "success": true
+      },
+      "metadata": {
+        "split": "test"
+      }
+    },
+    {
+      "sample_id": "sample-015",
+      "episode_id": "episode-007",
+      "v": [
+        1.0,
+        1.0
+      ],
+      "l": [
+        -1.0
+      ],
+      "d": [
+        -0.6
+      ],
+      "a": [
+        0.4
+      ],
+      "labels": {
+        "success": false
+      },
+      "metadata": {
+        "split": "test"
+      }
+    }
   ]
 }

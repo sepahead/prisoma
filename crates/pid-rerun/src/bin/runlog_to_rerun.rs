@@ -40,7 +40,7 @@ fn main() -> Result<()> {
     }
 
     let events = pid_runlog::read_events_from_path(&input)?;
-    let validation = pid_runlog::validate_events(&events);
+    let validation = pid_runlog::validate_events(&events)?;
     if !validation.is_valid() && !allow_invalid {
         bail!(
             "run log failed validation ({} error(s)); pass --allow-invalid to visualize anyway",

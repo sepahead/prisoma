@@ -1567,7 +1567,7 @@ mod tests {
         events.extend(sim.pose_events());
         events.extend(step.flow_events());
         events.extend(step.flow_pred_events());
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.sim_snapshots, 1);
         assert_eq!(state.object_poses.len(), 2);
         assert_eq!(state.flow_gt_records, 2);
@@ -1595,7 +1595,7 @@ mod tests {
             assert!(session.dispatch(&request).unwrap().ok);
         }
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 6);
         assert_eq!(state.actions.len(), 3);
         assert_eq!(state.sim_snapshots, 3);
@@ -1624,7 +1624,7 @@ mod tests {
         assert!(!response.ok);
         assert_eq!(session.step(), 0);
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.actions.len(), 0);
         assert_eq!(state.sim_snapshots, 0);
@@ -1659,7 +1659,7 @@ mod tests {
         assert_eq!(result["trace_hash"].as_str().unwrap().len(), 64);
 
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.actions.len(), 0);
 
@@ -1708,12 +1708,12 @@ mod tests {
         assert!(!session.finish_run(RunStatus::Succeeded, None).unwrap());
 
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let validation = validate_events(&events);
+        let validation = validate_events(&events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
         assert!(
             matches!(events.last(), Some(RunLogEvent::RunEnded { run_id: id, .. }) if id == run_id)
         );
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 4);
         assert_eq!(state.status, Some(RunStatus::Succeeded));
     }
@@ -1760,7 +1760,7 @@ mod tests {
         assert!(session.dispatch(&step).unwrap().ok);
 
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.interventions.len(), 1);
         assert_eq!(state.actions.len(), 1);
         let replay = verify_sim_replay(&events, 1e-12);
@@ -1807,7 +1807,7 @@ mod tests {
         assert!(output.exists());
 
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.actions.len(), 0);
         assert_eq!(state.artifacts.len(), 1);
@@ -1967,7 +1967,7 @@ mod tests {
 
         // The regression that motivated the ErrorLogged encoding: a log that
         // captured rejected traffic must still pass canonical validation.
-        let report = pid_runlog::validate_events(&events);
+        let report = pid_runlog::validate_events(&events).unwrap();
         assert!(
             report.is_valid(),
             "rejected RPCs must not poison run-log validity: {:?}",
@@ -2017,7 +2017,7 @@ mod tests {
         ids.sort();
         ids.dedup();
         assert_eq!(ids.len(), n, "request ids must be unique: {ids:?}");
-        let report = pid_runlog::validate_events(&events);
+        let report = pid_runlog::validate_events(&events).unwrap();
         assert!(
             report.is_valid(),
             "colliding wire ids must not invalidate the log: {:?}",
@@ -2073,7 +2073,7 @@ mod tests {
         // (run_started/run_ended framing is the transport binaries' job, so
         // only ordering errors are asserted here).
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let report = pid_runlog::validate_events(&events);
+        let report = pid_runlog::validate_events(&events).unwrap();
         let ordering_issues: Vec<_> = report
             .issues
             .iter()
@@ -2247,7 +2247,7 @@ mod tests {
             .contains("safe mode blocked"));
         assert!(!output.exists());
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.artifacts.len(), 0);
 
@@ -2319,14 +2319,14 @@ mod tests {
             .finish_run(RunStatus::Succeeded, None)
             .expect("finish run");
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         let scene_actions = state
             .actions
             .iter()
             .filter(|action| action.action_type == "scene.set_object")
             .count();
         assert_eq!(scene_actions, 1, "only the valid set_object is an action");
-        let report = pid_runlog::validate_events(&events);
+        let report = pid_runlog::validate_events(&events).unwrap();
         assert!(
             report.is_valid(),
             "rejected scene.set_object must not poison run-log validity: {:?}",
@@ -2372,7 +2372,7 @@ mod tests {
         assert!(session.dispatch(&reset).unwrap().ok);
 
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.actions.len(), 2);
         assert!(state
             .actions
@@ -2462,7 +2462,7 @@ mod tests {
             .contains("safe mode blocked"));
 
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.actions.len(), 0);
         assert_eq!(state.sim_snapshots, 1);
     }
@@ -2505,9 +2505,9 @@ mod tests {
         assert!(responses.iter().all(BridgeRpcResponse::is_ok));
 
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
-        let validation = validate_events(&events);
+        let validation = validate_events(&events).unwrap();
         assert!(validation.is_valid(), "{:?}", validation.issues);
-        let state = replay_events(&events);
+        let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 4);
         assert_eq!(state.actions.len(), 0);
         assert_eq!(state.status, Some(RunStatus::Succeeded));

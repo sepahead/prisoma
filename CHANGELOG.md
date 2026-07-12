@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+### `pid-rs` 1.0 migration + estimate abstention subsystem (2026-07-12)
+
+- **Bumped the `pid-rs` submodule `8a5a9dd` (0.4.0) → `ac4a780` (1.0.0).** This is an
+  estimator-environment change, not a routine pin bump: 1.0 narrows its default surface (continuous
+  shared exclusions, pipelines, hierarchy and hyperbolic paths are now default-off `experimental-*`
+  features), restructures the flat `pid_core::*` namespace into `stable` / `diagnostics` /
+  `experimental`, and makes continuous support **declared, never inferred** —
+  `SupportContract::Unspecified` fails closed. `crates/pid-sim` and `crates/pid-rerun` now enable
+  the features they use and construct configs through the explicit
+  `assume_regular_full_dimensional()` population-law assertion.
+- **Corrected scientific status, not a capability regression.** pid-rs 0.4 silently produced numbers
+  for tuples outside its valid support contract. 1.0 exposes the mismatch by **failing closed**. The
+  committed `offline_vlda_fixture.json` has a **binary `L`** (an instruction/condition indicator),
+  so every continuous `(V,L)→A` / `(L,D)→A` screen and `MI(L;A)` had been running an
+  absolutely-continuous KSG estimator over a two-valued variable. Those estimates were never valid;
+  they are now reported as abstentions.
+- **Estimate abstention subsystem** (`grandplan.md` §7.14). Datasets declare per-axis population
+  support (`support: {v,l,d,a}`); support is **declared by the adapter, never inferred from observed
+  cardinality**. Every requested estimate carries a typed outcome — `eligible` /
+  `eligible_with_warning` / `abstained` — with the requested measure, the exact estimator revision,
+  the axes, a **stable reason code**, and the observed axis evidence (unique rows, multiplicities).
+  Reason codes: `declared_support_incompatible_continuous`, `support_contract_unspecified`,
+  `observed_sample_incompatible_exact_ties`, `ambiguous_neighbor_shell`,
+  `estimator_requires_equal_source_dimensions`. **A value exists only when it was produced** — an
+  abstained estimate emits no numeric placeholder, no zero, no NaN, and no `PidMetric` event; its
+  status replays from a structured run-log record. Eligibility denominators (requested /
+  support-eligible / preflight-passed / estimated / warned / abstained-by-reason) are reported.
+  Exact ties reject a **sample** for the continuous estimator; they never prove the population law
+  is discrete. Failed continuous terms are **never** auto-routed to discrete `I_min` — that is a
+  different measure with its own estimand identity, and the two are never pooled.
+- **Fixtures.** `offline_vlda_fixture.json` is unchanged and preserved as the **mixed-support
+  regression fixture**: it now declares `l: categorical` and proves that unsupported inputs produce
+  a clean, auditable abstention. New `offline_vlda_continuous_fixture.json` (declared all-continuous,
+  equal ambient source dimensions, tie-free) retains positive-path coverage for continuous
+  KSG / `I^sx_∩` — `just offline-harness-continuous`.
+- **Follow-up (not done here):** `pid-python` 1.0 changed its Python API (pre-1.0 functions moved to
+  `experimental.migration`), so `tests/python/test_pid_core_rs.py` still targets the 0.4 surface and
+  needs migrating.
+
 ### Docset v12.5 — adopt the second-round intervention-grounded plan (2026-07-12)
 
 - **Adopted `grandplan.md` docset v12.5**, replacing the v10.7 "Comprehensive prisoma
