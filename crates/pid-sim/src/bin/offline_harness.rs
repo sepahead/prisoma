@@ -347,7 +347,7 @@ fn print_usage() {
          --pid-mode continuous   Use KSG kNN-based MI and continuous I^sx PID (default).\n\
          --pid-mode discrete     Use equal-width quantization + counting-based discrete PID\n\
                                  (I_min-style redundancy, not discrete i^sx; results carry\n\
-                                 saturation diagnostics — see grandplan §8.1.6).\n\
+                                 saturation diagnostics — see grandplan §7.6).\n\
          --pid-mode discrete-pls PLS-project V/L/D toward A, then discrete PID on the\n\
                                  projections (fit is in-sample for the all-samples screen;\n\
                                  train-only for the train-split screen).\n\

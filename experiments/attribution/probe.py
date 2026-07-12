@@ -1,12 +1,12 @@
-"""Orchestrate the §14.7.1 attribution probe: attribute, faithfulness-check, log.
+"""Orchestrate the §6.10 attribution probe: attribute, faithfulness-check, log.
 
-This is the H9 protocol end to end on the small reference model: for each requested
+This is the attribution baseline (H4/exploratory) end to end on the small reference model: for each requested
 attribution method, compute the relevance of a declared scalar target, run the
 deletion-AOPC faithfulness check against a random control, and assemble
 schema-conformant ``attribution_logged`` records (written via
 :mod:`~experiments.attribution.runlog`). Attributions that fail their faithfulness
 check are still logged — with ``faithfulness_check=false`` — so a downstream
-PID-vs-attribution comparison can exclude them, exactly as §14.7.1 requires.
+PID-vs-attribution comparison can exclude them, exactly as §6.10 requires.
 """
 
 from __future__ import annotations

@@ -1,12 +1,12 @@
 """Layerwise physics-probe procedure for choosing the ``D_hidden[k]`` hook layer.
 
-Implements the grandplan §7.6.3 "Physics Emergence Zone" hook-point prior
+Implements the grandplan §9.1 "Physics Emergence Zone" hook-point prior
 (arXiv:2602.07050): before committing to a hidden layer as ``D``, run cheap
 layerwise linear probes for a few physical quantities (object speed / direction /
 contact, here represented as caller-supplied physical targets) and hook ``D`` near
 the probe-accuracy peak — *then* run the geometry gate there.
 
-Two corollaries from §7.6.3 are surfaced as explicit warnings:
+Two corollaries from §9.1 are surfaced as explicit warnings:
 
 * late layers are expected to be action-formatted rather than world-informative, so
   a near-output layer with high task-decodability but *low physics decodability* is
@@ -131,7 +131,7 @@ def layerwise_physics_probe(
     l2: float = 1.0,
     near_output_fraction: float = 0.25,
 ) -> ProbeSweepResult:
-    """Run the §7.6.3 layerwise physics probe over candidate hidden layers.
+    """Run the §9.1 layerwise physics probe over candidate hidden layers.
 
     ``layer_states[k]`` is the ``(N, d_k)`` hidden state at candidate layer ``k``;
     ``physical_targets`` maps a physical-quantity name to an ``(N,)`` (boolean) or
@@ -171,7 +171,7 @@ def layerwise_physics_probe(
     near_output_start = int(np.ceil((1.0 - near_output_fraction) * n_layers))
     if peak_layer >= near_output_start and n_layers > 1:
         warnings.append(
-            "physics-decodability peak is in the near-output layers; per §7.6.3 "
+            "physics-decodability peak is in the near-output layers; per §9.1 "
             "verify this is not just action formatting (check task-vs-physics "
             "decodability) before hooking D there."
         )

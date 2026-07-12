@@ -297,7 +297,7 @@ impl<'a> RunLogRerunLogger<'a> {
             } => {
                 // Plottable faithfulness verdict (1.0 pass / 0.0 fail) so a viewer
                 // can chart which attributions earned trust over the run; an
-                // attribution that fails its faithfulness check (§14.7.1) cannot
+                // attribution that fails its faithfulness check (§6.10) cannot
                 // corroborate or falsify a PID claim, so surface it prominently.
                 if let Some(passed) = faithfulness_check {
                     self.rec.log(

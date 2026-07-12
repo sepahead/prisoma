@@ -24,6 +24,23 @@ docs-audit:
     python scripts/audit_grandplan_claims.py
     python scripts/audit_docset_claims.py
 
+# Dependency firebreak (grandplan.md §8.9.3): prove the minimum path needs neither
+# NCP nor PID atoms.
+#   (1) the core builds with NCP disabled — `ncp-observer` is workspace-excluded, so a
+#       default `--workspace` build never compiles it (no NCP/Zenoh on the critical path);
+#   (2) the H1/H2 baseline predictors (majority + the SAFE-class held-out logistic
+#       regression) are emitted by the offline harness as first-class metrics, separate
+#       from the PID screens — i.e. the prediction stack stands without PID atoms.
+firebreak:
+    cargo build --workspace
+    cargo run -p pid-sim --bin pid-offline-harness -- \
+      --input crates/pid-sim/fixtures/offline_vlda_fixture.json \
+      --summary-json outputs/firebreak_summary.json --runlog outputs/firebreak_runlog.jsonl
+    grep -q '"majority_success_accuracy"' outputs/firebreak_summary.json
+    grep -q '"heldout_logreg_vlda_success_accuracy"' outputs/firebreak_summary.json
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/firebreak_runlog.jsonl
+    @echo "firebreak OK: core builds NCP-disabled; H1/H2 baseline predictors emitted without PID atoms"
+
 # Experiment 0 gate (Rust-side smoke subset).
 # Full Experiment 0 will later be orchestrated via python/experiments/.
 exp0:

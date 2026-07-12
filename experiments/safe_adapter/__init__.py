@@ -8,7 +8,7 @@ extra extraction (clean V, L). The public surface:
   :func:`~experiments.safe_adapter.rollouts.write_synthetic_safe_dir`
 * :func:`~experiments.safe_adapter.convert.rollouts_to_dataset` and
   :class:`~experiments.safe_adapter.convert.MappingConfig`
-* :func:`~experiments.safe_adapter.hook_probe.layerwise_physics_probe` (§7.6.3)
+* :func:`~experiments.safe_adapter.hook_probe.layerwise_physics_probe` (§9.1)
 * :func:`~experiments.safe_adapter.verify.verify_contract_file`
 """
 

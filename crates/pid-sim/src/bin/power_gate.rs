@@ -1,4 +1,4 @@
-//! §14.8.3 power gate runner: simulate idealized H1–H4 endpoint sensitivities
+//! §6.8 power gate runner: simulate idealized H1–H4 endpoint sensitivities
 //! at their preregistered minimum effects. Evaluated task/case counts are grid
 //! points, not capture requirements or guarantees. Writes JSON and markdown.
 //!

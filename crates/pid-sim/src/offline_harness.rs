@@ -29,14 +29,14 @@ const OFFLINE_HELDOUT_SPLIT_METADATA_KEY: &str = "split";
 const OFFLINE_CENTROID_SUCCESS_SCORE: &str =
     "distance_to_failure_centroid_minus_distance_to_success_centroid";
 /// Unique-joint-bin fraction above which discrete plug-in MI is treated as
-/// saturated (grandplan §8.1.6): estimates pinned near entropy ceilings (~ln n)
+/// saturated (grandplan §7.6): estimates pinned near entropy ceilings (~ln n)
 /// reflect small-sample artifacts, not dependence.
 const OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX: f64 = 0.8;
 
 /// PID estimator mode: continuous (KSG-based kNN), discrete (quantization + counting),
 /// or discrete-pls (PLS projection + discrete PID).
 ///
-/// Measure identity (grandplan §8.1.6): continuous mode estimates the
+/// Measure identity (grandplan §7.6): continuous mode estimates the
 /// shared-exclusions `I^sx_∩`; the discrete modes estimate a Williams–Beer-style
 /// `I_min` redundancy. Cross-mode comparisons are cross-measure comparisons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -192,7 +192,8 @@ pub struct OfflineVldaMetrics {
     /// SAFE-class internal-feature failure detector: L2-regularized logistic
     /// regression on the pooled, train-standardized `(V,L,D,A)` features, fit on
     /// the train split and evaluated on the held-out split (leakage-safe). This is
-    /// the strong learned baseline H1 must beat (grandplan §3.4 / §14.1.1).
+    /// the strong learned baseline a diagnostic must beat (grandplan §6.5
+    /// baseline hierarchy; §3.8 PID kill rules).
     pub heldout_logreg_vlda_success_accuracy: Option<f64>,
     pub heldout_logreg_vlda_success_balanced_accuracy: Option<f64>,
     pub heldout_logreg_vlda_success_auroc: Option<f64>,
@@ -251,7 +252,7 @@ pub struct OfflineVldaPidPairMetrics {
     pub unique_source_1: f64,
     pub unique_source_2: f64,
     pub synergy: f64,
-    /// Discrete-mode saturation diagnostics (grandplan §8.1.6); `None` in continuous mode.
+    /// Discrete-mode saturation diagnostics (grandplan §7.6); `None` in continuous mode.
     #[serde(default)]
     pub discrete_saturation: Option<OfflineVldaDiscreteSaturation>,
 }
@@ -260,7 +261,7 @@ pub struct OfflineVldaPidPairMetrics {
 ///
 /// When almost every sample occupies its own joint bin, plug-in entropies hit
 /// the `ln n` ceiling and MI estimates measure sample size, not dependence
-/// (grandplan §8.1.6). Treat pairs with `saturation_warning == true` as invalid.
+/// (grandplan §7.6). Treat pairs with `saturation_warning == true` as invalid.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaDiscreteSaturation {
     pub unique_fraction_source_1: f64,
@@ -474,8 +475,8 @@ pub struct OfflineVldaReport {
 /// is `"degraded"` when any sample carries a known-bad provenance value for the axis
 /// (a fabricated/zeroed `L`, or a recency-misaligned/absent `D`) — in which case the
 /// PID atoms that involve this axis must be treated as not trustworthy for the
-/// affected samples (M5 honesty: never present a fabricated/misaligned axis's atoms
-/// as clean).
+/// affected samples (capture honesty: never present a fabricated/misaligned axis's
+/// atoms as clean).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OfflineVldaAxisProvenance {
     pub marker: String,
@@ -2390,7 +2391,7 @@ fn unique_row_fraction(bins: &[Vec<usize>]) -> f64 {
 
 /// Discrete-mode PID pair metrics: quantization + counting-based entropy instead of kNN.
 ///
-/// Redundancy is the Williams–Beer-style `I_min` functional (grandplan §8.1.6), not
+/// Redundancy is the Williams–Beer-style `I_min` functional (grandplan §7.6), not
 /// discrete `i^sx_∩`. Saturation diagnostics flag regimes where plug-in MI is pinned
 /// to entropy ceilings by unique-bin sparsity.
 fn compute_pid_pair_metrics_discrete(
@@ -2407,7 +2408,7 @@ fn compute_pid_pair_metrics_discrete(
     let mi_s1s2_t = discrete_mi(&s1s2_bins, &t_bins, num_bins)?;
     // Co-information: MI(S1;T) + MI(S2;T) - MI(S1,S2;T)
     let co_information = pid.mi_s1_t + pid.mi_s2_t - mi_s1s2_t;
-    // Saturation diagnostics (grandplan §8.1.6).
+    // Saturation diagnostics (grandplan §7.6).
     let s1_bins = quantize_equal_width(source_1.matrix, num_bins)?;
     let s2_bins = quantize_equal_width(source_2.matrix, num_bins)?;
     let joint_bins: Vec<Vec<usize>> = s1s2_bins

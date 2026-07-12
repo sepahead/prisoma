@@ -28,6 +28,16 @@ jobs:
         run: cargo clippy --locked --manifest-path crates/ncp-observer/Cargo.toml --all-targets -- -D warnings
       - name: Tests
         run: cargo test --locked --workspace
+      - name: Dependency firebreak (grandplan.md §8.9.3 — minimum path needs no NCP or PID atoms)
+        run: |
+          # The build/clippy/tests above never compiled `ncp-observer` (workspace-excluded),
+          # proving the NCP-disabled core path. Here we assert the H1/H2 baseline predictors
+          # (majority + the SAFE-class held-out logistic regression) are emitted independently
+          # of the PID screens — i.e. the prediction stack stands without PID atoms.
+          cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/prisoma_firebreak_summary.json --runlog /tmp/prisoma_firebreak_runlog.jsonl
+          grep -q '"majority_success_accuracy"' /tmp/prisoma_firebreak_summary.json
+          grep -q '"heldout_logreg_vlda_success_accuracy"' /tmp/prisoma_firebreak_summary.json
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_firebreak_runlog.jsonl
       - name: Run-log smoke
         run: |
           cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --seeds 1 --summary-json /tmp/prisoma_exp0_summary.json --runlog /tmp/prisoma_exp0_runlog.jsonl

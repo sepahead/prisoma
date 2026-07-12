@@ -12,7 +12,7 @@
 //! # Feature flag
 //! Enable `rapier` to compile the real Rapier3D backend. Collision geometry is
 //! **box-approximation** (cuboid colliders derived from `half_extents`); arbitrary
-//! mesh colliders still require a mesh-ingestion pipeline (milestone M5+).
+//! mesh colliders still require a mesh-ingestion pipeline (a later, optional milestone).
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};

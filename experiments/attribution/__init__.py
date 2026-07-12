@@ -1,4 +1,4 @@
-"""Faithfulness-checked attribution probe (grandplan §14.7.1 / H9).
+"""Faithfulness-checked attribution baseline (grandplan §6.10, §10.2; H4/exploratory).
 
 A model-agnostic attribution + faithfulness + run-log toolchain, demonstrated on a
 small numpy self-attention model so it runs without GPUs or a VLA checkpoint. The

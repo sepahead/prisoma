@@ -1,13 +1,21 @@
-//! §14.8.3 simulation-based **power gate** for the H1–H4 primary endpoints.
+//! §6.8 simulation-based **power gate** for the legacy H1–H4 primary endpoints.
 //!
-//! `grandplan.md` §14.8.3 requires a simulation-based power analysis before the
-//! first real capture (M5) is analyzed. This module exercises the specified
-//! grouped/episode-level bootstrap with the correct analysis unit per endpoint
-//! (episodes for H1, tasks for H2/H4, matched cases for H3). Counts selected
-//! from the finite grids are idealized planning sensitivities, not capture
-//! requirements or guarantees.
+//! `grandplan.md` §6.8 requires a simulation-based power analysis before the
+//! first locked real capture (milestone M4 / gate S4) is analyzed. This module
+//! exercises the specified grouped/episode-level bootstrap with the correct
+//! analysis unit per endpoint (episodes for H1, tasks for H2/H4, matched cases
+//! for H3). Counts selected from the finite grids are idealized planning
+//! sensitivities, not capture requirements or guarantees.
 //!
-//! Preregistered minimum effect sizes (§14.8.3 — commitments, not estimates):
+//! **Endpoint-ID note (docset v12.5).** The `h1`..`h4` endpoint IDs below are the
+//! *preregistered statistical endpoints* of the power gate — a stable data
+//! contract (they appear in `endpoint_id` and in the committed `docs/power-gate/`
+//! artifacts). They are **not** the v12.5 confirmatory registry (EC1, H1–H4,
+//! `grandplan.md` §4): here H1 = incremental held-out ΔAUROC, H2/H4 = task-level
+//! Spearman ρ, H3 = per-case Kendall τ. Read them as endpoint labels, not as the
+//! renumbered v12.5 hypotheses.
+//!
+//! Preregistered minimum effect sizes (§6.8 — commitments, not estimates):
 //! - **H1**: incremental held-out episode-level ΔAUROC ≥ 0.05
 //!   ({baselines + PID/CI} over {baselines alone}; paired episode-level
 //!   bootstrap; success = one-sided significance AND point ≥ 0.05; futility =
@@ -1143,7 +1151,7 @@ fn require_complete_replicates(
     Ok(())
 }
 
-/// Run the §14.8.3 power gate. Deterministic for a fixed config.
+/// Run the §6.8 power gate. Deterministic for a fixed config.
 pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGateConfigError> {
     cfg.validate()?;
 
@@ -1382,7 +1390,7 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGat
 /// Render the report as a compact markdown document (for `docs/`).
 pub fn power_gate_markdown(r: &PowerGateReport) -> String {
     let mut s = String::new();
-    s.push_str("# §14.8.3 Power Gate — idealized endpoint-sensitivity analysis (H1–H4)\n\n");
+    s.push_str("# §6.8 Power Gate — idealized endpoint-sensitivity analysis (H1–H4)\n\n");
     s.push_str(&format!(
         "Replicates/cell: {} · bootstrap: {} · one-sided α = {} · target power = {}\n\n",
         r.config.replicates, r.config.n_boot, r.config.alpha, r.config.target_power

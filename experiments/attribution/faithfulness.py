@@ -17,7 +17,7 @@ attribution **passes** only if its AOPC exceeds the random-control mean by the
 caller's ``margin`` *plus* 3 standard errors of that mean — a win that is significant
 relative to the control's sampling noise, not a floating-point one — so an
 uninformative map (e.g. a constant attribution, whose ranking is arbitrary) reliably
-fails. This is exactly the guard §14.7.1 requires before any PID-vs-attribution
+fails. This is exactly the guard §6.10 requires before any PID-vs-attribution
 comparison: a probe that fails its own faithfulness check cannot falsify or
 corroborate a PID claim.
 """
