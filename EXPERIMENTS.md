@@ -62,16 +62,35 @@
 
 ### 0.1 Hypothesis Coverage Matrix
 
+The following table is the **binding v12.5 registry**. A task suite is not itself a claim: its run
+configuration must choose exactly one confirmatory protocol and use that protocol’s unit, treatment,
+outcome, score, and language.
+
+| Current claim / protocol | Candidate task suites | Primary evidence | Required controls and current blocker |
+|---|---|---|---|
+| **EC1 — provenance-complete replay** | Exp1 plus a structurally different adapter/environment | Contract-violation detection and exact/tolerance-bounded replay versus a conventional script/container baseline | Typed assignment/receipt/outcome lineage, fault injection, standard-format adapter, external benchmark; still open (`grandplan.md` §8.8) |
+| **H1 Protocol A — paired frozen-snapshot algorithmic response** | Exp1 baseline cases; Exp3 intervention constructions | Held-out direct prediction of the declared paired response functional, with calibration, response reliability/Monte Carlo error, and a locked feature-vs-baseline contrast | Immutable clone state, pre-treatment moderator, instrumented/noninstrumented noninterference, draw ledger, reverse-order/process controls; blocked on capture and clone machinery (`grandplan.md` §6.3) |
+| **H1 Protocol B — randomized closed-loop effect moderation** | Exp1/Exp3 randomized episodes | Overall ITT first; then held-out effect-specific loss, causal calibration, prioritization, and policy value/regret under recorded assignment probabilities | Randomization/receipt/reset/censoring ledger, cluster-aware inference, synthetic oracle and negative controls; blocked on capture and assignment runner (`grandplan.md` §6.3) |
+| **H2 — prospective censoring-aware failure prediction** | Prespecified landmarks in Exp1/Exp2; later Exp5 transport | Held-out log loss or censoring-aware Brier score at the frozen horizon, plus calibration, event sensitivity at fixed false-alarm burden, unbiased lead time, and decision utility | Frozen alarm policy, competing events/censoring, full matched-access comparator frontier, external/later-time validation; blocked on capture and prospective pipeline (`grandplan.md` §6.4) |
+| **H3 — conditional incremental PID value** | Any H1/H2 dataset only after all four gates | Nested out-of-sample improvement from adding preregistered PID features to the strongest valid non-PID model under the active H1/H2 endpoint | Population/measure/estimator/application gates, train-reference local construction, abstention denominator; application gate currently blocked (`grandplan.md` §7) |
+| **H4 — availability–use divergence** | Exp3 input/internal intervention pairs; Exp1 positive/negative controls | Prespecified discordance between held-out decodability and policy/execution ITT effects, conditional on engagement and support | At least two intervention constructions where feasible, positive/negative controls, equivalence margins; blocked on capture/intervention pilot (`grandplan.md` §6.3) |
+
+### 0.1.1 Retired pre-v12.5 mapping (historical and non-operative)
+
+The legacy H1–H9 matrix below is retained only to explain the older Exp1–Exp5 prose and must not be
+used to select a primary endpoint. In particular, its ΔAUROC, rank-correlation, and atom-sign rows
+do not replace Protocol A, Protocol B, or prospective H2 above.
+
 PID/CI hypotheses below inherit the four PID gates (`grandplan.md` §7.1): **population** (is the atom finite/defined/meaningful), **measure** (does the shared-exclusions functional have the properties the claim needs), **estimator** (does the implementation recover it with acceptable bias/coverage/failure-detection at the planned regime), and **application** (are the real embeddings/sampling close enough to a validated regime to interpret). Concretely: 1) the measure-independent MI/coherence gate passes for the exact pipeline, 2) a measure-specific oracle/cross-check validates the claimed atoms, and 3) recovery, intrinsic dimension, distance concentration/ties, dependence, and calibrated local-flatness diagnostics support every variable and concatenation passed to the estimator (see §4.0). Today the default high-dimensional MI/coherence path is **NO-GO**; the `pid-rs` pin does carry real low-dimensional additive-Gaussian oracle and discrete-SxPID reference evidence, but continuous shared-exclusions atoms on **real VLA embeddings are BLOCKED / NOT APPLICATION-VALIDATED** (`grandplan.md` §7.2, §7.5). Attribution-based comparisons add their own faithfulness/stability checks; they do not repair any of the four gates.
 
 For every active V–L endpoint, preregister instruction diversity and pass an instruction occupancy/entropy gate; otherwise make V–D primary. Cross-task atom comparisons require a declared information-scale denominator with estimator uncertainty propagated. Fit all learned preprocessing once on disjoint V0/W0 training data, freeze it across perturbation cells, and record its transform hash.
 
 | Legacy hypothesis (read via the v12.5 migration note) | Experiments | Variables (examples) | Primary metrics | Required controls (see `grandplan.md` §6) |
 |-----------|-------------|----------------------|----------------|--------------------------------------------|
-| **H1** Grounding failures ↔ PID features → registry **H1** | Exp1, Exp3 | `(V,L;A)` or `(V,D;A)` | **Primary (`grandplan.md` §6.3):** held-out episode-level incremental ΔAUROC of {baselines + PID/CI} over {baselines alone}, paired episode-level block bootstrap, predicted gain > 0; calibration exploratory | Label leakage checks, stratified splits, nested CV/held-out test, corrected sampling/geometry diagnostics + separate MI/atom gates; mandatory minimal baseline set (`grandplan.md` §6.5) |
-| **H2** Redundancy ↔ robustness-to-ablation → registry **H3/H4** | Exp1, Exp3 | `(V,L;A)` under single-modality corruptions; optional graded-`L` probe via language-specificity levels (vague/default/specific, RoboLab-120-style; `grandplan.md` §5.3) | **Primary (`grandplan.md` §6.4):** Spearman ρ between pre-ablation `Red` and the single-modality success-vs-severity slope, **across tasks**, family-blocked bootstrap CIs; predicted ρ > 0. Graded-`L` probe exploratory | Instruction diversity/occupancy gate, matched difficulty, nuisance controls, frozen transform hash, separate MI/atom gates; `grandplan.md` §6.4 protocol; availability-vs-use asymmetry reported as a finding |
-| **H3** Uniques ↔ intervention sensitivity → registry **H1/H3** | Exp1, Exp3 | `(V,L;A)` under modality-isolated perturbations | **Primary (`grandplan.md` §6.4):** mean per-case Kendall τ between the `Unq` ordering and the matched-intervention effect-size ordering, ≥ 20 matched cases, family-blocked case-resampling bootstrap; predicted mean τ > 0 | Instruction diversity/occupancy gate; perturbations isolated to one modality; **outcome-independent strength matching** (equal embedding displacement or MI destroyed — never equal-success-impact; `grandplan.md` §6.4); placebo perturbations; one frozen transform across cells |
-| **H4** Memorization vs generalization → registry **H4** | Exp1, Exp3, Exp5 + §10 | `(V,L;A)` across in-dist vs perturbed | **Primary (`grandplan.md` §6):** Spearman ρ between **SSI := −IQR(Syn)** (nats, per preregistered axis — `SSI_V` over V0→V3 at W0 primary; Tukey quartiles; `grandplan.md` §6) and L0→L2 success degradation, across tasks; predicted ρ < 0. ΔPID-vs-Δsuccess and the OOD gap exploratory | Instruction diversity/occupancy gate, information-scale denominator with propagated estimator uncertainty, frozen transform hash, matched perturbation difficulty, seed controls |
+| **H1** Grounding failures ↔ PID features → historical precursor to registry **H1/H3** | Exp1, Exp3 | `(V,L;A)` or `(V,D;A)` | **Superseded exploratory endpoint:** held-out episode-level incremental ΔAUROC of {baselines + PID/CI} over {baselines alone}; not the current Protocol A/B response score | Label leakage checks, stratified splits, nested CV/held-out test, corrected sampling/geometry diagnostics + separate MI/atom gates; mandatory minimal baseline set (`grandplan.md` §6.5) |
+| **H2** Redundancy ↔ robustness-to-ablation → historical precursor to registry **H3/H4** | Exp1, Exp3 | `(V,L;A)` under single-modality corruptions; optional graded-`L` probe via language-specificity levels (vague/default/specific, RoboLab-120-style; `grandplan.md` §5.3) | **Superseded exploratory endpoint:** rank association between pre-ablation `Red` and success-vs-severity slope | Instruction diversity/occupancy gate, matched difficulty, nuisance controls, frozen transform hash, separate MI/atom gates; availability-vs-use asymmetry reported only under the current H4 protocol |
+| **H3** Uniques ↔ intervention sensitivity → historical precursor to registry **H1/H3** | Exp1, Exp3 | `(V,L;A)` under modality-isolated perturbations | **Superseded exploratory endpoint:** ordering agreement between `Unq` and matched-intervention effects | Instruction diversity/occupancy gate; perturbations isolated to one modality; outcome-independent strength matching; placebo perturbations; one frozen transform across cells |
+| **H4** Memorization vs generalization → retired/exploratory | Exp1, Exp3, Exp5 + §10 | `(V,L;A)` across in-dist vs perturbed | **Superseded exploratory endpoint:** SSI := −IQR(Syn) and structured-perturbation degradation; this is not current registry H4 | Instruction diversity/occupancy gate, information-scale denominator with propagated estimator uncertainty, frozen transform hash, matched perturbation difficulty, seed controls |
 | **H5** Temporal synergy degradation → Exploratory (`grandplan.md` §9.4) | Exp2 | windowed `Syn(V_t,D_t;A_t)` (primary) + mandatory CI-only twin; phase-aligned windows **pooled across episodes** (`grandplan.md` §9.4) | Trend (slope / early-vs-late contrast) vs composition-stage index; episode-level block bootstrap; predicted decline in failing vs succeeding episodes (`grandplan.md` §6) | Pooling across episodes (never per-trajectory windows), within-window stride ≥ decorrelation length, post-stride `N_win` ≥ a future measure-specific validated minimum, outcome stratification, phase definitions preregistered (§6.5); **mandatory CI-only ablation** (`grandplan.md` §3.8) |
 | **H6** Safety constraints require V–L integration **(Deferred — `grandplan.md` §4 retired/deferred; no claims until safety labels + matched controls exist)** | Exp3 | safety vs baseline instructions | ΔUnq(L), ΔSyn(V,L;A); collision/near-miss rates | Matched task conditions, instruction-only changes, nuisance controls (lighting/distractors) |
 | **H7a** (method) Flow-as-bridge enables stage-wise/cross-embodiment diagnostics; **H7b** (falsifiable) `Syn(V,D;A)` tracks world-model quality independent of execution success → Exploratory (`grandplan.md` §9.6) | Exp4, Exp5 | `(V,D;Flow)` and/or `(V,Flow;A)` | H7a: engineering acceptance (gates pass on flow targets). H7b (`grandplan.md` §6): difference in synergy–failure correlation between world-model-stage and execution-stage failures; predicted stronger for world-model-stage | Fixed flow pipeline across runs, low-d flow features, negative controls (shuffled flow / shuffled pairing), stage labels per `grandplan.md` §9.6 |
@@ -89,7 +108,7 @@ This table is the self-sufficient entry point: it maps the run order onto curren
 | 3 | Labeled toy pipeline end-to-end | `just toy-harness` | Canonical labeled artifacts validate; not VLA evidence | `grandplan.md` §12 (milestone rehearsal) |
 | 4 | Offline `(V,L,D,A)` harness, all three PID modes | `just offline-harness`, `offline-harness-require-*`, `offline-harness-strict`, `offline-harness-discrete`, `offline-harness-discrete-pls` | Strict mode exits nonzero on its implemented legacy geometry aggregate (software smoke only; not corrected scientific eligibility); discrete modes report `saturation_warning=true` on the tiny fixtures (by design — the `grandplan.md` §7.6 discrete PID gate) | `grandplan.md` §7.6, §6.2 |
 | 5 | **First real VLA/task capture (open critical path; adapter groundwork implemented)** | `just safe-adapter` maps released SAFE rollouts to the harness `(V,L,D,A)`+labels contract with the `grandplan.md` §9.2 hook-probe; `just rapier-harness` exercises a real Rapier3D task with labels + `Flow_gt`. Still required: real licensed data capture/pull, model/task/hook selection, the prospective episode-local H1 feature path, and a scientifically adequate capture-sizing gate | Strict harness modes have been exercised on the synthetic SAFE fixture only. The implemented `pid-sim-power-gate` is an idealized endpoint-level sensitivity simulator; it omits the required family → task/case → episode nesting, PID/SSI measurement error, binary outcomes, severity allocation, and selected-design type-I error. Its first-run counts are withdrawn as capture requirements. Capture sizing is **NOT READY / NOT PASSED** | `grandplan.md` §9.1, §6.8 |
-| 6 | Exp1–Exp5 protocols (§5–§9 of this document) | Blocked on step 5 and the estimator/measure gates. Screen-level PID modes, non-PID baselines, uncertainty helpers, the reference attribution probe, and its Rerun adapter are implemented, but the H1 prospective per-episode/windowed feature extraction and held-out ΔAUROC machinery are not | Per-claim metrics + controls per §0.1; kill rules per `grandplan.md` §3.8; statistics per `grandplan.md` §6. No capture-size claim may be made from the current idealized simulator | `grandplan.md` §5, §6 |
+| 6 | Exp1–Exp5 protocols (§5–§9 of this document) | Blocked on step 5 and the estimator/measure gates. Screen-level PID modes, non-PID baselines, uncertainty helpers, the reference attribution probe, and its Rerun adapter are implemented, but Protocol A clone/response scoring, Protocol B assignment/effect scoring, and the prospective H2 landmark/alarm pipeline are not | Per-claim metrics + controls per the binding §0.1 table; kill rules per `grandplan.md` §3.8; statistics per `grandplan.md` §6. No capture-size claim may be made from the current idealized simulator | `grandplan.md` §5, §6 |
 
 **Binding power status:** `cargo run --release -p pid-sim --bin pid-sim-power-gate` is implemented and useful as an idealized endpoint-sensitivity simulator. It is **not capture-ready**, and its 2026-07-10 first-run task/case/episode counts are withdrawn—not lower bounds, recommendations, or requirements. A replacement capture gate must simulate the nested family/task-or-case/episode design, PID/SSI measurement error, binary outcomes, severity allocation, and type-I error under the selected analysis, after the prospective H1 feature path exists.
 
@@ -105,7 +124,7 @@ Everything downstream consumes one `(V,L,D,A)`+labels contract (the `OfflineVlda
 | `crates/pid-sim` fixtures + `pid-rapier-harness` / `pid-toy-harness` | Sim cross-checks | yes | Runnable software/physics smokes with physics-derived labels + `Flow_gt`; not VLA evidence |
 | `crates/ncp-observer` (Engram/NEST over the Neuro-Cybernetic Protocol) | **Optional** external bridge (M2 ecosystem conformance, `grandplan.md` §8.9.5) | n/a | **Exploratory-only, read-only — below the S2/EC1 bar** |
 
-The pure-PID stack (the table above minus NCP) builds and its software smokes run with **no NCP/Engram/Zenoh dependency** — `ncp-observer` is excluded from the default cargo workspace. That does not imply that the scientific estimator/capture gates pass. NCP is a read-only exploratory tap, not a controller and not part of grandplan's critical path. It remains below the S2/EC1 contract until precise D `seq`-alignment, honest (non-zeroed) `L`, and `metadata.split`/`episode_id`/`success` structure exist for the strict harness checks and the `grandplan.md` §4 H1 audit. See `NCP_DEV_PROMPT.md`.
+The pure-PID stack (the table above minus NCP) builds and its software smokes run with **no NCP/Engram/Zenoh dependency** — `ncp-observer` is excluded from the default cargo workspace. That does not imply that the scientific estimator/capture gates pass. NCP is a read-only exploratory tap, not a controller and not part of grandplan's critical path. The observer now performs exact wire-0.8 source/sequence joins and never uses recency fallback, but it remains below the S2/EC1 contract until a conforming live publisher plus honest `L`, `metadata.split`, `episode_id`, and `success` structure exist for the strict harness checks and the `grandplan.md` §4 H1 audit. See `NCP_DEV_PROMPT.md`.
 
 ## 0.5 Physics and Robot Backend Usage: Modular Architecture
 
@@ -120,15 +139,16 @@ This table clarifies the intended backend choices across experiments. Treat “r
 | **Visual Perturbations** | Logged renderer/scene events first; SparkJS Dynos in Phase 4 | Lighting, textures | Exp 1 |
 | **Cross-Embodiment** | Gazebo / MuJoCo | UR5e vs Franka URDFs | Exp 5 |
 
-### Per-Hypothesis Engine Mapping
+### Per-Protocol Engine Mapping
 
-| Hypothesis | Primary Engine | Reason |
+| Protocol | Primary Engine | Reason |
 |------------|----------------|--------|
-| **H1** (PID features ↔ failure labels) | Physics + Robot | Need accurate object poses + labels/teacher signals to ground claims; synergy sign is not definitional |
-| **H4** (Memorization vs generalization) | Physics | Perturbation library uses physics for mass/friction |
-| **H5** (Temporal synergy degradation) | Physics + Robot | Long-horizon stacking needs precise contact physics |
-| **H6** (Safety-aware V-L integration) — Deferred | Physics + Robot | Collision detection for safety constraints |
-| **H7** (Flow-as-bridge) | N/A (external video predictor) | 3D flow extracted from predicted video; physics sim optional depending on design |
+| **H1 Protocol A** paired algorithmic response | Deterministic snapshot/clone runner; physics optional | The estimand is policy response at a frozen state, not a physical individual effect |
+| **H1 Protocol B** randomized closed-loop response | Physics + Robot | Assignment, receipt, controller, contact, recovery, and physical outcomes are part of the estimand |
+| **H2** prospective failure | Same closed-loop environment as deployment target | Landmarks, failures, censoring, competing events, and alarm burden must be observed prospectively |
+| **H3** conditional PID increment | Inherits the active H1/H2 environment | PID is a gated feature family, not an engine or independent task protocol |
+| **H4** availability–use divergence | Snapshot runner plus closed-loop confirmation where claimed | Requires decodability plus validated policy/execution interventions and controls |
+| Exploratory Flow-as-Bridge | Simulator `Flow_gt` first; external predictor later | Separates measurement bring-up from video-predictor confounds |
 
 ### Modular Physics Backend Configuration
 
@@ -233,9 +253,9 @@ Experiments must preregister which decomposition is being used and which concret
 
 | Decomposition | Example variables | When to use | Notes |
 |---|---|---|---|
-| **2-way PID (`pid2`)** | `(V,L;A)` or `(V,D;A)` | Default for H1–H6 after gates pass | Most interpretable and most tractable; still requires geometry validation |
-| **3-way PID (`pid3`)** | `(V,L,D;A)` | Only when `D` is operationalizable and gates pass | Expensive (many atoms); use offline and report uncertainty/sensitivity |
-| **Hierarchical / screening** | pairwise PID + CI/Ω | When geometry fails or `D` is ambiguous | Prefer robust comparisons (ΔCI/ΔMI) under perturbations over atom-level claims |
+| **2-way PID (`pid2`)** | `(V,L;A)` or `(V,D;A)` | Conditional H3 only after all four gates | Most tractable atom analysis; geometry alone never supplies eligibility |
+| **3-way PID (`pid3`)** | `(V,L,D;A)` | Exploratory only, after source semantics and gates pass | Expensive and measure-sensitive; report full uncertainty/sensitivity and abstention |
+| **Hierarchical / screening** | pairwise PID + CI/Ω | Exploratory screening inside a validated regime | If constituent MI/measure gates fail, screen abstains rather than serving as a fallback claim |
 
 ### 0.5.3 Attribution Methods as Companion Diagnostics
 
@@ -252,7 +272,10 @@ Layer-wise Relevance Propagation (LRP) and related attribution methods answer a 
 | SHAP-style / occlusion / feature ablation | Additive or perturbation-based feature importance baselines | Background distribution and feature dependence can change scores |
 | Attention maps | Debugging signal, not a faithful explanation by default | Treat as a weak baseline unless intervention tests validate it |
 
-**H9 protocol rule:** if PID says `Unq(L)` or `Syn(V,L;A)` is the failure-critical signal, attribution should supply a compatible local story on the same sample IDs and target under matched interventions, or the disagreement must be reported. Compatible does not mean identical: gradients, relevance, occlusion, and PID measure different objects and can diverge for valid reasons such as saturation, correlated features, or deterministic decoders.
+**Attribution companion rule:** when attribution and a gated PID diagnostic are compared, use the
+same sample IDs, target, and matched interventions, and report principled disagreement. Compatible
+does not mean identical: gradients, relevance, occlusion, and PID measure different objects and can
+diverge for valid reasons such as saturation, correlated features, or deterministic decoders.
 
 ---
  
@@ -819,21 +842,16 @@ import pid_core_rs as pid
 
 # Run this for V, L, D, A, Flow, and every source/target concatenation used.
 # 1. Report intrinsic dimension (calibrate against recovery controls; no fixed cutoff)
-d_hat = pid.estimate_intrinsic_dimension(embeddings, k=10, metric="chebyshev")
-print(f"intrinsic dimension estimate: {d_hat:.1f}")
+id_report = pid.intrinsic_dimension_report(embeddings, k=10)
+print(f"intrinsic dimension estimate: {id_report.estimate:.1f}")
 
 # 2. Report concentration/ties and compare to the validated control envelope
-stats = pid.distance_stats(embeddings, metric="chebyshev")
-print(f"pairwise CV: {stats['pairwise_cv']:.3f}")
+distance_report = pid.distance_concentration_report(embeddings)
+print(f"pairwise CV: {distance_report.pairwise_cv:.3f}")
 
-# 3. Report sampled mean hyperbolicity descriptively (δ_rel = 2δ / diam)
-delta = pid.estimate_gromov_delta(embeddings, n_samples=1000, metric="chebyshev")
-diam = stats.get("pairwise_max", None)
-if diam is not None and diam > 0:
-    delta_rel = (2.0 * delta) / diam
-    print(f"descriptive sampled mean δ_rel={delta_rel:.3f} (not a pass/fail gate)")
-else:
-    print("cannot normalize δ; report raw δ as scale-dependent descriptive output")
+# Hyperbolicity is not part of the ordinary pid_core_rs 1.0 wheel. The Rust harness records its
+# sampled four-point summary as a descriptive diagnostic; do not invent a Python stable call or
+# use that statistic as scientific eligibility.
 ```
 
 #### Hyperbolic/Lorentzian Limitation
@@ -939,7 +957,7 @@ Do not hard-code “safe” dimensions or generic %-error cutoffs. Validate the 
 
 #### 4.2.1 Attribution Probe Sanity Checks (Separate From PID Gates)
 
-Attribution methods do not inherit the kNN geometry assumptions above, but they need their own faithfulness checks before they can support H9 or serve as a strong baseline for H1/H3:
+Attribution methods do not inherit the kNN geometry assumptions above, but they need their own faithfulness checks before they can serve as exploratory H4 companion evidence or a strong baseline for H1/H3:
 
 - **Model randomization:** attribution maps/scores should change when model parameters are randomized; otherwise they may be input edge detectors rather than model explanations.
 - **Data/random-label randomization:** a model trained on randomized labels should not yield the same explanatory structure as the trained task model.
@@ -960,16 +978,16 @@ just exp0-bin
 just exp0-runlog
 
 # Optional CSV output for analysis
-cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --csv > exp0_results.csv
+cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --csv > exp0_results.csv
 
 # Optional canonical evidence export
-cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl
 cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/exp0_runlog.jsonl
 cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --write-sidecars outputs/exp0_runlog.jsonl
 cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --verify-sidecars outputs/exp0_runlog.jsonl
 
 # Optional curated d=1 Gaussian MI gate (not an atom/high-d gate)
-cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --strict-gate
+cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --strict-gate
 ```
 
 **Note:** A larger Python experiment harness is specified in `grandplan.md`/`EXPERIMENTS.md` but is not implemented in this repo yet; avoid citing non-existent scripts as runnable.
@@ -1016,7 +1034,11 @@ This harness is an artifact-to-runlog converter for embedding captures. It still
 ---
  
 ## 5. Experiment 1: Pick-and-Place (Baseline)
-Hypothesis Tested: **H1** (PID features ↔ failure labels; synergy sign is a candidate feature), **H2/H3** (redundancy/uniques under controlled perturbations), and optionally **H9** (attribution/PID triangulation)
+**Protocol role (choose one before capture):** H1 **Protocol A** frozen-snapshot response prediction,
+H1 **Protocol B** randomized closed-loop effect moderation, or H2 prospective failure prediction.
+The same episodes may support hierarchically secondary analyses, but their units/endpoints and claim
+language remain separate. PID is only a conditional H3 feature family after all four gates; attribution
+is exploratory triangulation.
 
 ### 5.1 Task Definition
 | Property               | Value                                                        |
@@ -1123,13 +1145,13 @@ class PickPlaceEpisode:
     grasp_events: List[Tuple[float, str]] # [(time, object_id), ...]
     
     # PID metrics (computed post-hoc)
-    # Target: Action (Tests H1/H2 - Policy Integration)
+    # Target: Action (diagnostic only; an H1/H2 use requires protocol-specific scoring)
     pid_action_synergy: np.ndarray        # (T/6,)
     pid_action_redundancy: np.ndarray     # (T/6,)
     pid_action_unique_v: np.ndarray       # (T/6,)
     pid_action_unique_d: np.ndarray       # (T/6,)
     
-    # Target: 3D Flow (Tests H7 - World Model Consistency)
+    # Target: 3D Flow (exploratory Flow-as-Bridge diagnostic)
     pid_flow_synergy: np.ndarray          # (T/6,)
     pid_flow_redundancy: np.ndarray       # (T/6,)
     pid_flow_unique_v: np.ndarray         # (T/6,)
@@ -1138,7 +1160,7 @@ class PickPlaceEpisode:
     pid_co_information: np.ndarray        # (T/6,)
 ```
 
-Attribution artifacts for H9 use the implemented first-class `attribution_logged` event: method, target output, layer, modality, baseline, score hash, faithfulness check, and artifact URI. `experiments/attribution/` currently produces epsilon-/AttnLRP and gradient×input evidence on a small reference model with deletion-AOPC vs random; the Rerun adapter surfaces faithfulness/provenance and compatible NumPy relevance values (capped at 1024). Record any additional preprocessing/stability metadata in the linked artifact/manifest. Production VLA/LXT hooks remain future work.
+Exploratory attribution artifacts use the implemented first-class `attribution_logged` event: method, target output, layer, modality, baseline, score hash, faithfulness check, and artifact URI. `experiments/attribution/` currently produces epsilon-/AttnLRP and gradient×input evidence on a small reference model with deletion-AOPC vs random; the Rerun adapter surfaces faithfulness/provenance and compatible NumPy relevance values (capped at 1024). Record any additional preprocessing/stability metadata in the linked artifact/manifest. Production VLA/LXT hooks remain future work.
 
 ### 5.4 PID Computation
 ```python
@@ -1152,24 +1174,14 @@ def zscore(x: np.ndarray, eps: float = 1e-8) -> np.ndarray:
 
 def pid2_isx_window(s1: np.ndarray, s2: np.ndarray, t: np.ndarray, k: int = 3) -> dict:
     """
-    2-source PID atoms using:
-    - KSG MI estimates for I(S1;T), I(S2;T), I([S1,S2];T)
-    - continuous shared-exclusions redundancy I^sx_∩ (EhrlichKsg)
+    Deliberately non-runnable marker for the old pre-1.0 Python sketch.
 
-    Identity:
-      Unq1 = I(S1;T) - Red
-      Unq2 = I(S2;T) - Red
-      Syn  = I(S1,S2;T) - I(S1;T) - I(S2;T) + Red
+    Ordinary pid_core_rs 1.0 wheels do not expose continuous shared-exclusions PID. Use the
+    feature-pinned Rust offline harness, which records support declarations, computation status,
+    four separate scientific-gate verdicts, and abstentions. Do not reconstruct atoms from legacy
+    scalar Python calls or enable the migration module in an evidentiary workflow.
     """
-    red = pid.compute_redundancy(s1, s2, t, k=k, method="ehrlich_ksg")
-    i1 = pid.compute_mi(s1, t, k=k, metric="chebyshev")
-    i2 = pid.compute_mi(s2, t, k=k, metric="chebyshev")
-    i12 = pid.compute_mi(np.concatenate([s1, s2], axis=1), t, k=k, metric="chebyshev")
-
-    unq1 = i1 - red
-    unq2 = i2 - red
-    syn = i12 - i1 - i2 + red
-    return {"red": red, "unq_s1": unq1, "unq_s2": unq2, "syn": syn}
+    raise NotImplementedError("continuous PID runs through the Rust harness under pid-rs 1.0")
 
 def compute_episode_pid(
     episode: PickPlaceEpisode,
@@ -1181,8 +1193,8 @@ def compute_episode_pid(
     Compute PID metrics over sliding windows.
     
     Computes two decompositions:
-    1. Target = Action (Tests H1: Does integration predict policy success?)
-    2. Target = Flow   (Tests H7: Is the world model consistent with physics?)
+    1. Target = Action (diagnostic; H1 use requires Protocol A/B scoring)
+    2. Target = Flow   (exploratory Flow-as-Bridge measurement)
     
     Warning (docset v12.5): 20-sample windows inside one autocorrelated episode are NOT an
     estimable kNN-PID regime (grandplan.md §2.5, §6.7). For any windowed claim, pool
@@ -1262,11 +1274,11 @@ def evaluate_exp1(episodes: List[PickPlaceEpisode]) -> dict:
     success_eps = [e for e in episodes if e.success]
     failure_eps = [e for e in episodes if not e.success]
     
-    # PID metrics (candidate feature for H1/H2; do not assume a sign a priori)
+    # PID metrics (conditional H3 feature family only after all four gates)
     syn_success = np.concatenate([e.pid_action_synergy for e in success_eps])
     syn_failure = np.concatenate([e.pid_action_synergy for e in failure_eps])
     
-    # Test H1/H2: does a PID-derived feature predict success/failure under controls?
+    # Exploratory screen only; this does not implement H1 Protocol A/B or prospective H2.
     # Example: use synergy at 50% of episode as a simple predictor (replace with preregistered model).
     synergy_midpoint = []
     labels = []
@@ -1294,15 +1306,16 @@ def evaluate_exp1(episodes: List[PickPlaceEpisode]) -> dict:
     }
 ```
 
-**Binding note (docset v12.5):** the snippet above is illustrative. The preregistered H1 primary
-endpoint (`grandplan.md` §6.3) is the held-out episode-level **incremental ΔAUROC** of
-{baseline features + PID/CI features} over {baseline features alone}, with a paired
-episode-level block bootstrap (predicted gain > 0; minimum effect ΔAUROC ≥ 0.05; futility if
-the 95% CI upper bound < 0.02). Every H1 report must include the §6.5 mandatory minimal
-baseline set: `heldout_logreg_vlda`, action predictive entropy, majority/1-NN/centroid, and
-one ensemble-or-temperature uncertainty variant.
+**Binding note (docset v12.5):** the snippet above is illustrative. For Protocol A, freeze the
+snapshot boundary and response functional, then score a train-fitted predictor directly against
+held-out paired algorithmic responses with calibration and response-reliability reporting. For
+Protocol B, report overall ITT before the locked effect-specific R-loss/doubly robust loss, causal
+calibration, prioritization, and policy-value/regret stack. For H2, freeze the landmark/horizon,
+censoring/competing-event rule, and alarm policy, then use the prespecified proper predictive score.
+No generic episode-level ΔAUROC substitutes for these protocol-specific endpoints. Every report
+uses the §6.5 mandatory baseline frontier at matched information access and compute.
 
-### 5.6 Attribution Baselines and H9 Triangulation
+### 5.6 Attribution Baselines and Exploratory H4 Triangulation
 
 For the same episodes, run a small set of faithfulness-checked attribution probes if the model exposes the required gradients/layers:
 
@@ -1324,7 +1337,9 @@ Do not choose PID preprocessing by looking at held-out attribution/failure label
 ---
  
 ## 6. Experiment 2: Long-Horizon Assembly (Temporal)
-Hypothesis Tested: H5 (Compositional Failure Correlates with Temporal Synergy Degradation)
+**Protocol role:** H2 prospective landmark prediction when a failure horizon, censoring/competing
+events, and alarm policy are frozen; otherwise the temporal-synergy analysis is exploratory only.
+The retired H5 atom-trend claim is not confirmatory and cannot be promoted without the H3 gates.
 
 ### 6.1 Task Definition
 | Property         | Value                                                            |
@@ -1472,7 +1487,12 @@ Secondary (exploratory only): `Syn(V_t, V_{t−h}; A_t)`. Endpoint: `grandplan.m
 ---
 
 ## 7. Experiment 3: Instruction Perturbation (Robustness)
-Claims Tested (legacy → v12.5 registry): **legacy H2/H3** (dedicated ablation-sensitivity protocol, `grandplan.md` §6.4) → registry **H3/H4**, plus H1/H4 support and optional attribution triangulation. **Legacy H6 safety is Deferred** (`grandplan.md` §4 retired/deferred): the `safety_constraint` condition below is retained for exploratory logging only; no safety claim is made unless safety labels and matched controls become available.
+**Protocol role:** an H1 Protocol A/Protocol B intervention pilot or an H4 availability–use study,
+selected before capture. Protocol A uses paired frozen snapshots; Protocol B uses randomized
+closed-loop assignment and ITT-first analysis. The legacy redundancy/unique rank-correlation rows
+below are exploratory precursors to H3, not confirmatory endpoints. **Legacy H6 safety is deferred**
+(`grandplan.md` §4): the `safety_constraint` condition is logging-only unless process-level safety
+outcomes and matched controls are separately preregistered.
 
 ### 7.1 Task Definition
 | Property | Value |
@@ -1496,14 +1516,22 @@ conditions:
 ```
 
 ### 7.3 PID Metric Analysis
-**Legacy H2 (per `grandplan.md` §6.4; registry H3/H4):** first pass the preregistered instruction diversity/occupancy/entropy gate; otherwise make V–D primary. Fit preprocessing once on disjoint V0/W0 training data, freeze its hash across cells, and estimate `Red(V,L;A)` per task on unperturbed held-out episodes. Run single-modality corruption curves (V1→V3 at W0; W1→W3 at V0) and record the success-vs-severity slope. Endpoint: Spearman ρ between an information-scale-adjusted `Red` endpoint and slope **across tasks**, with estimator uncertainty propagated and family-blocked bootstrap (predicted ρ > 0). The availability-vs-use asymmetry is a preregistered informative failure mode.
-**Legacy H3 (per `grandplan.md` §6.4; registry H1/H3):** after the same instruction and frozen-transform gates, estimate `Unq(V;A)`, `Unq(L;A)` with symmetric preprocessing, then apply matched-strength interventions per modality. **Strength matching is outcome-independent** (equal embedding displacement or equal MI destroyed, `I(X_corrupt;X_clean)`) — never equal-success-impact, which is circular; an equal-impact variant calibrated on a disjoint split is a robustness check only. Endpoint: mean per-case Kendall τ across ≥ 20 matched cases (predicted mean τ > 0), with estimator uncertainty propagated.
+**Exploratory legacy H2/H3 analyses (non-operative for confirmation):** first pass the instruction
+diversity/occupancy/entropy gate; otherwise make V–D primary. Fit preprocessing once on disjoint
+training data and freeze its hash. Redundancy-versus-severity slopes and unique-ordering-versus-
+intervention-ordering correlations may be reported as exploratory H3 mechanism screens only after
+the four PID gates. Strength matching is outcome-independent (for example equal embedding
+displacement or equal MI destroyed), never equal-success-impact. These screens do not replace the
+Protocol A direct-response score, the Protocol B effect-specific stack, or H2’s prospective proper
+score.
 **Exploratory (legacy-H6-adjacent, Deferred — no claim):** `Unq(L)` / `Syn(V,L;A)` contrasts between the `safety_constraint` and baseline conditions may be logged but are not evidence for any safety claim.
 
 ---
  
 ## 8. Experiment 4: Dream2Flow Validation (Flow-as-Bridge)
-Hypothesis Tested: **H7** (3D Object Flow serves as an embodiment-agnostic integration diagnostic)
+**Protocol role:** exploratory Flow-as-Bridge engineering/measurement study (`grandplan.md` §9.6),
+not a confirmatory H claim. Any later use as an H1 moderator or H2 predictor must be frozen before
+capture and evaluated under that protocol’s endpoint.
 
 ### 8.0 Flow_gt-First Bring-Up (Recommended)
 
@@ -1581,38 +1609,11 @@ def zscore(x: np.ndarray, eps: float = 1e-8) -> np.ndarray:
 
 def pid2_atoms_isx(s1: np.ndarray, s2: np.ndarray, t: np.ndarray, *, k: int = 3, metric: str = "chebyshev") -> dict:
     """
-    Compute 2-source PID atoms using:
-      Red = I^sx_∩(S1,S2;T)
-      Unq1 = I(S1;T) - Red
-      Unq2 = I(S2;T) - Red
-      Syn  = I(S1,S2;T) - I(S1;T) - I(S2;T) + Red
-
-    All arrays must be (n_samples, n_features) and C-contiguous float64.
+    Non-runnable boundary marker: the stable pid_core_rs 1.0 wheel intentionally omits
+    continuous shared-exclusions PID. Run this analysis through pid-offline-harness with the exact
+    pid-rs revision/features and support declarations recorded; do not call removed scalar APIs.
     """
-    s1 = np.asarray(s1, dtype=np.float64, order="C")
-    s2 = np.asarray(s2, dtype=np.float64, order="C")
-    t = np.asarray(t, dtype=np.float64, order="C")
-
-    s1z, s2z, tz = zscore(s1), zscore(s2), zscore(t)
-
-    mi_s1 = pid.compute_mi(s1z, tz, k=k, metric=metric)
-    mi_s2 = pid.compute_mi(s2z, tz, k=k, metric=metric)
-    mi_joint = pid.compute_mi(np.concatenate([s1z, s2z], axis=1), tz, k=k, metric=metric)
-    red = pid.compute_redundancy(s1z, s2z, tz, k=k, method="ehrlich_ksg")
-
-    unq1 = mi_s1 - red
-    unq2 = mi_s2 - red
-    syn = mi_joint - mi_s1 - mi_s2 + red
-
-    return {
-        "redundancy": red,
-        "unique_s1": unq1,
-        "unique_s2": unq2,
-        "synergy": syn,
-        "mi_s1_t": mi_s1,
-        "mi_s2_t": mi_s2,
-        "mi_joint": mi_joint,
-    }
+    raise NotImplementedError("continuous PID runs through the Rust harness under pid-rs 1.0")
 ```
 
 **Important:** KSG/ISX estimates are not reliable with very small `n` (e.g., a single 48‑frame clip). For the flow-as-bridge analysis you typically need to aggregate across many clips and/or subsample to reduce autocorrelation (see `grandplan.md` §6.7 uncertainty and dependence). Also keep the **flow target low-dimensional** (avoid raw 3×N×T trajectories); aggregate (centroids/velocities) or reduce, then re-run both the MI/coherence and measure-specific atom validation on the resulting representation.
@@ -1620,7 +1621,10 @@ def pid2_atoms_isx(s1: np.ndarray, s2: np.ndarray, t: np.ndarray, *, k: int = 3,
 ---
 
 ## 9. Experiment 5: Cross-Embodiment (Generalization)
-Hypothesis Tested: **H7** (Embodiment Gap separation)
+**Protocol role:** S7 transport replication for an already frozen H1 or H2 estimand, plus
+exploratory Flow-as-Bridge diagnostics. It does not establish generic “generalization”: name the
+source/target policy, embodiment, controller, task-family distribution, overlap assumptions, and
+which transforms/recalibration are frozen.
 
 ### 9.1 Protocol
 Compare PID signatures on the **same task** performed by two different robots (Franka Panda vs. UR5e) with the **same VLA policy** (using cross-embodiment training data or adapters).
@@ -1777,13 +1781,12 @@ embodiment_battery:
     variations: [0.2, 0.4, 0.6, 0.8]
 ```
 
-**docset v12.5 logging rule:** perturbation sweeps used for legacy-H4 (registry H4) must log per-severity-level `Syn`
-estimates (with block-bootstrap CIs) so SSI := −IQR(Syn) per axis is computable
-(`grandplan.md` §6 statistical analysis plan), the preregistered information-scale denominator, propagated
-estimator uncertainty, instruction occupancy/entropy, and the single V0/W0-fitted transform
-hash frozen across all cells. If the instruction gate fails, V–D—not V–L—is primary. Sweeps
-used for legacy-H3 must also log the outcome-independent strength yardstick (embedding displacement
-or MI destroyed) per level (`grandplan.md` §6.4).
+**Exploratory legacy logging only (non-operative for confirmation):** perturbation sweeps may log
+per-severity `Syn`, uncertainty, instruction occupancy/entropy, a frozen transform hash, and SSI :=
+−IQR(Syn) for descriptive continuity with the retired memorization/generalization analysis. This is
+not registry H4, whose endpoint is the availability–use divergence defined in the binding table and
+`grandplan.md` §4/§6.3. Legacy-H3 sweeps may likewise log an outcome-independent intervention-strength
+yardstick (embedding displacement or MI destroyed), but they do not substitute for current H1/H3.
 
 ---
  
@@ -1833,14 +1836,14 @@ def save_episode(episode: PickPlaceEpisode, filepath: str):
         
         # PID metrics
         pid = f.create_group("pid")
-        # Action target (H1)
+        # Action target (diagnostic; protocol assignment lives in the canonical run log)
         action = pid.create_group("action")
         action.create_dataset("synergy", data=episode.pid_action_synergy)
         action.create_dataset("redundancy", data=episode.pid_action_redundancy)
         action.create_dataset("unique_v", data=episode.pid_action_unique_v)
         action.create_dataset("unique_d", data=episode.pid_action_unique_d)
         
-        # Flow target (H7)
+        # Flow target (exploratory Flow-as-Bridge)
         flow = pid.create_group("flow")
         flow.create_dataset("synergy", data=episode.pid_flow_synergy)
         flow.create_dataset("redundancy", data=episode.pid_flow_redundancy)
@@ -3249,7 +3252,7 @@ def evaluate_exp10(results: List[Exp10PIDAnalysis]) -> dict:
 This repo currently ships Rust estimator/Python/run-log/bridge/deterministic-sim/Rerun-adapter groundwork plus the Exp0, toy, and offline embedding harnesses described earlier in this document. The full PID-Splat manipulation environment, custom UI, and Python experiment harness scripts below are still future targets; treat the commands as planned unless/until the referenced binaries/scripts exist.
 ```bash
 # 1. Validate estimators (Experiment 0)
-# cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0
+# cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0
  
 # 2. Launch PID-Splat environment
 # (planned) cargo run -p pid-splat -- --scene scenes/simple_pick_place.yaml

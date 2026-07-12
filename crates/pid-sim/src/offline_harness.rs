@@ -45,14 +45,17 @@ const OFFLINE_CENTROID_SUCCESS_SCORE: &str =
 /// reflect small-sample artifacts, not dependence.
 const OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX: f64 = 0.8;
 
-/// PID estimator mode: continuous (KSG-based kNN), discrete (quantization + counting),
-/// or discrete-pls (PLS projection + discrete PID).
+/// PID estimator mode: disabled (baseline-only firebreak), continuous (KSG-based kNN),
+/// discrete (quantization + counting), or discrete-pls (PLS projection + discrete PID).
 ///
 /// Measure identity (grandplan §7.6): continuous mode estimates the
 /// shared-exclusions `I^sx_∩`; the discrete modes estimate a Williams–Beer-style
 /// `I_min` redundancy. Cross-mode comparisons are cross-measure comparisons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PidMode {
+    /// Do not request MI or PID estimates. Geometry and every non-PID label/prediction baseline
+    /// still run, proving the minimum H1/H2 path does not depend on PID atoms.
+    Disabled,
     /// Continuous PID using KSG kNN mutual information and shared-exclusions redundancy.
     #[default]
     Continuous,
@@ -68,7 +71,7 @@ pub enum PidMode {
 /// Options for the offline VLDA harness.
 #[derive(Debug, Clone)]
 pub struct OfflineVldaHarnessOptions {
-    /// PID estimator mode (continuous, discrete, or discrete-pls).
+    /// PID estimator mode (disabled, continuous, discrete, or discrete-pls).
     pub pid_mode: PidMode,
     /// Number of quantization bins when `pid_mode == Discrete` or `DiscretePls`.
     pub discrete_bins: usize,
@@ -182,9 +185,61 @@ impl OfflineVldaAbstainReason {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OfflineVldaEstimateStatus {
-    Eligible,
-    EligibleWithWarning,
+    /// The caller explicitly disabled this estimator family; no estimate was requested.
+    NotRequested,
+    /// The implementation produced a diagnostic value. This is a computation status, not a
+    /// scientific eligibility verdict; consult `scientific_gates` before interpretation.
+    #[serde(alias = "eligible")]
+    Produced,
+    /// The implementation produced a diagnostic value with a declared numerical warning.
+    #[serde(alias = "eligible_with_warning")]
+    ProducedWithWarning,
     Abstained,
+}
+
+/// Verdict for one of the four independent scientific gates in `grandplan.md` §7.1.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OfflineVldaScientificGateVerdict {
+    /// The gate passed against a versioned, machine-readable support envelope.
+    Passed,
+    /// The computation relies on a caller declaration that this sample cannot prove.
+    Conditional,
+    /// This harness did not run the evidence required to decide the gate.
+    NotEvaluated,
+    /// The gate is known not to pass for interpretation in the current application regime.
+    Blocked,
+    /// No estimate was requested, so the gate does not apply.
+    NotApplicable,
+}
+
+/// Population/measure/estimator/application verdicts are separate from computation status.
+/// Current offline screens are diagnostics: no committed application-support envelope validates
+/// the intended dependent/high-dimensional VLA regime, so `interpretation_allowed` is false even
+/// when a numerical value was produced.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfflineVldaScientificGates {
+    pub population: OfflineVldaScientificGateVerdict,
+    pub measure: OfflineVldaScientificGateVerdict,
+    pub estimator: OfflineVldaScientificGateVerdict,
+    pub application: OfflineVldaScientificGateVerdict,
+    pub interpretation_allowed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub support_envelope_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+}
+
+fn legacy_scientific_gates() -> OfflineVldaScientificGates {
+    OfflineVldaScientificGates {
+        population: OfflineVldaScientificGateVerdict::NotEvaluated,
+        measure: OfflineVldaScientificGateVerdict::NotEvaluated,
+        estimator: OfflineVldaScientificGateVerdict::NotEvaluated,
+        application: OfflineVldaScientificGateVerdict::Blocked,
+        interpretation_allowed: false,
+        support_envelope_version: None,
+        reason_code: Some("legacy_artifact_scientific_gates_unrecorded".to_string()),
+    }
 }
 
 /// Observed-sample evidence for one axis. Evidence only — never a population-support finding.
@@ -204,7 +259,10 @@ pub struct OfflineVldaAxisDiagnostics {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OfflineVldaEstimateDenominators {
     pub requested: usize,
-    pub support_eligible: usize,
+    /// Requests whose caller-declared support is compatible with the selected estimator.
+    /// This is not the four-gate scientific eligibility denominator.
+    #[serde(default, alias = "support_eligible")]
+    pub declared_support_compatible: usize,
     pub preflight_passed: usize,
     pub estimated: usize,
     pub warned: usize,
@@ -214,31 +272,44 @@ pub struct OfflineVldaEstimateDenominators {
 
 impl OfflineVldaEstimateDenominators {
     fn record(&mut self, outcome: &OfflineVldaOutcome) {
-        self.requested += 1;
-        match outcome.reason_code {
-            None => {
-                self.support_eligible += 1;
+        match outcome.status {
+            OfflineVldaEstimateStatus::NotRequested => {}
+            OfflineVldaEstimateStatus::Produced
+            | OfflineVldaEstimateStatus::ProducedWithWarning => {
+                self.requested += 1;
+                if !outcome.axis_diagnostics.is_empty()
+                    && outcome
+                        .axis_diagnostics
+                        .iter()
+                        .all(|diagnostic| diagnostic.declared_support.is_some())
+                {
+                    self.declared_support_compatible += 1;
+                }
                 self.preflight_passed += 1;
                 self.estimated += 1;
-                if outcome.status == OfflineVldaEstimateStatus::EligibleWithWarning {
+                if outcome.status == OfflineVldaEstimateStatus::ProducedWithWarning {
                     self.warned += 1;
                 }
             }
-            Some(reason) => {
-                // A tuple rejected only by finite-sample preflight was still support-eligible.
-                if matches!(
-                    reason,
-                    OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies
-                        | OfflineVldaAbstainReason::AmbiguousNeighborShell
-                        | OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions
-                ) {
-                    self.support_eligible += 1;
+            OfflineVldaEstimateStatus::Abstained => {
+                self.requested += 1;
+                // A tuple rejected only by finite-sample preflight was still compatible with the
+                // caller-declared population support.
+                if let Some(reason) = outcome.reason_code {
+                    if matches!(
+                        reason,
+                        OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies
+                            | OfflineVldaAbstainReason::AmbiguousNeighborShell
+                            | OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions
+                    ) {
+                        self.declared_support_compatible += 1;
+                    }
+                    *self
+                        .abstained_by_reason
+                        .entry(reason.as_str().to_string())
+                        .or_insert(0) += 1;
                 }
                 self.abstained += 1;
-                *self
-                    .abstained_by_reason
-                    .entry(reason.as_str().to_string())
-                    .or_insert(0) += 1;
             }
         }
     }
@@ -253,6 +324,8 @@ pub struct OfflineVldaOutcome {
     /// Exact estimator revision the value would have come from.
     pub estimator_revision: String,
     pub axes: Vec<String>,
+    #[serde(default = "legacy_scientific_gates")]
+    pub scientific_gates: OfflineVldaScientificGates,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<OfflineVldaAbstainReason>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -771,10 +844,12 @@ pub fn run_offline_vlda_harness_with_options(
         "samples": dataset.samples.len(),
         "metric_pipeline": {
             "mi": match options.pid_mode {
+                PidMode::Disabled => "disabled",
                 PidMode::Continuous => "ksg",
                 PidMode::Discrete | PidMode::DiscretePls => "discrete",
             },
             "pid": match options.pid_mode {
+                PidMode::Disabled => "disabled",
                 PidMode::Continuous => "isx_ehrlich_ksg",
                 PidMode::Discrete => "discrete_imin",
                 PidMode::DiscretePls => "pls_discrete_imin",
@@ -785,14 +860,24 @@ pub fn run_offline_vlda_harness_with_options(
                 PlsComponentSelection::Fixed(k) => json!(k),
                 PlsComponentSelection::CvQ2 { max_components } => json!({"cv_max": max_components}),
             },
-            "pid_pairs": [["V", "L"], ["V", "D"], ["L", "D"]],
-            "pid_sample_scopes": if analysis.train_split_pid.as_ref().and_then(|report| report.metrics.as_ref()).is_some() {
+            "pid_pairs": if options.pid_mode == PidMode::Disabled {
+                json!([])
+            } else {
+                json!([["V", "L"], ["V", "D"], ["L", "D"]])
+            },
+            "pid_sample_scopes": if options.pid_mode == PidMode::Disabled {
+                Vec::<&str>::new()
+            } else if analysis.train_split_pid.as_ref().and_then(|report| report.metrics.as_ref()).is_some() {
                 vec!["all_samples", "metadata_split_train"]
             } else {
                 vec!["all_samples"]
             },
             "target": "A",
-            "shared_source_metrics": ["mi_v_action", "mi_l_action", "mi_d_action"],
+            "shared_source_metrics": if options.pid_mode == PidMode::Disabled {
+                Vec::<&str>::new()
+            } else {
+                vec!["mi_v_action", "mi_l_action", "mi_d_action"]
+            },
             "preprocessing": {
                 "pid_geometry_space": analysis.preprocessing.strategy.clone(),
                 "standardizer": "per_variable_center_scale_population_std",
@@ -936,6 +1021,21 @@ fn train_split_pid_report(
         d: dims.d,
         a: dims.a,
     };
+    if pid_mode == PidMode::Disabled {
+        return OfflineVldaTrainSplitPidReport {
+            split_metadata_key: split.report.metadata_key.clone(),
+            split: "metadata_split_train".to_string(),
+            train_values: split.report.train_values.clone(),
+            heldout_values: split.report.heldout_values.clone(),
+            status: "disabled".to_string(),
+            samples: train_samples.len(),
+            heldout_samples_excluded: split.report.heldout_samples,
+            train_sample_ids: split.report.train_sample_ids.clone(),
+            preprocessing: None,
+            metrics: None,
+            error: None,
+        };
+    }
     let result = (|| -> Result<(OfflineVldaPreprocessingReport, OfflineVldaPidScreenMetrics)> {
         let prepared = prepare_standardized_embeddings(&train_samples, &train_dims)?;
         let metrics = compute_pid_screen_metrics_with_control(
@@ -978,6 +1078,10 @@ fn compute_pid_screen_metrics(
     discrete_bins: usize,
     pls: PlsComponentSelection,
 ) -> Result<OfflineVldaPidScreenMetrics> {
+    if pid_mode == PidMode::Disabled {
+        return Ok(disabled_pid_screen_metrics());
+    }
+
     let v = prepared.v.as_ref();
     let l = prepared.l.as_ref();
     let d = prepared.d.as_ref();
@@ -1034,6 +1138,7 @@ fn compute_pid_screen_metrics(
             });
             Some((v_proj, l_proj, d_proj))
         }
+        PidMode::Disabled => unreachable!("disabled mode returns before PID preprocessing"),
         PidMode::Continuous | PidMode::Discrete => None,
     };
     let (v_eff, l_eff, d_eff) = match &pls_projected {
@@ -1056,6 +1161,7 @@ fn compute_pid_screen_metrics(
             quantized_mi_estimate("L", l_eff, "A", a, support, discrete_bins)?,
             quantized_mi_estimate("D", d_eff, "A", a, support, discrete_bins)?,
         ),
+        PidMode::Disabled => unreachable!("disabled mode returns before MI estimation"),
     };
 
     let v_source = OfflineVldaSourceMatrix {
@@ -1111,6 +1217,7 @@ fn compute_pid_screen_metrics(
                 discrete_bins,
             )?,
         ),
+        PidMode::Disabled => unreachable!("disabled mode returns before PID estimation"),
     };
 
     // Denominators over every requested estimate: three marginal MIs plus three pairs.
@@ -1307,10 +1414,14 @@ pub struct OfflineVldaAtomCi {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPairUncertainty {
     pub pair: String,
-    /// `eligible` or `abstained` — uncertainty is only computed for a pair the continuous
-    /// estimator will actually run.
-    #[serde(default = "eligible_status")]
+    /// `produced` or `abstained` — uncertainty is only computed for a pair the continuous
+    /// estimator will actually run. This is computation status, not application eligibility.
+    #[serde(default = "produced_status")]
     pub status: OfflineVldaEstimateStatus,
+    /// The same four scientific verdicts carried by point-estimate outcomes. Old sidecars did not
+    /// record these gates and deserialize conservatively as not evaluated/application blocked.
+    #[serde(default = "legacy_scientific_gates")]
+    pub scientific_gates: OfflineVldaScientificGates,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<OfflineVldaAbstainReason>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1327,8 +1438,8 @@ pub struct OfflineVldaPairUncertainty {
     pub perm_n_valid_s2: usize,
 }
 
-fn eligible_status() -> OfflineVldaEstimateStatus {
-    OfflineVldaEstimateStatus::Eligible
+fn produced_status() -> OfflineVldaEstimateStatus {
+    OfflineVldaEstimateStatus::Produced
 }
 
 /// Result of [`compute_offline_pid_uncertainty`].
@@ -1410,7 +1521,7 @@ pub fn compute_offline_pid_uncertainty(
 
         // Uncertainty is only meaningful for a pair the continuous estimator will actually run.
         // Preflight exactly as the screens do, and abstain rather than crash.
-        let (_, rejection) =
+        let (diagnostics, rejection) =
             continuous_preflight(&[(axis_1, s1), (axis_2, s2), ("A", a)], &dataset.support);
         // `pid2_resource_estimate` also rejects structurally-inapplicable pairs (e.g. unequal
         // ambient source dimensions), so consult it before doing any resampling work.
@@ -1428,6 +1539,7 @@ pub fn compute_offline_pid_uncertainty(
             pairs.push(OfflineVldaPairUncertainty {
                 pair: name.to_string(),
                 status: OfflineVldaEstimateStatus::Abstained,
+                scientific_gates: abstained_scientific_gates(reason),
                 reason_code: Some(reason),
                 reason_detail: Some(detail),
                 redundancy: None,
@@ -1530,7 +1642,8 @@ pub fn compute_offline_pid_uncertainty(
 
         pairs.push(OfflineVldaPairUncertainty {
             pair: name.to_string(),
-            status: OfflineVldaEstimateStatus::Eligible,
+            status: OfflineVldaEstimateStatus::Produced,
+            scientific_gates: produced_scientific_gates(&diagnostics),
             reason_code: None,
             reason_detail: None,
             redundancy,
@@ -1928,6 +2041,7 @@ pub fn offline_vlda_heldout_split_status(report: &OfflineVldaReport) -> &'static
 pub fn offline_vlda_train_split_pid_status(report: &OfflineVldaReport) -> &'static str {
     match report.train_split_pid.as_ref() {
         Some(train_pid) if train_pid.metrics.is_some() => "available",
+        Some(train_pid) if train_pid.status == "disabled" => "disabled",
         Some(_) => "error",
         None => "missing",
     }
@@ -2750,7 +2864,7 @@ fn compute_pid_pair_metrics(
         source_1: source_1.name.to_string(),
         source_2: source_2.name.to_string(),
         target: target.name.to_string(),
-        outcome: eligible_outcome(MEASURE_CONTINUOUS_PID2, &axes, diagnostics),
+        outcome: produced_outcome(MEASURE_CONTINUOUS_PID2, &axes, diagnostics),
         mi_source_1_action: source_1.mi_action,
         mi_source_2_action: source_2.mi_action,
         mi_joint_action: Some(est.mi_s1s2_t),
@@ -2905,25 +3019,126 @@ fn abstained_outcome(
         measure: measure.to_string(),
         estimator_revision: ESTIMATOR_REVISION.to_string(),
         axes: axes.iter().map(|a| (*a).to_string()).collect(),
+        scientific_gates: abstained_scientific_gates(reason),
         reason_code: Some(reason),
         reason_detail: Some(detail),
         axis_diagnostics: diagnostics,
     }
 }
 
-fn eligible_outcome(
+fn abstained_scientific_gates(reason: OfflineVldaAbstainReason) -> OfflineVldaScientificGates {
+    let (population, measure_gate, estimator) = match reason {
+        OfflineVldaAbstainReason::DeclaredSupportIncompatibleContinuous => (
+            OfflineVldaScientificGateVerdict::Conditional,
+            OfflineVldaScientificGateVerdict::Blocked,
+            OfflineVldaScientificGateVerdict::NotEvaluated,
+        ),
+        OfflineVldaAbstainReason::SupportContractUnspecified => (
+            OfflineVldaScientificGateVerdict::NotEvaluated,
+            OfflineVldaScientificGateVerdict::NotEvaluated,
+            OfflineVldaScientificGateVerdict::NotEvaluated,
+        ),
+        OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies
+        | OfflineVldaAbstainReason::AmbiguousNeighborShell
+        | OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions => (
+            OfflineVldaScientificGateVerdict::Conditional,
+            OfflineVldaScientificGateVerdict::NotEvaluated,
+            OfflineVldaScientificGateVerdict::Blocked,
+        ),
+    };
+    OfflineVldaScientificGates {
+        population,
+        measure: measure_gate,
+        estimator,
+        application: OfflineVldaScientificGateVerdict::Blocked,
+        interpretation_allowed: false,
+        support_envelope_version: None,
+        reason_code: Some(reason.as_str().to_string()),
+    }
+}
+
+fn produced_scientific_gates(
+    diagnostics: &[OfflineVldaAxisDiagnostics],
+) -> OfflineVldaScientificGates {
+    let population = if !diagnostics.is_empty()
+        && diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.declared_support.is_some())
+    {
+        OfflineVldaScientificGateVerdict::Conditional
+    } else {
+        OfflineVldaScientificGateVerdict::NotEvaluated
+    };
+    OfflineVldaScientificGates {
+        population,
+        measure: OfflineVldaScientificGateVerdict::NotEvaluated,
+        estimator: OfflineVldaScientificGateVerdict::NotEvaluated,
+        application: OfflineVldaScientificGateVerdict::Blocked,
+        interpretation_allowed: false,
+        support_envelope_version: None,
+        reason_code: Some("application_support_envelope_not_validated".to_string()),
+    }
+}
+
+fn produced_outcome(
     measure: &str,
     axes: &[&str],
     diagnostics: Vec<OfflineVldaAxisDiagnostics>,
 ) -> OfflineVldaOutcome {
+    let scientific_gates = produced_scientific_gates(&diagnostics);
     OfflineVldaOutcome {
-        status: OfflineVldaEstimateStatus::Eligible,
+        status: OfflineVldaEstimateStatus::Produced,
         measure: measure.to_string(),
         estimator_revision: ESTIMATOR_REVISION.to_string(),
         axes: axes.iter().map(|a| (*a).to_string()).collect(),
+        scientific_gates,
         reason_code: None,
         reason_detail: None,
         axis_diagnostics: diagnostics,
+    }
+}
+
+fn not_requested_outcome(axes: &[&str]) -> OfflineVldaOutcome {
+    OfflineVldaOutcome {
+        status: OfflineVldaEstimateStatus::NotRequested,
+        measure: "not_requested_pid_disabled".to_string(),
+        estimator_revision: "not_applicable_pid_disabled".to_string(),
+        axes: axes.iter().map(|axis| (*axis).to_string()).collect(),
+        scientific_gates: OfflineVldaScientificGates {
+            population: OfflineVldaScientificGateVerdict::NotApplicable,
+            measure: OfflineVldaScientificGateVerdict::NotApplicable,
+            estimator: OfflineVldaScientificGateVerdict::NotApplicable,
+            application: OfflineVldaScientificGateVerdict::NotApplicable,
+            interpretation_allowed: false,
+            support_envelope_version: None,
+            reason_code: Some("pid_disabled".to_string()),
+        },
+        reason_code: None,
+        reason_detail: Some("PID/MI estimation disabled by configuration".to_string()),
+        axis_diagnostics: Vec::new(),
+    }
+}
+
+fn disabled_pid_screen_metrics() -> OfflineVldaPidScreenMetrics {
+    let not_requested_mi = |source| OfflineVldaMiEstimate {
+        outcome: not_requested_outcome(&[source, "A"]),
+        value: None,
+    };
+    OfflineVldaPidScreenMetrics {
+        mi_v_action: not_requested_mi("V"),
+        mi_l_action: not_requested_mi("L"),
+        mi_d_action: not_requested_mi("D"),
+        mi_vl_action: None,
+        co_information_v_l_action: None,
+        redundancy_v_l_action: None,
+        unique_v_action: None,
+        unique_l_action: None,
+        synergy_v_l_action: None,
+        estimate_denominators: OfflineVldaEstimateDenominators::default(),
+        pid_pairs: BTreeMap::new(),
+        pls_selection: None,
+        pls_shuffled_target_control: None,
+        pls_control_seed: None,
     }
 }
 
@@ -2947,7 +3162,7 @@ fn continuous_mi_estimate(
     }
     match ksg_mi(source, target, ksg) {
         Ok(value) => Ok(OfflineVldaMiEstimate {
-            outcome: eligible_outcome(MEASURE_CONTINUOUS_MI, &axes, diagnostics),
+            outcome: produced_outcome(MEASURE_CONTINUOUS_MI, &axes, diagnostics),
             value: Some(value),
         }),
         Err(err) => {
@@ -2992,7 +3207,7 @@ fn quantized_mi_estimate(
     let source_bins = quantize_rows(source, bins)?;
     let target_bins = quantize_rows(target, bins)?;
     Ok(OfflineVldaMiEstimate {
-        outcome: eligible_outcome(MEASURE_QUANTIZED_MI, &axes, diagnostics),
+        outcome: produced_outcome(MEASURE_QUANTIZED_MI, &axes, diagnostics),
         value: Some(plugin_discrete_mi(&source_bins, &target_bins)?),
     })
 }
@@ -3145,9 +3360,11 @@ fn compute_pid_pair_metrics_discrete(
     ]
     .iter()
     .any(|&fraction| fraction > OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX);
-    let mut outcome = eligible_outcome(MEASURE_QUANTIZED_PID2, &axes, pair_diagnostics);
+    let mut outcome = produced_outcome(MEASURE_QUANTIZED_PID2, &axes, pair_diagnostics);
     if saturation_warning {
-        outcome.status = OfflineVldaEstimateStatus::EligibleWithWarning;
+        outcome.status = OfflineVldaEstimateStatus::ProducedWithWarning;
+        outcome.scientific_gates.estimator = OfflineVldaScientificGateVerdict::Blocked;
+        outcome.scientific_gates.reason_code = Some("discrete_saturation".to_string());
         outcome.reason_detail = Some(
             "quantized plug-in entropies are saturated: nearly every sample occupies its own \
              joint bin, so MI measures sample size rather than dependence (grandplan §7.6)"
@@ -4521,50 +4738,65 @@ fn write_metric_events<W: Write>(
     // An abstained estimate emits NO `PidMetric`: there is no numeric placeholder for a value that
     // was never produced. Its status/reason is emitted as a structured `LabelObserved` instead, so
     // run-log replay reconstructs the abstention rather than silently seeing a missing metric.
-    let metrics: [(&str, Option<f64>); 9] = [
+    let vl_outcome = report.metrics.pid_pairs.get("VL").map(|pair| &pair.outcome);
+    let metrics: [(&str, Option<f64>, Option<&OfflineVldaOutcome>); 9] = [
         (
             "offline_vlda.pid.mi_v_action",
             report.metrics.mi_v_action.value,
+            Some(&report.metrics.mi_v_action.outcome),
         ),
         (
             "offline_vlda.pid.mi_l_action",
             report.metrics.mi_l_action.value,
+            Some(&report.metrics.mi_l_action.outcome),
         ),
         (
             "offline_vlda.pid.mi_d_action",
             report.metrics.mi_d_action.value,
+            Some(&report.metrics.mi_d_action.outcome),
         ),
-        ("offline_vlda.pid.mi_vl_action", report.metrics.mi_vl_action),
+        (
+            "offline_vlda.pid.mi_vl_action",
+            report.metrics.mi_vl_action,
+            vl_outcome,
+        ),
         (
             "offline_vlda.pid.co_information_v_l_action",
             report.metrics.co_information_v_l_action,
+            vl_outcome,
         ),
         (
             "offline_vlda.pid.redundancy_v_l_action",
             report.metrics.redundancy_v_l_action,
+            vl_outcome,
         ),
         (
             "offline_vlda.pid.unique_v_action",
             report.metrics.unique_v_action,
+            vl_outcome,
         ),
         (
             "offline_vlda.pid.unique_l_action",
             report.metrics.unique_l_action,
+            vl_outcome,
         ),
         (
             "offline_vlda.pid.synergy_v_l_action",
             report.metrics.synergy_v_l_action,
+            vl_outcome,
         ),
     ];
     let mut idx = 0u64;
-    for (name, value) in metrics {
+    for (name, value, outcome) in metrics {
         let Some(value) = value else { continue };
+        let outcome =
+            outcome.with_context(|| format!("{name} has a value but no typed outcome"))?;
         writer.append(&RunLogEvent::PidMetric {
             step: report.dims.samples as u64,
             timestamp_ns: timestamp_base_ns + idx,
             name: name.to_string(),
             value,
-            metadata: offline_vlda_pid_metric_metadata(report, name, None),
+            metadata: offline_vlda_pid_metric_metadata(report, name, None, outcome),
         })?;
         idx += 1;
     }
@@ -5140,6 +5372,7 @@ fn offline_vlda_pid_metric_metadata(
     report: &OfflineVldaReport,
     name: &str,
     train_pid: Option<&OfflineVldaTrainSplitPidReport>,
+    outcome: &OfflineVldaOutcome,
 ) -> BTreeMap<String, String> {
     let mut metadata = offline_vlda_pid_scope_metadata(report, train_pid);
     // Every information quantity in this crate is in nats (pid-core convention,
@@ -5176,7 +5409,69 @@ fn offline_vlda_pid_metric_metadata(
         }
         _ => {}
     }
+    insert_offline_vlda_outcome_metadata(&mut metadata, outcome);
     metadata
+}
+
+fn insert_offline_vlda_outcome_metadata(
+    metadata: &mut BTreeMap<String, String>,
+    outcome: &OfflineVldaOutcome,
+) {
+    let status = match outcome.status {
+        OfflineVldaEstimateStatus::NotRequested => "not_requested",
+        OfflineVldaEstimateStatus::Produced => "produced",
+        OfflineVldaEstimateStatus::ProducedWithWarning => "produced_with_warning",
+        OfflineVldaEstimateStatus::Abstained => "abstained",
+    };
+    let gate = |verdict| match verdict {
+        OfflineVldaScientificGateVerdict::Passed => "passed",
+        OfflineVldaScientificGateVerdict::Conditional => "conditional",
+        OfflineVldaScientificGateVerdict::NotEvaluated => "not_evaluated",
+        OfflineVldaScientificGateVerdict::Blocked => "blocked",
+        OfflineVldaScientificGateVerdict::NotApplicable => "not_applicable",
+    };
+    metadata.insert("computation_status".to_string(), status.to_string());
+    metadata.insert("measure".to_string(), outcome.measure.clone());
+    metadata.insert(
+        "estimator_revision".to_string(),
+        outcome.estimator_revision.clone(),
+    );
+    metadata.insert("axes".to_string(), outcome.axes.join(","));
+    metadata.insert(
+        "scientific_gate_population".to_string(),
+        gate(outcome.scientific_gates.population).to_string(),
+    );
+    metadata.insert(
+        "scientific_gate_measure".to_string(),
+        gate(outcome.scientific_gates.measure).to_string(),
+    );
+    metadata.insert(
+        "scientific_gate_estimator".to_string(),
+        gate(outcome.scientific_gates.estimator).to_string(),
+    );
+    metadata.insert(
+        "scientific_gate_application".to_string(),
+        gate(outcome.scientific_gates.application).to_string(),
+    );
+    metadata.insert(
+        "interpretation_allowed".to_string(),
+        outcome.scientific_gates.interpretation_allowed.to_string(),
+    );
+    if let Some(version) = &outcome.scientific_gates.support_envelope_version {
+        metadata.insert("support_envelope_version".to_string(), version.clone());
+    }
+    if let Some(reason) = &outcome.scientific_gates.reason_code {
+        metadata.insert("scientific_reason_code".to_string(), reason.clone());
+        if outcome.status == OfflineVldaEstimateStatus::ProducedWithWarning {
+            metadata.insert("warning_code".to_string(), reason.clone());
+        }
+    }
+    if let Some(reason) = outcome.reason_code {
+        metadata.insert(
+            "computation_reason_code".to_string(),
+            reason.as_str().to_string(),
+        );
+    }
 }
 
 fn offline_vlda_pid_pair_metric_metadata(
@@ -5186,10 +5481,12 @@ fn offline_vlda_pid_pair_metric_metadata(
     train_pid: Option<&OfflineVldaTrainSplitPidReport>,
 ) -> BTreeMap<String, String> {
     let mut metadata = offline_vlda_pid_scope_metadata(report, train_pid);
+    metadata.insert("units".to_string(), "nats".to_string());
     metadata.insert("pid_pair".to_string(), pair.to_string());
     metadata.insert("source_1".to_string(), metrics.source_1.clone());
     metadata.insert("source_2".to_string(), metrics.source_2.clone());
     metadata.insert("target".to_string(), metrics.target.clone());
+    insert_offline_vlda_outcome_metadata(&mut metadata, &metrics.outcome);
     metadata
 }
 
@@ -5531,52 +5828,64 @@ fn write_train_split_pid_metric_events<W: Write>(
     let Some(metrics) = &train_pid.metrics else {
         return Ok(());
     };
-    for (name, value) in [
+    let vl_outcome = metrics.pid_pairs.get("VL").map(|pair| &pair.outcome);
+    for (name, value, outcome) in [
         (
             "offline_vlda.pid.train_split.mi_v_action",
             metrics.mi_v_action.value,
+            Some(&metrics.mi_v_action.outcome),
         ),
         (
             "offline_vlda.pid.train_split.mi_l_action",
             metrics.mi_l_action.value,
+            Some(&metrics.mi_l_action.outcome),
         ),
         (
             "offline_vlda.pid.train_split.mi_d_action",
             metrics.mi_d_action.value,
+            Some(&metrics.mi_d_action.outcome),
         ),
         (
             "offline_vlda.pid.train_split.mi_vl_action",
             metrics.mi_vl_action,
+            vl_outcome,
         ),
         (
             "offline_vlda.pid.train_split.co_information_v_l_action",
             metrics.co_information_v_l_action,
+            vl_outcome,
         ),
         (
             "offline_vlda.pid.train_split.redundancy_v_l_action",
             metrics.redundancy_v_l_action,
+            vl_outcome,
         ),
         (
             "offline_vlda.pid.train_split.unique_v_action",
             metrics.unique_v_action,
+            vl_outcome,
         ),
         (
             "offline_vlda.pid.train_split.unique_l_action",
             metrics.unique_l_action,
+            vl_outcome,
         ),
         (
             "offline_vlda.pid.train_split.synergy_v_l_action",
             metrics.synergy_v_l_action,
+            vl_outcome,
         ),
     ] {
         // Abstained train-split estimates emit no metric event and no placeholder.
         let Some(value) = value else { continue };
+        let outcome =
+            outcome.with_context(|| format!("{name} has a value but no typed outcome"))?;
         writer.append(&RunLogEvent::PidMetric {
             step: report.dims.samples as u64,
             timestamp_ns: timestamp_base_ns + *idx,
             name: name.to_string(),
             value,
-            metadata: offline_vlda_pid_metric_metadata(report, name, Some(train_pid)),
+            metadata: offline_vlda_pid_metric_metadata(report, name, Some(train_pid), outcome),
         })?;
         *idx += 1;
     }
@@ -5726,6 +6035,89 @@ mod tests {
     use super::*;
     use pid_runlog::{read_events_from_path, summarize_events, validate_events};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn legacy_outcome_statuses_deserialize_as_computation_statuses_with_blocked_gates() {
+        for (legacy_status, expected) in [
+            ("eligible", OfflineVldaEstimateStatus::Produced),
+            (
+                "eligible_with_warning",
+                OfflineVldaEstimateStatus::ProducedWithWarning,
+            ),
+        ] {
+            let outcome: OfflineVldaOutcome = serde_json::from_value(json!({
+                "status": legacy_status,
+                "measure": "legacy_measure",
+                "estimator_revision": "legacy_revision",
+                "axes": ["V", "A"],
+                "axis_diagnostics": []
+            }))
+            .unwrap();
+
+            assert_eq!(outcome.status, expected);
+            assert_eq!(
+                outcome.scientific_gates.population,
+                OfflineVldaScientificGateVerdict::NotEvaluated
+            );
+            assert_eq!(
+                outcome.scientific_gates.application,
+                OfflineVldaScientificGateVerdict::Blocked
+            );
+            assert!(!outcome.scientific_gates.interpretation_allowed);
+            assert_eq!(
+                outcome.scientific_gates.reason_code.as_deref(),
+                Some("legacy_artifact_scientific_gates_unrecorded")
+            );
+        }
+    }
+
+    #[test]
+    fn legacy_denominators_deserialize_support_eligible_alias() {
+        let denominators: OfflineVldaEstimateDenominators = serde_json::from_value(json!({
+            "requested": 6,
+            "support_eligible": 4,
+            "preflight_passed": 3,
+            "estimated": 3,
+            "warned": 1,
+            "abstained": 3,
+            "abstained_by_reason": {"ambiguous_neighbor_shell": 3}
+        }))
+        .unwrap();
+
+        assert_eq!(denominators.declared_support_compatible, 4);
+    }
+
+    #[test]
+    fn legacy_uncertainty_pair_deserializes_status_and_conservative_gates() {
+        let pair: OfflineVldaPairUncertainty = serde_json::from_value(json!({
+            "pair": "VL",
+            "status": "eligible",
+            "redundancy": null,
+            "unique_s1": null,
+            "unique_s2": null,
+            "synergy": null,
+            "unique_s1_perm_p": null,
+            "unique_s2_perm_p": null,
+            "perm_n_valid_s1": 0,
+            "perm_n_valid_s2": 0
+        }))
+        .unwrap();
+
+        assert_eq!(pair.status, OfflineVldaEstimateStatus::Produced);
+        assert_eq!(
+            pair.scientific_gates.application,
+            OfflineVldaScientificGateVerdict::Blocked
+        );
+        assert!(!pair.scientific_gates.interpretation_allowed);
+    }
+
+    #[test]
+    fn not_requested_outcome_is_excluded_from_estimate_denominators() {
+        let mut denominators = OfflineVldaEstimateDenominators::default();
+        denominators.record(&not_requested_outcome(&["V", "A"]));
+
+        assert_eq!(denominators, OfflineVldaEstimateDenominators::default());
+    }
 
     #[test]
     fn temporal_report_distinguishes_persistent_from_alternating_series() {
@@ -6064,7 +6456,8 @@ mod tests {
             discrete_bins: 6,
             pls: PlsComponentSelection::Fixed(2),
         };
-        let report = run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap();
+        let report =
+            run_offline_vlda_harness_with_options(dataset.clone(), None, None, &options).unwrap();
         assert_eq!(report.metrics.pid_pairs.len(), 3);
         for (pair_name, pair) in &report.metrics.pid_pairs {
             let saturation = pair
@@ -6088,6 +6481,47 @@ mod tests {
             assert!(u2 >= -eps, "{pair_name} Unq2 negative");
             assert!(syn >= -eps, "{pair_name} Syn negative");
         }
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let runlog_path =
+            std::env::temp_dir().join(format!("pid-offline-vlda-discrete-{stamp}.jsonl"));
+        write_offline_vlda_runlog(&runlog_path, None, None, &dataset, &report).unwrap();
+        let events = read_events_from_path(&runlog_path).unwrap();
+        let warned_pair_metadata = events.iter().find_map(|event| match event {
+            RunLogEvent::PidMetric { metadata, .. }
+                if metadata.get("pid_pair").map(String::as_str) == Some("VL") =>
+            {
+                Some(metadata)
+            }
+            _ => None,
+        });
+        let warned_pair_metadata = warned_pair_metadata.expect("VL metric event");
+        assert_eq!(
+            warned_pair_metadata
+                .get("computation_status")
+                .map(String::as_str),
+            Some("produced_with_warning")
+        );
+        assert_eq!(
+            warned_pair_metadata
+                .get("scientific_gate_application")
+                .map(String::as_str),
+            Some("blocked")
+        );
+        assert_eq!(
+            warned_pair_metadata
+                .get("interpretation_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            warned_pair_metadata.get("warning_code").map(String::as_str),
+            Some("discrete_saturation")
+        );
+        std::fs::remove_file(runlog_path).unwrap();
     }
 
     #[test]
@@ -6180,6 +6614,105 @@ mod tests {
         for pair in report.metrics.pid_pairs.values() {
             assert!(pair.discrete_saturation.is_none());
         }
+    }
+
+    #[test]
+    fn discrete_mode_marks_missing_population_support_not_evaluated() {
+        let mut dataset = fixture_dataset();
+        dataset.support.remove("v");
+        let report = run_offline_vlda_harness_with_options(
+            dataset,
+            None,
+            None,
+            &OfflineVldaHarnessOptions {
+                pid_mode: PidMode::Discrete,
+                discrete_bins: 6,
+                pls: PlsComponentSelection::Fixed(2),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            report
+                .metrics
+                .mi_v_action
+                .outcome
+                .scientific_gates
+                .population,
+            OfflineVldaScientificGateVerdict::NotEvaluated
+        );
+        assert_eq!(
+            report.metrics.pid_pairs["VL"]
+                .outcome
+                .scientific_gates
+                .population,
+            OfflineVldaScientificGateVerdict::NotEvaluated
+        );
+        assert_eq!(
+            report
+                .metrics
+                .mi_l_action
+                .outcome
+                .scientific_gates
+                .population,
+            OfflineVldaScientificGateVerdict::Conditional
+        );
+        assert_eq!(
+            report
+                .metrics
+                .estimate_denominators
+                .declared_support_compatible,
+            3
+        );
+    }
+
+    #[test]
+    fn pid_disabled_mode_preserves_baselines_and_emits_no_pid_metrics() {
+        let dataset = fixture_dataset();
+        let report = run_offline_vlda_harness_with_options(
+            dataset.clone(),
+            Some("memory://fixture.json".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
+            &OfflineVldaHarnessOptions {
+                pid_mode: PidMode::Disabled,
+                ..OfflineVldaHarnessOptions::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(report.config["metric_pipeline"]["pid"], "disabled");
+        assert_eq!(report.metrics.estimate_denominators.requested, 0);
+        assert!(report.metrics.pid_pairs.is_empty());
+        assert_eq!(
+            report.metrics.mi_v_action.outcome.status,
+            OfflineVldaEstimateStatus::NotRequested
+        );
+        assert!(report.metrics.mi_v_action.value.is_none());
+        assert!(report.metrics.majority_success_accuracy.is_some());
+        assert!(report
+            .metrics
+            .heldout_logreg_vlda_success_accuracy
+            .is_some());
+        assert_eq!(offline_vlda_train_split_pid_status(&report), "disabled");
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let runlog_path =
+            std::env::temp_dir().join(format!("pid-offline-vlda-disabled-{stamp}.jsonl"));
+        write_offline_vlda_runlog(&runlog_path, None, None, &dataset, &report).unwrap();
+        let events = read_events_from_path(&runlog_path).unwrap();
+        assert!(validate_events(&events).unwrap().is_valid());
+        assert!(!events
+            .iter()
+            .any(|event| matches!(event, RunLogEvent::PidMetric { .. })));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RunLogEvent::EvaluationMetric { name, .. }
+                if name == "offline_vlda.baseline.heldout_logreg_vlda_success_accuracy"
+        )));
+        std::fs::remove_file(runlog_path).unwrap();
     }
 
     #[test]
@@ -6430,7 +6963,7 @@ mod tests {
         // This is the MIXED-SUPPORT regression fixture: `L` is declared categorical, so every
         // L-involving continuous term abstains, and `V`(2-d) vs `D`(1-d) is structurally
         // inapplicable to continuous shared exclusions (equal ambient source dimensions required).
-        // No pair is eligible here, so NO pid metric event may be emitted for any of them — an
+        // No pair is produced here, so NO pid metric event may be emitted for any of them — an
         // abstained estimate has no numeric placeholder, not zero and not NaN.
         let emitted_pid_pair_metric = events.iter().any(|event| {
             matches!(
@@ -6442,6 +6975,38 @@ mod tests {
         assert!(
             !emitted_pid_pair_metric,
             "abstained pairs must emit no pid metric events"
+        );
+        let produced_mi_metadata = events.iter().find_map(|event| match event {
+            RunLogEvent::PidMetric { metadata, .. }
+                if !metadata.contains_key("pid_pair")
+                    && metadata.get("measure").map(String::as_str) == Some("ksg_mi") =>
+            {
+                Some(metadata)
+            }
+            _ => None,
+        });
+        let produced_mi_metadata = produced_mi_metadata.expect("produced scalar MI metric");
+        assert_eq!(
+            produced_mi_metadata
+                .get("computation_status")
+                .map(String::as_str),
+            Some("produced")
+        );
+        assert_eq!(
+            produced_mi_metadata
+                .get("scientific_gate_application")
+                .map(String::as_str),
+            Some("blocked")
+        );
+        assert_eq!(
+            produced_mi_metadata
+                .get("interpretation_allowed")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            produced_mi_metadata.get("measure").map(String::as_str),
+            Some("ksg_mi")
         );
         // The abstention itself is preserved in the run log, with its stable reason code.
         for pair in ["VL", "VD", "LD"] {
@@ -6674,7 +7239,7 @@ mod tests {
             .count();
         assert_eq!(success_labels, 16);
         assert!(summary.labels > success_labels);
-        // Only the two support-eligible marginal MIs survive on this mixed-support fixture
+        // Only the two declared-support-compatible marginal MIs survive on this mixed-support fixture
         // (`V→A`, `D→A`). Every pair abstains, and the train-split screen abstains too (12 rows
         // put the continuous estimator into an ambiguous k-th-neighbor shell). 42 -> 2.
         assert_eq!(summary.pid_metrics, 2);
@@ -7266,6 +7831,61 @@ mod tests {
     }
 
     #[test]
+    fn pid_uncertainty_records_application_block_for_produced_pairs() {
+        let uncertainty = compute_offline_pid_uncertainty(
+            &continuous_fixture_dataset(),
+            PidMode::Continuous,
+            &OfflineVldaUncertaintyConfig::default(),
+        )
+        .unwrap();
+        let pair = uncertainty
+            .pairs
+            .iter()
+            .find(|pair| pair.status == OfflineVldaEstimateStatus::Produced)
+            .expect("continuous fixture should produce at least one pair");
+
+        assert_eq!(
+            pair.scientific_gates.population,
+            OfflineVldaScientificGateVerdict::Conditional
+        );
+        assert_eq!(
+            pair.scientific_gates.application,
+            OfflineVldaScientificGateVerdict::Blocked
+        );
+        assert!(!pair.scientific_gates.interpretation_allowed);
+    }
+
+    #[test]
+    fn pid_uncertainty_records_measure_block_for_support_abstention() {
+        let uncertainty = compute_offline_pid_uncertainty(
+            &fixture_dataset(),
+            PidMode::Continuous,
+            &OfflineVldaUncertaintyConfig::default(),
+        )
+        .unwrap();
+        let pair = uncertainty
+            .pairs
+            .iter()
+            .find(|pair| pair.pair == "VL")
+            .expect("mixed-support fixture carries the VL request");
+
+        assert_eq!(pair.status, OfflineVldaEstimateStatus::Abstained);
+        assert_eq!(
+            pair.reason_code,
+            Some(OfflineVldaAbstainReason::DeclaredSupportIncompatibleContinuous)
+        );
+        assert_eq!(
+            pair.scientific_gates.measure,
+            OfflineVldaScientificGateVerdict::Blocked
+        );
+        assert_eq!(
+            pair.scientific_gates.application,
+            OfflineVldaScientificGateVerdict::Blocked
+        );
+        assert!(!pair.scientific_gates.interpretation_allowed);
+    }
+
+    #[test]
     fn pid_uncertainty_bootstrap_only_omits_perm_pvalues() {
         let dataset = continuous_fixture_dataset();
         let cfg = OfflineVldaUncertaintyConfig {
@@ -7278,7 +7898,7 @@ mod tests {
         };
         let u = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
         let vl = &u.pairs[0];
-        assert_eq!(vl.status, OfflineVldaEstimateStatus::Eligible);
+        assert_eq!(vl.status, OfflineVldaEstimateStatus::Produced);
         assert!(vl.redundancy.is_some());
         assert!(vl.unique_s1_perm_p.is_none() && vl.unique_s2_perm_p.is_none());
         assert!(!OfflineVldaUncertaintyConfig::default().enabled());

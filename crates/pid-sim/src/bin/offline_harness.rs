@@ -214,15 +214,16 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 require_axis_provenance_honest = true;
             }
             "--pid-mode" => {
-                let mode_str = iter
-                    .next()
-                    .context("--pid-mode requires 'continuous', 'discrete', or 'discrete-pls'")?;
+                let mode_str = iter.next().context(
+                    "--pid-mode requires 'none', 'continuous', 'discrete', or 'discrete-pls'",
+                )?;
                 pid_mode = match mode_str.as_str() {
+                    "none" => PidMode::Disabled,
                     "continuous" => PidMode::Continuous,
                     "discrete" => PidMode::Discrete,
                     "discrete-pls" => PidMode::DiscretePls,
                     other => bail!(
-                        "--pid-mode must be 'continuous', 'discrete', or 'discrete-pls', got '{other}'"
+                        "--pid-mode must be 'none', 'continuous', 'discrete', or 'discrete-pls', got '{other}'"
                     ),
                 };
             }
@@ -340,10 +341,12 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
 
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N|cv|cv:MAX] [--bootstrap N] [--permutation N] [--permutation-scheme full-shuffle|circular-shift] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
+        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode none|continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N|cv|cv:MAX] [--bootstrap N] [--permutation N] [--permutation-scheme full-shuffle|circular-shift] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts.\n\
          \n\
+         --pid-mode none         Skip all MI/PID estimates; run labels, geometry, and non-PID\n\
+                                 prediction baselines only (dependency-firebreak path).\n\
          --pid-mode continuous   Use KSG kNN-based MI and continuous I^sx PID (default).\n\
          --pid-mode discrete     Use equal-width quantization + counting-based discrete PID\n\
                                  (I_min-style redundancy, not discrete i^sx; results carry\n\
@@ -415,6 +418,18 @@ mod tests {
         .unwrap();
         assert_eq!(args.pid_mode, PidMode::Discrete);
         assert_eq!(args.discrete_bins, 20);
+    }
+
+    #[test]
+    fn parse_args_accepts_pid_disabled_mode() {
+        let args = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--pid-mode".to_string(),
+            "none".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(args.pid_mode, PidMode::Disabled);
     }
 
     #[test]

@@ -36,23 +36,27 @@ jobs:
           # assert the H1/H2 baseline predictors (majority + the SAFE-class held-out logistic
           # regression) are emitted independently of the PID screens — i.e. the prediction
           # stack stands without PID atoms.
-          cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/prisoma_firebreak_summary.json --runlog /tmp/prisoma_firebreak_runlog.jsonl
+          cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/prisoma_firebreak_summary.json --runlog /tmp/prisoma_firebreak_runlog.jsonl --pid-mode none
           grep -q '"majority_success_accuracy"' /tmp/prisoma_firebreak_summary.json
           grep -q '"heldout_logreg_vlda_success_accuracy"' /tmp/prisoma_firebreak_summary.json
+          grep -q '"pid": "disabled"' /tmp/prisoma_firebreak_summary.json
+          grep -q '"requested": 0' /tmp/prisoma_firebreak_summary.json
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_firebreak_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_firebreak_runlog.jsonl | grep -q 'pid_metrics=0'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_firebreak_runlog.jsonl | grep -q 'pid_metric_events=0'
       - name: Run-log smoke
         run: |
-          cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --seeds 1 --summary-json /tmp/prisoma_exp0_summary.json --runlog /tmp/prisoma_exp0_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --seeds 1 --summary-json /tmp/prisoma_exp0_summary.json --runlog /tmp/prisoma_exp0_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_exp0_runlog.jsonl
           cargo run -p pid-sim --bin pid-toy-harness -- --episodes 32 --summary-json /tmp/prisoma_toy_summary.json --runlog /tmp/prisoma_toy_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_toy_runlog.jsonl
           cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/prisoma_offline_vlda_summary.json --runlog /tmp/prisoma_offline_vlda_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_offline_vlda_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'embedding_contracts=1'
-          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'pid_metrics=42'
-          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'pid_metric_events=42'
-          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'geometry_metrics=21'
-          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'geometry_metric_events=21'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'pid_metrics=4'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'pid_metric_events=4'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'geometry_metrics=20'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'geometry_metric_events=20'
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'evaluation_metrics=142'
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_offline_vlda_runlog.jsonl | grep -q 'evaluation_metric_events=223'
           cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/prisoma_offline_vlda_heldout_summary.json --runlog /tmp/prisoma_offline_vlda_heldout_runlog.jsonl --require-heldout-split
@@ -327,9 +331,9 @@ jobs:
       - name: Clippy (rapier feature)
         run: cargo clippy --locked -p pid-sim --features rapier --all-targets -- -D warnings
       - name: Physics + manipulation tests (rapier feature)
-        # NB: this line MUST stay quoted — `physics:: manipulation::` contains ": "
-        # which is illegal YAML in a plain scalar and silently kills the whole workflow.
-        run: 'cargo test --locked -p pid-sim --features rapier physics:: manipulation::'
+        run: |
+          cargo test --locked -p pid-sim --features rapier physics::
+          cargo test --locked -p pid-sim --features rapier manipulation::
       - name: Rapier manipulation harness smoke
         run: |
           cargo run -p pid-sim --features rapier --bin pid-rapier-harness -- \
@@ -384,6 +388,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -393,6 +399,8 @@ jobs:
         run: python scripts/audit_grandplan_claims.py
       - name: Audit docset claims
         run: python scripts/audit_docset_claims.py
+      - name: Audit repository truth against pinned dependencies
+        run: python scripts/audit_repo_truth.py
 
   python-lint:
     runs-on: ubuntu-latest

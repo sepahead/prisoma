@@ -1,7 +1,7 @@
 # prisoma Whole-Repo Review and To-Do List
 
 Date: 2026-05-09
-Last consistency pass: 2026-07-12 (docset v12.5 migration — active cross-references retargeted to the v12.5 grandplan scheme; see CHANGELOG. The dated "Implementation Pass Status" logs below are historical and keep their as-of-date docset stamps, hypothesis/experiment IDs, and section numbers.)
+Last consistency pass: 2026-07-12 (docset v12.5 + pid-rs 1.0 reconciliation — active cross-references and current-status prose use the v12.5 registry/current estimator environment; see CHANGELOG. The dated "Implementation Pass Status" logs below are historical and keep their as-of-date docset stamps, hypothesis/experiment IDs, and section numbers.)
 
 > **Docset v12.5 mapping (2026-07-12):** the confirmatory registry is now **EC1** (provenance-complete replay) + **H1–H4** (grandplan §4); the gate sequence is **S0–S7** (§5.1); research milestones are **M0–M7** (§12); and PID validity is judged by **four gates** — population/measure/estimator/application (§7.1). The dated review below predates this scheme and its old H1–H9 / Exp0–Exp10 / infra-M1–M5 IDs and §14.x references are retained as history.
 
@@ -27,7 +27,7 @@ The main current risks (superseded/updated 2026-07-10) are:
    measure-specific gate. The m-out-of-n output is a stability envelope, not a calibrated CI.
 2. SAFE conversion exists, but evidentiary capture is blocked on H1 local scores/baselines,
    frozen perturbation transforms, task eligibility, and a nested power design.
-3. Python packaging is wired for local Maturin builds and tested, but the Python API is not yet a stable public interface.
+3. Python packaging is wired for local Maturin builds and consumer-tested against pid-rs 1.0’s narrow stable report-first API; default wheels intentionally exclude the deprecated scalar/research surface.
 4. `pid-rerun` is useful for validated run-log conversion and diagnostics, but remains a prototype viewer adapter rather than the full Phase 1–3 diagnostic product.
 5. `meshmaker/` was quarantined out of tracking 2026-06-13 (tombstone README only); release residual: `api_keys.txt` must live outside the tree. The orphaned asset reports `FINAL_INTEGRITY_REPORT.md`/`GENERATION_REPORT.md` were deleted 2026-07-06.
 6. The 2026-07-10 audit found substantive doc drift despite green heuristic audits; companion

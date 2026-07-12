@@ -8,8 +8,9 @@ being true as the code moves).
 > **Estimator environment: `pid-rs` 1.0.0 (submodule `ac4a780`).** 1.0 makes continuous support
 > **declared, never inferred** — a bare continuous config fails closed. Continuous shared
 > exclusions, pipelines, hierarchy and hyperbolic paths are default-off `experimental-*` features.
-> Datasets declare per-axis population support; every requested estimate is `eligible` /
-> `eligible_with_warning` / `abstained` with a stable reason code, and an **abstained estimate has
+> Datasets declare per-axis population support; computation status is `produced` /
+> `produced_with_warning` / `abstained`, while separate population/measure/estimator/application
+> verdicts govern interpretation. An **abstained estimate has
 > no numeric placeholder** (no zero, no NaN, no metric event). Exact ties reject a *sample*, never
 > the population law. Never auto-route a failed continuous term to discrete `I_min`: different
 > measure, different estimand, never pooled.
@@ -19,7 +20,7 @@ being true as the code moves).
 > They are pinned as the `pid-rs/` git submodule; the local crates path-depend into
 > `pid-rs/crates/*`. Edit the estimator core upstream in `pid-rs` (then bump the submodule),
 > never here. Run its binaries via
-> `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0` and
+> `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0` and
 > `cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay`.
 
 ## Ground rules
@@ -68,8 +69,7 @@ being true as the code moves).
   SxPID, hierarchical screening, Shannon invariants (`invariants.rs`: r̄/v̄), PLS supervised
   dimensionality reduction (`pls.rs`, NIPALS-PLS2), discrete 2- and 3-source PID via
   quantization with a Williams–Beer-style `I_min` minimum-specific-information redundancy —
-  **not** discrete `i^sx_∩` (pid-core additionally ships — since 0.3.0, present in the pinned
-  0.4.0 — a genuine discrete `i^sx_∩`
+  **not** discrete `i^sx_∩` (pid-core additionally ships a genuine discrete `i^sx_∩`
   in `sxpid.rs` for 2–4 sources, but it is **not yet wired into the offline harness**; see
   `grandplan.md` §7.6) — block resampling plus an m-out-of-n **stability envelope** (not an
   n-sample CI), a `pipeline.rs`
@@ -80,10 +80,11 @@ being true as the code moves).
   intrinsic-dimension diagnostics, and the Experiment 0 runner (`bin/exp0.rs`) with a
   `--strict-gate` flag for curated low-d-band CI enforcement plus opt-in resampling and
   permutation diagnostics. Repair its separate MI/atom verdicts upstream in `pid-rs`.
-- **`pid-python`** — PyO3 bindings (`pid_core_rs`; 18 exported functions, including
-  `compute_pid3`, `compute_discrete_pid2`/`3`, the three 0.3.0
-  `compute_discrete_sxpid2`/`3`/`_n` (n = 2–4), `pls_transform`, `standardize`,
-  `pca_transform`, `hash_project`).
+- **`pid-python`** — typed PyO3 bindings (`pid_core_rs`) with a narrow stable 1.x surface:
+  report-first conditional KSG MI, categorical shared-exclusions PID for 2–4 sources, a separately
+  named categorical `I_min` comparator, fitted equal-width quantization, resource budgets, and
+  diagnostics. Pre-1.0 scalar/research calls are absent from ordinary wheels and live only in the
+  default-off `experimental.migration` module.
 - **`pid-runlog`** — the canonical (EC1) run-log schema (`grandplan.md` §8.2) with
   validation/replay/summary/manifest/sidecar write-and-verify, the `attribution_logged` event
   schema for attribution/mechanistic probes (H4 / exploratory), and the wall-clock-excluded
@@ -109,7 +110,8 @@ being true as the code moves).
   majority/1-NN/nearest-centroid baselines (accuracy, balanced accuracy, centroid AUROC),
   a SAFE-class held-out logistic-regression failure detector (`heldout_logreg_vlda`;
   train-fit, held-out-scored), held-out per-sample prediction records, failure-class
-  confusion/rate diagnostics, `--pid-mode continuous|discrete|discrete-pls` with per-pair
+  confusion/rate diagnostics, `--pid-mode none|continuous|discrete|discrete-pls` (`none` is the
+  true zero-MI/PID dependency-firebreak path) with per-pair
   `discrete_saturation` diagnostics, and a high-dimensional synthetic VLDA fixture
   (`offline_vlda_highdim_fixture.json`: v=128, l=64, d=32, a=7).
 - **`pid-rerun`** — run-log→Rerun conversion and a validated replay adapter with
@@ -121,7 +123,8 @@ being true as the code moves).
 - **`safe_adapter/`** — the **reference `(V,L,D,A)` producer** for the confirmatory
   H-experiments (the S2/EC1 adapter contract): converts released SAFE VLA rollouts into the
   `(V,L,D,A)`+labels harness contract with honest per-axis `{v,l,d,a}_provenance` markers and a
-  **diagnostic-noninterference hook-probe** (`grandplan.md` §6.3 common preflight).
+  layerwise physics-decodability hook probe. The instrumented-versus-uninstrumented diagnostic
+  noninterference preflight required by `grandplan.md` §6.3 remains separate and unimplemented.
 - **`attribution/`** — faithfulness-checked attribution/mechanistic probe (H4 / exploratory;
   epsilon-/AttnLRP + grad×input on a small reference model; deletion-AOPC vs random control)
   emitting `attribution_logged` events that pass `pid-runlog-replay --validate`. Production VLAs
@@ -157,16 +160,21 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
   required.
 - **Workspace-excluded by design:** it is in `Cargo.toml` `exclude`, not a member, because a
   broken dependency in a *member* would fail manifest resolution for **every** `cargo`
-  command (including `-p`-scoped ones). Exclusion keeps the PID estimator gates green on
-  fresh checkouts and CI. Build it explicitly:
+  command (including `-p`-scoped ones). Exclusion keeps root workspace resolution/build/test
+  independent of NCP; it does not change the scientific PID verdicts. Build it explicitly:
   `cargo build --manifest-path crates/ncp-observer/Cargo.toml`.
 - **Off the critical path:** an optional, read-only `(V,L,D,A)` source only — grandplan does
   not depend on Engram; the reference producer for the confirmatory H-experiments is
   `experiments/safe_adapter`, and the core builds with NCP disabled and runs H1/H2 with PID
-  disabled (dependency firebreak, `grandplan.md` §8.9.3). The pure-PID stack builds/tests/gates
-  green with no NCP/Engram/Zenoh dependency.
-- **Integrity repair (2026-07-10):** D is exact-seq only (`seq == 0` observations are
-  dropped), emitted rows/events are immutable, callback work crosses a bounded handoff to
+  disabled (dependency firebreak, `grandplan.md` §8.9.3). Workspace tests remain independent
+  of NCP/Engram/Zenoh; the high-dimensional MI/coherence and application verdicts remain
+  NO-GO/BLOCKED as stated above.
+- **Integrity repair (2026-07-10; wire-0.8 migration reconciled 2026-07-13):** V, A, and D
+  are joined only on the full driving-sensor `StreamPosition` (`{epoch, seq}`).
+  `CommandFrame.source` and `ObservationFrame.source` must echo that position; a source-less
+  command or plane observation is uncorrelatable and dropped (source absence is wire 0.8's
+  replacement for the retired observation `seq == 0` sentinel). Emitted rows/events are
+  immutable, callback work crosses a bounded handoff to
   one owning worker, and finalization atomically/fsync-durably installs the artifact and
   reconstructed canonical log. The first attempt seals ingestion and binds its artifact path;
   append/hash/write failures propagate while samples/events remain exact-retryable, including
@@ -175,9 +183,10 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
   failure-injection tests cover every stage. The CLI requires `--runlog`, and library
   finalization refuses to publish an artifact unless its canonical log was attached before
   ingestion.
-- **Still exploratory-only** (below the S2/EC1 adapter contract) until the external Engram publisher
-  stamps observation `seq` (otherwise the frame is dropped), a language
-  channel is present (so `L` is real, not excluded), and `metadata.split`/`episode_id`/
+- **Still exploratory-only** (below the S2/EC1 adapter contract; optional M2 ecosystem item) until
+  a conforming external publisher stamps every plane observation with its driving sensor
+  `source`, a language channel is present (so `L` is real, not excluded), and
+  `metadata.split`/`episode_id`/
   `success` structure lands. See `crates/ncp-observer/README.md` and the developer handoff
   `NCP_DEV_PROMPT.md`.
 
@@ -205,9 +214,9 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
 - Search: `rg -n "pattern"`
 - Tests: `just test` (or `cargo test` if `just` isn't installed)
 - Estimator gate:
-  - `just exp0` (or `cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml exp0 -- --nocapture`)
-  - `just exp0-bin` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0`)
-  - `just exp0-runlog` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl`)
+  - `just exp0` (or `cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all exp0 -- --nocapture`)
+  - `just exp0-bin` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`)
+  - `just exp0-runlog` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl`)
 - Toy labeled harness:
   - `just toy-harness` (or `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`)
 - Offline VLDA embedding harness:
@@ -218,7 +227,8 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
   - `just offline-harness-require-heldout-episode-disjoint` — exercises `--require-heldout-episode-disjoint`; the checked fixture has disjoint train/test `episode_id` sets and passes.
   - `just offline-harness-strict` — exercises `--require-geometry-pass`; the checked fixture is *expected* to exit nonzero while writing a valid failed run log (fail-closed demonstration).
   - `just offline-harness-highdim` — the high-dimensional synthetic fixture (v=128, l=64, d=32, a=7, 48 samples).
-  - `just offline-harness-discrete` — `--pid-mode discrete --discrete-bins 8` (quantized `I_min` PID with per-pair `discrete_saturation` diagnostics; expect `saturation_warning=true` on the tiny smoke fixtures. The warning is advisory today, so the strict fail-closed gate remains unimplemented).
+  - `just firebreak` — runs the non-PID prediction/geometry path with `--pid-mode none` and asserts zero MI/PID requests and events.
+  - `just offline-harness-discrete` — `--pid-mode discrete --discrete-bins 8` (quantized `I_min` PID with per-pair `discrete_saturation` diagnostics; expect `saturation_warning=true` on the tiny smoke fixtures. The warning does not fail the CLI, but its estimator verdict is blocked and the values are non-evidence).
   - `just offline-harness-discrete-pls` — `--pid-mode discrete-pls --pls-components 2 --discrete-bins 8` on the high-dim fixture (PLS-project sources toward `A`, then discrete PID).
 - Run-log smoke:
   - `just bridge-contract`

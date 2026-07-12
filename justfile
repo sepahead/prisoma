@@ -23,6 +23,7 @@ docs-audit:
     python scripts/audit_grandplan.py
     python scripts/audit_grandplan_claims.py
     python scripts/audit_docset_claims.py
+    python scripts/audit_repo_truth.py
 
 # Dependency firebreak (grandplan.md §8.9.3): prove the minimum path needs neither
 # NCP nor PID atoms.
@@ -35,22 +36,27 @@ firebreak:
     cargo build --workspace
     cargo run -p pid-sim --bin pid-offline-harness -- \
       --input crates/pid-sim/fixtures/offline_vlda_fixture.json \
-      --summary-json outputs/firebreak_summary.json --runlog outputs/firebreak_runlog.jsonl
+      --summary-json outputs/firebreak_summary.json --runlog outputs/firebreak_runlog.jsonl \
+      --pid-mode none
     grep -q '"majority_success_accuracy"' outputs/firebreak_summary.json
     grep -q '"heldout_logreg_vlda_success_accuracy"' outputs/firebreak_summary.json
+    grep -q '"pid": "disabled"' outputs/firebreak_summary.json
+    grep -q '"requested": 0' outputs/firebreak_summary.json
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/firebreak_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | grep -q 'pid_metrics=0'
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | grep -q 'pid_metric_events=0'
     @echo "firebreak OK: core builds NCP-disabled; H1/H2 baseline predictors emitted without PID atoms"
 
 # Experiment 0 gate (Rust-side smoke subset).
 # Full Experiment 0 will later be orchestrated via python/experiments/.
 exp0:
-    cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml exp0 -- --nocapture
+    cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all exp0 -- --nocapture
 
 exp0-bin:
-    cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0
+    cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0
 
 exp0-runlog path="outputs/exp0_runlog.jsonl" summary="outputs/exp0_summary.json" seeds="1":
-    cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --seeds {{seeds}} --summary-json {{summary}} --runlog {{path}}
+    cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --seeds {{seeds}} --summary-json {{summary}} --runlog {{path}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{path}}
 
 # Exp0 with opt-in uncertainty quantification: subsample-bootstrap CIs +
@@ -58,7 +64,7 @@ exp0-runlog path="outputs/exp0_runlog.jsonl" summary="outputs/exp0_summary.json"
 # permutation tests must recover the preregistered marginal-informativeness truth
 # table (8/8 on healthy data); build --release, this is compute-heavy.
 exp0-uncertainty path="outputs/exp0_uncertainty_runlog.jsonl" summary="outputs/exp0_uncertainty_summary.json" boot="200" perm="200":
-    cargo run --release --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- --seeds 1 --bootstrap {{boot}} --permutation {{perm}} --summary-json {{summary}} --runlog {{path}}
+    cargo run --release --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --seeds 1 --bootstrap {{boot}} --permutation {{perm}} --summary-json {{summary}} --runlog {{path}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{path}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{path}} | grep -q 'pid_metrics=7'
 
@@ -66,7 +72,7 @@ toy-harness runlog="outputs/toy_vla_runlog.jsonl" summary="outputs/toy_vla_summa
     cargo run -p pid-sim --bin pid-toy-harness -- --episodes {{episodes}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{runlog}}
 
-# M3 physics-backed manipulation: real Rapier3D push-to-goal episode with a
+# Physics-backed manipulation software smoke: real Rapier3D push-to-goal episode with a
 # success label and real Flow_gt. Requires the `rapier` feature.
 rapier-harness runlog="outputs/rapier_push_runlog.jsonl" summary="outputs/rapier_push_summary.json" impulse="0.18":
     cargo run -p pid-sim --features rapier --bin pid-rapier-harness -- --runlog {{runlog}} --summary-json {{summary}} --push-impulse {{impulse}}
@@ -75,13 +81,14 @@ rapier-harness runlog="outputs/rapier_push_runlog.jsonl" summary="outputs/rapier
 
 # Rapier feature build + physics/manipulation tests (heavy dependency compile).
 rapier-test:
-    cargo test -p pid-sim --features rapier physics:: manipulation::
+    cargo test -p pid-sim --features rapier physics::
+    cargo test -p pid-sim --features rapier manipulation::
 
 # Exact data-parallel KSG kNN path (rayon-backed; identical results to serial).
 parallel-test:
     cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel
 
-# M5 capture: SAFE rollouts -> (V,L,D,A) contract, then the real harness with gates.
+# S2/EC1 reference-adapter smoke: SAFE rollouts -> (V,L,D,A) contract, then the harness.
 safe-adapter out="outputs/safe_vlda.json" rollouts="outputs/safe_synth":
     python -m experiments.safe_adapter synth --out {{rollouts}}
     python -m experiments.safe_adapter convert --rollouts {{rollouts}} --out {{out}} --seen-tasks 0,1
@@ -89,7 +96,7 @@ safe-adapter out="outputs/safe_vlda.json" rollouts="outputs/safe_synth":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{out}} --summary-json outputs/safe_vlda_summary.json --runlog outputs/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint --require-axis-provenance-honest
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/safe_vlda_runlog.jsonl
 
-# H9 attribution probe: faithfulness-checked attribution -> attribution_logged run log.
+# H4/exploratory attribution companion: faithfulness check -> attribution_logged run log.
 attribution-probe runlog="outputs/attribution_runlog.jsonl" artifacts="outputs/attribution":
     python -m experiments.attribution demo --runlog {{runlog}} --artifacts {{artifacts}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{runlog}}
@@ -109,8 +116,10 @@ notices-check:
 offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_runlog.jsonl" summary="outputs/offline_vlda_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{runlog}}
-    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{runlog}} | grep -q 'pid_metrics=42'
-    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{runlog}} | grep -q 'pid_metric_events=42'
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{runlog}} | grep -q 'pid_metrics=4'
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{runlog}} | grep -q 'pid_metric_events=4'
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{runlog}} | grep -q 'geometry_metrics=20'
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{runlog}} | grep -q 'geometry_metric_events=20'
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{runlog}} | grep -q 'evaluation_metrics=142'
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{runlog}} | grep -q 'evaluation_metric_events=223'
 

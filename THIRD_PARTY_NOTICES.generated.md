@@ -10,15 +10,15 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 
 | Crate | Version | License |
 |---|---|---|
-| `anyhow` | 1.0.102 | MIT OR Apache-2.0 |
+| `anyhow` | 1.0.103 | MIT OR Apache-2.0 |
 | `base64` | 0.22.1 | MIT OR Apache-2.0 |
-| `nalgebra` | 0.33.2 | Apache-2.0 |
+| `nalgebra` | 0.33.3 | Apache-2.0 |
 | `ndarray` | 0.16.1 | MIT OR Apache-2.0 |
-| `pid-core` | 0.4.0 | MIT OR Apache-2.0 |
-| `pid-runlog` | 0.4.0 | MIT OR Apache-2.0 |
+| `pid-core` | 1.0.0 | MIT OR Apache-2.0 |
+| `pid-runlog` | 1.0.0 | MIT OR Apache-2.0 |
 | `rerun` | 0.28.2 | MIT OR Apache-2.0 |
 | `serde` | 1.0.228 | MIT OR Apache-2.0 |
-| `serde_json` | 1.0.149 | MIT OR Apache-2.0 |
+| `serde_json` | 1.0.150 | MIT OR Apache-2.0 |
 | `sha1` | 0.10.6 | MIT OR Apache-2.0 |
 
 ## Python declared dependencies (versions locked in `uv.lock`)
@@ -30,8 +30,9 @@ from each project's PyPI page at release time.
 |---|---|
 | `matplotlib` | 3.10.8 |
 | `maturin` | 1.13.1 |
-| `numpy` | 2.4.0 |
+| `numpy` | 2.5.1 |
 | `pandas` | 2.3.3 |
+| `pillow` | 12.3.0 |
 | `pytest` | 9.0.2 |
 | `reportlab` | 4.4.7 |
 | `ruff` | 0.14.10 |

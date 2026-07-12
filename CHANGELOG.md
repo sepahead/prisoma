@@ -20,15 +20,17 @@
   they are now reported as abstentions.
 - **Estimate abstention subsystem** (`grandplan.md` §7.14). Datasets declare per-axis population
   support (`support: {v,l,d,a}`); support is **declared by the adapter, never inferred from observed
-  cardinality**. Every requested estimate carries a typed outcome — `eligible` /
-  `eligible_with_warning` / `abstained` — with the requested measure, the exact estimator revision,
+  cardinality**. Every candidate carries a typed computation outcome — `not_requested` /
+  `produced` / `produced_with_warning` / `abstained` — with the requested measure, the exact estimator revision,
   the axes, a **stable reason code**, and the observed axis evidence (unique rows, multiplicities).
   Reason codes: `declared_support_incompatible_continuous`, `support_contract_unspecified`,
   `observed_sample_incompatible_exact_ties`, `ambiguous_neighbor_shell`,
   `estimator_requires_equal_source_dimensions`. **A value exists only when it was produced** — an
   abstained estimate emits no numeric placeholder, no zero, no NaN, and no `PidMetric` event; its
-  status replays from a structured run-log record. Eligibility denominators (requested /
-  support-eligible / preflight-passed / estimated / warned / abstained-by-reason) are reported.
+  status replays from the run log. Scientific population/measure/estimator/application verdicts
+  remain separate from computation status and accompany every emitted numeric metric. Denominators
+  (requested / declared-support-compatible / preflight-passed / estimated / warned /
+  abstained-by-reason) are reported.
   Exact ties reject a **sample** for the continuous estimator; they never prove the population law
   is discrete. Failed continuous terms are **never** auto-routed to discrete `I_min` — that is a
   different measure with its own estimand identity, and the two are never pooled.
@@ -37,9 +39,33 @@
   a clean, auditable abstention. New `offline_vlda_continuous_fixture.json` (declared all-continuous,
   equal ambient source dimensions, tie-free) retains positive-path coverage for continuous
   KSG / `I^sx_∩` — `just offline-harness-continuous`.
-- **Follow-up (not done here):** `pid-python` 1.0 changed its Python API (pre-1.0 functions moved to
-  `experimental.migration`), so `tests/python/test_pid_core_rs.py` still targets the 0.4 surface and
-  needs migrating.
+- **Completed the consumer migration follow-ups.** `tests/python/test_pid_core_rs.py` now exercises
+  the stable 1.0 report-first MI and categorical SxPID/`I_min` surfaces, verifies that legacy scalar
+  calls are absent, and keeps the measures separate. Third-party notices and the excluded
+  `ncp-observer` lock now resolve pid-core/pid-runlog 1.0; the observer emits a canonical SHA-256
+  configuration hash over its locked NCP identity and effective capture settings and passes its
+  locked suite.
+- **Made the dependency firebreak real.** `pid-offline-harness --pid-mode none` runs geometry,
+  labels, held-out prediction records, and every non-PID baseline while requesting/emitting zero
+  MI/PID estimates. CI and the task recipe assert `requested=0`, `pid_metrics=0`, and the presence
+  of the SAFE-class held-out logistic baseline.
+- **Separated computation from scientific eligibility.** Estimate outcomes now say `produced`,
+  `produced_with_warning`, `abstained`, or `not_requested` and carry explicit population, measure,
+  estimator, and application verdicts. A produced diagnostic remains application-blocked unless a
+  versioned support envelope passes; no numeric placeholder is emitted for abstention. Canonical
+  numeric metric events carry the computation outcome, exact measure/revision, four verdicts,
+  interpretation flag, and warning code; uncertainty sidecars carry the same gates. Legacy
+  `eligible` / `eligible_with_warning` summaries and `support_eligible` denominators deserialize
+  conservatively with the application gate blocked.
+- **Repaired 1.0 command/fixture drift.** Exp0 commands enable the required `experimental-all`
+  feature, and smoke assertions reflect the mixed-support fixture’s four surviving PID/MI events
+  and 20 geometry metrics instead of the invalid pre-1.0 counts. The Rapier CI/task recipe now runs
+  its physics and manipulation test filters as two valid Cargo commands instead of passing Cargo a
+  rejected second positional filter.
+- **Added dependency-truth drift prevention.** `scripts/audit_repo_truth.py` binds active Exp0
+  commands, estimator stamps, the excluded observer lock, NCP provenance revision, firebreak
+  assertions, and generated notices to the checked-out gitlinks/packages; CI and `just docs-audit`
+  run it.
 
 ### Docset v12.5 — adopt the second-round intervention-grounded plan (2026-07-12)
 

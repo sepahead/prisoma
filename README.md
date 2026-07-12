@@ -12,7 +12,7 @@
 > they are pinned as the `pid-rs/` git submodule. After cloning: `git submodule update --init`.
 > The local crates (`pid-sim`, `pid-rerun`, `pid-bridge`) path-depend into `pid-rs/crates/*`, and the
 > estimator binaries run from the submodule, e.g.
-> `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0`.
+> `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`.
 > Build the Python module from the submodule: `maturin develop -m pid-rs/crates/pid-python/Cargo.toml`.
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
@@ -53,7 +53,7 @@ Verify the toolchain and see the estimator gate fire:
 ```bash
 git submodule update --init
 cargo test --workspace
-cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0   # prints the GO/PIVOT/NO-GO verdict
+cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0   # prints the GO/PIVOT/NO-GO verdict
 ```
 
 ## Current Status & What To Do, In Order (docset v12.5, 2026-07-12)
@@ -94,16 +94,19 @@ flowchart LR
     Harness["Offline (V,L,D,A) harness<br/>+ baselines + attribution<br/>+ axis-provenance gate ENFORCED<br/>(EC1 groundwork, runnable today)"]:::run
     Adapter["safe_adapter → contract (S2/EC1)<br/>honest provenance<br/>(runnable: just safe-adapter)"]:::run
     Capture["OPEN CRITICAL PATH (S3→S4)<br/>gate + endpoint + power repairs,<br/>then real VLA capture"]:::blocked
-    Exps["H1–H4 confirmatory studies<br/>(blocked on capture)"]:::blocked
+    Exps["H1 / H2 / H4 studies<br/>(blocked on endpoint + capture work)"]:::blocked
+    H3["H3 conditional PID increment<br/>(also blocked on all four PID gates)"]:::blocked
 
-    Exp0 --> Harness
     Harness --> Adapter
     Adapter --> Capture
     Capture -. blocks .-> Exps
+    Capture -. blocks .-> H3
+    Exp0 -. gates PID only .-> H3
 ```
 
-*Caption: Runnable plumbing is not a scientific pass. The H1–H4 confirmatory studies remain
-blocked on estimator, endpoint, power, and then capture prerequisites.*
+*Caption: Runnable plumbing is not a scientific pass. H1/H2/H4 remain blocked on their
+protocol, endpoint, power, and capture prerequisites, but they do not wait for PID; H3 also waits
+for all four PID gates.*
 
 Each step gates the next; canonical depth is in `grandplan.md` at the cited sections.
 
@@ -116,7 +119,8 @@ Each step gates the next; canonical depth is in `grandplan.md` at the cited sect
    warn/fail. Their thresholds are not validated scientific gates, and discrete saturation is
    currently advisory rather than a strict failure path.
 4. **Prepare, but do not treat as evidentiary capture yet:** the SAFE adapter and Rapier path
-   can exercise the EC1 contract. H1–H4 capture waits for the blockers above.
+   can exercise the EC1 contract. H1/H2/H4 wait for their protocol and capture blockers; H3 also
+   waits for all four PID gates. The harness supports `--pid-mode none` so non-PID work continues.
 5. **Analyze only after gates exist:** geometry diagnostics do not currently select a valid
    regime. The m-out-of-n raw percentile output is a stability envelope at size m, not an
    n-sample confidence interval; endpoint inference must resample the correct outer units.
@@ -145,7 +149,7 @@ PID is **forced nowhere**: `grandplan.md` §3.8 records the PID kill rules and �
 
 Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and confounds live in `grandplan.md`.
 
-1. **Exp0 — estimator + geometry gate (S1).** GO/PIVOT/NO‑GO. *Runnable today* (`just exp0-bin`); current verdict on synthetic high‑d controls: **NO‑GO** under pid-rs 0.4.0 (`findings.md`). Nothing downstream is interpretable without this gate (`grandplan.md` §7).
+1. **Exp0 — PID population/measure/estimator/application diagnostics (S1).** GO/PIVOT/NO‑GO. *Runnable today* (`just exp0-bin`); current verdict on synthetic high‑d controls remains **NO‑GO** under the pinned pid-rs 1.0 environment (`findings.md`). No PID atom or H3 result is interpretable without all four gates; EC1 and the non-PID H1/H2/H4 paths continue with PID disabled (`grandplan.md` §7, §8.9.3).
 2. **EC1 capture/replay + adapter (S2).** The offline `(V,L,D,A)` harness, SAFE adapter, and sim/Rapier `Flow_gt` cross‑checks are *runnable today* (`just runlog-sim-verify`); the external infrastructure benchmark and a second adapter are pending (`grandplan.md` §8.8).
 3. **Intervention pilot (S3).** Dose / target‑engagement / placebo / OOD checks on one interpretable intervention. *Blocked on capture* (`grandplan.md` §5.4, §5.6).
 4. **H1 — pre‑treatment diagnostics predict intervention response** (Protocol A paired and/or Protocol B randomized). *Blocked on capture* (`grandplan.md` §6.3).
@@ -159,13 +163,13 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 - `python scripts/audit_grandplan_claims.py` (heuristic scan for unqualified venue/perf claims)
 - `python scripts/audit_docset_claims.py` (same heuristic scan across the canonical docset + `findings.md`)
 - Full tracked-Markdown sweep: `python scripts/audit_docset_claims.py --paths $(git ls-files '*.md')`
-- With `just`: `just docs-audit` (runs the first three)
+- With `just`: `just docs-audit` (runs the four repository audits, including pinned-dependency truth)
 
 ## What Actually Exists
 
 The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In brief:
 
-- **Implemented (Rust, in `pid-rs/` submodule):** `pid-core` (KSG MI with an optional exact-parallel `parallel` feature, continuous `I^sx_∩`, PLS supervised reduction, discrete 2-/3-source `I_min` PID + saturation diagnostics, genuine discrete SxPID `i^sx_∩` in `sxpid.rs` (2–4 sources) — *not yet wired into the offline harness*, block bootstrap, `bootstrap_rows_stats`/`permutation_rows_pvalue`, an L2 logistic classifier, and a `pipeline.rs` composition layer), `pid-python` (`pid_core_rs`; **18 exported functions**), and `pid-runlog` (the canonical EC1 JSONL run-log schema + replay/validate/compare/summary/manifest/sidecar CLI).
+- **Implemented (Rust, in the pinned `pid-rs` 1.0 submodule):** `pid-core` (stable report-first KSG/categorical/quantized surfaces plus default-off continuous shared exclusions, PLS/pipelines, hierarchy, and hyperbolic research features; discrete SxPID `i^sx_∩` supports 2–4 sources but is *not yet wired into the offline harness*), `pid-python` (a typed stable `pid_core_rs` surface for `compute_mi_report`, categorical SxPID/`I_min`, fitted quantization, and diagnostics; pre-1.0 scalar calls exist only in the default-off migration module), and `pid-runlog` (the canonical EC1 JSONL run-log schema + replay/validate/compare/summary/manifest/sidecar CLI).
 - **Implemented (Rust, local crates):** `pid-bridge` (Agent Bridge dispatch/JSON-RPC-shaped
   conversion/contract export), `pid-sim` (deterministic sim, real optional Rapier backend,
   manipulation harness, transports, and offline VLDA screens), and `pid-rerun`. Implemented
@@ -196,10 +200,10 @@ just exp0-bin    # prints the GO/PIVOT/NO-GO verdict
 just exp0-runlog # exports + validates canonical Exp0 evidence
 ```
 
-Without `just`: `cargo test`, then `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0`. To export canonical Exp0 evidence:
+Without `just`: `cargo test`, then `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`. To export canonical Exp0 evidence:
 
 ```bash
-cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0 -- \
+cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- \
   --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl
 cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- \
   --validate outputs/exp0_runlog.jsonl
@@ -225,12 +229,14 @@ just offline-harness-require-heldout-class-coverage
 just offline-harness-require-heldout-episode-disjoint
 just offline-harness-strict            # asserts the expected geometry-gate failure
 just offline-harness-highdim
+just firebreak                       # --pid-mode none; asserts zero MI/PID events
 just offline-harness-discrete
 just offline-harness-discrete-pls
 ```
 
-**PID estimator modes** (`--pid-mode`): `continuous`, `discrete` (`I_min`, a different
-measure), and `discrete-pls`. PLS selection accepts `--pls-components N|cv|cv:MAX`; all fitted
+**PID estimator modes** (`--pid-mode`): `none` (skip every MI/PID estimate), `continuous`,
+`discrete` (`I_min`, a different measure), and `discrete-pls`. PLS selection accepts
+`--pls-components N|cv|cv:MAX`; all fitted
 transforms still need a frozen train-fit/apply-held-out scientific path. Discrete saturation
 warnings mark non-evidence but do not currently fail the CLI, so discrete mode is not an
 active-regime gate. Permutation choices are `--permutation-scheme

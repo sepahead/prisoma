@@ -13,13 +13,13 @@ in that repo.
 ## Scope & status (read before relying on it)
 
 This crate is **optional and exploratory-only**. It is **not** on grandplan's critical
-path — grandplan does not depend on Engram, and the M5 critical-path `(V,L,D,A)` producer
-is `experiments/safe_adapter/`. The pure-PID stack builds, tests, and clears the strict
-gates with no NCP/Engram/Zenoh dependency, so `ncp-observer` is **excluded from the
+path — grandplan does not depend on Engram, and the S2/EC1 reference `(V,L,D,A)` producer
+is `experiments/safe_adapter/`. The core workspace builds and tests with NCP/Engram/Zenoh
+absent, and H1/H2 baselines can run with PID disabled; `ncp-observer` is **excluded from the
 default cargo workspace** (build it with `--manifest-path`, see below).
 
 It is fine for *exploratory* PID screens on a live Engram session, but it is **below the
-M5 contract** (gate-passing artifacts with honest provenance) until the gaps below close:
+S2/EC1 conformance bar** (an optional M2 ecosystem item) until the gaps below close:
 
 1. **D alignment — exact-only and immutable in-repo.** `ObservationFrame` carries
    a `source` echoing the driving `SensorFrame.stream`, and this observer joins D
@@ -34,10 +34,9 @@ M5 contract** (gate-passing artifacts with honest provenance) until the gaps bel
    no language channel yields an empty (zero-length) `L`; such ticks are **excluded
    from the artifact and counted** (`excluded_empty_l` in the finalize report),
    because one empty axis would make `pid-offline-harness` reject the whole dataset.
-   Kept samples always carry `metadata.l_source = "channel"`. The tracked follow-up
-   (Gap 2) is a fixed-dim zero *backfill* that would retain such ticks under the
-   degraded `l_source = "absent_zeroed"` marker, which the harness's
-   `--require-axis-provenance-honest` gate rejects.
+   Kept samples always carry `metadata.l_source = "channel"`. A zero/hash backfill would
+   fabricate a language axis and is not a conformance repair; exclusion remains the
+   fail-closed policy until a genuine language channel exists.
 3. **Finalization integrity — repaired.** Samples and canonical events remain
    buffered until a same-directory temporary artifact is flushed, fsynced,
    atomically renamed, and hashed. The complete run log is then reconstructed and
@@ -45,9 +44,12 @@ M5 contract** (gate-passing artifacts with honest provenance) until the gaps bel
    samples; the first finalization attempt seals ingestion and binds its output
    path, and an exact retry reconstructs one event per sample with no duplicates.
 4. **Held-out structure** — no `metadata.split` / `episode_id` / required `success` labels
-   by default, so the strict `--require-heldout-*` gates and the grandplan §4 H1 confirmatory-claim audit can't run.
+   by default, so the strict `--require-heldout-*` gates and H1/H2 protocol analyses cannot
+   run. Passing these adapter gates would still not clear the four PID gates or implement
+   H1 Protocol A/B, prospective H2, conditional H3, or H4 interventions.
 
-Bringing it up to bar is a self-contained task — see **`NCP_DEV_PROMPT.md`** at the repo root.
+The in-repo work and external publisher requirements are tracked in
+**`NCP_DEV_PROMPT.md`** at the repo root.
 
 ## What it does
 
@@ -114,29 +116,28 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json 
     --summary-json outputs/ncp_summary.json --runlog outputs/ncp_pid_runlog.jsonl
 ```
 
-## Best integration with NCP (the closed loop)
+## Possible future integration with NCP
 
-The recommended integration is **bidirectional**, and both directions are
-non-invasive:
+The implemented direction is the read-only capture path. A possible later offline-to-online
+workflow remains a research proposal, and both sides must stay non-invasive:
 
 1. **Online, read-only tap (this crate).** Subscribe to the NCP data planes →
    `(V,L,D,A)` samples aligned on the driving sensor `{epoch, seq}` → run-log +
    offline PID. Engram is just
    another `(V,L,D,A)` source; the observer drives nothing (Agent Bridge stays the
    only control plane).
-2. **Offline → online feedback (the payoff).** The PID screens here quantify, per
-   sensor channel, the **unique / redundant / synergistic** information about the
-   action. That is exactly the policy NCP's perception plane needs under a poor
-   (low-bandwidth) link: **drop redundant channels, keep unique ones, bundle
-   synergistic ones** (see `RESILIENCE.md` in <https://github.com/sepahead/NCP>). prisoma computes the
-   policy *offline*; NCP's codec applies it *online* as static channel priorities.
+2. **Future offline analysis → human-reviewed static configuration.** The current
+   observer flattens channels into V/L/D/A axes and the harness runs axis-pair screens;
+   it does **not** implement per-channel prioritization. A separate, scientifically gated
+   per-channel analysis could test whether information summaries help choose static codec
+   priorities under a poor link (see `RESILIENCE.md` in <https://github.com/sepahead/NCP>).
+   Any adopted priorities belong in a versioned, human-reviewed NCP configuration, never
+   in a write/control path from this observer.
 
-So the loop closes: NCP streams `(V,L,D,A)` → prisoma decomposes it → a channel
-priority/redundancy policy feeds back into the perception codec. PID is a
-**design-time** tool (expensive, hard to estimate — prisoma's whole domain), never
-a per-tick runtime computation. It also serves as a **sim-vs-hardware fidelity
-metric** (`NEUROMORPHIC.md` §5 in <https://github.com/sepahead/NCP>): does a neuromorphic chip preserve
-the same information flow as the NEST simulator?
+Thus the only current arrow is NCP → read-only capture → offline analysis. PID is never a
+per-tick runtime computation. Per-channel codec selection and a sim-vs-hardware fidelity
+metric remain candidate studies that require their own estimand, gates, fixtures, and
+conformance evidence (`NEUROMORPHIC.md` §5 in <https://github.com/sepahead/NCP>).
 
 ## Compatibility & versioning
 

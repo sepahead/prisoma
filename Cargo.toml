@@ -10,7 +10,7 @@ members = [
 # submodule (run `git submodule update --init`). The crates above path-depend into
 # `pid-rs/crates/*`; `pid-rs` is its own workspace, so it is excluded here. Build/test the
 # estimator core and run its `exp0` / `pid-runlog-replay` binaries from the submodule, e.g.
-# `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --bin exp0`.
+# `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`.
 #
 # `ncp-observer` is intentionally NOT a default member: it git-depends on the published NCP
 # SDK (https://github.com/sepahead/NCP, tag v0.8.0) and pulls in NCP + Zenoh — deliberately

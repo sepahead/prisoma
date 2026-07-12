@@ -278,6 +278,10 @@ async fn main() -> anyhow::Result<()> {
     let mode = args
         .mode
         .ok_or_else(|| anyhow::anyhow!("connection mode was not validated"))?;
+    let mode_label = match mode {
+        ConnectionMode::Open => "open/unauthenticated",
+        ConnectionMode::Secure => "secure/fail-closed client config",
+    };
     let mapping = Mapping {
         language_channel: args.language_channel.clone(),
         success_channel: Some("success".into()),
@@ -292,7 +296,8 @@ async fn main() -> anyhow::Result<()> {
     // Wire 0.8 carries `session_id` + `session.generation` on the data plane; the
     // observer validates every frame's payload identity against the captured
     // session and the first-seen live incarnation.
-    .with_expected_session(args.session.clone());
+    .with_expected_session(args.session.clone())?
+    .with_capture_transport(args.realm.clone(), mode_label, HANDOFF_CAPACITY)?;
     let runlog_path = args
         .runlog
         .as_deref()
@@ -339,10 +344,6 @@ async fn main() -> anyhow::Result<()> {
     .await
     .map_err(|e| anyhow::anyhow!("subscribe observations: {e}"))?;
 
-    let mode_label = match mode {
-        ConnectionMode::Open => "open/unauthenticated",
-        ConnectionMode::Secure => "secure/fail-closed client config",
-    };
     println!(
         "[ncp-observe] tapping '{}/session/{}/{{sensor,command,observation}}' \
          (read-only; {mode_label}). Ctrl-C / SIGTERM to finalize → {}",
@@ -406,8 +407,8 @@ async fn main() -> anyhow::Result<()> {
     if unstamped > 0 {
         eprintln!(
             "[ncp-observe] WARNING: dropped {unstamped} observation-plane frame(s) with \
-             seq=0. Pull/RPC-form observations have no exact driving tick and are never \
-             promoted into D by recency."
+             no source correlation. Pull/RPC-form observations have no exact driving tick \
+             and are never promoted into D by recency."
         );
     }
     if handoff_dropped > 0 {

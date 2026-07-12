@@ -339,7 +339,8 @@ urdf_path = "assets/robots/franka_panda.urdf"
 | **Embodiment Transfer** | Per-robot fine-tuning | Flow-as-bridge tests embodiment-agnostic understanding |
 
 **What PID adds (hypothesis; validate empirically):** typical benchmarks emphasize task success and sometimes auxiliary diagnostics; PID offers an additional, information-theoretic decomposition that *may* help localize which inputs drive decisions:
-- **Grounding failure signatures:** candidate correlations between PID atoms and failures (H1/H2; see `grandplan.md` §4 registry + the four PID gates §7.1)
+- **Failure signatures:** exploratory PID-atom correlations may become conditional H3 features for
+  the prospective H2 endpoint only after all four PID gates; they are not the H1 Protocol A/B endpoint
 - **Availability vs use:** test whether representational availability diverges from causal policy use across held-out compositions (H4)
 - **Long-horizon composition:** test whether temporal PID summaries degrade before failure (exploratory temporal analysis)
 

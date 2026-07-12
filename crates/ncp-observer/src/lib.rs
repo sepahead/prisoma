@@ -26,13 +26,12 @@
 //!   `instruction`). A tick with **no** language channel yields an empty `L`,
 //!   and empty-axis ticks are **excluded from the artifact** (counted, reported
 //!   at finalize) because `pid-offline-harness` requires nonempty, consistent-dim
-//!   axes. A fixed-dim zero backfill that would *retain* such ticks (with the
-//!   degraded `l_source = "absent_zeroed"` marker) is tracked future work
-//!   (NCP_DEV_PROMPT Gap 2); until then a no-language session yields an empty
-//!   artifact with a loud exclusion count, never a silently fabricated axis.
-//! - **D** (dynamics / internal world-model) ← `ObservationFrame` record-port
-//!   readouts — the neural state *before* the motor head, the "internal
-//!   simulation" the PID(V,D;A) probe targets.
+//!   axes. A zero/hash backfill would fabricate a language axis and is not a
+//!   conformance repair; a no-language session yields an empty artifact with a
+//!   loud exclusion count.
+//! - **D** (dynamics / internal state) ← `ObservationFrame` record-port readouts —
+//!   neural state before the motor head. Its world-model status is untested and
+//!   requires separate architecture evidence plus held-out probes/interventions.
 //! - **A** (action) ← `CommandFrame` channels, flattened.
 //!
 //! ## Alignment (the correctness rule)
@@ -85,7 +84,9 @@
 //!   reconstruction.
 
 use anyhow::Context as _;
-use ncp_core::{ChannelValue, CommandFrame, ObservationFrame, SensorFrame};
+use ncp_core::{
+    ChannelValue, CommandFrame, ObservationFrame, SensorFrame, CONTRACT_HASH, NCP_VERSION,
+};
 use pid_runlog::{
     Actor, ActorType, EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus,
     RUN_LOG_SCHEMA_VERSION,
@@ -263,6 +264,21 @@ const REORDER_GRACE: i64 = 8;
 /// without unbounded growth from a hostile stream of novel epochs.
 const MAX_RETIRED_EPOCHS: usize = 64;
 
+/// Immutable source revision behind the `v0.8.0` NCP dependency in this crate's manifest.
+const NCP_RELEASE_REVISION: &str = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e";
+
+/// Deployment transport facts recorded in the canonical configuration event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CaptureTransportProvenance {
+    /// Zenoh realm subscribed by the observer.
+    pub realm: String,
+    /// Operator-selected security posture (`open/unauthenticated` or
+    /// `secure/fail-closed client config`).
+    pub security_profile: String,
+    /// Capacity of the bounded callback-to-owner handoff used by the capture binary.
+    pub ingress_handoff_capacity: usize,
+}
+
 /// Accumulates NCP frames into `(V,L,D,A)` samples, joining V↔A (and D) on `seq`.
 pub struct Observer {
     run_id: String,
@@ -293,6 +309,9 @@ pub struct Observer {
     /// The captured session's logical id; every frame's payload `session_id` must
     /// equal it. `None` disables the check (bare-library use / focused unit tests).
     expected_session: Option<String>,
+    /// Deployment-specific transport facts. Library-only callers may omit these;
+    /// the canonical configuration then records `null` instead of inventing them.
+    capture_transport: Option<CaptureTransportProvenance>,
     /// The live `session.generation`, locked to the first seen; a frame from a
     /// different (stale/foreign) incarnation is rejected — one observer captures
     /// ONE session incarnation.
@@ -510,6 +529,7 @@ impl Observer {
             retired_epochs: BTreeSet::new(),
             retired_order: VecDeque::new(),
             expected_session: None,
+            capture_transport: None,
             expected_generation: None,
             closed_seqs: BTreeSet::new(),
             max_ts: 0,
@@ -525,6 +545,38 @@ impl Observer {
         }
     }
 
+    /// Attach deployment transport provenance before the canonical run log is configured.
+    ///
+    /// # Errors
+    /// Returns an error when transport provenance was already attached, the run log was
+    /// configured, or frame ingestion/finalization has begun.
+    pub fn with_capture_transport(
+        mut self,
+        realm: impl Into<String>,
+        security_profile: impl Into<String>,
+        ingress_handoff_capacity: usize,
+    ) -> anyhow::Result<Self> {
+        if self.capture_transport.is_some()
+            || self.runlog_path.is_some()
+            || self.n != 0
+            || !self.pending.is_empty()
+            || !self.d_by_seq.is_empty()
+            || !self.closed_seqs.is_empty()
+            || self.stats != ObserverStats::default()
+            || self.finalization_started
+        {
+            anyhow::bail!(
+                "capture transport provenance must be attached exactly once, before the run log and frame ingestion"
+            );
+        }
+        self.capture_transport = Some(CaptureTransportProvenance {
+            realm: realm.into(),
+            security_profile: security_profile.into(),
+            ingress_handoff_capacity,
+        });
+        Ok(self)
+    }
+
     /// Attach a run-log so provenance events are emitted alongside the dataset.
     pub fn with_runlog(mut self, path: impl AsRef<Path>) -> anyhow::Result<Self> {
         if self.runlog_path.is_some()
@@ -537,12 +589,49 @@ impl Observer {
             anyhow::bail!("run log must be attached exactly once, before frame ingestion");
         }
         self.runlog_path = Some(path.as_ref().to_path_buf());
+        let config = serde_json::json!({
+            "component": "ncp-observer",
+            "ncp": {
+                "tag": "v0.8.0",
+                "revision": NCP_RELEASE_REVISION,
+                "wire": NCP_VERSION,
+                "contract_hash": CONTRACT_HASH,
+            },
+            "run_id": self.run_id.clone(),
+            "model": self.model.clone(),
+            "task": self.task.clone(),
+            "capture": {
+                "expected_session": self.expected_session.clone(),
+                "transport": self.capture_transport.clone(),
+                "local_receipt_timestamps": "not_recorded",
+                "clock_sync": "not_assessed",
+                "reconnect_policy": "not_recorded",
+                "subscription_qos": "ncp-zenoh typed data-plane defaults; negotiated state not recorded",
+                "observer_policy": {
+                    "max_inflight": MAX_INFLIGHT,
+                    "reorder_grace_source_seqs": REORDER_GRACE,
+                    "max_retired_epochs": MAX_RETIRED_EPOCHS,
+                },
+            },
+            "mapping": {
+                "language_channel": self.mapping.language_channel.clone(),
+                "success_channel": self.mapping.success_channel.clone(),
+                "episode_id": self.mapping.episode_id.clone(),
+            },
+        });
+        let config_hash = pid_runlog::canonical_json_hash(&config)
+            .context("failed to hash NCP observer configuration")?;
         self.runlog_events.push(RunLogEvent::RunStarted {
             schema_version: RUN_LOG_SCHEMA_VERSION,
             run_id: self.run_id.clone(),
             timestamp_ns: 0,
-            config_hash: "ncp-observer".into(),
+            config_hash: config_hash.clone(),
             metadata: BTreeMap::from([("source".into(), "ncp".into())]),
+        });
+        self.runlog_events.push(RunLogEvent::ConfigLogged {
+            timestamp_ns: 0,
+            config_hash,
+            config,
         });
         Ok(self)
     }
@@ -550,10 +639,29 @@ impl Observer {
     /// Bind the captured session's logical `session_id`. Every ingested frame's
     /// payload `session_id` must then equal it (wire 0.8 carries `session_id` on
     /// the data plane too), so a frame addressed to another session is dropped and
-    /// counted rather than blended into this capture. Must be set before ingestion.
-    pub fn with_expected_session(mut self, session_id: impl Into<String>) -> Self {
-        self.expected_session = Some(session_id.into());
-        self
+    /// counted rather than blended into this capture. Must be set before the run log.
+    ///
+    /// # Errors
+    /// Returns an error for an empty session or when configuration/ingestion has begun.
+    pub fn with_expected_session(mut self, session_id: impl Into<String>) -> anyhow::Result<Self> {
+        if self.runlog_path.is_some()
+            || self.n != 0
+            || !self.pending.is_empty()
+            || !self.d_by_seq.is_empty()
+            || !self.closed_seqs.is_empty()
+            || self.stats != ObserverStats::default()
+            || self.finalization_started
+        {
+            anyhow::bail!(
+                "expected session must be configured before the run log and frame ingestion"
+            );
+        }
+        let session_id = session_id.into();
+        if session_id.is_empty() {
+            anyhow::bail!("expected session must not be empty");
+        }
+        self.expected_session = Some(session_id);
+        Ok(self)
     }
 
     fn ensure_capturing(&self) -> anyhow::Result<()> {
@@ -1514,6 +1622,90 @@ mod tests {
         observer
     }
 
+    #[test]
+    fn config_event_records_exact_ncp_and_transport_provenance() {
+        let observer = Observer::new("run", "nest", "reach", Mapping::default())
+            .with_expected_session(SID)
+            .unwrap()
+            .with_capture_transport("engram/ncp", "secure/fail-closed client config", 1024)
+            .unwrap()
+            .with_runlog("unused.jsonl")
+            .unwrap();
+        let config = observer
+            .runlog_events
+            .iter()
+            .find_map(|event| match event {
+                RunLogEvent::ConfigLogged { config, .. } => Some(config),
+                _ => None,
+            })
+            .unwrap();
+
+        assert_eq!(config["ncp"]["wire"], NCP_VERSION);
+        assert_eq!(config["ncp"]["contract_hash"], CONTRACT_HASH);
+        assert_eq!(config["ncp"]["revision"], NCP_RELEASE_REVISION);
+        assert_eq!(config["capture"]["expected_session"], SID);
+        assert_eq!(config["capture"]["transport"]["realm"], "engram/ncp");
+        assert_eq!(
+            config["capture"]["transport"]["security_profile"],
+            "secure/fail-closed client config"
+        );
+        assert_eq!(
+            config["capture"]["transport"]["ingress_handoff_capacity"],
+            1024
+        );
+        assert_eq!(
+            config["capture"]["local_receipt_timestamps"],
+            "not_recorded"
+        );
+    }
+
+    #[test]
+    fn effective_capture_changes_produce_distinct_config_hashes() {
+        let hash_for = |session: &str, realm: &str, security: &str| {
+            let observer = Observer::new("run", "nest", "reach", Mapping::default())
+                .with_expected_session(session)
+                .unwrap()
+                .with_capture_transport(realm, security, 1024)
+                .unwrap()
+                .with_runlog("unused.jsonl")
+                .unwrap();
+            observer
+                .runlog_events
+                .iter()
+                .find_map(|event| match event {
+                    RunLogEvent::RunStarted { config_hash, .. } => Some(config_hash.clone()),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let hashes = BTreeSet::from([
+            hash_for("session-a", "engram/ncp", "open/unauthenticated"),
+            hash_for(
+                "session-a",
+                "engram/ncp",
+                "secure/fail-closed client config",
+            ),
+            hash_for("session-a", "other/ncp", "open/unauthenticated"),
+            hash_for("session-b", "engram/ncp", "open/unauthenticated"),
+        ]);
+
+        assert_eq!(hashes.len(), 4);
+    }
+
+    #[test]
+    fn expected_session_cannot_change_after_config_hash_is_frozen() {
+        let observer = Observer::new("run", "nest", "reach", Mapping::default())
+            .with_runlog("unused.jsonl")
+            .unwrap();
+
+        let error = observer
+            .with_expected_session("late-session")
+            .err()
+            .unwrap();
+
+        assert!(error.to_string().contains("before the run log"));
+    }
+
     fn assert_finalize_retry_reconstructs(stage: FailStage) {
         let dir = unique_test_dir("retry");
         std::fs::create_dir_all(&dir).unwrap();
@@ -2022,8 +2214,9 @@ mod tests {
 
     #[test]
     fn foreign_session_and_stale_generation_frames_are_rejected() {
-        let mut obs =
-            Observer::new("run", "nest", "reach", Mapping::default()).with_expected_session(SID);
+        let mut obs = Observer::new("run", "nest", "reach", Mapping::default())
+            .with_expected_session(SID)
+            .unwrap();
 
         // A frame addressed to a DIFFERENT session_id must never blend in.
         let mut wrong_session = sensor(1, 0.0, &[("pose", vec![1.0])]);
