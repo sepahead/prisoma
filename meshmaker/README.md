@@ -1,54 +1,32 @@
-# meshmaker — QUARANTINED (not part of the canonical prisoma repo)
+# meshmaker — RELOCATED (no longer in this repo)
 
-This directory held cost-bearing, external asset-generation tooling (3D mesh /
-asset generation via paid cloud APIs, batch/swarm launchers, and associated
-prompts). It is **not** part of the prisoma scientific core — the estimators, run
-log, bridge, sim, harnesses, and experiments — and has been **quarantined out of
-version control**.
+The `meshmaker/` tooling and its generated assets are **no longer part of the
+prisoma tree**. They were cost-bearing, external 3D-asset-generation tooling (paid
+cloud APIs, batch/swarm launchers, prompts) and ~35 GB of generated mesh output —
+unrelated to the prisoma scientific core (estimators, run log, bridge, sim,
+harnesses, experiments).
 
-## What changed
+## Where it went
 
-- All `meshmaker/` scripts were removed from git tracking with `git rm --cached`
-  (the working-tree files are **kept on disk**; nothing local was deleted).
-- `.gitignore` now ignores everything under `meshmaker/` except this tombstone, so
-  a fresh clone of the canonical repo does not contain the tooling, its prompts, or
-  any generated output.
-- `meshmaker/api_keys.txt` was already untracked and ignored; it must live outside
-  the repository tree before any release (see the release checklist below).
+Moved on 2026-07-10 to the **`relief-atlas`** repository, alongside the other
+atlas asset tooling:
 
-## Why
-
-The whole-repo review (`../REVIEW_AND_TODO.md`, Security/Governance perspective +
-P0 item 3) flagged this tooling as:
-
-- cost-bearing (paid generation APIs; a swarm launcher that can spawn many parallel
-  cloud jobs);
-- a secret-handling risk (`api_keys.txt` in the working tree);
-- containing asset prompts unrelated to — and potentially distracting from — the
-  prisoma diagnostics;
-
-and recommended isolating it from the canonical project and from all lint / test /
-release claims. (`grandplan.md` §A.8 already records that meshmaker is not on the
-10-step critical path.)
-
-## If you need it
-
-The files are still on your disk under `meshmaker/` (just untracked). To develop it
-further, move it to its own repository, e.g.:
-
-```bash
-cp -r meshmaker ../meshmaker-standalone && (cd ../meshmaker-standalone && git init)
+```
+../relief-atlas/meshmaker/
 ```
 
-To recover the previously tracked versions from history:
+(`cobot-atlas` already holds its own published share of the mesh assets; the
+remaining generation tooling and outputs were consolidated into `relief-atlas`.)
 
-```bash
-git log --oneline -- meshmaker/        # find a commit before the quarantine
-git checkout <commit> -- meshmaker/    # restore tracked files into the working tree
-```
+The move was an on-disk relocation of the working-tree files only — nothing was
+regenerated and no generated data was lost. Credentials (`api_keys.txt`) and the
+large `output*/` directories are git-ignored in `relief-atlas` and must never be
+committed.
 
-## Release checklist (meshmaker)
+## History
 
-- [ ] `meshmaker/` is absent from the released source tree / wheels / app bundles.
-- [ ] `meshmaker/api_keys.txt` (and any credentials) live outside the repo tree.
-- [ ] No generated assets, prompts, or logs from `meshmaker/` ship in a release.
+Prior to this move, `meshmaker/` was *quarantined* out of prisoma version control
+(only this tombstone was tracked; see `grandplan.md` §A.8 and the git history of
+this file for the original quarantine rationale). Historical references to
+`meshmaker/` elsewhere in this repo (CHANGELOG, audits, grandplan) are retained as
+records and are not rewritten.
