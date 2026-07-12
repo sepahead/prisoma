@@ -51,6 +51,7 @@ SUPPLEMENTAL_NCP_DOCS = [
 
 ARXIV_ID_RE = re.compile(r"arXiv:(\d{4}\.\d{5})")
 VENUE_RE = re.compile(r"\b(NeurIPS|ICML|CoRL|ICLR|CVPR|ECCV|AAAI)\b")
+REFERENCES_HEADING_RE = re.compile(r"^#{1,6}\s+References\b", re.IGNORECASE)
 
 # Performance/cost-ish signals. Keep these narrow to reduce false positives.
 PERCENT_RE = re.compile(r"\b\d+(?:\.\d+)?%")
@@ -785,14 +786,20 @@ def audit_one(
     findings: list[Finding] = []
 
     # Preserve the original non-code claim checks unchanged.
+    in_references = False
     for line_no, line in iter_non_code_lines(lines):
         if not line.strip():
             continue
 
+        if REFERENCES_HEADING_RE.match(line):
+            in_references = True
+
         has_arxiv = bool(ARXIV_ID_RE.search(line))
 
         # Venue claim check: if we mention a venue, require an explicit "verify" marker.
-        if VENUE_RE.search(line):
+        # A `# References` bibliography legitimately lists venues per citation and is governed
+        # by the reference policy (grandplan §17), so it is exempt from the per-line check.
+        if VENUE_RE.search(line) and not in_references:
             # Headings and "field notes" style sections are not necessarily venue assertions.
             if line.lstrip().startswith("#"):
                 continue
