@@ -23,3 +23,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "syn
 [[bin]]
 name = "ncp-observe"
 path = "src/bin/observe.rs"
+
+[[bin]]
+name = "ncp-fault-observatory"
+path = "src/bin/fault_observatory.rs"

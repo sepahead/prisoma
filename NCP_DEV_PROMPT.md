@@ -109,8 +109,18 @@ Already correct (do not regress):
 The machine-readable `capture_integrity` grade is deliberately limited to **visible receipts
 and join state**. Whole-plane seq gaps, local receipt timestamps, reconnect/QoS history, clock
 sync, and authenticated peer identity remain unassessed. The deterministic wire-trace
-protocol-fault observatory specified in `grandplan.md` Appendix F is still not runnable; do not
-promote this prerequisite work to E4, EC1, live Engram validation, or security validation.
+protocol-fault observatory in `grandplan.md` Appendix F is runnable for its bounded, complete,
+hand-authored fixture and frozen logical fault registry. It distinguishes manifest-oracle truth
+from native observer response and publishes strict per-replay outcome records plus
+replay-equivalence/report evidence. Its E3-style label requires matching build/runtime revisions,
+both clean states, and lockfile/executable hashes; that is a local reproducibility binding, not
+signing or remote attestation. The fixed inventory is 16 assessed cases (15 matched, one matched
+known limitation for whole-tick omission), two expected `not_assessable` guards (logical pause and
+security-profile claim), and zero mismatches; `all_expectations_matched` is not an 18/18 detection
+rate. Logical slots are annotations that do not drive or measure timing, and the
+declared-security-profile case does not load or select a configuration. It does not test wall-clock
+latency, a live disconnect/reconnect, authentication/ACLs, or live control timing; do not promote
+this fixture evidence to E4, EC1, live Engram validation, security validation, or a PID gate pass.
 
 ## 4. Workstreams (the three gaps, in priority order)
 
@@ -192,6 +202,13 @@ to keep NCP/Zenoh off the critical path; it git-depends on the published NCP rep
 # Build + test the workspace-excluded observer directly:
 cargo build --manifest-path crates/ncp-observer/Cargo.toml
 cargo test  --manifest-path crates/ncp-observer/Cargo.toml
+
+# deterministic offline wire-0.8 fault suite; published artifacts must reconstruct
+# exactly; only writer-reserved partial crash scratch may be cleaned on explicit retry
+cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml \
+    --bin ncp-fault-observatory -- --out-dir outputs/ncp_fault_observatory
+cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml \
+    --bin ncp-fault-observatory -- --verify outputs/ncp_fault_observatory
 
 # tap a live session, then analyze the artifact through the standard harness
 # (the crate is workspace-excluded, so `-p ncp-observer` does NOT resolve from the

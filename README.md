@@ -208,13 +208,30 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   resident/output ceilings, and a canonical artifact/run-log bundle committed by a verified
   publication receipt. Known failed/zero-row captures remain diagnostic and the CLI exits nonzero; the
   offline harness rejects uncommitted or failed NCP input. `capture_integrity` covers visible
-  receipts/join state only—whole-plane gaps, receipt timing/QoS/reconnect evidence, peer
-  authentication, and the protocol-fault observatory remain unbuilt. No population support is
+  receipts/join state only—whole-plane gaps, receipt timing/QoS/reconnect evidence, and peer
+  authentication remain unassessed. A deterministic, bounded `ncp-fault-observatory` now replays
+  18 frozen wire-0.8 fixture scenarios twice through the shared route/raw-ingress seams and
+  publishes strict per-replay outcome records plus a hash-bound, receipt-last report. It explicitly
+  separates injection truth from native detection: whole-tick omission is a manifest-only known
+  limitation, logical slots are annotations that do not drive or measure timing, trace truncation
+  is not a live disconnect, and the security case guards only a declared-profile label without
+  loading or selecting a configuration. This is local E3-style fixture evidence only—not E4,
+  EC1 completion, live Engram validation, security validation, or a PID gate change. No population support is
   inferred: continuous KSG/shared-exclusions requests abstain, `--pid-mode none` requests nothing,
   and quantized discrete `I_min` remains a non-evidentiary diagnostic with population
   `NotEvaluated` and application `Blocked`. It remains exploratory because honest
   L/split/episode/label structure and a conforming live publisher are still required before it
   can be an S2/EC1 producer.
+  The E3-style label is emitted only when build/runtime revisions agree, both worktree states are
+  clean, and the lockfile plus exact executable hashes are recorded; otherwise the report uses a
+  reproducibility-unqualified typed level. This is a local reproducibility binding, not signing or
+  remote attestation. `--verify DIR` read-only snapshots an in-place receipt-bound bundle and every
+  nested artifact without rerunning the suite; only explicit `--out-dir` recovery may discard the
+  writer's reserved partial temporary files after reconstructing their targets. The frozen outcome
+  inventory is 16 assessed (15 matched and one matched known limitation for whole-tick omission),
+  two expected `not_assessable` guards (logical pause and security-profile claim), and zero
+  mismatches. `all_expectations_matched=true` means those classifications held, not an 18/18
+  detection rate.
 - **Specified (not yet built):** a fuller Rerun-based diagnostic viewer and the deferred
   Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
 

@@ -47,6 +47,13 @@ firebreak:
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | grep -q 'pid_metric_events=0'
     @echo "firebreak OK: core builds NCP-disabled; static label baselines emitted without PID atoms"
 
+# Deterministic, offline NCP wire-0.8 fault suite. Published artifacts must
+# reconstruct exactly; explicit retry alone may clean writer-reserved crash scratch.
+ncp-fault-observatory out="outputs/ncp_fault_observatory":
+    cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-fault-observatory -- --out-dir {{out}}
+    cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-fault-observatory -- --verify {{out}}
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{out}}/observatory-runlog.jsonl
+
 # Experiment 0 gate (Rust-side smoke subset).
 # Full Experiment 0 will later be orchestrated via python/experiments/.
 exp0:

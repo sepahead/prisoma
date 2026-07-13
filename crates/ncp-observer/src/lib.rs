@@ -94,7 +94,8 @@
 //! `ObserverStats::capture_integrity` grades only visible raw receipts and join
 //! state. It does not detect a wholly missing plane tick or attest receipt timing,
 //! reconnect/QoS state, clock sync, peer authentication, or live protocol
-//! conformance; those remain work for the deterministic fault observatory.
+//! conformance. The deterministic observatory exercises bounded fixture semantics
+//! only and preserves those live-transport nonclaims.
 
 use anyhow::Context as _;
 use ncp_core::keys::valid_id_segment;
@@ -111,12 +112,17 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::ffi::OsString;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, ErrorKind, Read as _, Write as _};
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt as _;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+
+pub mod observatory;
 
 /// One `(V,L,D,A)` sample — mirrors `pid-sim`'s `OfflineVldaSample`; the
 /// harness accepts the containing NCP dataset only after publication verification.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OfflineVldaSample {
     pub sample_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -133,6 +139,7 @@ pub struct OfflineVldaSample {
 
 /// The dataset wrapper `pid-offline-harness` consumes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OfflineVldaDataset {
     pub run_id: String,
     pub source: String,
@@ -201,8 +208,11 @@ impl Default for Mapping {
 /// Visible-receipt and join-quality counters reported by [`Observer::finalize`].
 /// These counters do not prove end-to-end delivery completeness: whole-plane
 /// gaps, local receipt timing, reconnect history, negotiated QoS, and clock sync
-/// remain unassessed until the protocol-fault observatory records them.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
+/// remain unassessed. The deterministic protocol-fault observatory uses logical
+/// delivery slots and a separate fixture oracle; it does not turn those missing
+/// live-transport measurements into observer-native evidence.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ObserverStats {
     /// Samples retained for the dataset artifact (and preserved across failed
     /// finalization attempts).
@@ -403,7 +413,8 @@ impl ObserverStats {
 
 /// Finite resource contract for one observer capture. These are software-safety
 /// ceilings, not recommended scientific sample sizes or performance claims.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ObserverLimits {
     pub max_wire_frame_bytes: usize,
     pub max_wire_frames: u64,
@@ -458,17 +469,36 @@ impl ObserverLimits {
     }
 }
 
-/// Raw data-plane kind used by the live Zenoh callback worker and exposed for the
-/// future offline fault/replay runner so both can share one decoder.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// Bounded live callback handoff capacity, also recorded by deterministic replay
+/// so transport provenance cannot drift between the two entry points.
+pub const INGRESS_HANDOFF_CAPACITY: usize = 64;
+
+/// Raw data-plane kind used by both the live Zenoh callback worker and the
+/// implemented offline fault/replay runner so both share one decoder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum IngressPlane {
     Sensor,
     Command,
     Observation,
 }
 
-/// Exact routing-key binding shared by live capture and future offline raw-trace
-/// replay. Named subkeys are intentionally not accepted as base-plane frames.
+/// Callback-side result for one exact-route and raw-size admission check.
+///
+/// Both the live Zenoh callback and the offline observatory call this function
+/// before constructing a worker message. It intentionally does not model queue
+/// saturation: that outcome depends on the live bounded handoff, while offline
+/// replay is sequential.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "disposition", content = "plane")]
+pub enum CallbackAdmission {
+    Admitted(IngressPlane),
+    RouteMismatchDropped,
+    OversizedDropped,
+}
+
+/// Exact routing-key binding shared by live capture and offline raw-trace replay.
+/// Named subkeys are intentionally not accepted as base-plane frames.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IngressRoutes {
     sensor: String,
@@ -492,7 +522,9 @@ impl IngressRoutes {
             routes.command.as_str(),
             routes.observation.as_str(),
         ];
-        if values.iter().any(|value| value.is_empty() || value.len() > 4096)
+        if values
+            .iter()
+            .any(|value| value.is_empty() || value.len() > 4096)
             || values[0] == values[1]
             || values[0] == values[2]
             || values[1] == values[2]
@@ -515,8 +547,30 @@ impl IngressRoutes {
     }
 }
 
+/// Apply the production callback's exact-route and raw-size gates.
+///
+/// Route classification precedes size classification, matching the live
+/// callback. A misrouted oversized receipt is therefore attributed to the route
+/// boundary only. The function allocates nothing and never decodes payload bytes.
+pub fn classify_callback_receipt(
+    routes: &IngressRoutes,
+    routing_key: &str,
+    payload_len: usize,
+    max_wire_frame_bytes: usize,
+) -> CallbackAdmission {
+    let Some(plane) = routes.classify(routing_key) else {
+        return CallbackAdmission::RouteMismatchDropped;
+    };
+    if payload_len > max_wire_frame_bytes {
+        CallbackAdmission::OversizedDropped
+    } else {
+        CallbackAdmission::Admitted(plane)
+    }
+}
+
 /// Decoder/medium counters from the shared raw-wire ingress.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RawIngressCounters {
     pub frames_seen: u64,
     pub raw_bytes_seen: u64,
@@ -537,7 +591,8 @@ impl RawIngressCounters {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum RawIngressDisposition {
     Applied,
     DecodeDropped,
@@ -668,8 +723,8 @@ fn record_decode_drop(
 
 /// Process one worker-admitted raw wire frame through the production decoder
 /// and observation-medium gate. The observer, not caller-owned diagnostics,
-/// owns the lifetime budget and canonical integrity counters. A future offline
-/// observatory can call this same seam; no replay fixture is claimed here yet.
+/// owns the lifetime budget and canonical integrity counters. The offline
+/// observatory calls this same seam after shared callback pre-admission.
 pub fn ingest_wire_frame(
     observer: &mut Observer,
     plane: IngressPlane,
@@ -1128,31 +1183,84 @@ fn serialize_json_pretty_bounded<T: Serialize>(
     Ok(bytes)
 }
 
-fn read_bounded(path: &Path, max_bytes: usize) -> anyhow::Result<Vec<u8>> {
-    let metadata = std::fs::symlink_metadata(path)
-        .with_context(|| format!("failed to inspect existing output {}", path.display()))?;
-    if !metadata.file_type().is_file() {
+#[cfg(unix)]
+fn same_file_snapshot(left: &std::fs::Metadata, right: &std::fs::Metadata) -> bool {
+    left.dev() == right.dev()
+        && left.ino() == right.ino()
+        && left.len() == right.len()
+        && left.mtime() == right.mtime()
+        && left.mtime_nsec() == right.mtime_nsec()
+        && left.ctime() == right.ctime()
+        && left.ctime_nsec() == right.ctime_nsec()
+}
+
+#[cfg(not(unix))]
+fn same_file_snapshot(left: &std::fs::Metadata, right: &std::fs::Metadata) -> bool {
+    left.file_type().is_file()
+        && right.file_type().is_file()
+        && left.len() == right.len()
+        && left.modified().ok() == right.modified().ok()
+}
+
+/// Read one bounded regular-file snapshot without following an already-present
+/// symlink. The opened handle and pathname identity are checked before and after
+/// the bounded read so replacement/growth races fail closed.
+pub fn read_bounded_regular_snapshot(path: &Path, max_bytes: usize) -> anyhow::Result<Vec<u8>> {
+    let before = std::fs::symlink_metadata(path)
+        .with_context(|| format!("failed to inspect bounded input {}", path.display()))?;
+    if !before.file_type().is_file() {
         anyhow::bail!(
-            "existing output {} must be a regular file (symlinks are not adopted)",
+            "bounded input {} must be a regular file (symlinks are rejected)",
             path.display()
         );
     }
-    let file = File::open(path)
-        .with_context(|| format!("failed to open existing output {}", path.display()))?;
+    if before.len() > u64::try_from(max_bytes).unwrap_or(u64::MAX) {
+        anyhow::bail!("bounded input {} exceeds {max_bytes} bytes", path.display());
+    }
+    let mut file = File::open(path)
+        .with_context(|| format!("failed to open bounded input {}", path.display()))?;
+    let opened_before = file
+        .metadata()
+        .with_context(|| format!("failed to inspect opened input {}", path.display()))?;
+    let path_after_open = std::fs::symlink_metadata(path)
+        .with_context(|| format!("failed to re-inspect bounded input {}", path.display()))?;
+    if !opened_before.file_type().is_file()
+        || !path_after_open.file_type().is_file()
+        || !same_file_snapshot(&before, &opened_before)
+        || !same_file_snapshot(&opened_before, &path_after_open)
+    {
+        anyhow::bail!("bounded input {} changed while opening", path.display());
+    }
     let read_limit = u64::try_from(max_bytes)
         .unwrap_or(u64::MAX)
         .saturating_add(1);
     let mut bytes = Vec::new();
-    file.take(read_limit)
+    std::io::Read::by_ref(&mut file)
+        .take(read_limit)
         .read_to_end(&mut bytes)
-        .with_context(|| format!("failed to read existing output {}", path.display()))?;
+        .with_context(|| format!("failed to read bounded input {}", path.display()))?;
     if bytes.len() > max_bytes {
         anyhow::bail!(
-            "existing output {} exceeds the {max_bytes}-byte verification limit",
+            "bounded input {} exceeds the {max_bytes}-byte verification limit",
             path.display()
         );
     }
+    let opened_after = file
+        .metadata()
+        .with_context(|| format!("failed to re-inspect opened input {}", path.display()))?;
+    let path_after_read = std::fs::symlink_metadata(path)
+        .with_context(|| format!("failed to re-inspect bounded input {}", path.display()))?;
+    if !path_after_read.file_type().is_file()
+        || !same_file_snapshot(&opened_before, &opened_after)
+        || !same_file_snapshot(&opened_after, &path_after_read)
+    {
+        anyhow::bail!("bounded input {} changed while reading", path.display());
+    }
     Ok(bytes)
+}
+
+fn read_bounded(path: &Path, max_bytes: usize) -> anyhow::Result<Vec<u8>> {
+    read_bounded_regular_snapshot(path, max_bytes)
 }
 
 trait FinalizeIo {
@@ -1974,7 +2082,8 @@ impl Observer {
         let entry = self.pending.entry(key).or_default();
         entry.a = Some(a);
         entry.command_hash = Some(command_hash);
-        entry.generation
+        entry
+            .generation
             .get_or_insert_with(|| command.session.generation.clone());
         if entry.t.is_none() {
             // Prefer the driving sensor's time (`source_t`) as the tick clock; fall
@@ -2078,10 +2187,8 @@ impl Observer {
         if !self.d_by_key.contains_key(&key) {
             self.d_order.push_back(key.clone());
         }
-        self.d_by_key.insert(
-            key,
-            (d, observation_hash, obs.session.generation.clone()),
-        );
+        self.d_by_key
+            .insert(key, (d, observation_hash, obs.session.generation.clone()));
         // Deliberately do NOT advance `max_seq` or the epoch from an observation:
         // D is a passenger on the control-loop clock, and a hostile inflated
         // source must not force a reset or premature emission.
@@ -2507,18 +2614,6 @@ impl Observer {
                 anyhow::bail!("finalization retry canonical bundle targets changed");
             }
         } else {
-            if dataset_target.exists() {
-                anyhow::bail!(
-                    "refusing to overwrite an existing artifact {}",
-                    dataset_target.display()
-                );
-            }
-            if runlog_target.exists() {
-                anyhow::bail!("refusing to overwrite an existing run log");
-            }
-            if receipt_target.exists() {
-                anyhow::bail!("refusing to overwrite an existing publication receipt");
-            }
             self.flush_complete_unchecked();
             self.discard_inflight(InflightDiscardReason::Finalize, None);
             self.stats.zero_sample_capture = self.samples.is_empty();
@@ -2584,8 +2679,7 @@ impl Observer {
             runlog_sha256: pid_runlog::sha256_hex(&runlog_bytes),
             capture_integrity: capture_integrity.to_string(),
         };
-        let receipt_bytes =
-            serialize_json_pretty_bounded(&receipt, MAX_PUBLICATION_RECEIPT_BYTES)?;
+        let receipt_bytes = serialize_json_pretty_bounded(&receipt, MAX_PUBLICATION_RECEIPT_BYTES)?;
         if dataset_target.exists() {
             let existing = read_bounded(&dataset_target, self.limits.max_artifact_bytes)?;
             if existing != dataset_bytes {
@@ -3038,7 +3132,10 @@ mod tests {
         assert_eq!(observer.sample(0).sample_id, sample_before.sample_id);
         assert!(!observer.finalized, "failed finalize must remain retryable");
         if stage == FailStage::ReceiptWrite {
-            assert!(runlog.exists(), "run log was durably installed before commit");
+            assert!(
+                runlog.exists(),
+                "run log was durably installed before commit"
+            );
             assert!(!publication_receipt_path(&dataset).exists());
         } else {
             assert!(
@@ -3459,9 +3556,7 @@ mod tests {
         observation_conflict.flush_complete().unwrap();
         assert_eq!(observation_conflict.sample_count(), 0);
         assert_eq!(observation_conflict.stats.conflicting_duplicates_dropped, 1);
-        observation_conflict
-            .on_observation(&observation_a)
-            .unwrap();
+        observation_conflict.on_observation(&observation_a).unwrap();
         assert_eq!(
             observation_conflict.stats.quarantined_frames_dropped, 3,
             "sensor, command, and later observation stay in the quarantined class"
@@ -3705,12 +3800,7 @@ mod tests {
     #[test]
     fn retired_epoch_receipts_classify_exact_and_conflicting_evidence() {
         let mut observer = Observer::new("run", "nest", "reach", Mapping::default());
-        let old_command = command_ep(
-            EPOCH_A,
-            1,
-            0.0,
-            &[("velocity_setpoint", vec![0.1])],
-        );
+        let old_command = command_ep(EPOCH_A, 1, 0.0, &[("velocity_setpoint", vec![0.1])]);
         observer
             .on_observation(&observation_ep(EPOCH_A, 1, vec![3.0]))
             .unwrap();
@@ -3768,17 +3858,13 @@ mod tests {
         assert_eq!(observer.expected_generation, before_generation);
         assert_eq!(observer.stats.seq_resets, 0);
         assert_eq!(observer.stats.invalid_payloads_dropped, 1);
-        assert!(observer
-            .pending
-            .contains_key(&(EPOCH_A.to_string(), 5)));
+        assert!(observer.pending.contains_key(&(EPOCH_A.to_string(), 5)));
     }
 
     #[test]
     fn capacity_seal_flushes_complete_grace_window_ticks() {
         let mut observer = Observer::new("run", "nest", "reach", Mapping::default());
-        observer
-            .on_observation(&observation(1, vec![3.0]))
-            .unwrap();
+        observer.on_observation(&observation(1, vec![3.0])).unwrap();
         observer
             .on_sensor(&sensor(
                 1,
@@ -3807,16 +3893,10 @@ mod tests {
             })
             .unwrap();
         observer
-            .on_command(&command(
-                1,
-                0.0,
-                &[("velocity_setpoint", vec![0.1, 0.2])],
-            ))
+            .on_command(&command(1, 0.0, &[("velocity_setpoint", vec![0.1, 0.2])]))
             .unwrap();
         assert_eq!(observer.inflight_elements, 2);
-        observer
-            .on_observation(&observation(1, vec![3.0]))
-            .unwrap();
+        observer.on_observation(&observation(1, vec![3.0])).unwrap();
 
         assert_eq!(observer.stats.inflight_element_limit_dropped, 1);
         assert!(observer.stats.capture_capacity_reached);
@@ -3988,8 +4068,12 @@ mod tests {
 
     #[test]
     fn ingress_routes_accept_only_exact_base_plane_keys() {
-        let routes = IngressRoutes::new("r/session/s/sensor", "r/session/s/command", "r/session/s/observation")
-            .unwrap();
+        let routes = IngressRoutes::new(
+            "r/session/s/sensor",
+            "r/session/s/command",
+            "r/session/s/observation",
+        )
+        .unwrap();
         assert_eq!(
             routes.classify("r/session/s/sensor"),
             Some(IngressPlane::Sensor)
@@ -4028,10 +4112,9 @@ mod tests {
             serde_json::from_slice(&std::fs::read(&dataset).unwrap()).unwrap();
         assert_eq!(artifact.capture_integrity, "invalid");
         assert!(publication_receipt_path(&dataset).exists());
-        let summary = pid_runlog::summarize_events(
-            &pid_runlog::read_events_from_path(&runlog).unwrap(),
-        )
-        .unwrap();
+        let summary =
+            pid_runlog::summarize_events(&pid_runlog::read_events_from_path(&runlog).unwrap())
+                .unwrap();
         assert_eq!(summary.status, Some(RunStatus::Failed));
         std::fs::remove_dir_all(dir).ok();
     }
@@ -4052,10 +4135,9 @@ mod tests {
 
         assert!(stats.zero_sample_capture);
         assert_eq!(stats.capture_integrity(), "degraded");
-        let summary = pid_runlog::summarize_events(
-            &pid_runlog::read_events_from_path(&runlog).unwrap(),
-        )
-        .unwrap();
+        let summary =
+            pid_runlog::summarize_events(&pid_runlog::read_events_from_path(&runlog).unwrap())
+                .unwrap();
         assert_eq!(summary.status, Some(RunStatus::Failed));
         std::fs::remove_dir_all(dir).ok();
     }
@@ -4188,9 +4270,7 @@ mod tests {
             .unwrap()
             .with_runlog(&runlog)
             .unwrap();
-        observer
-            .on_observation(&observation(1, vec![3.0]))
-            .unwrap();
+        observer.on_observation(&observation(1, vec![3.0])).unwrap();
         observer
             .on_sensor(&sensor(
                 1,
@@ -4622,7 +4702,9 @@ mod tests {
 
         let error = observer.finalize(&dataset).unwrap_err();
 
-        assert!(error.to_string().contains("canonical bundle targets changed"));
+        assert!(error
+            .to_string()
+            .contains("canonical bundle targets changed"));
         assert!(!second.join("runlog.jsonl").exists());
         assert!(!publication_receipt_path(&dataset).exists());
         std::fs::remove_dir_all(dir).ok();

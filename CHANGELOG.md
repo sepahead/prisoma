@@ -29,10 +29,29 @@
   abstain, `--pid-mode none` requests nothing, and quantized discrete `I_min` is non-evidentiary
   with population `NotEvaluated` and application `Blocked`. PID-disabled diagnostics remain
   available after a valid commit.
+- Added the deterministic `ncp-fault-observatory`: a bounded, strict, content-addressed wire-0.8
+  baseline plus 18 frozen logical fault schedules, replayed twice through the same callback
+  route/size classifier and raw decoder as live capture. The receipt-last report keeps exact raw,
+  canonical typed, path-independent scientific/outcome, and exact publication hashes distinct;
+  strict per-replay `outcome.json` records bind counters, delivery/finalization deltas, sample
+  oracles, and durable replay bundles. The report also separates injection truth, native response,
+  and manifest-oracle verdicts. The whole-tick omission case is deliberately a matched native blind
+  spot, not a detection pass. The frozen inventory is 16 assessed (15 matched, one matched known
+  limitation), two expected `not_assessable` guards (logical pause and security-profile claim),
+  and zero mismatches; `all_expectations_matched` does not mean an 18/18 detection rate.
+- Added in-place `--verify` for the complete nested receipt-bound publication, downgraded dirty or
+  stale, or unknown source/build state below the E3-style evidence label, shared the live/replay
+  handoff-capacity constant, and moved all new semantic projection hashes to lossless canonical
+  JSON v2. E3-style elevation now requires build/runtime revision agreement, both clean states,
+  and lockfile/executable hashes; this is a reproducibility binding, not signing or remote
+  attestation. Public verification is read-only and single-snapshot receipt-bound; explicit retry
+  alone cleans partial files in the writer-reserved temp namespace after reconstructing targets.
 - Scope remains local exploratory integrity groundwork. `capture_integrity` does not detect wholly
   missing own-stream ticks or attest receipt time, reconnect/QoS/clock state, authenticated producer
-  identity, live conformance, E4/EC1, or security. The deterministic protocol-fault observatory is
-  still specified but not runnable.
+  identity, live conformance, E4/EC1, or security. Observatory logical slots are annotations that
+  do not drive or measure timing; trace truncation is not a live disconnect; and the security case
+  guards only a declared-profile label without loading or selecting a configuration. Offline
+  read-only execution is not live control-timing noninterference.
 
 ### SAFE ingress integrity and provenance (2026-07-13)
 

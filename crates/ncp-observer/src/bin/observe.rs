@@ -22,14 +22,13 @@ use ncp_core::keys::valid_id_segment;
 use ncp_core::keys::Keys;
 use ncp_core::NCP_VERSION;
 use ncp_observer::{
-    ingest_wire_frame, IngressPlane, IngressRoutes, Mapping, Observer, RawIngressCounters,
+    classify_callback_receipt, ingest_wire_frame, CallbackAdmission, IngressPlane, IngressRoutes,
+    Mapping, Observer, RawIngressCounters, INGRESS_HANDOFF_CAPACITY,
 };
 use ncp_zenoh::ZenohBus;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::mpsc;
-
-const HANDOFF_CAPACITY: usize = 64;
 
 enum Ingress {
     Sensor(Vec<u8>),
@@ -70,22 +69,7 @@ async fn capture_worker(
     }
 }
 
-fn enqueue(
-    sender: &mpsc::Sender<Ingress>,
-    frame: Ingress,
-    handoff_drops: &AtomicU64,
-    oversized_drops: &AtomicU64,
-    max_wire_frame_bytes: usize,
-) {
-    let bytes = match &frame {
-        Ingress::Sensor(bytes) | Ingress::Command(bytes) | Ingress::Observation(bytes) => bytes,
-    };
-    if bytes.len() > max_wire_frame_bytes {
-        let _ = oversized_drops.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
-            Some(count.saturating_add(1))
-        });
-        return;
-    }
+fn enqueue(sender: &mpsc::Sender<Ingress>, frame: Ingress, handoff_drops: &AtomicU64) {
     if sender.try_send(frame).is_err() {
         let _ = handoff_drops.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
             Some(count.saturating_add(1))
@@ -244,7 +228,7 @@ async fn main() -> anyhow::Result<()> {
     // observer validates every frame's payload identity against the captured
     // session; the first validated authorizing sensor locks the live generation.
     .with_expected_session(args.session.clone())?
-    .with_capture_transport(args.realm.clone(), mode_label, HANDOFF_CAPACITY)?;
+    .with_capture_transport(args.realm.clone(), mode_label, INGRESS_HANDOFF_CAPACITY)?;
     let runlog_path = args
         .runlog
         .as_deref()
@@ -272,7 +256,7 @@ async fn main() -> anyhow::Result<()> {
     // Tokio worker owns Observer and performs decode/join/log bookkeeping in
     // arrival order, so callback threads never block on a mutex or do disk/JSON
     // work. Saturation drops are explicit per-plane counters.
-    let (ingress_tx, ingress_rx) = mpsc::channel(HANDOFF_CAPACITY);
+    let (ingress_tx, ingress_rx) = mpsc::channel(INGRESS_HANDOFF_CAPACITY);
     let worker = tokio::spawn(capture_worker(observer, ingress_rx));
     let sensor_handoff_drops = Arc::new(AtomicU64::new(0));
     let command_handoff_drops = Arc::new(AtomicU64::new(0));
@@ -291,13 +275,14 @@ async fn main() -> anyhow::Result<()> {
     let oversized = oversized_drops.clone();
     let routing_mismatches = routing_key_mismatches.clone();
     bus.subscribe_session(&args.session, move |key, bytes| {
-        let (frame, drops) = match ingress_routes.classify(&key) {
-            Some(IngressPlane::Sensor) => (Ingress::Sensor(bytes), sensor_drops.as_ref()),
-            Some(IngressPlane::Command) => (Ingress::Command(bytes), command_drops.as_ref()),
-            Some(IngressPlane::Observation) => {
-                (Ingress::Observation(bytes), observation_drops.as_ref())
-            }
-            None => {
+        let plane = match classify_callback_receipt(
+            &ingress_routes,
+            &key,
+            bytes.len(),
+            max_wire_frame_bytes,
+        ) {
+            CallbackAdmission::Admitted(plane) => plane,
+            CallbackAdmission::RouteMismatchDropped => {
                 let _ = routing_mismatches.fetch_update(
                     Ordering::Relaxed,
                     Ordering::Relaxed,
@@ -305,8 +290,19 @@ async fn main() -> anyhow::Result<()> {
                 );
                 return;
             }
+            CallbackAdmission::OversizedDropped => {
+                let _ = oversized.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+                    Some(count.saturating_add(1))
+                });
+                return;
+            }
         };
-        enqueue(&tx, frame, drops, &oversized, max_wire_frame_bytes);
+        let (frame, drops) = match plane {
+            IngressPlane::Sensor => (Ingress::Sensor(bytes), sensor_drops.as_ref()),
+            IngressPlane::Command => (Ingress::Command(bytes), command_drops.as_ref()),
+            IngressPlane::Observation => (Ingress::Observation(bytes), observation_drops.as_ref()),
+        };
+        enqueue(&tx, frame, drops);
     })
     .await
     .map_err(|e| anyhow::anyhow!("subscribe raw session data planes: {e}"))?;
@@ -546,28 +542,23 @@ mod tests {
         sender.try_send(Ingress::Sensor(vec![1])).unwrap();
         let drops = AtomicU64::new(0);
 
-        let oversized = AtomicU64::new(0);
-        enqueue(&sender, Ingress::Sensor(vec![2]), &drops, &oversized, 1024);
+        enqueue(&sender, Ingress::Sensor(vec![2]), &drops);
 
         assert_eq!(drops.load(Ordering::Relaxed), 1);
     }
 
     #[test]
     fn oversized_frame_is_rejected_before_handoff() {
-        let (sender, mut receiver) = mpsc::channel(1);
-        let drops = AtomicU64::new(0);
-        let oversized = AtomicU64::new(0);
-
-        enqueue(
-            &sender,
-            Ingress::Sensor(vec![0; 5]),
-            &drops,
-            &oversized,
-            4,
+        let routes = IngressRoutes::new("sensor", "command", "observation").unwrap();
+        assert_eq!(
+            classify_callback_receipt(&routes, "sensor", 5, 4),
+            CallbackAdmission::OversizedDropped
         );
-
-        assert_eq!(oversized.load(Ordering::Relaxed), 1);
-        assert!(receiver.try_recv().is_err());
+        assert_eq!(
+            classify_callback_receipt(&routes, "unknown", 5, 4),
+            CallbackAdmission::RouteMismatchDropped,
+            "route attribution precedes raw-size attribution"
+        );
     }
 
     #[test]

@@ -56,6 +56,20 @@ S2/EC1 conformance bar** (an optional M2 ecosystem item) until the gaps below cl
    by default, so the strict `--require-heldout-*` gates and H1/H2 protocol analyses cannot
    run. Passing these adapter gates would still not clear the four PID gates or implement
    H1 Protocol A/B, prospective H2, conditional H3, or H4 interventions.
+5. **Protocol-fault observatory — deterministic fixture evidence only.** The
+   `ncp-fault-observatory` binary replays a bounded, content-addressed, complete wire-0.8
+   baseline through the same exact-route classifier and raw decoder as live capture. Its frozen
+   logical schedules cover omission, duplicate/conflict, reorder, pause, late receipt, malformed
+   input, version/identity/route/size faults, trace truncation, stream transition, and a
+   declared-security-profile label guard. Each case runs twice and publishes path-independent
+   semantic hashes, exact artifact hashes, a strict per-replay `outcome.json` record binding the
+   counters/journal/finalization deltas and sample oracle, a typed oracle comparison, a canonical
+   run log, and a receipt-last bundle. This is local, fixture-specific E3-style evidence, not
+   live-producer conformance. The frozen inventory is 16 assessed cases (15 matched and one
+   matched known limitation: whole-tick omission), two expected `not_assessable` guards (logical
+   pause and the security-profile claim), and zero mismatches. Thus
+   `all_expectations_matched=true` means the expected classifications held, not an 18/18 detection
+   rate.
 
 The in-repo work and external publisher requirements are tracked in
 **`NCP_DEV_PROMPT.md`** at the repo root.
@@ -91,7 +105,9 @@ diagnosable rather than mysterious.
 end-to-end delivery-completeness claim. The current observer does not detect an
 entirely missing own-stream tick, record local receipt timestamps/reconnect history,
 or attest negotiated QoS, clock sync, producer authentication, or ACL correctness.
-Those are inputs to the still-unbuilt deterministic protocol-fault observatory.
+The deterministic observatory preserves that distinction: its separate manifest oracle
+identifies an entirely omitted tick as a known native blind spot rather than calling it an
+observer detection.
 Known degraded/invalid and zero-row captures end with `RunStatus::Failed`; the CLI
 still preserves their diagnostic bundle but exits nonzero, and the offline harness
 rejects it for analysis.
@@ -140,11 +156,45 @@ cargo run --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
 cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
     --pid-mode none --summary-json outputs/ncp_summary.json \
     --runlog outputs/ncp_baseline_runlog.jsonl
+
+# run the complete deterministic offline wire-0.8 fault suite; an existing path
+# is accepted only when every published artifact is exact and no entry is unbound
+cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml \
+    --bin ncp-fault-observatory -- --out-dir outputs/ncp_fault_observatory
+# later, revalidate that in-place publication without rerunning the scenarios
+cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml \
+    --bin ncp-fault-observatory -- --verify outputs/ncp_fault_observatory
 ```
 
 The second command verifies `outputs/ncp_vlda.json.publication.json` first. PID
 mode is disabled intentionally: this adapter does not fabricate pid-rs 1.0
 population-support declarations from observed cardinalities.
+
+The observatory's built-in baseline is a finite hand-authored fixture. A supplied
+`--trace FROZEN_V1_BASELINE.json` must be an exact typed-semantic variant of that baseline and
+pass the same strict, bounded, current-wire validation before any output directory is created.
+Logical slots are schedule annotations only: replay is sequential, and they neither drive nor
+measure timing. In the truncation case, only the missing tick-7 command is observer-visible;
+the missing tick-7 observation and later tail are manifest-only. Truncation is not a transport
+disconnect. The security case only checks that a declared-profile label cannot become security
+evidence; it does not load or select a configuration and tests neither authentication nor ACLs.
+An offline code path that emits no control messages does not establish live control-timing
+noninterference. The report hard-codes the corresponding nonclaims: it does not establish E4,
+complete EC1, validate live Engram or security, or change any PID gate.
+
+The E3-style evidence label additionally requires matching build-time and runtime Git revisions,
+clean build-time and runtime worktree states, the standalone crate lockfile hash, and the exact
+executable hash. This is a local reproducibility binding, not a signature or remote attestation.
+Dirty, stale, or unknown source/build state still produces a verifiable diagnostic bundle, but its
+typed evidence level is downgraded to reproducibility-unqualified. `--verify` is intentionally
+read-only and in-place because publication receipts bind canonical paths; it snapshots every
+compiled schedule, per-replay outcome record, dataset, inner run log/receipt, trace, report, outer
+run log, and the receipt once for semantic/hash comparison. The exact
+`.<allowed-target>.tmp-<pid>-<nonce>` namespace is reserved for the writer: an explicit `--out-dir`
+retry may discard partial crash scratch only after independently reconstructing every target (or
+computing the pending outer receipt), while `--verify` rejects and leaves such entries untouched.
+New semantic/content projections use pid-runlog's lossless canonical JSON hash v2; exact raw and
+artifact-byte SHA-256 identities remain separate.
 
 ## Possible future integration with NCP
 

@@ -28,6 +28,18 @@ jobs:
         run: cargo clippy --locked --manifest-path crates/ncp-observer/Cargo.toml --all-targets -- -D warnings
       - name: Tests
         run: cargo test --locked --workspace
+      - name: Tests + deterministic protocol-fault observatory (ncp-observer)
+        run: |
+          cargo test --locked --manifest-path crates/ncp-observer/Cargo.toml
+          OUT="$RUNNER_TEMP/prisoma_ncp_fault_observatory"
+          test ! -e "$OUT"
+          cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-fault-observatory -- --out-dir "$OUT"
+          cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-fault-observatory -- --verify "$OUT"
+          grep -q '"evidence_level": "fixture_specific_e3_style_local_evidence_only"' "$OUT"/observatory-report-*.json
+          grep -q '"all_expectations_matched": true' "$OUT"/observatory.publication.json
+          grep -q '"establishes_e4": false' "$OUT"/observatory-report-*.json
+          grep -q '"establishes_security_validation": false' "$OUT"/observatory-report-*.json
+          cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate "$OUT/observatory-runlog.jsonl"
       - name: Dependency firebreak (grandplan.md §8.9.3 — minimum path needs no NCP or PID atoms)
         run: |
           # The `--workspace` build/clippy/tests above never compiled `ncp-observer`

@@ -219,10 +219,30 @@ repository is currently a README-only placeholder, so no public live Engram inte
   requires `--runlog`, exits nonzero for zero/degraded/invalid captures after preserving their
   diagnostic failed bundle, and library publication requires an explicit capture session plus a
   canonical run log before ingestion.
+- **Deterministic protocol-fault observatory (fixture-only):**
+  `ncp-fault-observatory` validates a bounded, complete, content-addressed wire-0.8 baseline,
+  applies 18 frozen logical schedules, and replays every case twice through the same callback
+  route/size classifier and raw ingress decoder as live capture. It keeps injection truth,
+  native observer response, manifest-oracle comparison, logical replay equivalence, exact
+  publication hashes, and path-independent semantic hashes separate, then commits the trace,
+  strict per-replay `outcome.json` records, case bundles, report, and canonical run log with an
+  outer receipt installed last. This is deterministic local E3-style fixture evidence only when
+  the build/runtime Git revisions agree, both worktree states are clean, and the standalone
+  lockfile plus exact executable hashes are recorded; otherwise the typed level is
+  reproducibility-unqualified. This is a reproducibility binding, not signing or remote
+  attestation. `--verify DIR` read-only snapshots the complete in-place publication without
+  rerunning it; explicit `--out-dir` retry alone may clean the writer-reserved temporary namespace
+  after reconstructing every target. The frozen outcome inventory is 16 assessed (15 matched, one
+  matched known limitation for whole-tick omission), two expected `not_assessable` guards
+  (logical pause and security-profile claim), and zero mismatches; `all_expectations_matched` is
+  therefore not an 18/18 detection-rate claim.
 - **Honesty boundary:** `capture_integrity` is a visible-receipt/join grade, not delivery
   completeness. Own-stream gap detection, receipt timing, reconnect/QoS/clock evidence, producer
-  authentication, and the deterministic protocol-fault observatory remain unbuilt. The NCP
-  artifact declares no population support: continuous KSG/shared-exclusions requests abstain,
+  authentication, and live transport behavior remain unbuilt/unassessed. The observatory calls a
+  whole-tick omission a manifest-only known limitation; logical slots are annotations that do not
+  drive or measure timing; and trace truncation is not disconnect evidence. Its security case
+  guards only a declared-profile label: no configuration is loaded or selected. The NCP artifact
+  declares no population support: continuous KSG/shared-exclusions requests abstain,
   `--pid-mode none` requests nothing, and quantized discrete `I_min` is at most a non-evidentiary
   diagnostic with population `NotEvaluated` and application `Blocked`. Use PID-disabled
   diagnostics/baselines by default until a real producer supplies justified per-axis declarations.
@@ -257,6 +277,7 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
 
 - Search: `rg -n "pattern"`
 - Tests: `just test` (or `cargo test` if `just` isn't installed)
+- NCP wire-0.8 deterministic fault suite: `just ncp-fault-observatory out=outputs/<directory>`
 - Estimator gate:
   - `just exp0` (or `cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all exp0 -- --nocapture`)
   - `just exp0-bin` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`)
