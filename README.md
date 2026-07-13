@@ -32,10 +32,11 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `pidsplatspecs.md` | Simulation/spec details (PID‑Splat) |
 | `findings.md` | Current estimator-status evidence (Exp0 results + interpretation) |
 | `REVIEW_AND_TODO.md` | Whole-repo review, prioritized to-do list, current critical path |
+| `docs/CAPABILITY_MATRIX.md` | Generated, content-bound current capability/evidence inventory |
 | `AGENTS.md` | Ground rules + a detailed "what actually exists" inventory for contributors |
 | `NCP_DEV_PROMPT.md` | Optional: dev handoff for the Engram/NCP `(V,L,D,A)` bridge |
 | `uidesigner/UI.md` | UI/UX spec (viewer-first; ordered by milestones) |
-| `GAUSS_MI_INTEGRATION.md`, `WORLD_WARP_INTEGRATION.md` | Optional add-on specs (3DGS uncertainty; external world-model baseline) |
+| `GAUSS_MI_INTEGRATION.md`, `WORLD_WARP_INTEGRATION.md` | Optional add-on specs (3DGS reconstruction-quality study; external world-model baseline) |
 | `THIRD_PARTY_NOTICES.md` | Release-governance notices/checklist |
 
 ## Prerequisites
@@ -407,8 +408,10 @@ control plane → minimal sim + `Flow_gt` → Rerun-based viewer → embedding-c
 VLA (the S2/EC1 adapter, `experiments/safe_adapter`) → optional live transport + robot sim →
 optional predictor-driven `Flow_pred` → optional Tauri+SparkJS UI.
 
-GauSS‑MI uncertainty + view selection is an **optional, pre-implementation (E1) confound-control
-add-on** (`GAUSS_MI_INTEGRATION.md`; `grandplan.md` §8.9), **not** a milestone.
+The GauSS‑MI document now separates an **optional, pre-implementation E1 reconstruction-quality
+covariate/active-view study** from an **E0 quarantined weighted-KSG/PID sketch** that has no derived
+estimand and must not be implemented as written (`GAUSS_MI_INTEGRATION.md`; `grandplan.md` §8.9).
+Neither is a milestone.
 
 If you use an external simulator backend (Isaac/MuJoCo/etc.), treat it as an adapter that still emits the canonical run log, logs backend/solver config via `config_logged`, and is controlled via the Agent Bridge surface.
 

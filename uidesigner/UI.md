@@ -29,7 +29,8 @@ Left navigation (minimal set; everything else is contextual):
 - **Runs** (M1): browse/import/export run logs; view metadata; open viewer.
 - **Viewer** (M4): playback + overlays + event inspection.
 - **Compare** (optional): run‑vs‑run diff (cross‑backend replay is a core use case; `DIAGRAMS.md` §11).
-- **Capture** (optional): 3DGS capture utilities; GauSS‑MI uncertainty + view selection (`GAUSS_MI_INTEGRATION.md`).
+- **Capture** (optional): prospective 3DGS reconstruction-quality diagnostics and unscored view
+  proposals (`GAUSS_MI_INTEGRATION.md`); no weighted PID or estimated information gain exists.
 - **Settings**: local paths, renderer backend, Agent Bridge status, (optional) Zenoh.
 
 ## 2) Core UI Objects (What the UI “talks about”)
@@ -310,40 +311,47 @@ Purpose: compare two runs (often Rapier vs MuJoCo replay) and quantify divergenc
 
 ---
 
-### 3.5 GauSS‑MI Capture & Uncertainty Screen (Optional add-on — not a numbered milestone; grandplan §8.9, E1 candidate)
+### 3.5 Reconstruction-Quality Study Screen (Optional add-on — not a numbered milestone; grandplan §8.9, E1 candidate)
 
-Purpose: treat 3DGS reconstruction quality as a confound control (`grandplan.md` §8.9 ecosystem, E1 optional pre-implementation spec; `GAUSS_MI_INTEGRATION.md`).
+Purpose: prospectively study 3DGS reconstruction quality as a nuisance covariate, stratum, or
+exclusion sensitivity (`grandplan.md` §8.9 ecosystem, E1 optional pre-implementation spec;
+`GAUSS_MI_INTEGRATION.md`). This is a UI blueprint, not a computable uncertainty, active-view, or
+information-estimator contract.
 
 **Must-have UI elements**
-- Uncertainty overlay toggle + legend.
-- “Suggested next viewpoints” around the scene (active view selection).
-- Export uncertainty artifacts (`SceneUncertaintyMap`) and view plan as run‑log interventions.
+- Quality-overlay toggle + legend, with provenance and validation status visible.
+- Manually configured candidate viewpoints labeled **unscored**. Estimated information gain stays
+  unavailable until a posterior/predictive observation law and estimator pass separate validation.
+- Export quality artifacts (`SceneUncertaintyMap`) and, only through the Agent Bridge, record an
+  accepted capture proposal as a canonical command/action event.
+- Coverage, held-out residual, and fraction-unreliable diagnostics. `N_eff` and weighted PID are
+  prohibited because they belong to the quarantined heuristic, not the admissible E1 study.
 
 **ASCII sketch (attempt A)**
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Capture / Uncertainty (GauSS‑MI)   Scene: table_v1   [Recompute] [Export]     │
+│ Reconstruction Quality (E1 design) Scene: table_v1   [Recompute] [Export]    │
 ├───────────────────────────────┬───────────────────────────────┬──────────────┤
-│ 3D View + uncertainty overlay │ Suggested viewpoints           │ Stats        │
-│ ┌───────────────────────────┐ │ - cam_01: +15° orbit (IG +0.8) │ mean σ: …    │
-│ │ (splats colored by σ)     │ │ - cam_02: top-down (IG +0.6)   │ N_eff: …     │
-│ │ legend: low→high          │ │ - cam_03: side (IG +0.4)       │ unreliable:… │
-│ └───────────────────────────┘ │ [Send to Agent Bridge]         │              │
+│ 3D View + quality overlay     │ Candidate views (unscored)    │ Diagnostics  │
+│ ┌───────────────────────────┐ │ - cam_01: +15° orbit         │ coverage: …  │
+│ │ held-out residual strata  │ │ - cam_02: top-down          │ residual: …  │
+│ │ legend + validation state │ │ - cam_03: side              │ unreliable:… │
+│ └───────────────────────────┘ │ [Record via Agent Bridge]    │ no PID/IG    │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **ASCII sketch (attempt B)**
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Capture (Optional)  Scene: table_v1   Overlay: Uncertainty ▣  Views: 12       │
+│ Quality Study (Optional E1) Scene: table_v1   Overlay: Quality ▣  Views: 12  │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ 3D View (splats colored by σ)                 │ Next views (plan as events)   │
-│ ┌──────────────────────────────────────────┐  │ 1) orbit +15°  IG +0.8       │
-│ │ legend: low σ → high σ                   │  │ 2) top-down    IG +0.6       │
-│ │ toggle: show unreliable gaussians only   │  │ 3) side        IG +0.4       │
-│ └──────────────────────────────────────────┘  │ [Send plan] [Export plan]    │
+│ 3D View (held-out residual/coverage strata)   │ Candidate views (unscored)   │
+│ ┌──────────────────────────────────────────┐  │ 1) orbit +15°  unscored     │
+│ │ legend + artifact provenance            │  │ 2) top-down    unscored     │
+│ │ toggle: show unreliable gaussians only  │  │ 3) side        unscored     │
+│ └──────────────────────────────────────────┘  │ [Record proposal] [Export]  │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ Stats: N_eff …  unreliable frac …  residual@heldout …  [Re-run gate]          │
+│ Diagnostics: coverage … unreliable frac … residual@heldout … [Re-run gate]  │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -351,16 +359,16 @@ Purpose: treat 3DGS reconstruction quality as a confound control (`grandplan.md`
 {
   "type": "ui_part",
   "id": "gauss_mi_uncertainty",
-  "title": "Capture/Uncertainty Screen (GauSS‑MI, Optional)",
+  "title": "Reconstruction-Quality Study Screen (Optional E1 Design)",
   "milestone": "optional (grandplan §8.9, E1 candidate)",
   "requirements": [
-    "Desktop screen titled Capture/Uncertainty (GauSS-MI).",
-    "Central viewport shows a 3DGS scene with an uncertainty overlay and a clear legend.",
-    "A panel lists suggested next viewpoints with estimated information gain values.",
-    "A stats panel shows N_eff and fraction unreliable; export actions are present.",
-    "Design communicates this is optional and diagnostic (not a required runtime dependency)."
+    "Desktop screen titled Reconstruction Quality (Optional E1 Design).",
+    "Central viewport shows a 3DGS scene with a held-out residual or coverage overlay, provenance, validation state, and a clear legend.",
+    "A panel lists manually configured candidate viewpoints explicitly labeled unscored; no information-gain values are shown.",
+    "A diagnostics panel shows coverage, held-out residual, and fraction unreliable; N_eff and weighted PID are absent.",
+    "Any accepted capture proposal is recorded through the Agent Bridge; the design does not imply a working active-view estimator."
   ],
-  "prompt_seed": "High-fidelity product UI mockup of prisoma in a Capture/Uncertainty mode labeled 'GauSS-MI (Optional)'. Dark theme. Left/center large 3D viewport showing a gaussian-splat scene with an uncertainty heat overlay and a clear legend (low to high uncertainty). Right panel lists 'Suggested next viewpoints' with 3-5 camera candidates and an estimated information gain score for each, with a button 'Send plan to Agent Bridge'. Another panel shows uncertainty stats including N_eff and fraction unreliable, plus Export buttons for SceneUncertaintyMap. Clean, scientific tool aesthetic, readable text.",
+  "prompt_seed": "High-fidelity product UI mockup of prisoma in a mode labeled 'Reconstruction Quality — Optional E1 Design'. Dark theme. Left/center large 3D viewport shows a gaussian-splat scene with a held-out residual or coverage overlay, provenance, validation state, and a clear legend. Right panel lists 3-5 manually configured candidate viewpoints, each visibly labeled 'unscored', with a button 'Record proposal via Agent Bridge'. Another panel shows coverage, held-out residual, and fraction unreliable, plus export controls for SceneUncertaintyMap. Show no information-gain score, N_eff, weighted MI, or weighted PID. Clean, scientific tool aesthetic, readable text.",
   "negative_prompt": "medical UI, finance dashboard, illegible labels, noisy gradients",
   "image": {"width": 1800, "height": 1100},
   "score_threshold": 9.0,

@@ -4,10 +4,20 @@ This directory preserves, for provenance, the independent second-round adversari
 that produced **docset v12.5** — the version now adopted as the canonical `grandplan.md`.
 
 - **Reviewed source commit:** `sepahead/prisoma@64bd881248463e7142d022bb95a5850bcf8fced2`
-- **Canonical result:** `grandplan.md` (docset v12.5), SHA-256 `7906c6814d26824d802e93aed17e9da79d74a7a898c00232ff78140d25ce5356`
+- **Review package's canonical proposal (not vendored):** `grandplan_v12_5.md`, historical SHA-256
+  `7906c6814d26824d802e93aed17e9da79d74a7a898c00232ff78140d25ce5356`
 - **Outgoing plan archived at:** `../../archive/grandplan-v10.7.md` (SHA-256 `1a768ef2cd6bbf512b369bf8f0b70865093e31de49a26be06428b336822bf500`)
 
-## Contents
+## Preserved provenance subset
+
+The supplied Downloads directory contained ten of the manifest's 32 hashed payloads; all ten match
+their declared sizes and SHA-256 hashes, while 22 were absent. This repository preserves eight of
+those ten payloads, the manifest itself (which is intentionally excluded from its own hash list),
+and this local adoption note. It deliberately does not vendor `grandplan_v12_5.md` or the reversible
+replacement patch. Consequently the repository is missing 24 of the 32 manifest-listed payloads and
+does **not** claim to contain the deterministic ZIP or outer `.sha256`. Complete archive-level
+verification is unavailable; the adopted-plan evolution is recoverable from Git history and the
+archived outgoing plan.
 
 | File | Role |
 |---|---|
@@ -20,13 +30,18 @@ that produced **docset v12.5** — the version now adopted as the canonical `gra
 | `grandplan_v12_5_reference_audit.csv` | All 112 v12.5 references (R1–R112), URLs, citation counts |
 | `prisoma_ecosystem_evidence_2026-07-12.csv` | Structured evidence table for the ecosystem edges |
 
-The full 914 KB reversible replacement patch (`grandplan_v12_5_replacement.patch`, SHA-256
-`cbfaa2a3eb444ac903f63add5a27eb63dddc32ec13d4cfde97a8959de19bf337`) is not vendored — the
-transformation is fully captured by git history plus the archived v10.7 and the current
-`grandplan.md`.
+The supplied full 914,942-byte reversible replacement patch (`grandplan_v12_5_replacement.patch`, SHA-256
+`cbfaa2a3eb444ac903f63add5a27eb63dddc32ec13d4cfde97a8959de19bf337`) is not vendored. Repository
+history preserves the adopted and subsequently reconciled plan evolution, not the exact omitted
+proposal bytes or their byte-for-byte replacement transformation.
 
 ## Reconciliation applied on adoption
 
 The reviewed snapshot pinned NCP `v0.7.1`/wire 0.7. The repository has since migrated to
 NCP **`v0.8.0`/wire 0.8**; active NCP-pin references in `grandplan.md` and the companion docs
-were reconciled to the current pin on adoption. Everything else in v12.5 was adopted verbatim.
+were reconciled during adoption. The reviewed scientific redesign was carried forward, but even
+the adoption commit's bytes differed from the package proposal because of adoption metadata and
+that NCP reconciliation.
+
+The current plan contains further changes recorded in Git history and `CHANGELOG.md`; it therefore
+does not equal the historical reviewed-payload hash above.

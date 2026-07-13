@@ -12,46 +12,55 @@
     "network_refresh": "manually verify advertised refs and repository contents, then update this dated overlay and dependent prose",
     "expiry": "re-review an edge when its producer revision, consumer revision, schema, wire, model, or adapter revision changes"
   },
+  "last_network_refresh": {
+    "date": "2026-07-13",
+    "method": "official GitHub refs plus exact-revision repository surfaces; archived baseline left immutable",
+    "conclusion": "only pid-rs and NCP remain direct Prisoma edges; no reviewed sibling reached E2 with Prisoma or E4 scientific conformance"
+  },
   "overrides": [
     {
       "project": "pid-rs",
       "observed_revision": "ac4a7803c5a77408f5e9176c60cda71c65c38260",
+      "upstream_head_observed": "7cc59022d01ca136b17c915da623fc3a33696f25",
       "evidence_level": "E2_dependency_E3_tested_local_paths",
       "relationship": "direct pinned submodule and local path dependency",
-      "current_boundary": "version 1.0 is adopted, but its fixtures do not establish high-dimensional VLA application validity or independent corroboration",
+      "current_boundary": "version 1.0 remains deliberately pinned despite a newer upstream HEAD; its fixtures do not establish high-dimensional VLA application validity or independent corroboration",
       "source": "https://github.com/sepahead/pid-rs/tree/ac4a7803c5a77408f5e9176c60cda71c65c38260"
     },
     {
       "project": "NCP",
       "observed_revision": "v0.8.0",
-      "evidence_level": "E2_dependency_E3_local_observer_fixtures",
+      "resolved_revision": "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e",
+      "upstream_head_observed": "db3fddc170b5235098f540134340ffaa8d9c2d2c",
+      "evidence_level": "E2_dependency_with_tested_local_observer_fixtures",
       "relationship": "optional immutable dependency of the workspace-excluded read-only observer",
       "current_boundary": "no conforming public live producer, secure deployment receipt, or E4 scientific conformance report",
       "source": "https://github.com/sepahead/NCP/tree/v0.8.0"
     },
     {
       "project": "galadriel",
-      "observed_revision": "86577db18b4247662c2a87882a310efaaa5322ca",
+      "observed_revision": "ff272dc814080c6766a53c872ca4d0e24bcd5132",
       "evidence_level": "E0_between_projects",
-      "relationship": "candidate comparator sharing pid-rs and NCP, with no direct Prisoma adapter",
-      "current_boundary": "shared PID code is one correlated implementation family; no live producer-to-consumer or end-to-end mTLS evidence",
-      "source": "https://github.com/sepahead/galadriel/tree/86577db18b4247662c2a87882a310efaaa5322ca"
+      "relationship": "candidate comparator sharing pid-rs and NCP; observation and producer-lifecycle sidecar contracts exist upstream, but no direct Prisoma adapter",
+      "current_boundary": "Crebain now has an optional evidence-sender component, but there is still no direct Prisoma adapter, deployed receiver-verified Crebain-to-Galadriel path, live monitor publisher/cross-route assembler, or receiver-verified end-to-end mTLS deployment; shared PID code remains one correlated implementation family",
+      "source": "https://github.com/sepahead/galadriel/tree/ff272dc814080c6766a53c872ca4d0e24bcd5132"
     },
     {
       "project": "crebain",
-      "observed_revision": "038721e051594b64b1988f2575309718da0181ac",
+      "observed_revision": "09dd5ec1556bd56e6934e1ef019f95de84cf9b4f",
+      "prior_frame_capability_revision": "49d7b3614f24d21a40fe2af6dbeac082338ae9d7",
       "evidence_level": "E0_between_projects",
-      "relationship": "candidate producer whose NCP surfaces remain dormant and off by default",
-      "current_boundary": "no direct Prisoma adapter or always-on Crebain-to-Engram loop",
-      "source": "https://github.com/sepahead/crebain/tree/038721e051594b64b1988f2575309718da0181ac"
+      "relationship": "candidate producer with an off-by-default, two-gate native Galadriel evidence sender plus inactive plant-contract library surfaces and a profile-neutral frame-convention corpus",
+      "current_boundary": "the sender requires both the off-by-default ncp build feature and an exact runtime opt-in, while the standard release omits ncp and no release candidate or exact-head release evidence is sealed; a local put is not receiver receipt, decoding, correlation, or deployed TLS/ACL evidence, the frame corpus is not called by admission and carries no frame-instance or origin/datum/body-point proof, NCP action/control commands remain unregistered, and no direct Prisoma adapter, managed product route, or live Crebain-to-Engram loop exists",
+      "source": "https://github.com/sepahead/crebain/tree/09dd5ec1556bd56e6934e1ef019f95de84cf9b4f"
     },
     {
       "project": "manwe",
-      "observed_revision": "aaa1e6b90860af953d190ff213d42e3cc63ced63",
+      "observed_revision": "0f6505bb5dadf5d70359b5ea6d545216342bd30a",
       "evidence_level": "E0_E1",
       "relationship": "candidate difficult external adapter and transport test",
       "current_boundary": "the producer explicitly has no drop-in Prisoma adapter and documents schema, tensor, clock, frame, and statistical gaps",
-      "source": "https://github.com/sepahead/manwe/tree/aaa1e6b90860af953d190ff213d42e3cc63ced63"
+      "source": "https://github.com/sepahead/manwe/tree/0f6505bb5dadf5d70359b5ea6d545216342bd30a"
     },
     {
       "project": "engram",
@@ -63,12 +72,28 @@
     },
     {
       "project": "haldir",
-      "observed_revision": "ea7048d8b06c2bacb7fd9942ac597f79bea9a0ac",
-      "reviewed_capability_revision": "2a55f3dc8f78fa3b5c8d11dd02a2de5f4ef8d721",
+      "observed_revision": "fbf5a5308da1c6a82eebe1afb56635bf0d6fd798",
+      "baseline_reviewed_capability_revision": "2a55f3dc8f78fa3b5c8d11dd02a2de5f4ef8d721",
       "evidence_level": "E0_between_projects",
       "relationship": "candidate security and authority comparator with no direct Prisoma edge",
-      "current_boundary": "the reviewed revision has internal P0 and modeled-adapter evidence, but no consumer-owned live route, immutable release, or E4 report",
-      "source": "https://github.com/sepahead/haldir/tree/2a55f3dc8f78fa3b5c8d11dd02a2de5f4ef8d721"
+      "current_boundary": "upstream now has substantial internal P0/durability work, an opt-in exact NCP adapter, a narrow receiver-observed synthetic mTLS/ACL campaign, an off-by-default exact-route strict-publisher binding with a broader Called-lifecycle fault matrix, and fail-closed validation of a caller-declared live startup profile, but the declaration is cooperative, process-local, bypassable through lower-level construction, and not durably bound; positive composition and result/fault evidence use test-only seams and no live Zenoh session executes the concrete method; there is no runnable service, credential-custody proof, Crebain application, immutable release, E4 report, or direct Prisoma route, and any use must remain offline/advisory unless the Agent Bridge-only control-plane decision is revised",
+      "source": "https://github.com/sepahead/haldir/tree/fbf5a5308da1c6a82eebe1afb56635bf0d6fd798"
+    },
+    {
+      "project": "cortexel",
+      "observed_revision": "16f2da71a5beb863235a90e552e6772639638be3",
+      "evidence_level": "E0_between_projects",
+      "relationship": "candidate read-only visualization consumer with no direct Prisoma edge",
+      "current_boundary": "upstream has a strict versioned VizSpec, generated manifest, provenance/resource gates, and checked render paths, but remains pre-1.0, lacks headless export, and does not supersede Prisoma's Rerun-first decision or establish a Prisoma contract",
+      "source": "https://github.com/sepahead/cortexel/tree/16f2da71a5beb863235a90e552e6772639638be3"
+    },
+    {
+      "project": "melkor",
+      "observed_revision": "21c8fb53f58e19a78d92a4b01ce479374a7b8633",
+      "evidence_level": "E0_between_projects",
+      "relationship": "candidate optional reconstruction and scene-variation producer with no direct Prisoma edge",
+      "current_boundary": "upstream has a source release candidate, versioned inspection contract, reviewed reconstruction bridges, and render tests, but no calibrated reconstruction-to-diagnostic uncertainty claim, Prisoma adapter, or E4 report; optional tool/model licenses vary",
+      "source": "https://github.com/sepahead/melkor/tree/21c8fb53f58e19a78d92a4b01ce479374a7b8633"
     }
   ]
 }

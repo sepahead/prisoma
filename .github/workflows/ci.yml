@@ -469,6 +469,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Generated capability matrix is current
+        run: python scripts/generate_capability_matrix.py --check
       - name: Audit grandplan titles
         run: python scripts/audit_grandplan.py --check-italic-titles
       - name: Audit grandplan claims

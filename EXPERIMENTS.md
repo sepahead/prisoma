@@ -308,10 +308,17 @@ ns-export gaussian-splat \
 ```
 
 **Optional 3DGS quality diagnostic (GauSS‑MI; proposed):**
-- Treat reconstruction quality as a confound: if large scene regions have high residual error / low view coverage, PID features can shift for purely perceptual reasons.
-- Compute a per‑Gaussian uncertainty map from held‑out view residuals and record scene‑level stats (mean/median uncertainty, fraction unreliable, `N_eff`) as artifacts.
-- Optionally use uncertainty‑guided **view selection** to decide which additional camera viewpoints to capture next (log the decision as an intervention via the Agent Bridge).
-- Specification lives in `GAUSS_MI_INTEGRATION.md`; treat as optional until implemented and validated.
+- Treat reconstruction quality as a measurement-quality nuisance: if large scene regions have high
+  residual error or low view coverage, PID features can shift for perceptual rather than policy
+  reasons. Do not call it a causal confounder without a prespecified causal graph supporting that role.
+- Prospectively validate a per‑Gaussian quality/uncertainty map from held‑out view residuals and
+  record scene-level stats (mean/median quality, coverage, fraction unreliable) as artifacts.
+- Analyze the measurement only as a nuisance covariate, stratum, or exclusion sensitivity unless a
+  different estimand is derived. Reconstruction uncertainty is not PID-estimator uncertainty.
+- Optionally study uncertainty-guided **view selection** after defining a posterior/predictive
+  observation law; route and log every accepted capture decision through the Agent Bridge.
+- The weighted-KSG/PID expression retained in `GAUSS_MI_INTEGRATION.md` is quarantined E0 and must
+  not be implemented as written; the covariate/view study remains optional E1 work.
 
 **Physics Proxy (Rapier3D):**
 ```rust

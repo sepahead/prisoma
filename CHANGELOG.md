@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+### Generated capability inventory and review-currentness reconciliation (2026-07-13)
+
+- Added a strict reviewed capability catalog plus deterministic JSON/Markdown views with the exact
+  §8.10 columns. Every local row and evidence artifact is bound to domain-separated content
+  SHA-256; duplicate keys, schema/status/evidence-basis/path drift, generated-output self-reference
+  through direct or ancestor paths, missing canonical rows, and output drift fail closed. Advertised
+  `just` recipes bind the `justfile`, registry pins must match an exact Cargo.lock checksum, Git pins
+  must match a canonical repository URL plus a clean checked-out gitlink or bound lock source, and
+  clean-checkout proof recipes create their own inputs. The generator does not pretend to infer
+  command semantics: reviewed proof closure and CI execution remain required. The
+  26-row matrix has 16 `tested`, eight `specified`, and two E0 unavailable/deferred status rows;
+  its independent §8.9 relationship grades are 12 E0, seven E1, five E2, and two E3. It deliberately
+  contains no E4/E5 `validated` row and cannot turn passing software tests into EC1/H1–H4 evidence.
+- Re-audited the supplied review directory. Ten of 32 manifest-listed payloads are present and
+  byte-valid there; 22 plus the deterministic archive/outer hash are absent. The repository itself
+  preserves eight of those payloads plus the self-excluded manifest and a local adoption note, so it
+  now labels that copy a provenance subset rather than implying complete archive-level
+  verification. The old replacement patch remains historical and must not be applied over
+  post-review work.
+- Refreshed only the living ecosystem overlay and active §8.9 prose against exact public heads for
+  Galadriel, Crebain, Manwe, Haldir, Cortexel, and Melkor while preserving the dated review CSV/MD.
+  Upstream internal maturity changed, but none acquired a direct Prisoma edge or E4 evidence;
+  `pid-rs@ac4a780` and NCP `v0.8.0` remain deliberate immutable consumer pins. Crebain `09dd5ec`
+  adds an off-by-default, two-gate native Galadriel evidence sender, but the standard release omits
+  that feature, no producer-integrated candidate/evidence is sealed, and receiver/TLS/ACL/correlation
+  evidence remains absent. Haldir `fbf5a53` expands its Called-lifecycle fault matrix and validates a
+  caller-declared live startup profile, but that declaration is cooperative, process-local,
+  bypassable, and not durably bound. It remains an offline authority/receipt comparator:
+  positive/result/fault composition uses test-only seams, no runnable service or live-session
+  invocation exists, and a direct command route would conflict with the Agent Bridge-only
+  control-plane invariant.
+- Split the optional GauSS-MI document into an E1 reconstruction-quality covariate/active-view
+  study and an E0 quarantined weighted-KSG/PID non-implementation record. The weighted expression
+  has no named population functional, derivation, support conditions, consistency result, or
+  calibrated interval and must not be implemented as written. Removed estimated information gain,
+  `N_eff`, and weighted-PID controls from the UI contract; candidate views remain explicitly
+  unscored. Added the canonical WorldWarp E1 specification to the completeness-checked inventory.
+
 ### NCP observer visible-receipt integrity prerequisites (2026-07-13)
 
 - Reworked the optional NCP tap around full driving-sensor `{epoch, seq}` keys. Pre-active and

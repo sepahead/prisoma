@@ -43,7 +43,8 @@ being true as the code moves).
 3. **Honesty over roadmap.** No hard-coded performance, cost, or roadmap claims unless backed
    by a committed source or a clearly labeled in-repo measurement. Do not claim non-existent
    crates/scripts/assets are runnable unless they are added in the same change. The doc-audit
-   scripts (`scripts/audit_*.py`) enforce this — run them before every PR.
+   scripts (`scripts/audit_*.py`) and generated capability-matrix check enforce this — run them
+   before every PR.
 4. **Source verification offline-first.** Network access may be restricted; prefer
    `outputs/arxiv_ref_cache.json` for citation verification when possible
    (`scripts/update_arxiv_ref_cache.py` refreshes it).
@@ -137,6 +138,21 @@ being true as the code moves).
 - **`pid-rerun`** — run-log→Rerun conversion and a validated replay adapter with
   summary/provenance/validation diagnostics; replay summaries distinguish unique metric
   names from total metric-event counts; surfaces `attribution_logged` events (see below).
+
+### Machine-readable truth ledgers (`protocols/`)
+
+- `research_claim_registry_v1.json` records current EC1/H1–H4 software artifacts, proof commands,
+  blockers, and permitted/prohibited language; it is not a preregistration or result.
+- `ecosystem_evidence_current_v1.json` is the dated, manually network-refreshed overlay on the
+  immutable review CSV. CI is offline and checks exact reviewed revisions/boundaries; it does not
+  silently poll or promote upstream HEADs.
+- `capability_catalog_v1.json` generates `capability_matrix_current_v1.json` and
+  `docs/CAPABILITY_MATRIX.md`. Rows bind local inputs/evidence to exact content SHA-256 and enforce
+  the schema for reviewed, orthogonal software-status and §8.9 evidence-basis labels. `tested` means
+  a named local proof path; E3 is reserved for pinned producer/consumer golden-fixture adapters.
+  Static generation verifies paths, hashes, and canonical pins but cannot infer that command text
+  exercises every declared input; review plus CI execution supplies that check. The current matrix
+  has no E4/E5 `validated` row.
 
 ### Python experiments (`experiments/`, tracked packages)
 
@@ -268,6 +284,7 @@ cargo clippy --workspace -- -D warnings
 cargo test --workspace
 python scripts/audit_docset_claims.py
 python scripts/audit_grandplan.py   # validates the R1-R112 reference ledger
+python scripts/generate_capability_matrix.py --check
 ```
 
 Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is

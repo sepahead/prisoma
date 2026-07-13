@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Fail closed on repository-truth drift missed by prose heuristics.
 
-This audit binds active commands and claims to the checked-out pid-rs gitlink/package rather than
-to a remembered version string. It intentionally checks the exact regressions that accompanied the
-1.0 migration: stale pins, omitted required features, an excluded consumer lock, false PID-off
-firebreak wording, and generated notices that name the wrong local package version.
+This audit binds active commands and claims to checked-out dependencies and living protocol
+ledgers rather than remembered version strings. It covers the pid-rs 1.0 migration, excluded NCP
+consumer lock, firebreak wording, generated notices, current claim boundaries, and the dated
+ecosystem-overlay reconciliation. Network refresh remains deliberate and manual; normal CI proves
+that the reviewed offline state and active prose agree.
 """
 
 from __future__ import annotations
@@ -290,6 +291,19 @@ def main() -> int:
             )
     if "current public main `2a55f3d" in grandplan:
         problems.append("grandplan.md mislabels a reviewed Haldir revision as current main")
+    for project, dated_revision in {
+        "galadriel": "ff272dc814080c6766a53c872ca4d0e24bcd5132",
+        "crebain": "09dd5ec1556bd56e6934e1ef019f95de84cf9b4f",
+        "manwe": "0f6505bb5dadf5d70359b5ea6d545216342bd30a",
+        "haldir": "fbf5a5308da1c6a82eebe1afb56635bf0d6fd798",
+        "cortexel": "16f2da71a5beb863235a90e552e6772639638be3",
+        "melkor": "21c8fb53f58e19a78d92a4b01ce479374a7b8633",
+    }.items():
+        if dated_revision not in grandplan:
+            problems.append(
+                "grandplan.md omits the dated currentness revision for "
+                f"{project}: {dated_revision}"
+            )
 
     ecosystem_ledger_path = ROOT / "protocols/ecosystem_evidence_current_v1.json"
     if not ecosystem_ledger_path.is_file():
@@ -323,12 +337,75 @@ def main() -> int:
             "manwe",
             "engram",
             "haldir",
+            "cortexel",
+            "melkor",
         }
         missing_overrides = sorted(required_overrides - overrides.keys())
         if missing_overrides:
             problems.append(
                 f"ecosystem evidence overlay omits current edges: {missing_overrides}"
             )
+        expected_revisions = {
+            "pid-rs": "ac4a7803c5a77408f5e9176c60cda71c65c38260",
+            "NCP": "v0.8.0",
+            "galadriel": "ff272dc814080c6766a53c872ca4d0e24bcd5132",
+            "crebain": "09dd5ec1556bd56e6934e1ef019f95de84cf9b4f",
+            "manwe": "0f6505bb5dadf5d70359b5ea6d545216342bd30a",
+            "engram": "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd",
+            "haldir": "fbf5a5308da1c6a82eebe1afb56635bf0d6fd798",
+            "cortexel": "16f2da71a5beb863235a90e552e6772639638be3",
+            "melkor": "21c8fb53f58e19a78d92a4b01ce479374a7b8633",
+        }
+        for project, expected_revision in expected_revisions.items():
+            if overrides.get(project, {}).get("observed_revision") != expected_revision:
+                problems.append(
+                    "ecosystem evidence overlay has an unreconciled reviewed revision for "
+                    f"{project}"
+                )
+        if overrides.get("NCP", {}).get("resolved_revision") != (
+            "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
+        ):
+            problems.append("ecosystem evidence overlay omits the peeled NCP v0.8.0 commit")
+        if overrides.get("crebain", {}).get("prior_frame_capability_revision") != (
+            "49d7b3614f24d21a40fe2af6dbeac082338ae9d7"
+        ):
+            problems.append(
+                "ecosystem evidence overlay omits Crebain's prior frame-capability revision"
+            )
+        boundary_requirements = {
+            "galadriel": (
+                "optional evidence-sender component",
+                "deployed receiver-verified Crebain-to-Galadriel path",
+                "no direct Prisoma adapter",
+            ),
+            "crebain": (
+                "standard release omits ncp",
+                "no release candidate or exact-head release evidence is sealed",
+                "local put is not receiver receipt",
+                "not called by admission",
+                "action/control commands remain unregistered",
+                "no direct Prisoma adapter",
+            ),
+            "manwe": ("no drop-in Prisoma adapter",),
+            "haldir": (
+                "declaration is cooperative, process-local",
+                "not durably bound",
+                "test-only seams",
+                "no live Zenoh session",
+                "no runnable service",
+                "direct Prisoma route",
+            ),
+            "cortexel": ("lacks headless export", "does not supersede"),
+            "melkor": ("no calibrated", "Prisoma adapter"),
+        }
+        for project, required_phrases in boundary_requirements.items():
+            boundary = str(overrides.get(project, {}).get("current_boundary", ""))
+            for required_phrase in required_phrases:
+                if required_phrase not in boundary:
+                    problems.append(
+                        f"ecosystem evidence overlay overstates {project}; "
+                        f"missing boundary {required_phrase!r}"
+                    )
         engram_override = overrides.get("engram", {})
         if engram_override.get("observed_revision") != (
             "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"

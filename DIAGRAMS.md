@@ -622,9 +622,12 @@ graph LR
 
 ---
 
-## 12. GauSS‑MI Uncertainty + Active View Selection (Optional)
+## 12. Reconstruction Quality + Active View Study (Optional)
 
-This diagram summarizes the proposed GauSS‑MI integration (`GAUSS_MI_INTEGRATION.md`): treat 3DGS reconstruction uncertainty as a confound/diagnostic signal, optionally down‑weight unreliable visual features, and (if you are still capturing scenes) use uncertainty‑guided view selection to reduce uncertainty.
+This diagram summarizes the admissible E1 part of `GAUSS_MI_INTEGRATION.md`: treat measured 3DGS
+reconstruction quality as a nuisance covariate/stratifier or exclusion sensitivity and, only after
+defining a predictive observation law, study uncertainty-guided view selection. The old weighted-
+KSG/PID expression is a quarantined E0 heuristic and is intentionally absent from the flow.
 
 ```mermaid
 graph TB
@@ -636,16 +639,15 @@ graph TB
     Resid --> UMap["SceneUncertaintyMap<br/>(per-Gaussian uncertainty)"]
 
     UMap --> UI["UI overlay<br/>(color by uncertainty)"]
-    UMap --> Gate["Quality gate<br/>(N_eff, fraction unreliable)"]
-    UMap --> Wt["Optional weighting<br/>(weighted MI/PID)"]
+    UMap --> Gate["Quality gate<br/>(coverage, fraction unreliable)"]
+    UMap --> Nuisance["Nuisance analysis<br/>(covariate / strata / exclusion sensitivity)"]
 
-    Gate -->|Needs more coverage| Suggest[Suggest next viewpoints]
+    Gate -->|Needs more coverage| Suggest["Candidate viewpoints<br/>(unscored; no IG estimator)"]
     Suggest --> Accept[Human/script accepts proposal]
     Accept --> Bridge[Agent Bridge records capture decision]
     Bridge --> Capture
 
-    Wt --> PID["pid-core<br/>(MI/CI/PID)"]
-    PID --> Log["Run log artifacts<br/>(metric events + provenance)"]
+    Nuisance --> Log["Run log artifacts<br/>(quality diagnostics + provenance)"]
 ```
 
 ---

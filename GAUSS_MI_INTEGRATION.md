@@ -1,4 +1,4 @@
-# GauSS-MI Uncertainty Integration Specification
+# Reconstruction-Quality Study and Rejected GauSS-MI Weighting Record
 
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan
@@ -7,36 +7,48 @@
 > - `EXPERIMENTS.md` — Capture protocols + quality gates
 > - `pid-rs/crates/pid-core` (submodule) — Rust implementation context (estimator changes land upstream in pid-rs, then the submodule is bumped; estimator code is never added to this repo directly)
 
-**Docset alignment:** docset v12.5 (optional module spec — evidence-ladder **E1** interface spec per grandplan §8.9; pre-implementation, not built in this repo today, not a direct ecosystem edge)
-**Spec version:** 1.0
-**Date:** 2026-01-03
+**Docset alignment:** docset v12.5 (optional E1 covariate/view-study design; the weighted-PID sketch is quarantined E0, not an estimator interface or direct ecosystem edge)
+**Spec version:** 1.1
+**Originally proposed:** 2026-01-03
+**Last reconciled:** 2026-07-13
 **Status:** Specification (Pre-Implementation)
 
-**Docset-wide final solution:** `grandplan.md` §16 is the decision log. GauSS-MI is an optional confound-control module (evidence-ladder E1, grandplan §8.9) after the canonical run-log/replay/Rerun path exists; view-selection decisions must be Agent Bridge events and must not bypass replay/provenance.
+**Docset-wide final solution:** `grandplan.md` §16 is the decision log. A reconstruction-quality
+covariate/view study is optional E1 work after the canonical run-log/replay/Rerun path exists; the
+weighted-PID sketch is E0 and off-path. View-selection decisions must be Agent Bridge events and
+must not bypass replay/provenance.
 
 ---
 
 ## 1. Executive Summary
 
-This specification details how to integrate **GauSS-MI (Gaussian Splatting Shannon Mutual Information)** uncertainty quantification with the `pid-core` library's PID estimators. The integration enables:
+This document is a **prospective research sketch**, not an available integration. It separates two
+ideas that earlier wording blurred:
 
-1. **Per-Gaussian uncertainty weighting** in PID computations
-2. **Uncertainty-aware MI estimation** that down-weights unreliable visual features
-3. **Active view selection** for improving PID estimate quality
-4. **Diagnostic metrics** for identifying when visual uncertainty corrupts PID analysis
-5. **Agent-native execution (planned):** expose view selection and uncertainty queries via the same Agent Bridge control plane as the GUI, so automated tools can request candidate viewpoints and the decisions are logged for replay
+1. **Admissible E1 study design:** measure reconstruction quality/uncertainty and use it as a
+   prespecified nuisance covariate, stratifier, exclusion sensitivity, or separately validated
+   active-view objective. Any view-selection action would pass through the Agent Bridge and run log.
+2. **Quarantined E0 estimator sketch:** uncertainty-weighted KSG/MI/PID. No population functional,
+   importance-sampling law, neighbor-mass estimator, bias/consistency result, calibrated interval,
+   or oracle evidence currently makes that sketch a scientific estimator. It must not be added to
+   `pid-rs` or used to interpret atoms as written below.
 
-### Key Innovation
-Standard PID estimators treat all samples equally. GauSS-MI integration allows uncertainty-weighted PID estimation where:
-- High-uncertainty Gaussians contribute less to information measures
-- Visual features from well-reconstructed regions dominate the analysis
-- PID estimates include confidence intervals based on reconstruction quality
+### Safe research question
+The safe near-term question is whether a measured reconstruction-quality variable explains or
+stratifies diagnostic performance without changing the information estimand. Down-weighting samples
+would instead change the sampling law and possibly the target functional; “more certain points count
+more” is intuition, not a derivation. Reconstruction uncertainty also cannot be substituted for
+estimator uncertainty or turned into a confidence interval.
 
-**Rigour note:** weighted kNN/KSG-style estimators and weighted PID atoms require a dedicated validation gate (analogous to the S1 estimator/measure-validation gate, grandplan §7). Treat all weighted-estimator outputs as *experimental* until they are validated on synthetic ground truth cases and stress-tested for bias/variance.
+**Fail-closed rule:** the weighted kNN/KSG and PID material in Sections 4–5 is retained only to make
+the rejected heuristic auditable. It is pseudocode, not an API or implementation plan. Promotion
+requires a named population functional, a derived estimator, support/positivity conditions, separate
+measure and estimator gates, analytic or independently computed oracles, coverage and false-
+eligibility tests, and a preregistered application regime under `grandplan.md` §7.
 
 ---
 
-## 2. Background: GauSS-MI Framework
+## 2. Prospective reconstruction-quality measurement sketch
 
 ### 2.1 Per-Gaussian Uncertainty Model
 This spec proposes assigning uncertainty to each 3D Gaussian in a scene reconstruction by analyzing residual image loss:
@@ -59,6 +71,10 @@ Where:
 - $Y_v$: observation from viewpoint $v$
 - $H(\cdot)$: Shannon entropy
 
+This identity is only a target definition. It does not provide a posterior over $\Theta$, a
+predictive observation law for $Y_v$, or a usable estimator; those must be specified and validated
+before an active-view policy exists.
+
 ### 2.3 Probabilistic Gaussian Representation
 Each Gaussian is modeled as:
 ```rust
@@ -75,7 +91,7 @@ G_i = {
 
 ---
 
-## 3. Integration Architecture
+## 3. Prospective study architecture
 
 ### 3.1 Module Structure
 ```text
@@ -87,21 +103,20 @@ pid-core/
 │   ├── pid2.rs                   # Existing 2-source PID
 │   ├── pid3.rs                   # Existing 3-source PID
 │   │
-│   ├── gauss_mi/                 # NEW: GauSS-MI integration (tree lives in the upstream
-│   │                             #   pid-rs repo, or a separate crates/pid-gauss-mi — grandplan §12)
+│   ├── gauss_mi/                 # HYPOTHETICAL ONLY; no such upstream module exists
 │   │   ├── mod.rs                # Module exports
 │   │   ├── uncertainty.rs        # Per-Gaussian uncertainty model
-│   │   ├── weighted_ksg.rs       # Uncertainty-weighted KSG
-│   │   ├── weighted_isx.rs       # Uncertainty-weighted ISX
-│   │   ├── view_selection.rs     # Active view selection for PID
+│   │   ├── weighted_ksg.rs       # QUARANTINED sketch; do not implement as written
+│   │   ├── weighted_isx.rs       # QUARANTINED sketch; estimand not defined
+│   │   ├── view_selection.rs     # Separately validated active-view study
 │   │   ├── diagnostics.rs        # Quality diagnostics
-│   │   └── integration.rs        # High-level API
+│   │   └── integration.rs        # Prospective orchestration sketch
 ```
 
 ### 3.2 Data Flow
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         GauSS-MI + PID Pipeline                             │
+│                Prospective reconstruction-quality study                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌──────────────┐     ┌──────────────────┐     ┌────────────────────┐      │
@@ -113,41 +128,40 @@ pid-core/
 │                                                          ▼                  │
 │  ┌──────────────┐     ┌──────────────────┐     ┌────────────────────┐      │
 │  │ Visual       │────►│ Feature          │────►│ Uncertainty-       │      │
-│  │ Observations │     │ Extraction       │     │ Weighted Features  │      │
-│  └──────────────┘     │ per Gaussian     │     │ V_weighted         │      │
+│  │ Observations │     │ Extraction       │     │ Quality covariate  │      │
+│  └──────────────┘     │ per Gaussian     │     │ quality_feature    │      │
 │                       └──────────────────┘     └─────────┬──────────┘      │
 │                                                          │                  │
 │                                                          ▼                  │
 │  ┌──────────────┐                              ┌────────────────────┐      │
-│  │ Other        │─────────────────────────────►│ Weighted PID       │      │
-│  │ Variables    │                              │ Estimator          │      │
+│  │ Other        │─────────────────────────────►│ Admissible output  │      │
+│  │ Variables    │                              │ quality metrics    │      │
 │  │ (L, D, A)    │                              │                    │      │
-│  └──────────────┘                              │ - Weighted KSG MI  │      │
-│                                                │ - Weighted ISX Red │      │
-│                                                │ - Confidence Ints  │      │
-│                                                └─────────┬──────────┘      │
-│                                                          │                  │
-│                                                          ▼                  │
-│                                                ┌────────────────────┐      │
-│                                                │ PID Results +      │      │
-│                                                │ Quality Metrics    │      │
-│                                                │                    │      │
-│                                                │ - Synergy ± CI     │      │
-│                                                │ - Redundancy ± CI  │      │
-│                                                │ - Unique ± CI      │      │
-│                                                │ - Effective N      │      │
+│  └──────────────┘                              │ - quality strata   │      │
+│                                                │ - covariate checks │      │
+│                                                │ - sensitivity only │      │
+│                                                │ - no PID CI claim  │      │
 │                                                └────────────────────┘      │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ ISOLATED REJECTED BRANCH — no input or output edge                  │  │
+│  │ GauSS-MI-weighted KSG/PID sketch: no derivation, estimand, or CI    │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+The admissible path uses reconstruction quality only as a covariate, stratum, or sensitivity
+diagnostic. The rejected weighting sketch is deliberately disconnected from that path.
+
 ---
 
-## 4. Core Data Structures
+## 4. Prospective pseudocode (not a shipped API)
 
 ### 4.1 Gaussian Uncertainty Representation
 ```rust
-/// Per-Gaussian uncertainty from GauSS-MI
+/// PROSPECTIVE PSEUDOCODE — not present in pid-rs or Prisoma.
+/// Per-Gaussian reconstruction-quality proposal.
 #[derive(Debug, Clone)]
 pub struct GaussianUncertainty {
     /// Index of the Gaussian in the scene
@@ -173,16 +187,10 @@ pub struct GaussianUncertainty {
 }
  
 impl GaussianUncertainty {
-    /// Compute weight for PID estimation (higher weight = more certain)
-    pub fn pid_weight(&self) -> f64 {
-        // Inverse of composite uncertainty, normalized
-        // w_i = 1 / (1 + composite_score); composite_score ∈ [0,1] ⇒ w_i ∈ [0.5, 1]
-        1.0 / (1.0 + self.composite_score)
-    }
-    
-    /// Check if Gaussian is reliable enough for PID
-    pub fn is_reliable(&self, threshold: f64) -> bool {
-        self.composite_score < threshold && self.observation_count >= 3
+    /// A prespecified reconstruction-quality sensitivity screen.
+    /// This does not define an information-estimator weight.
+    pub fn is_quality_eligible(&self, threshold: f64, minimum_observations: u32) -> bool {
+        self.composite_score < threshold && self.observation_count >= minimum_observations
     }
 }
 ```
@@ -225,9 +233,13 @@ pub struct SpatialUncertaintyGrid {
 }
 ```
 
-### 4.3 Weighted Sample Representation
+### 4.3 Rejected weighted-sample sketch
+
+The following types record what the earlier proposal assumed. They have no approved sampling-law
+semantics and must not be treated as a `pid-core` design.
+
 ```rust
-/// A sample with associated uncertainty weight for PID estimation
+/// REJECTED PSEUDOCODE — `weight` has no derived PID estimand.
 #[derive(Debug, Clone)]
 pub struct WeightedSample {
     /// Feature vector
@@ -243,7 +255,7 @@ pub struct WeightedSample {
     pub position: Option<[f64; 3]>,
 }
  
-/// Collection of weighted samples for PID estimation
+/// REJECTED PSEUDOCODE — effective N does not repair the missing estimand.
 #[derive(Debug, Clone)]
 pub struct WeightedSampleSet {
     pub samples: Vec<WeightedSample>,
@@ -257,13 +269,13 @@ pub struct WeightedSampleSet {
 
 ---
 
-## 5. Uncertainty-Weighted KSG Estimator
+## 5. Quarantined weighted-KSG sketch — do not implement as written
 
-### 5.1 Weighted KSG Algorithm
+### 5.1 Rejected heuristic ansatz
 The standard KSG estimator computes:
 $$ I(X;Y) = \psi(k) + \psi(N) - \langle \psi(n_x + 1) + \psi(n_y + 1) \rangle $$
 
-The weighted version modifies this to:
+The earlier draft proposed this expression:
 $$ I_w(X;Y) = \psi(k) + \psi(N_{eff}) - \frac{\langle w_i \cdot [\psi(n_x^w + 1) + \psi(n_y^w + 1)] \rangle}{\langle w_i \rangle} $$
 
 Where:
@@ -271,11 +283,15 @@ Where:
 - $n_x^w, n_y^w$ are weighted neighbor counts
 - $w_i$ are sample weights from GauSS-MI uncertainty
 
-**Status: heuristic ansatz, not a derived estimator.** Substituting $\psi(N_{eff})$ for $\psi(N)$ has no derivation (KSG's neighbor-count terms rest on a local-uniformity probability-mass argument that importance-weighting breaks), $n_x^w$ is not yet defined explicitly, and no bias/consistency analysis exists. This estimator must pass its own synthetic validation gate (a weighted analogue of the S1 estimator-validation gate, grandplan §7 — the §1 rigour note above) before any output is interpreted.
+**Status: rejected heuristic ansatz, not a derived estimator.** Substituting $\psi(N_{eff})$ for
+$\psi(N)$ has no derivation (KSG's neighbor-count terms rest on a local probability-mass argument
+that arbitrary reliability weighting breaks), $n_x^w$ is undefined, and no bias, consistency,
+support, or target-measure analysis exists. A synthetic smoke cannot repair a missing estimand. Do
+not return a number from this formula.
 
-### 5.2 Implementation Strategy
+### 5.2 Non-implementation record
 ```rust
-/// Configuration for uncertainty-weighted KSG estimator
+/// REJECTED PSEUDOCODE — retained to document the non-implementation boundary.
 #[derive(Debug, Clone)]
 pub struct WeightedKsgConfig {
     /// Base KSG configuration
@@ -300,14 +316,24 @@ pub fn weighted_ksg_mi(
     //    b. Count weighted neighbors in marginal spaces (nx, ny) within radius
     //    c. Compute local MI contribution weighted by w_i
     // 4. Normalize by total weight
-    // 5. Compute bootstrap confidence intervals
+    // 5. STOP: no derived estimand/estimator or calibrated interval exists.
 }
 ```
 
 ---
 
-## 6. Next Steps
+## 6. Promotion sequence
 
-1.  **Dependencies**: Add `gauss-mi-core` (hypothetical crate) or implement uncertainty logic in `pid-core`.
-2.  **Validation**: Test weighted estimator against analytic ground truth for Gaussian channels with known heteroscedastic noise.
-3.  **Integration**: Log `SceneUncertaintyMap` artifacts into the canonical run log and visualize via Rerun (Phases 1–3; see `DIAGRAMS.md` §12); defer real-time SparkJS overlays to Phase 4.
+1. **Use the safe baseline first:** define a reconstruction-quality measurement contract, validate it
+   independently of PID, log the artifact in the canonical run log, and analyze it as a nuisance
+   covariate/stratifier or exclusion sensitivity. Visualize through Rerun; keep SparkJS deferred.
+2. **Define the scientific target before code:** state whether weighting changes the population law,
+   targets an importance-weighted distribution, handles measurement error, or estimates another
+   explicit functional. Specify positivity, dependence, and missingness assumptions.
+3. **Derive and independently review an estimator:** only then propose upstream `pid-rs` code. A
+   hypothetical `gauss-mi-core` dependency is not approved merely because a crate could be named.
+4. **Run separate gates:** analytic/independent oracles, nulls, heteroscedastic stress tests,
+   bias/variance, interval coverage, abstention sensitivity/specificity, and the full population,
+   measure, estimator, and application verdicts.
+5. **Promote only after evidence:** until those steps pass, weighted MI/PID remains E0 and off the
+   thesis path; active view selection remains a separate E1 study whose actions use the Agent Bridge.

@@ -17,7 +17,8 @@
     "pre_treatment_feature_whitelist": "partial_h1_common_preflight_lineage_rule",
     "holdout_access_ledger": "unimplemented",
     "literature_screening_ledger": "unimplemented",
-    "ecosystem_evidence": "current_offline_overlay_available"
+    "ecosystem_evidence": "current_offline_overlay_available",
+    "capability_matrix": "generated_content_bound_current_views_available_no_validated_rows"
   },
   "claims": [
     {

@@ -133,7 +133,7 @@ In Rerun (Phases 1-3), we avoid complex custom shaders. Instead, we log **two di
 | Key Expression | Data Type | Frequency | Source → Dest |
 | :--- | :--- | :--- | :--- |
 | `sim/pose/{id}` | `[f32; 7]` | 60Hz | Physics → run log → Rerun (P1-3) / SparkJS (P4) |
-| `scene/uncertainty` | `SceneUncertaintyMap` | Event | GauSS‑MI (optional) → run log → UI/PID |
+| `scene/uncertainty` | `SceneUncertaintyMap` | Event | prospective quality study (optional) → run log → Rerun/nuisance analysis; never direct weighted PID |
 | `dream/flow/{id}`| `DreamFlowTrajectory` | Event | Video predictor/flow extractor → run log → Rerun (P1-3) / SparkJS (P4) |
 | `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → run log → Rerun (P1-3) / SparkJS (P4) |
 | `vla/action` | model-specific action vector/chunk | Event | VLA adapter → Agent Bridge → canonical action event → Physics; optional Zenoh mirror is data-only |

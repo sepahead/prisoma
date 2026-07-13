@@ -20,10 +20,19 @@ lint:
 
 # Docset audits (offline). audit_grandplan.py validates the R1-R112 reference ledger.
 docs-audit:
+    python scripts/generate_capability_matrix.py --check
     python scripts/audit_grandplan.py
     python scripts/audit_grandplan_claims.py
     python scripts/audit_docset_claims.py
     python scripts/audit_repo_truth.py
+
+# The reviewed catalog is the source; both the machine-readable resolved matrix and
+# the human-readable table are deterministic, content-hash-bound generated outputs.
+capability-matrix:
+    python scripts/generate_capability_matrix.py --write
+
+capability-matrix-check:
+    python scripts/generate_capability_matrix.py --check
 
 # Dependency firebreak (grandplan.md §8.9.3): prove the minimum path needs neither
 # NCP nor PID atoms.
@@ -271,6 +280,12 @@ offline-harness-continuous input="crates/pid-sim/fixtures/offline_vlda_continuou
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{runlog}}
 
+# Exercise both report outcomes. The mixed-support fixture must abstain without numeric
+# placeholders; its all-continuous counterpart must produce every requested estimate.
+estimate-report-contract: offline-harness offline-harness-continuous
+    python -c 'import json; a=json.load(open("outputs/offline_vlda_summary.json", encoding="utf-8")); b=json.load(open("outputs/offline_vlda_continuous_summary.json", encoding="utf-8")); collect=lambda d: [d["metrics"]["mi_v_action"], d["metrics"]["mi_l_action"], d["metrics"]["mi_d_action"], *d["metrics"]["pid_pairs"].values()]; ao=collect(a); bo=collect(b); numeric={"value", "co_information", "mi_joint_action", "mi_source_1_action", "mi_source_2_action", "redundancy", "synergy", "unique_source_1", "unique_source_2"}; assert len(ao)==6 and sum(x["status"]=="abstained" for x in ao)==4 and sum(x["status"]=="produced" for x in ao)==2; assert all(numeric.isdisjoint(x) for x in ao if x["status"]=="abstained"); assert len(bo)==6 and all(x["status"]=="produced" for x in bo); assert a["metrics"]["estimate_denominators"]["abstained"]==4 and b["metrics"]["estimate_denominators"]["abstained"]==0'
+    python -c 'import json, math; expected={"offline_vlda.pid.mi_v_action", "offline_vlda.pid.mi_d_action", "offline_vlda.pid.train_split.mi_v_action", "offline_vlda.pid.train_split.mi_d_action"}; events=[event for line in open("outputs/offline_vlda_runlog.jsonl", encoding="utf-8") if (event:=json.loads(line)).get("type")=="pid_metric"]; assert len(events)==len(expected)==4 and {event["name"] for event in events}==expected; assert all(event["metadata"].get("computation_status")=="produced" and math.isfinite(event["value"]) for event in events)'
+
 # Discrete (quantized I_min) PID mode; results carry saturation diagnostics (grandplan §8.1.6).
 offline-harness-discrete input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_discrete_runlog.jsonl" summary="outputs/offline_vlda_discrete_summary.json":
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{input}} --summary-json {{summary}} --runlog {{runlog}} --pid-mode discrete --discrete-bins 8
@@ -321,11 +336,21 @@ runlog-sidecars path="outputs/demo_runlog.jsonl":
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --write-sidecars {{path}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --verify-sidecars {{path}}
 
+runlog-sidecars-proof: runlog-demo
+    just runlog-validate
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/demo_runlog.jsonl | grep -F 'logical_trace_hash_v3=ac219c93ce9c56eaba8df44c1ae77fff2717432f2ae92973bbb5124d05352574' >/dev/null
+    just runlog-sidecars
+
 runlog-sim-verify path="outputs/demo_bridge_runlog.jsonl":
     cargo run -p pid-sim --bin pid-sim-verify -- {{path}}
 
 runlog-rerun path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog.rrd":
     cargo run -p pid-rerun --bin runlog-to-rerun -- {{path}} --save {{out}}
+
+runlog-rerun-proof: runlog-demo
+    just runlog-validate
+    just runlog-rerun
+    test -s outputs/demo_runlog.rrd
 
 runlog-rerun-bridge path="outputs/demo_bridge_runlog.jsonl" out="outputs/demo_bridge_runlog.rrd":
     cargo run -p pid-rerun --bin runlog-to-rerun -- {{path}} --save {{out}}
