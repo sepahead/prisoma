@@ -203,12 +203,18 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   workspace and off the critical path. The public `sepahead/engram` repository remains a
   README-only placeholder; there is no public live Engram producer or Prisoma integration. The observer's
   integrity repair ships against wire 0.8, pinned to the immutable NCP `v0.8.0` release:
-  exact-seq-only D, bounded callback handoff, immutable sample/events, and atomic durable,
-  sealed same-path-retryable artifact/run-log finalization with failure-injection tests. It
-  also requires an explicit secure/open transport choice and rejects observation-payload/
-  session-key mismatches; artifact finalization requires a canonical run log. It remains exploratory
-  because honest L/split/episode/label structure and a conforming live publisher are still
-  required before it can be an S2/EC1 producer.
+  full-`{epoch,seq}` V/L/D/A buffering, sensor-authorized transitions, immutable rows/events,
+  complete-frame duplicate/conflict receipts, observer-owned raw fault accounting, finite
+  resident/output ceilings, and a canonical artifact/run-log bundle committed by a verified
+  publication receipt. Known failed/zero-row captures remain diagnostic and the CLI exits nonzero; the
+  offline harness rejects uncommitted or failed NCP input. `capture_integrity` covers visible
+  receipts/join state only—whole-plane gaps, receipt timing/QoS/reconnect evidence, peer
+  authentication, and the protocol-fault observatory remain unbuilt. No population support is
+  inferred: continuous KSG/shared-exclusions requests abstain, `--pid-mode none` requests nothing,
+  and quantized discrete `I_min` remains a non-evidentiary diagnostic with population
+  `NotEvaluated` and application `Blocked`. It remains exploratory because honest
+  L/split/episode/label structure and a conforming live publisher are still required before it
+  can be an S2/EC1 producer.
 - **Specified (not yet built):** a fuller Rerun-based diagnostic viewer and the deferred
   Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
 

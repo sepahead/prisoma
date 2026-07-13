@@ -29,8 +29,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
+
+const OFFLINE_INPUT_MAX_BYTES: usize = 256 * 1024 * 1024;
+const OFFLINE_NCP_PUBLICATION_RECEIPT_MAX_BYTES: usize = 64 * 1024;
 
 const OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION: f64 = 20.0;
 const OFFLINE_GEOMETRY_MIN_PAIRWISE_CV: f64 = 0.1;
@@ -361,7 +364,27 @@ pub struct OfflineVldaDataset {
     /// declaration fails closed as `support_contract_unspecified`.
     #[serde(default)]
     pub support: BTreeMap<String, OfflineVldaDeclaredSupport>,
+    /// Optional producer-side integrity grade. NCP artifacts require a committed,
+    /// hash-verified publication receipt and a complete/complete-with-warning grade.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture_integrity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub publication_receipt: Option<String>,
+    #[serde(skip)]
+    publication_receipt_verified: bool,
     pub samples: Vec<OfflineVldaSample>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OfflineNcpPublicationReceipt {
+    schema_version: u32,
+    committed: bool,
+    dataset_uri: String,
+    dataset_sha256: String,
+    runlog_uri: String,
+    runlog_sha256: String,
+    capture_integrity: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -794,11 +817,175 @@ pub struct OfflineVldaRunlogOptions {
     pub require_axis_provenance_honest: bool,
 }
 
+fn offline_vlda_has_ncp_markers(dataset: &OfflineVldaDataset) -> bool {
+    dataset.source.as_deref() == Some("ncp")
+        || dataset.capture_integrity.is_some()
+        || dataset.publication_receipt.is_some()
+        || dataset
+            .samples
+            .iter()
+            .any(|sample| sample.metadata.get("source").map(String::as_str) == Some("ncp"))
+}
+
 pub fn read_offline_vlda_dataset(path: impl AsRef<Path>) -> Result<OfflineVldaDataset> {
-    let file = std::fs::File::open(path.as_ref())
-        .with_context(|| format!("failed to open {}", path.as_ref().display()))?;
-    serde_json::from_reader(file)
-        .with_context(|| format!("failed to parse {}", path.as_ref().display()))
+    Ok(read_offline_vlda_dataset_with_hash(path)?.0)
+}
+
+/// Read, verify, and parse one immutable input snapshot, returning the SHA-256
+/// of the exact bytes used for analysis. Callers must carry this digest into
+/// reports/run logs rather than reopening a mutable path for provenance.
+pub fn read_offline_vlda_dataset_with_hash(
+    path: impl AsRef<Path>,
+) -> Result<(OfflineVldaDataset, String)> {
+    fn read_bounded(path: &Path, max_bytes: usize) -> Result<Vec<u8>> {
+        let file = std::fs::File::open(path)
+            .with_context(|| format!("failed to open {}", path.display()))?;
+        let mut bytes = Vec::new();
+        file.take(
+            u64::try_from(max_bytes)
+                .unwrap_or(u64::MAX)
+                .saturating_add(1),
+        )
+        .read_to_end(&mut bytes)
+        .with_context(|| format!("failed to read {}", path.display()))?;
+        if bytes.len() > max_bytes {
+            bail!(
+                "offline VLDA input {} exceeds the {max_bytes}-byte limit",
+                path.display()
+            );
+        }
+        Ok(bytes)
+    }
+
+    let path = path.as_ref();
+    let input_metadata = std::fs::symlink_metadata(path)
+        .with_context(|| format!("failed to inspect offline VLDA input {}", path.display()))?;
+    if !input_metadata.file_type().is_file() {
+        bail!(
+            "offline VLDA input {} must be a regular file (symlinks are not accepted)",
+            path.display()
+        );
+    }
+    let dataset_bytes = read_bounded(path, OFFLINE_INPUT_MAX_BYTES)?;
+    let input_sha256 = pid_runlog::sha256_hex(&dataset_bytes);
+    let mut dataset: OfflineVldaDataset = serde_json::from_slice(&dataset_bytes)
+        .with_context(|| format!("failed to parse {}", path.display()))?;
+    if offline_vlda_has_ncp_markers(&dataset) {
+        if dataset.source.as_deref() != Some("ncp") {
+            bail!("NCP-marked dataset must declare source=\"ncp\"");
+        }
+        let dataset_run_id = dataset
+            .run_id
+            .as_deref()
+            .filter(|run_id| !run_id.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("NCP dataset is missing a nonempty run_id"))?;
+        let integrity = dataset
+            .capture_integrity
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("NCP dataset is missing its capture_integrity grade"))?;
+        if !matches!(integrity, "complete" | "complete_with_warning") {
+            bail!("NCP dataset capture_integrity={integrity}; failed captures are diagnostic-only");
+        }
+        let receipt_uri = dataset
+            .publication_receipt
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("NCP dataset is missing its publication receipt URI"))?;
+        let receipt_path = Path::new(receipt_uri);
+        let mut expected_receipt = path.as_os_str().to_os_string();
+        expected_receipt.push(".publication.json");
+        let expected_receipt = std::path::PathBuf::from(expected_receipt);
+        let receipt_metadata = std::fs::symlink_metadata(receipt_path).with_context(|| {
+            format!(
+                "failed to inspect NCP publication receipt {}",
+                receipt_path.display()
+            )
+        })?;
+        if !receipt_metadata.file_type().is_file()
+            || std::fs::canonicalize(receipt_path).ok()
+                != std::fs::canonicalize(&expected_receipt).ok()
+        {
+            bail!("NCP publication receipt must be the adjacent regular .publication.json file");
+        }
+        let receipt_bytes = read_bounded(receipt_path, OFFLINE_NCP_PUBLICATION_RECEIPT_MAX_BYTES)?;
+        let receipt: OfflineNcpPublicationReceipt = serde_json::from_slice(&receipt_bytes)
+            .with_context(|| {
+                format!(
+                    "failed to parse NCP publication receipt {}",
+                    receipt_path.display()
+                )
+            })?;
+        if receipt.schema_version != 1 || !receipt.committed {
+            bail!("NCP publication receipt is not a committed schema-1 receipt");
+        }
+        if receipt.capture_integrity != integrity {
+            bail!("NCP publication receipt capture grade does not match the dataset");
+        }
+        if input_sha256 != receipt.dataset_sha256 {
+            bail!("NCP publication receipt dataset SHA-256 mismatch");
+        }
+        let canonical_dataset = std::fs::canonicalize(path)
+            .with_context(|| format!("failed to canonicalize {}", path.display()))?;
+        let receipt_dataset = std::fs::canonicalize(&receipt.dataset_uri).with_context(|| {
+            format!(
+                "failed to canonicalize receipt dataset {}",
+                receipt.dataset_uri
+            )
+        })?;
+        if canonical_dataset != receipt_dataset {
+            bail!("NCP publication receipt names a different dataset path");
+        }
+        let runlog_path = Path::new(&receipt.runlog_uri);
+        if !std::fs::symlink_metadata(runlog_path)
+            .with_context(|| format!("failed to inspect NCP run log {}", runlog_path.display()))?
+            .file_type()
+            .is_file()
+        {
+            bail!("NCP publication receipt run log must be a regular file");
+        }
+        let runlog_bytes = read_bounded(runlog_path, OFFLINE_INPUT_MAX_BYTES)?;
+        if pid_runlog::sha256_hex(&runlog_bytes) != receipt.runlog_sha256 {
+            bail!("NCP publication receipt run-log SHA-256 mismatch");
+        }
+        let events = pid_runlog::read_events(std::io::BufReader::new(runlog_bytes.as_slice()))
+            .context("failed to parse the NCP canonical run log")?;
+        let validation = pid_runlog::validate_events(&events)
+            .context("failed to validate the NCP canonical run log")?;
+        if validation.errors > 0 {
+            bail!("NCP publication receipt points to an invalid canonical run log");
+        }
+        if !events.iter().any(|event| {
+            matches!(event, RunLogEvent::RunStarted { run_id, .. } if run_id == dataset_run_id)
+        }) {
+            bail!("NCP dataset run_id is not the canonical run-log run_id");
+        }
+        let artifact_bound = events.iter().any(|event| match event {
+            RunLogEvent::ArtifactLogged {
+                name,
+                kind,
+                uri,
+                sha256: Some(hash),
+                metadata,
+                ..
+            } => {
+                name == "ncp_vlda_dataset"
+                    && kind == "dataset_json"
+                    && hash == &receipt.dataset_sha256
+                    && std::fs::canonicalize(uri).ok().as_ref() == Some(&canonical_dataset)
+                    && metadata.get("capture_integrity").map(String::as_str) == Some(integrity)
+            }
+            _ => false,
+        });
+        if !artifact_bound {
+            bail!("NCP canonical run log does not bind the committed dataset artifact");
+        }
+        let summary = pid_runlog::summarize_events(&events)
+            .context("failed to summarize the NCP canonical run log")?;
+        if summary.status != Some(RunStatus::Succeeded) {
+            bail!("NCP canonical run log did not end successfully");
+        }
+        dataset.publication_receipt_verified = true;
+    }
+    Ok((dataset, input_sha256))
 }
 
 pub fn run_offline_vlda_harness(
@@ -1717,24 +1904,39 @@ pub fn write_offline_vlda_runlog_with_options(
     ensure_parent(path.as_ref())?;
     let mut writer = RunLogWriter::create(path.as_ref())?;
     let summary_sha256 = summary_path.and_then(|path| pid_runlog::sha256_file(path).ok());
-    let input_uri = input_path
-        .map(|path| path.display().to_string())
-        .or_else(|| {
-            report
-                .config
-                .get("input_uri")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        });
-    let input_sha256 = input_path
-        .and_then(|path| pid_runlog::sha256_file(path).ok())
-        .or_else(|| {
-            report
-                .config
-                .get("input_sha256")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        });
+    let configured_input_uri = report
+        .config
+        .get("input_uri")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let configured_input_sha256 = report
+        .config
+        .get("input_sha256")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let input_uri = match input_path {
+        Some(path) => {
+            let path_uri = path
+                .to_str()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "offline VLDA input path must be valid UTF-8 for run-log provenance"
+                    )
+                })?
+                .to_string();
+            if configured_input_uri.as_deref() != Some(path_uri.as_str()) {
+                bail!("offline VLDA run log input path does not match the analyzed snapshot URI");
+            }
+            if configured_input_sha256.is_none() {
+                bail!("offline VLDA run log is missing the analyzed input snapshot SHA-256");
+            }
+            Some(path_uri)
+        }
+        None => configured_input_uri,
+    };
+    // Never reopen a mutable input path here. This is the digest of the exact
+    // byte buffer parsed for the report, supplied by the snapshot reader.
+    let input_sha256 = configured_input_sha256;
     writer.append(&RunLogEvent::RunStarted {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: report.run_id.clone(),
@@ -2218,6 +2420,20 @@ fn offline_vlda_required_failures(
 }
 
 fn validate_dataset(dataset: &OfflineVldaDataset) -> Result<OfflineVldaDims> {
+    if offline_vlda_has_ncp_markers(dataset) {
+        if dataset.source.as_deref() != Some("ncp") {
+            bail!("NCP-marked dataset must declare source=\"ncp\"");
+        }
+        if !dataset.publication_receipt_verified {
+            bail!("NCP dataset lacks a verified committed publication receipt");
+        }
+        if !matches!(
+            dataset.capture_integrity.as_deref(),
+            Some("complete" | "complete_with_warning")
+        ) {
+            bail!("NCP dataset capture integrity is not analysis-eligible");
+        }
+    }
     if dataset.samples.len() < 8 {
         bail!("offline VLDA dataset must contain at least 8 samples");
     }
@@ -6281,8 +6497,219 @@ mod tests {
                     OfflineVldaDeclaredSupport::ContinuousRegularFullDimensional,
                 ),
             ]),
+            capture_integrity: None,
+            publication_receipt: None,
+            publication_receipt_verified: false,
             samples,
         }
+    }
+
+    fn write_ncp_publication_fixture(integrity: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "pid-offline-ncp-publication-{}-{stamp}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let dataset_path = dir.join("dataset.json");
+        let runlog_path = dir.join("runlog.jsonl");
+        let receipt_path = dir.join("dataset.json.publication.json");
+
+        let mut dataset = fixture_dataset();
+        dataset.source = Some("ncp".to_string());
+        dataset.run_id = Some("ncp-fixture".to_string());
+        dataset.capture_integrity = Some(integrity.to_string());
+        dataset.publication_receipt = Some(receipt_path.display().to_string());
+        dataset.publication_receipt_verified = false;
+        let dataset_bytes = serde_json::to_vec_pretty(&dataset).unwrap();
+        std::fs::write(&dataset_path, &dataset_bytes).unwrap();
+
+        let config = json!({"fixture": "ncp-publication"});
+        let config_hash = pid_runlog::canonical_json_hash(&config).unwrap();
+        let mut writer = RunLogWriter::new(Vec::new());
+        writer
+            .append(&RunLogEvent::RunStarted {
+                schema_version: RUN_LOG_SCHEMA_VERSION,
+                run_id: "ncp-fixture".to_string(),
+                timestamp_ns: 0,
+                config_hash: config_hash.clone(),
+                metadata: BTreeMap::new(),
+            })
+            .unwrap();
+        writer
+            .append(&RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash,
+                config,
+            })
+            .unwrap();
+        writer
+            .append(&RunLogEvent::ArtifactLogged {
+                timestamp_ns: 0,
+                name: "ncp_vlda_dataset".to_string(),
+                kind: "dataset_json".to_string(),
+                uri: std::fs::canonicalize(&dataset_path)
+                    .unwrap()
+                    .display()
+                    .to_string(),
+                sha256: Some(pid_runlog::sha256_hex(&dataset_bytes)),
+                metadata: BTreeMap::from([(
+                    "capture_integrity".to_string(),
+                    integrity.to_string(),
+                )]),
+            })
+            .unwrap();
+        writer
+            .append(&RunLogEvent::RunEnded {
+                run_id: "ncp-fixture".to_string(),
+                timestamp_ns: 1,
+                status: RunStatus::Succeeded,
+                message: None,
+            })
+            .unwrap();
+        writer.flush().unwrap();
+        let runlog_bytes = writer.into_inner();
+        std::fs::write(&runlog_path, &runlog_bytes).unwrap();
+
+        let receipt = json!({
+            "schema_version": 1,
+            "committed": true,
+            "dataset_uri": std::fs::canonicalize(&dataset_path).unwrap().display().to_string(),
+            "dataset_sha256": pid_runlog::sha256_hex(&dataset_bytes),
+            "runlog_uri": std::fs::canonicalize(&runlog_path).unwrap().display().to_string(),
+            "runlog_sha256": pid_runlog::sha256_hex(&runlog_bytes),
+            "capture_integrity": integrity,
+        });
+        std::fs::write(&receipt_path, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
+        (dataset_path, dir)
+    }
+
+    #[test]
+    fn ncp_input_requires_committed_hash_verified_complete_publication() {
+        let (dataset_path, dir) = write_ncp_publication_fixture("complete");
+        let dataset = read_offline_vlda_dataset(&dataset_path).unwrap();
+        assert!(dataset.publication_receipt_verified);
+        assert!(run_offline_vlda_harness(dataset, None, None).is_ok());
+        std::fs::remove_dir_all(dir).ok();
+
+        let (dataset_path, dir) = write_ncp_publication_fixture("complete_with_warning");
+        let dataset = read_offline_vlda_dataset(&dataset_path).unwrap();
+        assert!(dataset.publication_receipt_verified);
+        std::fs::remove_dir_all(dir).ok();
+
+        let (dataset_path, dir) = write_ncp_publication_fixture("invalid");
+        let error = read_offline_vlda_dataset(&dataset_path).unwrap_err();
+        assert!(error.to_string().contains("diagnostic-only"));
+        std::fs::remove_dir_all(dir).ok();
+
+        let (dataset_path, dir) = write_ncp_publication_fixture("complete");
+        std::fs::remove_file(dir.join("dataset.json.publication.json")).unwrap();
+        let error = read_offline_vlda_dataset(&dataset_path).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("failed to inspect NCP publication receipt"));
+        std::fs::remove_dir_all(dir).ok();
+
+        let (dataset_path, dir) = write_ncp_publication_fixture("complete");
+        let mut dataset: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&dataset_path).unwrap()).unwrap();
+        dataset["run_id"] = serde_json::Value::Null;
+        std::fs::write(&dataset_path, serde_json::to_vec_pretty(&dataset).unwrap()).unwrap();
+        let error = read_offline_vlda_dataset(&dataset_path).unwrap_err();
+        assert!(error.to_string().contains("nonempty run_id"));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn ncp_input_requires_the_exact_dataset_artifact_event_identity() {
+        let (dataset_path, dir) = write_ncp_publication_fixture("complete");
+        let runlog_path = dir.join("runlog.jsonl");
+        let mut events = read_events_from_path(&runlog_path).unwrap();
+        for event in &mut events {
+            if let RunLogEvent::ArtifactLogged { name, kind, .. } = event {
+                *name = "unrelated_artifact".to_string();
+                *kind = "model".to_string();
+            }
+        }
+        let mut writer = RunLogWriter::new(Vec::new());
+        for event in &events {
+            writer.append(event).unwrap();
+        }
+        writer.flush().unwrap();
+        let runlog_bytes = writer.into_inner();
+        std::fs::write(&runlog_path, &runlog_bytes).unwrap();
+        let receipt_path = dir.join("dataset.json.publication.json");
+        let mut receipt: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&receipt_path).unwrap()).unwrap();
+        receipt["runlog_sha256"] = json!(pid_runlog::sha256_hex(&runlog_bytes));
+        std::fs::write(&receipt_path, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
+
+        let error = read_offline_vlda_dataset(&dataset_path).unwrap_err();
+
+        assert!(error.to_string().contains("does not bind"));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn offline_input_must_be_a_regular_file() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("pid-offline-nonregular-{stamp}"));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let error = read_offline_vlda_dataset(&dir).unwrap_err();
+
+        assert!(error.to_string().contains("must be a regular file"));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn runlog_keeps_the_exact_parsed_input_snapshot_hash_after_path_replacement() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("pid-offline-snapshot-{stamp}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input_path = dir.join("dataset.json");
+        let runlog_path = dir.join("runlog.jsonl");
+        std::fs::write(
+            &input_path,
+            serde_json::to_vec_pretty(&fixture_dataset()).unwrap(),
+        )
+        .unwrap();
+        let (dataset, snapshot_sha256) = read_offline_vlda_dataset_with_hash(&input_path).unwrap();
+        let report = run_offline_vlda_harness(
+            dataset.clone(),
+            Some(input_path.to_str().unwrap().to_string()),
+            Some(snapshot_sha256.clone()),
+        )
+        .unwrap();
+        std::fs::write(&input_path, b"replacement after parse").unwrap();
+
+        write_offline_vlda_runlog(&runlog_path, None, Some(&input_path), &dataset, &report)
+            .unwrap();
+
+        let events = read_events_from_path(&runlog_path).unwrap();
+        let logged_hash = events.iter().find_map(|event| match event {
+            RunLogEvent::ArtifactLogged {
+                name,
+                sha256: Some(hash),
+                ..
+            } if name == "offline_vlda_input_json" => Some(hash),
+            _ => None,
+        });
+        assert_eq!(logged_hash, Some(&snapshot_sha256));
+        assert_ne!(
+            pid_runlog::sha256_file(&input_path).unwrap(),
+            snapshot_sha256
+        );
+        std::fs::remove_dir_all(dir).ok();
     }
 
     /// pid-runlog schema 2 requires a real 64-character hex SHA-256 digest; a stub like "abc" is

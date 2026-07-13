@@ -25,8 +25,12 @@ S2/EC1 conformance bar** (an optional M2 ecosystem item) until the gaps below cl
 1. **D alignment — exact-only and immutable in-repo.** `ObservationFrame` carries
    a `source` echoing the driving `SensorFrame.stream`, and this observer joins D
    only on that exact `{epoch, seq}`. A short reorder grace window admits a matching
-   readout that arrives after its command; once a row's canonical event exists,
-   later readouts are dropped and counted, never patched. An observation with **no
+   readout that arrives after its command. Command/readout receipts that overtake
+   the first sensor of a fresh epoch are buffered under the full `{epoch, seq}`
+   and released only when that sensor authorizes the transition. Once a row's
+   canonical event exists, complete validated-frame receipts are retained for the
+   finite capture: exact redelivery is idempotent, while changed evidence marks
+   the capture invalid without patching the row. An observation with **no
    `source`** is the pull/RPC form and is dropped (source ABSENCE, the wire-0.8
    successor to the retired `seq == 0` sentinel): there is no recency fallback or
    future-D pairing. A conforming producer must therefore stamp every published
@@ -38,12 +42,16 @@ S2/EC1 conformance bar** (an optional M2 ecosystem item) until the gaps below cl
    Kept samples always carry `metadata.l_source = "channel"`. A zero/hash backfill would
    fabricate a language axis and is not a conformance repair; exclusion remains the
    fail-closed policy until a genuine language channel exists.
-3. **Finalization integrity — repaired.** Samples and canonical events remain
-   buffered until a same-directory temporary artifact is flushed, fsynced,
-   atomically renamed, and hashed. The complete run log is then reconstructed and
-   installed the same way. Append/hash/write failures propagate without clearing
-   samples; the first finalization attempt seals ingestion and binds its output
-   path, and an exact retry reconstructs one event per sample with no duplicates.
+3. **Finalization integrity — repaired.** Artifact and run-log bytes are bounded
+   and completely reconstructed before either final path is installed. Each file
+   uses a same-directory temporary file, fsync, and a no-replace hard-link install;
+   a small hash-binding publication receipt is installed last as the commit
+   marker. `pid-offline-harness` verifies the receipt, both hashes, the canonical
+   run log, its exact dataset artifact identity, and the capture grade before
+   accepting an NCP artifact. Publication requires an explicitly bound session
+   and UTF-8-representable canonical targets. Append/hash/write/fsync failures
+   preserve exact same-path retry state; retries pin all three canonical targets
+   and adopt only byte-identical bounded regular files.
 4. **Held-out structure** — no `metadata.split` / `episode_id` / required `success` labels
    by default, so the strict `--require-heldout-*` gates and H1/H2 protocol analyses cannot
    run. Passing these adapter gates would still not clear the four PID gates or implement
@@ -57,22 +65,36 @@ The in-repo work and external publisher requirements are tracked in
 Subscribes to `engram/ncp/session/{id}/{sensor,command,observation}` and converts
 each closed-loop tick into an `OfflineVldaSample`, writing:
 
-1. an **`OfflineVldaDataset` JSON artifact** — run it through `pid-offline-harness`
-   (`V/L/D → A` PID screens), exactly like the SAFE adapter's output; and
+1. an **`OfflineVldaDataset` JSON artifact** — after receipt verification it can
+   run through `pid-offline-harness` for diagnostics/baselines. It carries no
+   inferred population-support declaration: continuous KSG/shared-exclusions
+   requests abstain with `support_contract_unspecified`; `--pid-mode none`
+   requests no estimates; and quantized discrete `I_min` can run only as a
+   non-evidentiary diagnostic with population `NotEvaluated` and application
+   `Blocked`, pending justified per-axis declarations and the remaining gates; and
 2. **canonical run-log events** (the source of truth): one `EmbeddingContract`
    declaring the `(V,L,D,A)` variables, an `EmbeddingCaptured` per kept sample, a
    `LabelObserved` per success label, and — at finalize — an `ArtifactLogged`
    registering the dataset artifact (uri + sha256) so the run log can locate and
-   verify the data it describes. Artifact and log publication are atomic/durable;
-   failed finalization seals and preserves the in-memory sample/event source for
-   an exact same-path retry.
+   verify the data it describes. A `.publication.json` receipt beside the dataset
+   commits the durable pair last; failed finalization seals and preserves the
+   in-memory sample/event source for an exact same-path retry.
 
 Ticks that can never pass the harness (an empty axis: no language channel yet, no
 observation yet) are **excluded and counted**, dims are held to the declared
 contract, a sensor restart (a change of `stream.epoch`) starts a new incarnation
 (`sample_id = ncp-{epoch}-{seq}`), and the finalize report (`ObserverStats`)
-surfaces every exclusion/eviction path so a small artifact is diagnosable rather
-than mysterious.
+surfaces every locally observed exclusion/eviction path so a small artifact is
+diagnosable rather than mysterious.
+
+`capture_integrity` is deliberately a **visible-receipt/join grade**, not an
+end-to-end delivery-completeness claim. The current observer does not detect an
+entirely missing own-stream tick, record local receipt timestamps/reconnect history,
+or attest negotiated QoS, clock sync, producer authentication, or ACL correctness.
+Those are inputs to the still-unbuilt deterministic protocol-fault observatory.
+Known degraded/invalid and zero-row captures end with `RunStatus::Failed`; the CLI
+still preserves their diagnostic bundle but exits nonzero, and the offline harness
+rejects it for analysis.
 
 ### (V, L, D, A) mapping
 - **V** ← `SensorFrame` channels (all but the language channel), flattened.
@@ -96,14 +118,16 @@ fresh epoch). `ObservationFrame.source` echoes the driving `SensorFrame.stream` 
 so D aligns on the full `{epoch, seq}` as well: readouts are stored tagged with
 their `source.epoch`; completed ticks are held for a short reorder grace window so a
 readout that arrives *after* its tick's command still claims its own tick.
-Later-still readouts are dropped without changing an already-buffered artifact row
-or run-log event. Every kept sample records `metadata.d_source = "source"`; ticks
+Later-still exact readouts are idempotent; conflicting complete-frame evidence
+invalidates the capture without changing an already-buffered artifact row or
+run-log event. Every kept sample records `metadata.d_source = "source"`; ticks
 with no exact readout are excluded and counted. A `SensorFrame` with an unset own
 `stream`, and a `CommandFrame`/`ObservationFrame` with **no `source`**, are
 uncorrelatable and are dropped + counted rather than merged into one bogus tick.
-Each frame's payload `session_id` (must equal the captured session) and
-`session.generation` (the live incarnation, locked to the first seen) are validated;
-a stale/foreign-session frame is dropped and counted.
+Each frame's payload `session_id` must equal the explicitly bound capture session.
+Passenger generations are retained per key, while the live `session.generation`
+is locked only by the first validated authorizing sensor; stale/foreign-session
+frames are dropped and counted.
 
 ## Run
 
@@ -112,10 +136,15 @@ a stale/foreign-session frame is dropped and counted.
 # (ncp-observer is excluded from the default workspace; use --manifest-path)
 cargo run --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
     --open --session uav3 --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
-# then run the PID screens on it
+# then verify the committed bundle and run PID-disabled diagnostics/baselines
 cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
-    --summary-json outputs/ncp_summary.json --runlog outputs/ncp_pid_runlog.jsonl
+    --pid-mode none --summary-json outputs/ncp_summary.json \
+    --runlog outputs/ncp_baseline_runlog.jsonl
 ```
+
+The second command verifies `outputs/ncp_vlda.json.publication.json` first. PID
+mode is disabled intentionally: this adapter does not fabricate pid-rs 1.0
+population-support declarations from observed cardinalities.
 
 ## Possible future integration with NCP
 
@@ -124,9 +153,9 @@ workflow remains a research proposal, and both sides must stay non-invasive:
 
 1. **Online, read-only tap (this crate).** Subscribe to the NCP data planes →
    `(V,L,D,A)` samples aligned on the driving sensor `{epoch, seq}` → run-log +
-   offline PID. Engram is just
-   another `(V,L,D,A)` source; the observer drives nothing (Agent Bridge stays the
-   only control plane).
+   offline analysis. A future conforming Engram publisher could be another
+   `(V,L,D,A)` source; the observer drives nothing (Agent Bridge stays the only
+   control plane).
 2. **Future offline analysis → human-reviewed static configuration.** The current
    observer flattens channels into V/L/D/A axes and the harness runs axis-pair screens;
    it does **not** implement per-channel prioritization. A separate, scientifically gated
@@ -149,8 +178,19 @@ checkout or path override is required.
 Wire 0.8 splits the overloaded top-level `seq` into a typed `stream` (this frame's
 own position) and `source` (the frame that drove it), carries `session_id` +
 `session.generation` on the data plane, and this tap drops/counts every
-version-less, incompatible, wrong-kind, source-less-plane, or wrong-session frame
-rather than degrading D alignment.
+version-less, incompatible, wrong-kind, duplicate-key, source-less-plane, or
+wrong-session frame rather than degrading D alignment. The live binary subscribes
+at the raw session boundary so such failures remain countable, then accepts only
+the three exact base-plane keys; named/unknown subkeys invalidate the visible-receipt
+capture rather than being silently reclassified.
+
+Finite software ceilings bound each worker-admitted raw frame (1 MiB), admitted
+frame/byte lifetime totals (1,000,000 / 8 GiB), one axis (65,536 values), resident
+in-flight values (1,000,000), globally retained closed receipts (50,000), samples
+(25,000), retained sample values (10,000,000), and artifact/run-log outputs
+(256 MiB each). These are safety ceilings, not measured performance or recommended
+scientific sample sizes. Callback-side oversize, exact-route, and bounded-handoff
+drops are counted separately; they are not misdescribed as worker-admission totals.
 
 Connection mode is explicit: `--open` uses the unauthenticated/scouting-off NCP
 client default and prints a warning; `--secure` calls `ZenohBus::open_secure` and
@@ -160,23 +200,26 @@ error. The realm is validated with `Keys::try_new` before either open path, and
 every frame's payload `session_id` must match the subscribed session — wire 0.8
 carries `session_id` + `session.generation` in the payload on all three planes
 (transport-neutral identity), not only in the routing key.
-`--runlog` is mandatory: the observer refuses to publish an artifact without the
-canonical log that registers and reconstructs its evidence.
+`--secure` attests only selection of NCP's fail-closed client configuration; it is
+not a producer-authentication or security-validation result. `--runlog` is
+mandatory: the observer refuses to commit an artifact without the canonical log
+that registers and reconstructs its evidence.
 This observer reads only the generic data planes
 (`SensorFrame`/`CommandFrame`/`ObservationFrame` → opaque value/time vectors), so it
 is unaffected by NCP's neural enums. The one frame the old `v0.1.0` pin could not
 handle was an `ObservationFrame` whose `Observation.observable` is the `#10` value
 (`binary_state`), which would fail to deserialize and be silently dropped; the
-`v0.5.x` pin (proto-native wire) decodes it, so this observer now ingests `#10`
+current `v0.8.0` pin (proto-native wire) decodes it, so this observer now ingests `#10`
 observations too. **Re-pin rule:** bump the `ncp-core`/`ncp-zenoh` tag in lockstep
-with any future additive NCP wire extension *before* Engram emits it; no code change
-is needed.
+with any future additive NCP wire extension *before* a producer emits it, rerun the
+build/decoder/conformance checks, and update the mapping if the new fields change
+capture semantics.
 
-Engram is NEST today, but NCP's wire is **simulator-agnostic by design** — if a
-future Engram backend (NEURON / Brian2 / GeNN / a neuromorphic chip) serves the
-same wire, this observer is unchanged. That is exactly why it doubles as a
-**sim-vs-hardware fidelity metric** (above): does the chip preserve the same
-information flow the NEST simulator does?
+NCP's wire is **simulator-agnostic by design**. If a future public Engram/NEST
+publisher and a later NEURON, Brian2, GeNN, or neuromorphic backend serve the same
+wire, this observer's passive capture boundary should not need to change. A
+sim-vs-hardware comparison remains a candidate study: it first needs a separate
+estimand, fixtures, conformance evidence, and scientific validation.
 
 ## Build note
 

@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+### NCP observer visible-receipt integrity prerequisites (2026-07-13)
+
+- Reworked the optional NCP tap around full driving-sensor `{epoch, seq}` keys. Pre-active and
+  future-epoch command/readout receipts no longer collide or authorize a restart; only a fully
+  validated sensor advances the watermark/epoch, while already-buffered passengers for that epoch
+  survive the transition. Complete bounded typed-frame receipts remain classifiable across retired
+  epochs: exact redelivery is idempotent, conflicting evidence quarantines/invalidates without
+  last-write-wins mutation, and later quarantined traffic is not mislabeled as an ordinary duplicate.
+- Moved raw frame/byte budgets and decoder/medium integrity into observer-owned state so a caller
+  cannot reset or forget diagnostic counters to obtain a successful log. The live raw-session path
+  shares exact base-key routing and the strict decoder, rejects duplicate JSON keys and invalid NCP
+  session segments, bounds frames before the handoff, and records callback oversize/route/handoff
+  loss separately. Added finite global ceilings for retained closed receipts and resident in-flight
+  elements, complete-before-capacity flushing, and explicit incomplete/unclaimed state accounting at
+  transition/capacity/finalization without cloning all partial vectors.
+- Made NCP bundle publication fail closed: artifact and run-log bytes are bounded and reconstructed
+  before publication, installed no-replace + fsync, and committed by a hash-binding publication
+  receipt installed last. Publication requires an explicitly bound session and UTF-8-representable
+  canonical targets; retries pin all three bundle targets and verify bounded byte identity. The
+  offline harness now reads/hashes one immutable regular-file input snapshot and verifies the
+  receipt, both hashes, canonical run-log validity/run id/exact artifact identity, and a successful
+  visible-receipt grade before accepting NCP input. Known degraded/invalid and zero-row captures
+  preserve a failed diagnostic bundle but the CLI exits nonzero. NCP artifacts deliberately carry
+  no inferred pid-rs 1.0 population-support declaration: continuous KSG/shared-exclusions requests
+  abstain, `--pid-mode none` requests nothing, and quantized discrete `I_min` is non-evidentiary
+  with population `NotEvaluated` and application `Blocked`. PID-disabled diagnostics remain
+  available after a valid commit.
+- Scope remains local exploratory integrity groundwork. `capture_integrity` does not detect wholly
+  missing own-stream ticks or attest receipt time, reconnect/QoS/clock state, authenticated producer
+  identity, live conformance, E4/EC1, or security. The deterministic protocol-fault observatory is
+  still specified but not runnable.
+
 ### SAFE ingress integrity and provenance (2026-07-13)
 
 - Replaced the reference adapter's default trust in downloaded `.pkl` files with a finite,

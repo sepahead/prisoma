@@ -106,6 +106,9 @@ being true as the code moves).
   train-split-only screens when a metadata split is present), standardization provenance,
   geometry diagnostics/gates, strict fail-closed modes
   (label/geometry/held-out-split/class-coverage/episode-disjoint/axis-provenance),
+  committed NCP-publication verification (dataset/run-log hashes, canonical-log artifact binding,
+  and a successful `complete` or `complete_with_warning` visible-receipt grade;
+  degraded/uncommitted NCP artifacts reject),
   deterministic sample-level, episode-grouped, and metadata-split held-out
   majority/1-NN/nearest-centroid baselines (accuracy, balanced accuracy, centroid AUROC),
   a SAFE-class held-out logistic-regression failure detector (`heldout_logreg_vlda`;
@@ -201,16 +204,29 @@ repository is currently a README-only placeholder, so no public live Engram inte
   are joined only on the full driving-sensor `StreamPosition` (`{epoch, seq}`).
   `CommandFrame.source` and `ObservationFrame.source` must echo that position; a source-less
   command or plane observation is uncorrelatable and dropped (source absence is wire 0.8's
-  replacement for the retired observation `seq == 0` sentinel). Emitted rows/events are
-  immutable, callback work crosses a bounded handoff to
-  one owning worker, and finalization atomically/fsync-durably installs the artifact and
-  reconstructed canonical log. The first attempt seals ingestion and binds its artifact path;
-  append/hash/write failures propagate while samples/events remain exact-retryable, including
-  a completed install whose final fsync reports failure. Ingress also requires an explicit
-  secure/open choice and rejects observation-payload/session-key mismatches. Focused
-  failure-injection tests cover every stage. The CLI requires `--runlog`, and library
-  finalization refuses to publish an artifact unless its canonical log was attached before
-  ingestion.
+  replacement for the retired observation `seq == 0` sentinel). Pending V/A/D, closed receipts,
+  and redelivery classification use the full key across epoch transitions; future-epoch
+  passengers wait for a valid sensor to authorize transition. Complete validated-frame hashes
+  make exact redelivery idempotent and conflicting evidence capture-invalid without mutating an
+  emitted row/event. Raw decode accounting is observer-owned; duplicate JSON keys, invalid
+  session/key routes, incomplete boundary state, and finite raw/frame/axis/resident/sample/output
+  limits fail closed. Callback work crosses a bounded handoff to one owning worker. Finalization
+  reconstructs and caps artifact + canonical-log bytes before no-replace/fsync installs, then
+  commits their hashes with a publication receipt installed last; exact retries adopt only
+  bounded byte-identical regular files at the original three canonical targets. `pid-offline-harness`
+  hashes the exact parsed input snapshot and verifies the receipt, canonical log, exact dataset
+  artifact identity, and visible-receipt grade; failed/uncommitted NCP input rejects. The CLI
+  requires `--runlog`, exits nonzero for zero/degraded/invalid captures after preserving their
+  diagnostic failed bundle, and library publication requires an explicit capture session plus a
+  canonical run log before ingestion.
+- **Honesty boundary:** `capture_integrity` is a visible-receipt/join grade, not delivery
+  completeness. Own-stream gap detection, receipt timing, reconnect/QoS/clock evidence, producer
+  authentication, and the deterministic protocol-fault observatory remain unbuilt. The NCP
+  artifact declares no population support: continuous KSG/shared-exclusions requests abstain,
+  `--pid-mode none` requests nothing, and quantized discrete `I_min` is at most a non-evidentiary
+  diagnostic with population `NotEvaluated` and application `Blocked`. Use PID-disabled
+  diagnostics/baselines by default until a real producer supplies justified per-axis declarations.
+  This is not E4, EC1, live Engram validation, or security validation.
 - **Still exploratory-only** (below the S2/EC1 adapter contract; optional M2 ecosystem item) until
   a conforming external publisher stamps every plane observation with its driving sensor
   `source`, a language channel is present (so `L` is real, not excluded), and

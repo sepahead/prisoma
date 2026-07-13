@@ -58,8 +58,11 @@ recipe already runs it alongside the three held-out gates.)
 …exiting 0. That establishes only the adapter-side prerequisites for H1/H2 baselines and the
 **conditional H3 PID-necessity audit** (does gated PID/CI add value beyond the strongest valid
 non-PID model; grandplan §3.8 PID kill rules, §6.5 baseline hierarchy). It does not clear the
-population, measure, estimator, or application gates. Until then it is fine for *exploratory*
-PID screens only; H1/H2 non-PID work may proceed with `--pid-mode none`.
+population, measure, estimator, or application gates. The current NCP artifact deliberately
+declares no population support: continuous KSG/shared-exclusions requests abstain;
+`--pid-mode none` requests nothing; and quantized discrete `I_min` can produce only a
+non-evidentiary diagnostic with population `NotEvaluated` and application `Blocked`. H1/H2
+non-PID work may proceed with `--pid-mode none` after publication verification.
 
 ## 3. Current state
 
@@ -76,26 +79,38 @@ Already correct (do not regress):
   so the emitted log passes `pid-runlog-replay --validate`.
 - **Exact D alignment in prisoma, including arrival reordering**: plane-published
   `ObservationFrame.source` echoes the driving sensor `StreamPosition`; readouts are keyed
-  by its `{epoch, seq}`. Completed ticks are held for a short reorder grace window so a
-  matching readout arriving after its command still claims its own tick. A source-less
-  pull/RPC observation and post-emission readouts are dropped/counted, never promoted by
-  recency or patched into an already-logged row.
-- **Bounded, reset-safe in-flight state**: FIFO (insertion-order) eviction and an explicit
-  change of `stream.epoch` start a new incarnation (state cleared so epochs never cross-pair;
-  `sample_id = ncp-{epoch}-{seq}` stays unique), and every exclusion/eviction path is counted in the
-  `ObserverStats` finalize report.
+  by its full `{epoch, seq}` even before a sensor establishes the active epoch. Completed
+  ticks are held for a short reorder grace window; future-epoch command/D receipts wait in
+  bounded isolation until that epoch's sensor authorizes transition. A source-less pull/RPC
+  observation is never promoted by recency. Complete validated-frame receipts remain
+  globally bounded across retired epochs: exact redelivery is idempotent and conflicting
+  evidence invalidates the capture without patching an already-logged row.
+- **Bounded, reset-safe in-flight state**: FIFO (insertion-order) eviction, a global resident
+  in-flight element ceiling, finite raw/admitted-frame/closed-receipt/sample/output ceilings,
+  and sensor-authorized epoch changes prevent cross-pairing and unbounded retention;
+  `sample_id = ncp-{epoch}-{seq}` stays unique. Incomplete V/A and unclaimed D are classified
+  at epoch transition, capacity seal, and finalization without cloning all partial vectors.
 - **Failure-safe finalization**: callbacks enqueue into a bounded handoff and one worker owns
-  observer state. Canonical sample events remain buffered and immutable; artifact and run log
-  are written via same-directory temporary files, flushed/fsynced, and atomically renamed.
-  The first finalization attempt seals ingestion and binds its artifact path. Append/hash/write
-  failures propagate without clearing samples, and exact same-path retries reconstruct the
-  complete log without duplicates (including an exact install completed before a reported
-  directory-fsync error).
+  observer state. Artifact/run-log bytes are reconstructed and size-checked before publication;
+  each uses a same-directory no-replace hard-link install plus fsync, and a hash-binding
+  `.publication.json` receipt commits the pair last. The harness verifies the marker, both
+  hashes, the canonical log and its exact dataset artifact identity, and a successful `complete` or
+  `complete_with_warning` visible-receipt grade. The first
+  finalization attempt seals ingestion and binds all three canonical bundle targets. Failures
+  preserve exact same-path retry state; retries adopt only bounded byte-identical regular files.
 - **Fail-closed ingress identity and transport**: `--secure` or `--open` must be chosen
   explicitly, unknown CLI options are rejected, realm/session key segments are validated, and
-  each decoded `ObservationFrame.session_id` must equal the subscribed session (sensor/command
-  session identity is carried only by the subscribed key). `--runlog` is mandatory, and the
-  library refuses artifact finalization unless logging was attached before ingestion.
+  every decoded data-plane frame's payload `session_id` must equal the subscribed session.
+  A raw session subscription preserves decoder failures; only the exact three base-plane keys
+  are accepted. `--secure` proves configuration selection, not producer authentication or a
+  security audit. `--runlog` is mandatory, and library publication requires an explicitly bound
+  capture session plus canonical logging before ingestion.
+
+The machine-readable `capture_integrity` grade is deliberately limited to **visible receipts
+and join state**. Whole-plane seq gaps, local receipt timestamps, reconnect/QoS history, clock
+sync, and authenticated peer identity remain unassessed. The deterministic wire-trace
+protocol-fault observatory specified in `grandplan.md` Appendix F is still not runnable; do not
+promote this prerequisite work to E4, EC1, live Engram validation, or security validation.
 
 ## 4. Workstreams (the three gaps, in priority order)
 
@@ -111,8 +126,8 @@ dropped and counted by this plane observer. The manifest and lockfile pin the im
 are held for a reorder grace window so a matching readout that arrives *after* its
 command can still claim its own tick. Once emitted, a sample and its canonical event
 are immutable. There is no `latest_d`, recency fallback, or post-emission patch path.
-Tests cover in-order, reordered-within-grace, source-less pull-form drop, epoch isolation,
-and immutable late-D paths.
+Tests cover in-order, reordered-within-grace, source-less pull-form drop, pre-active/future
+epoch isolation, exact/conflicting redelivery across retirement, and immutable late-D paths.
 What remains:
 - **Live producer (external — the remaining alignment gap):** the wire contract requires the
   publisher to stamp each plane `ObservationFrame` with the driving sensor `source` at
@@ -184,8 +199,15 @@ cargo test  --manifest-path crates/ncp-observer/Cargo.toml
 cargo run --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
     --open --session <id> --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
 cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
-    --summary-json outputs/ncp_summary.json --runlog outputs/ncp_pid_runlog.jsonl
+    --pid-mode none --summary-json outputs/ncp_summary.json \
+    --runlog outputs/ncp_baseline_runlog.jsonl
 ```
+
+The harness verifies `outputs/ncp_vlda.json.publication.json` and rejects degraded/invalid
+captures. This command requests no PID because the adapter declares no population support.
+Continuous KSG/shared-exclusions requests would abstain rather than infer support from the
+observed sample; quantized discrete `I_min` would remain non-evidentiary with population
+`NotEvaluated` and application `Blocked`.
 
 The `ncp-core` / `ncp-zenoh` dependencies pin the immutable published `v0.8.0` tag in
 lockstep. The crate stays off the default workspace so NCP/Zenoh resolution cannot break
@@ -195,7 +217,7 @@ root workspace resolution; scientific PID gates remain a separate question.
 
 - `crates/ncp-observer/README.md` — what it does + the closed-loop payoff.
 - `crates/ncp-observer/src/lib.rs` — `Observer` (full-`StreamPosition` source join,
-  epoch-scoped `d_by_seq`, `emit_ready`).
+  full-key `d_by_key`, retained receipts, `emit_ready`).
 - `NEURO_CYBERNETIC_PROTOCOL.md` in <https://github.com/sepahead/NCP> — the NCP spec (Gap 1 lives here).
 - `experiments/safe_adapter/` — the reference `(V,L,D,A)` contract adapter to mirror for
   provenance and split/label structure; real capture and protocol preflights remain open.

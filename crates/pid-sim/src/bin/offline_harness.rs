@@ -8,7 +8,7 @@ use pid_sim::offline_harness::{
     offline_vlda_heldout_episode_disjoint_status, offline_vlda_heldout_split_failure_message,
     offline_vlda_heldout_split_status, offline_vlda_split_scientific_eligibility_failure_message,
     offline_vlda_success_label_failure_message, offline_vlda_success_label_status,
-    offline_vlda_train_split_pid_status, read_offline_vlda_dataset,
+    offline_vlda_train_split_pid_status, read_offline_vlda_dataset_with_hash,
     run_offline_vlda_harness_with_options, write_offline_pid_uncertainty,
     write_offline_vlda_runlog_with_options, write_offline_vlda_summary, OfflineVldaHarnessOptions,
     OfflineVldaRunlogOptions, OfflineVldaUncertaintyConfig, PermutationScheme, PidMode,
@@ -40,9 +40,12 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = parse_args(std::env::args().skip(1))?;
-    let input_sha256 = pid_runlog::sha256_file(&args.input)
-        .with_context(|| format!("failed to hash {}", args.input.display()))?;
-    let dataset = read_offline_vlda_dataset(&args.input)?;
+    let input_uri = args
+        .input
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("--input path must be valid UTF-8 for run-log provenance"))?
+        .to_string();
+    let (dataset, input_sha256) = read_offline_vlda_dataset_with_hash(&args.input)?;
     let harness_options = OfflineVldaHarnessOptions {
         pid_mode: args.pid_mode,
         discrete_bins: args.discrete_bins,
@@ -50,7 +53,7 @@ fn main() -> Result<()> {
     };
     let report = run_offline_vlda_harness_with_options(
         dataset.clone(),
-        Some(args.input.display().to_string()),
+        Some(input_uri),
         Some(input_sha256),
         &harness_options,
     )?;
