@@ -821,6 +821,12 @@ The analysis begins with a common preflight and then follows exactly one primary
 4. Keep all snapshots, clone replicates, landmarks, and episodes from one persistent case or task-family cluster in the same outer fold.
 5. Predeclare whether the scientific claim is frozen-snapshot algorithmic sensitivity or randomized closed-loop effect moderation.
 
+**Current implementation boundary (2026-07-13).** `pid-h1-preflight` implements a strict,
+content-addressed fixture validator for this shared structural/noninterference preflight and writes
+a canonical valid failed run log when the contract is rejected. It does not execute a policy
+intervention, estimate a Protocol-A response, perform Protocol-B assignment/effect scoring, or
+clear H1. Those protocol-specific stages remain blocked on pilot and capture work.
+
 ### Protocol A — paired algorithmic response
 
 Clone from a content-addressed immutable snapshot after \(D_i\) is captured and immediately before the intervention site. Record model/checkpoint, weights, adapters, recurrent/cache state, preprocessing state, numerical precision, device/kernel versions, decoder state, policy RNG state, and all intervention code/configuration.
@@ -1491,7 +1497,8 @@ The core thesis must run with NCP disabled and must survive a PID NO-GO. WorldWa
 A release candidate passes the firebreak only when:
 
 - the capture/intervention/replay core builds and executes without NCP;
-- H1/H2 baselines execute with PID disabled and without `pid-rs` atoms;
+- the static factual-outcome label baselines execute with PID disabled and without `pid-rs`
+  atoms; this dependency smoke is groundwork, not H1 response scoring or prospective H2;
 - an ordinary local-file or standard-format adapter can replace every sibling repository;
 - no private repository, unpublished model, personal token, or sibling checkout is required for the minimum viable thesis;
 - optional world-model, 3D, viewer, and asset components can fail without changing assignments, primary outcomes, or provenance of already-recorded runs;
@@ -1886,7 +1893,8 @@ Deliver:
 - graded replay report and external baseline comparison;
 - E0–E5 evidence ledger for every claimed repository edge;
 - NCP read-only observer report if activated, including secure/open realm choice;
-- dependency-firebreak test with NCP disabled and PID-disabled H1/H2 path;
+- dependency-firebreak test with NCP disabled and the static factual-outcome label-baseline smoke
+  running with PID disabled; actual Protocol A/B and prospective H2 execution belong to M4/M5;
 - supply-chain manifest, exact revisions, licenses, and adapter promotion reports.
 
 **Stop infrastructure-paper claim:** no material advantage over a simpler stack, or the minimum viable experiments require unpublished/private sibling components. Continue with the simpler stack and keep Prisoma as project software.

@@ -81,8 +81,8 @@ cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimen
   repair the upstream continuous application gate; implement leakage-safe episode-local H1 scores
   plus action-entropy and ensemble/temperature baselines; freeze transforms and task eligibility;
   and replace the implemented idealized power tool with the nested capture design in
-  `grandplan.md` §6.8. The first power report is overall NOT PASSED and its task/case counts are
-  withdrawn as capture requirements.
+  `grandplan.md` §6.8. The first power report is overall NOT PASSED and all of its first-run grid
+  counts are withdrawn as capture requirements.
 
 ```mermaid
 flowchart LR
@@ -152,7 +152,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 1. **Exp0 — PID population/measure/estimator/application diagnostics (S1).** GO/PIVOT/NO‑GO. *Runnable today* (`just exp0-bin`); current verdict on synthetic high‑d controls remains **NO‑GO** under the pinned pid-rs 1.0 environment (`findings.md`). No PID atom or H3 result is interpretable without all four gates; EC1 and the non-PID H1/H2/H4 paths continue with PID disabled (`grandplan.md` §7, §8.9.3).
 2. **EC1 capture/replay + adapter (S2).** The offline `(V,L,D,A)` harness, SAFE adapter, and sim/Rapier `Flow_gt` cross‑checks are *runnable today* (`just runlog-sim-verify`); the external infrastructure benchmark and a second adapter are pending (`grandplan.md` §8.8).
 3. **Intervention pilot (S3).** Dose / target‑engagement / placebo / OOD checks on one interpretable intervention. *Blocked on capture* (`grandplan.md` §5.4, §5.6).
-4. **H1 — pre‑treatment diagnostics predict intervention response** (Protocol A paired and/or Protocol B randomized). *Blocked on capture* (`grandplan.md` §6.3).
+4. **H1 — pre‑treatment diagnostics predict intervention response** (Protocol A paired and/or Protocol B randomized). The common structural/noninterference preflight is fixture-runnable, but neither response protocol is implemented; scientific H1 remains *blocked on pilot + capture* (`grandplan.md` §6.3).
 5. **H2 — prospective, censoring‑aware failure prediction** vs the comparator frontier. *Blocked on capture* (`grandplan.md` §6.4).
 6. **H3 or H4 — conditional PID incremental value, or the availability–use gap.** *Blocked on the estimator application gate / capture* (`grandplan.md` §7, §4).
 7. **Transport replication (S7)** — second task family, policy, simulator, or embodiment; mind the embodiment‑in‑`L` confound. *Blocked on capture* (`grandplan.md` §5.11).
@@ -172,7 +172,10 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
 - **Implemented (Rust, in the pinned `pid-rs` 1.0 submodule):** `pid-core` (stable report-first KSG/categorical/quantized surfaces plus default-off continuous shared exclusions, PLS/pipelines, hierarchy, and hyperbolic research features; discrete SxPID `i^sx_∩` supports 2–4 sources but is *not yet wired into the offline harness*), `pid-python` (a typed stable `pid_core_rs` surface for `compute_mi_report`, categorical SxPID/`I_min`, fitted quantization, and diagnostics; pre-1.0 scalar calls exist only in the default-off migration module), and `pid-runlog` (the canonical EC1 JSONL run-log schema + replay/validate/compare/summary/manifest/sidecar CLI).
 - **Implemented (Rust, local crates):** `pid-bridge` (Agent Bridge dispatch/JSON-RPC-shaped
   conversion/contract export), `pid-sim` (deterministic sim, real optional Rapier backend,
-  manipulation harness, transports, and offline VLDA screens), and `pid-rerun`. Implemented
+  manipulation harness, transports, offline VLDA screens, and a fail-closed H1 common-preflight
+  validator/CLI for content-addressed fixture plumbing and diagnostic-instrumentation
+  noninterference), and `pid-rerun`. The H1 preflight is not Protocol A/B execution and produces
+  no H1 scientific evidence. Implemented
   baselines are majority, 1-NN, nearest-centroid, and held-out logistic regression; action
   predictive entropy and ensemble/temperature uncertainty are still missing. The code review
   also identifies network-authentication, transactional logging, reconstructability, and
@@ -218,6 +221,24 @@ just toy-harness
 ```
 
 Without `just`: `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`, then validate with `pid-runlog-replay --validate outputs/toy_vla_runlog.jsonl`. This is a deterministic toy task, **not VLA evidence** — it exercises label events, a replay-linked `(V,L,D,A)` contract, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export end to end.
+
+## Quick Start — H1 Common Preflight
+
+```bash
+just h1-preflight
+```
+
+The recipe runs a passing fixture plus semantic/artifact- and parse-rejection fixtures, validates every
+resulting run log, checks deterministic output, and asserts zero PID events. Without `just`:
+
+```bash
+cargo run -p pid-sim --bin pid-h1-preflight -- \
+  --input INPUT --summary-json SUMMARY --runlog RUNLOG
+```
+
+Artifact paths resolve below the input directory unless `--artifact-root` is supplied.
+The CLI verifies declared artifact bytes and shared structural/noninterference requirements only.
+It neither executes nor clears Protocol A or B.
 
 ## Quick Start — Offline (V,L,D,A) Embedding Harness
 

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "case_id": "case-1",
+      "task_family_id": "family-1",
+      "interference_cluster_id": "cluster-1",
+      "outer_fold": "fold-1"
+    }
+  ]
+}

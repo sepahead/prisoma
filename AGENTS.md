@@ -112,7 +112,11 @@ being true as the code moves).
   train-fit, held-out-scored), held-out per-sample prediction records, failure-class
   confusion/rate diagnostics, `--pid-mode none|continuous|discrete|discrete-pls` (`none` is the
   true zero-MI/PID dependency-firebreak path) with per-pair
-  `discrete_saturation` diagnostics, and a high-dimensional synthetic VLDA fixture
+  `discrete_saturation` diagnostics; a fail-closed typed H1 common-preflight validator/CLI with
+  exact-byte content-addressed/strictly bound manifests, clock/timing/lineage/fold checks,
+  per-axis-scaled outputs, paired start/reset/RNG/input receipts, diagnostic-instrumentation
+  noninterference, valid failed run logs, and passing/failing fixtures (software-contract evidence
+  only — neither Protocol A nor B); and a high-dimensional synthetic VLDA fixture
   (`offline_vlda_highdim_fixture.json`: v=128, l=64, d=32, a=7).
 - **`pid-rerun`** — run-log→Rerun conversion and a validated replay adapter with
   summary/provenance/validation diagnostics; replay summaries distinguish unique metric
@@ -123,8 +127,9 @@ being true as the code moves).
 - **`safe_adapter/`** — the **reference `(V,L,D,A)` producer** for the confirmatory
   H-experiments (the S2/EC1 adapter contract): converts released SAFE VLA rollouts into the
   `(V,L,D,A)`+labels harness contract with honest per-axis `{v,l,d,a}_provenance` markers and a
-  layerwise physics-decodability hook probe. The instrumented-versus-uninstrumented diagnostic
-  noninterference preflight required by `grandplan.md` §6.3 remains separate and unimplemented.
+  layerwise physics-decodability hook probe. The generic instrumented-versus-uninstrumented
+  preflight validator is implemented in `pid-sim`, but `safe_adapter` does not yet produce the real
+  paired policy evaluations required to clear it.
 - **`attribution/`** — faithfulness-checked attribution/mechanistic probe (H4 / exploratory;
   epsilon-/AttnLRP + grad×input on a small reference model; deletion-AOPC vs random control)
   emitting `attribution_logged` events that pass `pid-runlog-replay --validate`. Production VLAs
@@ -165,8 +170,9 @@ plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObs
   `cargo build --manifest-path crates/ncp-observer/Cargo.toml`.
 - **Off the critical path:** an optional, read-only `(V,L,D,A)` source only — grandplan does
   not depend on Engram; the reference producer for the confirmatory H-experiments is
-  `experiments/safe_adapter`, and the core builds with NCP disabled and runs H1/H2 with PID
-  disabled (dependency firebreak, `grandplan.md` §8.9.3). Workspace tests remain independent
+  `experiments/safe_adapter`, and the core builds with NCP disabled and runs its static non-PID
+  label-baseline smoke with PID disabled (dependency firebreak, `grandplan.md` §8.9.3). This is
+  groundwork for H1/H2, not either protocol. Workspace tests remain independent
   of NCP/Engram/Zenoh; the high-dimensional MI/coherence and application verdicts remain
   NO-GO/BLOCKED as stated above.
 - **Integrity repair (2026-07-10; wire-0.8 migration reconciled 2026-07-13):** V, A, and D
@@ -219,6 +225,8 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
   - `just exp0-runlog` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl`)
 - Toy labeled harness:
   - `just toy-harness` (or `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`)
+- H1 common structural/noninterference preflight (fixture plumbing, not Protocol A/B evidence):
+  - `just h1-preflight`
 - Offline VLDA embedding harness:
   - `just offline-harness` (or `cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl`)
   - `just offline-harness-require-labels` — exercises `--require-success-labels` on the labeled fixture.

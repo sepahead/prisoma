@@ -463,7 +463,7 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 | **PID-Core** | Read-only information analysis | Computes candidate diagnostics from logged/captured data; it never triggers actions, pauses, or corrections |
 | **Attribution probes** | Local explanation baselines | Reference epsilon-/AttnLRP + gradient×input probe and Rerun adapter are implemented; other methods/production-VLA hooks remain extensions |
 
-Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status, deterministic stepping, deterministic interventions, replay, run lifecycle stop, and `export.rerun`; safe mode keeps status/replay read-only and rejects mutation, run-ending, or file-writing exports. This is **partial M2 groundwork**, not completion of the full M2 acceptance contract (all target UI/VLA/backend controls plus a versioned subscription stream). Likewise, the validating run-log-to-Rerun converter is **partial M4 groundwork**; the complete blueprint/viewer remains specified, not built.
+Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status, deterministic stepping, deterministic interventions, replay, run lifecycle stop, and `export.rerun`; safe mode keeps status/replay read-only and rejects mutation, run-ending, or file-writing exports. This is **partial M2 groundwork**, not completion of the full M2 acceptance contract (all target UI/VLA/backend controls plus a versioned subscription stream). Likewise, the validating run-log-to-Rerun converter is **partial M2/EC1 viewer groundwork**; the complete blueprint/viewer remains specified, not built.
 
 ---
 

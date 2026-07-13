@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "scope": "software_preflight_only",
+  "status": "applied",
+  "reset_boundary": "immutable_snapshot_restore",
+  "entries": [
+    {
+      "case_id": "case-1",
+      "repeat_id": "repeat-1",
+      "paired_starting_state_sha256": "4064fee8cbea6e095e1c4a3a928496a9cbc4213ce9370b15b5a717189b18908e",
+      "sides": ["uninstrumented", "instrumented"]
+    },
+    {
+      "case_id": "case-1",
+      "repeat_id": "repeat-2",
+      "paired_starting_state_sha256": "4064fee8cbea6e095e1c4a3a928496a9cbc4213ce9370b15b5a717189b18908e",
+      "sides": ["uninstrumented", "instrumented"]
+    }
+  ]
+}

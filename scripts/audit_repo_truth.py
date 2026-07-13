@@ -9,6 +9,7 @@ firebreak wording, and generated notices that name the wrong local package versi
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import tomllib
@@ -177,8 +178,103 @@ def main() -> int:
         for required in ("--pid-mode none", "pid_metrics=0", "pid_metric_events=0"):
             if required not in text:
                 problems.append(f"{relative} firebreak is missing {required!r}")
+        if "H1/H2 baseline predictors" in text:
+            problems.append(
+                f"{relative} overstates the static label-baseline firebreak as H1/H2 execution"
+            )
+        for required in (
+            "pid-h1-preflight",
+            "h1_preflight_valid.json",
+            "h1_preflight_invalid.json",
+            "h1_preflight_parse_invalid.json",
+            "establishes_h1_evidence",
+        ):
+            if required not in text:
+                problems.append(f"{relative} H1 preflight smoke is missing {required!r}")
+
+    if not (ROOT / "crates/pid-sim/src/bin/h1_preflight.rs").is_file():
+        problems.append("pid-h1-preflight binary is missing")
+    for fixture in (
+        "h1_preflight_valid.json",
+        "h1_preflight_invalid.json",
+        "h1_preflight_parse_invalid.json",
+    ):
+        if not (ROOT / "crates/pid-sim/fixtures" / fixture).is_file():
+            problems.append(f"H1 preflight fixture is missing: {fixture}")
+
+    power_doc = (ROOT / "docs/power-gate/README.md").read_text(encoding="utf-8")
+    if "Historical idealized grid outputs — withdrawn; not capture requirements" not in power_doc:
+        problems.append("docs/power-gate/README.md does not withdraw retired capture counts")
+    if "## Capture-scale requirements" in power_doc:
+        problems.append("docs/power-gate/README.md revives retired capture requirements")
+    power_artifact = json.loads(
+        (ROOT / "docs/power-gate/power-gate-2026-07-10.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    power_verdicts = {
+        verdict["endpoint_id"]: (
+            verdict["smallest_passing_grid_n"],
+            verdict["null_rate_at_smallest_passing_grid_n"],
+            verdict["passed"],
+        )
+        for verdict in power_artifact["verdicts"]
+    }
+    expected_power_verdicts = {
+        "h1": (None, None, False),
+        "h2": (64, 0.05, True),
+        "h3": (40, 0.0675, True),
+        "h4": (96, 0.0675, True),
+    }
+    if power_verdicts != expected_power_verdicts:
+        problems.append("power-gate artifact verdicts changed; reconcile active interpretation")
+    for required in (
+        "artifact verdict `passed=false`",
+        "Smallest same-n passing grid point: 64",
+        "Smallest same-n passing grid point: 40",
+        "Smallest same-n passing grid point: 96",
+    ):
+        if required not in power_doc:
+            problems.append(
+                f"docs/power-gate/README.md omits artifact-backed verdict {required!r}"
+            )
+
+    splat_spec = (ROOT / "pidsplatspecs.md").read_text(encoding="utf-8")
+    if "Schema 2; partial M2/EC1 groundwork" not in splat_spec:
+        problems.append("pidsplatspecs.md does not record the current run-log schema/M2 status")
+    if "This is partial M4" in splat_spec:
+        problems.append("pidsplatspecs.md mislabels run-log groundwork as M4")
+    if "pid-h1-preflight" not in splat_spec:
+        problems.append("pidsplatspecs.md omits the implemented H1 common preflight")
+    for relative in ("pidsplatspecs.md", "ARCHITECTURE.md"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        if re.search(r"partial\s+M4\s+groundwork", text, flags=re.IGNORECASE):
+            problems.append(f"{relative} mislabels viewer/run-log groundwork as M4")
+
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    for required in (
+        "H1 did not reach a passing grid point",
+        "H2 first passed\n  at 64 tasks",
+        "H3 first passed at 40 matched cases",
+        "H4 first passed at 96 tasks",
+    ):
+        if required not in changelog:
+            problems.append(f"CHANGELOG.md omits corrected power verdict {required!r}")
+    for stale in (
+        "using the *preregistered\n  procedures themselves*",
+        "H3 powered at 30 matched cases",
+        "H2/H4 at 96 tasks",
+    ):
+        if stale in changelog:
+            problems.append(f"CHANGELOG.md retains stale power claim {stale!r}")
 
     grandplan = (ROOT / "grandplan.md").read_text(encoding="utf-8")
+    if "H1/H2 baselines execute with PID disabled" in grandplan:
+        problems.append("grandplan.md overstates the static label-baseline firebreak")
+    for relative in ("grandplan.md", "RESEARCH_VLA_D_NCP.md"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        if "PID-disabled H1/H2 path" in text:
+            problems.append(f"{relative} overstates the dependency firebreak as H1/H2 execution")
     for stale in (
         "while its submodule remains pinned to `8a5a9d",
         "`pid-rs@70b45f7…` as a **candidate upgrade**",

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "metric": "l2",
+  "axes": [
+    {
+      "axis_name": "fixture_action_0",
+      "scale": 1.0,
+      "unit": "dimensionless_fixture_unit"
+    },
+    {
+      "axis_name": "fixture_action_1",
+      "scale": 1.0,
+      "unit": "dimensionless_fixture_unit"
+    }
+  ],
+  "scope": "software_preflight_only"
+}

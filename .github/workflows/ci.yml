@@ -33,9 +33,9 @@ jobs:
           # The `--workspace` build/clippy/tests above never compiled `ncp-observer`
           # (workspace-excluded), proving the NCP-disabled core path; the dedicated
           # `Clippy (ncp-observer …)` step is a separate opt-in consumer check. Here we
-          # assert the H1/H2 baseline predictors (majority + the SAFE-class held-out logistic
-          # regression) are emitted independently of the PID screens — i.e. the prediction
-          # stack stands without PID atoms.
+          # Assert static factual-outcome label baselines (majority + the SAFE-class held-out
+          # logistic regression) are emitted independently of PID. This is dependency groundwork,
+          # not H1 response scoring or prospective H2 landmark prediction.
           cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/prisoma_firebreak_summary.json --runlog /tmp/prisoma_firebreak_runlog.jsonl --pid-mode none
           grep -q '"majority_success_accuracy"' /tmp/prisoma_firebreak_summary.json
           grep -q '"heldout_logreg_vlda_success_accuracy"' /tmp/prisoma_firebreak_summary.json
@@ -46,6 +46,24 @@ jobs:
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_firebreak_runlog.jsonl | grep -q 'pid_metric_events=0'
       - name: Run-log smoke
         run: |
+          cargo run -p pid-sim --bin pid-h1-preflight -- --input crates/pid-sim/fixtures/h1_preflight_valid.json --summary-json /tmp/prisoma_h1_preflight_summary.json --runlog /tmp/prisoma_h1_preflight_runlog.jsonl
+          grep -q '"passed": true' /tmp/prisoma_h1_preflight_summary.json
+          grep -q '"establishes_h1_evidence": false' /tmp/prisoma_h1_preflight_summary.json
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_h1_preflight_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h1_preflight_runlog.jsonl | grep -F 'pid_metrics=0' >/dev/null
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h1_preflight_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+          cp /tmp/prisoma_h1_preflight_runlog.jsonl /tmp/prisoma_h1_preflight_runlog.first.jsonl
+          cargo run -p pid-sim --bin pid-h1-preflight -- --input crates/pid-sim/fixtures/h1_preflight_valid.json --summary-json /tmp/prisoma_h1_preflight_summary.json --runlog /tmp/prisoma_h1_preflight_runlog.jsonl
+          cmp -s /tmp/prisoma_h1_preflight_runlog.first.jsonl /tmp/prisoma_h1_preflight_runlog.jsonl
+          if cargo run -p pid-sim --bin pid-h1-preflight -- --input crates/pid-sim/fixtures/h1_preflight_invalid.json --summary-json /tmp/prisoma_h1_preflight_invalid_summary.json --runlog /tmp/prisoma_h1_preflight_invalid_runlog.jsonl; then exit 1; fi
+          grep -q '"artifact_hash_mismatch"' /tmp/prisoma_h1_preflight_invalid_summary.json
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_h1_preflight_invalid_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h1_preflight_invalid_runlog.jsonl | grep -F 'errors=1' >/dev/null
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h1_preflight_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+          if cargo run -p pid-sim --bin pid-h1-preflight -- --input crates/pid-sim/fixtures/h1_preflight_parse_invalid.json --summary-json /tmp/prisoma_h1_preflight_parse_invalid_summary.json --runlog /tmp/prisoma_h1_preflight_parse_invalid_runlog.jsonl; then exit 1; fi
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_h1_preflight_parse_invalid_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h1_preflight_parse_invalid_runlog.jsonl | grep -F 'errors=1' >/dev/null
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h1_preflight_parse_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
           cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --seeds 1 --summary-json /tmp/prisoma_exp0_summary.json --runlog /tmp/prisoma_exp0_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_exp0_runlog.jsonl
           cargo run -p pid-sim --bin pid-toy-harness -- --episodes 32 --summary-json /tmp/prisoma_toy_summary.json --runlog /tmp/prisoma_toy_runlog.jsonl

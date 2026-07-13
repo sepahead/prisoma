@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### H1 common-preflight contract + truth audit (2026-07-13)
+
+- Added a strict, fail-closed H1 common-preflight schema and `pid-h1-preflight` CLI. It binds the
+  source run, analysis, population, split, blinding/order, output-metric, snapshot, moderator,
+  start/reset/RNG/input receipts, memory, and cache artifacts by exact-byte verified SHA-256;
+  parses the frozen manifests strictly; validates a common clock and strict pre-treatment order;
+  keeps task families/interference clusters in one outer fold; applies the declared per-axis output
+  scales; and checks blinded, counterbalanced instrumented/uninstrumented outputs, latency,
+  controller offsets, paired starting state, memory, and cache with stable reason codes and explicit
+  local-check denominators.
+  Passing/failing fixtures and canonical schema-2 run logs exercise the contract in CI. This is
+  structural software evidence only: no Protocol A/B response estimate or H1 scientific evidence
+  is produced.
+- Corrected the dependency-firebreak language: the current `--pid-mode none` smoke proves static
+  factual-outcome label baselines run without PID atoms; it is not H1 response prediction or
+  prospective H2. Withdrew the retired v10.7 power-grid counts as current capture requirements and
+  corrected `pidsplatspecs.md` to schema 2 / partial-M2 truth.
+
 ### `pid-rs` 1.0 migration + estimate abstention subsystem (2026-07-12)
 
 - **Bumped the `pid-rs` submodule `8a5a9dd` (0.4.0) → `ac4a780` (1.0.0).** This is an
@@ -98,25 +116,16 @@
 ### Added
 
 - **§14.8.3 power gate implemented and first-run** (`crates/pid-sim/src/power.rs`,
-  binary `pid-sim-power-gate`, artifacts in `docs/power-gate/`). Simulation-based
-  power analysis for the H1–H4 primary endpoints using the *preregistered
-  procedures themselves* at the correct analysis units: H1 = episode-level paired
-  bootstrap of the incremental held-out ΔAUROC on a binormal feature model whose
-  injected effect is exact by construction (`d = √2·Φ⁻¹(AUROC)`); H2/H4 =
-  family-blocked bootstrap of Spearman ρ across *tasks* (Gaussian-copula
-  calibrated, `r = 2·sin(πρ/6)`); H3 = family-blocked case-resampling bootstrap of
-  mean per-case Kendall τ (noise calibrated to E[τ] = 1/3 by deterministic
-  bisection). Results (400 replicates/cell, 500 bootstraps, one-sided α = 0.05):
-  **H3 powered at 30 matched cases** (the "≥ 20" floor alone is underpowered),
-  **H2/H4 at 96 tasks** (episodes cannot substitute — the §14.8.3 category-error
-  warning, quantified), **H1 at ~640 episodes for a design effect ΔAUROC ≥ 0.08**,
-  and a pre-data structural finding: the H1 dual success criterion (significant
-  AND point ≥ 0.05) has an asymptotic ~0.5 power ceiling when the true effect
-  equals the preregistered minimum — forcing the §14.8.3 scale-or-downgrade
-  choice explicitly. Null-cell sizes verified on all three endpoints; the H1
-  futility rule fires under the null in 77–97% of replicates at 480–960
-  episodes. Six unit tests (quantile round-trip, AUROC/Spearman/Kendall
-  hand-checks, binormal calibration, τ calibration, small-grid sanity).
+  binary `pid-sim-power-gate`, artifacts in `docs/power-gate/`). This was the first run of the
+  then-v10.7 **idealized endpoint model**, not the current Protocol-A/Protocol-B/prospective-H2
+  procedures or nested capture design. It used an episode-level binormal ΔAUROC model,
+  family-blocked Gaussian-copula task correlations, and a family-blocked matched-case Kendall
+  model. Exact machine-readable verdicts (400 replicates/cell, 500 bootstraps, one-sided α = 0.05)
+  were: **H1 did not reach a passing grid point at its registered minimum effect; H2 first passed
+  at 64 tasks; H3 first passed at 40 matched cases; H4 first passed at 96 tasks.** H3's 30-case
+  raw-power cell failed its same-n null-size screen. Raw H1 0.08-effect power was 0.795 at 640 and
+  0.897 at 960 episodes, but those cells are not capture requirements. The dated unit tests cover
+  quantile, AUROC/Spearman/Kendall, calibration, and grid-selection mechanics.
 
 ### Changed
 

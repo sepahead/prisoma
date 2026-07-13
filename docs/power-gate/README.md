@@ -11,25 +11,35 @@ criteria in `PowerGateConfig::default()`); artifacts:
 [`POWER-GATE-2026-07-10.md`](POWER-GATE-2026-07-10.md),
 [`power-gate-2026-07-10.json`](power-gate-2026-07-10.json). 400 Monte-Carlo
 replicates per cell, 500 bootstrap resamples per replicate, one-sided α = 0.05,
-target power 0.8. Every simulator runs the *preregistered statistical procedure
-itself* (episode-level paired bootstrap for H1; family-blocked bootstrap for
-H2–H4) at the correct analysis unit, per `grandplan.md` §6.8.
+target power 0.8. Each simulator executes its retired v10.7 procedure (episode-level
+paired bootstrap or family-blocked bootstrap) at the simplified unit encoded by that tool; those
+units and endpoints do not implement the current §6.8 design.
 
-## Capture-scale requirements (the numbers the data-pull must meet)
+## Historical idealized grid outputs — withdrawn; not capture requirements
 
-| Endpoint | Unit | Requirement for power ≥ 0.8 |
+The table below records what the retired v10.7 endpoint simulator emitted. **None of these counts
+is a capture requirement, lower bound, recommendation, or current power result.** Registry H1 now
+uses a Protocol-A response score or Protocol-B effect-specific validation; registry H2 uses
+prospective landmark scoring with censoring, calibration, alarm opportunities, and decision
+utility. This simulator modeled none of those quantities, the nested family → case → episode
+design, PID/SSI measurement error, or selected-design type-I error. The replacement capture gate is
+therefore **NOT READY / NOT PASSED** (`grandplan.md` §6.8; `EXPERIMENTS.md` runbook).
+
+| Retired endpoint | Simulated unit | Historical grid result (non-operative) |
 |---|---|---|
-| H1 (incremental ΔAUROC, dual criterion) | episodes | **~640 episodes if the true effect is ≥ 0.08**; see ceiling note below for effects at the bare preregistered minimum 0.05 |
-| H2/H4 (Spearman ρ ≥ 0.3 across tasks) | tasks | **96 tasks** (64 gives 0.78; 48 gives 0.66). Episodes cannot substitute for tasks — §6.8's category-error warning is quantitatively confirmed |
-| H3 (mean per-case Kendall τ ≥ 1/3) | matched cases | **30 cases** (the protocol's "≥ 20" floor alone is *under*powered: 20 → ~0.7) |
+| v10.7 H1 incremental ΔAUROC | episodes | No passing grid point at the registered minimum effect; artifact verdict `passed=false` |
+| v10.7 H2 Red/ablation Spearman correlation | tasks | Smallest same-n passing grid point: 64; null rate 0.050 / tolerance 0.083 |
+| v10.7 H3 Kendall correlation | matched cases | Smallest same-n passing grid point: 40; null rate 0.068 / tolerance 0.083 |
+| v10.7 H4 SSI/degradation Spearman correlation | tasks | Smallest same-n passing grid point: 96; null rate 0.068 / tolerance 0.083 |
 
-Null-cell size checks pass on all three endpoints (H1 0.020, H2/H4 0.058,
-H3 0.080 against a 3-SE Monte-Carlo slack bound of 0.083); the H1 bootstrap
-test is *conservative* (empirical size ≈ 0.02 at nominal 0.05).
+Those values reproduce the machine-readable verdicts exactly. H3's raw power is 0.818 at 30
+cases, but its same-n null rate is 0.102, so 30 is not a passing verdict; 40 is the first grid point
+whose power and same-n size screen both pass. H1 has no smallest-passing-grid null cell because its
+registered minimum-effect verdict never passes.
 
 ## Structural finding: the H1 dual success criterion has a ~0.5 power ceiling at the minimum effect
 
-§6.8 defines H1 success as *both* one-sided significance *and* point
+The retired v10.7 rule defined success as *both* one-sided significance *and* point
 estimate ≥ 0.05. When the **true** incremental ΔAUROC equals the preregistered
 minimum (0.05) exactly, the point estimate falls below the threshold roughly
 half the time no matter how many episodes are collected (the estimator is
@@ -41,35 +51,25 @@ here **before any real data**, not a deficiency of the estimator or a reason
 to relax the preregistered thresholds (changing them post hoc would be a
 protocol violation).
 
-Consequences for the capture decision (choose and record one, per §6.8):
+Historical interpretation under that retired endpoint only:
 
-1. **Scale for a design effect above the minimum.** If H1's PID/CI features are
-   worth their complexity, an incremental ΔAUROC of ≥ 0.08 is the kind of
-   effect the thesis should be claiming; ~640 episodes power that at 0.8
-   (0.795 at 640, 0.897 at 960). Effects in [0.05, 0.08) would then land in
-   the §6.8 "significant but below/at the preregistered minimum" reporting
-   band with honest, pre-declared power ≈ 0.5–0.8.
-2. **Downgrade H1 to estimation-with-CIs** (no significance test), preregistered
-   as such, if the feasible capture is materially below ~640 episodes.
+1. Outside the registered-minimum verdict, the raw 0.08-effect cells were 0.795 at 640 episodes and
+   0.897 at 960. The former is still below the 0.8 target and neither is a current capture result.
+2. That numerical fact cannot size current Protocol A, Protocol B, or prospective H2. A new design
+   simulation must use the selected protocol-specific endpoint and independent-unit hierarchy.
 
-The futility rule has real teeth at scale: under the null it correctly fires in
+Under the retired simulator's null DGP, its futility rule fires in
 77% / 86% / 97% of replicates at 480 / 640 / 960 episodes (95% CI upper bound
-< 0.02), so a genuinely absent H1 effect will be *declared* futile rather than
-lingering.
+< 0.02). This is a property of that historical model and rule, not evidence about the power or
+futility behavior of current H1.
 
 ## What this does and does not gate
 
-- **Covered**: the H1–H4 primaries (per §6.8 scope). The retired/exploratory
-  temporal-synergy endpoint (v10.7 "H5") is powered through the dependence/windowing
-  rule now in §6.7; the remaining v10.7 exploratory ids stay exploratory-scale and
-  have their own mechanics.
-- The simulation models the *statistical procedures* at the analysis-unit
-  level (episode-level features with a binormal signal model whose injected
-  incremental effect is exact by construction). It does not — and per
-  §6.8 need not — model the PID estimators themselves; estimator-level
-  behavior is the estimator gate's job (S1 / grandplan §7).
-- The `NOT PASSED` overall verdict is the gate working as designed: it means
-  "H1's dual criterion cannot reach 0.8 power at the bare minimum effect on
-  any feasible grid" (the ceiling above), and forces the choice between the
-  two §6.8 options rather than letting an underpowered capture proceed
-  silently.
+- **Historically covered only:** the retired v10.7 H1–H4 endpoint labels shown above. It does not
+  cover any current EC1/H1–H4 primary endpoint.
+- The simulation models retired statistical procedures with a binormal signal model whose injected
+  incremental effect is exact by construction. It omits the current nested design and PID/SSI
+  measurement error; estimator-level behavior remains a separate S1/§7 concern.
+- The artifact's `NOT PASSED` verdict applies to its retired dual criterion. Current capture
+  readiness is independently `NOT READY / NOT PASSED` because no protocol-specific replacement
+  simulation exists.

@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "population_id": "fixture-finite-benchmark",
+  "target_population": "finite_benchmark",
+  "scope": "software_preflight_only"
+}

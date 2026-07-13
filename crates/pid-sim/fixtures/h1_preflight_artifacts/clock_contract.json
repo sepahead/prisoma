@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "domain_id": "fixture-monotonic-clock",
+  "kind": "monotonic",
+  "epoch": "fixture-process-start",
+  "scope": "software_preflight_only"
+}

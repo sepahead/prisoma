@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "scope": "software_preflight_only",
+  "primary_protocol": "protocol_b",
+  "source_run_id": "h1-fixture-source",
+  "target_population_id": "fixture-finite-benchmark",
+  "clock_epoch_id": "fixture-process-start",
+  "baseline_state_boundary": "after_diagnostic_capture",
+  "application_boundary": "before_policy_head",
+  "reset_boundary": "immutable_snapshot_restore",
+  "treatment_site": "policy.hidden.4",
+  "treatment_version": "mask-v1",
+  "treatment_dose": 0.25,
+  "treatment_dose_unit": "fixture_fraction",
+  "missing_value_policy": "fail_run",
+  "pid_abstention_policy": "not_applicable",
+  "tolerances": {
+    "output_distance_max": 0.02,
+    "latency_absolute_delta_ns_max": 20,
+    "latency_relative_slowdown_max": 0.05,
+    "controller_timing_delta_ns_max": 5
+  },
+  "minimum_repeats": 2,
+  "permitted_interpretation": "structural_preflight_only"
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "case_id": "case-1",
+      "repeat_id": "repeat-1",
+      "blinded_fixture_id": "blind-a",
+      "blinded": true,
+      "evaluation_order": "uninstrumented_first"
+    },
+    {
+      "case_id": "case-1",
+      "repeat_id": "repeat-2",
+      "blinded_fixture_id": "blind-b",
+      "blinded": true,
+      "evaluation_order": "instrumented_first"
+    }
+  ],
+  "scope": "software_preflight_only"
+}

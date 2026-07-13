@@ -29,9 +29,9 @@ docs-audit:
 # NCP nor PID atoms.
 #   (1) the core builds with NCP disabled — `ncp-observer` is workspace-excluded, so a
 #       default `--workspace` build never compiles it (no NCP/Zenoh on the critical path);
-#   (2) the H1/H2 baseline predictors (majority + the SAFE-class held-out logistic
-#       regression) are emitted by the offline harness as first-class metrics, separate
-#       from the PID screens — i.e. the prediction stack stands without PID atoms.
+#   (2) static factual-outcome label baselines (majority + the SAFE-class held-out logistic
+#       regression) are emitted independently of PID. This is dependency groundwork only;
+#       it does not implement H1 response scoring or prospective H2 landmark prediction.
 firebreak:
     cargo build --workspace
     cargo run -p pid-sim --bin pid-offline-harness -- \
@@ -45,7 +45,7 @@ firebreak:
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/firebreak_runlog.jsonl
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | grep -q 'pid_metrics=0'
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | grep -q 'pid_metric_events=0'
-    @echo "firebreak OK: core builds NCP-disabled; H1/H2 baseline predictors emitted without PID atoms"
+    @echo "firebreak OK: core builds NCP-disabled; static label baselines emitted without PID atoms"
 
 # Experiment 0 gate (Rust-side smoke subset).
 # Full Experiment 0 will later be orchestrated via python/experiments/.
@@ -71,6 +71,29 @@ exp0-uncertainty path="outputs/exp0_uncertainty_runlog.jsonl" summary="outputs/e
 toy-harness runlog="outputs/toy_vla_runlog.jsonl" summary="outputs/toy_vla_summary.json" episodes="32":
     cargo run -p pid-sim --bin pid-toy-harness -- --episodes {{episodes}} --summary-json {{summary}} --runlog {{runlog}}
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{runlog}}
+
+# H1 shared structural/noninterference preflight. These are content-addressed software fixtures,
+# not Protocol A/B response estimates and not H1 evidence. Both rejection paths must still write a
+# schema-valid failed run log.
+h1-preflight valid="crates/pid-sim/fixtures/h1_preflight_valid.json" invalid="crates/pid-sim/fixtures/h1_preflight_invalid.json" parse_invalid="crates/pid-sim/fixtures/h1_preflight_parse_invalid.json":
+    cargo run -p pid-sim --bin pid-h1-preflight -- --input {{valid}} --summary-json outputs/h1_preflight_summary.json --runlog outputs/h1_preflight_runlog.jsonl
+    grep -q '"passed": true' outputs/h1_preflight_summary.json
+    grep -q '"establishes_h1_evidence": false' outputs/h1_preflight_summary.json
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_preflight_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_runlog.jsonl | grep -F 'pid_metrics=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+    cp outputs/h1_preflight_runlog.jsonl outputs/h1_preflight_runlog.first.jsonl
+    cargo run -p pid-sim --bin pid-h1-preflight -- --input {{valid}} --summary-json outputs/h1_preflight_summary.json --runlog outputs/h1_preflight_runlog.jsonl
+    cmp -s outputs/h1_preflight_runlog.first.jsonl outputs/h1_preflight_runlog.jsonl
+    if cargo run -p pid-sim --bin pid-h1-preflight -- --input {{invalid}} --summary-json outputs/h1_preflight_invalid_summary.json --runlog outputs/h1_preflight_invalid_runlog.jsonl; then echo "expected H1 semantic/artifact preflight failure"; exit 1; fi
+    grep -q '"artifact_hash_mismatch"' outputs/h1_preflight_invalid_summary.json
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_preflight_invalid_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_invalid_runlog.jsonl | grep -F 'errors=1' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+    if cargo run -p pid-sim --bin pid-h1-preflight -- --input {{parse_invalid}} --summary-json outputs/h1_preflight_parse_invalid_summary.json --runlog outputs/h1_preflight_parse_invalid_runlog.jsonl; then echo "expected H1 contract parse failure"; exit 1; fi
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_preflight_parse_invalid_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_parse_invalid_runlog.jsonl | grep -F 'errors=1' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_parse_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
 
 # Physics-backed manipulation software smoke: real Rapier3D push-to-goal episode with a
 # success label and real Flow_gt. Requires the `rapier` feature.

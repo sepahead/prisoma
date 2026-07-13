@@ -1,0 +1,2 @@
+{"type":"run_started","schema_version":2,"run_id":"h1-fixture-source","timestamp_ns":0,"config_hash":"0000000000000000000000000000000000000000000000000000000000000000","metadata":{"scope":"software_fixture_only"}}
+{"type":"run_ended","run_id":"h1-fixture-source","timestamp_ns":1,"status":"succeeded","message":"fixture source capture only"}
