@@ -1,0 +1,383 @@
+{
+  "schema_version": 1,
+  "artifact_id": "prisoma_literature_screening_ledger_v1",
+  "as_of_date": "2026-07-13",
+  "canonical_spec": {
+    "path": "grandplan.md",
+    "version": "12.5"
+  },
+  "scope": "dated legacy reference inventory and provenance-gap record only; not a systematic, scoping, or complete literature review",
+  "status": "legacy_dated_reference_inventory_only",
+  "inventory_artifact": {
+    "path": "docs/reviews/2026-07-12-grandplan-v12.5/grandplan_v12_5_reference_audit.csv",
+    "sha256": "239fe7dc3615fca4a569608bcb12af8efa84f4ee4e02cacb6ad8e26af40ef479",
+    "byte_count": 17147,
+    "row_count": 112,
+    "inventory_date": "2026-07-12",
+    "inventory_role": "references defined and cited by the reviewed grandplan v12.5 proposal"
+  },
+  "legacy_review_rounds": [
+    {
+      "round_id": "grandplan_v12_5_reference_inventory_2026_07_12",
+      "status": "incomplete_search_provenance",
+      "search_provenance": {
+        "protocol_registration": null,
+        "databases_and_indexes": null,
+        "query_strings": null,
+        "search_run_dates": null,
+        "date_limits": null,
+        "language_limits": null,
+        "grey_literature_policy": null,
+        "deduplication_method": null,
+        "inclusion_criteria": null,
+        "exclusion_criteria": null,
+        "reviewer_assignment": null,
+        "conflict_resolution": null,
+        "screening_flow_counts": null
+      },
+      "screening_decisions": [],
+      "interpretation": "the bound CSV inventories citations present in one dated reviewed plan; it does not reconstruct how the candidate set was searched, screened, excluded, or judged complete"
+    }
+  ],
+  "systematic_review_claimed": false,
+  "fresh_search_required": true,
+  "fresh_search_required_before": [
+    "preregistration",
+    "submission",
+    "rebuttal",
+    "camera_ready"
+  ],
+  "endpoint_change_policy": {
+    "change_triggers": [
+      "source URL or retrieval endpoint changes",
+      "source version, revision, publication status, correction, or retraction changes",
+      "canonical H2 comparator requirements change"
+    ],
+    "required_action": "preserve the prior dated record, mark affected evidence stale, run a dated reproducible refresh, bind new exports and decisions to exact hashes, and review dependent claims before reuse",
+    "silent_overwrite_allowed": false,
+    "automatic_evidence_promotion_allowed": false,
+    "network_polling_in_ci": false
+  },
+  "unresolved_h2_comparator_registry": {
+    "scope": "all baseline families required by grandplan.md Sections 4.H2 and 6.5; inventory presence is not evidence of applicability, faithful implementation, screening completion, or frozen disposition",
+    "registry_status": "unresolved_not_screened_or_frozen",
+    "families": [
+      {
+        "family_id": "prevalence_only",
+        "hierarchy_level": "level_0_design_and_naive",
+        "canonical_description": "prevalence-only or base-rate predictor",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "design_covariates",
+        "hierarchy_level": "level_0_design_and_naive",
+        "canonical_description": "task family, horizon, severity, initial-state, time, checkpoint, and action-head-family indicators",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "last_action_or_progress",
+        "hierarchy_level": "level_0_design_and_naive",
+        "canonical_description": "last-action, progress, or simple progress-trend baseline",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "policy_entropy_or_action_uncertainty",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "policy entropy, action uncertainty, or sample dispersion",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "ensemble_or_stochastic_pass_disagreement",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "ensemble or stochastic-pass disagreement when available",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "action_smoothness_or_chunk_inconsistency",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "action smoothness or chunk inconsistency",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "dynamics_or_world_model_prediction_error",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "state, dynamics, or world-model prediction error",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "ood_or_representation_distance",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "out-of-distribution or representation-distance score",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "tri_info",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "Tri-Info action-diversity, temporal-consistency, and action-state-coupling signals",
+        "canonical_reference_ids": [
+          "R25"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "safe_supervised_internal_state",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "SAFE-style supervised internal-state failure detection",
+        "canonical_reference_ids": [
+          "R110"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "hide_and_seek_temporal_localization",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "Hide-and-Seek-style coarsely supervised temporal localization",
+        "canonical_reference_ids": [
+          "R95"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "actprobe_action_space",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "ActProbe action-space TCE or ACM magnitude and temporal-consistency signals",
+        "canonical_reference_ids": [
+          "R102"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "rewind_il_inter_chunk_discrepancy",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "Rewind-IL inter-chunk discrepancy and recovery signals",
+        "canonical_reference_ids": [
+          "R111"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "tide_inter_chunk_discrepancy",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "TIDE inter-chunk discrepancy family named by the canonical protocol",
+        "canonical_reference_ids": [],
+        "screening_status": "source_unresolved_pending_fresh_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "architecture_stratified_black_box_action_features",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "architecture-stratified black-box reversal, jerk, momentum-coherence, and stall features",
+        "canonical_reference_ids": [
+          "R109"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "vlaconf_one_class_internal_confidence",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "VLAConf-style one-class internal-representation confidence",
+        "canonical_reference_ids": [
+          "R103"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "perturbation_induced_action_disagreement",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "perturbation-induced action disagreement",
+        "canonical_reference_ids": [
+          "R104"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "activation_probe_warning",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "activation-probe warning signals",
+        "canonical_reference_ids": [
+          "R105"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "foresight_action_conditioned_world_model_latents",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "Foresight-style action-conditioned world-model latent prediction error or features",
+        "canonical_reference_ids": [
+          "R101"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "temporal_difference_or_sequential_calibration",
+        "hierarchy_level": "level_1_policy_uncertainty_and_temporal",
+        "canonical_description": "temporal-difference or another explicitly sequential calibration baseline",
+        "canonical_reference_ids": [
+          "R112"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "individual_and_joint_mi_or_cmi",
+        "hierarchy_level": "level_2_information",
+        "canonical_description": "individual and joint MI or CMI where validated",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "co_information_or_shannon_invariants",
+        "hierarchy_level": "level_2_information",
+        "canonical_description": "co-information or Shannon invariants where every constituent term passes its gates",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "simple_association_or_predictive_likelihood",
+        "hierarchy_level": "level_2_information",
+        "canonical_description": "simple cross-correlation, canonical correlation, or predictive likelihood",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "categorical_contingency_statistics",
+        "hierarchy_level": "level_2_information",
+        "canonical_description": "discrete contingency statistics for categorical targets",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "capacity_matched_frozen_representation_model",
+        "hierarchy_level": "level_3_learned",
+        "canonical_description": "capacity-matched regularized classifier or regressor on frozen representations",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "temporal_learned_model",
+        "hierarchy_level": "level_3_learned",
+        "canonical_description": "temporal learned model when the endpoint is temporal",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "attribution_or_intervention_features",
+        "hierarchy_level": "level_3_learned",
+        "canonical_description": "attribution or intervention-derived features when available",
+        "canonical_reference_ids": [],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      },
+      {
+        "family_id": "vla_trace_or_better_mechanism_features",
+        "hierarchy_level": "level_3_learned",
+        "canonical_description": "VLA-Trace or BeTTER-style mechanism features where technically comparable",
+        "canonical_reference_ids": [
+          "R26",
+          "R27"
+        ],
+        "screening_status": "not_screened_in_reproducible_search",
+        "applicability": null,
+        "implementation_or_evidence": null,
+        "disposition": null
+      }
+    ]
+  },
+  "fresh_search_requirements": [
+    "freeze research questions, sources, queries, dates, eligibility criteria, deduplication, reviewers, and conflict resolution before the search",
+    "record one inclusion or exclusion decision with a reason for every deduplicated candidate",
+    "bind search exports and decision records to exact content hashes",
+    "date the final evidence synthesis and preserve unresolved uncertainty"
+  ],
+  "known_limitations": [
+    "the legacy inventory is bounded to references cited by the reviewed plan and may omit relevant work",
+    "empty screening decisions mean no auditable per-record inclusion or exclusion ledger exists",
+    "the inventory date does not imply that every source was current, reachable, or independently verified on that date"
+  ]
+}

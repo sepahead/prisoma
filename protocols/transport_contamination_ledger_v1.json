@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "artifact_id": "prisoma_transport_contamination_ledger_v1",
+  "as_of_date": "2026-07-13",
+  "canonical_spec": {
+    "path": "grandplan.md",
+    "version": "12.5",
+    "relevant_sections": [
+      "5.10",
+      "5.11",
+      "12.M0"
+    ]
+  },
+  "scope": "empty dataset-specific assessment structure; not evidence of transportability, overlap, deduplication, non-contamination, rights clearance, or deployment validity",
+  "status": "structure_only_pending_dataset_and_target_selection",
+  "target_outcome_access_state": "no_confirmatory_holdout_registered",
+  "holdout_governance_binding": {
+    "registry_path": "protocols/holdout_registry_v1.json",
+    "ledger_path": "protocols/holdout_access_ledger_v1.jsonl",
+    "registry_status": "no_confirmatory_holdout_registered",
+    "ledger_file_sha256": "b3762245c84546d43032066790f772c2352242af85b69f9ee1d35bf5c4c740c6",
+    "ledger_head_event_sha256": "aad715b9e8cb9fc819659ab5b8ac0820b3383514c9a3289d676e75a2f74373c1"
+  },
+  "required_shift_variable_ids": [
+    "morphology",
+    "action_parameterization",
+    "camera_geometry",
+    "controller",
+    "dynamics",
+    "instruction_distribution",
+    "object_set",
+    "failure_prevalence",
+    "latency",
+    "observation_noise"
+  ],
+  "source_binding": {
+    "status": "unselected",
+    "binding_id": null,
+    "population_definition": null,
+    "sampling_frame": null,
+    "policy_or_model_id": null,
+    "policy_or_model_revision": null,
+    "environment_id": null,
+    "observation_window": null,
+    "representation_contract": null,
+    "outcome_contract": null,
+    "dataset_id": null,
+    "dataset_artifact_path": null,
+    "dataset_artifact_sha256": null,
+    "split_manifest_path": null,
+    "split_manifest_sha256": null,
+    "model_checkpoint_path": null,
+    "model_checkpoint_sha256": null,
+    "rights_receipt_path": null,
+    "rights_receipt_sha256": null
+  },
+  "target_binding": {
+    "status": "unselected",
+    "binding_id": null,
+    "population_definition": null,
+    "sampling_frame": null,
+    "policy_or_model_id": null,
+    "policy_or_model_revision": null,
+    "environment_id": null,
+    "observation_window": null,
+    "representation_contract": null,
+    "outcome_contract": null,
+    "dataset_id": null,
+    "dataset_artifact_path": null,
+    "dataset_artifact_sha256": null,
+    "split_manifest_path": null,
+    "split_manifest_sha256": null,
+    "model_checkpoint_path": null,
+    "model_checkpoint_sha256": null,
+    "rights_receipt_path": null,
+    "rights_receipt_sha256": null
+  },
+  "transport_assumptions": null,
+  "effect_modifiers": null,
+  "selection_diagram_or_equivalent": null,
+  "changed_variable_assessments": {
+    "status": "not_assessed",
+    "record_schema": {
+      "variable_id": "nonempty_string",
+      "source_definition": "nonempty_string",
+      "target_definition": "nonempty_string",
+      "measurement_scale_and_units": "nonempty_string",
+      "source_evidence_bindings": "nonempty_array_of_content_bound_artifacts",
+      "target_evidence_bindings": "nonempty_array_of_content_bound_artifacts",
+      "change_assessment": "nonempty_string",
+      "handling_status": "enum_measured_harmonized_adjusted_intentionally_varied_or_unobserved",
+      "handling": "nonempty_string",
+      "evidence_bindings": "nonempty_array_of_content_bound_artifacts",
+      "residual_limitation": "nonempty_string",
+      "uncertainty": "nonempty_string",
+      "assessment_status": "enum_assessed_or_unresolved"
+    },
+    "records": []
+  },
+  "invariant_variable_assessments": {
+    "status": "not_assessed",
+    "record_schema": {
+      "variable_id": "nonempty_string",
+      "invariance_claim": "nonempty_string",
+      "tolerance_or_equivalence_region": "nonempty_string",
+      "source_evidence_bindings": "nonempty_array_of_content_bound_artifacts",
+      "target_evidence_bindings": "nonempty_array_of_content_bound_artifacts",
+      "uncertainty": "nonempty_string",
+      "assessment_status": "enum_assessed_or_unresolved"
+    },
+    "records": []
+  },
+  "effect_modifier_assessments": {
+    "status": "not_assessed",
+    "record_schema": {
+      "modifier_id": "nonempty_string",
+      "definition": "nonempty_string",
+      "source_support": "nonempty_string",
+      "target_support": "nonempty_string",
+      "overlap_metric": "nonempty_string",
+      "overlap_threshold": "nonempty_string",
+      "evidence_bindings": "nonempty_array_of_content_bound_artifacts",
+      "assessment_status": "enum_assessed_or_unresolved"
+    },
+    "records": []
+  },
+  "overlap_and_abstention_assessments": {
+    "status": "not_assessed",
+    "record_schema": {
+      "assessment_id": "nonempty_string",
+      "effect_modifier_ids": "nonempty_array_of_registered_modifier_ids",
+      "support_or_overlap_method": "nonempty_string",
+      "target_restriction": "nonempty_string",
+      "abstention_rule": "nonempty_string",
+      "evidence_bindings": "nonempty_array_of_content_bound_artifacts",
+      "assessment_status": "enum_assessed_or_unresolved"
+    },
+    "records": []
+  },
+  "transport_assessments": {
+    "status": "not_assessed",
+    "record_schema": {
+      "analysis_id": "nonempty_string",
+      "estimand_id": "nonempty_string",
+      "transport_assumptions": "nonempty_array_of_strings",
+      "selection_diagram_or_equivalent_binding": "content_bound_artifact",
+      "analysis_method": "nonempty_string",
+      "fit_data_scope": "nonempty_string",
+      "untouched_target_outcomes": "boolean",
+      "separate_recalibration_split": "nonempty_string",
+      "target_restriction_or_abstention": "nonempty_string",
+      "validation_endpoint": "nonempty_string",
+      "estimate_and_uncertainty_binding": "content_bound_artifact",
+      "assessment_status": "enum_assessed_or_unresolved"
+    },
+    "records": []
+  },
+  "conformance_assessments": {
+    "status": "not_assessed",
+    "record_schema": {
+      "assessment_id": "nonempty_string",
+      "interface_or_contract": "nonempty_string",
+      "producer_revision": "nonempty_string",
+      "consumer_revision": "nonempty_string",
+      "frame_clock_schema_outcome_contract": "nonempty_string",
+      "fixture_or_report_binding": "content_bound_artifact",
+      "assessment_status": "enum_pass_fail_or_unresolved"
+    },
+    "records": []
+  },
+  "contamination_assessments": {
+    "status": "not_assessed",
+    "record_schema": {
+      "assessment_id": "nonempty_string",
+      "contamination_class": "enum_exact_duplicate_near_duplicate_semantic_asset_trajectory_pretraining_or_transform_leakage",
+      "contamination_subtype": "enum_exact_duplicate_near_duplicate_semantic_paraphrase_asset_family_clone_mirrored_layout_trajectory_subsequence_pretraining_exposure_or_transform_leakage",
+      "source_artifact_bindings": "nonempty_array_of_content_bound_artifacts",
+      "target_artifact_bindings": "nonempty_array_of_content_bound_artifacts",
+      "partition_scope": "nonempty_string",
+      "threshold_fit_scope": "nonempty_string",
+      "method_and_threshold": "nonempty_string",
+      "findings_and_uncertainty": "nonempty_string",
+      "resolution": "nonempty_string",
+      "unresolved_limitation": "nonempty_string",
+      "unresolved_exposure": "boolean",
+      "assessment_status": "enum_bounded_assessment_complete_or_unresolved"
+    },
+    "completion_language_boundary": "a completed record may describe only the bounded assessment performed and may never claim no_contamination",
+    "records": []
+  },
+  "required_contamination_subtypes": [
+    "exact_duplicate",
+    "near_duplicate",
+    "semantic_paraphrase",
+    "asset_family_clone",
+    "mirrored_layout",
+    "trajectory_subsequence",
+    "pretraining_exposure",
+    "transform_leakage"
+  ],
+  "rights_assessments": {
+    "status": "not_assessed",
+    "record_schema": {
+      "assessment_id": "nonempty_string",
+      "artifact_class": "enum_dataset_model_asset_or_generated_content",
+      "artifact_binding": "content_bound_artifact",
+      "license_or_rights_basis": "nonempty_string",
+      "use_and_redistribution_scope": "nonempty_string",
+      "restrictions": "nonempty_string",
+      "review_receipt_binding": "content_bound_artifact",
+      "assessment_status": "enum_cleared_restricted_or_unresolved"
+    },
+    "records": []
+  },
+  "required_rights_artifact_classes": [
+    "dataset",
+    "model",
+    "asset",
+    "generated_content"
+  ],
+  "required_transport_dimensions": [
+    "named source and target populations",
+    "complete target-domain holdout during model selection",
+    "prespecified effect modifiers and support or overlap assessment",
+    "target-restriction or abstention rule for weak overlap",
+    "explicit transport assumptions and external validation endpoint"
+  ],
+  "required_contamination_dimensions": [
+    "exact dataset, asset, episode, and split lineage",
+    "exact and near-duplicate cases across train, calibration, and holdout partitions",
+    "semantic paraphrases, asset-family clones, mirrored layouts, and trajectory subsequences",
+    "model-pretraining and benchmark-exposure evidence where available",
+    "transform, feature-selection, calibration, and tuning access to holdout membership or outcomes",
+    "dataset, model, asset, and generated-content rights and license provenance"
+  ],
+  "known_limitations": [
+    "no dataset, split, model checkpoint, source population, or target population is registered",
+    "no transport or contamination assessment has been executed",
+    "a future contamination audit can bound documented leakage but cannot prove absence of foundation-model memorization or undisclosed pretraining exposure"
+  ]
+}

@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### M0 research-governance honesty scaffolds (2026-07-13)
+
+- Added strict machine-readable M0 artifacts for separate H1-A/H1-B/H2/H3/H4 preregistration
+  branches, holdout registration/access, source-target transport and contamination assessment, and
+  a legacy literature-inventory screening scaffold. The checked state is intentionally unfinished:
+  the preregistration is unfrozen, no confirmatory holdout is registered, transport/contamination
+  assessments are empty pending dataset selection, and the imported legacy reference inventory
+  lacks reproducible query and candidate-decision provenance.
+- Added an offline validator and adversarial tests for duplicate/unknown/non-finite data, unsafe or
+  mismatched artifact bindings, branch blending, false freeze/H3 activation, holdout chain
+  edit/reorder/truncation, and false promotion of transport or literature work. The access chain is
+  unsigned local tamper evidence only; it cannot prove historical/off-repository non-access,
+  authenticated identity, or immutable time.
+- `just research-governance` validates the honest current state and is part of `docs-audit`/CI.
+  Freeze-ready mode is expected to fail until real domain choices, estimands, useful margins,
+  receipts, holdout commitments, transport/contamination/rights evidence, comparator dispositions,
+  and a fresh reproducible search exist. No EC1/H1-H4 result or M0 completion is claimed.
+  A future zero freeze-ready exit would establish completeness and integrity only, not scientific
+  correctness or external validity. The v1 scaffold is intentionally non-promotable; a real freeze
+  requires a reviewed successor schema/validator with typed, content-bound receipts.
+
 ### Local Agent Bridge fail-closed boundary (2026-07-13)
 
 - Hardened the deterministic TCP/WebSocket development transports: both now bind loopback only,
@@ -52,8 +73,8 @@
   must match a canonical repository URL plus a clean checked-out gitlink or bound lock source, and
   clean-checkout proof recipes create their own inputs. The generator does not pretend to infer
   command semantics: reviewed proof closure and CI execution remain required. The
-  26-row matrix has 16 `tested`, eight `specified`, and two E0 unavailable/deferred status rows;
-  its independent §8.9 relationship grades are 12 E0, seven E1, five E2, and two E3. It deliberately
+  27-row matrix has 17 `tested`, eight `specified`, and two E0 unavailable/deferred status rows;
+  its independent §8.9 relationship grades are 13 E0, seven E1, five E2, and two E3. It deliberately
   contains no E4/E5 `validated` row and cannot turn passing software tests into EC1/H1–H4 evidence.
 - Re-audited the supplied review directory. Ten of 32 manifest-listed payloads are present and
   byte-valid there; 22 plus the deterministic archive/outer hash are absent. The repository itself

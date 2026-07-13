@@ -452,6 +452,7 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 
 | Component | Role | Rationale (design goals; benchmark-dependent) |
 |-----------|------|--------------|
+| **M0 governance ledgers** | Analysis-freeze scaffolding | Machine-check an explicitly unfrozen preregistration, no-registered-holdout state, pending transport/contamination work, and legacy-only literature inventory. Passing the local audit is integrity evidence, not scientific readiness. |
 | **Run log** | Canonical data spine | Source of truth for replay, analysis, Rerun export, and Tauri sessions; summaries distinguish unique metric names from total metric events. |
 | **Agent Bridge** | Only control plane | GUI, scripts, LLM tools, and VLA-policy adapters submit every mutating command through the same local API; the command is recorded in the run log before execution. |
 | **Rerun** | **Read-only visualization & diagnostics** | **Primary P1-3 Tool.** Timeline, 3D scene, plots, ghost overlays, and replay from run logs; it never drives the simulator. |

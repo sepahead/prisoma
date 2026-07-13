@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "artifact_id": "prisoma_holdout_registry_v1",
+  "as_of_date": "2026-07-13",
+  "canonical_spec": {
+    "path": "grandplan.md",
+    "version": "12.5"
+  },
+  "scope": "confirmatory holdout registration state and repository-local access-event chain metadata; not a claim that no off-repository data or outcome exposure has occurred",
+  "registry_status": "no_confirmatory_holdout_registered",
+  "holdout_count": 0,
+  "registered_holdouts": [],
+  "access_authorization_policy": null,
+  "authorized_actor_roles": null,
+  "unblinding_policy": null,
+  "access_ledger": {
+    "path": "protocols/holdout_access_ledger_v1.jsonl",
+    "file_sha256": "b3762245c84546d43032066790f772c2352242af85b69f9ee1d35bf5c4c740c6",
+    "file_byte_count": 446,
+    "event_count": 1,
+    "head_event_sha256": "aad715b9e8cb9fc819659ab5b8ac0820b3383514c9a3289d676e75a2f74373c1",
+    "hash_algorithm": "sha256",
+    "domain_separator": "prisoma-holdout-access-v1\u0000",
+    "canonicalization": "for each event, remove event_sha256; encode the remaining object as compact UTF-8 JSON with lexicographically sorted keys and no ASCII escaping; hash domain_separator bytes followed immediately by those canonical event bytes",
+    "chain_rule": "event_index starts at zero and increments by one; genesis previous_event_sha256 is null; every later event previous_event_sha256 equals the preceding event_sha256",
+    "payload_boundary": "events record governance metadata only and must not contain raw holdout labels, sample identifiers, credentials, secrets, or outcome payloads"
+  },
+  "limitations": [
+    "the sole non_access_genesis event initializes the chain and does not attest to historical or off-repository non-access",
+    "only the recording date is known for the genesis event; recorded_at is null and no immutable or trusted timestamp is claimed",
+    "with no registered holdout, there is no holdout-specific access authorization, split manifest, custodian, or unblinding procedure to audit",
+    "the chain is unsigned and locally anchored only by reviewed repository history; edits, truncation, or replacement can be rehashed before review, so this is local tamper evidence rather than signing or external attestation",
+    "a repository ledger cannot prove that every exposure outside the repository was recorded"
+  ]
+}

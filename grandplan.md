@@ -1965,6 +1965,23 @@ Deliver:
 
 **Stop:** unresolved ambiguity about treatment, target, time zero, unit, target population, causal interpretation, or whether a component is a dependency versus an optional testbed.
 
+**Current implementation boundary (2026-07-13).** The repository now ships machine-readable M0
+scaffolds and a strict offline validator: an `unfrozen_draft` preregistration skeleton with separate
+H1-A/H1-B/H2/H3/H4 branches; a registry that states **no confirmatory holdout is registered** plus
+one hash-chained non-access genesis event; empty source/target-pending transport and contamination
+assessment arrays; and a dated legacy-reference-inventory import whose database queries,
+candidate universe, criteria, and per-candidate decisions are absent. Passing the default audit
+means only that this unfinished state is internally consistent. It does not supply a freeze
+receipt, prove historical or off-repository non-access, establish absence of contamination, or
+constitute a systematic review. The freeze-ready mode must remain failed until the domain,
+protocol, estimands, minimum useful effects, holdout commitments, transport evidence, comparator
+dispositions, and fresh reproducible search are genuinely complete.
+Even then, the machine audit establishes completeness, content binding, and internal consistency;
+it cannot adjudicate the substantive adequacy of the scientific choices or independent reviews.
+The checked v1 scaffold is intentionally non-promotable: the real freeze requires a reviewed
+successor schema and validator with typed, content-bound receipts rather than in-place replacement
+of nulls.
+
 ## M1 — repair and version estimator gates
 
 Deliver:
@@ -2307,6 +2324,13 @@ CI should fail when:
 - an analysis treats repeated frames as independent randomized units;
 - a PID result is emitted after a support/eligibility gate failed or without the abstention denominator;
 - an analysis uses a nonlocked endpoint as “primary” or changes the target population silently;
+- the M0 preregistration, holdout, transport/contamination, literature, and claim registries disagree
+  about freeze or access state, fail schema/content-hash validation, or break the recorded access
+  hash chain;
+- holdout exposure is recorded before a valid freeze and authorization, or an unfinished scaffold is
+  promoted to freeze-ready;
+- systematic, scoping, complete, or reproducible-review language appears without saved database
+  sources, exact queries and dates, a candidate universe, criteria, and per-candidate decisions;
 - a document claims `connected`, `integrated`, or `validated integration` below E2, E3, or E4 respectively;
 - an optional sibling component becomes required by the core firebreak test;
 - NCP observer code can publish commands or omits wire/contract/security/sequence provenance;

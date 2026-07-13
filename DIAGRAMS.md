@@ -95,13 +95,13 @@ flowchart TB
     end
 ```
 
-*Caption: EC1 + H1–H4 by role (engineering / confirmatory / conditional / exploratory-deferred) per `grandplan.md` §4. All confirmatory verdicts remain pending the open real-VLA capture and intervention pilot.*
+*Caption: EC1 + H1–H4 by role (engineering / confirmatory / conditional / exploratory-deferred) per `grandplan.md` §4. All confirmatory verdicts remain blocked first on the real M0 freeze; real-VLA capture and the intervention pilot are downstream.*
 
 ---
 
 ## 0.2 Research Milestone / Critical-Path Roadmap (M0–M7)
 
-Build order from `grandplan.md` §12 (research milestones M0–M7; gate sequence §5.1). The old repo used M1–M5 for *infrastructure* (run logs, Agent Bridge, sim, Rerun); those are now the event-model + control-plane parts of §8 and feed the research milestones as groundwork. "Implemented" reflects verified in-repo crates/harnesses; the real capture + intervention pilot (M3) is the open critical path; M4–M7 are downstream/specified. This is engineering state, not a research result.
+Build order from `grandplan.md` §12 (research milestones M0–M7; gate sequence §5.1). The old repo used M1–M5 for *infrastructure* (run logs, Agent Bridge, sim, Rerun); those are now the event-model + control-plane parts of §8 and feed the research milestones as groundwork. "Implemented" reflects verified in-repo crates/harnesses. The real M0 freeze is the current closed gate; M1/M2 have partial groundwork, and real capture + the M3 intervention pilot remain downstream blocked. This is engineering state, not a research result.
 
 ```mermaid
 flowchart TD
@@ -112,10 +112,10 @@ flowchart TD
 
     Infra["Infrastructure groundwork (§8 event model + control plane)<br/>run logs + replay, Agent Bridge, pid-sim/Rapier, Rerun adapter — implemented"]:::done
 
-    M0["M0 freeze scientific + identification contracts"]:::partial
+    M0["M0 freeze scientific + identification contracts<br/>CURRENT CLOSED GATE"]:::active
     M1["M1 repair + version estimator gates (S1 / §7)<br/>MI/coherence high-d = NO-GO"]:::partial
     M2["M2 core + ecosystem conformance benchmark<br/>(incl. dependency firebreak: NCP-off + estimator-off H1/H2, §8.9.3)"]:::partial
-    M3["M3 intervention pilot (S3)<br/>real capture OPEN (not done)"]:::active
+    M3["M3 intervention pilot (S3)<br/>real capture downstream; blocked on M0→M2"]:::spec
     M4["M4 locked H1 experiment"]:::spec
     M5["M5 locked H2 experiment"]:::spec
     M6["M6 H3 or H4"]:::spec
@@ -124,7 +124,7 @@ flowchart TD
     Infra --> M0 --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7
 ```
 
-*Caption: research milestones M0–M7 (`grandplan.md` §12) — green = implemented infrastructure groundwork (§8), orange = partially met research contracts, red dashed = M3 intervention pilot blocked on the open real capture, grey = specified/downstream. Engineering state only, not a research result.*
+*Caption: research milestones M0–M7 (`grandplan.md` §12) — green = implemented infrastructure groundwork (§8), red dashed = the current M0 closed gate, orange = partial M1/M2 groundwork, grey = blocked or specified downstream work. Engineering state only, not a research result.*
 
 ---
 

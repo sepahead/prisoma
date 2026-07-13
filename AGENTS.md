@@ -29,7 +29,8 @@ being true as the code moves).
    `ARCHITECTURE.md`, `DIAGRAMS.md`, `EXPERIMENTS.md`, and `pidsplatspecs.md` consistent with
    it (current docset: **v12.5**). The Rerun/Tauri/SparkJS decision record is `grandplan.md`
    §16; the confirmatory claim registry (EC1, H1–H4) and PID kill rules are §4 and §3.8; the
-   preregistered statistical analysis plan is §6.
+   preregistration-grade statistical analysis specification is §6, with the real study freeze
+   still pending.
 2. **Gate discipline.** Do not interpret PID atoms on real embeddings. PID validity splits into
    four gates — population, measure, estimator, application (`grandplan.md` §7.1). The current
    high-d **MI/coherence path is NO-GO**; the continuous `I^sx_∩` **application gate is BLOCKED /
@@ -170,6 +171,16 @@ being true as the code moves).
 
 - `research_claim_registry_v1.json` records current EC1/H1–H4 software artifacts, proof commands,
   blockers, and permitted/prohibited language; it is not a preregistration or result.
+- The M0 governance bundle adds an unfrozen preregistration scaffold, a registry stating that no
+  confirmatory holdout is registered plus a hash-chained non-access genesis event, an empty
+  dataset-pending transport/contamination ledger, and a legacy reference-inventory import with
+  incomplete search provenance. `just research-governance` validates this honest unfinished
+  state; it does not prove freeze readiness, historical/off-repository non-access, absence of
+  contamination, or a systematic literature search. `--require-freeze-ready` must fail until those
+  scientific conditions are genuinely met; it checks completeness and integrity, not the
+  substantive correctness of scientific judgment or review. This v1 scaffold is deliberately
+  non-promotable: make a reviewed schema/validator revision with typed, content-bound receipts for
+  a real freeze instead of replacing nulls in place.
 - `ecosystem_evidence_current_v1.json` is the dated, manually network-refreshed overlay on the
   immutable review CSV. CI is offline and checks exact reviewed revisions/boundaries; it does not
   silently poll or promote upstream HEADs.
@@ -311,6 +322,7 @@ cargo clippy --workspace -- -D warnings
 cargo test --workspace
 python scripts/audit_docset_claims.py
 python scripts/audit_grandplan.py   # validates the R1-R112 reference ledger
+python scripts/audit_research_governance.py
 python scripts/generate_capability_matrix.py --check
 ```
 
@@ -321,6 +333,7 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
 
 - Search: `rg -n "pattern"`
 - Tests: `just test` (or `cargo test` if `just` isn't installed)
+- M0 governance integrity (honest unfinished state, not a freeze): `just research-governance`
 - NCP wire-0.8 deterministic fault suite: `just ncp-fault-observatory out=outputs/<directory>`
 - Estimator gate:
   - `just exp0` (or `cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all exp0 -- --nocapture`)

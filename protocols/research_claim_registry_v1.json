@@ -8,15 +8,19 @@
   },
   "scope": "current execution and freeze status; not a scientific result or preregistration",
   "m0_freeze_status": {
+    "overall": "not_freeze_ready",
+    "preregistration_skeleton": "implemented_unfrozen_scaffold_not_a_preregistration",
     "causal_graph": "unfrozen_pending_policy_environment_and_intervention_selection",
     "variable_dictionary": "partial_software_contracts_only",
     "treatment_ontology": "partial_h1_common_preflight_only",
     "h1_estimand": "deterministic_protocol_a_software_reference_fixture_only_real_estimand_unfrozen",
     "h2_estimand": "synthetic_fixed_horizon_reference_only_real_estimand_and_ontology_unfrozen",
-    "minimum_useful_effects": "unfrozen_pending_pilot",
+    "minimum_useful_effects": "unfrozen_pending_domain_and_decision_justification",
     "pre_treatment_feature_whitelist": "partial_h1_common_preflight_lineage_rule",
-    "holdout_access_ledger": "unimplemented",
-    "literature_screening_ledger": "unimplemented",
+    "holdout_registry": "no_confirmatory_holdout_registered",
+    "holdout_access_ledger": "initialized_genesis_only_no_access_events_not_proof_of_nonaccess",
+    "transport_contamination_ledger": "implemented_structure_only_dataset_and_target_unselected",
+    "literature_screening_ledger": "implemented_legacy_reference_inventory_only_fresh_reproducible_search_required",
     "ecosystem_evidence": "current_offline_overlay_available",
     "capability_matrix": "generated_content_bound_current_views_available_no_validated_rows"
   },
@@ -99,7 +103,7 @@
         "real_heldout_response_or_effect_result",
         "current_nested_capture_design_gate"
       ],
-      "minimum_useful_effect_status": "unfrozen_pending_pilot",
+      "minimum_useful_effect_status": "unfrozen_pending_domain_and_decision_justification",
       "permitted_language": "the schema-v2 common preflight and deterministic finite-benchmark Protocol-A software reference are fixture-runnable scoring primitives and establish no H1 evidence",
       "prohibited_language": "H1 passed, a physical individual effect was observed, or closed-loop robustness was established"
     },
@@ -140,7 +144,7 @@
         "matched_access_comparator_frontier",
         "external_or_later_time_holdout"
       ],
-      "minimum_useful_effect_status": "unfrozen_pending_pilot",
+      "minimum_useful_effect_status": "unfrozen_pending_domain_and_decision_justification",
       "permitted_language": "the deterministic synthetic reference exercises fixed-horizon landmark eligibility, grouped train-only fitting, competing-event classification, stratified reverse-KM IPCW Brier arithmetic, reliability bins, frozen alarm accounting, nondetection retention, and declared-payoff utility on checked fixtures only",
       "prohibited_language": "H2 passed; prospective prediction, calibration validity, warning benefit, comparator superiority, censoring-assumption validity, transport, safety gain, or deployment validity exists"
     },
@@ -198,7 +202,7 @@
         "engagement_specificity_support_and_controls",
         "heldout_availability_use_result"
       ],
-      "minimum_useful_effect_status": "unfrozen_pending_intervention_pilot",
+      "minimum_useful_effect_status": "unfrozen_pending_domain_and_decision_justification",
       "permitted_language": "the reference attribution path exercises logging and a deletion faithfulness control",
       "prohibited_language": "attribution agreement proves causal use or H4"
     }

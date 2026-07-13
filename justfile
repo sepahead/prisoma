@@ -21,6 +21,7 @@ lint:
 # Docset audits (offline). audit_grandplan.py validates the R1-R112 reference ledger.
 docs-audit:
     python scripts/generate_capability_matrix.py --check
+    python scripts/audit_research_governance.py
     python scripts/audit_grandplan.py
     python scripts/audit_grandplan_claims.py
     python scripts/audit_docset_claims.py
@@ -33,6 +34,11 @@ capability-matrix:
 
 capability-matrix-check:
     python scripts/generate_capability_matrix.py --check
+
+# Honest current-state M0 scaffolds. Passing validates structure and cross-file
+# consistency; it does not mean the preregistration or scientific freeze is ready.
+research-governance:
+    python scripts/audit_research_governance.py
 
 # Dependency firebreak (grandplan.md §8.9.3): prove the minimum path needs neither
 # NCP nor PID atoms.

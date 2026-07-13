@@ -355,6 +355,44 @@
       ]
     },
     {
+      "feature_id": "governance.m0_research_ledgers",
+      "feature": "Machine-checkable M0 research-governance honesty scaffolds",
+      "status": "tested",
+      "revision_inputs": [
+        "grandplan.md",
+        "protocols/m0_preregistration_skeleton_v1.json",
+        "protocols/holdout_registry_v1.json",
+        "protocols/holdout_access_ledger_v1.jsonl",
+        "protocols/transport_contamination_ledger_v1.json",
+        "protocols/literature_screening_ledger_v1.json",
+        "protocols/research_claim_registry_v1.json",
+        "scripts/audit_research_governance.py",
+        "tests/python/test_research_governance.py"
+      ],
+      "external_revision": null,
+      "test_command": "just research-governance",
+      "evidence_artifacts": [
+        "protocols/m0_preregistration_skeleton_v1.json",
+        "protocols/holdout_registry_v1.json",
+        "protocols/holdout_access_ledger_v1.jsonl",
+        "protocols/transport_contamination_ledger_v1.json",
+        "protocols/literature_screening_ledger_v1.json",
+        "scripts/audit_research_governance.py",
+        "tests/python/test_research_governance.py"
+      ],
+      "known_limitations": "Structural integrity validation only: the study is not frozen; no confirmatory holdout is registered; the local unsigned access chain cannot prove historical or off-repository non-access; transport, contamination, and rights assessments are incomplete; the legacy citation inventory is not a systematic review; and no scientific claim evidence follows. The v1 scaffold is intentionally non-promotable, so a real freeze needs a reviewed successor schema and validator with typed, content-bound receipts.",
+      "evidence_level": "E0",
+      "evidence_basis": "intention_or_local_only",
+      "evidence_scope": "offline schema, binding, hash-chain, and honest-unfinished-state checks only",
+      "thesis_dependency": "required",
+      "claim_ids": [
+        "H1",
+        "H2",
+        "H3",
+        "H4"
+      ]
+    },
+    {
       "feature_id": "integration.standard_format_adapters",
       "feature": "MCAP/rosbag2 and LeRobot/RLDS storage adapters",
       "status": "specified",

@@ -500,6 +500,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Audit M0 research governance and its expected closed freeze gate
+        run: |
+          python scripts/audit_research_governance.py
+          if python scripts/audit_research_governance.py --require-freeze-ready > /tmp/m0-freeze.stdout 2> /tmp/m0-freeze.stderr; then
+            echo "M0 v1 unexpectedly reported freeze readiness" >&2
+            exit 1
+          else
+            status=$?
+          fi
+          cat /tmp/m0-freeze.stderr
+          test "$status" -eq 3
+          test ! -s /tmp/m0-freeze.stdout
+          grep -Fx -- '- M0_PREREGISTRATION_UNFROZEN' /tmp/m0-freeze.stderr
+          grep -Fx -- '- M0_H3_FOUR_PID_GATES_BLOCKED' /tmp/m0-freeze.stderr
+          grep -Fx -- '- M0_FRESH_REPRODUCIBLE_LITERATURE_SEARCH_REQUIRED' /tmp/m0-freeze.stderr
       - name: Generated capability matrix is current
         run: python scripts/generate_capability_matrix.py --check
       - name: Audit grandplan titles

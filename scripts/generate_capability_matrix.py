@@ -102,6 +102,7 @@ REQUIRED_FEATURE_IDS = frozenset(
         "experiment.h2_real_prospective",
         "experiment.h2_reference",
         "experiment.h4_attribution_reference",
+        "governance.m0_research_ledgers",
         "integration.standard_format_adapters",
         "integration.structurally_different_adapter",
         "observer.ncp_fault_observatory",

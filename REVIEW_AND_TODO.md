@@ -87,7 +87,7 @@ The theoretical framing is good. Several invalid estimator combinations are now 
 
 - The documented Experiment 0 acceptance criteria are strong; the implemented runner now exposes stricter monotonicity/CMI/invariant/geometry checks, uncertainty/resampling were wired into the Exp0 runner 2026-06-13 (`--bootstrap`/`--permutation`) and upgraded by pid-rs 0.4.0 (true moving-block bootstrap); the remaining gap is a validated preprocessing/estimator regime that passes the gates.
 - `gromov_hyperbolicity` reports mean sampled delta, while gating usually needs worst-case or high-quantile behavior.
-- Seed sweeps, subsample-bootstrap CIs, single-source permutation nulls, and (pid-rs 0.4.0) a true moving-block bootstrap are implemented; a grandplan §6 preregistered statistical analysis plan (one primary endpoint per confirmatory claim, gatekeeping + BH-FDR, power/design analysis as a capture gate) now exists.
+- Seed sweeps, subsample-bootstrap CIs, single-source permutation nulls, and (pid-rs 0.4.0) a true moving-block bootstrap are implemented; grandplan §6 now specifies the statistical analysis plan fields that a future real-study freeze must bind (one primary endpoint per confirmatory claim, gatekeeping + multiplicity, and power/design analysis as a capture gate).
 
 #### Judgment
 

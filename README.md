@@ -17,7 +17,7 @@
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-prisoma is a research toolkit providing **auditable experiment semantics** for **intervention‑grounded diagnosis** of **Vision‑Language‑Action (VLA)** policies: a provenance‑complete capture–intervention–replay substrate for testing whether genuinely pre‑treatment diagnostics predict intervention response and future failure beyond strong baselines. **Partial Information Decomposition (PID)** — the shared‑exclusions measure `I^sx_∩` — is one **conditional** candidate diagnostic, central only if it passes preregistered population, measure, estimator, and application gates (`grandplan.md` §7.1). The project is **gate‑driven**: PID atoms are never interpreted on real embeddings until those gates pass; confirmatory claims are bound by the `grandplan.md` §4 claim registry (EC1, H1–H4), the §3.8 PID kill rules, and the §6 statistical analysis plan; and negative results are first‑class publishable outcomes.
+prisoma is a research toolkit providing **auditable experiment semantics** for **intervention‑grounded diagnosis** of **Vision‑Language‑Action (VLA)** policies: a provenance‑complete capture–intervention–replay substrate for testing whether genuinely pre‑treatment diagnostics predict intervention response and future failure beyond strong baselines. **Partial Information Decomposition (PID)** — the shared‑exclusions measure `I^sx_∩` — is one **conditional** candidate diagnostic, central only if it passes preregistered population, measure, estimator, and application gates (`grandplan.md` §7.1). The project is **gate‑driven**: PID atoms are never interpreted on real embeddings until those gates pass; confirmatory claims are bound by the `grandplan.md` §4 claim registry (EC1, H1–H4), the §3.8 PID kill rules, and the future frozen analysis plan specified in §6; and negative results are first‑class publishable outcomes.
 
 ## Documentation map
 
@@ -57,7 +57,7 @@ cargo test --workspace
 cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0   # prints the GO/PIVOT/NO-GO verdict
 ```
 
-## Current Status & What To Do, In Order (docset v12.5, 2026-07-12)
+## Current Status & What To Do, In Order (docset v12.5; repository state 2026-07-13)
 
 **Status at a glance:**
 
@@ -78,10 +78,18 @@ cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimen
   (Protocol A/B split for H1, censoring-aware H2, conditional H3, availability–use H4), the S0–S7
   gate sequence, M0–M7 milestones, four PID gates, an E0–E5 ecosystem evidence ladder, and a
   dependency firebreak. Earlier docset history (v10.4–v10.7) is in `CHANGELOG.md`.
+- **M0 governance is now machine-checkable but deliberately unfinished:** `protocols/` contains an
+  unfrozen preregistration scaffold, a registry stating that no confirmatory holdout is registered,
+  a hash-chained non-access genesis ledger, an empty dataset-pending transport/contamination
+  structure, and a legacy-reference-inventory import that explicitly lacks reproducible search
+  provenance. `just research-governance` validates that honest state; it does not freeze a study,
+  establish non-access, complete a contamination audit, or constitute a systematic review.
 - **Open critical path:** do **not** begin an evidentiary real-VLA capture yet. Required first (S0–S3):
-  repair the upstream continuous application gate; implement leakage-safe episode-local H1 scores
-  plus action-entropy and ensemble/temperature baselines; freeze transforms and task eligibility;
-  and replace the implemented idealized power tool with the nested capture design in
+  complete the domain-specific M0 freeze, including a registered confirmatory holdout and split
+  commitment; repair the upstream continuous application gate; implement leakage-safe
+  episode-local H1 scores plus action-entropy and ensemble/temperature baselines; freeze transforms
+  and task eligibility; and replace the implemented idealized power tool with the nested capture
+  design in
   `grandplan.md` §6.8. The first power report is overall NOT PASSED and all of its first-run grid
   counts are withdrawn as capture requirements.
 
@@ -131,20 +139,20 @@ Each step gates the next; canonical depth is in `grandplan.md` at the cited sect
 5. **Analyze only after gates exist:** geometry diagnostics do not currently select a valid
    regime. The m-out-of-n raw percentile output is a stability envelope at size m, not an
    n-sample confidence interval; endpoint inference must resample the correct outer units.
-6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (surfaced under the `heldout_logreg_vlda_success_*` metric names) are built into the harness; add one faithfulness-checked attribution baseline (`experiments/attribution/`, an AttnLRP protocol, `grandplan.md` §6.10, §10.2; `just attribution-probe`). The preregistered PID kill rules (`grandplan.md` §3.8) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
+6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (surfaced under the `heldout_logreg_vlda_success_*` metric names) are built into the harness; add one faithfulness-checked attribution baseline (`experiments/attribution/`, an AttnLRP protocol, `grandplan.md` §6.10, §10.2; `just attribution-probe`). The prespecified PID kill rules (`grandplan.md` §3.8) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
 7. **Only then** run the H1–H4 study protocols in `EXPERIMENTS.md` (see its runbook for what is executable today vs blocked on step 4).
 
 ## Confirmatory claim registry (Docset v12.5)
 
-The canonical registry and its claim-to-evidence matrix live in `grandplan.md` §4 (with the §3.8 PID kill rules); the preregistered statistical analysis plan (estimands, endpoints, multiplicity, power gates) is `grandplan.md` §6. The thesis holds no more than three confirmatory scientific claims; engineering acceptance (EC1) is separate.
+The canonical registry and its claim-to-evidence matrix live in `grandplan.md` §4 (with the §3.8 PID kill rules); the preregistration-grade statistical analysis specification (estimands, endpoints, multiplicity, power gates) is `grandplan.md` §6, with the real study freeze still pending. The thesis holds no more than three confirmatory scientific claims; engineering acceptance (EC1) is separate.
 
 | Claim | One‑line testable claim | Type | Status |
 |---|---|---|---|
 | **EC1** | **Provenance-complete replay** — the capture/intervention/replay contract records the declared causal + temporal variables, detects contract violations, and reproduces exact events or tolerance-bounded outcomes, benchmarked against conventional scripts and standard containers. | Engineering acceptance | Run-log/replay groundwork implemented; external benchmark pending |
-| **H1** | Genuinely **pre-treatment** diagnostics predict intervention response — **Protocol A** (paired frozen-snapshot algorithmic sensitivity) and/or **Protocol B** (randomized closed-loop effect modification), scored by effect-specific criteria, not factual-outcome fit. | Confirmatory | Blocked on pilot + capture |
+| **H1** | Genuinely **pre-treatment** diagnostics predict intervention response — **Protocol A** (paired frozen-snapshot algorithmic sensitivity) and/or **Protocol B** (randomized closed-loop effect modification), scored by effect-specific criteria, not factual-outcome fit. | Confirmatory | Blocked on M0 protocol/domain freeze + pilot + capture |
 | **H2** | Diagnostics improve **prospective, censoring-aware** failure prediction beyond strong baselines (Tri-Info / SAFE / Hide-and-Seek / ActProbe / Rewind-IL / VLAConf / Foresight …) under a frozen alarm policy (with process-level safety cost as a decision-utility adjunct, not the headline claim). | Confirmatory | Synthetic protocol reference runnable; real claim blocked on domain freeze + capture + external validation |
-| **H3** | PID adds **incremental value only inside its validated support envelope** (all four gates), vs MI/CMI, uncertainty, temporal, geometry, attribution, and learned baselines. | Conditional | Blocked on the estimator application gate |
-| **H4** | Representational **availability** (held-out decodability) can diverge from causal **policy use** — the availability–use gap. Replaces H3 as a thesis paper if PID fails; a first-order problem, not a consolation prize. | Confirmatory / fallback | Blocked on capture |
+| **H3** | PID adds **incremental value only inside its validated support envelope** (all four gates), vs MI/CMI, uncertainty, temporal, geometry, attribution, and learned baselines. | Conditional | Blocked on population/measure/estimator/application gates (high-d estimator path NO-GO; continuous application gate blocked) |
+| **H4** | Representational **availability** (held-out decodability) can diverge from causal **policy use** — the availability–use gap. Replaces H3 as a thesis paper if PID fails; a first-order problem, not a consolation prize. | Confirmatory / fallback | Blocked on M0 protocol/estimand freeze + intervention pilot/capture |
 
 **Exploratory:** memorization under structured perturbation; temporal transitions before failure; low-dimensional object/contact flow as a portable target; process-level safety cost; cross-embodiment transport of relationships (not raw atom magnitudes); diagnostic-guided intervention/fallback selection.
 
@@ -164,7 +172,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
    deterministic synthetic fixed-horizon/IPCW/alarm reference is fixture-runnable
    (`just h2-reference`), while real/evidentiary H2 remains *blocked on domain freeze, capture,
    comparator completion, and external validation* (`grandplan.md` §6.4).
-6. **H3 or H4 — conditional PID incremental value, or the availability–use gap.** *Blocked on the estimator application gate / capture* (`grandplan.md` §7, §4).
+6. **H3 or H4 — conditional PID incremental value, or the availability–use gap.** *H3 is blocked on population/measure/estimator/application gates; H4 is blocked on capture* (`grandplan.md` §7, §4).
 7. **Transport replication (S7)** — second task family, policy, simulator, or embodiment; mind the embodiment‑in‑`L` confound. *Blocked on capture* (`grandplan.md` §5.11).
 
 ## Doc Audits
@@ -172,8 +180,11 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 - `python scripts/audit_grandplan.py` (validates the R1–R112 reference ledger: contiguous IDs, all defined + cited, no undefined/unused/duplicate, URLs)
 - `python scripts/audit_grandplan_claims.py` (heuristic scan for unqualified venue/perf claims)
 - `python scripts/audit_docset_claims.py` (same heuristic scan across the canonical docset + `findings.md`)
+- `python scripts/audit_research_governance.py` (strict schema/hash-chain/cross-ledger validation of
+  the honest M0 scaffold; add `--require-freeze-ready` only when a real freeze is expected)
 - Full tracked-Markdown sweep: `python scripts/audit_docset_claims.py --paths $(git ls-files '*.md')`
-- With `just`: `just docs-audit` (runs the four repository audits, including pinned-dependency truth)
+- With `just`: `just docs-audit` (checks generated capability views plus the five repository audits,
+  including research-governance and pinned-dependency truth)
 
 ## What Actually Exists
 
@@ -193,11 +204,15 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   reference exact-binds separate plan/ontology/feature/split artifacts and exercises grouped
   weighted fitting, stratified reverse-KM IPCW, competing events, reliability bins, frozen alarm
   semantics, nondetection retention, and declared-payoff utility on synthetic fixtures. It is not
-  prospective capture, validated calibration, the comparator frontier, or H2 scientific evidence. Implemented
-  baselines are majority, 1-NN, nearest-centroid, and held-out logistic regression; action
+  prospective capture, validated calibration, the comparator frontier, or H2 scientific evidence.
+  Implemented baselines are majority, 1-NN, nearest-centroid, and held-out logistic regression; action
   predictive entropy and ensemble/temperature uncertainty are still missing. The code review
   also identifies network-authentication, transactional logging, reconstructability, and
   artifact-integrity work before production use.
+- **Implemented (governance validation, not scientific readiness):** the M0 ledgers under
+  `protocols/` plus `scripts/audit_research_governance.py` encode and test an explicitly unfrozen
+  current state. There is no selected H1 protocol/domain, registered confirmatory holdout, freeze
+  receipt, completed transport/contamination assessment, or reproducible fresh literature search.
 - **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **reference producer is `experiments/safe_adapter/`** (the S2/EC1 adapter); its checked path is a finite synthetic canonical bundle, while real downloaded data remain a gated ingress/capture step. `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth**, and semantic labels require architecture evidence (`grandplan.md` §9.1, §3.5).
 - **Optional NCP observer:** `crates/ncp-observer` is a read-only tap for a conforming NCP
   producer (an E2 dependency edge to NCP itself, `grandplan.md` §8.9), excluded from the default
@@ -445,6 +460,14 @@ The research milestones and stop rules are `grandplan.md` §12 (**M0–M7**: fre
 version estimator gates → core + ecosystem conformance benchmark → intervention pilot → locked H1 →
 locked H2 → H3/H4 → transport replication). The infrastructure that supports them is specified in
 §8 (**infrastructure as a scientific contribution**, whose acceptance claim is EC1).
+
+The checked M0 artifacts are scaffolding for that first freeze, not its completion. A passing
+`just research-governance` means the unfinished state is internally consistent; freeze readiness
+must remain nonzero under `--require-freeze-ready` until every domain-specific blocker and receipt
+is resolved. Even a future zero exit would establish machine-checkable completeness and integrity,
+not scientific correctness or external validity. The checked v1 scaffold cannot be promoted by
+filling nulls in place; a real freeze needs a reviewed successor schema/validator with typed,
+content-bound receipts.
 
 The concrete build order for the capture/intervention/replay substrate:
 
