@@ -4,8 +4,8 @@
 
 use anyhow::{bail, Context, Result};
 use pid_bridge::{
-    rpc_id_to_unique_request_id, BridgeHandler, BridgeMethod, BridgeRequest, BridgeResponse,
-    BridgeRpcRequest, BridgeRpcResponse, LocalBridge,
+    rpc_id_to_unique_request_id, rpc_notification_to_unique_request_id, BridgeHandler,
+    BridgeMethod, BridgeRequest, BridgeResponse, BridgeRpcRequest, BridgeRpcResponse, LocalBridge,
 };
 use pid_runlog::{
     canonical_json_hash, Actor, Pose, RunLogEvent, RunLogWriter, RunStatus, SimObjectSnapshot,
@@ -13,8 +13,10 @@ use pid_runlog::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
-use std::io::{BufRead, Write};
-use std::path::{Path, PathBuf};
+use std::fs::{File, OpenOptions};
+use std::io::{BufRead, BufWriter, Read, Write};
+use std::path::{Component, Path, PathBuf};
+use std::time::Duration;
 
 pub mod h1_preflight;
 pub mod h1_protocol_a;
@@ -28,7 +30,36 @@ pub mod toy_harness;
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";
 pub const DEFAULT_BRIDGE_RUN_ID: &str = "sim-bridge-run";
 
+/// File-backed run-log sink whose `flush` also fsyncs file contents and file
+/// metadata. The bridge calls `flush` before every wire response, so the three
+/// executable transports do not acknowledge control while provenance remains
+/// only in a userspace buffer. This does not fsync the parent directory and is
+/// not a cross-file transaction with exported artifacts.
+pub struct FsyncFileWriter {
+    writer: BufWriter<File>,
+}
+
+impl FsyncFileWriter {
+    pub fn new(file: File) -> Self {
+        Self {
+            writer: BufWriter::new(file),
+        }
+    }
+}
+
+impl Write for FsyncFileWriter {
+    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+        self.writer.write(buffer)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer.flush()?;
+        self.writer.get_ref().sync_all()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SimObject {
     pub object_id: String,
     pub pose: Pose,
@@ -49,18 +80,21 @@ pub struct SimStepResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SetVelocityIntervention {
     object_id: String,
     velocity: [f64; 3],
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TranslateObjectIntervention {
     object_id: String,
     delta: [f64; 3],
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SetPoseIntervention {
     object_id: String,
     pose: Pose,
@@ -114,10 +148,28 @@ pub struct SimBridgeSession<W> {
     handler: SimBridgeHandler,
     run_id: String,
     run_ended: bool,
+    terminal_write_attempted: bool,
+    stop_requested: Option<String>,
+    poisoned: bool,
+    /// Set only while a newly installed export is crossing its provenance
+    /// commit boundary. Cleanup is allowed only before an `artifact_logged`
+    /// write starts; after that, a generic writer cannot reveal whether a full
+    /// line reached the sink, so the file is retained to avoid a false link.
+    pending_export: Option<PendingExport>,
     /// Where this session's own run log lives, when file-backed. `export.rerun`
     /// must never be allowed to write over it: the run log is the source of
-    /// truth, and `pid_rerun::save_recording` truncates its target.
+    /// truth and export outputs are separate no-replace artifacts.
     run_log_path: Option<PathBuf>,
+    /// Canonical directory containing every path that file-bearing RPCs may
+    /// read or create. File methods fail closed until this is configured.
+    artifact_root: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone)]
+struct PendingExport {
+    path: PathBuf,
+    sha256: String,
+    provenance_write_attempted: bool,
 }
 
 pub fn deterministic_sim_config(
@@ -227,13 +279,17 @@ impl DeterministicObjectSim {
                     .objects
                     .get_mut(&parsed.object_id)
                     .with_context(|| format!("unknown object_id {}", parsed.object_id))?;
-                for (position, delta) in object.pose.position.iter_mut().zip(parsed.delta) {
-                    *position += delta;
-                }
+                let position = [
+                    object.pose.position[0] + parsed.delta[0],
+                    object.pose.position[1] + parsed.delta[1],
+                    object.pose.position[2] + parsed.delta[2],
+                ];
+                validate_vec3_finite(position, "translated object position")?;
+                object.pose.position = position;
                 Ok(json!({
                     "object_id": parsed.object_id,
                     "delta": parsed.delta,
-                    "position": object.pose.position,
+                    "position": position,
                 }))
             }
             "set_pose" => {
@@ -266,25 +322,53 @@ impl DeterministicObjectSim {
         if !dt_secs.is_finite() || dt_secs <= 0.0 {
             bail!("dt_secs must be positive and finite");
         }
+        let rounded_dt_ns = (dt_secs * 1_000_000_000.0).round();
+        // `as u64` saturates oversized floats, which would hide an invalid dt
+        // until a later timestamp addition panics in debug or wraps in release.
+        // The f64 representation of u64::MAX rounds up to 2^64, so require a
+        // strict inequality before casting.
+        if !rounded_dt_ns.is_finite() || rounded_dt_ns < 1.0 || rounded_dt_ns >= u64::MAX as f64 {
+            bail!("dt_secs must round to a representable positive nanosecond interval");
+        }
+        let dt_ns = rounded_dt_ns as u64;
+        let next_step = self
+            .step
+            .checked_add(1)
+            .context("simulation step overflow")?;
+        let next_timestamp_ns = self
+            .timestamp_ns
+            .checked_add(dt_ns)
+            .context("simulation timestamp overflow")?;
 
-        let dt_ns = (dt_secs * 1_000_000_000.0).round() as u64;
+        // Validate every numeric effect before mutating any object. This keeps
+        // the public simulator API transactional even outside SimBridgeSession's
+        // cloned-handler staging.
         let mut flow_gt = Vec::with_capacity(self.objects.len());
-        for object in self.objects.values_mut() {
+        let mut next_positions = Vec::with_capacity(self.objects.len());
+        for object in self.objects.values() {
             let displacement = [
                 object.velocity[0] * dt_secs,
                 object.velocity[1] * dt_secs,
                 object.velocity[2] * dt_secs,
             ];
-            object.pose.position[0] += displacement[0];
-            object.pose.position[1] += displacement[1];
-            object.pose.position[2] += displacement[2];
+            validate_vec3_finite(displacement, "step displacement")?;
+            let position = [
+                object.pose.position[0] + displacement[0],
+                object.pose.position[1] + displacement[1],
+                object.pose.position[2] + displacement[2],
+            ];
+            validate_vec3_finite(position, "stepped object position")?;
+            next_positions.push(position);
             flow_gt.push(FlowGtRecord {
                 object_id: object.object_id.clone(),
                 displacement,
             });
         }
-        self.step += 1;
-        self.timestamp_ns += dt_ns;
+        for (object, position) in self.objects.values_mut().zip(next_positions) {
+            object.pose.position = position;
+        }
+        self.step = next_step;
+        self.timestamp_ns = next_timestamp_ns;
         Ok(SimStepResult {
             step: self.step,
             timestamp_ns: self.timestamp_ns,
@@ -385,12 +469,35 @@ fn validate_pose_finite(pose: &Pose) -> Result<()> {
     Ok(())
 }
 
+fn validate_bridge_payload_keys(
+    payload: &Value,
+    method: &str,
+    allowed: &[&str],
+    allow_omitted: bool,
+) -> Result<()> {
+    let params = match payload {
+        Value::Null if allow_omitted => return Ok(()),
+        Value::Object(params) => params,
+        other => bail!("{method} parameters must be an object, got {other}"),
+    };
+    for name in params.keys() {
+        if !allowed.contains(&name.as_str()) {
+            bail!("unknown parameter {name:?} for method {method}");
+        }
+    }
+    Ok(())
+}
+
 impl BridgeHandler for SimBridgeHandler {
     fn handle(&mut self, request: &BridgeRequest) -> Result<Value> {
         self.last_step = None;
         match request.method {
-            BridgeMethod::SimStatus => Ok(self.status_json()),
+            BridgeMethod::SimStatus => {
+                validate_bridge_payload_keys(&request.payload, "sim.status", &[], true)?;
+                Ok(self.status_json())
+            }
             BridgeMethod::SimReset => {
+                validate_bridge_payload_keys(&request.payload, "sim.reset", &[], true)?;
                 // A reset zeroes the sim's step/timestamp counters; recording
                 // post-reset events into the SAME run log would regress both
                 // counters and fail pid-runlog's nondecreasing validation (and
@@ -406,12 +513,14 @@ impl BridgeHandler for SimBridgeHandler {
                 Ok(self.status_json())
             }
             BridgeMethod::SimStep => {
-                let dt = match request.payload.get("dt") {
-                    None | Some(Value::Null) => 0.1,
-                    Some(value) => value
-                        .as_f64()
-                        .with_context(|| format!("sim.step dt must be a number, got {value}"))?,
-                };
+                validate_bridge_payload_keys(&request.payload, "sim.step", &["dt"], false)?;
+                let value = request
+                    .payload
+                    .get("dt")
+                    .context("sim.step requires numeric dt")?;
+                let dt = value
+                    .as_f64()
+                    .with_context(|| format!("sim.step dt must be a number, got {value}"))?;
                 let step = self.sim.step_fixed(dt)?;
                 self.last_step = Some(step.clone());
                 Ok(json!({
@@ -422,6 +531,12 @@ impl BridgeHandler for SimBridgeHandler {
                 }))
             }
             BridgeMethod::SceneSetObject => {
+                validate_bridge_payload_keys(
+                    &request.payload,
+                    "scene.set_object",
+                    &["object_id", "pose", "velocity"],
+                    false,
+                )?;
                 let object = serde_json::from_value::<SimObject>(request.payload.clone())?;
                 // Same fail-closed input discipline as intervention.apply: an
                 // accepted-but-invalid object (empty id, non-finite pose or
@@ -435,6 +550,12 @@ impl BridgeHandler for SimBridgeHandler {
                 Ok(self.status_json())
             }
             BridgeMethod::InterventionApply => {
+                validate_bridge_payload_keys(
+                    &request.payload,
+                    "intervention.apply",
+                    &["intervention_type", "payload"],
+                    false,
+                )?;
                 let intervention_type = request
                     .payload
                     .get("intervention_type")
@@ -461,34 +582,10 @@ impl BridgeHandler for SimBridgeHandler {
                 }))
             }
             BridgeMethod::LogReplay => {
-                let run_log_uri = request
-                    .payload
-                    .get("run_log_uri")
-                    .and_then(Value::as_str)
-                    .context("log.replay requires string run_log_uri")?;
-                let summary = pid_runlog::summarize_path(run_log_uri)?;
-                Ok(json!({
-                    "trace_hash": summary.trace_hash,
-                    "events": summary.event_count,
-                    "valid": summary.validation_errors == 0,
-                    "validation_errors": summary.validation_errors,
-                    "validation_warnings": summary.validation_warnings,
-                    "config_hash": summary.config_hash,
-                }))
+                bail!("log.replay requires SimBridgeSession artifact-root confinement")
             }
             BridgeMethod::ExportRerun => {
-                let run_log_uri = request
-                    .payload
-                    .get("run_log_uri")
-                    .and_then(Value::as_str)
-                    .context("export.rerun requires string run_log_uri")?;
-                let output_uri = request
-                    .payload
-                    .get("output_uri")
-                    .and_then(Value::as_str)
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| default_rerun_output_path(run_log_uri));
-                export_runlog_to_rerun(run_log_uri, &output_uri)
+                bail!("export.rerun requires SimBridgeSession artifact-root confinement")
             }
             _ => bail!("unsupported sim bridge method: {}", request.method.as_str()),
         }
@@ -527,7 +624,12 @@ impl<W: Write> SimBridgeSession<W> {
             handler: SimBridgeHandler::new(sim),
             run_id: run_id.into(),
             run_ended: false,
+            terminal_write_attempted: false,
+            stop_requested: None,
+            poisoned: false,
+            pending_export: None,
             run_log_path: None,
+            artifact_root: None,
         }
     }
 
@@ -550,7 +652,12 @@ impl<W: Write> SimBridgeSession<W> {
             handler: SimBridgeHandler::new(sim),
             run_id: run_id.into(),
             run_ended: false,
+            terminal_write_attempted: false,
+            stop_requested: None,
+            poisoned: false,
+            pending_export: None,
             run_log_path: None,
+            artifact_root: None,
         }
     }
 
@@ -558,6 +665,24 @@ impl<W: Write> SimBridgeSession<W> {
     /// refuse to overwrite it. File-backed transports should always set this.
     pub fn set_run_log_path(&mut self, path: impl Into<PathBuf>) {
         self.run_log_path = Some(path.into());
+    }
+
+    /// Restrict `log.replay` and `export.rerun` to one canonical directory in
+    /// a non-adversarial local filesystem.
+    ///
+    /// The root must be an existing directory reached without traversing a
+    /// symlink. RPC paths are later checked component by component, so a
+    /// symlink observed inside the root cannot be used to escape it.
+    /// Descriptor-relative race resistance against a concurrent filesystem
+    /// adversary is outside this E0 boundary. File-bearing RPCs remain disabled
+    /// until a root is set.
+    pub fn set_artifact_root(&mut self, root: impl AsRef<Path>) -> Result<()> {
+        self.artifact_root = Some(canonical_artifact_root(root)?);
+        Ok(())
+    }
+
+    pub fn artifact_root(&self) -> Option<&Path> {
+        self.artifact_root.as_deref()
     }
 
     pub fn safe_mode(&self) -> bool {
@@ -576,10 +701,46 @@ impl<W: Write> SimBridgeSession<W> {
         self.run_ended
     }
 
+    pub fn stop_requested(&self) -> bool {
+        self.stop_requested.is_some()
+    }
+
+    pub fn poisoned(&self) -> bool {
+        self.poisoned
+    }
+
     pub fn dispatch(&mut self, request: &BridgeRequest) -> Result<BridgeResponse> {
         if self.run_ended {
             bail!("bridge run {} already ended", self.run_id);
         }
+        if self.poisoned {
+            bail!(
+                "bridge run {} is poisoned by an earlier provenance-write failure",
+                self.run_id
+            );
+        }
+        match self.dispatch_inner(request) {
+            Ok(response) => Ok(response),
+            Err(error) => {
+                // A domain/request error is encoded as a successfully logged
+                // BridgeResponse below. Therefore every Err escaping the inner
+                // path is an infrastructure/provenance failure. Mutations are
+                // staged on a clone and installed only after every intended
+                // reconstruction event append returns success. Any partial
+                // prefix accepted before a later failure is indeterminate; the
+                // session is poisoned and no wire response is returned.
+                self.poisoned = true;
+                match self.rollback_pending_export() {
+                    Ok(()) => Err(error),
+                    Err(cleanup_error) => Err(error.context(format!(
+                        "failed to remove unlogged export artifact: {cleanup_error:#}"
+                    ))),
+                }
+            }
+        }
+    }
+
+    fn dispatch_inner(&mut self, request: &BridgeRequest) -> Result<BridgeResponse> {
         self.bridge.record_request(request)?;
         if self.bridge.safe_mode() && !request.safe_mode_allowed() {
             let response = BridgeResponse::blocked_by_safe_mode(
@@ -587,6 +748,7 @@ impl<W: Write> SimBridgeSession<W> {
                 request.timestamp_ns.max(self.handler.sim.timestamp_ns()),
             );
             self.bridge.record_response(&response)?;
+            self.bridge.flush()?;
             return Ok(response);
         }
         if matches!(
@@ -595,43 +757,57 @@ impl<W: Write> SimBridgeSession<W> {
         ) {
             self.bridge.flush()?;
         }
+        let mut staged_handler = self.handler.clone();
         let handled = match request.method {
             BridgeMethod::LogStart => self.handle_log_start(request),
             BridgeMethod::LogStop => self.handle_log_stop(request),
-            BridgeMethod::ExportRerun => self
-                .validate_export_target(request)
-                .and_then(|()| self.handler.handle(request)),
-            _ => self.handler.handle(request),
+            BridgeMethod::LogReplay => self.handle_log_replay(request),
+            BridgeMethod::ExportRerun => self.handle_export_rerun(request),
+            _ => staged_handler.handle(request),
+        };
+        let mutating_handler_method = matches!(
+            request.method,
+            BridgeMethod::SimStep
+                | BridgeMethod::SceneSetObject
+                | BridgeMethod::SimReset
+                | BridgeMethod::InterventionApply
+        );
+        let (response_step, response_timestamp_ns) = if handled.is_ok() {
+            (staged_handler.sim.step(), staged_handler.sim.timestamp_ns())
+        } else {
+            (self.handler.sim.step(), self.handler.sim.timestamp_ns())
         };
         let response = match handled {
             Ok(result) => BridgeResponse {
                 request_id: request.request_id.clone(),
-                step: Some(self.handler.sim.step()),
-                timestamp_ns: self.handler.sim.timestamp_ns(),
+                step: Some(response_step),
+                timestamp_ns: response_timestamp_ns,
                 ok: true,
                 message: None,
                 result: Some(result),
             },
             Err(err) => BridgeResponse {
                 request_id: request.request_id.clone(),
-                step: Some(self.handler.sim.step()),
-                timestamp_ns: self.handler.sim.timestamp_ns(),
+                step: Some(response_step),
+                timestamp_ns: response_timestamp_ns,
                 ok: false,
                 message: Some(err.to_string()),
                 result: None,
             },
         };
-        self.bridge.record_response(&response)?;
-
+        // A successful response is the acknowledgement record and therefore
+        // comes LAST: every event needed to reconstruct the effect is appended
+        // before it. The handler mutation remains staged while those effect
+        // events are written.
         match request.method {
             BridgeMethod::SimStep if response.ok => {
-                self.record_action(request)?;
+                self.record_action(request, &staged_handler.sim)?;
                 self.bridge
-                    .record_event(&self.handler.sim.snapshot_event())?;
-                for event in self.handler.sim.pose_events() {
+                    .record_event(&staged_handler.sim.snapshot_event())?;
+                for event in staged_handler.sim.pose_events() {
                     self.bridge.record_event(&event)?;
                 }
-                if let Some(step) = &self.handler.last_step {
+                if let Some(step) = &staged_handler.last_step {
                     for event in step.flow_events() {
                         self.bridge.record_event(&event)?;
                     }
@@ -641,61 +817,131 @@ impl<W: Write> SimBridgeSession<W> {
                 }
             }
             BridgeMethod::SceneSetObject if response.ok => {
-                self.record_action(request)?;
+                self.record_action(request, &staged_handler.sim)?;
                 self.bridge
-                    .record_event(&self.handler.sim.snapshot_event())?;
-                for event in self.handler.sim.pose_events() {
+                    .record_event(&staged_handler.sim.snapshot_event())?;
+                for event in staged_handler.sim.pose_events() {
                     self.bridge.record_event(&event)?;
                 }
             }
             BridgeMethod::SimReset if response.ok => {
-                self.record_action(request)?;
+                self.record_action(request, &staged_handler.sim)?;
                 self.bridge
-                    .record_event(&self.handler.sim.snapshot_event())?;
+                    .record_event(&staged_handler.sim.snapshot_event())?;
             }
             BridgeMethod::InterventionApply if response.ok => {
-                self.record_intervention(request)?;
+                self.record_intervention(request, &staged_handler.sim)?;
                 self.bridge
-                    .record_event(&self.handler.sim.snapshot_event())?;
-                for event in self.handler.sim.pose_events() {
+                    .record_event(&staged_handler.sim.snapshot_event())?;
+                for event in staged_handler.sim.pose_events() {
                     self.bridge.record_event(&event)?;
                 }
             }
             BridgeMethod::ExportRerun if response.ok => {
-                if let Some(result) = &response.result {
-                    if let Some(output_uri) = result.get("output_uri").and_then(Value::as_str) {
-                        self.bridge.record_event(&RunLogEvent::ArtifactLogged {
-                            timestamp_ns: response.timestamp_ns,
-                            name: "rerun_recording".to_string(),
-                            kind: "rerun_rrd".to_string(),
-                            uri: output_uri.to_string(),
-                            sha256: result
-                                .get("sha256")
-                                .and_then(Value::as_str)
-                                .map(str::to_string),
-                            metadata: result
-                                .get("trace_hash")
-                                .and_then(Value::as_str)
-                                .map(|trace_hash| {
-                                    [("trace_hash".to_string(), trace_hash.to_string())]
-                                        .into_iter()
-                                        .collect()
-                                })
-                                .unwrap_or_default(),
-                        })?;
-                    }
-                }
+                // Once this write starts, an error may still mean that a full
+                // JSON line reached the sink before its newline/flush failed.
+                // Retain the installed artifact from this point onward so any
+                // surviving provenance never names a deliberately deleted file.
+                let pending = {
+                    let pending = self
+                        .pending_export
+                        .as_mut()
+                        .context("successful export.rerun omitted pending artifact")?;
+                    pending.provenance_write_attempted = true;
+                    pending.clone()
+                };
+                self.bridge.record_event(&RunLogEvent::ArtifactLogged {
+                    timestamp_ns: response.timestamp_ns,
+                    name: "rerun_recording".to_string(),
+                    kind: "rerun_rrd".to_string(),
+                    uri: pending.path.display().to_string(),
+                    sha256: Some(pending.sha256),
+                    metadata: response
+                        .result
+                        .as_ref()
+                        .and_then(|result| result.get("trace_hash"))
+                        .and_then(Value::as_str)
+                        .map(|trace_hash| {
+                            [("trace_hash".to_string(), trace_hash.to_string())]
+                                .into_iter()
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                })?;
             }
             _ => {}
         }
+        // Successful effect-event appends are the conservative local
+        // state-retention threshold. From here on, retain the mutation even if
+        // the response append or flush fails: an arbitrary `Write` error cannot
+        // prove that earlier accepted evidence was absent from the sink, so
+        // rollback would risk false provenance.
+        if response.ok && mutating_handler_method {
+            self.handler = staged_handler;
+        }
+        self.bridge.record_response(&response)?;
+        // A wire success must never precede `W::flush` returning success. The
+        // meaning and durability of flush are defined by the supplied sink.
+        // The executable transports use FsyncFileWriter (file sync, but no
+        // parent-directory or cross-file transaction); generic callers may not.
+        self.bridge.flush()?;
+        if request.method == BridgeMethod::ExportRerun && response.ok {
+            self.pending_export = None;
+        }
         if request.method == BridgeMethod::LogStop && response.ok {
-            self.finish_run(
-                RunStatus::Succeeded,
-                Some(format!("log.stop requested by {}", request.actor.actor_id)),
-            )?;
+            self.stop_requested = Some(format!(
+                "log.stop response delivered for {}",
+                request.actor.actor_id
+            ));
         }
 
         Ok(response)
+    }
+
+    fn rollback_pending_export(&mut self) -> Result<()> {
+        let Some(pending) = self.pending_export.as_ref().cloned() else {
+            return Ok(());
+        };
+        if pending.provenance_write_attempted {
+            // Keep the file: a failing `Write` cannot tell us whether the
+            // complete ArtifactLogged line reached the sink. Deleting here
+            // could turn surviving provenance into a false reference.
+            self.pending_export = None;
+            return Ok(());
+        }
+        let metadata = match std::fs::symlink_metadata(&pending.path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                self.pending_export = None;
+                return Ok(());
+            }
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!(
+                        "failed to inspect pending export {}",
+                        pending.path.display()
+                    )
+                });
+            }
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            bail!(
+                "pending export changed type; refusing cleanup: {}",
+                pending.path.display()
+            );
+        }
+        let actual_sha256 = pid_runlog::sha256_file(&pending.path)?;
+        if actual_sha256 != pending.sha256 {
+            bail!(
+                "pending export changed bytes; refusing cleanup: {}",
+                pending.path.display()
+            );
+        }
+        std::fs::remove_file(&pending.path).with_context(|| {
+            format!("failed to remove pending export {}", pending.path.display())
+        })?;
+        self.pending_export = None;
+        Ok(())
     }
 
     pub fn step(&self) -> u64 {
@@ -706,32 +952,78 @@ impl<W: Write> SimBridgeSession<W> {
         self.handler.sim.timestamp_ns()
     }
 
-    /// Refuse an `export.rerun` whose resolved output path is this session's
-    /// own run log: `pid_rerun::save_recording` truncates its target, and a
-    /// client (any process that can reach the TCP/WS port) must not be able to
-    /// destroy the source-of-truth log of the run in progress.
-    fn validate_export_target(&self, request: &BridgeRequest) -> Result<()> {
-        let Some(own) = &self.run_log_path else {
-            return Ok(());
-        };
+    fn handle_log_replay(&self, request: &BridgeRequest) -> Result<Value> {
+        validate_bridge_payload_keys(&request.payload, "log.replay", &["run_log_uri"], false)?;
+        let run_log_uri = request
+            .payload
+            .get("run_log_uri")
+            .and_then(Value::as_str)
+            .context("log.replay requires string run_log_uri")?;
+        let root = self
+            .artifact_root
+            .as_deref()
+            .context("log.replay is disabled until an artifact root is configured")?;
+        let run_log_path = resolve_existing_artifact_path(root, Path::new(run_log_uri))?;
+        let (events, _) = snapshot_runlog(&run_log_path)?;
+        let summary = pid_runlog::summarize_events(&events)?;
+        Ok(json!({
+            "trace_hash": summary.trace_hash,
+            "events": summary.event_count,
+            "valid": summary.validation_errors == 0,
+            "validation_errors": summary.validation_errors,
+            "validation_warnings": summary.validation_warnings,
+            "config_hash": summary.config_hash,
+        }))
+    }
+
+    fn handle_export_rerun(&mut self, request: &BridgeRequest) -> Result<Value> {
+        validate_bridge_payload_keys(
+            &request.payload,
+            "export.rerun",
+            &["run_log_uri", "output_uri"],
+            false,
+        )?;
         let run_log_uri = request
             .payload
             .get("run_log_uri")
             .and_then(Value::as_str)
             .context("export.rerun requires string run_log_uri")?;
-        let output_uri = request
-            .payload
-            .get("output_uri")
-            .and_then(Value::as_str)
-            .map(PathBuf::from)
-            .unwrap_or_else(|| default_rerun_output_path(run_log_uri));
-        if paths_resolve_to_same_target(&output_uri, own) {
+        let root = self
+            .artifact_root
+            .as_deref()
+            .context("export.rerun is disabled until an artifact root is configured")?;
+        let run_log_path = resolve_existing_artifact_path(root, Path::new(run_log_uri))?;
+        let requested_output = match request.payload.get("output_uri") {
+            None => default_rerun_output_path(&run_log_path),
+            Some(Value::String(path)) => PathBuf::from(path),
+            Some(_) => bail!("export.rerun output_uri must be a string when provided"),
+        };
+        let output_candidate = artifact_candidate(root, &requested_output)?;
+        if paths_resolve_to_same_target(&output_candidate, &run_log_path) {
+            bail!("export.rerun output_uri must differ from run_log_uri");
+        }
+        let output_path = resolve_new_artifact_path(root, &requested_output)?;
+        if let Some(own) = &self.run_log_path {
+            if paths_resolve_to_same_target(&output_path, own) {
+                bail!(
+                    "export.rerun output_uri {} resolves to this session's own run log; refusing",
+                    output_path.display()
+                );
+            }
+        }
+        if paths_refer_to_same_file(&run_log_path, &output_path) {
             bail!(
-                "export.rerun output_uri {} resolves to this session's own run log; refusing",
-                output_uri.display()
+                "export.rerun output_uri {} must differ from run_log_uri",
+                output_path.display()
             );
         }
-        Ok(())
+        let exported = export_runlog_to_rerun_inner(&run_log_path, &output_path)?;
+        self.pending_export = Some(PendingExport {
+            path: exported.output_path,
+            sha256: exported.sha256,
+            provenance_write_attempted: false,
+        });
+        Ok(exported.response)
     }
 
     /// Record a rejected RPC message (malformed JSON, invalid id, unknown
@@ -742,12 +1034,12 @@ impl<W: Write> SimBridgeSession<W> {
     /// unknown, its id structurally invalid, or its JSON unparseable), and an
     /// unpaired response makes the canonical run-log validation fail — the old
     /// encoding let one probing/malformed message poison the validity of the
-    /// very log this hook exists to keep audit-complete. Best-effort:
-    /// a run-log write failure is reported on stderr rather than masking the
-    /// protocol error already being returned to the client.
-    pub fn record_rejected_rpc(&mut self, request_id: &str, message: &str) {
-        if self.run_ended {
-            return;
+    /// very log this hook exists to keep audit-complete. A provenance-write
+    /// failure poisons the session and is returned instead of being hidden
+    /// behind the protocol error.
+    pub fn record_rejected_rpc(&mut self, request_id: &str, message: &str) -> Result<()> {
+        if self.run_ended || self.poisoned {
+            bail!("bridge run {} is no longer writable", self.run_id);
         }
         let event = RunLogEvent::ErrorLogged {
             step: Some(self.handler.sim.step()),
@@ -755,27 +1047,57 @@ impl<W: Write> SimBridgeSession<W> {
             message: format!("rejected rpc {request_id}: {message}"),
             recoverable: true,
         };
-        if let Err(err) = self.bridge.record_event(&event) {
-            eprintln!("[pid-sim-bridge] failed to record rejected request in run log: {err}");
+        if let Err(error) = self.bridge.record_event(&event) {
+            self.poisoned = true;
+            return Err(error).context("failed to record rejected RPC in canonical run log");
         }
+        if let Err(error) = self.bridge.flush() {
+            self.poisoned = true;
+            return Err(error).context("failed to flush rejected RPC to canonical run log");
+        }
+        Ok(())
     }
 
     pub fn record_event(&mut self, event: &RunLogEvent) -> Result<()> {
-        if let RunLogEvent::RunEnded { run_id, .. } = event {
-            if run_id == &self.run_id {
-                self.run_ended = true;
-            }
+        if matches!(event, RunLogEvent::RunEnded { .. }) {
+            bail!("use finish_run to append and flush the terminal run event");
         }
-        self.bridge.record_event(event)
+        if self.poisoned {
+            bail!(
+                "bridge run {} is poisoned by an earlier provenance-write failure",
+                self.run_id
+            );
+        }
+        if let Err(error) = self.bridge.record_event(event) {
+            self.poisoned = true;
+            return Err(error).context("failed to append canonical bridge event");
+        }
+        Ok(())
     }
 
     pub fn flush(&mut self) -> Result<()> {
-        self.bridge.flush()
+        if let Err(error) = self.bridge.flush() {
+            self.poisoned = true;
+            return Err(error).context("failed to flush canonical bridge run log");
+        }
+        Ok(())
     }
 
     pub fn finish_run(&mut self, status: RunStatus, message: Option<String>) -> Result<bool> {
         if self.run_ended {
             return Ok(false);
+        }
+        if self.poisoned && !matches!(&status, RunStatus::Failed) {
+            bail!(
+                "bridge run {} is poisoned and may only be sealed failed",
+                self.run_id
+            );
+        }
+        if self.terminal_write_attempted {
+            bail!(
+                "bridge run {} terminal write was already attempted and cannot be retried safely",
+                self.run_id
+            );
         }
         let event = RunLogEvent::RunEnded {
             run_id: self.run_id.clone(),
@@ -783,7 +1105,21 @@ impl<W: Write> SimBridgeSession<W> {
             status,
             message,
         };
-        self.record_event(&event)?;
+        // Sealing is the one write allowed after poisoning. Once an arbitrary
+        // Write reports an error we cannot tell how much of its JSON line
+        // reached the sink, so retrying could duplicate a complete terminal
+        // event. Permit exactly one terminal write attempt.
+        self.terminal_write_attempted = true;
+        if let Err(error) = self.bridge.record_event(&event) {
+            self.poisoned = true;
+            return Err(error).context("failed to seal canonical bridge run log");
+        }
+        if let Err(error) = self.bridge.flush() {
+            self.poisoned = true;
+            return Err(error).context("failed to flush canonical bridge run-log seal");
+        }
+        self.run_ended = true;
+        self.stop_requested = None;
         Ok(true)
     }
 
@@ -792,15 +1128,21 @@ impl<W: Write> SimBridgeSession<W> {
     }
 
     fn handle_log_start(&self, request: &BridgeRequest) -> Result<Value> {
-        if let Some(requested_run_id) = request.payload.get("run_id").and_then(Value::as_str) {
-            if requested_run_id.is_empty() {
-                bail!("log.start run_id must not be empty");
-            }
-            if requested_run_id != self.run_id {
-                bail!(
-                    "log.start run_id {requested_run_id} does not match active run {}",
-                    self.run_id
-                );
+        validate_bridge_payload_keys(&request.payload, "log.start", &["run_id", "metadata"], true)?;
+        if let Some(value) = request.payload.get("run_id") {
+            match value {
+                Value::String(requested_run_id) => {
+                    if requested_run_id.is_empty() {
+                        bail!("log.start run_id must not be empty");
+                    }
+                    if requested_run_id != &self.run_id {
+                        bail!(
+                            "log.start run_id {requested_run_id} does not match active run {}",
+                            self.run_id
+                        );
+                    }
+                }
+                other => bail!("log.start run_id must be a string when provided, got {other}"),
             }
         }
         if let Some(metadata) = request.payload.get("metadata") {
@@ -817,9 +1159,7 @@ impl<W: Write> SimBridgeSession<W> {
     }
 
     fn handle_log_stop(&self, request: &BridgeRequest) -> Result<Value> {
-        if !request.payload.is_object() {
-            bail!("log.stop payload must be an object");
-        }
+        validate_bridge_payload_keys(&request.payload, "log.stop", &[], true)?;
         Ok(json!({
             "run_id": self.run_id,
             "stopped": true,
@@ -828,10 +1168,14 @@ impl<W: Write> SimBridgeSession<W> {
         }))
     }
 
-    fn record_action(&mut self, request: &BridgeRequest) -> Result<()> {
+    fn record_action(
+        &mut self,
+        request: &BridgeRequest,
+        sim: &DeterministicObjectSim,
+    ) -> Result<()> {
         self.bridge.record_event(&RunLogEvent::ActionApplied {
-            step: self.handler.sim.step(),
-            timestamp_ns: self.handler.sim.timestamp_ns(),
+            step: sim.step(),
+            timestamp_ns: sim.timestamp_ns(),
             actor: request.actor.clone(),
             action_type: request.method.as_str().to_string(),
             payload_hash: request.payload_hash()?,
@@ -839,7 +1183,11 @@ impl<W: Write> SimBridgeSession<W> {
         })
     }
 
-    fn record_intervention(&mut self, request: &BridgeRequest) -> Result<()> {
+    fn record_intervention(
+        &mut self,
+        request: &BridgeRequest,
+        sim: &DeterministicObjectSim,
+    ) -> Result<()> {
         let intervention_type = request
             .payload
             .get("intervention_type")
@@ -851,8 +1199,8 @@ impl<W: Write> SimBridgeSession<W> {
             .cloned()
             .context("intervention.apply requires payload object")?;
         self.bridge.record_event(&RunLogEvent::InterventionApplied {
-            step: self.handler.sim.step(),
-            timestamp_ns: self.handler.sim.timestamp_ns(),
+            step: sim.step(),
+            timestamp_ns: sim.timestamp_ns(),
             actor: request.actor.clone(),
             intervention_type: intervention_type.to_string(),
             payload_hash: canonical_json_hash(&payload)?,
@@ -861,30 +1209,360 @@ impl<W: Write> SimBridgeSession<W> {
     }
 }
 
+/// Canonicalize the root used to confine file-bearing bridge RPCs.
+///
+/// # Errors
+///
+/// Returns an error when `root` is missing, is not a directory, traverses a
+/// symlink, or cannot be canonicalized.
+pub fn canonical_artifact_root(root: impl AsRef<Path>) -> Result<PathBuf> {
+    let root = root.as_ref();
+    let root = if root.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        root
+    };
+    let absolute = if root.is_absolute() {
+        root.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .context("failed to resolve current directory for artifact root")?
+            .join(root)
+    };
+    let mut current = PathBuf::new();
+    for component in absolute.components() {
+        match component {
+            Component::ParentDir => bail!(
+                "artifact root must not contain parent traversal: {}",
+                root.display()
+            ),
+            Component::CurDir => continue,
+            Component::Prefix(_) | Component::RootDir => {
+                current.push(component.as_os_str());
+            }
+            Component::Normal(segment) => {
+                current.push(segment);
+                let metadata = std::fs::symlink_metadata(&current).with_context(|| {
+                    format!("failed to inspect artifact root {}", current.display())
+                })?;
+                if metadata.file_type().is_symlink() {
+                    bail!(
+                        "artifact root must not traverse a symlink: {}",
+                        current.display()
+                    );
+                }
+            }
+        }
+    }
+    let metadata = std::fs::metadata(&absolute)
+        .with_context(|| format!("failed to inspect artifact root {}", root.display()))?;
+    if !metadata.is_dir() {
+        bail!("artifact root must be a directory: {}", root.display());
+    }
+    absolute
+        .canonicalize()
+        .with_context(|| format!("failed to canonicalize artifact root {}", root.display()))
+}
+
+/// Resolve a not-yet-created artifact to its existing canonical parent.
+///
+/// Operator-facing binaries use this before `create_new`: platform-standard
+/// parent aliases such as macOS `/var` are resolved once, and every later open
+/// uses the returned canonical path rather than traversing that alias again.
+pub fn canonical_new_artifact_path(path: impl AsRef<Path>) -> Result<(PathBuf, PathBuf)> {
+    let path = path.as_ref();
+    let file_name = path
+        .file_name()
+        .filter(|name| !name.is_empty())
+        .context("artifact output must name a file")?;
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let canonical_parent = parent
+        .canonicalize()
+        .with_context(|| format!("artifact output parent must exist: {}", parent.display()))?;
+    let root = canonical_artifact_root(&canonical_parent)?;
+    Ok((root.join(file_name), root))
+}
+
+fn reject_unsafe_artifact_path(path: &Path) -> Result<()> {
+    if path.as_os_str().is_empty() {
+        bail!("artifact path must not be empty");
+    }
+    if path
+        .components()
+        .any(|component| component == Component::ParentDir)
+    {
+        bail!(
+            "artifact path must not contain parent traversal: {}",
+            path.display()
+        );
+    }
+    Ok(())
+}
+
+fn artifact_candidate(root: &Path, requested: &Path) -> Result<PathBuf> {
+    reject_unsafe_artifact_path(requested)?;
+    let candidate = if requested.is_absolute() {
+        requested.to_path_buf()
+    } else {
+        root.join(requested)
+    };
+    candidate.strip_prefix(root).with_context(|| {
+        format!(
+            "artifact path {} escapes configured root {}",
+            requested.display(),
+            root.display()
+        )
+    })?;
+    Ok(candidate)
+}
+
+fn reject_symlink_components(root: &Path, candidate: &Path) -> Result<()> {
+    let relative = candidate.strip_prefix(root).with_context(|| {
+        format!(
+            "artifact path {} escapes configured root {}",
+            candidate.display(),
+            root.display()
+        )
+    })?;
+    let mut current = root.to_path_buf();
+    for component in relative.components() {
+        let Component::Normal(segment) = component else {
+            bail!("artifact path has a non-canonical component");
+        };
+        current.push(segment);
+        let metadata = std::fs::symlink_metadata(&current)
+            .with_context(|| format!("failed to inspect artifact path {}", current.display()))?;
+        if metadata.file_type().is_symlink() {
+            bail!(
+                "artifact path must not traverse a symlink: {}",
+                current.display()
+            );
+        }
+    }
+    Ok(())
+}
+
+fn resolve_existing_artifact_path(root: &Path, requested: &Path) -> Result<PathBuf> {
+    let candidate = artifact_candidate(root, requested)?;
+    reject_symlink_components(root, &candidate)?;
+    let metadata = std::fs::metadata(&candidate)
+        .with_context(|| format!("failed to inspect artifact {}", candidate.display()))?;
+    if !metadata.is_file() {
+        bail!("artifact is not a regular file: {}", candidate.display());
+    }
+    let canonical = candidate
+        .canonicalize()
+        .with_context(|| format!("failed to canonicalize artifact {}", candidate.display()))?;
+    if !canonical.starts_with(root) {
+        bail!(
+            "artifact path {} escapes configured root {}",
+            requested.display(),
+            root.display()
+        );
+    }
+    Ok(canonical)
+}
+
+fn resolve_new_artifact_path(root: &Path, requested: &Path) -> Result<PathBuf> {
+    let candidate = artifact_candidate(root, requested)?;
+    match std::fs::symlink_metadata(&candidate) {
+        Ok(_) => bail!(
+            "artifact output already exists; refusing to overwrite {}",
+            candidate.display()
+        ),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(error).with_context(|| {
+                format!("failed to inspect artifact output {}", candidate.display())
+            });
+        }
+    }
+    let parent = candidate
+        .parent()
+        .context("artifact output must have a parent directory")?;
+    reject_symlink_components(root, parent)?;
+    let canonical_parent = parent.canonicalize().with_context(|| {
+        format!(
+            "artifact output parent must already exist: {}",
+            parent.display()
+        )
+    })?;
+    if !canonical_parent.starts_with(root) {
+        bail!(
+            "artifact output {} escapes configured root {}",
+            requested.display(),
+            root.display()
+        );
+    }
+    let file_name = candidate
+        .file_name()
+        .context("artifact output must name a file")?;
+    Ok(canonical_parent.join(file_name))
+}
+
+fn install_new_artifact(path: &Path, bytes: &[u8]) -> Result<String> {
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut staged = tempfile::NamedTempFile::new_in(parent)
+        .with_context(|| format!("failed to stage new artifact in {}", parent.display()))?;
+    staged
+        .write_all(bytes)
+        .with_context(|| format!("failed to stage new artifact {}", path.display()))?;
+    staged
+        .as_file()
+        .sync_all()
+        .with_context(|| format!("failed to sync staged artifact {}", path.display()))?;
+    let expected_sha256 = pid_runlog::sha256_hex(bytes);
+    let _file = staged.persist_noclobber(path).map_err(|error| {
+        anyhow::Error::new(error.error).context(format!(
+            "artifact output already exists or cannot be installed: {}",
+            path.display()
+        ))
+    })?;
+    // No fallible operation follows persistence: an error return must never
+    // strand a final-path artifact that then blocks a no-replace retry. The
+    // staged file itself was synced above; directory durability is not claimed.
+    Ok(expected_sha256)
+}
+
+fn snapshot_runlog(run_log_uri: &Path) -> Result<(Vec<RunLogEvent>, Vec<u8>)> {
+    let symlink_metadata = std::fs::symlink_metadata(run_log_uri)
+        .with_context(|| format!("failed to inspect run log {}", run_log_uri.display()))?;
+    if symlink_metadata.file_type().is_symlink() || !symlink_metadata.is_file() {
+        bail!(
+            "export.rerun source must be a non-symlink regular file: {}",
+            run_log_uri.display()
+        );
+    }
+
+    let mut source = OpenOptions::new()
+        .read(true)
+        .open(run_log_uri)
+        .with_context(|| format!("failed to open run log {}", run_log_uri.display()))?;
+    let source_identity = same_file::Handle::from_file(
+        source
+            .try_clone()
+            .context("failed to clone run-log snapshot handle")?,
+    )
+    .context("failed to identify open run-log snapshot")?;
+    let limits = pid_runlog::RunLogLimits::default();
+    let start_len = source
+        .metadata()
+        .with_context(|| format!("failed to stat run log {}", run_log_uri.display()))?
+        .len();
+    if start_len > limits.max_file_bytes {
+        bail!(
+            "run log exceeds the {}-byte export limit: {}",
+            limits.max_file_bytes,
+            run_log_uri.display()
+        );
+    }
+    let capacity = usize::try_from(start_len).context("run-log size does not fit in memory")?;
+    let mut bytes = Vec::new();
+    bytes
+        .try_reserve_exact(capacity)
+        .context("failed to reserve run-log snapshot buffer")?;
+    (&mut source)
+        .take(limits.max_file_bytes.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .with_context(|| format!("failed to snapshot run log {}", run_log_uri.display()))?;
+    if bytes.len() as u128 > u128::from(limits.max_file_bytes) {
+        bail!(
+            "run log exceeds the {}-byte export limit: {}",
+            limits.max_file_bytes,
+            run_log_uri.display()
+        );
+    }
+    let end_len = source
+        .metadata()
+        .with_context(|| format!("failed to restat run log {}", run_log_uri.display()))?
+        .len();
+    if start_len != end_len || u64::try_from(bytes.len()).ok() != Some(start_len) {
+        bail!(
+            "run log changed while it was being snapshotted: {}",
+            run_log_uri.display()
+        );
+    }
+    let named_identity = same_file::Handle::from_path(run_log_uri)
+        .with_context(|| format!("failed to re-identify run log {}", run_log_uri.display()))?;
+    if source_identity != named_identity {
+        bail!(
+            "run log path changed while it was being snapshotted: {}",
+            run_log_uri.display()
+        );
+    }
+
+    let events = pid_runlog::read_events_with_limits(std::io::Cursor::new(&bytes), limits)?;
+    Ok((events, bytes))
+}
+
+fn manifest_for_snapshot(
+    run_log_uri: &Path,
+    events: &[RunLogEvent],
+    bytes: &[u8],
+) -> Result<pid_runlog::RunManifest> {
+    let mut snapshot = tempfile::NamedTempFile::new()
+        .context("failed to create exact run-log manifest snapshot")?;
+    snapshot
+        .write_all(bytes)
+        .context("failed to write exact run-log manifest snapshot")?;
+    snapshot
+        .as_file()
+        .sync_all()
+        .context("failed to sync exact run-log manifest snapshot")?;
+    let mut manifest = pid_runlog::manifest_for_events(snapshot.path(), events)?;
+    manifest.run_log_uri = run_log_uri.display().to_string();
+    Ok(manifest)
+}
+
 pub fn export_runlog_to_rerun(
     run_log_uri: impl AsRef<Path>,
     output_uri: impl AsRef<Path>,
 ) -> Result<Value> {
+    Ok(export_runlog_to_rerun_inner(run_log_uri, output_uri)?.response)
+}
+
+struct ExportedRerun {
+    output_path: PathBuf,
+    sha256: String,
+    response: Value,
+}
+
+fn export_runlog_to_rerun_inner(
+    run_log_uri: impl AsRef<Path>,
+    output_uri: impl AsRef<Path>,
+) -> Result<ExportedRerun> {
     let run_log_uri = run_log_uri.as_ref();
     let output_uri = output_uri.as_ref();
     if paths_refer_to_same_file(run_log_uri, output_uri) {
         bail!("export.rerun output_uri must differ from run_log_uri");
     }
-    // save_recording truncates its target; requiring the Rerun extension keeps
-    // a mistyped (or malicious) output_uri from overwriting arbitrary files.
+    // Constrain this file-producing method to its declared artifact type. The
+    // later staged no-clobber install independently preserves every existing
+    // destination.
     if output_uri.extension().and_then(|ext| ext.to_str()) != Some("rrd") {
         bail!(
             "export.rerun output_uri must end in .rrd, got {}",
             output_uri.display()
         );
     }
-    if let Some(parent) = output_uri.parent() {
-        if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("failed to create {}", parent.display()))?;
-        }
+    let parent = output_uri
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    if !parent.is_dir() {
+        bail!(
+            "export.rerun output parent must already exist: {}",
+            parent.display()
+        );
     }
-    let events = pid_runlog::read_events_from_path(run_log_uri)?;
+    let (events, run_log_bytes) = snapshot_runlog(run_log_uri)?;
+    let manifest = manifest_for_snapshot(run_log_uri, &events, &run_log_bytes)?;
     let summary = pid_runlog::summarize_events(&events)?;
     if summary.validation_errors > 0 {
         bail!(
@@ -892,13 +1570,21 @@ pub fn export_runlog_to_rerun(
             summary.validation_errors
         );
     }
-    let manifest = pid_runlog::manifest_for_events(run_log_uri, &events)?;
-    let output_uri = output_uri.display().to_string();
     let rec = pid_rerun::init_recording("prisoma_bridge_export", false)?;
-    pid_rerun::RunLogRerunLogger::new(&rec).log_events_with_manifest(&events, Some(&manifest))?;
-    pid_rerun::save_recording(&rec, &output_uri)?;
-    let sha256 = pid_runlog::sha256_file(&output_uri)?;
-    Ok(json!({
+    let binary = rec.binary_stream();
+    pid_rerun::RunLogRerunLogger::new(&rec)
+        .without_external_artifact_loading()
+        .log_events_with_manifest(&events, Some(&manifest))?;
+    binary
+        .flush(Duration::from_secs(30))
+        .context("timed out while finalizing the Rerun recording")?;
+    let recording = binary
+        .read()
+        .context("Rerun encoder produced no recording bytes")?;
+    let sha256 = install_new_artifact(output_uri, &recording)?;
+    let output_path = output_uri.to_path_buf();
+    let output_uri = output_path.display().to_string();
+    let response = json!({
         "output_uri": output_uri,
         "sha256": sha256,
         "trace_hash": summary.trace_hash,
@@ -907,11 +1593,16 @@ pub fn export_runlog_to_rerun(
         "validation_errors": summary.validation_errors,
         "validation_warnings": summary.validation_warnings,
         "config_hash": summary.config_hash,
-    }))
+    });
+    Ok(ExportedRerun {
+        output_path,
+        sha256,
+        response,
+    })
 }
 
-fn default_rerun_output_path(run_log_uri: &str) -> PathBuf {
-    let mut path = PathBuf::from(run_log_uri);
+fn default_rerun_output_path(run_log_uri: impl AsRef<Path>) -> PathBuf {
+    let mut path = run_log_uri.as_ref().to_path_buf();
     path.set_extension("rrd");
     path
 }
@@ -995,7 +1686,9 @@ where
             break;
         }
         if read as u64 == MAX_RPC_LINE_BYTES && !line.ends_with('\n') {
-            bail!("JSON-RPC line {idx} exceeds {MAX_RPC_LINE_BYTES} bytes");
+            let message = format!("JSON-RPC line {idx} exceeds {MAX_RPC_LINE_BYTES} bytes");
+            session.record_rejected_rpc(&format!("line-{idx}"), &message)?;
+            bail!(message);
         }
         if line.trim().is_empty() {
             continue;
@@ -1007,17 +1700,20 @@ where
             idx,
             session,
             actor.clone(),
-        );
-        serde_json::to_writer(&mut *output, &response).context("failed to write RPC response")?;
-        output
-            .write_all(b"\n")
-            .context("failed to write RPC response newline")?;
-        // Flush per response: an interactive client (TCP without half-close,
-        // a REPL over stdio) deadlocks waiting for a reply that is sitting in
-        // this side's BufWriter.
-        output.flush().context("failed to flush RPC response")?;
+        )?;
+        if let Some(response) = response {
+            serde_json::to_writer(&mut *output, &response)
+                .context("failed to write RPC response")?;
+            output
+                .write_all(b"\n")
+                .context("failed to write RPC response newline")?;
+            // Flush per response: an interactive client (TCP without half-close,
+            // a REPL over stdio) deadlocks waiting for a reply that is sitting in
+            // this side's BufWriter.
+            output.flush().context("failed to flush RPC response")?;
+        }
         handled += 1;
-        if session.run_ended() {
+        if session.stop_requested() || session.run_ended() {
             break;
         }
     }
@@ -1029,7 +1725,7 @@ pub fn dispatch_rpc_text_request<L>(
     request_index: usize,
     session: &mut SimBridgeSession<L>,
     actor: Actor,
-) -> BridgeRpcResponse
+) -> Result<Option<BridgeRpcResponse>>
 where
     L: Write,
 {
@@ -1050,67 +1746,99 @@ fn dispatch_rpc_text_request_with_context<L>(
     request_index: usize,
     session: &mut SimBridgeSession<L>,
     actor: Actor,
-) -> BridgeRpcResponse
+) -> Result<Option<BridgeRpcResponse>>
 where
     L: Write,
 {
-    match serde_json::from_str::<BridgeRpcRequest>(text) {
+    let value = match serde_json::from_str::<Value>(text) {
+        Ok(value) => value,
+        Err(err) => {
+            let message =
+                format!("invalid JSON-RPC syntax at {context_name} {request_index}: {err}");
+            session.record_rejected_rpc(failure_id, &message)?;
+            // Unparseable JSON: the request id is unknowable; JSON-RPC 2.0
+            // says respond with id null (the message keeps the line/frame
+            // context for correlation).
+            return Ok(Some(BridgeRpcResponse::failure(
+                Value::Null,
+                -32700,
+                message,
+            )));
+        }
+    };
+    match serde_json::from_value::<BridgeRpcRequest>(value) {
         Ok(rpc) => {
             let id = match rpc.validated_id() {
-                Ok(id) => id.clone(),
+                Ok(id) => id.cloned(),
                 Err(err) => {
                     let message = format!(
                         "invalid JSON-RPC request at {context_name} {request_index}: {err}"
                     );
-                    session.record_rejected_rpc(failure_id, &message);
+                    session.record_rejected_rpc(failure_id, &message)?;
                     // The id is structurally invalid, so it cannot be echoed;
                     // JSON-RPC 2.0 says respond with id null.
-                    return BridgeRpcResponse::failure(Value::Null, -32600, message);
+                    return Ok(Some(BridgeRpcResponse::failure(
+                        Value::Null,
+                        -32600,
+                        message,
+                    )));
                 }
             };
             // Unique-by-construction run-log id: clients may reuse ids and
             // `1` vs `"1"` collide under the bare rendering, and duplicate
-            // request ids hard-fail canonical run-log validation.
-            let request_id = rpc_id_to_unique_request_id(&id, request_index);
-            match rpc.into_bridge_request(actor, Some(session.step()), session.timestamp_ns()) {
-                Ok(mut request) => {
-                    request.request_id = request_id.clone();
-                    let response = session.dispatch(&request).unwrap_or_else(|err| {
-                        // dispatch itself failed (e.g. a run-log write
-                        // error) — the response below may not be in the
-                        // log; record the failure best-effort so the
-                        // audit trail sees it.
-                        let message = err.to_string();
-                        session.record_rejected_rpc(&request_id, &message);
-                        BridgeResponse {
-                            request_id: request_id.clone(),
-                            step: Some(session.step()),
-                            timestamp_ns: session.timestamp_ns(),
-                            ok: false,
-                            message: Some(message),
-                            result: None,
-                        }
-                    });
-                    BridgeRpcResponse::from_bridge_response_with_id(&response, id)
-                }
+            // request ids hard-fail canonical run-log validation. Preserve
+            // absent ids separately from explicit null so the log also says
+            // whether a wire response was suppressed.
+            let request_id = match id.as_ref() {
+                Some(id) => rpc_id_to_unique_request_id(id, request_index),
+                None => rpc_notification_to_unique_request_id(request_index),
+            };
+            if let Err(err) = rpc.validated_params() {
+                let message =
+                    format!("invalid JSON-RPC params at {context_name} {request_index}: {err}");
+                session.record_rejected_rpc(&request_id, &message)?;
+                return Ok(id.map(|id| BridgeRpcResponse::failure(id, -32602, message)));
+            }
+            let method = match rpc.validated_method() {
+                Ok(method) => method,
                 Err(err) => {
                     // Unknown/unsupported method: return -32601 AND leave a
                     // trace — method probing is exactly the traffic a control-
                     // plane audit log must capture.
                     let message = err.to_string();
-                    session.record_rejected_rpc(&request_id, &message);
-                    BridgeRpcResponse::failure(id, -32601, message)
+                    session.record_rejected_rpc(&request_id, &message)?;
+                    return Ok(id.map(|id| BridgeRpcResponse::failure(id, -32601, message)));
                 }
+            };
+            if let Err(err) = rpc.validated_params_for_method(&method) {
+                let message =
+                    format!("invalid JSON-RPC params at {context_name} {request_index}: {err}");
+                session.record_rejected_rpc(&request_id, &message)?;
+                return Ok(id.map(|id| BridgeRpcResponse::failure(id, -32602, message)));
             }
+            let request = BridgeRequest {
+                request_id,
+                step: Some(session.step()),
+                timestamp_ns: session.timestamp_ns(),
+                actor,
+                method,
+                payload: rpc.params.unwrap_or(Value::Null),
+            };
+            let response = session.dispatch(&request)?;
+            Ok(id.map(|id| BridgeRpcResponse::from_bridge_response_with_id(&response, id)))
         }
         Err(err) => {
             let message =
                 format!("invalid JSON-RPC request at {context_name} {request_index}: {err}");
-            session.record_rejected_rpc(failure_id, &message);
-            // Unparseable JSON: the request id is unknowable; JSON-RPC 2.0
-            // says respond with id null (the message keeps the line/frame
-            // context for correlation).
-            BridgeRpcResponse::failure(Value::Null, -32700, message)
+            session.record_rejected_rpc(failure_id, &message)?;
+            // Syntactically valid JSON that is not one supported single
+            // Request object (including a batch) is Invalid Request, not a
+            // Parse error. Its request id is not safely recoverable.
+            Ok(Some(BridgeRpcResponse::failure(
+                Value::Null,
+                -32600,
+                message,
+            )))
         }
     }
 }
@@ -1478,15 +2206,223 @@ mod tests {
         RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
     };
     use serde_json::json;
-    use std::io::Cursor;
+    use std::io::{self, Cursor};
     use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone)]
+    struct LineGateControl {
+        bytes: Arc<Mutex<Vec<u8>>>,
+        completed_lines: Arc<AtomicUsize>,
+        allowed_lines: Arc<AtomicUsize>,
+    }
+
+    struct LineGateWriter {
+        control: LineGateControl,
+    }
+
+    impl LineGateWriter {
+        fn new() -> (Self, LineGateControl) {
+            let control = LineGateControl {
+                bytes: Arc::new(Mutex::new(Vec::new())),
+                completed_lines: Arc::new(AtomicUsize::new(0)),
+                allowed_lines: Arc::new(AtomicUsize::new(usize::MAX)),
+            };
+            (
+                Self {
+                    control: control.clone(),
+                },
+                control,
+            )
+        }
+    }
+
+    impl Write for LineGateWriter {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            let limit = self.control.allowed_lines.load(Ordering::SeqCst);
+            let mut lines = self.control.completed_lines.load(Ordering::SeqCst);
+            if lines >= limit {
+                return Err(io::Error::other("injected canonical run-log write failure"));
+            }
+            let mut accepted = 0usize;
+            for byte in buffer {
+                if lines >= limit {
+                    break;
+                }
+                accepted += 1;
+                if *byte == b'\n' {
+                    lines += 1;
+                }
+            }
+            if accepted == 0 {
+                return Err(io::Error::other("injected canonical run-log write failure"));
+            }
+            self.control
+                .bytes
+                .lock()
+                .expect("line-gate buffer lock")
+                .extend_from_slice(&buffer[..accepted]);
+            self.control.completed_lines.store(lines, Ordering::SeqCst);
+            Ok(accepted)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[derive(Clone)]
+    struct FlushGateControl {
+        bytes: Arc<Mutex<Vec<u8>>>,
+        fail_flush: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    struct FlushGateWriter {
+        control: FlushGateControl,
+    }
+
+    impl FlushGateWriter {
+        fn new() -> (Self, FlushGateControl) {
+            let control = FlushGateControl {
+                bytes: Arc::new(Mutex::new(Vec::new())),
+                fail_flush: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            };
+            (
+                Self {
+                    control: control.clone(),
+                },
+                control,
+            )
+        }
+    }
+
+    impl Write for FlushGateWriter {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            self.control
+                .bytes
+                .lock()
+                .expect("flush-gate buffer lock")
+                .extend_from_slice(buffer);
+            Ok(buffer.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            if self.control.fail_flush.load(Ordering::SeqCst) {
+                Err(io::Error::other("injected canonical run-log flush failure"))
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[derive(Clone)]
+    struct NthFlushControl {
+        bytes: Arc<Mutex<Vec<u8>>>,
+        flushes: Arc<AtomicUsize>,
+        fail_on_flush: Arc<AtomicUsize>,
+    }
+
+    struct NthFlushWriter {
+        control: NthFlushControl,
+    }
+
+    impl NthFlushWriter {
+        fn new(fail_on_flush: usize) -> (Self, NthFlushControl) {
+            let control = NthFlushControl {
+                bytes: Arc::new(Mutex::new(Vec::new())),
+                flushes: Arc::new(AtomicUsize::new(0)),
+                fail_on_flush: Arc::new(AtomicUsize::new(fail_on_flush)),
+            };
+            (
+                Self {
+                    control: control.clone(),
+                },
+                control,
+            )
+        }
+    }
+
+    impl Write for NthFlushWriter {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            self.control
+                .bytes
+                .lock()
+                .expect("nth-flush buffer lock")
+                .extend_from_slice(buffer);
+            Ok(buffer.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            let flush = self.control.flushes.fetch_add(1, Ordering::SeqCst) + 1;
+            if flush == self.control.fail_on_flush.load(Ordering::SeqCst) {
+                Err(io::Error::other(
+                    "injected final canonical run-log flush failure",
+                ))
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[derive(Clone)]
+    struct ByteGateControl {
+        bytes: Arc<Mutex<Vec<u8>>>,
+        allowed_bytes: Arc<AtomicUsize>,
+    }
+
+    struct ByteGateWriter {
+        control: ByteGateControl,
+    }
+
+    impl ByteGateWriter {
+        fn new() -> (Self, ByteGateControl) {
+            let control = ByteGateControl {
+                bytes: Arc::new(Mutex::new(Vec::new())),
+                allowed_bytes: Arc::new(AtomicUsize::new(usize::MAX)),
+            };
+            (
+                Self {
+                    control: control.clone(),
+                },
+                control,
+            )
+        }
+    }
+
+    impl Write for ByteGateWriter {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            let allowed = self.control.allowed_bytes.load(Ordering::SeqCst);
+            let mut bytes = self.control.bytes.lock().expect("byte-gate buffer lock");
+            let remaining = allowed.saturating_sub(bytes.len());
+            if remaining == 0 {
+                return Err(io::Error::other(
+                    "injected partial canonical run-log write failure",
+                ));
+            }
+            let accepted = remaining.min(buffer.len());
+            bytes.extend_from_slice(&buffer[..accepted]);
+            Ok(accepted)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
 
     fn temp_path(prefix: &str, extension: &str) -> PathBuf {
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("{prefix}-{stamp}.{extension}"))
+        std::env::temp_dir()
+            .canonicalize()
+            .unwrap()
+            .join(format!("{prefix}-{stamp}.{extension}"))
+    }
+
+    fn set_temp_artifact_root<W: std::io::Write>(session: &mut SimBridgeSession<W>, path: &Path) {
+        session.set_artifact_root(path.parent().unwrap()).unwrap();
     }
 
     fn append_run_prefix<W: std::io::Write>(
@@ -1529,6 +2465,445 @@ mod tests {
     }
 
     #[test]
+    fn bridge_provenance_write_failure_keeps_staged_state_until_effect_evidence_completes() {
+        let mut baseline_writer = RunLogWriter::new(Vec::new());
+        let sim = demo_sim();
+        baseline_writer.append(&sim.snapshot_event()).unwrap();
+        let mut baseline = SimBridgeSession::new(baseline_writer, sim.clone());
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "poison-test".to_string(),
+            session_id: None,
+        };
+        let step = bridge_request(
+            "poisoned-step",
+            BridgeMethod::SimStep,
+            actor.clone(),
+            Some(0),
+            0,
+            json!({ "dt": 0.1 }),
+        );
+        baseline.dispatch(&step).unwrap();
+        let baseline_events = read_events(Cursor::new(baseline.into_inner())).unwrap();
+        let response_index = baseline_events
+            .iter()
+            .position(|event| matches!(event, RunLogEvent::BridgeResponse { .. }))
+            .expect("baseline response");
+        let initial_lines = 1usize;
+        let pre_response_lines = response_index - initial_lines;
+
+        // Fail before every append boundary from BridgeRequest through the
+        // final BridgeResponse. State stays staged until every effect event is
+        // accepted; once they are, a response-write failure must not roll the
+        // mutation back underneath that provenance.
+        for allowed_after_initial in 0..=pre_response_lines {
+            let (sink, control) = LineGateWriter::new();
+            let mut writer = RunLogWriter::new(sink);
+            writer.append(&sim.snapshot_event()).unwrap();
+            control
+                .allowed_lines
+                .store(initial_lines + allowed_after_initial, Ordering::SeqCst);
+            let mut session = SimBridgeSession::new(writer, sim.clone());
+
+            let error = session.dispatch(&step).unwrap_err();
+
+            assert!(format!("{error:#}").contains("injected canonical run-log"));
+            assert!(session.poisoned());
+            let expected_step = usize::from(allowed_after_initial == pre_response_lines) as u64;
+            assert_eq!(
+                session.step(),
+                expected_step,
+                "unexpected commit at append boundary {allowed_after_initial}"
+            );
+        }
+    }
+
+    #[test]
+    fn bridge_provenance_failure_records_unanswered_request_warning_and_failed_terminal_status() {
+        let (sink, control) = LineGateWriter::new();
+        let mut writer = RunLogWriter::new(sink);
+        append_run_prefix(&mut writer, "poisoned-run", "poisoned-run");
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let initial_lines = control.completed_lines.load(Ordering::SeqCst);
+        // Permit the request event, then fail before effect evidence. The
+        // mutation remains staged and the session is poisoned.
+        control
+            .allowed_lines
+            .store(initial_lines + 1, Ordering::SeqCst);
+        let mut session = SimBridgeSession::with_run_id(writer, sim, "poisoned-run");
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "poison-test".to_string(),
+            session_id: None,
+        };
+        let step = bridge_request(
+            "poisoned-step",
+            BridgeMethod::SimStep,
+            actor.clone(),
+            Some(0),
+            0,
+            json!({ "dt": 0.1 }),
+        );
+
+        let error = session.dispatch(&step).unwrap_err();
+
+        assert!(format!("{error:#}").contains("injected canonical run-log"));
+        assert!(session.poisoned());
+        assert_eq!(
+            session.step(),
+            0,
+            "unlogged simulator mutation must roll back"
+        );
+        let status = bridge_request(
+            "poisoned-status",
+            BridgeMethod::SimStatus,
+            actor,
+            Some(0),
+            0,
+            json!({}),
+        );
+        assert!(session
+            .dispatch(&status)
+            .unwrap_err()
+            .to_string()
+            .contains("poisoned"));
+
+        control.allowed_lines.store(usize::MAX, Ordering::SeqCst);
+        assert!(session
+            .finish_run(RunStatus::Failed, Some("write failure".to_string()))
+            .unwrap());
+        assert!(session.run_ended());
+
+        let bytes = control.bytes.lock().unwrap().clone();
+        let events = read_events(Cursor::new(bytes)).unwrap();
+        let report = validate_events(&events).unwrap();
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|issue| issue.message.contains("bridge request without response")),
+            "a storage failure after BridgeRequest must remain explicit: {:?}",
+            report.issues
+        );
+        let state = replay_events(&events).unwrap();
+        assert_eq!(state.status, Some(RunStatus::Failed));
+        assert!(state.actions.is_empty());
+    }
+
+    #[test]
+    fn bridge_terminal_write_failure_cannot_be_retried_ambiguously() {
+        let (sink, control) = LineGateWriter::new();
+        let mut writer = RunLogWriter::new(sink);
+        append_run_prefix(&mut writer, "terminal-failure", "terminal-failure");
+        let initial_lines = control.completed_lines.load(Ordering::SeqCst);
+        control.allowed_lines.store(initial_lines, Ordering::SeqCst);
+        let mut session = SimBridgeSession::with_run_id(writer, demo_sim(), "terminal-failure");
+
+        assert!(session
+            .finish_run(RunStatus::Failed, Some("write failure".to_string()))
+            .is_err());
+        assert!(!session.run_ended());
+        control.allowed_lines.store(usize::MAX, Ordering::SeqCst);
+        let retry = session
+            .finish_run(RunStatus::Failed, Some("retry".to_string()))
+            .unwrap_err();
+        assert!(retry.to_string().contains("cannot be retried safely"));
+    }
+
+    #[test]
+    fn terminal_newline_failure_can_leave_a_parseable_indeterminate_status() {
+        let (sink, control) = ByteGateWriter::new();
+        let mut writer = RunLogWriter::new(sink);
+        append_run_prefix(&mut writer, "terminal-newline", "terminal-newline");
+        let initial_bytes = control.bytes.lock().unwrap().len();
+        let terminal = RunLogEvent::RunEnded {
+            run_id: "terminal-newline".to_string(),
+            timestamp_ns: 0,
+            status: RunStatus::Succeeded,
+            message: None,
+        };
+        let mut encoded_writer = RunLogWriter::new(Vec::new());
+        encoded_writer.append(&terminal).unwrap();
+        let terminal_line = encoded_writer.into_inner();
+        assert_eq!(terminal_line.last(), Some(&b'\n'));
+        control
+            .allowed_bytes
+            .store(initial_bytes + terminal_line.len() - 1, Ordering::SeqCst);
+        let mut session = SimBridgeSession::with_run_id(writer, demo_sim(), "terminal-newline");
+
+        assert!(session.finish_run(RunStatus::Succeeded, None).is_err());
+
+        let bytes = control.bytes.lock().unwrap().clone();
+        let events = read_events(Cursor::new(bytes)).unwrap();
+        assert!(matches!(
+            events.last(),
+            Some(RunLogEvent::RunEnded {
+                status: RunStatus::Succeeded,
+                ..
+            })
+        ));
+        assert!(session.poisoned());
+        assert!(!session.run_ended());
+        assert!(session
+            .finish_run(RunStatus::Failed, Some("retry".to_string()))
+            .unwrap_err()
+            .to_string()
+            .contains("cannot be retried safely"));
+    }
+
+    #[test]
+    fn terminal_flush_failure_can_leave_a_complete_indeterminate_status() {
+        let (sink, control) = FlushGateWriter::new();
+        let mut writer = RunLogWriter::new(sink);
+        append_run_prefix(&mut writer, "terminal-flush", "terminal-flush");
+        let mut session = SimBridgeSession::with_run_id(writer, demo_sim(), "terminal-flush");
+        control.fail_flush.store(true, Ordering::SeqCst);
+
+        assert!(session.finish_run(RunStatus::Succeeded, None).is_err());
+
+        let bytes = control.bytes.lock().unwrap().clone();
+        let events = read_events(Cursor::new(bytes)).unwrap();
+        assert!(matches!(
+            events.last(),
+            Some(RunLogEvent::RunEnded {
+                status: RunStatus::Succeeded,
+                ..
+            })
+        ));
+        assert!(session.poisoned());
+        assert!(!session.run_ended());
+    }
+
+    #[test]
+    fn poisoned_bridge_can_only_be_sealed_failed() {
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, "poisoned-status", "poisoned-status");
+        let mut session = SimBridgeSession::with_run_id(writer, demo_sim(), "poisoned-status");
+        session.poisoned = true;
+
+        let error = session
+            .finish_run(RunStatus::Succeeded, Some("incorrect success".to_string()))
+            .unwrap_err();
+
+        assert!(error.to_string().contains("only be sealed failed"));
+        assert!(!session.terminal_write_attempted);
+        assert!(session
+            .finish_run(RunStatus::Failed, Some("provenance failure".to_string()))
+            .unwrap());
+    }
+
+    #[test]
+    fn partial_provenance_write_poisoning_does_not_claim_a_readable_run_log() {
+        let (sink, control) = ByteGateWriter::new();
+        let mut writer = RunLogWriter::new(sink);
+        append_run_prefix(&mut writer, "partial-write", "partial-write");
+        let initial_bytes = control.bytes.lock().unwrap().len();
+        control
+            .allowed_bytes
+            .store(initial_bytes + 17, Ordering::SeqCst);
+        let mut session = SimBridgeSession::with_run_id(writer, demo_sim(), "partial-write");
+        let request = bridge_request(
+            "partial-status",
+            BridgeMethod::SimStatus,
+            Actor {
+                actor_type: ActorType::Script,
+                actor_id: "partial-write".to_string(),
+                session_id: None,
+            },
+            Some(0),
+            0,
+            json!({}),
+        );
+
+        let error = session.dispatch(&request).unwrap_err();
+
+        assert!(format!("{error:#}").contains("partial canonical run-log"));
+        assert!(session.poisoned());
+        let bytes = control.bytes.lock().unwrap().clone();
+        assert!(
+            read_events(Cursor::new(bytes)).is_err(),
+            "a mid-line storage failure is explicitly outside the valid-log guarantee"
+        );
+    }
+
+    #[test]
+    fn rpc_output_is_suppressed_when_provenance_flush_fails() {
+        let (sink, control) = FlushGateWriter::new();
+        let mut writer = RunLogWriter::new(sink);
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::new(writer, sim);
+        control.fail_flush.store(true, Ordering::SeqCst);
+        let input = concat!(
+            r#"{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}"#,
+            "\n"
+        );
+        let mut output = Vec::new();
+
+        let error = dispatch_rpc_lines(
+            Cursor::new(input),
+            &mut output,
+            &mut session,
+            Actor {
+                actor_type: ActorType::Script,
+                actor_id: "flush-failure".to_string(),
+                session_id: None,
+            },
+        )
+        .unwrap_err();
+
+        assert!(format!("{error:#}").contains("flush failure"));
+        assert!(
+            output.is_empty(),
+            "no wire success may precede provenance flush"
+        );
+        assert!(session.poisoned());
+        assert_eq!(
+            session.step(),
+            1,
+            "accepted effect evidence prevents ambiguous rollback"
+        );
+        let bytes = control.bytes.lock().unwrap().clone();
+        let events = read_events(Cursor::new(bytes)).unwrap();
+        assert!(events
+            .iter()
+            .any(|event| matches!(event, RunLogEvent::BridgeResponse { ok: true, .. })));
+    }
+
+    #[test]
+    fn bridge_export_retains_artifact_after_provenance_write_is_attempted() {
+        let source = temp_path("pid-sim-export-rollback-source", "jsonl");
+        write_minimal_run_log(&source, "export-rollback-source");
+        for (allowed_request_lines, boundary) in [
+            (1usize, "artifact_logged write"),
+            (2usize, "bridge_response write"),
+        ] {
+            let output = temp_path(
+                &format!("pid-sim-export-rollback-{allowed_request_lines}"),
+                "rrd",
+            );
+            let (sink, control) = LineGateWriter::new();
+            let mut writer = RunLogWriter::new(sink);
+            let run_id = format!("export-rollback-run-{allowed_request_lines}");
+            append_run_prefix(&mut writer, &run_id, &run_id);
+            let initial_lines = control.completed_lines.load(Ordering::SeqCst);
+            control
+                .allowed_lines
+                .store(initial_lines + allowed_request_lines, Ordering::SeqCst);
+            let mut session = SimBridgeSession::with_run_id(writer, demo_sim(), &run_id);
+            set_temp_artifact_root(&mut session, &source);
+            let request = bridge_request(
+                format!("export-rollback-{allowed_request_lines}"),
+                BridgeMethod::ExportRerun,
+                Actor {
+                    actor_type: ActorType::Script,
+                    actor_id: "export-rollback-test".to_string(),
+                    session_id: None,
+                },
+                Some(0),
+                0,
+                json!({
+                    "run_log_uri": source.display().to_string(),
+                    "output_uri": output.display().to_string(),
+                }),
+            );
+
+            assert!(session.dispatch(&request).is_err(), "{boundary}");
+            assert!(session.poisoned(), "{boundary}");
+            assert!(
+                output.exists(),
+                "artifact must be retained after attempted {boundary}"
+            );
+            assert_eq!(pid_runlog::sha256_file(&output).unwrap().len(), 64);
+            let _ = std::fs::remove_file(output);
+        }
+        let _ = std::fs::remove_file(source);
+    }
+
+    #[test]
+    fn bridge_export_creates_no_artifact_when_preexport_provenance_flush_fails() {
+        let source = temp_path("pid-sim-export-preflush-source", "jsonl");
+        let output = temp_path("pid-sim-export-preflush-output", "rrd");
+        write_minimal_run_log(&source, "export-preflush-source");
+        let (sink, control) = FlushGateWriter::new();
+        let writer = RunLogWriter::new(sink);
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        set_temp_artifact_root(&mut session, &source);
+        control.fail_flush.store(true, Ordering::SeqCst);
+        let request = bridge_request(
+            "export-preflush",
+            BridgeMethod::ExportRerun,
+            Actor {
+                actor_type: ActorType::Script,
+                actor_id: "export-preflush-test".to_string(),
+                session_id: None,
+            },
+            Some(0),
+            0,
+            json!({
+                "run_log_uri": source.display().to_string(),
+                "output_uri": output.display().to_string(),
+            }),
+        );
+
+        let error = session.dispatch(&request).unwrap_err();
+
+        assert!(format!("{error:#}").contains("flush failure"));
+        assert!(session.poisoned());
+        assert!(
+            !output.exists(),
+            "export side effect must follow the pre-export provenance flush"
+        );
+        let _ = std::fs::remove_file(source);
+    }
+
+    #[test]
+    fn bridge_export_final_flush_failure_retains_artifact_and_suppresses_response() {
+        let source = temp_path("pid-sim-export-final-flush-source", "jsonl");
+        let output = temp_path("pid-sim-export-final-flush-output", "rrd");
+        write_minimal_run_log(&source, "export-final-flush-source");
+        let (sink, control) = NthFlushWriter::new(2);
+        let writer = RunLogWriter::new(sink);
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        set_temp_artifact_root(&mut session, &source);
+        let request = bridge_request(
+            "export-final-flush",
+            BridgeMethod::ExportRerun,
+            Actor {
+                actor_type: ActorType::Script,
+                actor_id: "export-final-flush-test".to_string(),
+                session_id: None,
+            },
+            Some(0),
+            0,
+            json!({
+                "run_log_uri": source.display().to_string(),
+                "output_uri": output.display().to_string(),
+            }),
+        );
+
+        let error = session.dispatch(&request).unwrap_err();
+
+        assert!(format!("{error:#}").contains("final canonical run-log flush failure"));
+        assert_eq!(control.flushes.load(Ordering::SeqCst), 2);
+        assert!(session.poisoned());
+        assert!(output.exists());
+        let events = read_events(Cursor::new(control.bytes.lock().unwrap().clone())).unwrap();
+        let artifact_index = events
+            .iter()
+            .position(|event| matches!(event, RunLogEvent::ArtifactLogged { .. }))
+            .unwrap();
+        let response_index = events
+            .iter()
+            .position(|event| matches!(event, RunLogEvent::BridgeResponse { ok: true, .. }))
+            .unwrap();
+        assert!(artifact_index < response_index);
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(output);
+    }
+
+    #[test]
     fn fixed_step_is_deterministic() {
         let mut a = demo_sim();
         let mut b = demo_sim();
@@ -1538,6 +2913,64 @@ mod tests {
         }
         assert_eq!(a, b);
         assert_eq!(a.step(), 3);
+    }
+
+    #[test]
+    fn fixed_step_rejects_unrepresentable_or_overflowing_time_without_mutation() {
+        for dt in [1e-12, 1e300] {
+            let mut sim = demo_sim();
+            let before = sim.clone();
+            assert!(sim.step_fixed(dt).is_err(), "dt={dt}");
+            assert_eq!(sim, before, "rejected dt must be transactional: {dt}");
+        }
+
+        let mut timestamp_overflow = demo_sim();
+        timestamp_overflow.timestamp_ns = u64::MAX - 5;
+        let before = timestamp_overflow.clone();
+        assert!(timestamp_overflow.step_fixed(1e-8).is_err());
+        assert_eq!(timestamp_overflow, before);
+
+        let mut step_overflow = demo_sim();
+        step_overflow.step = u64::MAX;
+        let before = step_overflow.clone();
+        assert!(step_overflow.step_fixed(0.1).is_err());
+        assert_eq!(step_overflow, before);
+    }
+
+    #[test]
+    fn fixed_step_rejects_nonfinite_effects_without_partial_object_updates() {
+        let mut sim = demo_sim();
+        sim.upsert_object(SimObject {
+            object_id: "overflowing".to_string(),
+            pose: Pose {
+                position: [0.0, 0.0, 0.0],
+                orientation_xyzw: [0.0, 0.0, 0.0, 1.0],
+            },
+            velocity: [f64::MAX, 0.0, 0.0],
+        });
+        let before = sim.clone();
+
+        let error = sim.step_fixed(2.0).unwrap_err();
+
+        assert!(error.to_string().contains("step displacement"));
+        assert_eq!(sim, before);
+    }
+
+    #[test]
+    fn translate_object_rejects_nonfinite_result_without_mutation() {
+        let mut sim = demo_sim();
+        sim.objects.get_mut("red_cube").unwrap().pose.position = [f64::MAX, 0.0, 0.0];
+        let before = sim.clone();
+
+        let error = sim
+            .apply_intervention(
+                "translate_object",
+                &json!({ "object_id": "red_cube", "delta": [f64::MAX, 0.0, 0.0] }),
+            )
+            .unwrap_err();
+
+        assert!(error.to_string().contains("translated object position"));
+        assert_eq!(sim, before);
     }
 
     #[test]
@@ -1645,6 +3078,7 @@ mod tests {
         };
         let writer = RunLogWriter::new(Vec::new());
         let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        set_temp_artifact_root(&mut session, &path);
         let request = bridge_request(
             "req-log-replay",
             BridgeMethod::LogReplay,
@@ -1667,6 +3101,212 @@ mod tests {
         assert_eq!(state.actions.len(), 0);
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn bridge_file_methods_fail_closed_without_artifact_root() {
+        let path = temp_path("pid-sim-log-replay-no-root", "jsonl");
+        write_minimal_run_log(&path, "replay-no-root");
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-replay-no-root-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        let request = bridge_request(
+            "req-log-replay-no-root",
+            BridgeMethod::LogReplay,
+            actor,
+            Some(0),
+            0,
+            json!({ "run_log_uri": path.display().to_string() }),
+        );
+
+        let response = session.dispatch(&request).unwrap();
+
+        assert!(
+            response
+                .message
+                .as_deref()
+                .unwrap_or("")
+                .contains("disabled until an artifact root is configured"),
+            "{:?}",
+            response.message
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn bridge_log_replay_rejects_out_of_root_path() {
+        let root = temp_path("pid-sim-artifact-root", "dir");
+        std::fs::create_dir(&root).unwrap();
+        let outside = temp_path("pid-sim-artifact-outside", "jsonl");
+        write_minimal_run_log(&outside, "outside-root");
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-replay-outside-root-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        session.set_artifact_root(&root).unwrap();
+        let request = bridge_request(
+            "req-log-replay-outside-root",
+            BridgeMethod::LogReplay,
+            actor,
+            Some(0),
+            0,
+            json!({ "run_log_uri": outside.display().to_string() }),
+        );
+
+        let response = session.dispatch(&request).unwrap();
+
+        assert!(
+            response
+                .message
+                .as_deref()
+                .unwrap_or("")
+                .contains("escapes configured root"),
+            "{:?}",
+            response.message
+        );
+        let _ = std::fs::remove_file(outside);
+        let _ = std::fs::remove_dir(root);
+    }
+
+    #[test]
+    fn bridge_log_replay_rejects_parent_traversal() {
+        let root = temp_path("pid-sim-artifact-traversal-root", "dir");
+        std::fs::create_dir(&root).unwrap();
+        let source = root.join("source.jsonl");
+        write_minimal_run_log(&source, "traversal-source");
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-replay-traversal-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        session.set_artifact_root(&root).unwrap();
+        let request = bridge_request(
+            "req-log-replay-traversal",
+            BridgeMethod::LogReplay,
+            actor,
+            Some(0),
+            0,
+            json!({ "run_log_uri": "nested/../source.jsonl" }),
+        );
+
+        let response = session.dispatch(&request).unwrap();
+
+        assert!(
+            response
+                .message
+                .as_deref()
+                .unwrap_or("")
+                .contains("parent traversal"),
+            "{:?}",
+            response.message
+        );
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_dir(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bridge_log_replay_rejects_symlink_source() {
+        let root = temp_path("pid-sim-artifact-symlink-root", "dir");
+        std::fs::create_dir(&root).unwrap();
+        let outside = temp_path("pid-sim-artifact-symlink-source", "jsonl");
+        write_minimal_run_log(&outside, "symlink-source");
+        let link = root.join("linked.jsonl");
+        std::os::unix::fs::symlink(&outside, &link).unwrap();
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-replay-symlink-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        session.set_artifact_root(&root).unwrap();
+        let request = bridge_request(
+            "req-log-replay-symlink",
+            BridgeMethod::LogReplay,
+            actor,
+            Some(0),
+            0,
+            json!({ "run_log_uri": "linked.jsonl" }),
+        );
+
+        let response = session.dispatch(&request).unwrap();
+
+        assert!(
+            response
+                .message
+                .as_deref()
+                .unwrap_or("")
+                .contains("must not traverse a symlink"),
+            "{:?}",
+            response.message
+        );
+        let _ = std::fs::remove_file(link);
+        let _ = std::fs::remove_file(outside);
+        let _ = std::fs::remove_dir(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bridge_artifact_root_rejects_symlink_directory() {
+        let root = temp_path("pid-sim-artifact-real-root", "dir");
+        std::fs::create_dir(&root).unwrap();
+        let link = temp_path("pid-sim-artifact-linked-root", "dir");
+        std::os::unix::fs::symlink(&root, &link).unwrap();
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+
+        let error = session.set_artifact_root(&link).unwrap_err();
+
+        assert!(error.to_string().contains("must not traverse a symlink"));
+        let _ = std::fs::remove_file(link);
+        let _ = std::fs::remove_dir(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bridge_artifact_root_rejects_intermediate_symlink() {
+        let container = temp_path("pid-sim-artifact-root-container", "dir");
+        let real = container.join("real");
+        let nested = real.join("nested");
+        std::fs::create_dir_all(&nested).unwrap();
+        let link = container.join("linked");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        let error = canonical_artifact_root(link.join("nested")).unwrap_err();
+
+        assert!(error.to_string().contains("must not traverse a symlink"));
+        let _ = std::fs::remove_file(link);
+        let _ = std::fs::remove_dir(nested);
+        let _ = std::fs::remove_dir(real);
+        let _ = std::fs::remove_dir(container);
+    }
+
+    #[test]
+    fn canonical_new_artifact_path_accepts_platform_temp_directory_alias() {
+        // macOS commonly exposes /var as a symlink to /private/var. The
+        // operator-supplied parent is canonicalized before strict checks so a
+        // standard temp_dir path works without weakening checks below it.
+        let requested = std::env::temp_dir().join(format!(
+            "pid-sim-new-artifact-{}-{}.jsonl",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("unnamed")
+        ));
+
+        let (prepared, root) = canonical_new_artifact_path(&requested).unwrap();
+
+        assert_eq!(root, std::env::temp_dir().canonicalize().unwrap());
+        assert_eq!(prepared.parent(), Some(root.as_path()));
+        assert_eq!(prepared.file_name(), requested.file_name());
     }
 
     #[test]
@@ -1707,6 +3347,9 @@ mod tests {
         );
         let stop_response = session.dispatch(&stop).unwrap();
         assert!(stop_response.ok, "{:?}", stop_response.message);
+        assert!(session.stop_requested());
+        assert!(!session.run_ended());
+        assert!(session.finish_run(RunStatus::Succeeded, None).unwrap());
         assert!(session.run_ended());
         assert!(!session.finish_run(RunStatus::Succeeded, None).unwrap());
 
@@ -1787,6 +3430,7 @@ mod tests {
         };
         let writer = RunLogWriter::new(Vec::new());
         let mut session = SimBridgeSession::new(writer, demo_sim());
+        set_temp_artifact_root(&mut session, &source);
         let request = bridge_request(
             "req-export-rerun",
             BridgeMethod::ExportRerun,
@@ -1806,8 +3450,11 @@ mod tests {
         assert_eq!(result["valid"], true);
         assert_eq!(result["validation_errors"], 0);
         assert_eq!(result["trace_hash"].as_str().unwrap().len(), 64);
-        assert_eq!(result["sha256"].as_str().unwrap().len(), 64);
+        let claimed_sha256 = result["sha256"].as_str().unwrap().to_string();
+        assert_eq!(claimed_sha256.len(), 64);
         assert!(output.exists());
+        assert_eq!(pid_runlog::sha256_file(&output).unwrap(), claimed_sha256);
+        assert!(std::fs::read(&output).unwrap().starts_with(b"RRF"));
 
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
         let state = replay_events(&events).unwrap();
@@ -1816,13 +3463,84 @@ mod tests {
         assert_eq!(state.artifacts.len(), 1);
         assert_eq!(state.artifacts[0].kind, "rerun_rrd");
         assert_eq!(state.artifacts[0].uri, output.display().to_string());
-        assert_eq!(state.artifacts[0].sha256.as_deref().unwrap().len(), 64);
+        assert_eq!(
+            state.artifacts[0].sha256.as_deref(),
+            Some(claimed_sha256.as_str())
+        );
         assert!(events.iter().any(|event| matches!(
             event,
             RunLogEvent::ArtifactLogged { metadata, .. }
                 if metadata.contains_key("trace_hash")
         )));
+        let artifact_index = events
+            .iter()
+            .position(|event| matches!(event, RunLogEvent::ArtifactLogged { .. }))
+            .unwrap();
+        let response_index = events
+            .iter()
+            .position(|event| matches!(event, RunLogEvent::BridgeResponse { .. }))
+            .unwrap();
+        assert!(
+            artifact_index < response_index,
+            "artifact provenance must precede the success acknowledgement"
+        );
 
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(output);
+    }
+
+    #[test]
+    fn bridge_session_export_rerun_preserves_preexisting_output() {
+        let root = temp_path("pid-sim-export-preserve-root", "dir");
+        std::fs::create_dir(&root).unwrap();
+        let source = root.join("source.jsonl");
+        let output = root.join("existing.rrd");
+        write_minimal_run_log(&source, "export-preserve-source");
+        std::fs::write(&output, b"sentinel").unwrap();
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-export-preserve-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        session.set_artifact_root(&root).unwrap();
+        let request = bridge_request(
+            "req-export-preserve",
+            BridgeMethod::ExportRerun,
+            actor,
+            Some(0),
+            0,
+            json!({
+                "run_log_uri": "source.jsonl",
+                "output_uri": "existing.rrd",
+            }),
+        );
+
+        let response = session.dispatch(&request).unwrap();
+
+        assert!(
+            !response.ok && std::fs::read(&output).unwrap() == b"sentinel",
+            "response={response:?}"
+        );
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(output);
+        let _ = std::fs::remove_dir(root);
+    }
+
+    #[test]
+    fn export_runlog_to_rerun_preserves_preexisting_target_for_direct_callers() {
+        let source = temp_path("pid-sim-export-direct-source", "jsonl");
+        let output = temp_path("pid-sim-export-direct-existing", "rrd");
+        write_minimal_run_log(&source, "export-direct-source");
+        std::fs::write(&output, b"sentinel").unwrap();
+
+        let result = export_runlog_to_rerun(&source, &output);
+
+        assert!(
+            result.is_err() && std::fs::read(&output).unwrap() == b"sentinel",
+            "result={result:?}"
+        );
         let _ = std::fs::remove_file(source);
         let _ = std::fs::remove_file(output);
     }
@@ -1840,6 +3558,7 @@ mod tests {
         let writer = RunLogWriter::new(Vec::new());
         let mut session = SimBridgeSession::new(writer, demo_sim());
         session.set_run_log_path(&own_log);
+        set_temp_artifact_root(&mut session, &source);
 
         // Writing over the session's own run log must be refused outright.
         let overwrite = bridge_request(
@@ -1865,7 +3584,8 @@ mod tests {
             response.message
         );
 
-        // Any non-.rrd output is refused (save_recording truncates its target).
+        // Any non-.rrd output is refused: this file-producing method is limited
+        // to its declared Rerun artifact type.
         let non_rrd = temp_path("pid-sim-export-guard-other", "jsonl");
         let bad_ext = bridge_request(
             "req-export-bad-ext",
@@ -1907,7 +3627,9 @@ mod tests {
             1,
             &mut session,
             actor.clone(),
-        );
+        )
+        .unwrap()
+        .unwrap();
         assert!(ok.is_ok(), "{:?}", ok.error);
         assert_eq!(ok.id, json!(7));
         // Unknown method → -32601 with the id echoed, and a run-log trace.
@@ -1916,11 +3638,15 @@ mod tests {
             2,
             &mut session,
             actor.clone(),
-        );
+        )
+        .unwrap()
+        .unwrap();
         assert_eq!(unknown.error.as_ref().unwrap().code, -32601);
         assert_eq!(unknown.id, json!("probe"));
         // Malformed JSON → -32700, id null per JSON-RPC 2.0, and a trace.
-        let malformed = dispatch_rpc_text_request("{nope", 3, &mut session, actor.clone());
+        let malformed = dispatch_rpc_text_request("{nope", 3, &mut session, actor.clone())
+            .unwrap()
+            .unwrap();
         assert_eq!(malformed.error.as_ref().unwrap().code, -32700);
         assert_eq!(malformed.id, Value::Null);
         // Structured (array) id → -32600 Invalid Request, id null, and a trace.
@@ -1929,7 +3655,9 @@ mod tests {
             4,
             &mut session,
             actor,
-        );
+        )
+        .unwrap()
+        .unwrap();
         assert_eq!(bad_id.error.as_ref().unwrap().code, -32600);
         assert_eq!(bad_id.id, Value::Null);
 
@@ -1979,9 +3707,111 @@ mod tests {
     }
 
     #[test]
+    fn rpc_dispatch_distinguishes_parse_errors_from_invalid_request_shapes() {
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "rpc-invalid-shapes");
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "rpc-invalid-shapes".to_string(),
+            session_id: None,
+        };
+
+        let parse = dispatch_rpc_text_request("{", 1, &mut session, actor.clone())
+            .unwrap()
+            .unwrap();
+        assert_eq!(parse.error.as_ref().unwrap().code, -32700);
+
+        for (index, text) in ["{}", "42", "[]"].into_iter().enumerate() {
+            let invalid = dispatch_rpc_text_request(text, index + 2, &mut session, actor.clone())
+                .unwrap()
+                .unwrap();
+            assert_eq!(invalid.error.as_ref().unwrap().code, -32600, "{text}");
+        }
+        let invalid_params = dispatch_rpc_text_request(
+            r#"{"jsonrpc":"2.0","id":"bad-params","method":"sim.status","params":7}"#,
+            5,
+            &mut session,
+            actor,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(invalid_params.error.as_ref().unwrap().code, -32602);
+
+        session.finish_run(RunStatus::Succeeded, None).unwrap();
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let report = validate_events(&events).unwrap();
+        assert!(report.is_valid(), "{:?}", report.issues);
+    }
+
+    #[test]
+    fn rpc_invalid_step_params_cannot_silently_mutate_with_defaults() {
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "rpc-positional-params");
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::new(writer, sim);
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "rpc-positional-params".to_string(),
+            session_id: None,
+        };
+
+        for (index, text, expected_code) in [
+            (
+                1,
+                r#"{"jsonrpc":"2.0","id":"array-step","method":"sim.step","params":[999]}"#,
+                -32602,
+            ),
+            (
+                2,
+                r#"{"jsonrpc":"2.0","id":"misspelled-step","method":"sim.step","params":{"dtt":999}}"#,
+                -32602,
+            ),
+            (
+                3,
+                r#"{"jsonrpc":"2.0","id":"missing-step","method":"sim.step","params":{}}"#,
+                -32000,
+            ),
+            (
+                4,
+                r#"{"jsonrpc":"2.0","id":"null-step","method":"sim.step","params":{"dt":null}}"#,
+                -32000,
+            ),
+        ] {
+            let response = dispatch_rpc_text_request(text, index, &mut session, actor.clone())
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                response.error.as_ref().unwrap().code,
+                expected_code,
+                "{text}"
+            );
+            assert_eq!(session.step(), 0, "{text}");
+            assert!(!session.poisoned(), "{text}");
+        }
+        let status = dispatch_rpc_text_request(
+            r#"{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}"#,
+            5,
+            &mut session,
+            actor,
+        )
+        .unwrap()
+        .unwrap();
+        assert!(status.is_ok());
+
+        session.finish_run(RunStatus::Succeeded, None).unwrap();
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events).unwrap();
+        assert!(state.actions.is_empty());
+        let report = validate_events(&events).unwrap();
+        assert!(report.is_valid(), "{:?}", report.issues);
+    }
+
+    #[test]
     fn colliding_and_reused_rpc_ids_do_not_invalidate_the_log() {
         // JSON-RPC clients may legally send `1` and "1", reuse an id after
-        // completion, and fire multiple notifications (null id). Under the old
+        // completion, and fire multiple notifications (missing id). Under the old
         // bare rendering all of these produced duplicate run-log request ids,
         // which canonical validation hard-rejects — a spec-valid client could
         // invalidate the source-of-truth log.
@@ -2001,8 +3831,14 @@ mod tests {
             r#"{"jsonrpc":"2.0","method":"sim.status","params":{}}"#,
         ];
         for (idx, line) in lines.iter().enumerate() {
-            let response = dispatch_rpc_text_request(line, idx + 1, &mut session, actor.clone());
-            assert!(response.is_ok(), "{:?}", response.error);
+            let response =
+                dispatch_rpc_text_request(line, idx + 1, &mut session, actor.clone()).unwrap();
+            if line.contains("\"id\"") {
+                let response = response.expect("requests with ids receive a response");
+                assert!(response.is_ok(), "{:?}", response.error);
+            } else {
+                assert!(response.is_none(), "notifications must be silent");
+            }
         }
         session
             .finish_run(RunStatus::Succeeded, None)
@@ -2016,6 +3852,9 @@ mod tests {
             })
             .collect();
         assert_eq!(ids.len(), 5);
+        assert!(ids.contains(&"message-4:notification".to_string()));
+        assert!(ids.contains(&"message-5:notification".to_string()));
+        assert!(!ids.iter().any(|id| id.ends_with(":null")));
         let n = ids.len();
         ids.sort();
         ids.dedup();
@@ -2065,7 +3904,7 @@ mod tests {
             .dispatch(&bridge_request(
                 "reset-late",
                 BridgeMethod::SimReset,
-                actor,
+                actor.clone(),
                 Some(session.step()),
                 session.timestamp_ns(),
                 json!({}),
@@ -2098,7 +3937,7 @@ mod tests {
             .dispatch(&bridge_request(
                 "step-bad-dt",
                 BridgeMethod::SimStep,
-                actor,
+                actor.clone(),
                 Some(0),
                 0,
                 json!({ "dt": "fast" }),
@@ -2113,6 +3952,22 @@ mod tests {
             "{:?}",
             response.message
         );
+        let oversized = session
+            .dispatch(&bridge_request(
+                "step-oversized-dt",
+                BridgeMethod::SimStep,
+                actor,
+                Some(0),
+                0,
+                json!({ "dt": 1e300 }),
+            ))
+            .unwrap();
+        assert!(!oversized.ok, "oversized dt must fail as a domain error");
+        assert_eq!(session.step(), 0);
+        assert!(!session.poisoned());
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events).unwrap();
+        assert!(state.actions.is_empty());
     }
 
     #[test]
@@ -2195,6 +4050,7 @@ mod tests {
         };
         let writer = RunLogWriter::new(Vec::new());
         let mut session = SimBridgeSession::new(writer, demo_sim());
+        set_temp_artifact_root(&mut session, &source);
         let request = bridge_request(
             "req-export-rerun-overwrite",
             BridgeMethod::ExportRerun,
@@ -2338,6 +4194,80 @@ mod tests {
     }
 
     #[test]
+    fn translate_object_overflow_is_a_transactional_domain_rejection() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-translate-overflow".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "translate-overflow");
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::new(writer, sim);
+
+        let set_object = bridge_request(
+            "req-max-position",
+            BridgeMethod::SceneSetObject,
+            actor.clone(),
+            Some(0),
+            0,
+            json!({
+                "object_id": "red_cube",
+                "pose": {
+                    "position": [f64::MAX, 0.0, 0.0],
+                    "orientation_xyzw": [0.0, 0.0, 0.0, 1.0]
+                },
+                "velocity": [0.0, 0.0, 0.0]
+            }),
+        );
+        assert!(session.dispatch(&set_object).unwrap().ok);
+
+        let translate = bridge_request(
+            "req-overflow-translation",
+            BridgeMethod::InterventionApply,
+            actor.clone(),
+            Some(0),
+            0,
+            json!({
+                "intervention_type": "translate_object",
+                "payload": { "object_id": "red_cube", "delta": [f64::MAX, 0.0, 0.0] }
+            }),
+        );
+        let rejected = session.dispatch(&translate).unwrap();
+        assert!(!rejected.ok);
+        assert!(rejected
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("translated object position"));
+        assert!(!session.poisoned());
+
+        let status = bridge_request(
+            "req-after-overflow",
+            BridgeMethod::SimStatus,
+            actor,
+            Some(0),
+            0,
+            json!({}),
+        );
+        assert!(session.dispatch(&status).unwrap().ok);
+        session
+            .finish_run(RunStatus::Succeeded, None)
+            .expect("finish run");
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events).unwrap();
+        assert!(state.interventions.is_empty());
+        assert_eq!(
+            state.object_poses["red_cube"].pose.position,
+            [f64::MAX, 0.0, 0.0]
+        );
+        let report = pid_runlog::validate_events(&events).unwrap();
+        assert!(report.is_valid(), "{:?}", report.issues);
+    }
+
+    #[test]
     fn bridge_session_logs_scene_and_reset_as_actions() {
         let actor = Actor {
             actor_type: ActorType::Script,
@@ -2429,6 +4359,77 @@ mod tests {
     }
 
     #[test]
+    fn rpc_line_processor_silences_notification_then_answers_explicit_null_request() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-rpc-notification-test".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "rpc-notification");
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let input = concat!(
+            r#"{"jsonrpc":"2.0","method":"sim.status","params":{}}"#,
+            "\n",
+            r#"{"jsonrpc":"2.0","id":null,"method":"sim.status","params":{}}"#,
+            "\n"
+        );
+        let mut output = Vec::new();
+
+        let handled =
+            dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap();
+
+        assert_eq!(handled, 2);
+        let responses = String::from_utf8(output).unwrap();
+        let lines = responses.lines().collect::<Vec<_>>();
+        assert_eq!(lines.len(), 1, "notification must not emit a response");
+        let response: BridgeRpcResponse = serde_json::from_str(lines[0]).unwrap();
+        assert_eq!(response.id, Value::Null);
+        assert!(response.is_ok());
+
+        session.finish_run(RunStatus::Succeeded, None).unwrap();
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let request_ids = events
+            .iter()
+            .filter_map(|event| match event {
+                RunLogEvent::BridgeRequest { request_id, .. } => Some(request_id.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            request_ids,
+            vec!["message-1:notification", "message-2:null"]
+        );
+        let report = validate_events(&events).unwrap();
+        assert!(report.is_valid(), "{:?}", report.issues);
+    }
+
+    #[test]
+    fn bridge_rpc_line_processor_rejects_and_logs_oversized_line() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "oversized-rpc-test".to_string(),
+            session_id: None,
+        };
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "oversized-rpc");
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let input = vec![b' '; MAX_RPC_LINE_BYTES as usize];
+        let mut output = Vec::new();
+
+        let error =
+            dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap_err();
+
+        assert!(error.to_string().contains("exceeds"));
+        assert!(output.is_empty());
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RunLogEvent::ErrorLogged { message, .. } if message.contains("exceeds")
+        )));
+    }
+
+    #[test]
     fn rpc_line_processor_safe_mode_blocks_mutation() {
         let actor = Actor {
             actor_type: ActorType::Script,
@@ -2495,6 +4496,14 @@ mod tests {
         let handled =
             dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap();
         assert_eq!(handled, 2);
+        assert!(session.stop_requested());
+        assert!(!session.run_ended());
+        session
+            .finish_run(
+                RunStatus::Succeeded,
+                Some("transport completed".to_string()),
+            )
+            .unwrap();
         assert!(session.run_ended());
 
         let lines = String::from_utf8(output).unwrap();

@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+### Local Agent Bridge fail-closed boundary (2026-07-13)
+
+- Hardened the deterministic TCP/WebSocket development transports: both now bind loopback only,
+  start in safe mode, require explicit `--allow-mutations`, create run logs without replacement,
+  and bind the listener before filesystem mutation. TCP/stdio JSONL lines are capped at 1 MiB,
+  WebSocket upgrades/incoming client frames at 16 KiB/1 MiB, and network reads/writes at 30 seconds
+  per operation.
+  These are not total request/session, request-count, or aggregate-traffic limits; trickle traffic
+  that keeps making progress may persist.
+- Made deterministic stepping reject intervals that round below one nanosecond, unrepresentable
+  intervals, counter overflow, and non-finite displacement/position effects before mutating
+  simulator state; object translation likewise rejects a finite-input overflow before mutation.
+- WebSocket now requires `GET /bridge HTTP/1.1`, exactly one each of a nonempty `Host`,
+  `Upgrade: websocket`, tokenized `Connection` containing `upgrade`, version `13`, and a base64
+  key decoding to 16 bytes, and no `Origin`. This enumerated check is not a claim to reject every
+  malformed request. Client application messages are unfragmented, masked UTF-8 text frames;
+  ping, pong, and close are supported, while binary frames, fragmentation, and extensions/RSV use
+  are rejected. The wire API is a single-request JSON-RPC 2.0 subset: missing-id notifications
+  are silent and distinct from explicit `null`, parameters are omitted or named objects (not
+  positional arrays), undeclared top-level method keys are rejected, `sim.step` requires numeric
+  `dt`, and batches are unsupported. Profile-invalid parameters use `-32602`; handler/domain
+  failures after validation use `-32000`.
+- Moved `log.replay` and `export.rerun` behind non-adversarial canonical confinement shared by all
+  bridge sessions. Parent traversal, observed symlink components, non-regular/out-of-root inputs,
+  missing output parents, and pre-existing destinations fail closed. Run logs/Rerun outputs use
+  no-replace creation. Rerun export parses and manifests the same exact byte snapshot read from the
+  source, encodes and hashes finalized RRD bytes, then stages, syncs, and persists them no-clobber.
+  This is not a security-grade sandbox against hardlinks, aliases, or concurrent filesystem
+  mutation. Executable transport run logs now call `File::sync_all` for the initial prefix, each
+  session flush before a wire response, and the terminal seal; generic `SimBridgeSession<W>`
+  durability remains sink-defined. No parent-directory fsync, power-loss durability, or cross-file
+  run-log/export transaction is claimed.
+- Ordinary accepted-client protocol/transport failures are sealed `Failed` only while provenance
+  storage remains writable. A crash or write/storage failure can leave incomplete or unreadable
+  provenance, an apparently complete terminal record with indeterminate status/durability, or an
+  installed RRD without its final provenance event.
+- This remains local E0 hardening. The binaries refuse non-loopback bind addresses but cannot
+  prevent forwarding, proxying, or tunnelling a loopback listener. They do not authenticate actor
+  IDs, authorize roles, provide TLS/redaction, or establish an assessed remote deployment.
+
 ### Generated capability inventory and review-currentness reconciliation (2026-07-13)
 
 - Added a strict reviewed capability catalog plus deterministic JSON/Markdown views with the exact
@@ -538,17 +578,19 @@ measure identity is unchanged (`--pid-mode discrete` remains Williams–Beer `I_
   socket client could destroy the session's own source-of-truth run log or any writable
   file. It now rejects an `output_uri` that resolves to the session's run log and
   requires a `.rrd` extension.
-- **JSON-RPC ids honor the spec.** `BridgeRpcRequest.id` was typed `String`, so a numeric
-  id (`"id": 1`, the most common client convention) was rejected as a parse error with a
-  fabricated id. Ids are now `String | Number | Null`, echoed verbatim; structured ids →
-  −32600, unparseable JSON → −32700 (id null), unknown method → −32601.
+- **JSON-RPC ids preserve supported 2.0 semantics.** `BridgeRpcRequest.id` was typed
+  `String`, so a numeric id (`"id": 1`, the most common client convention) was rejected as
+  a parse error with a fabricated id. String, number, and explicit-null ids are now echoed
+  verbatim; omitted ids are silent notifications. Structured ids → −32600, unparseable
+  JSON → −32700 (id null), unknown method → −32601. Batch requests remain unsupported.
 - **Rejected/malformed RPC traffic is now audited.** Parse/id/unknown-method failures
-  previously never reached the run log; they now emit a failed `bridge_response` so the
-  control-plane audit trail is complete.
-- **Transports always seal the run log.** `stdio`/`tcp`/`ws` bridges skipped
-  `finish_run` on any transport error, leaving a run log with no `run_ended` (fails
-  validation). They now finalize with `RunStatus::Failed` on error. `dispatch_rpc_lines`
-  also flushes per response (interactive clients no longer deadlock) and caps line length.
+  previously never reached the run log; they now emit `error_logged` records without
+  manufacturing an unpaired bridge response.
+- **Transports attempt to seal ordinary errors.** `stdio`/`tcp`/`ws` bridges skipped
+  `finish_run` on transport errors. They now append `RunStatus::Failed` when provenance
+  storage remains writable; a provenance write/storage failure can still leave an invalid
+  or incomplete log. `dispatch_rpc_lines` also flushes per response (interactive clients
+  no longer deadlock) and caps line length.
 - **`sim.reset` after `sim.step` is refused** (it would regress run-log step/time and fail
   validation); **`verify_flow_gt`** was rewritten to pair flows with snapshots in stream
   order (a post-step intervention's second snapshot no longer causes false "flow mismatch"),
@@ -768,7 +810,7 @@ critical path is still the first real-VLA capture (not done). The discrete-harne
 - Added a loopback TCP JSON-RPC Agent Bridge transport (`pid-sim-bridge-tcp`) for the deterministic sim, with canonical run-log emission and CI validation/replay smoke coverage.
 - Added first-class `flow_pred` run-log events plus deterministic constant-velocity baseline predictions for sim run logs, replay summaries, Rerun conversion, and CI smoke assertions.
 - Added a generic offline `(V,L,D,A)` embedding harness (`pid-offline-harness`) with checked fixture input, schema validation, PID/baseline metrics, canonical summary/run-log export, `just offline-harness`, and CI validation smoke.
-- Added a localhost WebSocket JSON-RPC Agent Bridge transport (`pid-sim-bridge-ws`) with RFC6455 handshake/frame handling, canonical run-log provenance, `just runlog-bridge-ws`, bridge contract transport coverage, and CI smoke validation.
+- Added a localhost WebSocket JSON-RPC Agent Bridge transport (`pid-sim-bridge-ws`) with a bounded RFC6455 handshake/frame subset, canonical run-log provenance, `just runlog-bridge-ws`, bridge contract transport coverage, and CI smoke validation.
 - Implemented Agent Bridge `export.rerun` for validated run logs, including `.rrd` artifact logging, safe-mode blocking, stdio/WebSocket smoke coverage, and `just runlog-bridge-export-rerun`.
 - Implemented the remaining advertised deterministic sim bridge lifecycle/intervention methods: `log.start`, `log.stop`, and deterministic `intervention.apply` (`set_velocity`, `translate_object`, `set_pose`), with run-log finalization gates, intervention replay verification, and stdio/TCP/WebSocket smoke coverage.
 - Strengthened the offline `(V,L,D,A)` embedding harness with deterministic leave-one-out 1-NN success-label baselines for raw `V`, `L`, `D`, `A`, and concatenated `VLDA`, emitted in both summary JSON and canonical run-log evaluation metrics.

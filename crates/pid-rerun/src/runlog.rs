@@ -102,6 +102,10 @@ pub struct RunLogRerunLogger<'a> {
     /// artifact written next to the run log would be silently skipped when the
     /// converter runs from elsewhere.
     artifact_base_dir: Option<std::path::PathBuf>,
+    /// Whether `attribution_logged.artifact_uri` values may be dereferenced.
+    /// Bridge exports disable this because a path nested inside an otherwise
+    /// valid run log is not part of the bridge's separately validated file RPC.
+    load_external_artifacts: bool,
 }
 
 impl<'a> RunLogRerunLogger<'a> {
@@ -109,6 +113,7 @@ impl<'a> RunLogRerunLogger<'a> {
         Self {
             rec,
             artifact_base_dir: None,
+            load_external_artifacts: true,
         }
     }
 
@@ -116,6 +121,15 @@ impl<'a> RunLogRerunLogger<'a> {
     /// parent directory).
     pub fn with_artifact_base_dir(mut self, dir: impl Into<std::path::PathBuf>) -> Self {
         self.artifact_base_dir = Some(dir.into());
+        self
+    }
+
+    /// Do not dereference artifact paths embedded in run-log events.
+    ///
+    /// Provenance text and faithfulness verdicts are still emitted; only the
+    /// optional best-effort loading of relevance arrays is disabled.
+    pub fn without_external_artifact_loading(mut self) -> Self {
+        self.load_external_artifacts = false;
         self
     }
 
@@ -309,31 +323,33 @@ impl<'a> RunLogRerunLogger<'a> {
                 // the actual per-element relevance values (capped) as a multi-value
                 // Scalars series so the heatmap is inspectable in the viewer — not just
                 // the pass/fail verdict. Any read/parse failure is silently skipped.
-                if let Some(uri) = artifact_uri {
-                    if uri.ends_with(".npy") {
-                        let resolved = self.resolve_artifact_uri(uri);
-                        match read_npy_f64(&resolved) {
-                            Some((values, _shape)) => {
-                                let capped: Vec<f64> =
-                                    values.into_iter().take(MAX_RELEVANCE_POINTS).collect();
-                                self.rec.log(
-                                    format!("attributions/relevance/{method}"),
-                                    &Scalars::new(capped),
-                                )?;
-                            }
-                            None => {
-                                // Surface the miss rather than dropping it: a
-                                // relevance artifact that exists but cannot be
-                                // read (moved, wrong dtype, truncated) should be
-                                // visible in the viewer, not silently absent.
-                                self.log_text(
-                                    format!("attributions/relevance/{method}"),
-                                    "WARN",
-                                    &format!(
-                                        "relevance artifact unreadable: {}",
-                                        resolved.display()
-                                    ),
-                                )?;
+                if self.load_external_artifacts {
+                    if let Some(uri) = artifact_uri {
+                        if uri.ends_with(".npy") {
+                            let resolved = self.resolve_artifact_uri(uri);
+                            match read_npy_f64(&resolved) {
+                                Some((values, _shape)) => {
+                                    let capped: Vec<f64> =
+                                        values.into_iter().take(MAX_RELEVANCE_POINTS).collect();
+                                    self.rec.log(
+                                        format!("attributions/relevance/{method}"),
+                                        &Scalars::new(capped),
+                                    )?;
+                                }
+                                None => {
+                                    // Surface the miss rather than dropping it: a
+                                    // relevance artifact that exists but cannot be
+                                    // read (moved, wrong dtype, truncated) should be
+                                    // visible in the viewer, not silently absent.
+                                    self.log_text(
+                                        format!("attributions/relevance/{method}"),
+                                        "WARN",
+                                        &format!(
+                                            "relevance artifact unreadable: {}",
+                                            resolved.display()
+                                        ),
+                                    )?;
+                                }
                             }
                         }
                     }

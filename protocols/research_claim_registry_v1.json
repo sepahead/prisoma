@@ -42,9 +42,8 @@
         }
       ],
       "proof_commands": [
-        "just runlog-validate",
-        "just runlog-replay",
-        "just runlog-sidecars",
+        "just runlog-sidecars-proof",
+        "just runlog-rerun-proof",
         "just safe-adapter"
       ],
       "remaining_required_artifacts": [

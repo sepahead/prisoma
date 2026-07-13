@@ -233,20 +233,31 @@ jobs:
           grep -q 'bridge safe mode blocked method sim.step' "$SAFE_OUT"
           test ! -e /tmp/prisoma_bridge_safe_export.rrd
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_bridge_stdio_safe.jsonl
-          TCP_PORT="$(python - <<'PY'
-          import socket
-          s = socket.socket()
-          s.bind(("127.0.0.1", 0))
-          print(s.getsockname()[1])
-          s.close()
-          PY
-          )"
-          cargo run -p pid-sim --bin pid-sim-bridge-tcp -- --bind "127.0.0.1:${TCP_PORT}" /tmp/prisoma_bridge_tcp.jsonl &
+          TCP_PID=""
+          WS_PID=""
+          cleanup_bridge_servers() {
+            if [ -n "$TCP_PID" ]; then kill "$TCP_PID" 2>/dev/null || true; fi
+            if [ -n "$WS_PID" ]; then kill "$WS_PID" 2>/dev/null || true; fi
+          }
+          trap cleanup_bridge_servers EXIT
+          if cargo run -p pid-sim --bin pid-sim-bridge-tcp -- --bind "0.0.0.0:0" /tmp/prisoma_bridge_tcp_nonloopback.jsonl; then exit 1; fi
+          test ! -e /tmp/prisoma_bridge_tcp_nonloopback.jsonl
+          cargo run -p pid-sim --bin pid-sim-bridge-tcp -- --allow-mutations --bind "127.0.0.1:0" /tmp/prisoma_bridge_tcp.jsonl 2>/tmp/prisoma_bridge_tcp.server.log &
           TCP_PID="$!"
-          python - <<'PY' "$TCP_PORT" > /tmp/prisoma_bridge_tcp.out
-          import socket, sys, time
-          port = int(sys.argv[1])
+          python - <<'PY' /tmp/prisoma_bridge_tcp.server.log > /tmp/prisoma_bridge_tcp.out
+          import pathlib, re, socket, sys, time
           deadline = time.time() + 30
+          log_path = pathlib.Path(sys.argv[1])
+          port = None
+          while port is None:
+              text = log_path.read_text() if log_path.exists() else ""
+              match = re.search(r"(?:^|\n)listening 127\.0\.0\.1:(\d+)(?:\n|$)", text)
+              if match:
+                  port = int(match.group(1))
+                  break
+              if time.time() > deadline:
+                  raise TimeoutError(f"server did not announce a port: {text}")
+              time.sleep(0.1)
           while True:
               try:
                   sock = socket.create_connection(("127.0.0.1", port), timeout=1)
@@ -255,6 +266,7 @@ jobs:
                   if time.time() > deadline:
                       raise
                   time.sleep(0.2)
+          sock.settimeout(30)
           with sock:
               for line in [
                   '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}\n',
@@ -273,6 +285,7 @@ jobs:
           print(b"".join(chunks).decode(), end="")
           PY
           wait "$TCP_PID"
+          TCP_PID=""
           grep -q '"id":"status"' /tmp/prisoma_bridge_tcp.out
           grep -q '"id":"intervention"' /tmp/prisoma_bridge_tcp.out
           grep -q '"id":"step"' /tmp/prisoma_bridge_tcp.out
@@ -281,20 +294,24 @@ jobs:
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_bridge_tcp.jsonl | grep -q 'flow_pred_records=2'
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_bridge_tcp.jsonl | grep -q 'interventions=1'
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/prisoma_bridge_tcp.jsonl
-          WS_PORT="$(python - <<'PY'
-          import socket
-          s = socket.socket()
-          s.bind(("127.0.0.1", 0))
-          print(s.getsockname()[1])
-          s.close()
-          PY
-          )"
-          cargo run -p pid-sim --bin pid-sim-bridge-ws -- --bind "127.0.0.1:${WS_PORT}" /tmp/prisoma_bridge_ws.jsonl &
+          if cargo run -p pid-sim --bin pid-sim-bridge-ws -- --bind "[::]:0" /tmp/prisoma_bridge_ws_nonloopback.jsonl; then exit 1; fi
+          test ! -e /tmp/prisoma_bridge_ws_nonloopback.jsonl
+          cargo run -p pid-sim --bin pid-sim-bridge-ws -- --allow-mutations --bind "127.0.0.1:0" /tmp/prisoma_bridge_ws.jsonl 2>/tmp/prisoma_bridge_ws.server.log &
           WS_PID="$!"
-          python - <<'PY' "$WS_PORT" > /tmp/prisoma_bridge_ws.out
-          import base64, hashlib, json, os, socket, struct, sys, time
-          port = int(sys.argv[1])
+          python - <<'PY' /tmp/prisoma_bridge_ws.server.log > /tmp/prisoma_bridge_ws.out
+          import base64, hashlib, json, os, pathlib, re, socket, struct, sys, time
           deadline = time.time() + 30
+          log_path = pathlib.Path(sys.argv[1])
+          port = None
+          while port is None:
+              text = log_path.read_text() if log_path.exists() else ""
+              match = re.search(r"(?:^|\n)listening 127\.0\.0\.1:(\d+)(?:\n|$)", text)
+              if match:
+                  port = int(match.group(1))
+                  break
+              if time.time() > deadline:
+                  raise TimeoutError(f"server did not announce a port: {text}")
+              time.sleep(0.1)
           while True:
               try:
                   sock = socket.create_connection(("127.0.0.1", port), timeout=1)
@@ -303,6 +320,17 @@ jobs:
                   if time.time() > deadline:
                       raise
                   time.sleep(0.2)
+          sock.settimeout(30)
+          def recv_exact(sock, size):
+              chunks = []
+              remaining = size
+              while remaining:
+                  chunk = sock.recv(remaining)
+                  if not chunk:
+                      raise EOFError(f"WebSocket closed with {remaining} byte(s) outstanding")
+                  chunks.append(chunk)
+                  remaining -= len(chunk)
+              return b"".join(chunks)
           def send_frame(sock, opcode, payload):
               if isinstance(payload, str):
                   payload = payload.encode()
@@ -316,23 +344,24 @@ jobs:
                   header = bytes([0x80 | opcode, 0x80 | 127]) + struct.pack("!Q", n)
               sock.sendall(header + key + bytes(b ^ key[i % 4] for i, b in enumerate(payload)))
           def recv_frame(sock):
-              first, second = sock.recv(2)
+              first, second = recv_exact(sock, 2)
               opcode = first & 0x0F
               n = second & 0x7F
               if n == 126:
-                  n = struct.unpack("!H", sock.recv(2))[0]
+                  n = struct.unpack("!H", recv_exact(sock, 2))[0]
               elif n == 127:
-                  n = struct.unpack("!Q", sock.recv(8))[0]
-              payload = b""
-              while len(payload) < n:
-                  payload += sock.recv(n - len(payload))
+                  n = struct.unpack("!Q", recv_exact(sock, 8))[0]
+              payload = recv_exact(sock, n)
               return opcode, payload
           with sock:
               key = base64.b64encode(os.urandom(16)).decode()
               sock.sendall((f"GET /bridge HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
               response = b""
               while b"\r\n\r\n" not in response:
-                  response += sock.recv(4096)
+                  chunk = sock.recv(4096)
+                  if not chunk:
+                      raise EOFError("WebSocket closed during HTTP upgrade")
+                  response += chunk
               expected = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
               assert b"101 Switching Protocols" in response
               assert f"Sec-WebSocket-Accept: {expected}".encode() in response
@@ -350,6 +379,8 @@ jobs:
               recv_frame(sock)
           PY
           wait "$WS_PID"
+          WS_PID=""
+          trap - EXIT
           grep -q '"id":"status"' /tmp/prisoma_bridge_ws.out
           grep -q '"id":"intervention"' /tmp/prisoma_bridge_ws.out
           grep -q '"id":"step"' /tmp/prisoma_bridge_ws.out

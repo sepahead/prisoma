@@ -309,7 +309,7 @@ runlog-bridge-stdio path="outputs/demo_bridge_stdio_runlog.jsonl":
 
 runlog-bridge-stdio-safe path="outputs/demo_bridge_stdio_safe_runlog.jsonl":
     cargo run -p pid-sim --bin pid-sim-bridge-demo -- outputs/demo_bridge_runlog.jsonl
-    printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"replay","method":"log.replay","params":{"run_log_uri":"outputs/demo_bridge_runlog.jsonl"}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode {{path}}
+    printf '%s\n' '{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}' '{"jsonrpc":"2.0","id":"replay","method":"log.replay","params":{"run_log_uri":"demo_bridge_runlog.jsonl"}}' '{"jsonrpc":"2.0","id":"step","method":"sim.step","params":{"dt":0.1}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode {{path}}
 
 runlog-bridge-tcp path="outputs/demo_bridge_tcp_runlog.jsonl" addr="127.0.0.1:38472":
     cargo run -p pid-sim --bin pid-sim-bridge-tcp -- --bind {{addr}} {{path}}
@@ -319,6 +319,16 @@ runlog-bridge-ws path="outputs/demo_bridge_ws_runlog.jsonl" addr="127.0.0.1:3847
 
 bridge-contract out="outputs/bridge_runlog_contract.json":
     cargo run -p pid-bridge --bin pid-bridge-contract -- --out {{out}}
+
+# Offline/local unit proof only: bind/safe defaults, the enumerated JSON-RPC/WebSocket
+# checks and per-message/per-operation caps, plus non-adversarial canonical/no-replace
+# file behavior. Not remote-security, forwarding/proxy, or adversarial-filesystem validation.
+bridge-security:
+    cargo test -p pid-bridge
+    cargo test -p pid-rerun
+    cargo test -p pid-sim --bin pid-sim-bridge-tcp
+    cargo test -p pid-sim --bin pid-sim-bridge-ws
+    cargo test -p pid-sim --lib
 
 runlog-replay path="outputs/demo_runlog.jsonl":
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{path}}
@@ -357,5 +367,5 @@ runlog-rerun-bridge path="outputs/demo_bridge_runlog.jsonl" out="outputs/demo_br
 
 runlog-bridge-export-rerun source="outputs/demo_bridge_runlog.jsonl" path="outputs/demo_bridge_export_rerun_runlog.jsonl" out="outputs/demo_bridge_export_rerun.rrd":
     cargo run -p pid-sim --bin pid-sim-bridge-demo -- {{source}}
-    printf '%s\n' '{"jsonrpc":"2.0","id":"export","method":"export.rerun","params":{"run_log_uri":"{{source}}","output_uri":"{{out}}"}}' | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- {{path}}
+    python -c 'import json, os, sys; print(json.dumps({"jsonrpc":"2.0","id":"export","method":"export.rerun","params":{"run_log_uri":os.path.realpath(sys.argv[1]),"output_uri":os.path.realpath(sys.argv[2])}}, separators=(",", ":")))' "{{source}}" "{{out}}" | cargo run -p pid-sim --bin pid-sim-bridge-stdio -- "{{path}}"
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{path}}

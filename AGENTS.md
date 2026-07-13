@@ -96,7 +96,34 @@ being true as the code moves).
 - **`pid-bridge`** — Agent Bridge dispatch, JSON-RPC request/response conversion, and
   bridge/run-log contract export.
 - **`pid-sim`** — deterministic object sim with `Flow_gt` plus a baseline `flow_pred` bridge
-  demo; stdio/TCP/WebSocket JSON-RPC bridges; safe-mode `log.replay`; bridge
+  demo; stdio/TCP/WebSocket bridges implementing a single-request JSON-RPC 2.0 subset (silent
+  missing-id notifications, explicit-`null` responses, named-object parameters with exact
+  top-level method keys, required numeric `sim.step.dt`, no batch support, `-32602` for
+  profile-invalid parameters, and `-32000` for post-validation handler/domain failures);
+  TCP/WebSocket binaries refuse non-loopback binds
+  and default safe (`--allow-mutations` is explicit), but do not prevent forwarding/proxying of a
+  loopback listener; TCP/stdio JSONL lines are capped at 1 MiB, WebSocket upgrades/incoming client
+  frames at 16 KiB/1 MiB, and network read/write operations at 30 seconds, with no total
+  session/request or aggregate-traffic deadline (progress-making trickle traffic may persist). The
+  WebSocket upgrade
+  requires `GET /bridge HTTP/1.1`, exactly one each of a nonempty `Host`, `Upgrade: websocket`,
+  tokenized `Connection` containing `upgrade`, version `13`, and a base64 16-byte key, and rejects
+  `Origin`; this is not a claim to detect every malformed request. Client application messages
+  are unfragmented, masked UTF-8 text frames; binary frames, fragmentation, and extensions/RSV
+  use are unsupported. File RPCs use non-adversarial
+  canonical confinement that rejects traversal, observed symlinks, non-regular/out-of-root inputs,
+  missing parents, and pre-existing outputs; it is not a security-grade sandbox against hardlinks,
+  aliases, or concurrent filesystem mutation. Run logs and Rerun outputs are no-replace; export
+  parses/manifests the same exact byte snapshot read from the source and stages, syncs, and installs
+  finalized RRD bytes/hash no-clobber. Executable transport run logs use `File::sync_all` for the
+  initial prefix, each session flush before a wire response, and the terminal seal; generic
+  `SimBridgeSession<W>` remains sink-defined. There is no parent-directory fsync, power-loss claim,
+  or cross-file run-log/export transaction. Ordinary accepted-client errors seal `Failed` only while
+  provenance remains writable; crashes/storage failures can leave incomplete/unreadable
+  provenance, an apparently complete terminal record with indeterminate status/durability, or an
+  orphan RRD. This is local E0 hardening with **no** authentication, authorization, TLS,
+  redaction, or remote-security assessment;
+  safe-mode `log.replay`; bridge
   `log.start`/`log.stop`, deterministic `intervention.apply`, and `export.rerun`; flow
   checks and action/intervention replay verification; the toy labeled harness; a
   `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend**
@@ -320,6 +347,9 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
   - `just offline-harness-discrete-pls` — `--pid-mode discrete-pls --pls-components 2 --discrete-bins 8` on the high-dim fixture (PLS-project sources toward `A`, then discrete PID).
 - Run-log smoke:
   - `just bridge-contract`
+  - `just bridge-security` — local-only unit proof for bind/safe defaults, the enumerated wire
+    caps/upgrade checks, JSON-RPC subset behavior, and canonical/no-replace file handling; it is
+    not remote-security or adversarial-filesystem validation.
   - `just runlog-demo`
   - `just runlog-bridge-demo`
   - `just runlog-bridge-stdio-safe`

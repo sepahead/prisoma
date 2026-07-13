@@ -386,11 +386,56 @@ just runlog-bridge-export-rerun
 
 > **Note:** `just runlog-bridge-tcp` and `just runlog-bridge-ws` start a server that **blocks waiting for one client to connect** — they do not self-terminate. Run them in a separate terminal and connect a client (the CI job in `.github/workflows/ci.yml` shows a minimal Python client for each). They are omitted from the list above for that reason.
 
-> **Security note:** TCP/WebSocket transports are development smokes, not hardened remote
-> control planes. They currently lack authentication/origin enforcement and should remain
-> loopback-only and safe-mode until the dated code-review findings are fixed.
+> **Security boundary:** TCP/WebSocket remain development smokes, not hardened remote control
+> planes. Their binaries refuse non-loopback bind addresses and start in read-only safe mode, but
+> they do not prevent a loopback listener from being exposed through forwarding, proxying,
+> tunnelling, or another local process. They provide no authentication, authorization, TLS,
+> payload redaction, remote-deployment assessment, or authenticated actor identity.
 
-**Safe mode.** The Agent Bridge read-only safe mode allows only the two non-mutating methods, `sim.status` and `log.replay`. Every mutating method — `sim.step`, `sim.reset`, `scene.set_object`, `intervention.apply`, `log.start`, `log.stop`, and file-writing `export.rerun` — is logged as a blocked bridge error response. Outside safe mode, `intervention.apply` supports deterministic `set_velocity`, `translate_object`, and `set_pose`; `log.stop` finalizes the run log; `export.rerun` converts a validated run log to a `.rrd` recording (and refuses to overwrite the session's own run log). `pid-sim-bridge-tcp` exposes newline-delimited JSON-RPC on localhost; `pid-sim-bridge-ws` exposes JSON-RPC over a local RFC6455 WebSocket. Both write canonical run logs and finalize (with `run_ended`) even on a transport error.
+**Safe mode and wire subset.** The Agent Bridge read-only safe mode allows only `sim.status` and
+confined `log.replay`. Every mutating method — `sim.step`, `sim.reset`, `scene.set_object`,
+`intervention.apply`, `log.start`, `log.stop`, and file-writing `export.rerun` — is recorded as a
+blocked bridge response. TCP/WebSocket require explicit `--allow-mutations` to leave safe mode;
+stdio remains a directly invoked local process whose existing `--safe-mode` flag selects the
+policy. The wire protocol is a single-request JSON-RPC 2.0 subset: batches are unsupported, an
+omitted `id` is a silent notification and remains distinct from an explicit `null` id.
+Parameters may be omitted or supplied as a named JSON object; positional arrays and undeclared
+top-level method keys are rejected. Individual method contracts still enforce required values:
+for example, `sim.step` requires a numeric `dt` and never silently substitutes one. Profile-level
+invalid parameters use `-32602`; handler/domain failures after that validation use the
+implementation-defined `-32000` code.
+
+TCP and stdio cap each JSONL request line at 1 MiB. WebSocket caps the HTTP upgrade at 16 KiB and
+each incoming client frame at 1 MiB; network socket reads and writes have a 30-second timeout per
+operation. These
+are not total request, session-duration, request-count, or aggregate-traffic limits, so traffic
+that keeps making progress (including a trickle client) can persist indefinitely. A WebSocket
+upgrade specifically requires `GET /bridge HTTP/1.1`, exactly one each of a nonempty `Host`,
+`Upgrade: websocket`, a tokenized `Connection` containing `upgrade`,
+`Sec-WebSocket-Version: 13`, and a base64 key decoding to exactly 16 bytes; any `Origin` header is
+rejected. This is the implemented check set, not a claim that every malformed HTTP/WebSocket
+request is recognized. After upgrade, client application messages must be unfragmented, masked
+UTF-8 text frames; ping, pong, and close control frames are supported, while binary frames,
+fragmentation, and WebSocket extensions/RSV use are rejected.
+
+File RPCs use non-adversarial canonical-path confinement beneath the canonical directory holding
+the session run log. They reject parent traversal, observed symlink components, non-regular or
+out-of-root inputs, missing output parents, and existing outputs; transport run logs and Rerun
+outputs use no-replace creation. This is not a security-grade filesystem sandbox against
+hardlinks, alternative aliases, or concurrent local filesystem mutation. `export.rerun` parses
+and manifests the same exact bounded byte snapshot read from the source, encodes the finalized RRD
+bytes, hashes those bytes, stages and syncs the file, and installs it without clobbering. It does
+not fsync the parent directory or claim power-loss durability. The three executable transports use
+a file-backed writer whose flush calls `File::sync_all`: the initial prefix, each session flush
+before a wire response, and the terminal seal therefore sync run-log file contents/metadata. A
+generic `SimBridgeSession<W>` has only its supplied sink's flush semantics. Neither path fsyncs the
+run-log parent directory or makes the run log and exported artifact one atomic transaction.
+
+Once provenance storage is writable, ordinary accepted-client protocol/transport failures are
+sealed with a failed `run_ended`. A crash or provenance-storage/write failure can instead leave an
+incomplete or unreadable run log, an apparently complete terminal record whose status/durability
+is indeterminate, or an installed RRD without its final `artifact_logged` record; there is no
+valid-log or orphan-free guarantee for those cases.
 
 Without `just`: `cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl`, then validate/replay it with `pid-runlog-replay`. For sidecar provenance, use `--write-sidecars` followed by `--verify-sidecars`.
 

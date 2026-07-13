@@ -463,7 +463,43 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 | **PID-Core** | Read-only information analysis | Computes candidate diagnostics from logged/captured data; it never triggers actions, pauses, or corrections |
 | **Attribution probes** | Local explanation baselines | Reference epsilon-/AttnLRP + gradient×input probe and Rerun adapter are implemented; other methods/production-VLA hooks remain extensions |
 
-Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status, deterministic stepping, deterministic interventions, replay, run lifecycle stop, and `export.rerun`; safe mode keeps status/replay read-only and rejects mutation, run-ending, or file-writing exports. This is **partial M2 groundwork**, not completion of the full M2 acceptance contract (all target UI/VLA/backend controls plus a versioned subscription stream). Likewise, the validating run-log-to-Rerun converter is **partial M2/EC1 viewer groundwork**; the complete blueprint/viewer remains specified, not built.
+Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status,
+deterministic stepping, deterministic interventions, replay, run lifecycle stop, and
+`export.rerun`. TCP/WebSocket binaries refuse non-loopback bind addresses and default to safe mode;
+leaving it requires `--allow-mutations`. This does not stop forwarding, proxying, or tunnelling a
+loopback listener. TCP/stdio JSONL lines are capped at 1 MiB; WebSocket upgrades and incoming
+client frames are capped at 16 KiB and 1 MiB respectively; network reads and writes time out after
+30 seconds per operation. There is no total request/session deadline, request-count cap, or
+aggregate-traffic budget, and progress-making trickle traffic can persist.
+
+The WebSocket upgrade check is deliberately narrow: `GET /bridge HTTP/1.1`; exactly one each of a
+nonempty `Host`, `Upgrade: websocket`, tokenized `Connection` containing `upgrade`, version `13`,
+and base64 key decoding to 16 bytes; and no `Origin`. It is not a general malformed-HTTP detector.
+Client application messages are unfragmented, masked UTF-8 text frames; ping, pong, and close are
+supported, while binary frames, fragmentation, and extensions/RSV use are rejected. The bridge
+implements a single-request JSON-RPC 2.0 subset, not batches. Missing-id notifications are silent
+and distinct from explicit `null`; parameters are omitted or named objects, not positional arrays;
+undeclared top-level method keys are rejected; and `sim.step` requires numeric `dt`.
+Profile-invalid parameters map to `-32602`; handler/domain failures after validation map to
+`-32000`.
+
+Replay/export paths have non-adversarial canonical confinement: traversal, observed symlink
+components, non-regular/out-of-root reads, missing parents, and existing outputs are rejected.
+Run logs and Rerun outputs are created no-replace. Export parses and manifests the same exact byte
+snapshot read from the source, finalizes and hashes the RRD bytes, then stages, syncs, and installs
+them no-clobber. This is not a security-grade filesystem sandbox against hardlinks, aliases, or
+concurrent mutation. Executable transport run logs use `File::sync_all` for the initial prefix,
+each session flush before a wire response, and the terminal seal; generic
+`SimBridgeSession<W>` durability remains sink-defined. There is no parent-directory fsync,
+power-loss claim, or cross-file transaction joining a run log to its export. Ordinary
+accepted-client failures are sealed `Failed` only while provenance storage remains writable; a
+crash or storage failure may leave incomplete/unreadable provenance, an apparently complete
+terminal record with indeterminate status/durability, or an orphan RRD. This is local E0
+hardening, with no
+authentication, authorization, TLS, redaction, or remote-security assessment, and not completion
+of the full M2 acceptance contract (all target UI/VLA/backend controls plus a versioned
+subscription stream). Likewise, the validating run-log-to-Rerun converter is **partial M2/EC1
+viewer groundwork**; the complete blueprint/viewer remains specified, not built.
 
 ---
 

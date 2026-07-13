@@ -67,6 +67,11 @@ pub struct BridgeMethodContract {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BridgeContract {
     pub jsonrpc_version: String,
+    /// This local profile accepts one Request object per JSONL line/WebSocket
+    /// message. JSON-RPC batch arrays are deliberately unsupported.
+    pub batch_supported: bool,
+    /// Requests without an id execute and are logged but emit no wire response.
+    pub notifications_supported: bool,
     pub transports: Vec<String>,
     pub methods: Vec<BridgeMethodContract>,
     pub runlog_schema_version: u32,
@@ -104,6 +109,8 @@ pub fn bridge_runlog_contract() -> BridgeRunLogContract {
 pub fn bridge_contract() -> BridgeContract {
     BridgeContract {
         jsonrpc_version: "2.0".to_string(),
+        batch_supported: false,
+        notifications_supported: true,
         transports: BRIDGE_TRANSPORTS
             .iter()
             .map(|value| (*value).to_string())
@@ -127,6 +134,18 @@ fn bridge_request_payload_hint(method: &str) -> &'static str {
         }
         "export.rerun" => r#"{"run_log_uri": string, "output_uri": string?}"#,
         _ => "object",
+    }
+}
+
+fn bridge_request_parameter_names(method: &BridgeMethod) -> &'static [&'static str] {
+    match method {
+        BridgeMethod::SimStatus | BridgeMethod::SimReset | BridgeMethod::LogStop => &[],
+        BridgeMethod::SimStep => &["dt"],
+        BridgeMethod::LogStart => &["run_id", "metadata"],
+        BridgeMethod::LogReplay => &["run_log_uri"],
+        BridgeMethod::SceneSetObject => &["object_id", "pose", "velocity"],
+        BridgeMethod::InterventionApply => &["intervention_type", "payload"],
+        BridgeMethod::ExportRerun => &["run_log_uri", "output_uri"],
     }
 }
 
@@ -195,20 +214,43 @@ pub struct BridgeRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BridgeRpcRequest {
     pub jsonrpc: Option<String>,
-    /// JSON-RPC 2.0 ids may be a String, a Number, or Null (a request without an
-    /// `id` — a notification — deserializes to Null too, and this bridge answers
-    /// it with a Null-id response rather than staying silent). Validate with
-    /// [`BridgeRpcRequest::validated_id`]; anything else is a -32600 Invalid
-    /// Request. The id is echoed back VERBATIM in the response.
-    #[serde(default)]
-    pub id: Value,
+    /// JSON-RPC 2.0 ids may be a String, a Number, or Null. `None` preserves the
+    /// semantically distinct case where the member is absent (a notification),
+    /// which executes and is logged internally but produces no wire response.
+    /// Validate with [`BridgeRpcRequest::validated_id`]; anything else is a
+    /// -32600 Invalid Request. A present id is echoed VERBATIM in the response.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_present_json_value",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub id: Option<Value>,
     pub method: String,
-    #[serde(default)]
-    pub params: Value,
+    /// This bridge profile uses named parameters only: the member is omitted or
+    /// an object. The custom deserializer preserves explicit null so it can be
+    /// rejected separately from an omitted member by [`Self::validated_params`].
+    #[serde(
+        default,
+        deserialize_with = "deserialize_present_json_value",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub params: Option<Value>,
+}
+
+/// Serde normally maps both a missing member and an explicit JSON null to
+/// `Option::None`. JSON-RPC assigns different wire semantics to those cases,
+/// so a present member is always wrapped in `Some`, including `Value::Null`.
+fn deserialize_present_json_value<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Value::deserialize(deserializer).map(Some)
 }
 
 /// Render a (valid) JSON-RPC id as a bare string. Distinct JSON ids can render
-/// identically (`1` vs `"1"`, every notification → `"null"`), and clients may
+/// identically (`1` vs `"1"`, explicit JSON null → `"null"`), and clients may
 /// legally reuse ids — so this rendering is **not unique** and must not be used
 /// as a run-log `request_id` on its own: `pid-runlog` validation hard-errors on
 /// duplicate request/response ids, so a spec-valid client could invalidate the
@@ -227,10 +269,12 @@ pub fn rpc_id_to_request_id(id: &Value) -> String {
 /// construction** and **type-unambiguous**: prefixed with the session-monotone
 /// message index (so id reuse and cross-type collisions cannot produce
 /// duplicate run-log ids) and tagged by JSON type (`n:` number, `s:` string,
-/// `null` notification) so provenance stays greppable back to the wire id.
+/// `null` explicit-null request) so provenance stays greppable back to the wire
+/// id. Notifications have no id value and must instead use
+/// [`rpc_notification_to_unique_request_id`].
 ///
 /// `1` at message 4 → `"message-4:n:1"`; `"1"` at message 5 →
-/// `"message-5:s:1"`; a notification at message 6 → `"message-6:null"`.
+/// `"message-5:s:1"`; explicit null at message 6 → `"message-6:null"`.
 pub fn rpc_id_to_unique_request_id(id: &Value, message_index: usize) -> String {
     let tagged = match id {
         Value::String(s) => format!("s:{s}"),
@@ -239,6 +283,13 @@ pub fn rpc_id_to_unique_request_id(id: &Value, message_index: usize) -> String {
         other => format!("j:{other}"),
     };
     format!("message-{message_index}:{tagged}")
+}
+
+/// Construct the canonical request id for a JSON-RPC notification. Keeping
+/// this distinct from an explicit `"id": null` request lets the run log
+/// reconstruct whether the wire protocol emitted a response.
+pub fn rpc_notification_to_unique_request_id(message_index: usize) -> String {
+    format!("message-{message_index}:notification")
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -271,11 +322,49 @@ pub struct BridgeResponse {
 impl BridgeRpcRequest {
     /// JSON-RPC 2.0 restricts `id` to String, Number, or Null; arrays/objects/
     /// booleans are a -32600 Invalid Request.
-    pub fn validated_id(&self) -> Result<&Value> {
-        match &self.id {
-            Value::String(_) | Value::Number(_) | Value::Null => Ok(&self.id),
-            other => bail!("invalid JSON-RPC id (must be string, number, or null): {other}"),
+    pub fn validated_id(&self) -> Result<Option<&Value>> {
+        if self.jsonrpc.as_deref() != Some("2.0") {
+            bail!("jsonrpc must be exactly \"2.0\"");
         }
+        match self.id.as_ref() {
+            Some(id @ (Value::String(_) | Value::Number(_) | Value::Null)) => Ok(Some(id)),
+            None => Ok(None),
+            Some(other) => {
+                bail!("invalid JSON-RPC id (must be string, number, or null): {other}")
+            }
+        }
+    }
+
+    /// The local bridge profile permits omitted params or a named-parameter
+    /// object. Positional arrays are rejected because no method implements a
+    /// positional mapping; accepting them would let handlers silently apply
+    /// defaults instead of the caller's requested values.
+    pub fn validated_params(&self) -> Result<Option<&Value>> {
+        match self.params.as_ref() {
+            None => Ok(None),
+            Some(value @ Value::Object(_)) => Ok(Some(value)),
+            Some(other) => bail!("params must be an object when present, got {other}"),
+        }
+    }
+
+    /// Reject top-level named parameters outside the method's exported payload
+    /// contract. Individual handlers still validate required members, types,
+    /// numeric domains, and nested payload schemas.
+    pub fn validated_params_for_method(&self, method: &BridgeMethod) -> Result<()> {
+        let Some(Value::Object(params)) = self.validated_params()? else {
+            return Ok(());
+        };
+        let allowed = bridge_request_parameter_names(method);
+        for name in params.keys() {
+            if !allowed.contains(&name.as_str()) {
+                bail!("unknown parameter {name:?} for method {}", method.as_str());
+            }
+        }
+        Ok(())
+    }
+
+    pub fn validated_method(&self) -> Result<BridgeMethod> {
+        BridgeMethod::from_str(&self.method)
     }
 
     pub fn into_bridge_request(
@@ -284,14 +373,16 @@ impl BridgeRpcRequest {
         step: Option<u64>,
         timestamp_ns: u64,
     ) -> Result<BridgeRequest> {
-        self.validated_id()?;
+        let id = self.validated_id()?.cloned().unwrap_or(Value::Null);
+        let method = self.validated_method()?;
+        self.validated_params_for_method(&method)?;
         Ok(BridgeRequest {
-            request_id: rpc_id_to_request_id(&self.id),
+            request_id: rpc_id_to_request_id(&id),
             step,
             timestamp_ns,
             actor,
-            method: BridgeMethod::from_str(&self.method)?,
-            payload: self.params,
+            method,
+            payload: self.params.unwrap_or(Value::Null),
         })
     }
 }
@@ -592,9 +683,9 @@ mod tests {
     fn rpc_request_converts_dotted_method() {
         let rpc = BridgeRpcRequest {
             jsonrpc: Some("2.0".to_string()),
-            id: json!("rpc-1"),
+            id: Some(json!("rpc-1")),
             method: "sim.step".to_string(),
-            params: json!({ "dt": 0.1 }),
+            params: Some(json!({ "dt": 0.1 })),
         };
         let request = rpc.into_bridge_request(actor(), Some(0), 123).unwrap();
         assert_eq!(request.method, BridgeMethod::SimStep);
@@ -608,14 +699,14 @@ mod tests {
         let numeric: BridgeRpcRequest =
             serde_json::from_str(r#"{"jsonrpc":"2.0","id":7,"method":"sim.status","params":{}}"#)
                 .unwrap();
-        assert_eq!(numeric.validated_id().unwrap(), &json!(7));
+        assert_eq!(numeric.validated_id().unwrap().cloned(), Some(json!(7)));
         let request = numeric.into_bridge_request(actor(), Some(0), 1).unwrap();
         assert_eq!(request.request_id, "7");
 
-        // A request without an id (a notification) deserializes to Null.
+        // A request without an id remains distinguishable as a notification.
         let notif: BridgeRpcRequest =
             serde_json::from_str(r#"{"jsonrpc":"2.0","method":"sim.status","params":{}}"#).unwrap();
-        assert_eq!(notif.validated_id().unwrap(), &Value::Null);
+        assert_eq!(notif.validated_id().unwrap(), None);
         assert_eq!(
             notif
                 .into_bridge_request(actor(), Some(0), 1)
@@ -633,6 +724,50 @@ mod tests {
         .unwrap();
         assert!(bad.validated_id().is_err());
         assert!(bad.into_bridge_request(actor(), Some(0), 1).is_err());
+    }
+
+    #[test]
+    fn rpc_request_rejects_missing_or_wrong_protocol_version() {
+        for text in [
+            r#"{"id":1,"method":"sim.status","params":{}}"#,
+            r#"{"jsonrpc":"1.0","id":1,"method":"sim.status","params":{}}"#,
+            r#"{"jsonrpc":"2.0 ","id":1,"method":"sim.status","params":{}}"#,
+        ] {
+            let request: BridgeRpcRequest = serde_json::from_str(text).unwrap();
+            assert!(request.validated_id().is_err(), "{text}");
+            assert!(
+                request.into_bridge_request(actor(), Some(0), 1).is_err(),
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn rpc_request_rejects_non_structured_params() {
+        for text in [
+            r#"{"jsonrpc":"2.0","id":1,"method":"sim.status","params":null}"#,
+            r#"{"jsonrpc":"2.0","id":1,"method":"sim.status","params":7}"#,
+            r#"{"jsonrpc":"2.0","id":1,"method":"sim.status","params":"bad"}"#,
+            r#"{"jsonrpc":"2.0","id":1,"method":"sim.status","params":[]}"#,
+        ] {
+            let request: BridgeRpcRequest = serde_json::from_str(text).unwrap();
+            assert!(request.validated_params().is_err(), "{text}");
+            assert!(
+                request.into_bridge_request(actor(), Some(0), 1).is_err(),
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn rpc_request_rejects_unknown_named_parameter() {
+        let request: BridgeRpcRequest = serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":1,"method":"sim.step","params":{"dtt":999}}"#,
+        )
+        .unwrap();
+        let method = request.validated_method().unwrap();
+        assert!(request.validated_params_for_method(&method).is_err());
+        assert!(request.into_bridge_request(actor(), Some(0), 1).is_err());
     }
 
     #[test]
@@ -655,6 +790,8 @@ mod tests {
             .transports
             .contains(&"websocket_jsonrpc".to_string()));
         assert_eq!(contract.bridge.methods.len(), BRIDGE_METHODS.len());
+        assert!(!contract.bridge.batch_supported);
+        assert!(contract.bridge.notifications_supported);
         let step = contract
             .bridge
             .methods

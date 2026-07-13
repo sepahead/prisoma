@@ -1616,6 +1616,42 @@ paths, hashes, and canonical pins but cannot infer command semantics; review plu
 confirm that each named proof exercises its declared inputs. The current table contains no
 `validated` row: local software/fixture evidence cannot upgrade itself to E4 scientific conformance.
 
+The deterministic Agent Bridge transports implement a bounded local fail-closed slice.
+TCP/WebSocket binaries refuse non-loopback bind addresses, start in safe mode, and require explicit
+mutation opt-in, but they cannot prevent forwarding, proxying, or tunnelling a loopback listener.
+TCP/stdio JSONL lines are capped at 1 MiB, WebSocket HTTP upgrades at 16 KiB, and incoming client
+WebSocket frames at 1 MiB. Network reads and writes time out after 30 seconds per operation; there is no total
+request/session deadline, request-count cap, or aggregate-traffic budget, so progress-making
+trickle traffic can persist.
+
+The WebSocket gate requires exactly `GET /bridge HTTP/1.1`, exactly one each of a nonempty `Host`,
+`Upgrade: websocket`, tokenized `Connection` containing `upgrade`, version `13`, and a base64 key
+decoding to 16 bytes, and no `Origin`. This enumerated contract is not a claim that every malformed
+HTTP/WebSocket request is detected. Client application messages are unfragmented, masked UTF-8
+text frames; ping, pong, and close control frames are supported, while binary frames,
+fragmentation, and extensions/RSV use are rejected. The bridge implements a single-request
+JSON-RPC 2.0 subset: batches are unsupported, an omitted-id notification is silent and distinct
+from an explicit `null` request id, parameters are omitted or named objects (not positional
+arrays), undeclared top-level method keys are rejected, `sim.step` requires numeric `dt`, and a
+profile-invalid parameter uses `-32602`. Handler/domain failures after validation use `-32000`.
+
+Replay/export file methods use non-adversarial canonical confinement below the session run-log
+directory. They reject traversal, observed symlink components, non-regular/out-of-root inputs,
+missing output parents, and pre-existing outputs; transport run logs and Rerun outputs are
+no-replace. Export parses and manifests the same exact byte snapshot read from the source, encodes
+and hashes finalized RRD bytes, then stages, syncs, and persists them no-clobber. This is not a
+security-grade filesystem sandbox against hardlinks, aliases, or concurrent local mutation, and
+executable transport run logs use `File::sync_all` for the initial prefix, every session flush
+before a wire response, and the terminal seal. Generic `SimBridgeSession<W>` durability remains
+sink-defined; there is no parent-directory fsync, power-loss claim, or cross-file run-log/export
+transaction. Ordinary accepted-client protocol/transport failures are sealed `Failed` only
+while provenance storage remains writable; a crash or storage failure may leave incomplete or
+unreadable provenance, an apparently complete terminal record with indeterminate
+status/durability, or an installed RRD without its final provenance event. This is E0 local
+hardening only. Caller IDs remain declarations rather than authenticated identities;
+authentication, authorization, TLS, redaction, remote deployment, and external security assessment
+remain unimplemented.
+
 The reviewed snapshot has meaningful estimator/run-log and adapter groundwork, but current repository prose also records blocked scientific capture and invalidated high-dimensional regimes [R61, R72]. Treat passing unit tests as evidence of software behavior, not causal identification, estimator validity, deployment security, or paper-level novelty.
 
 The local `pid-sim` implementation also includes two explicitly non-evidentiary protocol

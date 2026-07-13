@@ -47,21 +47,26 @@
       "status": "tested",
       "revision_inputs": [
         "crates/pid-bridge",
+        "crates/pid-rerun",
         "crates/pid-sim",
         "Cargo.toml",
         "Cargo.lock"
       ],
       "external_revision": null,
-      "test_command": "just bridge-contract",
+      "test_command": "just bridge-security",
       "evidence_artifacts": [
         "crates/pid-bridge",
+        "crates/pid-rerun/src/runlog.rs",
+        "crates/pid-sim/src/lib.rs",
         "crates/pid-sim/src/bin/bridge_stdio.rs",
+        "crates/pid-sim/src/bin/bridge_tcp.rs",
+        "crates/pid-sim/src/bin/bridge_ws.rs",
         "ARCHITECTURE.md"
       ],
-      "known_limitations": "The current deterministic bridge smoke does not implement every target UI, VLA, backend control, authenticated caller policy, or versioned subscription stream.",
+      "known_limitations": "TCP/WebSocket binaries refuse non-loopback bind addresses and default safe, but forwarding/proxying/tunnelling a loopback listener is not prevented. TCP/stdio JSONL lines have a 1 MiB cap, WebSocket upgrade/incoming-frame inputs have 16 KiB/1 MiB caps, and network read/write operations have 30-second timeouts; there is no total request/session, request-count, or aggregate-traffic limit, so progress-making trickle traffic may persist. The enumerated WebSocket gate requires GET /bridge HTTP/1.1, exactly one each of a nonempty Host, Upgrade websocket, tokenized Connection containing upgrade, version 13, and a base64 16-byte key, and no Origin; it does not claim general malformed-request detection. Client application messages are unfragmented, masked UTF-8 text frames; ping, pong, and close control frames are supported, while binary frames, fragmentation, and extensions/RSV use are rejected. The JSON-RPC 2.0 surface is single-request only: missing-id notifications are silent and distinct from explicit null, parameters are omitted or named objects rather than positional arrays, undeclared top-level method keys are rejected, sim.step requires numeric dt, and batches are unsupported. Profile-invalid parameters use -32602; handler/domain failures after validation use -32000. File RPCs provide non-adversarial canonical confinement and no-replace outputs, not a security-grade sandbox against hardlinks, aliases, or concurrent filesystem mutation. Export parses/manifests the same exact byte snapshot read from the source and stages/syncs/installs no-clobber finalized RRD bytes/hash. Executable transport run logs call File::sync_all for the initial prefix, each session flush before a wire response, and the terminal seal; generic SimBridgeSession<W> durability is sink-defined. There is no parent-directory fsync, power-loss durability, or cross-file run-log/export transaction. Crashes or provenance-storage failures may leave incomplete/unreadable logs, an apparently complete terminal record with indeterminate status/durability, or orphan RRDs. There is no authentication, authorization, TLS, redaction, remote-security assessment, full target UI/VLA/backend control coverage, or versioned subscription stream; actor identity remains locally declared.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
-      "evidence_scope": "local JSON-RPC dispatch and contract fixtures",
+      "evidence_scope": "local unit-tested single-request dispatch, bind/default/wire caps, enumerated WebSocket checks, and non-adversarial canonical/no-replace file behavior; not remote-security, forwarding/proxy, adversarial-filesystem, crash-durability, or scientific validation",
       "thesis_dependency": "required",
       "claim_ids": [
         "EC1"

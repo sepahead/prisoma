@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use pid_runlog::{Actor, ActorType, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
 use std::collections::BTreeMap;
+use std::fs::OpenOptions;
 use std::io::{self, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 
@@ -22,13 +23,14 @@ fn main() -> Result<()> {
         }
     };
 
-    let path = PathBuf::from(path_arg);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create {}", parent.display()))?;
-    }
+    let (path, artifact_root) = pid_sim::canonical_new_artifact_path(PathBuf::from(path_arg))?;
 
-    let mut writer = RunLogWriter::create(&path)?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .with_context(|| format!("failed to create new run log {}", path.display()))?;
+    let mut writer = RunLogWriter::new(pid_sim::FsyncFileWriter::new(file));
     let config = pid_sim::deterministic_sim_config(
         "pid-sim-bridge-stdio",
         Some("stdio_jsonl"),
@@ -40,6 +42,10 @@ fn main() -> Result<()> {
     let mut metadata = BTreeMap::new();
     metadata.insert("source".to_string(), "pid-sim-bridge-stdio".to_string());
     metadata.insert("safe_mode".to_string(), safe_mode.to_string());
+    metadata.insert(
+        "artifact_root".to_string(),
+        artifact_root.display().to_string(),
+    );
     writer.append(&RunLogEvent::RunStarted {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: "bridge-stdio-run".to_string(),
@@ -67,6 +73,10 @@ fn main() -> Result<()> {
         "bridge-stdio-run",
     );
     session.set_run_log_path(&path);
+    session.set_artifact_root(&artifact_root)?;
+    // Detect buffered provenance-storage failures before accepting control
+    // input or emitting any response.
+    session.flush()?;
 
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -82,9 +92,9 @@ fn main() -> Result<()> {
         Ok(handled)
     });
 
-    // ALWAYS seal the run log: a transport error (e.g. a client that closed
-    // stdout before reading responses) must still leave a validating run log
-    // with run_ended — the failed sessions are exactly the ones worth auditing.
+    // When provenance storage remains writable, always seal accepted-client
+    // transport errors as Failed. A provenance-storage error itself may leave
+    // a partial/unreadable log and cannot be repaired by this transport.
     let (status, message) = match &handled {
         Ok(count) => (
             RunStatus::Succeeded,
