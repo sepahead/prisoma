@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "as_of_date": "2026-07-13",
+  "scope": "offline current-state overlay on the complete 2026-07-12 public-ecosystem ledger",
+  "baseline": {
+    "path": "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
+    "sha256": "47d5397c9c22d5d020178495b10cfcb20bb8928aeb167d7c4eaa36a12f76c4b0",
+    "row_count": 21
+  },
+  "refresh_policy": {
+    "normal_ci": "offline: validate this overlay and its baseline hash without contacting remotes",
+    "network_refresh": "manually verify advertised refs and repository contents, then update this dated overlay and dependent prose",
+    "expiry": "re-review an edge when its producer revision, consumer revision, schema, wire, model, or adapter revision changes"
+  },
+  "overrides": [
+    {
+      "project": "pid-rs",
+      "observed_revision": "ac4a7803c5a77408f5e9176c60cda71c65c38260",
+      "evidence_level": "E2_dependency_E3_tested_local_paths",
+      "relationship": "direct pinned submodule and local path dependency",
+      "current_boundary": "version 1.0 is adopted, but its fixtures do not establish high-dimensional VLA application validity or independent corroboration",
+      "source": "https://github.com/sepahead/pid-rs/tree/ac4a7803c5a77408f5e9176c60cda71c65c38260"
+    },
+    {
+      "project": "NCP",
+      "observed_revision": "v0.8.0",
+      "evidence_level": "E2_dependency_E3_local_observer_fixtures",
+      "relationship": "optional immutable dependency of the workspace-excluded read-only observer",
+      "current_boundary": "no conforming public live producer, secure deployment receipt, or E4 scientific conformance report",
+      "source": "https://github.com/sepahead/NCP/tree/v0.8.0"
+    },
+    {
+      "project": "galadriel",
+      "observed_revision": "86577db18b4247662c2a87882a310efaaa5322ca",
+      "evidence_level": "E0_between_projects",
+      "relationship": "candidate comparator sharing pid-rs and NCP, with no direct Prisoma adapter",
+      "current_boundary": "shared PID code is one correlated implementation family; no live producer-to-consumer or end-to-end mTLS evidence",
+      "source": "https://github.com/sepahead/galadriel/tree/86577db18b4247662c2a87882a310efaaa5322ca"
+    },
+    {
+      "project": "crebain",
+      "observed_revision": "038721e051594b64b1988f2575309718da0181ac",
+      "evidence_level": "E0_between_projects",
+      "relationship": "candidate producer whose NCP surfaces remain dormant and off by default",
+      "current_boundary": "no direct Prisoma adapter or always-on Crebain-to-Engram loop",
+      "source": "https://github.com/sepahead/crebain/tree/038721e051594b64b1988f2575309718da0181ac"
+    },
+    {
+      "project": "manwe",
+      "observed_revision": "aaa1e6b90860af953d190ff213d42e3cc63ced63",
+      "evidence_level": "E0_E1",
+      "relationship": "candidate difficult external adapter and transport test",
+      "current_boundary": "the producer explicitly has no drop-in Prisoma adapter and documents schema, tensor, clock, frame, and statistical gaps",
+      "source": "https://github.com/sepahead/manwe/tree/aaa1e6b90860af953d190ff213d42e3cc63ced63"
+    },
+    {
+      "project": "engram",
+      "observed_revision": "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd",
+      "evidence_level": "E0_placeholder",
+      "relationship": "candidate future producer only",
+      "current_boundary": "the public repository is README-only and says implementation will be open-sourced after publication; no executable public Engram/NCP producer exists",
+      "source": "https://github.com/sepahead/engram/tree/a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
+    },
+    {
+      "project": "haldir",
+      "observed_revision": "ea7048d8b06c2bacb7fd9942ac597f79bea9a0ac",
+      "reviewed_capability_revision": "2a55f3dc8f78fa3b5c8d11dd02a2de5f4ef8d721",
+      "evidence_level": "E0_between_projects",
+      "relationship": "candidate security and authority comparator with no direct Prisoma edge",
+      "current_boundary": "the reviewed revision has internal P0 and modeled-adapter evidence, but no consumer-owned live route, immutable release, or E4 report",
+      "source": "https://github.com/sepahead/haldir/tree/2a55f3dc8f78fa3b5c8d11dd02a2de5f4ef8d721"
+    }
+  ]
+}

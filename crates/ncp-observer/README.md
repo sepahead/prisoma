@@ -1,10 +1,11 @@
 # `ncp-observer` — passive Neuro-Cybernetic Protocol tap for prisoma
 
-Makes **Engram** (a NEST spiking network, exposed over the Neuro-Cybernetic Protocol)
-another `(V,L,D,A)` source for prisoma's Partial Information Decomposition — the
-same role `experiments/safe_adapter` plays for SAFE rollouts. It is a **read-only
-observer**: it subscribes to the NCP data-plane keys over Zenoh and never drives
-anything (the Agent Bridge stays the only control plane).
+Converts a conforming Neuro-Cybernetic Protocol producer into another `(V,L,D,A)` source for
+prisoma's Partial Information Decomposition. The intended future producer is a NEST/Engram
+session, but the named public `sepahead/engram` repository is currently a README-only placeholder
+and supplies no executable publisher. This crate is a **read-only observer**: it subscribes to the
+NCP data-plane keys over Zenoh and never drives anything (the Agent Bridge stays the only control
+plane).
 
 It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the published
 NCP repo **<https://github.com/sepahead/NCP>**. Spec: `NEURO_CYBERNETIC_PROTOCOL.md`
@@ -15,10 +16,10 @@ in that repo.
 This crate is **optional and exploratory-only**. It is **not** on grandplan's critical
 path — grandplan does not depend on Engram, and the S2/EC1 reference `(V,L,D,A)` producer
 is `experiments/safe_adapter/`. The core workspace builds and tests with NCP/Engram/Zenoh
-absent, and H1/H2 baselines can run with PID disabled; `ncp-observer` is **excluded from the
+absent, and the static factual-outcome baseline smoke runs with PID disabled; `ncp-observer` is **excluded from the
 default cargo workspace** (build it with `--manifest-path`, see below).
 
-It is fine for *exploratory* PID screens on a live Engram session, but it is **below the
+It can support *exploratory* PID screens on a future conforming producer, but it is **below the
 S2/EC1 conformance bar** (an optional M2 ecosystem item) until the gaps below close:
 
 1. **D alignment — exact-only and immutable in-repo.** `ObservationFrame` carries

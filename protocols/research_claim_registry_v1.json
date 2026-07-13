@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "as_of_date": "2026-07-13",
+  "canonical_spec": {
+    "path": "grandplan.md",
+    "version": "12.5",
+    "status": "living_post_review_reconciliation"
+  },
+  "scope": "current execution and freeze status; not a scientific result or preregistration",
+  "m0_freeze_status": {
+    "causal_graph": "unfrozen_pending_policy_environment_and_intervention_selection",
+    "variable_dictionary": "partial_software_contracts_only",
+    "treatment_ontology": "partial_h1_common_preflight_only",
+    "h1_estimand": "deterministic_protocol_a_software_reference_fixture_only_real_estimand_unfrozen",
+    "h2_estimand": "unfrozen_pending_landmark_failure_and_censoring_design",
+    "minimum_useful_effects": "unfrozen_pending_pilot",
+    "pre_treatment_feature_whitelist": "partial_h1_common_preflight_lineage_rule",
+    "holdout_access_ledger": "unimplemented",
+    "literature_screening_ledger": "unimplemented",
+    "ecosystem_evidence": "current_offline_overlay_available"
+  },
+  "claims": [
+    {
+      "claim_id": "EC1",
+      "registered_role": "provenance_complete_replay",
+      "execution_status": "partial_software_groundwork",
+      "scientific_status": "not_externally_benchmarked",
+      "pid_dependency": "none",
+      "current_artifacts": [
+        {
+          "path": "pid-rs/crates/pid-runlog",
+          "status": "implemented_schema_validation_replay_manifest_sidecars"
+        },
+        {
+          "path": "crates/pid-rerun",
+          "status": "implemented_validating_conversion_groundwork"
+        }
+      ],
+      "proof_commands": [
+        "just runlog-validate",
+        "just runlog-replay",
+        "just runlog-sidecars"
+      ],
+      "remaining_required_artifacts": [
+        "conventional_script_or_container_baseline",
+        "structurally_different_external_adapter",
+        "graded_fault_and_replay_report",
+        "adapter_promotion_report"
+      ],
+      "permitted_language": "canonical run-log and local replay/conversion paths are implemented for the tested fixtures",
+      "prohibited_language": "EC1 is complete, externally validated, or deployment ready"
+    },
+    {
+      "claim_id": "H1",
+      "registered_role": "pre_treatment_diagnostics_predict_intervention_response",
+      "execution_status": "deterministic_protocol_a_software_reference_fixture_runnable_protocol_b_unimplemented",
+      "scientific_status": "blocked_on_pilot_and_real_capture",
+      "pid_dependency": "none",
+      "current_artifacts": [
+        {
+          "path": "crates/pid-sim/src/h1_preflight.rs",
+          "status": "implemented_common_structural_and_noninterference_validator"
+        },
+        {
+          "path": "crates/pid-sim/src/bin/h1_preflight.rs",
+          "status": "implemented_content_addressed_fixture_cli"
+        },
+        {
+          "path": "crates/pid-sim/fixtures/h1_preflight_valid.json",
+          "status": "schema_v2_representative_mechanism_fixture_only_protocol_a_common_preflight"
+        },
+        {
+          "path": "crates/pid-sim/src/h1_protocol_a.rs",
+          "status": "implemented_deterministic_finite_benchmark_execution_and_scoring_primitive"
+        },
+        {
+          "path": "crates/pid-sim/src/bin/h1_protocol_a.rs",
+          "status": "implemented_exact_preflight_binding_and_canonical_runlog_cli"
+        },
+        {
+          "path": "crates/pid-sim/fixtures/h1_protocol_a_valid.json",
+          "status": "synthetic_software_reference_fixture_only_not_h1_evidence"
+        }
+      ],
+      "proof_commands": [
+        "just h1-preflight",
+        "just h1-protocol-a"
+      ],
+      "remaining_required_artifacts": [
+        "real_policy_environment_and_intervention_freeze",
+        "pilot_dose_engagement_specificity_and_controls",
+        "protocol_a_or_protocol_b_preregistration",
+        "real_heldout_response_or_effect_result",
+        "current_nested_capture_design_gate"
+      ],
+      "minimum_useful_effect_status": "unfrozen_pending_pilot",
+      "permitted_language": "the schema-v2 common preflight and deterministic finite-benchmark Protocol-A software reference are fixture-runnable scoring primitives and establish no H1 evidence",
+      "prohibited_language": "H1 passed, a physical individual effect was observed, or closed-loop robustness was established"
+    },
+    {
+      "claim_id": "H2",
+      "registered_role": "prospective_censoring_aware_failure_prediction",
+      "execution_status": "unimplemented",
+      "scientific_status": "blocked_on_landmark_design_real_capture_and_comparator_interfaces",
+      "pid_dependency": "none",
+      "current_artifacts": [
+        {
+          "path": "crates/pid-sim/src/offline_harness.rs",
+          "status": "static_factual_outcome_baselines_only_not_h2"
+        }
+      ],
+      "proof_commands": [
+        "just firebreak"
+      ],
+      "remaining_required_artifacts": [
+        "landmark_and_feature_cutoff_contract",
+        "failure_competing_event_and_censoring_ontology",
+        "censoring_aware_proper_score",
+        "frozen_alarm_policy",
+        "nondetection_retaining_lead_time",
+        "decision_utility",
+        "matched_access_comparator_frontier",
+        "external_or_later_time_holdout"
+      ],
+      "minimum_useful_effect_status": "unfrozen_pending_pilot",
+      "permitted_language": "static label baselines demonstrate a PID-free dependency path only",
+      "prohibited_language": "prospective H2 execution, calibration, warning utility, or deployment validity exists"
+    },
+    {
+      "claim_id": "H3",
+      "registered_role": "incremental_pid_value_inside_validated_support",
+      "execution_status": "not_eligible",
+      "scientific_status": "blocked_on_population_measure_estimator_and_application_gates",
+      "pid_dependency": "required_if_activated",
+      "current_artifacts": [
+        {
+          "path": "findings.md",
+          "status": "high_dimensional_no_go_and_application_block_recorded"
+        },
+        {
+          "path": "crates/pid-sim/src/offline_harness.rs",
+          "status": "report_first_estimate_abstention_groundwork"
+        }
+      ],
+      "proof_commands": [
+        "just exp0-bin",
+        "just offline-harness"
+      ],
+      "remaining_required_artifacts": [
+        "matched_regime_support_envelope",
+        "eligible_episode_local_information_feature",
+        "incremental_outer_fold_comparison_after_h1_or_h2"
+      ],
+      "minimum_useful_effect_status": "unfrozen_until_h3_activation",
+      "permitted_language": "PID estimates abstain or remain noninterpretable outside their named support and application gates",
+      "prohibited_language": "geometry or emitted numbers establish real-embedding PID validity"
+    },
+    {
+      "claim_id": "H4",
+      "registered_role": "representational_availability_can_diverge_from_causal_policy_use",
+      "execution_status": "exploratory_attribution_groundwork_only",
+      "scientific_status": "blocked_on_real_probe_and_intervention_study",
+      "pid_dependency": "none",
+      "current_artifacts": [
+        {
+          "path": "experiments/attribution",
+          "status": "reference_model_faithfulness_checked_probe"
+        },
+        {
+          "path": "pid-rs/crates/pid-runlog",
+          "status": "attribution_logged_event_supported"
+        }
+      ],
+      "proof_commands": [
+        "just attribution-probe"
+      ],
+      "remaining_required_artifacts": [
+        "real_vla_availability_probe",
+        "two_intervention_constructions_where_feasible",
+        "engagement_specificity_support_and_controls",
+        "heldout_availability_use_result"
+      ],
+      "minimum_useful_effect_status": "unfrozen_pending_intervention_pilot",
+      "permitted_language": "the reference attribution path exercises logging and a deletion faithfulness control",
+      "prohibited_language": "attribution agreement proves causal use or H4"
+    }
+  ]
+}

@@ -53,6 +53,10 @@ name = "pid-h1-preflight"
 path = "src/bin/h1_preflight.rs"
 
 [[bin]]
+name = "pid-h1-protocol-a"
+path = "src/bin/h1_protocol_a.rs"
+
+[[bin]]
 name = "pid-rapier-harness"
 path = "src/bin/rapier_harness.rs"
 required-features = ["rapier"]

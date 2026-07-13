@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "scope": "software_preflight_only",
+  "instrumentation_id": "diagnostic-hook-v1",
+  "semantic_sha256": "fc6eddfbd61a6a9863500a124f2df2b7f82dff54e92efc125cced76f2c638d1c",
+  "spec": {
+    "execution_context": "reference-process",
+    "mode": "diagnostic_noninterference_hook",
+    "subprocess_proof": false
+  }
+}

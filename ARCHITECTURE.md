@@ -129,7 +129,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 
 | Claim | Physics | Robot | Notes |
 |------------|--------|--------|-------|
-| H1 (pre-treatment diagnostics predict intervention response) | ✓ | ✓ | Object poses + robot state; needs the paired/randomized intervention fork (grandplan §6.3); synergy sign is a candidate feature, not a definition |
+| H1 (pre-treatment diagnostics predict intervention response) | ✓ | ✓ | The deterministic synthetic Protocol A scoring reference is runnable, but real paired capture and the randomized Protocol B fork remain open (grandplan §6.3); synergy sign is a candidate feature, not a definition |
 | H2 (censoring-aware prospective failure prediction) | ✓ | ✓ | Long-horizon contact physics; frozen alarm policy, lead time (grandplan §6.4) |
 | H3 (conditional PID incremental value) | ✓ | | Only inside the validated support envelope (grandplan §7.14) |
 | H4 (availability can diverge from causal policy use) | ✓ | | Mass/friction perturbations; availability-vs-use asymmetry reported as a finding |

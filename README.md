@@ -152,7 +152,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 1. **Exp0 — PID population/measure/estimator/application diagnostics (S1).** GO/PIVOT/NO‑GO. *Runnable today* (`just exp0-bin`); current verdict on synthetic high‑d controls remains **NO‑GO** under the pinned pid-rs 1.0 environment (`findings.md`). No PID atom or H3 result is interpretable without all four gates; EC1 and the non-PID H1/H2/H4 paths continue with PID disabled (`grandplan.md` §7, §8.9.3).
 2. **EC1 capture/replay + adapter (S2).** The offline `(V,L,D,A)` harness, SAFE adapter, and sim/Rapier `Flow_gt` cross‑checks are *runnable today* (`just runlog-sim-verify`); the external infrastructure benchmark and a second adapter are pending (`grandplan.md` §8.8).
 3. **Intervention pilot (S3).** Dose / target‑engagement / placebo / OOD checks on one interpretable intervention. *Blocked on capture* (`grandplan.md` §5.4, §5.6).
-4. **H1 — pre‑treatment diagnostics predict intervention response** (Protocol A paired and/or Protocol B randomized). The common structural/noninterference preflight is fixture-runnable, but neither response protocol is implemented; scientific H1 remains *blocked on pilot + capture* (`grandplan.md` §6.3).
+4. **H1 — pre‑treatment diagnostics predict intervention response** (Protocol A paired and/or Protocol B randomized). The common preflight and deterministic synthetic Protocol A scoring reference are fixture-runnable, but neither real/evidentiary response protocol is implemented; scientific H1 remains *blocked on pilot + capture* (`grandplan.md` §6.3).
 5. **H2 — prospective, censoring‑aware failure prediction** vs the comparator frontier. *Blocked on capture* (`grandplan.md` §6.4).
 6. **H3 or H4 — conditional PID incremental value, or the availability–use gap.** *Blocked on the estimator application gate / capture* (`grandplan.md` §7, §4).
 7. **Transport replication (S7)** — second task family, policy, simulator, or embodiment; mind the embodiment‑in‑`L` confound. *Blocked on capture* (`grandplan.md` §5.11).
@@ -174,15 +174,20 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   conversion/contract export), `pid-sim` (deterministic sim, real optional Rapier backend,
   manipulation harness, transports, offline VLDA screens, and a fail-closed H1 common-preflight
   validator/CLI for content-addressed fixture plumbing and diagnostic-instrumentation
-  noninterference), and `pid-rerun`. The H1 preflight is not Protocol A/B execution and produces
-  no H1 scientific evidence. Implemented
+  noninterference, plus a deterministic finite-benchmark Protocol A software-reference runner),
+  and `pid-rerun`. The reference runner exact-binds a passed schema-v2 representative-mechanism
+  preflight, restores independent clone states, reverses order, records zero RNG draws, and performs
+  fixed out-of-fold proper scoring. It is synthetic scoring plumbing—not a subprocess/stochastic
+  audit, physical individual effect, Protocol B implementation, or H1 scientific evidence. Implemented
   baselines are majority, 1-NN, nearest-centroid, and held-out logistic regression; action
   predictive entropy and ensemble/temperature uncertainty are still missing. The code review
   also identifies network-authentication, transactional logging, reconstructability, and
   artifact-integrity work before production use.
 - **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **reference producer is `experiments/safe_adapter/`** (the S2/EC1 adapter); `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth**, and semantic labels require architecture evidence (`grandplan.md` §9.1, §3.5).
-- **Optional Engram bridge:** `crates/ncp-observer` is a read-only NCP tap (an E2 optional
-  edge, `grandplan.md` §8.9), excluded from the default workspace and off the critical path. Its
+- **Optional NCP observer:** `crates/ncp-observer` is a read-only tap for a conforming NCP
+  producer (an E2 dependency edge to NCP itself, `grandplan.md` §8.9), excluded from the default
+  workspace and off the critical path. The public `sepahead/engram` repository remains a
+  README-only placeholder; there is no public live Engram producer or Prisoma integration. The observer's
   integrity repair ships against wire 0.8, pinned to the immutable NCP `v0.8.0` release:
   exact-seq-only D, bounded callback handoff, immutable sample/events, and atomic durable,
   sealed same-path-retryable artifact/run-log finalization with failure-injection tests. It
@@ -238,7 +243,20 @@ cargo run -p pid-sim --bin pid-h1-preflight -- \
 
 Artifact paths resolve below the input directory unless `--artifact-root` is supplied.
 The CLI verifies declared artifact bytes and shared structural/noninterference requirements only.
-It neither executes nor clears Protocol A or B.
+It neither executes nor clears Protocol A or B. Readable invalid contracts produce canonical failed
+logs; missing or unreadable input files remain ordinary CLI I/O errors.
+
+## Quick Start — H1 Protocol A Software Reference
+
+```bash
+just h1-protocol-a
+```
+
+This first runs the common preflight, exact-binds its content-addressed chain, executes the checked
+deterministic synthetic finite benchmark, verifies byte-repeatable canonical logs, and exercises
+preflight-binding and parse failures. The emitted response and proper-score numbers validate the
+software primitive only; `synthetic_fixture_only=true` and `establishes_h1_evidence=false` are
+binding. Real Protocol A capture/analysis and all Protocol B execution remain unimplemented.
 
 ## Quick Start — Offline (V,L,D,A) Embedding Harness
 

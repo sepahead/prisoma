@@ -10,8 +10,8 @@ use pid_runlog::{RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
 use pid_sim::h1_preflight::{
     validate_h1_preflight, H1ArtifactRef, H1ClockDomainKind, H1DesignBlindingOrderEntry,
     H1MissingValuePolicy, H1NoninterferenceTolerances, H1OutputAxisScale, H1OutputMetric,
-    H1PidAbstentionPolicy, H1PreflightInput, H1PreflightReport, H1PrimaryProtocol,
-    H1SplitManifestEntry, H1TargetPopulation, H1_PREFLIGHT_SCHEMA_VERSION,
+    H1PidAbstentionPolicy, H1PreflightInput, H1PreflightReport, H1PreflightValidationScope,
+    H1PrimaryProtocol, H1SplitManifestEntry, H1TargetPopulation, H1_PREFLIGHT_SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -142,13 +142,23 @@ struct H1AnalysisPlanDocument {
     schema_version: u32,
     scope: String,
     primary_protocol: H1PrimaryProtocol,
+    validation_scope: H1PreflightValidationScope,
     source_run_id: String,
     target_population_id: String,
     clock_epoch_id: String,
+    policy_id: String,
+    policy_spec_artifact: H1ArtifactRef,
+    policy_spec_sha256: String,
+    instrumentation_id: String,
+    instrumentation_spec_artifact: H1ArtifactRef,
+    instrumentation_spec_sha256: String,
+    execution_context: String,
     baseline_state_boundary: String,
     application_boundary: String,
     reset_boundary: String,
+    protocol_clone_boundary: String,
     treatment_site: String,
+    control_version: String,
     treatment_version: String,
     treatment_dose: f64,
     treatment_dose_unit: String,
@@ -157,6 +167,26 @@ struct H1AnalysisPlanDocument {
     tolerances: H1NoninterferenceTolerances,
     minimum_repeats: usize,
     permitted_interpretation: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct H1PolicySpecDocument {
+    schema_version: u32,
+    scope: String,
+    policy_id: String,
+    semantic_sha256: String,
+    policy: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct H1InstrumentationSpecDocument {
+    schema_version: u32,
+    scope: String,
+    instrumentation_id: String,
+    semantic_sha256: String,
+    spec: Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -717,6 +747,16 @@ fn verify_input_artifacts(
             ArtifactKind::StrictJson,
         ),
         (
+            "declaration.policy_spec_artifact",
+            &declaration.policy_spec_artifact,
+            ArtifactKind::StrictJson,
+        ),
+        (
+            "declaration.instrumentation_spec_artifact",
+            &declaration.instrumentation_spec_artifact,
+            ArtifactKind::StrictJson,
+        ),
+        (
             "declaration.split_manifest.artifact",
             &declaration.split_manifest.artifact,
             ArtifactKind::StrictJson,
@@ -1122,13 +1162,24 @@ fn validate_semantic_documents(
             document.schema_version == H1_PREFLIGHT_SCHEMA_VERSION
                 && document.scope == SOFTWARE_PREFLIGHT_SCOPE
                 && document.primary_protocol == declaration.primary_protocol
+                && document.validation_scope == declaration.validation_scope
                 && document.source_run_id == declaration.source_run_id
                 && document.target_population_id == declaration.target_population_id
                 && document.clock_epoch_id == declaration.clock.epoch_id
+                && document.policy_id == declaration.policy_id
+                && document.policy_spec_artifact == declaration.policy_spec_artifact
+                && document.policy_spec_sha256 == declaration.policy_spec_sha256
+                && document.instrumentation_id == declaration.instrumentation_id
+                && document.instrumentation_spec_artifact
+                    == declaration.instrumentation_spec_artifact
+                && document.instrumentation_spec_sha256 == declaration.instrumentation_spec_sha256
+                && document.execution_context == declaration.execution_context
                 && document.baseline_state_boundary == declaration.baseline_state_boundary
                 && document.application_boundary == declaration.application_boundary
                 && document.reset_boundary == declaration.reset_boundary
+                && document.protocol_clone_boundary == declaration.protocol_clone_boundary
                 && document.treatment_site == declaration.treatment_site
+                && document.control_version == declaration.control_version
                 && document.treatment_version == declaration.treatment_version
                 && document.treatment_dose == declaration.treatment_dose
                 && document.treatment_dose_unit == declaration.treatment_dose_unit
@@ -1137,6 +1188,47 @@ fn validate_semantic_documents(
                 && document.tolerances == declaration.tolerances
                 && document.minimum_repeats == declaration.minimum_repeats
                 && document.permitted_interpretation == STRUCTURAL_PREFLIGHT_INTERPRETATION
+        },
+    );
+    validate_one_document::<H1PolicySpecDocument>(
+        documents,
+        &declaration.policy_spec_artifact,
+        "policy_spec",
+        "policy_spec_parse_failed",
+        issues,
+        |document| {
+            document.schema_version == H1_PREFLIGHT_SCHEMA_VERSION
+                && document.scope == SOFTWARE_PREFLIGHT_SCOPE
+                && document.policy_id == declaration.policy_id
+                && document.semantic_sha256 == declaration.policy_spec_sha256
+                && pid_runlog::canonical_json_hash_v2(&document.policy)
+                    .as_ref()
+                    .ok()
+                    .map(String::as_str)
+                    == Some(declaration.policy_spec_sha256.as_str())
+        },
+    );
+    validate_one_document::<H1InstrumentationSpecDocument>(
+        documents,
+        &declaration.instrumentation_spec_artifact,
+        "instrumentation_spec",
+        "instrumentation_spec_parse_failed",
+        issues,
+        |document| {
+            document.schema_version == H1_PREFLIGHT_SCHEMA_VERSION
+                && document.scope == SOFTWARE_PREFLIGHT_SCOPE
+                && document.instrumentation_id == declaration.instrumentation_id
+                && document.semantic_sha256 == declaration.instrumentation_spec_sha256
+                && document
+                    .spec
+                    .get("execution_context")
+                    .and_then(Value::as_str)
+                    == Some(declaration.execution_context.as_str())
+                && pid_runlog::canonical_json_hash_v2(&document.spec)
+                    .as_ref()
+                    .ok()
+                    .map(String::as_str)
+                    == Some(declaration.instrumentation_spec_sha256.as_str())
         },
     );
     validate_one_document::<H1TargetPopulationDocument>(

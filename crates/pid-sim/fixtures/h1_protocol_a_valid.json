@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "preflight": {
+    "run_id": "h1-preflight-7f11f1bd83eaf554",
+    "primary_protocol": "protocol_a",
+    "input": {
+      "artifact_uri": "crates/pid-sim/fixtures/h1_preflight_valid.json",
+      "sha256": "7f11f1bd83eaf5540cbff5f59786c40e0e1af3aa6fd983db7cdc59cb0476cdaa"
+    },
+    "summary": {
+      "artifact_uri": "outputs/h1_preflight_summary.json",
+      "sha256": "61499f5751e28d2864b499ed9a5dd6007045cd2b34e65e20c4067e6641423bff"
+    },
+    "runlog": {
+      "artifact_uri": "outputs/h1_preflight_runlog.jsonl",
+      "sha256": "f93ba9832b37eb2c089969123629a6057448d7285b6c88cecc556b053a5619ea"
+    },
+    "evidence_bundle_hash": "2bbfe462482a78b842eb5de6e9cd186e5e9010df6d173307b2b362842835203a"
+  },
+  "plan": {
+    "scope": "deterministic_finite_benchmark",
+    "target_population_id": "fixture-finite-benchmark",
+    "policy_id": "linear-reference-v1",
+    "policy_spec_sha256": "1cc5d5503c942c4c1486490ede4db28909fbfa0093ff77c1c9c96667ee430b3b",
+    "instrumentation_id": "diagnostic-hook-v1",
+    "instrumentation_spec_sha256": "fc6eddfbd61a6a9863500a124f2df2b7f82dff54e92efc125cced76f2c638d1c",
+    "execution_context": "reference-process",
+    "clock_domain_id": "fixture-monotonic-clock",
+    "clone_boundary": "after-moderator-before-treatment",
+    "application_boundary": "before_policy_head",
+    "reset_boundary": "immutable_snapshot_restore",
+    "treatment": {
+      "control_version": "control-v1",
+      "treated_version": "mask-v1",
+      "treatment_site": "policy.hidden.4",
+      "state_axis": 0,
+      "dose": 0.25,
+      "dose_unit": "fixture_fraction"
+    },
+    "output_metric_contract": {
+      "artifact": {
+        "artifact_uri": "h1_preflight_artifacts/output_metric.json",
+        "sha256": "a31d75f168d604cf539adee3976bec08689a1039e44a303ff90d449717e4b315"
+      },
+      "metric": "l2",
+      "axes": [
+        {
+          "axis_name": "fixture_action_0",
+          "scale": 1.0,
+          "unit": "dimensionless_fixture_unit"
+        },
+        {
+          "axis_name": "fixture_action_1",
+          "scale": 1.0,
+          "unit": "dimensionless_fixture_unit"
+        }
+      ]
+    },
+    "minimum_audits_per_case": 2,
+    "maximum_output_drift": 0.0,
+    "maximum_response_drift": 0.0,
+    "ridge_penalty": 0.000001,
+    "minimum_useful_mse_improvement": 0.1,
+    "permitted_interpretation": "synthetic_frozen_snapshot_algorithmic_response_only"
+  },
+  "policy": {
+    "input_weights": [[0.1], [0.2]],
+    "state_weights": [[2.0, 0.0], [0.0, 1.0]],
+    "bias": [0.0, 0.0],
+    "post_evaluation_state_update": [100.0, -100.0]
+  },
+  "cases": [
+    {
+      "case_id": "case-1",
+      "task_family_id": "family-1",
+      "interference_cluster_id": "cluster-1",
+      "outer_fold": "fold-a",
+      "moderator": [1.0],
+      "design_features": [1.0],
+      "moderator_lineage_stage": "untreated_baseline",
+      "moderator_captured_timestamp_ns": 20000,
+      "clone_captured_timestamp_ns": 35000,
+      "treatment_application_timestamp_ns": 40000,
+      "source_baseline_snapshot_sha256": "acfa241262954bcaea57d1fb4be292e2611d24bdd5a3e47b32b10b33657a8f43",
+      "source_moderator_sha256": "fd57ad522824f82af3939215e8552b521383756f31adc8fbc0777eb1e2121924",
+      "moderator_sha256": "c2272c0a862f11de35da66ec8be34349001ddebae43b85ab1dafb188f8ad7b30",
+      "clone_state_sha256": "be4b555971d0f89e86d202ee152b71ab117b62a60eeabf9463aa45804a8bcc4b",
+      "clone_state": [1.0, 1.0],
+      "policy_input": [0.5],
+      "audits": [
+        {
+          "audit_id": "case-1-control-first",
+          "treatment_order": "control_first",
+          "execution_context": "reference-process",
+          "input_stream_id": "case-1-input",
+          "observed_rng_draws": 0
+        },
+        {
+          "audit_id": "case-1-treated-first",
+          "treatment_order": "treated_first",
+          "execution_context": "reference-process",
+          "input_stream_id": "case-1-input",
+          "observed_rng_draws": 0
+        }
+      ]
+    },
+    {
+      "case_id": "case-2",
+      "task_family_id": "family-2",
+      "interference_cluster_id": "cluster-2",
+      "outer_fold": "fold-b",
+      "moderator": [2.0],
+      "design_features": [1.0],
+      "moderator_lineage_stage": "untreated_baseline",
+      "moderator_captured_timestamp_ns": 20000,
+      "clone_captured_timestamp_ns": 35000,
+      "treatment_application_timestamp_ns": 40000,
+      "source_baseline_snapshot_sha256": "acfa241262954bcaea57d1fb4be292e2611d24bdd5a3e47b32b10b33657a8f43",
+      "source_moderator_sha256": "fd57ad522824f82af3939215e8552b521383756f31adc8fbc0777eb1e2121924",
+      "moderator_sha256": "0ab68d8d90cafd43c23b8c452065235fc46ddba926ce9ae5d211724647314785",
+      "clone_state_sha256": "0316c7a0acff35d60aa72fbd4958e0d247d75cc0f676824803c5b5883035ed60",
+      "clone_state": [2.0, 1.0],
+      "policy_input": [0.5],
+      "audits": [
+        {
+          "audit_id": "case-2-control-first",
+          "treatment_order": "control_first",
+          "execution_context": "reference-process",
+          "input_stream_id": "case-2-input",
+          "observed_rng_draws": 0
+        },
+        {
+          "audit_id": "case-2-treated-first",
+          "treatment_order": "treated_first",
+          "execution_context": "reference-process",
+          "input_stream_id": "case-2-input",
+          "observed_rng_draws": 0
+        }
+      ]
+    },
+    {
+      "case_id": "case-3",
+      "task_family_id": "family-3",
+      "interference_cluster_id": "cluster-3",
+      "outer_fold": "fold-a",
+      "moderator": [3.0],
+      "design_features": [1.0],
+      "moderator_lineage_stage": "untreated_baseline",
+      "moderator_captured_timestamp_ns": 20000,
+      "clone_captured_timestamp_ns": 35000,
+      "treatment_application_timestamp_ns": 40000,
+      "source_baseline_snapshot_sha256": "acfa241262954bcaea57d1fb4be292e2611d24bdd5a3e47b32b10b33657a8f43",
+      "source_moderator_sha256": "fd57ad522824f82af3939215e8552b521383756f31adc8fbc0777eb1e2121924",
+      "moderator_sha256": "a779d9d12af13de7bb7a5cd7a058523898b84eb017f82c25d9b149a130c129d8",
+      "clone_state_sha256": "7c5b5839a8977eb6b5d91a0e43dfb96f7f28ae097037564da463aeb7fc97c070",
+      "clone_state": [3.0, 1.0],
+      "policy_input": [0.5],
+      "audits": [
+        {
+          "audit_id": "case-3-control-first",
+          "treatment_order": "control_first",
+          "execution_context": "reference-process",
+          "input_stream_id": "case-3-input",
+          "observed_rng_draws": 0
+        },
+        {
+          "audit_id": "case-3-treated-first",
+          "treatment_order": "treated_first",
+          "execution_context": "reference-process",
+          "input_stream_id": "case-3-input",
+          "observed_rng_draws": 0
+        }
+      ]
+    },
+    {
+      "case_id": "case-4",
+      "task_family_id": "family-4",
+      "interference_cluster_id": "cluster-4",
+      "outer_fold": "fold-b",
+      "moderator": [4.0],
+      "design_features": [1.0],
+      "moderator_lineage_stage": "untreated_baseline",
+      "moderator_captured_timestamp_ns": 20000,
+      "clone_captured_timestamp_ns": 35000,
+      "treatment_application_timestamp_ns": 40000,
+      "source_baseline_snapshot_sha256": "acfa241262954bcaea57d1fb4be292e2611d24bdd5a3e47b32b10b33657a8f43",
+      "source_moderator_sha256": "fd57ad522824f82af3939215e8552b521383756f31adc8fbc0777eb1e2121924",
+      "moderator_sha256": "9cf6eb36eb71c8970c66ad367a1a2c7849d7ae5a4a0e8e2f3fdc111c1e194a51",
+      "clone_state_sha256": "0efdd17a0fdadbd237c5456e394ab990f3a82bbaea56c449b25385b6cd1c7bef",
+      "clone_state": [4.0, 1.0],
+      "policy_input": [0.5],
+      "audits": [
+        {
+          "audit_id": "case-4-control-first",
+          "treatment_order": "control_first",
+          "execution_context": "reference-process",
+          "input_stream_id": "case-4-input",
+          "observed_rng_draws": 0
+        },
+        {
+          "audit_id": "case-4-treated-first",
+          "treatment_order": "treated_first",
+          "execution_context": "reference-process",
+          "input_stream_id": "case-4-input",
+          "observed_rng_draws": 0
+        }
+      ]
+    }
+  ]
+}

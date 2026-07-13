@@ -53,8 +53,8 @@ const OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX: f64 = 0.8;
 /// `I_min` redundancy. Cross-mode comparisons are cross-measure comparisons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PidMode {
-    /// Do not request MI or PID estimates. Geometry and every non-PID label/prediction baseline
-    /// still run, proving the minimum H1/H2 path does not depend on PID atoms.
+    /// Do not request MI or PID estimates. Geometry and every static factual-outcome
+    /// label/prediction baseline still run, proving that dependency smoke does not need PID atoms.
     Disabled,
     /// Continuous PID using KSG kNN mutual information and shared-exclusions redundancy.
     #[default]
@@ -4479,8 +4479,8 @@ where
         return None;
     }
     let x_train = MatOwned::new(train_rows, n_train, dim).ok()?;
-    // The SAFE-class logistic baseline is the H1 comparison point — if the fit
-    // fails, the metric must not vanish without a trace.
+    // This SAFE-class static factual-outcome baseline is dependency groundwork, not an H1
+    // response or prospective H2 endpoint. If the fit fails, the metric must not vanish silently.
     let logreg = match LogisticRegression::fit(
         x_train.as_ref(),
         &train_labels,

@@ -9,6 +9,8 @@ firebreak wording, and generated notices that name the wrong local package versi
 
 from __future__ import annotations
 
+import csv
+import hashlib
 import json
 import re
 import subprocess
@@ -269,6 +271,128 @@ def main() -> int:
             problems.append(f"CHANGELOG.md retains stale power claim {stale!r}")
 
     grandplan = (ROOT / "grandplan.md").read_text(encoding="utf-8")
+    for false_engram_claim in (
+        "a6f2c5f973783373db9d90769d981b1d549a5b6b",
+        "contains an implemented neurocontrol/NCP reference stack",
+    ):
+        if false_engram_claim in grandplan:
+            problems.append(
+                "grandplan.md attributes unreachable implementation evidence to the public "
+                f"sepahead/engram repository: {false_engram_claim!r}"
+            )
+    for required in (
+        "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd",
+        "README-only placeholder",
+    ):
+        if required not in grandplan:
+            problems.append(
+                f"grandplan.md omits the verified public Engram boundary {required!r}"
+            )
+    if "current public main `2a55f3d" in grandplan:
+        problems.append("grandplan.md mislabels a reviewed Haldir revision as current main")
+
+    ecosystem_ledger_path = ROOT / "protocols/ecosystem_evidence_current_v1.json"
+    if not ecosystem_ledger_path.is_file():
+        problems.append("current ecosystem evidence overlay is missing")
+    else:
+        ecosystem_ledger = json.loads(ecosystem_ledger_path.read_text(encoding="utf-8"))
+        baseline = ecosystem_ledger.get("baseline", {})
+        baseline_path = ROOT / str(baseline.get("path", ""))
+        if not baseline_path.is_file():
+            problems.append("ecosystem evidence overlay baseline is missing")
+        else:
+            baseline_bytes = baseline_path.read_bytes()
+            baseline_sha256 = hashlib.sha256(baseline_bytes).hexdigest()
+            if baseline_sha256 != baseline.get("sha256"):
+                problems.append("ecosystem evidence overlay baseline hash does not match")
+            with baseline_path.open(encoding="utf-8", newline="") as handle:
+                baseline_rows = sum(1 for _ in csv.DictReader(handle))
+            if baseline_rows != baseline.get("row_count"):
+                problems.append("ecosystem evidence overlay baseline row count does not match")
+
+        overrides = {
+            entry.get("project"): entry
+            for entry in ecosystem_ledger.get("overrides", [])
+            if isinstance(entry, dict)
+        }
+        required_overrides = {
+            "pid-rs",
+            "NCP",
+            "galadriel",
+            "crebain",
+            "manwe",
+            "engram",
+            "haldir",
+        }
+        missing_overrides = sorted(required_overrides - overrides.keys())
+        if missing_overrides:
+            problems.append(
+                f"ecosystem evidence overlay omits current edges: {missing_overrides}"
+            )
+        engram_override = overrides.get("engram", {})
+        if engram_override.get("observed_revision") != (
+            "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
+        ) or "README-only" not in str(engram_override.get("current_boundary", "")):
+            problems.append("ecosystem evidence overlay revives unsupported Engram maturity")
+
+    claim_registry_path = ROOT / "protocols/research_claim_registry_v1.json"
+    if not claim_registry_path.is_file():
+        problems.append("current research claim registry is missing")
+    else:
+        claim_registry = json.loads(claim_registry_path.read_text(encoding="utf-8"))
+        claims = claim_registry.get("claims", [])
+        claim_ids = [claim.get("claim_id") for claim in claims if isinstance(claim, dict)]
+        if claim_ids != ["EC1", "H1", "H2", "H3", "H4"]:
+            problems.append("research claim registry must contain EC1 and H1-H4 exactly once in order")
+        claims_by_id = {
+            claim.get("claim_id"): claim for claim in claims if isinstance(claim, dict)
+        }
+        h1 = claims_by_id.get("H1", {})
+        if h1.get("execution_status") != (
+            "deterministic_protocol_a_software_reference_fixture_runnable_"
+            "protocol_b_unimplemented"
+        ):
+            problems.append("research claim registry misstates the H1 execution boundary")
+        h1_artifacts = {
+            artifact.get("path")
+            for artifact in h1.get("current_artifacts", [])
+            if isinstance(artifact, dict)
+        }
+        required_h1_artifacts = {
+            "crates/pid-sim/src/h1_preflight.rs",
+            "crates/pid-sim/src/bin/h1_preflight.rs",
+            "crates/pid-sim/fixtures/h1_preflight_valid.json",
+            "crates/pid-sim/src/h1_protocol_a.rs",
+            "crates/pid-sim/src/bin/h1_protocol_a.rs",
+            "crates/pid-sim/fixtures/h1_protocol_a_valid.json",
+        }
+        if not required_h1_artifacts.issubset(h1_artifacts):
+            problems.append("research claim registry omits implemented H1 software artifacts")
+        for artifact in required_h1_artifacts:
+            if not (ROOT / artifact).is_file():
+                problems.append(f"research claim registry names missing H1 artifact: {artifact}")
+        if "just h1-protocol-a" not in h1.get("proof_commands", []):
+            problems.append("research claim registry omits the H1 Protocol-A proof command")
+        if claims_by_id.get("H2", {}).get("execution_status") != "unimplemented":
+            problems.append("research claim registry overstates prospective H2 execution")
+        if claims_by_id.get("H3", {}).get("execution_status") != "not_eligible":
+            problems.append("research claim registry overstates H3 eligibility")
+
+    for relative in ("justfile", ".github/workflows/ci.yml"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        for required in (
+            "pid-h1-protocol-a",
+            "h1_protocol_a_valid.json",
+            "h1_protocol_a_parse_invalid.json",
+            "synthetic_fixture_only",
+            "establishes_h1_evidence",
+            "evaluation_metric_events=0",
+            "pid_metric_events=0",
+        ):
+            if required not in text:
+                problems.append(
+                    f"{relative} H1 Protocol-A smoke is missing {required!r}"
+                )
     if "H1/H2 baselines execute with PID disabled" in grandplan:
         problems.append("grandplan.md overstates the static label-baseline firebreak")
     for relative in ("grandplan.md", "RESEARCH_VLA_D_NCP.md"):

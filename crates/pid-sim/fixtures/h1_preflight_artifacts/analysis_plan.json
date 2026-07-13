@@ -1,14 +1,30 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "scope": "software_preflight_only",
-  "primary_protocol": "protocol_b",
+  "primary_protocol": "protocol_a",
+  "validation_scope": "representative_mechanism_fixture",
   "source_run_id": "h1-fixture-source",
   "target_population_id": "fixture-finite-benchmark",
   "clock_epoch_id": "fixture-process-start",
+  "policy_id": "linear-reference-v1",
+  "policy_spec_artifact": {
+    "artifact_uri": "h1_preflight_artifacts/policy_spec.json",
+    "sha256": "6fe962b0b61b1b46b504bdf4001ffe2a981644213b4908ee2bb41fb34c4234cf"
+  },
+  "policy_spec_sha256": "1cc5d5503c942c4c1486490ede4db28909fbfa0093ff77c1c9c96667ee430b3b",
+  "instrumentation_id": "diagnostic-hook-v1",
+  "instrumentation_spec_artifact": {
+    "artifact_uri": "h1_preflight_artifacts/instrumentation_spec.json",
+    "sha256": "d0f0fed38eaf0de44f3e1791306c2d483d44717d978df2903d51da9dd3a774a3"
+  },
+  "instrumentation_spec_sha256": "fc6eddfbd61a6a9863500a124f2df2b7f82dff54e92efc125cced76f2c638d1c",
+  "execution_context": "reference-process",
   "baseline_state_boundary": "after_diagnostic_capture",
   "application_boundary": "before_policy_head",
   "reset_boundary": "immutable_snapshot_restore",
+  "protocol_clone_boundary": "after-moderator-before-treatment",
   "treatment_site": "policy.hidden.4",
+  "control_version": "control-v1",
   "treatment_version": "mask-v1",
   "treatment_dose": 0.25,
   "treatment_dose_unit": "fixture_fraction",

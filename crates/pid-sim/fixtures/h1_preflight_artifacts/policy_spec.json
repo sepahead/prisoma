@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "scope": "software_preflight_only",
+  "policy_id": "linear-reference-v1",
+  "semantic_sha256": "1cc5d5503c942c4c1486490ede4db28909fbfa0093ff77c1c9c96667ee430b3b",
+  "policy": {
+    "input_weights": [[0.1], [0.2]],
+    "state_weights": [[2.0, 0.0], [0.0, 1.0]],
+    "bias": [0.0, 0.0],
+    "post_evaluation_state_update": [100.0, -100.0]
+  }
+}

@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 /// The only preflight schema accepted by this implementation.
-pub const H1_PREFLIGHT_SCHEMA_VERSION: u32 = 1;
+pub const H1_PREFLIGHT_SCHEMA_VERSION: u32 = 2;
 
 /// Canonical identifiers are deliberately ASCII and bounded so visually or
 /// bytewise different spellings cannot evade duplicate/fold checks.
@@ -35,6 +35,17 @@ pub enum H1TargetPopulation {
     TransportPopulation,
 }
 
+/// Scope over which the common noninterference check is claimed to apply.
+///
+/// The reference fixture intentionally validates a frozen mechanism on one representative case;
+/// it does not pretend that every later analysis case was replayed by the preflight.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum H1PreflightValidationScope {
+    RepresentativeMechanismFixture,
+    ExactAnalysisCases,
+}
+
 /// Frozen distance used to compare instrumented and uninstrumented policy output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -44,7 +55,7 @@ pub enum H1OutputMetric {
 }
 
 /// One named output axis and the positive physical scale used to normalize it.
-/// Distances use `(left - right) / scale`, yielding a dimensionless contrast.
+/// Signed deltas use `(right - left) / scale`, yielding a dimensionless contrast.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct H1OutputAxisScale {
@@ -210,6 +221,7 @@ pub struct H1NoninterferenceTolerances {
 pub struct H1PreflightDeclaration {
     pub schema_version: u32,
     pub primary_protocol: H1PrimaryProtocol,
+    pub validation_scope: H1PreflightValidationScope,
     pub source_run_id: String,
     pub source_run: H1ArtifactRef,
     pub analysis_plan: H1ArtifactRef,
@@ -220,10 +232,19 @@ pub struct H1PreflightDeclaration {
     pub design_blinding_order_manifest: H1DesignBlindingOrderManifest,
     pub output_metric_contract: H1OutputMetricContract,
     pub clock: H1ClockDomainContract,
+    pub policy_id: String,
+    pub policy_spec_artifact: H1ArtifactRef,
+    pub policy_spec_sha256: String,
+    pub instrumentation_id: String,
+    pub instrumentation_spec_artifact: H1ArtifactRef,
+    pub instrumentation_spec_sha256: String,
+    pub execution_context: String,
     pub baseline_state_boundary: String,
     pub application_boundary: String,
     pub reset_boundary: String,
+    pub protocol_clone_boundary: String,
     pub treatment_site: String,
+    pub control_version: String,
     pub treatment_version: String,
     pub treatment_dose: f64,
     pub treatment_dose_unit: String,
@@ -792,6 +813,15 @@ fn validate_declaration(
             "declaration.target_population_id",
             declaration.target_population_id.as_str(),
         ),
+        ("declaration.policy_id", declaration.policy_id.as_str()),
+        (
+            "declaration.instrumentation_id",
+            declaration.instrumentation_id.as_str(),
+        ),
+        (
+            "declaration.execution_context",
+            declaration.execution_context.as_str(),
+        ),
         (
             "declaration.baseline_state_boundary",
             declaration.baseline_state_boundary.as_str(),
@@ -805,8 +835,16 @@ fn validate_declaration(
             declaration.reset_boundary.as_str(),
         ),
         (
+            "declaration.protocol_clone_boundary",
+            declaration.protocol_clone_boundary.as_str(),
+        ),
+        (
             "declaration.treatment_site",
             declaration.treatment_site.as_str(),
+        ),
+        (
+            "declaration.control_version",
+            declaration.control_version.as_str(),
         ),
         (
             "declaration.treatment_version",
@@ -819,9 +857,29 @@ fn validate_declaration(
     ] {
         validate_identifier(value, field, None, None, issues);
     }
+    for (field, value) in [
+        (
+            "declaration.policy_spec_sha256",
+            declaration.policy_spec_sha256.as_str(),
+        ),
+        (
+            "declaration.instrumentation_spec_sha256",
+            declaration.instrumentation_spec_sha256.as_str(),
+        ),
+    ] {
+        validate_hash(value, field, None, None, issues);
+    }
     for (field, artifact) in [
         ("declaration.source_run", &declaration.source_run),
         ("declaration.analysis_plan", &declaration.analysis_plan),
+        (
+            "declaration.policy_spec_artifact",
+            &declaration.policy_spec_artifact,
+        ),
+        (
+            "declaration.instrumentation_spec_artifact",
+            &declaration.instrumentation_spec_artifact,
+        ),
         (
             "declaration.split_manifest.artifact",
             &declaration.split_manifest.artifact,
@@ -1512,7 +1570,7 @@ fn validate_noninterference_repeat(
             .chain(&repeat.instrumented.output)
             .all(|value| value.is_finite())
     {
-        match recompute_output_distance(
+        match scaled_output_distance(
             &declaration.output_metric_contract,
             &repeat.uninstrumented.output,
             &repeat.instrumented.output,
@@ -1879,14 +1937,17 @@ fn validate_output_vector(
     }
 }
 
-fn recompute_output_distance(
+/// Return the signed, dimensionless output delta `(right - left) / scale` under a frozen
+/// output-metric contract. Invalid dimensions, non-finite values, or non-positive scales abstain.
+pub fn scaled_output_delta(
     contract: &H1OutputMetricContract,
     left: &[f64],
     right: &[f64],
-) -> Option<f64> {
+) -> Option<Vec<f64>> {
     if left.len() != right.len()
         || left.is_empty()
         || left.len() != contract.axes.len()
+        || left.iter().chain(right).any(|value| !value.is_finite())
         || contract
             .axes
             .iter()
@@ -1894,11 +1955,22 @@ fn recompute_output_distance(
     {
         return None;
     }
-    let scaled_deltas = left
-        .iter()
-        .zip(right)
-        .zip(&contract.axes)
-        .map(|((lhs, rhs), axis)| (lhs - rhs) / axis.scale);
+    Some(
+        left.iter()
+            .zip(right)
+            .zip(&contract.axes)
+            .map(|((lhs, rhs), axis)| (rhs - lhs) / axis.scale)
+            .collect(),
+    )
+}
+
+/// Return the scaled L2 or L-infinity distance under a frozen output-metric contract.
+pub fn scaled_output_distance(
+    contract: &H1OutputMetricContract,
+    left: &[f64],
+    right: &[f64],
+) -> Option<f64> {
+    let scaled_deltas = scaled_output_delta(contract, left, right)?.into_iter();
     match contract.metric {
         H1OutputMetric::L2 => Some(scaled_deltas.map(|delta| delta * delta).sum::<f64>().sqrt()),
         H1OutputMetric::LInf => scaled_deltas.map(f64::abs).reduce(f64::max),
@@ -2133,6 +2205,7 @@ mod tests {
         H1PreflightDeclaration {
             schema_version: H1_PREFLIGHT_SCHEMA_VERSION,
             primary_protocol: H1PrimaryProtocol::ProtocolB,
+            validation_scope: H1PreflightValidationScope::RepresentativeMechanismFixture,
             source_run_id: "h1-preflight-test".to_string(),
             source_run: artifact("source-run", 'a'),
             analysis_plan: artifact("analysis-plan", 'b'),
@@ -2172,10 +2245,19 @@ mod tests {
                 kind: H1ClockDomainKind::Monotonic,
                 contract: artifact("clock-contract", '1'),
             },
+            policy_id: "reference-policy-v1".to_string(),
+            policy_spec_artifact: artifact("policy-spec", '2'),
+            policy_spec_sha256: hash('2'),
+            instrumentation_id: "diagnostic-hook-v1".to_string(),
+            instrumentation_spec_artifact: artifact("instrumentation-spec", '3'),
+            instrumentation_spec_sha256: hash('3'),
+            execution_context: "reference-process".to_string(),
             baseline_state_boundary: "after_diagnostic_capture".to_string(),
             application_boundary: "before_policy_head".to_string(),
             reset_boundary: "before_each_baseline_evaluation".to_string(),
+            protocol_clone_boundary: "after-moderator-before-treatment".to_string(),
             treatment_site: "policy.hidden.4".to_string(),
+            control_version: "control-v1".to_string(),
             treatment_version: "mask-v1".to_string(),
             treatment_dose: 0.25,
             treatment_dose_unit: "fraction".to_string(),
@@ -2320,7 +2402,7 @@ mod tests {
     #[test]
     fn schema_identifier_hash_and_declaration_failures_accumulate() {
         let mut value = input();
-        value.declaration.schema_version = 2;
+        value.declaration.schema_version = H1_PREFLIGHT_SCHEMA_VERSION + 1;
         value.declaration.source_run_id = "  ".to_string();
         value.declaration.analysis_plan.sha256 = "ABC".to_string();
         value.declaration.treatment_dose = f64::NAN;
@@ -2515,7 +2597,7 @@ mod tests {
     #[test]
     fn local_denominators_do_not_claim_a_run_level_pass() {
         let mut bad_declaration = input();
-        bad_declaration.declaration.schema_version = 2;
+        bad_declaration.declaration.schema_version = H1_PREFLIGHT_SCHEMA_VERSION + 1;
         let report = validate_h1_preflight(&bad_declaration);
         assert!(!report.passed);
         assert_eq!(report.denominators.cases_local_checks_passed, 1);
@@ -2568,7 +2650,7 @@ mod tests {
         value.declaration.output_metric_contract.axes[1].scale = 0.008;
         value.declaration.tolerances.output_distance_max = 1.1;
         for repeat in &mut value.cases[0].repeats {
-            repeat.output_distance = recompute_output_distance(
+            repeat.output_distance = scaled_output_distance(
                 &value.declaration.output_metric_contract,
                 &repeat.uninstrumented.output,
                 &repeat.instrumented.output,

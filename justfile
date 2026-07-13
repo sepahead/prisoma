@@ -95,6 +95,31 @@ h1-preflight valid="crates/pid-sim/fixtures/h1_preflight_valid.json" invalid="cr
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_parse_invalid_runlog.jsonl | grep -F 'errors=1' >/dev/null
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_parse_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
 
+# Deterministic H1 Protocol-A software reference. The checked finite benchmark binds the exact
+# passed common-preflight chain, restores independent clone states, reverses treatment order, and
+# performs fixed leave-one-outer-fold-out proper scoring. It is synthetic, PID-free, and produces
+# no H1 scientific evidence. Readable invalid inputs must still produce schema-valid failed logs.
+h1-protocol-a valid="crates/pid-sim/fixtures/h1_protocol_a_valid.json" parse_invalid="crates/pid-sim/fixtures/h1_protocol_a_parse_invalid.json": h1-preflight
+    cargo run -p pid-sim --bin pid-h1-protocol-a -- --input {{valid}} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_summary.json --preflight-runlog outputs/h1_preflight_runlog.jsonl --summary-json outputs/h1_protocol_a_summary.json --runlog outputs/h1_protocol_a_runlog.jsonl
+    grep -q '"passed": true' outputs/h1_protocol_a_summary.json
+    grep -q '"synthetic_fixture_only": true' outputs/h1_protocol_a_summary.json
+    grep -q '"establishes_h1_evidence": false' outputs/h1_protocol_a_summary.json
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_protocol_a_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_runlog.jsonl | grep -F 'pid_metrics=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+    cp outputs/h1_protocol_a_runlog.jsonl outputs/h1_protocol_a_runlog.first.jsonl
+    cargo run -p pid-sim --bin pid-h1-protocol-a -- --input {{valid}} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_summary.json --preflight-runlog outputs/h1_preflight_runlog.jsonl --summary-json outputs/h1_protocol_a_summary.json --runlog outputs/h1_protocol_a_runlog.jsonl
+    cmp -s outputs/h1_protocol_a_runlog.first.jsonl outputs/h1_protocol_a_runlog.jsonl
+    if cargo run -p pid-sim --bin pid-h1-protocol-a -- --input {{valid}} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_invalid_summary.json --preflight-runlog outputs/h1_preflight_invalid_runlog.jsonl --summary-json outputs/h1_protocol_a_invalid_preflight_summary.json --runlog outputs/h1_protocol_a_invalid_preflight_runlog.jsonl; then echo "expected Protocol-A preflight binding failure"; exit 1; fi
+    grep -q '"preflight_summary_not_eligible"' outputs/h1_protocol_a_invalid_preflight_summary.json
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_protocol_a_invalid_preflight_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_invalid_preflight_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_invalid_preflight_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+    if cargo run -p pid-sim --bin pid-h1-protocol-a -- --input {{parse_invalid}} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_summary.json --preflight-runlog outputs/h1_preflight_runlog.jsonl --summary-json outputs/h1_protocol_a_parse_invalid_summary.json --runlog outputs/h1_protocol_a_parse_invalid_runlog.jsonl; then echo "expected Protocol-A contract parse failure"; exit 1; fi
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_protocol_a_parse_invalid_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_parse_invalid_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_parse_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+
 # Physics-backed manipulation software smoke: real Rapier3D push-to-goal episode with a
 # success label and real Flow_gt. Requires the `rapier` feature.
 rapier-harness runlog="outputs/rapier_push_runlog.jsonl" summary="outputs/rapier_push_summary.json" impulse="0.18":

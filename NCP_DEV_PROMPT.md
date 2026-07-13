@@ -1,7 +1,9 @@
 # NCP Observer — Developer Handoff Prompt
 
 > Copy-pasteable brief for a developer (or coding agent) bringing the `ncp-observer`
-> Engram bridge up to the standard the prisoma analysis requires. Self-contained;
+> producer bridge up to the standard the prisoma analysis requires. The intended future producer
+> is a NEST/Engram session, but the named public `sepahead/engram` repository is currently a
+> README-only placeholder and supplies no executable publisher. Self-contained;
 > read it top to bottom before touching code.
 
 ## 1. Context (what this is and is not)
@@ -19,9 +21,9 @@ There are several producers of that contract:
 |---|---|---|
 | `experiments/safe_adapter/` (SAFE rollouts) | **Critical-path producer** (S2/EC1 reference adapter; grandplan §5.1, §8.7) | Implemented contract adapter with honest axis provenance; real capture and the diagnostic-noninterference preflight remain open |
 | `crates/pid-sim` fixtures + Rapier/toy harnesses | Standalone sim sources | Software/conformance smokes, not scientific gate passes |
-| **`crates/ncp-observer` (this)** | **Optional** Engram/NEST bridge | **Exploratory-only — below the S2/EC1 conformance bar (optional M2 ecosystem item)** |
+| **`crates/ncp-observer` (this)** | **Optional** conforming NCP producer bridge; future Engram/NEST candidate | **Exploratory-only — below the S2/EC1 conformance bar (optional M2 ecosystem item); no public live Engram publisher** |
 
-`ncp-observer` is a **read-only passive tap**: it subscribes to a NEST/Engram session's
+`ncp-observer` is a **read-only passive tap**: it subscribes to a conforming producer's
 Neuro-Cybernetic Protocol (NCP) data planes over Zenoh and converts each closed-loop tick
 into an `OfflineVldaSample`. It is **not on grandplan's critical path** (grandplan does
 not depend on Engram at all), and root workspace resolution/build/test is independent of

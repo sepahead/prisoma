@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-### H1 common-preflight contract + truth audit (2026-07-13)
+### H1 Protocol A software reference + current-truth ledgers (2026-07-13)
 
 - Added a strict, fail-closed H1 common-preflight schema and `pid-h1-preflight` CLI. It binds the
   source run, analysis, population, split, blinding/order, output-metric, snapshot, moderator,
@@ -15,6 +15,21 @@
   Passing/failing fixtures and canonical schema-2 run logs exercise the contract in CI. This is
   structural software evidence only: no Protocol A/B response estimate or H1 scientific evidence
   is produced.
+- Added `pid-h1-protocol-a`, a deterministic synthetic finite-benchmark execution/scoring reference.
+  It exact-binds a separately passed preflight chain and its representative-mechanism scope, policy
+  and instrumentation specs, clock and clone/reset/application boundaries, control/treated versions,
+  and output contract. Per case it binds the exact moderator and clone-state values, restores
+  independent treatment-side policy instances, exercises both orders with zero RNG draws, and writes
+  canonical treatment receipts in actual execution order. Fixed leave-one-outer-fold-out ridge
+  comparisons retain proper scores for homogeneous/null responses while calibration explicitly
+  abstains on zero prediction variance. Bounded artifact reads, output-alias checks, dense-scoring
+  work limits, deterministic replay, and readable invalid-chain/parse fixtures fail closed with no
+  numeric or PID events. This remains a scoring primitive: no subprocess/stochastic audit, physical
+  individual effect, Protocol B, real capture, or H1 evidence.
+- Added living machine-readable current-state overlays in `protocols/` for ecosystem evidence and
+  EC1/H1-H4 execution status, plus offline truth-audit checks. Corrected the named public Engram edge
+  to its verified README-only placeholder revision and distinguished Haldir's reviewed revision from
+  current public main; neither edge is promoted into Prisoma's critical path.
 - Corrected the dependency-firebreak language: the current `--pid-mode none` smoke proves static
   factual-outcome label baselines run without PID atoms; it is not H1 response prediction or
   prospective H2. Withdrew the retired v10.7 power-grid counts as current capture requirements and

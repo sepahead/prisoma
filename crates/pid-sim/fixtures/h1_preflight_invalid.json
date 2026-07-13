@@ -1,7 +1,8 @@
 {
   "declaration": {
-    "schema_version": 1,
+    "schema_version": 2,
     "primary_protocol": "protocol_b",
+    "validation_scope": "representative_mechanism_fixture",
     "source_run_id": "h1-fixture-source",
     "source_run": {
       "artifact_uri": "h1_preflight_artifacts/source_run.jsonl",
@@ -14,7 +15,7 @@
     "split_manifest": {
       "artifact": {
         "artifact_uri": "h1_preflight_artifacts/split_manifest.json",
-        "sha256": "b99e99d59db9ecc62098dc6624ed22ed8345e8b1a0e2dc1352df89838570edd7"
+        "sha256": "d08556d09d87e3a371c8922eee05167ff76039cff64ca8ab4c0b45a4c03ef97a"
       },
       "entries": [
         {
@@ -29,12 +30,12 @@
     "target_population_id": "fixture-finite-benchmark",
     "target_population_manifest": {
       "artifact_uri": "h1_preflight_artifacts/target_population.json",
-      "sha256": "f09e46018ffbb0504693f84b87db7a3fe072b02d640a95ae8786854bef0953c0"
+      "sha256": "6bfeb939d992f8bdcd10d74568e82809ed532f0015f1b30ea88e20e8b2771773"
     },
     "design_blinding_order_manifest": {
       "artifact": {
         "artifact_uri": "h1_preflight_artifacts/design_blinding_order.json",
-        "sha256": "7535e614f016728f072318dcde9f3d2aa1581ca03543780b51660115263821e4"
+        "sha256": "04b132bc8e75e8d1c3ca8d2587dbe235fa446b3edba7704dd6a4017043e92d30"
       },
       "entries": [
         {
@@ -56,7 +57,7 @@
     "output_metric_contract": {
       "artifact": {
         "artifact_uri": "h1_preflight_artifacts/output_metric.json",
-        "sha256": "8f2c7e3c776000f6c65af85cefcf0274829b603afe78f5553104410a1a1d0791"
+        "sha256": "a31d75f168d604cf539adee3976bec08689a1039e44a303ff90d449717e4b315"
       },
       "metric": "l2",
       "axes": [
@@ -78,13 +79,28 @@
       "kind": "monotonic",
       "contract": {
         "artifact_uri": "h1_preflight_artifacts/clock_contract.json",
-        "sha256": "dc69f5d2bc67ce05604f9d791200ddcfbc4383f5e0ec62625cba7de127647814"
+        "sha256": "3b36610421bd439c2daacc2591982268466211dbce7d050cc0dc7b0f84f79682"
       }
     },
+    "policy_id": "linear-reference-v1",
+    "policy_spec_artifact": {
+      "artifact_uri": "h1_preflight_artifacts/policy_spec.json",
+      "sha256": "6fe962b0b61b1b46b504bdf4001ffe2a981644213b4908ee2bb41fb34c4234cf"
+    },
+    "policy_spec_sha256": "1cc5d5503c942c4c1486490ede4db28909fbfa0093ff77c1c9c96667ee430b3b",
+    "instrumentation_id": "diagnostic-hook-v1",
+    "instrumentation_spec_artifact": {
+      "artifact_uri": "h1_preflight_artifacts/instrumentation_spec.json",
+      "sha256": "d0f0fed38eaf0de44f3e1791306c2d483d44717d978df2903d51da9dd3a774a3"
+    },
+    "instrumentation_spec_sha256": "fc6eddfbd61a6a9863500a124f2df2b7f82dff54e92efc125cced76f2c638d1c",
+    "execution_context": "reference-process",
     "baseline_state_boundary": "after_diagnostic_capture",
     "application_boundary": "before_policy_head",
     "reset_boundary": "immutable_snapshot_restore",
+    "protocol_clone_boundary": "after-moderator-before-treatment",
     "treatment_site": "policy.hidden.4",
+    "control_version": "control-v1",
     "treatment_version": "mask-v1",
     "treatment_dose": 0.25,
     "treatment_dose_unit": "fixture_fraction",
@@ -138,15 +154,15 @@
             "source_baseline_snapshot_sha256": "acfa241262954bcaea57d1fb4be292e2611d24bdd5a3e47b32b10b33657a8f43",
             "reset_receipt": {
               "artifact_uri": "h1_preflight_artifacts/reset_receipt.json",
-              "sha256": "6f5fd7abda89b90b242d1d0e23e2e656e0f974f42e76c2167f87e9a2be45e2f0"
+              "sha256": "afa4e6e88aa01afabbd792d98c60b72d494f0134892d2ccc973517ee60a96fd3"
             },
             "rng_coupling_receipt": {
               "artifact_uri": "h1_preflight_artifacts/rng_coupling_receipt.json",
-              "sha256": "cab39aea0ac0551ebd6a340296487d2adfbf556ac3c26bdfb30bdecd91c17dde"
+              "sha256": "db4fbf9ccd058305b47a16c1e5cd95a93fc927b46af1b9e8e758d6c627a8dc78"
             },
             "input_coupling_receipt": {
               "artifact_uri": "h1_preflight_artifacts/input_coupling_receipt.json",
-              "sha256": "71a73786d21638da4eb0907cc04606f5410d4197272a26d8219b3605903c9c9f"
+              "sha256": "f7971c7ee158ddb17fe4f44b3027305ffc05ae5e50ef9144bd6126c6c007f5f9"
             }
           },
           "uninstrumented": {
@@ -157,9 +173,9 @@
             "controller_timestamp_ns": 31010,
             "paired_start_receipts": {
               "starting_state_sha256": "4064fee8cbea6e095e1c4a3a928496a9cbc4213ce9370b15b5a717189b18908e",
-              "reset_receipt_sha256": "6f5fd7abda89b90b242d1d0e23e2e656e0f974f42e76c2167f87e9a2be45e2f0",
-              "rng_coupling_receipt_sha256": "cab39aea0ac0551ebd6a340296487d2adfbf556ac3c26bdfb30bdecd91c17dde",
-              "input_coupling_receipt_sha256": "71a73786d21638da4eb0907cc04606f5410d4197272a26d8219b3605903c9c9f"
+              "reset_receipt_sha256": "afa4e6e88aa01afabbd792d98c60b72d494f0134892d2ccc973517ee60a96fd3",
+              "rng_coupling_receipt_sha256": "db4fbf9ccd058305b47a16c1e5cd95a93fc927b46af1b9e8e758d6c627a8dc78",
+              "input_coupling_receipt_sha256": "f7971c7ee158ddb17fe4f44b3027305ffc05ae5e50ef9144bd6126c6c007f5f9"
             },
             "memory_state": {
               "artifact_uri": "h1_preflight_artifacts/memory_state.bin",
@@ -178,9 +194,9 @@
             "controller_timestamp_ns": 32100,
             "paired_start_receipts": {
               "starting_state_sha256": "acfa241262954bcaea57d1fb4be292e2611d24bdd5a3e47b32b10b33657a8f43",
-              "reset_receipt_sha256": "6f5fd7abda89b90b242d1d0e23e2e656e0f974f42e76c2167f87e9a2be45e2f0",
-              "rng_coupling_receipt_sha256": "cab39aea0ac0551ebd6a340296487d2adfbf556ac3c26bdfb30bdecd91c17dde",
-              "input_coupling_receipt_sha256": "71a73786d21638da4eb0907cc04606f5410d4197272a26d8219b3605903c9c9f"
+              "reset_receipt_sha256": "afa4e6e88aa01afabbd792d98c60b72d494f0134892d2ccc973517ee60a96fd3",
+              "rng_coupling_receipt_sha256": "db4fbf9ccd058305b47a16c1e5cd95a93fc927b46af1b9e8e758d6c627a8dc78",
+              "input_coupling_receipt_sha256": "f7971c7ee158ddb17fe4f44b3027305ffc05ae5e50ef9144bd6126c6c007f5f9"
             },
             "memory_state": {
               "artifact_uri": "h1_preflight_artifacts/snapshot.bin",

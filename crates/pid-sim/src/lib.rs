@@ -17,6 +17,7 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 pub mod h1_preflight;
+pub mod h1_protocol_a;
 pub mod manipulation;
 pub mod offline_harness;
 pub mod physics;

@@ -113,10 +113,16 @@ being true as the code moves).
   confusion/rate diagnostics, `--pid-mode none|continuous|discrete|discrete-pls` (`none` is the
   true zero-MI/PID dependency-firebreak path) with per-pair
   `discrete_saturation` diagnostics; a fail-closed typed H1 common-preflight validator/CLI with
-  exact-byte content-addressed/strictly bound manifests, clock/timing/lineage/fold checks,
+  a schema-v2 representative mechanism scope, exact-byte content-addressed/strictly bound
+  policy/instrumentation/manifests, clock/timing/lineage/fold checks,
   per-axis-scaled outputs, paired start/reset/RNG/input receipts, diagnostic-instrumentation
-  noninterference, valid failed run logs, and passing/failing fixtures (software-contract evidence
-  only — neither Protocol A nor B); and a high-dimensional synthetic VLDA fixture
+  noninterference, valid failed run logs for readable invalid inputs, and passing/failing fixtures;
+  a deterministic finite-benchmark **Protocol A software reference** (`pid-h1-protocol-a`) that
+  exact-binds that passed preflight chain, restores independent per-side clone state, reverses
+  treatment order, records zero RNG draws, computes the frozen scaled response, and compares fixed
+  design-only versus design+moderator ridge predictors out of outer fold. It is a synthetic scoring
+  primitive only: no subprocess audit, stochastic-policy path, physical effect, Protocol B, or H1
+  evidence is claimed; and a high-dimensional synthetic VLDA fixture
   (`offline_vlda_highdim_fixture.json`: v=128, l=64, d=32, a=7).
 - **`pid-rerun`** — run-log→Rerun conversion and a validated replay adapter with
   summary/provenance/validation diagnostics; replay summaries distinguish unique metric
@@ -153,9 +159,11 @@ action and counterfactual effects, not treated as faithfulness by itself (`grand
 
 ### NCP observer (`crates/ncp-observer`, optional)
 
-A **read-only** Neuro-Cybernetic Protocol tap that subscribes to a NEST/Engram session's
-Zenoh data planes and emits an `OfflineVldaDataset` artifact (for `pid-offline-harness`)
-plus canonical run-log events (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObserved`).
+A **read-only** Neuro-Cybernetic Protocol tap for a conforming producer, intended to support a
+future NEST/Engram session, that emits an `OfflineVldaDataset` artifact (for
+`pid-offline-harness`) plus canonical run-log events
+(`EmbeddingContract`/`EmbeddingCaptured`/`LabelObserved`). The named public `sepahead/engram`
+repository is currently a README-only placeholder, so no public live Engram integration exists.
 
 - **Honours the three invariants:** the run log is the source of truth, the observer drives
   nothing (the Agent Bridge stays the only control plane), and all NCP-specific mapping
@@ -227,6 +235,8 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
   - `just toy-harness` (or `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`)
 - H1 common structural/noninterference preflight (fixture plumbing, not Protocol A/B evidence):
   - `just h1-preflight`
+- H1 deterministic Protocol A software reference (synthetic fixture/scoring primitive, not H1 evidence):
+  - `just h1-protocol-a`
 - Offline VLDA embedding harness:
   - `just offline-harness` (or `cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl`)
   - `just offline-harness-require-labels` — exercises `--require-success-labels` on the labeled fixture.
