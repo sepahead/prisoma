@@ -34,20 +34,26 @@
         {
           "path": "crates/pid-rerun",
           "status": "implemented_validating_conversion_groundwork"
+        },
+        {
+          "path": "experiments/safe_adapter",
+          "status": "bounded_content_addressed_canonical_ingress_and_synthetic_fixture_only_real_capture_unexecuted"
         }
       ],
       "proof_commands": [
         "just runlog-validate",
         "just runlog-replay",
-        "just runlog-sidecars"
+        "just runlog-sidecars",
+        "just safe-adapter"
       ],
       "remaining_required_artifacts": [
+        "real_content_addressed_safe_capture_and_rights_receipt",
         "conventional_script_or_container_baseline",
         "structurally_different_external_adapter",
         "graded_fault_and_replay_report",
         "adapter_promotion_report"
       ],
-      "permitted_language": "canonical run-log and local replay/conversion paths are implemented for the tested fixtures",
+      "permitted_language": "canonical run-log, local replay/conversion, and bounded content-addressed SAFE synthetic-ingress paths are implemented for the tested fixtures",
       "prohibited_language": "EC1 is complete, externally validated, or deployment ready"
     },
     {

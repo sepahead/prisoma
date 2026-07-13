@@ -177,10 +177,17 @@ rapier-test:
 parallel-test:
     cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel
 
-# S2/EC1 reference-adapter smoke: SAFE rollouts -> (V,L,D,A) contract, then the harness.
-safe-adapter out="outputs/safe_vlda.json" rollouts="outputs/safe_synth":
-    python -m experiments.safe_adapter synth --out {{rollouts}}
-    python -m experiments.safe_adapter convert --rollouts {{rollouts}} --out {{out}} --seen-tasks 0,1
+# S2/EC1 reference-adapter software smoke: bounded synthetic SAFE bundle + exact
+# source/split/rights/file-hash manifest -> (V,L,D,A) contract -> harness.
+safe-adapter out="outputs/safe_vlda_v2.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rollouts="$(mktemp -d "${TMPDIR:-/tmp}/prisoma-safe.XXXXXX")"
+    trap 'rm -rf "$rollouts"' EXIT
+    python -m experiments.safe_adapter synth --out "$rollouts"
+    test -s "$rollouts/safe_bundle_manifest.json"
+    python -m experiments.safe_adapter convert --rollouts "$rollouts" --out {{out}} --seen-tasks 0,1 --overwrite
+    python -c 'import json; d=json.load(open("{{out}}", encoding="utf-8")); assert d["samples"] and all(s["metadata"].get("bundle_manifest_sha256") for s in d["samples"])'
     python -m experiments.safe_adapter verify --input {{out}}
     cargo run -p pid-sim --bin pid-offline-harness -- --input {{out}} --summary-json outputs/safe_vlda_summary.json --runlog outputs/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint --require-axis-provenance-honest
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/safe_vlda_runlog.jsonl

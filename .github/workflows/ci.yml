@@ -433,9 +433,11 @@ jobs:
       - name: SAFE adapter -> offline-harness contract round-trip
         run: |
           python -m experiments.safe_adapter synth --out /tmp/safe_synth
+          test -s /tmp/safe_synth/safe_bundle_manifest.json
           python -m experiments.safe_adapter convert --rollouts /tmp/safe_synth --out /tmp/safe_vlda.json --seen-tasks 0,1
+          python -c 'import json; d=json.load(open("/tmp/safe_vlda.json", encoding="utf-8")); assert d["samples"] and all(s["metadata"].get("bundle_manifest_sha256") for s in d["samples"])'
           python -m experiments.safe_adapter verify --input /tmp/safe_vlda.json
-          cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/safe_vlda.json --summary-json /tmp/safe_vlda_summary.json --runlog /tmp/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint
+          cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/safe_vlda.json --summary-json /tmp/safe_vlda_summary.json --runlog /tmp/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint --require-axis-provenance-honest
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/safe_vlda_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/safe_vlda_runlog.jsonl | grep -q 'errors=0'
       - name: Attribution probe -> attribution_logged run log

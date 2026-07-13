@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### SAFE ingress integrity and provenance (2026-07-13)
+
+- Replaced the reference adapter's default trust in downloaded `.pkl` files with a finite,
+  content-addressed canonical ingress: action CSV + object-free NPZ arrays + strict JSON metadata,
+  bound by `safe_bundle_manifest.json` with exact file sizes/SHA-256, immutable source revision,
+  complete task universe/seen-role/origin/freeze/contamination receipt, model/checkpoint/hook/tensor
+  contract receipt, and operator-declared rights-status/reference attestation. Synthetic fixtures now use
+  that same safe bundle. Missing/extra/mixed or hash-mismatched files, filename/payload identity or
+  outcome conflicts, non-finite/object/ragged arrays, and file/row/tensor/archive budget overruns
+  fail closed before conversion; FIFOs and other non-regular inputs reject without a blocking
+  open; the raw and manifest hashes flow into emitted sample lineage. Conversion also rejects
+  missing lineage or pooling across different manifest/source/rights/split/capture receipts.
+  The converter explicitly marks the source bundle as external and not archived by the converter,
+  rather than inventing a resolvable artifact URI; real EC1 evidence still has to preserve and
+  hash-verify that bundle and its tensor contract outside the converter.
+- Raw pickle is rejected by default. The explicit legacy option first verifies the file against the
+  manifest and uses a NumPy-only restricted unpickler that rejects arbitrary globals and Torch
+  pickles, trailing objects, allocation-capable ndarray reconstruction, and files above the separate
+  legacy ceiling; it is documented as a trust boundary, not a sandbox. Unverified rights are likewise
+  default-off behind an explicit, non-authorizing override. Current upstream Torch-tensor rollouts
+  therefore require review and safe re-export in a disposable constrained environment before the
+  normal adapter path.
+- Made the emitted contract JSON finite on read/write and atomic/fsync-durable with no-clobber
+  installation by default. Added adversarial
+  tests for code-execution gadgets, legacy-default refusal, content drift, metadata conflicts,
+  type confusion, resource ceilings, and output overwrite policy. This is capture-ingress software readiness only:
+  no real SAFE capture, rights determination, S2/EC1 completion, or H1/H2 evidence is claimed.
+
 ### H2 fixed-horizon software reference (2026-07-13)
 
 - Added `pid-h2-reference`, a strict PID-free deterministic synthetic reference for one named

@@ -18,11 +18,18 @@ from .contract import VldaDataset, VldaSample
 from .convert import MappingConfig, rollout_to_samples, rollouts_to_dataset
 from .extract import VariableSpec, resolve_variable, text_hash_features
 from .hook_probe import ProbeSweepResult, layerwise_physics_probe
-from .rollouts import SafeRollout, load_safe_rollout_dir, write_synthetic_safe_dir
+from .rollouts import (
+    IngressLimits,
+    SafeRollout,
+    load_safe_rollout_dir,
+    write_safe_bundle_manifest,
+    write_synthetic_safe_dir,
+)
 from .verify import ContractReport, verify_contract_file
 
 __all__ = [
     "ContractReport",
+    "IngressLimits",
     "MappingConfig",
     "ProbeSweepResult",
     "SafeRollout",
@@ -36,5 +43,6 @@ __all__ = [
     "rollouts_to_dataset",
     "text_hash_features",
     "verify_contract_file",
+    "write_safe_bundle_manifest",
     "write_synthetic_safe_dir",
 ]

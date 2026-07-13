@@ -38,6 +38,8 @@ const OFFLINE_GEOMETRY_MIN_DELTA_REL: f64 = 0.1;
 const OFFLINE_GEOMETRY_INTRINSIC_K: usize = 10;
 const OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES: usize = 500;
 const OFFLINE_HELDOUT_SPLIT_METADATA_KEY: &str = "split";
+const OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_KEY: &str = "split_scientific_eligibility";
+const OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_BLOCKED: &str = "blocked_unfrozen_or_unreviewed";
 const OFFLINE_CENTROID_SUCCESS_SCORE: &str =
     "distance_to_failure_centroid_minus_distance_to_success_centroid";
 /// Unique-joint-bin fraction above which discrete plug-in MI is treated as
@@ -2093,6 +2095,55 @@ pub fn offline_vlda_heldout_episode_disjoint_status(report: &OfflineVldaReport) 
     }
 }
 
+/// Return a failure when an upstream adapter explicitly marks the split as
+/// scientifically ineligible. A wholly absent marker remains supported for generic
+/// VLDA datasets; once present, the marker must be known, homogeneous, and stamped
+/// on every sample. An explicit blocked verdict cannot be overridden by structural
+/// train/test metadata or a downstream strict flag.
+pub fn offline_vlda_split_scientific_eligibility_failure_message(
+    dataset: &OfflineVldaDataset,
+) -> Option<String> {
+    let mut ready_samples = 0;
+    let mut blocked_samples = 0;
+    let mut invalid_samples = 0;
+    for sample in &dataset.samples {
+        match sample
+            .metadata
+            .get(OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_KEY)
+            .map(String::as_str)
+        {
+            Some("structural_split_ready") => ready_samples += 1,
+            Some(OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_BLOCKED) => blocked_samples += 1,
+            Some(_) => invalid_samples += 1,
+            None => {}
+        }
+    }
+    if invalid_samples > 0 {
+        return Some(format!(
+            "offline VLDA split scientific eligibility invalid: {invalid_samples}/{} sample(s) carry an unknown status",
+            dataset.samples.len()
+        ));
+    }
+    if ready_samples > 0 && blocked_samples > 0 {
+        return Some(format!(
+            "offline VLDA split scientific eligibility inconsistent: ready={ready_samples} blocked={blocked_samples}"
+        ));
+    }
+    let marked_samples = ready_samples + blocked_samples;
+    if marked_samples > 0 && marked_samples < dataset.samples.len() {
+        return Some(format!(
+            "offline VLDA split scientific eligibility incomplete: marked={marked_samples} total={}",
+            dataset.samples.len()
+        ));
+    }
+    (blocked_samples > 0).then(|| {
+        format!(
+            "offline VLDA split scientific eligibility blocked: {blocked_samples}/{} sample(s) were marked unfrozen or contamination-unreviewed",
+            dataset.samples.len()
+        )
+    })
+}
+
 /// Gate messages for `--require-axis-provenance-honest`. Returns a failure for every
 /// V/L/D/A axis whose provenance is `degraded` (a PID atom computed from a
 /// fabricated / recency-misaligned / hash-proxy axis is not trustworthy), AND — the
@@ -2149,6 +2200,14 @@ fn offline_vlda_required_failures(
         failures.push(offline_vlda_heldout_episode_disjoint_failure_message(
             report,
         ));
+    }
+    if options.require_heldout_split
+        || options.require_heldout_class_coverage
+        || options.require_heldout_episode_disjoint
+    {
+        if let Some(message) = offline_vlda_split_scientific_eligibility_failure_message(dataset) {
+            failures.push(message);
+        }
     }
     if options.require_axis_provenance_honest {
         failures.extend(offline_vlda_axis_provenance_failure_messages(
@@ -7414,6 +7473,105 @@ mod tests {
         assert_eq!(summary.errors, 1);
 
         let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn offline_vlda_strict_split_rejects_explicit_scientific_block() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples {
+            sample.metadata.insert(
+                OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_KEY.to_string(),
+                OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_BLOCKED.to_string(),
+            );
+        }
+        let report = run_offline_vlda_harness(
+            dataset.clone(),
+            Some("memory://fixture.json".to_string()),
+            Some(TEST_INPUT_SHA256.to_string()),
+        )
+        .unwrap();
+        assert!(report.metrics.heldout_majority_success_accuracy.is_some());
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let runlog_path = std::env::temp_dir().join(format!(
+            "pid-offline-vlda-strict-scientific-split-{stamp}.jsonl"
+        ));
+        write_offline_vlda_runlog_with_options(
+            &runlog_path,
+            None,
+            None,
+            &dataset,
+            &report,
+            OfflineVldaRunlogOptions {
+                require_geometry_pass: false,
+                require_success_labels: false,
+                require_heldout_split: true,
+                require_heldout_class_coverage: false,
+                require_heldout_episode_disjoint: false,
+                require_axis_provenance_honest: false,
+            },
+        )
+        .unwrap();
+
+        let events = read_events_from_path(&runlog_path).unwrap();
+        let validation = validate_events(&events).unwrap();
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        assert!(events.iter().any(|event| {
+            matches!(
+                event,
+                pid_runlog::RunLogEvent::ErrorLogged { message, recoverable, .. }
+                    if !recoverable && message.contains("split scientific eligibility blocked")
+            )
+        }));
+        assert_eq!(
+            summarize_events(&events).unwrap().status,
+            Some(RunStatus::Failed)
+        );
+
+        let _ = std::fs::remove_file(runlog_path);
+    }
+
+    #[test]
+    fn offline_vlda_strict_split_rejects_unknown_or_mixed_eligibility() {
+        let mut unknown = fixture_dataset();
+        unknown.samples[0].metadata.insert(
+            OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_KEY.to_string(),
+            "typo".to_string(),
+        );
+        assert!(
+            offline_vlda_split_scientific_eligibility_failure_message(&unknown)
+                .unwrap()
+                .contains("eligibility invalid")
+        );
+
+        let mut mixed = fixture_dataset();
+        mixed.samples[0].metadata.insert(
+            OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_KEY.to_string(),
+            "structural_split_ready".to_string(),
+        );
+        mixed.samples[1].metadata.insert(
+            OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_KEY.to_string(),
+            OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_BLOCKED.to_string(),
+        );
+        assert!(
+            offline_vlda_split_scientific_eligibility_failure_message(&mixed)
+                .unwrap()
+                .contains("eligibility inconsistent")
+        );
+
+        let mut partial = fixture_dataset();
+        partial.samples[0].metadata.insert(
+            OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_KEY.to_string(),
+            "structural_split_ready".to_string(),
+        );
+        assert!(
+            offline_vlda_split_scientific_eligibility_failure_message(&partial)
+                .unwrap()
+                .contains("eligibility incomplete")
+        );
     }
 
     #[test]

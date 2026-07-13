@@ -6,12 +6,13 @@ use pid_sim::offline_harness::{
     offline_vlda_heldout_class_coverage_status,
     offline_vlda_heldout_episode_disjoint_failure_message,
     offline_vlda_heldout_episode_disjoint_status, offline_vlda_heldout_split_failure_message,
-    offline_vlda_heldout_split_status, offline_vlda_success_label_failure_message,
-    offline_vlda_success_label_status, offline_vlda_train_split_pid_status,
-    read_offline_vlda_dataset, run_offline_vlda_harness_with_options,
-    write_offline_pid_uncertainty, write_offline_vlda_runlog_with_options,
-    write_offline_vlda_summary, OfflineVldaHarnessOptions, OfflineVldaRunlogOptions,
-    OfflineVldaUncertaintyConfig, PermutationScheme, PidMode, PlsComponentSelection,
+    offline_vlda_heldout_split_status, offline_vlda_split_scientific_eligibility_failure_message,
+    offline_vlda_success_label_failure_message, offline_vlda_success_label_status,
+    offline_vlda_train_split_pid_status, read_offline_vlda_dataset,
+    run_offline_vlda_harness_with_options, write_offline_pid_uncertainty,
+    write_offline_vlda_runlog_with_options, write_offline_vlda_summary, OfflineVldaHarnessOptions,
+    OfflineVldaRunlogOptions, OfflineVldaUncertaintyConfig, PermutationScheme, PidMode,
+    PlsComponentSelection,
 };
 use std::path::PathBuf;
 
@@ -145,6 +146,14 @@ fn main() -> Result<()> {
         failures.push(offline_vlda_heldout_episode_disjoint_failure_message(
             &report,
         ));
+    }
+    if args.require_heldout_split
+        || args.require_heldout_class_coverage
+        || args.require_heldout_episode_disjoint
+    {
+        if let Some(message) = offline_vlda_split_scientific_eligibility_failure_message(&dataset) {
+            failures.push(message);
+        }
     }
     if args.require_axis_provenance_honest {
         failures.extend(offline_vlda_axis_provenance_failure_messages(

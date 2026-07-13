@@ -6,8 +6,9 @@ Honesty about what the released SAFE rollouts actually contain
 The SAFE rollout datasets (``vla-safe/SAFE``) cleanly provide, per step:
 
 * ``A`` — the action vector (e.g. OpenVLA's 7-D ``dx,dy,dz,droll,dpitch,dyaw,dgripper``);
-* ``D`` — the policy backbone hidden state (``hidden_states``), the natural
-  implicit world/plan representation ``D_hidden[k]``;
+* ``D`` — a declared policy-backbone hidden-state site (``hidden_states``), kept
+  semantically neutral until architecture evidence and held-out probes justify a
+  stronger world/plan interpretation;
 * the episode success/failure outcome, task id, and episode id.
 
 They do **not** ship a clean pre-fusion vision embedding ``V`` or a text embedding
@@ -16,8 +17,9 @@ produces carries a provenance string, and it refuses to fabricate ``V``. The
 supported, non-fabricated sources are:
 
 * **token slicing** — if the *raw* per-token hidden states ``(T, n_token, d)`` and
-  the token-group index ranges are available, slice the vision / language / state
-  token groups to obtain genuine ``V`` / ``L`` / ``D`` sub-representations;
+  the token-group index ranges are available, slice declared vision / language /
+  state groups. Those names are provenance claims only until token-mask ancestry
+  and held-out probes validate their semantics;
 * **explicit vision features** — a separately extracted ``(T, d_v)`` array (e.g.
   from running a vision encoder over the rollout frames);
 * **text featurization** — a deterministic hashing featurization of the
@@ -34,6 +36,8 @@ import hashlib
 from dataclasses import dataclass
 
 import numpy as np
+
+MAX_TEXT_HASH_DIM = 65_536
 
 
 @dataclass
@@ -99,8 +103,13 @@ def text_hash_features(text: str, dim: int) -> np.ndarray:
     learned semantic embedding — prefer supplying real ``language_features`` when a
     text encoder is available.
     """
-    if dim <= 0:
-        raise ValueError("dim must be positive")
+    if (
+        isinstance(dim, bool)
+        or not isinstance(dim, int)
+        or dim <= 0
+        or dim > MAX_TEXT_HASH_DIM
+    ):
+        raise ValueError(f"dim must be in 1..{MAX_TEXT_HASH_DIM}")
     vec = np.zeros(dim, dtype=np.float64)
     tokens = list(text.lower().split())
     trigrams = [text[i : i + 3] for i in range(max(0, len(text) - 2))]

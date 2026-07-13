@@ -140,9 +140,16 @@ being true as the code moves).
 - **`safe_adapter/`** — the **reference `(V,L,D,A)` producer** for the confirmatory
   H-experiments (the S2/EC1 adapter contract): converts released SAFE VLA rollouts into the
   `(V,L,D,A)`+labels harness contract with honest per-axis `{v,l,d,a}_provenance` markers and a
-  layerwise physics-decodability hook probe. The generic instrumented-versus-uninstrumented
-  preflight validator is implemented in `pid-sim`, but `safe_adapter` does not yet produce the real
-  paired policy evaluations required to clear it.
+  layerwise physics-decodability hook probe. Its default ingress is a finite NPZ/strict-JSON
+  bundle bound by exact file hashes plus operator-declared source/split/rights and
+  model/checkpoint/hook/tensor receipts; downloaded pickle is rejected by
+  default, and the explicit legacy path is manifest-hashed plus NumPy-only restricted.
+  Filename/metadata conflicts, unlisted/mismatched files, resource overruns, object/non-finite
+  arrays, and unverified rights fail closed unless the named rights override is explicit.
+  Synthetic conversion proves software readiness only; real safe re-export/capture and rights
+  review remain open. The generic instrumented-versus-uninstrumented preflight validator is
+  implemented in `pid-sim`, but `safe_adapter` does not yet produce the real paired policy
+  evaluations required to clear it.
 - **`attribution/`** — faithfulness-checked attribution/mechanistic probe (H4 / exploratory;
   epsilon-/AttnLRP + grad×input on a small reference model; deletion-AOPC vs random control)
   emitting `attribution_logged` events that pass `pid-runlog-replay --validate`. Production VLAs

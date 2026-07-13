@@ -92,7 +92,7 @@ flowchart LR
 
     Exp0["S1 estimator gate (Exp0 diagnostics)<br/>MI: NO-GO; I^sx: BLOCKED<br/>(runnable: just exp0-bin)"]:::gate
     Harness["Offline (V,L,D,A) harness<br/>+ baselines + attribution<br/>+ axis-provenance gate ENFORCED<br/>(EC1 groundwork, runnable today)"]:::run
-    Adapter["safe_adapter → contract (S2/EC1)<br/>honest provenance<br/>(runnable: just safe-adapter)"]:::run
+    Adapter["safe_adapter → contract (S2/EC1)<br/>bounded hash-manifest ingress<br/>honest provenance<br/>(runnable fixture: just safe-adapter)"]:::run
     Capture["OPEN CRITICAL PATH (S3→S4)<br/>gate + endpoint + power repairs,<br/>then real VLA capture"]:::blocked
     Exps["H1 / H2 / H4 studies<br/>(blocked on endpoint + capture work)"]:::blocked
     H3["H3 conditional PID increment<br/>(also blocked on all four PID gates)"]:::blocked
@@ -119,7 +119,11 @@ Each step gates the next; canonical depth is in `grandplan.md` at the cited sect
    warn/fail. Their thresholds are not validated scientific gates, and discrete saturation is
    currently advisory rather than a strict failure path.
 4. **Prepare, but do not treat as evidentiary capture yet:** the SAFE adapter and Rapier path
-   can exercise the EC1 contract. H1/H4 wait for their protocol and capture blockers; H2 now has
+   can exercise the EC1 contract on checked fixtures. SAFE ingress now requires a bounded
+   NPZ/strict-JSON bundle plus exact file hashes and operator-declared source/split/rights and
+   model/checkpoint/hook/tensor receipts; downloaded pickle
+   is rejected by default. Real SAFE use still requires an isolated safe re-export where needed,
+   exact revision and split receipts, and a rights review. H1/H4 wait for their protocol and capture blockers; H2 now has
    a synthetic fixed-horizon protocol-arithmetic reference, but real H2 still waits for its domain
    freeze, capture, comparator, and external-validation blockers. H3 also waits for all four PID
    gates. The harness supports `--pid-mode none` so non-PID work continues.
@@ -152,7 +156,7 @@ PID is **forced nowhere**: `grandplan.md` §3.8 records the PID kill rules and �
 Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and confounds live in `grandplan.md`.
 
 1. **Exp0 — PID population/measure/estimator/application diagnostics (S1).** GO/PIVOT/NO‑GO. *Runnable today* (`just exp0-bin`); current verdict on synthetic high‑d controls remains **NO‑GO** under the pinned pid-rs 1.0 environment (`findings.md`). No PID atom or H3 result is interpretable without all four gates; EC1 and the non-PID H1/H2/H4 paths continue with PID disabled (`grandplan.md` §7, §8.9.3).
-2. **EC1 capture/replay + adapter (S2).** The offline `(V,L,D,A)` harness, SAFE adapter, and sim/Rapier `Flow_gt` cross‑checks are *runnable today* (`just runlog-sim-verify`); the external infrastructure benchmark and a second adapter are pending (`grandplan.md` §8.8).
+2. **EC1 capture/replay + adapter (S2).** The offline `(V,L,D,A)` harness, bounded/content-addressed SAFE synthetic-bundle path, and sim/Rapier `Flow_gt` cross‑checks are *runnable today* (`just safe-adapter`, `just runlog-sim-verify`); real SAFE ingestion, the external infrastructure benchmark, and a second adapter are pending (`grandplan.md` §8.8).
 3. **Intervention pilot (S3).** Dose / target‑engagement / placebo / OOD checks on one interpretable intervention. *Blocked on capture* (`grandplan.md` §5.4, §5.6).
 4. **H1 — pre‑treatment diagnostics predict intervention response** (Protocol A paired and/or Protocol B randomized). The common preflight and deterministic synthetic Protocol A scoring reference are fixture-runnable, but neither real/evidentiary response protocol is implemented; scientific H1 remains *blocked on pilot + capture* (`grandplan.md` §6.3).
 5. **H2 — prospective, censoring‑aware failure prediction** vs the comparator frontier. The
@@ -193,7 +197,7 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   predictive entropy and ensemble/temperature uncertainty are still missing. The code review
   also identifies network-authentication, transactional logging, reconstructability, and
   artifact-integrity work before production use.
-- **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **reference producer is `experiments/safe_adapter/`** (the S2/EC1 adapter); `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth**, and semantic labels require architecture evidence (`grandplan.md` §9.1, §3.5).
+- **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **reference producer is `experiments/safe_adapter/`** (the S2/EC1 adapter); its checked path is a finite synthetic canonical bundle, while real downloaded data remain a gated ingress/capture step. `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth**, and semantic labels require architecture evidence (`grandplan.md` §9.1, §3.5).
 - **Optional NCP observer:** `crates/ncp-observer` is a read-only tap for a conforming NCP
   producer (an E2 dependency edge to NCP itself, `grandplan.md` §8.9), excluded from the default
   workspace and off the critical path. The public `sepahead/engram` repository remains a

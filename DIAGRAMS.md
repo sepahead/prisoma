@@ -32,7 +32,7 @@ flowchart TD
     subgraph Today["Runnable tooling today (not application-validated VLA evidence)"]
         Harness["Offline (V,L,D,A) harness<br/>PID screens + non-PID baselines"]:::run
         ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest"]:::run
-        Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (S2/EC1 reference adapter)"]:::run
+        Adapter["safe_adapter → contract<br/>bounded hash-manifest ingress<br/>honest {v,l,d,a}_provenance (S2/EC1 reference adapter)"]:::run
         Attr["attribution reference probe + Rerun adapter<br/>faithfulness/provenance/relevance implemented"]:::run
         Obs["ncp-observer tap pinned NCP v0.8.0 (wire 0.8)<br/>optional read-only, off critical path"]:::run
         H1Ref["synthetic H1 Protocol-A reference<br/>preflight + paired response scoring"]:::run
