@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "ontology_id": "synthetic_h2_ontology_v1",
+  "target_event_codes": ["named_failure_v1"],
+  "competing_event_codes": ["terminal_success"],
+  "censoring_event_codes": ["outcome_observation_lost"],
+  "simultaneous_first_event_rule": "reject_as_ambiguous"
+}

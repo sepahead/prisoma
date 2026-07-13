@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "contract_id": "synthetic_h2_features_v1",
+  "features": [
+    {
+      "feature_id": "design_progress",
+      "role": "baseline",
+      "value_type": "finite_f64",
+      "missing_value_rule": "unsupported_fail_closed"
+    },
+    {
+      "feature_id": "diagnostic_signal",
+      "role": "diagnostic",
+      "value_type": "finite_f64",
+      "missing_value_rule": "unsupported_fail_closed"
+    }
+  ],
+  "categorical_encoding": "preencoded_by_frozen_contract",
+  "pid_features": "forbidden"
+}

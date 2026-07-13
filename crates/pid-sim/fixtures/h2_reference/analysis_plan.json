@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "estimand": {
+    "kind": "fixed_horizon_target_cumulative_incidence",
+    "target_event_code": "named_failure_v1",
+    "horizon_ns": 10,
+    "risk_set": "event_and_censor_free_at_landmark",
+    "interval": "open_left_closed_right",
+    "landmark_weighting": "uniform_eligible_scheduled_landmarks"
+  },
+  "landmark_schedule": {
+    "kind": "fixed_offsets_from_episode_start",
+    "offsets_ns": [10],
+    "minimum_history_ns": 10
+  },
+  "validation": {
+    "outer_split": "grouped_task_family_k_fold",
+    "inner_split": "grouped_k_fold",
+    "group_keys": ["episode_id", "persistent_world_id"],
+    "minimum_outer_folds": 2,
+    "minimum_inner_folds": 2
+  },
+  "outcome_model": {
+    "family": "deterministic_weighted_l2_logistic",
+    "ridge_penalty": 1.0,
+    "intercept_penalized": false,
+    "standardization": "outer_training_mean_sd",
+    "zero_variance_rule": "drop_and_report",
+    "maximum_iterations": 200,
+    "convergence_tolerance": 1e-9
+  },
+  "censoring": {
+    "model": "reverse_kaplan_meier_by_frozen_stratum",
+    "assumption": "independent_given_prelandmark_stratum",
+    "event_weight_time": "left_limit",
+    "event_free_weight_time": "horizon",
+    "censor_at_horizon": "outcome_unobserved_censored",
+    "minimum_survival": 0.05,
+    "weight_clipping": "forbidden",
+    "aggregate": "horvitz_thompson_over_all_eligible_landmarks"
+  },
+  "calibration": {
+    "reliability_bin_edges": [0.0, 0.5, 1.0],
+    "minimum_target_events": 2,
+    "minimum_non_target_episodes": 2,
+    "minimum_effective_landmarks": 2.0
+  },
+  "alarm_policy": {
+    "baseline_threshold": 0.99,
+    "diagnostic_threshold": 0.99,
+    "comparison": "risk_greater_than_or_equal_to_threshold",
+    "persistence_scores": 1,
+    "maximum_inter_score_gap_ns": 10,
+    "missing_score_rule": "break_streak_and_emit_no_alarm",
+    "after_alarm_rule": "clear_streak",
+    "refractory_ns": 10,
+    "episode_reset_rule": "clear_all_state",
+    "minimum_actionable_lead_ns": 3,
+    "maximum_lookback_ns": 10,
+    "match_choice": "earliest_actionable_alarm",
+    "lead_time_cutoffs_ns": [3, 5, 10]
+  },
+  "decision_utility": {
+    "kind": "declared_warning_payoff_scenario",
+    "actionable_detection_value": 5.0,
+    "missed_target_cost": 2.0,
+    "alarm_action_cost": 0.1,
+    "false_alarm_cost": 1.0,
+    "capacity_rejection_cost": 0.2,
+    "maximum_fallbacks_per_episode": 2,
+    "capacity_priority": "alarm_time_then_alarm_id",
+    "intervention_latency_ns": 3,
+    "normalization": "per_evaluable_episode"
+  },
+  "claim_boundary": {
+    "synthetic_fixture_only": true,
+    "establishes_h2_evidence": false,
+    "prospective_capture": false,
+    "external_validation": false,
+    "comparator_frontier_complete": false,
+    "pid_dependency": "none"
+  }
+}

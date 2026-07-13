@@ -373,8 +373,49 @@ def main() -> int:
                 problems.append(f"research claim registry names missing H1 artifact: {artifact}")
         if "just h1-protocol-a" not in h1.get("proof_commands", []):
             problems.append("research claim registry omits the H1 Protocol-A proof command")
-        if claims_by_id.get("H2", {}).get("execution_status") != "unimplemented":
-            problems.append("research claim registry overstates prospective H2 execution")
+        h2 = claims_by_id.get("H2", {})
+        if h2.get("execution_status") != (
+            "deterministic_synthetic_fixed_horizon_software_reference_fixture_"
+            "runnable_real_execution_unimplemented"
+        ):
+            problems.append("research claim registry misstates the H2 execution boundary")
+        h2_artifacts = {
+            artifact.get("path")
+            for artifact in h2.get("current_artifacts", [])
+            if isinstance(artifact, dict)
+        }
+        required_h2_files = {
+            "crates/pid-sim/src/h2_reference.rs",
+            "crates/pid-sim/src/bin/h2_reference.rs",
+            "crates/pid-sim/fixtures/h2_reference/analysis_plan.json",
+            "crates/pid-sim/fixtures/h2_reference/dataset_complete.json",
+            "crates/pid-sim/fixtures/h2_reference/dataset_censored.json",
+        }
+        if not {
+            "crates/pid-sim/src/h2_reference.rs",
+            "crates/pid-sim/src/bin/h2_reference.rs",
+            "crates/pid-sim/fixtures/h2_reference",
+        }.issubset(h2_artifacts):
+            problems.append("research claim registry omits implemented H2 software artifacts")
+        for artifact in required_h2_files:
+            if not (ROOT / artifact).is_file():
+                problems.append(f"research claim registry names missing H2 artifact: {artifact}")
+        if "just h2-reference" not in h2.get("proof_commands", []):
+            problems.append("research claim registry omits the H2 reference proof command")
+        h2_boundary_text = " ".join(
+            str(h2.get(field, ""))
+            for field in ("permitted_language", "prohibited_language")
+        )
+        for required in (
+            "synthetic",
+            "prospective",
+            "H2 passed",
+            "deployment validity",
+        ):
+            if required not in h2_boundary_text:
+                problems.append(
+                    f"research claim registry H2 boundary omits {required!r}"
+                )
         if claims_by_id.get("H3", {}).get("execution_status") != "not_eligible":
             problems.append("research claim registry overstates H3 eligibility")
 
@@ -393,6 +434,16 @@ def main() -> int:
                 problems.append(
                     f"{relative} H1 Protocol-A smoke is missing {required!r}"
                 )
+        for required in (
+            "pid-h2-reference",
+            "dataset_complete.json",
+            "dataset_censored.json",
+            "establishes_h2_evidence",
+            "prospective_capture",
+            "pid_metric_events=0",
+        ):
+            if required not in text:
+                problems.append(f"{relative} H2 reference smoke is missing {required!r}")
     if "H1/H2 baselines execute with PID disabled" in grandplan:
         problems.append("grandplan.md overstates the static label-baseline firebreak")
     for relative in ("grandplan.md", "RESEARCH_VLA_D_NCP.md"):

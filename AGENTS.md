@@ -122,7 +122,14 @@ being true as the code moves).
   treatment order, records zero RNG draws, computes the frozen scaled response, and compares fixed
   design-only versus design+moderator ridge predictors out of outer fold. It is a synthetic scoring
   primitive only: no subprocess audit, stochastic-policy path, physical effect, Protocol B, or H1
-  evidence is claimed; and a high-dimensional synthetic VLDA fixture
+  evidence is claimed; a deterministic synthetic **H2 fixed-horizon software reference**
+  (`pid-h2-reference`) that exact-binds separately frozen analysis-plan, event-ontology,
+  feature-contract, and split-manifest artifacts, then exercises task-family-held-out weighted
+  fitting, grouped cross-fitted stratified reverse-KM IPCW, Horvitz–Thompson Brier arithmetic,
+  competing-event classification, reliability bins, frozen alarm/nondetection accounting, and
+  declared-payoff utility with explicit censoring abstentions. It is PID-free protocol arithmetic,
+  not prospective capture, validated calibration, the comparator frontier, or H2 evidence; and a
+  high-dimensional synthetic VLDA fixture
   (`offline_vlda_highdim_fixture.json`: v=128, l=64, d=32, a=7).
 - **`pid-rerun`** — run-log→Rerun conversion and a validated replay adapter with
   summary/provenance/validation diagnostics; replay summaries distinguish unique metric
@@ -237,6 +244,8 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
   - `just h1-preflight`
 - H1 deterministic Protocol A software reference (synthetic fixture/scoring primitive, not H1 evidence):
   - `just h1-protocol-a`
+- H2 deterministic fixed-horizon/IPCW/alarm software reference (synthetic protocol arithmetic, not H2 evidence):
+  - `just h2-reference`
 - Offline VLDA embedding harness:
   - `just offline-harness` (or `cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl`)
   - `just offline-harness-require-labels` — exercises `--require-success-labels` on the labeled fixture.

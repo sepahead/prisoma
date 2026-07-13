@@ -120,6 +120,47 @@ h1-protocol-a valid="crates/pid-sim/fixtures/h1_protocol_a_valid.json" parse_inv
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_parse_invalid_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
     cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_parse_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
 
+# Deterministic H2 fixed-horizon cumulative-incidence software reference. Four planning
+# artifacts are exact-byte frozen separately from outcomes. The checked complete and censored
+# fixtures exercise grouped train-only fitting, stratified reverse-KM IPCW, competing events,
+# HT Brier scoring, reliability arithmetic, alarm/lead-time accounting, and readable failure.
+# This is PID-free synthetic protocol arithmetic and is not prospective capture or H2 evidence.
+h2-reference complete="crates/pid-sim/fixtures/h2_reference/dataset_complete.json" censored="crates/pid-sim/fixtures/h2_reference/dataset_censored.json" parse_invalid="crates/pid-sim/fixtures/h2_reference/dataset_parse_invalid.json":
+    cargo run -p pid-sim --bin pid-h2-reference -- --dataset {{complete}} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_summary.json --runlog outputs/h2_reference_runlog.jsonl
+    grep -q '"passed": true' outputs/h2_reference_summary.json
+    grep -q '"synthetic_fixture_only": true' outputs/h2_reference_summary.json
+    grep -q '"establishes_h2_evidence": false' outputs/h2_reference_summary.json
+    grep -q '"prospective_capture": false' outputs/h2_reference_summary.json
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h2_reference_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_runlog.jsonl | grep -F 'actions=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_runlog.jsonl | grep -F 'interventions=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+    cp outputs/h2_reference_runlog.jsonl outputs/h2_reference_runlog.first.jsonl
+    cargo run -p pid-sim --bin pid-h2-reference -- --dataset {{complete}} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_summary.json --runlog outputs/h2_reference_runlog.jsonl
+    cmp -s outputs/h2_reference_runlog.first.jsonl outputs/h2_reference_runlog.jsonl
+    cargo run -p pid-sim --bin pid-h2-reference -- --dataset {{censored}} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_censored_summary.json --runlog outputs/h2_reference_censored_runlog.jsonl
+    grep -q '"censored_outcomes": 1' outputs/h2_reference_censored_summary.json
+    grep -q '"status": "outcome_unobserved_censored"' outputs/h2_reference_censored_summary.json
+    grep -q '"ipcw_weight": null' outputs/h2_reference_censored_summary.json
+    grep -q '"reason": "alarm_followup_incomplete"' outputs/h2_reference_censored_summary.json
+    python -c 'import json; d=json.load(open("outputs/h2_reference_censored_summary.json")); p=[x for f in d["report"]["fold_outcomes"] if f["status"]=="produced" for x in f["score"]["predictions"]]; w=lambda e: next(x["ipcw_weight"] for x in p if x["episode_id"]==e); assert w("episode-4")==w("episode-5")==1.0; assert abs(w("episode-6")-4/3)<1e-12 and abs(w("episode-7")-4/3)<1e-12'
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h2_reference_censored_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_censored_runlog.jsonl | grep -F 'actions=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_censored_runlog.jsonl | grep -F 'interventions=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_censored_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+    if cargo run -p pid-sim --bin pid-h2-reference -- --dataset {{parse_invalid}} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_invalid_summary.json --runlog outputs/h2_reference_invalid_runlog.jsonl; then echo "expected H2 contract parse failure"; exit 1; fi
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h2_reference_invalid_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_invalid_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_invalid_runlog.jsonl | grep -F 'actions=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_invalid_runlog.jsonl | grep -F 'interventions=0' >/dev/null
+    perl -0pe 's/"censoring_stratum_frozen_at_ns": 0/"censoring_stratum_frozen_at_ns": 11/' {{complete}} > outputs/h2_reference_semantic_invalid.json
+    if cargo run -p pid-sim --bin pid-h2-reference -- --dataset outputs/h2_reference_semantic_invalid.json --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_semantic_invalid_summary.json --runlog outputs/h2_reference_semantic_invalid_runlog.jsonl; then echo "expected H2 semantic lineage failure"; exit 1; fi
+    grep -q '"feature_unavailable_at_landmark"' outputs/h2_reference_semantic_invalid_summary.json
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h2_reference_semantic_invalid_runlog.jsonl
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_semantic_invalid_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
+    cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_semantic_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+
 # Physics-backed manipulation software smoke: real Rapier3D push-to-goal episode with a
 # success label and real Flow_gt. Requires the `rapier` feature.
 rapier-harness runlog="outputs/rapier_push_runlog.jsonl" summary="outputs/rapier_push_summary.json" impulse="0.18":

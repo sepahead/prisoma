@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "manifest_id": "synthetic_h2_splits_v1",
+  "assignments": [
+    {"episode_id": "episode-0", "outer_fold": "outer-a", "inner_fold": "inner-a"},
+    {"episode_id": "episode-1", "outer_fold": "outer-a", "inner_fold": "inner-b"},
+    {"episode_id": "episode-2", "outer_fold": "outer-a", "inner_fold": "inner-a"},
+    {"episode_id": "episode-3", "outer_fold": "outer-a", "inner_fold": "inner-b"},
+    {"episode_id": "episode-4", "outer_fold": "outer-b", "inner_fold": "inner-a"},
+    {"episode_id": "episode-5", "outer_fold": "outer-b", "inner_fold": "inner-b"},
+    {"episode_id": "episode-6", "outer_fold": "outer-b", "inner_fold": "inner-a"},
+    {"episode_id": "episode-7", "outer_fold": "outer-b", "inner_fold": "inner-b"}
+  ]
+}

@@ -119,8 +119,10 @@ Each step gates the next; canonical depth is in `grandplan.md` at the cited sect
    warn/fail. Their thresholds are not validated scientific gates, and discrete saturation is
    currently advisory rather than a strict failure path.
 4. **Prepare, but do not treat as evidentiary capture yet:** the SAFE adapter and Rapier path
-   can exercise the EC1 contract. H1/H2/H4 wait for their protocol and capture blockers; H3 also
-   waits for all four PID gates. The harness supports `--pid-mode none` so non-PID work continues.
+   can exercise the EC1 contract. H1/H4 wait for their protocol and capture blockers; H2 now has
+   a synthetic fixed-horizon protocol-arithmetic reference, but real H2 still waits for its domain
+   freeze, capture, comparator, and external-validation blockers. H3 also waits for all four PID
+   gates. The harness supports `--pid-mode none` so non-PID work continues.
 5. **Analyze only after gates exist:** geometry diagnostics do not currently select a valid
    regime. The m-out-of-n raw percentile output is a stability envelope at size m, not an
    n-sample confidence interval; endpoint inference must resample the correct outer units.
@@ -135,7 +137,7 @@ The canonical registry and its claim-to-evidence matrix live in `grandplan.md` �
 |---|---|---|---|
 | **EC1** | **Provenance-complete replay** — the capture/intervention/replay contract records the declared causal + temporal variables, detects contract violations, and reproduces exact events or tolerance-bounded outcomes, benchmarked against conventional scripts and standard containers. | Engineering acceptance | Run-log/replay groundwork implemented; external benchmark pending |
 | **H1** | Genuinely **pre-treatment** diagnostics predict intervention response — **Protocol A** (paired frozen-snapshot algorithmic sensitivity) and/or **Protocol B** (randomized closed-loop effect modification), scored by effect-specific criteria, not factual-outcome fit. | Confirmatory | Blocked on pilot + capture |
-| **H2** | Diagnostics improve **prospective, censoring-aware** failure prediction beyond strong baselines (Tri-Info / SAFE / Hide-and-Seek / ActProbe / Rewind-IL / VLAConf / Foresight …) under a frozen alarm policy (with process-level safety cost as a decision-utility adjunct, not the headline claim). | Confirmatory | Blocked on capture |
+| **H2** | Diagnostics improve **prospective, censoring-aware** failure prediction beyond strong baselines (Tri-Info / SAFE / Hide-and-Seek / ActProbe / Rewind-IL / VLAConf / Foresight …) under a frozen alarm policy (with process-level safety cost as a decision-utility adjunct, not the headline claim). | Confirmatory | Synthetic protocol reference runnable; real claim blocked on domain freeze + capture + external validation |
 | **H3** | PID adds **incremental value only inside its validated support envelope** (all four gates), vs MI/CMI, uncertainty, temporal, geometry, attribution, and learned baselines. | Conditional | Blocked on the estimator application gate |
 | **H4** | Representational **availability** (held-out decodability) can diverge from causal **policy use** — the availability–use gap. Replaces H3 as a thesis paper if PID fails; a first-order problem, not a consolation prize. | Confirmatory / fallback | Blocked on capture |
 
@@ -153,7 +155,10 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 2. **EC1 capture/replay + adapter (S2).** The offline `(V,L,D,A)` harness, SAFE adapter, and sim/Rapier `Flow_gt` cross‑checks are *runnable today* (`just runlog-sim-verify`); the external infrastructure benchmark and a second adapter are pending (`grandplan.md` §8.8).
 3. **Intervention pilot (S3).** Dose / target‑engagement / placebo / OOD checks on one interpretable intervention. *Blocked on capture* (`grandplan.md` §5.4, §5.6).
 4. **H1 — pre‑treatment diagnostics predict intervention response** (Protocol A paired and/or Protocol B randomized). The common preflight and deterministic synthetic Protocol A scoring reference are fixture-runnable, but neither real/evidentiary response protocol is implemented; scientific H1 remains *blocked on pilot + capture* (`grandplan.md` §6.3).
-5. **H2 — prospective, censoring‑aware failure prediction** vs the comparator frontier. *Blocked on capture* (`grandplan.md` §6.4).
+5. **H2 — prospective, censoring‑aware failure prediction** vs the comparator frontier. The
+   deterministic synthetic fixed-horizon/IPCW/alarm reference is fixture-runnable
+   (`just h2-reference`), while real/evidentiary H2 remains *blocked on domain freeze, capture,
+   comparator completion, and external validation* (`grandplan.md` §6.4).
 6. **H3 or H4 — conditional PID incremental value, or the availability–use gap.** *Blocked on the estimator application gate / capture* (`grandplan.md` §7, §4).
 7. **Transport replication (S7)** — second task family, policy, simulator, or embodiment; mind the embodiment‑in‑`L` confound. *Blocked on capture* (`grandplan.md` §5.11).
 
@@ -172,13 +177,18 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
 - **Implemented (Rust, in the pinned `pid-rs` 1.0 submodule):** `pid-core` (stable report-first KSG/categorical/quantized surfaces plus default-off continuous shared exclusions, PLS/pipelines, hierarchy, and hyperbolic research features; discrete SxPID `i^sx_∩` supports 2–4 sources but is *not yet wired into the offline harness*), `pid-python` (a typed stable `pid_core_rs` surface for `compute_mi_report`, categorical SxPID/`I_min`, fitted quantization, and diagnostics; pre-1.0 scalar calls exist only in the default-off migration module), and `pid-runlog` (the canonical EC1 JSONL run-log schema + replay/validate/compare/summary/manifest/sidecar CLI).
 - **Implemented (Rust, local crates):** `pid-bridge` (Agent Bridge dispatch/JSON-RPC-shaped
   conversion/contract export), `pid-sim` (deterministic sim, real optional Rapier backend,
-  manipulation harness, transports, offline VLDA screens, and a fail-closed H1 common-preflight
+  manipulation harness, transports, offline VLDA screens, a fail-closed H1 common-preflight,
   validator/CLI for content-addressed fixture plumbing and diagnostic-instrumentation
-  noninterference, plus a deterministic finite-benchmark Protocol A software-reference runner),
+  noninterference, a deterministic finite-benchmark Protocol A software-reference runner, and a
+  PID-free deterministic H2 fixed-horizon cumulative-incidence/IPCW/alarm software reference),
   and `pid-rerun`. The reference runner exact-binds a passed schema-v2 representative-mechanism
   preflight, restores independent clone states, reverses order, records zero RNG draws, and performs
   fixed out-of-fold proper scoring. It is synthetic scoring plumbing—not a subprocess/stochastic
-  audit, physical individual effect, Protocol B implementation, or H1 scientific evidence. Implemented
+  audit, physical individual effect, Protocol B implementation, or H1 scientific evidence. The H2
+  reference exact-binds separate plan/ontology/feature/split artifacts and exercises grouped
+  weighted fitting, stratified reverse-KM IPCW, competing events, reliability bins, frozen alarm
+  semantics, nondetection retention, and declared-payoff utility on synthetic fixtures. It is not
+  prospective capture, validated calibration, the comparator frontier, or H2 scientific evidence. Implemented
   baselines are majority, 1-NN, nearest-centroid, and held-out logistic regression; action
   predictive entropy and ensemble/temperature uncertainty are still missing. The code review
   also identifies network-authentication, transactional logging, reconstructability, and
@@ -257,6 +267,31 @@ deterministic synthetic finite benchmark, verifies byte-repeatable canonical log
 preflight-binding and parse failures. The emitted response and proper-score numbers validate the
 software primitive only; `synthetic_fixture_only=true` and `establishes_h1_evidence=false` are
 binding. Real Protocol A capture/analysis and all Protocol B execution remain unimplemented.
+
+## Quick Start — H2 Fixed-Horizon Software Reference
+
+```bash
+just h2-reference
+```
+
+The recipe exact-binds four outcome-independent artifacts (analysis plan, event ontology, feature
+contract, and split manifest), then runs complete-follow-up and censored synthetic artifacts plus
+readable parse and semantic-lineage failures; the Rust suite adds a positive multi-landmark alarm
+boundary fixture. The combined checks exercise task-family-held-out weighted logistic models, grouped
+cross-fitted stratified reverse-Kaplan–Meier censoring weights, Horvitz–Thompson IPCW Brier scores,
+competing events as observed non-target outcomes, reliability bins, frozen alarm accounting,
+persistence/refractory/capacity and positive matching boundaries, detected/undetected records
+without numeric lead-time placeholders for misses, and declared-payoff utility.
+The censored fixture retains the censored landmark in the estimand denominator while emitting no
+numeric row loss; alarm/utility accounting abstains when follow-up is incomplete. Every run log is
+PID-free and contains no action or intervention event.
+
+These are deterministic software-reference numbers only. The binding flags remain
+`synthetic_fixture_only=true`, `establishes_h2_evidence=false`, `prospective_capture=false`,
+`external_validation=false`, and `comparator_frontier_complete=false`. Real H2 still requires a
+domain-specific estimand/ontology freeze, powered prospective capture, full calibration and
+censoring sensitivity, the matched-access comparator frontier, and an untouched later/external
+holdout.
 
 ## Quick Start — Offline (V,L,D,A) Embedding Harness
 

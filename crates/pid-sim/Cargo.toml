@@ -57,6 +57,10 @@ name = "pid-h1-protocol-a"
 path = "src/bin/h1_protocol_a.rs"
 
 [[bin]]
+name = "pid-h2-reference"
+path = "src/bin/h2_reference.rs"
+
+[[bin]]
 name = "pid-rapier-harness"
 path = "src/bin/rapier_harness.rs"
 required-features = ["rapier"]

@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 
 pub mod h1_preflight;
 pub mod h1_protocol_a;
+pub mod h2_reference;
 pub mod manipulation;
 pub mod offline_harness;
 pub mod physics;

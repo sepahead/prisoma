@@ -902,6 +902,36 @@ Capacity-match learned baselines by training examples, labels, tuning trials, an
 
 Conformal calibration is nested inside training/calibration folds. Report the exact nonconformity score, calibration unit, exchangeability or shift assumption, finite-sample correction, and whether repeated landmarks violate the nominal unit. Under task-family or temporal shift, coverage is an empirical transport result unless the chosen weighted/group/sequential method supplies a theorem whose assumptions were checked [R96].
 
+**Current software reference (not H2 evidence).** `just h2-reference` now exercises one narrow
+schema-v1 branch of this design on deterministic synthetic finite benchmarks: a named-failure
+fixed-horizon cumulative-incidence target over scheduled event/censor-free landmarks; separately
+content-addressed analysis-plan, event-ontology, feature-contract, and split-manifest artifacts;
+task-family-held-out deterministic weighted logistic baseline/diagnostic models with outer-training
+standardization; grouped inner-cross-fitted, frozen-stratum reverse-Kaplan–Meier censoring models;
+and Horvitz–Thompson IPCW Brier arithmetic. Target and competing terminal events use
+\(1/\widehat G(u^-)\), event-free rows use \(1/\widehat G(h)\), and censored-before-horizon rows
+retain their place in the eligible-landmark denominator without a numeric row loss. The reference
+requires each censoring stratum to be content-addressed and frozen by episode start. An explicit
+censoring event at the inclusive horizon leaves the outcome unobserved, while administrative
+follow-up completed through that horizon is event-free; this boundary is regression-tested. The
+reference never clips a weight and abstains below its frozen positivity floor. Its checked
+complete-follow-up artifact exercises reliability-bin arithmetic and no-alarm nondetection
+accounting; a focused multi-landmark boundary test exercises externally frozen thresholds, persistence,
+refractory/capacity rules, positive one-to-one event matching, and detected/undetected lead records.
+Both paths exercise all-event lead curves and a declared-payoff utility scenario; the censored
+fixture deliberately abstains from alarm and utility metrics when adjudication is incomplete.
+Canonical logs contain zero PID, action, and intervention events.
+
+The reference flags `synthetic_fixture_only=true`, `establishes_h2_evidence=false`,
+`prospective_capture=false`, `external_validation=false`, and
+`comparator_frontier_complete=false`. It does not validate the conditional censoring assumption,
+does not implement calibration intercept/slope or uncertainty, does not supply the matched-access
+comparator frontier, and does not freeze the real domain target or scientific minimum useful
+effect. Real H2 remains blocked on the M0 domain-specific estimand/ontology/landmark freeze,
+powered prospective capture, censoring and missing-sensor sensitivity, full nested calibration and
+threshold selection (or an independently justified external threshold), the comparator frontier,
+and an untouched later-time or external holdout.
+
 ## 6.5 Baseline hierarchy
 
 Baselines must be built and frozen before examining PID’s confirmatory endpoint.
@@ -1574,6 +1604,12 @@ Maintain a generated capability matrix with columns: feature, status (`implement
 
 The reviewed snapshot has meaningful estimator/run-log and adapter groundwork, but current repository prose also records blocked scientific capture and invalidated high-dimensional regimes [R61, R72]. Treat passing unit tests as evidence of software behavior, not causal identification, estimator validity, deployment security, or paper-level novelty.
 
+The local `pid-sim` implementation also includes two explicitly non-evidentiary protocol
+references: the deterministic synthetic H1 Protocol-A runner and the deterministic synthetic H2
+fixed-horizon/IPCW/alarm runner described in Sections 6.3–6.4. Both write canonical, replay-valid,
+PID-free logs and fail closed on checked fixtures. Neither is real claim execution, external
+validation, or a substitute for M4/M5.
+
 ## 8.11 Control plane and agent access
 
 GUI, scripts, notebooks, and LLM agents must invoke the same typed control plane. Every mutating request must produce:
@@ -1903,7 +1939,8 @@ Deliver:
 - NCP read-only observer report if activated, including secure/open realm choice;
 - dependency-firebreak test with NCP disabled and the static factual-outcome label-baseline smoke
   running with PID disabled; evidentiary real Protocol A/B and prospective H2 execution belong to
-  M4/M5 (the deterministic synthetic Protocol A scoring reference is earlier software groundwork);
+  M4/M5 (the deterministic synthetic Protocol A scoring and H2 fixed-horizon/IPCW/alarm references
+  are earlier software groundwork);
 - supply-chain manifest, exact revisions, licenses, and adapter promotion reports.
 
 **Stop infrastructure-paper claim:** no material advantage over a simpler stack, or the minimum viable experiments require unpublished/private sibling components. Continue with the simpler stack and keep Prisoma as project software.

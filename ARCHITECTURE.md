@@ -130,7 +130,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 | Claim | Physics | Robot | Notes |
 |------------|--------|--------|-------|
 | H1 (pre-treatment diagnostics predict intervention response) | ✓ | ✓ | The deterministic synthetic Protocol A scoring reference is runnable, but real paired capture and the randomized Protocol B fork remain open (grandplan §6.3); synergy sign is a candidate feature, not a definition |
-| H2 (censoring-aware prospective failure prediction) | ✓ | ✓ | Long-horizon contact physics; frozen alarm policy, lead time (grandplan §6.4) |
+| H2 (censoring-aware prospective failure prediction) | ✓ | ✓ | The PID-free synthetic fixed-horizon/IPCW/alarm arithmetic reference is runnable; real prospective capture, domain freeze, comparator frontier, and external validation remain open (grandplan §6.4) |
 | H3 (conditional PID incremental value) | ✓ | | Only inside the validated support envelope (grandplan §7.14) |
 | H4 (availability can diverge from causal policy use) | ✓ | | Mass/friction perturbations; availability-vs-use asymmetry reported as a finding |
 | Flow-as-bridge (Exploratory — grandplan §9.6) | | | Flow from an external video predictor; no physics sim needed for flow extraction itself |

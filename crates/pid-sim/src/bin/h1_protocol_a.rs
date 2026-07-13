@@ -193,16 +193,13 @@ fn main() -> Result<()> {
         );
         treatment_plan = Some(input.plan.treatment.clone());
         let protocol_report = preflight_eligible.then(|| run_h1_protocol_a(&input));
-        let config = json!({
-            "component": COMPONENT,
-            "protocol_a_schema_version": H1_PROTOCOL_A_SCHEMA_VERSION,
-            "scope": "deterministic_finite_benchmark_software_reference_only",
-            "input_sha256": input_sha256,
-            "preflight_input_sha256": verification.input_sha256,
-            "preflight_summary_sha256": verification.summary_sha256,
-            "preflight_runlog_sha256": verification.runlog_sha256,
-            "input": input,
-        });
+        let config = compact_protocol_a_config(
+            &input,
+            input_sha256.as_deref(),
+            verification.input_sha256.as_deref(),
+            verification.summary_sha256.as_deref(),
+            verification.runlog_sha256.as_deref(),
+        )?;
         report = protocol_report;
         config
     } else {
@@ -259,6 +256,41 @@ fn main() -> Result<()> {
         bail!("H1 Protocol-A software reference failed closed; inspect the summary and run log");
     }
     Ok(())
+}
+
+fn compact_protocol_a_config(
+    input: &H1ProtocolAInput,
+    input_sha256: Option<&str>,
+    preflight_input_sha256: Option<&str>,
+    preflight_summary_sha256: Option<&str>,
+    preflight_runlog_sha256: Option<&str>,
+) -> Result<Value> {
+    let audit_count = input.cases.iter().try_fold(0_usize, |total, case| {
+        total
+            .checked_add(case.audits.len())
+            .context("Protocol-A audit count overflowed usize")
+    })?;
+    Ok(json!({
+        "component": COMPONENT,
+        "protocol_a_schema_version": H1_PROTOCOL_A_SCHEMA_VERSION,
+        "scope": "deterministic_finite_benchmark_software_reference_only",
+        "input_sha256": input_sha256,
+        "preflight_input_sha256": preflight_input_sha256,
+        "preflight_summary_sha256": preflight_summary_sha256,
+        "preflight_runlog_sha256": preflight_runlog_sha256,
+        "input_receipt": {
+            "target_population_id": input.plan.target_population_id,
+            "policy_id": input.plan.policy_id,
+            "policy_spec_sha256": input.plan.policy_spec_sha256,
+            "instrumentation_id": input.plan.instrumentation_id,
+            "instrumentation_spec_sha256": input.plan.instrumentation_spec_sha256,
+            "plan_sha256": pid_runlog::canonical_json_hash_v2(&input.plan)?,
+            "policy_sha256": pid_runlog::canonical_json_hash_v2(&input.policy)?,
+            "case_count": input.cases.len(),
+            "audit_count": audit_count,
+        },
+        "configuration_storage": "compact_content_addressed_receipt",
+    }))
 }
 
 struct PreflightVerification {
@@ -1067,6 +1099,32 @@ fn print_usage() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn config_is_a_bounded_content_addressed_receipt() {
+        let input = serde_json::from_slice::<H1ProtocolAInput>(include_bytes!(
+            "../../fixtures/h1_protocol_a_valid.json"
+        ))
+        .expect("parse checked Protocol-A fixture");
+        let hash = "a".repeat(64);
+        let config =
+            compact_protocol_a_config(&input, Some(&hash), Some(&hash), Some(&hash), Some(&hash))
+                .expect("build compact config");
+        let encoded = serde_json::to_vec(&config).expect("encode compact config");
+
+        assert!(encoded.len() < 64 * 1024);
+        assert_eq!(
+            config.get("configuration_storage").and_then(Value::as_str),
+            Some("compact_content_addressed_receipt")
+        );
+        assert!(config.get("input").is_none());
+        assert_eq!(
+            config
+                .pointer("/input_receipt/case_count")
+                .and_then(Value::as_u64),
+            Some(input.cases.len() as u64)
+        );
+    }
 
     #[test]
     fn output_paths_must_not_alias_each_other_or_an_input() {

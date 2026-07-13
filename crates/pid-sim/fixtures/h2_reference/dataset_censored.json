@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scope": "deterministic_synthetic_finite_landmark_benchmark",
+  "bindings": {
+    "analysis_plan": {"artifact_uri": "crates/pid-sim/fixtures/h2_reference/analysis_plan.json", "sha256": "4573987f717210b0620f98742d21b044479c3f919d4c4a204ebba533083ec9e6"},
+    "event_ontology": {"artifact_uri": "crates/pid-sim/fixtures/h2_reference/event_ontology.json", "sha256": "584f30904d1eb47373758f8ecd6073fe5ec9fb39ed76ebe18136a41fe32d28f8"},
+    "feature_contract": {"artifact_uri": "crates/pid-sim/fixtures/h2_reference/feature_contract.json", "sha256": "e4e1579c7f0f769825c57896d4f239dd01af97c7c78d9e4d692c34eb8c44dbf6"},
+    "split_manifest": {"artifact_uri": "crates/pid-sim/fixtures/h2_reference/split_manifest.json", "sha256": "a3f65a458699d248db70099b5a9c9d01fb253c386115fc6e6645689c642c0c8d"}
+  },
+  "episodes": [
+    {
+      "episode_id": "episode-0", "persistent_world_id": "world-0", "task_family_id": "family-a", "policy_checkpoint_id": "policy-v1", "censoring_stratum": "stratum-a", "censoring_stratum_frozen_at_ns": 0, "censoring_stratum_source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "episode_start_ns": 0, "planned_observation_end_ns": 20, "observed_until_ns": 20,
+      "terminal_event": {"event_id": "target-0", "code": "named_failure_v1", "timestamp_ns": 15}, "censoring_event": null,
+      "landmarks": [{"landmark_id": "episode-0-landmark-0", "schedule_index": 0, "time_ns": 10, "feature_cutoff_ns": 10, "features": [{"feature_id": "design_progress", "value": 0.0, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, {"feature_id": "diagnostic_signal", "value": 1.2, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]}]
+    },
+    {
+      "episode_id": "episode-1", "persistent_world_id": "world-1", "task_family_id": "family-a", "policy_checkpoint_id": "policy-v1", "censoring_stratum": "stratum-a", "censoring_stratum_frozen_at_ns": 0, "censoring_stratum_source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "episode_start_ns": 0, "planned_observation_end_ns": 20, "observed_until_ns": 20,
+      "terminal_event": {"event_id": "competing-1", "code": "terminal_success", "timestamp_ns": 15}, "censoring_event": null,
+      "landmarks": [{"landmark_id": "episode-1-landmark-0", "schedule_index": 0, "time_ns": 10, "feature_cutoff_ns": 10, "features": [{"feature_id": "design_progress", "value": 0.1, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, {"feature_id": "diagnostic_signal", "value": -0.8, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]}]
+    },
+    {
+      "episode_id": "episode-2", "persistent_world_id": "world-2", "task_family_id": "family-a", "policy_checkpoint_id": "policy-v1", "censoring_stratum": "stratum-a", "censoring_stratum_frozen_at_ns": 0, "censoring_stratum_source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "episode_start_ns": 0, "planned_observation_end_ns": 20, "observed_until_ns": 15,
+      "terminal_event": null, "censoring_event": {"event_id": "censor-2", "code": "outcome_observation_lost", "timestamp_ns": 15},
+      "landmarks": [{"landmark_id": "episode-2-landmark-0", "schedule_index": 0, "time_ns": 10, "feature_cutoff_ns": 10, "features": [{"feature_id": "design_progress", "value": 0.2, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, {"feature_id": "diagnostic_signal", "value": -0.7, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]}]
+    },
+    {
+      "episode_id": "episode-3", "persistent_world_id": "world-3", "task_family_id": "family-a", "policy_checkpoint_id": "policy-v1", "censoring_stratum": "stratum-a", "censoring_stratum_frozen_at_ns": 0, "censoring_stratum_source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "episode_start_ns": 0, "planned_observation_end_ns": 20, "observed_until_ns": 20, "terminal_event": null, "censoring_event": null,
+      "landmarks": [{"landmark_id": "episode-3-landmark-0", "schedule_index": 0, "time_ns": 10, "feature_cutoff_ns": 10, "features": [{"feature_id": "design_progress", "value": 0.3, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, {"feature_id": "diagnostic_signal", "value": -0.6, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]}]
+    },
+    {
+      "episode_id": "episode-4", "persistent_world_id": "world-4", "task_family_id": "family-b", "policy_checkpoint_id": "policy-v1", "censoring_stratum": "stratum-a", "censoring_stratum_frozen_at_ns": 0, "censoring_stratum_source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "episode_start_ns": 0, "planned_observation_end_ns": 20, "observed_until_ns": 20,
+      "terminal_event": {"event_id": "target-4", "code": "named_failure_v1", "timestamp_ns": 15}, "censoring_event": null,
+      "landmarks": [{"landmark_id": "episode-4-landmark-0", "schedule_index": 0, "time_ns": 10, "feature_cutoff_ns": 10, "features": [{"feature_id": "design_progress", "value": 0.0, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, {"feature_id": "diagnostic_signal", "value": 1.1, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]}]
+    },
+    {
+      "episode_id": "episode-5", "persistent_world_id": "world-5", "task_family_id": "family-b", "policy_checkpoint_id": "policy-v1", "censoring_stratum": "stratum-a", "censoring_stratum_frozen_at_ns": 0, "censoring_stratum_source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "episode_start_ns": 0, "planned_observation_end_ns": 20, "observed_until_ns": 20,
+      "terminal_event": {"event_id": "competing-5", "code": "terminal_success", "timestamp_ns": 15}, "censoring_event": null,
+      "landmarks": [{"landmark_id": "episode-5-landmark-0", "schedule_index": 0, "time_ns": 10, "feature_cutoff_ns": 10, "features": [{"feature_id": "design_progress", "value": 0.1, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, {"feature_id": "diagnostic_signal", "value": -0.9, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]}]
+    },
+    {
+      "episode_id": "episode-6", "persistent_world_id": "world-6", "task_family_id": "family-b", "policy_checkpoint_id": "policy-v1", "censoring_stratum": "stratum-a", "censoring_stratum_frozen_at_ns": 0, "censoring_stratum_source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "episode_start_ns": 0, "planned_observation_end_ns": 20, "observed_until_ns": 20, "terminal_event": null, "censoring_event": null,
+      "landmarks": [{"landmark_id": "episode-6-landmark-0", "schedule_index": 0, "time_ns": 10, "feature_cutoff_ns": 10, "features": [{"feature_id": "design_progress", "value": 0.2, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, {"feature_id": "diagnostic_signal", "value": -0.7, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]}]
+    },
+    {
+      "episode_id": "episode-7", "persistent_world_id": "world-7", "task_family_id": "family-b", "policy_checkpoint_id": "policy-v1", "censoring_stratum": "stratum-a", "censoring_stratum_frozen_at_ns": 0, "censoring_stratum_source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "episode_start_ns": 0, "planned_observation_end_ns": 20, "observed_until_ns": 20, "terminal_event": null, "censoring_event": null,
+      "landmarks": [{"landmark_id": "episode-7-landmark-0", "schedule_index": 0, "time_ns": 10, "feature_cutoff_ns": 10, "features": [{"feature_id": "design_progress", "value": 0.3, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}, {"feature_id": "diagnostic_signal", "value": -0.5, "source_start_ns": 0, "source_end_ns": 10, "available_at_ns": 10, "source_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]}]
+    }
+  ]
+}

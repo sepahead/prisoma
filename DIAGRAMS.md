@@ -35,6 +35,8 @@ flowchart TD
         Adapter["safe_adapter → contract<br/>honest {v,l,d,a}_provenance (S2/EC1 reference adapter)"]:::run
         Attr["attribution reference probe + Rerun adapter<br/>faithfulness/provenance/relevance implemented"]:::run
         Obs["ncp-observer tap pinned NCP v0.8.0 (wire 0.8)<br/>optional read-only, off critical path"]:::run
+        H1Ref["synthetic H1 Protocol-A reference<br/>preflight + paired response scoring"]:::run
+        H2Ref["synthetic H2 fixed-horizon reference<br/>IPCW Brier + alarm accounting"]:::run
     end
 
     Power["CAPTURE / POWER GATE NOT READY (§6.8)<br/>idealized power simulator exists;<br/>nested capture model + H1 prospective features missing"]:::blocked
@@ -52,6 +54,7 @@ flowchart TD
     Harness --> ProvGate
     Harness --> Adapter
     Harness --> Attr
+    Harness --> H1Ref & H2Ref
     Adapter --> Capture
     Power -. blocks .-> Capture
     Capture -. blocks .-> EC1 & H1 & H2 & H3 & H4
@@ -63,7 +66,7 @@ flowchart TD
 
 ## 0.1 Confirmatory Claim Status (EC1, H1–H4)
 
-Claims grouped by their `grandplan.md` §4 confirmatory-registry role (kill rules in §3.8; falsifiability in §13 Lens 20). All confirmatory tests remain blocked on the real-VLA capture and the intervention pilot; only the estimator-validation and attribution-probe machinery run today on fixtures/synthetic.
+Claims grouped by their `grandplan.md` §4 confirmatory-registry role (kill rules in §3.8; falsifiability in §13 Lens 20). All confirmatory tests remain blocked on the real-VLA capture and the intervention pilot. Estimator validation, attribution probes, and the explicitly non-evidentiary synthetic H1 Protocol-A and H2 fixed-horizon/IPCW/alarm software references run today on fixtures.
 
 ```mermaid
 flowchart TB

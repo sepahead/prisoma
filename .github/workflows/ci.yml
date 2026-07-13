@@ -82,6 +82,32 @@ jobs:
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_h1_protocol_a_parse_invalid_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h1_protocol_a_parse_invalid_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h1_protocol_a_parse_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+          # Synthetic fixed-horizon H2 protocol arithmetic only: no prospective capture,
+          # H2 evidence, control-plane events, or PID events.
+          cargo run -p pid-sim --bin pid-h2-reference -- --dataset crates/pid-sim/fixtures/h2_reference/dataset_complete.json --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json /tmp/prisoma_h2_reference_summary.json --runlog /tmp/prisoma_h2_reference_runlog.jsonl
+          grep -q '"passed": true' /tmp/prisoma_h2_reference_summary.json
+          grep -q '"establishes_h2_evidence": false' /tmp/prisoma_h2_reference_summary.json
+          grep -q '"prospective_capture": false' /tmp/prisoma_h2_reference_summary.json
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_h2_reference_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h2_reference_runlog.jsonl | grep -F 'actions=0' >/dev/null
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h2_reference_runlog.jsonl | grep -F 'interventions=0' >/dev/null
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h2_reference_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+          cargo run -p pid-sim --bin pid-h2-reference -- --dataset crates/pid-sim/fixtures/h2_reference/dataset_censored.json --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json /tmp/prisoma_h2_censored_summary.json --runlog /tmp/prisoma_h2_censored_runlog.jsonl
+          grep -q '"censored_outcomes": 1' /tmp/prisoma_h2_censored_summary.json
+          grep -q '"ipcw_weight": null' /tmp/prisoma_h2_censored_summary.json
+          grep -q '"reason": "alarm_followup_incomplete"' /tmp/prisoma_h2_censored_summary.json
+          python -c 'import json; d=json.load(open("/tmp/prisoma_h2_censored_summary.json")); p=[x for f in d["report"]["fold_outcomes"] if f["status"]=="produced" for x in f["score"]["predictions"]]; w=lambda e: next(x["ipcw_weight"] for x in p if x["episode_id"]==e); assert w("episode-4")==w("episode-5")==1.0; assert abs(w("episode-6")-4/3)<1e-12 and abs(w("episode-7")-4/3)<1e-12'
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_h2_censored_runlog.jsonl
+          if cargo run -p pid-sim --bin pid-h2-reference -- --dataset crates/pid-sim/fixtures/h2_reference/dataset_parse_invalid.json --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json /tmp/prisoma_h2_invalid_summary.json --runlog /tmp/prisoma_h2_invalid_runlog.jsonl; then exit 1; fi
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_h2_invalid_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h2_invalid_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h2_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
+          perl -0pe 's/"censoring_stratum_frozen_at_ns": 0/"censoring_stratum_frozen_at_ns": 11/' crates/pid-sim/fixtures/h2_reference/dataset_complete.json > /tmp/prisoma_h2_semantic_invalid.json
+          if cargo run -p pid-sim --bin pid-h2-reference -- --dataset /tmp/prisoma_h2_semantic_invalid.json --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json /tmp/prisoma_h2_semantic_invalid_summary.json --runlog /tmp/prisoma_h2_semantic_invalid_runlog.jsonl; then exit 1; fi
+          grep -q '"feature_unavailable_at_landmark"' /tmp/prisoma_h2_semantic_invalid_summary.json
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_h2_semantic_invalid_runlog.jsonl
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h2_semantic_invalid_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
+          cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_h2_semantic_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
           cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --seeds 1 --summary-json /tmp/prisoma_exp0_summary.json --runlog /tmp/prisoma_exp0_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/prisoma_exp0_runlog.jsonl
           cargo run -p pid-sim --bin pid-toy-harness -- --episodes 32 --summary-json /tmp/prisoma_toy_summary.json --runlog /tmp/prisoma_toy_runlog.jsonl

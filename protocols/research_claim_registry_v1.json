@@ -12,7 +12,7 @@
     "variable_dictionary": "partial_software_contracts_only",
     "treatment_ontology": "partial_h1_common_preflight_only",
     "h1_estimand": "deterministic_protocol_a_software_reference_fixture_only_real_estimand_unfrozen",
-    "h2_estimand": "unfrozen_pending_landmark_failure_and_censoring_design",
+    "h2_estimand": "synthetic_fixed_horizon_reference_only_real_estimand_and_ontology_unfrozen",
     "minimum_useful_effects": "unfrozen_pending_pilot",
     "pre_treatment_feature_whitelist": "partial_h1_common_preflight_lineage_rule",
     "holdout_access_ledger": "unimplemented",
@@ -100,31 +100,43 @@
     {
       "claim_id": "H2",
       "registered_role": "prospective_censoring_aware_failure_prediction",
-      "execution_status": "unimplemented",
-      "scientific_status": "blocked_on_landmark_design_real_capture_and_comparator_interfaces",
+      "execution_status": "deterministic_synthetic_fixed_horizon_software_reference_fixture_runnable_real_execution_unimplemented",
+      "scientific_status": "blocked_on_domain_freeze_real_capture_comparator_frontier_and_external_validation",
       "pid_dependency": "none",
       "current_artifacts": [
         {
           "path": "crates/pid-sim/src/offline_harness.rs",
           "status": "static_factual_outcome_baselines_only_not_h2"
+        },
+        {
+          "path": "crates/pid-sim/src/h2_reference.rs",
+          "status": "implemented_synthetic_landmark_ipcw_brier_reliability_alarm_and_utility_arithmetic_reference"
+        },
+        {
+          "path": "crates/pid-sim/src/bin/h2_reference.rs",
+          "status": "implemented_content_addressed_fail_closed_fixture_cli"
+        },
+        {
+          "path": "crates/pid-sim/fixtures/h2_reference",
+          "status": "complete_followup_censoring_and_parse_failure_software_fixtures_only"
         }
       ],
       "proof_commands": [
-        "just firebreak"
+        "just firebreak",
+        "just h2-reference"
       ],
       "remaining_required_artifacts": [
-        "landmark_and_feature_cutoff_contract",
-        "failure_competing_event_and_censoring_ontology",
-        "censoring_aware_proper_score",
-        "frozen_alarm_policy",
-        "nondetection_retaining_lead_time",
-        "decision_utility",
+        "domain_specific_real_estimand_event_ontology_and_landmark_freeze",
+        "prospective_real_capture_with_independent_failure_episode_and_family_power",
+        "full_calibration_intercept_slope_and_uncertainty_stack",
+        "training_only_alarm_threshold_selection_or_external_threshold_justification",
+        "censoring_sensitivity_and_missing_sensor_analyses",
         "matched_access_comparator_frontier",
         "external_or_later_time_holdout"
       ],
       "minimum_useful_effect_status": "unfrozen_pending_pilot",
-      "permitted_language": "static label baselines demonstrate a PID-free dependency path only",
-      "prohibited_language": "prospective H2 execution, calibration, warning utility, or deployment validity exists"
+      "permitted_language": "the deterministic synthetic reference exercises fixed-horizon landmark eligibility, grouped train-only fitting, competing-event classification, stratified reverse-KM IPCW Brier arithmetic, reliability bins, frozen alarm accounting, nondetection retention, and declared-payoff utility on checked fixtures only",
+      "prohibited_language": "H2 passed; prospective prediction, calibration validity, warning benefit, comparator superiority, censoring-assumption validity, transport, safety gain, or deployment validity exists"
     },
     {
       "claim_id": "H3",

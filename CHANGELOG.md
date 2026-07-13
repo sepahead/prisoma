@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### H2 fixed-horizon software reference (2026-07-13)
+
+- Added `pid-h2-reference`, a strict PID-free deterministic synthetic reference for one named
+  fixed-horizon cumulative-incidence estimand. It exact-binds outcome-independent analysis-plan,
+  event-ontology, feature-contract, and split-manifest artifacts; rejects future/unavailable
+  features and episode/world/family fold leakage; fits paired task-family-held-out baseline and
+  diagnostic weighted-logistic models with outer-training transforms; cross-fits frozen-stratum
+  reverse-Kaplan–Meier censoring models inside training; and reports Horvitz–Thompson IPCW Brier
+  arithmetic with target, competing, event-free, and censored outcomes kept distinct. Censored
+  rows remain in the estimand denominator but carry no numeric weight or row-loss placeholder;
+  unsupported strata and positivity failure abstain rather than clip.
+- Added reliability-bin reference arithmetic, executable frozen-threshold persistence/refractory/
+  capacity/event-matching semantics, tagged detected/undetected lead-time records and all-event
+  lead curves, and a declared-payoff utility scenario. A focused multi-landmark boundary test
+  covers positive matching, refractory suppression, capacity rejection, and nondetection. Alarm
+  and utility accounting abstain on the censored artifact because follow-up is incomplete.
+  Passing, censored, future-feature unit, semantic-lineage failure, and readable parse-failure
+  paths produce deterministic canonical logs with zero PID, action, and intervention events. The
+  binding flags explicitly deny prospective capture, H2 evidence,
+  external validation, comparator completeness, and censoring-assumption validation.
+- Replaced H1 Protocol A's potentially oversized full-input `ConfigLogged` value with a compact
+  content-addressed receipt, keeping every accepted input below the run-log line limit while the
+  exact input remains reconstructable from its logged artifact hash.
+
 ### H1 Protocol A software reference + current-truth ledgers (2026-07-13)
 
 - Added a strict, fail-closed H1 common-preflight schema and `pid-h1-preflight` CLI. It binds the
