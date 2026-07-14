@@ -16,3 +16,11 @@ members = [
 # SDK (https://github.com/sepahead/NCP, tag v0.8.0) and pulls in NCP + Zenoh — deliberately
 # kept OFF prisoma's critical path. Build it explicitly with `--manifest-path`.
 exclude = ["crates/ncp-observer", "pid-rs"]
+
+[workspace.package]
+version = "0.9.0"
+authors = ["Sepehr Mahmoudian"]
+edition = "2021"
+rust-version = "1.93"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sepahead/prisoma"

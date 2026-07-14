@@ -34,7 +34,7 @@
       "feature_id": "analysis.estimate_abstention",
       "feature": "Report-first PID estimate eligibility and abstention",
       "status": "tested",
-      "exact_revision": "pid-rs@ac4a7803c5a77408f5e9176c60cda71c65c38260; local-sha256:05c6e259572a608a6c0e6c2b40cc671d20621935140da2c3f573821a42250aec",
+      "exact_revision": "pid-rs@ac4a7803c5a77408f5e9176c60cda71c65c38260; local-sha256:660ba9ae7b8e038c9e8e53804a8df907fb8f358e960f37ef4fe43d3145e0ebf4",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -75,7 +75,7 @@
       "feature_id": "bridge.agent_control_plane",
       "feature": "Agent Bridge typed control plane",
       "status": "tested",
-      "exact_revision": "local-sha256:d2d3d5732a23cbb926200206ad79bd495d46a4a801c2ee96872f2c45a6733253",
+      "exact_revision": "local-sha256:2e214953408a9b464f3d4c4eecd1b2f771cedb38a1a1f64289c14541338acf34",
       "revision_inputs": [
         "crates/pid-bridge",
         "crates/pid-rerun",
@@ -88,7 +88,7 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-bridge",
-          "sha256": "79399120a812d0319b5d721df3b0ab5468ffc8a6591a70bccb2fff7892bf5172"
+          "sha256": "8a15aeb119a1fd7e308e8acb0be338ac2a9c5b03c4662af1398152d26f1d299c"
         },
         {
           "path": "crates/pid-rerun/src/runlog.rs",
@@ -128,7 +128,7 @@
       "feature_id": "capture.offline_vlda_harness",
       "feature": "Offline (V,L,D,A) artifact-to-run-log harness",
       "status": "tested",
-      "exact_revision": "local-sha256:cb0b602aae364a47ba3b050a5108c2c68116812d2194ecddf5e34731ad69af52",
+      "exact_revision": "local-sha256:c15c766e795a3b4e7eef276632a413c62f43e798dddcc1d628701169f0839d29",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -165,7 +165,7 @@
       "feature_id": "capture.safe_reference_adapter",
       "feature": "SAFE canonical-bundle reference adapter",
       "status": "tested",
-      "exact_revision": "local-sha256:f80db1226d4ca3185ed4c7592799690b81f902822903efdd893482d018b4bcf8",
+      "exact_revision": "local-sha256:deb72fb3b16b1b27d73cafdf488eb72524a47443bdc047b1a2b4e6f92c8f1b8c",
       "revision_inputs": [
         "experiments/safe_adapter",
         "tests/python/test_safe_adapter.py",
@@ -303,7 +303,7 @@
       "feature_id": "experiment.h1_common_preflight",
       "feature": "H1 pre-treatment lineage and diagnostic-noninterference preflight",
       "status": "tested",
-      "exact_revision": "local-sha256:cb0b602aae364a47ba3b050a5108c2c68116812d2194ecddf5e34731ad69af52",
+      "exact_revision": "local-sha256:c15c766e795a3b4e7eef276632a413c62f43e798dddcc1d628701169f0839d29",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -339,7 +339,7 @@
       "feature_id": "experiment.h1_protocol_a_reference",
       "feature": "Deterministic H1 Protocol-A scoring reference",
       "status": "tested",
-      "exact_revision": "local-sha256:cb0b602aae364a47ba3b050a5108c2c68116812d2194ecddf5e34731ad69af52",
+      "exact_revision": "local-sha256:c15c766e795a3b4e7eef276632a413c62f43e798dddcc1d628701169f0839d29",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -433,7 +433,7 @@
       "feature_id": "experiment.h2_reference",
       "feature": "Deterministic H2 fixed-horizon/IPCW/alarm arithmetic reference",
       "status": "tested",
-      "exact_revision": "local-sha256:cb0b602aae364a47ba3b050a5108c2c68116812d2194ecddf5e34731ad69af52",
+      "exact_revision": "local-sha256:c15c766e795a3b4e7eef276632a413c62f43e798dddcc1d628701169f0839d29",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -622,7 +622,7 @@
       "feature_id": "observer.ncp_fault_observatory",
       "feature": "Deterministic NCP wire-0.8 protocol-fault observatory",
       "status": "tested",
-      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:91efba6fc052cd4061cb3d06b632197d695d315bdd4c8c1d49f706bcc6327eed",
+      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:fcae0a76248ac36b84909dea0613f4f634a91f6ecc7e277fad0d6b399b4a2011",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs",
@@ -656,7 +656,7 @@
       "feature_id": "observer.ncp_read_only",
       "feature": "Read-only NCP wire-0.8 observer",
       "status": "tested",
-      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:6d74719a4614db587a3739d5c2e353438fae4d47e35012d47cc3fdf11a3a6439",
+      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:4810805a86dee59aecf68d0e8bc1ccc10fa4931ff0d44af3ec12d7cfa900cf58",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs"
@@ -665,7 +665,7 @@
       "evidence_artifacts": [
         {
           "path": "crates/ncp-observer/Cargo.lock",
-          "sha256": "8d5b16655380753eb6ede231b32a8daead69ceba9e5565d6ea1228fe191e05cb"
+          "sha256": "57656c677115434165aad75eaa4acc8b47bec919e43a1ee9ee7a62c1ec898821"
         },
         {
           "path": "crates/ncp-observer/src/lib.rs",
@@ -689,7 +689,7 @@
       "feature_id": "pid.estimator_core",
       "feature": "Pinned pid-rs 1.0 estimator core",
       "status": "tested",
-      "exact_revision": "pid-rs@ac4a7803c5a77408f5e9176c60cda71c65c38260; local-sha256:0e6857f27f3c2ee7efeab1ec7d285324d23985e353b7eb19f5453571dc6b6299",
+      "exact_revision": "pid-rs@ac4a7803c5a77408f5e9176c60cda71c65c38260; local-sha256:1ee50973501050d630ba53a7062eb5199cbe5e74e45de8556b7f2f43c91bf055",
       "revision_inputs": [
         "pid-rs",
         ".gitmodules",
@@ -822,7 +822,7 @@
       "feature_id": "replay.canonical_runlog",
       "feature": "Canonical run-log validation, replay, manifest, and sidecars",
       "status": "tested",
-      "exact_revision": "pid-rs@ac4a7803c5a77408f5e9176c60cda71c65c38260; local-sha256:05c6e259572a608a6c0e6c2b40cc671d20621935140da2c3f573821a42250aec",
+      "exact_revision": "pid-rs@ac4a7803c5a77408f5e9176c60cda71c65c38260; local-sha256:660ba9ae7b8e038c9e8e53804a8df907fb8f358e960f37ef4fe43d3145e0ebf4",
       "revision_inputs": [
         "pid-rs",
         ".gitmodules",
@@ -859,7 +859,7 @@
       "feature_id": "sim.rapier_backend",
       "feature": "Rapier3D-f64 manipulation backend",
       "status": "tested",
-      "exact_revision": "rapier3d-f64@0.22.0#sha256:7a7a0cd7daa6f2caa8168b97e047faa1e445ee984c24e0ca984e7fc657278dde; local-sha256:b30062cbd65f4421c3b040f5100ab1f4619bfafa7b242bfd4698a015838ddd65",
+      "exact_revision": "rapier3d-f64@0.22.0#sha256:7a7a0cd7daa6f2caa8168b97e047faa1e445ee984c24e0ca984e7fc657278dde; local-sha256:e6c3595bafd6e695bc6f22c4c35dc1b472cf2344995c08e6536f0c28b0151797",
       "revision_inputs": [
         "crates/pid-sim",
         "Cargo.toml",
@@ -878,7 +878,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "48c201b34ed3c47694149cbb858ae206bca347f3140d619468851c3102a5d1d8"
+          "sha256": "61c692c72169fe60dd95f4ea77768d3d8420f0e0f2c6b97f71dd237ad0e2842f"
         }
       ],
       "known_limitations": "The scripted push-to-goal fixture is a deterministic software cross-check, not a real VLA policy/environment choice, external adapter, validated simulator, or physical repeatability study.",
@@ -921,7 +921,7 @@
       "feature_id": "viewer.rerun_adapter",
       "feature": "Run-log-to-Rerun validating adapter",
       "status": "tested",
-      "exact_revision": "rerun@0.28.2#sha256:62eede2f27637f240443d73c5c3f7e3c8f0885b5d49b25994936300bed523241; local-sha256:e438830b96a930da1f1c4e44a6dfdaa10500b860355322171c80c2c64150ecc9",
+      "exact_revision": "rerun@0.28.2#sha256:62eede2f27637f240443d73c5c3f7e3c8f0885b5d49b25994936300bed523241; local-sha256:bedd2df3ce5cb717e295952a343f46fe2a9909f83229c1c476cccfbb80693c60",
       "revision_inputs": [
         "crates/pid-rerun",
         "crates/pid-sim",
@@ -934,7 +934,7 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-rerun",
-          "sha256": "8e121610292ed36121a033758ce0cd4210f7d872a03f736636578ae1f0dddb9c"
+          "sha256": "80f17af0d0186de7e2b71f1fa98353bb56a2061823d5d9b1ec09df99d3b42d58"
         },
         {
           "path": "ARCHITECTURE.md",

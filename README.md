@@ -19,6 +19,11 @@
 
 prisoma is a research toolkit providing **auditable experiment semantics** for **intervention‑grounded diagnosis** of **Vision‑Language‑Action (VLA)** policies: a provenance‑complete capture–intervention–replay substrate for testing whether genuinely pre‑treatment diagnostics predict intervention response and future failure beyond strong baselines. **Partial Information Decomposition (PID)** — the shared‑exclusions measure `I^sx_∩` — is one **conditional** candidate diagnostic, central only if it passes preregistered population, measure, estimator, and application gates (`grandplan.md` §7.1). The project is **gate‑driven**: PID atoms are never interpreted on real embeddings until those gates pass; confirmatory claims are bound by the `grandplan.md` §4 claim registry (EC1, H1–H4), the §3.8 PID kill rules, and the future frozen analysis plan specified in §6; and negative results are first‑class publishable outcomes.
 
+**Release 0.9.0** is a source and research-software preview authored by **Sepehr
+Mahmoudian**. It packages the implemented, testable infrastructure and its
+evidence boundaries; it is not a frozen preregistration, confirmatory study,
+EC1 validation, production deployment, or scientific-results release.
+
 ## Documentation map
 
 Read these in order of what you need. `grandplan.md` is canonical; the others are kept consistent with it.
@@ -32,8 +37,11 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `pidsplatspecs.md` | Simulation/spec details (PID‑Splat) |
 | `findings.md` | Current estimator-status evidence (Exp0 results + interpretation) |
 | `REVIEW_AND_TODO.md` | Whole-repo review, prioritized to-do list, current critical path |
+| `LIMITATIONS.md` | Release-scoped claim, data, security, and deployment boundaries |
+| `THESIS_EVIDENCE_INDEX.md` | Claim-by-claim map from software proofs to missing scientific evidence |
 | `docs/CAPABILITY_MATRIX.md` | Generated, content-bound current capability/evidence inventory |
 | `AGENTS.md` | Ground rules + a detailed "what actually exists" inventory for contributors |
+| `CONTRIBUTING.md`, `SECURITY.md` | Contribution controls and private vulnerability-reporting policy |
 | `NCP_DEV_PROMPT.md` | Optional: dev handoff for the Engram/NCP `(V,L,D,A)` bridge |
 | `uidesigner/UI.md` | UI/UX spec (viewer-first; ordered by milestones) |
 | `GAUSS_MI_INTEGRATION.md`, `WORLD_WARP_INTEGRATION.md` | Optional add-on specs (3DGS reconstruction-quality study; external world-model baseline) |
@@ -41,10 +49,14 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 
 ## Prerequisites
 
-- **Rust** — a stable toolchain new enough for the current local dependency graph (Rerun
-  0.28 declares Rust 1.88). The root workspace does not currently declare an enforced MSRV;
-  the separate `pid-rs` workspace targets 1.80. Install via [rustup](https://rustup.rs/).
-- **Git submodule** — `git submodule update --init` after cloning (fetches `pid-rs`, the estimator core). There are no nested submodules, so `--recursive` is not required. The submodule URL is SSH (`git@github.com:sepahead/pid-rs.git`); if you cloned over HTTPS without SSH keys, either configure SSH or add a `git config --global url."https://github.com/".insteadOf git@github.com:` rewrite first.
+- **Rust 1.93 or newer** — the local locked graph enforces this floor (the
+  highest current transitive floor is `fixed` 1.31). The separate pinned
+  `pid-rs` workspace declares Rust 1.89. Install via
+  [rustup](https://rustup.rs/).
+- **Git submodule** — `git submodule update --init` after cloning (fetches
+  `pid-rs`, the estimator core). There are no nested submodules, so
+  `--recursive` is not required. The checked-in submodule URL is HTTPS, so a
+  public clone does not require GitHub SSH credentials.
 - **Python 3.11+** with [`uv`](https://docs.astral.sh/uv/) — only for the `experiments/` (SAFE adapter + attribution probe) and the doc-audit scripts. `numpy` is the sole hard runtime dep; `uv sync` installs the dev/analysis groups.
 - **`just`** (optional) — a task runner; every `just` recipe below has a plain `cargo`/`python` equivalent. Install with `cargo install just`.
 - **`maturin`** (optional) — only to build the Python bindings (`pid_core_rs`) from the submodule.
@@ -57,7 +69,7 @@ cargo test --workspace
 cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0   # prints the GO/PIVOT/NO-GO verdict
 ```
 
-## Current Status & What To Do, In Order (docset v12.5; repository state 2026-07-13)
+## Current Status & What To Do, In Order (docset v12.5; release 0.9.0)
 
 **Status at a glance:**
 

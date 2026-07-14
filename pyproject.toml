@@ -1,20 +1,25 @@
-[build-system]
-requires = ["maturin>=1.0,<2.0"]
-build-backend = "maturin"
-
 [project]
 name = "prisoma"
-version = "0.1.0"
-description = "Wibral-group shared-exclusions PID (I^sx_∩) for VLA diagnostics"
+version = "0.9.0"
+description = "Auditable experiment semantics for intervention-grounded diagnosis of embodied policies"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+  { name = "Sepehr Mahmoudian" },
+]
+license = "MIT OR Apache-2.0"
+keywords = ["embodied-ai", "experiment-semantics", "provenance", "vla"]
 
-# Keep the default dependency set minimal; add groups as needed.
-dependencies = [
+[project.urls]
+Homepage = "https://github.com/sepahead/prisoma"
+Repository = "https://github.com/sepahead/prisoma"
+Issues = "https://github.com/sepahead/prisoma/issues"
+
+[dependency-groups]
+runtime = [
   "numpy>=1.26",
 ]
 
-[dependency-groups]
 dev = [
   "maturin>=1.0,<2.0",
   "pytest>=8.0",
@@ -37,7 +42,11 @@ report = [
 ]
 
 [tool.uv]
-default-groups = ["dev", "analysis"]
+# Prisoma 0.9 is a source/research release, not a PyPI distribution. The
+# `pid_core_rs` Python extension is owned and versioned by the pinned `pid-rs`
+# submodule and is built explicitly from its own Cargo manifest.
+package = false
+default-groups = ["runtime", "dev", "analysis"]
 
 [tool.ruff]
 extend-exclude = [
@@ -53,10 +62,3 @@ extend-exclude = [
 # key the Rust harness expects; it is not an ambiguous accident here.
 "experiments/safe_adapter/*" = ["E741"]
 "tests/python/test_safe_adapter.py" = ["E741"]
-
-[tool.maturin]
-# `pid-python` is the canonical Python binding in the pid-rs submodule (single source of truth:
-# https://github.com/sepahead/pid-rs). Build it from there; it is no longer vendored in this repo.
-manifest-path = "pid-rs/crates/pid-python/Cargo.toml"
-module-name = "pid_core_rs"
-features = ["pyo3/extension-module"]

@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use Prisoma, please cite this software release."
+title: "Prisoma: auditable experiment semantics for embodied-policy diagnostics"
+type: software
+version: 0.9.0
+date-released: 2026-07-14
+authors:
+  - family-names: Mahmoudian
+    given-names: Sepehr
+repository-code: "https://github.com/sepahead/prisoma"
+license:
+  - MIT
+  - Apache-2.0
+abstract: >-
+  Prisoma is a research toolkit for provenance-complete capture,
+  intervention, and replay experiments on embodied policies. The 0.9 release
+  is a source and software preview; it makes no confirmatory scientific claim.

@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+No changes yet.
+
+## 0.9.0 - 2026-07-14
+
+### Release scope
+
+- First source and research-software preview under the Prisoma version line,
+  authored by Sepehr Mahmoudian.
+- Packages the tested capture, intervention, replay, simulation, adapter,
+  governance, and diagnostic groundwork while preserving the canonical
+  scientific gates. It does not claim a frozen M0 preregistration, registered
+  confirmatory holdout, EC1 completion, H1–H4 result, production readiness, or
+  validated PID application to real embeddings.
+- The repository is the distribution unit for 0.9. The local Rust crates are
+  private workspace components, the root Python metadata is not a PyPI package,
+  and the `pid_core_rs` binding remains owned and versioned by the pinned
+  `pid-rs` submodule.
+
 ### M0 research-governance honesty scaffolds (2026-07-13)
 
 - Added strict machine-readable M0 artifacts for separate H1-A/H1-B/H2/H3/H4 preregistration

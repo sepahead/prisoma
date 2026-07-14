@@ -18,7 +18,7 @@ version = 2
 # publish) is also denied — it must not be in the lock.
 yanked = "deny"
 # The default-workspace advisories (bytes overflow, rustls-webpki CVEs, yanked lz4_flex via
-# the rerun/arrow stack) were FIXED by a `cargo update`, not ignored. The two ignores below
+# the rerun/arrow stack) were FIXED by a `cargo update`, not ignored. The three ignores below
 # are TRANSITIVE advisories in the SEPARATE `ncp-observer` (zenoh = "1.9.0") pass only, with
 # no in-lock fix; they mirror NCP's deny.toml. Drop each when a zenoh bump lets us past it.
 # (They report a harmless "no crate matched" on the default-workspace pass.)
@@ -28,6 +28,10 @@ ignore = [
     "RUSTSEC-2026-0041",
     # paste — unmaintained proc-macro (no vuln), transitive via zenoh. No upstream fix.
     "RUSTSEC-2024-0436",
+    # rustls-pemfile — unmaintained (no vulnerability), transitive through Zenoh's
+    # mandatory TLS/QUIC link stack. Zenoh 1.9 has no replacement release; NCP
+    # v0.8.0 records the same temporary exception. Remove on the next qualified pin.
+    "RUSTSEC-2025-0134",
 ]
 
 [licenses]
