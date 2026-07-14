@@ -17,10 +17,12 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 | `pid-core` | 1.0.0 | MIT OR Apache-2.0 |
 | `pid-runlog` | 1.0.0 | MIT OR Apache-2.0 |
 | `rerun` | 0.28.2 | MIT OR Apache-2.0 |
+| `same-file` | 1.0.6 | Unlicense/MIT |
 | `serde` | 1.0.228 | MIT OR Apache-2.0 |
 | `serde_json` | 1.0.150 | MIT OR Apache-2.0 |
 | `sha1` | 0.10.6 | MIT OR Apache-2.0 |
 | `sha2` | 0.10.9 | MIT OR Apache-2.0 |
+| `tempfile` | 3.27.0 | MIT OR Apache-2.0 |
 
 ## Python declared dependencies (versions locked in `uv.lock`)
 
