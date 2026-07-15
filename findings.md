@@ -7,9 +7,11 @@ Experiment 0 tests Partial Information Decomposition (PID) estimators on synthet
 **Status: publish separate gate verdicts, not one.** These map onto the four PID validity
 gates in `grandplan.md` §7.1 — population, measure, estimator, and **application**.
 
-- **MI/coherence (estimator) gate: NO-GO** on the high-dimensional nuisance controls. pid-rs
-  0.4.0 exposes three invariant-bound violations (for example `r̄≈28.6`, `v̄≈−26.6` on
-  `unique_s1_pca`, d=64), so those MI terms cannot support atoms or Shannon invariants.
+- **MI/coherence (estimator) gate: NO-GO** for the exact high-dimensional nuisance-control
+  regimes tested by the current `pid-rs` 1.0.0 pin. The current run exposes three invariant-bound
+  violations (for example `r̄≈28.6`, `v̄≈−26.6` on `unique_s1_pca`, d=64), so those estimated MI
+  terms cannot support atoms or Shannon invariants in those regimes. This does not assign the
+  population or measure gate for every other estimand/configuration tuple.
 - **Continuous `I^sx_∩` application gate: NOT APPLICATION-VALIDATED (blocked).** The default
   Experiment 0 aggregate tests
   `independent_additive` redundancy against zero even though the implementation and committed
@@ -22,13 +24,18 @@ gates in `grandplan.md` §7.1 — population, measure, estimator, and **applicat
 The operational conclusion is unchanged and stronger: do not interpret continuous atoms on
 real embeddings, but state the reason precisely.
 
-**Docset-wide final solution:** `grandplan.md` §16 is the decision record and §5.1 is the S0–S7 gate sequence. These findings justify the estimator gate (S1): keep the Experiment 0 / geometry gates strict, then build the EC1 provenance-complete run-log/replay/Rerun substrate before any Tauri/SparkJS product shell or high-dimensional VLA atom claim.
+**Docset-wide final solution:** `grandplan.md` §16 is the decision record and §5.1 is the S0–S7
+gate sequence. These findings justify a fail-closed Experiment 0 estimator gate (S1). Geometry
+statistics remain descriptive warnings unless a versioned support envelope has calibrated them
+against held-out recovery; they are not independent proof of validity or failure. Build the EC1
+provenance-complete run-log/replay/Rerun substrate before any Tauri/SparkJS product shell or
+high-dimensional VLA atom claim.
 
 ---
 
 ## Update (2026-07-12): `pid-rs` 1.0 and the binary-`L` support mismatch
 
-The submodule now pins `pid-rs` **1.0.0** (`ac4a780`). 1.0 makes continuous support **declared,
+The submodule now pins `pid-rs` **1.0.0** (`43ab605`). 1.0 makes continuous support **declared,
 never inferred**, and fails closed when a tuple falls outside it. Running the migrated harness
 surfaced a defect that pid-rs 0.4 had been hiding:
 
@@ -43,9 +50,12 @@ abstentions with stable reason codes, and the harness produces no numeric placeh
 
 Two further constraints surfaced the same way, and are reported honestly rather than worked around:
 
-- Continuous shared exclusions requires **equal ambient source dimensions**, so `V` (2-d) paired
-  with `D` (1-d) is structurally inapplicable on that fixture
-  (`estimator_requires_equal_source_dimensions`).
+- The pinned two-source continuous `IsxMethod::EhrlichKsg` implementation requires **equal
+  ambient source column counts** as a necessary common-radius scaling guard. Therefore `V` (2-d)
+  paired with `D` (1-d) is ineligible for that estimator on this fixture
+  (`estimator_requires_equal_source_dimensions`). This is estimator-specific, not a theorem that
+  all continuous PID measures require equal-dimensional sources, and equality would not by itself
+  validate the tuple.
 - The binary `L` axis is degenerate for the geometry diagnostics too (duplicate rows give a zero
   nearest-neighbour distance), so its intrinsic-dimension and distance-concentration diagnostics now
   fail closed and record a reason instead of emitting a number.
@@ -61,17 +71,23 @@ passes, 9 monotonicity violations, 3 invariant-bound violations. The gate verdic
 
 ## Observed Results
 
-### NaN Values for Red(disj)
+### Failed `Red(disj)` computations (no numeric estimate)
 
-| Scenario | Dimension | Red(disj) | Explanation |
+| Scenario | Dimension | Typed outcome | Explanation |
 |----------|-----------|-----------|-------------|
-| independent_additive | d=10 | NaN | `DisjunctionFromLocalMi` is a heuristic; it can become numerically undefined when pointwise `i(S1,S2;T)` dominates `i(S1;T), i(S2;T)` (log argument ≤ 0). Treat as method failure, not a result. |
-| xor_like | d=10 | NaN | Expected method failure: pointwise `i(S1;T)≈i(S2;T)≈0` but `i(S1,S2;T)>0` makes the disjunction log argument ≤ 0. |
-| xor_like | d=64,256 | 0.000 | Estimation collapsed entirely |
+| independent_additive | d=10 | `abstained` (raw diagnostic marker: `NaN`) | `DisjunctionFromLocalMi` is a heuristic; it can become numerically undefined when pointwise `i(S1,S2;T)` dominates `i(S1;T), i(S2;T)` (log argument ≤ 0). This is method failure, not a result. |
+| xor_like | d=10 | `abstained` (raw diagnostic marker: `NaN`) | Expected method failure: pointwise `i(S1;T)≈i(S2;T)≈0` but `i(S1,S2;T)>0` makes the disjunction log argument ≤ 0. |
+| xor_like | d=64,256 | produced value rounding to `0.000` | The finite-sample estimate collapsed; this is not a zero-population-signal finding. |
 
-**Root Cause**: `Red(disj)` here refers to `IsxMethod::DisjunctionFromLocalMi`, a **non-paper-faithful** experimental baseline that computes `log(exp(i1)+exp(i2)−exp(i12))` from KSG local MI terms. This expression is **undefined** when `exp(i12) > exp(i1)+exp(i2)` at any sample, which can occur in strongly synergistic systems (XOR-like) and also via finite-sample noise/bias in other regimes. The implementation returns an error which this report treats as `NaN`.
+**Root Cause**: `Red(disj)` here refers to `IsxMethod::DisjunctionFromLocalMi`, a
+**non-paper-faithful** experimental baseline that computes
+`log(exp(i1)+exp(i2)−exp(i12))` from KSG local MI terms. This expression is undefined when
+`exp(i12) > exp(i1)+exp(i2)` at any sample, which can occur in strongly synergistic systems
+(XOR-like) and also via finite-sample noise/bias in other regimes. The raw `exp0` diagnostic
+currently maps that internal error to a `NaN` display sentinel. It is not an estimate: any typed
+application-facing outcome must be `abstained` with a reason code and **no numeric field**.
 
-### Zero MI Estimates at High Dimensions
+### Near-zero MI estimates despite preserved population MI
 
 | Scenario | d=10 | d=64 | d=256 |
 |----------|------|------|-------|
@@ -79,11 +95,19 @@ passes, 9 monotonicity violations, 3 invariant-bound violations. The gate verdic
 | redundant_copy I1 | 0.488 | 0.076 | 0.019 |
 | xor_like I12 | 0.030 | 0.000 | 0.000 |
 
-**Root Cause**: Curse of dimensionality for kNN-based estimation.
+**Interpretation**: in these finite-sample, nuisance-rich Euclidean/Chebyshev regimes, the tested
+KSG configuration fails to recover MI that the data-generating law preserves. Distance
+concentration and dimension-dependent neighborhood bias are supported mechanisms; the table is
+not evidence that the population signal disappeared, nor a universal claim about all kNN
+estimators or all high-ambient-dimensional distributions.
 
-### Constant ID(t) ≈ 1.01 (was ≈ 1.14 under pid-rs 0.3.0)
+### Current ID(t) estimate ≈ 1.01 (historically ≈ 1.14 under pid-rs 0.3.0)
 
-The target T is always 1-dimensional (scalar). Under pid-rs 0.3.0 the estimate was ≈ 1.14 — the documented ~14% finite-sample bias of uncorrected Levina–Bickel. pid-rs 0.4.0's bias-corrected estimator (the k−2 correction) now reads ID(t) ≈ 1.01, confirming that interpretation: the bias was estimator-side, and correcting it recovers the true dimension almost exactly.
+The target T is scalar. Under the historical pid-rs 0.3.0 implementation the estimate was ≈1.14.
+The bias correction introduced in pid-rs 0.4.0 (the k−2 correction) is retained by the current
+1.0.0 pin and yields ≈1.01 on this fixture. That is close estimated recovery of the known
+one-dimensional construction and is consistent with the proposed finite-sample-bias explanation;
+it is not a population-level proof about the diagnostic on other distributions.
 
 ---
 
@@ -121,8 +145,8 @@ with estimator error unless a dimension-specific `I^sx_∩` oracle is supplied.
 
 | Metric | Observed | Heuristic flag (rule-of-thumb) | Interpretation |
 |--------|----------|---------------|----------------|
-| ID(s1,s2) | ≈26–37 (pid-rs 0.4.0 bias-corrected; 28–42 under 0.3.0) | “low” (e.g., < 15) | Data fills high-dimensional space |
-| DCcv | 0.12-0.16 | “not too small” (e.g., > 0.3) | Distance concentration occurring |
+| ID(s1,s2) | ≈26–37 (current 1.0.0 pin; bias correction introduced in 0.4.0), versus 28–42 under historical 0.3.0 | “low” (e.g., < 15) | Sample is consistent with high effective dimension under this diagnostic; not a population proof |
+| DCcv | 0.12-0.16 | “not too small” (e.g., > 0.3) | Low empirical distance CV; descriptive warning, not a calibrated validity verdict |
 | d_rel | 0.07-0.09 | no validity threshold | Sampled-metric tree-likeness only; a Euclidean line has δ=0, so this does not invalidate kNN |
 
 ---
@@ -131,46 +155,64 @@ with estimator error unless a dimension-specific `I^sx_∩` oracle is supplied.
 
 Terminology note: the hypotheses in this section are local Experiment 0 diagnostic hypotheses about estimator behavior. They are not the canonical confirmatory claim registry (EC1, H1–H4), which lives in `grandplan.md` §4 and is summarized in `README.md`.
 
-### Hypothesis 1: Estimators Working Correctly
-> The near-zero values reflect true signal loss due to noise dimensions swamping kNN distances.
+### Hypothesis 1: Recovery failure under nuisance dimensions
+> The near-zero estimates are a finite-sample recovery failure caused by nuisance dimensions,
+> despite non-zero population MI.
 
 **Evidence For**:
-- Gaussian channel sweep shows accurate estimation in 1D
-- Decay pattern (d=10 → d=64 → d=256) is smooth, not erratic
+- The low-dimensional Gaussian control recovers its analytic MI within the curated tolerance
+- Estimated MI decays as nuisance dimension increases while the data-generating population MI is
+  unchanged
+- Marginal/joint estimates violate required information inequalities in the failed regimes
 
 **Evidence Against**:
-- The TRUE mutual information is non-zero (signal exists in dimension 0)
-- Estimation should be biased, not collapsed to zero
+- The current sweep does not isolate one mechanism among distance concentration, neighborhood
+  bias, and other configuration-specific finite-sample effects
+- Smooth decay by itself would not establish the causal mechanism
 
-**Verdict**: PARTIALLY TRUE - estimators are behaving as expected given the geometry, but "working correctly" is misleading since they're not recovering the true MI.
+**Verdict**: SUPPORTED AS A RECOVERY-FAILURE DESCRIPTION FOR THE TESTED REGIMES. It is not a
+claim that the estimator is "working correctly," that population information was lost, or that
+the same mechanism dominates every distribution.
 
-### Hypothesis 2: Fundamental kNN Limitations in High-D
-> Continuous kNN-based PID has fundamental limitations in high dimensions.
+### Hypothesis 2: Regime-limited kNN recovery at high effective dimension
+> The tested continuous kNN MI/PID configuration has severe finite-sample recovery limitations
+> when nuisance-rich data fills a high-dimensional neighborhood geometry.
 
 **Evidence For**:
 - Back-of-envelope uniform coverage in high-d is astronomically large (scales exponentially in `d`; do not treat any single number as exact)
-- Distance concentration is mathematically inevitable
-- All kNN-based MI estimators share this limitation
+- Distance concentration follows under the iid-like/isotropic conditions used by the synthetic
+  nuisance controls
+- The current KSG configuration shows direct analytic-recovery and information-coherence failures
 
 **Evidence Against**:
 - Real high-D data often has low intrinsic dimension
-- Manifold-aware methods might help
+- Alternative metrics, estimators, and manifold-aware methods define separate regimes that have
+  not been tested here
+- Ambient dimension alone does not determine nearest-neighbor consistency or finite-sample error
 
-**Verdict**: TRUE for data that genuinely fills high-D space. The question is whether VLA embeddings do.
+**Verdict**: SUPPORTED FOR THE TESTED NUISANCE-RICH REGIMES; THE UNIVERSAL VERSION IS REJECTED.
+Whether a VLA representation lies in a covered failure regime remains an application-gate
+question.
 
 ### Hypothesis 3: Projection Should Recover Signal
 > Hash/PCA projection to d=64 should preserve enough signal for estimation.
 
 **Evidence For**:
-- Johnson-Lindenstrauss guarantees distance preservation
-- PCA should capture variance
+- A Johnson–Lindenstrauss map can preserve pairwise distances within its stated random-projection
+  conditions
+- PCA preserves directions selected by marginal variance
 
 **Evidence Against**:
 - Signal is 1D out of 256D (0.4% of dimensions)
-- Signal variance = noise variance (no way to distinguish)
-- Projection without supervision is information-destroying
+- Signal variance equals each nuisance-coordinate variance, so the population PCA criterion does
+  not identify the distinguished coordinate
+- Neither tested transform optimizes target-conditioned recovery; compression can dilute or omit
+  the predictive direction
 
-**Verdict**: FALSE as implemented. Would need supervised projection (e.g., project onto directions predictive of T).
+**Verdict**: FALSE for the implemented transforms and fixture. Johnson–Lindenstrauss distance
+preservation is not a guarantee of MI-estimator recovery, and this result is not a theorem about
+all unsupervised projections. A supervised, leakage-controlled projection is a candidate separate
+regime, not a guaranteed repair.
 
 ---
 
@@ -196,10 +238,12 @@ These require different solutions.
    - Or use supervised projection before PID estimation
    - Or use representation learning to find informative subspaces first
 
-3. **The "Flow-as-Bridge" strategy is sound**:
+3. **"Flow-as-Bridge" is a target-side candidate, not a validated geometric escape**:
    - Object-level flow summaries can be kept low-dimensional by construction (e.g., centroid trajectories / principal flow statistics)
    - Robot proprioception is ~7D (joint angles)
-   - These sidestep the high-D problem entirely
+   - A low-dimensional flow target reduces target-side burden but does not remove high-dimensional
+     `V`/`D` source neighborhoods or their joint source–target product geometry; the complete tuple
+     still needs all four gates
 
 ---
 
@@ -209,9 +253,13 @@ These require different solutions.
 
 This paper (arXiv:2504.15779) changes the strategic response to the geometry warnings.
 
-**The "NaN" Root Cause Re-evaluated:** The failures in Exp0 (NaNs, unstable atoms) are partly due to the brittleness of the `I^sx_∩` estimator's geometric requirements (intersection of exclusion balls) in sparse/degenerate data.
+**Failed-computation cause re-evaluated:** Some Exp0 computations that the raw diagnostic marks
+with `NaN`, plus some unstable produced atoms, are consistent with the restricted estimator's
+neighborhood/intersection requirements failing in sparse or degenerate samples. A raw `NaN`
+sentinel is never a scientific result; a typed report must abstain with no numeric placeholder.
 
-**The Solution:** The paper introduces **Average Degree of Redundancy ($\bar{r}$)** and **Vulnerability ($\bar{v}$)**.
+**An alternative diagnostic:** The paper introduces **Average Degree of Redundancy
+($\bar{r}$)** and **Vulnerability ($\bar{v}$)**.
 *   These are **Shannon Invariants**: they depend *only* on Mutual Information terms ($I(S;T)$), not on specific PID atom definitions.
 *   **Implication:** Shannon invariants avoid choosing a redundancy functional, but they do
     not avoid estimator validation. Every constituent marginal and joint MI term—including
@@ -221,13 +269,26 @@ This paper (arXiv:2504.15779) changes the strategic response to the geometry war
 
 We implemented $\bar{r}$ and $\bar{v}$ in Exp0 and observed:
 
-1.  **Stability vs atom estimators:** Unlike `Red(disj)` (a non-paper-faithful baseline) which can be numerically undefined, $\bar{r}$ and $\bar{v}$ are defined whenever the estimated joint MI is nonzero. In practice they are often a more stable screening signal — but treat `NaN` (e.g., when joint MI collapses to ~0) as a failure mode, not as “success”.
+1.  **Stability vs atom estimators:** Unlike `Red(disj)` (a non-paper-faithful baseline), which
+    can be numerically undefined, $\bar{r}$ and $\bar{v}$ have a value only when their estimated
+    joint-MI denominator is resolved and nonzero. If that prerequisite fails, record a typed
+    abstention/unresolved outcome and no numeric value; do not promote an internal `NaN` sentinel
+    to a result. In covered regimes they may be useful screening diagnostics, but that is not an
+    estimator-validation claim.
 2.  **Diagnostic Value (Negative Vulnerability):** In the `redundant_copy` case (d=10), we observed $\bar{v} = -1.59$.
-    *   Mathematically, $\bar{v} < 0$ implies that the sum of conditional mutual information terms is negative. Since conditional MI must be non-negative, this flags a fundamental estimator inconsistency.
+    *   Given the positive estimated joint-MI denominator in this case, $\bar{v} < 0$ implies
+        that the corresponding sum of estimated conditional-MI terms is negative. Population
+        conditional MI is non-negative, so this is an information-coherence violation for the
+        estimate tuple.
     *   **The Specific Violation:** We observed $I(S_1; T) \approx 0.49$ but $I(S_1, S_2; T) \approx 0.27$.
     *   **Monotonicity Violation:** The estimator claims that **adding a second informative source reduces the total information**. This violates the monotonicity axiom $I(S_1, S_2; T) \ge I(S_1; T)$.
-    *   **Root Cause:** The KSG estimator bias scales with dimension. The bias at $d_{joint}=20$ is significantly more negative than at $d_{marginal}=10$, causing the estimated joint MI to collapse below the marginals.
-    *   **Action:** Use $\bar{v} < 0$ as a hard "NO-GO" gate. It detects when the "curse of dimensionality" has destroyed the coherence between marginal and joint estimates.
+    *   **Supported mechanism, not uniquely identified cause:** the joint estimate uses a
+        higher-dimensional product space than either marginal, and its finite-sample bias is more
+        negative in this case. That pattern is consistent with dimension-dependent KSG bias, but
+        this sweep does not isolate it from every other configuration-specific effect.
+    *   **Action:** Use $\bar{v} < 0$ as a hard NO-GO for the exact MI estimator/configuration
+        tuple that produced it: the required information coherence has failed. This diagnoses the
+        estimate tuple, not the population law and not every kNN regime.
 
 ## Strategic Guide: Where to Use Which Method
 
@@ -255,10 +316,13 @@ Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `
     *   **Method:** **Shannon Invariants ($\bar{r}$)**.
     *   **Goal:** $\bar{r} \approx 1$ means *additive* MI, which is **consistent with** the policy ignoring the Dream state (or V) — but additivity can also arise from Red ≈ Syn cancellation, so confirm with interventions before concluding "ignored".
 
-*   **Scenario C: "Flow-as-Bridge" (Geometric Escape Hatch)**
+*   **Scenario C: "Flow-as-Bridge" (target-side reduction candidate)**
     *   **Sources:** **Flow summaries** (e.g., object centroid trajectories or principal flow statistics; low‑d by construction), **Proprio** (~7D).
-    *   **Method:** **Full Atomic PID ($I^{sx}_{\cap}$)**.
-    *   **Why:** Lower *effective* dimension makes kNN estimation more plausible — but still require the Exp0 + coherence gates on this exact representation.
+    *   **Method candidate:** Full atomic PID ($I^{sx}_{\cap}$), only if the exact population,
+        measure, estimator, and application gates pass.
+    *   **Why:** Lower effective source and target dimensions can make kNN estimation more
+        plausible. A low-dimensional target alone is insufficient when another source or the
+        product space remains high-dimensional.
 
 ### 3. Manifold & Geometry Selection Guide
 
@@ -271,7 +335,9 @@ When standard Euclidean assumptions fail (distance concentration, hierarchy), se
 *   **Spherical ($\mathbb{S}^n$):**
     *   **Use when:** Embeddings are cosine-similarity based (e.g., CLIP, SigLIP, normalized vectors).
     *   **Valid Estimators:** Geometry-aware MI estimation (e.g., geodesic-kNN-style approaches; not implemented in this repo — research-gated).
-    *   **Avoid:** $I^{sx}_{\cap}$ (volume intersection is ill-defined).
+    *   **Shared-exclusions status:** the current Euclidean/Chebyshev $I^{sx}_{\cap}$ derivation
+        and implementation are ineligible. This repository has no spherical measure/estimator
+        derivation or oracle; that absence is not a universal impossibility theorem.
 
 *   **Hyperbolic / Poincaré ($\mathbb{H}^n$):**
     *   **Use when:** Data exhibits strong **hierarchical structure** (tree-like) or exponential volume expansion (e.g., language hierarchies, entailment cones).
@@ -279,10 +345,15 @@ When standard Euclidean assumptions fail (distance concentration, hierarchy), se
         but does not prove hyperbolic curvature or invalidate Euclidean kNN; a Euclidean line
         also has δ=0. Use matched controls and direct estimator recovery.
     *   **Valid Estimators:** Geometry-aware MI estimation (research-gated; not implemented here).
-    *   **Avoid:** $I^{sx}_{\cap}$.
+    *   **Shared-exclusions status:** the current Euclidean/Chebyshev $I^{sx}_{\cap}$ derivation
+        and implementation are ineligible. A hyperbolic analogue would be a new measure/estimator
+        requiring derivation and independent validation; none exists in this repository.
 
 *   **Lorentzian ($\mathbb{L}^n$):**
-    *   **Use when:** Numerical stability is required for Hyperbolic operations (Poincaré ball is unstable near boundary). Mathematically equivalent to Hyperbolic but better for optimization.
+    *   **Use when:** A separately justified hyperbolic model uses the Lorentz representation.
+        It can have different numerical conditioning from a Poincaré-ball implementation, but
+        changing representation or metric does not license the current shared-exclusions
+        estimator.
 
 ### From Ehrlich et al. 2024 (Continuous I^sx_∩)
 
@@ -292,8 +363,8 @@ High-level takeaway (verify details in the paper/official code): the continuous 
 
 High-level takeaway (verify exact statements in the paper): KSG MI exhibits a bias/variance tradeoff as a function of `k` and sample size `N`, and can fail in strong-dependence or high-dimensional regimes.
 
-**The distance concentration problem is fundamental** under the stated iid-like/isotropic
-high-dimensional conditions, but not unconditional. Geometry diagnostics are correlates and
+**Distance concentration follows under the stated iid-like/isotropic high-dimensional
+conditions**, but the conclusion is not unconditional. Geometry diagnostics are correlates and
 warnings; only held-out recovery controls establish whether an estimator regime works.
 
 ### From grandplan.md (Project Strategy)
@@ -306,30 +377,40 @@ ID, concentration, ties, and dependence help explain risk; sampled-mean `d_rel` 
 descriptive. None detects failure by itself. The observed high-d MI/coherence violations are
 the direct NO-GO evidence; the continuous application gate remains blocked as explained above.
 
-**The escape hatch is flow-as-a-bridge** (v12.5 §9.6, an exploratory low-dimensional,
-embodiment-portable target — object/contact flow):
+**Flow-as-a-bridge is a target-side candidate** (v12.5 §9.6, an exploratory
+low-dimensional, potentially embodiment-portable target — object/contact flow):
 
-By using low-dimensional **flow summaries** (and other low‑d physical targets) instead of high‑d embeddings as the target `T`, the project can often avoid the worst high‑d kNN pathologies — but still requires the estimator (S1) + coherence gates on the exact representation.
+Using low-dimensional **flow summaries** (and other low-dimensional physical targets) can reduce
+target-side estimation burden. It does not bypass high-dimensional source neighborhoods or the
+joint source–target product geometry, and portability additionally requires standardized frames,
+correspondence, visibility, and contact semantics. The exact representation tuple still requires
+all four gates.
 
 ---
 
 ## Final Verdict on Hypotheses
 
-### Hypothesis 1: Estimators Working Correctly
-**VERDICT: NOT A CORRECTNESS CLAIM; FAILURE MECHANISM SUPPORTED**
+### Hypothesis 1: Estimated recovery failure despite preserved population signal
+**VERDICT: SUPPORTED FOR THE TESTED REGIMES; NOT A CORRECTNESS CLAIM**
 
-The observed behavior is consistent with known kNN-MI pathologies under high ambient/intrinsic dimension: near-zero or unstable estimates can occur even when the true MI is non-zero, because neighborhood geometry is dominated by nuisance dimensions.
+The data-generating law preserves non-zero MI while the finite-sample estimate approaches zero and
+the marginal/joint estimates lose information coherence. This establishes recovery failure for the
+tested estimator/configuration tuples. Nuisance-dominated neighborhood geometry is a supported
+explanation, not a uniquely identified population mechanism.
 
-The estimator fails its recovery objective in this regime. The collapse is explainable by
-known neighborhood pathologies; that explanation does not turn the estimate into a valid one.
+The collapse does not mean that the population signal disappeared, and explaining a failed estimate
+does not make it valid.
 
-### Hypothesis 2: Fundamental kNN Limitations in High-D
-**VERDICT: TRUE (for genuinely high-dimensional/noisy regimes)**
+### Hypothesis 2: Regime-limited kNN recovery at high effective dimension
+**VERDICT: SUPPORTED IN THE TESTED NUISANCE-RICH REGIMES; UNIVERSAL CLAIM REJECTED**
 
-This failure mode is expected in regimes where data genuinely fills a high-dimensional space, and it is consistent with the qualitative limitations discussed in the kNN-MI literature and with the fact that continuous `I^sx_∩` validation is limited to low-dimensional synthetic systems (see `grandplan.md` for the project’s citation-policy boundaries).
+The observed failure is consistent with qualitative kNN-MI limitations under the synthetic
+controls' iid-like/isotropic, high-effective-dimensional conditions and with continuous
+`I^sx_∩` validation being limited to named low-dimensional synthetic systems (see
+`grandplan.md` for citation-policy boundaries).
 
-This is a regime limitation, not proof that every high-ambient-dimensional representation
-fails. The response is to:
+It is not proof that every kNN estimator or high-ambient-dimensional representation fails. The
+response is to:
 1. Use direct recovery/coherence gates, with geometry diagnostics as supporting evidence
 2. Use low-d targets (flow summaries) when possible
 3. Use supervised dimensionality reduction when high-d sources are unavoidable
@@ -341,9 +422,12 @@ In this isotropic equal-variance construction, the tested random projection and 
 have no target signal with which to identify the distinguished coordinate. This result is not
 a theorem about every unsupervised method or structured distribution.
 
-**What would work**: Supervised projection methods that use label information to find informative subspaces:
+**Candidate approaches**: supervised projection methods that use training-only target information
+to seek informative subspaces:
 - Linear discriminant analysis (LDA)
-- Partial least squares (PLS) — **now implemented** in `pid-rs/crates/pid-core/src/pls.rs` (NIPALS-PLS2 algorithm; test confirms signal recovery in signal-in-noise setting)
+- Partial least squares (PLS) — **now implemented** in `pid-rs/crates/pid-core/src/pls.rs`
+  (NIPALS-PLS2; a unit test demonstrates recovery on one signal-in-noise fixture, not general
+  application validity)
 - Projection onto directions maximizing I(projected;T)
 
 PLS is an implemented candidate, not a free fix: fit it on disjoint training data, freeze the
@@ -354,12 +438,17 @@ transform, test on held-out data, and include shuffled-target selection controls
 ## Recommended Actions
 
 1. **DO NOT** interpret continuous kNN PID atoms outside a validated regime (Exp0 + coherence gates).
-2. **DO** prefer low‑d targets (flow‑as‑bridge via flow summaries / physical state; exploratory, `grandplan.md` §9.6) when possible.
+2. **DO** consider low-dimensional targets (flow-as-bridge via flow summaries / physical state;
+   exploratory, `grandplan.md` §9.6) as target-side burden reduction, while still validating
+   high-dimensional source and product-space geometry.
 3. **CONSIDER** supervised projection if high-d sources are required, as a new frozen and
    leakage-controlled regime. Discrete `I_min` modes are also wired, but the emitted
    saturation warning is currently advisory rather than a strict fail-closed gate, so they
    cannot be the active scientific regime until that gap is closed.
-4. **DO** treat geometry/coherence warnings as stop signals for atom-level conclusions.
+4. **DO** treat direct recovery or information-coherence failures as stop signals for the exact
+   estimator tuple. Treat geometry diagnostics as warnings/descriptive evidence unless a validated
+   support envelope has calibrated an abstention rule; the application gate remains blocked either
+   way.
 5. **CONSIDER** validating on real VLA embeddings to measure intrinsic dimension and distance concentration before committing to a pipeline.
 
 ---
@@ -391,12 +480,15 @@ In high dimensions, for random points with iid-like/isotropic coordinates (Beyer
 ```
 max_distance / min_distance → 1 as d → ∞
 ```
-This destroys the discriminative power of nearest-neighbor methods.
+Under those conditions this erodes finite-sample distance discrimination; it is not an
+unconditional theorem of failure for every distribution or nearest-neighbor estimator.
 
 ---
 
-*Last updated: 2026-07-12 (docset v12.5 — gate verdicts mapped onto the four PID gates
+*Last updated: 2026-07-15 (docset v12.5 — gate verdicts mapped onto the four PID gates
 of `grandplan.md` §7.1; MI/coherence estimator gate NO-GO separated from the continuous
 `I^sx_∩` application gate BLOCKED / NOT APPLICATION-VALIDATED; nuisance-dimension atom
-invariance and δ validity-gate claims withdrawn)*
-*Based on analysis of exp0.rs, experimental output, and implementation of PLS + discrete PID (now wired into the offline harness with saturation diagnostics)*
+invariance and δ validity-gate claims withdrawn; current results attributed to the 1.0.0 pin and
+historical 0.3/0.4 behavior labelled explicitly)*
+*Based on analysis of the current `exp0.rs`, experimental output, and implementation of PLS +
+discrete PID (now wired into the offline harness with saturation diagnostics)*

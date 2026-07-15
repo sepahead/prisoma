@@ -29,7 +29,7 @@ ever differ, the more restrictive statement governs until the discrepancy is rev
 | H1-B | The randomized closed-loop protocol is specified but unimplemented. | Randomized assignment, intention-to-treat or effect-modification evidence, or closed-loop robustness. |
 | H2 | A deterministic synthetic fixed-horizon/IPCW/alarm arithmetic reference is runnable. | Prospective prediction, calibration validity, warning benefit, comparator superiority, safety gain, or deployment validity. |
 | H3 | **Not eligible.** Population, measure, estimator, and application gates remain blocked. | Interpretable PID atoms on real embeddings or held-out incremental PID value. |
-| H4 | A small reference-model attribution path exercises logging and one deletion-faithfulness control. | Representational availability, causal policy use, or an availability–use divergence in a real VLA. |
+| H4 | A small reference-model attribution path exercises logging and a group-level deletion-ranking-sensitivity control. | Causal or mechanistic faithfulness, representational availability, causal policy use, or an availability–use divergence in a real VLA. |
 | NCP observer | Optional, workspace-excluded, read-only wire-0.8 experimental component. | Final protocol interoperability, a live Engram integration, transport completeness, security validation, EC1, or a scientific result. |
 
 The detailed claim definitions and stop rules are in
@@ -48,7 +48,7 @@ The following language is deliberately narrower than the project objectives.
 | H1-B | A randomized closed-loop design is specified in the canonical plan; execution remains blocked. | Any statement that Protocol B was implemented, randomized, analyzed, or validated. Protocol A may not be substituted for Protocol B. |
 | H2 | The deterministic synthetic reference exercises the named fixed-horizon, grouped fitting, IPCW, reliability-bin, alarm, nondetection, and declared-payoff arithmetic on checked fixtures only. | “H2 passed,” or any claim of prospective prediction, calibration validity, warning benefit, censoring-assumption validity, comparator superiority, transport, safety gain, or deployment validity. |
 | H3 | PID estimates abstain or remain noninterpretable outside their named population, measure, estimator, and application gates. | Any claim that geometry, a nonzero atom, or an emitted number establishes real-embedding PID validity. |
-| H4 | The reference attribution path exercises canonical logging and a deletion-faithfulness control. | Any claim that attribution agreement proves causal use or establishes H4. |
+| H4 | The reference attribution path exercises canonical logging and a deletion-ranking-sensitivity control. | Any claim that the control establishes causal/mechanistic faithfulness, that attribution agreement proves causal use, or that it establishes H4. |
 
 “Specified,” “implemented,” “tested,” and “validated” are different states. In particular, a
 locally tested feature can remain E0 relationship evidence; an immutable external dependency can
@@ -106,7 +106,7 @@ adapter, or externally benchmarked conventional-stack comparison is included.
 
 ## Estimator and PID limitations
 
-Prisoma pins the canonical `pid-rs` 1.0.0 implementation at submodule commit `ac4a780`. That pin
+Prisoma pins the canonical `pid-rs` 1.0.0 implementation at submodule commit `43ab605`. That pin
 is a dependency identity, not independent corroboration. The high-dimensional MI/coherence route
 is NO-GO, and continuous shared-exclusions PID on real VLA embeddings is not
 application-validated. An output may be computed only when declared support permits it; an

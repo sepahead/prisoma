@@ -149,6 +149,32 @@ def _git_paths() -> set[str]:
     }
 
 
+def _pinned_pid_rs_paths() -> set[str]:
+    raw_index = subprocess.check_output(
+        ["git", "-C", os.fspath(ROOT), "ls-files", "--stage", "--", "pid-rs"]
+    )
+    metadata, path = raw_index.rstrip(b"\n").split(b"\t", 1)
+    mode, commit, stage = metadata.decode("ascii").split(" ")
+    assert (mode, stage, path) == ("160000", "0", b"pid-rs")
+    raw_tree = subprocess.check_output(
+        [
+            "git",
+            "-C",
+            os.fspath(ROOT / "pid-rs"),
+            "ls-tree",
+            "-r",
+            "-z",
+            "--name-only",
+            commit,
+        ]
+    )
+    return {
+        f"pid-rs/{raw.decode('utf-8', errors='strict')}"
+        for raw in raw_tree.rstrip(b"\0").split(b"\0")
+        if raw
+    }
+
+
 def _synthetic_in_progress_artifacts() -> tuple[dict[str, Any], dict[str, bytes]]:
     generator = _load_generator()
     inventory = _read(CANDIDATE_DIR / "source_inventory.json")
@@ -390,7 +416,30 @@ def test_candidate_audit_passes_but_reports_no_go_pending_state() -> None:
 def test_candidate_inventory_covers_index_and_all_nonignored_untracked_inputs() -> None:
     inventory = _read(CANDIDATE_DIR / "source_inventory.json")
     entries = inventory["entries"]
-    assert {entry["path"] for entry in entries} == _git_paths()
+    parent_paths = {
+        entry["path"]
+        for entry in entries
+        if entry["inventory_origin"]["kind"] == "parent_repository"
+    }
+    recursive_paths = {
+        entry["path"]
+        for entry in entries
+        if entry["inventory_origin"]["kind"] == "pinned_gitlink_file"
+    }
+    assert parent_paths == _git_paths()
+    assert recursive_paths == _pinned_pid_rs_paths()
+    assert len(recursive_paths) == 148
+    assert inventory["summary"]["parent_entry_count"] == len(parent_paths)
+    assert inventory["summary"]["recursive_gitlink_entry_count"] == 148
+    recursive_source = inventory["source"]["recursive_gitlinks"]
+    assert len(recursive_source) == 1
+    assert recursive_source[0]["path"] == "pid-rs"
+    assert recursive_source[0]["entry_count"] == 148
+    assert inventory["inventory_policy"]["recursive_gitlink_paths"] == ["pid-rs"]
+    assert (
+        inventory["inventory_policy"]["recursive_rows_derived_from"]
+        == "pinned_index_commit_git_objects"
+    )
     assert inventory["source"]["clean"] is False
     assert inventory["source"]["state"] == "dirty_uncommitted_source_snapshot"
     assert inventory["summary"]["untracked_entry_count"] > 0
@@ -404,6 +453,125 @@ def test_candidate_inventory_covers_index_and_all_nonignored_untracked_inputs() 
             raw = (ROOT / entry["path"]).read_bytes()
             assert working["sha256"] == hashlib.sha256(raw).hexdigest()
             assert working["bytes"] == len(raw)
+
+
+def test_recursive_gitlink_omission_is_rejected_against_pinned_objects() -> None:
+    generator = _load_generator()
+    auditor = _load_auditor()
+    inventory = generator["_capture_once"](ROOT)
+    recursive = [
+        entry
+        for entry in inventory["entries"]
+        if entry["inventory_origin"]["kind"] == "pinned_gitlink_file"
+    ]
+    assert len(recursive) == 148
+    omitted_path = recursive[0]["path"]
+    forged = copy.deepcopy(inventory)
+    forged["entries"] = [
+        entry for entry in forged["entries"] if entry["path"] != omitted_path
+    ]
+    forged["summary"]["entry_count"] -= 1
+    forged["summary"]["recursive_gitlink_entry_count"] -= 1
+    with pytest.raises(auditor["CandidateError"]) as caught:
+        auditor["_validate_inventory_internal"](ROOT, forged)
+    assert getattr(caught.value, "code", None) == "INVENTORY_GITLINK_COVERAGE"
+
+
+def test_parent_head_omission_cannot_hide_behind_recursive_rows() -> None:
+    generator = _load_generator()
+    auditor = _load_auditor()
+    inventory = generator["_capture_once"](ROOT)
+    forged = copy.deepcopy(inventory)
+    forged["entries"] = [
+        entry for entry in forged["entries"] if entry["path"] != "README.md"
+    ]
+    forged["summary"]["entry_count"] -= 1
+    forged["summary"]["parent_entry_count"] -= 1
+    with pytest.raises(auditor["CandidateError"]) as caught:
+        auditor["_validate_inventory_internal"](ROOT, forged)
+    assert getattr(caught.value, "code", None) == "INVENTORY_HEAD_COVERAGE"
+
+
+def test_recursive_inventory_rejects_a_dirty_gitlink(tmp_path: Path) -> None:
+    generator = _load_generator()
+    child = tmp_path / "child"
+    child.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=child, check=True)
+    subprocess.run(["git", "config", "user.name", "Test Author"], cwd=child, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.invalid"],
+        cwd=child,
+        check=True,
+    )
+    (child / "estimator.rs").write_text("pub fn estimate() {}\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=child, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "fixture"], cwd=child, check=True)
+
+    repo = tmp_path / "repo"
+    progress_dir = repo / "release" / "0.9.0"
+    progress_dir.mkdir(parents=True)
+    shutil.copy2(
+        ROOT / "release" / "0.9.0" / "candidate_progress.json",
+        progress_dir / "candidate_progress.json",
+    )
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test Author"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.invalid"],
+        cwd=repo,
+        check=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "add",
+            "-q",
+            os.fspath(child),
+            "pid-rs",
+        ],
+        cwd=repo,
+        check=True,
+    )
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "fixture"], cwd=repo, check=True)
+    (repo / "pid-rs" / "estimator.rs").write_text(
+        'pub fn estimate() { panic!("dirty") }\n', encoding="utf-8"
+    )
+
+    with pytest.raises(generator["CandidateError"]) as caught:
+        generator["_capture_once"](repo)
+    assert caught.value.code == "GITLINK_DIRTY"
+
+    subprocess.run(["git", "restore", "estimator.rs"], cwd=repo / "pid-rs", check=True)
+    subprocess.run(
+        ["git", "config", "user.name", "Test Author"],
+        cwd=repo / "pid-rs",
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.invalid"],
+        cwd=repo / "pid-rs",
+        check=True,
+    )
+    (repo / "pid-rs" / "estimator.rs").write_text(
+        "pub fn estimate() { assert!(true) }\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "add", "."], cwd=repo / "pid-rs", check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "alternate fixture"],
+        cwd=repo / "pid-rs",
+        check=True,
+    )
+    assert (
+        subprocess.check_output(["git", "status", "--porcelain"], cwd=repo / "pid-rs")
+        == b""
+    )
+    with pytest.raises(generator["CandidateError"]) as caught:
+        generator["_capture_once"](repo)
+    assert caught.value.code == "GITLINK_DIRTY"
 
 
 def test_internal_audit_recomputes_recorded_index_and_worktree_states() -> None:

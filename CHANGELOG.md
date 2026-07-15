@@ -4,6 +4,12 @@
 
 The 0.9.0 source-preview candidate remains unpublished while review is open.
 
+- Advanced the pinned `pid-rs` 1.0.0 estimator environment to `43ab605`. Experiment 0 now
+  separates its high-dimensional MI/coherence verdict from atom measure and estimator verdicts,
+  and unavailable optional estimates carry typed outcomes without numeric placeholders or metric
+  events. The high-dimensional path remains NO-GO and real-embedding application validity remains
+  blocked.
+
 ## 0.9.0 - Unreleased
 
 ### Release scope

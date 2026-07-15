@@ -698,8 +698,12 @@ def test_layerwise_physics_probe_finds_intermediate_peak():
     rng = np.random.default_rng(0)
     n = 200
     target = rng.standard_normal((n, 1))
-    train_mask = np.zeros(n, dtype=bool)
-    train_mask[: n // 2] = True
+    fit_mask = np.zeros(n, dtype=bool)
+    selection_mask = np.zeros(n, dtype=bool)
+    evaluation_mask = np.zeros(n, dtype=bool)
+    fit_mask[:80] = True
+    selection_mask[80:140] = True
+    evaluation_mask[140:] = True
 
     def layer(signal_weight: float) -> np.ndarray:
         feats = rng.standard_normal((n, 6))
@@ -710,10 +714,20 @@ def test_layerwise_physics_probe_finds_intermediate_peak():
 
     layers = [layer(0.0), layer(0.95), layer(0.6), layer(0.0)]
     result = layerwise_physics_probe(
-        layers, {"object_speed": target}, train_mask, l2=1.0
+        layers,
+        {"object_speed": target},
+        fit_mask,
+        selection_mask=selection_mask,
+        evaluation_mask=evaluation_mask,
+        group_ids=np.arange(n),
+        probe_components=4,
+        l2=1.0,
     )
     assert result.peak_layer == 1
     assert result.best_layer_by_target["object_speed"] == 1
+    assert result.evaluation_results[0].split == "evaluation"
+    assert result.evaluation_results[0].layer_index == result.peak_layer
+    assert result.evaluation_score > 0.5
     # The intermediate-peak (emergence-zone) warning fires.
     assert any("emergence" in w for w in result.warnings)
 
@@ -722,14 +736,25 @@ def test_layerwise_physics_probe_boolean_target():
     rng = np.random.default_rng(1)
     n = 160
     y = (rng.standard_normal(n) > 0).astype(float)
-    train_mask = np.zeros(n, dtype=bool)
-    train_mask[: n // 2] = True
+    fit_mask = np.zeros(n, dtype=bool)
+    selection_mask = np.zeros(n, dtype=bool)
+    evaluation_mask = np.zeros(n, dtype=bool)
+    fit_mask[:60] = True
+    selection_mask[60:110] = True
+    evaluation_mask[110:] = True
     informative = np.column_stack(
         [y + 0.1 * rng.standard_normal(n), rng.standard_normal(n)]
     )
     noise = rng.standard_normal((n, 2))
     result = layerwise_physics_probe(
-        [noise, informative], {"contact": y}, train_mask, boolean_targets={"contact"}
+        [noise, informative],
+        {"contact": y},
+        fit_mask,
+        selection_mask=selection_mask,
+        evaluation_mask=evaluation_mask,
+        group_ids=np.arange(n),
+        probe_components=2,
+        boolean_targets={"contact"},
     )
     assert result.peak_layer == 1
     informative_score = next(
@@ -738,3 +763,64 @@ def test_layerwise_physics_probe_boolean_target():
         if r.layer_index == 1 and r.target_name == "contact"
     )
     assert informative_score > 0.8
+    assert result.evaluation_score > 0.8
+
+
+def test_layer_probe_keeps_evaluation_out_of_layer_selection():
+    """A final-holdout reversal is reported; it cannot switch the chosen layer."""
+
+    rng = np.random.default_rng(91)
+    n = 180
+    target = rng.standard_normal(n)
+    fit_mask = np.zeros(n, dtype=bool)
+    selection_mask = np.zeros(n, dtype=bool)
+    evaluation_mask = np.zeros(n, dtype=bool)
+    fit_mask[:60] = True
+    selection_mask[60:120] = True
+    evaluation_mask[120:] = True
+
+    selection_only = rng.standard_normal((n, 2))
+    selection_only[:120, 0] = target[:120]
+    stable = rng.standard_normal((n, 2))
+    stable[:, 0] = 0.65 * target + 0.35 * rng.standard_normal(n)
+
+    result = layerwise_physics_probe(
+        [selection_only, stable],
+        {"speed": target},
+        fit_mask,
+        selection_mask=selection_mask,
+        evaluation_mask=evaluation_mask,
+        group_ids=np.arange(n),
+        probe_components=2,
+    )
+
+    assert result.peak_layer == 0
+    assert {item.layer_index for item in result.evaluation_results} == {0}
+    assert result.selection_score > 0.9
+    assert result.evaluation_score < 0.2
+
+
+def test_layer_probe_rejects_cross_partition_group_leakage():
+    rng = np.random.default_rng(92)
+    n = 18
+    states = [rng.standard_normal((n, 2))]
+    target = rng.standard_normal(n)
+    fit_mask = np.zeros(n, dtype=bool)
+    selection_mask = np.zeros(n, dtype=bool)
+    evaluation_mask = np.zeros(n, dtype=bool)
+    fit_mask[:6] = True
+    selection_mask[6:12] = True
+    evaluation_mask[12:] = True
+    groups = np.arange(n)
+    groups[6] = groups[0]
+
+    with pytest.raises(ValueError, match="disjoint across partitions"):
+        layerwise_physics_probe(
+            states,
+            {"speed": target},
+            fit_mask,
+            selection_mask=selection_mask,
+            evaluation_mask=evaluation_mask,
+            group_ids=groups,
+            probe_components=2,
+        )

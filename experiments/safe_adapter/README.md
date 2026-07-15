@@ -127,11 +127,15 @@ modes also reject the explicit blocked verdict.
 
 When you export multiple candidate hidden layers, use
 `layerwise_physics_probe(...)` to run the Physics-Emergence-Zone procedure before
-geometry gating: it linearly probes each layer for physical quantities (object
-speed/direction/contact) on a train split, scores them on held-out, and reports the
-**peak layer** — the recommended `D_hidden[k]` hook. It warns when the peak is in
-the near-output layers (likely action formatting, not a world model) and when the
-peak is intermediate (the emergence zone to prefer).
+geometry gating. The caller must freeze three group-disjoint partitions: `fit` fits
+preprocessing and probes, `selection` chooses the peak, and `evaluation` scores only
+that already-chosen layer. Every layer is reduced by train-fit PCA to the same
+preregistered `probe_components` and uses the same fixed ridge penalty; boolean
+targets use balanced-accuracy skill rather than raw accuracy. The result records both
+selection and untouched-evaluation scores. A near-output or intermediate peak is a
+hook-point diagnostic only: it can reflect action formatting, probe accessibility, or
+selection noise and is not evidence that a world model or an “emergence zone” exists.
+No layer may be changed after looking at `evaluation`.
 
 ## End-to-end usage
 

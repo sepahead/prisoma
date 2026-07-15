@@ -13,7 +13,6 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 | `anyhow` | 1.0.103 | MIT OR Apache-2.0 |
 | `base64` | 0.22.1 | MIT OR Apache-2.0 |
 | `libc` | 0.2.186 | MIT OR Apache-2.0 |
-| `nalgebra` | 0.33.3 | Apache-2.0 |
 | `ndarray` | 0.16.1 | MIT OR Apache-2.0 |
 | `pid-core` | 1.0.0 | MIT OR Apache-2.0 |
 | `pid-runlog` | 1.0.0 | MIT OR Apache-2.0 |

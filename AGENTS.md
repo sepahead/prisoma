@@ -5,7 +5,7 @@ repository. The purpose of this file is to prevent two failure modes: **hallucin
 capabilities** (claiming things exist that don't) and **doc drift** (statements that stop
 being true as the code moves).
 
-> **Estimator environment: `pid-rs` 1.0.0 (submodule `ac4a780`).** 1.0 makes continuous support
+> **Estimator environment: `pid-rs` 1.0.0 (submodule `43ab605`).** 1.0 makes continuous support
 > **declared, never inferred** — a bare continuous config fails closed. Continuous shared
 > exclusions, pipelines, hierarchy and hyperbolic paths are default-off `experimental-*` features.
 > Datasets declare per-axis population support; computation status is `produced` /
@@ -219,8 +219,10 @@ being true as the code moves).
   review remain open. The generic instrumented-versus-uninstrumented preflight validator is
   implemented in `pid-sim`, but `safe_adapter` does not yet produce the real paired policy
   evaluations required to clear it.
-- **`attribution/`** — faithfulness-checked attribution/mechanistic probe (H4 / exploratory;
-  epsilon-/AttnLRP + grad×input on a small reference model; deletion-AOPC vs random control)
+- **`attribution/`** — attribution diagnostic (H4 / exploratory; epsilon-/AttnLRP + grad×input
+  on a small reference model; frozen, selection-disjoint/group-disjoint deletion-ranking-
+  sensitivity gate with per-case random-ranking controls and an exact group sign test; never a
+  causal or mechanistic faithfulness claim)
   emitting `attribution_logged` events that pass `pid-runlog-replay --validate`. Production VLAs
   should swap the reference model for LXT/AttnLRP.
 
@@ -230,8 +232,9 @@ Attribution methods (LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV,
 saliency/SmoothGrad, occlusion, SHAP-style probes) are **H4/exploratory companion
 diagnostics/baselines**, never substitutes for PID gates. The `attribution_logged` run-log
 event carries method, target_output, layer, modality, baseline, score_hash,
-faithfulness_check, and artifact_uri. The `pid-rerun` adapter surfaces each event as a
-plottable faithfulness verdict (1.0 pass / 0.0 fail) and a provenance text line at a
+faithfulness_check, and artifact_uri. `faithfulness_check` is a legacy compatibility field; the
+current producer sets it only from the narrower typed ranking-sensitivity result. The `pid-rerun`
+adapter surfaces each event as a plottable recorded status (1.0 pass / 0.0 otherwise) and a provenance text line at a
 hashed identity over method, target, layer, modality, and baseline. Other dynamic run-log
 identifiers use injective single-segment percent encoding. The standalone
 converter's explicit `--load-attribution-artifacts` mode additionally loads at most 1024 finite

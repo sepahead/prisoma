@@ -12,11 +12,18 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import io
 import json
+import os
 import re
+import selectors
+import signal
+import stat
 import subprocess
+import time
 import tomllib
 from pathlib import Path
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,17 +37,239 @@ EXP0_COMMAND_FILES = [
     ROOT / "AGENTS.md",
     ROOT / "EXPERIMENTS.md",
 ]
+MAX_REPO_FILE_BYTES = 16 * 1024 * 1024
+MAX_GIT_OUTPUT_BYTES = 4 * 1024 * 1024
+GIT_TIMEOUT_SECONDS = 30.0
+MAX_LEDGER_ITEMS = 10_000
+
+
+class TruthAuditError(RuntimeError):
+    """An input violated the bounded repository-truth audit contract."""
+
+
+def _read_regular_bytes(path: Path, *, label: str) -> bytes:
+    try:
+        before = path.lstat()
+    except OSError as error:
+        raise TruthAuditError(f"cannot inspect {label} {path}: {error}") from error
+    if not stat.S_ISREG(before.st_mode):
+        raise TruthAuditError(f"{label} must be a regular, non-symlink file: {path}")
+    if before.st_size > MAX_REPO_FILE_BYTES:
+        raise TruthAuditError(
+            f"{label} exceeds the {MAX_REPO_FILE_BYTES}-byte limit: {path}"
+        )
+
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise TruthAuditError(f"cannot open {label} {path}: {error}") from error
+    try:
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
+            before.st_dev,
+            before.st_ino,
+        ):
+            raise TruthAuditError(f"{label} changed while opening: {path}")
+        chunks: list[bytes] = []
+        remaining = MAX_REPO_FILE_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    payload = b"".join(chunks)
+    if len(payload) > MAX_REPO_FILE_BYTES:
+        raise TruthAuditError(
+            f"{label} exceeds the {MAX_REPO_FILE_BYTES}-byte limit: {path}"
+        )
+    if (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns) != (
+        after.st_dev,
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
+    ) or len(payload) != after.st_size:
+        raise TruthAuditError(f"{label} changed while reading: {path}")
+    return payload
+
+
+def _read_regular_text(path: Path, *, label: str) -> str:
+    try:
+        return _read_regular_bytes(path, label=label).decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise TruthAuditError(f"{label} is not valid UTF-8: {path}") from error
+
+
+def _is_regular_file(path: Path) -> bool:
+    try:
+        return stat.S_ISREG(path.lstat().st_mode)
+    except OSError:
+        return False
+
+
+def _json_object(path: Path, *, label: str) -> dict[str, Any]:
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise TruthAuditError(f"{label} has duplicate JSON key {key!r}")
+            result[key] = value
+        return result
+
+    def reject_constant(value: str) -> Any:
+        raise TruthAuditError(f"{label} has invalid JSON constant {value}")
+
+    try:
+        value = json.loads(
+            _read_regular_text(path, label=label),
+            object_pairs_hook=reject_duplicates,
+            parse_constant=reject_constant,
+        )
+    except (ValueError, RecursionError) as error:
+        raise TruthAuditError(f"cannot parse {label}: {error}") from error
+    if not isinstance(value, dict):
+        raise TruthAuditError(f"{label} must be a JSON object")
+    return value
+
+
+def _toml_object(path: Path, *, label: str) -> dict[str, Any]:
+    try:
+        value = tomllib.loads(_read_regular_text(path, label=label))
+    except (tomllib.TOMLDecodeError, RecursionError) as error:
+        raise TruthAuditError(f"cannot parse {label}: {error}") from error
+    if not isinstance(value, dict):
+        raise TruthAuditError(f"{label} must be a TOML table")
+    return value
+
+
+def _object_list(value: Any, *, label: str) -> list[dict[str, Any]]:
+    if (
+        not isinstance(value, list)
+        or len(value) > MAX_LEDGER_ITEMS
+        or any(not isinstance(item, dict) for item in value)
+    ):
+        raise TruthAuditError(f"{label} must be a bounded list of objects")
+    return value
+
+
+def _repo_relative_path(raw: Any, *, label: str) -> Path:
+    if not isinstance(raw, str) or not raw or "\\" in raw:
+        raise TruthAuditError(f"{label} must be a repository-relative POSIX path")
+    relative = Path(raw)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise TruthAuditError(f"{label} escapes the repository: {raw!r}")
+    candidate = ROOT / relative
+    component = ROOT
+    for part in relative.parts:
+        component /= part
+        if component.is_symlink():
+            raise TruthAuditError(f"{label} may not traverse a symlink: {raw!r}")
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved.relative_to(ROOT.resolve(strict=True))
+    except (FileNotFoundError, ValueError) as error:
+        raise TruthAuditError(
+            f"{label} is missing or escapes the repository"
+        ) from error
+    return resolved
+
+
+def _terminate(process: subprocess.Popen[bytes]) -> None:
+    try:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGKILL)
+        elif process.poll() is None:
+            process.kill()
+    except OSError:
+        try:
+            process.kill()
+        except OSError:
+            pass
+
+
+def _run_bounded(
+    command: list[str],
+    *,
+    timeout_seconds: float = GIT_TIMEOUT_SECONDS,
+    max_output_bytes: int = MAX_GIT_OUTPUT_BYTES,
+) -> subprocess.CompletedProcess[str]:
+    process = subprocess.Popen(
+        command,
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=os.name == "posix",
+    )
+    assert process.stdout is not None and process.stderr is not None
+    selector = selectors.DefaultSelector()
+    buffers = {"stdout": bytearray(), "stderr": bytearray()}
+    total = 0
+    deadline = time.monotonic() + timeout_seconds
+    try:
+        selector.register(process.stdout, selectors.EVENT_READ, "stdout")
+        selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+        while selector.get_map():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout_seconds)
+            for key, _events in selector.select(min(remaining, 0.25)):
+                chunk = os.read(key.fd, min(65_536, max_output_bytes - total + 1))
+                if not chunk:
+                    selector.unregister(key.fileobj)
+                    key.fileobj.close()
+                    continue
+                total += len(chunk)
+                if total > max_output_bytes:
+                    raise TruthAuditError(
+                        "Git output exceeds the aggregate "
+                        f"{max_output_bytes}-byte limit"
+                    )
+                buffers[key.data].extend(chunk)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(command, timeout_seconds)
+        return_code = process.wait(timeout=remaining)
+    except BaseException:
+        _terminate(process)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        raise
+    finally:
+        selector.close()
+        for stream in (process.stdout, process.stderr):
+            if not stream.closed:
+                stream.close()
+
+    try:
+        stdout = bytes(buffers["stdout"]).decode("utf-8")
+        stderr = bytes(buffers["stderr"]).decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise TruthAuditError("Git output is not valid UTF-8") from error
+    if return_code != 0:
+        raise subprocess.CalledProcessError(
+            return_code, command, output=stdout, stderr=stderr
+        )
+    return subprocess.CompletedProcess(command, return_code, stdout, stderr)
 
 
 def git_output(*args: str) -> str:
-    return subprocess.check_output(
-        ["git", *args], cwd=ROOT, text=True, stderr=subprocess.STDOUT
-    ).strip()
+    return _run_bounded(["git", *args]).stdout.strip()
 
 
 def package_version() -> str:
-    data = tomllib.loads((PID_RS / "Cargo.toml").read_text(encoding="utf-8"))
-    return str(data["workspace"]["package"]["version"])
+    data = _toml_object(PID_RS / "Cargo.toml", label="pid-rs Cargo.toml")
+    workspace = data.get("workspace")
+    package = workspace.get("package") if isinstance(workspace, dict) else None
+    version = package.get("version") if isinstance(package, dict) else None
+    if not isinstance(version, str) or not version:
+        raise TruthAuditError("pid-rs Cargo.toml has no workspace package version")
+    return version
 
 
 def gitlink_revision() -> str:
@@ -51,22 +280,25 @@ def gitlink_revision() -> str:
 
 
 def locked_package_version(lock_path: Path, name: str) -> str | None:
-    data = tomllib.loads(lock_path.read_text(encoding="utf-8"))
+    data = _toml_object(lock_path, label=str(lock_path.relative_to(ROOT)))
+    packages = _object_list(data.get("package"), label=f"{lock_path}.package")
     matches = [
         package
-        for package in data.get("package", [])
+        for package in packages
         if package.get("name") == name and "source" not in package
     ]
     if len(matches) != 1:
         return None
-    return str(matches[0]["version"])
+    version = matches[0].get("version")
+    return version if isinstance(version, str) else None
 
 
 def locked_git_packages(lock_path: Path, names: set[str]) -> list[dict[str, object]]:
-    data = tomllib.loads(lock_path.read_text(encoding="utf-8"))
+    data = _toml_object(lock_path, label=str(lock_path.relative_to(ROOT)))
+    packages = _object_list(data.get("package"), label=f"{lock_path}.package")
     return [
         package
-        for package in data.get("package", [])
+        for package in packages
         if package.get("name") in names
         and str(package.get("source", "")).startswith("git+")
     ]
@@ -76,7 +308,7 @@ def exp0_command_problems() -> list[str]:
     problems: list[str] = []
     for path in EXP0_COMMAND_FILES:
         for line_no, line in enumerate(
-            path.read_text(encoding="utf-8").splitlines(), 1
+            _read_regular_text(path, label=str(path.relative_to(ROOT))).splitlines(), 1
         ):
             if "pid-rs/crates/pid-core/Cargo.toml" not in line:
                 continue
@@ -93,9 +325,9 @@ def exp0_command_problems() -> list[str]:
     return problems
 
 
-def main() -> int:
+def _audit() -> int:
     problems: list[str] = []
-    if not (PID_RS / "Cargo.toml").is_file():
+    if not _is_regular_file(PID_RS / "Cargo.toml"):
         print("Repository-truth problems: 1")
         print("- pid-rs submodule is not checked out")
         return 1
@@ -116,15 +348,16 @@ def main() -> int:
         ROOT / "CHANGELOG.md": (version, short),
     }
     for path, needles in required_claims.items():
-        text = path.read_text(encoding="utf-8")
+        text = _read_regular_text(path, label=str(path.relative_to(ROOT)))
         for needle in needles:
             if needle not in text:
                 problems.append(
                     f"{path.relative_to(ROOT)} does not record current pid-rs identity {needle!r}"
                 )
 
-    harness = (ROOT / "crates/pid-sim/src/offline_harness.rs").read_text(
-        encoding="utf-8"
+    harness = _read_regular_text(
+        ROOT / "crates/pid-sim/src/offline_harness.rs",
+        label="crates/pid-sim/src/offline_harness.rs",
     )
     expected_stamp = f"pid-core {version} (pid-rs {short})"
     if expected_stamp not in harness:
@@ -154,8 +387,9 @@ def main() -> int:
         )
     else:
         ncp_revision = next(iter(ncp_revisions))
-        observer_source = (ROOT / "crates/ncp-observer/src/lib.rs").read_text(
-            encoding="utf-8"
+        observer_source = _read_regular_text(
+            ROOT / "crates/ncp-observer/src/lib.rs",
+            label="crates/ncp-observer/src/lib.rs",
         )
         if ncp_revision not in observer_source:
             problems.append(
@@ -167,7 +401,10 @@ def main() -> int:
                     f"ncp-observer canonical configuration does not use ncp-core::{constant}"
                 )
 
-    notices = (ROOT / "THIRD_PARTY_NOTICES.generated.md").read_text(encoding="utf-8")
+    notices = _read_regular_text(
+        ROOT / "THIRD_PARTY_NOTICES.generated.md",
+        label="THIRD_PARTY_NOTICES.generated.md",
+    )
     for package in ("pid-core", "pid-runlog"):
         if f"| `{package}` | {version} |" not in notices:
             problems.append(
@@ -177,7 +414,7 @@ def main() -> int:
     problems.extend(exp0_command_problems())
 
     for relative in ("justfile", ".github/workflows/ci.yml"):
-        text = (ROOT / relative).read_text(encoding="utf-8")
+        text = _read_regular_text(ROOT / relative, label=relative)
         for required in ("--pid-mode none", "pid_metrics=0", "pid_metric_events=0"):
             if required not in text:
                 problems.append(f"{relative} firebreak is missing {required!r}")
@@ -197,17 +434,19 @@ def main() -> int:
                     f"{relative} H1 preflight smoke is missing {required!r}"
                 )
 
-    if not (ROOT / "crates/pid-sim/src/bin/h1_preflight.rs").is_file():
+    if not _is_regular_file(ROOT / "crates/pid-sim/src/bin/h1_preflight.rs"):
         problems.append("pid-h1-preflight binary is missing")
     for fixture in (
         "h1_preflight_valid.json",
         "h1_preflight_invalid.json",
         "h1_preflight_parse_invalid.json",
     ):
-        if not (ROOT / "crates/pid-sim/fixtures" / fixture).is_file():
+        if not _is_regular_file(ROOT / "crates/pid-sim/fixtures" / fixture):
             problems.append(f"H1 preflight fixture is missing: {fixture}")
 
-    power_doc = (ROOT / "docs/power-gate/README.md").read_text(encoding="utf-8")
+    power_doc = _read_regular_text(
+        ROOT / "docs/power-gate/README.md", label="docs/power-gate/README.md"
+    )
     if (
         "Historical idealized grid outputs — withdrawn; not capture requirements"
         not in power_doc
@@ -219,10 +458,12 @@ def main() -> int:
         problems.append(
             "docs/power-gate/README.md revives retired capture requirements"
         )
-    power_artifact = json.loads(
-        (ROOT / "docs/power-gate/power-gate-2026-07-10.json").read_text(
-            encoding="utf-8"
-        )
+    power_artifact = _json_object(
+        ROOT / "docs/power-gate/power-gate-2026-07-10.json",
+        label="docs/power-gate/power-gate-2026-07-10.json",
+    )
+    power_verdict_rows = _object_list(
+        power_artifact.get("verdicts"), label="power-gate verdicts"
     )
     power_verdicts = {
         verdict["endpoint_id"]: (
@@ -230,8 +471,13 @@ def main() -> int:
             verdict["null_rate_at_smallest_passing_grid_n"],
             verdict["passed"],
         )
-        for verdict in power_artifact["verdicts"]
+        for verdict in power_verdict_rows
+        if isinstance(verdict.get("endpoint_id"), str)
     }
+    if len(power_verdicts) != len(power_verdict_rows):
+        raise TruthAuditError(
+            "power-gate verdict endpoint_id values must be unique strings"
+        )
     expected_power_verdicts = {
         "h1": (None, None, False),
         "h2": (64, 0.05, True),
@@ -253,7 +499,7 @@ def main() -> int:
                 f"docs/power-gate/README.md omits artifact-backed verdict {required!r}"
             )
 
-    splat_spec = (ROOT / "pidsplatspecs.md").read_text(encoding="utf-8")
+    splat_spec = _read_regular_text(ROOT / "pidsplatspecs.md", label="pidsplatspecs.md")
     if "Schema 2; partial M2/EC1 groundwork" not in splat_spec:
         problems.append(
             "pidsplatspecs.md does not record the current run-log schema/M2 status"
@@ -263,11 +509,11 @@ def main() -> int:
     if "pid-h1-preflight" not in splat_spec:
         problems.append("pidsplatspecs.md omits the implemented H1 common preflight")
     for relative in ("pidsplatspecs.md", "ARCHITECTURE.md"):
-        text = (ROOT / relative).read_text(encoding="utf-8")
+        text = _read_regular_text(ROOT / relative, label=relative)
         if re.search(r"partial\s+M4\s+groundwork", text, flags=re.IGNORECASE):
             problems.append(f"{relative} mislabels viewer/run-log groundwork as M4")
 
-    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    changelog = _read_regular_text(ROOT / "CHANGELOG.md", label="CHANGELOG.md")
     for required in (
         "H1 did not reach a passing grid point",
         "H2 first passed\n  at 64 tasks",
@@ -284,7 +530,7 @@ def main() -> int:
         if stale in changelog:
             problems.append(f"CHANGELOG.md retains stale power claim {stale!r}")
 
-    grandplan = (ROOT / "grandplan.md").read_text(encoding="utf-8")
+    grandplan = _read_regular_text(ROOT / "grandplan.md", label="grandplan.md")
     for false_engram_claim in (
         "a6f2c5f973783373db9d90769d981b1d549a5b6b",
         "contains an implemented neurocontrol/NCP reference stack",
@@ -321,33 +567,66 @@ def main() -> int:
             )
 
     ecosystem_ledger_path = ROOT / "protocols/ecosystem_evidence_current_v1.json"
-    if not ecosystem_ledger_path.is_file():
+    if not _is_regular_file(ecosystem_ledger_path):
         problems.append("current ecosystem evidence overlay is missing")
     else:
-        ecosystem_ledger = json.loads(ecosystem_ledger_path.read_text(encoding="utf-8"))
+        ecosystem_ledger = _json_object(
+            ecosystem_ledger_path,
+            label="protocols/ecosystem_evidence_current_v1.json",
+        )
         baseline = ecosystem_ledger.get("baseline", {})
-        baseline_path = ROOT / str(baseline.get("path", ""))
-        if not baseline_path.is_file():
-            problems.append("ecosystem evidence overlay baseline is missing")
-        else:
-            baseline_bytes = baseline_path.read_bytes()
-            baseline_sha256 = hashlib.sha256(baseline_bytes).hexdigest()
-            if baseline_sha256 != baseline.get("sha256"):
-                problems.append(
-                    "ecosystem evidence overlay baseline hash does not match"
-                )
-            with baseline_path.open(encoding="utf-8", newline="") as handle:
-                baseline_rows = sum(1 for _ in csv.DictReader(handle))
-            if baseline_rows != baseline.get("row_count"):
-                problems.append(
-                    "ecosystem evidence overlay baseline row count does not match"
-                )
+        if not isinstance(baseline, dict):
+            raise TruthAuditError("ecosystem evidence baseline must be an object")
+        baseline_path = _repo_relative_path(
+            baseline.get("path"), label="ecosystem evidence baseline path"
+        )
+        baseline_bytes = _read_regular_bytes(
+            baseline_path, label="ecosystem evidence baseline"
+        )
+        baseline_sha256 = hashlib.sha256(baseline_bytes).hexdigest()
+        baseline_hash = baseline.get("sha256")
+        baseline_row_count = baseline.get("row_count")
+        if (
+            not isinstance(baseline_hash, str)
+            or re.fullmatch(r"[0-9a-f]{64}", baseline_hash) is None
+        ):
+            raise TruthAuditError("ecosystem evidence baseline sha256 is invalid")
+        if (
+            not isinstance(baseline_row_count, int)
+            or isinstance(baseline_row_count, bool)
+            or baseline_row_count < 0
+            or baseline_row_count > MAX_LEDGER_ITEMS
+        ):
+            raise TruthAuditError("ecosystem evidence baseline row_count is invalid")
+        if baseline_sha256 != baseline_hash:
+            problems.append("ecosystem evidence overlay baseline hash does not match")
+        try:
+            baseline_text = baseline_bytes.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise TruthAuditError(
+                "ecosystem evidence baseline is not valid UTF-8"
+            ) from error
+        baseline_rows = sum(
+            1 for _ in csv.DictReader(io.StringIO(baseline_text, newline=""))
+        )
+        if baseline_rows != baseline_row_count:
+            problems.append(
+                "ecosystem evidence overlay baseline row count does not match"
+            )
 
+        override_rows = _object_list(
+            ecosystem_ledger.get("overrides"),
+            label="ecosystem evidence overrides",
+        )
         overrides = {
             entry.get("project"): entry
-            for entry in ecosystem_ledger.get("overrides", [])
-            if isinstance(entry, dict)
+            for entry in override_rows
+            if isinstance(entry.get("project"), str)
         }
+        if len(overrides) != len(override_rows):
+            raise TruthAuditError(
+                "ecosystem evidence override project values must be unique strings"
+            )
         required_overrides = {
             "pid-rs",
             "NCP",
@@ -365,7 +644,7 @@ def main() -> int:
                 f"ecosystem evidence overlay omits current edges: {missing_overrides}"
             )
         expected_revisions = {
-            "pid-rs": "ac4a7803c5a77408f5e9176c60cda71c65c38260",
+            "pid-rs": "43ab60517b5387c61ae339f664d0d7afae3b8988",
             "NCP": "v0.8.0",
             "galadriel": "ff272dc814080c6766a53c872ca4d0e24bcd5132",
             "crebain": "09dd5ec1556bd56e6934e1ef019f95de84cf9b4f",
@@ -436,21 +715,30 @@ def main() -> int:
             )
 
     claim_registry_path = ROOT / "protocols/research_claim_registry_v1.json"
-    if not claim_registry_path.is_file():
+    if not _is_regular_file(claim_registry_path):
         problems.append("current research claim registry is missing")
     else:
-        claim_registry = json.loads(claim_registry_path.read_text(encoding="utf-8"))
-        claims = claim_registry.get("claims", [])
-        claim_ids = [
-            claim.get("claim_id") for claim in claims if isinstance(claim, dict)
-        ]
+        claim_registry = _json_object(
+            claim_registry_path,
+            label="protocols/research_claim_registry_v1.json",
+        )
+        claims = _object_list(
+            claim_registry.get("claims"), label="research claim registry claims"
+        )
+        claim_ids = [claim.get("claim_id") for claim in claims]
         if claim_ids != ["EC1", "H1", "H2", "H3", "H4"]:
             problems.append(
                 "research claim registry must contain EC1 and H1-H4 exactly once in order"
             )
         claims_by_id = {
-            claim.get("claim_id"): claim for claim in claims if isinstance(claim, dict)
+            claim.get("claim_id"): claim
+            for claim in claims
+            if isinstance(claim.get("claim_id"), str)
         }
+        if len(claims_by_id) != len(claims):
+            raise TruthAuditError(
+                "research claim claim_id values must be unique strings"
+            )
         h1 = claims_by_id.get("H1", {})
         if h1.get("execution_status") != (
             "deterministic_protocol_a_software_reference_fixture_runnable_"
@@ -459,11 +747,16 @@ def main() -> int:
             problems.append(
                 "research claim registry misstates the H1 execution boundary"
             )
+        h1_artifact_rows = _object_list(
+            h1.get("current_artifacts"), label="H1 current_artifacts"
+        )
         h1_artifacts = {
             artifact.get("path")
-            for artifact in h1.get("current_artifacts", [])
-            if isinstance(artifact, dict)
+            for artifact in h1_artifact_rows
+            if isinstance(artifact.get("path"), str)
         }
+        if len(h1_artifacts) != len(h1_artifact_rows):
+            raise TruthAuditError("H1 artifact paths must be unique strings")
         required_h1_artifacts = {
             "crates/pid-sim/src/h1_preflight.rs",
             "crates/pid-sim/src/bin/h1_preflight.rs",
@@ -477,11 +770,16 @@ def main() -> int:
                 "research claim registry omits implemented H1 software artifacts"
             )
         for artifact in required_h1_artifacts:
-            if not (ROOT / artifact).is_file():
+            if not _is_regular_file(ROOT / artifact):
                 problems.append(
                     f"research claim registry names missing H1 artifact: {artifact}"
                 )
-        if "just h1-protocol-a" not in h1.get("proof_commands", []):
+        h1_commands = h1.get("proof_commands")
+        if not isinstance(h1_commands, list) or not all(
+            isinstance(command, str) for command in h1_commands
+        ):
+            raise TruthAuditError("H1 proof_commands must be a string list")
+        if "just h1-protocol-a" not in h1_commands:
             problems.append(
                 "research claim registry omits the H1 Protocol-A proof command"
             )
@@ -493,11 +791,16 @@ def main() -> int:
             problems.append(
                 "research claim registry misstates the H2 execution boundary"
             )
+        h2_artifact_rows = _object_list(
+            h2.get("current_artifacts"), label="H2 current_artifacts"
+        )
         h2_artifacts = {
             artifact.get("path")
-            for artifact in h2.get("current_artifacts", [])
-            if isinstance(artifact, dict)
+            for artifact in h2_artifact_rows
+            if isinstance(artifact.get("path"), str)
         }
+        if len(h2_artifacts) != len(h2_artifact_rows):
+            raise TruthAuditError("H2 artifact paths must be unique strings")
         required_h2_files = {
             "crates/pid-sim/src/h2_reference.rs",
             "crates/pid-sim/src/bin/h2_reference.rs",
@@ -514,11 +817,16 @@ def main() -> int:
                 "research claim registry omits implemented H2 software artifacts"
             )
         for artifact in required_h2_files:
-            if not (ROOT / artifact).is_file():
+            if not _is_regular_file(ROOT / artifact):
                 problems.append(
                     f"research claim registry names missing H2 artifact: {artifact}"
                 )
-        if "just h2-reference" not in h2.get("proof_commands", []):
+        h2_commands = h2.get("proof_commands")
+        if not isinstance(h2_commands, list) or not all(
+            isinstance(command, str) for command in h2_commands
+        ):
+            raise TruthAuditError("H2 proof_commands must be a string list")
+        if "just h2-reference" not in h2_commands:
             problems.append(
                 "research claim registry omits the H2 reference proof command"
             )
@@ -540,7 +848,7 @@ def main() -> int:
             problems.append("research claim registry overstates H3 eligibility")
 
     for relative in ("justfile", ".github/workflows/ci.yml"):
-        text = (ROOT / relative).read_text(encoding="utf-8")
+        text = _read_regular_text(ROOT / relative, label=relative)
         for required in (
             "pid-h1-protocol-a",
             "h1_protocol_a_valid.json",
@@ -569,7 +877,7 @@ def main() -> int:
     if "H1/H2 baselines execute with PID disabled" in grandplan:
         problems.append("grandplan.md overstates the static label-baseline firebreak")
     for relative in ("grandplan.md", "RESEARCH_VLA_D_NCP.md"):
-        text = (ROOT / relative).read_text(encoding="utf-8")
+        text = _read_regular_text(ROOT / relative, label=relative)
         if "PID-disabled H1/H2 path" in text:
             problems.append(
                 f"{relative} overstates the dependency firebreak as H1/H2 execution"
@@ -594,6 +902,23 @@ def main() -> int:
         f"{version} ({revision}); Exp0/firebreak/consumer-lock/notices checks pass."
     )
     return 0
+
+
+def main() -> int:
+    try:
+        return _audit()
+    except (
+        TruthAuditError,
+        OSError,
+        csv.Error,
+        KeyError,
+        TypeError,
+        ValueError,
+        subprocess.SubprocessError,
+    ) as error:
+        print("Repository-truth problems: 1")
+        print(f"- audit input invalid or unavailable: {error}")
+        return 1
 
 
 if __name__ == "__main__":

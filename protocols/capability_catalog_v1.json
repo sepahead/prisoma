@@ -24,7 +24,7 @@
         "Cargo.toml",
         "Cargo.lock"
       ],
-      "external_revision": "pid-rs@ac4a7803c5a77408f5e9176c60cda71c65c38260",
+      "external_revision": "pid-rs@43ab60517b5387c61ae339f664d0d7afae3b8988",
       "test_command": "just estimate-report-contract",
       "evidence_artifacts": [
         "crates/pid-sim/fixtures/offline_vlda_fixture.json",
@@ -496,7 +496,7 @@
         "Cargo.toml",
         "Cargo.lock"
       ],
-      "external_revision": "pid-rs@ac4a7803c5a77408f5e9176c60cda71c65c38260",
+      "external_revision": "pid-rs@43ab60517b5387c61ae339f664d0d7afae3b8988",
       "test_command": "just exp0-bin",
       "evidence_artifacts": [
         "pid-rs/crates/pid-core",
@@ -602,7 +602,7 @@
         "Cargo.toml",
         "Cargo.lock"
       ],
-      "external_revision": "pid-rs@ac4a7803c5a77408f5e9176c60cda71c65c38260",
+      "external_revision": "pid-rs@43ab60517b5387c61ae339f664d0d7afae3b8988",
       "test_command": "just runlog-sidecars-proof",
       "evidence_artifacts": [
         "pid-rs/crates/pid-runlog",

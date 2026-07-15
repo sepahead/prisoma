@@ -1,9 +1,10 @@
-"""Tests for the faithfulness-checked attribution probe (numpy; torch optional)."""
+"""Tests for the attribution ranking-sensitivity probe (numpy; torch optional)."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import PurePosixPath
 
 import numpy as np
@@ -12,12 +13,16 @@ import pytest
 import experiments.attribution.runlog as attribution_runlog
 from experiments.attribution import (
     AttributionRecord,
+    AttributionValidationCase,
+    ProbeValidationCase,
+    RankingSensitivityGate,
     SmallTransformer,
     canonical_hash,
     faithfulness_check,
     finite_difference_gradient,
     grad_times_input,
     lrp_epsilon,
+    ranking_sensitivity_check,
     run_attribution_probe,
     write_attribution_runlog,
 )
@@ -28,6 +33,67 @@ def _model_and_input(seed: int = 0, tokens: int = 6, d_in: int = 5, d_model: int
     rng = np.random.default_rng(seed + 100)
     x = rng.standard_normal((tokens, d_in))
     return model, x
+
+
+def _gate(**overrides):
+    values = {
+        "frozen_gate_id": "test-ranking-gate-v1",
+        "baseline_name": "explicit_zero_test_baseline",
+        "baseline_provenance": "test fixture constructs a shape-matched zero tensor",
+        "validation_split": "heldout-test",
+        "selection_split": "selection-test",
+        "grouping_provenance": "one independent synthetic fixture per group",
+        "selection_group_ids": ("selection-group",),
+        "selection_unit_ids": ("selection-unit",),
+        "alpha": 0.05,
+        "min_groups": 5,
+        "n_steps": 6,
+        "n_random_rankings": 128,
+        "seed": 19,
+    }
+    values.update(overrides)
+    return RankingSensitivityGate(**values)
+
+
+def _probe_cases(seed: int, count: int = 6):
+    rng = np.random.default_rng(seed + 500)
+    return [
+        ProbeValidationCase(
+            case_id=f"case-{index}",
+            group_id=f"validation-group-{index}",
+            unit_ids=(f"validation-unit-{index}",),
+            x=rng.standard_normal((6, 5)),
+            baseline=np.zeros((6, 5), dtype=np.float64),
+        )
+        for index in range(count)
+    ]
+
+
+def _linear_validation_cases(kind: str = "informative", count: int = 6):
+    weights = np.array([16.0, 8.0, 4.0, 2.0, 1.0, 0.5])
+    cases = []
+    for index in range(count):
+        x = np.ones(6, dtype=np.float64) * (1.0 + index / 20.0)
+        informative = weights * x
+        if kind == "informative":
+            attribution = informative
+        elif kind == "adversarial":
+            attribution = informative[::-1]
+        elif kind == "constant":
+            attribution = np.ones_like(x)
+        else:
+            raise ValueError(f"unknown fixture kind: {kind}")
+        cases.append(
+            AttributionValidationCase(
+                case_id=f"linear-case-{index}",
+                group_id=f"linear-group-{index}",
+                unit_ids=(f"linear-unit-{index}",),
+                x=x,
+                attribution=attribution,
+                baseline=np.zeros_like(x),
+            )
+        )
+    return weights, cases
 
 
 def test_forward_is_deterministic_and_shaped():
@@ -62,30 +128,166 @@ def test_grad_times_input_shape_and_linear_sanity():
     assert abs(gxi.sum() - model.forward(x)) < 1e-4
 
 
-def test_faithfulness_passes_real_and_rejects_uninformative():
-    model, x = _model_and_input(seed=3)
-    real = lrp_epsilon(model, x)
-    real_result = faithfulness_check(model.forward, x, real, n_steps=8, n_random=16)
-    assert real_result.passed
-    assert real_result.method_aopc > real_result.random_aopc
+def test_group_level_ranking_sensitivity_passes_informative_linear_ranking():
+    weights, cases = _linear_validation_cases()
+    result = ranking_sensitivity_check(
+        lambda value: float(np.dot(weights, value)), cases, gate=_gate()
+    )
+    assert result.passed
+    assert result.status == "passed"
+    assert result.p_value == pytest.approx(1 / 64)
+    assert result.positive_groups == 6
+    assert result.method_aopc > result.random_aopc
 
-    # A constant "attribution" carries no ranking information; its deletion order is
-    # arbitrary, so it must not beat the random control.
-    constant = np.ones_like(x)
-    bad_result = faithfulness_check(model.forward, x, constant, n_steps=8, n_random=16)
-    assert not bad_result.passed
+
+@pytest.mark.parametrize("kind", ["constant", "adversarial"])
+def test_group_level_ranking_sensitivity_rejects_null_and_adversarial(kind):
+    weights, cases = _linear_validation_cases(kind)
+    result = faithfulness_check(
+        lambda value: float(np.dot(weights, value)), cases, gate=_gate()
+    )
+    assert not result.passed
+    assert result.status == "failed"
+
+
+def test_group_level_ranking_sensitivity_rejects_constant_predictor():
+    _, cases = _linear_validation_cases()
+    result = ranking_sensitivity_check(lambda _value: 1.0, cases, gate=_gate())
+    assert not result.passed
+    assert result.reason == "ranking_not_better_than_random_across_groups"
+
+
+@pytest.mark.parametrize(
+    ("gate", "reason"),
+    [
+        (
+            _gate(selection_group_ids=("linear-group-2",)),
+            "selection_validation_leakage",
+        ),
+        (
+            _gate(selection_unit_ids=("linear-unit-3",)),
+            "selection_validation_leakage",
+        ),
+        (
+            _gate(selection_split="heldout-test"),
+            "selection_validation_split_not_disjoint",
+        ),
+    ],
+)
+def test_group_level_gate_abstains_on_declared_selection_leakage(gate, reason):
+    weights, cases = _linear_validation_cases()
+    result = ranking_sensitivity_check(
+        lambda value: float(np.dot(weights, value)), cases, gate=gate
+    )
+    assert result.status == "abstained"
+    assert result.reason == reason
+    assert not result.passed
+    assert result.p_value is None
+
+
+@pytest.mark.parametrize(
+    ("replacement", "reason"),
+    [
+        ({"group_id": "linear-group-0"}, "validation_groups_not_disjoint"),
+        ({"unit_ids": ("linear-unit-0",)}, "validation_units_not_disjoint"),
+    ],
+)
+def test_group_level_gate_abstains_when_validation_partition_leaks(replacement, reason):
+    weights, cases = _linear_validation_cases()
+    cases[1] = replace(cases[1], **replacement)
+    result = ranking_sensitivity_check(
+        lambda value: float(np.dot(weights, value)), cases, gate=_gate()
+    )
+    assert result.status == "abstained"
+    assert result.reason == reason
+
+
+def test_group_level_gate_abstains_on_insufficient_independent_cases():
+    weights, cases = _linear_validation_cases(count=4)
+    result = ranking_sensitivity_check(
+        lambda value: float(np.dot(weights, value)), cases, gate=_gate()
+    )
+    assert result.status == "abstained"
+    assert result.reason == "insufficient_independent_validation_groups"
+
+
+@pytest.mark.parametrize(
+    ("case_change", "message"),
+    [
+        ({"attribution": np.ones(5)}, "attribution shape"),
+        ({"baseline": np.ones(5)}, "baseline shape"),
+        ({"x": np.array([1.0, 2.0, 3.0, 4.0, 5.0, np.nan])}, "finite"),
+        ({"unit_ids": ()}, "nonempty tuple"),
+    ],
+)
+def test_group_level_gate_rejects_invalid_case_inputs(case_change, message):
+    weights, cases = _linear_validation_cases()
+    cases[0] = replace(cases[0], **case_change)
+    with pytest.raises(ValueError, match=message):
+        ranking_sensitivity_check(
+            lambda value: float(np.dot(weights, value)), cases, gate=_gate()
+        )
+
+
+@pytest.mark.parametrize(
+    ("gate", "message"),
+    [
+        (_gate(baseline_name=""), "baseline_name"),
+        (_gate(baseline_provenance=""), "baseline_provenance"),
+        (_gate(n_random_rankings=99), "under-resolved"),
+        (_gate(min_groups=4), "cannot attain alpha"),
+        (_gate(alpha=float("nan")), "alpha"),
+        (_gate(n_steps=1), "n_steps"),
+    ],
+)
+def test_group_level_gate_rejects_invalid_frozen_parameters(gate, message):
+    weights, cases = _linear_validation_cases()
+    with pytest.raises(ValueError, match=message):
+        ranking_sensitivity_check(
+            lambda value: float(np.dot(weights, value)), cases, gate=gate
+        )
+
+
+def test_group_level_gate_rejects_nonfinite_predictor_output():
+    _, cases = _linear_validation_cases()
+    with pytest.raises(ValueError, match="non-finite"):
+        ranking_sensitivity_check(lambda _value: float("nan"), cases, gate=_gate())
 
 
 def test_run_probe_emits_records_with_verdicts():
-    model, x = _model_and_input(seed=4)
+    model, _ = _model_and_input(seed=4)
     records = run_attribution_probe(
-        model, x, target_output="action_dim_0", modality="vision"
+        model,
+        _probe_cases(4),
+        gate=_gate(),
+        target_output="action_dim_0",
+        modality="vision",
     )
     assert {r.method for r in records} == {"lrp_epsilon", "grad_x_input"}
     for rec in records:
         assert rec.target_output == "action_dim_0"
         assert rec.modality == "vision"
-        assert "method_aopc" in rec.metadata
+        assert rec.baseline == "explicit_zero_test_baseline"
+        assert rec.metadata["diagnostic"] == "deletion_ranking_sensitivity"
+        assert rec.metadata["causal_or_mechanistic_faithfulness_established"] == "false"
+        assert rec.metadata["independent_groups"] == "6"
+        assert rec.faithfulness_passed == (rec.metadata["gate_status"] == "passed")
+        assert len(rec.metadata["validation_input_baseline_set_sha256"]) == 64
+        assert len(rec.metadata["validation_relevance_set_sha256"]) == 64
+
+
+def test_run_probe_logs_insufficient_group_abstention_as_false():
+    model, _ = _model_and_input(seed=7)
+    records = run_attribution_probe(
+        model, _probe_cases(7, count=4), gate=_gate(), methods=("lrp_epsilon",)
+    )
+    assert len(records) == 1
+    assert not records[0].faithfulness_passed
+    assert records[0].metadata["gate_status"] == "abstained"
+    assert (
+        records[0].metadata["gate_reason"]
+        == "insufficient_independent_validation_groups"
+    )
 
 
 def test_canonical_hash_matches_sorted_compact_json():
@@ -103,8 +305,8 @@ def test_producer_limits_match_the_rerun_preparation_envelope():
 
 
 def test_write_runlog_is_schema_shaped(tmp_path):
-    model, x = _model_and_input(seed=5)
-    records = run_attribution_probe(model, x)
+    model, _ = _model_and_input(seed=5)
+    records = run_attribution_probe(model, _probe_cases(5), gate=_gate())
     out = write_attribution_runlog(
         tmp_path / "attr.jsonl",
         records,

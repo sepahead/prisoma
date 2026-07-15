@@ -24,3 +24,8 @@ edition = "2021"
 rust-version = "1.93"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sepahead/prisoma"
+
+[workspace.lints.rust]
+# `deny` keeps project-authored unsafe code a hard error while remaining composable with audited
+# third-party macro expansions (notably ndarray's `s!`, which carries a local lint allowance).
+unsafe_code = "deny"

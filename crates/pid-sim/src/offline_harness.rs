@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use pid_core::diagnostics::{
     distance_concentration_stats, entropy_discrete, intrinsic_dimension_levina_bickel,
     joint_entropy_discrete, sampled_four_point_delta_summary, DistanceConcentrationConfig,
@@ -18,7 +18,7 @@ use pid_core::stable::continuous::{KsgConfig, NegativeHandling};
 use pid_core::stable::imin::imin_pid2;
 use pid_core::stable::preprocessing::{ConstantColumnPolicy, Standardizer};
 use pid_core::stable::quantized::{EqualWidthQuantizer, QuantizedData, QuantizerConfig};
-use pid_core::{concat_horiz, MatOwned, MatRef, Metric};
+use pid_core::{concat_horiz, MatOwned, MatRef, Metric, PidError};
 // Re-exported so the harness CLI (and downstream callers) can pick the permutation
 // null without importing pid-core directly.
 pub use pid_core::experimental::pipelines::PermutationScheme;
@@ -167,6 +167,9 @@ pub enum OfflineVldaAbstainReason {
     /// is an estimator-applicability limit — the small-ball gauge is only defined for equal ambient
     /// dimensions — not a statement about the population law.
     EstimatorRequiresEqualSourceDimensions,
+    /// Every requested resampling/permutation statistic for an otherwise preflight-compatible
+    /// pair was unavailable. No inferential value is published.
+    UncertaintyStatisticsUnavailable,
 }
 
 impl OfflineVldaAbstainReason {
@@ -182,6 +185,7 @@ impl OfflineVldaAbstainReason {
             Self::EstimatorRequiresEqualSourceDimensions => {
                 "estimator_requires_equal_source_dimensions"
             }
+            Self::UncertaintyStatisticsUnavailable => "uncertainty_statistics_unavailable",
         }
     }
 }
@@ -306,6 +310,7 @@ impl OfflineVldaEstimateDenominators {
                         OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies
                             | OfflineVldaAbstainReason::AmbiguousNeighborShell
                             | OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions
+                            | OfflineVldaAbstainReason::UncertaintyStatisticsUnavailable
                     ) {
                         self.declared_support_compatible += 1;
                     }
@@ -341,6 +346,13 @@ pub struct OfflineVldaOutcome {
 impl OfflineVldaOutcome {
     pub fn abstained(&self) -> bool {
         self.status == OfflineVldaEstimateStatus::Abstained
+    }
+
+    fn produced(&self) -> bool {
+        matches!(
+            self.status,
+            OfflineVldaEstimateStatus::Produced | OfflineVldaEstimateStatus::ProducedWithWarning
+        )
     }
 }
 
@@ -1554,8 +1566,8 @@ impl Default for OfflineVldaUncertaintyConfig {
 /// Stable string label for the permutation scheme, recorded in the uncertainty
 /// artifact so a standalone JSON consumer can tell which null produced the
 /// p-values.
-fn permutation_scheme_label(scheme: PermutationScheme) -> String {
-    match scheme {
+fn permutation_scheme_label(scheme: PermutationScheme) -> Result<String> {
+    Ok(match scheme {
         PermutationScheme::FullShuffle => "full_shuffle".to_string(),
         PermutationScheme::CircularShift { min_shift } => {
             format!("circular_shift(min_shift={min_shift})")
@@ -1563,10 +1575,10 @@ fn permutation_scheme_label(scheme: PermutationScheme) -> String {
         PermutationScheme::BlockShuffle { block_size } => {
             format!("block_shuffle(block_size={block_size})")
         }
-        // `PermutationScheme` is `#[non_exhaustive]`: never silently mislabel the null that
-        // produced a p-value.
-        other => format!("unknown({other:?})"),
-    }
+        // `PermutationScheme` is `#[non_exhaustive]`: new upstream nulls require an explicit,
+        // reviewed label before they may appear in a publication artifact.
+        other => bail!("unsupported permutation scheme for uncertainty provenance: {other:?}"),
+    })
 }
 
 impl OfflineVldaUncertaintyConfig {
@@ -1603,8 +1615,8 @@ pub struct OfflineVldaAtomCi {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPairUncertainty {
     pub pair: String,
-    /// `produced` or `abstained` — uncertainty is only computed for a pair the continuous
-    /// estimator will actually run. This is computation status, not application eligibility.
+    /// `produced`, `produced_with_warning`, or `abstained` for a requested continuous pair.
+    /// Status is derived from actual requested-component presence, not application eligibility.
     #[serde(default = "produced_status")]
     pub status: OfflineVldaEstimateStatus,
     /// The same four scientific verdicts carried by point-estimate outcomes. Old sidecars did not
@@ -1615,6 +1627,10 @@ pub struct OfflineVldaPairUncertainty {
     pub reason_code: Option<OfflineVldaAbstainReason>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_detail: Option<String>,
+    /// Stable warnings for requested inferential components that could not be produced while at
+    /// least one other requested component was produced.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warning_codes: Vec<OfflineVldaUncertaintyWarning>,
     pub redundancy: Option<OfflineVldaAtomCi>,
     pub unique_s1: Option<OfflineVldaAtomCi>,
     pub unique_s2: Option<OfflineVldaAtomCi>,
@@ -1625,6 +1641,25 @@ pub struct OfflineVldaPairUncertainty {
     pub unique_s2_perm_p: Option<f64>,
     pub perm_n_valid_s1: usize,
     pub perm_n_valid_s2: usize,
+}
+
+/// Why a pair-level uncertainty record is only partially produced.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OfflineVldaUncertaintyWarning {
+    BootstrapStatisticsUnavailable,
+    UniqueSource1PermutationUnavailable,
+    UniqueSource2PermutationUnavailable,
+}
+
+impl OfflineVldaUncertaintyWarning {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::BootstrapStatisticsUnavailable => "bootstrap_statistics_unavailable",
+            Self::UniqueSource1PermutationUnavailable => "unique_source_1_permutation_unavailable",
+            Self::UniqueSource2PermutationUnavailable => "unique_source_2_permutation_unavailable",
+        }
+    }
 }
 
 fn produced_status() -> OfflineVldaEstimateStatus {
@@ -1667,6 +1702,27 @@ pub fn compute_offline_pid_uncertainty(
     pid_mode: PidMode,
     config: &OfflineVldaUncertaintyConfig,
 ) -> Result<OfflineVldaPidUncertainty> {
+    ensure!(config.block_size > 0, "uncertainty block_size must be >= 1");
+    ensure!(
+        config.alpha.is_finite() && (0.0..1.0).contains(&config.alpha),
+        "uncertainty alpha must lie strictly inside (0, 1)"
+    );
+    if config.n_perm > 0 {
+        let _ = permutation_scheme_label(config.permutation_scheme)?;
+    }
+    if !config.enabled() {
+        return Ok(OfflineVldaPidUncertainty {
+            mode: "skipped:no_uncertainty_requested".to_string(),
+            n_boot: 0,
+            n_perm: 0,
+            block_size: config.block_size,
+            subsample_len: 0,
+            alpha: config.alpha,
+            resample_scheme: "not_requested".to_string(),
+            permutation_scheme: "not_requested".to_string(),
+            pairs: Vec::new(),
+        });
+    }
     if pid_mode != PidMode::Continuous {
         return Ok(OfflineVldaPidUncertainty {
             mode: format!("skipped:non_continuous_mode_is_a_different_measure ({pid_mode:?})"),
@@ -1675,15 +1731,19 @@ pub fn compute_offline_pid_uncertainty(
             block_size: config.block_size,
             subsample_len: 0,
             alpha: config.alpha,
-            resample_scheme: "politis_romano_subsample".to_string(),
-            permutation_scheme: permutation_scheme_label(config.permutation_scheme),
+            resample_scheme: if config.n_boot > 0 {
+                "politis_romano_subsample".to_string()
+            } else {
+                "not_requested".to_string()
+            },
+            permutation_scheme: if config.n_perm > 0 {
+                permutation_scheme_label(config.permutation_scheme)?
+            } else {
+                "not_requested".to_string()
+            },
             pairs: Vec::new(),
         });
     }
-    if config.block_size == 0 {
-        bail!("uncertainty block_size must be >= 1");
-    }
-
     let dims = validate_dataset(dataset)?;
     let prepared = prepare_standardized_embeddings(&dataset.samples, &dims)?;
     let v = prepared.v.as_ref();
@@ -1694,7 +1754,11 @@ pub fn compute_offline_pid_uncertainty(
 
     // Subsample length: half the rows in whole blocks (the conservative
     // Politis–Romano regime); clamp so there is at least one block.
-    let subsample_len = (((n / 2) / config.block_size).max(1)) * config.block_size;
+    let subsample_len = if config.n_boot > 0 {
+        (((n / 2) / config.block_size).max(1)) * config.block_size
+    } else {
+        0
+    };
 
     let ksg = ksg_config();
     let pid_cfg = pid2_config(&ksg);
@@ -1714,16 +1778,24 @@ pub fn compute_offline_pid_uncertainty(
             continuous_preflight(&[(axis_1, s1), (axis_2, s2), ("A", a)], &dataset.support);
         // `pid2_resource_estimate` also rejects structurally-inapplicable pairs (e.g. unequal
         // ambient source dimensions), so consult it before doing any resampling work.
-        let rejection = rejection.or_else(|| {
-            pid2_resource_estimate(s1, s2, a, &pid_cfg)
-                .err()
-                .map(|err| {
+        let rejection = if rejection.is_some() {
+            rejection
+        } else {
+            match pid2_resource_estimate(s1, s2, a, &pid_cfg) {
+                Ok(_) => None,
+                Err(err) => {
                     let message = err.to_string();
-                    let reason = abstain_reason_for_error(&message)
-                        .unwrap_or(OfflineVldaAbstainReason::AmbiguousNeighborShell);
-                    (reason, message)
-                })
-        });
+                    match abstain_reason_for_error(&err) {
+                        Some(reason) => Some((reason, message)),
+                        None => {
+                            return Err(anyhow::anyhow!(
+                                "pid2 uncertainty resource preflight ({axis_1}, {axis_2} -> A) failed: {message}"
+                            ));
+                        }
+                    }
+                }
+            }
+        };
         if let Some((reason, detail)) = rejection {
             pairs.push(OfflineVldaPairUncertainty {
                 pair: name.to_string(),
@@ -1731,6 +1803,7 @@ pub fn compute_offline_pid_uncertainty(
                 scientific_gates: abstained_scientific_gates(reason),
                 reason_code: Some(reason),
                 reason_detail: Some(detail),
+                warning_codes: Vec::new(),
                 redundancy: None,
                 unique_s1: None,
                 unique_s2: None,
@@ -1829,12 +1902,74 @@ pub fn compute_offline_pid_uncertainty(
                 (None, 0, None, 0)
             };
 
+        let mut warning_codes = Vec::new();
+        if config.n_boot > 0 && redundancy.is_none() {
+            warning_codes.push(OfflineVldaUncertaintyWarning::BootstrapStatisticsUnavailable);
+        }
+        if config.n_perm > 0 && unique_s1_perm_p.is_none() {
+            warning_codes.push(OfflineVldaUncertaintyWarning::UniqueSource1PermutationUnavailable);
+        }
+        if config.n_perm > 0 && unique_s2_perm_p.is_none() {
+            warning_codes.push(OfflineVldaUncertaintyWarning::UniqueSource2PermutationUnavailable);
+        }
+        let requested_components =
+            usize::from(config.n_boot > 0) + 2 * usize::from(config.n_perm > 0);
+        let produced_components = usize::from(redundancy.is_some())
+            + usize::from(unique_s1_perm_p.is_some())
+            + usize::from(unique_s2_perm_p.is_some());
+        let (status, scientific_gates, reason_code, reason_detail) = if produced_components
+            == requested_components
+        {
+            (
+                OfflineVldaEstimateStatus::Produced,
+                produced_scientific_gates(&diagnostics),
+                None,
+                None,
+            )
+        } else if produced_components == 0 {
+            let reason = OfflineVldaAbstainReason::UncertaintyStatisticsUnavailable;
+            (
+                OfflineVldaEstimateStatus::Abstained,
+                abstained_scientific_gates(reason),
+                Some(reason),
+                Some(format!(
+                    "none of the requested uncertainty components were available: {}",
+                    warning_codes
+                        .iter()
+                        .map(|code| code.as_str())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )),
+            )
+        } else {
+            let mut gates = produced_scientific_gates(&diagnostics);
+            gates.estimator = OfflineVldaScientificGateVerdict::Blocked;
+            gates.reason_code = Some("uncertainty_statistics_partially_unavailable".to_string());
+            (
+                OfflineVldaEstimateStatus::ProducedWithWarning,
+                gates,
+                None,
+                Some(format!(
+                    "some requested uncertainty components were unavailable: {}",
+                    warning_codes
+                        .iter()
+                        .map(|code| code.as_str())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )),
+            )
+        };
+        if status == OfflineVldaEstimateStatus::Abstained {
+            warning_codes.clear();
+        }
+
         pairs.push(OfflineVldaPairUncertainty {
             pair: name.to_string(),
-            status: OfflineVldaEstimateStatus::Produced,
-            scientific_gates: produced_scientific_gates(&diagnostics),
-            reason_code: None,
-            reason_detail: None,
+            status,
+            scientific_gates,
+            reason_code,
+            reason_detail,
+            warning_codes,
             redundancy,
             unique_s1,
             unique_s2,
@@ -1853,10 +1988,597 @@ pub fn compute_offline_pid_uncertainty(
         block_size: config.block_size,
         subsample_len,
         alpha: config.alpha,
-        resample_scheme: "politis_romano_subsample".to_string(),
-        permutation_scheme: permutation_scheme_label(config.permutation_scheme),
+        resample_scheme: if config.n_boot > 0 {
+            "politis_romano_subsample".to_string()
+        } else {
+            "not_requested".to_string()
+        },
+        permutation_scheme: if config.n_perm > 0 {
+            permutation_scheme_label(config.permutation_scheme)?
+        } else {
+            "not_requested".to_string()
+        },
         pairs,
     })
+}
+
+fn validate_outcome_contract(
+    outcome: &OfflineVldaOutcome,
+    has_numeric_value: bool,
+    context: &str,
+) -> Result<()> {
+    ensure!(
+        !outcome.measure.trim().is_empty() && outcome.measure == outcome.measure.trim(),
+        "{context}: measure is empty or has surrounding whitespace"
+    );
+    ensure!(
+        !outcome.estimator_revision.trim().is_empty()
+            && outcome.estimator_revision == outcome.estimator_revision.trim(),
+        "{context}: estimator revision is empty or has surrounding whitespace"
+    );
+    ensure!(!outcome.axes.is_empty(), "{context}: axes are empty");
+    ensure!(
+        outcome
+            .axes
+            .iter()
+            .all(|axis| !axis.trim().is_empty() && axis == axis.trim()),
+        "{context}: an axis name is empty or has surrounding whitespace"
+    );
+    let unique_axes: BTreeSet<&str> = outcome.axes.iter().map(String::as_str).collect();
+    ensure!(
+        unique_axes.len() == outcome.axes.len(),
+        "{context}: axis names are not unique"
+    );
+    ensure!(
+        outcome.produced() == has_numeric_value,
+        "{context}: computation status {:?} is inconsistent with numeric-value presence={has_numeric_value}",
+        outcome.status
+    );
+    match outcome.status {
+        OfflineVldaEstimateStatus::NotRequested => {
+            ensure!(
+                outcome.reason_code.is_none(),
+                "{context}: not-requested outcome carries an abstention reason"
+            );
+            ensure!(
+                outcome
+                    .reason_detail
+                    .as_ref()
+                    .is_some_and(|detail| !detail.trim().is_empty()),
+                "{context}: not-requested outcome is missing a reason detail"
+            );
+            ensure!(
+                [
+                    outcome.scientific_gates.population,
+                    outcome.scientific_gates.measure,
+                    outcome.scientific_gates.estimator,
+                    outcome.scientific_gates.application,
+                ]
+                .into_iter()
+                .all(|gate| gate == OfflineVldaScientificGateVerdict::NotApplicable),
+                "{context}: not-requested outcome has an applicable scientific gate"
+            );
+            ensure!(
+                !outcome.scientific_gates.interpretation_allowed,
+                "{context}: not-requested outcome permits interpretation"
+            );
+        }
+        OfflineVldaEstimateStatus::Produced => {
+            ensure!(
+                outcome.reason_code.is_none() && outcome.reason_detail.is_none(),
+                "{context}: clean produced outcome carries an abstention/warning reason"
+            );
+        }
+        OfflineVldaEstimateStatus::ProducedWithWarning => {
+            ensure!(
+                outcome.reason_code.is_none(),
+                "{context}: produced-with-warning outcome carries an abstention reason"
+            );
+            ensure!(
+                outcome
+                    .reason_detail
+                    .as_ref()
+                    .is_some_and(|detail| !detail.trim().is_empty()),
+                "{context}: produced-with-warning outcome is missing warning detail"
+            );
+            ensure!(
+                !outcome.scientific_gates.interpretation_allowed,
+                "{context}: produced-with-warning outcome permits interpretation"
+            );
+        }
+        OfflineVldaEstimateStatus::Abstained => {
+            let reason = outcome.reason_code.context(format!(
+                "{context}: abstention is missing its stable reason code"
+            ))?;
+            ensure!(
+                outcome
+                    .reason_detail
+                    .as_ref()
+                    .is_some_and(|detail| !detail.trim().is_empty()),
+                "{context}: abstention is missing reason detail"
+            );
+            ensure!(
+                outcome.scientific_gates.reason_code.as_deref() == Some(reason.as_str()),
+                "{context}: abstention and scientific-gate reason codes disagree"
+            );
+            ensure!(
+                !outcome.scientific_gates.interpretation_allowed,
+                "{context}: an abstained estimate cannot permit interpretation"
+            );
+        }
+    }
+    ensure!(
+        outcome
+            .scientific_gates
+            .reason_code
+            .as_ref()
+            .is_none_or(|code| !code.trim().is_empty() && code == code.trim()),
+        "{context}: scientific-gate reason code is empty or has surrounding whitespace"
+    );
+    ensure!(
+        outcome
+            .scientific_gates
+            .support_envelope_version
+            .as_ref()
+            .is_none_or(|version| !version.trim().is_empty() && version == version.trim()),
+        "{context}: support-envelope version is empty or has surrounding whitespace"
+    );
+    if outcome.scientific_gates.interpretation_allowed {
+        ensure!(
+            [
+                outcome.scientific_gates.population,
+                outcome.scientific_gates.measure,
+                outcome.scientific_gates.estimator,
+                outcome.scientific_gates.application,
+            ]
+            .into_iter()
+            .all(|gate| gate == OfflineVldaScientificGateVerdict::Passed),
+            "{context}: interpretation is allowed although at least one scientific gate did not pass"
+        );
+        ensure!(
+            outcome.scientific_gates.support_envelope_version.is_some(),
+            "{context}: interpretation is allowed without a support-envelope version"
+        );
+    }
+    Ok(())
+}
+
+fn validate_mi_estimate(estimate: &OfflineVldaMiEstimate, context: &str) -> Result<()> {
+    if let Some(value) = estimate.value {
+        ensure!(value.is_finite(), "{context}: numeric value is non-finite");
+    }
+    validate_outcome_contract(&estimate.outcome, estimate.value.is_some(), context)
+}
+
+fn validate_pid_pair(pair_name: &str, pair: &OfflineVldaPidPairMetrics) -> Result<()> {
+    let context = format!("PID pair {pair_name}");
+    ensure!(
+        !pair.source_1.is_empty() && !pair.source_2.is_empty() && !pair.target.is_empty(),
+        "{context}: source/target identity is empty"
+    );
+    ensure!(
+        pair.source_1 != pair.source_2,
+        "{context}: source identities must be distinct"
+    );
+    let values = [
+        pair.mi_source_1_action,
+        pair.mi_source_2_action,
+        pair.mi_joint_action,
+        pair.co_information,
+        pair.redundancy,
+        pair.unique_source_1,
+        pair.unique_source_2,
+        pair.synergy,
+    ];
+    ensure!(
+        values.iter().flatten().all(|value| value.is_finite()),
+        "{context}: a numeric value is non-finite"
+    );
+    let present = values.iter().filter(|value| value.is_some()).count();
+    ensure!(
+        present == 0 || present == values.len(),
+        "{context}: PID atom/MI vector is only partially present"
+    );
+    validate_outcome_contract(&pair.outcome, present == values.len(), &context)?;
+    if let Some(saturation) = &pair.discrete_saturation {
+        let fractions = [
+            saturation.unique_fraction_source_1,
+            saturation.unique_fraction_source_2,
+            saturation.unique_fraction_target,
+            saturation.unique_fraction_joint,
+        ];
+        ensure!(
+            fractions
+                .into_iter()
+                .all(|fraction| fraction.is_finite() && (0.0..=1.0).contains(&fraction)),
+            "{context}: discrete saturation fraction is outside [0, 1]"
+        );
+        ensure!(
+            pair.outcome.produced(),
+            "{context}: an unproduced estimate carries saturation diagnostics"
+        );
+    }
+    Ok(())
+}
+
+fn same_optional_f64(left: Option<f64>, right: Option<f64>) -> bool {
+    match (left, right) {
+        (Some(left), Some(right)) => left.to_bits() == right.to_bits(),
+        (None, None) => true,
+        _ => false,
+    }
+}
+
+fn validate_pid_screen_contract(
+    context: &str,
+    mi_estimates: [&OfflineVldaMiEstimate; 3],
+    mirrored_vl: [(&str, Option<f64>); 6],
+    pid_pairs: &BTreeMap<String, OfflineVldaPidPairMetrics>,
+    denominators: &OfflineVldaEstimateDenominators,
+) -> Result<()> {
+    for (axis, estimate) in ["V", "L", "D"].into_iter().zip(mi_estimates) {
+        validate_mi_estimate(estimate, &format!("{context} MI({axis};A)"))?;
+    }
+    for (pair_name, pair) in pid_pairs {
+        validate_pid_pair(pair_name, pair)?;
+    }
+
+    let expected_vl = pid_pairs.get("VL").map(|pair| {
+        [
+            pair.mi_joint_action,
+            pair.co_information,
+            pair.redundancy,
+            pair.unique_source_1,
+            pair.unique_source_2,
+            pair.synergy,
+        ]
+    });
+    for (index, (name, actual)) in mirrored_vl.into_iter().enumerate() {
+        let expected = expected_vl.and_then(|values| values[index]);
+        ensure!(
+            same_optional_f64(actual, expected),
+            "{context}: mirrored VL field {name} does not exactly match the VL pair"
+        );
+    }
+
+    let mut expected_denominators = OfflineVldaEstimateDenominators::default();
+    for estimate in mi_estimates {
+        expected_denominators.record(&estimate.outcome);
+    }
+    for pair in pid_pairs.values() {
+        expected_denominators.record(&pair.outcome);
+    }
+    ensure!(
+        denominators == &expected_denominators,
+        "{context}: estimate denominators do not reconstruct from typed outcomes"
+    );
+    Ok(())
+}
+
+fn validate_pid_screen_metrics(metrics: &OfflineVldaPidScreenMetrics, context: &str) -> Result<()> {
+    validate_pid_screen_contract(
+        context,
+        [
+            &metrics.mi_v_action,
+            &metrics.mi_l_action,
+            &metrics.mi_d_action,
+        ],
+        [
+            ("mi_vl_action", metrics.mi_vl_action),
+            (
+                "co_information_v_l_action",
+                metrics.co_information_v_l_action,
+            ),
+            ("redundancy_v_l_action", metrics.redundancy_v_l_action),
+            ("unique_v_action", metrics.unique_v_action),
+            ("unique_l_action", metrics.unique_l_action),
+            ("synergy_v_l_action", metrics.synergy_v_l_action),
+        ],
+        &metrics.pid_pairs,
+        &metrics.estimate_denominators,
+    )?;
+    if let Some(control) = &metrics.pls_shuffled_target_control {
+        validate_pid_screen_metrics(control, &format!("{context} shuffled-target control"))?;
+    }
+    Ok(())
+}
+
+fn validate_offline_vlda_report(report: &OfflineVldaReport) -> Result<()> {
+    let metrics = &report.metrics;
+    validate_pid_screen_contract(
+        "full-data PID screen",
+        [
+            &metrics.mi_v_action,
+            &metrics.mi_l_action,
+            &metrics.mi_d_action,
+        ],
+        [
+            ("mi_vl_action", metrics.mi_vl_action),
+            (
+                "co_information_v_l_action",
+                metrics.co_information_v_l_action,
+            ),
+            ("redundancy_v_l_action", metrics.redundancy_v_l_action),
+            ("unique_v_action", metrics.unique_v_action),
+            ("unique_l_action", metrics.unique_l_action),
+            ("synergy_v_l_action", metrics.synergy_v_l_action),
+        ],
+        &metrics.pid_pairs,
+        &metrics.estimate_denominators,
+    )?;
+    if let Some(control) = &metrics.pls_shuffled_target_control {
+        validate_pid_screen_metrics(control, "full-data shuffled-target control")?;
+    }
+    if let Some(train) = &report.train_split_pid {
+        if let Some(metrics) = &train.metrics {
+            validate_pid_screen_metrics(metrics, "train-split PID screen")?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_atom_ci(atom: &OfflineVldaAtomCi, n_boot: usize, context: &str) -> Result<()> {
+    ensure!(
+        [atom.point, atom.ci_low, atom.ci_high]
+            .into_iter()
+            .all(f64::is_finite),
+        "{context}: point or interval endpoint is non-finite"
+    );
+    ensure!(
+        atom.ci_low <= atom.ci_high,
+        "{context}: interval endpoints are reversed"
+    );
+    ensure!(
+        atom.n_valid > 0 && atom.n_valid <= n_boot,
+        "{context}: valid bootstrap count is outside 1..={n_boot}"
+    );
+    let boot_mean = atom
+        .boot_mean
+        .context(format!("{context}: bootstrap mean is absent"))?;
+    let bias_vs_point = atom
+        .bias_vs_point
+        .context(format!("{context}: bootstrap bias diagnostic is absent"))?;
+    ensure!(
+        boot_mean.is_finite() && bias_vs_point.is_finite(),
+        "{context}: bootstrap mean or bias diagnostic is non-finite"
+    );
+    ensure!(
+        bias_vs_point.to_bits() == (boot_mean - atom.point).to_bits(),
+        "{context}: bootstrap bias diagnostic does not equal boot_mean - point"
+    );
+    Ok(())
+}
+
+fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> Result<()> {
+    ensure!(
+        uncertainty.alpha.is_finite() && (0.0..1.0).contains(&uncertainty.alpha),
+        "PID uncertainty alpha must lie strictly inside (0, 1)"
+    );
+    ensure!(
+        uncertainty.block_size > 0,
+        "PID uncertainty block size must be positive"
+    );
+    if uncertainty.mode.starts_with("skipped:") {
+        ensure!(
+            uncertainty.pairs.is_empty(),
+            "skipped PID uncertainty artifact carries pair results"
+        );
+        ensure!(
+            uncertainty.subsample_len == 0,
+            "skipped PID uncertainty artifact carries a subsample length"
+        );
+        if uncertainty.mode == "skipped:no_uncertainty_requested" {
+            ensure!(
+                uncertainty.n_boot == 0
+                    && uncertainty.n_perm == 0
+                    && uncertainty.resample_scheme == "not_requested"
+                    && uncertainty.permutation_scheme == "not_requested",
+                "no-request PID uncertainty skip carries a requested component or scheme"
+            );
+        } else {
+            ensure!(
+                uncertainty
+                    .mode
+                    .starts_with("skipped:non_continuous_mode_is_a_different_measure"),
+                "PID uncertainty artifact carries an unknown skip reason"
+            );
+            ensure!(
+                uncertainty.n_boot > 0 || uncertainty.n_perm > 0,
+                "non-continuous PID uncertainty skip records no requested component"
+            );
+        }
+        return Ok(());
+    }
+    ensure!(
+        uncertainty.mode == "continuous",
+        "PID uncertainty mode is neither continuous nor an explicit skip"
+    );
+    ensure!(
+        uncertainty.n_boot > 0 || uncertainty.n_perm > 0,
+        "continuous PID uncertainty artifact requested no inferential component"
+    );
+    if uncertainty.n_boot > 0 {
+        ensure!(
+            uncertainty.subsample_len > 0
+                && uncertainty
+                    .subsample_len
+                    .is_multiple_of(uncertainty.block_size),
+            "PID uncertainty subsample length is not a positive whole-block count"
+        );
+        ensure!(
+            uncertainty.resample_scheme == "politis_romano_subsample",
+            "PID uncertainty bootstrap scheme is mislabeled"
+        );
+    } else {
+        ensure!(
+            uncertainty.subsample_len == 0 && uncertainty.resample_scheme == "not_requested",
+            "unrequested PID bootstrap carries a scheme or subsample length"
+        );
+    }
+    if uncertainty.n_perm > 0 {
+        ensure!(
+            !uncertainty.permutation_scheme.is_empty()
+                && uncertainty.permutation_scheme != "not_requested"
+                && !uncertainty.permutation_scheme.starts_with("unknown("),
+            "PID uncertainty permutation scheme is missing or unknown"
+        );
+    } else {
+        ensure!(
+            uncertainty.permutation_scheme == "not_requested",
+            "unrequested PID permutation carries a scheme"
+        );
+    }
+    let expected_pairs = BTreeSet::from(["VL", "VD", "LD"]);
+    let actual_pairs: BTreeSet<&str> = uncertainty
+        .pairs
+        .iter()
+        .map(|pair| pair.pair.as_str())
+        .collect();
+    ensure!(
+        uncertainty.pairs.len() == expected_pairs.len() && actual_pairs == expected_pairs,
+        "continuous PID uncertainty artifact must contain exactly VL, VD, and LD once"
+    );
+    for pair in &uncertainty.pairs {
+        let atoms = [
+            ("redundancy", pair.redundancy.as_ref()),
+            ("unique_s1", pair.unique_s1.as_ref()),
+            ("unique_s2", pair.unique_s2.as_ref()),
+            ("synergy", pair.synergy.as_ref()),
+        ];
+        let has_all_atoms = atoms.iter().all(|(_, atom)| atom.is_some());
+        let has_any_atom = atoms.iter().any(|(_, atom)| atom.is_some());
+        ensure!(
+            has_all_atoms == has_any_atom,
+            "PID uncertainty pair {} has a partial atom vector",
+            pair.pair
+        );
+        ensure!(
+            uncertainty.n_boot > 0 || !has_any_atom,
+            "PID uncertainty pair {} carries an unrequested bootstrap interval",
+            pair.pair
+        );
+        ensure!(
+            uncertainty.n_perm > 0
+                || (pair.unique_s1_perm_p.is_none()
+                    && pair.unique_s2_perm_p.is_none()
+                    && pair.perm_n_valid_s1 == 0
+                    && pair.perm_n_valid_s2 == 0),
+            "PID uncertainty pair {} carries unrequested permutation results",
+            pair.pair
+        );
+        let has_any_numeric =
+            has_any_atom || pair.unique_s1_perm_p.is_some() || pair.unique_s2_perm_p.is_some();
+        let requested_complete = (uncertainty.n_boot == 0 || has_all_atoms)
+            && (uncertainty.n_perm == 0
+                || (pair.unique_s1_perm_p.is_some() && pair.unique_s2_perm_p.is_some()));
+        let synthetic_outcome = OfflineVldaOutcome {
+            status: pair.status,
+            measure: MEASURE_CONTINUOUS_PID2.to_string(),
+            estimator_revision: ESTIMATOR_REVISION.to_string(),
+            axes: vec![
+                "source_1".to_string(),
+                "source_2".to_string(),
+                "A".to_string(),
+            ],
+            scientific_gates: pair.scientific_gates.clone(),
+            reason_code: pair.reason_code,
+            reason_detail: pair.reason_detail.clone(),
+            axis_diagnostics: Vec::new(),
+        };
+        validate_outcome_contract(
+            &synthetic_outcome,
+            has_any_numeric,
+            &format!("PID uncertainty pair {}", pair.pair),
+        )?;
+        match pair.status {
+            OfflineVldaEstimateStatus::NotRequested => {
+                bail!(
+                    "PID uncertainty pair {} uses not_requested inside a requested artifact",
+                    pair.pair
+                );
+            }
+            OfflineVldaEstimateStatus::Produced => {
+                ensure!(
+                    requested_complete && pair.warning_codes.is_empty(),
+                    "PID uncertainty pair {} is produced without every requested component",
+                    pair.pair
+                );
+            }
+            OfflineVldaEstimateStatus::ProducedWithWarning => {
+                ensure!(
+                    has_any_numeric && !requested_complete,
+                    "PID uncertainty pair {} warning status is inconsistent with component presence",
+                    pair.pair
+                );
+                let mut expected_warnings = Vec::new();
+                if uncertainty.n_boot > 0 && !has_all_atoms {
+                    expected_warnings
+                        .push(OfflineVldaUncertaintyWarning::BootstrapStatisticsUnavailable);
+                }
+                if uncertainty.n_perm > 0 && pair.unique_s1_perm_p.is_none() {
+                    expected_warnings
+                        .push(OfflineVldaUncertaintyWarning::UniqueSource1PermutationUnavailable);
+                }
+                if uncertainty.n_perm > 0 && pair.unique_s2_perm_p.is_none() {
+                    expected_warnings
+                        .push(OfflineVldaUncertaintyWarning::UniqueSource2PermutationUnavailable);
+                }
+                ensure!(
+                    pair.warning_codes == expected_warnings,
+                    "PID uncertainty pair {} warning codes do not match missing components",
+                    pair.pair
+                );
+            }
+            OfflineVldaEstimateStatus::Abstained => {
+                ensure!(
+                    !has_any_numeric && pair.warning_codes.is_empty(),
+                    "PID uncertainty pair {} abstention carries numeric values or warnings",
+                    pair.pair
+                );
+            }
+        }
+        for (name, atom) in atoms {
+            if let Some(atom) = atom {
+                validate_atom_ci(
+                    atom,
+                    uncertainty.n_boot,
+                    &format!("PID uncertainty {} {name}", pair.pair),
+                )?;
+            }
+        }
+        for (name, value, n_valid) in [
+            (
+                "unique_s1_perm_p",
+                pair.unique_s1_perm_p,
+                pair.perm_n_valid_s1,
+            ),
+            (
+                "unique_s2_perm_p",
+                pair.unique_s2_perm_p,
+                pair.perm_n_valid_s2,
+            ),
+        ] {
+            if let Some(value) = value {
+                ensure!(
+                    value.is_finite() && (0.0..=1.0).contains(&value),
+                    "PID uncertainty pair {} {name} is outside [0, 1]",
+                    pair.pair
+                );
+                ensure!(
+                    n_valid > 0 && n_valid <= uncertainty.n_perm,
+                    "PID uncertainty pair {} {name} has an invalid permutation count",
+                    pair.pair
+                );
+            } else {
+                ensure!(
+                    n_valid <= uncertainty.n_perm,
+                    "PID uncertainty pair {} {name} has too many valid permutations",
+                    pair.pair
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Write a [`OfflineVldaPidUncertainty`] to a JSON file.
@@ -1864,6 +2586,7 @@ pub fn write_offline_pid_uncertainty(
     path: impl AsRef<Path>,
     uncertainty: &OfflineVldaPidUncertainty,
 ) -> Result<()> {
+    validate_offline_pid_uncertainty(uncertainty)?;
     ensure_parent(path.as_ref())?;
     pid_runlog::write_json_file(path, uncertainty)
 }
@@ -1872,6 +2595,7 @@ pub fn write_offline_vlda_summary(
     path: impl AsRef<Path>,
     report: &OfflineVldaReport,
 ) -> Result<()> {
+    validate_offline_vlda_report(report)?;
     ensure_parent(path.as_ref())?;
     pid_runlog::write_json_file(path, report)
 }
@@ -1901,6 +2625,11 @@ pub fn write_offline_vlda_runlog_with_options(
     report: &OfflineVldaReport,
     options: OfflineVldaRunlogOptions,
 ) -> Result<()> {
+    // `OfflineVldaReport` is a public serde type. Constructors in this crate preserve the
+    // status/value invariant, but a caller can deserialize or mutate an arbitrary report. Recheck
+    // the full publication contract before creating a run log so an abstention can never acquire a
+    // numeric placeholder (or a produced estimate lose its value) at this trust boundary.
+    validate_offline_vlda_report(report)?;
     ensure_parent(path.as_ref())?;
     let mut writer = RunLogWriter::create(path.as_ref())?;
     let summary_sha256 = summary_path.and_then(|path| pid_runlog::sha256_file(path).ok());
@@ -3117,7 +3846,7 @@ fn compute_pid_pair_metrics(
         Ok(est) => est,
         Err(err) => {
             let message = err.to_string();
-            return match abstain_reason_for_error(&message) {
+            return match abstain_reason_for_error(&err) {
                 Some(reason) => Ok(empty(abstained_outcome(
                     MEASURE_CONTINUOUS_PID2,
                     &axes,
@@ -3153,7 +3882,7 @@ fn compute_pid_pair_metrics(
 }
 
 /// Exact estimator revision stamped on every requested estimate. Update with the submodule pin.
-const ESTIMATOR_REVISION: &str = "pid-core 1.0.0 (pid-rs ac4a780)";
+const ESTIMATOR_REVISION: &str = "pid-core 1.0.0 (pid-rs 43ab605)";
 
 const MEASURE_CONTINUOUS_MI: &str = "ksg_mi";
 const MEASURE_CONTINUOUS_PID2: &str = "continuous_isx_pid2";
@@ -3268,17 +3997,20 @@ fn continuous_preflight(
 ///
 /// `None` means the error is not a known support / finite-sample rejection and must propagate — a
 /// genuine bug is never silently converted into an abstention.
-fn abstain_reason_for_error(message: &str) -> Option<OfflineVldaAbstainReason> {
-    let lowered = message.to_ascii_lowercase();
-    if lowered.contains("dimension mismatch") || lowered.contains("equal ambient source dimensions")
-    {
-        Some(OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions)
-    } else if lowered.contains("shell") || lowered.contains("ambiguous") {
-        Some(OfflineVldaAbstainReason::AmbiguousNeighborShell)
-    } else if lowered.contains("ties") || lowered.contains("continuous-sample") {
-        Some(OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies)
-    } else {
-        None
+fn abstain_reason_for_error(error: &PidError) -> Option<OfflineVldaAbstainReason> {
+    match error {
+        PidError::SourceDimensionMismatch { .. } => {
+            Some(OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions)
+        }
+        PidError::AmbiguousKthNeighborShell { .. } => {
+            Some(OfflineVldaAbstainReason::AmbiguousNeighborShell)
+        }
+        PidError::ObservedContinuousSampleIncompatibility { .. } => {
+            Some(OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies)
+        }
+        // `PidError` is non-exhaustive by design. New upstream errors remain hard failures until
+        // this adapter makes an explicit, reviewed decision that they are support abstentions.
+        _ => None,
     }
 }
 
@@ -3315,7 +4047,8 @@ fn abstained_scientific_gates(reason: OfflineVldaAbstainReason) -> OfflineVldaSc
         ),
         OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies
         | OfflineVldaAbstainReason::AmbiguousNeighborShell
-        | OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions => (
+        | OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions
+        | OfflineVldaAbstainReason::UncertaintyStatisticsUnavailable => (
             OfflineVldaScientificGateVerdict::Conditional,
             OfflineVldaScientificGateVerdict::NotEvaluated,
             OfflineVldaScientificGateVerdict::Blocked,
@@ -3442,7 +4175,7 @@ fn continuous_mi_estimate(
         }),
         Err(err) => {
             let message = err.to_string();
-            match abstain_reason_for_error(&message) {
+            match abstain_reason_for_error(&err) {
                 Some(reason) => Ok(OfflineVldaMiEstimate {
                     outcome: abstained_outcome(
                         MEASURE_CONTINUOUS_MI,
@@ -6312,6 +7045,63 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
+    fn estimator_abstentions_are_classified_by_typed_error_variant() {
+        assert_eq!(
+            abstain_reason_for_error(&PidError::SourceDimensionMismatch {
+                context: "test",
+                left_cols: 1,
+                right_cols: 2,
+            }),
+            Some(OfflineVldaAbstainReason::EstimatorRequiresEqualSourceDimensions)
+        );
+        assert_eq!(
+            abstain_reason_for_error(&PidError::ObservedContinuousSampleIncompatibility {
+                context: "test",
+                input_index: 0,
+                coordinate: Some(0),
+                unique_values: 1,
+                n_samples: 2,
+                max_multiplicity: 2,
+            }),
+            Some(OfflineVldaAbstainReason::ObservedSampleIncompatibleExactTies)
+        );
+        assert_eq!(
+            abstain_reason_for_error(&PidError::AmbiguousKthNeighborShell {
+                context: "test",
+                query_index: 0,
+                k: 1,
+                radius: 1.0,
+                interior_count: 0,
+                boundary_count: 2,
+            }),
+            Some(OfflineVldaAbstainReason::AmbiguousNeighborShell)
+        );
+        assert_eq!(
+            abstain_reason_for_error(&PidError::NumericalInstability {
+                context: "shell ties"
+            }),
+            None,
+            "display wording must never turn an unreviewed error variant into abstention"
+        );
+    }
+
+    #[test]
+    fn publication_rejects_status_value_contradiction_before_creating_output() {
+        let mut report = run_offline_vlda_harness(fixture_dataset(), None, None).unwrap();
+        assert!(report.metrics.mi_l_action.outcome.abstained());
+        assert!(report.metrics.mi_l_action.value.is_none());
+        report.metrics.mi_l_action.value = Some(0.0);
+
+        let dir = tempfile::tempdir().unwrap();
+        let summary_path = dir.path().join("contradictory-summary.json");
+        let error = write_offline_vlda_summary(&summary_path, &report).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("inconsistent with numeric-value"));
+        assert!(!summary_path.exists());
+    }
+
+    #[test]
     fn legacy_outcome_statuses_deserialize_as_computation_statuses_with_blocked_gates() {
         for (legacy_status, expected) in [
             ("eligible", OfflineVldaEstimateStatus::Produced),
@@ -8417,10 +9207,14 @@ mod tests {
 
     #[test]
     fn pid_uncertainty_records_application_block_for_produced_pairs() {
+        let config = OfflineVldaUncertaintyConfig {
+            n_boot: 8,
+            ..Default::default()
+        };
         let uncertainty = compute_offline_pid_uncertainty(
             &continuous_fixture_dataset(),
             PidMode::Continuous,
-            &OfflineVldaUncertaintyConfig::default(),
+            &config,
         )
         .unwrap();
         let pair = uncertainty
@@ -8442,12 +9236,13 @@ mod tests {
 
     #[test]
     fn pid_uncertainty_records_measure_block_for_support_abstention() {
-        let uncertainty = compute_offline_pid_uncertainty(
-            &fixture_dataset(),
-            PidMode::Continuous,
-            &OfflineVldaUncertaintyConfig::default(),
-        )
-        .unwrap();
+        let config = OfflineVldaUncertaintyConfig {
+            n_boot: 8,
+            ..Default::default()
+        };
+        let uncertainty =
+            compute_offline_pid_uncertainty(&fixture_dataset(), PidMode::Continuous, &config)
+                .unwrap();
         let pair = uncertainty
             .pairs
             .iter()
@@ -8487,6 +9282,58 @@ mod tests {
         assert!(vl.redundancy.is_some());
         assert!(vl.unique_s1_perm_p.is_none() && vl.unique_s2_perm_p.is_none());
         assert!(!OfflineVldaUncertaintyConfig::default().enabled());
+    }
+
+    #[test]
+    fn pid_uncertainty_disabled_is_typed_skip_without_pair_placeholders() {
+        let uncertainty = compute_offline_pid_uncertainty(
+            &continuous_fixture_dataset(),
+            PidMode::Continuous,
+            &OfflineVldaUncertaintyConfig::default(),
+        )
+        .unwrap();
+
+        assert_eq!(uncertainty.mode, "skipped:no_uncertainty_requested");
+        assert!(uncertainty.pairs.is_empty());
+        assert_eq!(uncertainty.subsample_len, 0);
+        assert_eq!(uncertainty.resample_scheme, "not_requested");
+        assert_eq!(uncertainty.permutation_scheme, "not_requested");
+    }
+
+    #[test]
+    fn uncertainty_publication_rejects_produced_status_without_requested_values() {
+        let config = OfflineVldaUncertaintyConfig {
+            n_boot: 8,
+            ..Default::default()
+        };
+        let mut uncertainty = compute_offline_pid_uncertainty(
+            &continuous_fixture_dataset(),
+            PidMode::Continuous,
+            &config,
+        )
+        .unwrap();
+        let pair = uncertainty
+            .pairs
+            .iter_mut()
+            .find(|pair| pair.status == OfflineVldaEstimateStatus::Produced)
+            .unwrap();
+        pair.redundancy = None;
+        pair.unique_s1 = None;
+        pair.unique_s2 = None;
+        pair.synergy = None;
+
+        let path = std::env::temp_dir().join(format!(
+            "prisoma-invalid-uncertainty-{}-{}.json",
+            std::process::id(),
+            config.seed
+        ));
+        let _ = std::fs::remove_file(&path);
+        let error = write_offline_pid_uncertainty(&path, &uncertainty).unwrap_err();
+        assert!(
+            format!("{error:#}").contains("inconsistent with numeric-value presence=false"),
+            "{error:#}"
+        );
+        assert!(!path.exists());
     }
 
     #[test]

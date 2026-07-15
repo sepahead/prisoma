@@ -11,6 +11,9 @@ repository.workspace = true
 # crates.io. Lets cargo-deny's `allow-wildcard-paths` exempt the versionless path deps.
 publish = false
 
+[lints]
+workspace = true
+
 [lib]
 name = "pid_sim"
 path = "src/lib.rs"

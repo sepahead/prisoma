@@ -48,7 +48,7 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `DIAGRAMS.md` | Architecture + control-plane diagrams (status dashboards up top) |
 | `pidsplatspecs.md` | Simulation/spec details (PID‑Splat) |
 | `findings.md` | Current estimator-status evidence (Exp0 results + interpretation) |
-| `REVIEW_AND_TODO.md` | Whole-repo review, prioritized to-do list, current critical path |
+| `REVIEW_AND_TODO.md` | Historical review snapshot; retained for provenance, not current status or task authority |
 | `LIMITATIONS.md` | Release-scoped claim, data, security, and deployment boundaries |
 | `THESIS_EVIDENCE_INDEX.md` | Claim-by-claim map from software proofs to missing scientific evidence |
 | `docs/CAPABILITY_MATRIX.md` | Generated, content-bound current capability/evidence inventory |
@@ -59,6 +59,7 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `uidesigner/UI.md` | UI/UX spec (viewer-first; ordered by milestones) |
 | `GAUSS_MI_INTEGRATION.md`, `WORLD_WARP_INTEGRATION.md` | Optional add-on specs (3DGS reconstruction-quality study; external world-model baseline) |
 | `THIRD_PARTY_NOTICES.md` | Release-governance notices/checklist |
+| `formal/README.md` | Machine-checked abstract invariants/countermodels and their assurance boundary |
 
 ## Prerequisites
 
@@ -173,7 +174,7 @@ Each step gates the next; canonical depth is in `grandplan.md` at the cited sect
 5. **Analyze only after gates exist:** geometry diagnostics do not currently select a valid
    regime. The m-out-of-n raw percentile output is a stability envelope at size m, not an
    n-sample confidence interval; endpoint inference must resample the correct outer units.
-6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (surfaced under the `heldout_logreg_vlda_success_*` metric names) are built into the harness; add one faithfulness-checked attribution baseline (`experiments/attribution/`, an AttnLRP protocol, `grandplan.md` §6.10, §10.2; `just attribution-probe`). The prespecified PID kill rules (`grandplan.md` §3.8) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
+6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (surfaced under the `heldout_logreg_vlda_success_*` metric names) are built into the harness; add one separately validated attribution baseline (`experiments/attribution/`; its current reference gate measures deletion ranking sensitivity, not causal or mechanistic faithfulness; `grandplan.md` §6.10, §10.2; `just attribution-probe`). The prespecified PID kill rules (`grandplan.md` §3.8) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
 7. **Only then** run the H1–H4 study protocols in `EXPERIMENTS.md` (see its runbook for what is executable today vs blocked on step 4).
 
 ## Confirmatory claim registry (Docset v12.5)
@@ -216,9 +217,11 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 - `python scripts/audit_docset_claims.py` (same heuristic scan across the canonical docset + `findings.md`)
 - `python scripts/audit_research_governance.py` (strict schema/hash-chain/cross-ledger validation of
   the honest M0 scaffold; add `--require-freeze-ready` only when a real freeze is expected)
-- Full tracked-Markdown sweep: `python scripts/audit_docset_claims.py --paths $(git ls-files '*.md')`
+- Full tracked-Markdown sweep: `python scripts/audit_docset_claims.py --all-tracked-markdown`
 - With `just`: `just docs-audit` (checks generated capability views plus the five repository audits,
   including research-governance and pinned-dependency truth)
+- Formal abstraction checks: `just formal` (requires Z3; proves only the obligations described in
+  `formal/README.md`, never an empirical hypothesis or implementation refinement by itself)
 
 ## What Actually Exists
 

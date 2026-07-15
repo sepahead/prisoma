@@ -58,6 +58,7 @@ MAX_INVENTORY_LISTING_BYTES = MAX_INVENTORY_PATH_BYTES + MAX_INVENTORY_ENTRIES *
 MAX_GIT_STDERR_BYTES = 1024 * 1024
 GIT_COMMAND_TIMEOUT_SECONDS = 120.0
 INVENTORY_GIT_DEADLINE_SECONDS = 120.0
+RECURSIVE_GITLINK_PATHS = ("pid-rs",)
 
 INVENTORY_NAME = "source_inventory.json"
 TASK_LEDGER_NAME = "task_lens_ledger.json"
@@ -553,6 +554,39 @@ def _parse_head_tree(raw: bytes) -> dict[str, dict[str, str]]:
     return result
 
 
+def _parse_pinned_gitlink_tree(
+    raw: bytes, *, gitlink_path: str
+) -> dict[str, dict[str, str]]:
+    """Parse a pinned gitlink tree into parent-relative, blob-only file rows."""
+
+    result: dict[str, dict[str, str]] = {}
+    path_bytes = 0
+    for record in raw.rstrip(b"\0").split(b"\0") if raw else []:
+        try:
+            metadata, raw_path = record.split(b"\t", 1)
+            mode, object_type, oid = metadata.decode("ascii").split(" ")
+        except (UnicodeDecodeError, ValueError) as exc:
+            fail("GITLINK_TREE_PARSE", f"cannot parse {gitlink_path} tree entry: {exc}")
+        relative = _decode_path(raw_path, context=f"{gitlink_path} pinned tree")
+        path = f"{gitlink_path}/{relative}"
+        if mode not in {"100644", "100755", "120000"} or object_type != "blob":
+            fail(
+                "GITLINK_TREE_TYPE",
+                f"unsupported recursive object {mode} {object_type} at {path}",
+            )
+        if _OID_RE.fullmatch(oid) is None:
+            fail("GITLINK_TREE_OID", f"invalid pinned blob object ID at {path}")
+        if len(result) >= MAX_INVENTORY_ENTRIES:
+            fail("INVENTORY_BUDGET", f"{gitlink_path} tree exceeds the entry budget")
+        path_bytes += len(path.encode("utf-8"))
+        if path_bytes > MAX_INVENTORY_PATH_BYTES:
+            fail("INVENTORY_BUDGET", f"{gitlink_path} paths exceed the path budget")
+        if path in result:
+            fail("GITLINK_TREE_DUPLICATE", f"duplicate pinned gitlink path: {path}")
+        result[path] = {"mode": mode, "object_type": object_type, "oid": oid}
+    return result
+
+
 def _read_stable_file(path: Path) -> tuple[bytes, os.stat_result]:
     return _read_bounded_regular(
         path,
@@ -572,6 +606,32 @@ def _remaining_capture_seconds(deadline: float) -> float:
             "candidate inventory Git subprocesses exceeded their aggregate deadline",
         )
     return min(GIT_COMMAND_TIMEOUT_SECONDS, remaining)
+
+
+def _require_git_repository_root(
+    path: Path, relative: str, *, capture_deadline: float
+) -> None:
+    try:
+        metadata = path.lstat()
+    except OSError as exc:
+        fail("GITLINK_ROOT", f"cannot inspect gitlink repository {relative}: {exc}")
+    if not stat.S_ISDIR(metadata.st_mode):
+        fail("GITLINK_ROOT", f"gitlink repository must be a real directory: {relative}")
+    raw_top = _run_git(
+        path,
+        ["rev-parse", "--show-toplevel"],
+        max_bytes=16 * 1024,
+        timeout_seconds=_remaining_capture_seconds(capture_deadline),
+    )
+    try:
+        observed_top = Path(raw_top.decode("utf-8", errors="strict").strip()).resolve(
+            strict=True
+        )
+        expected_top = path.resolve(strict=True)
+    except (OSError, UnicodeDecodeError) as exc:
+        fail("GITLINK_ROOT", f"cannot resolve gitlink repository {relative}: {exc}")
+    if observed_top != expected_top:
+        fail("GITLINK_ROOT", f"gitlink path is not its repository root: {relative}")
 
 
 def _working_file_record(
@@ -627,6 +687,7 @@ def _working_file_record(
             "gitlink_status_sha256": None,
         }
     if stat.S_ISDIR(metadata.st_mode):
+        _require_git_repository_root(path, relative, capture_deadline=capture_deadline)
         raw_head = _run_git(
             path,
             ["rev-parse", "HEAD"],
@@ -637,6 +698,8 @@ def _working_file_record(
             gitlink_head = raw_head.decode("ascii").strip()
         except UnicodeDecodeError as exc:
             fail("GITLINK_HEAD", f"invalid gitlink HEAD at {relative}: {exc}")
+        if _OID_RE.fullmatch(gitlink_head) is None:
+            fail("GITLINK_HEAD", f"invalid gitlink HEAD at {relative}")
         status_raw = _run_git(
             path,
             ["status", "--porcelain=v2", "-z", "--untracked-files=all"],
@@ -666,6 +729,136 @@ def _blob_record(repo: Path, oid: str, *, capture_deadline: float) -> dict[str, 
     return {"sha256": sha256_bytes(raw), "bytes": len(raw)}
 
 
+def _pinned_working_record(mode: str, raw: bytes, *, path: str) -> dict[str, Any]:
+    link_target: str | None = None
+    kind = "regular"
+    line_count: int | None = raw.count(b"\n") + int(
+        bool(raw) and not raw.endswith(b"\n")
+    )
+    if mode == "120000":
+        kind = "symlink"
+        line_count = None
+        try:
+            link_target = raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            fail("GITLINK_SYMLINK", f"non-UTF-8 pinned symlink target at {path}: {exc}")
+    return {
+        "kind": kind,
+        "mode": mode,
+        "sha256": sha256_bytes(raw),
+        "bytes": len(raw),
+        "line_count": line_count,
+        "link_target": link_target,
+        "gitlink_head": None,
+        "gitlink_status_sha256": None,
+    }
+
+
+def _project_pinned_gitlink(
+    repo: Path,
+    gitlink_path: str,
+    commit: str,
+    *,
+    capture_deadline: float,
+) -> tuple[dict[str, Any], list[dict[str, Any]], int]:
+    """Read a bounded immutable commit projection from one initialized gitlink."""
+
+    if gitlink_path not in RECURSIVE_GITLINK_PATHS or _OID_RE.fullmatch(commit) is None:
+        fail(
+            "GITLINK_PROJECTION", f"unsupported pinned gitlink identity: {gitlink_path}"
+        )
+    gitlink_repo = repo / gitlink_path
+    _require_git_repository_root(
+        gitlink_repo, gitlink_path, capture_deadline=capture_deadline
+    )
+    object_type = _run_git(
+        gitlink_repo,
+        ["cat-file", "-t", commit],
+        max_bytes=32,
+        timeout_seconds=_remaining_capture_seconds(capture_deadline),
+    )
+    if object_type != b"commit\n":
+        fail("GITLINK_COMMIT", f"pinned gitlink object is not a commit: {gitlink_path}")
+    raw_tree = _run_git(
+        gitlink_repo,
+        ["rev-parse", f"{commit}^{{tree}}"],
+        max_bytes=1024,
+        timeout_seconds=_remaining_capture_seconds(capture_deadline),
+    )
+    try:
+        tree = raw_tree.decode("ascii").strip()
+    except UnicodeDecodeError as exc:
+        fail("GITLINK_TREE", f"invalid pinned tree at {gitlink_path}: {exc}")
+    if _OID_RE.fullmatch(tree) is None:
+        fail("GITLINK_TREE", f"invalid pinned tree at {gitlink_path}")
+    tree_entries = _parse_pinned_gitlink_tree(
+        _run_git(
+            gitlink_repo,
+            ["ls-tree", "-r", "-z", commit],
+            max_bytes=MAX_INVENTORY_LISTING_BYTES,
+            timeout_seconds=_remaining_capture_seconds(capture_deadline),
+        ),
+        gitlink_path=gitlink_path,
+    )
+    entries: list[dict[str, Any]] = []
+    identity: list[dict[str, Any]] = []
+    content_bytes = 0
+    for path, tree_entry in sorted(tree_entries.items()):
+        raw = _run_git(
+            gitlink_repo,
+            ["cat-file", "blob", tree_entry["oid"]],
+            max_bytes=MAX_FILE_BYTES,
+            timeout_seconds=_remaining_capture_seconds(capture_deadline),
+        )
+        content_bytes += len(raw) * 2
+        if content_bytes > MAX_INVENTORY_CONTENT_BYTES:
+            fail(
+                "INVENTORY_BUDGET",
+                f"{gitlink_path} projected content exceeds the content budget",
+            )
+        working = _pinned_working_record(tree_entry["mode"], raw, path=path)
+        index = {
+            "mode": tree_entry["mode"],
+            "oid": tree_entry["oid"],
+            "content_sha256": working["sha256"],
+            "bytes": working["bytes"],
+        }
+        origin = {
+            "kind": "pinned_gitlink_file",
+            "gitlink_path": gitlink_path,
+            "gitlink_commit": commit,
+            "gitlink_tree": tree,
+        }
+        entry: dict[str, Any] = {
+            "path": path,
+            "inventory_origin": origin,
+            "head": dict(tree_entry),
+            "index": index,
+            "index_state": "unchanged",
+            "working_tree": working,
+            "worktree_state": "unchanged",
+        }
+        entry["file_review"] = _default_file_review(entry)
+        entries.append(entry)
+        identity.append(
+            {
+                "path": path,
+                "mode": tree_entry["mode"],
+                "oid": tree_entry["oid"],
+                "sha256": working["sha256"],
+                "bytes": working["bytes"],
+            }
+        )
+    source_record = {
+        "path": gitlink_path,
+        "commit": commit,
+        "tree": tree,
+        "entry_count": len(entries),
+        "entries_sha256": semantic_sha256(identity),
+    }
+    return source_record, entries, content_bytes
+
+
 def _classify_file_review(path: str) -> dict[str, Any]:
     name = PurePosixPath(path).name
     suffix = PurePosixPath(path).suffix.lower()
@@ -692,7 +885,7 @@ def _classify_file_review(path: str) -> dict[str, Any]:
     else:
         language = "binary_or_unknown"
 
-    if path.startswith("crates/") or path == "pid-rs":
+    if path.startswith(("crates/", "pid-rs/")) or path == "pid-rs":
         category = "rust_and_estimator_source"
     elif path.startswith("experiments/"):
         category = "python_experiment_source"
@@ -753,6 +946,7 @@ def _classify_file_review(path: str) -> dict[str, Any]:
     )
     science_critical = (
         path == "pid-rs"
+        or path.startswith("pid-rs/")
         or path.startswith(("experiments/", "protocols/"))
         or path
         in {
@@ -770,6 +964,32 @@ def _classify_file_review(path: str) -> dict[str, Any]:
         "public_surface": public_surface,
         "security_critical": security_critical,
         "science_critical": science_critical,
+    }
+
+
+def _default_file_review(entry: Mapping[str, Any]) -> dict[str, Any]:
+    index = entry["index"]
+    expected_blob = None if index is None or index["mode"] == "160000" else index["oid"]
+    working = entry["working_tree"]
+    return {
+        "path": entry["path"],
+        "git_blob_id": expected_blob,
+        "sha256": working["sha256"],
+        **_classify_file_review(entry["path"]),
+        "reviewer": None,
+        "independent_reviewer": None,
+        "line_count": working["line_count"],
+        "requirements": [],
+        "defects": [],
+        "tests": [],
+        "evidence": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "decision": "OPEN_NOT_REVIEWED",
+        "updated_at": None,
+        "completed_at": None,
+        "notes": (
+            "Inventory only; substantive file review and requirement closure are not claimed."
+        ),
     }
 
 
@@ -1039,20 +1259,22 @@ def _capture_once(repo: Path) -> dict[str, Any]:
         fail("INVENTORY_OVERLAP", "a path is both indexed and untracked")
 
     entries: list[dict[str, Any]] = []
-    source_paths = set(head_entries) | set(index_by_path) | set(untracked)
-    if len(source_paths) > MAX_INVENTORY_ENTRIES:
+    recursive_entries: list[dict[str, Any]] = []
+    recursive_gitlinks: list[dict[str, Any]] = []
+    parent_source_paths = set(head_entries) | set(index_by_path) | set(untracked)
+    if len(parent_source_paths) > MAX_INVENTORY_ENTRIES:
         fail(
             "INVENTORY_BUDGET",
             f"source inventory exceeds {MAX_INVENTORY_ENTRIES} entries",
         )
-    path_bytes = sum(len(path.encode("utf-8")) for path in source_paths)
+    path_bytes = sum(len(path.encode("utf-8")) for path in parent_source_paths)
     if path_bytes > MAX_INVENTORY_PATH_BYTES:
         fail(
             "INVENTORY_BUDGET",
             f"source inventory paths exceed {MAX_INVENTORY_PATH_BYTES} bytes",
         )
     content_bytes = 0
-    for path in sorted(source_paths):
+    for path in sorted(parent_source_paths):
         raw_index = index_by_path.get(path)
         head_entry = head_entries.get(path)
         if raw_index is None:
@@ -1091,44 +1313,64 @@ def _capture_once(repo: Path) -> dict[str, Any]:
         if raw_index is not None and raw_index["mode"] == "160000":
             if working["kind"] != "gitlink":
                 fail("GITLINK_TYPE", f"indexed gitlink is not a repository: {path}")
-            if working["gitlink_status_sha256"] != sha256_bytes(b""):
+            if working["gitlink_head"] != raw_index["oid"] or working[
+                "gitlink_status_sha256"
+            ] != sha256_bytes(b""):
                 fail(
                     "GITLINK_DIRTY",
-                    f"dirty gitlink cannot be content-bound by the parent inventory: {path}",
+                    f"non-exact or dirty gitlink cannot be content-bound: {path}",
                 )
         entry: dict[str, Any] = {
             "path": path,
+            "inventory_origin": {
+                "kind": "parent_repository",
+                "gitlink_path": None,
+                "gitlink_commit": None,
+                "gitlink_tree": None,
+            },
             "head": None if head_entry is None else dict(head_entry),
             "index": index_record,
             "index_state": index_state,
             "working_tree": working,
         }
         entry["worktree_state"] = _worktree_state(entry)
-        entry["file_review"] = {
-            "path": path,
-            "git_blob_id": (
-                None
-                if index_record is None or index_record["mode"] == "160000"
-                else index_record["oid"]
-            ),
-            "sha256": working["sha256"],
-            **_classify_file_review(path),
-            "reviewer": None,
-            "independent_reviewer": None,
-            "line_count": working["line_count"],
-            "requirements": [],
-            "defects": [],
-            "tests": [],
-            "evidence": [],
-            "disposition": "OPEN_NOT_REVIEWED",
-            "decision": "OPEN_NOT_REVIEWED",
-            "updated_at": None,
-            "completed_at": None,
-            "notes": (
-                "Inventory only; substantive file review and requirement closure are not claimed."
-            ),
-        }
+        entry["file_review"] = _default_file_review(entry)
         entries.append(entry)
+        if raw_index is not None and path in RECURSIVE_GITLINK_PATHS:
+            if raw_index["mode"] != "160000":
+                fail(
+                    "GITLINK_TYPE", f"recursive inventory root is not a gitlink: {path}"
+                )
+            source_record, projected, projected_content_bytes = _project_pinned_gitlink(
+                repo,
+                path,
+                raw_index["oid"],
+                capture_deadline=capture_deadline,
+            )
+            recursive_gitlinks.append(source_record)
+            recursive_entries.extend(projected)
+            content_bytes += projected_content_bytes
+            if content_bytes > MAX_INVENTORY_CONTENT_BYTES:
+                fail(
+                    "INVENTORY_BUDGET",
+                    "indexed and working-tree content exceeds the inventory budget",
+                )
+    entries.extend(recursive_entries)
+    entries.sort(key=lambda item: item["path"])
+    all_paths = [entry["path"] for entry in entries]
+    if len(all_paths) > MAX_INVENTORY_ENTRIES:
+        fail(
+            "INVENTORY_BUDGET",
+            f"recursive source inventory exceeds {MAX_INVENTORY_ENTRIES} entries",
+        )
+    path_bytes = sum(len(path.encode("utf-8")) for path in all_paths)
+    if path_bytes > MAX_INVENTORY_PATH_BYTES:
+        fail(
+            "INVENTORY_BUDGET",
+            f"recursive source paths exceed {MAX_INVENTORY_PATH_BYTES} bytes",
+        )
+    if len(all_paths) != len(set(all_paths)):
+        fail("INVENTORY_OVERLAP", "parent and recursive source paths overlap")
     _apply_file_review_progress(entries, progress)
 
     index_identity = [
@@ -1144,6 +1386,7 @@ def _capture_once(repo: Path) -> dict[str, Any]:
     working_identity = [
         {
             "path": entry["path"],
+            "inventory_origin": entry["inventory_origin"],
             "head": entry["head"],
             "index": entry["index"],
             "index_state": entry["index_state"],
@@ -1153,17 +1396,27 @@ def _capture_once(repo: Path) -> dict[str, Any]:
         for entry in entries
     ]
     worktree_sha256 = semantic_sha256(working_identity)
-    modified_index_count = sum(entry["index_state"] != "unchanged" for entry in entries)
-    modified_worktree_count = sum(
-        entry["worktree_state"] != "unchanged" for entry in entries
+    parent_entries = [
+        entry
+        for entry in entries
+        if entry["inventory_origin"]["kind"] == "parent_repository"
+    ]
+    modified_index_count = sum(
+        entry["index_state"] != "unchanged" for entry in parent_entries
     )
-    untracked_count = sum(entry["index_state"] == "untracked" for entry in entries)
+    modified_worktree_count = sum(
+        entry["worktree_state"] != "unchanged" for entry in parent_entries
+    )
+    untracked_count = sum(
+        entry["index_state"] == "untracked" for entry in parent_entries
+    )
     clean = modified_index_count == 0 and modified_worktree_count == 0
     state_material = {
         "head_commit": head,
         "head_tree": head_tree_oid,
         "index_entries_sha256": index_sha256,
         "worktree_entries_sha256": worktree_sha256,
+        "recursive_gitlinks": recursive_gitlinks,
         "self_exclusions": [CANDIDATE_RELATIVE],
         "progress_snapshot": {
             "path": PROGRESS_RELATIVE,
@@ -1194,9 +1447,13 @@ def _capture_once(repo: Path) -> dict[str, Any]:
                 else "dirty_uncommitted_source_snapshot"
             ),
             "explicit_source_arguments_required": True,
+            "recursive_gitlinks": recursive_gitlinks,
         },
         "inventory_policy": {
-            "basis": "git_head_plus_index_plus_worktree_and_nonignored_untracked_files",
+            "basis": (
+                "git_head_plus_index_plus_worktree_nonignored_untracked_and_pinned_"
+                "gitlink_commit_trees"
+            ),
             "self_excluded_paths": [CANDIDATE_RELATIVE],
             "self_exclusion_reason": (
                 "candidate artifacts cannot inventory themselves; artifact_manifest.json "
@@ -1204,10 +1461,16 @@ def _capture_once(repo: Path) -> dict[str, Any]:
             ),
             "ignored_files_included": False,
             "dirty_gitlinks_permitted": False,
+            "recursive_gitlink_paths": [
+                record["path"] for record in recursive_gitlinks
+            ],
+            "recursive_rows_derived_from": "pinned_index_commit_git_objects",
             "stable_double_capture_required": True,
             "resource_limits": {
                 "max_entry_count": MAX_INVENTORY_ENTRIES,
                 "max_path_bytes": MAX_INVENTORY_PATH_BYTES,
+                "max_git_object_bytes_per_blob": MAX_FILE_BYTES,
+                "max_recursive_gitlink_count": len(RECURSIVE_GITLINK_PATHS),
                 "max_index_and_worktree_content_bytes": MAX_INVENTORY_CONTENT_BYTES,
                 "max_generated_artifact_bytes": MAX_CANDIDATE_ARTIFACT_BYTES,
                 "git_subprocess_deadline_seconds_per_capture": (
@@ -1219,8 +1482,9 @@ def _capture_once(repo: Path) -> dict[str, Any]:
                 "source_digest_excludes_candidate_outputs": True,
                 "candidate_outputs_bound_by": ARTIFACT_MANIFEST_NAME,
                 "regeneration_property": (
-                    "For unchanged non-candidate source bytes and index identity, regeneration "
-                    "is byte-deterministic and changes only the excluded candidate namespace."
+                    "For unchanged non-candidate source bytes, index identity, and pinned "
+                    "gitlink commit objects, regeneration is byte-deterministic and changes "
+                    "only the excluded candidate namespace."
                 ),
                 "review_boundary": (
                     "Candidate output files are governed artifacts, not source files silently "
@@ -1231,6 +1495,8 @@ def _capture_once(repo: Path) -> dict[str, Any]:
         "progress_snapshot": state_material["progress_snapshot"],
         "summary": {
             "entry_count": len(entries),
+            "parent_entry_count": len(parent_entries),
+            "recursive_gitlink_entry_count": len(recursive_entries),
             "indexed_entry_count": len(index_entries),
             "untracked_entry_count": untracked_count,
             "index_changed_entry_count": modified_index_count,
@@ -1349,6 +1615,7 @@ def inventory_with_progress(
     working_identity = [
         {
             "path": entry["path"],
+            "inventory_origin": entry["inventory_origin"],
             "head": entry["head"],
             "index": entry["index"],
             "index_state": entry["index_state"],
@@ -1359,8 +1626,20 @@ def inventory_with_progress(
     ]
     source = updated["source"]
     source["worktree_entries_sha256"] = semantic_sha256(working_identity)
-    index_changed = sum(entry["index_state"] != "unchanged" for entry in entries)
-    worktree_changed = sum(entry["worktree_state"] != "unchanged" for entry in entries)
+    parent_entries = [
+        entry
+        for entry in entries
+        if entry["inventory_origin"]["kind"] == "parent_repository"
+    ]
+    recursive_entries = [
+        entry
+        for entry in entries
+        if entry["inventory_origin"]["kind"] == "pinned_gitlink_file"
+    ]
+    index_changed = sum(entry["index_state"] != "unchanged" for entry in parent_entries)
+    worktree_changed = sum(
+        entry["worktree_state"] != "unchanged" for entry in parent_entries
+    )
     clean = index_changed == 0 and worktree_changed == 0
     source["clean"] = clean
     source["state"] = (
@@ -1369,9 +1648,13 @@ def inventory_with_progress(
     updated["summary"].update(
         {
             "entry_count": len(entries),
-            "indexed_entry_count": sum(entry["index"] is not None for entry in entries),
+            "parent_entry_count": len(parent_entries),
+            "recursive_gitlink_entry_count": len(recursive_entries),
+            "indexed_entry_count": sum(
+                entry["index"] is not None for entry in parent_entries
+            ),
             "untracked_entry_count": sum(
-                entry["index_state"] == "untracked" for entry in entries
+                entry["index_state"] == "untracked" for entry in parent_entries
             ),
             "index_changed_entry_count": index_changed,
             "worktree_changed_entry_count": worktree_changed,
@@ -1383,6 +1666,7 @@ def inventory_with_progress(
         "head_tree": source["head_tree"],
         "index_entries_sha256": source["index_entries_sha256"],
         "worktree_entries_sha256": source["worktree_entries_sha256"],
+        "recursive_gitlinks": source["recursive_gitlinks"],
         "self_exclusions": [CANDIDATE_RELATIVE],
         "progress_snapshot": snapshot,
         "entries": entries,

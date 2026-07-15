@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,7 +50,7 @@ SUPPLEMENTAL_NCP_DOCS = [
     Path("crates/ncp-observer/README.md"),
 ]
 
-ARXIV_ID_RE = re.compile(r"arXiv:(\d{4}\.\d{5})")
+ARXIV_ID_RE = re.compile(r"arXiv:(\d{4}\.\d{4,5})")
 VENUE_RE = re.compile(r"\b(NeurIPS|ICML|CoRL|ICLR|CVPR|ECCV|AAAI)\b")
 REFERENCES_HEADING_RE = re.compile(r"^#{1,6}\s+References\b", re.IGNORECASE)
 
@@ -311,7 +312,8 @@ def iter_line_contexts(path: Path, lines: list[str]) -> Iterable[LineContext]:
     # pin, and section-reference drift checks do not apply.
     _posix = path.as_posix().casefold()
     whole_file_history = (
-        path.name.casefold() in {"changelog.md", "history.md"}
+        path.name.casefold()
+        in {"changelog.md", "history.md", "review_and_todo.md"}
         or "/archive/" in _posix
         or "/reviews/" in _posix
     )
@@ -865,8 +867,13 @@ def main() -> int:
         "--paths",
         type=Path,
         nargs="*",
-        default=DEFAULT_PATHS,
+        default=None,
         help="Markdown files to audit (defaults to the canonical docset + findings).",
+    )
+    parser.add_argument(
+        "--all-tracked-markdown",
+        action="store_true",
+        help="Audit every Markdown file tracked by the current parent repository.",
     )
     parser.add_argument(
         "--ncp-manifest",
@@ -875,6 +882,34 @@ def main() -> int:
         help="Manifest whose NCP git tag is authoritative (default: crates/ncp-observer/Cargo.toml).",
     )
     args = parser.parse_args()
+
+    if args.all_tracked_markdown and args.paths is not None:
+        parser.error("--all-tracked-markdown and --paths are mutually exclusive")
+    if args.all_tracked_markdown:
+        try:
+            completed = subprocess.run(
+                ["git", "ls-files", "-z", "--", "*.md"],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise SystemExit(f"Could not enumerate tracked Markdown files: {error}") from error
+        if completed.returncode != 0:
+            detail = completed.stderr[:4096].decode("utf-8", errors="replace").strip()
+            raise SystemExit(f"Could not enumerate tracked Markdown files: {detail}")
+        if len(completed.stdout) > 1024 * 1024:
+            raise SystemExit("Tracked Markdown path list exceeds the 1 MiB audit limit")
+        try:
+            decoded_paths = completed.stdout.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise SystemExit("Tracked Markdown paths must be valid UTF-8") from error
+        args.paths = [Path(path) for path in decoded_paths.split("\0") if path]
+        if not args.paths:
+            raise SystemExit("No tracked Markdown files found")
+    elif args.paths is None:
+        args.paths = list(DEFAULT_PATHS)
 
     missing = [path for path in args.paths if not path.exists()]
     if missing:

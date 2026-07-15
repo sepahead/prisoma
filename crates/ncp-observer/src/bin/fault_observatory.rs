@@ -9,9 +9,15 @@ use ncp_observer::observatory::{
     run_observatory, verify_observatory_publication, ConsumerProvenance,
 };
 use ncp_observer::read_bounded_regular_snapshot;
-use std::io::Read as _;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
+use std::time::Duration;
+
+#[path = "../../bounded_process.rs"]
+mod bounded_process;
+
+const GIT_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+const GIT_OUTPUT_LIMIT: usize = 1024 * 1024;
 
 #[derive(Debug, PartialEq, Eq)]
 enum Mode {
@@ -90,50 +96,18 @@ fn parse_args_from(argv: Vec<String>) -> anyhow::Result<Option<Args>> {
 }
 
 fn git_output(repo: &Path, args: &[&str]) -> Option<Vec<u8>> {
-    let mut child = Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    let mut stdout = child.stdout.take()?;
-    let mut bytes = Vec::new();
-    if stdout
-        .by_ref()
-        .take(1024 * 1024 + 1)
-        .read_to_end(&mut bytes)
-        .is_err()
-        || bytes.len() > 1024 * 1024
-    {
-        let _ = child.kill();
-        let _ = child.wait();
-        return None;
-    }
-    child.wait().ok()?.success().then_some(bytes)
+    let output = bounded_process::run_bounded(
+        Command::new("git").args(args).current_dir(repo),
+        GIT_PROBE_TIMEOUT,
+        GIT_OUTPUT_LIMIT,
+    )
+    .ok()?;
+    output.status.success().then_some(output.stdout)
 }
 
 fn command_stdout_is_empty(command: &mut Command) -> Option<bool> {
-    let mut child = command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    let mut stdout = child.stdout.take()?;
-    let mut first = [0_u8; 1];
-    match stdout.read(&mut first) {
-        Ok(0) => child.wait().ok()?.success().then_some(true),
-        Ok(_) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            Some(false)
-        }
-        Err(_) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            None
-        }
-    }
+    let output = bounded_process::run_bounded(command, GIT_PROBE_TIMEOUT, 0).ok()?;
+    Some(output.status.success() && output.stdout.is_empty())
 }
 
 fn canonical_output_target(path: &Path) -> anyhow::Result<PathBuf> {

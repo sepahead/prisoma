@@ -25,7 +25,16 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 
 **Docset-wide final solution:** `grandplan.md` §16 is the decision log (see also §8.2 event model, §8.11 control plane, §8.13 visualization). The run log is the canonical state, the Agent Bridge is the only control plane, Rerun is a read-only research viewer, and Tauri/SparkJS is a later control/editor/custom-rendering shell. Every VLA action, scene edit, intervention, pause/resume/step transition, and correction force must enter through the Agent Bridge and be recorded before execution. Observers and PID workers are read-only analyzers; Zenoh is optional data transport; none of them may actuate physics.
 
-**Current estimator status (four-gate model, `grandplan.md` §7.1):** the high-dimensional **MI/coherence path is NO-GO** (population/measure/estimator gates fail on nuisance-dimension controls); continuous shared-exclusions atoms on **real embeddings are BLOCKED / NOT APPLICATION-VALIDATED** (application gate un-cleared). The `exp0` binary implements part of the §7 estimator/measure validation (S1 gate); its default aggregate is **not** an atom-validity verdict, and `--strict-gate` only enforces the curated d=1 Gaussian **MI** band, not the atoms or the high-dimensional sweep. `--pid-mode discrete` is Williams–Beer `I_min`, **not** discrete `i^sx_∩` (`grandplan.md` §7.6). See `grandplan.md` §7.2 and `findings.md`.
+**Current estimator status (four-gate model, `grandplan.md` §7.1):** the
+high-dimensional **MI/coherence path is NO-GO on the tested nuisance-dimension controls**.
+That is an estimator-regime finding, not a blanket failure verdict for the population and
+measure gates. Continuous shared-exclusions atoms on **real embeddings are BLOCKED / NOT
+APPLICATION-VALIDATED**; the population, measure, and estimator verdicts must still be recorded
+separately for each exact estimand/configuration tuple. The `exp0` binary implements part of the
+§7 estimator/measure validation (S1 gate); its default aggregate is **not** an atom-validity
+verdict, and `--strict-gate` only enforces the curated d=1 Gaussian **MI** band, not the atoms or
+the high-dimensional sweep. `--pid-mode discrete` is Williams–Beer `I_min`, **not** discrete
+`i^sx_∩` (`grandplan.md` §7.6). See `grandplan.md` §7.2 and `findings.md`.
 
 **Core Philosophy:** "Splat-First." We render reality (captured via 3DGS) and bind physics to it, while overlaying predicted “dreams” (video‑predicted 3D flow) to visualize what a policy *expects* to happen.
 
@@ -43,7 +52,7 @@ To accelerate research iteration (Phases 1-3), the system prioritizes **Rerun** 
 | **Run log** | `pid-rs/crates/pid-runlog` JSONL events + replay summary | Schema 2; partial M2/EC1 groundwork implemented. Current types cover embedding/sim/bridge/PID/attribution events, validation, replay hash comparison, summary/manifest JSON, and sidecar verification; the full typed causal/temporal event model and graded external conformance benchmark remain open | MIT OR Apache-2.0 (project) |
 | **Agent Bridge core** | `crates/pid-bridge` | **Partial M2 groundwork:** local request/response schema, dispatcher, single-request JSON-RPC 2.0 subset, run-log integration, contract export, safe-mode gates, and stdio/TCP/WebSocket deterministic-sim transports. Network binaries refuse non-loopback binds and default safe; per-message/per-operation caps, an enumerated no-Origin WebSocket upgrade, non-adversarial canonical file confinement, and no-replace outputs are implemented. Forwarding/proxying, adversarial filesystem mutation, authentication/authorization/TLS/redaction, remote assessment, full target UI/VLA/backend coverage, and versioned subscriptions remain | MIT OR Apache-2.0 (project) |
 | **Deterministic sim smoke** | `crates/pid-sim` | Object-only fixed-step sim + simulator-derived `Flow_gt`; bridge demo, stdio/TCP/WebSocket single-request JSON-RPC 2.0 subset, `log.replay`, `log.start`/`log.stop`, deterministic `intervention.apply`, `export.rerun`, flow verification CLI, deterministic action/intervention replay checks, toy labeled harness, and offline `(V,L,D,A)` artifact-to-runlog harness with all-pairs `V/L/D→A` PID screens plus train-split-only PID screens when a metadata split is present, standardization provenance, geometry diagnostics plus a legacy fail-closed aggregate (software smoke only; corrected scientific eligibility does not gate on sampled mean `δ_rel`), strict label/held-out-split/class-coverage/episode-disjoint modes, sample-level, episode-grouped, metadata-split held-out majority/1-NN/nearest-centroid/logistic baselines, prediction/confusion diagnostics, and replay-visible metric-event counts; a `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend** (gravity/contacts/friction, deterministic) + a scripted push-to-goal manipulation exists behind the optional `rapier` feature (box-collider geometry; mesh-collider ingestion and MuJoCo/Isaac adapters remain planned) | MIT OR Apache-2.0 (project) |
-| **Attribution probes (triangulation baseline; `grandplan.md` §6.5 Level 3 / §3.7)** | `experiments/attribution` + `attribution_logged` + `pid-rerun` | Implemented reference slice: epsilon-/AttnLRP and gradient×input on a small reference model, deletion-AOPC vs random faithfulness check, content-addressed no-replace artifact publication, first-class run-log events, and Rerun faithfulness/provenance. The standalone converter's default-off `--load-attribution-artifacts` capability can surface a confined, regular, exact-SHA/shape-bound NumPy `<f8` relevance series of at most 1024 finite values; bridge export keeps external loading off. Confinement is local best-effort, publication is not a cross-file transaction, and neither protects against every concurrent filesystem race. Production VLA/LXT hooks and richer panels remain planned | MIT OR Apache-2.0 (project); model-dependent inputs must be verified |
+| **Attribution probes (triangulation baseline; `grandplan.md` §6.5 Level 3 / §3.7)** | `experiments/attribution` + `attribution_logged` + `pid-rerun` | Implemented reference slice: epsilon-/AttnLRP and gradient×input on a small reference model plus a frozen, selection-disjoint and group-disjoint deletion-ranking-sensitivity gate with per-case random-ranking controls and an exact group sign test. The gate tests whether a ranking finds output-sensitive baseline replacements; it does not establish causal or mechanistic faithfulness. Content-addressed no-replace artifact publication, first-class run-log events, and Rerun status/provenance are implemented. The standalone converter's default-off `--load-attribution-artifacts` capability can surface a confined, regular, exact-SHA/shape-bound NumPy `<f8` relevance series of at most 1024 finite values; bridge export keeps external loading off. Confinement is local best-effort, publication is not a cross-file transaction, and neither protects against every concurrent filesystem race. Production VLA/LXT hooks, production-model validation, and richer panels remain planned | MIT OR Apache-2.0 (project); model-dependent inputs must be verified |
 | **Visualization** | **Rerun** (Phases 1-3) / Tauri (Phase 4) | **Partial M2/EC1 viewer groundwork:** Rerun SDK 0.34.1 and validating run-log conversion with summary/provenance/validation and attribution tracks are implemented; the complete viewer blueprint remains specified. Tauri version to pin when implemented | Rerun: MIT OR Apache-2.0; Tauri API package metadata: Apache-2.0 OR MIT |
 | **Renderer** | Rerun native/WebViewer / SparkJS (Phase 4) | Pin exact package versions / git SHAs at implementation time | Rerun WebViewer: MIT; SparkJS package metadata: MIT; Three.js: MIT |
 | **Splat Library** | gsplat | v1.0+ (via Nerfstudio for training) | Apache 2.0 |
@@ -96,10 +105,9 @@ struct DreamFlowTrajectory {
     points: Vec<[f32; 3]>,
     /// Confidence/Opacity per point (from the tracker)
     confidence: Vec<f32>,
-    /// PID Synergy at each point Syn(V, D; Flow_t)
-    /// Windowed ensemble estimate Syn(V, D; Flow_t) aligned to each timestep
-    /// (NOT a single-sample pointwise PID; regime per grandplan §2.5/§4)
-    synergy: Vec<f32>,
+    /// Canonical run-log event identities for any windowed PID reports aligned to this flow.
+    /// A report uses the typed outcome in §5.2; an abstention is never encoded as 0 or NaN.
+    pid_window_event_ids: Vec<String>,
 }
 ```
 
@@ -136,19 +144,66 @@ In Rerun (Phases 1-3), we avoid complex custom shaders. Instead, we log **two di
 | `sim/pose/{id}` | `[f32; 7]` | 60Hz | Physics → run log → Rerun (P1-3) / SparkJS (P4) |
 | `scene/uncertainty` | `SceneUncertaintyMap` | Event | prospective quality study (optional) → run log → Rerun/nuisance analysis; never direct weighted PID |
 | `dream/flow/{id}`| `DreamFlowTrajectory` | Event | Video predictor/flow extractor → run log → Rerun (P1-3) / SparkJS (P4) |
-| `pid/metric/{id}` | `PidStruct` | 10Hz | pid-core → run log → Rerun (P1-3) / SparkJS (P4) |
+| `pid/metric/{id}` | `PidMetricMsg` | Event/window | pid-core → run log → Rerun (P1-3) / SparkJS (P4) |
 | `vla/action` | model-specific action vector/chunk | Event | VLA adapter → Agent Bridge → canonical action event → Physics; optional Zenoh mirror is data-only |
 
 #### 5.2 PID Message Schema
+
+This is the target transport-facing envelope, not a claim that a numeric value implies scientific
+eligibility. Computation status and the four scientific gates are independent. The tagged outcome
+makes it structurally impossible for `abstained` or `not_requested` to carry atom placeholders;
+only produced variants contain numbers. Measure/configuration identity is part of the estimand and
+must remain stable within a preregistered regime.
+
 ```rust
 #[derive(Serialize, Deserialize, Clone)]
 struct PidMetricMsg {
     timestamp_ns: u64,
     object_id: u32,
-    synergy: f32,
-    redundancy: f32,
-    unique_v: f32,
-    unique_l: f32,
+    window_id: String,
+    measure_id: String,
+    definition_revision: String,
+    estimator_revision: String,
+    estimator_config_hash: String,
+    gates: PidGateVerdicts,
+    computation: PidComputation,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct PidGateVerdicts {
+    population: GateVerdict,
+    measure: GateVerdict,
+    estimator: GateVerdict,
+    application: GateVerdict,
+    interpretation_allowed: bool,
+    reason_codes: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+enum GateVerdict {
+    Passed,
+    Conditional,
+    NotEvaluated,
+    Blocked,
+    NotApplicable,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+enum PidComputation {
+    NotRequested { reason_codes: Vec<String> },
+    Produced { atoms: PidAtoms },
+    ProducedWithWarning { atoms: PidAtoms, warning_codes: Vec<String> },
+    Abstained { reason_codes: Vec<String>, warning_codes: Vec<String> },
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct PidAtoms {
+    synergy_nats: f64,
+    redundancy_nats: f64,
+    unique_v_nats: f64,
+    unique_d_nats: f64,
 }
 ```
 
@@ -192,7 +247,11 @@ The target environment supports multiple physics backends (**Rapier, MuJoCo, Isa
 
 ### 8. PID Computation Pipeline
 
-*   **Target:** We compute PID on **Flow** trajectories (Euclidean) to bypass the manifold geometry issues of raw embeddings (Flow-as-bridge).
+*   **Target candidate:** compute PID with **Flow** trajectories as the target (under a declared
+    coordinate system and metric). A low-dimensional target can reduce target-side estimation
+    burden, but it does **not** bypass high-dimensional `V`/`D` source geometry or the joint
+    source–target product geometry. The exact population, measure, estimator, and application gates
+    must pass for the full representation tuple.
 *   **Metric:** `Syn(V_embedding, D_embedding; Flow_trajectory)`.
 *   **Windowing:** Rolling window of T=10 to T=50 timesteps (illustrative; final windows per the future frozen statistical analysis plan specified in grandplan §6, with the unit-of-inference and dependence rules in §2.5/§6.7).
 
@@ -211,13 +270,13 @@ The target environment supports multiple physics backends (**Rapier, MuJoCo, Isa
     *   Canonical run-log schema, replay validation, summaries/manifests, sidecar write-and-verify, and a validating run-log-to-Rerun adapter. This is partial M2/EC1 groundwork; the complete typed causal/temporal model, conformance benchmark, and diagnostic blueprint/viewer are not built.
     *   Deterministic object-sim smoke with simulator-derived `Flow_gt`, constant-velocity `flow_pred`, Agent Bridge stdio/TCP/WebSocket smokes, toy labeled harness, offline `(V,L,D,A)` artifact harness, the content-addressed schema-v2 `pid-h1-preflight` fixture path, the exact-bound deterministic `pid-h1-protocol-a` synthetic finite-benchmark scoring reference, and the PID-free `pid-h2-reference` fixed-horizon cumulative-incidence/IPCW/alarm arithmetic reference. The H1/H2 paths are software primitives, not real Protocol A/B, prospective H2 capture, calibration validation, or scientific evidence. The bridge is partial M2; target-wide UI/VLA/backend control coverage and subscriptions are not complete.
     *   A real `rapier3d-f64` gravity/contact/friction backend and scripted push-to-goal harness behind the `rapier` feature.
-    *   A faithfulness-checked reference attribution producer plus first-class run-log and Rerun attribution handling.
+    *   A deletion-ranking-sensitivity-gated reference attribution producer plus first-class run-log and Rerun attribution handling; no causal or mechanistic faithfulness claim.
 
 2.  **Planned next environment work:**
     *   Integrate a 3DGS loader/asset pipeline and pin all external asset/model versions.
     *   Extend the implemented Rapier path beyond its box-collider scripted harness; add and pin MuJoCo/Isaac adapters only behind the same run-log and Agent Bridge contract.
     *   Connect external video/flow predictors only after simulator-derived `Flow_gt` is reliable.
-    *   Expand the existing attribution faithfulness/provenance/relevance tracks into richer Rerun panels; defer custom SparkJS shaders to Phase 4.
+    *   Expand the existing attribution status/provenance/relevance tracks into richer Rerun panels; defer custom SparkJS shaders to Phase 4.
 
 ### 11. Target Failure Policies (Specified, Not Fully Implemented)
 

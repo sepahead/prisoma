@@ -75,7 +75,7 @@
       "independent_reviewer": null,
       "required_checks": [],
       "reviewer": null,
-      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "source_state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20",
       "status": "pending_post_push_ci",
       "title": "Rust workspace gates",
       "updated_at": null
@@ -121,7 +121,7 @@
       "independent_reviewer": null,
       "required_checks": [],
       "reviewer": null,
-      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "source_state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20",
       "status": "pending_post_push_ci",
       "title": "Rerun adapter and binary proof",
       "updated_at": null
@@ -185,7 +185,7 @@
       "independent_reviewer": null,
       "required_checks": [],
       "reviewer": null,
-      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "source_state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20",
       "status": "pending_post_push_ci",
       "title": "Python lint and tests",
       "updated_at": null
@@ -228,7 +228,7 @@
       "independent_reviewer": null,
       "required_checks": [],
       "reviewer": null,
-      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "source_state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20",
       "status": "pending_post_push_ci",
       "title": "documentation and governance audits",
       "updated_at": null
@@ -278,7 +278,7 @@
       "independent_reviewer": null,
       "required_checks": [],
       "reviewer": null,
-      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "source_state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20",
       "status": "pending_post_push_ci",
       "title": "all-feature dependency policy",
       "updated_at": null
@@ -308,7 +308,7 @@
         "workflow URL and immutable commit are recorded"
       ],
       "reviewer": null,
-      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "source_state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20",
       "status": "pending_post_push_ci",
       "title": "post-push main-branch CI",
       "updated_at": null
@@ -317,7 +317,7 @@
   "record_type": "candidate_test_evidence_receipts",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+  "source_state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20",
   "summary": {
     "all_required_evidence_passed": false,
     "blocked_count": 0,

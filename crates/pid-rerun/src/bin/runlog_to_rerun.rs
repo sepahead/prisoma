@@ -612,16 +612,38 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn bounded_snapshot_rejects_fifo_without_blocking() -> Result<()> {
-        use std::ffi::CString;
-        use std::os::unix::ffi::OsStrExt;
+        use std::process::{Command, Stdio};
+        use std::time::{Duration, Instant};
 
         let dir = tempfile::tempdir()?;
         let fifo = dir.path().join("input.jsonl");
-        let encoded = CString::new(fifo.as_os_str().as_bytes())?;
-        // SAFETY: `encoded` is a live NUL-terminated path and the mode contains
-        // only standard permission bits. The result is checked before use.
-        let result = unsafe { libc::mkfifo(encoded.as_ptr(), 0o600) };
-        ensure!(result == 0, "failed to create FIFO fixture");
+        let timeout = Duration::from_secs(2);
+        let started = Instant::now();
+        let mut child = Command::new("mkfifo")
+            .arg(&fifo)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .context("failed to spawn mkfifo fixture command")?;
+        let status = loop {
+            if let Some(status) = child
+                .try_wait()
+                .context("failed while waiting for mkfifo fixture command")?
+            {
+                break status;
+            }
+            if started.elapsed() >= timeout {
+                child
+                    .kill()
+                    .context("failed to terminate timed-out mkfifo fixture command")?;
+                let _status = child
+                    .wait()
+                    .context("failed to reap timed-out mkfifo fixture command")?;
+                bail!("mkfifo fixture command exceeded its {timeout:?} deadline");
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        };
+        ensure!(status.success(), "mkfifo fixture command failed: {status}");
         assert!(read_bounded_snapshot(&fifo, RunLogLimits::default()).is_err());
         Ok(())
     }

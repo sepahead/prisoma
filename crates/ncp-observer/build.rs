@@ -1,62 +1,37 @@
-use std::io::Read as _;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
+use std::time::Duration;
+
+mod bounded_process;
+
+const GIT_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+const GIT_OUTPUT_LIMIT: usize = 1024 * 1024;
 
 fn git_output(repo: &Path, args: &[&str]) -> Option<String> {
-    let mut child = Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    let mut stdout = child.stdout.take()?;
-    let mut bytes = Vec::new();
-    if stdout
-        .by_ref()
-        .take(1024 * 1024 + 1)
-        .read_to_end(&mut bytes)
-        .is_err()
-        || bytes.len() > 1024 * 1024
-    {
-        let _ = child.kill();
-        let _ = child.wait();
+    let output = bounded_process::run_bounded(
+        Command::new("git").args(args).current_dir(repo),
+        GIT_PROBE_TIMEOUT,
+        GIT_OUTPUT_LIMIT,
+    )
+    .ok()?;
+    if !output.status.success() {
         return None;
     }
-    if !child.wait().ok()?.success() {
-        return None;
-    }
-    String::from_utf8(bytes)
+    String::from_utf8(output.stdout)
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
 }
 
 fn git_worktree_clean(repo: &Path) -> bool {
-    let mut child = match Command::new("git")
-        .args(["status", "--porcelain", "--untracked-files=normal"])
-        .current_dir(repo)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        Ok(child) => child,
-        Err(_) => return false,
-    };
-    let Some(mut stdout) = child.stdout.take() else {
-        let _ = child.kill();
-        let _ = child.wait();
-        return false;
-    };
-    let mut first = [0_u8; 1];
-    match stdout.read(&mut first) {
-        Ok(0) => child.wait().is_ok_and(|status| status.success()),
-        Ok(_) | Err(_) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            false
-        }
-    }
+    bounded_process::run_bounded(
+        Command::new("git")
+            .args(["status", "--porcelain", "--untracked-files=normal"])
+            .current_dir(repo),
+        GIT_PROBE_TIMEOUT,
+        0,
+    )
+    .is_ok_and(|output| output.status.success() && output.stdout.is_empty())
 }
 
 fn main() {
@@ -78,6 +53,7 @@ fn main() {
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-changed=Cargo.lock");
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=bounded_process.rs");
     if let Some(head) = git_output(repo, &["rev-parse", "--git-path", "HEAD"]) {
         let head = PathBuf::from(head);
         let head = if head.is_absolute() {

@@ -1,31 +1,40 @@
-"""Faithfulness-checked attribution baseline (grandplan §6.10, §10.2; H4/exploratory).
+"""Deletion ranking-sensitivity attribution diagnostic (H4/exploratory).
 
-A model-agnostic attribution + faithfulness + run-log toolchain, demonstrated on a
-small numpy self-attention model so it runs without GPUs or a VLA checkpoint. The
-faithfulness check, provenance/hashing, and ``attribution_logged`` run-log emission
-are the reusable, production-relevant parts; for a real transformer VLA, swap the
-model for the real one and the LRP method for the LXT/AttnLRP library
-(``rachtibat/LRP-eXplains-Transformers``) — the contract here is unchanged.
+A model-agnostic attribution + group-level deletion diagnostic + run-log toolchain,
+demonstrated on a small numpy self-attention model.  Deletion ranking sensitivity is
+not causal or mechanistic faithfulness; the explicit baseline may be OOD and feature
+dependence remains unresolved.  The run-log's historical ``faithfulness_check``
+boolean is true only when the stronger frozen validation gate passes.
 """
 
 from __future__ import annotations
 
 from .attribute import finite_difference_gradient, grad_times_input, lrp_epsilon
-from .faithfulness import FaithfulnessResult, faithfulness_check
+from .faithfulness import (
+    AttributionValidationCase,
+    FaithfulnessResult,
+    RankingSensitivityGate,
+    faithfulness_check,
+    ranking_sensitivity_check,
+)
 from .model import SmallTransformer
-from .probe import METHODS, run_attribution_probe
+from .probe import METHODS, ProbeValidationCase, run_attribution_probe
 from .runlog import AttributionRecord, canonical_hash, write_attribution_runlog
 
 __all__ = [
     "METHODS",
     "AttributionRecord",
+    "AttributionValidationCase",
     "FaithfulnessResult",
+    "ProbeValidationCase",
+    "RankingSensitivityGate",
     "SmallTransformer",
     "canonical_hash",
     "faithfulness_check",
     "finite_difference_gradient",
     "grad_times_input",
     "lrp_epsilon",
+    "ranking_sensitivity_check",
     "run_attribution_probe",
     "write_attribution_runlog",
 ]

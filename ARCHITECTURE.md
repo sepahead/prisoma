@@ -1,4 +1,4 @@
-# PID-Splat Architecture: Components & Comparative Advantages
+# PID-Splat Architecture: Components and Evaluation Boundaries
 
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan and theoretical foundations
@@ -11,7 +11,10 @@
 
 ---
 
-**Docset alignment:** This document is aligned to `grandplan.md` docset v12.5 (seventh adversarial revision; scientific cut 2026-07-12). It describes a *target architecture* (PID‑Splat) that evolves from a "Rerun-First" research prototype (Phases 1–3) to a specialized interactive application (Phase 4+).
+**Docset alignment:** This document is aligned to `grandplan.md` docset v12.5 (scientific cut
+2026-07-12). It mixes implemented groundwork and target design, so every section must retain its
+status label. The generated capability matrix is the machine-readable status authority; a box,
+example, or future-tense interface in this document is not implementation evidence.
 
 **v10.7 → v12.5 migration note:** the legacy H1–H9 / Exp0–Exp10 scheme is retired. The confirmatory registry (`grandplan.md` §4) is now **EC1** (provenance-complete replay) plus **H1** (pre-treatment diagnostics predict intervention response; Protocol A paired vs Protocol B randomized), **H2** (censoring-aware failure prediction), **H3** (conditional PID incremental value), and **H4** (availability can diverge from causal policy use). Gates are the **S0–S7** sequence (§5.1); build order is **milestones M0–M7** (§12); estimator validation ("Experiment 0") is now the **S1 gate / §7** and is judged against four gates — population, measure, estimator, application (§7.1). Legacy H-labels below are remapped accordingly.
 
@@ -22,20 +25,34 @@
 ### 1.1 Strategy: "Rerun-First" (Phases 1–3)
 
 **What it is:**
-Instead of building a custom simulator frontend from scratch immediately, we utilize **Rerun** (https://rerun.io/) as the primary visualization and "time machine" viewer for the initial research phases. The canonical run log—not a Rerun recording—is the authoritative record.
+The target Phases 1–3 workflow uses **Rerun** as its diagnostic and replay viewer. The repository
+currently implements a bounded validating run-log converter/adapter, not the complete viewer
+blueprint. The canonical run log—not a Rerun recording—is the authoritative record.
 
 **Why this decision (v10.1):**
-- **Engineering Efficiency:** Building a custom 3D engine with timeline scrubbing, camera controls, and state management (Tauri+SparkJS) is a massive upfront cost. Rerun supplies these through its logging SDK; the current adapter pins the narrow `re_sdk` and `re_sdk_types` crates directly.
-- **The "Time Machine":** Rerun can display converted run-log streams with replay/scrubbing. This is critical for diagnosing VLA failures (e.g., "rewind to 2 seconds before the drop") while keeping the viewer read-only.
-- **3DGS Support:** splat data can be logged to Rerun (point clouds/ellipsoids); verify native 3DGS rendering in the pinned Rerun 0.34.1 before relying on it.
-- **Focus on Science:** Allows the team to focus on `pid-core`, physics bindings, and experiment logic (the novel parts) rather than boilerplate UI code.
+- **Reuse boundary:** Rerun supplies timeline, camera, and multimodal visualization primitives. The
+  local adapter pins the reviewed `re_sdk`, `re_sdk_types`, and recording-encoding line at exactly
+  0.34.1; changing that pin requires converter and finalized-recording compatibility tests.
+- **Replay inspection:** converted run-log streams can be inspected and scrubbed while the viewer
+  remains read-only. Diagnostic utility and operator time savings still require a task benchmark.
+- **3DGS boundary:** point/ellipsoid-like data can be represented through supported archetypes, but
+  native 3DGS behavior and fidelity in the exact 0.34.1 stack must be verified before it carries a
+  rendering claim.
+- **Project focus:** Allows engineering effort to concentrate on estimator gates, physics bindings,
+  provenance, and experiment logic rather than an early custom viewer.
 
-**Implementation Detail: Ghost Splats in Rerun**
-SparkJS (Phase 4) allows custom shaders for "Ghost Splats" (predictive flow overlays). Rerun does not support custom shaders.
-*   **Workaround:** We log **two** separate entities:
+**Target visualization pattern: Ghost Splats (not implemented as a complete viewer feature)**
+
+Phase 4 reserves SparkJS for project-specific shader work. The current Rerun adapter has no
+custom ghost-splat shader. A target fallback is to log **two** separate entities:
+
+*   **Entities:**
     1.  `world/reality`: The captured scene splats (standard rendering).
-    2.  `world/ghost`: A separate, lower-density point cloud or splat-set representing the predicted flow, colored Red/Blue based on PID values.
-*   **Trade-off:** Slightly higher bandwidth/storage than a shader-based approach, but vastly simpler to implement.
+    2.  `world/ghost`: A separate, lower-density point cloud or splat-set representing predicted
+        flow. A PID-derived color is permitted only for a produced estimate whose four gates allow
+        interpretation; abstention is rendered as an explicit status, never as a color-mapped zero.
+*   **Evaluation obligation:** measure bytes, log calls, frame time, visual legibility, and operator
+    error against the shader alternative; no bandwidth, storage, or simplicity advantage is assumed.
 
 ### 1.2 Tauri Application + SparkJS (Phase 4 Target)
 
@@ -45,7 +62,9 @@ SparkJS (Phase 4) allows custom shaders for "Ghost Splats" (predictive flow over
 - Provides a dedicated "Agent Bridge" control panel for human-in-the-loop experiments
 
 **Status:**
-- **Deferred to Phase 4.** This is the "Productization" target for when the research is validated and we need highly specific interactive tools (e.g., real-time "visual force" editing) that Rerun cannot support.
+- **Deferred to Phase 4.** This is an optional authoring/presentation target for specialized tools
+  such as custom shader overlays and recorded intervention editing. It is not contingent evidence
+  that the research has been validated and is not required for the core claims.
 - **Not a replacement for the run log or Rerun gate workflow.** Tauri should first launch/open Rerun recordings, then optionally embed the Rerun WebViewer, and only later add SparkJS panels for custom shaders or direct manipulation. All edits still go through the Agent Bridge and become run-log events.
 
 **Stack (Phase 4):**
@@ -61,39 +80,35 @@ SparkJS (Phase 4) allows custom shaders for "Ghost Splats" (predictive flow over
 └─────────────────────────────────────────────────────────┘
 ```
 
-### 1.3 Modular Physics Engine (Rapier, MuJoCo, Isaac Gym)
+### 1.3 Physics Backends (Rapier Implemented; Other Adapters Specified)
 
-**Target role (planned physics adapters):**
+**Target role:**
 - Provide rigid body physics simulation via a pluggable backend system
-- Support **Rapier3D** (Rust-native default target), **MuJoCo** (industry standard), and **Isaac Gym** (GPU-parallel)
+- Retain the implemented optional **Rapier3D-f64** object backend and define separately tested
+  adapters before naming **MuJoCo** or an **Isaac-family** backend as supported
 - Handle collision detection, joint constraints, friction, restitution
 - Rapier can run at low step times for small scenes; achievable control/step rates are hardware- and scene-dependent.
 
-**Target backend sketch (a `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend** — gravity/contacts/friction, deterministic — exists in `crates/pid-sim` behind the optional `rapier` feature as of 2026-06-13, with a scripted push-to-goal manipulation emitting real `Flow_gt` + physics-derived labels; box-collider geometry only — mesh-collider ingestion and MuJoCo/Isaac adapters remain planned):**
-```rust
-// Table collider with realistic friction
-let table_collider = ColliderBuilder::cuboid(0.60, 0.40, 0.375)
-    .friction(0.4)
-    .restitution(0.1)
-    .build();
-
-// Object with density-based mass
-let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
-    .friction(0.5)
-    .density(800.0)  // kg/m³, results in ~100g
-    .build();
-```
+**Implemented slice:** `crates/pid-sim/src/physics.rs` defines `PhysicsBackend`, a null
+constant-velocity adapter, and an optional single-threaded `rapier3d-f64` adapter with cuboid
+bodies, gravity, contacts, friction, impulses, and snapshots. `pid-rapier-harness` exercises a
+scripted push-to-goal fixture and emits physics-derived labels and `Flow_gt`. Same-binary/platform
+deterministic replay is tested; cross-platform bit identity is not claimed. Mesh-collider ingestion,
+robot articulation, MuJoCo, and Isaac adapters are not implemented.
 
 **Why it matters:**
 - **Determinism:** Rapier aims for deterministic replay under fixed dt/ordering, but bitwise determinism can break across platforms/CPUs; verify and log settings/seeds.
-- **Modularity:** Select an engine appropriate to your trade-offs (Rapier for speed, MuJoCo for contact fidelity)
-- **Integration:** Native Rust (Rapier) = zero-copy data flow to PID-core; FFI for MuJoCo/Isaac
+- **Modularity:** a common trait reduces call-site coupling, but each adapter still needs
+  task-specific contact, timing, determinism, and replay validation.
+- **Data movement:** the Rust interface avoids a language-process boundary for Rapier, but the
+  repository has no zero-copy proof or buffer-identity benchmark. Future foreign backends must log
+  serialization/copy boundaries and measured cost.
 - **Multi-engine reality**: per-object “Rapier walls + MuJoCo cups” is a co-simulation problem for contact-rich scenes. The recommendation is to use **one physics backend per run**, plus optional **cross-backend replay** (Rapier ↔ MuJoCo) as a robustness/confound check (see `grandplan.md` §8.5 replay levels; §6.10 robustness/falsification).
 
 ### 1.4 Gazebo Harmonic (Robot Simulation)
 
-**Target role (planned robot/sensor adapter):**
-- Industry-standard robot simulation (URDF/SDF support)
+**Target role (planned robot/sensor adapter; none exists in this repository):**
+- Robot simulation with the required URDF/SDF subset
 - Sensor simulation (RGB-D cameras, joint encoders, force/torque)
 - Headless mode for batch experiments
 
@@ -117,7 +132,7 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 
 | Component | Use Case | When to Use |
 |-----------|----------|-------------|
-| **Physics Engine** | Object manipulation physics (fast, deterministic) | Object-object interactions, perturbations, fast iteration |
+| **Physics Engine** | Object manipulation physics | Object-object interactions and perturbations within its validated support |
 | **Robot Sim** | Robot kinematics/dynamics, sensor simulation | Robot URDF loading, sensor data, cross-embodiment |
 
 **Important coupling rule:** if the robot and manipulated objects are simulated in different engines, robot–object contacts are **not physically meaningful** unless you implement an explicit coupling layer (co-simulation). For most prisoma experiments, prefer one of:
@@ -125,23 +140,22 @@ let cube_collider = ColliderBuilder::cuboid(0.025, 0.025, 0.025)
 - **Harness bring-up (recommended for early engineering):** use the in-repo deterministic object sim for run-log/Agent Bridge/Rerun plumbing first, then add object-only Rapier or MuJoCo physics and a kinematic “end-effector proxy” for interventions/perturbations; add full robot dynamics later (see `grandplan.md` §12 milestones).
 - **Advanced (optional):** multi-engine “physics islands” with restricted coupling; static colliders can be duplicated, but cross-island contacts require one solver (see `grandplan.md` §8.5).
 
-**Per-claim engine usage** (see `EXPERIMENTS.md` for full details):
-
-| Claim | Physics | Robot | Notes |
-|------------|--------|--------|-------|
-| H1 (pre-treatment diagnostics predict intervention response) | ✓ | ✓ | The deterministic synthetic Protocol A scoring reference is runnable, but real paired capture and the randomized Protocol B fork remain open (grandplan §6.3); synergy sign is a candidate feature, not a definition |
-| H2 (censoring-aware prospective failure prediction) | ✓ | ✓ | The PID-free synthetic fixed-horizon/IPCW/alarm arithmetic reference is runnable; real prospective capture, domain freeze, comparator frontier, and external validation remain open (grandplan §6.4) |
-| H3 (conditional PID incremental value) | ✓ | | Only inside the validated support envelope (grandplan §7.14) |
-| H4 (availability can diverge from causal policy use) | ✓ | | Mass/friction perturbations; availability-vs-use asymmetry reported as a finding |
-| Flow-as-bridge (Exploratory — grandplan §9.6) | | | Flow from an external video predictor; no physics sim needed for flow extraction itself |
-| Safety-aware V–L integration (Retired/deferred — grandplan §4) | ✓ | ✓ | Collision detection for safety; deferred until proper safety labels + matched controls exist |
+**Per-claim backend boundary** (see `EXPERIMENTS.md`): the synthetic H1 Protocol-A and H2
+fixed-horizon references test protocol arithmetic without establishing any robot or physics
+requirement. A real H1/H2 study must freeze the environment needed by its target population and
+interventions. H3 is available only after all four PID gates and useful non-PID evidence. H4 needs a
+matched internal/input intervention with engagement, specificity, and outcome receipts; no
+availability–use asymmetry is currently a finding. Flow extraction may omit a physics simulator only
+when its target is explicitly model-predicted flow; `Flow_gt`, executed flow, and physical-validity
+claims require simulator ground truth or independently calibrated observations.
 
 ### 1.5 Gaussian Splatting (3DGS) Pipeline
 
-**What it does:**
-- Captures real-world scenes/objects via photogrammetry (iPhone + Polycam)
-- Trains neural radiance representation (Nerfstudio splatfacto)
-- Exports Nerfstudio Gaussian splats as `.ply`; a separately selected and pinned converter may then produce `.spz` for a renderer that requires it
+**Target pipeline (not implemented or frozen here):**
+- Capture a scene/object under a declared camera, rights, calibration, and retention protocol
+- Train a pinned Nerfstudio `splatfacto` configuration
+- Export Nerfstudio Gaussian splats as `.ply`; a separately reviewed and pinned converter may then
+  produce `.spz` for a renderer that requires it
 
 **Pipeline:**
 ```bash
@@ -174,20 +188,31 @@ Nerfstudio's `gaussian-splat` exporter is the PLY-producing step above. Do not p
 Measure and log the actual Gaussian count, renderer memory/time, collision geometry, and export hashes per asset; there is no universal target count.
 
 **Why it matters:**
-- **Real2Sim photorealism**: Captured splats look like real images (can reduce synthetic domain gaps; benchmark-dependent)
-- **Object-centric assets**: Each manipulated object is a separate splat (compositional scenes)
+- **Captured appearance candidate**: splats can preserve some scene appearance, but reconstruction
+  artifacts and policy-relevant domain shift must be measured on the frozen capture pipeline
+- **Object-centric candidate:** separately reconstructed assets may support composition, but
+  segmentation, coordinate registration, occlusion seams, and collision-proxy agreement must pass
 - **Differentiability caveat**: 3DGS is differentiable in *training* frameworks; the visualization target here is not a differentiable training primitive.
  
 **Caveat:** “Domain gap” and “photorealism” are benchmark-dependent; treat any sim2real claims as empirical until measured.
 
-### 1.6 Dream2Flow Integration (World Model Bridge)
+### 1.6 Dream2Flow-Style Target Pipeline (Specified, Not Integrated)
 
-**What it does:**
-- Uses a video generation model to "dream" plausible future trajectories (model choice is external)
-- Segmentation + point tracking + depth estimation extract 3D object flow from dreamed videos
-- 3D Flow becomes a **target variable** for PID analysis
+**Target steps:**
+- Use a versioned external video predictor to produce model-conditioned future frames; plausibility
+  and physical validity are not assumed
+- Apply separately validated segmentation, tracking, depth, and coordinate transforms
+- Register a precise predicted-flow variable as a candidate prediction endpoint and, only after all
+  four gates pass, as a PID target
 
-> **Why Flow-as-Bridge is Critical**: The implemented `EhrlichKsg` path only supports Chebyshev (L∞) geometry and does **not** currently have a derivation for hyperbolic/Lorentzian manifolds. Under the four PID gates (`grandplan.md` §7.1), the high-dimensional MI/coherence path is **NO-GO**, while continuous shared-exclusions atoms on real embeddings are **BLOCKED / not application-validated** (`grandplan.md` §7.2; `findings.md`). If high‑D embeddings exhibit problematic local geometry or distance concentration, shifting the diagnostic target to explicit 3D object flow can reduce the ambient-dimension burden; flow still needs estimator-recovery, intrinsic-dimension, concentration/tie, dependence, and local-flatness checks.
+> **Flow-as-bridge boundary:** The implemented `EhrlichKsg` path only supports Chebyshev (L∞)
+> geometry and has no hyperbolic/Lorentzian derivation. Under the four PID gates
+> (`grandplan.md` §7.1), the high-dimensional MI/coherence path is **NO-GO**, while continuous
+> shared-exclusions atoms on real embeddings are **BLOCKED / not application-validated**
+> (`grandplan.md` §7.2; `findings.md`). Replacing a high-dimensional target with an explicit 3-D
+> flow summary can reduce target-side burden, but it does not remove high-dimensional `V`/`D`
+> source neighborhoods or joint source-target geometry. The complete tuple still needs recovery,
+> support, dependence, concentration/tie, and local-geometry checks.
 
 **Pipeline:**
 ```
@@ -221,44 +246,48 @@ Current Image + Instruction
 └─────────────────┘
 ```
 
-**Why it matters (flow-as-bridge; Exploratory — `grandplan.md` §9.6):**
-- **Embodiment-agnostic**: 3D flow is independent of robot morphology
-- **Euclidean target**: Avoids manifold geometry problems of high-D embeddings
-- **World model probe**: Tests if VLA's internal model predicts physically consistent futures
+**Why it may be useful (exploratory — `grandplan.md` §9.6):**
+- **Potentially transportable target:** object/contact flow can be less tied to an action head, but
+  transport still requires matched coordinates, correspondence, visibility, timing, and contact
+  semantics across embodiments.
+- **Low-dimensional target candidate:** a frozen Euclidean summary can reduce target-side
+  dimension; it does not validate the sources or estimator.
+- **Prediction comparator:** direct held-out flow error/calibration can test physical prediction.
+  PID is a separate, measure-specific information diagnostic and is not a fidelity score.
 
 ---
 
-## 2. Simulator Comparison: Why Gaussian Splats + Modular Physics
+## 2. Simulator and Renderer Selection Boundaries
 
 ### 2.1 Simulator Capability Notes (Not a Ranking)
 
-Use this table as a qualitative capability map. Do not compare “sim2real %”, fps, or latency across platforms unless you run a matched benchmark + hardware + protocol.
+This is a candidate inventory, not a capability or quality ranking. No external row below is an
+implemented Prisoma adapter. Do not compare sim-to-real change, frame rate, latency, contact error,
+or scale without an exact revision, matched hardware/assets, and a common protocol.
 
-| Simulator | Rendering | Physics | Availability / constraints | Notes for prisoma |
-|-----------|-----------|---------|----------------------------|------------------|
-| **MuJoCo / robosuite** | Raster (OpenGL) | MuJoCo | Cross-platform | Strong contact baseline; visuals are not photoreal by default |
-| **PyBullet** | Raster (OpenGL) | Bullet | Cross-platform | Widely used but not state-of-the-art for contacts/visuals |
-| **Isaac Sim/Lab** | RTX / OpenUSD | PhysX | NVIDIA GPU required | Strong USD tooling; heavy stack; PID harness is custom |
-| **Isaac Gym** | (Varies) | GPU physics | NVIDIA GPU required | Good for scale; visuals depend on assets/renderer |
-| **Gazebo Harmonic** | Raster (OGRE2) | Plugin-dependent | Cross-platform; ROS-centric | Strong robot/sensor ecosystem; PID harness is custom |
-| **LuckyRobots / Lucky World** | “Hyperrealistic” (vendor claim); Vulkan renderer | **MuJoCo**-based (per README) | Proprietary world executable + Python API (**gRPC**, port 50051; WebSocket only inter-node); v0.1 lists Windows/Linux/macOS all “coming soon” (no public binary yet) | RL-style interface surface (`reset`/`step`, observations); PID harness still custom |
-| **Habitat** | Mesh + neural | Limited (navigation focus) | Cross-platform | Good for nav; not a manipulation physics stack |
-| **CARLA** | Unreal | Vehicle focus | Cross-platform | Driving-focused; not a manipulation stack |
-| **Rapier3D** | Headless / debug | Rapier | Cross-platform | Fast iteration; contact fidelity depends on task and tuning |
-| **3DGS (Gaussian splats)** | Photoreal views (capture-dependent) | N/A | Requires separate physics | Useful to reduce *visual* gaps when capture quality is good; does not replace physics |
+| Candidate | Possible study role | Required evidence before selection |
+|---|---|---|
+| **MuJoCo / robosuite** | Reproduce a benchmark that fixes this stack | Exact versions, assets, solver/contact validation, renderer/sensor/action compatibility, and license |
+| **PyBullet** | Reproduce an existing Bullet-based protocol | Exact version plus task contact, sensor, determinism, and benchmark compatibility |
+| **Isaac Sim/Lab or a supported successor** | OpenUSD/PhysX and hardware-accelerated experiments | Supported release, hardware, API migration, deterministic replay, sensor semantics, measured resources, and license |
+| **Isaac Gym** | Legacy benchmark reproduction only when the benchmark requires it | Availability/support status, exact binary/API, hardware, determinism, and an adapter report |
+| **Gazebo Harmonic** | Robot/sensor middleware candidate | Exact physics/render plugins, URDF/SDF subset, clocks, sensor semantics, and adapter conformance |
+| **Habitat** | Navigation-family candidate | Task/action/sensor overlap; manipulation claims require separate support |
+| **CARLA** | Driving-family transport candidate | Target-population relevance and vehicle-specific endpoint contract |
+| **Rapier3D-f64** | In-repo cuboid object fixture | Implemented optional adapter; still validate contacts, timing, and platform determinism for the selected task |
+| **Captured 3DGS** | Appearance layer, not a simulator or collision model | Reconstruction, calibration, renderer compatibility, policy effect, and proxy-geometry agreement |
 
-### 2.2 Why Each Simulator Falls Short for VLA Diagnostics
+### 2.2 Adapter Selection Is Claim-Relative
 
-| Simulator | Limitation for prisoma |
-|-----------|------------------------|
-| **MuJoCo/robosuite** | Synthetic visuals can create sim2real gaps for vision-heavy policies unless carefully randomized/photorealistic |
-| **PyBullet** | Outdated rendering, poor visual fidelity |
-| **Isaac Gym** | NVIDIA-only; rendering fidelity depends on the chosen renderer and assets |
-| **Habitat** | Navigation-only, no manipulation |
-| **CARLA** | Driving-only, no manipulation |
-| **Gazebo** | Strong robot middleware support; visuals/physics trade-offs depend on plugins and assets; batch scaling may require additional tooling |
+No simulator is assigned a universal quality ranking here. Choose a backend from the requirements
+of the frozen claim: contact model, robot/task support, sensor and renderer access, determinism,
+licensing, hardware, throughput, and whether the exact interventions can be implemented. A
+backend's default assets or renderer may induce a visual-domain shift, but its magnitude and effect
+must be measured under the selected policy/task. Navigation-, driving-, manipulation-, and
+object-only systems have different support sets; absence of overlap makes a comparison ineligible
+rather than evidence that one system is generally inferior.
 
-### 2.3 The PID-Splat Solution: Composable Backends
+### 2.3 Target Composition Boundary
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -266,92 +295,75 @@ Use this table as a qualitative capability map. Do not compare “sim2real %”,
 ├─────────────────────────────────────────────────────────────┤
 │  RENDERING        │  PHYSICS           │  ROBOT SIMULATION  │
 │  ────────         │  ───────           │  ────────────────  │
-│  Rerun (P1-3) /   │  Modular Backend   │  Gazebo (accurate) │
-│  SparkJS (P4)     │  (Rapier, MuJoCo,  │  OR                │
-│  (photorealistic) │   Isaac Gym)       │  MuJoCo (legacy)   │
+│  Rerun (P1-3) /   │  PhysicsBackend    │  robot adapter     │
+│  SparkJS (P4)     │  Rapier: current   │  (not implemented) │
+│  (target layers)  │  others: specified │                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Key Insight**: Decouple rendering from physics. Use Gaussian splats for visuals (can reduce *visual* gaps when capture is good; benchmark-dependent) + a pluggable physics backend for dynamics/contact.
+**Design choice:** decouple rendering from physics. Captured Gaussian splats are one visual
+candidate; a separately validated backend owns dynamics/contact. The decoupling increases
+composition flexibility but creates calibration, coordinate-registration, latency, and
+cross-backend-consistency obligations.
 
 ### 2.4 Modular Physics Backend Selection
 
-Users can select physics backend based on their needs:
+Select a physics backend from the frozen claim and measured support:
 
-| Use Case | Recommended Backend | Why |
+| Use case | Candidate backend | Selection evidence needed |
 |----------|---------------------|-----|
-| **Fast iteration / prototyping** | Rapier3D | Low-latency, Rust-native |
-| **Accurate contact physics** | MuJoCo | Strong contact modeling baseline for manipulation |
-| **GPU-parallel batch experiments** | Isaac Gym | Large parallel batches (GPU; hardware-dependent) |
-| **Robot kinematics/sensors** | Gazebo Harmonic | Industry-standard URDFs |
-| **Benchmark comparison** | MuJoCo + robosuite | Match existing VLA papers |
+| **Local object-harness iteration** | Rapier3D | In-repo interface support plus measured determinism/contact/throughput on the scene |
+| **Contact-rich robot manipulation** | MuJoCo | Task contact validation and exact benchmark/model compatibility |
+| **GPU-parallel experiments** | Isaac-family backend | Available supported version, hardware, determinism, and measured throughput |
+| **Robot kinematics/sensors** | Gazebo Harmonic | Required URDF/SDF, sensor, timing, and physics-plugin support |
+| **Benchmark reproduction** | Benchmark's exact backend | Match revision, assets, solver, sensors, action timing, and evaluation protocol |
 
-**Configuration example:**
-
-```toml
-# pid-splat.toml
-[physics]
-backend = "rapier"  # Options: "rapier", "mujoco", "isaac"
-
-[physics.rapier]
-step_hz = 1000
-deterministic = true
-
-[physics.mujoco]
-model_path = "assets/mujoco/franka.xml"
-step_hz = 500
-
-[physics.isaac]
-gpu_id = 0
-num_envs = 1024
-
-[rendering]
-backend = "rerun"  # Default: Rerun for P1-3, "spark" for P4
-
-[robot]
-backend = "none"    # Options: "gazebo", "mujoco", "none" (default for early bring-up)
-urdf_path = "assets/robots/franka_panda.urdf"
-```
+There is no repository-wide `pid-splat.toml` backend selector and no checked Franka asset. The
+current Rapier runner is selected through Cargo features and binary arguments. A future selector
+must reject unavailable adapters, serialize exact backend revision, dt, solver, contact, and
+hardware settings into the run log, and bind every referenced asset by hash before dispatch.
 
 ### 2.5 Camera & Environment Simulation
 
-| Feature | MuJoCo/robosuite | Isaac Gym | Rerun (P1-3) |
-|---------|------------------|-----------|------------------|
-| **Multi-view cameras** | ✓ Fixed viewpoints | ✓ Any viewpoint | ✓ Any viewpoint (Scrubbing) |
-| **Lighting changes** | Re-render needed | Re-render needed | **N/A (Recorded)** |
-| **Camera intrinsics** | Manual setup | Manual setup | **Logged from capture** |
-| **Motion blur** | Not supported | Limited | **N/A** |
-| **Lens distortion** | Not supported | Limited | **N/A** |
-| **New environments** | Longer asset-authoring cycles | Longer asset-authoring cycles | Potentially faster capture/reconstruction (depends on setup/tooling) |
+| Requirement | Simulator adapter | Rerun (P1–3) |
+|---|---|---|
+| **Camera views** | Must expose the frozen viewpoints and timing | Replays only the logged geometry/images; it creates no missing observation |
+| **Lighting and sensor effects** | Must implement or record the selected condition | Displays the recorded result; it does not re-simulate the sensor |
+| **Intrinsics/extrinsics** | Must expose exact calibrated values | Logs and visualizes supplied calibration/provenance |
+| **Blur/distortion/noise** | Capability is backend/version specific and must be verified | Displays supplied frames and metadata only |
+| **New environments** | Measure asset-authoring and validation cost | Captured reconstruction has its own capture/train/quality-review cost |
 
 ---
 
-## 3. Advantages Over Existing VLM-Based Robotics
+## 3. Comparison Boundaries for Existing VLM-Based Robotics
 
 ### 3.1 Comparison with OpenVLA / PixelVLA / TraceVLA
 
 | Aspect | OpenVLA et al. | PID-Splat |
 |--------|----------------|-----------|
-| **Simulation** | MuJoCo/PyBullet (mesh-based) | Gaussian Splats + Rapier (photoreal capture + low-latency physics; benchmark-dependent) |
-| **Visual Fidelity** | Synthetic renders can introduce domain gaps | Real-captured splats can reduce visual domain gaps (benchmark-dependent) |
-| **Analysis** | Task success rate only | PID decomposition reveals *why* success/failure |
-| **World Model** | Implicit in LLM hidden states | Explicit 3D flow extraction for validation |
-| **Embodiment Transfer** | Per-robot fine-tuning | Flow-as-bridge tests embodiment-agnostic understanding |
+| **Simulation** | Model/benchmark-specific mesh or image environments | Candidate captured-splat rendering plus a separately validated physics backend |
+| **Visual Fidelity** | Depends on assets, renderer, sensors, and policy | Captured splats may change the visual-domain gap; measure reconstruction and policy effects |
+| **Analysis** | Benchmark-defined outcomes and whatever diagnostics the exact release exposes | Proposes gated information diagnostics and intervention-grounded tests; does not by itself reveal why |
+| **Physical-state interface** | Model-specific; a hidden state is not assumed to be a world model | Optional flow extraction plus direct prediction/intervention tests |
+| **Embodiment Transfer** | Model/benchmark dependent | Tests transport of a standardized flow endpoint after frame/correspondence/visibility checks |
 
-**What PID adds (hypothesis; validate empirically):** typical benchmarks emphasize task success and sometimes auxiliary diagnostics; PID offers an additional, information-theoretic decomposition that *may* help localize which inputs drive decisions:
+**What PID may add (hypothesis; validate empirically):** typical benchmarks emphasize task success
+and sometimes auxiliary diagnostics. A validated PID adds a measure-relative summary of
+distributional information. It does not identify causal input use without interventions:
 - **Failure signatures:** exploratory PID-atom correlations may become conditional H3 features for
   the prospective H2 endpoint only after all four PID gates; they are not the H1 Protocol A/B endpoint
-- **Availability vs use:** test whether representational availability diverges from causal policy use across held-out compositions (H4)
+- **Availability vs use:** combine decodability with matched interventions to test whether
+  representational availability diverges from causal policy use (H4)
 - **Long-horizon composition:** test whether temporal PID summaries degrade before failure (exploratory temporal analysis)
 
 ### 3.2 Comparison with VLA-Arena
 
 | Aspect | VLA-Arena | PID-Splat |
 |--------|----------|-----------|
-| **Focus** | Benchmark suite (what) | Diagnostic framework (why) |
-| **Rendering** | Standard simulators | 3DGS photorealism |
-| **Metrics** | Task completion, collision rate | Information-theoretic decomposition |
-| **Scalability** | N models × M tasks = N×M runs | Single analysis reveals modality contributions |
+| **Focus** | Benchmark suite and its reported diagnostics | Additional diagnostic framework with causal claims restricted to interventions |
+| **Rendering** | Benchmark-defined simulators | Optional captured 3DGS whose quality and policy relevance must be measured |
+| **Metrics** | Exact benchmark-defined outcomes; verify from the selected revision | Proper prediction/intervention outcomes plus conditional information diagnostics |
+| **Scalability** | Model/task evaluations require their defined runs | Prisoma still requires model/task/family runs; no single analysis identifies modality contribution |
 
 **Complementary positioning:** VLA-Arena provides standardized evaluation; PID-based analyses aim to add diagnostic signals on top of those evaluations (not replace them).
 
@@ -359,11 +371,14 @@ urdf_path = "assets/robots/franka_panda.urdf"
 
 | Aspect | Dream2Flow (original) | PID-Splat Dream2Flow |
 |--------|----------------------|---------------------|
-| **Purpose** | Flow prediction for action | Flow as PID target for world model analysis |
-| **Integration** | End-to-end training signal | Post-hoc diagnostic probe |
-| **Novelty** | Action generation | Information decomposition of world model quality |
+| **Purpose** | Verify from the exact Dream2Flow release selected for comparison | Candidate predicted-flow endpoint; no integration exists here |
+| **Integration** | External system; freeze its exact role and inputs | Specified post-hoc prediction/information pipeline |
+| **Diagnostic role** | Action generation | Candidate flow target for gated information and prediction diagnostics |
 
-**Key advantage**: Original Dream2Flow uses flow for action generation. PID-Splat uses flow to *test* whether the VLA's world model (D) is consistent with physics, independent of the action decoder.
+**Scope difference:** Dream2Flow uses flow in action generation. Prisoma may log a frozen flow
+endpoint for direct prediction error and, separately, gated information diagnostics. Neither MI
+nor a PID atom establishes physical consistency, a world model, or independence from the action
+decoder; those require matched interventions and direct held-out effects.
 
 ### 3.4 DreamVLA as a Within-Model Stage-Analysis Candidate
 
@@ -377,74 +392,116 @@ Do **not** treat a DreamVLA-versus-OpenVLA PID difference as a causal effect of 
 
 ### 3.5 Attribution Methods as Diagnostic Overlays
 
-LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, saliency/SmoothGrad, occlusion/permutation, and SHAP-style attributions are complementary to PID rather than substitutes for it. PID summarizes information relationships across logged samples; attribution localizes which features, tokens, regions, layers, or concepts influenced a selected output for a model call.
+LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, saliency/SmoothGrad, occlusion/permutation, and
+SHAP-style attributions are candidate companion diagnostics rather than substitutes for PID.
+PID summarizes measure-specific distributional relationships across logged samples; an attribution
+method assigns or probes local relevance/sensitivity under its own target and baseline. Neither
+branch identifies causal use without an intervention design.
 
 **Rerun-first integration:**
 - Log precomputed attribution artifacts as images, heatmaps, token bars, point/patch colors, or scalar time-series tracks alongside PID/CI metrics.
-- Keep attribution metadata with the artifact: method, target output, layer/modality, baseline/background/concept set, preprocessing, score hash, and faithfulness/sanity-check result.
+- Keep attribution metadata with the artifact: method, target output, layer/modality,
+  baseline/background/concept set, preprocessing, score hash, typed ranking-sensitivity or sanity
+  result, and limitations. The run-log field named `faithfulness_check` is a legacy compatibility
+  boolean, not a broad faithfulness claim.
 - Do not require Phase 4 custom shaders for attribution review; Phase 4 can add interactive overlays, but the canonical evidence remains the run log plus artifacts.
 
-**Implemented slice:** `experiments/attribution/` runs epsilon-/AttnLRP and gradient×input on a small reference model, checks deletion-AOPC against a random control, and emits first-class `attribution_logged` events plus immutable content-addressed relevance artifacts. The `pid-rerun` adapter always surfaces the faithfulness verdict and provenance text. Its standalone converter can additionally surface at most 1024 finite values from a narrowly framed, bounded NumPy relevance artifact only after the operator passes `--load-attribution-artifacts`; paths are confined to the run-log directory, and the recorded exact file SHA-256 and canonical shape must match before output. Bridge export never grants this file-reading capability. The path checks are local best-effort confinement, not protection against every concurrent filesystem race, and artifact/run-log publication is not a cross-file transaction. Production VLA adapters and richer 2-D panels remain future work.
+**Implemented slice:** `experiments/attribution/` runs epsilon-/AttnLRP and gradient×input on a
+small reference model, then applies a frozen deletion-ranking-sensitivity gate on a
+selection-disjoint, group-disjoint validation set. It compares each case with a bounded random
+ranking reference and aggregates independent-group wins with an exact one-sided sign test. This
+diagnostic asks whether the feature ordering finds baseline replacements that change the selected
+output sooner; it does not establish causal or mechanistic faithfulness. The producer emits
+first-class `attribution_logged` events plus immutable content-addressed relevance artifacts. The
+legacy run-log boolean is true only on a typed gate pass, while metadata records the narrower
+diagnostic, status, reason, provenance, group evidence, exact input/baseline-set hash, complete
+relevance-set hash, and limitations. The `pid-rerun` adapter surfaces that recorded compatibility
+flag and provenance text. Its standalone converter can additionally surface at most 1024 finite
+values from a narrowly framed, bounded NumPy relevance artifact only after the operator passes
+`--load-attribution-artifacts`; paths are confined to the run-log directory, and the recorded exact
+file SHA-256 and canonical shape must match before output. Bridge export never grants this
+file-reading capability. The path checks are local best-effort confinement, not protection against
+every concurrent filesystem race, and artifact/run-log publication is not a cross-file
+transaction. Production VLA adapters, production-model validation, and richer 2-D panels remain
+future work.
 
-**Interpretation rule:** if PID claims `Unq(V)`, `Unq(L)`, or `Syn(V,L;A)` is diagnostic, attribution overlays should either provide a compatible local account under matched interventions or expose a disagreement that must be reported.
+**Interpretation rule:** PID atoms and attribution scores do not share an estimand by default, so
+agreement cannot validate either one and disagreement is not a contradiction by itself. A
+triangulation study must freeze a common output, sampling unit, baseline, intervention, and effect
+contrast; report both branches, their eligibility/status, and direct counterfactual effects
+separately.
 
 ---
 
-## 3A. World Model vs VLM-Based Robotics: The Core Argument
+## 3A. Representation Diagnostics: Identification Boundary
 
-### 3A.1 The Problem with Pure VLM-Based Robotics
+### 3A.1 Observable Diagnostic Gaps
 
-Current VLAs (OpenVLA, PixelVLA) are essentially:
+At the interface level, many VLA policies can be summarized as:
 ```
 Image + Instruction → LLM → Action Tokens
 ```
 
-**Failure modes:**
-1. **Implicit state:** policies often do not expose an explicit physical state representation (“world model”) as a first-class variable
-2. **Grounding risk:** models can produce confident actions that are physically infeasible or misaligned with the scene
-3. **Opaque integration:** it is often hard to attribute failures to V vs L vs internal state without targeted probes/interventions
-4. **Embodiment coupling:** policies may overfit to specific camera viewpoints, control frequencies, or embodiments
+**Questions requiring evidence:**
+1. **Representation semantics:** a hidden state is not a physical state or world model merely
+   because a probe can decode a physical variable from it.
+2. **Feasibility:** physical feasibility and scene alignment require direct outcome and constraint
+   measurements, not confidence or information alone.
+3. **Integration:** observational associations among V, L, D, and A do not identify which channel
+   the policy causally uses; matched interventions are required.
+4. **Transport:** camera, timing, action-head, task, and embodiment changes can all alter the
+   estimand and must be separated.
 
-### 3A.2 The World Model Advantage
+### 3A.2 What the Proposed Diagnostics Can Test
 
-PID-Splat enables **world model based robotics** by:
+Subject to the proposed gates—and to a future immutable study freeze—the architecture can support
+the following tests:
 
-**1. Extracting implicit world models:**
-- D (hidden states before action head) represents the VLA's "internal simulation"
-- PID(V, D; Flow) tests if D predicts physically valid 3D trajectories
+**1. Testing representational availability:**
+- `D` is a declared hidden-state hook, not an assumed internal simulation.
+- A train-only capacity-matched probe and held-out proper prediction score can provide bounded
+  evidence that a physical quantity is decodable on the tested population. A randomized or
+  otherwise identified matched intervention is needed to estimate whether the policy uses it.
+- `PID(V,D;Flow)` is only a measure-specific association after all four gates pass. It does not
+  test physical validity.
 
 **2. Diagnosing integration quality:**
 ```
 I(V,L;A) = Red(V,L;A) + Unq(V) + Unq(L) + Syn(V,L;A)
 ```
-- **High Syn**: information about `A` is present only in the joint `(V,L)` beyond either alone (interpretation is task-dependent; validate under controls)
-- **Negative Syn**: allowed under `I^sx_∩`; treat as a candidate diagnostic feature and rule out estimator/geometry artifacts via the S1 estimator/measure gate (`grandplan.md` §7) + perturbation controls
-- **High Unq(L) in a visually dominated task**: can indicate language reliance; test with instruction perturbations and placebo controls
+- **Positive `Syn`**: a numerical atom of the frozen PID functional. Its mechanism meaning is not
+  identified by sign or magnitude and remains measure-, source-, target-, and population-relative.
+- **Negative `Syn`**: allowed under `I^sx_∩`; treat it as a signed candidate diagnostic only after
+  the four separate gates, oracle controls, and uncertainty checks.
+- **Large `Unq(L)`**: an observational atom under the chosen measure, not evidence of causal language
+  reliance. Estimate reliance with randomized instruction interventions, engagement checks, and
+  placebo/positive controls.
 
-**3. Embodiment-agnostic evaluation:**
-- 3D Flow is robot-independent
-- Compare PID(V, D; Flow) across Franka vs UR5 vs mobile manipulator
-- Same world model understanding → different action decoders
+**3. Descriptive transport evaluation:**
+- Compare a standardized object/contact-flow endpoint only after coordinate, visibility,
+  correspondence, timing, task, and support overlap are established.
+- Raw atoms are not directly comparable across representations or action decoders. Cross-robot
+  results remain descriptive unless a causal transport design identifies the changed component.
 
-**4. Compositional verification:**
-- Long-horizon tasks: Does synergy degrade over time? (exploratory temporal analysis)
-- If yes → world model loses coherence over long plans
+**4. Longitudinal diagnostics:**
+- Test prespecified episode-level or hierarchical summaries over long horizons without treating
+  overlapping windows as independent.
+- A temporal change in an atom is exploratory and may reflect occupancy, estimator drift, or
+  representation change; it does not establish loss of world-model coherence.
 
 ### 3A.3 Why Gaussian Splats + Modular Physics Enable This
 
-| Traditional Sim | PID-Splat |
+| Design axis | Evaluation requirement |
 |-----------------|-----------|
-| Synthetic renders → domain gap → VLA sees different inputs than real | Splat captures → photorealism → VLA sees real-like inputs |
-| MuJoCo physics → slow, non-Rust → IPC overhead | Modular physics → Rust-native (Rapier) or FFI (MuJoCo) |
-| Offline evaluation → no real-time feedback | **Rerun Time Machine** → scrub through failure cases instantly |
+| Captured splats vs synthetic renders | Measure reconstruction quality and policy-relevant domain shift; neither is assumed superior |
+| Rapier vs MuJoCo vs another backend | Match task/contact support and benchmark accuracy, determinism, and cost on the exact scene |
+| Offline vs live diagnostics | Use the same canonical run log; measure latency/throughput before making operational claims |
 
-**The key insight**: To diagnose VLAs, we need:
-1. **Photorealistic inputs** (so VLA behavior matches real-world)
-2. **Fast physics** (for thousands of evaluation episodes)
-3. **Real-time analysis** (live PID computation during rollouts)
-4. **Reproducible instrumentation** (fixed preprocessing, validated estimators, and controlled interventions)
-
-Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended to support these goals; treat them as hypotheses until benchmarked.
+The load-bearing requirement is reproducible instrumentation: fixed preprocessing, declared
+support, validated estimators, controlled interventions, independent inference units, and a
+canonical run log. Gaussian splats, modular physics, and Rerun are candidate implementation
+choices whose reconstruction quality, contact validity, throughput, latency, and transport must
+be benchmarked before they support a scientific or operational claim.
 
 ---
 
@@ -459,8 +516,8 @@ Gaussian splats + modular physics + a unified UI (Rerun for P1-3) are intended t
 | **Tauri+SparkJS** | Interactive App | **Deferred to P4.** For custom shaders, collider/edit tools, and complex intervention UI; never the canonical store. |
 | **Physics** | Object physics | Modular (Rapier/MuJoCo/Isaac) |
 | **Robot Sim** | Robot dynamics | Industry-standard (Gazebo/MuJoCo) |
-| **3DGS Pipeline** | Scene capture | Photorealistic captures; differentiable training pipelines exist (visualization here is non-differentiable) |
-| **Dream2Flow** | World model probe | Euclidean flow target, embodiment-agnostic |
+| **3DGS Pipeline** | Scene capture | Captured-view reconstruction candidate; quality and policy relevance are empirical |
+| **Dream2Flow** | Prediction/flow candidate | Frozen Euclidean flow endpoint with explicit transport assumptions |
 | **PID-Core** | Read-only information analysis | Computes candidate diagnostics from logged/captured data; it never triggers actions, pauses, or corrections |
 | **Attribution probes** | Local explanation baselines | Reference epsilon-/AttnLRP + gradient×input probe and Rerun adapter are implemented; other methods/production-VLA hooks remain extensions |
 
@@ -513,7 +570,9 @@ viewer groundwork**; the complete blueprint/viewer remains specified, not built.
 | **3** | Within-model stage/channel ablations | World-model-stage vs action-decoding vs execution diagnostics under fixed model/checkpoint/task | Rerun (3DGS + Ghost Splats) |
 | **4** | Embodiment transfer via Flow-as-bridge | Cross-robot PID analysis | **Tauri + SparkJS** (Interactive) |
 
-**Ultimate goal**: Move from "does this VLA work?" to "how does this VLA understand the world?" — enabling principled debugging and improvement of vision-language-action models.
+**Ultimate goal:** move from aggregate task outcomes toward intervention-grounded, reproducible
+diagnostics of when a policy's logged representations and actions change. Claims about
+“understanding” remain operational and must be tied to prediction and counterfactual effects.
 
 ---
 
@@ -526,25 +585,21 @@ Before capture, benchmark the exact configuration and record peak RAM/VRAM, medi
 
 ---
 
-## 7. World Model Comparison: ManiGaussian vs PEGS
+## 7. Retired World-Model Head-to-Head Sketch
 
-The architecture supports a head-to-head comparison between two dominant world model paradigms for 3DGS-based robotics.
+The former ManiGaussian-versus-PEGS comparison is retired and non-operative. It assigned
+directional generalization/deformable-object claims without committed evidence, compared systems
+with unequal capability support, and used MI/PID atoms as “fidelity” scores even though information
+is not prediction error, calibration, or causal mechanism. The corresponding H_WM1–H_WM5 sketches
+were removed from `EXPERIMENTS.md` §14.
 
-### 7.1 ManiGaussian (Learned Implicit Physics)
-- **Paradigm:** End-to-end differentiable world model.
-- **Mechanism:** Uses a 3D Variational Encoder to map 3DGS scenes to a latent space $Z$. Future states are predicted as $Z_{t+1} = f(Z_t, A_t)$.
-- **PID Role:** Used to measure the fidelity of the latent world model: $Syn(V, L; Z)$.
-- **Strength:** Captures complex, hard-to-model dynamics directly from data.
-- **Weakness:** Poor generalization to novel objects (requires retraining) (reported/expected; verify against upstream papers).
-
-### 7.2 PEGS (Explicit Particle-Based Physics)
-- **Paradigm:** Hybrid explicit simulation with visual correction.
-- **Mechanism:** Binds Gaussians to a PBD (Position-Based Dynamics) particle system. A target implementation may use "visual forces" to nudge particles toward photometric observations, but every correction command must be an Agent Bridge request recorded in the canonical run log before it reaches physics.
-- **PID Role:** Used to measure the benefit of visual correction: $Syn(P_{pred}, V_{obs}; P_{corr})$.
-- **Strength:** High generalization (physics laws don't change); handles deformables natively (reported/expected; verify against upstream papers).
-- **Weakness:** Requires accurate manual proxy/mesh definitions for novel objects.
-
----
+A successor study must first show overlap/positivity: both frozen systems must support the same
+objects, interventions, observations, horizons, and outcomes. It must compare proper prediction
+errors or scores on an episode/family-disjoint test set, fit every transform on training data,
+match information access and tuning/compute budgets, retain failures, quantify clustered
+uncertainty, and isolate perturbation factors. PID may be an additional measure-specific
+diagnostic only after all four gates pass; it cannot define prediction fidelity or establish that
+a latent is a world model. No such comparison is implemented or preregistered in this repository.
 
 ---
 
@@ -560,7 +615,8 @@ SmolVLA (LeRobot) is a candidate lightweight baseline (planned integration; veri
 ### 8.2 Architectural Role in prisoma
 - **Iteration Speed:** Smaller models can make the PID pipeline easier to iterate on (measure inference latency on your hardware).
 - **Control Rate:** Async inference can raise effective control rates (benchmark; depends on policy and environment).
-- **Fine-tuning:** Seamless integration with Hugging Face LeRobot datasets (SO-100, LIBERO).
+- **Fine-tuning:** Possible LeRobot dataset integration; verify exact dataset, checkpoint, action,
+  preprocessing, and license interfaces before selecting it.
 
 ---
 

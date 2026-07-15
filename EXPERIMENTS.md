@@ -11,17 +11,19 @@
 
 ## Detailed Specifications for Reproducible Experiments
  
-**Version:** docset v12.5 (aligned with the 2026-07-12 `grandplan.md` rewrite — seventh adversarial revision)
-**Date:** 2026-07-12
+**Version:** docset v12.5
+**Review date:** 2026-07-15
 **Context:** This document specifies *task suites, data collection, and evaluation protocols* used to test the confirmatory claims in `grandplan.md`. `grandplan.md` defines estimator/measure validation and the analysis logic; this file focuses on what to run and log. The deterministic Agent Bridge/Rapier/Rerun/attribution slices are implemented groundwork, but the core+ecosystem conformance benchmark (M2) and the locked H1 experiment (M4) remain open; external video predictors and the fuller PID‑Splat environment remain specifications until built.
 
 **Docset-wide final solution:** `grandplan.md` §16 is the decision log. Experimental evidence must flow through the canonical run log; the Agent Bridge is the only control plane; Rerun is a read-only diagnostic viewer; and Tauri/SparkJS is deferred until the run-log/replay/Rerun loop is reliable. Every VLA action, intervention, scene edit, pause/resume/step transition, and correction force must be recorded as an Agent Bridge command before execution. PID, observers, Zenoh, Rerun, and offline harnesses do not actuate the system.
 
-> **Docset v12.5 migration note (read first).** This document predates the v12.5 registry rewrite and is
-> still organized around the retired `Exp0–Exp10` / `H1–H9` scheme. Read every legacy label through the
+> **Docset v12.5 migration note (read first).** This document retains the legacy `Exp0–Exp5` task
+> labels and a historical `H1–H9` mapping. Read every legacy label through the
 > v12.5 confirmatory registry (`grandplan.md` §4) and the S0–S7 gate sequence (`grandplan.md` §5.1):
 > - **Exp0 estimator validation → the S1 estimator/measure-validation gate** (`grandplan.md` §7; the `exp0` binary implements part of §7).
-> - **Exp1–Exp5 task suites → the §5 experimental programme**, analysed under the §6 statistical analysis plan; **Exp6–Exp10 world-model comparisons → §9.5 cross-model / §5 exploratory extensions** (must not block the core programme).
+> - **Exp1–Exp5 task suites → the §5 experimental programme**, analysed under the §6 statistical
+>   analysis plan. The former **Exp6–Exp10 world-model sketches are retired and audited in §14**;
+>   any successor is a new reviewed exploratory protocol, not a continuation of those hypotheses.
 > - **H1 (grounding↔PID) → registry H1** (pre-treatment diagnostics predict intervention response; mandatory **Protocol A** paired algorithmic vs **Protocol B** randomized closed-loop fork, `grandplan.md` §6.3).
 > - **H2/H3/H4/H5 (redundancy/uniques/memorization/temporal) → registry H3/H4** (PID adds incremental value only inside its validated support envelope; availability-vs-use divergence), estimated under §6 and gated by §7.
 > - **H2 prospective failure detection → registry H2** (censoring-aware failure prediction, `grandplan.md` §6.4); **EC1** is the provenance-complete-replay engineering-acceptance claim.
@@ -47,7 +49,9 @@
 12. [Compute and Storage Planning](#12-compute-and-storage-planning)
 13. [Reproducibility Checklist](#13-reproducibility-checklist)
 
-*(Optional extensions §§14–19 — world-model comparisons Exp6–10 — and Appendices follow below; they must not block Experiments 0–4.)*
+*(A non-operative audit of the retired Exp6–Exp10 world-model sketches follows in §14; the
+appendices follow it. No retired sketch is an experiment specification or a reason to delay the
+active programme.)*
 
 ---
 
@@ -76,11 +80,37 @@ outcome, score, and language.
 | Current claim / protocol | Candidate task suites | Primary evidence | Required controls and current blocker |
 |---|---|---|---|
 | **EC1 — provenance-complete replay** | Exp1 plus a structurally different adapter/environment | Contract-violation detection and exact/tolerance-bounded replay versus a conventional script/container baseline | Typed assignment/receipt/outcome lineage, fault injection, standard-format adapter, external benchmark; still open (`grandplan.md` §8.8) |
-| **H1 Protocol A — paired frozen-snapshot algorithmic response** | Exp1 baseline cases; Exp3 intervention constructions | Held-out direct prediction of the declared paired response functional, with calibration, response reliability/Monte Carlo error, and a locked feature-vs-baseline contrast | Immutable clone state, pre-treatment moderator, instrumented/noninstrumented noninterference, draw ledger, reverse-order/process controls; blocked on capture and clone machinery (`grandplan.md` §6.3) |
+| **H1 Protocol A — paired frozen-snapshot algorithmic response** | Exp1 baseline cases; Exp3 manipulation constructions | Held-out direct prediction of the declared paired response functional, with calibration, response reliability/Monte Carlo error, and a locked feature-vs-baseline contrast. This is an algorithmic-sensitivity diagnostic, not a randomized or physical effect | Immutable clone state, pre-treatment moderator, instrumented/noninstrumented noninterference, declared random-number coupling, draw ledger, reverse-order/process controls; blocked on real capture and stochastic clone machinery (`grandplan.md` §6.3) |
 | **H1 Protocol B — randomized closed-loop effect moderation** | Exp1/Exp3 randomized episodes | Overall ITT first; then held-out effect-specific loss, causal calibration, prioritization, and policy value/regret under recorded assignment probabilities | Randomization/receipt/reset/censoring ledger, cluster-aware inference, synthetic oracle and negative controls; blocked on capture and assignment runner (`grandplan.md` §6.3) |
 | **H2 — prospective censoring-aware failure prediction** | Prespecified landmarks in Exp1/Exp2; later Exp5 transport | Held-out log loss or censoring-aware Brier score at the frozen horizon, plus calibration, event sensitivity at fixed false-alarm burden, nondetection-retaining lead time, and decision utility | A deterministic synthetic fixed-horizon/IPCW/alarm arithmetic reference is fixture-runnable (`just h2-reference`); the domain freeze, real prospective capture, full matched-access comparator frontier, and external/later-time validation remain blocked (`grandplan.md` §6.4) |
 | **H3 — conditional incremental PID value** | Any H1/H2 dataset only after all four gates | Nested out-of-sample improvement from adding preregistered PID features to the strongest valid non-PID model under the active H1/H2 endpoint | Population/measure/estimator/application gates, train-reference local construction, abstention denominator; application gate currently blocked (`grandplan.md` §7) |
 | **H4 — availability–use divergence** | Exp3 input/internal intervention pairs; Exp1 positive/negative controls | Prespecified discordance between held-out decodability and policy/execution ITT effects, conditional on engagement and support | At least two intervention constructions where feasible, positive/negative controls, equivalence margins; blocked on capture/intervention pilot (`grandplan.md` §6.3) |
+
+**H1 estimand boundary.** Protocol A and Protocol B answer different questions and cannot be
+combined into one endpoint. If exact policy-output distributions are available, Protocol A uses a
+frozen divergence `S_i = d(Pi_i^(1), Pi_i^(0))`. If only samples are available, its estimand is
+`S_i(C) = E_C[d(Atilde_i^(1), Atilde_i^(0)) | W_i]` under a prespecified coupling `C` of the
+two policy random streams. Changing `C` can change the target,
+not merely its variance; record it as part of the estimand, never pool estimates across couplings,
+and include an independent-stream sensitivity analysis when feasible. A Protocol A result supports
+only frozen-snapshot algorithmic-sensitivity language. Any claim about randomized closed-loop,
+execution, or physical-outcome effect moderation requires Protocol B, with ITT and inference at the
+randomization/interference unit.
+
+The dependence on `C` is not cosmetic. If both treatment outputs are marginally
+`Bernoulli(1/2)` and `d` is mismatch, a common coupling gives expected mismatch `0`, independent
+streams give `1/2`, and an antithetic coupling gives `1`. The marginals are identical in all three
+cases; the paired response is not.
+
+**H4 identification boundary.** Availability is held-out decodability, not the best score obtained
+after inspecting the evaluation set. Select layers, transforms, regularization, and probe capacity
+inside grouped outer-training data; use a second untouched test partition, keep persistent cases in
+one fold, report balanced/proper metrics and uncertainty, and capacity-match comparators. A transfer
+claim needs a separately untouched target policy/task family. Use is a prespecified paired
+frozen-snapshot algorithmic response or randomized execution effect, with engagement and specificity
+controls and without blending their scopes.
+Compare the two against useful equivalence/discordance margins; a significant decodability result
+beside a nonsignificant intervention result is not evidence of divergence.
 
 ### 0.1.1 Retired pre-v12.5 mapping (historical and non-operative)
 
@@ -102,7 +132,7 @@ For every active V–L endpoint, preregister instruction diversity and pass an i
 | **H6** Safety constraints require V–L integration **(Deferred — `grandplan.md` §4 retired/deferred; no claims until safety labels + matched controls exist)** | Exp3 | safety vs baseline instructions | ΔUnq(L), ΔSyn(V,L;A); collision/near-miss rates | Matched task conditions, instruction-only changes, nuisance controls (lighting/distractors) |
 | **H7a** (method) Flow-as-bridge enables stage-wise/cross-embodiment diagnostics; **H7b** (falsifiable) `Syn(V,D;A)` tracks world-model quality independent of execution success → Exploratory (`grandplan.md` §9.6) | Exp4, Exp5 | `(V,D;Flow)` and/or `(V,Flow;A)` | H7a: engineering acceptance (gates pass on flow targets). H7b (`grandplan.md` §6): difference in synergy–failure correlation between world-model-stage and execution-stage failures; predicted stronger for world-model-stage | Fixed flow pipeline across runs, low-d flow features, negative controls (shuffled flow / shuffled pairing), stage labels per `grandplan.md` §9.6 |
 | **H8** Diagnostics choose estimator regime | Exp0 | recovery controls + geometry/dependence diagnostics | Separate MI/coherence and measure-specific atom verdicts for continuous PID vs a preregistered alternative | Analytic MI recovery; measure-specific atom oracle/cross-check; intrinsic dimension; concentration/ties; dependence; calibrated local flatness. Sampled mean `δ_rel` is descriptive only |
-| **H9** Attribution probes triangulate PID claims | Exp1, Exp3, Exp4 | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style scores on the same logged samples | Agreement or principled disagreement with PID uniques/synergy under controlled interventions; incremental failure-prediction value | Model/data randomization sanity checks, baseline/background sensitivity, deletion/occlusion tests, attention-not-explanation caveat |
+| **H9** Attribution probes triangulate PID claims | Exp1, Exp3, Exp4 | LRP/IG/DeepLIFT/Grad-CAM/TCAV/saliency/occlusion/SHAP-style scores on the same logged samples | Separately grounded relationships to held-out actions, paired algorithmic responses, or randomized effects; attribution and PID do not share an estimand or numerical scale, so their ordering agreement cannot validate either method | Model/data randomization sanity checks, baseline/background sensitivity, deletion/occlusion tests, attention-not-explanation caveat |
 
 ### 0.2 Runbook: What Is Executable Today vs Blocked (docset v12.5, 2026-07-13)
 
@@ -521,6 +551,10 @@ objects:
 ## 2. Robot Configuration
 
 ### 2.1 Franka Emika Panda
+The values below are an illustrative planning profile, not a frozen hardware selection or a safety
+limit. Before use, bind the exact robot/URDF/controller revision and verify every limit against the
+applicable official manual and local risk assessment.
+
 | Property          | Value                                       |
 | ----------------- | ------------------------------------------- |
 | DOF               | 7 joints + 2 finger gripper                 |
@@ -560,6 +594,10 @@ PANDA_HOME_JOINTS = [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]  # radians
 ```
 
 ### 2.2 Camera Configuration
+
+These are synthetic-scene examples, not measured camera calibrations. Real or benchmark capture
+must store the calibrated intrinsics, distortion, extrinsics, coordinate convention, resolution,
+rate, exposure policy, calibration procedure, uncertainty, and content hash for the exact device/run.
 
 **Wrist Camera (Eye-in-Hand)**
 ```yaml
@@ -631,6 +669,10 @@ specs:
 ```
 
 ### 2.3 Action Space Definitions
+
+The following arrays illustrate two candidate interfaces. The selected policy/controller defines
+the actual action semantics, rate, units, clipping, saturation, and safety envelope; freeze and log
+that contract rather than copying these nominal ranges.
 
 **Action Space A: Joint Velocity Control (Default)**
 ```python
@@ -729,13 +771,15 @@ class RobotObservation:
 ### 3.1 Model Selection and Staging (docset v12.5)
 
 Follow the risk-reducing sequence in the `grandplan.md` §5.1 gate sequence and §5.2 policy/environment selection:
-1) estimator/measure gate (legacy Exp0 → S1), 2) harness bring-up with `Flow_gt`, 3) small baseline (e.g., SmolVLA), 4) primary VLA target (e.g., OpenVLA), then optional branches (diffusion-based VLAs and predictor-driven `Flow_pred`).
+1) estimator/measure gate (legacy Exp0 → S1), 2) harness bring-up with `Flow_gt`, 3) a selected
+small baseline, 4) the M0/M2-selected primary VLA, then optional diffusion and predictor-driven
+`Flow_pred` branches. Model names in the table are candidates, not a frozen selection.
 
 **Model choice is an experimental variable.** Log `model_id`, revision/commit hash, preprocessing, and action parameterization for every run.
 
 | Model | Role in this study | Minimum verified facts | Must verify before quantitative use |
 |-------|---------------------|------------------------|-------------------------------------|
-| **OpenVLA** | Primary target for Aim 1/2 | arXiv:2406.09246: Llama‑2 7B + (DINOv2, SigLIP) + ~970k demos | Action representation; exact hook points for `V/L/D`; whether/where to export pre-attention states; licensing + checkpoint provenance |
+| **OpenVLA** | Candidate primary VLA after M0/M2 selection and freeze | arXiv:2406.09246: Llama‑2 7B + (DINOv2, SigLIP) + ~970k demos | Action representation; exact hook points for `V/L/D`; whether/where to export pre-attention states; licensing + checkpoint provenance |
 | **SmolVLA** | Harness bring-up baseline | arXiv:2506.01844 (~450M; SmolVLM-2 backbone; flow-matching action expert — paper-reported; verify checkpoint revision) | Available intermediate dumps, licensing, revision-specific config |
 | **InternVLA‑A1** | Diffusion / flow-matching ablation axis (optional) | Repo + project page describe a tripartite understanding/generation/action design; action generation via “Flow Matching” (verify) | License constraints (verify upstream; may be restrictive); what the generation expert outputs (`D_gen`) and how to export it; action parameterization (“delta actions”); patched Transformers constraints; do not confuse “Flow Matching” (a generative method) with this project’s geometric `Flow_*` variables |
 | **TraceVLA** | Temporal/history axis | arXiv:2412.10345: finetuned OpenVLA; trace-based prompting; 150K trajectories; compact Phi‑3‑Vision variant | How traces are encoded and how to separate “image vs trace” variables in logs |
@@ -896,17 +940,17 @@ import numpy as np
 EXP0_CONFIGS = [
     # (n_samples, dimension, scenario)
     (500, 10, "independent_additive"),
-    (500, 10, "redundant_copy"),
+    (500, 10, "noisy_shared_signal"),
     (500, 10, "unique_s1"),
     (500, 10, "xor_synergy"),
     (1000, 64, "independent_additive"),   # Target PCA dimension
-    (1000, 64, "redundant_copy"),
+    (1000, 64, "noisy_shared_signal"),
     (1000, 64, "xor_synergy"),
     (2000, 256, "independent_additive"),  # Stress test
 ]
  
 def generate_synthetic_data(n: int, d: int, scenario: str, noise: float = 0.05):
-    """Generate synthetic data with known PID ground truth"""
+    """Illustrative diagnostic laws; atom targets require a separate measure-specific oracle."""
     
     rng = np.random.default_rng(seed=42)
     
@@ -922,9 +966,11 @@ def generate_synthetic_data(n: int, d: int, scenario: str, noise: float = 0.05):
         S2 = rng.normal(0, 1, (n, d))
         T = S1[:, :1] + S2[:, :1] + noise * rng.normal(0, 1, (n, 1))
         
-    elif scenario == "redundant_copy":
-        # T = S1[0] = S2[0] + noise
-        # Expected: Red ≈ I(S1;T), Unq1 ≈ Unq2 ≈ 0, Syn ≈ 0
+    elif scenario == "noisy_shared_signal":
+        # S1, S2, and T are conditionally independent noisy views of one latent base.
+        # This is NOT a pure-redundancy atom oracle: independent sensor noise can make
+        # each source complementary given the other. An exact continuous copy would
+        # instead create a singular/tied sample that the continuous estimator rejects.
         base = rng.normal(0, 1, (n, 1))
         S1 = np.concatenate([base + noise * rng.normal(0, 1, (n, 1)),
                             rng.normal(0, 1, (n, d-1))], axis=1)
@@ -934,14 +980,16 @@ def generate_synthetic_data(n: int, d: int, scenario: str, noise: float = 0.05):
         
     elif scenario == "unique_s1":
         # T = S1[0] + noise, S2 independent
-        # Expected: Red ≈ 0, Unq1 ≈ I(S1;T), Unq2 ≈ 0, Syn ≈ 0
+        # The MI structure is I(S2;T)=0 and I(S1,S2;T)=I(S1;T); validate any atom
+        # statement against the committed shared-exclusions oracle.
         S1 = rng.normal(0, 1, (n, d))
         S2 = rng.normal(0, 1, (n, d))
         T = S1[:, :1] + noise * rng.normal(0, 1, (n, 1))
         
     elif scenario == "xor_synergy":
         # T = sign(S1[0] * S2[0]) + noise
-        # Expected: Red ≈ 0, Unq1 ≈ Unq2 ≈ 0, Syn > 0
+        # The individual source MIs vanish by symmetry while the joint MI is positive;
+        # this supplies an MI/coherence control, not an assumed continuous-atom target.
         S1 = rng.normal(0, 1, (n, d))
         S2 = rng.normal(0, 1, (n, d))
         xor_signal = np.sign(S1[:, :1] * S2[:, :1])
@@ -980,7 +1028,10 @@ Attribution methods do not inherit the kNN geometry assumptions above, but they 
 - **Data/random-label randomization:** a model trained on randomized labels should not yield the same explanatory structure as the trained task model.
 - **Reference/background sensitivity:** report IG/DeepLIFT baselines, SHAP background sets, TCAV concept/counterexample sets, and LRP rules; repeat enough variants to show conclusions are not a single-reference artifact.
 - **Smoothing/noise sensitivity:** for SmoothGrad/VarGrad-style maps, report perturbation distribution, noise scale, sample count, and whether the conclusion survives unsmoothed and smoothed variants.
-- **Deletion/occlusion or perturbation tests:** removing or corrupting top-attributed pixels/tokens/features should change the target more than removing low-attributed or random features, under a controlled replacement distribution.
+- **Deletion/occlusion or perturbation tests:** compare top-attributed removal against prespecified
+  random, low-attributed, and task-relevant controls under a justified replacement distribution.
+  Zeroing can be out of distribution. Infer across independent cases and control draws; a threshold
+  built from the mean and SEM of a few controls for one input is not a calibrated faithfulness test.
 - **Jitter and seed stability:** scores should be stable enough under mild input jitter, bootstrap resampling, and attribution hyperparameter changes for the downstream comparison being claimed.
 - **Attention caveat:** attention entropy/maps are allowed as weak baselines, but should not be called explanations unless intervention tests validate that changing attended features changes the model output.
 
@@ -1055,20 +1106,23 @@ This harness is an artifact-to-runlog converter for embedding captures. It still
 H1 **Protocol B** randomized closed-loop effect moderation, or H2 prospective failure prediction.
 The same episodes may support hierarchically secondary analyses, but their units/endpoints and claim
 language remain separate. PID is only a conditional H3 feature family after all four gates; attribution
-is exploratory triangulation.
+is exploratory triangulation. A sampled Protocol A study must also freeze the random-number coupling
+as part of its response estimand; a Protocol A success is not evidence for a Protocol B effect.
 
 ### 5.1 Task Definition
 | Property               | Value                                                        |
 | ---------------------- | ------------------------------------------------------------ |
 | Task                   | Pick object A, place on target B                             |
 | Instruction Format     | "Pick up the {color} {object} and place it on the {target}." |
-| Success Criteria       | Object center within 2cm of target center, stable for 1s     |
-| Timeout                | 60 seconds                                                   |
-| Episodes per condition | 100                                                          |
+| Success Criteria       | **TBD before capture from task utility and measurement error** |
+| Timeout/censoring      | **TBD before capture with a frozen timeout and estimand rule** |
+| Episodes per condition | **TBD by the frozen nested design and capture-sizing gate**   |
 
 ### 5.2 Experimental Conditions
 ```yaml
 # experiments/configs/exp1_pick_place.yaml
+# Non-executable design scaffold: every null count must be replaced by a frozen, justified count
+# before capture. The current idealized power simulator does not supply that justification.
 experiment_id: exp1_pick_place_v1
  
 conditions:
@@ -1076,15 +1130,15 @@ conditions:
     scene: scenes/simple_pick_place.yaml
     instruction: "Pick up the red cube and place it on the blue plate."
     perturbations: []
-    n_episodes: 100
+    n_episodes: null
     
-  - name: lighting_variation
+  - name: lighting_intensity_variation
     scene: scenes/simple_pick_place.yaml
     instruction: "Pick up the red cube and place it on the blue plate."
     perturbations:
       - type: lighting
-        params: {intensity_range: [0.3, 1.0], color_temp_range: [3000, 6500]}
-    n_episodes: 100
+        params: {intensity_range: [0.3, 1.0], fixed_color_temp_k: 4500}
+    n_episodes: null
     
   - name: distractor_objects
     scene: scenes/simple_pick_place.yaml
@@ -1092,13 +1146,13 @@ conditions:
     perturbations:
       - type: add_distractors
         params: {count: 3, objects: [blue_cylinder, green_sphere, ycb_spam]}
-    n_episodes: 100
+    n_episodes: null
     
   - name: novel_instruction
     scene: scenes/simple_pick_place.yaml
     instruction: "Grasp the crimson block and set it down on the azure dish."
     perturbations: []
-    n_episodes: 100
+    n_episodes: null
  
 data_collection:
   cameras: [wrist_cam, overhead_cam]
@@ -1108,6 +1162,16 @@ data_collection:
   save_actions: true
   save_proprioception: true
 ```
+
+**Language-identification boundary.** The scaffold above fixes one instruction inside each scene
+condition. It therefore does not identify a within-condition language contribution, and a contrast
+between `novel_instruction` and another condition is not by itself a V–L design. Use `(V,D;A)` as
+the primary decomposition for this fixed-instruction version. A V–L endpoint requires a separately
+frozen language factorial: sample multiple semantically controlled instruction variants independently
+within every relevant scene/perturbation cell, randomize or otherwise justify their assignment,
+demonstrate adequate occupancy/entropy, and keep the task target, constraints, visual scene, and
+difficulty distribution fixed. Language variants and all repeated frames from one episode remain in
+the same outer split.
 
 ### 5.3 Episode Data Structure
 ```python
@@ -1125,12 +1189,15 @@ class PickPlaceEpisode:
     condition: str
     scene_config: str
     instruction: str
-    seed: int
+    randomness_ledger_sha256: str
     
-    # Outcome
-    success: bool
+    # Outcome/event status (observed after prospective features at the declared label time)
+    outcome_kind: str            # "success", named failure, "censored", or competing event
+    success: Optional[bool]
     failure_mode: Optional[str]  # "miss_grasp", "drop", "miss_place", "timeout", "collision"
-    completion_time: float       # seconds
+    outcome_time: Optional[float]
+    censoring_time: Optional[float]
+    label_observed_at: float
     
     # Trajectory (T timesteps at 30Hz)
     timestamps: np.ndarray                # (T,)
@@ -1143,198 +1210,97 @@ class PickPlaceEpisode:
     ee_poses: np.ndarray                  # (T, 7) [x,y,z,qw,qx,qy,qz]
     gripper_widths: np.ndarray            # (T,)
     
-    # Actions
-    actions_commanded: np.ndarray         # (T, 8)
-    action_tokens: np.ndarray             # (T, 8) int
+    # Model/controller-specific actions
+    action_timestamps: np.ndarray          # (N_action,)
+    actions_commanded: np.ndarray          # (N_action, d_A)
+    action_tokens: Optional[np.ndarray]    # optional model-specific discrete representation
     
-    # Embeddings (at 5Hz = T/6 samples)
-    embeddings_V: np.ndarray              # (T/6, 1024)
-    embeddings_L: np.ndarray              # (T/6, 4096)
-    embeddings_D: np.ndarray              # (T/6, 4096)
+    # Model-specific embedding samples; dimensions/rates are declared in the run contract.
+    embedding_timestamps: np.ndarray       # (N_embed,)
+    embeddings_V: np.ndarray               # (N_embed, d_V)
+    embeddings_L: np.ndarray               # (N_embed, d_L)
+    embeddings_D: np.ndarray               # (N_embed, d_D)
     
-    # Reduced embeddings (at 5Hz)
-    embeddings_V_reduced: np.ndarray      # (T/6, 64)
-    embeddings_L_reduced: np.ndarray      # (T/6, 64)
-    embeddings_D_reduced: np.ndarray      # (T/6, 64)
+    # Optional train-fitted derived representations, each bound to an exact transform hash.
+    embeddings_V_reduced: Optional[np.ndarray]  # (N_embed, d_V_reduced)
+    embeddings_L_reduced: Optional[np.ndarray]  # (N_embed, d_L_reduced)
+    embeddings_D_reduced: Optional[np.ndarray]  # (N_embed, d_D_reduced)
     
     # Object tracking
     object_poses: Dict[str, np.ndarray]   # object_id -> (T, 7)
     grasp_events: List[Tuple[float, str]] # [(time, object_id), ...]
     
-    # PID metrics (computed post-hoc)
-    # Target: Action (diagnostic only; an H1/H2 use requires protocol-specific scoring)
-    pid_action_synergy: np.ndarray        # (T/6,)
-    pid_action_redundancy: np.ndarray     # (T/6,)
-    pid_action_unique_v: np.ndarray       # (T/6,)
-    pid_action_unique_d: np.ndarray       # (T/6,)
-    
-    # Target: 3D Flow (exploratory Flow-as-Bridge diagnostic)
-    pid_flow_synergy: np.ndarray          # (T/6,)
-    pid_flow_redundancy: np.ndarray       # (T/6,)
-    pid_flow_unique_v: np.ndarray         # (T/6,)
-    pid_flow_unique_d: np.ndarray         # (T/6,)
-    
-    pid_co_information: np.ndarray        # (T/6,)
+    # PID/CI is not embedded in this raw episode object. Derived reports carry computation status,
+    # four scientific verdicts, provenance, uncertainty, and values only when produced.
 ```
 
-Exploratory attribution artifacts use the implemented first-class `attribution_logged` event: method, target output, layer, modality, baseline, score hash, faithfulness check, and artifact URI. `experiments/attribution/` currently produces epsilon-/AttnLRP and gradient×input evidence on a small reference model with deletion-AOPC vs random. The producer installs exact-byte content-addressed NumPy artifacts without replacement and replaces the run-log name last. The Rerun adapter always surfaces faithfulness/provenance; only the standalone converter's explicit `--load-attribution-artifacts` mode reads a confined, regular, non-symlinked NumPy v1.0 `<f8` artifact, capped at 1024 finite values, and it requires the recorded exact SHA-256 and canonical shape to match before output. Bridge export keeps external loading disabled. Path checks do not protect against every concurrent filesystem race, and publication is not a cross-file transaction. Record any additional preprocessing/stability metadata in the linked artifact/manifest. Production VLA/LXT hooks remain future work.
+Exploratory attribution artifacts use the implemented first-class `attribution_logged` event: method, target output, layer, modality, baseline, score hash, a legacy compatibility boolean named `faithfulness_check`, and artifact URI. `experiments/attribution/` currently produces epsilon-/AttnLRP and gradient×input evidence on a small reference model. Its frozen validation contract uses selection-disjoint and group-disjoint cases, compares deletion AOPC with bounded per-case random-ranking references, and aggregates group wins with an exact one-sided sign test. The boolean is true only on a typed gate pass, but that pass means only that the ranking found output-sensitive baseline replacements sooner under this declared design. It does not establish causal or mechanistic faithfulness; the baseline can be out of distribution and dependent features remain order-sensitive. Metadata binds the exact input/baseline set and complete relevance set and records the status, reason, group evidence, provenance, and limitations. The producer installs exact-byte content-addressed NumPy artifacts without replacement and replaces the run-log name last. The Rerun adapter always surfaces the recorded compatibility flag/provenance; only the standalone converter's explicit `--load-attribution-artifacts` mode reads a confined, regular, non-symlinked NumPy v1.0 `<f8` artifact, capped at 1024 finite values, and it requires the recorded exact SHA-256 and canonical shape to match before output. Bridge export keeps external loading disabled. Path checks do not protect against every concurrent filesystem race, and publication is not a cross-file transaction. Production VLA/LXT hooks and a production-model validation study remain future work.
 
-### 5.4 PID Computation
-```python
-import numpy as np
-import pid_core_rs as pid
+### 5.4 Conditional PID/CI Analysis Contract
 
-def zscore(x: np.ndarray, eps: float = 1e-8) -> np.ndarray:
-    mu = x.mean(axis=0, keepdims=True)
-    sd = x.std(axis=0, keepdims=True) + eps
-    return (x - mu) / sd
+The former per-episode sliding-window Python sketch is retired. The stable Python wheel does not
+expose continuous shared-exclusions PID, and tens of autocorrelated rows inside one episode do not
+constitute an estimable population.
 
-def pid2_isx_window(s1: np.ndarray, s2: np.ndarray, t: np.ndarray, k: int = 3) -> dict:
-    """
-    Deliberately non-runnable marker for the old pre-1.0 Python sketch.
+For any conditional H3 feature family:
 
-    Ordinary pid_core_rs 1.0 wheels do not expose continuous shared-exclusions PID. Use the
-    feature-pinned Rust offline harness, which records support declarations, computation status,
-    four separate scientific-gate verdicts, and abstentions. Do not reconstruct atoms from legacy
-    scalar Python calls or enable the migration module in an evidentiary workflow.
-    """
-    raise NotImplementedError("continuous PID runs through the Rust harness under pid-rs 1.0")
+1. declare the population law, observation/dependence model, source and target semantics, and exact
+   preprocessing before looking at the holdout;
+2. use V–D as primary for the fixed-instruction Exp1 scaffold; use V–L only after the independent
+   language-factorial and occupancy gate in §5.2;
+3. fit every standardizer/reducer on outer-training cases, serialize it, and reuse its exact hash;
+4. construct each estimate from a prespecified pooled set of decorrelated rows across independent
+   cases, keeping all rows from a case in one outer fold;
+5. run recovery/MI coherence and the separate population, measure, estimator, and application gates
+   for every source, target, and concatenation; and
+6. publish a typed derived report. `produced` values include uncertainty and denominators;
+   `produced_with_warning` values remain non-interpretable unless every interpretation gate passes;
+   abstentions carry a stable reason and no zero, NaN, scalar, or metric event.
 
-def compute_episode_pid(
-    episode: PickPlaceEpisode,
-    frozen_transforms: dict,
-    window_size: int = 20,
-    k: int = 3,
-) -> dict:
-    """
-    Compute PID metrics over sliding windows.
-    
-    Computes two decompositions:
-    1. Target = Action (diagnostic; H1 use requires Protocol A/B scoring)
-    2. Target = Flow   (exploratory Flow-as-Bridge measurement)
-    
-    Warning (docset v12.5): 20-sample windows inside one autocorrelated episode are NOT an
-    estimable kNN-PID regime (grandplan.md §2.5, §6.7). For any windowed claim, pool
-    phase-aligned windows ACROSS episodes with a within-window stride ≥ the
-    decorrelation length; per-episode windows are exploratory visualization only.
-    """
-    n_samples = len(episode.embeddings_V_reduced)
-    
-    # Prepare targets
-    # 1. Action (Joint Velocities) - Downsampled to 5Hz
-    actions = episode.actions_commanded[::6]
-    
-    # 2. 3D Flow (Object Position)
-    target_object = "red_cube"
-    flow_3d = episode.object_poses[target_object][:, :3]
-    flow_3d = flow_3d[::6]
-    
-    # Apply transforms fitted once on disjoint V0/W0 training data. Never refit per
-    # episode or perturbation cell; persist frozen_transforms[axis].hash in the run log.
-    V = frozen_transforms["V"].transform(episode.embeddings_V_reduced).astype(np.float64)
-    D = frozen_transforms["D"].transform(episode.embeddings_D_reduced).astype(np.float64)
-    A = frozen_transforms["A"].transform(actions).astype(np.float64)
-    T = frozen_transforms["Flow"].transform(flow_3d).astype(np.float64)
+A pre-treatment H1 moderator may use only information available before assignment/application at its
+frozen landmark. Post-treatment action/flow atoms and outcome-stratified estimates are exploratory
+descriptions, not eligible H1 moderators or prospective H2 features.
 
-    # Report diagnostics on representative pooled batches for every estimator input and
-    # concatenation (V, D, A, Flow, [V,D], ...), not per episode. Calibrate ID/CV/ties/
-    # local-flatness readings against recovery controls; no universal numeric threshold.
-    # Sampled mean δ_rel may also be reported, but is descriptive and never changes a gate.
-    
-    results = {
-        "action": {"syn": [], "red": [], "unq_v": [], "unq_d": []},
-        "flow":   {"syn": [], "red": [], "unq_v": [], "unq_d": []}
-    }
-    
-    for i in range(0, n_samples - window_size, window_size // 2):
-        # Window slicing (n_window × d)
-        win_V = V[i : i + window_size]
-        win_D = D[i : i + window_size]
-        win_A = A[i : i + window_size]
-        win_T = T[i : i + window_size]
-        
-        # 1. PID(V, D -> Action)
-        res_a = pid2_isx_window(win_V, win_D, win_A, k=k)
-        results["action"]["syn"].append(res_a["syn"])
-        results["action"]["red"].append(res_a["red"])
-        results["action"]["unq_v"].append(res_a["unq_s1"])
-        results["action"]["unq_d"].append(res_a["unq_s2"])
-        
-        # 2. PID(V, D -> Flow)
-        res_f = pid2_isx_window(win_V, win_D, win_T, k=k)
-        results["flow"]["syn"].append(res_f["syn"])
-        results["flow"]["red"].append(res_f["red"])
-        results["flow"]["unq_v"].append(res_f["unq_s1"])
-        results["flow"]["unq_d"].append(res_f["unq_s2"])
-    
-    return {
-        "pid_action_synergy": np.array(results["action"]["syn"]),
-        "pid_action_redundancy": np.array(results["action"]["red"]),
-        "pid_action_unique_v": np.array(results["action"]["unq_v"]),
-        "pid_action_unique_d": np.array(results["action"]["unq_d"]),
-        "pid_flow_synergy": np.array(results["flow"]["syn"]),
-        "pid_flow_redundancy": np.array(results["flow"]["red"]),
-        "pid_flow_unique_v": np.array(results["flow"]["unq_v"]),
-        "pid_flow_unique_d": np.array(results["flow"]["unq_d"]),
-    }
-```
+### 5.5 Evaluation Units and Metrics
 
-### 5.5 Evaluation Metrics
-```python
-def evaluate_exp1(episodes: List[PickPlaceEpisode]) -> dict:
-    """Compute all evaluation metrics for Experiment 1"""
-    
-    # Basic performance
-    success_rate = np.mean([e.success for e in episodes])
-    
-    # Separate by outcome
-    success_eps = [e for e in episodes if e.success]
-    failure_eps = [e for e in episodes if not e.success]
-    
-    # PID metrics (conditional H3 feature family only after all four gates)
-    syn_success = np.concatenate([e.pid_action_synergy for e in success_eps])
-    syn_failure = np.concatenate([e.pid_action_synergy for e in failure_eps])
-    
-    # Exploratory screen only; this does not implement H1 Protocol A/B or prospective H2.
-    # Example: use synergy at 50% of episode as a simple predictor (replace with preregistered model).
-    synergy_midpoint = []
-    labels = []
-    for e in episodes:
-        mid_idx = len(e.pid_action_synergy) // 2
-        synergy_midpoint.append(e.pid_action_synergy[mid_idx])
-        labels.append(1 if e.success else 0)
-    
-    # AUROC: can synergy predict success?
-    from sklearn.metrics import roc_auc_score  # requires scikit-learn
-    auroc_synergy = roc_auc_score(labels, synergy_midpoint)
-    
-    # Statistical tests
-    from scipy.stats import mannwhitneyu, ttest_ind
-    stat, pvalue = mannwhitneyu(syn_success, syn_failure, alternative='two-sided')  # sign is a candidate feature, not an assumption (grandplan.md Warning 1)
-    
-    return {
-        "success_rate": success_rate,
-        "mean_synergy_success": np.mean(syn_success),
-        "mean_synergy_failure": np.mean(syn_failure),
-        "auroc_synergy_predicts_success": auroc_synergy,
-        "mannwhitney_pvalue": pvalue,
-        "n_success": len(success_eps),
-        "n_failure": len(failure_eps),
-    }
-```
+The earlier frame-level Mann–Whitney and variable-length episode-midpoint sketch is retired. It
+treated autocorrelated windows as independent observations and defined a feature at a different
+physical time whenever episode duration changed. Neither operation yields a valid confirmatory
+endpoint.
 
-**Binding note (docset v12.5):** the snippet above is illustrative. For Protocol A, freeze the
-snapshot boundary and response functional, then score a train-fitted predictor directly against
-held-out paired algorithmic responses with calibration and response-reliability reporting. For
-Protocol B, report overall ITT before the locked effect-specific R-loss/doubly robust loss, causal
-calibration, prioritization, and policy-value/regret stack. For H2, freeze the landmark/horizon,
-censoring/competing-event rule, and alarm policy, then use the prespecified proper predictive score.
-No generic episode-level ΔAUROC substitutes for these protocol-specific endpoints. Every report
-uses the §6.5 mandatory baseline frontier at matched information access and compute.
+Use this binding sequence instead:
+
+1. Freeze the scientific unit and independence cluster before capture: snapshot/case for Protocol A,
+   randomized case or reset/interference block for Protocol B, and event-free episode at a named
+   landmark for H2. Frames and overlapping windows are repeated measurements, never extra units.
+2. Define any temporal diagnostic at an absolute pre-treatment timestamp or a reproducible named
+   task event available in real time. Fit its within-unit aggregation rule on outer-training data.
+   Do not use a trajectory midpoint, completion time, future phase boundary, or outcome to locate it.
+3. Keep every frame, window, clone replicate, landmark, and language variant from one persistent
+   case in one outer fold. Estimate uncertainty by randomization unit or cluster; a within-episode
+   block bootstrap may quantify measurement uncertainty but does not increase the independent sample
+   count.
+4. For Protocol A, score held-out predictions directly against the frozen `S_i` or replicate
+   distribution and report absolute calibration, Monte Carlo error, clone-order/coupling sensitivity,
+   and the locked design-only-versus-design-plus-diagnostic score contrast.
+5. For Protocol B, report overall ITT first, then the frozen cross-fitted effect-specific loss,
+   causal calibration, prioritization statistic, and policy value/regret. Do not score against
+   fabricated per-case individual effects or use Protocol A output as their surrogate.
+6. For H2, freeze landmark, horizon, competing-event/censoring rule, and alarm policy; use the
+   prespecified censoring-aware proper score and retain nondetections. A generic AUROC is secondary.
+7. Report eligible units, independent clusters, events/failures, abstentions, and exclusions for
+   every metric. If any class, event, cluster, or gate requirement is unmet, abstain from the affected
+   comparison rather than returning an unstable number.
+
+Every protocol uses the `grandplan.md` §6.5 baseline frontier at matched information access and
+compute. No
+episode-level ΔAUROC, atom-sign contrast, or window-level test substitutes for these endpoints.
 
 ### 5.6 Attribution Baselines and Exploratory H4 Triangulation
 
-For the same episodes, run a small set of faithfulness-checked attribution probes if the model exposes the required gradients/layers:
+For the same episodes, run a small prespecified set of attribution probes and method-specific sanity
+tests if the model exposes the required gradients/layers. Do not promote the current reference
+probe's event flag into a production-model faithfulness claim:
 
 1. **Vision:** Grad-CAM or LRP/IG over visual features/patches; summarize relevance on task objects, distractors, target zones, and safety-critical regions.
 2. **Language:** Integrated Gradients, DeepLIFT, LRP, or occlusion over instruction tokens/embeddings; summarize relevance on object, relation, negation, and constraint tokens.
@@ -1342,11 +1308,25 @@ For the same episodes, run a small set of faithfulness-checked attribution probe
 4. **Sensitivity maps:** vanilla gradient, Input×Gradient, SmoothGrad/VarGrad-style ensembles, or embedding-gradient probes as cheap baselines when differentiable hooks exist.
 5. **Black-box/embedding baseline:** SHAP-style, permutation, or occlusion importance over reduced `V/L/D/A` features when gradients are unavailable.
 
-Compare attribution summaries against PID/CI features using preregistered tests:
-- If `Unq(L;A)` is high, language token/embedding attribution should be stronger than matched visual attribution under language-sensitive conditions, unless an intervention shows PID is tracking correlated nuisance information.
-- If `Unq(V;A)` is high, visual relevance should localize to task-relevant objects/regions more than to distractors.
-- If `Syn(V,L;A)` is high, removing either modality’s top-attributed features should produce a larger action/failure change than expected from each modality alone; test this with paired ablations rather than heatmap inspection.
-- If attribution and PID disagree, run targeted perturbations and report the disagreement as evidence about method scope, saturation, feature correlation, or estimator failure.
+Attribution and PID/CI do **not** estimate a common quantity. Attribution is local to a model call,
+baseline, layer, and intervention; PID atoms are distributional functionals over declared random
+variables. Their magnitudes and modality orderings therefore have no automatic common scale. With
+only two modalities, an apparent ordering match is a single concordance indicator, not evidence of
+rank correlation or validation.
+
+Triangulate them only through separately estimated held-out consequences:
+
+- preregister the attribution baseline, layer, sample-to-episode aggregation, modality mapping, and
+  faithfulness endpoint; require deletion/randomization controls independently of PID;
+- require all four PID gates independently and propagate atom abstention and uncertainty;
+- estimate action consequences, paired frozen-snapshot algorithmic responses, or randomized
+  execution effects under the applicable H1/H4 protocol, then ask whether each method predicts
+  those consequences out of sample;
+- for a synergy-motivated probe, use a frozen two-by-two intervention design (neither, V only, L
+  only, both) and estimate its interaction on a declared outcome. Do not infer interaction from
+  visually plausible heatmaps or from removing features chosen on the evaluation cases; and
+- report agreement or disagreement descriptively after both methods pass their own controls. It may
+  delimit method scope, but it cannot make either method faithful or causally valid.
 
 Do not choose PID preprocessing by looking at held-out attribution/failure labels. Any learned feature selection, concept classifier, PCA, SAE, or background distribution must be fit on the training split and replayed on held-out data with logged hashes.
 
@@ -1364,8 +1344,8 @@ The retired H5 atom-trend claim is not confirmatory and cannot be promoted witho
 | Task             | Stack 3 blocks in specified order                                |
 | Instruction      | "Stack the blocks: red on bottom, blue in middle, green on top." |
 | Subtasks         | 6 phases (grasp1, place1, grasp2, place2, grasp3, place3)        |
-| Success Criteria | All 3 blocks stacked, stable for 2s, correct order               |
-| Timeout          | 180 seconds                                                      |
+| Success Criteria | **TBD before capture from task utility and measurement error**   |
+| Timeout/censoring | **TBD before capture with a frozen timeout and estimand rule**   |
 
 ### 6.2 Scene Configuration
 ```yaml
@@ -1394,109 +1374,62 @@ objects:
     physics: {type: cylinder, radius: 0.04, half_height: 0.001, fixed: true}
 ```
 
-### 6.3 Phase Detection
-```python
-def detect_task_phases(episode: StackingEpisode) -> List[Tuple[float, float, str]]:
-    """
-    Detect subtask phases from trajectory.
-    
-    Returns: [(start_time, end_time, phase_name), ...]"""
-    phases = []
-    
-    # Phase detection based on gripper state and object contacts
-    gripper_widths = episode.gripper_widths
-    object_heights = {
-        obj_id: poses[:, 2] for obj_id, poses in episode.object_poses.items()
-    }
-    
-    # Detect grasp events (gripper closing while object rising)
-    for obj_id in ["red_block", "blue_block", "green_block"]:
-        heights = object_heights[obj_id]
-        
-        for t in range(1, len(heights)):
-            # Grasp start: gripper closing + object starts rising
-            if (gripper_widths[t] < gripper_widths[t-1] - 0.005 and
-                heights[t] > heights[t-1] + 0.01):
-                grasp_start = episode.timestamps[t]
-                
-            # Place end: gripper opening + object stationary
-            if (gripper_widths[t] > gripper_widths[t-1] + 0.01 and
-                abs(heights[t] - heights[t-1]) < 0.001):
-                place_end = episode.timestamps[t]
-                phases.append((grasp_start, place_end, f"manipulate_{obj_id}"))
-    
-    return sorted(phases, key=lambda x: x[0])
-```
+### 6.3 Prospective Phase-Event Contract
+
+The former post-hoc threshold function is retired. It could read an uninitialized grasp time, merge
+multiple events, and silently omit unresolved phases; more importantly, phase definitions tuned on
+evaluation outcomes would leak future information.
+
+Define a tested, versioned state machine before capture and emit its transitions into the canonical
+run log as the episode unfolds. The contract must:
+
+- use only contemporaneously available gripper, contact, pose, and controller events;
+- freeze thresholds and debounce/hysteresis rules on pilot or outer-training data;
+- assign stable event IDs and object IDs, require legal state transitions, and represent
+  missing/ambiguous/duplicate events explicitly rather than guessing a boundary;
+- keep automatic phase detection blinded to success/failure and later trajectory duration;
+- preserve raw signals so a blinded audit can reproduce every transition; and
+- report phase-detection disagreement/error on an independently annotated validation sample.
+
+A phase-derived prospective H2 feature is eligible only after its event is observable at the declared
+landmark. A completion-defined phase may be used for retrospective exploratory description, but not
+as a predictor available before completion.
 
 ### 6.4 Temporal PID Analysis
 
-> **⚠️ docset v12.5 binding rule (`grandplan.md` §9.4, §2.5, §6.7):** the legacy-H5 (now Exploratory) endpoint is computed on
-> phase-aligned windows **pooled across episodes** — never on per-window kNN estimates inside a
-> single autocorrelated trajectory (N≈tens per window is not estimable). The per-episode
-> function below is retained **only** as an exploratory visualization aid; its outputs are
-> excluded from the temporal-synergy evidence. The preregistered statistic is the trend (slope /
-> early-vs-late contrast) of pooled windowed `Syn(V_t,D_t;A_t)` — plus the mandatory CI-only
-> twin (`grandplan.md` §3.8) — against composition-stage index, with episode-level block bootstrap CIs
-> and outcome stratification. Windowing parameters are frozen in §6.5 before capture.
+The retired H5 temporal-atom endpoint remains exploratory. Its estimation unit is a phase/stage
+window pooled across independent episodes, not a short within-episode window. For every stage:
 
-```python
-def analyze_temporal_pid(episode: StackingEpisode) -> dict:
-    """
-    EXPLORATORY VISUALIZATION ONLY — not temporal-synergy evidence (see the §6.4 note /
-    grandplan.md §9.4). Per-episode phase summaries for plotting; the temporal
-    endpoint pools windows across episodes.
-    """
-    phases = detect_task_phases(episode)
-    
-    phase_metrics = []
-    for start, end, phase_name in phases:
-        # Get PID values in this phase
-        mask = (episode.pid_timestamps >= start) & (episode.pid_timestamps <= end)
-        
-        phase_metrics.append({
-            "phase": phase_name,
-            "start_time": start,
-            "end_time": end,
-            "mean_synergy": episode.pid_synergy[mask].mean(),
-            "std_synergy": episode.pid_synergy[mask].std(),
-            "mean_redundancy": episode.pid_redundancy[mask].mean(),
-            "synergy_trend": np.polyfit(
-                episode.pid_timestamps[mask],
-                episode.pid_synergy[mask],
-                deg=1
-            )[0],  # Slope: positive = increasing, negative = degrading
-        })
-    
-    # Cross-phase analysis
-    synergy_by_phase_order = [m["mean_synergy"] for m in phase_metrics]
-    
-    return {
-        "phase_metrics": phase_metrics,
-        "overall_synergy_trend": np.polyfit(
-            range(len(synergy_by_phase_order)),
-            synergy_by_phase_order,
-            deg=1
-        )[0],
-        "first_phase_synergy": synergy_by_phase_order[0] if synergy_by_phase_order else None,
-        "last_phase_synergy": synergy_by_phase_order[-1] if synergy_by_phase_order else None,
-    }
-```
+1. freeze the online event or absolute elapsed-time boundary and within-window stride;
+2. draw at most the declared number of decorrelated rows from each episode;
+3. fit preprocessing on outer-training episodes and apply the exact frozen transform;
+4. run the MI/coherence and measure-specific atom gates on the pooled analysis variables;
+5. record the number of contributing episodes, rows per episode, outcomes, missing phases, and
+   abstentions; and
+6. obtain uncertainty by resampling episode/task-family clusters, recomputing preprocessing and the
+   estimator inside each valid replicate.
+
+Per-episode atom trajectories may be plotted only as explicitly non-evidentiary diagnostics. Do not
+fit kNN PID to tens of autocorrelated rows, pool those point estimates in a t-test, or treat phases as
+independent observations. The evidence-level trend is the preregistered contrast across pooled stage
+estimates, with a mandatory MI/CI-only twin and episode-cluster uncertainty. A failure to reach the
+validated independent-sample regime produces an abstention, not an atom curve.
 
 ### 6.5 Temporal-Synergy Windowing Preregistration (docset v12.5; frozen before capture)
 
-Per `grandplan.md` §9.4 (token/temporal aggregation), the following parameters are fixed here **before the first real
-capture** and may not be changed after any temporal-synergy data is seen. Values marked TBD are set by the
-`grandplan.md` §6.8 simulation-based power/design analysis and frozen (committed to this section) at that point;
-running the capture with any value still TBD is a protocol violation.
+Per `grandplan.md` §9.4 (token/temporal aggregation), the following parameters must be frozen in a
+reviewed M0 successor **before the first real capture** and may not change after temporal-synergy data
+are seen. Values remain TBD today; `grandplan.md` §6.8 simulation-based design analysis must justify
+and bind them. Running evidentiary capture while any applicable value is TBD is a protocol violation.
 
 | Parameter | Value | Rule |
 |---|---|---|
-| Window definition | task phase (approach/grasp/transport/place) where annotatable; else fixed fractions of normalized episode time | preregistered per task family |
+| Window definition | prospectively emitted task phase where validated; otherwise absolute elapsed-time landmarks fixed from baseline | never use fractions of final episode duration or a future completion event |
 | Window count | **TBD by `grandplan.md` §6.8 power/design analysis** | frozen before capture |
 | Within-window stride | ≥ estimated decorrelation length (or cap ≤ m frames/episode/window; m TBD) | `grandplan.md` §2.5/§6.7 inherited fully — consecutive same-episode frames bias kNN point estimates |
 | `N_win` (min pooled samples per window) | **TBD** — must be ≥ the S1-validated minimum for the active regime; counts **post-stride** samples | capture is scaled or the temporal-synergy analysis downgraded if unreachable |
 | Episodes-contributing count | reported per window | mandatory |
-| Outcome stratification | trend stratified (or covaried) by episode outcome | failed episodes stall/time out; late fixed-fraction windows are not phase-comparable otherwise |
+| Outcome/missingness | report by outcome while retaining incomplete/censored phases | never select only completed episodes/phases or treat outcome as a pre-treatment covariate |
 
 Primary construct: pooled windowed `Syn(V_t, D_t; A_t)` + mandatory CI-only twin (`grandplan.md` §3.8).
 Secondary (exploratory only): `Syn(V_t, V_{t−h}; A_t)`. Endpoint: `grandplan.md` §6 statistical analysis plan (temporal-synergy trend).
@@ -1504,33 +1437,53 @@ Secondary (exploratory only): `Syn(V_t, V_{t−h}; A_t)`. Endpoint: `grandplan.m
 ---
 
 ## 7. Experiment 3: Instruction Perturbation (Robustness)
-**Protocol role:** an H1 Protocol A/Protocol B intervention pilot or an H4 availability–use study,
+**Protocol role:** an H1 Protocol A/Protocol B manipulation-response pilot or an H4 availability–use study,
 selected before capture. Protocol A uses paired frozen snapshots; Protocol B uses randomized
 closed-loop assignment and ITT-first analysis. The legacy redundancy/unique rank-correlation rows
 below are exploratory precursors to H3, not confirmatory endpoints. **Legacy H6 safety is deferred**
-(`grandplan.md` §4): the `safety_constraint` condition is logging-only unless process-level safety
+(`grandplan.md` §4): the constraint-content factor is logging-only unless process-level safety
 outcomes and matched controls are separately preregistered.
 
 ### 7.1 Task Definition
 | Property | Value |
 |----------|-------|
 | Task | Pick-and-Place (same as Exp1) |
-| Variations | Instructions are semantically equivalent but syntactically distinct |
-| Goal | Measure robustness of V-L-A PID signatures to language variation |
+| Variations | (i) a semantically controlled paraphrase factor; (ii) a separate constraint-content factor |
+| Goal | Estimate responses to isolated language manipulations without mixing wording, task content, scene, or physical difficulty |
 
 ### 7.2 Experimental Conditions
 ```yaml
 experiment_id: exp3_instruction_robustness
-conditions:
-  - name: baseline
-    instruction: "Pick up the red cube."
-  - name: verbose
-    instruction: "I would like you to grasp the small red cube located on the table."
-  - name: safety_constraint
-    instruction: "Carefully pick up the red cube without hitting the blue cylinder."
-  - name: abstract
-    instruction: "Retrieve the crimson object."
+status: design_scaffold_not_frozen
+
+# Factor 1 changes wording only. Scene, target, constraint set, and task semantics are fixed.
+paraphrase_factor:
+  semantics_id: red_cube_to_blue_plate
+  variants:
+    - {name: canonical, instruction: "Pick up the red cube and place it on the blue plate."}
+    - {name: paraphrase_a, instruction: "Put the red cube onto the blue plate."}
+    - {name: paraphrase_b, instruction: "Move the crimson cube to the blue plate."}
+
+# Factor 2 changes constraint content and is analyzed as a distinct manipulation. Its matched
+# scene contains the same blue cylinder in both arms; wording outside the constraint is fixed.
+constraint_factor:
+  scene: scenes/pick_place_with_blue_cylinder.yaml
+  variants:
+    - {name: unconstrained, instruction: "Pick up the red cube and place it on the blue plate."}
+    - {name: avoid_cylinder, instruction: "Pick up the red cube and place it on the blue plate without touching the blue cylinder."}
+
+assignment:
+  unit: null                 # freeze episode/case/reset block before capture
+  probabilities: null        # archive generated assignments for Protocol B
+  episodes_per_cell: null    # set only by the scientifically adequate capture-sizing gate
 ```
+
+Do not place the paraphrase and constraint factors in one severity ordering. Validate paraphrase
+meaning without using evaluation outcomes; record tokenization and instruction occupancy. For each
+factor, vary one treatment dimension at a time and hold scene, object poses, target, policy state,
+decoder, and physical perturbations fixed or randomized independently. If a joint language×physical
+interaction is scientifically required, declare and power the complete factorial before capture;
+do not infer it from a few hand-picked combined cells.
 
 ### 7.3 PID Metric Analysis
 **Exploratory legacy H2/H3 analyses (non-operative for confirmation):** first pass the instruction
@@ -1541,7 +1494,10 @@ the four PID gates. Strength matching is outcome-independent (for example equal 
 displacement or equal MI destroyed), never equal-success-impact. These screens do not replace the
 Protocol A direct-response score, the Protocol B effect-specific stack, or H2’s prospective proper
 score.
-**Exploratory (legacy-H6-adjacent, Deferred — no claim):** `Unq(L)` / `Syn(V,L;A)` contrasts between the `safety_constraint` and baseline conditions may be logged but are not evidence for any safety claim.
+**Exploratory (legacy-H6-adjacent, Deferred — no claim):** `Unq(L)` / `Syn(V,L;A)` contrasts between
+the matched `avoid_cylinder` and `unconstrained` cells may be logged but are not evidence for a safety
+claim. The constraint arm changes task content, not merely syntax, and requires its own engagement,
+specificity, and physical-outcome checks.
 
 ---
  
@@ -1573,67 +1529,37 @@ This repository does **not** ship a WAN/video-model runner. Use any image+instru
 
 Store the generated clip as `video: (T, H, W, 3) uint8` plus per-frame timestamps.
  
-### 8.2 3D Flow Extraction Pipeline
-```python
-import numpy as np
+### 8.2 3D Flow Extraction Contract (External; Planned)
 
-def lift_tracks_to_3d(tracks_2d: np.ndarray, depths: np.ndarray, K: np.ndarray) -> np.ndarray:
-    """
-    Lift tracked 2D points into 3D trajectories using per-frame depth.
+No 2-D tracker/depth pipeline is implemented here. A future adapter must not clip an out-of-frame or
+occluded track to the image boundary and pretend it is an observation. For every track-time point it
+must retain a visibility/confidence status and represent missing depth explicitly.
 
-    Inputs:
-    - tracks_2d: (N, T, 2) pixel coords (u, v) for N objects/points
-    - depths:    (T, H, W) depth maps (relative or metric; document which)
-    - K:         (3, 3) camera intrinsics matrix
+Before any quantitative use, freeze and validate:
 
-    Output:
-    - tracks_3d: (N, T, 3) 3D points in the camera frame (units follow depth units)
-    """
-    tracks_2d = np.asarray(tracks_2d, dtype=np.float64)
-    depths = np.asarray(depths, dtype=np.float64)
-    K = np.asarray(K, dtype=np.float64)
+- camera intrinsics, distortion model, extrinsics, coordinate frame, units, and timestamp alignment;
+- metric-depth calibration (relative depth cannot silently become metric 3-D motion);
+- tracker identity switches, occlusion/re-entry rules, depth interpolation, and rejection thresholds;
+- uncertainty or repeated-view error against held-out simulator/physical reference trajectories; and
+- a train-fitted low-dimensional aggregation with its exact hash.
 
-    fx, fy = K[0, 0], K[1, 1]
-    cx, cy = K[0, 2], K[1, 2]
+The output is a typed sequence of finite 3-D points or missing observations with source-frame and
+calibration provenance—not merely an `N×T×3` array. `Flow_gt` from replayed simulator object poses is
+the bring-up target; predictor-derived `Flow_pred` remains a separate, error-bearing measurement.
 
-    n, t, _ = tracks_2d.shape
-    _, h, w = depths.shape
+### 8.3 Flow PID Boundary
 
-    tracks_3d = np.zeros((n, t, 3), dtype=np.float64)
-    for i in range(n):
-        for j in range(t):
-            u, v = tracks_2d[i, j]
-            uu = int(np.clip(np.round(u), 0, w - 1))
-            vv = int(np.clip(np.round(v), 0, h - 1))
-            z = depths[j, vv, uu]
-            x = (u - cx) * z / fx
-            y = (v - cy) * z / fy
-            tracks_3d[i, j] = (x, y, z)
+The ordinary `pid_core_rs` 1.0 wheel intentionally omits continuous shared-exclusions PID. Run any
+continuous flow analysis through the feature-pinned Rust offline harness with explicit per-axis
+population-support declarations, the exact preprocessing hash, and separate population, measure,
+estimator, and application verdicts. Do not re-create removed scalar Python calls or use the
+experimental migration module in an evidentiary workflow.
 
-    return tracks_3d
-```
-
-### 8.3 Dream2Flow PID Computation
-```python
-import numpy as np
-import pid_core_rs as pid
-
-def zscore(x: np.ndarray, eps: float = 1e-8) -> np.ndarray:
-    x = np.asarray(x, dtype=np.float64)
-    mu = x.mean(axis=0, keepdims=True)
-    sd = x.std(axis=0, keepdims=True) + eps
-    return (x - mu) / sd
-
-def pid2_atoms_isx(s1: np.ndarray, s2: np.ndarray, t: np.ndarray, *, k: int = 3, metric: str = "chebyshev") -> dict:
-    """
-    Non-runnable boundary marker: the stable pid_core_rs 1.0 wheel intentionally omits
-    continuous shared-exclusions PID. Run this analysis through pid-offline-harness with the exact
-    pid-rs revision/features and support declarations recorded; do not call removed scalar APIs.
-    """
-    raise NotImplementedError("continuous PID runs through the Rust harness under pid-rs 1.0")
-```
-
-**Important:** KSG/ISX estimates are not reliable with very small `n` (e.g., a single 48‑frame clip). For the flow-as-bridge analysis you typically need to aggregate across many clips and/or subsample to reduce autocorrelation (see `grandplan.md` §6.7 uncertainty and dependence). Also keep the **flow target low-dimensional** (avoid raw 3×N×T trajectories); aggregate (centroids/velocities) or reduce, then re-run both the MI/coherence and measure-specific atom validation on the resulting representation.
+One short clip is not an independent kNN sample. Pool prespecified, phase-aligned observations across
+independent clips/episodes, stride within episode by at least the estimated decorrelation length, and
+keep every clip in one outer fold. Keep the flow target low-dimensional, but re-run recovery and all
+four gates on every source, target, and concatenation after aggregation. If the required independent
+sample count or any gate is unavailable, record an abstention with no numeric PID placeholder.
 
 ---
 
@@ -1648,9 +1574,13 @@ Compare PID signatures on the **same task** performed by two different robots (F
 
 ### 9.2 Key Comparison
 Use Flow-as-Bridge to separate “world understanding” from “actuation/embodiment”:
-- **World-model diagnostic (embodiment-agnostic target):** compare CI/PID summaries for decompositions such as `(V, D_vla; Flow_gt)` or `(V, L; Flow_gt)` across robots on matched tasks/scenes. These should be more stable across embodiments if Flow captures task-relevant state changes.
-- **Policy/embodiment sensitivity:** compare how Flow relates to actions via `(V, Flow_gt; A_cmd)` and simple MI terms (e.g., `I(D_vla; A_cmd)`) across robots; differences here are consistent with an embodiment gap.
+- **World-model diagnostic (embodiment-agnostic target):** estimate the transport change in CI/PID summaries for decompositions such as `(V, D_vla; Flow_gt)` or `(V, L; Flow_gt)` across robots on matched tasks/scenes. Do not presume stability; define a useful equivalence/noninferiority region and propagate estimator uncertainty before calling a feature transportable.
+- **Policy/embodiment sensitivity:** compare how Flow relates to actions via `(V, Flow_gt; A_cmd)` and simple MI terms (e.g., `I(D_vla; A_cmd)`) across robots. The contrast describes the transported policy–adapter–controller system; it does not isolate embodiment by itself.
 
+The same task name and nominal policy are insufficient for identification: adapters, camera law,
+action coordinates, controller, reachable state distribution, and the operational `D` can all
+change. Report overlap and each change explicitly; cross-embodiment differences are descriptive
+transport results unless a separately randomized within-system intervention identifies a cause.
 Avoid undefined atoms like `Syn(D; A_robot)`; synergy is a two-source construct.
 
 ---
@@ -1659,117 +1589,62 @@ Avoid undefined atoms like `Syn(D; A_robot)`; synergy is a two-source construct.
 
 **Implementation note (planned):** every perturbation below is an Agent Bridge call (e.g., `intervention.apply`); a GUI merely submits that same call. The bridge appends parameters and simulation/wall-clock timestamps before the perturbation handler runs. No renderer, observer, PID worker, or Zenoh subscriber applies a perturbation directly.
 
-### 10.1 Visual Perturbations
-```python
-class VisualPerturbations:
-    """Logged visual perturbations; SparkJS Dynos are the Phase 4 renderer path"""
-    
-    @staticmethod
-    def lighting_shift(scene, intensity_delta: float, color_temp_k: int):
-        """
-        Shift scene lighting. 
-        
-        Args:
-            intensity_delta: -0.5 to 0.5 (relative change)
-            color_temp_k: 2700 (warm) to 6500 (cool)
-        """
-        # Convert color temp to RGB multipliers
-        rgb = kelvin_to_rgb(color_temp_k)
-        
-        scene.set_lighting(
-            ambient=scene.ambient + intensity_delta,
-            directional_color=rgb,
-        )
-    
-    @staticmethod
-    def add_distractor(scene, object_type: str, position: np.ndarray):
-        """Add a distractor object to the scene"""
-        distractor = scene.spawn_object(
-            splat=f"assets/splats/{object_type}.spz",
-            position=position,
-            physics=True,
-        )
-        return distractor.id
-    
-    @staticmethod
-    def texture_swap(scene, target_id: str, new_texture: str):
-        """Swap object texture (requires variant splats)"""
-        scene.objects[target_id].set_splat(f"assets/splats/{target_id}_{new_texture}.spz")
-    
-    @staticmethod  
-    def add_occlusion(scene, position: np.ndarray, size: float):
-        """Add floating occluder between camera and workspace"""
-        scene.spawn_object(
-            splat="assets/splats/black_panel.spz",
-            position=position,
-            scale=size,
-            physics=False,  # Floating
-        )
-```
+### 10.1 Visual Intervention Contract (Planned)
 
-### 10.2 Physical Perturbations
-```python
-class PhysicalPerturbations:
-    """Physics-based perturbations via Rapier"""
-    
-    @staticmethod
-    def mass_variation(physics_world, object_id: str, scale: float):
-        """
-        Scale object mass. 
-        
-        Args:
-            scale: 0.5 to 2.0 (multiplier)
-        """
-        body = physics_world.get_rigid_body(object_id)
-        original_mass = body.mass()
-        body.set_mass(original_mass * scale)
-    
-    @staticmethod
-    def friction_variation(physics_world, object_id: str, new_friction: float):
-        """
-        Change surface friction. 
-        
-        Args:
-            new_friction: 0.1 to 1.0
-        """
-        colliders = physics_world.get_colliders(object_id)
-        for c in colliders:
-            c.set_friction(new_friction)
-    
-    @staticmethod
-    def position_noise(physics_world, object_id: str, sigma_xy: float, sigma_theta: float):
-        """Add random noise to object pose"""
-        body = physics_world.get_rigid_body(object_id)
-        pos = body.translation()
-        
-        noise_xy = np.random.normal(0, sigma_xy, 2)
-        noise_theta = np.random.normal(0, sigma_theta)
-        
-        body.set_translation(vector![pos.x + noise_xy[0], pos.y + noise_xy[1], pos.z])
-        
-        current_rot = body.rotation()
-        delta_rot = UnitQuaternion::from_axis_angle(&Vector3::z_axis(), noise_theta)
-        body.set_rotation(current_rot * delta_rot)
-    
-    @staticmethod
-    def external_force(physics_world, object_id: str, force: np.ndarray, duration: float):
-        """Apply external force impulse"""
-        body = physics_world.get_rigid_body(object_id)
-        body.apply_impulse(vector![force[0], force[1], force[2]], true)
-```
+The fuller renderer interventions are not implemented. A future Agent Bridge adapter must encode each
+visual treatment as a versioned command with factor name, dose, nominal-state hash, target, RNG
+ledger reference, application time, receipt, and a post-application manipulation measurement.
+
+| Factor | Dose | Must remain fixed |
+|---|---|---|
+| Illumination intensity | absolute or nominal-relative scalar | color temperature, source direction, geometry, exposure |
+| Illumination color temperature | calibrated kelvin/source spectrum | intensity, direction, geometry, exposure |
+| Distractor count | integer with a frozen placement generator | candidate locations, object family, target visibility |
+| Texture/appearance | content-addressed asset variant | geometry, physics proxy, illumination |
+| Occlusion | area/pose under a frozen generator | target, illumination, all physical properties |
+
+Do not use renderer settings that also change physics, camera calibration, automatic exposure, or the
+task target unless those are explicit factors in a complete factorial.
+
+### 10.2 Physical Intervention Contract (Planned)
+
+The current bridge's implemented local interventions are narrower than this planned library. A future
+physics adapter must reset to a content-addressed nominal state before every dose and record the
+backend-specific receipt plus a measured manipulation check.
+
+| Factor | Dose | Required isolation |
+|---|---|---|
+| Object mass | scale applied to the frozen nominal mass | inertia rule, geometry, friction, initial pose |
+| Friction | absolute coefficient/material pair | mass, contact geometry, solver settings |
+| Translation noise | logged vector drawn from its own RNG stream | rotation fixed |
+| Rotation noise | logged axis-angle drawn from its own RNG stream | translation fixed |
+| Impulse | logged impulse vector at a named simulation time | do not describe it as a duration-bearing force |
+| Force schedule | force vector plus integration interval and application schedule | distinct estimand from impulse |
+
+Reject a cell if the requested factor is unsupported, the nominal-state hash differs, treatment
+receipt is absent, or a supposedly isolated manipulation changes an undeclared factor.
 
 ### 10.3 Perturbation Schedules
 ```yaml
 # experiments/configs/perturbation_schedules.yaml
  
-# H4: Generalization testing
+# Retired-H4 exploratory generalization battery (not registry H4)
 generalization_battery:
-  - name: lighting_sweep
+  - name: lighting_intensity_sweep
     type: lighting_shift
+    fixed: {color_temp_k: 4500}
     variations:
-      - {intensity_delta: -0.3, color_temp_k: 3000}
+      - {intensity_delta: -0.3, color_temp_k: 4500}
       - {intensity_delta: 0.0, color_temp_k: 4500}
-      - {intensity_delta: 0.3, color_temp_k: 6500}
+      - {intensity_delta: 0.3, color_temp_k: 4500}
+
+  - name: lighting_temperature_sweep
+    type: lighting_shift
+    fixed: {intensity_delta: 0.0}
+    variations:
+      - {intensity_delta: 0.0, color_temp_k: 3000}
+      - {intensity_delta: 0.0, color_temp_k: 4500}
+      - {intensity_delta: 0.0, color_temp_k: 6500}
   
   - name: distractor_density
     type: add_distractor
@@ -1778,14 +1653,21 @@ generalization_battery:
       - {count: 1, positions: [[0.5, 0.1, 0.04]]}
       - {count: 3, positions: [[0.5, 0.1, 0.04], [0.35, -0.05, 0.03], [0.55, 0.15, 0.05]]}
   
-  - name: object_position_noise
+  - name: object_translation_noise
     type: position_noise
     variations:
       - {sigma_xy: 0.0, sigma_theta: 0.0}
-      - {sigma_xy: 0.02, sigma_theta: 0.1}
-      - {sigma_xy: 0.05, sigma_theta: 0.2}
+      - {sigma_xy: 0.02, sigma_theta: 0.0}
+      - {sigma_xy: 0.05, sigma_theta: 0.0}
+
+  - name: object_rotation_noise
+    type: position_noise
+    variations:
+      - {sigma_xy: 0.0, sigma_theta: 0.0}
+      - {sigma_xy: 0.0, sigma_theta: 0.1}
+      - {sigma_xy: 0.0, sigma_theta: 0.2}
  
-# H7: Embodiment gap testing
+# Exploratory embodiment-gap battery (legacy H7)
 embodiment_battery:
   - name: mass_mismatch
     type: mass_variation
@@ -1798,6 +1680,17 @@ embodiment_battery:
     variations: [0.2, 0.4, 0.6, 0.8]
 ```
 
+**Factor-isolation rule.** A one-factor sweep holds every other perturbation parameter at a declared
+nominal value and restores the same validated pre-treatment state before each cell; doses are
+computed from that frozen nominal, never compounded from the preceding cell. For example, do not
+change illumination intensity and color temperature, or object
+translation and rotation, in the same cell and then attribute the response to either component.
+Distractor-count sweeps use a frozen placement generator so count is not silently confounded with
+location. Mass, friction, correction-loop status, instruction content, and visual corruption remain
+separate factors. A scientific interaction requires a complete randomized factorial (including all
+main-effect cells), an interaction estimand, and cluster-aware sizing; an ad hoc combined stress-test
+cell is descriptive only.
+
 **Exploratory legacy logging only (non-operative for confirmation):** perturbation sweeps may log
 per-severity `Syn`, uncertainty, instruction occupancy/entropy, a frozen transform hash, and SSI :=
 −IQR(Syn) for descriptive continuity with the retired memorization/generalization analysis. This is
@@ -1809,80 +1702,43 @@ yardstick (embedding displacement or MI destroyed), but they do not substitute f
  
 ## 11. Data Formats & Storage
 
-### 11.1 Episode Storage (HDF5)
-```python
-import h5py
- 
-def save_episode(episode: PickPlaceEpisode, filepath: str):
-    """Save episode to HDF5 format"""
-    
-    with h5py.File(filepath, 'w') as f:
-        # Metadata
-        meta = f.create_group("metadata")
-        meta.attrs["episode_id"] = episode.episode_id
-        meta.attrs["condition"] = episode.condition
-        meta.attrs["instruction"] = episode.instruction
-        meta.attrs["success"] = episode.success
-        meta.attrs["failure_mode"] = episode.failure_mode or ""
-        meta.attrs["seed"] = episode.seed
-        
-        # Trajectory
-        traj = f.create_group("trajectory")
-        traj.create_dataset("timestamps", data=episode.timestamps, compression="gzip")
-        traj.create_dataset("joint_positions", data=episode.joint_positions, compression="gzip")
-        traj.create_dataset("joint_velocities", data=episode.joint_velocities, compression="gzip")
-        traj.create_dataset("ee_poses", data=episode.ee_poses, compression="gzip")
-        traj.create_dataset("gripper_widths", data=episode.gripper_widths, compression="gzip")
-        traj.create_dataset("actions", data=episode.actions_commanded, compression="gzip")
-        
-        # Images (compressed)
-        imgs = f.create_group("images")
-        imgs.create_dataset("wrist", data=episode.images_wrist, 
-                           compression="gzip", compression_opts=4)
-        imgs.create_dataset("overhead", data=episode.images_overhead,
-                           compression="gzip", compression_opts=4)
-        
-        # Embeddings
-        emb = f.create_group("embeddings")
-        emb.create_dataset("V", data=episode.embeddings_V, compression="gzip")
-        emb.create_dataset("L", data=episode.embeddings_L, compression="gzip")
-        emb.create_dataset("D", data=episode.embeddings_D, compression="gzip")
-        emb.create_dataset("V_reduced", data=episode.embeddings_V_reduced, compression="gzip")
-        emb.create_dataset("L_reduced", data=episode.embeddings_L_reduced, compression="gzip")
-        emb.create_dataset("D_reduced", data=episode.embeddings_D_reduced, compression="gzip")
-        
-        # PID metrics
-        pid = f.create_group("pid")
-        # Action target (diagnostic; protocol assignment lives in the canonical run log)
-        action = pid.create_group("action")
-        action.create_dataset("synergy", data=episode.pid_action_synergy)
-        action.create_dataset("redundancy", data=episode.pid_action_redundancy)
-        action.create_dataset("unique_v", data=episode.pid_action_unique_v)
-        action.create_dataset("unique_d", data=episode.pid_action_unique_d)
-        
-        # Flow target (exploratory Flow-as-Bridge)
-        flow = pid.create_group("flow")
-        flow.create_dataset("synergy", data=episode.pid_flow_synergy)
-        flow.create_dataset("redundancy", data=episode.pid_flow_redundancy)
-        flow.create_dataset("unique_v", data=episode.pid_flow_unique_v)
-        flow.create_dataset("unique_d", data=episode.pid_flow_unique_d)
-        
-        # Object tracking
-        objects = f.create_group("objects")
-        for obj_id, poses in episode.object_poses.items():
-            objects.create_dataset(obj_id, data=poses, compression="gzip")
-```
+### 11.1 Episode Sidecars (Optional; Run Log Remains Canonical)
+
+The earlier standalone HDF5 writer is retired. It could publish an analysis file without a canonical
+run-log binding and wrote PID arrays unconditionally, which cannot represent abstention without a
+numeric placeholder.
+
+If HDF5 or another columnar container is used for throughput, treat it as an immutable derived
+sidecar. Its schema must include:
+
+- schema version, run ID, canonical run-log content hash, source-artifact hashes, and the exact
+  adapter/model/config/transform identities;
+- sample, episode, case, event, assignment, receipt, timestamp, and split keys sufficient to join
+  every row back to canonical events without positional inference;
+- raw-versus-derived status, dtype, shape, units, coordinate frame, rate, missingness, and
+  preprocessing lineage for every array;
+- label provenance and observation time so a future/outcome label cannot enter a prospective
+  feature; and
+- per-estimate computation status plus all four scientific verdicts. A numeric dataset exists only
+  for `produced` or `produced_with_warning` estimates; an abstention has a reason and no numeric PID
+  dataset, zero, NaN, or metric event.
+
+Install sidecars without replacing an existing target, hash the finalized bytes, and record the
+artifact event in the canonical log. A release check must reconstruct the declared samples from the
+log/source artifacts and compare keys, shapes, hashes, labels, assignments, and produced values to
+the sidecar. Passing HDF5 parsing alone is not provenance-complete replay.
 
 ### 11.2 Dataset Index (JSON)
 
 Example schema (values below are illustrative placeholders; populate from actual run metadata and measured statistics):
 ```json
 {
+  "example_only": true,
   "dataset_id": "prisoma_exp1_v1",
   "created": "2026-01-15T10:30:00Z",
   "experiment": "exp1_pick_place",
   "n_episodes": 400,
-  "conditions": ["baseline", "lighting_variation", "distractor_objects", "novel_instruction"],
+  "conditions": ["baseline", "lighting_intensity_variation", "distractor_objects", "novel_instruction"],
   "episodes_per_condition": 100,
   
   "episodes": [
@@ -1890,9 +1746,11 @@ Example schema (values below are illustrative placeholders; populate from actual
       "episode_id": "exp1_baseline_001",
       "condition": "baseline",
       "filepath": "data/exp1/baseline/episode_001.h5",
+      "outcome_kind": "success",
       "success": true,
-      "duration_s": 12.4,
-      "seed": 42001
+      "outcome_time_s": 12.4,
+      "label_observed_at_s": 12.4,
+      "randomness_ledger_sha256": "<example-ledger-sha256>"
     }
   ],
   
@@ -1900,7 +1758,7 @@ Example schema (values below are illustrative placeholders; populate from actual
     "overall_success_rate": 0.73,
     "by_condition": {
       "baseline": {"success_rate": 0.85, "mean_duration": 11.2},
-      "lighting_variation": {"success_rate": 0.71, "mean_duration": 13.1},
+      "lighting_intensity_variation": {"success_rate": 0.71, "mean_duration": 13.1},
       "distractor_objects": {"success_rate": 0.68, "mean_duration": 14.5},
       "novel_instruction": {"success_rate": 0.66, "mean_duration": 15.2}
     }
@@ -1949,38 +1807,36 @@ Then size the capture as `sum(bytes_per_episode × planned_episodes)` plus measu
  
 ## 13. Reproducibility Checklist
 
-### 13.1 Random Seeds
-```python
-import random
-import numpy as np
+### 13.1 Randomness, Coupling, and Assignment Ledger
 
-# Master seed configuration
-REPRODUCIBILITY_CONFIG = {
-    "master_seed": 42,
-    "numpy_seed": 42,
-    "torch_seed": 42,
-    "physics_seed": 42,
-    # Per-episode seeds derived from master
-    "episode_seed_fn": lambda master, episode_idx: master + episode_idx * 1000,
-}
+A single master RNG or a function of episode index is not an adequate reproducibility contract. It
+can create accidental aliases between case selection, treatment assignment, environment noise, and
+policy sampling, and it cannot describe Protocol A's coupled potential computations.
 
-def set_all_seeds(seed: int):
-    """Set common RNG seeds for reproducibility (where available)."""
-    random.seed(seed)
-    np.random.seed(seed)
+Use independent, domain-separated streams for at least:
 
-    try:
-        import torch
-    except ImportError:
-        torch = None
+- task/case sampling and split construction;
+- treatment assignment and run-order randomization;
+- environment transitions and sensor corruption;
+- policy decoding/sampling;
+- intervention generation and placebo selection;
+- learned-transform initialization/tuning; and
+- attribution controls, bootstrap, and permutation procedures.
 
-    if torch is not None:
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
+For every stream record its semantic role, generator algorithm and library version, seed/key,
+counter/substream range, draw count or draw-ledger hash, owning unit, and whether replay is exact or
+tolerance-bounded. Generate and archive Protocol B assignments before treatment, record planned and
+realized probabilities, and never regenerate a favorable assignment after outcomes are visible.
 
-    # Physics determinism is engine-dependent; ensure fixed dt/solver params and log them.
-```
+For sampled Protocol A responses, the coupling of treatment-0 and treatment-1 policy streams is part
+of S_i(C). Declare whether streams are common, antithetic, or independent; preserve per-side draw
+ledgers; randomize clone order; and repeat a frozen subset with independent streams when feasible.
+Do not pool different couplings as repeated measurements of one estimand.
+
+Seed equality does not prove deterministic execution. Also bind model/checkpoint, preprocessing,
+device, kernels, precision, thread/scheduler settings, simulator integrator, and reset state, then
+measure replay divergence. Report failed resets, divergent draw counts, and nondeterministic runs
+rather than silently dropping them.
 
 ### 13.2 Version Pinning
 - **Python dependencies:** pinned in `uv.lock` (run `uv sync`; commit lockfile changes).
@@ -1989,9 +1845,11 @@ def set_all_seeds(seed: int):
 - **External stacks (optional):** if you use video generation / segmentation / tracking / depth packages, pin them in a dedicated environment and record their lockfiles/commits.
 
 ### 13.3 Experiment Manifest
-Every experiment run should produce a manifest file:
+Every experiment run should produce a manifest file. The values below are schema examples only;
+they are not observed results, capture requirements, tested version pins, or a planned study size:
 ```yaml
 # results/exp1_run_001/manifest.yaml
+example_only: true
 experiment:
   id: exp1_run_001
   timestamp: 2026-01-15T10:30:00Z
@@ -2007,10 +1865,11 @@ software:
   python_version: 3.11.7
   rust_version: 1.75.0
   
-seeds:
-  master: 42
-  numpy: 42
-  torch: 42
+randomness:
+  ledger_path: results/exp1_run_001/randomness.json
+  ledger_sha256: <record-finalized-ledger-sha256>
+  assignment_manifest_sha256: <record-assignment-manifest-sha256-or-null>
+  protocol_a_coupling: <common-antithetic-independent-or-not-applicable>
   
 config:
   experiment_config: experiments/configs/exp1_pick_place.yaml
@@ -2019,6 +1878,8 @@ config:
 results:
   n_episodes: 400
   success_rate: 0.73
+  canonical_runlog: results/exp1_run_001/runlog.jsonl
+  canonical_runlog_sha256: <record-finalized-runlog-sha256>
   data_path: results/exp1_run_001/episodes/
   analysis_path: results/exp1_run_001/analysis/
 ```
@@ -2049,1220 +1910,82 @@ To keep runs replayable:
 - Record whether a run is “strict replayable” (deterministic + fixed ordering) vs “best-effort replayable” (nondeterminism tolerated but logged).
 
 ---
- 
 
----
-
-## 14. World Model Comparison: ManiGaussian vs PEGS
-
-**Priority note (`grandplan.md` §5 experimental programme, §4 retired/deferred):** Experiments 6–10 (legacy H_WM1–H_WM5) are optional exploratory world-model extensions and must not block the core programme. ManiGaussian and PEGS are external world-model **comparators/candidates** on the ecosystem evidence ladder (E0/E1, `grandplan.md` §8.9), not integrated or validated dependencies.
-
-**Control-plane rule:** every PEGS visual-correction toggle/force and every matched ManiGaussian intervention in §§14–19 is an Agent Bridge command appended to the canonical run log before execution. PID outputs may be analysis inputs to a preregistered client decision, but PID workers never trigger corrections directly.
-
-### 14.1 Overview and Motivation
-
-This experiment suite compares two fundamentally different approaches to integrating physics with 3D Gaussian Splatting for robotic manipulation:
-
-| Approach     | Physics Type       | Visual Integration                            | Key Innovation                                    |
-| ------------ | ------------------ | --------------------------------------------- | ------------------------------------------------- |
-| ManiGaussian | Learned (implicit) | 3D Variational Encoder → Gaussian World Model | Predicts future Z embedding conditioned on action |
-| PEGS         | Explicit (PBD)     | Dual Gaussian-Particle + Visual Forces        | Real-time correction via photometric error        |
-
-**Core Research Questions:**
-1. Which approach captures more information about ground truth physics? (Measured by I(Prediction; P_GT))
-2. How do PID signatures differ between learned and explicit physics?
-3. Which approach generalizes better to novel objects/physics perturbations?
-4. How does temporal coherence degrade in long-horizon tasks?
-
-### 14.2 Unified PID Metric Framework
-
-```python
-@dataclass
-class WorldModelPIDMetrics:
-    'Unified PID metrics for comparing ManiGaussian vs PEGS'
-    
-    # === ManiGaussian-specific ===
-    # World model construction: PID(V, L; Z)
-    mani_world_model_synergy: float      # Syn(V, L; Z)
-    mani_world_model_redundancy: float   # Red(V, L; Z)
-    mani_world_model_unique_v: float     # Unq(V; Z)
-    mani_world_model_unique_l: float     # Unq(L; Z)
-    
-    # Dynamics prediction: I(Z'; P_GT)
-    mani_prediction_mi: float            # MI between predicted embedding and ground truth
-    
-    # Action prediction: PID(Z, L; A)
-    mani_action_synergy: float           # Syn(Z, L; A)
-    mani_action_unique_z: float          # Unq(Z; A) - world model contribution
-    mani_action_unique_l: float          # Unq(L; A) - candidate feature (requires validation against failure labels/controls)
-    
-    # === PEGS-specific ===
-    # Correction quality: PID(P_pred, V_obs; P_corr)
-    pegs_correction_synergy: float       # Syn(P_pred, V_obs; P_corr)
-    pegs_correction_redundancy: float    # Red(P_pred, V_obs; P_corr)
-    pegs_correction_unique_phys: float   # Unq(P_pred; P_corr) - physics dominance
-    pegs_correction_unique_vis: float    # Unq(V_obs; P_corr) - visual dominance
-    
-    # Physics prediction accuracy: I(P_pred; P_GT)
-    pegs_prediction_mi: float            # MI between PBD prediction and ground truth
-    
-    # Visual force magnitude (scalar)
-    pegs_visual_force_magnitude: float   # ||F_visual|| - correction effort
-    
-    # === Comparative (both systems) ===
-    # Flow consistency: I(WorldModel; Flow_GT)
-    flow_consistency_mi: float           # How well does world model predict 3D flow?
-    
-    # Temporal stability
-    synergy_variance: float              # Var(Syn) over episode
-    synergy_slope: float                 # Trend of Syn over time (negative = degradation)
-```
-
----
-
-## 15. Experiment 6: World Model Prediction Fidelity
-
-**Hypothesis H_WM1:** ManiGaussian achieves higher I(Prediction; P_GT) on in-distribution scenarios, but PEGS maintains stable accuracy across distribution shifts.
-
-### 15.1 Task Definition
-
-| Property     | Value                                                |
-| ------------ | ---------------------------------------------------- |
-| Task         | Open-loop trajectory prediction (no robot execution) |
-| Input        | Initial scene state + 10-step action sequence        |
-| Output       | Predicted object trajectories from both systems      |
-| Ground Truth | Rapier3D physics simulation                          |
-| Metric       | Prediction horizon (steps until error > threshold)   |
-| Episodes     | 200 per condition                                    |
-
-### 15.2 Experimental Protocol
-
-```yaml
-# experiments/configs/exp6_prediction_fidelity.yaml
-experiment_id: exp6_world_model_prediction_v1
- 
-conditions:
-  - name: single_object_push
-    scene: scenes/simple_push.yaml
-    action_type: push_sequence
-    prediction_horizon: 20  # steps
-    n_episodes: 200
-    
-  - name: multi_object_collision
-    scene: scenes/collision_chain.yaml
-    action_type: contact_cascade
-    prediction_horizon: 30
-    n_episodes: 200
-    
-  - name: stacking_dynamics
-    scene: scenes/stacking.yaml
-    action_type: place_sequence
-    prediction_horizon: 25
-    n_episodes: 200
- 
-world_models:
-  - name: manigaussian
-    type: learned
-    checkpoint: models/manigaussian_v1.pth
-    inference_mode: rollout
-    
-  - name: pegs
-    type: explicit
-    physics_engine: pbd
-    pbd_iterations: 10
-    visual_correction: false  # Pure physics prediction
-    
-  - name: pegs_corrected
-    type: explicit
-    physics_engine: pbd
-    visual_correction: true
-    correction_rate: 0.1
- 
-ground_truth:
-  engine: rapier3d
-  step_hz: 1000
-  substeps: 10
-```
-
-### 15.3 Scene Configurations
-
-**Scene: Single Object Push**
-```yaml
-# scenes/simple_push.yaml
-scene_id: simple_push_v1
-environment: tabletop
- 
-objects:
-  - id: target_cube
-    splat: assets/splats/red_cube.spz
-    initial_pose:
-      position: [0.45, 0.0, 0.025]
-      orientation: [1.0, 0.0, 0.0, 0.0]
-    physics:
-      type: cuboid
-      half_extents: [0.025, 0.025, 0.025]
-      mass: 0.1
-      friction: 0.5
-      restitution: 0.2
- 
-action_sequence:
-  type: push
-  direction: [0.0, 1.0, 0.0]  # Push along Y axis
-  force_magnitude: 2.0  # Newtons
-  duration_steps: 5
-```
-
-**Scene: Multi-Object Collision Chain**
-```yaml
-# scenes/collision_chain.yaml
-scene_id: collision_chain_v1
-environment: tabletop
- 
-objects:
-  - id: striker
-    splat: assets/splats/green_sphere.spz
-    initial_pose:
-      position: [0.30, 0.0, 0.04]
-      orientation: [1.0, 0.0, 0.0, 0.0]
-    physics:
-      type: ball
-      radius: 0.04
-      mass: 0.2
-      friction: 0.3
-      restitution: 0.8
- 
-  - id: target_1
-    splat: assets/splats/red_cube.spz
-    initial_pose:
-      position: [0.45, 0.0, 0.025]
-      orientation: [1.0, 0.0, 0.0, 0.0]
-    physics:
-      type: cuboid
-      half_extents: [0.025, 0.025, 0.025]
-      mass: 0.1
- 
-  - id: target_2
-    splat: assets/splats/blue_cube.spz
-    initial_pose:
-      position: [0.52, 0.0, 0.025]
-      orientation: [1.0, 0.0, 0.0, 0.0]
-    physics:
-      type: cuboid
-      half_extents: [0.025, 0.025, 0.025]
-      mass: 0.1
- 
-  - id: target_3
-    splat: assets/splats/yellow_cube.spz
-    initial_pose:
-      position: [0.59, 0.0, 0.025]
-      orientation: [1.0, 0.0, 0.0, 0.0]
-    physics:
-      type: cuboid
-      half_extents: [0.025, 0.025, 0.025]
-      mass: 0.1
- 
-action_sequence:
-  type: impulse
-  target: striker
-  direction: [1.0, 0.0, 0.0]
-  impulse_magnitude: 0.5  # N·s
-```
-
-### 15.4 PID Decompositions for Experiment 6
-
-```python
-@dataclass
-class Exp6PIDAnalysis:
-    'PID analysis for world model prediction fidelity'
-    
-    # ManiGaussian-specific
-    # Sources: V (visual input), L (language), Z (Gaussian embedding)
-    # Target: P_GT (ground truth positions)
-    manigaussian_mi_z_pgt: float          # I(Z'; P_GT) - embedding captures physics
-    manigaussian_pid_v_l_z: Pid2Result    # PID(V, L; Z) - how V,L form world model
-    
-    # PEGS-specific  
-    # Sources: P_pred (PBD prediction), V_obs (visual observation)
-    # Target: P_GT (ground truth positions)
-    pegs_mi_pred_pgt: float               # I(P_pred; P_GT) - physics prediction
-    pegs_mi_corr_pgt: float               # I(P_corrected; P_GT) - after correction
-    pegs_pid_pred_vobs_pcorr: Pid2Result  # PID(P_pred, V_obs; P_corr)
-    
-    # Comparative metrics
-    prediction_horizon_manigaussian: int  # Steps until error > threshold
-    prediction_horizon_pegs: int
-    prediction_horizon_pegs_corrected: int
- 
- 
-def compute_exp6_pid(
-    manigaussian_predictions: np.ndarray,  # (T, n_objects, 3)
-    pegs_predictions: np.ndarray,          # (T, n_objects, 3)
-    pegs_corrected: np.ndarray,            # (T, n_objects, 3)
-    ground_truth: np.ndarray,              # (T, n_objects, 3)
-    visual_observations: np.ndarray,       # (T, H, W, 3)
-    manigaussian_embeddings: np.ndarray,   # (T, embed_dim)
-    cfg: Pid2Config,
-) -> Exp6PIDAnalysis:
-    '
-    Compute PID metrics comparing world model predictions.
-    
-    Key question: Which representation captures more information 
-    about ground truth physics?
-    '
-    T = len(ground_truth)
-    n_obj = ground_truth.shape[1]
-    
-    # Flatten object positions for MI computation
-    gt_flat = ground_truth.reshape(T, -1)  # (T, n_objects * 3)
-    mg_flat = manigaussian_predictions.reshape(T, -1)
-    pegs_flat = pegs_predictions.reshape(T, -1)
-    pegs_corr_flat = pegs_corrected.reshape(T, -1)
-    
-    # Standardize
-    gt_std = Standardizer.fit_transform(MatRef.from_numpy(gt_flat))
-    mg_std = Standardizer.fit_transform(MatRef.from_numpy(mg_flat))
-    pegs_std = Standardizer.fit_transform(MatRef.from_numpy(pegs_flat))
-    pegs_corr_std = Standardizer.fit_transform(MatRef.from_numpy(pegs_corr_flat))
-    z_std = Standardizer.fit_transform(MatRef.from_numpy(manigaussian_embeddings))
-    
-    # 1. ManiGaussian: I(Z'; P_GT)
-    mi_z_pgt = ksg_mi(z_std, gt_std, cfg.ksg)
-    
-    # 2. PEGS: I(P_pred; P_GT) and I(P_corr; P_GT)
-    mi_pred_pgt = ksg_mi(pegs_std, gt_std, cfg.ksg)
-    mi_corr_pgt = ksg_mi(pegs_corr_std, gt_std, cfg.ksg)
-    
-    # 3. PEGS PID: How does visual correction contribute?
-    # PID(P_pred, V_features; P_corrected)
-    v_features = extract_visual_features(visual_observations)  # CNN/ViT features
-    v_std = Standardizer.fit_transform(MatRef.from_numpy(v_features))
-    
-    pegs_pid = pid2_isx(pegs_std, v_std, pegs_corr_std, cfg)
-    
-    # 4. Compute prediction horizons
-    error_threshold = 0.02  # 2cm position error
-    
-    mg_horizon = compute_prediction_horizon(mg_flat, gt_flat, error_threshold)
-    pegs_horizon = compute_prediction_horizon(pegs_flat, gt_flat, error_threshold)
-    pegs_corr_horizon = compute_prediction_horizon(pegs_corr_flat, gt_flat, error_threshold)
-    
-    return Exp6PIDAnalysis(
-        manigaussian_mi_z_pgt=mi_z_pgt,
-        pegs_mi_pred_pgt=mi_pred_pgt,
-        pegs_mi_corr_pgt=mi_corr_pgt,
-        pegs_pid_pred_vobs_pcorr=pegs_pid,
-        prediction_horizon_manigaussian=mg_horizon,
-        prediction_horizon_pegs=pegs_horizon,
-        prediction_horizon_pegs_corrected=pegs_corr_horizon,
-    )
- 
- 
-def compute_prediction_horizon(
-    predictions: np.ndarray,
-    ground_truth: np.ndarray,
-    threshold: float,
-) -> int:
-    'Find first timestep where prediction error exceeds threshold'
-    errors = np.linalg.norm(predictions - ground_truth, axis=1)
-    exceeds = np.where(errors > threshold)[0]
-    return exceeds[0] if len(exceeds) > 0 else len(predictions)
-```
-
-### 15.5 Evaluation Metrics
-
-```python
-def evaluate_exp6(results: List[Exp6PIDAnalysis]) -> dict:
-    'Aggregate evaluation for Experiment 6'
-    
-    # Prediction accuracy comparison
-    mg_horizons = [r.prediction_horizon_manigaussian for r in results]
-    pegs_horizons = [r.prediction_horizon_pegs for r in results]
-    pegs_corr_horizons = [r.prediction_horizon_pegs_corrected for r in results]
-    
-    # MI comparison
-    mg_mi = [r.manigaussian_mi_z_pgt for r in results]
-    pegs_mi = [r.pegs_mi_pred_pgt for r in results]
-    pegs_corr_mi = [r.pegs_mi_corr_pgt for r in results]
-    
-    # Visual correction benefit (PEGS)
-    correction_benefit = [
-        r.pegs_pid_pred_vobs_pcorr.synergy for r in results
-    ]
-    
-    # Statistical tests
-    from scipy.stats import wilcoxon, ttest_rel
-    
-    # H_WM1: Is ManiGaussian MI > PEGS MI on in-distribution?
-    stat_mi, pval_mi = ttest_rel(mg_mi, pegs_mi)
-    
-    # H_WM1b: Does visual correction help PEGS?
-    stat_corr, pval_corr = ttest_rel(pegs_corr_mi, pegs_mi)
-    
-    return {
-        "mean_horizon_manigaussian": np.mean(mg_horizons),
-        "mean_horizon_pegs": np.mean(pegs_horizons),
-        "mean_horizon_pegs_corrected": np.mean(pegs_corr_horizons),
-        "mean_mi_manigaussian": np.mean(mg_mi),
-        "mean_mi_pegs": np.mean(pegs_mi),
-        "mean_mi_pegs_corrected": np.mean(pegs_corr_mi),
-        "mean_correction_synergy": np.mean(correction_benefit),
-        "h_wm1_pvalue": pval_mi,
-        "h_wm1_significant": pval_mi < 0.05,
-        "visual_correction_benefit_pvalue": pval_corr,
-    }
-```
-
----
-
-## 16. Experiment 7: Novel Object Generalization
-
-**Hypothesis H_WM2:** PEGS maintains stable PID signatures (Syn(P_pred, V_obs; P_corr)) on novel objects because physics generalizes; ManiGaussian's Syn(V, L; Z) degrades significantly on objects outside training distribution.
-
-### 16.1 Task Definition
-
-| Property         | Value                                                          |
-| ---------------- | -------------------------------------------------------------- |
-| Task             | Pick-and-place with novel objects                              |
-| Novel Geometries | L-shaped blocks, hollow cylinders, torus                       |
-| Novel Materials  | Glass-like (transparent), metallic (reflective)                |
-| Novel Mass       | Weighted dice (asymmetric CoM), hollow vs solid                |
-| Control          | Same objects captured as 3DGS but NOT in ManiGaussian training |
-
-### 16.2 Novel Object Library
-
-```yaml
-# assets/novel_objects/object_library.yaml
-novel_objects:
-  # Geometry novelty
-  - id: l_block
-    description: "L-shaped wooden block"
-    splat: assets/splats/novel/l_block.spz
-    physics:
-      type: compound  # Multiple cuboids
-      components:
-        - {type: cuboid, half_extents: [0.04, 0.02, 0.02], offset: [0, 0, 0]}
-        - {type: cuboid, half_extents: [0.02, 0.04, 0.02], offset: [0.03, 0.02, 0]}
-      mass: 0.15
-    in_mani_training: false
-    
-  - id: hollow_cylinder
-    description: "Hollow metal cylinder (pipe section)"
-    splat: assets/splats/novel/hollow_cylinder.spz
-    physics:
-      type: trimesh
-      mesh_path: assets/meshes/hollow_cylinder.obj
-      mass: 0.08
-    in_mani_training: false
-    
-  - id: torus
-    description: "Rubber torus (donut shape)"
-    splat: assets/splats/novel/torus.spz
-    physics:
-      type: trimesh
-      mesh_path: assets/meshes/torus.obj
-      mass: 0.05
-    in_mani_training: false
-    
-  # Material novelty (same geometry as training, different appearance)
-  - id: glass_cube
-    description: "Transparent glass cube (same size as red_cube)"
-    splat: assets/splats/novel/glass_cube.spz  # Captured with DKT for transparency
-    physics:
-      type: cuboid
-      half_extents: [0.025, 0.025, 0.025]
-      mass: 0.15  # Glass is denser
-    in_mani_training: false
-    visual_challenge: transparency
-    
-  - id: chrome_sphere
-    description: "Reflective chrome sphere"
-    splat: assets/splats/novel/chrome_sphere.spz
-    physics:
-      type: ball
-      radius: 0.04
-      mass: 0.5  # Metal
-    in_mani_training: false
-    visual_challenge: reflection
-    
-  # Mass distribution novelty
-  - id: weighted_die
-    description: "Cube with asymmetric weight distribution"
-    splat: assets/splats/novel/weighted_die.spz
-    physics:
-      type: cuboid
-      half_extents: [0.025, 0.025, 0.025]
-      mass: 0.2
-      center_of_mass: [0.01, 0.01, -0.015]  # Off-center
-    in_mani_training: false
-    physics_challenge: asymmetric_com
-```
-
-### 16.3 Experimental Conditions
-
-```yaml
-# experiments/configs/exp7_novel_objects.yaml
-experiment_id: exp7_novel_object_generalization_v1
- 
-conditions:
-  # Baseline: familiar objects (sanity check)
-  - name: familiar_red_cube
-    scene: scenes/novel_object_test.yaml
-    target_object: red_cube
-    instruction: "Pick up the red cube and place it on the blue plate."
-    n_episodes: 50
-    
-  # Geometry novelty
-  - name: novel_l_block
-    scene: scenes/novel_object_test.yaml
-    target_object: l_block
-    instruction: "Pick up the L-shaped block and place it on the blue plate."
-    n_episodes: 50
-    
-  - name: novel_hollow_cylinder
-    scene: scenes/novel_object_test.yaml
-    target_object: hollow_cylinder
-    instruction: "Pick up the hollow cylinder and place it on the blue plate."
-    n_episodes: 50
-    
-  - name: novel_torus
-    scene: scenes/novel_object_test.yaml
-    target_object: torus
-    instruction: "Pick up the rubber ring and place it on the blue plate."
-    n_episodes: 50
-    
-  # Material novelty
-  - name: novel_glass_cube
-    scene: scenes/novel_object_test.yaml
-    target_object: glass_cube
-    instruction: "Pick up the glass cube and place it on the blue plate."
-    n_episodes: 50
-    note: "Tests visual encoder on transparency (use DKT-captured splat)"
-    
-  - name: novel_chrome_sphere
-    scene: scenes/novel_object_test.yaml
-    target_object: chrome_sphere
-    instruction: "Pick up the shiny metal ball and place it on the blue plate."
-    n_episodes: 50
-    note: "Tests visual encoder on reflections"
-    
-  # Physics novelty
-  - name: novel_weighted_die
-    scene: scenes/novel_object_test.yaml
-    target_object: weighted_die
-    instruction: "Pick up the die and place it on the blue plate."
-    n_episodes: 50
-    note: "Asymmetric CoM causes unexpected rotation during grasp"
- 
-analysis:
-  primary_metrics:
-    - "pid_stability"  # Variance of Syn across episode
-    - "success_rate"
-    - "grasp_success_rate"
-  
-  pid_decomposition:
-    manigaussian:
-      - "Syn(V, L; Z)"
-      - "Unq(V; Z)"
-      - "Unq(L; Z)"
-    pegs:
-      - "Syn(P_pred, V_obs; P_corr)"
-      - "Unq(P_pred; P_corr)"
-      - "Unq(V_obs; P_corr)"
-```
-
-### 16.4 PID Analysis for Generalization
-
-```python
-def analyze_novel_object_generalization(
-    mani_episodes: List[NovelObjectEpisode],
-    pegs_episodes: List[NovelObjectEpisode]
-) -> dict:
-    '
-    Test H_WM2: PEGS maintains stable PID; ManiGaussian degrades on novel objects
-    '
-    
-    # Group by object novelty type
-    novelty_types = ["familiar", "geometry", "material", "physics"]
-    
-    results = {}
-    for novelty in novelty_types:
-        mani_eps = [e for e in mani_episodes if e.novelty_type == novelty]
-        pegs_eps = [e for e in pegs_episodes if e.novelty_type == novelty]
-        
-        # Compute PID variance (stability metric)
-        mani_syn_values = []
-        for ep in mani_eps:
-            syn_trajectory = compute_manigaussian_synergy_trajectory(ep)
-            mani_syn_values.extend(syn_trajectory)
-        
-        pegs_syn_values = []
-        for ep in pegs_eps:
-            syn_trajectory = compute_pegs_synergy_trajectory(ep)
-            pegs_syn_values.extend(syn_trajectory)
-        
-        results[novelty] = {
-            "manigaussian": {
-                "mean_synergy": np.mean(mani_syn_values),
-                "std_synergy": np.std(mani_syn_values),
-                "success_rate": np.mean([e.success for e in mani_eps]),
-            },
-            "pegs": {
-                "mean_synergy": np.mean(pegs_syn_values),
-                "std_synergy": np.std(pegs_syn_values),
-                "success_rate": np.mean([e.success for e in pegs_eps]),
-            }
-        }
-    
-    # H_WM2 test: Compare stability drop from familiar to novel
-    mani_familiar_std = results["familiar"]["manigaussian"]["std_synergy"]
-    mani_novel_stds = [results[n]["manigaussian"]["std_synergy"] for n in ["geometry", "material", "physics"]]
-    mani_stability_drop = np.mean(mani_novel_stds) / mani_familiar_std
-    
-    pegs_familiar_std = results["familiar"]["pegs"]["std_synergy"]
-    pegs_novel_stds = [results[n]["pegs"]["std_synergy"] for n in ["geometry", "material", "physics"]]
-    pegs_stability_drop = np.mean(pegs_novel_stds) / pegs_familiar_std
-    
-    return {
-        "per_novelty_results": results,
-        "h_wm2_test": {
-            "hypothesis": "PEGS more stable than ManiGaussian on novel objects",
-            "mani_stability_drop_ratio": mani_stability_drop,
-            "pegs_stability_drop_ratio": pegs_stability_drop,
-            "supported": pegs_stability_drop < mani_stability_drop,
-        }
-    }
-```
-
----
-
-## 17. Experiment 8: Physics Perturbation Sensitivity
-
-**Hypothesis H_WM3:** PEGS's visual correction mechanism compensates for physics mismatch (stable PID, increased ||F_visual||); ManiGaussian shows PID distribution shift (increased Unq(V; Z) as it falls back to visual dominance).
-
-### 17.1 Task Definition
-
-| Property      | Value                                                                   |
-| ------------- | ----------------------------------------------------------------------- |
-| Task          | Standard pick-and-place                                                 |
-| Perturbations | Mass ×{0.5, 0.75, 1.0, 1.5, 2.0}, Friction ×{0.3, 0.5, 1.0, 1.5, 2.0}   |
-| Metric        | PID stability under physics mismatch                                    |
-| Episodes      | 50 per perturbation level × 2 systems = 500 total per perturbation type |
-
-### 17.2 Perturbation Matrix
-
-```yaml
-# experiments/configs/exp8_physics_perturbation.yaml
-experiment_id: exp8_physics_perturbation_sensitivity_v1
- 
-perturbation_matrix:
-  mass_scale: [0.5, 0.75, 1.0, 1.5, 2.0]
-  friction_scale: [0.3, 0.5, 1.0, 1.5, 2.0]
-  
-# Generate all combinations
-conditions:
-  # Mass perturbations (friction = 1.0)
-  - name: mass_0.5x
-    perturbations:
-      - {type: mass_variation, target: red_cube, scale: 0.5}
-    n_episodes: 50
-    
-  - name: mass_0.75x
-    perturbations:
-      - {type: mass_variation, target: red_cube, scale: 0.75}
-    n_episodes: 50
-    
-  # ... etc for all mass values
-  
-  # Friction perturbations (mass = 1.0)
-  - name: friction_0.3x
-    perturbations:
-      - {type: friction_variation, target: table, scale: 0.3}
-    n_episodes: 50
-    
-  # ... etc for all friction values
-  
-  # Combined perturbations (stress test)
-  - name: combined_heavy_slippery
-    perturbations:
-      - {type: mass_variation, target: red_cube, scale: 2.0}
-      - {type: friction_variation, target: table, scale: 0.3}
-    n_episodes: 50
- 
-analysis:
-  key_metrics:
-    - "pid_distribution_shift"  # KL divergence from baseline
-    - "visual_force_magnitude"  # PEGS correction effort
-    - "unique_v_ratio"         # ManiGaussian visual dominance
-```
-
-### 17.3 PID Sensitivity Analysis
-
-```python
-def analyze_physics_perturbation_sensitivity(
-    baseline_mani: List[Episode],
-    baseline_pegs: List[Episode],
-    perturbed_mani: Dict[str, List[Episode]],  # perturbation_name -> episodes
-    perturbed_pegs: Dict[str, List[Episode]],
-) -> dict:
-    '
-    Test H_WM3: PEGS compensates via visual forces; ManiGaussian shifts to visual dominance
-    '
-    
-    # Compute baseline PID distributions
-    baseline_mani_pid = extract_pid_distribution(baseline_mani, "manigaussian")
-    baseline_pegs_pid = extract_pid_distribution(baseline_pegs, "pegs")
-    
-    results = {"manigaussian": {}, "pegs": {}}
-    
-    for pert_name, mani_eps in perturbed_mani.items():
-        pegs_eps = perturbed_pegs[pert_name]
-        
-        # ManiGaussian analysis
-        mani_pid = extract_pid_distribution(mani_eps, "manigaussian")
-        mani_kl = compute_kl_divergence(baseline_mani_pid["synergy"], mani_pid["synergy"])
-        mani_unique_v_ratio = np.mean(mani_pid["unique_v"]) / (
-            np.mean(mani_pid["unique_v"]) + np.mean(mani_pid["unique_l"]) + 1e-8
-        )
-        
-        results["manigaussian"][pert_name] = {
-            "kl_from_baseline": mani_kl,
-            "unique_v_ratio": mani_unique_v_ratio,
-            "mean_synergy": np.mean(mani_pid["synergy"]),
-            "success_rate": np.mean([e.success for e in mani_eps]),
-        }
-        
-        # PEGS analysis
-        pegs_pid = extract_pid_distribution(pegs_eps, "pegs")
-        pegs_kl = compute_kl_divergence(baseline_pegs_pid["synergy"], pegs_pid["synergy"])
-        mean_visual_force = np.mean([
-            np.linalg.norm(e.pegs_visual_forces, axis=-1).mean() 
-            for e in pegs_eps
-        ])
-        
-        results["pegs"][pert_name] = {
-            "kl_from_baseline": pegs_kl,
-            "mean_visual_force": mean_visual_force,
-            "mean_synergy": np.mean(pegs_pid["synergy"]),
-            "success_rate": np.mean([e.success for e in pegs_eps]),
-        }
-    
-    # H_WM3 tests
-    # 1. PEGS should have lower KL divergence (more stable PID)
-    mani_kls = [r["kl_from_baseline"] for r in results["manigaussian"].values()]
-    pegs_kls = [r["kl_from_baseline"] for r in results["pegs"].values()]
-    
-    # 2. PEGS visual force should increase with perturbation severity
-    perturbation_severity = [0.5, 0.75, 1.0, 1.5, 2.0]  # mass scale
-    visual_forces = [results["pegs"][f"mass_{s}x"]["mean_visual_force"] for s in perturbation_severity]
-    force_correlation = np.corrcoef(
-        [abs(1 - s) for s in perturbation_severity],  # deviation from nominal
-        visual_forces
-    )[0, 1]
-    
-    # 3. ManiGaussian unique_v_ratio should increase under perturbation
-    mani_unique_v_baseline = extract_pid_distribution(baseline_mani, "manigaussian")["unique_v"].mean()
-    mani_unique_v_perturbed = np.mean([r["unique_v_ratio"] for r in results["manigaussian"].values()])
-    
-    return {
-        "per_perturbation_results": results,
-        "h_wm3_tests": {
-            "pegs_more_stable": {
-                "mani_mean_kl": np.mean(mani_kls),
-                "pegs_mean_kl": np.mean(pegs_kls),
-                "supported": np.mean(pegs_kls) < np.mean(mani_kls),
-            },
-            "pegs_force_compensates": {
-                "force_perturbation_correlation": force_correlation,
-                "supported": force_correlation > 0.5,  # positive correlation
-            },
-            "mani_visual_fallback": {
-                "baseline_unique_v_ratio": mani_unique_v_baseline,
-                "perturbed_unique_v_ratio": mani_unique_v_perturbed,
-                "supported": mani_unique_v_perturbed > mani_unique_v_baseline * 1.2,  # 20% increase
-            }
-        }
-    }
-```
-
----
-
-## 18. Experiment 9: Temporal Coherence in Long-Horizon Tasks
-
-**Hypothesis H_WM4:** ManiGaussian shows faster synergy decay over long-horizon tasks; PEGS maintains coherence via continuous visual correction.
-
-### 18.1 Task Definition
-
-| Property         | Value                                 |
-| ---------------- | ------------------------------------- |
-| Task             | 5-block tower stacking                |
-| Phases           | 10 subtasks (5 grasps + 5 placements) |
-| Success Criteria | All 5 blocks stacked, stable for 3s   |
-| Timeout          | 300 seconds                           |
-| Episodes         | 50                                    |
-
-### 18.2 Scene Configuration
-
-```yaml
-# scenes/tower_5_blocks.yaml
-scene_id: tower_5_blocks_v1
-environment: tabletop
- 
-objects:
-  - id: block_1
-    splat: assets/splats/red_cube.spz
-    initial_pose: {position: [0.30, 0.15, 0.025], orientation: [1,0,0,0]}
-    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
-    stack_order: 1
-    
-  - id: block_2
-    splat: assets/splats/blue_cube.spz
-    initial_pose: {position: [0.35, 0.20, 0.025], orientation: [1,0,0,0]}
-    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
-    stack_order: 2
-    
-  - id: block_3
-    splat: assets/splats/green_cube.spz
-    initial_pose: {position: [0.40, 0.15, 0.025], orientation: [1,0,0,0]}
-    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
-    stack_order: 3
-    
-  - id: block_4
-    splat: assets/splats/yellow_cube.spz
-    initial_pose: {position: [0.45, 0.20, 0.025], orientation: [1,0,0,0]}
-    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
-    stack_order: 4
-    
-  - id: block_5
-    splat: assets/splats/purple_cube.spz
-    initial_pose: {position: [0.50, 0.15, 0.025], orientation: [1,0,0,0]}
-    physics: {type: cuboid, half_extents: [0.025, 0.025, 0.025], mass: 0.1}
-    stack_order: 5
-    
-  - id: target_base
-    splat: assets/splats/target_platform.spz
-    initial_pose: {position: [0.45, -0.10, 0.001], orientation: [1,0,0,0]}
-    physics: {type: cuboid, half_extents: [0.04, 0.04, 0.001], fixed: true}
- 
-instruction: "Stack all five blocks in order: red, blue, green, yellow, purple from bottom to top."
-```
-
-### 18.3 Phase Detection and Temporal Analysis
-
-```python
-def detect_stacking_phases(episode: StackingEpisode) -> List[TaskPhase]:
-    'Detect grasp and place phases from episode data'
-    phases = []
-    phase_id = 0
-    
-    gripper_widths = episode.gripper_widths
-    timestamps = episode.timestamps
-    
-    # State machine for phase detection
-    state = "searching"  # "searching", "approaching", "grasping", "lifting", "placing"
-    current_object = None
-    phase_start = None
-    
-    for t in range(1, len(timestamps)):
-        dt = timestamps[t] - timestamps[t-1]
-        
-        # Detect grasp initiation (gripper closing rapidly)
-        if state == "searching" and gripper_widths[t] < gripper_widths[t-1] - 0.005:
-            state = "grasping"
-            phase_start = timestamps[t]
-            current_object = identify_nearest_object(episode, t)
-            
-        # Detect grasp completion (object lifted)
-        elif state == "grasping":
-            obj_height = episode.object_poses[current_object][t, 2]
-            if obj_height > 0.05:  # Lifted threshold
-                phases.append(TaskPhase(
-                    phase_id=phase_id,
-                    phase_type="grasp",
-                    target_object=current_object,
-                    start_time=phase_start,
-                    end_time=timestamps[t],
-                    success=True,
-                ))
-                phase_id += 1
-                state = "placing"
-                phase_start = timestamps[t]
-                
-        # Detect place completion (gripper opening, object stationary)
-        elif state == "placing" and gripper_widths[t] > gripper_widths[t-1] + 0.01:
-            obj_vel = np.linalg.norm(
-                episode.object_velocities[current_object][t]
-            )
-            if obj_vel < 0.01:  # Stationary threshold
-                phases.append(TaskPhase(
-                    phase_id=phase_id,
-                    phase_type="place",
-                    target_object=current_object,
-                    start_time=phase_start,
-                    end_time=timestamps[t],
-                    success=True,
-                ))
-                phase_id += 1
-                state = "searching"
-                current_object = None
-                
-    return phases
-```
-
-### 18.4 Temporal Coherence Evaluation
-
-```python
-def evaluate_exp9(results: List[Exp9PIDAnalysis]) -> dict:
-    '
-    Evaluate temporal coherence over long-horizon tasks.
-    
-    Key metrics:
-    - Synergy degradation slope: negative = degrading, 0 = stable
-    - Cumulative error growth rate
-    - Correlation between synergy and phase success
-    '
-    
-    # Aggregate synergy slopes
-    mg_slopes = [r.synergy_slope_mg for r in results if not np.isnan(r.synergy_slope_mg)]
-    pegs_slopes = [r.synergy_slope_pegs for r in results if not np.isnan(r.synergy_slope_pegs)]
-    
-    # Test H_WM4: ManiGaussian has more negative slope
-    from scipy.stats import ttest_ind
-    stat, pval = ttest_ind(mg_slopes, pegs_slopes)
-    
-    # Phase-by-phase synergy curves
-    max_phases = max(len(r.phase_synergies_mg) for r in results)
-    
-    mg_synergy_curve = []
-    pegs_synergy_curve = []
-    
-    for phase_idx in range(max_phases):
-        mg_vals = [r.phase_synergies_mg[phase_idx] 
-                  for r in results if phase_idx < len(r.phase_synergies_mg)]
-        pegs_vals = [r.phase_synergies_pegs[phase_idx]
-                   for r in results if phase_idx < len(r.phase_synergies_pegs)]
-        
-        mg_synergy_curve.append({
-            "phase": phase_idx,
-            "mean": np.nanmean(mg_vals),
-            "std": np.nanstd(mg_vals),
-        })
-        pegs_synergy_curve.append({
-            "phase": phase_idx,
-            "mean": np.nanmean(pegs_vals),
-            "std": np.nanstd(pegs_vals),
-        })
-    
-    # Task completion rates
-    mg_completion = np.mean([r.phases_completed / r.total_phases for r in results])
-    pegs_completion = np.mean([r.phases_completed / r.total_phases for r in results])
-    
-    # Correlation: synergy with success
-    all_phase_synergies_mg = []
-    all_phase_successes = []
-    for r in results:
-        for phase, syn in zip(r.phases, r.phase_synergies_mg):
-            if not np.isnan(syn):
-                all_phase_synergies_mg.append(syn)
-                all_phase_successes.append(1 if phase.success else 0)
-    
-    from scipy.stats import pointbiserialr
-    corr, corr_pval = pointbiserialr(all_phase_successes, all_phase_synergies_mg)
-    
-    return {
-        "mean_synergy_slope_mg": np.mean(mg_slopes),
-        "mean_synergy_slope_pegs": np.mean(pegs_slopes),
-        "h_wm4_pvalue": pval,
-        "h_wm4_mg_degrades_more": np.mean(mg_slopes) < np.mean(pegs_slopes),
-        "mg_synergy_curve": mg_synergy_curve,
-        "pegs_synergy_curve": pegs_synergy_curve,
-        "mg_phase_completion_rate": mg_completion,
-        "pegs_phase_completion_rate": pegs_completion,
-        "synergy_success_correlation": corr,
-        "synergy_success_pvalue": corr_pval,
-    }
-```
-
----
-
-## 19. Experiment 10: Deformable Object Manipulation
-
-**Hypothesis H_WM5:** PEGS handles deformables via explicit constraints; ManiGaussian fails (high Unq(L; A)).
-
-### 19.1 Task Definition
-
-| Property     | Value                                        |
-| ------------ | -------------------------------------------- |
-| Task A       | Rope arrangement (form a circle)             |
-| Task B       | Cloth folding (fold in half)                 |
-| Physics      | PEGS uses particle chains / mesh constraints |
-| ManiGaussian | No deformable support (expected failure)     |
-| Episodes     | 30 per task                                  |
-
-### 19.2 Deformable Object Specifications
-
-```yaml
-# objects/deformables.yaml
-deformable_objects:
-  - id: rope_1m
-    description: "1m flexible rope"
-    type: rope
-    
-    splat: assets/splats/deformable/rope_1m.spz
-    
-    pegs_config:
-      particle_count: 100
-      segment_length: 0.01  # meters
-      bending_stiffness: 0.5
-      stretch_stiffness: 1.0
-      particle_mass: 0.001  # kg per particle
-      
-    physics_proxy:
-      type: particle_chain
-      constraints:
-        - type: distance
-          rest_length: 0.01
-          compliance: 0.0001
-        - type: bending
-          rest_angle: 0.0
-          compliance: 0.001
-          
-    manigaussian_support: false
-    
-  - id: cloth_30x30
-    description: "30cm x 30cm cloth"
-    type: cloth
-    
-    splat: assets/splats/deformable/cloth_30x30.spz
-    
-    pegs_config:
-      particle_grid: [30, 30]  # 30x30 particles
-      rest_spacing: 0.01  # meters
-      stretch_stiffness: 1.0
-      shear_stiffness: 0.5
-      bend_stiffness: 0.1
-      particle_mass: 0.0001
-      
-    physics_proxy:
-      type: particle_mesh
-      constraints:
-        - type: stretch
-          compliance: 0.0001
-        - type: shear
-          compliance: 0.001
-        - type: bend
-          compliance: 0.01
-          
-    manigaussian_support: false
-```
-
-### 19.3 Deformable Task Configurations
-
-```yaml
-# experiments/configs/exp10_deformables.yaml
-experiment_id: exp10_deformable_manipulation
- 
-tasks:
-  - name: rope_circle
-    object: rope_1m
-    instruction: "Arrange the rope into a circle on the table."
-    success_criteria:
-      shape: circle
-      radius_tolerance: 0.05  # meters
-      closure_gap: 0.02  # max gap at ends
-    n_episodes: 30
-    
-  - name: rope_line
-    object: rope_1m
-    instruction: "Straighten the rope into a line."
-    success_criteria:
-      shape: line
-      straightness: 0.95  # correlation coefficient
-    n_episodes: 30
-    
-  - name: cloth_fold_half
-    object: cloth_30x30
-    instruction: "Fold the cloth in half."
-    success_criteria:
-      fold_type: half
-      alignment_error: 0.02  # meters
-      fold_crispness: 0.8
-    n_episodes: 30
-    
-  - name: cloth_flatten
-    object: cloth_30x30
-    instruction: "Flatten the wrinkled cloth on the table."
-    success_criteria:
-      flatness: 0.95  # max height variance
-    n_episodes: 30
- 
-world_model_configs:
-  pegs:
-    deformable_solver: position_based_dynamics
-    solver_iterations: 20
-    substeps: 5
-    visual_correction: true
-    
-  manigaussian:
-    # Expected to fail - rigid body assumption
-    fallback_mode: rigid_approximation
-```
-
-### 19.4 PID Analysis for Deformables
-
-```python
-def compute_exp10_pid(
-    episode: DeformableEpisode,
-    cfg: Pid2Config,
-) -> Exp10PIDAnalysis:
-    '
-    Analyze deformable manipulation performance.
-    
-    Key hypothesis H_WM5:
-    - PEGS handles deformables via explicit constraints
-    - ManiGaussian fails, falls back to language (high Unq(L; A))
-    '
-    
-    # PEGS analysis
-    if episode.pegs_data is not None:
-        # Particle positions from PBD
-        P_particles = episode.pegs_data.particle_positions  # (T, n_particles, 3)
-        V_features = episode.visual_features
-        P_corrected = episode.pegs_data.corrected_particles
-        
-        # Flatten particles for PID
-        T = len(P_particles)
-        P_flat = P_particles.reshape(T, -1)
-        P_corr_flat = P_corrected.reshape(T, -1)
-        
-        # Reduce dimensionality (too many particles)
-        from sklearn.decomposition import PCA
-        pca = PCA(n_components=64)
-        P_reduced = pca.fit_transform(P_flat)
-        P_corr_reduced = pca.transform(P_corr_flat)
-        
-        P_std = Standardizer.fit_transform(MatRef.from_numpy(P_reduced))
-        V_std = Standardizer.fit_transform(MatRef.from_numpy(V_features))
-        P_corr_std = Standardizer.fit_transform(MatRef.from_numpy(P_corr_reduced))
-        
-        pegs_pid = pid2_isx(P_std, V_std, P_corr_std, cfg)
-        
-        # Constraint analysis
-        constraint_violations = episode.pegs_data.constraint_violations
-        mean_violation = np.mean(constraint_violations)
-        
-        # Particle tracking coverage
-        particle_coverage = episode.pegs_data.tracking_coverage
-        
-    else:
-        pegs_pid = None
-        mean_violation = None
-        particle_coverage = None
-    
-    # ManiGaussian failure analysis
-    if episode.manigaussian_data is not None:
-        mg_data = episode.manigaussian_data
-        
-        # Check if fallback was triggered
-        fallback_triggered = mg_data.used_rigid_fallback
-        
-        # Language dominance analysis
-        V = mg_data.visual_embeddings
-        L = mg_data.language_embeddings
-        D = mg_data.decoder_embeddings
-        A = mg_data.actions
-        
-        V_std = Standardizer.fit_transform(MatRef.from_numpy(V))
-        L_std = Standardizer.fit_transform(MatRef.from_numpy(L))
-        A_std = Standardizer.fit_transform(MatRef.from_numpy(A))
-        
-        # PID(V, L; A) to check language dominance
-        mg_pid = pid2_isx(V_std, L_std, A_std, cfg)
-        total_mi = (mg_pid.redundancy + mg_pid.unique_s1 + 
-                   mg_pid.unique_s2 + mg_pid.synergy)
-        language_dominance = mg_pid.unique_s2 / total_mi if total_mi > 0 else 0
-        
-        # Action variance (uncertainty indicator)
-        action_variance = np.mean(np.var(A, axis=0))
-        
-    else:
-        fallback_triggered = None
-        language_dominance = None
-        action_variance = None
-    
-    return Exp10PIDAnalysis(
-        task_name=episode.task_name,
-        object_type=episode.object_type,
-        pegs_pid_particles_v_corr=pegs_pid,
-        pegs_constraint_violations=mean_violation,
-        pegs_particle_coverage=particle_coverage,
-        mg_attempted=episode.manigaussian_data is not None,
-        mg_fallback_triggered=fallback_triggered,
-        mg_language_dominance=language_dominance,
-        mg_action_variance=action_variance,
-        success_pegs=episode.pegs_success,
-        success_mg=episode.manigaussian_success,
-        shape_error_pegs=episode.pegs_shape_error,
-        shape_error_mg=episode.manigaussian_shape_error,
-    )
-```
-
-### 19.5 Deformable Manipulation Evaluation
-
-```python
-def evaluate_exp10(results: List[Exp10PIDAnalysis]) -> dict:
-    '
-    Evaluate deformable manipulation capabilities.
-    
-    Expected outcome: PEGS succeeds, ManiGaussian fails with high Unq(L; A)
-    '
-    
-    # Success rates
-    pegs_success = np.mean([r.success_pegs for r in results if r.success_pegs is not None])
-    mg_success = np.mean([r.success_mg for r in results if r.success_mg is not None])
-    
-    # By object type
-    rope_results = [r for r in results if r.object_type == "rope"]
-    cloth_results = [r for r in results if r.object_type == "cloth"]
-    
-    pegs_rope_success = np.mean([r.success_pegs for r in rope_results])
-    pegs_cloth_success = np.mean([r.success_pegs for r in cloth_results])
-    
-    # ManiGaussian failure analysis
-    mg_failures = [r for r in results if not r.success_mg and r.mg_attempted]
-    
-    if mg_failures:
-        mean_language_dominance = np.mean([r.mg_language_dominance for r in mg_failures])
-        mean_action_variance = np.mean([r.mg_action_variance for r in mg_failures])
-        fallback_rate = np.mean([r.mg_fallback_triggered for r in mg_failures])
-    else:
-        mean_language_dominance = None
-        mean_action_variance = None
-        fallback_rate = None
-    
-    # PEGS constraint analysis
-    pegs_results = [r for r in results if r.pegs_pid_particles_v_corr is not None]
-    
-    mean_constraint_violation = np.mean([r.pegs_constraint_violations for r in pegs_results])
-    mean_particle_coverage = np.mean([r.pegs_particle_coverage for r in pegs_results])
-    mean_pegs_synergy = np.mean([r.pegs_pid_particles_v_corr.synergy for r in pegs_results])
-    
-    return {
-        "pegs_overall_success": pegs_success,
-        "mg_overall_success": mg_success,
-        "pegs_rope_success": pegs_rope_success,
-        "pegs_cloth_success": pegs_cloth_success,
-        "mg_language_dominance_on_failure": mean_language_dominance,
-        "mg_action_variance_on_failure": mean_action_variance,
-        "mg_fallback_rate": fallback_rate,
-        "pegs_mean_constraint_violation": mean_constraint_violation,
-        "pegs_mean_particle_coverage": mean_particle_coverage,
-        "pegs_mean_synergy": mean_pegs_synergy,
-        "h_wm5_pegs_handles_deformables": pegs_success > 0.5,
-        "h_wm5_mg_fails_deformables": mg_success < 0.2,
-    }
-```
-
----
+## 14. Retired World-Model Comparison Sketches (Non-Operative)
+
+The former §§14–19 described five directional comparisons between ManiGaussian and PEGS as
+H_WM1–H_WM5 and included executable-looking YAML/Python. Those sketches are retired. They were never
+implemented in this repository, their fixed counts were not justified by the nested design, and
+several proposed endpoints did not identify the stated scientific questions. They must not be run,
+cited as preregistered hypotheses, or used to size a capture. Historical text remains available in
+version control.
+
+The two project names below are retained only to identify the retired sketches. Any successor must
+reverify each external system's current code, checkpoint, supported object class, license, and
+interface from primary sources at a frozen revision. Neither system is a validated dependency here.
+
+### 14.1 Failure analysis
+
+| Retired sketch | Why its proposed test was invalid | Minimum defensible replacement |
+|---|---|---|
+| **H_WM1: prediction fidelity via `I(Prediction; P_GT)`** | Mutual information measures dependence, not numerical prediction accuracy. An invertible but physically wrong remapping can preserve MI, while a noiseless deterministic continuous relationship may have no finite MI. Fitting transforms on evaluation trajectories and treating timesteps as independent add further leakage and pseudoreplication | Use physically scaled trajectory error for deterministic predictions; use a proper log score plus calibration for probabilistic predictions. Freeze horizons/tolerances from task utility, fit every transform on outer-training cases, pair systems on identical cases, and infer at the case/task-family level. MI may be a gated secondary diagnostic only |
+| **H_WM2: novel-object stability from different PID atoms** | The sketch compared variances of different functionals, variables, targets, dimensions, and scales across systems. That contrast has no common estimand and cannot establish generalization | Give both systems the same supported cases, inputs, target, prediction horizon, scoring rule, and information budget. Estimate each system's familiar-to-novel score change and the paired system-by-shift interaction, with task-family-held-out uncertainty |
+| **H_WM3: perturbation compensation** | KL divergences between unrelated atom vectors and a comparison of raw unique information with a ratio are not commensurate. Hard-coded percentage/correlation thresholds had no utility or uncertainty basis, and combined perturbations mixed mass, friction, and correction status | Randomize isolated mass, friction, visual corruption, and correction-loop factors. Use prediction/execution error and physically interpretable correction effort as primary outcomes. Declare any interaction factorial in advance; report uncertainty and multiplicity. Compare PID only under an identical validated regime and denominator |
+| **H_WM4: temporal coherence** | The sketch assigned every phase `success=True`, making outcome correlation undefined; it reused one completion expression for both systems, treated within-episode phases as independent, and applied an unpaired test to paired cases | Record real outcomes and prespecified phase events, retain missing/censored phases, summarize a frozen within-episode temporal functional, and compare systems with paired or hierarchical inference at the episode/task-family cluster. A constant outcome cannot support correlation |
+| **H_WM5: deformable manipulation** | Selecting a comparator known not to support the task predetermines the result and violates overlap. Analyzing only failures is post-outcome selection; fitting PCA/standardization on evaluation data leaks; high language-unique information does not prove fallback or mechanism | Compare performance only where both systems have declared support and matched access, or report a descriptive capability boundary with no performance hypothesis. Analyze all assigned cases, fit transforms on outer training data, use direct task/shape metrics with uncertainty, and require targeted interventions before any mechanism language |
+
+These are logical identification failures, not matters that can be repaired by a larger frame count or
+a smaller p-value. In particular, PID and attribution cannot turn incomparable prediction targets
+into a common performance measure.
+
+### 14.2 Requirements for any successor comparison
+
+A new world-model study starts from a new, reviewed protocol rather than editing the retired
+hypotheses in place. Before capture it must satisfy all of the following:
+
+1. **Question and estimand:** state whether the target is deterministic prediction error,
+   probabilistic forecast quality, distribution-shift degradation, correction effort, task outcome,
+   or a randomized intervention effect. Give its unit, target population, time horizon, censoring
+   rule, and minimum useful difference.
+2. **Common support:** demonstrate that every comparator can receive the same admissible inputs and
+   produce the same target for the analyzed cases. Separate an unsupported-capability inventory from
+   a performance comparison; do not condition the latter on observed success or failure.
+3. **Comparator parity:** freeze exact repositories, commits, checkpoints, licenses, preprocessing,
+   observation/action budgets, tuning budget, compute budget, and allowed online corrections. Report
+   structural differences rather than attributing a cross-family contrast to one architecture.
+4. **Independent design:** pair systems on content-identical cases when possible; randomize run order
+   and intervention assignment; block by task family; keep all timesteps, phases, seeds, and derived
+   windows from one persistent case in one outer fold; and infer at the randomization/interference
+   cluster.
+5. **Leakage control:** fit PCA, standardization, feature extraction, thresholds, phase rules, and
+   model selection only within outer-training data. Use an untouched task-family or later-time test
+   set for the frozen final comparison.
+6. **Proper primary scores:** use physical error/utility for deterministic trajectories and proper
+   scoring rules plus calibration for predictive distributions. Define any prediction-horizon
+   threshold from external task utility and handle right censoring explicitly. MI is not a fidelity
+   score.
+7. **Factor isolation:** manipulate mass, friction, visual evidence, object novelty, instruction,
+   and correction status separately. A claimed interaction requires the full factorial and a
+   prespecified interaction contrast; a combined stress cell is descriptive.
+8. **Uncertainty and multiplicity:** size the nested family→case→episode design by simulation under
+   plausible null, weak, nonlinear, and failure regimes. Freeze the primary contrast, smallest
+   effect of interest, stopping rule, exclusions, and multiplicity family. No episode count is
+   specified here.
+9. **Conditional PID use:** PID is secondary and only admissible after population, measure,
+   estimator, and application gates pass for the exact variables and preprocessing. Use the same
+   estimand, functional, information scale, and uncertainty treatment across systems; otherwise do
+   not compare atoms.
+10. **Provenance and authority:** route all interventions through the Agent Bridge, reconstruct every
+    analyzed case from the canonical run log, and bind source data, assignments, transforms,
+    checkpoints, outputs, exclusions, and analysis code by content hash.
+
+### 14.3 Reactivation gate
+
+A successor may be added only after M0 has a genuinely frozen reviewed study, the relevant external
+adapters and golden fixtures exist, a pilot demonstrates support and manipulation specificity, the
+nested capture-sizing analysis passes, and an analysis dry run fails closed on leakage, unsupported
+cases, missing clusters, and PID abstention. Until then, world-model comparison is a research
+question—not an active experiment, result, or directional hypothesis.
 
 ## Appendix A: Planned Commands (Spec Only)
 

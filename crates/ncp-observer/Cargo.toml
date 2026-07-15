@@ -11,6 +11,9 @@ repository = "https://github.com/sepahead/prisoma"
 # crates.io. Lets cargo-deny's `allow-wildcard-paths` exempt the versionless path dep.
 publish = false
 
+[lints.rust]
+unsafe_code = "deny"
+
 # Cross-repo dependency on the NCP standard SDK, pinned to the published repo
 # (canonical home: https://github.com/sepahead/NCP). This resolves standalone on a
 # fresh checkout (no sibling required); bump the tag to adopt a newer NCP wire.

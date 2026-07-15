@@ -20,13 +20,19 @@ import hashlib
 import json
 import os
 import re
+import selectors
 import shlex
+import signal
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
 import urllib.parse
 from collections import Counter
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -140,10 +146,212 @@ ROW_KEYS = {
     "thesis_dependency",
     "claim_ids",
 }
+MAX_CATALOG_BYTES = 4 * 1024 * 1024
+MAX_LOCKFILE_BYTES = 16 * 1024 * 1024
+MAX_TEXT_INPUT_BYTES = 16 * 1024 * 1024
+MAX_REVISION_FILE_BYTES = 64 * 1024 * 1024
+MAX_REVISION_TOTAL_BYTES = 256 * 1024 * 1024
+MAX_REVISION_FILES = 20_000
+MAX_TREE_ENTRIES = 50_000
+MAX_GIT_OUTPUT_BYTES = 4 * 1024 * 1024
+GIT_TIMEOUT_SECONDS = 30.0
+MAX_GIT_AGGREGATE_OUTPUT_BYTES = 32 * 1024 * 1024
+MAX_GIT_AGGREGATE_SECONDS = 120.0
+MAX_GIT_COMMANDS = 256
+MAX_GENERATED_OUTPUT_BYTES = 16 * 1024 * 1024
+MAX_CATALOG_ROWS = 1_000
+MAX_CONTENT_PATHS = 1_000
+
+_GIT_DEADLINE: ContextVar[float | None] = ContextVar(
+    "capability_git_deadline", default=None
+)
+_GIT_OUTPUT_USED: ContextVar[int] = ContextVar("capability_git_output_used", default=0)
+_GIT_COMMANDS_USED: ContextVar[int] = ContextVar(
+    "capability_git_commands_used", default=0
+)
 
 
 class CatalogError(ValueError):
     """The capability catalog is malformed, unsafe, or semantically inconsistent."""
+
+
+def _read_regular_bytes(path: Path, *, max_bytes: int, context: str) -> bytes:
+    try:
+        before = path.lstat()
+    except OSError as error:
+        raise CatalogError(f"cannot inspect {context} {path}: {error}") from error
+    if not stat.S_ISREG(before.st_mode):
+        raise CatalogError(f"{context} must be a regular, non-symlink file: {path}")
+    if before.st_size > max_bytes:
+        raise CatalogError(f"{context} exceeds the {max_bytes}-byte limit: {path}")
+
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise CatalogError(f"cannot open {context} {path}: {error}") from error
+    try:
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
+            before.st_dev,
+            before.st_ino,
+        ):
+            raise CatalogError(f"{context} changed while opening: {path}")
+        chunks: list[bytes] = []
+        remaining = max_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    payload = b"".join(chunks)
+    if len(payload) > max_bytes:
+        raise CatalogError(f"{context} exceeds the {max_bytes}-byte limit: {path}")
+    if (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns) != (
+        after.st_dev,
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
+    ) or len(payload) != after.st_size:
+        raise CatalogError(f"{context} changed while reading: {path}")
+    return payload
+
+
+def _read_regular_text(path: Path, *, max_bytes: int, context: str) -> str:
+    try:
+        return _read_regular_bytes(path, max_bytes=max_bytes, context=context).decode(
+            "utf-8"
+        )
+    except UnicodeDecodeError as error:
+        raise CatalogError(f"{context} is not valid UTF-8: {path}") from error
+
+
+def _terminate(process: subprocess.Popen[bytes]) -> None:
+    try:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGKILL)
+        elif process.poll() is None:
+            process.kill()
+    except OSError:
+        try:
+            process.kill()
+        except OSError:
+            pass
+
+
+@contextmanager
+def _git_budget():
+    if _GIT_DEADLINE.get() is not None:
+        yield
+        return
+    deadline_token = _GIT_DEADLINE.set(time.monotonic() + MAX_GIT_AGGREGATE_SECONDS)
+    output_token = _GIT_OUTPUT_USED.set(0)
+    command_token = _GIT_COMMANDS_USED.set(0)
+    try:
+        yield
+    finally:
+        _GIT_COMMANDS_USED.reset(command_token)
+        _GIT_OUTPUT_USED.reset(output_token)
+        _GIT_DEADLINE.reset(deadline_token)
+
+
+def _run_bounded(
+    command: list[str],
+    *,
+    cwd: Path,
+    timeout_seconds: float = GIT_TIMEOUT_SECONDS,
+    max_output_bytes: int = MAX_GIT_OUTPUT_BYTES,
+    text: bool = True,
+) -> subprocess.CompletedProcess[str] | subprocess.CompletedProcess[bytes]:
+    """Run Git with aggregate output and wall-time limits."""
+
+    aggregate_deadline = _GIT_DEADLINE.get()
+    if aggregate_deadline is not None:
+        commands_used = _GIT_COMMANDS_USED.get()
+        if commands_used >= MAX_GIT_COMMANDS:
+            raise CatalogError(
+                f"Git validation exceeds the {MAX_GIT_COMMANDS}-command aggregate limit"
+            )
+        _GIT_COMMANDS_USED.set(commands_used + 1)
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=os.name == "posix",
+    )
+    assert process.stdout is not None and process.stderr is not None
+    selector = selectors.DefaultSelector()
+    buffers = {"stdout": bytearray(), "stderr": bytearray()}
+    total = 0
+    deadline = time.monotonic() + timeout_seconds
+    if aggregate_deadline is not None:
+        deadline = min(deadline, aggregate_deadline)
+    try:
+        selector.register(process.stdout, selectors.EVENT_READ, "stdout")
+        selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+        while selector.get_map():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout_seconds)
+            for key, _events in selector.select(min(remaining, 0.25)):
+                chunk = os.read(key.fd, min(65_536, max_output_bytes - total + 1))
+                if not chunk:
+                    selector.unregister(key.fileobj)
+                    key.fileobj.close()
+                    continue
+                total += len(chunk)
+                if total > max_output_bytes:
+                    raise CatalogError(
+                        "Git subprocess output exceeds the aggregate "
+                        f"{max_output_bytes}-byte limit"
+                    )
+                if aggregate_deadline is not None:
+                    aggregate_used = _GIT_OUTPUT_USED.get() + len(chunk)
+                    if aggregate_used > MAX_GIT_AGGREGATE_OUTPUT_BYTES:
+                        raise CatalogError(
+                            "Git validation exceeds the aggregate "
+                            f"{MAX_GIT_AGGREGATE_OUTPUT_BYTES}-byte output limit"
+                        )
+                    _GIT_OUTPUT_USED.set(aggregate_used)
+                buffers[key.data].extend(chunk)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(command, timeout_seconds)
+        return_code = process.wait(timeout=remaining)
+    except BaseException:
+        _terminate(process)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        raise
+    finally:
+        selector.close()
+        for stream in (process.stdout, process.stderr):
+            if not stream.closed:
+                stream.close()
+
+    stdout_bytes = bytes(buffers["stdout"])
+    stderr_bytes = bytes(buffers["stderr"])
+    if text:
+        try:
+            stdout: str | bytes = stdout_bytes.decode("utf-8")
+            stderr: str | bytes = stderr_bytes.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise CatalogError("Git subprocess output is not valid UTF-8") from error
+    else:
+        stdout = stdout_bytes
+        stderr = stderr_bytes
+    if return_code != 0:
+        raise subprocess.CalledProcessError(
+            return_code, command, output=stdout, stderr=stderr
+        )
+    return subprocess.CompletedProcess(command, return_code, stdout, stderr)
 
 
 def _object_without_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -153,6 +361,10 @@ def _object_without_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, An
             raise CatalogError(f"duplicate JSON key {key!r}")
         value[key] = item
     return value
+
+
+def _reject_json_constant(value: str) -> Any:
+    raise CatalogError(f"invalid JSON numeric constant {value}")
 
 
 def _require_exact_keys(
@@ -173,6 +385,28 @@ def _nonempty_string(value: Any, context: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise CatalogError(f"{context} must be a non-empty string")
     return value
+
+
+def _toml_packages(lock: dict[str, Any], *, context: str) -> list[dict[str, Any]]:
+    packages = lock.get("package")
+    if not isinstance(packages, list):
+        raise CatalogError(f"{context}.package must be a list")
+    validated: list[dict[str, Any]] = []
+    for index, package in enumerate(packages):
+        if not isinstance(package, dict):
+            raise CatalogError(f"{context}.package[{index}] must be a table")
+        for field in ("name", "version"):
+            if not isinstance(package.get(field), str) or not package[field]:
+                raise CatalogError(
+                    f"{context}.package[{index}].{field} must be a non-empty string"
+                )
+        for field in ("source", "checksum"):
+            if package.get(field) is not None and not isinstance(package[field], str):
+                raise CatalogError(
+                    f"{context}.package[{index}].{field} must be null or a string"
+                )
+        validated.append(package)
+    return validated
 
 
 def _relative_path(raw: str, *, root: Path, context: str) -> Path:
@@ -221,9 +455,15 @@ def _tree_files(path: Path, *, root: Path, context: str) -> list[Path]:
         raise CatalogError(f"{context} is neither a regular file nor directory")
 
     files: list[Path] = []
+    visited_entries = 0
     for directory, child_directories, filenames in os.walk(
         path, topdown=True, followlinks=False
     ):
+        visited_entries += len(child_directories) + len(filenames)
+        if visited_entries > MAX_TREE_ENTRIES:
+            raise CatalogError(
+                f"{context} exceeds the {MAX_TREE_ENTRIES}-entry traversal limit"
+            )
         directory_path = Path(directory)
         retained_directories: list[str] = []
         for name in sorted(child_directories):
@@ -249,13 +489,21 @@ def _tree_files(path: Path, *, root: Path, context: str) -> list[Path]:
                 )
             if candidate.is_file():
                 files.append(candidate)
+                if len(files) > MAX_REVISION_FILES:
+                    raise CatalogError(
+                        f"{context} exceeds the {MAX_REVISION_FILES}-file limit"
+                    )
     if not files:
         raise CatalogError(f"{context} contains no revisionable files")
     return files
 
 
 def _content_files(raw_paths: list[str], *, root: Path) -> list[Path]:
-    if not isinstance(raw_paths, list) or not raw_paths:
+    if (
+        not isinstance(raw_paths, list)
+        or not raw_paths
+        or len(raw_paths) > MAX_CONTENT_PATHS
+    ):
         raise CatalogError("content paths must be a non-empty list")
     for index, raw in enumerate(raw_paths):
         _nonempty_string(raw, f"content_paths[{index}]")
@@ -268,6 +516,10 @@ def _content_files(raw_paths: list[str], *, root: Path) -> list[Path]:
         files.update(
             _tree_files(resolved, root=root, context=f"revision input {raw!r}")
         )
+        if len(files) > MAX_REVISION_FILES:
+            raise CatalogError(
+                f"content paths exceed the {MAX_REVISION_FILES}-file limit"
+            )
     return sorted(files, key=lambda item: item.relative_to(root).as_posix())
 
 
@@ -301,9 +553,20 @@ def content_digest(raw_paths: list[str], *, root: Path) -> str:
     """Hash the named files/directories with path and byte boundaries."""
 
     digest = hashlib.sha256(b"prisoma-capability-content-v1\0")
+    aggregate_bytes = 0
     for path in _content_files(raw_paths, root=root):
         relative = path.relative_to(root).as_posix().encode("utf-8")
-        payload = path.read_bytes()
+        payload = _read_regular_bytes(
+            path,
+            max_bytes=MAX_REVISION_FILE_BYTES,
+            context="revision input",
+        )
+        aggregate_bytes += len(payload)
+        if aggregate_bytes > MAX_REVISION_TOTAL_BYTES:
+            raise CatalogError(
+                "revision inputs exceed the aggregate "
+                f"{MAX_REVISION_TOTAL_BYTES}-byte limit"
+            )
         digest.update(len(relative).to_bytes(8, "big"))
         digest.update(relative)
         digest.update(len(payload).to_bytes(8, "big"))
@@ -335,12 +598,18 @@ def _validate_registry_revision(
     )
     for lockfile in lockfiles:
         try:
-            lock = tomllib.loads(lockfile.read_text(encoding="utf-8"))
-        except (OSError, tomllib.TOMLDecodeError) as error:
+            lock = tomllib.loads(
+                _read_regular_text(
+                    lockfile,
+                    max_bytes=MAX_LOCKFILE_BYTES,
+                    context="registry lockfile",
+                )
+            )
+        except (OSError, tomllib.TOMLDecodeError, RecursionError) as error:
             raise CatalogError(
                 f"cannot parse registry lockfile {lockfile}: {error}"
             ) from error
-        for package in lock.get("package", []):
+        for package in _toml_packages(lock, context="registry lockfile"):
             actual = (
                 package.get("name"),
                 package.get("version"),
@@ -363,7 +632,7 @@ def _gitmodule_urls(*, root: Path) -> dict[str, str]:
     if not gitmodules.is_file() or gitmodules.is_symlink():
         return {}
     try:
-        paths = subprocess.run(
+        paths = _run_bounded(
             [
                 "git",
                 "config",
@@ -372,11 +641,9 @@ def _gitmodule_urls(*, root: Path) -> dict[str, str]:
                 "--get-regexp",
                 r"^submodule\..*\.path$",
             ],
-            check=True,
-            capture_output=True,
-            text=True,
+            cwd=root,
         ).stdout.splitlines()
-    except (OSError, subprocess.CalledProcessError):
+    except (CatalogError, OSError, subprocess.SubprocessError):
         return {}
 
     urls: dict[str, str] = {}
@@ -384,13 +651,11 @@ def _gitmodule_urls(*, root: Path) -> dict[str, str]:
         try:
             key, path = line.split(maxsplit=1)
             url_key = f"{key.removesuffix('.path')}.url"
-            url = subprocess.run(
+            url = _run_bounded(
                 ["git", "config", "--file", str(gitmodules), "--get", url_key],
-                check=True,
-                capture_output=True,
-                text=True,
+                cwd=root,
             ).stdout.strip()
-        except (ValueError, OSError, subprocess.CalledProcessError):
+        except (CatalogError, ValueError, OSError, subprocess.SubprocessError):
             continue
         if path and url:
             urls[path] = url
@@ -405,12 +670,12 @@ def _bound_gitlinks(raw_paths: list[str], *, root: Path) -> list[tuple[str, str,
     configured_urls = _gitmodule_urls(root=root)
 
     try:
-        result = subprocess.run(
+        result = _run_bounded(
             ["git", "-C", str(root), "ls-files", "--stage", "-z"],
-            check=True,
-            capture_output=True,
+            cwd=root,
+            text=False,
         )
-    except (OSError, subprocess.CalledProcessError):
+    except (CatalogError, OSError, subprocess.SubprocessError):
         return []
 
     gitlinks: list[tuple[str, str, str]] = []
@@ -428,16 +693,14 @@ def _bound_gitlinks(raw_paths: list[str], *, root: Path) -> list[tuple[str, str,
         if not any(raw == path or raw.startswith(f"{path}/") for raw in raw_paths):
             continue
         try:
-            checked_out = subprocess.run(
+            checked_out = _run_bounded(
                 ["git", "-C", str(root / path), "rev-parse", "HEAD"],
-                check=True,
-                capture_output=True,
-                text=True,
+                cwd=root,
             ).stdout.strip()
-        except (OSError, subprocess.CalledProcessError):
+        except (CatalogError, OSError, subprocess.SubprocessError):
             continue
         try:
-            dirty = subprocess.run(
+            dirty = _run_bounded(
                 [
                     "git",
                     "-C",
@@ -446,11 +709,9 @@ def _bound_gitlinks(raw_paths: list[str], *, root: Path) -> list[tuple[str, str,
                     "--porcelain=v1",
                     "--untracked-files=all",
                 ],
-                check=True,
-                capture_output=True,
-                text=True,
+                cwd=root,
             ).stdout
-        except (OSError, subprocess.CalledProcessError):
+        except (CatalogError, OSError, subprocess.SubprocessError):
             continue
         configured_url = configured_urls.get(path)
         if checked_out == commit and not dirty and configured_url is not None:
@@ -466,12 +727,18 @@ def _git_lock_sources(raw_paths: list[str], *, root: Path) -> list[str]:
         if path.name == "Cargo.lock"
     ):
         try:
-            lock = tomllib.loads(lockfile.read_text(encoding="utf-8"))
-        except (OSError, tomllib.TOMLDecodeError) as error:
+            lock = tomllib.loads(
+                _read_regular_text(
+                    lockfile,
+                    max_bytes=MAX_LOCKFILE_BYTES,
+                    context="Git-source lockfile",
+                )
+            )
+        except (OSError, tomllib.TOMLDecodeError, RecursionError) as error:
             raise CatalogError(
                 f"cannot parse Git-source lockfile {lockfile}: {error}"
             ) from error
-        for package in lock.get("package", []):
+        for package in _toml_packages(lock, context="Git-source lockfile"):
             source = package.get("source")
             if isinstance(source, str) and source.startswith("git+"):
                 sources.append(source)
@@ -598,7 +865,11 @@ def _validate_row(row: Any, *, index: int, root: Path) -> dict[str, Any]:
             )
             recipes = {
                 match.group(1)
-                for line in justfile.read_text(encoding="utf-8").splitlines()
+                for line in _read_regular_text(
+                    justfile,
+                    max_bytes=MAX_TEXT_INPUT_BYTES,
+                    context="test-command justfile",
+                ).splitlines()
                 if (match := JUST_RECIPE_RE.match(line)) is not None
             }
             if command_parts[1] not in recipes:
@@ -709,18 +980,38 @@ def _validate_row(row: Any, *, index: int, root: Path) -> dict[str, Any]:
     return row
 
 
-def load_catalog(
+def _load_catalog(
     path: Path = CATALOG_PATH,
     *,
     root: Path = REPO_ROOT,
     required_feature_ids: frozenset[str] = REQUIRED_FEATURE_IDS,
+    _payload: bytes | None = None,
 ) -> dict[str, Any]:
     try:
-        catalog = json.loads(
-            path.read_text(encoding="utf-8"),
-            object_pairs_hook=_object_without_duplicate_keys,
+        payload = (
+            _read_regular_bytes(
+                path,
+                max_bytes=MAX_CATALOG_BYTES,
+                context="capability catalog",
+            )
+            if _payload is None
+            else _payload
         )
-    except (OSError, json.JSONDecodeError, CatalogError) as error:
+        if len(payload) > MAX_CATALOG_BYTES:
+            raise CatalogError(
+                f"capability catalog exceeds the {MAX_CATALOG_BYTES}-byte limit"
+            )
+        catalog = json.loads(
+            payload.decode("utf-8"),
+            object_pairs_hook=_object_without_duplicate_keys,
+            parse_constant=_reject_json_constant,
+        )
+    except (
+        OSError,
+        UnicodeDecodeError,
+        ValueError,
+        RecursionError,
+    ) as error:
         raise CatalogError(f"cannot read capability catalog {path}: {error}") from error
     if not isinstance(catalog, dict):
         raise CatalogError("capability catalog must be a JSON object")
@@ -749,8 +1040,8 @@ def load_catalog(
     _relative_path("grandplan.md", root=root, context="canonical spec")
 
     rows = catalog["rows"]
-    if not isinstance(rows, list) or not rows:
-        raise CatalogError("catalog.rows must be a non-empty list")
+    if not isinstance(rows, list) or not rows or len(rows) > MAX_CATALOG_ROWS:
+        raise CatalogError(f"catalog.rows must contain 1–{MAX_CATALOG_ROWS} entries")
     validated = [
         _validate_row(row, index=index, root=root) for index, row in enumerate(rows)
     ]
@@ -766,6 +1057,22 @@ def load_catalog(
     if missing_features:
         raise CatalogError(f"catalog omits required capabilities: {missing_features}")
     return catalog
+
+
+def load_catalog(
+    path: Path = CATALOG_PATH,
+    *,
+    root: Path = REPO_ROOT,
+    required_feature_ids: frozenset[str] = REQUIRED_FEATURE_IDS,
+    _payload: bytes | None = None,
+) -> dict[str, Any]:
+    with _git_budget():
+        return _load_catalog(
+            path,
+            root=root,
+            required_feature_ids=required_feature_ids,
+            _payload=_payload,
+        )
 
 
 def _effective_revision_inputs(row: dict[str, Any]) -> list[str]:
@@ -786,12 +1093,17 @@ def resolve_catalog(
     root: Path = REPO_ROOT,
     required_feature_ids: frozenset[str] = REQUIRED_FEATURE_IDS,
 ) -> dict[str, Any]:
+    catalog_bytes = _read_regular_bytes(
+        catalog_path,
+        max_bytes=MAX_CATALOG_BYTES,
+        context="capability catalog",
+    )
     catalog = load_catalog(
         catalog_path,
         root=root,
         required_feature_ids=required_feature_ids,
+        _payload=catalog_bytes,
     )
-    catalog_bytes = catalog_path.read_bytes()
     source_relative = catalog_path.resolve().relative_to(root.resolve()).as_posix()
     resolved_rows: list[dict[str, Any]] = []
 
@@ -940,27 +1252,64 @@ def render_json(matrix: dict[str, Any]) -> str:
     return json.dumps(matrix, indent=2, ensure_ascii=False) + "\n"
 
 
-def _atomic_write(path: Path, content: str) -> None:
+def _validate_output_target(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_name: str | None = None
+    if path.parent.is_symlink() or not path.parent.is_dir():
+        raise CatalogError(f"output parent must be a real directory: {path.parent}")
+    if path.exists() or path.is_symlink():
+        try:
+            mode = path.lstat().st_mode
+        except OSError as error:
+            raise CatalogError(
+                f"cannot inspect generated output {path}: {error}"
+            ) from error
+        if not stat.S_ISREG(mode):
+            raise CatalogError(
+                f"generated output must be a regular, non-symlink file: {path}"
+            )
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    payload = content.encode("utf-8")
+    if len(payload) > MAX_GENERATED_OUTPUT_BYTES:
+        raise CatalogError(
+            "generated output exceeds the "
+            f"{MAX_GENERATED_OUTPUT_BYTES}-byte limit: {path}"
+        )
+    _validate_output_target(path)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent
+    )
+    temporary = Path(temporary_name)
     try:
-        with tempfile.NamedTemporaryFile(
-            "w", encoding="utf-8", dir=path.parent, delete=False
-        ) as handle:
-            temporary_name = handle.name
-            handle.write(content)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary_name, path)
-    finally:
-        if temporary_name is not None:
-            Path(temporary_name).unlink(missing_ok=True)
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _check_output(path: Path, expected: str) -> str | None:
-    if not path.is_file():
+    if not path.exists() and not path.is_symlink():
         return f"{path.relative_to(REPO_ROOT)} is missing"
-    if path.read_text(encoding="utf-8") != expected:
+    try:
+        actual = _read_regular_text(
+            path,
+            max_bytes=MAX_GENERATED_OUTPUT_BYTES,
+            context="generated capability output",
+        )
+    except CatalogError as error:
+        return str(error)
+    if actual != expected:
         return f"{path.relative_to(REPO_ROOT)} is out of date"
     return None
 
@@ -985,8 +1334,17 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.write:
-        _atomic_write(JSON_OUTPUT, expected_json)
-        _atomic_write(MARKDOWN_OUTPUT, expected_markdown)
+        try:
+            # Preflight both targets before replacing either one. Each replacement is
+            # independently atomic and durable; a subsequent --check detects a crash
+            # between the two publications.
+            _validate_output_target(JSON_OUTPUT)
+            _validate_output_target(MARKDOWN_OUTPUT)
+            _atomic_write(JSON_OUTPUT, expected_json)
+            _atomic_write(MARKDOWN_OUTPUT, expected_markdown)
+        except (CatalogError, OSError) as error:
+            print(f"cannot write capability matrix: {error}", file=sys.stderr)
+            return 1
         print(
             "wrote "
             f"{JSON_OUTPUT.relative_to(REPO_ROOT)} and "

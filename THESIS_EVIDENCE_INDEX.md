@@ -57,7 +57,7 @@ among these sources. They do not perform scientific or independent human review.
 | H1-B | Canonical randomized closed-loop design. | **Blocked and unimplemented.** |
 | H2 | Synthetic fixed-horizon/IPCW/alarm arithmetic reference. | **Software fixture only; no H2 evidence.** |
 | H3 | Report-first estimator eligibility/abstention behavior and negative gate records. | **Not eligible; all four gates are blocked.** |
-| H4 | Reference-model attribution logging and deletion-faithfulness control. | **Exploratory software groundwork only.** |
+| H4 | Reference-model attribution logging and deletion-ranking-sensitivity control. | **Exploratory software groundwork only; no causal or mechanistic faithfulness result.** |
 | NCP | Read-only wire-0.8 observer and deterministic local fault observatory. | **Experimental optional component; not live integration or scientific evidence.** |
 
 ## EC1 — provenance-complete replay
@@ -219,7 +219,7 @@ interventions at the same representational site. See
 - [`experiments/attribution`](experiments/attribution) and the canonical `attribution_logged`
   event path: `just attribution-probe`.
 
-The small reference model, deletion-AOPC comparison with a random control, artifact generation,
+The small reference model, group-level deletion-ranking-sensitivity comparison with random-ranking controls, artifact generation,
 and canonical event logging are exploratory software groundwork. They do not demonstrate
 availability or causal use in a real policy.
 
@@ -290,7 +290,7 @@ groundwork and missing evidence auditable; it is not itself paper-level novelty 
 | H1-B | The randomized closed-loop protocol is specified and blocked. | Protocol B exists as an executed study, or Protocol A establishes closed-loop effect modification. |
 | H2 | The deterministic synthetic reference exercises named protocol arithmetic on checked fixtures only. | H2 passed, or prospective prediction, calibration validity, warning benefit, censoring validity, comparator superiority, safety, transport, or deployment has been shown. |
 | H3 | PID outputs abstain or remain noninterpretable outside their named gates. | Geometry or emitted numbers establish real-embedding PID validity or incremental value. |
-| H4 | The reference attribution path exercises logging and a deletion-faithfulness control. | Attribution agreement proves causal use or establishes H4. |
+| H4 | The reference attribution path exercises logging and a deletion-ranking-sensitivity control. | The control establishes causal/mechanistic faithfulness, or attribution agreement proves causal use or establishes H4. |
 
 Any future evidence-changing revision must update the canonical plan, claim registry, capability
 catalog/matrix, limitations, and this index together. A result should be added only with its exact

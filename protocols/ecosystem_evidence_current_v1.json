@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-13",
+  "as_of_date": "2026-07-15",
   "scope": "offline current-state overlay on the complete 2026-07-12 public-ecosystem ledger",
   "baseline": {
     "path": "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -13,19 +13,19 @@
     "expiry": "re-review an edge when its producer revision, consumer revision, schema, wire, model, or adapter revision changes"
   },
   "last_network_refresh": {
-    "date": "2026-07-13",
+    "date": "2026-07-15",
     "method": "official GitHub refs plus exact-revision repository surfaces; archived baseline left immutable",
     "conclusion": "only pid-rs and NCP remain direct Prisoma edges; no reviewed sibling reached E2 with Prisoma or E4 scientific conformance"
   },
   "overrides": [
     {
       "project": "pid-rs",
-      "observed_revision": "ac4a7803c5a77408f5e9176c60cda71c65c38260",
-      "upstream_head_observed": "7cc59022d01ca136b17c915da623fc3a33696f25",
+      "observed_revision": "43ab60517b5387c61ae339f664d0d7afae3b8988",
+      "upstream_head_observed": "a9a275157237999c8da6ab813130d74f6113dec9",
       "evidence_level": "E2_dependency_E3_tested_local_paths",
       "relationship": "direct pinned submodule and local path dependency",
       "current_boundary": "version 1.0 remains deliberately pinned despite a newer upstream HEAD; its fixtures do not establish high-dimensional VLA application validity or independent corroboration",
-      "source": "https://github.com/sepahead/pid-rs/tree/ac4a7803c5a77408f5e9176c60cda71c65c38260"
+      "source": "https://github.com/sepahead/pid-rs/tree/43ab60517b5387c61ae339f664d0d7afae3b8988"
     },
     {
       "project": "NCP",

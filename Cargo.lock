@@ -1919,7 +1919,6 @@ version = "0.9.0"
 dependencies = [
  "anyhow",
  "libc",
- "nalgebra 0.33.3",
  "ndarray",
  "pid-core",
  "pid-runlog",

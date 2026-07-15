@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -329,6 +330,18 @@ def test_registry_revision_must_match_a_bound_cargo_lock(tmp_path: Path) -> None
         load_catalog(path, root=tmp_path, required_feature_ids=_FIXTURE_REQUIRED)
 
 
+def test_lockfile_package_schema_is_bounded_and_typed(tmp_path: Path) -> None:
+    catalog = _catalog()
+    path = _write_repo(tmp_path, catalog)
+    (tmp_path / "Cargo.lock").write_text(
+        'version = 4\npackage = "not-a-list"\n', encoding="utf-8"
+    )
+    with pytest.raises(
+        CatalogError, match=r"Git-source lockfile\.package must be a list"
+    ):
+        load_catalog(path, root=tmp_path, required_feature_ids=_FIXTURE_REQUIRED)
+
+
 def test_multiple_registry_revisions_are_each_bound_to_cargo_lock(
     tmp_path: Path,
 ) -> None:
@@ -486,3 +499,95 @@ def test_git_revision_may_bind_a_declared_submodule_gitlink(tmp_path: Path) -> N
     (source / "evidence.txt").write_text("dirty\n", encoding="utf-8")
     with pytest.raises(CatalogError, match="canonical repository"):
         load_catalog(path, root=tmp_path, required_feature_ids=_FIXTURE_REQUIRED)
+
+
+def test_catalog_parse_and_source_hash_share_one_bounded_snapshot(
+    tmp_path: Path, monkeypatch
+) -> None:
+    path = _write_repo(tmp_path)
+    original = _MODULE._read_regular_bytes
+    catalog_reads = 0
+
+    def counted(candidate: Path, **kwargs) -> bytes:
+        nonlocal catalog_reads
+        if candidate == path:
+            catalog_reads += 1
+        return original(candidate, **kwargs)
+
+    monkeypatch.setattr(_MODULE, "_read_regular_bytes", counted)
+    matrix = resolve_catalog(
+        path,
+        root=tmp_path,
+        required_feature_ids=_FIXTURE_REQUIRED,
+    )
+    assert catalog_reads == 1
+    assert (
+        matrix["source_catalog"]["sha256"]
+        == hashlib.sha256(path.read_bytes()).hexdigest()
+    )
+
+
+def test_content_digest_enforces_aggregate_byte_budget(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _write_repo(tmp_path)
+    monkeypatch.setattr(_MODULE, "MAX_REVISION_TOTAL_BYTES", 4)
+    with pytest.raises(CatalogError, match="aggregate 4-byte"):
+        content_digest(["src"], root=tmp_path)
+
+
+def test_capability_write_is_atomic_and_symlink_safe(
+    tmp_path: Path, monkeypatch
+) -> None:
+    target = tmp_path / "matrix.json"
+    target.write_text("old\n", encoding="utf-8")
+
+    def fail_replace(_source, _destination) -> None:
+        raise OSError("injected replacement failure")
+
+    monkeypatch.setattr(_MODULE.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="injected replacement failure"):
+        _MODULE._atomic_write(target, "new\n")
+    assert target.read_text(encoding="utf-8") == "old\n"
+    assert list(tmp_path.glob(".matrix.json.*")) == []
+
+    monkeypatch.undo()
+    real = tmp_path / "real.json"
+    real.write_text("real\n", encoding="utf-8")
+    target.unlink()
+    target.symlink_to(real)
+    with pytest.raises(CatalogError, match="non-symlink"):
+        _MODULE._atomic_write(target, "replacement\n")
+    assert real.read_text(encoding="utf-8") == "real\n"
+
+
+def test_git_subprocess_has_output_and_time_budgets(tmp_path: Path) -> None:
+    with pytest.raises(CatalogError, match="aggregate 32-byte"):
+        _MODULE._run_bounded(
+            [sys.executable, "-c", "import sys; sys.stdout.write('x' * 128)"],
+            cwd=tmp_path,
+            timeout_seconds=2,
+            max_output_bytes=32,
+        )
+    with pytest.raises(subprocess.TimeoutExpired):
+        _MODULE._run_bounded(
+            [sys.executable, "-c", "import time; time.sleep(2)"],
+            cwd=tmp_path,
+            timeout_seconds=0.05,
+            max_output_bytes=32,
+        )
+
+
+def test_catalog_git_validation_has_an_aggregate_command_budget(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(_MODULE, "MAX_GIT_COMMANDS", 1)
+    with _MODULE._git_budget():
+        first = _MODULE._run_bounded(
+            [sys.executable, "-c", "print('ok')"], cwd=tmp_path
+        )
+        assert first.stdout == "ok\n"
+        with pytest.raises(CatalogError, match="1-command aggregate limit"):
+            _MODULE._run_bounded(
+                [sys.executable, "-c", "print('not run')"], cwd=tmp_path
+            )

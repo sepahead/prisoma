@@ -1,7 +1,13 @@
 # prisoma Whole-Repo Review and To-Do List
 
+> **ARCHIVED, NON-NORMATIVE REVIEW SNAPSHOT.** This file is retained as review provenance.
+> Its implementation claims, priorities, command results, version references, and “current”
+> language are historical and may be false at the present revision. It is not a task ledger,
+> release gate, or source of repository truth. Use `grandplan.md`, `AGENTS.md`, `findings.md`,
+> `docs/CAPABILITY_MATRIX.md`, and the audited `release/0.9.0/` ledgers for current state.
+
 Date: 2026-05-09
-Last consistency pass: 2026-07-12 (docset v12.5 + pid-rs 1.0 reconciliation — active cross-references and current-status prose use the v12.5 registry/current estimator environment; see CHANGELOG. The dated "Implementation Pass Status" logs below are historical and keep their as-of-date docset stamps, hypothesis/experiment IDs, and section numbers.)
+Archive annotation: 2026-07-15. The body below is intentionally preserved as historical text.
 
 > **Docset v12.5 mapping (2026-07-12):** the confirmatory registry is now **EC1** (provenance-complete replay) + **H1–H4** (grandplan §4); the gate sequence is **S0–S7** (§5.1); research milestones are **M0–M7** (§12); and PID validity is judged by **four gates** — population/measure/estimator/application (§7.1). The dated review below predates this scheme and its old H1–H9 / Exp0–Exp10 / infra-M1–M5 IDs and §14.x references are retained as history.
 

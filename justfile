@@ -31,6 +31,11 @@ docs-audit:
     python scripts/audit_docset_claims.py
     python scripts/audit_repo_truth.py
 
+# Machine-checked abstract invariants and required countermodels. These prove only
+# the stated SMT abstractions; see formal/README.md for the refinement boundary.
+formal:
+    python scripts/check_formal_models.py
+
 # The reviewed catalog is the source; both the machine-readable resolved matrix and
 # the human-readable table are deterministic, content-hash-bound generated outputs.
 capability-matrix:

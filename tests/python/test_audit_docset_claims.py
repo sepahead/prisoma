@@ -420,3 +420,26 @@ def test_changelog_is_excluded_from_new_invariant_checks(tmp_path: Path):
         "dead_section_reference",
     }
     assert protected_kinds.isdisjoint(_kinds(changelog, ncp_pin="v0.6.0"))
+
+
+def test_archived_review_snapshot_is_excluded_from_current_invariant_checks(
+    tmp_path: Path,
+):
+    review = _write(
+        tmp_path,
+        "REVIEW_AND_TODO.md",
+        """\
+# Archived review snapshot
+
+- Old UI directly controlled the physics simulator.
+- Old docs used `--output-format spz` and claimed NCP v0.5.2.
+- Old docs linked §10.11.
+""",
+    )
+    protected_kinds = {
+        "agent_bridge_bypass_wording",
+        "invented_nerfstudio_spz_export",
+        "ncp_pin_mismatch",
+        "dead_section_reference",
+    }
+    assert protected_kinds.isdisjoint(_kinds(review, ncp_pin="v0.6.0"))

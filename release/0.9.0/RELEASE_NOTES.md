@@ -6,7 +6,7 @@ scientific gate and imported handoff disposition explicit.
 
 Highlights:
 
-- upgrades the diagnostic stack to the latest Rerun SDK line, 0.34.1, with an exact
+- pins the diagnostic stack to the reviewed Rerun SDK release 0.34.1, with an exact
   viewer-version guard and finalized no-clobber `.rrd` saves;
 - hardens run-log conversion, VLA adapters, attribution artifacts, timestamps, and
   output-amplification limits with fail-before-write tests;

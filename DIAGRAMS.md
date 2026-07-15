@@ -33,7 +33,7 @@ flowchart TD
         Harness["Offline (V,L,D,A) harness<br/>PID screens + non-PID baselines"]:::run
         ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest"]:::run
         Adapter["safe_adapter → contract<br/>bounded hash-manifest ingress<br/>honest {v,l,d,a}_provenance (S2/EC1 reference adapter)"]:::run
-        Attr["attribution reference probe + Rerun adapter<br/>faithfulness/provenance/relevance implemented"]:::run
+        Attr["attribution reference probe + Rerun adapter<br/>ranking-sensitivity/status/provenance/relevance implemented"]:::run
         Obs["ncp-observer + 18-case deterministic fixture observatory<br/>NCP v0.8.0 (wire 0.8); optional read-only, off critical path<br/>local E3-style fixture evidence only"]:::run
         H1Ref["synthetic H1 Protocol-A reference<br/>preflight + paired response scoring"]:::run
         H2Ref["synthetic H2 fixed-horizon reference<br/>IPCW Brier + alarm accounting"]:::run

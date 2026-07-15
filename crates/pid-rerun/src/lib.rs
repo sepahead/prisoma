@@ -18,6 +18,8 @@ pub mod data;
 pub mod entities;
 pub mod runlog;
 
+mod bounded_process;
+
 pub use adapters::{PidLogger, VlaLogger};
 pub use data::{VlaEpisode, VlaFrame};
 pub use entities::EntityPaths;
@@ -43,13 +45,59 @@ use std::{
 };
 
 const RECORDING_FINALIZE_TIMEOUT: Duration = Duration::from_secs(30);
+const VIEWER_VERSION_TIMEOUT: Duration = Duration::from_secs(5);
+const VIEWER_VERSION_OUTPUT_LIMIT: usize = 16 * 1024;
 
 // Re-export rerun for convenience
 pub use rerun;
 
 #[derive(Default)]
+struct CaptureState {
+    messages: Vec<LogMsg>,
+    sealed: bool,
+}
+
+#[derive(Default)]
 struct CaptureStorage {
-    messages: Mutex<Vec<LogMsg>>,
+    state: Mutex<CaptureState>,
+}
+
+impl CaptureStorage {
+    /// Linearization point for sink delivery. A message is either appended before sealing or
+    /// rejected after it; it can never land in a replacement buffer after a successful snapshot.
+    fn send(&self, message: LogMsg) -> bool {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if state.sealed {
+            return false;
+        }
+        state.messages.push(message);
+        true
+    }
+
+    fn send_all(&self, mut messages: Vec<LogMsg>) -> bool {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if state.sealed {
+            return false;
+        }
+        state.messages.append(&mut messages);
+        true
+    }
+
+    fn seal_and_take(&self) -> Result<Vec<LogMsg>> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Rerun capture storage lock is poisoned"))?;
+        ensure!(!state.sealed, "Rerun capture storage is already sealed");
+        state.sealed = true;
+        Ok(std::mem::take(&mut state.messages))
+    }
 }
 
 struct CaptureSink {
@@ -58,19 +106,14 @@ struct CaptureSink {
 
 impl LogSink for CaptureSink {
     fn send(&self, message: LogMsg) {
-        self.storage
-            .messages
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(message);
+        // `LogSink::send` has no error return. The terminal wrapper therefore rejects deliveries
+        // after the storage's linearization point; callers must still obey the documented rule
+        // that logging stops before finalization.
+        let _accepted = self.storage.send(message);
     }
 
-    fn send_all(&self, mut messages: Vec<LogMsg>) {
-        self.storage
-            .messages
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .append(&mut messages);
+    fn send_all(&self, messages: Vec<LogMsg>) {
+        let _accepted = self.storage.send_all(messages);
     }
 
     fn flush_blocking(&self, _timeout: Duration) -> Result<(), SinkFlushError> {
@@ -122,10 +165,12 @@ pub fn init_recording(app_id: &str, spawn_viewer: bool) -> Result<PrisomaRecordi
 /// Require the `rerun` executable used by interactive paths to match the linked SDK.
 pub fn require_matching_viewer_version() -> Result<()> {
     let expected = rerun::build_info().version.to_string();
-    let output = Command::new("rerun")
-        .arg("--version")
-        .output()
-        .context("interactive Rerun mode requires a `rerun` executable on PATH")?;
+    let output = bounded_process::run_bounded(
+        Command::new("rerun").arg("--version"),
+        VIEWER_VERSION_TIMEOUT,
+        VIEWER_VERSION_OUTPUT_LIMIT,
+    )
+    .context("interactive Rerun mode requires a bounded `rerun --version` probe")?;
     if !output.status.success() {
         bail!("`rerun --version` exited with status {}", output.status);
     }
@@ -266,12 +311,10 @@ pub fn finalize_recording_bytes(rec: &PrisomaRecording) -> Result<Vec<u8>> {
         .context("timed out while finalizing the Rerun recording")?;
     flush_result.context("failed while finalizing the Rerun recording")?;
 
-    let messages = std::mem::take(
-        &mut *capture
-            .messages
-            .lock()
-            .map_err(|_| anyhow::anyhow!("Rerun capture storage lock is poisoned"))?,
-    );
+    // This mutex-protected transition is the capture linearization point. Every sink delivery
+    // ordered before it is included; every delivery ordered after it is rejected rather than
+    // being appended to an unseen replacement vector.
+    let messages = capture.seal_and_take()?;
     ensure!(
         !messages.is_empty(),
         "Rerun encoder received no recording messages"
@@ -289,7 +332,7 @@ pub fn finalize_recording_bytes(rec: &PrisomaRecording) -> Result<Vec<u8>> {
 mod tests {
     use super::{
         finalize_recording_bytes, init_recording, parse_viewer_version, prepare_new_recording_path,
-        save_recording,
+        save_recording, RECORDING_FINALIZE_TIMEOUT,
     };
     use anyhow::Result;
     use rerun::log::{Chunk, LogMsg};
@@ -354,6 +397,29 @@ mod tests {
         rec.log("metric", &Scalars::single(1.0))?;
         assert!(finalize_recording_bytes(&rec)?.starts_with(b"RRF2"));
         assert!(finalize_recording_bytes(&rec).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn capture_storage_rejects_sink_delivery_after_finalization_cut() -> Result<()> {
+        let rec = init_recording("sealed_capture", false)?;
+        rec.log("before_cut", &Scalars::single(1.0))?;
+        assert!(finalize_recording_bytes(&rec)?.starts_with(b"RRF2"));
+
+        // The third-party `LogSink` trait cannot report a late-delivery error to `log`, but the
+        // capture state must remain sealed: a late message may never enter an unseen replacement
+        // buffer after successful finalization.
+        rec.log("after_cut", &Scalars::single(2.0))?;
+        rec.stream
+            .flush_with_timeout(RECORDING_FINALIZE_TIMEOUT)
+            .map_err(|error| anyhow::anyhow!("late-log flush failed: {error:?}"))?;
+        let capture = rec.capture.as_ref().unwrap();
+        let state = capture
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        assert!(state.sealed);
+        assert!(state.messages.is_empty());
         Ok(())
     }
 

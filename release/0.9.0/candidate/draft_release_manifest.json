@@ -56,11 +56,11 @@
     }
   ],
   "component_semantic_sha256": {
-    "claim_evidence_ledger.json": "a4f051be152660f4068c6a8e469126a6feed1e8486b1048bbc809cfe85ac1d8e",
-    "defect_register.json": "acd19ecda652e21698e6bcb7485905c49359dcad0e228f354fa18677a8c73802",
-    "evidence_receipts.json": "83a475ccd382ce911370a12ad228f0b83914ac17116e838638dedc9dabbf7a8d",
-    "source_inventory.json": "5caccde5417265fce83d8c337423cbed5248bdc7aa4b21eb725fb9ebbccf5cd1",
-    "task_lens_ledger.json": "d1b57a1b7f792073d11e38a06b4ec88b0c32c0a81b563642838f920aa5460607"
+    "claim_evidence_ledger.json": "a7ea1b5e5d9288f2b58f3cb4c64aed28f933a11dbbef12dbf478e44f8c72166f",
+    "defect_register.json": "41c1ae3b323da26ba677ad9162db23cda2cf7c672677e92514fb143cf87648f1",
+    "evidence_receipts.json": "64766734ab70f344169266ff9f12b42d929cc07a2c1f7337671abf3f20763587",
+    "source_inventory.json": "8129d48a2a7d61bdcd69063daabe9cc36abba14d4780a7fb93d4e21b10e07acb",
+    "task_lens_ledger.json": "1fb82483294402a01cdf2499debfad5ba5cd6d02e775faab4ff065bfb562b28c"
   },
   "cross_repository_qualification": [],
   "datasets": [],
@@ -170,8 +170,8 @@
   },
   "signatures": [],
   "source": {
-    "candidate_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
-    "commit": "a63a087b644073542dde501cb33ea0d61342767b",
+    "candidate_state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20",
+    "commit": "9e5521c8f56b497c301a0f117ced1c6f8a5de900",
     "commit_role": "parent_HEAD_at_dirty_candidate_capture_not_release_commit",
     "repository": "https://github.com/sepahead/prisoma",
     "tree_clean": false
@@ -179,16 +179,16 @@
   "source_candidate": {
     "clean": false,
     "exact_pushed_commit": null,
-    "head_commit_at_capture": "a63a087b644073542dde501cb33ea0d61342767b",
+    "head_commit_at_capture": "9e5521c8f56b497c301a0f117ced1c6f8a5de900",
     "state": "dirty_uncommitted_source_snapshot",
-    "state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd"
+    "state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20"
   },
   "submodules": [
     {
       "dirty": false,
-      "index_commit": "ac4a7803c5a77408f5e9176c60cda71c65c38260",
+      "index_commit": "43ab60517b5387c61ae339f664d0d7afae3b8988",
       "path": "pid-rs",
-      "working_commit": "ac4a7803c5a77408f5e9176c60cda71c65c38260"
+      "working_commit": "43ab60517b5387c61ae339f664d0d7afae3b8988"
     }
   ],
   "terminal_promotion": {

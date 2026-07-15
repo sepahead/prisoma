@@ -1,90 +1,108 @@
-# Faithfulness-checked attribution probe (exploratory triangulation; grandplan §3.8 kill rules, §13 Lens 8)
+# Attribution deletion ranking-sensitivity diagnostic (exploratory)
 
-> **Docset v12.5 note:** the old H9 hypothesis id is retired. Attribution is not a
-> confirmatory claim in the v12.5 registry (EC1, H1–H4; grandplan §4); it is an
-> **exploratory triangulation** comparator whose disagreement-under-intervention with PID
-> is itself a diagnostic, bounded by the PID kill rules (§3.8) and the mechanistic-
-> interpretability lens (§13 Lens 8).
+> Attribution is not a confirmatory claim in the v12.5 registry. This package is an
+> exploratory diagnostic and never substitutes for the population, measure,
+> estimator, or application gates on PID.
 
-The attribution protocol, end to end: attribute a **declared scalar target** of a
-transformer to its inputs, **faithfulness-check** the attribution against a random
-control, and emit schema-conformant `attribution_logged` run-log events with artifact
-provenance. These attributions are triangulation evidence for (or against) PID claims —
-and grandplan §3.8 (PID kill rules) is explicit that an attribution which fails its own
-faithfulness check cannot corroborate or falsify a PID signature. This package enforces
-exactly that guard.
+The package attributes a declared scalar model output to input features, then asks a
+narrow validation question: **does that feature ranking identify explicit baseline
+replacements that change the output sooner than uniformly random rankings on a
+group-disjoint held-out set?** The measured absolute output change is deletion
+*ranking sensitivity*. It is not causal or mechanistic faithfulness.
 
-## What is real here, and what is a stand-in
+## Frozen validation contract
 
-Reusable / production-relevant (implemented for real, tested):
+`RankingSensitivityGate` requires all design choices that used to be implicit:
 
-* **faithfulness check** (`faithfulness.py`) — deletion AOPC vs a random control, in
-  a sign-robust form for a signed regression target. This is the load-bearing guard.
-* **run-log emission** (`runlog.py`) — writes `run_started` / `config_logged` /
-  `attribution_logged` / `run_ended` JSONL that passes `pid-runlog-replay --validate`,
-  accepts at most 1024 finite relevance values per record, and, when artifact output is
-  enabled, saves them as NumPy v1.0 little-endian `f64` C-order artifacts plus exact
-  file `sha256`, canonical shape metadata, and a `score_hash`. Artifact names are their
-  file digest, are installed without replacement,
-  and remain immutable across later runs. Artifact URIs are relative to the run-log
-  directory for the converter's confined loader; the run-log name is replaced only
-  after every referenced artifact has been installed and verified.
-  The `config_hash` is computed to match `serde_json`'s canonical serialization. Run ids
-  are nonempty and normalization-stable; caller metadata is preserved only when its keys
-  and values are exact strings, with producer-owned fields and normalization collisions
-  rejected. Per-line, file, encoded-string, container, and nesting limits mirror the
-  canonical Rust reader; the producer additionally adopts the viewer's stricter 100,000-event,
-  64 MiB serialized-event, and 8 MiB unique prepared-artifact caps. Every limit fails before
-  any publication output.
-* **probe orchestration** (`probe.py`) — attribute, check, assemble records.
+* a baseline name and provenance statement;
+* distinct method-selection and validation split names;
+* a grouping provenance statement and a frozen gate identifier;
+* the method-selection group/unit identifiers, so overlap with validation fails
+  closed;
+* a predeclared `alpha`, minimum independent-group count, deletion-step count,
+  deterministic seed, and random-ranking count.
 
-Stand-in (swap for production):
+Every `AttributionValidationCase` declares the exact baseline tensor, case id,
+independent group id, and underlying unit ids. Case, group, and underlying-unit reuse
+across the validation set is rejected or abstained, rather than treated as additional
+sample size. A well-formed set below the frozen group count abstains. A constant
+attribution has no ranking resolution and fails.
 
-* the **model** (`model.py`) is a small numpy self-attention block producing a scalar
-  target, so the pipeline runs without GPUs or a VLA checkpoint;
-* `lrp_epsilon` (`attribute.py`) is epsilon-LRP with the **detached-softmax**
-  attention rule (relevance routed through the value path) — the core AttnLRP
-  simplification. For a real transformer VLA, replace the model with the checkpoint
-  and the method with the **LXT / AttnLRP** library
-  (`rachtibat/LRP-eXplains-Transformers`, arXiv:2402.05602; pin the revision). The
-  faithfulness check, provenance, and run-log contract are unchanged.
+For each case, the implementation compares attribution-ranked deletion AOPC with a
+seeded random-ranking distribution. Tied attribution magnitudes are averaged over
+seeded tie orders. A group counts as a win only when its method AOPC exceeds the
+random-reference mean and its plus-one randomization-tail probability is below one
+half. The final decision uses the exact one-sided sign-test tail across independent
+groups. There is no post-hoc effect margin or `mean + 3 SEM` rule. Configuration is
+rejected when even unanimous group wins could not attain the declared `alpha`, or
+when the random reference's worst-case binomial Monte Carlo standard-error bound is
+wider than `alpha`.
 
-`grad_x_input` computes the gradient by central finite differences (numpy-only, and
-self-checking); a test verifies it against torch autograd when torch is installed.
+The design still depends on declared independence and split provenance; it cannot
+prove that upstream data collection honored them. Freeze and content-bind a real
+split manifest before interpreting a production result.
+
+## What is implemented
+
+* `faithfulness.py` implements the bounded group-level ranking-sensitivity gate. Its
+  `faithfulness_check` compatibility name exists only because the canonical run-log
+  schema retains that field name; new code should call
+  `ranking_sensitivity_check`.
+* `probe.py` computes every requested attribution method on the same held-out cases,
+  separately binds the complete relevance set and the exact identified input/baseline
+  set by SHA-256, and emits one representative relevance array per method under the
+  existing run-log schema.
+* `runlog.py` writes bounded `run_started` / `config_logged` /
+  `attribution_logged` / `run_ended` JSONL and optional immutable NumPy artifacts.
+  The probe-produced event boolean is true only when the frozen group-level gate
+  passes. Metadata
+  records the typed status/reason, group sign-test p-value, per-group contrasts and
+  randomization probabilities, baseline/split/grouping provenance, random-reference
+  resolution, and the limitations below.
+* `attribute.py` provides epsilon-LRP with a detached-softmax attention rule and a
+  finite-difference gradient-times-input comparator for the small reference model.
+
+The NumPy `SmallTransformer` is a runnable stand-in, not a production VLA. A real
+transformer integration should pin and validate its model/checkpoint and attribution
+implementation independently; swapping in LXT/AttnLRP does not waive this gate.
+
+## Limitations that remain even after a pass
+
+* Baseline replacement can be out-of-distribution. A zero tensor is not assumed to be
+  neutral merely because it is numerically simple.
+* Dependent or redundant features make single-feature rankings intervention-order
+  dependent; deletion does not identify unique feature effects.
+* Absolute output change measures sensitivity to replacement, not direction,
+  desirability, necessity, sufficiency, mediation, or a physical action effect.
+* The random-ranking comparison cannot establish a causal pathway or mechanistic
+  explanation, and it does not validate agreement with PID as a shared estimand.
+* Method/layer/hyperparameter selection on the validation groups invalidates the
+  gate. Use a separate selection set and a second untouched group-disjoint set.
+* A synthetic demo pass is software evidence only. It is not evidence about a real
+  policy, dataset, task family, or intervention distribution.
 
 ## Usage
+
+The demo creates a deterministic multi-case validation set and an explicit
+shape-matched zero baseline whose metadata says that distributional support is not
+established:
 
 ```bash
 python -m experiments.attribution demo \
     --runlog outputs/attribution_runlog.jsonl --artifacts outputs/attribution
-cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/attribution_runlog.jsonl
+cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml \
+    --bin pid-runlog-replay -- --validate outputs/attribution_runlog.jsonl
 cargo run -p pid-rerun --bin runlog-to-rerun -- \
     outputs/attribution_runlog.jsonl --load-attribution-artifacts \
     --save outputs/attribution_runlog.rrd
 ```
 
-Each method prints its faithfulness verdict and AOPCs; the run log carries one
-`attribution_logged` event per method with `faithfulness_check` set accordingly.
-`--artifacts` must be a strict descendant of the run log's directory. Publication
-rejects observed symlink/hard-link aliases, file-syncs staged contents, installs
-content-addressed artifacts without clobbering, and atomically replaces the run-log
-name last. This ordering preserves any prior valid publication after an artifact-install
-failure, but it is not a multi-file transaction or parent-directory-fsync guarantee.
-External artifact loading remains an explicit converter opt-in and is never enabled by
-bridge export; opted-in loading requires the recorded exact digest and shape to match.
+Each method prints `passed`, `failed`, or `abstained`, the typed reason, and the exact
+group sign-test p-value when computed. Artifact publication remains bounded and
+no-clobber; external relevance loading remains explicit and hash/shape checked.
 
-## Status
-
-Implemented and tested (`tests/python/test_attribution.py`): epsilon-LRP relevance
-conservation, gradient agreement with torch autograd (when available), the
-faithfulness check distinguishing a real attribution from an uninformative one, and
-the emitted run log validating with the real Rust replay tool. Applying it to a real
-VLA is gated on capture hardware / the LXT integration — the same honest gating as the
-SAFE capture adapter; no contract change is expected.
-
-**Preregister as an exploratory triangulation check** (`grandplan.md` §4 exploratory
-questions; §3.8 kill rules): per matched case, Kendall τ between the PID-derived and
-attribution-derived modality orderings; the statistic is the mean per-case τ across ≥ 20
-cases with a family-blocked case-resampling bootstrap — supported only if the CI is
-entirely > 0 AND the top-modality match rate is ≥ 70%; a CI entirely < 0 is affirmative
-disconfirmation.
+Focused tests in `tests/python/test_attribution.py` cover informative, constant,
+constant-output, and adversarial rankings; selection/validation and within-validation
+leakage; insufficient groups; malformed/non-finite arrays and predictor outputs;
+under-resolved or unattainable frozen gates; relevance conservation; optional
+autograd agreement; and run-log publication/validation behavior.

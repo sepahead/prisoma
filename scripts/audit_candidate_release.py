@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -32,6 +33,7 @@ from generate_candidate_release import (
     MAX_FILE_BYTES,
     PROJECT,
     PROGRESS_RELATIVE,
+    RECURSIVE_GITLINK_PATHS,
     RECEIPTS_NAME,
     RELEASE_VERSION,
     REPOSITORY,
@@ -42,9 +44,13 @@ from generate_candidate_release import (
     _apply_file_review_progress,
     _classify_file_review,
     _index_state,
+    _OID_RE,
     _parse_head_tree,
+    _project_pinned_gitlink,
     _read_bounded_regular,
+    _remaining_capture_seconds,
     _run_git,
+    _SHA256_RE,
     _validate_progress_document,
     _worktree_state,
     build_artifact_manifest,
@@ -271,21 +277,35 @@ def _validate_inventory_internal(
             "clean",
             "state",
             "explicit_source_arguments_required",
+            "recursive_gitlinks",
         },
         context="candidate source identity",
     )
+    if not isinstance(source["recursive_gitlinks"], list) or any(
+        not isinstance(record, dict) for record in source["recursive_gitlinks"]
+    ):
+        fail("INVENTORY_GITLINK_SOURCE", "recursive gitlink sources are not records")
     policy = inventory["inventory_policy"]
     if (
         policy.get("basis")
-        != "git_head_plus_index_plus_worktree_and_nonignored_untracked_files"
+        != (
+            "git_head_plus_index_plus_worktree_nonignored_untracked_and_pinned_"
+            "gitlink_commit_trees"
+        )
         or policy.get("self_excluded_paths") != [CANDIDATE_RELATIVE]
         or policy.get("ignored_files_included") is not False
         or policy.get("dirty_gitlinks_permitted") is not False
+        or policy.get("recursive_gitlink_paths")
+        != [record.get("path") for record in source["recursive_gitlinks"]]
+        or policy.get("recursive_rows_derived_from")
+        != "pinned_index_commit_git_objects"
         or policy.get("stable_double_capture_required") is not True
         or policy.get("resource_limits")
         != {
             "max_entry_count": MAX_INVENTORY_ENTRIES,
             "max_path_bytes": MAX_INVENTORY_PATH_BYTES,
+            "max_git_object_bytes_per_blob": MAX_FILE_BYTES,
+            "max_recursive_gitlink_count": len(RECURSIVE_GITLINK_PATHS),
             "max_index_and_worktree_content_bytes": MAX_INVENTORY_CONTENT_BYTES,
             "max_generated_artifact_bytes": MAX_CANDIDATE_ARTIFACT_BYTES,
             "git_subprocess_deadline_seconds_per_capture": (
@@ -300,8 +320,9 @@ def _validate_inventory_internal(
         "source_digest_excludes_candidate_outputs": True,
         "candidate_outputs_bound_by": ARTIFACT_MANIFEST_NAME,
         "regeneration_property": (
-            "For unchanged non-candidate source bytes and index identity, regeneration is "
-            "byte-deterministic and changes only the excluded candidate namespace."
+            "For unchanged non-candidate source bytes, index identity, and pinned gitlink "
+            "commit objects, regeneration is byte-deterministic and changes only the "
+            "excluded candidate namespace."
         ),
         "review_boundary": (
             "Candidate output files are governed artifacts, not source files silently counted "
@@ -365,6 +386,7 @@ def _validate_inventory_internal(
     paths = [entry.get("path") for entry in entries if isinstance(entry, dict)]
     if (
         len(paths) != len(entries)
+        or any(not isinstance(path, str) for path in paths)
         or paths != sorted(paths)
         or len(paths) != len(set(paths))
     ):
@@ -396,15 +418,31 @@ def _validate_inventory_internal(
         entry["path"]: entry["file_review"] for entry in expected_review_entries
     }
 
+    if (
+        len(entries) > MAX_INVENTORY_ENTRIES
+        or sum(len(path.encode("utf-8")) for path in paths) > MAX_INVENTORY_PATH_BYTES
+    ):
+        fail("INVENTORY_BUDGET", "candidate inventory exceeds its path/entry budget")
+
+    audit_deadline = time.monotonic() + INVENTORY_GIT_DEADLINE_SECONDS
+
+    def audit_git(target: Path, args: Sequence[str], *, max_bytes: int) -> bytes:
+        return _run_git(
+            target,
+            args,
+            max_bytes=max_bytes,
+            timeout_seconds=_remaining_capture_seconds(audit_deadline),
+        )
+
     head_tree = _parse_head_tree(
-        _run_git(
+        audit_git(
             repo,
             ["ls-tree", "-r", "-z", source["head_commit"]],
             max_bytes=MAX_INVENTORY_LISTING_BYTES,
         )
     )
     observed_tree = (
-        _run_git(
+        audit_git(
             repo,
             ["rev-parse", f"{source['head_commit']}^{{tree}}"],
             max_bytes=1024,
@@ -417,7 +455,30 @@ def _validate_inventory_internal(
             "INVENTORY_HEAD",
             "recorded HEAD tree does not match the Git object database",
         )
-    missing_head_paths = sorted(set(head_tree) - set(paths))
+    parent_entries_by_path: dict[str, Mapping[str, Any]] = {}
+    recorded_recursive_paths: set[str] = set()
+    for entry in entries:
+        origin = _assert_keys(
+            entry.get("inventory_origin"),
+            {"kind", "gitlink_path", "gitlink_commit", "gitlink_tree"},
+            context=f"inventory origin {entry.get('path')}",
+        )
+        if origin["kind"] == "parent_repository":
+            if any(
+                origin[field] is not None
+                for field in ("gitlink_path", "gitlink_commit", "gitlink_tree")
+            ):
+                fail(
+                    "INVENTORY_ORIGIN",
+                    f"parent inventory origin carries gitlink metadata: {entry['path']}",
+                )
+            parent_entries_by_path[entry["path"]] = entry
+        elif origin["kind"] == "pinned_gitlink_file":
+            recorded_recursive_paths.add(entry["path"])
+        else:
+            fail("INVENTORY_ORIGIN", f"unsupported origin at {entry['path']}")
+
+    missing_head_paths = sorted(set(head_tree) - set(parent_entries_by_path))
     if missing_head_paths:
         fail(
             "INVENTORY_HEAD_COVERAGE",
@@ -425,13 +486,83 @@ def _validate_inventory_internal(
             + ", ".join(missing_head_paths[:8]),
         )
 
+    recursive_source = source["recursive_gitlinks"]
+    if not isinstance(recursive_source, list):
+        fail(
+            "INVENTORY_GITLINK_SOURCE",
+            "recursive gitlink source records are not a list",
+        )
+    recursive_source_paths: list[str] = []
+    for record in recursive_source:
+        _assert_keys(
+            record,
+            {"path", "commit", "tree", "entry_count", "entries_sha256"},
+            context="recursive gitlink source record",
+        )
+        recursive_source_paths.append(record["path"])
+    if (
+        any(not isinstance(path, str) for path in recursive_source_paths)
+        or recursive_source_paths != sorted(set(recursive_source_paths))
+        or len(recursive_source_paths) > len(RECURSIVE_GITLINK_PATHS)
+        or any(path not in RECURSIVE_GITLINK_PATHS for path in recursive_source_paths)
+    ):
+        fail("INVENTORY_GITLINK_SOURCE", "recursive gitlink source paths are invalid")
+    expected_recursive_roots = sorted(
+        path
+        for path in RECURSIVE_GITLINK_PATHS
+        if (
+            path in parent_entries_by_path
+            and isinstance(parent_entries_by_path[path].get("index"), dict)
+            and parent_entries_by_path[path]["index"].get("mode") == "160000"
+        )
+    )
+    if recursive_source_paths != expected_recursive_roots:
+        fail(
+            "INVENTORY_GITLINK_COVERAGE",
+            "recursive gitlink source records omit or add a configured pinned root",
+        )
+
+    projected_by_path: dict[str, dict[str, Any]] = {}
+    for record in recursive_source:
+        parent_entry = parent_entries_by_path[record["path"]]
+        parent_index = parent_entry["index"]
+        if record["commit"] != parent_index["oid"]:
+            fail(
+                "INVENTORY_GITLINK_SOURCE",
+                f"recursive commit differs from parent index at {record['path']}",
+            )
+        expected_record, projected, _ = _project_pinned_gitlink(
+            repo,
+            record["path"],
+            record["commit"],
+            capture_deadline=audit_deadline,
+        )
+        if record != expected_record:
+            fail(
+                "INVENTORY_GITLINK_SOURCE",
+                f"recursive source binding differs at {record['path']}",
+            )
+        for projected_entry in projected:
+            if projected_entry["path"] in projected_by_path:
+                fail("INVENTORY_GITLINK_COVERAGE", "recursive projections overlap")
+            projected_by_path[projected_entry["path"]] = projected_entry
+    if recorded_recursive_paths != set(projected_by_path):
+        missing = sorted(set(projected_by_path) - recorded_recursive_paths)
+        extra = sorted(recorded_recursive_paths - set(projected_by_path))
+        fail(
+            "INVENTORY_GITLINK_COVERAGE",
+            f"recursive rows differ; missing={missing[:8]}, extra={extra[:8]}",
+        )
+
     index_identity = []
     working_identity = []
+    content_bytes = 0
     for entry in entries:
         _assert_keys(
             entry,
             {
                 "path",
+                "inventory_origin",
                 "head",
                 "index",
                 "index_state",
@@ -441,8 +572,30 @@ def _validate_inventory_internal(
             },
             context=f"inventory entry {entry.get('path')}",
         )
-        if entry["head"] != head_tree.get(entry["path"]):
-            fail("INVENTORY_HEAD_ENTRY", f"HEAD binding differs at {entry['path']}")
+        origin = entry["inventory_origin"]
+        is_parent = origin["kind"] == "parent_repository"
+        if is_parent:
+            if entry["head"] != head_tree.get(entry["path"]):
+                fail("INVENTORY_HEAD_ENTRY", f"HEAD binding differs at {entry['path']}")
+        else:
+            expected_entry = projected_by_path.get(entry["path"])
+            if expected_entry is None or origin != expected_entry["inventory_origin"]:
+                fail(
+                    "INVENTORY_GITLINK_ENTRY",
+                    f"recursive origin differs at {entry['path']}",
+                )
+            for field in (
+                "head",
+                "index",
+                "index_state",
+                "working_tree",
+                "worktree_state",
+            ):
+                if entry[field] != expected_entry[field]:
+                    fail(
+                        "INVENTORY_GITLINK_ENTRY",
+                        f"recursive {field} differs at {entry['path']}",
+                    )
         working = _assert_keys(
             entry["working_tree"],
             {
@@ -464,14 +617,33 @@ def _validate_inventory_internal(
                 {"mode", "oid", "content_sha256", "bytes"},
                 context=f"index entry {entry['path']}",
             )
-            index_identity.append(
-                {
-                    "path": entry["path"],
-                    "mode": index["mode"],
-                    "oid": index["oid"],
-                    "stage": 0,
-                }
-            )
+            if (
+                index["mode"] not in {"100644", "100755", "120000", "160000"}
+                or not isinstance(index["oid"], str)
+                or _OID_RE.fullmatch(index["oid"]) is None
+            ):
+                fail("INVENTORY_INDEX", f"invalid index identity at {entry['path']}")
+            if index["mode"] != "160000" and (
+                not isinstance(index["content_sha256"], str)
+                or _SHA256_RE.fullmatch(index["content_sha256"]) is None
+                or type(index["bytes"]) is not int
+                or index["bytes"] < 0
+                or index["bytes"] > MAX_FILE_BYTES
+            ):
+                fail("INVENTORY_INDEX", f"invalid index content at {entry['path']}")
+            if type(index["bytes"]) is int and index["bytes"] >= 0:
+                content_bytes += index["bytes"]
+            elif index["bytes"] is not None:
+                fail("INVENTORY_CONTENT", f"invalid index size at {entry['path']}")
+            if is_parent:
+                index_identity.append(
+                    {
+                        "path": entry["path"],
+                        "mode": index["mode"],
+                        "oid": index["oid"],
+                        "stage": 0,
+                    }
+                )
             if index["mode"] == "160000":
                 if index["content_sha256"] is not None or index["bytes"] is not None:
                     fail(
@@ -480,13 +652,14 @@ def _validate_inventory_internal(
                     )
                 if (
                     working["kind"] != "gitlink"
+                    or working["gitlink_head"] != index["oid"]
                     or working["gitlink_status_sha256"] != SHA256_EMPTY
                 ):
                     fail(
                         "INVENTORY_GITLINK", f"gitlink is not clean at {entry['path']}"
                     )
-            else:
-                blob = _run_git(
+            elif is_parent:
+                blob = audit_git(
                     repo,
                     ["cat-file", "blob", index["oid"]],
                     max_bytes=MAX_FILE_BYTES,
@@ -498,6 +671,12 @@ def _validate_inventory_internal(
                     fail(
                         "INVENTORY_INDEX_BLOB", f"index blob differs at {entry['path']}"
                     )
+        if type(working["bytes"]) is int and 0 <= working["bytes"] <= MAX_FILE_BYTES:
+            content_bytes += working["bytes"]
+        elif working["bytes"] is not None:
+            fail("INVENTORY_CONTENT", f"invalid working size at {entry['path']}")
+        if content_bytes > MAX_INVENTORY_CONTENT_BYTES:
+            fail("INVENTORY_BUDGET", "inventory content exceeds its aggregate budget")
         expected_index_state = _index_state(index, entry["head"])
         if entry["index_state"] != expected_index_state:
             fail(
@@ -514,6 +693,7 @@ def _validate_inventory_internal(
         working_identity.append(
             {
                 "path": entry["path"],
+                "inventory_origin": origin,
                 "head": entry["head"],
                 "index": index,
                 "index_state": entry["index_state"],
@@ -531,6 +711,7 @@ def _validate_inventory_internal(
         "head_tree": source["head_tree"],
         "index_entries_sha256": source["index_entries_sha256"],
         "worktree_entries_sha256": source["worktree_entries_sha256"],
+        "recursive_gitlinks": recursive_source,
         "self_exclusions": [CANDIDATE_RELATIVE],
         "progress_snapshot": progress_snapshot,
         "entries": entries,
@@ -538,12 +719,17 @@ def _validate_inventory_internal(
     if semantic_sha256(state_material) != source["candidate_state_sha256"]:
         fail("INVENTORY_STATE_HASH", "candidate source-state semantic hash differs")
 
-    index_changed = sum(entry["index_state"] != "unchanged" for entry in entries)
-    worktree_changed = sum(entry["worktree_state"] != "unchanged" for entry in entries)
-    untracked = sum(entry["index_state"] == "untracked" for entry in entries)
+    parent_entries = list(parent_entries_by_path.values())
+    index_changed = sum(entry["index_state"] != "unchanged" for entry in parent_entries)
+    worktree_changed = sum(
+        entry["worktree_state"] != "unchanged" for entry in parent_entries
+    )
+    untracked = sum(entry["index_state"] == "untracked" for entry in parent_entries)
     clean = index_changed == 0 and worktree_changed == 0
     expected_summary = {
         "entry_count": len(entries),
+        "parent_entry_count": len(parent_entries),
+        "recursive_gitlink_entry_count": len(projected_by_path),
         "indexed_entry_count": len(index_identity),
         "untracked_entry_count": untracked,
         "index_changed_entry_count": index_changed,
@@ -565,6 +751,7 @@ def _working_projection(inventory: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [
         {
             "path": entry["path"],
+            "inventory_origin": entry["inventory_origin"],
             "working_tree": entry["working_tree"],
         }
         for entry in inventory["entries"]
