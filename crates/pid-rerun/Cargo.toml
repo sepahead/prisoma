@@ -37,7 +37,7 @@ pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
 rerun = { package = "re_sdk", version = "0.34.1", default-features = false }
 rerun-types = { package = "re_sdk_types", version = "0.34.1", default-features = false }
 re-log-encoding = { package = "re_log_encoding", version = "0.34.1", default-features = false }
-nalgebra = "0.33"
+nalgebra = "0.35"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
