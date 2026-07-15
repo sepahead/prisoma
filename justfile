@@ -20,7 +20,11 @@ lint:
 
 # Docset audits (offline). audit_grandplan.py validates the R1-R112 reference ledger.
 docs-audit:
+    python scripts/audit_ci_pins.py
     python scripts/generate_capability_matrix.py --check
+    python scripts/audit_release_requirements.py
+    python scripts/audit_release_review.py
+    python scripts/audit_candidate_release.py
     python scripts/audit_research_governance.py
     python scripts/audit_grandplan.py
     python scripts/audit_grandplan_claims.py
@@ -34,6 +38,26 @@ capability-matrix:
 
 capability-matrix-check:
     python scripts/generate_capability_matrix.py --check
+
+# Fail-closed integrity audit for the frozen 0.9 review intake. This validates the
+# tracked baseline and imported task graph; it deliberately does not claim that any
+# substantive task, file, human review, or scientific gate is complete.
+release-review-audit:
+    python scripts/audit_release_review.py
+
+# Validate the unpublished, content-bound current candidate. This checks exact source
+# coverage and legal progress transitions; it does not promote any open disposition.
+release-candidate-audit:
+    python scripts/audit_candidate_release.py
+
+# Verify the complete imported task procedures and all 4,800 open lens dispositions.
+# The external handoff path is never inferred; pass it explicitly for byte-level regeneration.
+release-requirements-audit:
+    python scripts/audit_release_requirements.py
+
+release-requirements-check handoff_dir:
+    python scripts/generate_release_requirements.py --handoff-dir {{handoff_dir}} --check
+    python scripts/audit_release_requirements.py --handoff-dir {{handoff_dir}}
 
 # Honest current-state M0 scaffolds. Passing validates structure and cross-file
 # consistency; it does not mean the preregistration or scientific freeze is ready.
@@ -365,8 +389,9 @@ runlog-rerun path="outputs/demo_runlog.jsonl" out="outputs/demo_runlog.rrd":
 
 runlog-rerun-proof: runlog-demo
     just runlog-validate
-    just runlog-rerun
-    test -s outputs/demo_runlog.rrd
+    # Use a private new destination so the proof is repeatable without deleting or replacing
+    # an operator's prior recording; the converter itself requires no-clobber output.
+    proof_dir="$(mktemp -d "${TMPDIR:-/tmp}/prisoma-rerun-proof.XXXXXX")"; trap 'rm -rf "$proof_dir"' EXIT; cargo run -p pid-rerun --bin runlog-to-rerun -- outputs/demo_runlog.jsonl --save "$proof_dir/demo.rrd"; test -s "$proof_dir/demo.rrd"; test "$(dd if="$proof_dir/demo.rrd" bs=4 count=1 2>/dev/null)" = RRF2
 
 runlog-rerun-bridge path="outputs/demo_bridge_runlog.jsonl" out="outputs/demo_bridge_runlog.rrd":
     cargo run -p pid-rerun --bin runlog-to-rerun -- {{path}} --save {{out}}

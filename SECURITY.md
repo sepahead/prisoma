@@ -1,10 +1,12 @@
 # Security policy
 
-## Supported release
+## Supported source line
 
-Security fixes are applied to the latest `0.9.x` source release and to `main`.
-Older development snapshots are unsupported. Prisoma is research software, not
-a certified safety, security, medical, or production-control system.
+While 0.9.0 remains an unpublished release candidate, security fixes are applied
+to `main`; no published Prisoma release is currently supported. If a 0.9.x source
+release is later published, only its latest patch release and `main` will be
+supported. Older development snapshots are unsupported. Prisoma is research
+software, not a certified safety, security, medical, or production-control system.
 
 ## Reporting a vulnerability
 
@@ -28,12 +30,31 @@ permission to assess. There is no bug-bounty programme.
   authenticate users, authorize roles, provide TLS, or prevent a local proxy or
   tunnel from exposing the listener. Their path confinement is not a
   security-grade filesystem sandbox.
+- Rerun conversion does not read attribution artifacts by default. The standalone
+  converter requires `--load-attribution-artifacts`, then accepts only bounded
+  relative regular, non-symlinked NumPy files below the run-log directory and
+  verifies each file's recorded exact SHA-256 and canonical shape before output;
+  bridge export never enables this capability. Converter input must be a non-symlink
+  regular file, and headless output is a finalized, staged, file-synced, no-clobber
+  `.rrd`. Viewer-specific event, input-byte, and projected-log-call limits constrain
+  output amplification. The path checks reduce accidental traversal but are not a
+  security-grade defense against hardlinks, aliases, or every concurrent mutation;
+  digest verification still rejects changed artifact bytes.
 - `crates/ncp-observer` is an optional, read-only, workspace-excluded consumer.
   Its checked fixtures and fault observatory are not live security validation,
   authenticated producer evidence, EC1 evidence, or permission to deploy an
-  open NCP profile. Its pinned Zenoh 1.9 graph also retains the unmaintained
-  (not known vulnerable) `rustls-pemfile` 2.2.0 because no compatible replacement
-  exists; `deny.toml` records the narrow temporary exception.
+  open NCP profile. Its pinned Zenoh 1.9 graph retains `lz4_flex` 0.10.0, which is
+  affected by the high-severity RUSTSEC-2026-0041 block-decompression information
+  disclosure. The checked dependency profile does not enable Zenoh's
+  `transport_compression`, so the affected `decompress_into` call is compiled out;
+  CI fails if that feature appears. The vulnerable package nevertheless remains in
+  the optional lock, so Prisoma makes no vulnerability-free or live-NCP security
+  claim and must replace the pin before that profile can be release-qualified. The
+  same graph also retains the unmaintained (not known vulnerable)
+  `rustls-pemfile` 2.2.0 because no compatible replacement exists. The default
+  workspace and observer graphs also retain the unmaintained `paste` 1.0.15
+  proc-macro through nalgebra/Zenoh. `deny.toml` records these temporary
+  exceptions with their actual dependency scopes.
 - Run-log hashes and local ledgers provide integrity and reproducibility
   evidence within their stated threat model. They are not signatures, remote
   attestation, trusted timestamps, or proof of historical non-access.

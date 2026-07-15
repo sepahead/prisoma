@@ -224,7 +224,9 @@ def _string_array(
     items = _array(value, context=context)
     if not allow_empty and not items:
         raise GovernanceError(f"{context} must not be empty")
-    strings = [_string(item, context=f"{context}[{index}]") for index, item in enumerate(items)]
+    strings = [
+        _string(item, context=f"{context}[{index}]") for index, item in enumerate(items)
+    ]
     if unique and len(strings) != len(set(strings)):
         raise GovernanceError(f"{context} must not contain duplicates")
     return strings
@@ -233,7 +235,9 @@ def _string_array(
 def _timestamp(value: Any, *, context: str) -> datetime:
     text = _string(value, context=context)
     if not text.endswith("Z"):
-        raise GovernanceError(f"{context} must be an RFC 3339 UTC timestamp ending in Z")
+        raise GovernanceError(
+            f"{context} must be an RFC 3339 UTC timestamp ending in Z"
+        )
     try:
         parsed = datetime.fromisoformat(text[:-1] + "+00:00")
     except ValueError as error:
@@ -281,7 +285,9 @@ def _safe_file(root: Path, relative: Path | str, *, context: str) -> Path:
     try:
         resolved.relative_to(root_resolved)
     except ValueError as error:
-        raise GovernanceError(f"{context} resolves outside the repository: {raw!r}") from error
+        raise GovernanceError(
+            f"{context} resolves outside the repository: {raw!r}"
+        ) from error
     if not resolved.is_file():
         raise GovernanceError(f"{context} must resolve to a regular file: {raw!r}")
     return resolved
@@ -308,7 +314,9 @@ def _canonical_json_bytes(value: Any) -> bytes:
 def _require_semantic_snapshot(value: Any, *, snapshot: str, context: str) -> None:
     digest = hashlib.sha256(_canonical_json_bytes(value)).hexdigest()
     if digest != SEMANTIC_SNAPSHOT_SHA256[snapshot]:
-        raise GovernanceError(f"{context} differs from its exact reviewed semantic snapshot")
+        raise GovernanceError(
+            f"{context} differs from its exact reviewed semantic snapshot"
+        )
 
 
 def _read_json(root: Path, relative: Path) -> tuple[dict[str, Any], Path]:
@@ -330,7 +338,9 @@ def _read_jsonl(root: Path, relative: Path) -> tuple[list[dict[str, Any]], Path]
         raise GovernanceError(f"{relative.as_posix()} must end with a newline")
     lines = text.splitlines()
     if not lines or any(not line.strip() for line in lines):
-        raise GovernanceError(f"{relative.as_posix()} must contain non-empty JSONL records")
+        raise GovernanceError(
+            f"{relative.as_posix()} must contain non-empty JSONL records"
+        )
     records: list[dict[str, Any]] = []
     for index, line in enumerate(lines, 1):
         value = _parse_json_bytes(
@@ -469,7 +479,9 @@ HOLDOUT_EVENT_KEYS = {
 
 def _holdout_event_digest(event: dict[str, Any]) -> str:
     payload = {key: value for key, value in event.items() if key != "event_sha256"}
-    return hashlib.sha256(HOLDOUT_HASH_DOMAIN + _canonical_json_bytes(payload)).hexdigest()
+    return hashlib.sha256(
+        HOLDOUT_HASH_DOMAIN + _canonical_json_bytes(payload)
+    ).hexdigest()
 
 
 def _validate_holdout_bundle(
@@ -483,7 +495,9 @@ def _validate_holdout_bundle(
     if _integer(registry["schema_version"], context=f"{context}.schema_version") != 1:
         raise GovernanceError(f"{context}.schema_version must equal 1")
     if registry["artifact_id"] != "prisoma_holdout_registry_v1":
-        raise GovernanceError(f"{context}.artifact_id is not the v1 registry identifier")
+        raise GovernanceError(
+            f"{context}.artifact_id is not the v1 registry identifier"
+        )
     _date(registry["as_of_date"], context=f"{context}.as_of_date")
     canonical = _exact_keys(
         registry["canonical_spec"],
@@ -491,7 +505,9 @@ def _validate_holdout_bundle(
         context=f"{context}.canonical_spec",
     )
     if canonical != {"path": "grandplan.md", "version": "12.5"}:
-        raise GovernanceError(f"{context}.canonical_spec must identify grandplan.md v12.5")
+        raise GovernanceError(
+            f"{context}.canonical_spec must identify grandplan.md v12.5"
+        )
     _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
     if registry["scope"] != HOLDOUT_SCOPE:
         raise GovernanceError(f"{context}.scope loses the holdout honesty boundary")
@@ -503,9 +519,13 @@ def _validate_holdout_bundle(
     count = _integer(
         registry["holdout_count"], context=f"{context}.holdout_count", minimum=0
     )
-    holdouts = _array(registry["registered_holdouts"], context=f"{context}.registered_holdouts")
+    holdouts = _array(
+        registry["registered_holdouts"], context=f"{context}.registered_holdouts"
+    )
     if count != len(holdouts):
-        raise GovernanceError(f"{context}.holdout_count does not match registered_holdouts")
+        raise GovernanceError(
+            f"{context}.holdout_count does not match registered_holdouts"
+        )
     if status_value == "no_confirmatory_holdout_registered":
         if count != 0 or holdouts:
             raise GovernanceError(
@@ -527,7 +547,9 @@ def _validate_holdout_bundle(
         allow_empty=False,
     )
     if limitations != HOLDOUT_LIMITATIONS:
-        raise GovernanceError(f"{context}.limitations must preserve all honesty boundaries")
+        raise GovernanceError(
+            f"{context}.limitations must preserve all honesty boundaries"
+        )
 
     metadata_context = f"{context}.access_ledger"
     metadata = _exact_keys(
@@ -541,42 +563,57 @@ def _validate_holdout_bundle(
         metadata["file_sha256"], context=f"{metadata_context}.file_sha256"
     )
     if declared_file_sha != _sha256(ledger_path):
-        raise GovernanceError(f"{metadata_context}.file_sha256 does not bind ledger bytes")
+        raise GovernanceError(
+            f"{metadata_context}.file_sha256 does not bind ledger bytes"
+        )
     declared_file_bytes = _integer(
         metadata["file_byte_count"],
         context=f"{metadata_context}.file_byte_count",
         minimum=1,
     )
     if declared_file_bytes != ledger_path.stat().st_size:
-        raise GovernanceError(f"{metadata_context}.file_byte_count does not bind ledger bytes")
+        raise GovernanceError(
+            f"{metadata_context}.file_byte_count does not bind ledger bytes"
+        )
     event_count = _integer(
         metadata["event_count"], context=f"{metadata_context}.event_count", minimum=1
     )
     if event_count != len(ledger):
-        raise GovernanceError(f"{metadata_context}.event_count does not match the ledger")
+        raise GovernanceError(
+            f"{metadata_context}.event_count does not match the ledger"
+        )
     if metadata["hash_algorithm"] != "sha256":
         raise GovernanceError(f"{metadata_context}.hash_algorithm must equal 'sha256'")
     if metadata["domain_separator"] != HOLDOUT_HASH_DOMAIN.decode("utf-8"):
-        raise GovernanceError(f"{metadata_context}.domain_separator is not the v1 hash domain")
+        raise GovernanceError(
+            f"{metadata_context}.domain_separator is not the v1 hash domain"
+        )
     if metadata["canonicalization"] != HOLDOUT_CANONICALIZATION:
         raise GovernanceError(f"{metadata_context}.canonicalization drifted")
     if metadata["chain_rule"] != HOLDOUT_CHAIN_RULE:
         raise GovernanceError(f"{metadata_context}.chain_rule drifted")
     if metadata["payload_boundary"] != HOLDOUT_PAYLOAD_BOUNDARY:
-        raise GovernanceError(f"{metadata_context}.payload_boundary loses the data boundary")
+        raise GovernanceError(
+            f"{metadata_context}.payload_boundary loses the data boundary"
+        )
 
     previous_hash: str | None = None
     previous_date: date | None = None
     for index, raw_event in enumerate(ledger):
         event_context = f"{HOLDOUT_LEDGER_PATH.as_posix()}[{index}]"
         event = _exact_keys(raw_event, HOLDOUT_EVENT_KEYS, context=event_context)
-        if _integer(event["schema_version"], context=f"{event_context}.schema_version") != 1:
+        if (
+            _integer(event["schema_version"], context=f"{event_context}.schema_version")
+            != 1
+        ):
             raise GovernanceError(f"{event_context}.schema_version must equal 1")
         event_index = _integer(
             event["event_index"], context=f"{event_context}.event_index", minimum=0
         )
         if event_index != index:
-            raise GovernanceError(f"{event_context}.event_index breaks the exact sequence")
+            raise GovernanceError(
+                f"{event_context}.event_index breaks the exact sequence"
+            )
         event_date = _date(event["recorded_on"], context=f"{event_context}.recorded_on")
         if previous_date is not None and event_date < previous_date:
             raise GovernanceError(f"{event_context}.recorded_on moves backwards")
@@ -584,23 +621,33 @@ def _validate_holdout_bundle(
         if event["recorded_at"] is not None:
             _timestamp(event["recorded_at"], context=f"{event_context}.recorded_at")
         if event["previous_event_sha256"] != previous_hash:
-            raise GovernanceError(f"{event_context}.previous_event_sha256 breaks the chain")
+            raise GovernanceError(
+                f"{event_context}.previous_event_sha256 breaks the chain"
+            )
         event_hash = _validate_sha(
             event["event_sha256"], context=f"{event_context}.event_sha256"
         )
         computed_hash = _holdout_event_digest(event)
         if event_hash != computed_hash:
-            raise GovernanceError(f"{event_context}.event_sha256 does not bind the event")
+            raise GovernanceError(
+                f"{event_context}.event_sha256 does not bind the event"
+            )
         previous_hash = event_hash
 
         event_type = _enum(
-            event["event_type"], {"non_access_genesis"}, context=f"{event_context}.event_type"
+            event["event_type"],
+            {"non_access_genesis"},
+            context=f"{event_context}.event_type",
         )
         if event_type == "non_access_genesis":
             if index != 0:
-                raise GovernanceError("non_access_genesis may appear only at event_index zero")
+                raise GovernanceError(
+                    "non_access_genesis may appear only at event_index zero"
+                )
             if event["exposure_occurred"] is not False:
-                raise GovernanceError("non_access_genesis cannot record holdout exposure")
+                raise GovernanceError(
+                    "non_access_genesis cannot record holdout exposure"
+                )
             if event["recorded_at"] is not None:
                 raise GovernanceError(
                     "non_access_genesis recorded_at must remain null when no instant is known"
@@ -617,7 +664,9 @@ def _validate_holdout_bundle(
                 "exposure_scope",
             ):
                 if event[field] is not None:
-                    raise GovernanceError(f"{event_context}.{field} must be null at genesis")
+                    raise GovernanceError(
+                        f"{event_context}.{field} must be null at genesis"
+                    )
             if (
                 event["event_scope"]
                 != "ledger_initialization_only_not_a_historical_or_off_repository_access_attestation"
@@ -635,7 +684,9 @@ def _validate_holdout_bundle(
         context=f"{metadata_context}.head_event_sha256",
     )
     if head != previous_hash:
-        raise GovernanceError(f"{metadata_context}.head_event_sha256 does not match the chain")
+        raise GovernanceError(
+            f"{metadata_context}.head_event_sha256 does not match the chain"
+        )
 
 
 PREREGISTRATION_KEYS = {
@@ -903,7 +954,9 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
     if _integer(artifact["schema_version"], context=f"{context}.schema_version") != 1:
         raise GovernanceError(f"{context}.schema_version must equal 1")
     if artifact["artifact_id"] != "prisoma_m0_preregistration_skeleton_v1":
-        raise GovernanceError(f"{context}.artifact_id is not the v1 scaffold identifier")
+        raise GovernanceError(
+            f"{context}.artifact_id is not the v1 scaffold identifier"
+        )
     _date(artifact["as_of_date"], context=f"{context}.as_of_date")
     _require_semantic_snapshot(
         artifact["scope"], snapshot="prereg_scope", context=f"{context}.scope"
@@ -914,10 +967,14 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
         context=f"{context}.canonical_spec",
     )
     if canonical != {"path": "grandplan.md", "version": "12.5"}:
-        raise GovernanceError(f"{context}.canonical_spec must identify grandplan.md v12.5")
+        raise GovernanceError(
+            f"{context}.canonical_spec must identify grandplan.md v12.5"
+        )
     _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
 
-    freeze_status = _string(artifact["freeze_status"], context=f"{context}.freeze_status")
+    freeze_status = _string(
+        artifact["freeze_status"], context=f"{context}.freeze_status"
+    )
     if (
         freeze_status != "unfrozen_draft"
         or artifact["freeze_receipt"] is not None
@@ -942,20 +999,26 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
     if list(global_fields) != GLOBAL_FREEZE_FIELDS:
         raise GovernanceError(f"{context}.global_freeze_fields inventory is reordered")
     if any(value is not None for value in global_fields.values()):
-        raise GovernanceError(f"{context}.global_freeze_fields must remain null while unfrozen")
+        raise GovernanceError(
+            f"{context}.global_freeze_fields must remain null while unfrozen"
+        )
 
     protocols = _exact_keys(
         artifact["protocols"], set(PROTOCOL_ORDER), context=f"{context}.protocols"
     )
     if list(protocols) != PROTOCOL_ORDER:
-        raise GovernanceError(f"{context}.protocols must be ordered H1-A, H1-B, H2, H3, H4")
+        raise GovernanceError(
+            f"{context}.protocols must be ordered H1-A, H1-B, H2, H3, H4"
+        )
     h1_statuses = [
         protocols[branch].get("activation_status")
         for branch in ("h1_protocol_a", "h1_protocol_b")
         if isinstance(protocols[branch], dict)
     ]
     if h1_statuses.count("active_primary") > 1:
-        raise GovernanceError(f"{context} blends H1-A and H1-B as simultaneous primary branches")
+        raise GovernanceError(
+            f"{context} blends H1-A and H1-B as simultaneous primary branches"
+        )
 
     for branch_id in PROTOCOL_ORDER:
         branch_context = f"{context}.protocols.{branch_id}"
@@ -966,14 +1029,18 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
             if branch_id in ESTIMAND_IDS
             else PROTOCOL_BASE_KEYS
         )
-        branch = _exact_keys(protocols[branch_id], expected_keys, context=branch_context)
+        branch = _exact_keys(
+            protocols[branch_id], expected_keys, context=branch_context
+        )
         claim_id, label, activation = PROTOCOL_METADATA[branch_id]
         if (
             branch["registered_claim_id"] != claim_id
             or branch["protocol_label"] != label
             or branch["activation_status"] != activation
         ):
-            raise GovernanceError(f"{branch_context} has an unknown or falsely activated state")
+            raise GovernanceError(
+                f"{branch_context} has an unknown or falsely activated state"
+            )
         _string(
             branch["interpretation_boundary"],
             context=f"{branch_context}.interpretation_boundary",
@@ -998,16 +1065,27 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
                 context=binding_context,
             )
         if observed_support != EXPECTED_SUPPORTING_ARTIFACTS[branch_id]:
-            raise GovernanceError(f"{branch_context} supporting-artifact inventory drifted")
+            raise GovernanceError(
+                f"{branch_context} supporting-artifact inventory drifted"
+            )
 
         if branch_id in ESTIMAND_IDS:
-            rows = _array(branch["estimand_rows"], context=f"{branch_context}.estimand_rows")
+            rows = _array(
+                branch["estimand_rows"], context=f"{branch_context}.estimand_rows"
+            )
             if len(rows) != 1:
-                raise GovernanceError(f"{branch_context}.estimand_rows must contain one primary row")
+                raise GovernanceError(
+                    f"{branch_context}.estimand_rows must contain one primary row"
+                )
             row_context = f"{branch_context}.estimand_rows[0]"
             row = _exact_keys(rows[0], ESTIMAND_ROW_KEYS, context=row_context)
-            if row["estimand_id"] != ESTIMAND_IDS[branch_id] or row["role"] != "primary":
-                raise GovernanceError(f"{row_context} has an unknown estimand identity or role")
+            if (
+                row["estimand_id"] != ESTIMAND_IDS[branch_id]
+                or row["role"] != "primary"
+            ):
+                raise GovernanceError(
+                    f"{row_context} has an unknown estimand identity or role"
+                )
             if any(row[field] is not None for field in ESTIMAND_SCIENTIFIC_FIELDS):
                 raise GovernanceError(f"{row_context} must remain null while unfrozen")
 
@@ -1017,9 +1095,13 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
             context=f"{branch_context}.freeze_fields",
         )
         if list(fields) != FREEZE_FIELD_INVENTORIES[branch_id]:
-            raise GovernanceError(f"{branch_context}.freeze_fields inventory is reordered")
+            raise GovernanceError(
+                f"{branch_context}.freeze_fields inventory is reordered"
+            )
         if any(value is not None for value in fields.values()):
-            raise GovernanceError(f"{branch_context}.freeze_fields must remain null while unfrozen")
+            raise GovernanceError(
+                f"{branch_context}.freeze_fields must remain null while unfrozen"
+            )
 
     h3 = protocols["h3"]
     boundaries = {
@@ -1038,23 +1120,35 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
         context=f"{context}.protocols.h3.gate_binding_rule",
     )
     gates = _exact_keys(
-        h3["pid_gates"], set(PID_GATE_ORDER), context=f"{context}.protocols.h3.pid_gates"
+        h3["pid_gates"],
+        set(PID_GATE_ORDER),
+        context=f"{context}.protocols.h3.pid_gates",
     )
     if list(gates) != PID_GATE_ORDER:
-        raise GovernanceError("H3 PID gates must be ordered population, measure, estimator, application")
+        raise GovernanceError(
+            "H3 PID gates must be ordered population, measure, estimator, application"
+        )
     observed_regimes: set[str] = set()
     all_passed = True
     for gate_name in PID_GATE_ORDER:
         gate_context = f"{context}.protocols.h3.pid_gates.{gate_name}"
         gate = _exact_keys(gates[gate_name], PID_GATE_KEYS, context=gate_context)
-        gate_status = _enum(gate["status"], {"blocked", "passed"}, context=f"{gate_context}.status")
-        bindings = _array(gate["evidence_bindings"], context=f"{gate_context}.evidence_bindings")
+        gate_status = _enum(
+            gate["status"], {"blocked", "passed"}, context=f"{gate_context}.status"
+        )
+        bindings = _array(
+            gate["evidence_bindings"], context=f"{gate_context}.evidence_bindings"
+        )
         if gate_status == "blocked":
             all_passed = False
             if gate["regime_hash"] is not None or bindings:
-                raise GovernanceError(f"{gate_context} blocked state cannot carry pass evidence")
+                raise GovernanceError(
+                    f"{gate_context} blocked state cannot carry pass evidence"
+                )
         else:
-            regime = _validate_sha(gate["regime_hash"], context=f"{gate_context}.regime_hash")
+            regime = _validate_sha(
+                gate["regime_hash"], context=f"{gate_context}.regime_hash"
+            )
             observed_regimes.add(regime)
             if not bindings:
                 raise GovernanceError(f"{gate_context} pass requires evidence bindings")
@@ -1070,11 +1164,17 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
                     context=binding_context,
                 )
     if len(observed_regimes) > 1:
-        raise GovernanceError("H3 PID gate pass evidence does not share one exact regime hash")
+        raise GovernanceError(
+            "H3 PID gate pass evidence does not share one exact regime hash"
+        )
     if all_passed:
-        raise GovernanceError("H3 cannot be promoted while the claim registry remains not_eligible")
+        raise GovernanceError(
+            "H3 cannot be promoted while the claim registry remains not_eligible"
+        )
     if any(gates[name]["status"] != "blocked" for name in PID_GATE_ORDER):
-        raise GovernanceError("H3 v1 current state must keep all four PID gates blocked")
+        raise GovernanceError(
+            "H3 v1 current state must keep all four PID gates blocked"
+        )
 
     requirements = _string_array(
         artifact["freeze_requirements"],
@@ -1180,9 +1280,7 @@ REQUIRED_CONTAMINATION_SUBTYPES = [
 ]
 REQUIRED_RIGHTS_ARTIFACT_CLASSES = ["dataset", "model", "asset", "generated_content"]
 ASSESSMENT_WRAPPER_KEYS = {"status", "record_schema", "records"}
-CONTAMINATION_WRAPPER_KEYS = ASSESSMENT_WRAPPER_KEYS | {
-    "completion_language_boundary"
-}
+CONTAMINATION_WRAPPER_KEYS = ASSESSMENT_WRAPPER_KEYS | {"completion_language_boundary"}
 ASSESSMENT_RECORD_SCHEMAS = {
     "changed_variable_assessments": {
         "variable_id": "nonempty_string",
@@ -1308,7 +1406,9 @@ def _validate_transport(
         context=f"{context}.canonical_spec",
     )
     if canonical["path"] != "grandplan.md" or canonical["version"] != "12.5":
-        raise GovernanceError(f"{context}.canonical_spec must identify grandplan.md v12.5")
+        raise GovernanceError(
+            f"{context}.canonical_spec must identify grandplan.md v12.5"
+        )
     _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
     sections = _string_array(
         canonical["relevant_sections"],
@@ -1323,7 +1423,9 @@ def _validate_transport(
         context=f"{context}.status",
     )
     if artifact["target_outcome_access_state"] != "no_confirmatory_holdout_registered":
-        raise GovernanceError(f"{context}.target_outcome_access_state overstates access state")
+        raise GovernanceError(
+            f"{context}.target_outcome_access_state overstates access state"
+        )
     governance_context = f"{context}.holdout_governance_binding"
     governance = _exact_keys(
         artifact["holdout_governance_binding"],
@@ -1334,10 +1436,16 @@ def _validate_transport(
         raise GovernanceError(f"{governance_context}.registry_path drifted")
     if governance["ledger_path"] != HOLDOUT_LEDGER_PATH.as_posix():
         raise GovernanceError(f"{governance_context}.ledger_path drifted")
-    _safe_file(root, governance["registry_path"], context=f"{governance_context}.registry_path")
-    _safe_file(root, governance["ledger_path"], context=f"{governance_context}.ledger_path")
+    _safe_file(
+        root, governance["registry_path"], context=f"{governance_context}.registry_path"
+    )
+    _safe_file(
+        root, governance["ledger_path"], context=f"{governance_context}.ledger_path"
+    )
     if governance["registry_status"] != holdout_registry["registry_status"]:
-        raise GovernanceError(f"{governance_context}.registry_status disagrees with registry")
+        raise GovernanceError(
+            f"{governance_context}.registry_status disagrees with registry"
+        )
     ledger_sha = _validate_sha(
         governance["ledger_file_sha256"],
         context=f"{governance_context}.ledger_file_sha256",
@@ -1356,7 +1464,9 @@ def _validate_transport(
         allow_empty=False,
     )
     if shifts != REQUIRED_SHIFT_VARIABLE_IDS:
-        raise GovernanceError(f"{context}.required_shift_variable_ids is incomplete or reordered")
+        raise GovernanceError(
+            f"{context}.required_shift_variable_ids is incomplete or reordered"
+        )
     subtypes = _string_array(
         artifact["required_contamination_subtypes"],
         context=f"{context}.required_contamination_subtypes",
@@ -1384,10 +1494,18 @@ def _validate_transport(
         if binding["status"] != "unselected":
             raise GovernanceError(f"{binding_context}.status must equal 'unselected'")
         if any(value is not None for key, value in binding.items() if key != "status"):
-            raise GovernanceError(f"{binding_context} must remain empty while unselected")
-    for field in ("transport_assumptions", "effect_modifiers", "selection_diagram_or_equivalent"):
+            raise GovernanceError(
+                f"{binding_context} must remain empty while unselected"
+            )
+    for field in (
+        "transport_assumptions",
+        "effect_modifiers",
+        "selection_diagram_or_equivalent",
+    ):
         if artifact[field] is not None:
-            raise GovernanceError(f"{context}.{field} must remain null in structure-only state")
+            raise GovernanceError(
+                f"{context}.{field} must remain null in structure-only state"
+            )
 
     for field, expected_schema in ASSESSMENT_RECORD_SCHEMAS.items():
         wrapper_context = f"{context}.{field}"
@@ -1400,7 +1518,9 @@ def _validate_transport(
         if wrapper["status"] != "not_assessed":
             raise GovernanceError(f"{wrapper_context}.status must equal 'not_assessed'")
         schema = _exact_keys(
-            wrapper["record_schema"], set(expected_schema), context=f"{wrapper_context}.record_schema"
+            wrapper["record_schema"],
+            set(expected_schema),
+            context=f"{wrapper_context}.record_schema",
         )
         if schema != expected_schema:
             raise GovernanceError(f"{wrapper_context}.record_schema drifted")
@@ -1465,9 +1585,7 @@ M0_STATUS_KEYS = {
 }
 EXPECTED_M0_STATUSES = {
     "overall": "not_freeze_ready",
-    "preregistration_skeleton": (
-        "implemented_unfrozen_scaffold_not_a_preregistration"
-    ),
+    "preregistration_skeleton": ("implemented_unfrozen_scaffold_not_a_preregistration"),
     "causal_graph": "unfrozen_pending_policy_environment_and_intervention_selection",
     "variable_dictionary": "partial_software_contracts_only",
     "treatment_ontology": "partial_h1_common_preflight_only",
@@ -1477,9 +1595,7 @@ EXPECTED_M0_STATUSES = {
     "h2_estimand": (
         "synthetic_fixed_horizon_reference_only_real_estimand_and_ontology_unfrozen"
     ),
-    "minimum_useful_effects": (
-        "unfrozen_pending_domain_and_decision_justification"
-    ),
+    "minimum_useful_effects": ("unfrozen_pending_domain_and_decision_justification"),
     "pre_treatment_feature_whitelist": "partial_h1_common_preflight_lineage_rule",
     "holdout_registry": "no_confirmatory_holdout_registered",
     "holdout_access_ledger": (
@@ -1555,7 +1671,9 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
     _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
 
     m0 = _exact_keys(
-        registry["m0_freeze_status"], M0_STATUS_KEYS, context=f"{context}.m0_freeze_status"
+        registry["m0_freeze_status"],
+        M0_STATUS_KEYS,
+        context=f"{context}.m0_freeze_status",
     )
     for field, expected in EXPECTED_M0_STATUSES.items():
         if m0[field] != expected:
@@ -1568,7 +1686,9 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
         item.get("claim_id") if isinstance(item, dict) else None for item in claims
     ]
     if identifiers != ["EC1", "H1", "H2", "H3", "H4"]:
-        raise GovernanceError(f"{context}.claims must preserve EC1, H1, H2, H3, H4 order")
+        raise GovernanceError(
+            f"{context}.claims must preserve EC1, H1, H2, H3, H4 order"
+        )
     for index, raw_claim in enumerate(claims):
         claim_id = identifiers[index]
         claim_context = f"{context}.claims[{index}]"
@@ -1591,7 +1711,9 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
             claim["current_artifacts"], context=f"{claim_context}.current_artifacts"
         )
         if not artifacts:
-            raise GovernanceError(f"{claim_context}.current_artifacts must not be empty")
+            raise GovernanceError(
+                f"{claim_context}.current_artifacts must not be empty"
+            )
         for artifact_index, raw_artifact in enumerate(artifacts):
             artifact_context = f"{claim_context}.current_artifacts[{artifact_index}]"
             artifact = _exact_keys(
@@ -1607,7 +1729,9 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
                 or claim["scientific_status"] != scientific
                 or claim["minimum_useful_effect_status"] != mue
             ):
-                raise GovernanceError(f"{claim_context} overstates its current claim state")
+                raise GovernanceError(
+                    f"{claim_context} overstates its current claim state"
+                )
     _require_semantic_snapshot(
         claims, snapshot="claim_snapshots", context=f"{context}.claims"
     )
@@ -1792,7 +1916,9 @@ def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
         context=f"{context}.canonical_spec",
     )
     if canonical != {"path": "grandplan.md", "version": "12.5"}:
-        raise GovernanceError(f"{context}.canonical_spec must identify grandplan.md v12.5")
+        raise GovernanceError(
+            f"{context}.canonical_spec must identify grandplan.md v12.5"
+        )
     _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
     _enum(
         artifact["status"],
@@ -1818,7 +1944,9 @@ def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
         rows = list(csv.reader(stream))
     actual_row_count = max(0, len(rows) - 1)
     if not rows or row_count != actual_row_count:
-        raise GovernanceError(f"{inventory_context}.row_count does not bind the CSV rows")
+        raise GovernanceError(
+            f"{inventory_context}.row_count does not bind the CSV rows"
+        )
     _date(inventory["inventory_date"], context=f"{inventory_context}.inventory_date")
     _require_semantic_snapshot(
         inventory["inventory_role"],
@@ -1826,9 +1954,13 @@ def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
         context=f"{inventory_context}.inventory_role",
     )
 
-    rounds = _array(artifact["legacy_review_rounds"], context=f"{context}.legacy_review_rounds")
+    rounds = _array(
+        artifact["legacy_review_rounds"], context=f"{context}.legacy_review_rounds"
+    )
     if len(rounds) != 1:
-        raise GovernanceError(f"{context}.legacy_review_rounds must contain the one legacy import")
+        raise GovernanceError(
+            f"{context}.legacy_review_rounds must contain the one legacy import"
+        )
     round_context = f"{context}.legacy_review_rounds[0]"
     review_round = _exact_keys(rounds[0], LEGACY_ROUND_KEYS, context=round_context)
     if review_round["round_id"] != "grandplan_v12_5_reference_inventory_2026_07_12":
@@ -1887,7 +2019,9 @@ def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
         allow_empty=False,
     )
     if len(triggers) != 3:
-        raise GovernanceError(f"{policy_context}.change_triggers must preserve all triggers")
+        raise GovernanceError(
+            f"{policy_context}.change_triggers must preserve all triggers"
+        )
     _string(policy["required_action"], context=f"{policy_context}.required_action")
     for field in (
         "silent_overwrite_allowed",
@@ -1966,12 +2100,11 @@ def _validate_literature(root: Path, artifact: dict[str, Any]) -> None:
                     f"{family_context}.{field} must remain null while unresolved"
                 )
     if observed_family_inventory != EXPECTED_COMPARATOR_FAMILIES:
-        raise GovernanceError(f"{comparator_context}.families is incomplete or reordered")
+        raise GovernanceError(
+            f"{comparator_context}.families is incomplete or reordered"
+        )
     _require_semantic_snapshot(
-        [
-            (family["family_id"], family["canonical_description"])
-            for family in families
-        ],
+        [(family["family_id"], family["canonical_description"]) for family in families],
         snapshot="literature_family_descriptions",
         context=f"{comparator_context}.families descriptions",
     )
@@ -2022,13 +2155,17 @@ def audit_bundle(root: Path = ROOT, *, require_freeze_ready: bool = False) -> li
         CLAIM_REGISTRY_PATH.as_posix(): claim_registry["as_of_date"],
     }
     if len(set(dated_artifacts.values())) != 1:
-        raise GovernanceError(f"governance as_of_date values disagree: {dated_artifacts}")
+        raise GovernanceError(
+            f"governance as_of_date values disagree: {dated_artifacts}"
+        )
 
     registry_status = holdout_registry["registry_status"]
     if preregistration["holdout_registry_status"] != registry_status:
         raise GovernanceError("preregistration and holdout registry status disagree")
     if transport["target_outcome_access_state"] != registry_status:
-        raise GovernanceError("transport target-outcome state and holdout registry disagree")
+        raise GovernanceError(
+            "transport target-outcome state and holdout registry disagree"
+        )
     governance_binding = transport["holdout_governance_binding"]
     if governance_binding["registry_status"] != registry_status:
         raise GovernanceError("transport holdout binding and holdout registry disagree")
@@ -2037,11 +2174,17 @@ def audit_bundle(root: Path = ROOT, *, require_freeze_ready: bool = False) -> li
     if m0["holdout_registry"] != registry_status:
         raise GovernanceError("claim registry and holdout registry status disagree")
     if preregistration["freeze_status"] != "unfrozen_draft":
-        raise GovernanceError("claim registry cannot remain not-ready after a claimed freeze")
+        raise GovernanceError(
+            "claim registry cannot remain not-ready after a claimed freeze"
+        )
     if transport["status"] != "structure_only_pending_dataset_and_target_selection":
-        raise GovernanceError("claim registry cannot describe completed transport evidence")
+        raise GovernanceError(
+            "claim registry cannot describe completed transport evidence"
+        )
     if literature["status"] != "legacy_dated_reference_inventory_only":
-        raise GovernanceError("claim registry cannot describe a completed literature search")
+        raise GovernanceError(
+            "claim registry cannot describe a completed literature search"
+        )
 
     # A valid v1 artifact is intentionally an unfinished scaffold.  Future freeze-ready
     # support requires a reviewed schema revision with content-bound receipts; arbitrary

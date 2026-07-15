@@ -71,7 +71,9 @@ def _write_json(path: Path, obj: Any) -> None:
     path.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _http_json_post(url: str, headers: dict[str, str], payload: dict[str, Any], timeout_s: int = 180) -> dict[str, Any]:
+def _http_json_post(
+    url: str, headers: dict[str, str], payload: dict[str, Any], timeout_s: int = 180
+) -> dict[str, Any]:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -109,7 +111,9 @@ def load_ui_parts(ui_md_path: Path) -> list[UiPart]:
                 milestone=str(obj.get("milestone") or ""),
                 requirements=[str(x) for x in obj.get("requirements") or []],
                 prompt_seed=str(obj.get("prompt_seed") or ""),
-                negative_prompt=(str(obj["negative_prompt"]) if obj.get("negative_prompt") else None),
+                negative_prompt=(
+                    str(obj["negative_prompt"]) if obj.get("negative_prompt") else None
+                ),
                 image_width=int(image.get("width") or 1536),
                 image_height=int(image.get("height") or 1024),
                 score_threshold=float(obj.get("score_threshold") or 9.0),
@@ -159,18 +163,24 @@ class FalGptImageClient:
         #  - "image": "data:image/png;base64,..." (inline data URI)
         if mode == "img2img" and init_image_path is not None:
             init_bytes = init_image_path.read_bytes()
-            payload["image"] = "data:image/png;base64," + base64.b64encode(init_bytes).decode("ascii")
+            payload["image"] = "data:image/png;base64," + base64.b64encode(
+                init_bytes
+            ).decode("ascii")
 
         result = _http_json_post(url, headers=headers, payload=payload)
 
         # Try to locate an image URL in common shapes.
         image_url = None
         if isinstance(result.get("images"), list) and result["images"]:
-            image_url = result["images"][0].get("url") or result["images"][0].get("image_url")
+            image_url = result["images"][0].get("url") or result["images"][0].get(
+                "image_url"
+            )
         if image_url is None and isinstance(result.get("image"), dict):
             image_url = result["image"].get("url") or result["image"].get("image_url")
         if image_url is None:
-            raise RuntimeError(f"Could not find image URL in FAL response keys={list(result.keys())}")
+            raise RuntimeError(
+                f"Could not find image URL in FAL response keys={list(result.keys())}"
+            )
 
         image_bytes = _http_get_bytes(str(image_url))
         return image_bytes, result
@@ -186,7 +196,9 @@ class GeminiVertexClient:
     Fallback path (no python deps): `gcloud auth print-access-token` + REST.
     """
 
-    def __init__(self, *, project: str, location: str, model_vision: str, model_text: str) -> None:
+    def __init__(
+        self, *, project: str, location: str, model_vision: str, model_text: str
+    ) -> None:
         self._project = project
         self._location = location
         self._model_vision = model_vision
@@ -208,7 +220,9 @@ class GeminiVertexClient:
 
     def _gcloud_access_token(self) -> str:
         try:
-            out = subprocess.check_output(["gcloud", "auth", "print-access-token"], stderr=subprocess.STDOUT)
+            out = subprocess.check_output(
+                ["gcloud", "auth", "print-access-token"], stderr=subprocess.STDOUT
+            )
         except FileNotFoundError as e:
             raise RuntimeError(
                 "Gemini REST fallback requires `gcloud` to be installed and authenticated, "
@@ -216,7 +230,9 @@ class GeminiVertexClient:
             ) from e
         token = out.decode("utf-8").strip()
         if not token:
-            raise RuntimeError("Empty access token from gcloud; run `gcloud auth application-default login`.")
+            raise RuntimeError(
+                "Empty access token from gcloud; run `gcloud auth application-default login`."
+            )
         return token
 
     def critique_ui(self, *, part: UiPart, image_bytes: bytes) -> Review:
@@ -226,12 +242,13 @@ class GeminiVertexClient:
             "Return ONLY valid JSON with keys:\n"
             "  score (0-10 number), pass (boolean), issues (string[]), fixes (string[])\n"
             "Scoring rule: 10 only if every requirement is clearly satisfied with legible labels.\n"
-            "Requirements:\n"
-            + "\n".join([f"- {r}" for r in part.requirements])
+            "Requirements:\n" + "\n".join([f"- {r}" for r in part.requirements])
         )
 
         if self._mode == "google_genai":
-            client = self._genai.Client(vertexai=True, project=self._project, location=self._location)
+            client = self._genai.Client(
+                vertexai=True, project=self._project, location=self._location
+            )
             t = self._types
             contents = [
                 t.Content(
@@ -242,10 +259,14 @@ class GeminiVertexClient:
                     ],
                 )
             ]
-            resp = client.models.generate_content(model=self._model_vision, contents=contents)
+            resp = client.models.generate_content(
+                model=self._model_vision, contents=contents
+            )
             raw = resp.text or ""
         else:
-            raw = self._critique_via_rest(prompt=prompt, image_bytes=image_bytes, model=self._model_vision)
+            raw = self._critique_via_rest(
+                prompt=prompt, image_bytes=image_bytes, model=self._model_vision
+            )
 
         obj = _parse_json_from_model(raw)
         return Review(
@@ -256,7 +277,14 @@ class GeminiVertexClient:
             raw_text=raw,
         )
 
-    def improve_prompt(self, *, part: UiPart, previous_prompt: str, previous_negative: str | None, review: Review) -> tuple[str, str | None]:
+    def improve_prompt(
+        self,
+        *,
+        part: UiPart,
+        previous_prompt: str,
+        previous_negative: str | None,
+        review: Review,
+    ) -> tuple[str, str | None]:
         prompt = (
             "You are a prompt engineer for a UI mockup generator.\n"
             "Rewrite the prompt to fix the issues while staying faithful to the requirements.\n"
@@ -266,7 +294,11 @@ class GeminiVertexClient:
             + "\n".join([f"- {r}" for r in part.requirements])
             + "\n\nPrevious prompt:\n"
             + previous_prompt
-            + ("\n\nPrevious negative prompt:\n" + previous_negative if previous_negative else "")
+            + (
+                "\n\nPrevious negative prompt:\n" + previous_negative
+                if previous_negative
+                else ""
+            )
             + "\n\nCritique issues:\n"
             + "\n".join([f"- {x}" for x in review.issues])
             + "\n\nConcrete fixes to implement:\n"
@@ -274,10 +306,14 @@ class GeminiVertexClient:
         )
 
         if self._mode == "google_genai":
-            client = self._genai.Client(vertexai=True, project=self._project, location=self._location)
+            client = self._genai.Client(
+                vertexai=True, project=self._project, location=self._location
+            )
             t = self._types
             contents = [t.Content(role="user", parts=[t.Part.from_text(prompt)])]
-            resp = client.models.generate_content(model=self._model_text, contents=contents)
+            resp = client.models.generate_content(
+                model=self._model_text, contents=contents
+            )
             raw = resp.text or ""
         else:
             raw = self._generate_text_via_rest(prompt=prompt, model=self._model_text)
@@ -378,7 +414,9 @@ def optimize_part(
 
     prompt = part.prompt_seed.strip()
     negative_prompt = part.negative_prompt
-    best: tuple[float, Path, str, str | None] | None = None  # score, image_path, prompt, negative_prompt
+    best: tuple[float, Path, str, str | None] | None = (
+        None  # score, image_path, prompt, negative_prompt
+    )
 
     for i in range(1, part.max_iterations + 1):
         iter_tag = f"iter_{i:02d}"
@@ -395,7 +433,9 @@ def optimize_part(
         _write_text(prompt_path, header + prompt + "\n")
 
         if dry_run:
-            print(f"[DRY RUN] {part.part_id} {iter_tag}: would call FAL ({mode}) + Gemini. Prompt saved to {prompt_path}")
+            print(
+                f"[DRY RUN] {part.part_id} {iter_tag}: would call FAL ({mode}) + Gemini. Prompt saved to {prompt_path}"
+            )
             break
 
         try:
@@ -408,7 +448,9 @@ def optimize_part(
                 mode=mode,
             )
         except urllib.error.HTTPError as e:
-            raise RuntimeError(f"FAL request failed: {e.read().decode('utf-8', 'ignore')}") from e
+            raise RuntimeError(
+                f"FAL request failed: {e.read().decode('utf-8', 'ignore')}"
+            ) from e
 
         image_path = part_dir / f"{iter_tag}.png"
         image_path.write_bytes(image_bytes)
@@ -417,7 +459,13 @@ def optimize_part(
         review = gemini.critique_ui(part=part, image_bytes=image_bytes)
         _write_json(
             part_dir / f"{iter_tag}.review.json",
-            {"score": review.score, "pass": review.pass_, "issues": review.issues, "fixes": review.fixes, "raw_text": review.raw_text},
+            {
+                "score": review.score,
+                "pass": review.pass_,
+                "issues": review.issues,
+                "fixes": review.fixes,
+                "raw_text": review.raw_text,
+            },
         )
 
         if best is None or review.score > best[0]:
@@ -427,9 +475,19 @@ def optimize_part(
             if negative_prompt:
                 best_header += "# negative_prompt\n" + negative_prompt + "\n"
             _write_text(part_dir / "best.prompt.txt", best_header + prompt + "\n")
-            _write_json(part_dir / "best.review.json", {"score": review.score, "pass": review.pass_, "issues": review.issues, "fixes": review.fixes})
+            _write_json(
+                part_dir / "best.review.json",
+                {
+                    "score": review.score,
+                    "pass": review.pass_,
+                    "issues": review.issues,
+                    "fixes": review.fixes,
+                },
+            )
 
-        print(f"{part.part_id} {iter_tag}: score={review.score:.1f} pass={review.pass_}")
+        print(
+            f"{part.part_id} {iter_tag}: score={review.score:.1f} pass={review.pass_}"
+        )
         if review.pass_ or review.score >= part.score_threshold:
             break
 
@@ -450,16 +508,39 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ui-md", type=Path, default=Path("uidesigner/UI.md"))
     ap.add_argument("--out", type=Path, default=Path("uidesigner/out"))
-    ap.add_argument("--only", type=str, default="", help="Comma-separated ui_part ids to run (default: all)")
+    ap.add_argument(
+        "--only",
+        type=str,
+        default="",
+        help="Comma-separated ui_part ids to run (default: all)",
+    )
     ap.add_argument("--dry-run", action="store_true")
 
-    ap.add_argument("--fal-endpoint", type=str, default=os.environ.get("FAL_ENDPOINT", "fal-ai/gpt-image-1.5"))
+    ap.add_argument(
+        "--fal-endpoint",
+        type=str,
+        default=os.environ.get("FAL_ENDPOINT", "fal-ai/gpt-image-1.5"),
+    )
     ap.add_argument("--fal-key-env", type=str, default="FAL_KEY")
 
-    ap.add_argument("--gcp-project", type=str, default=os.environ.get("GOOGLE_CLOUD_PROJECT", ""))
-    ap.add_argument("--gcp-location", type=str, default=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"))
-    ap.add_argument("--gemini-vision-model", type=str, default=os.environ.get("GEMINI_VISION_MODEL", "gemini-1.5-pro"))
-    ap.add_argument("--gemini-text-model", type=str, default=os.environ.get("GEMINI_TEXT_MODEL", "gemini-1.5-pro"))
+    ap.add_argument(
+        "--gcp-project", type=str, default=os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+    )
+    ap.add_argument(
+        "--gcp-location",
+        type=str,
+        default=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+    )
+    ap.add_argument(
+        "--gemini-vision-model",
+        type=str,
+        default=os.environ.get("GEMINI_VISION_MODEL", "gemini-1.5-pro"),
+    )
+    ap.add_argument(
+        "--gemini-text-model",
+        type=str,
+        default=os.environ.get("GEMINI_TEXT_MODEL", "gemini-1.5-pro"),
+    )
 
     ap.add_argument("--sleep", type=float, default=1.0)
     args = ap.parse_args()
@@ -469,7 +550,9 @@ def main() -> None:
     if only:
         parts = [p for p in parts if p.part_id in only]
         if not parts:
-            raise SystemExit(f"--only matched nothing. Available: {[p.part_id for p in load_ui_parts(args.ui_md)]}")
+            raise SystemExit(
+                f"--only matched nothing. Available: {[p.part_id for p in load_ui_parts(args.ui_md)]}"
+            )
 
     fal_key = os.environ.get(args.fal_key_env, "")
     if not args.dry_run and not fal_key:
@@ -501,7 +584,14 @@ def main() -> None:
     )
 
     for part in parts:
-        optimize_part(part=part, fal=fal, gemini=gemini, out_dir=session_dir, dry_run=args.dry_run, sleep_s=args.sleep)
+        optimize_part(
+            part=part,
+            fal=fal,
+            gemini=gemini,
+            out_dir=session_dir,
+            dry_run=args.dry_run,
+            sleep_s=args.sleep,
+        )
 
 
 if __name__ == "__main__":

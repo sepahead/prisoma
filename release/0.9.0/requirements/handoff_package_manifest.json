@@ -1,0 +1,350 @@
+{
+  "excluded_file_count": 2,
+  "excluded_files": [
+    {
+      "content_identity_bound": false,
+      "content_read": false,
+      "path": ".DS_Store",
+      "present_as_regular_file": true,
+      "reason": "operating-system metadata excluded from the requirements corpus"
+    },
+    {
+      "content_identity_bound": false,
+      "content_read": false,
+      "path": "repo_work/.DS_Store",
+      "present_as_regular_file": true,
+      "reason": "operating-system metadata excluded from the requirements corpus"
+    }
+  ],
+  "identity_semantics": "SHA-256 over canonical JSON containing all 43 complete included-file records and the two excluded relative paths; excluded file bytes are deliberately unbound",
+  "included_file_count": 43,
+  "included_files": [
+    {
+      "bytes": 1437,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "00_CURRENT_HEAD_AND_ABORT_RULE.md",
+      "role": "handoff_payload",
+      "sha256": "5cdebf6926d0fd3f44020ff0050b3556c382319a9a2c7503a309e0498252e155"
+    },
+    {
+      "bytes": 2269,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "01_AGENT_EXECUTION_PLAYBOOK.md",
+      "role": "handoff_payload",
+      "sha256": "eace2488ab86aaa00d522cce22dbc340b3db08a2320dd2d444f781926543f869"
+    },
+    {
+      "bytes": 6623,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "02_SOURCE_AUDIT_MAP.md",
+      "role": "handoff_payload",
+      "sha256": "ec52e3928809fbf53706bf77bde841aa2fe1dd6027a21d44bad273291914934e"
+    },
+    {
+      "bytes": 4885,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "03_CURRENT_FINDINGS_AND_CORRECTIONS.md",
+      "role": "handoff_payload",
+      "sha256": "61f7212a50a6d6b2817ec99890c8f5e03f4faefb7451febaf63dbfa3918a4f36"
+    },
+    {
+      "bytes": 2475,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "04_NORMATIVE_ARCHITECTURE.md",
+      "role": "handoff_payload",
+      "sha256": "358f5bd781602094c37f91a681295edf8614df62e4c279aee63932e377abc9da"
+    },
+    {
+      "bytes": 1966,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "05_SCIENTIFIC_CLAIM_SEPARATION.md",
+      "role": "handoff_payload",
+      "sha256": "b020396b62f0d1d4516f18eb21de213bd675532fac27d9ba4091106499660d81"
+    },
+    {
+      "bytes": 1604,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "06_M0_PREREGISTRATION_FREEZE.md",
+      "role": "handoff_payload",
+      "sha256": "9c8f2f205f46aa702da9235c8ea0af86502f05a02b7ddb5807a6d31d15881f4d"
+    },
+    {
+      "bytes": 1403,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "07_EC1_CAPTURE_REPLAY_PROTOCOL.md",
+      "role": "handoff_payload",
+      "sha256": "09988866c585806cb2df6c99a72699fbe5ef4750beda4467f1770b0bcbbb6c81"
+    },
+    {
+      "bytes": 1721,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "08_H1_PROTOCOLS_A_B.md",
+      "role": "handoff_payload",
+      "sha256": "6ddf5144f1a9101c4d09a4a4d9a7b78f5980dab2a226c548dc1b96250a7fd2a1"
+    },
+    {
+      "bytes": 1254,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "09_H2_PROTOCOL.md",
+      "role": "handoff_payload",
+      "sha256": "39ba2bf8d37a6fcb1f6de0ac223277c277e485323590a4f744055592dce62b46"
+    },
+    {
+      "bytes": 1302,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "10_H3_CONDITIONAL_PID_PROTOCOL.md",
+      "role": "handoff_payload",
+      "sha256": "a579d884f3c2842096f3131a753474b68a775310b09f5b85997ff87898a2bf9d"
+    },
+    {
+      "bytes": 1013,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "11_H4_AVAILABILITY_USE_PROTOCOL.md",
+      "role": "handoff_payload",
+      "sha256": "6f16316df97dee7259eb7755d898befd711fe78df021f5b3099dff9e81d82dcd"
+    },
+    {
+      "bytes": 1049,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "12_BASELINE_FRONTIER.md",
+      "role": "handoff_payload",
+      "sha256": "a087f7b3605a4f309f745f3200f773802f3f7997bac0ce69b5033b0180b24fc7"
+    },
+    {
+      "bytes": 1143,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "13_POWER_MULTIPLICITY_HOLDOUT.md",
+      "role": "handoff_payload",
+      "sha256": "87d8ce122bf53260bf6f8cd7ad9bf199c2735b8d9c2fd6501cf9f1ebd2491e40"
+    },
+    {
+      "bytes": 1236,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "14_PID_RS_INTEGRATION_CONTRACT.md",
+      "role": "handoff_payload",
+      "sha256": "cb7d50a16aa1295678eb7cb1d1a141dd3357e6a4f52c7f307b13dff6bd49b8f1"
+    },
+    {
+      "bytes": 1099,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "15_NCP_ENGRAM_CONTRACT.md",
+      "role": "handoff_payload",
+      "sha256": "bdb06d7146ad0bbaf192dda92cbf2720c73d2dfef13f87fc4747d3f9006fa5d8"
+    },
+    {
+      "bytes": 811,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "16_DATA_RIGHTS_PRIVACY_SECURITY.md",
+      "role": "handoff_payload",
+      "sha256": "e0241e10bfc25db467cd6620e0e069bd21b6ea9082ccdd8357bf964a4964a0d4"
+    },
+    {
+      "bytes": 1131,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "17_THREAT_MISUSE_FAILURE_MODEL.md",
+      "role": "handoff_payload",
+      "sha256": "cf69fc2930c776d45645cf13d6982a11db394122b2be9ecec47dd6476d96ba8d"
+    },
+    {
+      "bytes": 7098,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "18_ADVERSARIAL_20_LENS_STANDARD.md",
+      "role": "handoff_payload",
+      "sha256": "6222a03d9ed7cd0e940163c9c29139add70b8ac3193c8e871f6f53daa4507b81"
+    },
+    {
+      "bytes": 2281617,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "19_MASTER_TASK_LEDGER.yaml",
+      "role": "master_task_ledger",
+      "sha256": "384f5540dcdb4709b8f9add57e355761c6e076a1c4b22e26e42482bd0c0c4f29"
+    },
+    {
+      "bytes": 13821,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "20_WAVE_EXECUTION_PLAN.md",
+      "role": "handoff_payload",
+      "sha256": "39516c0f0c7b8706c1cb5e70b8bd53d641149d3be2ff0acfa6e6e550e81f05f5"
+    },
+    {
+      "bytes": 731,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "21_SUBAGENT_ASSIGNMENT_TEMPLATE.md",
+      "role": "handoff_payload",
+      "sha256": "24836f046e66a7b69c7316e3c897f0eaaefff388f5ad26d621a24bc9061be822"
+    },
+    {
+      "bytes": 2076,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "22_GO_NO_GO_CHECKLIST.md",
+      "role": "handoff_payload",
+      "sha256": "e3101cafcc17a628c555bb76195121bc53a33e65a512c1f7c3a55361ba5ef67f"
+    },
+    {
+      "bytes": 4062,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "23_PREREGISTRATION_SCHEMA.json",
+      "role": "handoff_payload",
+      "sha256": "5affe45f9cf012defbee00d8f347aedccad95ca2b003072100338e0b266cfc4e"
+    },
+    {
+      "bytes": 4218,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "24_DATA_LINEAGE_SCHEMA.json",
+      "role": "handoff_payload",
+      "sha256": "35f1e7de923a72838c4b6fbb6fc003f1977ecb396cb30444556e94be9d21f836"
+    },
+    {
+      "bytes": 1721,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "25_HOLDOUT_REGISTRY_SCHEMA.json",
+      "role": "handoff_payload",
+      "sha256": "fd6c2c79f26510b2255c825b6c63bb32196dffbae0a6faebb7fa1b5f38bb9613"
+    },
+    {
+      "bytes": 2587,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "26_LOCAL_CONVERGENCE_SCHEMA.json",
+      "role": "handoff_payload",
+      "sha256": "35f840a11263ee98528d160b78d9549fe480f51b2033db2555be293bd4d96da6"
+    },
+    {
+      "bytes": 823,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "27_RELEASE_MANIFEST_TEMPLATE.json",
+      "role": "handoff_payload",
+      "sha256": "e8284ad2c3093ee399ba2fecde0d891b9ca07af911a52ed74ce0856ea6192680"
+    },
+    {
+      "bytes": 1460,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "28_PACKAGE_VALIDATION_REPORT.md",
+      "role": "handoff_payload",
+      "sha256": "f493d5c26f93c2c413056a369204a037305f2e8c3df2a0b806138607a450b893"
+    },
+    {
+      "bytes": 4200,
+      "identity_source": "reviewed generator constant; checksum file cannot list itself",
+      "path": "29_SHA256SUMS.txt",
+      "role": "checksum_manifest",
+      "sha256": "78f18f0f3cf107b495ba6cb9dec2fdcc2e9484b6d0d79019f32ed97ef95afbc4"
+    },
+    {
+      "bytes": 2453,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "PACKAGE_INDEX.md",
+      "role": "handoff_payload",
+      "sha256": "a5c5b0f45dcb8c5325fed69fe95882763e261228187ccd0a0b8f1f692712fc24"
+    },
+    {
+      "bytes": 563,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/README.md",
+      "role": "handoff_payload",
+      "sha256": "beeeac778486c8278304e01f0a79e802106e0b83023ccbeb820789126a403ad7"
+    },
+    {
+      "bytes": 4062,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/schemas/23_PREREGISTRATION_SCHEMA.json",
+      "role": "handoff_payload",
+      "sha256": "5affe45f9cf012defbee00d8f347aedccad95ca2b003072100338e0b266cfc4e"
+    },
+    {
+      "bytes": 4218,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/schemas/24_DATA_LINEAGE_SCHEMA.json",
+      "role": "handoff_payload",
+      "sha256": "35f1e7de923a72838c4b6fbb6fc003f1977ecb396cb30444556e94be9d21f836"
+    },
+    {
+      "bytes": 1721,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/schemas/25_HOLDOUT_REGISTRY_SCHEMA.json",
+      "role": "handoff_payload",
+      "sha256": "fd6c2c79f26510b2255c825b6c63bb32196dffbae0a6faebb7fa1b5f38bb9613"
+    },
+    {
+      "bytes": 2587,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/schemas/26_LOCAL_CONVERGENCE_SCHEMA.json",
+      "role": "handoff_payload",
+      "sha256": "35f840a11263ee98528d160b78d9549fe480f51b2033db2555be293bd4d96da6"
+    },
+    {
+      "bytes": 1762,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/scripts/audit_claim_language.py",
+      "role": "handoff_payload",
+      "sha256": "5a55846b5ac72b2f4263623f1e195e74406480d61ade9674a349f55abdc11163"
+    },
+    {
+      "bytes": 1036,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/scripts/audit_current_head.py",
+      "role": "handoff_payload",
+      "sha256": "1c90b56cec51917212b40a1461e78ba2fdac846dadb48732f6ad07fd5a3ec579"
+    },
+    {
+      "bytes": 1413,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/scripts/audit_file_review_coverage.py",
+      "role": "handoff_payload",
+      "sha256": "565237386e6ea2b65da0e8c36fd1b7c0e977fee746daafc15bc6b7f66d887b5e"
+    },
+    {
+      "bytes": 1750,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/scripts/holdout_commit_reveal.py",
+      "role": "handoff_payload",
+      "sha256": "e4771099ea801d3d4f342ce3364183074357d84edeb4d5313fd9c86abddef644"
+    },
+    {
+      "bytes": 1613,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/scripts/validate_research_package.py",
+      "role": "handoff_payload",
+      "sha256": "a322f1650fe17f9ec59069581e3821f297cba112c9bb654c237efe72d7ca8d8a"
+    },
+    {
+      "bytes": 165,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/templates/CLAIM_TO_EVIDENCE.csv",
+      "role": "handoff_payload",
+      "sha256": "33d388820dd61d443bd957ecd34d0979ae2d7ed328a53476e06d8d41645e0df1"
+    },
+    {
+      "bytes": 189,
+      "identity_source": "29_SHA256SUMS.txt",
+      "path": "repo_work/templates/FILE_REVIEW_LEDGER.csv",
+      "role": "handoff_payload",
+      "sha256": "273dd86b512ab55808ce9fe7911ae557d00a2da511e0235277bed5bde5d47342"
+    }
+  ],
+  "observed_file_count": 45,
+  "package_identity_sha256": "05ff0e9c4292f630c003b116a9146155717b14359989d229d3b43fea2e936240",
+  "project": "prisoma",
+  "record_type": "immutable_handoff_package_manifest",
+  "release_version": "0.9.0",
+  "review": {
+    "all_files_read_for_substantive_review": false,
+    "all_payload_hashes_verified": true,
+    "human_review_complete": false,
+    "independent_review_complete": false,
+    "release_ready": false,
+    "status": "package_identity_verified_requirements_not_completed"
+  },
+  "schema_version": "prisoma.release-requirements/0.1.0",
+  "source": {
+    "absolute_path_recorded": false,
+    "checksum_manifest": {
+      "bytes": 4200,
+      "path": "29_SHA256SUMS.txt",
+      "payload_entry_count": 42,
+      "sha256": "78f18f0f3cf107b495ba6cb9dec2fdcc2e9484b6d0d79019f32ed97ef95afbc4"
+    },
+    "expected_directory_name": "PRISOMA_V1_0_CURRENT_HEAD_MAX_EFFORT_STANDALONE_HANDOFF",
+    "operator_supplied_explicit_directory": true,
+    "stable_double_capture_required": true
+  }
+}

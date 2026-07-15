@@ -1,0 +1,44 @@
+{
+  "author": {
+    "basis": "explicit_user_instruction",
+    "name": "Sepehr Mahmoudian",
+    "scope": "release authorship metadata; not an assertion of review completion"
+  },
+  "frozen_baseline": {
+    "commit": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+    "pid_rs_gitlink_commit": "ac4a7803c5a77408f5e9176c60cda71c65c38260",
+    "tracked_entry_count": 175,
+    "tree": "d7ee5763cbdc5906c91ff4c82c5fc9a124c6aa84"
+  },
+  "handoff_binding": {
+    "master_ledger_sha256": "384f5540dcdb4709b8f9add57e355761c6e076a1c4b22e26e42482bd0c0c4f29",
+    "phase_count": 16,
+    "task_count": 240,
+    "task_graph_sha256": "ac2926271314f48052c4b7d84862fff20c0f7f76a3e73816cc5018e3583fec71"
+  },
+  "project": "prisoma",
+  "record_type": "release_review_intake",
+  "release": {
+    "doi": null,
+    "doi_status": "not_assigned_user_will_add_later",
+    "nominal_handoff_target": "1.0.0",
+    "override": "user_requested_0.9.0_review_release_before_1.0",
+    "published": false,
+    "requested_release": "0.9.0",
+    "status": "review_intake_open_not_release_ready",
+    "zenodo_record": null,
+    "zenodo_status": "not_created_user_will_add_later"
+  },
+  "repository": "https://github.com/sepahead/prisoma",
+  "review": {
+    "all_tasks_closed": false,
+    "boundary": "Normalization and inventory are mechanical evidence only; every task and substantive file review remains open until separately evidenced.",
+    "closed_task_ids": [],
+    "human_review_complete": false,
+    "independent_review_complete": false,
+    "release_ready": false,
+    "scientific_claims_established": false,
+    "status": "intake_and_inventory_only"
+  },
+  "schema_version": "prisoma.release-review/0.1.0"
+}

@@ -16,7 +16,6 @@ use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufWriter, Read, Write};
 use std::path::{Component, Path, PathBuf};
-use std::time::Duration;
 
 pub mod h1_preflight;
 pub mod h1_protocol_a;
@@ -1571,16 +1570,10 @@ fn export_runlog_to_rerun_inner(
         );
     }
     let rec = pid_rerun::init_recording("prisoma_bridge_export", false)?;
-    let binary = rec.binary_stream();
     pid_rerun::RunLogRerunLogger::new(&rec)
         .without_external_artifact_loading()
         .log_events_with_manifest(&events, Some(&manifest))?;
-    binary
-        .flush(Duration::from_secs(30))
-        .context("timed out while finalizing the Rerun recording")?;
-    let recording = binary
-        .read()
-        .context("Rerun encoder produced no recording bytes")?;
+    let recording = pid_rerun::finalize_recording_bytes(&rec)?;
     let sha256 = install_new_artifact(output_uri, &recording)?;
     let output_path = output_uri.to_path_buf();
     let output_uri = output_path.display().to_string();

@@ -1,16 +1,16 @@
 # Prisoma 0.9 limitations
 
-**Release scope:** Prisoma 0.9.0 source and research-software preview
+**Candidate scope:** Prisoma 0.9.0 unpublished source and research-software preview
 
 **Author:** Sepehr Mahmoudian
 **Canonical research specification:** [`grandplan.md`](grandplan.md), docset v12.5
 
-Prisoma 0.9 packages tested software groundwork and explicit research protocols. It is not a
-scientific-results release, a frozen preregistration, a validated safety system, or a
-production-deployment qualification. Passing a command in this repository establishes only the
-behavior named by that command on its checked inputs. It does not establish causal
-identification, statistical validity, transportability, estimator application validity, or a
-thesis hypothesis.
+The Prisoma 0.9.0 candidate packages tested software groundwork and explicit research
+protocols. It is not a scientific-results release, a frozen preregistration, a validated safety
+system, or a production-deployment qualification. Passing a command in this repository
+establishes only the behavior named by that command on its checked inputs. It does not establish
+causal identification, statistical validity, transportability, estimator application validity,
+or a thesis hypothesis.
 
 The machine-readable current state is
 [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json). The
@@ -18,7 +18,7 @@ generated [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) is the softwa
 inventory. It currently has no `validated` rows. If this summary and the canonical specification
 ever differ, the more restrictive statement governs until the discrepancy is reviewed.
 
-## Scientific status at release
+## Scientific status in this candidate
 
 | Area | Current status | What 0.9 does not establish |
 |---|---|---|
@@ -91,7 +91,7 @@ The real study cannot be frozen by filling null fields in the current v1 scaffol
 successor schema and validator must content-bind the target population, policy, embodiment,
 environment, intervention, outcomes, time origin, units, estimands, minimum useful effects,
 splits, multiplicity, power/precision design, missingness, rights, and analysis environment. It
-must then receive the required candidate, supervisor, and independent-review decisions. No such
+must then receive the required candidate, designated-reviewer, and independent-review decisions. No such
 signatures or decisions are represented in 0.9.
 
 Before confirmatory analysis, an independent custodian must register and control a real holdout,
@@ -172,9 +172,16 @@ fault observatory exercises a finite local fixture and records a known whole-tic
 spot; it does not measure live timing, delivery completeness, QoS, reconnect behavior,
 authentication, ACL enforcement, or producer noninterference. The observer's visible-receipt
 capture grade is a join/publication grade, not proof that every source event was delivered.
-The Zenoh 1.9 dependency graph retains the unmaintained (not known vulnerable)
-`rustls-pemfile` 2.2.0 because no compatible replacement exists; `deny.toml` records the narrow
-temporary exception, which must be removed when a qualified upstream pin permits it.
+The Zenoh 1.9 dependency graph retains `lz4_flex` 0.10.0, which is affected by the
+high-severity RUSTSEC-2026-0041 block-decompression information disclosure. The checked profile
+does not enable Zenoh's `transport_compression`, so the affected call is cfg-elided, and CI fails
+if that feature appears. The vulnerable package is still present in the optional lock: this is
+not a clean audit, does not qualify the NCP binary for release or live use, and must be removed by
+a qualified NCP/Zenoh pin admitting `lz4_flex` 0.11.6 or newer. The graph also retains the
+unmaintained (not known vulnerable) `rustls-pemfile` 2.2.0 because no compatible replacement
+exists. Both the default workspace and observer graphs also retain the unmaintained `paste`
+1.0.15 proc-macro through nalgebra/Zenoh. `deny.toml` records each temporary exception and its
+actual dependency scope.
 
 No conforming public live producer currently supplies the honest language, split, episode, and
 outcome structure needed by the research path, and the public Engram repository is not a live
@@ -190,6 +197,21 @@ not substitute for those deliverables. The run-log-to-Rerun converter is runnabl
 Phases 1–3 diagnostic viewer is not built. The Tauri/SparkJS shell and custom renderer are
 deferred product surfaces. A successful conversion, displayed plot, or screenshot does not prove
 outcome blinding, replay correctness, estimator validity, or a scientific claim.
+
+External attribution-artifact loading is default-off and unavailable to bridge export. The
+standalone converter's explicit opt-in enforces relative regular, non-symlink paths, bounded exact
+NumPy framing, finite values, canonical shape metadata, exact SHA-256 binding, and batch preflight
+before its first Rerun write. It rejects timestamps beyond Rerun's signed-nanosecond range and caps
+one conversion at 100,000 events, 64 MiB of serialized event content, 64 MiB of
+application-generated entity paths, 250,000 projected log calls, 16 MiB for a supplied compact
+manifest, and 8 MiB of retained relevance values plus their in-memory shape and identity storage.
+These viewer limits are stricter than the canonical run-log reader. Headless saves explicitly finalize the
+encoder and install a staged, file-synced
+`.rrd` without replacement, but do not fsync the parent directory. The Python attribution producer
+uses immutable content-addressed artifacts and replaces the run-log name last; a failed publication
+can leave an unreferenced new artifact, and no cross-file transaction or power-loss guarantee is
+claimed. Path confinement remains a local best-effort boundary rather than a security-grade defense
+against hardlinks, aliases, or every concurrent filesystem race.
 
 ## Reproducibility and generalization limitations
 

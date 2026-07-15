@@ -52,6 +52,15 @@ being true as the code moves).
 5. **No AI co-authors.** Never add Claude, AI assistants, or agents as commit/PR co-authors —
    no `Co-Authored-By:` trailer and no "Generated with Claude Code" / 🤖 marker in commit
    messages or pull-request descriptions.
+6. **Candidate evidence stays separate from immutable intake.** The handoff baselines under
+   `release/0.9.0/{review,requirements}` are never edited to imply progress. Candidate updates
+   enter only through `release/0.9.0/candidate_progress.json`; regenerate the content-bound
+   `release/0.9.0/candidate/` artifacts and run `python scripts/audit_candidate_release.py`.
+   Passing that audit proves internal integrity, not task closure, release readiness, or a
+   scientific claim. Progress schema 0.1 is deliberately non-promotable: it records only
+   open/in-progress/blocked work, wave rework, and failed evidence. Positive terminal states
+   require a reviewed successor schema with typed obligation coverage and authenticated CI
+   attestations.
 
 ## Architecture invariants (docset-wide final solution)
 
@@ -166,6 +175,9 @@ being true as the code moves).
 - **`pid-rerun`** — run-log→Rerun conversion and a validated replay adapter with
   summary/provenance/validation diagnostics; replay summaries distinguish unique metric
   names from total metric-event counts; surfaces `attribution_logged` events (see below).
+  Converter input is a bounded, non-symlink regular-file snapshot; timestamps outside Rerun's
+  signed-nanosecond range and viewer event/byte/log-call budgets fail before output. Headless
+  `.rrd` saves are explicitly finalized, file-synced, and installed without replacement.
 
 ### Machine-readable truth ledgers (`protocols/`)
 
@@ -219,11 +231,20 @@ saliency/SmoothGrad, occlusion, SHAP-style probes) are **H4/exploratory companio
 diagnostics/baselines**, never substitutes for PID gates. The `attribution_logged` run-log
 event carries method, target_output, layer, modality, baseline, score_hash,
 faithfulness_check, and artifact_uri. The `pid-rerun` adapter surfaces each event as a
-plottable faithfulness verdict (`attributions/faithfulness/{method}`: 1.0 pass / 0.0 fail),
-a provenance text line, and — when `artifact_uri` points to a NumPy `.npy` as the probe
-writes — the per-element relevance values (capped at 1024) as a `Scalars` series at
-`attributions/relevance/{method}`, via a small dependency-free `.npy` parser (best-effort;
-missing/unparseable artifacts are skipped). Multi-panel 2-D heatmap blueprints remain
+plottable faithfulness verdict (1.0 pass / 0.0 fail) and a provenance text line at a
+hashed identity over method, target, layer, modality, and baseline. Other dynamic run-log
+identifiers use injective single-segment percent encoding. The standalone
+converter's explicit `--load-attribution-artifacts` mode additionally loads at most 1024 finite
+relevance values
+from an exact, bounded NumPy `.npy` file; it confines relative regular, non-symlink paths to
+the run-log directory and fails closed on a missing/malformed file or a mismatch with the recorded
+exact file SHA-256 and canonical shape. It preflights and retains every referenced array before
+the first Rerun write under an 8 MiB aggregate cap. A conversion is also bounded to 100,000
+events, 64 MiB of serialized event content, 64 MiB of application-generated entity paths,
+250,000 projected Rerun log calls, and 16 MiB for a supplied compact manifest.
+External loading is default-off, and bridge export never enables it. This is local best-effort
+path confinement, not protection against every concurrent filesystem race. Multi-panel 2-D heatmap
+blueprints remain
 future work. Attribution agreement is an H4/exploratory diagnostic and must be grounded in
 action and counterfactual effects, not treated as faithfulness by itself (`grandplan.md` §4,
 §10.2).

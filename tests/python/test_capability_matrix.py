@@ -329,6 +329,40 @@ def test_registry_revision_must_match_a_bound_cargo_lock(tmp_path: Path) -> None
         load_catalog(path, root=tmp_path, required_feature_ids=_FIXTURE_REQUIRED)
 
 
+def test_multiple_registry_revisions_are_each_bound_to_cargo_lock(
+    tmp_path: Path,
+) -> None:
+    first_checksum = "a" * 64
+    second_checksum = "b" * 64
+    catalog = _catalog()
+    row = catalog["rows"][0]
+    row["external_revision"] = (
+        f"first-crate@1.2.3#sha256:{first_checksum}; "
+        f"second-crate@4.5.6#sha256:{second_checksum}"
+    )
+    row["evidence_level"] = "E2"
+    row["evidence_basis"] = "declared_immutable_dependency"
+    row["revision_inputs"] = ["src", "Cargo.lock"]
+    path = _write_repo(tmp_path, catalog)
+    (tmp_path / "Cargo.lock").write_text(
+        'version = 4\n\n[[package]]\nname = "first-crate"\nversion = "1.2.3"\n'
+        'source = "registry+https://example.invalid/index"\n'
+        f'checksum = "{first_checksum}"\n\n'
+        '[[package]]\nname = "second-crate"\nversion = "4.5.6"\n'
+        'source = "registry+https://example.invalid/index"\n'
+        f'checksum = "{second_checksum}"\n',
+        encoding="utf-8",
+    )
+    load_catalog(path, root=tmp_path, required_feature_ids=_FIXTURE_REQUIRED)
+
+    (tmp_path / "Cargo.lock").write_text(
+        (tmp_path / "Cargo.lock").read_text().replace(second_checksum, "c" * 64),
+        encoding="utf-8",
+    )
+    with pytest.raises(CatalogError, match="does not match any exact package"):
+        load_catalog(path, root=tmp_path, required_feature_ids=_FIXTURE_REQUIRED)
+
+
 def test_git_revision_must_match_a_bound_cargo_lock_source(tmp_path: Path) -> None:
     catalog = _catalog()
     path = _write_repo(tmp_path, catalog)

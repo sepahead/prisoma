@@ -1,0 +1,220 @@
+{
+  "author": "Sepehr Mahmoudian",
+  "boundary": "This manifest describes an unpublished 0.9 candidate only. It makes no 1.0 convergence, scientific completion, DOI, Zenodo, tag, or publication claim.",
+  "candidate_gates": {
+    "P0_and_blocking_P1_defects_resolved": "open",
+    "all_file_reviews_final": "open",
+    "all_task_and_lens_dispositions_closed": "open",
+    "all_wave_receipts_accepted_or_removed": "open",
+    "clean_exact_commit": "open",
+    "exact_test_receipts_complete": "open",
+    "post_push_main_ci_success": "open",
+    "publication_authorized": "open",
+    "retained_software_claims_verified_or_withdrawn": "open",
+    "terminal_promotion_schema": "open"
+  },
+  "claims": [
+    {
+      "claim_id": "SW09-001",
+      "status": "source_evidenced_verification_pending"
+    },
+    {
+      "claim_id": "SW09-002",
+      "status": "source_evidenced_verification_pending"
+    },
+    {
+      "claim_id": "SW09-003",
+      "status": "source_evidenced_verification_pending"
+    },
+    {
+      "claim_id": "SW09-004",
+      "status": "source_evidenced_verification_pending"
+    },
+    {
+      "claim_id": "SCI-EC1",
+      "status": "blocked_not_established"
+    },
+    {
+      "claim_id": "SCI-H1",
+      "status": "blocked_not_established"
+    },
+    {
+      "claim_id": "SCI-H2",
+      "status": "blocked_not_established"
+    },
+    {
+      "claim_id": "SCI-H3",
+      "status": "blocked_not_established"
+    },
+    {
+      "claim_id": "SCI-H4",
+      "status": "blocked_not_established"
+    },
+    {
+      "claim_id": "SCI-PID-APPLICATION",
+      "status": "blocked_not_established"
+    }
+  ],
+  "component_semantic_sha256": {
+    "claim_evidence_ledger.json": "a4f051be152660f4068c6a8e469126a6feed1e8486b1048bbc809cfe85ac1d8e",
+    "defect_register.json": "acd19ecda652e21698e6bcb7485905c49359dcad0e228f354fa18677a8c73802",
+    "evidence_receipts.json": "83a475ccd382ce911370a12ad228f0b83914ac17116e838638dedc9dabbf7a8d",
+    "source_inventory.json": "5caccde5417265fce83d8c337423cbed5248bdc7aa4b21eb725fb9ebbccf5cd1",
+    "task_lens_ledger.json": "d1b57a1b7f792073d11e38a06b4ec88b0c32c0a81b563642838f920aa5460607"
+  },
+  "cross_repository_qualification": [],
+  "datasets": [],
+  "decision": "NO_GO",
+  "decision_detail": {
+    "publication_ready": false,
+    "release_ready": false,
+    "scientific_claims_established": false,
+    "status": "NO_GO_SCHEMA_0_1_NON_PROMOTABLE"
+  },
+  "evidence": [
+    {
+      "receipt_id": "RCP-RUST",
+      "status": "pending_post_push_ci"
+    },
+    {
+      "receipt_id": "RCP-RERUN",
+      "status": "pending_post_push_ci"
+    },
+    {
+      "receipt_id": "RCP-PYTHON",
+      "status": "pending_post_push_ci"
+    },
+    {
+      "receipt_id": "RCP-DOCS",
+      "status": "pending_post_push_ci"
+    },
+    {
+      "receipt_id": "RCP-SUPPLY-CHAIN",
+      "status": "pending_post_push_ci"
+    },
+    {
+      "receipt_id": "RCP-POST-PUSH-CI",
+      "status": "pending_post_push_ci"
+    }
+  ],
+  "holdout": {
+    "registered": false,
+    "status": "not_registered_governance_open"
+  },
+  "independent_reviews": [],
+  "manifest_schema": "prisoma.unpublished-candidate/0.1.0",
+  "models": [],
+  "packages": [
+    {
+      "name": "prisoma",
+      "published": false,
+      "version": "0.9.0"
+    }
+  ],
+  "project": "prisoma",
+  "protocol_gates": {
+    "EC1": "open_not_established",
+    "H1": "open_not_established",
+    "H2": "open_not_established",
+    "H3": "open_not_established",
+    "H4": "exploratory_not_established",
+    "application_continuous_pid": "blocked_not_application_validated",
+    "estimator_high_dimensional_mi_coherence": "no_go",
+    "measure": "blocked_for_default_zero_redundancy_target",
+    "population": "open_not_frozen"
+  },
+  "protocol_status": {
+    "EC1": "NOT_CLAIMED",
+    "H1_A": "BLOCKED",
+    "H1_B": "BLOCKED",
+    "H2": "BLOCKED",
+    "H3": "BLOCKED",
+    "H4": "BLOCKED_EXPLORATORY_ONLY",
+    "M0": "UNFROZEN"
+  },
+  "record_type": "unpublished_0_9_candidate_manifest",
+  "release": {
+    "doi": null,
+    "nominal_handoff_version": "1.0.0",
+    "one_point_zero_convergence_claimed": false,
+    "published": false,
+    "release_url": null,
+    "status": "draft_unpublished_not_release_ready",
+    "tag": null,
+    "version": "0.9.0",
+    "zenodo_record": null
+  },
+  "release_version": "0.9.0",
+  "removed_claims": [],
+  "repository": "https://github.com/sepahead/prisoma",
+  "residual_risks": [
+    "the recorded source state is not bound to a successful pushed candidate",
+    "imported task/lens or wave review remains unfinished",
+    "source-file review dispositions remain unfinished",
+    "retained software claims remain pending exact-candidate verification",
+    "exact-candidate test and CI receipts remain incomplete",
+    "candidate schema 0.1 cannot authenticate terminal evidence or represent typed task-specific closure",
+    "continuous PID application validity remains blocked",
+    "Rerun output hardening is local software behavior, not a remote-security claim",
+    "full viewer phases and the deferred custom shell are not runnable capabilities"
+  ],
+  "schema_version": "prisoma.release-candidate/0.1.0",
+  "schemas": [
+    "prisoma.release-candidate/0.1.0"
+  ],
+  "security": {
+    "privacy_review_sha256": null,
+    "sbom_sha256": null,
+    "status": "exact_candidate_receipts_pending",
+    "vulnerability_report_sha256": null
+  },
+  "signatures": [],
+  "source": {
+    "candidate_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+    "commit": "a63a087b644073542dde501cb33ea0d61342767b",
+    "commit_role": "parent_HEAD_at_dirty_candidate_capture_not_release_commit",
+    "repository": "https://github.com/sepahead/prisoma",
+    "tree_clean": false
+  },
+  "source_candidate": {
+    "clean": false,
+    "exact_pushed_commit": null,
+    "head_commit_at_capture": "a63a087b644073542dde501cb33ea0d61342767b",
+    "state": "dirty_uncommitted_source_snapshot",
+    "state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd"
+  },
+  "submodules": [
+    {
+      "dirty": false,
+      "index_commit": "ac4a7803c5a77408f5e9176c60cda71c65c38260",
+      "path": "pid-rs",
+      "working_commit": "ac4a7803c5a77408f5e9176c60cda71c65c38260"
+    }
+  ],
+  "terminal_promotion": {
+    "enabled": false,
+    "policy": "disabled_in_0.1_pending_typed_authenticated_evidence",
+    "readiness_prerequisites_satisfied": false,
+    "successor_schema_required": true
+  },
+  "toolchains": [
+    {
+      "declared_requirement": "1.93",
+      "identity_path": "Cargo.toml",
+      "name": "rust",
+      "verification_status": "pending_post_push_ci"
+    },
+    {
+      "declared_requirement": ">=3.11",
+      "identity_path": "pyproject.toml",
+      "name": "python",
+      "verification_status": "pending_post_push_ci"
+    },
+    {
+      "declared_requirement": "==0.11.28",
+      "identity_path": "pyproject.toml",
+      "name": "uv",
+      "verification_status": "pending_post_push_ci"
+    }
+  ]
+}

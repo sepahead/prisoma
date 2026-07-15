@@ -6,10 +6,10 @@
 //! 3. Logs everything to Rerun for visualization
 //!
 //! Usage:
-//!   cargo run -p pid-rerun --bin vla-demo
+//!   cargo run -p pid-rerun --bin vla-demo -- --serve
 //!   cargo run -p pid-rerun --bin vla-demo -- --save demo.rrd
 
-use anyhow::Result;
+use anyhow::{bail, ensure, Context, Result};
 use ndarray::{s, Array2};
 use pid_core::diagnostics::{
     distance_concentration_stats, intrinsic_dimension_levina_bickel, DistanceConcentrationConfig,
@@ -20,45 +20,227 @@ use pid_core::stable::continuous::{KsgConfig, NegativeHandling};
 use pid_core::MatRef;
 use pid_rerun::adapters::{PidLogger, VlaLogger};
 use pid_rerun::data::generate_synthetic_episode;
-use rerun::RecordingStreamBuilder;
+use pid_rerun::{init_recording, save_recording};
 use std::env;
+
+const DEMO_PID_SOURCE_LABELS: [&str; 2] =
+    ["vision_embedding_dims_0_1", "vision_embedding_dims_2_3"];
+
+#[derive(Debug, PartialEq, Eq)]
+struct DemoOptions {
+    save_path: Option<String>,
+    serve: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PidAtoms {
+    redundancy: f64,
+    synergy: f64,
+    unique_v1: f64,
+    unique_v2: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct GeometryDiagnostics {
+    intrinsic_dim: f64,
+    distance_concentration_cv: f64,
+}
+
+trait DemoWindowSink {
+    fn atom_metrics(
+        &mut self,
+        timestamp: f64,
+        atoms: PidAtoms,
+        source_labels: [&str; 2],
+    ) -> Result<()>;
+    fn geometry_metrics(&mut self, timestamp: f64, diagnostics: GeometryDiagnostics) -> Result<()>;
+    fn diagnostic(&mut self, timestamp: f64, message: &str) -> Result<()>;
+}
+
+impl DemoWindowSink for PidLogger<'_> {
+    fn atom_metrics(
+        &mut self,
+        timestamp: f64,
+        atoms: PidAtoms,
+        source_labels: [&str; 2],
+    ) -> Result<()> {
+        self.log_source_labeled_pid_atoms(
+            timestamp,
+            atoms.redundancy,
+            atoms.synergy,
+            [atoms.unique_v1, atoms.unique_v2],
+            source_labels,
+        )
+    }
+
+    fn geometry_metrics(&mut self, timestamp: f64, diagnostics: GeometryDiagnostics) -> Result<()> {
+        self.log_geometry(
+            timestamp,
+            diagnostics.intrinsic_dim,
+            diagnostics.distance_concentration_cv,
+            None,
+        )
+    }
+
+    fn diagnostic(&mut self, timestamp: f64, message: &str) -> Result<()> {
+        self.log_event(timestamp, "WARN", message)
+    }
+}
+
+fn emit_pid_window(
+    sink: &mut impl DemoWindowSink,
+    timestamp: f64,
+    estimate: Result<PidAtoms>,
+) -> Result<bool> {
+    match estimate {
+        Ok(atoms) => {
+            sink.atom_metrics(timestamp, atoms, DEMO_PID_SOURCE_LABELS)?;
+            Ok(true)
+        }
+        Err(error) => {
+            sink.diagnostic(
+                timestamp,
+                &format!("PID2 window abstained; no atom metrics emitted: {error:#}"),
+            )?;
+            Ok(false)
+        }
+    }
+}
+
+fn emit_geometry_window(
+    sink: &mut impl DemoWindowSink,
+    timestamp: f64,
+    estimate: Result<GeometryDiagnostics>,
+) -> Result<Option<GeometryDiagnostics>> {
+    match estimate {
+        Ok(diagnostics) => {
+            sink.geometry_metrics(timestamp, diagnostics)?;
+            Ok(Some(diagnostics))
+        }
+        Err(error) => {
+            sink.diagnostic(
+                timestamp,
+                &format!("geometry diagnostics unavailable; no numeric metrics emitted: {error:#}"),
+            )?;
+            Ok(None)
+        }
+    }
+}
+
+fn estimate_geometry(
+    values: &[f64],
+    n_rows: usize,
+    n_columns: usize,
+) -> Result<GeometryDiagnostics> {
+    let matrix = MatRef::new(values, n_rows, n_columns)
+        .context("vision window has an invalid matrix shape")?;
+    let intrinsic_dim = intrinsic_dimension_levina_bickel(matrix, &IntrinsicDimConfig::default())
+        .context("intrinsic-dimension diagnostic abstained")?;
+    let distance_concentration_cv =
+        distance_concentration_stats(matrix, &DistanceConcentrationConfig::default())
+            .context("distance-concentration diagnostic abstained")?
+            .pairwise_cv;
+    ensure!(
+        intrinsic_dim.is_finite()
+            && intrinsic_dim >= 0.0
+            && distance_concentration_cv.is_finite()
+            && distance_concentration_cv >= 0.0,
+        "geometry diagnostics returned a non-finite or negative value"
+    );
+    Ok(GeometryDiagnostics {
+        intrinsic_dim,
+        distance_concentration_cv,
+    })
+}
+
+fn estimate_pid_atoms(
+    source_1: &[f64],
+    source_2: &[f64],
+    target: &[f64],
+    n_rows: usize,
+    source_columns: usize,
+    target_columns: usize,
+    config: &Pid2Config,
+) -> Result<PidAtoms> {
+    let source_1 = MatRef::new(source_1, n_rows, source_columns)
+        .context("first vision source has an invalid matrix shape")?;
+    let source_2 = MatRef::new(source_2, n_rows, source_columns)
+        .context("second vision source has an invalid matrix shape")?;
+    let target = MatRef::new(target, n_rows, target_columns)
+        .context("action target has an invalid matrix shape")?;
+    let estimate = pid2_isx(source_1, source_2, target, config)
+        .context("continuous PID2 estimator abstained")?;
+    let atoms = PidAtoms {
+        redundancy: estimate.redundancy,
+        synergy: estimate.synergy,
+        unique_v1: estimate.unique_s1,
+        unique_v2: estimate.unique_s2,
+    };
+    ensure!(
+        [
+            atoms.redundancy,
+            atoms.synergy,
+            atoms.unique_v1,
+            atoms.unique_v2,
+        ]
+        .into_iter()
+        .all(f64::is_finite),
+        "continuous PID2 estimator returned a non-finite atom"
+    );
+    ensure!(
+        (atoms.redundancy + atoms.unique_v1 + atoms.unique_v2 + atoms.synergy).is_finite(),
+        "continuous PID2 atom sum overflowed the finite MI range"
+    );
+    Ok(atoms)
+}
+
+fn parse_options(args: &[String]) -> Result<DemoOptions> {
+    let mut save_path = None;
+    let mut serve = false;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--save" => {
+                if save_path.is_some() {
+                    bail!("--save may be specified only once");
+                }
+                let Some(path) = args.get(i + 1) else {
+                    bail!("--save requires a path");
+                };
+                if path.is_empty() || path.starts_with('-') {
+                    bail!("--save requires a nonempty path that does not start with '-'");
+                }
+                save_path = Some(path.clone());
+                i += 2;
+            }
+            "--serve" => {
+                if serve {
+                    bail!("--serve may be specified only once");
+                }
+                serve = true;
+                i += 1;
+            }
+            other => bail!("unknown argument: {other}"),
+        }
+    }
+    if save_path.is_some() && serve {
+        bail!("--save and --serve are mutually exclusive");
+    }
+    Ok(DemoOptions { save_path, serve })
+}
 
 fn main() -> Result<()> {
     println!("=== prisoma Demo with Rerun Visualization ===\n");
 
-    // Parse args
-    let args: Vec<String> = env::args().collect();
-    let mut save_path = None;
-    let mut serve = false;
-    let mut i = 1usize;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--save" if i + 1 < args.len() => {
-                save_path = Some(args[i + 1].clone());
-                i += 2;
-            }
-            "--serve" => {
-                serve = true;
-                i += 1;
-            }
-            _ => {
-                i += 1;
-            }
-        }
-    }
+    let args = env::args().skip(1).collect::<Vec<_>>();
+    let DemoOptions { save_path, serve } = parse_options(&args)?;
 
     // Initialize Rerun
     println!("Initializing Rerun...");
-    let rec = if save_path.is_some() {
-        // Use buffered mode when saving to file
-        RecordingStreamBuilder::new("prisoma_demo").buffered()?
-    } else {
-        // Spawn viewer for interactive use
-        RecordingStreamBuilder::new("prisoma_demo").spawn()?
-    };
+    let rec = init_recording("prisoma_demo", serve)?;
 
     // Create loggers
-    let pid_logger = PidLogger::new(&rec);
+    let mut pid_logger = PidLogger::new(&rec);
     let vla_logger = VlaLogger::new(&rec);
 
     // Generate synthetic VLA episode
@@ -91,6 +273,8 @@ fn main() -> Result<()> {
     let timestamps = episode.timestamps();
 
     let mut window_start = 0;
+    let mut pid_windows_produced = 0usize;
+    let mut pid_windows_abstained = 0usize;
     while window_start + window_size <= n_frames {
         let window_end = window_start + window_size;
 
@@ -106,25 +290,15 @@ fn main() -> Result<()> {
         // Convert to contiguous slice for pid-core
         let v_flat: Vec<f64> = v_window.iter().cloned().collect();
 
-        // Check geometry using pid-core MatRef API
-        let id_config = IntrinsicDimConfig::default();
-        let v_mat = MatRef::new(&v_flat, n, vision_dim).ok();
-        let intrinsic_dim = v_mat
-            .and_then(|m| intrinsic_dimension_levina_bickel(m, &id_config).ok())
-            .unwrap_or(f64::NAN);
-
-        let dc_config = DistanceConcentrationConfig::default();
-        let dc_cv = v_mat
-            .and_then(|m| distance_concentration_stats(m, &dc_config).ok())
-            .map(|s| s.pairwise_cv)
-            .unwrap_or(f64::NAN);
-
-        // Log geometry
-        pid_logger.log_geometry(timestamp, intrinsic_dim, dc_cv, None)?;
+        let geometry = emit_geometry_window(
+            &mut pid_logger,
+            timestamp,
+            estimate_geometry(&v_flat, n, vision_dim),
+        )?;
 
         // Compute PID2 using a subset of dimensions (for speed)
         let v_source_1: Vec<f64> = v_window.slice(s![.., 0..2]).iter().cloned().collect();
-        let v_source_2: Vec<f64> = v_window.slice(s![.., 2..3]).iter().cloned().collect();
+        let v_source_2: Vec<f64> = v_window.slice(s![.., 2..4]).iter().cloned().collect();
         let a_subset: Vec<f64> = a_window.slice(s![.., 0..1]).iter().cloned().collect();
 
         // pid-core 1.0 fails closed on an unspecified support contract; this demo runs on
@@ -135,41 +309,29 @@ fn main() -> Result<()> {
             ksg: ksg_config,
             isx: IsxConfig::assume_regular_full_dimensional(),
         };
-        let v1_mat = MatRef::new(&v_source_1, n, 2).ok();
-        let v2_mat = MatRef::new(&v_source_2, n, 1).ok();
-        let a_mat = MatRef::new(&a_subset, n, 1).ok();
-
         // NB: this synthetic demo decomposes two VISION subspaces (dims 0..2
-        // vs dim 2), so `unique_s2` is a second-vision-subspace term, not a
-        // language term. It is fed into the `unique_l` slot below only to
-        // exercise the plotting path — a real (V,L)→A screen would put an
-        // actual language source here.
-        let (redundancy, unique_v, unique_v2, synergy) = match (v1_mat, v2_mat, a_mat) {
-            (Some(v1), Some(v2), Some(a)) => match pid2_isx(v1, v2, a, &pid_config) {
-                Ok(pid) => (pid.redundancy, pid.unique_s1, pid.unique_s2, pid.synergy),
-                Err(err) => {
-                    pid_logger.log_event(
-                        timestamp,
-                        "WARN",
-                        &format!("PID2 estimate failed for demo window: {err}"),
-                    )?;
-                    (0.0, 0.0, 0.0, 0.0)
-                }
-            },
-            _ => (0.0, 0.0, 0.0, 0.0),
-        };
-
-        // Log PID metrics (unique_v2 occupies the unique_l slot — see note above).
-        pid_logger.log_pid_atoms(timestamp, redundancy, synergy, unique_v, unique_v2)?;
+        // vs dims 2..4), so `unique_s2` is a second-vision-subspace term, not a
+        // language term. The source-agnostic logger records both vision labels
+        // as provenance and uses fixed unique_source_1/unique_source_2 entities.
+        let produced = emit_pid_window(
+            &mut pid_logger,
+            timestamp,
+            estimate_pid_atoms(&v_source_1, &v_source_2, &a_subset, n, 2, 1, &pid_config),
+        )?;
+        if produced {
+            pid_windows_produced += 1;
+        } else {
+            pid_windows_abstained += 1;
+        }
 
         // Log events at interesting points
-        if intrinsic_dim > 20.0 {
+        if let Some(diagnostics) = geometry.filter(|diagnostics| diagnostics.intrinsic_dim > 20.0) {
             pid_logger.log_event(
                 timestamp,
                 "WARN",
                 &format!(
                     "High intrinsic dimension detected: {:.1} (threshold: 20)",
-                    intrinsic_dim
+                    diagnostics.intrinsic_dim
                 ),
             )?;
         }
@@ -234,8 +396,8 @@ fn main() -> Result<()> {
     }
 
     println!("\n=== Demo complete! ===");
-    println!("The Rerun viewer should now show:");
-    println!("  - PID metrics over time (pid/metrics/*)");
+    println!("The recording includes:");
+    println!("  - PID windows: {pid_windows_produced} produced, {pid_windows_abstained} abstained");
     println!("  - Geometry diagnostics (pid/geometry/*)");
     println!("  - VLA action trajectories (vla/action/*)");
     println!("  - Object positions (world/objects)");
@@ -245,15 +407,168 @@ fn main() -> Result<()> {
     // Save if requested
     if let Some(path) = &save_path {
         println!("\nSaving recording to: {}", path);
-        rec.save(path)?;
+        save_recording(&rec, path)?;
         println!("Recording saved successfully!");
     } else if serve {
         // Keep running so viewer stays connected (only in interactive mode)
         println!("\nPress Ctrl+C to exit...");
         std::thread::sleep(std::time::Duration::from_secs(3600));
     } else {
-        println!("\nRun with --serve to keep the interactive viewer connected.");
+        println!("\nNo --save or --serve selected; recording was buffered and discarded.");
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        emit_geometry_window, emit_pid_window, parse_options, DemoOptions, DemoWindowSink,
+        GeometryDiagnostics, PidAtoms,
+    };
+    use anyhow::{anyhow, Result};
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_owned()).collect()
+    }
+
+    #[test]
+    fn demo_modes_are_explicit() {
+        assert_eq!(
+            parse_options(&[]).unwrap(),
+            DemoOptions {
+                save_path: None,
+                serve: false,
+            }
+        );
+        assert_eq!(
+            parse_options(&args(&["--serve"])).unwrap(),
+            DemoOptions {
+                save_path: None,
+                serve: true,
+            }
+        );
+        assert_eq!(
+            parse_options(&args(&["--save", "demo.rrd"])).unwrap(),
+            DemoOptions {
+                save_path: Some("demo.rrd".to_owned()),
+                serve: false,
+            }
+        );
+    }
+
+    #[test]
+    fn demo_rejects_ambiguous_or_unknown_modes() {
+        assert!(parse_options(&args(&["--save"])).is_err());
+        assert!(parse_options(&args(&["--save", "demo.rrd", "--serve"])).is_err());
+        assert!(parse_options(&args(&["--unknown"])).is_err());
+    }
+
+    #[test]
+    fn demo_rejects_option_as_save_path() {
+        assert!(parse_options(&args(&["--save", "--serve"])).is_err());
+    }
+
+    #[test]
+    fn demo_rejects_duplicate_save_mode() {
+        assert!(parse_options(&args(&["--save", "one.rrd", "--save", "two.rrd"])).is_err());
+    }
+
+    #[test]
+    fn demo_rejects_duplicate_serve_mode() {
+        assert!(parse_options(&args(&["--serve", "--serve"])).is_err());
+    }
+
+    #[derive(Debug, Default, PartialEq, Eq)]
+    struct CountingSink {
+        atom_metric_events: usize,
+        geometry_metric_events: usize,
+        diagnostic_events: usize,
+        source_labels: Option<[String; 2]>,
+    }
+
+    impl DemoWindowSink for CountingSink {
+        fn atom_metrics(
+            &mut self,
+            _timestamp: f64,
+            _atoms: PidAtoms,
+            source_labels: [&str; 2],
+        ) -> Result<()> {
+            self.atom_metric_events += 1;
+            self.source_labels = Some(source_labels.map(str::to_owned));
+            Ok(())
+        }
+
+        fn geometry_metrics(
+            &mut self,
+            _timestamp: f64,
+            _diagnostics: GeometryDiagnostics,
+        ) -> Result<()> {
+            self.geometry_metric_events += 1;
+            Ok(())
+        }
+
+        fn diagnostic(&mut self, _timestamp: f64, _message: &str) -> Result<()> {
+            self.diagnostic_events += 1;
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn abstained_pid_window_emits_diagnostic_without_atom_metrics() -> Result<()> {
+        let mut sink = CountingSink::default();
+
+        emit_pid_window(&mut sink, 1.0, Err(anyhow!("forced abstention")))?;
+
+        assert_eq!(
+            sink,
+            CountingSink {
+                atom_metric_events: 0,
+                geometry_metric_events: 0,
+                diagnostic_events: 1,
+                source_labels: None,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn unavailable_geometry_emits_diagnostic_without_numeric_metrics() -> Result<()> {
+        let mut sink = CountingSink::default();
+
+        emit_geometry_window(&mut sink, 1.0, Err(anyhow!("forced abstention")))?;
+
+        assert_eq!(
+            sink,
+            CountingSink {
+                atom_metric_events: 0,
+                geometry_metric_events: 0,
+                diagnostic_events: 1,
+                source_labels: None,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn produced_pid_window_uses_two_vision_source_labels() -> Result<()> {
+        let mut sink = CountingSink::default();
+        let atoms = PidAtoms {
+            redundancy: 0.1,
+            synergy: 0.2,
+            unique_v1: 0.3,
+            unique_v2: 0.4,
+        };
+
+        emit_pid_window(&mut sink, 1.0, Ok(atoms))?;
+
+        assert_eq!(
+            sink.source_labels,
+            Some([
+                "vision_embedding_dims_0_1".to_owned(),
+                "vision_embedding_dims_2_3".to_owned(),
+            ])
+        );
+        Ok(())
+    }
 }

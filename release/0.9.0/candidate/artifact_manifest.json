@@ -1,0 +1,42 @@
+{
+  "artifacts": [
+    {
+      "bytes": 25347,
+      "path": "claim_evidence_ledger.json",
+      "sha256": "bb3d30edc9357fec0601c9307a394e0e5c96fae2b2b17f57394c438e5e9455b7"
+    },
+    {
+      "bytes": 5233,
+      "path": "defect_register.json",
+      "sha256": "4aa978f890914bdde44cec32262f1af376c225dd0512025a28f66adb5039cad0"
+    },
+    {
+      "bytes": 6939,
+      "path": "draft_release_manifest.json",
+      "sha256": "55cb10706b41660dbd0a2a549ee4882deddf7a5534d147bc7cf9540941ad553f"
+    },
+    {
+      "bytes": 8502,
+      "path": "evidence_receipts.json",
+      "sha256": "6d3a5229b39f2f2bbd7c3e0d5f2032b6b333ccc03b641df662e7d8be57b6912d"
+    },
+    {
+      "bytes": 341933,
+      "path": "source_inventory.json",
+      "sha256": "c2f65c1924c4ba1b770916adeec5d6eb93d27166b512279ea689506e4cd5ada0"
+    },
+    {
+      "bytes": 5080203,
+      "path": "task_lens_ledger.json",
+      "sha256": "6fb0d68114daf55355c06485d385b84923824d30633411c0e418d04b6645180d"
+    }
+  ],
+  "candidate_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+  "project": "prisoma",
+  "published": false,
+  "record_type": "candidate_artifact_manifest",
+  "release_ready": false,
+  "release_version": "0.9.0",
+  "schema_version": "prisoma.release-candidate/0.1.0",
+  "status": "integrity_manifest_for_unpublished_candidate"
+}

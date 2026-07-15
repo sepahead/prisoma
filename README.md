@@ -17,12 +17,24 @@
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-prisoma is a research toolkit providing **auditable experiment semantics** for **intervention‑grounded diagnosis** of **Vision‑Language‑Action (VLA)** policies: a provenance‑complete capture–intervention–replay substrate for testing whether genuinely pre‑treatment diagnostics predict intervention response and future failure beyond strong baselines. **Partial Information Decomposition (PID)** — the shared‑exclusions measure `I^sx_∩` — is one **conditional** candidate diagnostic, central only if it passes preregistered population, measure, estimator, and application gates (`grandplan.md` §7.1). The project is **gate‑driven**: PID atoms are never interpreted on real embeddings until those gates pass; confirmatory claims are bound by the `grandplan.md` §4 claim registry (EC1, H1–H4), the §3.8 PID kill rules, and the future frozen analysis plan specified in §6; and negative results are first‑class publishable outcomes.
+prisoma is a research toolkit building **auditable experiment semantics** for **intervention‑grounded diagnosis** of **Vision‑Language‑Action (VLA)** policies: it works toward a provenance‑complete capture–intervention–replay substrate for testing whether genuinely pre‑treatment diagnostics predict intervention response and future failure beyond strong baselines. **Partial Information Decomposition (PID)** — the shared‑exclusions measure `I^sx_∩` — is one **conditional** candidate diagnostic, central only if it passes preregistered population, measure, estimator, and application gates (`grandplan.md` §7.1). The project is **gate‑driven**: PID atoms are never interpreted on real embeddings until those gates pass; confirmatory claims are bound by the `grandplan.md` §4 claim registry (EC1, H1–H4), the §3.8 PID kill rules, and the future frozen analysis plan specified in §6; and negative results are first‑class publishable outcomes.
 
-**Release 0.9.0** is a source and research-software preview authored by **Sepehr
+**The 0.9.0 release candidate** is a source and research-software preview authored by **Sepehr
 Mahmoudian**. It packages the implemented, testable infrastructure and its
 evidence boundaries; it is not a frozen preregistration, confirmatory study,
 EC1 validation, production deployment, or scientific-results release.
+
+The immutable `release/0.9.0/{review,requirements}` artifacts preserve the supplied
+handoff and frozen baseline. A separate content-bound candidate state under
+`release/0.9.0/candidate/` inventories the current source and merges only explicit
+updates from `release/0.9.0/candidate_progress.json`. Its initial state keeps all 240
+tasks and 4,800 lens dispositions open, all exact-candidate receipts pending, and the
+release decision at NO-GO. Candidate schema 0.1 can record work in progress, blockers,
+failed checks, and review comments, but cannot record a passed receipt or any positive
+terminal disposition. A reviewed successor schema with typed task clauses and authenticated
+evidence is required before readiness can become true. Validate it with
+`python scripts/audit_candidate_release.py`; a passing integrity audit is not a
+review-completion or publication claim.
 
 ## Documentation map
 
@@ -40,6 +52,7 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `LIMITATIONS.md` | Release-scoped claim, data, security, and deployment boundaries |
 | `THESIS_EVIDENCE_INDEX.md` | Claim-by-claim map from software proofs to missing scientific evidence |
 | `docs/CAPABILITY_MATRIX.md` | Generated, content-bound current capability/evidence inventory |
+| `release/0.9.0/` | Immutable handoff intake plus the unpublished, content-bound candidate ledgers and draft manifest |
 | `AGENTS.md` | Ground rules + a detailed "what actually exists" inventory for contributors |
 | `CONTRIBUTING.md`, `SECURITY.md` | Contribution controls and private vulnerability-reporting policy |
 | `NCP_DEV_PROMPT.md` | Optional: dev handoff for the Engram/NCP `(V,L,D,A)` bridge |
@@ -49,17 +62,26 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 
 ## Prerequisites
 
-- **Rust 1.93 or newer** — the local locked graph enforces this floor (the
-  highest current transitive floor is `fixed` 1.31). The separate pinned
+- **Rust 1.93 or newer** — the local locked graph and a dedicated Rust 1.93.0 CI
+  job enforce this floor (the highest current transitive floor is `fixed` 1.31).
+  The separate pinned
   `pid-rs` workspace declares Rust 1.89. Install via
   [rustup](https://rustup.rs/).
 - **Git submodule** — `git submodule update --init` after cloning (fetches
   `pid-rs`, the estimator core). There are no nested submodules, so
   `--recursive` is not required. The checked-in submodule URL is HTTPS, so a
   public clone does not require GitHub SSH credentials.
-- **Python 3.11+** with [`uv`](https://docs.astral.sh/uv/) — only for the `experiments/` (SAFE adapter + attribution probe) and the doc-audit scripts. `numpy` is the sole hard runtime dep; `uv sync` installs the dev/analysis groups.
+- **Python 3.11+** with [`uv`](https://docs.astral.sh/uv/) **0.11.28** — used for the
+  `experiments/` (SAFE adapter + attribution probe), binding development, and the
+  locked Python test/lint environment. The project metadata rejects a different
+  `uv` version, and CI syncs the checked `uv.lock` without re-resolution. `numpy`
+  is the sole hard runtime dependency; dependency-free doc auditors can run with
+  Python directly.
 - **`just`** (optional) — a task runner; every `just` recipe below has a plain `cargo`/`python` equivalent. Install with `cargo install just`.
 - **`maturin`** (optional) — only to build the Python bindings (`pid_core_rs`) from the submodule.
+- **Rerun viewer 0.34.1** (optional) — required only for interactive `--serve` and
+  `pid-viewer` paths. Prisoma rejects a viewer/SDK version mismatch; headless `.rrd`
+  conversion does not require the viewer executable.
 
 Verify the toolchain and see the estimator gate fire:
 
@@ -69,7 +91,7 @@ cargo test --workspace
 cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0   # prints the GO/PIVOT/NO-GO verdict
 ```
 
-## Current Status & What To Do, In Order (docset v12.5; release 0.9.0)
+## Current Status & What To Do, In Order (docset v12.5; 0.9.0 candidate)
 
 **Status at a glance:**
 
@@ -410,6 +432,29 @@ just runlog-rerun              # convert a run log to a Rerun .rrd
 just runlog-rerun-bridge
 just runlog-bridge-export-rerun
 ```
+
+`runlog-to-rerun` does not dereference attribution artifact paths by default. To
+surface a relevance array, pass `--load-attribution-artifacts`; only relative,
+non-symlinked regular `.npy` files canonically confined to the run log's directory
+are eligible. The supported NumPy v1.0 `<f8` C-order file is capped at 12 KiB
+and 1024 finite values. Its recorded lowercase SHA-256 and canonical shape metadata
+must exactly match the bytes before any Rerun write; all accepted arrays are retained
+under an 8 MiB aggregate preparation cap. The viewer also caps one conversion at
+100,000 events, 64 MiB of serialized event content, 64 MiB of application-generated
+entity paths, and 250,000 projected Rerun log calls; a supplied compact manifest is
+capped at 16 MiB. Dynamic general identifiers use
+injective single-segment percent encoding; attribution tracks hash the complete
+method/target/layer/modality/baseline identity.
+`--save` and `--serve` are mutually exclusive. A save requires a new `.rrd` path with
+an existing parent, flushes the capture with a finite timeout, encodes the complete
+captured message set, file-syncs staged bytes, and installs without replacing any
+existing file. The save regression also
+decodes the finalized stream with Rerun's matching 0.34.1 RRD decoder instead of checking
+only its framing marker. Input must be a regular
+non-symlink file; Unix FIFO/device inputs are opened nonblocking and rejected. These path
+checks are local best-effort confinement, while the exact digest binds accepted artifact
+bytes; neither mechanism is a security-grade filesystem sandbox against every concurrent
+race.
 
 > **Note:** `just runlog-bridge-tcp` and `just runlog-bridge-ws` start a server that **blocks waiting for one client to connect** — they do not self-terminate. Run them in a separate terminal and connect a client (the CI job in `.github/workflows/ci.yml` shows a minimal Python client for each). They are omitted from the list above for that reason.
 

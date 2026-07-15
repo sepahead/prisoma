@@ -193,7 +193,9 @@ def main() -> int:
             "establishes_h1_evidence",
         ):
             if required not in text:
-                problems.append(f"{relative} H1 preflight smoke is missing {required!r}")
+                problems.append(
+                    f"{relative} H1 preflight smoke is missing {required!r}"
+                )
 
     if not (ROOT / "crates/pid-sim/src/bin/h1_preflight.rs").is_file():
         problems.append("pid-h1-preflight binary is missing")
@@ -206,10 +208,17 @@ def main() -> int:
             problems.append(f"H1 preflight fixture is missing: {fixture}")
 
     power_doc = (ROOT / "docs/power-gate/README.md").read_text(encoding="utf-8")
-    if "Historical idealized grid outputs — withdrawn; not capture requirements" not in power_doc:
-        problems.append("docs/power-gate/README.md does not withdraw retired capture counts")
+    if (
+        "Historical idealized grid outputs — withdrawn; not capture requirements"
+        not in power_doc
+    ):
+        problems.append(
+            "docs/power-gate/README.md does not withdraw retired capture counts"
+        )
     if "## Capture-scale requirements" in power_doc:
-        problems.append("docs/power-gate/README.md revives retired capture requirements")
+        problems.append(
+            "docs/power-gate/README.md revives retired capture requirements"
+        )
     power_artifact = json.loads(
         (ROOT / "docs/power-gate/power-gate-2026-07-10.json").read_text(
             encoding="utf-8"
@@ -230,7 +239,9 @@ def main() -> int:
         "h4": (96, 0.0675, True),
     }
     if power_verdicts != expected_power_verdicts:
-        problems.append("power-gate artifact verdicts changed; reconcile active interpretation")
+        problems.append(
+            "power-gate artifact verdicts changed; reconcile active interpretation"
+        )
     for required in (
         "artifact verdict `passed=false`",
         "Smallest same-n passing grid point: 64",
@@ -244,7 +255,9 @@ def main() -> int:
 
     splat_spec = (ROOT / "pidsplatspecs.md").read_text(encoding="utf-8")
     if "Schema 2; partial M2/EC1 groundwork" not in splat_spec:
-        problems.append("pidsplatspecs.md does not record the current run-log schema/M2 status")
+        problems.append(
+            "pidsplatspecs.md does not record the current run-log schema/M2 status"
+        )
     if "This is partial M4" in splat_spec:
         problems.append("pidsplatspecs.md mislabels run-log groundwork as M4")
     if "pid-h1-preflight" not in splat_spec:
@@ -290,7 +303,9 @@ def main() -> int:
                 f"grandplan.md omits the verified public Engram boundary {required!r}"
             )
     if "current public main `2a55f3d" in grandplan:
-        problems.append("grandplan.md mislabels a reviewed Haldir revision as current main")
+        problems.append(
+            "grandplan.md mislabels a reviewed Haldir revision as current main"
+        )
     for project, dated_revision in {
         "galadriel": "ff272dc814080c6766a53c872ca4d0e24bcd5132",
         "crebain": "09dd5ec1556bd56e6934e1ef019f95de84cf9b4f",
@@ -318,11 +333,15 @@ def main() -> int:
             baseline_bytes = baseline_path.read_bytes()
             baseline_sha256 = hashlib.sha256(baseline_bytes).hexdigest()
             if baseline_sha256 != baseline.get("sha256"):
-                problems.append("ecosystem evidence overlay baseline hash does not match")
+                problems.append(
+                    "ecosystem evidence overlay baseline hash does not match"
+                )
             with baseline_path.open(encoding="utf-8", newline="") as handle:
                 baseline_rows = sum(1 for _ in csv.DictReader(handle))
             if baseline_rows != baseline.get("row_count"):
-                problems.append("ecosystem evidence overlay baseline row count does not match")
+                problems.append(
+                    "ecosystem evidence overlay baseline row count does not match"
+                )
 
         overrides = {
             entry.get("project"): entry
@@ -365,7 +384,9 @@ def main() -> int:
         if overrides.get("NCP", {}).get("resolved_revision") != (
             "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
         ):
-            problems.append("ecosystem evidence overlay omits the peeled NCP v0.8.0 commit")
+            problems.append(
+                "ecosystem evidence overlay omits the peeled NCP v0.8.0 commit"
+            )
         if overrides.get("crebain", {}).get("prior_frame_capability_revision") != (
             "49d7b3614f24d21a40fe2af6dbeac082338ae9d7"
         ):
@@ -410,7 +431,9 @@ def main() -> int:
         if engram_override.get("observed_revision") != (
             "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
         ) or "README-only" not in str(engram_override.get("current_boundary", "")):
-            problems.append("ecosystem evidence overlay revives unsupported Engram maturity")
+            problems.append(
+                "ecosystem evidence overlay revives unsupported Engram maturity"
+            )
 
     claim_registry_path = ROOT / "protocols/research_claim_registry_v1.json"
     if not claim_registry_path.is_file():
@@ -418,9 +441,13 @@ def main() -> int:
     else:
         claim_registry = json.loads(claim_registry_path.read_text(encoding="utf-8"))
         claims = claim_registry.get("claims", [])
-        claim_ids = [claim.get("claim_id") for claim in claims if isinstance(claim, dict)]
+        claim_ids = [
+            claim.get("claim_id") for claim in claims if isinstance(claim, dict)
+        ]
         if claim_ids != ["EC1", "H1", "H2", "H3", "H4"]:
-            problems.append("research claim registry must contain EC1 and H1-H4 exactly once in order")
+            problems.append(
+                "research claim registry must contain EC1 and H1-H4 exactly once in order"
+            )
         claims_by_id = {
             claim.get("claim_id"): claim for claim in claims if isinstance(claim, dict)
         }
@@ -429,7 +456,9 @@ def main() -> int:
             "deterministic_protocol_a_software_reference_fixture_runnable_"
             "protocol_b_unimplemented"
         ):
-            problems.append("research claim registry misstates the H1 execution boundary")
+            problems.append(
+                "research claim registry misstates the H1 execution boundary"
+            )
         h1_artifacts = {
             artifact.get("path")
             for artifact in h1.get("current_artifacts", [])
@@ -444,18 +473,26 @@ def main() -> int:
             "crates/pid-sim/fixtures/h1_protocol_a_valid.json",
         }
         if not required_h1_artifacts.issubset(h1_artifacts):
-            problems.append("research claim registry omits implemented H1 software artifacts")
+            problems.append(
+                "research claim registry omits implemented H1 software artifacts"
+            )
         for artifact in required_h1_artifacts:
             if not (ROOT / artifact).is_file():
-                problems.append(f"research claim registry names missing H1 artifact: {artifact}")
+                problems.append(
+                    f"research claim registry names missing H1 artifact: {artifact}"
+                )
         if "just h1-protocol-a" not in h1.get("proof_commands", []):
-            problems.append("research claim registry omits the H1 Protocol-A proof command")
+            problems.append(
+                "research claim registry omits the H1 Protocol-A proof command"
+            )
         h2 = claims_by_id.get("H2", {})
         if h2.get("execution_status") != (
             "deterministic_synthetic_fixed_horizon_software_reference_fixture_"
             "runnable_real_execution_unimplemented"
         ):
-            problems.append("research claim registry misstates the H2 execution boundary")
+            problems.append(
+                "research claim registry misstates the H2 execution boundary"
+            )
         h2_artifacts = {
             artifact.get("path")
             for artifact in h2.get("current_artifacts", [])
@@ -473,12 +510,18 @@ def main() -> int:
             "crates/pid-sim/src/bin/h2_reference.rs",
             "crates/pid-sim/fixtures/h2_reference",
         }.issubset(h2_artifacts):
-            problems.append("research claim registry omits implemented H2 software artifacts")
+            problems.append(
+                "research claim registry omits implemented H2 software artifacts"
+            )
         for artifact in required_h2_files:
             if not (ROOT / artifact).is_file():
-                problems.append(f"research claim registry names missing H2 artifact: {artifact}")
+                problems.append(
+                    f"research claim registry names missing H2 artifact: {artifact}"
+                )
         if "just h2-reference" not in h2.get("proof_commands", []):
-            problems.append("research claim registry omits the H2 reference proof command")
+            problems.append(
+                "research claim registry omits the H2 reference proof command"
+            )
         h2_boundary_text = " ".join(
             str(h2.get(field, ""))
             for field in ("permitted_language", "prohibited_language")
@@ -520,13 +563,17 @@ def main() -> int:
             "pid_metric_events=0",
         ):
             if required not in text:
-                problems.append(f"{relative} H2 reference smoke is missing {required!r}")
+                problems.append(
+                    f"{relative} H2 reference smoke is missing {required!r}"
+                )
     if "H1/H2 baselines execute with PID disabled" in grandplan:
         problems.append("grandplan.md overstates the static label-baseline firebreak")
     for relative in ("grandplan.md", "RESEARCH_VLA_D_NCP.md"):
         text = (ROOT / relative).read_text(encoding="utf-8")
         if "PID-disabled H1/H2 path" in text:
-            problems.append(f"{relative} overstates the dependency firebreak as H1/H2 execution")
+            problems.append(
+                f"{relative} overstates the dependency firebreak as H1/H2 execution"
+            )
     for stale in (
         "while its submodule remains pinned to `8a5a9d",
         "`pid-rs@70b45f7…` as a **candidate upgrade**",

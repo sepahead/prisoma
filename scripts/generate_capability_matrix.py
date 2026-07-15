@@ -57,9 +57,7 @@ EXCLUDED_TREE_PARTS = {
     "target",
 }
 FEATURE_ID_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
-JUST_RECIPE_RE = re.compile(
-    r"^([A-Za-z0-9][A-Za-z0-9_-]*)(?:\s[^:]*)?:(?!=)"
-)
+JUST_RECIPE_RE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9_-]*)(?:\s[^:]*)?:(?!=)")
 GIT_REVISION_RE = re.compile(
     r"^(?P<name>[A-Za-z0-9_.-]+)@"
     r"(?:(?P<selector>[A-Za-z0-9][A-Za-z0-9._/+:-]*)#)?"
@@ -399,9 +397,7 @@ def _gitmodule_urls(*, root: Path) -> dict[str, str]:
     return urls
 
 
-def _bound_gitlinks(
-    raw_paths: list[str], *, root: Path
-) -> list[tuple[str, str, str]]:
+def _bound_gitlinks(raw_paths: list[str], *, root: Path) -> list[tuple[str, str, str]]:
     """Return tracked gitlinks that contain at least one declared revision input."""
 
     if ".gitmodules" not in raw_paths:
@@ -520,9 +516,7 @@ def _validate_git_revision(
             return
         query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
         if selector in {
-            value
-            for key in ("tag", "rev", "branch")
-            for value in query.get(key, [])
+            value for key in ("tag", "rev", "branch") for value in query.get(key, [])
         }:
             return
 
@@ -613,19 +607,29 @@ def _validate_row(row: Any, *, index: int, root: Path) -> dict[str, Any]:
                 )
 
     external_revision = row["external_revision"]
-    git_match: re.Match[str] | None = None
-    registry_match: re.Match[str] | None = None
+    git_matches: list[re.Match[str]] = []
+    registry_matches: list[re.Match[str]] = []
     if external_revision is not None:
         external_revision = _nonempty_string(
             external_revision, f"{context}.external_revision"
         )
-        git_match = GIT_REVISION_RE.fullmatch(external_revision)
-        registry_match = REGISTRY_REVISION_RE.fullmatch(external_revision)
-        if git_match is None and registry_match is None:
+        revision_parts = external_revision.split("; ")
+        if len(revision_parts) != len(set(revision_parts)) or len(revision_parts) > 16:
             raise CatalogError(
-                f"{context}.external_revision must contain an exact bounded 40-hex Git "
-                "revision or an exact registry version plus SHA-256"
+                f"{context}.external_revision contains duplicate or excessive identities"
             )
+        for part in revision_parts:
+            git_match = GIT_REVISION_RE.fullmatch(part)
+            registry_match = REGISTRY_REVISION_RE.fullmatch(part)
+            if git_match is None and registry_match is None:
+                raise CatalogError(
+                    f"{context}.external_revision must contain semicolon-separated exact "
+                    "bounded 40-hex Git revisions or exact registry versions plus SHA-256"
+                )
+            if git_match is not None:
+                git_matches.append(git_match)
+            if registry_match is not None:
+                registry_matches.append(registry_match)
     if level >= 2 and external_revision is None:
         raise CatalogError(
             f"{context}: E2 or higher requires an immutable external revision"
@@ -640,14 +644,14 @@ def _validate_row(row: Any, *, index: int, root: Path) -> dict[str, Any]:
         root=root,
         context=f"{context}.revision_inputs",
     )
-    if registry_match is not None:
+    for registry_match in registry_matches:
         _validate_registry_revision(
             registry_match,
             revision_inputs,
             root=root,
             context=f"{context}.external_revision",
         )
-    if git_match is not None:
+    for git_match in git_matches:
         _validate_git_revision(
             git_match,
             revision_inputs,

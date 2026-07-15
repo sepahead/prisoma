@@ -61,7 +61,9 @@ def load_cache(path: Path) -> dict:
 
 def save_cache(path: Path, cache: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(cache, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(cache, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def fetch_arxiv_atom(ids: list[str]) -> str:
@@ -77,14 +79,22 @@ def parse_atom(xml_text: str) -> list[ArxivEntry]:
     root = ET.fromstring(xml_text)
     entries: list[ArxivEntry] = []
     for e in root.findall("atom:entry", ATOM_NS):
-        arxiv_id_full = (e.findtext("atom:id", default="", namespaces=ATOM_NS) or "").strip()
+        arxiv_id_full = (
+            e.findtext("atom:id", default="", namespaces=ATOM_NS) or ""
+        ).strip()
         # Example: http://arxiv.org/abs/2507.04447v1
         arxiv_id = arxiv_id_full.rsplit("/", 1)[-1].split("v", 1)[0]
 
         title = (e.findtext("atom:title", default="", namespaces=ATOM_NS) or "").strip()
-        summary = (e.findtext("atom:summary", default="", namespaces=ATOM_NS) or "").strip()
-        published = (e.findtext("atom:published", default="", namespaces=ATOM_NS) or "").strip()
-        updated = (e.findtext("atom:updated", default="", namespaces=ATOM_NS) or "").strip()
+        summary = (
+            e.findtext("atom:summary", default="", namespaces=ATOM_NS) or ""
+        ).strip()
+        published = (
+            e.findtext("atom:published", default="", namespaces=ATOM_NS) or ""
+        ).strip()
+        updated = (
+            e.findtext("atom:updated", default="", namespaces=ATOM_NS) or ""
+        ).strip()
         authors = [
             (a.findtext("atom:name", default="", namespaces=ATOM_NS) or "").strip()
             for a in e.findall("atom:author", ATOM_NS)
@@ -147,7 +157,9 @@ def main() -> int:
     else:
         if not args.grandplan.exists():
             raise SystemExit(f"Missing file: {args.grandplan}")
-        requested = extract_arxiv_ids_from_markdown(args.grandplan.read_text(encoding="utf-8"))
+        requested = extract_arxiv_ids_from_markdown(
+            args.grandplan.read_text(encoding="utf-8")
+        )
 
     requested = [x.strip() for x in requested if x and x.strip()]
     requested = sorted(set(requested))
@@ -165,14 +177,20 @@ def main() -> int:
     fetched = 0
     for start in range(0, len(missing), batch_size):
         batch = missing[start : start + batch_size]
-        print(f"Fetching batch {start//batch_size + 1}: {', '.join(batch)}", file=sys.stderr)
+        print(
+            f"Fetching batch {start // batch_size + 1}: {', '.join(batch)}",
+            file=sys.stderr,
+        )
         xml_text = fetch_arxiv_atom(batch)
         entries = parse_atom(xml_text)
         by_id = {e.arxiv_id: e for e in entries}
         for arxiv_id in batch:
             entry = by_id.get(arxiv_id)
             if entry is None:
-                print(f"WARNING: arXiv:{arxiv_id} not found in API response", file=sys.stderr)
+                print(
+                    f"WARNING: arXiv:{arxiv_id} not found in API response",
+                    file=sys.stderr,
+                )
                 continue
             cache[arxiv_id] = {
                 "authors": entry.authors,
@@ -192,4 +210,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

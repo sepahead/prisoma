@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-13",
+  "as_of_date": "2026-07-14",
   "canonical_spec": {
     "path": "grandplan.md",
     "version": "12.5",
@@ -675,7 +675,7 @@
         "Cargo.toml",
         "Cargo.lock"
       ],
-      "external_revision": "rerun@0.28.2#sha256:62eede2f27637f240443d73c5c3f7e3c8f0885b5d49b25994936300bed523241",
+      "external_revision": "re_log_encoding@0.34.1#sha256:8a5df35e1e32e783014827a362bf68fb97f9b122240ad731511207fb8fceec48; re_sdk@0.34.1#sha256:3e426edaa5b4aae7338893282b53e671afc02770601d054f4754bc42ec43ff29; re_sdk_types@0.34.1#sha256:dcbecb95e90d133d4721715412f24b333895f56373fe0ebce99ecdf0aa0b9bc2",
       "test_command": "just runlog-rerun-proof",
       "evidence_artifacts": [
         "crates/pid-rerun",
@@ -685,7 +685,7 @@
       "known_limitations": "The converter surfaces current summary/provenance/validation and attribution tracks, but the complete Phases 1-3 diagnostic blueprint and viewer are not built.",
       "evidence_level": "E2",
       "evidence_basis": "declared_immutable_dependency",
-      "evidence_scope": "immutable registry dependency plus local validating conversion/replay tests; status carries the tests separately",
+      "evidence_scope": "immutable narrow re_log_encoding/re_sdk/re_sdk_types registry dependencies plus local validating conversion/replay tests; status carries the tests separately",
       "thesis_dependency": "required",
       "claim_ids": [
         "EC1"

@@ -31,15 +31,26 @@ path = "src/bin/runlog_to_rerun.rs"
 # `vla-demo` exercises the continuous 2-source PID path, which is default-off in pid-core 1.0.
 pid-core = { path = "../../pid-rs/crates/pid-core", features = ["experimental-continuous"] }
 pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
-# The adapter only emits/serializes SDK archetypes. Rerun's default feature set also
-# enables importers, dataframe support, and servers; those pull a much larger parser and
-# network surface (including URDF/XML loaders) that this crate never calls.
-rerun = { version = "0.28.1", default-features = false, features = ["sdk"] }
+# The adapter only emits SDK archetypes and recording streams. Depend on the narrow
+# SDK crates directly: the `rerun` umbrella crate unconditionally pulls its remote
+# data-platform/authentication client even with only the `sdk` feature enabled.
+rerun = { package = "re_sdk", version = "0.34.1", default-features = false }
+rerun-types = { package = "re_sdk_types", version = "0.34.1", default-features = false }
+re-log-encoding = { package = "re_log_encoding", version = "0.34.1", default-features = false }
 nalgebra = "0.33"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ndarray = "0.16"
+tempfile = "3.20"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+# Decode finalized test recordings with the same 0.34.1 RRD implementation used by
+# the viewer, instead of treating the four-byte framing marker as sufficient proof.
+re-log-encoding = { package = "re_log_encoding", version = "0.34.1", default-features = false, features = ["decoder"] }
 
 [features]
 default = []

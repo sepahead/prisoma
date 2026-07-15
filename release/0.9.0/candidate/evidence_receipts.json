@@ -1,0 +1,330 @@
+{
+  "boundary": "Schema 0.1 may record pending, running, blocked, or failed execution evidence, but cannot authenticate a passed receipt. Positive completion requires a reviewed successor schema and authenticated CI attestation.",
+  "project": "prisoma",
+  "receipt_contract": {
+    "evidence_log_namespace": "release/0.9.0/evidence",
+    "local_uncommitted_runs_are_completion_evidence": false,
+    "statuses": [
+      "pending_post_push_ci",
+      "in_progress",
+      "blocked",
+      "failed",
+      "passed"
+    ],
+    "success_allows_only_progress_and_evidence_log_source_drift": true,
+    "success_commit_must_equal_source_head": true,
+    "success_requires_exact_pushed_commit": true,
+    "success_requires_log_sha256": true,
+    "terminal_promotion_enabled": false,
+    "terminal_promotion_policy": "disabled_in_0.1_pending_typed_authenticated_evidence"
+  },
+  "receipts": [
+    {
+      "commands": [
+        {
+          "argv": [
+            "cargo",
+            "fmt",
+            "--all",
+            "--",
+            "--check"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        },
+        {
+          "argv": [
+            "cargo",
+            "clippy",
+            "--locked",
+            "--workspace",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        },
+        {
+          "argv": [
+            "cargo",
+            "test",
+            "--locked",
+            "--workspace"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        }
+      ],
+      "conclusion": null,
+      "evidence": {
+        "bytes": null,
+        "inventory_entry_sha256": null,
+        "log_artifact": null,
+        "sha256": null
+      },
+      "execution": {
+        "commit": null,
+        "completed_at": null,
+        "exit_codes": [],
+        "runner": null,
+        "started_at": null,
+        "workflow_run_url": null
+      },
+      "id": "RCP-RUST",
+      "independent_reviewer": null,
+      "required_checks": [],
+      "reviewer": null,
+      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "status": "pending_post_push_ci",
+      "title": "Rust workspace gates",
+      "updated_at": null
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "cargo",
+            "test",
+            "--locked",
+            "-p",
+            "pid-rerun"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        },
+        {
+          "argv": [
+            "just",
+            "runlog-rerun-proof"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        }
+      ],
+      "conclusion": null,
+      "evidence": {
+        "bytes": null,
+        "inventory_entry_sha256": null,
+        "log_artifact": null,
+        "sha256": null
+      },
+      "execution": {
+        "commit": null,
+        "completed_at": null,
+        "exit_codes": [],
+        "runner": null,
+        "started_at": null,
+        "workflow_run_url": null
+      },
+      "id": "RCP-RERUN",
+      "independent_reviewer": null,
+      "required_checks": [],
+      "reviewer": null,
+      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "status": "pending_post_push_ci",
+      "title": "Rerun adapter and binary proof",
+      "updated_at": null
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "uv",
+            "run",
+            "--no-sync",
+            "ruff",
+            "check",
+            "."
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        },
+        {
+          "argv": [
+            "uv",
+            "run",
+            "--no-sync",
+            "ruff",
+            "format",
+            "--check",
+            "."
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        },
+        {
+          "argv": [
+            "uv",
+            "run",
+            "--no-sync",
+            "pytest",
+            "tests/python",
+            "-q"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        }
+      ],
+      "conclusion": null,
+      "evidence": {
+        "bytes": null,
+        "inventory_entry_sha256": null,
+        "log_artifact": null,
+        "sha256": null
+      },
+      "execution": {
+        "commit": null,
+        "completed_at": null,
+        "exit_codes": [],
+        "runner": null,
+        "started_at": null,
+        "workflow_run_url": null
+      },
+      "id": "RCP-PYTHON",
+      "independent_reviewer": null,
+      "required_checks": [],
+      "reviewer": null,
+      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "status": "pending_post_push_ci",
+      "title": "Python lint and tests",
+      "updated_at": null
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "just",
+            "docs-audit"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        },
+        {
+          "argv": [
+            "python",
+            "scripts/audit_candidate_release.py"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        }
+      ],
+      "conclusion": null,
+      "evidence": {
+        "bytes": null,
+        "inventory_entry_sha256": null,
+        "log_artifact": null,
+        "sha256": null
+      },
+      "execution": {
+        "commit": null,
+        "completed_at": null,
+        "exit_codes": [],
+        "runner": null,
+        "started_at": null,
+        "workflow_run_url": null
+      },
+      "id": "RCP-DOCS",
+      "independent_reviewer": null,
+      "required_checks": [],
+      "reviewer": null,
+      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "status": "pending_post_push_ci",
+      "title": "documentation and governance audits",
+      "updated_at": null
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "cargo",
+            "deny",
+            "--locked",
+            "--all-features",
+            "check"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        },
+        {
+          "argv": [
+            "cargo",
+            "deny",
+            "--manifest-path",
+            "crates/ncp-observer/Cargo.toml",
+            "--locked",
+            "check"
+          ],
+          "cwd": ".",
+          "expected_exit_code": 0
+        }
+      ],
+      "conclusion": null,
+      "evidence": {
+        "bytes": null,
+        "inventory_entry_sha256": null,
+        "log_artifact": null,
+        "sha256": null
+      },
+      "execution": {
+        "commit": null,
+        "completed_at": null,
+        "exit_codes": [],
+        "runner": null,
+        "started_at": null,
+        "workflow_run_url": null
+      },
+      "id": "RCP-SUPPLY-CHAIN",
+      "independent_reviewer": null,
+      "required_checks": [],
+      "reviewer": null,
+      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "status": "pending_post_push_ci",
+      "title": "all-feature dependency policy",
+      "updated_at": null
+    },
+    {
+      "commands": [],
+      "conclusion": null,
+      "evidence": {
+        "bytes": null,
+        "inventory_entry_sha256": null,
+        "log_artifact": null,
+        "sha256": null
+      },
+      "execution": {
+        "commit": null,
+        "completed_at": null,
+        "exit_codes": [],
+        "runner": null,
+        "started_at": null,
+        "workflow_run_url": null
+      },
+      "id": "RCP-POST-PUSH-CI",
+      "independent_reviewer": null,
+      "required_checks": [
+        "all required jobs complete for one exact pushed main commit",
+        "every required job conclusion is success",
+        "workflow URL and immutable commit are recorded"
+      ],
+      "reviewer": null,
+      "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+      "status": "pending_post_push_ci",
+      "title": "post-push main-branch CI",
+      "updated_at": null
+    }
+  ],
+  "record_type": "candidate_test_evidence_receipts",
+  "release_version": "0.9.0",
+  "schema_version": "prisoma.release-candidate/0.1.0",
+  "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+  "summary": {
+    "all_required_evidence_passed": false,
+    "blocked_count": 0,
+    "failed_count": 0,
+    "in_progress_count": 0,
+    "passed_count": 0,
+    "pending_count": 6,
+    "receipt_count": 6
+  }
+}

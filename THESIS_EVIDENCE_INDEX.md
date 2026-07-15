@@ -1,6 +1,6 @@
 # Prisoma 0.9 thesis-evidence index
 
-**Release scope:** Prisoma 0.9.0 source and research-software preview
+**Candidate scope:** Prisoma 0.9.0 unpublished source and research-software preview
 
 **Author:** Sepehr Mahmoudian
 **Canonical research specification:** [`grandplan.md`](grandplan.md), docset v12.5
@@ -242,8 +242,8 @@ generated or inferred by repository automation:
 
 | Required evidence | Required independent role or review | Current 0.9 state |
 |---|---|---|
-| Reviewed successor M0 schema and fully specified freeze candidate | Candidate, supervisor, causal/statistical reviewer, and H3 estimator reviewer if H3 is eligible | Absent; v1 is intentionally non-promotable and unfrozen. |
-| Freeze signatures and amendment policy | Candidate, supervisor, independent reviewer | Absent; no approval is implied. |
+| Reviewed successor M0 schema and fully specified freeze candidate | Candidate, designated academic reviewer, causal/statistical reviewer, and H3 estimator reviewer if H3 is eligible | Absent; v1 is intentionally non-promotable and unfrozen. |
+| Freeze signatures and amendment policy | Candidate, designated reviewer, independent reviewer | Absent; no approval is implied. |
 | Holdout generation, commitment, custody, and access/reveal receipts | Independent holdout custodian | No confirmatory holdout is registered. |
 | Real data/model rights, privacy, ethics, retention, and incident decisions | Data steward/controller and institutional review where applicable | Unresolved for real capture. Synthetic fixtures only. |
 | Fresh reproducible prior-art search and comparator dispositions | Named reviewers under a saved search/screening protocol | Absent; current ledger is a legacy inventory. |

@@ -1,0 +1,16 @@
+{
+  "boundary": "This source-controlled snapshot records only explicit non-promoting candidate progress. Its revision is a snapshot counter, not an append-only history. Empty arrays preserve the all-open, pending, NO_GO state; no status is inferred from source presence or local test output.",
+  "claim_updates": [],
+  "defect_updates": [],
+  "evidence_receipt_updates": [],
+  "file_review_updates": [],
+  "lens_updates": [],
+  "progress_revision": 0,
+  "project": "prisoma",
+  "record_type": "candidate_progress_overrides",
+  "release_version": "0.9.0",
+  "schema_version": "prisoma.release-candidate-progress/0.1.0",
+  "task_updates": [],
+  "terminal_promotion_policy": "disabled_in_0.1_pending_typed_authenticated_evidence",
+  "wave_receipts": []
+}

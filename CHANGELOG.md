@@ -2,14 +2,14 @@
 
 ## Unreleased
 
-No changes yet.
+The 0.9.0 source-preview candidate remains unpublished while review is open.
 
-## 0.9.0 - 2026-07-14
+## 0.9.0 - Unreleased
 
 ### Release scope
 
 - First source and research-software preview under the Prisoma version line,
-  authored by Sepehr Mahmoudian.
+  authored by Sepehr Mahmoudian and prepared as an unpublished release candidate.
 - Packages the tested capture, intervention, replay, simulation, adapter,
   governance, and diagnostic groundwork while preserving the canonical
   scientific gates. It does not claim a frozen M0 preregistration, registered
@@ -19,6 +19,82 @@ No changes yet.
   private workspace components, the root Python metadata is not a PyPI package,
   and the `pid_core_rs` binding remains owned and versioned by the pinned
   `pid-rs` submodule.
+
+### 0.9 review intake, Rerun boundary, and reproducible CI (2026-07-14)
+
+- Added deterministic, content-bound `release/0.9.0/{review,requirements}` intake
+  snapshots for the supplied handoff and frozen repository baseline. The import
+  verifies 42 checksum-listed payloads plus the checksum manifest, preserves the
+  240-task/20-lens ledger, and records all 240 task dispositions and all 4,800
+  lens dispositions as open. These artifacts are inventory and normalization
+  evidence only: `release_ready` remains false, no scientific claim is established,
+  and no task or substantive file review is represented as complete. Handoff traversal
+  is entry/path/depth bounded, rejects links and special files, and double-captures the
+  exact file set and every included payload before publishing its integrity manifest.
+- Added a separate unpublished candidate-governance layer: a current source inventory,
+  explicit progress input, live task/lens and claim/evidence ledgers, defect register,
+  pending exact-candidate receipts, draft NO-GO manifest, deterministic generator, and
+  fail-closed auditor. Generated candidate outputs exclude their own namespace to avoid
+  a self-reference fixed point; their artifact manifest binds that namespace. The initial
+  progress input is empty, so no review, wave, evidence, task, or publication promotion is
+  inferred from the presence of code or local test output. Progress schema 0.1 is explicitly
+  non-promotable: passed receipts and positive terminal file, task, lens, wave, claim, or
+  defect dispositions are rejected until a successor schema binds typed obligations to
+  authenticated evidence. The live ledger retains every imported task-specific procedure,
+  evidence, test, adversarial-question, and completion clause instead of projecting them away.
+  Required receipt sets are immutable and supplemental references cannot replace them.
+- Updated the visualization dependency from the umbrella Rerun 0.28 line to the
+  narrow `re_sdk` and `re_sdk_types` 0.34.1 crates. Interactive launches now require
+  an exactly matching 0.34.1 viewer, malformed/ambiguous CLI combinations fail,
+  `--save` and `--serve` are mutually exclusive, and the demos default to a
+  non-serving dry run unless a sink is explicitly selected. Headless saves now require
+  a new `.rrd` path below an existing parent: the encoder is explicitly finalized,
+  staged bytes are file-synced, and no-clobber installation preserves every existing
+  file, including source, symlink, and hard-link aliases. The regression decodes the
+  finalized recording through the matching Rerun 0.34.1 decoder and verifies that the
+  logged metric data chunk, not only recording metadata, survives finalization.
+- Hardened the VLA and run-log adapters so complete episode/event batches are
+  preflighted before their first Rerun write. Invalid timestamps, shapes, numeric
+  payloads, or late malformed attribution artifacts fail without a partial batch;
+  failed PID/geometry computations produce diagnostics or abstentions rather than
+  numeric zero/NaN placeholders. Timestamps beyond Rerun's signed-nanosecond range
+  fail instead of saturating. Supplied manifests must match every event-derived
+  schema/hash/artifact field, provide a valid raw-file digest plus matching typed identity,
+  and pass external anchors through the canonical run-log validator; the standalone
+  converter binds the raw-file fields to the exact byte snapshot it parsed.
+  Viewer-specific event-count/event-byte/entity-path/log-call/manifest budgets prevent
+  bounded JSONL from amplifying into impractical output. Dynamic entity-path identifiers
+  use an injective single-segment percent encoding; attribution series use the hash of their complete
+  method/target/layer/modality/baseline identity.
+- Made external attribution-artifact reads default-off. The standalone converter
+  requires `--load-attribution-artifacts` before it will read a relative, regular,
+  non-symlinked file under the run-log directory; it accepts only bounded, exact
+  NumPy v1.0 little-endian `float64` framing with finite values, requires the declared
+  shape and exact file SHA-256 to match, retains every authorized array before output,
+  and charges values plus retained shape/identity allocations to the aggregate memory cap,
+  and never enables the capability for bridge export. The Python producer publishes
+  immutable content-addressed artifacts first and atomically replaces the run-log name
+  last, so a failed later install cannot detach an existing log from its artifacts.
+  This is local best-effort path confinement, not a multi-file transaction or protection
+  against every concurrent filesystem race.
+- Replaced floating GitHub Action tags with immutable commit pins, added a CI audit
+  for those pins, and added a dedicated Rust 1.93.0 minimum-supported-version check.
+  Python CI now installs exact `uv` 0.11.28, requires the checked `uv.lock`, and runs
+  tests, lint, and binding builds without dependency re-resolution. Monthly
+  Dependabot checks cover GitHub Actions, the root Cargo graph, the separately
+  locked optional NCP crate, and the `uv` graph.
+- Kept the optional NCP/Zenoh profile explicitly unqualified for release: its lock
+  still contains vulnerable `lz4_flex` 0.10.0 (RUSTSEC-2026-0041). The checked
+  profile leaves Zenoh `transport_compression` disabled and CI rejects accidental
+  enablement, but the advisory remains open until a qualified upstream pin removes
+  the affected package.
+- Expanded the supply-chain scope to all root-workspace features, including optional
+  Rapier dependencies, and generated direct-dependency notices from that same graph.
+  Rust 1.93 CI now checks both the default workspace and separately locked observer.
+  The pin audit rejects alternate YAML `uses` key forms instead of silently skipping
+  them, forbids unaudited local composite actions, and reads only bounded stable workflow
+  snapshots. The advisory policy also records that unmaintained `paste` occurs in the root
+  nalgebra graph as well as the observer graph.
 
 ### M0 research-governance honesty scaffolds (2026-07-13)
 
@@ -613,7 +689,7 @@ measure identity is unchanged (`--pid-mode discrete` remains Williams–Beer `I_
   its own `pid-runlog-replay --validate`. Timestamps now continue from the running
   metric-event counter. New test at ~12,000 events.
 - **Agent Bridge `export.rerun` can no longer overwrite the live run log.** The handler
-  wrote any client-supplied `output_uri` (`save_recording` truncates its target), so a
+  wrote any client-supplied `output_uri` (the direct SDK file sink then truncated its target), so a
   socket client could destroy the session's own source-of-truth run log or any writable
   file. It now rejects an `output_uri` that resolves to the session's run log and
   requires a `.rrd` extension.

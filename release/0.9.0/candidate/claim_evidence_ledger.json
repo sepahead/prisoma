@@ -1,0 +1,604 @@
+{
+  "claim_template_contract": {
+    "fields": [
+      "claim_id",
+      "claim_text",
+      "claim_tier",
+      "status",
+      "code_paths",
+      "test_paths",
+      "evidence_paths",
+      "independent_reviewer",
+      "permitted_language",
+      "prohibited_language",
+      "residual_assumptions",
+      "decision"
+    ],
+    "source_path": "repo_work/templates/CLAIM_TO_EVIDENCE.csv",
+    "source_sha256": "33d388820dd61d443bd957ecd34d0979ae2d7ed328a53476e06d8d41645e0df1"
+  },
+  "claims": [
+    {
+      "blockers": [
+        "all referenced post-push evidence receipts are pending"
+      ],
+      "claim_class": "software",
+      "claim_id": "SW09-001",
+      "claim_text": "Candidate metadata identifies Prisoma 0.9.0 as an unpublished source and software preview authored by Sepehr Mahmoudian, with no DOI or Zenodo record.",
+      "claim_tier": "E0_LOCAL_SOURCE_PENDING_EXACT_VERIFICATION",
+      "code_paths": [],
+      "content_bindings": [
+        {
+          "bytes": 624,
+          "inventory_entry_sha256": "9aa8fd3eb505e22af09441e1458a766d9f280e8bdbc28b1403e461a4a0ff4c72",
+          "path": "CITATION.cff",
+          "sha256": "0f5afedec0b126f809279728babb338eef00d7499f2f7fbba57b5c04e04d710d"
+        },
+        {
+          "bytes": 1395,
+          "inventory_entry_sha256": "70536e2f6aff550f83cc3ae52fd3c6a6e49380f64c7fec24fbb20e44a1982d8d",
+          "path": "release/0.9.0/RELEASE_NOTES.md",
+          "sha256": "0b61cc348a1d91863ebf918ae436c7e40ef9d32d196814d4e49eb84df64a7661"
+        },
+        {
+          "bytes": 22260,
+          "inventory_entry_sha256": "71f1cc8b7e56a747eeb72b7ed5084afd9b3225377aab0238f90647f5c562b7a7",
+          "path": "tests/python/test_release_review.py",
+          "sha256": "fa376e75fb1bb304d2fe1837be06eaa9d583b5c47e2005d63d378af4dbb6c601"
+        }
+      ],
+      "decision": "PENDING_POST_PUSH_VERIFICATION",
+      "evidence_paths": [
+        "CITATION.cff",
+        "release/0.9.0/RELEASE_NOTES.md"
+      ],
+      "evidence_receipt_ids": [
+        "RCP-DOCS",
+        "RCP-POST-PUSH-CI"
+      ],
+      "independent_reviewer": null,
+      "permitted_language": "Candidate metadata identifies Prisoma 0.9.0 as an unpublished source and software preview authored by Sepehr Mahmoudian, with no DOI or Zenodo record.",
+      "prohibited_language": "Do not infer scientific validity, release readiness, deployment security, or successful post-push verification from source presence.",
+      "required_evidence_receipt_ids": [
+        "RCP-DOCS",
+        "RCP-POST-PUSH-CI"
+      ],
+      "residual_assumptions": [
+        "the recorded working-tree bytes become one exact pushed commit",
+        "all referenced receipts complete successfully for that commit"
+      ],
+      "reviewer": null,
+      "status": "source_evidenced_verification_pending",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [
+        "tests/python/test_release_review.py"
+      ],
+      "title": "0.9 source-preview identity",
+      "updated_at": null
+    },
+    {
+      "blockers": [
+        "all referenced post-push evidence receipts are pending"
+      ],
+      "claim_class": "software",
+      "claim_id": "SW09-002",
+      "claim_text": "The candidate source contains a bounded run-log-to-Rerun conversion path and a finalized local RRD save installed without replacing an existing path.",
+      "claim_tier": "E0_LOCAL_SOURCE_PENDING_EXACT_VERIFICATION",
+      "code_paths": [
+        "Cargo.lock",
+        "crates/pid-rerun/Cargo.toml",
+        "crates/pid-rerun/src/lib.rs",
+        "crates/pid-rerun/src/runlog.rs",
+        "crates/pid-rerun/src/bin/runlog_to_rerun.rs"
+      ],
+      "content_bindings": [
+        {
+          "bytes": 99133,
+          "inventory_entry_sha256": "744616ed95fb9c255f598dfcdf931378dabc0bdc100829b355ac42bedfb0af9c",
+          "path": "Cargo.lock",
+          "sha256": "1a8dad88f5df8ad047adc0f075d4a8422bb8799a843225d1ef0d33b06f93b3d9"
+        },
+        {
+          "bytes": 1964,
+          "inventory_entry_sha256": "04c1ef5695830ef5356853066fd67020aaa18bbf7155291f2cf29f2165836d3e",
+          "path": "crates/pid-rerun/Cargo.toml",
+          "sha256": "1b4b0e3b7432efbe64052bf1ddffd17622b4a5f86f8551fa93872dc11abdf3f7"
+        },
+        {
+          "bytes": 22088,
+          "inventory_entry_sha256": "81cad925b2c67019468bd70466b5488c27bb2560fccbfe65754ade547676010d",
+          "path": "crates/pid-rerun/src/bin/runlog_to_rerun.rs",
+          "sha256": "b23787ab4ea6fb4ec8161881552b5bd940a7ea26e3d83d414fc2dd3d618c3b80"
+        },
+        {
+          "bytes": 13913,
+          "inventory_entry_sha256": "5252fc699a2fd336a625f5650c807e19eff4beb7a29d7c59db8da01787a7c533",
+          "path": "crates/pid-rerun/src/lib.rs",
+          "sha256": "21e9a3b5298566dcf1cdfd802ebe0bcdb1707b07a980983cf14b88be6f3703ef"
+        },
+        {
+          "bytes": 84840,
+          "inventory_entry_sha256": "810eef4a5587d23aa9cf920ddfc3490e9dd14b92d8b6c45ec1ced32065b0f08b",
+          "path": "crates/pid-rerun/src/runlog.rs",
+          "sha256": "ed5e6759659f9a2b1b8a6ee57e18524f9ff913986d5cc365beae43c7aefc5ea1"
+        }
+      ],
+      "decision": "PENDING_POST_PUSH_VERIFICATION",
+      "evidence_paths": [],
+      "evidence_receipt_ids": [
+        "RCP-RUST",
+        "RCP-RERUN",
+        "RCP-POST-PUSH-CI"
+      ],
+      "independent_reviewer": null,
+      "permitted_language": "The candidate source contains a bounded run-log-to-Rerun conversion path and a finalized local RRD save installed without replacing an existing path.",
+      "prohibited_language": "Do not infer scientific validity, release readiness, deployment security, or successful post-push verification from source presence.",
+      "required_evidence_receipt_ids": [
+        "RCP-RUST",
+        "RCP-RERUN",
+        "RCP-POST-PUSH-CI"
+      ],
+      "residual_assumptions": [
+        "the recorded working-tree bytes become one exact pushed commit",
+        "all referenced receipts complete successfully for that commit"
+      ],
+      "reviewer": null,
+      "status": "source_evidenced_verification_pending",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [
+        "crates/pid-rerun/src/lib.rs",
+        "crates/pid-rerun/src/runlog.rs"
+      ],
+      "title": "bounded Rerun conversion and no-replace save",
+      "updated_at": null
+    },
+    {
+      "blockers": [
+        "all referenced post-push evidence receipts are pending"
+      ],
+      "claim_class": "software",
+      "claim_id": "SW09-003",
+      "claim_text": "The candidate source contains content-addressed attribution publication and opt-in Rerun loading that checks recorded digest and canonical shape.",
+      "claim_tier": "E0_LOCAL_SOURCE_PENDING_EXACT_VERIFICATION",
+      "code_paths": [
+        "experiments/attribution/runlog.py",
+        "crates/pid-rerun/src/adapters.rs"
+      ],
+      "content_bindings": [
+        {
+          "bytes": 42392,
+          "inventory_entry_sha256": "ec16295c30a314cb811b913250305c831bca9e9b713e97f8952d931ad9b611e0",
+          "path": "crates/pid-rerun/src/adapters.rs",
+          "sha256": "579c0763dc62474629f51ea6628afd2b10fb7eb4bae1ac4ca2f42f0138747dfc"
+        },
+        {
+          "bytes": 5603,
+          "inventory_entry_sha256": "2d2060e703e12d2f5af44ece5d27557f519296c901dfe69eb8612ea4d75d5306",
+          "path": "experiments/attribution/README.md",
+          "sha256": "eb61852cb0a3e1606686e7795af38e8f726cec9b05e9c595f1ee2a77ac6850b3"
+        },
+        {
+          "bytes": 26308,
+          "inventory_entry_sha256": "f4d73dafe8fdd5c8b4a71a05d4f8402682d773fae0eb8a23ee9baa423f71fb84",
+          "path": "experiments/attribution/runlog.py",
+          "sha256": "20f81a0e8367fbc2d1934784c262791edbd655e43ae72567e647d902ce7a3f5e"
+        },
+        {
+          "bytes": 26543,
+          "inventory_entry_sha256": "8babd5efddde4fbf8672a46d9a4a69c17d8e76b10daa2a300d62fdb554681f71",
+          "path": "tests/python/test_attribution.py",
+          "sha256": "8c0673ff0fe65ced04bf22a59024c7a42797951f5079bfa9060a285bfc7a0bc4"
+        }
+      ],
+      "decision": "PENDING_POST_PUSH_VERIFICATION",
+      "evidence_paths": [
+        "experiments/attribution/README.md"
+      ],
+      "evidence_receipt_ids": [
+        "RCP-PYTHON",
+        "RCP-RERUN",
+        "RCP-POST-PUSH-CI"
+      ],
+      "independent_reviewer": null,
+      "permitted_language": "The candidate source contains content-addressed attribution publication and opt-in Rerun loading that checks recorded digest and canonical shape.",
+      "prohibited_language": "Do not infer scientific validity, release readiness, deployment security, or successful post-push verification from source presence.",
+      "required_evidence_receipt_ids": [
+        "RCP-PYTHON",
+        "RCP-RERUN",
+        "RCP-POST-PUSH-CI"
+      ],
+      "residual_assumptions": [
+        "the recorded working-tree bytes become one exact pushed commit",
+        "all referenced receipts complete successfully for that commit"
+      ],
+      "reviewer": null,
+      "status": "source_evidenced_verification_pending",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [
+        "tests/python/test_attribution.py"
+      ],
+      "title": "content-bound attribution artifacts",
+      "updated_at": null
+    },
+    {
+      "blockers": [
+        "all referenced post-push evidence receipts are pending"
+      ],
+      "claim_class": "software",
+      "claim_id": "SW09-004",
+      "claim_text": "The candidate source contains deterministic governance generators and audits for the imported requirements, capability matrix, and unfinished M0 state.",
+      "claim_tier": "E0_LOCAL_SOURCE_PENDING_EXACT_VERIFICATION",
+      "code_paths": [
+        "scripts/audit_release_requirements.py",
+        "scripts/audit_research_governance.py",
+        "scripts/generate_capability_matrix.py"
+      ],
+      "content_bindings": [
+        {
+          "bytes": 43923,
+          "inventory_entry_sha256": "887c23b348a064f9879a2c21d3b0f58122ceb819a94d28d29c111131b99a2cc3",
+          "path": "protocols/capability_matrix_current_v1.json",
+          "sha256": "de58fce9eb136ee697a04504c089ea8c671599135a9906c0b2864f6082f73159"
+        },
+        {
+          "bytes": 21113,
+          "inventory_entry_sha256": "df02d9228e59ecbb5dffe2b1fc6fa24038548763da896c4ccd8383838cfe5d90",
+          "path": "scripts/audit_release_requirements.py",
+          "sha256": "cb489eae57dbff8d57b8244b39d118d99114e73cbe43dfb6b5fee0cecb40f539"
+        },
+        {
+          "bytes": 84935,
+          "inventory_entry_sha256": "a38111a3d1d5bc205eb6d0254d28adf2b9356b04aa854ab4536752949ad76315",
+          "path": "scripts/audit_research_governance.py",
+          "sha256": "0ce0fea26c7375c098c38c96c2f45af12539881fd9db196e88093b411c0f8ebb"
+        },
+        {
+          "bytes": 37618,
+          "inventory_entry_sha256": "0547e21f361f58706c9205edaf82bd334f959c9d5be5e5690e1a55b4d5ade792",
+          "path": "scripts/generate_capability_matrix.py",
+          "sha256": "10da3d7e043c88e63b7935a5631931c4eefb485078ef17706a3689cfdbaddcf5"
+        },
+        {
+          "bytes": 18121,
+          "inventory_entry_sha256": "90f6b7b5d72fb415bf4eb6f098ecef059c63c05d82ac3fd5e83c5baf05de80e6",
+          "path": "tests/python/test_capability_matrix.py",
+          "sha256": "61a3da0dc412a9048830b97bf85277631d6e142535bb1913d193a348229930b7"
+        },
+        {
+          "bytes": 18326,
+          "inventory_entry_sha256": "2f06c8009ffbaefa0a14309564b117c17527a7769954045ee8263e95aa155b36",
+          "path": "tests/python/test_release_requirements.py",
+          "sha256": "62d6c17287b07ae155af3607eb59517ecc1d5ff6acffc6d0993b47e4d803179a"
+        }
+      ],
+      "decision": "PENDING_POST_PUSH_VERIFICATION",
+      "evidence_paths": [
+        "protocols/capability_matrix_current_v1.json"
+      ],
+      "evidence_receipt_ids": [
+        "RCP-DOCS",
+        "RCP-PYTHON",
+        "RCP-POST-PUSH-CI"
+      ],
+      "independent_reviewer": null,
+      "permitted_language": "The candidate source contains deterministic governance generators and audits for the imported requirements, capability matrix, and unfinished M0 state.",
+      "prohibited_language": "Do not infer scientific validity, release readiness, deployment security, or successful post-push verification from source presence.",
+      "required_evidence_receipt_ids": [
+        "RCP-DOCS",
+        "RCP-PYTHON",
+        "RCP-POST-PUSH-CI"
+      ],
+      "residual_assumptions": [
+        "the recorded working-tree bytes become one exact pushed commit",
+        "all referenced receipts complete successfully for that commit"
+      ],
+      "reviewer": null,
+      "status": "source_evidenced_verification_pending",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [
+        "tests/python/test_release_requirements.py",
+        "tests/python/test_capability_matrix.py"
+      ],
+      "title": "fail-closed governance generators and audits",
+      "updated_at": null
+    },
+    {
+      "blockers": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "claim_class": "scientific",
+      "claim_id": "SCI-EC1",
+      "claim_text": "EC1 is not established by this candidate; real-study evidence remains absent.",
+      "claim_tier": "SCIENTIFIC_NOT_ESTABLISHED",
+      "code_paths": [],
+      "content_bindings": [
+        {
+          "bytes": 217970,
+          "inventory_entry_sha256": "67c9bf1e531ae3631e5ceac4a571b4a2f950c3151d72af39bfc169a68157ed8b",
+          "path": "grandplan.md",
+          "sha256": "65974c5bbc15750a2a27606107ca923f49224fed9dd6078c30ba062d5ebca8ac"
+        },
+        {
+          "bytes": 9904,
+          "inventory_entry_sha256": "746c2c939cd409261ed59cfee68a86762d67456f85e33b0483b50843641847d1",
+          "path": "protocols/research_claim_registry_v1.json",
+          "sha256": "400364178eb2bf467488f6da5b05c2a2b011084c9047b68f8a4aece51f865b8a"
+        }
+      ],
+      "decision": "NOT_CLAIMED",
+      "evidence_paths": [
+        "grandplan.md",
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "evidence_receipt_ids": [],
+      "independent_reviewer": null,
+      "permitted_language": "EC1 is not established by this candidate; real-study evidence remains absent.",
+      "prohibited_language": "No confirmatory, causal, safety, validated-PID, or real-study conclusion may be drawn from this candidate.",
+      "required_evidence_receipt_ids": [],
+      "residual_assumptions": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "reviewer": null,
+      "status": "blocked_not_established",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [],
+      "title": "EC1 reconstructability claim",
+      "updated_at": null
+    },
+    {
+      "blockers": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "claim_class": "scientific",
+      "claim_id": "SCI-H1",
+      "claim_text": "H1 is not established; software references are not causal study evidence.",
+      "claim_tier": "SCIENTIFIC_NOT_ESTABLISHED",
+      "code_paths": [],
+      "content_bindings": [
+        {
+          "bytes": 172870,
+          "inventory_entry_sha256": "0a4f25e507a04d28ea94c082cf07ed59bfdc4b9de067562ec17d0df06b68753d",
+          "path": "EXPERIMENTS.md",
+          "sha256": "0d54a8967a900ae24e3d7dbdd72dea5e1735269af5d77a23123050d5ab8d56c6"
+        },
+        {
+          "bytes": 9904,
+          "inventory_entry_sha256": "746c2c939cd409261ed59cfee68a86762d67456f85e33b0483b50843641847d1",
+          "path": "protocols/research_claim_registry_v1.json",
+          "sha256": "400364178eb2bf467488f6da5b05c2a2b011084c9047b68f8a4aece51f865b8a"
+        }
+      ],
+      "decision": "NOT_CLAIMED",
+      "evidence_paths": [
+        "EXPERIMENTS.md",
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "evidence_receipt_ids": [],
+      "independent_reviewer": null,
+      "permitted_language": "H1 is not established; software references are not causal study evidence.",
+      "prohibited_language": "No confirmatory, causal, safety, validated-PID, or real-study conclusion may be drawn from this candidate.",
+      "required_evidence_receipt_ids": [],
+      "residual_assumptions": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "reviewer": null,
+      "status": "blocked_not_established",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [],
+      "title": "H1 causal sensitivity claim",
+      "updated_at": null
+    },
+    {
+      "blockers": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "claim_class": "scientific",
+      "claim_id": "SCI-H2",
+      "claim_text": "H2 is not established; synthetic protocol arithmetic is not prospective evidence.",
+      "claim_tier": "SCIENTIFIC_NOT_ESTABLISHED",
+      "code_paths": [],
+      "content_bindings": [
+        {
+          "bytes": 172870,
+          "inventory_entry_sha256": "0a4f25e507a04d28ea94c082cf07ed59bfdc4b9de067562ec17d0df06b68753d",
+          "path": "EXPERIMENTS.md",
+          "sha256": "0d54a8967a900ae24e3d7dbdd72dea5e1735269af5d77a23123050d5ab8d56c6"
+        },
+        {
+          "bytes": 9904,
+          "inventory_entry_sha256": "746c2c939cd409261ed59cfee68a86762d67456f85e33b0483b50843641847d1",
+          "path": "protocols/research_claim_registry_v1.json",
+          "sha256": "400364178eb2bf467488f6da5b05c2a2b011084c9047b68f8a4aece51f865b8a"
+        }
+      ],
+      "decision": "NOT_CLAIMED",
+      "evidence_paths": [
+        "EXPERIMENTS.md",
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "evidence_receipt_ids": [],
+      "independent_reviewer": null,
+      "permitted_language": "H2 is not established; synthetic protocol arithmetic is not prospective evidence.",
+      "prohibited_language": "No confirmatory, causal, safety, validated-PID, or real-study conclusion may be drawn from this candidate.",
+      "required_evidence_receipt_ids": [],
+      "residual_assumptions": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "reviewer": null,
+      "status": "blocked_not_established",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [],
+      "title": "H2 prospective failure-prediction claim",
+      "updated_at": null
+    },
+    {
+      "blockers": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "claim_class": "scientific",
+      "claim_id": "SCI-H3",
+      "claim_text": "H3 is not established and its study gate remains open.",
+      "claim_tier": "SCIENTIFIC_NOT_ESTABLISHED",
+      "code_paths": [],
+      "content_bindings": [
+        {
+          "bytes": 217970,
+          "inventory_entry_sha256": "67c9bf1e531ae3631e5ceac4a571b4a2f950c3151d72af39bfc169a68157ed8b",
+          "path": "grandplan.md",
+          "sha256": "65974c5bbc15750a2a27606107ca923f49224fed9dd6078c30ba062d5ebca8ac"
+        },
+        {
+          "bytes": 9904,
+          "inventory_entry_sha256": "746c2c939cd409261ed59cfee68a86762d67456f85e33b0483b50843641847d1",
+          "path": "protocols/research_claim_registry_v1.json",
+          "sha256": "400364178eb2bf467488f6da5b05c2a2b011084c9047b68f8a4aece51f865b8a"
+        }
+      ],
+      "decision": "NOT_CLAIMED",
+      "evidence_paths": [
+        "grandplan.md",
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "evidence_receipt_ids": [],
+      "independent_reviewer": null,
+      "permitted_language": "H3 is not established and its study gate remains open.",
+      "prohibited_language": "No confirmatory, causal, safety, validated-PID, or real-study conclusion may be drawn from this candidate.",
+      "required_evidence_receipt_ids": [],
+      "residual_assumptions": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "reviewer": null,
+      "status": "blocked_not_established",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [],
+      "title": "H3 representation-shift claim",
+      "updated_at": null
+    },
+    {
+      "blockers": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "claim_class": "scientific",
+      "claim_id": "SCI-H4",
+      "claim_text": "H4 is exploratory and not established by the reference probe.",
+      "claim_tier": "SCIENTIFIC_NOT_ESTABLISHED",
+      "code_paths": [],
+      "content_bindings": [
+        {
+          "bytes": 5603,
+          "inventory_entry_sha256": "2d2060e703e12d2f5af44ece5d27557f519296c901dfe69eb8612ea4d75d5306",
+          "path": "experiments/attribution/README.md",
+          "sha256": "eb61852cb0a3e1606686e7795af38e8f726cec9b05e9c595f1ee2a77ac6850b3"
+        },
+        {
+          "bytes": 217970,
+          "inventory_entry_sha256": "67c9bf1e531ae3631e5ceac4a571b4a2f950c3151d72af39bfc169a68157ed8b",
+          "path": "grandplan.md",
+          "sha256": "65974c5bbc15750a2a27606107ca923f49224fed9dd6078c30ba062d5ebca8ac"
+        }
+      ],
+      "decision": "NOT_CLAIMED",
+      "evidence_paths": [
+        "experiments/attribution/README.md",
+        "grandplan.md"
+      ],
+      "evidence_receipt_ids": [],
+      "independent_reviewer": null,
+      "permitted_language": "H4 is exploratory and not established by the reference probe.",
+      "prohibited_language": "No confirmatory, causal, safety, validated-PID, or real-study conclusion may be drawn from this candidate.",
+      "required_evidence_receipt_ids": [],
+      "residual_assumptions": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "reviewer": null,
+      "status": "blocked_not_established",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [],
+      "title": "H4 mechanistic-attribution claim",
+      "updated_at": null
+    },
+    {
+      "blockers": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "claim_class": "scientific",
+      "claim_id": "SCI-PID-APPLICATION",
+      "claim_text": "The high-dimensional MI/coherence path remains NO-GO and the continuous application gate remains blocked.",
+      "claim_tier": "SCIENTIFIC_NOT_ESTABLISHED",
+      "code_paths": [],
+      "content_bindings": [
+        {
+          "bytes": 23886,
+          "inventory_entry_sha256": "eb123d9f4bf0e79471701fdcd74d75aca1bd9bb16263e8ea54ce9b9c1355389a",
+          "path": "findings.md",
+          "sha256": "9e07e5d251fc74410588e18ec326315a25608f0d2d56f5c12e3a5ea98ab54ac3"
+        },
+        {
+          "bytes": 217970,
+          "inventory_entry_sha256": "67c9bf1e531ae3631e5ceac4a571b4a2f950c3151d72af39bfc169a68157ed8b",
+          "path": "grandplan.md",
+          "sha256": "65974c5bbc15750a2a27606107ca923f49224fed9dd6078c30ba062d5ebca8ac"
+        }
+      ],
+      "decision": "NOT_CLAIMED",
+      "evidence_paths": [
+        "findings.md",
+        "grandplan.md"
+      ],
+      "evidence_receipt_ids": [],
+      "independent_reviewer": null,
+      "permitted_language": "The high-dimensional MI/coherence path remains NO-GO and the continuous application gate remains blocked.",
+      "prohibited_language": "No confirmatory, causal, safety, validated-PID, or real-study conclusion may be drawn from this candidate.",
+      "required_evidence_receipt_ids": [],
+      "residual_assumptions": [
+        "protocol and evidence gates remain open",
+        "candidate contains no real-study result establishing this claim"
+      ],
+      "reviewer": null,
+      "status": "blocked_not_established",
+      "supplemental_evidence_receipt_ids": [],
+      "test_paths": [],
+      "title": "continuous PID application validity",
+      "updated_at": null
+    }
+  ],
+  "project": "prisoma",
+  "record_type": "candidate_claim_to_evidence_ledger",
+  "release_version": "0.9.0",
+  "schema_version": "prisoma.release-candidate/0.1.0",
+  "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+  "status_contract": {
+    "scientific_statuses": [
+      "blocked_not_established",
+      "withdrawn"
+    ],
+    "software_statuses": [
+      "source_evidenced_verification_pending",
+      "verified_for_exact_candidate",
+      "withdrawn"
+    ],
+    "terminal_promotion_enabled": false,
+    "terminal_promotion_policy": "disabled_in_0.1_pending_typed_authenticated_evidence",
+    "verification_rule": "Schema 0.1 cannot verify or withdraw claims; a successor schema must bind typed claim clauses to authenticated exact-candidate evidence."
+  },
+  "summary": {
+    "scientific_blocked_count": 6,
+    "scientific_claim_count": 6,
+    "scientific_established_count": 0,
+    "software_claim_count": 4,
+    "software_verification_pending_count": 4,
+    "software_verified_count": 0,
+    "withdrawn_count": 0
+  }
+}

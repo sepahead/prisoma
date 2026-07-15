@@ -25,9 +25,9 @@
 Instead of building a custom simulator frontend from scratch immediately, we utilize **Rerun** (https://rerun.io/) as the primary visualization and "time machine" viewer for the initial research phases. The canonical run log—not a Rerun recording—is the authoritative record.
 
 **Why this decision (v10.1):**
-- **Engineering Efficiency:** Building a custom 3D engine with timeline scrubbing, camera controls, and state management (Tauri+SparkJS) is a massive upfront cost. Rerun provides these "for free" via a simple SDK (`cargo add rerun`).
+- **Engineering Efficiency:** Building a custom 3D engine with timeline scrubbing, camera controls, and state management (Tauri+SparkJS) is a massive upfront cost. Rerun supplies these through its logging SDK; the current adapter pins the narrow `re_sdk` and `re_sdk_types` crates directly.
 - **The "Time Machine":** Rerun can display converted run-log streams with replay/scrubbing. This is critical for diagnosing VLA failures (e.g., "rewind to 2 seconds before the drop") while keeping the viewer read-only.
-- **3DGS Support:** splat data can be logged to Rerun (point clouds/ellipsoids); verify native 3DGS rendering in the pinned Rerun 0.28.x before relying on it.
+- **3DGS Support:** splat data can be logged to Rerun (point clouds/ellipsoids); verify native 3DGS rendering in the pinned Rerun 0.34.1 before relying on it.
 - **Focus on Science:** Allows the team to focus on `pid-core`, physics bindings, and experiment logic (the novel parts) rather than boilerplate UI code.
 
 **Implementation Detail: Ghost Splats in Rerun**
@@ -384,7 +384,7 @@ LRP, Integrated Gradients, DeepLIFT, Grad-CAM, TCAV, saliency/SmoothGrad, occlus
 - Keep attribution metadata with the artifact: method, target output, layer/modality, baseline/background/concept set, preprocessing, score hash, and faithfulness/sanity-check result.
 - Do not require Phase 4 custom shaders for attribution review; Phase 4 can add interactive overlays, but the canonical evidence remains the run log plus artifacts.
 
-**Implemented slice:** `experiments/attribution/` runs epsilon-/AttnLRP and gradient×input on a small reference model, checks deletion-AOPC against a random control, and emits first-class `attribution_logged` events. The `pid-rerun` adapter surfaces the faithfulness verdict, provenance text, and up to 1024 values from compatible NumPy relevance artifacts. Production VLA adapters and richer 2-D panels remain future work.
+**Implemented slice:** `experiments/attribution/` runs epsilon-/AttnLRP and gradient×input on a small reference model, checks deletion-AOPC against a random control, and emits first-class `attribution_logged` events plus immutable content-addressed relevance artifacts. The `pid-rerun` adapter always surfaces the faithfulness verdict and provenance text. Its standalone converter can additionally surface at most 1024 finite values from a narrowly framed, bounded NumPy relevance artifact only after the operator passes `--load-attribution-artifacts`; paths are confined to the run-log directory, and the recorded exact file SHA-256 and canonical shape must match before output. Bridge export never grants this file-reading capability. The path checks are local best-effort confinement, not protection against every concurrent filesystem race, and artifact/run-log publication is not a cross-file transaction. Production VLA adapters and richer 2-D panels remain future work.
 
 **Interpretation rule:** if PID claims `Unq(V)`, `Unq(L)`, or `Syn(V,L;A)` is diagnostic, attribution overlays should either provide a compatible local account under matched interventions or expose a disagreement that must be reported.
 

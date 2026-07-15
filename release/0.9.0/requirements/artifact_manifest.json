@@ -1,0 +1,24 @@
+{
+  "artifacts": [
+    {
+      "bytes": 2281617,
+      "path": "19_MASTER_TASK_LEDGER.yaml",
+      "sha256": "384f5540dcdb4709b8f9add57e355761c6e076a1c4b22e26e42482bd0c0c4f29"
+    },
+    {
+      "bytes": 12443,
+      "path": "handoff_package_manifest.json",
+      "sha256": "6b71532877b15b0428ed2275e71f27ce42ca0c28860a08889ced596983352644"
+    },
+    {
+      "bytes": 3946528,
+      "path": "task_dispositions.baseline.json",
+      "sha256": "43cb0b6e2e77557ccceed2736fa319c16358039918052943c3fd085c9298affc"
+    }
+  ],
+  "project": "prisoma",
+  "record_type": "release_requirements_artifact_manifest",
+  "release_version": "0.9.0",
+  "review_status": "integrity_only_no_completion_claim",
+  "schema_version": "prisoma.release-requirements/0.1.0"
+}

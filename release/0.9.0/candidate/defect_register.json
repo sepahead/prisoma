@@ -1,0 +1,178 @@
+{
+  "defects": [
+    {
+      "blocks_release": true,
+      "decision": null,
+      "evidence": [],
+      "evidence_receipt_ids": [
+        "RCP-POST-PUSH-CI"
+      ],
+      "id": "DEF-P0-001",
+      "independent_reviewer": null,
+      "priority": "P0",
+      "required_evidence_receipt_ids": [
+        "RCP-POST-PUSH-CI"
+      ],
+      "residual_risk": null,
+      "resolution_rule": "bind a clean exact candidate commit and successful post-push main CI",
+      "reviewer": null,
+      "status": "open",
+      "supplemental_evidence_receipt_ids": [],
+      "title": "candidate source snapshot is dirty and has no exact pushed commit",
+      "updated_at": null
+    },
+    {
+      "blocks_release": true,
+      "decision": null,
+      "evidence": [],
+      "evidence_receipt_ids": [],
+      "id": "DEF-P0-002",
+      "independent_reviewer": null,
+      "priority": "P0",
+      "required_evidence_receipt_ids": [],
+      "residual_risk": null,
+      "resolution_rule": "review each obligation under its baseline closure rule or explicitly narrow the release scope without claiming completion",
+      "reviewer": null,
+      "status": "open",
+      "supplemental_evidence_receipt_ids": [],
+      "title": "all 240 imported tasks and 4,800 lens dispositions remain open",
+      "updated_at": null
+    },
+    {
+      "blocks_release": true,
+      "decision": null,
+      "evidence": [],
+      "evidence_receipt_ids": [
+        "RCP-RUST",
+        "RCP-RERUN",
+        "RCP-PYTHON",
+        "RCP-DOCS",
+        "RCP-SUPPLY-CHAIN",
+        "RCP-POST-PUSH-CI"
+      ],
+      "id": "DEF-P0-003",
+      "independent_reviewer": null,
+      "priority": "P0",
+      "required_evidence_receipt_ids": [
+        "RCP-RUST",
+        "RCP-RERUN",
+        "RCP-PYTHON",
+        "RCP-DOCS",
+        "RCP-SUPPLY-CHAIN",
+        "RCP-POST-PUSH-CI"
+      ],
+      "residual_risk": null,
+      "resolution_rule": "attach exact successful receipts for the pushed candidate",
+      "reviewer": null,
+      "status": "open",
+      "supplemental_evidence_receipt_ids": [],
+      "title": "exact test and post-push evidence receipts are pending",
+      "updated_at": null
+    },
+    {
+      "blocks_release": false,
+      "decision": null,
+      "evidence": [],
+      "evidence_receipt_ids": [],
+      "id": "DEF-P1-001",
+      "independent_reviewer": null,
+      "priority": "P1",
+      "required_evidence_receipt_ids": [],
+      "residual_risk": null,
+      "resolution_rule": "retain the source-preview boundary and do not publish PID atoms as application-validated results",
+      "reviewer": null,
+      "status": "open",
+      "supplemental_evidence_receipt_ids": [],
+      "title": "continuous PID application validity remains blocked",
+      "updated_at": null
+    },
+    {
+      "blocks_release": true,
+      "decision": null,
+      "evidence": [],
+      "evidence_receipt_ids": [
+        "RCP-RERUN",
+        "RCP-POST-PUSH-CI"
+      ],
+      "id": "DEF-P1-002",
+      "independent_reviewer": null,
+      "priority": "P1",
+      "required_evidence_receipt_ids": [
+        "RCP-RERUN",
+        "RCP-POST-PUSH-CI"
+      ],
+      "residual_risk": null,
+      "resolution_rule": "record successful exact-candidate Rerun and CI receipts",
+      "reviewer": null,
+      "status": "open",
+      "supplemental_evidence_receipt_ids": [],
+      "title": "latest Rerun integration lacks exact post-push matrix evidence",
+      "updated_at": null
+    },
+    {
+      "blocks_release": false,
+      "decision": null,
+      "evidence": [],
+      "evidence_receipt_ids": [],
+      "id": "DEF-P2-001",
+      "independent_reviewer": null,
+      "priority": "P2",
+      "required_evidence_receipt_ids": [],
+      "residual_risk": null,
+      "resolution_rule": "keep these components out of the 0.9 runnable capability claim",
+      "reviewer": null,
+      "status": "open",
+      "supplemental_evidence_receipt_ids": [],
+      "title": "fuller viewer phases and the deferred custom shell remain specifications",
+      "updated_at": null
+    }
+  ],
+  "project": "prisoma",
+  "record_type": "candidate_defect_register",
+  "release_version": "0.9.0",
+  "schema_version": "prisoma.release-candidate/0.1.0",
+  "source_state_sha256": "c9b0c8a17337ce707d7046c0a0cd5ff5f7bfe04e68069df4f1fd1315832090cd",
+  "status_contract": {
+    "closure_rule": "Schema 0.1 cannot mitigate or close defects; a successor schema must bind the exact resolution rule to authenticated evidence and reviewed residual risk",
+    "priorities": [
+      "P0",
+      "P1",
+      "P2"
+    ],
+    "statuses": [
+      "open",
+      "in_progress",
+      "blocked",
+      "mitigated",
+      "closed"
+    ],
+    "terminal_promotion_enabled": false,
+    "terminal_promotion_policy": "disabled_in_0.1_pending_typed_authenticated_evidence"
+  },
+  "summary": {
+    "P0": {
+      "blocked": 0,
+      "closed": 0,
+      "in_progress": 0,
+      "mitigated": 0,
+      "open": 3
+    },
+    "P1": {
+      "blocked": 0,
+      "closed": 0,
+      "in_progress": 0,
+      "mitigated": 0,
+      "open": 2
+    },
+    "P2": {
+      "blocked": 0,
+      "closed": 0,
+      "in_progress": 0,
+      "mitigated": 0,
+      "open": 1
+    },
+    "defect_count": 6,
+    "open_release_blocker_count": 4,
+    "release_blocked": true
+  }
+}

@@ -92,7 +92,9 @@ def faithfulness_check(
     attribution = np.asarray(attribution, dtype=np.float64)
     if attribution.shape != x.shape:
         raise ValueError("attribution shape must match x")
-    baseline = np.zeros_like(x) if baseline is None else np.asarray(baseline, dtype=np.float64)
+    baseline = (
+        np.zeros_like(x) if baseline is None else np.asarray(baseline, dtype=np.float64)
+    )
 
     f0 = predict(x)
     rng = np.random.default_rng(seed)
@@ -111,7 +113,9 @@ def faithfulness_check(
     # ddof=0 form understates the spread at small n_random, marginally
     # loosening the gate.
     random_std = float(np.std(random_aopcs, ddof=1)) if len(random_aopcs) > 1 else 0.0
-    random_curve = (random_curve_acc / n_random).tolist() if random_curve_acc is not None else []
+    random_curve = (
+        (random_curve_acc / n_random).tolist() if random_curve_acc is not None else []
+    )
 
     # Method ordering: most-important-first by |attribution|, with ties broken at
     # random (seeded). Tied features carry no ranking signal, so when the attribution
@@ -144,7 +148,7 @@ def faithfulness_check(
     # while a genuinely faithful map (gap >> sem) still passes.
     sem = random_std / np.sqrt(max(n_random, 1))
     threshold = random_aopc + margin + 3.0 * sem
-    passed = method_aopc > threshold
+    passed = bool(method_aopc > threshold)
     return FaithfulnessResult(
         method_aopc=method_aopc,
         random_aopc=random_aopc,

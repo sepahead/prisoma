@@ -42,10 +42,11 @@ report = [
 ]
 
 [tool.uv]
-# Prisoma 0.9 is a source/research release, not a PyPI distribution. The
+# Prisoma 0.9.0 is an unpublished source/research release candidate, not a PyPI distribution. The
 # `pid_core_rs` Python extension is owned and versioned by the pinned `pid-rs`
 # submodule and is built explicitly from its own Cargo manifest.
 package = false
+required-version = "==0.11.28"
 default-groups = ["runtime", "dev", "analysis"]
 
 [tool.ruff]

@@ -22,8 +22,20 @@ Reusable / production-relevant (implemented for real, tested):
   a sign-robust form for a signed regression target. This is the load-bearing guard.
 * **run-log emission** (`runlog.py`) — writes `run_started` / `config_logged` /
   `attribution_logged` / `run_ended` JSONL that passes `pid-runlog-replay --validate`,
-  with relevance arrays saved as `.npy` artifacts plus `sha256` and a `score_hash`.
-  The `config_hash` is computed to match `serde_json`'s canonical serialization.
+  accepts at most 1024 finite relevance values per record, and, when artifact output is
+  enabled, saves them as NumPy v1.0 little-endian `f64` C-order artifacts plus exact
+  file `sha256`, canonical shape metadata, and a `score_hash`. Artifact names are their
+  file digest, are installed without replacement,
+  and remain immutable across later runs. Artifact URIs are relative to the run-log
+  directory for the converter's confined loader; the run-log name is replaced only
+  after every referenced artifact has been installed and verified.
+  The `config_hash` is computed to match `serde_json`'s canonical serialization. Run ids
+  are nonempty and normalization-stable; caller metadata is preserved only when its keys
+  and values are exact strings, with producer-owned fields and normalization collisions
+  rejected. Per-line, file, encoded-string, container, and nesting limits mirror the
+  canonical Rust reader; the producer additionally adopts the viewer's stricter 100,000-event,
+  64 MiB serialized-event, and 8 MiB unique prepared-artifact caps. Every limit fails before
+  any publication output.
 * **probe orchestration** (`probe.py`) — attribute, check, assemble records.
 
 Stand-in (swap for production):
@@ -46,10 +58,20 @@ self-checking); a test verifies it against torch autograd when torch is installe
 python -m experiments.attribution demo \
     --runlog outputs/attribution_runlog.jsonl --artifacts outputs/attribution
 cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/attribution_runlog.jsonl
+cargo run -p pid-rerun --bin runlog-to-rerun -- \
+    outputs/attribution_runlog.jsonl --load-attribution-artifacts \
+    --save outputs/attribution_runlog.rrd
 ```
 
 Each method prints its faithfulness verdict and AOPCs; the run log carries one
 `attribution_logged` event per method with `faithfulness_check` set accordingly.
+`--artifacts` must be a strict descendant of the run log's directory. Publication
+rejects observed symlink/hard-link aliases, file-syncs staged contents, installs
+content-addressed artifacts without clobbering, and atomically replaces the run-log
+name last. This ordering preserves any prior valid publication after an artifact-install
+failure, but it is not a multi-file transaction or parent-directory-fsync guarantee.
+External artifact loading remains an explicit converter opt-in and is never enabled by
+bridge export; opted-in loading requires the recorded exact digest and shape to match.
 
 ## Status
 

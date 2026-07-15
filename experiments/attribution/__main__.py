@@ -58,7 +58,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     demo = sub.add_parser("demo", help="run the probe on the reference model")
     demo.add_argument("--runlog", default="outputs/attribution_runlog.jsonl")
-    demo.add_argument("--artifacts", default=None, help="dir to save .npy relevance artifacts")
+    demo.add_argument(
+        "--artifacts",
+        default=None,
+        help="dir inside the run-log directory for confined .npy relevance artifacts",
+    )
     demo.add_argument("--tokens", type=int, default=6)
     demo.add_argument("--d-in", type=int, default=5)
     demo.add_argument("--d-model", type=int, default=8)

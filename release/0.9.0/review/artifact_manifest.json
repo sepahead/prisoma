@@ -1,0 +1,25 @@
+{
+  "artifacts": [
+    {
+      "bytes": 1676,
+      "path": "intake.json",
+      "sha256": "682c221b956a21acd1677b6d46941141ac3e46c3adf2abbf870e8b4f6a9ad8a9"
+    },
+    {
+      "bytes": 163617,
+      "path": "master_task_ledger.normalized.json",
+      "sha256": "a08386f2e28b5c1614ffb2ce4038c13bde644ed941910d0ac34c1e57513c5fb3"
+    },
+    {
+      "bytes": 139051,
+      "path": "tracked_file_inventory.baseline.json",
+      "sha256": "f9cf96161b49ad03bc8f24fb8559a6f5ab17804f10a3b82c28537d927edc8ecc"
+    }
+  ],
+  "frozen_commit": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+  "project": "prisoma",
+  "record_type": "release_review_artifact_manifest",
+  "release_version": "0.9.0",
+  "review_status": "integrity_manifest_only_not_review_completion",
+  "schema_version": "prisoma.release-review/0.1.0"
+}

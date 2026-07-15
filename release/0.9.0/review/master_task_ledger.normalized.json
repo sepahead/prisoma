@@ -1,0 +1,4701 @@
+{
+  "normalization": {
+    "dependencies": "unique_numeric_sort",
+    "identifiers": "uppercase_fixed_width",
+    "path_scopes": "unique_lexicographic_sort; repository metadata becomes @repository-metadata",
+    "source_fields_retained": [
+      "id",
+      "phase_id",
+      "phase_title",
+      "title",
+      "priority",
+      "dependencies",
+      "execution_wave",
+      "subagent_lane",
+      "mandatory_path_scope",
+      "current_head"
+    ],
+    "text_whitespace": "collapsed",
+    "unicode": "NFC"
+  },
+  "phase_count": 16,
+  "phases": [
+    {
+      "execution_wave": 0,
+      "id": "P00",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T000",
+        "T001",
+        "T002",
+        "T003",
+        "T004",
+        "T005",
+        "T006",
+        "T007",
+        "T008",
+        "T009",
+        "T010",
+        "T011",
+        "T012",
+        "T013",
+        "T014"
+      ],
+      "title": "Freeze current head, inventory every file, and establish truthful baseline"
+    },
+    {
+      "execution_wave": 1,
+      "id": "P01",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T015",
+        "T016",
+        "T017",
+        "T018",
+        "T019",
+        "T020",
+        "T021",
+        "T022",
+        "T023",
+        "T024",
+        "T025",
+        "T026",
+        "T027",
+        "T028",
+        "T029"
+      ],
+      "title": "Reconcile documentation, claims, governance ledgers, and repository identity"
+    },
+    {
+      "execution_wave": 2,
+      "id": "P02",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T030",
+        "T031",
+        "T032",
+        "T033",
+        "T034",
+        "T035",
+        "T036",
+        "T037",
+        "T038",
+        "T039",
+        "T040",
+        "T041",
+        "T042",
+        "T043",
+        "T044"
+      ],
+      "title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics"
+    },
+    {
+      "execution_wave": 3,
+      "id": "P03",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T045",
+        "T046",
+        "T047",
+        "T048",
+        "T049",
+        "T050",
+        "T051",
+        "T052",
+        "T053",
+        "T054",
+        "T055",
+        "T056",
+        "T057",
+        "T058",
+        "T059"
+      ],
+      "title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking"
+    },
+    {
+      "execution_wave": 4,
+      "id": "P04",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T060",
+        "T061",
+        "T062",
+        "T063",
+        "T064",
+        "T065",
+        "T066",
+        "T067",
+        "T068",
+        "T069",
+        "T070",
+        "T071",
+        "T072",
+        "T073",
+        "T074"
+      ],
+      "title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance"
+    },
+    {
+      "execution_wave": 5,
+      "id": "P05",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T075",
+        "T076",
+        "T077",
+        "T078",
+        "T079",
+        "T080",
+        "T081",
+        "T082",
+        "T083",
+        "T084",
+        "T085",
+        "T086",
+        "T087",
+        "T088",
+        "T089"
+      ],
+      "title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity"
+    },
+    {
+      "execution_wave": 6,
+      "id": "P06",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T090",
+        "T091",
+        "T092",
+        "T093",
+        "T094",
+        "T095",
+        "T096",
+        "T097",
+        "T098",
+        "T099",
+        "T100",
+        "T101",
+        "T102",
+        "T103",
+        "T104"
+      ],
+      "title": "Implement H1 Protocol B randomized closed-loop effect modification"
+    },
+    {
+      "execution_wave": 7,
+      "id": "P07",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T105",
+        "T106",
+        "T107",
+        "T108",
+        "T109",
+        "T110",
+        "T111",
+        "T112",
+        "T113",
+        "T114",
+        "T115",
+        "T116",
+        "T117",
+        "T118",
+        "T119"
+      ],
+      "title": "Complete H2 prospective censoring-aware failure prediction"
+    },
+    {
+      "execution_wave": 8,
+      "id": "P08",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T120",
+        "T121",
+        "T122",
+        "T123",
+        "T124",
+        "T125",
+        "T126",
+        "T127",
+        "T128",
+        "T129",
+        "T130",
+        "T131",
+        "T132",
+        "T133",
+        "T134"
+      ],
+      "title": "Complete H4 representational availability versus causal policy use"
+    },
+    {
+      "execution_wave": 9,
+      "id": "P09",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T135",
+        "T136",
+        "T137",
+        "T138",
+        "T139",
+        "T140",
+        "T141",
+        "T142",
+        "T143",
+        "T144",
+        "T145",
+        "T146",
+        "T147",
+        "T148",
+        "T149"
+      ],
+      "title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable"
+    },
+    {
+      "execution_wave": 10,
+      "id": "P10",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T150",
+        "T151",
+        "T152",
+        "T153",
+        "T154",
+        "T155",
+        "T156",
+        "T157",
+        "T158",
+        "T159",
+        "T160",
+        "T161",
+        "T162",
+        "T163",
+        "T164"
+      ],
+      "title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking"
+    },
+    {
+      "execution_wave": 11,
+      "id": "P11",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T165",
+        "T166",
+        "T167",
+        "T168",
+        "T169",
+        "T170",
+        "T171",
+        "T172",
+        "T173",
+        "T174",
+        "T175",
+        "T176",
+        "T177",
+        "T178",
+        "T179"
+      ],
+      "title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage"
+    },
+    {
+      "execution_wave": 12,
+      "id": "P12",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T180",
+        "T181",
+        "T182",
+        "T183",
+        "T184",
+        "T185",
+        "T186",
+        "T187",
+        "T188",
+        "T189",
+        "T190",
+        "T191",
+        "T192",
+        "T193",
+        "T194"
+      ],
+      "title": "Migrate NCP/Engram observation and preserve optional ecosystem composition"
+    },
+    {
+      "execution_wave": 13,
+      "id": "P13",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T195",
+        "T196",
+        "T197",
+        "T198",
+        "T199",
+        "T200",
+        "T201",
+        "T202",
+        "T203",
+        "T204",
+        "T205",
+        "T206",
+        "T207",
+        "T208",
+        "T209"
+      ],
+      "title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening"
+    },
+    {
+      "execution_wave": 14,
+      "id": "P14",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T210",
+        "T211",
+        "T212",
+        "T213",
+        "T214",
+        "T215",
+        "T216",
+        "T217",
+        "T218",
+        "T219",
+        "T220",
+        "T221",
+        "T222",
+        "T223",
+        "T224"
+      ],
+      "title": "Packaging, CI, reproducibility, usability, and release engineering"
+    },
+    {
+      "execution_wave": 15,
+      "id": "P15",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "task_ids": [
+        "T225",
+        "T226",
+        "T227",
+        "T228",
+        "T229",
+        "T230",
+        "T231",
+        "T232",
+        "T233",
+        "T234",
+        "T235",
+        "T236",
+        "T237",
+        "T238",
+        "T239"
+      ],
+      "title": "Independent verification, thesis-board evidence, local convergence, and final release"
+    }
+  ],
+  "project": "prisoma",
+  "record_type": "normalized_master_task_ledger",
+  "review": {
+    "all_tasks_closed": false,
+    "closed_task_ids": [],
+    "human_review_complete": false,
+    "independent_review_complete": false,
+    "release_gate_passed": false,
+    "status": "normalized_intake_only_not_substantively_reviewed"
+  },
+  "schema_version": "prisoma.release-review/0.1.0",
+  "source": {
+    "bytes": 2281617,
+    "declared_status": "NO_GO_PENDING_IMPLEMENTATION_AND_EVIDENCE",
+    "expected_filename": "19_MASTER_TASK_LEDGER.yaml",
+    "frozen_commit": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+    "handoff_schema": "2.0.0",
+    "nominal_release_target": "1.0.0",
+    "operator_must_supply_explicit_cli_path": true,
+    "sha256": "384f5540dcdb4709b8f9add57e355761c6e076a1c4b22e26e42482bd0c0c4f29"
+  },
+  "task_count": 240,
+  "task_graph_sha256": "ac2926271314f48052c4b7d84862fff20c0f7f76a3e73816cc5018e3583fec71",
+  "tasks": [
+    {
+      "dependencies": [],
+      "execution_wave": 0,
+      "id": "T000",
+      "mandatory_path_scopes": [
+        "*",
+        ".gitmodules",
+        "Cargo.lock",
+        "uv.lock"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Freeze exact Git, submodule, dependency, toolchain, dataset, model, and external-repository identities."
+    },
+    {
+      "dependencies": [
+        "T000"
+      ],
+      "execution_wave": 0,
+      "id": "T001",
+      "mandatory_path_scopes": [
+        ".github/workflows/",
+        "scripts/"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Abort safely when HEAD or the pid-rs submodule differs from the reviewed cut."
+    },
+    {
+      "dependencies": [
+        "T001"
+      ],
+      "execution_wave": 0,
+      "id": "T002",
+      "mandatory_path_scopes": [
+        "*"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Generate tracked-file, filesystem, symlink, executable, generated-file, and large-file inventories."
+    },
+    {
+      "dependencies": [
+        "T002"
+      ],
+      "execution_wave": 0,
+      "id": "T003",
+      "mandatory_path_scopes": [
+        "*.json",
+        "*.jsonl",
+        "*.md",
+        "*.py",
+        "*.rs",
+        "*.sh",
+        "*.toml",
+        "*.yaml",
+        "*.yml"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Complete a line-by-line review ledger for every tracked text and code file."
+    },
+    {
+      "dependencies": [
+        "T003"
+      ],
+      "execution_wave": 0,
+      "id": "T004",
+      "mandatory_path_scopes": [
+        "crates/**",
+        "experiments/**",
+        "protocols/**"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Inventory all public CLI, Rust API, Python API, schema, protocol, fixture, and file-format surfaces."
+    },
+    {
+      "dependencies": [
+        "T004"
+      ],
+      "execution_wave": 0,
+      "id": "T005",
+      "mandatory_path_scopes": [
+        "Cargo.toml",
+        "crates/**",
+        "pid-rs/"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Reproduce the unmodified Rust workspace baseline with the submodule initialized."
+    },
+    {
+      "dependencies": [
+        "T005"
+      ],
+      "execution_wave": 0,
+      "id": "T006",
+      "mandatory_path_scopes": [
+        "pyproject.toml",
+        "scripts/**",
+        "tests/python/**"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Reproduce the unmodified Python tests, governance audits, and generated-document checks."
+    },
+    {
+      "dependencies": [
+        "T006"
+      ],
+      "execution_wave": 0,
+      "id": "T007",
+      "mandatory_path_scopes": [
+        "crates/ncp-observer/**"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Reproduce excluded ncp-observer builds and tests separately from the critical path."
+    },
+    {
+      "dependencies": [
+        "T007"
+      ],
+      "execution_wave": 0,
+      "id": "T008",
+      "mandatory_path_scopes": [
+        "docs/CAPABILITY_MATRIX.md",
+        "protocols/capability_*"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Create a current capability matrix from code and evidence rather than planned architecture."
+    },
+    {
+      "dependencies": [
+        "T008"
+      ],
+      "execution_wave": 0,
+      "id": "T009",
+      "mandatory_path_scopes": [
+        "*.md",
+        "README.md",
+        "pyproject.toml"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Create a claim-language inventory covering README, docs, metadata, comments, examples, and output labels."
+    },
+    {
+      "dependencies": [
+        "T009"
+      ],
+      "execution_wave": 0,
+      "id": "T010",
+      "mandatory_path_scopes": [
+        "*"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Inventory TODO, FIXME, HACK, experimental, retired, blocked, unavailable, and unimplemented markers."
+    },
+    {
+      "dependencies": [
+        "T010"
+      ],
+      "execution_wave": 0,
+      "id": "T011",
+      "mandatory_path_scopes": [
+        "THIRD_PARTY_NOTICES.generated.md",
+        "docs/CAPABILITY_MATRIX.md",
+        "protocols/**"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Audit generated artifacts and prove each is reproducible from one controlled source."
+    },
+    {
+      "dependencies": [
+        "T011"
+      ],
+      "execution_wave": 0,
+      "id": "T012",
+      "mandatory_path_scopes": [
+        "LICENSE-*",
+        "THIRD_PARTY_NOTICES*",
+        "experiments/**"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Audit licenses, notices, citations, model/data rights, and redistribution obligations."
+    },
+    {
+      "dependencies": [
+        "T012"
+      ],
+      "execution_wave": 0,
+      "id": "T013",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Create the initial P0/P1/P2 defect register with owners and claim impact."
+    },
+    {
+      "dependencies": [
+        "T013"
+      ],
+      "execution_wave": 0,
+      "id": "T014",
+      "mandatory_path_scopes": [
+        ".github/**",
+        "AGENTS.md"
+      ],
+      "phase_id": "P00",
+      "phase_title": "Freeze current head, inventory every file, and establish truthful baseline",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Freeze release governance, reviewer roles, evidence retention, and change-control rules."
+    },
+    {
+      "dependencies": [
+        "T014"
+      ],
+      "execution_wave": 1,
+      "id": "T015",
+      "mandatory_path_scopes": [
+        "@repository-metadata",
+        "README.md"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Rewrite the GitHub description to match the intervention-grounded toolkit rather than a PID-first product claim."
+    },
+    {
+      "dependencies": [
+        "T015"
+      ],
+      "execution_wave": 1,
+      "id": "T016",
+      "mandatory_path_scopes": [
+        "pyproject.toml"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Replace the pyproject 0.1.0 PID-centric description with truthful Prisoma package semantics."
+    },
+    {
+      "dependencies": [
+        "T016"
+      ],
+      "execution_wave": 1,
+      "id": "T017",
+      "mandatory_path_scopes": [
+        "ARCHITECTURE.md",
+        "DIAGRAMS.md",
+        "grandplan.md",
+        "pidsplatspecs.md"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Separate current implementation, target architecture, historical design, and retired ideas in every document."
+    },
+    {
+      "dependencies": [
+        "T017"
+      ],
+      "execution_wave": 1,
+      "id": "T018",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "scripts/audit_*"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Make grandplan.md the machine-checked canonical source and detect contradictory companion documents."
+    },
+    {
+      "dependencies": [
+        "T018"
+      ],
+      "execution_wave": 1,
+      "id": "T019",
+      "mandatory_path_scopes": [
+        "EXPERIMENTS.md",
+        "README.md",
+        "REVIEW_AND_TODO.md",
+        "findings.md"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Reconcile README, EXPERIMENTS, REVIEW_AND_TODO, findings, and capability matrix statuses."
+    },
+    {
+      "dependencies": [
+        "T019"
+      ],
+      "execution_wave": 1,
+      "id": "T020",
+      "mandatory_path_scopes": [
+        "docs/archive/**",
+        "docs/power-gate/**"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Mark docs/archive and dated power-gate material as historical and non-evidentiary."
+    },
+    {
+      "dependencies": [
+        "T020"
+      ],
+      "execution_wave": 1,
+      "id": "T021",
+      "mandatory_path_scopes": [
+        "meshmaker/**"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Quarantine or remove meshmaker relocation remnants from stable 1.0 scope."
+    },
+    {
+      "dependencies": [
+        "T021"
+      ],
+      "execution_wave": 1,
+      "id": "T022",
+      "mandatory_path_scopes": [
+        "pidsplatspecs.md",
+        "uidesigner/**"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Quarantine or remove uidesigner and custom-UI remnants from thesis-critical scope."
+    },
+    {
+      "dependencies": [
+        "T022"
+      ],
+      "execution_wave": 1,
+      "id": "T023",
+      "mandatory_path_scopes": [
+        "ARCHITECTURE.md",
+        "pid-splat.toml",
+        "pidsplatspecs.md"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Reconcile pid-splat naming with Prisoma's actual research-infrastructure identity."
+    },
+    {
+      "dependencies": [
+        "T023"
+      ],
+      "execution_wave": 1,
+      "id": "T024",
+      "mandatory_path_scopes": [
+        "docs/CAPABILITY_MATRIX.md",
+        "protocols/**"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Make all status tables content-bound to machine-readable ledgers."
+    },
+    {
+      "dependencies": [
+        "T024"
+      ],
+      "execution_wave": 1,
+      "id": "T025",
+      "mandatory_path_scopes": [
+        "crates/**/src/bin/**",
+        "experiments/**"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Require claim-tier labels on every generated report and CLI summary."
+    },
+    {
+      "dependencies": [
+        "T025"
+      ],
+      "execution_wave": 1,
+      "id": "T026",
+      "mandatory_path_scopes": [
+        "README.md",
+        "docs/"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add a public limitations document understandable without Rust expertise."
+    },
+    {
+      "dependencies": [
+        "T026"
+      ],
+      "execution_wave": 1,
+      "id": "T027",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Add a thesis evidence index mapping each proposition to proof and residual assumptions."
+    },
+    {
+      "dependencies": [
+        "T027"
+      ],
+      "execution_wave": 1,
+      "id": "T028",
+      "mandatory_path_scopes": [
+        ".github/workflows/**",
+        "CHANGELOG.md"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Add release-note rules that forbid promoting blocked hypotheses through wording changes."
+    },
+    {
+      "dependencies": [
+        "T028"
+      ],
+      "execution_wave": 1,
+      "id": "T029",
+      "mandatory_path_scopes": [
+        "AGENTS.md",
+        "CLAUDE.md"
+      ],
+      "phase_id": "P01",
+      "phase_title": "Reconcile documentation, claims, governance ledgers, and repository identity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Update contribution instructions so agents cannot overwrite scientific status by editing prose alone."
+    },
+    {
+      "dependencies": [
+        "T029"
+      ],
+      "execution_wave": 2,
+      "id": "T030",
+      "mandatory_path_scopes": [
+        "crates/pid-bridge/**",
+        "crates/pid-sim/**",
+        "pid-rs/crates/pid-runlog/**"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Freeze the canonical event taxonomy and identify the owner of every event type."
+    },
+    {
+      "dependencies": [
+        "T030"
+      ],
+      "execution_wave": 2,
+      "id": "T031",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "pid-rs/crates/pid-runlog/**"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define one typed run identity, actor identity, episode identity, task identity, and model identity contract."
+    },
+    {
+      "dependencies": [
+        "T031"
+      ],
+      "execution_wave": 2,
+      "id": "T032",
+      "mandatory_path_scopes": [
+        "crates/pid-bridge/**",
+        "crates/pid-sim/src/lib.rs"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Specify request, effect-event, response, flush, and acknowledgement ordering as a state machine."
+    },
+    {
+      "dependencies": [
+        "T032"
+      ],
+      "execution_wave": 2,
+      "id": "T033",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/lib.rs"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Model-check bridge poison, partial-write, retry, stop, and restart transitions."
+    },
+    {
+      "dependencies": [
+        "T033"
+      ],
+      "execution_wave": 2,
+      "id": "T034",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/lib.rs",
+        "docs/"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define durability tiers: memory, flush, file fsync, directory fsync, cross-file transaction, and remote receipt."
+    },
+    {
+      "dependencies": [
+        "T034"
+      ],
+      "execution_wave": 2,
+      "id": "T035",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/bin/bridge_*.rs"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add total request, session, artifact, log, and wall-time budgets to every bridge transport."
+    },
+    {
+      "dependencies": [
+        "T035"
+      ],
+      "execution_wave": 2,
+      "id": "T036",
+      "mandatory_path_scopes": [
+        "crates/pid-bridge/**",
+        "crates/pid-sim/src/bin/bridge_*.rs"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Authenticate caller identity or explicitly confine unauthenticated bridge profiles to local development."
+    },
+    {
+      "dependencies": [
+        "T036"
+      ],
+      "execution_wave": 2,
+      "id": "T037",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/lib.rs"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Replace path-prefix confinement with descriptor-relative, race-resistant file handling where security is claimed."
+    },
+    {
+      "dependencies": [
+        "T037"
+      ],
+      "execution_wave": 2,
+      "id": "T038",
+      "mandatory_path_scopes": [
+        "crates/pid-bridge/**",
+        "crates/pid-sim/**"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define safe-mode semantics and prove no mutating command bypasses them."
+    },
+    {
+      "dependencies": [
+        "T038"
+      ],
+      "execution_wave": 2,
+      "id": "T039",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/lib.rs"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Define reset and new-run semantics so monotonic timelines cannot regress."
+    },
+    {
+      "dependencies": [
+        "T039"
+      ],
+      "execution_wave": 2,
+      "id": "T040",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/lib.rs"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Make rejected/malformed requests provenance-complete without poisoning valid run-log pairing."
+    },
+    {
+      "dependencies": [
+        "T040"
+      ],
+      "execution_wave": 2,
+      "id": "T041",
+      "mandatory_path_scopes": [
+        "crates/pid-rerun/**",
+        "crates/pid-sim/src/lib.rs"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Make export installation and ArtifactLogged creation crash-consistent."
+    },
+    {
+      "dependencies": [
+        "T041"
+      ],
+      "execution_wave": 2,
+      "id": "T042",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "pid-rs/crates/pid-runlog/**"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Prove replay equivalence at exact-event, semantic-state, and tolerance-bounded outcome levels."
+    },
+    {
+      "dependencies": [
+        "T042"
+      ],
+      "execution_wave": 2,
+      "id": "T043",
+      "mandatory_path_scopes": [
+        "repo_work/",
+        "tests/python/**"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Add independent run-log parsers and cross-language golden vectors."
+    },
+    {
+      "dependencies": [
+        "T043"
+      ],
+      "execution_wave": 2,
+      "id": "T044",
+      "mandatory_path_scopes": [
+        "docs/",
+        "pid-rs/crates/pid-runlog/**"
+      ],
+      "phase_id": "P02",
+      "phase_title": "Stabilize canonical run-log, replay, bridge, intervention, and artifact semantics",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Freeze run-log schema migration and old-capture rejection/conversion policy."
+    },
+    {
+      "dependencies": [
+        "T044"
+      ],
+      "execution_wave": 3,
+      "id": "T045",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Write the final EC1 engineering acceptance statement and disqualifiers."
+    },
+    {
+      "dependencies": [
+        "T045"
+      ],
+      "execution_wave": 3,
+      "id": "T046",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/safe_adapter/**",
+        "grandplan.md"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define mandatory causal and temporal variables for every capture."
+    },
+    {
+      "dependencies": [
+        "T046"
+      ],
+      "execution_wave": 3,
+      "id": "T047",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "docs/"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define capture completeness, contract-violation, replay-equivalence, and tolerance metrics."
+    },
+    {
+      "dependencies": [
+        "T047"
+      ],
+      "execution_wave": 3,
+      "id": "T048",
+      "mandatory_path_scopes": [
+        "crates/",
+        "experiments/"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Add a second independently implemented capture adapter beyond SAFE."
+    },
+    {
+      "dependencies": [
+        "T048"
+      ],
+      "execution_wave": 3,
+      "id": "T049",
+      "mandatory_path_scopes": [
+        "docs/",
+        "experiments/"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Benchmark against conventional scripts and at least one standard episode/data container."
+    },
+    {
+      "dependencies": [
+        "T049"
+      ],
+      "execution_wave": 3,
+      "id": "T050",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/fixtures/**"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Create corrupt, truncated, reordered, duplicated, missing, stale, and conflicting capture fixtures."
+    },
+    {
+      "dependencies": [
+        "T050"
+      ],
+      "execution_wave": 3,
+      "id": "T051",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**",
+        "protocols/**"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Prove exact source-byte, transform, and output-artifact lineage."
+    },
+    {
+      "dependencies": [
+        "T051"
+      ],
+      "execution_wave": 3,
+      "id": "T052",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "pid-rs/crates/pid-runlog/**"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define treatment assignment, treatment delivery, target engagement, and outcome observation as separate events."
+    },
+    {
+      "dependencies": [
+        "T052"
+      ],
+      "execution_wave": 3,
+      "id": "T053",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h1_preflight.rs",
+        "h1_protocol_a.rs"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define intervention noninterference and clone-state restoration checks."
+    },
+    {
+      "dependencies": [
+        "T053"
+      ],
+      "execution_wave": 3,
+      "id": "T054",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Add deterministic and tolerance-bounded replay on two independent simulators or backends."
+    },
+    {
+      "dependencies": [
+        "T054"
+      ],
+      "execution_wave": 3,
+      "id": "T055",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "docs/"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Measure replay divergence, nondeterminism, event loss, and timing distortion."
+    },
+    {
+      "dependencies": [
+        "T055"
+      ],
+      "execution_wave": 3,
+      "id": "T056",
+      "mandatory_path_scopes": [
+        "protocols/",
+        "repo_work/"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add append-only evidence manifests and artifact checksums for every EC1 run."
+    },
+    {
+      "dependencies": [
+        "T056"
+      ],
+      "execution_wave": 3,
+      "id": "T057",
+      "mandatory_path_scopes": [
+        "docs/",
+        "tests/"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Run EC1 blind corruption challenges authored by an independent verifier."
+    },
+    {
+      "dependencies": [
+        "T057"
+      ],
+      "execution_wave": 3,
+      "id": "T058",
+      "mandatory_path_scopes": [
+        "README.md",
+        "crates/**"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Separate software acceptance from scientific endpoint validity in all outputs."
+    },
+    {
+      "dependencies": [
+        "T058"
+      ],
+      "execution_wave": 3,
+      "id": "T059",
+      "mandatory_path_scopes": [
+        "README.md",
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "phase_id": "P03",
+      "phase_title": "Complete EC1 capture, intervention, replay, and infrastructure benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Publish EC1 only at the evidence tier actually achieved."
+    },
+    {
+      "dependencies": [
+        "T059"
+      ],
+      "execution_wave": 4,
+      "id": "T060",
+      "mandatory_path_scopes": [
+        "protocols/m0_preregistration_skeleton_v1.json",
+        "repo_work/schemas/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Create a reviewed v2 preregistration schema instead of filling the deliberately non-promotable v1 scaffold in place."
+    },
+    {
+      "dependencies": [
+        "T060"
+      ],
+      "execution_wave": 4,
+      "id": "T061",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define target population, task families, policies, embodiments, environments, and eligibility."
+    },
+    {
+      "dependencies": [
+        "T061"
+      ],
+      "execution_wave": 4,
+      "id": "T062",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define episode/case sampling units and prohibit frame-level pseudoreplication."
+    },
+    {
+      "dependencies": [
+        "T062"
+      ],
+      "execution_wave": 4,
+      "id": "T063",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Freeze primary outcomes, competing events, censoring, landmarks, horizons, and estimands."
+    },
+    {
+      "dependencies": [
+        "T063"
+      ],
+      "execution_wave": 4,
+      "id": "T064",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Freeze intervention families, doses, comparators, placebos, target-engagement criteria, and safety constraints."
+    },
+    {
+      "dependencies": [
+        "T064"
+      ],
+      "execution_wave": 4,
+      "id": "T065",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Freeze diagnostic availability times and prove every feature is pre-treatment or pre-landmark."
+    },
+    {
+      "dependencies": [
+        "T065"
+      ],
+      "execution_wave": 4,
+      "id": "T066",
+      "mandatory_path_scopes": [
+        "protocols/holdout_registry_v1.json",
+        "repo_work/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Register a confirmatory holdout with an independent custodian and commit-reveal identity."
+    },
+    {
+      "dependencies": [
+        "T066"
+      ],
+      "execution_wave": 4,
+      "id": "T067",
+      "mandatory_path_scopes": [
+        "protocols/holdout_access_ledger_v1.jsonl"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Create append-only holdout-access records that distinguish repository, off-repository, and derived-data access."
+    },
+    {
+      "dependencies": [
+        "T067"
+      ],
+      "execution_wave": 4,
+      "id": "T068",
+      "mandatory_path_scopes": [
+        "experiments/**",
+        "protocols/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Freeze task/model/family/site splits before outcome inspection."
+    },
+    {
+      "dependencies": [
+        "T068"
+      ],
+      "execution_wave": 4,
+      "id": "T069",
+      "mandatory_path_scopes": [
+        "protocols/transport_contamination_ledger_v1.json"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Complete transport and contamination assessment for every source-target pair."
+    },
+    {
+      "dependencies": [
+        "T069"
+      ],
+      "execution_wave": 4,
+      "id": "T070",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**",
+        "protocols/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Complete dataset rights, licenses, consent, human-subject, privacy, and redistribution review."
+    },
+    {
+      "dependencies": [
+        "T070"
+      ],
+      "execution_wave": 4,
+      "id": "T071",
+      "mandatory_path_scopes": [
+        "protocols/literature_screening_ledger_v1.json"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Run a fresh reproducible literature search with query, dates, databases, screening, and exclusions."
+    },
+    {
+      "dependencies": [
+        "T071"
+      ],
+      "execution_wave": 4,
+      "id": "T072",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Freeze multiplicity families, alpha allocation, hierarchical testing, and exploratory labels."
+    },
+    {
+      "dependencies": [
+        "T072"
+      ],
+      "execution_wave": 4,
+      "id": "T073",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Freeze missing-data, censoring, sensitivity, robustness, and exclusion rules."
+    },
+    {
+      "dependencies": [
+        "T073"
+      ],
+      "execution_wave": 4,
+      "id": "T074",
+      "mandatory_path_scopes": [
+        ".github/workflows/ci.yml",
+        "scripts/audit_research_governance.py"
+      ],
+      "phase_id": "P04",
+      "phase_title": "Freeze M0 population, estimands, data rights, holdout, contamination, and analysis governance",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Make --require-freeze-ready pass only after substantive independent review, not structural completeness alone."
+    },
+    {
+      "dependencies": [
+        "T074"
+      ],
+      "execution_wave": 5,
+      "id": "T075",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h1_protocol_a.rs",
+        "grandplan.md"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Freeze the H1 Protocol A estimand as effect-prediction quality, not factual-outcome prediction."
+    },
+    {
+      "dependencies": [
+        "T075"
+      ],
+      "execution_wave": 5,
+      "id": "T076",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h1_preflight.rs"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define eligible frozen snapshots and pre-treatment diagnostic timestamps."
+    },
+    {
+      "dependencies": [
+        "T076"
+      ],
+      "execution_wave": 5,
+      "id": "T077",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h1_preflight.rs",
+        "h1_protocol_a.rs"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define clone identity, simulator state, RNG state, model state, and hidden-state restoration."
+    },
+    {
+      "dependencies": [
+        "T077"
+      ],
+      "execution_wave": 5,
+      "id": "T078",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h1_protocol_a.rs"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Define treatment pair, order reversal, washout, and interference checks."
+    },
+    {
+      "dependencies": [
+        "T078"
+      ],
+      "execution_wave": 5,
+      "id": "T079",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/fixtures/h1_*",
+        "protocols/"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Replace synthetic-only contracts with real capture schemas while retaining synthetic references."
+    },
+    {
+      "dependencies": [
+        "T079"
+      ],
+      "execution_wave": 5,
+      "id": "T080",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define continuous, binary, ordinal, and structured response endpoints where scientifically justified."
+    },
+    {
+      "dependencies": [
+        "T080"
+      ],
+      "execution_wave": 5,
+      "id": "T081",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h1_protocol_a.rs"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Use proper scores for predicted treatment response and prespecify tie/abstention behavior."
+    },
+    {
+      "dependencies": [
+        "T081"
+      ],
+      "execution_wave": 5,
+      "id": "T082",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h1_protocol_a.rs"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Use outer-unit cross-fitting and prevent clone siblings from crossing folds."
+    },
+    {
+      "dependencies": [
+        "T082"
+      ],
+      "execution_wave": 5,
+      "id": "T083",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/attribution/**"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add action-entropy, ensemble, temperature, uncertainty, geometry, attribution, and learned baselines."
+    },
+    {
+      "dependencies": [
+        "T083"
+      ],
+      "execution_wave": 5,
+      "id": "T084",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Add placebo, null treatment, negative-control diagnostic, and shuffled-pair tests."
+    },
+    {
+      "dependencies": [
+        "T084"
+      ],
+      "execution_wave": 5,
+      "id": "T085",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Quantify target engagement, treatment fidelity, and treatment-induced censoring."
+    },
+    {
+      "dependencies": [
+        "T085"
+      ],
+      "execution_wave": 5,
+      "id": "T086",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Prespecify exclusion rules for failed restore, failed delivery, missing response, and unsafe episodes."
+    },
+    {
+      "dependencies": [
+        "T086"
+      ],
+      "execution_wave": 5,
+      "id": "T087",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Estimate paired uncertainty at episode/case level with task-family blocks."
+    },
+    {
+      "dependencies": [
+        "T087"
+      ],
+      "execution_wave": 5,
+      "id": "T088",
+      "mandatory_path_scopes": [
+        "repo_work/",
+        "tests/"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Run blind Protocol A scoring fixtures from an independent generator."
+    },
+    {
+      "dependencies": [
+        "T088"
+      ],
+      "execution_wave": 5,
+      "id": "T089",
+      "mandatory_path_scopes": [
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "phase_id": "P05",
+      "phase_title": "Complete H1 common preflight and Protocol A paired frozen-snapshot sensitivity",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Keep H1-A claim blocked until real preregistered evidence and external review exist."
+    },
+    {
+      "dependencies": [
+        "T089"
+      ],
+      "execution_wave": 6,
+      "id": "T090",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Specify H1 Protocol B separately from Protocol A with no pooled claim by default."
+    },
+    {
+      "dependencies": [
+        "T090"
+      ],
+      "execution_wave": 6,
+      "id": "T091",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define randomized assignment unit, timing, allocation ratio, concealment, and reproducible randomization."
+    },
+    {
+      "dependencies": [
+        "T091"
+      ],
+      "execution_wave": 6,
+      "id": "T092",
+      "mandatory_path_scopes": [
+        "protocols/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define cluster, task, policy, and temporal blocking or stratification."
+    },
+    {
+      "dependencies": [
+        "T092"
+      ],
+      "execution_wave": 6,
+      "id": "T093",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Define closed-loop treatment delivery, compliance, crossover, rescue, and safety override."
+    },
+    {
+      "dependencies": [
+        "T093"
+      ],
+      "execution_wave": 6,
+      "id": "T094",
+      "mandatory_path_scopes": [
+        "protocols/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define intention-to-treat, per-protocol, and complier estimands and their assumptions."
+    },
+    {
+      "dependencies": [
+        "T094"
+      ],
+      "execution_wave": 6,
+      "id": "T095",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define effect modification by pre-treatment diagnostics with centered interactions."
+    },
+    {
+      "dependencies": [
+        "T095"
+      ],
+      "execution_wave": 6,
+      "id": "T096",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/**"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Prevent post-treatment diagnostics or adaptation state from entering modifiers."
+    },
+    {
+      "dependencies": [
+        "T096"
+      ],
+      "execution_wave": 6,
+      "id": "T097",
+      "mandatory_path_scopes": [
+        "protocols/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Specify repeated episodes per policy/task and dependence-respecting inference."
+    },
+    {
+      "dependencies": [
+        "T097"
+      ],
+      "execution_wave": 6,
+      "id": "T098",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Account for interference, carryover, adaptation, learning, and simulator state drift."
+    },
+    {
+      "dependencies": [
+        "T098"
+      ],
+      "execution_wave": 6,
+      "id": "T099",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Implement sequential safety monitoring without outcome-peeking scientific stopping."
+    },
+    {
+      "dependencies": [
+        "T099"
+      ],
+      "execution_wave": 6,
+      "id": "T100",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Add balance, randomization, compliance, target-engagement, and manipulation checks."
+    },
+    {
+      "dependencies": [
+        "T100"
+      ],
+      "execution_wave": 6,
+      "id": "T101",
+      "mandatory_path_scopes": [
+        "experiments/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add robust, randomization-based, and model-based effect-modification analyses."
+    },
+    {
+      "dependencies": [
+        "T101"
+      ],
+      "execution_wave": 6,
+      "id": "T102",
+      "mandatory_path_scopes": [
+        "experiments/"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Add sensitivity analyses for noncompliance, missing outcomes, and informative termination."
+    },
+    {
+      "dependencies": [
+        "T102"
+      ],
+      "execution_wave": 6,
+      "id": "T103",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Create synthetic truth simulations covering null, qualitative interaction, and misleading prognostic signals."
+    },
+    {
+      "dependencies": [
+        "T103"
+      ],
+      "execution_wave": 6,
+      "id": "T104",
+      "mandatory_path_scopes": [
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "phase_id": "P06",
+      "phase_title": "Implement H1 Protocol B randomized closed-loop effect modification",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Keep H1-B unclaimed until pilot feasibility and preregistered randomized evidence pass."
+    },
+    {
+      "dependencies": [
+        "T104"
+      ],
+      "execution_wave": 7,
+      "id": "T105",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/fixtures/h2_reference/**",
+        "protocols/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Freeze H2 prediction landmarks, horizons, failure ontology, competing events, and censoring."
+    },
+    {
+      "dependencies": [
+        "T105"
+      ],
+      "execution_wave": 7,
+      "id": "T106",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h2_reference.rs",
+        "protocols/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define prediction deployment unit and prohibit retrospective window cherry-picking."
+    },
+    {
+      "dependencies": [
+        "T106"
+      ],
+      "execution_wave": 7,
+      "id": "T107",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h2_reference.rs"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Require feature availability before each landmark with immutable receipts."
+    },
+    {
+      "dependencies": [
+        "T107"
+      ],
+      "execution_wave": 7,
+      "id": "T108",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h2_reference.rs"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Complete grouped train-only fitting and nested tuning across task/policy families."
+    },
+    {
+      "dependencies": [
+        "T108"
+      ],
+      "execution_wave": 7,
+      "id": "T109",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/h2_reference.rs",
+        "repo_work/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Verify reverse-KM IPCW, stratification, positivity, truncation, and competing-risk arithmetic independently."
+    },
+    {
+      "dependencies": [
+        "T109"
+      ],
+      "execution_wave": 7,
+      "id": "T110",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add cumulative-incidence calibration, discrimination, Brier, log score, and decision metrics."
+    },
+    {
+      "dependencies": [
+        "T110"
+      ],
+      "execution_wave": 7,
+      "id": "T111",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Define frozen alarm threshold, debounce, refractory period, lead time, and reset semantics."
+    },
+    {
+      "dependencies": [
+        "T111"
+      ],
+      "execution_wave": 7,
+      "id": "T112",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Treat process-level safety cost as a secondary decision-utility endpoint."
+    },
+    {
+      "dependencies": [
+        "T112"
+      ],
+      "execution_wave": 7,
+      "id": "T113",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add complete comparator frontier and identical folds/tuning budgets."
+    },
+    {
+      "dependencies": [
+        "T113"
+      ],
+      "execution_wave": 7,
+      "id": "T114",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Add missingness, abstention, delayed labels, informative censoring, and shift stress tests."
+    },
+    {
+      "dependencies": [
+        "T114"
+      ],
+      "execution_wave": 7,
+      "id": "T115",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Add external task-family or embodiment validation with relationship-level transport targets."
+    },
+    {
+      "dependencies": [
+        "T115"
+      ],
+      "execution_wave": 7,
+      "id": "T116",
+      "mandatory_path_scopes": [
+        "crates/pid-rerun/**",
+        "protocols/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Prohibit tuning on the confirmatory holdout or peeking through visualization."
+    },
+    {
+      "dependencies": [
+        "T116"
+      ],
+      "execution_wave": 7,
+      "id": "T117",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Estimate uncertainty at episode/case and task-family levels."
+    },
+    {
+      "dependencies": [
+        "T117"
+      ],
+      "execution_wave": 7,
+      "id": "T118",
+      "mandatory_path_scopes": [
+        "repo_work/",
+        "tests/"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Create blind H2 arithmetic and leakage challenges."
+    },
+    {
+      "dependencies": [
+        "T118"
+      ],
+      "execution_wave": 7,
+      "id": "T119",
+      "mandatory_path_scopes": [
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "phase_id": "P07",
+      "phase_title": "Complete H2 prospective censoring-aware failure prediction",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Keep real H2 blocked until prospective capture and external validation pass."
+    },
+    {
+      "dependencies": [
+        "T119"
+      ],
+      "execution_wave": 8,
+      "id": "T120",
+      "mandatory_path_scopes": [
+        "experiments/attribution/**",
+        "experiments/safe_adapter/**"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Define representation, layer/hook, token/time aggregation, target, and availability estimand."
+    },
+    {
+      "dependencies": [
+        "T120"
+      ],
+      "execution_wave": 8,
+      "id": "T121",
+      "mandatory_path_scopes": [
+        "experiments/attribution/probe.py"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Freeze train-only probes and held-out availability evaluation."
+    },
+    {
+      "dependencies": [
+        "T121"
+      ],
+      "execution_wave": 8,
+      "id": "T122",
+      "mandatory_path_scopes": [
+        "experiments/attribution/**",
+        "protocols/"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define causal-use interventions at the same representation site."
+    },
+    {
+      "dependencies": [
+        "T122"
+      ],
+      "execution_wave": 8,
+      "id": "T123",
+      "mandatory_path_scopes": [
+        "experiments/attribution/**",
+        "grandplan.md"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Separate diagnostic decodability from policy use and downstream action effect."
+    },
+    {
+      "dependencies": [
+        "T123"
+      ],
+      "execution_wave": 8,
+      "id": "T124",
+      "mandatory_path_scopes": [
+        "experiments/attribution/**",
+        "protocols/"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define intervention dose, direction, locality, target engagement, and off-target checks."
+    },
+    {
+      "dependencies": [
+        "T124"
+      ],
+      "execution_wave": 8,
+      "id": "T125",
+      "mandatory_path_scopes": [
+        "experiments/attribution/**"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add matched random, orthogonal, norm-matched, and placebo interventions."
+    },
+    {
+      "dependencies": [
+        "T125"
+      ],
+      "execution_wave": 8,
+      "id": "T126",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Add causal mediation or ablation analyses only where identification assumptions are defensible."
+    },
+    {
+      "dependencies": [
+        "T126"
+      ],
+      "execution_wave": 8,
+      "id": "T127",
+      "mandatory_path_scopes": [
+        "experiments/"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Quantify availability-use gap with uncertainty and task-family heterogeneity."
+    },
+    {
+      "dependencies": [
+        "T127"
+      ],
+      "execution_wave": 8,
+      "id": "T128",
+      "mandatory_path_scopes": [
+        "experiments/attribution/faithfulness.py"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add attribution faithfulness checks and prohibit unfaithful methods from confirmatory use."
+    },
+    {
+      "dependencies": [
+        "T128"
+      ],
+      "execution_wave": 8,
+      "id": "T129",
+      "mandatory_path_scopes": [
+        "experiments/attribution/**"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Compare gradient, perturbation, probe, and intervention evidence without treating agreement as truth."
+    },
+    {
+      "dependencies": [
+        "T129"
+      ],
+      "execution_wave": 8,
+      "id": "T130",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**",
+        "protocols/"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Handle model stochasticity, hidden state, token alignment, and hook-version drift."
+    },
+    {
+      "dependencies": [
+        "T130"
+      ],
+      "execution_wave": 8,
+      "id": "T131",
+      "mandatory_path_scopes": [
+        "experiments/attribution/**"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Prevent outcome or treatment leakage into probe fitting."
+    },
+    {
+      "dependencies": [
+        "T131"
+      ],
+      "execution_wave": 8,
+      "id": "T132",
+      "mandatory_path_scopes": [
+        "experiments/attribution/**"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Create synthetic models with known available-but-unused and used-but-hard-to-decode variables."
+    },
+    {
+      "dependencies": [
+        "T132"
+      ],
+      "execution_wave": 8,
+      "id": "T133",
+      "mandatory_path_scopes": [
+        "experiments/attribution/**",
+        "tests/python/**"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Run independent hook and intervention reproducibility review."
+    },
+    {
+      "dependencies": [
+        "T133"
+      ],
+      "execution_wave": 8,
+      "id": "T134",
+      "mandatory_path_scopes": [
+        "protocols/research_claim_registry_v1.json"
+      ],
+      "phase_id": "P08",
+      "phase_title": "Complete H4 representational availability versus causal policy use",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Keep H4 claim blocked until real preregistered availability and use evidence exist."
+    },
+    {
+      "dependencies": [
+        "T134"
+      ],
+      "execution_wave": 9,
+      "id": "T135",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/offline_harness.rs",
+        "protocols/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Make H3 physically impossible to run in confirmatory mode unless all four PID gates are verified."
+    },
+    {
+      "dependencies": [
+        "T135"
+      ],
+      "execution_wave": 9,
+      "id": "T136",
+      "mandatory_path_scopes": [
+        "pid-rs/",
+        "protocols/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Bind H3 to one declared population, PID measure, estimator configuration, preprocessing regime, and units."
+    },
+    {
+      "dependencies": [
+        "T136"
+      ],
+      "execution_wave": 9,
+      "id": "T137",
+      "mandatory_path_scopes": [
+        "README.md",
+        "crates/pid-sim/**"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Distinguish shared-exclusions continuous PID from discrete I_min in every type and output."
+    },
+    {
+      "dependencies": [
+        "T137"
+      ],
+      "execution_wave": 9,
+      "id": "T138",
+      "mandatory_path_scopes": [
+        ".gitmodules",
+        "Cargo.lock",
+        "pid-rs/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Pin the final released pid-rs 1.x commit, crate versions, algorithms, and report schemas."
+    },
+    {
+      "dependencies": [
+        "T138"
+      ],
+      "execution_wave": 9,
+      "id": "T139",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/offline_harness.rs",
+        "pid-rs/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Require report-first APIs and preserve abstention, assumptions, warnings, and provenance."
+    },
+    {
+      "dependencies": [
+        "T139"
+      ],
+      "execution_wave": 9,
+      "id": "T140",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/offline_harness.rs"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Fit projections, scalers, quantizers, and feature selectors on training data only."
+    },
+    {
+      "dependencies": [
+        "T140"
+      ],
+      "execution_wave": 9,
+      "id": "T141",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Re-gate every supervised or dimensionality-reduced representation."
+    },
+    {
+      "dependencies": [
+        "T141"
+      ],
+      "execution_wave": 9,
+      "id": "T142",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define M0/M1/M2 nested model comparison with identical outer folds and tuning budgets."
+    },
+    {
+      "dependencies": [
+        "T142"
+      ],
+      "execution_wave": 9,
+      "id": "T143",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "protocols/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Make M1 contain strong non-PID information, geometry, uncertainty, temporal, attribution, and learned baselines."
+    },
+    {
+      "dependencies": [
+        "T143"
+      ],
+      "execution_wave": 9,
+      "id": "T144",
+      "mandatory_path_scopes": [
+        "grandplan.md",
+        "protocols/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Treat H3 endpoint as held-out M2-over-M1 improvement, not interesting atom values."
+    },
+    {
+      "dependencies": [
+        "T144"
+      ],
+      "execution_wave": 9,
+      "id": "T145",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Use task-family-blocked uncertainty and multiplicity correction."
+    },
+    {
+      "dependencies": [
+        "T145"
+      ],
+      "execution_wave": 9,
+      "id": "T146",
+      "mandatory_path_scopes": [
+        "protocols/",
+        "scripts/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Implement PID kill rules as machine-readable preregistered decisions."
+    },
+    {
+      "dependencies": [
+        "T146"
+      ],
+      "execution_wave": 9,
+      "id": "T147",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/fixtures/**",
+        "pid-rs/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Test null, redundant, unique, synergistic, singular, high-dimensional, tie-heavy, and misleading regimes."
+    },
+    {
+      "dependencies": [
+        "T147"
+      ],
+      "execution_wave": 9,
+      "id": "T148",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "docs/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Publish atom signs or magnitudes only inside the validated envelope and with exact units."
+    },
+    {
+      "dependencies": [
+        "T148"
+      ],
+      "execution_wave": 9,
+      "id": "T149",
+      "mandatory_path_scopes": [
+        "Cargo.toml",
+        "justfile",
+        "protocols/"
+      ],
+      "phase_id": "P09",
+      "phase_title": "Keep H3 PID conditional, gated, leakage-safe, and scientifically interpretable",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Ensure a negative or blocked H3 leaves EC1, H1, H2, and H4 fully operational."
+    },
+    {
+      "dependencies": [
+        "T149"
+      ],
+      "execution_wave": 10,
+      "id": "T150",
+      "mandatory_path_scopes": [
+        "protocols/literature_screening_ledger_v1.json"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Freeze comparator inclusion criteria through a reproducible literature review."
+    },
+    {
+      "dependencies": [
+        "T150"
+      ],
+      "execution_wave": 10,
+      "id": "T151",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/offline_harness.rs"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Implement majority, persistence, 1-NN, centroid, and simple logistic baselines correctly."
+    },
+    {
+      "dependencies": [
+        "T151"
+      ],
+      "execution_wave": 10,
+      "id": "T152",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Implement uncertainty, entropy, ensemble, temperature, and conformal-style baselines where justified."
+    },
+    {
+      "dependencies": [
+        "T152"
+      ],
+      "execution_wave": 10,
+      "id": "T153",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Implement temporal, progress, geometry, OOD, attribution, learned-feature, and policy-logit baselines."
+    },
+    {
+      "dependencies": [
+        "T153"
+      ],
+      "execution_wave": 10,
+      "id": "T154",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Implement named literature comparators only after exact protocol and licensing review."
+    },
+    {
+      "dependencies": [
+        "T154"
+      ],
+      "execution_wave": 10,
+      "id": "T155",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Give every comparator identical data access, folds, tuning budget, and stopping rules."
+    },
+    {
+      "dependencies": [
+        "T155"
+      ],
+      "execution_wave": 10,
+      "id": "T156",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/power.rs",
+        "docs/power-gate/**"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Replace the withdrawn idealized power grid with nested capture-design simulation."
+    },
+    {
+      "dependencies": [
+        "T156"
+      ],
+      "execution_wave": 10,
+      "id": "T157",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/power.rs"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Simulate clustering, task-family heterogeneity, censoring, missingness, intervention fidelity, and multiplicity."
+    },
+    {
+      "dependencies": [
+        "T157"
+      ],
+      "execution_wave": 10,
+      "id": "T158",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/power.rs"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Use simulation-based operating characteristics rather than one optimistic effect size."
+    },
+    {
+      "dependencies": [
+        "T158"
+      ],
+      "execution_wave": 10,
+      "id": "T159",
+      "mandatory_path_scopes": [
+        "protocols/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Freeze primary and fallback claims and alpha allocation before holdout access."
+    },
+    {
+      "dependencies": [
+        "T159"
+      ],
+      "execution_wave": 10,
+      "id": "T160",
+      "mandatory_path_scopes": [
+        "repo_work/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Use blind commit-reveal benchmarks for protocol arithmetic and estimator integrations."
+    },
+    {
+      "dependencies": [
+        "T160"
+      ],
+      "execution_wave": 10,
+      "id": "T161",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Require first-submission reporting including failures and abstentions."
+    },
+    {
+      "dependencies": [
+        "T161"
+      ],
+      "execution_wave": 10,
+      "id": "T162",
+      "mandatory_path_scopes": [
+        "repo_work/",
+        "tests/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Add simple odd/quirky adversarial cases unlikely to match common examples."
+    },
+    {
+      "dependencies": [
+        "T162"
+      ],
+      "execution_wave": 10,
+      "id": "T163",
+      "mandatory_path_scopes": [
+        "docs/",
+        "experiments/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Commission independent baseline implementation or result replication."
+    },
+    {
+      "dependencies": [
+        "T163"
+      ],
+      "execution_wave": 10,
+      "id": "T164",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P10",
+      "phase_title": "Complete comparator frontier, uncertainty, power, multiplicity, and blind benchmarking",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Publish full negative results and sensitivity surfaces, not only favorable summaries."
+    },
+    {
+      "dependencies": [
+        "T164"
+      ],
+      "execution_wave": 11,
+      "id": "T165",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**",
+        "protocols/"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Verify SAFE source repository, immutable revision, task split, venue, license, and redistribution rights independently."
+    },
+    {
+      "dependencies": [
+        "T165"
+      ],
+      "execution_wave": 11,
+      "id": "T166",
+      "mandatory_path_scopes": [
+        "docs/",
+        "experiments/safe_adapter/**"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Perform any unsafe legacy serialization conversion in an isolated environment."
+    },
+    {
+      "dependencies": [
+        "T166"
+      ],
+      "execution_wave": 11,
+      "id": "T167",
+      "mandatory_path_scopes": [
+        "convert.py",
+        "experiments/safe_adapter/extract.py"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Keep pickle and arbitrary code-executing formats rejected by default."
+    },
+    {
+      "dependencies": [
+        "T167"
+      ],
+      "execution_wave": 11,
+      "id": "T168",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Define strict NPZ/JSON limits, shapes, dtypes, byte order, compression, and unknown-field behavior."
+    },
+    {
+      "dependencies": [
+        "T168"
+      ],
+      "execution_wave": 11,
+      "id": "T169",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/contract.py"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Bind every sample to source file hashes, model/checkpoint, hook, tensor names, shapes, layer semantics, and extraction code."
+    },
+    {
+      "dependencies": [
+        "T169"
+      ],
+      "execution_wave": 11,
+      "id": "T170",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**",
+        "grandplan.md"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define V, L, D, A variables scientifically rather than by convenient tensor availability."
+    },
+    {
+      "dependencies": [
+        "T170"
+      ],
+      "execution_wave": 11,
+      "id": "T171",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/safe_adapter/**"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Prove axis provenance and prevent treating concatenated or post-treatment tensors as independent sources."
+    },
+    {
+      "dependencies": [
+        "T171"
+      ],
+      "execution_wave": 11,
+      "id": "T172",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**",
+        "protocols/"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Freeze action representation, discretization/continuous semantics, and temporal alignment."
+    },
+    {
+      "dependencies": [
+        "T172"
+      ],
+      "execution_wave": 11,
+      "id": "T173",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Record missing, truncated, padded, masked, and unavailable tensor semantics."
+    },
+    {
+      "dependencies": [
+        "T173"
+      ],
+      "execution_wave": 11,
+      "id": "T174",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**",
+        "protocols/"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Prevent train/test, task, episode, policy, checkpoint, and augmentation leakage."
+    },
+    {
+      "dependencies": [
+        "T174"
+      ],
+      "execution_wave": 11,
+      "id": "T175",
+      "mandatory_path_scopes": [
+        "experiments/safe_adapter/**",
+        "repo_work/schemas/"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Add row-level lineage from raw capture to every analysis table."
+    },
+    {
+      "dependencies": [
+        "T175"
+      ],
+      "execution_wave": 11,
+      "id": "T176",
+      "mandatory_path_scopes": [
+        "repo_work/",
+        "tests/python/**"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add independently generated capture fixtures and corruption challenges."
+    },
+    {
+      "dependencies": [
+        "T176"
+      ],
+      "execution_wave": 11,
+      "id": "T177",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Support a second VLA family without assuming raw-feature comparability."
+    },
+    {
+      "dependencies": [
+        "T177"
+      ],
+      "execution_wave": 11,
+      "id": "T178",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define privacy/redaction rules for images, language, telemetry, and human annotations."
+    },
+    {
+      "dependencies": [
+        "T178"
+      ],
+      "execution_wave": 11,
+      "id": "T179",
+      "mandatory_path_scopes": [
+        "README.md",
+        "experiments/safe_adapter/README.md"
+      ],
+      "phase_id": "P11",
+      "phase_title": "Harden SAFE and future real-VLA capture, tensor provenance, hooks, and data lineage",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Do not call any fixture or synthetic bundle a real VLA validation result."
+    },
+    {
+      "dependencies": [
+        "T179"
+      ],
+      "execution_wave": 12,
+      "id": "T180",
+      "mandatory_path_scopes": [
+        "Cargo.toml",
+        "justfile"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Keep the default Prisoma workspace independent of NCP and Zenoh."
+    },
+    {
+      "dependencies": [
+        "T180"
+      ],
+      "execution_wave": 12,
+      "id": "T181",
+      "mandatory_path_scopes": [
+        ".ncp-consumer",
+        "crates/ncp-observer/**"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Migrate ncp-observer from wire 0.8 only after final NCP 1.0 artifacts are published and verified."
+    },
+    {
+      "dependencies": [
+        "T181"
+      ],
+      "execution_wave": 12,
+      "id": "T182",
+      "mandatory_path_scopes": [
+        "NCP_DEV_PROMPT.md",
+        "crates/ncp-observer/**"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define the exact Engram observation profile, routes, schemas, identities, timing, and provenance."
+    },
+    {
+      "dependencies": [
+        "T182"
+      ],
+      "execution_wave": 12,
+      "id": "T183",
+      "mandatory_path_scopes": [
+        "ARCHITECTURE.md",
+        "README.md"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Treat NCP as mandatory for live Engram external relationships but not for offline immutable captures."
+    },
+    {
+      "dependencies": [
+        "T183"
+      ],
+      "execution_wave": 12,
+      "id": "T184",
+      "mandatory_path_scopes": [
+        "protocols/ecosystem_evidence_current_v1.json"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Reject live claims until an actual Engram producer and end-to-end profile exist."
+    },
+    {
+      "dependencies": [
+        "T184"
+      ],
+      "execution_wave": 12,
+      "id": "T185",
+      "mandatory_path_scopes": [
+        "crates/ncp-observer/src/**"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Preserve exact session, generation, epoch, sequence, source, and route identities."
+    },
+    {
+      "dependencies": [
+        "T185"
+      ],
+      "execution_wave": 12,
+      "id": "T186",
+      "mandatory_path_scopes": [
+        "crates/ncp-observer/src/observatory.rs"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Make receipt-last semantics and incomplete lifecycle state explicit."
+    },
+    {
+      "dependencies": [
+        "T186"
+      ],
+      "execution_wave": 12,
+      "id": "T187",
+      "mandatory_path_scopes": [
+        "crates/ncp-observer/src/**"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Detect gaps only when the protocol can distinguish missing from never-published ticks."
+    },
+    {
+      "dependencies": [
+        "T187"
+      ],
+      "execution_wave": 12,
+      "id": "T188",
+      "mandatory_path_scopes": [
+        "crates/ncp-observer/**"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Bound sources, streams, reorder state, payloads, queues, logs, retries, and observation duration."
+    },
+    {
+      "dependencies": [
+        "T188"
+      ],
+      "execution_wave": 12,
+      "id": "T189",
+      "mandatory_path_scopes": [
+        "crates/ncp-observer/**",
+        "docs/"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Run real-router mTLS and default-deny ACL tests for secure-profile claims."
+    },
+    {
+      "dependencies": [
+        "T189"
+      ],
+      "execution_wave": 12,
+      "id": "T190",
+      "mandatory_path_scopes": [
+        "ARCHITECTURE.md",
+        "README.md"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Make Galadriel and Haldir entirely optional for Prisoma studies."
+    },
+    {
+      "dependencies": [
+        "T190"
+      ],
+      "execution_wave": 12,
+      "id": "T191",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Allow optional Galadriel evidence import only as a recorded covariate with no authority semantics."
+    },
+    {
+      "dependencies": [
+        "T191"
+      ],
+      "execution_wave": 12,
+      "id": "T192",
+      "mandatory_path_scopes": [
+        "ARCHITECTURE.md",
+        "grandplan.md"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Keep Haldir authorization outside Prisoma's scientific execution and result logic."
+    },
+    {
+      "dependencies": [
+        "T192"
+      ],
+      "execution_wave": 12,
+      "id": "T193",
+      "mandatory_path_scopes": [
+        "experiments/",
+        "protocols/"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Define Crebain capture adapters without redesigning Crebain internal communication."
+    },
+    {
+      "dependencies": [
+        "T193"
+      ],
+      "execution_wave": 12,
+      "id": "T194",
+      "mandatory_path_scopes": [
+        ".github/workflows/",
+        "protocols/"
+      ],
+      "phase_id": "P12",
+      "phase_title": "Migrate NCP/Engram observation and preserve optional ecosystem composition",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Run final exact-version cross-repository conformance after local convergence."
+    },
+    {
+      "dependencies": [
+        "T194"
+      ],
+      "execution_wave": 13,
+      "id": "T195",
+      "mandatory_path_scopes": [
+        "crates/**",
+        "experiments/**",
+        "protocols/**"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Fuzz every JSON, JSONL, NPZ, bridge, run-log, NCP, manifest, and configuration decoder."
+    },
+    {
+      "dependencies": [
+        "T195"
+      ],
+      "execution_wave": 13,
+      "id": "T196",
+      "mandatory_path_scopes": [
+        "crates/**",
+        "experiments/**"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Reject duplicate JSON keys, unsafe integers, NaN/Inf, overlong strings, deep nesting, and unknown required semantics."
+    },
+    {
+      "dependencies": [
+        "T196"
+      ],
+      "execution_wave": 13,
+      "id": "T197",
+      "mandatory_path_scopes": [
+        "crates/**",
+        "experiments/**"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Bound dimensions, rows, episodes, metrics, attributions, artifacts, files, requests, and logs before allocation."
+    },
+    {
+      "dependencies": [
+        "T197"
+      ],
+      "execution_wave": 13,
+      "id": "T198",
+      "mandatory_path_scopes": [
+        "crates/**",
+        "scripts/**"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Run mutation testing on leakage, timing, abstention, replay, safe-mode, and claim-status guards."
+    },
+    {
+      "dependencies": [
+        "T198"
+      ],
+      "execution_wave": 13,
+      "id": "T199",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "experiments/safe_adapter/**"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Audit all filesystem paths, symlinks, races, permissions, temporary files, and overwrite behavior."
+    },
+    {
+      "dependencies": [
+        "T199"
+      ],
+      "execution_wave": 13,
+      "id": "T200",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/src/bin/bridge_*.rs"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Audit TCP/WebSocket/stdio bridge authentication, authorization, TLS, origin, and remote-use assumptions."
+    },
+    {
+      "dependencies": [
+        "T200"
+      ],
+      "execution_wave": 13,
+      "id": "T201",
+      "mandatory_path_scopes": [
+        "crates/**"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Audit Rust async/blocking work, channels, locks, cancellation, shutdown, and panic boundaries."
+    },
+    {
+      "dependencies": [
+        "T201"
+      ],
+      "execution_wave": 13,
+      "id": "T202",
+      "mandatory_path_scopes": [
+        "experiments/**",
+        "scripts/**"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Audit Python subprocess, file, NumPy, random-state, multiprocessing, and exception boundaries."
+    },
+    {
+      "dependencies": [
+        "T202"
+      ],
+      "execution_wave": 13,
+      "id": "T203",
+      "mandatory_path_scopes": [
+        "crates/**",
+        "experiments/**"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Test disk-full, permission, corrupt cache, partial write, killed process, and restart behavior."
+    },
+    {
+      "dependencies": [
+        "T203"
+      ],
+      "execution_wave": 13,
+      "id": "T204",
+      "mandatory_path_scopes": [
+        "crates/**",
+        "experiments/**"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Prevent sensitive prompts, images, telemetry, model outputs, paths, tokens, and keys from leaking into logs."
+    },
+    {
+      "dependencies": [
+        "T204"
+      ],
+      "execution_wave": 13,
+      "id": "T205",
+      "mandatory_path_scopes": [
+        ".github/workflows/**",
+        "deny.toml",
+        "pyproject.toml"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Generate SBOM, dependency/license reports, vulnerability scans, and build provenance."
+    },
+    {
+      "dependencies": [
+        "T205"
+      ],
+      "execution_wave": 13,
+      "id": "T206",
+      "mandatory_path_scopes": [
+        ".github/workflows/**",
+        ".pre-commit-config.yaml"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Pin GitHub actions and release tooling by immutable identities."
+    },
+    {
+      "dependencies": [
+        "T206"
+      ],
+      "execution_wave": 13,
+      "id": "T207",
+      "mandatory_path_scopes": [
+        ".github/workflows/**",
+        "justfile"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Run clippy, rustfmt, tests, Miri where meaningful, sanitizers, Ruff, pytest, and dependency audits."
+    },
+    {
+      "dependencies": [
+        "T207"
+      ],
+      "execution_wave": 13,
+      "id": "T208",
+      "mandatory_path_scopes": [
+        "SECURITY.md",
+        "docs/"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Create security incident, data-withdrawal, model-compromise, and release-withdrawal procedures."
+    },
+    {
+      "dependencies": [
+        "T208"
+      ],
+      "execution_wave": 13,
+      "id": "T209",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P13",
+      "phase_title": "Security, privacy, resource, parser, concurrency, and supply-chain hardening",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Commission independent security and privacy review for any live or human-data profile."
+    },
+    {
+      "dependencies": [
+        "T209"
+      ],
+      "execution_wave": 14,
+      "id": "T210",
+      "mandatory_path_scopes": [
+        "Cargo.toml",
+        "pyproject.toml"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Decide whether Prisoma publishes a Python package, Rust crates, binaries, a research bundle, or only source, and prevent metadata ambiguity."
+    },
+    {
+      "dependencies": [
+        "T210"
+      ],
+      "execution_wave": 14,
+      "id": "T211",
+      "mandatory_path_scopes": [
+        "crates/**/Cargo.toml",
+        "pyproject.toml"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Set coherent 1.0 versions across local crates, Python metadata, schemas, docs, and manifests."
+    },
+    {
+      "dependencies": [
+        "T211"
+      ],
+      "execution_wave": 14,
+      "id": "T212",
+      "mandatory_path_scopes": [
+        ".github/workflows/**",
+        "README.md"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Define MSRV, Python, OS, architecture, and optional-feature support matrices."
+    },
+    {
+      "dependencies": [
+        "T212"
+      ],
+      "execution_wave": 14,
+      "id": "T213",
+      "mandatory_path_scopes": [
+        ".gitmodules",
+        "README.md"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Make submodule initialization and HTTPS/SSH behavior robust and documented."
+    },
+    {
+      "dependencies": [
+        "T213"
+      ],
+      "execution_wave": 14,
+      "id": "T214",
+      "mandatory_path_scopes": [
+        ".gitmodules",
+        "Cargo.lock"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Pin final pid-rs release artifacts rather than mutable branch state."
+    },
+    {
+      "dependencies": [
+        "T214"
+      ],
+      "execution_wave": 14,
+      "id": "T215",
+      "mandatory_path_scopes": [
+        "Cargo.lock",
+        "flake.nix",
+        "uv.lock"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Create reproducible Nix and non-Nix clean builds."
+    },
+    {
+      "dependencies": [
+        "T215"
+      ],
+      "execution_wave": 14,
+      "id": "T216",
+      "mandatory_path_scopes": [
+        "*.md",
+        "justfile"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Make all documentation examples and just recipes executable in CI."
+    },
+    {
+      "dependencies": [
+        "T216"
+      ],
+      "execution_wave": 14,
+      "id": "T217",
+      "mandatory_path_scopes": [
+        ".github/workflows/**"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Separate fast PR gates, nightly expensive gates, and release-only evidence campaigns."
+    },
+    {
+      "dependencies": [
+        "T217"
+      ],
+      "execution_wave": 14,
+      "id": "T218",
+      "mandatory_path_scopes": [
+        ".github/workflows/**"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Add macOS and Linux matrices for local crates and explicit ncp-observer matrices."
+    },
+    {
+      "dependencies": [
+        "T218"
+      ],
+      "execution_wave": 14,
+      "id": "T219",
+      "mandatory_path_scopes": [
+        "docs/",
+        "scripts/"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Create migration tools for schemas and captures only where conversion is lossless."
+    },
+    {
+      "dependencies": [
+        "T219"
+      ],
+      "execution_wave": 14,
+      "id": "T220",
+      "mandatory_path_scopes": [
+        "protocols/",
+        "scripts/"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Reject legacy captures when required identity, time, units, split, or provenance cannot be reconstructed."
+    },
+    {
+      "dependencies": [
+        "T220"
+      ],
+      "execution_wave": 14,
+      "id": "T221",
+      "mandatory_path_scopes": [
+        "EXPERIMENTS.md",
+        "docs/"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Create operator/researcher runbooks for each executable-today profile."
+    },
+    {
+      "dependencies": [
+        "T221"
+      ],
+      "execution_wave": 14,
+      "id": "T222",
+      "mandatory_path_scopes": [
+        "README.md",
+        "docs/"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Create a reviewer quick-start that avoids requiring Rust expertise."
+    },
+    {
+      "dependencies": [
+        "T222"
+      ],
+      "execution_wave": 14,
+      "id": "T223",
+      "mandatory_path_scopes": [
+        ".github/workflows/**",
+        "protocols/"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Build signed source archive, checksums, SBOM, provenance, and evidence index."
+    },
+    {
+      "dependencies": [
+        "T223"
+      ],
+      "execution_wave": 14,
+      "id": "T224",
+      "mandatory_path_scopes": [
+        ".github/workflows/**",
+        "docs/"
+      ],
+      "phase_id": "P14",
+      "phase_title": "Packaging, CI, reproducibility, usability, and release engineering",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Rehearse publication, rollback, and withdrawal without changing the candidate."
+    },
+    {
+      "dependencies": [
+        "T224"
+      ],
+      "execution_wave": 15,
+      "id": "T225",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Commission an independent clean-room build and baseline reproduction."
+    },
+    {
+      "dependencies": [
+        "T225"
+      ],
+      "execution_wave": 15,
+      "id": "T226",
+      "mandatory_path_scopes": [
+        "docs/",
+        "repo_work/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Commission independent EC1 corruption and replay challenge generation."
+    },
+    {
+      "dependencies": [
+        "T226"
+      ],
+      "execution_wave": 15,
+      "id": "T227",
+      "mandatory_path_scopes": [
+        "crates/pid-sim/**",
+        "repo_work/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Commission independent H1/H2 protocol-arithmetic verification."
+    },
+    {
+      "dependencies": [
+        "T227"
+      ],
+      "execution_wave": 15,
+      "id": "T228",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Commission independent causal/statistical review of M0 and each confirmatory protocol."
+    },
+    {
+      "dependencies": [
+        "T228"
+      ],
+      "execution_wave": 15,
+      "id": "T229",
+      "mandatory_path_scopes": [
+        "pid-rs/",
+        "protocols/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Commission independent PID applicability review before enabling H3."
+    },
+    {
+      "dependencies": [
+        "T229"
+      ],
+      "execution_wave": 15,
+      "id": "T230",
+      "mandatory_path_scopes": [
+        "protocols/",
+        "repo_work/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Run blind holdout scoring once from the frozen candidate and publish first-attempt failures."
+    },
+    {
+      "dependencies": [
+        "T230"
+      ],
+      "execution_wave": 15,
+      "id": "T231",
+      "mandatory_path_scopes": [
+        "docs/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Create a thesis viva dossier covering causal estimands, PID gates, censoring, baselines, leakage, and negative results."
+    },
+    {
+      "dependencies": [
+        "T231"
+      ],
+      "execution_wave": 15,
+      "id": "T232",
+      "mandatory_path_scopes": [
+        "docs/",
+        "repo_work/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Create a non-Rust reviewer packet with equations, schemas, traces, and executable notebooks/reports."
+    },
+    {
+      "dependencies": [
+        "T232"
+      ],
+      "execution_wave": 15,
+      "id": "T233",
+      "mandatory_path_scopes": [
+        "protocols/",
+        "scripts/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Verify every public claim against the claim-to-evidence ledger."
+    },
+    {
+      "dependencies": [
+        "T233"
+      ],
+      "execution_wave": 15,
+      "id": "T234",
+      "mandatory_path_scopes": [
+        "protocols/",
+        "repo_work/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Verify reviewed-file count equals tracked-file count and critical files have independent review."
+    },
+    {
+      "dependencies": [
+        "T234"
+      ],
+      "execution_wave": 15,
+      "id": "T235",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Close every P0/P1 defect or remove the affected 1.0 claim."
+    },
+    {
+      "dependencies": [
+        "T235"
+      ],
+      "execution_wave": 15,
+      "id": "T236",
+      "mandatory_path_scopes": [
+        "repo_work/schemas/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Generate and validate LOCAL_CONVERGENCE_MANIFEST.json."
+    },
+    {
+      "dependencies": [
+        "T236"
+      ],
+      "execution_wave": 15,
+      "id": "T237",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 1,
+      "title": "Enter final Sepahead cross-repository reconciliation without changing local scientific semantics silently."
+    },
+    {
+      "dependencies": [
+        "T237"
+      ],
+      "execution_wave": 15,
+      "id": "T238",
+      "mandatory_path_scopes": [
+        ".github/workflows/**",
+        "docs/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 2,
+      "title": "Run final release rehearsal and exact-artifact verification."
+    },
+    {
+      "dependencies": [
+        "T238"
+      ],
+      "execution_wave": 15,
+      "id": "T239",
+      "mandatory_path_scopes": [
+        "docs/",
+        "protocols/"
+      ],
+      "phase_id": "P15",
+      "phase_title": "Independent verification, thesis-board evidence, local convergence, and final release",
+      "priority": "P0_RELEASE_BLOCKER",
+      "review_status": "open_imported_instruction_not_review_completion",
+      "source_current_head": "0968128062f30da5c04f3f31c23f6ce8e0d95d36",
+      "subagent_lane": 3,
+      "title": "Sign GO, GO_WITH_NARROWED_CLAIMS, or NO_GO and archive all evidence."
+    }
+  ]
+}

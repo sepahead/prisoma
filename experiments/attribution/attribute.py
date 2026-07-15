@@ -62,7 +62,9 @@ def lrp_epsilon(
     r_projected = weights * r_pooled[None, :]  # (T, d_model)
 
     # Output projection: projected[t] = attn_out[t] @ w_o (per token).
-    r_attn_out = _lrp_linear(cache.attn_out, model.w_o, r_projected, eps)  # (T, d_model)
+    r_attn_out = _lrp_linear(
+        cache.attn_out, model.w_o, r_projected, eps
+    )  # (T, d_model)
 
     # Attention A @ V with A detached: attn_out[t,i] = sum_s A[t,s] v[s,i].
     # Route r_attn_out[t,i] to value rows proportional to A[t,s] v[s,i].

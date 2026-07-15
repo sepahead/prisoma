@@ -6,16 +6,25 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   rust:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
           # pid-core / pid-runlog live in the `pid-rs` submodule (single source of truth:
           # https://github.com/sepahead/pid-rs). Fetch it so the path-deps resolve.
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable action commit (2026-06-30)
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -393,30 +402,49 @@ jobs:
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/prisoma_bridge_ws.jsonl | grep -q 'artifacts=1'
           cargo run -p pid-sim --bin pid-sim-verify -- /tmp/prisoma_bridge_ws.jsonl
 
+  msrv:
+    name: Minimum supported Rust 1.93
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable action commit (2026-06-30)
+        with:
+          toolchain: 1.93.0
+      - name: Check the complete workspace at MSRV
+        run: cargo check --locked --workspace --all-targets --all-features
+      - name: Check ncp-observer at MSRV
+        run: cargo check --locked --manifest-path crates/ncp-observer/Cargo.toml --all-targets
+
   supply-chain:
     name: Supply chain (cargo-deny)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
           # ncp-observer git-deps NCP/Zenoh and the default members path-dep the pid-rs
           # submodule; fetch it so the manifests resolve. The vendored `.external/repos/*`
           # trees are NOT part of either dependency graph, so cargo-deny never walks them.
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable action commit (2026-06-30)
       # cargo-deny over the default workspace (members in Cargo.toml; ncp-observer and the
       # pid-rs submodule are workspace-excluded and are NOT scanned by this invocation).
       # Fails closed: the action exits non-zero on any deny-level finding (advisory,
       # disallowed license, unknown git source, …) per ./deny.toml.
       - name: cargo-deny (workspace)
-        uses: EmbarkStudios/cargo-deny-action@v2
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
           command: check
-          arguments: --locked
+          arguments: --locked --all-features
       # ncp-observer is workspace-EXCLUDED (it pulls in NCP + Zenoh, deliberately off the
       # critical path) so it needs an explicit pass via --manifest-path. Same deny.toml.
       - name: cargo-deny (ncp-observer)
-        uses: EmbarkStudios/cargo-deny-action@v2
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
           command: check
           # `--manifest-path` is a cargo-deny GLOBAL flag, so it must be the action's
@@ -425,14 +453,23 @@ jobs:
           # rejects the duplicate, so this pass would never actually scan ncp-observer.
           manifest-path: crates/ncp-observer/Cargo.toml
           arguments: --locked
+      - name: Reject the vulnerable Zenoh compression feature
+        run: |
+          if cargo tree --locked --manifest-path crates/ncp-observer/Cargo.toml -e features -i zenoh-transport@1.9.0 | grep -F 'zenoh-transport feature "transport_compression"'; then
+            echo "vulnerable Zenoh transport compression feature is enabled" >&2
+            exit 1
+          fi
+          cargo tree --locked --manifest-path crates/ncp-observer/Cargo.toml -e features -f '{p} features=[{f}]' | grep -F 'zenoh-transport v1.9.0' >/dev/null
 
   rapier:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
           submodules: recursive  # pid-sim path-depends into the pid-rs submodule
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable action commit (2026-06-30)
       - name: Clippy (rapier feature)
         run: cargo clippy --locked -p pid-sim --features rapier --all-targets -- -D warnings
       - name: Physics + manipulation tests (rapier feature)
@@ -449,11 +486,13 @@ jobs:
 
   parallel:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
           submodules: recursive  # builds pid-core from the pid-rs submodule
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable action commit (2026-06-30)
       - name: Clippy (parallel feature)
         run: cargo clippy --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features parallel --all-targets -- -D warnings
       - name: pid-core tests under the exact parallel KSG path
@@ -461,43 +500,54 @@ jobs:
 
   experiments:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
           submodules: recursive  # pid-sim path-depends into the pid-rs submodule
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable action commit (2026-06-30)
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.11"
-      - name: Install Python deps
-        run: python -m pip install numpy pytest
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.28"
+          python-version: "3.11"
+          enable-cache: false
+      - name: Sync locked Python environment
+        run: uv sync --locked --no-default-groups --group runtime --group dev
       - name: Experiment unit tests (SAFE adapter + attribution probe)
-        run: python -m pytest tests/python/test_safe_adapter.py tests/python/test_attribution.py -q
+        run: uv run --no-sync python -m pytest tests/python/test_safe_adapter.py tests/python/test_attribution.py -q
       - name: SAFE adapter -> offline-harness contract round-trip
         run: |
-          python -m experiments.safe_adapter synth --out /tmp/safe_synth
+          uv run --no-sync python -m experiments.safe_adapter synth --out /tmp/safe_synth
           test -s /tmp/safe_synth/safe_bundle_manifest.json
-          python -m experiments.safe_adapter convert --rollouts /tmp/safe_synth --out /tmp/safe_vlda.json --seen-tasks 0,1
-          python -c 'import json; d=json.load(open("/tmp/safe_vlda.json", encoding="utf-8")); assert d["samples"] and all(s["metadata"].get("bundle_manifest_sha256") for s in d["samples"])'
-          python -m experiments.safe_adapter verify --input /tmp/safe_vlda.json
+          uv run --no-sync python -m experiments.safe_adapter convert --rollouts /tmp/safe_synth --out /tmp/safe_vlda.json --seen-tasks 0,1
+          uv run --no-sync python -c 'import json; d=json.load(open("/tmp/safe_vlda.json", encoding="utf-8")); assert d["samples"] and all(s["metadata"].get("bundle_manifest_sha256") for s in d["samples"])'
+          uv run --no-sync python -m experiments.safe_adapter verify --input /tmp/safe_vlda.json
           cargo run -p pid-sim --bin pid-offline-harness -- --input /tmp/safe_vlda.json --summary-json /tmp/safe_vlda_summary.json --runlog /tmp/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint --require-axis-provenance-honest
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/safe_vlda_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/safe_vlda_runlog.jsonl | grep -q 'errors=0'
       - name: Attribution probe -> attribution_logged run log
         run: |
-          python -m experiments.attribution demo --runlog /tmp/attr_runlog.jsonl --artifacts /tmp/attr_artifacts
+          uv run --no-sync python -m experiments.attribution demo --runlog /tmp/attr_runlog.jsonl --artifacts /tmp/attr_artifacts
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate /tmp/attr_runlog.jsonl
           cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- /tmp/attr_runlog.jsonl | grep -q 'attributions=2'
       - name: Third-party notices are up to date
-        run: python scripts/generate_third_party_notices.py --check
+        run: uv run --no-sync python scripts/generate_third_party_notices.py --check
 
   docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
+          # The release-review auditor verifies the historical frozen cut, not only HEAD.
+          fetch-depth: 0
           submodules: recursive
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.11"
       - name: Audit M0 research governance and its expected closed freeze gate
@@ -517,6 +567,14 @@ jobs:
           grep -Fx -- '- M0_FRESH_REPRODUCIBLE_LITERATURE_SEARCH_REQUIRED' /tmp/m0-freeze.stderr
       - name: Generated capability matrix is current
         run: python scripts/generate_capability_matrix.py --check
+      - name: External GitHub Actions use immutable commit pins
+        run: python scripts/audit_ci_pins.py
+      - name: Frozen 0.9 release-review intake is internally consistent
+        run: |
+          python scripts/audit_release_requirements.py
+          python scripts/audit_release_review.py
+      - name: Unpublished 0.9 candidate state is content-bound and honest
+        run: python scripts/audit_candidate_release.py
       - name: Audit grandplan titles
         run: python scripts/audit_grandplan.py --check-italic-titles
       - name: Audit grandplan claims
@@ -528,37 +586,46 @@ jobs:
 
   python-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.11"
-      - name: Install Ruff
-        run: python -m pip install ruff
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.28"
+          python-version: "3.11"
+          enable-cache: false
+      - name: Sync locked lint environment
+        run: uv sync --locked --no-default-groups --group dev
       - name: Ruff
-        run: ruff check .
+        run: uv run --no-sync ruff check .
 
   python-bindings:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
+          # tests/python/test_release_review.py reconstructs the historical frozen tree.
+          fetch-depth: 0
           submodules: recursive  # pid-python lives in the pid-rs submodule
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable action commit (2026-06-30)
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.11"
-      - name: Install Python test dependencies
-        run: python -m pip install maturin pytest numpy
-      - name: Build extension in editable mode
-        # `maturin develop` refuses to run outside a virtualenv; create one and
-        # carry it into the following steps via GITHUB_ENV/GITHUB_PATH.
-        run: |
-          python -m venv .ci-venv
-          source .ci-venv/bin/activate
-          python -m pip install maturin pytest numpy
-          maturin develop --manifest-path pid-rs/crates/pid-python/Cargo.toml
-          echo "VIRTUAL_ENV=$PWD/.ci-venv" >> "$GITHUB_ENV"
-          echo "$PWD/.ci-venv/bin" >> "$GITHUB_PATH"
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.28"
+          python-version: "3.11"
+          enable-cache: false
+      - name: Sync locked Python test environment
+        run: uv sync --locked --no-default-groups --group runtime --group dev
+      - name: Build extension in the locked environment
+        run: uv run --no-sync maturin develop --manifest-path pid-rs/crates/pid-python/Cargo.toml
       - name: Python tests
-        run: pytest tests/python -q
+        run: uv run --no-sync pytest tests/python -q

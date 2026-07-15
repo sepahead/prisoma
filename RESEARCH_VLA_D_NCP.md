@@ -1,6 +1,6 @@
 # Vision-Language-Action Models and the Internal-Dynamics Axis "D": State of the Art, the NCP Spiking Bridge, and a Four-Lens Sufficiency Verdict
 
-**Author:** Lead author, prisoma project · **Date:** 1 July 2026 (repo-internal facts synced 2026-07-13: the observer repair pins immutable NCP v0.8.0 / wire 0.8; pid-rs 1.0.0 at `ac4a780`, Exp0 NO-GO)
+**Author:** Sepehr Mahmoudian · **Date:** 1 July 2026 (repo-internal facts synced 2026-07-13: the observer repair pins immutable NCP v0.8.0 / wire 0.8; pid-rs 1.0.0 at `ac4a780`, Exp0 NO-GO)
 
 > **Provenance & method.** This memo was produced by an automated multi-agent deep-research workflow (~87 agents: 10 parallel web-search angles → source fetch → claim distillation → 3-vote adversarial currency verification → four-lens sufficiency analysis with per-lens skeptics → synthesis → completeness critic), run on 2026-07-01. Repo-internal facts about prisoma/NCP were grounded directly in this codebase; every external VLA/PID-literature fact is web-sourced and carries an inline `[n]` citation to the Sources list (§8). Frontier 2026 results post-date the author model's training data, so **specific model names and benchmark numbers should be spot-checked against the cited URLs** before being quoted as settled. §7 gives the full currency/confidence breakdown; of the 16 top-ranked claims put through adversarial verification, all 16 survived and 0 were refuted.
 

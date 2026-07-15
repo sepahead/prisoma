@@ -4,7 +4,7 @@ version = "0.9.0"
 edition = "2021"
 rust-version = "1.93"
 authors = ["Sepehr Mahmoudian"]
-description = "Passive Neuro-Cybernetic Protocol (NCP) observer for prisoma: taps the NCP perception/action/observation data planes read-only and maps them to (V,L,D,A) artifacts + run-log events for Partial Information Decomposition. Engram becomes another (V,L,D,A) source — like experiments/safe_adapter."
+description = "Read-only NCP observer groundwork for a future conforming external producer; no public live Engram integration is provided."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sepahead/prisoma"
 # Internal crate (workspace-excluded; git/path-depends on NCP + pid-rs); never published to

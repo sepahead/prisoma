@@ -1,0 +1,161 @@
+import importlib.util
+import os
+import sys
+from pathlib import Path
+
+SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "audit_ci_pins.py"
+SPEC = importlib.util.spec_from_file_location("prisoma_ci_pins", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+MODULE = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = MODULE
+SPEC.loader.exec_module(MODULE)
+
+audit_text = MODULE.audit_text
+audit_workflows = MODULE.audit_workflows
+
+
+def test_repository_actions_are_commit_pinned() -> None:
+    root = Path(__file__).resolve().parents[2]
+    count, errors = audit_workflows(root)
+    assert count > 0
+    assert errors == []
+
+
+def test_rejects_tags_branches_short_shas_and_dynamic_revisions() -> None:
+    text = """
+steps:
+  - uses: actions/checkout@v7
+  - uses: owner/action@main
+  - uses: owner/action@0123456789abcdef
+  - uses: owner/action@${{ github.sha }}
+"""
+    count, errors = audit_text(Path("ci.yml"), text)
+    assert count == 4
+    assert len(errors) == 4
+
+
+def test_accepts_full_commit_pins_and_rejects_unaudited_local_actions() -> None:
+    text = """
+steps:
+  - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+  - uses: ./local-action
+"""
+    count, errors = audit_text(Path("ci.yml"), text)
+    assert count == 2
+    assert len(errors) == 1
+    assert "local actions are forbidden" in errors[0]
+
+
+def test_rejects_noncanonical_uses_key_forms() -> None:
+    pin = "0123456789abcdef0123456789abcdef01234567"
+    text = f"""
+steps:
+  - uses : owner/action@{pin}
+  - "uses": owner/action@{pin}
+  - 'uses': owner/action@{pin}
+  - {{ uses: owner/action@{pin} }}
+  ? uses
+  : owner/action@{pin}
+"""
+    count, errors = audit_text(Path("ci.yml"), text)
+    assert count == 5
+    assert len(errors) == 5
+    assert all("uses key must use canonical block form" in error for error in errors)
+
+
+def test_accepts_quoted_external_values_but_rejects_quoted_local_actions() -> None:
+    pin = "0123456789abcdef0123456789abcdef01234567"
+    text = f"""
+steps:
+  - uses: "owner/action@{pin}"
+  - uses: './local-action'
+"""
+    count, errors = audit_text(Path("ci.yml"), text)
+    assert count == 2
+    assert len(errors) == 1
+    assert "local actions are forbidden" in errors[0]
+
+
+def test_local_composite_cannot_hide_an_unpinned_external_action() -> None:
+    text = """
+steps:
+  - uses: ./.github/actions/local
+"""
+    count, errors = audit_text(Path("ci.yml"), text)
+    assert count == 1
+    assert len(errors) == 1
+    assert "local actions are forbidden" in errors[0]
+
+
+def test_rejects_yaml_decoded_or_composed_uses_keys() -> None:
+    fixtures = [
+        'steps:\n  - "u\\u0073es": owner/action@main\n',
+        "steps:\n  - !!str uses: owner/action@main\n",
+        'steps:\n  - {"u\\x73es": owner/action@main}\n',
+        "action-key: &action-key uses\nsteps:\n  - *action-key: owner/action@main\n",
+        "steps:\n  - ? |-\n      uses\n    : owner/action@main\n",
+        ('steps: [ { !<tag:yaml.org,2002:str> "uses": owner/action@main } ]\n'),
+        'steps: [ { ? "uses" : owner/action@main } ]\n',
+    ]
+    for text in fixtures:
+        count, errors = audit_text(Path("ci.yml"), text)
+        assert count > 0
+        assert errors
+        assert any("canonical block" in error for error in errors)
+
+
+def test_ignores_action_like_text_inside_block_scalars() -> None:
+    pin = "0123456789abcdef0123456789abcdef01234567"
+    text = f"""
+steps:
+  - name: Shell fixture
+    run: |
+      printf '%s' '"u\\u0073es": owner/action@main'
+      printf '%s' '- {{uses: owner/action@main}}'
+  - uses: owner/action@{pin}
+"""
+    count, errors = audit_text(Path("ci.yml"), text)
+    assert count == 1
+    assert errors == []
+
+
+def test_compact_block_scalar_cannot_hide_a_sibling_uses_key() -> None:
+    fixtures = [
+        """
+steps:
+  - run: |
+      echo fixture
+    "u\\u0073es": owner/action@main
+""",
+        """
+steps:
+  -   run: |
+        echo fixture
+      "u\\u0073es": owner/action@main
+""",
+    ]
+    for text in fixtures:
+        count, errors = audit_text(Path("ci.yml"), text)
+        assert count == 1
+        assert len(errors) == 1
+        assert "canonical block" in errors[0]
+
+
+def test_workflow_reader_rejects_symlinks_fifos_and_oversized_files(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    target = tmp_path / "target.yml"
+    target.write_text("steps: []\n", encoding="utf-8")
+    (workflow_dir / "symlink.yml").symlink_to(target)
+    if hasattr(os, "mkfifo"):
+        os.mkfifo(workflow_dir / "pipe.yaml")
+    oversized = workflow_dir / "oversized.yml"
+    oversized.write_bytes(b"x" * 17)
+    monkeypatch.setattr(MODULE, "MAX_WORKFLOW_BYTES", 16)
+
+    count, errors = audit_workflows(tmp_path)
+    assert count == 0
+    assert any("regular non-symlink" in error for error in errors)
+    assert any("exceeds 16 bytes" in error for error in errors)

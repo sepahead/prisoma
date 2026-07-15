@@ -43,10 +43,10 @@ REFERENCES_HEADING_RE = re.compile(r"^#{1,6}\s+References\b", re.IGNORECASE)
 
 @dataclass
 class Ledger:
-    definitions: list[int]          # ids in file order (to detect duplicates)
-    cited: set[int]                 # ids cited outside their own definition marker
+    definitions: list[int]  # ids in file order (to detect duplicates)
+    cited: set[int]  # ids cited outside their own definition marker
     def_urls: dict[int, list[str]]  # per-reference URLs
-    urls: list[str]                 # all URLs in the document
+    urls: list[str]  # all URLs in the document
 
 
 def expand_group(content: str) -> list[int]:
@@ -79,7 +79,7 @@ def parse_ledger(text: str) -> Ledger:
             definitions.append(ref_id)
             def_urls.setdefault(ref_id, []).extend(URL_RE.findall(line))
             # Do not count a reference's own `**[R##]**` marker as a citation of itself.
-            scan_line = line[def_match.end():]
+            scan_line = line[def_match.end() :]
         for grp in BRACKET_RE.finditer(scan_line):
             cited.update(expand_group(grp.group(1)))
 
@@ -139,7 +139,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--grandplan", type=Path, default=Path("grandplan.md"))
     # Accepted for backward compatibility; no longer load-bearing.
-    parser.add_argument("--cache", type=Path, default=Path("outputs/arxiv_ref_cache.json"))
+    parser.add_argument(
+        "--cache", type=Path, default=Path("outputs/arxiv_ref_cache.json")
+    )
     parser.add_argument("--check-italic-titles", action="store_true")
     args = parser.parse_args()
 
@@ -151,8 +153,10 @@ def main() -> int:
 
     defined = sorted(set(ledger.definitions))
     print(f"grandplan:            {args.grandplan}")
-    print(f"reference definitions: {len(defined)}"
-          + (f" (R1..R{len(defined)})" if defined else ""))
+    print(
+        f"reference definitions: {len(defined)}"
+        + (f" (R1..R{len(defined)})" if defined else "")
+    )
     print(f"unique cited IDs:      {len(ledger.cited)}")
     print(f"URLs:                  {len(ledger.urls)} ({len(set(ledger.urls))} unique)")
 

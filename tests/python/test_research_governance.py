@@ -293,9 +293,7 @@ def test_h3_activation_and_gate_regime_mismatch_are_rejected(tmp_path: Path) -> 
         gates[gate_name] = {
             "status": "passed",
             "regime_hash": ("a" if index < 2 else "b") * 64,
-            "evidence_bindings": [
-                {"path": "grandplan.md", "sha256": evidence_sha}
-            ],
+            "evidence_bindings": [{"path": "grandplan.md", "sha256": evidence_sha}],
         }
     _write_json(root, PREREGISTRATION, prereg)
     with pytest.raises(GovernanceError, match="does not share one exact regime hash"):
@@ -447,7 +445,9 @@ def test_literature_comparator_inventory_and_tide_source_state_are_exact(
     root = _copy_bundle(tmp_path / "tide")
     literature = _load_json(root, LITERATURE)
     families = literature["unresolved_h2_comparator_registry"]["families"]
-    tide = next(item for item in families if item["family_id"] == "tide_inter_chunk_discrepancy")
+    tide = next(
+        item for item in families if item["family_id"] == "tide_inter_chunk_discrepancy"
+    )
     tide["screening_status"] = "not_screened_in_reproducible_search"
     _write_json(root, LITERATURE, literature)
     with pytest.raises(GovernanceError, match="loses its exact unresolved state"):
@@ -543,9 +543,7 @@ def test_all_h3_gates_passing_cannot_override_not_eligible_claim_state(
         prereg["protocols"]["h3"]["pid_gates"][gate_name] = {
             "status": "passed",
             "regime_hash": "a" * 64,
-            "evidence_bindings": [
-                {"path": "grandplan.md", "sha256": evidence_sha}
-            ],
+            "evidence_bindings": [{"path": "grandplan.md", "sha256": evidence_sha}],
         }
     _write_json(root, PREREGISTRATION, prereg)
     with pytest.raises(GovernanceError, match="claim registry remains not_eligible"):
@@ -561,7 +559,7 @@ def test_surrogates_and_ascii_control_characters_have_controlled_errors(
     path.write_text(
         raw.replace(
             '"scope": "unfrozen machine-readable M0 scaffold only; not a preregistration, '
-            'registration receipt, scientific result, or authorization to access a '
+            "registration receipt, scientific result, or authorization to access a "
             'confirmatory holdout"',
             '"scope": "\\ud800"',
             1,

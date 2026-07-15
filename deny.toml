@@ -17,16 +17,19 @@ version = 2
 # A known-vulnerable crate fails the build. A yanked crate (pulled from crates.io after
 # publish) is also denied — it must not be in the lock.
 yanked = "deny"
-# The default-workspace advisories (bytes overflow, rustls-webpki CVEs, yanked lz4_flex via
-# the rerun/arrow stack) were FIXED by a `cargo update`, not ignored. The three ignores below
-# are TRANSITIVE advisories in the SEPARATE `ncp-observer` (zenoh = "1.9.0") pass only, with
-# no in-lock fix; they mirror NCP's deny.toml. Drop each when a zenoh bump lets us past it.
-# (They report a harmless "no crate matched" on the default-workspace pass.)
+# The resolved bytes, rustls-webpki, and historical Rerun/Arrow lz4 findings were fixed by lock
+# updates, not ignored. The exceptions below have no compatible in-lock repair. Two are confined
+# to the separately checked `ncp-observer` Zenoh graph; `paste` is also present in the default
+# workspace through nalgebra. Remove each exception when its relevant upstream graph permits it.
 ignore = [
-    # lz4_flex LZ4 block-API out-of-bounds read — zenoh's internal batch compression
-    # (ncp-observer pass); zenoh 1.9.0 pins an unpatched lz4_flex line.
+    # HIGH/CVSS 8.2 lz4_flex block-decompression information disclosure. Zenoh 1.9.0
+    # pins the affected 0.10 line even when `transport_compression` is disabled. The
+    # affected call is cfg-elided in the checked NCP profile, and CI fails if that feature
+    # becomes enabled. This is still an open advisory, not a clean-audit claim; remove the
+    # exception when a qualified NCP/Zenoh pin admits lz4_flex >=0.11.6.
     "RUSTSEC-2026-0041",
-    # paste — unmaintained proc-macro (no vuln), transitive via zenoh. No upstream fix.
+    # paste — unmaintained proc-macro (not a known vulnerability), transitive through nalgebra in
+    # the default workspace and also through Zenoh in the observer graph. No compatible fix yet.
     "RUSTSEC-2024-0436",
     # rustls-pemfile — unmaintained (no vulnerability), transitive through Zenoh's
     # mandatory TLS/QUIC link stack. Zenoh 1.9 has no replacement release; NCP

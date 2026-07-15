@@ -93,17 +93,23 @@ def audit(path: Path) -> list[Finding]:
             if ("§12.4" in line) and (not has_arxiv):
                 continue
             if not re.search(r"\bverify\b", line, re.IGNORECASE):
-                findings.append(Finding("venue_claim_needs_verify", line_no, line.rstrip()))
+                findings.append(
+                    Finding("venue_claim_needs_verify", line_no, line.rstrip())
+                )
 
         # Numeric performance/cost claim check.
-        has_perf_num = bool(PERCENT_RE.search(line) or MULT_RE.search(line) or UNITS_RE.search(line))
+        has_perf_num = bool(
+            PERCENT_RE.search(line) or MULT_RE.search(line) or UNITS_RE.search(line)
+        )
         has_perf_words = bool(PERF_WORD_RE.search(line))
         if has_perf_num and has_perf_words:
             if not QUALIFIER_RE.search(line):
                 # Allow some cases where the number is directly part of an arXiv abstract claim line.
                 # (But still prefer qualifiers; this is just to reduce noise.)
                 if not has_arxiv:
-                    findings.append(Finding("numeric_claim_unqualified", line_no, line.rstrip()))
+                    findings.append(
+                        Finding("numeric_claim_unqualified", line_no, line.rstrip())
+                    )
 
     return findings
 
@@ -130,7 +136,9 @@ def main() -> int:
     print()
     print("Notes:")
     print("- This is heuristic; review the flagged lines in context.")
-    print("- Prefer adding explicit qualifiers (paper-reported/benchmark-dependent/verify) or removing the claim.")
+    print(
+        "- Prefer adding explicit qualifiers (paper-reported/benchmark-dependent/verify) or removing the claim."
+    )
     return 1
 
 
