@@ -1,6 +1,6 @@
 {
   "author": "Sepehr Mahmoudian",
-  "boundary": "This manifest describes an unpublished 0.9 candidate only. It makes no 1.0 convergence, scientific completion, DOI, Zenodo, tag, or publication claim.",
+  "boundary": "This manifest is the non-promoted candidate decision record for 0.9. `published:false` means candidate-package and scientific promotion are not authorized; it does not deny public availability of Prisoma 0.9.0 as a GitHub source prerelease. It makes no 1.0 convergence, scientific completion, DOI, Zenodo, archive identifier, stable-release, or candidate-publication claim.",
   "candidate_gates": {
     "P0_and_blocking_P1_defects_resolved": "open",
     "all_file_reviews_final": "open",
@@ -56,11 +56,11 @@
     }
   ],
   "component_semantic_sha256": {
-    "claim_evidence_ledger.json": "a7ea1b5e5d9288f2b58f3cb4c64aed28f933a11dbbef12dbf478e44f8c72166f",
-    "defect_register.json": "41c1ae3b323da26ba677ad9162db23cda2cf7c672677e92514fb143cf87648f1",
-    "evidence_receipts.json": "64766734ab70f344169266ff9f12b42d929cc07a2c1f7337671abf3f20763587",
-    "source_inventory.json": "8129d48a2a7d61bdcd69063daabe9cc36abba14d4780a7fb93d4e21b10e07acb",
-    "task_lens_ledger.json": "1fb82483294402a01cdf2499debfad5ba5cd6d02e775faab4ff065bfb562b28c"
+    "claim_evidence_ledger.json": "16ff9aea09dc66c2533c5685e6dda178889bcd0e1586935989c6c3bf7d9673b0",
+    "defect_register.json": "c8c56811ab1b13e4ddf9be99f45ca58cb7a4f92ef745e70479df350135476551",
+    "evidence_receipts.json": "5a877b77c3f15ea31f9555345a11173cd8ba4aae387b0a8fbf9ed7bcbd52e9b6",
+    "source_inventory.json": "14862125e8a2f8e390c944d4c8ab7152f1e217f456d35ac28713421088ae24af",
+    "task_lens_ledger.json": "5ea9866023c9685bb538e17c7b3dc62a01327d44058497f187a26da710ed7b98"
   },
   "cross_repository_qualification": [],
   "datasets": [],
@@ -119,8 +119,9 @@
     "H3": "open_not_established",
     "H4": "exploratory_not_established",
     "application_continuous_pid": "blocked_not_application_validated",
+    "atom_estimator": "blocked",
+    "atom_measure": "not_adjudicated",
     "estimator_high_dimensional_mi_coherence": "no_go",
-    "measure": "blocked_for_default_zero_redundancy_target",
     "population": "open_not_frozen"
   },
   "protocol_status": {
@@ -170,25 +171,25 @@
   },
   "signatures": [],
   "source": {
-    "candidate_state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20",
-    "commit": "9e5521c8f56b497c301a0f117ced1c6f8a5de900",
-    "commit_role": "parent_HEAD_at_dirty_candidate_capture_not_release_commit",
+    "candidate_state_sha256": "0e3ecd2de35c6ab7fa7d01b6df714b86b4ff9a6c23c9561d7c9538e89964be8a",
+    "commit": "cef9f6cd9ef7954f7b0a4ab3386cb81cc0a9bf42",
+    "commit_role": "clean_HEAD_at_candidate_capture_not_publication_identity",
     "repository": "https://github.com/sepahead/prisoma",
-    "tree_clean": false
+    "tree_clean": true
   },
   "source_candidate": {
-    "clean": false,
+    "clean": true,
     "exact_pushed_commit": null,
-    "head_commit_at_capture": "9e5521c8f56b497c301a0f117ced1c6f8a5de900",
-    "state": "dirty_uncommitted_source_snapshot",
-    "state_sha256": "f5724f71600554127b84cb7a5e1907323a47c816b7c78c45dc5067a51255be20"
+    "head_commit_at_capture": "cef9f6cd9ef7954f7b0a4ab3386cb81cc0a9bf42",
+    "state": "clean_source_snapshot",
+    "state_sha256": "0e3ecd2de35c6ab7fa7d01b6df714b86b4ff9a6c23c9561d7c9538e89964be8a"
   },
   "submodules": [
     {
       "dirty": false,
-      "index_commit": "43ab60517b5387c61ae339f664d0d7afae3b8988",
+      "index_commit": "796c11e70f009634b853dc4ada6f565563d82f51",
       "path": "pid-rs",
-      "working_commit": "43ab60517b5387c61ae339f664d0d7afae3b8988"
+      "working_commit": "796c11e70f009634b853dc4ada6f565563d82f51"
     }
   ],
   "terminal_promotion": {
