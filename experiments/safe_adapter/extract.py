@@ -38,6 +38,7 @@ from dataclasses import dataclass
 import numpy as np
 
 MAX_TEXT_HASH_DIM = 65_536
+MAX_TEXT_HASH_CHARS = 16_384
 
 
 @dataclass
@@ -58,6 +59,28 @@ class VariableSpec:
     dim: int | None = None  # required for text_hash
 
 
+def _stable_token_mean(hidden_states: np.ndarray) -> np.ndarray:
+    """Mean-pool token rows without overflowing on extreme finite values."""
+    # Preserve the historical NumPy reduction bit-for-bit for ordinary inputs.
+    # Only take the scaled fallback when that reduction actually overflows.
+    with np.errstate(over="ignore", invalid="ignore"):
+        pooled = hidden_states.mean(axis=1)
+    if np.isfinite(pooled).all():
+        return pooled
+
+    scale = np.max(np.abs(hidden_states), axis=1, keepdims=True)
+    normalized = np.divide(
+        hidden_states,
+        scale,
+        out=np.zeros_like(hidden_states),
+        where=scale != 0.0,
+    )
+    pooled = normalized.mean(axis=1) * scale[:, 0, :]
+    if not np.isfinite(pooled).all():
+        raise ValueError("hidden-state pooling produced a non-finite value")
+    return pooled
+
+
 def pool_tokens(hidden_states: np.ndarray, *, reduction: str = "mean") -> np.ndarray:
     """Collapse raw ``(T, n_token, d)`` hidden states to ``(T, d)``.
 
@@ -65,12 +88,14 @@ def pool_tokens(hidden_states: np.ndarray, *, reduction: str = "mean") -> np.nda
     or ``"last"`` (last token), mirroring common VLA pooling choices.
     """
     hs = np.asarray(hidden_states, dtype=np.float64)
+    if not np.isfinite(hs).all():
+        raise ValueError("hidden_states contains a non-finite value")
     if hs.ndim == 2:
         return hs
     if hs.ndim != 3:
         raise ValueError(f"hidden_states must be 2-D or 3-D, got shape {hs.shape}")
     if reduction == "mean":
-        return hs.mean(axis=1)
+        return _stable_token_mean(hs)
     if reduction == "last":
         return hs[:, -1, :]
     raise ValueError(f"unknown reduction: {reduction!r}")
@@ -81,6 +106,8 @@ def slice_token_group(
 ) -> np.ndarray:
     """Mean-pool a contiguous token-index range from raw ``(T, n_token, d)`` states."""
     hs = np.asarray(hidden_states, dtype=np.float64)
+    if not np.isfinite(hs).all():
+        raise ValueError("hidden_states contains a non-finite value")
     if hs.ndim != 3:
         raise ValueError(
             "token slicing requires raw per-token hidden states (T, n_token, d); "
@@ -91,7 +118,7 @@ def slice_token_group(
         raise ValueError(
             f"token group {token_group} out of range for n_token={hs.shape[1]}"
         )
-    return hs[:, start:end, :].mean(axis=1)
+    return _stable_token_mean(hs[:, start:end, :])
 
 
 def text_hash_features(text: str, dim: int) -> np.ndarray:
@@ -103,6 +130,10 @@ def text_hash_features(text: str, dim: int) -> np.ndarray:
     learned semantic embedding — prefer supplying real ``language_features`` when a
     text encoder is available.
     """
+    if not isinstance(text, str) or len(text) > MAX_TEXT_HASH_CHARS:
+        raise ValueError(
+            f"text must be a string of at most {MAX_TEXT_HASH_CHARS} characters"
+        )
     if (
         isinstance(dim, bool)
         or not isinstance(dim, int)
@@ -114,7 +145,9 @@ def text_hash_features(text: str, dim: int) -> np.ndarray:
     tokens = list(text.lower().split())
     trigrams = [text[i : i + 3] for i in range(max(0, len(text) - 2))]
     for token in tokens + trigrams:
-        digest = hashlib.sha1(token.encode("utf-8")).digest()
+        # SHA-1 is retained solely as the versioned, deterministic bucket mapping for
+        # this non-security hashing trick; it is never used for integrity or trust.
+        digest = hashlib.sha1(token.encode("utf-8"), usedforsecurity=False).digest()
         bucket = int.from_bytes(digest[:4], "big") % dim
         sign = 1.0 if digest[4] & 1 else -1.0
         vec[bucket] += sign
@@ -148,18 +181,27 @@ def resolve_variable(
             raise ValueError(
                 f"{name}: explicit features must be (T={n_steps}, d), got {feats.shape}"
             )
+        if feats.shape[1] == 0 or not np.isfinite(feats).all():
+            raise ValueError(f"{name}: explicit features must be nonempty and finite")
         return feats, "explicit_features"
     if spec.mode == "hidden_pool":
-        return pool_tokens(hidden_states), "hidden_state_pool"
+        resolved = pool_tokens(hidden_states)
+        if resolved.shape[0] != n_steps or resolved.shape[1] == 0:
+            raise ValueError(
+                f"{name}: hidden-state pool must be (T={n_steps}, d>0), got {resolved.shape}"
+            )
+        return resolved, "hidden_state_pool"
     if spec.mode == "token_slice":
         if not token_groups or spec.token_group not in token_groups:
             raise ValueError(
                 f"{name}: mode 'token_slice' requires token_groups[{spec.token_group!r}]"
             )
-        return (
-            slice_token_group(hidden_states, token_groups[spec.token_group]),
-            f"token_slice:{spec.token_group}",
-        )
+        resolved = slice_token_group(hidden_states, token_groups[spec.token_group])
+        if resolved.shape[0] != n_steps or resolved.shape[1] == 0:
+            raise ValueError(
+                f"{name}: token slice must be (T={n_steps}, d>0), got {resolved.shape}"
+            )
+        return resolved, f"token_slice:{spec.token_group}"
     if spec.mode == "text_hash":
         if spec.dim is None:
             raise ValueError(f"{name}: mode 'text_hash' requires dim")

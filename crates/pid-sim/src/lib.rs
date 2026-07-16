@@ -8,7 +8,7 @@ use pid_bridge::{
     BridgeMethod, BridgeRequest, BridgeResponse, BridgeRpcRequest, BridgeRpcResponse, LocalBridge,
 };
 use pid_runlog::{
-    canonical_json_hash, Actor, Pose, RunLogEvent, RunLogWriter, RunStatus, SimObjectSnapshot,
+    canonical_json_hash_v2, Actor, Pose, RunLogEvent, RunLogWriter, RunStatus, SimObjectSnapshot,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -16,14 +16,16 @@ use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufWriter, Read, Write};
 use std::path::{Component, Path, PathBuf};
+use std::str::FromStr;
 
 pub mod h1_preflight;
 pub mod h1_protocol_a;
 pub mod h2_reference;
+#[path = "power.rs"]
+pub mod legacy_sensitivity;
 pub mod manipulation;
 pub mod offline_harness;
 pub mod physics;
-pub mod power;
 pub mod toy_harness;
 
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";
@@ -858,12 +860,18 @@ impl<W: Write> SimBridgeSession<W> {
                     metadata: response
                         .result
                         .as_ref()
-                        .and_then(|result| result.get("trace_hash"))
+                        .and_then(|result| result.get("trace_hash_v2"))
                         .and_then(Value::as_str)
                         .map(|trace_hash| {
-                            [("trace_hash".to_string(), trace_hash.to_string())]
-                                .into_iter()
-                                .collect()
+                            [
+                                ("trace_hash_v2".to_string(), trace_hash.to_string()),
+                                (
+                                    "trace_hash_revision".to_string(),
+                                    "replay_trace_v2".to_string(),
+                                ),
+                            ]
+                            .into_iter()
+                            .collect()
                         })
                         .unwrap_or_default(),
                 })?;
@@ -967,6 +975,8 @@ impl<W: Write> SimBridgeSession<W> {
         let summary = pid_runlog::summarize_events(&events)?;
         Ok(json!({
             "trace_hash": summary.trace_hash,
+            "trace_hash_v2": summary.trace_hash_v2,
+            "trace_hash_revision": "replay_trace_v2",
             "events": summary.event_count,
             "valid": summary.validation_errors == 0,
             "validation_errors": summary.validation_errors,
@@ -1086,15 +1096,15 @@ impl<W: Write> SimBridgeSession<W> {
         if self.run_ended {
             return Ok(false);
         }
-        if self.poisoned && !matches!(&status, RunStatus::Failed) {
-            bail!(
-                "bridge run {} is poisoned and may only be sealed failed",
-                self.run_id
-            );
-        }
         if self.terminal_write_attempted {
             bail!(
                 "bridge run {} terminal write was already attempted and cannot be retried safely",
+                self.run_id
+            );
+        }
+        if self.poisoned {
+            bail!(
+                "bridge run {} cannot be sealed after an earlier provenance-write failure",
                 self.run_id
             );
         }
@@ -1104,10 +1114,9 @@ impl<W: Write> SimBridgeSession<W> {
             status,
             message,
         };
-        // Sealing is the one write allowed after poisoning. Once an arbitrary
-        // Write reports an error we cannot tell how much of its JSON line
-        // reached the sink, so retrying could duplicate a complete terminal
-        // event. Permit exactly one terminal write attempt.
+        // Once an arbitrary Write reports an error we cannot tell how much of
+        // its JSON line reached the sink, so retrying could duplicate a
+        // complete terminal event. Permit exactly one terminal write attempt.
         self.terminal_write_attempted = true;
         if let Err(error) = self.bridge.record_event(&event) {
             self.poisoned = true;
@@ -1202,7 +1211,7 @@ impl<W: Write> SimBridgeSession<W> {
             timestamp_ns: sim.timestamp_ns(),
             actor: request.actor.clone(),
             intervention_type: intervention_type.to_string(),
-            payload_hash: canonical_json_hash(&payload)?,
+            payload_hash: canonical_json_hash_v2(&payload)?,
             payload,
         })
     }
@@ -1581,6 +1590,8 @@ fn export_runlog_to_rerun_inner(
         "output_uri": output_uri,
         "sha256": sha256,
         "trace_hash": summary.trace_hash,
+        "trace_hash_v2": summary.trace_hash_v2,
+        "trace_hash_revision": "replay_trace_v2",
         "events": summary.event_count,
         "valid": summary.validation_errors == 0,
         "validation_errors": summary.validation_errors,
@@ -1906,7 +1917,7 @@ pub fn verify_flow_gt(events: &[RunLogEvent], tolerance: f64) -> FlowVerificatio
                 };
                 let previous_position = previous
                     .as_ref()
-                    .filter(|(previous_step, _)| *previous_step + 1 == *step)
+                    .filter(|(previous_step, _)| previous_step.checked_add(1) == Some(*step))
                     .and_then(|(_, positions)| positions.get(object_id));
                 let Some(previous_position) = previous_position else {
                     report.issues.push(format!(
@@ -2002,7 +2013,189 @@ pub fn verify_sim_replay(events: &[RunLogEvent], tolerance: f64) -> SimReplayRep
             .issues
             .push("missing sim_snapshot seed for deterministic replay".to_string());
     }
+    verify_bridge_effect_lineage(events, &mut report);
     report
+}
+
+#[derive(Debug, Clone)]
+struct PendingBridgeEffect {
+    request_id: String,
+    actor: Actor,
+    method: BridgeMethod,
+    payload_hash: String,
+    payload: Value,
+    effects: usize,
+}
+
+fn verify_bridge_effect_lineage(events: &[RunLogEvent], report: &mut SimReplayReport) {
+    if !events.iter().any(|event| {
+        matches!(
+            event,
+            RunLogEvent::BridgeRequest { .. } | RunLogEvent::BridgeResponse { .. }
+        )
+    }) {
+        return;
+    }
+
+    let mut pending: Option<PendingBridgeEffect> = None;
+    for (event_index, event) in events.iter().enumerate() {
+        match event {
+            RunLogEvent::BridgeRequest {
+                request_id,
+                actor,
+                method,
+                payload_hash,
+                payload,
+                ..
+            } => {
+                if let Some(previous) = pending.take() {
+                    report.issues.push(format!(
+                        "bridge request {} at event {event_index} arrived before pending request {} received a response",
+                        request_id, previous.request_id
+                    ));
+                }
+                let method = match BridgeMethod::from_str(method) {
+                    Ok(method) => method,
+                    Err(error) => {
+                        report.issues.push(format!(
+                            "bridge request {request_id} at event {event_index} has unsupported method: {error}"
+                        ));
+                        continue;
+                    }
+                };
+                pending = Some(PendingBridgeEffect {
+                    request_id: request_id.clone(),
+                    actor: actor.clone(),
+                    method,
+                    payload_hash: payload_hash.clone(),
+                    payload: payload.clone(),
+                    effects: 0,
+                });
+            }
+            RunLogEvent::ActionApplied {
+                actor,
+                action_type,
+                payload_hash,
+                payload,
+                ..
+            } => {
+                let Some(request) = pending.as_mut() else {
+                    report.issues.push(format!(
+                        "action {action_type} at event {event_index} has no pending bridge request"
+                    ));
+                    continue;
+                };
+                request.effects += 1;
+                let expected_action = match request.method {
+                    BridgeMethod::SimStep => Some("sim.step"),
+                    BridgeMethod::SimReset => Some("sim.reset"),
+                    BridgeMethod::SceneSetObject => Some("scene.set_object"),
+                    _ => None,
+                };
+                if expected_action != Some(action_type.as_str()) {
+                    report.issues.push(format!(
+                        "bridge request {} ({}) produced unexpected action {action_type} at event {event_index}",
+                        request.request_id,
+                        request.method.as_str()
+                    ));
+                }
+                if actor != &request.actor
+                    || payload_hash != &request.payload_hash
+                    || payload != &request.payload
+                {
+                    report.issues.push(format!(
+                        "action at event {event_index} does not exactly bind actor and payload to bridge request {}",
+                        request.request_id
+                    ));
+                }
+            }
+            RunLogEvent::InterventionApplied {
+                actor,
+                intervention_type,
+                payload_hash,
+                payload,
+                ..
+            } => {
+                let Some(request) = pending.as_mut() else {
+                    report.issues.push(format!(
+                        "intervention {intervention_type} at event {event_index} has no pending bridge request"
+                    ));
+                    continue;
+                };
+                request.effects += 1;
+                if request.method != BridgeMethod::InterventionApply {
+                    report.issues.push(format!(
+                        "bridge request {} ({}) produced unexpected intervention {intervention_type} at event {event_index}",
+                        request.request_id,
+                        request.method.as_str()
+                    ));
+                    continue;
+                }
+                let expected_type = request
+                    .payload
+                    .get("intervention_type")
+                    .and_then(Value::as_str);
+                let expected_payload = request.payload.get("payload");
+                let expected_hash = expected_payload.map(canonical_json_hash_v2).transpose();
+                if actor != &request.actor
+                    || expected_type != Some(intervention_type.as_str())
+                    || expected_payload != Some(payload)
+                    || expected_hash.as_ref().ok().and_then(|hash| hash.as_ref())
+                        != Some(payload_hash)
+                {
+                    report.issues.push(format!(
+                        "intervention at event {event_index} does not exactly bind actor, type, and payload to bridge request {}",
+                        request.request_id
+                    ));
+                }
+                if let Err(error) = expected_hash {
+                    report.issues.push(format!(
+                        "bridge request {} intervention payload could not be hashed: {error}",
+                        request.request_id
+                    ));
+                }
+            }
+            RunLogEvent::BridgeResponse { request_id, ok, .. } => {
+                let Some(request) = pending.take() else {
+                    report.issues.push(format!(
+                        "bridge response {request_id} at event {event_index} has no pending request"
+                    ));
+                    continue;
+                };
+                if request.request_id != *request_id {
+                    report.issues.push(format!(
+                        "bridge response {request_id} at event {event_index} does not match pending request {}",
+                        request.request_id
+                    ));
+                }
+                let expected_effects = usize::from(
+                    *ok && matches!(
+                        request.method,
+                        BridgeMethod::SimStep
+                            | BridgeMethod::SimReset
+                            | BridgeMethod::SceneSetObject
+                            | BridgeMethod::InterventionApply
+                    ),
+                );
+                if request.effects != expected_effects {
+                    report.issues.push(format!(
+                        "bridge request {} ({}) recorded {} effect event(s), expected {expected_effects} before its ok={ok} response",
+                        request.request_id,
+                        request.method.as_str(),
+                        request.effects
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+    if let Some(request) = pending {
+        report.issues.push(format!(
+            "bridge request {} ({}) has no response",
+            request.request_id,
+            request.method.as_str()
+        ));
+    }
 }
 
 fn apply_replay_intervention(
@@ -2039,7 +2232,18 @@ fn apply_replay_action(
                     .push("sim.step action appeared before any sim_snapshot seed".to_string());
                 return;
             };
-            let dt = payload.get("dt").and_then(Value::as_f64).unwrap_or(0.1);
+            if let Err(error) = validate_bridge_payload_keys(payload, "sim.step", &["dt"], false) {
+                report
+                    .issues
+                    .push(format!("failed to replay sim.step: {error}"));
+                return;
+            }
+            let Some(dt) = payload.get("dt").and_then(Value::as_f64) else {
+                report
+                    .issues
+                    .push("failed to replay sim.step: dt must be a number".to_string());
+                return;
+            };
             match current.step_fixed(dt) {
                 Ok(_) => report.checked_actions += 1,
                 Err(err) => report
@@ -2058,8 +2262,28 @@ fn apply_replay_action(
             report.checked_actions += 1;
         }
         "scene.set_object" | "scene_set_object" => {
+            if let Err(error) = validate_bridge_payload_keys(
+                payload,
+                "scene.set_object",
+                &["object_id", "pose", "velocity"],
+                false,
+            ) {
+                report
+                    .issues
+                    .push(format!("failed to replay scene.set_object: {error}"));
+                return;
+            }
             match serde_json::from_value::<SimObject>(payload.clone()) {
                 Ok(object) => {
+                    if let Err(error) = validate_object_id(&object.object_id)
+                        .and_then(|()| validate_pose_finite(&object.pose))
+                        .and_then(|()| validate_vec3_finite(object.velocity, "object velocity"))
+                    {
+                        report
+                            .issues
+                            .push(format!("failed to replay scene.set_object: {error}"));
+                        return;
+                    }
                     sim.get_or_insert_with(DeterministicObjectSim::new)
                         .upsert_object(object);
                     report.checked_actions += 1;
@@ -2069,7 +2293,9 @@ fn apply_replay_action(
                     .push(format!("failed to replay scene.set_object: {err}")),
             }
         }
-        _ => {}
+        _ => report
+            .issues
+            .push(format!("unsupported replay action type {action_type}")),
     }
 }
 
@@ -2195,8 +2421,8 @@ mod tests {
     use super::*;
     use pid_bridge::{BridgeMethod, BridgeRpcResponse};
     use pid_runlog::{
-        canonical_json_hash, read_events, replay_events, validate_events, ActorType, RunLogEvent,
-        RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
+        canonical_json_hash_v2, read_events, replay_events, validate_events, ActorType,
+        RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
     };
     use serde_json::json;
     use std::io::{self, Cursor};
@@ -2424,7 +2650,7 @@ mod tests {
         test_name: &str,
     ) {
         let config = json!({ "test": test_name });
-        let config_hash = canonical_json_hash(&config).unwrap();
+        let config_hash = canonical_json_hash_v2(&config).unwrap();
         writer
             .append(&RunLogEvent::RunStarted {
                 schema_version: RUN_LOG_SCHEMA_VERSION,
@@ -2512,7 +2738,7 @@ mod tests {
     }
 
     #[test]
-    fn bridge_provenance_failure_records_unanswered_request_warning_and_failed_terminal_status() {
+    fn bridge_provenance_failure_remains_unsealed_and_explicit() {
         let (sink, control) = LineGateWriter::new();
         let mut writer = RunLogWriter::new(sink);
         append_run_prefix(&mut writer, "poisoned-run", "poisoned-run");
@@ -2563,10 +2789,13 @@ mod tests {
             .contains("poisoned"));
 
         control.allowed_lines.store(usize::MAX, Ordering::SeqCst);
-        assert!(session
+        let seal_error = session
             .finish_run(RunStatus::Failed, Some("write failure".to_string()))
-            .unwrap());
-        assert!(session.run_ended());
+            .unwrap_err();
+        assert!(seal_error
+            .to_string()
+            .contains("cannot be sealed after an earlier provenance-write failure"));
+        assert!(!session.run_ended());
 
         let bytes = control.bytes.lock().unwrap().clone();
         let events = read_events(Cursor::new(bytes)).unwrap();
@@ -2579,8 +2808,15 @@ mod tests {
             "a storage failure after BridgeRequest must remain explicit: {:?}",
             report.issues
         );
+        assert!(
+            report.issues.iter().any(|issue| issue
+                .message
+                .contains("expected exactly one run_ended event, got 0")),
+            "the indeterminate terminal state must remain explicit: {:?}",
+            report.issues
+        );
         let state = replay_events(&events).unwrap();
-        assert_eq!(state.status, Some(RunStatus::Failed));
+        assert_eq!(state.status, None);
         assert!(state.actions.is_empty());
     }
 
@@ -2669,7 +2905,7 @@ mod tests {
     }
 
     #[test]
-    fn poisoned_bridge_can_only_be_sealed_failed() {
+    fn poisoned_bridge_cannot_claim_a_terminal_status() {
         let mut writer = RunLogWriter::new(Vec::new());
         append_run_prefix(&mut writer, "poisoned-status", "poisoned-status");
         let mut session = SimBridgeSession::with_run_id(writer, demo_sim(), "poisoned-status");
@@ -2679,11 +2915,15 @@ mod tests {
             .finish_run(RunStatus::Succeeded, Some("incorrect success".to_string()))
             .unwrap_err();
 
-        assert!(error.to_string().contains("only be sealed failed"));
+        assert!(error
+            .to_string()
+            .contains("cannot be sealed after an earlier provenance-write failure"));
         assert!(!session.terminal_write_attempted);
         assert!(session
             .finish_run(RunStatus::Failed, Some("provenance failure".to_string()))
-            .unwrap());
+            .unwrap_err()
+            .to_string()
+            .contains("cannot be sealed after an earlier provenance-write failure"));
     }
 
     #[test]
@@ -3087,6 +3327,12 @@ mod tests {
         assert_eq!(result["valid"], true);
         assert_eq!(result["validation_errors"], 0);
         assert_eq!(result["trace_hash"].as_str().unwrap().len(), 64);
+        assert_eq!(result["trace_hash_v2"].as_str().unwrap().len(), 64);
+        assert_eq!(result["trace_hash_revision"], "replay_trace_v2");
+        assert_eq!(
+            result["trace_hash_v2"],
+            pid_runlog::summarize_path(&path).unwrap().trace_hash_v2
+        );
 
         let events = read_events(Cursor::new(session.into_inner())).unwrap();
         let state = replay_events(&events).unwrap();
@@ -3443,6 +3689,9 @@ mod tests {
         assert_eq!(result["valid"], true);
         assert_eq!(result["validation_errors"], 0);
         assert_eq!(result["trace_hash"].as_str().unwrap().len(), 64);
+        let source_trace_hash_v2 = pid_runlog::summarize_path(&source).unwrap().trace_hash_v2;
+        assert_eq!(result["trace_hash_v2"], source_trace_hash_v2);
+        assert_eq!(result["trace_hash_revision"], "replay_trace_v2");
         let claimed_sha256 = result["sha256"].as_str().unwrap().to_string();
         assert_eq!(claimed_sha256.len(), 64);
         assert!(output.exists());
@@ -3463,7 +3712,9 @@ mod tests {
         assert!(events.iter().any(|event| matches!(
             event,
             RunLogEvent::ArtifactLogged { metadata, .. }
-                if metadata.contains_key("trace_hash")
+                if metadata.get("trace_hash_v2") == Some(&source_trace_hash_v2)
+                    && metadata.get("trace_hash_revision").map(String::as_str)
+                        == Some("replay_trace_v2")
         )));
         let artifact_index = events
             .iter()
@@ -4533,6 +4784,33 @@ mod tests {
     }
 
     #[test]
+    fn flow_verifier_rejects_wrapped_step_adjacency_without_panicking() {
+        let mut previous = demo_sim().snapshot_event();
+        let mut current = previous.clone();
+        if let RunLogEvent::SimSnapshot { step, .. } = &mut previous {
+            *step = u64::MAX;
+        }
+        if let RunLogEvent::SimSnapshot { step, .. } = &mut current {
+            *step = 1;
+        }
+        let events = vec![
+            previous,
+            current,
+            RunLogEvent::FlowGt {
+                step: 1,
+                timestamp_ns: 1,
+                object_id: "cube".to_string(),
+                flow: vec![[0.0; 3]],
+            },
+        ];
+
+        let report = verify_flow_gt(&events, 1e-12);
+
+        assert!(!report.is_valid());
+        assert!(!report.issues.is_empty());
+    }
+
+    #[test]
     fn sim_replay_verifier_checks_logged_actions_against_snapshots() {
         let actor = Actor {
             actor_type: ActorType::Script,
@@ -4578,7 +4856,7 @@ mod tests {
                 session_id: None,
             },
             action_type: "sim.step".to_string(),
-            payload_hash: pid_runlog::canonical_json_hash(&payload).unwrap(),
+            payload_hash: pid_runlog::canonical_json_hash_v2(&payload).unwrap(),
             payload,
         });
         sim.step_fixed(0.2).unwrap();
@@ -4590,5 +4868,114 @@ mod tests {
             .issues
             .iter()
             .any(|issue| issue.contains("snapshot timestamp")));
+    }
+
+    #[test]
+    fn sim_replay_verifier_rejects_missing_step_dt_instead_of_inventing_a_default() {
+        let mut expected = demo_sim();
+        let mut events = vec![expected.snapshot_event()];
+        let payload = json!({});
+        events.push(RunLogEvent::ActionApplied {
+            step: 1,
+            timestamp_ns: 100_000_000,
+            actor: Actor {
+                actor_type: ActorType::Script,
+                actor_id: "sim-replay-test".to_string(),
+                session_id: None,
+            },
+            action_type: "sim.step".to_string(),
+            payload_hash: pid_runlog::canonical_json_hash_v2(&payload).unwrap(),
+            payload,
+        });
+        expected.step_fixed(0.1).unwrap();
+        events.push(expected.snapshot_event());
+
+        let report = verify_sim_replay(&events, 1e-12);
+
+        assert!(!report.is_valid());
+        assert_eq!(report.checked_actions, 0);
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.contains("dt must be a number")));
+    }
+
+    #[test]
+    fn sim_replay_verifier_rejects_unknown_action_types() {
+        let sim = demo_sim();
+        let mut events = vec![sim.snapshot_event()];
+        let payload = json!({});
+        events.push(RunLogEvent::ActionApplied {
+            step: 0,
+            timestamp_ns: 0,
+            actor: Actor {
+                actor_type: ActorType::Script,
+                actor_id: "sim-replay-test".to_string(),
+                session_id: None,
+            },
+            action_type: "sim.unimplemented".to_string(),
+            payload_hash: pid_runlog::canonical_json_hash_v2(&payload).unwrap(),
+            payload,
+        });
+        events.push(sim.snapshot_event());
+
+        let report = verify_sim_replay(&events, 1e-12);
+
+        assert!(!report.is_valid());
+        assert_eq!(report.checked_actions, 0);
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.contains("unsupported replay action type")));
+    }
+
+    #[test]
+    fn sim_replay_verifier_rejects_effect_payload_substitution_between_request_and_response() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-replay-lineage".to_string(),
+            session_id: Some("lineage".to_string()),
+        };
+        let requested_payload = json!({"dt": 0.1});
+        let applied_payload = json!({"dt": 0.2});
+        let mut sim = demo_sim();
+        let mut events = vec![
+            sim.snapshot_event(),
+            RunLogEvent::BridgeRequest {
+                step: Some(0),
+                timestamp_ns: 0,
+                request_id: "lineage-request".to_string(),
+                actor: actor.clone(),
+                method: "sim.step".to_string(),
+                payload_hash: pid_runlog::canonical_json_hash_v2(&requested_payload).unwrap(),
+                payload: requested_payload,
+            },
+            RunLogEvent::ActionApplied {
+                step: 1,
+                timestamp_ns: 200_000_000,
+                actor,
+                action_type: "sim.step".to_string(),
+                payload_hash: pid_runlog::canonical_json_hash_v2(&applied_payload).unwrap(),
+                payload: applied_payload,
+            },
+        ];
+        sim.step_fixed(0.2).unwrap();
+        events.push(sim.snapshot_event());
+        events.push(RunLogEvent::BridgeResponse {
+            step: Some(1),
+            timestamp_ns: 200_000_000,
+            request_id: "lineage-request".to_string(),
+            ok: true,
+            message: None,
+            result_hash: None,
+        });
+
+        let report = verify_sim_replay(&events, 1e-12);
+
+        assert!(!report.is_valid());
+        assert_eq!(report.checked_actions, 1);
+        assert!(report.issues.iter().any(
+            |issue| issue.contains("does not exactly bind actor and payload to bridge request")
+        ));
     }
 }

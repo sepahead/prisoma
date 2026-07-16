@@ -6,7 +6,7 @@
     "source_run_id": "h1-fixture-source",
     "source_run": {
       "artifact_uri": "h1_preflight_artifacts/source_run.jsonl",
-      "sha256": "26cddb005a1cc98a54bc47c9200a9d668ec268932c6f540534d9e346a77efdd6"
+      "sha256": "96399c74dc2a3b2a63a07ab83ba7dc81f40b4d57a5f279767ed358b4f2e80e0d"
     },
     "analysis_plan": {
       "artifact_uri": "h1_preflight_artifacts/analysis_plan.json",

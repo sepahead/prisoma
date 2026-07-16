@@ -1,2 +1,3 @@
-{"type":"run_started","schema_version":2,"run_id":"h1-fixture-source","timestamp_ns":0,"config_hash":"0000000000000000000000000000000000000000000000000000000000000000","metadata":{"scope":"software_fixture_only"}}
+{"type":"run_started","schema_version":2,"run_id":"h1-fixture-source","timestamp_ns":0,"config_hash":"16d9bd4c62ee0e8be37a32a7b560ca3d1190e0811f4a60522da6af24392a9a26","metadata":{"scope":"software_fixture_only"}}
+{"type":"config_logged","timestamp_ns":0,"config_hash":"16d9bd4c62ee0e8be37a32a7b560ca3d1190e0811f4a60522da6af24392a9a26","config":{"scope":"software_fixture_only"}}
 {"type":"run_ended","run_id":"h1-fixture-source","timestamp_ns":1,"status":"succeeded","message":"fixture source capture only"}

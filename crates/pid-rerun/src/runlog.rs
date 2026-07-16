@@ -55,6 +55,27 @@ const MAX_FIXED_ENTITY_PATH_BYTES: usize = 64;
 const NPY_V1_PREFIX_BYTES: usize = 10;
 const NPY_HEADER_PREFIX: &str = "{'descr': '<f8', 'fortran_order': False, 'shape': ";
 
+fn replay_trace_v2_provenance(summary: &RunLogSummary) -> Result<String> {
+    let identity = &summary
+        .hash_identities
+        .as_ref()
+        .context("run-log summary omitted explicit hash identities")?
+        .replay_lossless;
+    identity.validate()?;
+    ensure!(
+        identity.revision == HashRevision::ReplayTraceV2,
+        "run-log summary replay identity has the wrong revision"
+    );
+    ensure!(
+        identity.digest == summary.trace_hash_v2,
+        "run-log summary replay identity does not match trace_hash_v2"
+    );
+    Ok(format!(
+        "algorithm=sha256 revision=replay_trace_v2 digest={}",
+        identity.digest
+    ))
+}
+
 /// Parse the exact NumPy v1.0 framing emitted by `numpy.save` for a plain,
 /// little-endian, C-order `float64` array.
 fn parse_npy_f64(bytes: &[u8]) -> Result<(Vec<f64>, Vec<usize>)> {
@@ -479,9 +500,9 @@ fn projected_event_entity_path_bytes(
                 .context("attribution Rerun entity-path length overflow")?;
             if faithfulness_check.is_some() {
                 total = total
-                    .checked_add("attributions/faithfulness/".len())
+                    .checked_add("attributions/recorded_check/".len())
                     .and_then(|value| value.checked_add(identity_len))
-                    .context("attribution faithfulness entity-path aggregate overflow")?;
+                    .context("attribution recorded-check entity-path aggregate overflow")?;
             }
             if prepared.relevance.is_some() {
                 total = total
@@ -664,7 +685,7 @@ impl<'a> RunLogRerunLogger<'a> {
 
     /// Do not dereference artifact paths embedded in run-log events.
     ///
-    /// Provenance text and faithfulness verdicts are still emitted; only the
+    /// Provenance text and recorded compatibility flags are still emitted; only the
     /// optional loading of relevance arrays is disabled.
     pub fn without_external_artifact_loading(mut self) -> Self {
         self.artifact_base_dir = None;
@@ -1030,13 +1051,12 @@ impl<'a> RunLogRerunLogger<'a> {
                     .attribution_identity
                     .as_deref()
                     .context("preflight omitted attribution identity")?;
-                // Plottable faithfulness verdict (1.0 pass / 0.0 fail) so a viewer
-                // can chart which attributions earned trust over the run; an
-                // attribution that fails its faithfulness check (§6.10) cannot
-                // corroborate or falsify a PID claim, so surface it prominently.
+                // Plot the schema's legacy compatibility flag neutrally. Its
+                // diagnostic/status/reason metadata defines the actual recorded
+                // check; this Boolean is not a causal or mechanistic verdict.
                 if let Some(passed) = faithfulness_check {
                     self.rec.log(
-                        format!("attributions/faithfulness/{attribution_identity}"),
+                        format!("attributions/recorded_check/{attribution_identity}"),
                         &Scalars::single(if *passed { 1.0 } else { 0.0 }),
                     )?;
                 }
@@ -1073,7 +1093,7 @@ impl<'a> RunLogRerunLogger<'a> {
                     format!("attributions/{attribution_identity}"),
                     level,
                     &format!(
-                        "{method} → {target_output} | faithfulness={verdict} layer={} modality={} baseline={} score={} {artifact_provenance}",
+                        "{method} → {target_output} | recorded_check={verdict} layer={} modality={} baseline={} score={} {artifact_provenance}",
                         layer.as_deref().unwrap_or("-"),
                         modality.as_deref().unwrap_or("-"),
                         baseline.as_deref().unwrap_or("-"),
@@ -1093,6 +1113,7 @@ impl<'a> RunLogRerunLogger<'a> {
     }
 
     fn log_summary(&self, summary: &RunLogSummary) -> Result<()> {
+        let trace_identity = replay_trace_v2_provenance(summary)?;
         self.rec.set_time("time", Duration::ZERO);
         self.log_text(
             "run/summary",
@@ -1102,12 +1123,11 @@ impl<'a> RunLogRerunLogger<'a> {
                 "ERROR"
             },
             &format!(
-                "run_id={} status={:?} events={} last_step={:?} trace_hash={} validation_errors={} validation_warnings={}",
+                "run_id={} status={:?} events={} last_step={:?} {trace_identity} validation_errors={} validation_warnings={}",
                 summary.run_id.as_deref().unwrap_or("<unknown>"),
                 summary.status,
                 summary.event_count,
                 summary.last_step,
-                summary.trace_hash,
                 summary.validation_errors,
                 summary.validation_warnings
             ),
@@ -1164,7 +1184,7 @@ impl<'a> RunLogRerunLogger<'a> {
             "run/summary/validation_warnings",
             &Scalars::single(summary.validation_warnings as f64),
         )?;
-        self.log_text("run/provenance/trace_hash", "INFO", &summary.trace_hash)?;
+        self.log_text("run/provenance/trace_hash_v2", "INFO", &trace_identity)?;
         for issue in &summary.validation_issues {
             self.log_text(
                 "run/validation/issues",
@@ -1265,21 +1285,28 @@ mod tests {
     }
 
     fn sample_events() -> Vec<RunLogEvent> {
+        let config = json!({"dt": 0.1});
+        let config_hash = pid_runlog::canonical_json_hash_v2(&config).unwrap();
         let payload = json!({ "dt": 0.1 });
         vec![
             RunLogEvent::RunStarted {
                 schema_version: RUN_LOG_SCHEMA_VERSION,
                 run_id: "rerun-run".to_string(),
                 timestamp_ns: 0,
-                config_hash: pid_runlog::canonical_json_hash(&json!({"dt": 0.1})).unwrap(),
+                config_hash: config_hash.clone(),
                 metadata: BTreeMap::new(),
+            },
+            RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash,
+                config,
             },
             RunLogEvent::ActionApplied {
                 step: 0,
                 timestamp_ns: 0,
                 actor: actor(),
                 action_type: "sim.step".to_string(),
-                payload_hash: pid_runlog::canonical_json_hash(&payload).unwrap(),
+                payload_hash: pid_runlog::canonical_json_hash_v2(&payload).unwrap(),
                 payload,
             },
             RunLogEvent::PidMetric {
@@ -1310,15 +1337,43 @@ mod tests {
     }
 
     #[test]
-    fn logs_attribution_with_faithfulness_verdict() -> Result<()> {
+    fn summary_provenance_uses_explicit_lossless_replay_identity() -> Result<()> {
+        let mut summary = pid_runlog::summarize_events(&sample_events())?;
+        assert_eq!(
+            replay_trace_v2_provenance(&summary)?,
+            format!(
+                "algorithm=sha256 revision=replay_trace_v2 digest={}",
+                summary.trace_hash_v2
+            )
+        );
+
+        summary
+            .hash_identities
+            .as_mut()
+            .context("test summary omitted hash identities")?
+            .replay_lossless
+            .revision = HashRevision::ReplayTraceV1;
+        assert!(replay_trace_v2_provenance(&summary).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn logs_attribution_with_recorded_check_flag() -> Result<()> {
         let rec = RecordingStreamBuilder::new("runlog_attribution_test").buffered()?;
+        let config = json!({"k": 1});
+        let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
         let events = vec![
             RunLogEvent::RunStarted {
                 schema_version: RUN_LOG_SCHEMA_VERSION,
                 run_id: "attr-run".to_string(),
                 timestamp_ns: 0,
-                config_hash: pid_runlog::canonical_json_hash(&json!({"k": 1})).unwrap(),
+                config_hash: config_hash.clone(),
                 metadata: BTreeMap::new(),
+            },
+            RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash,
+                config,
             },
             RunLogEvent::AttributionLogged {
                 timestamp_ns: 1,
@@ -1616,13 +1671,20 @@ mod tests {
         fs::write(&npy, &relevance_bytes)?;
 
         let rec = RecordingStreamBuilder::new("runlog_relevance_test").buffered()?;
+        let config = json!({"k": 1});
+        let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
         let events = vec![
             RunLogEvent::RunStarted {
                 schema_version: RUN_LOG_SCHEMA_VERSION,
                 run_id: "rel-run".to_string(),
                 timestamp_ns: 0,
-                config_hash: pid_runlog::canonical_json_hash(&json!({"k": 1})).unwrap(),
+                config_hash: config_hash.clone(),
                 metadata: BTreeMap::new(),
+            },
+            RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash,
+                config,
             },
             RunLogEvent::AttributionLogged {
                 timestamp_ns: 1,
@@ -1654,7 +1716,7 @@ mod tests {
         // Default conversion never dereferences the absolute path, even when it
         // does not exist.
         let mut bad = events.clone();
-        if let RunLogEvent::AttributionLogged { artifact_uri, .. } = &mut bad[1] {
+        if let RunLogEvent::AttributionLogged { artifact_uri, .. } = &mut bad[2] {
             *artifact_uri = Some("/no/such/relevance.npy".to_string());
         }
         let rec2 = RecordingStreamBuilder::new("runlog_relevance_missing").buffered()?;
@@ -1672,13 +1734,20 @@ mod tests {
         fs::write(dir.join("valid.npy"), &valid_bytes)?;
         let valid_metadata = artifact_metadata(&valid_bytes, &[1]);
         let missing_metadata = artifact_metadata(&npy_f64_bytes(&[0.5], &[1]), &[1]);
+        let config = json!({"k": 1});
+        let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
         let events = vec![
             RunLogEvent::RunStarted {
                 schema_version: RUN_LOG_SCHEMA_VERSION,
                 run_id: "late-artifact-run".to_owned(),
                 timestamp_ns: 0,
-                config_hash: pid_runlog::canonical_json_hash(&json!({"k": 1})).unwrap(),
+                config_hash: config_hash.clone(),
                 metadata: BTreeMap::new(),
+            },
+            RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash,
+                config,
             },
             RunLogEvent::AttributionLogged {
                 timestamp_ns: 1,
@@ -1915,7 +1984,7 @@ mod tests {
     #[test]
     fn preflight_rejects_timestamp_saturation_before_batch_logging() -> Result<()> {
         let mut events = sample_events();
-        if let RunLogEvent::PidMetric { timestamp_ns, .. } = &mut events[2] {
+        if let RunLogEvent::PidMetric { timestamp_ns, .. } = &mut events[3] {
             *timestamp_ns = (i64::MAX as u64) + 1;
         }
         rejected_batch_without_writes("runlog_timestamp_preflight", &events, None)?;
@@ -2028,7 +2097,8 @@ mod tests {
     fn logs_manifest_diagnostics() -> Result<()> {
         let rec = RecordingStreamBuilder::new("runlog_manifest_test").buffered()?;
         let events = sample_events();
-        // `RunManifest` is `#[non_exhaustive]` in pid-runlog 1.0, so build it through the real
+        // `RunManifest` is `#[non_exhaustive]` in the current pid-runlog review surface, so build
+        // it through the real
         // constructor against a real run log rather than hand-rolling the struct.
         let dir = std::env::temp_dir();
         let stamp = SystemTime::now()

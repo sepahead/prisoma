@@ -24,6 +24,9 @@ from .faithfulness import (
     _canonical_identifier,
     _validate_exact_int,
     _validate_gate,
+    bind_ranking_gate,
+    ranking_gate_content_sha256,
+    ranking_gate_manifest,
 )
 from .model import (
     MAX_INPUT_DIMENSION,
@@ -32,7 +35,7 @@ from .model import (
     MAX_SEED,
     SmallTransformer,
 )
-from .probe import ProbeValidationCase, run_attribution_probe
+from .probe import METHODS, ProbeValidationCase, run_attribution_probe
 from .runlog import write_attribution_runlog
 
 
@@ -64,23 +67,29 @@ def cmd_demo(args: argparse.Namespace) -> int:
         if value is not None and not isinstance(value, (str, os.PathLike)):
             raise ValueError(f"{field} must be a filesystem path")
 
-    gate = RankingSensitivityGate(
-        frozen_gate_id="reference-demo-ranking-sensitivity-v1",
-        baseline_name="fixed_zero_tensor_demo",
-        baseline_provenance=(
-            "CLI-constructed shape-matched zero tensor; demo only; distributional "
-            "support is not established"
-        ),
-        validation_split="deterministic-demo-validation",
-        selection_split="deterministic-demo-selection",
-        grouping_provenance="one synthetic RNG stream case per declared demo group",
-        selection_group_ids=("demo-selection-group-000",),
-        selection_unit_ids=("demo-selection-unit-000",),
-        alpha=args.alpha,
-        min_groups=args.min_groups,
-        n_steps=args.steps,
-        n_random_rankings=args.random_rankings,
-        seed=args.seed,
+    gate = bind_ranking_gate(
+        RankingSensitivityGate(
+            frozen_gate_id="pending-content-binding",
+            baseline_name="fixed_zero_tensor_demo",
+            baseline_provenance=(
+                "CLI-constructed shape-matched zero tensor; demo only; distributional "
+                "support is not established"
+            ),
+            validation_split="deterministic-demo-validation",
+            selection_split="deterministic-demo-selection",
+            grouping_provenance="one synthetic RNG stream case per declared demo group",
+            predictor_determinism_provenance=(
+                "SmallTransformer is a pure NumPy forward with fixed finite parameters; "
+                "the gate repeats each original prediction before and after deletion"
+            ),
+            selection_group_ids=("demo-selection-group-000",),
+            selection_unit_ids=("demo-selection-unit-000",),
+            alpha=args.alpha,
+            min_groups=args.min_groups,
+            n_steps=args.steps,
+            n_random_rankings=args.random_rankings,
+            seed=args.seed,
+        )
     )
     _validate_gate(gate)
     if gate.n_steps > tokens * d_in:
@@ -109,15 +118,40 @@ def cmd_demo(args: argparse.Namespace) -> int:
         gate=gate,
         target_output=args.target,
         modality=args.modality,
+        methods=args.methods,
+        primary_method=args.primary_method,
     )
     out = write_attribution_runlog(
         args.runlog,
         records,
         config={
             "model": "small_transformer",
+            "model_parameter_sha256": model.parameter_sha256(),
+            "seed": seed,
+            "tokens": tokens,
+            "d_in": d_in,
+            "d_model": d_model,
+            "validation_cases": validation_cases,
             "target_output": args.target,
+            "modality": args.modality or "not_declared",
+            "layer": "not_declared",
+            "baseline": gate.baseline_name,
             "diagnostic": "deletion_ranking_sensitivity",
             "frozen_gate_id": gate.frozen_gate_id,
+            "gate_content_sha256": ranking_gate_content_sha256(gate),
+            "gate_manifest": ranking_gate_manifest(gate),
+            "methods": list(args.methods),
+            "primary_method": args.primary_method,
+            "method_implementations": {
+                method: records[index].metadata["method_implementation"]
+                for index, method in enumerate(args.methods)
+            },
+            "validation_input_baseline_set_sha256": records[0].metadata[
+                "validation_input_baseline_set_sha256"
+            ],
+            "probe_work_estimate_multiply_adds": int(
+                records[0].metadata["probe_work_estimate_multiply_adds"]
+            ),
         },
         artifact_dir=args.artifacts,
     )
@@ -125,7 +159,7 @@ def cmd_demo(args: argparse.Namespace) -> int:
         print(
             f"{record.method}: ranking_sensitivity={record.metadata['gate_status']} "
             f"reason={record.metadata['gate_reason']} "
-            f"group_sign_test_p={record.metadata['group_sign_test_p']}"
+            f"group_win_binomial_p={record.metadata['group_win_binomial_p']}"
         )
     print(f"wrote {out}")
     return 0
@@ -140,8 +174,8 @@ def build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--runlog", default="outputs/attribution_runlog.jsonl")
     demo.add_argument(
         "--artifacts",
-        default=None,
-        help="dir inside the run-log directory for confined .npy relevance artifacts",
+        default="outputs/attribution",
+        help="dir inside the run-log directory for confined evidence artifacts",
     )
     demo.add_argument("--tokens", type=int, default=6)
     demo.add_argument("--d-in", type=int, default=5)
@@ -154,6 +188,13 @@ def build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--target", default="action_dim_0")
     demo.add_argument("--modality", default=None)
     demo.add_argument("--seed", type=int, default=3)
+    demo.add_argument(
+        "--methods",
+        nargs="+",
+        choices=tuple(METHODS),
+        default=list(METHODS),
+    )
+    demo.add_argument("--primary-method", choices=tuple(METHODS), default="lrp_epsilon")
     demo.set_defaults(func=cmd_demo)
     return parser
 

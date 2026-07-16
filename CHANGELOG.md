@@ -1,21 +1,30 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 - 2026-07-16
 
-The 0.9.0 source-preview candidate remains unpublished while review is open.
+Prisoma 0.9.0 is a public GitHub source prerelease and research-software preview. Scientific and
+candidate-package promotion remains NO-GO.
 
-- Advanced the pinned `pid-rs` 1.0.0 estimator environment to `43ab605`. Experiment 0 now
-  separates its high-dimensional MI/coherence verdict from atom measure and estimator verdicts,
-  and unavailable optional estimates carry typed outcomes without numeric placeholders or metric
-  events. The high-dimensional path remains NO-GO and real-embedding application validity remains
-  blocked.
-
-## 0.9.0 - Unreleased
+- Advanced the exact `pid-rs` 0.9.0 post-tag review-source pin to `796c11e`, seven commits after the
+  `v0.9.0` review tag. This remains a 0.9 review surface with no 1.x compatibility, registry, or
+  published-wheel promise. Experiment 0 now separates its high-dimensional MI/coherence verdict
+  from atom measure and estimator verdicts, never compares shared-exclusions redundancy with a
+  zero target, and carries unavailable optional estimates as typed outcomes without numeric
+  placeholders or metric events. The high-dimensional path remains NO-GO, atom-measure validation
+  is `not_adjudicated`, atom-estimator validation is `blocked`, and real-embedding application
+  validity remains blocked. The final upstream run-log integrity delta also makes a missing bridge
+  response invalid in finalized schema-2 streams while preserving the schema-1 compatibility
+  warning.
+- Corrected the offline PID resampling sidecar schema: new artifacts emit
+  `m_sample_percentile_lower` / `m_sample_percentile_upper`, carry the exact
+  `raw_m_sample_percentiles_not_n_sample_confidence_intervals` interpretation, and validate that
+  interpretation before publication. Legacy `ci_low` / `ci_high` endpoint names remain
+  deserialize-only aliases; they are never emitted by new serialization.
 
 ### Release scope
 
 - First source and research-software preview under the Prisoma version line,
-  authored by Sepehr Mahmoudian and prepared as an unpublished release candidate.
+  authored by Sepehr Mahmoudian and published as a GitHub prerelease on 2026-07-16.
 - Packages the tested capture, intervention, replay, simulation, adapter,
   governance, and diagnostic groundwork while preserving the canonical
   scientific gates. It does not claim a frozen M0 preregistration, registered
@@ -37,7 +46,7 @@ The 0.9.0 source-preview candidate remains unpublished while review is open.
   and no task or substantive file review is represented as complete. Handoff traversal
   is entry/path/depth bounded, rejects links and special files, and double-captures the
   exact file set and every included payload before publishing its integrity manifest.
-- Added a separate unpublished candidate-governance layer: a current source inventory,
+- Added a separate non-promoted candidate-decision layer: a current source inventory,
   explicit progress input, live task/lens and claim/evidence ledgers, defect register,
   pending exact-candidate receipts, draft NO-GO manifest, deterministic generator, and
   fail-closed auditor. Generated candidate outputs exclude their own namespace to avoid
@@ -49,6 +58,8 @@ The 0.9.0 source-preview candidate remains unpublished while review is open.
   authenticated evidence. The live ledger retains every imported task-specific procedure,
   evidence, test, adversarial-question, and completion clause instead of projecting them away.
   Required receipt sets are immutable and supplemental references cannot replace them.
+  Its `published:false` value denies candidate-package and scientific promotion; it does not
+  deny public availability of the 0.9.0 GitHub source prerelease.
 - Updated the visualization dependency from the umbrella Rerun 0.28 line to the
   narrow `re_sdk` and `re_sdk_types` 0.34.1 crates. Interactive launches now require
   an exactly matching 0.34.1 viewer, malformed/ambiguous CLI combinations fail,
@@ -100,10 +111,18 @@ The 0.9.0 source-preview candidate remains unpublished while review is open.
   The pin audit rejects alternate YAML `uses` key forms instead of silently skipping
   them, forbids unaudited local composite actions, and reads only bounded stable workflow
   snapshots. The advisory policy also records that unmaintained `paste` occurs in the root
-  nalgebra graph as well as the observer graph.
+  all-features optional-Rapier nalgebra graph as well as the observer graph.
 
 ### M0 research-governance honesty scaffolds (2026-07-13)
 
+- Added a separately reviewed `m0_preregistration_successor_draft_v2.json` and strict validator
+  while preserving the historical v1 scaffold byte-for-byte as a non-promotable intake artifact.
+  The v2 draft types EC1 finite acceptance, H1-A calibration-bin provenance, H1-B's single primary
+  effect endpoint and hierarchy, H3 warning-code dispositions, H3/H4 exclusivity within a
+  three-claim maximum, and H4 target sampling/transport, one tuple/outcome, simultaneous inference,
+  weight uncertainty, and joint power. Every freeze-bearing value remains null; default validation
+  proves only draft integrity, and strict freeze readiness exits with typed blockers. No claim,
+  holdout, capture, or preregistration status was promoted.
 - Added strict machine-readable M0 artifacts for separate H1-A/H1-B/H2/H3/H4 preregistration
   branches, holdout registration/access, source-target transport and contamination assessment, and
   a legacy literature-inventory screening scaffold. The checked state is intentionally unfinished:
@@ -896,9 +915,9 @@ critical path is still the first real-VLA capture (not done). The discrete-harne
   satisfying Gap 2's acceptance criterion that "the harness can filter on it." New unit
   test `geometry_gates_flag_all_constant_variable_as_degenerate`.
 
-- Docset v10.3 (2026-06-13) — capture + analysis implementation slice. (1) **Exp0 uncertainty gate**: opt-in `--bootstrap`/`--permutation` on the Exp0 binary run subsample-bootstrap CIs (Politis–Romano, KSG-safe) and single-source permutation nulls, with a preregistered ground-truth marginal-significance check folded into the GO/PIVOT/NO-GO verdict (8/8 on the synthetic scenarios); `pid-core` gains `bootstrap_rows_stats` + `permutation_rows_pvalue`; default runs stay byte-identical (closes `REVIEW_AND_TODO.md` P0 item 1 end to end). (2) **Real Rapier3D backend**: the fake `RapierBackend` stub is replaced with a real `rapier3d-f64` pipeline (gravity/contacts/friction, deterministic), plus a scripted push-to-goal manipulation (`crates/pid-sim/src/manipulation.rs`) emitting canonical run-log events with real `Flow_gt` and physics-derived success labels (`pid-rapier-harness`; new `rapier` CI job). (3) **SAFE-class failure detector**: `pid-core` `logistic.rs` (Newton-IRLS L2 logistic regression) wired as the leakage-safe `heldout_logreg_vlda` offline-harness baseline (H1); fixture evaluation-metric counts move 139→142 / 220→223. (4) **M5 SAFE capture adapter** (`experiments/safe_adapter/`): converts released SAFE rollouts to the `(V,L,D,A)`+labels contract with honest provenance and the §7.6.3 layerwise physics-probe for `D_hidden[k]` selection; verified end to end into the real harness with all leakage gates passing. (5) **H9 attribution probe** (`experiments/attribution/`): epsilon-/AttnLRP + gradient×input, deletion-AOPC faithfulness check vs a random control, and schema-conformant `attribution_logged` run-log emission validated by `pid-runlog-replay`. (6) **Release governance**: `meshmaker/` quarantined out of tracking (non-destructive `git rm --cached` + tombstone README; `.gitignore` hardened); `scripts/generate_third_party_notices.py` generates a direct-dependency SBOM with a CI drift check. New `experiments` CI job cross-validates both Python pipelines against the real Rust binaries.
+- Docset v10.3 (2026-06-13) — capture + analysis implementation slice. (1) **Exp0 uncertainty gate**: opt-in `--bootstrap`/`--permutation` on the Exp0 binary run raw m-sample percentile stability envelopes (Politis–Romano subsampling, KSG-safe; not calibrated n-sample confidence intervals) and single-source permutation nulls, with a preregistered ground-truth marginal-significance check folded into the GO/PIVOT/NO-GO verdict (8/8 on the synthetic scenarios); `pid-core` gains `bootstrap_rows_stats` + `permutation_rows_pvalue`; default runs stay byte-identical (closes `REVIEW_AND_TODO.md` P0 item 1 end to end). (2) **Real Rapier3D backend**: the fake `RapierBackend` stub is replaced with a real `rapier3d-f64` pipeline (gravity/contacts/friction, deterministic), plus a scripted push-to-goal manipulation (`crates/pid-sim/src/manipulation.rs`) emitting canonical run-log events with real `Flow_gt` and physics-derived success labels (`pid-rapier-harness`; new `rapier` CI job). (3) **SAFE-class failure detector**: `pid-core` `logistic.rs` (Newton-IRLS L2 logistic regression) wired as the leakage-safe `heldout_logreg_vlda` offline-harness baseline (H1); fixture evaluation-metric counts move 139→142 / 220→223. (4) **M5 SAFE capture adapter** (`experiments/safe_adapter/`): converts released SAFE rollouts to the `(V,L,D,A)`+labels contract with honest provenance and the §7.6.3 layerwise physics-probe for `D_hidden[k]` selection; verified end to end into the real harness with all leakage gates passing. (5) **H9 attribution probe** (`experiments/attribution/`): the then-described epsilon-/AttnLRP + gradient×input deletion control and schema-conformant `attribution_logged` emission. The current implementation supersedes that wording with a group-disjoint deletion ranking-sensitivity diagnostic and does not establish causal or mechanistic faithfulness. (6) **Release governance**: `meshmaker/` quarantined out of tracking (non-destructive `git rm --cached` + tombstone README; `.gitignore` hardened); `scripts/generate_third_party_notices.py` generates a direct-dependency SBOM with a CI drift check. New `experiments` CI job cross-validates both Python pipelines against the real Rust binaries.
 
-- First-principles review + correctness pass (2026-06-16). A multi-agent, adversarially-verified review of every crate + the Python experiments produced 18 confirmed findings, all fixed and verified (clippy/fmt clean; full test suite incl. `rapier`/`parallel` features; Python suites; all CI metric greps). Headline: **CI was red** — the new `ncp-observer` crate, a default workspace member, path-depends on the sibling `Paper2Brain/ncp` tree (absent on a fresh checkout), which fails manifest resolution for *every* cargo command; it is now **excluded from the default workspace** (build via `--manifest-path`), regenerating `Cargo.lock` without the Zenoh tree, and its two clippy lints + formatting are fixed. Correctness fixes: `discrete_pid` histograms now key on the bin vector instead of a base-`num_bins` integer that silently overflowed `usize` in high dimension (collisions corrupting every discrete entropy/MI/PID value; debug panic); the `.npy` reader uses checked arithmetic so a crafted shape returns `None` instead of aborting in `Vec::with_capacity`; the PLS LOO-CV no longer leaks the held-out target (`PlsProjector::predict` via the proper `B = W(PᵀW)⁻¹Cᵀ` regression, correct for k≥2); `block_bootstrap`/`_paired` are now a moving-block bootstrap (Künsch 1989; no tail-drop/grid-bias) with the correct citation; the redundant `cmi_violations` Exp0 gate (always equal to the monotonicity check) is dropped (7 gate metrics now, `pid_metrics` 8→7); `ksg` xblocks rejects non-Chebyshev metrics; the synthetic-data LCG shift is fixed (`>>33`→`>>32`); `pid-runlog-replay` prints the `attributions=` count; `PhysicsStepReport.timestamp_ns` accumulates per-step dt; the attribution faithfulness check is made statistically honest (seeded tie-breaking + a 3-standard-error threshold so an uninformative attribution reliably fails); plus geometry doc-drift / `Pcg32::next_u32` renaming and dead-code cleanup.
+- First-principles review + correctness pass (2026-06-16). A multi-agent, adversarially-verified review of every crate + the Python experiments produced 18 confirmed findings, all fixed and verified (clippy/fmt clean; full test suite incl. `rapier`/`parallel` features; Python suites; all CI metric greps). Headline: **CI was red** — the new `ncp-observer` crate, a default workspace member, path-depends on the sibling `Paper2Brain/ncp` tree (absent on a fresh checkout), which fails manifest resolution for *every* cargo command; it is now **excluded from the default workspace** (build via `--manifest-path`), regenerating `Cargo.lock` without the Zenoh tree, and its two clippy lints + formatting are fixed. Correctness fixes: `discrete_pid` histograms now key on the bin vector instead of a base-`num_bins` integer that silently overflowed `usize` in high dimension (collisions corrupting every discrete entropy/MI/PID value; debug panic); the `.npy` reader uses checked arithmetic so a crafted shape returns `None` instead of aborting in `Vec::with_capacity`; the PLS LOO-CV no longer leaks the held-out target (`PlsProjector::predict` via the proper `B = W(PᵀW)⁻¹Cᵀ` regression, correct for k≥2); `block_bootstrap`/`_paired` are now a moving-block bootstrap (Künsch 1989; no tail-drop/grid-bias) with the correct citation; the redundant `cmi_violations` Exp0 gate (always equal to the monotonicity check) is dropped (7 gate metrics now, `pid_metrics` 8→7); `ksg` xblocks rejects non-Chebyshev metrics; the synthetic-data LCG shift is fixed (`>>33`→`>>32`); `pid-runlog-replay` prints the `attributions=` count; `PhysicsStepReport.timestamp_ns` accumulates per-step dt; the then-described attribution deletion control was tightened with seeded tie-breaking and a 3-standard-error threshold so an uninformative attribution reliably failed (that historical label is superseded by the current non-causal ranking-sensitivity terminology); plus geometry doc-drift / `Pcg32::next_u32` renaming and dead-code cleanup.
 - Data-source boundary documented + NCP dev handoff (2026-06-16). Clarified across the docset (`README.md`, `EXPERIMENTS.md` §0.2.1, `AGENTS.md`, `grandplan.md` §11.4, `crates/ncp-observer/README.md`) that the analysis is **source-agnostic** over one `(V,L,D,A)`+labels contract: the **critical-path producer is `experiments/safe_adapter`** (M5), the sim harnesses are standalone cross-checks, and **`ncp-observer` (Engram/NEST) is an optional, non-critical-path bridge** — grandplan does not depend on Engram, and the pure-PID stack builds/gates green with no NCP/Engram/Zenoh dependency. NCP is exploratory-only (below the M5 contract) until three gaps close — precise D `seq`-alignment, honest (non-zeroed) `L`, and `metadata.split`/`episode_id`/`success` structure for the strict gates and the §14.1.1 H1 audit. Added `NCP_DEV_PROMPT.md`, a self-contained developer handoff for that work. Also reaffirmed that **D is the hidden-state / dynamics axis, not depth** (consistent across SAFE and NCP).
 
 - External-source review addendum (2026-06-13): reviewed dimos / DimensionalOS (`dimensionalOS/dimos`, Apache-2.0 agentic multi-robot control OS) source-by-source and recorded it in `grandplan.md` §12.5 + §13.10 + the §11.4 interoperability note — integrated narrowly as independent external validation of the Agent Bridge one-control-plane / record→replay / every-action-a-run-log-event architecture (§A.7/§A.8/§11.4) and a concrete external-backend adapter target (LCM as another M6 typed-stream transport alongside Zenoh/ROS 2); ruled out as an M5 capture shortcut (no internal-activation or success/failure-label extraction per README → SAFE still dominates for `(V,L,D,A)`+labels) and as a PID/IT method contribution.

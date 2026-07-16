@@ -17,7 +17,7 @@ fn main() -> Result<()> {
 
     let mut writer = RunLogWriter::create(&path)?;
     let config = pid_sim::deterministic_sim_config("pid-sim-demo", None, Some(0.1), Some(5), None);
-    let config_hash = pid_runlog::canonical_json_hash(&config)?;
+    let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
     let mut metadata = BTreeMap::new();
     metadata.insert("source".to_string(), "pid-sim-demo".to_string());
     writer.append(&RunLogEvent::RunStarted {
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
             timestamp_ns: sim.timestamp_ns(),
             actor: actor.clone(),
             action_type: "sim.step".to_string(),
-            payload_hash: pid_runlog::canonical_json_hash(&payload)?,
+            payload_hash: pid_runlog::canonical_json_hash_v2(&payload)?,
             payload,
         })?;
         let step = sim.step_fixed(0.1)?;

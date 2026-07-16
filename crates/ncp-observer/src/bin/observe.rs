@@ -182,7 +182,7 @@ fn parse_args_from(argv: Vec<String>) -> anyhow::Result<Args> {
 
 /// Wait for any terminating signal. SIGINT alone is not enough: SIGTERM is the
 /// default for `docker stop` / systemd / plain `kill`, and losing an hours-long
-/// capture because the supervisor sent the polite signal is not acceptable.
+/// capture because the service manager sent the polite signal is not acceptable.
 async fn shutdown_signal() -> anyhow::Result<()> {
     #[cfg(unix)]
     {

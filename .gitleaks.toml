@@ -1,0 +1,25 @@
+title = "Prisoma secret-scanning policy"
+
+[extend]
+useDefault = true
+
+# RFC 6455 section 1.3 fixes this nonce as a public WebSocket handshake example.
+# Limit the exception to that exact test value in the one protocol-test source file;
+# every other generic-api-key match remains enabled.
+[[allowlists]]
+description = "Public RFC 6455 WebSocket example nonce"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+paths = ['''(?:^|/)crates/pid-sim/src/bin/bridge_ws\.rs$''']
+regexes = ['''^dGhlIHNhbXBsZSBub25jZQ==$''']
+
+# This is a Python constant name used to select typed H4 registry keys, not a
+# credential. Keep the exception exact in both identifier and source path.
+[[allowlists]]
+description = "Typed H4 claim-key constant name"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+paths = ['''(?:^|/)scripts/audit_research_governance\.py$''']
+regexes = ['''^H4_CLAIM_KEYS$''']

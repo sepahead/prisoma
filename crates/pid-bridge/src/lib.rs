@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use pid_runlog::{canonical_json_hash, Actor, RunLogEvent, RunLogWriter};
+use pid_runlog::{canonical_json_hash_v2, Actor, RunLogEvent, RunLogWriter};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt;
@@ -164,13 +164,13 @@ fn bridge_response_payload_hint(method: &str) -> &'static str {
             r#"{"run_id": string, "stopped": boolean, "step": integer, "timestamp_ns": integer}"#
         }
         "log.replay" => {
-            r#"{"trace_hash": string, "events": integer, "valid": boolean, "config_hash": string?}"#
+            r#"{"trace_hash": string, "trace_hash_v2": string, "trace_hash_revision": "replay_trace_v2", "events": integer, "valid": boolean, "config_hash": string?}"#
         }
         "intervention.apply" => {
             r#"{"accepted": boolean, "intervention_type": string, "step": integer, "timestamp_ns": integer, "objects": integer, "details": object}"#
         }
         "export.rerun" => {
-            r#"{"output_uri": string, "trace_hash": string, "events": integer, "valid": boolean, "sha256": string?}"#
+            r#"{"output_uri": string, "trace_hash": string, "trace_hash_v2": string, "trace_hash_revision": "replay_trace_v2", "events": integer, "valid": boolean, "sha256": string?}"#
         }
         _ => "object",
     }
@@ -444,8 +444,26 @@ pub trait BridgeHandler {
 }
 
 impl BridgeRequest {
+    fn validate_for_runlog(&self) -> Result<()> {
+        if self.request_id.trim().is_empty() {
+            bail!("bridge request_id must not be empty");
+        }
+        if self.actor.actor_id.trim().is_empty() {
+            bail!("bridge actor_id must not be empty");
+        }
+        if self
+            .actor
+            .session_id
+            .as_deref()
+            .is_some_and(|session_id| session_id.trim().is_empty())
+        {
+            bail!("bridge session_id must not be empty when present");
+        }
+        Ok(())
+    }
+
     pub fn payload_hash(&self) -> Result<String> {
-        canonical_json_hash(&self.payload)
+        canonical_json_hash_v2(&self.payload)
     }
 
     pub fn safe_mode_allowed(&self) -> bool {
@@ -453,6 +471,7 @@ impl BridgeRequest {
     }
 
     pub fn to_runlog_event(&self) -> Result<RunLogEvent> {
+        self.validate_for_runlog()?;
         Ok(RunLogEvent::BridgeRequest {
             step: self.step,
             timestamp_ns: self.timestamp_ns,
@@ -466,6 +485,22 @@ impl BridgeRequest {
 }
 
 impl BridgeResponse {
+    fn validate_for_runlog(&self) -> Result<()> {
+        if self.request_id.trim().is_empty() {
+            bail!("bridge response request_id must not be empty");
+        }
+        match (self.ok, self.result.as_ref(), self.message.as_deref()) {
+            (true, Some(_), None) => Ok(()),
+            (false, None, Some(message)) if !message.trim().is_empty() => Ok(()),
+            (true, _, _) => {
+                bail!("successful bridge response must carry a result and no error message")
+            }
+            (false, _, _) => {
+                bail!("failed bridge response must carry a nonempty message and no result")
+            }
+        }
+    }
+
     pub fn blocked_by_safe_mode(request: &BridgeRequest, timestamp_ns: u64) -> Self {
         Self {
             request_id: request.request_id.clone(),
@@ -481,10 +516,11 @@ impl BridgeResponse {
     }
 
     pub fn result_hash(&self) -> Result<Option<String>> {
-        self.result.as_ref().map(canonical_json_hash).transpose()
+        self.result.as_ref().map(canonical_json_hash_v2).transpose()
     }
 
     pub fn to_runlog_event(&self) -> Result<RunLogEvent> {
+        self.validate_for_runlog()?;
         Ok(RunLogEvent::BridgeResponse {
             step: self.step,
             timestamp_ns: self.timestamp_ns,
@@ -555,14 +591,22 @@ impl<W: Write> LocalBridge<W> {
                 message: None,
                 result: Some(result),
             },
-            Err(err) => BridgeResponse {
-                request_id: request.request_id.clone(),
-                step: request.step,
-                timestamp_ns: response_timestamp_ns,
-                ok: false,
-                message: Some(err.to_string()),
-                result: None,
-            },
+            Err(err) => {
+                let rendered = err.to_string();
+                let message = if rendered.trim().is_empty() {
+                    "bridge handler failed without a diagnostic".to_string()
+                } else {
+                    rendered
+                };
+                BridgeResponse {
+                    request_id: request.request_id.clone(),
+                    step: request.step,
+                    timestamp_ns: response_timestamp_ns,
+                    ok: false,
+                    message: Some(message),
+                    result: None,
+                }
+            }
         };
         self.record_response(&response)?;
         Ok(response)
@@ -580,9 +624,11 @@ impl<W: Write> LocalBridge<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pid_runlog::{read_events, replay_events, ActorType};
+    use pid_runlog::{
+        read_events, replay_events, validate_events, ActorType, RunStatus, RUN_LOG_SCHEMA_VERSION,
+    };
     use serde_json::json;
-    use std::io::Cursor;
+    use std::io::{self, Cursor};
 
     fn actor() -> Actor {
         Actor {
@@ -592,14 +638,38 @@ mod tests {
         }
     }
 
-    struct EchoHandler;
+    #[derive(Default)]
+    struct CountingHandler {
+        calls: usize,
+    }
 
-    impl BridgeHandler for EchoHandler {
+    impl BridgeHandler for CountingHandler {
         fn handle(&mut self, request: &BridgeRequest) -> Result<Value> {
-            Ok(json!({
-                "method": request.method.as_str(),
-                "payload": request.payload,
-            }))
+            self.calls += 1;
+            Ok(json!({"method": request.method.as_str()}))
+        }
+    }
+
+    struct EmptyErrorHandler {
+        calls: usize,
+    }
+
+    impl BridgeHandler for EmptyErrorHandler {
+        fn handle(&mut self, _request: &BridgeRequest) -> Result<Value> {
+            self.calls += 1;
+            Err(anyhow::anyhow!(""))
+        }
+    }
+
+    struct RejectAllWrites;
+
+    impl Write for RejectAllWrites {
+        fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+            Err(io::Error::other("injected request-append failure"))
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
         }
     }
 
@@ -644,13 +714,50 @@ mod tests {
             method: BridgeMethod::SimStatus,
             payload: json!({}),
         };
-        let mut handler = EchoHandler;
+        let mut handler = CountingHandler::default();
         let response = bridge.dispatch(&request, &mut handler, 11).unwrap();
         assert!(response.ok);
+        assert_eq!(handler.calls, 1);
         let events = read_events(Cursor::new(bridge.into_inner())).unwrap();
         let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.bridge_records[1].ok, Some(true));
+    }
+
+    #[test]
+    fn dispatch_normalizes_empty_handler_errors_before_logging() {
+        let writer = RunLogWriter::new(Vec::new());
+        let mut bridge = LocalBridge::new(writer);
+        let request = BridgeRequest {
+            request_id: "req-empty-error".to_string(),
+            step: Some(1),
+            timestamp_ns: 10,
+            actor: actor(),
+            method: BridgeMethod::SimStatus,
+            payload: json!({}),
+        };
+        let mut handler = EmptyErrorHandler { calls: 0 };
+        let response = bridge.dispatch(&request, &mut handler, 11).unwrap();
+        assert!(!response.ok);
+        assert_eq!(handler.calls, 1);
+        assert_eq!(
+            response.message.as_deref(),
+            Some("bridge handler failed without a diagnostic")
+        );
+
+        let events = read_events(Cursor::new(bridge.into_inner())).unwrap();
+        assert_eq!(events.len(), 2);
+        assert!(matches!(
+            &events[1],
+            RunLogEvent::BridgeResponse {
+                ok: false,
+                message: Some(message),
+                ..
+            } if message == "bridge handler failed without a diagnostic"
+        ));
+        let state = replay_events(&events).unwrap();
+        assert_eq!(state.bridge_records.len(), 2);
+        assert_eq!(state.bridge_records[1].ok, Some(false));
     }
 
     #[test]
@@ -665,9 +772,10 @@ mod tests {
             method: BridgeMethod::SimStep,
             payload: json!({ "dt": 0.1 }),
         };
-        let mut handler = EchoHandler;
+        let mut handler = CountingHandler::default();
         let response = bridge.dispatch(&request, &mut handler, 11).unwrap();
         assert!(!response.ok);
+        assert_eq!(handler.calls, 0);
         assert!(response
             .message
             .as_deref()
@@ -677,6 +785,179 @@ mod tests {
         let state = replay_events(&events).unwrap();
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.bridge_records[1].ok, Some(false));
+    }
+
+    #[test]
+    fn failed_request_append_never_calls_handler() {
+        let writer = RunLogWriter::new(RejectAllWrites);
+        let mut bridge = LocalBridge::new(writer);
+        let request = BridgeRequest {
+            request_id: "req-write-failure".to_string(),
+            step: Some(1),
+            timestamp_ns: 10,
+            actor: actor(),
+            method: BridgeMethod::SimStatus,
+            payload: json!({}),
+        };
+        let mut handler = CountingHandler::default();
+        let error = bridge.dispatch(&request, &mut handler, 11).unwrap_err();
+        assert!(!error.to_string().is_empty());
+        assert_eq!(handler.calls, 0);
+    }
+
+    #[test]
+    fn invalid_request_identity_never_reaches_the_handler_or_log() {
+        for mut request in [
+            BridgeRequest {
+                request_id: " ".to_string(),
+                step: Some(0),
+                timestamp_ns: 0,
+                actor: actor(),
+                method: BridgeMethod::SimStatus,
+                payload: json!({}),
+            },
+            BridgeRequest {
+                request_id: "missing-actor".to_string(),
+                step: Some(0),
+                timestamp_ns: 0,
+                actor: Actor {
+                    actor_type: ActorType::Script,
+                    actor_id: " ".to_string(),
+                    session_id: None,
+                },
+                method: BridgeMethod::SimStatus,
+                payload: json!({}),
+            },
+            BridgeRequest {
+                request_id: "empty-session".to_string(),
+                step: Some(0),
+                timestamp_ns: 0,
+                actor: actor(),
+                method: BridgeMethod::SimStatus,
+                payload: json!({}),
+            },
+        ] {
+            if request.request_id == "empty-session" {
+                request.actor.session_id = Some(String::new());
+            }
+            let writer = RunLogWriter::new(Vec::new());
+            let mut bridge = LocalBridge::new(writer);
+            let mut handler = CountingHandler::default();
+
+            assert!(bridge.dispatch(&request, &mut handler, 1).is_err());
+            assert_eq!(handler.calls, 0);
+            assert!(bridge.into_inner().is_empty());
+        }
+    }
+
+    #[test]
+    fn malformed_response_outcomes_are_not_recordable() {
+        for response in [
+            BridgeResponse {
+                request_id: "ok-without-result".to_string(),
+                step: Some(0),
+                timestamp_ns: 0,
+                ok: true,
+                message: None,
+                result: None,
+            },
+            BridgeResponse {
+                request_id: "ok-with-message".to_string(),
+                step: Some(0),
+                timestamp_ns: 0,
+                ok: true,
+                message: Some("ambiguous".to_string()),
+                result: Some(Value::Null),
+            },
+            BridgeResponse {
+                request_id: "failed-with-result".to_string(),
+                step: Some(0),
+                timestamp_ns: 0,
+                ok: false,
+                message: Some("failed".to_string()),
+                result: Some(Value::Null),
+            },
+            BridgeResponse {
+                request_id: "failed-without-message".to_string(),
+                step: Some(0),
+                timestamp_ns: 0,
+                ok: false,
+                message: None,
+                result: None,
+            },
+        ] {
+            assert!(response.to_runlog_event().is_err());
+        }
+    }
+
+    #[test]
+    fn schema_two_bridge_hashes_preserve_arbitrary_precision_json() {
+        let payload: Value =
+            serde_json::from_str(r#"{"dt":123456789012345678901234567890}"#).unwrap();
+        let request = BridgeRequest {
+            request_id: "req-lossless".to_string(),
+            step: Some(0),
+            timestamp_ns: 0,
+            actor: actor(),
+            method: BridgeMethod::SimStep,
+            payload: payload.clone(),
+        };
+        let payload_hash = request.payload_hash().unwrap();
+        assert_eq!(
+            payload_hash,
+            pid_runlog::canonical_json_hash_v2(&payload).unwrap()
+        );
+        assert_ne!(
+            payload_hash,
+            pid_runlog::canonical_json_hash(&payload).unwrap(),
+            "the regression fixture must distinguish the legacy and lossless hash generations"
+        );
+
+        let result: Value =
+            serde_json::from_str(r#"{"step":123456789012345678901234567890}"#).unwrap();
+        let response = BridgeResponse {
+            request_id: request.request_id.clone(),
+            step: Some(0),
+            timestamp_ns: 0,
+            ok: true,
+            message: None,
+            result: Some(result.clone()),
+        };
+        assert_eq!(
+            response.result_hash().unwrap().as_deref(),
+            Some(
+                pid_runlog::canonical_json_hash_v2(&result)
+                    .unwrap()
+                    .as_str()
+            )
+        );
+
+        let config = json!({"bridge_test": "lossless"});
+        let config_hash = pid_runlog::canonical_json_hash_v2(&config).unwrap();
+        let events = vec![
+            RunLogEvent::RunStarted {
+                schema_version: RUN_LOG_SCHEMA_VERSION,
+                run_id: "lossless-bridge".to_string(),
+                timestamp_ns: 0,
+                config_hash: config_hash.clone(),
+                metadata: Default::default(),
+            },
+            RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash,
+                config,
+            },
+            request.to_runlog_event().unwrap(),
+            response.to_runlog_event().unwrap(),
+            RunLogEvent::RunEnded {
+                run_id: "lossless-bridge".to_string(),
+                timestamp_ns: 1,
+                status: RunStatus::Succeeded,
+                message: None,
+            },
+        ];
+        let validation = validate_events(&events).unwrap();
+        assert!(validation.is_valid(), "{:?}", validation.issues);
     }
 
     #[test]
@@ -816,6 +1097,8 @@ mod tests {
             .unwrap();
         assert!(replay.safe_mode_allowed);
         assert!(replay.response_payload.contains("trace_hash"));
+        assert!(replay.response_payload.contains("trace_hash_v2"));
+        assert!(replay.response_payload.contains("replay_trace_v2"));
         let export = contract
             .bridge
             .methods

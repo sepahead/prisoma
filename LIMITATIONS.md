@@ -1,16 +1,17 @@
 # Prisoma 0.9 limitations
 
-**Candidate scope:** Prisoma 0.9.0 unpublished source and research-software preview
+**Release scope:** Prisoma 0.9.0 public GitHub source prerelease and research-software preview
 
 **Author:** Sepehr Mahmoudian
 **Canonical research specification:** [`grandplan.md`](grandplan.md), docset v12.5
 
-The Prisoma 0.9.0 candidate packages tested software groundwork and explicit research
-protocols. It is not a scientific-results release, a frozen preregistration, a validated safety
-system, or a production-deployment qualification. Passing a command in this repository
-establishes only the behavior named by that command on its checked inputs. It does not establish
-causal identification, statistical validity, transportability, estimator application validity,
-or a thesis hypothesis.
+The Prisoma 0.9.0 source prerelease packages tested software groundwork and explicit research
+protocols. Its internal candidate decision record remains NO-GO and `published:false`; that field
+denies candidate-package and scientific promotion, not public source availability. This is not a
+scientific-results release, a frozen preregistration, a validated safety system, or a
+production-deployment qualification. Passing a command in this repository establishes only the
+behavior named by that command on its checked inputs. It does not establish causal identification,
+statistical validity, transportability, estimator application validity, or a thesis hypothesis.
 
 The machine-readable current state is
 [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json). The
@@ -22,14 +23,14 @@ ever differ, the more restrictive statement governs until the discrepancy is rev
 
 | Area | Current status | What 0.9 does not establish |
 |---|---|---|
-| M0 governance | **Not freeze-ready.** The v1 files are an intentionally non-promotable, unfrozen scaffold. | A preregistration, substantive scientific review, or permission to begin confirmatory capture. |
+| M0 governance | **Not freeze-ready.** Historical v1 remains non-promotable; the reviewed v2 successor is an all-null typed draft contract. | A preregistration, completed freeze candidate, substantive scientific review, or permission to begin confirmatory capture. |
 | Confirmatory holdout | **None registered.** The access ledger contains a genesis record only. | Historical or off-repository non-access, independent custody, blinding, or a first-attempt result. |
 | EC1 | Partial run-log, replay, bridge, Rerun-conversion, and synthetic SAFE-ingress groundwork. | Provenance-complete replay as an externally benchmarked infrastructure claim. |
 | H1-A | A deterministic finite synthetic Protocol-A scoring reference and common preflight are runnable. | Real paired intervention-response evidence, a physical individual effect, or generalization beyond the fixture contract. |
 | H1-B | The randomized closed-loop protocol is specified but unimplemented. | Randomized assignment, intention-to-treat or effect-modification evidence, or closed-loop robustness. |
 | H2 | A deterministic synthetic fixed-horizon/IPCW/alarm arithmetic reference is runnable. | Prospective prediction, calibration validity, warning benefit, comparator superiority, safety gain, or deployment validity. |
 | H3 | **Not eligible.** Population, measure, estimator, and application gates remain blocked. | Interpretable PID atoms on real embeddings or held-out incremental PID value. |
-| H4 | A small reference-model attribution path exercises logging and a group-level deletion-ranking-sensitivity control. | Causal or mechanistic faithfulness, representational availability, causal policy use, or an availability–use divergence in a real VLA. |
+| H4 | A small reference-model attribution path exercises logging and a group-level deletion-ranking-sensitivity control. | Causal or mechanistic faithfulness, representational availability, natural policy use, or divergence between availability and the effect of a tested intervention in a real VLA. |
 | NCP observer | Optional, workspace-excluded, read-only wire-0.8 experimental component. | Final protocol interoperability, a live Engram integration, transport completeness, security validation, EC1, or a scientific result. |
 
 The detailed claim definitions and stop rules are in
@@ -48,7 +49,7 @@ The following language is deliberately narrower than the project objectives.
 | H1-B | A randomized closed-loop design is specified in the canonical plan; execution remains blocked. | Any statement that Protocol B was implemented, randomized, analyzed, or validated. Protocol A may not be substituted for Protocol B. |
 | H2 | The deterministic synthetic reference exercises the named fixed-horizon, grouped fitting, IPCW, reliability-bin, alarm, nondetection, and declared-payoff arithmetic on checked fixtures only. | “H2 passed,” or any claim of prospective prediction, calibration validity, warning benefit, censoring-assumption validity, comparator superiority, transport, safety gain, or deployment validity. |
 | H3 | PID estimates abstain or remain noninterpretable outside their named population, measure, estimator, and application gates. | Any claim that geometry, a nonzero atom, or an emitted number establishes real-embedding PID validity. |
-| H4 | The reference attribution path exercises canonical logging and a deletion-ranking-sensitivity control. | Any claim that the control establishes causal/mechanistic faithfulness, that attribution agreement proves causal use, or that it establishes H4. |
+| H4 | The reference attribution path exercises canonical logging and a deletion-ranking-sensitivity control. | Any claim that the control establishes causal/mechanistic faithfulness, natural policy use, a tested-intervention effect, or H4. |
 
 “Specified,” “implemented,” “tested,” and “validated” are different states. In particular, a
 locally tested feature can remain E0 relationship evidence; an immutable external dependency can
@@ -87,12 +88,20 @@ it is not a success criterion that must be forced to GO.
 
 ## M0, holdout, and external-evidence limitations
 
-The real study cannot be frozen by filling null fields in the current v1 scaffolds. A reviewed
-successor schema and validator must content-bind the target population, policy, embodiment,
+The real study cannot be frozen by filling null fields in the historical v1 scaffold. The checked
+v2 successor draft now types and content-binds the missing contract surface, including EC1 finite
+acceptance with complete detection/replay/false-positive coverage and a mandatory, separately
+estimated absolute sensitivity floor for every registered fault–adapter pair—never an aggregate
+substitute—H1-A calibration bins, H1-B endpoint hierarchy, H2's
+target/censoring/one-primary-score/non-rescuable-success contract, H3 warning dispositions and
+H3/H4 selection, plus H4 target sampling, transport, one tuple/outcome, simultaneous inference,
+weight uncertainty, and joint power. Every freeze-bearing v2 value remains null. A real freeze
+still
+requires a separate completed candidate binding the target population, policy, embodiment,
 environment, intervention, outcomes, time origin, units, estimands, minimum useful effects,
-splits, multiplicity, power/precision design, missingness, rights, and analysis environment. It
-must then receive the required candidate, designated-reviewer, and independent-review decisions. No such
-signatures or decisions are represented in 0.9.
+splits, multiplicity, power/precision design, missingness, rights, and analysis environment, plus
+the required review decisions and immutable receipts. No such signatures or decisions are
+represented in 0.9.
 
 Before confirmatory analysis, an independent custodian must register and control a real holdout,
 publish its commitment, and preserve the first frozen-candidate result including failures and
@@ -106,11 +115,12 @@ adapter, or externally benchmarked conventional-stack comparison is included.
 
 ## Estimator and PID limitations
 
-Prisoma pins the canonical `pid-rs` 1.0.0 implementation at submodule commit `43ab605`. That pin
-is a dependency identity, not independent corroboration. The high-dimensional MI/coherence route
-is NO-GO, and continuous shared-exclusions PID on real VLA embeddings is not
-application-validated. An output may be computed only when declared support permits it; an
-abstention has no numeric placeholder and must not be interpreted as zero.
+Prisoma pins the canonical `pid-rs` 0.9.0 post-tag review source at submodule commit `796c11e`.
+That review surface makes no 1.x compatibility promise and carries no registry or published-wheel
+promise. The exact pin is a dependency identity, not independent corroboration. The
+high-dimensional MI/coherence route is NO-GO, and continuous shared-exclusions PID on real VLA
+embeddings is not application-validated. An output may be computed only when declared support
+permits it; an abstention has no numeric placeholder and must not be interpreted as zero.
 
 Population, measure, estimator, and application verdicts are separate. Geometry diagnostics and
 sampled-mean delta are descriptive and cannot clear those gates. Continuous shared-exclusions
@@ -179,9 +189,10 @@ if that feature appears. The vulnerable package is still present in the optional
 not a clean audit, does not qualify the NCP binary for release or live use, and must be removed by
 a qualified NCP/Zenoh pin admitting `lz4_flex` 0.11.6 or newer. The graph also retains the
 unmaintained (not known vulnerable) `rustls-pemfile` 2.2.0 because no compatible replacement
-exists. Both the default workspace and observer graphs also retain the unmaintained `paste`
-1.0.15 proc-macro through nalgebra/Zenoh. `deny.toml` records each temporary exception and its
-actual dependency scope.
+exists. The root all-features lock/CI graph retains the unmaintained `paste` 1.0.15 proc-macro
+through optional Rapier's nalgebra tree, and the observer graph retains it through Zenoh; the
+default-feature root build does not compile it. `deny.toml` records each temporary exception and
+its actual dependency scope.
 
 No conforming public live producer currently supplies the honest language, split, episode, and
 outcome structure needed by the research path, and the public Engram repository is not a live
@@ -208,10 +219,12 @@ manifest, and 8 MiB of retained relevance values plus their in-memory shape and 
 These viewer limits are stricter than the canonical run-log reader. Headless saves explicitly finalize the
 encoder and install a staged, file-synced
 `.rrd` without replacement, but do not fsync the parent directory. The Python attribution producer
-uses immutable content-addressed artifacts and replaces the run-log name last; a failed publication
-can leave an unreferenced new artifact, and no cross-file transaction or power-loss guarantee is
-claimed. Path confinement remains a local best-effort boundary rather than a security-grade defense
-against hardlinks, aliases, or every concurrent filesystem race.
+uses immutable content-addressed relevance artifacts and reconstructable JSON evidence bundles,
+with companion `artifact_logged` events, and replaces the run-log name last. The Rerun track is the
+recorded compatibility check, not a validated-faithfulness verdict. A failed publication can leave
+an unreferenced new artifact, and no cross-file transaction or power-loss guarantee is claimed.
+Path confinement remains a local best-effort boundary rather than a security-grade defense against
+hardlinks, aliases, or every concurrent filesystem race.
 
 ## Reproducibility and generalization limitations
 

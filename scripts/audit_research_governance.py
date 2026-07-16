@@ -27,6 +27,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PROTOCOLS = Path("protocols")
 PREREGISTRATION_PATH = PROTOCOLS / "m0_preregistration_skeleton_v1.json"
+HISTORICAL_PREREGISTRATION_SHA256 = (
+    "dd916a3f1819d38f8e19cb8f30d2eaeaa2fcb9895360fcf028c2f40b455bb6e7"
+)
+SUCCESSOR_PATH = PROTOCOLS / "m0_preregistration_successor_draft_v2.json"
 HOLDOUT_REGISTRY_PATH = PROTOCOLS / "holdout_registry_v1.json"
 HOLDOUT_LEDGER_PATH = PROTOCOLS / "holdout_access_ledger_v1.jsonl"
 TRANSPORT_PATH = PROTOCOLS / "transport_contamination_ledger_v1.json"
@@ -93,7 +97,7 @@ SEMANTIC_SNAPSHOT_SHA256 = {
     "claim_registry_scope": (
         "3d0c81c164f99b491aea8f2ddae889ffceef93bf52956f1f251e15db7944e638"
     ),
-    "claim_snapshots": "a829e848ed3d5a392b07b31d0c987be428f843ab6f6dcea679e45fe94964b3b2",
+    "claim_snapshots": "7a475e3d7bd55c31cdc3e672c69ed8e015360c9063d274cc8aca41a07a9c0e4d",
 }
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -1058,11 +1062,14 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
             )
             observed_support.append((binding["path"], binding["status"]))
             _string(binding["status"], context=f"{binding_context}.status")
-            _validate_bound_file(
-                root,
-                raw_path=binding["path"],
-                raw_sha256=binding["sha256"],
-                context=binding_context,
+            # V1 is an immutable historical intake. Its recorded artifact hashes
+            # describe the bytes that existed at intake time, not the mutable
+            # current paths. Exact whole-file identity below preserves those
+            # records without falsely requiring today's fixtures to match them.
+            _string(binding["path"], context=f"{binding_context}.path")
+            _validate_sha(
+                binding["sha256"],
+                context=f"{binding_context}.sha256",
             )
         if observed_support != EXPECTED_SUPPORTING_ARTIFACTS[branch_id]:
             raise GovernanceError(
@@ -1196,6 +1203,12 @@ def _validate_preregistration(root: Path, artifact: dict[str, Any]) -> None:
         raise GovernanceError(
             f"{context}.freeze_requirements must not derive useful effects from pilots"
         )
+    _validate_bound_file(
+        root,
+        raw_path=PREREGISTRATION_PATH.as_posix(),
+        raw_sha256=HISTORICAL_PREREGISTRATION_SHA256,
+        context=f"{context} historical identity",
+    )
 
 
 TRANSPORT_KEYS = {
@@ -1561,11 +1574,13 @@ CLAIM_REGISTRY_KEYS = {
     "schema_version",
     "as_of_date",
     "canonical_spec",
+    "m0_successor_binding",
     "scope",
     "m0_freeze_status",
     "claims",
 }
 CLAIM_REGISTRY_CANONICAL_KEYS = {"path", "version", "status"}
+SUCCESSOR_BINDING_KEYS = {"path", "sha256", "as_of_date", "status"}
 M0_STATUS_KEYS = {
     "overall",
     "preregistration_skeleton",
@@ -1585,7 +1600,10 @@ M0_STATUS_KEYS = {
 }
 EXPECTED_M0_STATUSES = {
     "overall": "not_freeze_ready",
-    "preregistration_skeleton": ("implemented_unfrozen_scaffold_not_a_preregistration"),
+    "preregistration_skeleton": (
+        "implemented_unfrozen_v1_scaffold_plus_typed_v2_successor_draft_"
+        "neither_is_a_preregistration"
+    ),
     "causal_graph": "unfrozen_pending_policy_environment_and_intervention_selection",
     "variable_dictionary": "partial_software_contracts_only",
     "treatment_ontology": "partial_h1_common_preflight_only",
@@ -1623,7 +1641,74 @@ CLAIM_KEYS = {
     "prohibited_language",
 }
 CLAIM_WITH_MUE_KEYS = CLAIM_KEYS | {"minimum_useful_effect_status"}
+H4_CLAIM_KEYS = CLAIM_WITH_MUE_KEYS | {
+    "reference_artifact_semantics",
+    "confirmatory_design_contract",
+}
 CLAIM_ARTIFACT_KEYS = {"path", "status"}
+H4_REFERENCE_ARTIFACT_KEYS = {
+    "diagnostic_name",
+    "scientific_role",
+    "establishes_causal_or_mechanistic_faithfulness",
+    "legacy_event_field",
+}
+H4_CONFIRMATORY_DESIGN_KEYS = {
+    "region_basis",
+    "target_population_weights",
+    "target_sampling_and_transport",
+    "primary_tuple",
+    "decision_rule",
+    "confirmatory_error_control",
+    "joint_design_power",
+    "secondary_error_control",
+    "individual_effect_boundary",
+}
+EXPECTED_H4_REFERENCE_ARTIFACT = {
+    "diagnostic_name": "deletion_ranking_sensitivity",
+    "scientific_role": "exploratory_reference_model_software_groundwork_only",
+    "establishes_causal_or_mechanistic_faithfulness": False,
+    "legacy_event_field": "faithfulness_check_is_compatibility_only",
+}
+EXPECTED_H4_CONFIRMATORY_DESIGN = {
+    "region_basis": (
+        "predeclared_observable_cells_or_training_only_identified_cate_regions_"
+        "locked_before_untouched_randomized_confirmation"
+    ),
+    "target_population_weights": (
+        "frozen_from_a_probability_or_finite_benchmark_sampling_design_or_an_"
+        "outcome_independent_target_covariate_sample_never_from_treatment_"
+        "randomization_alone"
+    ),
+    "target_sampling_and_transport": (
+        "bind_sampling_source_selection_indicator_overlap_and_conditional_effect_"
+        "transport_assumptions_when_the_randomized_sample_is_not_the_target_population"
+    ),
+    "primary_tuple": (
+        "exactly_one_q_representation_probe_metric_reference_intervention_dose_"
+        "outcome_region_rule_weight_vector_availability_margin_effect_margin_and_"
+        "minimum_region_mass_tuple"
+    ),
+    "decision_rule": (
+        "intersection_union_availability_superiority_and_randomized_cell_average_"
+        "effect_equivalence"
+    ),
+    "confirmatory_error_control": (
+        "strong_familywise_error_control_or_simultaneous_confidence_regions_across_"
+        "all_primary_cells_and_both_components"
+    ),
+    "joint_design_power": (
+        "simulate_the_probability_that_all_required_availability_equivalence_support_"
+        "control_weight_and_simultaneous_inference_components_pass_together"
+    ),
+    "secondary_error_control": (
+        "false_discovery_rate_control_is_secondary_only_and_cannot_promote_a_"
+        "confirmatory_claim"
+    ),
+    "individual_effect_boundary": (
+        "marginal_arm_laws_and_average_treatment_effect_do_not_identify_individual_"
+        "effect_prevalence"
+    ),
+}
 EXPECTED_CLAIM_STATES = {
     "H1": (
         "deterministic_protocol_a_software_reference_fixture_runnable_protocol_b_unimplemented",
@@ -1641,7 +1726,7 @@ EXPECTED_CLAIM_STATES = {
         "unfrozen_until_h3_activation",
     ),
     "H4": (
-        "exploratory_attribution_groundwork_only",
+        "exploratory_deletion_ranking_sensitivity_groundwork_only",
         "blocked_on_real_probe_and_intervention_study",
         "unfrozen_pending_domain_and_decision_justification",
     ),
@@ -1653,7 +1738,7 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
     registry = _exact_keys(registry, CLAIM_REGISTRY_KEYS, context=context)
     if _integer(registry["schema_version"], context=f"{context}.schema_version") != 1:
         raise GovernanceError(f"{context}.schema_version must equal 1")
-    _date(registry["as_of_date"], context=f"{context}.as_of_date")
+    registry_date = _date(registry["as_of_date"], context=f"{context}.as_of_date")
     _require_semantic_snapshot(
         registry["scope"], snapshot="claim_registry_scope", context=f"{context}.scope"
     )
@@ -1669,6 +1754,57 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
     ):
         raise GovernanceError(f"{context}.canonical_spec drifted")
     _safe_file(root, canonical["path"], context=f"{context}.canonical_spec.path")
+
+    successor_context = f"{context}.m0_successor_binding"
+    successor_binding = _exact_keys(
+        registry["m0_successor_binding"],
+        SUCCESSOR_BINDING_KEYS,
+        context=successor_context,
+    )
+    if successor_binding["path"] != SUCCESSOR_PATH.as_posix():
+        raise GovernanceError(
+            f"{successor_context}.path must identify the typed v2 successor"
+        )
+    successor_path = _validate_bound_file(
+        root,
+        raw_path=successor_binding["path"],
+        raw_sha256=successor_binding["sha256"],
+        context=successor_context,
+    )
+    successor = _parse_json_bytes(
+        successor_path.read_bytes(),
+        context=SUCCESSOR_PATH.as_posix(),
+    )
+    if not isinstance(successor, dict):
+        raise GovernanceError(
+            f"{SUCCESSOR_PATH.as_posix()} must contain one JSON object"
+        )
+    successor_date = _date(
+        successor.get("as_of_date"),
+        context=f"{SUCCESSOR_PATH.as_posix()}.as_of_date",
+    )
+    binding_date = _date(
+        successor_binding["as_of_date"],
+        context=f"{successor_context}.as_of_date",
+    )
+    successor_status = _string(
+        successor.get("status"),
+        context=f"{SUCCESSOR_PATH.as_posix()}.status",
+    )
+    binding_status = _string(
+        successor_binding["status"],
+        context=f"{successor_context}.status",
+    )
+    if (
+        binding_date != successor_date
+        or registry_date != successor_date
+        or binding_status != successor_status
+        or successor_status != "reviewed_successor_draft_unfrozen"
+    ):
+        raise GovernanceError(
+            f"{successor_context} date/status does not match the current registry "
+            "and typed v2 successor"
+        )
 
     m0 = _exact_keys(
         registry["m0_freeze_status"],
@@ -1692,7 +1828,12 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
     for index, raw_claim in enumerate(claims):
         claim_id = identifiers[index]
         claim_context = f"{context}.claims[{index}]"
-        expected_keys = CLAIM_KEYS if claim_id == "EC1" else CLAIM_WITH_MUE_KEYS
+        if claim_id == "EC1":
+            expected_keys = CLAIM_KEYS
+        elif claim_id == "H4":
+            expected_keys = H4_CLAIM_KEYS
+        else:
+            expected_keys = CLAIM_WITH_MUE_KEYS
         claim = _exact_keys(raw_claim, expected_keys, context=claim_context)
         for field in (
             "registered_role",
@@ -1721,6 +1862,40 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
             )
             _string(artifact["path"], context=f"{artifact_context}.path")
             _string(artifact["status"], context=f"{artifact_context}.status")
+
+        if claim_id == "H4":
+            reference_context = f"{claim_context}.reference_artifact_semantics"
+            reference = _exact_keys(
+                claim["reference_artifact_semantics"],
+                H4_REFERENCE_ARTIFACT_KEYS,
+                context=reference_context,
+            )
+            for field, expected in EXPECTED_H4_REFERENCE_ARTIFACT.items():
+                if field == "establishes_causal_or_mechanistic_faithfulness":
+                    actual = _boolean(
+                        reference[field], context=f"{reference_context}.{field}"
+                    )
+                else:
+                    actual = _string(
+                        reference[field], context=f"{reference_context}.{field}"
+                    )
+                if actual != expected:
+                    raise GovernanceError(
+                        f"{reference_context}.{field} must equal {expected!r}"
+                    )
+
+            design_context = f"{claim_context}.confirmatory_design_contract"
+            design = _exact_keys(
+                claim["confirmatory_design_contract"],
+                H4_CONFIRMATORY_DESIGN_KEYS,
+                context=design_context,
+            )
+            for field, expected in EXPECTED_H4_CONFIRMATORY_DESIGN.items():
+                actual = _string(design[field], context=f"{design_context}.{field}")
+                if actual != expected:
+                    raise GovernanceError(
+                        f"{design_context}.{field} must equal {expected!r}"
+                    )
 
         if claim_id in EXPECTED_CLAIM_STATES:
             execution, scientific, mue = EXPECTED_CLAIM_STATES[claim_id]
@@ -2147,16 +2322,29 @@ def audit_bundle(root: Path = ROOT, *, require_freeze_ready: bool = False) -> li
     _validate_literature(root, literature)
     _validate_claim_registry(root, claim_registry)
 
-    dated_artifacts = {
+    historical_dated_artifacts = {
         PREREGISTRATION_PATH.as_posix(): preregistration["as_of_date"],
         HOLDOUT_REGISTRY_PATH.as_posix(): holdout_registry["as_of_date"],
         TRANSPORT_PATH.as_posix(): transport["as_of_date"],
         LITERATURE_PATH.as_posix(): literature["as_of_date"],
-        CLAIM_REGISTRY_PATH.as_posix(): claim_registry["as_of_date"],
     }
-    if len(set(dated_artifacts.values())) != 1:
+    if len(set(historical_dated_artifacts.values())) != 1:
         raise GovernanceError(
-            f"governance as_of_date values disagree: {dated_artifacts}"
+            "historical governance as_of_date values disagree: "
+            f"{historical_dated_artifacts}"
+        )
+    historical_date = _date(
+        next(iter(historical_dated_artifacts.values())),
+        context="historical governance as_of_date",
+    )
+    claim_registry_date = _date(
+        claim_registry["as_of_date"],
+        context=f"{CLAIM_REGISTRY_PATH.as_posix()}.as_of_date",
+    )
+    if claim_registry_date < historical_date:
+        raise GovernanceError(
+            "current claim registry as_of_date cannot predate the historical "
+            "governance intake"
         )
 
     registry_status = holdout_registry["registry_status"]

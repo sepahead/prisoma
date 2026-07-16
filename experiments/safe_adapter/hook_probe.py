@@ -262,8 +262,21 @@ def _normalized_weights(
         if not np.isfinite(weight) or weight <= 0.0:
             raise ValueError("target weights must be finite positive numbers")
         checked[name] = weight
-    total = sum(checked.values())
-    return {name: value / total for name, value in checked.items()}
+    # Normalize by the largest weight first. Summing raw finite weights can
+    # overflow to infinity (for example two weights near f64::MAX), silently
+    # turning every normalized weight into zero. The scaled sum is bounded by
+    # the number of targets and preserves the intended relative weights.
+    scale = max(checked.values())
+    scaled = {name: value / scale for name, value in checked.items()}
+    if any(not np.isfinite(value) or value <= 0.0 for value in scaled.values()):
+        raise ValueError(
+            "target weight dynamic range is too large for finite positive normalization"
+        )
+    total = sum(scaled.values())
+    normalized = {name: value / total for name, value in scaled.items()}
+    if any(not np.isfinite(value) or value <= 0.0 for value in normalized.values()):
+        raise ValueError("target weights could not be normalized safely")
+    return normalized
 
 
 def layerwise_physics_probe(

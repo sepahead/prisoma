@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Require immutable commit pins for every external GitHub Action reference."""
+"""Require immutable action pins and reproducible CI runtime/dependency settings."""
 
 from __future__ import annotations
 
@@ -35,6 +35,22 @@ YAML_COMPOSITION_RE = re.compile(
 FLOW_COLLECTION_RE = re.compile(r"[\[\]{}]")
 YAML_TAG_RE = re.compile(r"(?:^|[\s\[\]{},:])![^\s]*")
 COMMIT_RE = re.compile(r"[0-9a-f]{40}")
+EXACT_VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
+PYTHON_VERSION_RE = re.compile(
+    r"^\s*python-version:\s*[\"']?(?P<version>[^\"'\s#]+)[\"']?\s*(?:#.*)?$"
+)
+RUNNER_RE = re.compile(r"^\s*runs-on:\s*[\"']?(?P<runner>[^\"'\s#]+)[\"']?\s*(?:#.*)?$")
+CARGO_RESOLUTION_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])cargo\s+"
+    r"(?P<command>build|check|clippy|metadata|run|test|tree)\b"
+)
+UV_SYNC_RE = re.compile(r"(?<![A-Za-z0-9_-])uv\s+sync\b")
+MATURIN_DEVELOP_RE = re.compile(r"(?<![A-Za-z0-9_-])maturin\s+develop\b")
+RUSTUP_TOOLCHAIN_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])rustup\s+toolchain\s+install\s+(?P<version>\S+)"
+)
+CURL_RE = re.compile(r"(?<![A-Za-z0-9_-])curl(?:\s|$)")
+PYTHON_ASSERT_RE = re.compile(r"(?<![A-Za-z0-9_])assert\s+")
 MAX_WORKFLOW_BYTES = 1024 * 1024
 MAX_WORKFLOW_FILES = 64
 MAX_WORKFLOW_DIRECTORY_ENTRIES = 256
@@ -290,6 +306,180 @@ def audit_text(path: Path, text: str) -> tuple[int, list[str]]:
     return candidate_count, errors
 
 
+def _step_body(lines: list[str], index: int) -> list[str]:
+    step_line = lines[index]
+    step_indent = len(step_line) - len(step_line.lstrip(" "))
+    result: list[str] = []
+    for line in lines[index + 1 :]:
+        stripped = line.lstrip(" ")
+        if not stripped:
+            result.append(line)
+            continue
+        indent = len(line) - len(stripped)
+        if indent < step_indent or (
+            indent == step_indent and stripped.startswith("- ")
+        ):
+            break
+        result.append(line)
+    return result
+
+
+def _step_scalar(body: list[str], key: str) -> str | None:
+    pattern = re.compile(
+        rf"^\s*{re.escape(key)}:\s*[\"']?(?P<value>[^\"'\s#]+)[\"']?"
+        r"\s*(?:#.*)?$"
+    )
+    for line in body:
+        match = pattern.fullmatch(line)
+        if match is not None:
+            return match.group("value")
+    return None
+
+
+def _continued_command(lines: list[str], index: int) -> str:
+    parts: list[str] = []
+    while index < len(lines):
+        code = _strip_yaml_comment(lines[index]).strip()
+        continued = code.endswith("\\")
+        parts.append(code[:-1].rstrip() if continued else code)
+        index += 1
+        if not continued:
+            break
+    return " ".join(parts)
+
+
+def audit_reproducibility_text(path: Path, text: str) -> list[str]:
+    """Reject mutable CI runtimes and dependency-resolving commands without locks."""
+
+    errors: list[str] = []
+    lines = text.splitlines()
+    for line_number, line in enumerate(lines, start=1):
+        code = _strip_yaml_comment(line)
+        stripped = code.lstrip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        if PYTHON_ASSERT_RE.search(code) is not None:
+            errors.append(
+                f"{path}:{line_number}: CI checks may not use Python `assert`; "
+                "use an explicit exception or exit status"
+            )
+
+        runner = RUNNER_RE.fullmatch(code)
+        if runner is not None:
+            value = runner.group("runner")
+            if value.endswith("-latest") or "${{" in value:
+                errors.append(
+                    f"{path}:{line_number}: runner must use a static versioned image, "
+                    f"not {value}"
+                )
+
+        python_version = PYTHON_VERSION_RE.fullmatch(code)
+        if python_version is not None:
+            value = python_version.group("version")
+            if EXACT_VERSION_RE.fullmatch(value) is None:
+                errors.append(
+                    f"{path}:{line_number}: python-version must pin an exact patch "
+                    f"release, not {value}"
+                )
+
+        for command in CARGO_RESOLUTION_RE.finditer(code):
+            command_tail = code[command.start() :]
+            command_segment = re.split(r"[|;&]", command_tail, maxsplit=1)[0]
+            if "--locked" not in command_segment.split():
+                errors.append(
+                    f"{path}:{line_number}: cargo {command.group('command')} must "
+                    "use --locked"
+                )
+
+        if UV_SYNC_RE.search(code) is not None:
+            command_tail = code[UV_SYNC_RE.search(code).start() :]
+            command_segment = re.split(r"[|;&]", command_tail, maxsplit=1)[0]
+            if "--locked" not in command_segment.split():
+                errors.append(f"{path}:{line_number}: uv sync must use --locked")
+
+        if MATURIN_DEVELOP_RE.search(code) is not None:
+            command_tail = code[MATURIN_DEVELOP_RE.search(code).start() :]
+            command_segment = re.split(r"[|;&]", command_tail, maxsplit=1)[0]
+            if "--locked" not in command_segment.split():
+                errors.append(
+                    f"{path}:{line_number}: maturin develop must use --locked"
+                )
+
+        rustup = RUSTUP_TOOLCHAIN_RE.search(code)
+        if rustup is not None:
+            command = _continued_command(lines, line_number - 1)
+            version = rustup.group("version")
+            if EXACT_VERSION_RE.fullmatch(version) is None:
+                errors.append(
+                    f"{path}:{line_number}: rustup must install an exact toolchain "
+                    f"version, not {version}"
+                )
+            if "--no-self-update" not in command.split():
+                errors.append(
+                    f"{path}:{line_number}: rustup toolchain installation must disable "
+                    "self-update"
+                )
+
+        if CURL_RE.search(code) is not None:
+            command = _continued_command(lines, line_number - 1)
+            required_flags = {
+                "--connect-timeout",
+                "--fail",
+                "--location",
+                "--max-filesize",
+                "--max-time",
+                "--output",
+                "--proto",
+                "--proto-redir",
+                "--retry",
+                "--retry-all-errors",
+                "--retry-max-time",
+                "--tlsv1.2",
+            }
+            missing = sorted(required_flags.difference(command.split()))
+            if missing:
+                errors.append(
+                    f"{path}:{line_number}: curl download omits bounded HTTPS flags: "
+                    f"{', '.join(missing)}"
+                )
+            checksum_window = "\n".join(lines[line_number : line_number + 12])
+            if "sha256sum --check --strict" not in checksum_window:
+                errors.append(
+                    f"{path}:{line_number}: curl download must be followed by strict "
+                    "SHA-256 verification"
+                )
+            if "/latest/" in command:
+                errors.append(
+                    f"{path}:{line_number}: curl download may not use a mutable latest URL"
+                )
+
+        if "uses: dtolnay/rust-toolchain@" in code:
+            toolchain = _step_scalar(_step_body(lines, line_number - 1), "toolchain")
+            if toolchain is None or EXACT_VERSION_RE.fullmatch(toolchain) is None:
+                errors.append(
+                    f"{path}:{line_number}: rust-toolchain action must pin an exact "
+                    "toolchain version"
+                )
+
+        if "uses: astral-sh/setup-uv@" in code:
+            uv_version = _step_scalar(_step_body(lines, line_number - 1), "version")
+            if uv_version is None or EXACT_VERSION_RE.fullmatch(uv_version) is None:
+                errors.append(
+                    f"{path}:{line_number}: setup-uv must pin an exact uv version"
+                )
+
+        if "uses: actions/checkout@" in code:
+            persist = _step_scalar(
+                _step_body(lines, line_number - 1), "persist-credentials"
+            )
+            if persist != "false":
+                errors.append(
+                    f"{path}:{line_number}: checkout must disable persisted credentials"
+                )
+    return errors
+
+
 def audit_workflows(repo_root: Path) -> tuple[int, list[str]]:
     workflow_root = repo_root / WORKFLOW_DIR
     try:
@@ -340,6 +530,7 @@ def audit_workflows(repo_root: Path) -> tuple[int, list[str]]:
         references, file_errors = audit_text(relative, text)
         count += references
         errors.extend(file_errors)
+        errors.extend(audit_reproducibility_text(relative, text))
     if count == 0:
         errors.append(f"{workflow_root}: no action references found")
     return count, errors
@@ -352,11 +543,11 @@ def main(argv: list[str] | None = None) -> int:
 
     count, errors = audit_workflows(args.repo_root.resolve())
     if errors:
-        print("CI action-pin audit failed:", file=sys.stderr)
+        print("CI reproducibility audit failed:", file=sys.stderr)
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
-    print(f"CI action-pin audit passed: {count} reference(s)")
+    print(f"CI reproducibility audit passed: {count} action reference(s)")
     return 0
 
 

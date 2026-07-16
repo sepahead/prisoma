@@ -3,6 +3,8 @@
 //! This module executes a frozen-snapshot **software** contrast. It does not identify a physical
 //! individual treatment effect, execute Protocol B, or establish H1 evidence. The reference path
 //! deliberately rejects stochastic policies and superpopulation/transport interpretations.
+//! Its MSE threshold is a synthetic fixture reference point only: the scientific minimum useful
+//! effect remains unfrozen, and no sampling-uncertainty interval is available on this path.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -13,7 +15,7 @@ use crate::h1_preflight::{
     H1OutputMetricContract, H1PrimaryProtocol,
 };
 
-pub const H1_PROTOCOL_A_SCHEMA_VERSION: u32 = 1;
+pub const H1_PROTOCOL_A_SCHEMA_VERSION: u32 = 2;
 
 const MAX_IDENTIFIER_BYTES: usize = 256;
 const MAX_CASES_DEFAULT: usize = 10_000;
@@ -47,6 +49,20 @@ pub enum H1ProtocolATreatmentOrder {
 #[serde(rename_all = "snake_case")]
 pub enum H1ProtocolAInterpretation {
     SyntheticFrozenSnapshotAlgorithmicResponseOnly,
+}
+
+/// Scientific minimum-useful-effect status for this synthetic reference path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum H1ProtocolAScientificMinimumUsefulEffectStatus {
+    Unfrozen,
+}
+
+/// Sampling-uncertainty status for the fixture point score.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum H1ProtocolAMseImprovementUncertaintyStatus {
+    Unavailable,
 }
 
 /// Exact binding to a separately passed H1 common-preflight artifact chain.
@@ -95,7 +111,9 @@ pub struct H1ProtocolAPlan {
     pub maximum_output_drift: f64,
     pub maximum_response_drift: f64,
     pub ridge_penalty: f64,
-    pub minimum_useful_mse_improvement: f64,
+    /// Synthetic-fixture point margin used only to exercise deterministic comparison logic.
+    /// It is not a frozen scientific minimum useful effect.
+    pub fixture_reference_point_margin_mse_improvement: f64,
     pub permitted_interpretation: H1ProtocolAInterpretation,
 }
 
@@ -320,8 +338,10 @@ pub struct H1ProtocolAAggregateScore {
     pub baseline_mse: f64,
     pub diagnostic_mse: f64,
     pub mse_improvement: f64,
-    pub minimum_useful_mse_improvement: f64,
-    pub useful_margin_met: bool,
+    /// Synthetic fixture reference point, not a scientific decision threshold.
+    pub fixture_reference_point_margin_mse_improvement: f64,
+    /// Deterministic point comparison only; no uncertainty-aware claim follows from this field.
+    pub fixture_reference_point_margin_met: bool,
     pub diagnostic_calibration: H1ProtocolACalibration,
 }
 
@@ -345,6 +365,8 @@ pub struct H1ProtocolAReport {
     pub synthetic_fixture_only: bool,
     pub establishes_h1_evidence: bool,
     pub permitted_interpretation: H1ProtocolAInterpretation,
+    pub scientific_minimum_useful_effect_status: H1ProtocolAScientificMinimumUsefulEffectStatus,
+    pub mse_improvement_uncertainty_status: H1ProtocolAMseImprovementUncertaintyStatus,
     pub denominators: H1ProtocolADenominators,
     pub case_outcomes: Vec<H1ProtocolACaseOutcome>,
     pub fold_scores: Vec<H1ProtocolAFoldScore>,
@@ -447,6 +469,10 @@ pub fn run_h1_protocol_a_with_limits(
             synthetic_fixture_only: true,
             establishes_h1_evidence: false,
             permitted_interpretation: input.plan.permitted_interpretation,
+            scientific_minimum_useful_effect_status:
+                H1ProtocolAScientificMinimumUsefulEffectStatus::Unfrozen,
+            mse_improvement_uncertainty_status:
+                H1ProtocolAMseImprovementUncertaintyStatus::Unavailable,
             denominators,
             case_outcomes: Vec::new(),
             fold_scores: Vec::new(),
@@ -524,6 +550,9 @@ pub fn run_h1_protocol_a_with_limits(
         synthetic_fixture_only: true,
         establishes_h1_evidence: false,
         permitted_interpretation: input.plan.permitted_interpretation,
+        scientific_minimum_useful_effect_status:
+            H1ProtocolAScientificMinimumUsefulEffectStatus::Unfrozen,
+        mse_improvement_uncertainty_status: H1ProtocolAMseImprovementUncertaintyStatus::Unavailable,
         denominators,
         case_outcomes: outcomes,
         fold_scores,
@@ -667,8 +696,8 @@ fn validate_input(
         ),
         ("plan.ridge_penalty", input.plan.ridge_penalty),
         (
-            "plan.minimum_useful_mse_improvement",
-            input.plan.minimum_useful_mse_improvement,
+            "plan.fixture_reference_point_margin_mse_improvement",
+            input.plan.fixture_reference_point_margin_mse_improvement,
         ),
     ] {
         if !value.is_finite() || value < 0.0 {
@@ -1425,8 +1454,11 @@ fn score_outer_folds(
             baseline_mse,
             diagnostic_mse,
             mse_improvement,
-            minimum_useful_mse_improvement: input.plan.minimum_useful_mse_improvement,
-            useful_margin_met: mse_improvement >= input.plan.minimum_useful_mse_improvement,
+            fixture_reference_point_margin_mse_improvement: input
+                .plan
+                .fixture_reference_point_margin_mse_improvement,
+            fixture_reference_point_margin_met: mse_improvement
+                >= input.plan.fixture_reference_point_margin_mse_improvement,
             diagnostic_calibration: calibration,
         },
     })
@@ -1833,7 +1865,7 @@ mod tests {
                 maximum_output_drift: 0.0,
                 maximum_response_drift: 0.0,
                 ridge_penalty: 1e-6,
-                minimum_useful_mse_improvement: 0.1,
+                fixture_reference_point_margin_mse_improvement: 0.1,
                 permitted_interpretation:
                     H1ProtocolAInterpretation::SyntheticFrozenSnapshotAlgorithmicResponseOnly,
             },
@@ -1852,9 +1884,23 @@ mod tests {
         assert!(report.is_valid(), "{:?}", report.issues);
         assert!(!report.establishes_h1_evidence);
         assert!(report.synthetic_fixture_only);
-        let aggregate = report.aggregate_score.expect("valid score");
+        let aggregate = report.aggregate_score.as_ref().expect("valid score");
         assert!(aggregate.diagnostic_mse < aggregate.baseline_mse);
-        assert!(aggregate.useful_margin_met);
+        assert!(aggregate.fixture_reference_point_margin_met);
+        assert_eq!(
+            report.scientific_minimum_useful_effect_status,
+            H1ProtocolAScientificMinimumUsefulEffectStatus::Unfrozen
+        );
+        assert_eq!(
+            report.mse_improvement_uncertainty_status,
+            H1ProtocolAMseImprovementUncertaintyStatus::Unavailable
+        );
+        let serialized = serde_json::to_string(&report).expect("serialize H1 report");
+        assert!(serialized.contains("\"scientific_minimum_useful_effect_status\":\"unfrozen\""));
+        assert!(serialized.contains("\"mse_improvement_uncertainty_status\":\"unavailable\""));
+        assert!(serialized.contains("\"fixture_reference_point_margin_met\":true"));
+        assert!(!serialized.contains("\"useful_margin_met\""));
+        assert!(!serialized.contains("\"minimum_useful_mse_improvement\""));
     }
 
     #[test]
@@ -2010,7 +2056,7 @@ mod tests {
         let report = run_h1_protocol_a(&value);
         assert!(report.is_valid());
         let aggregate = report.aggregate_score.expect("proper score retained");
-        assert!(!aggregate.useful_margin_met);
+        assert!(!aggregate.fixture_reference_point_margin_met);
         assert!(matches!(
             aggregate.diagnostic_calibration,
             H1ProtocolACalibration::Abstained {

@@ -1,0 +1,602 @@
+{
+  "schema_version": 2,
+  "artifact_id": "prisoma_m0_preregistration_successor_draft_v2",
+  "as_of_date": "2026-07-16",
+  "canonical_spec": {
+    "path": "grandplan.md",
+    "version": "12.5"
+  },
+  "base_v1_intake_binding": {
+    "path": "protocols/m0_preregistration_skeleton_v1.json",
+    "sha256": "dd916a3f1819d38f8e19cb8f30d2eaeaa2fcb9895360fcf028c2f40b455bb6e7"
+  },
+  "scope": "reviewed typed successor draft for future M0 freeze review; it contains no frozen scientific value, does not promote any claim, and does not authorize confirmatory holdout access",
+  "status": "reviewed_successor_draft_unfrozen",
+  "freeze_receipt": null,
+  "freeze_revision": null,
+  "frozen_at": null,
+  "global_freeze_slots": {
+    "base_scientific_freeze_bundle_binding": {
+      "value_type": "content_binding",
+      "required_for_freeze": true,
+      "value": null
+    },
+    "holdout_access_governance_binding": {
+      "value_type": "content_binding",
+      "required_for_freeze": true,
+      "value": null
+    },
+    "environment_digest_bundle_binding": {
+      "value_type": "content_binding",
+      "required_for_freeze": true,
+      "value": null
+    },
+    "scientific_and_statistical_review_bundle_binding": {
+      "value_type": "content_binding",
+      "required_for_freeze": true,
+      "value": null
+    }
+  },
+  "claim_selection_contract": {
+    "maximum_active_scientific_claims": 3,
+    "mandatory_scientific_claims": [
+      "H1",
+      "H2"
+    ],
+    "conditional_exactly_one_scientific_claims": [
+      "H3",
+      "H4"
+    ],
+    "engineering_claims_excluded_from_scientific_count": [
+      "EC1"
+    ],
+    "slots": {
+      "active_scientific_claims": {
+        "value_type": "finite_nonempty_string_array",
+        "required_for_freeze": true,
+        "value": null
+      },
+      "selected_h1_protocol": {
+        "value_type": "enum",
+        "allowed_values": [
+          "h1_protocol_a",
+          "h1_protocol_b"
+        ],
+        "required_for_freeze": true,
+        "value": null
+      },
+      "selected_h3_or_h4_branch": {
+        "value_type": "enum",
+        "allowed_values": [
+          "H3",
+          "H4"
+        ],
+        "required_for_freeze": true,
+        "value": null
+      },
+      "h3_h4_selection_timing": {
+        "value_type": "enum",
+        "allowed_values": [
+          "before_any_h3_or_h4_confirmatory_outcome",
+          "after_h3_with_fresh_holdout_and_sequential_error_control"
+        ],
+        "required_for_freeze": true,
+        "value": null
+      },
+      "branch_selection_and_error_control_binding": {
+        "value_type": "content_binding",
+        "required_for_freeze": true,
+        "value": null
+      }
+    }
+  },
+  "typed_protocol_contracts": {
+    "ec1": {
+      "registered_claim_id": "EC1",
+      "claim_class": "engineering_acceptance",
+      "unregistered_fault_policy": "not_evaluated_never_detected",
+      "slots": {
+        "supported_adapter_ids": {
+          "value_type": "finite_nonempty_string_array",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "declared_capability_matrix_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "required_causal_temporal_variable_inventory_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "fault_class_registry": {
+          "value_type": "ec1_fault_class_array",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "valid_case_registry_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "sampling_unit_and_dependence_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "fault_sampling_distribution_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "independent_oracle_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "comparator_stack_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "primary_endpoint_registry": {
+          "value_type": "ec1_endpoint_array",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "fault_detection_endpoint_map": {
+          "value_type": "ec1_fault_endpoint_map",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "replay_fidelity_endpoint_map": {
+          "value_type": "ec1_adapter_endpoint_map",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "false_positive_endpoint_map": {
+          "value_type": "ec1_adapter_endpoint_map",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "replay_tolerance_table_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "false_positive_endpoint_id": {
+          "value_type": "string",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "multiplicity_procedure_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "uncertainty_and_design_analysis_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "blind_challenge_protocol_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "pass_fail_decision_rule_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "external_reproduction_and_second_adapter_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        }
+      }
+    },
+    "h1_protocol_a": {
+      "registered_claim_id": "H1",
+      "protocol_label": "paired_frozen_snapshot_algorithmic_response",
+      "heldout_outcome_defined_bins_policy": "forbidden",
+      "slots": {
+        "calibration_bin_origin": {
+          "value_type": "enum",
+          "allowed_values": [
+            "prespecified_before_holdout",
+            "train_defined_from_predictions_only"
+          ],
+          "required_for_freeze": true,
+          "value": null
+        },
+        "calibration_bin_definition_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "calibration_role": {
+          "value_type": "enum",
+          "allowed_values": [
+            "primary_gate",
+            "secondary_gatekeeping",
+            "secondary_descriptive"
+          ],
+          "required_for_freeze": true,
+          "value": null
+        },
+        "heldout_outcomes_used_to_define_bins": {
+          "value_type": "boolean",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "response_scale_score_and_uncertainty_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        }
+      }
+    },
+    "h1_protocol_b": {
+      "registered_claim_id": "H1",
+      "protocol_label": "randomized_closed_loop_effect_modification",
+      "one_primary_effect_endpoint_required": true,
+      "slots": {
+        "primary_effect_endpoint_id": {
+          "value_type": "string",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "effect_endpoint_registry": {
+          "value_type": "h1b_effect_endpoint_array",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "decision_hierarchy": {
+          "value_type": "decision_hierarchy_array",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "multiplicity_procedure_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "success_rule_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        }
+      }
+    },
+    "h2": {
+      "registered_claim_id": "H2",
+      "protocol_label": "prospective_censoring_aware_failure_prediction",
+      "one_primary_proper_score_required": true,
+      "decision_utility_primary_role_forbidden": true,
+      "slots": {
+        "target_population_and_intended_use_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "landmark_time_zero_eligibility_update_schedule_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "prediction_horizon_and_target_type_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "episode_case_persistent_world_grouping_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "feature_cutoff_deployment_availability_train_fit_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "event_ontology_named_failure_competing_events_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "censoring_missingness_assumptions_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "censoring_model_strata_crossfit_positivity_sensitivity_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "sampled_and_target_prevalence_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "matched_access_comparator_registry_and_budgets_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "primary_proper_score": {
+          "value_type": "h2_primary_proper_score",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "calibration_intercept_slope_reliability_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "conformal_plan_or_not_used_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "alarm_policy_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "nondetection_retaining_lead_time_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "decision_utility_cost_capacity_latency_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "uncertainty_cluster_and_independent_counts_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "nested_outer_split_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "external_or_later_time_holdout_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "separate_recalibration_split_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "shift_subgroups_and_degradation_bounds_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "multiplicity_procedure_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "replication_target_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "success_rule": {
+          "value_type": "h2_success_rule",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "permitted_interpretation_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        }
+      }
+    },
+    "h3": {
+      "registered_claim_id": "H3",
+      "unlisted_warning_disposition": "abstain_and_exact_m1_fallback",
+      "allowed_warning_dispositions": [
+        "use_pid_output",
+        "abstain_and_exact_m1_fallback",
+        "block_primary_result"
+      ],
+      "common_comparison_population_contract": {
+        "contract_version": 1,
+        "allowed_policies": [
+          "identical_candidate_unit_denominator_for_m1_and_m2",
+          "full_target_population_with_exact_m1_fallback_on_every_m2_abstention"
+        ],
+        "selected_policy": "full_target_population_with_exact_m1_fallback_on_every_m2_abstention",
+        "population_binding": "inherit_exact_target_population_unit_cluster_eligibility_time_zero_sampling_weights_and_outer_holdout_from_one_active_parent_h1_or_h2_estimand",
+        "candidate_id_ledger": "one_content_bound_canonical_ordered_ledger_of_unique_nonempty_candidate_ids_frozen_before_outer_holdout_outcome_access",
+        "m1_coverage": "exactly_one_heldout_prediction_or_decision_for_every_candidate_id",
+        "m2_coverage": "for_every_same_candidate_id_exactly_one_pid_augmented_output_or_one_typed_abstention",
+        "m2_status_timing": "derived_only_from_frozen_support_and_allowed_pre_outcome_inputs_without_outer_holdout_outcome_access",
+        "m2_allowed_statuses": [
+          "produced",
+          "produced_with_warning",
+          "abstained"
+        ],
+        "fallback_rule": "every_typed_m2_abstention_uses_the_exact_recorded_m1_output_for_the_same_candidate_id_and_outer_fold",
+        "paired_scoring_rule": "score_m1_and_the_deployed_m2_fallback_policy_on_the_same_ids_outcomes_weights_clusters_outer_folds_and_primary_endpoint",
+        "primary_denominator_rule": "all_ids_in_the_frozen_target_ledger_never_only_pid_eligible_or_successfully_computed_cases",
+        "eligible_only_analysis_role": "secondary_diagnostic_only_never_primary_or_confirmatory",
+        "required_reporting": [
+          "frozen_target_candidate_count",
+          "frozen_target_candidate_ledger_sha256",
+          "content_bound_per_candidate_paired_scoring_receipt_sha256",
+          "m2_produced_count",
+          "m2_produced_with_warning_count",
+          "m2_abstained_count_by_reason",
+          "m1_fallback_count",
+          "full_population_paired_incremental_endpoint"
+        ],
+        "fail_closed_conditions": [
+          "candidate_id_ledger_missing_changed_or_not_content_bound",
+          "empty_duplicate_missing_extra_or_reordered_candidate_id",
+          "m1_output_missing_for_any_candidate_id",
+          "m2_has_both_output_and_abstention_or_has_neither_one",
+          "m2_status_is_not_requested_or_unknown",
+          "m2_status_or_abstention_reason_uses_outer_holdout_outcome_or_post_time_zero_data",
+          "abstained_pid_estimate_contains_a_numeric_placeholder",
+          "deployed_m2_fallback_differs_from_same_fold_m1_output",
+          "fallback_is_applied_when_m2_status_is_not_abstained",
+          "outcome_weight_cluster_fold_endpoint_or_population_binding_differs_between_m1_and_m2",
+          "primary_analysis_restricts_to_pid_eligible_or_successfully_computed_cases",
+          "target_ledger_or_eligibility_changes_after_outer_holdout_outcome_access"
+        ]
+      },
+      "slots": {
+        "warning_code_registry_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "warning_dispositions": {
+          "value_type": "warning_disposition_array",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "allowlisted_use_output_warning_codes": {
+          "value_type": "finite_string_array",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "warning_disposition_receipt_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "active_parent_claim": {
+          "value_type": "enum",
+          "allowed_values": [
+            "H1",
+            "H2"
+          ],
+          "required_for_freeze": true,
+          "value": null
+        }
+      }
+    },
+    "h4": {
+      "registered_claim_id": "H4",
+      "protocol_label": "representational_availability_versus_tested_intervention_effect",
+      "individual_effect_prevalence_claim_forbidden": true,
+      "slots": {
+        "target_population_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "confirmatory_sample_source": {
+          "value_type": "enum",
+          "allowed_values": [
+            "probability_sample_from_target",
+            "finite_benchmark_equals_target",
+            "transported_randomized_sample"
+          ],
+          "required_for_freeze": true,
+          "value": null
+        },
+        "sampling_design_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "selection_indicator_and_sampling_overlap_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "conditional_effect_transport_assumptions_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "target_covariate_sample_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "target_weight_estimand_and_source_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "target_weight_uncertainty_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "baseline_region_partition_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "primary_tuple": {
+          "value_type": "h4_primary_tuple",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "randomized_unit_and_assignment_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "positivity_engagement_receipt_support_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "simultaneous_inference_plan": {
+          "value_type": "h4_simultaneous_inference_plan",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "joint_design_power_plan": {
+          "value_type": "h4_joint_design_power_plan",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "positive_and_negative_controls_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "replication_construction_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        },
+        "permitted_interpretation_binding": {
+          "value_type": "content_binding",
+          "required_for_freeze": true,
+          "value": null
+        }
+      }
+    }
+  },
+  "freeze_requirements": [
+    "every required typed slot must be non-null and type-valid before a freeze candidate can pass",
+    "active scientific claims must be H1 and H2 plus exactly one of H3 or H4, never more than three",
+    "H1 Protocol A calibration bins must be prespecified or train-defined without heldout outcomes",
+    "H1 Protocol B must name exactly one primary effect-specific endpoint and one explicit testing hierarchy",
+    "H2 must freeze exactly one censoring-aware proper-score endpoint and bind its minimum useful margin, censoring assumptions, calibration, actionability, subgroup, replication, multiplicity, and secondary-only decision-utility rules",
+    "H3 primary scoring must retain the complete inherited target ledger with exact same-fold M1 fallback for every abstention; every warning must follow the frozen disposition map and every unlisted warning must abstain with exact M1 fallback",
+    "H4 must bind the target and sampling design, transport assumptions when needed, one outcome and primary tuple, simultaneous strong error control, target-weight uncertainty, and joint design power",
+    "EC1 acceptance must be finite, oracle-graded, comparator-benchmarked, uncertainty-aware, and require complete fault-detection, replay-fidelity, and valid-case false-positive endpoint coverage for the registered universe; every registered fault-adapter pair requires its own absolute sensitivity floor and mandatory pass, with no distribution-average substitution",
+    "freeze metadata and content-bound review receipts must be present before the status can become frozen"
+  ]
+}

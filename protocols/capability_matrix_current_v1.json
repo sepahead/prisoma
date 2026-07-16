@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-14",
+  "as_of_date": "2026-07-16",
   "canonical_spec": {
     "path": "grandplan.md",
     "version": "12.5",
@@ -14,7 +14,7 @@
   "scope": "current repository capability and evidence state; software fixtures are not scientific validation",
   "source_catalog": {
     "path": "protocols/capability_catalog_v1.json",
-    "sha256": "d2b6cf06e5aab082fa7829f6bea1988adda191fcf332e6acc50eb297e189c53e"
+    "sha256": "a690b83840da668060e5bdf7abe66fe50bc63a28f405df4c0f8ef3822f843661"
   },
   "hash_contract": "SHA-256 over domain tag plus sorted repository-relative path and byte-length framed file contents; excluded tree parts are .git, target, __pycache__, .pytest_cache, and .ruff_cache; justfile is an implicit revision input for every advertised just recipe",
   "row_count": 27,
@@ -34,7 +34,7 @@
       "feature_id": "analysis.estimate_abstention",
       "feature": "Report-first PID estimate eligibility and abstention",
       "status": "tested",
-      "exact_revision": "pid-rs@43ab60517b5387c61ae339f664d0d7afae3b8988; local-sha256:7a43ada187ef501756ed7e5ab884a465520fbd310b6303cb9ee311a76cb9c147",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:a74e5817b9de460d66bf8aa2571a9e8c76377283566bd768b2980834931348e3",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -55,11 +55,11 @@
         },
         {
           "path": "crates/pid-sim/src/offline_harness.rs",
-          "sha256": "9c4afa87f646507a7e26b3fff2c2bdad0cfec71cca3cb8d886133319930e3dca"
+          "sha256": "5a3fac184e620a5f67ae2ad8dab67a93d08d3df80bfc1cb0b46ff8de5afb998b"
         },
         {
           "path": "findings.md",
-          "sha256": "cf4dfe2ea6598aead6c91dbd056c2bcaee2c843e0d6107c5b9dd0902a2811260"
+          "sha256": "1557e04dc3f06251f39ed207ba520b79db3c377a82a5d0de5e98259a2cb63cc0"
         }
       ],
       "known_limitations": "The high-dimensional MI/coherence route is NO-GO and continuous shared-exclusions atoms on real VLA embeddings remain application-blocked; an abstention is not a zero estimate.",
@@ -75,7 +75,7 @@
       "feature_id": "bridge.agent_control_plane",
       "feature": "Agent Bridge typed control plane",
       "status": "tested",
-      "exact_revision": "local-sha256:3ab607d8eee9ed1e59ecc6595cb6f063b0b2d6d280b638a198a04a7702261dbc",
+      "exact_revision": "local-sha256:2455afd627ada134189000d71bfa4235a2f1091eea26e57835d577e1056d9fbb",
       "revision_inputs": [
         "crates/pid-bridge",
         "crates/pid-rerun",
@@ -88,31 +88,31 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-bridge",
-          "sha256": "a8fc97eef2dfe46553558e0250dfe52355aed5e9c05fad547987a930f4637b5d"
+          "sha256": "588f94b1b036cab65b83a781f472e9994ab7458d14deacf5258a7ce9f5263281"
         },
         {
           "path": "crates/pid-rerun/src/runlog.rs",
-          "sha256": "e0cab66f484827a275b5f420df8ea364389cf6c8877e12ecc1fc3b0135dd9450"
+          "sha256": "555f5affaf5f15914758066c81ef81eaaae3666dddcceaed7f1d6fa62139d09e"
         },
         {
           "path": "crates/pid-sim/src/lib.rs",
-          "sha256": "2061a6c4224cb354b478d34dda98192df77d2c404db82e8f190fdf23a0ba8fa0"
+          "sha256": "79d1e30f277c38eca9a7571d3e84228aa40c4c6f06a3616197b1bba4fceb6cf6"
         },
         {
           "path": "crates/pid-sim/src/bin/bridge_stdio.rs",
-          "sha256": "aa9f61c306939a3e669e8e0fba274303316c2dabce88dbde677a77d57f2a98eb"
+          "sha256": "c2ca2db801b1d30a01d3d9eee756ac62405c86e6d9238170f09db5c1d0891197"
         },
         {
           "path": "crates/pid-sim/src/bin/bridge_tcp.rs",
-          "sha256": "cb58e4d5f042fee7307b21d15dbb44315c0806189a5bafce2141dc87d423d03e"
+          "sha256": "400dd6d9591c64664c5ba886543c835c170ab9b69c4903d84cd4e99c20c8c714"
         },
         {
           "path": "crates/pid-sim/src/bin/bridge_ws.rs",
-          "sha256": "fbecfaf2b0f32f4642a7aef2261e487e098775c4d8290d0cb4c539e0dfd8232b"
+          "sha256": "705356901fb8e1f6dfd8b3087e3f1a367d2fcc5e1c69f0f82687641439b69cc1"
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "c6d9c0490a0e437b495828502eb6e3b188ce0dafdddd67a6b9e57e7032808a66"
+          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
         }
       ],
       "known_limitations": "TCP/WebSocket binaries refuse non-loopback bind addresses and default safe, but forwarding/proxying/tunnelling a loopback listener is not prevented. TCP/stdio JSONL lines have a 1 MiB cap, WebSocket upgrade/incoming-frame inputs have 16 KiB/1 MiB caps, and network read/write operations have 30-second timeouts; there is no total request/session, request-count, or aggregate-traffic limit, so progress-making trickle traffic may persist. The enumerated WebSocket gate requires GET /bridge HTTP/1.1, exactly one each of a nonempty Host, Upgrade websocket, tokenized Connection containing upgrade, version 13, and a base64 16-byte key, and no Origin; it does not claim general malformed-request detection. Client application messages are unfragmented, masked UTF-8 text frames; ping, pong, and close control frames are supported, while binary frames, fragmentation, and extensions/RSV use are rejected. The JSON-RPC 2.0 surface is single-request only: missing-id notifications are silent and distinct from explicit null, parameters are omitted or named objects rather than positional arrays, undeclared top-level method keys are rejected, sim.step requires numeric dt, and batches are unsupported. Profile-invalid parameters use -32602; handler/domain failures after validation use -32000. File RPCs provide non-adversarial canonical confinement and no-replace outputs, not a security-grade sandbox against hardlinks, aliases, or concurrent filesystem mutation. Export parses/manifests the same exact byte snapshot read from the source and stages/syncs/installs no-clobber finalized RRD bytes/hash. Executable transport run logs call File::sync_all for the initial prefix, each session flush before a wire response, and the terminal seal; generic SimBridgeSession<W> durability is sink-defined. There is no parent-directory fsync, power-loss durability, or cross-file run-log/export transaction. Crashes or provenance-storage failures may leave incomplete/unreadable logs, an apparently complete terminal record with indeterminate status/durability, or orphan RRDs. There is no authentication, authorization, TLS, redaction, remote-security assessment, full target UI/VLA/backend control coverage, or versioned subscription stream; actor identity remains locally declared.",
@@ -128,7 +128,7 @@
       "feature_id": "capture.offline_vlda_harness",
       "feature": "Offline (V,L,D,A) artifact-to-run-log harness",
       "status": "tested",
-      "exact_revision": "local-sha256:6685df0c97f9d4308fb1e436e91ca3220bdc717595c55383fe91878e0d271a96",
+      "exact_revision": "local-sha256:287c0c15b07b01a8ae762c52e31714c94610736c8ae9c847bb6d45c8b90655be",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -140,7 +140,7 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-sim/src/offline_harness.rs",
-          "sha256": "9c4afa87f646507a7e26b3fff2c2bdad0cfec71cca3cb8d886133319930e3dca"
+          "sha256": "5a3fac184e620a5f67ae2ad8dab67a93d08d3df80bfc1cb0b46ff8de5afb998b"
         },
         {
           "path": "crates/pid-sim/fixtures/offline_vlda_fixture.json",
@@ -148,7 +148,7 @@
         },
         {
           "path": "EXPERIMENTS.md",
-          "sha256": "5fb853b69b670c779590a0f09cb7fa0933a22f51c7e4781b922ef404a264706a"
+          "sha256": "99e261156e27255c26c9c21880b48b8602396a956cf2e2b2d81d3da3d7f14f5d"
         }
       ],
       "known_limitations": "Checked inputs are synthetic fixtures; emitted geometry and PID diagnostics do not establish population, measure, estimator, or application validity for real embeddings.",
@@ -165,7 +165,7 @@
       "feature_id": "capture.safe_reference_adapter",
       "feature": "SAFE canonical-bundle reference adapter",
       "status": "tested",
-      "exact_revision": "local-sha256:ed4f4be76bb165b325c09090490bae89aa4f6eedad453a33ac43dbc2cce1f45a",
+      "exact_revision": "local-sha256:c158b11fa934444ebb4593dac29e7baaf0a25a7ee0d381d58abe6151fcc4ac8c",
       "revision_inputs": [
         "experiments/safe_adapter",
         "tests/python/test_safe_adapter.py",
@@ -179,11 +179,11 @@
       "evidence_artifacts": [
         {
           "path": "experiments/safe_adapter",
-          "sha256": "4e2f8147cc472233cefc031ea6539f9ee5cd09197a5e9b17e90cb566ca546fc9"
+          "sha256": "577edd84ff34845ae5c66e6d3fe4fefb1065b35d0c7f350b2a6728fa4dc12e37"
         },
         {
           "path": "tests/python/test_safe_adapter.py",
-          "sha256": "224f1edf1e10f69d062d78f6587b7a8ae419a1b8e7fab316e537ceba6b010303"
+          "sha256": "0dd9ffa2aee31b2c0068fe692001523fe39153fc2883208a0d479a32bedf6f89"
         },
         {
           "path": "experiments/safe_adapter/README.md",
@@ -205,7 +205,7 @@
       "feature_id": "docs.capability_matrix",
       "feature": "Generated content-bound capability matrix",
       "status": "tested",
-      "exact_revision": "local-sha256:189e99b2136219b9ef7378192999d1e31104518d861481d2522d1e1c024d6882",
+      "exact_revision": "local-sha256:d311662349bac96d3e342e548d53654593a77b43495b7e1a915bd5b1ba7c588d",
       "revision_inputs": [
         "protocols/capability_catalog_v1.json",
         "scripts/generate_capability_matrix.py",
@@ -216,15 +216,15 @@
       "evidence_artifacts": [
         {
           "path": "protocols/capability_catalog_v1.json",
-          "sha256": "e3b4a598f06b8fcb0f9de8ffb6f9ac89a657b0cf28ffaede69ba7039b61d0dff"
+          "sha256": "bf53d62529b7a9bb34b32229525c9d574ff062c82b359d1e644ff6562f4d4e18"
         },
         {
           "path": "scripts/generate_capability_matrix.py",
-          "sha256": "f96c2fe31c97eb953cd01404774cdc9860032b78fee706cc2b9fc574cb52ddff"
+          "sha256": "e09a1b7dae2591e78b1bdf873a6830b0deb36c8f0824c2e4d43f3ff1e9c8458e"
         },
         {
           "path": "tests/python/test_capability_matrix.py",
-          "sha256": "ed9a47bb8ad4e57548f9e7350236503d6cc1a859c5386b13bd261a7b593b849c"
+          "sha256": "aa4617e4e0e324ffc4275d389e950f1cdbdf63ab571fd69a864160790485cdc8"
         }
       ],
       "known_limitations": "Content hashes prove the exact checked bytes, not that advertised proof commands passed outside CI, that command text exercises every declared input, or that a software row has scientific validity; those require review and execution.",
@@ -244,7 +244,7 @@
       "feature_id": "ecosystem.evidence_ledger",
       "feature": "Current E0-E5 ecosystem evidence overlay",
       "status": "tested",
-      "exact_revision": "local-sha256:c7db802a9082771a90d9207450440575a45c0fe3ac3dd027d8e3d6b87ff84f2a",
+      "exact_revision": "local-sha256:d72c8bde7c3131b1dd7bc6271bf5c41cfcce3fb2e5f9180fefd449db3e1a54f4",
       "revision_inputs": [
         "protocols/ecosystem_evidence_current_v1.json",
         "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -254,7 +254,7 @@
       "evidence_artifacts": [
         {
           "path": "protocols/ecosystem_evidence_current_v1.json",
-          "sha256": "dd660021f9f876aee37cdb89ff2b929aa47566f37c15e5c99cbf6ccf4e6dc68e"
+          "sha256": "e7da37147ad067a4f98fd26a604befbc7416e3d822b3e922deb0dfa9a4bae482"
         },
         {
           "path": "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -274,7 +274,7 @@
       "feature_id": "experiment.ec1_external_benchmark",
       "feature": "EC1 conventional-stack and standard-container benchmark",
       "status": "specified",
-      "exact_revision": "local-sha256:3d4b4428645bf29c52a2afe5dd31161062d7848cd197c8f12c31f8ec40775841",
+      "exact_revision": "local-sha256:c1763c8b31a26bd04c0c56a7f9b457f318d3602870ce99e3346305d7ec196abf",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -283,11 +283,11 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md#88-external-benchmark-for-the-infrastructure-claim",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
-          "sha256": "1be42a325a204df56d3d5840764698d02c079f96af223bbc40178b353ef35427"
+          "sha256": "1bb80a4a241852d98c5241260de0811cf7077bb7997c1012c835883d8c380841"
         }
       ],
       "known_limitations": "No blinded comparison against an ordinary script, MCAP/rosbag2, LeRobot/RLDS, and Rerun-only stack has been executed; EC1 is not complete.",
@@ -303,7 +303,7 @@
       "feature_id": "experiment.h1_common_preflight",
       "feature": "H1 pre-treatment lineage and diagnostic-noninterference preflight",
       "status": "tested",
-      "exact_revision": "local-sha256:6685df0c97f9d4308fb1e436e91ca3220bdc717595c55383fe91878e0d271a96",
+      "exact_revision": "local-sha256:287c0c15b07b01a8ae762c52e31714c94610736c8ae9c847bb6d45c8b90655be",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -319,11 +319,11 @@
         },
         {
           "path": "crates/pid-sim/fixtures/h1_preflight_valid.json",
-          "sha256": "42335bf8755137b20ff80fee959643d7b343eed0422044b3034abcd8ff95c91a"
+          "sha256": "25ac1001e83313a9c0847ef569911af81eb126dac379ff18b190de9de1beb056"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
-          "sha256": "1be42a325a204df56d3d5840764698d02c079f96af223bbc40178b353ef35427"
+          "sha256": "1bb80a4a241852d98c5241260de0811cf7077bb7997c1012c835883d8c380841"
         }
       ],
       "known_limitations": "The checked policy and instrumentation chain is representative synthetic software only; no real policy timing equivalence, causal freeze, or H1 evidence follows.",
@@ -339,7 +339,7 @@
       "feature_id": "experiment.h1_protocol_a_reference",
       "feature": "Deterministic H1 Protocol-A scoring reference",
       "status": "tested",
-      "exact_revision": "local-sha256:6685df0c97f9d4308fb1e436e91ca3220bdc717595c55383fe91878e0d271a96",
+      "exact_revision": "local-sha256:287c0c15b07b01a8ae762c52e31714c94610736c8ae9c847bb6d45c8b90655be",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -351,15 +351,15 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-sim/src/h1_protocol_a.rs",
-          "sha256": "f886686c3541812ec645331c7539c16369cc15441977c5a4684cca3cb8fad11e"
+          "sha256": "3f1a28c8e9401cc2cd844c8fd770731d70d56bcd64ef4a34fe7e0057b23571d1"
         },
         {
           "path": "crates/pid-sim/fixtures/h1_protocol_a_valid.json",
-          "sha256": "813ebe5c673a8b6fde8b0d195e0537c377f5fd72abaeaf3189314fead0518029"
+          "sha256": "255c94ba48a947acddf283b69de7d2fec7fb1d65530b102023c53f3d234a6027"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
-          "sha256": "1be42a325a204df56d3d5840764698d02c079f96af223bbc40178b353ef35427"
+          "sha256": "1bb80a4a241852d98c5241260de0811cf7077bb7997c1012c835883d8c380841"
         }
       ],
       "known_limitations": "This finite synthetic benchmark identifies only paired algorithmic response under its clone/coupling contract; it is not a physical individual effect, real intervention, or H1 result.",
@@ -375,7 +375,7 @@
       "feature_id": "experiment.h1_protocol_b",
       "feature": "Randomized closed-loop H1 Protocol B",
       "status": "specified",
-      "exact_revision": "local-sha256:3d4b4428645bf29c52a2afe5dd31161062d7848cd197c8f12c31f8ec40775841",
+      "exact_revision": "local-sha256:c1763c8b31a26bd04c0c56a7f9b457f318d3602870ce99e3346305d7ec196abf",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -384,11 +384,11 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
-          "sha256": "1be42a325a204df56d3d5840764698d02c079f96af223bbc40178b353ef35427"
+          "sha256": "1bb80a4a241852d98c5241260de0811cf7077bb7997c1012c835883d8c380841"
         }
       ],
       "known_limitations": "No real assignment generator, randomized episode capture, ITT/receipt execution, effect-specific learner, pilot, or held-out result exists.",
@@ -404,7 +404,7 @@
       "feature_id": "experiment.h2_real_prospective",
       "feature": "Real prospective H2 failure-prediction study",
       "status": "specified",
-      "exact_revision": "local-sha256:3d4b4428645bf29c52a2afe5dd31161062d7848cd197c8f12c31f8ec40775841",
+      "exact_revision": "local-sha256:c1763c8b31a26bd04c0c56a7f9b457f318d3602870ce99e3346305d7ec196abf",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -413,11 +413,11 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
-          "sha256": "1be42a325a204df56d3d5840764698d02c079f96af223bbc40178b353ef35427"
+          "sha256": "1bb80a4a241852d98c5241260de0811cf7077bb7997c1012c835883d8c380841"
         }
       ],
       "known_limitations": "The real event ontology, landmark, minimum useful effect, matched-access comparator frontier, prospective capture, training-only alarm selection, and external/temporal holdout remain unfrozen or unexecuted.",
@@ -433,7 +433,7 @@
       "feature_id": "experiment.h2_reference",
       "feature": "Deterministic H2 fixed-horizon/IPCW/alarm arithmetic reference",
       "status": "tested",
-      "exact_revision": "local-sha256:6685df0c97f9d4308fb1e436e91ca3220bdc717595c55383fe91878e0d271a96",
+      "exact_revision": "local-sha256:287c0c15b07b01a8ae762c52e31714c94610736c8ae9c847bb6d45c8b90655be",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -445,7 +445,7 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-sim/src/h2_reference.rs",
-          "sha256": "4f260c640a4ab46397270a6aa8f94634c44cd5939c443781d740d06e5aaeb705"
+          "sha256": "351aa712f2495425fa6d0f2e99e818d1d3cfb6e64b959a90b759fe17477d01a8"
         },
         {
           "path": "crates/pid-sim/fixtures/h2_reference",
@@ -453,7 +453,7 @@
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
-          "sha256": "1be42a325a204df56d3d5840764698d02c079f96af223bbc40178b353ef35427"
+          "sha256": "1bb80a4a241852d98c5241260de0811cf7077bb7997c1012c835883d8c380841"
         }
       ],
       "known_limitations": "Synthetic arithmetic does not establish prospective prediction, calibration validity, warning benefit, censoring assumptions, comparator superiority, safety gain, or deployment validity.",
@@ -467,9 +467,9 @@
     },
     {
       "feature_id": "experiment.h4_attribution_reference",
-      "feature": "Faithfulness-checked attribution/mechanistic-probe reference",
+      "feature": "Deletion ranking-sensitivity attribution reference (exploratory)",
       "status": "tested",
-      "exact_revision": "local-sha256:814f6ed611e6e96bfae33b00cfa0b37924ed2dfa0c3878ecd06385a72a248027",
+      "exact_revision": "local-sha256:84df8b1095ffade722248dda611733064b595cca8cb982ba77a381769d77bc90",
       "revision_inputs": [
         "experiments/attribution",
         "tests/python/test_attribution.py",
@@ -480,21 +480,21 @@
       "evidence_artifacts": [
         {
           "path": "experiments/attribution",
-          "sha256": "9318fc2eb8fc9a8753b4b76b28686a684a9b170459169dbeca820969352a59c0"
+          "sha256": "b60ec3fcfd70c60cca00a2b9c16491f7b5da974a408d31279c2958756b8c394a"
         },
         {
           "path": "experiments/attribution/README.md",
-          "sha256": "e280094713f0e7a8b29d2191a3f32d0af7691f6117a17c0812246850297d6806"
+          "sha256": "db033d8656e8bc24d1275672571c2a4ade5886ad3ae4ab103dcd08e3a45f5a8a"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
-          "sha256": "1be42a325a204df56d3d5840764698d02c079f96af223bbc40178b353ef35427"
+          "sha256": "1bb80a4a241852d98c5241260de0811cf7077bb7997c1012c835883d8c380841"
         }
       ],
-      "known_limitations": "The small reference model and deletion-AOPC control are logging/software groundwork; attribution agreement is not causal use, and no real VLA intervention study exists.",
+      "known_limitations": "The small reference model and group-disjoint deletion ranking-sensitivity diagnostic are logging/software groundwork; the recorded check is not causal or mechanistic faithfulness, natural policy use, or an H4 result, and no real VLA intervention study exists.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
-      "evidence_scope": "local reference-model probe and canonical attribution event fixture",
+      "evidence_scope": "local reference-model ranking-sensitivity probe and canonical attribution event fixture",
       "thesis_dependency": "conditional",
       "claim_ids": [
         "H4"
@@ -504,7 +504,7 @@
       "feature_id": "governance.m0_research_ledgers",
       "feature": "Machine-checkable M0 research-governance honesty scaffolds",
       "status": "tested",
-      "exact_revision": "local-sha256:5a0f6009b0dc33618f9bc05c13e393ae81eb145f7220bbcf50628a02f8fd490a",
+      "exact_revision": "local-sha256:05c910a6163fdb9317ed0e5c792c2c07ea331b2e790da985f302ccd2db9253b3",
       "revision_inputs": [
         "grandplan.md",
         "protocols/m0_preregistration_skeleton_v1.json",
@@ -541,11 +541,11 @@
         },
         {
           "path": "scripts/audit_research_governance.py",
-          "sha256": "fe752e995a60cc427da8b3ceaba4a0430d95b386e1799f97fd55e2bf586fdfe3"
+          "sha256": "5047959fb51c6e2241838c8b03ae77a30e7259dc0d03b5ee6dd7041e54240914"
         },
         {
           "path": "tests/python/test_research_governance.py",
-          "sha256": "1d4e9f5a248e0aae48e7ce7dd3bd69c3aa8cf9d3215e659fffa96a5f152157a7"
+          "sha256": "728d263c824f7e2185719425644f211304aa866e239068e3ad02554c3ab880bd"
         }
       ],
       "known_limitations": "Structural integrity validation only: the study is not frozen; no confirmatory holdout is registered; the local unsigned access chain cannot prove historical or off-repository non-access; transport, contamination, and rights assessments are incomplete; the legacy citation inventory is not a systematic review; and no scientific claim evidence follows. The v1 scaffold is intentionally non-promotable, so a real freeze needs a reviewed successor schema and validator with typed, content-bound receipts.",
@@ -564,7 +564,7 @@
       "feature_id": "integration.standard_format_adapters",
       "feature": "MCAP/rosbag2 and LeRobot/RLDS storage adapters",
       "status": "specified",
-      "exact_revision": "local-sha256:3d4b4428645bf29c52a2afe5dd31161062d7848cd197c8f12c31f8ec40775841",
+      "exact_revision": "local-sha256:c1763c8b31a26bd04c0c56a7f9b457f318d3602870ce99e3346305d7ec196abf",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -573,11 +573,11 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md#86-interoperability-not-reinvention",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         },
         {
           "path": "grandplan.md#88-external-benchmark-for-the-infrastructure-claim",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         }
       ],
       "known_limitations": "No MCAP/rosbag2 or LeRobot/RLDS import/export implementation and conformance fixture exists; local JSON/NPZ paths are not substitutes unless explicitly justified and benchmarked.",
@@ -593,7 +593,7 @@
       "feature_id": "integration.structurally_different_adapter",
       "feature": "Structurally different independent EC1 adapter",
       "status": "specified",
-      "exact_revision": "local-sha256:3d4b4428645bf29c52a2afe5dd31161062d7848cd197c8f12c31f8ec40775841",
+      "exact_revision": "local-sha256:c1763c8b31a26bd04c0c56a7f9b457f318d3602870ce99e3346305d7ec196abf",
       "revision_inputs": [
         "grandplan.md",
         "protocols/research_claim_registry_v1.json"
@@ -602,11 +602,11 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
-          "sha256": "1be42a325a204df56d3d5840764698d02c079f96af223bbc40178b353ef35427"
+          "sha256": "1bb80a4a241852d98c5241260de0811cf7077bb7997c1012c835883d8c380841"
         }
       ],
       "known_limitations": "SAFE and self-generated simulator fixtures do not supply the required second independent adapter or E4 replication; no candidate has passed promotion.",
@@ -622,7 +622,7 @@
       "feature_id": "observer.ncp_fault_observatory",
       "feature": "Deterministic NCP wire-0.8 protocol-fault observatory",
       "status": "tested",
-      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:72e39130da01390a4496f3fda0cd8eefc3efd54dc271d4e0e3795e955d05c3e0",
+      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:8210692cdf1b4bde0ef5d0ff9d3554de76b4d4dc33ca58ebc9c988341f9e018a",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs",
@@ -636,7 +636,7 @@
         },
         {
           "path": "crates/ncp-observer/README.md",
-          "sha256": "c570785fb0daacf63b047b153a1dc6a3661557540a64df06c508635ce234315e"
+          "sha256": "de6c26b7222736606544f623c700710fe14912ecc4eef7556e42a189ec9f3cfc"
         },
         {
           "path": "NCP_DEV_PROMPT.md",
@@ -656,7 +656,7 @@
       "feature_id": "observer.ncp_read_only",
       "feature": "Read-only NCP wire-0.8 observer",
       "status": "tested",
-      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:e71b19bddaa27b5a0fd45115a467ac2c18c4f944800b368d24f91b17f27cbb90",
+      "exact_revision": "NCP@v0.8.0#2f5bd586d4bb20c90362bb6f5698b7f64057ba4e; local-sha256:329960a0183fd3149b18df3751505d227a5a60779c58a4d43f7e850270f1e73a",
       "revision_inputs": [
         "crates/ncp-observer",
         "pid-rs"
@@ -665,15 +665,15 @@
       "evidence_artifacts": [
         {
           "path": "crates/ncp-observer/Cargo.lock",
-          "sha256": "57656c677115434165aad75eaa4acc8b47bec919e43a1ee9ee7a62c1ec898821"
+          "sha256": "6a220519d3e56e50b1d53cbae2d7334f3965aa37d836399b707763c4a0363a02"
         },
         {
           "path": "crates/ncp-observer/src/lib.rs",
-          "sha256": "60d72b83d787349abafc662151672af15da09788d285cde87532da3bbcee1b69"
+          "sha256": "ed5a505216a84fb8e53c177ddad287fe29ffe90073cba78ec51ac680b9669071"
         },
         {
           "path": "crates/ncp-observer/README.md",
-          "sha256": "c570785fb0daacf63b047b153a1dc6a3661557540a64df06c508635ce234315e"
+          "sha256": "de6c26b7222736606544f623c700710fe14912ecc4eef7556e42a189ec9f3cfc"
         }
       ],
       "known_limitations": "No conforming public live producer provides honest L, split, episode, and outcome structure; open/secure choice is declared but live security and noninterference are unvalidated.",
@@ -687,9 +687,9 @@
     },
     {
       "feature_id": "pid.estimator_core",
-      "feature": "Pinned pid-rs 1.0 estimator core",
+      "feature": "Pinned pid-rs 0.9.0 post-tag review-source estimator core",
       "status": "tested",
-      "exact_revision": "pid-rs@43ab60517b5387c61ae339f664d0d7afae3b8988; local-sha256:9460c2281f0420ebc5548fe813ab49ce2f43796f01745f353e7b17e14b6c67ea",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:81538db5b6db2411e97a0695053423c2b846da902f0551c6dcb6732a06cc23a3",
       "revision_inputs": [
         "pid-rs",
         ".gitmodules",
@@ -701,15 +701,15 @@
       "evidence_artifacts": [
         {
           "path": "pid-rs/crates/pid-core",
-          "sha256": "ec0b7c86126d57ac7a659447000025b73bcd2293d08d7e6f37139731772a8263"
+          "sha256": "40c8f914b17a3f85a7573d2b62520188a18e29521d7555ae4db6a9a9f7eb5b35"
         },
         {
           "path": "findings.md",
-          "sha256": "cf4dfe2ea6598aead6c91dbd056c2bcaee2c843e0d6107c5b9dd0902a2811260"
+          "sha256": "1557e04dc3f06251f39ed207ba520b79db3c377a82a5d0de5e98259a2cb63cc0"
         },
         {
           "path": "grandplan.md",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         }
       ],
       "known_limitations": "This is the canonical shared implementation, not independent corroboration; high-dimensional nuisance tests are NO-GO and current real-embedding shared-exclusions application validity is blocked.",
@@ -725,7 +725,7 @@
       "feature_id": "proposal.gauss_mi_covariate",
       "feature": "Reconstruction-quality covariate and active-view study",
       "status": "specified",
-      "exact_revision": "local-sha256:e0f677dbddbf707ad5ae70777b5a91f0648e1458cfe74e5c3305eb5a45dcdf91",
+      "exact_revision": "local-sha256:dc9a4539f4bb303e9cb4ae7b7e1d0a70ba3c7df036cdde245e06b8fc35c067cd",
       "revision_inputs": [
         "GAUSS_MI_INTEGRATION.md",
         "grandplan.md",
@@ -742,7 +742,7 @@
         },
         {
           "path": "grandplan.md",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         }
       ],
       "known_limitations": "No reconstruction-quality measurement contract, validated posterior/predictive observation law, active-view implementation, or empirical study exists; it is optional nuisance-analysis design only.",
@@ -760,7 +760,7 @@
       "feature_id": "proposal.gauss_mi_weighted_pid",
       "feature": "Rejected GauSS-MI-weighted KSG/MI/PID sketch (non-implementation record)",
       "status": "deferred",
-      "exact_revision": "local-sha256:e0f677dbddbf707ad5ae70777b5a91f0648e1458cfe74e5c3305eb5a45dcdf91",
+      "exact_revision": "local-sha256:dc9a4539f4bb303e9cb4ae7b7e1d0a70ba3c7df036cdde245e06b8fc35c067cd",
       "revision_inputs": [
         "GAUSS_MI_INTEGRATION.md",
         "grandplan.md",
@@ -777,7 +777,7 @@
         },
         {
           "path": "grandplan.md",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         }
       ],
       "known_limitations": "The retained expression is a rejected heuristic without a named population functional, derivation, support/positivity conditions, consistency result, calibrated interval, or oracle evidence; it must not be implemented as written.",
@@ -793,7 +793,7 @@
       "feature_id": "proposal.worldwarp_external",
       "feature": "WorldWarp external world-model comparator",
       "status": "specified",
-      "exact_revision": "local-sha256:185c79896ea44c3157c94306a9e73b51f1fadbca37adf411c0b6971c400a8364",
+      "exact_revision": "local-sha256:3c7827504525300a268b736e8ee6abf168c336458a427f15fea63a0b691c96b1",
       "revision_inputs": [
         "WORLD_WARP_INTEGRATION.md",
         "grandplan.md",
@@ -808,7 +808,7 @@
         },
         {
           "path": "grandplan.md",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         }
       ],
       "known_limitations": "No pinned consumer-owned adapter, executable fixture, rights-approved model/data bundle, matched-support study, or E4 result exists; generated scenes are not causal ground truth and this comparator is off the critical path.",
@@ -822,7 +822,7 @@
       "feature_id": "replay.canonical_runlog",
       "feature": "Canonical run-log validation, replay, manifest, and sidecars",
       "status": "tested",
-      "exact_revision": "pid-rs@43ab60517b5387c61ae339f664d0d7afae3b8988; local-sha256:7a43ada187ef501756ed7e5ab884a465520fbd310b6303cb9ee311a76cb9c147",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:a74e5817b9de460d66bf8aa2571a9e8c76377283566bd768b2980834931348e3",
       "revision_inputs": [
         "pid-rs",
         ".gitmodules",
@@ -835,7 +835,7 @@
       "evidence_artifacts": [
         {
           "path": "pid-rs/crates/pid-runlog",
-          "sha256": "0e18af33bb11f7eb9efcf32681c5753356f6419a9a8a28288b4a75bdabec6344"
+          "sha256": "b04e95db249198891532b2aba97008911634999e0503393ad9b9e736d0052eed"
         },
         {
           "path": "crates/pid-sim/src/bin/verify.rs",
@@ -843,7 +843,7 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "c6d9c0490a0e437b495828502eb6e3b188ce0dafdddd67a6b9e57e7032808a66"
+          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
         }
       ],
       "known_limitations": "Local exact-event replay and sidecar checks do not supply policy/controller/simulator/physical replay evidence or the external negative-case benchmark required by EC1.",
@@ -859,7 +859,7 @@
       "feature_id": "sim.rapier_backend",
       "feature": "Rapier3D-f64 manipulation backend",
       "status": "tested",
-      "exact_revision": "rapier3d-f64@0.22.0#sha256:7a7a0cd7daa6f2caa8168b97e047faa1e445ee984c24e0ca984e7fc657278dde; local-sha256:6988c6f19b4c86fa9fc9ad66f71613737cd4a432cef6fbd7c7a0a5a41c21e9d9",
+      "exact_revision": "rapier3d-f64@0.22.0#sha256:7a7a0cd7daa6f2caa8168b97e047faa1e445ee984c24e0ca984e7fc657278dde; local-sha256:c373ed9960625309f9c95e79ee6a788c7e68ee528525a181b1e2b248fe1ad80f",
       "revision_inputs": [
         "crates/pid-sim",
         "Cargo.toml",
@@ -870,15 +870,15 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-sim/src/physics.rs",
-          "sha256": "a1444993db55eb8483778cdaa248257e9b2402eeed5a163405004c4dd0d0df3b"
+          "sha256": "b290049ca626fb3420210448539835d590641e87cc023114b895b7d691b0b805"
         },
         {
           "path": "crates/pid-sim/src/manipulation.rs",
-          "sha256": "7931622ce60b798ba37ea405e93e1228301775c97be421816a3f339c18295a73"
+          "sha256": "c97a5fcf11fda6e80b8fd81466f973f36adfcb188eead828d6031160a9b972a1"
         },
         {
           "path": "README.md",
-          "sha256": "dcc7979f41c0cf3be640fc2cc9fb5ff910f677662c26287fa79d46a0cb9531e0"
+          "sha256": "ea066f1b72f564b43064018826ebfa59570845a9f1a105cd03f9251ce9aba505"
         }
       ],
       "known_limitations": "The scripted push-to-goal fixture is a deterministic software cross-check, not a real VLA policy/environment choice, external adapter, validated simulator, or physical repeatability study.",
@@ -894,7 +894,7 @@
       "feature_id": "ui.tauri_sparkjs_shell",
       "feature": "Tauri/SparkJS custom-rendering shell",
       "status": "deferred",
-      "exact_revision": "local-sha256:1463124c69a8948d66a0d26c0c69963251fcf6ba1f41d259857169d78d7f7065",
+      "exact_revision": "local-sha256:54d65f742c24b171af70499f337978c547db5986ad25b9bacfc31e3451b28771",
       "revision_inputs": [
         "grandplan.md",
         "ARCHITECTURE.md"
@@ -903,11 +903,11 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "c6d9c0490a0e437b495828502eb6e3b188ce0dafdddd67a6b9e57e7032808a66"
+          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
         }
       ],
       "known_limitations": "No runnable shell or custom renderer exists; it is a Phase-4 product surface and explicitly not a thesis dependency.",
@@ -921,7 +921,7 @@
       "feature_id": "viewer.rerun_adapter",
       "feature": "Run-log-to-Rerun validating adapter",
       "status": "tested",
-      "exact_revision": "re_log_encoding@0.34.1#sha256:8a5df35e1e32e783014827a362bf68fb97f9b122240ad731511207fb8fceec48; re_sdk@0.34.1#sha256:3e426edaa5b4aae7338893282b53e671afc02770601d054f4754bc42ec43ff29; re_sdk_types@0.34.1#sha256:dcbecb95e90d133d4721715412f24b333895f56373fe0ebce99ecdf0aa0b9bc2; local-sha256:0323187a6b3d3830ef22d6573da028d049dd13595f046f6198897b92da8a2cb9",
+      "exact_revision": "re_log_encoding@0.34.1#sha256:8a5df35e1e32e783014827a362bf68fb97f9b122240ad731511207fb8fceec48; re_sdk@0.34.1#sha256:3e426edaa5b4aae7338893282b53e671afc02770601d054f4754bc42ec43ff29; re_sdk_types@0.34.1#sha256:dcbecb95e90d133d4721715412f24b333895f56373fe0ebce99ecdf0aa0b9bc2; local-sha256:95fc9713d633b110158f77863ef8e1858692b50f88d80eb5fa9d20112cd2320b",
       "revision_inputs": [
         "crates/pid-rerun",
         "crates/pid-sim",
@@ -934,15 +934,15 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-rerun",
-          "sha256": "96fda24afb9769b96d2b81e17ab032f80360d327c9015f773a2f03ed6dc5ab9a"
+          "sha256": "be1d4172607775c529712a46ccade5a5be363f8a27b0e3f64952a503b640c027"
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "c6d9c0490a0e437b495828502eb6e3b188ce0dafdddd67a6b9e57e7032808a66"
+          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
         },
         {
           "path": "pidsplatspecs.md",
-          "sha256": "29266b59abbbba8e06dad8d858056803485ef90be7282b7fc1dda66c8b0dc589"
+          "sha256": "933e808dd9b17c46a45c62196dc31449ac9db7a41dc5f18dbe6cc452f5f7dc4a"
         }
       ],
       "known_limitations": "The converter surfaces current summary/provenance/validation and attribution tracks, but the complete Phases 1-3 diagnostic blueprint and viewer are not built.",
@@ -958,7 +958,7 @@
       "feature_id": "viewer.rerun_full_blueprint",
       "feature": "Complete Rerun Phases 1-3 diagnostic viewer",
       "status": "specified",
-      "exact_revision": "local-sha256:0869bee4759ad33ec13e37909cb0740d40de16e9ceff50b3ac7cb3edfd48650b",
+      "exact_revision": "local-sha256:d49b30d1f04224cab0289089184618d87f8400aa0e567bd2e67388d794fb8679",
       "revision_inputs": [
         "grandplan.md",
         "DIAGRAMS.md",
@@ -969,15 +969,15 @@
       "evidence_artifacts": [
         {
           "path": "grandplan.md",
-          "sha256": "d032b1e9611d93c3e702caed1e03f6e5f54858b7d3816563bc0db24f9cdfd62a"
+          "sha256": "8e3a26c4e40b9e38d9e94d2b2f6c2b9fa7dbf926d6d4938bf3b0250ab70e4ff5"
         },
         {
           "path": "DIAGRAMS.md",
-          "sha256": "fe60d543c7b33ae35689a38f4485bea05941cc278e1ac26c578bdb51c5dcb593"
+          "sha256": "eec069d8a0ea876670a11343486623db08a3577f28d02a8c3c6d9f70a0ea93fe"
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "c6d9c0490a0e437b495828502eb6e3b188ce0dafdddd67a6b9e57e7032808a66"
+          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
         }
       ],
       "known_limitations": "Only conversion groundwork is runnable; the complete time-machine panels, heatmaps, interaction blueprint, and viewer acceptance tests remain unimplemented.",

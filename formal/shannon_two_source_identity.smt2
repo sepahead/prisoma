@@ -15,12 +15,25 @@
 (define-fun v_bar () Real (/ (+ (- joint i2) (- joint i1)) joint))
 
 ; Non-vacuity: ordinary positive-MI inputs satisfy the premises.
-(push)
+(push 1)
 (assert (= i1 (/ 1.0 4.0)))
 (assert (= i2 (/ 1.0 2.0)))
 (assert (= joint (/ 3.0 4.0)))
 (check-sat)
-(pop)
+(pop 1)
 
+(push 1)
 (assert (not (= (+ r_bar v_bar) 2.0)))
 (check-sat)
+(pop 1)
+
+; The same information-domain assumptions bound both normalized degrees.
+(push 1)
+(assert (or (< r_bar 0.0) (> r_bar 2.0)))
+(check-sat)
+(pop 1)
+
+(push 1)
+(assert (or (< v_bar 0.0) (> v_bar 2.0)))
+(check-sat)
+(pop 1)

@@ -16,9 +16,11 @@ The gate is dataset-level and fail closed:
 * the baseline name, provenance, grouping provenance, split names, and frozen gate
   identifier are mandatory;
 * each case is compared with a deterministic Monte Carlo random-ranking reference;
-* a group is a win only when its method AOPC exceeds the random-reference mean and
+* a group is a win only when its mean absolute deletion sensitivity exceeds the
+  random-reference mean and
   its plus-one randomization-tail probability is below one half;
-* the final p-value is the exact one-sided sign-test tail across independent groups.
+* the final p-value is a conservative one-sided binomial tail for the predeclared
+  compound win rule across independent groups.
 
 There is no effect-size ``margin`` or post-hoc standard-error multiplier.  ``alpha``
 and the minimum group count belong to the caller's frozen gate.  Configuration
@@ -34,10 +36,11 @@ schema calls its boolean field ``faithfulness_check``.  New code should use
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import unicodedata
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 import numpy as np
@@ -83,6 +86,7 @@ class RankingSensitivityGate:
     validation_split: str
     selection_split: str
     grouping_provenance: str
+    predictor_determinism_provenance: str
     selection_group_ids: tuple[str, ...]
     selection_unit_ids: tuple[str, ...]
     alpha: float
@@ -100,23 +104,23 @@ class FaithfulnessResult:
     status: GateStatus
     reason: str
     passed: bool
-    method_aopc: float | None
-    random_aopc: float | None
-    random_std: float | None
-    p_value: float | None
+    method_sensitivity: float | None
+    random_sensitivity: float | None
+    random_sensitivity_std: float | None
+    group_win_binomial_p_value: float | None
     alpha: float
     n_steps: int
     n_cases: int
     n_groups: int
-    positive_groups: int
+    winning_groups: int
     n_random_rankings: int
     random_reference_se_bound: float
     group_contrasts: tuple[float, ...]
     group_randomization_p_values: tuple[float, ...]
     # Both curves are |f(x) - f(x_ablated)| series.  They are descriptive means
     # across validation groups, not causal response curves or uncertainty bands.
-    deletion_curve: list[float]
-    random_curve: list[float]
+    sensitivity_curve: list[float]
+    random_sensitivity_curve: list[float]
     baseline_name: str
     baseline_provenance: str
     frozen_gate_id: str
@@ -165,7 +169,11 @@ def _validate_gate(gate: RankingSensitivityGate) -> None:
         "selection_split",
     ):
         _canonical_identifier(getattr(gate, field), field)
-    for field in ("baseline_provenance", "grouping_provenance"):
+    for field in (
+        "baseline_provenance",
+        "grouping_provenance",
+        "predictor_determinism_provenance",
+    ):
         _canonical_identifier(
             getattr(gate, field), field, max_bytes=MAX_PROVENANCE_BYTES
         )
@@ -184,10 +192,14 @@ def _validate_gate(gate: RankingSensitivityGate) -> None:
         minimum=2,
         maximum=MAX_VALIDATION_CASES,
     )
-    required_groups = math.ceil(math.log2(1.0 / alpha))
+    required_groups = math.ceil(-math.log2(alpha))
+    if required_groups > MAX_VALIDATION_CASES:
+        raise ValueError(
+            "alpha cannot be attained within the independent-group resource limit"
+        )
     if min_groups < required_groups:
         raise ValueError(
-            "min_groups cannot attain alpha under the exact sign test; "
+            "min_groups cannot attain alpha under the group-win binomial rule; "
             f"need at least {required_groups}"
         )
 
@@ -205,7 +217,12 @@ def _validate_gate(gate: RankingSensitivityGate) -> None:
     # resolution criterion explicit and scale-aware rather than another magic N.
     se_bound = 0.5 / math.sqrt(n_random)
     if se_bound > alpha:
-        required_random = math.ceil(0.25 / (alpha * alpha))
+        if alpha < 0.5 / math.sqrt(MAX_RANDOM_RANKINGS):
+            raise ValueError(
+                "random-ranking reference would require more than the supported "
+                f"{MAX_RANDOM_RANKINGS} rankings"
+            )
+        required_random = math.ceil((0.5 / alpha) ** 2)
         raise ValueError(
             "random-ranking reference is under-resolved for alpha; "
             f"need at least {required_random} rankings"
@@ -216,6 +233,8 @@ def _validate_gate(gate: RankingSensitivityGate) -> None:
         values = getattr(gate, field)
         if type(values) is not tuple:
             raise ValueError(f"{field} must be a tuple")
+        if not values:
+            raise ValueError(f"{field} must be nonempty")
         if len(values) > MAX_SELECTION_IDENTIFIERS:
             raise ValueError(
                 f"{field} must contain at most {MAX_SELECTION_IDENTIFIERS} values"
@@ -223,6 +242,60 @@ def _validate_gate(gate: RankingSensitivityGate) -> None:
         normalized = [_canonical_identifier(value, field) for value in values]
         if len(set(normalized)) != len(normalized):
             raise ValueError(f"{field} must not contain duplicates")
+
+    expected_gate_id = f"sha256:{ranking_gate_content_sha256(gate)}"
+    if gate.frozen_gate_id != expected_gate_id:
+        raise ValueError(
+            "frozen_gate_id must be the content-derived ranking gate identifier "
+            f"{expected_gate_id}"
+        )
+
+
+def ranking_gate_manifest(gate: RankingSensitivityGate) -> dict[str, object]:
+    """Return the canonical gate content, excluding its derived identifier."""
+
+    return {
+        "schema": "prisoma-ranking-sensitivity-gate-v2",
+        "baseline_name": gate.baseline_name,
+        "baseline_provenance": gate.baseline_provenance,
+        "validation_split": gate.validation_split,
+        "selection_split": gate.selection_split,
+        "grouping_provenance": gate.grouping_provenance,
+        "predictor_determinism_provenance": gate.predictor_determinism_provenance,
+        "selection_group_ids": list(gate.selection_group_ids),
+        "selection_unit_ids": list(gate.selection_unit_ids),
+        "alpha_f64": format(float(gate.alpha), ".17g"),
+        "min_groups": int(gate.min_groups),
+        "n_steps": int(gate.n_steps),
+        "n_random_rankings": int(gate.n_random_rankings),
+        "seed": int(gate.seed),
+        "ranking_transform": "descending_absolute_magnitude",
+        "tie_policy": "abstain_on_any_exact_magnitude_tie",
+        "group_win_rule": (
+            "method_mean_absolute_deletion_sensitivity_gt_random_mean_and_"
+            "plus_one_randomization_tail_lt_half"
+        ),
+        "group_aggregation": "one_sided_binomial_tail_p0_half",
+    }
+
+
+def ranking_gate_content_sha256(gate: RankingSensitivityGate) -> str:
+    payload = json.dumps(
+        ranking_gate_manifest(gate),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def bind_ranking_gate(gate: RankingSensitivityGate) -> RankingSensitivityGate:
+    """Return ``gate`` with its content-derived frozen identifier installed."""
+
+    if not isinstance(gate, RankingSensitivityGate):
+        raise ValueError("gate must be a RankingSensitivityGate")
+    return replace(gate, frozen_gate_id=f"sha256:{ranking_gate_content_sha256(gate)}")
 
 
 def _predict_scalar(predict: PredictFn, x: np.ndarray, context: str) -> float:
@@ -283,7 +356,7 @@ def _stream_seed(seed: int, case_id: str, stream: str) -> int:
     return int.from_bytes(hashlib.sha256(payload).digest()[:8], "little")
 
 
-def _exact_sign_tail(wins: int, groups: int) -> float:
+def _binomial_win_tail(wins: int, groups: int) -> float:
     numerator = sum(math.comb(groups, count) for count in range(wins, groups + 1))
     return float(numerator / (2**groups))
 
@@ -301,21 +374,21 @@ def _result_without_estimate(
         status=status,
         reason=reason,
         passed=False,
-        method_aopc=None,
-        random_aopc=None,
-        random_std=None,
-        p_value=None,
+        method_sensitivity=None,
+        random_sensitivity=None,
+        random_sensitivity_std=None,
+        group_win_binomial_p_value=None,
         alpha=float(gate.alpha),
         n_steps=int(gate.n_steps),
         n_cases=n_cases,
         n_groups=n_groups,
-        positive_groups=0,
+        winning_groups=0,
         n_random_rankings=int(gate.n_random_rankings),
         random_reference_se_bound=0.5 / math.sqrt(gate.n_random_rankings),
         group_contrasts=(),
         group_randomization_p_values=(),
-        deletion_curve=[],
-        random_curve=[],
+        sensitivity_curve=[],
+        random_sensitivity_curve=[],
         baseline_name=gate.baseline_name,
         baseline_provenance=gate.baseline_provenance,
         frozen_gate_id=gate.frozen_gate_id,
@@ -502,27 +575,18 @@ def ranking_sensitivity_check(
             n_groups=len(group_ids),
         )
 
-    method_order_counts = [
-        gate.n_random_rankings
-        if np.unique(np.abs(attribution).reshape(-1)).size < attribution.size
-        else 1
-        for _, _, attribution, _ in prepared
-    ]
-    evaluations = len(cases) + sum(
-        (method_orders + gate.n_random_rankings) * gate.n_steps
-        for method_orders in method_order_counts
-    )
+    evaluations = len(cases) * (3 + (1 + gate.n_random_rankings) * gate.n_steps)
     if evaluations > MAX_ABLATION_EVALUATIONS:
         raise ValueError(
             "frozen deletion design exceeds the ablation-evaluation resource budget"
         )
 
     for case, x, attribution, baseline in prepared:
-        if np.unique(np.abs(attribution).reshape(-1)).size < 2:
+        if np.unique(np.abs(attribution).reshape(-1)).size < attribution.size:
             return _result_without_estimate(
                 gate,
-                status="failed",
-                reason=f"no_ranking_resolution:{case.case_id}",
+                status="abstained",
+                reason=f"ranking_ties_unresolved:{case.case_id}",
                 n_cases=len(cases),
                 n_groups=len(group_ids),
             )
@@ -535,47 +599,41 @@ def ranking_sensitivity_check(
                 n_groups=len(group_ids),
             )
 
-    method_aopcs: list[float] = []
-    random_aopcs_by_case: list[np.ndarray] = []
+    method_sensitivities: list[float] = []
+    random_sensitivities_by_case: list[np.ndarray] = []
     method_curves: list[np.ndarray] = []
     random_curves: list[np.ndarray] = []
 
-    for (case, x, attribution, baseline), n_method_orders in zip(
-        prepared, method_order_counts, strict=True
-    ):
+    for case, x, attribution, baseline in prepared:
         f0 = _predict_scalar(predict, x, f"case {case.case_id!r} original input")
-        magnitudes = np.abs(attribution).reshape(-1)
-        tie_count = magnitudes.size - np.unique(magnitudes).size
-
-        method_rng = np.random.default_rng(
-            _stream_seed(gate.seed, case.case_id, "method-ties")
+        f0_repeat = _predict_scalar(
+            predict, x, f"case {case.case_id!r} determinism repeat"
         )
-        if bool(tie_count) != (n_method_orders != 1):
-            raise RuntimeError("internal tie-order planning mismatch")
-        method_curve_mean = np.zeros(gate.n_steps, dtype=np.float64)
-        method_aopc_mean = 0.0
-        for draw in range(n_method_orders):
-            tie_break = method_rng.random(magnitudes.size)
-            order = np.lexsort((tie_break, -magnitudes))
-            curve = _deletion_drop_curve(
-                predict,
-                x,
-                order,
-                baseline,
-                gate.n_steps,
-                f0,
-                f"case {case.case_id!r} method deletion {draw}",
+        if f0_repeat != f0:
+            return _result_without_estimate(
+                gate,
+                status="abstained",
+                reason=f"predictor_not_deterministic:{case.case_id}",
+                n_cases=len(cases),
+                n_groups=len(group_ids),
             )
-            method_curve_mean += (curve - method_curve_mean) / (draw + 1)
-            curve_aopc = _stable_nonnegative_mean(curve)
-            method_aopc_mean += (curve_aopc - method_aopc_mean) / (draw + 1)
-        method_curve = method_curve_mean
-        method_aopc = method_aopc_mean
+        magnitudes = np.abs(attribution).reshape(-1)
+        order = np.argsort(-magnitudes, kind="stable")
+        method_curve = _deletion_drop_curve(
+            predict,
+            x,
+            order,
+            baseline,
+            gate.n_steps,
+            f0,
+            f"case {case.case_id!r} method deletion",
+        )
+        method_sensitivity = _stable_nonnegative_mean(method_curve)
 
         random_rng = np.random.default_rng(
             _stream_seed(gate.seed, case.case_id, "random-reference")
         )
-        case_random_aopcs = np.empty(gate.n_random_rankings, dtype=np.float64)
+        case_random_sensitivities = np.empty(gate.n_random_rankings, dtype=np.float64)
         random_curve_mean = np.zeros(gate.n_steps, dtype=np.float64)
         for draw in range(gate.n_random_rankings):
             order = random_rng.permutation(x.size)
@@ -588,16 +646,28 @@ def ranking_sensitivity_check(
                 f0,
                 f"case {case.case_id!r} random deletion {draw}",
             )
-            case_random_aopcs[draw] = _stable_nonnegative_mean(curve)
+            case_random_sensitivities[draw] = _stable_nonnegative_mean(curve)
             random_curve_mean += (curve - random_curve_mean) / (draw + 1)
 
-        method_aopcs.append(method_aopc)
-        random_aopcs_by_case.append(case_random_aopcs)
+        f0_final = _predict_scalar(
+            predict, x, f"case {case.case_id!r} final determinism check"
+        )
+        if f0_final != f0:
+            return _result_without_estimate(
+                gate,
+                status="abstained",
+                reason=f"predictor_not_deterministic:{case.case_id}",
+                n_cases=len(cases),
+                n_groups=len(group_ids),
+            )
+
+        method_sensitivities.append(method_sensitivity)
+        random_sensitivities_by_case.append(case_random_sensitivities)
         method_curves.append(method_curve)
         random_curves.append(random_curve_mean)
 
-    method_array = np.asarray(method_aopcs, dtype=np.float64)
-    random_matrix = np.stack(random_aopcs_by_case)
+    method_array = np.asarray(method_sensitivities, dtype=np.float64)
+    random_matrix = np.stack(random_sensitivities_by_case)
     random_means = np.asarray(
         [_stable_nonnegative_mean(row) for row in random_matrix], dtype=np.float64
     )
@@ -611,7 +681,7 @@ def ranking_sensitivity_check(
         dtype=np.float64,
     )
     wins = int(np.count_nonzero((contrasts > 0.0) & (group_tail_p < 0.5)))
-    p_value = _exact_sign_tail(wins, len(cases))
+    p_value = _binomial_win_tail(wins, len(cases))
     passed = bool(p_value <= gate.alpha)
     status: GateStatus = "passed" if passed else "failed"
     reason = (
@@ -626,23 +696,25 @@ def ranking_sensitivity_check(
         status=status,
         reason=reason,
         passed=passed,
-        method_aopc=_stable_nonnegative_mean(method_array),
-        random_aopc=_stable_nonnegative_mean(all_random),
-        random_std=_stable_sample_std(all_random),
-        p_value=p_value,
+        method_sensitivity=_stable_nonnegative_mean(method_array),
+        random_sensitivity=_stable_nonnegative_mean(all_random),
+        random_sensitivity_std=_stable_sample_std(all_random),
+        group_win_binomial_p_value=p_value,
         alpha=float(gate.alpha),
         n_steps=int(gate.n_steps),
         n_cases=len(cases),
         n_groups=len(group_ids),
-        positive_groups=wins,
+        winning_groups=wins,
         n_random_rankings=int(gate.n_random_rankings),
         random_reference_se_bound=0.5 / math.sqrt(gate.n_random_rankings),
         group_contrasts=tuple(float(value) for value in contrasts),
         group_randomization_p_values=tuple(float(value) for value in group_tail_p),
-        deletion_curve=_stable_nonnegative_column_mean(
+        sensitivity_curve=_stable_nonnegative_column_mean(
             np.stack(method_curves)
         ).tolist(),
-        random_curve=_stable_nonnegative_column_mean(np.stack(random_curves)).tolist(),
+        random_sensitivity_curve=_stable_nonnegative_column_mean(
+            np.stack(random_curves)
+        ).tolist(),
         baseline_name=gate.baseline_name,
         baseline_provenance=gate.baseline_provenance,
         frozen_gate_id=gate.frozen_gate_id,

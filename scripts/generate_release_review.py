@@ -15,6 +15,7 @@ import json
 import os
 import re
 import selectors
+import signal
 import stat
 import subprocess
 import sys
@@ -302,6 +303,7 @@ def _run_git(
         _fail("GIT_TIMEOUT", "Git command has no remaining execution budget")
     command = ["git", "-C", os.fspath(repo), *args]
     input_stream = None
+    process: subprocess.Popen[bytes] | None = None
     try:
         if input_bytes is not None:
             input_stream = tempfile.TemporaryFile()
@@ -312,20 +314,26 @@ def _run_git(
             stdin=input_stream if input_stream is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=os.name == "posix",
         )
     except OSError as exc:
         if input_stream is not None:
             input_stream.close()
         _fail("GIT_UNAVAILABLE", f"cannot execute git: {exc}")
-    assert process.stdout is not None and process.stderr is not None
-    selector = selectors.DefaultSelector()
+    stdout_stream = process.stdout
+    stderr_stream = process.stderr
+    selector: selectors.BaseSelector | None = None
     stdout = bytearray()
     stderr = bytearray()
     overflow: str | None = None
     timed_out = False
+    returncode: int | None = None
     deadline = time.monotonic() + timeout_seconds
     try:
-        for stream, label in ((process.stdout, "stdout"), (process.stderr, "stderr")):
+        if stdout_stream is None or stderr_stream is None:
+            _fail("GIT_UNAVAILABLE", "git subprocess pipes were not created")
+        selector = selectors.DefaultSelector()
+        for stream, label in ((stdout_stream, "stdout"), (stderr_stream, "stderr")):
             os.set_blocking(stream.fileno(), False)
             selector.register(stream, selectors.EVENT_READ, label)
         while selector.get_map():
@@ -350,20 +358,26 @@ def _run_git(
                     break
             if overflow is not None:
                 break
-        if timed_out or overflow is not None:
-            process.kill()
+        if os.name == "posix" or timed_out or overflow is not None:
+            _terminate_process_group(process)
         remaining = max(0.0, deadline - time.monotonic())
         try:
             returncode = process.wait(timeout=max(1.0, remaining))
         except subprocess.TimeoutExpired:
             timed_out = True
-            process.kill()
+            _terminate_process_group(process)
             process.wait(timeout=5.0)
             returncode = process.returncode
     finally:
-        selector.close()
-        for stream in (process.stdout, process.stderr):
-            if not stream.closed:
+        _terminate_process_group(process)
+        try:
+            process.wait(timeout=5.0)
+        except subprocess.TimeoutExpired:
+            pass
+        if selector is not None:
+            selector.close()
+        for stream in (stdout_stream, stderr_stream):
+            if stream is not None and not stream.closed:
                 stream.close()
         if input_stream is not None:
             input_stream.close()
@@ -380,6 +394,24 @@ def _run_git(
         detail = bytes(stderr).decode("utf-8", errors="replace").strip()
         _fail("GIT_COMMAND_FAILED", f"git {' '.join(args)} failed: {detail}")
     return bytes(stdout)
+
+
+def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+    if process.returncode is not None:
+        return
+    if os.name == "posix":
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            if sys.platform != "darwin":
+                raise
+    else:
+        try:
+            process.kill()
+        except OSError:
+            pass
 
 
 def resolve_repo(repo: Path) -> Path:

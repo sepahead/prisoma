@@ -1,5 +1,6 @@
 # Pre-commit hooks for prisoma. Lightweight: secret scanning only.
-# Install once with `pip install pre-commit && pre-commit install`.
+# With the repository-required uv 0.11.28, install once with
+# `uv tool install pre-commit==4.6.0 && pre-commit install`.
 #
 # This hook blocks commits that would INTRODUCE secrets (API keys, tokens, private
 # keys). It does NOT rotate secrets that are already committed or sitting in an
@@ -8,9 +9,12 @@
 # The `pid-rs/` git submodule and the vendored `.external/repos/*` trees are excluded:
 # they are owned/scanned upstream and pre-commit only sees staged files in this repo
 # anyway, but the explicit exclude keeps the scan fast and scoped to prisoma's own code.
+# `.gitleaks.toml` extends the built-in rules and narrowly exempts only the public
+# RFC 6455 example nonce and one exact typed-governance constant identifier.
 repos:
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.21.2
+    # Immutable commit for the verified v8.30.1 release.
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e
     hooks:
       - id: gitleaks
         exclude: "^(pid-rs/|\\.external/)"

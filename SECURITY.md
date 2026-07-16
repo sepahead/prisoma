@@ -2,11 +2,12 @@
 
 ## Supported source line
 
-While 0.9.0 remains an unpublished release candidate, security fixes are applied
-to `main`; no published Prisoma release is currently supported. If a 0.9.x source
-release is later published, only its latest patch release and `main` will be
-supported. Older development snapshots are unsupported. Prisoma is research
-software, not a certified safety, security, medical, or production-control system.
+Prisoma 0.9.0 is a public GitHub source prerelease and research-software preview,
+not a stable or production-supported release line. Security fixes are applied to
+`main`; a later 0.9.x preview supersedes earlier previews. Older development
+snapshots are unsupported, and no security-support or response-time SLA is
+offered. Prisoma is research software, not a certified safety, security, medical,
+or production-control system.
 
 ## Reporting a vulnerability
 
@@ -51,10 +52,11 @@ permission to assess. There is no bug-bounty programme.
   the optional lock, so Prisoma makes no vulnerability-free or live-NCP security
   claim and must replace the pin before that profile can be release-qualified. The
   same graph also retains the unmaintained (not known vulnerable)
-  `rustls-pemfile` 2.2.0 because no compatible replacement exists. The default
-  workspace and observer graphs also retain the unmaintained `paste` 1.0.15
-  proc-macro through nalgebra/Zenoh. `deny.toml` records these temporary
-  exceptions with their actual dependency scopes.
+  `rustls-pemfile` 2.2.0 because no compatible replacement exists. The root
+  all-features lock/CI graph retains the unmaintained `paste` 1.0.15 proc-macro
+  through optional Rapier's nalgebra tree, and the observer graph retains it
+  through Zenoh; the default-feature root build does not compile it. `deny.toml`
+  records these temporary exceptions with their actual dependency scopes.
 - Run-log hashes and local ledgers provide integrity and reproducibility
   evidence within their stated threat model. They are not signatures, remote
   attestation, trusted timestamps, or proof of historical non-access.

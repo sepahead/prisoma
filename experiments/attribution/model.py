@@ -14,6 +14,7 @@ conserved, which the tests assert. Weights are deterministic given a seed.
 
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
 
@@ -172,6 +173,24 @@ class SmallTransformer:
                 raise ValueError(
                     f"model parameter {name} must contain only finite values"
                 )
+
+    def parameter_sha256(self) -> str:
+        """Hash dimensions, names, shapes, and exact little-endian parameter bytes."""
+
+        self.validate_parameters()
+        digest = hashlib.sha256(b"prisoma-small-transformer-parameters-v1\0")
+        digest.update(self.d_in.to_bytes(8, "little"))
+        digest.update(self.d_model.to_bytes(8, "little"))
+        for name in ("w_embed", "w_q", "w_k", "w_v", "w_o", "w_head"):
+            value = np.ascontiguousarray(getattr(self, name), dtype="<f8")
+            encoded_name = name.encode("ascii")
+            digest.update(len(encoded_name).to_bytes(8, "little"))
+            digest.update(encoded_name)
+            digest.update(len(value.shape).to_bytes(8, "little"))
+            for dimension in value.shape:
+                digest.update(int(dimension).to_bytes(8, "little"))
+            digest.update(value.tobytes(order="C"))
+        return digest.hexdigest()
 
     def forward(self, x: np.ndarray) -> float:
         return self.forward_cache(x).target

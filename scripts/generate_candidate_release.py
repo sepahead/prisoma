@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a content-bound, deliberately unpublished Prisoma 0.9 candidate.
+"""Generate a content-bound, deliberately non-promotable Prisoma 0.9 decision record.
 
 The immutable handoff requirements remain untouched. This program derives a live execution
 ledger whose dispositions default to open, merges explicit candidate progress, and binds the
@@ -16,6 +16,7 @@ import json
 import os
 import re
 import selectors
+import signal
 import stat
 import subprocess
 import sys
@@ -223,6 +224,7 @@ def _run_git(
         fail("GIT_TIMEOUT", "Git command has no remaining execution budget")
     command = ["git", "-C", os.fspath(repo), *args]
     input_stream = None
+    process: subprocess.Popen[bytes] | None = None
     try:
         if input_bytes is not None:
             input_stream = tempfile.TemporaryFile()
@@ -233,20 +235,26 @@ def _run_git(
             stdin=input_stream if input_stream is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=os.name == "posix",
         )
     except OSError as exc:
         if input_stream is not None:
             input_stream.close()
         fail("GIT_UNAVAILABLE", f"cannot execute git: {exc}")
-    assert process.stdout is not None and process.stderr is not None
-    selector = selectors.DefaultSelector()
+    stdout_stream = process.stdout
+    stderr_stream = process.stderr
+    selector: selectors.BaseSelector | None = None
     stdout = bytearray()
     stderr = bytearray()
     overflow: str | None = None
     timed_out = False
+    returncode: int | None = None
     deadline = time.monotonic() + timeout_seconds
     try:
-        for stream, label in ((process.stdout, "stdout"), (process.stderr, "stderr")):
+        if stdout_stream is None or stderr_stream is None:
+            fail("GIT_UNAVAILABLE", "git subprocess pipes were not created")
+        selector = selectors.DefaultSelector()
+        for stream, label in ((stdout_stream, "stdout"), (stderr_stream, "stderr")):
             os.set_blocking(stream.fileno(), False)
             selector.register(stream, selectors.EVENT_READ, label)
         while selector.get_map():
@@ -271,20 +279,26 @@ def _run_git(
                     break
             if overflow is not None:
                 break
-        if timed_out or overflow is not None:
-            process.kill()
+        if os.name == "posix" or timed_out or overflow is not None:
+            _terminate_process_group(process)
         remaining = max(0.0, deadline - time.monotonic())
         try:
             returncode = process.wait(timeout=max(1.0, remaining))
         except subprocess.TimeoutExpired:
             timed_out = True
-            process.kill()
+            _terminate_process_group(process)
             process.wait(timeout=5.0)
             returncode = process.returncode
     finally:
-        selector.close()
-        for stream in (process.stdout, process.stderr):
-            if not stream.closed:
+        _terminate_process_group(process)
+        try:
+            process.wait(timeout=5.0)
+        except subprocess.TimeoutExpired:
+            pass
+        if selector is not None:
+            selector.close()
+        for stream in (stdout_stream, stderr_stream):
+            if stream is not None and not stream.closed:
                 stream.close()
         if input_stream is not None:
             input_stream.close()
@@ -301,6 +315,24 @@ def _run_git(
         detail = bytes(stderr).decode("utf-8", errors="replace").strip()
         fail("GIT_COMMAND", f"git {' '.join(args)} failed: {detail}")
     return bytes(stdout)
+
+
+def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+    if process.returncode is not None:
+        return
+    if os.name == "posix":
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            if sys.platform != "darwin":
+                raise
+    else:
+        try:
+            process.kill()
+        except OSError:
+            pass
 
 
 def resolve_repo(repo: Path) -> Path:
@@ -347,6 +379,13 @@ def _require_text(value: Any, *, context: str, nullable: bool = False) -> str | 
     return value
 
 
+def _require_nonnull_text(value: Any, *, context: str) -> str:
+    normalized = _require_text(value, context=context)
+    if normalized is None:
+        fail("PROGRESS_TEXT", f"{context} must be normalized nonempty text")
+    return normalized
+
+
 def _require_timestamp(
     value: Any, *, context: str, nullable: bool = False
 ) -> str | None:
@@ -386,8 +425,7 @@ def _require_string_list(
         fail("PROGRESS_LIST", f"{context} must be a nonempty list")
     result: list[str] = []
     for index, item in enumerate(value):
-        normalized = _require_text(item, context=f"{context}[{index}]")
-        assert isinstance(normalized, str)
+        normalized = _require_nonnull_text(item, context=f"{context}[{index}]")
         result.append(normalized)
     if len(result) != len(set(result)):
         fail("PROGRESS_LIST", f"{context} contains duplicates")
@@ -1087,10 +1125,9 @@ def _apply_file_review_progress(
             },
             context=f"file_review_updates[{position}]",
         )
-        path = _require_text(
+        path = _require_nonnull_text(
             update["path"], context=f"file_review_updates[{position}].path"
         )
-        assert isinstance(path, str)
         if path in seen or path not in by_path:
             fail(
                 "PROGRESS_FILE_REVIEW", f"file-review path is duplicate/absent: {path}"
@@ -1994,13 +2031,12 @@ def _apply_task_lens_progress(
             },
             context=f"lens_updates[{position}]",
         )
-        task_id = _require_text(
+        task_id = _require_nonnull_text(
             update["task_id"], context=f"lens_updates[{position}].task_id"
         )
-        lens_id = _require_text(
+        lens_id = _require_nonnull_text(
             update["lens_id"], context=f"lens_updates[{position}].lens_id"
         )
-        assert isinstance(task_id, str) and isinstance(lens_id, str)
         key = (task_id, lens_id)
         task = tasks.get(task_id)
         if task is None or key in seen_lenses:
@@ -2132,10 +2168,9 @@ def _apply_task_lens_progress(
             },
             context=f"wave_receipts[{position}]",
         )
-        wave_id = _require_text(
+        wave_id = _require_nonnull_text(
             receipt["wave_id"], context=f"wave_receipts[{position}].wave_id"
         )
-        assert isinstance(wave_id, str)
         phase = phases.get(wave_id)
         if phase is None or wave_id in seen_waves:
             fail("PROGRESS_WAVE", f"unknown/duplicate wave receipt: {wave_id}")
@@ -2148,11 +2183,12 @@ def _apply_task_lens_progress(
                 "TERMINAL_PROMOTION_DISABLED",
                 f"candidate progress schema 0.1 cannot finalize wave: {wave_id}",
             )
-        reviewer = _require_text(receipt["reviewer"], context=f"{wave_id}.reviewer")
-        independent = _require_text(
+        reviewer = _require_nonnull_text(
+            receipt["reviewer"], context=f"{wave_id}.reviewer"
+        )
+        independent = _require_nonnull_text(
             receipt["independent_reviewer"], context=f"{wave_id}.independent_reviewer"
         )
-        assert isinstance(reviewer, str) and isinstance(independent, str)
         _require_distinct_reviewers(reviewer, independent, context=wave_id)
         updated_at = _require_timestamp(
             receipt["updated_at"], context=f"{wave_id}.updated_at"
@@ -2299,10 +2335,9 @@ def _updates_by_id(
         update = _assert_exact_keys(
             raw_update, expected_keys, context=f"{context}[{position}]"
         )
-        identifier = _require_text(
+        identifier = _require_nonnull_text(
             update[id_field], context=f"{context}[{position}].{id_field}"
         )
-        assert isinstance(identifier, str)
         if identifier in result:
             fail("PROGRESS_DUPLICATE", f"{context} repeats {identifier}")
         result[identifier] = update
@@ -2347,13 +2382,14 @@ def build_claim_ledger(
     software_specs = [
         {
             "claim_id": "SW09-001",
-            "title": "0.9 source-preview identity",
+            "title": "0.9 source-prerelease identity and candidate boundary",
             "claim_text": (
-                "Candidate metadata identifies Prisoma 0.9.0 as an unpublished source and "
-                "software preview authored by Sepehr Mahmoudian, with no DOI or Zenodo record."
+                "Metadata identifies Prisoma 0.9.0 as a public GitHub source prerelease "
+                "authored by Sepehr Mahmoudian, while the candidate decision remains "
+                "non-promoted and carries no DOI, Zenodo record, or archive identifier."
             ),
             "code_paths": [],
-            "test_paths": ["tests/python/test_release_review.py"],
+            "test_paths": ["tests/python/test_repo_truth_hardening.py"],
             "evidence_paths": ["CITATION.cff", "release/0.9.0/RELEASE_NOTES.md"],
             "receipts": ["RCP-DOCS", "RCP-POST-PUSH-CI"],
         },
@@ -2647,11 +2683,12 @@ def _apply_claim_progress(
                 f"candidate progress schema 0.1 cannot finalize claim: {claim_id}",
             )
         decision = _require_text(update["decision"], context=f"{claim_id}.decision")
-        reviewer = _require_text(update["reviewer"], context=f"{claim_id}.reviewer")
-        independent = _require_text(
+        reviewer = _require_nonnull_text(
+            update["reviewer"], context=f"{claim_id}.reviewer"
+        )
+        independent = _require_nonnull_text(
             update["independent_reviewer"], context=f"{claim_id}.independent_reviewer"
         )
-        assert isinstance(reviewer, str) and isinstance(independent, str)
         _require_distinct_reviewers(reviewer, independent, context=claim_id)
         updated_at = _require_timestamp(
             update["updated_at"], context=f"{claim_id}.updated_at"
@@ -3571,6 +3608,8 @@ def build_draft_manifest(
         residual_risks.insert(
             4, "exact-candidate test and CI receipts remain incomplete"
         )
+    # The frozen 0.1 identity strings retain "unpublished" for compatibility.
+    # Here it denotes a non-promoted decision artifact, not source visibility.
     return {
         "manifest_schema": "prisoma.unpublished-candidate/0.1.0",
         "schema_version": SCHEMA_VERSION,
@@ -3712,7 +3751,8 @@ def build_draft_manifest(
         },
         "protocol_gates": {
             "population": "open_not_frozen",
-            "measure": "blocked_for_default_zero_redundancy_target",
+            "atom_measure": "not_adjudicated",
+            "atom_estimator": "blocked",
             "estimator_high_dimensional_mi_coherence": "no_go",
             "application_continuous_pid": "blocked_not_application_validated",
             "EC1": "open_not_established",
@@ -3729,8 +3769,11 @@ def build_draft_manifest(
             "publication_ready": False,
         },
         "boundary": (
-            "This manifest describes an unpublished 0.9 candidate only. It makes no 1.0 "
-            "convergence, scientific completion, DOI, Zenodo, tag, or publication claim."
+            "This manifest is the non-promoted candidate decision record for 0.9. "
+            "`published:false` means candidate-package and scientific promotion are not "
+            "authorized; it does not deny public availability of Prisoma 0.9.0 as a GitHub "
+            "source prerelease. It makes no 1.0 convergence, scientific completion, DOI, "
+            "Zenodo, archive identifier, stable-release, or candidate-publication claim."
         ),
     }
 

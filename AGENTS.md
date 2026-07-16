@@ -5,8 +5,10 @@ repository. The purpose of this file is to prevent two failure modes: **hallucin
 capabilities** (claiming things exist that don't) and **doc drift** (statements that stop
 being true as the code moves).
 
-> **Estimator environment: `pid-rs` 1.0.0 (submodule `43ab605`).** 1.0 makes continuous support
-> **declared, never inferred** — a bare continuous config fails closed. Continuous shared
+> **Estimator environment: `pid-rs` 0.9.0 post-tag review source (submodule `796c11e`).**
+> This review surface makes continuous support **declared, never inferred** — a bare continuous
+> config fails closed. It makes no 1.x compatibility promise and carries no published-wheel
+> promise. Continuous shared
 > exclusions, pipelines, hierarchy and hyperbolic paths are default-off `experimental-*` features.
 > Datasets declare per-axis population support; computation status is `produced` /
 > `produced_with_warning` / `abstained`, while separate population/measure/estimator/application
@@ -34,8 +36,10 @@ being true as the code moves).
 2. **Gate discipline.** Do not interpret PID atoms on real embeddings. PID validity splits into
    four gates — population, measure, estimator, application (`grandplan.md` §7.1). The current
    high-d **MI/coherence path is NO-GO**; the continuous `I^sx_∩` **application gate is BLOCKED /
-   NOT APPLICATION-VALIDATED**: default Experiment 0 includes a measure-mismatched zero-redundancy
-   target, and `--strict-gate` gates the curated low-d MI band while only reporting atoms.
+   NOT APPLICATION-VALIDATED**. Default Experiment 0 does not compare shared-exclusions redundancy
+   with a zero target: it reports atom-measure validation as `not_adjudicated` and atom-estimator
+   validation as `blocked`. `--strict-gate` gates the curated low-d analytic-MI band while only
+   reporting atoms.
    Geometry diagnostics are not a substitute; sampled-mean δ is descriptive only. See
    `findings.md` and `grandplan.md` §7.2, §7.9. One (PID measure, preprocessing, estimator
    config) tuple = one preregistered regime; never pool continuous `I^sx_∩` atoms with discrete
@@ -90,16 +94,20 @@ being true as the code moves).
   L2-regularized logistic-regression classifier (`logistic.rs`, Newton-IRLS), geometry and
   intrinsic-dimension diagnostics, and the Experiment 0 runner (`bin/exp0.rs`) with a
   `--strict-gate` flag for curated low-d-band CI enforcement plus opt-in resampling and
-  permutation diagnostics. Repair its separate MI/atom verdicts upstream in `pid-rs`.
-- **`pid-python`** — typed PyO3 bindings (`pid_core_rs`) with a narrow stable 1.x surface:
+  permutation diagnostics. Its current outputs keep the MI/coherence, atom-measure, and
+  atom-estimator verdicts separate.
+- **`pid-python`** — typed PyO3 bindings (`pid_core_rs`) with a narrow 0.9 review surface proposed
+  for later 1.0 review:
   report-first conditional KSG MI, categorical shared-exclusions PID for 2–4 sources, a separately
   named categorical `I_min` comparator, fitted equal-width quantization, resource budgets, and
-  diagnostics. Pre-1.0 scalar/research calls are absent from ordinary wheels and live only in the
-  default-off `experimental.migration` module.
+  diagnostics. Legacy scalar/research calls are absent from the default namespace and live only in
+  the default-off `experimental.migration` module. Local source builds are supported for review;
+  no registry distribution or published wheel is claimed.
 - **`pid-runlog`** — the canonical (EC1) run-log schema (`grandplan.md` §8.2) with
   validation/replay/summary/manifest/sidecar write-and-verify, the `attribution_logged` event
   schema for attribution/mechanistic probes (H4 / exploratory), and the wall-clock-excluded
-  `logical_trace_hash`.
+  `logical_trace_hash`. Finalized schema-2 streams require every bridge request to have exactly
+  one response; schema 1 retains the historical unresolved-request warning for compatibility.
 
 ### Local crates (`crates/`)
 
@@ -183,16 +191,23 @@ being true as the code moves).
 
 - `research_claim_registry_v1.json` records current EC1/H1–H4 software artifacts, proof commands,
   blockers, and permitted/prohibited language; it is not a preregistration or result.
-- The M0 governance bundle adds an unfrozen preregistration scaffold, a registry stating that no
-  confirmatory holdout is registered plus a hash-chained non-access genesis event, an empty
-  dataset-pending transport/contamination ledger, and a legacy reference-inventory import with
-  incomplete search provenance. `just research-governance` validates this honest unfinished
-  state; it does not prove freeze readiness, historical/off-repository non-access, absence of
-  contamination, or a systematic literature search. `--require-freeze-ready` must fail until those
-  scientific conditions are genuinely met; it checks completeness and integrity, not the
-  substantive correctness of scientific judgment or review. This v1 scaffold is deliberately
-  non-promotable: make a reviewed schema/validator revision with typed, content-bound receipts for
-  a real freeze instead of replacing nulls in place.
+- The M0 governance bundle preserves the historical unfrozen v1 scaffold and adds an all-null
+  typed v2 successor draft covering EC1 finite acceptance, H1-A calibration bins, H1-B endpoint
+  hierarchy, H2 target/censoring/one-primary-score/success obligations, H3 warning dispositions,
+  H3/H4 claim selection, and H4 target/transport/inference/power obligations. EC1 endpoint coverage
+  is typed across every registered fault-adapter detection obligation and every supported adapter's
+  replay-fidelity and valid-case false-positive obligations. Each fault-adapter pair requires its
+  own absolute sensitivity floor, a pair-specific estimate, and mandatory passage; an aggregate
+  detection rate cannot rescue a failed pair. It also has a registry stating that no confirmatory
+  holdout is registered
+  plus a hash-chained non-access genesis event, an empty dataset-pending
+  transport/contamination ledger, and a legacy reference-inventory import with incomplete search
+  provenance. `just research-governance` validates both honest unfinished schemas; it does not
+  prove freeze readiness, historical/off-repository non-access, absence of contamination, or a
+  systematic literature search. Both validators' `--require-freeze-ready` modes must fail until
+  those scientific conditions are genuinely met; they check completeness and integrity, not the
+  substantive correctness of scientific judgment or review. The v1 scaffold is deliberately
+  non-promotable, and the v2 artifact is a draft contract rather than a completed freeze candidate.
 - `ecosystem_evidence_current_v1.json` is the dated, manually network-refreshed overlay on the
   immutable review CSV. CI is offline and checks exact reviewed revisions/boundaries; it does not
   silently poll or promote upstream HEADs.
@@ -219,12 +234,17 @@ being true as the code moves).
   review remain open. The generic instrumented-versus-uninstrumented preflight validator is
   implemented in `pid-sim`, but `safe_adapter` does not yet produce the real paired policy
   evaluations required to clear it.
-- **`attribution/`** — attribution diagnostic (H4 / exploratory; epsilon-/AttnLRP + grad×input
-  on a small reference model; frozen, selection-disjoint/group-disjoint deletion-ranking-
-  sensitivity gate with per-case random-ranking controls and an exact group sign test; never a
-  causal or mechanistic faithfulness claim)
-  emitting `attribution_logged` events that pass `pid-runlog-replay --validate`. Production VLAs
-  should swap the reference model for LXT/AttnLRP.
+- **`attribution/`** — attribution diagnostic (H4 / exploratory; a detached-attention,
+  value-path-only epsilon-LRP baseline that is explicitly **not AttnLRP**, plus grad×input on a
+  small reference model). Its content-bound, selection-disjoint/group-disjoint
+  deletion-ranking-sensitivity gate carries predictor-determinism provenance, abstains on every
+  exact magnitude tie, compares mean absolute deletion sensitivity with per-case random rankings,
+  and aggregates independent-group wins with a conservative one-sided binomial tail. Exactly one
+  predeclared primary method can set the legacy compatibility boolean. Complete-work preflight,
+  reconstructable content-addressed evidence bundles, companion `artifact_logged` events, and
+  schema-valid `attribution_logged` events are implemented. This is never a causal or mechanistic
+  faithfulness claim. Production VLAs should use a separately pinned and validated LXT/AttnLRP
+  implementation where appropriate.
 
 ### Attribution / mechanistic-probe tooling (H4 / exploratory)
 
@@ -233,10 +253,13 @@ saliency/SmoothGrad, occlusion, SHAP-style probes) are **H4/exploratory companio
 diagnostics/baselines**, never substitutes for PID gates. The `attribution_logged` run-log
 event carries method, target_output, layer, modality, baseline, score_hash,
 faithfulness_check, and artifact_uri. `faithfulness_check` is a legacy compatibility field; the
-current producer sets it only from the narrower typed ranking-sensitivity result. The `pid-rerun`
-adapter surfaces each event as a plottable recorded status (1.0 pass / 0.0 otherwise) and a provenance text line at a
-hashed identity over method, target, layer, modality, and baseline. Other dynamic run-log
-identifiers use injective single-segment percent encoding. The standalone
+current producer sets it only when the one predeclared primary method passes the narrower typed
+ranking-sensitivity result. Each probe method also publishes a content-addressed NumPy relevance
+artifact and a canonical reconstructable JSON evidence bundle, both represented by companion
+`artifact_logged` events. The `pid-rerun` adapter surfaces each event as a plottable **recorded
+check** (1.0 pass / 0.0 otherwise), not a validated-faithfulness verdict, plus a provenance text
+line at a hashed identity over method, target, layer, modality, and baseline. Other dynamic
+run-log identifiers use injective single-segment percent encoding. The standalone
 converter's explicit `--load-attribution-artifacts` mode additionally loads at most 1024 finite
 relevance values
 from an exact, bounded NumPy `.npy` file; it confines relative regular, non-symlink paths to
@@ -358,7 +381,7 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
 - Search: `rg -n "pattern"`
 - Tests: `just test` (or `cargo test` if `just` isn't installed)
 - M0 governance integrity (honest unfinished state, not a freeze): `just research-governance`
-- NCP wire-0.8 deterministic fault suite: `just ncp-fault-observatory out=outputs/<directory>`
+- NCP wire-0.8 deterministic fault suite: `just ncp-fault-observatory outputs/<directory>`
 - Estimator gate:
   - `just exp0` (or `cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all exp0 -- --nocapture`)
   - `just exp0-bin` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`)

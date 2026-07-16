@@ -9,7 +9,9 @@ use anyhow::{bail, Context, Result};
 use pid_runlog::{RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
 use pid_sim::h2_reference::{
     run_h2_reference, H2AlarmResult, H2AnalysisPlan, H2Dataset, H2EventOntology, H2FeatureContract,
-    H2FoldOutcome, H2ModelKind, H2ReferenceInput, H2ReferenceReport, H2SplitManifest,
+    H2FixedPredictionBrierImprovementIdentification, H2FixedPredictionBrierImprovementResult,
+    H2FixedPredictionConditioning, H2FoldOutcome, H2ModelKind, H2ReferenceInput, H2ReferenceReport,
+    H2SplitManifest, H2TargetRiskIdentification, H2_REFERENCE_REPORT_SCHEMA_VERSION,
     H2_REFERENCE_SCHEMA_VERSION,
 };
 use serde::Serialize;
@@ -108,6 +110,10 @@ struct H2Verdict<'a> {
     summary_sha256: &'a str,
     issue_count: usize,
     reason_codes: Vec<String>,
+    censoring_assumption_validated: Option<bool>,
+    target_risk_identification_without_censoring_assumption: Option<&'a H2TargetRiskIdentification>,
+    fixed_prediction_paired_brier_improvement_identification:
+        Option<&'a H2FixedPredictionBrierImprovementIdentification>,
     denominators: Option<&'a pid_sim::h2_reference::H2Denominators>,
 }
 
@@ -156,7 +162,7 @@ fn main() -> Result<()> {
         });
     }
     let summary = H2Summary {
-        schema_version: H2_REFERENCE_SCHEMA_VERSION,
+        schema_version: H2_REFERENCE_REPORT_SCHEMA_VERSION,
         run_id: run_id.clone(),
         dataset_uri: args.dataset.display().to_string(),
         dataset_sha256: dataset_sha256.clone(),
@@ -195,6 +201,19 @@ fn main() -> Result<()> {
     println!("synthetic_fixture_only=true");
     println!("establishes_h2_evidence=false");
     println!("prospective_capture=false");
+    println!(
+        "fixed_prediction_paired_brier_improvement_status={}",
+        summary
+            .report
+            .as_ref()
+            .map_or("unavailable_no_report", |report| {
+                fixed_prediction_brier_improvement_status(
+                    &report
+                        .fixed_prediction_paired_brier_improvement_identification
+                        .result,
+                )
+            })
+    );
     println!("wrote_summary={}", args.summary_json.display());
     println!("wrote_runlog={}", args.runlog.display());
     if !summary.passed {
@@ -360,7 +379,8 @@ fn compact_config(input: Option<&H2ReferenceInput>, snapshots: &Snapshots) -> Va
     );
     json!({
         "component": COMPONENT,
-        "h2_reference_schema_version": H2_REFERENCE_SCHEMA_VERSION,
+        "h2_reference_input_schema_version": H2_REFERENCE_SCHEMA_VERSION,
+        "h2_reference_report_schema_version": H2_REFERENCE_REPORT_SCHEMA_VERSION,
         "scope": "deterministic_synthetic_finite_landmark_benchmark_not_h2_evidence",
         "dataset_sha256": snapshots.dataset.sha256,
         "analysis_plan_sha256": snapshots.analysis_plan.sha256,
@@ -374,6 +394,14 @@ fn compact_config(input: Option<&H2ReferenceInput>, snapshots: &Snapshots) -> Va
             "horizon_ns": horizon_ns,
         },
         "configuration_storage": "compact_content_addressed_receipt",
+        "censoring_assumption_validation": "not_performed_by_synthetic_reference",
+        "fixed_prediction_missing_outcome_sensitivity": {
+            "predictions_held_fixed": true,
+            "removes_censoring_assumptions_used_during_model_fitting": false,
+            "validates_ipcw": false,
+            "prospective_evidence": false,
+            "numeric_success_metric": false,
+        },
         "pid_dependency": "none",
     })
 }
@@ -574,6 +602,10 @@ fn write_runlog(
                             "eligible_landmarks".to_string(),
                             score.eligible_landmarks.to_string(),
                         ),
+                        (
+                            "censoring_assumption_validated".to_string(),
+                            "false".to_string(),
+                        ),
                         ("scientific_evidence".to_string(), "false".to_string()),
                     ]
                     .into_iter()
@@ -608,6 +640,10 @@ fn write_runlog(
                         (
                             "precision".to_string(),
                             "not_applicable_deterministic_synthetic".to_string(),
+                        ),
+                        (
+                            "censoring_assumption_validated".to_string(),
+                            "false".to_string(),
                         ),
                         ("scientific_evidence".to_string(), "false".to_string()),
                     ]
@@ -711,13 +747,73 @@ fn write_runlog(
             }
         }
     }
+    if let Some(report) = &summary.report {
+        let identification = &report.fixed_prediction_paired_brier_improvement_identification;
+        let predictions_held_fixed = matches!(
+            identification.conditioning,
+            H2FixedPredictionConditioning::AlreadyFittedOutOfFoldPredictionsHeldFixed
+        );
+        let identification_metadata = [
+            (
+                "predictions_held_fixed".to_string(),
+                predictions_held_fixed.to_string(),
+            ),
+            (
+                "conditioning".to_string(),
+                "already_fitted_out_of_fold_predictions_held_fixed".to_string(),
+            ),
+            (
+                "removes_censoring_assumptions_used_during_model_fitting".to_string(),
+                identification
+                    .removes_censoring_assumptions_used_during_model_fitting
+                    .to_string(),
+            ),
+            (
+                "ipcw_validated".to_string(),
+                identification.validates_ipcw.to_string(),
+            ),
+            (
+                "prospective_evidence".to_string(),
+                identification.prospective_evidence.to_string(),
+            ),
+            ("numeric_success_metric".to_string(), "false".to_string()),
+            ("scientific_evidence".to_string(), "false".to_string()),
+        ]
+        .into_iter()
+        .collect::<BTreeMap<_, _>>();
+        writer.append(&RunLogEvent::LabelObserved {
+            step,
+            timestamp_ns,
+            name: "h2_reference.fixed_prediction_paired_brier_improvement_identification"
+                .to_string(),
+            value: serde_json::to_value(identification)?,
+            metadata: identification_metadata.clone(),
+        })?;
+        step += 1;
+        timestamp_ns += 1;
+
+        if summary.passed {
+            for (name, value) in fixed_prediction_brier_improvement_metrics(&identification.result)
+            {
+                writer.append(&RunLogEvent::EvaluationMetric {
+                    step,
+                    timestamp_ns,
+                    name: name.to_string(),
+                    value,
+                    metadata: identification_metadata.clone(),
+                })?;
+                step += 1;
+                timestamp_ns += 1;
+            }
+        }
+    }
     let reason_codes = reason_codes(summary)?;
     writer.append(&RunLogEvent::LabelObserved {
         step,
         timestamp_ns,
         name: "h2_reference.verdict".to_string(),
         value: serde_json::to_value(H2Verdict {
-            schema_version: H2_REFERENCE_SCHEMA_VERSION,
+            schema_version: H2_REFERENCE_REPORT_SCHEMA_VERSION,
             passed: summary.passed,
             synthetic_fixture_only: true,
             establishes_h2_evidence: false,
@@ -729,6 +825,18 @@ fn write_runlog(
             summary_sha256,
             issue_count: issue_count(summary),
             reason_codes: reason_codes.clone(),
+            censoring_assumption_validated: summary
+                .report
+                .as_ref()
+                .map(|report| report.censoring_assumption_validated),
+            target_risk_identification_without_censoring_assumption: summary
+                .report
+                .as_ref()
+                .map(|report| &report.target_risk_identification_without_censoring_assumption),
+            fixed_prediction_paired_brier_improvement_identification: summary
+                .report
+                .as_ref()
+                .map(|report| &report.fixed_prediction_paired_brier_improvement_identification),
             denominators: summary.report.as_ref().map(|report| &report.denominators),
         })?,
         metadata: metadata.clone(),
@@ -799,6 +907,55 @@ fn reason_codes(summary: &H2Summary) -> Result<Vec<String>> {
     values.sort();
     values.dedup();
     Ok(values)
+}
+
+fn fixed_prediction_brier_improvement_status(
+    result: &H2FixedPredictionBrierImprovementResult,
+) -> &'static str {
+    match result {
+        H2FixedPredictionBrierImprovementResult::ObservedFiniteBenchmarkPoint { .. } => {
+            "observed_finite_benchmark_point"
+        }
+        H2FixedPredictionBrierImprovementResult::NotPointIdentifiedConservativeMissingOutcomeBounds {
+            ..
+        } => "not_point_identified_conservative_missing_outcome_bounds",
+        H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput => {
+            "unavailable_invalid_input"
+        }
+        H2FixedPredictionBrierImprovementResult::UnavailableFoldAbstention => {
+            "unavailable_fold_abstention"
+        }
+    }
+}
+
+fn fixed_prediction_brier_improvement_metrics(
+    result: &H2FixedPredictionBrierImprovementResult,
+) -> Vec<(&'static str, f64)> {
+    match result {
+        H2FixedPredictionBrierImprovementResult::ObservedFiniteBenchmarkPoint {
+            paired_brier_improvement,
+            ..
+        } => vec![(
+            "h2_reference.fixed_prediction_paired_brier_improvement_point",
+            *paired_brier_improvement,
+        )],
+        H2FixedPredictionBrierImprovementResult::NotPointIdentifiedConservativeMissingOutcomeBounds {
+            lower_paired_brier_improvement,
+            upper_paired_brier_improvement,
+            ..
+        } => vec![
+            (
+                "h2_reference.fixed_prediction_paired_brier_improvement_lower_bound",
+                *lower_paired_brier_improvement,
+            ),
+            (
+                "h2_reference.fixed_prediction_paired_brier_improvement_upper_bound",
+                *upper_paired_brier_improvement,
+            ),
+        ],
+        H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput
+        | H2FixedPredictionBrierImprovementResult::UnavailableFoldAbstention => Vec::new(),
+    }
 }
 
 fn issue_count(summary: &H2Summary) -> usize {
@@ -1067,5 +1224,31 @@ mod tests {
         let encoded = serde_json::to_vec(&config).expect("encode compact config");
         assert!(encoded.len() < 64 * 1024);
         assert!(config.get("dataset").is_none());
+    }
+
+    #[test]
+    fn unavailable_fixed_prediction_results_emit_no_numeric_metric() {
+        for result in [
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput,
+            H2FixedPredictionBrierImprovementResult::UnavailableFoldAbstention,
+        ] {
+            assert!(fixed_prediction_brier_improvement_metrics(&result).is_empty());
+        }
+        let point = H2FixedPredictionBrierImprovementResult::ObservedFiniteBenchmarkPoint {
+            paired_brier_improvement: 0.25,
+            eligible_landmark_rows: 1,
+            observed_outcome_rows: 1,
+            censored_outcome_rows: 0,
+        };
+        assert_eq!(fixed_prediction_brier_improvement_metrics(&point).len(), 1);
+        let bounds =
+            H2FixedPredictionBrierImprovementResult::NotPointIdentifiedConservativeMissingOutcomeBounds {
+                lower_paired_brier_improvement: -0.25,
+                upper_paired_brier_improvement: 0.5,
+                eligible_landmark_rows: 1,
+                observed_outcome_rows: 0,
+                censored_outcome_rows: 1,
+            };
+        assert_eq!(fixed_prediction_brier_improvement_metrics(&bounds).len(), 2);
     }
 }

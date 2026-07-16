@@ -16,27 +16,41 @@ group-disjoint held-out set?** The measured absolute output change is deletion
 
 * a baseline name and provenance statement;
 * distinct method-selection and validation split names;
-* a grouping provenance statement and a frozen gate identifier;
+* grouping and predictor-determinism provenance statements;
 * the method-selection group/unit identifiers, so overlap with validation fails
   closed;
 * a predeclared `alpha`, minimum independent-group count, deletion-step count,
   deterministic seed, and random-ranking count.
 
+The complete canonical gate manifest is hashed, and `frozen_gate_id` must equal its
+content-derived `sha256:` identifier. An arbitrary human label is rejected. The
+predictor is also evaluated repeatedly on each original input; a stateful or otherwise
+nondeterministic result causes a typed abstention.
+
 Every `AttributionValidationCase` declares the exact baseline tensor, case id,
 independent group id, and underlying unit ids. Case, group, and underlying-unit reuse
 across the validation set is rejected or abstained, rather than treated as additional
-sample size. A well-formed set below the frozen group count abstains. A constant
-attribution has no ranking resolution and fails.
+sample size. A well-formed set below the frozen group count abstains. **Any exact tie
+in attribution magnitude causes a typed `ranking_ties_unresolved:<case_id>`
+abstention**; the implementation does not invent a tie order or average over multiple
+rankings. A constant attribution therefore abstains rather than failing as if an
+identified ranking had been tested.
 
-For each case, the implementation compares attribution-ranked deletion AOPC with a
-seeded random-ranking distribution. Tied attribution magnitudes are averaged over
-seeded tie orders. A group counts as a win only when its method AOPC exceeds the
+For each case, the implementation computes the **mean absolute deletion sensitivity**
+of the declared attribution order and compares it with a seeded random-ranking
+distribution. A group counts as a win only when the method sensitivity exceeds the
 random-reference mean and its plus-one randomization-tail probability is below one
-half. The final decision uses the exact one-sided sign-test tail across independent
-groups. There is no post-hoc effect margin or `mean + 3 SEM` rule. Configuration is
-rejected when even unanimous group wins could not attain the declared `alpha`, or
-when the random reference's worst-case binomial Monte Carlo standard-error bound is
-wider than `alpha`.
+half. The final decision uses a conservative one-sided group-win binomial tail with
+null win probability one half across independent groups. This is neither deletion
+AOPC nor an exact sign test. There is no post-hoc effect margin or `mean + 3 SEM`
+rule. Configuration is rejected when even unanimous group wins could not attain the
+declared `alpha`, or when the random reference's worst-case binomial Monte Carlo
+standard-error bound is wider than `alpha`.
+
+The caller must name exactly one requested method as `primary_method`. Secondary
+methods remain diagnostics even if their own ranking-sensitivity result passes; only
+the predeclared primary method can set the legacy run-log compatibility boolean to
+true.
 
 The design still depends on declared independence and split provenance; it cannot
 prove that upstream data collection honored them. Freeze and content-bind a real
@@ -49,18 +63,24 @@ split manifest before interpreting a production result.
   schema retains that field name; new code should call
   `ranking_sensitivity_check`.
 * `probe.py` computes every requested attribution method on the same held-out cases,
-  separately binds the complete relevance set and the exact identified input/baseline
-  set by SHA-256, and emits one representative relevance array per method under the
-  existing run-log schema.
+  preflights the complete declared design structure and total method-plus-gate forward work
+  against a fixed multiply-add budget, and binds one predeclared primary method.
+  Before any attribution is evaluated it rejects malformed/leaky designs and work
+  that exceeds the complete budget.
 * `runlog.py` writes bounded `run_started` / `config_logged` /
-  `attribution_logged` / `run_ended` JSONL and optional immutable NumPy artifacts.
-  The probe-produced event boolean is true only when the frozen group-level gate
-  passes. Metadata
-  records the typed status/reason, group sign-test p-value, per-group contrasts and
-  randomization probabilities, baseline/split/grouping provenance, random-reference
-  resolution, and the limitations below.
-* `attribute.py` provides epsilon-LRP with a detached-softmax attention rule and a
-  finite-difference gradient-times-input comparator for the small reference model.
+  `artifact_logged` / `attribution_logged` / `run_ended` JSONL plus immutable
+  content-addressed artifacts. Each method receives a compact NumPy relevance artifact
+  and a canonical JSON evidence bundle containing the exact model parameters, gate
+  manifest and hash, case/group/unit identities, inputs, baselines, every relevance
+  array, group statistics, software versions, and source hashes. Companion
+  `artifact_logged` events make both artifacts visible to the canonical manifest.
+  Metadata records the typed status/reason, conservative group-win binomial tail,
+  per-group contrasts and randomization probabilities, baseline/split/grouping
+  provenance, primary/secondary role, random-reference resolution, and the
+  limitations below.
+* `attribute.py` provides a detached-attention, value-path-only epsilon-LRP baseline
+  and a finite-difference gradient-times-input comparator for the small reference
+  model. The epsilon-LRP baseline is explicitly **not AttnLRP**.
 
 The NumPy `SmallTransformer` is a runnable stand-in, not a production VLA. A real
 transformer integration should pin and validate its model/checkpoint and attribution
@@ -97,12 +117,17 @@ cargo run -p pid-rerun --bin runlog-to-rerun -- \
     --save outputs/attribution_runlog.rrd
 ```
 
-Each method prints `passed`, `failed`, or `abstained`, the typed reason, and the exact
-group sign-test p-value when computed. Artifact publication remains bounded and
-no-clobber; external relevance loading remains explicit and hash/shape checked.
+Each method prints `passed`, `failed`, or `abstained`, the typed reason, and the
+conservative group-win binomial-tail probability when computed. Probe evidence
+publication requires the confined artifact directory and remains bounded and
+no-clobber. The Rerun adapter surfaces the recorded compatibility check and
+provenance, not validated faithfulness; external relevance loading remains explicit
+and exact-hash/shape checked.
 
 Focused tests in `tests/python/test_attribution.py` cover informative, constant,
 constant-output, and adversarial rankings; selection/validation and within-validation
 leakage; insufficient groups; malformed/non-finite arrays and predictor outputs;
-under-resolved or unattainable frozen gates; relevance conservation; optional
-autograd agreement; and run-log publication/validation behavior.
+under-resolved or unattainable frozen gates; content-derived gate identity; predictor
+determinism; exact-tie abstention; one-primary-method multiplicity; complete-work
+budgets; relevance conservation; optional autograd agreement; reconstructable
+evidence bundles; and run-log publication/validation behavior.

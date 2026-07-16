@@ -101,9 +101,10 @@ fn main() -> Result<()> {
             .unwrap_or_else(|| args.summary_json.with_extension("uncertainty.json"));
         write_offline_pid_uncertainty(&path, &uncertainty)?;
         println!(
-            "pid_uncertainty={} mode={} n_boot={} n_perm={} perm_scheme={} subsample_len={} pairs={}",
+            "pid_uncertainty={} mode={} stability_interpretation={} n_boot={} n_perm={} perm_scheme={} subsample_len={} pairs={}",
             path.display(),
             uncertainty.mode,
+            uncertainty.stability_interpretation,
             uncertainty.n_boot,
             uncertainty.n_perm,
             uncertainty.permutation_scheme,
@@ -375,6 +376,11 @@ fn print_usage() {
                                  control (the selection-inflation floor); read the real
                                  atoms relative to it, and treat in-sample discrete-pls
                                  output as screening-only.\n\
+         --bootstrap N           Number of m-out-of-n subsample resamples. The emitted raw\n\
+                                 percentiles are stability envelopes at m, not calibrated\n\
+                                 n-sample confidence intervals.\n\
+         --uncertainty-alpha F   Two-sided tail mass for those raw percentiles (default: 0.05);\n\
+                                 it is not a confidence-interval significance claim.\n\
          --permutation-scheme    Null for --permutation p-values (default: full-shuffle).\n\
                                  full-shuffle assumes exchangeable (i.i.d.) rows and is\n\
                                  anti-conservative on autocorrelated per-step captures;\n\

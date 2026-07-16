@@ -30,7 +30,9 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
-import xml.etree.ElementTree as ET
+
+# The parser is byte/structure bounded and rejects DTD/entity declarations below.
+import xml.etree.ElementTree as ET  # nosec B405
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -61,6 +63,8 @@ MAX_SUMMARY_CHARS = 131_072
 MAX_AUTHORS = 512
 MAX_AUTHOR_CHARS = 1_024
 MAX_TIMESTAMP_CHARS = 64
+MAX_ATOM_DEPTH = 32
+MAX_ATOM_ELEMENTS = 1 + MAX_BATCH_SIZE * (2 * MAX_AUTHORS + 64)
 EXPECTED_CACHE_FIELDS = {"authors", "id", "published", "summary", "title", "updated"}
 
 
@@ -72,6 +76,37 @@ class ArxivEntry:
     authors: list[str]
     published: str
     updated: str
+
+
+class _BoundedTreeBuilder(ET.TreeBuilder):
+    """Stop excessive XML structure while the bounded Atom tree is being built."""
+
+    def __init__(self, *, max_depth: int, max_elements: int) -> None:
+        super().__init__()
+        self._max_depth = max_depth
+        self._max_elements = max_elements
+        self._depth = 0
+        self._elements = 0
+
+    def start(self, tag: str, attrs: dict[str, str]) -> Any:
+        next_depth = self._depth + 1
+        next_elements = self._elements + 1
+        if next_depth > self._max_depth:
+            raise ValueError(
+                f"Atom response exceeds the {self._max_depth}-level depth limit"
+            )
+        if next_elements > self._max_elements:
+            raise ValueError(
+                f"Atom response exceeds the {self._max_elements}-element limit"
+            )
+        self._depth = next_depth
+        self._elements = next_elements
+        return super().start(tag, attrs)
+
+    def end(self, tag: str) -> Any:
+        element = super().end(tag)
+        self._depth -= 1
+        return element
 
 
 def validate_arxiv_id(value: str) -> str:
@@ -311,13 +346,27 @@ def _validate_arxiv_api_url(url: str) -> None:
         )
     except ValueError as exc:
         raise ValueError("arXiv API URL query is invalid") from exc
-    if set(query) != {"id_list"} or len(query["id_list"]) != 1:
-        raise ValueError("arXiv API URL must contain exactly one id_list parameter")
+    if (
+        set(query) != {"id_list", "max_results"}
+        or len(query["id_list"]) != 1
+        or len(query["max_results"]) != 1
+    ):
+        raise ValueError(
+            "arXiv API URL must contain exactly one id_list and max_results parameter"
+        )
     ids = query["id_list"][0].split(",")
     if not ids or len(ids) > MAX_BATCH_SIZE or any(not value for value in ids):
         raise ValueError("arXiv API URL id_list is empty or exceeds the batch limit")
     for arxiv_id in ids:
         validate_arxiv_id(arxiv_id)
+    raw_max_results = query["max_results"][0]
+    if re.fullmatch(r"[1-9]\d{0,2}", raw_max_results) is None:
+        raise ValueError("arXiv API URL max_results is invalid")
+    max_results = int(raw_max_results)
+    if max_results > MAX_BATCH_SIZE or max_results != len(ids):
+        raise ValueError(
+            "arXiv API URL max_results must equal the requested id_list length"
+        )
 
 
 class _ArxivRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -359,7 +408,7 @@ def fetch_arxiv_atom(ids: list[str]) -> str:
     for arxiv_id in ids:
         validate_arxiv_id(arxiv_id)
     id_list = ",".join(ids)
-    query = urllib.parse.urlencode({"id_list": id_list})
+    query = urllib.parse.urlencode({"id_list": id_list, "max_results": len(ids)})
     url = f"{ARXIV_API_URL}?{query}"
     _validate_arxiv_api_url(url)
     request = urllib.request.Request(
@@ -403,7 +452,15 @@ def parse_atom(xml_text: str) -> list[ArxivEntry]:
     if "<!doctype" in lowered or "<!entity" in lowered:
         raise ValueError("Atom response must not contain DTD or entity declarations")
     try:
-        root = ET.fromstring(xml_text)
+        parser = ET.XMLParser(  # nosec B314
+            target=_BoundedTreeBuilder(
+                max_depth=MAX_ATOM_DEPTH,
+                max_elements=MAX_ATOM_ELEMENTS,
+            )
+        )
+        # Input is UTF-8/byte-bounded, declarations are rejected, and the target
+        # aborts excessive depth/elements before finishing the tree.
+        root = ET.fromstring(xml_text, parser=parser)  # nosec B314
     except ET.ParseError as exc:
         raise ValueError("arXiv API returned malformed Atom XML") from exc
     if root.tag != f"{{{ATOM_NS['atom']}}}feed":
@@ -600,14 +657,14 @@ def main(argv: list[str] | None = None) -> int:
         unexpected = sorted(set(by_id) - set(batch))
         if unexpected:
             raise ValueError(f"arXiv API returned unexpected ids: {unexpected}")
+        absent = sorted(set(batch) - set(by_id))
+        if absent:
+            raise ValueError(
+                "arXiv API returned an incomplete batch; absent requested ids: "
+                f"{absent}"
+            )
         for arxiv_id in batch:
-            entry = by_id.get(arxiv_id)
-            if entry is None:
-                print(
-                    f"WARNING: arXiv:{arxiv_id} not found in API response",
-                    file=sys.stderr,
-                )
-                continue
+            entry = by_id[arxiv_id]
             cache[arxiv_id] = {
                 "authors": entry.authors,
                 "id": entry.arxiv_id,

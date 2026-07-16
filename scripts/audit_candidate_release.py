@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the content-bound, deliberately unpublished Prisoma 0.9 candidate."""
+"""Audit the content-bound, deliberately non-promotable Prisoma 0.9 decision record."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from typing import Any
 from generate_candidate_release import (
     ARTIFACT_MANIFEST_NAME,
     ARTIFACT_NAMES,
+    AUTHOR,
     CANDIDATE_RELATIVE,
     CLAIM_LEDGER_NAME,
     DEFECT_REGISTER_NAME,
@@ -31,6 +32,7 @@ from generate_candidate_release import (
     MAX_INVENTORY_LISTING_BYTES,
     MAX_INVENTORY_PATH_BYTES,
     MAX_FILE_BYTES,
+    NOMINAL_HANDOFF_VERSION,
     PROJECT,
     PROGRESS_RELATIVE,
     RECURSIVE_GITLINK_PATHS,
@@ -1467,8 +1469,12 @@ def _validate_semantic_boundaries(documents: Mapping[str, Mapping[str, Any]]) ->
 
     template_keys = {
         "manifest_schema",
+        "schema_version",
+        "record_type",
         "project",
         "release_version",
+        "repository",
+        "author",
         "decision",
         "terminal_promotion",
         "source",
@@ -1491,7 +1497,53 @@ def _validate_semantic_boundaries(documents: Mapping[str, Mapping[str, Any]]) ->
     }
     if not template_keys.issubset(draft):
         fail("DRAFT_TEMPLATE", "draft release manifest omits handoff template fields")
+    # These frozen 0.1 identifiers describe a non-promoted decision artifact;
+    # they do not assert that the 0.9.0 source prerelease is unavailable.
+    expected_identity = {
+        "manifest_schema": "prisoma.unpublished-candidate/0.1.0",
+        "schema_version": SCHEMA_VERSION,
+        "record_type": "unpublished_0_9_candidate_manifest",
+        "project": PROJECT,
+        "release_version": RELEASE_VERSION,
+        "repository": REPOSITORY,
+        "author": AUTHOR,
+    }
+    for field, expected in expected_identity.items():
+        if draft.get(field) != expected:
+            fail(
+                "DRAFT_IDENTITY",
+                f"draft release manifest {field} does not match the candidate identity",
+            )
+    expected_protocol_gates = {
+        "population": "open_not_frozen",
+        "atom_measure": "not_adjudicated",
+        "atom_estimator": "blocked",
+        "estimator_high_dimensional_mi_coherence": "no_go",
+        "application_continuous_pid": "blocked_not_application_validated",
+        "EC1": "open_not_established",
+        "H1": "open_not_established",
+        "H2": "open_not_established",
+        "H3": "open_not_established",
+        "H4": "exploratory_not_established",
+    }
+    if draft.get("protocol_gates") != expected_protocol_gates:
+        fail(
+            "DRAFT_PROTOCOL_GATES",
+            "draft release manifest must preserve the separate current scientific gates",
+        )
     release = draft.get("release", {})
+    if (
+        not isinstance(release, dict)
+        or release.get("version") != RELEASE_VERSION
+        or release.get("nominal_handoff_version") != NOMINAL_HANDOFF_VERSION
+        or draft.get("packages")
+        != [{"name": PROJECT, "version": RELEASE_VERSION, "published": False}]
+        or draft.get("schemas") != [SCHEMA_VERSION]
+    ):
+        fail(
+            "DRAFT_IDENTITY",
+            "draft release version, package, or schema identity does not match 0.9",
+        )
     decision = draft.get("decision_detail", {})
     post_push = next(
         (receipt for receipt in receipt_rows if receipt["id"] == "RCP-POST-PUSH-CI"),

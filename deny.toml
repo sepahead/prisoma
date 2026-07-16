@@ -19,8 +19,9 @@ version = 2
 yanked = "deny"
 # The resolved bytes, rustls-webpki, and historical Rerun/Arrow lz4 findings were fixed by lock
 # updates, not ignored. The exceptions below have no compatible in-lock repair. Two are confined
-# to the separately checked `ncp-observer` Zenoh graph; `paste` is also present in the default
-# workspace through nalgebra. Remove each exception when its relevant upstream graph permits it.
+# to the separately checked `ncp-observer` Zenoh graph; `paste` is also present in the root
+# all-features graph through optional Rapier's nalgebra tree. Remove each exception when its
+# relevant upstream graph permits it.
 ignore = [
     # HIGH/CVSS 8.2 lz4_flex block-decompression information disclosure. Zenoh 1.9.0
     # pins the affected 0.10 line even when `transport_compression` is disabled. The
@@ -28,8 +29,9 @@ ignore = [
     # becomes enabled. This is still an open advisory, not a clean-audit claim; remove the
     # exception when a qualified NCP/Zenoh pin admits lz4_flex >=0.11.6.
     "RUSTSEC-2026-0041",
-    # paste — unmaintained proc-macro (not a known vulnerability), transitive through nalgebra in
-    # the default workspace and also through Zenoh in the observer graph. No compatible fix yet.
+    # paste — unmaintained proc-macro (not a known vulnerability), transitive through optional
+    # Rapier's nalgebra tree in the root all-features graph and through Zenoh in the observer
+    # graph. The default-feature root build does not compile it. No compatible fix yet.
     "RUSTSEC-2024-0436",
     # rustls-pemfile — unmaintained (no vulnerability), transitive through Zenoh's
     # mandatory TLS/QUIC link stack. Zenoh 1.9 has no replacement release; NCP

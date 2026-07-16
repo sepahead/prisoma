@@ -1503,7 +1503,7 @@ impl Observer {
                 "episode_id": self.mapping.episode_id.clone(),
             },
         });
-        let config_hash = pid_runlog::canonical_json_hash(&config)
+        let config_hash = pid_runlog::canonical_json_hash_v2(&config)
             .context("failed to hash NCP observer configuration")?;
         self.runlog_events.push(RunLogEvent::RunStarted {
             schema_version: RUN_LOG_SCHEMA_VERSION,

@@ -11,6 +11,7 @@ sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 audit_text = MODULE.audit_text
+audit_reproducibility_text = MODULE.audit_reproducibility_text
 audit_workflows = MODULE.audit_workflows
 
 
@@ -19,6 +20,78 @@ def test_repository_actions_are_commit_pinned() -> None:
     count, errors = audit_workflows(root)
     assert count > 0
     assert errors == []
+
+
+def test_reproducibility_policy_rejects_mutable_runtimes_and_unlocked_commands() -> (
+    None
+):
+    pin = "0123456789abcdef0123456789abcdef01234567"
+    text = f"""
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@{pin}
+      - uses: dtolnay/rust-toolchain@{pin}
+      - uses: actions/setup-python@{pin}
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@{pin}
+        with:
+          version: "0.11"
+      - run: cargo test --workspace
+      - run: uv sync
+      - run: maturin develop
+      - run: rustup toolchain install stable
+      - run: curl --location https://example.invalid/latest/tool
+      - run: python -c 'assert True'
+"""
+    errors = audit_reproducibility_text(Path("ci.yml"), text)
+    assert any("static versioned image" in error for error in errors)
+    assert any("python-version must pin an exact patch" in error for error in errors)
+    assert any("cargo test must use --locked" in error for error in errors)
+    assert any("uv sync must use --locked" in error for error in errors)
+    assert any("maturin develop must use --locked" in error for error in errors)
+    assert any("rustup must install an exact toolchain" in error for error in errors)
+    assert any("disable self-update" in error for error in errors)
+    assert any("bounded HTTPS flags" in error for error in errors)
+    assert any("strict SHA-256" in error for error in errors)
+    assert any("mutable latest URL" in error for error in errors)
+    assert any("rust-toolchain action must pin" in error for error in errors)
+    assert any("setup-uv must pin" in error for error in errors)
+    assert any("checkout must disable" in error for error in errors)
+    assert any("may not use Python `assert`" in error for error in errors)
+
+
+def test_reproducibility_policy_accepts_exact_runtimes_and_lock_enforcement() -> None:
+    pin = "0123456789abcdef0123456789abcdef01234567"
+    text = f"""
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@{pin}
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@{pin}
+        with:
+          toolchain: 1.93.0
+      - uses: actions/setup-python@{pin}
+        with:
+          python-version: "3.11.15"
+      - uses: astral-sh/setup-uv@{pin}
+        with:
+          version: "0.11.28"
+      - run: cargo test --locked --workspace
+      - run: uv sync --locked
+      - run: maturin develop --locked
+      - run: rustup toolchain install 1.93.0 --no-self-update
+      - run: python -c 'raise SystemExit(0)'
+      - run: |
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 --max-time 300 --retry-max-time 600 --max-filesize 10000000 --proto '=https' --proto-redir '=https' --tlsv1.2 --output "$RUNNER_TEMP/tool" https://example.invalid/releases/download/1.2.3/tool
+          echo "0000000000000000000000000000000000000000000000000000000000000000  $RUNNER_TEMP/tool" | sha256sum --check --strict
+"""
+    assert audit_reproducibility_text(Path("ci.yml"), text) == []
 
 
 def test_rejects_tags_branches_short_shas_and_dynamic_revisions() -> None:

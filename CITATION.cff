@@ -1,8 +1,9 @@
 cff-version: 1.2.0
-message: "Prisoma 0.9.0 citation metadata is provisional until the tagged source preview is published."
+message: "Prisoma 0.9.0 is a public GitHub source prerelease; citation metadata remains provisional until an archival identifier is assigned."
 title: "Prisoma: auditable experiment semantics for embodied-policy diagnostics"
 type: software
 version: 0.9.0
+date-released: 2026-07-16
 authors:
   - family-names: Mahmoudian
     given-names: Sepehr
@@ -11,6 +12,7 @@ license:
   - MIT
   - Apache-2.0
 abstract: >-
-  Prisoma is an open-source research software project. Version 0.9.0 is an
-  unpublished source-preview candidate; repository documentation defines its
-  current scope, and this candidate makes no confirmatory scientific claim.
+  Prisoma is an open-source research software project. Version 0.9.0 is a
+  public GitHub source prerelease and research-software preview. Repository
+  documentation defines its current scope; it makes no confirmatory scientific
+  claim and has no DOI, Zenodo record, or archive identifier.

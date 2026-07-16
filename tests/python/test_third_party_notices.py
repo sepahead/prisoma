@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -71,6 +73,58 @@ def test_maintenance_subprocess_has_output_and_time_budgets(tmp_path: Path) -> N
             timeout_seconds=0.05,
             max_output_bytes=32,
         )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group check requires POSIX")
+def test_maintenance_subprocess_reaps_descendants_and_setup_failures(
+    tmp_path: Path, monkeypatch
+) -> None:
+    descendant_marker = tmp_path / "descendant-escaped"
+    spawn_descendant = """
+import subprocess
+import sys
+
+subprocess.Popen(
+    [
+        sys.executable,
+        "-c",
+        "import pathlib, sys, time; time.sleep(0.2); "
+        "pathlib.Path(sys.argv[1]).write_text('escaped', encoding='utf-8')",
+        sys.argv[1],
+    ],
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+)
+"""
+    MODULE._run_bounded(
+        [sys.executable, "-c", spawn_descendant, os.fspath(descendant_marker)],
+        cwd=tmp_path,
+        timeout_seconds=2,
+        max_output_bytes=32,
+    )
+    time.sleep(0.5)
+    assert not descendant_marker.exists()
+
+    setup_marker = tmp_path / "setup-escaped"
+    delayed_marker = (
+        "import pathlib, sys, time; time.sleep(0.2); "
+        "pathlib.Path(sys.argv[1]).write_text('escaped', encoding='utf-8')"
+    )
+
+    def fail_selector() -> None:
+        raise RuntimeError("injected selector failure")
+
+    monkeypatch.setattr(MODULE.selectors, "DefaultSelector", fail_selector)
+    with pytest.raises(RuntimeError, match="injected selector failure"):
+        MODULE._run_bounded(
+            [sys.executable, "-c", delayed_marker, os.fspath(setup_marker)],
+            cwd=tmp_path,
+            timeout_seconds=2,
+            max_output_bytes=32,
+        )
+    time.sleep(0.5)
+    assert not setup_marker.exists()
 
 
 def test_notice_write_is_atomic_and_rejects_symlink_targets(

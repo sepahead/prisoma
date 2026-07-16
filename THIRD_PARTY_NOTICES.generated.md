@@ -14,8 +14,8 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 | `base64` | 0.22.1 | MIT OR Apache-2.0 |
 | `libc` | 0.2.186 | MIT OR Apache-2.0 |
 | `ndarray` | 0.16.1 | MIT OR Apache-2.0 |
-| `pid-core` | 1.0.0 | MIT OR Apache-2.0 |
-| `pid-runlog` | 1.0.0 | MIT OR Apache-2.0 |
+| `pid-core` | 0.9.0 | MIT OR Apache-2.0 |
+| `pid-runlog` | 0.9.0 | MIT OR Apache-2.0 |
 | `rapier3d-f64` | 0.22.0 | Apache-2.0 |
 | `re_log_encoding` | 0.34.1 | MIT OR Apache-2.0 |
 | `re_sdk` | 0.34.1 | MIT OR Apache-2.0 |

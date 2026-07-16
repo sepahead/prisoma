@@ -12,6 +12,7 @@
 //! - `world/ghost`: Predicted flow as secondary point cloud
 //! - `pid/metrics`: PID atom time series
 //! - `vla/embeddings`: Embedding geometry diagnostics
+//! - `run/provenance/trace_hash_v2`: explicit `sha256` / `replay_trace_v2` run identity
 
 pub mod adapters;
 pub mod data;

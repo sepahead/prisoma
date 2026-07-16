@@ -172,10 +172,12 @@ metric = "chebyshev"              # Options: "chebyshev" (required for ISX)
 window_size = 1000                # Samples per PID window
 stride = 100                      # Stride between windows
 
-# Bootstrap confidence intervals
+# Raw m-sample stability percentiles from subsample resampling.
+# These are not calibrated confidence intervals for the full-n estimator or population quantity.
 bootstrap_enabled = true
 bootstrap_samples = 100
-confidence_level = 0.95
+percentile_tail_mass = 0.05
+stability_interpretation = "raw_m_sample_percentiles_not_n_sample_confidence_intervals"
 
 # Geometry validation (see EXPERIMENTS.md §4.0)
 [pid.geometry_gate]

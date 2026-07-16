@@ -14,6 +14,11 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::Path;
 
+/// Finite ceiling for the deliberately small quadratic-time toy estimator run.
+///
+/// This is a software resource bound, not a recommended study sample size.
+pub const MAX_TOY_EPISODES: usize = 4_096;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToyHarnessConfig {
     pub episodes: usize,
@@ -83,7 +88,7 @@ impl ToyHarnessReport {
 pub fn run_toy_harness(config: ToyHarnessConfig) -> Result<ToyHarnessReport> {
     validate_config(&config)?;
     let config_json = serde_json::to_value(&config)?;
-    let config_hash = pid_runlog::canonical_json_hash(&config_json)?;
+    let config_hash = pid_runlog::canonical_json_hash_v2(&config_json)?;
     let samples = generate_samples(&config);
     let pid = compute_pid_metrics(&samples)?;
     let baselines = compute_baselines(&samples, config.success_threshold);
@@ -102,15 +107,55 @@ pub fn write_toy_harness_summary(path: impl AsRef<Path>, report: &ToyHarnessRepo
     pid_runlog::write_json_file(path, report)
 }
 
+/// Reject output paths that already name, or may name, the same file.
+pub fn ensure_distinct_toy_output_paths(runlog: &Path, summary: &Path) -> Result<()> {
+    let aliases = runlog == summary
+        || (runlog.exists()
+            && summary.exists()
+            && same_file::is_same_file(runlog, summary).with_context(|| {
+                format!(
+                    "failed to compare toy run log {} with summary {}",
+                    runlog.display(),
+                    summary.display()
+                )
+            })?);
+    if aliases {
+        bail!("toy run log and summary must be distinct files");
+    }
+    Ok(())
+}
+
 pub fn write_toy_harness_runlog(
     path: impl AsRef<Path>,
     summary_path: Option<&Path>,
     report: &ToyHarnessReport,
 ) -> Result<()> {
-    ensure_parent(path.as_ref())?;
-    let mut writer = RunLogWriter::create(path.as_ref())?;
-    let summary_uri = summary_path.map(|path| path.display().to_string());
-    let summary_sha256 = summary_path.and_then(|path| pid_runlog::sha256_file(path).ok());
+    let path = path.as_ref();
+    ensure_parent(path)?;
+    if let Some(summary_path) = summary_path {
+        ensure_distinct_toy_output_paths(path, summary_path)?;
+    }
+    let (summary_uri, summary_sha256) = match summary_path {
+        Some(summary_path) => {
+            let metadata = std::fs::symlink_metadata(summary_path).with_context(|| {
+                format!("failed to inspect toy summary {}", summary_path.display())
+            })?;
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                bail!(
+                    "toy summary must be a non-symlink regular file: {}",
+                    summary_path.display()
+                );
+            }
+            (
+                Some(summary_path.display().to_string()),
+                Some(pid_runlog::sha256_file(summary_path).with_context(|| {
+                    format!("failed to hash toy summary {}", summary_path.display())
+                })?),
+            )
+        }
+        None => (None, None),
+    };
+    let mut writer = RunLogWriter::create(path)?;
     let embedding_timestamp_base = report.samples.len() as u64 * 1_000_000 + 1_000_000;
     writer.append(&RunLogEvent::RunStarted {
         schema_version: RUN_LOG_SCHEMA_VERSION,
@@ -136,7 +181,7 @@ pub fn write_toy_harness_runlog(
         writer.append(&RunLogEvent::FrameObserved {
             step,
             timestamp_ns,
-            observation_hash: Some(pid_runlog::canonical_json_hash(sample)?),
+            observation_hash: Some(pid_runlog::canonical_json_hash_v2(sample)?),
             metadata: [
                 ("episode_id".to_string(), sample.episode_id.clone()),
                 ("success".to_string(), sample.success.to_string()),
@@ -237,6 +282,9 @@ fn validate_config(config: &ToyHarnessConfig) -> Result<()> {
     if config.episodes < 8 {
         bail!("episodes must be at least 8");
     }
+    if config.episodes > MAX_TOY_EPISODES {
+        bail!("episodes must not exceed the {MAX_TOY_EPISODES}-episode toy limit");
+    }
     if config.failure_period == 0 {
         bail!("failure_period must be positive");
     }
@@ -286,7 +334,8 @@ fn compute_pid_metrics(samples: &[ToyEpisodeSample]) -> Result<ToyPidMetrics> {
     let vision = MatRef::new(&vision, n, 1)?;
     let language = MatRef::new(&language, n, 1)?;
     let action = MatRef::new(&action, n, 1)?;
-    // pid-core 1.0 fails closed unless the caller asserts the population law. The toy harness's
+    // The current pid-core review contract fails closed unless the caller asserts the population
+    // law. The toy harness's
     // (V,L,A) are synthetic continuous variables, so the full-dimensional absolutely-continuous
     // assertion holds by construction. `Allow` preserves the PID identity (never clamp before the
     // subtraction).
@@ -536,6 +585,64 @@ mod tests {
         ] {
             assert!(value.is_finite());
         }
+    }
+
+    #[test]
+    fn toy_harness_rejects_unbounded_episode_counts() {
+        let error = run_toy_harness(ToyHarnessConfig {
+            episodes: MAX_TOY_EPISODES + 1,
+            ..Default::default()
+        })
+        .unwrap_err();
+        assert!(error.to_string().contains("toy limit"));
+    }
+
+    #[test]
+    fn toy_runlog_rejects_missing_or_aliased_summary_evidence() {
+        let report = run_toy_harness(ToyHarnessConfig {
+            episodes: 32,
+            ..Default::default()
+        })
+        .unwrap();
+        let missing = temp_path("missing-summary.json");
+        let runlog = temp_path("missing-summary-runlog.jsonl");
+        assert!(write_toy_harness_runlog(&runlog, Some(&missing), &report).is_err());
+        assert!(!runlog.exists());
+
+        let same = temp_path("same-output.json");
+        write_toy_harness_summary(&same, &report).unwrap();
+        let before = std::fs::read(&same).unwrap();
+        assert!(write_toy_harness_runlog(&same, Some(&same), &report)
+            .unwrap_err()
+            .to_string()
+            .contains("distinct"));
+        assert_eq!(std::fs::read(&same).unwrap(), before);
+        let _ = std::fs::remove_file(same);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn toy_runlog_rejects_symlink_summary_evidence() {
+        use std::os::unix::fs::symlink;
+
+        let report = run_toy_harness(ToyHarnessConfig {
+            episodes: 32,
+            ..Default::default()
+        })
+        .unwrap();
+        let summary = temp_path("summary-target.json");
+        let link = temp_path("summary-link.json");
+        let runlog = temp_path("summary-link-runlog.jsonl");
+        write_toy_harness_summary(&summary, &report).unwrap();
+        symlink(&summary, &link).unwrap();
+
+        assert!(write_toy_harness_runlog(&runlog, Some(&link), &report)
+            .unwrap_err()
+            .to_string()
+            .contains("non-symlink"));
+        assert!(!runlog.exists());
+        let _ = std::fs::remove_file(link);
+        let _ = std::fs::remove_file(summary);
     }
 
     #[test]

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "z3_version": "Z3 version 4.16.0 - 64 bit",
+  "models": {
+    "bridge_log_before_dispatch.smt2": {
+      "expected": ["unsat", "unsat", "sat", "sat", "sat", "unsat"],
+      "sha256": "3e7973c3bb660e3f7ad5de57534bb3d985115d35dece26aac53ba905f048781e"
+    },
+    "coupling_nonidentification.smt2": {
+      "expected": ["sat"],
+      "sha256": "ab58d5451af020a78e0b8f9873b1655247ae2d981b67c3f12f7e763d867744ae"
+    },
+    "h2_paired_brier_bounds.smt2": {
+      "expected": [
+        "sat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "sat",
+        "sat",
+        "unsat",
+        "sat",
+        "unsat"
+      ],
+      "sha256": "6f5f0fdf30644b64ec029bdbc8ab1c6921a0c2808da19580a9761cb91f09fd43"
+    },
+    "h3_full_population_fallback.smt2": {
+      "expected": ["sat", "unsat", "sat"],
+      "sha256": "e3e3df6edb46f0b106efb5937773bdd24d681d67f80f5a10859ff956883df5cd"
+    },
+    "informative_censoring_nonidentification.smt2": {
+      "expected": ["sat", "unsat"],
+      "sha256": "453df6526d713f230fc2f760c848360af9c3cf37f7c9dcd630457a744526f49d"
+    },
+    "individual_effect_prevalence_nonidentification.smt2": {
+      "expected": ["sat"],
+      "sha256": "ef3a71f72002e08c7212bad15f70881898765bc2fdb1a89ff95caab0b26e6e0f"
+    },
+    "pid_nonidentification.smt2": {
+      "expected": ["sat"],
+      "sha256": "9497d35f63fa9a55414224fd6f3364e29a905b019b7c4948c02596a714b12352"
+    },
+    "receipt_last_publication.smt2": {
+      "expected": [
+        "unsat",
+        "unsat",
+        "sat",
+        "sat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "sat",
+        "sat",
+        "unsat"
+      ],
+      "sha256": "6a7ff04f3335fec088d6b856c8dd59ffebd9a3e7a3921c5438a8e1e2444e2a19"
+    },
+    "shannon_two_source_identity.smt2": {
+      "expected": ["sat", "unsat", "unsat", "unsat"],
+      "sha256": "1cd9f776667d2f184badd5f17df1ce9788d1a31c804c031ebde85c89d9407877"
+    },
+    "typed_outcome_publication.smt2": {
+      "expected": [
+        "sat",
+        "sat",
+        "sat",
+        "sat",
+        "sat",
+        "sat",
+        "sat",
+        "sat",
+        "sat",
+        "sat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "unsat",
+        "unsat"
+      ],
+      "sha256": "51b4dd48b84d42fa13481a8a2c16edf252387564060d41cd826cb1a9abf5e471"
+    }
+  }
+}

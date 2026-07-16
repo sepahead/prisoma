@@ -163,9 +163,9 @@ pub enum OfflineVldaAbstainReason {
     ObservedSampleIncompatibleExactTies,
     /// The estimator rejected the k-th-neighbour shell as ambiguous.
     AmbiguousNeighborShell,
-    /// Continuous shared exclusions requires equal ambient source dimensions (pid-core 1.0). This
-    /// is an estimator-applicability limit — the small-ball gauge is only defined for equal ambient
-    /// dimensions — not a statement about the population law.
+    /// Continuous shared exclusions requires equal ambient source dimensions in the current
+    /// pid-core review contract. This is an estimator-applicability limit — the small-ball gauge
+    /// is only defined for equal ambient dimensions — not a statement about the population law.
     EstimatorRequiresEqualSourceDimensions,
     /// Every requested resampling/permutation statistic for an otherwise preflight-compatible
     /// pair was unavailable. No inferential value is published.
@@ -1178,7 +1178,7 @@ pub fn run_offline_vlda_harness_with_options(
             "negative_handling": "allow"
         }
     });
-    let config_hash = pid_runlog::canonical_json_hash(&config)?;
+    let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
     Ok(OfflineVldaReport {
         run_id,
         config_hash,
@@ -1302,8 +1302,9 @@ fn compute_pid_screen_metrics(
                     PlsComponentSelection::Fixed(k) => Ok((k, None)),
                     PlsComponentSelection::CvQ2 { max_components } => {
                         let cv = pls_cv_select_components(x, a, max_components)?;
-                        // pid-core 1.0: `best_components` is `None` when no candidate completed
-                        // every predeclared fold, and Q² now lives on the candidate outcome.
+                        // In the current pid-core review contract, `best_components` is `None` when
+                        // no candidate completed every predeclared fold, and Q² lives on the
+                        // candidate outcome.
                         let best = cv.best_components.context(
                             "PLS CV selected no component count (no candidate completed every fold)",
                         )?;
@@ -1525,18 +1526,30 @@ fn prepared_with_shuffled_target(
     })
 }
 
-// ── Opt-in PID-screen uncertainty (subsample bootstrap + permutation nulls) ──
+// ── Opt-in PID-screen stability summaries + permutation nulls ──
+
+/// Machine-readable interpretation of the raw m-sample resampling percentiles.
+///
+/// This exact value is serialized into every uncertainty sidecar so consumers cannot
+/// silently reinterpret the stability envelope as a calibrated confidence interval for the
+/// full-n estimator or population quantity.
+pub const RAW_M_SAMPLE_STABILITY_INTERPRETATION: &str =
+    "raw_m_sample_percentiles_not_n_sample_confidence_intervals";
+
+fn raw_m_sample_stability_interpretation() -> String {
+    RAW_M_SAMPLE_STABILITY_INTERPRETATION.to_string()
+}
 
 /// Configuration for [`compute_offline_pid_uncertainty`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct OfflineVldaUncertaintyConfig {
-    /// Number of subsample-bootstrap resamples (0 disables CIs).
+    /// Number of subsample resamples (0 disables raw m-sample stability percentiles).
     pub n_boot: usize,
     /// Number of permutations for single-source unique-atom nulls (0 disables them).
     pub n_perm: usize,
     /// Moving-block length for the resamplers (1 = i.i.d.).
     pub block_size: usize,
-    /// Significance level for the percentile CIs.
+    /// Two-sided tail mass used to select the raw m-sample percentiles.
     pub alpha: f64,
     /// Base seed for the resamplers.
     pub seed: u64,
@@ -1587,31 +1600,42 @@ impl OfflineVldaUncertaintyConfig {
     }
 }
 
-/// Percentile CI for one PID atom.
+/// Raw m-sample percentile stability envelope for one PID atom.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct OfflineVldaAtomCi {
+pub struct OfflineVldaAtomStabilityEnvelope {
     pub point: f64,
-    pub ci_low: f64,
-    pub ci_high: f64,
+    /// Lower raw percentile of the m-sample resampling distribution.
+    ///
+    /// `ci_low` is accepted only to read pre-correction sidecars. New serialization always emits
+    /// `m_sample_percentile_lower`.
+    #[serde(alias = "ci_low")]
+    pub m_sample_percentile_lower: f64,
+    /// Upper raw percentile of the m-sample resampling distribution.
+    ///
+    /// `ci_high` is accepted only to read pre-correction sidecars. New serialization always emits
+    /// `m_sample_percentile_upper`.
+    #[serde(alias = "ci_high")]
+    pub m_sample_percentile_upper: f64,
     pub n_valid: usize,
     /// Mean of the m-out-of-n subsample distribution. KSG/`I^sx` bias is
     /// sample-size dependent (it grows as samples shrink), so this estimates
     /// `E[θ̂_m]` at `m = subsample_len`, **not** `E[θ̂_n]` — the subsample
     /// distribution is *mis-centered* relative to the full-n point estimate,
-    /// not merely wider. Read the percentile interval as a width-conservative
-    /// variability band, not calibrated coverage for the population atom.
+    /// not merely wider. Read the raw percentiles only as an m-sample stability
+    /// envelope, never as calibrated coverage for the full-n estimator or population atom.
     /// `None` on artifacts written before this field existed.
     #[serde(default)]
     pub boot_mean: Option<f64>,
     /// `boot_mean − point` — the m-dependent-bias diagnostic, precomputed for
-    /// artifact consumers: a gap large relative to `ci_high − ci_low` flags
-    /// that the CI's center (and hence its coverage) is dominated by
-    /// small-sample estimator bias. `None` on old artifacts.
+    /// artifact consumers: a gap large relative to
+    /// `m_sample_percentile_upper − m_sample_percentile_lower` flags that the
+    /// m-sample distribution is dominated by small-sample estimator bias.
+    /// `None` on old artifacts.
     #[serde(default)]
     pub bias_vs_point: Option<f64>,
 }
 
-/// Bootstrap CIs + permutation p-values for one two-source pair → A.
+/// Raw m-sample stability envelopes + permutation p-values for one two-source pair → A.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPairUncertainty {
     pub pair: String,
@@ -1631,10 +1655,10 @@ pub struct OfflineVldaPairUncertainty {
     /// least one other requested component was produced.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warning_codes: Vec<OfflineVldaUncertaintyWarning>,
-    pub redundancy: Option<OfflineVldaAtomCi>,
-    pub unique_s1: Option<OfflineVldaAtomCi>,
-    pub unique_s2: Option<OfflineVldaAtomCi>,
-    pub synergy: Option<OfflineVldaAtomCi>,
+    pub redundancy: Option<OfflineVldaAtomStabilityEnvelope>,
+    pub unique_s1: Option<OfflineVldaAtomStabilityEnvelope>,
+    pub unique_s2: Option<OfflineVldaAtomStabilityEnvelope>,
+    pub synergy: Option<OfflineVldaAtomStabilityEnvelope>,
     /// One-sided permutation p-value for `unique_s1` (shuffling source 1).
     pub unique_s1_perm_p: Option<f64>,
     /// One-sided permutation p-value for `unique_s2` (shuffling source 2).
@@ -1669,12 +1693,19 @@ fn produced_status() -> OfflineVldaEstimateStatus {
 /// Result of [`compute_offline_pid_uncertainty`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPidUncertainty {
-    /// `"continuous"` when CIs were computed, or `"skipped:<reason>"`.
+    /// `"continuous"` when requested stability/permutation summaries were computed, or
+    /// `"skipped:<reason>"`.
     pub mode: String,
+    /// Explicit scope of the raw subsample percentiles. Defaults to the same conservative
+    /// interpretation when reading sidecars written before this field existed.
+    #[serde(default = "raw_m_sample_stability_interpretation")]
+    pub stability_interpretation: String,
     pub n_boot: usize,
     pub n_perm: usize,
     pub block_size: usize,
     pub subsample_len: usize,
+    /// Two-sided tail mass selecting the raw m-sample percentile endpoints. This is not a
+    /// confidence-interval significance level.
     pub alpha: f64,
     pub resample_scheme: String,
     /// Which permutation null produced the p-values (`"full_shuffle"` or
@@ -1685,7 +1716,7 @@ pub struct OfflineVldaPidUncertainty {
     pub pairs: Vec<OfflineVldaPairUncertainty>,
 }
 
-/// Compute subsample-bootstrap CIs and single-source permutation p-values for the
+/// Compute raw m-sample stability percentiles and single-source permutation p-values for the
 /// three two-source `(V,L)→A` / `(V,D)→A` / `(L,D)→A` PID screens.
 ///
 /// This is the analysis-side complement to the Exp0 uncertainty gate: it quantifies
@@ -1693,7 +1724,8 @@ pub struct OfflineVldaPidUncertainty {
 /// discrete `I_min` modes are a different measure — Warning 6 — and are reported as
 /// `skipped`). Resampling is Politis–Romano subsampling without replacement, which
 /// is safe for the KSG kNN estimator (a with-replacement bootstrap is not — see
-/// `pid_core::RowResampleScheme`); CIs are correspondingly conservative.
+/// `pid_core::RowResampleScheme`). Its raw percentiles describe estimator stability at
+/// `m = subsample_len`; they do not have calibrated n-sample confidence-interval coverage.
 ///
 /// It is intentionally self-contained and written to a dedicated file by the
 /// binary, so it never perturbs the canonical run-log / summary metric counts.
@@ -1705,7 +1737,7 @@ pub fn compute_offline_pid_uncertainty(
     ensure!(config.block_size > 0, "uncertainty block_size must be >= 1");
     ensure!(
         config.alpha.is_finite() && (0.0..1.0).contains(&config.alpha),
-        "uncertainty alpha must lie strictly inside (0, 1)"
+        "uncertainty raw-percentile tail mass must lie strictly inside (0, 1)"
     );
     if config.n_perm > 0 {
         let _ = permutation_scheme_label(config.permutation_scheme)?;
@@ -1713,6 +1745,7 @@ pub fn compute_offline_pid_uncertainty(
     if !config.enabled() {
         return Ok(OfflineVldaPidUncertainty {
             mode: "skipped:no_uncertainty_requested".to_string(),
+            stability_interpretation: raw_m_sample_stability_interpretation(),
             n_boot: 0,
             n_perm: 0,
             block_size: config.block_size,
@@ -1726,6 +1759,7 @@ pub fn compute_offline_pid_uncertainty(
     if pid_mode != PidMode::Continuous {
         return Ok(OfflineVldaPidUncertainty {
             mode: format!("skipped:non_continuous_mode_is_a_different_measure ({pid_mode:?})"),
+            stability_interpretation: raw_m_sample_stability_interpretation(),
             n_boot: config.n_boot,
             n_perm: config.n_perm,
             block_size: config.block_size,
@@ -1817,11 +1851,11 @@ pub fn compute_offline_pid_uncertainty(
         }
 
         let (redundancy, unique_s1, unique_s2, synergy) = if config.n_boot > 0 {
-            // pid-core 1.0 requires an explicit resampling-validity declaration. These rows are
-            // episode-grouped and autocorrelated — which is *why* the harness block-subsamples —
-            // so declare weak stationary dependence at the configured block length rather than
-            // asserting independent rows. `--block-size` is fixed before the resampling outcomes
-            // are seen, hence `FixedAPriori`.
+            // The current pid-core review contract requires an explicit resampling-validity
+            // declaration. These rows are episode-grouped and autocorrelated — which is *why* the
+            // harness block-subsamples — so declare weak stationary dependence at the configured
+            // block length rather than asserting independent rows. `--block-size` is fixed before
+            // the resampling outcomes are seen, hence `FixedAPriori`.
             let validity = ResamplingValidityDeclaration::weakly_dependent_stationary(
                 config.block_size,
                 BlockLengthSelection::FixedAPriori,
@@ -1834,8 +1868,8 @@ pub fn compute_offline_pid_uncertainty(
                 validity,
             )?;
             let scheme = RowResampleScheme::Subsample { subsample_len };
-            // pid-core 1.0 preflights the callback's cost, so its output width and per-call
-            // resources must be declared up front. Four atoms per invocation.
+            // The current pid-core review contract preflights the callback's cost, so its output
+            // width and per-call resources must be declared up front. Four atoms per invocation.
             let per_call = pid2_resource_estimate(s1, s2, a, &pid_cfg)
                 .map_err(|e| anyhow::anyhow!("pid2 resource estimate for {name}: {e}"))?;
             let callback = StatisticCallbackDeclaration::vector(4, per_call)?;
@@ -1844,20 +1878,26 @@ pub fn compute_offline_pid_uncertainty(
                 Ok(vec![r.redundancy, r.unique_s1, r.unique_s2, r.synergy])
             })
             .map_err(|e| anyhow::anyhow!("pid2 bootstrap failed for {name}: {e}"))?;
-            // `stats` is `None` when any replicate failed: pid-core 1.0 refuses to summarize the
-            // successful subset selectively. Abstain from the CI rather than report a biased one.
-            let to_ci = |idx: usize| {
+            // `stats` is `None` when any replicate failed: the current pid-core review contract
+            // refuses to summarize the successful subset selectively. Abstain from the stability
+            // envelope rather than report a selectively summarized one.
+            let to_stability_envelope = |idx: usize| {
                 let s = res.stats.as_ref()?.get(idx)?;
-                Some(OfflineVldaAtomCi {
+                Some(OfflineVldaAtomStabilityEnvelope {
                     point: s.point_estimate,
-                    ci_low: s.percentile_lower,
-                    ci_high: s.percentile_upper,
+                    m_sample_percentile_lower: s.percentile_lower,
+                    m_sample_percentile_upper: s.percentile_upper,
                     n_valid: s.n_valid,
                     boot_mean: Some(s.resample_mean),
                     bias_vs_point: Some(s.resample_mean - s.point_estimate),
                 })
             };
-            (to_ci(0), to_ci(1), to_ci(2), to_ci(3))
+            (
+                to_stability_envelope(0),
+                to_stability_envelope(1),
+                to_stability_envelope(2),
+                to_stability_envelope(3),
+            )
         } else {
             (None, None, None, None)
         };
@@ -1983,6 +2023,7 @@ pub fn compute_offline_pid_uncertainty(
 
     Ok(OfflineVldaPidUncertainty {
         mode: "continuous".to_string(),
+        stability_interpretation: raw_m_sample_stability_interpretation(),
         n_boot: config.n_boot,
         n_perm: config.n_perm,
         block_size: config.block_size,
@@ -2317,42 +2358,54 @@ fn validate_offline_vlda_report(report: &OfflineVldaReport) -> Result<()> {
     Ok(())
 }
 
-fn validate_atom_ci(atom: &OfflineVldaAtomCi, n_boot: usize, context: &str) -> Result<()> {
+fn validate_atom_stability_envelope(
+    atom: &OfflineVldaAtomStabilityEnvelope,
+    n_boot: usize,
+    context: &str,
+) -> Result<()> {
     ensure!(
-        [atom.point, atom.ci_low, atom.ci_high]
-            .into_iter()
-            .all(f64::is_finite),
-        "{context}: point or interval endpoint is non-finite"
+        [
+            atom.point,
+            atom.m_sample_percentile_lower,
+            atom.m_sample_percentile_upper,
+        ]
+        .into_iter()
+        .all(f64::is_finite),
+        "{context}: point or raw m-sample percentile endpoint is non-finite"
     );
     ensure!(
-        atom.ci_low <= atom.ci_high,
-        "{context}: interval endpoints are reversed"
+        atom.m_sample_percentile_lower <= atom.m_sample_percentile_upper,
+        "{context}: raw m-sample percentile endpoints are reversed"
     );
     ensure!(
         atom.n_valid > 0 && atom.n_valid <= n_boot,
-        "{context}: valid bootstrap count is outside 1..={n_boot}"
+        "{context}: valid resample count is outside 1..={n_boot}"
     );
     let boot_mean = atom
         .boot_mean
-        .context(format!("{context}: bootstrap mean is absent"))?;
+        .context(format!("{context}: m-sample resample mean is absent"))?;
     let bias_vs_point = atom
         .bias_vs_point
-        .context(format!("{context}: bootstrap bias diagnostic is absent"))?;
+        .context(format!("{context}: m-sample bias diagnostic is absent"))?;
     ensure!(
         boot_mean.is_finite() && bias_vs_point.is_finite(),
-        "{context}: bootstrap mean or bias diagnostic is non-finite"
+        "{context}: m-sample resample mean or bias diagnostic is non-finite"
     );
     ensure!(
         bias_vs_point.to_bits() == (boot_mean - atom.point).to_bits(),
-        "{context}: bootstrap bias diagnostic does not equal boot_mean - point"
+        "{context}: m-sample bias diagnostic does not equal boot_mean - point"
     );
     Ok(())
 }
 
 fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> Result<()> {
     ensure!(
+        uncertainty.stability_interpretation == RAW_M_SAMPLE_STABILITY_INTERPRETATION,
+        "PID uncertainty stability interpretation must be {RAW_M_SAMPLE_STABILITY_INTERPRETATION}"
+    );
+    ensure!(
         uncertainty.alpha.is_finite() && (0.0..1.0).contains(&uncertainty.alpha),
-        "PID uncertainty alpha must lie strictly inside (0, 1)"
+        "PID uncertainty raw-percentile tail mass must lie strictly inside (0, 1)"
     );
     ensure!(
         uncertainty.block_size > 0,
@@ -2407,12 +2460,12 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
         );
         ensure!(
             uncertainty.resample_scheme == "politis_romano_subsample",
-            "PID uncertainty bootstrap scheme is mislabeled"
+            "PID uncertainty stability-resampling scheme is mislabeled"
         );
     } else {
         ensure!(
             uncertainty.subsample_len == 0 && uncertainty.resample_scheme == "not_requested",
-            "unrequested PID bootstrap carries a scheme or subsample length"
+            "unrequested PID stability resampling carries a scheme or subsample length"
         );
     }
     if uncertainty.n_perm > 0 {
@@ -2454,7 +2507,7 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
         );
         ensure!(
             uncertainty.n_boot > 0 || !has_any_atom,
-            "PID uncertainty pair {} carries an unrequested bootstrap interval",
+            "PID uncertainty pair {} carries an unrequested stability envelope",
             pair.pair
         );
         ensure!(
@@ -2539,7 +2592,7 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
         }
         for (name, atom) in atoms {
             if let Some(atom) = atom {
-                validate_atom_ci(
+                validate_atom_stability_envelope(
                     atom,
                     uncertainty.n_boot,
                     &format!("PID uncertainty {} {name}", pair.pair),
@@ -2748,7 +2801,7 @@ pub fn write_offline_vlda_runlog_with_options(
         writer.append(&RunLogEvent::FrameObserved {
             step,
             timestamp_ns,
-            observation_hash: Some(pid_runlog::canonical_json_hash(sample)?),
+            observation_hash: Some(pid_runlog::canonical_json_hash_v2(sample)?),
             metadata,
         })?;
         for (label, value) in &sample.labels {
@@ -3444,8 +3497,8 @@ fn standardize_embedding(
             input_dim: dim,
             output_dim: dim,
             zero_variance_dims: zero_variance_dims(data, n, dim),
-            mean_sha256: pid_runlog::canonical_json_hash(&standardizer.mean().to_vec())?,
-            inv_std_sha256: pid_runlog::canonical_json_hash(&standardizer.inv_std()?)?,
+            mean_sha256: pid_runlog::canonical_json_hash_v2(&standardizer.mean().to_vec())?,
+            inv_std_sha256: pid_runlog::canonical_json_hash_v2(&standardizer.inv_std()?)?,
         },
     );
     Ok(standardized)
@@ -3882,7 +3935,7 @@ fn compute_pid_pair_metrics(
 }
 
 /// Exact estimator revision stamped on every requested estimate. Update with the submodule pin.
-const ESTIMATOR_REVISION: &str = "pid-core 1.0.0 (pid-rs 43ab605)";
+const ESTIMATOR_REVISION: &str = "pid-core 0.9.0 (pid-rs 796c11e)";
 
 const MEASURE_CONTINUOUS_MI: &str = "ksg_mi";
 const MEASURE_CONTINUOUS_PID2: &str = "continuous_isx_pid2";
@@ -4222,10 +4275,10 @@ fn quantized_mi_estimate(
 
 /// The KSG configuration used by every continuous screen in this harness.
 ///
-/// pid-core 1.0 fails closed on `SupportContract::Unspecified`: the caller must state the
-/// population-law assumption. `assume_regular_full_dimensional` asserts that every marginal and
-/// joint law in the call is full-dimensional and absolutely continuous. It is an *assertion*, not
-/// a proof; eligibility for a given tuple is decided by `continuous_preflight`.
+/// The current pid-core review contract fails closed on `SupportContract::Unspecified`: the caller
+/// must state the population-law assumption. `assume_regular_full_dimensional` asserts that every
+/// marginal and joint law in the call is full-dimensional and absolutely continuous. It is an
+/// *assertion*, not a proof; eligibility for a given tuple is decided by `continuous_preflight`.
 ///
 /// `NegativeHandling::Allow` is mandatory, not a preference: clamping an MI term before the
 /// subtraction breaks the PID identity `Red + Unq1 + Unq2 + Syn = I(S1,S2;T)`.
@@ -4248,11 +4301,11 @@ fn pid2_config(ksg: &KsgConfig) -> Pid2Config {
 
 /// Fit an equal-width codebook on `x` and quantize `x` with it.
 ///
-/// pid-core 1.0 removed the free `quantize_equal_width`; binning now goes through a fitted
-/// `EqualWidthQuantizer` whose edges are part of the estimand. Fitting on `x` itself reproduces the
-/// pre-1.0 in-sample binning exactly. `grandplan.md` §7.6 requires the codebook to be fit on
-/// training rows only in an inferential workflow; these screens are descriptive, and the caller
-/// passes the train split where one exists.
+/// The current pid-core review surface omits the free `quantize_equal_width`; binning goes through
+/// a fitted `EqualWidthQuantizer` whose edges are part of the estimand. Fitting on `x` itself
+/// reproduces the legacy in-sample binning exactly. `grandplan.md` §7.6 requires the codebook to be
+/// fit on training rows only in an inferential workflow; these screens are descriptive, and the
+/// caller passes the train split where one exists.
 fn quantize(x: MatRef<'_>, bins: usize) -> Result<QuantizedData> {
     let quantizer = EqualWidthQuantizer::fit(x, bins, QuantizerConfig::default())
         .map_err(|e| anyhow::anyhow!("quantizer fit: {e}"))?;
@@ -4290,7 +4343,7 @@ fn plugin_discrete_mi(x: &[u32], y: &[u32]) -> Result<f64> {
     Ok(h_x + h_y - h_xy)
 }
 
-/// pid-core 1.0 drops `Clone` on `MatOwned`; rebuild it row-wise.
+/// The current pid-core review surface omits `Clone` on `MatOwned`; rebuild it row-wise.
 fn clone_mat(m: &MatOwned) -> Result<MatOwned> {
     let source = m.as_ref();
     let (nrows, ncols) = (source.nrows(), source.ncols());
@@ -4569,8 +4622,8 @@ fn compute_geometry_variable(
             Some(format!("{err}")),
         ),
     };
-    // pid-core 1.0 renamed `gromov_hyperbolicity` to `sampled_four_point_delta_summary` and returns
-    // a distribution rather than one number. `.mean` is the same sampled-mean delta this field
+    // The current pid-core review surface uses `sampled_four_point_delta_summary` and returns a
+    // distribution rather than one number. `.mean` is the same sampled-mean delta this field
     // always held — descriptive only, never a validity gate (`grandplan.md` §7.9).
     let (gromov_delta, gromov_error) =
         match sampled_four_point_delta_summary(matrix, hyperbolicity_cfg) {
@@ -7318,7 +7371,7 @@ mod tests {
         std::fs::write(&dataset_path, &dataset_bytes).unwrap();
 
         let config = json!({"fixture": "ncp-publication"});
-        let config_hash = pid_runlog::canonical_json_hash(&config).unwrap();
+        let config_hash = pid_runlog::canonical_json_hash_v2(&config).unwrap();
         let mut writer = RunLogWriter::new(Vec::new());
         writer
             .append(&RunLogEvent::RunStarted {
@@ -8519,9 +8572,9 @@ mod tests {
         // (`V→A`, `D→A`). Every pair abstains, and the train-split screen abstains too (12 rows
         // put the continuous estimator into an ambiguous k-th-neighbor shell). 42 -> 2.
         assert_eq!(summary.pid_metrics, 2);
-        // `L` is binary: duplicate rows give a zero nearest-neighbor distance, so pid-core 1.0
-        // fails its geometry diagnostics closed (degenerate data / ambiguous shell) and records the
-        // reason instead of emitting a number. 21 -> 19.
+        // `L` is binary: duplicate rows give a zero nearest-neighbor distance, so the current
+        // pid-core review contract fails its geometry diagnostics closed (degenerate data /
+        // ambiguous shell) and records the reason instead of emitting a number. 21 -> 19.
         assert!(summary.geometry_metrics >= 19);
         assert_eq!(summary.evaluation_metrics, 142);
         assert_eq!(summary.pid_metric_events, 2);
@@ -8935,9 +8988,10 @@ mod tests {
         assert_eq!(summary.status, Some(RunStatus::Failed));
         assert_eq!(summary.errors, 1);
         // 19, not 21: `L` is a binary axis, so its duplicate rows give a zero nearest-neighbor
-        // distance. pid-core 1.0 fails those geometry diagnostics closed (degenerate data /
-        // ambiguous k-th-neighbor shell) instead of emitting a number, and the reasons are
-        // recorded as `intrinsic_dimension_error` / `distance_concentration_error` in the summary.
+        // distance. The current pid-core review contract fails those geometry diagnostics closed
+        // (degenerate data / ambiguous k-th-neighbor shell) instead of emitting a number, and the
+        // reasons are recorded as `intrinsic_dimension_error` /
+        // `distance_concentration_error` in the summary.
         assert_eq!(summary.geometry_metrics, 19);
         assert_eq!(summary.geometry_metric_events, 19);
 
@@ -9156,7 +9210,7 @@ mod tests {
     }
 
     #[test]
-    fn pid_uncertainty_continuous_emits_cis_and_perm_pvalues() {
+    fn pid_uncertainty_continuous_emits_stability_envelopes_and_perm_pvalues() {
         let dataset = continuous_fixture_dataset();
         let cfg = OfflineVldaUncertaintyConfig {
             n_boot: 24,
@@ -9168,6 +9222,10 @@ mod tests {
         };
         let u = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
         assert_eq!(u.mode, "continuous");
+        assert_eq!(
+            u.stability_interpretation,
+            RAW_M_SAMPLE_STABILITY_INTERPRETATION
+        );
         assert_eq!(u.pairs.len(), 3);
         assert!(u.subsample_len >= 1);
         assert_eq!(u.permutation_scheme, "full_shuffle");
@@ -9175,9 +9233,9 @@ mod tests {
         let u2 = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
         assert_eq!(u, u2);
         let vl = u.pairs.iter().find(|p| p.pair == "VL").unwrap();
-        // Bootstrap CIs present and well-ordered (n_boot > 0).
+        // Raw m-sample stability percentiles are present and ordered (n_boot > 0).
         let red = vl.redundancy.as_ref().unwrap();
-        assert!(red.ci_low <= red.ci_high);
+        assert!(red.m_sample_percentile_lower <= red.m_sample_percentile_upper);
         assert!(red.n_valid > 0 && red.n_valid <= cfg.n_boot);
         // Subsample-bias diagnostic: the m-out-of-n center is exposed alongside
         // the point estimate, and the precomputed gap is exactly their difference.
@@ -9190,6 +9248,38 @@ mod tests {
         let p2 = vl.unique_s2_perm_p.unwrap();
         assert!((0.0..=1.0).contains(&p1) && (0.0..=1.0).contains(&p2));
         assert!(vl.perm_n_valid_s1 > 0 && vl.perm_n_valid_s2 > 0);
+
+        let serialized = serde_json::to_value(&u).unwrap();
+        assert_eq!(
+            serialized["stability_interpretation"],
+            RAW_M_SAMPLE_STABILITY_INTERPRETATION
+        );
+        let serialized_red = &serialized["pairs"][0]["redundancy"];
+        assert!(serialized_red.get("m_sample_percentile_lower").is_some());
+        assert!(serialized_red.get("m_sample_percentile_upper").is_some());
+        assert!(serialized_red.get("ci_low").is_none());
+        assert!(serialized_red.get("ci_high").is_none());
+    }
+
+    #[test]
+    fn atom_stability_envelope_reads_legacy_ci_endpoint_names_but_never_reemits_them() {
+        let legacy = serde_json::json!({
+            "point": 0.75,
+            "ci_low": 0.5,
+            "ci_high": 1.0,
+            "n_valid": 20,
+            "boot_mean": 0.8,
+            "bias_vs_point": 0.050000000000000044
+        });
+        let envelope: OfflineVldaAtomStabilityEnvelope = serde_json::from_value(legacy).unwrap();
+        assert_eq!(envelope.m_sample_percentile_lower, 0.5);
+        assert_eq!(envelope.m_sample_percentile_upper, 1.0);
+
+        let serialized = serde_json::to_value(envelope).unwrap();
+        assert_eq!(serialized["m_sample_percentile_lower"], 0.5);
+        assert_eq!(serialized["m_sample_percentile_upper"], 1.0);
+        assert!(serialized.get("ci_low").is_none());
+        assert!(serialized.get("ci_high").is_none());
     }
 
     #[test]
@@ -9331,6 +9421,34 @@ mod tests {
         let error = write_offline_pid_uncertainty(&path, &uncertainty).unwrap_err();
         assert!(
             format!("{error:#}").contains("inconsistent with numeric-value presence=false"),
+            "{error:#}"
+        );
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn uncertainty_publication_rejects_ambiguous_stability_interpretation() {
+        let config = OfflineVldaUncertaintyConfig {
+            n_boot: 8,
+            ..Default::default()
+        };
+        let mut uncertainty = compute_offline_pid_uncertainty(
+            &continuous_fixture_dataset(),
+            PidMode::Continuous,
+            &config,
+        )
+        .unwrap();
+        uncertainty.stability_interpretation = "confidence_interval".to_string();
+
+        let path = std::env::temp_dir().join(format!(
+            "prisoma-ambiguous-stability-{}-{}.json",
+            std::process::id(),
+            config.seed
+        ));
+        let _ = std::fs::remove_file(&path);
+        let error = write_offline_pid_uncertainty(&path, &uncertainty).unwrap_err();
+        assert!(
+            format!("{error:#}").contains(RAW_M_SAMPLE_STABILITY_INTERPRETATION),
             "{error:#}"
         );
         assert!(!path.exists());

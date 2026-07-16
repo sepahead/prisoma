@@ -16,7 +16,7 @@
 status label. The generated capability matrix is the machine-readable status authority; a box,
 example, or future-tense interface in this document is not implementation evidence.
 
-**v10.7 → v12.5 migration note:** the legacy H1–H9 / Exp0–Exp10 scheme is retired. The confirmatory registry (`grandplan.md` §4) is now **EC1** (provenance-complete replay) plus **H1** (pre-treatment diagnostics predict intervention response; Protocol A paired vs Protocol B randomized), **H2** (censoring-aware failure prediction), **H3** (conditional PID incremental value), and **H4** (availability can diverge from causal policy use). Gates are the **S0–S7** sequence (§5.1); build order is **milestones M0–M7** (§12); estimator validation ("Experiment 0") is now the **S1 gate / §7** and is judged against four gates — population, measure, estimator, application (§7.1). Legacy H-labels below are remapped accordingly.
+**v10.7 → v12.5 migration note:** the legacy H1–H9 / Exp0–Exp10 scheme is retired. The confirmatory registry (`grandplan.md` §4) is now **EC1** (provenance-complete replay) plus **H1** (pre-treatment diagnostics predict intervention response; Protocol A paired vs Protocol B randomized), **H2** (censoring-aware failure prediction), **H3** (conditional PID incremental value), and **H4** (availability can diverge from the effect of one frozen tested intervention). Gates are the **S0–S7** sequence (§5.1); build order is **milestones M0–M7** (§12); estimator validation ("Experiment 0") is now the **S1 gate / §7** and is judged against four gates — population, measure, estimator, application (§7.1). Legacy H-labels below are remapped accordingly.
 
 **Docset-wide final solution:** `grandplan.md` §16 is the decision log (see also §8.2, §8.11, §8.13, §15.4). The run log is the source of truth; the Agent Bridge is the **only control plane**; Rerun is the read-only Phases 1–3 diagnostic/time-machine viewer; and Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering. Every VLA action, scene edit, intervention, pause/resume/step transition, and correction-force command must enter through the Agent Bridge and be appended to the canonical run log before execution. PID workers and observers analyze data; Zenoh transports data; Rerun renders replayed data. None may actuate the simulator.
 
@@ -352,8 +352,8 @@ and sometimes auxiliary diagnostics. A validated PID adds a measure-relative sum
 distributional information. It does not identify causal input use without interventions:
 - **Failure signatures:** exploratory PID-atom correlations may become conditional H3 features for
   the prospective H2 endpoint only after all four PID gates; they are not the H1 Protocol A/B endpoint
-- **Availability vs use:** combine decodability with matched interventions to test whether
-  representational availability diverges from causal policy use (H4)
+- **Availability vs tested intervention effect:** combine decodability with a frozen matched
+  intervention to test the bounded H4 divergence without inferring natural non-use
 - **Long-horizon composition:** test whether temporal PID summaries degrade before failure (exploratory temporal analysis)
 
 ### 3.2 Comparison with VLA-Arena
@@ -406,18 +406,24 @@ branch identifies causal use without an intervention design.
   boolean, not a broad faithfulness claim.
 - Do not require Phase 4 custom shaders for attribution review; Phase 4 can add interactive overlays, but the canonical evidence remains the run log plus artifacts.
 
-**Implemented slice:** `experiments/attribution/` runs epsilon-/AttnLRP and gradient×input on a
-small reference model, then applies a frozen deletion-ranking-sensitivity gate on a
-selection-disjoint, group-disjoint validation set. It compares each case with a bounded random
-ranking reference and aggregates independent-group wins with an exact one-sided sign test. This
-diagnostic asks whether the feature ordering finds baseline replacements that change the selected
-output sooner; it does not establish causal or mechanistic faithfulness. The producer emits
-first-class `attribution_logged` events plus immutable content-addressed relevance artifacts. The
-legacy run-log boolean is true only on a typed gate pass, while metadata records the narrower
-diagnostic, status, reason, provenance, group evidence, exact input/baseline-set hash, complete
-relevance-set hash, and limitations. The `pid-rerun` adapter surfaces that recorded compatibility
-flag and provenance text. Its standalone converter can additionally surface at most 1024 finite
-values from a narrowly framed, bounded NumPy relevance artifact only after the operator passes
+**Implemented slice:** `experiments/attribution/` runs a detached-attention, value-path-only
+epsilon-LRP baseline that is explicitly not AttnLRP, plus gradient×input, on a small reference
+model. It applies a content-bound deletion-ranking-sensitivity gate on a selection-disjoint,
+group-disjoint validation set with declared predictor-determinism provenance and runtime
+determinism checks. Every exact attribution-magnitude tie causes a typed abstention. For an
+identified ranking, the gate compares mean absolute deletion sensitivity with a bounded per-case
+random-ranking reference and aggregates independent-group wins with a conservative one-sided
+binomial tail. This diagnostic asks whether the feature ordering finds output-sensitive baseline
+replacements sooner; it does not establish causal or mechanistic faithfulness. Exactly one
+predeclared primary method can set the legacy run-log boolean. The producer preflights the complete
+method-plus-gate work, then emits first-class `attribution_logged` events and companion
+`artifact_logged` events for immutable content-addressed relevance artifacts and canonical,
+reconstructable JSON evidence bundles. Those bundles bind exact model parameters, the complete
+gate and case set, every input/baseline/relevance array, decision evidence, software versions, and
+source hashes. The `pid-rerun` adapter surfaces a recorded compatibility check and provenance
+text—not a validated-faithfulness verdict. Its standalone converter can additionally surface at
+most 1024 finite values from a narrowly framed, bounded NumPy relevance artifact only after the
+operator passes
 `--load-attribution-artifacts`; paths are confined to the run-log directory, and the recorded exact
 file SHA-256 and canonical shape must match before output. Bridge export never grants this
 file-reading capability. The path checks are local best-effort confinement, not protection against
@@ -509,7 +515,7 @@ be benchmarked before they support a scientific or operational claim.
 
 | Component | Role | Rationale (design goals; benchmark-dependent) |
 |-----------|------|--------------|
-| **M0 governance ledgers** | Analysis-freeze scaffolding | Machine-check an explicitly unfrozen preregistration, no-registered-holdout state, pending transport/contamination work, and legacy-only literature inventory. Passing the local audit is integrity evidence, not scientific readiness. |
+| **M0 governance ledgers** | Analysis-freeze scaffolding | Preserve the non-promotable historical v1 scaffold and machine-check an all-null typed v2 successor draft covering EC1/H1/H2/H3/H4 freeze obligations, including exact EC1 acceptance coverage with a mandatory pair-specific absolute detection-sensitivity floor for every registered fault–adapter pair and no aggregate rescue, plus H2's one-primary-score success hierarchy, alongside the no-registered-holdout state, pending transport/contamination work, and legacy-only literature inventory. Passing either local audit is integrity evidence, not scientific readiness. |
 | **Run log** | Canonical data spine | Source of truth for replay, analysis, Rerun export, and Tauri sessions; summaries distinguish unique metric names from total metric events. |
 | **Agent Bridge** | Only control plane | GUI, scripts, LLM tools, and VLA-policy adapters submit every mutating command through the same local API; the command is recorded in the run log before execution. |
 | **Rerun** | **Read-only visualization & diagnostics** | **Primary P1-3 Tool.** Timeline, 3D scene, plots, ghost overlays, and replay from run logs; it never drives the simulator. |
@@ -519,7 +525,7 @@ be benchmarked before they support a scientific or operational claim.
 | **3DGS Pipeline** | Scene capture | Captured-view reconstruction candidate; quality and policy relevance are empirical |
 | **Dream2Flow** | Prediction/flow candidate | Frozen Euclidean flow endpoint with explicit transport assumptions |
 | **PID-Core** | Read-only information analysis | Computes candidate diagnostics from logged/captured data; it never triggers actions, pauses, or corrections |
-| **Attribution probes** | Local explanation baselines | Reference epsilon-/AttnLRP + gradient×input probe and Rerun adapter are implemented; other methods/production-VLA hooks remain extensions |
+| **Attribution probes** | Local explanation baselines | Reference detached-attention value-path epsilon-LRP (not AttnLRP) + gradient×input probe, content-bound ranking-sensitivity gate/evidence bundles, and recorded-check Rerun adapter are implemented; other methods/production-VLA hooks remain extensions |
 
 Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status,
 deterministic stepping, deterministic interventions, replay, run lifecycle stop, and

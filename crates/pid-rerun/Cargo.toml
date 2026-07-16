@@ -31,7 +31,8 @@ name = "runlog-to-rerun"
 path = "src/bin/runlog_to_rerun.rs"
 
 [dependencies]
-# `vla-demo` exercises the continuous 2-source PID path, which is default-off in pid-core 1.0.
+# `vla-demo` exercises the continuous 2-source PID path, which is default-off in the current
+# pid-core review surface.
 pid-core = { path = "../../pid-rs/crates/pid-core", features = ["experimental-continuous"] }
 pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
 # The adapter only emits SDK archetypes and recording streams. Depend on the narrow

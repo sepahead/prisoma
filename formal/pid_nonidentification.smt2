@@ -1,6 +1,8 @@
-; Concrete countermodel: the three two-source MI equations and nonnegative
-; atoms do not identify a unique PID. Both decompositions have I1=I2=1 and
-; I12=3/2, but their redundancy and synergy differ.
+; Concrete algebraic countermodel: the three two-source consistency equations
+; and nonnegative atoms do not identify a unique decomposition. Both locally
+; positive decompositions have I1=I2=1 and I12=3/2, but their redundancy and
+; synergy differ. This does not assert that both arise from one globally defined
+; redundancy functional on concrete probability laws.
 (set-logic QF_LRA)
 (declare-const red_a Real)
 (declare-const unique1_a Real)

@@ -356,6 +356,7 @@ def test_candidate_git_helper_enforces_exact_caps_and_timeout(
         """#!/usr/bin/env python3
 import os
 import pathlib
+import subprocess
 import sys
 import time
 
@@ -366,6 +367,22 @@ elif mode == "stderr":
     sys.stderr.buffer.write(b"abcd")
 elif mode == "timeout":
     time.sleep(2)
+    pathlib.Path(os.environ["FAKE_GIT_MARKER"]).write_text("escaped", encoding="utf-8")
+elif mode == "descendant":
+    subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import pathlib, sys, time; time.sleep(0.2); "
+            "pathlib.Path(sys.argv[1]).write_text('escaped', encoding='utf-8')",
+            os.environ["FAKE_GIT_MARKER"],
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+elif mode == "setup_failure":
+    time.sleep(0.2)
     pathlib.Path(os.environ["FAKE_GIT_MARKER"]).write_text("escaped", encoding="utf-8")
 """,
         encoding="utf-8",
@@ -394,6 +411,26 @@ elif mode == "timeout":
     assert caught.value.code == "GIT_TIMEOUT"
     time.sleep(0.1)
     assert not marker.exists()
+
+    descendant_marker = tmp_path / "descendant-escaped"
+    monkeypatch.setenv("FAKE_GIT_MODE", "descendant")
+    monkeypatch.setenv("FAKE_GIT_MARKER", os.fspath(descendant_marker))
+    assert run_git(tmp_path, ["ignored"], max_bytes=4) == b""
+    time.sleep(0.5)
+    assert not descendant_marker.exists()
+
+    setup_marker = tmp_path / "setup-escaped"
+    monkeypatch.setenv("FAKE_GIT_MODE", "setup_failure")
+    monkeypatch.setenv("FAKE_GIT_MARKER", os.fspath(setup_marker))
+
+    def fail_selector() -> None:
+        raise RuntimeError("injected selector failure")
+
+    monkeypatch.setattr(generator["selectors"], "DefaultSelector", fail_selector)
+    with pytest.raises(RuntimeError, match="injected selector failure"):
+        run_git(tmp_path, ["ignored"], max_bytes=4)
+    time.sleep(0.5)
+    assert not setup_marker.exists()
 
 
 def test_candidate_audit_passes_but_reports_no_go_pending_state() -> None:
@@ -428,13 +465,14 @@ def test_candidate_inventory_covers_index_and_all_nonignored_untracked_inputs() 
     }
     assert parent_paths == _git_paths()
     assert recursive_paths == _pinned_pid_rs_paths()
-    assert len(recursive_paths) == 148
+    recursive_count = len(recursive_paths)
+    assert recursive_count > 0
     assert inventory["summary"]["parent_entry_count"] == len(parent_paths)
-    assert inventory["summary"]["recursive_gitlink_entry_count"] == 148
+    assert inventory["summary"]["recursive_gitlink_entry_count"] == recursive_count
     recursive_source = inventory["source"]["recursive_gitlinks"]
     assert len(recursive_source) == 1
     assert recursive_source[0]["path"] == "pid-rs"
-    assert recursive_source[0]["entry_count"] == 148
+    assert recursive_source[0]["entry_count"] == recursive_count
     assert inventory["inventory_policy"]["recursive_gitlink_paths"] == ["pid-rs"]
     assert (
         inventory["inventory_policy"]["recursive_rows_derived_from"]
@@ -464,7 +502,7 @@ def test_recursive_gitlink_omission_is_rejected_against_pinned_objects() -> None
         for entry in inventory["entries"]
         if entry["inventory_origin"]["kind"] == "pinned_gitlink_file"
     ]
-    assert len(recursive) == 148
+    assert recursive
     omitted_path = recursive[0]["path"]
     forged = copy.deepcopy(inventory)
     forged["entries"] = [
@@ -742,10 +780,24 @@ def test_task_claim_defect_receipt_and_draft_boundaries_are_explicit() -> None:
         "signatures",
     }
     assert handoff_fields.issubset(draft)
+    assert draft["author"] == "Sepehr Mahmoudian"
+    assert draft["repository"] == "https://github.com/sepahead/prisoma"
     assert draft["decision"] == "NO_GO"
     assert draft["release"]["published"] is False
     assert draft["release"]["doi"] is None
     assert draft["release"]["zenodo_record"] is None
+    assert draft["protocol_gates"] == {
+        "population": "open_not_frozen",
+        "atom_measure": "not_adjudicated",
+        "atom_estimator": "blocked",
+        "estimator_high_dimensional_mi_coherence": "no_go",
+        "application_continuous_pid": "blocked_not_application_validated",
+        "EC1": "open_not_established",
+        "H1": "open_not_established",
+        "H2": "open_not_established",
+        "H3": "open_not_established",
+        "H4": "exploratory_not_established",
+    }
     assert draft["release"]["one_point_zero_convergence_claimed"] is False
 
 
@@ -1358,6 +1410,35 @@ def test_audit_rejects_publication_metadata_and_fixed_point_drift(
 
     _mutate(candidate, "source_inventory.json", remove_exclusion)
     _assert_rejected(candidate, "INVENTORY_POLICY")
+
+
+def test_audit_rejects_rehashed_author_or_repository_identity_drift(
+    tmp_path: Path,
+) -> None:
+    candidate = _copy_candidate(tmp_path)
+
+    def replace_author(value: dict[str, Any]) -> None:
+        value["author"] = "Incorrect Author"
+
+    _mutate(candidate, "draft_release_manifest.json", replace_author)
+    _assert_rejected(candidate, "DRAFT_IDENTITY")
+
+    candidate = _copy_candidate(tmp_path / "second")
+
+    def replace_repository(value: dict[str, Any]) -> None:
+        value["repository"] = "https://example.invalid/prisoma"
+
+    _mutate(candidate, "draft_release_manifest.json", replace_repository)
+    _assert_rejected(candidate, "DRAFT_IDENTITY")
+
+    candidate = _copy_candidate(tmp_path / "third")
+
+    def replace_release_version(value: dict[str, Any]) -> None:
+        value["release"]["version"] = "1.0.0"
+        value["packages"][0]["version"] = "1.0.0"
+
+    _mutate(candidate, "draft_release_manifest.json", replace_release_version)
+    _assert_rejected(candidate, "DRAFT_IDENTITY")
 
 
 def test_audit_rejects_symlink_and_duplicate_json_artifacts(tmp_path: Path) -> None:

@@ -47,7 +47,7 @@ flowchart TD
         H1["H1 pre-treatment diagnostics predict intervention response"]:::blocked
         H2["H2 censoring-aware failure prediction"]:::blocked
         H3["H3 conditional PID incremental value"]:::blocked
-        H4["H4 availability vs causal use"]:::blocked
+        H4["H4 availability vs tested intervention effect"]:::blocked
     end
 
     S1 --> Harness
@@ -86,7 +86,7 @@ flowchart TB
 
     subgraph Conditional["Conditional (validated support envelope)"]
         H3["H3 PID adds incremental value only inside its validated envelope"]:::cond
-        H4["H4 representational availability can diverge from causal use"]:::cond
+        H4["H4 availability can diverge from a tested intervention effect"]:::cond
     end
 
     subgraph ExplDefer["Exploratory / retired-deferred (§4)"]
@@ -517,7 +517,7 @@ graph LR
     H2[H2 censoring-aware failure prediction] --> H2A["§6.4 prospective failure with time + censoring"]
 
     H3[H3 conditional PID incremental value] --> ENV["§7.14 application-support envelope"]
-    H4[H4 availability vs causal use] --> ENV
+    H4[H4 availability vs tested intervention effect] --> ENV
 
     PA --> PROG["§5 experimental programme + §5.4 intervention taxonomy"]
     PB --> PROG

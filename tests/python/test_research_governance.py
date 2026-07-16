@@ -26,6 +26,7 @@ GovernanceError = MODULE.GovernanceError
 audit_bundle = MODULE.audit_bundle
 
 PREREGISTRATION = Path("protocols/m0_preregistration_skeleton_v1.json")
+SUCCESSOR = Path("protocols/m0_preregistration_successor_draft_v2.json")
 HOLDOUT_REGISTRY = Path("protocols/holdout_registry_v1.json")
 HOLDOUT_LEDGER = Path("protocols/holdout_access_ledger_v1.jsonl")
 TRANSPORT = Path("protocols/transport_contamination_ledger_v1.json")
@@ -37,6 +38,7 @@ INVENTORY = Path(
 
 COPIED_PATHS = [
     PREREGISTRATION,
+    SUCCESSOR,
     HOLDOUT_REGISTRY,
     HOLDOUT_LEDGER,
     TRANSPORT,
@@ -237,10 +239,13 @@ def test_traversal_symlink_and_content_hash_drift_are_rejected(tmp_path: Path) -
     with pytest.raises(GovernanceError, match="symlink"):
         audit_bundle(root)
 
-    root = _copy_bundle(tmp_path / "hash")
-    fixture = root / "crates/pid-sim/fixtures/h1_protocol_a_valid.json"
-    fixture.write_bytes(fixture.read_bytes() + b"\n")
-    with pytest.raises(GovernanceError, match="SHA-256 mismatch"):
+    root = _copy_bundle(tmp_path / "historical-identity")
+    preregistration = root / PREREGISTRATION
+    preregistration.write_bytes(preregistration.read_bytes() + b"\n")
+    with pytest.raises(
+        GovernanceError,
+        match="historical identity SHA-256 mismatch",
+    ):
         audit_bundle(root)
 
 
@@ -459,7 +464,24 @@ def test_cross_file_dates_and_holdout_bindings_must_agree(tmp_path: Path) -> Non
     literature = _load_json(root, LITERATURE)
     literature["as_of_date"] = "2026-07-12"
     _write_json(root, LITERATURE, literature)
-    with pytest.raises(GovernanceError, match="as_of_date values disagree"):
+    with pytest.raises(
+        GovernanceError,
+        match="historical governance as_of_date values disagree",
+    ):
+        audit_bundle(root)
+
+    root = _copy_bundle(tmp_path / "successor-date")
+    registry = _load_json(root, CLAIM_REGISTRY)
+    registry["as_of_date"] = "2026-07-15"
+    _write_json(root, CLAIM_REGISTRY, registry)
+    with pytest.raises(GovernanceError, match="date/status does not match"):
+        audit_bundle(root)
+
+    root = _copy_bundle(tmp_path / "successor-hash")
+    registry = _load_json(root, CLAIM_REGISTRY)
+    registry["m0_successor_binding"]["sha256"] = "0" * 64
+    _write_json(root, CLAIM_REGISTRY, registry)
+    with pytest.raises(GovernanceError, match="SHA-256 mismatch"):
         audit_bundle(root)
 
     root = _copy_bundle(tmp_path / "binding")
@@ -531,6 +553,28 @@ def test_claim_registry_m0_status_mutation_is_rejected(tmp_path: Path) -> None:
     _write_json(root, CLAIM_REGISTRY, registry)
     with pytest.raises(GovernanceError, match="must equal 'not_freeze_ready'"):
         audit_bundle(root)
+
+
+def test_h4_reference_and_confirmatory_contract_cannot_overclaim(
+    tmp_path: Path,
+) -> None:
+    root = _copy_bundle(tmp_path / "reference")
+    registry = _load_json(root, CLAIM_REGISTRY)
+    h4 = next(claim for claim in registry["claims"] if claim["claim_id"] == "H4")
+    h4["reference_artifact_semantics"][
+        "establishes_causal_or_mechanistic_faithfulness"
+    ] = True
+    with pytest.raises(GovernanceError, match="must equal False"):
+        MODULE._validate_claim_registry(root, registry)
+
+    root = _copy_bundle(tmp_path / "decision")
+    registry = _load_json(root, CLAIM_REGISTRY)
+    h4 = next(claim for claim in registry["claims"] if claim["claim_id"] == "H4")
+    h4["confirmatory_design_contract"]["decision_rule"] = (
+        "availability_significant_and_effect_not_significant"
+    )
+    with pytest.raises(GovernanceError, match="decision_rule must equal"):
+        MODULE._validate_claim_registry(root, registry)
 
 
 def test_all_h3_gates_passing_cannot_override_not_eligible_claim_state(

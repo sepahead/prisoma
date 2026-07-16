@@ -53,7 +53,7 @@ fn main() -> Result<()> {
         None,
         Some(safe_mode),
     );
-    let config_hash = pid_runlog::canonical_json_hash(&config)?;
+    let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
     let mut metadata = BTreeMap::new();
     metadata.insert("source".to_string(), "pid-sim-bridge-tcp".to_string());
     metadata.insert("safe_mode".to_string(), safe_mode.to_string());

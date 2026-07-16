@@ -605,7 +605,7 @@ def _validated_array(name: str, value: object, limits: IngressLimits) -> np.ndar
     if (
         array.dtype.hasobject
         or array.dtype.fields is not None
-        or array.dtype.kind not in "biuf"
+        or array.dtype.kind not in "iuf"
     ):
         raise ValueError(
             f"{name} must have a plain real numeric dtype, got {array.dtype}"
@@ -637,7 +637,7 @@ def _hidden_states_to_array(value: object, limits: IngressLimits) -> np.ndarray:
             if (
                 array.dtype.hasobject
                 or array.dtype.fields is not None
-                or array.dtype.kind not in "biuf"
+                or array.dtype.kind not in "iuf"
                 or array.ndim not in (1, 2)
                 or any(
                     dim <= 0 or dim > limits.max_array_dimension for dim in array.shape
@@ -885,7 +885,8 @@ def _inspect_npy_member(
             )
         else:
             raise ValueError(f"unsupported NPY version {version} in {info.filename}")
-    if dtype.hasobject or dtype.fields is not None or dtype.kind not in "biuf":
+        data_offset = member.tell()
+    if dtype.hasobject or dtype.fields is not None or dtype.kind not in "iuf":
         raise ValueError(
             f"{info.filename}: object/structured/non-real dtype {dtype} is forbidden"
         )
@@ -898,9 +899,13 @@ def _inspect_npy_member(
         raise ValueError(
             f"{info.filename}: {elements} elements exceed {limits.max_tensor_elements}"
         )
-    if elements * dtype.itemsize > info.file_size:
+    expected_data_bytes = elements * dtype.itemsize
+    if (
+        data_offset > info.file_size
+        or expected_data_bytes != info.file_size - data_offset
+    ):
         raise ValueError(
-            f"{info.filename}: declared array is larger than its archive member"
+            f"{info.filename}: NPY member size does not exactly match its declared array"
         )
 
 

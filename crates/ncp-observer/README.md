@@ -167,8 +167,8 @@ cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml \
 ```
 
 The second command verifies `outputs/ncp_vlda.json.publication.json` first. PID
-mode is disabled intentionally: this adapter does not fabricate pid-rs 1.0
-population-support declarations from observed cardinalities.
+mode is disabled intentionally: this adapter does not fabricate the current pid-rs
+population-support declaration from observed cardinalities.
 
 The observatory's built-in baseline is a finite hand-authored fixture. A supplied
 `--trace FROZEN_V1_BASELINE.json` must be an exact typed-semantic variant of that baseline and

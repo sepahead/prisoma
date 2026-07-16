@@ -1,5 +1,6 @@
 ; Concrete countermodel: equal Bernoulli(1/2) marginals do not identify expected
-; paired disagreement. One valid coupling is comonotone; another is antimonotone.
+; paired disagreement. One valid coupling is comonotone; another is antimonotone,
+; so a paired-response distance can depend on the coupling.
 (set-logic QF_LRA)
 (declare-const a00 Real)
 (declare-const a01 Real)

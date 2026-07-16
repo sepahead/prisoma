@@ -1,17 +1,18 @@
-"""Attribution methods: epsilon-LRP (AttnLRP-style) and gradient x input.
+"""Attribution methods: detached-attention epsilon-LRP and gradient x input.
 
 ``lrp_epsilon`` implements layer-wise relevance propagation through
 :class:`~experiments.attribution.model.SmallTransformer` using the epsilon rule for
-linear layers and the **detached-softmax** rule for attention (attention weights are
-treated as constant gates and relevance is routed through the value path). This is
-the core simplification AttnLRP uses for the softmax-attention bilinear form; for
-production transformers use the LXT library, which implements the full attention
-rules. The relevance implementation must be validated independently; the held-out
-deletion ranking-sensitivity contract remains applicable.
+linear layers and a **detached-softmax, value-path-only** attention rule (attention
+weights are treated as constant gates). This is a deliberately limited 0-LRP-style
+baseline, not AttnLRP: it does not propagate relevance through the softmax Taylor
+rule or the bilinear uniform rule defined by AttnLRP. Production transformers should
+use a separately pinned and validated LXT/AttnLRP implementation. The held-out
+deletion ranking-sensitivity contract remains applicable either way.
 
 ``grad_times_input`` is the standard gradient x input attribution; the gradient is
-computed by central finite differences so the implementation stays model-agnostic
-and dependency-light (numpy only), which also makes it self-checking.
+computed by central finite differences so the implementation stays dependency-light
+(NumPy only). Numerical differentiation remains an approximation and is tested
+against an independent automatic-differentiation oracle.
 
 Both return a ``(T, d_in)`` relevance array aligned with the input tokens/features.
 """
@@ -76,7 +77,10 @@ def _lrp_linear(
 def lrp_epsilon(
     model: SmallTransformer, x: np.ndarray, *, eps: float = 1e-6
 ) -> np.ndarray:
-    """Epsilon-LRP / AttnLRP-style relevance of the scalar target onto ``x``."""
+    """Detached-attention, value-path epsilon-LRP relevance onto ``x``.
+
+    This reference baseline is not AttnLRP.
+    """
     if not isinstance(model, SmallTransformer):
         raise ValueError("model must be a SmallTransformer")
     eps = _positive_finite(eps, "eps")
@@ -92,10 +96,13 @@ def lrp_epsilon(
     # Mean pool: distribute each feature's relevance over tokens proportionally to
     # the per-token activation (epsilon rule for a sum).
     col_sum = cache.projected.sum(axis=0)  # (d_model,)
+    pool_eps = float(t) * eps
+    if not math.isfinite(pool_eps):
+        raise ValueError("eps is too large for mean-pool epsilon-LRP")
     try:
         with np.errstate(over="raise", divide="raise", invalid="raise"):
             weights = _finite(
-                cache.projected / _eps_signed(col_sum, eps),
+                cache.projected / _eps_signed(col_sum, pool_eps),
                 "epsilon-LRP mean-pool division",
             )  # (T, d_model)
             r_projected = _finite(
@@ -147,27 +154,35 @@ def finite_difference_gradient(
         raise ValueError("model must be a SmallTransformer")
     h = _positive_finite(h, "h")
     x = model.validate_input(x)
-    try:
-        with np.errstate(over="raise", invalid="raise"):
-            plus = x + h
-            minus = x - h
-    except FloatingPointError as error:
-        raise ValueError("h perturbs x outside the finite float64 range") from error
-    if not np.all(np.isfinite(plus)) or not np.all(np.isfinite(minus)):
-        raise ValueError("h perturbs x outside the finite float64 range")
-    if np.any(plus == x) or np.any(minus == x):
-        raise ValueError("h is too small to perturb every input coordinate")
     grad = np.zeros_like(x)
+    relative_scale = float(np.cbrt(np.finfo(np.float64).eps))
     for t in range(x.shape[0]):
         for i in range(x.shape[1]):
+            coordinate = float(x[t, i])
+            step = max(h, relative_scale * max(1.0, abs(coordinate)))
             xp = x.copy()
             xm = x.copy()
-            xp[t, i] += h
-            xm[t, i] -= h
+            try:
+                with np.errstate(over="raise", invalid="raise"):
+                    xp[t, i] = coordinate + step
+                    xm[t, i] = coordinate - step
+            except FloatingPointError as error:
+                raise ValueError(
+                    "finite-difference step perturbs x outside float64"
+                ) from error
+            if not math.isfinite(float(xp[t, i])) or not math.isfinite(float(xm[t, i])):
+                raise ValueError("finite-difference step perturbs x outside float64")
+            if xp[t, i] == coordinate:
+                xp[t, i] = np.nextafter(coordinate, math.inf)
+            if xm[t, i] == coordinate:
+                xm[t, i] = np.nextafter(coordinate, -math.inf)
+            displacement = float(xp[t, i] - xm[t, i])
+            if not math.isfinite(displacement) or displacement <= 0.0:
+                raise ValueError("finite-difference displacement is not representable")
             numerator = model.forward(xp) - model.forward(xm)
             if not math.isfinite(numerator):
                 raise ValueError("finite-difference numerator is non-finite")
-            gradient = numerator / (2.0 * h)
+            gradient = numerator / displacement
             if not math.isfinite(gradient):
                 raise ValueError("finite-difference gradient is non-finite")
             grad[t, i] = gradient

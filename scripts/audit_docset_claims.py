@@ -23,8 +23,13 @@ honest record of an old design or pin does not become a false positive.
 from __future__ import annotations
 
 import argparse
+import os
 import re
+import selectors
+import signal
 import subprocess
+import sys
+import time
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +54,10 @@ SUPPLEMENTAL_NCP_DOCS = [
     Path("REVIEW_AND_TODO.md"),
     Path("crates/ncp-observer/README.md"),
 ]
+GIT_TIMEOUT_SECONDS = 10.0
+MAX_GIT_PATH_BYTES = 1024 * 1024
+MAX_GIT_DIAGNOSTIC_BYTES = 4096
+MAX_GIT_OUTPUT_BYTES = MAX_GIT_PATH_BYTES + MAX_GIT_DIAGNOSTIC_BYTES
 
 ARXIV_ID_RE = re.compile(r"arXiv:(\d{4}\.\d{4,5})")
 VENUE_RE = re.compile(r"\b(NeurIPS|ICML|CoRL|ICLR|CVPR|ECCV|AAAI)\b")
@@ -110,6 +119,103 @@ VERSION_NOTES_START_RE = re.compile(
     r"(?:notes?|updates?|slice|cut)\b",
     re.IGNORECASE,
 )
+
+
+def _terminate_process_group(process: subprocess.Popen[bytes]) -> None:
+    if process.returncode is not None:
+        return
+    if os.name == "posix":
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            if sys.platform != "darwin":
+                raise
+    else:
+        try:
+            process.kill()
+        except OSError:
+            pass
+
+
+def _run_git_bounded(
+    command: list[str],
+    *,
+    timeout_seconds: float = GIT_TIMEOUT_SECONDS,
+    max_output_bytes: int = MAX_GIT_OUTPUT_BYTES,
+) -> subprocess.CompletedProcess[bytes]:
+    """Run one Git query with bounded output and descendant cleanup."""
+
+    if timeout_seconds <= 0:
+        raise subprocess.TimeoutExpired(command, timeout_seconds)
+    if max_output_bytes < 0:
+        raise RuntimeError(f"invalid negative Git output budget: {max_output_bytes}")
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=os.name == "posix",
+    )
+    stdout_stream = process.stdout
+    stderr_stream = process.stderr
+    selector: selectors.BaseSelector | None = None
+    buffers = {"stdout": bytearray(), "stderr": bytearray()}
+    total = 0
+    deadline = time.monotonic() + timeout_seconds
+    try:
+        if stdout_stream is None or stderr_stream is None:
+            raise RuntimeError("Git subprocess pipes were not created")
+        selector = selectors.DefaultSelector()
+        selector.register(stdout_stream, selectors.EVENT_READ, "stdout")
+        selector.register(stderr_stream, selectors.EVENT_READ, "stderr")
+        while selector.get_map():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout_seconds)
+            for key, _events in selector.select(min(remaining, 0.25)):
+                chunk = os.read(key.fd, min(65_536, max_output_bytes - total + 1))
+                if not chunk:
+                    selector.unregister(key.fileobj)
+                    key.fileobj.close()
+                    continue
+                total += len(chunk)
+                if total > max_output_bytes:
+                    raise RuntimeError(
+                        f"Git output exceeds the aggregate {max_output_bytes}-byte limit"
+                    )
+                buffers[key.data].extend(chunk)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(command, timeout_seconds)
+        if os.name == "posix":
+            _terminate_process_group(process)
+        returncode = process.wait(timeout=remaining)
+    except BaseException:
+        _terminate_process_group(process)
+        try:
+            process.wait(timeout=2.0)
+        except subprocess.TimeoutExpired:
+            pass
+        raise
+    finally:
+        _terminate_process_group(process)
+        try:
+            process.wait(timeout=2.0)
+        except subprocess.TimeoutExpired:
+            pass
+        if selector is not None:
+            selector.close()
+        for stream in (stdout_stream, stderr_stream):
+            if stream is not None and not stream.closed:
+                stream.close()
+    return subprocess.CompletedProcess(
+        command,
+        returncode,
+        bytes(buffers["stdout"]),
+        bytes(buffers["stderr"]),
+    )
+
 
 CONTROL_SOURCE_RE = re.compile(
     r"\b("
@@ -312,8 +418,7 @@ def iter_line_contexts(path: Path, lines: list[str]) -> Iterable[LineContext]:
     # pin, and section-reference drift checks do not apply.
     _posix = path.as_posix().casefold()
     whole_file_history = (
-        path.name.casefold()
-        in {"changelog.md", "history.md", "review_and_todo.md"}
+        path.name.casefold() in {"changelog.md", "history.md", "review_and_todo.md"}
         or "/archive/" in _posix
         or "/reviews/" in _posix
     )
@@ -887,19 +992,21 @@ def main() -> int:
         parser.error("--all-tracked-markdown and --paths are mutually exclusive")
     if args.all_tracked_markdown:
         try:
-            completed = subprocess.run(
+            completed = _run_git_bounded(
                 ["git", "ls-files", "-z", "--", "*.md"],
-                check=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=10,
             )
         except (OSError, subprocess.TimeoutExpired) as error:
-            raise SystemExit(f"Could not enumerate tracked Markdown files: {error}") from error
+            raise SystemExit(
+                f"Could not enumerate tracked Markdown files: {error}"
+            ) from error
         if completed.returncode != 0:
-            detail = completed.stderr[:4096].decode("utf-8", errors="replace").strip()
+            detail = (
+                completed.stderr[:MAX_GIT_DIAGNOSTIC_BYTES]
+                .decode("utf-8", errors="replace")
+                .strip()
+            )
             raise SystemExit(f"Could not enumerate tracked Markdown files: {detail}")
-        if len(completed.stdout) > 1024 * 1024:
+        if len(completed.stdout) > MAX_GIT_PATH_BYTES:
             raise SystemExit("Tracked Markdown path list exceeds the 1 MiB audit limit")
         try:
             decoded_paths = completed.stdout.decode("utf-8")

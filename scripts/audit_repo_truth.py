@@ -2,10 +2,10 @@
 """Fail closed on repository-truth drift missed by prose heuristics.
 
 This audit binds active commands and claims to checked-out dependencies and living protocol
-ledgers rather than remembered version strings. It covers the pid-rs 1.0 migration, excluded NCP
-consumer lock, firebreak wording, generated notices, current claim boundaries, and the dated
-ecosystem-overlay reconciliation. Network refresh remains deliberate and manual; normal CI proves
-that the reviewed offline state and active prose agree.
+ledgers rather than remembered version strings. It covers the exact pinned pid-rs review source,
+excluded NCP consumer lock, firebreak wording, generated notices, current claim boundaries, and
+the dated ecosystem-overlay reconciliation. Network refresh remains deliberate and manual; normal
+CI proves that the reviewed offline state and active prose agree.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ import selectors
 import signal
 import stat
 import subprocess
+import sys
 import time
 import tomllib
 from pathlib import Path
@@ -41,6 +42,16 @@ MAX_REPO_FILE_BYTES = 16 * 1024 * 1024
 MAX_GIT_OUTPUT_BYTES = 4 * 1024 * 1024
 GIT_TIMEOUT_SECONDS = 30.0
 MAX_LEDGER_ITEMS = 10_000
+ROOT_RELEASE_VERSION = "0.9.0"
+ROOT_RELEASE_DATE = "2026-07-16"
+ROOT_AUTHOR = "Sepehr Mahmoudian"
+ROOT_REPOSITORY = "https://github.com/sepahead/prisoma"
+NIXPKGS_CHANNEL = "nixos-26.05"
+NIX_UV_VERSION = "0.11.28"
+NIX_JUST_VERSION = "1.56.0"
+PRE_COMMIT_VERSION = "4.6.0"
+GITLEAKS_VERSION = "8.30.1"
+GITLEAKS_REVISION = "83d9cd684c87d95d656c1458ef04895a7f1cbd8e"
 
 
 class TruthAuditError(RuntimeError):
@@ -179,12 +190,17 @@ def _repo_relative_path(raw: Any, *, label: str) -> Path:
 
 
 def _terminate(process: subprocess.Popen[bytes]) -> None:
-    try:
-        if os.name == "posix":
+    if process.returncode is not None:
+        return
+    if os.name == "posix":
+        try:
             os.killpg(process.pid, signal.SIGKILL)
-        elif process.poll() is None:
-            process.kill()
-    except OSError:
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            if sys.platform != "darwin":
+                raise
+    else:
         try:
             process.kill()
         except OSError:
@@ -197,6 +213,12 @@ def _run_bounded(
     timeout_seconds: float = GIT_TIMEOUT_SECONDS,
     max_output_bytes: int = MAX_GIT_OUTPUT_BYTES,
 ) -> subprocess.CompletedProcess[str]:
+    if timeout_seconds <= 0:
+        raise subprocess.TimeoutExpired(command, timeout_seconds)
+    if max_output_bytes < 0:
+        raise TruthAuditError(
+            f"invalid negative aggregate Git output budget: {max_output_bytes}"
+        )
     process = subprocess.Popen(
         command,
         cwd=ROOT,
@@ -204,14 +226,18 @@ def _run_bounded(
         stderr=subprocess.PIPE,
         start_new_session=os.name == "posix",
     )
-    assert process.stdout is not None and process.stderr is not None
-    selector = selectors.DefaultSelector()
+    stdout_stream = process.stdout
+    stderr_stream = process.stderr
+    selector: selectors.BaseSelector | None = None
     buffers = {"stdout": bytearray(), "stderr": bytearray()}
     total = 0
     deadline = time.monotonic() + timeout_seconds
     try:
-        selector.register(process.stdout, selectors.EVENT_READ, "stdout")
-        selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+        if stdout_stream is None or stderr_stream is None:
+            raise TruthAuditError("Git subprocess pipes were not created")
+        selector = selectors.DefaultSelector()
+        selector.register(stdout_stream, selectors.EVENT_READ, "stdout")
+        selector.register(stderr_stream, selectors.EVENT_READ, "stderr")
         while selector.get_map():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -232,6 +258,8 @@ def _run_bounded(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise subprocess.TimeoutExpired(command, timeout_seconds)
+        if os.name == "posix":
+            _terminate(process)
         return_code = process.wait(timeout=remaining)
     except BaseException:
         _terminate(process)
@@ -241,9 +269,15 @@ def _run_bounded(
             pass
         raise
     finally:
-        selector.close()
-        for stream in (process.stdout, process.stderr):
-            if not stream.closed:
+        _terminate(process)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        if selector is not None:
+            selector.close()
+        for stream in (stdout_stream, stderr_stream):
+            if stream is not None and not stream.closed:
                 stream.close()
 
     try:
@@ -273,10 +307,160 @@ def package_version() -> str:
 
 
 def gitlink_revision() -> str:
-    fields = git_output("ls-files", "--stage", "pid-rs").split()
-    if len(fields) < 4 or fields[0] != "160000":
-        raise RuntimeError("pid-rs is not recorded as a gitlink in the index")
-    return fields[1]
+    output = git_output("ls-files", "--stage", "--", "pid-rs")
+    lines = output.splitlines()
+    if len(lines) != 1:
+        raise TruthAuditError("pid-rs must have exactly one gitlink entry in the index")
+    match = re.fullmatch(r"160000 ([0-9a-f]{40}) 0\tpid-rs", lines[0])
+    if match is None:
+        raise TruthAuditError(
+            "pid-rs is not recorded as a stage-0 SHA-1 gitlink in the index"
+        )
+    return match.group(1)
+
+
+def root_release_identity_problems() -> list[str]:
+    problems: list[str] = []
+
+    pyproject = _toml_object(ROOT / "pyproject.toml", label="pyproject.toml")
+    project = pyproject.get("project")
+    if not isinstance(project, dict):
+        raise TruthAuditError("pyproject.toml project table is missing")
+    if project.get("version") != ROOT_RELEASE_VERSION:
+        problems.append(f"pyproject.toml release version is not {ROOT_RELEASE_VERSION}")
+    if project.get("authors") != [{"name": ROOT_AUTHOR}]:
+        problems.append("pyproject.toml does not name the single canonical author")
+    project_urls = project.get("urls")
+    if (
+        not isinstance(project_urls, dict)
+        or project_urls.get("Repository") != ROOT_REPOSITORY
+        or project_urls.get("Homepage") != ROOT_REPOSITORY
+    ):
+        problems.append("pyproject.toml repository identity is not canonical")
+    tool = pyproject.get("tool")
+    uv = tool.get("uv") if isinstance(tool, dict) else None
+    required_uv = uv.get("required-version") if isinstance(uv, dict) else None
+    if (
+        not isinstance(required_uv, str)
+        or re.fullmatch(r"==([0-9]+\.[0-9]+\.[0-9]+)", required_uv) is None
+    ):
+        problems.append("pyproject.toml does not pin one exact required uv version")
+
+    cargo = _toml_object(ROOT / "Cargo.toml", label="Cargo.toml")
+    workspace = cargo.get("workspace")
+    workspace_package = (
+        workspace.get("package") if isinstance(workspace, dict) else None
+    )
+    if not isinstance(workspace_package, dict):
+        raise TruthAuditError("Cargo.toml workspace.package table is missing")
+    if workspace_package.get("version") != ROOT_RELEASE_VERSION:
+        problems.append(f"Cargo.toml release version is not {ROOT_RELEASE_VERSION}")
+    if workspace_package.get("authors") != [ROOT_AUTHOR]:
+        problems.append("Cargo.toml does not name the single canonical author")
+    if workspace_package.get("repository") != ROOT_REPOSITORY:
+        problems.append("Cargo.toml repository identity is not canonical")
+    rust_version = workspace_package.get("rust-version")
+    if not isinstance(rust_version, str):
+        raise TruthAuditError("Cargo.toml workspace rust-version is missing")
+    if re.fullmatch(r"[0-9]+\.[0-9]+", rust_version):
+        expected_toolchain = f"{rust_version}.0"
+    elif re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", rust_version):
+        expected_toolchain = rust_version
+    else:
+        raise TruthAuditError("Cargo.toml workspace rust-version is malformed")
+
+    ci = _read_regular_text(
+        ROOT / ".github/workflows/ci.yml", label=".github/workflows/ci.yml"
+    )
+    rustup_invocations = ci.count("rustup toolchain install")
+    installed_toolchains = re.findall(
+        r"rustup toolchain install ([0-9]+\.[0-9]+\.[0-9]+)", ci
+    )
+    if (
+        rustup_invocations == 0
+        or len(installed_toolchains) != rustup_invocations
+        or set(installed_toolchains) != {expected_toolchain}
+        or ci.count(f"rustc --version | grep -F 'rustc {expected_toolchain} '")
+        != rustup_invocations
+    ):
+        problems.append(
+            "CI Rust installation and version receipts do not match workspace rust-version"
+        )
+    if isinstance(required_uv, str):
+        expected_uv = required_uv.removeprefix("==")
+        setup_uv_invocations = ci.count("uses: astral-sh/setup-uv@")
+        configured_uv_versions = re.findall(
+            r"^\s+version: \"([0-9]+\.[0-9]+\.[0-9]+)\"\s*$",
+            ci,
+            flags=re.MULTILINE,
+        )
+        if (
+            setup_uv_invocations == 0
+            or len(configured_uv_versions) != setup_uv_invocations
+            or set(configured_uv_versions) != {expected_uv}
+        ):
+            problems.append(
+                "CI setup-uv versions do not match pyproject.toml required-version"
+            )
+
+    citation = _read_regular_text(ROOT / "CITATION.cff", label="CITATION.cff")
+    for required in (
+        f"version: {ROOT_RELEASE_VERSION}",
+        "family-names: Mahmoudian",
+        "given-names: Sepehr",
+        f'repository-code: "{ROOT_REPOSITORY}"',
+        f"date-released: {ROOT_RELEASE_DATE}",
+        "public GitHub source prerelease",
+    ):
+        if required not in citation:
+            problems.append(f"CITATION.cff omits release identity {required!r}")
+    if re.search(r"(?im)^\s*doi\s*:", citation):
+        problems.append(
+            "CITATION.cff assigns a DOI before an archive identifier exists"
+        )
+    if re.search(r"(?im)^\s*zenodo(?:-record)?\s*:", citation):
+        problems.append(
+            "CITATION.cff assigns a Zenodo record before an archive identifier exists"
+        )
+    if re.search(r"(?im)^\s*(?:identifiers|repository-artifact)\s*:", citation):
+        problems.append(
+            "CITATION.cff assigns archive identifier metadata before one exists"
+        )
+
+    release_notes = _read_regular_text(
+        ROOT / "release/0.9.0/RELEASE_NOTES.md",
+        label="release/0.9.0/RELEASE_NOTES.md",
+    )
+    release_notes_semantic = " ".join(release_notes.split())
+    for required in (
+        f"Prisoma {ROOT_RELEASE_VERSION} is a public GitHub source prerelease",
+        f"released on {ROOT_RELEASE_DATE}",
+        ROOT_AUTHOR,
+        "`published:false` in the candidate decision manifest",
+        "does not deny public availability of this source prerelease.",
+        "No DOI, Zenodo record, or archive identifier is assigned.",
+    ):
+        if required not in release_notes_semantic:
+            problems.append(
+                f"release/0.9.0/RELEASE_NOTES.md omits release identity {required!r}"
+            )
+
+    candidate_generator = _read_regular_text(
+        ROOT / "scripts/generate_candidate_release.py",
+        label="scripts/generate_candidate_release.py",
+    )
+    for required in (
+        f'REPOSITORY = "{ROOT_REPOSITORY}"',
+        f'AUTHOR = "{ROOT_AUTHOR}"',
+        f'RELEASE_VERSION = "{ROOT_RELEASE_VERSION}"',
+    ):
+        if required not in candidate_generator:
+            problems.append(
+                "scripts/generate_candidate_release.py omits release identity "
+                f"{required!r}"
+            )
+
+    return problems
 
 
 def locked_package_version(lock_path: Path, name: str) -> str | None:
@@ -325,6 +509,271 @@ def exp0_command_problems() -> list[str]:
     return problems
 
 
+def exp0_documentation_problems() -> list[str]:
+    """Bind the reported seeded-case counts to the current deterministic sweep."""
+
+    problems: list[str] = []
+    source = _read_regular_text(
+        PID_RS / "crates/pid-core/src/bin/exp0.rs",
+        label="pid-rs/crates/pid-core/src/bin/exp0.rs",
+    )
+    for required in (
+        "let mut seeds = 3usize;",
+        "let dims = [10usize, 64, 256];",
+        '"independent_additive"',
+        '"redundant_copy"',
+        '"unique_s1"',
+        '"xor_like"',
+    ):
+        if required not in source:
+            problems.append(
+                "Exp0 binary-default sweep contract changed; reconcile the "
+                f"documented seeded-case counts (missing {required!r})"
+            )
+
+    justfile = _read_regular_text(ROOT / "justfile", label="justfile")
+    if 'exp0-runlog path="outputs/exp0_runlog.jsonl" ' not in justfile or (
+        'seeds="1":' not in justfile
+    ):
+        problems.append(
+            "justfile Exp0 run-log recipe no longer has the documented one-seed default"
+        )
+
+    grandplan = " ".join(
+        _read_regular_text(ROOT / "grandplan.md", label="grandplan.md").split()
+    )
+    findings = " ".join(
+        _read_regular_text(ROOT / "findings.md", label="findings.md").split()
+    )
+    if (
+        "12 scenario–dimension cells over three deterministic seeds (36 case results)"
+    ) not in grandplan:
+        problems.append(
+            "grandplan.md does not distinguish the 12 Exp0 cells from the "
+            "36 binary-default seeded case results"
+        )
+    for required in (
+        "36 case results from 12 scenario–dimension cells over three "
+        "deterministic seeds",
+        "nine geometry warnings, zero geometry abstentions, nine monotonicity "
+        "violations, three normalized-invariant bound violations",
+        "The `just exp0-runlog` recipe deliberately passes one seed",
+        "corresponding counts are 12, three, zero, three, and one",
+    ):
+        if required not in findings:
+            problems.append(
+                "findings.md does not preserve the deterministic Exp0 count "
+                f"boundary {required!r}"
+            )
+    return problems
+
+
+def justfile_reproducibility_problems() -> list[str]:
+    """Reject recipe drift that can bypass locks, quoting, or runtime checks."""
+
+    problems: list[str] = []
+    text = _read_regular_text(ROOT / "justfile", label="justfile")
+    strict_shell = 'set shell := ["bash", "-euo", "pipefail", "-c"]'
+    raw_interpolation = re.compile(r"\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\}")
+    cargo_resolver_command = re.compile(r"\bcargo\s+(?:build|clippy|run|test)\b")
+    optimization_guard = (
+        "sys.flags.optimize == 0 or sys.exit("
+        '"recipe checks require unoptimized Python")'
+    )
+    if text.count(strict_shell) != 1:
+        problems.append(
+            "justfile must declare one exact Bash strict-mode shell with pipefail"
+        )
+
+    for line_no, line in enumerate(text.splitlines(), 1):
+        if cargo_resolver_command.search(line) and "--locked" not in line:
+            problems.append(
+                f"justfile:{line_no}: dependency-resolving Cargo command omits `--locked`"
+            )
+        if raw_interpolation.search(line):
+            problems.append(
+                f"justfile:{line_no}: recipe parameter is interpolated without `quote(...)`"
+            )
+        if "python -c" in line and "assert " in line and optimization_guard not in line:
+            problems.append(
+                f"justfile:{line_no}: Python assertion lacks the optimization-mode guard"
+            )
+    return problems
+
+
+def readme_reproducibility_problems() -> list[str]:
+    """Keep public dependency-resolving examples on the checked lockfiles."""
+
+    problems: list[str] = []
+    text = _read_regular_text(ROOT / "README.md", label="README.md")
+    cargo_resolver_command = re.compile(r"\bcargo\s+(?:build|check|clippy|run|test)\b")
+    for line_no, line in enumerate(text.splitlines(), 1):
+        if cargo_resolver_command.search(line) and "--locked" not in line:
+            problems.append(
+                f"README.md:{line_no}: dependency-resolving Cargo example omits `--locked`"
+            )
+    return problems
+
+
+def flake_reproducibility_problems() -> list[str]:
+    """Require one minimal, content-addressed nixpkgs flake input."""
+
+    problems: list[str] = []
+    flake_text = _read_regular_text(ROOT / "flake.nix", label="flake.nix")
+    expected_url = f'inputs.nixpkgs.url = "github:NixOS/nixpkgs/{NIXPKGS_CHANNEL}";'
+    if flake_text.count(expected_url) != 1:
+        problems.append(
+            f"flake.nix must declare one exact nixpkgs input for {NIXPKGS_CHANNEL}"
+        )
+    if "flake-utils" in flake_text:
+        problems.append("flake.nix must not retain the unnecessary flake-utils input")
+    for fragment in (
+        "uvPinned = mkPinnedArchiveTool {",
+        f'version = "{NIX_UV_VERSION}";',
+        'repository = "astral-sh/uv";',
+        "justPinned = mkPinnedArchiveTool {",
+        f'version = "{NIX_JUST_VERSION}";',
+        'repository = "casey/just";',
+        'assert pkgs.lib.versionAtLeast pkgs.rustc.version "1.93.0";',
+        'assert pkgs.python311.version == "3.11.15";',
+    ):
+        if fragment not in flake_text:
+            problems.append(f"flake.nix omits pinned toolchain fragment {fragment!r}")
+    packages_match = re.search(
+        r"packages = (?:with pkgs; )?\[(?P<body>.*?)\];",
+        flake_text,
+        flags=re.DOTALL,
+    )
+    if packages_match is None or any(
+        tool not in packages_match.group("body") for tool in ("uvPinned", "justPinned")
+    ):
+        problems.append(
+            "flake.nix dev shell must use the exact pinned uv and just tools"
+        )
+    for line_no, line in enumerate(flake_text.splitlines(), 1):
+        if re.search(r"\bcargo (?:build|clippy|run|test)\b", line) and (
+            "--locked" not in line
+        ):
+            problems.append(
+                f"flake.nix:{line_no}: suggested Cargo command omits `--locked`"
+            )
+        if re.search(r"\buv sync\b", line) and "--locked" not in line:
+            problems.append(f"flake.nix:{line_no}: suggested uv sync omits `--locked`")
+
+    lock = _json_object(ROOT / "flake.lock", label="flake.lock")
+    if set(lock) != {"nodes", "root", "version"}:
+        problems.append("flake.lock must contain only nodes, root, and version")
+    if lock.get("version") != 7:
+        problems.append("flake.lock schema version must be 7")
+    if lock.get("root") != "root":
+        problems.append("flake.lock root node must be named root")
+
+    nodes = lock.get("nodes")
+    if not isinstance(nodes, dict):
+        raise TruthAuditError("flake.lock nodes must be an object")
+    if set(nodes) != {"nixpkgs", "root"}:
+        problems.append("flake.lock must contain exactly the nixpkgs and root nodes")
+
+    root_node = nodes.get("root")
+    if not isinstance(root_node, dict):
+        raise TruthAuditError("flake.lock root node must be an object")
+    if root_node != {"inputs": {"nixpkgs": "nixpkgs"}}:
+        problems.append("flake.lock root must bind only the nixpkgs input")
+
+    nixpkgs_node = nodes.get("nixpkgs")
+    if not isinstance(nixpkgs_node, dict):
+        raise TruthAuditError("flake.lock nixpkgs node must be an object")
+    if set(nixpkgs_node) != {"locked", "original"}:
+        problems.append("flake.lock nixpkgs node must contain only locked and original")
+
+    original = nixpkgs_node.get("original")
+    expected_original = {
+        "owner": "NixOS",
+        "ref": NIXPKGS_CHANNEL,
+        "repo": "nixpkgs",
+        "type": "github",
+    }
+    if original != expected_original:
+        problems.append(
+            "flake.lock original nixpkgs input does not match "
+            f"github:NixOS/nixpkgs/{NIXPKGS_CHANNEL}"
+        )
+
+    locked = nixpkgs_node.get("locked")
+    if not isinstance(locked, dict):
+        raise TruthAuditError("flake.lock locked nixpkgs input must be an object")
+    if set(locked) != {
+        "lastModified",
+        "narHash",
+        "owner",
+        "repo",
+        "rev",
+        "type",
+    }:
+        problems.append("flake.lock locked nixpkgs input has an unexpected field set")
+    if (
+        locked.get("owner") != "NixOS"
+        or locked.get("repo") != "nixpkgs"
+        or locked.get("type") != "github"
+    ):
+        problems.append(
+            "flake.lock locked nixpkgs repository identity is not canonical"
+        )
+    revision = locked.get("rev")
+    if not isinstance(revision, str) or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+        problems.append(
+            "flake.lock nixpkgs revision must be one lowercase 40-hex commit"
+        )
+    nar_hash = locked.get("narHash")
+    if (
+        not isinstance(nar_hash, str)
+        or re.fullmatch(r"sha256-[A-Za-z0-9+/]{43}=", nar_hash) is None
+    ):
+        problems.append("flake.lock nixpkgs narHash must be one SHA-256 SRI digest")
+    last_modified = locked.get("lastModified")
+    if (
+        not isinstance(last_modified, int)
+        or isinstance(last_modified, bool)
+        or last_modified <= 0
+    ):
+        problems.append("flake.lock nixpkgs lastModified must be a positive integer")
+    return problems
+
+
+def precommit_reproducibility_problems() -> list[str]:
+    """Reject mutable hook revisions and ambiguous installation guidance."""
+
+    problems: list[str] = []
+    text = _read_regular_text(
+        ROOT / ".pre-commit-config.yaml", label=".pre-commit-config.yaml"
+    )
+    required_fragments = (
+        f"`uv tool install pre-commit=={PRE_COMMIT_VERSION} && pre-commit install`",
+        "repo: https://github.com/gitleaks/gitleaks",
+        f"# Immutable commit for the verified v{GITLEAKS_VERSION} release.",
+        f"rev: {GITLEAKS_REVISION}",
+    )
+    for fragment in required_fragments:
+        if text.count(fragment) != 1:
+            problems.append(
+                ".pre-commit-config.yaml must contain one exact occurrence of "
+                f"{fragment!r}"
+            )
+    if re.search(r"\bpip(?:3)? install pre-commit\b", text):
+        problems.append(
+            ".pre-commit-config.yaml must not recommend an unpinned pip installation"
+        )
+    revisions = re.findall(r"(?m)^\s+rev:\s*(\S+)\s*$", text)
+    if not revisions:
+        problems.append(".pre-commit-config.yaml contains no pinned hook revisions")
+    for revision in revisions:
+        if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+            problems.append(
+                ".pre-commit-config.yaml hook revisions must be lowercase 40-hex commits"
+            )
+    return problems
+
+
 def _audit() -> int:
     problems: list[str] = []
     if not _is_regular_file(PID_RS / "Cargo.toml"):
@@ -335,6 +784,7 @@ def _audit() -> int:
     version = package_version()
     revision = gitlink_revision()
     short = revision[:7]
+    problems.extend(root_release_identity_problems())
 
     worktree_revision = git_output("-C", "pid-rs", "rev-parse", "HEAD")
     if worktree_revision != revision:
@@ -344,7 +794,9 @@ def _audit() -> int:
 
     required_claims = {
         ROOT / "grandplan.md": (version, revision),
-        ROOT / "AGENTS.md": (version, short),
+        ROOT / "AGENTS.md": (version, short, "no 1.x compatibility promise"),
+        ROOT / "README.md": (version, short, "no 1.x compatibility promise"),
+        ROOT / "LIMITATIONS.md": (version, short, "no 1.x compatibility promise"),
         ROOT / "CHANGELOG.md": (version, short),
     }
     for path, needles in required_claims.items():
@@ -412,6 +864,11 @@ def _audit() -> int:
             )
 
     problems.extend(exp0_command_problems())
+    problems.extend(exp0_documentation_problems())
+    problems.extend(justfile_reproducibility_problems())
+    problems.extend(readme_reproducibility_problems())
+    problems.extend(flake_reproducibility_problems())
+    problems.extend(precommit_reproducibility_problems())
 
     for relative in ("justfile", ".github/workflows/ci.yml"):
         text = _read_regular_text(ROOT / relative, label=relative)
@@ -644,7 +1101,7 @@ def _audit() -> int:
                 f"ecosystem evidence overlay omits current edges: {missing_overrides}"
             )
         expected_revisions = {
-            "pid-rs": "43ab60517b5387c61ae339f664d0d7afae3b8988",
+            "pid-rs": revision,
             "NCP": "v0.8.0",
             "galadriel": "ff272dc814080c6766a53c872ca4d0e24bcd5132",
             "crebain": "09dd5ec1556bd56e6934e1ef019f95de84cf9b4f",
@@ -660,6 +1117,21 @@ def _audit() -> int:
                     "ecosystem evidence overlay has an unreconciled reviewed revision for "
                     f"{project}"
                 )
+        pid_override = overrides.get("pid-rs", {})
+        if pid_override.get("source") != (
+            f"https://github.com/sepahead/pid-rs/tree/{revision}"
+        ):
+            problems.append(
+                "ecosystem evidence overlay pid-rs source does not match the indexed gitlink"
+            )
+        upstream_head_observed = pid_override.get("upstream_head_observed")
+        if (
+            not isinstance(upstream_head_observed, str)
+            or re.fullmatch(r"[0-9a-f]{40}", upstream_head_observed) is None
+        ):
+            raise TruthAuditError(
+                "ecosystem evidence overlay pid-rs upstream-head observation is invalid"
+            )
         if overrides.get("NCP", {}).get("resolved_revision") != (
             "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
         ):
@@ -673,6 +1145,11 @@ def _audit() -> int:
                 "ecosystem evidence overlay omits Crebain's prior frame-capability revision"
             )
         boundary_requirements = {
+            "pid-rs": (
+                "0.9.0 post-tag review source",
+                "no 1.x compatibility promise",
+                "fixtures do not establish high-dimensional VLA application validity",
+            ),
             "galadriel": (
                 "optional evidence-sender component",
                 "deployed receiver-verified Crebain-to-Galadriel path",

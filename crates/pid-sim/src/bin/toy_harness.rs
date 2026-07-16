@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use pid_sim::toy_harness::{
-    run_toy_harness, write_toy_harness_runlog, write_toy_harness_summary, ToyHarnessConfig,
+    ensure_distinct_toy_output_paths, run_toy_harness, write_toy_harness_runlog,
+    write_toy_harness_summary, ToyHarnessConfig,
 };
 use std::path::PathBuf;
 
@@ -40,6 +41,7 @@ fn main() -> Result<()> {
         }
     }
 
+    ensure_distinct_toy_output_paths(&runlog_path, &summary_path)?;
     let report = run_toy_harness(config)?;
     write_toy_harness_summary(&summary_path, &report)?;
     write_toy_harness_runlog(&runlog_path, Some(&summary_path), &report)?;

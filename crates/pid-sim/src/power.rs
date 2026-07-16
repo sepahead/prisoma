@@ -1,36 +1,15 @@
-//! §6.8 simulation-based **power gate** for the legacy H1–H4 primary endpoints.
+//! Historical v10.7 endpoint-sensitivity calculations.
 //!
-//! `grandplan.md` §6.8 requires a simulation-based power analysis before the
-//! first locked real capture (milestone M4 / gate S4) is analyzed. This module
-//! exercises the specified grouped/episode-level bootstrap with the correct
-//! analysis unit per endpoint (episodes for H1, tasks for H2/H4, matched cases
-//! for H3). Counts selected from the finite grids are idealized planning
-//! sensitivities, not capture requirements or guarantees.
+//! This module preserves a retired Monte-Carlo calculation for reproducibility. Its four
+//! `legacy_v10_7_*` endpoint IDs do not denote the current EC1/H1–H4 registry, its finite-grid
+//! comparisons are nonpromotable, and no output can establish a current hypothesis gate,
+//! scientific success, capture requirement, or study readiness.
 //!
-//! **Endpoint-ID note (docset v12.5).** The `h1`..`h4` endpoint IDs below are the
-//! *preregistered statistical endpoints* of the power gate — a stable data
-//! contract (they appear in `endpoint_id` and in the committed `docs/power-gate/`
-//! artifacts). They are **not** the v12.5 confirmatory registry (EC1, H1–H4,
-//! `grandplan.md` §4): here H1 = incremental held-out ΔAUROC, H2/H4 = task-level
-//! Spearman ρ, H3 = per-case Kendall τ. Read them as endpoint labels, not as the
-//! renumbered v12.5 hypotheses.
-//!
-//! Preregistered minimum effect sizes (§6.8 — commitments, not estimates):
-//! - **H1**: incremental held-out episode-level ΔAUROC ≥ 0.05
-//!   ({baselines + PID/CI} over {baselines alone}; paired episode-level
-//!   bootstrap; success = one-sided significance AND point ≥ 0.05; futility =
-//!   95% CI upper bound < 0.02).
-//! - **H2**: Spearman ρ ≥ 0.3 across tasks; **H4**: Spearman ρ ≤ -0.3
-//!   across tasks (families are clusters, handled by family-blocked bootstrap
-//!   — never the analysis unit).
-//! - **H3**: mean per-case Kendall τ ≥ 1/3 across ≥ 20 matched cases
-//!   (family-blocked case-resampling bootstrap).
-//!
-//! Each simulator draws data at the preregistered minimum effect (and at a
-//! null cell to verify the test's size), runs the *preregistered statistical
-//! procedure itself* — not an analytic shortcut — and reports empirical power
-//! per candidate analysis-unit count. The H1 feature model is binormal, so the
-//! injected incremental effect is *exact by construction*:
+//! The retired endpoint labels were: incremental held-out episode-level ΔAUROC, two task-level
+//! Spearman correlations, and mean per-case Kendall τ. Their legacy thresholds were 0.05, ±0.3,
+//! and 1/3 respectively. The calculations exercise the statistical procedures encoded at the
+//! time and report idealized sensitivity over finite grids. The H1 feature model is binormal, so
+//! the injected incremental effect is exact by construction:
 //! `d = √2·Φ⁻¹(AUROC)`, and an independent PID feature with
 //! `d₂ = √(d²_target − d²_base)` yields the target combined AUROC under the
 //! optimal (here: logistic) combiner.
@@ -347,9 +326,9 @@ pub struct PowerCell {
     pub effect: f64,
     /// Fraction of replicates achieving one-sided directional significance.
     pub significance_rate: f64,
-    /// Fraction achieving the full preregistered success criterion (for H1:
-    /// significance AND point estimate ≥ the minimum effect; for H2–H4 equal
-    /// to `significance_rate`).
+    /// Fraction achieving the retired calculation's internal criterion (for legacy H1:
+    /// significance AND point estimate ≥ its threshold; for the other legacy endpoints,
+    /// equal to `significance_rate`).
     pub power: f64,
     /// H1 only: fraction of replicates declared futile (95% CI upper < 0.02).
     pub futility_rate: f64,
@@ -360,10 +339,9 @@ pub struct PowerCell {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerGateConfig {
-    /// Candidate H1 analysis-unit counts (episodes), not capture requirements.
+    /// Candidate legacy-v10.7 H1 analysis-unit counts, not capture requirements.
     pub h1_episodes_grid: Vec<usize>,
-    /// H1 injected incremental ΔAUROC values (must include the preregistered
-    /// minimum 0.05).
+    /// Injected legacy-v10.7 H1 incremental ΔAUROC values.
     pub h1_delta_grid: Vec<f64>,
     /// Standalone AUROC of the pooled baseline feature set.
     pub h1_baseline_auroc: f64,
@@ -371,17 +349,17 @@ pub struct PowerGateConfig {
     pub h1_failure_rate: f64,
     /// Fraction of episodes held out for the endpoint contrast.
     pub h1_heldout_frac: f64,
-    /// Candidate H2/H4 analysis-unit counts (tasks), not capture requirements.
+    /// Candidate legacy-v10.7 H2/H4 task counts, not capture requirements.
     pub h2h4_tasks_grid: Vec<usize>,
-    /// Injected marginal Spearman |ρ| (preregistered minimum 0.3).
+    /// Injected marginal Spearman |ρ| for the retired calculation.
     pub h2h4_rho: f64,
     /// Tasks per family (families are resampling blocks).
     pub h2h4_family_size: usize,
     /// Between-family random-effect SD on the outcome variable.
     pub h2h4_family_sd: f64,
-    /// Candidate H3 analysis-unit counts (cases), not capture requirements.
+    /// Candidate legacy-v10.7 H3 case counts, not capture requirements.
     pub h3_cases_grid: Vec<usize>,
-    /// Injected mean per-case Kendall τ (preregistered minimum 1/3).
+    /// Injected mean per-case Kendall τ for the retired calculation.
     pub h3_mean_tau: f64,
     /// Cases per family (families are resampling blocks).
     pub h3_family_size: usize,
@@ -394,11 +372,11 @@ pub struct PowerGateConfig {
     pub replicates: usize,
     /// One-sided significance level.
     pub alpha: f64,
-    /// H1 preregistered minimum effect (success needs point ≥ this).
+    /// Retired H1 point threshold used by the historical internal criterion.
     pub h1_min_effect: f64,
     /// H1 futility bound (95% CI upper < this ⇒ futile).
     pub h1_futility_bound: f64,
-    /// Target power the gate requires at the preregistered minimum effect.
+    /// Target Monte-Carlo rate used by the historical finite-grid comparison.
     pub target_power: f64,
     pub seed: u64,
 }
@@ -448,7 +426,7 @@ impl PowerGateConfigError {
 
 impl std::fmt::Display for PowerGateConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "power-gate `{}`: {}", self.field, self.reason)
+        write!(f, "legacy-sensitivity `{}`: {}", self.field, self.reason)
     }
 }
 
@@ -691,7 +669,7 @@ impl PowerGateConfig {
     }
 }
 
-/// Preregistered one-sided endpoint direction.
+/// One-sided direction encoded by the retired v10.7 calculation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PredictedDirection {
@@ -699,9 +677,9 @@ pub enum PredictedDirection {
     Negative,
 }
 
-/// Verdict for one idealized endpoint surface.
+/// Diagnostic for one retired idealized endpoint surface.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct EndpointVerdict {
+pub struct LegacyEndpointDiagnostic {
     pub endpoint_id: String,
     pub endpoint: String,
     pub dgp_tag: String,
@@ -715,7 +693,29 @@ pub struct EndpointVerdict {
     pub null_rate_at_smallest_passing_grid_n: Option<f64>,
     /// Maximum accepted null rate at the selected n (alpha + 3 MC SEs).
     pub null_size_tolerance_at_smallest_passing_grid_n: Option<f64>,
-    pub passed: bool,
+    /// Whether this surface met its retired finite-grid comparison only.
+    pub legacy_internal_criterion_met: bool,
+}
+
+/// Whether a report may be promoted into current scientific evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LegacySensitivityPromotionStatus {
+    Nonpromotable,
+}
+
+/// Evaluation status of the current EC1/H1–H4 hypothesis registry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CurrentHypothesisGateStatus {
+    NotEvaluated,
+}
+
+/// Scientific-success status permitted for this retired calculation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CurrentScientificSuccessStatus {
+    NotEstablished,
 }
 
 /// Machine-readable caveat attached to every report.
@@ -728,20 +728,29 @@ pub struct PowerGateLimitation {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PowerGateReport {
     pub schema_version: String,
+    pub artifact_id: String,
     pub config: PowerGateConfig,
+    #[serde(rename = "legacy_v10_7_h1_surface")]
     pub h1: Vec<PowerCell>,
+    #[serde(rename = "legacy_v10_7_h2_surface")]
     pub h2: Vec<PowerCell>,
+    #[serde(rename = "legacy_v10_7_h2_null_surface")]
     pub h2_null: Vec<PowerCell>,
+    #[serde(rename = "legacy_v10_7_h3_surface")]
     pub h3: Vec<PowerCell>,
+    #[serde(rename = "legacy_v10_7_h3_null_surface")]
     pub h3_null: Vec<PowerCell>,
+    #[serde(rename = "legacy_v10_7_h4_surface")]
     pub h4: Vec<PowerCell>,
+    #[serde(rename = "legacy_v10_7_h4_null_surface")]
     pub h4_null: Vec<PowerCell>,
-    pub verdicts: Vec<EndpointVerdict>,
-    /// True iff every idealized endpoint surface has a same-n power/size cell.
-    pub idealized_sensitivity_gate_passed: bool,
-    /// Always false: this idealized simulation alone cannot validate a real
-    /// capture inventory, estimator error, or pilot-derived dependence model.
-    pub capture_ready: bool,
+    pub legacy_endpoint_diagnostics: Vec<LegacyEndpointDiagnostic>,
+    /// True iff every retired surface met its own same-n finite-grid comparison.
+    /// This is not a current scientific gate or success flag.
+    pub legacy_internal_grid_criterion_met: bool,
+    pub promotion_status: LegacySensitivityPromotionStatus,
+    pub current_hypothesis_gate_status: CurrentHypothesisGateStatus,
+    pub current_scientific_success_status: CurrentScientificSuccessStatus,
     pub limitations: Vec<PowerGateLimitation>,
 }
 
@@ -1057,7 +1066,7 @@ fn h3_replicate(
     Some((point, significant))
 }
 
-// ─────────────────────────────── the gate itself ────────────────────────────
+// ───────────────────── retired finite-grid comparison logic ─────────────────
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct PassingGridCell {
@@ -1101,7 +1110,7 @@ fn select_smallest_passing_grid_n(
     })
 }
 
-struct VerdictSpec<'a> {
+struct LegacyEndpointSpec<'a> {
     endpoint_id: &'a str,
     endpoint: &'a str,
     dgp_tag: &'a str,
@@ -1111,14 +1120,14 @@ struct VerdictSpec<'a> {
     signed_effect: f64,
 }
 
-fn endpoint_verdict(
-    spec: VerdictSpec<'_>,
+fn legacy_endpoint_diagnostic(
+    spec: LegacyEndpointSpec<'_>,
     cells: &[PowerCell],
     null_cells: &[PowerCell],
     cfg: &PowerGateConfig,
-) -> EndpointVerdict {
+) -> LegacyEndpointDiagnostic {
     let selected = select_smallest_passing_grid_n(cells, spec.signed_effect, null_cells, cfg);
-    EndpointVerdict {
+    LegacyEndpointDiagnostic {
         endpoint_id: spec.endpoint_id.to_string(),
         endpoint: spec.endpoint.to_string(),
         dgp_tag: spec.dgp_tag.to_string(),
@@ -1129,7 +1138,7 @@ fn endpoint_verdict(
         null_rate_at_smallest_passing_grid_n: selected.map(|cell| cell.null_rate),
         null_size_tolerance_at_smallest_passing_grid_n: selected
             .map(|cell| cell.null_size_tolerance),
-        passed: selected.is_some(),
+        legacy_internal_criterion_met: selected.is_some(),
     }
 }
 
@@ -1151,8 +1160,10 @@ fn require_complete_replicates(
     Ok(())
 }
 
-/// Run the §6.8 power gate. Deterministic for a fixed config.
-pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGateConfigError> {
+/// Run the retired v10.7 sensitivity calculation. Deterministic for a fixed config.
+pub fn run_legacy_sensitivity_calculation(
+    cfg: &PowerGateConfig,
+) -> Result<PowerGateReport, PowerGateConfigError> {
     cfg.validate()?;
 
     // H1 surface over (episodes × delta), including the null column.
@@ -1285,12 +1296,12 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGat
     // the configured family dependence.
     let h3_null = run_h3(0.0, 1.0, 0.0, 0x33_1111)?;
 
-    let verdicts = vec![
-        endpoint_verdict(
-            VerdictSpec {
-                endpoint_id: "h1",
-                endpoint: "H1 incremental ΔAUROC",
-                dgp_tag: "h1_binormal_incremental_auroc_v1",
+    let legacy_endpoint_diagnostics = vec![
+        legacy_endpoint_diagnostic(
+            LegacyEndpointSpec {
+                endpoint_id: "legacy_v10_7_h1_incremental_auroc",
+                endpoint: "Legacy v10.7 H1 incremental ΔAUROC",
+                dgp_tag: "legacy_v10_7_h1_binormal_incremental_auroc_v1",
                 unit: "episodes",
                 predicted_direction: PredictedDirection::Positive,
                 minimum_effect_magnitude: cfg.h1_min_effect,
@@ -1300,11 +1311,11 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGat
             &h1,
             cfg,
         ),
-        endpoint_verdict(
-            VerdictSpec {
-                endpoint_id: "h2",
-                endpoint: "H2 Red vs ablation-slope Spearman rho",
-                dgp_tag: "h2_positive_marginal_spearman_family_outcome_re_v2",
+        legacy_endpoint_diagnostic(
+            LegacyEndpointSpec {
+                endpoint_id: "legacy_v10_7_h2_red_ablation_spearman",
+                endpoint: "Legacy v10.7 H2 Red vs ablation-slope Spearman rho",
+                dgp_tag: "legacy_v10_7_h2_positive_marginal_spearman_family_outcome_re_v2",
                 unit: "tasks",
                 predicted_direction: PredictedDirection::Positive,
                 minimum_effect_magnitude: cfg.h2h4_rho,
@@ -1314,11 +1325,11 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGat
             &h2_null,
             cfg,
         ),
-        endpoint_verdict(
-            VerdictSpec {
-                endpoint_id: "h3",
-                endpoint: "H3 mean per-case Kendall tau",
-                dgp_tag: "h3_ordered_gaussian_score_noise_family_icc_v2",
+        legacy_endpoint_diagnostic(
+            LegacyEndpointSpec {
+                endpoint_id: "legacy_v10_7_h3_case_kendall",
+                endpoint: "Legacy v10.7 H3 mean per-case Kendall tau",
+                dgp_tag: "legacy_v10_7_h3_ordered_gaussian_score_noise_family_icc_v2",
                 unit: "matched cases",
                 predicted_direction: PredictedDirection::Positive,
                 minimum_effect_magnitude: cfg.h3_mean_tau,
@@ -1328,11 +1339,11 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGat
             &h3_null,
             cfg,
         ),
-        endpoint_verdict(
-            VerdictSpec {
-                endpoint_id: "h4",
-                endpoint: "H4 SSI vs L0-to-L2 degradation Spearman rho",
-                dgp_tag: "h4_negative_marginal_spearman_family_outcome_re_v2",
+        legacy_endpoint_diagnostic(
+            LegacyEndpointSpec {
+                endpoint_id: "legacy_v10_7_h4_ssi_degradation_spearman",
+                endpoint: "Legacy v10.7 H4 SSI vs L0-to-L2 degradation Spearman rho",
+                dgp_tag: "legacy_v10_7_h4_negative_marginal_spearman_family_outcome_re_v2",
                 unit: "tasks",
                 predicted_direction: PredictedDirection::Negative,
                 minimum_effect_magnitude: cfg.h2h4_rho,
@@ -1343,8 +1354,14 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGat
             cfg,
         ),
     ];
-    let idealized_sensitivity_gate_passed = verdicts.iter().all(|verdict| verdict.passed);
+    let legacy_internal_grid_criterion_met = legacy_endpoint_diagnostics
+        .iter()
+        .all(|diagnostic| diagnostic.legacy_internal_criterion_met);
     let limitations = vec![
+        PowerGateLimitation {
+            code: "nonpromotable_retired_endpoint_schema".to_string(),
+            detail: "These legacy-v10.7 endpoint calculations do not evaluate the current EC1/H1–H4 registry and cannot establish scientific success.".to_string(),
+        },
         PowerGateLimitation {
             code: "grid_counts_not_capture_requirements".to_string(),
             detail: "Selected n values are the smallest passing points on finite idealized grids; they are not capture requirements or guarantees.".to_string(),
@@ -1371,7 +1388,8 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGat
         },
     ];
     Ok(PowerGateReport {
-        schema_version: "2.0".to_string(),
+        schema_version: "3.0".to_string(),
+        artifact_id: "legacy_v10_7_endpoint_sensitivity_calculation_v1".to_string(),
         config: cfg.clone(),
         h1,
         h2,
@@ -1380,24 +1398,30 @@ pub fn run_power_gate(cfg: &PowerGateConfig) -> Result<PowerGateReport, PowerGat
         h3_null,
         h4,
         h4_null,
-        verdicts,
-        idealized_sensitivity_gate_passed,
-        capture_ready: false,
+        legacy_endpoint_diagnostics,
+        legacy_internal_grid_criterion_met,
+        promotion_status: LegacySensitivityPromotionStatus::Nonpromotable,
+        current_hypothesis_gate_status: CurrentHypothesisGateStatus::NotEvaluated,
+        current_scientific_success_status: CurrentScientificSuccessStatus::NotEstablished,
         limitations,
     })
 }
 
-/// Render the report as a compact markdown document (for `docs/`).
-pub fn power_gate_markdown(r: &PowerGateReport) -> String {
+/// Render the retired calculation as a compact historical markdown report.
+pub fn legacy_sensitivity_markdown(r: &PowerGateReport) -> String {
     let mut s = String::new();
-    s.push_str("# §6.8 Power Gate — idealized endpoint-sensitivity analysis (H1–H4)\n\n");
+    s.push_str("# Historical v10.7 endpoint-sensitivity calculation\n\n");
+    s.push_str(
+        "**NONPROMOTABLE:** this retired calculation does not evaluate the current EC1/H1–H4 \
+         registry and cannot establish scientific success, capture readiness, or a study gate.\n\n",
+    );
     s.push_str(&format!(
         "Replicates/cell: {} · bootstrap: {} · one-sided α = {} · target power = {}\n\n",
         r.config.replicates, r.config.n_boot, r.config.alpha, r.config.target_power
     ));
-    s.push_str("The grid counts below are idealized planning sensitivities, **not capture requirements or guarantees**. A count is selected only when its own same-n null cell meets the Monte-Carlo size tolerance. H2 and H4 use separate endpoint labels, DGP tags, seeds, and preregistered directions.\n\n");
-    s.push_str("## Verdicts\n\n| Endpoint | DGP tag | Direction | Unit | Min | Smallest passing grid n (not a requirement) | Same-n null rate / tolerance | Idealized pass |\n|---|---|---|---|---|---|---|---|\n");
-    for v in &r.verdicts {
+    s.push_str("The grid counts below are historical idealized sensitivities, **not capture requirements or guarantees**. A count is selected only when its own same-n null cell meets the retired Monte-Carlo size tolerance.\n\n");
+    s.push_str("## Legacy endpoint diagnostics\n\n| Legacy endpoint ID | Endpoint | DGP tag | Direction | Unit | Legacy threshold | Smallest matching grid n (not a requirement) | Same-n null rate / tolerance | Retired internal criterion |\n|---|---|---|---|---|---|---|---|---|\n");
+    for v in &r.legacy_endpoint_diagnostics {
         let direction = match v.predicted_direction {
             PredictedDirection::Positive => "positive",
             PredictedDirection::Negative => "negative",
@@ -1412,7 +1436,8 @@ pub fn power_gate_markdown(r: &PowerGateReport) -> String {
             .map(|(rate, tolerance)| format!("{rate:.3} / {tolerance:.3}"))
             .unwrap_or_else(|| "n/a".to_string());
         s.push_str(&format!(
-            "| {} | `{}` | {} | {} | {:.3} | {} | {} | {} |\n",
+            "| `{}` | {} | `{}` | {} | {} | {:.3} | {} | {} | {} |\n",
+            v.endpoint_id,
             v.endpoint,
             v.dgp_tag,
             direction,
@@ -1420,7 +1445,11 @@ pub fn power_gate_markdown(r: &PowerGateReport) -> String {
             v.minimum_effect_magnitude,
             selected,
             null_check,
-            if v.passed { "✅" } else { "❌" }
+            if v.legacy_internal_criterion_met {
+                "met"
+            } else {
+                "not met"
+            }
         ));
     }
     let table = |s: &mut String, title: &str, cells: &[PowerCell], h1: bool| {
@@ -1486,11 +1515,12 @@ pub fn power_gate_markdown(r: &PowerGateReport) -> String {
         s.push_str(&format!("- `{}`: {}\n", limitation.code, limitation.detail));
     }
     s.push_str(&format!(
-        "\n**Idealized sensitivity gate: {}. Capture readiness: NOT ESTABLISHED.**\n",
-        if r.idealized_sensitivity_gate_passed {
-            "PASSED"
+        "\n**Retired internal grid criterion: {}. Promotion status: NONPROMOTABLE. \
+         Current EC1/H1–H4 gate: NOT EVALUATED. Scientific success: NOT ESTABLISHED.**\n",
+        if r.legacy_internal_grid_criterion_met {
+            "MET"
         } else {
-            "NOT PASSED"
+            "NOT MET"
         }
     ));
     s
@@ -1707,7 +1737,7 @@ mod tests {
     }
 
     #[test]
-    fn power_gate_separates_h2_and_h4_and_marks_capture_unready() {
+    fn legacy_report_is_explicitly_nonpromotable_and_does_not_evaluate_current_hypotheses() {
         let cfg = PowerGateConfig {
             h1_episodes_grid: vec![40],
             h1_delta_grid: vec![0.0, 0.05],
@@ -1717,18 +1747,51 @@ mod tests {
             replicates: 20,
             ..Default::default()
         };
-        let r = run_power_gate(&cfg).unwrap();
-        assert_eq!(r.schema_version, "2.0");
+        let r = run_legacy_sensitivity_calculation(&cfg).unwrap();
+        assert_eq!(r.schema_version, "3.0");
+        assert_eq!(
+            r.artifact_id,
+            "legacy_v10_7_endpoint_sensitivity_calculation_v1"
+        );
         let endpoint_ids: Vec<&str> = r
-            .verdicts
+            .legacy_endpoint_diagnostics
             .iter()
-            .map(|verdict| verdict.endpoint_id.as_str())
+            .map(|diagnostic| diagnostic.endpoint_id.as_str())
             .collect();
-        assert_eq!(endpoint_ids, ["h1", "h2", "h3", "h4"]);
+        assert_eq!(
+            endpoint_ids,
+            [
+                "legacy_v10_7_h1_incremental_auroc",
+                "legacy_v10_7_h2_red_ablation_spearman",
+                "legacy_v10_7_h3_case_kendall",
+                "legacy_v10_7_h4_ssi_degradation_spearman",
+            ]
+        );
         assert!(r.h2[0].mean_point_estimate > 0.0);
         assert!(r.h4[0].mean_point_estimate < 0.0);
-        assert!(!r.capture_ready);
-        let md = power_gate_markdown(&r);
+        assert_eq!(
+            r.promotion_status,
+            LegacySensitivityPromotionStatus::Nonpromotable
+        );
+        assert_eq!(
+            r.current_hypothesis_gate_status,
+            CurrentHypothesisGateStatus::NotEvaluated
+        );
+        assert_eq!(
+            r.current_scientific_success_status,
+            CurrentScientificSuccessStatus::NotEstablished
+        );
+        let serialized = serde_json::to_string(&r).expect("serialize legacy report");
+        assert!(serialized.contains("\"promotion_status\":\"nonpromotable\""));
+        assert!(serialized.contains("\"current_hypothesis_gate_status\":\"not_evaluated\""));
+        assert!(serialized.contains("\"current_scientific_success_status\":\"not_established\""));
+        assert!(serialized.contains("\"legacy_v10_7_h1_surface\""));
+        assert!(!serialized.contains("\"h1\":["));
+        assert!(!serialized.contains("\"idealized_sensitivity_gate_passed\""));
+        assert!(!serialized.contains("\"capture_ready\""));
+        let md = legacy_sensitivity_markdown(&r);
         assert!(md.contains("not capture requirements or guarantees"));
+        assert!(md.contains("NONPROMOTABLE"));
+        assert!(md.contains("Current EC1/H1–H4 gate: NOT EVALUATED"));
     }
 }

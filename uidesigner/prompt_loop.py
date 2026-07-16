@@ -33,9 +33,13 @@ import math
 import os
 import re
 import selectors
+import signal
 import socket
 import stat
-import subprocess
+import sys
+
+# This optional wrapper executes validated argv directly and never invokes a shell.
+import subprocess  # nosec B404
 import tempfile
 import time
 import urllib.error
@@ -763,25 +767,32 @@ def _run_command_bounded(
         or isinstance(max_output_bytes, bool)
         or not isinstance(max_output_bytes, int)
         or max_output_bytes <= 0
+        or max_output_bytes > MAX_SUBPROCESS_OUTPUT_BYTES
     ):
         raise ValueError("Bounded subprocess parameters are invalid or outside limits")
     try:
-        process = subprocess.Popen(
+        # The only production caller supplies the literal gcloud argv; tests use
+        # other commands to exercise the generic bounded lifecycle.
+        process = subprocess.Popen(  # nosec B603
             command,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             close_fds=True,
+            start_new_session=os.name == "posix",
         )
     except FileNotFoundError:
         raise
-    assert process.stdout is not None
+    stdout = process.stdout
     output = bytearray()
-    selector = selectors.DefaultSelector()
-    selector.register(process.stdout, selectors.EVENT_READ)
-    deadline = time.monotonic() + timeout_s
-    eof = False
+    selector: selectors.BaseSelector | None = None
     try:
+        if stdout is None:
+            raise RuntimeError("Bounded subprocess stdout pipe was not created")
+        selector = selectors.DefaultSelector()
+        selector.register(stdout, selectors.EVENT_READ)
+        deadline = time.monotonic() + timeout_s
+        eof = False
         while not eof:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -801,18 +812,42 @@ def _run_command_bounded(
                         f"Subprocess output exceeds the {max_output_bytes}-byte limit"
                     )
         try:
+            if os.name == "posix":
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                except PermissionError:
+                    if sys.platform != "darwin":
+                        raise
             return_code = process.wait(timeout=max(0.0, deadline - time.monotonic()))
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError(
                 f"Subprocess exceeded the {timeout_s:g}-second timeout"
             ) from exc
-    except BaseException:
-        process.kill()
-        process.wait()
-        raise
     finally:
-        selector.close()
-        process.stdout.close()
+        try:
+            if process.returncode is None:
+                try:
+                    if os.name == "posix":
+                        os.killpg(process.pid, signal.SIGKILL)
+                    else:
+                        process.kill()
+                except ProcessLookupError:
+                    pass
+                except PermissionError:
+                    if sys.platform != "darwin":
+                        raise
+                except OSError:
+                    process.kill()
+        finally:
+            try:
+                process.wait()
+            finally:
+                if selector is not None:
+                    selector.close()
+                if stdout is not None:
+                    stdout.close()
     return return_code, bytes(output)
 
 

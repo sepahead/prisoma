@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-14",
+  "as_of_date": "2026-07-16",
   "canonical_spec": {
     "path": "grandplan.md",
     "version": "12.5",
@@ -24,7 +24,7 @@
         "Cargo.toml",
         "Cargo.lock"
       ],
-      "external_revision": "pid-rs@43ab60517b5387c61ae339f664d0d7afae3b8988",
+      "external_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51",
       "test_command": "just estimate-report-contract",
       "evidence_artifacts": [
         "crates/pid-sim/fixtures/offline_vlda_fixture.json",
@@ -331,7 +331,7 @@
     },
     {
       "feature_id": "experiment.h4_attribution_reference",
-      "feature": "Faithfulness-checked attribution/mechanistic-probe reference",
+      "feature": "Deletion ranking-sensitivity attribution reference (exploratory)",
       "status": "tested",
       "revision_inputs": [
         "experiments/attribution",
@@ -345,10 +345,10 @@
         "experiments/attribution/README.md",
         "protocols/research_claim_registry_v1.json"
       ],
-      "known_limitations": "The small reference model and deletion-AOPC control are logging/software groundwork; attribution agreement is not causal use, and no real VLA intervention study exists.",
+      "known_limitations": "The small reference model and group-disjoint deletion ranking-sensitivity diagnostic are logging/software groundwork; the recorded check is not causal or mechanistic faithfulness, natural policy use, or an H4 result, and no real VLA intervention study exists.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
-      "evidence_scope": "local reference-model probe and canonical attribution event fixture",
+      "evidence_scope": "local reference-model ranking-sensitivity probe and canonical attribution event fixture",
       "thesis_dependency": "conditional",
       "claim_ids": [
         "H4"
@@ -488,7 +488,7 @@
     },
     {
       "feature_id": "pid.estimator_core",
-      "feature": "Pinned pid-rs 1.0 estimator core",
+      "feature": "Pinned pid-rs 0.9.0 post-tag review-source estimator core",
       "status": "tested",
       "revision_inputs": [
         "pid-rs",
@@ -496,7 +496,7 @@
         "Cargo.toml",
         "Cargo.lock"
       ],
-      "external_revision": "pid-rs@43ab60517b5387c61ae339f664d0d7afae3b8988",
+      "external_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51",
       "test_command": "just exp0-bin",
       "evidence_artifacts": [
         "pid-rs/crates/pid-core",
@@ -602,7 +602,7 @@
         "Cargo.toml",
         "Cargo.lock"
       ],
-      "external_revision": "pid-rs@43ab60517b5387c61ae339f664d0d7afae3b8988",
+      "external_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51",
       "test_command": "just runlog-sidecars-proof",
       "evidence_artifacts": [
         "pid-rs/crates/pid-runlog",

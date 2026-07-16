@@ -231,12 +231,17 @@ def _read_regular_text(path: Path, *, max_bytes: int, context: str) -> str:
 
 
 def _terminate(process: subprocess.Popen[bytes]) -> None:
-    try:
-        if os.name == "posix":
+    if process.returncode is not None:
+        return
+    if os.name == "posix":
+        try:
             os.killpg(process.pid, signal.SIGKILL)
-        elif process.poll() is None:
-            process.kill()
-    except OSError:
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            if sys.platform != "darwin":
+                raise
+    else:
         try:
             process.kill()
         except OSError:
@@ -269,8 +274,14 @@ def _run_bounded(
 ) -> subprocess.CompletedProcess[str] | subprocess.CompletedProcess[bytes]:
     """Run Git with aggregate output and wall-time limits."""
 
+    if timeout_seconds <= 0:
+        raise subprocess.TimeoutExpired(command, timeout_seconds)
+    if max_output_bytes < 0:
+        raise CatalogError(f"invalid negative Git output budget: {max_output_bytes}")
     aggregate_deadline = _GIT_DEADLINE.get()
     if aggregate_deadline is not None:
+        if aggregate_deadline <= time.monotonic():
+            raise subprocess.TimeoutExpired(command, timeout_seconds)
         commands_used = _GIT_COMMANDS_USED.get()
         if commands_used >= MAX_GIT_COMMANDS:
             raise CatalogError(
@@ -284,16 +295,20 @@ def _run_bounded(
         stderr=subprocess.PIPE,
         start_new_session=os.name == "posix",
     )
-    assert process.stdout is not None and process.stderr is not None
-    selector = selectors.DefaultSelector()
+    stdout_stream = process.stdout
+    stderr_stream = process.stderr
+    selector: selectors.BaseSelector | None = None
     buffers = {"stdout": bytearray(), "stderr": bytearray()}
     total = 0
     deadline = time.monotonic() + timeout_seconds
     if aggregate_deadline is not None:
         deadline = min(deadline, aggregate_deadline)
     try:
-        selector.register(process.stdout, selectors.EVENT_READ, "stdout")
-        selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+        if stdout_stream is None or stderr_stream is None:
+            raise CatalogError("Git subprocess pipes were not created")
+        selector = selectors.DefaultSelector()
+        selector.register(stdout_stream, selectors.EVENT_READ, "stdout")
+        selector.register(stderr_stream, selectors.EVENT_READ, "stderr")
         while selector.get_map():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -322,6 +337,8 @@ def _run_bounded(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise subprocess.TimeoutExpired(command, timeout_seconds)
+        if os.name == "posix":
+            _terminate(process)
         return_code = process.wait(timeout=remaining)
     except BaseException:
         _terminate(process)
@@ -331,9 +348,15 @@ def _run_bounded(
             pass
         raise
     finally:
-        selector.close()
-        for stream in (process.stdout, process.stderr):
-            if not stream.closed:
+        _terminate(process)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        if selector is not None:
+            selector.close()
+        for stream in (stdout_stream, stderr_stream):
+            if stream is not None and not stream.closed:
                 stream.close()
 
     stdout_bytes = bytes(buffers["stdout"])

@@ -111,12 +111,17 @@ def _read_regular_text(path: Path, *, max_bytes: int, label: str) -> str:
 
 
 def _terminate(process: subprocess.Popen[bytes]) -> None:
-    try:
-        if os.name == "posix":
+    if process.returncode is not None:
+        return
+    if os.name == "posix":
+        try:
             os.killpg(process.pid, signal.SIGKILL)
-        elif process.poll() is None:
-            process.kill()
-    except OSError:
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            if sys.platform != "darwin":
+                raise
+    else:
         try:
             process.kill()
         except OSError:
@@ -132,6 +137,12 @@ def _run_bounded(
 ) -> subprocess.CompletedProcess[str]:
     """Run a command with one aggregate stdout/stderr byte and wall-time budget."""
 
+    if timeout_seconds <= 0:
+        raise subprocess.TimeoutExpired(command, timeout_seconds)
+    if max_output_bytes < 0:
+        raise NoticeGenerationError(
+            f"invalid negative aggregate subprocess output budget: {max_output_bytes}"
+        )
     process = subprocess.Popen(
         command,
         cwd=cwd,
@@ -139,14 +150,18 @@ def _run_bounded(
         stderr=subprocess.PIPE,
         start_new_session=os.name == "posix",
     )
-    assert process.stdout is not None and process.stderr is not None
-    selector = selectors.DefaultSelector()
+    stdout_stream = process.stdout
+    stderr_stream = process.stderr
+    selector: selectors.BaseSelector | None = None
     buffers = {"stdout": bytearray(), "stderr": bytearray()}
     total = 0
     deadline = time.monotonic() + timeout_seconds
     try:
-        selector.register(process.stdout, selectors.EVENT_READ, "stdout")
-        selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+        if stdout_stream is None or stderr_stream is None:
+            raise NoticeGenerationError("subprocess pipes were not created")
+        selector = selectors.DefaultSelector()
+        selector.register(stdout_stream, selectors.EVENT_READ, "stdout")
+        selector.register(stderr_stream, selectors.EVENT_READ, "stderr")
         while selector.get_map():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -167,6 +182,8 @@ def _run_bounded(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise subprocess.TimeoutExpired(command, timeout_seconds)
+        if os.name == "posix":
+            _terminate(process)
         return_code = process.wait(timeout=remaining)
     except BaseException:
         _terminate(process)
@@ -176,9 +193,15 @@ def _run_bounded(
             pass
         raise
     finally:
-        selector.close()
-        for stream in (process.stdout, process.stderr):
-            if not stream.closed:
+        _terminate(process)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        if selector is not None:
+            selector.close()
+        for stream in (stdout_stream, stderr_stream):
+            if stream is not None and not stream.closed:
                 stream.close()
 
     try:

@@ -2,24 +2,29 @@
 
 ## Executive Summary
 
-Experiment 0 tests Partial Information Decomposition (PID) estimators on synthetic data with known ground truth. The results show systematic issues that need to be understood before proceeding to real VLA analysis.
+Experiment 0 tests Partial Information Decomposition (PID) estimators on synthetic data with known
+analytic MI/coherence targets and selected low-dimensional atom/reference fixtures. It does not
+supply matching ground truth for every reported PID atom. The results show systematic issues that
+need to be understood before proceeding to real VLA analysis.
 
 **Status: publish separate gate verdicts, not one.** These map onto the four PID validity
 gates in `grandplan.md` §7.1 — population, measure, estimator, and **application**.
 
 - **MI/coherence (estimator) gate: NO-GO** for the exact high-dimensional nuisance-control
-  regimes tested by the current `pid-rs` 1.0.0 pin. The current run exposes three invariant-bound
-  violations (for example `r̄≈28.6`, `v̄≈−26.6` on `unique_s1_pca`, d=64), so those estimated MI
-  terms cannot support atoms or Shannon invariants in those regimes. This does not assign the
-  population or measure gate for every other estimand/configuration tuple.
+  regimes tested by the exact `pid-rs` 0.9.0 post-tag review-source pin at `796c11e`. The default
+  binary run covers 12 scenario–dimension cells over three deterministic seeds (36 case results)
+  and has nine MI monotonicity violations and three normalized-invariant bound violations
+  (for example, `redundant_copy`, d=10 estimates `I(S1,S2;T)=0.272` below
+  `I(S1;T)=0.488`, with `r̄≈3.59`, `v̄≈−1.59`). Those estimated MI terms cannot support atoms or
+  Shannon invariants in those regimes. This does not assign the population or measure gate for
+  every other estimand/configuration tuple.
 - **Continuous `I^sx_∩` application gate: NOT APPLICATION-VALIDATED (blocked).** The default
-  Experiment 0 aggregate tests
-  `independent_additive` redundancy against zero even though the implementation and committed
-  Gaussian oracle say genuine shared-exclusions redundancy is positive (about 0.2 nats in
-  the low-dimensional reference). The strict band avoids that target but gates MI terms and
-  only reports atoms. Therefore the binary's printed aggregate **NO-GO** must not be presented
-  as a clean `I^sx_∩` verdict. Upstream Exp0 needs separate `MI_GATE`/`ISX_GATE` outputs and a
-  measure-specific oracle at each tested dimension.
+  Experiment 0 sweep never compares shared-exclusions redundancy with a zero target. It reports
+  the atom-measure verdict as `not_adjudicated` because no matching shared-exclusions oracle ran,
+  and the atom-estimator verdict as `blocked` because measure and application validation remain
+  unresolved. The strict path gates only the curated low-dimensional analytic-MI band—three cases,
+  zero recovery failures, **GO**—and reports atoms separately. Therefore neither the default
+  MI/coherence **NO-GO** nor the strict analytic-MI **GO** is an `I^sx_∩` atom-validity verdict.
 
 The operational conclusion is unchanged and stronger: do not interpret continuous atoms on
 real embeddings, but state the reason precisely.
@@ -33,16 +38,18 @@ high-dimensional VLA atom claim.
 
 ---
 
-## Update (2026-07-12): `pid-rs` 1.0 and the binary-`L` support mismatch
+## Update (2026-07-16): `pid-rs` 0.9 review source and the binary-`L` support mismatch
 
-The submodule now pins `pid-rs` **1.0.0** (`43ab605`). 1.0 makes continuous support **declared,
-never inferred**, and fails closed when a tuple falls outside it. Running the migrated harness
+The submodule now pins the exact `pid-rs` **0.9.0 post-tag review source** (`796c11e`). This review
+surface makes continuous support **declared, never inferred**, and fails closed when a tuple falls
+outside it; it makes no 1.x compatibility or published-wheel promise. Running the migrated harness
 surfaced a defect that pid-rs 0.4 had been hiding:
 
 **`crates/pid-sim/fixtures/offline_vlda_fixture.json` has a binary `L`** — exactly two values,
 `{-1.0, +1.0}`, eight samples each. Every continuous `(V,L)→A` and `(L,D)→A` screen, and `MI(L;A)`,
 had therefore been running an absolutely-continuous KSG/`I^sx_∩` estimator over a two-valued
-variable. pid-rs 0.4 returned numbers for it; 1.0 refuses (`ambiguous k-th-neighbor shell`).
+variable. pid-rs 0.4 returned numbers for it; the current review source refuses
+(`ambiguous k-th-neighbor shell`).
 
 This is a **corrected scientific status, not a regression in estimator capability**. Those estimates
 were outside the estimator's valid support contract all along. They are now reported as structured
@@ -64,8 +71,13 @@ Note the direction of the inference: exact ties and low observed cardinality rej
 the continuous estimator. They do **not** prove the population law is discrete. Support is declared
 by the capture adapter; it is never read off the data.
 
-`exp0`'s aggregate verdict is **unchanged** under 1.0: `Status: NO-GO`, 6/9 independent-additive
-passes, 9 monotonicity violations, 3 invariant-bound violations. The gate verdicts below stand.
+The binary-default `exp0` summary is scoped explicitly: 36 case results from 12
+scenario–dimension cells over three deterministic seeds, nine geometry warnings, zero geometry
+abstentions, nine monotonicity violations, three normalized-invariant bound violations, and
+`MI/Coherence Verdict: NO-GO`. The `just exp0-runlog` recipe deliberately passes one seed, so its
+corresponding counts are 12, three, zero, three, and one. Both separately report atom-measure
+validation as `not_adjudicated` and atom-estimator validation as `blocked`. No unavailable
+estimate carries a numeric placeholder or metric event.
 
 ---
 
@@ -105,7 +117,7 @@ estimators or all high-ambient-dimensional distributions.
 
 The target T is scalar. Under the historical pid-rs 0.3.0 implementation the estimate was ≈1.14.
 The bias correction introduced in pid-rs 0.4.0 (the k−2 correction) is retained by the current
-1.0.0 pin and yields ≈1.01 on this fixture. That is close estimated recovery of the known
+0.9.0 review-source pin and yields ≈1.01 on this fixture. That is close estimated recovery of the known
 one-dimensional construction and is consistent with the proposed finite-sample-bias explanation;
 it is not a population-level proof about the diagnostic on other distributions.
 
@@ -145,7 +157,7 @@ with estimator error unless a dimension-specific `I^sx_∩` oracle is supplied.
 
 | Metric | Observed | Heuristic flag (rule-of-thumb) | Interpretation |
 |--------|----------|---------------|----------------|
-| ID(s1,s2) | ≈26–37 (current 1.0.0 pin; bias correction introduced in 0.4.0), versus 28–42 under historical 0.3.0 | “low” (e.g., < 15) | Sample is consistent with high effective dimension under this diagnostic; not a population proof |
+| ID(s1,s2) | ≈25–37 (current 0.9.0 review-source pin; bias correction introduced in 0.4.0), versus 28–42 under historical 0.3.0 | “low” (e.g., < 15) | Sample is consistent with high effective dimension under this diagnostic; not a population proof |
 | DCcv | 0.12-0.16 | “not too small” (e.g., > 0.3) | Low empirical distance CV; descriptive warning, not a calibrated validity verdict |
 | d_rel | 0.07-0.09 | no validity threshold | Sampled-metric tree-likeness only; a Euclidean line has δ=0, so this does not invalidate kNN |
 
@@ -296,9 +308,9 @@ Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `
 
 ### 1. The Method Selection Matrix
 
-| Variables | Effective Dimension ($d$) | Geometry | Risk Status | Recommended Method |
+| Variables | Dimension status | Geometry | Risk Status | Recommended Method |
 | :--- | :--- | :--- | :--- | :--- |
-| **V, L, D** (Raw) | ~4096 | Any | **High risk** (distance concentration; coherence-gate failures are common) | **Do not interpret atoms**; reduce/quantize or use MI-only screening |
+| **V, L, D** (Raw) | architecture-dependent ambient width; effective dimension unmeasured | unknown until profiled | **High risk** (current synthetic nuisance controls show concentration/coherence failures; real-representation frequency is unassessed) | **Do not interpret atoms**; profile first, then define and validate any reduced/quantized or MI-only regime separately |
 | **V, L, D** (Reduced) | measured, not assumed | candidate Euclidean chart | Bias risk | MI/Shannon invariants only if every constituent MI passes `MI_GATE` |
 | **A, Flow summaries, Proprio** | often single-digit to low-tens | validate | Lower, not zero, risk | Atomic PID only after both `MI_GATE` and `ISX_GATE` pass on the exact pipeline |
 | **Possible manifolds** | measured | unknown until calibrated | Geometry/model risk | No default; compare separately validated MI pipelines, and make no atom claim without a measure-specific derivation/oracle |
@@ -344,7 +356,8 @@ When standard Euclidean assumptions fail (distance concentration, hierarchy), se
     *   **Diagnostics:** Low sampled-mean δ can describe tree-likeness under a declared metric,
         but does not prove hyperbolic curvature or invalidate Euclidean kNN; a Euclidean line
         also has δ=0. Use matched controls and direct estimator recovery.
-    *   **Valid Estimators:** Geometry-aware MI estimation (research-gated; not implemented here).
+    *   **Valid Estimators:** A default-off experimental hyperbolic MI path exists in `pid-rs`,
+        but it is a separate research regime and has not cleared the application gate here.
     *   **Shared-exclusions status:** the current Euclidean/Chebyshev $I^{sx}_{\cap}$ derivation
         and implementation are ineligible. A hyperbolic analogue would be a new measure/estimator
         requiring derivation and independent validation; none exists in this repository.
@@ -449,7 +462,9 @@ transform, test on held-out data, and include shuffled-target selection controls
    estimator tuple. Treat geometry diagnostics as warnings/descriptive evidence unless a validated
    support envelope has calibrated an abstention rule; the application gate remains blocked either
    way.
-5. **CONSIDER** validating on real VLA embeddings to measure intrinsic dimension and distance concentration before committing to a pipeline.
+5. **CONSIDER** profiling real VLA embeddings to measure intrinsic dimension and distance
+   concentration before committing to a pipeline. Those descriptive measurements do not themselves
+   validate an estimator or application regime.
 
 ---
 
@@ -485,10 +500,11 @@ unconditional theorem of failure for every distribution or nearest-neighbor esti
 
 ---
 
-*Last updated: 2026-07-15 (docset v12.5 — gate verdicts mapped onto the four PID gates
+*Last updated: 2026-07-16 (docset v12.5 — gate verdicts mapped onto the four PID gates
 of `grandplan.md` §7.1; MI/coherence estimator gate NO-GO separated from the continuous
 `I^sx_∩` application gate BLOCKED / NOT APPLICATION-VALIDATED; nuisance-dimension atom
-invariance and δ validity-gate claims withdrawn; current results attributed to the 1.0.0 pin and
+invariance and δ validity-gate claims withdrawn; current results attributed to the exact 0.9.0
+post-tag review-source pin and
 historical 0.3/0.4 behavior labelled explicitly)*
 *Based on analysis of the current `exp0.rs`, experimental output, and implementation of PLS +
 discrete PID (now wired into the offline harness with saturation diagnostics)*

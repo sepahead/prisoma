@@ -1,15 +1,21 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-13",
+  "as_of_date": "2026-07-16",
   "canonical_spec": {
     "path": "grandplan.md",
     "version": "12.5",
     "status": "living_post_review_reconciliation"
   },
+  "m0_successor_binding": {
+    "path": "protocols/m0_preregistration_successor_draft_v2.json",
+    "sha256": "2caf3cfe92919f202aaa4807a388e459ac9a068bdaf63701f17176f00b8aa607",
+    "as_of_date": "2026-07-16",
+    "status": "reviewed_successor_draft_unfrozen"
+  },
   "scope": "current execution and freeze status; not a scientific result or preregistration",
   "m0_freeze_status": {
     "overall": "not_freeze_ready",
-    "preregistration_skeleton": "implemented_unfrozen_scaffold_not_a_preregistration",
+    "preregistration_skeleton": "implemented_unfrozen_v1_scaffold_plus_typed_v2_successor_draft_neither_is_a_preregistration",
     "causal_graph": "unfrozen_pending_policy_environment_and_intervention_selection",
     "variable_dictionary": "partial_software_contracts_only",
     "treatment_ontology": "partial_h1_common_preflight_only",
@@ -51,6 +57,7 @@
         "just safe-adapter"
       ],
       "remaining_required_artifacts": [
+        "frozen_finite_acceptance_protocol_with_adapter_scope_fault_universe_oracle_margins_uncertainty_multiplicity_and_decision_rule",
         "real_content_addressed_safe_capture_and_rights_receipt",
         "conventional_script_or_container_baseline",
         "structurally_different_external_adapter",
@@ -100,6 +107,8 @@
         "real_policy_environment_and_intervention_freeze",
         "pilot_dose_engagement_specificity_and_controls",
         "protocol_a_or_protocol_b_preregistration",
+        "protocol_a_prespecified_or_train_defined_calibration_bins_without_heldout_outcome_definition",
+        "protocol_b_one_primary_effect_endpoint_and_explicit_testing_hierarchy",
         "real_heldout_response_or_effect_result",
         "current_nested_capture_design_gate"
       ],
@@ -171,6 +180,7 @@
       "remaining_required_artifacts": [
         "matched_regime_support_envelope",
         "eligible_episode_local_information_feature",
+        "warning_code_disposition_allowlist_with_unlisted_warning_exact_m1_fallback",
         "incremental_outer_fold_comparison_after_h1_or_h2"
       ],
       "minimum_useful_effect_status": "unfrozen_until_h3_activation",
@@ -179,32 +189,55 @@
     },
     {
       "claim_id": "H4",
-      "registered_role": "representational_availability_can_diverge_from_causal_policy_use",
-      "execution_status": "exploratory_attribution_groundwork_only",
+      "registered_role": "representational_availability_can_diverge_from_tested_intervention_effect",
+      "execution_status": "exploratory_deletion_ranking_sensitivity_groundwork_only",
       "scientific_status": "blocked_on_real_probe_and_intervention_study",
       "pid_dependency": "none",
       "current_artifacts": [
         {
           "path": "experiments/attribution",
-          "status": "reference_model_faithfulness_checked_probe"
+          "status": "reference_model_deletion_ranking_sensitivity_diagnostic_only"
         },
         {
           "path": "pid-rs/crates/pid-runlog",
           "status": "attribution_logged_event_supported"
         }
       ],
+      "reference_artifact_semantics": {
+        "diagnostic_name": "deletion_ranking_sensitivity",
+        "scientific_role": "exploratory_reference_model_software_groundwork_only",
+        "establishes_causal_or_mechanistic_faithfulness": false,
+        "legacy_event_field": "faithfulness_check_is_compatibility_only"
+      },
+      "confirmatory_design_contract": {
+        "region_basis": "predeclared_observable_cells_or_training_only_identified_cate_regions_locked_before_untouched_randomized_confirmation",
+        "target_population_weights": "frozen_from_a_probability_or_finite_benchmark_sampling_design_or_an_outcome_independent_target_covariate_sample_never_from_treatment_randomization_alone",
+        "target_sampling_and_transport": "bind_sampling_source_selection_indicator_overlap_and_conditional_effect_transport_assumptions_when_the_randomized_sample_is_not_the_target_population",
+        "primary_tuple": "exactly_one_q_representation_probe_metric_reference_intervention_dose_outcome_region_rule_weight_vector_availability_margin_effect_margin_and_minimum_region_mass_tuple",
+        "decision_rule": "intersection_union_availability_superiority_and_randomized_cell_average_effect_equivalence",
+        "confirmatory_error_control": "strong_familywise_error_control_or_simultaneous_confidence_regions_across_all_primary_cells_and_both_components",
+        "joint_design_power": "simulate_the_probability_that_all_required_availability_equivalence_support_control_weight_and_simultaneous_inference_components_pass_together",
+        "secondary_error_control": "false_discovery_rate_control_is_secondary_only_and_cannot_promote_a_confirmatory_claim",
+        "individual_effect_boundary": "marginal_arm_laws_and_average_treatment_effect_do_not_identify_individual_effect_prevalence"
+      },
       "proof_commands": [
         "just attribution-probe"
       ],
       "remaining_required_artifacts": [
-        "real_vla_availability_probe",
-        "two_intervention_constructions_where_feasible",
+        "frozen_target_population_sampling_source_observable_region_rule_and_target_weights",
+        "sampling_overlap_selection_and_conditional_effect_transport_contract_when_needed",
+        "one_frozen_primary_q_probe_intervention_outcome_and_margin_tuple",
+        "real_vla_heldout_availability_probe",
+        "randomized_cell_average_policy_or_execution_effect_study",
+        "simultaneous_familywise_intersection_union_analysis",
+        "joint_h4_design_power_and_operating_characteristics_report",
+        "second_intervention_construction_as_replication_where_feasible",
         "engagement_specificity_support_and_controls",
-        "heldout_availability_use_result"
+        "heldout_target_weighted_region_result"
       ],
       "minimum_useful_effect_status": "unfrozen_pending_domain_and_decision_justification",
-      "permitted_language": "the reference attribution path exercises logging and a deletion faithfulness control",
-      "prohibited_language": "attribution agreement proves causal use or H4"
+      "permitted_language": "the reference attribution path exercises logging and deletion ranking sensitivity on a small reference model only",
+      "prohibited_language": "the reference diagnostic establishes causal or mechanistic faithfulness, causal policy use, H4, individual effects, or individual-effect prevalence"
     }
   ]
 }

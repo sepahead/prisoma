@@ -12,17 +12,17 @@
 > they are pinned as the `pid-rs/` git submodule. After cloning: `git submodule update --init`.
 > The local crates (`pid-sim`, `pid-rerun`, `pid-bridge`) path-depend into `pid-rs/crates/*`, and the
 > estimator binaries run from the submodule, e.g.
-> `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`.
+> `cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`.
 > Build the Python module from the submodule: `maturin develop -m pid-rs/crates/pid-python/Cargo.toml`.
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
 prisoma is a research toolkit building **auditable experiment semantics** for **intervention‑grounded diagnosis** of **Vision‑Language‑Action (VLA)** policies: it works toward a provenance‑complete capture–intervention–replay substrate for testing whether genuinely pre‑treatment diagnostics predict intervention response and future failure beyond strong baselines. **Partial Information Decomposition (PID)** — the shared‑exclusions measure `I^sx_∩` — is one **conditional** candidate diagnostic, central only if it passes preregistered population, measure, estimator, and application gates (`grandplan.md` §7.1). The project is **gate‑driven**: PID atoms are never interpreted on real embeddings until those gates pass; confirmatory claims are bound by the `grandplan.md` §4 claim registry (EC1, H1–H4), the §3.8 PID kill rules, and the future frozen analysis plan specified in §6; and negative results are first‑class publishable outcomes.
 
-**The 0.9.0 release candidate** is a source and research-software preview authored by **Sepehr
-Mahmoudian**. It packages the implemented, testable infrastructure and its
-evidence boundaries; it is not a frozen preregistration, confirmatory study,
-EC1 validation, production deployment, or scientific-results release.
+**The public 0.9.0 GitHub source prerelease** is a research-software preview authored by **Sepehr
+Mahmoudian**. It packages the implemented, testable infrastructure and its evidence boundaries;
+it is not a frozen preregistration, confirmatory study, EC1 validation, production deployment,
+stable release, or scientific-results release.
 
 The immutable `release/0.9.0/{review,requirements}` artifacts preserve the supplied
 handoff and frozen baseline. A separate content-bound candidate state under
@@ -34,7 +34,9 @@ failed checks, and review comments, but cannot record a passed receipt or any po
 terminal disposition. A reviewed successor schema with typed task clauses and authenticated
 evidence is required before readiness can become true. Validate it with
 `python scripts/audit_candidate_release.py`; a passing integrity audit is not a
-review-completion or publication claim.
+review-completion or scientific/candidate-promotion claim. Its `published:false` field applies
+to that non-promoted candidate decision record, not to public availability of the 0.9.0 source
+prerelease.
 
 ## Documentation map
 
@@ -52,7 +54,7 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `LIMITATIONS.md` | Release-scoped claim, data, security, and deployment boundaries |
 | `THESIS_EVIDENCE_INDEX.md` | Claim-by-claim map from software proofs to missing scientific evidence |
 | `docs/CAPABILITY_MATRIX.md` | Generated, content-bound current capability/evidence inventory |
-| `release/0.9.0/` | Immutable handoff intake plus the unpublished, content-bound candidate ledgers and draft manifest |
+| `release/0.9.0/` | Immutable handoff intake plus non-promoted, content-bound candidate decision ledgers and draft manifest |
 | `AGENTS.md` | Ground rules + a detailed "what actually exists" inventory for contributors |
 | `CONTRIBUTING.md`, `SECURITY.md` | Contribution controls and private vulnerability-reporting policy |
 | `NCP_DEV_PROMPT.md` | Optional: dev handoff for the Engram/NCP `(V,L,D,A)` bridge |
@@ -78,7 +80,9 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
   `uv` version, and CI syncs the checked `uv.lock` without re-resolution. `numpy`
   is the sole hard runtime dependency; dependency-free doc auditors can run with
   Python directly.
-- **`just`** (optional) — a task runner; every `just` recipe below has a plain `cargo`/`python` equivalent. Install with `cargo install just`.
+- **`just` 1.56.0** (optional) — a task runner; every `just` recipe below has a plain
+  `cargo`/`python` equivalent. Install with
+  `cargo install just --version 1.56.0 --locked`.
 - **`maturin`** (optional) — only to build the Python bindings (`pid_core_rs`) from the submodule.
 - **Rerun viewer 0.34.1** (optional) — required only for interactive `--serve` and
   `pid-viewer` paths. Prisoma rejects a viewer/SDK version mismatch; headless `.rrd`
@@ -88,8 +92,8 @@ Verify the toolchain and see the estimator gate fire:
 
 ```bash
 git submodule update --init
-cargo test --workspace
-cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0   # prints the GO/PIVOT/NO-GO verdict
+cargo test --locked --workspace
+cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0   # prints the GO/PIVOT/NO-GO verdict
 ```
 
 ## Current Status & What To Do, In Order (docset v12.5; 0.9.0 candidate)
@@ -102,23 +106,33 @@ cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimen
   scientific validity; the dated code review lists unresolved integrity/security blockers.
 - **Four separated PID gates** (`grandplan.md` §7.1: population, measure, estimator, application).
   The high-dimensional **MI/coherence (estimator) path is NO-GO**; continuous **`I^sx_∩` atoms on
-  real embeddings are BLOCKED / NOT APPLICATION-VALIDATED**: default Experiment 0 includes a
-  measure-mismatched zero-redundancy target, while `--strict-gate` enforces the curated
-  low-dimensional MI band and only reports atoms. See `findings.md`; never quote the binary's
-  aggregate label as an atom-validity verdict.
+  real embeddings are BLOCKED / NOT APPLICATION-VALIDATED**. Default Experiment 0 does not compare
+  shared-exclusions redundancy with a zero target: atom-measure validation is
+  `not_adjudicated`, atom-estimator validation is `blocked`, and `--strict-gate` enforces only the
+  curated low-dimensional analytic-MI band while reporting atoms separately. See `findings.md`;
+  never quote an MI/coherence verdict as an atom-validity verdict.
 - **Docset v12.5 (2026-07-12)** adopts the second-round adversarial review: the thesis is reframed
   around auditable experiment semantics with PID as a conditional candidate, replacing the v10.7
   plan (archived at `docs/archive/grandplan-v10.7.md`; review bundle at
   `docs/reviews/2026-07-12-grandplan-v12.5/`). Key changes: the EC1 + H1–H4 confirmatory registry
-  (Protocol A/B split for H1, censoring-aware H2, conditional H3, availability–use H4), the S0–S7
+  (Protocol A/B split for H1, censoring-aware H2, conditional H3, and
+  availability–tested-intervention-effect H4), the S0–S7
   gate sequence, M0–M7 milestones, four PID gates, an E0–E5 ecosystem evidence ladder, and a
   dependency firebreak. Earlier docset history (v10.4–v10.7) is in `CHANGELOG.md`.
-- **M0 governance is now machine-checkable but deliberately unfinished:** `protocols/` contains an
-  unfrozen preregistration scaffold, a registry stating that no confirmatory holdout is registered,
-  a hash-chained non-access genesis ledger, an empty dataset-pending transport/contamination
-  structure, and a legacy-reference-inventory import that explicitly lacks reproducible search
-  provenance. `just research-governance` validates that honest state; it does not freeze a study,
-  establish non-access, complete a contamination audit, or constitute a systematic review.
+- **M0 governance is now machine-checkable but deliberately unfinished:** `protocols/` preserves
+  the historical non-promotable v1 scaffold and adds an all-null typed v2 successor draft for EC1,
+  H1-A, H1-B, H2, H3, H4, and claim-selection obligations. The EC1 contract requires typed
+  detection, replay-fidelity, and valid-case false-positive coverage; every registered
+  fault–adapter pair has its own absolute sensitivity floor and must pass without
+  distribution-average rescue. H2 requires exactly one primary proper score and a non-rescuable
+  success hierarchy. H3 binds the full inherited target ledger, exact same-fold M1 fallback, and
+  fail-closed warning dispositions in the v2 successor rather than rewriting v1. It also contains
+  a registry stating
+  that no confirmatory holdout is registered, a hash-chained non-access genesis ledger, an empty
+  dataset-pending transport/contamination structure, and a legacy-reference-inventory import that
+  explicitly lacks reproducible search provenance. `just research-governance` validates both
+  honest unfinished governance schemas; it does not freeze a study, establish non-access, complete
+  a contamination audit, or constitute a systematic review.
 - **Open critical path:** do **not** begin an evidentiary real-VLA capture yet. Required first (S0–S3):
   complete the domain-specific M0 freeze, including a registered confirmatory holdout and split
   commitment; repair the upstream continuous application gate; implement leakage-safe
@@ -154,7 +168,7 @@ for all four PID gates.*
 
 Each step gates the next; canonical depth is in `grandplan.md` at the cited sections.
 
-1. **Verify the toolchain and inspect diagnostics:** `cargo test`, then `just exp0` /
+1. **Verify the toolchain and inspect diagnostics:** `cargo test --locked`, then `just exp0` /
    `just exp0-bin`. The printed aggregate is diagnostic output, not a valid `I^sx` verdict;
    the current split status is MI NO-GO / `I^sx` application gate BLOCKED (`grandplan.md`
    §7.2, §7.9; `findings.md`).
@@ -174,7 +188,7 @@ Each step gates the next; canonical depth is in `grandplan.md` at the cited sect
 5. **Analyze only after gates exist:** geometry diagnostics do not currently select a valid
    regime. The m-out-of-n raw percentile output is a stability envelope at size m, not an
    n-sample confidence interval; endpoint inference must resample the correct outer units.
-6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (surfaced under the `heldout_logreg_vlda_success_*` metric names) are built into the harness; add one separately validated attribution baseline (`experiments/attribution/`; its current reference gate measures deletion ranking sensitivity, not causal or mechanistic faithfulness; `grandplan.md` §6.10, §10.2; `just attribution-probe`). The prespecified PID kill rules (`grandplan.md` §3.8) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
+6. **Run the non-PID baselines every time:** majority/1-NN/centroid baselines *and* a SAFE-class logistic-regression internal-feature failure detector (surfaced under the `heldout_logreg_vlda_success_*` metric names) are built into the harness; add one separately validated attribution baseline (`experiments/attribution/`; the current reference is detached-attention value-path epsilon-LRP, not AttnLRP, plus gradient×input). Its content-bound gate abstains on exact ranking ties, tests mean absolute deletion sensitivity against random rankings with one predeclared primary method, preflights complete work, and publishes reconstructable evidence bundles. Rerun shows the recorded check, not validated causal or mechanistic faithfulness (`grandplan.md` §6.10, §10.2; `just attribution-probe`). The prespecified PID kill rules (`grandplan.md` §3.8) decide whether PID atoms earn a place in any claim — a negative answer is a publishable outcome.
 7. **Only then** run the H1–H4 study protocols in `EXPERIMENTS.md` (see its runbook for what is executable today vs blocked on step 4).
 
 ## Confirmatory claim registry (Docset v12.5)
@@ -183,11 +197,11 @@ The canonical registry and its claim-to-evidence matrix live in `grandplan.md` �
 
 | Claim | One‑line testable claim | Type | Status |
 |---|---|---|---|
-| **EC1** | **Provenance-complete replay** — the capture/intervention/replay contract records the declared causal + temporal variables, detects contract violations, and reproduces exact events or tolerance-bounded outcomes, benchmarked against conventional scripts and standard containers. | Engineering acceptance | Run-log/replay groundwork implemented; external benchmark pending |
+| **EC1** | **Provenance-complete replay** — under a finite preregistered adapter, valid-case, fault, oracle, endpoint/margin, uncertainty, and multiplicity design, every registered fault–adapter pair must independently exceed its frozen absolute sensitivity floor, and the capture/intervention/replay contract must reproduce registered exact or tolerance-bounded outcomes against conventional baselines. Aggregate detection cannot rescue a failed pair. | Engineering acceptance | Run-log/replay groundwork implemented; finite acceptance protocol, second adapter, and external benchmark pending |
 | **H1** | Genuinely **pre-treatment** diagnostics predict intervention response — **Protocol A** (paired frozen-snapshot algorithmic sensitivity) and/or **Protocol B** (randomized closed-loop effect modification), scored by effect-specific criteria, not factual-outcome fit. | Confirmatory | Blocked on M0 protocol/domain freeze + pilot + capture |
-| **H2** | Diagnostics improve **prospective, censoring-aware** failure prediction beyond strong baselines (Tri-Info / SAFE / Hide-and-Seek / ActProbe / Rewind-IL / VLAConf / Foresight …) under a frozen alarm policy (with process-level safety cost as a decision-utility adjunct, not the headline claim). | Confirmatory | Synthetic protocol reference runnable; real claim blocked on domain freeze + capture + external validation |
+| **H2** | Diagnostics improve exactly one frozen **prospective, censoring-aware proper score** beyond strong matched-access baselines, with calibration, actionability, subgroup, and external-replication gates under a frozen alarm policy. Process-level safety cost remains a secondary decision-utility adjunct and cannot rescue primary failure. | Confirmatory | Synthetic protocol reference runnable; real claim blocked on domain freeze + capture + external validation |
 | **H3** | PID adds **incremental value only inside its validated support envelope** (all four gates), vs MI/CMI, uncertainty, temporal, geometry, attribution, and learned baselines. | Conditional | Blocked on population/measure/estimator/application gates (high-d estimator path NO-GO; continuous application gate blocked) |
-| **H4** | Representational **availability** (held-out decodability) can diverge from causal **policy use** — the availability–use gap. Replaces H3 as a thesis paper if PID fails; a first-order problem, not a consolation prize. | Confirmatory / fallback | Blocked on M0 protocol/estimand freeze + intervention pilot/capture |
+| **H4** | Representational **availability** (held-out decodability) can coexist with an equivalently small randomized effect of one tested intervention on one frozen outcome in target-weighted baseline regions. H4 is mutually exclusive with H3 in the confirmatory family. | Confirmatory / fallback | Blocked on target sampling/transport/tuple freeze + joint design power + intervention pilot/capture |
 
 **Exploratory:** memorization under structured perturbation; temporal transitions before failure; low-dimensional object/contact flow as a portable target; process-level safety cost; cross-embodiment transport of relationships (not raw atom magnitudes); diagnostic-guided intervention/fallback selection.
 
@@ -199,7 +213,7 @@ PID is **forced nowhere**: `grandplan.md` §3.8 records the PID kill rules and �
 
 Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and confounds live in `grandplan.md`.
 
-1. **Exp0 — PID population/measure/estimator/application diagnostics (S1).** GO/PIVOT/NO‑GO. *Runnable today* (`just exp0-bin`); current verdict on synthetic high‑d controls remains **NO‑GO** under the pinned pid-rs 1.0 environment (`findings.md`). No PID atom or H3 result is interpretable without all four gates; EC1 and the non-PID H1/H2/H4 paths continue with PID disabled (`grandplan.md` §7, §8.9.3).
+1. **Exp0 — PID population/measure/estimator/application diagnostics (S1).** GO/PIVOT/NO‑GO. *Runnable today* (`just exp0-bin`); the synthetic high‑d MI/coherence verdict remains **NO‑GO** under the exact `pid-rs` 0.9.0 post-tag review-source pin `796c11e` (`findings.md`). This review surface makes no 1.x compatibility promise. No PID atom or H3 result is interpretable without all four gates; EC1 and the non-PID H1/H2/H4 paths continue with PID disabled (`grandplan.md` §7, §8.9.3).
 2. **EC1 capture/replay + adapter (S2).** The offline `(V,L,D,A)` harness, bounded/content-addressed SAFE synthetic-bundle path, and sim/Rapier `Flow_gt` cross‑checks are *runnable today* (`just safe-adapter`, `just runlog-sim-verify`); real SAFE ingestion, the external infrastructure benchmark, and a second adapter are pending (`grandplan.md` §8.8).
 3. **Intervention pilot (S3).** Dose / target‑engagement / placebo / OOD checks on one interpretable intervention. *Blocked on capture* (`grandplan.md` §5.4, §5.6).
 4. **H1 — pre‑treatment diagnostics predict intervention response** (Protocol A paired and/or Protocol B randomized). The common preflight and deterministic synthetic Protocol A scoring reference are fixture-runnable, but neither real/evidentiary response protocol is implemented; scientific H1 remains *blocked on pilot + capture* (`grandplan.md` §6.3).
@@ -207,7 +221,10 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
    deterministic synthetic fixed-horizon/IPCW/alarm reference is fixture-runnable
    (`just h2-reference`), while real/evidentiary H2 remains *blocked on domain freeze, capture,
    comparator completion, and external validation* (`grandplan.md` §6.4).
-6. **H3 or H4 — conditional PID incremental value, or the availability–use gap.** *H3 is blocked on population/measure/estimator/application gates; H4 is blocked on capture* (`grandplan.md` §7, §4).
+6. **H3 or H4 — conditional PID incremental value, or a bounded
+   availability–tested-intervention-effect divergence.** *H3 is blocked on
+   population/measure/estimator/application gates; H4 is blocked on target/transport design and
+   capture* (`grandplan.md` §7, §4).
 7. **Transport replication (S7)** — second task family, policy, simulator, or embodiment; mind the embodiment‑in‑`L` confound. *Blocked on capture* (`grandplan.md` §5.11).
 
 ## Doc Audits
@@ -217,6 +234,8 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 - `python scripts/audit_docset_claims.py` (same heuristic scan across the canonical docset + `findings.md`)
 - `python scripts/audit_research_governance.py` (strict schema/hash-chain/cross-ledger validation of
   the honest M0 scaffold; add `--require-freeze-ready` only when a real freeze is expected)
+- `python scripts/audit_research_governance_successor.py` (strict validation of the all-null typed
+  v2 successor draft; its `--require-freeze-ready` mode is expected to exit 3)
 - Full tracked-Markdown sweep: `python scripts/audit_docset_claims.py --all-tracked-markdown`
 - With `just`: `just docs-audit` (checks generated capability views plus the five repository audits,
   including research-governance and pinned-dependency truth)
@@ -227,7 +246,7 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 
 The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In brief:
 
-- **Implemented (Rust, in the pinned `pid-rs` 1.0 submodule):** `pid-core` (stable report-first KSG/categorical/quantized surfaces plus default-off continuous shared exclusions, PLS/pipelines, hierarchy, and hyperbolic research features; discrete SxPID `i^sx_∩` supports 2–4 sources but is *not yet wired into the offline harness*), `pid-python` (a typed stable `pid_core_rs` surface for `compute_mi_report`, categorical SxPID/`I_min`, fitted quantization, and diagnostics; pre-1.0 scalar calls exist only in the default-off migration module), and `pid-runlog` (the canonical EC1 JSONL run-log schema + replay/validate/compare/summary/manifest/sidecar CLI).
+- **Implemented (Rust, in the exact `pid-rs` 0.9.0 post-tag review-source submodule pin):** `pid-core` (report-first KSG/categorical/quantized surfaces plus default-off continuous shared exclusions, PLS/pipelines, hierarchy, and hyperbolic research features; discrete SxPID `i^sx_∩` supports 2–4 sources but is *not yet wired into the offline harness*), `pid-python` (a typed 0.9 review surface for `compute_mi_report`, categorical SxPID/`I_min`, fitted quantization, and diagnostics; legacy scalar calls exist only in the default-off migration module), and `pid-runlog` (the canonical EC1 JSONL run-log schema + replay/validate/compare/summary/manifest/sidecar CLI). Source can be built locally for review; no registry publication or published wheel is claimed.
 - **Implemented (Rust, local crates):** `pid-bridge` (Agent Bridge dispatch/JSON-RPC-shaped
   conversion/contract export), `pid-sim` (deterministic sim, real optional Rapier backend,
   manipulation harness, transports, offline VLDA screens, a fail-closed H1 common-preflight,
@@ -292,18 +311,20 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
 
 ```bash
 # optional: nix develop
-cargo test
+cargo test --locked
 just exp0        # estimator smoke tests
 just exp0-bin    # prints the GO/PIVOT/NO-GO verdict
 just exp0-runlog # exports + validates canonical Exp0 evidence
 ```
 
-Without `just`: `cargo test`, then `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`. To export canonical Exp0 evidence:
+Without `just`: `cargo test --locked`, then
+`cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`.
+To export canonical Exp0 evidence:
 
 ```bash
-cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- \
+cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- \
   --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl
-cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- \
+cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- \
   --validate outputs/exp0_runlog.jsonl
 ```
 
@@ -315,7 +336,12 @@ See `findings.md` for the latest repo-local Exp0 interpretation notes.
 just toy-harness
 ```
 
-Without `just`: `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`, then validate with `pid-runlog-replay --validate outputs/toy_vla_runlog.jsonl`. This is a deterministic toy task, **not VLA evidence** — it exercises label events, a replay-linked `(V,L,D,A)` contract, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log export end to end.
+Without `just`:
+`cargo run --locked -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`,
+then validate with `pid-runlog-replay --validate outputs/toy_vla_runlog.jsonl`. This is a
+deterministic toy task, **not VLA evidence** — it exercises label events, a replay-linked
+`(V,L,D,A)` contract, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log
+export end to end.
 
 ## Quick Start — H1 Common Preflight
 
@@ -327,7 +353,7 @@ The recipe runs a passing fixture plus semantic/artifact- and parse-rejection fi
 resulting run log, checks deterministic output, and asserts zero PID events. Without `just`:
 
 ```bash
-cargo run -p pid-sim --bin pid-h1-preflight -- \
+cargo run --locked -p pid-sim --bin pid-h1-preflight -- \
   --input INPUT --summary-json SUMMARY --runlog RUNLOG
 ```
 
@@ -369,9 +395,9 @@ PID-free and contains no action or intervention event.
 These are deterministic software-reference numbers only. The binding flags remain
 `synthetic_fixture_only=true`, `establishes_h2_evidence=false`, `prospective_capture=false`,
 `external_validation=false`, and `comparator_frontier_complete=false`. Real H2 still requires a
-domain-specific estimand/ontology freeze, powered prospective capture, full calibration and
-censoring sensitivity, the matched-access comparator frontier, and an untouched later/external
-holdout.
+domain-specific estimand/ontology freeze, exactly one primary proper score and minimum useful
+margin, powered prospective capture, full calibration and censoring sensitivity, the matched-access
+comparator frontier, and an untouched later/external holdout.
 
 ## Quick Start — Offline (V,L,D,A) Embedding Harness
 
@@ -408,10 +434,10 @@ requires an approximately stationary series and is not a grouped-episode null.
 Without `just`:
 
 ```bash
-cargo run -p pid-sim --bin pid-offline-harness -- \
+cargo run --locked -p pid-sim --bin pid-offline-harness -- \
   --input crates/pid-sim/fixtures/offline_vlda_fixture.json \
   --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl
-cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- \
+cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- \
   --validate outputs/offline_vlda_runlog.jsonl
 ```
 
@@ -512,7 +538,9 @@ incomplete or unreadable run log, an apparently complete terminal record whose s
 is indeterminate, or an installed RRD without its final `artifact_logged` record; there is no
 valid-log or orphan-free guarantee for those cases.
 
-Without `just`: `cargo run -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl`, then validate/replay it with `pid-runlog-replay`. For sidecar provenance, use `--write-sidecars` followed by `--verify-sidecars`.
+Without `just`: `cargo run --locked -p pid-sim --bin pid-sim-demo -- outputs/demo_runlog.jsonl`,
+then validate/replay it with `pid-runlog-replay`. For sidecar provenance, use `--write-sidecars`
+followed by `--verify-sidecars`.
 
 ## Engineering Plan (To "Finish" the Project)
 
@@ -522,12 +550,12 @@ locked H2 → H3/H4 → transport replication). The infrastructure that supports
 §8 (**infrastructure as a scientific contribution**, whose acceptance claim is EC1).
 
 The checked M0 artifacts are scaffolding for that first freeze, not its completion. A passing
-`just research-governance` means the unfinished state is internally consistent; freeze readiness
-must remain nonzero under `--require-freeze-ready` until every domain-specific blocker and receipt
-is resolved. Even a future zero exit would establish machine-checkable completeness and integrity,
-not scientific correctness or external validity. The checked v1 scaffold cannot be promoted by
-filling nulls in place; a real freeze needs a reviewed successor schema/validator with typed,
-content-bound receipts.
+`just research-governance` means the historical v1 scaffold and typed v2 successor draft are
+internally consistent in their explicitly unfinished states; freeze readiness must remain nonzero
+under both validators' `--require-freeze-ready` modes until every domain-specific blocker and
+receipt is resolved. Even a future zero exit would establish machine-checkable completeness and
+integrity, not scientific correctness or external validity. The checked v1 scaffold cannot be
+promoted, and the checked v2 file is an all-null draft contract rather than a completed candidate.
 
 The concrete build order for the capture/intervention/replay substrate:
 
@@ -560,8 +588,9 @@ Build path: (1) keep Exp0/geometry gates strict; (2) define the canonical `pid-r
 
 ```bibtex
 @software{prisoma,
-  title  = {Prisoma: Intervention-Grounded Diagnostics for Sequential Embodied Policies},
+  title  = {Prisoma: auditable experiment semantics for embodied-policy diagnostics},
   author = {Mahmoudian, Sepehr},
+  version = {0.9.0},
   year   = {2026},
   url    = {https://github.com/sepahead/prisoma}
 }

@@ -301,8 +301,9 @@ fn main() -> Result<()> {
         let v_source_2: Vec<f64> = v_window.slice(s![.., 2..4]).iter().cloned().collect();
         let a_subset: Vec<f64> = a_window.slice(s![.., 0..1]).iter().cloned().collect();
 
-        // pid-core 1.0 fails closed on an unspecified support contract; this demo runs on
-        // synthetic continuous data, so the full-dimensional assertion holds by construction.
+        // The current pid-core review contract fails closed on an unspecified support contract;
+        // this demo runs on synthetic continuous data, so the full-dimensional assertion holds by
+        // construction.
         let ksg_config = KsgConfig::assume_regular_full_dimensional()
             .with_negative_handling(NegativeHandling::Allow);
         let pid_config = Pid2Config {

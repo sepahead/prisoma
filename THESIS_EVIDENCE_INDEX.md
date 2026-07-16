@@ -1,6 +1,6 @@
 # Prisoma 0.9 thesis-evidence index
 
-**Candidate scope:** Prisoma 0.9.0 unpublished source and research-software preview
+**Release scope:** Prisoma 0.9.0 public GitHub source prerelease and research-software preview
 
 **Author:** Sepehr Mahmoudian
 **Canonical research specification:** [`grandplan.md`](grandplan.md), docset v12.5
@@ -212,7 +212,7 @@ not block H1, H2, or H4.
 
 **Thesis role.** Compare held-out availability from a locked probe with target-engaging
 interventions at the same representational site. See
-[`grandplan.md` §4 H4](grandplan.md#h4--representational-availability-can-diverge-from-causal-policy-use).
+[`grandplan.md` §4 H4](grandplan.md#h4--representational-availability-can-diverge-from-a-tested-intervention-effect).
 
 **Current artifacts and local proof**
 

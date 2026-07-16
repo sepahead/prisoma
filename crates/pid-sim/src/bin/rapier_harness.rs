@@ -36,6 +36,9 @@ fn main() -> Result<()> {
         Some(args) => args,
         None => return Ok(()),
     };
+    if let Some(summary_path) = &args.summary_json {
+        reject_aliased_outputs(&args.runlog, summary_path)?;
+    }
 
     if let Some(parent) = args.runlog.parent() {
         if !parent.as_os_str().is_empty() {
@@ -80,12 +83,29 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn reject_aliased_outputs(runlog: &PathBuf, summary: &PathBuf) -> Result<()> {
+    let aliases = runlog == summary
+        || (runlog.exists()
+            && summary.exists()
+            && same_file::is_same_file(runlog, summary).with_context(|| {
+                format!(
+                    "failed to compare run log {} with summary {}",
+                    runlog.display(),
+                    summary.display()
+                )
+            })?);
+    if aliases {
+        bail!("run log and summary outputs must be distinct files");
+    }
+    Ok(())
+}
+
 #[cfg(feature = "rapier")]
 fn run_rapier(world: &PhysicsWorldConfig, params: &PushTaskParams) -> Result<PushEpisode> {
     use pid_sim::physics::rapier_adapter::RapierBackend;
     let mut backend = RapierBackend::new(world.clone());
     // Ground slab whose top sits at z=0, large enough to contain the slide.
-    backend.add_ground_slab(5.0, 0.1, 0.5);
+    backend.add_ground_slab(5.0, 0.1, 0.5)?;
     run_push_episode(&mut backend, world, params)
 }
 
@@ -178,4 +198,27 @@ fn print_usage() {
     );
     println!("       [--push-impulse F] [--goal-x F] [--tolerance F] [--dt F]");
     println!("       [--settle-steps N] [--coast-steps N] [--run-id ID]");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reject_aliased_outputs;
+
+    #[test]
+    fn output_paths_must_not_alias() {
+        let directory = tempfile::tempdir().unwrap();
+        let runlog = directory.path().join("runlog.jsonl");
+        assert!(reject_aliased_outputs(&runlog, &runlog)
+            .unwrap_err()
+            .to_string()
+            .contains("distinct"));
+
+        let summary = directory.path().join("summary.json");
+        std::fs::write(&runlog, b"existing").unwrap();
+        std::fs::hard_link(&runlog, &summary).unwrap();
+        assert!(reject_aliased_outputs(&runlog, &summary)
+            .unwrap_err()
+            .to_string()
+            .contains("distinct"));
+    }
 }

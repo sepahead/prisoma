@@ -31,8 +31,8 @@ def repeated_gate(rows, repetitions=16):
     )
 
 
-def test_stable_v1_surface_excludes_legacy_scalar_calls():
-    assert pid.__version__ == "1.0.0"
+def test_default_0_9_review_surface_excludes_legacy_scalar_calls():
+    assert pid.__version__ == "0.9.0"
     assert pid.stable.compute_mi_report.__name__ == pid.compute_mi_report.__name__
     assert pid.diagnostics.diagnose_continuous_input is not None
     for removed in (

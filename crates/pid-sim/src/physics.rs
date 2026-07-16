@@ -17,6 +17,97 @@
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
+const NANOS_PER_SECOND: f64 = 1_000_000_000.0;
+#[cfg(feature = "rapier")]
+const MAX_PHYSICS_SUBSTEPS: usize = 10_000;
+
+fn duration_ns(dt_secs: f64) -> Result<u64> {
+    if !dt_secs.is_finite() || dt_secs <= 0.0 {
+        bail!("dt_secs must be positive and finite");
+    }
+    let rounded = (dt_secs * NANOS_PER_SECOND).round();
+    if !rounded.is_finite() || rounded < 1.0 || rounded >= u64::MAX as f64 {
+        bail!("dt_secs must round to a representable positive nanosecond interval");
+    }
+    Ok(rounded as u64)
+}
+
+fn validate_orientation(orientation_xyzw: [f64; 4]) -> Result<()> {
+    if !orientation_xyzw.iter().all(|value| value.is_finite()) {
+        bail!("orientation must be finite");
+    }
+    let scale = orientation_xyzw
+        .iter()
+        .map(|value| value.abs())
+        .fold(0.0_f64, f64::max);
+    if scale == 0.0 {
+        bail!("orientation quaternion must have nonzero norm");
+    }
+    let scaled_norm_squared = orientation_xyzw
+        .iter()
+        .map(|value| (value / scale).powi(2))
+        .sum::<f64>();
+    if !scaled_norm_squared.is_finite() || scaled_norm_squared <= 0.0 {
+        bail!("orientation quaternion must have finite nonzero norm");
+    }
+    Ok(())
+}
+
+fn validate_body_inputs(
+    position: [f64; 3],
+    orientation_xyzw: [f64; 4],
+    half_extents: [f64; 3],
+    mass_kg: f64,
+) -> Result<()> {
+    if !position.iter().all(|value| value.is_finite()) {
+        bail!("position must be finite");
+    }
+    validate_orientation(orientation_xyzw)?;
+    if !half_extents
+        .iter()
+        .all(|value| value.is_finite() && *value > 0.0)
+    {
+        bail!("half_extents must be finite and positive");
+    }
+    if !mass_kg.is_finite() || mass_kg <= 0.0 {
+        bail!("mass_kg must be finite and positive");
+    }
+    Ok(())
+}
+
+fn validate_state(state: &RigidBodyState) -> Result<()> {
+    if state.object_id.is_empty() {
+        bail!("physics state object_id must not be empty");
+    }
+    if !state
+        .position
+        .iter()
+        .chain(state.linear_velocity.iter())
+        .chain(state.angular_velocity.iter())
+        .all(|value| value.is_finite())
+    {
+        bail!("physics state for {} must be finite", state.object_id);
+    }
+    validate_orientation(state.orientation_xyzw)
+}
+
+#[cfg(feature = "rapier")]
+fn validate_world_config(config: &PhysicsWorldConfig) -> Result<()> {
+    if !config.gravity.iter().all(|value| value.is_finite()) {
+        bail!("physics gravity must be finite");
+    }
+    if !config.fixed_dt_secs.is_finite() || config.fixed_dt_secs <= 0.0 {
+        bail!("physics fixed_dt_secs must be positive and finite");
+    }
+    if !(1..=MAX_PHYSICS_SUBSTEPS).contains(&config.max_substeps) {
+        bail!(
+            "physics max_substeps must be in 1..={MAX_PHYSICS_SUBSTEPS}, got {}",
+            config.max_substeps
+        );
+    }
+    Ok(())
+}
+
 /// A snapshot of a single rigid body from the physics engine.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RigidBodyState {
@@ -140,8 +231,8 @@ impl PhysicsBackend for NullPhysicsBackend {
         object_id: &str,
         position: [f64; 3],
         orientation_xyzw: [f64; 4],
-        _half_extents: [f64; 3],
-        _mass_kg: f64,
+        half_extents: [f64; 3],
+        mass_kg: f64,
     ) -> Result<()> {
         if object_id.is_empty() {
             bail!("object_id must not be empty");
@@ -149,6 +240,7 @@ impl PhysicsBackend for NullPhysicsBackend {
         if self.bodies.iter().any(|b| b.object_id == object_id) {
             bail!("duplicate object_id: {object_id}");
         }
+        validate_body_inputs(position, orientation_xyzw, half_extents, mass_kg)?;
         self.bodies.push(RigidBodyState {
             object_id: object_id.to_string(),
             position,
@@ -169,19 +261,31 @@ impl PhysicsBackend for NullPhysicsBackend {
     }
 
     fn apply_impulse(&mut self, object_id: &str, impulse: [f64; 3]) -> Result<()> {
+        if !impulse.iter().all(|value| value.is_finite()) {
+            bail!("impulse must be finite");
+        }
         let body = self
             .bodies
             .iter_mut()
             .find(|b| b.object_id == object_id)
             .ok_or_else(|| anyhow::anyhow!("unknown object_id: {object_id}"))?;
         // Null backend: treat mass=1 so impulse = delta_v
-        for (v, dv) in body.linear_velocity.iter_mut().zip(impulse) {
-            *v += dv;
+        let next_velocity = [
+            body.linear_velocity[0] + impulse[0],
+            body.linear_velocity[1] + impulse[1],
+            body.linear_velocity[2] + impulse[2],
+        ];
+        if !next_velocity.iter().all(|value| value.is_finite()) {
+            bail!("impulse would produce a non-finite velocity");
         }
+        body.linear_velocity = next_velocity;
         Ok(())
     }
 
     fn set_linear_velocity(&mut self, object_id: &str, velocity: [f64; 3]) -> Result<()> {
+        if !velocity.iter().all(|value| value.is_finite()) {
+            bail!("velocity must be finite");
+        }
         let body = self
             .bodies
             .iter_mut()
@@ -192,18 +296,40 @@ impl PhysicsBackend for NullPhysicsBackend {
     }
 
     fn step(&mut self, dt_secs: f64) -> Result<PhysicsStepReport> {
-        if !dt_secs.is_finite() || dt_secs <= 0.0 {
-            bail!("dt_secs must be positive and finite");
-        }
+        let dt_ns = duration_ns(dt_secs)?;
+        let next_step = self
+            .step_count
+            .checked_add(1)
+            .ok_or_else(|| anyhow::anyhow!("physics step counter overflow"))?;
+        let next_elapsed_ns = self
+            .elapsed_ns
+            .checked_add(dt_ns)
+            .ok_or_else(|| anyhow::anyhow!("physics timestamp overflow"))?;
         // Constant-velocity Euler (no gravity, no collisions — same as DeterministicObjectSim)
-        for body in &mut self.bodies {
-            for (p, v) in body.position.iter_mut().zip(body.linear_velocity) {
-                *p += v * dt_secs;
+        let mut next_positions = Vec::new();
+        next_positions
+            .try_reserve_exact(self.bodies.len())
+            .map_err(|error| anyhow::anyhow!("failed to reserve physics step state: {error}"))?;
+        for body in &self.bodies {
+            validate_state(body)?;
+            let position = [
+                body.position[0] + body.linear_velocity[0] * dt_secs,
+                body.position[1] + body.linear_velocity[1] * dt_secs,
+                body.position[2] + body.linear_velocity[2] * dt_secs,
+            ];
+            if !position.iter().all(|value| value.is_finite()) {
+                bail!(
+                    "physics step would produce a non-finite position for {}",
+                    body.object_id
+                );
             }
+            next_positions.push(position);
         }
-        self.step_count += 1;
-        let dt_ns = (dt_secs * 1_000_000_000.0).round() as u64;
-        self.elapsed_ns = self.elapsed_ns.saturating_add(dt_ns);
+        for (body, position) in self.bodies.iter_mut().zip(next_positions) {
+            body.position = position;
+        }
+        self.step_count = next_step;
+        self.elapsed_ns = next_elapsed_ns;
         Ok(PhysicsStepReport {
             step: self.step_count,
             timestamp_ns: self.elapsed_ns,
@@ -319,7 +445,21 @@ pub mod rapier_adapter {
         /// Not part of the [`PhysicsBackend`] trait: kinematic backends (e.g.
         /// [`NullPhysicsBackend`](super::NullPhysicsBackend)) have no contacts, so a
         /// ground plane is meaningful only for a real dynamics backend.
-        pub fn add_ground_slab(&mut self, half_extent_xy: f64, thickness: f64, friction: f64) {
+        pub fn add_ground_slab(
+            &mut self,
+            half_extent_xy: f64,
+            thickness: f64,
+            friction: f64,
+        ) -> Result<()> {
+            if !half_extent_xy.is_finite() || half_extent_xy <= 0.0 {
+                bail!("ground half extent must be finite and positive");
+            }
+            if !thickness.is_finite() || thickness <= 0.0 {
+                bail!("ground thickness must be finite and positive");
+            }
+            if !friction.is_finite() || friction < 0.0 {
+                bail!("ground friction must be finite and nonnegative");
+            }
             let body = RigidBodyBuilder::fixed()
                 .translation(Vector3::new(0.0, 0.0, -thickness))
                 .build();
@@ -329,10 +469,14 @@ pub mod rapier_adapter {
                 .build();
             self.colliders
                 .insert_with_parent(collider, handle, &mut self.bodies);
+            Ok(())
         }
 
         /// Set the contact friction of the cuboid collider attached to `object_id`.
         pub fn set_friction(&mut self, object_id: &str, friction: f64) -> Result<()> {
+            if !friction.is_finite() || friction < 0.0 {
+                bail!("friction must be finite and nonnegative");
+            }
             let handle = *self
                 .handles
                 .get(object_id)
@@ -352,7 +496,15 @@ pub mod rapier_adapter {
 
         fn quat_from_xyzw(q: [f64; 4]) -> UnitQuaternion<f64> {
             // nalgebra Quaternion::new(w, i, j, k); the input layout is [x, y, z, w].
-            UnitQuaternion::from_quaternion(Quaternion::new(q[3], q[0], q[1], q[2]))
+            // Scale before nalgebra normalizes so a valid, extreme finite
+            // quaternion cannot overflow while its squared norm is evaluated.
+            let scale = q.iter().map(|value| value.abs()).fold(0.0_f64, f64::max);
+            UnitQuaternion::from_quaternion(Quaternion::new(
+                q[3] / scale,
+                q[0] / scale,
+                q[1] / scale,
+                q[2] / scale,
+            ))
         }
 
         fn state_for(&self, object_id: &str, handle: RigidBodyHandle) -> Option<RigidBodyState> {
@@ -394,17 +546,7 @@ pub mod rapier_adapter {
             if self.handles.contains_key(object_id) {
                 bail!("duplicate object_id: {object_id}");
             }
-            if !half_extents.iter().all(|h| h.is_finite() && *h > 0.0) {
-                bail!("half_extents must be finite and positive");
-            }
-            if !mass_kg.is_finite() || mass_kg <= 0.0 {
-                bail!("mass_kg must be finite and positive");
-            }
-            if !position.iter().all(|p| p.is_finite())
-                || !orientation_xyzw.iter().all(|q| q.is_finite())
-            {
-                bail!("position and orientation must be finite");
-            }
+            validate_body_inputs(position, orientation_xyzw, half_extents, mass_kg)?;
             let iso = Isometry3::from_parts(
                 Translation3::new(position[0], position[1], position[2]),
                 Self::quat_from_xyzw(orientation_xyzw),
@@ -414,6 +556,17 @@ pub mod rapier_adapter {
             // Back-solve density so the collider mass matches the requested mass.
             let volume = 8.0 * half_extents[0] * half_extents[1] * half_extents[2];
             let density = mass_kg / volume;
+            if !volume.is_finite() || volume <= 0.0 || !density.is_finite() || density <= 0.0 {
+                self.bodies.remove(
+                    handle,
+                    &mut self.islands,
+                    &mut self.colliders,
+                    &mut self.impulse_joints,
+                    &mut self.multibody_joints,
+                    true,
+                );
+                bail!("body dimensions and mass must produce finite positive density");
+            }
             let collider =
                 ColliderBuilder::cuboid(half_extents[0], half_extents[1], half_extents[2])
                     .density(density)
@@ -477,15 +630,30 @@ pub mod rapier_adapter {
         }
 
         fn step(&mut self, dt_secs: f64) -> Result<PhysicsStepReport> {
-            if !dt_secs.is_finite() || dt_secs <= 0.0 {
-                bail!("dt_secs must be positive and finite");
-            }
+            validate_world_config(&self.config)?;
+            let dt_ns = duration_ns(dt_secs)?;
+            let next_step = self
+                .step_count
+                .checked_add(1)
+                .ok_or_else(|| anyhow::anyhow!("physics step counter overflow"))?;
+            let next_elapsed_ns = self
+                .elapsed_ns
+                .checked_add(dt_ns)
+                .ok_or_else(|| anyhow::anyhow!("physics timestamp overflow"))?;
             // Substep toward the configured fixed dt for stable, deterministic
             // integration while honouring the trait's "advance by dt_secs" contract.
-            let max_substeps = self.config.max_substeps.max(1);
-            let n_sub =
-                ((dt_secs / self.config.fixed_dt_secs).round() as usize).clamp(1, max_substeps);
+            let requested_substeps = (dt_secs / self.config.fixed_dt_secs).round();
+            let n_sub = if !requested_substeps.is_finite()
+                || requested_substeps >= self.config.max_substeps as f64
+            {
+                self.config.max_substeps
+            } else {
+                (requested_substeps as usize).max(1)
+            };
             let sub_dt = dt_secs / n_sub as f64;
+            if !sub_dt.is_finite() || sub_dt <= 0.0 {
+                bail!("physics substep interval must be positive and finite");
+            }
             self.integration_parameters.dt = sub_dt;
             let hooks = ();
             let events = ();
@@ -506,20 +674,26 @@ pub mod rapier_adapter {
                     &events,
                 );
             }
-            self.step_count += 1;
             self.last_contact_count = self
                 .narrow_phase
                 .contact_pairs()
                 .filter(|p| p.has_any_active_contact)
                 .count();
-            let dt_ns = (dt_secs * 1_000_000_000.0).round() as u64;
-            self.elapsed_ns = self.elapsed_ns.saturating_add(dt_ns);
+            let bodies = self.snapshot();
+            if bodies.len() != self.order.len() {
+                bail!("physics backend lost a registered body during the step");
+            }
+            for state in &bodies {
+                validate_state(state)?;
+            }
+            self.step_count = next_step;
+            self.elapsed_ns = next_elapsed_ns;
             Ok(PhysicsStepReport {
                 step: self.step_count,
                 timestamp_ns: self.elapsed_ns,
                 substeps: n_sub,
                 contact_count: self.last_contact_count,
-                bodies: self.snapshot(),
+                bodies,
             })
         }
 
@@ -607,12 +781,69 @@ mod tests {
         let mut backend = NullPhysicsBackend::new();
         assert!(backend.step(-0.1).is_err());
         assert!(backend.step(f64::NAN).is_err());
+        assert!(backend.step(0.1e-9).is_err());
     }
 
     #[test]
     fn null_backend_remove_unknown_errors() {
         let mut backend = NullPhysicsBackend::new();
         assert!(backend.remove_body("nope").is_err());
+    }
+
+    #[test]
+    fn null_backend_rejects_nonfinite_or_degenerate_body_inputs() {
+        let mut backend = NullPhysicsBackend::new();
+        assert!(backend
+            .add_rigid_body(
+                "bad-position",
+                [f64::NAN, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+                [0.1; 3],
+                1.0,
+            )
+            .is_err());
+        assert!(backend
+            .add_rigid_body("bad-orientation", [0.0; 3], [0.0; 4], [0.1; 3], 1.0,)
+            .is_err());
+        assert!(backend
+            .add_rigid_body("bad-extent", [0.0; 3], [0.0, 0.0, 0.0, 1.0], [0.0; 3], 1.0,)
+            .is_err());
+        assert!(backend
+            .add_rigid_body(
+                "bad-mass",
+                [0.0; 3],
+                [0.0, 0.0, 0.0, 1.0],
+                [0.1; 3],
+                f64::INFINITY,
+            )
+            .is_err());
+        assert_eq!(backend.body_count(), 0);
+    }
+
+    #[test]
+    fn null_backend_rejects_nonfinite_motion_without_mutation() {
+        let mut backend = NullPhysicsBackend::new();
+        backend
+            .add_rigid_body(
+                "cube",
+                [f64::MAX, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+                [0.1; 3],
+                1.0,
+            )
+            .unwrap();
+        assert!(backend
+            .set_linear_velocity("cube", [f64::NAN, 0.0, 0.0])
+            .is_err());
+        assert!(backend
+            .apply_impulse("cube", [f64::INFINITY, 0.0, 0.0])
+            .is_err());
+        backend
+            .set_linear_velocity("cube", [f64::MAX, 0.0, 0.0])
+            .unwrap();
+        let before = backend.snapshot();
+        assert!(backend.step(2.0).is_err());
+        assert_eq!(backend.snapshot(), before);
     }
 
     #[test]
@@ -637,7 +868,7 @@ mod tests {
         /// z = half_extent, and the body never tunnels below the ground.
         fn cube_on_ground() -> RapierBackend {
             let mut b = RapierBackend::new(PhysicsWorldConfig::default());
-            b.add_ground_slab(5.0, 0.1, 0.5);
+            b.add_ground_slab(5.0, 0.1, 0.5).unwrap();
             // Start slightly above resting height so it settles under gravity.
             b.add_rigid_body(
                 "cube",
@@ -733,13 +964,39 @@ mod tests {
             assert!(b
                 .add_rigid_body("z", [0.0; 3], [0.0, 0.0, 0.0, 1.0], [0.0; 3], 1.0)
                 .is_err());
+            assert!(b
+                .add_rigid_body("z", [0.0; 3], [0.0; 4], [0.1; 3], 1.0)
+                .is_err());
             // Unknown id operations.
             assert!(b.apply_impulse("nope", [1.0, 0.0, 0.0]).is_err());
             assert!(b.set_linear_velocity("nope", [1.0, 0.0, 0.0]).is_err());
             assert!(b.remove_body("nope").is_err());
+            assert!(b.set_friction("a", f64::NAN).is_err());
+            assert!(b.add_ground_slab(1.0, 0.1, -0.1).is_err());
             // Bad dt.
             assert!(b.step(-0.1).is_err());
             assert!(b.step(f64::NAN).is_err());
+        }
+
+        #[test]
+        fn rapier_normalizes_extreme_finite_orientation_without_overflow() {
+            let mut b = RapierBackend::new(PhysicsWorldConfig::default());
+            b.add_rigid_body(
+                "extreme-orientation",
+                [0.0; 3],
+                [f64::MAX, f64::MAX, f64::MAX, f64::MAX],
+                [0.1; 3],
+                1.0,
+            )
+            .unwrap();
+            let state = &b.snapshot()[0];
+            assert!(state.orientation_xyzw.iter().all(|value| value.is_finite()));
+            let norm_squared = state
+                .orientation_xyzw
+                .iter()
+                .map(|value| value * value)
+                .sum::<f64>();
+            assert!((norm_squared - 1.0).abs() < 1e-12);
         }
 
         #[test]

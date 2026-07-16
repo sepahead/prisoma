@@ -4,12 +4,19 @@
 //! of one named terminal failure at prescheduled, event-free landmarks. It is a synthetic
 //! arithmetic and protocol reference, not prospective capture, H2 evidence, calibration
 //! validation, a comparator frontier, or a deployment claim.
+//! Reported IPCW ESS values diagnose weight concentration across landmark-loss rows; they are not
+//! counts of independent episodes, tasks, families, or experimental units.
+//! The paired Brier-improvement missing-outcome bounds hold the fitted out-of-fold predictions
+//! fixed. They do not remove censoring assumptions used during fitting, validate IPCW, or supply
+//! prospective evidence.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
 pub const H2_REFERENCE_SCHEMA_VERSION: u32 = 1;
+/// Version of the serialized report/CLI summary surface.
+pub const H2_REFERENCE_REPORT_SCHEMA_VERSION: u32 = 3;
 
 const MAX_IDENTIFIER_BYTES: usize = 256;
 const MAX_EPISODES_DEFAULT: usize = 10_000;
@@ -144,7 +151,12 @@ pub struct H2CalibrationPlan {
     pub reliability_bin_edges: Vec<f64>,
     pub minimum_target_events: usize,
     pub minimum_non_target_episodes: usize,
-    pub minimum_effective_landmarks: f64,
+    /// Kish weight-concentration threshold over landmark-loss rows.
+    ///
+    /// The schema-v1 wire key remains `minimum_effective_landmarks` for compatibility. This is
+    /// not a minimum number of independent episodes, tasks, families, or experimental units.
+    #[serde(rename = "minimum_effective_landmarks")]
+    pub minimum_ipcw_weight_concentration_ess_landmark_rows: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -420,7 +432,9 @@ pub struct H2FoldScore {
     pub censored_landmarks: usize,
     pub weight_sum: f64,
     pub maximum_weight: f64,
-    pub effective_sample_size: f64,
+    /// Kish-style concentration diagnostic for the IPCW-weighted landmark-loss rows.
+    /// This is not a count of independent episodes, tasks, families, or experimental units.
+    pub ipcw_weight_concentration_ess_landmark_rows: f64,
     pub baseline_brier: f64,
     pub diagnostic_brier: f64,
     pub brier_improvement: f64,
@@ -449,7 +463,9 @@ pub struct H2AggregateScore {
     pub censored_landmarks: usize,
     pub weight_sum: f64,
     pub maximum_weight: f64,
-    pub effective_sample_size: f64,
+    /// Kish-style concentration diagnostic after pooling IPCW-weighted landmark-loss rows.
+    /// It is not an independent-sample size and must not be used as an episode/task count.
+    pub ipcw_weight_concentration_ess_landmark_rows: f64,
     pub baseline_brier: f64,
     pub diagnostic_brier: f64,
     pub brier_improvement: f64,
@@ -464,7 +480,9 @@ pub struct H2ReliabilityBin {
     pub observed_rows: usize,
     pub target_rows: usize,
     pub weight_sum: f64,
-    pub effective_sample_size: f64,
+    /// Kish-style concentration diagnostic for IPCW-weighted landmark rows in this bin.
+    /// It is not a count of independent observations.
+    pub ipcw_weight_concentration_ess_landmark_rows: f64,
     pub weighted_observed_risk: f64,
     pub weighted_mean_prediction: f64,
 }
@@ -559,6 +577,78 @@ pub struct H2Denominators {
     pub outer_folds_abstained: usize,
 }
 
+/// What the observed finite benchmark identifies about mean target risk without assuming
+/// conditionally independent censoring.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum H2TargetRiskIdentification {
+    /// Every eligible landmark outcome is observed, so the finite-benchmark mean is known exactly.
+    ObservedFiniteBenchmarkPoint { target_risk: f64 },
+    /// Censored outcomes admit multiple compatible target risks. These are conservative binary
+    /// missing-outcome bounds over eligible landmark rows; episode-level event-time constraints
+    /// can make the identified set narrower.
+    NotPointIdentifiedNoAssumptionBounds {
+        lower_target_risk: f64,
+        upper_target_risk: f64,
+    },
+    /// Input validation failed before eligible outcomes could be derived.
+    UnavailableInvalidInput,
+}
+
+/// Identification result for the finite-benchmark mean paired Brier improvement after holding the
+/// already-fitted out-of-fold predictions fixed.
+///
+/// Improvement is baseline squared error minus diagnostic squared error, so positive values favor
+/// the diagnostic model. Observed rows contribute their observed binary outcome. Each censored row
+/// contributes the minimum and maximum over both possible binary outcomes. The result is unweighted
+/// over all eligible landmark rows, matching this reference's frozen landmark-weighting rule.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum H2FixedPredictionBrierImprovementResult {
+    /// No eligible outcome is censored, so the finite-benchmark paired improvement is known.
+    ObservedFiniteBenchmarkPoint {
+        paired_brier_improvement: f64,
+        eligible_landmark_rows: usize,
+        observed_outcome_rows: usize,
+        censored_outcome_rows: usize,
+    },
+    /// At least one eligible outcome is censored. The interval is a conservative rowwise
+    /// binary-outcome bound conditional on the recorded predictions; episode-level and other
+    /// cross-row restrictions can make the compatible interval narrower.
+    NotPointIdentifiedConservativeMissingOutcomeBounds {
+        lower_paired_brier_improvement: f64,
+        upper_paired_brier_improvement: f64,
+        eligible_landmark_rows: usize,
+        observed_outcome_rows: usize,
+        censored_outcome_rows: usize,
+    },
+    /// Structural input validation failed before a complete prediction surface was available.
+    UnavailableInvalidInput,
+    /// At least one outer fold abstained, so the all-eligible-row paired result is unavailable.
+    UnavailableFoldAbstention,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum H2FixedPredictionConditioning {
+    AlreadyFittedOutOfFoldPredictionsHeldFixed,
+}
+
+/// Scope and result of the fixed-prediction missing-outcome sensitivity calculation.
+///
+/// This calculation deliberately does not refit either model. Consequently, it does not remove or
+/// test censoring assumptions used to fit those models, does not validate IPCW, and is not
+/// prospective evidence.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct H2FixedPredictionBrierImprovementIdentification {
+    pub conditioning: H2FixedPredictionConditioning,
+    pub removes_censoring_assumptions_used_during_model_fitting: bool,
+    pub validates_ipcw: bool,
+    pub prospective_evidence: bool,
+    pub result: H2FixedPredictionBrierImprovementResult,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct H2ReferenceReport {
@@ -571,6 +661,9 @@ pub struct H2ReferenceReport {
     pub pid_dependency: String,
     pub estimand: String,
     pub censoring_assumption_validated: bool,
+    pub target_risk_identification_without_censoring_assumption: H2TargetRiskIdentification,
+    pub fixed_prediction_paired_brier_improvement_identification:
+        H2FixedPredictionBrierImprovementIdentification,
     pub denominators: H2Denominators,
     pub fold_outcomes: Vec<H2FoldOutcome>,
     pub aggregate_score: Option<H2AggregateScore>,
@@ -580,10 +673,22 @@ pub struct H2ReferenceReport {
 }
 
 impl H2ReferenceReport {
+    /// Returns whether the bounded software reference completed coherently.
+    ///
+    /// This does not validate the censoring assumption or establish scientific evidence.
     pub fn is_valid(&self) -> bool {
         self.issues.is_empty()
             && self.aggregate_score.is_some()
             && self.denominators.outer_folds_abstained == 0
+            && matches!(
+                &self
+                    .fixed_prediction_paired_brier_improvement_identification
+                    .result,
+                H2FixedPredictionBrierImprovementResult::ObservedFiniteBenchmarkPoint { .. }
+                    | H2FixedPredictionBrierImprovementResult::NotPointIdentifiedConservativeMissingOutcomeBounds {
+                        ..
+                    }
+            )
     }
 }
 
@@ -838,8 +943,12 @@ pub fn run_h2_reference_with_limits(
             (model, result)
         })
         .collect();
+    let target_risk_identification_without_censoring_assumption =
+        target_risk_identification_without_censoring_assumption(&denominators);
+    let fixed_prediction_paired_brier_improvement_identification =
+        fixed_prediction_paired_brier_improvement_identification(&predictions, &denominators);
     H2ReferenceReport {
-        schema_version: H2_REFERENCE_SCHEMA_VERSION,
+        schema_version: H2_REFERENCE_REPORT_SCHEMA_VERSION,
         synthetic_fixture_only: true,
         establishes_h2_evidence: false,
         prospective_capture: false,
@@ -848,6 +957,8 @@ pub fn run_h2_reference_with_limits(
         pid_dependency: "none".to_string(),
         estimand: "fixed_horizon_target_cumulative_incidence".to_string(),
         censoring_assumption_validated: false,
+        target_risk_identification_without_censoring_assumption,
+        fixed_prediction_paired_brier_improvement_identification,
         denominators,
         fold_outcomes,
         aggregate_score,
@@ -859,7 +970,7 @@ pub fn run_h2_reference_with_limits(
 
 fn failed_report(input: &H2ReferenceInput, issues: Vec<H2Issue>) -> H2ReferenceReport {
     H2ReferenceReport {
-        schema_version: H2_REFERENCE_SCHEMA_VERSION,
+        schema_version: H2_REFERENCE_REPORT_SCHEMA_VERSION,
         synthetic_fixture_only: true,
         establishes_h2_evidence: false,
         prospective_capture: false,
@@ -868,6 +979,12 @@ fn failed_report(input: &H2ReferenceInput, issues: Vec<H2Issue>) -> H2ReferenceR
         pid_dependency: "none".to_string(),
         estimand: "fixed_horizon_target_cumulative_incidence".to_string(),
         censoring_assumption_validated: false,
+        target_risk_identification_without_censoring_assumption:
+            H2TargetRiskIdentification::UnavailableInvalidInput,
+        fixed_prediction_paired_brier_improvement_identification:
+            fixed_prediction_brier_improvement_with_scope(
+                H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput,
+            ),
         denominators: base_denominators(input),
         fold_outcomes: Vec::new(),
         aggregate_score: None,
@@ -887,6 +1004,168 @@ fn failed_report(input: &H2ReferenceInput, issues: Vec<H2Issue>) -> H2ReferenceR
             .collect(),
         issues,
     }
+}
+
+fn target_risk_identification_without_censoring_assumption(
+    denominators: &H2Denominators,
+) -> H2TargetRiskIdentification {
+    let eligible = denominators.eligible_landmarks;
+    if eligible == 0 {
+        return H2TargetRiskIdentification::UnavailableInvalidInput;
+    }
+    let lower_target_risk = denominators.target_event_outcomes as f64 / eligible as f64;
+    if denominators.censored_outcomes == 0 {
+        return H2TargetRiskIdentification::ObservedFiniteBenchmarkPoint {
+            target_risk: lower_target_risk,
+        };
+    }
+    let upper_target_count = denominators
+        .target_event_outcomes
+        .saturating_add(denominators.censored_outcomes)
+        .min(eligible);
+    H2TargetRiskIdentification::NotPointIdentifiedNoAssumptionBounds {
+        lower_target_risk,
+        upper_target_risk: upper_target_count as f64 / eligible as f64,
+    }
+}
+
+fn fixed_prediction_brier_improvement_with_scope(
+    result: H2FixedPredictionBrierImprovementResult,
+) -> H2FixedPredictionBrierImprovementIdentification {
+    H2FixedPredictionBrierImprovementIdentification {
+        conditioning: H2FixedPredictionConditioning::AlreadyFittedOutOfFoldPredictionsHeldFixed,
+        removes_censoring_assumptions_used_during_model_fitting: false,
+        validates_ipcw: false,
+        prospective_evidence: false,
+        result,
+    }
+}
+
+fn fixed_prediction_paired_brier_improvement_identification(
+    predictions: &[&H2PredictionRecord],
+    denominators: &H2Denominators,
+) -> H2FixedPredictionBrierImprovementIdentification {
+    if denominators.outer_folds_abstained > 0 {
+        return fixed_prediction_brier_improvement_with_scope(
+            H2FixedPredictionBrierImprovementResult::UnavailableFoldAbstention,
+        );
+    }
+    let eligible_rows = denominators.eligible_landmarks;
+    if eligible_rows == 0 || predictions.len() != eligible_rows {
+        return fixed_prediction_brier_improvement_with_scope(
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput,
+        );
+    }
+
+    // Fix summation order to the content-bearing row identity so input or fold traversal order does
+    // not alter floating-point accumulation.
+    let mut ordered = predictions.to_vec();
+    ordered.sort_by(|left, right| {
+        (
+            left.episode_id.as_str(),
+            left.landmark_time_ns,
+            left.landmark_id.as_str(),
+            left.outer_fold.as_str(),
+        )
+            .cmp(&(
+                right.episode_id.as_str(),
+                right.landmark_time_ns,
+                right.landmark_id.as_str(),
+                right.outer_fold.as_str(),
+            ))
+    });
+    if ordered.windows(2).any(|pair| {
+        (
+            pair[0].episode_id.as_str(),
+            pair[0].landmark_time_ns,
+            pair[0].landmark_id.as_str(),
+        ) == (
+            pair[1].episode_id.as_str(),
+            pair[1].landmark_time_ns,
+            pair[1].landmark_id.as_str(),
+        )
+    }) {
+        return fixed_prediction_brier_improvement_with_scope(
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput,
+        );
+    }
+
+    let mut lower_sum = 0.0;
+    let mut upper_sum = 0.0;
+    let mut observed_rows = 0_usize;
+    let mut censored_rows = 0_usize;
+    for prediction in ordered {
+        let baseline = prediction.baseline_risk;
+        let diagnostic = prediction.diagnostic_risk;
+        if !baseline.is_finite()
+            || !diagnostic.is_finite()
+            || !(0.0..=1.0).contains(&baseline)
+            || !(0.0..=1.0).contains(&diagnostic)
+        {
+            return fixed_prediction_brier_improvement_with_scope(
+                H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput,
+            );
+        }
+        let delta_at_zero = baseline.powi(2) - diagnostic.powi(2);
+        let delta_at_one = (1.0 - baseline).powi(2) - (1.0 - diagnostic).powi(2);
+        // The target is binary, so these two values exhaust its support. Equivalently,
+        // Δ(y) = baseline² - diagnostic² + 2y(diagnostic - baseline) is affine in y.
+        if let Some(label) = outcome_label(&prediction.outcome) {
+            let delta = if label { delta_at_one } else { delta_at_zero };
+            lower_sum += delta;
+            upper_sum += delta;
+            observed_rows += 1;
+        } else {
+            lower_sum += delta_at_zero.min(delta_at_one);
+            upper_sum += delta_at_zero.max(delta_at_one);
+            censored_rows += 1;
+        }
+    }
+    let expected_observed_rows = denominators
+        .target_event_outcomes
+        .checked_add(denominators.competing_event_outcomes)
+        .and_then(|count| count.checked_add(denominators.event_free_outcomes));
+    if observed_rows.checked_add(censored_rows) != Some(eligible_rows)
+        || expected_observed_rows != Some(observed_rows)
+        || denominators.censored_outcomes != censored_rows
+    {
+        return fixed_prediction_brier_improvement_with_scope(
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput,
+        );
+    }
+    let denominator = eligible_rows as f64;
+    let lower = lower_sum / denominator;
+    let upper = upper_sum / denominator;
+    let range_tolerance = 32.0 * f64::EPSILON;
+    if !lower.is_finite()
+        || !upper.is_finite()
+        || lower < -1.0 - range_tolerance
+        || upper > 1.0 + range_tolerance
+        || lower > upper + range_tolerance
+    {
+        return fixed_prediction_brier_improvement_with_scope(
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput,
+        );
+    }
+    let lower = lower.clamp(-1.0, 1.0);
+    let upper = upper.clamp(-1.0, 1.0);
+    let result = if censored_rows == 0 {
+        H2FixedPredictionBrierImprovementResult::ObservedFiniteBenchmarkPoint {
+            paired_brier_improvement: lower,
+            eligible_landmark_rows: eligible_rows,
+            observed_outcome_rows: observed_rows,
+            censored_outcome_rows: 0,
+        }
+    } else {
+        H2FixedPredictionBrierImprovementResult::NotPointIdentifiedConservativeMissingOutcomeBounds {
+            lower_paired_brier_improvement: lower,
+            upper_paired_brier_improvement: upper,
+            eligible_landmark_rows: eligible_rows,
+            observed_outcome_rows: observed_rows,
+            censored_outcome_rows: censored_rows,
+        }
+    };
+    fixed_prediction_brier_improvement_with_scope(result)
 }
 
 fn base_denominators(input: &H2ReferenceInput) -> H2Denominators {
@@ -1163,8 +1442,14 @@ fn validate_declarations(input: &H2ReferenceInput, issues: &mut Vec<H2Issue>) {
             .iter()
             .any(|value| !value.is_finite() || !(0.0..=1.0).contains(value))
         || edges.windows(2).any(|window| window[0] >= window[1])
-        || !plan.calibration.minimum_effective_landmarks.is_finite()
-        || plan.calibration.minimum_effective_landmarks < 0.0
+        || !plan
+            .calibration
+            .minimum_ipcw_weight_concentration_ess_landmark_rows
+            .is_finite()
+        || plan
+            .calibration
+            .minimum_ipcw_weight_concentration_ess_landmark_rows
+            < 0.0
     {
         issues.push(issue(
             H2ReasonCode::InvalidDeclaration,
@@ -2104,7 +2389,7 @@ fn score_outer_fold(
     let denominator = predictions.len() as f64;
     let baseline_brier = baseline_loss_sum / denominator;
     let diagnostic_brier = diagnostic_loss_sum / denominator;
-    let effective_sample_size = if weight_square_sum > 0.0 {
+    let ipcw_weight_concentration_ess_landmark_rows = if weight_square_sum > 0.0 {
         weight_sum * weight_sum / weight_square_sum
     } else {
         0.0
@@ -2117,7 +2402,7 @@ fn score_outer_fold(
             censored_landmarks,
             weight_sum,
             maximum_weight,
-            effective_sample_size,
+            ipcw_weight_concentration_ess_landmark_rows,
             baseline_brier,
             diagnostic_brier,
             brier_improvement: baseline_brier - diagnostic_brier,
@@ -2498,8 +2783,8 @@ fn aggregate_scores(outcomes: &[H2FoldOutcome]) -> Option<H2AggregateScore> {
     let weight_square_sum = scores
         .iter()
         .map(|score| {
-            if score.effective_sample_size > 0.0 {
-                score.weight_sum.powi(2) / score.effective_sample_size
+            if score.ipcw_weight_concentration_ess_landmark_rows > 0.0 {
+                score.weight_sum.powi(2) / score.ipcw_weight_concentration_ess_landmark_rows
             } else {
                 0.0
             }
@@ -2525,7 +2810,7 @@ fn aggregate_scores(outcomes: &[H2FoldOutcome]) -> Option<H2AggregateScore> {
             .iter()
             .map(|score| score.maximum_weight)
             .fold(0.0_f64, f64::max),
-        effective_sample_size: if weight_square_sum > 0.0 {
+        ipcw_weight_concentration_ess_landmark_rows: if weight_square_sum > 0.0 {
             weight_sum.powi(2) / weight_square_sum
         } else {
             0.0
@@ -2596,7 +2881,12 @@ fn calibration_result(
     } else {
         0.0
     };
-    if effective < input.plan.calibration.minimum_effective_landmarks {
+    if effective
+        < input
+            .plan
+            .calibration
+            .minimum_ipcw_weight_concentration_ess_landmark_rows
+    {
         return H2CalibrationResult::Abstained {
             reason: H2ReasonCode::CalibrationUnavailable,
         };
@@ -2640,7 +2930,7 @@ fn calibration_result(
             observed_rows: rows.len(),
             target_rows: rows.iter().filter(|(_, _, label)| *label).count(),
             weight_sum: bin_weight,
-            effective_sample_size: bin_weight.powi(2) / bin_weight_square,
+            ipcw_weight_concentration_ess_landmark_rows: bin_weight.powi(2) / bin_weight_square,
             weighted_observed_risk: target_weight / bin_weight,
             weighted_mean_prediction: prediction_weight / bin_weight,
         });
@@ -2932,7 +3222,7 @@ mod tests {
                 reliability_bin_edges: vec![0.0, 0.5, 1.0],
                 minimum_target_events: 2,
                 minimum_non_target_episodes: 2,
-                minimum_effective_landmarks: 2.0,
+                minimum_ipcw_weight_concentration_ess_landmark_rows: 2.0,
             },
             alarm_policy: H2AlarmPolicy {
                 baseline_threshold: 0.99,
@@ -3097,13 +3387,107 @@ mod tests {
         }
     }
 
+    fn evolving_risk_censored_input(
+        hidden_censored_rows_are_targets: bool,
+    ) -> (H2ReferenceInput, f64) {
+        let mut input = reference_input();
+        input.plan.landmark_schedule.offsets_ns.truncate(1);
+        for (index, episode) in input.dataset.episodes.iter_mut().enumerate() {
+            episode.planned_observation_end_ns = 20;
+            episode.observed_until_ns = 20;
+            episode.landmarks.truncate(1);
+            if let Some(event) = &mut episode.terminal_event {
+                event.timestamp_ns = 15;
+            }
+            let diagnostic_signal = if matches!(index, 2 | 6) {
+                2.0
+            } else if matches!(index, 0 | 4) {
+                1.0
+            } else {
+                -1.0
+            };
+            episode.landmarks[0]
+                .features
+                .iter_mut()
+                .find(|feature| feature.feature_id == "diagnostic_signal")
+                .expect("reference diagnostic feature")
+                .value = diagnostic_signal;
+            if matches!(index, 2 | 6) {
+                episode.observed_until_ns = 15;
+                episode.censoring_event = Some(H2ObservedEvent {
+                    event_id: format!("censor-{index}"),
+                    code: "outcome_observation_lost".to_string(),
+                    timestamp_ns: 15,
+                });
+            }
+        }
+        let hidden_target_count = usize::from(hidden_censored_rows_are_targets) * 2;
+        (input, (2 + hidden_target_count) as f64 / 8.0)
+    }
+
+    fn manual_prediction(
+        landmark_id: &str,
+        outcome: H2LandmarkOutcome,
+        baseline_risk: f64,
+        diagnostic_risk: f64,
+    ) -> H2PredictionRecord {
+        H2PredictionRecord {
+            episode_id: format!("episode-{landmark_id}"),
+            landmark_id: landmark_id.to_string(),
+            outer_fold: "outer-a".to_string(),
+            landmark_time_ns: 10,
+            outcome,
+            baseline_risk,
+            diagnostic_risk,
+            ipcw_weight: None,
+            baseline_weighted_loss: None,
+            diagnostic_weighted_loss: None,
+        }
+    }
+
+    fn identify_manual_predictions(
+        predictions: &[H2PredictionRecord],
+        eligible_landmarks: usize,
+        outer_folds_abstained: usize,
+    ) -> H2FixedPredictionBrierImprovementIdentification {
+        let mut denominators = H2Denominators {
+            eligible_landmarks,
+            outer_folds_abstained,
+            ..H2Denominators::default()
+        };
+        for prediction in predictions {
+            match &prediction.outcome {
+                H2LandmarkOutcome::TargetEvent { .. } => {
+                    denominators.target_event_outcomes += 1;
+                }
+                H2LandmarkOutcome::CompetingEvent { .. } => {
+                    denominators.competing_event_outcomes += 1;
+                }
+                H2LandmarkOutcome::EventFreeThroughHorizon => {
+                    denominators.event_free_outcomes += 1;
+                }
+                H2LandmarkOutcome::OutcomeUnobservedCensored { .. } => {
+                    denominators.censored_outcomes += 1;
+                }
+            }
+        }
+        let predictions = predictions.iter().collect::<Vec<_>>();
+        fixed_prediction_paired_brier_improvement_identification(&predictions, &denominators)
+    }
+
     #[test]
     fn complete_followup_produces_grouped_scores_and_retains_undetected_events() {
         let report = run_h2_reference(&reference_input());
         assert!(report.is_valid(), "issues: {:?}", report.issues);
+        assert_eq!(report.schema_version, H2_REFERENCE_REPORT_SCHEMA_VERSION);
         assert_eq!(report.denominators.outer_folds_produced, 2);
         assert_eq!(report.denominators.unique_target_events, 2);
-        assert!(report.aggregate_score.is_some());
+        let aggregate = report.aggregate_score.as_ref().expect("aggregate score");
+        assert!(aggregate.ipcw_weight_concentration_ess_landmark_rows > 0.0);
+        assert!(
+            aggregate.ipcw_weight_concentration_ess_landmark_rows
+                <= aggregate.observed_loss_rows as f64
+        );
         assert!(matches!(
             report.diagnostic_calibration,
             H2CalibrationResult::ProducedReferenceReliability { .. }
@@ -3122,6 +3506,270 @@ mod tests {
             .detection_curve
             .iter()
             .all(|point| point.total_target_events == 2));
+
+        let serialized = serde_json::to_string(&report).expect("serialize H2 report");
+        assert!(serialized.contains("\"ipcw_weight_concentration_ess_landmark_rows\""));
+        assert!(!serialized.contains("\"effective_sample_size\""));
+        let identification = &report.fixed_prediction_paired_brier_improvement_identification;
+        assert_eq!(
+            identification.conditioning,
+            H2FixedPredictionConditioning::AlreadyFittedOutOfFoldPredictionsHeldFixed
+        );
+        assert!(!identification.removes_censoring_assumptions_used_during_model_fitting);
+        assert!(!identification.validates_ipcw);
+        assert!(!identification.prospective_evidence);
+        assert!(matches!(
+            &identification.result,
+            H2FixedPredictionBrierImprovementResult::ObservedFiniteBenchmarkPoint {
+                eligible_landmark_rows: 24,
+                observed_outcome_rows: 24,
+                censored_outcome_rows: 0,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn calibration_weight_concentration_threshold_retains_the_schema_v1_wire_key() {
+        let calibration = serde_json::to_value(reference_input().plan.calibration)
+            .expect("serialize H2 calibration plan");
+        assert_eq!(
+            calibration.get("minimum_effective_landmarks"),
+            Some(&serde_json::json!(2.0))
+        );
+        assert!(calibration
+            .get("minimum_ipcw_weight_concentration_ess_landmark_rows")
+            .is_none());
+    }
+
+    #[test]
+    fn evolving_risk_dependent_censoring_is_typed_as_not_point_identified() {
+        let (low_risk_world, low_risk_truth) = evolving_risk_censored_input(false);
+        let (high_risk_world, high_risk_truth) = evolving_risk_censored_input(true);
+        assert_eq!(
+            low_risk_world, high_risk_world,
+            "latent outcomes after censoring must not alter the observed artifact"
+        );
+        assert!(low_risk_world.dataset.episodes.iter().all(|episode| {
+            let diagnostic_signal = episode.landmarks[0]
+                .features
+                .iter()
+                .find(|feature| feature.feature_id == "diagnostic_signal")
+                .expect("reference diagnostic feature")
+                .value;
+            episode.censoring_event.is_some() == (diagnostic_signal > 1.5)
+        }));
+
+        let low_risk_report = run_h2_reference(&low_risk_world);
+        let high_risk_report = run_h2_reference(&high_risk_world);
+        assert!(
+            low_risk_report.is_valid(),
+            "issues: {:?}",
+            low_risk_report.issues
+        );
+        assert_eq!(low_risk_report, high_risk_report);
+        assert!(!low_risk_report.censoring_assumption_validated);
+        assert_eq!(
+            low_risk_report.target_risk_identification_without_censoring_assumption,
+            H2TargetRiskIdentification::NotPointIdentifiedNoAssumptionBounds {
+                lower_target_risk: 0.25,
+                upper_target_risk: 0.5,
+            }
+        );
+        assert_eq!((low_risk_truth, high_risk_truth), (0.25, 0.5));
+        assert!(matches!(
+            low_risk_report
+                .fixed_prediction_paired_brier_improvement_identification
+                .result,
+            H2FixedPredictionBrierImprovementResult::NotPointIdentifiedConservativeMissingOutcomeBounds {
+                eligible_landmark_rows: 8,
+                observed_outcome_rows: 6,
+                censored_outcome_rows: 2,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn fixed_prediction_brier_improvement_point_has_the_declared_orientation() {
+        let predictions = vec![
+            manual_prediction(
+                "target",
+                H2LandmarkOutcome::TargetEvent {
+                    event_id: "target".to_string(),
+                    relative_time_ns: 5,
+                },
+                0.2,
+                0.8,
+            ),
+            manual_prediction(
+                "non-target",
+                H2LandmarkOutcome::EventFreeThroughHorizon,
+                0.8,
+                0.2,
+            ),
+        ];
+        let identification = identify_manual_predictions(&predictions, 2, 0);
+        let H2FixedPredictionBrierImprovementResult::ObservedFiniteBenchmarkPoint {
+            paired_brier_improvement,
+            eligible_landmark_rows,
+            observed_outcome_rows,
+            censored_outcome_rows,
+        } = identification.result
+        else {
+            panic!("complete outcomes should point-identify the paired improvement");
+        };
+        assert!((paired_brier_improvement - 0.6).abs() < 1e-12);
+        assert_eq!(
+            (
+                eligible_landmark_rows,
+                observed_outcome_rows,
+                censored_outcome_rows
+            ),
+            (2, 2, 0)
+        );
+
+        let reversed = predictions
+            .iter()
+            .cloned()
+            .map(|mut prediction| {
+                std::mem::swap(
+                    &mut prediction.baseline_risk,
+                    &mut prediction.diagnostic_risk,
+                );
+                prediction
+            })
+            .collect::<Vec<_>>();
+        let H2FixedPredictionBrierImprovementResult::ObservedFiniteBenchmarkPoint {
+            paired_brier_improvement: reversed_improvement,
+            ..
+        } = identify_manual_predictions(&reversed, 2, 0).result
+        else {
+            panic!("reversed complete outcomes should remain point identified");
+        };
+        assert!((reversed_improvement + 0.6).abs() < 1e-12);
+    }
+
+    #[test]
+    fn fixed_prediction_missing_outcome_bounds_are_hand_calculated_and_order_stable() {
+        let observed = manual_prediction(
+            "observed",
+            H2LandmarkOutcome::TargetEvent {
+                event_id: "target".to_string(),
+                relative_time_ns: 5,
+            },
+            0.2,
+            0.8,
+        );
+        let censored = manual_prediction(
+            "censored",
+            H2LandmarkOutcome::OutcomeUnobservedCensored {
+                relative_time_ns: 5,
+            },
+            0.2,
+            0.8,
+        );
+        let forward = identify_manual_predictions(&[observed.clone(), censored.clone()], 2, 0);
+        let reverse = identify_manual_predictions(&[censored, observed], 2, 0);
+        assert_eq!(
+            forward, reverse,
+            "stable row identity fixes summation order"
+        );
+        let H2FixedPredictionBrierImprovementResult::NotPointIdentifiedConservativeMissingOutcomeBounds {
+            lower_paired_brier_improvement,
+            upper_paired_brier_improvement,
+            eligible_landmark_rows,
+            observed_outcome_rows,
+            censored_outcome_rows,
+        } = forward.result
+        else {
+            panic!("one missing binary outcome should produce bounds");
+        };
+        assert!(lower_paired_brier_improvement.abs() < 1e-12);
+        assert!((upper_paired_brier_improvement - 0.6).abs() < 1e-12);
+        assert!(lower_paired_brier_improvement <= upper_paired_brier_improvement);
+        assert_eq!(
+            (
+                eligible_landmark_rows,
+                observed_outcome_rows,
+                censored_outcome_rows
+            ),
+            (2, 1, 1)
+        );
+    }
+
+    #[test]
+    fn adversarial_fixed_prediction_bounds_remain_finite_and_inside_brier_range() {
+        let predictions = vec![
+            manual_prediction(
+                "extreme-a",
+                H2LandmarkOutcome::OutcomeUnobservedCensored {
+                    relative_time_ns: 1,
+                },
+                0.0,
+                1.0,
+            ),
+            manual_prediction(
+                "extreme-b",
+                H2LandmarkOutcome::OutcomeUnobservedCensored {
+                    relative_time_ns: 1,
+                },
+                1.0,
+                0.0,
+            ),
+        ];
+        let H2FixedPredictionBrierImprovementResult::NotPointIdentifiedConservativeMissingOutcomeBounds {
+            lower_paired_brier_improvement,
+            upper_paired_brier_improvement,
+            ..
+        } = identify_manual_predictions(&predictions, 2, 0).result
+        else {
+            panic!("extreme missing outcomes should produce finite bounds");
+        };
+        assert_eq!(lower_paired_brier_improvement, -1.0);
+        assert_eq!(upper_paired_brier_improvement, 1.0);
+        assert!(lower_paired_brier_improvement.is_finite());
+        assert!(upper_paired_brier_improvement.is_finite());
+        assert!((-1.0..=1.0).contains(&lower_paired_brier_improvement));
+        assert!((-1.0..=1.0).contains(&upper_paired_brier_improvement));
+    }
+
+    #[test]
+    fn fixed_prediction_identification_abstains_without_a_complete_valid_surface() {
+        assert!(matches!(
+            identify_manual_predictions(&[], 0, 0).result,
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput
+        ));
+        let prediction = manual_prediction(
+            "only-row",
+            H2LandmarkOutcome::EventFreeThroughHorizon,
+            0.5,
+            0.5,
+        );
+        assert!(matches!(
+            identify_manual_predictions(std::slice::from_ref(&prediction), 2, 0).result,
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput
+        ));
+        assert!(matches!(
+            identify_manual_predictions(std::slice::from_ref(&prediction), 1, 1).result,
+            H2FixedPredictionBrierImprovementResult::UnavailableFoldAbstention
+        ));
+        assert!(matches!(
+            identify_manual_predictions(&[prediction.clone(), prediction.clone()], 2, 0).result,
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput
+        ));
+        let mut cross_fold_duplicate = prediction.clone();
+        cross_fold_duplicate.outer_fold = "outer-b".to_string();
+        assert!(matches!(
+            identify_manual_predictions(&[prediction.clone(), cross_fold_duplicate], 2, 0).result,
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput
+        ));
+        let mut invalid_prediction = prediction;
+        invalid_prediction.baseline_risk = 1.01;
+        assert!(matches!(
+            identify_manual_predictions(&[invalid_prediction], 1, 0).result,
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput
+        ));
     }
 
     #[test]
@@ -3234,6 +3882,12 @@ mod tests {
             .iter()
             .any(|problem| problem.code == H2ReasonCode::FeatureAfterCutoff));
         assert!(report.fold_outcomes.is_empty());
+        assert!(matches!(
+            report
+                .fixed_prediction_paired_brier_improvement_identification
+                .result,
+            H2FixedPredictionBrierImprovementResult::UnavailableInvalidInput
+        ));
     }
 
     #[test]
@@ -3290,6 +3944,12 @@ mod tests {
             .issues
             .iter()
             .any(|problem| problem.code == H2ReasonCode::OutcomeModelFitFailed));
+        assert!(matches!(
+            report
+                .fixed_prediction_paired_brier_improvement_identification
+                .result,
+            H2FixedPredictionBrierImprovementResult::UnavailableFoldAbstention
+        ));
     }
 
     #[test]

@@ -12,8 +12,10 @@ use pid_sim::h1_preflight::{
     H1PrimaryProtocol, H1TargetPopulation, H1_PREFLIGHT_SCHEMA_VERSION,
 };
 use pid_sim::h1_protocol_a::{
-    run_h1_protocol_a, H1ProtocolACaseOutcome, H1ProtocolAInput, H1ProtocolAReport,
-    H1ProtocolATreatmentOrder, H1ProtocolATreatmentPair, H1_PROTOCOL_A_SCHEMA_VERSION,
+    run_h1_protocol_a, H1ProtocolACaseOutcome, H1ProtocolAInput,
+    H1ProtocolAMseImprovementUncertaintyStatus, H1ProtocolAReport,
+    H1ProtocolAScientificMinimumUsefulEffectStatus, H1ProtocolATreatmentOrder,
+    H1ProtocolATreatmentPair, H1_PROTOCOL_A_SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -116,6 +118,8 @@ struct ProtocolASummary {
     passed: bool,
     synthetic_fixture_only: bool,
     establishes_h1_evidence: bool,
+    scientific_minimum_useful_effect_status: H1ProtocolAScientificMinimumUsefulEffectStatus,
+    mse_improvement_uncertainty_status: H1ProtocolAMseImprovementUncertaintyStatus,
     preflight_input_sha256: Option<String>,
     preflight_summary_sha256: Option<String>,
     preflight_runlog_sha256: Option<String>,
@@ -130,6 +134,8 @@ struct ProtocolAVerdict<'a> {
     passed: bool,
     synthetic_fixture_only: bool,
     establishes_h1_evidence: bool,
+    scientific_minimum_useful_effect_status: H1ProtocolAScientificMinimumUsefulEffectStatus,
+    mse_improvement_uncertainty_status: H1ProtocolAMseImprovementUncertaintyStatus,
     input_sha256: Option<&'a str>,
     summary_sha256: &'a str,
     issue_count: usize,
@@ -225,6 +231,9 @@ fn main() -> Result<()> {
         passed,
         synthetic_fixture_only: true,
         establishes_h1_evidence: false,
+        scientific_minimum_useful_effect_status:
+            H1ProtocolAScientificMinimumUsefulEffectStatus::Unfrozen,
+        mse_improvement_uncertainty_status: H1ProtocolAMseImprovementUncertaintyStatus::Unavailable,
         preflight_input_sha256,
         preflight_summary_sha256,
         preflight_runlog_sha256,
@@ -632,6 +641,14 @@ fn write_runlog(
             "deterministic_synthetic_fixture_not_h1_evidence".to_string(),
         ),
         (
+            "scientific_minimum_useful_effect_status".to_string(),
+            "unfrozen".to_string(),
+        ),
+        (
+            "mse_improvement_uncertainty_status".to_string(),
+            "unavailable".to_string(),
+        ),
+        (
             "timestamp_semantics".to_string(),
             "deterministic_event_index_not_capture_clock".to_string(),
         ),
@@ -823,6 +840,10 @@ fn write_runlog(
             passed: summary.passed,
             synthetic_fixture_only: true,
             establishes_h1_evidence: false,
+            scientific_minimum_useful_effect_status:
+                H1ProtocolAScientificMinimumUsefulEffectStatus::Unfrozen,
+            mse_improvement_uncertainty_status:
+                H1ProtocolAMseImprovementUncertaintyStatus::Unavailable,
             input_sha256,
             summary_sha256,
             issue_count: issue_count(summary),

@@ -286,6 +286,14 @@ pub(crate) fn run_bounded(
         }
     }
 
+    // A reader can set the overflow/read-failure state immediately before
+    // sending the final completion message.  In that interleaving the loop
+    // condition becomes false before its next pre-receive state check, so a
+    // final acquire is required before accepting the output.
+    if let Some(error) = state_error(state.load(Ordering::Acquire), output_limit) {
+        return Err(error);
+    }
+
     Ok(BoundedOutput {
         status,
         stdout: stdout.unwrap_or_default(),

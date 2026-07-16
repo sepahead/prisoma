@@ -8,7 +8,36 @@
 ;
 ; These states denote ordered code events, not permanent storage,
 ; adversarial-race resistance, or a cryptographic proof about the filesystem.
-(set-logic QF_LIA)
+; The uninterpreted digest function proves exact field binding structurally; it
+; does not assert collision resistance or model SHA-256 computation.
+(set-logic QF_UFLIA)
+(declare-sort Bytes 0)
+(declare-sort Digest 0)
+(declare-fun digest (Bytes) Digest)
+
+(declare-const prepared_dataset_bytes Bytes)
+(declare-const prepared_runlog_bytes Bytes)
+(declare-const core_receipt_dataset_digest Digest)
+(declare-const core_receipt_runlog_digest Digest)
+(define-fun core-receipt-binding () Bool
+  (and (= core_receipt_dataset_digest (digest prepared_dataset_bytes))
+       (= core_receipt_runlog_digest (digest prepared_runlog_bytes))))
+
+(declare-const installed_dataset_bytes Bytes)
+(declare-const installed_runlog_bytes Bytes)
+(declare-const reread_dataset_bytes Bytes)
+(declare-const reread_runlog_bytes Bytes)
+(declare-const outer_receipt_dataset_digest Digest)
+(declare-const outer_receipt_runlog_digest Digest)
+(define-fun outer-receipt-binding () Bool
+  (and (= outer_receipt_dataset_digest (digest installed_dataset_bytes))
+       (= outer_receipt_runlog_digest (digest installed_runlog_bytes))))
+(define-fun outer-postcommit-binding () Bool
+  (and outer-receipt-binding
+       (= reread_dataset_bytes installed_dataset_bytes)
+       (= reread_runlog_bytes installed_runlog_bytes)
+       (= outer_receipt_dataset_digest (digest reread_dataset_bytes))
+       (= outer_receipt_runlog_digest (digest reread_runlog_bytes))))
 
 ; ----- Core Observer::finalize -----
 
@@ -18,7 +47,8 @@
     (receipt_path_visible Bool) (receipt_step_confirmed Bool)
     (finalize_returned Bool)) Bool
   (and (=> runlog_ready dataset_ready)
-       (=> receipt_bound (and dataset_ready runlog_ready))
+       (=> receipt_bound
+           (and dataset_ready runlog_ready core-receipt-binding))
        (=> dataset_step_confirmed dataset_ready)
        (=> runlog_step_confirmed (and dataset_step_confirmed runlog_ready))
        (=> receipt_path_visible
@@ -61,6 +91,7 @@
          (= receipt_step_confirmed_next receipt_step_confirmed)
          (= finalize_returned_next finalize_returned))
     (and (= op 2) dataset_ready runlog_ready (not receipt_bound)
+         core-receipt-binding
          dataset_ready_next runlog_ready_next receipt_bound_next
          (= dataset_step_confirmed_next dataset_step_confirmed)
          (= runlog_step_confirmed_next runlog_step_confirmed)
@@ -106,7 +137,7 @@
          (= finalize_returned_next finalize_returned))))
 
 ; Initial-state proof.
-(push)
+(push 1)
 (declare-const cd0 Bool)
 (declare-const cl0 Bool)
 (declare-const cb0 Bool)
@@ -119,10 +150,10 @@
              (not clc0) (not crv0) (not crc0) (not cfr0)))
 (assert (not (core-invariant cd0 cl0 cb0 cdc0 clc0 crv0 crc0 cfr0)))
 (check-sat)
-(pop)
+(pop 1)
 
 ; Inductiveness proof.
-(push)
+(push 1)
 (declare-const cd Bool)
 (declare-const cl Bool)
 (declare-const cb Bool)
@@ -145,10 +176,10 @@
                          cdn cln cbn cdcn clcn crvn crcn cfrn cop))
 (assert (not (core-invariant cdn cln cbn cdcn clcn crvn crcn cfrn)))
 (check-sat)
-(pop)
+(pop 1)
 
 ; Non-vacuity: the full core success path reaches a successful return.
-(push)
+(push 1)
 (assert (core-transition false false false false false false false false
                          true false false false false false false false 0))
 (assert (core-transition true false false false false false false false
@@ -166,13 +197,24 @@
 (assert (core-transition true true true true true true true false
                          true true true true true true true true 7))
 (check-sat)
-(pop)
+(pop 1)
 
 ; A receipt can be visible after install but before the finalizer reports success.
-(push)
+(push 1)
 (assert (core-invariant true true true true true true false false))
 (check-sat)
-(pop)
+(pop 1)
+
+; A successful return structurally binds both receipt digest fields to the
+; prepared byte buffers.
+(push 1)
+(assert (core-invariant true true true true true true true true))
+(assert (or (not (= core_receipt_dataset_digest
+                    (digest prepared_dataset_bytes)))
+            (not (= core_receipt_runlog_digest
+                    (digest prepared_runlog_bytes)))))
+(check-sat)
+(pop 1)
 
 ; ----- Outer fault-observatory publication -----
 
@@ -180,8 +222,10 @@
     (artifacts_installed Bool) (precommit_verified Bool)
     (receipt_visible Bool) (postcommit_verified Bool) (returned_success Bool)) Bool
   (and (=> precommit_verified artifacts_installed)
-       (=> receipt_visible precommit_verified)
-       (=> postcommit_verified (and artifacts_installed receipt_visible))
+       (=> receipt_visible (and precommit_verified outer-receipt-binding))
+       (=> postcommit_verified
+           (and artifacts_installed receipt_visible
+                outer-postcommit-binding))
        (=> returned_success postcommit_verified)))
 
 ; op: 0=all non-receipt installs succeed, 1=pre-commit snapshot verifies,
@@ -205,10 +249,12 @@
          (= postcommit_verified_next postcommit_verified)
          (= returned_success_next returned_success))
     (and (= op 2) precommit_verified (not receipt_visible)
+         outer-receipt-binding
          artifacts_installed_next precommit_verified_next receipt_visible_next
          (= postcommit_verified_next postcommit_verified)
          (= returned_success_next returned_success))
     (and (= op 3) artifacts_installed receipt_visible (not postcommit_verified)
+         outer-postcommit-binding
          artifacts_installed_next precommit_verified_next receipt_visible_next
          postcommit_verified_next (= returned_success_next returned_success))
     (and (= op 4) postcommit_verified (not returned_success)
@@ -221,7 +267,7 @@
          (= returned_success_next returned_success))))
 
 ; Initial-state proof.
-(push)
+(push 1)
 (declare-const oa0 Bool)
 (declare-const op0 Bool)
 (declare-const or0 Bool)
@@ -230,10 +276,10 @@
 (assert (and (not oa0) (not op0) (not or0) (not ov0) (not os0)))
 (assert (not (outer-invariant oa0 op0 or0 ov0 os0)))
 (check-sat)
-(pop)
+(pop 1)
 
 ; Inductiveness proof.
-(push)
+(push 1)
 (declare-const oa Bool)
 (declare-const opv Bool)
 (declare-const orv Bool)
@@ -249,20 +295,32 @@
 (assert (outer-transition oa opv orv ov os oan opn orn ovn osn oop))
 (assert (not (outer-invariant oan opn orn ovn osn)))
 (check-sat)
-(pop)
+(pop 1)
 
 ; Non-vacuity: the full outer success path reaches a verified return.
-(push)
+(push 1)
 (assert (outer-transition false false false false false true false false false false 0))
 (assert (outer-transition true false false false false true true false false false 1))
 (assert (outer-transition true true false false false true true true false false 2))
 (assert (outer-transition true true true false false true true true true false 3))
 (assert (outer-transition true true true true false true true true true true 4))
 (check-sat)
-(pop)
+(pop 1)
 
 ; Receipt visibility alone is weaker than the observatory's verified-success return.
-(push)
+(push 1)
 (assert (outer-invariant true true true false false))
 (check-sat)
-(pop)
+(pop 1)
+
+; A successful outer return requires exact reread equality and receipt binding.
+(push 1)
+(assert (outer-invariant true true true true true))
+(assert (or (not (= reread_dataset_bytes installed_dataset_bytes))
+            (not (= reread_runlog_bytes installed_runlog_bytes))
+            (not (= outer_receipt_dataset_digest
+                    (digest reread_dataset_bytes)))
+            (not (= outer_receipt_runlog_digest
+                    (digest reread_runlog_bytes)))))
+(check-sat)
+(pop 1)

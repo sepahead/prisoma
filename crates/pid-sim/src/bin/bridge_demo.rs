@@ -24,7 +24,7 @@ fn main() -> Result<()> {
         Some(5),
         Some(false),
     );
-    let config_hash = pid_runlog::canonical_json_hash(&config)?;
+    let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
     let mut metadata = BTreeMap::new();
     metadata.insert("source".to_string(), "pid-sim-bridge-demo".to_string());
     writer.append(&RunLogEvent::RunStarted {

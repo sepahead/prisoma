@@ -1,21 +1,21 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "preflight": {
-    "run_id": "h1-preflight-7f11f1bd83eaf554",
+    "run_id": "h1-preflight-229621fa68918a8c",
     "primary_protocol": "protocol_a",
     "input": {
       "artifact_uri": "crates/pid-sim/fixtures/h1_preflight_valid.json",
-      "sha256": "7f11f1bd83eaf5540cbff5f59786c40e0e1af3aa6fd983db7cdc59cb0476cdaa"
+      "sha256": "229621fa68918a8cd26719606c200c51c7ff0649982fc7d98f4ccdbfb2d4ecc8"
     },
     "summary": {
       "artifact_uri": "outputs/h1_preflight_summary.json",
-      "sha256": "61499f5751e28d2864b499ed9a5dd6007045cd2b34e65e20c4067e6641423bff"
+      "sha256": "18b57cdd8544255f62bc4e4628232f2f4e85d660f83217e820f221a15a025d0f"
     },
     "runlog": {
       "artifact_uri": "outputs/h1_preflight_runlog.jsonl",
-      "sha256": "f93ba9832b37eb2c089969123629a6057448d7285b6c88cecc556b053a5619ea"
+      "sha256": "45d4a0627d4a74c08ac80b567e25bf7345f2b7989c8fb1428d123c8b2bb3f63e"
     },
-    "evidence_bundle_hash": "2bbfe462482a78b842eb5de6e9cd186e5e9010df6d173307b2b362842835203a"
+    "evidence_bundle_hash": "f4761ba9d6a5b5326f720039df9e4dc52543d8dff8e8baff38ccc2f556e796e6"
   },
   "plan": {
     "scope": "deterministic_finite_benchmark",
@@ -60,7 +60,7 @@
     "maximum_output_drift": 0.0,
     "maximum_response_drift": 0.0,
     "ridge_penalty": 0.000001,
-    "minimum_useful_mse_improvement": 0.1,
+    "fixture_reference_point_margin_mse_improvement": 0.1,
     "permitted_interpretation": "synthetic_frozen_snapshot_algorithmic_response_only"
   },
   "policy": {

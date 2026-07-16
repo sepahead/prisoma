@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import pickle
+import zipfile
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -26,7 +29,11 @@ from experiments.safe_adapter import (
 )
 from experiments.safe_adapter.contract import load_dataset_json
 from experiments.safe_adapter.convert import rollout_to_samples
-from experiments.safe_adapter.rollouts import ACTION_COLUMNS
+from experiments.safe_adapter.extract import pool_tokens, slice_token_group
+from experiments.safe_adapter.rollouts import (
+    ACTION_COLUMNS,
+    _load_npz_arrays,
+)
 from experiments.safe_adapter.verify import verify_contract_obj
 
 
@@ -145,6 +152,62 @@ def test_text_hash_features_deterministic_and_normalized():
     # Different text -> different features (overwhelmingly likely).
     c = text_hash_features("close the drawer", 16)
     assert not np.allclose(a, c)
+
+
+def test_variable_extractors_reject_unbounded_or_nonfinite_direct_inputs():
+    with pytest.raises(ValueError, match="at most"):
+        text_hash_features("x" * 16_385, 16)
+    with pytest.raises(ValueError, match="non-finite"):
+        rollout_to_samples(
+            SafeRollout(
+                task_id=0,
+                episode_idx=0,
+                task_description="direct fixture",
+                episode_success=True,
+                actions=np.ones((2, 7)),
+                hidden_states=np.asarray(
+                    [
+                        [[1.0], [2.0], [3.0]],
+                        [[1.0], [float("nan")], [3.0]],
+                    ]
+                ),
+                token_groups={
+                    "vision": (0, 1),
+                    "language": (1, 2),
+                    "state": (2, 3),
+                },
+            ),
+            MappingConfig(),
+        )
+    with pytest.raises(ValueError, match=r"T=2"):
+        rollout_to_samples(
+            SafeRollout(
+                task_id=0,
+                episode_idx=0,
+                task_description="direct fixture",
+                episode_success=True,
+                actions=np.ones((2, 7)),
+                hidden_states=np.ones((1, 3, 1)),
+                token_groups={
+                    "vision": (0, 1),
+                    "language": (1, 2),
+                    "state": (2, 3),
+                },
+            ),
+            MappingConfig(),
+        )
+
+
+def test_token_pooling_preserves_extreme_finite_means():
+    ordinary = np.arange(24, dtype=np.float64).reshape(2, 3, 4)
+    assert np.array_equal(pool_tokens(ordinary), ordinary.mean(axis=1))
+
+    maximum = np.finfo(np.float64).max
+    hidden = np.full((2, 3, 1), maximum)
+    pooled = pool_tokens(hidden)
+    sliced = slice_token_group(hidden, (0, 2))
+    assert np.array_equal(pooled, np.full((2, 1), maximum))
+    assert np.array_equal(sliced, np.full((2, 1), maximum))
 
 
 def test_synth_load_convert_end_to_end(tmp_path):
@@ -334,6 +397,31 @@ def test_derived_output_budget_runs_before_text_hash_allocation():
 
     with pytest.raises(ValueError, match="derived dataset would have"):
         rollout_to_samples(rollout, config)
+
+
+def test_npz_ingress_rejects_boolean_and_trailing_array_payloads():
+    boolean_archive = io.BytesIO()
+    np.savez(boolean_archive, hidden_states=np.ones((2, 2), dtype=np.bool_))
+    boolean_archive.seek(0)
+    with pytest.raises(ValueError, match="non-real dtype"):
+        _load_npz_arrays(
+            boolean_archive,
+            Path("boolean.arrays.npz"),
+            IngressLimits(),
+        )
+
+    npy = io.BytesIO()
+    np.save(npy, np.ones((2, 2), dtype=np.float64), allow_pickle=False)
+    trailing_archive = io.BytesIO()
+    with zipfile.ZipFile(trailing_archive, "w") as archive:
+        archive.writestr("hidden_states.npy", npy.getvalue() + b"trailing")
+    trailing_archive.seek(0)
+    with pytest.raises(ValueError, match="does not exactly match"):
+        _load_npz_arrays(
+            trailing_archive,
+            Path("trailing.arrays.npz"),
+            IngressLimits(),
+        )
 
 
 def test_synthetic_generation_preflights_work_before_creating_directory(tmp_path):
@@ -730,6 +818,37 @@ def test_layerwise_physics_probe_finds_intermediate_peak():
     assert result.evaluation_score > 0.5
     # The intermediate-peak (emergence-zone) warning fires.
     assert any("emergence" in w for w in result.warnings)
+
+
+def test_layer_probe_normalizes_large_finite_weights_without_overflow():
+    rng = np.random.default_rng(18)
+    n = 18
+    fit_mask = np.zeros(n, dtype=bool)
+    selection_mask = np.zeros(n, dtype=bool)
+    evaluation_mask = np.zeros(n, dtype=bool)
+    fit_mask[:6] = True
+    selection_mask[6:12] = True
+    evaluation_mask[12:] = True
+    states = [rng.standard_normal((n, 2))]
+    targets = {
+        "speed": rng.standard_normal(n),
+        "distance": rng.standard_normal(n),
+    }
+
+    result = layerwise_physics_probe(
+        states,
+        targets,
+        fit_mask,
+        selection_mask=selection_mask,
+        evaluation_mask=evaluation_mask,
+        group_ids=np.arange(n),
+        probe_components=2,
+        target_weights={"speed": 1e308, "distance": 1e308},
+    )
+
+    assert result.target_weights == {"speed": 0.5, "distance": 0.5}
+    assert np.isfinite(result.selection_score)
+    assert np.isfinite(result.evaluation_score)
 
 
 def test_layerwise_physics_probe_boolean_target():

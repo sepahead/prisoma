@@ -123,7 +123,10 @@ fn manifest_for_snapshot(
         snapshot_len <= limits.max_file_bytes,
         "run-log snapshot exceeds the configured file-byte limit"
     );
-    let run_log_uri = path.to_string_lossy().into_owned();
+    let run_log_uri = path
+        .to_str()
+        .context("run-log manifest paths must be valid UTF-8")?
+        .to_owned();
     ensure!(
         run_log_uri.len() <= limits.max_string_bytes,
         "run-log manifest URI exceeds the configured string-byte limit"
@@ -306,10 +309,10 @@ fn main() -> Result<()> {
         println!("note: neither --save nor --serve given; recording will be discarded (dry run)");
     }
     println!(
-        "converted events={} run_id={} trace_hash={} validation_errors={} validation_warnings={}",
+        "converted events={} run_id={} trace_hash_v2={} trace_hash_revision=replay_trace_v2 validation_errors={} validation_warnings={}",
         summary.event_count,
         summary.run_id.as_deref().unwrap_or("<unknown>"),
-        summary.trace_hash,
+        summary.trace_hash_v2,
         summary.validation_errors,
         summary.validation_warnings
     );
@@ -375,13 +378,19 @@ mod tests {
 
     fn run_log_bytes(run_id: &str) -> Result<Vec<u8>> {
         let config = json!({"dt": 0.1});
+        let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
         let events = [
             RunLogEvent::RunStarted {
                 schema_version: RUN_LOG_SCHEMA_VERSION,
                 run_id: run_id.to_owned(),
                 timestamp_ns: 0,
-                config_hash: pid_runlog::canonical_json_hash_v2(&config)?,
+                config_hash: config_hash.clone(),
                 metadata: BTreeMap::new(),
+            },
+            RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash,
+                config,
             },
             RunLogEvent::ArtifactLogged {
                 timestamp_ns: 1,
@@ -407,15 +416,25 @@ mod tests {
 
     fn incomplete_run_log_bytes(run_id: &str) -> Result<Vec<u8>> {
         let config = json!({"dt": 0.1});
-        let event = RunLogEvent::RunStarted {
-            schema_version: RUN_LOG_SCHEMA_VERSION,
-            run_id: run_id.to_owned(),
-            timestamp_ns: 0,
-            config_hash: pid_runlog::canonical_json_hash_v2(&config)?,
-            metadata: BTreeMap::new(),
-        };
+        let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
+        let events = [
+            RunLogEvent::RunStarted {
+                schema_version: RUN_LOG_SCHEMA_VERSION,
+                run_id: run_id.to_owned(),
+                timestamp_ns: 0,
+                config_hash: config_hash.clone(),
+                metadata: BTreeMap::new(),
+            },
+            RunLogEvent::ConfigLogged {
+                timestamp_ns: 0,
+                config_hash,
+                config,
+            },
+        ];
         let mut writer = RunLogWriter::new(Vec::new());
-        writer.append(&event)?;
+        for event in &events {
+            writer.append(event)?;
+        }
         Ok(writer.into_inner())
     }
 
@@ -541,6 +560,23 @@ mod tests {
                 Some("snapshot-b"),
             )
         );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn snapshot_manifest_rejects_non_utf8_input_identity() -> Result<()> {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
+        let bytes = run_log_bytes("snapshot-non-utf8")?;
+        let path = PathBuf::from(OsString::from_vec(
+            b"/tmp/prisoma-runlog-\xff.jsonl".to_vec(),
+        ));
+        let error = prepare_snapshot(&path, &bytes, false, RunLogLimits::default())
+            .expect_err("lossy run-log identities must fail closed");
+
+        assert!(format!("{error:#}").contains("valid UTF-8"));
         Ok(())
     }
 

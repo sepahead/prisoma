@@ -21,8 +21,10 @@ copies to this repo.
    into **four separate gates** — population, measure, estimator, application (`grandplan.md`
    §7.1). The high-d MI/coherence path is **NO-GO**; continuous shared-exclusions atoms on real
    VLA embeddings remain **BLOCKED / NOT APPLICATION-VALIDATED** (`grandplan.md` §3.2, §7.2)
-   because default Experiment 0 uses a measure-mismatched atom target and the strict band gates
-   MI rather than atoms (`findings.md`). Sampled-mean δ is descriptive, not a validity gate. One
+   because default Experiment 0 reports atom-measure validation as `not_adjudicated` and
+   atom-estimator validation as `blocked`, while the strict band gates analytic MI rather than
+   atoms (`findings.md`). It never compares shared-exclusions redundancy with a zero target.
+   Sampled-mean δ is descriptive, not a validity gate. One
    (PID measure, preprocessing, estimator config) tuple = one preregistered regime; never pool
    continuous `I^sx_∩` atoms with discrete `I_min` atoms — `--pid-mode discrete` is Williams–Beer
    `I_min`, **not** discrete `i^sx_∩` (`grandplan.md` §7.6). Confirmatory claims are bound by the
