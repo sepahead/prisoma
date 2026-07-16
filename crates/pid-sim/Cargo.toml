@@ -94,4 +94,4 @@ same-file = "1.0"
 sha1 = "0.10"
 sha2 = "0.10"
 tempfile = "3.20"
-rapier3d-f64 = { version = "0.22", optional = true }
+rapier3d-f64 = { version = "0.34", optional = true }
