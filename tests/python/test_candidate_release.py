@@ -450,7 +450,7 @@ def test_candidate_audit_passes_but_reports_no_go_pending_state() -> None:
     assert payload["published"] is False
 
 
-def test_candidate_inventory_covers_index_and_all_nonignored_untracked_inputs() -> None:
+def test_candidate_inventory_covers_the_clean_source_and_pinned_gitlink() -> None:
     inventory = _read(CANDIDATE_DIR / "source_inventory.json")
     entries = inventory["entries"]
     parent_paths = {
@@ -478,9 +478,11 @@ def test_candidate_inventory_covers_index_and_all_nonignored_untracked_inputs() 
         inventory["inventory_policy"]["recursive_rows_derived_from"]
         == "pinned_index_commit_git_objects"
     )
-    assert inventory["source"]["clean"] is False
-    assert inventory["source"]["state"] == "dirty_uncommitted_source_snapshot"
-    assert inventory["summary"]["untracked_entry_count"] > 0
+    assert inventory["source"]["clean"] is True
+    assert inventory["source"]["state"] == "clean_source_snapshot"
+    assert inventory["summary"]["index_changed_entry_count"] == 0
+    assert inventory["summary"]["worktree_changed_entry_count"] == 0
+    assert inventory["summary"]["untracked_entry_count"] == 0
     assert inventory["inventory_policy"]["self_excluded_paths"] == [CANDIDATE_RELATIVE]
     fixed_point = inventory["inventory_policy"]["fixed_point_semantics"]
     assert fixed_point["source_digest_excludes_candidate_outputs"] is True
@@ -619,25 +621,26 @@ def test_internal_audit_recomputes_recorded_index_and_worktree_states() -> None:
     progress = inventory["progress_snapshot"]["document"]
 
     forged_index = copy.deepcopy(inventory)
-    untracked = next(
+    unchanged_index = next(
         entry
         for entry in forged_index["entries"]
-        if entry["index_state"] == "untracked"
+        if entry["inventory_origin"]["kind"] == "parent_repository"
+        and entry["index_state"] == "unchanged"
     )
-    untracked["index_state"] = "unchanged"
+    unchanged_index["index_state"] = "untracked"
     forged_index = generator["inventory_with_progress"](forged_index, progress)
     with pytest.raises(Exception) as caught:
         auditor["_validate_inventory_internal"](ROOT, forged_index)
     assert getattr(caught.value, "code", None) == "INVENTORY_INDEX_STATE"
 
     forged_worktree = copy.deepcopy(inventory)
-    modified = next(
+    unchanged_worktree = next(
         entry
         for entry in forged_worktree["entries"]
-        if entry["worktree_state"] != "unchanged"
-        and entry["path"] != "release/0.9.0/candidate_progress.json"
+        if entry["inventory_origin"]["kind"] == "parent_repository"
+        and entry["worktree_state"] == "unchanged"
     )
-    modified["worktree_state"] = "unchanged"
+    unchanged_worktree["worktree_state"] = "modified"
     forged_worktree = generator["inventory_with_progress"](forged_worktree, progress)
     with pytest.raises(Exception) as caught:
         auditor["_validate_inventory_internal"](ROOT, forged_worktree)
