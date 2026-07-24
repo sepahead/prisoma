@@ -131,7 +131,7 @@
   "record_type": "candidate_defect_register",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "0e3ecd2de35c6ab7fa7d01b6df714b86b4ff9a6c23c9561d7c9538e89964be8a",
+  "source_state_sha256": "b92765ac1c426dc33d80f17712b37eb949ab9bc486cffb2ba447b8c1b3fd5e04",
   "status_contract": {
     "closure_rule": "Schema 0.1 cannot mitigate or close defects; a successor schema must bind the exact resolution rule to authenticated evidence and reviewed residual risk",
     "priorities": [
