@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Added an ASD-STE100 Issue 9 writing policy to the contributor guidance. The policy uses
+  “STE-aligned” language and preserves technical, scientific, legal, generated, and immutable
+  content boundaries.
+- Refreshed the living ecosystem overlay on 2026-07-24. The reviewed `pid-rs@796c11e` and NCP
+  `v0.8.0` pins remain deliberate. Newer public heads are recorded without claiming compatibility,
+  integration, or scientific promotion.
+- Clarified the substantive implementation sequence: complete accountable freeze decisions, one
+  rights-approved raw-to-run-log SAFE path, a structurally independent EC1 adapter, and the frozen
+  conventional-stack comparison before optional sibling integrations.
+- Updated Rapier3D-f64 from 0.22 to 0.34 and migrated the adapter to Rapier's glam-based math API.
+  Updated SHA-1, SHA-2, and ndarray. Raised the pytest floor to 9.0.3. The existing Python lock
+  already contains newer pytest and Pygments releases. The digest migration keeps lowercase
+  content-hash encoding explicit and tested.
+- Expanded the default documentation audit to scan all tracked Markdown outside submodules.
+
 ## 0.9.0 - 2026-07-16
 
 Prisoma 0.9.0 is a public GitHub source prerelease and research-software preview. Scientific and

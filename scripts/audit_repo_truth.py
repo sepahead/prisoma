@@ -1010,12 +1010,12 @@ def _audit() -> int:
             "grandplan.md mislabels a reviewed Haldir revision as current main"
         )
     for project, dated_revision in {
-        "galadriel": "ff272dc814080c6766a53c872ca4d0e24bcd5132",
-        "crebain": "09dd5ec1556bd56e6934e1ef019f95de84cf9b4f",
-        "manwe": "0f6505bb5dadf5d70359b5ea6d545216342bd30a",
-        "haldir": "fbf5a5308da1c6a82eebe1afb56635bf0d6fd798",
-        "cortexel": "16f2da71a5beb863235a90e552e6772639638be3",
-        "melkor": "21c8fb53f58e19a78d92a4b01ce479374a7b8633",
+        "galadriel": "80506dd2ce52b33c3334c7d1760a8155c7631241",
+        "crebain": "0a58a5b8dd799884ddb06f1308b1748216fab322",
+        "manwe": "6d73405bbf5365039ee1d0db9c466ed6346a9c57",
+        "haldir": "555108666cb82e8a36dcd4b08b5b30c62367a6f4",
+        "cortexel": "d29669e6d5b1766fd96e1eacefb02b3f43c5ce61",
+        "melkor": "529260f568c62250b0541a11f5c24b45767bf1cf",
     }.items():
         if dated_revision not in grandplan:
             problems.append(
@@ -1103,13 +1103,13 @@ def _audit() -> int:
         expected_revisions = {
             "pid-rs": revision,
             "NCP": "v0.8.0",
-            "galadriel": "ff272dc814080c6766a53c872ca4d0e24bcd5132",
-            "crebain": "09dd5ec1556bd56e6934e1ef019f95de84cf9b4f",
-            "manwe": "0f6505bb5dadf5d70359b5ea6d545216342bd30a",
+            "galadriel": "80506dd2ce52b33c3334c7d1760a8155c7631241",
+            "crebain": "0a58a5b8dd799884ddb06f1308b1748216fab322",
+            "manwe": "6d73405bbf5365039ee1d0db9c466ed6346a9c57",
             "engram": "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd",
-            "haldir": "fbf5a5308da1c6a82eebe1afb56635bf0d6fd798",
-            "cortexel": "16f2da71a5beb863235a90e552e6772639638be3",
-            "melkor": "21c8fb53f58e19a78d92a4b01ce479374a7b8633",
+            "haldir": "555108666cb82e8a36dcd4b08b5b30c62367a6f4",
+            "cortexel": "d29669e6d5b1766fd96e1eacefb02b3f43c5ce61",
+            "melkor": "529260f568c62250b0541a11f5c24b45767bf1cf",
         }
         for project, expected_revision in expected_revisions.items():
             if overrides.get(project, {}).get("observed_revision") != expected_revision:
@@ -1147,17 +1147,16 @@ def _audit() -> int:
         boundary_requirements = {
             "pid-rs": (
                 "0.9.0 post-tag review source",
+                "additional unadopted scientific-contract and exact-certifier work",
                 "no 1.x compatibility promise",
                 "fixtures do not establish high-dimensional VLA application validity",
             ),
             "galadriel": (
-                "optional evidence-sender component",
-                "deployed receiver-verified Crebain-to-Galadriel path",
+                "no reciprocal Prisoma pin",
+                "producer-consumer golden fixture",
                 "no direct Prisoma adapter",
             ),
             "crebain": (
-                "standard release omits ncp",
-                "no release candidate or exact-head release evidence is sealed",
                 "local put is not receiver receipt",
                 "not called by admission",
                 "action/control commands remain unregistered",
@@ -1172,7 +1171,11 @@ def _audit() -> int:
                 "no runnable service",
                 "direct Prisoma route",
             ),
-            "cortexel": ("lacks headless export", "does not supersede"),
+            "cortexel": (
+                "deterministic accessible SVG export",
+                "no published package or DOI",
+                "does not supersede",
+            ),
             "melkor": ("no calibrated", "Prisoma adapter"),
         }
         for project, required_phrases in boundary_requirements.items():

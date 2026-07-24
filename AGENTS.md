@@ -16,6 +16,8 @@ being true as the code moves).
 > no numeric placeholder** (no zero, no NaN, no metric event). Exact ties reject a *sample*, never
 > the population law. Never auto-route a failed continuous term to discrete `I_min`: different
 > measure, different estimand, never pooled.
+> Public `pid-rs` main was observed at `e50c12e` on 2026-07-24. Its newer contracts and exact
+> certifier remain unadopted until a consumer-owned review proves compatibility and added value.
 
 > **Single source of truth for the Rust PID estimators: [`pid-rs`](https://github.com/sepahead/pid-rs).**
 > `pid-core`, `pid-python`, and `pid-runlog` are **not** vendored here — do **not** re-add copies.
@@ -24,6 +26,31 @@ being true as the code moves).
 > never here. Run its binaries via
 > `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0` and
 > `cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay`.
+
+## Technical writing
+
+Use [ASD-STE100 Issue 9](https://www.asd-ste100.org/assets/files/ASD-STE100_ISSUE9.pdf)
+as the writing baseline for project-owned technical prose. Describe the prose as **STE-aligned**.
+Do not claim formal compliance or certification without a qualified full-document check.
+
+Apply these rules to new prose and to prose that you substantially revise:
+
+- Use American English and short, common words.
+- Use one term for one concept. Keep approved domain, API, command, and mathematical terms.
+- Keep descriptive sentences to 25 words or fewer.
+- Keep procedural sentences to 20 words or fewer.
+- Use active voice. Use passive voice only when the actor is unknown or unimportant.
+- Give one instruction per step. Use the imperative form and put the condition before the action.
+- Use simple verb tenses. Do not use contractions or semicolons.
+- Use a vertical list for three or more items or for complex conditions.
+- Give each paragraph one topic and no more than six sentences.
+- State safety commands directly. Then state the probable result of noncompliance.
+- Verify commands, links, versions, pins, capabilities, and scientific status before publication.
+
+Technical accuracy and fail-closed scientific meaning take priority over vocabulary restriction.
+The limits do not apply to code, commands, paths, identifiers, literals, equations, or tables.
+They also do not apply to exact quotations, historical records, licenses, or codes of conduct.
+Do not rewrite immutable review intake, generated files, vendored files, or submodule documentation.
 
 ## Ground rules
 
@@ -288,7 +315,8 @@ repository is currently a README-only placeholder, so no public live Engram inte
   lives in this crate.
 - **Pinned dependency:** the manifest pins the immutable NCP `v0.8.0` (wire 0.8) release and
   resolves from the published repository; no sibling checkout or path override is
-  required.
+  required. Public NCP main was observed at `10492c81` on 2026-07-24. It is an unreleased,
+  release-blocked `1.0.0-rc.1` wire-1.0 candidate and is not compatible with this consumer.
 - **Workspace-excluded by design:** it is in `Cargo.toml` `exclude`, not a member, because a
   broken dependency in a *member* would fail manifest resolution for **every** `cargo`
   command (including `-p`-scoped ones). Exclusion keeps root workspace resolution/build/test
@@ -367,7 +395,7 @@ viewer phases and the deferred Tauri/SparkJS shell. Do not describe them as runn
 cargo fmt --all -- --check
 cargo clippy --workspace -- -D warnings
 cargo test --workspace
-python scripts/audit_docset_claims.py
+python scripts/audit_docset_claims.py --all-tracked-markdown
 python scripts/audit_grandplan.py   # validates the R1-R112 reference ledger
 python scripts/audit_research_governance.py
 python scripts/generate_capability_matrix.py --check

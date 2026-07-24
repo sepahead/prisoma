@@ -44,7 +44,7 @@ re-log-encoding = { package = "re_log_encoding", version = "0.34.1", default-fea
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-ndarray = "0.16"
+ndarray = "0.17"
 tempfile = "3.20"
 
 [target.'cfg(unix)'.dependencies]

@@ -52,11 +52,9 @@ permission to assess. There is no bug-bounty programme.
   the optional lock, so Prisoma makes no vulnerability-free or live-NCP security
   claim and must replace the pin before that profile can be release-qualified. The
   same graph also retains the unmaintained (not known vulnerable)
-  `rustls-pemfile` 2.2.0 because no compatible replacement exists. The root
-  all-features lock/CI graph retains the unmaintained `paste` 1.0.15 proc-macro
-  through optional Rapier's nalgebra tree, and the observer graph retains it
-  through Zenoh; the default-feature root build does not compile it. `deny.toml`
-  records these temporary exceptions with their actual dependency scopes.
+  `rustls-pemfile` 2.2.0 because no compatible replacement exists. The observer graph also
+  retains the unmaintained `paste` 1.0.15 proc-macro through Zenoh. Rapier 0.34 removed `paste`
+  from the root graph. `deny.toml` records these temporary observer exceptions.
 - Run-log hashes and local ledgers provide integrity and reproducibility
   evidence within their stated threat model. They are not signatures, remote
   attestation, trusted timestamps, or proof of historical non-access.

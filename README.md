@@ -38,6 +38,11 @@ review-completion or scientific/candidate-promotion claim. Its `published:false`
 to that non-promoted candidate decision record, not to public availability of the 0.9.0 source
 prerelease.
 
+A manual ecosystem refresh on 2026-07-24 found newer public project heads. Prisoma keeps its
+reviewed `pid-rs@796c11e` and NCP `v0.8.0` pins until consumer-owned qualification is complete.
+Public NCP main is an unreleased wire-1.0 candidate and is incompatible with this observer.
+See `grandplan.md` section 8.9 and `protocols/ecosystem_evidence_current_v1.json`.
+
 ## Documentation map
 
 Read these in order of what you need. `grandplan.md` is canonical; the others are kept consistent with it.
@@ -141,6 +146,9 @@ cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features 
   design in
   `grandplan.md` §6.8. The first power report is overall NOT PASSED and all of its first-run grid
   counts are withdrawn as capture requirements.
+  After accountable freeze decisions, prioritize one rights-approved raw-to-run-log SAFE path.
+  Then add a structurally independent EC1 adapter and the frozen conventional-stack comparison.
+  Do not move sibling viewers, reconstruction tools, or protocol migrations onto this path.
 
 ```mermaid
 flowchart LR
@@ -231,13 +239,12 @@ Details and logging requirements live in `EXPERIMENTS.md`; estimator gates and c
 
 - `python scripts/audit_grandplan.py` (validates the R1–R112 reference ledger: contiguous IDs, all defined + cited, no undefined/unused/duplicate, URLs)
 - `python scripts/audit_grandplan_claims.py` (heuristic scan for unqualified venue/perf claims)
-- `python scripts/audit_docset_claims.py` (same heuristic scan across the canonical docset + `findings.md`)
+- `python scripts/audit_docset_claims.py --all-tracked-markdown` (heuristic scan across all tracked Markdown outside submodules)
 - `python scripts/audit_research_governance.py` (strict schema/hash-chain/cross-ledger validation of
   the honest M0 scaffold; add `--require-freeze-ready` only when a real freeze is expected)
 - `python scripts/audit_research_governance_successor.py` (strict validation of the all-null typed
   v2 successor draft; its `--require-freeze-ready` mode is expected to exit 3)
-- Full tracked-Markdown sweep: `python scripts/audit_docset_claims.py --all-tracked-markdown`
-- With `just`: `just docs-audit` (checks generated capability views plus the five repository audits,
+- With `just`: `just docs-audit` (checks generated capability views and repository truth audits,
   including research-governance and pinned-dependency truth)
 - Formal abstraction checks: `just formal` (requires Z3; proves only the obligations described in
   `formal/README.md`, never an empirical hypothesis or implementation refinement by itself)
@@ -304,6 +311,8 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   two expected `not_assessable` guards (logical pause and security-profile claim), and zero
   mismatches. `all_expectations_matched=true` means those classifications held, not an 18/18
   detection rate.
+  Public NCP main at `10492c81` is an unreleased, release-blocked `1.0.0-rc.1` wire-1.0
+  candidate. Do not treat that moving head as a compatible update or release.
 - **Specified (not yet built):** a fuller Rerun-based diagnostic viewer and the deferred
   Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
 

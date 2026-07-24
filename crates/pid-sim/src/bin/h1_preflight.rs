@@ -722,7 +722,7 @@ fn read_input_snapshot(path: &Path) -> Result<InputSnapshot> {
 
     Ok(InputSnapshot {
         bytes,
-        sha256: format!("{:x}", hasher.finalize()),
+        sha256: pid_sim::lowercase_hex(hasher.finalize()),
         size,
     })
 }
@@ -1050,7 +1050,7 @@ fn read_exact_file(path: &Path, max_bytes: u64) -> Result<(Vec<u8>, String, u64)
             .context("failed to reserve artifact snapshot buffer")?;
         bytes.extend_from_slice(&chunk[..count]);
     }
-    Ok((bytes, format!("{:x}", hasher.finalize()), byte_len))
+    Ok((bytes, pid_sim::lowercase_hex(hasher.finalize()), byte_len))
 }
 
 fn hash_exact_file(path: &Path, max_bytes: u64) -> Result<(String, u64)> {
@@ -1079,7 +1079,7 @@ fn hash_exact_file(path: &Path, max_bytes: u64) -> Result<(String, u64)> {
         }
         hasher.update(&chunk[..count]);
     }
-    Ok((format!("{:x}", hasher.finalize()), byte_len))
+    Ok((pid_sim::lowercase_hex(hasher.finalize()), byte_len))
 }
 
 fn snapshot_source_run(
@@ -1132,7 +1132,7 @@ fn snapshot_source_run(
     inspection_file.seek(SeekFrom::Start(0))?;
     let events = pid_runlog::read_events(BufReader::new(inspection_file))?;
     let summary = pid_runlog::summarize_events(&events)?;
-    Ok((format!("{:x}", hasher.finalize()), byte_len, summary))
+    Ok((pid_sim::lowercase_hex(hasher.finalize()), byte_len, summary))
 }
 
 fn validate_semantic_documents(
@@ -1527,9 +1527,7 @@ fn write_atomic_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    format!("{:x}", hasher.finalize())
+    pid_runlog::sha256_hex(bytes)
 }
 
 fn sync_parent(path: &Path) -> Result<()> {

@@ -48,6 +48,12 @@ estimator, and application gates. Never pool continuous shared-exclusions atoms
 with discrete Williams–Beer `I_min`, route a failed continuous term to a
 different estimand, or emit a numeric placeholder for an abstention.
 
+## Technical writing
+
+Use the ASD-STE100 Issue 9 policy in `AGENTS.md` for project-owned technical prose.
+Keep the scientific meaning exact. Do not rewrite literals, equations, licenses, immutable intake,
+generated files, vendored files, or submodule documentation to satisfy a style preference.
+
 ## Required checks
 
 Run before every commit or pull request:
@@ -56,7 +62,7 @@ Run before every commit or pull request:
 cargo fmt --all -- --check
 cargo clippy --locked --workspace -- -D warnings
 cargo test --locked --workspace
-python scripts/audit_docset_claims.py
+python scripts/audit_docset_claims.py --all-tracked-markdown
 python scripts/audit_grandplan.py
 ```
 

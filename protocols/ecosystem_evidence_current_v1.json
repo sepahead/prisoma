@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-16",
+  "as_of_date": "2026-07-24",
   "scope": "offline current-state overlay on the complete 2026-07-12 public-ecosystem ledger",
   "baseline": {
     "path": "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -13,7 +13,7 @@
     "expiry": "re-review an edge when its producer revision, consumer revision, schema, wire, model, or adapter revision changes"
   },
   "last_network_refresh": {
-    "date": "2026-07-16",
+    "date": "2026-07-24",
     "method": "official GitHub refs plus exact-revision repository surfaces; archived baseline left immutable",
     "conclusion": "only pid-rs and NCP remain direct Prisoma edges; no reviewed sibling reached E2 with Prisoma or E4 scientific conformance"
   },
@@ -21,46 +21,46 @@
     {
       "project": "pid-rs",
       "observed_revision": "796c11e70f009634b853dc4ada6f565563d82f51",
-      "upstream_head_observed": "796c11e70f009634b853dc4ada6f565563d82f51",
+      "upstream_head_observed": "e50c12e0af2cc79682a87e5ac65c4fe1d8cf2b94",
       "evidence_level": "E2_dependency_E3_tested_local_paths",
       "relationship": "direct pinned submodule and local path dependency",
-      "current_boundary": "the exact 0.9.0 post-tag review source is pinned seven commits after v0.9.0; it makes no 1.x compatibility promise or registry/wheel publication promise, and its fixtures do not establish high-dimensional VLA application validity or independent corroboration",
+      "current_boundary": "the exact 0.9.0 post-tag review source is pinned seven commits after v0.9.0; upstream main has additional unadopted scientific-contract and exact-certifier work but states that Prisoma integration is not claimed; the pin makes no 1.x compatibility promise or registry/wheel publication promise, and its fixtures do not establish high-dimensional VLA application validity or independent corroboration",
       "source": "https://github.com/sepahead/pid-rs/tree/796c11e70f009634b853dc4ada6f565563d82f51"
     },
     {
       "project": "NCP",
       "observed_revision": "v0.8.0",
       "resolved_revision": "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e",
-      "upstream_head_observed": "db3fddc170b5235098f540134340ffaa8d9c2d2c",
+      "upstream_head_observed": "10492c81ac671ef1909962a9f1fede33781b9933",
       "evidence_level": "E2_dependency_with_tested_local_observer_fixtures",
       "relationship": "optional immutable dependency of the workspace-excluded read-only observer",
-      "current_boundary": "no conforming public live producer, secure deployment receipt, or E4 scientific conformance report",
+      "current_boundary": "upstream main is an unreleased, release-blocked 1.0.0-rc.1 wire-1.0 candidate that identifies Prisoma as an uncertified wire-0.8 consumer; no conforming public live producer, migration qualification, secure deployment receipt, or E4 scientific conformance report exists",
       "source": "https://github.com/sepahead/NCP/tree/v0.8.0"
     },
     {
       "project": "galadriel",
-      "observed_revision": "ff272dc814080c6766a53c872ca4d0e24bcd5132",
+      "observed_revision": "80506dd2ce52b33c3334c7d1760a8155c7631241",
       "evidence_level": "E0_between_projects",
-      "relationship": "candidate comparator sharing pid-rs and NCP; observation and producer-lifecycle sidecar contracts exist upstream, but no direct Prisoma adapter",
-      "current_boundary": "Crebain now has an optional evidence-sender component, but there is still no direct Prisoma adapter, deployed receiver-verified Crebain-to-Galadriel path, live monitor publisher/cross-route assembler, or receiver-verified end-to-end mTLS deployment; shared PID code remains one correlated implementation family",
-      "source": "https://github.com/sepahead/galadriel/tree/ff272dc814080c6766a53c872ca4d0e24bcd5132"
+      "relationship": "candidate comparator sharing pid-rs and NCP; strict two-route consumer, lifecycle adapter, and bounded operational receiver surfaces exist upstream, but no direct Prisoma adapter",
+      "current_boundary": "the public head freezes 0.9.0 candidate inputs and adds receiver-side implementation, but no reciprocal Prisoma pin, no direct Prisoma adapter, producer-consumer golden fixture, or deployed receiver-verified Crebain-to-Galadriel qualification exists; shared PID code remains one correlated implementation family",
+      "source": "https://github.com/sepahead/galadriel/tree/80506dd2ce52b33c3334c7d1760a8155c7631241"
     },
     {
       "project": "crebain",
-      "observed_revision": "09dd5ec1556bd56e6934e1ef019f95de84cf9b4f",
+      "observed_revision": "0a58a5b8dd799884ddb06f1308b1748216fab322",
       "prior_frame_capability_revision": "49d7b3614f24d21a40fe2af6dbeac082338ae9d7",
       "evidence_level": "E0_between_projects",
-      "relationship": "candidate producer with an off-by-default, two-gate native Galadriel evidence sender plus inactive plant-contract library surfaces and a profile-neutral frame-convention corpus",
-      "current_boundary": "the sender requires both the off-by-default ncp build feature and an exact runtime opt-in, while the standard release omits ncp and no release candidate or exact-head release evidence is sealed; a local put is not receiver receipt, decoding, correlation, or deployed TLS/ACL evidence, the frame corpus is not called by admission and carries no frame-instance or origin/datum/body-point proof, NCP action/control commands remain unregistered, and no direct Prisoma adapter, managed product route, or live Crebain-to-Engram loop exists",
-      "source": "https://github.com/sepahead/crebain/tree/09dd5ec1556bd56e6934e1ef019f95de84cf9b4f"
+      "relationship": "candidate producer with a public 0.9.0 research prerelease, bounded Galadriel evidence-sender component, inactive plant-contract surfaces, and a profile-neutral frame-convention corpus",
+      "current_boundary": "the public prerelease supplies component and historical-fixture evidence only; a local put is not receiver receipt, reciprocal Galadriel decoding, correlation, deployed TLS/ACL, or direct Prisoma evidence; the frame corpus is not called by admission and carries no frame-instance or origin/datum/body-point proof, NCP action/control commands remain unregistered, and no direct Prisoma adapter, managed product route, or live Crebain-to-Engram loop exists",
+      "source": "https://github.com/sepahead/crebain/tree/0a58a5b8dd799884ddb06f1308b1748216fab322"
     },
     {
       "project": "manwe",
-      "observed_revision": "0f6505bb5dadf5d70359b5ea6d545216342bd30a",
+      "observed_revision": "6d73405bbf5365039ee1d0db9c466ed6346a9c57",
       "evidence_level": "E0_E1",
       "relationship": "candidate difficult external adapter and transport test",
       "current_boundary": "the producer explicitly has no drop-in Prisoma adapter and documents schema, tensor, clock, frame, and statistical gaps",
-      "source": "https://github.com/sepahead/manwe/tree/0f6505bb5dadf5d70359b5ea6d545216342bd30a"
+      "source": "https://github.com/sepahead/manwe/tree/6d73405bbf5365039ee1d0db9c466ed6346a9c57"
     },
     {
       "project": "engram",
@@ -72,28 +72,28 @@
     },
     {
       "project": "haldir",
-      "observed_revision": "fbf5a5308da1c6a82eebe1afb56635bf0d6fd798",
+      "observed_revision": "555108666cb82e8a36dcd4b08b5b30c62367a6f4",
       "baseline_reviewed_capability_revision": "2a55f3dc8f78fa3b5c8d11dd02a2de5f4ef8d721",
       "evidence_level": "E0_between_projects",
       "relationship": "candidate security and authority comparator with no direct Prisoma edge",
       "current_boundary": "upstream now has substantial internal P0/durability work, an opt-in exact NCP adapter, a narrow receiver-observed synthetic mTLS/ACL campaign, an off-by-default exact-route strict-publisher binding with a broader Called-lifecycle fault matrix, and fail-closed validation of a caller-declared live startup profile, but the declaration is cooperative, process-local, bypassable through lower-level construction, and not durably bound; positive composition and result/fault evidence use test-only seams and no live Zenoh session executes the concrete method; there is no runnable service, credential-custody proof, Crebain application, immutable release, E4 report, or direct Prisoma route, and any use must remain offline/advisory unless the Agent Bridge-only control-plane decision is revised",
-      "source": "https://github.com/sepahead/haldir/tree/fbf5a5308da1c6a82eebe1afb56635bf0d6fd798"
+      "source": "https://github.com/sepahead/haldir/tree/555108666cb82e8a36dcd4b08b5b30c62367a6f4"
     },
     {
       "project": "cortexel",
-      "observed_revision": "16f2da71a5beb863235a90e552e6772639638be3",
+      "observed_revision": "d29669e6d5b1766fd96e1eacefb02b3f43c5ce61",
       "evidence_level": "E0_between_projects",
       "relationship": "candidate read-only visualization consumer with no direct Prisoma edge",
-      "current_boundary": "upstream has a strict versioned VizSpec, generated manifest, provenance/resource gates, and checked render paths, but remains pre-1.0, lacks headless export, and does not supersede Prisoma's Rerun-first decision or establish a Prisoma contract",
-      "source": "https://github.com/sepahead/cortexel/tree/16f2da71a5beb863235a90e552e6772639638be3"
+      "current_boundary": "the public 0.9.0 prerelease provides deterministic accessible SVG export across its 19 stable visualization families, but has no published package or DOI, external oracle or real-adapter evidence, or Prisoma contract and does not supersede Prisoma's Rerun-first decision",
+      "source": "https://github.com/sepahead/cortexel/tree/d29669e6d5b1766fd96e1eacefb02b3f43c5ce61"
     },
     {
       "project": "melkor",
-      "observed_revision": "21c8fb53f58e19a78d92a4b01ce479374a7b8633",
+      "observed_revision": "529260f568c62250b0541a11f5c24b45767bf1cf",
       "evidence_level": "E0_between_projects",
-      "relationship": "candidate optional reconstruction and scene-variation producer with no direct Prisoma edge",
-      "current_boundary": "upstream has a source release candidate, versioned inspection contract, reviewed reconstruction bridges, and render tests, but no calibrated reconstruction-to-diagnostic uncertainty claim, Prisoma adapter, or E4 report; optional tool/model licenses vary",
-      "source": "https://github.com/sepahead/melkor/tree/21c8fb53f58e19a78d92a4b01ce479374a7b8633"
+      "relationship": "candidate optional reconstruction and scene-variation producer with canonical scene and Gaussian-splat GLB surfaces but no direct Prisoma edge",
+      "current_boundary": "upstream has a v2 development/release-candidate line, canonical scene model, KHR_gaussian_splatting GLB reader/writer, inspection/conversion paths, and resource hardening, but no calibrated reconstruction-to-diagnostic uncertainty claim, Prisoma adapter, or E4 report; optional tool/model licenses vary",
+      "source": "https://github.com/sepahead/melkor/tree/529260f568c62250b0541a11f5c24b45767bf1cf"
     }
   ]
 }

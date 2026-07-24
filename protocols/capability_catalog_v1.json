@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-16",
+  "as_of_date": "2026-07-24",
   "canonical_spec": {
     "path": "grandplan.md",
     "version": "12.5",
@@ -627,7 +627,7 @@
         "Cargo.toml",
         "Cargo.lock"
       ],
-      "external_revision": "rapier3d-f64@0.22.0#sha256:7a7a0cd7daa6f2caa8168b97e047faa1e445ee984c24e0ca984e7fc657278dde",
+      "external_revision": "rapier3d-f64@0.34.0#sha256:4351e821e5db9464a22d59f3e7903ab5759f7c1241bb82f042486494e5178ecf",
       "test_command": "just rapier-test",
       "evidence_artifacts": [
         "crates/pid-sim/src/physics.rs",

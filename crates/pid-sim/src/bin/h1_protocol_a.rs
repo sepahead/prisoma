@@ -995,7 +995,7 @@ fn read_exact_snapshot(path: &Path, maximum: u64) -> Result<ExactSnapshot> {
     }
     Ok(ExactSnapshot {
         bytes: Some(bytes),
-        sha256: Some(format!("{:x}", hasher.finalize())),
+        sha256: Some(pid_sim::lowercase_hex(hasher.finalize())),
         byte_len,
     })
 }
@@ -1092,9 +1092,7 @@ fn sync_parent(path: &Path) -> Result<()> {
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    format!("{:x}", hasher.finalize())
+    pid_runlog::sha256_hex(bytes)
 }
 
 fn push_cli_issue(

@@ -7,6 +7,10 @@ and supplies no executable publisher. This crate is a **read-only observer**: it
 NCP data-plane keys over Zenoh and never drives anything (the Agent Bridge stays the only control
 plane).
 
+> **Compatibility boundary (rechecked 2026-07-24):** this crate pins immutable NCP `v0.8.0`
+> and wire 0.8. Public NCP main at `10492c81` is an unreleased, release-blocked
+> `1.0.0-rc.1` wire-1.0 candidate. It is not a compatible dependency update.
+
 It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the published
 NCP repo **<https://github.com/sepahead/NCP>**. Spec: `NEURO_CYBERNETIC_PROTOCOL.md`
 in that repo.

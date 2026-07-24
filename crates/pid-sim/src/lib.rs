@@ -31,6 +31,18 @@ pub mod toy_harness;
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";
 pub const DEFAULT_BRIDGE_RUN_ID: &str = "sim-bridge-run";
 
+/// Encode bytes as lowercase hexadecimal text without separators.
+pub fn lowercase_hex(bytes: impl AsRef<[u8]>) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let bytes = bytes.as_ref();
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
+}
+
 /// File-backed run-log sink whose `flush` also fsyncs file contents and file
 /// metadata. The bridge calls `flush` before every wire response, so the three
 /// executable transports do not acknowledge control while provenance remains
@@ -2429,6 +2441,11 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn lowercase_hex_encodes_each_nibble() {
+        assert_eq!(lowercase_hex([0x00, 0x1f, 0xa5, 0xff]), "001fa5ff");
+    }
 
     #[derive(Clone)]
     struct LineGateControl {

@@ -31,7 +31,7 @@ docs-audit:
     python scripts/audit_research_governance_successor.py
     python scripts/audit_grandplan.py
     python scripts/audit_grandplan_claims.py
-    python scripts/audit_docset_claims.py
+    python scripts/audit_docset_claims.py --all-tracked-markdown
     python scripts/audit_repo_truth.py
 
 # Machine-checked abstract invariants and required countermodels. These prove only

@@ -122,6 +122,9 @@ high-dimensional MI/coherence route is NO-GO, and continuous shared-exclusions P
 embeddings is not application-validated. An output may be computed only when declared support
 permits it; an abstention has no numeric placeholder and must not be interpreted as zero.
 
+Public `pid-rs` main was observed at `e50c12e` on 2026-07-24. Its newer contracts and exact
+certifier remain unadopted. Provenance improvements do not establish application validity.
+
 Population, measure, estimator, and application verdicts are separate. Geometry diagnostics and
 sampled-mean delta are descriptive and cannot clear those gates. Continuous shared-exclusions
 atoms and quantized discrete Williams–Beer `I_min` atoms are different estimands and must never be
@@ -182,6 +185,8 @@ fault observatory exercises a finite local fixture and records a known whole-tic
 spot; it does not measure live timing, delivery completeness, QoS, reconnect behavior,
 authentication, ACL enforcement, or producer noninterference. The observer's visible-receipt
 capture grade is a join/publication grade, not proof that every source event was delivered.
+Public NCP main at `10492c81` is an unreleased, release-blocked `1.0.0-rc.1` wire-1.0
+candidate. Prisoma has no qualified migration path to that incompatible wire.
 The Zenoh 1.9 dependency graph retains `lz4_flex` 0.10.0, which is affected by the
 high-severity RUSTSEC-2026-0041 block-decompression information disclosure. The checked profile
 does not enable Zenoh's `transport_compression`, so the affected call is cfg-elided, and CI fails
@@ -189,10 +194,9 @@ if that feature appears. The vulnerable package is still present in the optional
 not a clean audit, does not qualify the NCP binary for release or live use, and must be removed by
 a qualified NCP/Zenoh pin admitting `lz4_flex` 0.11.6 or newer. The graph also retains the
 unmaintained (not known vulnerable) `rustls-pemfile` 2.2.0 because no compatible replacement
-exists. The root all-features lock/CI graph retains the unmaintained `paste` 1.0.15 proc-macro
-through optional Rapier's nalgebra tree, and the observer graph retains it through Zenoh; the
-default-feature root build does not compile it. `deny.toml` records each temporary exception and
-its actual dependency scope.
+exists. The observer graph also retains the unmaintained `paste` 1.0.15 proc-macro through Zenoh.
+Rapier 0.34 removed `paste` from the root graph. `deny.toml` records these temporary observer
+exceptions.
 
 No conforming public live producer currently supplies the honest language, split, episode, and
 outcome structure needed by the research path, and the public Engram repository is not a live

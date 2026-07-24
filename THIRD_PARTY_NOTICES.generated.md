@@ -13,18 +13,18 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 | `anyhow` | 1.0.103 | MIT OR Apache-2.0 |
 | `base64` | 0.22.1 | MIT OR Apache-2.0 |
 | `libc` | 0.2.186 | MIT OR Apache-2.0 |
-| `ndarray` | 0.16.1 | MIT OR Apache-2.0 |
+| `ndarray` | 0.17.2 | MIT OR Apache-2.0 |
 | `pid-core` | 0.9.0 | MIT OR Apache-2.0 |
 | `pid-runlog` | 0.9.0 | MIT OR Apache-2.0 |
-| `rapier3d-f64` | 0.22.0 | Apache-2.0 |
+| `rapier3d-f64` | 0.34.0 | Apache-2.0 |
 | `re_log_encoding` | 0.34.1 | MIT OR Apache-2.0 |
 | `re_sdk` | 0.34.1 | MIT OR Apache-2.0 |
 | `re_sdk_types` | 0.34.1 | MIT OR Apache-2.0 |
 | `same-file` | 1.0.6 | Unlicense/MIT |
 | `serde` | 1.0.228 | MIT OR Apache-2.0 |
 | `serde_json` | 1.0.150 | MIT OR Apache-2.0 |
-| `sha1` | 0.10.6 | MIT OR Apache-2.0 |
-| `sha2` | 0.10.9 | MIT OR Apache-2.0 |
+| `sha1` | 0.11.0 | MIT OR Apache-2.0 |
+| `sha2` | 0.11.0 | MIT OR Apache-2.0 |
 | `tempfile` | 3.27.0 | MIT OR Apache-2.0 |
 
 ## Python declared dependencies (versions locked in `uv.lock`)

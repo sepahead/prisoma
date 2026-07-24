@@ -15,6 +15,26 @@ gates — not the thesis premise. The canonical spec is `grandplan.md` (**docset
 — **not** vendored here. Edit the estimator core upstream, then bump the submodule; never re-add
 copies to this repo.
 
+## Technical writing
+
+Use [ASD-STE100 Issue 9](https://www.asd-ste100.org/assets/files/ASD-STE100_ISSUE9.pdf)
+for project-owned technical prose. Call the result **STE-aligned**, not certified.
+
+- Use American English and one consistent term for each concept.
+- Keep descriptive sentences to 25 words or fewer.
+- Keep procedural sentences to 20 words or fewer.
+- Use active voice, simple tenses, and direct imperative steps.
+- Put each condition before its action. Give one instruction per step.
+- Do not use contractions or semicolons in technical prose.
+- Keep one topic in each paragraph and no more than six sentences.
+- Preserve exact domain, API, command, identifier, and mathematical terms.
+- Verify every command, link, version, capability, and scientific-status statement.
+
+Accuracy and fail-closed meaning take priority over vocabulary limits. Exempt code, commands,
+paths, identifiers, literals, equations, tables, exact quotations, licenses, and historical records.
+Do not rewrite immutable intake, generated files, vendored files, or submodule documentation.
+Follow the complete policy and exception list in `AGENTS.md`.
+
 ## The rules you cannot get wrong
 
 1. **Gate discipline.** Do not interpret PID atoms on real embeddings. PID validity is split
@@ -44,7 +64,7 @@ copies to this repo.
 cargo fmt --all -- --check
 cargo clippy --workspace -- -D warnings
 cargo test --workspace
-python scripts/audit_docset_claims.py
+python scripts/audit_docset_claims.py --all-tracked-markdown
 python scripts/audit_grandplan.py   # validates the R1-R112 reference ledger
 ```
 
@@ -66,4 +86,8 @@ equivalents in `AGENTS.md`. `just test` / `just docs-audit` wrap the above.
   with NCP disabled and H1/H2 must run with PID disabled (dependency firebreak, §8.9.3).
 - **NCP is a pinned git dependency**, currently tag `v0.8.0` (wire 0.8); no sibling checkout is
   required. If the wire pin changes, re-pin/re-verify `ncp-observer` and update every active
-  doc site in the same change.
+  doc site in the same change. Public NCP main at `10492c81` is an unreleased, release-blocked
+  `1.0.0-rc.1` wire-1.0 candidate. Do not compile this wire-0.8 consumer against it.
+- **The estimator pin is deliberate.** Public `pid-rs` main at `e50c12e` has newer unadopted
+  contracts and exact-certifier work. Keep `796c11e` until a consumer-owned compatibility and
+  scientific-value review supports a pin change. New provenance surfaces do not open PID gates.

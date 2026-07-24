@@ -6,6 +6,10 @@
 > README-only placeholder and supplies no executable publisher. Self-contained;
 > read it top to bottom before touching code.
 
+> **Compatibility boundary (rechecked 2026-07-24):** keep immutable NCP `v0.8.0` / wire 0.8.
+> Public NCP main at `10492c81` is an unreleased, release-blocked `1.0.0-rc.1` wire-1.0
+> candidate. Do not compile this consumer against that moving head.
+
 ## 1. Context (what this is and is not)
 
 **prisoma** is a Partial Information Decomposition (PID) toolkit for Vision-Language-Action

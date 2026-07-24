@@ -376,14 +376,13 @@ pub mod rapier_adapter {
     //! is intentionally not enabled here.
 
     use super::*;
-    use rapier3d_f64::na::{Isometry3, Quaternion, Translation3, UnitQuaternion, Vector3};
     use rapier3d_f64::prelude::*;
     use std::collections::BTreeMap;
 
     /// Real Rapier3D (f64) physics backend.
     pub struct RapierBackend {
         config: PhysicsWorldConfig,
-        gravity: Vector3<f64>,
+        gravity: Vector,
         integration_parameters: IntegrationParameters,
         physics_pipeline: PhysicsPipeline,
         islands: IslandManager,
@@ -394,7 +393,6 @@ pub mod rapier_adapter {
         impulse_joints: ImpulseJointSet,
         multibody_joints: MultibodyJointSet,
         ccd_solver: CCDSolver,
-        query_pipeline: QueryPipeline,
         /// Dynamic body handles by object id (ground is tracked separately).
         handles: BTreeMap<String, RigidBodyHandle>,
         /// Insertion order, so snapshots are deterministic regardless of map order.
@@ -407,7 +405,7 @@ pub mod rapier_adapter {
 
     impl RapierBackend {
         pub fn new(config: PhysicsWorldConfig) -> Self {
-            let gravity = Vector3::new(config.gravity[0], config.gravity[1], config.gravity[2]);
+            let gravity = Vector::new(config.gravity[0], config.gravity[1], config.gravity[2]);
             let integration_parameters = IntegrationParameters {
                 dt: config.fixed_dt_secs,
                 ..Default::default()
@@ -425,7 +423,6 @@ pub mod rapier_adapter {
                 impulse_joints: ImpulseJointSet::new(),
                 multibody_joints: MultibodyJointSet::new(),
                 ccd_solver: CCDSolver::new(),
-                query_pipeline: QueryPipeline::new(),
                 handles: BTreeMap::new(),
                 order: Vec::new(),
                 last_contact_count: 0,
@@ -461,7 +458,7 @@ pub mod rapier_adapter {
                 bail!("ground friction must be finite and nonnegative");
             }
             let body = RigidBodyBuilder::fixed()
-                .translation(Vector3::new(0.0, 0.0, -thickness))
+                .translation(Vector::new(0.0, 0.0, -thickness))
                 .build();
             let handle = self.bodies.insert(body);
             let collider = ColliderBuilder::cuboid(half_extent_xy, half_extent_xy, thickness)
@@ -494,29 +491,23 @@ pub mod rapier_adapter {
             Ok(())
         }
 
-        fn quat_from_xyzw(q: [f64; 4]) -> UnitQuaternion<f64> {
-            // nalgebra Quaternion::new(w, i, j, k); the input layout is [x, y, z, w].
-            // Scale before nalgebra normalizes so a valid, extreme finite
+        fn quat_from_xyzw(q: [f64; 4]) -> Rotation {
+            // Scale before glam normalizes so a valid, extreme finite
             // quaternion cannot overflow while its squared norm is evaluated.
             let scale = q.iter().map(|value| value.abs()).fold(0.0_f64, f64::max);
-            UnitQuaternion::from_quaternion(Quaternion::new(
-                q[3] / scale,
-                q[0] / scale,
-                q[1] / scale,
-                q[2] / scale,
-            ))
+            Rotation::from_xyzw(q[0] / scale, q[1] / scale, q[2] / scale, q[3] / scale).normalize()
         }
 
         fn state_for(&self, object_id: &str, handle: RigidBodyHandle) -> Option<RigidBodyState> {
             let rb = self.bodies.get(handle)?;
             let t = rb.translation();
-            let q = rb.rotation().quaternion();
+            let q = rb.rotation();
             let lv = rb.linvel();
             let av = rb.angvel();
             Some(RigidBodyState {
                 object_id: object_id.to_string(),
                 position: [t.x, t.y, t.z],
-                orientation_xyzw: [q.i, q.j, q.k, q.w],
+                orientation_xyzw: [q.x, q.y, q.z, q.w],
                 linear_velocity: [lv.x, lv.y, lv.z],
                 angular_velocity: [av.x, av.y, av.z],
             })
@@ -547,11 +538,11 @@ pub mod rapier_adapter {
                 bail!("duplicate object_id: {object_id}");
             }
             validate_body_inputs(position, orientation_xyzw, half_extents, mass_kg)?;
-            let iso = Isometry3::from_parts(
-                Translation3::new(position[0], position[1], position[2]),
+            let pose = Pose::from_parts(
+                Vector::new(position[0], position[1], position[2]),
                 Self::quat_from_xyzw(orientation_xyzw),
             );
-            let body = RigidBodyBuilder::dynamic().position(iso).build();
+            let body = RigidBodyBuilder::dynamic().pose(pose).build();
             let handle = self.bodies.insert(body);
             // Back-solve density so the collider mass matches the requested mass.
             let volume = 8.0 * half_extents[0] * half_extents[1] * half_extents[2];
@@ -609,7 +600,7 @@ pub mod rapier_adapter {
                 .bodies
                 .get_mut(handle)
                 .ok_or_else(|| anyhow::anyhow!("missing body for {object_id}"))?;
-            body.apply_impulse(Vector3::new(impulse[0], impulse[1], impulse[2]), true);
+            body.apply_impulse(Vector::new(impulse[0], impulse[1], impulse[2]), true);
             Ok(())
         }
 
@@ -625,7 +616,7 @@ pub mod rapier_adapter {
                 .bodies
                 .get_mut(handle)
                 .ok_or_else(|| anyhow::anyhow!("missing body for {object_id}"))?;
-            body.set_linvel(Vector3::new(velocity[0], velocity[1], velocity[2]), true);
+            body.set_linvel(Vector::new(velocity[0], velocity[1], velocity[2]), true);
             Ok(())
         }
 
@@ -659,7 +650,7 @@ pub mod rapier_adapter {
             let events = ();
             for _ in 0..n_sub {
                 self.physics_pipeline.step(
-                    &self.gravity,
+                    self.gravity,
                     &self.integration_parameters,
                     &mut self.islands,
                     &mut self.broad_phase,
@@ -669,7 +660,6 @@ pub mod rapier_adapter {
                     &mut self.impulse_joints,
                     &mut self.multibody_joints,
                     &mut self.ccd_solver,
-                    Some(&mut self.query_pipeline),
                     &hooks,
                     &events,
                 );
@@ -677,7 +667,7 @@ pub mod rapier_adapter {
             self.last_contact_count = self
                 .narrow_phase
                 .contact_pairs()
-                .filter(|p| p.has_any_active_contact)
+                .filter(|p| p.has_any_active_contact())
                 .count();
             let bodies = self.snapshot();
             if bodies.len() != self.order.len() {

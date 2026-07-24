@@ -749,7 +749,7 @@ analysis = [
 ]
 dev = [
     { name = "maturin", specifier = ">=1.0,<2.0" },
-    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest", specifier = ">=9.0.3" },
     { name = "ruff", specifier = ">=0.6" },
 ]
 report = [{ name = "reportlab", specifier = ">=4.0" }]
