@@ -7,6 +7,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 pub const BRIDGE_METHODS: &[&str] = &[
+    "bridge.describe",
     "sim.status",
     "sim.reset",
     "sim.step",
@@ -23,6 +24,7 @@ pub const BRIDGE_TRANSPORTS: &[&str] = &["local", "stdio_jsonl", "tcp_jsonl", "w
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BridgeMethod {
+    BridgeDescribe,
     SimStatus,
     SimReset,
     SimStep,
@@ -37,6 +39,7 @@ pub enum BridgeMethod {
 impl BridgeMethod {
     pub fn as_str(&self) -> &'static str {
         match self {
+            BridgeMethod::BridgeDescribe => "bridge.describe",
             BridgeMethod::SimStatus => "sim.status",
             BridgeMethod::SimReset => "sim.reset",
             BridgeMethod::SimStep => "sim.step",
@@ -49,8 +52,15 @@ impl BridgeMethod {
         }
     }
 
+    /// Reports static method eligibility under the bridge safe-mode policy.
+    ///
+    /// This value does not report an active session's mode or attest that a
+    /// transport currently enforces safe mode.
     pub fn safe_mode_allowed(&self) -> bool {
-        matches!(self, BridgeMethod::SimStatus | BridgeMethod::LogReplay)
+        matches!(
+            self,
+            BridgeMethod::BridgeDescribe | BridgeMethod::SimStatus | BridgeMethod::LogReplay
+        )
     }
 }
 
@@ -61,6 +71,9 @@ pub struct BridgeMethodContract {
     pub response_payload: String,
     pub emits_action: bool,
     pub emits_intervention: bool,
+    /// Static safe-mode eligibility for this method.
+    ///
+    /// This field is not active-session state or a runtime safety attestation.
     pub safe_mode_allowed: bool,
 }
 
@@ -122,7 +135,7 @@ pub fn bridge_contract() -> BridgeContract {
 
 fn bridge_request_payload_hint(method: &str) -> &'static str {
     match method {
-        "sim.status" | "sim.reset" | "log.stop" => "{}",
+        "bridge.describe" | "sim.status" | "sim.reset" | "log.stop" => "{}",
         "sim.step" => r#"{"dt": number}"#,
         "log.start" => r#"{"run_id": string?, "metadata": object?}"#,
         "log.replay" => r#"{"run_log_uri": string}"#,
@@ -139,7 +152,10 @@ fn bridge_request_payload_hint(method: &str) -> &'static str {
 
 fn bridge_request_parameter_names(method: &BridgeMethod) -> &'static [&'static str] {
     match method {
-        BridgeMethod::SimStatus | BridgeMethod::SimReset | BridgeMethod::LogStop => &[],
+        BridgeMethod::BridgeDescribe
+        | BridgeMethod::SimStatus
+        | BridgeMethod::SimReset
+        | BridgeMethod::LogStop => &[],
         BridgeMethod::SimStep => &["dt"],
         BridgeMethod::LogStart => &["run_id", "metadata"],
         BridgeMethod::LogReplay => &["run_log_uri"],
@@ -151,6 +167,7 @@ fn bridge_request_parameter_names(method: &BridgeMethod) -> &'static [&'static s
 
 fn bridge_response_payload_hint(method: &str) -> &'static str {
     match method {
+        "bridge.describe" => r#"{"run_log": RunLogContract, "bridge": BridgeContract}"#,
         "sim.status" | "sim.reset" | "scene.set_object" => {
             r#"{"step": integer, "timestamp_ns": integer, "objects": integer}"#
         }
@@ -187,6 +204,7 @@ impl FromStr for BridgeMethod {
 
     fn from_str(value: &str) -> Result<Self> {
         match value {
+            "bridge.describe" | "bridge_describe" => Ok(BridgeMethod::BridgeDescribe),
             "sim.status" | "sim_status" => Ok(BridgeMethod::SimStatus),
             "sim.reset" | "sim_reset" => Ok(BridgeMethod::SimReset),
             "sim.step" | "sim_step" => Ok(BridgeMethod::SimStep),
@@ -1052,6 +1070,33 @@ mod tests {
     }
 
     #[test]
+    fn bridge_describe_is_safe_and_parameterless() {
+        let request: BridgeRpcRequest = serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":"describe","method":"bridge.describe","params":{}}"#,
+        )
+        .unwrap();
+        let method = request.validated_method().unwrap();
+        assert_eq!(method, BridgeMethod::BridgeDescribe);
+        assert!(method.safe_mode_allowed());
+        request.validated_params_for_method(&method).unwrap();
+
+        let request = request.into_bridge_request(actor(), Some(0), 1).unwrap();
+        assert_eq!(request.method, BridgeMethod::BridgeDescribe);
+        assert_eq!(request.payload, json!({}));
+    }
+
+    #[test]
+    fn bridge_describe_rejects_undeclared_parameters() {
+        let request: BridgeRpcRequest = serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":"describe","method":"bridge.describe","params":{"authority":"write"}}"#,
+        )
+        .unwrap();
+        let method = request.validated_method().unwrap();
+        assert!(request.validated_params_for_method(&method).is_err());
+        assert!(request.into_bridge_request(actor(), Some(0), 1).is_err());
+    }
+
+    #[test]
     fn bridge_contract_lists_methods_and_transports() {
         let contract = bridge_runlog_contract();
         assert_eq!(
@@ -1073,6 +1118,18 @@ mod tests {
         assert_eq!(contract.bridge.methods.len(), BRIDGE_METHODS.len());
         assert!(!contract.bridge.batch_supported);
         assert!(contract.bridge.notifications_supported);
+        let describe = contract
+            .bridge
+            .methods
+            .iter()
+            .find(|method| method.method == "bridge.describe")
+            .unwrap();
+        assert!(describe.safe_mode_allowed);
+        assert!(!describe.emits_action);
+        assert!(!describe.emits_intervention);
+        assert_eq!(describe.request_payload, "{}");
+        assert!(describe.response_payload.contains("run_log"));
+        assert!(describe.response_payload.contains("bridge"));
         let step = contract
             .bridge
             .methods
@@ -1117,6 +1174,37 @@ mod tests {
         assert!(!intervention.emits_action);
         assert!(intervention.emits_intervention);
         assert!(intervention.request_payload.contains("set_velocity"));
+    }
+
+    #[test]
+    fn engram_manifest_semantics_match_local_byte_lock() {
+        let bytes = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../integrations/engram/manifest.json"
+        ));
+        let manifest: serde_json::Value = serde_json::from_slice(bytes).unwrap();
+        let lock: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../integrations/engram/manifest.lock.json"
+        )))
+        .unwrap();
+
+        assert_eq!(manifest["schema_version"], "1.0");
+        assert_eq!(manifest["id"], "sepahead.prisoma");
+        assert_eq!(manifest["authority"], "read-only");
+        assert_eq!(manifest["entrypoint"]["kind"], "host-rendered-artifacts");
+        assert_eq!(manifest["entrypoint"]["renderer"], "prisoma-runlog-v1");
+        assert_eq!(
+            manifest["requested_capabilities"],
+            json!(["status.read", "artifacts.read", "bridge.safe-read"])
+        );
+        assert_eq!(manifest["ncp"]["wire"], "0.8");
+        assert_eq!(manifest["ncp"]["engram_wire"], "1.0");
+        assert_eq!(manifest["ncp"]["compatible"], false);
+        assert_eq!(lock["schema_version"], 1);
+        assert_eq!(lock["id"], "sepahead.prisoma");
+        assert_eq!(lock["hash_revision"], "file_bytes_v1");
+        assert_eq!(lock["sha256"], pid_runlog::sha256_hex(bytes));
     }
 
     #[test]

@@ -461,7 +461,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "1694d4ea122870c76c665e66ec06627c8ba4e79a586012a525602264bcb1f588",
+        "sha256": "110cd11542e2022a1c58112e155ad993dee3d9155ac9cf29410772e3e443f6f9",
         "tests": [],
         "updated_at": null
       },
@@ -485,16 +485,16 @@
       },
       "path": "AGENTS.md",
       "working_tree": {
-        "bytes": 34485,
+        "bytes": 34516,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 455,
         "link_target": null,
         "mode": "100644",
-        "sha256": "1694d4ea122870c76c665e66ec06627c8ba4e79a586012a525602264bcb1f588"
+        "sha256": "110cd11542e2022a1c58112e155ad993dee3d9155ac9cf29410772e3e443f6f9"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -516,7 +516,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "191c1c5345ebaaabbb3e6cbea4e3ac66f1e1ff856a2d2c98e9b1a8772fad3493",
+        "sha256": "51ebac01d937c64273705f5847f6871e1161c77782fcc7822487233ea2c5a067",
         "tests": [],
         "updated_at": null
       },
@@ -540,16 +540,16 @@
       },
       "path": "ARCHITECTURE.md",
       "working_tree": {
-        "bytes": 46551,
+        "bytes": 46573,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 640,
         "link_target": null,
         "mode": "100644",
-        "sha256": "191c1c5345ebaaabbb3e6cbea4e3ac66f1e1ff856a2d2c98e9b1a8772fad3493"
+        "sha256": "51ebac01d937c64273705f5847f6871e1161c77782fcc7822487233ea2c5a067"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -901,7 +901,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "3a54741b09d955393bda0f2efa925ede673d8df56b443d9f9138897b0154585c",
+        "sha256": "b55665c5262e7f340b15c41683e4ad12f1c069d09f254c88ad6da0812543ee35",
         "tests": [],
         "updated_at": null
       },
@@ -925,16 +925,16 @@
       },
       "path": "DIAGRAMS.md",
       "working_tree": {
-        "bytes": 30343,
+        "bytes": 30389,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 678,
         "link_target": null,
         "mode": "100644",
-        "sha256": "3a54741b09d955393bda0f2efa925ede673d8df56b443d9f9138897b0154585c"
+        "sha256": "b55665c5262e7f340b15c41683e4ad12f1c069d09f254c88ad6da0812543ee35"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -956,7 +956,7 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "33fe8e0664437421f6ed16f3d9259bb5ed9d05668484005b8510d84ab7879597",
+        "sha256": "27ac95c0c7576823dac3357c379b3a6c65c94c25fbdddaa56626ed319da8f786",
         "tests": [],
         "updated_at": null
       },
@@ -980,16 +980,16 @@
       },
       "path": "EXPERIMENTS.md",
       "working_tree": {
-        "bytes": 148677,
+        "bytes": 148703,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 2112,
         "link_target": null,
         "mode": "100644",
-        "sha256": "33fe8e0664437421f6ed16f3d9259bb5ed9d05668484005b8510d84ab7879597"
+        "sha256": "27ac95c0c7576823dac3357c379b3a6c65c94c25fbdddaa56626ed319da8f786"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -1278,7 +1278,7 @@
         "git_blob_id": "31c05866ea4ba3a5b5b9c9aefee4349c44e9e7a2",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 615,
+        "line_count": 624,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "README.md",
         "public_surface": true,
@@ -1286,7 +1286,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "7d5e315959dc2d2c0ff36e75140730e9bfdd227bb65bc9d12ad9b4bd655ff1fe",
+        "sha256": "e39245d1609dd630caa0f7b06a89a4429d674aab5335aaeee451fd8d7587be0f",
         "tests": [],
         "updated_at": null
       },
@@ -1310,16 +1310,16 @@
       },
       "path": "README.md",
       "working_tree": {
-        "bytes": 48684,
+        "bytes": 49476,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 615,
+        "line_count": 624,
         "link_target": null,
         "mode": "100644",
-        "sha256": "7d5e315959dc2d2c0ff36e75140730e9bfdd227bb65bc9d12ad9b4bd655ff1fe"
+        "sha256": "e39245d1609dd630caa0f7b06a89a4429d674aab5335aaeee451fd8d7587be0f"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -2488,7 +2488,7 @@
         "git_blob_id": "391fe0c3902b50ed002132c6092e3b8f5815c74a",
         "independent_reviewer": null,
         "language": "Rust",
-        "line_count": 1157,
+        "line_count": 1245,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "crates/pid-bridge/src/lib.rs",
         "public_surface": true,
@@ -2496,7 +2496,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "e04e375e5b951d4a6e51cd1cd4b457fe05d7664cdd201eb1cf1669210b35f5cb",
+        "sha256": "4683835c95f93b9ac60cabe905f422fd730e9bff75b7690a4658140afd32faf1",
         "tests": [],
         "updated_at": null
       },
@@ -2520,16 +2520,16 @@
       },
       "path": "crates/pid-bridge/src/lib.rs",
       "working_tree": {
-        "bytes": 41115,
+        "bytes": 44931,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 1157,
+        "line_count": 1245,
         "link_target": null,
         "mode": "100644",
-        "sha256": "e04e375e5b951d4a6e51cd1cd4b457fe05d7664cdd201eb1cf1669210b35f5cb"
+        "sha256": "4683835c95f93b9ac60cabe905f422fd730e9bff75b7690a4658140afd32faf1"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -5788,7 +5788,7 @@
         "git_blob_id": "6f16aff7ad01cbed55197af86718c3c83f953809",
         "independent_reviewer": null,
         "language": "Rust",
-        "line_count": 4998,
+        "line_count": 5128,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "crates/pid-sim/src/lib.rs",
         "public_surface": true,
@@ -5796,7 +5796,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "3bb09716f0e3bf1b393c7d1bbef2f8f760124f11b2f4bf64663e43df94930f7c",
+        "sha256": "e6cd5b201d30c0dc927145b11cea169eb74d6db54a20b7d703a6219b90e57d04",
         "tests": [],
         "updated_at": null
       },
@@ -5820,16 +5820,16 @@
       },
       "path": "crates/pid-sim/src/lib.rs",
       "working_tree": {
-        "bytes": 186569,
+        "bytes": 191626,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 4998,
+        "line_count": 5128,
         "link_target": null,
         "mode": "100644",
-        "sha256": "3bb09716f0e3bf1b393c7d1bbef2f8f760124f11b2f4bf64663e43df94930f7c"
+        "sha256": "e6cd5b201d30c0dc927145b11cea169eb74d6db54a20b7d703a6219b90e57d04"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -6236,7 +6236,7 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "ee2a9f3943ef467fd9bb88538c8bc74facbf443cbee34c7f9d76730ac789ed42",
+        "sha256": "15817f195d7d6061a34467770258fc882bc73b1342d85e214d92d278cb2bbcb2",
         "tests": [],
         "updated_at": null
       },
@@ -6267,9 +6267,9 @@
         "line_count": 39,
         "link_target": null,
         "mode": "100644",
-        "sha256": "ee2a9f3943ef467fd9bb88538c8bc74facbf443cbee34c7f9d76730ac789ed42"
+        "sha256": "15817f195d7d6061a34467770258fc882bc73b1342d85e214d92d278cb2bbcb2"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -8910,6 +8910,98 @@
         "sha256": "0db48e35542f2814a034b4f8e3660bf4605e7af142a229df33a5039ced226f08"
       },
       "worktree_state": "unchanged"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": null,
+        "independent_reviewer": null,
+        "language": "JSON",
+        "line_count": 44,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/engram/manifest.json",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "5ec56206875e97b7478397d6182d77d864f2654f973a8d2213aa4f2d07bb043b",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": null,
+      "index_state": "untracked",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/engram/manifest.json",
+      "working_tree": {
+        "bytes": 1347,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 44,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "5ec56206875e97b7478397d6182d77d864f2654f973a8d2213aa4f2d07bb043b"
+      },
+      "worktree_state": "untracked"
+    },
+    {
+      "file_review": {
+        "category": "repository_configuration_or_asset",
+        "completed_at": null,
+        "decision": "OPEN_NOT_REVIEWED",
+        "defects": [],
+        "disposition": "OPEN_NOT_REVIEWED",
+        "evidence": [],
+        "generated": false,
+        "git_blob_id": null,
+        "independent_reviewer": null,
+        "language": "JSON",
+        "line_count": 6,
+        "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
+        "path": "integrations/engram/manifest.lock.json",
+        "public_surface": false,
+        "requirements": [],
+        "reviewer": null,
+        "science_critical": false,
+        "security_critical": false,
+        "sha256": "29a7adbff2542583eb3295c9272c1a5e357e97b78c24490eb0ee2d2e27db1ef8",
+        "tests": [],
+        "updated_at": null
+      },
+      "head": null,
+      "index": null,
+      "index_state": "untracked",
+      "inventory_origin": {
+        "gitlink_commit": null,
+        "gitlink_path": null,
+        "gitlink_tree": null,
+        "kind": "parent_repository"
+      },
+      "path": "integrations/engram/manifest.lock.json",
+      "working_tree": {
+        "bytes": 170,
+        "gitlink_head": null,
+        "gitlink_status_sha256": null,
+        "kind": "regular",
+        "line_count": 6,
+        "link_target": null,
+        "mode": "100644",
+        "sha256": "29a7adbff2542583eb3295c9272c1a5e357e97b78c24490eb0ee2d2e27db1ef8"
+      },
+      "worktree_state": "untracked"
     },
     {
       "file_review": {
@@ -20591,7 +20683,7 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "870055c8e96442e75c3bb9f976cdf85e42e15b1b11b9a5f21b5b4e494254c8c7",
+        "sha256": "0c18cd4fa3bd3eb7ac5df9ba2b0c91d35a6e16a5f8aa6dff7711ba71d49dec12",
         "tests": [],
         "updated_at": null
       },
@@ -20615,16 +20707,16 @@
       },
       "path": "pidsplatspecs.md",
       "working_tree": {
-        "bytes": 28616,
+        "bytes": 28639,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 344,
         "link_target": null,
         "mode": "100644",
-        "sha256": "870055c8e96442e75c3bb9f976cdf85e42e15b1b11b9a5f21b5b4e494254c8c7"
+        "sha256": "0c18cd4fa3bd3eb7ac5df9ba2b0c91d35a6e16a5f8aa6dff7711ba71d49dec12"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -20756,7 +20848,7 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "f263a080ed0f4d374dab33fe9e3c4cf0a938faf3693f8eeb069588f555573f24",
+        "sha256": "55aa779a64217aee5c110ddd1aafafde4584bcde1e02936b37c70b2fcafc52bf",
         "tests": [],
         "updated_at": null
       },
@@ -20787,9 +20879,9 @@
         "line_count": 993,
         "link_target": null,
         "mode": "100644",
-        "sha256": "f263a080ed0f4d374dab33fe9e3c4cf0a938faf3693f8eeb069588f555573f24"
+        "sha256": "55aa779a64217aee5c110ddd1aafafde4584bcde1e02936b37c70b2fcafc52bf"
       },
-      "worktree_state": "unchanged"
+      "worktree_state": "modified"
     },
     {
       "file_review": {
@@ -23908,11 +24000,11 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "b92765ac1c426dc33d80f17712b37eb949ab9bc486cffb2ba447b8c1b3fd5e04",
-    "clean": true,
+    "candidate_state_sha256": "337f6eea46fbca1903bea7552f3f2d4dd5da3c345180caba7327e1ea0b8c9368",
+    "clean": false,
     "explicit_source_arguments_required": true,
-    "head_commit": "dcb0455bde653b6a34959fbf0a755d9d27ad1334",
-    "head_tree": "7d8a0069632a7bbd92773e6be9d7aae7c0776912",
+    "head_commit": "879a1909a986bda381f86979b5c02e3cec89d68c",
+    "head_tree": "5820cfb60fed3d755d619a009d16c7cd3ee37fd2",
     "index_entries_sha256": "6ebe426006bbcd3c3420448a760499ef21f1a395ed293c922a40f7279b8a88e5",
     "recursive_gitlinks": [
       {
@@ -23923,17 +24015,17 @@
         "tree": "d5d830e3196696d7fa23d3a0e8246a70010ab026"
       }
     ],
-    "state": "clean_source_snapshot",
-    "worktree_entries_sha256": "09c6514416940648b3cae08a66015771551138242aa122b6a3c448fdc418243c"
+    "state": "dirty_uncommitted_source_snapshot",
+    "worktree_entries_sha256": "ee37c1a041bdab0cb61e3982a898927e1538f0a1c52ef3b34d08fd6863aeecf0"
   },
   "summary": {
-    "clean": true,
-    "entry_count": 433,
-    "index_changed_entry_count": 0,
+    "clean": false,
+    "entry_count": 435,
+    "index_changed_entry_count": 2,
     "indexed_entry_count": 226,
-    "parent_entry_count": 226,
+    "parent_entry_count": 228,
     "recursive_gitlink_entry_count": 207,
-    "untracked_entry_count": 0,
-    "worktree_changed_entry_count": 0
+    "untracked_entry_count": 2,
+    "worktree_changed_entry_count": 12
   }
 }

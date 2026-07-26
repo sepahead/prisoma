@@ -63,6 +63,7 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `AGENTS.md` | Ground rules + a detailed "what actually exists" inventory for contributors |
 | `CONTRIBUTING.md`, `SECURITY.md` | Contribution controls and private vulnerability-reporting policy |
 | `NCP_DEV_PROMPT.md` | Optional: dev handoff for the Engram/NCP `(V,L,D,A)` bridge |
+| `integrations/engram/manifest.json` | Read-only Engram extension descriptor for host-rendered Prisoma artifacts |
 | `uidesigner/UI.md` | UI/UX spec (viewer-first; ordered by milestones) |
 | `GAUSS_MI_INTEGRATION.md`, `WORLD_WARP_INTEGRATION.md` | Optional add-on specs (3DGS reconstruction-quality study; external world-model baseline) |
 | `THIRD_PARTY_NOTICES.md` | Release-governance notices/checklist |
@@ -315,6 +316,11 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   candidate. Do not treat that moving head as a compatible update or release.
 - **Specified (not yet built):** a fuller Rerun-based diagnostic viewer and the deferred
   Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
+- **Implemented Engram extension descriptor:** `integrations/engram/manifest.json` declares a
+  read-only, host-rendered artifact surface. The descriptor selects the reviewed
+  `prisoma-runlog-v1` renderer. It preserves standalone and headless use. It does not add
+  actuation, a live Engram producer, or NCP wire translation. Prisoma stays on NCP wire 0.8.
+  Engram candidate wire 1.0 is incompatible until a separate adapter review is complete.
 
 ## Quick Start — Exp0 Gate
 
@@ -502,8 +508,11 @@ race.
 > tunnelling, or another local process. They provide no authentication, authorization, TLS,
 > payload redaction, remote-deployment assessment, or authenticated actor identity.
 
-**Safe mode and wire subset.** The Agent Bridge read-only safe mode allows only `sim.status` and
-confined `log.replay`. Every mutating method — `sim.step`, `sim.reset`, `scene.set_object`,
+**Safe mode and wire subset.** The Agent Bridge read-only safe mode allows `bridge.describe`,
+`sim.status`, and confined `log.replay`. `bridge.describe` returns a static bridge and run-log
+contract. Its `safe_mode_allowed` fields describe method eligibility. They do not report the
+active session mode or attest that a transport enforces safe mode.
+Every mutating method — `sim.step`, `sim.reset`, `scene.set_object`,
 `intervention.apply`, `log.start`, `log.stop`, and file-writing `export.rerun` — is recorded as a
 blocked bridge response. TCP/WebSocket require explicit `--allow-mutations` to leave safe mode;
 stdio remains a directly invoked local process whose existing `--safe-mode` flag selects the

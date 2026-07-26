@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "id": "sepahead.prisoma",
+  "name": "Prisoma",
+  "version": "0.9.0",
+  "description": "Read-only Prisoma status and artifact integration for an Engram host.",
+  "host_api": {
+    "minimum": "1.0",
+    "maximum": "1.0"
+  },
+  "entrypoint": {
+    "kind": "host-rendered-artifacts",
+    "renderer": "prisoma-runlog-v1"
+  },
+  "runtime": {
+    "ownership": "external",
+    "standalone": true
+  },
+  "requested_capabilities": [
+    "status.read",
+    "artifacts.read",
+    "bridge.safe-read"
+  ],
+  "authority": "read-only",
+  "artifacts": {
+    "accepts": ["canonical-run-log", "rerun-recording", "offline-vlda"],
+    "produces": ["canonical-run-log", "rerun-recording", "offline-vlda"]
+  },
+  "ncp": {
+    "wire": "0.8",
+    "engram_wire": "1.0",
+    "compatible": false
+  },
+  "standalone": {
+    "available": true,
+    "development_command": "cargo run --locked -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode outputs/engram-run.jsonl"
+  },
+  "boundaries": [
+    "The extension cannot actuate a simulator, vehicle, robot, or plant.",
+    "PID application validity is blocked. PID results cannot authorize runtime control.",
+    "Prisoma NCP wire 0.8 is incompatible with Engram candidate wire 1.0.",
+    "The canonical run log remains the source of truth. The Agent Bridge remains the only control plane."
+  ]
+}

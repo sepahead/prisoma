@@ -34,7 +34,7 @@
       "feature_id": "analysis.estimate_abstention",
       "feature": "Report-first PID estimate eligibility and abstention",
       "status": "tested",
-      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:61d61d467d6a1e30624956fc761835e9238021d9f1bb49dca45ea1d6cf9a0367",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:22f0f03b363dbc543f4cd651d6f0582ae9933c9dca042d319dcb7840168ecb54",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -75,7 +75,7 @@
       "feature_id": "bridge.agent_control_plane",
       "feature": "Agent Bridge typed control plane",
       "status": "tested",
-      "exact_revision": "local-sha256:cc78a8f4cb5dc8f71a2e3090703eaf7d1af55d6b4cbd9be33e9db66b50fd659e",
+      "exact_revision": "local-sha256:68a0cbbe16f588491a531f3b8635d5c32721070e8b9d20219575db5257133ee8",
       "revision_inputs": [
         "crates/pid-bridge",
         "crates/pid-rerun",
@@ -88,7 +88,7 @@
       "evidence_artifacts": [
         {
           "path": "crates/pid-bridge",
-          "sha256": "588f94b1b036cab65b83a781f472e9994ab7458d14deacf5258a7ce9f5263281"
+          "sha256": "7361cfc17b39e15216e7c647706b1d06d9d71d550f9f3d2a0ec5c8b421b60268"
         },
         {
           "path": "crates/pid-rerun/src/runlog.rs",
@@ -96,7 +96,7 @@
         },
         {
           "path": "crates/pid-sim/src/lib.rs",
-          "sha256": "df1d317f6817b518a345b46eccabb2fcafbcd634f27a134b62fae2df1233c049"
+          "sha256": "9ead7f63b930a40929df88e38b2e4d0bea37ac0970207ceca400c0338a646cfd"
         },
         {
           "path": "crates/pid-sim/src/bin/bridge_stdio.rs",
@@ -112,7 +112,7 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
+          "sha256": "d72fadd8af001964b9f739b7aa94ee09587d5b55ebca020aeb68a67a31df8a4e"
         }
       ],
       "known_limitations": "TCP/WebSocket binaries refuse non-loopback bind addresses and default safe, but forwarding/proxying/tunnelling a loopback listener is not prevented. TCP/stdio JSONL lines have a 1 MiB cap, WebSocket upgrade/incoming-frame inputs have 16 KiB/1 MiB caps, and network read/write operations have 30-second timeouts; there is no total request/session, request-count, or aggregate-traffic limit, so progress-making trickle traffic may persist. The enumerated WebSocket gate requires GET /bridge HTTP/1.1, exactly one each of a nonempty Host, Upgrade websocket, tokenized Connection containing upgrade, version 13, and a base64 16-byte key, and no Origin; it does not claim general malformed-request detection. Client application messages are unfragmented, masked UTF-8 text frames; ping, pong, and close control frames are supported, while binary frames, fragmentation, and extensions/RSV use are rejected. The JSON-RPC 2.0 surface is single-request only: missing-id notifications are silent and distinct from explicit null, parameters are omitted or named objects rather than positional arrays, undeclared top-level method keys are rejected, sim.step requires numeric dt, and batches are unsupported. Profile-invalid parameters use -32602; handler/domain failures after validation use -32000. File RPCs provide non-adversarial canonical confinement and no-replace outputs, not a security-grade sandbox against hardlinks, aliases, or concurrent filesystem mutation. Export parses/manifests the same exact byte snapshot read from the source and stages/syncs/installs no-clobber finalized RRD bytes/hash. Executable transport run logs call File::sync_all for the initial prefix, each session flush before a wire response, and the terminal seal; generic SimBridgeSession<W> durability is sink-defined. There is no parent-directory fsync, power-loss durability, or cross-file run-log/export transaction. Crashes or provenance-storage failures may leave incomplete/unreadable logs, an apparently complete terminal record with indeterminate status/durability, or orphan RRDs. There is no authentication, authorization, TLS, redaction, remote-security assessment, full target UI/VLA/backend control coverage, or versioned subscription stream; actor identity remains locally declared.",
@@ -128,7 +128,7 @@
       "feature_id": "capture.offline_vlda_harness",
       "feature": "Offline (V,L,D,A) artifact-to-run-log harness",
       "status": "tested",
-      "exact_revision": "local-sha256:42d5b7ef8dc9caa4ba73db7495247e0f18dc248e9d67ed0c6a3995b34c9080fc",
+      "exact_revision": "local-sha256:d11fd244c75c44eeaaef181a9fc1ce8a267f2c09a33be2dd466c2681d24c9f77",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -148,7 +148,7 @@
         },
         {
           "path": "EXPERIMENTS.md",
-          "sha256": "99e261156e27255c26c9c21880b48b8602396a956cf2e2b2d81d3da3d7f14f5d"
+          "sha256": "5ccd8eae7e0492d60bb5389b10c6f0f3ff287ffb5e9602bfa5f9477eec15d292"
         }
       ],
       "known_limitations": "Checked inputs are synthetic fixtures; emitted geometry and PID diagnostics do not establish population, measure, estimator, or application validity for real embeddings.",
@@ -165,7 +165,7 @@
       "feature_id": "capture.safe_reference_adapter",
       "feature": "SAFE canonical-bundle reference adapter",
       "status": "tested",
-      "exact_revision": "local-sha256:834a21943b0186b3ae7b780115867d13a79cdc5047b553e5b80f904128606c33",
+      "exact_revision": "local-sha256:0a152aeb16c29d5df4178b43573cd8eac2a63113181d70ebd3ddf11f3cda4a56",
       "revision_inputs": [
         "experiments/safe_adapter",
         "tests/python/test_safe_adapter.py",
@@ -303,7 +303,7 @@
       "feature_id": "experiment.h1_common_preflight",
       "feature": "H1 pre-treatment lineage and diagnostic-noninterference preflight",
       "status": "tested",
-      "exact_revision": "local-sha256:42d5b7ef8dc9caa4ba73db7495247e0f18dc248e9d67ed0c6a3995b34c9080fc",
+      "exact_revision": "local-sha256:d11fd244c75c44eeaaef181a9fc1ce8a267f2c09a33be2dd466c2681d24c9f77",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -339,7 +339,7 @@
       "feature_id": "experiment.h1_protocol_a_reference",
       "feature": "Deterministic H1 Protocol-A scoring reference",
       "status": "tested",
-      "exact_revision": "local-sha256:42d5b7ef8dc9caa4ba73db7495247e0f18dc248e9d67ed0c6a3995b34c9080fc",
+      "exact_revision": "local-sha256:d11fd244c75c44eeaaef181a9fc1ce8a267f2c09a33be2dd466c2681d24c9f77",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -433,7 +433,7 @@
       "feature_id": "experiment.h2_reference",
       "feature": "Deterministic H2 fixed-horizon/IPCW/alarm arithmetic reference",
       "status": "tested",
-      "exact_revision": "local-sha256:42d5b7ef8dc9caa4ba73db7495247e0f18dc248e9d67ed0c6a3995b34c9080fc",
+      "exact_revision": "local-sha256:d11fd244c75c44eeaaef181a9fc1ce8a267f2c09a33be2dd466c2681d24c9f77",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -725,7 +725,7 @@
       "feature_id": "proposal.gauss_mi_covariate",
       "feature": "Reconstruction-quality covariate and active-view study",
       "status": "specified",
-      "exact_revision": "local-sha256:1ff56d18e353c3d9dc045ccea9ab9648e3a5bd8ba7ccf4795a44c5f82ae26d6f",
+      "exact_revision": "local-sha256:e478b1bd8d6e50e3feb59e333da331b389e7212863382fd5b054c5dbcddca7a2",
       "revision_inputs": [
         "GAUSS_MI_INTEGRATION.md",
         "grandplan.md",
@@ -760,7 +760,7 @@
       "feature_id": "proposal.gauss_mi_weighted_pid",
       "feature": "Rejected GauSS-MI-weighted KSG/MI/PID sketch (non-implementation record)",
       "status": "deferred",
-      "exact_revision": "local-sha256:1ff56d18e353c3d9dc045ccea9ab9648e3a5bd8ba7ccf4795a44c5f82ae26d6f",
+      "exact_revision": "local-sha256:e478b1bd8d6e50e3feb59e333da331b389e7212863382fd5b054c5dbcddca7a2",
       "revision_inputs": [
         "GAUSS_MI_INTEGRATION.md",
         "grandplan.md",
@@ -793,7 +793,7 @@
       "feature_id": "proposal.worldwarp_external",
       "feature": "WorldWarp external world-model comparator",
       "status": "specified",
-      "exact_revision": "local-sha256:da71aac10d110899e22ef664341bb135987b1ddc9692fd53438870a8c87f43f2",
+      "exact_revision": "local-sha256:d8935a37bdd5d276c60ff5c98b7b649ad0e0c7c2c8f1e7f3aa8f8ef6b3581b45",
       "revision_inputs": [
         "WORLD_WARP_INTEGRATION.md",
         "grandplan.md",
@@ -822,7 +822,7 @@
       "feature_id": "replay.canonical_runlog",
       "feature": "Canonical run-log validation, replay, manifest, and sidecars",
       "status": "tested",
-      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:61d61d467d6a1e30624956fc761835e9238021d9f1bb49dca45ea1d6cf9a0367",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:22f0f03b363dbc543f4cd651d6f0582ae9933c9dca042d319dcb7840168ecb54",
       "revision_inputs": [
         "pid-rs",
         ".gitmodules",
@@ -843,7 +843,7 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
+          "sha256": "d72fadd8af001964b9f739b7aa94ee09587d5b55ebca020aeb68a67a31df8a4e"
         }
       ],
       "known_limitations": "Local exact-event replay and sidecar checks do not supply policy/controller/simulator/physical replay evidence or the external negative-case benchmark required by EC1.",
@@ -859,7 +859,7 @@
       "feature_id": "sim.rapier_backend",
       "feature": "Rapier3D-f64 manipulation backend",
       "status": "tested",
-      "exact_revision": "rapier3d-f64@0.34.0#sha256:4351e821e5db9464a22d59f3e7903ab5759f7c1241bb82f042486494e5178ecf; local-sha256:d012e6402d2426b8e6c430af27eb0c9eb21690a66adaf4d74bb15ff7b2d13816",
+      "exact_revision": "rapier3d-f64@0.34.0#sha256:4351e821e5db9464a22d59f3e7903ab5759f7c1241bb82f042486494e5178ecf; local-sha256:e044e07979a3eb4b8ed6049486f27d3d4440be1a5565ab257eaa645a24a51e8c",
       "revision_inputs": [
         "crates/pid-sim",
         "Cargo.toml",
@@ -878,7 +878,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "99e92dbe593040b1e678da8f8afffa718dee07b0e078b92d8c416f99be3a750c"
+          "sha256": "cf4c5810b1d5cd4b7c157a25c59f0938ce0f69f768d5087380380289b090fbe7"
         }
       ],
       "known_limitations": "The scripted push-to-goal fixture is a deterministic software cross-check, not a real VLA policy/environment choice, external adapter, validated simulator, or physical repeatability study.",
@@ -894,7 +894,7 @@
       "feature_id": "ui.tauri_sparkjs_shell",
       "feature": "Tauri/SparkJS custom-rendering shell",
       "status": "deferred",
-      "exact_revision": "local-sha256:26650d40b715d99e2837ba939c75caf5af2f0426354cd94b63ae2c70722dab53",
+      "exact_revision": "local-sha256:af8e17e178f51bddd8d6064e4f18da7b9e96fb3af9d7d87eff20f7ab4002b3f9",
       "revision_inputs": [
         "grandplan.md",
         "ARCHITECTURE.md"
@@ -907,7 +907,7 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
+          "sha256": "d72fadd8af001964b9f739b7aa94ee09587d5b55ebca020aeb68a67a31df8a4e"
         }
       ],
       "known_limitations": "No runnable shell or custom renderer exists; it is a Phase-4 product surface and explicitly not a thesis dependency.",
@@ -921,7 +921,7 @@
       "feature_id": "viewer.rerun_adapter",
       "feature": "Run-log-to-Rerun validating adapter",
       "status": "tested",
-      "exact_revision": "re_log_encoding@0.34.1#sha256:8a5df35e1e32e783014827a362bf68fb97f9b122240ad731511207fb8fceec48; re_sdk@0.34.1#sha256:3e426edaa5b4aae7338893282b53e671afc02770601d054f4754bc42ec43ff29; re_sdk_types@0.34.1#sha256:dcbecb95e90d133d4721715412f24b333895f56373fe0ebce99ecdf0aa0b9bc2; local-sha256:679c22254361b45fe0d61c64760bafcad3067d8e8ef219ad1474f15154c7ad52",
+      "exact_revision": "re_log_encoding@0.34.1#sha256:8a5df35e1e32e783014827a362bf68fb97f9b122240ad731511207fb8fceec48; re_sdk@0.34.1#sha256:3e426edaa5b4aae7338893282b53e671afc02770601d054f4754bc42ec43ff29; re_sdk_types@0.34.1#sha256:dcbecb95e90d133d4721715412f24b333895f56373fe0ebce99ecdf0aa0b9bc2; local-sha256:436cccb191dc018aafb3d1187304ba30c959dfdbbcb6aeb5ebfe2e331b782af8",
       "revision_inputs": [
         "crates/pid-rerun",
         "crates/pid-sim",
@@ -938,11 +938,11 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
+          "sha256": "d72fadd8af001964b9f739b7aa94ee09587d5b55ebca020aeb68a67a31df8a4e"
         },
         {
           "path": "pidsplatspecs.md",
-          "sha256": "933e808dd9b17c46a45c62196dc31449ac9db7a41dc5f18dbe6cc452f5f7dc4a"
+          "sha256": "2b8d0530f984344d96f72e386178bcb03f218e56b3066f893718193c7e234310"
         }
       ],
       "known_limitations": "The converter surfaces current summary/provenance/validation and attribution tracks, but the complete Phases 1-3 diagnostic blueprint and viewer are not built.",
@@ -958,7 +958,7 @@
       "feature_id": "viewer.rerun_full_blueprint",
       "feature": "Complete Rerun Phases 1-3 diagnostic viewer",
       "status": "specified",
-      "exact_revision": "local-sha256:f10e2917110f1dd514e21c99ef4df248c34d03e5eaf476f7234a5ff5fc430619",
+      "exact_revision": "local-sha256:9514a1f379027c7614625969047d25ff6aa1d82307980df098f098f3460bacd8",
       "revision_inputs": [
         "grandplan.md",
         "DIAGRAMS.md",
@@ -973,11 +973,11 @@
         },
         {
           "path": "DIAGRAMS.md",
-          "sha256": "eec069d8a0ea876670a11343486623db08a3577f28d02a8c3c6d9f70a0ea93fe"
+          "sha256": "76bb5c99ec37b307584fcc2a050c212007a3eee1e190c9c2dce40dc72a0f6c6e"
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "56c30d16661bf4836ba28b8c54b6daa32f1101795df22b75a158dffcd5cdec33"
+          "sha256": "d72fadd8af001964b9f739b7aa94ee09587d5b55ebca020aeb68a67a31df8a4e"
         }
       ],
       "known_limitations": "Only conversion groundwork is runnable; the complete time-machine panels, heatmaps, interaction blueprint, and viewer acceptance tests remain unimplemented.",

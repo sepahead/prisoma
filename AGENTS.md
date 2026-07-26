@@ -168,7 +168,7 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   provenance, an apparently complete terminal record with indeterminate status/durability, or an
   orphan RRD. This is local E0 hardening with **no** authentication, authorization, TLS,
   redaction, or remote-security assessment;
-  safe-mode `log.replay`; bridge
+  safe-mode `bridge.describe`/`sim.status`/`log.replay`; bridge
   `log.start`/`log.stop`, deterministic `intervention.apply`, and `export.rerun`; flow
   checks and action/intervention replay verification; the toy labeled harness; a
   `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend**

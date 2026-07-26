@@ -505,6 +505,11 @@ impl BridgeHandler for SimBridgeHandler {
     fn handle(&mut self, request: &BridgeRequest) -> Result<Value> {
         self.last_step = None;
         match request.method {
+            BridgeMethod::BridgeDescribe => {
+                validate_bridge_payload_keys(&request.payload, "bridge.describe", &[], true)?;
+                serde_json::to_value(pid_bridge::bridge_runlog_contract())
+                    .context("failed to serialize bridge and run-log contract")
+            }
             BridgeMethod::SimStatus => {
                 validate_bridge_payload_keys(&request.payload, "sim.status", &[], true)?;
                 Ok(self.status_json())
@@ -3317,6 +3322,80 @@ mod tests {
     }
 
     #[test]
+    fn bridge_session_safe_mode_describes_machine_readable_contract() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-describe-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        let request = bridge_request(
+            "req-bridge-describe",
+            BridgeMethod::BridgeDescribe,
+            actor,
+            Some(0),
+            0,
+            json!({}),
+        );
+
+        let response = session.dispatch(&request).unwrap();
+        assert!(response.ok, "{:?}", response.message);
+        let result = response.result.unwrap();
+        assert_eq!(
+            result["run_log"]["schema_version"],
+            pid_runlog::RUN_LOG_SCHEMA_VERSION
+        );
+        assert_eq!(result["bridge"]["jsonrpc_version"], "2.0");
+        assert!(result["bridge"]["methods"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|method| method["method"] == "bridge.describe"
+                && method["safe_mode_allowed"] == true));
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events).unwrap();
+        assert_eq!(state.bridge_records.len(), 2);
+        assert_eq!(state.actions.len(), 0);
+        assert_eq!(state.interventions.len(), 0);
+    }
+
+    #[test]
+    fn bridge_session_describe_rejects_undeclared_parameters() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-describe-invalid-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_safe_mode(writer, demo_sim(), true);
+        let request = bridge_request(
+            "req-bridge-describe-invalid",
+            BridgeMethod::BridgeDescribe,
+            actor,
+            Some(0),
+            0,
+            json!({ "authority": "write" }),
+        );
+
+        let response = session.dispatch(&request).unwrap();
+        assert!(!response.ok);
+        assert!(response
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("unknown parameter"));
+        assert_eq!(session.step(), 0);
+
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events).unwrap();
+        assert_eq!(state.bridge_records.len(), 2);
+        assert_eq!(state.actions.len(), 0);
+        assert_eq!(state.interventions.len(), 0);
+    }
+
+    #[test]
     fn bridge_session_safe_mode_allows_log_replay() {
         let path = temp_path("pid-sim-log-replay", "jsonl");
         write_minimal_run_log(&path, "replay-source");
@@ -3965,6 +4044,57 @@ mod tests {
             "rejected RPCs must not poison run-log validity: {:?}",
             report.issues
         );
+    }
+
+    #[test]
+    fn rpc_dispatch_safe_mode_returns_static_bridge_description_without_effects() {
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "rpc-bridge-describe");
+        let sim = demo_sim();
+        writer.append(&sim.snapshot_event()).unwrap();
+        let mut session = SimBridgeSession::with_safe_mode(writer, sim, true);
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "rpc-bridge-describe".to_string(),
+            session_id: None,
+        };
+
+        let response = dispatch_rpc_text_request(
+            r#"{"jsonrpc":"2.0","id":"describe","method":"bridge.describe"}"#,
+            1,
+            &mut session,
+            actor,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert!(response.is_ok(), "{:?}", response.error);
+        assert_eq!(response.id, json!("describe"));
+        let result = response.result.as_ref().unwrap();
+        assert_eq!(
+            result["run_log"]["schema_version"],
+            pid_runlog::RUN_LOG_SCHEMA_VERSION
+        );
+        assert_eq!(result["bridge"]["jsonrpc_version"], "2.0");
+        assert!(result["bridge"].get("active_safe_mode").is_none());
+        assert!(result["bridge"]["methods"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|method| method["method"] == "bridge.describe"
+                && method["safe_mode_allowed"] == true));
+        assert_eq!(session.step(), 0);
+
+        session.finish_run(RunStatus::Succeeded, None).unwrap();
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let state = replay_events(&events).unwrap();
+        assert_eq!(state.bridge_records.len(), 2);
+        assert!(state.actions.is_empty());
+        assert!(state.interventions.is_empty());
+        let validation = validate_events(&events).unwrap();
+        assert!(validation.is_valid(), "{:?}", validation.issues);
+        let replay = verify_sim_replay(&events, 1e-12);
+        assert!(replay.is_valid(), "{:?}", replay.issues);
     }
 
     #[test]

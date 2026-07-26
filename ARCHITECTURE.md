@@ -527,9 +527,9 @@ be benchmarked before they support a scientific or operational claim.
 | **PID-Core** | Read-only information analysis | Computes candidate diagnostics from logged/captured data; it never triggers actions, pauses, or corrections |
 | **Attribution probes** | Local explanation baselines | Reference detached-attention value-path epsilon-LRP (not AttnLRP) + gradient×input probe, content-bound ranking-sensitivity gate/evidence bundles, and recorded-check Rerun adapter are implemented; other methods/production-VLA hooks remain extensions |
 
-Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for status,
-deterministic stepping, deterministic interventions, replay, run lifecycle stop, and
-`export.rerun`. TCP/WebSocket binaries refuse non-loopback bind addresses and default to safe mode;
+Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods for contract
+description, status, deterministic stepping, deterministic interventions, replay, run lifecycle
+stop, and `export.rerun`. TCP/WebSocket binaries refuse non-loopback bind addresses and default to safe mode;
 leaving it requires `--allow-mutations`. This does not stop forwarding, proxying, or tunnelling a
 loopback listener. TCP/stdio JSONL lines are capped at 1 MiB; WebSocket upgrades and incoming
 client frames are capped at 16 KiB and 1 MiB respectively; network reads and writes time out after

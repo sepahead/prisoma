@@ -552,7 +552,7 @@ The Agent Bridge is the **only** programmable control plane: it exposes the same
 
 **External backend note:** the Agent Bridge is also the *adapter surface* for third‑party simulators that expose an RL-style `reset/step` API (or their own WebSocket/pubsub interface). Their native interface sits behind the bridge; it is not a second prisoma control plane. The adapter records prisoma command events before dispatch so replay and analysis are identical across backends.
 
-The deterministic in-repo bridge currently provides stdio/TCP/WebSocket JSON-RPC smokes for status, reset/step, scene edits, deterministic interventions, `log.replay`, `log.start`/`log.stop`, and `export.rerun`; safe mode permits status/replay and logs blocked mutation, run-ending, or file-writing export requests.
+The deterministic in-repo bridge currently provides stdio/TCP/WebSocket JSON-RPC smokes for contract description, status, reset/step, scene edits, deterministic interventions, `log.replay`, `log.start`/`log.stop`, and `export.rerun`. Safe mode permits `bridge.describe`, status, and replay. It logs blocked mutation, run-ending, or file-writing export requests.
 
 ```mermaid
 graph TB
