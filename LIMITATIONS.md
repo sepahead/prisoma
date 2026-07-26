@@ -160,9 +160,11 @@ local research tooling:
   forwarding, tunnelling, or proxying a loopback listener is not prevented.
 - There is no authentication, authorization, TLS, credential custody, redaction, remote-security
   assessment, or authenticated actor identity. Caller identity is locally declared.
-- TCP/stdio lines and WebSocket upgrades/frames have per-message caps, and network reads/writes
-  have per-operation timeouts. There is no total request/session deadline, request-count cap, or
-  aggregate-traffic budget; progress-making trickle traffic may persist.
+- TCP/stdio lines and WebSocket upgrades/frames have per-message caps. Network reads and writes
+  have per-operation timeouts. Standard profiles have no total request/session, request-count,
+  or aggregate-traffic limit. Progress-making trickle traffic can persist. The optional Engram
+  profile adds finite request-count, aggregate-input, and run-log limits. It has no independent
+  wall-clock deadline.
 - The WebSocket and JSON-RPC implementations intentionally support narrow subsets. They are not
   general HTTP/WebSocket or JSON-RPC conformance claims.
 - File RPCs reject observed traversal, symlinks, non-regular or out-of-root inputs, missing output

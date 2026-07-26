@@ -9,8 +9,34 @@
     "maximum": "1.0"
   },
   "entrypoint": {
-    "kind": "host-rendered-artifacts",
-    "renderer": "prisoma-runlog-v1"
+    "kind": "host-rendered-jsonrpc-tcp",
+    "renderer": "engram.bridge-status.v1",
+    "transport": {
+      "host": "127.0.0.1",
+      "port": 38472,
+      "framing": "json-rpc-2.0-ndjson"
+    },
+    "protocol": {
+      "profile": "engram-host-read-only-v1",
+      "session_method": "bridge.session",
+      "describe_method": "bridge.describe",
+      "status_method": "sim.status",
+      "allowed_methods": [
+        "bridge.describe",
+        "bridge.session",
+        "sim.status"
+      ],
+      "request_timeout_ms": 5000,
+      "max_response_bytes": 65536,
+      "stale_after_ms": 10000
+    },
+    "resource_limits": {
+      "max_requests": 512,
+      "max_rpc_line_bytes": 65536,
+      "max_input_bytes": 8388608,
+      "max_session_run_log_bytes": 67108864,
+      "max_session_run_log_events": 2048
+    }
   },
   "runtime": {
     "ownership": "external",
@@ -23,8 +49,8 @@
   ],
   "authority": "read-only",
   "artifacts": {
-    "accepts": ["canonical-run-log", "rerun-recording", "offline-vlda"],
-    "produces": ["canonical-run-log", "rerun-recording", "offline-vlda"]
+    "accepts": ["prisoma.canonical-run-log.v2"],
+    "produces": []
   },
   "ncp": {
     "wire": "0.8",
@@ -33,7 +59,7 @@
   },
   "standalone": {
     "available": true,
-    "development_command": "cargo run --locked -p pid-sim --bin pid-sim-bridge-stdio -- --safe-mode outputs/engram-run.jsonl"
+    "development_command": "cargo run --locked -p pid-sim --bin pid-sim-bridge-tcp -- --engram-host --unique-run-log-dir outputs"
   },
   "boundaries": [
     "The extension cannot actuate a simulator, vehicle, robot, or plant.",

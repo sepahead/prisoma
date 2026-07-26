@@ -531,10 +531,12 @@ Current deterministic bridge smokes expose stdio/TCP/WebSocket JSON-RPC methods 
 description, status, deterministic stepping, deterministic interventions, replay, run lifecycle
 stop, and `export.rerun`. TCP/WebSocket binaries refuse non-loopback bind addresses and default to safe mode;
 leaving it requires `--allow-mutations`. This does not stop forwarding, proxying, or tunnelling a
-loopback listener. TCP/stdio JSONL lines are capped at 1 MiB; WebSocket upgrades and incoming
-client frames are capped at 16 KiB and 1 MiB respectively; network reads and writes time out after
-30 seconds per operation. There is no total request/session deadline, request-count cap, or
-aggregate-traffic budget, and progress-making trickle traffic can persist.
+loopback listener. TCP/stdio JSONL lines are capped at 1 MiB. WebSocket upgrades and incoming
+client frames are capped at 16 KiB and 1 MiB respectively. Network reads and writes time out after
+30 seconds per operation. Standard profiles have no total request/session, request-count, or
+aggregate-traffic limit. Progress-making trickle traffic can persist. The optional Engram profile
+adds finite request-count, aggregate-input, and run-log limits. It has no independent wall-clock
+deadline.
 
 The WebSocket upgrade check is deliberately narrow: `GET /bridge HTTP/1.1`; exactly one each of a
 nonempty `Host`, `Upgrade: websocket`, tokenized `Connection` containing `upgrade`, version `13`,

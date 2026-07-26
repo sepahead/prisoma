@@ -47,12 +47,12 @@
     },
     {
       "project": "crebain",
-      "observed_revision": "cb0f1a312259af6af7d7f3a5d05c522ed36655d1",
+      "observed_revision": "7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6",
       "prior_frame_capability_revision": "49d7b3614f24d21a40fe2af6dbeac082338ae9d7",
       "evidence_level": "E0_between_projects",
-      "relationship": "candidate producer with a public 0.9.0 research prerelease, bounded Galadriel evidence sender, inactive plant-contract surfaces, a frame-convention corpus, and a supervised read-only Engram view; no direct Prisoma edge exists",
-      "current_boundary": "the public prerelease supplies component and historical-fixture evidence plus a supervised read-only Engram view; embedded mode disables native, external telemetry, artifact exchange, NCP, and plant paths, and its host messages do not attest a process or build; a local put is not receiver receipt, the frame corpus is not called by admission, action/control commands remain unregistered, and no direct Prisoma adapter, managed product route, or live NCP control loop exists",
-      "source": "https://github.com/sepahead/crebain/tree/cb0f1a312259af6af7d7f3a5d05c522ed36655d1"
+      "relationship": "candidate producer with a public 0.9.0 research prerelease, bounded Galadriel evidence sender, inactive plant-contract surfaces, a frame-convention corpus, and a restricted read-only Engram view; no direct Prisoma edge exists",
+      "current_boundary": "the public prerelease supplies component and historical-fixture evidence plus a restricted read-only Engram view with continued heartbeat challenges and a native-IPC canary; embedded mode disables native, external telemetry, artifact exchange, NCP, and plant paths, and its host messages do not attest a process or build; a local put is not receiver receipt, the frame corpus is not called by admission, action/control commands remain unregistered, and no direct Prisoma adapter, managed product route, or live NCP control loop exists",
+      "source": "https://github.com/sepahead/crebain/tree/7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6"
     },
     {
       "project": "manwe",
@@ -72,13 +72,13 @@
     },
     {
       "project": "paper2brain",
-      "observed_revision": "18fb57c6164d6291cac84ae15c65ab6119715157",
+      "observed_revision": "b3afdfc8ccf39c4618ba2c371cfad2d37f5727d7",
       "evidence_level": "E2_declared_immutable_consumer_manifest",
-      "relationship": "public executable Engram Neural Labs host with a byte-locked Prisoma manifest copy and tested host-rendered structural preview; no live data or control path exists",
+      "relationship": "public executable Engram Neural Labs host with a byte-locked Prisoma manifest, a generic bounded JSON-RPC TCP adapter, and a tested structural preview; local live-presentation evidence exists without producer or control authority",
       "prisoma_descriptor_path": "integrations/engram/manifest.json",
-      "prisoma_descriptor_sha256": "5ec56206875e97b7478397d6182d77d864f2654f973a8d2213aa4f2d07bb043b",
-      "current_boundary": "Paper2Brain imports the byte-locked descriptor and implements the bounded prisoma-runlog-v1 structural preview, which is not Prisoma validation; its development NCP service uses candidate wire 1.0 while Prisoma remains on wire 0.8; the descriptor starts no process and grants no authority; there is no live Paper2Brain-to-Prisoma producer, wire translator, artifact importer, NCP bridge, producer-consumer golden fixture, or E4 scientific conformance report",
-      "source": "https://github.com/sepahead/Paper2Brain/tree/18fb57c6164d6291cac84ae15c65ab6119715157"
+      "prisoma_descriptor_sha256": "24bb6f92680c253b79389ba32396e82f63cd316bcb1806a9522060970b9290a5",
+      "current_boundary": "Paper2Brain imports the byte-locked descriptor and implements the bounded generic live status adapter plus structural preview, which is not Prisoma validation; its development NCP service uses candidate wire 1.0 while Prisoma remains on wire 0.8; the descriptor starts no process and grants no authority; there is no live Paper2Brain-to-Prisoma producer, wire translator, artifact importer, NCP bridge, producer-consumer scientific golden fixture, or E4 scientific conformance report",
+      "source": "https://github.com/sepahead/Paper2Brain/tree/b3afdfc8ccf39c4618ba2c371cfad2d37f5727d7"
     },
     {
       "project": "haldir",

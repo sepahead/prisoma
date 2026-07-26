@@ -148,8 +148,13 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   TCP/WebSocket binaries refuse non-loopback binds
   and default safe (`--allow-mutations` is explicit), but do not prevent forwarding/proxying of a
   loopback listener; TCP/stdio JSONL lines are capped at 1 MiB, WebSocket upgrades/incoming client
-  frames at 16 KiB/1 MiB, and network read/write operations at 30 seconds, with no total
-  session/request or aggregate-traffic deadline (progress-making trickle traffic may persist). The
+  frames at 16 KiB/1 MiB, and network read/write operations at 30 seconds. Standard profiles have
+  no total session/request or aggregate-traffic deadline, so progress-making trickle traffic may
+  persist. The optional `--engram-host` TCP profile forces an exact three-method read-only surface.
+  It adds finite request-count, 64 KiB line, 8 MiB aggregate-input, 64 MiB run-log-byte, and
+  2,048-event limits. Run-log usage includes the TCP prefix, each request and response, and the
+  terminal seal. Its `--unique-run-log-dir` option atomically creates one no-clobber log in an
+  existing directory and prints that canonical path before listening. The
   WebSocket upgrade
   requires `GET /bridge HTTP/1.1`, exactly one each of a nonempty `Host`, `Upgrade: websocket`,
   tokenized `Connection` containing `upgrade`, version `13`, and a base64 16-byte key, and rejects
@@ -309,9 +314,9 @@ future NEST/Engram session, that emits an `OfflineVldaDataset` artifact (for
 `pid-offline-harness`) plus canonical run-log events
 (`EmbeddingContract`/`EmbeddingCaptured`/`LabelObserved`). The named public
 `sepahead/engram` repository remains a README-only placeholder. The executable Engram Neural
-Labs host lives in `sepahead/Paper2Brain`. Prisoma has a digest-locked, read-only artifact
-descriptor only. No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or
-authority path exists.
+Labs host lives in `sepahead/Paper2Brain`. Prisoma has a digest-locked, read-only
+headless-runtime descriptor. The generic host adapter reads only describe, session, and status.
+No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authority path exists.
 
 - **Honours the three invariants:** the run log is the source of truth, the observer drives
   nothing (the Agent Bridge stays the only control plane), and all NCP-specific mapping

@@ -1,13 +1,15 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use pid_runlog::{canonical_json_hash_v2, Actor, RunLogEvent, RunLogWriter};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeSet;
 use std::fmt;
 use std::io::Write;
 use std::str::FromStr;
 
 pub const BRIDGE_METHODS: &[&str] = &[
     "bridge.describe",
+    "bridge.session",
     "sim.status",
     "sim.reset",
     "sim.step",
@@ -25,6 +27,7 @@ pub const BRIDGE_TRANSPORTS: &[&str] = &["local", "stdio_jsonl", "tcp_jsonl", "w
 #[serde(rename_all = "snake_case")]
 pub enum BridgeMethod {
     BridgeDescribe,
+    BridgeSession,
     SimStatus,
     SimReset,
     SimStep,
@@ -40,6 +43,7 @@ impl BridgeMethod {
     pub fn as_str(&self) -> &'static str {
         match self {
             BridgeMethod::BridgeDescribe => "bridge.describe",
+            BridgeMethod::BridgeSession => "bridge.session",
             BridgeMethod::SimStatus => "sim.status",
             BridgeMethod::SimReset => "sim.reset",
             BridgeMethod::SimStep => "sim.step",
@@ -59,7 +63,10 @@ impl BridgeMethod {
     pub fn safe_mode_allowed(&self) -> bool {
         matches!(
             self,
-            BridgeMethod::BridgeDescribe | BridgeMethod::SimStatus | BridgeMethod::LogReplay
+            BridgeMethod::BridgeDescribe
+                | BridgeMethod::BridgeSession
+                | BridgeMethod::SimStatus
+                | BridgeMethod::LogReplay
         )
     }
 }
@@ -135,7 +142,7 @@ pub fn bridge_contract() -> BridgeContract {
 
 fn bridge_request_payload_hint(method: &str) -> &'static str {
     match method {
-        "bridge.describe" | "sim.status" | "sim.reset" | "log.stop" => "{}",
+        "bridge.describe" | "bridge.session" | "sim.status" | "sim.reset" | "log.stop" => "{}",
         "sim.step" => r#"{"dt": number}"#,
         "log.start" => r#"{"run_id": string?, "metadata": object?}"#,
         "log.replay" => r#"{"run_log_uri": string}"#,
@@ -153,6 +160,7 @@ fn bridge_request_payload_hint(method: &str) -> &'static str {
 fn bridge_request_parameter_names(method: &BridgeMethod) -> &'static [&'static str] {
     match method {
         BridgeMethod::BridgeDescribe
+        | BridgeMethod::BridgeSession
         | BridgeMethod::SimStatus
         | BridgeMethod::SimReset
         | BridgeMethod::LogStop => &[],
@@ -168,6 +176,9 @@ fn bridge_request_parameter_names(method: &BridgeMethod) -> &'static [&'static s
 fn bridge_response_payload_hint(method: &str) -> &'static str {
     match method {
         "bridge.describe" => r#"{"run_log": RunLogContract, "bridge": BridgeContract}"#,
+        "bridge.session" => {
+            r#"{"safe_mode": boolean, "run_id": string, "active_profile": string, "allowed_methods": [string], "resource_limits": object|null, "resource_usage": object}"#
+        }
         "sim.status" | "sim.reset" | "scene.set_object" => {
             r#"{"step": integer, "timestamp_ns": integer, "objects": integer}"#
         }
@@ -205,6 +216,7 @@ impl FromStr for BridgeMethod {
     fn from_str(value: &str) -> Result<Self> {
         match value {
             "bridge.describe" | "bridge_describe" => Ok(BridgeMethod::BridgeDescribe),
+            "bridge.session" | "bridge_session" => Ok(BridgeMethod::BridgeSession),
             "sim.status" | "sim_status" => Ok(BridgeMethod::SimStatus),
             "sim.reset" | "sim_reset" => Ok(BridgeMethod::SimReset),
             "sim.step" | "sim_step" => Ok(BridgeMethod::SimStep),
@@ -230,6 +242,7 @@ pub struct BridgeRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BridgeRpcRequest {
     pub jsonrpc: Option<String>,
     /// JSON-RPC 2.0 ids may be a String, a Number, or Null. `None` preserves the
@@ -253,6 +266,110 @@ pub struct BridgeRpcRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub params: Option<Value>,
+}
+
+/// Validate one complete JSON document before `serde_json::Value` can apply
+/// last-key-wins semantics. The second parse preserves arbitrary-precision
+/// number tokens after this recursive duplicate-key preflight succeeds.
+pub fn parse_strict_json_value(text: &str) -> std::result::Result<Value, serde_json::Error> {
+    struct StrictJson;
+
+    impl<'de> Deserialize<'de> for StrictJson {
+        fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            struct StrictJsonVisitor;
+
+            impl<'de> serde::de::Visitor<'de> for StrictJsonVisitor {
+                type Value = StrictJson;
+
+                fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    formatter.write_str("one JSON value without duplicate object keys")
+                }
+
+                fn visit_bool<E>(self, _: bool) -> std::result::Result<Self::Value, E> {
+                    Ok(StrictJson)
+                }
+
+                fn visit_i64<E>(self, _: i64) -> std::result::Result<Self::Value, E> {
+                    Ok(StrictJson)
+                }
+
+                fn visit_u64<E>(self, _: u64) -> std::result::Result<Self::Value, E> {
+                    Ok(StrictJson)
+                }
+
+                fn visit_f64<E>(self, value: f64) -> std::result::Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    if value.is_finite() {
+                        Ok(StrictJson)
+                    } else {
+                        Err(E::custom("non-finite JSON number"))
+                    }
+                }
+
+                fn visit_str<E>(self, _: &str) -> std::result::Result<Self::Value, E> {
+                    Ok(StrictJson)
+                }
+
+                fn visit_string<E>(self, _: String) -> std::result::Result<Self::Value, E> {
+                    Ok(StrictJson)
+                }
+
+                fn visit_none<E>(self) -> std::result::Result<Self::Value, E> {
+                    Ok(StrictJson)
+                }
+
+                fn visit_unit<E>(self) -> std::result::Result<Self::Value, E> {
+                    Ok(StrictJson)
+                }
+
+                fn visit_some<D>(
+                    self,
+                    deserializer: D,
+                ) -> std::result::Result<Self::Value, D::Error>
+                where
+                    D: serde::Deserializer<'de>,
+                {
+                    StrictJson::deserialize(deserializer)
+                }
+
+                fn visit_seq<A>(self, mut sequence: A) -> std::result::Result<Self::Value, A::Error>
+                where
+                    A: serde::de::SeqAccess<'de>,
+                {
+                    while sequence.next_element::<StrictJson>()?.is_some() {}
+                    Ok(StrictJson)
+                }
+
+                fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+                where
+                    A: serde::de::MapAccess<'de>,
+                {
+                    let mut keys = BTreeSet::new();
+                    while let Some(key) = map.next_key::<String>()? {
+                        if !keys.insert(key.clone()) {
+                            return Err(serde::de::Error::custom(format!(
+                                "duplicate JSON object key {key:?}"
+                            )));
+                        }
+                        map.next_value::<StrictJson>()?;
+                    }
+                    Ok(StrictJson)
+                }
+            }
+
+            deserializer.deserialize_any(StrictJsonVisitor)
+        }
+    }
+
+    let mut deserializer = serde_json::Deserializer::from_str(text);
+    StrictJson::deserialize(&mut deserializer)?;
+    deserializer.end()?;
+    serde_json::from_str(text)
 }
 
 /// Serde normally maps both a missing member and an explicit JSON null to
@@ -553,6 +670,24 @@ impl BridgeResponse {
 pub struct LocalBridge<W> {
     writer: RunLogWriter<W>,
     safe_mode: bool,
+    run_log_limits: Option<BridgeRunLogLimits>,
+    run_log_usage: BridgeRunLogUsage,
+}
+
+/// Aggregate run-log growth limits for one bridge session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BridgeRunLogLimits {
+    pub max_bytes: u64,
+    pub max_events: usize,
+}
+
+/// Aggregate run-log growth observed through one bridge session.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BridgeRunLogUsage {
+    pub bytes: u64,
+    pub events: usize,
 }
 
 impl<W: Write> LocalBridge<W> {
@@ -560,11 +695,31 @@ impl<W: Write> LocalBridge<W> {
         Self {
             writer,
             safe_mode: false,
+            run_log_limits: None,
+            run_log_usage: BridgeRunLogUsage::default(),
         }
     }
 
     pub fn with_safe_mode(writer: RunLogWriter<W>, safe_mode: bool) -> Self {
-        Self { writer, safe_mode }
+        Self {
+            writer,
+            safe_mode,
+            run_log_limits: None,
+            run_log_usage: BridgeRunLogUsage::default(),
+        }
+    }
+
+    pub fn with_safe_mode_and_run_log_limits(
+        writer: RunLogWriter<W>,
+        safe_mode: bool,
+        run_log_limits: BridgeRunLogLimits,
+    ) -> Self {
+        Self {
+            writer,
+            safe_mode,
+            run_log_limits: Some(run_log_limits),
+            run_log_usage: BridgeRunLogUsage::default(),
+        }
     }
 
     pub fn safe_mode(&self) -> bool {
@@ -575,16 +730,58 @@ impl<W: Write> LocalBridge<W> {
         self.safe_mode = safe_mode;
     }
 
+    pub fn run_log_limits(&self) -> Option<BridgeRunLogLimits> {
+        self.run_log_limits
+    }
+
+    pub fn run_log_usage(&self) -> BridgeRunLogUsage {
+        self.run_log_usage
+    }
+
     pub fn record_request(&mut self, request: &BridgeRequest) -> Result<()> {
-        self.writer.append(&request.to_runlog_event()?)
+        self.record_event(&request.to_runlog_event()?)
     }
 
     pub fn record_response(&mut self, response: &BridgeResponse) -> Result<()> {
-        self.writer.append(&response.to_runlog_event()?)
+        self.record_event(&response.to_runlog_event()?)
     }
 
     pub fn record_event(&mut self, event: &RunLogEvent) -> Result<()> {
-        self.writer.append(event)
+        let encoded = serde_json::to_vec(event).context("failed to size bridge run-log event")?;
+        let event_bytes = u64::try_from(encoded.len())
+            .context("bridge run-log event length does not fit u64")?
+            .checked_add(1)
+            .context("bridge run-log event length overflow")?;
+        let next_bytes = self
+            .run_log_usage
+            .bytes
+            .checked_add(event_bytes)
+            .context("bridge session run-log byte accounting overflow")?;
+        let next_events = self
+            .run_log_usage
+            .events
+            .checked_add(1)
+            .context("bridge session run-log event accounting overflow")?;
+        if let Some(limits) = self.run_log_limits {
+            if next_bytes > limits.max_bytes {
+                bail!(
+                    "bridge session run-log byte limit exceeded: requested {next_bytes}, limit {}",
+                    limits.max_bytes
+                );
+            }
+            if next_events > limits.max_events {
+                bail!(
+                    "bridge session run-log event limit exceeded: requested {next_events}, limit {}",
+                    limits.max_events
+                );
+            }
+        }
+        self.writer.append(event)?;
+        self.run_log_usage = BridgeRunLogUsage {
+            bytes: next_bytes,
+            events: next_events,
+        };
+        Ok(())
     }
 
     pub fn dispatch<H: BridgeHandler>(
@@ -718,6 +915,111 @@ mod tests {
         assert_eq!(state.bridge_records.len(), 2);
         assert_eq!(state.bridge_records[0].method, "sim.step");
         assert_eq!(state.bridge_records[1].ok, Some(true));
+    }
+
+    #[test]
+    fn bridge_run_log_limits_fail_before_growth_and_report_exact_usage() {
+        let request = BridgeRequest {
+            request_id: "req-bounded".to_string(),
+            step: Some(0),
+            timestamp_ns: 0,
+            actor: actor(),
+            method: BridgeMethod::SimStatus,
+            payload: json!({}),
+        };
+        let request_event = request.to_runlog_event().unwrap();
+        let request_bytes =
+            u64::try_from(serde_json::to_vec(&request_event).unwrap().len()).unwrap() + 1;
+        let writer = RunLogWriter::new(Vec::new());
+        let mut bridge = LocalBridge::with_safe_mode_and_run_log_limits(
+            writer,
+            true,
+            BridgeRunLogLimits {
+                max_bytes: request_bytes,
+                max_events: 1,
+            },
+        );
+
+        bridge.record_request(&request).unwrap();
+        assert_eq!(
+            bridge.run_log_usage(),
+            BridgeRunLogUsage {
+                bytes: request_bytes,
+                events: 1,
+            }
+        );
+        let response = BridgeResponse {
+            request_id: request.request_id,
+            step: Some(0),
+            timestamp_ns: 0,
+            ok: true,
+            message: None,
+            result: Some(json!({"step": 0})),
+        };
+        let error = bridge.record_response(&response).unwrap_err();
+        assert!(error.to_string().contains("run-log byte limit"));
+        assert_eq!(bridge.run_log_usage().events, 1);
+        assert_eq!(
+            read_events(Cursor::new(bridge.into_inner())).unwrap().len(),
+            1
+        );
+    }
+
+    #[test]
+    fn bridge_run_log_limits_cover_prefix_and_session_growth_together() {
+        let prefix = RunLogEvent::RunStarted {
+            schema_version: RUN_LOG_SCHEMA_VERSION,
+            run_id: "bounded-prefix".to_string(),
+            timestamp_ns: 0,
+            config_hash: "0".repeat(64),
+            metadata: Default::default(),
+        };
+        let request = BridgeRequest {
+            request_id: "req-after-prefix".to_string(),
+            step: Some(0),
+            timestamp_ns: 0,
+            actor: actor(),
+            method: BridgeMethod::SimStatus,
+            payload: json!({}),
+        };
+        let prefix_bytes = u64::try_from(serde_json::to_vec(&prefix).unwrap().len()).unwrap() + 1;
+        let request_event = request.to_runlog_event().unwrap();
+        let request_bytes =
+            u64::try_from(serde_json::to_vec(&request_event).unwrap().len()).unwrap() + 1;
+        let writer = RunLogWriter::new(Vec::new());
+        let mut bridge = LocalBridge::with_safe_mode_and_run_log_limits(
+            writer,
+            true,
+            BridgeRunLogLimits {
+                max_bytes: prefix_bytes + request_bytes,
+                max_events: 2,
+            },
+        );
+
+        bridge.record_event(&prefix).unwrap();
+        bridge.record_request(&request).unwrap();
+        let response = BridgeResponse {
+            request_id: request.request_id,
+            step: Some(0),
+            timestamp_ns: 0,
+            ok: true,
+            message: None,
+            result: Some(json!({"step": 0})),
+        };
+
+        let error = bridge.record_response(&response).unwrap_err();
+        assert!(error.to_string().contains("run-log byte limit"));
+        assert_eq!(
+            bridge.run_log_usage(),
+            BridgeRunLogUsage {
+                bytes: prefix_bytes + request_bytes,
+                events: 2,
+            }
+        );
+        assert_eq!(
+            read_events(Cursor::new(bridge.into_inner())).unwrap().len(),
+            2
+        );
     }
 
     #[test]
@@ -979,6 +1281,39 @@ mod tests {
     }
 
     #[test]
+    fn strict_json_parser_preserves_large_numbers_and_rejects_duplicate_keys() {
+        let parsed = parse_strict_json_value(r#"{"dt":123456789012345678901234567890}"#).unwrap();
+        assert_eq!(
+            parsed["dt"].as_number().unwrap().to_string(),
+            "123456789012345678901234567890"
+        );
+
+        for text in [
+            r#"{"method":"sim.status","method":"bridge.describe"}"#,
+            r#"{"params":{"path":"a","path":"b"}}"#,
+        ] {
+            let error = parse_strict_json_value(text).unwrap_err();
+            assert!(
+                error.to_string().contains("duplicate JSON object key"),
+                "{error}"
+            );
+        }
+    }
+
+    #[test]
+    fn rpc_request_rejects_unknown_envelope_members() {
+        let error = serde_json::from_str::<BridgeRpcRequest>(
+            r#"{"jsonrpc":"2.0","id":1,"method":"sim.status","params":{},"extra":true}"#,
+        )
+        .unwrap_err();
+
+        assert!(
+            error.to_string().contains("unknown field `extra`"),
+            "{error}"
+        );
+    }
+
+    #[test]
     fn rpc_request_converts_dotted_method() {
         let rpc = BridgeRpcRequest {
             jsonrpc: Some("2.0".to_string()),
@@ -1097,6 +1432,33 @@ mod tests {
     }
 
     #[test]
+    fn bridge_session_is_safe_and_parameterless() {
+        let request: BridgeRpcRequest = serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":"session","method":"bridge.session","params":{}}"#,
+        )
+        .unwrap();
+        let method = request.validated_method().unwrap();
+        assert_eq!(method, BridgeMethod::BridgeSession);
+        assert!(method.safe_mode_allowed());
+        request.validated_params_for_method(&method).unwrap();
+
+        let request = request.into_bridge_request(actor(), Some(0), 1).unwrap();
+        assert_eq!(request.method, BridgeMethod::BridgeSession);
+        assert_eq!(request.payload, json!({}));
+    }
+
+    #[test]
+    fn bridge_session_rejects_undeclared_parameters() {
+        let request: BridgeRpcRequest = serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":"session","method":"bridge.session","params":{"path":"/tmp/private"}}"#,
+        )
+        .unwrap();
+        let method = request.validated_method().unwrap();
+        assert!(request.validated_params_for_method(&method).is_err());
+        assert!(request.into_bridge_request(actor(), Some(0), 1).is_err());
+    }
+
+    #[test]
     fn bridge_contract_lists_methods_and_transports() {
         let contract = bridge_runlog_contract();
         assert_eq!(
@@ -1130,6 +1492,20 @@ mod tests {
         assert_eq!(describe.request_payload, "{}");
         assert!(describe.response_payload.contains("run_log"));
         assert!(describe.response_payload.contains("bridge"));
+        let session = contract
+            .bridge
+            .methods
+            .iter()
+            .find(|method| method.method == "bridge.session")
+            .unwrap();
+        assert!(session.safe_mode_allowed);
+        assert!(!session.emits_action);
+        assert!(!session.emits_intervention);
+        assert_eq!(session.request_payload, "{}");
+        assert!(session.response_payload.contains("active_profile"));
+        assert!(session.response_payload.contains("allowed_methods"));
+        assert!(session.response_payload.contains("resource_limits"));
+        assert!(session.response_payload.contains("resource_usage"));
         let step = contract
             .bridge
             .methods
@@ -1192,8 +1568,46 @@ mod tests {
         assert_eq!(manifest["schema_version"], "1.0");
         assert_eq!(manifest["id"], "sepahead.prisoma");
         assert_eq!(manifest["authority"], "read-only");
-        assert_eq!(manifest["entrypoint"]["kind"], "host-rendered-artifacts");
-        assert_eq!(manifest["entrypoint"]["renderer"], "prisoma-runlog-v1");
+        assert_eq!(manifest["entrypoint"]["kind"], "host-rendered-jsonrpc-tcp");
+        assert_eq!(
+            manifest["entrypoint"]["renderer"],
+            "engram.bridge-status.v1"
+        );
+        assert_eq!(
+            manifest["entrypoint"]["transport"],
+            json!({
+                "host": "127.0.0.1",
+                "port": 38472,
+                "framing": "json-rpc-2.0-ndjson"
+            })
+        );
+        assert_eq!(
+            manifest["entrypoint"]["protocol"],
+            json!({
+                "profile": "engram-host-read-only-v1",
+                "session_method": "bridge.session",
+                "describe_method": "bridge.describe",
+                "status_method": "sim.status",
+                "allowed_methods": [
+                    "bridge.describe",
+                    "bridge.session",
+                    "sim.status"
+                ],
+                "request_timeout_ms": 5000,
+                "max_response_bytes": 65536,
+                "stale_after_ms": 10000
+            })
+        );
+        assert_eq!(
+            manifest["entrypoint"]["resource_limits"],
+            json!({
+                "max_requests": 512,
+                "max_rpc_line_bytes": 65536,
+                "max_input_bytes": 8388608,
+                "max_session_run_log_bytes": 67108864,
+                "max_session_run_log_events": 2048
+            })
+        );
         assert_eq!(
             manifest["requested_capabilities"],
             json!(["status.read", "artifacts.read", "bridge.safe-read"])
@@ -1201,6 +1615,10 @@ mod tests {
         assert_eq!(manifest["ncp"]["wire"], "0.8");
         assert_eq!(manifest["ncp"]["engram_wire"], "1.0");
         assert_eq!(manifest["ncp"]["compatible"], false);
+        assert_eq!(
+            manifest["standalone"]["development_command"],
+            "cargo run --locked -p pid-sim --bin pid-sim-bridge-tcp -- --engram-host --unique-run-log-dir outputs"
+        );
         assert_eq!(lock["schema_version"], 1);
         assert_eq!(lock["id"], "sepahead.prisoma");
         assert_eq!(lock["hash_revision"], "file_bytes_v1");

@@ -31,6 +31,15 @@ permission to assess. There is no bug-bounty programme.
   authenticate users, authorize roles, provide TLS, or prevent a local proxy or
   tunnel from exposing the listener. Their path confinement is not a
   security-grade filesystem sandbox.
+- The `--engram-host` TCP profile is read-only and finite. It conflicts with
+  `--allow-mutations`. It exposes only describe, session, and status. It limits
+  requests, line bytes, aggregate input, run-log bytes, and run-log events.
+  Run-log accounting includes the TCP prefix and terminal seal. The hosted
+  unique-directory option uses atomic no-replace creation. These controls bound
+  one development session. They do not authenticate the Engram client, attest
+  either process, prevent port squatting, or prove that the reviewed source
+  built the running executable. Engram must label process identity and transport
+  authentication as false.
 - Rerun conversion does not read attribution artifacts by default. The standalone
   converter requires `--load-attribution-artifacts`, then accepts only bounded
   relative regular, non-symlinked NumPy files below the run-log directory and

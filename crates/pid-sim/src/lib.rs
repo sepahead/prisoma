@@ -5,7 +5,8 @@
 use anyhow::{bail, Context, Result};
 use pid_bridge::{
     rpc_id_to_unique_request_id, rpc_notification_to_unique_request_id, BridgeHandler,
-    BridgeMethod, BridgeRequest, BridgeResponse, BridgeRpcRequest, BridgeRpcResponse, LocalBridge,
+    BridgeMethod, BridgeRequest, BridgeResponse, BridgeRpcRequest, BridgeRpcResponse,
+    BridgeRunLogLimits, BridgeRunLogUsage, LocalBridge,
 };
 use pid_runlog::{
     canonical_json_hash_v2, Actor, Pose, RunLogEvent, RunLogWriter, RunStatus, SimObjectSnapshot,
@@ -30,6 +31,39 @@ pub mod toy_harness;
 
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";
 pub const DEFAULT_BRIDGE_RUN_ID: &str = "sim-bridge-run";
+/// Read-only runtime profile used by the restricted Engram host adapter.
+pub const ENGRAM_HOST_BRIDGE_PROFILE: &str = "engram-host-read-only-v1";
+/// Standard safe-mode profile used by existing bridge transports.
+pub const SAFE_MODE_BRIDGE_PROFILE: &str = "safe-mode-v1";
+/// Standard mutation-capable profile used when safe mode is disabled.
+pub const STANDARD_BRIDGE_PROFILE: &str = "standard-v1";
+/// Finite runtime limits for the manifest-declared Engram host profile.
+pub const ENGRAM_HOST_RESOURCE_LIMITS: BridgeSessionResourceLimits = BridgeSessionResourceLimits {
+    max_requests: 512,
+    max_rpc_line_bytes: 64 * 1024,
+    max_input_bytes: 8 * 1024 * 1024,
+    max_session_run_log_bytes: 64 * 1024 * 1024,
+    max_session_run_log_events: 2_048,
+};
+
+/// Finite aggregate resource limits for a hosted bridge profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BridgeSessionResourceLimits {
+    pub max_requests: usize,
+    pub max_rpc_line_bytes: u64,
+    pub max_input_bytes: u64,
+    pub max_session_run_log_bytes: u64,
+    pub max_session_run_log_events: usize,
+}
+
+const SAFE_MODE_ALLOWED_METHODS: &[&str] = &[
+    "bridge.describe",
+    "bridge.session",
+    "sim.status",
+    "log.replay",
+];
+const ENGRAM_HOST_ALLOWED_METHODS: &[&str] = &["bridge.describe", "bridge.session", "sim.status"];
 
 /// Encode bytes as lowercase hexadecimal text without separators.
 pub fn lowercase_hex(bytes: impl AsRef<[u8]>) -> String {
@@ -160,6 +194,10 @@ pub struct SimBridgeSession<W> {
     bridge: LocalBridge<W>,
     handler: SimBridgeHandler,
     run_id: String,
+    method_policy: BridgeMethodPolicy,
+    resource_limits: Option<BridgeSessionResourceLimits>,
+    requests_used: usize,
+    input_bytes_used: u64,
     run_ended: bool,
     terminal_write_attempted: bool,
     stop_requested: Option<String>,
@@ -176,6 +214,12 @@ pub struct SimBridgeSession<W> {
     /// Canonical directory containing every path that file-bearing RPCs may
     /// read or create. File methods fail closed until this is configured.
     artifact_root: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BridgeMethodPolicy {
+    Standard,
+    EngramHostReadOnly,
 }
 
 #[derive(Debug, Clone)]
@@ -510,6 +554,9 @@ impl BridgeHandler for SimBridgeHandler {
                 serde_json::to_value(pid_bridge::bridge_runlog_contract())
                     .context("failed to serialize bridge and run-log contract")
             }
+            BridgeMethod::BridgeSession => {
+                bail!("bridge.session requires SimBridgeSession runtime context")
+            }
             BridgeMethod::SimStatus => {
                 validate_bridge_payload_keys(&request.payload, "sim.status", &[], true)?;
                 Ok(self.status_json())
@@ -641,6 +688,10 @@ impl<W: Write> SimBridgeSession<W> {
             bridge: LocalBridge::new(writer),
             handler: SimBridgeHandler::new(sim),
             run_id: run_id.into(),
+            method_policy: BridgeMethodPolicy::Standard,
+            resource_limits: None,
+            requests_used: 0,
+            input_bytes_used: 0,
             run_ended: false,
             terminal_write_attempted: false,
             stop_requested: None,
@@ -669,6 +720,42 @@ impl<W: Write> SimBridgeSession<W> {
             bridge: LocalBridge::with_safe_mode(writer, safe_mode),
             handler: SimBridgeHandler::new(sim),
             run_id: run_id.into(),
+            method_policy: BridgeMethodPolicy::Standard,
+            resource_limits: None,
+            requests_used: 0,
+            input_bytes_used: 0,
+            run_ended: false,
+            terminal_write_attempted: false,
+            stop_requested: None,
+            poisoned: false,
+            pending_export: None,
+            run_log_path: None,
+            artifact_root: None,
+        }
+    }
+
+    /// Create a session whose method surface is fixed to Engram's read-only profile.
+    pub fn with_engram_host_profile_and_run_id(
+        writer: RunLogWriter<W>,
+        sim: DeterministicObjectSim,
+        run_id: impl Into<String>,
+    ) -> Self {
+        let limits = ENGRAM_HOST_RESOURCE_LIMITS;
+        Self {
+            bridge: LocalBridge::with_safe_mode_and_run_log_limits(
+                writer,
+                true,
+                BridgeRunLogLimits {
+                    max_bytes: limits.max_session_run_log_bytes,
+                    max_events: limits.max_session_run_log_events,
+                },
+            ),
+            handler: SimBridgeHandler::new(sim),
+            run_id: run_id.into(),
+            method_policy: BridgeMethodPolicy::EngramHostReadOnly,
+            resource_limits: Some(limits),
+            requests_used: 0,
+            input_bytes_used: 0,
             run_ended: false,
             terminal_write_attempted: false,
             stop_requested: None,
@@ -708,7 +795,76 @@ impl<W: Write> SimBridgeSession<W> {
     }
 
     pub fn set_safe_mode(&mut self, safe_mode: bool) {
-        self.bridge.set_safe_mode(safe_mode);
+        self.bridge.set_safe_mode(
+            safe_mode || self.method_policy == BridgeMethodPolicy::EngramHostReadOnly,
+        );
+    }
+
+    /// Return the exact active runtime profile identifier.
+    pub fn active_profile(&self) -> &'static str {
+        match self.method_policy {
+            BridgeMethodPolicy::EngramHostReadOnly => ENGRAM_HOST_BRIDGE_PROFILE,
+            BridgeMethodPolicy::Standard if self.safe_mode() => SAFE_MODE_BRIDGE_PROFILE,
+            BridgeMethodPolicy::Standard => STANDARD_BRIDGE_PROFILE,
+        }
+    }
+
+    /// Return the exact method surface allowed by the active runtime profile.
+    pub fn allowed_methods(&self) -> &'static [&'static str] {
+        match self.method_policy {
+            BridgeMethodPolicy::EngramHostReadOnly => ENGRAM_HOST_ALLOWED_METHODS,
+            BridgeMethodPolicy::Standard if self.safe_mode() => SAFE_MODE_ALLOWED_METHODS,
+            BridgeMethodPolicy::Standard => pid_bridge::BRIDGE_METHODS,
+        }
+    }
+
+    /// Return the finite limits declared by the active hosted profile.
+    pub fn resource_limits(&self) -> Option<BridgeSessionResourceLimits> {
+        self.resource_limits
+    }
+
+    /// Return total run-log usage recorded through this session.
+    ///
+    /// The TCP transport appends its run prefix through [`Self::record_event`]
+    /// so hosted-profile usage covers the complete session log.
+    pub fn run_log_usage(&self) -> BridgeRunLogUsage {
+        self.bridge.run_log_usage()
+    }
+
+    /// Return the maximum accepted JSON-RPC line length for this session.
+    pub fn max_rpc_line_bytes(&self) -> u64 {
+        self.resource_limits
+            .map_or(MAX_RPC_LINE_BYTES, |limits| limits.max_rpc_line_bytes)
+    }
+
+    /// Return the remaining aggregate input allowance for this session.
+    pub fn rpc_input_bytes_remaining(&self) -> Option<u64> {
+        self.resource_limits
+            .map(|limits| limits.max_input_bytes.saturating_sub(self.input_bytes_used))
+    }
+
+    /// Record raw transport input before it is parsed or dispatched.
+    pub fn record_rpc_input_bytes(&mut self, bytes: u64) -> Result<()> {
+        let next = self
+            .input_bytes_used
+            .checked_add(bytes)
+            .context("bridge session input-byte accounting overflow")?;
+        if let Some(limits) = self.resource_limits {
+            if next > limits.max_input_bytes {
+                bail!(
+                    "bridge session input-byte limit exceeded: requested {next}, limit {}",
+                    limits.max_input_bytes
+                );
+            }
+        }
+        self.input_bytes_used = next;
+        Ok(())
+    }
+
+    /// Return true when the hosted profile must stop accepting more requests.
+    pub fn request_limit_reached(&self) -> bool {
+        self.resource_limits
+            .is_some_and(|limits| self.requests_used >= limits.max_requests)
     }
 
     pub fn run_id(&self) -> &str {
@@ -737,6 +893,7 @@ impl<W: Write> SimBridgeSession<W> {
                 self.run_id
             );
         }
+        self.admit_request()?;
         match self.dispatch_inner(request) {
             Ok(response) => Ok(response),
             Err(error) => {
@@ -758,8 +915,42 @@ impl<W: Write> SimBridgeSession<W> {
         }
     }
 
+    fn admit_request(&mut self) -> Result<()> {
+        let next = self
+            .requests_used
+            .checked_add(1)
+            .context("bridge session request accounting overflow")?;
+        if let Some(limits) = self.resource_limits {
+            if next > limits.max_requests {
+                bail!(
+                    "bridge session request limit exceeded: requested {next}, limit {}",
+                    limits.max_requests
+                );
+            }
+        }
+        self.requests_used = next;
+        Ok(())
+    }
+
     fn dispatch_inner(&mut self, request: &BridgeRequest) -> Result<BridgeResponse> {
         self.bridge.record_request(request)?;
+        if !self.method_allowed_by_profile(&request.method) {
+            let response = BridgeResponse {
+                request_id: request.request_id.clone(),
+                step: request.step,
+                timestamp_ns: request.timestamp_ns.max(self.handler.sim.timestamp_ns()),
+                ok: false,
+                message: Some(format!(
+                    "bridge profile {} blocked method {}",
+                    self.active_profile(),
+                    request.method.as_str()
+                )),
+                result: None,
+            };
+            self.bridge.record_response(&response)?;
+            self.bridge.flush()?;
+            return Ok(response);
+        }
         if self.bridge.safe_mode() && !request.safe_mode_allowed() {
             let response = BridgeResponse::blocked_by_safe_mode(
                 request,
@@ -777,6 +968,7 @@ impl<W: Write> SimBridgeSession<W> {
         }
         let mut staged_handler = self.handler.clone();
         let handled = match request.method {
+            BridgeMethod::BridgeSession => self.handle_bridge_session(request),
             BridgeMethod::LogStart => self.handle_log_start(request),
             BridgeMethod::LogStop => self.handle_log_stop(request),
             BridgeMethod::LogReplay => self.handle_log_replay(request),
@@ -920,6 +1112,18 @@ impl<W: Write> SimBridgeSession<W> {
         }
 
         Ok(response)
+    }
+
+    fn method_allowed_by_profile(&self, method: &BridgeMethod) -> bool {
+        match self.method_policy {
+            BridgeMethodPolicy::Standard => true,
+            BridgeMethodPolicy::EngramHostReadOnly => matches!(
+                method,
+                BridgeMethod::BridgeDescribe
+                    | BridgeMethod::BridgeSession
+                    | BridgeMethod::SimStatus
+            ),
+        }
     }
 
     fn rollback_pending_export(&mut self) -> Result<()> {
@@ -1067,6 +1271,7 @@ impl<W: Write> SimBridgeSession<W> {
         if self.run_ended || self.poisoned {
             bail!("bridge run {} is no longer writable", self.run_id);
         }
+        self.admit_request()?;
         let event = RunLogEvent::ErrorLogged {
             step: Some(self.handler.sim.step()),
             timestamp_ns: self.handler.sim.timestamp_ns(),
@@ -1150,6 +1355,25 @@ impl<W: Write> SimBridgeSession<W> {
 
     pub fn into_inner(self) -> W {
         self.bridge.into_inner()
+    }
+
+    fn handle_bridge_session(&self, request: &BridgeRequest) -> Result<Value> {
+        validate_bridge_payload_keys(&request.payload, "bridge.session", &[], true)?;
+        let run_log_usage = self.bridge.run_log_usage();
+        Ok(json!({
+            "safe_mode": self.safe_mode(),
+            "run_id": self.run_id,
+            "active_profile": self.active_profile(),
+            "allowed_methods": self.allowed_methods(),
+            "resource_limits": self.resource_limits(),
+            "resource_usage": {
+                "requests": self.requests_used,
+                "input_bytes": self.input_bytes_used,
+                "session_run_log_bytes": run_log_usage.bytes,
+                "session_run_log_events": run_log_usage.events,
+                "observed_at": "before_bridge_session_response",
+            },
+        }))
     }
 
     fn handle_log_start(&self, request: &BridgeRequest) -> Result<Value> {
@@ -1697,17 +1921,32 @@ where
     let mut handled = 0usize;
     let mut idx = 0usize;
     loop {
+        let input_remaining = session.rpc_input_bytes_remaining();
+        if session.request_limit_reached() || input_remaining == Some(0) {
+            break;
+        }
         idx += 1;
         let mut line = String::new();
+        let max_line_bytes = session.max_rpc_line_bytes();
+        let read_limit =
+            input_remaining.map_or(max_line_bytes, |remaining| remaining.min(max_line_bytes));
         // UFCS so `take` borrows `input` (`Take<&mut R>`) instead of moving it.
-        let read = std::io::Read::take(&mut input, MAX_RPC_LINE_BYTES)
+        let read = std::io::Read::take(&mut input, read_limit)
             .read_line(&mut line)
             .with_context(|| format!("failed to read JSON-RPC line {idx}"))?;
         if read == 0 {
             break;
         }
-        if read as u64 == MAX_RPC_LINE_BYTES && !line.ends_with('\n') {
-            let message = format!("JSON-RPC line {idx} exceeds {MAX_RPC_LINE_BYTES} bytes");
+        let read = u64::try_from(read).context("JSON-RPC line length does not fit u64")?;
+        session.record_rpc_input_bytes(read)?;
+        if read == read_limit && !line.ends_with('\n') {
+            let message = if input_remaining.is_some_and(|remaining| remaining <= max_line_bytes) {
+                format!(
+                    "bridge session input-byte limit reached before JSON-RPC line {idx} completed"
+                )
+            } else {
+                format!("JSON-RPC line {idx} exceeds {max_line_bytes} bytes")
+            };
             session.record_rejected_rpc(&format!("line-{idx}"), &message)?;
             bail!(message);
         }
@@ -1734,7 +1973,11 @@ where
             output.flush().context("failed to flush RPC response")?;
         }
         handled += 1;
-        if session.stop_requested() || session.run_ended() {
+        if session.stop_requested()
+            || session.run_ended()
+            || session.request_limit_reached()
+            || session.rpc_input_bytes_remaining() == Some(0)
+        {
             break;
         }
     }
@@ -1750,6 +1993,17 @@ pub fn dispatch_rpc_text_request<L>(
 where
     L: Write,
 {
+    let text_bytes =
+        u64::try_from(text.len()).context("JSON-RPC message length does not fit u64")?;
+    session.record_rpc_input_bytes(text_bytes)?;
+    if session.resource_limits().is_some() && text_bytes > session.max_rpc_line_bytes() {
+        let message = format!(
+            "JSON-RPC message {request_index} exceeds {} bytes",
+            session.max_rpc_line_bytes()
+        );
+        session.record_rejected_rpc(&format!("message-{request_index}"), &message)?;
+        bail!(message);
+    }
     dispatch_rpc_text_request_with_context(
         text,
         &format!("message-{request_index}"),
@@ -1771,7 +2025,7 @@ fn dispatch_rpc_text_request_with_context<L>(
 where
     L: Write,
 {
-    let value = match serde_json::from_str::<Value>(text) {
+    let value = match pid_bridge::parse_strict_json_value(text) {
         Ok(value) => value,
         Err(err) => {
             let message =
@@ -3362,6 +3616,204 @@ mod tests {
     }
 
     #[test]
+    fn bridge_session_reports_active_safe_mode_profile_without_runtime_paths() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "sim-session-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session =
+            SimBridgeSession::with_safe_mode_and_run_id(writer, demo_sim(), true, "safe-run");
+        let request = bridge_request(
+            "req-bridge-session",
+            BridgeMethod::BridgeSession,
+            actor,
+            Some(0),
+            0,
+            json!({}),
+        );
+
+        let response = session.dispatch(&request).unwrap();
+
+        assert!(response.ok, "{:?}", response.message);
+        let result = response.result.unwrap();
+        assert_eq!(result["safe_mode"], true);
+        assert_eq!(result["run_id"], "safe-run");
+        assert_eq!(result["active_profile"], SAFE_MODE_BRIDGE_PROFILE);
+        assert_eq!(
+            result["allowed_methods"],
+            json!([
+                "bridge.describe",
+                "bridge.session",
+                "sim.status",
+                "log.replay"
+            ])
+        );
+        assert!(result["resource_limits"].is_null());
+        assert_eq!(result["resource_usage"]["requests"], 1);
+        assert_eq!(result["resource_usage"]["input_bytes"], 0);
+        assert_eq!(result["resource_usage"]["session_run_log_events"], 1);
+        assert!(result["resource_usage"]["session_run_log_bytes"]
+            .as_u64()
+            .is_some_and(|bytes| bytes > 0));
+        assert_eq!(
+            result["resource_usage"]["observed_at"],
+            "before_bridge_session_response"
+        );
+    }
+
+    #[test]
+    fn engram_host_profile_is_irreversibly_safe_and_blocks_methods_outside_allowlist() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-host-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session =
+            SimBridgeSession::with_engram_host_profile_and_run_id(writer, demo_sim(), "engram-run");
+        session.set_safe_mode(false);
+
+        assert!(session.safe_mode());
+        assert_eq!(session.active_profile(), ENGRAM_HOST_BRIDGE_PROFILE);
+        assert_eq!(
+            session.allowed_methods(),
+            &["bridge.describe", "bridge.session", "sim.status"]
+        );
+
+        let session_response = session
+            .dispatch(&bridge_request(
+                "req-engram-session",
+                BridgeMethod::BridgeSession,
+                actor.clone(),
+                Some(0),
+                0,
+                json!({}),
+            ))
+            .unwrap();
+        let session_result = session_response.result.unwrap();
+        assert_eq!(session_result["safe_mode"], true);
+        assert_eq!(session_result["run_id"], "engram-run");
+        assert_eq!(session_result["active_profile"], ENGRAM_HOST_BRIDGE_PROFILE);
+        assert_eq!(
+            session_result["allowed_methods"],
+            json!(["bridge.describe", "bridge.session", "sim.status"])
+        );
+        assert_eq!(
+            session_result["resource_limits"],
+            serde_json::to_value(ENGRAM_HOST_RESOURCE_LIMITS).unwrap()
+        );
+        assert_eq!(session_result["resource_usage"]["requests"], 1);
+        assert_eq!(session_result["resource_usage"]["input_bytes"], 0);
+        assert_eq!(
+            session_result["resource_usage"]["session_run_log_events"],
+            1
+        );
+        assert!(session_result["resource_usage"]["session_run_log_bytes"]
+            .as_u64()
+            .is_some_and(|bytes| bytes > 0));
+
+        let blocked = session
+            .dispatch(&bridge_request(
+                "req-engram-replay",
+                BridgeMethod::LogReplay,
+                actor.clone(),
+                Some(0),
+                0,
+                json!({ "run_log_uri": "not-opened.jsonl" }),
+            ))
+            .unwrap();
+        assert!(!blocked.ok);
+        assert!(blocked
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains(ENGRAM_HOST_BRIDGE_PROFILE));
+
+        let status = session
+            .dispatch(&bridge_request(
+                "req-engram-status",
+                BridgeMethod::SimStatus,
+                actor,
+                Some(0),
+                0,
+                json!({}),
+            ))
+            .unwrap();
+        assert!(status.ok);
+        assert_eq!(session.step(), 0);
+    }
+
+    #[test]
+    fn engram_host_profile_fails_closed_at_request_and_input_limits() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-host-budget-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "bounded-run",
+        );
+        session.resource_limits = Some(BridgeSessionResourceLimits {
+            max_requests: 2,
+            max_input_bytes: 8,
+            ..ENGRAM_HOST_RESOURCE_LIMITS
+        });
+
+        session.record_rpc_input_bytes(8).unwrap();
+        let input_error = session.record_rpc_input_bytes(1).unwrap_err();
+        assert!(input_error.to_string().contains("input-byte limit"));
+        assert_eq!(session.input_bytes_used, 8);
+
+        for request_id in ["req-bounded-1", "req-bounded-2"] {
+            let response = session
+                .dispatch(&bridge_request(
+                    request_id,
+                    BridgeMethod::SimStatus,
+                    actor.clone(),
+                    Some(0),
+                    0,
+                    json!({}),
+                ))
+                .unwrap();
+            assert!(response.ok);
+        }
+        let request_error = session
+            .dispatch(&bridge_request(
+                "req-bounded-3",
+                BridgeMethod::SimStatus,
+                actor,
+                Some(0),
+                0,
+                json!({}),
+            ))
+            .unwrap_err();
+        assert!(request_error.to_string().contains("request limit"));
+        assert_eq!(session.requests_used, 2);
+        assert_eq!(session.step(), 0);
+        assert!(!session.poisoned());
+        assert!(session
+            .finish_run(RunStatus::Failed, Some("request limit reached".to_string()))
+            .unwrap());
+    }
+
+    #[test]
+    fn engram_host_resource_limits_reserve_a_terminal_log_margin() {
+        let limits = ENGRAM_HOST_RESOURCE_LIMITS;
+
+        assert!(limits.max_rpc_line_bytes <= limits.max_input_bytes);
+        assert!(
+            limits.max_session_run_log_events
+                >= limits.max_requests.saturating_mul(2).saturating_add(1)
+        );
+        assert!(limits.max_session_run_log_bytes >= limits.max_input_bytes.saturating_mul(8));
+    }
+
+    #[test]
     fn bridge_session_describe_rejects_undeclared_parameters() {
         let actor = Actor {
             actor_type: ActorType::Script,
@@ -4044,6 +4496,58 @@ mod tests {
             "rejected RPCs must not poison run-log validity: {:?}",
             report.issues
         );
+    }
+
+    #[test]
+    fn rpc_dispatch_rejects_duplicate_keys_and_unknown_envelope_members() {
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "rpc-strict-json-test");
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "rpc-strict-json-test".to_string(),
+            session_id: None,
+        };
+
+        for (index, text, expected_code) in [
+            (
+                1,
+                r#"{"jsonrpc":"2.0","id":1,"method":"sim.status","method":"bridge.describe","params":{}}"#,
+                -32700,
+            ),
+            (
+                2,
+                r#"{"jsonrpc":"2.0","id":2,"method":"sim.status","params":{"nested":1,"nested":2}}"#,
+                -32700,
+            ),
+            (
+                3,
+                r#"{"jsonrpc":"2.0","id":3,"method":"sim.status","params":{},"extra":true}"#,
+                -32600,
+            ),
+        ] {
+            let response = dispatch_rpc_text_request(text, index, &mut session, actor.clone())
+                .unwrap()
+                .unwrap();
+            assert_eq!(response.error.as_ref().unwrap().code, expected_code);
+            assert_eq!(response.id, Value::Null);
+        }
+
+        session
+            .finish_run(RunStatus::Succeeded, None)
+            .expect("finish run");
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        let rejected = events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    RunLogEvent::ErrorLogged { message, .. }
+                        if message.starts_with("rejected rpc ")
+                )
+            })
+            .count();
+        assert_eq!(rejected, 3);
     }
 
     #[test]
@@ -4818,6 +5322,77 @@ mod tests {
             event,
             RunLogEvent::ErrorLogged { message, .. } if message.contains("exceeds")
         )));
+    }
+
+    #[test]
+    fn engram_rpc_line_processor_stops_at_profile_request_limit() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-rpc-budget-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session =
+            SimBridgeSession::with_engram_host_profile_and_run_id(writer, demo_sim(), "rpc-budget");
+        session.resource_limits = Some(BridgeSessionResourceLimits {
+            max_requests: 2,
+            ..ENGRAM_HOST_RESOURCE_LIMITS
+        });
+        let input = concat!(
+            r#"{"jsonrpc":"2.0","id":"status-1","method":"sim.status","params":{}}"#,
+            "\n",
+            r#"{"jsonrpc":"2.0","id":"status-2","method":"sim.status","params":{}}"#,
+            "\n",
+            r#"{"jsonrpc":"2.0","id":"status-3","method":"sim.status","params":{}}"#,
+            "\n"
+        );
+        let expected_input_bytes = input
+            .lines()
+            .take(2)
+            .map(|line| line.len() + 1)
+            .sum::<usize>();
+        let mut output = Vec::new();
+
+        let handled =
+            dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap();
+
+        assert_eq!(handled, 2);
+        assert_eq!(session.requests_used, 2);
+        assert_eq!(
+            session.input_bytes_used,
+            u64::try_from(expected_input_bytes).unwrap()
+        );
+        assert_eq!(String::from_utf8(output).unwrap().lines().count(), 2);
+        assert_eq!(session.step(), 0);
+    }
+
+    #[test]
+    fn engram_rpc_line_processor_enforces_profile_line_limit() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-rpc-line-budget-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "line-budget",
+        );
+        let input = vec![b' '; ENGRAM_HOST_RESOURCE_LIMITS.max_rpc_line_bytes as usize];
+        let mut output = Vec::new();
+
+        let error =
+            dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap_err();
+
+        assert!(error.to_string().contains("exceeds 65536 bytes"));
+        assert!(output.is_empty());
+        assert_eq!(session.requests_used, 1);
+        assert_eq!(
+            session.input_bytes_used,
+            ENGRAM_HOST_RESOURCE_LIMITS.max_rpc_line_bytes
+        );
+        assert_eq!(session.bridge.run_log_usage().events, 1);
     }
 
     #[test]

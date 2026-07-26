@@ -52,11 +52,11 @@ NIX_JUST_VERSION = "1.56.0"
 PRE_COMMIT_VERSION = "4.6.0"
 GITLEAKS_VERSION = "8.30.1"
 GITLEAKS_REVISION = "83d9cd684c87d95d656c1458ef04895a7f1cbd8e"
-CREBAIN_REVIEW_REVISION = "cb0f1a312259af6af7d7f3a5d05c522ed36655d1"
+CREBAIN_REVIEW_REVISION = "7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6"
 ENGRAM_PLACEHOLDER_REVISION = "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
-PAPER2BRAIN_REVIEW_REVISION = "18fb57c6164d6291cac84ae15c65ab6119715157"
+PAPER2BRAIN_REVIEW_REVISION = "b3afdfc8ccf39c4618ba2c371cfad2d37f5727d7"
 ENGRAM_DESCRIPTOR_SHA256 = (
-    "5ec56206875e97b7478397d6182d77d864f2654f973a8d2213aa4f2d07bb043b"
+    "24bb6f92680c253b79389ba32396e82f63cd316bcb1806a9522060970b9290a5"
 )
 
 
@@ -999,15 +999,18 @@ def _audit() -> int:
             "grandplan.md attributes an unreachable revision to the public "
             "sepahead/engram repository"
         )
+    normalized_grandplan = " ".join(grandplan.split())
     for required in (
         ENGRAM_PLACEHOLDER_REVISION,
         PAPER2BRAIN_REVIEW_REVISION,
         "`sepahead/engram` repository remains a",
         "The executable Engram Neural Labs host is `sepahead/Paper2Brain`",
-        "E2 declared immutable consumer-manifest relationship",
-        "No live producer, NCP bridge, wire translator, or authority path exists",
+        "E2 declared immutable consumer-manifest relationship plus local "
+        "read-only transport evidence",
+        "No NCP producer, bridge, wire translator, artifact-validation path, "
+        "or authority path exists",
     ):
-        if required not in grandplan:
+        if required not in normalized_grandplan:
             problems.append(
                 f"grandplan.md omits the current Engram boundary {required!r}"
             )
@@ -1020,7 +1023,8 @@ def _audit() -> int:
         "README.md": (
             "`sepahead/engram` repository remains a README-only placeholder",
             "`sepahead/Paper2Brain`",
-            "There is no live Paper2Brain-to-Prisoma producer",
+            "This is not an NCP producer, wire translator, artifact validator, "
+            "or authority path",
         ),
         "RESEARCH_VLA_D_NCP.md": (
             "`sepahead/engram` repository remains a README-only placeholder",
@@ -1207,7 +1211,7 @@ def _audit() -> int:
                 "local put is not receiver receipt",
                 "action/control commands remain unregistered",
                 "no direct Prisoma adapter",
-                "supervised read-only Engram view",
+                "restricted read-only Engram view",
                 "live NCP control loop",
             ),
             "manwe": ("no drop-in Prisoma adapter",),

@@ -41,8 +41,8 @@ prerelease.
 A manual ecosystem refresh on 2026-07-26 reconciled Crebain, the named Engram
 placeholder, and the executable Paper2Brain host. Prisoma keeps its reviewed
 `pid-rs@796c11e` and NCP `v0.8.0` pins until consumer-owned qualification is
-complete. Public NCP main and the Paper2Brain host use candidate wire 1.0. They
-are incompatible with this wire-0.8 observer.
+complete. Public NCP main and Paper2Brain's separate development NCP service
+use candidate wire 1.0. They are incompatible with this wire-0.8 observer.
 See `grandplan.md` section 8.9 and `protocols/ecosystem_evidence_current_v1.json`.
 
 ## Documentation map
@@ -65,7 +65,8 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `AGENTS.md` | Ground rules + a detailed "what actually exists" inventory for contributors |
 | `CONTRIBUTING.md`, `SECURITY.md` | Contribution controls and private vulnerability-reporting policy |
 | `NCP_DEV_PROMPT.md` | Optional: dev handoff for the Engram/NCP `(V,L,D,A)` bridge |
-| `integrations/engram/manifest.json` | Read-only Engram extension descriptor for host-rendered Prisoma artifacts |
+| `integrations/engram/manifest.json` | Read-only generic Engram headless-runtime descriptor and finite session policy |
+| `integrations/engram/README.md` | Hosted profile startup, lifecycle, limits, security, and evidence boundaries |
 | `uidesigner/UI.md` | UI/UX spec (viewer-first; ordered by milestones) |
 | `GAUSS_MI_INTEGRATION.md`, `WORLD_WARP_INTEGRATION.md` | Optional add-on specs (3DGS reconstruction-quality study; external world-model baseline) |
 | `THIRD_PARTY_NOTICES.md` | Release-governance notices/checklist |
@@ -284,10 +285,13 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   producer (an E2 dependency edge to NCP itself, `grandplan.md` §8.9), excluded from the default
   workspace and off the critical path. The named public `sepahead/engram` repository remains a
   README-only placeholder. The executable Engram Neural Labs host lives in
-  `sepahead/Paper2Brain`. Prisoma has only a digest-locked, read-only artifact descriptor for that
-  host. There is no live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authority
-  path. The observer's
-  integrity repair ships against wire 0.8, pinned to the immutable NCP `v0.8.0` release:
+  `sepahead/Paper2Brain`. Prisoma has a digest-locked descriptor for a generic
+  host-rendered JSON-RPC status surface. The host can connect to the separate
+  `--engram-host` TCP process and read describe, session, and status only. This
+  is not an NCP producer, wire translator, artifact validator, or authority
+  path. There is no live Paper2Brain-to-Prisoma scientific producer. The
+  observer's integrity repair ships against wire 0.8, pinned to the immutable
+  NCP `v0.8.0` release:
   full-`{epoch,seq}` V/L/D/A buffering, sensor-authorized transitions, immutable rows/events,
   complete-frame duplicate/conflict receipts, observer-owned raw fault accounting, finite
   resident/output ceilings, and a canonical artifact/run-log bundle committed by a verified
@@ -321,13 +325,31 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   candidate. Do not treat that moving head as a compatible update or release.
 - **Specified (not yet built):** a fuller Rerun-based diagnostic viewer and the deferred
   Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
-- **Implemented Engram extension descriptor:** `integrations/engram/manifest.json` declares a
-  read-only, host-rendered artifact surface. The descriptor selects the reviewed
-  `prisoma-runlog-v1` renderer. `sepahead/Paper2Brain@18fb57c` imports the byte-locked copy and
-  tests its bounded structural preview. This creates an E2 immutable consumer-manifest
-  relationship. The preview is not Prisoma validation. It preserves standalone and headless use.
-  It does not add actuation, a live producer, or NCP wire translation. Prisoma stays on NCP wire
-  0.8. Paper2Brain candidate wire 1.0 is incompatible until a separate adapter review is complete.
+- **Implemented Engram headless profile:** `integrations/engram/manifest.json`
+  declares the generic `host-rendered-jsonrpc-tcp` entrypoint and
+  `engram.bridge-status.v1` renderer. Start it with
+  `cargo run --locked -p pid-sim --bin pid-sim-bridge-tcp -- --engram-host
+  --unique-run-log-dir outputs`. The directory must exist. Prisoma atomically
+  creates and reports a new no-clobber run log for each start. The profile
+  forces safe mode and conflicts with `--allow-mutations`. It exposes only
+  `bridge.describe`, `bridge.session`, and `sim.status`.
+
+  The profile enforces 512 requests, a 65,536-byte line limit, 8 MiB aggregate
+  input, a 64 MiB session run-log limit, and 2,048 run-log events.
+  `bridge.session` reports the exact active profile, method set, limits, and
+  current usage. Run-log usage includes the TCP prefix and the current request.
+  The report excludes its pending response, as its `observed_at` value states.
+  These are peer assertions, not process or build attestation.
+  Engram keeps process identity and transport authentication false. The
+  canonical run log remains the source of truth. The descriptor accepts only a
+  canonical run log for Engram rendering and declares no produced artifacts.
+  Rerun recordings and offline VLDA artifacts remain standalone Prisoma
+  surfaces. The live card and structural preview are not Prisoma validation.
+
+  Standalone safe mode and explicit mutation mode remain available. This
+  integration does not add actuation, an Engram-managed process, NCP
+  translation, or a closed loop. Prisoma stays on NCP wire 0.8. Engram
+  candidate wire 1.0 remains incompatible.
 
 ## Quick Start — Exp0 Gate
 
@@ -515,10 +537,14 @@ race.
 > tunnelling, or another local process. They provide no authentication, authorization, TLS,
 > payload redaction, remote-deployment assessment, or authenticated actor identity.
 
-**Safe mode and wire subset.** The Agent Bridge read-only safe mode allows `bridge.describe`,
-`sim.status`, and confined `log.replay`. `bridge.describe` returns a static bridge and run-log
-contract. Its `safe_mode_allowed` fields describe method eligibility. They do not report the
-active session mode or attest that a transport enforces safe mode.
+**Safe mode and wire subset.** The Agent Bridge read-only safe mode allows
+`bridge.describe`, `bridge.session`, `sim.status`, and confined `log.replay`.
+`bridge.describe` returns a static bridge and run-log contract.
+`bridge.session` returns the active profile, allowed methods, limits, and usage.
+These values report local runtime state. They do not authenticate or attest the
+process.
+The parser rejects unknown request-envelope members and duplicate object keys
+at every JSON depth.
 Every mutating method — `sim.step`, `sim.reset`, `scene.set_object`,
 `intervention.apply`, `log.start`, `log.stop`, and file-writing `export.rerun` — is recorded as a
 blocked bridge response. TCP/WebSocket require explicit `--allow-mutations` to leave safe mode;
@@ -533,9 +559,12 @@ implementation-defined `-32000` code.
 
 TCP and stdio cap each JSONL request line at 1 MiB. WebSocket caps the HTTP upgrade at 16 KiB and
 each incoming client frame at 1 MiB; network socket reads and writes have a 30-second timeout per
-operation. These
-are not total request, session-duration, request-count, or aggregate-traffic limits, so traffic
-that keeps making progress (including a trickle client) can persist indefinitely. A WebSocket
+operation. Standard modes do not add a profile-level total session duration.
+The Engram profile adds finite request-count, aggregate-input, and
+run-log limits. Its run-log accounting starts with the TCP prefix and also
+covers the terminal seal. Other traffic that keeps making progress, including
+a trickle client, can persist until an applicable limit or external lifecycle
+action. A WebSocket
 upgrade specifically requires `GET /bridge HTTP/1.1`, exactly one each of a nonempty `Host`,
 `Upgrade: websocket`, a tokenized `Connection` containing `upgrade`,
 `Sec-WebSocket-Version: 13`, and a base64 key decoding to exactly 16 bytes; any `Origin` header is
