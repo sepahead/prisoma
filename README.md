@@ -38,9 +38,11 @@ review-completion or scientific/candidate-promotion claim. Its `published:false`
 to that non-promoted candidate decision record, not to public availability of the 0.9.0 source
 prerelease.
 
-A manual ecosystem refresh on 2026-07-24 found newer public project heads. Prisoma keeps its
-reviewed `pid-rs@796c11e` and NCP `v0.8.0` pins until consumer-owned qualification is complete.
-Public NCP main is an unreleased wire-1.0 candidate and is incompatible with this observer.
+A manual ecosystem refresh on 2026-07-26 reconciled Crebain, the named Engram
+placeholder, and the executable Paper2Brain host. Prisoma keeps its reviewed
+`pid-rs@796c11e` and NCP `v0.8.0` pins until consumer-owned qualification is
+complete. Public NCP main and the Paper2Brain host use candidate wire 1.0. They
+are incompatible with this wire-0.8 observer.
 See `grandplan.md` section 8.9 and `protocols/ecosystem_evidence_current_v1.json`.
 
 ## Documentation map
@@ -280,8 +282,11 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
 - **Source-agnostic capture:** the analysis consumes one `(V,L,D,A)`+labels contract, so producers are pluggable. The **reference producer is `experiments/safe_adapter/`** (the S2/EC1 adapter); its checked path is a finite synthetic canonical bundle, while real downloaded data remain a gated ingress/capture step. `pid-sim` fixtures + the Rapier/toy harnesses are standalone sim cross-checks. In `(V,L,D,A)`, **D is the hidden-state / dynamics axis, not depth**, and semantic labels require architecture evidence (`grandplan.md` §9.1, §3.5).
 - **Optional NCP observer:** `crates/ncp-observer` is a read-only tap for a conforming NCP
   producer (an E2 dependency edge to NCP itself, `grandplan.md` §8.9), excluded from the default
-  workspace and off the critical path. The public `sepahead/engram` repository remains a
-  README-only placeholder; there is no public live Engram producer or Prisoma integration. The observer's
+  workspace and off the critical path. The named public `sepahead/engram` repository remains a
+  README-only placeholder. The executable Engram Neural Labs host lives in
+  `sepahead/Paper2Brain`. Prisoma has only a digest-locked, read-only artifact descriptor for that
+  host. There is no live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authority
+  path. The observer's
   integrity repair ships against wire 0.8, pinned to the immutable NCP `v0.8.0` release:
   full-`{epoch,seq}` V/L/D/A buffering, sensor-authorized transitions, immutable rows/events,
   complete-frame duplicate/conflict receipts, observer-owned raw fault accounting, finite
@@ -318,9 +323,11 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
 - **Implemented Engram extension descriptor:** `integrations/engram/manifest.json` declares a
   read-only, host-rendered artifact surface. The descriptor selects the reviewed
-  `prisoma-runlog-v1` renderer. It preserves standalone and headless use. It does not add
-  actuation, a live Engram producer, or NCP wire translation. Prisoma stays on NCP wire 0.8.
-  Engram candidate wire 1.0 is incompatible until a separate adapter review is complete.
+  `prisoma-runlog-v1` renderer. `sepahead/Paper2Brain@18fb57c` imports the byte-locked copy and
+  tests its bounded structural preview. This creates an E2 immutable consumer-manifest
+  relationship. The preview is not Prisoma validation. It preserves standalone and headless use.
+  It does not add actuation, a live producer, or NCP wire translation. Prisoma stays on NCP wire
+  0.8. Paper2Brain candidate wire 1.0 is incompatible until a separate adapter review is complete.
 
 ## Quick Start — Exp0 Gate
 

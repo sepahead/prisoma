@@ -307,8 +307,11 @@ action and counterfactual effects, not treated as faithfulness by itself (`grand
 A **read-only** Neuro-Cybernetic Protocol tap for a conforming producer, intended to support a
 future NEST/Engram session, that emits an `OfflineVldaDataset` artifact (for
 `pid-offline-harness`) plus canonical run-log events
-(`EmbeddingContract`/`EmbeddingCaptured`/`LabelObserved`). The named public `sepahead/engram`
-repository is currently a README-only placeholder, so no public live Engram integration exists.
+(`EmbeddingContract`/`EmbeddingCaptured`/`LabelObserved`). The named public
+`sepahead/engram` repository remains a README-only placeholder. The executable Engram Neural
+Labs host lives in `sepahead/Paper2Brain`. Prisoma has a digest-locked, read-only artifact
+descriptor only. No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or
+authority path exists.
 
 - **Honours the three invariants:** the run log is the source of truth, the observer drives
   nothing (the Agent Bridge stays the only control plane), and all NCP-specific mapping

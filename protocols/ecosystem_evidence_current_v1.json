@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-24",
+  "as_of_date": "2026-07-26",
   "scope": "offline current-state overlay on the complete 2026-07-12 public-ecosystem ledger",
   "baseline": {
     "path": "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -13,9 +13,9 @@
     "expiry": "re-review an edge when its producer revision, consumer revision, schema, wire, model, or adapter revision changes"
   },
   "last_network_refresh": {
-    "date": "2026-07-24",
-    "method": "official GitHub refs plus exact-revision repository surfaces; archived baseline left immutable",
-    "conclusion": "only pid-rs and NCP remain direct Prisoma edges; no reviewed sibling reached E2 with Prisoma or E4 scientific conformance"
+    "date": "2026-07-26",
+    "method": "official GitHub refs and exact-revision repository surfaces for Crebain, the named Engram repository, and the Paper2Brain Engram Neural Labs host; archived baseline left immutable",
+    "conclusion": "pid-rs and NCP remain the only E2 dependency edges; Paper2Brain has an E2 immutable consumer-manifest edge, with no live producer, NCP bridge, authority, or E4 scientific conformance"
   },
   "overrides": [
     {
@@ -47,12 +47,12 @@
     },
     {
       "project": "crebain",
-      "observed_revision": "0a58a5b8dd799884ddb06f1308b1748216fab322",
+      "observed_revision": "cb0f1a312259af6af7d7f3a5d05c522ed36655d1",
       "prior_frame_capability_revision": "49d7b3614f24d21a40fe2af6dbeac082338ae9d7",
       "evidence_level": "E0_between_projects",
-      "relationship": "candidate producer with a public 0.9.0 research prerelease, bounded Galadriel evidence-sender component, inactive plant-contract surfaces, and a profile-neutral frame-convention corpus",
-      "current_boundary": "the public prerelease supplies component and historical-fixture evidence only; a local put is not receiver receipt, reciprocal Galadriel decoding, correlation, deployed TLS/ACL, or direct Prisoma evidence; the frame corpus is not called by admission and carries no frame-instance or origin/datum/body-point proof, NCP action/control commands remain unregistered, and no direct Prisoma adapter, managed product route, or live Crebain-to-Engram loop exists",
-      "source": "https://github.com/sepahead/crebain/tree/0a58a5b8dd799884ddb06f1308b1748216fab322"
+      "relationship": "candidate producer with a public 0.9.0 research prerelease, bounded Galadriel evidence sender, inactive plant-contract surfaces, a frame-convention corpus, and a supervised read-only Engram view; no direct Prisoma edge exists",
+      "current_boundary": "the public prerelease supplies component and historical-fixture evidence plus a supervised read-only Engram view; embedded mode disables native, external telemetry, artifact exchange, NCP, and plant paths, and its host messages do not attest a process or build; a local put is not receiver receipt, the frame corpus is not called by admission, action/control commands remain unregistered, and no direct Prisoma adapter, managed product route, or live NCP control loop exists",
+      "source": "https://github.com/sepahead/crebain/tree/cb0f1a312259af6af7d7f3a5d05c522ed36655d1"
     },
     {
       "project": "manwe",
@@ -67,8 +67,18 @@
       "observed_revision": "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd",
       "evidence_level": "E0_placeholder",
       "relationship": "candidate future producer only",
-      "current_boundary": "the public repository is README-only and says implementation will be open-sourced after publication; no executable public Engram/NCP producer exists",
+      "current_boundary": "the named public repository is README-only and says implementation will be open-sourced after publication; no executable public Engram/NCP producer exists; no direct Prisoma adapter exists",
       "source": "https://github.com/sepahead/engram/tree/a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
+    },
+    {
+      "project": "paper2brain",
+      "observed_revision": "18fb57c6164d6291cac84ae15c65ab6119715157",
+      "evidence_level": "E2_declared_immutable_consumer_manifest",
+      "relationship": "public executable Engram Neural Labs host with a byte-locked Prisoma manifest copy and tested host-rendered structural preview; no live data or control path exists",
+      "prisoma_descriptor_path": "integrations/engram/manifest.json",
+      "prisoma_descriptor_sha256": "5ec56206875e97b7478397d6182d77d864f2654f973a8d2213aa4f2d07bb043b",
+      "current_boundary": "Paper2Brain imports the byte-locked descriptor and implements the bounded prisoma-runlog-v1 structural preview, which is not Prisoma validation; its development NCP service uses candidate wire 1.0 while Prisoma remains on wire 0.8; the descriptor starts no process and grants no authority; there is no live Paper2Brain-to-Prisoma producer, wire translator, artifact importer, NCP bridge, producer-consumer golden fixture, or E4 scientific conformance report",
+      "source": "https://github.com/sepahead/Paper2Brain/tree/18fb57c6164d6291cac84ae15c65ab6119715157"
     },
     {
       "project": "haldir",

@@ -52,6 +52,12 @@ NIX_JUST_VERSION = "1.56.0"
 PRE_COMMIT_VERSION = "4.6.0"
 GITLEAKS_VERSION = "8.30.1"
 GITLEAKS_REVISION = "83d9cd684c87d95d656c1458ef04895a7f1cbd8e"
+CREBAIN_REVIEW_REVISION = "cb0f1a312259af6af7d7f3a5d05c522ed36655d1"
+ENGRAM_PLACEHOLDER_REVISION = "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
+PAPER2BRAIN_REVIEW_REVISION = "18fb57c6164d6291cac84ae15c65ab6119715157"
+ENGRAM_DESCRIPTOR_SHA256 = (
+    "5ec56206875e97b7478397d6182d77d864f2654f973a8d2213aa4f2d07bb043b"
+)
 
 
 class TruthAuditError(RuntimeError):
@@ -988,30 +994,69 @@ def _audit() -> int:
             problems.append(f"CHANGELOG.md retains stale power claim {stale!r}")
 
     grandplan = _read_regular_text(ROOT / "grandplan.md", label="grandplan.md")
-    for false_engram_claim in (
-        "a6f2c5f973783373db9d90769d981b1d549a5b6b",
-        "contains an implemented neurocontrol/NCP reference stack",
-    ):
-        if false_engram_claim in grandplan:
-            problems.append(
-                "grandplan.md attributes unreachable implementation evidence to the public "
-                f"sepahead/engram repository: {false_engram_claim!r}"
-            )
+    if "a6f2c5f973783373db9d90769d981b1d549a5b6b" in grandplan:
+        problems.append(
+            "grandplan.md attributes an unreachable revision to the public "
+            "sepahead/engram repository"
+        )
     for required in (
-        "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd",
-        "README-only placeholder",
+        ENGRAM_PLACEHOLDER_REVISION,
+        PAPER2BRAIN_REVIEW_REVISION,
+        "`sepahead/engram` repository remains a",
+        "The executable Engram Neural Labs host is `sepahead/Paper2Brain`",
+        "E2 declared immutable consumer-manifest relationship",
+        "No live producer, NCP bridge, wire translator, or authority path exists",
     ):
         if required not in grandplan:
             problems.append(
-                f"grandplan.md omits the verified public Engram boundary {required!r}"
+                f"grandplan.md omits the current Engram boundary {required!r}"
             )
+    current_engram_docs = {
+        "AGENTS.md": (
+            "`sepahead/engram` repository remains a README-only placeholder",
+            "`sepahead/Paper2Brain`",
+            "No live Paper2Brain-to-Prisoma producer",
+        ),
+        "README.md": (
+            "`sepahead/engram` repository remains a README-only placeholder",
+            "`sepahead/Paper2Brain`",
+            "There is no live Paper2Brain-to-Prisoma producer",
+        ),
+        "RESEARCH_VLA_D_NCP.md": (
+            "`sepahead/engram` repository remains a README-only placeholder",
+            "`sepahead/Paper2Brain`",
+            "no compatible live wire-0.8 publisher exists",
+        ),
+        "NCP_DEV_PROMPT.md": (
+            "`sepahead/engram` repository remains a",
+            "README-only placeholder",
+            "`sepahead/Paper2Brain`",
+            "no compatible live publisher or bridge",
+        ),
+        "crates/ncp-observer/README.md": (
+            "`sepahead/engram` repository remains a README-only placeholder",
+            "`sepahead/Paper2Brain`",
+            "no compatible live publisher or bridge",
+        ),
+        "crates/ncp-observer/Cargo.toml": (
+            "no live Paper2Brain-to-Prisoma bridge exists",
+        ),
+    }
+    for relative, required_phrases in current_engram_docs.items():
+        text = _read_regular_text(ROOT / relative, label=relative)
+        normalized_text = " ".join(text.split())
+        for required in required_phrases:
+            if required not in normalized_text:
+                problems.append(
+                    f"{relative} omits the current Engram boundary {required!r}"
+                )
     if "current public main `2a55f3d" in grandplan:
         problems.append(
             "grandplan.md mislabels a reviewed Haldir revision as current main"
         )
     for project, dated_revision in {
         "galadriel": "80506dd2ce52b33c3334c7d1760a8155c7631241",
-        "crebain": "0a58a5b8dd799884ddb06f1308b1748216fab322",
+        "crebain": CREBAIN_REVIEW_REVISION,
         "manwe": "6d73405bbf5365039ee1d0db9c466ed6346a9c57",
         "haldir": "555108666cb82e8a36dcd4b08b5b30c62367a6f4",
         "cortexel": "d29669e6d5b1766fd96e1eacefb02b3f43c5ce61",
@@ -1091,6 +1136,7 @@ def _audit() -> int:
             "crebain",
             "manwe",
             "engram",
+            "paper2brain",
             "haldir",
             "cortexel",
             "melkor",
@@ -1104,9 +1150,10 @@ def _audit() -> int:
             "pid-rs": revision,
             "NCP": "v0.8.0",
             "galadriel": "80506dd2ce52b33c3334c7d1760a8155c7631241",
-            "crebain": "0a58a5b8dd799884ddb06f1308b1748216fab322",
+            "crebain": CREBAIN_REVIEW_REVISION,
             "manwe": "6d73405bbf5365039ee1d0db9c466ed6346a9c57",
-            "engram": "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd",
+            "engram": ENGRAM_PLACEHOLDER_REVISION,
+            "paper2brain": PAPER2BRAIN_REVIEW_REVISION,
             "haldir": "555108666cb82e8a36dcd4b08b5b30c62367a6f4",
             "cortexel": "d29669e6d5b1766fd96e1eacefb02b3f43c5ce61",
             "melkor": "529260f568c62250b0541a11f5c24b45767bf1cf",
@@ -1158,11 +1205,26 @@ def _audit() -> int:
             ),
             "crebain": (
                 "local put is not receiver receipt",
-                "not called by admission",
                 "action/control commands remain unregistered",
                 "no direct Prisoma adapter",
+                "supervised read-only Engram view",
+                "live NCP control loop",
             ),
             "manwe": ("no drop-in Prisoma adapter",),
+            "engram": (
+                "README-only",
+                "no executable public Engram/NCP producer",
+                "no direct Prisoma adapter",
+            ),
+            "paper2brain": (
+                "candidate wire 1.0",
+                "Prisoma remains on wire 0.8",
+                "not Prisoma validation",
+                "starts no process and grants no authority",
+                "no live Paper2Brain-to-Prisoma producer",
+                "NCP bridge",
+                "E4 scientific conformance report",
+            ),
             "haldir": (
                 "declaration is cooperative, process-local",
                 "not durably bound",
@@ -1187,12 +1249,61 @@ def _audit() -> int:
                         f"missing boundary {required_phrase!r}"
                     )
         engram_override = overrides.get("engram", {})
-        if engram_override.get("observed_revision") != (
-            "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
-        ) or "README-only" not in str(engram_override.get("current_boundary", "")):
+        if engram_override.get("evidence_level") != "E0_placeholder":
             problems.append(
-                "ecosystem evidence overlay revives unsupported Engram maturity"
+                "ecosystem evidence overlay misclassifies the named Engram placeholder"
             )
+        if engram_override.get("source") != (
+            f"https://github.com/sepahead/engram/tree/{ENGRAM_PLACEHOLDER_REVISION}"
+        ):
+            problems.append(
+                "ecosystem evidence overlay Engram source does not match the placeholder revision"
+            )
+        paper2brain_override = overrides.get("paper2brain", {})
+        if (
+            paper2brain_override.get("evidence_level")
+            != "E2_declared_immutable_consumer_manifest"
+        ):
+            problems.append(
+                "ecosystem evidence overlay misclassifies the Paper2Brain consumer edge"
+            )
+        if paper2brain_override.get("source") != (
+            "https://github.com/sepahead/Paper2Brain/tree/"
+            f"{PAPER2BRAIN_REVIEW_REVISION}"
+        ):
+            problems.append(
+                "ecosystem evidence overlay Paper2Brain source does not match the reviewed revision"
+            )
+        descriptor_path_raw = paper2brain_override.get("prisoma_descriptor_path")
+        if descriptor_path_raw != "integrations/engram/manifest.json":
+            problems.append(
+                "ecosystem evidence overlay omits the exact Prisoma Paper2Brain descriptor path"
+            )
+        else:
+            descriptor_path = _repo_relative_path(
+                descriptor_path_raw, label="Prisoma Engram descriptor path"
+            )
+            descriptor_sha256 = hashlib.sha256(
+                _read_regular_bytes(
+                    descriptor_path, label="Prisoma Engram descriptor"
+                )
+            ).hexdigest()
+            if (
+                descriptor_sha256 != ENGRAM_DESCRIPTOR_SHA256
+                or paper2brain_override.get("prisoma_descriptor_sha256")
+                != descriptor_sha256
+            ):
+                problems.append(
+                    "ecosystem evidence overlay Paper2Brain descriptor digest does not match"
+                )
+            descriptor_lock = _json_object(
+                descriptor_path.with_name("manifest.lock.json"),
+                label="Prisoma Engram descriptor lock",
+            )
+            if descriptor_lock.get("sha256") != descriptor_sha256:
+                problems.append(
+                    "Prisoma Engram descriptor lock does not match its exact bytes"
+                )
 
     claim_registry_path = ROOT / "protocols/research_claim_registry_v1.json"
     if not _is_regular_file(claim_registry_path):

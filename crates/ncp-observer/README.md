@@ -2,12 +2,13 @@
 
 Converts a conforming Neuro-Cybernetic Protocol producer into another `(V,L,D,A)` source for
 prisoma's Partial Information Decomposition. The intended future producer is a NEST/Engram
-session, but the named public `sepahead/engram` repository is currently a README-only placeholder
-and supplies no executable publisher. This crate is a **read-only observer**: it subscribes to the
-NCP data-plane keys over Zenoh and never drives anything (the Agent Bridge stays the only control
-plane).
+session. The named public `sepahead/engram` repository remains a README-only placeholder. The
+executable Engram Neural Labs host lives in `sepahead/Paper2Brain` and uses candidate wire 1.0.
+Prisoma has a read-only artifact descriptor, but no compatible live publisher or bridge. This
+crate is a **read-only observer**: it subscribes to the NCP data-plane keys over Zenoh and never
+drives anything (the Agent Bridge stays the only control plane).
 
-> **Compatibility boundary (rechecked 2026-07-24):** this crate pins immutable NCP `v0.8.0`
+> **Compatibility boundary (rechecked 2026-07-26):** this crate pins immutable NCP `v0.8.0`
 > and wire 0.8. Public NCP main at `10492c81` is an unreleased, release-blocked
 > `1.0.0-rc.1` wire-1.0 candidate. It is not a compatible dependency update.
 

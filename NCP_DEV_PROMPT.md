@@ -2,11 +2,13 @@
 
 > Copy-pasteable brief for a developer (or coding agent) bringing the `ncp-observer`
 > producer bridge up to the standard the prisoma analysis requires. The intended future producer
-> is a NEST/Engram session, but the named public `sepahead/engram` repository is currently a
-> README-only placeholder and supplies no executable publisher. Self-contained;
-> read it top to bottom before touching code.
+> is a NEST/Engram session. The named public `sepahead/engram` repository remains a
+> README-only placeholder. The executable Engram Neural Labs host lives in
+> `sepahead/Paper2Brain` and uses candidate wire 1.0. Prisoma has a read-only artifact
+> descriptor, but no compatible live publisher or bridge. Self-contained; read it top to
+> bottom before touching code.
 
-> **Compatibility boundary (rechecked 2026-07-24):** keep immutable NCP `v0.8.0` / wire 0.8.
+> **Compatibility boundary (rechecked 2026-07-26):** keep immutable NCP `v0.8.0` / wire 0.8.
 > Public NCP main at `10492c81` is an unreleased, release-blocked `1.0.0-rc.1` wire-1.0
 > candidate. Do not compile this consumer against that moving head.
 
@@ -25,7 +27,7 @@ There are several producers of that contract:
 |---|---|---|
 | `experiments/safe_adapter/` (SAFE rollouts) | **Critical-path producer** (S2/EC1 reference adapter; grandplan §5.1, §8.7) | Implemented contract adapter with honest axis provenance; real capture and the diagnostic-noninterference preflight remain open |
 | `crates/pid-sim` fixtures + Rapier/toy harnesses | Standalone sim sources | Software/conformance smokes, not scientific gate passes |
-| **`crates/ncp-observer` (this)** | **Optional** conforming NCP producer bridge; future Engram/NEST candidate | **Exploratory-only — below the S2/EC1 conformance bar (optional M2 ecosystem item); no public live Engram publisher** |
+| **`crates/ncp-observer` (this)** | **Optional** conforming NCP producer bridge; future Engram/NEST candidate | **Exploratory-only — below the S2/EC1 conformance bar (optional M2 ecosystem item); no compatible live Paper2Brain publisher** |
 
 `ncp-observer` is a **read-only passive tap**: it subscribes to a conforming producer's
 Neuro-Cybernetic Protocol (NCP) data planes over Zenoh and converts each closed-loop tick

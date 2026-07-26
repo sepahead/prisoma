@@ -4,7 +4,7 @@ version = "0.9.0"
 edition = "2021"
 rust-version = "1.93"
 authors = ["Sepehr Mahmoudian"]
-description = "Read-only NCP observer groundwork for a future conforming external producer; no public live Engram integration is provided."
+description = "Read-only NCP observer for a future producer; no live Paper2Brain-to-Prisoma bridge exists."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sepahead/prisoma"
 # Internal crate (workspace-excluded; git/path-depends on NCP + pid-rs); never published to
