@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-26",
+  "as_of_date": "2026-07-28",
   "scope": "offline current-state overlay on the complete 2026-07-12 public-ecosystem ledger",
   "baseline": {
     "path": "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -13,7 +13,7 @@
     "expiry": "re-review an edge when its producer revision, consumer revision, schema, wire, model, or adapter revision changes"
   },
   "last_network_refresh": {
-    "date": "2026-07-26",
+    "date": "2026-07-28",
     "method": "official GitHub refs and exact-revision repository surfaces for Crebain, the named Engram repository, and the Paper2Brain Engram Neural Labs host; archived baseline left immutable",
     "conclusion": "pid-rs and NCP remain the only E2 dependency edges; Paper2Brain has an E2 immutable consumer-manifest edge, with no live producer, NCP bridge, authority, or E4 scientific conformance"
   },
@@ -72,13 +72,13 @@
     },
     {
       "project": "paper2brain",
-      "observed_revision": "b3afdfc8ccf39c4618ba2c371cfad2d37f5727d7",
+      "observed_revision": "07b85ac48b9e2125ebc8b9d3a63d29926ff293fa",
       "evidence_level": "E2_declared_immutable_consumer_manifest",
       "relationship": "public executable Engram Neural Labs host with a byte-locked Prisoma manifest, a generic bounded JSON-RPC TCP adapter, and a tested structural preview; local live-presentation evidence exists without producer or control authority",
       "prisoma_descriptor_path": "integrations/engram/manifest.json",
       "prisoma_descriptor_sha256": "24bb6f92680c253b79389ba32396e82f63cd316bcb1806a9522060970b9290a5",
       "current_boundary": "Paper2Brain imports the byte-locked descriptor and implements the bounded generic live status adapter plus structural preview, which is not Prisoma validation; its development NCP service uses candidate wire 1.0 while Prisoma remains on wire 0.8; the descriptor starts no process and grants no authority; there is no live Paper2Brain-to-Prisoma producer, wire translator, artifact importer, NCP bridge, producer-consumer scientific golden fixture, or E4 scientific conformance report",
-      "source": "https://github.com/sepahead/Paper2Brain/tree/b3afdfc8ccf39c4618ba2c371cfad2d37f5727d7"
+      "source": "https://github.com/sepahead/Paper2Brain/tree/07b85ac48b9e2125ebc8b9d3a63d29926ff293fa"
     },
     {
       "project": "haldir",
