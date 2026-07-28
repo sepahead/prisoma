@@ -17,6 +17,25 @@ This document contains visual representations of the prisoma system, the PID-Spl
 
 **Docset-wide final solution:** the diagrams should be read through `grandplan.md` §16 (decision log; see also §8.2, §8.11, §8.13, §15.4): run log as source of truth, Agent Bridge as the only control plane, Rerun as the read-only Phases 1–3 diagnostic viewer, and Tauri/SparkJS as the deferred Phase 4 shell. VLA actions, interventions, pause/resume/step transitions, and correction forces always traverse **client → Agent Bridge → canonical command event → backend**. PID, observers, Zenoh, and Rerun never actuate the system.
 
+## Contents
+
+- [0. Docset v12.5 Status Dashboard (Pipeline State)](#0-docset-v125-status-dashboard-pipeline-state)
+- [0.1 Confirmatory Claim Status (EC1, H1–H4)](#01-confirmatory-claim-status-ec1-h1h4)
+- [0.2 Research Milestone / Critical-Path Roadmap (M0–M7)](#02-research-milestone--critical-path-roadmap-m0m7)
+- [1. High-Level System Overview](#1-high-level-system-overview)
+- [2. PID-Splat Simulation Loop](#2-pid-splat-simulation-loop)
+- [3. Geometry-First Analysis Protocol](#3-geometry-first-analysis-protocol)
+- [4. Modular Physics Backend Architecture](#4-modular-physics-backend-architecture)
+- [5. Hybrid Rendering: Splats + Mesh + Physics Proxies](#5-hybrid-rendering-splats--mesh--physics-proxies)
+- [6. Dream2Flow Data Pipeline](#6-dream2flow-data-pipeline)
+- [7. Estimator/Measure Validation (S1): The Four Gates and Atom Validation](#7-estimatormeasure-validation-s1-the-four-gates-and-atom-validation)
+- [8. Confirmatory Claims → Experimental Programme Map](#8-confirmatory-claims--experimental-programme-map)
+- [9. OpenUSD / USDZ Interop (Optional)](#9-openusd--usdz-interop-optional)
+- [10. Agent Bridge Control Plane (LLM‑First)](#10-agent-bridge-control-plane-llmfirst)
+- [11. Cross-Backend Replay (Optional Robustness Control)](#11-cross-backend-replay-optional-robustness-control)
+- [12. Reconstruction Quality + Active View Study (Optional)](#12-reconstruction-quality--active-view-study-optional)
+- [13. Attribution Probes as Companion Diagnostics](#13-attribution-probes-as-companion-diagnostics)
+
 ## 0. Docset v12.5 Status Dashboard (Pipeline State)
 
 This chart is the honest, gate-driven snapshot. Estimator/measure validation (the **S1 gate**, `grandplan.md` §7) is judged against four separate PID gates — population, measure, estimator, and application (§7.1). The high-dimensional **MI/coherence path is NO-GO** (nuisance-dimension controls); continuous shared-exclusions atoms on **real VLA embeddings are BLOCKED / not application-validated**; the `pid-rs` pin does carry real low-dimensional additive-Gaussian oracle and discrete SxPID reference evidence. The first real-VLA capture, the capture-sizing/power gate (§6.8), the intervention pilot (S3), and the episode-local H1 feature path remain open; the confirmatory EC1/H1–H4 claims therefore remain blocked.
@@ -61,6 +80,10 @@ flowchart TD
 ```
 
 *Caption: v12.5 pipeline state — orange = the S1 estimator/measure gate (four-gate status); green = runnable tooling, not application-validated atom evidence; red dashed = unresolved capture/power gates (§6.8) and the EC1/H1–H4 confirmatory claims they block.*
+
+![Status map: estimator gate open, software plumbing runnable, confirmatory claims blocked](assets/diagrams/status-map.svg)
+
+*This SVG is a rendered companion. The mermaid source above remains canonical.*
 
 ---
 
@@ -125,6 +148,10 @@ flowchart TD
 ```
 
 *Caption: research milestones M0–M7 (`grandplan.md` §12) — green = implemented infrastructure groundwork (§8), red dashed = the current M0 closed gate, orange = partial M1/M2 groundwork, grey = blocked or specified downstream work. Engineering state only, not a research result.*
+
+![Milestones M0–M7 roadmap](assets/diagrams/milestones.svg)
+
+*This SVG is a rendered companion with its own in-image legend (violet = current M0 closed gate, red dashed = blocked or specified only). The mermaid source above remains canonical.*
 
 ---
 
@@ -200,6 +227,10 @@ graph TD
         Z_SENS -->|Observation data| VLA
     end
 ```
+
+![Prisoma data spine: clients reach the backend only through the Agent Bridge, which appends to the canonical run log before dispatch](assets/diagrams/data-spine.svg)
+
+*This SVG is a rendered companion. The mermaid source above remains canonical.*
 
 ---
 
@@ -502,6 +533,10 @@ flowchart TD
     StopMI --> PivotEst[Pivot estimator/representation]
     PivotEst --> Geo
 ```
+
+![Four PID validity gates with current statuses](assets/diagrams/pid-gates.svg)
+
+*This SVG is a rendered companion. The mermaid source above remains canonical.*
 
 ---
 

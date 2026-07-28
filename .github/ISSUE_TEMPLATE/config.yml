@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security reports
+    url: https://github.com/sepahead/prisoma/blob/main/SECURITY.md
+    about: Report vulnerabilities privately as described in SECURITY.md. Do not open a public issue.

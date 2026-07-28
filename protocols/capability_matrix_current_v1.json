@@ -59,7 +59,7 @@
         },
         {
           "path": "findings.md",
-          "sha256": "1557e04dc3f06251f39ed207ba520b79db3c377a82a5d0de5e98259a2cb63cc0"
+          "sha256": "b95dc81b3795abb1830e19d7bd74d5dc3cf3a1b45de259ac325cbaac7c5023e3"
         }
       ],
       "known_limitations": "The high-dimensional MI/coherence route is NO-GO and continuous shared-exclusions atoms on real VLA embeddings remain application-blocked; an abstention is not a zero estimate.",
@@ -112,7 +112,7 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "1e33a5d01577c18dbae41ac79248e8fbff88d5cfb65478d06c2cd3c28c79cdca"
+          "sha256": "ce3ed40af7efc9d11433f86dc343c1a66f7aa7e888b9ca0c59a9e13e6de6e5a8"
         }
       ],
       "known_limitations": "TCP/WebSocket binaries refuse non-loopback bind addresses and default safe, but forwarding/proxying/tunnelling a loopback listener is not prevented. TCP/stdio JSONL lines have a 1 MiB cap, WebSocket upgrade/incoming-frame inputs have 16 KiB/1 MiB caps, and network read/write operations have 30-second timeouts. Standard profiles have no total request/session, request-count, or aggregate-traffic limit, so progress-making trickle traffic may persist. The optional Engram profile adds finite request-count, aggregate-input, and run-log limits, but no independent wall-clock deadline. The enumerated WebSocket gate requires GET /bridge HTTP/1.1, exactly one each of a nonempty Host, Upgrade websocket, tokenized Connection containing upgrade, version 13, and a base64 16-byte key, and no Origin; it does not claim general malformed-request detection. Client application messages are unfragmented, masked UTF-8 text frames; ping, pong, and close control frames are supported, while binary frames, fragmentation, and extensions/RSV use are rejected. The JSON-RPC 2.0 surface is single-request only: missing-id notifications are silent and distinct from explicit null, parameters are omitted or named objects rather than positional arrays, undeclared top-level method keys are rejected, sim.step requires numeric dt, and batches are unsupported. Profile-invalid parameters use -32602; handler/domain failures after validation use -32000. File RPCs provide non-adversarial canonical confinement and no-replace outputs, not a security-grade sandbox against hardlinks, aliases, or concurrent filesystem mutation. Export parses/manifests the same exact byte snapshot read from the source and stages/syncs/installs no-clobber finalized RRD bytes/hash. Executable transport run logs call File::sync_all for the initial prefix, each session flush before a wire response, and the terminal seal; generic SimBridgeSession<W> durability is sink-defined. There is no parent-directory fsync, power-loss durability, or cross-file run-log/export transaction. Crashes or provenance-storage failures may leave incomplete/unreadable logs, an apparently complete terminal record with indeterminate status/durability, or orphan RRDs. There is no authentication, authorization, TLS, redaction, remote-security assessment, full target UI/VLA/backend control coverage, or versioned subscription stream; actor identity remains locally declared.",
@@ -705,7 +705,7 @@
         },
         {
           "path": "findings.md",
-          "sha256": "1557e04dc3f06251f39ed207ba520b79db3c377a82a5d0de5e98259a2cb63cc0"
+          "sha256": "b95dc81b3795abb1830e19d7bd74d5dc3cf3a1b45de259ac325cbaac7c5023e3"
         },
         {
           "path": "grandplan.md",
@@ -725,7 +725,7 @@
       "feature_id": "proposal.gauss_mi_covariate",
       "feature": "Reconstruction-quality covariate and active-view study",
       "status": "specified",
-      "exact_revision": "local-sha256:1ce184258e0916469265fb9c476dfaec86152e8740f47e2b87a8faa5271b420b",
+      "exact_revision": "local-sha256:9aa366fffe80169df8bbf0f66747e21ce5b8d7915297ad8228ee3f58b6ee8f3f",
       "revision_inputs": [
         "GAUSS_MI_INTEGRATION.md",
         "grandplan.md",
@@ -760,7 +760,7 @@
       "feature_id": "proposal.gauss_mi_weighted_pid",
       "feature": "Rejected GauSS-MI-weighted KSG/MI/PID sketch (non-implementation record)",
       "status": "deferred",
-      "exact_revision": "local-sha256:1ce184258e0916469265fb9c476dfaec86152e8740f47e2b87a8faa5271b420b",
+      "exact_revision": "local-sha256:9aa366fffe80169df8bbf0f66747e21ce5b8d7915297ad8228ee3f58b6ee8f3f",
       "revision_inputs": [
         "GAUSS_MI_INTEGRATION.md",
         "grandplan.md",
@@ -793,7 +793,7 @@
       "feature_id": "proposal.worldwarp_external",
       "feature": "WorldWarp external world-model comparator",
       "status": "specified",
-      "exact_revision": "local-sha256:70814f842d3505b33f16b4d919cef75d92bcf798b5364c51b6e4ff363daa1c94",
+      "exact_revision": "local-sha256:2a19ffc677568e1f85481e219591ab40906fe8d5b41a244fa85c0026614d6498",
       "revision_inputs": [
         "WORLD_WARP_INTEGRATION.md",
         "grandplan.md",
@@ -843,7 +843,7 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "1e33a5d01577c18dbae41ac79248e8fbff88d5cfb65478d06c2cd3c28c79cdca"
+          "sha256": "ce3ed40af7efc9d11433f86dc343c1a66f7aa7e888b9ca0c59a9e13e6de6e5a8"
         }
       ],
       "known_limitations": "Local exact-event replay and sidecar checks do not supply policy/controller/simulator/physical replay evidence or the external negative-case benchmark required by EC1.",
@@ -878,7 +878,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "a6659f44e31ae622b25f79d213a12e5f0edf776e78121858b43d04236d4fc1b0"
+          "sha256": "87dc2ef1f57182c6394f00f9f14692f8b26d74d31a8785ed0e5d2f7c3345925b"
         }
       ],
       "known_limitations": "The scripted push-to-goal fixture is a deterministic software cross-check, not a real VLA policy/environment choice, external adapter, validated simulator, or physical repeatability study.",
@@ -894,7 +894,7 @@
       "feature_id": "ui.tauri_sparkjs_shell",
       "feature": "Tauri/SparkJS custom-rendering shell",
       "status": "deferred",
-      "exact_revision": "local-sha256:244bc8a80ac984e3a1c1392890a30428dc00bb43c3a3e53b93794c2b8cb384a8",
+      "exact_revision": "local-sha256:69d0202189c9c179ef75d64d91048640c243bbf01a2c38fb52a58c879cd1b04a",
       "revision_inputs": [
         "grandplan.md",
         "ARCHITECTURE.md"
@@ -907,7 +907,7 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "1e33a5d01577c18dbae41ac79248e8fbff88d5cfb65478d06c2cd3c28c79cdca"
+          "sha256": "ce3ed40af7efc9d11433f86dc343c1a66f7aa7e888b9ca0c59a9e13e6de6e5a8"
         }
       ],
       "known_limitations": "No runnable shell or custom renderer exists; it is a Phase-4 product surface and explicitly not a thesis dependency.",
@@ -938,11 +938,11 @@
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "1e33a5d01577c18dbae41ac79248e8fbff88d5cfb65478d06c2cd3c28c79cdca"
+          "sha256": "ce3ed40af7efc9d11433f86dc343c1a66f7aa7e888b9ca0c59a9e13e6de6e5a8"
         },
         {
           "path": "pidsplatspecs.md",
-          "sha256": "1ca45b420350d4a6c5a63a038b1d509649770f096bdac37aa2868bfead83d165"
+          "sha256": "cf65f629f33305e721a9cfb1b9129dc1832d3f5411e989f252aeb7d2547caa18"
         }
       ],
       "known_limitations": "The converter surfaces current summary/provenance/validation and attribution tracks, but the complete Phases 1-3 diagnostic blueprint and viewer are not built.",
@@ -958,7 +958,7 @@
       "feature_id": "viewer.rerun_full_blueprint",
       "feature": "Complete Rerun Phases 1-3 diagnostic viewer",
       "status": "specified",
-      "exact_revision": "local-sha256:9140a6627bec4883b5c76bde0dd127ebbe602d195424d0211bbe16803319d71b",
+      "exact_revision": "local-sha256:cc116daf6eb57d8b080c6758148ed28de02fa69c926664b5dfef256a9f29b32e",
       "revision_inputs": [
         "grandplan.md",
         "DIAGRAMS.md",
@@ -973,11 +973,11 @@
         },
         {
           "path": "DIAGRAMS.md",
-          "sha256": "76bb5c99ec37b307584fcc2a050c212007a3eee1e190c9c2dce40dc72a0f6c6e"
+          "sha256": "8cce8f5676271a609f25c5ae92d5988be2a0a53686e99221ce0a80e218bd3b6e"
         },
         {
           "path": "ARCHITECTURE.md",
-          "sha256": "1e33a5d01577c18dbae41ac79248e8fbff88d5cfb65478d06c2cd3c28c79cdca"
+          "sha256": "ce3ed40af7efc9d11433f86dc343c1a66f7aa7e888b9ca0c59a9e13e6de6e5a8"
         }
       ],
       "known_limitations": "Only conversion groundwork is runnable; the complete time-machine panels, heatmaps, interaction blueprint, and viewer acceptance tests remain unimplemented.",

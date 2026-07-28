@@ -8,6 +8,7 @@
 > - `README.md` — Quick start guide
 > - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
 > - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
+
 ## Technical Blueprint for the "Splat-First" Research Platform
 
 **Version:** 12.5 (2026-07-12 docset v12.5 alignment)
@@ -15,6 +16,21 @@
 **Context:** Canonical implementation spec for the infrastructure/simulation and visualization layer defined in `grandplan.md` §8 (Infrastructure as a scientific contribution — esp. §8.6 interoperability and §8.13 visualization/rendering).
 
 ---
+
+### Contents
+
+- [1. Executive Summary](#1-executive-summary)
+- [2. Technology Stack & Versions](#2-technology-stack--versions)
+- [3. Gaussian Splatting Specifics](#3-gaussian-splatting-specifics)
+- [4. Dream2Flow Integration (Flow-as-Bridge)](#4-dream2flow-integration-flow-as-bridge)
+- [5. Zenoh Middleware Protocol](#5-zenoh-middleware-protocol)
+- [6. Modular Physics Binding (PEGS)](#6-modular-physics-binding-pegs)
+- [7. VLA Integration Interface](#7-vla-integration-interface)
+- [8. PID Computation Pipeline](#8-pid-computation-pipeline)
+- [9. Performance Budget & Targets](#9-performance-budget--targets)
+- [10. Implementation Plan / Current Status](#10-implementation-plan--current-status)
+- [11. Target Failure Policies (Specified, Not Fully Implemented)](#11-target-failure-policies-specified-not-fully-implemented)
+- [12. Asset Library Specifications](#12-asset-library-specifications)
 
 ### 1. Executive Summary
 
@@ -288,51 +304,51 @@ These are target policies, not claims about completed end-to-end failure handlin
 
 ---
 
-## 12. Asset Library Specifications
+### 12. Asset Library Specifications
 
-### 12.1 Standard Mesh Assets
+#### 12.1 Standard Mesh Assets
 
 **Status:** This repo does not currently ship an `assets/` library. The items below are *planned conventions* for a shared asset pack; generate them (e.g., Blender) or pull from standard datasets (e.g., YCB) and keep large binaries out of git where appropriate.
 
 The following OBJ and MTL definitions are intended as ground truth for physics proxies in later experiments. They use Z-up coordinate convention and meters as units.
 
-#### 12.1.1 Hollow Cylinder (Tube)
+##### 12.1.1 Hollow Cylinder (Tube)
 **File:** `assets/meshes/hollow_cylinder.obj`
 - **Dimensions:** Outer R=0.03m, Inner R=0.02m, Height=0.08m
 - **Purpose:** Novel geometry challenge (exploratory novel-geometry manipulation task)
 - **Material:** `hollow_cylinder.mtl` (Plastic)
 
-#### 12.1.2 Dice Cup
+##### 12.1.2 Dice Cup
 **File:** `assets/meshes/dice_cup.obj`
 - **Dimensions:** Outer R=0.04m, Height=0.06m
 - **Purpose:** Containment target for weighted die (exploratory novel-geometry manipulation task)
 - **Material:** `dice_cup.mtl` (Leather/Plastic)
 
-#### 12.1.3 L-Shaped Block
+##### 12.1.3 L-Shaped Block
 **File:** `assets/meshes/l_block.obj`
 - **Dimensions:** 0.08m x 0.04m x 0.04m (Horizontal), 0.04m x 0.04m x 0.08m (Vertical)
 - **Purpose:** Compound geometry grasp planning (exploratory novel-geometry manipulation task)
 - **Material:** `l_block.mtl` (Wood)
 
-#### 12.1.4 Target Platform
+##### 12.1.4 Target Platform
 **File:** `assets/meshes/target_platform.obj`
 - **Dimensions:** 0.08m x 0.08m x 0.01m
 - **Purpose:** Standard placement target
 - **Material:** `target_platform.mtl` (Matte)
 
-#### 12.1.5 Metal Peg
+##### 12.1.5 Metal Peg
 **File:** `assets/meshes/metal_peg.obj`
 - **Dimensions:** Radius=0.015m, Height=0.06m
 - **Purpose:** Precision alignment target for hollow cylinder
 - **Material:** `metal_peg.mtl` (Metal)
 
-#### 12.1.6 Glass Cube
+##### 12.1.6 Glass Cube
 **File:** `assets/meshes/glass_cube.obj`
 - **Dimensions:** 0.06m x 0.06m x 0.06m
 - **Purpose:** Transparent object physics proxy (exploratory novel-geometry manipulation task)
 - **Material:** `glass_cube.mtl` (Transparent, index of refraction 1.52)
 
-### 12.2 Material Definitions (MTL)
+#### 12.2 Material Definitions (MTL)
 
 Common material properties used in `assets/meshes/*.mtl`:
 

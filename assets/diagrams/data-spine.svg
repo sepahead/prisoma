@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" role="img" aria-labelledby="dsTitle dsDesc">
+  <title id="dsTitle">Prisoma data spine — run log is the source of truth</title>
+  <desc id="dsDesc">Architecture diagram. Clients (agent CLIs, scripts, VLA policy adapter, and a deferred Tauri/SparkJS shell) connect only to the Agent Bridge (pid-bridge), a JSON-RPC 2.0 subset over stdio, TCP, or WebSocket, which is the only control plane. The bridge first appends a canonical event to the run log (pid-runlog, the source of truth) and then dispatches the recorded command to the backend (pid-sim deterministic sim or rapier3d-f64). On the read side, the run log feeds the pid-rerun converter and the read-only Rerun viewer (Phases 1–3), and feeds PID analysis (pid-core), which is read-only: samples in, metric events out. Zenoh is an optional data transport only, never control. PID workers, observers, Zenoh, and Rerun never actuate the simulator.</desc>
+
+  <defs>
+    <marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#34d399"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect x="1" y="1" width="1278" height="758" rx="16" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+
+  <!-- Title -->
+  <text x="640" y="52" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="26" font-weight="700" fill="#e5e7eb">Prisoma data spine — run log is the source of truth</text>
+
+  <!-- ==================== Clients (left column) ==================== -->
+  <text x="200" y="112" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#94a3b8">CLIENTS</text>
+
+  <rect x="60" y="130" width="280" height="150" rx="10" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="200" y="164" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#e5e7eb">Clients</text>
+  <text x="200" y="196" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e5e7eb">
+    <tspan x="200" dy="0">Agent CLIs / scripts</tspan>
+    <tspan x="200" dy="20">(Python, Rust)</tspan>
+    <tspan x="200" dy="26">VLA policy adapter</tspan>
+  </text>
+
+  <!-- Deferred Tauri/SparkJS shell (dashed) -->
+  <rect x="60" y="320" width="280" height="110" rx="10" fill="#1e293b" stroke="#60a5fa" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="200" y="358" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#e5e7eb">Tauri/SparkJS shell</text>
+  <text x="200" y="384" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#fbbf24">
+    <tspan x="200" dy="0">Phase 4, deferred</tspan>
+    <tspan x="200" dy="20">— not built</tspan>
+  </text>
+
+  <!-- Client arrows into the bridge -->
+  <line x1="340" y1="205" x2="466" y2="222" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowGray)"/>
+  <line x1="340" y1="375" x2="466" y2="290" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrowGray)"/>
+
+  <!-- ==================== Agent Bridge (center) ==================== -->
+  <rect x="470" y="150" width="340" height="180" rx="10" fill="#1e293b" stroke="#60a5fa" stroke-width="3"/>
+  <text x="640" y="188" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="700" fill="#60a5fa">Agent Bridge (pid-bridge)</text>
+  <text x="640" y="218" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e5e7eb">
+    <tspan x="640" dy="0">JSON-RPC 2.0 subset over</tspan>
+    <tspan x="640" dy="20">stdio / TCP / WebSocket</tspan>
+  </text>
+  <text x="640" y="292" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#fbbf24">the ONLY control plane</text>
+
+  <!-- (1) append canonical event: bridge -> run log (before dispatch) -->
+  <line x1="640" y1="330" x2="640" y2="426" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+  <text x="656" y="368" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#34d399">
+    <tspan x="656" dy="0" font-weight="700">(1) append canonical event</tspan>
+    <tspan x="656" dy="19">(before dispatch)</tspan>
+  </text>
+
+  <!-- (2) dispatch recorded command: bridge -> backend (after append) -->
+  <line x1="505" y1="330" x2="305" y2="556" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrowGray)"/>
+  <text x="250" y="486" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e5e7eb">
+    <tspan x="250" dy="0" font-weight="700">(2) dispatch recorded</tspan>
+    <tspan x="250" dy="19" font-weight="700">command</tspan>
+    <tspan x="250" dy="19">(after append)</tspan>
+  </text>
+
+  <!-- ==================== Canonical run log (source of truth) ==================== -->
+  <rect x="470" y="430" width="340" height="120" rx="10" fill="#0b2a22" stroke="#34d399" stroke-width="3"/>
+  <text x="640" y="474" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="700" fill="#34d399">Canonical run log (pid-runlog)</text>
+  <text x="640" y="504" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#e5e7eb">source of truth</text>
+
+  <!-- ==================== Backend ==================== -->
+  <rect x="60" y="560" width="340" height="120" rx="10" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="230" y="602" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#e5e7eb">Backend</text>
+  <text x="230" y="630" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e5e7eb">
+    <tspan x="230" dy="0">pid-sim deterministic sim /</tspan>
+    <tspan x="230" dy="20">rapier3d-f64</tspan>
+  </text>
+
+  <!-- ==================== Read side (right) ==================== -->
+  <text x="1060" y="182" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#94a3b8">READ SIDE</text>
+
+  <!-- PID analysis -->
+  <rect x="900" y="200" width="320" height="120" rx="10" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="1060" y="238" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#e5e7eb">PID analysis (pid-core)</text>
+  <text x="1060" y="266" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e5e7eb">
+    <tspan x="1060" dy="0">read-only: samples in,</tspan>
+    <tspan x="1060" dy="20">metric events out</tspan>
+  </text>
+
+  <!-- pid-rerun converter -->
+  <rect x="900" y="390" width="320" height="80" rx="10" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="1060" y="437" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#e5e7eb">pid-rerun converter</text>
+
+  <!-- Rerun viewer -->
+  <rect x="900" y="520" width="320" height="100" rx="10" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="1060" y="558" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#e5e7eb">Rerun viewer</text>
+  <text x="1060" y="586" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e5e7eb">(read-only, Phases 1–3)</text>
+
+  <!-- run log -> PID analysis -->
+  <path d="M 810 458 L 856 458 L 856 260 L 896 260" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowGray)"/>
+  <!-- run log -> pid-rerun converter -->
+  <line x1="810" y1="500" x2="896" y2="440" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowGray)"/>
+  <!-- pid-rerun converter -> Rerun viewer -->
+  <line x1="1060" y1="470" x2="1060" y2="516" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowGray)"/>
+
+  <!-- ==================== Zenoh side lane (dashed, optional) ==================== -->
+  <rect x="900" y="80" width="320" height="80" rx="10" fill="#1e293b" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="1060" y="112" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#e5e7eb">Zenoh — optional data transport</text>
+  <text x="1060" y="138" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#fbbf24">only, never control</text>
+
+  <!-- ==================== Legend ==================== -->
+  <g font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#e5e7eb">
+    <line x1="80" y1="716" x2="130" y2="716" stroke="#94a3b8" stroke-width="2"/>
+    <text x="140" y="721">data / control flow</text>
+    <line x1="290" y1="716" x2="340" y2="716" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 6"/>
+    <text x="350" y="721">optional / deferred</text>
+  </g>
+
+  <!-- Footer caption -->
+  <text x="850" y="721" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="700" fill="#fbbf24">PID workers, observers, Zenoh, and Rerun never actuate the simulator.</text>
+</svg>

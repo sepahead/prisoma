@@ -7,6 +7,8 @@
 
 # prisoma
 
+Prisoma is a research codebase for gate-driven, intervention-grounded diagnosis of vision-language-action (VLA) policies. Partial information decomposition (PID) is one conditional candidate diagnostic, interpreted only after preregistered validity gates pass. The canonical run log is the source of truth, and the Agent Bridge is the only control plane. Prisoma is for researchers who need auditable diagnostics for embodied policies. The current 0.9.0 candidate keeps the high-dimensional MI/coherence path NO-GO and keeps confirmatory claims blocked.
+
 > **Rust PID estimators + Python bindings live in [`pid-rs`](https://github.com/sepahead/pid-rs) — the single source of truth.**
 > `pid-core`, `pid-runlog`, and the `pid-python` (`pid_core_rs`) bindings are **not** vendored here;
 > they are pinned as the `pid-rs/` git submodule. After cloning: `git submodule update --init`.
@@ -16,6 +18,7 @@
 > Build the Python module from the submodule: `maturin develop -m pid-rs/crates/pid-python/Cargo.toml`.
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![CI](https://github.com/sepahead/prisoma/actions/workflows/ci.yml/badge.svg)](https://github.com/sepahead/prisoma/actions/workflows/ci.yml)
 
 prisoma is a research toolkit building **auditable experiment semantics** for **intervention‑grounded diagnosis** of **Vision‑Language‑Action (VLA)** policies: it works toward a provenance‑complete capture–intervention–replay substrate for testing whether genuinely pre‑treatment diagnostics predict intervention response and future failure beyond strong baselines. **Partial Information Decomposition (PID)** — the shared‑exclusions measure `I^sx_∩` — is one **conditional** candidate diagnostic, central only if it passes preregistered population, measure, estimator, and application gates (`grandplan.md` §7.1). The project is **gate‑driven**: PID atoms are never interpreted on real embeddings until those gates pass; confirmatory claims are bound by the `grandplan.md` §4 claim registry (EC1, H1–H4), the §3.8 PID kill rules, and the future frozen analysis plan specified in §6; and negative results are first‑class publishable outcomes.
 
@@ -64,6 +67,8 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `release/0.9.0/` | Immutable handoff intake plus non-promoted, content-bound candidate decision ledgers and draft manifest |
 | `AGENTS.md` | Ground rules + a detailed "what actually exists" inventory for contributors |
 | `CONTRIBUTING.md`, `SECURITY.md` | Contribution controls and private vulnerability-reporting policy |
+| `CODE_OF_CONDUCT.md` | Contributor Covenant 2.1 community standards |
+| `docs/README.md` | Index of the `docs/` directory (generated matrix, historical audits, immutable archives) |
 | `NCP_DEV_PROMPT.md` | Optional: dev handoff for the Engram/NCP `(V,L,D,A)` bridge |
 | `integrations/engram/manifest.json` | Read-only generic Engram headless-runtime descriptor and finite session policy |
 | `integrations/engram/README.md` | Hosted profile startup, lifecycle, limits, security, and evidence boundaries |
@@ -71,6 +76,20 @@ Read these in order of what you need. `grandplan.md` is canonical; the others ar
 | `GAUSS_MI_INTEGRATION.md`, `WORLD_WARP_INTEGRATION.md` | Optional add-on specs (3DGS reconstruction-quality study; external world-model baseline) |
 | `THIRD_PARTY_NOTICES.md` | Release-governance notices/checklist |
 | `formal/README.md` | Machine-checked abstract invariants/countermodels and their assurance boundary |
+
+## Contents
+
+- [Documentation map](#documentation-map)
+- [Prerequisites](#prerequisites)
+- [Current Status & What To Do, In Order (docset v12.5; 0.9.0 candidate)](#current-status--what-to-do-in-order-docset-v125-090-candidate)
+- [Confirmatory claim registry (Docset v12.5)](#confirmatory-claim-registry-docset-v125)
+- [Experiments (Run Order)](#experiments-run-order)
+- [Doc Audits](#doc-audits)
+- [What Actually Exists](#what-actually-exists)
+- [Quick Starts](#quick-starts)
+- [Engineering Plan (To "Finish" the Project)](#engineering-plan-to-finish-the-project)
+- [Citation](#citation)
+- [License](#license)
 
 ## Prerequisites
 
@@ -106,6 +125,14 @@ cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features 
 ```
 
 ## Current Status & What To Do, In Order (docset v12.5; 0.9.0 candidate)
+
+![Prisoma data spine: clients reach the backend only through the Agent Bridge, which appends to the canonical run log before dispatch](assets/diagrams/data-spine.svg)
+
+*Target design. Dashed elements are optional or deferred. The mermaid diagrams in `DIAGRAMS.md` remain the canonical source.*
+
+![Status map: estimator gate open, software plumbing runnable, confirmatory claims blocked](assets/diagrams/status-map.svg)
+
+*The mermaid diagrams in `DIAGRAMS.md` remain the canonical source.*
 
 **Status at a glance:**
 
@@ -351,7 +378,9 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   translation, or a closed loop. Prisoma stays on NCP wire 0.8. Engram
   candidate wire 1.0 remains incompatible.
 
-## Quick Start — Exp0 Gate
+## Quick Starts
+
+### Exp0 Gate
 
 ```bash
 # optional: nix develop
@@ -374,7 +403,7 @@ cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid
 
 See `findings.md` for the latest repo-local Exp0 interpretation notes.
 
-## Quick Start — Tiny Labeled Harness
+### Tiny Labeled Harness
 
 ```bash
 just toy-harness
@@ -387,7 +416,7 @@ deterministic toy task, **not VLA evidence** — it exercises label events, a re
 `(V,L,D,A)` contract, PID/CI features, non-PID baselines, summary artifacts, and canonical run-log
 export end to end.
 
-## Quick Start — H1 Common Preflight
+### H1 Common Preflight
 
 ```bash
 just h1-preflight
@@ -406,7 +435,7 @@ The CLI verifies declared artifact bytes and shared structural/noninterference r
 It neither executes nor clears Protocol A or B. Readable invalid contracts produce canonical failed
 logs; missing or unreadable input files remain ordinary CLI I/O errors.
 
-## Quick Start — H1 Protocol A Software Reference
+### H1 Protocol A Software Reference
 
 ```bash
 just h1-protocol-a
@@ -418,7 +447,7 @@ preflight-binding and parse failures. The emitted response and proper-score numb
 software primitive only; `synthetic_fixture_only=true` and `establishes_h1_evidence=false` are
 binding. Real Protocol A capture/analysis and all Protocol B execution remain unimplemented.
 
-## Quick Start — H2 Fixed-Horizon Software Reference
+### H2 Fixed-Horizon Software Reference
 
 ```bash
 just h2-reference
@@ -443,7 +472,11 @@ domain-specific estimand/ontology freeze, exactly one primary proper score and m
 margin, powered prospective capture, full calibration and censoring sensitivity, the matched-access
 comparator frontier, and an untouched later/external holdout.
 
-## Quick Start — Offline (V,L,D,A) Embedding Harness
+### Offline (V,L,D,A) Embedding Harness
+
+![Offline (V,L,D,A) harness dataflow](assets/diagrams/offline-harness.svg)
+
+*This SVG summarizes the harness CLI described in this section. `AGENTS.md` holds the authoritative inventory.*
 
 ```bash
 just offline-harness
@@ -487,7 +520,7 @@ cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid
 
 The harness is an artifact-to-runlog converter for captured embeddings, **not** evidence from a real VLA by itself.
 
-## Quick Start — M1 Run Log & Agent Bridge
+### M1 Run Log & Agent Bridge
 
 ```bash
 just runlog-demo               # emit + a deterministic sim run log

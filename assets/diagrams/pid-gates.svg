@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 1280 720" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" aria-labelledby="pgTitle pgDesc">
+  <title id="pgTitle">Four PID validity gates — computation is not eligibility</title>
+  <desc id="pgDesc">Diagram of the four PID validity gates from grandplan.md §7.1: population, measure, estimator, and application. Status badges show the high-d MI/coherence NO-GO, the blocked continuous I^sx_∩ application gate, the passing low-d additive-Gaussian oracle and discrete SxPID reference, and the not_adjudicated / blocked atom verdicts. A bottom strip lists the per-estimate computation states: not_requested, produced, produced_with_warning, and abstained (no numeric placeholder). Interpretation requires all four gates to pass, and continuous I^sx_∩ atoms are never pooled with discrete I_min atoms.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect x="8" y="8" width="1264" height="704" rx="16" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+
+  <!-- Corner note -->
+  <text x="1232" y="36" text-anchor="end" font-size="14" fill="#60a5fa">Exp0 gate prints GO / PIVOT / NO-GO (just exp0-bin)</text>
+
+  <!-- Title -->
+  <text x="640" y="66" text-anchor="middle" font-size="26" font-weight="bold" fill="#e5e7eb">Four PID validity gates — computation is not eligibility</text>
+
+  <!-- Gate 1: Population -->
+  <rect x="48" y="110" width="272" height="170" rx="12" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="64" y="142" font-size="17" font-weight="bold" fill="#60a5fa">1 · Population gate</text>
+  <text x="64" y="172" font-size="14" fill="#e5e7eb">
+    <tspan x="64" dy="0">Is the intended quantity</tspan>
+    <tspan x="64" dy="22">finite, defined, and</tspan>
+    <tspan x="64" dy="22">meaningful?</tspan>
+  </text>
+
+  <!-- Arrow 1 -->
+  <line x1="322" y1="195" x2="348" y2="195" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Gate 2: Measure -->
+  <rect x="352" y="110" width="272" height="170" rx="12" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="368" y="142" font-size="17" font-weight="bold" fill="#60a5fa">2 · Measure gate</text>
+  <text x="368" y="172" font-size="14" fill="#e5e7eb">
+    <tspan x="368" dy="0">Does the chosen PID</tspan>
+    <tspan x="368" dy="22">functional have the</tspan>
+    <tspan x="368" dy="22">required properties?</tspan>
+  </text>
+
+  <!-- Arrow 2 -->
+  <line x1="626" y1="195" x2="652" y2="195" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Gate 3: Estimator -->
+  <rect x="656" y="110" width="272" height="170" rx="12" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="672" y="142" font-size="17" font-weight="bold" fill="#60a5fa">3 · Estimator gate</text>
+  <text x="672" y="172" font-size="14" fill="#e5e7eb">
+    <tspan x="672" dy="0">Does the implementation</tspan>
+    <tspan x="672" dy="22">recover the functional with</tspan>
+    <tspan x="672" dy="22">acceptable bias and failure</tspan>
+    <tspan x="672" dy="22">detection?</tspan>
+  </text>
+
+  <!-- Arrow 3 -->
+  <line x1="930" y1="195" x2="956" y2="195" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Gate 4: Application -->
+  <rect x="960" y="110" width="272" height="170" rx="12" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <text x="976" y="142" font-size="17" font-weight="bold" fill="#60a5fa">4 · Application gate</text>
+  <text x="976" y="172" font-size="14" fill="#e5e7eb">
+    <tspan x="976" dy="0">Are real embeddings close</tspan>
+    <tspan x="976" dy="22">enough to a validated</tspan>
+    <tspan x="976" dy="22">regime?</tspan>
+  </text>
+
+  <!-- Badge: amber under measure gate (atom verdicts) -->
+  <rect x="352" y="296" width="272" height="52" rx="14" fill="#fbbf24" fill-opacity="0.12" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="488" y="317" text-anchor="middle" font-size="14" fill="#fbbf24">
+    <tspan x="488" dy="0">Atom-measure: not_adjudicated ·</tspan>
+    <tspan x="488" dy="20">Atom-estimator: blocked</tspan>
+  </text>
+
+  <!-- Badge: red under estimator gate (high-d NO-GO) -->
+  <rect x="656" y="296" width="272" height="30" rx="15" fill="#f87171" fill-opacity="0.12" stroke="#f87171" stroke-width="1.5"/>
+  <text x="792" y="316" text-anchor="middle" font-size="14" fill="#f87171">High-d MI/coherence path: NO-GO</text>
+
+  <!-- Badge: green under estimator gate (low-d PASS) -->
+  <rect x="656" y="334" width="272" height="52" rx="14" fill="#34d399" fill-opacity="0.12" stroke="#34d399" stroke-width="1.5"/>
+  <text x="792" y="355" text-anchor="middle" font-size="14" fill="#34d399">
+    <tspan x="792" dy="0">Low-d additive-Gaussian oracle +</tspan>
+    <tspan x="792" dy="20">discrete SxPID reference: PASS</tspan>
+  </text>
+
+  <!-- Badge: red under application gate (continuous I^sx_∩ BLOCKED) -->
+  <rect x="960" y="296" width="272" height="72" rx="14" fill="#f87171" fill-opacity="0.12" stroke="#f87171" stroke-width="1.5"/>
+  <text x="1096" y="318" text-anchor="middle" font-size="14" fill="#f87171">
+    <tspan x="1096" dy="0">Continuous I^sx_∩ on real</tspan>
+    <tspan x="1096" dy="18">embeddings: BLOCKED /</tspan>
+    <tspan x="1096" dy="18">not application-validated</tspan>
+  </text>
+
+  <!-- Divider -->
+  <line x1="48" y1="440" x2="1232" y2="440" stroke="#334155" stroke-width="2"/>
+
+  <!-- Bottom strip: computation states -->
+  <text x="48" y="482" font-size="17" font-weight="bold" fill="#e5e7eb">Computation states (per estimate) — separate from interpretation verdicts</text>
+
+  <rect x="48" y="502" width="132" height="30" rx="15" fill="#60a5fa" fill-opacity="0.12" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="114" y="522" text-anchor="middle" font-size="14" fill="#60a5fa">not_requested</text>
+
+  <rect x="196" y="502" width="100" height="30" rx="15" fill="#34d399" fill-opacity="0.12" stroke="#34d399" stroke-width="1.5"/>
+  <text x="246" y="522" text-anchor="middle" font-size="14" fill="#34d399">produced</text>
+
+  <rect x="312" y="502" width="204" height="30" rx="15" fill="#fbbf24" fill-opacity="0.12" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="414" y="522" text-anchor="middle" font-size="14" fill="#fbbf24">produced_with_warning</text>
+
+  <rect x="532" y="502" width="104" height="30" rx="15" fill="#60a5fa" fill-opacity="0.12" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="584" y="522" text-anchor="middle" font-size="14" fill="#60a5fa">abstained</text>
+
+  <text x="660" y="522" font-size="14" fill="#e5e7eb">abstained = no numeric placeholder (no zero, no NaN, no metric event)</text>
+
+  <!-- Footer -->
+  <line x1="48" y1="620" x2="1232" y2="620" stroke="#334155" stroke-width="1"/>
+  <text x="640" y="662" text-anchor="middle" font-size="15" fill="#e5e7eb">Interpretation requires all four gates to pass. Never pool continuous I^sx_∩ atoms with discrete I_min atoms.</text>
+</svg>

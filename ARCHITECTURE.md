@@ -20,6 +20,19 @@ example, or future-tense interface in this document is not implementation eviden
 
 **Docset-wide final solution:** `grandplan.md` §16 is the decision log (see also §8.2, §8.11, §8.13, §15.4). The run log is the source of truth; the Agent Bridge is the **only control plane**; Rerun is the read-only Phases 1–3 diagnostic/time-machine viewer; and Tauri/SparkJS is the Phase 4 shell for controls, editors, and custom rendering. Every VLA action, scene edit, intervention, pause/resume/step transition, and correction-force command must enter through the Agent Bridge and be appended to the canonical run log before execution. PID workers and observers analyze data; Zenoh transports data; Rerun renders replayed data. None may actuate the simulator.
 
+## Contents
+
+- [1. Core System Components](#1-core-system-components)
+- [2. Simulator and Renderer Selection Boundaries](#2-simulator-and-renderer-selection-boundaries)
+- [3. Comparison Boundaries for Existing VLM-Based Robotics](#3-comparison-boundaries-for-existing-vlm-based-robotics)
+- [3A. Representation Diagnostics: Identification Boundary](#3a-representation-diagnostics-identification-boundary)
+- [4. Component Summary](#4-component-summary)
+- [5. Research Trajectory](#5-research-trajectory)
+- [6. Hardware and Storage Planning (No Universal Minimum)](#6-hardware-and-storage-planning-no-universal-minimum)
+- [7. Retired World-Model Head-to-Head Sketch](#7-retired-world-model-head-to-head-sketch)
+- [8. SmolVLA (LeRobot) Integration](#8-smolvla-lerobot-integration)
+- [9. InternVLA‑A1 (Optional) Integration](#9-internvlaa1-optional-integration)
+
 ## 1. Core System Components
 
 ### 1.1 Strategy: "Rerun-First" (Phases 1–3)
@@ -440,6 +453,8 @@ separately.
 ---
 
 ## 3A. Representation Diagnostics: Identification Boundary
+
+*The interpolated section number "3A" is intentional. It keeps the later section numbers and existing cross-references stable.*
 
 ### 3A.1 Observable Diagnostic Gaps
 

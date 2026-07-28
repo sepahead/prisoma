@@ -27,6 +27,22 @@ being true as the code moves).
 > `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0` and
 > `cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay`.
 
+## Contents
+
+- [Technical writing](#technical-writing)
+- [Ground rules](#ground-rules)
+- [Architecture invariants (docset-wide final solution)](#architecture-invariants-docset-wide-final-solution)
+- [Repo reality — what actually exists](#repo-reality--what-actually-exists)
+  - [Estimator core (`pid-rs/` submodule)](#estimator-core-pid-rs-submodule)
+  - [Local crates (`crates/`)](#local-crates-crates)
+  - [Machine-readable truth ledgers (`protocols/`)](#machine-readable-truth-ledgers-protocols)
+  - [Python experiments (`experiments/`, tracked packages)](#python-experiments-experiments-tracked-packages)
+  - [Attribution / mechanistic-probe tooling (H4 / exploratory)](#attribution--mechanistic-probe-tooling-h4--exploratory)
+  - [NCP observer (`crates/ncp-observer`, optional)](#ncp-observer-cratesncp-observer-optional)
+  - [Specified but not built](#specified-but-not-built)
+- [Gates before any PR or commit](#gates-before-any-pr-or-commit)
+- [Useful commands](#useful-commands)
+
 ## Technical writing
 
 Use [ASD-STE100 Issue 9](https://www.asd-ste100.org/assets/files/ASD-STE100_ISSUE9.pdf)

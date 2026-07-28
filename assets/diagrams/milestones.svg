@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 700" role="img"
+     font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" aria-labelledby="msTitle msDesc">
+  <title id="msTitle">Milestones M0–M7</title>
+  <desc id="msDesc">Prisoma research milestone roadmap from DIAGRAMS.md section 0.2 and grandplan.md section 12. A snaking chain: implemented infrastructure groundwork feeds M0 (the current closed gate: freeze scientific + identification contracts), then partial M1 estimator gates and partial M2 conformance benchmark with dependency firebreak, then blocked/specified-only M3 intervention pilot, M4 locked H1, M5 locked H2, M6 H3 or H4, and M7 transport replication. Engineering state, not a research result.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect x="1" y="1" width="1278" height="698" rx="16" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+
+  <!-- Title -->
+  <text x="640" y="52" text-anchor="middle" font-size="26" font-weight="700" fill="#e5e7eb">Milestones M0–M7</text>
+
+  <!-- ================= Row 1 (left to right) ================= -->
+
+  <!-- Infrastructure groundwork : implemented (green) -->
+  <g>
+    <rect x="41" y="100" width="280" height="160" rx="12" fill="#1e293b" stroke="#34d399" stroke-width="2.5"/>
+    <text x="181" y="130" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">Infrastructure groundwork</text>
+    <text x="181" y="152" text-anchor="middle" font-size="14" fill="#e5e7eb">(§8 event model + control plane)</text>
+    <text x="181" y="176" text-anchor="middle" font-size="14" fill="#e5e7eb">run logs + replay, Agent Bridge,</text>
+    <text x="181" y="196" text-anchor="middle" font-size="14" fill="#e5e7eb">pid-sim/Rapier, Rerun adapter</text>
+    <text x="181" y="228" text-anchor="middle" font-size="14" font-weight="700" fill="#34d399">implemented</text>
+  </g>
+
+  <!-- M0 : current closed gate (violet) -->
+  <g>
+    <rect x="347" y="100" width="280" height="160" rx="12" fill="#1e293b" stroke="#a78bfa" stroke-width="2.5"/>
+    <text x="487" y="136" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">M0 freeze scientific +</text>
+    <text x="487" y="158" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">identification contracts</text>
+    <text x="487" y="200" text-anchor="middle" font-size="15" font-weight="700" fill="#a78bfa">CURRENT CLOSED GATE</text>
+  </g>
+
+  <!-- M1 : partial (amber) -->
+  <g>
+    <rect x="653" y="100" width="280" height="160" rx="12" fill="#1e293b" stroke="#fbbf24" stroke-width="2.5"/>
+    <text x="793" y="132" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">M1 repair + version</text>
+    <text x="793" y="154" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">estimator gates (S1 / §7)</text>
+    <text x="793" y="182" text-anchor="middle" font-size="14" fill="#e5e7eb">MI/coherence high-d = NO-GO</text>
+    <text x="793" y="222" text-anchor="middle" font-size="14" font-weight="700" fill="#fbbf24">partial</text>
+  </g>
+
+  <!-- M2 : partial (amber) -->
+  <g>
+    <rect x="959" y="100" width="280" height="160" rx="12" fill="#1e293b" stroke="#fbbf24" stroke-width="2.5"/>
+    <text x="1099" y="128" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">M2 core + ecosystem</text>
+    <text x="1099" y="150" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">conformance benchmark</text>
+    <text x="1099" y="174" text-anchor="middle" font-size="14" fill="#e5e7eb">(incl. dependency firebreak:</text>
+    <text x="1099" y="194" text-anchor="middle" font-size="14" fill="#e5e7eb">NCP-off + estimator-off</text>
+    <text x="1099" y="214" text-anchor="middle" font-size="14" fill="#e5e7eb">H1/H2, §8.9.3)</text>
+    <text x="1099" y="242" text-anchor="middle" font-size="14" font-weight="700" fill="#fbbf24">partial</text>
+  </g>
+
+  <!-- Row 1 arrows -->
+  <line x1="321" y1="180" x2="343" y2="180" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="627" y1="180" x2="649" y2="180" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="933" y1="180" x2="955" y2="180" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Snake connector: M2 down to M3 -->
+  <path d="M 1099 260 C 1099 300, 1127 296, 1127 336" fill="none" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- ================= Row 2 (right to left) ================= -->
+
+  <!-- M3 : blocked / specified only (red dashed) -->
+  <g>
+    <rect x="1017" y="340" width="220" height="150" rx="12" fill="#1e293b" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8 5"/>
+    <text x="1127" y="374" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">M3 intervention</text>
+    <text x="1127" y="396" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">pilot (S3)</text>
+    <text x="1127" y="420" text-anchor="middle" font-size="14" fill="#e5e7eb">real capture downstream;</text>
+    <text x="1127" y="440" text-anchor="middle" font-size="14" fill="#e5e7eb">blocked on M0→M2</text>
+    <text x="1127" y="468" text-anchor="middle" font-size="14" font-weight="700" fill="#f87171">blocked / specified only</text>
+  </g>
+
+  <!-- M4 : blocked / specified only (red dashed) -->
+  <g>
+    <rect x="773" y="340" width="220" height="150" rx="12" fill="#1e293b" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8 5"/>
+    <text x="883" y="398" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">M4 locked H1</text>
+    <text x="883" y="420" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">experiment</text>
+    <text x="883" y="468" text-anchor="middle" font-size="14" font-weight="700" fill="#f87171">blocked / specified only</text>
+  </g>
+
+  <!-- M5 : blocked / specified only (red dashed) -->
+  <g>
+    <rect x="529" y="340" width="220" height="150" rx="12" fill="#1e293b" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8 5"/>
+    <text x="639" y="398" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">M5 locked H2</text>
+    <text x="639" y="420" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">experiment</text>
+    <text x="639" y="468" text-anchor="middle" font-size="14" font-weight="700" fill="#f87171">blocked / specified only</text>
+  </g>
+
+  <!-- M6 : blocked / specified only (red dashed) -->
+  <g>
+    <rect x="285" y="340" width="220" height="150" rx="12" fill="#1e293b" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8 5"/>
+    <text x="395" y="410" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">M6 H3 or H4</text>
+    <text x="395" y="468" text-anchor="middle" font-size="14" font-weight="700" fill="#f87171">blocked / specified only</text>
+  </g>
+
+  <!-- M7 : blocked / specified only (red dashed) -->
+  <g>
+    <rect x="41" y="340" width="220" height="150" rx="12" fill="#1e293b" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8 5"/>
+    <text x="151" y="398" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">M7 transport</text>
+    <text x="151" y="420" text-anchor="middle" font-size="16" font-weight="700" fill="#e5e7eb">replication</text>
+    <text x="151" y="468" text-anchor="middle" font-size="14" font-weight="700" fill="#f87171">blocked / specified only</text>
+  </g>
+
+  <!-- Row 2 arrows (right to left) -->
+  <line x1="1017" y1="415" x2="997" y2="415" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="773" y1="415" x2="753" y2="415" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="529" y1="415" x2="509" y2="415" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="285" y1="415" x2="265" y2="415" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- ================= Legend ================= -->
+  <g>
+    <rect x="41" y="548" width="1198" height="60" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+
+    <rect x="80" y="568" width="20" height="20" rx="4" fill="none" stroke="#34d399" stroke-width="2.5"/>
+    <text x="110" y="583" font-size="14" fill="#e5e7eb">implemented</text>
+
+    <rect x="330" y="568" width="20" height="20" rx="4" fill="none" stroke="#fbbf24" stroke-width="2.5"/>
+    <text x="360" y="583" font-size="14" fill="#e5e7eb">partial</text>
+
+    <rect x="560" y="568" width="20" height="20" rx="4" fill="none" stroke="#a78bfa" stroke-width="2.5"/>
+    <text x="590" y="583" font-size="14" fill="#e5e7eb">current closed gate</text>
+
+    <rect x="870" y="568" width="20" height="20" rx="4" fill="none" stroke="#f87171" stroke-width="2.5" stroke-dasharray="6 4"/>
+    <text x="900" y="583" font-size="14" fill="#e5e7eb">blocked / specified only</text>
+  </g>
+
+  <!-- Footer -->
+  <text x="640" y="656" text-anchor="middle" font-size="15" font-style="italic" fill="#94a3b8">Engineering state, not a research result.</text>
+</svg>

@@ -3,6 +3,7 @@
 Prisoma welcomes small, reviewable changes that preserve its scientific and
 provenance boundaries. By submitting a contribution, you agree that it may be
 distributed under the repository's dual `MIT OR Apache-2.0` license.
+Participation follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Set up the repository
 
@@ -64,6 +65,8 @@ cargo clippy --locked --workspace -- -D warnings
 cargo test --locked --workspace
 python scripts/audit_docset_claims.py --all-tracked-markdown
 python scripts/audit_grandplan.py
+python scripts/audit_research_governance.py
+python scripts/generate_capability_matrix.py --check
 ```
 
 Also run the checks appropriate to the files changed:

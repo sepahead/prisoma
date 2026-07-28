@@ -1,5 +1,31 @@
 # PID Experiment 0 Findings
 
+> **Documentation Cross-Reference**:
+> - `grandplan.md` — Master plan and theoretical foundations
+> - `README.md` — Quick start guide
+> - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
+> - `DIAGRAMS.md` — Visual architecture diagrams
+> - `EXPERIMENTS.md` — Experimental protocols for Rerun-first diagnostics, modular physics, and hypothesis testing
+> - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
+
+**Docset alignment:** this evidence record is aligned to `grandplan.md` docset v12.5 (scientific cut 2026-07-12).
+
+## Contents
+
+- [Executive Summary](#executive-summary)
+- [Update (2026-07-16): `pid-rs` 0.9 review source and the binary-`L` support mismatch](#update-2026-07-16-pid-rs-09-review-source-and-the-binary-l-support-mismatch)
+- [Observed Results](#observed-results)
+- [First-Principles Analysis](#first-principles-analysis)
+- [Three Hypotheses](#three-hypotheses)
+- [Implications for VLA Analysis](#implications-for-vla-analysis)
+- [Paper-Informed Analysis](#paper-informed-analysis)
+- [Experiment 0 Update: Shannon Invariants Results](#experiment-0-update-shannon-invariants-results)
+- [Strategic Guide: Where to Use Which Method](#strategic-guide-where-to-use-which-method)
+- [Final Verdict on Hypotheses](#final-verdict-on-hypotheses)
+- [Recommended Actions](#recommended-actions)
+- [Open Questions](#open-questions)
+- [Appendix: Key Equations](#appendix-key-equations)
+
 ## Executive Summary
 
 Experiment 0 tests Partial Information Decomposition (PID) estimators on synthetic data with known
