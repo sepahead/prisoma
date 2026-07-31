@@ -1851,11 +1851,12 @@ mutation opt-in, but they cannot prevent forwarding, proxying, or tunnelling a l
 TCP/stdio JSONL lines are capped at 1 MiB, WebSocket HTTP upgrades at 16 KiB, and incoming client
 WebSocket frames at 1 MiB. Network reads and writes time out after 30 seconds per operation.
 Standard profiles have no total session-duration or aggregate-traffic budget, so progress-making
-trickle traffic can persist. The separate `engram-host-read-only-v1` TCP profile exposes only
-describe, session, and status. It adds finite request-count, line, aggregate-input, run-log-byte,
-and run-log-event limits. Run-log accounting includes the TCP prefix and terminal seal. Those
-limits bound one local session. They do not add authentication, process attestation, or
-remote-deployment qualification.
+trickle traffic can persist. The separate `engram-host-read-only-v2` TCP profile exposes only
+describe, session, and status. It requires operator-paste pairing on every accepted connection.
+It adds finite request-count, line, aggregate-input, run-log-byte, run-log-event, and
+pairing-attempt limits. Run-log accounting includes the TCP prefix and terminal seal. Those
+limits bound one local session. Pairing proves startup-secret possession only. It does not add
+process attestation or remote-deployment qualification.
 
 The WebSocket gate requires exactly `GET /bridge HTTP/1.1`, exactly one each of a nonempty `Host`,
 `Upgrade: websocket`, tokenized `Connection` containing `upgrade`, version `13`, and a base64 key

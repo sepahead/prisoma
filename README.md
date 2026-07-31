@@ -314,7 +314,8 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   README-only placeholder. The executable Engram Neural Labs host lives in
   `sepahead/Paper2Brain`. Prisoma has a digest-locked descriptor for a generic
   host-rendered JSON-RPC status surface. The host can connect to the separate
-  `--engram-host` TCP process and read describe, session, and status only. This
+  `--engram-host` TCP process and read describe, session, and status only, and
+  only after operator-paste pairing succeeds. This
   is not an NCP producer, wire translator, artifact validator, or authority
   path. There is no live Paper2Brain-to-Prisoma scientific producer. The
   observer's integrity repair ships against wire 0.8, pinned to the immutable
@@ -354,15 +355,24 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
 - **Implemented Engram headless profile:** `integrations/engram/manifest.json`
   declares the generic `host-rendered-jsonrpc-tcp` entrypoint and
-  `engram.bridge-status.v1` renderer. Start it with
+  `engram.bridge-status.v2` renderer. Start it with
   `cargo run --locked -p pid-sim --bin pid-sim-bridge-tcp -- --engram-host
   --unique-run-log-dir outputs`. The directory must exist. Prisoma atomically
   creates and reports a new no-clobber run log for each start. The profile
   forces safe mode and conflicts with `--allow-mutations`. It exposes only
   `bridge.describe`, `bridge.session`, and `sim.status`.
 
+  The `engram-host-read-only-v2` profile requires operator-paste pairing.
+  Each start generates one 32-byte secret from the operating-system CSPRNG and
+  prints it once on stderr. The operator pastes it into Engram. Both peers then
+  prove possession with HMAC-SHA256 over the profile, the exact request id, and
+  fresh nonces. The first valid proof binds the secret to one TCP connection.
+  Pairing proves secret possession only. It is not user, process, build, or
+  commit attestation.
+
   The profile enforces 512 requests, a 65,536-byte line limit, 8 MiB aggregate
-  input, a 64 MiB session run-log limit, and 2,048 run-log events.
+  input, a 64 MiB session run-log limit, 2,048 run-log events, and 8 pairing
+  attempts.
   `bridge.session` reports the exact active profile, method set, limits, and
   current usage. Run-log usage includes the TCP prefix and the current request.
   The report excludes its pending response, as its `observed_at` value states.

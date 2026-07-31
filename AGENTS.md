@@ -167,8 +167,12 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   frames at 16 KiB/1 MiB, and network read/write operations at 30 seconds. Standard profiles have
   no total session/request or aggregate-traffic deadline, so progress-making trickle traffic may
   persist. The optional `--engram-host` TCP profile forces an exact three-method read-only surface.
-  It adds finite request-count, 64 KiB line, 8 MiB aggregate-input, 64 MiB run-log-byte, and
-  2,048-event limits. Run-log usage includes the TCP prefix, each request and response, and the
+  It adds finite request-count, 64 KiB line, 8 MiB aggregate-input, 64 MiB run-log-byte,
+  2,048-event, and 8-pairing-attempt limits. It also requires operator-paste pairing: one
+  CSPRNG startup secret printed once on stderr, mutual HMAC-SHA256 proofs over the profile, exact
+  request id, and fresh 32-byte nonces, binding to one TCP connection, and a latch after eight
+  failed connections. Pairing proves secret possession only, never process or build attestation.
+  Run-log usage includes the TCP prefix, each request and response, and the
   terminal seal. Its `--unique-run-log-dir` option atomically creates one no-clobber log in an
   existing directory and prints that canonical path before listening. The
   WebSocket upgrade

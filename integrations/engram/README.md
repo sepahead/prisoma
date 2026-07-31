@@ -1,7 +1,8 @@
 # Engram host integration
 
-Prisoma remains a standalone system. Engram host API 1.0 adds one optional,
-externally owned, read-only session profile.
+Prisoma remains a standalone system. Engram host API 1.1 adds one optional,
+externally owned, read-only session profile. That profile requires
+operator-paste pairing on every connection.
 
 ## Start the hosted profile
 
@@ -13,25 +14,43 @@ cargo run --locked -p pid-sim --bin pid-sim-bridge-tcp -- \
 ```
 
 The `outputs` directory must exist. Prisoma atomically creates a new
-`engram-host-*.jsonl` file in that directory. It prints the canonical path
-before it listens. It does not replace an existing file.
+`engram-host-*.jsonl` file in that directory. It does not replace an existing
+file.
 
-The process waits for one loopback client. Engram connects and disconnects its
-socket. Engram does not start, restart, stop, authenticate, or attest the
+`--engram-host` also generates one 32-byte startup secret from the
+operating-system CSPRNG. The process prints the run-log path and that secret
+exactly once on its controlling stderr, before it announces the listener:
+
+```text
+run_log=outputs/engram-host-<run>.jsonl pairing=engp1_<43 chars>
+listening 127.0.0.1:38472
+```
+
+The secret never appears in the run log, a response, or any file. The operator
+pastes it into Engram. A new launch generates a new secret.
+
+The process accepts loopback connections until one proves possession of the
+secret and finishes. Engram does not start, restart, stop, or attest the
 Prisoma process.
 
-Disconnecting ends the one-client server session. Run the same command to
-create a new log and start another session.
+Disconnecting ends the bound session. The process then answers any queued
+socket with a pairing rejection and exits. Run the same command to create a new
+secret, a new log, and another session.
+
+The run seals as `Failed` when no accepted connection ever paired.
 
 ## Generic contract
 
 `manifest.json` declares these generic Engram contracts:
 
-- entrypoint `host-rendered-jsonrpc-tcp`;
-- renderer `engram.bridge-status.v1`;
-- framing `json-rpc-2.0-ndjson`;
-- profile `engram-host-read-only-v1`; and
-- methods `bridge.describe`, `bridge.session`, and `sim.status`.
+- entrypoint `host-rendered-jsonrpc-tcp`
+- renderer `engram.bridge-status.v2`
+- framing `json-rpc-2.0-ndjson`
+- profile `engram-host-read-only-v2`
+- methods `bridge.describe`, `bridge.session`, and `sim.status`
+- pairing mechanism `operator-paste-psk-hmac-sha256-v1`
+- pairing secret format `engp1-base64url-256`
+- pairing scope `single-successful-tcp-connection`
 
 The descriptor accepts only a canonical run log for Engram rendering. It
 declares no produced artifacts. Rerun recordings and offline VLDA artifacts
@@ -44,6 +63,39 @@ method.
 The parser rejects unknown request-envelope members and duplicate object keys
 at every JSON depth.
 
+## Operator-paste pairing
+
+The first request on each accepted connection must be a paired
+`bridge.session`. Its `params` member holds exactly one `pairing` object with
+`mechanism`, `client_nonce`, and `client_proof`.
+
+Engram derives `client_proof` with HMAC-SHA256 keyed by the pasted secret. That
+message binds the active profile, the exact JSON-RPC request-id text, and one
+fresh 32-byte client nonce. Prisoma compares the proofs in constant time.
+
+A successful result adds a `pairing` member with a fresh 32-byte server nonce
+and a server proof. That proof binds the profile, the same request-id text,
+both nonces, and the SHA-256 of the RFC 8785 JCS form of the session result
+without its own `pairing` member. Engram verifies the server proof before it
+trusts any session field.
+
+A client nonce never repeats inside one connection. The first valid client
+proof binds the secret to that single TCP connection. Each later
+`bridge.session` refresh on the bound socket carries a fresh nonce and a fresh
+proof.
+
+### Rejection and latch behavior
+
+Every rejected pairing returns JSON-RPC error `-32001` with the message
+`pairing rejected`. The error carries no `data` member and no reason. Prisoma
+then closes the socket. A replay of captured bytes on a new socket gets the
+same rejection.
+
+Each accepted connection consumes one unit of `max_pairing_attempts`. A
+timeout, a wrong proof, and a post-binding connection each consume one unit.
+Eight failed connections latch the bridge. No further pairing is possible on
+that launch. `bridge.session` reports `pairing_attempts` in `resource_usage`.
+
 ## Finite session policy
 
 The process enforces the limits declared in the manifest:
@@ -55,6 +107,7 @@ The process enforces the limits declared in the manifest:
 | Aggregate input | 8,388,608 bytes |
 | Session run log | 67,108,864 bytes |
 | Session run-log events | 2,048 |
+| Pairing attempts | 8 |
 
 `bridge.session` reports the active profile, exact method set, limits, and
 current usage. Run-log usage includes the TCP prefix and current request. It
@@ -70,7 +123,11 @@ study monitor.
 
 ## Evidence and authority boundary
 
-The loopback endpoint is unauthenticated. A local process can occupy the port.
+Pairing proves possession of the startup secret. It is not same-user,
+same-terminal, process, build, or commit attestation. An operator can forward
+the pasted secret, and another local process can steal it or occupy the port
+before Prisoma listens.
+
 The session report is a peer assertion. It does not prove process identity,
 source revision, executable digest, or transport authentication.
 

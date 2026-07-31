@@ -16,6 +16,14 @@
   already contains newer pytest and Pygments releases. The digest migration keeps lowercase
   content-hash encoding explicit and tested.
 - Expanded the default documentation audit to scan all tracked Markdown outside submodules.
+- Added the finite `engram-host-read-only-v2` TCP profile and the `engram.bridge-status.v2`
+  descriptor for an Engram host. The profile is read-only, conflicts with `--allow-mutations`,
+  and exposes only `bridge.describe`, `bridge.session`, and `sim.status`. It requires
+  `operator-paste-psk-hmac-sha256-v1` pairing: one CSPRNG startup secret printed once on stderr,
+  mutual HMAC-SHA256 proofs over the profile, exact request id, and fresh 32-byte nonces,
+  binding to one TCP connection, and a latch after eight failed connections. Pairing proves
+  startup-secret possession only. It is not process, build, or transport attestation, and the
+  profile adds no actuation, NCP translation, or closed loop.
 
 ## 0.9.0 - 2026-07-16
 

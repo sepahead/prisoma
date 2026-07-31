@@ -33,13 +33,20 @@ permission to assess. There is no bug-bounty programme.
   security-grade filesystem sandbox.
 - The `--engram-host` TCP profile is read-only and finite. It conflicts with
   `--allow-mutations`. It exposes only describe, session, and status. It limits
-  requests, line bytes, aggregate input, run-log bytes, and run-log events.
-  Run-log accounting includes the TCP prefix and terminal seal. The hosted
-  unique-directory option uses atomic no-replace creation. These controls bound
-  one development session. They do not authenticate the Engram client, attest
-  either process, prevent port squatting, or prove that the reviewed source
-  built the running executable. Engram must label process identity and transport
-  authentication as false.
+  requests, line bytes, aggregate input, run-log bytes, run-log events, and
+  pairing attempts. Run-log accounting includes the TCP prefix and terminal
+  seal. The hosted unique-directory option uses atomic no-replace creation.
+- That profile requires operator-paste pairing. One startup secret comes from
+  the operating-system CSPRNG. The process prints it once on stderr and never
+  writes it to a file, a response, or the run log. Mutual HMAC-SHA256 proofs
+  bind the active profile, the exact request id, and fresh 32-byte nonces. The
+  first valid proof binds the secret to one TCP connection. Eight failed
+  connections latch the bridge for that launch. Pairing proves startup-secret
+  possession only. An operator can forward the secret, and another local
+  process can read the terminal or squat the port before Prisoma listens.
+  Pairing does not attest either process, and it does not prove that the
+  reviewed source built the running executable. Engram must label process
+  identity and transport authentication as false.
 - Rerun conversion does not read attribution artifacts by default. The standalone
   converter requires `--load-attribution-artifacts`, then accepts only bounded
   relative regular, non-symlinked NumPy files below the run-log directory and
