@@ -159,8 +159,12 @@ fn bridge_request_payload_hint(method: &str) -> &'static str {
 
 fn bridge_request_parameter_names(method: &BridgeMethod) -> &'static [&'static str] {
     match method {
+        // `bridge.session` carries an optional `pairing` envelope. The generic
+        // contract only decides which member names may appear; the active
+        // profile decides whether the envelope is required, and the session
+        // handler rejects an envelope that arrives on an unpaired profile.
+        BridgeMethod::BridgeSession => &["pairing"],
         BridgeMethod::BridgeDescribe
-        | BridgeMethod::BridgeSession
         | BridgeMethod::SimStatus
         | BridgeMethod::SimReset
         | BridgeMethod::LogStop => &[],
@@ -1459,6 +1463,33 @@ mod tests {
     }
 
     #[test]
+    fn bridge_session_admits_the_pairing_envelope_member() {
+        let request: BridgeRpcRequest = serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":"session","method":"bridge.session","params":{"pairing":{"mechanism":"operator-paste-psk-hmac-sha256-v1"}}}"#,
+        )
+        .unwrap();
+        let method = request.validated_method().unwrap();
+        assert_eq!(method, BridgeMethod::BridgeSession);
+        request.validated_params_for_method(&method).unwrap();
+        let request = request.into_bridge_request(actor(), Some(0), 1).unwrap();
+        assert_eq!(
+            request.payload["pairing"]["mechanism"],
+            json!("operator-paste-psk-hmac-sha256-v1")
+        );
+    }
+
+    #[test]
+    fn bridge_session_rejects_members_beside_the_pairing_envelope() {
+        let request: BridgeRpcRequest = serde_json::from_str(
+            r#"{"jsonrpc":"2.0","id":"session","method":"bridge.session","params":{"pairing":{},"authority":"write"}}"#,
+        )
+        .unwrap();
+        let method = request.validated_method().unwrap();
+        assert!(request.validated_params_for_method(&method).is_err());
+        assert!(request.into_bridge_request(actor(), Some(0), 1).is_err());
+    }
+
+    #[test]
     fn bridge_contract_lists_methods_and_transports() {
         let contract = bridge_runlog_contract();
         assert_eq!(
@@ -1565,13 +1596,20 @@ mod tests {
         )))
         .unwrap();
 
-        assert_eq!(manifest["schema_version"], "1.0");
+        assert_eq!(manifest["schema_version"], "1.1");
         assert_eq!(manifest["id"], "sepahead.prisoma");
         assert_eq!(manifest["authority"], "read-only");
+        assert_eq!(
+            manifest["host_api"],
+            json!({
+                "minimum": "1.1",
+                "maximum": "1.1"
+            })
+        );
         assert_eq!(manifest["entrypoint"]["kind"], "host-rendered-jsonrpc-tcp");
         assert_eq!(
             manifest["entrypoint"]["renderer"],
-            "engram.bridge-status.v1"
+            "engram.bridge-status.v2"
         );
         assert_eq!(
             manifest["entrypoint"]["transport"],
@@ -1584,7 +1622,7 @@ mod tests {
         assert_eq!(
             manifest["entrypoint"]["protocol"],
             json!({
-                "profile": "engram-host-read-only-v1",
+                "profile": "engram-host-read-only-v2",
                 "session_method": "bridge.session",
                 "describe_method": "bridge.describe",
                 "status_method": "sim.status",
@@ -1595,7 +1633,13 @@ mod tests {
                 ],
                 "request_timeout_ms": 5000,
                 "max_response_bytes": 65536,
-                "stale_after_ms": 10000
+                "stale_after_ms": 10000,
+                "pairing": {
+                    "pairing_required": true,
+                    "mechanism": "operator-paste-psk-hmac-sha256-v1",
+                    "secret_format": "engp1-base64url-256",
+                    "scope": "single-successful-tcp-connection"
+                }
             })
         );
         assert_eq!(
@@ -1605,7 +1649,8 @@ mod tests {
                 "max_rpc_line_bytes": 65536,
                 "max_input_bytes": 8388608,
                 "max_session_run_log_bytes": 67108864,
-                "max_session_run_log_events": 2048
+                "max_session_run_log_events": 2048,
+                "max_pairing_attempts": 8
             })
         );
         assert_eq!(

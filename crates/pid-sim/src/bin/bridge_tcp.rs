@@ -6,11 +6,15 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Write};
 use std::net::{SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const DEFAULT_BIND_ADDR: &str = "127.0.0.1:38472";
 const CLIENT_IO_TIMEOUT: Duration = Duration::from_secs(30);
 const UNIQUE_RUN_LOG_CREATE_ATTEMPTS: u16 = 128;
+/// Window for answering connections queued while the bound connection ran. A
+/// replay socket already in the listen backlog is accepted on the first poll.
+const POST_PAIRING_DRAIN: Duration = Duration::from_millis(250);
+const POST_PAIRING_POLL: Duration = Duration::from_millis(5);
 
 #[derive(Debug, Eq, PartialEq)]
 enum RunLogTarget {
@@ -48,6 +52,16 @@ fn main() -> Result<()> {
     } = args;
 
     validate_bind_addr(bind_addr)?;
+    // Generate the startup pairing secret before the listener exists. A CSPRNG
+    // failure must never leave an unauthenticated loopback listener open.
+    let pairing_secret = if engram_host {
+        Some(
+            pid_sim::PairingSecret::generate()
+                .context("failed to generate the bridge pairing secret")?,
+        )
+    } else {
+        None
+    };
     let listener =
         TcpListener::bind(bind_addr).with_context(|| format!("failed to bind {bind_addr}"))?;
     let local_addr = listener
@@ -87,6 +101,16 @@ fn main() -> Result<()> {
         "artifact_root".to_string(),
         artifact_root.display().to_string(),
     );
+    // The mechanism is public; the secret itself is never written to provenance.
+    metadata.insert(
+        "pairing_mechanism".to_string(),
+        if engram_host {
+            pid_sim::PAIRING_MECHANISM
+        } else {
+            "none"
+        }
+        .to_string(),
+    );
     let run_started = RunLogEvent::RunStarted {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: run_id.clone(),
@@ -107,6 +131,14 @@ fn main() -> Result<()> {
     } else {
         pid_sim::SimBridgeSession::with_safe_mode_and_run_id(writer, sim, safe_mode, &run_id)
     };
+    let announcement_token = match pairing_secret {
+        Some(secret) => {
+            let token = secret.announcement_token();
+            session.enable_engram_pairing(secret, pid_sim::MAX_PAIRING_ATTEMPTS);
+            Some(token)
+        }
+        None => None,
+    };
     append_session_prefix(
         &mut session,
         &[run_started, config_logged, initial_snapshot],
@@ -116,7 +148,12 @@ fn main() -> Result<()> {
     // Detect buffered provenance-storage failures before advertising the
     // listener or accepting a control client.
     session.flush()?;
-    eprintln!("run_log={}", path.display());
+    // The startup secret appears exactly once, on this stderr line, and nowhere
+    // else: not in the run log, not in a response, not in any file.
+    match &announcement_token {
+        Some(token) => eprintln!("run_log={} pairing={token}", path.display()),
+        None => eprintln!("run_log={}", path.display()),
+    }
     let actor = Actor {
         actor_type: ActorType::Script,
         actor_id: "pid-sim-bridge-tcp".to_string(),
@@ -124,31 +161,159 @@ fn main() -> Result<()> {
     };
 
     eprintln!("listening {local_addr}");
-    let handled = (|| -> Result<(usize, SocketAddr)> {
-        let (stream, peer_addr) = listener.accept().context("failed to accept TCP client")?;
-        eprintln!("accepted {peer_addr}");
-        configure_client_stream(&stream)?;
-        let reader = BufReader::new(stream.try_clone().context("failed to clone TCP stream")?);
-        let mut output = BufWriter::new(stream);
-        let handled = pid_sim::dispatch_rpc_lines(reader, &mut output, &mut session, actor)?;
-        output.flush().context("failed to flush TCP responses")?;
-        Ok((handled, peer_addr))
-    })();
+    let served = serve_connections(&listener, &mut session, &actor);
 
     // When provenance storage remains writable, always seal accepted-client
     // transport errors as Failed. A provenance-storage error itself may leave
     // a partial/unreadable log and cannot be repaired by this transport.
-    let (status, message) = match &handled {
-        Ok((count, peer_addr)) => (
+    let (status, message) = match &served {
+        Ok(served) if served.pairing_required && !served.paired => (
+            RunStatus::Failed,
+            format!(
+                "pairing rejected every one of {} accepted connection(s); the startup secret never bound",
+                served.connections
+            ),
+        ),
+        Ok(served) => (
             RunStatus::Succeeded,
-            format!("processed {count} request(s) from {peer_addr}"),
+            format!(
+                "processed {} request(s) from {} connection(s)",
+                served.handled, served.connections
+            ),
         ),
         Err(err) => (RunStatus::Failed, format!("TCP transport error: {err:#}")),
     };
     session.finish_run(status, Some(message))?;
     session.flush()?;
     eprintln!("wrote {}", path.display());
-    handled.map(|_| ())
+    served.map(|_| ())
+}
+
+/// Outcome of one bridge run's accepted connections.
+#[derive(Debug, Default, Eq, PartialEq)]
+struct ServedConnections {
+    handled: usize,
+    connections: usize,
+    pairing_required: bool,
+    paired: bool,
+}
+
+fn serve_connections<W: Write>(
+    listener: &TcpListener,
+    session: &mut pid_sim::SimBridgeSession<W>,
+    actor: &Actor,
+) -> Result<ServedConnections> {
+    if !session.pairing_required() {
+        let (stream, peer_addr) = listener.accept().context("failed to accept TCP client")?;
+        eprintln!("accepted {peer_addr}");
+        let handled = serve_client(stream, session, actor, None, false)?;
+        return Ok(ServedConnections {
+            handled,
+            connections: 1,
+            pairing_required: false,
+            paired: false,
+        });
+    }
+
+    let mut served = ServedConnections {
+        pairing_required: true,
+        ..ServedConnections::default()
+    };
+    // Serve accepted connections until one of them proves possession of the
+    // startup secret and finishes, or the finite attempt budget runs out.
+    while !session.pairing_bound()
+        && !session.pairing_latched()
+        && !session.pairing_attempts_exhausted()
+    {
+        let (stream, peer_addr) = listener.accept().context("failed to accept TCP client")?;
+        eprintln!("accepted {peer_addr}");
+        served.connections += 1;
+        session.begin_pairing_attempt()?;
+        let mut pairing = pid_sim::ConnectionPairing::new();
+        served.handled += serve_client(stream, session, actor, Some(&mut pairing), false)?;
+        if pairing.accepted() {
+            served.paired = true;
+        } else {
+            session.record_failed_pairing_attempt();
+        }
+    }
+    if served.paired {
+        served.handled +=
+            drain_post_pairing_connections(listener, session, actor, &mut served.connections)?;
+    }
+    Ok(served)
+}
+
+/// Answer connections that were queued while the bound connection was served.
+///
+/// After binding, a captured-request replay on a new socket must observe the
+/// pairing rejection rather than a silent close. A connection already waiting in
+/// the listen backlog is accepted immediately; the short deadline only covers
+/// accept scheduling, so the bridge still terminates without a client.
+fn drain_post_pairing_connections<W: Write>(
+    listener: &TcpListener,
+    session: &mut pid_sim::SimBridgeSession<W>,
+    actor: &Actor,
+    connections: &mut usize,
+) -> Result<usize> {
+    listener
+        .set_nonblocking(true)
+        .context("failed to set the listener non-blocking")?;
+    let deadline = Instant::now() + POST_PAIRING_DRAIN;
+    let mut handled = 0usize;
+    loop {
+        if session.pairing_attempts_exhausted() || Instant::now() >= deadline {
+            break;
+        }
+        match listener.accept() {
+            Ok((stream, peer_addr)) => {
+                stream
+                    .set_nonblocking(false)
+                    .context("failed to set the accepted stream blocking")?;
+                eprintln!("accepted {peer_addr}");
+                *connections += 1;
+                session.begin_pairing_attempt()?;
+                let mut pairing = pid_sim::ConnectionPairing::new();
+                handled += serve_client(stream, session, actor, Some(&mut pairing), true)?;
+                session.record_failed_pairing_attempt();
+                // One post-binding rejection is enough evidence; do not hold the
+                // run open waiting for more.
+                break;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(POST_PAIRING_POLL);
+            }
+            Err(error) => {
+                return Err(error).context("failed to accept a post-pairing TCP client");
+            }
+        }
+    }
+    listener
+        .set_nonblocking(false)
+        .context("failed to restore the blocking listener")?;
+    Ok(handled)
+}
+
+fn serve_client<W: Write>(
+    stream: std::net::TcpStream,
+    session: &mut pid_sim::SimBridgeSession<W>,
+    actor: &Actor,
+    pairing: Option<&mut pid_sim::ConnectionPairing>,
+    bound_elsewhere: bool,
+) -> Result<usize> {
+    configure_client_stream(&stream)?;
+    let reader = BufReader::new(stream.try_clone().context("failed to clone TCP stream")?);
+    let mut output = BufWriter::new(stream);
+    let handled = pid_sim::dispatch_rpc_lines_paired(
+        reader,
+        &mut output,
+        session,
+        actor.clone(),
+        pairing,
+        bound_elsewhere,
+    )?;
+    output.flush().context("failed to flush TCP responses")?;
+    Ok(handled)
 }
 
 fn parse_args(args: &[OsString]) -> Result<ParsedCommand> {

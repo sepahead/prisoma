@@ -77,6 +77,9 @@ rapier = ["dep:rapier3d-f64"]
 [dependencies]
 anyhow = "1.0"
 base64 = "0.22"
+# Operating-system CSPRNG for the Engram host bridge pairing secret. The bridge
+# fails before it listens when this source is unavailable.
+getrandom = "0.3"
 # The current pid-core review surface ships an empty default feature set: the continuous
 # shared-exclusions estimators and the resampling/PLS pipelines the harnesses depend on are
 # default-off research surfaces. Enabling a feature is a software switch, not a validity claim

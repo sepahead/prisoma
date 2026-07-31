@@ -19,6 +19,7 @@ use std::io::{BufRead, BufWriter, Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
+pub mod engram_pairing;
 pub mod h1_preflight;
 pub mod h1_protocol_a;
 pub mod h2_reference;
@@ -29,10 +30,19 @@ pub mod offline_harness;
 pub mod physics;
 pub mod toy_harness;
 
+pub use engram_pairing::{
+    BridgePairingGuard, PairingSecret, VerifiedPairing, MAX_PAIRING_ATTEMPTS,
+    PAIRED_BRIDGE_SESSION_REQUEST_PAYLOAD, PAIRING_ERROR_CODE, PAIRING_ERROR_MESSAGE,
+    PAIRING_MECHANISM, PAIRING_SCOPE, PAIRING_SECRET_FORMAT,
+};
+
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";
 pub const DEFAULT_BRIDGE_RUN_ID: &str = "sim-bridge-run";
 /// Read-only runtime profile used by the restricted Engram host adapter.
-pub const ENGRAM_HOST_BRIDGE_PROFILE: &str = "engram-host-read-only-v1";
+///
+/// Profile v2 requires operator-paste PSK HMAC pairing on every
+/// `bridge.session` request, so the method is no longer parameterless.
+pub const ENGRAM_HOST_BRIDGE_PROFILE: &str = "engram-host-read-only-v2";
 /// Standard safe-mode profile used by existing bridge transports.
 pub const SAFE_MODE_BRIDGE_PROFILE: &str = "safe-mode-v1";
 /// Standard mutation-capable profile used when safe mode is disabled.
@@ -44,6 +54,7 @@ pub const ENGRAM_HOST_RESOURCE_LIMITS: BridgeSessionResourceLimits = BridgeSessi
     max_input_bytes: 8 * 1024 * 1024,
     max_session_run_log_bytes: 64 * 1024 * 1024,
     max_session_run_log_events: 2_048,
+    max_pairing_attempts: MAX_PAIRING_ATTEMPTS,
 };
 
 /// Finite aggregate resource limits for a hosted bridge profile.
@@ -55,6 +66,9 @@ pub struct BridgeSessionResourceLimits {
     pub max_input_bytes: u64,
     pub max_session_run_log_bytes: u64,
     pub max_session_run_log_events: usize,
+    /// Accepted TCP connections that may consume one pairing unit each,
+    /// including timeout and wrong-proof cases.
+    pub max_pairing_attempts: usize,
 }
 
 const SAFE_MODE_ALLOWED_METHODS: &[&str] = &[
@@ -214,6 +228,14 @@ pub struct SimBridgeSession<W> {
     /// Canonical directory containing every path that file-bearing RPCs may
     /// read or create. File methods fail closed until this is configured.
     artifact_root: Option<PathBuf>,
+    /// Bridge-lifetime pairing state for the Engram host profile: the startup
+    /// secret, the accepted-connection budget, and the single-successful-TCP-
+    /// connection binding. `None` disables pairing (standalone transports).
+    pairing: Option<BridgePairingGuard>,
+    /// The pairing proof verified for the `bridge.session` request currently
+    /// being dispatched. The RPC layer sets it after a successful
+    /// challenge-response check and the handler consumes it exactly once.
+    pending_pairing: Option<VerifiedPairing>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -699,6 +721,8 @@ impl<W: Write> SimBridgeSession<W> {
             pending_export: None,
             run_log_path: None,
             artifact_root: None,
+            pairing: None,
+            pending_pairing: None,
         }
     }
 
@@ -731,6 +755,8 @@ impl<W: Write> SimBridgeSession<W> {
             pending_export: None,
             run_log_path: None,
             artifact_root: None,
+            pairing: None,
+            pending_pairing: None,
         }
     }
 
@@ -763,6 +789,8 @@ impl<W: Write> SimBridgeSession<W> {
             pending_export: None,
             run_log_path: None,
             artifact_root: None,
+            pairing: None,
+            pending_pairing: None,
         }
     }
 
@@ -788,6 +816,91 @@ impl<W: Write> SimBridgeSession<W> {
 
     pub fn artifact_root(&self) -> Option<&Path> {
         self.artifact_root.as_deref()
+    }
+
+    /// Require operator-paste PSK HMAC pairing on every `bridge.session`
+    /// request served by this session.
+    ///
+    /// The bridge generates the secret from the operating-system CSPRNG before
+    /// it listens and prints it once to its controlling stderr. The secret is
+    /// never written to the run log, a response, or an error.
+    pub fn enable_engram_pairing(&mut self, secret: PairingSecret, max_attempts: usize) {
+        self.pairing = Some(BridgePairingGuard::new(secret, max_attempts));
+    }
+
+    /// True when this session rejects an unpaired `bridge.session` request.
+    pub fn pairing_required(&self) -> bool {
+        self.pairing.is_some()
+    }
+
+    /// Consume one pairing unit for a newly accepted TCP connection. Timeouts
+    /// and wrong proofs consume a unit exactly like a successful pairing.
+    pub fn begin_pairing_attempt(&mut self) -> Result<()> {
+        let guard = self
+            .pairing
+            .as_mut()
+            .context("this session does not require pairing")?;
+        guard.begin_attempt()
+    }
+
+    /// Monotonic count of accepted-connection pairing units consumed.
+    pub fn pairing_attempts_used(&self) -> usize {
+        self.pairing
+            .as_ref()
+            .map_or(0, BridgePairingGuard::attempts_used)
+    }
+
+    /// True once the secret is bound to one successful TCP connection.
+    pub fn pairing_bound(&self) -> bool {
+        self.pairing.as_ref().is_some_and(BridgePairingGuard::bound)
+    }
+
+    /// True once the accepted-connection budget is fully consumed.
+    pub fn pairing_attempts_exhausted(&self) -> bool {
+        self.pairing
+            .as_ref()
+            .is_some_and(BridgePairingGuard::attempts_exhausted)
+    }
+
+    /// True once failed connections alone latch the bridge closed.
+    pub fn pairing_latched(&self) -> bool {
+        self.pairing
+            .as_ref()
+            .is_some_and(BridgePairingGuard::latched)
+    }
+
+    /// Record one accepted connection that never paired successfully.
+    pub fn record_failed_pairing_attempt(&mut self) {
+        if let Some(guard) = self.pairing.as_mut() {
+            guard.record_failed_attempt();
+        }
+    }
+
+    /// Verify one raw JSON-RPC `bridge.session` request against the startup
+    /// secret and stage its proof for the handler.
+    ///
+    /// `used_client_nonces` holds every client nonce already accepted on the
+    /// same TCP connection; a repeat fails closed. A successful verification
+    /// atomically binds the secret to the current connection.
+    pub fn verify_pairing_request(
+        &mut self,
+        request: &Value,
+        used_client_nonces: &std::collections::BTreeSet<[u8; 32]>,
+    ) -> Result<VerifiedPairing> {
+        let profile = self.active_profile();
+        let guard = self
+            .pairing
+            .as_mut()
+            .context("this session does not require pairing")?;
+        let verified = engram_pairing::verify_bridge_session_pairing(
+            guard.secret(),
+            profile,
+            request,
+            used_client_nonces,
+        )?;
+        guard.mark_bound();
+        self.pending_pairing = Some(verified.clone());
+        Ok(verified)
     }
 
     pub fn safe_mode(&self) -> bool {
@@ -968,6 +1081,9 @@ impl<W: Write> SimBridgeSession<W> {
         }
         let mut staged_handler = self.handler.clone();
         let handled = match request.method {
+            BridgeMethod::BridgeDescribe if self.pairing_required() => {
+                self.handle_paired_bridge_describe(request)
+            }
             BridgeMethod::BridgeSession => self.handle_bridge_session(request),
             BridgeMethod::LogStart => self.handle_log_start(request),
             BridgeMethod::LogStop => self.handle_log_stop(request),
@@ -1357,10 +1473,48 @@ impl<W: Write> SimBridgeSession<W> {
         self.bridge.into_inner()
     }
 
-    fn handle_bridge_session(&self, request: &BridgeRequest) -> Result<Value> {
-        validate_bridge_payload_keys(&request.payload, "bridge.session", &[], true)?;
+    /// Serve `bridge.describe` for a paired session.
+    ///
+    /// The static contract gains the public pairing constants and declares the
+    /// paired `bridge.session` request contract. It never contains the secret
+    /// or any proof material.
+    fn handle_paired_bridge_describe(&self, request: &BridgeRequest) -> Result<Value> {
+        validate_bridge_payload_keys(&request.payload, "bridge.describe", &[], true)?;
+        let mut contract = serde_json::to_value(pid_bridge::bridge_runlog_contract())
+            .context("failed to serialize bridge and run-log contract")?;
+        let bridge = contract
+            .get_mut("bridge")
+            .and_then(Value::as_object_mut)
+            .context("bridge contract must contain a bridge object")?;
+        bridge.insert(
+            "pairing".to_string(),
+            json!({
+                "pairing_required": true,
+                "mechanism": PAIRING_MECHANISM,
+                "secret_format": PAIRING_SECRET_FORMAT,
+                "scope": PAIRING_SCOPE,
+            }),
+        );
+        let methods = bridge
+            .get_mut("methods")
+            .and_then(Value::as_array_mut)
+            .context("bridge contract must contain a methods array")?;
+        let session = methods
+            .iter_mut()
+            .find(|method| method.get("method").and_then(Value::as_str) == Some("bridge.session"))
+            .and_then(Value::as_object_mut)
+            .context("bridge contract must describe bridge.session")?;
+        session.insert(
+            "request_payload".to_string(),
+            json!(PAIRED_BRIDGE_SESSION_REQUEST_PAYLOAD),
+        );
+        Ok(contract)
+    }
+
+    fn handle_bridge_session(&mut self, request: &BridgeRequest) -> Result<Value> {
+        validate_bridge_payload_keys(&request.payload, "bridge.session", &["pairing"], true)?;
         let run_log_usage = self.bridge.run_log_usage();
-        Ok(json!({
+        let session_core = json!({
             "safe_mode": self.safe_mode(),
             "run_id": self.run_id,
             "active_profile": self.active_profile(),
@@ -1371,9 +1525,39 @@ impl<W: Write> SimBridgeSession<W> {
                 "input_bytes": self.input_bytes_used,
                 "session_run_log_bytes": run_log_usage.bytes,
                 "session_run_log_events": run_log_usage.events,
+                "pairing_attempts": self.pairing_attempts_used(),
                 "observed_at": "before_bridge_session_response",
             },
-        }))
+        });
+        if !self.pairing_required() {
+            if request.payload.get("pairing").is_some() {
+                bail!("this bridge profile does not accept bridge.session pairing parameters");
+            }
+            return Ok(session_core);
+        }
+        // The transport verifies the client proof before dispatch, so a staged
+        // proof is the only accepted path into a paired session result.
+        let verified = self
+            .pending_pairing
+            .take()
+            .context("bridge.session requires a verified pairing proof")?;
+        let profile = self.active_profile();
+        let guard = self
+            .pairing
+            .as_ref()
+            .context("this session does not require pairing")?;
+        let pairing = engram_pairing::build_server_pairing_member(
+            guard.secret(),
+            profile,
+            &verified,
+            &session_core,
+        )?;
+        let mut result = session_core;
+        let Value::Object(members) = &mut result else {
+            bail!("bridge.session result must be a JSON object");
+        };
+        members.insert("pairing".to_string(), pairing);
+        Ok(result)
     }
 
     fn handle_log_start(&self, request: &BridgeRequest) -> Result<Value> {
@@ -1907,11 +2091,134 @@ pub fn bridge_request(
 /// limit by never sending a newline.
 const MAX_RPC_LINE_BYTES: u64 = 1024 * 1024;
 
+/// Per-TCP-connection pairing state for the Engram host profile.
+///
+/// One connection may pair once and then refresh `bridge.session` with fresh
+/// nonces. A client nonce must never repeat within the connection.
+#[derive(Debug, Default)]
+pub struct ConnectionPairing {
+    accepted: bool,
+    rejected: bool,
+    used_client_nonces: std::collections::BTreeSet<[u8; 32]>,
+}
+
+impl ConnectionPairing {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// True once this connection presented one valid client proof.
+    pub fn accepted(&self) -> bool {
+        self.accepted
+    }
+
+    /// True once this connection was closed for a pairing failure.
+    pub fn rejected(&self) -> bool {
+        self.rejected
+    }
+}
+
+enum PairingGate {
+    Proceed,
+    Reject(BridgeRpcResponse),
+}
+
+/// Extract a JSON-RPC id that can be echoed in a correlated pairing error.
+fn correlatable_rpc_id(value: &Value) -> Value {
+    match value.get("id") {
+        Some(id @ (Value::String(_) | Value::Number(_))) => id.clone(),
+        _ => Value::Null,
+    }
+}
+
+/// Enforce the pairing contract for one complete request line.
+///
+/// Every rejection is recorded in the canonical run log with a sanitized
+/// reason, consumes the session request budget, and produces the fixed
+/// JSON-RPC error `-32001` / `"pairing rejected"` with no `data` member.
+fn enforce_connection_pairing<L>(
+    text: &str,
+    failure_id: &str,
+    session: &mut SimBridgeSession<L>,
+    state: &mut ConnectionPairing,
+    bound_elsewhere: bool,
+) -> Result<PairingGate>
+where
+    L: Write,
+{
+    let mut reject = |session: &mut SimBridgeSession<L>, id: Value, reason: &str| -> Result<_> {
+        session.record_rejected_rpc(failure_id, &format!("pairing rejected: {reason}"))?;
+        state.rejected = true;
+        Ok(PairingGate::Reject(BridgeRpcResponse::failure(
+            id,
+            PAIRING_ERROR_CODE,
+            PAIRING_ERROR_MESSAGE,
+        )))
+    };
+    let value = match pid_bridge::parse_strict_json_value(text) {
+        Ok(value) => value,
+        Err(_) if !state.accepted => {
+            // The first request on a connection must be a well-formed paired
+            // bridge.session, so unparseable bytes are a pairing failure.
+            return reject(session, Value::Null, "unparseable first request");
+        }
+        Err(_) => return Ok(PairingGate::Proceed),
+    };
+    let id = correlatable_rpc_id(&value);
+    if bound_elsewhere {
+        return reject(
+            session,
+            id,
+            "the startup secret is already bound to another connection",
+        );
+    }
+    let is_session_request = value.get("method").and_then(Value::as_str) == Some("bridge.session");
+    if !state.accepted && !is_session_request {
+        return reject(
+            session,
+            id,
+            "the first request on a connection must be bridge.session",
+        );
+    }
+    if !is_session_request {
+        return Ok(PairingGate::Proceed);
+    }
+    match session.verify_pairing_request(&value, &state.used_client_nonces) {
+        Ok(verified) => {
+            state.used_client_nonces.insert(verified.client_nonce);
+            state.accepted = true;
+            Ok(PairingGate::Proceed)
+        }
+        Err(error) => reject(session, id, &error.to_string()),
+    }
+}
+
 pub fn dispatch_rpc_lines<R, O, L>(
+    input: R,
+    output: &mut O,
+    session: &mut SimBridgeSession<L>,
+    actor: Actor,
+) -> Result<usize>
+where
+    R: BufRead,
+    O: Write,
+    L: Write,
+{
+    dispatch_rpc_lines_paired(input, output, session, actor, None, false)
+}
+
+/// Serve one NDJSON connection, optionally enforcing operator-paste pairing.
+///
+/// `pairing` carries the per-connection pairing state. `bound_elsewhere` marks
+/// a connection that arrives after the startup secret is already bound to a
+/// different connection; every request on it is rejected.
+pub fn dispatch_rpc_lines_paired<R, O, L>(
     mut input: R,
     output: &mut O,
     session: &mut SimBridgeSession<L>,
     actor: Actor,
+    mut pairing: Option<&mut ConnectionPairing>,
+    bound_elsewhere: bool,
 ) -> Result<usize>
 where
     R: BufRead,
@@ -1952,6 +2259,29 @@ where
         }
         if line.trim().is_empty() {
             continue;
+        }
+        if let Some(state) = pairing.as_deref_mut() {
+            match enforce_connection_pairing(
+                &line,
+                &format!("line-{idx}"),
+                session,
+                state,
+                bound_elsewhere,
+            )? {
+                PairingGate::Proceed => {}
+                PairingGate::Reject(response) => {
+                    serde_json::to_writer(&mut *output, &response)
+                        .context("failed to write pairing rejection")?;
+                    output
+                        .write_all(b"\n")
+                        .context("failed to write pairing rejection newline")?;
+                    output
+                        .flush()
+                        .context("failed to flush pairing rejection")?;
+                    // The bridge closes the socket after a rejected pairing.
+                    return Ok(handled);
+                }
+            }
         }
         let response = dispatch_rpc_text_request_with_context(
             &line,
@@ -5489,6 +5819,216 @@ mod tests {
         assert_eq!(state.bridge_records.len(), 4);
         assert_eq!(state.actions.len(), 0);
         assert_eq!(state.status, Some(RunStatus::Succeeded));
+    }
+
+    fn paired_session_line(
+        secret: &PairingSecret,
+        profile: &str,
+        id: &Value,
+        nonce: [u8; 32],
+    ) -> String {
+        use base64::Engine as _;
+        let request_id_json = serde_json::to_string(id).unwrap();
+        let proof = engram_pairing::hmac_sha256(
+            secret.key_for_test(),
+            &engram_pairing::client_proof_message(profile, &request_id_json, &nonce),
+        );
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "bridge.session",
+            "params": {
+                "pairing": {
+                    "mechanism": PAIRING_MECHANISM,
+                    "client_nonce": base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(nonce),
+                    "client_proof": base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(proof),
+                }
+            }
+        });
+        format!("{}\n", serde_json::to_string(&request).unwrap())
+    }
+
+    #[test]
+    fn paired_dispatch_accepts_a_valid_proof_and_attaches_a_verifiable_server_proof() {
+        use base64::Engine as _;
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-paired-accept".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session =
+            SimBridgeSession::with_engram_host_profile_and_run_id(writer, demo_sim(), "paired-run");
+        let secret = PairingSecret::from_bytes([13u8; 32]);
+        session.enable_engram_pairing(PairingSecret::from_bytes([13u8; 32]), MAX_PAIRING_ATTEMPTS);
+        let profile = ENGRAM_HOST_BRIDGE_PROFILE;
+        let input = paired_session_line(&secret, profile, &json!("pair-1"), [21u8; 32]);
+        let mut output = Vec::new();
+        let mut pairing = ConnectionPairing::new();
+
+        session.begin_pairing_attempt().unwrap();
+        let handled = dispatch_rpc_lines_paired(
+            Cursor::new(input),
+            &mut output,
+            &mut session,
+            actor,
+            Some(&mut pairing),
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(handled, 1);
+        assert!(pairing.accepted());
+        assert!(session.pairing_bound());
+        assert_eq!(session.pairing_attempts_used(), 1);
+
+        let response: BridgeRpcResponse =
+            serde_json::from_str(String::from_utf8(output).unwrap().lines().next().unwrap())
+                .unwrap();
+        assert!(response.is_ok());
+        let result = response.result.unwrap();
+        let server = &result["pairing"];
+        assert_eq!(server["mechanism"], PAIRING_MECHANISM);
+        assert_eq!(
+            server["client_nonce"].as_str().unwrap(),
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode([21u8; 32])
+        );
+
+        // The exported pairing_attempts counter is part of the signed session core.
+        assert_eq!(result["resource_usage"]["pairing_attempts"], 1);
+
+        // Reconstruct session_core (result minus its pairing member) and confirm
+        // the server proof binds it.
+        let mut core = result.clone();
+        core.as_object_mut().unwrap().remove("pairing");
+        let server_nonce =
+            engram_pairing::decode_32_byte_base64url(server["server_nonce"].as_str().unwrap())
+                .unwrap();
+        let server_proof =
+            engram_pairing::decode_32_byte_base64url(server["server_proof"].as_str().unwrap())
+                .unwrap();
+        let core_hash =
+            engram_pairing::sha256(engram_pairing::jcs_canonicalize(&core).unwrap().as_bytes());
+        let expected = engram_pairing::hmac_sha256(
+            secret.key_for_test(),
+            &engram_pairing::server_proof_message(
+                profile,
+                "\"pair-1\"",
+                &[21u8; 32],
+                &server_nonce,
+                &core_hash,
+            ),
+        );
+        assert!(engram_pairing::constant_time_eq_32(
+            &expected,
+            &server_proof
+        ));
+    }
+
+    #[test]
+    fn paired_dispatch_rejects_a_wrong_secret_with_error_minus_32001_and_closes() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-paired-wrong".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "paired-wrong",
+        );
+        session.enable_engram_pairing(PairingSecret::from_bytes([13u8; 32]), MAX_PAIRING_ATTEMPTS);
+        // Proof built from a one-bit-modified secret.
+        let mut wrong = [13u8; 32];
+        wrong[0] ^= 0x01;
+        let wrong_secret = PairingSecret::from_bytes(wrong);
+        // A follow-up line that would succeed if the gate ever let it through.
+        let mut input = paired_session_line(
+            &wrong_secret,
+            ENGRAM_HOST_BRIDGE_PROFILE,
+            &json!("pair-x"),
+            [22u8; 32],
+        );
+        input.push_str(r#"{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}"#);
+        input.push('\n');
+        let mut output = Vec::new();
+        let mut pairing = ConnectionPairing::new();
+
+        session.begin_pairing_attempt().unwrap();
+        let handled = dispatch_rpc_lines_paired(
+            Cursor::new(input),
+            &mut output,
+            &mut session,
+            actor,
+            Some(&mut pairing),
+            false,
+        )
+        .unwrap();
+
+        // The rejection closes the socket before the second line runs.
+        assert_eq!(handled, 0);
+        assert!(pairing.rejected());
+        assert!(!pairing.accepted());
+        assert!(!session.pairing_bound());
+
+        let text = String::from_utf8(output).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 1);
+        let response: Value = serde_json::from_str(lines[0]).unwrap();
+        assert_eq!(response["error"]["code"], PAIRING_ERROR_CODE);
+        assert_eq!(response["error"]["message"], PAIRING_ERROR_MESSAGE);
+        assert!(response["error"].get("data").is_none());
+        assert_eq!(response["id"], json!("pair-x"));
+        // The failed attempt consumed the request budget through a recorded error.
+        assert_eq!(session.requests_used, 1);
+        assert_eq!(session.bridge.run_log_usage().events, 1);
+    }
+
+    #[test]
+    fn paired_dispatch_rejects_a_connection_bound_elsewhere() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-paired-bound-elsewhere".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "paired-bound-elsewhere",
+        );
+        let secret = PairingSecret::from_bytes([13u8; 32]);
+        session.enable_engram_pairing(PairingSecret::from_bytes([13u8; 32]), MAX_PAIRING_ATTEMPTS);
+        // Even a perfectly valid proof is rejected once the secret is bound to a
+        // different connection: this models a captured-request replay.
+        let input = paired_session_line(
+            &secret,
+            ENGRAM_HOST_BRIDGE_PROFILE,
+            &json!("replay"),
+            [23u8; 32],
+        );
+        let mut output = Vec::new();
+        let mut pairing = ConnectionPairing::new();
+
+        session.begin_pairing_attempt().unwrap();
+        let handled = dispatch_rpc_lines_paired(
+            Cursor::new(input),
+            &mut output,
+            &mut session,
+            actor,
+            Some(&mut pairing),
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(handled, 0);
+        assert!(pairing.rejected());
+        assert!(!session.pairing_bound());
+        let response: Value =
+            serde_json::from_str(String::from_utf8(output).unwrap().lines().next().unwrap())
+                .unwrap();
+        assert_eq!(response["error"]["code"], PAIRING_ERROR_CODE);
     }
 
     #[test]
