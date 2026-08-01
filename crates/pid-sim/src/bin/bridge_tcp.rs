@@ -230,11 +230,10 @@ fn serve_connections<W: Write>(
         served.connections += 1;
         session.begin_pairing_attempt()?;
         let mut pairing = pid_sim::ConnectionPairing::new();
-        served.handled += serve_client(stream, session, actor, Some(&mut pairing), false)?;
+        let result = serve_client(stream, session, actor, Some(&mut pairing), false);
+        served.handled += finish_pairing_connection(result, &pairing, session)?;
         if pairing.accepted() {
             served.paired = true;
-        } else {
-            session.record_failed_pairing_attempt();
         }
     }
     if served.paired {
@@ -274,8 +273,8 @@ fn drain_post_pairing_connections<W: Write>(
                 *connections += 1;
                 session.begin_pairing_attempt()?;
                 let mut pairing = pid_sim::ConnectionPairing::new();
-                handled += serve_client(stream, session, actor, Some(&mut pairing), true)?;
-                session.record_failed_pairing_attempt();
+                let result = serve_client(stream, session, actor, Some(&mut pairing), true);
+                handled += finish_pairing_connection(result, &pairing, session)?;
                 // One post-binding rejection is enough evidence; do not hold the
                 // run open waiting for more.
                 break;
@@ -292,6 +291,32 @@ fn drain_post_pairing_connections<W: Write>(
         .set_nonblocking(false)
         .context("failed to restore the blocking listener")?;
     Ok(handled)
+}
+
+/// Complete one accepted-connection pairing unit without hiding fatal state.
+///
+/// A connection-local failure before proof acceptance, including a read
+/// timeout, consumes the unit and lets the finite pairing loop continue. An
+/// error after proof acceptance or provenance poisoning remains fatal.
+fn finish_pairing_connection<W: Write>(
+    result: Result<usize>,
+    pairing: &pid_sim::ConnectionPairing,
+    session: &mut pid_sim::SimBridgeSession<W>,
+) -> Result<usize> {
+    match result {
+        Ok(handled) => {
+            if !pairing.accepted() {
+                session.record_failed_pairing_attempt();
+            }
+            Ok(handled)
+        }
+        Err(error) if !pairing.accepted() && !session.poisoned() => {
+            session.record_failed_pairing_attempt();
+            eprintln!("pairing connection ended before proof acceptance: {error:#}");
+            Ok(0)
+        }
+        Err(error) => Err(error),
+    }
 }
 
 fn serve_client<W: Write>(
@@ -839,6 +864,77 @@ mod tests {
             ),
             (Some(CLIENT_IO_TIMEOUT), Some(CLIENT_IO_TIMEOUT))
         );
+    }
+
+    #[test]
+    fn unpaired_transport_failure_consumes_the_attempt_without_poisoning_the_run() {
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = pid_sim::SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            pid_sim::demo_sim(),
+            "pairing-timeout",
+        );
+        session.enable_engram_pairing(pid_sim::PairingSecret::from_bytes([7; 32]), 1);
+        session
+            .begin_pairing_attempt()
+            .expect("the first pairing unit should be available");
+        let pairing = pid_sim::ConnectionPairing::new();
+
+        let handled = finish_pairing_connection(
+            Err(anyhow::anyhow!("simulated read timeout")),
+            &pairing,
+            &mut session,
+        )
+        .expect("an unpaired connection error should be recoverable");
+
+        assert_eq!(
+            (
+                handled,
+                session.pairing_attempts_used(),
+                session.pairing_latched(),
+                session.poisoned(),
+            ),
+            (0, 1, true, false)
+        );
+    }
+
+    #[test]
+    fn unpaired_failure_does_not_hide_a_poisoned_provenance_log() {
+        struct FailingWriter;
+
+        impl Write for FailingWriter {
+            fn write(&mut self, _buffer: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("simulated provenance failure"))
+            }
+
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let writer = RunLogWriter::new(FailingWriter);
+        let mut session = pid_sim::SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            pid_sim::demo_sim(),
+            "pairing-poison",
+        );
+        session.enable_engram_pairing(pid_sim::PairingSecret::from_bytes([9; 32]), 1);
+        session
+            .begin_pairing_attempt()
+            .expect("the first pairing unit should be available");
+        session
+            .record_rejected_rpc("pairing-poison", "force the provenance failure")
+            .expect_err("the failing writer must poison the session");
+        let pairing = pid_sim::ConnectionPairing::new();
+
+        let error = finish_pairing_connection(
+            Err(anyhow::anyhow!("simulated client failure")),
+            &pairing,
+            &mut session,
+        )
+        .expect_err("a poisoned provenance log must remain fatal");
+
+        assert_eq!(error.to_string(), "simulated client failure");
     }
 
     #[test]
