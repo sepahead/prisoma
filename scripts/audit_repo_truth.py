@@ -55,8 +55,15 @@ GITLEAKS_REVISION = "83d9cd684c87d95d656c1458ef04895a7f1cbd8e"
 CREBAIN_REVIEW_REVISION = "7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6"
 ENGRAM_PLACEHOLDER_REVISION = "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
 PAPER2BRAIN_REVIEW_REVISION = "07b85ac48b9e2125ebc8b9d3a63d29926ff293fa"
+NCP_LEGACY_TAG = "v0.8.0"
+NCP_LEGACY_VERSION = "0.8.0"
+NCP_LEGACY_REVISION = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
+NCP_LEGACY_WIRE = "0.8"
+NCP_LEGACY_COMPACT_HASH = "d1b50a2d8a265276"
+NCP_CANDIDATE_REVISION = "d47c4b05e4dce5255c7a17cead712eda1c904245"
+NCP_CANDIDATE_COMPACT_HASH = "163acc57d8a62b66"
 ENGRAM_DESCRIPTOR_SHA256 = (
-    "24bb6f92680c253b79389ba32396e82f63cd316bcb1806a9522060970b9290a5"
+    "006a6cc5fe46041fcc180d1890a36f821e8901768161952b143bbfc3c3fd70f9"
 )
 
 
@@ -845,6 +852,19 @@ def _audit() -> int:
         )
     else:
         ncp_revision = next(iter(ncp_revisions))
+        expected_source = (
+            "git+https://github.com/sepahead/NCP?tag="
+            f"{NCP_LEGACY_TAG}#{NCP_LEGACY_REVISION}"
+        )
+        for package in ncp_packages:
+            if package.get("version") != NCP_LEGACY_VERSION:
+                problems.append(
+                    f"ncp-observer locks {package.get('name')} at the wrong NCP version"
+                )
+            if package.get("source") != expected_source:
+                problems.append(
+                    f"ncp-observer locks {package.get('name')} at the wrong NCP tag or revision"
+                )
         observer_source = _read_regular_text(
             ROOT / "crates/ncp-observer/src/lib.rs",
             label="crates/ncp-observer/src/lib.rs",
@@ -858,6 +878,61 @@ def _audit() -> int:
                 problems.append(
                     f"ncp-observer canonical configuration does not use ncp-core::{constant}"
                 )
+        for exact_identity in (
+            NCP_LEGACY_TAG,
+            NCP_LEGACY_REVISION,
+            NCP_LEGACY_WIRE,
+            NCP_LEGACY_COMPACT_HASH,
+        ):
+            if exact_identity not in observer_source:
+                problems.append(
+                    "ncp-observer source does not freeze the exact legacy NCP identity "
+                    f"{exact_identity!r}"
+                )
+
+    observer_manifest = _toml_object(
+        ROOT / "crates/ncp-observer/Cargo.toml",
+        label="crates/ncp-observer/Cargo.toml",
+    )
+    observer_dependencies = observer_manifest.get("dependencies")
+    if not isinstance(observer_dependencies, dict):
+        raise TruthAuditError("ncp-observer dependencies must be a table")
+    for package_name in ("ncp-core", "ncp-zenoh"):
+        dependency = observer_dependencies.get(package_name)
+        if dependency != {
+            "git": "https://github.com/sepahead/NCP",
+            "tag": NCP_LEGACY_TAG,
+        }:
+            problems.append(
+                f"ncp-observer {package_name} must remain frozen at {NCP_LEGACY_TAG}; "
+                "a different wire requires a separate consumer surface"
+            )
+
+    ncp_consumer = _read_regular_text(ROOT / ".ncp-consumer", label=".ncp-consumer")
+    for required_locator in (
+        "cargo_tag   crates/ncp-observer/Cargo.toml",
+        "cargo_lock  crates/ncp-observer/Cargo.lock",
+        "not native-1.0 or qualification evidence",
+    ):
+        if required_locator not in ncp_consumer:
+            problems.append(f".ncp-consumer omits {required_locator!r}")
+
+    offline_harness = _read_regular_text(
+        ROOT / "crates/pid-sim/src/offline_harness.rs",
+        label="crates/pid-sim/src/offline_harness.rs",
+    )
+    for exact_identity in (
+        NCP_LEGACY_TAG,
+        NCP_LEGACY_REVISION,
+        NCP_LEGACY_WIRE,
+        NCP_LEGACY_COMPACT_HASH,
+        "has_frozen_legacy_ncp_config",
+    ):
+        if exact_identity not in offline_harness:
+            problems.append(
+                "offline NCP receipt verification does not bind the legacy identity "
+                f"{exact_identity!r}"
+            )
 
     notices = _read_regular_text(
         ROOT / "THIRD_PARTY_NOTICES.generated.md",
@@ -1054,6 +1129,31 @@ def _audit() -> int:
                 problems.append(
                     f"{relative} omits the current Engram boundary {required!r}"
                 )
+    current_ncp_docs = (
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "LIMITATIONS.md",
+        "NCP_DEV_PROMPT.md",
+        "RESEARCH_VLA_D_NCP.md",
+        "crates/ncp-observer/README.md",
+        "integrations/engram/README.md",
+    )
+    for relative in current_ncp_docs:
+        text = " ".join(
+            _read_regular_text(ROOT / relative, label=relative).split()
+        )
+        for required in (
+            NCP_LEGACY_TAG,
+            "1.0.0-rc.1",
+            "release-blocked",
+            f"compact proto contract hash `{NCP_CANDIDATE_COMPACT_HASH}`",
+            "NOT RUN",
+        ):
+            if required not in text:
+                problems.append(
+                    f"{relative} omits the current NCP boundary {required!r}"
+                )
     if "current public main `2a55f3d" in grandplan:
         problems.append(
             "grandplan.md mislabels a reviewed Haldir revision as current main"
@@ -1183,11 +1283,14 @@ def _audit() -> int:
             raise TruthAuditError(
                 "ecosystem evidence overlay pid-rs upstream-head observation is invalid"
             )
-        if overrides.get("NCP", {}).get("resolved_revision") != (
-            "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
-        ):
+        ncp_override = overrides.get("NCP", {})
+        if ncp_override.get("resolved_revision") != NCP_LEGACY_REVISION:
             problems.append(
                 "ecosystem evidence overlay omits the peeled NCP v0.8.0 commit"
+            )
+        if ncp_override.get("upstream_head_observed") != NCP_CANDIDATE_REVISION:
+            problems.append(
+                "ecosystem evidence overlay has a stale NCP candidate-head observation"
             )
         if overrides.get("crebain", {}).get("prior_frame_capability_revision") != (
             "49d7b3614f24d21a40fe2af6dbeac082338ae9d7"
@@ -1201,6 +1304,12 @@ def _audit() -> int:
                 "additional unadopted scientific-contract and exact-certifier work",
                 "no 1.x compatibility promise",
                 "fixtures do not establish high-dimensional VLA application validity",
+            ),
+            "NCP": (
+                "unreleased, release-blocked 1.0.0-rc.1",
+                f"compact proto contract hash {NCP_CANDIDATE_COMPACT_HASH}",
+                "different wire",
+                "native-1.0 migration and independent qualification are NOT RUN",
             ),
             "galadriel": (
                 "no reciprocal Prisoma pin",

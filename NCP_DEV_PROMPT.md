@@ -8,9 +8,10 @@
 > descriptor, but no compatible live publisher or bridge. Self-contained; read it top to
 > bottom before touching code.
 
-> **Compatibility boundary (rechecked 2026-07-26):** keep immutable NCP `v0.8.0` / wire 0.8.
-> Public NCP main at `10492c81` is an unreleased, release-blocked `1.0.0-rc.1` wire-1.0
-> candidate. Do not compile this consumer against that moving head.
+> **Compatibility boundary (rechecked 2026-08-01):** keep the latest immutable NCP
+> `v0.8.0` release / wire 0.8. Current NCP HEAD is the unreleased, release-blocked
+> `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash `163acc57d8a62b66`). It
+> uses a different wire. Native-1.0 migration and independent qualification are **NOT RUN**.
 
 ## 1. Context (what this is and is not)
 
@@ -227,7 +228,9 @@ cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json 
 ```
 
 The harness verifies `outputs/ncp_vlda.json.publication.json` and rejects degraded/invalid
-captures. This command requests no PID because the adapter declares no population support.
+captures. Schema-1 receipts must bind the exact legacy `v0.8.0` tag, revision, wire, and
+compact hash; missing or different-wire identity fails closed. This command requests no PID
+because the adapter declares no population support.
 Continuous KSG/shared-exclusions requests would abstain rather than infer support from the
 observed sample; quantized discrete `I_min` would remain non-evidentiary with population
 `NotEvaluated` and application `Blocked`.

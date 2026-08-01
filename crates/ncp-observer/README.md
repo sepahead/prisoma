@@ -11,9 +11,10 @@ live publisher or bridge for NCP wire 0.8. This crate is a **read-only observer*
 the NCP data-plane keys over Zenoh and never drives anything (the Agent Bridge stays the only
 control plane).
 
-> **Compatibility boundary (rechecked 2026-07-26):** this crate pins immutable NCP `v0.8.0`
-> and wire 0.8. Public NCP main at `10492c81` is an unreleased, release-blocked
-> `1.0.0-rc.1` wire-1.0 candidate. It is not a compatible dependency update.
+> **Compatibility boundary (rechecked 2026-08-01):** this crate pins the latest immutable
+> NCP `v0.8.0` release and wire 0.8. Current NCP HEAD is the unreleased, release-blocked
+> `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash `163acc57d8a62b66`). It
+> uses a different wire. Native-1.0 migration and independent qualification are **NOT RUN**.
 
 It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the published
 NCP repo **<https://github.com/sepahead/NCP>**. Spec: `NEURO_CYBERNETIC_PROTOCOL.md`
@@ -55,8 +56,10 @@ S2/EC1 conformance bar** (an optional M2 ecosystem item) until the gaps below cl
    uses a same-directory temporary file, fsync, and a no-replace hard-link install;
    a small hash-binding publication receipt is installed last as the commit
    marker. `pid-offline-harness` verifies the receipt, both hashes, the canonical
-   run log, its exact dataset artifact identity, and the capture grade before
-   accepting an NCP artifact. Publication requires an explicitly bound session
+   run log, its exact dataset artifact identity, the capture grade, and the exact
+   `v0.8.0` tag/revision/wire/compact-hash configuration before accepting an NCP
+   artifact. Receipt schema 1 is the frozen wire-0.8 path; it rejects missing or
+   different-wire identity. Publication requires an explicitly bound session
    and UTF-8-representable canonical targets. Append/hash/write/fsync failures
    preserve exact same-path retry state; retries pin all three canonical targets
    and adopt only byte-identical bounded regular files.
@@ -268,10 +271,9 @@ is unaffected by NCP's neural enums. The one frame the old `v0.1.0` pin could no
 handle was an `ObservationFrame` whose `Observation.observable` is the `#10` value
 (`binary_state`), which would fail to deserialize and be silently dropped; the
 current `v0.8.0` pin (proto-native wire) decodes it, so this observer now ingests `#10`
-observations too. **Re-pin rule:** bump the `ncp-core`/`ncp-zenoh` tag in lockstep
-with any future additive NCP wire extension *before* a producer emits it, rerun the
-build/decoder/conformance checks, and update the mapping if the new fields change
-capture semantics.
+observations too. This legacy surface is frozen at wire 0.8. Do not repin it across a
+wire boundary. A future wire requires a parallel consumer with its own descriptor,
+fixtures, receipt schema, transport checks, and qualification evidence.
 
 NCP's wire is **simulator-agnostic by design**. If a future public Engram/NEST
 publisher and a later NEURON, Brian2, GeNN, or neuromorphic backend serve the same

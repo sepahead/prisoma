@@ -341,10 +341,11 @@ No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authori
 - **Honours the three invariants:** the run log is the source of truth, the observer drives
   nothing (the Agent Bridge stays the only control plane), and all NCP-specific mapping
   lives in this crate.
-- **Pinned dependency:** the manifest pins the immutable NCP `v0.8.0` (wire 0.8) release and
-  resolves from the published repository; no sibling checkout or path override is
-  required. Public NCP main was observed at `10492c81` on 2026-07-24. It is an unreleased,
-  release-blocked `1.0.0-rc.1` wire-1.0 candidate and is not compatible with this consumer.
+- **Pinned dependency:** the manifest pins the latest immutable NCP `v0.8.0` release (wire
+  0.8) and resolves from the published repository; no sibling checkout or path override is
+  required. Current NCP HEAD is the unreleased, release-blocked `1.0.0-rc.1` candidate
+  (wire 1.0; compact proto contract hash `163acc57d8a62b66`). It uses a different wire.
+  Native-1.0 migration and independent qualification are **NOT RUN**.
 - **Workspace-excluded by design:** it is in `Cargo.toml` `exclude`, not a member, because a
   broken dependency in a *member* would fail manifest resolution for **every** `cargo`
   command (including `-p`-scoped ones). Exclusion keeps root workspace resolution/build/test

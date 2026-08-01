@@ -119,6 +119,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 pub mod observatory;
 
+// Compile the build-time pin parser into the library test harness so hostile
+// manifest/lock mutations are exercised without contacting the network.
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "../pin_guard.rs"]
+mod pin_guard_test_module;
+
 /// One `(V,L,D,A)` sample — mirrors `pid-sim`'s `OfflineVldaSample`; the
 /// harness accepts the containing NCP dataset only after publication verification.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -853,8 +860,29 @@ const REORDER_GRACE: i64 = 8;
 /// without unbounded growth from a hostile stream of novel epochs.
 const MAX_RETIRED_EPOCHS: usize = 64;
 
-/// Immutable source revision behind the `v0.8.0` NCP dependency in this crate's manifest.
+/// Immutable identity of this legacy NCP consumer surface.
+const NCP_RELEASE_TAG: &str = "v0.8.0";
 const NCP_RELEASE_REVISION: &str = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e";
+const NCP_RELEASE_WIRE: &str = "0.8";
+const NCP_RELEASE_COMPACT_HASH: &str = "d1b50a2d8a265276";
+
+fn validate_legacy_ncp_contract_identity(wire: &str, compact_hash: &str) -> anyhow::Result<()> {
+    if wire != NCP_RELEASE_WIRE {
+        anyhow::bail!(
+            "ncp-observer is frozen at NCP {NCP_RELEASE_TAG} wire {NCP_RELEASE_WIRE}; resolved wire={wire}"
+        );
+    }
+    if compact_hash != NCP_RELEASE_COMPACT_HASH {
+        anyhow::bail!(
+            "ncp-observer is frozen at NCP {NCP_RELEASE_TAG} compact hash {NCP_RELEASE_COMPACT_HASH}; resolved compact_hash={compact_hash}"
+        );
+    }
+    Ok(())
+}
+
+fn ensure_legacy_ncp_contract_identity() -> anyhow::Result<()> {
+    validate_legacy_ncp_contract_identity(NCP_VERSION, CONTRACT_HASH)
+}
 
 /// Deployment transport facts recorded in the canonical configuration event.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1433,6 +1461,7 @@ impl Observer {
 
     /// Attach a run-log so provenance events are emitted alongside the dataset.
     pub fn with_runlog(mut self, path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        ensure_legacy_ncp_contract_identity()?;
         if self.expected_session.is_none() {
             anyhow::bail!(
                 "expected session must be bound with with_expected_session before the run log"
@@ -1475,7 +1504,7 @@ impl Observer {
         let config = serde_json::json!({
             "component": "ncp-observer",
             "ncp": {
-                "tag": "v0.8.0",
+                "tag": NCP_RELEASE_TAG,
                 "revision": NCP_RELEASE_REVISION,
                 "wire": NCP_VERSION,
                 "contract_hash": CONTRACT_HASH,
@@ -3039,6 +3068,7 @@ mod tests {
 
         assert_eq!(config["ncp"]["wire"], NCP_VERSION);
         assert_eq!(config["ncp"]["contract_hash"], CONTRACT_HASH);
+        assert_eq!(config["ncp"]["tag"], NCP_RELEASE_TAG);
         assert_eq!(config["ncp"]["revision"], NCP_RELEASE_REVISION);
         assert_eq!(config["capture"]["expected_session"], SID);
         assert_eq!(config["capture"]["transport"]["realm"], "engram/ncp");
@@ -3054,6 +3084,27 @@ mod tests {
             config["capture"]["local_receipt_timestamps"],
             "not_recorded"
         );
+    }
+
+    #[test]
+    fn legacy_ncp_contract_identity_is_frozen() {
+        ensure_legacy_ncp_contract_identity().unwrap();
+        assert_eq!(NCP_VERSION, NCP_RELEASE_WIRE);
+        assert_eq!(CONTRACT_HASH, NCP_RELEASE_COMPACT_HASH);
+    }
+
+    #[test]
+    fn legacy_ncp_wire_drift_fails_closed() {
+        let error =
+            validate_legacy_ncp_contract_identity("1.0", NCP_RELEASE_COMPACT_HASH).unwrap_err();
+        assert!(error.to_string().contains("resolved wire=1.0"));
+    }
+
+    #[test]
+    fn legacy_ncp_compact_hash_drift_fails_closed() {
+        let error = validate_legacy_ncp_contract_identity(NCP_RELEASE_WIRE, "0000000000000000")
+            .unwrap_err();
+        assert!(error.to_string().contains("resolved compact_hash"));
     }
 
     #[test]

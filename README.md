@@ -323,8 +323,10 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   full-`{epoch,seq}` V/L/D/A buffering, sensor-authorized transitions, immutable rows/events,
   complete-frame duplicate/conflict receipts, observer-owned raw fault accounting, finite
   resident/output ceilings, and a canonical artifact/run-log bundle committed by a verified
-  publication receipt. Known failed/zero-row captures remain diagnostic and the CLI exits nonzero; the
-  offline harness rejects uncommitted or failed NCP input. `capture_integrity` covers visible
+  publication receipt. Receipt schema 1 also binds the exact legacy tag, revision, wire, and
+  compact hash; the offline harness rejects missing or different-wire identity. Known
+  failed/zero-row captures remain diagnostic and the CLI exits nonzero; the offline harness
+  rejects uncommitted or failed NCP input. `capture_integrity` covers visible
   receipts/join state only—whole-plane gaps, receipt timing/QoS/reconnect evidence, and peer
   authentication remain unassessed. A deterministic, bounded `ncp-fault-observatory` now replays
   18 frozen wire-0.8 fixture scenarios twice through the shared route/raw-ingress seams and
@@ -349,8 +351,10 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   two expected `not_assessable` guards (logical pause and security-profile claim), and zero
   mismatches. `all_expectations_matched=true` means those classifications held, not an 18/18
   detection rate.
-  Public NCP main at `10492c81` is an unreleased, release-blocked `1.0.0-rc.1` wire-1.0
-  candidate. Do not treat that moving head as a compatible update or release.
+  Current NCP HEAD is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
+  compact proto contract hash `163acc57d8a62b66`). The latest immutable release is
+  `v0.8.0`, which uses a different wire. Native-1.0 migration and independent qualification
+  are **NOT RUN**.
 - **Specified (not yet built):** a fuller Rerun-based diagnostic viewer and the deferred
   Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
 - **Implemented Engram headless profile:** `integrations/engram/manifest.json`

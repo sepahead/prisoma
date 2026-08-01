@@ -16,7 +16,8 @@ unsafe_code = "deny"
 
 # Cross-repo dependency on the NCP standard SDK, pinned to the published repo
 # (canonical home: https://github.com/sepahead/NCP). This resolves standalone on a
-# fresh checkout (no sibling required); bump the tag to adopt a newer NCP wire.
+# fresh checkout (no sibling required). This legacy surface is frozen at wire 0.8;
+# a different wire requires a separate consumer and qualification path.
 [dependencies]
 ncp-core = { git = "https://github.com/sepahead/NCP", tag = "v0.8.0" }
 ncp-zenoh = { git = "https://github.com/sepahead/NCP", tag = "v0.8.0" }

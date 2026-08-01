@@ -136,8 +136,11 @@ The `prisoma.canonical-run-log.v2` renderer is a structural preview.
 It is not Prisoma validation, replay evidence, NCP, a closed loop, or control
 authority.
 
-Prisoma uses NCP wire 0.8. Engram uses candidate wire 1.0. The manifest marks
-them incompatible. No translation path exists.
+Prisoma pins the latest immutable NCP `v0.8.0` release and uses wire 0.8. Current
+NCP HEAD is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
+compact proto contract hash `163acc57d8a62b66`). Engram uses candidate wire 1.0.
+The manifest marks the wires incompatible. No translation path exists.
+Native-1.0 migration and independent qualification are **NOT RUN**.
 
 ## Validation
 

@@ -84,10 +84,11 @@ equivalents in `AGENTS.md`. `just test` / `just docs-audit` wrap the above.
   part of the M2 ecosystem-conformance benchmark, not a critical-path dependency. The reference
   adapter for the confirmatory H-experiments is `experiments/safe_adapter`; the core must build
   with NCP disabled and H1/H2 must run with PID disabled (dependency firebreak, §8.9.3).
-- **NCP is a pinned git dependency**, currently tag `v0.8.0` (wire 0.8); no sibling checkout is
-  required. If the wire pin changes, re-pin/re-verify `ncp-observer` and update every active
-  doc site in the same change. Public NCP main at `10492c81` is an unreleased, release-blocked
-  `1.0.0-rc.1` wire-1.0 candidate. Do not compile this wire-0.8 consumer against it.
+- **NCP is a pinned git dependency**, currently the latest immutable release `v0.8.0` (wire
+  0.8); no sibling checkout is required. Keep this legacy consumer frozen. A different wire
+  requires a separate consumer surface, corpus, and qualification path. Current NCP HEAD is the
+  unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash
+  `163acc57d8a62b66`). Native-1.0 migration and independent qualification are **NOT RUN**.
 - **The estimator pin is deliberate.** Public `pid-rs` main at `e50c12e` has newer unadopted
   contracts and exact-certifier work. Keep `796c11e` until a consumer-owned compatibility and
   scientific-value review supports a pin change. New provenance surfaces do not open PID gates.

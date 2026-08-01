@@ -1,4 +1,6 @@
 # .ncp-consumer — how prisoma pins NCP (the read-only ncp-observer tap, excluded
-# from the default workspace). NCP discovers us via this file; see NCP/INTEGRATING.md.
+# from the default workspace). This locator describes only the frozen wire-0.8
+# surface. It is not native-1.0 or qualification evidence. NCP discovers us via
+# this file; see NCP/INTEGRATING.md.
 cargo_tag   crates/ncp-observer/Cargo.toml
 cargo_lock  crates/ncp-observer/Cargo.lock

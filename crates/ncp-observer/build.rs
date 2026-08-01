@@ -3,6 +3,7 @@ use std::process::Command;
 use std::time::Duration;
 
 mod bounded_process;
+mod pin_guard;
 
 const GIT_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 const GIT_OUTPUT_LIMIT: usize = 1024 * 1024;
@@ -36,6 +37,7 @@ fn git_worktree_clean(repo: &Path) -> bool {
 
 fn main() {
     let manifest = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default());
+    pin_guard::verify_frozen_legacy_ncp_pin(&manifest);
     let repo = manifest
         .parent()
         .and_then(Path::parent)
@@ -54,6 +56,7 @@ fn main() {
     println!("cargo:rerun-if-changed=Cargo.lock");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=bounded_process.rs");
+    println!("cargo:rerun-if-changed=pin_guard.rs");
     if let Some(head) = git_output(repo, &["rev-parse", "--git-path", "HEAD"]) {
         let head = PathBuf::from(head);
         let head = if head.is_absolute() {
