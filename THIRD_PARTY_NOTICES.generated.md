@@ -12,6 +12,7 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 |---|---|---|
 | `anyhow` | 1.0.103 | MIT OR Apache-2.0 |
 | `base64` | 0.22.1 | MIT OR Apache-2.0 |
+| `getrandom` | 0.3.4 | MIT OR Apache-2.0 |
 | `libc` | 0.2.186 | MIT OR Apache-2.0 |
 | `ndarray` | 0.17.2 | MIT OR Apache-2.0 |
 | `pid-core` | 0.9.0 | MIT OR Apache-2.0 |
