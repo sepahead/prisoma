@@ -1996,7 +1996,7 @@ version = "0.9.0"
 dependencies = [
  "anyhow",
  "base64",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "pid-bridge",
  "pid-core",
  "pid-rerun",
