@@ -93,10 +93,10 @@
       ],
       "content_bindings": [
         {
-          "bytes": 99357,
-          "inventory_entry_sha256": "9f186764b5c8a8d22eff9b0a6f8a07a2cd1b2be4671f420d884cf9925cbd046a",
+          "bytes": 99377,
+          "inventory_entry_sha256": "2425011983f373378827d2116d88b93228181977ed1918a81afb4ae89d74bc1e",
           "path": "Cargo.lock",
-          "sha256": "127bdea9d85759b60f1dac3e1aee53ea802e27a85924d82710682c441fdf3cc9"
+          "sha256": "777b84d857b42e6e64c48aebb200959ed580776faf5ff4c12dba8e74dc8d4863"
         },
         {
           "bytes": 1997,
@@ -235,10 +235,10 @@
       ],
       "content_bindings": [
         {
-          "bytes": 44209,
-          "inventory_entry_sha256": "550587452743e377459dc6ee8ad28f4d9f4e40270d2d6707ae9a8afe4b9e529b",
+          "bytes": 44837,
+          "inventory_entry_sha256": "a4235399305bb4231a8598664e1813f893c3977e0edbbd5cff2916b5efb8857c",
           "path": "protocols/capability_matrix_current_v1.json",
-          "sha256": "daea833e046cae25287b877e42ea6815b656402f2b969c90c13869b7ac9a688f"
+          "sha256": "a3cad6a9666ae1be223ed3ca348915ba24de53ff2ea6b76548c6d0f183e30f6c"
         },
         {
           "bytes": 21113,
@@ -314,10 +314,10 @@
       "code_paths": [],
       "content_bindings": [
         {
-          "bytes": 240163,
-          "inventory_entry_sha256": "d7b297602e64a322d130d41b71ab892085d57a88f05c4b6fd672ac7726d00ba2",
+          "bytes": 240750,
+          "inventory_entry_sha256": "750875ae286380f66eb630859f169a1d681efc493c04bfaa79d5b76b83bedefe",
           "path": "grandplan.md",
-          "sha256": "c4c2f3a3a4f54283c035fb6b74b5d2a2c54c7abd6ee5898fd9dee77a3c4b7425"
+          "sha256": "9cff4f7e5a5653e9cbd377a54c695eff669385eba887aed13afbb47d19db4184"
         },
         {
           "bytes": 13097,
@@ -360,7 +360,7 @@
       "content_bindings": [
         {
           "bytes": 148836,
-          "inventory_entry_sha256": "999e8fa0cb88b9766f97b0d62e4ce9dfb5a29b26f03646238e26a1d863ffd814",
+          "inventory_entry_sha256": "89a99db6129b815b709c2d0caaaff895e45990a08b97a1ef2d088358ac4f42b5",
           "path": "EXPERIMENTS.md",
           "sha256": "cc155b6c94ec8489686117f97cc9e9c4658b0ad067f601b91ba7011dc4c4dcd6"
         },
@@ -405,7 +405,7 @@
       "content_bindings": [
         {
           "bytes": 148836,
-          "inventory_entry_sha256": "999e8fa0cb88b9766f97b0d62e4ce9dfb5a29b26f03646238e26a1d863ffd814",
+          "inventory_entry_sha256": "89a99db6129b815b709c2d0caaaff895e45990a08b97a1ef2d088358ac4f42b5",
           "path": "EXPERIMENTS.md",
           "sha256": "cc155b6c94ec8489686117f97cc9e9c4658b0ad067f601b91ba7011dc4c4dcd6"
         },
@@ -449,10 +449,10 @@
       "code_paths": [],
       "content_bindings": [
         {
-          "bytes": 240163,
-          "inventory_entry_sha256": "d7b297602e64a322d130d41b71ab892085d57a88f05c4b6fd672ac7726d00ba2",
+          "bytes": 240750,
+          "inventory_entry_sha256": "750875ae286380f66eb630859f169a1d681efc493c04bfaa79d5b76b83bedefe",
           "path": "grandplan.md",
-          "sha256": "c4c2f3a3a4f54283c035fb6b74b5d2a2c54c7abd6ee5898fd9dee77a3c4b7425"
+          "sha256": "9cff4f7e5a5653e9cbd377a54c695eff669385eba887aed13afbb47d19db4184"
         },
         {
           "bytes": 13097,
@@ -500,10 +500,10 @@
           "sha256": "89345b53936238ea9dabf5b50fcbdfc33f73d6a5ad906fb1ccf6896c2d857b5c"
         },
         {
-          "bytes": 240163,
-          "inventory_entry_sha256": "d7b297602e64a322d130d41b71ab892085d57a88f05c4b6fd672ac7726d00ba2",
+          "bytes": 240750,
+          "inventory_entry_sha256": "750875ae286380f66eb630859f169a1d681efc493c04bfaa79d5b76b83bedefe",
           "path": "grandplan.md",
-          "sha256": "c4c2f3a3a4f54283c035fb6b74b5d2a2c54c7abd6ee5898fd9dee77a3c4b7425"
+          "sha256": "9cff4f7e5a5653e9cbd377a54c695eff669385eba887aed13afbb47d19db4184"
         }
       ],
       "decision": "NOT_CLAIMED",
@@ -539,16 +539,16 @@
       "code_paths": [],
       "content_bindings": [
         {
-          "bytes": 30583,
-          "inventory_entry_sha256": "d967ad78e4ac6e03694120e1bb152b49f86988a99379f43b513fb67852521da9",
+          "bytes": 32041,
+          "inventory_entry_sha256": "8e42f9e3fc6ab254323cf064aefa603d2276a66b043f37305f68c04e9e92373a",
           "path": "findings.md",
-          "sha256": "a0ecbd6b40c4bd87f06bf84bbaee6ece2f42a5326d392ba3450f7d56b1bf8bb9"
+          "sha256": "99208ff0b0f0fe4c49363bd7267384519aa35e7c1a0d99f43bc0d8775a3112b3"
         },
         {
-          "bytes": 240163,
-          "inventory_entry_sha256": "d7b297602e64a322d130d41b71ab892085d57a88f05c4b6fd672ac7726d00ba2",
+          "bytes": 240750,
+          "inventory_entry_sha256": "750875ae286380f66eb630859f169a1d681efc493c04bfaa79d5b76b83bedefe",
           "path": "grandplan.md",
-          "sha256": "c4c2f3a3a4f54283c035fb6b74b5d2a2c54c7abd6ee5898fd9dee77a3c4b7425"
+          "sha256": "9cff4f7e5a5653e9cbd377a54c695eff669385eba887aed13afbb47d19db4184"
         }
       ],
       "decision": "NOT_CLAIMED",
@@ -577,7 +577,7 @@
   "record_type": "candidate_claim_to_evidence_ledger",
   "release_version": "0.9.0",
   "schema_version": "prisoma.release-candidate/0.1.0",
-  "source_state_sha256": "aedeb75743571089c19c48527ed03a3ed012a6a572262338dc7014d9bb0676ec",
+  "source_state_sha256": "395417909936401ad1b373c9c5acb72827d3894d9d23f2cf8ddd4cc8121bc736",
   "status_contract": {
     "scientific_statuses": [
       "blocked_not_established",
