@@ -7,10 +7,12 @@
 //!
 //! ```bash
 //! # ncp-observer is excluded from the default workspace; run it by manifest path:
-//! cargo run --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
+//! cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
 //!     --secure --session uav3 --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
 //! # then:
-//! cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json ...
+//! cargo run --locked -p pid-sim --bin pid-offline-harness -- \
+//!     --input outputs/ncp_vlda.json --pid-mode none \
+//!     --summary-json outputs/ncp_summary.json --runlog outputs/ncp_baseline_runlog.jsonl
 //! ```
 //!
 //! Zenoh connectivity is explicit: `--open` uses NCP's unauthenticated,

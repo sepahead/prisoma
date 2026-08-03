@@ -86,9 +86,13 @@ equivalents in `AGENTS.md`. `just test` / `just docs-audit` wrap the above.
   with NCP disabled and H1/H2 must run with PID disabled (dependency firebreak, §8.9.3).
 - **NCP is a pinned git dependency**, currently the latest immutable release `v0.8.0` (wire
   0.8); no sibling checkout is required. Keep this legacy consumer frozen. A different wire
-  requires a separate consumer surface, corpus, and qualification path. Current NCP HEAD is the
+  requires a separate consumer surface, corpus, and qualification path. Official NCP main was
+  observed at `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on 2026-08-03. That commit is the
   unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash
-  `163acc57d8a62b66`). Native-1.0 migration and independent qualification are **NOT RUN**.
+  `163acc57d8a62b66`). NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready,
+  and **NOT RUN**. `P03` covers fault-observatory migration and Prisoma observer-role
+  qualification. See the
+  [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
 - **The estimator pin is deliberate.** Public `pid-rs` main at `e50c12e` has newer unadopted
   contracts and exact-certifier work. Keep `796c11e` until a consumer-owned compatibility and
   scientific-value review supports a pin change. New provenance surfaces do not open PID gates.

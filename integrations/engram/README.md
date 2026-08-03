@@ -136,11 +136,16 @@ The `prisoma.canonical-run-log.v2` renderer is a structural preview.
 It is not Prisoma validation, replay evidence, NCP, a closed loop, or control
 authority.
 
-Prisoma pins the latest immutable NCP `v0.8.0` release and uses wire 0.8. Current
-NCP HEAD is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
-compact proto contract hash `163acc57d8a62b66`). Engram uses candidate wire 1.0.
-The manifest marks the wires incompatible. No translation path exists.
-Native-1.0 migration and independent qualification are **NOT RUN**.
+Prisoma pins the latest immutable NCP `v0.8.0` release and uses wire 0.8. Official NCP
+main was observed at `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on 2026-08-03.
+That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
+compact proto contract hash `163acc57d8a62b66`). The manifest declares target Engram wire
+1.0 and marks it incompatible with Prisoma wire 0.8. NCP's provider inventory records a
+preserved in-progress Paper2Brain migration that targets candidate wire 1.0. It is not an
+installed or qualified integration. No translation path exists.
+NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**.
+`P03` covers fault-observatory migration and Prisoma observer-role qualification. See the
+[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
 
 ## Validation
 

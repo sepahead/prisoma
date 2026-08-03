@@ -3,18 +3,24 @@
 Converts a conforming Neuro-Cybernetic Protocol producer into another `(V,L,D,A)` source for
 prisoma's Partial Information Decomposition. The intended future producer is a NEST/Engram
 session. The named public `sepahead/engram` repository remains a README-only placeholder. The
-executable Engram Neural Labs host lives in `sepahead/Paper2Brain`. Its separate development NCP
-service uses candidate wire 1.0.
+executable Engram Neural Labs host lives in `sepahead/Paper2Brain`. NCP's provider inventory
+records a preserved in-progress Paper2Brain migration that targets candidate wire 1.0. It is not
+an installed or qualified integration.
 Prisoma has a read-only headless-runtime descriptor. Its generic host adapter reads only
 describe, session, and status. This path is not NCP and grants no authority. There is no compatible
 live publisher or bridge for NCP wire 0.8. This crate is a **read-only observer**: it subscribes to
 the NCP data-plane keys over Zenoh and never drives anything (the Agent Bridge stays the only
 control plane).
 
-> **Compatibility boundary (rechecked 2026-08-01):** this crate pins the latest immutable
-> NCP `v0.8.0` release and wire 0.8. Current NCP HEAD is the unreleased, release-blocked
-> `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash `163acc57d8a62b66`). It
-> uses a different wire. Native-1.0 migration and independent qualification are **NOT RUN**.
+> **Compatibility boundary (rechecked 2026-08-03):** this crate pins the latest immutable
+> NCP `v0.8.0` release and wire 0.8. Official NCP main was observed at
+> `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` during this check. That commit is the
+> unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
+> compact proto contract hash `163acc57d8a62b66`). It uses a different wire.
+> NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and
+> **NOT RUN**. They cover the native-1.0 observer, missing-variable and research-claim
+> semantics, and fault-observatory migration plus Prisoma observer-role qualification.
+> See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
 
 It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the published
 NCP repo **<https://github.com/sepahead/NCP>**. Spec: `NEURO_CYBERNETIC_PROTOCOL.md`
@@ -75,8 +81,9 @@ S2/EC1 conformance bar** (an optional M2 ecosystem item) until the gaps below cl
    declared-security-profile label guard. Each case runs twice and publishes path-independent
    semantic hashes, exact artifact hashes, a strict per-replay `outcome.json` record binding the
    counters/journal/finalization deltas and sample oracle, a typed oracle comparison, a canonical
-   run log, and a receipt-last bundle. This is local, fixture-specific E3-style evidence, not
-   live-producer conformance. The frozen inventory is 16 assessed cases (15 matched and one
+   run log, and a receipt-last bundle. This is a reproducibility-bound local fixture execution,
+   not producer-consumer E3 or live-producer conformance. The NCP relationship remains E2. The
+   frozen inventory is 16 assessed cases (15 matched and one
    matched known limitation: whole-tick omission), two expected `not_assessable` guards (logical
    pause and the security-profile claim), and zero mismatches. Thus
    `all_expectations_matched=true` means the expected classifications held, not an 18/18 detection
@@ -161,10 +168,10 @@ frames are dropped and counted.
 ```bash
 # tap a live session and write the artifact + run log on Ctrl-C / SIGTERM
 # (ncp-observer is excluded from the default workspace; use --manifest-path)
-cargo run --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
+cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
     --open --session uav3 --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
 # then verify the committed bundle and run PID-disabled diagnostics/baselines
-cargo run -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
+cargo run --locked -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
     --pid-mode none --summary-json outputs/ncp_summary.json \
     --runlog outputs/ncp_baseline_runlog.jsonl
 
@@ -193,12 +200,13 @@ An offline code path that emits no control messages does not establish live cont
 noninterference. The report hard-codes the corresponding nonclaims: it does not establish E4,
 complete EC1, validate live Engram or security, or change any PID gate.
 
-The E3-style evidence label additionally requires matching build-time and runtime Git revisions,
-clean build-time and runtime worktree states, the standalone crate lockfile hash, and the exact
-executable hash. This is a local reproducibility binding, not a signature or remote attestation.
+The reproducibility-bound local fixture execution level requires matching build-time and runtime
+Git revisions. It also requires clean build-time and runtime worktrees, the standalone crate
+lockfile hash, and the exact executable hash. This is a local reproducibility binding, not a
+signature or remote attestation. It does not create producer-consumer E3.
 Dirty, stale, or unknown source/build state still produces a verifiable diagnostic bundle, but its
-typed evidence level is downgraded to reproducibility-unqualified. `--verify` is intentionally
-read-only and in-place because publication receipts bind canonical paths; it snapshots every
+typed evidence level records a local fixture execution without that binding. `--verify` is
+intentionally read-only and in-place because publication receipts bind canonical paths. It snapshots every
 compiled schedule, per-replay outcome record, dataset, inner run log/receipt, trace, report, outer
 run log, and the receipt once for semantic/hash comparison. The exact
 `.<allowed-target>.tmp-<pid>-<nonce>` namespace is reserved for the writer: an explicit `--out-dir`
@@ -221,14 +229,16 @@ workflow remains a research proposal, and both sides must stay non-invasive:
    observer flattens channels into V/L/D/A axes and the harness runs axis-pair screens;
    it does **not** implement per-channel prioritization. A separate, scientifically gated
    per-channel analysis could test whether information summaries help choose static codec
-   priorities under a poor link (see `RESILIENCE.md` in <https://github.com/sepahead/NCP>).
+   priorities under a poor link (see wire-0.8
+   [`RESILIENCE.md`](https://github.com/sepahead/NCP/blob/v0.8.0/RESILIENCE.md)).
    Any adopted priorities belong in a versioned, human-reviewed NCP configuration, never
    in a write/control path from this observer.
 
 Thus the only current arrow is NCP → read-only capture → offline analysis. PID is never a
 per-tick runtime computation. Per-channel codec selection and a sim-vs-hardware fidelity
 metric remain candidate studies that require their own estimand, gates, fixtures, and
-conformance evidence (`NEUROMORPHIC.md` §5 in <https://github.com/sepahead/NCP>).
+conformance evidence (wire-0.8
+[`NEUROMORPHIC.md` §5](https://github.com/sepahead/NCP/blob/v0.8.0/NEUROMORPHIC.md#5-an-information-theoretic-analysis-client-as-a-sim-to-hardware-fidelity-metric)).
 
 ## Compatibility & versioning
 

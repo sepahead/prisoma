@@ -343,14 +343,19 @@ No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authori
   lives in this crate.
 - **Pinned dependency:** the manifest pins the latest immutable NCP `v0.8.0` release (wire
   0.8) and resolves from the published repository; no sibling checkout or path override is
-  required. Current NCP HEAD is the unreleased, release-blocked `1.0.0-rc.1` candidate
-  (wire 1.0; compact proto contract hash `163acc57d8a62b66`). It uses a different wire.
-  Native-1.0 migration and independent qualification are **NOT RUN**.
+  required. Official NCP main was observed at
+  `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on 2026-08-03. That commit is the
+  unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0; compact proto contract
+  hash `163acc57d8a62b66`). It uses a different wire.
+  NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**.
+  They cover the native-1.0 observer, missing-variable and research-claim semantics, and
+  fault-observatory migration plus Prisoma observer-role qualification. See the
+  [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
 - **Workspace-excluded by design:** it is in `Cargo.toml` `exclude`, not a member, because a
   broken dependency in a *member* would fail manifest resolution for **every** `cargo`
   command (including `-p`-scoped ones). Exclusion keeps root workspace resolution/build/test
   independent of NCP; it does not change the scientific PID verdicts. Build it explicitly:
-  `cargo build --manifest-path crates/ncp-observer/Cargo.toml`.
+  `cargo build --locked --manifest-path crates/ncp-observer/Cargo.toml`.
 - **Off the critical path:** an optional, read-only `(V,L,D,A)` source only — grandplan does
   not depend on Engram; the reference producer for the confirmatory H-experiments is
   `experiments/safe_adapter`, and the core builds with NCP disabled and runs its static non-PID
@@ -384,11 +389,12 @@ No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authori
   native observer response, manifest-oracle comparison, logical replay equivalence, exact
   publication hashes, and path-independent semantic hashes separate, then commits the trace,
   strict per-replay `outcome.json` records, case bundles, report, and canonical run log with an
-  outer receipt installed last. This is deterministic local E3-style fixture evidence only when
-  the build/runtime Git revisions agree, both worktree states are clean, and the standalone
-  lockfile plus exact executable hashes are recorded; otherwise the typed level is
-  reproducibility-unqualified. This is a reproducibility binding, not signing or remote
-  attestation. `--verify DIR` read-only snapshots the complete in-place publication without
+  outer receipt installed last. This is a reproducibility-bound local fixture execution only
+  when the build/runtime Git revisions agree, both worktree states are clean, and the standalone
+  lockfile plus exact executable hashes are recorded. Otherwise, the typed level records a local
+  fixture execution without that binding. This local execution does not create producer-consumer
+  E3. The NCP relationship remains E2. The binding is not signing or remote attestation.
+  `--verify DIR` read-only snapshots the complete in-place publication without
   rerunning it; explicit `--out-dir` retry alone may clean the writer-reserved temporary namespace
   after reconstructing every target. The frozen outcome inventory is 16 assessed (15 matched, one
   matched known limitation for whole-tick omission), two expected `not_assessable` guards
@@ -438,7 +444,7 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
 - Search: `rg -n "pattern"`
 - Tests: `just test` (or `cargo test` if `just` isn't installed)
 - M0 governance integrity (honest unfinished state, not a freeze): `just research-governance`
-- NCP wire-0.8 deterministic fault suite: `just ncp-fault-observatory outputs/<directory>`
+- NCP wire-0.8 deterministic fault suite: `just ncp-fault-observatory outputs/ncp_fault_observatory`
 - Estimator gate:
   - `just exp0` (or `cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all exp0 -- --nocapture`)
   - `just exp0-bin` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`)

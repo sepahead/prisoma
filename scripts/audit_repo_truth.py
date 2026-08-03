@@ -60,8 +60,16 @@ NCP_LEGACY_VERSION = "0.8.0"
 NCP_LEGACY_REVISION = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
 NCP_LEGACY_WIRE = "0.8"
 NCP_LEGACY_COMPACT_HASH = "d1b50a2d8a265276"
-NCP_CANDIDATE_REVISION = "d47c4b05e4dce5255c7a17cead712eda1c904245"
+NCP_CANDIDATE_REVISION = "1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd"
 NCP_CANDIDATE_COMPACT_HASH = "163acc57d8a62b66"
+NCP_LEGACY_SOURCE_URL = f"https://github.com/sepahead/NCP/tree/{NCP_LEGACY_TAG}"
+NCP_CANDIDATE_SOURCE_URL = (
+    f"https://github.com/sepahead/NCP/tree/{NCP_CANDIDATE_REVISION}"
+)
+NCP_CANDIDATE_TASK_LEDGER_URL = (
+    "https://github.com/sepahead/NCP/blob/"
+    f"{NCP_CANDIDATE_REVISION}/evidence/implementation/task-ledger.v1.json"
+)
 ENGRAM_DESCRIPTOR_SHA256 = (
     "006a6cc5fe46041fcc180d1890a36f821e8901768161952b143bbfc3c3fd70f9"
 )
@@ -1082,6 +1090,9 @@ def _audit() -> int:
         "The executable Engram Neural Labs host is `sepahead/Paper2Brain`",
         "E2 declared immutable consumer-manifest relationship plus local "
         "read-only transport evidence",
+        "preserved in-progress Paper2Brain migration",
+        "targets candidate wire 1.0",
+        "not an installed or qualified integration",
         "No NCP producer, bridge, wire translator, artifact-validation path, "
         "or authority path exists",
     ):
@@ -1098,24 +1109,42 @@ def _audit() -> int:
         "README.md": (
             "`sepahead/engram` repository remains a README-only placeholder",
             "`sepahead/Paper2Brain`",
+            "preserved in-progress Paper2Brain migration",
+            "targets candidate wire 1.0",
+            "not an installed or qualified integration",
             "This is not an NCP producer, wire translator, artifact validator, "
             "or authority path",
         ),
         "RESEARCH_VLA_D_NCP.md": (
             "`sepahead/engram` repository remains a README-only placeholder",
             "`sepahead/Paper2Brain`",
+            "preserved in-progress Paper2Brain migration",
+            "targets candidate wire 1.0",
+            "not an installed or qualified integration",
             "no compatible live wire-0.8 publisher exists",
         ),
         "NCP_DEV_PROMPT.md": (
             "`sepahead/engram` repository remains a",
             "README-only placeholder",
             "`sepahead/Paper2Brain`",
+            "preserved in-progress Paper2Brain migration",
+            "targets candidate wire 1.0",
+            "not an installed or qualified integration",
             "no compatible live publisher or bridge",
         ),
         "crates/ncp-observer/README.md": (
             "`sepahead/engram` repository remains a README-only placeholder",
             "`sepahead/Paper2Brain`",
+            "preserved in-progress Paper2Brain migration",
+            "targets candidate wire 1.0",
+            "not an installed or qualified integration",
             "no compatible live publisher or bridge",
+        ),
+        "integrations/engram/README.md": (
+            "preserved in-progress Paper2Brain migration",
+            "targets candidate wire 1.0",
+            "not an installed or qualified integration",
+            "marks it incompatible with Prisoma wire 0.8",
         ),
         "crates/ncp-observer/Cargo.toml": (
             "no live Paper2Brain-to-Prisoma bridge exists",
@@ -1145,9 +1174,17 @@ def _audit() -> int:
         )
         for required in (
             NCP_LEGACY_TAG,
+            f"`{NCP_CANDIDATE_REVISION}`",
+            NCP_CANDIDATE_TASK_LEDGER_URL,
             "1.0.0-rc.1",
             "release-blocked",
             f"compact proto contract hash `{NCP_CANDIDATE_COMPACT_HASH}`",
+            "P01",
+            "P02",
+            "P03",
+            "OPEN",
+            "not dependency-ready",
+            "observer-role qualification",
             "NOT RUN",
         ):
             if required not in text:
@@ -1292,6 +1329,18 @@ def _audit() -> int:
             problems.append(
                 "ecosystem evidence overlay has a stale NCP candidate-head observation"
             )
+        if ncp_override.get("source") != NCP_LEGACY_SOURCE_URL:
+            problems.append(
+                "ecosystem evidence overlay has a stale NCP immutable-release source"
+            )
+        if ncp_override.get("upstream_source") != NCP_CANDIDATE_SOURCE_URL:
+            problems.append(
+                "ecosystem evidence overlay has a stale NCP candidate source"
+            )
+        if ncp_override.get("task_ledger_source") != NCP_CANDIDATE_TASK_LEDGER_URL:
+            problems.append(
+                "ecosystem evidence overlay has a stale NCP task-ledger source"
+            )
         if overrides.get("crebain", {}).get("prior_frame_capability_revision") != (
             "49d7b3614f24d21a40fe2af6dbeac082338ae9d7"
         ):
@@ -1309,7 +1358,8 @@ def _audit() -> int:
                 "unreleased, release-blocked 1.0.0-rc.1",
                 f"compact proto contract hash {NCP_CANDIDATE_COMPACT_HASH}",
                 "different wire",
-                "native-1.0 migration and independent qualification are NOT RUN",
+                "P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN",
+                "Prisoma observer-role qualification",
             ),
             "galadriel": (
                 "no reciprocal Prisoma pin",
@@ -1330,8 +1380,10 @@ def _audit() -> int:
                 "no direct Prisoma adapter",
             ),
             "paper2brain": (
-                "candidate wire 1.0",
-                "Prisoma remains on wire 0.8",
+                "preserved in-progress Paper2Brain migration",
+                "targets candidate wire 1.0",
+                "not an installed or qualified integration",
+                "target Engram wire 1.0 incompatible with Prisoma wire 0.8",
                 "not Prisoma validation",
                 "starts no process and grants no authority",
                 "no live Paper2Brain-to-Prisoma producer",

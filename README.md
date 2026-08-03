@@ -42,10 +42,13 @@ to that non-promoted candidate decision record, not to public availability of th
 prerelease.
 
 A manual ecosystem refresh on 2026-07-26 reconciled Crebain, the named Engram
-placeholder, and the executable Paper2Brain host. Prisoma keeps its reviewed
+placeholder, and the executable Paper2Brain host. The NCP provider boundary was
+verified against official main on 2026-08-03. Prisoma keeps its reviewed
 `pid-rs@796c11e` and NCP `v0.8.0` pins until consumer-owned qualification is
-complete. Public NCP main and Paper2Brain's separate development NCP service
-use candidate wire 1.0. They are incompatible with this wire-0.8 observer.
+complete. Public NCP main uses candidate wire 1.0 and is incompatible with this
+wire-0.8 observer. NCP's provider inventory records a preserved in-progress
+Paper2Brain migration that targets candidate wire 1.0. It is not an installed or
+qualified integration.
 See `grandplan.md` section 8.9 and `protocols/ecosystem_evidence_current_v1.json`.
 
 ## Documentation map
@@ -334,27 +337,35 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
   separates injection truth from native detection: whole-tick omission is a manifest-only known
   limitation, logical slots are annotations that do not drive or measure timing, trace truncation
   is not a live disconnect, and the security case guards only a declared-profile label without
-  loading or selecting a configuration. This is local E3-style fixture evidence only—not E4,
-  EC1 completion, live Engram validation, security validation, or a PID gate change. No population support is
-  inferred: continuous KSG/shared-exclusions requests abstain, `--pid-mode none` requests nothing,
+  loading or selecting a configuration. This is a reproducibility-bound local fixture
+  execution. It is not producer-consumer E3; the NCP relationship remains E2. It is also not E4,
+  EC1 completion, live Engram validation, security validation, or a PID gate change. No population
+  support is inferred: continuous KSG/shared-exclusions requests abstain, and `--pid-mode none`
+  requests nothing,
   and quantized discrete `I_min` remains a non-evidentiary diagnostic with population
   `NotEvaluated` and application `Blocked`. It remains exploratory because honest
   L/split/episode/label structure and a conforming live publisher are still required before it
-  can be an S2/EC1 producer.
-  The E3-style label is emitted only when build/runtime revisions agree, both worktree states are
-  clean, and the lockfile plus exact executable hashes are recorded; otherwise the report uses a
-  reproducibility-unqualified typed level. This is a local reproducibility binding, not signing or
-  remote attestation. `--verify DIR` read-only snapshots an in-place receipt-bound bundle and every
+  can become an S2/EC1 input.
+  The reproducibility-bound local fixture execution level applies only when build-time and runtime
+  revisions agree. Both worktrees must be clean, and the lockfile and exact executable hashes must
+  be recorded. Otherwise, the report records a local fixture execution without that binding. This
+  is a local reproducibility binding, not signing or remote attestation. `--verify DIR` read-only
+  snapshots an in-place
+  receipt-bound bundle and every
   nested artifact without rerunning the suite; only explicit `--out-dir` recovery may discard the
   writer's reserved partial temporary files after reconstructing their targets. The frozen outcome
   inventory is 16 assessed (15 matched and one matched known limitation for whole-tick omission),
   two expected `not_assessable` guards (logical pause and security-profile claim), and zero
   mismatches. `all_expectations_matched=true` means those classifications held, not an 18/18
   detection rate.
-  Current NCP HEAD is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
-  compact proto contract hash `163acc57d8a62b66`). The latest immutable release is
-  `v0.8.0`, which uses a different wire. Native-1.0 migration and independent qualification
-  are **NOT RUN**.
+  Official NCP main was observed at `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on
+  2026-08-03. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire
+  1.0; compact proto contract hash `163acc57d8a62b66`). The latest immutable release is
+  `v0.8.0`, which uses a different wire. NCP ledger tasks `P01`, `P02`, and `P03` are OPEN,
+  not dependency-ready, and **NOT RUN**. They cover the native-1.0 observer, missing-variable
+  and research-claim semantics, and fault-observatory migration plus Prisoma observer-role
+  qualification. See the
+  [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
 - **Specified (not yet built):** a fuller Rerun-based diagnostic viewer and the deferred
   Tauri/SparkJS UI. Start at `grandplan.md` §12 (milestones) and §8.10 (current vs target).
 - **Implemented Engram headless profile:** `integrations/engram/manifest.json`
@@ -389,8 +400,10 @@ The authoritative, detailed inventory is in **`AGENTS.md`** ("Repo reality"). In
 
   Standalone safe mode and explicit mutation mode remain available. This
   integration does not add actuation, an Engram-managed process, NCP
-  translation, or a closed loop. Prisoma stays on NCP wire 0.8. Engram
-  candidate wire 1.0 remains incompatible.
+  translation, or a closed loop. The descriptor declares Prisoma NCP wire 0.8
+  incompatible with target Engram wire 1.0. NCP's provider inventory records a
+  preserved in-progress Paper2Brain migration that targets candidate wire 1.0.
+  It is not an installed or qualified integration.
 
 ## Quick Starts
 

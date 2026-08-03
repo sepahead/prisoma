@@ -218,7 +218,7 @@ impl ConsumerProvenance {
         })
     }
 
-    fn qualifies_reproducible_fixture_evidence(&self) -> bool {
+    fn has_reproducibility_binding(&self) -> bool {
         (is_lower_hex(&self.revision, 20) || is_lower_hex(&self.revision, 32))
             && self.worktree_clean == Some(true)
             && self.lockfile_sha256.is_some()
@@ -228,8 +228,8 @@ impl ConsumerProvenance {
     }
 
     fn evidence_level(&self) -> EvidenceLevel {
-        if self.qualifies_reproducible_fixture_evidence() {
-            EvidenceLevel::FixtureSpecificE3StyleLocalEvidenceOnly
+        if self.has_reproducibility_binding() {
+            EvidenceLevel::ReproducibilityBoundLocalFixtureExecution
         } else {
             EvidenceLevel::FixtureSpecificLocalExecutionReproducibilityUnqualified
         }
@@ -523,7 +523,10 @@ pub enum ScenarioVerdict {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceLevel {
-    FixtureSpecificE3StyleLocalEvidenceOnly,
+    // Report schema 1 shipped with this exact token. Retain it for round-trip
+    // compatibility. Its historical spelling does not grant producer-consumer E3.
+    #[serde(rename = "fixture_specific_e3_style_local_evidence_only")]
+    ReproducibilityBoundLocalFixtureExecution,
     FixtureSpecificLocalExecutionReproducibilityUnqualified,
 }
 
@@ -3420,6 +3423,9 @@ fn report_limitations(evidence_level: EvidenceLevel) -> Vec<String> {
             .to_string(),
     ];
     if evidence_level == EvidenceLevel::FixtureSpecificLocalExecutionReproducibilityUnqualified {
+        // REPORT_SCHEMA_VERSION 1 binds this exact historical sentence.
+        // Retain it so existing unqualified bundles remain verifiable.
+        // It grants no E3 claim.
         limitations.push(
             "runtime/build commit agreement, clean runtime/build worktrees, lockfile hash, and executable hash were not all established; this execution is below E3-style reproducibility"
                 .to_string(),
@@ -4761,7 +4767,7 @@ mod tests {
     fn evidence_level_downgrades_dirty_or_unlocked_consumers() {
         assert_eq!(
             test_consumer().evidence_level(),
-            EvidenceLevel::FixtureSpecificE3StyleLocalEvidenceOnly
+            EvidenceLevel::ReproducibilityBoundLocalFixtureExecution
         );
         for consumer in [
             ConsumerProvenance::with_build_attestation(
@@ -4818,6 +4824,33 @@ mod tests {
     }
 
     #[test]
+    fn evidence_level_round_trips_schema_one_token_without_e3_semantics() {
+        let evidence_level: EvidenceLevel =
+            serde_json::from_str("\"fixture_specific_e3_style_local_evidence_only\"").unwrap();
+        assert_eq!(
+            evidence_level,
+            EvidenceLevel::ReproducibilityBoundLocalFixtureExecution
+        );
+        assert_eq!(
+            serde_json::to_string(&evidence_level).unwrap(),
+            "\"fixture_specific_e3_style_local_evidence_only\""
+        );
+    }
+
+    #[test]
+    fn schema_one_unqualified_limitation_remains_byte_compatible() {
+        let limitations = report_limitations(
+            EvidenceLevel::FixtureSpecificLocalExecutionReproducibilityUnqualified,
+        );
+        assert_eq!(
+            limitations.last().map(String::as_str),
+            Some(
+                "runtime/build commit agreement, clean runtime/build worktrees, lockfile hash, and executable hash were not all established; this execution is below E3-style reproducibility"
+            )
+        );
+    }
+
+    #[test]
     fn complete_suite_publishes_replay_equivalent_honest_report() {
         let output = unique_path("complete_suite");
         let outcome = run_observatory(&output, None, test_consumer()).unwrap();
@@ -4832,7 +4865,7 @@ mod tests {
         assert_eq!(report.scenarios.len(), FaultScenario::ALL.len());
         assert_eq!(
             report.evidence_level,
-            EvidenceLevel::FixtureSpecificE3StyleLocalEvidenceOnly
+            EvidenceLevel::ReproducibilityBoundLocalFixtureExecution
         );
         assert_eq!(report.execution_status, ExecutionStatus::Completed);
         assert!(!report.establishes_e4);

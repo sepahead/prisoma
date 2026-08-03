@@ -173,9 +173,40 @@ Everything downstream consumes one `(V,L,D,A)`+labels contract (the `OfflineVlda
 |---|---|---|---|
 | `experiments/safe_adapter/` (released SAFE rollouts) | **Critical path** (S2/EC1 reference adapter, `grandplan.md` §8.7) | yes | Bounded NPZ/strict-JSON ingress, exact file hashes, operator-declared source/split/rights and model/hook/tensor receipts, converter, and hook-probe are local-fixture-validated; legacy pickle is default-off; real safe export/capture, rights review, and scientific gates remain open |
 | `crates/pid-sim` fixtures + `pid-rapier-harness` / `pid-toy-harness` | Sim cross-checks | yes | Runnable software/physics smokes with physics-derived labels + `Flow_gt`; not VLA evidence |
-| `crates/ncp-observer` (Engram/NEST over the Neuro-Cybernetic Protocol) | **Optional** external bridge (M2 ecosystem conformance, `grandplan.md` §8.9.5) | fixture observatory only | **Exploratory-only, read-only — below the S2/EC1 bar** |
+| `crates/ncp-observer` (Engram/NEST over the Neuro-Cybernetic Protocol) | **Optional** external read-only NCP consumer and artifact adapter (M2 ecosystem conformance, `grandplan.md` §8.9.5) | fixture observatory only | **Exploratory-only, read-only — below the S2/EC1 bar** |
 
-The pure-PID stack (the table above minus NCP) builds and its software smokes run with **no NCP/Engram/Zenoh dependency** — `ncp-observer` is excluded from the default cargo workspace. That does not imply that the scientific estimator/capture gates pass. NCP is a read-only exploratory tap, not a controller and not part of grandplan's critical path. The observer performs full wire-0.8 `{epoch,seq}` joins, never uses recency fallback, preserves exact/conflicting receipt semantics across restarts, and commits the artifact/canonical-log pair with a harness-verified publication receipt. The deterministic fault observatory now supplies local E3-style evidence for a finite, hand-authored fixture only when its build/runtime revisions agree, both worktree states are clean, and its lockfile plus exact executable hashes are recorded; otherwise its typed evidence level is reproducibility-unqualified. This is a local reproducibility binding, not signing or remote attestation. Its 18 frozen omission/duplicate/reorder/mutation/truncation/declared-profile-label scenarios run twice through the shared route/raw-ingress seams, with strict per-replay outcome records and injection truth kept separate from native detection in a receipt-last report. The frozen inventory is 16 assessed cases (15 matched, one matched known limitation for whole-tick omission), two expected `not_assessable` guards (logical pause and security-profile claim), and zero mismatches; `all_expectations_matched=true` is not an 18/18 detection-rate claim. Its `capture_integrity` remains only a visible-receipt/join grade; the whole-tick omission case is explicitly a manifest-only blind spot. Logical slots are annotations that do not drive or measure timing, trace truncation is not a live disconnect, and the declared-profile case neither loads nor selects a security configuration. No receipt timing/QoS/reconnect, authentication/ACL, live noninterference, E4, EC1, live Engram, security, or PID-validity conclusion follows. NCP artifacts declare no inferred population support, so use `--pid-mode none` by default: continuous KSG/shared-exclusions requests abstain, while quantized discrete `I_min` is only a non-evidentiary diagnostic with population `NotEvaluated` and application `Blocked`. It remains below the S2/EC1 contract until a conforming live publisher plus honest `L`, `metadata.split`, `episode_id`, and `success` structure exist for the strict harness checks and the `grandplan.md` §4 H1 audit. See `NCP_DEV_PROMPT.md`.
+The pure-PID stack builds and runs its software smokes with **no NCP/Engram/Zenoh dependency**.
+`ncp-observer` is excluded from the default Cargo workspace. This firebreak does not imply that
+the scientific estimator or capture gates pass.
+
+NCP is a read-only exploratory tap, not a controller or critical-path component. The observer
+joins full wire-0.8 `{epoch,seq}` keys and never uses recency fallback. It preserves exact and
+conflicting receipt semantics across restarts. It also commits the artifact and canonical log
+through a harness-verified publication receipt.
+
+The deterministic fault observatory provides a reproducibility-bound local fixture execution
+for one finite, hand-authored fixture. It does not create producer-consumer E3. The NCP
+relationship remains E2. The binding requires matching build/runtime revisions, clean
+worktrees, and recorded lockfile and executable hashes. Otherwise, the typed level records a
+local fixture execution without that binding. This is not signing or remote attestation.
+
+The suite runs 18 frozen scenarios twice through the shared route and raw-ingress seams. Strict
+per-replay records keep injection truth separate from native detection in a receipt-last report.
+The inventory has 16 assessed cases: 15 matched and one matched known limitation for whole-tick
+omission. Two guards are expected `not_assessable`: logical pause and the security-profile claim.
+The inventory has zero mismatches. `all_expectations_matched=true` is not an 18/18 detection rate.
+
+`capture_integrity` is only a visible-receipt and join grade. Whole-tick omission remains a
+manifest-only blind spot. Logical slots do not drive or measure timing. Trace truncation is not a
+live disconnect. The declared-profile case does not load or select a security configuration. No
+timing, QoS, reconnect, authentication, ACL, live-noninterference, or security conclusion follows.
+No E4, EC1, or PID-validity conclusion follows.
+
+NCP artifacts declare no inferred population support. Use `--pid-mode none` by default.
+Continuous KSG/shared-exclusions requests abstain. Quantized discrete `I_min` is only a
+non-evidentiary diagnostic with population `NotEvaluated` and application `Blocked`. The adapter
+remains below S2/EC1 until a conforming publisher supplies honest `L`, `metadata.split`,
+`episode_id`, and `success` data. See `NCP_DEV_PROMPT.md` and the `grandplan.md` §4 H1 audit.
 
 ## 0.5 Physics and Robot Backend Usage: Modular Architecture
 

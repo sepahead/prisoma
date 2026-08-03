@@ -1,6 +1,14 @@
 # Vision-Language-Action Models and the Internal-Dynamics Axis "D": State of the Art, the NCP Spiking Bridge, and a Four-Lens Sufficiency Verdict
 
-**Author:** Sepehr Mahmoudian · **Date:** 1 July 2026 (repo-internal facts synced 2026-08-01: the observer pins the latest immutable NCP v0.8.0 / wire 0.8; current NCP HEAD is the incompatible, unreleased, release-blocked 1.0.0-rc.1 candidate on wire 1.0 with compact proto contract hash `163acc57d8a62b66`; native-1.0 migration and independent qualification are **NOT RUN**; pid-rs remains at reviewed pin `796c11e`; Exp0 MI/coherence is NO-GO)
+**Author:** Sepehr Mahmoudian · **Date:** 1 July 2026
+
+> **Repository facts synced 3 August 2026.** The observer pins immutable NCP `v0.8.0`, wire
+> 0.8. Official NCP main was observed at `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd`.
+> That commit is the incompatible, unreleased, release-blocked `1.0.0-rc.1` candidate on
+> wire 1.0. Its compact proto contract hash is `163acc57d8a62b66`. NCP ledger tasks
+> `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. `P03` covers
+> fault-observatory migration and Prisoma observer-role qualification. `pid-rs` remains at the
+> reviewed `796c11e` pin. Exp0 MI/coherence remains NO-GO.
 
 > **Provenance & method.** This memo was produced by an automated multi-agent deep-research workflow (~87 agents: 10 parallel web-search angles → source fetch → claim distillation → 3-vote adversarial currency verification → four-lens sufficiency analysis with per-lens skeptics → synthesis → completeness critic), run on 2026-07-01. Repo-internal facts about prisoma/NCP were grounded directly in this codebase; every external VLA/PID-literature fact is web-sourced and carries an inline `[n]` citation to the Sources list (§8). Frontier 2026 results post-date the author model's training data, so **specific model names and benchmark numbers should be spot-checked against the cited URLs** before being quoted as settled. §7 gives the full currency/confidence breakdown; of the 16 top-ranked claims put through adversarial verification, all 16 survived and 0 were refuted.
 
@@ -50,9 +58,27 @@ prisoma is not another VLA; it is a *gate-driven experiment-semantics and diagno
 
 ## 4. How NCP fits
 
-NCP (Neuro-Cybernetic Protocol; observer manifest pinned to the latest immutable `v0.8.0` release, wire 0.8) is an external Zenoh pub/sub protocol. Its three data planes can expose a conforming sensorimotor producer: perception (`SensorFrame`), action (`CommandFrame`), and observation/neural readback (`ObservationFrame`). Current NCP HEAD is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash `163acc57d8a62b66`). It uses a different wire. Native-1.0 migration and independent qualification are **NOT RUN**.
+The observer manifest pins the latest immutable NCP `v0.8.0` release, wire 0.8. NCP is an
+external Zenoh pub/sub protocol. Its three data planes can expose a conforming sensorimotor
+producer: perception (`SensorFrame`), action (`CommandFrame`), and neural observation
+(`ObservationFrame`).
 
-The intended future producer is **Engram**, described as a NEST spiking network. The named public `sepahead/engram` repository remains a README-only placeholder. The executable Engram Neural Labs host lives in `sepahead/Paper2Brain`. Its separate development NCP service uses candidate wire 1.0. Prisoma has a digest-locked, read-only headless-runtime descriptor for that host. Its generic adapter reads only describe, session, and status. This live status path is not NCP, an artifact validator, or a control path. The descriptor starts no process and grants no authority. Today, no compatible live wire-0.8 publisher exists.
+Official NCP main was observed at `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on
+2026-08-03. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate. It uses
+wire 1.0 and compact proto contract hash `163acc57d8a62b66`. Wire 1.0 is incompatible with
+this observer.
+NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. `P03`
+covers fault-observatory migration and Prisoma observer-role qualification. See the
+[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
+
+The intended future producer is **Engram**, described as a NEST spiking network. The named public
+`sepahead/engram` repository remains a README-only placeholder. The executable Engram Neural Labs
+host lives in `sepahead/Paper2Brain`. NCP's provider inventory records a preserved in-progress
+Paper2Brain migration that targets candidate wire 1.0. It is not an installed or qualified
+integration. Prisoma has a digest-locked, read-only headless-runtime descriptor for that host. Its
+generic adapter reads only describe, session, and status. This live status path is not NCP, an
+artifact validator, or a control path. The descriptor starts no process and grants no authority.
+Today, no compatible live wire-0.8 publisher exists.
 
 The `ncp-observer` crate is therefore a producer-agnostic **read-only passive tap**. It drives nothing; the Agent Bridge is the only control plane. It maps NCP onto (V,L,D,A): V ← `SensorFrame` channels minus language/success; L ← a named `SensorFrame` channel (default `instruction`); absent-language ticks are excluded from the artifact and counted (`excluded_empty_l`), never zeroed; **D ← `ObservationFrame` record-port readouts = pre-motor neural state** (world-model status untested); and A ← `CommandFrame` channels. Wire 0.8 correlates the planes with the full driving-sensor `StreamPosition`: a sensor contributes its own `stream`, while `CommandFrame.source` and a plane-published `ObservationFrame.source` echo the same `{epoch, seq}`. The observer never joins on arrival time or bare `seq`. Every kept sample carries `l_source = "channel"` and exact `d_source = "source"`; a source-less pull/RPC observation or missing readout is dropped or excludes the tick instead of being paired by recency.
 

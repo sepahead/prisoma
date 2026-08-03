@@ -282,13 +282,14 @@ candidate-package promotion remains NO-GO.
   spot, not a detection pass. The frozen inventory is 16 assessed (15 matched, one matched known
   limitation), two expected `not_assessable` guards (logical pause and security-profile claim),
   and zero mismatches; `all_expectations_matched` does not mean an 18/18 detection rate.
-- Added in-place `--verify` for the complete nested receipt-bound publication, downgraded dirty or
-  stale, or unknown source/build state below the E3-style evidence label, shared the live/replay
-  handoff-capacity constant, and moved all new semantic projection hashes to lossless canonical
-  JSON v2. E3-style elevation now requires build/runtime revision agreement, both clean states,
-  and lockfile/executable hashes; this is a reproducibility binding, not signing or remote
-  attestation. Public verification is read-only and single-snapshot receipt-bound; explicit retry
-  alone cleans partial files in the writer-reserved temp namespace after reconstructing targets.
+- Added in-place `--verify` for the complete nested receipt-bound publication. Dirty, stale, or
+  unknown source/build state cannot claim a reproducibility-bound local fixture execution.
+  The change also shared the live/replay handoff-capacity constant and moved all new semantic
+  projection hashes to lossless canonical JSON v2. The binding requires build/runtime revision
+  agreement, both clean states, and lockfile/executable hashes. This is a reproducibility binding,
+  not producer-consumer E3, signing, or remote attestation. Public verification is read-only and
+  bound to one snapshot. Explicit retry alone cleans partial files in the writer-reserved temp
+  namespace after reconstructing targets.
 - Scope remains local exploratory integrity groundwork. `capture_integrity` does not detect wholly
   missing own-stream ticks or attest receipt time, reconnect/QoS/clock state, authenticated producer
   identity, live conformance, E4/EC1, or security. Observatory logical slots are annotations that

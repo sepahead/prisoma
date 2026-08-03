@@ -50,6 +50,7 @@ jobs:
           test ! -e "$OUT"
           cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-fault-observatory -- --out-dir "$OUT"
           cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-fault-observatory -- --verify "$OUT"
+          # Report schema 1 retains this legacy spelling; it does not grant E3 semantics.
           grep -q '"evidence_level": "fixture_specific_e3_style_local_evidence_only"' "$OUT"/observatory-report-*.json
           grep -q '"all_expectations_matched": true' "$OUT"/observatory.publication.json
           grep -q '"establishes_e4": false' "$OUT"/observatory-report-*.json

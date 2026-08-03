@@ -189,9 +189,13 @@ authentication, ACL enforcement, or producer noninterference. The observer's vis
 capture grade is a join/publication grade, not proof that every source event was delivered.
 Schema-1 publication receipts accept only the frozen `v0.8.0` tag, revision, wire, and compact
 hash; another wire needs a separately reviewed receipt schema and consumer.
-Current NCP HEAD is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
-compact proto contract hash `163acc57d8a62b66`). The latest immutable release is `v0.8.0`,
-which uses a different wire. Native-1.0 migration and independent qualification are **NOT RUN**.
+Official NCP main was observed at `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on
+2026-08-03. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire
+1.0; compact proto contract hash `163acc57d8a62b66`). The latest immutable release is `v0.8.0`,
+which uses a different wire. NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not
+dependency-ready, and **NOT RUN**. `P03` covers fault-observatory migration and Prisoma
+observer-role qualification. See the
+[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
 The Zenoh 1.9 dependency graph retains `lz4_flex` 0.10.0, which is affected by the
 high-severity RUSTSEC-2026-0041 block-decompression information disclosure. The checked profile
 does not enable Zenoh's `transport_compression`, so the affected call is cfg-elided, and CI fails

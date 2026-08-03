@@ -7558,7 +7558,7 @@ mod tests {
             ("/ncp/tag", json!("v1.0.0")),
             (
                 "/ncp/revision",
-                json!("d47c4b05e4dce5255c7a17cead712eda1c904245"),
+                json!("1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd"),
             ),
             ("/ncp/wire", json!("1.0")),
             ("/ncp/contract_hash", json!("163acc57d8a62b66")),
@@ -7591,7 +7591,7 @@ mod tests {
                 "component": "ncp-observer10",
                 "ncp": {
                     "tag": "1.0.0-rc.1",
-                    "revision": "d47c4b05e4dce5255c7a17cead712eda1c904245",
+                    "revision": "1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd",
                     "wire": "1.0",
                     "contract_hash": "163acc57d8a62b66",
                 },
