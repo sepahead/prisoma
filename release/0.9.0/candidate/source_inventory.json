@@ -230,10 +230,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "8a53219bb0e3421f7652b5fd41472097581baffa",
+        "git_blob_id": "7896cbfeb25ea82c7cc17f73d4e2db48ddc21c18",
         "independent_reviewer": null,
         "language": "YAML",
-        "line_count": 42,
+        "line_count": 52,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": ".github/dependabot.yml",
         "public_surface": false,
@@ -241,20 +241,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "accba484c76b5c49ea88a40ad795f4906a8a86a6b8cf537d95fef6c079648342",
+        "sha256": "7255d8988bd74a7f382f0846ba24fac43b4293a24c9f9c64a8146036d51874c9",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "8a53219bb0e3421f7652b5fd41472097581baffa"
+        "oid": "7896cbfeb25ea82c7cc17f73d4e2db48ddc21c18"
       },
       "index": {
-        "bytes": 897,
-        "content_sha256": "accba484c76b5c49ea88a40ad795f4906a8a86a6b8cf537d95fef6c079648342",
+        "bytes": 1667,
+        "content_sha256": "7255d8988bd74a7f382f0846ba24fac43b4293a24c9f9c64a8146036d51874c9",
         "mode": "100644",
-        "oid": "8a53219bb0e3421f7652b5fd41472097581baffa"
+        "oid": "7896cbfeb25ea82c7cc17f73d4e2db48ddc21c18"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -265,14 +265,14 @@
       },
       "path": ".github/dependabot.yml",
       "working_tree": {
-        "bytes": 897,
+        "bytes": 1667,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 42,
+        "line_count": 52,
         "link_target": null,
         "mode": "100644",
-        "sha256": "accba484c76b5c49ea88a40ad795f4906a8a86a6b8cf537d95fef6c079648342"
+        "sha256": "7255d8988bd74a7f382f0846ba24fac43b4293a24c9f9c64a8146036d51874c9"
       },
       "worktree_state": "unchanged"
     },
@@ -24788,12 +24788,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "42e3acab12c8c4310cbb9085701355c8b9deb7ac0a837cc8aeb8a2e4b98dc06f",
+    "candidate_state_sha256": "8a445d35826f9011244dd8ebe6d1ce3ed7fefca8c55dc198b26c133cb7e9649d",
     "clean": true,
     "explicit_source_arguments_required": true,
-    "head_commit": "8ebba5ff2f39587bf6d4644233d794bbd4e1207e",
-    "head_tree": "2d0bd0765b7977a8f976252b18285eed9018bde5",
-    "index_entries_sha256": "3dcdee82c2fe1ec27f7a3087f5095dafd196a55d8b9912afb02b5d3ec4088233",
+    "head_commit": "8762ffaea60087fe7b737ee5b3475b00926ca3e4",
+    "head_tree": "9901e926cdcb570b8a0ab18a4b73ad2cdc9be2a5",
+    "index_entries_sha256": "bcc1bcd15b9fa5c9bee47c8b7f38d1fdd46c0d0647409779ba8e759edfaf2b2e",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -24804,7 +24804,7 @@
       }
     ],
     "state": "clean_source_snapshot",
-    "worktree_entries_sha256": "6780a7308ae6080402e9078e5d10d0d3dc02626b991775e10276cd4e8587ccd3"
+    "worktree_entries_sha256": "9052ded66f40b5ec5c3157951b5fefa6aa35097931d5d811fb46464324b9fdb3"
   },
   "summary": {
     "clean": true,
