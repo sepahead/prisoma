@@ -4,7 +4,9 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 5
+    # Disable routine version-update pull requests. Vulnerability alerts remain
+    # enabled and accepted remediations use reviewed maintenance changes.
+    open-pull-requests-limit: 0
     cooldown:
       default-days: 7
 
@@ -12,7 +14,9 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 5
+    # Disable routine version-update pull requests. Vulnerability alerts remain
+    # enabled and accepted remediations use reviewed maintenance changes.
+    open-pull-requests-limit: 0
     cooldown:
       default-days: 7
 
@@ -21,7 +25,9 @@ updates:
     directory: "/crates/ncp-observer"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 3
+    # Disable routine version-update pull requests. Vulnerability alerts remain
+    # enabled and accepted remediations use reviewed maintenance changes.
+    open-pull-requests-limit: 0
     cooldown:
       default-days: 7
 
@@ -29,7 +35,9 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 5
+    # Disable routine version-update pull requests. Vulnerability alerts remain
+    # enabled and accepted remediations use reviewed maintenance changes.
+    open-pull-requests-limit: 0
     cooldown:
       default-days: 7
 
@@ -37,6 +45,8 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 3
+    # Disable routine version-update pull requests. Vulnerability alerts remain
+    # enabled and accepted remediations use reviewed maintenance changes.
+    open-pull-requests-limit: 0
     cooldown:
       default-days: 7
