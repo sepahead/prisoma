@@ -10,11 +10,42 @@
 > fault-observatory migration and Prisoma observer-role qualification. `pid-rs` remains at the
 > reviewed `796c11e` pin. Exp0 MI/coherence remains NO-GO.
 
-> **Provenance & method.** This memo was produced by an automated multi-agent deep-research workflow (~87 agents: 10 parallel web-search angles → source fetch → claim distillation → 3-vote adversarial currency verification → four-lens sufficiency analysis with per-lens skeptics → synthesis → completeness critic), run on 2026-07-01. Repo-internal facts about prisoma/NCP were grounded directly in this codebase; every external VLA/PID-literature fact is web-sourced and carries an inline `[n]` citation to the Sources list (§8). Frontier 2026 results post-date the author model's training data, so **specific model names and benchmark numbers should be spot-checked against the cited URLs** before being quoted as settled. §7 gives the full currency/confidence breakdown; of the 16 top-ranked claims put through adversarial verification, all 16 survived and 0 were refuted.
+> **Provenance and evidence limit.** The original workflow description reports an
+> automated research run on 2026-07-01. It reports approximately 87 agent contexts,
+> 10 search angles, and 16 of 16 selected claims surviving its internal adversarial
+> vote.
+>
+> This repository retains the memo and its citations. It does not retain a
+> machine-readable work ledger, per-claim ballots, prompts, transcripts, artifact
+> hashes, or independent receipts for those counts. Treat the counts and the reported
+> zero-refutation result as author-reported process notes. They are not reproducible
+> evidence or independent review.
+>
+> Repository facts about prisoma and NCP were grounded in the codebase. External
+> VLA and PID claims carry inline `[n]` citations to the Sources list (§8). Verify
+> specific model names and benchmark numbers against those sources before reuse.
+> Section 7 separates external claims, repository facts, and author judgment.
 
 ## Bottom line (as of 1 July 2026)
 
-The internal-dynamics / hidden-state / world-model axis "D" (emphatically *not* depth) has become the organizing frontier of VLA research: the strongest 2026 policies win by carrying a *latent world model* as their D, and a parallel interpretability literature has shown that VLA hidden states contain probeable, steerable, value-like structure [2][3][10][11][13][14][15]. prisoma is well-positioned in this landscape as a *diagnostic* layer — it treats D as a first-class, source-agnostic input and asks an information-theoretic question (what does D uniquely/redundantly/synergistically tell us about the action, and does D predict physically-valid 3D trajectories) that the field is only beginning to ask with PID [17][18]. Against that backdrop, the NCP spiking-network bridge is an interesting *auxiliary* D source but is **not sufficient today** for VLA studies or for the (V,L,D,A)/VLDA PID contract. Across all four lenses — scientific validity, statistical/estimator adequacy, engineering completeness, and value relative to the SAFE adapter — the honest verdict is **INSUFFICIENT (NCP is exploratory, fail-closed, and off the critical path)**, with the caveat that the *engineering* and *statistical* deficits are repairable while the *scientific* disanalogy (no demonstrated real language stream, no architecture-evidenced state selection, a pre-motor readout at exactly the locus least likely to be world-model-bearing) is substantially structural. The SAFE adapter, not NCP, is the correct near-term producer of real (V,L,D,A) data.
+The internal-dynamics, hidden-state, or world-model axis "D" is not depth. Several
+cited 2026 policies use latent world models, and cited interpretability studies report
+probeable or steerable structure in VLA hidden states [2][3][10][11][13][14][15].
+
+prisoma treats D as a first-class, source-agnostic diagnostic input. It asks what D
+adds about action and whether D predicts physically valid 3D trajectories. PID is a
+conditional candidate for this analysis, not an assumed result [17][18].
+
+The NCP spiking-network bridge is an auxiliary D-source candidate. It is **not
+sufficient today** for VLA studies or the (V,L,D,A) contract. All four review lenses
+return **INSUFFICIENT**: scientific validity, estimator adequacy, engineering
+completeness, and value relative to the SAFE adapter.
+
+Some engineering and statistical gaps can be repaired. The scientific mismatch is
+more structural. No real language stream, architecture-evidenced state selection, or
+qualified world-model-bearing readout exists. NCP therefore remains exploratory,
+fail-closed, and off the critical path. The SAFE adapter is the near-term source for
+real (V,L,D,A) data.
 
 ---
 
@@ -36,7 +67,33 @@ The taxonomy work makes the trend explicit: WAMs partition into Render-and-Decod
 
 ### 2.2 Hidden states are probeable, value-like, and steerable
 
-A second literature treats D as something to *read out of an existing policy* rather than to design in. **Frozen-VLA probing** shows lightweight linear probes on frozen features recover Monte-Carlo outcome/value targets from OpenVLA, Pi0.5, DINOv2, and CLIP (far better than progress/time-to-go/task-identity/proprioception baselines): under matched same-task/same-timestep comparisons, Pi0.5 probes reach ~92–94% pairwise ordering (vs ~50% shuffled), and as a test-time selector over sampled action prefixes the probe raises push-plate success from 26.7% greedy to 44.3% — a **+10.67pp over random (44.3% vs 33.7%) and +17.67pp over greedy** improvement [14] (the earlier "+16.67pp over random" figure is an illustrative-panel artifact, not the paper's formal table). A **mechanistic study of six VLA models** (80M–7B params, 394,000+ episodes, four benchmarks) finds the *visual pathway dominates* action generation across all architectures — injecting baseline activations into null-prompt episodes recovers near-identical behavior, and cross-task activation injection steers robots toward source-task positions (99.8% of X-VLA episodes align with the source trajectory) — while in multi-pathway models expert pathways encode motor programs and VLM pathways encode goal semantics [13]. **Sparse autoencoders** (TopK+AuxK) on pi0.5 residual streams yield ~79% interpretable features (sampled across pi0.5 and OpenVLA), with 97.38% memorized features in pi0.5-LIBERO vs 89.19% in pi0.5-DROID (diversity → more general features), and closed-loop steering causally alters behavior (a pre-grasp feature makes the robot hover; a transport feature makes it skip grasps) [15]. **Event-grounded SAEs** anchor feature analysis to behavioral keyframes rather than text contexts, yielding stronger causal effects on OpenVLA and transferring to continuous action chunks — but conclude SAEs are a "sparse yet imperfect intervention basis" whose usability varies by architecture and site, exposing safety limits [16][31]. Related emergent-representation and symbolic-state probing work (OpenVLA world representations, steering, cognitive-architecture integration) and the VLA-Trace diagnostic framework round out this read-out program [28][29][30][12]. The lesson for prisoma is twofold: D genuinely carries decision-relevant structure, *and* that structure is often entangled with the visual pathway and can be "output formatting" near the motor head — motivating the physics-probe-then-gate discipline.
+Another literature reads D from an existing policy instead of designing it.
+**Frozen-VLA probing** uses linear probes on frozen OpenVLA, Pi0.5, DINOv2, and
+CLIP features. The paper reports approximately 92–94% Pi0.5 pairwise ordering in
+matched comparisons, versus approximately 50% for shuffled controls. The
+paper-reported action-prefix selector result raises push-plate success from 26.7%
+to 44.3% [14]. The paper-reported difference is 10.67 percentage points above
+random and 17.67 points above greedy. The earlier 16.67-point value came from an
+illustrative panel, not the formal table.
+
+A mechanistic study covers six VLA models, four benchmarks, and more than 394,000
+episodes. It reports that the visual pathway dominates action generation across
+the tested architectures. Cross-task activation injection also steers X-VLA
+toward source-task positions in 99.8% of reported episodes. In multi-pathway
+models, expert pathways encode motor programs while VLM pathways encode goal
+semantics [13].
+
+TopK+AuxK sparse autoencoders on pi0.5 residual streams report approximately 79%
+interpretable sampled features. The reported memorized-feature rates are 97.38%
+for pi0.5-LIBERO and 89.19% for pi0.5-DROID. Closed-loop steering changes behavior
+in the reported examples [15]. Event-grounded sparse autoencoders use behavioral
+keyframes and report stronger OpenVLA interventions. Their usefulness still
+depends on architecture and intervention site [16][31].
+
+Related work covers emergent representations, symbolic-state probes, steering,
+and VLA-Trace diagnostics [28][29][30][12]. These studies motivate prisoma's
+physics-probe-then-gate rule. A readout can carry decision-relevant structure and
+still reflect visual entanglement or near-output action formatting.
 
 ### 2.3 Information-theoretic and PID analysis of multimodal internal state
 
