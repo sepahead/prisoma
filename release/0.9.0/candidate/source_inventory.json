@@ -1605,10 +1605,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "85b2dbb897b313eaa3f7bc19dbbd5e67890f2bea",
+        "git_blob_id": "5505e2fb0db8e60d880e3993092197348f8a856e",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 219,
+        "line_count": 276,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "RESEARCH_VLA_D_NCP.md",
         "public_surface": false,
@@ -1616,20 +1616,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "87845b6a068bcd3d636164a72b2160340bea810d792013c2384e90180521c9b1",
+        "sha256": "39bb7432975bc0dc314e27076ec17206835c67fa6147a1286497d474158557aa",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "85b2dbb897b313eaa3f7bc19dbbd5e67890f2bea"
+        "oid": "5505e2fb0db8e60d880e3993092197348f8a856e"
       },
       "index": {
-        "bytes": 44816,
-        "content_sha256": "87845b6a068bcd3d636164a72b2160340bea810d792013c2384e90180521c9b1",
+        "bytes": 43729,
+        "content_sha256": "39bb7432975bc0dc314e27076ec17206835c67fa6147a1286497d474158557aa",
         "mode": "100644",
-        "oid": "85b2dbb897b313eaa3f7bc19dbbd5e67890f2bea"
+        "oid": "5505e2fb0db8e60d880e3993092197348f8a856e"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -1640,14 +1640,14 @@
       },
       "path": "RESEARCH_VLA_D_NCP.md",
       "working_tree": {
-        "bytes": 44816,
+        "bytes": 43729,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 219,
+        "line_count": 276,
         "link_target": null,
         "mode": "100644",
-        "sha256": "87845b6a068bcd3d636164a72b2160340bea810d792013c2384e90180521c9b1"
+        "sha256": "39bb7432975bc0dc314e27076ec17206835c67fa6147a1286497d474158557aa"
       },
       "worktree_state": "unchanged"
     },
@@ -24788,12 +24788,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "8a445d35826f9011244dd8ebe6d1ce3ed7fefca8c55dc198b26c133cb7e9649d",
+    "candidate_state_sha256": "06baf546612d53cbd06f46085cb78b34ef9356113b0a2ebc46ea9a391b7100bf",
     "clean": true,
     "explicit_source_arguments_required": true,
-    "head_commit": "8762ffaea60087fe7b737ee5b3475b00926ca3e4",
-    "head_tree": "9901e926cdcb570b8a0ab18a4b73ad2cdc9be2a5",
-    "index_entries_sha256": "bcc1bcd15b9fa5c9bee47c8b7f38d1fdd46c0d0647409779ba8e759edfaf2b2e",
+    "head_commit": "7f30c53c6909a435fe918d39b570dd2019ee1a98",
+    "head_tree": "7bc7eb668b22d884a2f861a7a73fe645b582a4c0",
+    "index_entries_sha256": "d245f4a9bd3afce8bac6a140bf427a383329e21773d111524715840886b9a56c",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -24804,7 +24804,7 @@
       }
     ],
     "state": "clean_source_snapshot",
-    "worktree_entries_sha256": "9052ded66f40b5ec5c3157951b5fefa6aa35097931d5d811fb46464324b9fdb3"
+    "worktree_entries_sha256": "d2b50c2abeacf486f559bce49398b75e44f85fda967ce3e718b62ee9a80bf2b7"
   },
   "summary": {
     "clean": true,
