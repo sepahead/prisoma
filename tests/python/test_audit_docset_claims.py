@@ -43,6 +43,22 @@ def _kinds(
     ]
 
 
+def test_bounded_runner_waits_for_normal_cleanup_after_pipe_eof(tmp_path: Path):
+    marker = tmp_path / "cleanup-complete"
+    script = (
+        "import os,time; "
+        "os.close(1); os.close(2); time.sleep(0.1); "
+        f"open({str(marker)!r}, 'w', encoding='utf-8').write('done')"
+    )
+
+    completed = _AUDIT_MODULE._run_git_bounded(
+        [sys.executable, "-c", script], timeout_seconds=2.0
+    )
+
+    assert completed.returncode == 0
+    assert marker.read_text(encoding="utf-8") == "done"
+
+
 def test_mermaid_direct_control_edge_is_rejected_but_bridge_route_passes(
     tmp_path: Path,
 ):
@@ -466,35 +482,9 @@ def test_git_enumeration_has_output_and_time_budgets(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(os.name != "posix", reason="process-group check requires POSIX")
-def test_git_enumeration_reaps_descendants_and_setup_failures(
+def test_git_enumeration_reaps_process_group_after_setup_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    descendant_marker = tmp_path / "descendant-escaped"
-    spawn_descendant = """
-import subprocess
-import sys
-
-subprocess.Popen(
-    [
-        sys.executable,
-        "-c",
-        "import pathlib, sys, time; time.sleep(0.2); "
-        "pathlib.Path(sys.argv[1]).write_text('escaped', encoding='utf-8')",
-        sys.argv[1],
-    ],
-    stdin=subprocess.DEVNULL,
-    stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL,
-)
-"""
-    _AUDIT_MODULE._run_git_bounded(
-        [sys.executable, "-c", spawn_descendant, os.fspath(descendant_marker)],
-        timeout_seconds=2,
-        max_output_bytes=32,
-    )
-    time.sleep(0.5)
-    assert not descendant_marker.exists()
-
     setup_marker = tmp_path / "setup-escaped"
     delayed_marker = (
         "import pathlib, sys, time; time.sleep(0.2); "

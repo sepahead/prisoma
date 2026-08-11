@@ -1,713 +1,203 @@
-# System Architecture Diagrams
+# Prisoma System Diagrams
 
-> **Documentation Cross-Reference**:
-> - `grandplan.md` — Master plan and theoretical foundations
-> - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
-> - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
-> - `EXPERIMENTS.md` — Experimental protocols for Rerun-first diagnostics, modular physics, and hypothesis testing
-> - `README.md` — Quick start guide
-> - `GAUSS_MI_INTEGRATION.md` — Optional 3DGS uncertainty + view selection (spec)
-> - `WORLD_WARP_INTEGRATION.md` — Optional external world‑model baseline (spec)
+These diagrams summarize the current Prisoma design. They do not add requirements beyond
+[`grandplan.md`](grandplan.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
 
-This document contains visual representations of the prisoma system, the PID-Splat simulation environment, and the data processing pipelines.
+Solid nodes exist in the repository. Dashed nodes are optional, external, or deferred.
 
-**Docset alignment:** These diagrams are aligned to `grandplan.md` docset v12.5 (seventh adversarial revision; scientific cut 2026-07-12). Several components shown below (e.g., Tauri/SparkJS/Gazebo, optional Zenoh live transport, and external video predictors) are part of the *target architecture* and may be external or not yet implemented in this repository; check `grandplan.md` current-versus-target implementation (§8.10), the research milestones M0–M7 (`grandplan.md` §12), and the decision log (`grandplan.md` §16) for what exists today and what to build next.
-
-**v10.7 → v12.5 migration note:** the old H1–H9 / Exp0–Exp10 scheme is retired. The confirmatory registry is now **EC1** (provenance-complete replay) plus **H1–H4** (`grandplan.md` §4); the estimator/experiment ordering is the **S0–S7 gate sequence** (§5.1); build order is **milestones M0–M7** (§12). Legacy "Exp0" estimator validation is now the **S1 gate / §7**. These diagrams are retargeted accordingly.
-
-**Docset-wide final solution:** the diagrams should be read through `grandplan.md` §16 (decision log; see also §8.2, §8.11, §8.13, §15.4): run log as source of truth, Agent Bridge as the only control plane, Rerun as the read-only Phases 1–3 diagnostic viewer, and Tauri/SparkJS as the deferred Phase 4 shell. VLA actions, interventions, pause/resume/step transitions, and correction forces always traverse **client → Agent Bridge → canonical command event → backend**. PID, observers, Zenoh, and Rerun never actuate the system.
-
-## Contents
-
-- [0. Docset v12.5 Status Dashboard (Pipeline State)](#0-docset-v125-status-dashboard-pipeline-state)
-- [0.1 Confirmatory Claim Status (EC1, H1–H4)](#01-confirmatory-claim-status-ec1-h1h4)
-- [0.2 Research Milestone / Critical-Path Roadmap (M0–M7)](#02-research-milestone--critical-path-roadmap-m0m7)
-- [1. High-Level System Overview](#1-high-level-system-overview)
-- [2. PID-Splat Simulation Loop](#2-pid-splat-simulation-loop)
-- [3. Geometry-First Analysis Protocol](#3-geometry-first-analysis-protocol)
-- [4. Modular Physics Backend Architecture](#4-modular-physics-backend-architecture)
-- [5. Hybrid Rendering: Splats + Mesh + Physics Proxies](#5-hybrid-rendering-splats--mesh--physics-proxies)
-- [6. Dream2Flow Data Pipeline](#6-dream2flow-data-pipeline)
-- [7. Estimator/Measure Validation (S1): The Four Gates and Atom Validation](#7-estimatormeasure-validation-s1-the-four-gates-and-atom-validation)
-- [8. Confirmatory Claims → Experimental Programme Map](#8-confirmatory-claims--experimental-programme-map)
-- [9. OpenUSD / USDZ Interop (Optional)](#9-openusd--usdz-interop-optional)
-- [10. Agent Bridge Control Plane (LLM‑First)](#10-agent-bridge-control-plane-llmfirst)
-- [11. Cross-Backend Replay (Optional Robustness Control)](#11-cross-backend-replay-optional-robustness-control)
-- [12. Reconstruction Quality + Active View Study (Optional)](#12-reconstruction-quality--active-view-study-optional)
-- [13. Attribution Probes as Companion Diagnostics](#13-attribution-probes-as-companion-diagnostics)
-
-## 0. Docset v12.5 Status Dashboard (Pipeline State)
-
-This chart is the honest, gate-driven snapshot. Estimator/measure validation (the **S1 gate**, `grandplan.md` §7) is judged against four separate PID gates — population, measure, estimator, and application (§7.1). The high-dimensional **MI/coherence path is NO-GO** (nuisance-dimension controls); continuous shared-exclusions atoms on **real VLA embeddings are BLOCKED / not application-validated**; the `pid-rs` pin does carry real low-dimensional additive-Gaussian oracle and discrete SxPID reference evidence. The first real-VLA capture, the capture-sizing/power gate (§6.8), the intervention pilot (S3), and the episode-local H1 feature path remain open; the confirmatory EC1/H1–H4 claims therefore remain blocked.
+## 1. Current status
 
 ```mermaid
 flowchart TD
-    classDef run fill:#1b5e20,stroke:#2e7d32,color:#fff;
-    classDef gate fill:#e65100,stroke:#ef6c00,color:#fff;
-    classDef blocked fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
+    Groundwork["software groundwork: runnable"]
+    EC1["EC1: partial local replay groundwork"]
+    H1["H1: synthetic Protocol-A reference only"]
+    H2["H2: synthetic fixed-horizon reference only"]
+    H3["H3: not eligible"]
+    H4["H4: exploratory attribution only"]
 
-    S1["S1 estimator/measure gate (§7)<br/>four gates: population / measure / estimator / application<br/>MI/coherence = NO-GO on high-d<br/>continuous i^sx atoms on real embeddings = BLOCKED<br/>low-d Gaussian oracle + discrete SxPID reference = PASS"]:::gate
+    Groundwork --> EC1
+    Groundwork --> H1
+    Groundwork --> H2
+    Groundwork --> H3
+    Groundwork --> H4
 
-    subgraph Today["Runnable tooling today (not application-validated VLA evidence)"]
-        Harness["Offline (V,L,D,A) harness<br/>PID screens + non-PID baselines"]:::run
-        ProvGate["Axis-provenance honesty gate ENFORCED<br/>--require-axis-provenance-honest"]:::run
-        Adapter["safe_adapter → contract<br/>bounded hash-manifest ingress<br/>honest {v,l,d,a}_provenance (S2/EC1 reference adapter)"]:::run
-        Attr["attribution reference probe + Rerun adapter<br/>ranking-sensitivity/status/provenance/relevance implemented"]:::run
-        Obs["ncp-observer + 18-case deterministic fixture observatory<br/>NCP v0.8.0 (wire 0.8); optional read-only, off critical path<br/>reproducibility-bound local fixture execution · E2, not producer-consumer E3"]:::run
-        H1Ref["synthetic H1 Protocol-A reference<br/>preflight + paired response scoring"]:::run
-        H2Ref["synthetic H2 fixed-horizon reference<br/>IPCW Brier + alarm accounting"]:::run
-    end
-
-    Power["CAPTURE / POWER GATE NOT READY (§6.8)<br/>idealized power simulator exists;<br/>nested capture model + H1 prospective features missing"]:::blocked
-    Capture["OPEN CRITICAL PATH<br/>real downloaded VLA capture + labels<br/>(NOT done)"]:::blocked
-
-    subgraph Blocked["Blocked on capture + intervention pilot (S2/S3)"]
-        EC1["EC1 provenance-complete replay"]:::blocked
-        H1["H1 pre-treatment diagnostics predict intervention response"]:::blocked
-        H2["H2 censoring-aware failure prediction"]:::blocked
-        H3["H3 conditional PID incremental value"]:::blocked
-        H4["H4 availability vs tested intervention effect"]:::blocked
-    end
-
-    S1 --> Harness
-    Harness --> ProvGate
-    Harness --> Adapter
-    Harness --> Attr
-    Harness --> H1Ref & H2Ref
-    Adapter --> Capture
-    Power -. blocks .-> Capture
-    Capture -. blocks .-> EC1 & H1 & H2 & H3 & H4
+    H3 --> Population["population: open and unfrozen"]
+    H3 --> Measure["measure: not adjudicated"]
+    H3 --> Estimator["atom estimator: blocked"]
+    H3 --> Application["continuous application: blocked"]
+    H3 --> HighDim["high-dimensional MI/coherence: NO-GO"]
 ```
 
-*Caption: v12.5 pipeline state — orange = the S1 estimator/measure gate (four-gate status); green = runnable tooling, not application-validated atom evidence; red dashed = unresolved capture/power gates (§6.8) and the EC1/H1–H4 confirmatory claims they block.*
+No branch in this diagram is a confirmatory result.
 
-![Status map: estimator gate open, software plumbing runnable, confirmatory claims blocked](assets/diagrams/status-map.svg)
-
-*This SVG is a rendered companion. The mermaid source above remains canonical.*
-
----
-
-## 0.1 Confirmatory Claim Status (EC1, H1–H4)
-
-Claims grouped by their `grandplan.md` §4 confirmatory-registry role (kill rules in §3.8; falsifiability in §13 Lens 20). All confirmatory tests remain blocked on the real-VLA capture and the intervention pilot. Estimator validation, attribution probes, and the explicitly non-evidentiary synthetic H1 Protocol-A and H2 fixed-horizon/IPCW/alarm software references run today on fixtures.
+## 2. Control and evidence spine
 
 ```mermaid
-flowchart TB
-    classDef core fill:#0d47a1,stroke:#1565c0,color:#fff;
-    classDef eng fill:#1b5e20,stroke:#2e7d32,color:#fff;
-    classDef cond fill:#4a148c,stroke:#6a1b9a,color:#fff;
-    classDef defer fill:#424242,stroke:#616161,color:#fff;
+flowchart LR
+    Client["policy, operator, script, or future UI"] --> Bridge["Agent Bridge"]
+    Bridge -->|1. record request| Log["canonical run log"]
+    Bridge -->|2. validated dispatch| Backend["environment or physics backend"]
+    Backend -->|3. observation and outcome events| Log
+    Bridge -->|4. record response| Log
 
-    subgraph Engineering["Engineering acceptance"]
-        EC1["EC1 provenance-complete replay"]:::eng
-    end
+    Log --> Replay["validation and replay"]
+    Log --> Rerun["Rerun adapter / opt-in bridge export"]
+    Log --> Analysis["offline evidence analysis"]
 
-    subgraph Confirmatory["Confirmatory"]
-        H1["H1 pre-treatment diagnostics predict intervention response<br/>(Protocol A paired vs Protocol B randomized)"]:::core
-        H2["H2 censoring-aware prospective failure prediction"]:::core
-    end
-
-    subgraph Conditional["Conditional (validated support envelope)"]
-        H3["H3 PID adds incremental value only inside its validated envelope"]:::cond
-        H4["H4 availability can diverge from a tested intervention effect"]:::cond
-    end
-
-    subgraph ExplDefer["Exploratory / retired-deferred (§4)"]
-        EXP["Exploratory questions (e.g. flow-as-bridge §9.6)"]:::defer
-        RET["Retired/deferred legacy H-claims"]:::defer
-    end
+    style Log stroke-width:3px
 ```
 
-*Caption: EC1 + H1–H4 by role (engineering / confirmatory / conditional / exploratory-deferred) per `grandplan.md` §4. All confirmatory verdicts remain blocked first on the real M0 freeze; real-VLA capture and the intervention pilot are downstream.*
+Rerun and analysis are consumers. They have no control authority.
 
----
-
-## 0.2 Research Milestone / Critical-Path Roadmap (M0–M7)
-
-Build order from `grandplan.md` §12 (research milestones M0–M7; gate sequence §5.1). The old repo used M1–M5 for *infrastructure* (run logs, Agent Bridge, sim, Rerun); those are now the event-model + control-plane parts of §8 and feed the research milestones as groundwork. "Implemented" reflects verified in-repo crates/harnesses. The real M0 freeze is the current closed gate; M1/M2 have partial groundwork, and real capture + the M3 intervention pilot remain downstream blocked. This is engineering state, not a research result.
-
-```mermaid
-flowchart TD
-    classDef done fill:#1b5e20,stroke:#2e7d32,color:#fff;
-    classDef partial fill:#e65100,stroke:#ef6c00,color:#fff;
-    classDef active fill:#7f1d1d,stroke:#b71c1c,color:#fff,stroke-dasharray:5 3;
-    classDef spec fill:#424242,stroke:#616161,color:#fff;
-
-    Infra["Infrastructure groundwork (§8 event model + control plane)<br/>run logs + replay, Agent Bridge, pid-sim/Rapier, Rerun adapter — implemented"]:::done
-
-    M0["M0 freeze scientific + identification contracts<br/>CURRENT CLOSED GATE"]:::active
-    M1["M1 repair + version estimator gates (S1 / §7)<br/>MI/coherence high-d = NO-GO"]:::partial
-    M2["M2 core + ecosystem conformance benchmark<br/>(incl. dependency firebreak: NCP-off + estimator-off H1/H2, §8.9.3)"]:::partial
-    M3["M3 intervention pilot (S3)<br/>real capture downstream; blocked on M0→M2"]:::spec
-    M4["M4 locked H1 experiment"]:::spec
-    M5["M5 locked H2 experiment"]:::spec
-    M6["M6 H3 or H4"]:::spec
-    M7["M7 transport replication"]:::spec
-
-    Infra --> M0 --> M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7
-```
-
-*Caption: research milestones M0–M7 (`grandplan.md` §12) — green = implemented infrastructure groundwork (§8), red dashed = the current M0 closed gate, orange = partial M1/M2 groundwork, grey = blocked or specified downstream work. Engineering state only, not a research result.*
-
-![Milestones M0–M7 roadmap](assets/diagrams/milestones.svg)
-
-*This SVG is a rendered companion with its own in-image legend (violet = current M0 closed gate, red dashed = blocked or specified only). The mermaid source above remains canonical.*
-
----
-
-## 1. High-Level System Overview
-
-This diagram illustrates the target interaction pattern. The canonical Phases 1–3 data spine is **run log → replay → Rerun**; Zenoh/live middleware is optional Phase 6 transport and must still emit the same run-log events.
-
-```mermaid
-graph TD
-    subgraph "Automation Clients"
-        Claude[Claude Code / Codex / opencode]
-        Scripts["Scripts (Python/Rust)"]
-    end
-
-    subgraph "Inference Layer (External)"
-        VLA["Target VLA (e.g., SmolVLA/OpenVLA/DreamVLA/InternVLA‑A1)"]
-        WAN["Video Gen Model (WAN-like)"]
-        VFM[Vision Foundation Models]
-
-        VLA -->|Action request| Agent
-        VLA -->|Embeddings| Z_EMB[Zenoh: vla/embeddings]
-        WAN --> VFM
-        VFM -->|3D Flow| Z_FLOW[Zenoh: dream/flow]
-    end
-
-    subgraph "Optional data transport (Zenoh; never control)"
-        Z_EMB
-        Z_FLOW
-        Z_SENS[Zenoh: sim/sensors]
-        Z_PID[Zenoh: pid/metrics]
-    end
-
-    subgraph "Simulation & Vis Layer (Rust/Rerun)"
-        subgraph "Backend"
-            Phys[Physics Engine]
-            PID_Core["pid-core Estimator<br/>(read-only analysis)"]
-            Agent["Agent Bridge (JSON-RPC/MCP)"]
-            Log["Canonical run log<br/>(source of truth)"]
-
-            Agent -->|Append command before execution| Log
-            Agent -->|Dispatch only after log append| Phys
-            Phys -->|Pose / contact / Flow_gt events| Log
-
-            Z_EMB -->|Captured data| Log
-            Z_FLOW -->|Captured data| Log
-            Log -->|Samples only| PID_Core
-            PID_Core -->|Analysis metric events| Log
-            PID_Core -->|Optional live mirror| Z_PID
-
-            Claude --> Agent
-            Scripts --> Agent
-        end
-
-        subgraph "Frontend"
-            Replay["Run-log replay / Rerun adapter"]
-            Rerun["Rerun Viewer (P1-3, read-only)"]
-            Spark["Tauri/SparkJS shell (P4)"]
-            Ghost["Ghost Splats (Rerun PointCloud)"]
-
-            Log --> Replay --> Rerun
-            Replay --> Spark
-            Log --> Ghost
-            Ghost --> Rerun
-            Ghost --> Spark
-            Spark -->|Control requests only| Agent
-        end
-    end
-
-    subgraph "Sensor Support"
-        Gazebo[Headless Gazebo]
-        Gazebo -->|RGB-D/LiDAR| Z_SENS
-        Z_SENS -->|Captured observations| Log
-        Z_SENS -->|Observation data| VLA
-    end
-```
-
-![Prisoma data spine: clients reach the backend only through the Agent Bridge, which appends to the canonical run log before dispatch](assets/diagrams/data-spine.svg)
-
-*This SVG is a rendered companion. The mermaid source above remains canonical.*
-
----
-
-## 2. PID-Splat Simulation Loop
-
-This diagram details the target "Splat-First" update loop, showing how a physics backend (Rapier shown as an example), canonical run-log events, and rendering are synchronized: Rerun consumes the replay stream in Phases 1–3, while SparkJS can consume the same events in Phase 4.
+## 3. Bridge request lifecycle
 
 ```mermaid
 sequenceDiagram
-    participant Client as UI / script client
-    participant VLA as VLA Agent
-    participant Bridge as Agent Bridge
-    participant Log as Canonical Run Log
-    participant Phys as Physics (Rust)
-    participant Zenoh as Zenoh Data Bus
-    participant PID as PID-Core (read-only)
-    participant Vis as Rerun (read-only) / SparkJS
+    participant C as Client
+    participant T as Bounded transport
+    participant B as Agent Bridge
+    participant L as Canonical run log
+    participant E as Environment backend
 
-    Note over Bridge,Phys: Every mutating command is logged before backend dispatch
-
-    par Physics Step
-        VLA->>Bridge: Submit action / action chunk
-        Bridge->>Log: Append canonical action event
-        Bridge->>Phys: Dispatch recorded action
-        Phys->>Phys: Step Simulation (dt=1/60)
-        Phys->>Log: Append poses / contacts / Flow_gt
-        Phys->>Zenoh: Optional pose-data mirror
-        Client->>Bridge: Request pause / step / intervention / correction
-        Bridge->>Log: Append canonical control event
-        Bridge->>Phys: Dispatch recorded control
-    and PID Computation
-        VLA->>Zenoh: Publish Embeddings (V, D)
-        Zenoh->>Log: Append captured embedding events
-        Log->>PID: Read analysis samples
-        PID->>PID: Compute I_sx_intersect
-        PID->>Log: Append analysis metrics (Syn, Red, Unq)
-        PID->>Zenoh: Optional metric-data mirror
-    end
-
-    par Read-only Rendering
-        Log->>Vis: Replay converted transforms / metrics / artifacts
-        Vis->>Vis: Render Timeline
-        Vis->>Vis: Rasterize 3DGS
-    end
+    C->>T: one framed request
+    T->>B: validated JSON-RPC request
+    B->>L: append request event
+    B->>E: dispatch validated operation
+    E-->>B: result or domain error
+    B->>L: append response event
+    B-->>T: response after required flush
+    T-->>C: JSON-RPC response
 ```
 
----
+A transport or storage failure can prevent a complete terminal record. The design makes no
+cross-file or power-loss transaction claim.
 
-## 3. Geometry-First Analysis Protocol
-
-This flowchart implements the geometry/dependence decision logic from `grandplan.md` §7.9 (geometry diagnostics are diagnostics, not proofs; see also §7.10 on metric substitution). Every variable and every concatenation actually passed to an estimator is diagnosed. Sampled mean `δ_rel` is reported as a descriptive tree-likeness statistic only: it is **not** a Euclidean-validity pass/fail gate (a Euclidean line is the immediate counterexample).
+## 4. Offline analysis
 
 ```mermaid
 flowchart TD
-    Start["Input embeddings and every estimator concatenation"] --> Diag[Step 0: Geometry / dependence diagnostics]
+    Artifact["strict (V,L,D,A) artifact"] --> Snapshot["exact bounded snapshot"]
+    Snapshot --> Admission["decoded and projected resource admission"]
+    Admission --> Contract["shape, axis, support, provenance, and split checks"]
 
-    subgraph "Diagnostics"
-        Diag --> ID["Intrinsic dimension (Levina–Bickel / GRIDE)"]
-        Diag --> DC["Distance concentration (pairwise CV, nn/mean)"]
-        Diag --> Ties["Ties / duplicate distances / dependence"]
-        Diag --> Delta["Sampled mean δ_rel<br/>(descriptive only)"]
-        Diag --> Flat["Calibrated local-flatness diagnostics"]
-    end
+    Contract --> Static["static factual-outcome baselines"]
+    Contract --> Geometry["geometry diagnostics"]
+    Contract --> PIDMode{"PID mode"}
 
-    Delta --> DeltaNote["Report; never use alone to pass/fail Euclidean kNN"]
-    ID --> GeoGate{Recovery-supporting geometry?}
-    DC --> GeoGate
-    Ties --> GeoGate
-    Flat --> GeoGate
+    PIDMode -->|none| NoPid["no MI or PID requests"]
+    PIDMode -->|continuous| Continuous["KSG and shared-exclusions diagnostics"]
+    PIDMode -->|discrete| Discrete["quantized I_min diagnostics"]
+    PIDMode -->|discrete-pls| Pls["train-fit PLS then quantized I_min"]
 
-    GeoGate -- No --> Reduce[Reduce/quantize or use a different MI pipeline]
-    Reduce --> Note0[Re-run diagnostics + Experiment 0 after pivot]
-    GeoGate -- Yes --> Exp0["Run measure-independent MI recovery checks<br/>and a measure-specific atom oracle"]
-    Exp0 --> MI{MI/coherence gate passes?}
-    MI -- No --> Pivot["NO-GO/PIVOT for this pipeline"]
-    MI -- Yes --> Atom{Valid measure-specific atom gate passes?}
-    Atom -- No or unavailable --> NoAtoms["Do not interpret continuous atoms"]
-    Atom -- Yes --> Euclid["Preregistered continuous I^sx_∩ regime may proceed"]
+    Static --> Report["typed report"]
+    Geometry --> Report
+    NoPid --> Report
+    Continuous --> Report
+    Discrete --> Report
+    Pls --> Report
+    Report --> AnalysisLog["canonical analysis run log"]
+    Report --> Sidecar["optional uncertainty sidecar"]
 ```
 
----
+The branches identify different computation paths. They do not identify interchangeable
+estimands. A failed continuous path never falls through to discrete `I_min`.
 
-## 4. Modular Physics Backend Architecture
-
-This diagram shows the composable backend system where rendering (Gaussian Splats) is decoupled from physics (swappable between Rapier, MuJoCo, Isaac Gym) and robot simulation (Gazebo or MuJoCo).
+## 5. Scientific interpretation gates
 
 ```mermaid
-graph TB
-    subgraph "Application Layer"
-        Bridge["Agent Bridge<br/>(only control plane)"]
-        Log["Canonical run log"]
-        App["Run-log replay / Rerun adapter"]
-        Config[pid-splat.toml]
-        Controls["Tauri/SparkJS control UI (P4)"]
-    end
-
-    subgraph "Rendering Layer (Fixed)"
-        Splats[Gaussian Splats]
-        Vis["Rerun (read-only) / SparkJS panels"]
-        Ghost[Ghost Splats]
-        
-        Splats --> Vis
-        Ghost --> Vis
-    end
-
-    subgraph "Physics Layer (Swappable)"
-        direction TB
-        PhysTrait[PhysicsBackend Trait]
-        
-        subgraph "Implementations"
-            Rapier["Rapier3D\n(low-latency; hardware-dependent)\nRust-native"]
-            MuJoCo["MuJoCo\nstrong contact modeling\nFFI bindings"]
-            Isaac["Isaac Gym\nGPU-parallel (if available)\n(batch scale)"]
-        end
-        
-        PhysTrait --> Rapier
-        PhysTrait --> MuJoCo
-        PhysTrait --> Isaac
-    end
-
-    subgraph "Robot Layer (Swappable)"
-        direction TB
-        RobotTrait[RobotBackend Trait]
-        
-        subgraph "Robot Implementations"
-            GazeboRobot["Gazebo Harmonic\nIndustry URDFs\nSensor sim"]
-            MuJoCoRobot["MuJoCo Robot\nLegacy support\nBenchmark compat"]
-        end
-        
-        RobotTrait --> GazeboRobot
-        RobotTrait --> MuJoCoRobot
-    end
-
-    subgraph "Middleware"
-        Zenoh[Zenoh Bus]
-    end
-
-    Config --> Bridge
-    Controls -->|Control requests| Bridge
-    Bridge -->|Append command| Log
-    Bridge -->|Dispatch only after append| PhysTrait
-    Bridge -->|Dispatch only after append| RobotTrait
-    PhysTrait -->|State / contact events| Log
-    RobotTrait -->|State / sensor events| Log
-    Log --> App --> Vis
-
-    Log -->|Optional data mirror| Zenoh
-    Zenoh -->|Captured external observations only| Log
+flowchart LR
+    Estimate["produced computation"] --> Population{"population gate"}
+    Population -->|pass| Measure{"measure gate"}
+    Population -->|fail or open| Stop1["no interpretation"]
+    Measure -->|pass| Estimator{"estimator gate"}
+    Measure -->|fail or open| Stop2["no interpretation"]
+    Estimator -->|pass| Application{"application gate"}
+    Estimator -->|fail or open| Stop3["no interpretation"]
+    Application -->|pass| Interpret["eligible within frozen scope"]
+    Application -->|fail or open| Stop4["no interpretation"]
 ```
 
-### Backend Selection Logic
+Computation status and gate status remain separate in reports and ledgers.
+
+## 6. Producer boundaries
+
+```mermaid
+flowchart LR
+    Safe["SAFE adapter"] --> Contract["strict (V,L,D,A) contract"]
+    Toy["deterministic local fixtures"] --> Contract
+    NCP["optional NCP wire-0.8 observer"] -.-> Contract
+    Real["future real capture"] -.-> Contract
+    Contract --> Harness["offline harness"]
+
+    NCP -.->|workspace-excluded| Optional["NCP and Zenoh dependency graph"]
+```
+
+The critical-path producer is the SAFE adapter. The NCP observer is optional and read-only.
+Neither current path provides real confirmatory capture.
+
+## 7. H1 and H2 software references
 
 ```mermaid
 flowchart TD
-    Start[Read pid-splat.toml] --> Bridge[Agent Bridge validates configuration]
-    Bridge --> ConfigLog[Append canonical config event]
-    ConfigLog --> CheckPhys{physics.backend?}
-    
-    CheckPhys -->|rapier| Rapier[Initialize Rapier3D]
-    CheckPhys -->|mujoco| MuJoCo[Initialize MuJoCo FFI]
-    CheckPhys -->|isaac| Isaac[Initialize Isaac Gym]
-    
-    Rapier --> CheckRobot{robot.backend?}
-    MuJoCo --> CheckRobot
-    Isaac --> CheckRobot
-    
-    CheckRobot -->|gazebo| Gazebo[Launch Headless Gazebo]
-    CheckRobot -->|mujoco| MuJoCoR[Use MuJoCo Robot]
-    CheckRobot -->|none| NoRobot[Object-only Simulation]
-    
-    Gazebo --> Ready[Simulation Ready]
-    MuJoCoR --> Ready
-    NoRobot --> Ready
-    
-    Ready --> Render[Default P1-3: log/replay via Rerun; P4: optional SparkJS]
+    H1Input["H1 schema-v2 fixture"] --> H1Preflight["common preflight"]
+    H1Preflight -->|exact passed chain| H1A["Protocol-A finite benchmark"]
+    H1A --> H1Log["schema-valid run log"]
+    H1A --> H1Boundary["synthetic scoring primitive; no H1 evidence"]
+
+    H2Artifacts["four frozen planning artifacts"] --> H2Ref["H2 fixed-horizon reference"]
+    H2Dataset["complete or censored fixture"] --> H2Ref
+    H2Ref --> H2Log["schema-valid run log"]
+    H2Ref --> H2Boundary["protocol arithmetic; no H2 evidence"]
 ```
 
-### Use Case Decision Tree
+Both paths make invalid readable inputs auditable. Neither substitutes for a frozen real study.
+
+## 8. Viewer boundary
+
+```mermaid
+flowchart LR
+    Log["canonical run log"] --> Converter["implemented pid-rerun adapter"]
+    Converter --> RRD["headless RRD or Rerun stream"]
+    RRD --> Current["current validation and provenance views"]
+    RRD -.-> Full["deferred complete diagnostic panels"]
+    Full -.-> Shell["deferred Tauri and SparkJS shell"]
+```
+
+The complete Phases 1–3 viewer is specified but not implemented. The Phase-4 shell is deferred.
+
+## 9. Optional studies
 
 ```mermaid
 flowchart TD
-    UseCase[What's your use case?] --> Speed{Need speed?}
-    
-    Speed -->|Yes, prioritize speed| Rapier[Use: physics.backend = rapier]
-    Speed -->|No| Contact{Contact-rich manipulation?}
-    
-    Contact -->|Yes, precise grasping| MuJoCo[Use: physics.backend = mujoco]
-    Contact -->|No| Batch{Large-scale experiments?}
-    
-    Batch -->|Yes, large-scale batch runs| Isaac[Use: physics.backend = isaac]
-    Batch -->|No| Benchmark{Comparing to papers?}
-    
-    Benchmark -->|Yes, LIBERO/MetaWorld| MuJoCo
-    Benchmark -->|No| Rapier
-    
-    Rapier --> Robot{Need robot sim?}
-    MuJoCo --> Robot
-    Isaac --> Robot
-    
-    Robot -->|Yes, accurate kinematics| Gazebo[Use: robot.backend = gazebo]
-    Robot -->|No, objects only| None[Use: robot.backend = none]
+    Core["Prisoma evidence spine"]
+    Gauss["optional reconstruction-quality covariate study"]
+    World["optional external world-model comparator"]
+    Render["optional rendering layer"]
+
+    Gauss -.-> Core
+    World -.-> Core
+    Render -.-> Core
 ```
 
----
+These proposals must consume canonical evidence and preserve the control invariant. They are not
+runtime dependencies and are not on the thesis critical path.
 
-## 5. Hybrid Rendering: Splats + Mesh + Physics Proxies
-
-This diagram captures the intended hybrid approach: use 3DGS splats for photoreal appearance, and meshes/URDFs for articulated robots, collision proxies, and precise interactive edits. This aligns with `grandplan.md` §8.13 (visualization and rendering) and §7.9 (geometry/diagnostics are independent of the renderer, but the renderer must support inspectable overlays).
+## 10. Dependency firebreak
 
 ```mermaid
-graph TB
-    subgraph "Visual Scene (Appearance)"
-        Splats["3DGS Splats<br/>(static background / captured assets)"]
-        Vis[Rerun / SparkJS\nSplat Renderer]
-        Splats --> Vis
-    end
+flowchart LR
+    Core["workspace default members"] --> Bridge["pid-bridge"]
+    Core --> Sim["pid-sim"]
+    Full["full workspace or rerun-export"] -.-> Rerun["pid-rerun"]
+    Sim -.->|rerun-export feature| Rerun
+    Sim -.->|analysis feature| Harness["offline harness and static baselines"]
 
-    subgraph "Dynamics Scene (Geometry)"
-        Mesh["Meshes/URDFs<br/>(robots + collision proxies)"]
-        Three["Three.js (WebGL2/WebGPU)<br/>Mesh Renderer"]
-        Mesh --> Three
-    end
-
-    subgraph "Physics"
-        Phys["Physics Engine<br/>(Rapier/MuJoCo)"]
-        Mesh -->|Collision shapes| Phys
-        Phys -->|Pose/Transforms| Mesh
-    end
-
-    subgraph "Diagnostics"
-        PID["pid-core metrics<br/>(Syn/Red/Unq, CI/Ω)"]
-        PID --> Overlay["GPU overlays<br/>(Dynos / heatmaps)"]
-        Overlay --> Vis
-        Overlay --> Three
-    end
-
-    Cam[Viewer-only camera + UI state] --> Vis
-    Cam --> Three
+    Harness -->|requests only in PID modes| PID["pid-rs experimental estimators"]
+    NCP["NCP and Zenoh"] -.->|separate manifest| Observer["ncp-observer"]
 ```
 
----
-
-## 6. Dream2Flow Data Pipeline
-
-Visualizing a model-agnostic Dream2Flow-style bridge: external video prediction → 3D flow extraction → PID targets (flow as a bridge; see `grandplan.md` §9.6). The video predictor is treated as an interchangeable, versioned service (no oracle framing).
-
-```mermaid
-graph LR
-    subgraph "Input"
-        IMG[Current Image]
-        TXT[Instruction]
-    end
-
-    subgraph "Video Prediction (External)"
-        IMG --> VP[Video Predictor Service]
-        TXT --> VP
-        VP --> VIDEO["Predicted Video Clip (T frames)"]
-    end
-
-    subgraph "Flow Extraction"
-        VIDEO --> SAM["Segmentation (model-agnostic)"]
-        VIDEO --> DEPTH["Depth (relative or metric)"]
-        VIDEO --> TRACK["Tracking (model-agnostic)"]
-        
-        SAM --> LIFT[2D to 3D Lifting]
-        DEPTH --> LIFT
-        TRACK --> LIFT
-        LIFT --> TRAJ[3D Flow Trajectory]
-    end
-
-    subgraph "Analysis"
-        TRAJ --> TARGET{PID Target}
-        VLA_EMB[VLA Embeddings] --> SOURCE{PID Source}
-        
-        SOURCE --> EST[PID Estimator]
-        TARGET --> EST
-        EST --> VIZ["PID Overlays (Splats/Mesh)"]
-    end
-```
-
----
-
-## 7. Estimator/Measure Validation (S1): The Four Gates and Atom Validation
-
-This diagram summarizes the estimator/measure validation loop — the **S1 gate** — before applying PID to real VLA embeddings (`grandplan.md` §7; the four gates population/measure/estimator/application in §7.1; continuous shared-exclusions gate §7.5; discrete PID gate §7.6). The aggregate estimator-validation label must not be presented as continuous shared-exclusions atom validation.
-
-```mermaid
-flowchart TD
-    Start["Choose representation (V/L/D/A/Flow)"] --> Geo[Run geometry diagnostics]
-    Geo -->|OK| S1["Run S1 synthetic validation matrix (§7.3)"]
-    Geo -->|Recovery / ID / concentration / ties / local-flatness warnings| PivotGeom[Pivot representation: reduce/quantize/Flow target]
-    PivotGeom --> Geo
-
-    S1 --> MIGate{Measure-independent MI/coherence passes? (§7.7)}
-    MIGate -->|NO-GO on high-d| StopMI[Stop/pivot this MI pipeline]
-    MIGate -->|Passes after a validated pivot| AtomGate{Application gate: real-embedding regime near a validated support envelope? (§7.14)}
-    AtomGate -->|BLOCKED / not application-validated today| StopAtoms[Do not interpret continuous i^sx atoms]
-    AtomGate -->|Future pass| Proceed[Proceed to preregistered real-embedding analyses]
-
-    StopMI --> PivotEst[Pivot estimator/representation]
-    PivotEst --> Geo
-```
-
-![Four PID validity gates with current statuses](assets/diagrams/pid-gates.svg)
-
-*This SVG is a rendered companion. The mermaid source above remains canonical.*
-
----
-
-## 8. Confirmatory Claims → Experimental Programme Map
-
-```mermaid
-graph LR
-    EC1[EC1 provenance-complete replay] --> INFRA["§8.8 infrastructure conformance benchmark"]
-
-    H1[H1 pre-treatment diagnostics predict intervention response] --> PA["§6.3 Protocol A paired algorithmic response"]
-    H1 --> PB["§6.3 Protocol B randomized closed-loop response"]
-
-    H2[H2 censoring-aware failure prediction] --> H2A["§6.4 prospective failure with time + censoring"]
-
-    H3[H3 conditional PID incremental value] --> ENV["§7.14 application-support envelope"]
-    H4[H4 availability vs tested intervention effect] --> ENV
-
-    PA --> PROG["§5 experimental programme + §5.4 intervention taxonomy"]
-    PB --> PROG
-    H2A --> PROG
-```
-
----
-
-## 9. OpenUSD / USDZ Interop (Optional)
-
-This diagram summarizes the LeIsaac/Isaac Sim interoperability pattern (interoperability, not reinvention; `grandplan.md` §8.6): convert splats to OpenUSD for composition/validation in USD tooling, then (optionally) bring the composed result back into the PID‑Splat workflow.
-
-```mermaid
-graph LR
-    PLY["3DGS Splats (.ply)"] --> GRUT[NVIDIA 3DGrut\nply_to_usd]
-    GRUT --> USDZ["USDZ (packaged OpenUSD)"]
-
-    MESH["Collision mesh (.glb/.gltf)"] --> ISAAC[Isaac Sim / LeIsaac\nUSD stage composition]
-    USDZ --> ISAAC
-
-    ISAAC --> USD["Composed background scene (.usd/.usda/.usdc)"]
-
-    USD --> NOTE[Optional: validate alignment/colliders\nin USD tooling]
-    USD --> IMPORT["Optional: convert/import into<br/>PID‑Splat scene graph (planned)"]
-```
-
----
-
-## 10. Agent Bridge Control Plane (LLM‑First)
-
-The Agent Bridge is the **only** programmable control plane: it exposes the same operations to the GUI, VLA-policy adapter, scripts, and LLM coding tools (actions, scene editing, interventions, pause/resume/step, correction forces, replay, and exports). Each mutating request is appended to the canonical run log before backend dispatch.
-
-**External backend note:** the Agent Bridge is also the *adapter surface* for third‑party simulators that expose an RL-style `reset/step` API (or their own WebSocket/pubsub interface). Their native interface sits behind the bridge; it is not a second prisoma control plane. The adapter records prisoma command events before dispatch so replay and analysis are identical across backends.
-
-The deterministic in-repo bridge currently provides stdio/TCP/WebSocket JSON-RPC smokes for contract description, status, reset/step, scene edits, deterministic interventions, `log.replay`, `log.start`/`log.stop`, and `export.rerun`. Safe mode permits `bridge.describe`, status, and replay. It logs blocked mutation, run-ending, or file-writing export requests.
-
-```mermaid
-graph TB
-    subgraph Clients
-        UI["GUI (Tauri)"]
-        VLA["VLA-policy adapter"]
-        LLM[Claude Code / Codex / opencode]
-        Script["Scripts (Python/Rust)"]
-    end
-
-    subgraph ControlPlane
-        RPC["Agent Bridge<br/>(JSON-RPC over WebSocket)"]
-        MCP["Optional MCP wrapper<br/>(thin adapter)"]
-    end
-
-    subgraph Core
-        Sim["Deterministic sim loop<br/>(threaded)"]
-        Scene["Scene graph<br/>(splats+meshes+URDF)"]
-        Intervene["Intervention engine<br/>(perturb/apply/undo/branch)"]
-        Log["Run log + replay<br/>(artifacts + audit)"]
-        PID["PID workers<br/>(CI/Ω/SxPID)"]
-        Events["Event stream<br/>(state/metrics/frames)"]
-    end
-
-    UI --> RPC
-    VLA --> RPC
-    Script --> RPC
-    LLM --> MCP --> RPC
-
-    RPC -->|Append request/response audit first| Log
-    RPC -->|Dispatch recorded command| Sim
-    RPC -->|Dispatch recorded command| Scene
-    RPC -->|Dispatch recorded command| Intervene
-
-    Sim --> Events
-    Log -->|Captured samples| PID
-    PID -->|Analysis metrics only| Log
-    PID --> Events
-    Log --> Events
-
-    Events --> UI
-    Events --> Script
-    Events --> LLM
-```
-
----
-
-## 11. Cross-Backend Replay (Optional Robustness Control)
-
-This diagram captures the cross-backend replay idea (`grandplan.md` §8.5 replay levels; robustness/falsification §6.10): replay the same run log under different physics backends (e.g., Rapier vs MuJoCo) and quantify divergence. This is a practical way to test whether PID findings (H1–H4) are sensitive to contact-model idiosyncrasies.
-
-```mermaid
-graph LR
-    Client["UI / script client"] -->|log.replay request| Bridge[Agent Bridge]
-    Log["Run log<br/>(initial state + actions + interventions)"] -->|Replay data| Bridge
-    Bridge -->|Dispatch recorded replay| R[Rapier backend]
-    Bridge -->|Dispatch recorded replay| M[MuJoCo backend]
-
-    R --> TR[State/contact trace]
-    M --> TM[State/contact trace]
-
-    TR --> D["Diff + divergence metrics<br/>(state, contacts, success)"]
-    TM --> D
-
-    D --> Report["Sensitivity report<br/>(PID vs backend)"]
-```
-
----
-
-## 12. Reconstruction Quality + Active View Study (Optional)
-
-This diagram summarizes the admissible E1 part of `GAUSS_MI_INTEGRATION.md`: treat measured 3DGS
-reconstruction quality as a nuisance covariate/stratifier or exclusion sensitivity and, only after
-defining a predictive observation law, study uncertainty-guided view selection. The old weighted-
-KSG/PID expression is a quarantined E0 heuristic and is intentionally absent from the flow.
-
-```mermaid
-graph TB
-    Capture[Scene capture views] --> Train["3DGS training + Nerfstudio export<br/>(PLY)"]
-    Train --> Convert["Optional separately pinned<br/>PLY → SPZ converter"]
-    Train --> Render[Render held-out views]
-    Convert --> Render
-    Render --> Resid["Residuals<br/>(I_obs vs I_render)"]
-    Resid --> UMap["SceneUncertaintyMap<br/>(per-Gaussian uncertainty)"]
-
-    UMap --> UI["UI overlay<br/>(color by uncertainty)"]
-    UMap --> Gate["Quality gate<br/>(coverage, fraction unreliable)"]
-    UMap --> Nuisance["Nuisance analysis<br/>(covariate / strata / exclusion sensitivity)"]
-
-    Gate -->|Needs more coverage| Suggest["Candidate viewpoints<br/>(unscored; no IG estimator)"]
-    Suggest --> Accept[Human/script accepts proposal]
-    Accept --> Bridge[Agent Bridge records capture decision]
-    Bridge --> Capture
-
-    Nuisance --> Log["Run log artifacts<br/>(quality diagnostics + provenance)"]
-```
-
----
-
-## 13. Attribution Probes as Companion Diagnostics
-
-This diagram places LRP/Integrated Gradients/DeepLIFT/Grad-CAM/TCAV/saliency/SHAP-style methods beside PID. The two branches answer different questions and should be compared only through logged samples, common targets, and matched interventions.
-
-```mermaid
-graph TB
-    Run[Canonical run log\nsamples + embeddings + targets] --> PID[PID/CI branch\nRed / Unq / Syn / CI]
-    Run --> Attr[Attribution branch\nLRP / IG / DeepLIFT / Grad-CAM / TCAV / saliency / SHAP-style]
-
-    PID --> PFeat[Per-window / per-episode\ninformation features]
-    Attr --> AFeat[Heatmaps / token scores\nconcept scores / feature rankings]
-
-    PFeat --> Compare[Triangulation layer\nH4 / exploratory]
-    AFeat --> Compare
-
-    Compare --> Agree[Compatible under controls\nstronger diagnostic story]
-    Compare --> Disagree[Disagreement\nrun targeted perturbations]
-    Disagree --> Intervene[Agent Bridge intervention\nocclude / ablate / swap / shuffle]
-    Intervene -->|Append command before dispatch| Run
-    Intervene -->|Dispatch recorded command| Target[Model/backend perturbation handler]
-    Target -->|New samples/results| Run
-
-    Compare --> Log[Artifact manifest\nmethod + target + baseline + score hash]
-```
+The default `pid-sim` feature set excludes the estimator/linear-algebra, Rerun/Arrow, Rapier, and
+WebSocket graphs. The workspace default members also exclude `pid-rerun`, and `ncp-observer` has a
+separate manifest. Full gates include every feature. The PID-disabled analysis mode emits baselines
+without requesting MI or PID atoms.

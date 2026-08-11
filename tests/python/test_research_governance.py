@@ -577,6 +577,55 @@ def test_h4_reference_and_confirmatory_contract_cannot_overclaim(
         MODULE._validate_claim_registry(root, registry)
 
 
+@pytest.mark.parametrize(
+    ("field", "collapsed_value"),
+    [
+        ("population", "blocked"),
+        ("measure", "blocked"),
+        ("atom_estimator", "open_unfrozen"),
+        ("continuous_application", "blocked"),
+        ("high_dimensional_mi_coherence", "blocked"),
+    ],
+)
+def test_current_h3_pid_gate_states_cannot_be_collapsed(
+    tmp_path: Path, field: str, collapsed_value: str
+) -> None:
+    root = _copy_bundle(tmp_path / field)
+    registry = _load_json(root, CLAIM_REGISTRY)
+    h3 = next(claim for claim in registry["claims"] if claim["claim_id"] == "H3")
+    h3["pid_gate_status"][field] = collapsed_value
+    with pytest.raises(GovernanceError, match=rf"pid_gate_status\.{field} must equal"):
+        MODULE._validate_claim_registry(root, registry)
+
+
+@pytest.mark.parametrize(
+    "collapsed_status",
+    [
+        "blocked_on_population_measure_estimator_and_application_gates",
+        (
+            "not_eligible_population_open_unfrozen_measure_not_adjudicated_"
+            "atom_estimator_blocked_continuous_application_blocked_not_"
+            "application_validated_high_dimensional_mi_coherence_no_go"
+        ),
+        (
+            "not_eligible_population_open_measure_not_adjudicated_atom_estimator_"
+            "blocked_continuous_application_blocked_high_dimensional_mi_no_go"
+        ),
+    ],
+)
+def test_current_h3_scientific_status_cannot_collapse_gate_states(
+    tmp_path: Path, collapsed_status: str
+) -> None:
+    root = _copy_bundle(tmp_path)
+    registry = _load_json(root, CLAIM_REGISTRY)
+    h3 = next(claim for claim in registry["claims"] if claim["claim_id"] == "H3")
+    h3["scientific_status"] = collapsed_status
+    with pytest.raises(
+        GovernanceError, match="differs from its exact current claim state"
+    ):
+        MODULE._validate_claim_registry(root, registry)
+
+
 def test_all_h3_gates_passing_cannot_override_not_eligible_claim_state(
     tmp_path: Path,
 ) -> None:

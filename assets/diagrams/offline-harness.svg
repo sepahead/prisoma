@@ -82,7 +82,7 @@
   <text x="980" y="168" fill="#e5e7eb" font-size="14">--require-heldout-split</text>
   <text x="980" y="196" fill="#e5e7eb" font-size="14">--require-heldout-class-coverage</text>
   <text x="980" y="224" fill="#e5e7eb" font-size="14">--require-heldout-episode-disjoint</text>
-  <text x="980" y="252" fill="#e5e7eb" font-size="14">--require-geometry-pass</text>
+  <text x="980" y="252" fill="#e5e7eb" font-size="14">descriptive geometry diagnostics</text>
   <text x="980" y="280" fill="#e5e7eb" font-size="14">--require-axis-provenance-honest</text>
   <text x="980" y="316" fill="#94a3b8" font-size="14" font-style="italic">Any failed requirement exits</text>
   <text x="980" y="334" fill="#94a3b8" font-size="14" font-style="italic">nonzero with a valid failed run log.</text>

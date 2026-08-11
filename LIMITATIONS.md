@@ -29,7 +29,7 @@ ever differ, the more restrictive statement governs until the discrepancy is rev
 | H1-A | A deterministic finite synthetic Protocol-A scoring reference and common preflight are runnable. | Real paired intervention-response evidence, a physical individual effect, or generalization beyond the fixture contract. |
 | H1-B | The randomized closed-loop protocol is specified but unimplemented. | Randomized assignment, intention-to-treat or effect-modification evidence, or closed-loop robustness. |
 | H2 | A deterministic synthetic fixed-horizon/IPCW/alarm arithmetic reference is runnable. | Prospective prediction, calibration validity, warning benefit, comparator superiority, safety gain, or deployment validity. |
-| H3 | **Not eligible.** Population, measure, estimator, and application gates remain blocked. | Interpretable PID atoms on real embeddings or held-out incremental PID value. |
+| H3 | **Not eligible.** Population is open/unfrozen. Measure is not adjudicated. The current atom-estimator and continuous-application gates are blocked. High-dimensional MI/coherence is NO-GO. | Interpretable PID atoms on real embeddings or held-out incremental PID value. |
 | H4 | A small reference-model attribution path exercises logging and a group-level deletion-ranking-sensitivity control. | Causal or mechanistic faithfulness, representational availability, natural policy use, or divergence between availability and the effect of a tested intervention in a real VLA. |
 | NCP observer | Optional, workspace-excluded, read-only wire-0.8 experimental component. | Final protocol interoperability, a live Engram integration, transport completeness, security validation, EC1, or a scientific result. |
 
@@ -45,7 +45,7 @@ The following language is deliberately narrower than the project objectives.
 | Claim | Permitted for 0.9 | Prohibited for 0.9 |
 |---|---|---|
 | EC1 | Canonical run-log, local replay/conversion, and bounded content-addressed SAFE synthetic-ingress paths are implemented for the tested fixtures. | “EC1 is complete,” “externally validated,” or “deployment ready.” |
-| H1-A | The schema-v2 common preflight and deterministic finite-benchmark Protocol-A software reference are fixture-runnable scoring primitives and establish no H1 evidence. | “H1 passed,” “a physical individual effect was observed,” or “closed-loop robustness was established.” |
+| H1-A | The schema-v2 preflight input contract, schema-v3 result artifact, and deterministic finite-benchmark Protocol-A software reference are fixture-runnable scoring primitives. They establish no H1 evidence. | “H1 passed,” “a physical individual effect was observed,” or “closed-loop robustness was established.” |
 | H1-B | A randomized closed-loop design is specified in the canonical plan; execution remains blocked. | Any statement that Protocol B was implemented, randomized, analyzed, or validated. Protocol A may not be substituted for Protocol B. |
 | H2 | The deterministic synthetic reference exercises the named fixed-horizon, grouped fitting, IPCW, reliability-bin, alarm, nondetection, and declared-payoff arithmetic on checked fixtures only. | “H2 passed,” or any claim of prospective prediction, calibration validity, warning benefit, censoring-assumption validity, comparator superiority, transport, safety gain, or deployment validity. |
 | H3 | PID estimates abstain or remain noninterpretable outside their named population, measure, estimator, and application gates. | Any claim that geometry, a nonzero atom, or an emitted number establishes real-embedding PID validity. |
@@ -122,7 +122,7 @@ high-dimensional MI/coherence route is NO-GO, and continuous shared-exclusions P
 embeddings is not application-validated. An output may be computed only when declared support
 permits it; an abstention has no numeric placeholder and must not be interpreted as zero.
 
-Public `pid-rs` main was observed at `e50c12e` on 2026-07-24. Its newer contracts and exact
+Public `pid-rs` main was observed at `cb351ad` on 2026-08-11. Its newer contracts and exact
 certifier remain unadopted. Provenance improvements do not establish application validity.
 
 Population, measure, estimator, and application verdicts are separate. Geometry diagnostics and
@@ -158,8 +158,10 @@ local research tooling:
 
 - TCP and WebSocket binaries refuse non-loopback bind addresses and default to safe mode, but
   forwarding, tunnelling, or proxying a loopback listener is not prevented.
-- There is no authentication, authorization, TLS, credential custody, redaction, remote-security
-  assessment, or authenticated actor identity. Caller identity is locally declared.
+- Standard profiles have no authentication. The Engram profile verifies possession of an
+  operator-pasted startup secret only. It does not authenticate a user, process, build, commit, or
+  actor identity. No profile provides authorization, TLS, credential custody, redaction, or a
+  remote-security assessment. Caller identity is locally declared.
 - TCP/stdio lines and WebSocket upgrades/frames have per-message caps. Network reads and writes
   have per-operation timeouts. Standard profiles have no total request/session, request-count,
   or aggregate-traffic limit. Progress-making trickle traffic can persist. The optional Engram
@@ -189,13 +191,13 @@ authentication, ACL enforcement, or producer noninterference. The observer's vis
 capture grade is a join/publication grade, not proof that every source event was delivered.
 Schema-1 publication receipts accept only the frozen `v0.8.0` tag, revision, wire, and compact
 hash; another wire needs a separately reviewed receipt schema and consumer.
-Official NCP main was observed at `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on
-2026-08-03. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire
+Official NCP main was observed at `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` on
+2026-08-11. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire
 1.0; compact proto contract hash `163acc57d8a62b66`). The latest immutable release is `v0.8.0`,
 which uses a different wire. NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not
 dependency-ready, and **NOT RUN**. `P03` covers fault-observatory migration and Prisoma
 observer-role qualification. See the
-[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
+[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
 The Zenoh 1.9 dependency graph retains `lz4_flex` 0.10.0, which is affected by the
 high-severity RUSTSEC-2026-0041 block-decompression information disclosure. The checked profile
 does not enable Zenoh's `transport_compression`, so the affected call is cfg-elided, and CI fails

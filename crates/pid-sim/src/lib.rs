@@ -14,26 +14,36 @@ use pid_runlog::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
-use std::fs::{File, OpenOptions};
-use std::io::{BufRead, BufWriter, Read, Write};
+use std::fs::File;
+use std::io::{BufRead, BufWriter, Write};
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
-pub mod engram_pairing;
+mod engram_pairing;
+pub mod file_snapshot;
+#[cfg(feature = "protocol-references")]
 pub mod h1_preflight;
+#[cfg(feature = "protocol-references")]
 pub mod h1_protocol_a;
+#[cfg(feature = "protocol-references")]
 pub mod h2_reference;
+#[cfg(feature = "legacy-sensitivity")]
 #[path = "power.rs"]
 pub mod legacy_sensitivity;
+#[cfg(feature = "rapier")]
 pub mod manipulation;
+#[cfg(feature = "analysis")]
 pub mod offline_harness;
+#[cfg(feature = "rapier")]
 pub mod physics;
+#[cfg(feature = "analysis")]
 pub mod toy_harness;
 
+use engram_pairing::{BridgePairingGuard, VerifiedPairing};
 pub use engram_pairing::{
-    BridgePairingGuard, PairingSecret, VerifiedPairing, MAX_PAIRING_ATTEMPTS,
-    PAIRED_BRIDGE_SESSION_REQUEST_PAYLOAD, PAIRING_ERROR_CODE, PAIRING_ERROR_MESSAGE,
-    PAIRING_MECHANISM, PAIRING_SCOPE, PAIRING_SECRET_FORMAT,
+    PairingSecret, MAX_PAIRING_ATTEMPTS, PAIRED_BRIDGE_SESSION_REQUEST_PAYLOAD, PAIRING_ERROR_CODE,
+    PAIRING_ERROR_MESSAGE, PAIRING_MECHANISM, PAIRING_SCOPE, PAIRING_SECRET_FORMAT,
+    PAIRING_SECRET_PREFIX,
 };
 
 pub const FLOW_PRED_SOURCE: &str = "constant_velocity_baseline";
@@ -47,6 +57,50 @@ pub const ENGRAM_HOST_BRIDGE_PROFILE: &str = "engram-host-read-only-v2";
 pub const SAFE_MODE_BRIDGE_PROFILE: &str = "safe-mode-v1";
 /// Standard mutation-capable profile used when safe mode is disabled.
 pub const STANDARD_BRIDGE_PROFILE: &str = "standard-v1";
+
+/// Exact bridge behavior profile bound into a run's hashed configuration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BridgeRuntimeProfile {
+    Standard,
+    SafeMode,
+    EngramHostReadOnly,
+}
+
+impl BridgeRuntimeProfile {
+    pub const fn identifier(self) -> &'static str {
+        match self {
+            Self::Standard => STANDARD_BRIDGE_PROFILE,
+            Self::SafeMode => SAFE_MODE_BRIDGE_PROFILE,
+            Self::EngramHostReadOnly => ENGRAM_HOST_BRIDGE_PROFILE,
+        }
+    }
+
+    pub const fn safe_mode(self) -> bool {
+        !matches!(self, Self::Standard)
+    }
+
+    pub fn allowed_methods(self) -> &'static [&'static str] {
+        match self {
+            Self::SafeMode => SAFE_MODE_ALLOWED_METHODS,
+            Self::EngramHostReadOnly => ENGRAM_HOST_ALLOWED_METHODS,
+            #[cfg(feature = "rerun-export")]
+            Self::Standard => pid_bridge::BRIDGE_METHODS,
+            #[cfg(not(feature = "rerun-export"))]
+            Self::Standard => LEAN_STANDARD_ALLOWED_METHODS,
+        }
+    }
+
+    pub const fn resource_limits(self) -> Option<BridgeSessionResourceLimits> {
+        match self {
+            Self::EngramHostReadOnly => Some(ENGRAM_HOST_RESOURCE_LIMITS),
+            Self::Standard | Self::SafeMode => None,
+        }
+    }
+
+    pub const fn pairing_required(self) -> bool {
+        matches!(self, Self::EngramHostReadOnly)
+    }
+}
 /// Finite runtime limits for the manifest-declared Engram host profile.
 pub const ENGRAM_HOST_RESOURCE_LIMITS: BridgeSessionResourceLimits = BridgeSessionResourceLimits {
     max_requests: 512,
@@ -78,6 +132,39 @@ const SAFE_MODE_ALLOWED_METHODS: &[&str] = &[
     "log.replay",
 ];
 const ENGRAM_HOST_ALLOWED_METHODS: &[&str] = &["bridge.describe", "bridge.session", "sim.status"];
+#[cfg(not(feature = "rerun-export"))]
+const LEAN_STANDARD_ALLOWED_METHODS: &[&str] = &[
+    "bridge.describe",
+    "bridge.session",
+    "sim.status",
+    "sim.reset",
+    "sim.step",
+    "log.start",
+    "log.stop",
+    "log.replay",
+    "scene.set_object",
+    "intervention.apply",
+];
+
+fn runtime_bridge_contract() -> Result<Value> {
+    let contract = serde_json::to_value(pid_bridge::bridge_runlog_contract())
+        .context("failed to serialize bridge and run-log contract")?;
+    #[cfg(not(feature = "rerun-export"))]
+    {
+        let mut contract = contract;
+        let methods = contract
+            .pointer_mut("/bridge/methods")
+            .and_then(Value::as_array_mut)
+            .context("bridge contract must contain a methods array")?;
+        methods
+            .retain(|method| method.get("method").and_then(Value::as_str) != Some("export.rerun"));
+        Ok(contract)
+    }
+    #[cfg(feature = "rerun-export")]
+    {
+        Ok(contract)
+    }
+}
 
 /// Encode bytes as lowercase hexadecimal text without separators.
 pub fn lowercase_hex(bytes: impl AsRef<[u8]>) -> String {
@@ -220,6 +307,7 @@ pub struct SimBridgeSession<W> {
     /// commit boundary. Cleanup is allowed only before an `artifact_logged`
     /// write starts; after that, a generic writer cannot reveal whether a full
     /// line reached the sink, so the file is retained to avoid a false link.
+    #[cfg(feature = "rerun-export")]
     pending_export: Option<PendingExport>,
     /// Where this session's own run log lives, when file-backed. `export.rerun`
     /// must never be allowed to write over it: the run log is the source of
@@ -244,10 +332,12 @@ enum BridgeMethodPolicy {
     EngramHostReadOnly,
 }
 
+#[cfg(feature = "rerun-export")]
 #[derive(Debug, Clone)]
 struct PendingExport {
     path: PathBuf,
     sha256: String,
+    byte_len: u64,
     provenance_write_attempted: bool,
 }
 
@@ -282,6 +372,54 @@ pub fn deterministic_sim_config(
     })
 }
 
+/// Build the content-bound configuration for an executable bridge run.
+///
+/// The bridge profile belongs in the hashed configuration because it changes
+/// the accepted method surface. Run-start metadata repeats selected values for
+/// operators, but metadata alone is not a content-bound behavior contract.
+pub fn deterministic_bridge_config(
+    source: &str,
+    transport: &str,
+    fixed_dt_secs: Option<f64>,
+    planned_steps: Option<u64>,
+    profile: BridgeRuntimeProfile,
+) -> Value {
+    let mut config = deterministic_sim_config(
+        source,
+        Some(transport),
+        fixed_dt_secs,
+        planned_steps,
+        Some(profile.safe_mode()),
+    );
+    let pairing = if profile.pairing_required() {
+        json!({
+            "required": true,
+            "mechanism": PAIRING_MECHANISM,
+            "scope": PAIRING_SCOPE,
+            "secret_format": PAIRING_SECRET_FORMAT,
+            "max_attempts": MAX_PAIRING_ATTEMPTS,
+        })
+    } else {
+        json!({
+            "required": false,
+            "mechanism": "none",
+        })
+    };
+    config
+        .as_object_mut()
+        .expect("deterministic simulator configuration is always an object")
+        .insert(
+            "bridge".to_string(),
+            json!({
+                "active_profile": profile.identifier(),
+                "allowed_methods": profile.allowed_methods(),
+                "resource_limits": profile.resource_limits(),
+                "pairing": pairing,
+            }),
+        );
+    config
+}
+
 impl Default for DeterministicObjectSim {
     fn default() -> Self {
         Self::new()
@@ -297,20 +435,28 @@ impl DeterministicObjectSim {
         }
     }
 
-    pub fn from_snapshot(step: u64, timestamp_ns: u64, objects: &[SimObjectSnapshot]) -> Self {
+    pub fn from_snapshot(
+        step: u64,
+        timestamp_ns: u64,
+        objects: &[SimObjectSnapshot],
+    ) -> Result<Self> {
         let mut sim = Self {
             step,
             timestamp_ns,
             objects: BTreeMap::new(),
         };
         for object in objects {
+            if sim.objects.contains_key(&object.object_id) {
+                bail!("snapshot contains duplicate object_id {}", object.object_id);
+            }
             sim.upsert_object(SimObject {
                 object_id: object.object_id.clone(),
                 pose: object.pose.clone(),
                 velocity: object.velocity,
-            });
+            })
+            .with_context(|| format!("invalid snapshot object {}", object.object_id))?;
         }
-        sim
+        Ok(sim)
     }
 
     pub fn step(&self) -> u64 {
@@ -325,8 +471,11 @@ impl DeterministicObjectSim {
         self.objects.values()
     }
 
-    pub fn upsert_object(&mut self, object: SimObject) {
+    /// Insert or replace one validated object without partially mutating state.
+    pub fn upsert_object(&mut self, object: SimObject) -> Result<()> {
+        validate_sim_object(&object)?;
         self.objects.insert(object.object_id.clone(), object);
+        Ok(())
     }
 
     pub fn apply_intervention(
@@ -545,7 +694,29 @@ fn validate_pose_finite(pose: &Pose) -> Result<()> {
     if pose.orientation_xyzw.iter().any(|value| !value.is_finite()) {
         bail!("pose orientation must be finite");
     }
+    let scale = pose
+        .orientation_xyzw
+        .iter()
+        .map(|value| value.abs())
+        .fold(0.0_f64, f64::max);
+    if scale == 0.0 {
+        bail!("pose orientation quaternion must have nonzero norm");
+    }
+    let scaled_norm_squared = pose
+        .orientation_xyzw
+        .iter()
+        .map(|value| (value / scale).powi(2))
+        .sum::<f64>();
+    if !scaled_norm_squared.is_finite() || scaled_norm_squared <= 0.0 {
+        bail!("pose orientation quaternion must have finite nonzero norm");
+    }
     Ok(())
+}
+
+fn validate_sim_object(object: &SimObject) -> Result<()> {
+    validate_object_id(&object.object_id)?;
+    validate_pose_finite(&object.pose)?;
+    validate_vec3_finite(object.velocity, "object velocity")
 }
 
 fn validate_bridge_payload_keys(
@@ -573,8 +744,7 @@ impl BridgeHandler for SimBridgeHandler {
         match request.method {
             BridgeMethod::BridgeDescribe => {
                 validate_bridge_payload_keys(&request.payload, "bridge.describe", &[], true)?;
-                serde_json::to_value(pid_bridge::bridge_runlog_contract())
-                    .context("failed to serialize bridge and run-log contract")
+                runtime_bridge_contract()
             }
             BridgeMethod::BridgeSession => {
                 bail!("bridge.session requires SimBridgeSession runtime context")
@@ -625,15 +795,7 @@ impl BridgeHandler for SimBridgeHandler {
                     false,
                 )?;
                 let object = serde_json::from_value::<SimObject>(request.payload.clone())?;
-                // Same fail-closed input discipline as intervention.apply: an
-                // accepted-but-invalid object (empty id, non-finite pose or
-                // velocity) would be rejected only later, when the emitted
-                // SimSnapshot fails run-log validation — poisoning the log
-                // instead of the request that caused it.
-                validate_object_id(&object.object_id)?;
-                validate_pose_finite(&object.pose)?;
-                validate_vec3_finite(object.velocity, "object velocity")?;
-                self.sim.upsert_object(object);
+                self.sim.upsert_object(object)?;
                 Ok(self.status_json())
             }
             BridgeMethod::InterventionApply => {
@@ -718,6 +880,7 @@ impl<W: Write> SimBridgeSession<W> {
             terminal_write_attempted: false,
             stop_requested: None,
             poisoned: false,
+            #[cfg(feature = "rerun-export")]
             pending_export: None,
             run_log_path: None,
             artifact_root: None,
@@ -752,6 +915,7 @@ impl<W: Write> SimBridgeSession<W> {
             terminal_write_attempted: false,
             stop_requested: None,
             poisoned: false,
+            #[cfg(feature = "rerun-export")]
             pending_export: None,
             run_log_path: None,
             artifact_root: None,
@@ -760,11 +924,16 @@ impl<W: Write> SimBridgeSession<W> {
         }
     }
 
-    /// Create a session whose method surface is fixed to Engram's read-only profile.
+    /// Create a paired session whose method surface is fixed to Engram's read-only profile.
+    ///
+    /// Pairing is installed in the same transition as the hosted method policy. A
+    /// public Engram-profile session therefore cannot advertise profile v2 while
+    /// accepting an unpaired `bridge.session` request.
     pub fn with_engram_host_profile_and_run_id(
         writer: RunLogWriter<W>,
         sim: DeterministicObjectSim,
         run_id: impl Into<String>,
+        pairing_secret: PairingSecret,
     ) -> Self {
         let limits = ENGRAM_HOST_RESOURCE_LIMITS;
         Self {
@@ -786,18 +955,31 @@ impl<W: Write> SimBridgeSession<W> {
             terminal_write_attempted: false,
             stop_requested: None,
             poisoned: false,
+            #[cfg(feature = "rerun-export")]
             pending_export: None,
             run_log_path: None,
             artifact_root: None,
-            pairing: None,
+            pairing: Some(BridgePairingGuard::new(
+                pairing_secret,
+                limits.max_pairing_attempts,
+            )),
             pending_pairing: None,
         }
     }
 
     /// Tell the session where its own run log lives so `export.rerun` can
     /// refuse to overwrite it. File-backed transports should always set this.
-    pub fn set_run_log_path(&mut self, path: impl Into<PathBuf>) {
-        self.run_log_path = Some(path.into());
+    pub fn set_run_log_path(&mut self, path: impl Into<PathBuf>) -> Result<()> {
+        self.require_file_paths_configurable()?;
+        if self.run_log_path.is_some() {
+            bail!("bridge run-log path is already configured");
+        }
+        let path = path.into();
+        if path.as_os_str().is_empty() {
+            bail!("bridge run-log path must not be empty");
+        }
+        self.run_log_path = Some(path);
+        Ok(())
     }
 
     /// Restrict `log.replay` and `export.rerun` to one canonical directory in
@@ -810,22 +992,23 @@ impl<W: Write> SimBridgeSession<W> {
     /// adversary is outside this E0 boundary. File-bearing RPCs remain disabled
     /// until a root is set.
     pub fn set_artifact_root(&mut self, root: impl AsRef<Path>) -> Result<()> {
+        self.require_file_paths_configurable()?;
+        if self.artifact_root.is_some() {
+            bail!("bridge artifact root is already configured");
+        }
         self.artifact_root = Some(canonical_artifact_root(root)?);
+        Ok(())
+    }
+
+    fn require_file_paths_configurable(&self) -> Result<()> {
+        if self.requests_used != 0 || self.input_bytes_used != 0 || self.run_ended {
+            bail!("bridge file paths cannot change after session input begins");
+        }
         Ok(())
     }
 
     pub fn artifact_root(&self) -> Option<&Path> {
         self.artifact_root.as_deref()
-    }
-
-    /// Require operator-paste PSK HMAC pairing on every `bridge.session`
-    /// request served by this session.
-    ///
-    /// The bridge generates the secret from the operating-system CSPRNG before
-    /// it listens and prints it once to its controlling stderr. The secret is
-    /// never written to the run log, a response, or an error.
-    pub fn enable_engram_pairing(&mut self, secret: PairingSecret, max_attempts: usize) {
-        self.pairing = Some(BridgePairingGuard::new(secret, max_attempts));
     }
 
     /// True when this session rejects an unpaired `bridge.session` request.
@@ -835,7 +1018,7 @@ impl<W: Write> SimBridgeSession<W> {
 
     /// Consume one pairing unit for a newly accepted TCP connection. Timeouts
     /// and wrong proofs consume a unit exactly like a successful pairing.
-    pub fn begin_pairing_attempt(&mut self) -> Result<()> {
+    fn begin_pairing_attempt(&mut self) -> Result<()> {
         let guard = self
             .pairing
             .as_mut()
@@ -880,9 +1063,10 @@ impl<W: Write> SimBridgeSession<W> {
     /// secret and stage its proof for the handler.
     ///
     /// `used_client_nonces` holds every client nonce already accepted on the
-    /// same TCP connection; a repeat fails closed. A successful verification
-    /// atomically binds the secret to the current connection.
-    pub fn verify_pairing_request(
+    /// same TCP connection; a repeat fails closed. Verification stages the
+    /// proof. The dispatcher binds the connection only after the paired session
+    /// response is recorded and flushed to the transport sink.
+    fn verify_pairing_request(
         &mut self,
         request: &Value,
         used_client_nonces: &std::collections::BTreeSet<[u8; 32]>,
@@ -898,41 +1082,51 @@ impl<W: Write> SimBridgeSession<W> {
             request,
             used_client_nonces,
         )?;
-        guard.mark_bound();
         self.pending_pairing = Some(verified.clone());
         Ok(verified)
+    }
+
+    fn commit_pairing_binding(&mut self) {
+        let guard = self
+            .pairing
+            .as_mut()
+            .expect("paired dispatcher must retain its pairing guard");
+        guard.mark_bound();
+    }
+
+    fn discard_pending_pairing(&mut self) {
+        self.pending_pairing = None;
     }
 
     pub fn safe_mode(&self) -> bool {
         self.bridge.safe_mode()
     }
 
-    pub fn set_safe_mode(&mut self, safe_mode: bool) {
-        self.bridge.set_safe_mode(
-            safe_mode || self.method_policy == BridgeMethodPolicy::EngramHostReadOnly,
-        );
+    /// Return the exact active runtime profile.
+    pub fn runtime_profile(&self) -> BridgeRuntimeProfile {
+        match self.method_policy {
+            BridgeMethodPolicy::EngramHostReadOnly => BridgeRuntimeProfile::EngramHostReadOnly,
+            BridgeMethodPolicy::Standard if self.safe_mode() => BridgeRuntimeProfile::SafeMode,
+            BridgeMethodPolicy::Standard => BridgeRuntimeProfile::Standard,
+        }
     }
 
     /// Return the exact active runtime profile identifier.
     pub fn active_profile(&self) -> &'static str {
-        match self.method_policy {
-            BridgeMethodPolicy::EngramHostReadOnly => ENGRAM_HOST_BRIDGE_PROFILE,
-            BridgeMethodPolicy::Standard if self.safe_mode() => SAFE_MODE_BRIDGE_PROFILE,
-            BridgeMethodPolicy::Standard => STANDARD_BRIDGE_PROFILE,
-        }
+        self.runtime_profile().identifier()
     }
 
     /// Return the exact method surface allowed by the active runtime profile.
     pub fn allowed_methods(&self) -> &'static [&'static str] {
-        match self.method_policy {
-            BridgeMethodPolicy::EngramHostReadOnly => ENGRAM_HOST_ALLOWED_METHODS,
-            BridgeMethodPolicy::Standard if self.safe_mode() => SAFE_MODE_ALLOWED_METHODS,
-            BridgeMethodPolicy::Standard => pid_bridge::BRIDGE_METHODS,
-        }
+        self.runtime_profile().allowed_methods()
     }
 
     /// Return the finite limits declared by the active hosted profile.
     pub fn resource_limits(&self) -> Option<BridgeSessionResourceLimits> {
+        debug_assert_eq!(
+            self.resource_limits,
+            self.runtime_profile().resource_limits()
+        );
         self.resource_limits
     }
 
@@ -996,7 +1190,25 @@ impl<W: Write> SimBridgeSession<W> {
         self.poisoned
     }
 
+    /// Dispatch one typed request for a standard profile.
+    ///
+    /// Engram-profile requests must enter through [`dispatch_rpc_lines_paired`]. This method has
+    /// no per-connection authorization state, so it rejects that profile before recording work.
     pub fn dispatch(&mut self, request: &BridgeRequest) -> Result<BridgeResponse> {
+        self.dispatch_with_pairing_authorization(request, false)
+    }
+
+    fn dispatch_with_pairing_authorization(
+        &mut self,
+        request: &BridgeRequest,
+        pairing_authorized: bool,
+    ) -> Result<BridgeResponse> {
+        if self.pairing_required() && !pairing_authorized {
+            bail!(
+                "bridge profile {} requires the paired transport dispatcher",
+                self.active_profile()
+            );
+        }
         if self.run_ended {
             bail!("bridge run {} already ended", self.run_id);
         }
@@ -1018,12 +1230,17 @@ impl<W: Write> SimBridgeSession<W> {
                 // prefix accepted before a later failure is indeterminate; the
                 // session is poisoned and no wire response is returned.
                 self.poisoned = true;
-                match self.rollback_pending_export() {
-                    Ok(()) => Err(error),
-                    Err(cleanup_error) => Err(error.context(format!(
-                        "failed to remove unlogged export artifact: {cleanup_error:#}"
-                    ))),
+                #[cfg(feature = "rerun-export")]
+                {
+                    match self.rollback_pending_export() {
+                        Ok(()) => Err(error),
+                        Err(cleanup_error) => Err(error.context(format!(
+                            "failed to remove unlogged export artifact: {cleanup_error:#}"
+                        ))),
+                    }
                 }
+                #[cfg(not(feature = "rerun-export"))]
+                Err(error)
             }
         }
     }
@@ -1079,27 +1296,40 @@ impl<W: Write> SimBridgeSession<W> {
         ) {
             self.bridge.flush()?;
         }
-        let mut staged_handler = self.handler.clone();
+        let mut staged_handler = None;
         let handled = match request.method {
             BridgeMethod::BridgeDescribe if self.pairing_required() => {
                 self.handle_paired_bridge_describe(request)
+            }
+            BridgeMethod::BridgeDescribe => {
+                validate_bridge_payload_keys(&request.payload, "bridge.describe", &[], true)
+                    .and_then(|()| runtime_bridge_contract())
+            }
+            BridgeMethod::SimStatus => {
+                validate_bridge_payload_keys(&request.payload, "sim.status", &[], true)
+                    .map(|()| self.handler.status_json())
             }
             BridgeMethod::BridgeSession => self.handle_bridge_session(request),
             BridgeMethod::LogStart => self.handle_log_start(request),
             BridgeMethod::LogStop => self.handle_log_stop(request),
             BridgeMethod::LogReplay => self.handle_log_replay(request),
             BridgeMethod::ExportRerun => self.handle_export_rerun(request),
-            _ => staged_handler.handle(request),
-        };
-        let mutating_handler_method = matches!(
-            request.method,
             BridgeMethod::SimStep
-                | BridgeMethod::SceneSetObject
-                | BridgeMethod::SimReset
-                | BridgeMethod::InterventionApply
-        );
+            | BridgeMethod::SceneSetObject
+            | BridgeMethod::SimReset
+            | BridgeMethod::InterventionApply => {
+                let mut candidate = self.handler.clone();
+                let result = candidate.handle(request);
+                staged_handler = Some(candidate);
+                result
+            }
+        };
         let (response_step, response_timestamp_ns) = if handled.is_ok() {
-            (staged_handler.sim.step(), staged_handler.sim.timestamp_ns())
+            let response_handler = staged_handler.as_ref().unwrap_or(&self.handler);
+            (
+                response_handler.sim.step(),
+                response_handler.sim.timestamp_ns(),
+            )
         } else {
             (self.handler.sim.step(), self.handler.sim.timestamp_ns())
         };
@@ -1127,6 +1357,9 @@ impl<W: Write> SimBridgeSession<W> {
         // events are written.
         match request.method {
             BridgeMethod::SimStep if response.ok => {
+                let staged_handler = staged_handler
+                    .as_ref()
+                    .context("successful sim.step omitted staged simulator state")?;
                 self.record_action(request, &staged_handler.sim)?;
                 self.bridge
                     .record_event(&staged_handler.sim.snapshot_event())?;
@@ -1143,6 +1376,9 @@ impl<W: Write> SimBridgeSession<W> {
                 }
             }
             BridgeMethod::SceneSetObject if response.ok => {
+                let staged_handler = staged_handler
+                    .as_ref()
+                    .context("successful scene.set_object omitted staged simulator state")?;
                 self.record_action(request, &staged_handler.sim)?;
                 self.bridge
                     .record_event(&staged_handler.sim.snapshot_event())?;
@@ -1151,11 +1387,17 @@ impl<W: Write> SimBridgeSession<W> {
                 }
             }
             BridgeMethod::SimReset if response.ok => {
+                let staged_handler = staged_handler
+                    .as_ref()
+                    .context("successful sim.reset omitted staged simulator state")?;
                 self.record_action(request, &staged_handler.sim)?;
                 self.bridge
                     .record_event(&staged_handler.sim.snapshot_event())?;
             }
             BridgeMethod::InterventionApply if response.ok => {
+                let staged_handler = staged_handler
+                    .as_ref()
+                    .context("successful intervention.apply omitted staged simulator state")?;
                 self.record_intervention(request, &staged_handler.sim)?;
                 self.bridge
                     .record_event(&staged_handler.sim.snapshot_event())?;
@@ -1163,6 +1405,7 @@ impl<W: Write> SimBridgeSession<W> {
                     self.bridge.record_event(&event)?;
                 }
             }
+            #[cfg(feature = "rerun-export")]
             BridgeMethod::ExportRerun if response.ok => {
                 // Once this write starts, an error may still mean that a full
                 // JSON line reached the sink before its newline/flush failed.
@@ -1208,8 +1451,10 @@ impl<W: Write> SimBridgeSession<W> {
         // the response append or flush fails: an arbitrary `Write` error cannot
         // prove that earlier accepted evidence was absent from the sink, so
         // rollback would risk false provenance.
-        if response.ok && mutating_handler_method {
-            self.handler = staged_handler;
+        if response.ok {
+            if let Some(staged_handler) = staged_handler {
+                self.handler = staged_handler;
+            }
         }
         self.bridge.record_response(&response)?;
         // A wire success must never precede `W::flush` returning success. The
@@ -1217,6 +1462,7 @@ impl<W: Write> SimBridgeSession<W> {
         // The executable transports use FsyncFileWriter (file sync, but no
         // parent-directory or cross-file transaction); generic callers may not.
         self.bridge.flush()?;
+        #[cfg(feature = "rerun-export")]
         if request.method == BridgeMethod::ExportRerun && response.ok {
             self.pending_export = None;
         }
@@ -1232,7 +1478,9 @@ impl<W: Write> SimBridgeSession<W> {
 
     fn method_allowed_by_profile(&self, method: &BridgeMethod) -> bool {
         match self.method_policy {
-            BridgeMethodPolicy::Standard => true,
+            BridgeMethodPolicy::Standard => {
+                cfg!(feature = "rerun-export") || *method != BridgeMethod::ExportRerun
+            }
             BridgeMethodPolicy::EngramHostReadOnly => matches!(
                 method,
                 BridgeMethod::BridgeDescribe
@@ -1242,6 +1490,7 @@ impl<W: Write> SimBridgeSession<W> {
         }
     }
 
+    #[cfg(feature = "rerun-export")]
     fn rollback_pending_export(&mut self) -> Result<()> {
         let Some(pending) = self.pending_export.as_ref().cloned() else {
             return Ok(());
@@ -1253,29 +1502,28 @@ impl<W: Write> SimBridgeSession<W> {
             self.pending_export = None;
             return Ok(());
         }
-        let metadata = match std::fs::symlink_metadata(&pending.path) {
-            Ok(metadata) => metadata,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+        let (sha256, byte_len) = match file_snapshot::hash_bounded_regular_file(
+            &pending.path,
+            pending.byte_len,
+            "pending Rerun export",
+        ) {
+            Ok(snapshot) => snapshot,
+            Err(error)
+                if std::fs::symlink_metadata(&pending.path)
+                    .is_err_and(|source| source.kind() == std::io::ErrorKind::NotFound) =>
+            {
                 self.pending_export = None;
                 return Ok(());
             }
-            Err(error) => {
-                return Err(error).with_context(|| {
-                    format!(
-                        "failed to inspect pending export {}",
-                        pending.path.display()
-                    )
-                });
-            }
+            Err(error) => return Err(error),
         };
-        if metadata.file_type().is_symlink() || !metadata.is_file() {
+        if byte_len != pending.byte_len {
             bail!(
-                "pending export changed type; refusing cleanup: {}",
+                "pending export changed length; refusing cleanup: {}",
                 pending.path.display()
             );
         }
-        let actual_sha256 = pid_runlog::sha256_file(&pending.path)?;
-        if actual_sha256 != pending.sha256 {
+        if sha256 != pending.sha256 {
             bail!(
                 "pending export changed bytes; refusing cleanup: {}",
                 pending.path.display()
@@ -1322,6 +1570,14 @@ impl<W: Write> SimBridgeSession<W> {
         }))
     }
 
+    #[cfg(not(feature = "rerun-export"))]
+    fn handle_export_rerun(&mut self, _request: &BridgeRequest) -> Result<Value> {
+        bail!(
+            "export.rerun requires the pid-sim `rerun-export` feature; rebuild the bridge with --features rerun-export"
+        )
+    }
+
+    #[cfg(feature = "rerun-export")]
     fn handle_export_rerun(&mut self, request: &BridgeRequest) -> Result<Value> {
         validate_bridge_payload_keys(
             &request.payload,
@@ -1367,6 +1623,7 @@ impl<W: Write> SimBridgeSession<W> {
         self.pending_export = Some(PendingExport {
             path: exported.output_path,
             sha256: exported.sha256,
+            byte_len: exported.byte_len,
             provenance_write_attempted: false,
         });
         Ok(exported.response)
@@ -1480,8 +1737,7 @@ impl<W: Write> SimBridgeSession<W> {
     /// or any proof material.
     fn handle_paired_bridge_describe(&self, request: &BridgeRequest) -> Result<Value> {
         validate_bridge_payload_keys(&request.payload, "bridge.describe", &[], true)?;
-        let mut contract = serde_json::to_value(pid_bridge::bridge_runlog_contract())
-            .context("failed to serialize bridge and run-log contract")?;
+        let mut contract = runtime_bridge_contract()?;
         let bridge = contract
             .get_mut("bridge")
             .and_then(Value::as_object_mut)
@@ -1499,6 +1755,12 @@ impl<W: Write> SimBridgeSession<W> {
             .get_mut("methods")
             .and_then(Value::as_array_mut)
             .context("bridge contract must contain a methods array")?;
+        methods.retain(|method| {
+            method
+                .get("method")
+                .and_then(Value::as_str)
+                .is_some_and(|method| ENGRAM_HOST_ALLOWED_METHODS.contains(&method))
+        });
         let session = methods
             .iter_mut()
             .find(|method| method.get("method").and_then(Value::as_str) == Some("bridge.session"))
@@ -1799,6 +2061,7 @@ fn resolve_existing_artifact_path(root: &Path, requested: &Path) -> Result<PathB
     Ok(canonical)
 }
 
+#[cfg(feature = "rerun-export")]
 fn resolve_new_artifact_path(root: &Path, requested: &Path) -> Result<PathBuf> {
     let candidate = artifact_candidate(root, requested)?;
     match std::fs::symlink_metadata(&candidate) {
@@ -1836,6 +2099,7 @@ fn resolve_new_artifact_path(root: &Path, requested: &Path) -> Result<PathBuf> {
     Ok(canonical_parent.join(file_name))
 }
 
+#[cfg(feature = "rerun-export")]
 fn install_new_artifact(path: &Path, bytes: &[u8]) -> Result<String> {
     let parent = path
         .parent()
@@ -1864,76 +2128,24 @@ fn install_new_artifact(path: &Path, bytes: &[u8]) -> Result<String> {
 }
 
 fn snapshot_runlog(run_log_uri: &Path) -> Result<(Vec<RunLogEvent>, Vec<u8>)> {
-    let symlink_metadata = std::fs::symlink_metadata(run_log_uri)
-        .with_context(|| format!("failed to inspect run log {}", run_log_uri.display()))?;
-    if symlink_metadata.file_type().is_symlink() || !symlink_metadata.is_file() {
-        bail!(
-            "export.rerun source must be a non-symlink regular file: {}",
-            run_log_uri.display()
-        );
-    }
-
-    let mut source = OpenOptions::new()
-        .read(true)
-        .open(run_log_uri)
-        .with_context(|| format!("failed to open run log {}", run_log_uri.display()))?;
-    let source_identity = same_file::Handle::from_file(
-        source
-            .try_clone()
-            .context("failed to clone run-log snapshot handle")?,
-    )
-    .context("failed to identify open run-log snapshot")?;
     let limits = pid_runlog::RunLogLimits::default();
-    let start_len = source
-        .metadata()
-        .with_context(|| format!("failed to stat run log {}", run_log_uri.display()))?
-        .len();
-    if start_len > limits.max_file_bytes {
-        bail!(
-            "run log exceeds the {}-byte export limit: {}",
-            limits.max_file_bytes,
-            run_log_uri.display()
-        );
-    }
-    let capacity = usize::try_from(start_len).context("run-log size does not fit in memory")?;
-    let mut bytes = Vec::new();
-    bytes
-        .try_reserve_exact(capacity)
-        .context("failed to reserve run-log snapshot buffer")?;
-    (&mut source)
-        .take(limits.max_file_bytes.saturating_add(1))
-        .read_to_end(&mut bytes)
-        .with_context(|| format!("failed to snapshot run log {}", run_log_uri.display()))?;
-    if bytes.len() as u128 > u128::from(limits.max_file_bytes) {
-        bail!(
-            "run log exceeds the {}-byte export limit: {}",
-            limits.max_file_bytes,
-            run_log_uri.display()
-        );
-    }
-    let end_len = source
-        .metadata()
-        .with_context(|| format!("failed to restat run log {}", run_log_uri.display()))?
-        .len();
-    if start_len != end_len || u64::try_from(bytes.len()).ok() != Some(start_len) {
-        bail!(
-            "run log changed while it was being snapshotted: {}",
-            run_log_uri.display()
-        );
-    }
-    let named_identity = same_file::Handle::from_path(run_log_uri)
-        .with_context(|| format!("failed to re-identify run log {}", run_log_uri.display()))?;
-    if source_identity != named_identity {
-        bail!(
-            "run log path changed while it was being snapshotted: {}",
-            run_log_uri.display()
-        );
-    }
-
+    let mut snapshot = file_snapshot::read_bounded_regular_file(
+        run_log_uri,
+        limits.max_file_bytes,
+        "bridge run-log input",
+    )?;
+    snapshot.exact_bytes(limits.max_file_bytes)?;
+    let bytes = snapshot
+        .bytes
+        .take()
+        .context("exact bridge run-log snapshot lost its retained bytes")?;
+    file_snapshot::validate_strict_json_lines(&bytes, "bridge run-log input")?;
     let events = pid_runlog::read_events_with_limits(std::io::Cursor::new(&bytes), limits)?;
+    snapshot.verify_path()?;
     Ok((events, bytes))
 }
 
+#[cfg(feature = "rerun-export")]
 fn manifest_for_snapshot(
     run_log_uri: &Path,
     events: &[RunLogEvent],
@@ -1949,7 +2161,10 @@ fn manifest_for_snapshot(
         .sync_all()
         .context("failed to sync exact run-log manifest snapshot")?;
     let mut manifest = pid_runlog::manifest_for_events(snapshot.path(), events)?;
-    manifest.run_log_uri = run_log_uri.display().to_string();
+    manifest.run_log_uri = run_log_uri
+        .to_str()
+        .context("export.rerun source path must be valid UTF-8")?
+        .to_owned();
     Ok(manifest)
 }
 
@@ -1961,11 +2176,27 @@ pub fn export_runlog_to_rerun(
 }
 
 struct ExportedRerun {
+    #[cfg(feature = "rerun-export")]
     output_path: PathBuf,
+    #[cfg(feature = "rerun-export")]
     sha256: String,
+    #[cfg(feature = "rerun-export")]
+    byte_len: u64,
     response: Value,
 }
 
+#[cfg(not(feature = "rerun-export"))]
+fn export_runlog_to_rerun_inner(
+    run_log_uri: impl AsRef<Path>,
+    output_uri: impl AsRef<Path>,
+) -> Result<ExportedRerun> {
+    let _ = (run_log_uri.as_ref(), output_uri.as_ref());
+    bail!(
+        "export.rerun requires the pid-sim `rerun-export` feature; rebuild the bridge with --features rerun-export"
+    )
+}
+
+#[cfg(feature = "rerun-export")]
 fn export_runlog_to_rerun_inner(
     run_log_uri: impl AsRef<Path>,
     output_uri: impl AsRef<Path>,
@@ -2009,6 +2240,7 @@ fn export_runlog_to_rerun_inner(
         .log_events_with_manifest(&events, Some(&manifest))?;
     let recording = pid_rerun::finalize_recording_bytes(&rec)?;
     let sha256 = install_new_artifact(output_uri, &recording)?;
+    let byte_len = u64::try_from(recording.len()).context("Rerun export length exceeds u64")?;
     let output_path = output_uri.to_path_buf();
     let output_uri = output_path.display().to_string();
     let response = json!({
@@ -2026,16 +2258,19 @@ fn export_runlog_to_rerun_inner(
     Ok(ExportedRerun {
         output_path,
         sha256,
+        byte_len,
         response,
     })
 }
 
+#[cfg(feature = "rerun-export")]
 fn default_rerun_output_path(run_log_uri: impl AsRef<Path>) -> PathBuf {
     let mut path = run_log_uri.as_ref().to_path_buf();
     path.set_extension("rrd");
     path
 }
 
+#[cfg(feature = "rerun-export")]
 fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
     if left == right {
         return true;
@@ -2050,6 +2285,7 @@ fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
 /// exist yet (an export target): canonicalize the parent directory (which does
 /// exist for the live run log) and reattach the file name, so `./x.jsonl` and
 /// `outputs/../x.jsonl` compare equal even before the target is created.
+#[cfg(feature = "rerun-export")]
 fn paths_resolve_to_same_target(left: &Path, right: &Path) -> bool {
     if paths_refer_to_same_file(left, right) {
         return true;
@@ -2091,35 +2327,62 @@ pub fn bridge_request(
 /// limit by never sending a newline.
 const MAX_RPC_LINE_BYTES: u64 = 1024 * 1024;
 
-/// Per-TCP-connection pairing state for the Engram host profile.
+/// Result of serving one paired transport connection.
 ///
-/// One connection may pair once and then refresh `bridge.session` with fresh
-/// nonces. A client nonce must never repeat within the connection.
+/// The paired dispatcher owns its connection state. Callers therefore cannot
+/// inject or reuse an authorization token across transport connections.
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+pub struct PairedConnectionOutcome {
+    handled: usize,
+    accepted: bool,
+    rejected: bool,
+}
+
+impl PairedConnectionOutcome {
+    /// Number of nonempty request lines that produced a dispatch or pairing response.
+    pub fn handled(self) -> usize {
+        self.handled
+    }
+
+    /// True when this connection proved possession of the startup secret.
+    pub fn accepted(self) -> bool {
+        self.accepted
+    }
+
+    /// True when the pairing gate emitted its fixed rejection and closed the connection.
+    pub fn rejected(self) -> bool {
+        self.rejected
+    }
+}
+
+/// Private state whose lifetime is exactly one paired dispatcher invocation.
+/// One connection may refresh `bridge.session` with fresh nonces after it pairs.
 #[derive(Debug, Default)]
-pub struct ConnectionPairing {
+struct ConnectionPairing {
     accepted: bool,
     rejected: bool,
     used_client_nonces: std::collections::BTreeSet<[u8; 32]>,
 }
 
 impl ConnectionPairing {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::default()
     }
 
     /// True once this connection presented one valid client proof.
-    pub fn accepted(&self) -> bool {
+    fn accepted(&self) -> bool {
         self.accepted
     }
 
     /// True once this connection was closed for a pairing failure.
-    pub fn rejected(&self) -> bool {
+    fn rejected(&self) -> bool {
         self.rejected
     }
 }
 
 enum PairingGate {
     Proceed,
+    Verified(VerifiedPairing),
     Reject(BridgeRpcResponse),
 }
 
@@ -2141,7 +2404,6 @@ fn enforce_connection_pairing<L>(
     failure_id: &str,
     session: &mut SimBridgeSession<L>,
     state: &mut ConnectionPairing,
-    bound_elsewhere: bool,
 ) -> Result<PairingGate>
 where
     L: Write,
@@ -2165,7 +2427,7 @@ where
         Err(_) => return Ok(PairingGate::Proceed),
     };
     let id = correlatable_rpc_id(&value);
-    if bound_elsewhere {
+    if session.pairing_bound() && !state.accepted {
         return reject(
             session,
             id,
@@ -2184,15 +2446,14 @@ where
         return Ok(PairingGate::Proceed);
     }
     match session.verify_pairing_request(&value, &state.used_client_nonces) {
-        Ok(verified) => {
-            state.used_client_nonces.insert(verified.client_nonce);
-            state.accepted = true;
-            Ok(PairingGate::Proceed)
-        }
+        Ok(verified) => Ok(PairingGate::Verified(verified)),
         Err(error) => reject(session, id, &error.to_string()),
     }
 }
 
+/// Serve an NDJSON connection for a standard profile.
+///
+/// Use [`dispatch_rpc_lines_paired`] for a session that requires pairing.
 pub fn dispatch_rpc_lines<R, O, L>(
     input: R,
     output: &mut O,
@@ -2204,27 +2465,65 @@ where
     O: Write,
     L: Write,
 {
-    dispatch_rpc_lines_paired(input, output, session, actor, None, false)
+    if session.pairing_required() {
+        bail!(
+            "bridge profile {} requires the paired transport dispatcher",
+            session.active_profile()
+        );
+    }
+    dispatch_rpc_lines_with_pairing_state(input, output, session, actor, None)
 }
 
-/// Serve one NDJSON connection, optionally enforcing operator-paste pairing.
+/// Serve one NDJSON connection with operator-paste pairing.
 ///
-/// `pairing` carries the per-connection pairing state. `bound_elsewhere` marks
-/// a connection that arrives after the startup secret is already bound to a
-/// different connection; every request on it is rejected.
+/// This function creates and owns the per-connection authorization state. A
+/// caller cannot inject a pre-authorized state or reuse one across connections.
 pub fn dispatch_rpc_lines_paired<R, O, L>(
+    input: R,
+    output: &mut O,
+    session: &mut SimBridgeSession<L>,
+    actor: Actor,
+) -> Result<PairedConnectionOutcome>
+where
+    R: BufRead,
+    O: Write,
+    L: Write,
+{
+    if !session.pairing_required() {
+        bail!(
+            "bridge profile {} does not require paired dispatch",
+            session.active_profile()
+        );
+    }
+    session.begin_pairing_attempt()?;
+    let mut pairing = ConnectionPairing::new();
+    let handled =
+        dispatch_rpc_lines_with_pairing_state(input, output, session, actor, Some(&mut pairing))?;
+    Ok(PairedConnectionOutcome {
+        handled,
+        accepted: pairing.accepted(),
+        rejected: pairing.rejected(),
+    })
+}
+
+fn dispatch_rpc_lines_with_pairing_state<R, O, L>(
     mut input: R,
     output: &mut O,
     session: &mut SimBridgeSession<L>,
     actor: Actor,
     mut pairing: Option<&mut ConnectionPairing>,
-    bound_elsewhere: bool,
 ) -> Result<usize>
 where
     R: BufRead,
     O: Write,
     L: Write,
 {
+    if session.pairing_required() != pairing.is_some() {
+        bail!(
+            "bridge profile {} received inconsistent internal pairing state",
+            session.active_profile()
+        );
+    }
     let mut handled = 0usize;
     let mut idx = 0usize;
     loop {
@@ -2260,15 +2559,11 @@ where
         if line.trim().is_empty() {
             continue;
         }
+        let mut verified_pairing = None;
         if let Some(state) = pairing.as_deref_mut() {
-            match enforce_connection_pairing(
-                &line,
-                &format!("line-{idx}"),
-                session,
-                state,
-                bound_elsewhere,
-            )? {
+            match enforce_connection_pairing(&line, &format!("line-{idx}"), session, state)? {
                 PairingGate::Proceed => {}
+                PairingGate::Verified(verified) => verified_pairing = Some(verified),
                 PairingGate::Reject(response) => {
                     serde_json::to_writer(&mut *output, &response)
                         .context("failed to write pairing rejection")?;
@@ -2279,18 +2574,39 @@ where
                         .flush()
                         .context("failed to flush pairing rejection")?;
                     // The bridge closes the socket after a rejected pairing.
-                    return Ok(handled);
+                    return Ok(handled + 1);
                 }
             }
         }
-        let response = dispatch_rpc_text_request_with_context(
+        let pairing_authorized = !session.pairing_required()
+            || pairing.as_deref().is_some_and(ConnectionPairing::accepted)
+            || verified_pairing.is_some();
+        let response = match dispatch_rpc_text_request_with_context(
             &line,
             &format!("line-{idx}"),
             "line",
             idx,
             session,
             actor.clone(),
-        )?;
+            pairing_authorized,
+        ) {
+            Ok(response) => response,
+            Err(error) => {
+                session.discard_pending_pairing();
+                return Err(error);
+            }
+        };
+        let verified_exchange = verified_pairing.map(|verified| {
+            session.discard_pending_pairing();
+            let succeeded = response.as_ref().is_some_and(BridgeRpcResponse::is_ok);
+            if !succeeded {
+                let state = pairing
+                    .as_deref_mut()
+                    .expect("verified pairing must retain its connection state");
+                state.rejected = true;
+            }
+            (verified, succeeded)
+        });
         if let Some(response) = response {
             serde_json::to_writer(&mut *output, &response)
                 .context("failed to write RPC response")?;
@@ -2302,8 +2618,21 @@ where
             // this side's BufWriter.
             output.flush().context("failed to flush RPC response")?;
         }
+        // Bind only after the complete mutual-proof response reaches the
+        // transport sink. A socket failure must leave a legitimate client able
+        // to retry on a fresh connection with a fresh nonce.
+        if let Some((verified, true)) = verified_exchange.as_ref() {
+            session.commit_pairing_binding();
+            let state = pairing
+                .as_deref_mut()
+                .expect("verified pairing must retain its connection state");
+            state.used_client_nonces.insert(verified.client_nonce);
+            state.accepted = true;
+        }
+        let pairing_response_failed = verified_exchange.is_some_and(|(_, succeeded)| !succeeded);
         handled += 1;
-        if session.stop_requested()
+        if pairing_response_failed
+            || session.stop_requested()
             || session.run_ended()
             || session.request_limit_reached()
             || session.rpc_input_bytes_remaining() == Some(0)
@@ -2314,6 +2643,9 @@ where
     Ok(handled)
 }
 
+/// Dispatch one JSON-RPC request for a standard profile.
+///
+/// This API rejects a paired profile because it has no per-connection pairing state.
 pub fn dispatch_rpc_text_request<L>(
     text: &str,
     request_index: usize,
@@ -2323,6 +2655,12 @@ pub fn dispatch_rpc_text_request<L>(
 where
     L: Write,
 {
+    if session.pairing_required() {
+        bail!(
+            "bridge profile {} requires the paired transport dispatcher",
+            session.active_profile()
+        );
+    }
     let text_bytes =
         u64::try_from(text.len()).context("JSON-RPC message length does not fit u64")?;
     session.record_rpc_input_bytes(text_bytes)?;
@@ -2341,6 +2679,7 @@ where
         request_index,
         session,
         actor,
+        false,
     )
 }
 
@@ -2351,6 +2690,7 @@ fn dispatch_rpc_text_request_with_context<L>(
     request_index: usize,
     session: &mut SimBridgeSession<L>,
     actor: Actor,
+    pairing_authorized: bool,
 ) -> Result<Option<BridgeRpcResponse>>
 where
     L: Write,
@@ -2429,7 +2769,8 @@ where
                 method,
                 payload: rpc.params.unwrap_or(Value::Null),
             };
-            let response = session.dispatch(&request)?;
+            let response =
+                session.dispatch_with_pairing_authorization(&request, pairing_authorized)?;
             Ok(id.map(|id| BridgeRpcResponse::from_bridge_response_with_id(&response, id)))
         }
         Err(err) => {
@@ -2579,11 +2920,12 @@ pub fn verify_sim_replay(events: &[RunLogEvent], tolerance: f64) -> SimReplayRep
                     );
                 } else {
                     report.seeded_from_step = Some(*step);
-                    sim = Some(DeterministicObjectSim::from_snapshot(
-                        *step,
-                        *timestamp_ns,
-                        objects,
-                    ));
+                    match DeterministicObjectSim::from_snapshot(*step, *timestamp_ns, objects) {
+                        Ok(seed) => sim = Some(seed),
+                        Err(error) => report
+                            .issues
+                            .push(format!("invalid sim_snapshot seed: {error}")),
+                    }
                 }
             }
             RunLogEvent::ActionApplied {
@@ -2885,9 +3227,15 @@ fn apply_replay_action(
                             .push(format!("failed to replay scene.set_object: {error}"));
                         return;
                     }
-                    sim.get_or_insert_with(DeterministicObjectSim::new)
-                        .upsert_object(object);
-                    report.checked_actions += 1;
+                    match sim
+                        .get_or_insert_with(DeterministicObjectSim::new)
+                        .upsert_object(object)
+                    {
+                        Ok(()) => report.checked_actions += 1,
+                        Err(error) => report
+                            .issues
+                            .push(format!("failed to replay scene.set_object: {error}")),
+                    }
                 }
                 Err(err) => report
                     .issues
@@ -3005,7 +3353,8 @@ pub fn demo_sim() -> DeterministicObjectSim {
             orientation_xyzw: [0.0, 0.0, 0.0, 1.0],
         },
         velocity: [0.1, 0.0, 0.0],
-    });
+    })
+    .expect("the built-in red cube must be valid");
     sim.upsert_object(SimObject {
         object_id: "blue_cube".to_string(),
         pose: Pose {
@@ -3013,7 +3362,8 @@ pub fn demo_sim() -> DeterministicObjectSim {
             orientation_xyzw: [0.0, 0.0, 0.0, 1.0],
         },
         velocity: [0.0, 0.05, 0.0],
-    });
+    })
+    .expect("the built-in blue cube must be valid");
     sim
 }
 
@@ -3141,6 +3491,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "rerun-export")]
     #[derive(Clone)]
     struct NthFlushControl {
         bytes: Arc<Mutex<Vec<u8>>>,
@@ -3148,10 +3499,12 @@ mod tests {
         fail_on_flush: Arc<AtomicUsize>,
     }
 
+    #[cfg(feature = "rerun-export")]
     struct NthFlushWriter {
         control: NthFlushControl,
     }
 
+    #[cfg(feature = "rerun-export")]
     impl NthFlushWriter {
         fn new(fail_on_flush: usize) -> (Self, NthFlushControl) {
             let control = NthFlushControl {
@@ -3168,6 +3521,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "rerun-export")]
     impl Write for NthFlushWriter {
         fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
             self.control
@@ -3610,6 +3964,7 @@ mod tests {
             .any(|event| matches!(event, RunLogEvent::BridgeResponse { ok: true, .. })));
     }
 
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn bridge_export_retains_artifact_after_provenance_write_is_attempted() {
         let source = temp_path("pid-sim-export-rollback-source", "jsonl");
@@ -3660,6 +4015,7 @@ mod tests {
         let _ = std::fs::remove_file(source);
     }
 
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn bridge_export_creates_no_artifact_when_preexport_provenance_flush_fails() {
         let source = temp_path("pid-sim-export-preflush-source", "jsonl");
@@ -3697,6 +4053,7 @@ mod tests {
         let _ = std::fs::remove_file(source);
     }
 
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn bridge_export_final_flush_failure_retains_artifact_and_suppresses_response() {
         let source = temp_path("pid-sim-export-final-flush-source", "jsonl");
@@ -3786,7 +4143,8 @@ mod tests {
                 orientation_xyzw: [0.0, 0.0, 0.0, 1.0],
             },
             velocity: [f64::MAX, 0.0, 0.0],
-        });
+        })
+        .unwrap();
         let before = sim.clone();
 
         let error = sim.step_fixed(2.0).unwrap_err();
@@ -3820,6 +4178,70 @@ mod tests {
         assert_eq!(config["sim"]["solver"]["contact_solver"], "none");
         assert_eq!(config["run"]["fixed_dt_secs"], 0.1);
         assert_eq!(config["run"]["safe_mode"], true);
+    }
+
+    #[test]
+    fn bridge_config_binds_the_exact_behavior_profile() {
+        let config = deterministic_bridge_config(
+            "test",
+            "tcp_jsonl",
+            None,
+            None,
+            BridgeRuntimeProfile::EngramHostReadOnly,
+        );
+
+        assert_eq!(
+            config["bridge"]["active_profile"],
+            ENGRAM_HOST_BRIDGE_PROFILE
+        );
+        assert_eq!(
+            config["bridge"]["allowed_methods"],
+            json!(ENGRAM_HOST_ALLOWED_METHODS)
+        );
+        assert_eq!(config["bridge"]["pairing"]["required"], true);
+        assert_eq!(config["bridge"]["pairing"]["mechanism"], PAIRING_MECHANISM);
+        assert_eq!(
+            config["bridge"]["resource_limits"]["max_pairing_attempts"],
+            MAX_PAIRING_ATTEMPTS
+        );
+        assert_eq!(config["run"]["safe_mode"], true);
+    }
+
+    #[test]
+    fn object_upsert_rejects_invalid_state_without_mutation() {
+        let mut sim = demo_sim();
+        let before = sim.clone();
+
+        let error = sim
+            .upsert_object(SimObject {
+                object_id: "invalid".to_string(),
+                pose: Pose {
+                    position: [0.0; 3],
+                    orientation_xyzw: [0.0; 4],
+                },
+                velocity: [0.0; 3],
+            })
+            .unwrap_err();
+
+        assert!(error.to_string().contains("nonzero norm"));
+        assert_eq!(sim, before);
+    }
+
+    #[test]
+    fn snapshot_constructor_rejects_duplicate_object_ids() {
+        let object = SimObjectSnapshot {
+            object_id: "duplicate".to_string(),
+            pose: Pose {
+                position: [0.0; 3],
+                orientation_xyzw: [0.0, 0.0, 0.0, 1.0],
+            },
+            velocity: [0.0; 3],
+        };
+
+        let error =
+            DeterministicObjectSim::from_snapshot(0, 0, &[object.clone(), object]).unwrap_err();
+
+        assert!(error.to_string().contains("duplicate object_id"));
     }
 
     #[test]
@@ -3945,6 +4367,52 @@ mod tests {
         assert_eq!(state.interventions.len(), 0);
     }
 
+    #[cfg(not(feature = "rerun-export"))]
+    #[test]
+    fn lean_bridge_surface_excludes_rerun_export() {
+        let contract = runtime_bridge_contract().unwrap();
+        let methods = contract["bridge"]["methods"].as_array().unwrap();
+        assert!(!methods
+            .iter()
+            .any(|method| method["method"] == "export.rerun"));
+
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        assert!(!session.allowed_methods().contains(&"export.rerun"));
+        let response = session
+            .dispatch(&bridge_request(
+                "lean-export",
+                BridgeMethod::ExportRerun,
+                Actor {
+                    actor_type: ActorType::Script,
+                    actor_id: "lean-bridge-test".to_string(),
+                    session_id: None,
+                },
+                Some(0),
+                0,
+                json!({"run_log_uri": "source.jsonl"}),
+            ))
+            .unwrap();
+        assert!(!response.ok);
+        assert!(response
+            .message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("standard-v1 blocked method export.rerun"));
+    }
+
+    #[cfg(feature = "rerun-export")]
+    #[test]
+    fn full_bridge_surface_includes_rerun_export() {
+        let contract = runtime_bridge_contract().unwrap();
+        let methods = contract["bridge"]["methods"].as_array().unwrap();
+        assert!(methods
+            .iter()
+            .any(|method| method["method"] == "export.rerun"));
+        let session = SimBridgeSession::new(RunLogWriter::new(Vec::new()), demo_sim());
+        assert!(session.allowed_methods().contains(&"export.rerun"));
+    }
+
     #[test]
     fn bridge_session_reports_active_safe_mode_profile_without_runtime_paths() {
         let actor = Actor {
@@ -3994,85 +4462,118 @@ mod tests {
     }
 
     #[test]
-    fn engram_host_profile_is_irreversibly_safe_and_blocks_methods_outside_allowlist() {
+    fn engram_host_profile_is_atomically_paired_safe_and_blocks_methods_outside_allowlist() {
         let actor = Actor {
             actor_type: ActorType::Script,
             actor_id: "engram-host-test".to_string(),
             session_id: None,
         };
         let writer = RunLogWriter::new(Vec::new());
-        let mut session =
-            SimBridgeSession::with_engram_host_profile_and_run_id(writer, demo_sim(), "engram-run");
-        session.set_safe_mode(false);
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "engram-run",
+            PairingSecret::from_bytes([3u8; 32]),
+        );
 
         assert!(session.safe_mode());
+        assert!(session.pairing_required());
         assert_eq!(session.active_profile(), ENGRAM_HOST_BRIDGE_PROFILE);
         assert_eq!(
             session.allowed_methods(),
             &["bridge.describe", "bridge.session", "sim.status"]
         );
-
-        let session_response = session
-            .dispatch(&bridge_request(
-                "req-engram-session",
-                BridgeMethod::BridgeSession,
+        let describe = session
+            .handle_paired_bridge_describe(&bridge_request(
+                "req-engram-describe",
+                BridgeMethod::BridgeDescribe,
                 actor.clone(),
                 Some(0),
                 0,
                 json!({}),
             ))
             .unwrap();
-        let session_result = session_response.result.unwrap();
-        assert_eq!(session_result["safe_mode"], true);
-        assert_eq!(session_result["run_id"], "engram-run");
-        assert_eq!(session_result["active_profile"], ENGRAM_HOST_BRIDGE_PROFILE);
-        assert_eq!(
-            session_result["allowed_methods"],
-            json!(["bridge.describe", "bridge.session", "sim.status"])
-        );
-        assert_eq!(
-            session_result["resource_limits"],
-            serde_json::to_value(ENGRAM_HOST_RESOURCE_LIMITS).unwrap()
-        );
-        assert_eq!(session_result["resource_usage"]["requests"], 1);
-        assert_eq!(session_result["resource_usage"]["input_bytes"], 0);
-        assert_eq!(
-            session_result["resource_usage"]["session_run_log_events"],
-            1
-        );
-        assert!(session_result["resource_usage"]["session_run_log_bytes"]
-            .as_u64()
-            .is_some_and(|bytes| bytes > 0));
+        let described_methods = describe["bridge"]["methods"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|method| method["method"].as_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(described_methods, ENGRAM_HOST_ALLOWED_METHODS);
 
-        let blocked = session
-            .dispatch(&bridge_request(
-                "req-engram-replay",
-                BridgeMethod::LogReplay,
-                actor.clone(),
-                Some(0),
-                0,
-                json!({ "run_log_uri": "not-opened.jsonl" }),
-            ))
-            .unwrap();
-        assert!(!blocked.ok);
-        assert!(blocked
-            .message
-            .as_deref()
-            .unwrap_or_default()
-            .contains(ENGRAM_HOST_BRIDGE_PROFILE));
-
-        let status = session
+        let direct_error = session
             .dispatch(&bridge_request(
                 "req-engram-status",
                 BridgeMethod::SimStatus,
-                actor,
+                actor.clone(),
                 Some(0),
                 0,
                 json!({}),
             ))
-            .unwrap();
-        assert!(status.ok);
+            .unwrap_err();
+        assert!(direct_error
+            .to_string()
+            .contains("requires the paired transport dispatcher"));
+        assert_eq!(session.resource_limits(), Some(ENGRAM_HOST_RESOURCE_LIMITS));
+
+        let secret = PairingSecret::from_bytes([3u8; 32]);
+        let mut input = paired_session_line(
+            &secret,
+            ENGRAM_HOST_BRIDGE_PROFILE,
+            &json!("pair-profile"),
+            [31u8; 32],
+        );
+        input.push_str(
+            r#"{"jsonrpc":"2.0","id":"replay","method":"log.replay","params":{"run_log_uri":"not-opened.jsonl"}}"#,
+        );
+        input.push('\n');
+        input.push_str(r#"{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}"#);
+        input.push('\n');
+        let mut output = Vec::new();
+        let outcome =
+            dispatch_rpc_lines_paired(Cursor::new(input), &mut output, &mut session, actor)
+                .unwrap();
+        assert_eq!(outcome.handled(), 3);
+        assert!(outcome.accepted());
+        let responses = String::from_utf8(output)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str::<BridgeRpcResponse>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert!(responses[0].is_ok());
+        assert!(!responses[1].is_ok());
+        assert!(responses[1]
+            .error
+            .as_ref()
+            .unwrap()
+            .message
+            .contains(ENGRAM_HOST_BRIDGE_PROFILE));
+        assert!(responses[2].is_ok());
         assert_eq!(session.step(), 0);
+    }
+
+    #[test]
+    fn engram_host_constructor_installs_the_exact_production_pairing_budget() {
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "pairing-budget",
+            PairingSecret::from_bytes([7u8; 32]),
+        );
+
+        for expected_used in 1..=MAX_PAIRING_ATTEMPTS {
+            session
+                .begin_pairing_attempt()
+                .expect("every declared production pairing unit must be available");
+            session.record_failed_pairing_attempt();
+            assert_eq!(session.pairing_attempts_used(), expected_used);
+        }
+
+        assert_eq!(MAX_PAIRING_ATTEMPTS, 8);
+        assert!(session.pairing_attempts_exhausted());
+        assert!(session.pairing_latched());
+        assert!(session.begin_pairing_attempt().is_err());
     }
 
     #[test]
@@ -4087,6 +4588,7 @@ mod tests {
             writer,
             demo_sim(),
             "bounded-run",
+            PairingSecret::from_bytes([4u8; 32]),
         );
         session.resource_limits = Some(BridgeSessionResourceLimits {
             max_requests: 2,
@@ -4101,26 +4603,32 @@ mod tests {
 
         for request_id in ["req-bounded-1", "req-bounded-2"] {
             let response = session
-                .dispatch(&bridge_request(
-                    request_id,
-                    BridgeMethod::SimStatus,
-                    actor.clone(),
-                    Some(0),
-                    0,
-                    json!({}),
-                ))
+                .dispatch_with_pairing_authorization(
+                    &bridge_request(
+                        request_id,
+                        BridgeMethod::SimStatus,
+                        actor.clone(),
+                        Some(0),
+                        0,
+                        json!({}),
+                    ),
+                    true,
+                )
                 .unwrap();
             assert!(response.ok);
         }
         let request_error = session
-            .dispatch(&bridge_request(
-                "req-bounded-3",
-                BridgeMethod::SimStatus,
-                actor,
-                Some(0),
-                0,
-                json!({}),
-            ))
+            .dispatch_with_pairing_authorization(
+                &bridge_request(
+                    "req-bounded-3",
+                    BridgeMethod::SimStatus,
+                    actor,
+                    Some(0),
+                    0,
+                    json!({}),
+                ),
+                true,
+            )
             .unwrap_err();
         assert!(request_error.to_string().contains("request limit"));
         assert_eq!(session.requests_used, 2);
@@ -4534,6 +5042,7 @@ mod tests {
         assert!(flow.is_valid(), "{:?}", flow.issues);
     }
 
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn bridge_session_export_rerun_writes_artifact() {
         let source = temp_path("pid-sim-export-rerun-source", "jsonl");
@@ -4611,6 +5120,7 @@ mod tests {
         let _ = std::fs::remove_file(output);
     }
 
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn bridge_session_export_rerun_preserves_preexisting_output() {
         let root = temp_path("pid-sim-export-preserve-root", "dir");
@@ -4650,6 +5160,7 @@ mod tests {
         let _ = std::fs::remove_dir(root);
     }
 
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn export_runlog_to_rerun_preserves_preexisting_target_for_direct_callers() {
         let source = temp_path("pid-sim-export-direct-source", "jsonl");
@@ -4667,6 +5178,41 @@ mod tests {
         let _ = std::fs::remove_file(output);
     }
 
+    #[cfg(all(unix, feature = "rerun-export"))]
+    #[test]
+    fn export_runlog_to_rerun_rejects_symlink_source() {
+        use std::os::unix::fs::symlink;
+
+        let source = temp_path("pid-sim-export-symlink-target", "jsonl");
+        let link = temp_path("pid-sim-export-symlink-source", "jsonl");
+        let output = temp_path("pid-sim-export-symlink-output", "rrd");
+        write_minimal_run_log(&source, "export-symlink-source");
+        symlink(&source, &link).unwrap();
+
+        let error = export_runlog_to_rerun(&link, &output).unwrap_err();
+
+        assert!(error.to_string().contains("non-symlink regular file"));
+        assert!(!output.exists());
+        let _ = std::fs::remove_file(link);
+        let _ = std::fs::remove_file(source);
+    }
+
+    #[cfg(not(feature = "rerun-export"))]
+    #[test]
+    fn direct_rerun_export_api_fails_before_file_work_when_feature_is_disabled() {
+        let source = temp_path("pid-sim-disabled-export-source", "jsonl");
+        let output = temp_path("pid-sim-disabled-export-output", "rrd");
+
+        let error = export_runlog_to_rerun(&source, &output).unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("requires the pid-sim `rerun-export` feature"));
+        assert!(!source.exists());
+        assert!(!output.exists());
+    }
+
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn bridge_session_export_rerun_refuses_own_run_log_and_non_rrd_output() {
         let source = temp_path("pid-sim-export-guard-source", "jsonl");
@@ -4679,7 +5225,7 @@ mod tests {
         };
         let writer = RunLogWriter::new(Vec::new());
         let mut session = SimBridgeSession::new(writer, demo_sim());
-        session.set_run_log_path(&own_log);
+        session.set_run_log_path(&own_log).unwrap();
         set_temp_artifact_root(&mut session, &source);
 
         // Writing over the session's own run log must be refused outright.
@@ -4826,6 +5372,93 @@ mod tests {
             "rejected RPCs must not poison run-log validity: {:?}",
             report.issues
         );
+    }
+
+    #[test]
+    fn rpc_dispatch_rejects_every_noncanonical_method_alias_without_effects() {
+        let mut writer = RunLogWriter::new(Vec::new());
+        append_run_prefix(&mut writer, DEFAULT_BRIDGE_RUN_ID, "rpc-method-aliases");
+        let mut session = SimBridgeSession::new(writer, demo_sim());
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "rpc-method-aliases".to_string(),
+            session_id: None,
+        };
+
+        for (index, alias) in [
+            "bridge_describe",
+            "bridge_session",
+            "sim_status",
+            "sim_reset",
+            "sim_step",
+            "log_start",
+            "log_stop",
+            "log_replay",
+            "scene_set_object",
+            "intervention_apply",
+            "export_rerun",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let request = serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": index,
+                "method": alias,
+                "params": {},
+            }))
+            .unwrap();
+            let response =
+                dispatch_rpc_text_request(&request, index + 1, &mut session, actor.clone())
+                    .unwrap()
+                    .expect("each request has a correlatable id");
+            assert_eq!(
+                response.error.as_ref().map(|error| error.code),
+                Some(-32601),
+                "noncanonical wire method {alias:?} must be Method not found"
+            );
+        }
+
+        assert_eq!(session.step(), 0);
+        let events = read_events(Cursor::new(session.into_inner())).unwrap();
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, RunLogEvent::ErrorLogged { .. }))
+                .count(),
+            11
+        );
+        assert!(!events.iter().any(|event| matches!(
+            event,
+            RunLogEvent::BridgeRequest { .. }
+                | RunLogEvent::ActionApplied { .. }
+                | RunLogEvent::InterventionApplied { .. }
+        )));
+    }
+
+    #[test]
+    fn deterministic_replay_preserves_legacy_underscore_action_aliases() {
+        let mut sim = Some(demo_sim());
+        let mut report = SimReplayReport::default();
+
+        apply_replay_action(&mut sim, "sim_step", &json!({ "dt": 0.01 }), &mut report);
+        apply_replay_action(
+            &mut sim,
+            "scene_set_object",
+            &json!({
+                "object_id": "legacy_alias_object",
+                "pose": {
+                    "position": [0.0, 0.0, 0.0],
+                    "orientation_xyzw": [0.0, 0.0, 0.0, 1.0]
+                },
+                "velocity": [0.0, 0.0, 0.0]
+            }),
+            &mut report,
+        );
+        apply_replay_action(&mut sim, "sim_reset", &json!({}), &mut report);
+
+        assert_eq!(report.checked_actions, 3);
+        assert!(report.is_valid(), "{:?}", report.issues);
     }
 
     #[test]
@@ -5237,6 +5870,7 @@ mod tests {
         assert!(report.checked_flows > 0);
     }
 
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn bridge_session_export_rerun_requires_run_log_uri() {
         let actor = Actor {
@@ -5263,6 +5897,7 @@ mod tests {
             .contains("requires string run_log_uri"));
     }
 
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn bridge_session_export_rerun_rejects_source_overwrite() {
         let source = temp_path("pid-sim-export-rerun-overwrite-source", "jsonl");
@@ -5298,6 +5933,7 @@ mod tests {
         let _ = std::fs::remove_file(source);
     }
 
+    #[cfg(feature = "rerun-export")]
     #[test]
     fn bridge_session_safe_mode_blocks_export_rerun() {
         let source = temp_path("pid-sim-safe-export-rerun-source", "jsonl");
@@ -5662,38 +6298,87 @@ mod tests {
             session_id: None,
         };
         let writer = RunLogWriter::new(Vec::new());
-        let mut session =
-            SimBridgeSession::with_engram_host_profile_and_run_id(writer, demo_sim(), "rpc-budget");
-        session.resource_limits = Some(BridgeSessionResourceLimits {
-            max_requests: 2,
-            ..ENGRAM_HOST_RESOURCE_LIMITS
-        });
-        let input = concat!(
-            r#"{"jsonrpc":"2.0","id":"status-1","method":"sim.status","params":{}}"#,
-            "\n",
-            r#"{"jsonrpc":"2.0","id":"status-2","method":"sim.status","params":{}}"#,
-            "\n",
-            r#"{"jsonrpc":"2.0","id":"status-3","method":"sim.status","params":{}}"#,
-            "\n"
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "rpc-budget",
+            PairingSecret::from_bytes([5u8; 32]),
         );
+        let secret = PairingSecret::from_bytes([5u8; 32]);
+        let mut input = paired_session_line(
+            &secret,
+            ENGRAM_HOST_BRIDGE_PROFILE,
+            &json!("pair-budget"),
+            [32u8; 32],
+        );
+        for index in 0..ENGRAM_HOST_RESOURCE_LIMITS.max_requests {
+            input.push_str(&format!(
+                r#"{{"jsonrpc":"2.0","id":"status-{index}","method":"sim.status","params":{{}}}}"#
+            ));
+            input.push('\n');
+        }
         let expected_input_bytes = input
             .lines()
-            .take(2)
+            .take(ENGRAM_HOST_RESOURCE_LIMITS.max_requests)
             .map(|line| line.len() + 1)
             .sum::<usize>();
         let mut output = Vec::new();
+        let outcome =
+            dispatch_rpc_lines_paired(Cursor::new(input), &mut output, &mut session, actor)
+                .unwrap();
 
-        let handled =
-            dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap();
-
-        assert_eq!(handled, 2);
-        assert_eq!(session.requests_used, 2);
+        assert_eq!(outcome.handled(), ENGRAM_HOST_RESOURCE_LIMITS.max_requests);
+        assert!(outcome.accepted());
+        assert_eq!(
+            session.requests_used,
+            ENGRAM_HOST_RESOURCE_LIMITS.max_requests
+        );
         assert_eq!(
             session.input_bytes_used,
             u64::try_from(expected_input_bytes).unwrap()
         );
-        assert_eq!(String::from_utf8(output).unwrap().lines().count(), 2);
+        assert_eq!(
+            String::from_utf8(output).unwrap().lines().count(),
+            ENGRAM_HOST_RESOURCE_LIMITS.max_requests
+        );
         assert_eq!(session.step(), 0);
+    }
+
+    #[test]
+    fn engram_profile_rejects_unpaired_public_rpc_dispatchers() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-unpaired-api-test".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "unpaired-api",
+            PairingSecret::from_bytes([33u8; 32]),
+        );
+        let request = r#"{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}"#;
+        let mut output = Vec::new();
+
+        let lines_error = dispatch_rpc_lines(
+            Cursor::new(format!("{request}\n")),
+            &mut output,
+            &mut session,
+            actor.clone(),
+        )
+        .unwrap_err();
+        assert!(lines_error
+            .to_string()
+            .contains("requires the paired transport dispatcher"));
+
+        let text_error = dispatch_rpc_text_request(request, 1, &mut session, actor).unwrap_err();
+        assert!(text_error
+            .to_string()
+            .contains("requires the paired transport dispatcher"));
+        assert!(output.is_empty());
+        assert_eq!(session.requests_used, 0);
+        assert_eq!(session.input_bytes_used, 0);
     }
 
     #[test]
@@ -5708,12 +6393,12 @@ mod tests {
             writer,
             demo_sim(),
             "line-budget",
+            PairingSecret::from_bytes([6u8; 32]),
         );
         let input = vec![b' '; ENGRAM_HOST_RESOURCE_LIMITS.max_rpc_line_bytes as usize];
         let mut output = Vec::new();
-
-        let error =
-            dispatch_rpc_lines(Cursor::new(input), &mut output, &mut session, actor).unwrap_err();
+        let error = dispatch_rpc_lines_paired(Cursor::new(input), &mut output, &mut session, actor)
+            .unwrap_err();
 
         assert!(error.to_string().contains("exceeds 65536 bytes"));
         assert!(output.is_empty());
@@ -5828,11 +6513,7 @@ mod tests {
         nonce: [u8; 32],
     ) -> String {
         use base64::Engine as _;
-        let request_id_json = serde_json::to_string(id).unwrap();
-        let proof = engram_pairing::hmac_sha256(
-            secret.key_for_test(),
-            &engram_pairing::client_proof_message(profile, &request_id_json, &nonce),
-        );
+        let proof = secret.client_proof(profile, id, &nonce).unwrap();
         let request = json!({
             "jsonrpc": "2.0",
             "id": id,
@@ -5857,28 +6538,22 @@ mod tests {
             session_id: None,
         };
         let writer = RunLogWriter::new(Vec::new());
-        let mut session =
-            SimBridgeSession::with_engram_host_profile_and_run_id(writer, demo_sim(), "paired-run");
         let secret = PairingSecret::from_bytes([13u8; 32]);
-        session.enable_engram_pairing(PairingSecret::from_bytes([13u8; 32]), MAX_PAIRING_ATTEMPTS);
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "paired-run",
+            PairingSecret::from_bytes([13u8; 32]),
+        );
         let profile = ENGRAM_HOST_BRIDGE_PROFILE;
         let input = paired_session_line(&secret, profile, &json!("pair-1"), [21u8; 32]);
         let mut output = Vec::new();
-        let mut pairing = ConnectionPairing::new();
+        let outcome =
+            dispatch_rpc_lines_paired(Cursor::new(input), &mut output, &mut session, actor)
+                .unwrap();
 
-        session.begin_pairing_attempt().unwrap();
-        let handled = dispatch_rpc_lines_paired(
-            Cursor::new(input),
-            &mut output,
-            &mut session,
-            actor,
-            Some(&mut pairing),
-            false,
-        )
-        .unwrap();
-
-        assert_eq!(handled, 1);
-        assert!(pairing.accepted());
+        assert_eq!(outcome.handled(), 1);
+        assert!(outcome.accepted());
         assert!(session.pairing_bound());
         assert_eq!(session.pairing_attempts_used(), 1);
 
@@ -5907,22 +6582,16 @@ mod tests {
         let server_proof =
             engram_pairing::decode_32_byte_base64url(server["server_proof"].as_str().unwrap())
                 .unwrap();
-        let core_hash =
-            engram_pairing::sha256(engram_pairing::jcs_canonicalize(&core).unwrap().as_bytes());
-        let expected = engram_pairing::hmac_sha256(
-            secret.key_for_test(),
-            &engram_pairing::server_proof_message(
+        secret
+            .verify_server_proof(
                 profile,
-                "\"pair-1\"",
+                &json!("pair-1"),
                 &[21u8; 32],
                 &server_nonce,
-                &core_hash,
-            ),
-        );
-        assert!(engram_pairing::constant_time_eq_32(
-            &expected,
-            &server_proof
-        ));
+                &core,
+                &server_proof,
+            )
+            .expect("the client should verify the server proof");
     }
 
     #[test]
@@ -5937,8 +6606,8 @@ mod tests {
             writer,
             demo_sim(),
             "paired-wrong",
+            PairingSecret::from_bytes([13u8; 32]),
         );
-        session.enable_engram_pairing(PairingSecret::from_bytes([13u8; 32]), MAX_PAIRING_ATTEMPTS);
         // Proof built from a one-bit-modified secret.
         let mut wrong = [13u8; 32];
         wrong[0] ^= 0x01;
@@ -5953,23 +6622,14 @@ mod tests {
         input.push_str(r#"{"jsonrpc":"2.0","id":"status","method":"sim.status","params":{}}"#);
         input.push('\n');
         let mut output = Vec::new();
-        let mut pairing = ConnectionPairing::new();
-
-        session.begin_pairing_attempt().unwrap();
-        let handled = dispatch_rpc_lines_paired(
-            Cursor::new(input),
-            &mut output,
-            &mut session,
-            actor,
-            Some(&mut pairing),
-            false,
-        )
-        .unwrap();
+        let outcome =
+            dispatch_rpc_lines_paired(Cursor::new(input), &mut output, &mut session, actor)
+                .unwrap();
 
         // The rejection closes the socket before the second line runs.
-        assert_eq!(handled, 0);
-        assert!(pairing.rejected());
-        assert!(!pairing.accepted());
+        assert_eq!(outcome.handled(), 1);
+        assert!(outcome.rejected());
+        assert!(!outcome.accepted());
         assert!(!session.pairing_bound());
 
         let text = String::from_utf8(output).unwrap();
@@ -5986,6 +6646,122 @@ mod tests {
     }
 
     #[test]
+    fn paired_dispatch_commits_binding_only_after_an_exact_session_exchange() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-paired-two-phase".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "paired-two-phase",
+            PairingSecret::from_bytes([31u8; 32]),
+        );
+        let secret = PairingSecret::from_bytes([31u8; 32]);
+        let valid = paired_session_line(
+            &secret,
+            ENGRAM_HOST_BRIDGE_PROFILE,
+            &json!("pair-invalid-shape"),
+            [41u8; 32],
+        );
+        let mut invalid: Value = serde_json::from_str(valid.trim()).unwrap();
+        invalid["extension"] = json!(true);
+        let invalid = format!("{}\n", serde_json::to_string(&invalid).unwrap());
+        let mut rejected_output = Vec::new();
+
+        let rejected = dispatch_rpc_lines_paired(
+            Cursor::new(invalid),
+            &mut rejected_output,
+            &mut session,
+            actor.clone(),
+        )
+        .unwrap();
+
+        assert!(rejected.rejected());
+        assert!(!rejected.accepted());
+        assert!(!session.pairing_bound());
+        let rejection: BridgeRpcResponse =
+            serde_json::from_slice(rejected_output.strip_suffix(b"\n").unwrap()).unwrap();
+        assert_eq!(
+            rejection.error.as_ref().map(|error| error.code),
+            Some(PAIRING_ERROR_CODE)
+        );
+
+        let retry = paired_session_line(
+            &secret,
+            ENGRAM_HOST_BRIDGE_PROFILE,
+            &json!("pair-valid-retry"),
+            [42u8; 32],
+        );
+        let mut accepted_output = Vec::new();
+        let accepted = dispatch_rpc_lines_paired(
+            Cursor::new(retry),
+            &mut accepted_output,
+            &mut session,
+            actor,
+        )
+        .unwrap();
+
+        assert!(accepted.accepted());
+        assert!(session.pairing_bound());
+        assert_eq!(session.pairing_attempts_used(), 2);
+    }
+
+    #[test]
+    fn paired_dispatch_leaves_secret_unbound_when_wire_response_fails() {
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "engram-paired-wire-failure".to_string(),
+            session_id: None,
+        };
+        let writer = RunLogWriter::new(Vec::new());
+        let mut session = SimBridgeSession::with_engram_host_profile_and_run_id(
+            writer,
+            demo_sim(),
+            "paired-wire-failure",
+            PairingSecret::from_bytes([35u8; 32]),
+        );
+        let secret = PairingSecret::from_bytes([35u8; 32]);
+        let first = paired_session_line(
+            &secret,
+            ENGRAM_HOST_BRIDGE_PROFILE,
+            &json!("pair-wire-failure"),
+            [45u8; 32],
+        );
+        let (mut failed_output, output_control) = LineGateWriter::new();
+        output_control.allowed_lines.store(0, Ordering::SeqCst);
+
+        let error = dispatch_rpc_lines_paired(
+            Cursor::new(first),
+            &mut failed_output,
+            &mut session,
+            actor.clone(),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("failed to write RPC response"));
+        assert!(!session.pairing_bound());
+        assert_eq!(session.pairing_attempts_used(), 1);
+
+        let retry = paired_session_line(
+            &secret,
+            ENGRAM_HOST_BRIDGE_PROFILE,
+            &json!("pair-wire-retry"),
+            [46u8; 32],
+        );
+        let mut retry_output = Vec::new();
+        let outcome =
+            dispatch_rpc_lines_paired(Cursor::new(retry), &mut retry_output, &mut session, actor)
+                .unwrap();
+
+        assert!(outcome.accepted());
+        assert!(session.pairing_bound());
+        assert_eq!(session.pairing_attempts_used(), 2);
+    }
+
+    #[test]
     fn paired_dispatch_rejects_a_connection_bound_elsewhere() {
         let actor = Actor {
             actor_type: ActorType::Script,
@@ -5997,34 +6773,41 @@ mod tests {
             writer,
             demo_sim(),
             "paired-bound-elsewhere",
+            PairingSecret::from_bytes([13u8; 32]),
         );
         let secret = PairingSecret::from_bytes([13u8; 32]);
-        session.enable_engram_pairing(PairingSecret::from_bytes([13u8; 32]), MAX_PAIRING_ATTEMPTS);
-        // Even a perfectly valid proof is rejected once the secret is bound to a
-        // different connection: this models a captured-request replay.
-        let input = paired_session_line(
+        let captured_request = paired_session_line(
             &secret,
             ENGRAM_HOST_BRIDGE_PROFILE,
             &json!("replay"),
             [23u8; 32],
         );
-        let mut output = Vec::new();
-        let mut pairing = ConnectionPairing::new();
+        let mut first_output = Vec::new();
+        let first_outcome = dispatch_rpc_lines_paired(
+            Cursor::new(captured_request.clone()),
+            &mut first_output,
+            &mut session,
+            actor.clone(),
+        )
+        .unwrap();
+        assert_eq!(first_outcome.handled(), 1);
+        assert!(first_outcome.accepted());
+        assert!(session.pairing_bound());
 
-        session.begin_pairing_attempt().unwrap();
-        let handled = dispatch_rpc_lines_paired(
-            Cursor::new(input),
+        // Even the same valid proof is rejected on a fresh connection. The
+        // dispatcher derives this from session state; callers cannot override it.
+        let mut output = Vec::new();
+        let outcome = dispatch_rpc_lines_paired(
+            Cursor::new(captured_request),
             &mut output,
             &mut session,
             actor,
-            Some(&mut pairing),
-            true,
         )
         .unwrap();
 
-        assert_eq!(handled, 0);
-        assert!(pairing.rejected());
-        assert!(!session.pairing_bound());
+        assert_eq!(outcome.handled(), 1);
+        assert!(outcome.rejected());
+        assert!(session.pairing_bound());
         let response: Value =
             serde_json::from_str(String::from_utf8(output).unwrap().lines().next().unwrap())
                 .unwrap();

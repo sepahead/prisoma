@@ -12,24 +12,26 @@
 > This brief is self-contained. Read it top to
 > bottom before touching code.
 
-> **Compatibility boundary (rechecked 2026-08-03):** keep the latest immutable NCP
+> **Compatibility boundary (rechecked 2026-08-11):** keep the latest immutable NCP
 > `v0.8.0` release / wire 0.8. Official NCP main was observed at
-> `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` during this check. That commit is the
+> `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` during this check. That commit is the
 > unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
 > compact proto contract hash `163acc57d8a62b66`). It uses a different wire.
 > NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and
 > **NOT RUN**. They cover the native-1.0 observer, missing-variable and research-claim
 > semantics, and fault-observatory migration plus Prisoma observer-role qualification.
-> See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
+> See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
 
 ## 1. Context (what this is and is not)
 
-**prisoma** is a Partial Information Decomposition (PID) toolkit for Vision-Language-Action
-(VLA) policies. Its analysis is **source-agnostic**: everything downstream consumes
-`(V,L,D,A)`+labels artifacts in one schema (the `OfflineVldaDataset` JSON the
-`pid-offline-harness` reads). In `(V,L,D,A)`, **D is the Dynamics / internal-state
-("hidden states") axis, not depth** — defined per model as an experimental variable
-(grandplan §9.1 warns against pre-labelling V/L/D; §9.2 pathway-source selection).
+**prisoma** builds auditable experiment semantics for intervention-grounded diagnosis of
+Vision-Language-Action (VLA) policies. PID is one conditional diagnostic, not the system's
+identity or an assumed result. Its analysis is **source-agnostic**: downstream tools consume
+`(V,L,D,A)`+labels artifacts in one schema (the `OfflineVldaDataset` JSON that the
+`pid-offline-harness` reads). In `(V,L,D,A)`, **D is a declared source axis, not depth**.
+Its producer, timing, ancestry, and scientific role are experimental variables.
+`grandplan.md` §9.1 forbids premature V/L/D semantic labels, and §9.2 defines
+pathway-source selection.
 
 The analysis receives that contract through several adapters:
 
@@ -61,14 +63,14 @@ when its artifact passes the offline harness's **strict leakage gates** and carr
 **honest provenance**, i.e. it can be run with all of:
 
 ```
-cargo run --locked -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
+cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
   --require-success-labels --require-heldout-split \
   --require-heldout-class-coverage --require-heldout-episode-disjoint \
   --require-axis-provenance-honest
 ```
 
-(`--require-axis-provenance-honest` is the opt-in gate — mirroring `--require-geometry-pass` —
-that fails the run on degraded or absent axis-provenance markers; the `just safe-adapter`
+(`--require-axis-provenance-honest` is the opt-in gate that fails the run on degraded or absent
+axis-provenance markers. Geometry diagnostics are descriptive and never gate validity. The `just safe-adapter`
 recipe already runs it alongside the three held-out gates.)
 
 …exiting 0. That establishes only the adapter-side prerequisites for H1/H2 baselines and the
@@ -233,7 +235,7 @@ cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml \
 # repo root — always go through --manifest-path)
 cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
     --open --session uav3 --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
-cargo run --locked -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
+cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
     --pid-mode none --summary-json outputs/ncp_summary.json \
     --runlog outputs/ncp_baseline_runlog.jsonl
 ```

@@ -54,13 +54,14 @@ GITLEAKS_VERSION = "8.30.1"
 GITLEAKS_REVISION = "83d9cd684c87d95d656c1458ef04895a7f1cbd8e"
 CREBAIN_REVIEW_REVISION = "7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6"
 ENGRAM_PLACEHOLDER_REVISION = "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
-PAPER2BRAIN_REVIEW_REVISION = "07b85ac48b9e2125ebc8b9d3a63d29926ff293fa"
+PAPER2BRAIN_REVIEW_REVISION = "62af3b5a31ef11f7f7a61cf535e2576cc11b0ad9"
+PID_RS_UPSTREAM_REVISION = "cb351ad25803be35edd776245a37e24c69a03f3f"
 NCP_LEGACY_TAG = "v0.8.0"
 NCP_LEGACY_VERSION = "0.8.0"
 NCP_LEGACY_REVISION = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
 NCP_LEGACY_WIRE = "0.8"
 NCP_LEGACY_COMPACT_HASH = "d1b50a2d8a265276"
-NCP_CANDIDATE_REVISION = "1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd"
+NCP_CANDIDATE_REVISION = "1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68"
 NCP_CANDIDATE_COMPACT_HASH = "163acc57d8a62b66"
 NCP_LEGACY_SOURCE_URL = f"https://github.com/sepahead/NCP/tree/{NCP_LEGACY_TAG}"
 NCP_CANDIDATE_SOURCE_URL = (
@@ -79,6 +80,17 @@ class TruthAuditError(RuntimeError):
     """An input violated the bounded repository-truth audit contract."""
 
 
+def _stable_file_identity(value: os.stat_result) -> tuple[int, int, int, int, int, int]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
 def _read_regular_bytes(path: Path, *, label: str) -> bytes:
     try:
         before = path.lstat()
@@ -91,17 +103,21 @@ def _read_regular_bytes(path: Path, *, label: str) -> bytes:
             f"{label} exceeds the {MAX_REPO_FILE_BYTES}-byte limit: {path}"
         )
 
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     try:
         descriptor = os.open(path, flags)
     except OSError as error:
         raise TruthAuditError(f"cannot open {label} {path}: {error}") from error
     try:
         opened = os.fstat(descriptor)
-        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
-            before.st_dev,
-            before.st_ino,
-        ):
+        if not stat.S_ISREG(opened.st_mode) or _stable_file_identity(
+            opened
+        ) != _stable_file_identity(before):
             raise TruthAuditError(f"{label} changed while opening: {path}")
         chunks: list[bytes] = []
         remaining = MAX_REPO_FILE_BYTES + 1
@@ -112,6 +128,10 @@ def _read_regular_bytes(path: Path, *, label: str) -> bytes:
             chunks.append(chunk)
             remaining -= len(chunk)
         after = os.fstat(descriptor)
+        try:
+            named_after = path.lstat()
+        except OSError as error:
+            raise TruthAuditError(f"{label} changed while reading: {path}") from error
     finally:
         os.close(descriptor)
     payload = b"".join(chunks)
@@ -119,12 +139,13 @@ def _read_regular_bytes(path: Path, *, label: str) -> bytes:
         raise TruthAuditError(
             f"{label} exceeds the {MAX_REPO_FILE_BYTES}-byte limit: {path}"
         )
-    if (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns) != (
-        after.st_dev,
-        after.st_ino,
-        after.st_size,
-        after.st_mtime_ns,
-    ) or len(payload) != after.st_size:
+    if (
+        not stat.S_ISREG(after.st_mode)
+        or not stat.S_ISREG(named_after.st_mode)
+        or _stable_file_identity(opened) != _stable_file_identity(after)
+        or _stable_file_identity(after) != _stable_file_identity(named_after)
+        or len(payload) != after.st_size
+    ):
         raise TruthAuditError(f"{label} changed while reading: {path}")
     return payload
 
@@ -210,9 +231,7 @@ def _repo_relative_path(raw: Any, *, label: str) -> Path:
     return resolved
 
 
-def _terminate(process: subprocess.Popen[bytes]) -> None:
-    if process.returncode is not None:
-        return
+def _kill_process_group(process: subprocess.Popen[bytes]) -> None:
     if os.name == "posix":
         try:
             os.killpg(process.pid, signal.SIGKILL)
@@ -221,6 +240,13 @@ def _terminate(process: subprocess.Popen[bytes]) -> None:
         except PermissionError:
             if sys.platform != "darwin":
                 raise
+
+
+def _terminate(process: subprocess.Popen[bytes]) -> None:
+    if process.returncode is not None:
+        return
+    if os.name == "posix":
+        _kill_process_group(process)
     else:
         try:
             process.kill()
@@ -279,16 +305,10 @@ def _run_bounded(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise subprocess.TimeoutExpired(command, timeout_seconds)
-        if os.name == "posix":
-            _terminate(process)
+        # EOF on both pipes does not imply that the process has exited. Let the
+        # fixed Git command finish normally; reserve group termination for an
+        # error or timeout.
         return_code = process.wait(timeout=remaining)
-    except BaseException:
-        _terminate(process)
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            pass
-        raise
     finally:
         _terminate(process)
         try:
@@ -484,6 +504,113 @@ def root_release_identity_problems() -> list[str]:
     return problems
 
 
+def cargo_deny_policy_problems() -> list[str]:
+    """Keep the declared transitive advisory policy fail-closed."""
+
+    data = _toml_object(ROOT / "deny.toml", label="deny.toml")
+    advisories = data.get("advisories")
+    if not isinstance(advisories, dict):
+        raise TruthAuditError("deny.toml advisories table is missing")
+
+    problems: list[str] = []
+    for policy in ("unsound", "unmaintained"):
+        if advisories.get(policy) != "all":
+            problems.append(
+                f"deny.toml advisories.{policy} must be `all` for transitive coverage"
+            )
+    return problems
+
+
+def pid_sim_dependency_isolation_problems() -> list[str]:
+    """Keep optional workloads out of the default execution graph."""
+
+    root_data = _toml_object(ROOT / "Cargo.toml", label="Cargo.toml")
+    workspace = root_data.get("workspace")
+    if not isinstance(workspace, dict):
+        raise TruthAuditError("Cargo.toml workspace table is missing")
+    data = _toml_object(ROOT / "crates/pid-sim/Cargo.toml", label="pid-sim Cargo.toml")
+    library_source = _read_regular_text(
+        ROOT / "crates/pid-sim/src/lib.rs", label="pid-sim library source"
+    )
+    dependencies = data.get("dependencies")
+    features = data.get("features")
+    if not isinstance(dependencies, dict) or not isinstance(features, dict):
+        raise TruthAuditError("pid-sim dependency or feature table is missing")
+
+    problems: list[str] = []
+    if workspace.get("default-members") != [
+        "crates/pid-bridge",
+        "crates/pid-sim",
+    ]:
+        problems.append(
+            "Cargo.toml default-members must remain the bridge and simulation core"
+        )
+    if features.get("default") not in (None, []):
+        problems.append("pid-sim default feature set must remain empty")
+    optional_dependencies = {
+        "pid-core": "analysis",
+        "same-file": "analysis",
+        "sha1": "websocket",
+        "pid-rerun": "rerun-export",
+        "tempfile": "rerun-export",
+        "rapier3d-f64": "rapier",
+    }
+    for dependency, feature in optional_dependencies.items():
+        declaration = dependencies.get(dependency)
+        if not isinstance(declaration, dict) or declaration.get("optional") is not True:
+            problems.append(f"pid-sim dependency {dependency!r} must remain optional")
+            continue
+        feature_members = features.get(feature)
+        if (
+            not isinstance(feature_members, list)
+            or f"dep:{dependency}" not in feature_members
+        ):
+            problems.append(
+                f"pid-sim feature {feature!r} must enable dependency {dependency!r}"
+            )
+
+    for binary, feature in (
+        ("pid-sim-legacy-sensitivity", "legacy-sensitivity"),
+        ("pid-h1-preflight", "protocol-references"),
+        ("pid-h1-protocol-a", "protocol-references"),
+        ("pid-h2-reference", "protocol-references"),
+        ("pid-toy-harness", "analysis"),
+        ("pid-offline-harness", "analysis"),
+        ("pid-sim-bridge-ws", "websocket"),
+        ("pid-rapier-harness", "rapier"),
+    ):
+        rows = data.get("bin")
+        matches = (
+            [row for row in rows if isinstance(row, dict) and row.get("name") == binary]
+            if isinstance(rows, list)
+            else []
+        )
+        if len(matches) != 1 or matches[0].get("required-features") != [feature]:
+            problems.append(
+                f"pid-sim binary {binary!r} must require feature {feature!r}"
+            )
+
+    for module, feature in (
+        ("legacy_sensitivity", "legacy-sensitivity"),
+        ("h1_preflight", "protocol-references"),
+        ("h1_protocol_a", "protocol-references"),
+        ("h2_reference", "protocol-references"),
+        ("manipulation", "rapier"),
+        ("physics", "rapier"),
+        ("offline_harness", "analysis"),
+        ("toy_harness", "analysis"),
+    ):
+        gate = re.compile(
+            rf'#\[cfg\(feature = "{re.escape(feature)}"\)\]\s+'
+            rf'(?:#\[path = "[^"]+"\]\s+)?pub mod {re.escape(module)};'
+        )
+        if gate.search(library_source) is None:
+            problems.append(
+                f"pid-sim module {module!r} must require feature {feature!r}"
+            )
+    return problems
+
+
 def locked_package_version(lock_path: Path, name: str) -> str | None:
     data = _toml_object(lock_path, label=str(lock_path.relative_to(ROOT)))
     packages = _object_list(data.get("package"), label=f"{lock_path}.package")
@@ -596,7 +723,7 @@ def justfile_reproducibility_problems() -> list[str]:
     text = _read_regular_text(ROOT / "justfile", label="justfile")
     strict_shell = 'set shell := ["bash", "-euo", "pipefail", "-c"]'
     raw_interpolation = re.compile(r"\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\}")
-    cargo_resolver_command = re.compile(r"\bcargo\s+(?:build|clippy|run|test)\b")
+    cargo_resolver_command = re.compile(r"\bcargo\s+(?:build|clippy|doc|run|test)\b")
     optimization_guard = (
         "sys.flags.optimize == 0 or sys.exit("
         '"recipe checks require unoptimized Python")'
@@ -622,12 +749,60 @@ def justfile_reproducibility_problems() -> list[str]:
     return problems
 
 
+def local_quality_gate_problems() -> list[str]:
+    """Keep one visible aggregate local gate without claiming shell semantics."""
+
+    text = _read_regular_text(ROOT / "justfile", label="justfile")
+    problems: list[str] = []
+    lines = text.splitlines()
+    try:
+        header_index = lines.index("check:")
+    except ValueError:
+        problems.append("justfile aggregate check omits 'check:'")
+        check_commands: set[str] = set()
+    else:
+        check_commands = set()
+        for line in lines[header_index + 1 :]:
+            if line and not line[0].isspace():
+                break
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                check_commands.add(stripped)
+
+    for required in (
+        "cargo fmt --all -- --check",
+        "cargo check --locked -p pid-bridge -p pid-sim --all-targets --no-default-features",
+        "cargo test --locked -p pid-sim --no-default-features lean_bridge_surface_excludes_rerun_export",
+        "cargo clippy --locked --workspace --all-targets --all-features -- -D warnings",
+        "cargo test --locked --workspace --all-targets --all-features",
+        'RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps',
+        "just python-lint",
+        "just python-test",
+        "just docs-audit",
+        "just notices-check",
+    ):
+        if required not in check_commands:
+            problems.append(f"justfile aggregate check omits {required!r}")
+
+    for relative in (
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+    ):
+        document = _read_regular_text(ROOT / relative, label=relative)
+        if "`just check`" not in document:
+            problems.append(f"{relative} omits the required `just check` gate")
+    return problems
+
+
 def readme_reproducibility_problems() -> list[str]:
     """Keep public dependency-resolving examples on the checked lockfiles."""
 
     problems: list[str] = []
     text = _read_regular_text(ROOT / "README.md", label="README.md")
-    cargo_resolver_command = re.compile(r"\bcargo\s+(?:build|check|clippy|run|test)\b")
+    cargo_resolver_command = re.compile(
+        r"\bcargo\s+(?:build|check|clippy|doc|run|test)\b"
+    )
     for line_no, line in enumerate(text.splitlines(), 1):
         if cargo_resolver_command.search(line) and "--locked" not in line:
             problems.append(
@@ -806,6 +981,8 @@ def _audit() -> int:
     revision = gitlink_revision()
     short = revision[:7]
     problems.extend(root_release_identity_problems())
+    problems.extend(cargo_deny_policy_problems())
+    problems.extend(pid_sim_dependency_isolation_problems())
 
     worktree_revision = git_output("-C", "pid-rs", "rev-parse", "HEAD")
     if worktree_revision != revision:
@@ -955,6 +1132,7 @@ def _audit() -> int:
     problems.extend(exp0_command_problems())
     problems.extend(exp0_documentation_problems())
     problems.extend(justfile_reproducibility_problems())
+    problems.extend(local_quality_gate_problems())
     problems.extend(readme_reproducibility_problems())
     problems.extend(flake_reproducibility_problems())
     problems.extend(precommit_reproducibility_problems())
@@ -1169,9 +1347,7 @@ def _audit() -> int:
         "integrations/engram/README.md",
     )
     for relative in current_ncp_docs:
-        text = " ".join(
-            _read_regular_text(ROOT / relative, label=relative).split()
-        )
+        text = " ".join(_read_regular_text(ROOT / relative, label=relative).split())
         for required in (
             NCP_LEGACY_TAG,
             f"`{NCP_CANDIDATE_REVISION}`",
@@ -1312,13 +1488,9 @@ def _audit() -> int:
             problems.append(
                 "ecosystem evidence overlay pid-rs source does not match the indexed gitlink"
             )
-        upstream_head_observed = pid_override.get("upstream_head_observed")
-        if (
-            not isinstance(upstream_head_observed, str)
-            or re.fullmatch(r"[0-9a-f]{40}", upstream_head_observed) is None
-        ):
-            raise TruthAuditError(
-                "ecosystem evidence overlay pid-rs upstream-head observation is invalid"
+        if pid_override.get("upstream_head_observed") != PID_RS_UPSTREAM_REVISION:
+            problems.append(
+                "ecosystem evidence overlay has a stale pid-rs upstream-head observation"
             )
         ncp_override = overrides.get("NCP", {})
         if ncp_override.get("resolved_revision") != NCP_LEGACY_REVISION:
@@ -1449,9 +1621,7 @@ def _audit() -> int:
                 descriptor_path_raw, label="Prisoma Engram descriptor path"
             )
             descriptor_sha256 = hashlib.sha256(
-                _read_regular_bytes(
-                    descriptor_path, label="Prisoma Engram descriptor"
-                )
+                _read_regular_bytes(descriptor_path, label="Prisoma Engram descriptor")
             ).hexdigest()
             if (
                 descriptor_sha256 != ENGRAM_DESCRIPTOR_SHA256
@@ -1469,6 +1639,12 @@ def _audit() -> int:
                 problems.append(
                     "Prisoma Engram descriptor lock does not match its exact bytes"
                 )
+        if paper2brain_override.get("provider_descriptor_path") != (
+            "integrations/extensions/prisoma/manifest.json"
+        ):
+            problems.append(
+                "ecosystem evidence overlay omits the current Paper2Brain descriptor path"
+            )
 
     claim_registry_path = ROOT / "protocols/research_claim_registry_v1.json"
     if not _is_regular_file(claim_registry_path):

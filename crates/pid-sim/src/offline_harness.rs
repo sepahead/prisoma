@@ -1,15 +1,18 @@
+use crate::file_snapshot::{
+    parse_strict_json, read_bounded_regular_file, validate_strict_json_lines,
+};
 use anyhow::{bail, ensure, Context, Result};
 use pid_core::diagnostics::{
-    distance_concentration_stats, entropy_discrete, intrinsic_dimension_levina_bickel,
-    joint_entropy_discrete, sampled_four_point_delta_summary, DistanceConcentrationConfig,
-    HyperbolicityConfig, IntrinsicDimConfig,
+    distance_concentration_stats, intrinsic_dimension_levina_bickel,
+    sampled_four_point_delta_summary, DistanceConcentrationConfig, HyperbolicityConfig,
+    IntrinsicDimConfig,
 };
 use pid_core::experimental::continuous::raw_scalars::ksg_mi;
 use pid_core::experimental::continuous::{
     pid2_isx, pid2_isx_estimate, pid2_resource_estimate, IsxConfig, Pid2Config, Pid2Result,
 };
 use pid_core::experimental::pipelines::{
-    bootstrap_rows_stats, permutation_rows_pvalue_with, pls_cv_select_components,
+    bootstrap_rows_stats, permutation_rows_pvalue_with, pls_cv_select_components_with_budget,
     BlockLengthSelection, BootstrapConfig, LogisticRegression, LogisticRegressionConfig,
     PlsCvCandidateStatus, PlsProjector, ResamplingValidityDeclaration, RowResampleScheme,
     StatisticCallbackDeclaration,
@@ -18,26 +21,58 @@ use pid_core::stable::continuous::{KsgConfig, NegativeHandling};
 use pid_core::stable::imin::imin_pid2;
 use pid_core::stable::preprocessing::{ConstantColumnPolicy, Standardizer};
 use pid_core::stable::quantized::{EqualWidthQuantizer, QuantizedData, QuantizerConfig};
-use pid_core::{concat_horiz, MatOwned, MatRef, Metric, PidError};
+use pid_core::{
+    MatOwned, MatRef, Metric, PidError, ResourceBudget, DEFAULT_MAX_BYTES,
+    DEFAULT_MAX_PAIRWISE_DISTANCES,
+};
 // Re-exported so the harness CLI (and downstream callers) can pick the permutation
 // null without importing pid-core directly.
 pub use pid_core::experimental::pipelines::PermutationScheme;
 use pid_runlog::{
-    EmbeddingVariableContract, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION,
+    EmbeddingVariableContract, RunLogEvent, RunLogLimits, RunLogWriter, RunStatus,
+    RUN_LOG_SCHEMA_VERSION,
 };
-use serde::{Deserialize, Serialize};
+use serde::de::{DeserializeOwned, MapAccess, Visitor};
+use serde::ser::{Error as _, SerializeMap, SerializeSeq};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet};
-use std::io::{Read, Write};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::io::Write;
+use std::marker::PhantomData;
 use std::path::Path;
 
-const OFFLINE_INPUT_MAX_BYTES: usize = 256 * 1024 * 1024;
 const OFFLINE_NCP_PUBLICATION_RECEIPT_MAX_BYTES: usize = 64 * 1024;
+const OFFLINE_NCP_RUNLOG_MAX_BYTES: usize = 64 * 1024 * 1024;
+const OFFLINE_RESOURCE_LIMITS_MAX_BYTES: usize = 64 * 1_024;
+const OFFLINE_SUMMARY_MAX_BYTES: u64 = 64 * 1_024 * 1_024;
+const OFFLINE_UNCERTAINTY_MAX_BYTES: u64 = 8 * 1_024 * 1_024;
+const OFFLINE_UNCERTAINTY_SCHEMA_VERSION: u32 = 1;
 
-const OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION: f64 = 20.0;
-const OFFLINE_GEOMETRY_MIN_PAIRWISE_CV: f64 = 0.1;
-const OFFLINE_GEOMETRY_MIN_DELTA_REL: f64 = 0.1;
+const OFFLINE_DEFAULT_MAX_INPUT_BYTES: u64 = 64 * 1_024 * 1_024;
+const OFFLINE_DEFAULT_MAX_SAMPLES: usize = 1_024;
+const OFFLINE_DEFAULT_MAX_AXIS_SCALARS: usize = 1_024 * 1_024;
+const OFFLINE_DEFAULT_MAX_METADATA_ENTRIES: usize = 64 * 1_024;
+const OFFLINE_DEFAULT_MAX_METADATA_JSON_NODES: usize = 64 * 1_024;
+const OFFLINE_DEFAULT_MAX_METADATA_UTF8_BYTES: usize = 8 * 1_024 * 1_024;
+const OFFLINE_DEFAULT_MAX_METADATA_DEPTH: usize = 64;
+const OFFLINE_DEFAULT_MAX_PAIRWISE_DISTANCE_EVALUATIONS: u64 = 50_000_000;
+const OFFLINE_DEFAULT_MAX_DISTANCE_COORDINATE_EVALUATIONS: u64 = 100_000_000;
+const OFFLINE_DEFAULT_MAX_DENSE_SOLVER_OPERATIONS: u64 = 100_000_000;
+
+// These constants mirror the pinned pid-core 0.9 review contract. Unit tests compare the local
+// dimension-only projections with pid-core's public estimates. A future submodule update must
+// therefore review this aggregate harness model instead of silently inheriting new work.
+const OFFLINE_PLS_MAX_ITERATIONS: u128 = 200;
+const OFFLINE_PLS_MAX_SOLVER_COMPONENTS: u128 = 512;
+const OFFLINE_LOGREG_MAX_ITERATIONS: u128 = 100;
+const OFFLINE_LOGREG_MAX_SOLVER_COLUMNS: u128 = 1_024;
+
+const OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION_WARNING: f64 = 20.0;
+const OFFLINE_GEOMETRY_MIN_PAIRWISE_CV_WARNING: f64 = 0.1;
 const OFFLINE_GEOMETRY_INTRINSIC_K: usize = 10;
 const OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES: usize = 500;
 const OFFLINE_HELDOUT_SPLIT_METADATA_KEY: &str = "split";
@@ -45,10 +80,425 @@ const OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_KEY: &str = "split_scientific_eligibi
 const OFFLINE_SPLIT_SCIENTIFIC_ELIGIBILITY_BLOCKED: &str = "blocked_unfrozen_or_unreviewed";
 const OFFLINE_CENTROID_SUCCESS_SCORE: &str =
     "distance_to_failure_centroid_minus_distance_to_success_centroid";
+const OFFLINE_GEOMETRY_VARIABLES: u128 = 6;
+const OFFLINE_BASELINE_FEATURE_VIEWS: u128 = 5;
+// These counts match pid-core's ResourceEstimate::pairwise_distances contract. One KSG call
+// accounts for its estimator pass plus the source, target, and joint support-shell preflights.
+// PID2 contains two such KSG calls, one joint x-blocks pass, and one ISX pass.
+const OFFLINE_KSG_PAIRWISE_PASSES: u128 = 4;
+const OFFLINE_PID2_PAIRWISE_PASSES: u128 = 10;
+const OFFLINE_CONTINUOUS_PID_PAIRWISE_PASSES: u128 =
+    3 * OFFLINE_KSG_PAIRWISE_PASSES + 3 * OFFLINE_PID2_PAIRWISE_PASSES;
 /// Unique-joint-bin fraction above which discrete plug-in MI is treated as
 /// saturated (grandplan §7.6): estimates pinned near entropy ceilings (~ln n)
 /// reflect small-sample artifacts, not dependence.
 const OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX: f64 = 0.8;
+
+struct BoundedJsonBuffer {
+    bytes: Vec<u8>,
+    limit: usize,
+}
+
+/// Stream one canonical dataset representation into SHA-256 without materializing duplicate
+/// JSON buffers or a second `serde_json::Value` tree.
+///
+/// The explicit destructuring below is intentional. Adding a dataset or sample field becomes a
+/// compile error until its place in the canonical representation receives review. Object keys
+/// use the same recursive lexicographic order as `pid_runlog::canonical_json_hash_v2`.
+struct CanonicalOfflineVldaDataset<'a>(&'a OfflineVldaDataset);
+
+struct CanonicalOfflineVldaSamples<'a>(&'a [OfflineVldaSample]);
+
+struct CanonicalOfflineVldaSample<'a>(&'a OfflineVldaSample);
+
+struct CanonicalOfflineVldaLabels<'a>(&'a BTreeMap<String, Value>);
+
+struct CanonicalJsonValue<'a>(&'a Value);
+
+impl Serialize for CanonicalOfflineVldaDataset<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let OfflineVldaDataset {
+            run_id,
+            source,
+            model,
+            task,
+            support,
+            capture_integrity,
+            publication_receipt,
+            publication_receipt_verified: _,
+            samples,
+        } = self.0;
+        let field_count = 6
+            + usize::from(capture_integrity.is_some())
+            + usize::from(publication_receipt.is_some());
+        let mut map = serializer.serialize_map(Some(field_count))?;
+        if let Some(value) = capture_integrity {
+            map.serialize_entry("capture_integrity", value)?;
+        }
+        map.serialize_entry("model", model)?;
+        if let Some(value) = publication_receipt {
+            map.serialize_entry("publication_receipt", value)?;
+        }
+        map.serialize_entry("run_id", run_id)?;
+        map.serialize_entry("samples", &CanonicalOfflineVldaSamples(samples))?;
+        map.serialize_entry("source", source)?;
+        map.serialize_entry("support", support)?;
+        map.serialize_entry("task", task)?;
+        map.end()
+    }
+}
+
+impl Serialize for CanonicalOfflineVldaSamples<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut sequence = serializer.serialize_seq(Some(self.0.len()))?;
+        for sample in self.0 {
+            sequence.serialize_element(&CanonicalOfflineVldaSample(sample))?;
+        }
+        sequence.end()
+    }
+}
+
+impl Serialize for CanonicalOfflineVldaSample<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let OfflineVldaSample {
+            sample_id,
+            episode_id,
+            v,
+            l,
+            d,
+            a,
+            labels,
+            metadata,
+        } = self.0;
+        for value in v.iter().chain(l).chain(d).chain(a) {
+            if !value.is_finite() {
+                return Err(S::Error::custom(
+                    "offline VLDA dataset contains a non-finite axis value",
+                ));
+            }
+        }
+        let mut map = serializer.serialize_map(Some(8))?;
+        map.serialize_entry("a", a)?;
+        map.serialize_entry("d", d)?;
+        map.serialize_entry("episode_id", episode_id)?;
+        map.serialize_entry("l", l)?;
+        map.serialize_entry("labels", &CanonicalOfflineVldaLabels(labels))?;
+        map.serialize_entry("metadata", metadata)?;
+        map.serialize_entry("sample_id", sample_id)?;
+        map.serialize_entry("v", v)?;
+        map.end()
+    }
+}
+
+impl Serialize for CanonicalOfflineVldaLabels<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (key, value) in self.0 {
+            map.serialize_entry(key, &CanonicalJsonValue(value))?;
+        }
+        map.end()
+    }
+}
+
+impl Serialize for CanonicalJsonValue<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self.0 {
+            Value::Null => serializer.serialize_unit(),
+            Value::Bool(value) => serializer.serialize_bool(*value),
+            Value::Number(value) => value.serialize(serializer),
+            Value::String(value) => serializer.serialize_str(value),
+            Value::Array(values) => {
+                let mut sequence = serializer.serialize_seq(Some(values.len()))?;
+                for value in values {
+                    sequence.serialize_element(&CanonicalJsonValue(value))?;
+                }
+                sequence.end()
+            }
+            Value::Object(values) => {
+                let mut entries = Vec::new();
+                entries
+                    .try_reserve_exact(values.len())
+                    .map_err(S::Error::custom)?;
+                entries.extend(values.iter());
+                entries.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+                let mut map = serializer.serialize_map(Some(entries.len()))?;
+                for (key, value) in entries {
+                    map.serialize_entry(key, &CanonicalJsonValue(value))?;
+                }
+                map.end()
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+struct Sha256Writer(Sha256);
+
+impl Write for Sha256Writer {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.update(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn offline_vlda_dataset_content_sha256(dataset: &OfflineVldaDataset) -> Result<String> {
+    let mut writer = Sha256Writer::default();
+    serde_json::to_writer(&mut writer, &CanonicalOfflineVldaDataset(dataset))
+        .context("failed to stream the canonical offline VLDA dataset")?;
+    Ok(crate::lowercase_hex(writer.0.finalize()))
+}
+
+fn offline_vlda_sample_content_sha256(sample: &OfflineVldaSample) -> Result<String> {
+    let mut writer = Sha256Writer::default();
+    serde_json::to_writer(&mut writer, &CanonicalOfflineVldaSample(sample))
+        .context("failed to stream the canonical offline VLDA sample")?;
+    Ok(crate::lowercase_hex(writer.0.finalize()))
+}
+
+impl Write for BoundedJsonBuffer {
+    fn write(&mut self, input: &[u8]) -> std::io::Result<usize> {
+        let next_len = self
+            .bytes
+            .len()
+            .checked_add(input.len())
+            .ok_or_else(|| std::io::Error::other("JSON output length overflow"))?;
+        if next_len > self.limit {
+            return Err(std::io::Error::other(
+                "JSON output exceeds the configured byte limit",
+            ));
+        }
+        self.bytes
+            .try_reserve(input.len())
+            .map_err(|_| std::io::Error::other("JSON output allocation failed"))?;
+        self.bytes.extend_from_slice(input);
+        Ok(input.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn serialize_pretty_json_bounded<T: Serialize>(value: &T, limit: u64) -> Result<Vec<u8>> {
+    let limit = usize::try_from(limit).unwrap_or(usize::MAX);
+    let mut output = BoundedJsonBuffer {
+        bytes: Vec::new(),
+        limit,
+    };
+    serde_json::to_writer_pretty(&mut output, value)
+        .context("failed to serialize bounded pretty JSON")?;
+    Ok(output.bytes)
+}
+
+fn deserialize_unique_string_map<'de, D, V>(
+    deserializer: D,
+) -> std::result::Result<BTreeMap<String, V>, D::Error>
+where
+    D: Deserializer<'de>,
+    V: Deserialize<'de>,
+{
+    struct UniqueStringMapVisitor<V>(PhantomData<V>);
+
+    impl<'de, V> Visitor<'de> for UniqueStringMapVisitor<V>
+    where
+        V: Deserialize<'de>,
+    {
+        type Value = BTreeMap<String, V>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("a JSON object with unique string keys")
+        }
+
+        fn visit_map<A>(self, mut access: A) -> std::result::Result<Self::Value, A::Error>
+        where
+            A: MapAccess<'de>,
+        {
+            let mut values = BTreeMap::new();
+            while let Some((key, value)) = access.next_entry::<String, V>()? {
+                if values.insert(key.clone(), value).is_some() {
+                    return Err(serde::de::Error::custom(format!(
+                        "duplicate JSON object key {key:?}"
+                    )));
+                }
+            }
+            Ok(values)
+        }
+    }
+
+    deserializer.deserialize_map(UniqueStringMapVisitor(PhantomData))
+}
+
+/// Admission limits for one offline `(V,L,D,A)` dataset and analysis.
+///
+/// The defaults admit routine committed fixtures while bounding decoded input size and the
+/// always-on geometry/baseline work. The high-dimensional stress fixture uses an explicit
+/// override. Use the additive `*_with_limits` entry points for other reviewed workloads.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OfflineVldaResourceLimits {
+    /// Maximum bytes in the exact input JSON snapshot.
+    pub max_input_bytes: u64,
+    /// Maximum number of samples.
+    pub max_samples: usize,
+    /// Maximum total count of decoded `f64` values across all V/L/D/A vectors.
+    pub max_total_axis_scalars: usize,
+    /// Maximum total count of decoded map entries, including nested label-object entries.
+    pub max_total_metadata_entries: usize,
+    /// Maximum total count of nested JSON value nodes under sample labels.
+    pub max_total_metadata_json_nodes: usize,
+    /// Maximum UTF-8 bytes across identifiers, metadata, label keys/strings, and root strings.
+    pub max_total_metadata_utf8_bytes: usize,
+    /// Maximum nesting depth of a JSON value under a sample label.
+    pub max_metadata_json_depth: usize,
+    /// Maximum projected pairwise-distance work. Single-analysis public entry points apply this
+    /// ceiling independently. The combined invocation entry point and CLI apply it to the checked
+    /// sum of main and optional uncertainty work.
+    pub max_pairwise_distance_evaluations: u64,
+    /// Maximum projected coordinate contributions across all distance evaluations. This second
+    /// ceiling prevents a high-dimensional input from hiding excessive work behind an acceptable
+    /// pairwise-distance count.
+    pub max_distance_coordinate_evaluations: u64,
+    /// Maximum aggregate arithmetic projection for dense PLS and logistic-regression solvers.
+    /// This is a complete main-analysis run cap, not a fresh allowance for each solver call.
+    pub max_dense_solver_operations: u64,
+}
+
+impl Default for OfflineVldaResourceLimits {
+    fn default() -> Self {
+        Self {
+            max_input_bytes: OFFLINE_DEFAULT_MAX_INPUT_BYTES,
+            max_samples: OFFLINE_DEFAULT_MAX_SAMPLES,
+            max_total_axis_scalars: OFFLINE_DEFAULT_MAX_AXIS_SCALARS,
+            max_total_metadata_entries: OFFLINE_DEFAULT_MAX_METADATA_ENTRIES,
+            max_total_metadata_json_nodes: OFFLINE_DEFAULT_MAX_METADATA_JSON_NODES,
+            max_total_metadata_utf8_bytes: OFFLINE_DEFAULT_MAX_METADATA_UTF8_BYTES,
+            max_metadata_json_depth: OFFLINE_DEFAULT_MAX_METADATA_DEPTH,
+            max_pairwise_distance_evaluations: OFFLINE_DEFAULT_MAX_PAIRWISE_DISTANCE_EVALUATIONS,
+            max_distance_coordinate_evaluations:
+                OFFLINE_DEFAULT_MAX_DISTANCE_COORDINATE_EVALUATIONS,
+            max_dense_solver_operations: OFFLINE_DEFAULT_MAX_DENSE_SOLVER_OPERATIONS,
+        }
+    }
+}
+
+/// Read one strict, bounded resource-limit override from a regular file snapshot.
+///
+/// Every field is required and must be positive. Unknown fields, symlinks, unstable files,
+/// malformed JSON, and files larger than 64 KiB are rejected.
+pub fn read_offline_vlda_resource_limits(
+    path: impl AsRef<Path>,
+) -> Result<OfflineVldaResourceLimits> {
+    let path = path.as_ref();
+    let snapshot = read_bounded_regular_file(
+        path,
+        OFFLINE_RESOURCE_LIMITS_MAX_BYTES as u64,
+        "offline VLDA resource-limits file",
+    )?;
+    let limits: OfflineVldaResourceLimits = parse_strict_json(
+        snapshot.exact_bytes(OFFLINE_RESOURCE_LIMITS_MAX_BYTES as u64)?,
+        &format!("resource-limits file {}", path.display()),
+    )?;
+    validate_resource_limits(&limits)?;
+    snapshot.verify_path()?;
+    Ok(limits)
+}
+
+fn validate_resource_limits(limits: &OfflineVldaResourceLimits) -> Result<()> {
+    for (name, value) in [
+        ("max_input_bytes", u128::from(limits.max_input_bytes)),
+        ("max_samples", limits.max_samples as u128),
+        (
+            "max_total_axis_scalars",
+            limits.max_total_axis_scalars as u128,
+        ),
+        (
+            "max_total_metadata_entries",
+            limits.max_total_metadata_entries as u128,
+        ),
+        (
+            "max_total_metadata_json_nodes",
+            limits.max_total_metadata_json_nodes as u128,
+        ),
+        (
+            "max_total_metadata_utf8_bytes",
+            limits.max_total_metadata_utf8_bytes as u128,
+        ),
+        (
+            "max_metadata_json_depth",
+            limits.max_metadata_json_depth as u128,
+        ),
+        (
+            "max_pairwise_distance_evaluations",
+            u128::from(limits.max_pairwise_distance_evaluations),
+        ),
+        (
+            "max_distance_coordinate_evaluations",
+            u128::from(limits.max_distance_coordinate_evaluations),
+        ),
+        (
+            "max_dense_solver_operations",
+            u128::from(limits.max_dense_solver_operations),
+        ),
+    ] {
+        if value == 0 {
+            bail!("resource-limits field {name} must be greater than zero; observed 0");
+        }
+    }
+    Ok(())
+}
+
+/// Observed decoded size and projected distance work admitted for one harness run.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OfflineVldaResourceUsage {
+    /// Observed sample count.
+    pub samples: usize,
+    /// Observed total V/L/D/A scalar count.
+    pub total_axis_scalars: usize,
+    /// Observed map-entry count, including nested label-object entries.
+    pub total_metadata_entries: usize,
+    /// Observed nested label JSON-node count.
+    pub total_metadata_json_nodes: usize,
+    /// Observed UTF-8 byte count for bounded decoded strings.
+    pub total_metadata_utf8_bytes: usize,
+    /// Deepest observed nested label JSON value.
+    pub metadata_json_depth: usize,
+    /// Conservative distance-work projection for the main harness analysis.
+    pub projected_main_pairwise_distance_evaluations: u64,
+    /// Conservative distance-work projection for optional uncertainty analysis.
+    pub projected_uncertainty_pairwise_distance_evaluations: u64,
+    /// Checked sum of the main and optional uncertainty projections.
+    pub projected_total_pairwise_distance_evaluations: u64,
+    /// Conservative main-analysis pairwise projection multiplied by the widest possible
+    /// V/L/D/A distance vector in this dataset.
+    pub projected_main_distance_coordinate_evaluations: u64,
+    /// Conservative optional-uncertainty projection at the same maximum vector width.
+    pub projected_uncertainty_distance_coordinate_evaluations: u64,
+    /// Checked sum of the main and optional uncertainty coordinate projections.
+    pub projected_total_distance_coordinate_evaluations: u64,
+    /// Conservative aggregate arithmetic projection for every PLS fit, PLS transform, PLS
+    /// component-selection fold, and applicable held-out logistic-regression fit in the main run.
+    pub projected_dense_solver_operations: u64,
+}
 
 /// PID estimator mode: disabled (baseline-only firebreak), continuous (KSG-based kNN),
 /// discrete (quantization + counting), or discrete-pls (PLS projection + discrete PID).
@@ -59,10 +509,11 @@ const OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX: f64 = 0.8;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PidMode {
     /// Do not request MI or PID estimates. Geometry and every static factual-outcome
-    /// label/prediction baseline still run, proving that dependency smoke does not need PID atoms.
+    /// label/prediction baseline still run. The analysis feature still links shared
+    /// `pid-core` geometry and logistic code.
+    #[default]
     Disabled,
     /// Continuous PID using KSG kNN mutual information and shared-exclusions redundancy.
-    #[default]
     Continuous,
     /// Discrete PID using equal-width quantization and counting-based entropy
     /// (`I_min`-style redundancy, not discrete `i^sx_∩`).
@@ -119,11 +570,33 @@ pub struct OfflineVldaPlsSelection {
 impl Default for OfflineVldaHarnessOptions {
     fn default() -> Self {
         Self {
-            pid_mode: PidMode::Continuous,
+            pid_mode: PidMode::Disabled,
             discrete_bins: 10,
             pls: PlsComponentSelection::Fixed(2),
         }
     }
+}
+
+fn validate_harness_options(options: &OfflineVldaHarnessOptions) -> Result<()> {
+    ensure!(
+        options.discrete_bins >= 2,
+        "offline VLDA discrete bin count must be at least 2"
+    );
+    match options.pls {
+        PlsComponentSelection::Fixed(components) => {
+            ensure!(
+                components > 0,
+                "offline VLDA fixed PLS component count must be positive"
+            );
+        }
+        PlsComponentSelection::CvQ2 { max_components } => {
+            ensure!(
+                max_components > 0,
+                "offline VLDA PLS CV maximum component count must be positive"
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Declared population support for one `(V,L,D,A)` axis.
@@ -367,6 +840,7 @@ pub struct OfflineVldaMiEstimate {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OfflineVldaDataset {
     pub run_id: Option<String>,
     pub source: Option<String>,
@@ -374,7 +848,7 @@ pub struct OfflineVldaDataset {
     pub task: Option<String>,
     /// Declared population support per axis (`"v"`, `"l"`, `"d"`, `"a"`). An axis with no
     /// declaration fails closed as `support_contract_unspecified`.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_unique_string_map")]
     pub support: BTreeMap<String, OfflineVldaDeclaredSupport>,
     /// Optional producer-side integrity grade. NCP artifacts require a committed,
     /// hash-verified publication receipt and a complete/complete-with-warning grade.
@@ -424,6 +898,7 @@ fn has_frozen_legacy_ncp_config(events: &[RunLogEvent]) -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OfflineVldaSample {
     pub sample_id: String,
     pub episode_id: Option<String>,
@@ -431,9 +906,9 @@ pub struct OfflineVldaSample {
     pub l: Vec<f64>,
     pub d: Vec<f64>,
     pub a: Vec<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_unique_string_map")]
     pub labels: BTreeMap<String, Value>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_unique_string_map")]
     pub metadata: BTreeMap<String, String>,
 }
 
@@ -669,15 +1144,14 @@ pub struct OfflineVldaTemporalReport {
 /// One axis's temporal diagnostic.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaTemporalVariable {
-    /// Dimension-averaged lag-1 autocorrelation of the standardized columns
-    /// (products pooled across episode segments; global standardization, so
-    /// per-segment means are not re-removed).
+    /// Dimension-averaged lag-1 correlation of the globally standardized columns.
+    /// Lag pairs pool within episode segments. Per-segment means are not re-removed.
     pub lag1_autocorr: f64,
     /// AR(1)-approximate effective sample size `n·(1−r)/(1+r)`, clamped to
     /// `[1, n]` — the honest denominator for reading the point estimates.
     pub effective_sample_size: f64,
-    /// AR(1) integrated autocorrelation time `(1+r)/(1−r)` rounded up, ≥ 1 —
-    /// the dependence length for block-based tools.
+    /// AR(1) integrated autocorrelation time `(1+r)/(1−r)` rounded up, then capped at the
+    /// largest value valid for both half-sample resampling and the circular-shift null.
     pub recommended_block_len: usize,
 }
 
@@ -687,16 +1161,16 @@ pub struct OfflineVldaGeometryReport {
     pub metric: String,
     pub intrinsic_k: usize,
     pub hyperbolicity_samples: usize,
-    pub gates: OfflineVldaGeometryGates,
+    /// Descriptive risk flags. These diagnostics never establish or block estimator validity.
+    pub diagnostics: OfflineVldaGeometryDiagnostics,
     pub variables: BTreeMap<String, OfflineVldaGeometryVariable>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct OfflineVldaGeometryGates {
+pub struct OfflineVldaGeometryDiagnostics {
     pub status: String,
-    pub max_intrinsic_dimension: f64,
-    pub min_pairwise_cv: f64,
-    pub min_delta_rel: f64,
+    pub max_intrinsic_dimension_warning: f64,
+    pub min_pairwise_cv_warning: f64,
     pub warnings: Vec<String>,
 }
 
@@ -805,23 +1279,19 @@ pub struct OfflineVldaReport {
     pub heldout_episode_disjoint: Option<OfflineVldaHeldoutEpisodeDisjointReport>,
     pub heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
     pub heldout_failure_diagnostics: Vec<OfflineVldaHeldoutFailureDiagnostics>,
-    /// Per-axis provenance honesty: aggregates the provenance markers the capture
-    /// adapter stamps on each sample — `l_source`/`d_source` (live `ncp-observer` tap)
-    /// and `{v,l,d,a}_provenance` (offline `safe_adapter`) — so a PID atom computed
-    /// from a *fabricated* `L` (`absent_zeroed`), a *recency-misaligned* `D`
-    /// (`recency_fallback`), or a *hash-proxy* feature (`text_hash_proxy`) is surfaced
-    /// as degraded rather than silently reported as trustworthy. Empty when no sample
-    /// carries provenance markers (e.g. a pure synthetic dataset).
+    /// Per-axis provenance honesty. This aggregates the provenance markers that each
+    /// capture adapter stamps on every sample: `l_source`/`d_source` for an
+    /// `ncp-observer` capture, or `{v,l,d,a}_provenance` for a `safe_adapter` capture.
+    /// Missing, unrecognized, fabricated, misaligned, and proxy values are degraded.
+    /// The list is empty when no sample carries a recognized provenance convention.
     pub axis_provenance: Vec<OfflineVldaAxisProvenance>,
     pub metrics: OfflineVldaMetrics,
 }
 
-/// Provenance summary for one `(V,L,D,A)` axis, aggregated across samples. `status`
-/// is `"degraded"` when any sample carries a known-bad provenance value for the axis
-/// (a fabricated/zeroed `L`, or a recency-misaligned/absent `D`) — in which case the
-/// PID atoms that involve this axis must be treated as not trustworthy for the
-/// affected samples (capture honesty: never present a fabricated/misaligned axis's
-/// atoms as clean).
+/// Provenance summary for one `(V,L,D,A)` axis, aggregated across all dataset
+/// samples. `status` is `"degraded"` when a required marker is missing, unrecognized,
+/// or known to describe a proxy, fabricated, absent, or misaligned axis. PID atoms
+/// involving that axis are not trustworthy for the affected samples.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OfflineVldaAxisProvenance {
     pub marker: String,
@@ -835,22 +1305,25 @@ pub struct OfflineVldaAxisProvenance {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct OfflineVldaRunlogOptions {
-    pub require_geometry_pass: bool,
     pub require_success_labels: bool,
     pub require_heldout_split: bool,
     pub require_heldout_class_coverage: bool,
     pub require_heldout_episode_disjoint: bool,
-    /// Fail the run if any *stamped* V/L/D/A provenance marker is degraded (a
-    /// `text_hash_proxy` / `absent_zeroed` / `recency_fallback` … value), AND fail
-    /// if NO marker was stamped at all — so the gate cannot pass vacuously on a
-    /// dataset that carries no provenance (positive attestation). NB: this checks
-    /// only the axes that actually carry a marker; it does **not** (yet) require all
-    /// four axes to be independently attested. A capture that stamps a subset (e.g.
-    /// `ncp-observer` stamps `l_source`/`d_source` but nothing for V or A) passes as
-    /// long as the stamped axes are honest; the `safe_adapter` path stamps all four
-    /// (`{v,l,d,a}_provenance`). Requiring per-axis coverage of all four is tracked
-    /// follow-up. See [`offline_vlda_axis_provenance_failure_messages`].
+    /// Fail the run unless an active capture convention gives complete, recognized
+    /// provenance for every sample. `ncp-observer` requires `l_source` and `d_source`.
+    /// `safe_adapter` requires all four `{v,l,d,a}_provenance` markers. This gate is a
+    /// positive mechanical attestation, not semantic validation or authentication.
+    /// See [`offline_vlda_axis_provenance_failure_messages`].
     pub require_axis_provenance_honest: bool,
+}
+
+/// Optional files and computed sidecar bound into one offline run-log publication.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct OfflineVldaRunlogArtifacts<'a> {
+    pub summary_path: Option<&'a Path>,
+    pub input_path: Option<&'a Path>,
+    pub uncertainty_path: Option<&'a Path>,
+    pub uncertainty: Option<&'a OfflineVldaPidUncertainty>,
 }
 
 fn offline_vlda_has_ncp_markers(dataset: &OfflineVldaDataset) -> bool {
@@ -863,8 +1336,817 @@ fn offline_vlda_has_ncp_markers(dataset: &OfflineVldaDataset) -> bool {
             .any(|sample| sample.metadata.get("source").map(String::as_str) == Some("ncp"))
 }
 
+#[derive(Debug, Default)]
+struct OfflineVldaDecodedUsage {
+    total_axis_scalars: usize,
+    total_metadata_entries: usize,
+    total_metadata_json_nodes: usize,
+    total_metadata_utf8_bytes: usize,
+    metadata_json_depth: usize,
+}
+
+fn add_bounded_usize(
+    observed: &mut usize,
+    additional: usize,
+    limit: usize,
+    resource: &str,
+) -> Result<()> {
+    let updated = observed.checked_add(additional).ok_or_else(|| {
+        anyhow::anyhow!(
+            "offline VLDA resource accounting overflow for {resource}: observed {observed}, additional {additional}, limit {limit}"
+        )
+    })?;
+    if updated > limit {
+        bail!(
+            "offline VLDA resource limit exceeded for {resource}: observed {updated}, limit {limit}"
+        );
+    }
+    *observed = updated;
+    Ok(())
+}
+
+fn account_metadata_utf8(
+    value: &str,
+    usage: &mut OfflineVldaDecodedUsage,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<()> {
+    add_bounded_usize(
+        &mut usage.total_metadata_utf8_bytes,
+        value.len(),
+        limits.max_total_metadata_utf8_bytes,
+        "metadata UTF-8 bytes",
+    )
+}
+
+fn enqueue_metadata_json_node<'a>(
+    stack: &mut Vec<(&'a Value, usize)>,
+    value: &'a Value,
+    depth: usize,
+    usage: &mut OfflineVldaDecodedUsage,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<()> {
+    if depth > limits.max_metadata_json_depth {
+        bail!(
+            "offline VLDA resource limit exceeded for metadata JSON depth: observed {depth}, limit {}",
+            limits.max_metadata_json_depth
+        );
+    }
+    add_bounded_usize(
+        &mut usage.total_metadata_json_nodes,
+        1,
+        limits.max_total_metadata_json_nodes,
+        "metadata JSON nodes",
+    )?;
+    usage.metadata_json_depth = usage.metadata_json_depth.max(depth);
+    stack.try_reserve(1).map_err(|_| {
+        anyhow::anyhow!("offline VLDA metadata traversal scratch allocation failed")
+    })?;
+    stack.push((value, depth));
+    Ok(())
+}
+
+fn account_metadata_json_value<'a>(
+    value: &'a Value,
+    stack: &mut Vec<(&'a Value, usize)>,
+    usage: &mut OfflineVldaDecodedUsage,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<()> {
+    debug_assert!(stack.is_empty());
+    enqueue_metadata_json_node(stack, value, 1, usage, limits)?;
+    while let Some((current, depth)) = stack.pop() {
+        match current {
+            Value::Array(values) => {
+                let child_depth = depth.checked_add(1).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "offline VLDA resource accounting overflow for metadata JSON depth: observed {depth}, limit {}",
+                        limits.max_metadata_json_depth
+                    )
+                })?;
+                for child in values {
+                    enqueue_metadata_json_node(stack, child, child_depth, usage, limits)?;
+                }
+            }
+            Value::Object(values) => {
+                let child_depth = depth.checked_add(1).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "offline VLDA resource accounting overflow for metadata JSON depth: observed {depth}, limit {}",
+                        limits.max_metadata_json_depth
+                    )
+                })?;
+                for (key, child) in values {
+                    add_bounded_usize(
+                        &mut usage.total_metadata_entries,
+                        1,
+                        limits.max_total_metadata_entries,
+                        "metadata entries",
+                    )?;
+                    account_metadata_utf8(key, usage, limits)?;
+                    enqueue_metadata_json_node(stack, child, child_depth, usage, limits)?;
+                }
+            }
+            Value::String(value) => account_metadata_utf8(value, usage, limits)?,
+            Value::Null | Value::Bool(_) | Value::Number(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn account_decoded_resources(
+    dataset: &OfflineVldaDataset,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<OfflineVldaDecodedUsage> {
+    let samples = dataset.samples.len();
+    if samples > limits.max_samples {
+        bail!(
+            "offline VLDA resource limit exceeded for samples: observed {samples}, limit {}",
+            limits.max_samples
+        );
+    }
+
+    let mut usage = OfflineVldaDecodedUsage::default();
+    let mut metadata_stack = Vec::new();
+    for value in [
+        dataset.run_id.as_deref(),
+        dataset.source.as_deref(),
+        dataset.model.as_deref(),
+        dataset.task.as_deref(),
+        dataset.capture_integrity.as_deref(),
+        dataset.publication_receipt.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        account_metadata_utf8(value, &mut usage, limits)?;
+    }
+    for key in dataset.support.keys() {
+        if !matches!(key.as_str(), "v" | "l" | "d" | "a") {
+            bail!(
+                "offline VLDA support declares unknown axis {key:?}; expected only v, l, d, or a"
+            );
+        }
+        add_bounded_usize(
+            &mut usage.total_metadata_entries,
+            1,
+            limits.max_total_metadata_entries,
+            "metadata entries",
+        )?;
+        account_metadata_utf8(key, &mut usage, limits)?;
+    }
+
+    for sample in &dataset.samples {
+        for axis_len in [
+            sample.v.len(),
+            sample.l.len(),
+            sample.d.len(),
+            sample.a.len(),
+        ] {
+            add_bounded_usize(
+                &mut usage.total_axis_scalars,
+                axis_len,
+                limits.max_total_axis_scalars,
+                "axis scalars",
+            )?;
+        }
+        account_metadata_utf8(&sample.sample_id, &mut usage, limits)?;
+        if let Some(episode_id) = &sample.episode_id {
+            account_metadata_utf8(episode_id, &mut usage, limits)?;
+        }
+        for (key, value) in &sample.labels {
+            add_bounded_usize(
+                &mut usage.total_metadata_entries,
+                1,
+                limits.max_total_metadata_entries,
+                "metadata entries",
+            )?;
+            account_metadata_utf8(key, &mut usage, limits)?;
+            account_metadata_json_value(value, &mut metadata_stack, &mut usage, limits)?;
+        }
+        for (key, value) in &sample.metadata {
+            add_bounded_usize(
+                &mut usage.total_metadata_entries,
+                1,
+                limits.max_total_metadata_entries,
+                "metadata entries",
+            )?;
+            account_metadata_utf8(key, &mut usage, limits)?;
+            account_metadata_utf8(value, &mut usage, limits)?;
+        }
+    }
+    Ok(usage)
+}
+
+fn checked_work_add(left: u128, right: u128, context: &str) -> Result<u128> {
+    left.checked_add(right).ok_or_else(|| {
+        anyhow::anyhow!("offline VLDA resource projection overflow in {context}: {left} + {right}")
+    })
+}
+
+fn checked_work_mul(left: u128, right: u128, context: &str) -> Result<u128> {
+    left.checked_mul(right).ok_or_else(|| {
+        anyhow::anyhow!("offline VLDA resource projection overflow in {context}: {left} * {right}")
+    })
+}
+
+fn ordered_pair_count(samples: u128, context: &str) -> Result<u128> {
+    checked_work_mul(samples, samples.saturating_sub(1), context)
+}
+
+fn unordered_pair_count(samples: u128, context: &str) -> Result<u128> {
+    Ok(ordered_pair_count(samples, context)? / 2)
+}
+
+fn projected_pls_fit_operations(
+    samples: u128,
+    source_dim: u128,
+    target_dim: u128,
+    components: u128,
+) -> Result<u128> {
+    let doubled_dimensions = checked_work_mul(
+        2,
+        checked_work_add(source_dim, target_dim, "PLS fit dimensions")?,
+        "PLS fit doubled dimensions",
+    )?;
+    let per_iteration = checked_work_mul(samples, doubled_dimensions, "PLS fit iteration")?;
+    let iteration_work = checked_work_mul(
+        checked_work_mul(
+            components,
+            OFFLINE_PLS_MAX_ITERATIONS,
+            "PLS fit component iterations",
+        )?,
+        per_iteration,
+        "PLS fit iteration work",
+    )?;
+    let deflation_work = checked_work_mul(
+        components,
+        checked_work_mul(
+            samples,
+            checked_work_add(source_dim, target_dim, "PLS deflation dimensions")?,
+            "PLS deflation rows",
+        )?,
+        "PLS deflation work",
+    )?;
+    checked_work_add(iteration_work, deflation_work, "PLS fit total")
+}
+
+fn projected_pls_transform_operations(
+    samples: u128,
+    source_dim: u128,
+    components: u128,
+) -> Result<u128> {
+    let component_square = checked_work_mul(components, components, "PLS transform k squared")?;
+    let rotation = checked_work_add(
+        checked_work_mul(component_square, components, "PLS transform QR")?,
+        checked_work_mul(source_dim, component_square, "PLS transform rotation")?,
+        "PLS transform rotation total",
+    )?;
+    let retained_output = checked_work_mul(samples, components, "PLS transform output")?;
+    let affine_scratch = source_dim
+        .checked_add(1)
+        .context("offline VLDA resource projection overflow in PLS affine scratch")?;
+    let evaluation = checked_work_mul(
+        retained_output,
+        source_dim,
+        "PLS transform affine evaluation",
+    )?;
+    [rotation, retained_output, affine_scratch, evaluation]
+        .into_iter()
+        .try_fold(0_u128, |sum, value| {
+            checked_work_add(sum, value, "PLS transform total")
+        })
+}
+
+fn projected_pls_cv_operations(
+    samples: u128,
+    source_dim: u128,
+    target_dim: u128,
+    components: u128,
+) -> Result<u128> {
+    let train_samples = samples
+        .checked_sub(1)
+        .context("offline VLDA PLS CV requires at least two samples")?;
+    let component_sum = checked_work_mul(
+        components,
+        components
+            .checked_add(1)
+            .context("offline VLDA resource projection overflow in PLS CV components")?,
+        "PLS CV component sum",
+    )? / 2;
+    let per_component_iteration = checked_work_mul(
+        train_samples,
+        checked_work_mul(
+            2,
+            checked_work_add(source_dim, target_dim, "PLS CV dimensions")?,
+            "PLS CV doubled dimensions",
+        )?,
+        "PLS CV per-component iteration",
+    )?;
+    let fit_work = checked_work_mul(
+        checked_work_mul(samples, component_sum, "PLS CV folds and candidates")?,
+        checked_work_mul(
+            OFFLINE_PLS_MAX_ITERATIONS,
+            per_component_iteration,
+            "PLS CV fit iterations",
+        )?,
+        "PLS CV fit work",
+    )?;
+    let prediction_work = checked_work_mul(
+        checked_work_mul(samples, component_sum, "PLS CV prediction folds")?,
+        checked_work_mul(source_dim, target_dim.max(1), "PLS CV prediction width")?,
+        "PLS CV prediction work",
+    )?;
+    checked_work_add(fit_work, prediction_work, "PLS CV total")
+}
+
+fn projected_pls_axis_operations(
+    samples: u128,
+    source_dim: u128,
+    target_dim: u128,
+    selection: PlsComponentSelection,
+) -> Result<u128> {
+    let (components, selection_work) = match selection {
+        PlsComponentSelection::Fixed(components) => (components as u128, 0),
+        PlsComponentSelection::CvQ2 { max_components } => {
+            let components = (max_components as u128)
+                .min(source_dim)
+                .min(samples.saturating_sub(1));
+            (
+                components,
+                projected_pls_cv_operations(samples, source_dim, target_dim, components)?,
+            )
+        }
+    };
+    ensure!(
+        components > 0 && components <= source_dim.min(samples.saturating_sub(1)),
+        "offline VLDA PLS component count {components} is invalid for {samples} samples and source width {source_dim}"
+    );
+    ensure!(
+        components <= OFFLINE_PLS_MAX_SOLVER_COMPONENTS,
+        "offline VLDA PLS component count {components} exceeds pid-core's {}-component dense-solver limit",
+        OFFLINE_PLS_MAX_SOLVER_COMPONENTS
+    );
+    let fit = projected_pls_fit_operations(samples, source_dim, target_dim, components)?;
+    let transform = projected_pls_transform_operations(samples, source_dim, components)?;
+    checked_work_add(
+        selection_work,
+        checked_work_add(fit, transform, "PLS fit and transform")?,
+        "PLS axis total",
+    )
+}
+
+fn projected_pls_screen_operations(
+    samples: u128,
+    dims: &OfflineVldaDims,
+    selection: PlsComponentSelection,
+) -> Result<u128> {
+    let target_dim = dims.a as u128;
+    let one_target = [dims.v, dims.l, dims.d]
+        .into_iter()
+        .try_fold(0_u128, |sum, source_dim| {
+            checked_work_add(
+                sum,
+                projected_pls_axis_operations(samples, source_dim as u128, target_dim, selection)?,
+                "PLS screen axes",
+            )
+        })?;
+    // The shuffled-target negative control repeats the complete fitted pipeline.
+    checked_work_mul(2, one_target, "PLS screen and shuffled control")
+}
+
+fn projected_logistic_operations(train_samples: u128, feature_dim: u128) -> Result<u128> {
+    let columns = feature_dim
+        .checked_add(1)
+        .context("offline VLDA resource projection overflow in logistic intercept")?;
+    ensure!(
+        columns <= OFFLINE_LOGREG_MAX_SOLVER_COLUMNS,
+        "offline VLDA held-out logistic baseline requires {columns} dense-solver columns, above pid-core's {}-column limit",
+        OFFLINE_LOGREG_MAX_SOLVER_COLUMNS
+    );
+    let square = checked_work_mul(columns, columns, "logistic columns squared")?;
+    let per_iteration = [
+        checked_work_mul(train_samples, square, "logistic row-Hessian work")?,
+        checked_work_mul(columns, square, "logistic factorization work")?,
+        checked_work_mul(
+            10,
+            checked_work_mul(train_samples, columns, "logistic dense rows")?,
+            "logistic vector work",
+        )?,
+    ]
+    .into_iter()
+    .try_fold(0_u128, |sum, value| {
+        checked_work_add(sum, value, "logistic iteration total")
+    })?;
+    checked_work_mul(
+        OFFLINE_LOGREG_MAX_ITERATIONS,
+        per_iteration,
+        "logistic fit total",
+    )
+}
+
+fn projected_dense_solver_operations(
+    dataset: &OfflineVldaDataset,
+    options: &OfflineVldaHarnessOptions,
+) -> Result<u128> {
+    let dims = validate_dataset(dataset)?;
+    let mut projected = 0u128;
+    if options.pid_mode == PidMode::DiscretePls {
+        projected =
+            projected_pls_screen_operations(dataset.samples.len() as u128, &dims, options.pls)?;
+    }
+
+    if let Some(split) = heldout_split_plan(&dataset.samples) {
+        if options.pid_mode == PidMode::DiscretePls {
+            projected = checked_work_add(
+                projected,
+                projected_pls_screen_operations(
+                    split.report.train_samples as u128,
+                    &dims,
+                    options.pls,
+                )?,
+                "full and train-split PLS screens",
+            )?;
+        }
+        if let Some(labels) = success_labels(&dataset.samples) {
+            let mut has_success = false;
+            let mut has_failure = false;
+            for (label, role) in labels.iter().zip(&split.roles) {
+                if *role == OfflineVldaSplitRole::Train {
+                    has_success |= *label;
+                    has_failure |= !*label;
+                }
+            }
+            if has_success && has_failure {
+                let feature_dim = [dims.v, dims.l, dims.d, dims.a]
+                    .into_iter()
+                    .try_fold(0_u128, |sum, dim| {
+                        checked_work_add(sum, dim as u128, "logistic feature width")
+                    })?;
+                projected = checked_work_add(
+                    projected,
+                    projected_logistic_operations(split.report.train_samples as u128, feature_dim)?,
+                    "PLS and logistic dense-solver work",
+                )?;
+            }
+        }
+    }
+    Ok(projected)
+}
+
+fn enforce_dense_solver_limit(projected: u128, limits: &OfflineVldaResourceLimits) -> Result<u64> {
+    if projected > u128::from(limits.max_dense_solver_operations) {
+        bail!(
+            "offline VLDA resource limit exceeded for aggregate projected dense-solver operations: observed {projected}, limit {}",
+            limits.max_dense_solver_operations
+        );
+    }
+    u64::try_from(projected).map_err(|_| {
+        anyhow::anyhow!("offline VLDA projected dense-solver operations {projected} do not fit u64")
+    })
+}
+
+fn dense_solver_budget(limits: &OfflineVldaResourceLimits) -> Result<ResourceBudget> {
+    ResourceBudget::new(
+        DEFAULT_MAX_BYTES,
+        DEFAULT_MAX_PAIRWISE_DISTANCES,
+        u128::from(limits.max_dense_solver_operations),
+        1,
+    )
+    .context("failed to construct the offline VLDA dense-solver budget")
+}
+
+fn projected_geometry_distance_evaluations(samples: u128) -> Result<u128> {
+    let ordered = ordered_pair_count(samples, "geometry ordered pairs")?;
+    let pairwise_passes = checked_work_mul(ordered, 2, "geometry pairwise passes")?;
+    let sampled = checked_work_mul(
+        OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES as u128,
+        6,
+        "geometry sampled four-point distances",
+    )?;
+    let per_variable = checked_work_add(
+        checked_work_add(pairwise_passes, samples, "geometry row validation")?,
+        sampled,
+        "geometry sampled work",
+    )?;
+    checked_work_mul(
+        per_variable,
+        OFFLINE_GEOMETRY_VARIABLES,
+        "geometry variables",
+    )
+}
+
+fn projected_analysis_distance_evaluations(
+    dataset: &OfflineVldaDataset,
+    pid_mode: PidMode,
+) -> Result<u128> {
+    let samples = dataset.samples.len() as u128;
+    let unordered = unordered_pair_count(samples, "all-sample unordered pairs")?;
+    let mut projected = projected_geometry_distance_evaluations(samples)?;
+    let split = heldout_split_diagnostics(dataset);
+    let valid_split = split.missing_samples == 0
+        && split.unrecognized_samples == 0
+        && split.train_samples > 0
+        && split.heldout_samples > 0;
+
+    let complete_success_labels = dataset.samples.iter().all(|sample| {
+        sample
+            .labels
+            .get("success")
+            .and_then(Value::as_bool)
+            .is_some()
+    });
+    if complete_success_labels {
+        projected = checked_work_add(
+            projected,
+            checked_work_mul(
+                OFFLINE_BASELINE_FEATURE_VIEWS,
+                unordered,
+                "leave-one-out nearest-neighbor baselines",
+            )?,
+            "leave-one-out nearest-neighbor baselines",
+        )?;
+
+        if valid_split {
+            let heldout = split.heldout_samples as u128;
+            let heldout_centroid = checked_work_mul(
+                checked_work_mul(
+                    OFFLINE_BASELINE_FEATURE_VIEWS,
+                    2,
+                    "held-out centroid classes",
+                )?,
+                heldout,
+                "held-out centroid distances",
+            )?;
+            projected =
+                checked_work_add(projected, heldout_centroid, "held-out centroid baselines")?;
+        }
+    }
+
+    if pid_mode == PidMode::Continuous {
+        let all_sample_pid = checked_work_mul(
+            OFFLINE_CONTINUOUS_PID_PAIRWISE_PASSES,
+            unordered_pair_count(samples, "all-sample continuous PID pairs")?,
+            "all-sample continuous PID",
+        )?;
+        projected = checked_work_add(projected, all_sample_pid, "all-sample continuous PID")?;
+        if valid_split {
+            let train_pid = checked_work_mul(
+                OFFLINE_CONTINUOUS_PID_PAIRWISE_PASSES,
+                unordered_pair_count(
+                    split.train_samples as u128,
+                    "train-split continuous PID pairs",
+                )?,
+                "train-split continuous PID",
+            )?;
+            projected = checked_work_add(projected, train_pid, "train-split continuous PID")?;
+        }
+    }
+    Ok(projected)
+}
+
+fn projected_uncertainty_distance_evaluations(
+    samples: usize,
+    config: &OfflineVldaUncertaintyConfig,
+) -> Result<u128> {
+    let samples = samples as u128;
+    let full_pid2 = checked_work_mul(
+        OFFLINE_PID2_PAIRWISE_PASSES,
+        unordered_pair_count(samples, "uncertainty full-sample PID2 pairs")?,
+        "uncertainty full-sample PID2",
+    )?;
+    let mut per_pair = 0u128;
+    if config.n_boot > 0 {
+        let subsample_len = (((samples / 2) / config.block_size as u128).max(1))
+            .checked_mul(config.block_size as u128)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "offline VLDA pairwise-distance projection overflow in uncertainty subsample length"
+                )
+            })?;
+        let subsample_pid2 = checked_work_mul(
+            OFFLINE_PID2_PAIRWISE_PASSES,
+            unordered_pair_count(subsample_len, "uncertainty subsample PID2 pairs")?,
+            "uncertainty subsample PID2",
+        )?;
+        let bootstrap_replicates = checked_work_mul(
+            config.n_boot as u128,
+            subsample_pid2,
+            "uncertainty bootstrap replicates",
+        )?;
+        per_pair = checked_work_add(
+            per_pair,
+            checked_work_add(
+                full_pid2,
+                bootstrap_replicates,
+                "uncertainty bootstrap point and replicates",
+            )?,
+            "uncertainty bootstrap",
+        )?;
+    }
+    if config.n_perm > 0 {
+        let evaluations_per_permutation_test = checked_work_mul(
+            (config.n_perm as u128).checked_add(1).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "offline VLDA pairwise-distance projection overflow in uncertainty permutation count"
+                )
+            })?,
+            full_pid2,
+            "uncertainty permutation evaluations",
+        )?;
+        per_pair = checked_work_add(
+            per_pair,
+            checked_work_mul(
+                2,
+                evaluations_per_permutation_test,
+                "uncertainty two-source permutation tests",
+            )?,
+            "uncertainty permutation tests",
+        )?;
+    }
+    checked_work_mul(3, per_pair, "uncertainty PID pairs")
+}
+
+fn enforce_pairwise_distance_limit(
+    projected: u128,
+    limits: &OfflineVldaResourceLimits,
+    scope: &str,
+) -> Result<u64> {
+    if projected > u128::from(limits.max_pairwise_distance_evaluations) {
+        bail!(
+            "offline VLDA resource limit exceeded for {scope} projected pairwise distance evaluations: observed {projected}, limit {}",
+            limits.max_pairwise_distance_evaluations
+        );
+    }
+    u64::try_from(projected).map_err(|_| {
+        anyhow::anyhow!(
+            "offline VLDA projected pairwise distance evaluations {projected} do not fit u64"
+        )
+    })
+}
+
+fn maximum_distance_vector_width(dataset: &OfflineVldaDataset) -> Result<u128> {
+    let mut maximum = 0u128;
+    for sample in &dataset.samples {
+        let vl = checked_work_add(
+            sample.v.len() as u128,
+            sample.l.len() as u128,
+            "V/L distance-vector width",
+        )?;
+        let da = checked_work_add(
+            sample.d.len() as u128,
+            sample.a.len() as u128,
+            "D/A distance-vector width",
+        )?;
+        maximum = maximum.max(checked_work_add(vl, da, "V/L/D/A distance-vector width")?);
+    }
+    Ok(maximum.max(1))
+}
+
+fn projected_distance_coordinate_evaluations(
+    pairwise_distance_evaluations: u128,
+    maximum_vector_width: u128,
+    context: &str,
+) -> Result<u128> {
+    checked_work_mul(pairwise_distance_evaluations, maximum_vector_width, context)
+}
+
+fn enforce_distance_coordinate_limit(
+    projected: u128,
+    limits: &OfflineVldaResourceLimits,
+    scope: &str,
+) -> Result<u64> {
+    if projected > u128::from(limits.max_distance_coordinate_evaluations) {
+        bail!(
+            "offline VLDA resource limit exceeded for {scope} projected distance coordinate evaluations: observed {projected}, limit {}",
+            limits.max_distance_coordinate_evaluations
+        );
+    }
+    u64::try_from(projected).map_err(|_| {
+        anyhow::anyhow!(
+            "offline VLDA projected distance coordinate evaluations {projected} do not fit u64"
+        )
+    })
+}
+
+fn admit_dataset_resources(
+    dataset: &OfflineVldaDataset,
+    options: Option<&OfflineVldaHarnessOptions>,
+    uncertainty_config: Option<&OfflineVldaUncertaintyConfig>,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<OfflineVldaResourceUsage> {
+    validate_resource_limits(limits)?;
+    let decoded = account_decoded_resources(dataset, limits)?;
+    let projected_main = match options {
+        Some(options) => projected_analysis_distance_evaluations(dataset, options.pid_mode)?,
+        None => 0,
+    };
+    let projected_uncertainty = match (options.map(|options| options.pid_mode), uncertainty_config)
+    {
+        (Some(PidMode::Continuous), Some(config)) if config.enabled() => {
+            validate_uncertainty_config_for_samples(config, dataset.samples.len())?;
+            projected_uncertainty_distance_evaluations(dataset.samples.len(), config)?
+        }
+        (_, Some(config)) => {
+            validate_uncertainty_config(config)?;
+            0
+        }
+        (_, None) => 0,
+    };
+    let projected_total = checked_work_add(
+        projected_main,
+        projected_uncertainty,
+        "aggregate main and uncertainty analyses",
+    )?;
+    let projected_total_pairwise_distance_evaluations = enforce_pairwise_distance_limit(
+        projected_total,
+        limits,
+        if uncertainty_config.is_some() {
+            "aggregate invocation"
+        } else {
+            "main analysis"
+        },
+    )?;
+    let maximum_vector_width = maximum_distance_vector_width(dataset)?;
+    let projected_main_coordinates = projected_distance_coordinate_evaluations(
+        projected_main,
+        maximum_vector_width,
+        "main distance coordinate evaluations",
+    )?;
+    let projected_uncertainty_coordinates = projected_distance_coordinate_evaluations(
+        projected_uncertainty,
+        maximum_vector_width,
+        "uncertainty distance coordinate evaluations",
+    )?;
+    let projected_total_coordinates = checked_work_add(
+        projected_main_coordinates,
+        projected_uncertainty_coordinates,
+        "aggregate distance coordinate evaluations",
+    )?;
+    let projected_total_distance_coordinate_evaluations = enforce_distance_coordinate_limit(
+        projected_total_coordinates,
+        limits,
+        if uncertainty_config.is_some() {
+            "aggregate invocation"
+        } else {
+            "main analysis"
+        },
+    )?;
+    let projected_dense_solver_operations = enforce_dense_solver_limit(
+        match options {
+            Some(options) => projected_dense_solver_operations(dataset, options)?,
+            None => 0,
+        },
+        limits,
+    )?;
+    let projected_main_pairwise_distance_evaluations =
+        u64::try_from(projected_main).map_err(|_| {
+            anyhow::anyhow!(
+                "offline VLDA main projected pairwise distance evaluations {projected_main} do not fit u64"
+            )
+        })?;
+    let projected_uncertainty_pairwise_distance_evaluations =
+        u64::try_from(projected_uncertainty).map_err(|_| {
+            anyhow::anyhow!(
+                "offline VLDA uncertainty projected pairwise distance evaluations {projected_uncertainty} do not fit u64"
+            )
+        })?;
+    let projected_main_distance_coordinate_evaluations =
+        u64::try_from(projected_main_coordinates).map_err(|_| {
+            anyhow::anyhow!(
+                "offline VLDA main projected distance coordinate evaluations {projected_main_coordinates} do not fit u64"
+            )
+        })?;
+    let projected_uncertainty_distance_coordinate_evaluations =
+        u64::try_from(projected_uncertainty_coordinates).map_err(|_| {
+            anyhow::anyhow!(
+                "offline VLDA uncertainty projected distance coordinate evaluations {projected_uncertainty_coordinates} do not fit u64"
+            )
+        })?;
+    Ok(OfflineVldaResourceUsage {
+        samples: dataset.samples.len(),
+        total_axis_scalars: decoded.total_axis_scalars,
+        total_metadata_entries: decoded.total_metadata_entries,
+        total_metadata_json_nodes: decoded.total_metadata_json_nodes,
+        total_metadata_utf8_bytes: decoded.total_metadata_utf8_bytes,
+        metadata_json_depth: decoded.metadata_json_depth,
+        projected_main_pairwise_distance_evaluations,
+        projected_uncertainty_pairwise_distance_evaluations,
+        projected_total_pairwise_distance_evaluations,
+        projected_main_distance_coordinate_evaluations,
+        projected_uncertainty_distance_coordinate_evaluations,
+        projected_total_distance_coordinate_evaluations,
+        projected_dense_solver_operations,
+    })
+}
+
 pub fn read_offline_vlda_dataset(path: impl AsRef<Path>) -> Result<OfflineVldaDataset> {
-    Ok(read_offline_vlda_dataset_with_hash(path)?.0)
+    read_offline_vlda_dataset_with_limits(path, &OfflineVldaResourceLimits::default())
+}
+
+/// Read and validate one dataset with explicit decoded-resource limits.
+pub fn read_offline_vlda_dataset_with_limits(
+    path: impl AsRef<Path>,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<OfflineVldaDataset> {
+    Ok(read_offline_vlda_dataset_with_hash_and_limits(path, limits)?.0)
 }
 
 /// Read, verify, and parse one immutable input snapshot, returning the SHA-256
@@ -873,39 +2155,47 @@ pub fn read_offline_vlda_dataset(path: impl AsRef<Path>) -> Result<OfflineVldaDa
 pub fn read_offline_vlda_dataset_with_hash(
     path: impl AsRef<Path>,
 ) -> Result<(OfflineVldaDataset, String)> {
-    fn read_bounded(path: &Path, max_bytes: usize) -> Result<Vec<u8>> {
-        let file = std::fs::File::open(path)
-            .with_context(|| format!("failed to open {}", path.display()))?;
-        let mut bytes = Vec::new();
-        file.take(
-            u64::try_from(max_bytes)
-                .unwrap_or(u64::MAX)
-                .saturating_add(1),
-        )
-        .read_to_end(&mut bytes)
-        .with_context(|| format!("failed to read {}", path.display()))?;
-        if bytes.len() > max_bytes {
-            bail!(
-                "offline VLDA input {} exceeds the {max_bytes}-byte limit",
-                path.display()
-            );
-        }
-        Ok(bytes)
-    }
+    read_offline_vlda_dataset_with_hash_and_limits(path, &OfflineVldaResourceLimits::default())
+}
 
+/// Read one immutable input snapshot under explicit decoded-resource limits.
+///
+/// The raw file-byte ceiling is enforced before JSON deserialization. Decoded sample, scalar,
+/// metadata-node, metadata-depth, and UTF-8 ceilings are enforced before NCP verification or any
+/// analysis. The returned digest always identifies the exact parsed bytes. Unix requests
+/// `O_NOFOLLOW` and `O_NONBLOCK`. Non-Unix calls fail closed until an equivalent descriptor-bound
+/// snapshot exists.
+pub fn read_offline_vlda_dataset_with_hash_and_limits(
+    path: impl AsRef<Path>,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<(OfflineVldaDataset, String)> {
     let path = path.as_ref();
-    let input_metadata = std::fs::symlink_metadata(path)
-        .with_context(|| format!("failed to inspect offline VLDA input {}", path.display()))?;
-    if !input_metadata.file_type().is_file() {
-        bail!(
-            "offline VLDA input {} must be a regular file (symlinks are not accepted)",
-            path.display()
-        );
-    }
-    let dataset_bytes = read_bounded(path, OFFLINE_INPUT_MAX_BYTES)?;
-    let input_sha256 = pid_runlog::sha256_hex(&dataset_bytes);
-    let mut dataset: OfflineVldaDataset = serde_json::from_slice(&dataset_bytes)
+    validate_resource_limits(limits)?;
+    let mut dataset_snapshot =
+        read_bounded_regular_file(path, limits.max_input_bytes, "offline VLDA input")?;
+    let dataset_bytes = dataset_snapshot.exact_bytes(limits.max_input_bytes)?;
+    let input_sha256 = dataset_snapshot
+        .sha256
+        .clone()
+        .context("exact offline VLDA snapshot must carry a digest")?;
+    pid_bridge::validate_strict_json_bytes(dataset_bytes)
+        .with_context(|| format!("{} is not strict JSON", path.display()))?;
+    let mut dataset: OfflineVldaDataset = serde_json::from_slice(dataset_bytes)
         .with_context(|| format!("failed to parse {}", path.display()))?;
+    // The decoded dataset owns all deserialized values. Retain the snapshot
+    // identity and digest, but release the duplicate raw JSON before resource
+    // admission and any NCP run-log verification.
+    drop(dataset_snapshot.bytes.take());
+    let _ = admit_dataset_resources(&dataset, None, None, limits)?;
+    // Reject malformed sample contracts before opening any receipt or run-log path. NCP
+    // verification can read another 64 MiB, so structural validation must remain the cheaper,
+    // earlier gate.
+    let _ = validate_dataset_structure(&dataset).with_context(|| {
+        format!(
+            "offline VLDA dataset {} failed structural validation",
+            path.display()
+        )
+    })?;
     if offline_vlda_has_ncp_markers(&dataset) {
         if dataset.source.as_deref() != Some("ncp") {
             bail!("NCP-marked dataset must declare source=\"ncp\"");
@@ -930,20 +2220,28 @@ pub fn read_offline_vlda_dataset_with_hash(
         let mut expected_receipt = path.as_os_str().to_os_string();
         expected_receipt.push(".publication.json");
         let expected_receipt = std::path::PathBuf::from(expected_receipt);
-        let receipt_metadata = std::fs::symlink_metadata(receipt_path).with_context(|| {
-            format!(
-                "failed to inspect NCP publication receipt {}",
-                receipt_path.display()
-            )
-        })?;
-        if !receipt_metadata.file_type().is_file()
+        // Read only the adjacent canonical target. The dataset-supplied URI is
+        // checked as a name for that snapshot below, but never selects an input.
+        let receipt_snapshot = read_bounded_regular_file(
+            &expected_receipt,
+            OFFLINE_NCP_PUBLICATION_RECEIPT_MAX_BYTES as u64,
+            "NCP publication receipt",
+        )?;
+        if !receipt_snapshot.same_file_as(receipt_path, "declared NCP publication receipt")?
             || std::fs::canonicalize(receipt_path).ok()
                 != std::fs::canonicalize(&expected_receipt).ok()
         {
             bail!("NCP publication receipt must be the adjacent regular .publication.json file");
         }
-        let receipt_bytes = read_bounded(receipt_path, OFFLINE_NCP_PUBLICATION_RECEIPT_MAX_BYTES)?;
-        let receipt: OfflineNcpPublicationReceipt = serde_json::from_slice(&receipt_bytes)
+        let receipt_bytes =
+            receipt_snapshot.exact_bytes(OFFLINE_NCP_PUBLICATION_RECEIPT_MAX_BYTES as u64)?;
+        pid_bridge::validate_strict_json_bytes(receipt_bytes).with_context(|| {
+            format!(
+                "NCP publication receipt {} is not strict JSON",
+                receipt_path.display()
+            )
+        })?;
+        let receipt: OfflineNcpPublicationReceipt = serde_json::from_slice(receipt_bytes)
             .with_context(|| {
                 format!(
                     "failed to parse NCP publication receipt {}",
@@ -959,6 +2257,7 @@ pub fn read_offline_vlda_dataset_with_hash(
         if input_sha256 != receipt.dataset_sha256 {
             bail!("NCP publication receipt dataset SHA-256 mismatch");
         }
+        dataset_snapshot.verify_path()?;
         let canonical_dataset = std::fs::canonicalize(path)
             .with_context(|| format!("failed to canonicalize {}", path.display()))?;
         let receipt_dataset = std::fs::canonicalize(&receipt.dataset_uri).with_context(|| {
@@ -971,19 +2270,21 @@ pub fn read_offline_vlda_dataset_with_hash(
             bail!("NCP publication receipt names a different dataset path");
         }
         let runlog_path = Path::new(&receipt.runlog_uri);
-        if !std::fs::symlink_metadata(runlog_path)
-            .with_context(|| format!("failed to inspect NCP run log {}", runlog_path.display()))?
-            .file_type()
-            .is_file()
-        {
-            bail!("NCP publication receipt run log must be a regular file");
-        }
-        let runlog_bytes = read_bounded(runlog_path, OFFLINE_INPUT_MAX_BYTES)?;
-        if pid_runlog::sha256_hex(&runlog_bytes) != receipt.runlog_sha256 {
+        let mut runlog_snapshot = read_bounded_regular_file(
+            runlog_path,
+            OFFLINE_NCP_RUNLOG_MAX_BYTES as u64,
+            "NCP canonical run log",
+        )?;
+        let runlog_bytes = runlog_snapshot.exact_bytes(OFFLINE_NCP_RUNLOG_MAX_BYTES as u64)?;
+        if runlog_snapshot.sha256.as_deref() != Some(receipt.runlog_sha256.as_str()) {
             bail!("NCP publication receipt run-log SHA-256 mismatch");
         }
-        let events = pid_runlog::read_events(std::io::BufReader::new(runlog_bytes.as_slice()))
+        validate_strict_json_lines(runlog_bytes, "NCP canonical run log")?;
+        let events = pid_runlog::read_events(std::io::BufReader::new(runlog_bytes))
             .context("failed to parse the NCP canonical run log")?;
+        // Parsed events own the values needed below. Release the duplicate raw
+        // run-log bytes before validation and artifact binding.
+        drop(runlog_snapshot.bytes.take());
         let validation = pid_runlog::validate_events(&events)
             .context("failed to validate the NCP canonical run log")?;
         if validation.errors > 0 {
@@ -1024,8 +2325,17 @@ pub fn read_offline_vlda_dataset_with_hash(
         if summary.status != Some(RunStatus::Succeeded) {
             bail!("NCP canonical run log did not end successfully");
         }
+        receipt_snapshot.verify_path()?;
+        runlog_snapshot.verify_path()?;
         dataset.publication_receipt_verified = true;
     }
+    dataset_snapshot.verify_path()?;
+    validate_dataset_publication_eligibility(&dataset).with_context(|| {
+        format!(
+            "offline VLDA dataset {} failed publication validation",
+            path.display()
+        )
+    })?;
     Ok((dataset, input_sha256))
 }
 
@@ -1034,11 +2344,28 @@ pub fn run_offline_vlda_harness(
     input_uri: Option<String>,
     input_sha256: Option<String>,
 ) -> Result<OfflineVldaReport> {
-    run_offline_vlda_harness_with_options(
+    run_offline_vlda_harness_with_options_and_limits(
         dataset,
         input_uri,
         input_sha256,
         &OfflineVldaHarnessOptions::default(),
+        &OfflineVldaResourceLimits::default(),
+    )
+}
+
+/// Run the offline VLDA harness with explicit resource limits and default analysis options.
+pub fn run_offline_vlda_harness_with_limits(
+    dataset: OfflineVldaDataset,
+    input_uri: Option<String>,
+    input_sha256: Option<String>,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<OfflineVldaReport> {
+    run_offline_vlda_harness_with_options_and_limits(
+        dataset,
+        input_uri,
+        input_sha256,
+        &OfflineVldaHarnessOptions::default(),
+        limits,
     )
 }
 
@@ -1049,15 +2376,353 @@ pub fn run_offline_vlda_harness_with_options(
     input_sha256: Option<String>,
     options: &OfflineVldaHarnessOptions,
 ) -> Result<OfflineVldaReport> {
-    let dims = validate_dataset(&dataset)?;
+    run_offline_vlda_harness_with_options_and_limits(
+        dataset,
+        input_uri,
+        input_sha256,
+        options,
+        &OfflineVldaResourceLimits::default(),
+    )
+}
+
+/// Run the offline VLDA harness with explicit analysis options and resource limits.
+///
+/// All decoded-size, pairwise-distance, and coordinate-work checks complete before matrix
+/// preparation, geometry, nearest-neighbor baselines, or PID estimation begins.
+pub fn run_offline_vlda_harness_with_options_and_limits(
+    dataset: OfflineVldaDataset,
+    input_uri: Option<String>,
+    input_sha256: Option<String>,
+    options: &OfflineVldaHarnessOptions,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<OfflineVldaReport> {
+    validate_harness_options(options)?;
+    let resource_usage = admit_dataset_resources(&dataset, Some(options), None, limits)?;
+    let dataset_content_sha256 = offline_vlda_dataset_content_sha256(&dataset)
+        .context("failed to hash the admitted offline VLDA dataset")?;
+    run_offline_vlda_harness_after_resource_preflight(
+        &dataset,
+        PreflightedOfflineVldaRun {
+            dataset_content_sha256,
+            input_uri,
+            input_sha256,
+            options,
+            limits,
+            resource_usage,
+            uncertainty_config: None,
+        },
+    )
+}
+
+/// Run the main harness after preflighting one aggregate main-plus-uncertainty invocation.
+///
+/// This additive entry point is the CLI contract. It checked-adds both projections against one
+/// ceiling before matrix preparation, geometry, baselines, PID, or uncertainty work begins.
+pub fn run_offline_vlda_harness_with_options_and_invocation_limits(
+    dataset: OfflineVldaDataset,
+    input_uri: Option<String>,
+    input_sha256: Option<String>,
+    options: &OfflineVldaHarnessOptions,
+    uncertainty_config: &OfflineVldaUncertaintyConfig,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<OfflineVldaReport> {
+    run_offline_vlda_harness_borrowed_with_options_and_invocation_limits(
+        &dataset,
+        input_uri,
+        input_sha256,
+        options,
+        uncertainty_config,
+        limits,
+    )
+}
+
+/// Run one aggregate main-plus-uncertainty invocation without taking ownership of the dataset.
+///
+/// This entry point avoids a full dataset clone when a caller must retain the admitted samples
+/// for uncertainty computation or run-log publication. It applies the same preflight and report
+/// contract as [`run_offline_vlda_harness_with_options_and_invocation_limits`].
+pub fn run_offline_vlda_harness_borrowed_with_options_and_invocation_limits(
+    dataset: &OfflineVldaDataset,
+    input_uri: Option<String>,
+    input_sha256: Option<String>,
+    options: &OfflineVldaHarnessOptions,
+    uncertainty_config: &OfflineVldaUncertaintyConfig,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<OfflineVldaReport> {
+    validate_harness_options(options)?;
+    let resource_usage =
+        admit_dataset_resources(dataset, Some(options), Some(uncertainty_config), limits)?;
+    let dataset_content_sha256 = offline_vlda_dataset_content_sha256(dataset)
+        .context("failed to hash the admitted offline VLDA dataset")?;
+    run_offline_vlda_harness_after_resource_preflight(
+        dataset,
+        PreflightedOfflineVldaRun {
+            dataset_content_sha256,
+            input_uri,
+            input_sha256,
+            options,
+            limits,
+            resource_usage,
+            uncertainty_config: Some(uncertainty_config),
+        },
+    )
+}
+
+/// Main report and optional uncertainty sidecar from one admitted CLI-style invocation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OfflineVldaInvocationResult {
+    pub report: OfflineVldaReport,
+    pub uncertainty: Option<OfflineVldaPidUncertainty>,
+}
+
+/// Run one aggregate main-plus-uncertainty invocation with one admission pass and one initial
+/// dataset content hash.
+///
+/// Publication still recomputes the content hash as an independent trust boundary. This function
+/// removes duplicate preflight and canonicalization work between the main and uncertainty phases.
+pub fn run_offline_vlda_invocation_borrowed_with_options_and_limits(
+    dataset: &OfflineVldaDataset,
+    input_uri: Option<String>,
+    input_sha256: Option<String>,
+    options: &OfflineVldaHarnessOptions,
+    uncertainty_config: &OfflineVldaUncertaintyConfig,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<OfflineVldaInvocationResult> {
+    validate_harness_options(options)?;
+    let resource_usage =
+        admit_dataset_resources(dataset, Some(options), Some(uncertainty_config), limits)?;
+    let dataset_content_sha256 = offline_vlda_dataset_content_sha256(dataset)
+        .context("failed to hash the admitted offline VLDA dataset")?;
+    let report = run_offline_vlda_harness_after_resource_preflight(
+        dataset,
+        PreflightedOfflineVldaRun {
+            dataset_content_sha256: dataset_content_sha256.clone(),
+            input_uri,
+            input_sha256,
+            options,
+            limits,
+            resource_usage,
+            uncertainty_config: Some(uncertainty_config),
+        },
+    )?;
+    let uncertainty = if uncertainty_config.enabled() {
+        Some(compute_offline_pid_uncertainty_after_resource_preflight(
+            dataset,
+            options.pid_mode,
+            uncertainty_config,
+            limits,
+            dataset_content_sha256,
+        )?)
+    } else {
+        None
+    };
+    Ok(OfflineVldaInvocationResult {
+        report,
+        uncertainty,
+    })
+}
+
+fn offline_vlda_metric_pipeline_config(
+    options: &OfflineVldaHarnessOptions,
+    preprocessing: &OfflineVldaPreprocessingReport,
+    geometry: &OfflineVldaGeometryReport,
+    train_split_pid: Option<&OfflineVldaTrainSplitPidReport>,
+    heldout_split: Option<&OfflineVldaHeldoutSplitReport>,
+    heldout_class_coverage: Option<&OfflineVldaHeldoutClassCoverageReport>,
+    heldout_episode_disjoint: Option<&OfflineVldaHeldoutEpisodeDisjointReport>,
+) -> Value {
+    json!({
+        "mi": match options.pid_mode {
+            PidMode::Disabled => "disabled",
+            PidMode::Continuous => "ksg",
+            PidMode::Discrete | PidMode::DiscretePls => "discrete",
+        },
+        "pid": match options.pid_mode {
+            PidMode::Disabled => "disabled",
+            PidMode::Continuous => "isx_ehrlich_ksg",
+            PidMode::Discrete => "discrete_imin",
+            PidMode::DiscretePls => "pls_discrete_imin",
+        },
+        "pid_mode": options.pid_mode,
+        "discrete_bins": options.discrete_bins,
+        "pls_components": match options.pls {
+            PlsComponentSelection::Fixed(k) => json!(k),
+            PlsComponentSelection::CvQ2 { max_components } => {
+                json!({"cv_max": max_components})
+            }
+        },
+        "pid_pairs": if options.pid_mode == PidMode::Disabled {
+            json!([])
+        } else {
+            json!([["V", "L"], ["V", "D"], ["L", "D"]])
+        },
+        "pid_sample_scopes": if options.pid_mode == PidMode::Disabled {
+            Vec::<&str>::new()
+        } else if train_split_pid.and_then(|report| report.metrics.as_ref()).is_some() {
+            vec!["all_samples", "metadata_split_train"]
+        } else {
+            vec!["all_samples"]
+        },
+        "target": "A",
+        "shared_source_metrics": if options.pid_mode == PidMode::Disabled {
+            Vec::<&str>::new()
+        } else {
+            vec!["mi_v_action", "mi_l_action", "mi_d_action"]
+        },
+        "preprocessing": {
+            "pid_geometry_space": preprocessing.strategy,
+            "standardizer": "per_variable_center_scale_population_std",
+            "full_sample_pid_fit_scope": "all_samples",
+            "train_split_pid_fit_scope": train_split_pid
+                .and_then(|report| report.metrics.as_ref())
+                .map(|_| "metadata_split_train")
+        },
+        "geometry": {
+            "role": "descriptive_diagnostics_not_validity_gate",
+            "metric": geometry.metric,
+            "intrinsic_k": geometry.intrinsic_k,
+            "hyperbolicity_samples": geometry.hyperbolicity_samples,
+            "max_intrinsic_dimension_warning": OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION_WARNING,
+            "min_pairwise_cv_warning": OFFLINE_GEOMETRY_MIN_PAIRWISE_CV_WARNING
+        },
+        "baselines": [
+            "majority_success_accuracy",
+            "loo_nn_v_success_accuracy",
+            "loo_nn_l_success_accuracy",
+            "loo_nn_d_success_accuracy",
+            "loo_nn_a_success_accuracy",
+            "loo_nn_vlda_success_accuracy",
+            "episode_loo_majority_success_accuracy",
+            "episode_loo_nn_v_success_accuracy",
+            "episode_loo_nn_l_success_accuracy",
+            "episode_loo_nn_d_success_accuracy",
+            "episode_loo_nn_a_success_accuracy",
+            "episode_loo_nn_vlda_success_accuracy",
+            "heldout_majority_success_accuracy",
+            "heldout_majority_success_balanced_accuracy",
+            "heldout_nn_v_success_accuracy",
+            "heldout_nn_l_success_accuracy",
+            "heldout_nn_d_success_accuracy",
+            "heldout_nn_a_success_accuracy",
+            "heldout_nn_vlda_success_accuracy",
+            "heldout_nn_v_success_balanced_accuracy",
+            "heldout_nn_l_success_balanced_accuracy",
+            "heldout_nn_d_success_balanced_accuracy",
+            "heldout_nn_a_success_balanced_accuracy",
+            "heldout_nn_vlda_success_balanced_accuracy",
+            "heldout_centroid_v_success_accuracy",
+            "heldout_centroid_l_success_accuracy",
+            "heldout_centroid_d_success_accuracy",
+            "heldout_centroid_a_success_accuracy",
+            "heldout_centroid_vlda_success_accuracy",
+            "heldout_centroid_v_success_balanced_accuracy",
+            "heldout_centroid_l_success_balanced_accuracy",
+            "heldout_centroid_d_success_balanced_accuracy",
+            "heldout_centroid_a_success_balanced_accuracy",
+            "heldout_centroid_vlda_success_balanced_accuracy",
+            "heldout_centroid_v_success_auroc",
+            "heldout_centroid_l_success_auroc",
+            "heldout_centroid_d_success_auroc",
+            "heldout_centroid_a_success_auroc",
+            "heldout_centroid_vlda_success_auroc",
+            "heldout_logreg_vlda_success_accuracy",
+            "heldout_logreg_vlda_success_balanced_accuracy",
+            "heldout_logreg_vlda_success_auroc",
+            "heldout_failure_true_positive_count",
+            "heldout_failure_false_positive_count",
+            "heldout_failure_true_negative_count",
+            "heldout_failure_false_negative_count",
+            "heldout_failure_precision",
+            "heldout_failure_recall",
+            "heldout_failure_specificity",
+            "heldout_failure_f1",
+            "heldout_class_coverage_pass",
+            "heldout_class_coverage_train_success_count",
+            "heldout_class_coverage_train_failure_count",
+            "heldout_class_coverage_heldout_success_count",
+            "heldout_class_coverage_heldout_failure_count",
+            "heldout_episode_disjoint_pass",
+            "heldout_episode_disjoint_train_episode_count",
+            "heldout_episode_disjoint_heldout_episode_count",
+            "heldout_episode_disjoint_shared_episode_count",
+            "heldout_episode_disjoint_missing_episode_sample_count",
+            "heldout_prediction_correct",
+            "heldout_prediction_score",
+            "heldout_prediction_squared_distance"
+        ],
+        "heldout_split": heldout_split,
+        "train_split_pid": train_split_pid.map(|report| json!({
+            "status": report.status,
+            "split_metadata_key": report.split_metadata_key,
+            "split": report.split,
+            "samples": report.samples,
+            "heldout_samples_excluded": report.heldout_samples_excluded,
+            "preprocessing_available": report.preprocessing.is_some(),
+            "metrics_available": report.metrics.is_some()
+        })),
+        "heldout_class_coverage": heldout_class_coverage,
+        "heldout_episode_disjoint": heldout_episode_disjoint,
+        "prediction_records": [
+            "heldout_train_split_majority",
+            "heldout_train_split_1nn",
+            "heldout_train_split_nearest_centroid",
+            "heldout_train_split_logreg"
+        ],
+        "negative_handling": "allow"
+    })
+}
+
+struct PreflightedOfflineVldaRun<'a> {
+    dataset_content_sha256: String,
+    input_uri: Option<String>,
+    input_sha256: Option<String>,
+    options: &'a OfflineVldaHarnessOptions,
+    limits: &'a OfflineVldaResourceLimits,
+    resource_usage: OfflineVldaResourceUsage,
+    uncertainty_config: Option<&'a OfflineVldaUncertaintyConfig>,
+}
+
+fn run_offline_vlda_harness_after_resource_preflight(
+    dataset: &OfflineVldaDataset,
+    preflight: PreflightedOfflineVldaRun<'_>,
+) -> Result<OfflineVldaReport> {
+    let PreflightedOfflineVldaRun {
+        dataset_content_sha256,
+        input_uri,
+        input_sha256,
+        options,
+        limits,
+        resource_usage,
+        uncertainty_config,
+    } = preflight;
+    let aggregate_invocation = uncertainty_config.is_some();
+    let uncertainty_request = match uncertainty_config {
+        Some(config) => json!({
+            "enabled": config.enabled(),
+            "n_boot": config.n_boot,
+            "n_perm": config.n_perm,
+            "block_size": config.block_size,
+            "alpha": config.alpha,
+            "seed": config.seed,
+            "permutation_scheme": if config.n_perm > 0 {
+                permutation_scheme_label(config.permutation_scheme)?
+            } else {
+                "not_requested".to_string()
+            },
+        }),
+        None => json!({
+            "enabled": false,
+            "scope": "not_requested_by_this_api",
+        }),
+    };
+    let dims = validate_dataset(dataset)?;
     let label_counts = label_counts(&dataset.samples);
     let analysis = compute_analysis(
         &dataset.samples,
         &dataset.support,
         &dims,
-        options.pid_mode,
-        options.discrete_bins,
-        options.pls,
+        options,
+        dense_solver_budget(limits)?,
     )?;
     let run_id = dataset
         .run_id
@@ -1065,147 +2730,45 @@ pub fn run_offline_vlda_harness_with_options(
         .unwrap_or_else(|| "offline-vlda-run".to_string());
     let config = json!({
         "harness": "offline_vlda",
-        "source": dataset.source,
-        "model": dataset.model,
-        "task": dataset.task,
+        "source": &dataset.source,
+        "model": &dataset.model,
+        "task": &dataset.task,
         "input_uri": input_uri,
         "input_sha256": input_sha256,
+        "dataset_content_sha256": dataset_content_sha256,
         "dims": dims,
         "samples": dataset.samples.len(),
-        "metric_pipeline": {
-            "mi": match options.pid_mode {
-                PidMode::Disabled => "disabled",
-                PidMode::Continuous => "ksg",
-                PidMode::Discrete | PidMode::DiscretePls => "discrete",
-            },
-            "pid": match options.pid_mode {
-                PidMode::Disabled => "disabled",
-                PidMode::Continuous => "isx_ehrlich_ksg",
-                PidMode::Discrete => "discrete_imin",
-                PidMode::DiscretePls => "pls_discrete_imin",
-            },
-            "pid_mode": options.pid_mode,
-            "discrete_bins": options.discrete_bins,
-            "pls_components": match options.pls {
-                PlsComponentSelection::Fixed(k) => json!(k),
-                PlsComponentSelection::CvQ2 { max_components } => json!({"cv_max": max_components}),
-            },
-            "pid_pairs": if options.pid_mode == PidMode::Disabled {
-                json!([])
+        "resource_limits": limits,
+        "resource_usage": resource_usage,
+        "uncertainty_request": uncertainty_request,
+        "resource_accounting": {
+            "pairwise_limit_scope": if aggregate_invocation {
+                "aggregate_main_and_optional_uncertainty"
             } else {
-                json!([["V", "L"], ["V", "D"], ["L", "D"]])
+                "single_main_analysis_call"
             },
-            "pid_sample_scopes": if options.pid_mode == PidMode::Disabled {
-                Vec::<&str>::new()
-            } else if analysis.train_split_pid.as_ref().and_then(|report| report.metrics.as_ref()).is_some() {
-                vec!["all_samples", "metadata_split_train"]
+            "resource_usage_scope": if aggregate_invocation {
+                "complete_cli_invocation_projection"
             } else {
-                vec!["all_samples"]
+                "main_harness_analysis"
             },
-            "target": "A",
-            "shared_source_metrics": if options.pid_mode == PidMode::Disabled {
-                Vec::<&str>::new()
+            "distance_projection_model": "pairwise_units_times_max_combined_axis_width_v2",
+            "dense_solver_projection_model": "pid_core_0_9_logreg_pls_worst_case_v1",
+            "optional_uncertainty": if aggregate_invocation {
+                "included_in_aggregate_preflight"
             } else {
-                vec!["mi_v_action", "mi_l_action", "mi_d_action"]
-            },
-            "preprocessing": {
-                "pid_geometry_space": analysis.preprocessing.strategy.clone(),
-                "standardizer": "per_variable_center_scale_population_std",
-                "full_sample_pid_fit_scope": "all_samples",
-                "train_split_pid_fit_scope": analysis.train_split_pid.as_ref().and_then(|report| report.metrics.as_ref()).map(|_| "metadata_split_train")
-            },
-            "geometry": {
-                "metric": analysis.geometry.metric.clone(),
-                "intrinsic_k": analysis.geometry.intrinsic_k,
-                "hyperbolicity_samples": analysis.geometry.hyperbolicity_samples,
-                "max_intrinsic_dimension": OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION,
-                "min_pairwise_cv": OFFLINE_GEOMETRY_MIN_PAIRWISE_CV,
-                "min_delta_rel": OFFLINE_GEOMETRY_MIN_DELTA_REL
-            },
-            "baselines": [
-                "majority_success_accuracy",
-                "loo_nn_v_success_accuracy",
-                "loo_nn_l_success_accuracy",
-                "loo_nn_d_success_accuracy",
-                "loo_nn_a_success_accuracy",
-                "loo_nn_vlda_success_accuracy",
-                "episode_loo_majority_success_accuracy",
-                "episode_loo_nn_v_success_accuracy",
-                "episode_loo_nn_l_success_accuracy",
-                "episode_loo_nn_d_success_accuracy",
-                "episode_loo_nn_a_success_accuracy",
-                "episode_loo_nn_vlda_success_accuracy",
-                "heldout_majority_success_accuracy",
-                "heldout_majority_success_balanced_accuracy",
-                "heldout_nn_v_success_accuracy",
-                "heldout_nn_l_success_accuracy",
-                "heldout_nn_d_success_accuracy",
-                "heldout_nn_a_success_accuracy",
-                "heldout_nn_vlda_success_accuracy",
-                "heldout_nn_v_success_balanced_accuracy",
-                "heldout_nn_l_success_balanced_accuracy",
-                "heldout_nn_d_success_balanced_accuracy",
-                "heldout_nn_a_success_balanced_accuracy",
-                "heldout_nn_vlda_success_balanced_accuracy",
-                "heldout_centroid_v_success_accuracy",
-                "heldout_centroid_l_success_accuracy",
-                "heldout_centroid_d_success_accuracy",
-                "heldout_centroid_a_success_accuracy",
-                "heldout_centroid_vlda_success_accuracy",
-                "heldout_centroid_v_success_balanced_accuracy",
-                "heldout_centroid_l_success_balanced_accuracy",
-                "heldout_centroid_d_success_balanced_accuracy",
-                "heldout_centroid_a_success_balanced_accuracy",
-                "heldout_centroid_vlda_success_balanced_accuracy",
-                "heldout_centroid_v_success_auroc",
-                "heldout_centroid_l_success_auroc",
-                "heldout_centroid_d_success_auroc",
-                "heldout_centroid_a_success_auroc",
-                "heldout_centroid_vlda_success_auroc",
-                "heldout_logreg_vlda_success_accuracy",
-                "heldout_logreg_vlda_success_balanced_accuracy",
-                "heldout_logreg_vlda_success_auroc",
-                "heldout_failure_true_positive_count",
-                "heldout_failure_false_positive_count",
-                "heldout_failure_true_negative_count",
-                "heldout_failure_false_negative_count",
-                "heldout_failure_precision",
-                "heldout_failure_recall",
-                "heldout_failure_specificity",
-                "heldout_failure_f1",
-                "heldout_class_coverage_pass",
-                "heldout_class_coverage_train_success_count",
-                "heldout_class_coverage_train_failure_count",
-                "heldout_class_coverage_heldout_success_count",
-                "heldout_class_coverage_heldout_failure_count",
-                "heldout_episode_disjoint_pass",
-                "heldout_episode_disjoint_train_episode_count",
-                "heldout_episode_disjoint_heldout_episode_count",
-                "heldout_episode_disjoint_shared_episode_count",
-                "heldout_episode_disjoint_missing_episode_sample_count",
-                "heldout_prediction_correct",
-                "heldout_prediction_score",
-                "heldout_prediction_squared_distance"
-            ],
-            "heldout_split": analysis.heldout_split.clone(),
-            "train_split_pid": analysis.train_split_pid.as_ref().map(|report| json!({
-                "status": report.status,
-                "split_metadata_key": report.split_metadata_key,
-                "split": report.split,
-                "samples": report.samples,
-                "heldout_samples_excluded": report.heldout_samples_excluded,
-                "preprocessing_available": report.preprocessing.is_some(),
-                "metrics_available": report.metrics.is_some()
-            })),
-            "heldout_class_coverage": analysis.heldout_class_coverage.clone(),
-            "heldout_episode_disjoint": analysis.heldout_episode_disjoint.clone(),
-            "prediction_records": [
-                "heldout_train_split_majority",
-                "heldout_train_split_1nn",
-                "heldout_train_split_nearest_centroid"
-            ],
-            "negative_handling": "allow"
-        }
+                "not_included_by_single_analysis_api"
+            }
+        },
+        "metric_pipeline": offline_vlda_metric_pipeline_config(
+            options,
+            &analysis.preprocessing,
+            &analysis.geometry,
+            analysis.train_split_pid.as_ref(),
+            analysis.heldout_split.as_ref(),
+            analysis.heldout_class_coverage.as_ref(),
+            analysis.heldout_episode_disjoint.as_ref(),
+        )
     });
     let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
     Ok(OfflineVldaReport {
@@ -1233,32 +2796,25 @@ fn train_split_pid_report(
     support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     dims: &OfflineVldaDims,
     split: &OfflineVldaHeldoutSplitPlan,
-    pid_mode: PidMode,
-    discrete_bins: usize,
-    pls: PlsComponentSelection,
+    options: &OfflineVldaHarnessOptions,
+    dense_solver_budget: ResourceBudget,
 ) -> OfflineVldaTrainSplitPidReport {
-    let train_samples = samples
-        .iter()
-        .zip(&split.roles)
-        .filter_map(|(sample, role)| {
-            (*role == OfflineVldaSplitRole::Train).then_some(sample.clone())
-        })
-        .collect::<Vec<_>>();
+    let train_samples = split.report.train_samples;
     let train_dims = OfflineVldaDims {
-        samples: train_samples.len(),
+        samples: train_samples,
         v: dims.v,
         l: dims.l,
         d: dims.d,
         a: dims.a,
     };
-    if pid_mode == PidMode::Disabled {
+    if options.pid_mode == PidMode::Disabled {
         return OfflineVldaTrainSplitPidReport {
             split_metadata_key: split.report.metadata_key.clone(),
             split: "metadata_split_train".to_string(),
             train_values: split.report.train_values.clone(),
             heldout_values: split.report.heldout_values.clone(),
             status: "disabled".to_string(),
-            samples: train_samples.len(),
+            samples: train_samples,
             heldout_samples_excluded: split.report.heldout_samples,
             train_sample_ids: split.report.train_sample_ids.clone(),
             preprocessing: None,
@@ -1267,13 +2823,13 @@ fn train_split_pid_report(
         };
     }
     let result = (|| -> Result<(OfflineVldaPreprocessingReport, OfflineVldaPidScreenMetrics)> {
-        let prepared = prepare_standardized_embeddings(&train_samples, &train_dims)?;
+        let prepared =
+            prepare_standardized_embeddings_for_train(samples, &split.roles, &train_dims)?;
         let metrics = compute_pid_screen_metrics_with_control(
             &prepared,
             support,
-            pid_mode,
-            discrete_bins,
-            pls,
+            options,
+            dense_solver_budget,
         )?;
         Ok((prepared.preprocessing, metrics))
     })();
@@ -1292,7 +2848,7 @@ fn train_split_pid_report(
         train_values: split.report.train_values.clone(),
         heldout_values: split.report.heldout_values.clone(),
         status,
-        samples: train_samples.len(),
+        samples: train_samples,
         heldout_samples_excluded: split.report.heldout_samples,
         train_sample_ids: split.report.train_sample_ids.clone(),
         preprocessing,
@@ -1302,20 +2858,20 @@ fn train_split_pid_report(
 }
 
 fn compute_pid_screen_metrics(
-    prepared: &PreparedVldaMatrices,
+    v: MatRef<'_>,
+    l: MatRef<'_>,
+    d: MatRef<'_>,
+    a: MatRef<'_>,
     support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
-    pid_mode: PidMode,
-    discrete_bins: usize,
-    pls: PlsComponentSelection,
+    options: &OfflineVldaHarnessOptions,
+    dense_solver_budget: ResourceBudget,
 ) -> Result<OfflineVldaPidScreenMetrics> {
+    let pid_mode = options.pid_mode;
+    let discrete_bins = options.discrete_bins;
+    let pls = options.pls;
     if pid_mode == PidMode::Disabled {
         return Ok(disabled_pid_screen_metrics());
     }
-
-    let v = prepared.v.as_ref();
-    let l = prepared.l.as_ref();
-    let d = prepared.d.as_ref();
-    let a = prepared.a.as_ref();
 
     // DiscretePls: project each source toward A with PLS fitted on the samples
     // given to this screen (train-only in the train-split path; in-sample for the
@@ -1330,7 +2886,12 @@ fn compute_pid_screen_metrics(
                 match pls {
                     PlsComponentSelection::Fixed(k) => Ok((k, None)),
                     PlsComponentSelection::CvQ2 { max_components } => {
-                        let cv = pls_cv_select_components(x, a, max_components)?;
+                        let cv = pls_cv_select_components_with_budget(
+                            x,
+                            a,
+                            max_components,
+                            dense_solver_budget,
+                        )?;
                         // In the current pid-core review contract, `best_components` is `None` when
                         // no candidate completed every predeclared fold, and Q² lives on the
                         // candidate outcome.
@@ -1352,9 +2913,12 @@ fn compute_pid_screen_metrics(
             let (kv, q2v) = choose(v)?;
             let (kl, q2l) = choose(l)?;
             let (kd, q2d) = choose(d)?;
-            let v_proj = PlsProjector::fit(v, a, kv)?.transform(v)?;
-            let l_proj = PlsProjector::fit(l, a, kl)?.transform(l)?;
-            let d_proj = PlsProjector::fit(d, a, kd)?.transform(d)?;
+            let v_projector = PlsProjector::fit_with_budget(v, a, kv, dense_solver_budget)?;
+            let l_projector = PlsProjector::fit_with_budget(l, a, kl, dense_solver_budget)?;
+            let d_projector = PlsProjector::fit_with_budget(d, a, kd, dense_solver_budget)?;
+            let v_proj = v_projector.transform_with_budget(v, dense_solver_budget)?;
+            let l_proj = l_projector.transform_with_budget(l, dense_solver_budget)?;
+            let d_proj = d_projector.transform_with_budget(d, dense_solver_budget)?;
             pls_selection = Some(OfflineVldaPlsSelection {
                 method: match pls {
                     PlsComponentSelection::Fixed(_) => "fixed".to_string(),
@@ -1376,39 +2940,35 @@ fn compute_pid_screen_metrics(
         Some((v_proj, l_proj, d_proj)) => (v_proj.as_ref(), l_proj.as_ref(), d_proj.as_ref()),
         None => (v, l, d),
     };
-
-    // Per-source marginal MI with A. Each is a *requested* estimate that may abstain.
-    let (mi_v_action, mi_l_action, mi_d_action) = match pid_mode {
-        PidMode::Continuous => {
-            let ksg = ksg_config();
-            (
-                continuous_mi_estimate("V", v_eff, "A", a, support, &ksg)?,
-                continuous_mi_estimate("L", l_eff, "A", a, support, &ksg)?,
-                continuous_mi_estimate("D", d_eff, "A", a, support, &ksg)?,
-            )
-        }
-        PidMode::Discrete | PidMode::DiscretePls => (
-            quantized_mi_estimate("V", v_eff, "A", a, support, discrete_bins)?,
-            quantized_mi_estimate("L", l_eff, "A", a, support, discrete_bins)?,
-            quantized_mi_estimate("D", d_eff, "A", a, support, discrete_bins)?,
-        ),
-        PidMode::Disabled => unreachable!("disabled mode returns before MI estimation"),
+    // Each screen carries the same per-axis diagnostics into several marginal
+    // and pair outcomes. Compute each axis once and clone only the small typed
+    // summary instead of rebuilding row-count maps for every estimate.
+    let v_diagnostics = axis_diagnostics("V", v_eff, support);
+    let l_diagnostics = axis_diagnostics("L", l_eff, support);
+    let d_diagnostics = axis_diagnostics("D", d_eff, support);
+    let a_diagnostics = axis_diagnostics("A", a, support);
+    let quantized = if matches!(pid_mode, PidMode::Discrete | PidMode::DiscretePls) {
+        Some((
+            prepare_quantized_axis(v_eff, discrete_bins)?,
+            prepare_quantized_axis(l_eff, discrete_bins)?,
+            prepare_quantized_axis(d_eff, discrete_bins)?,
+            prepare_quantized_axis(a, discrete_bins)?,
+        ))
+    } else {
+        None
     };
 
     let v_source = OfflineVldaSourceMatrix {
         name: "V",
         matrix: v_eff,
-        mi_action: mi_v_action.value,
     };
     let l_source = OfflineVldaSourceMatrix {
         name: "L",
         matrix: l_eff,
-        mi_action: mi_l_action.value,
     };
     let d_source = OfflineVldaSourceMatrix {
         name: "D",
         matrix: d_eff,
-        mi_action: mi_d_action.value,
     };
     let action_target = OfflineVldaTargetMatrix {
         name: "A",
@@ -1420,35 +2980,159 @@ fn compute_pid_screen_metrics(
             let ksg = ksg_config();
             let pid_cfg = pid2_config(&ksg);
             (
-                compute_pid_pair_metrics(v_source, l_source, action_target, support, &pid_cfg)?,
-                compute_pid_pair_metrics(v_source, d_source, action_target, support, &pid_cfg)?,
-                compute_pid_pair_metrics(l_source, d_source, action_target, support, &pid_cfg)?,
+                compute_pid_pair_metrics(
+                    v_source,
+                    l_source,
+                    action_target,
+                    vec![
+                        v_diagnostics.clone(),
+                        l_diagnostics.clone(),
+                        a_diagnostics.clone(),
+                    ],
+                    &pid_cfg,
+                )?,
+                compute_pid_pair_metrics(
+                    v_source,
+                    d_source,
+                    action_target,
+                    vec![
+                        v_diagnostics.clone(),
+                        d_diagnostics.clone(),
+                        a_diagnostics.clone(),
+                    ],
+                    &pid_cfg,
+                )?,
+                compute_pid_pair_metrics(
+                    l_source,
+                    d_source,
+                    action_target,
+                    vec![
+                        l_diagnostics.clone(),
+                        d_diagnostics.clone(),
+                        a_diagnostics.clone(),
+                    ],
+                    &pid_cfg,
+                )?,
             )
         }
-        PidMode::Discrete | PidMode::DiscretePls => (
-            compute_pid_pair_metrics_discrete(
-                v_source,
-                l_source,
-                action_target,
-                support,
-                discrete_bins,
-            )?,
-            compute_pid_pair_metrics_discrete(
-                v_source,
-                d_source,
-                action_target,
-                support,
-                discrete_bins,
-            )?,
-            compute_pid_pair_metrics_discrete(
-                l_source,
-                d_source,
-                action_target,
-                support,
-                discrete_bins,
-            )?,
-        ),
+        PidMode::Discrete | PidMode::DiscretePls => {
+            let (v_quantized, l_quantized, d_quantized, a_quantized) = quantized
+                .as_ref()
+                .context("quantized PID mode lacks prepared quantized axes")?;
+            (
+                compute_pid_pair_metrics_discrete(
+                    v_source,
+                    l_source,
+                    action_target,
+                    v_quantized,
+                    l_quantized,
+                    a_quantized,
+                    vec![
+                        v_diagnostics.clone(),
+                        l_diagnostics.clone(),
+                        a_diagnostics.clone(),
+                    ],
+                )?,
+                compute_pid_pair_metrics_discrete(
+                    v_source,
+                    d_source,
+                    action_target,
+                    v_quantized,
+                    d_quantized,
+                    a_quantized,
+                    vec![
+                        v_diagnostics.clone(),
+                        d_diagnostics.clone(),
+                        a_diagnostics.clone(),
+                    ],
+                )?,
+                compute_pid_pair_metrics_discrete(
+                    l_source,
+                    d_source,
+                    action_target,
+                    l_quantized,
+                    d_quantized,
+                    a_quantized,
+                    vec![
+                        l_diagnostics.clone(),
+                        d_diagnostics.clone(),
+                        a_diagnostics.clone(),
+                    ],
+                )?,
+            )
+        }
         PidMode::Disabled => unreachable!("disabled mode returns before PID estimation"),
+    };
+
+    // Every produced PID2 estimate already computes both source-target marginals.
+    // Reuse those exact values instead of running three redundant estimators. A
+    // continuous marginal runs separately only when every pair that contains
+    // its source abstained before yielding that value.
+    let v_pair_value = vl_pair.mi_source_1_action.or(vd_pair.mi_source_1_action);
+    let l_pair_value = vl_pair.mi_source_2_action.or(ld_pair.mi_source_1_action);
+    let d_pair_value = vd_pair.mi_source_2_action.or(ld_pair.mi_source_2_action);
+    let (mi_v_action, mi_l_action, mi_d_action) = match pid_mode {
+        PidMode::Continuous => {
+            let ksg = ksg_config();
+            let marginal = |source_name: &'static str,
+                            source: MatRef<'_>,
+                            source_diagnostics: &OfflineVldaAxisDiagnostics,
+                            pair_value: Option<f64>|
+             -> Result<OfflineVldaMiEstimate> {
+                if let Some(value) = pair_value {
+                    return Ok(OfflineVldaMiEstimate {
+                        outcome: produced_outcome(
+                            MEASURE_CONTINUOUS_MI,
+                            &[source_name, "A"],
+                            vec![source_diagnostics.clone(), a_diagnostics.clone()],
+                        ),
+                        value: Some(value),
+                    });
+                }
+                continuous_mi_estimate(
+                    source_name,
+                    source,
+                    "A",
+                    a,
+                    vec![source_diagnostics.clone(), a_diagnostics.clone()],
+                    &ksg,
+                )
+            };
+            (
+                marginal("V", v_eff, &v_diagnostics, v_pair_value)?,
+                marginal("L", l_eff, &l_diagnostics, l_pair_value)?,
+                marginal("D", d_eff, &d_diagnostics, d_pair_value)?,
+            )
+        }
+        PidMode::Discrete | PidMode::DiscretePls => {
+            let (v_quantized, l_quantized, d_quantized, a_quantized) = quantized
+                .as_ref()
+                .context("quantized PID mode lacks prepared quantized axes")?;
+            let marginal = |source_name: &'static str,
+                            source_diagnostics: &OfflineVldaAxisDiagnostics,
+                            source_quantized: &PreparedQuantizedAxis,
+                            pair_value: Option<f64>|
+             -> Result<OfflineVldaMiEstimate> {
+                let value = pair_value.with_context(|| {
+                    format!("quantized PID pairs produced no marginal MI for {source_name} -> A")
+                })?;
+                Ok(OfflineVldaMiEstimate {
+                    outcome: discrete_mi_outcome(
+                        source_name,
+                        vec![source_diagnostics.clone(), a_diagnostics.clone()],
+                        source_quantized,
+                        a_quantized,
+                    ),
+                    value: Some(value),
+                })
+            };
+            (
+                marginal("V", &v_diagnostics, v_quantized, v_pair_value)?,
+                marginal("L", &l_diagnostics, l_quantized, l_pair_value)?,
+                marginal("D", &d_diagnostics, d_quantized, d_pair_value)?,
+            )
+        }
+        PidMode::Disabled => unreachable!("disabled mode returns before MI estimation"),
     };
 
     // Denominators over every requested estimate: three marginal MIs plus three pairs.
@@ -1464,8 +3148,14 @@ fn compute_pid_screen_metrics(
         estimate_denominators.record(&pair.outcome);
     }
 
+    let mi_vl_action = vl_pair.mi_joint_action;
+    let co_information_v_l_action = vl_pair.co_information;
+    let redundancy_v_l_action = vl_pair.redundancy;
+    let unique_v_action = vl_pair.unique_source_1;
+    let unique_l_action = vl_pair.unique_source_2;
+    let synergy_v_l_action = vl_pair.synergy;
     let pid_pairs = [
-        ("VL".to_string(), vl_pair.clone()),
+        ("VL".to_string(), vl_pair),
         ("VD".to_string(), vd_pair),
         ("LD".to_string(), ld_pair),
     ]
@@ -1477,12 +3167,12 @@ fn compute_pid_screen_metrics(
         mi_d_action,
         // The `(V,L)→A` aggregates mirror the VL pair, so a VL abstention propagates: a partial
         // summary must never imply that all three pairs were estimated.
-        mi_vl_action: vl_pair.mi_joint_action,
-        co_information_v_l_action: vl_pair.co_information,
-        redundancy_v_l_action: vl_pair.redundancy,
-        unique_v_action: vl_pair.unique_source_1,
-        unique_l_action: vl_pair.unique_source_2,
-        synergy_v_l_action: vl_pair.synergy,
+        mi_vl_action,
+        co_information_v_l_action,
+        redundancy_v_l_action,
+        unique_v_action,
+        unique_l_action,
+        synergy_v_l_action,
         estimate_denominators,
         pid_pairs,
         pls_selection,
@@ -1501,28 +3191,39 @@ const PLS_CONTROL_SEED: u64 = 0x51AF_F1ED;
 fn compute_pid_screen_metrics_with_control(
     prepared: &PreparedVldaMatrices,
     support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
-    pid_mode: PidMode,
-    discrete_bins: usize,
-    pls: PlsComponentSelection,
+    options: &OfflineVldaHarnessOptions,
+    dense_solver_budget: ResourceBudget,
 ) -> Result<OfflineVldaPidScreenMetrics> {
-    let mut metrics = compute_pid_screen_metrics(prepared, support, pid_mode, discrete_bins, pls)?;
-    if pid_mode == PidMode::DiscretePls {
-        let shuffled = prepared_with_shuffled_target(prepared, PLS_CONTROL_SEED)?;
-        let control = compute_pid_screen_metrics(&shuffled, support, pid_mode, discrete_bins, pls)?;
+    let mut metrics = compute_pid_screen_metrics(
+        prepared.v.as_ref(),
+        prepared.l.as_ref(),
+        prepared.d.as_ref(),
+        prepared.a.as_ref(),
+        support,
+        options,
+        dense_solver_budget,
+    )?;
+    if options.pid_mode == PidMode::DiscretePls {
+        let shuffled_target = shuffled_target(prepared.a.as_ref(), PLS_CONTROL_SEED)?;
+        let control = compute_pid_screen_metrics(
+            prepared.v.as_ref(),
+            prepared.l.as_ref(),
+            prepared.d.as_ref(),
+            shuffled_target.as_ref(),
+            support,
+            options,
+            dense_solver_budget,
+        )?;
         metrics.pls_shuffled_target_control = Some(Box::new(control));
         metrics.pls_control_seed = Some(PLS_CONTROL_SEED);
     }
     Ok(metrics)
 }
 
-/// A copy of `prepared` whose target `A` rows are permuted by a seeded
-/// Fisher–Yates shuffle (SplitMix64 stream), destroying the true X↔A
-/// dependence while preserving `A`'s marginal exactly.
-fn prepared_with_shuffled_target(
-    prepared: &PreparedVldaMatrices,
-    seed: u64,
-) -> Result<PreparedVldaMatrices> {
-    let a = prepared.a.as_ref();
+/// Return target `A` with rows permuted by a seeded Fisher-Yates shuffle
+/// (SplitMix64 stream). The control borrows V/L/D and allocates no copies of
+/// those unchanged matrices.
+fn shuffled_target(a: MatRef<'_>, seed: u64) -> Result<MatOwned> {
     let n = a.nrows();
     let dim = a.ncols();
     let mut perm: Vec<usize> = (0..n).collect();
@@ -1535,24 +3236,24 @@ fn prepared_with_shuffled_target(
         z ^ (z >> 31)
     };
     for i in (1..n).rev() {
-        let j = (next_u64() as usize) % (i + 1);
+        let upper = u64::try_from(i + 1).context("shuffle width exceeds u64")?;
+        // Rejection sampling avoids the modulo bias of mapping all 2^64
+        // generator outputs directly into a non-power-of-two interval.
+        let threshold = upper.wrapping_neg() % upper;
+        let draw = loop {
+            let draw = next_u64();
+            if draw >= threshold {
+                break draw;
+            }
+        };
+        let j = usize::try_from(draw % upper).context("shuffle index exceeds usize")?;
         perm.swap(i, j);
     }
     let mut data = Vec::with_capacity(n * dim);
     for &i in &perm {
         data.extend_from_slice(a.row(i));
     }
-    let shuffled_a =
-        MatOwned::new(data, n, dim).map_err(|e| anyhow::anyhow!("shuffled target: {e}"))?;
-    Ok(PreparedVldaMatrices {
-        v: clone_mat(&prepared.v)?,
-        l: clone_mat(&prepared.l)?,
-        d: clone_mat(&prepared.d)?,
-        a: shuffled_a,
-        vl: clone_mat(&prepared.vl)?,
-        vlda: clone_mat(&prepared.vlda)?,
-        preprocessing: prepared.preprocessing.clone(),
-    })
+    MatOwned::new(data, n, dim).map_err(|e| anyhow::anyhow!("shuffled target: {e}"))
 }
 
 // ── Opt-in PID-screen stability summaries + permutation nulls ──
@@ -1627,6 +3328,61 @@ impl OfflineVldaUncertaintyConfig {
     pub fn enabled(&self) -> bool {
         self.n_boot > 0 || self.n_perm > 0
     }
+}
+
+fn validate_uncertainty_config(config: &OfflineVldaUncertaintyConfig) -> Result<()> {
+    ensure!(config.block_size > 0, "uncertainty block_size must be >= 1");
+    ensure!(
+        config.alpha.is_finite() && config.alpha > 0.0 && config.alpha < 1.0,
+        "uncertainty raw-percentile tail mass must lie strictly inside (0, 1)"
+    );
+    if config.n_perm > 0 {
+        let _ = permutation_scheme_label(config.permutation_scheme)?;
+    }
+    Ok(())
+}
+
+fn validate_uncertainty_config_for_samples(
+    config: &OfflineVldaUncertaintyConfig,
+    samples: usize,
+) -> Result<()> {
+    validate_uncertainty_config(config)?;
+    if config.n_boot > 0 {
+        ensure!(
+            config.n_boot >= 2,
+            "continuous uncertainty requires at least two bootstrap resamples"
+        );
+        ensure!(
+            samples >= 2 && config.block_size <= samples / 2,
+            "uncertainty block_size must fit inside the declared half-sample stability envelope: samples={samples}, block_size={}",
+            config.block_size
+        );
+    }
+    if config.n_perm > 0 {
+        match config.permutation_scheme {
+            PermutationScheme::FullShuffle => {}
+            PermutationScheme::BlockShuffle { block_size } => {
+                ensure!(
+                    block_size > 0
+                        && samples.is_multiple_of(block_size)
+                        && samples / block_size >= 2,
+                    "uncertainty block-shuffle requires a positive block_size that divides {samples} samples into at least two blocks"
+                );
+            }
+            PermutationScheme::CircularShift { min_shift } => {
+                let minimum_samples = min_shift
+                    .checked_mul(2)
+                    .and_then(|value| value.checked_add(1))
+                    .context("uncertainty circular-shift min_shift is too large")?;
+                ensure!(
+                    min_shift > 0 && samples >= minimum_samples,
+                    "uncertainty circular-shift requires samples >= 2*min_shift+1: samples={samples}, min_shift={min_shift}"
+                );
+            }
+            other => bail!("unsupported permutation scheme for uncertainty provenance: {other:?}"),
+        }
+    }
+    Ok(())
 }
 
 /// Raw m-sample percentile stability envelope for one PID atom.
@@ -1722,6 +3478,17 @@ fn produced_status() -> OfflineVldaEstimateStatus {
 /// Result of [`compute_offline_pid_uncertainty`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPidUncertainty {
+    /// Schema for the self-contained uncertainty companion.
+    #[serde(default)]
+    pub schema_version: u32,
+    /// Canonical semantic hash of the exact decoded dataset used for this computation.
+    #[serde(default)]
+    pub dataset_content_sha256: String,
+    /// Exact estimator revision used by every pair-level callback.
+    #[serde(default)]
+    pub estimator_revision: String,
+    /// PID mode requested by the parent harness invocation.
+    pub pid_mode: PidMode,
     /// `"continuous"` when requested stability/permutation summaries were computed, or
     /// `"skipped:<reason>"`.
     pub mode: String,
@@ -1736,6 +3503,9 @@ pub struct OfflineVldaPidUncertainty {
     /// Two-sided tail mass selecting the raw m-sample percentile endpoints. This is not a
     /// confidence-interval significance level.
     pub alpha: f64,
+    /// Base seed used to derive every bootstrap and permutation stream.
+    #[serde(default)]
+    pub seed: u64,
     pub resample_scheme: String,
     /// Which permutation null produced the p-values (`"full_shuffle"` or
     /// `"circular_shift(min_shift=N)"`). Defaults to empty on artifacts written
@@ -1763,16 +3533,51 @@ pub fn compute_offline_pid_uncertainty(
     pid_mode: PidMode,
     config: &OfflineVldaUncertaintyConfig,
 ) -> Result<OfflineVldaPidUncertainty> {
-    ensure!(config.block_size > 0, "uncertainty block_size must be >= 1");
-    ensure!(
-        config.alpha.is_finite() && (0.0..1.0).contains(&config.alpha),
-        "uncertainty raw-percentile tail mass must lie strictly inside (0, 1)"
-    );
-    if config.n_perm > 0 {
-        let _ = permutation_scheme_label(config.permutation_scheme)?;
-    }
+    compute_offline_pid_uncertainty_with_limits(
+        dataset,
+        pid_mode,
+        config,
+        &OfflineVldaResourceLimits::default(),
+    )
+}
+
+/// Compute offline PID uncertainty under explicit decoded-size and distance-work limits.
+pub fn compute_offline_pid_uncertainty_with_limits(
+    dataset: &OfflineVldaDataset,
+    pid_mode: PidMode,
+    config: &OfflineVldaUncertaintyConfig,
+    limits: &OfflineVldaResourceLimits,
+) -> Result<OfflineVldaPidUncertainty> {
+    validate_uncertainty_config(config)?;
+    // Apply the decoded-size contract before hashing even when this call returns a typed skip.
+    // Otherwise a disabled or non-continuous request could make the public `*_with_limits` API
+    // serialize an over-limit in-memory dataset before enforcing its advertised boundary.
+    let _ = admit_dataset_resources(dataset, None, None, limits)?;
+    let dataset_content_sha256 = offline_vlda_dataset_content_sha256(dataset)
+        .context("failed to hash the offline VLDA dataset for uncertainty provenance")?;
+    compute_offline_pid_uncertainty_after_resource_preflight(
+        dataset,
+        pid_mode,
+        config,
+        limits,
+        dataset_content_sha256,
+    )
+}
+
+fn compute_offline_pid_uncertainty_after_resource_preflight(
+    dataset: &OfflineVldaDataset,
+    pid_mode: PidMode,
+    config: &OfflineVldaUncertaintyConfig,
+    limits: &OfflineVldaResourceLimits,
+    dataset_content_sha256: String,
+) -> Result<OfflineVldaPidUncertainty> {
+    validate_uncertainty_config(config)?;
     if !config.enabled() {
         return Ok(OfflineVldaPidUncertainty {
+            schema_version: OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
+            dataset_content_sha256,
+            estimator_revision: ESTIMATOR_REVISION.to_string(),
+            pid_mode,
             mode: "skipped:no_uncertainty_requested".to_string(),
             stability_interpretation: raw_m_sample_stability_interpretation(),
             n_boot: 0,
@@ -1780,6 +3585,7 @@ pub fn compute_offline_pid_uncertainty(
             block_size: config.block_size,
             subsample_len: 0,
             alpha: config.alpha,
+            seed: config.seed,
             resample_scheme: "not_requested".to_string(),
             permutation_scheme: "not_requested".to_string(),
             pairs: Vec::new(),
@@ -1787,6 +3593,10 @@ pub fn compute_offline_pid_uncertainty(
     }
     if pid_mode != PidMode::Continuous {
         return Ok(OfflineVldaPidUncertainty {
+            schema_version: OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
+            dataset_content_sha256,
+            estimator_revision: ESTIMATOR_REVISION.to_string(),
+            pid_mode,
             mode: format!("skipped:non_continuous_mode_is_a_different_measure ({pid_mode:?})"),
             stability_interpretation: raw_m_sample_stability_interpretation(),
             n_boot: config.n_boot,
@@ -1794,6 +3604,7 @@ pub fn compute_offline_pid_uncertainty(
             block_size: config.block_size,
             subsample_len: 0,
             alpha: config.alpha,
+            seed: config.seed,
             resample_scheme: if config.n_boot > 0 {
                 "politis_romano_subsample".to_string()
             } else {
@@ -1807,6 +3618,16 @@ pub fn compute_offline_pid_uncertainty(
             pairs: Vec::new(),
         });
     }
+    validate_uncertainty_config_for_samples(config, dataset.samples.len())?;
+    let projected = projected_uncertainty_distance_evaluations(dataset.samples.len(), config)?;
+    let _ = enforce_pairwise_distance_limit(projected, limits, "uncertainty analysis")?;
+    let projected_coordinates = projected_distance_coordinate_evaluations(
+        projected,
+        maximum_distance_vector_width(dataset)?,
+        "uncertainty distance coordinate evaluations",
+    )?;
+    let _ =
+        enforce_distance_coordinate_limit(projected_coordinates, limits, "uncertainty analysis")?;
     let dims = validate_dataset(dataset)?;
     let prepared = prepare_standardized_embeddings(&dataset.samples, &dims)?;
     let v = prepared.v.as_ref();
@@ -1814,6 +3635,17 @@ pub fn compute_offline_pid_uncertainty(
     let d = prepared.d.as_ref();
     let a = prepared.a.as_ref();
     let n = v.nrows();
+    let v_diagnostics = axis_diagnostics("V", v, &dataset.support);
+    let l_diagnostics = axis_diagnostics("L", l, &dataset.support);
+    let d_diagnostics = axis_diagnostics("D", d, &dataset.support);
+    let a_diagnostics = axis_diagnostics("A", a, &dataset.support);
+    let diagnostic_for = |axis: &str| match axis {
+        "V" => &v_diagnostics,
+        "L" => &l_diagnostics,
+        "D" => &d_diagnostics,
+        "A" => &a_diagnostics,
+        _ => unreachable!("uncertainty pair specification uses only V, L, D, and A"),
+    };
 
     // Subsample length: half the rows in whole blocks (the conservative
     // Politis–Romano regime); clamp so there is at least one block.
@@ -1837,19 +3669,22 @@ pub fn compute_offline_pid_uncertainty(
 
         // Uncertainty is only meaningful for a pair the continuous estimator will actually run.
         // Preflight exactly as the screens do, and abstain rather than crash.
-        let (diagnostics, rejection) =
-            continuous_preflight(&[(axis_1, s1), (axis_2, s2), ("A", a)], &dataset.support);
+        let (diagnostics, rejection) = continuous_preflight_from_diagnostics(vec![
+            diagnostic_for(axis_1).clone(),
+            diagnostic_for(axis_2).clone(),
+            diagnostic_for("A").clone(),
+        ]);
         // `pid2_resource_estimate` also rejects structurally-inapplicable pairs (e.g. unequal
         // ambient source dimensions), so consult it before doing any resampling work.
-        let rejection = if rejection.is_some() {
-            rejection
+        let (rejection, pair_resource_estimate) = if rejection.is_some() {
+            (rejection, None)
         } else {
             match pid2_resource_estimate(s1, s2, a, &pid_cfg) {
-                Ok(_) => None,
+                Ok(estimate) => (None, Some(estimate)),
                 Err(err) => {
                     let message = err.to_string();
                     match abstain_reason_for_error(&err) {
-                        Some(reason) => Some((reason, message)),
+                        Some(reason) => (Some((reason, message)), None),
                         None => {
                             return Err(anyhow::anyhow!(
                                 "pid2 uncertainty resource preflight ({axis_1}, {axis_2} -> A) failed: {message}"
@@ -1878,6 +3713,8 @@ pub fn compute_offline_pid_uncertainty(
             });
             continue;
         }
+        let pair_resource_estimate = pair_resource_estimate
+            .context("accepted uncertainty pair lacks its resource estimate")?;
 
         let (redundancy, unique_s1, unique_s2, synergy) = if config.n_boot > 0 {
             // The current pid-core review contract requires an explicit resampling-validity
@@ -1899,9 +3736,7 @@ pub fn compute_offline_pid_uncertainty(
             let scheme = RowResampleScheme::Subsample { subsample_len };
             // The current pid-core review contract preflights the callback's cost, so its output
             // width and per-call resources must be declared up front. Four atoms per invocation.
-            let per_call = pid2_resource_estimate(s1, s2, a, &pid_cfg)
-                .map_err(|e| anyhow::anyhow!("pid2 resource estimate for {name}: {e}"))?;
-            let callback = StatisticCallbackDeclaration::vector(4, per_call)?;
+            let callback = StatisticCallbackDeclaration::vector(4, pair_resource_estimate)?;
             let res = bootstrap_rows_stats(&mats, &boot_cfg, scheme, callback, |m| {
                 let r = pid2_isx(m[0], m[1], m[2], &pid_cfg)?;
                 Ok(vec![r.redundancy, r.unique_s1, r.unique_s2, r.synergy])
@@ -1937,9 +3772,7 @@ pub fn compute_offline_pid_uncertainty(
                 // The scheme decides the null: FullShuffle assumes exchangeable
                 // rows; CircularShift preserves within-series autocorrelation
                 // (the honest null for per-step trajectory captures).
-                let per_call = pid2_resource_estimate(s1, s2, a, &pid_cfg)
-                    .map_err(|e| anyhow::anyhow!("pid2 resource estimate for {name}: {e}"))?;
-                let callback = StatisticCallbackDeclaration::scalar(per_call);
+                let callback = StatisticCallbackDeclaration::scalar(pair_resource_estimate);
                 let p1 = permutation_rows_pvalue_with(
                     &mats,
                     0,
@@ -2051,6 +3884,10 @@ pub fn compute_offline_pid_uncertainty(
     }
 
     Ok(OfflineVldaPidUncertainty {
+        schema_version: OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
+        dataset_content_sha256,
+        estimator_revision: ESTIMATOR_REVISION.to_string(),
+        pid_mode,
         mode: "continuous".to_string(),
         stability_interpretation: raw_m_sample_stability_interpretation(),
         n_boot: config.n_boot,
@@ -2058,6 +3895,7 @@ pub fn compute_offline_pid_uncertainty(
         block_size: config.block_size,
         subsample_len,
         alpha: config.alpha,
+        seed: config.seed,
         resample_scheme: if config.n_boot > 0 {
             "politis_romano_subsample".to_string()
         } else {
@@ -2250,6 +4088,58 @@ fn validate_pid_pair(pair_name: &str, pair: &OfflineVldaPidPairMetrics) -> Resul
         "{context}: PID atom/MI vector is only partially present"
     );
     validate_outcome_contract(&pair.outcome, present == values.len(), &context)?;
+    if let (
+        Some(mi_source_1),
+        Some(mi_source_2),
+        Some(mi_joint),
+        Some(co_information),
+        Some(redundancy),
+        Some(unique_source_1),
+        Some(unique_source_2),
+        Some(synergy),
+    ) = (
+        pair.mi_source_1_action,
+        pair.mi_source_2_action,
+        pair.mi_joint_action,
+        pair.co_information,
+        pair.redundancy,
+        pair.unique_source_1,
+        pair.unique_source_2,
+        pair.synergy,
+    ) {
+        for (identity, actual, expected) in [
+            (
+                "unique_source_1 = MI(source_1;target) - redundancy",
+                unique_source_1,
+                mi_source_1 - redundancy,
+            ),
+            (
+                "unique_source_2 = MI(source_2;target) - redundancy",
+                unique_source_2,
+                mi_source_2 - redundancy,
+            ),
+            (
+                "synergy = MI(joint;target) - MI(source_1;target) - MI(source_2;target) + redundancy",
+                synergy,
+                mi_joint - mi_source_1 - mi_source_2 + redundancy,
+            ),
+            (
+                "co_information = MI(source_1;target) + MI(source_2;target) - MI(joint;target)",
+                co_information,
+                mi_source_1 + mi_source_2 - mi_joint,
+            ),
+            (
+                "redundancy + unique_source_1 + unique_source_2 + synergy = MI(joint;target)",
+                redundancy + unique_source_1 + unique_source_2 + synergy,
+                mi_joint,
+            ),
+        ] {
+            ensure!(
+                approximately_equal_f64(actual, expected),
+                "{context}: PID identity failed: {identity}; actual={actual}, expected={expected}"
+            );
+        }
+    }
     if let Some(saturation) = &pair.discrete_saturation {
         let fractions = [
             saturation.unique_fraction_source_1,
@@ -2267,8 +4157,35 @@ fn validate_pid_pair(pair_name: &str, pair: &OfflineVldaPidPairMetrics) -> Resul
             pair.outcome.produced(),
             "{context}: an unproduced estimate carries saturation diagnostics"
         );
+        let expected_warning = fractions
+            .into_iter()
+            .any(|fraction| fraction > OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX);
+        ensure!(
+            saturation.saturation_warning == expected_warning,
+            "{context}: discrete saturation warning contradicts the recorded fractions"
+        );
+        ensure!(
+            if expected_warning {
+                pair.outcome.status == OfflineVldaEstimateStatus::ProducedWithWarning
+                    && pair.outcome.scientific_gates.estimator
+                        == OfflineVldaScientificGateVerdict::Blocked
+                    && pair.outcome.scientific_gates.reason_code.as_deref()
+                        == Some("discrete_saturation")
+            } else {
+                pair.outcome.status == OfflineVldaEstimateStatus::Produced
+            },
+            "{context}: discrete saturation state contradicts the computation outcome"
+        );
     }
     Ok(())
+}
+
+fn approximately_equal_f64(left: f64, right: f64) -> bool {
+    if left.to_bits() == right.to_bits() {
+        return true;
+    }
+    let scale = left.abs().max(right.abs()).max(1.0);
+    (left - right).abs() <= 256.0 * f64::EPSILON * scale
 }
 
 fn same_optional_f64(left: Option<f64>, right: Option<f64>) -> bool {
@@ -2291,6 +4208,36 @@ fn validate_pid_screen_contract(
     }
     for (pair_name, pair) in pid_pairs {
         validate_pid_pair(pair_name, pair)?;
+    }
+
+    for (axis, estimate, sources) in [
+        ("V", mi_estimates[0], [("VL", true), ("VD", true)]),
+        ("L", mi_estimates[1], [("VL", false), ("LD", true)]),
+        ("D", mi_estimates[2], [("VD", false), ("LD", false)]),
+    ] {
+        let pair_values = sources.map(|(pair_name, first_source)| {
+            pid_pairs.get(pair_name).and_then(|pair| {
+                if first_source {
+                    pair.mi_source_1_action
+                } else {
+                    pair.mi_source_2_action
+                }
+            })
+        });
+        if let (Some(left), Some(right)) = (pair_values[0], pair_values[1]) {
+            ensure!(
+                approximately_equal_f64(left, right),
+                "{context}: repeated MI({axis};A) terms disagree across PID pairs: {left} versus {right}"
+            );
+        }
+        if let (Some(marginal), Some(pair_value)) =
+            (estimate.value, pair_values.into_iter().flatten().next())
+        {
+            ensure!(
+                approximately_equal_f64(marginal, pair_value),
+                "{context}: MI({axis};A) does not match its PID-pair marginal: {marginal} versus {pair_value}"
+            );
+        }
     }
 
     let expected_vl = pid_pairs.get("VL").map(|pair| {
@@ -2348,12 +4295,642 @@ fn validate_pid_screen_metrics(metrics: &OfflineVldaPidScreenMetrics, context: &
         &metrics.estimate_denominators,
     )?;
     if let Some(control) = &metrics.pls_shuffled_target_control {
-        validate_pid_screen_metrics(control, &format!("{context} shuffled-target control"))?;
+        ensure!(
+            control.pls_shuffled_target_control.is_none(),
+            "{context}: shuffled-target control nests another control"
+        );
+        validate_pid_screen_contract(
+            &format!("{context} shuffled-target control"),
+            [
+                &control.mi_v_action,
+                &control.mi_l_action,
+                &control.mi_d_action,
+            ],
+            [
+                ("mi_vl_action", control.mi_vl_action),
+                (
+                    "co_information_v_l_action",
+                    control.co_information_v_l_action,
+                ),
+                ("redundancy_v_l_action", control.redundancy_v_l_action),
+                ("unique_v_action", control.unique_v_action),
+                ("unique_l_action", control.unique_l_action),
+                ("synergy_v_l_action", control.synergy_v_l_action),
+            ],
+            &control.pid_pairs,
+            &control.estimate_denominators,
+        )?;
     }
     Ok(())
 }
 
+fn validate_pls_selection_contract(
+    selection: &OfflineVldaPlsSelection,
+    configured: PlsComponentSelection,
+    context: &str,
+) -> Result<()> {
+    ensure!(
+        selection.components_v > 0 && selection.components_l > 0 && selection.components_d > 0,
+        "{context}: PLS selection contains a zero component count"
+    );
+    match configured {
+        PlsComponentSelection::Fixed(components) => ensure!(
+            selection.method == "fixed"
+                && selection.components_v == components
+                && selection.components_l == components
+                && selection.components_d == components
+                && selection.q2_v.is_none()
+                && selection.q2_l.is_none()
+                && selection.q2_d.is_none(),
+            "{context}: fixed PLS selection contradicts the recorded configuration"
+        ),
+        PlsComponentSelection::CvQ2 { max_components } => {
+            ensure!(
+                selection.method == "cv_q2"
+                    && selection.components_v <= max_components
+                    && selection.components_l <= max_components
+                    && selection.components_d <= max_components,
+                "{context}: CV PLS selection contradicts the recorded maximum"
+            );
+            ensure!(
+                [selection.q2_v, selection.q2_l, selection.q2_d]
+                    .into_iter()
+                    .all(|q2| q2.is_some_and(f64::is_finite)),
+                "{context}: CV PLS selection lacks a finite selected Q-squared value"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "publication validation keeps every independent PLS/PID contract component explicit"
+)]
+fn validate_pid_mode_screen_contract(
+    mi_estimates: [&OfflineVldaMiEstimate; 3],
+    pid_pairs: &BTreeMap<String, OfflineVldaPidPairMetrics>,
+    pls_selection: Option<&OfflineVldaPlsSelection>,
+    pls_control: Option<&OfflineVldaPidScreenMetrics>,
+    pls_control_seed: Option<u64>,
+    options: &OfflineVldaHarnessOptions,
+    expects_pls_control: bool,
+    context: &str,
+) -> Result<()> {
+    if options.pid_mode == PidMode::Disabled {
+        for (axis, estimate) in ["V", "L", "D"].into_iter().zip(mi_estimates) {
+            let expected = OfflineVldaMiEstimate {
+                outcome: not_requested_outcome(&[axis, "A"]),
+                value: None,
+            };
+            ensure!(
+                estimate == &expected,
+                "{context}: disabled PID mode carries a requested MI({axis};A) outcome"
+            );
+        }
+        ensure!(
+            pid_pairs.is_empty()
+                && pls_selection.is_none()
+                && pls_control.is_none()
+                && pls_control_seed.is_none(),
+            "{context}: disabled PID mode carries PID or PLS results"
+        );
+        return Ok(());
+    }
+
+    let (mi_measure, pid_measure) = match options.pid_mode {
+        PidMode::Continuous => (MEASURE_CONTINUOUS_MI, MEASURE_CONTINUOUS_PID2),
+        PidMode::Discrete | PidMode::DiscretePls => (MEASURE_QUANTIZED_MI, MEASURE_QUANTIZED_PID2),
+        PidMode::Disabled => unreachable!("disabled mode returned above"),
+    };
+    for (axis, estimate) in ["V", "L", "D"].into_iter().zip(mi_estimates) {
+        ensure!(
+            estimate.outcome.status != OfflineVldaEstimateStatus::NotRequested
+                && estimate.outcome.measure == mi_measure
+                && estimate.outcome.estimator_revision == ESTIMATOR_REVISION
+                && estimate.outcome.axes == [axis.to_string(), "A".to_string()],
+            "{context}: MI({axis};A) identity contradicts the recorded PID mode"
+        );
+        if matches!(options.pid_mode, PidMode::Discrete | PidMode::DiscretePls) {
+            ensure!(
+                estimate.outcome.produced(),
+                "{context}: quantized MI({axis};A) was not produced"
+            );
+            if estimate.outcome.status == OfflineVldaEstimateStatus::ProducedWithWarning {
+                ensure!(
+                    estimate.outcome.scientific_gates.estimator
+                        == OfflineVldaScientificGateVerdict::Blocked
+                        && estimate.outcome.scientific_gates.reason_code.as_deref()
+                            == Some("discrete_saturation"),
+                    "{context}: quantized MI({axis};A) warning is not a typed saturation warning"
+                );
+            }
+        }
+    }
+
+    let expected_pairs = [("VL", "V", "L"), ("VD", "V", "D"), ("LD", "L", "D")];
+    ensure!(
+        pid_pairs.len() == expected_pairs.len(),
+        "{context}: requested PID mode must contain exactly VL, VD, and LD"
+    );
+    for (pair_name, source_1, source_2) in expected_pairs {
+        let pair = pid_pairs
+            .get(pair_name)
+            .with_context(|| format!("{context}: missing PID pair {pair_name}"))?;
+        ensure!(
+            pair.source_1 == source_1
+                && pair.source_2 == source_2
+                && pair.target == "A"
+                && pair.outcome.status != OfflineVldaEstimateStatus::NotRequested
+                && pair.outcome.measure == pid_measure
+                && pair.outcome.estimator_revision == ESTIMATOR_REVISION
+                && pair.outcome.axes
+                    == [source_1.to_string(), source_2.to_string(), "A".to_string(),],
+            "{context}: PID pair {pair_name} identity contradicts the recorded PID mode"
+        );
+        match options.pid_mode {
+            PidMode::Continuous => ensure!(
+                pair.discrete_saturation.is_none(),
+                "{context}: continuous PID pair {pair_name} carries discrete saturation data"
+            ),
+            PidMode::Discrete | PidMode::DiscretePls => ensure!(
+                pair.discrete_saturation.is_some() == pair.outcome.produced(),
+                "{context}: discrete PID pair {pair_name} saturation data contradicts its outcome"
+            ),
+            PidMode::Disabled => unreachable!("disabled mode returned above"),
+        }
+    }
+
+    if options.pid_mode == PidMode::DiscretePls {
+        let selection = pls_selection
+            .with_context(|| format!("{context}: discrete-pls mode lacks PLS selection data"))?;
+        validate_pls_selection_contract(selection, options.pls, context)?;
+        if expects_pls_control {
+            ensure!(
+                pls_control_seed == Some(PLS_CONTROL_SEED),
+                "{context}: discrete-pls control seed is absent or incorrect"
+            );
+            let control = pls_control.with_context(|| {
+                format!("{context}: discrete-pls mode lacks its shuffled-target control")
+            })?;
+            validate_pid_mode_screen_contract(
+                [
+                    &control.mi_v_action,
+                    &control.mi_l_action,
+                    &control.mi_d_action,
+                ],
+                &control.pid_pairs,
+                control.pls_selection.as_ref(),
+                control.pls_shuffled_target_control.as_deref(),
+                control.pls_control_seed,
+                options,
+                false,
+                &format!("{context} shuffled-target control"),
+            )?;
+        } else {
+            ensure!(
+                pls_control.is_none() && pls_control_seed.is_none(),
+                "{context}: shuffled-target control nests another control"
+            );
+        }
+    } else {
+        ensure!(
+            pls_selection.is_none() && pls_control.is_none() && pls_control_seed.is_none(),
+            "{context}: non-PLS PID mode carries PLS selection or control data"
+        );
+    }
+    Ok(())
+}
+
+fn validate_report_pid_mode_contract(
+    report: &OfflineVldaReport,
+    options: &OfflineVldaHarnessOptions,
+) -> Result<()> {
+    validate_pid_mode_screen_contract(
+        [
+            &report.metrics.mi_v_action,
+            &report.metrics.mi_l_action,
+            &report.metrics.mi_d_action,
+        ],
+        &report.metrics.pid_pairs,
+        report.metrics.pls_selection.as_ref(),
+        report.metrics.pls_shuffled_target_control.as_deref(),
+        report.metrics.pls_control_seed,
+        options,
+        true,
+        "full-data PID screen",
+    )?;
+    if let Some(train) = &report.train_split_pid {
+        match (&train.metrics, options.pid_mode) {
+            (Some(_), PidMode::Disabled) => {
+                bail!("train-split PID screen carries metrics while PID is disabled")
+            }
+            (Some(metrics), _) => {
+                ensure!(
+                    train.status == "available"
+                        && train.preprocessing.is_some()
+                        && train.error.is_none(),
+                    "available train-split PID screen has inconsistent status fields"
+                );
+                validate_pid_mode_screen_contract(
+                    [
+                        &metrics.mi_v_action,
+                        &metrics.mi_l_action,
+                        &metrics.mi_d_action,
+                    ],
+                    &metrics.pid_pairs,
+                    metrics.pls_selection.as_ref(),
+                    metrics.pls_shuffled_target_control.as_deref(),
+                    metrics.pls_control_seed,
+                    options,
+                    true,
+                    "train-split PID screen",
+                )?;
+            }
+            (None, PidMode::Disabled) => ensure!(
+                train.status == "disabled"
+                    && train.preprocessing.is_none()
+                    && train.error.is_none(),
+                "train-split PID screen does not record a consistent disabled status"
+            ),
+            (None, _) => ensure!(
+                train.status == "error"
+                    && train.preprocessing.is_none()
+                    && train.error.as_ref().is_some_and(|value| !value.is_empty()),
+                "unavailable train-split PID screen lacks a typed error status"
+            ),
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+struct ReportResourceBinding {
+    limits: OfflineVldaResourceLimits,
+    usage: OfflineVldaResourceUsage,
+    options: OfflineVldaHarnessOptions,
+    uncertainty_config: Option<OfflineVldaUncertaintyConfig>,
+}
+
+fn deserialize_config_value<T: DeserializeOwned>(
+    value: &Value,
+    pointer: &str,
+    description: &str,
+) -> Result<T> {
+    let field = value
+        .pointer(pointer)
+        .with_context(|| format!("offline VLDA report configuration is missing {description}"))?;
+    serde_json::from_value(field.clone())
+        .with_context(|| format!("offline VLDA report configuration has invalid {description}"))
+}
+
+fn parse_recorded_permutation_scheme(label: &str, n_perm: usize) -> Result<PermutationScheme> {
+    if n_perm == 0 {
+        ensure!(
+            label == "not_requested",
+            "offline VLDA report records a permutation scheme without permutations"
+        );
+        return Ok(PermutationScheme::FullShuffle);
+    }
+    if label == "full_shuffle" {
+        return Ok(PermutationScheme::FullShuffle);
+    }
+    if let Some(raw) = label
+        .strip_prefix("circular_shift(min_shift=")
+        .and_then(|value| value.strip_suffix(')'))
+    {
+        let min_shift = raw
+            .parse::<usize>()
+            .context("offline VLDA report has an invalid circular-shift minimum")?;
+        return Ok(PermutationScheme::CircularShift { min_shift });
+    }
+    if let Some(raw) = label
+        .strip_prefix("block_shuffle(block_size=")
+        .and_then(|value| value.strip_suffix(')'))
+    {
+        let block_size = raw
+            .parse::<usize>()
+            .context("offline VLDA report has an invalid block-shuffle size")?;
+        return Ok(PermutationScheme::BlockShuffle { block_size });
+    }
+    bail!("offline VLDA report has an unsupported permutation scheme: {label}")
+}
+
+fn parse_recorded_pls_selection(value: &Value) -> Result<PlsComponentSelection> {
+    if let Some(components) = value.as_u64() {
+        return Ok(PlsComponentSelection::Fixed(
+            usize::try_from(components)
+                .context("offline VLDA report fixed PLS component count does not fit usize")?,
+        ));
+    }
+    let fields = value.as_object().context(
+        "offline VLDA report PLS component selection is neither an integer nor an object",
+    )?;
+    ensure!(
+        fields.len() == 1 && fields.contains_key("cv_max"),
+        "offline VLDA report PLS CV selection must contain only cv_max"
+    );
+    let max_components = fields["cv_max"]
+        .as_u64()
+        .context("offline VLDA report PLS CV maximum is not an unsigned integer")?;
+    Ok(PlsComponentSelection::CvQ2 {
+        max_components: usize::try_from(max_components)
+            .context("offline VLDA report PLS CV maximum does not fit usize")?,
+    })
+}
+
+fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceBinding> {
+    let limits: OfflineVldaResourceLimits =
+        deserialize_config_value(&report.config, "/resource_limits", "resource limits")?;
+    validate_resource_limits(&limits)?;
+    let usage: OfflineVldaResourceUsage =
+        deserialize_config_value(&report.config, "/resource_usage", "resource usage")?;
+    let pid_mode: PidMode =
+        deserialize_config_value(&report.config, "/metric_pipeline/pid_mode", "PID mode")?;
+    let discrete_bins: usize = deserialize_config_value(
+        &report.config,
+        "/metric_pipeline/discrete_bins",
+        "discrete bin count",
+    )?;
+    let pls_value = report
+        .config
+        .pointer("/metric_pipeline/pls_components")
+        .context("offline VLDA report configuration is missing its PLS component selection")?;
+    let options = OfflineVldaHarnessOptions {
+        pid_mode,
+        discrete_bins,
+        pls: parse_recorded_pls_selection(pls_value)?,
+    };
+    validate_harness_options(&options)?;
+
+    ensure!(
+        usage.samples == report.dims.samples,
+        "offline VLDA report resource sample count contradicts its dimensions"
+    );
+    let width = [report.dims.v, report.dims.l, report.dims.d, report.dims.a]
+        .into_iter()
+        .try_fold(0_u128, |sum, dimension| {
+            checked_work_add(sum, dimension as u128, "recorded total axis width")
+        })?;
+    let expected_axis_scalars = checked_work_mul(
+        report.dims.samples as u128,
+        width,
+        "recorded total axis scalars",
+    )?;
+    ensure!(
+        usage.total_axis_scalars as u128 == expected_axis_scalars,
+        "offline VLDA report axis-scalar usage contradicts its dimensions"
+    );
+    for (resource, observed, limit) in [
+        (
+            "axis scalars",
+            usage.total_axis_scalars,
+            limits.max_total_axis_scalars,
+        ),
+        (
+            "metadata entries",
+            usage.total_metadata_entries,
+            limits.max_total_metadata_entries,
+        ),
+        (
+            "metadata JSON nodes",
+            usage.total_metadata_json_nodes,
+            limits.max_total_metadata_json_nodes,
+        ),
+        (
+            "metadata UTF-8 bytes",
+            usage.total_metadata_utf8_bytes,
+            limits.max_total_metadata_utf8_bytes,
+        ),
+        (
+            "metadata JSON depth",
+            usage.metadata_json_depth,
+            limits.max_metadata_json_depth,
+        ),
+    ] {
+        ensure!(
+            observed <= limit,
+            "offline VLDA report resource usage exceeds its {resource} limit"
+        );
+    }
+    ensure!(
+        usage.samples <= limits.max_samples,
+        "offline VLDA report resource usage exceeds its sample limit"
+    );
+    let projected_total = usage
+        .projected_main_pairwise_distance_evaluations
+        .checked_add(usage.projected_uncertainty_pairwise_distance_evaluations)
+        .context("offline VLDA report projected pairwise total overflowed u64")?;
+    ensure!(
+        projected_total == usage.projected_total_pairwise_distance_evaluations,
+        "offline VLDA report projected pairwise total does not equal main plus uncertainty"
+    );
+    ensure!(
+        projected_total <= limits.max_pairwise_distance_evaluations,
+        "offline VLDA report projected pairwise usage exceeds its limit"
+    );
+    let vl_width = checked_work_add(
+        report.dims.v as u128,
+        report.dims.l as u128,
+        "recorded V/L distance-vector width",
+    )?;
+    let da_width = checked_work_add(
+        report.dims.d as u128,
+        report.dims.a as u128,
+        "recorded D/A distance-vector width",
+    )?;
+    let maximum_vector_width =
+        checked_work_add(vl_width, da_width, "recorded V/L/D/A distance-vector width")?.max(1);
+    let expected_main_coordinates = projected_distance_coordinate_evaluations(
+        u128::from(usage.projected_main_pairwise_distance_evaluations),
+        maximum_vector_width,
+        "recorded main distance coordinate evaluations",
+    )?;
+    let expected_uncertainty_coordinates = projected_distance_coordinate_evaluations(
+        u128::from(usage.projected_uncertainty_pairwise_distance_evaluations),
+        maximum_vector_width,
+        "recorded uncertainty distance coordinate evaluations",
+    )?;
+    ensure!(
+        expected_main_coordinates
+            == u128::from(usage.projected_main_distance_coordinate_evaluations),
+        "offline VLDA report main distance coordinate projection contradicts its dimensions"
+    );
+    ensure!(
+        expected_uncertainty_coordinates
+            == u128::from(usage.projected_uncertainty_distance_coordinate_evaluations),
+        "offline VLDA report uncertainty distance coordinate projection contradicts its dimensions"
+    );
+    let projected_total_coordinates = usage
+        .projected_main_distance_coordinate_evaluations
+        .checked_add(usage.projected_uncertainty_distance_coordinate_evaluations)
+        .context("offline VLDA report projected distance coordinate total overflowed u64")?;
+    ensure!(
+        projected_total_coordinates == usage.projected_total_distance_coordinate_evaluations,
+        "offline VLDA report projected distance coordinate total does not equal main plus uncertainty"
+    );
+    ensure!(
+        projected_total_coordinates <= limits.max_distance_coordinate_evaluations,
+        "offline VLDA report projected distance coordinate usage exceeds its limit"
+    );
+    ensure!(
+        usage.projected_dense_solver_operations <= limits.max_dense_solver_operations,
+        "offline VLDA report projected dense-solver usage exceeds its limit"
+    );
+
+    let pairwise_scope = report
+        .config
+        .pointer("/resource_accounting/pairwise_limit_scope")
+        .and_then(Value::as_str)
+        .context("offline VLDA report configuration is missing its pairwise-limit scope")?;
+    let uncertainty_config = match pairwise_scope {
+        "single_main_analysis_call" => {
+            ensure!(
+                report.config["resource_accounting"]
+                    == json!({
+                        "pairwise_limit_scope": "single_main_analysis_call",
+                        "resource_usage_scope": "main_harness_analysis",
+                        "distance_projection_model": "pairwise_units_times_max_combined_axis_width_v2",
+                        "dense_solver_projection_model": "pid_core_0_9_logreg_pls_worst_case_v1",
+                        "optional_uncertainty": "not_included_by_single_analysis_api",
+                    }),
+                "offline VLDA report has an invalid single-analysis resource-accounting contract"
+            );
+            ensure!(
+                report.config["uncertainty_request"]
+                    == json!({
+                        "enabled": false,
+                        "scope": "not_requested_by_this_api",
+                    }),
+                "offline VLDA single-analysis report carries an invalid uncertainty request"
+            );
+            ensure!(
+                usage.projected_uncertainty_pairwise_distance_evaluations == 0,
+                "offline VLDA single-analysis report carries uncertainty work"
+            );
+            None
+        }
+        "aggregate_main_and_optional_uncertainty" => {
+            ensure!(
+                report.config["resource_accounting"]
+                    == json!({
+                        "pairwise_limit_scope": "aggregate_main_and_optional_uncertainty",
+                        "resource_usage_scope": "complete_cli_invocation_projection",
+                        "distance_projection_model": "pairwise_units_times_max_combined_axis_width_v2",
+                        "dense_solver_projection_model": "pid_core_0_9_logreg_pls_worst_case_v1",
+                        "optional_uncertainty": "included_in_aggregate_preflight",
+                    }),
+                "offline VLDA report has an invalid aggregate resource-accounting contract"
+            );
+            let request = report
+                .config
+                .get("uncertainty_request")
+                .context("offline VLDA aggregate report is missing its uncertainty request")?;
+            let n_boot: usize = deserialize_config_value(request, "/n_boot", "bootstrap count")?;
+            let n_perm: usize = deserialize_config_value(request, "/n_perm", "permutation count")?;
+            let block_size: usize =
+                deserialize_config_value(request, "/block_size", "uncertainty block size")?;
+            let alpha: f64 = deserialize_config_value(request, "/alpha", "uncertainty tail mass")?;
+            let seed: u64 = deserialize_config_value(request, "/seed", "uncertainty seed")?;
+            let scheme_label = request
+                .get("permutation_scheme")
+                .and_then(Value::as_str)
+                .context("offline VLDA aggregate report is missing its permutation scheme")?;
+            let permutation_scheme = parse_recorded_permutation_scheme(scheme_label, n_perm)?;
+            let config = OfflineVldaUncertaintyConfig {
+                n_boot,
+                n_perm,
+                block_size,
+                alpha,
+                seed,
+                permutation_scheme,
+            };
+            validate_uncertainty_config(&config)?;
+            ensure!(
+                request
+                    == &json!({
+                        "enabled": config.enabled(),
+                        "n_boot": config.n_boot,
+                        "n_perm": config.n_perm,
+                        "block_size": config.block_size,
+                        "alpha": config.alpha,
+                        "seed": config.seed,
+                        "permutation_scheme": if config.n_perm > 0 {
+                            permutation_scheme_label(config.permutation_scheme)?
+                        } else {
+                            "not_requested".to_string()
+                        },
+                    }),
+                "offline VLDA aggregate report carries an invalid uncertainty request"
+            );
+            Some(config)
+        }
+        other => bail!("offline VLDA report has an unknown pairwise-limit scope: {other}"),
+    };
+
+    Ok(ReportResourceBinding {
+        limits,
+        usage,
+        options,
+        uncertainty_config,
+    })
+}
+
 fn validate_offline_vlda_report(report: &OfflineVldaReport) -> Result<()> {
+    ensure!(
+        !report.run_id.is_empty(),
+        "offline VLDA report run_id must not be empty"
+    );
+    ensure!(
+        report.dims.samples >= 8,
+        "offline VLDA report must describe at least 8 samples"
+    );
+    ensure!(
+        report.dims.v > 0 && report.dims.l > 0 && report.dims.d > 0 && report.dims.a > 0,
+        "offline VLDA report dimensions must be nonzero"
+    );
+    for (label, count) in &report.label_counts {
+        ensure!(
+            !label.is_empty() && *count > 0 && *count <= report.dims.samples,
+            "offline VLDA report carries an invalid label count"
+        );
+    }
+    let expected_config_hash = pid_runlog::canonical_json_hash_v2(&report.config)
+        .context("failed to hash the offline VLDA report configuration")?;
+    ensure!(
+        report.config_hash == expected_config_hash,
+        "offline VLDA report config_hash does not match its configuration"
+    );
+    ensure!(
+        report.config.get("harness").and_then(Value::as_str) == Some("offline_vlda"),
+        "offline VLDA report configuration has the wrong harness identity"
+    );
+    ensure!(
+        report.config.get("samples").and_then(Value::as_u64)
+            == u64::try_from(report.dims.samples).ok(),
+        "offline VLDA report sample count contradicts its configuration"
+    );
+    let expected_dims = serde_json::to_value(&report.dims)
+        .context("failed to encode the offline VLDA report dimensions")?;
+    ensure!(
+        report.config.get("dims") == Some(&expected_dims),
+        "offline VLDA report dimensions contradict its configuration"
+    );
+    let resource_binding = report_resource_binding(report)?;
+    let expected_metric_pipeline = offline_vlda_metric_pipeline_config(
+        &resource_binding.options,
+        &report.preprocessing,
+        &report.geometry,
+        report.train_split_pid.as_ref(),
+        report.heldout_split.as_ref(),
+        report.heldout_class_coverage.as_ref(),
+        report.heldout_episode_disjoint.as_ref(),
+    );
+    ensure!(
+        report.config.get("metric_pipeline") == Some(&expected_metric_pipeline),
+        "offline VLDA report metric-pipeline configuration does not reconstruct from the report"
+    );
+    validate_report_pid_mode_contract(report, &resource_binding.options)?;
     let metrics = &report.metrics;
     validate_pid_screen_contract(
         "full-data PID screen",
@@ -2384,6 +4961,7 @@ fn validate_offline_vlda_report(report: &OfflineVldaReport) -> Result<()> {
             validate_pid_screen_metrics(metrics, "train-split PID screen")?;
         }
     }
+    validate_heldout_prediction_contract(report)?;
     Ok(())
 }
 
@@ -2429,11 +5007,27 @@ fn validate_atom_stability_envelope(
 
 fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> Result<()> {
     ensure!(
+        uncertainty.schema_version == OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
+        "PID uncertainty schema must be {OFFLINE_UNCERTAINTY_SCHEMA_VERSION}"
+    );
+    ensure!(
+        uncertainty.dataset_content_sha256.len() == 64
+            && uncertainty
+                .dataset_content_sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+        "PID uncertainty dataset content SHA-256 must be 64 lowercase hexadecimal characters"
+    );
+    ensure!(
+        uncertainty.estimator_revision == ESTIMATOR_REVISION,
+        "PID uncertainty estimator revision does not match the pinned review surface"
+    );
+    ensure!(
         uncertainty.stability_interpretation == RAW_M_SAMPLE_STABILITY_INTERPRETATION,
         "PID uncertainty stability interpretation must be {RAW_M_SAMPLE_STABILITY_INTERPRETATION}"
     );
     ensure!(
-        uncertainty.alpha.is_finite() && (0.0..1.0).contains(&uncertainty.alpha),
+        uncertainty.alpha.is_finite() && uncertainty.alpha > 0.0 && uncertainty.alpha < 1.0,
         "PID uncertainty raw-percentile tail mass must lie strictly inside (0, 1)"
     );
     ensure!(
@@ -2459,20 +5053,44 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
             );
         } else {
             ensure!(
-                uncertainty
-                    .mode
-                    .starts_with("skipped:non_continuous_mode_is_a_different_measure"),
+                uncertainty.pid_mode != PidMode::Continuous
+                    && uncertainty.mode
+                        == format!(
+                            "skipped:non_continuous_mode_is_a_different_measure ({:?})",
+                            uncertainty.pid_mode
+                        ),
                 "PID uncertainty artifact carries an unknown skip reason"
             );
             ensure!(
                 uncertainty.n_boot > 0 || uncertainty.n_perm > 0,
                 "non-continuous PID uncertainty skip records no requested component"
             );
+            ensure!(
+                uncertainty.resample_scheme
+                    == if uncertainty.n_boot > 0 {
+                        "politis_romano_subsample"
+                    } else {
+                        "not_requested"
+                    },
+                "non-continuous PID uncertainty skip carries the wrong resampling scheme"
+            );
+            ensure!(
+                uncertainty.permutation_scheme
+                    == if uncertainty.n_perm > 0 {
+                        permutation_scheme_label(parse_recorded_permutation_scheme(
+                            &uncertainty.permutation_scheme,
+                            uncertainty.n_perm,
+                        )?)?
+                    } else {
+                        "not_requested".to_string()
+                    },
+                "non-continuous PID uncertainty skip carries the wrong permutation scheme"
+            );
         }
         return Ok(());
     }
     ensure!(
-        uncertainty.mode == "continuous",
+        uncertainty.pid_mode == PidMode::Continuous && uncertainty.mode == "continuous",
         "PID uncertainty mode is neither continuous nor an explicit skip"
     );
     ensure!(
@@ -2670,7 +5288,11 @@ pub fn write_offline_pid_uncertainty(
 ) -> Result<()> {
     validate_offline_pid_uncertainty(uncertainty)?;
     ensure_parent(path.as_ref())?;
-    pid_runlog::write_json_file(path, uncertainty)
+    pid_runlog::write_json_file_with_limits(
+        path,
+        uncertainty,
+        RunLogLimits::default().with_max_file_bytes(OFFLINE_UNCERTAINTY_MAX_BYTES),
+    )
 }
 
 pub fn write_offline_vlda_summary(
@@ -2679,7 +5301,11 @@ pub fn write_offline_vlda_summary(
 ) -> Result<()> {
     validate_offline_vlda_report(report)?;
     ensure_parent(path.as_ref())?;
-    pid_runlog::write_json_file(path, report)
+    pid_runlog::write_json_file_with_limits(
+        path,
+        report,
+        RunLogLimits::default().with_max_file_bytes(OFFLINE_SUMMARY_MAX_BYTES),
+    )
 }
 
 pub fn write_offline_vlda_runlog(
@@ -2707,14 +5333,175 @@ pub fn write_offline_vlda_runlog_with_options(
     report: &OfflineVldaReport,
     options: OfflineVldaRunlogOptions,
 ) -> Result<()> {
+    write_offline_vlda_runlog_with_options_and_uncertainty(
+        path,
+        OfflineVldaRunlogArtifacts {
+            summary_path,
+            input_path,
+            ..OfflineVldaRunlogArtifacts::default()
+        },
+        dataset,
+        report,
+        options,
+    )
+}
+
+/// Write the canonical run log and bind an optional PID-uncertainty companion.
+///
+/// A report produced by the aggregate invocation API with enabled uncertainty requires the
+/// companion path and the caller-supplied validated result. The file must equal that result and
+/// match the request recorded in the report. The CLI supplies the result it computed. The run log
+/// records stable file digests and rechecks each named path before its terminal event.
+pub fn write_offline_vlda_runlog_with_options_and_uncertainty(
+    path: impl AsRef<Path>,
+    artifacts: OfflineVldaRunlogArtifacts<'_>,
+    dataset: &OfflineVldaDataset,
+    report: &OfflineVldaReport,
+    options: OfflineVldaRunlogOptions,
+) -> Result<()> {
+    let OfflineVldaRunlogArtifacts {
+        summary_path,
+        input_path,
+        uncertainty_path,
+        uncertainty,
+    } = artifacts;
     // `OfflineVldaReport` is a public serde type. Constructors in this crate preserve the
     // status/value invariant, but a caller can deserialize or mutate an arbitrary report. Recheck
-    // the full publication contract before creating a run log so an abstention can never acquire a
-    // numeric placeholder (or a produced estimate lose its value) at this trust boundary.
+    // its structural estimate invariants and dataset binding before creating a run log. This keeps
+    // an abstention from acquiring a numeric placeholder at the publication boundary.
     validate_offline_vlda_report(report)?;
-    ensure_parent(path.as_ref())?;
-    let mut writer = RunLogWriter::create(path.as_ref())?;
-    let summary_sha256 = summary_path.and_then(|path| pid_runlog::sha256_file(path).ok());
+    let expected_dims = validate_dataset(dataset)?;
+    ensure!(
+        report.dims == expected_dims,
+        "offline VLDA report dimensions do not match the publication dataset"
+    );
+    ensure!(
+        report.label_counts == label_counts(&dataset.samples),
+        "offline VLDA report label counts do not match the publication dataset"
+    );
+    ensure!(
+        report.axis_provenance == axis_provenance(&dataset.samples),
+        "offline VLDA report axis provenance does not reconstruct from the publication dataset"
+    );
+    let resource_binding = report_resource_binding(report)?;
+    let reconstructed_usage = admit_dataset_resources(
+        dataset,
+        Some(&resource_binding.options),
+        resource_binding.uncertainty_config.as_ref(),
+        &resource_binding.limits,
+    )?;
+    ensure!(
+        reconstructed_usage == resource_binding.usage,
+        "offline VLDA report resource usage does not reconstruct from the publication dataset"
+    );
+    let expected_run_id = dataset.run_id.as_deref().unwrap_or("offline-vlda-run");
+    ensure!(
+        report.run_id == expected_run_id,
+        "offline VLDA report run_id does not match the publication dataset"
+    );
+    let dataset_content_sha256 = offline_vlda_dataset_content_sha256(dataset)
+        .context("failed to hash the offline VLDA publication dataset")?;
+    ensure!(
+        report
+            .config
+            .get("dataset_content_sha256")
+            .and_then(Value::as_str)
+            == Some(dataset_content_sha256.as_str()),
+        "offline VLDA report does not bind the publication dataset"
+    );
+    let summary_uri = summary_path
+        .map(|path| exact_artifact_uri(path, "offline VLDA summary path"))
+        .transpose()?;
+    let uncertainty_uri = uncertainty_path
+        .map(|path| exact_artifact_uri(path, "offline VLDA uncertainty path"))
+        .transpose()?;
+    let summary_snapshot = summary_path
+        .map(|path| {
+            read_bounded_regular_file(path, OFFLINE_SUMMARY_MAX_BYTES, "offline VLDA summary")
+        })
+        .transpose()?;
+    if let Some(snapshot) = &summary_snapshot {
+        let recorded = snapshot.exact_bytes(OFFLINE_SUMMARY_MAX_BYTES)?;
+        let expected = serialize_pretty_json_bounded(report, OFFLINE_SUMMARY_MAX_BYTES)?;
+        ensure!(
+            recorded == expected,
+            "offline VLDA summary selected for run-log publication is not the exact JSON serialization of the report"
+        );
+    }
+    let uncertainty_enabled = report
+        .config
+        .pointer("/uncertainty_request/enabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    ensure!(
+        uncertainty_enabled == uncertainty_path.is_some()
+            && uncertainty_enabled == uncertainty.is_some(),
+        if uncertainty_enabled {
+            "offline VLDA report requests uncertainty, but its value or artifact was not supplied"
+        } else {
+            "offline VLDA uncertainty value or artifact was supplied for a report that did not request it"
+        }
+    );
+    let uncertainty_snapshot = uncertainty_path
+        .map(|path| {
+            read_bounded_regular_file(
+                path,
+                OFFLINE_UNCERTAINTY_MAX_BYTES,
+                "offline VLDA PID uncertainty artifact",
+            )
+        })
+        .transpose()?;
+    if let (Some(snapshot), Some(uncertainty)) = (&uncertainty_snapshot, uncertainty) {
+        let recorded_bytes = snapshot.exact_bytes(OFFLINE_UNCERTAINTY_MAX_BYTES)?;
+        let recorded: OfflineVldaPidUncertainty = serde_json::from_slice(recorded_bytes).context(
+            "failed to decode the PID uncertainty artifact selected for run-log publication",
+        )?;
+        validate_offline_pid_uncertainty(uncertainty)?;
+        validate_offline_pid_uncertainty(&recorded)?;
+        let supplied_bytes =
+            serialize_pretty_json_bounded(uncertainty, OFFLINE_UNCERTAINTY_MAX_BYTES)?;
+        ensure!(
+            recorded_bytes == supplied_bytes,
+            "offline VLDA PID uncertainty artifact is not the exact JSON serialization of the supplied result"
+        );
+        let request = report
+            .config
+            .get("uncertainty_request")
+            .context("offline VLDA report is missing its uncertainty request")?;
+        let expected_subsample_len =
+            if recorded.pid_mode == PidMode::Continuous && recorded.n_boot > 0 {
+                (((dataset.samples.len() / 2) / recorded.block_size).max(1)) * recorded.block_size
+            } else {
+                0
+            };
+        ensure!(
+            recorded.dataset_content_sha256 == dataset_content_sha256
+                && recorded.pid_mode == resource_binding.options.pid_mode
+                && recorded.subsample_len == expected_subsample_len
+                && report
+                    .config
+                    .get("dataset_content_sha256")
+                    .and_then(Value::as_str)
+                    == Some(dataset_content_sha256.as_str())
+                && request.get("n_boot").and_then(Value::as_u64)
+                    == u64::try_from(recorded.n_boot).ok()
+                && request.get("n_perm").and_then(Value::as_u64)
+                    == u64::try_from(recorded.n_perm).ok()
+                && request.get("block_size").and_then(Value::as_u64)
+                    == u64::try_from(recorded.block_size).ok()
+                && request.get("alpha").and_then(Value::as_f64) == Some(recorded.alpha)
+                && request.get("seed").and_then(Value::as_u64) == Some(recorded.seed)
+                && request.get("permutation_scheme").and_then(Value::as_str)
+                    == Some(recorded.permutation_scheme.as_str()),
+            "offline VLDA PID uncertainty artifact does not match the report request"
+        );
+    }
+    let summary_sha256 = summary_snapshot
+        .as_ref()
+        .and_then(|snapshot| snapshot.sha256.clone());
+    let uncertainty_sha256 = uncertainty_snapshot
+        .as_ref()
+        .and_then(|snapshot| snapshot.sha256.clone());
     let configured_input_uri = report
         .config
         .get("input_uri")
@@ -2725,22 +5512,42 @@ pub fn write_offline_vlda_runlog_with_options(
         .get("input_sha256")
         .and_then(Value::as_str)
         .map(str::to_string);
+    let mut input_snapshot = None;
     let input_uri = match input_path {
         Some(path) => {
-            let path_uri = path
-                .to_str()
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "offline VLDA input path must be valid UTF-8 for run-log provenance"
-                    )
-                })?
-                .to_string();
+            let path_uri = exact_artifact_uri(path, "offline VLDA input path")?;
             if configured_input_uri.as_deref() != Some(path_uri.as_str()) {
                 bail!("offline VLDA run log input path does not match the analyzed snapshot URI");
             }
             if configured_input_sha256.is_none() {
                 bail!("offline VLDA run log is missing the analyzed input snapshot SHA-256");
             }
+            let mut snapshot = read_bounded_regular_file(
+                path,
+                resource_binding.limits.max_input_bytes,
+                "offline VLDA publication input",
+            )?;
+            ensure!(
+                snapshot.sha256.as_deref() == configured_input_sha256.as_deref(),
+                "offline VLDA publication input no longer matches the analyzed snapshot"
+            );
+            let recorded_bytes = snapshot.exact_bytes(resource_binding.limits.max_input_bytes)?;
+            pid_bridge::validate_strict_json_bytes(recorded_bytes)
+                .context("offline VLDA publication input is not strict JSON")?;
+            let recorded_dataset: OfflineVldaDataset = serde_json::from_slice(recorded_bytes)
+                .context("failed to decode the offline VLDA publication input")?;
+            let _ =
+                admit_dataset_resources(&recorded_dataset, None, None, &resource_binding.limits)?;
+            let recorded_dataset_sha256 = offline_vlda_dataset_content_sha256(&recorded_dataset)
+                .context("failed to hash the offline VLDA publication input dataset")?;
+            ensure!(
+                recorded_dataset_sha256 == dataset_content_sha256,
+                "offline VLDA publication input does not encode the publication dataset"
+            );
+            // Publication needs only the identity and digest after this comparison.
+            // Release the duplicate byte buffer before emitting the run log.
+            snapshot.bytes.take();
+            input_snapshot = Some(snapshot);
             Some(path_uri)
         }
         None => configured_input_uri,
@@ -2748,6 +5555,8 @@ pub fn write_offline_vlda_runlog_with_options(
     // Never reopen a mutable input path here. This is the digest of the exact
     // byte buffer parsed for the report, supplied by the snapshot reader.
     let input_sha256 = configured_input_sha256;
+    ensure_parent(path.as_ref())?;
+    let mut writer = RunLogWriter::create(path.as_ref())?;
     writer.append(&RunLogEvent::RunStarted {
         schema_version: RUN_LOG_SCHEMA_VERSION,
         run_id: report.run_id.clone(),
@@ -2755,10 +5564,6 @@ pub fn write_offline_vlda_runlog_with_options(
         config_hash: report.config_hash.clone(),
         metadata: [
             ("source".to_string(), "pid-offline-harness".to_string()),
-            (
-                "strict_geometry_gate".to_string(),
-                options.require_geometry_pass.to_string(),
-            ),
             (
                 "strict_success_labels".to_string(),
                 options.require_success_labels.to_string(),
@@ -2780,8 +5585,8 @@ pub fn write_offline_vlda_runlog_with_options(
                 options.require_axis_provenance_honest.to_string(),
             ),
             (
-                "geometry_gate_status".to_string(),
-                report.geometry.gates.status.clone(),
+                "geometry_diagnostic_status".to_string(),
+                report.geometry.diagnostics.status.clone(),
             ),
             (
                 "success_label_status".to_string(),
@@ -2830,7 +5635,7 @@ pub fn write_offline_vlda_runlog_with_options(
         writer.append(&RunLogEvent::FrameObserved {
             step,
             timestamp_ns,
-            observation_hash: Some(pid_runlog::canonical_json_hash_v2(sample)?),
+            observation_hash: Some(offline_vlda_sample_content_sha256(sample)?),
             metadata,
         })?;
         for (label, value) in &sample.labels {
@@ -2911,31 +5716,47 @@ pub fn write_offline_vlda_runlog_with_options(
 
     let metric_timestamp_base = embedding_timestamp_base + 10_000;
     // Metric events are stamped metric_timestamp_base + i for i in 0..count,
-    // and count scales with the dataset (≈21 events per labeled held-out
-    // sample). Everything appended after them must continue from the RETURNED
+    // and count scales with the dataset (roughly two dozen events per labeled
+    // held-out sample). Everything appended after them must continue from the returned
     // count — a fixed offset would be overtaken on realistic capture sizes and
     // the log would fail pid-runlog's nondecreasing-timestamp validation.
     let metric_events = write_metric_events(&mut writer, report, metric_timestamp_base)?;
     let mut next_timestamp_ns = metric_timestamp_base + metric_events;
-    if let Some(input_path) = input_path {
+    if input_path.is_some() {
         writer.append(&RunLogEvent::ArtifactLogged {
             timestamp_ns: next_timestamp_ns,
             name: "offline_vlda_input_json".to_string(),
             kind: "dataset_json".to_string(),
-            uri: input_path.display().to_string(),
+            uri: input_uri
+                .clone()
+                .context("offline VLDA publication input lacks its exact artifact URI")?,
             sha256: input_sha256,
             metadata: BTreeMap::new(),
         })?;
         next_timestamp_ns += 1;
     }
-    if let Some(summary_path) = summary_path {
+    if let Some(summary_uri) = summary_uri {
         writer.append(&RunLogEvent::ArtifactLogged {
             timestamp_ns: next_timestamp_ns,
             name: "offline_vlda_summary_json".to_string(),
             kind: "summary_json".to_string(),
-            uri: summary_path.display().to_string(),
+            uri: summary_uri,
             sha256: summary_sha256,
             metadata: BTreeMap::new(),
+        })?;
+        next_timestamp_ns += 1;
+    }
+    if let Some(uncertainty_uri) = uncertainty_uri {
+        writer.append(&RunLogEvent::ArtifactLogged {
+            timestamp_ns: next_timestamp_ns,
+            name: "offline_vlda_pid_uncertainty_json".to_string(),
+            kind: "pid_uncertainty_json".to_string(),
+            uri: uncertainty_uri,
+            sha256: uncertainty_sha256,
+            metadata: BTreeMap::from([(
+                "stability_interpretation".to_string(),
+                RAW_M_SAMPLE_STABILITY_INTERPRETATION.to_string(),
+            )]),
         })?;
         next_timestamp_ns += 1;
     }
@@ -2958,6 +5779,15 @@ pub fn write_offline_vlda_runlog_with_options(
         })?;
         next_timestamp_ns += 1;
     }
+    if let Some(snapshot) = &summary_snapshot {
+        snapshot.verify_path()?;
+    }
+    if let Some(snapshot) = &uncertainty_snapshot {
+        snapshot.verify_path()?;
+    }
+    if let Some(snapshot) = &input_snapshot {
+        snapshot.verify_path()?;
+    }
     writer.append(&RunLogEvent::RunEnded {
         run_id: report.run_id.clone(),
         timestamp_ns: next_timestamp_ns,
@@ -2976,14 +5806,6 @@ pub fn write_offline_vlda_runlog_with_options(
 struct OfflineVldaPidMetricEventScope<'a> {
     prefix: &'static str,
     train_pid: Option<&'a OfflineVldaTrainSplitPidReport>,
-}
-
-pub fn offline_vlda_geometry_gate_failure_message(report: &OfflineVldaReport) -> String {
-    format!(
-        "offline VLDA geometry gate {}: {} warning(s)",
-        report.geometry.gates.status,
-        report.geometry.gates.warnings.len()
-    )
 }
 
 pub fn offline_vlda_success_label_failure_message(
@@ -3158,12 +5980,10 @@ pub fn offline_vlda_split_scientific_eligibility_failure_message(
 }
 
 /// Gate messages for `--require-axis-provenance-honest`. Returns a failure for every
-/// V/L/D/A axis whose provenance is `degraded` (a PID atom computed from a
-/// fabricated / recency-misaligned / hash-proxy axis is not trustworthy), AND — the
-/// key hardening — a single failure when NO provenance markers were stamped at all:
-/// honesty cannot be *attested* from a dataset that carries no provenance, so the
-/// gate fails closed rather than passing vacuously (positive attestation). Returns an
-/// empty vec only when at least one marker is present and none is degraded.
+/// V/L/D/A axis whose provenance is `degraded`. This includes missing, unrecognized,
+/// fabricated, recency-misaligned, and proxy values. It also returns one failure when
+/// no recognized provenance convention is present. The gate therefore cannot pass
+/// vacuously or from sparse marker coverage.
 pub fn offline_vlda_axis_provenance_failure_messages(
     axis_provenance: &[OfflineVldaAxisProvenance],
 ) -> Vec<String> {
@@ -3193,9 +6013,6 @@ fn offline_vlda_required_failures(
     options: OfflineVldaRunlogOptions,
 ) -> Vec<String> {
     let mut failures = Vec::new();
-    if options.require_geometry_pass && report.geometry.gates.status != "pass" {
-        failures.push(offline_vlda_geometry_gate_failure_message(report));
-    }
     if options.require_success_labels && report.metrics.success_rate.is_none() {
         failures.push(offline_vlda_success_label_failure_message(dataset, report));
     }
@@ -3230,7 +6047,7 @@ fn offline_vlda_required_failures(
     failures
 }
 
-fn validate_dataset(dataset: &OfflineVldaDataset) -> Result<OfflineVldaDims> {
+fn validate_dataset_publication_eligibility(dataset: &OfflineVldaDataset) -> Result<()> {
     if offline_vlda_has_ncp_markers(dataset) {
         if dataset.source.as_deref() != Some("ncp") {
             bail!("NCP-marked dataset must declare source=\"ncp\"");
@@ -3243,6 +6060,25 @@ fn validate_dataset(dataset: &OfflineVldaDataset) -> Result<OfflineVldaDims> {
             Some("complete" | "complete_with_warning")
         ) {
             bail!("NCP dataset capture integrity is not analysis-eligible");
+        }
+    }
+    Ok(())
+}
+
+fn validate_dataset_structure(dataset: &OfflineVldaDataset) -> Result<OfflineVldaDims> {
+    for (name, value) in [
+        ("run_id", dataset.run_id.as_deref()),
+        ("source", dataset.source.as_deref()),
+        ("model", dataset.model.as_deref()),
+        ("task", dataset.task.as_deref()),
+        ("capture_integrity", dataset.capture_integrity.as_deref()),
+        (
+            "publication_receipt",
+            dataset.publication_receipt.as_deref(),
+        ),
+    ] {
+        if value == Some("") {
+            bail!("{name} must not be empty when present");
         }
     }
     if dataset.samples.len() < 8 {
@@ -3264,7 +6100,10 @@ fn validate_dataset(dataset: &OfflineVldaDataset) -> Result<OfflineVldaDims> {
         if sample.sample_id.is_empty() {
             bail!("sample_id must not be empty");
         }
-        if !sample_ids.insert(sample.sample_id.clone()) {
+        if sample.episode_id.as_deref() == Some("") {
+            bail!("episode_id must not be empty when present");
+        }
+        if !sample_ids.insert(sample.sample_id.as_str()) {
             bail!("sample_id values must be unique");
         }
         if sample.v.len() != dims.v
@@ -3300,6 +6139,11 @@ fn validate_dataset(dataset: &OfflineVldaDataset) -> Result<OfflineVldaDims> {
     Ok(dims)
 }
 
+fn validate_dataset(dataset: &OfflineVldaDataset) -> Result<OfflineVldaDims> {
+    validate_dataset_publication_eligibility(dataset)?;
+    validate_dataset_structure(dataset)
+}
+
 fn label_counts(samples: &[OfflineVldaSample]) -> BTreeMap<String, usize> {
     let mut counts = BTreeMap::new();
     for sample in samples {
@@ -3310,59 +6154,141 @@ fn label_counts(samples: &[OfflineVldaSample]) -> BTreeMap<String, usize> {
     counts
 }
 
-/// Aggregate the per-sample axis-provenance markers into a per-axis honesty summary
-/// (see [`OfflineVldaAxisProvenance`]). A `(marker, axis, degraded_values)` is
-/// reported only when at least one sample carries that marker; the axis is `degraded`
-/// when any sample carries a known-bad value for it.
+/// Aggregate per-sample axis-provenance markers into one summary per marker.
+///
+/// A capture convention becomes active when any sample carries one of its markers.
+/// Every marker in that convention must then be present with an accepted value on
+/// every sample. This prevents a sparse or invented declaration from satisfying the
+/// positive-attestation gate.
 fn axis_provenance(samples: &[OfflineVldaSample]) -> Vec<OfflineVldaAxisProvenance> {
-    // Markers stamped by the capture adapters, with the values that mean "this axis
-    // is not trustworthy for this sample". Two capture conventions are recognized:
-    //   - ncp-observer (live Engram/NEST tap): `l_source` / `d_source`.
-    //   - safe_adapter (offline VLA rollouts): `{v,l,d,a}_provenance`, where
-    //     `text_hash_proxy` is a hash surrogate for a missing real feature (degraded),
-    //     while `explicit_features` / `hidden_state_pool` / `token_slice:*` /
-    //     `action_vector` are honest.
-    const DEGRADED_PROV: &[&str] = &["text_hash_proxy", "absent_zeroed", "zeroed", "absent"];
-    const MARKERS: &[(&str, &str, &[&str])] = &[
-        ("l_source", "L", &["absent_zeroed"]),
-        ("d_source", "D", &["recency_fallback", "absent"]),
-        ("v_provenance", "V", DEGRADED_PROV),
-        ("l_provenance", "L", DEGRADED_PROV),
-        ("d_provenance", "D", DEGRADED_PROV),
-        ("a_provenance", "A", DEGRADED_PROV),
+    #[derive(Clone, Copy)]
+    struct MarkerSpec {
+        marker: &'static str,
+        axis: &'static str,
+        accepted_exact: &'static [&'static str],
+        accepts_token_slice: bool,
+        known_degraded: &'static [&'static str],
+    }
+
+    const KNOWN_DEGRADED: &[&str] = &[
+        "text_hash_proxy",
+        "absent_zeroed",
+        "recency_fallback",
+        "zeroed",
+        "absent",
     ];
+    const NCP_MARKERS: &[MarkerSpec] = &[
+        MarkerSpec {
+            marker: "l_source",
+            axis: "L",
+            accepted_exact: &["channel"],
+            accepts_token_slice: false,
+            known_degraded: &["absent_zeroed"],
+        },
+        MarkerSpec {
+            marker: "d_source",
+            axis: "D",
+            accepted_exact: &["source"],
+            accepts_token_slice: false,
+            known_degraded: &["recency_fallback", "absent"],
+        },
+    ];
+    const SAFE_MARKERS: &[MarkerSpec] = &[
+        MarkerSpec {
+            marker: "v_provenance",
+            axis: "V",
+            accepted_exact: &["explicit_features", "hidden_state_pool"],
+            accepts_token_slice: true,
+            known_degraded: KNOWN_DEGRADED,
+        },
+        MarkerSpec {
+            marker: "l_provenance",
+            axis: "L",
+            accepted_exact: &["explicit_features", "hidden_state_pool"],
+            accepts_token_slice: true,
+            known_degraded: KNOWN_DEGRADED,
+        },
+        MarkerSpec {
+            marker: "d_provenance",
+            axis: "D",
+            accepted_exact: &["hidden_state_pool"],
+            accepts_token_slice: true,
+            known_degraded: KNOWN_DEGRADED,
+        },
+        MarkerSpec {
+            marker: "a_provenance",
+            axis: "A",
+            accepted_exact: &["action_vector"],
+            accepts_token_slice: false,
+            known_degraded: KNOWN_DEGRADED,
+        },
+    ];
+
+    fn accepted(spec: MarkerSpec, value: &str) -> bool {
+        if spec.accepted_exact.contains(&value) {
+            return true;
+        }
+        if !spec.accepts_token_slice {
+            return false;
+        }
+        value.strip_prefix("token_slice:").is_some_and(|group| {
+            !group.is_empty() && group.len() <= 128 && !group.chars().any(char::is_control)
+        })
+    }
+
+    let convention_is_active = |markers: &[MarkerSpec]| {
+        samples.iter().any(|sample| {
+            markers
+                .iter()
+                .any(|spec| sample.metadata.contains_key(spec.marker))
+        })
+    };
+    let mut active_specs = Vec::new();
+    if convention_is_active(NCP_MARKERS) {
+        active_specs.extend_from_slice(NCP_MARKERS);
+    }
+    if convention_is_active(SAFE_MARKERS) {
+        active_specs.extend_from_slice(SAFE_MARKERS);
+    }
+
     let mut out = Vec::new();
-    for &(marker, axis, degraded_values) in MARKERS {
+    for spec in active_specs {
         let mut sources: BTreeMap<String, usize> = BTreeMap::new();
-        let mut degraded_samples = 0usize;
-        let mut total_samples = 0usize;
+        let mut present_samples = 0usize;
+        let mut known_degraded_samples = 0usize;
+        let mut unrecognized_samples = 0usize;
         for sample in samples {
-            if let Some(value) = sample.metadata.get(marker) {
+            if let Some(value) = sample.metadata.get(spec.marker) {
                 *sources.entry(value.clone()).or_insert(0) += 1;
-                total_samples += 1;
-                if degraded_values.contains(&value.as_str()) {
-                    degraded_samples += 1;
+                present_samples += 1;
+                if spec.known_degraded.contains(&value.as_str()) {
+                    known_degraded_samples += 1;
+                } else if !accepted(spec, value) {
+                    unrecognized_samples += 1;
                 }
             }
         }
-        if total_samples == 0 {
-            continue; // marker absent (e.g. a synthetic or SAFE-sourced dataset)
-        }
+        let missing_samples = samples.len().saturating_sub(present_samples);
+        let degraded_samples = known_degraded_samples + unrecognized_samples + missing_samples;
+        let total_samples = samples.len();
         let (status, note) = if degraded_samples > 0 {
             (
                 "degraded".to_string(),
                 Some(format!(
-                    "{degraded_samples}/{total_samples} samples carry a degraded {axis} axis \
-                     ({}); PID atoms involving {axis} are NOT trustworthy for those samples",
-                    degraded_values.join("/")
+                    "{degraded_samples}/{total_samples} samples lack accepted {axis} provenance \
+                     for {} (known degraded: {known_degraded_samples}; unrecognized: \
+                     {unrecognized_samples}; missing: {missing_samples}); PID atoms involving \
+                     {axis} are NOT trustworthy for those samples",
+                    spec.marker,
+                    axis = spec.axis,
                 )),
             )
         } else {
             ("ok".to_string(), None)
         };
         out.push(OfflineVldaAxisProvenance {
-            marker: marker.to_string(),
-            axis: axis.to_string(),
+            marker: spec.marker.to_string(),
+            axis: spec.axis.to_string(),
             sources,
             degraded_samples,
             total_samples,
@@ -3391,8 +6317,6 @@ struct PreparedVldaMatrices {
     l: MatOwned,
     d: MatOwned,
     a: MatOwned,
-    vl: MatOwned,
-    vlda: MatOwned,
     preprocessing: OfflineVldaPreprocessingReport,
 }
 
@@ -3400,9 +6324,8 @@ fn compute_analysis(
     samples: &[OfflineVldaSample],
     support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     dims: &OfflineVldaDims,
-    pid_mode: PidMode,
-    discrete_bins: usize,
-    pls: PlsComponentSelection,
+    options: &OfflineVldaHarnessOptions,
+    dense_solver_budget: ResourceBudget,
 ) -> Result<OfflineVldaAnalysis> {
     let prepared = prepare_standardized_embeddings(samples, dims)?;
     let heldout_split = heldout_split_plan(samples);
@@ -3446,25 +6369,34 @@ fn compute_analysis(
     let heldout_episode_disjoint = heldout_split
         .as_ref()
         .map(|split| heldout_episode_disjoint_report(samples, &split.roles));
-    let metrics = compute_metrics(
+    let (metrics, heldout_predictions) = compute_metrics(
         samples,
         support,
         &prepared,
         heldout_split.as_ref(),
-        pid_mode,
-        discrete_bins,
-        pls,
+        success_labels.as_deref(),
+        options,
+        dense_solver_budget,
     )?;
-    let train_split_pid = heldout_split.as_ref().map(|split| {
-        train_split_pid_report(samples, support, dims, split, pid_mode, discrete_bins, pls)
-    });
-    let heldout_predictions = heldout_prediction_records(samples, heldout_split.as_ref());
     let heldout_failure_diagnostics = heldout_failure_diagnostics(&heldout_predictions);
-    let geometry = compute_geometry_report(&prepared);
+    let geometry = compute_geometry_report(&prepared)?;
     let temporal = compute_temporal_report(samples, &prepared);
+    let PreparedVldaMatrices {
+        v,
+        l,
+        d,
+        a,
+        preprocessing,
+    } = prepared;
+    drop((v, l, d, a));
+    // A train-only screen must fit its own preprocessing. Release the larger
+    // all-sample matrices before allocating that independent analysis.
+    let train_split_pid = heldout_split.as_ref().map(|split| {
+        train_split_pid_report(samples, support, dims, split, options, dense_solver_budget)
+    });
     Ok(OfflineVldaAnalysis {
         metrics,
-        preprocessing: prepared.preprocessing,
+        preprocessing,
         geometry,
         temporal,
         train_split_pid,
@@ -3480,26 +6412,59 @@ fn prepare_standardized_embeddings(
     samples: &[OfflineVldaSample],
     dims: &OfflineVldaDims,
 ) -> Result<PreparedVldaMatrices> {
-    let n = samples.len();
+    prepare_standardized_embeddings_selected(samples, None, dims)
+}
+
+fn prepare_standardized_embeddings_for_train(
+    samples: &[OfflineVldaSample],
+    roles: &[OfflineVldaSplitRole],
+    dims: &OfflineVldaDims,
+) -> Result<PreparedVldaMatrices> {
+    prepare_standardized_embeddings_selected(samples, Some(roles), dims)
+}
+
+fn prepare_standardized_embeddings_selected(
+    samples: &[OfflineVldaSample],
+    train_roles: Option<&[OfflineVldaSplitRole]>,
+    dims: &OfflineVldaDims,
+) -> Result<PreparedVldaMatrices> {
+    let n = dims.samples;
     let mut variables = BTreeMap::new();
-    let v = flatten(samples, dims.v, |sample| &sample.v);
-    let l = flatten(samples, dims.l, |sample| &sample.l);
-    let d = flatten(samples, dims.d, |sample| &sample.d);
-    let a = flatten(samples, dims.a, |sample| &sample.a);
-    let v = standardize_embedding("V", &v, n, dims.v, &mut variables)?;
-    let l = standardize_embedding("L", &l, n, dims.l, &mut variables)?;
-    let d = standardize_embedding("D", &d, n, dims.d, &mut variables)?;
-    let a = standardize_embedding("A", &a, n, dims.a, &mut variables)?;
-    let vl = concat_horiz(v.as_ref(), l.as_ref())?;
-    let vld = concat_horiz(vl.as_ref(), d.as_ref())?;
-    let vlda = concat_horiz(vld.as_ref(), a.as_ref())?;
+    // Flatten and standardize one axis at a time. This keeps only one raw
+    // matrix alive while the four retained standardized matrices accumulate.
+    let v = standardize_embedding(
+        "V",
+        flatten_selected(samples, train_roles, n, dims.v, |sample| &sample.v)?,
+        n,
+        dims.v,
+        &mut variables,
+    )?;
+    let l = standardize_embedding(
+        "L",
+        flatten_selected(samples, train_roles, n, dims.l, |sample| &sample.l)?,
+        n,
+        dims.l,
+        &mut variables,
+    )?;
+    let d = standardize_embedding(
+        "D",
+        flatten_selected(samples, train_roles, n, dims.d, |sample| &sample.d)?,
+        n,
+        dims.d,
+        &mut variables,
+    )?;
+    let a = standardize_embedding(
+        "A",
+        flatten_selected(samples, train_roles, n, dims.a, |sample| &sample.a)?,
+        n,
+        dims.a,
+        &mut variables,
+    )?;
     Ok(PreparedVldaMatrices {
         v,
         l,
         d,
         a,
-        vl,
-        vlda,
         preprocessing: OfflineVldaPreprocessingReport {
             strategy: "per_variable_standardized".to_string(),
             variables,
@@ -3507,14 +6472,43 @@ fn prepare_standardized_embeddings(
     })
 }
 
+fn concatenate_rows(matrices: &[MatRef<'_>]) -> Result<MatOwned> {
+    let first = matrices
+        .first()
+        .context("offline VLDA concatenation requires at least one matrix")?;
+    let rows = first.nrows();
+    ensure!(
+        matrices.iter().all(|matrix| matrix.nrows() == rows),
+        "offline VLDA concatenation requires equal row counts"
+    );
+    let columns = matrices.iter().try_fold(0usize, |total, matrix| {
+        total
+            .checked_add(matrix.ncols())
+            .context("offline VLDA concatenated column count overflowed usize")
+    })?;
+    let scalars = rows
+        .checked_mul(columns)
+        .context("offline VLDA concatenated scalar count overflowed usize")?;
+    let mut data = Vec::new();
+    data.try_reserve_exact(scalars)
+        .context("failed to reserve offline VLDA concatenated matrix")?;
+    for row in 0..rows {
+        for matrix in matrices {
+            data.extend_from_slice(matrix.row(row));
+        }
+    }
+    MatOwned::new(data, rows, columns)
+        .map_err(|error| anyhow::anyhow!("offline VLDA matrix concatenation failed: {error}"))
+}
+
 fn standardize_embedding(
     name: &str,
-    data: &[f64],
+    data: Vec<f64>,
     n: usize,
     dim: usize,
     variables: &mut BTreeMap<String, OfflineVldaPreprocessingVariable>,
 ) -> Result<MatOwned> {
-    let raw = MatRef::new(data, n, dim)?;
+    let raw = MatRef::new(&data, n, dim)?;
     // `LeaveCentered` is documented upstream as the pre-1.0 behavior: a constant column stays in
     // the output, mean-centered but unscaled. Any other policy would change the standardization
     // provenance hashed below.
@@ -3525,7 +6519,7 @@ fn standardize_embedding(
         OfflineVldaPreprocessingVariable {
             input_dim: dim,
             output_dim: dim,
-            zero_variance_dims: zero_variance_dims(data, n, dim),
+            zero_variance_dims: zero_variance_dims(&data, n, dim),
             mean_sha256: pid_runlog::canonical_json_hash_v2(&standardizer.mean().to_vec())?,
             inv_std_sha256: pid_runlog::canonical_json_hash_v2(&standardizer.inv_std()?)?,
         },
@@ -3547,134 +6541,134 @@ fn compute_metrics(
     support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
     prepared: &PreparedVldaMatrices,
     heldout_split: Option<&OfflineVldaHeldoutSplitPlan>,
-    pid_mode: PidMode,
-    discrete_bins: usize,
-    pls: PlsComponentSelection,
-) -> Result<OfflineVldaMetrics> {
+    success_labels: Option<&[bool]>,
+    options: &OfflineVldaHarnessOptions,
+    dense_solver_budget: ResourceBudget,
+) -> Result<(OfflineVldaMetrics, Vec<OfflineVldaHeldoutPredictionRecord>)> {
     let pid_screen =
-        compute_pid_screen_metrics_with_control(prepared, support, pid_mode, discrete_bins, pls)?;
-    let success_labels = success_labels(samples);
-    let (success_rate, majority_success_accuracy) = success_metrics(&success_labels);
-    let loo_nn_v_success_accuracy = success_labels
-        .as_deref()
-        .map(|labels| loo_nn_success_accuracy(samples, labels, |sample| sample.v.clone()));
-    let loo_nn_l_success_accuracy = success_labels
-        .as_deref()
-        .map(|labels| loo_nn_success_accuracy(samples, labels, |sample| sample.l.clone()));
-    let loo_nn_d_success_accuracy = success_labels
-        .as_deref()
-        .map(|labels| loo_nn_success_accuracy(samples, labels, |sample| sample.d.clone()));
-    let loo_nn_a_success_accuracy = success_labels
-        .as_deref()
-        .map(|labels| loo_nn_success_accuracy(samples, labels, |sample| sample.a.clone()));
-    let loo_nn_vlda_success_accuracy = success_labels.as_deref().map(|labels| {
-        loo_nn_success_accuracy(samples, labels, |sample| {
-            let mut values = Vec::with_capacity(
-                sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
-            );
-            values.extend_from_slice(&sample.v);
-            values.extend_from_slice(&sample.l);
-            values.extend_from_slice(&sample.d);
-            values.extend_from_slice(&sample.a);
-            values
-        })
-    });
+        compute_pid_screen_metrics_with_control(prepared, support, options, dense_solver_budget)?;
+    let (success_rate, majority_success_accuracy) = success_metrics(success_labels);
     let episode_ids = episode_ids(samples);
     let episode_loo_majority_success_accuracy = success_labels
-        .as_deref()
         .zip(episode_ids.as_deref())
         .map(|(labels, episode_ids)| episode_loo_majority_success_accuracy(labels, episode_ids));
-    let episode_loo_nn_v_success_accuracy = success_labels
-        .as_deref()
-        .zip(episode_ids.as_deref())
-        .map(|(labels, episode_ids)| {
-            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| sample.v.clone())
-        });
-    let episode_loo_nn_l_success_accuracy = success_labels
-        .as_deref()
-        .zip(episode_ids.as_deref())
-        .map(|(labels, episode_ids)| {
-            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| sample.l.clone())
-        });
-    let episode_loo_nn_d_success_accuracy = success_labels
-        .as_deref()
-        .zip(episode_ids.as_deref())
-        .map(|(labels, episode_ids)| {
-            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| sample.d.clone())
-        });
-    let episode_loo_nn_a_success_accuracy = success_labels
-        .as_deref()
-        .zip(episode_ids.as_deref())
-        .map(|(labels, episode_ids)| {
-            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| sample.a.clone())
-        });
-    let episode_loo_nn_vlda_success_accuracy = success_labels
-        .as_deref()
-        .zip(episode_ids.as_deref())
-        .map(|(labels, episode_ids)| {
-            episode_loo_nn_success_accuracy(samples, labels, episode_ids, |sample| {
-                let mut values = Vec::with_capacity(
-                    sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
-                );
-                values.extend_from_slice(&sample.v);
-                values.extend_from_slice(&sample.l);
-                values.extend_from_slice(&sample.d);
-                values.extend_from_slice(&sample.a);
-                values
-            })
-        });
-    let heldout_majority_success_metrics = success_labels
-        .as_deref()
-        .zip(heldout_split)
-        .map(|(labels, split)| heldout_majority_success_metrics(labels, &split.roles));
+    let roles = heldout_split.map(|split| split.roles.as_slice());
+    let mut heldout_predictions = Vec::new();
+    if let (Some(labels), Some(roles)) = (success_labels, roles) {
+        append_heldout_majority_prediction_records(
+            &mut heldout_predictions,
+            samples,
+            labels,
+            roles,
+        );
+    }
+    let mut nn_v = success_labels
+        .map(|labels| {
+            compute_nn_baselines(
+                samples,
+                labels,
+                episode_ids.as_deref(),
+                roles,
+                "V",
+                |left, right| squared_euclidean(&left.v, &right.v),
+            )
+        })
+        .transpose()?;
+    let mut nn_l = success_labels
+        .map(|labels| {
+            compute_nn_baselines(
+                samples,
+                labels,
+                episode_ids.as_deref(),
+                roles,
+                "L",
+                |left, right| squared_euclidean(&left.l, &right.l),
+            )
+        })
+        .transpose()?;
+    let mut nn_d = success_labels
+        .map(|labels| {
+            compute_nn_baselines(
+                samples,
+                labels,
+                episode_ids.as_deref(),
+                roles,
+                "D",
+                |left, right| squared_euclidean(&left.d, &right.d),
+            )
+        })
+        .transpose()?;
+    let mut nn_a = success_labels
+        .map(|labels| {
+            compute_nn_baselines(
+                samples,
+                labels,
+                episode_ids.as_deref(),
+                roles,
+                "A",
+                |left, right| squared_euclidean(&left.a, &right.a),
+            )
+        })
+        .transpose()?;
+    let mut nn_vlda = success_labels
+        .map(|labels| {
+            compute_nn_baselines(
+                samples,
+                labels,
+                episode_ids.as_deref(),
+                roles,
+                "VLDA",
+                squared_euclidean_vlda,
+            )
+        })
+        .transpose()?;
+    for baseline in [&mut nn_v, &mut nn_l, &mut nn_d, &mut nn_a, &mut nn_vlda]
+        .into_iter()
+        .flatten()
+    {
+        heldout_predictions.append(&mut baseline.heldout_predictions);
+    }
+    let vlda_centroid_model = match (success_labels, roles) {
+        (Some(labels), Some(roles)) => append_all_heldout_centroid_prediction_records(
+            &mut heldout_predictions,
+            samples,
+            labels,
+            roles,
+        )?,
+        _ => None,
+    };
+    let loo_nn_v_success_accuracy = nn_v.as_ref().map(|baseline| baseline.loo_accuracy);
+    let loo_nn_l_success_accuracy = nn_l.as_ref().map(|baseline| baseline.loo_accuracy);
+    let loo_nn_d_success_accuracy = nn_d.as_ref().map(|baseline| baseline.loo_accuracy);
+    let loo_nn_a_success_accuracy = nn_a.as_ref().map(|baseline| baseline.loo_accuracy);
+    let loo_nn_vlda_success_accuracy = nn_vlda.as_ref().map(|baseline| baseline.loo_accuracy);
+    let episode_loo_nn_v_success_accuracy =
+        nn_v.as_ref().and_then(|baseline| baseline.episode_accuracy);
+    let episode_loo_nn_l_success_accuracy =
+        nn_l.as_ref().and_then(|baseline| baseline.episode_accuracy);
+    let episode_loo_nn_d_success_accuracy =
+        nn_d.as_ref().and_then(|baseline| baseline.episode_accuracy);
+    let episode_loo_nn_a_success_accuracy =
+        nn_a.as_ref().and_then(|baseline| baseline.episode_accuracy);
+    let episode_loo_nn_vlda_success_accuracy = nn_vlda
+        .as_ref()
+        .and_then(|baseline| baseline.episode_accuracy);
+    let heldout_majority_success_metrics =
+        heldout_metrics_from_records(&heldout_predictions, "train_split_majority", None);
     let heldout_majority_success_accuracy =
         heldout_majority_success_metrics.map(|metrics| metrics.accuracy);
     let heldout_majority_success_balanced_accuracy =
         heldout_majority_success_metrics.and_then(|metrics| metrics.balanced_accuracy);
     let heldout_nn_v_success_metrics =
-        success_labels
-            .as_deref()
-            .zip(heldout_split)
-            .map(|(labels, split)| {
-                heldout_nn_success_metrics(samples, labels, &split.roles, |sample| sample.v.clone())
-            });
+        heldout_metrics_from_records(&heldout_predictions, "train_split_1nn", Some("V"));
     let heldout_nn_l_success_metrics =
-        success_labels
-            .as_deref()
-            .zip(heldout_split)
-            .map(|(labels, split)| {
-                heldout_nn_success_metrics(samples, labels, &split.roles, |sample| sample.l.clone())
-            });
+        heldout_metrics_from_records(&heldout_predictions, "train_split_1nn", Some("L"));
     let heldout_nn_d_success_metrics =
-        success_labels
-            .as_deref()
-            .zip(heldout_split)
-            .map(|(labels, split)| {
-                heldout_nn_success_metrics(samples, labels, &split.roles, |sample| sample.d.clone())
-            });
+        heldout_metrics_from_records(&heldout_predictions, "train_split_1nn", Some("D"));
     let heldout_nn_a_success_metrics =
-        success_labels
-            .as_deref()
-            .zip(heldout_split)
-            .map(|(labels, split)| {
-                heldout_nn_success_metrics(samples, labels, &split.roles, |sample| sample.a.clone())
-            });
+        heldout_metrics_from_records(&heldout_predictions, "train_split_1nn", Some("A"));
     let heldout_nn_vlda_success_metrics =
-        success_labels
-            .as_deref()
-            .zip(heldout_split)
-            .map(|(labels, split)| {
-                heldout_nn_success_metrics(samples, labels, &split.roles, |sample| {
-                    let mut values = Vec::with_capacity(
-                        sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
-                    );
-                    values.extend_from_slice(&sample.v);
-                    values.extend_from_slice(&sample.l);
-                    values.extend_from_slice(&sample.d);
-                    values.extend_from_slice(&sample.a);
-                    values
-                })
-            });
+        heldout_metrics_from_records(&heldout_predictions, "train_split_1nn", Some("VLDA"));
     let heldout_nn_v_success_accuracy =
         heldout_nn_v_success_metrics.map(|metrics| metrics.accuracy);
     let heldout_nn_l_success_accuracy =
@@ -3695,57 +6689,31 @@ fn compute_metrics(
         heldout_nn_a_success_metrics.and_then(|metrics| metrics.balanced_accuracy);
     let heldout_nn_vlda_success_balanced_accuracy =
         heldout_nn_vlda_success_metrics.and_then(|metrics| metrics.balanced_accuracy);
-    let heldout_centroid_v_success_metrics =
-        success_labels
-            .as_deref()
-            .zip(heldout_split)
-            .and_then(|(labels, split)| {
-                heldout_centroid_success_metrics(samples, labels, &split.roles, |sample| {
-                    sample.v.clone()
-                })
-            });
-    let heldout_centroid_l_success_metrics =
-        success_labels
-            .as_deref()
-            .zip(heldout_split)
-            .and_then(|(labels, split)| {
-                heldout_centroid_success_metrics(samples, labels, &split.roles, |sample| {
-                    sample.l.clone()
-                })
-            });
-    let heldout_centroid_d_success_metrics =
-        success_labels
-            .as_deref()
-            .zip(heldout_split)
-            .and_then(|(labels, split)| {
-                heldout_centroid_success_metrics(samples, labels, &split.roles, |sample| {
-                    sample.d.clone()
-                })
-            });
-    let heldout_centroid_a_success_metrics =
-        success_labels
-            .as_deref()
-            .zip(heldout_split)
-            .and_then(|(labels, split)| {
-                heldout_centroid_success_metrics(samples, labels, &split.roles, |sample| {
-                    sample.a.clone()
-                })
-            });
-    let heldout_centroid_vlda_success_metrics = success_labels
-        .as_deref()
-        .zip(heldout_split)
-        .and_then(|(labels, split)| {
-            heldout_centroid_success_metrics(samples, labels, &split.roles, |sample| {
-                let mut values = Vec::with_capacity(
-                    sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
-                );
-                values.extend_from_slice(&sample.v);
-                values.extend_from_slice(&sample.l);
-                values.extend_from_slice(&sample.d);
-                values.extend_from_slice(&sample.a);
-                values
-            })
-        });
+    let heldout_centroid_v_success_metrics = heldout_metrics_from_records(
+        &heldout_predictions,
+        "train_split_nearest_centroid",
+        Some("V"),
+    );
+    let heldout_centroid_l_success_metrics = heldout_metrics_from_records(
+        &heldout_predictions,
+        "train_split_nearest_centroid",
+        Some("L"),
+    );
+    let heldout_centroid_d_success_metrics = heldout_metrics_from_records(
+        &heldout_predictions,
+        "train_split_nearest_centroid",
+        Some("D"),
+    );
+    let heldout_centroid_a_success_metrics = heldout_metrics_from_records(
+        &heldout_predictions,
+        "train_split_nearest_centroid",
+        Some("A"),
+    );
+    let heldout_centroid_vlda_success_metrics = heldout_metrics_from_records(
+        &heldout_predictions,
+        "train_split_nearest_centroid",
+        Some("VLDA"),
+    );
     let heldout_centroid_v_success_accuracy =
         heldout_centroid_v_success_metrics.map(|metrics| metrics.accuracy);
     let heldout_centroid_l_success_accuracy =
@@ -3778,41 +6746,56 @@ fn compute_metrics(
         heldout_centroid_vlda_success_metrics.and_then(|metrics| metrics.auroc);
     // SAFE-class internal-feature failure detector (logistic regression on pooled
     // train-standardized VLDA features; fit on train, scored on held-out).
-    let heldout_logreg_vlda_success_metrics = success_labels
-        .as_deref()
-        .zip(heldout_split)
-        .and_then(|(labels, split)| {
-            heldout_logreg_success_metrics(samples, labels, &split.roles, |sample| {
-                let mut values = Vec::with_capacity(
-                    sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len(),
-                );
-                values.extend_from_slice(&sample.v);
-                values.extend_from_slice(&sample.l);
-                values.extend_from_slice(&sample.d);
-                values.extend_from_slice(&sample.a);
-                values
-            })
-        });
+    if let (Some(labels), Some(roles), Some(model)) =
+        (success_labels, roles, vlda_centroid_model.as_ref())
+    {
+        append_heldout_logreg_prediction_records(
+            &mut heldout_predictions,
+            samples,
+            labels,
+            roles,
+            model,
+            dense_solver_budget,
+        )?;
+    }
+    let heldout_logreg_vlda_success_metrics =
+        heldout_metrics_from_records(&heldout_predictions, "train_split_logreg", Some("VLDA"));
     let heldout_logreg_vlda_success_accuracy =
         heldout_logreg_vlda_success_metrics.map(|metrics| metrics.accuracy);
     let heldout_logreg_vlda_success_balanced_accuracy =
         heldout_logreg_vlda_success_metrics.and_then(|metrics| metrics.balanced_accuracy);
     let heldout_logreg_vlda_success_auroc =
         heldout_logreg_vlda_success_metrics.and_then(|metrics| metrics.auroc);
-    Ok(OfflineVldaMetrics {
-        mi_v_action: pid_screen.mi_v_action,
-        mi_l_action: pid_screen.mi_l_action,
-        mi_d_action: pid_screen.mi_d_action,
-        mi_vl_action: pid_screen.mi_vl_action,
-        co_information_v_l_action: pid_screen.co_information_v_l_action,
-        redundancy_v_l_action: pid_screen.redundancy_v_l_action,
-        unique_v_action: pid_screen.unique_v_action,
-        unique_l_action: pid_screen.unique_l_action,
-        synergy_v_l_action: pid_screen.synergy_v_l_action,
-        estimate_denominators: pid_screen.estimate_denominators.clone(),
-        pls_selection: pid_screen.pls_selection.clone(),
-        pls_shuffled_target_control: pid_screen.pls_shuffled_target_control.clone(),
-        pls_control_seed: pid_screen.pls_control_seed,
+    let OfflineVldaPidScreenMetrics {
+        mi_v_action,
+        mi_l_action,
+        mi_d_action,
+        mi_vl_action,
+        co_information_v_l_action,
+        redundancy_v_l_action,
+        unique_v_action,
+        unique_l_action,
+        synergy_v_l_action,
+        estimate_denominators,
+        pid_pairs,
+        pls_selection,
+        pls_shuffled_target_control,
+        pls_control_seed,
+    } = pid_screen;
+    let metrics = OfflineVldaMetrics {
+        mi_v_action,
+        mi_l_action,
+        mi_d_action,
+        mi_vl_action,
+        co_information_v_l_action,
+        redundancy_v_l_action,
+        unique_v_action,
+        unique_l_action,
+        synergy_v_l_action,
+        estimate_denominators,
+        pls_selection,
+        pls_shuffled_target_control,
+        pls_control_seed,
         success_rate,
         majority_success_accuracy,
         loo_nn_v_success_accuracy,
@@ -3856,16 +6839,15 @@ fn compute_metrics(
         heldout_logreg_vlda_success_accuracy,
         heldout_logreg_vlda_success_balanced_accuracy,
         heldout_logreg_vlda_success_auroc,
-        pid_pairs: pid_screen.pid_pairs,
-    })
+        pid_pairs,
+    };
+    Ok((metrics, heldout_predictions))
 }
 
 #[derive(Debug, Clone, Copy)]
 struct OfflineVldaSourceMatrix<'a> {
     name: &'static str,
     matrix: MatRef<'a>,
-    /// The source's marginal MI with the target — `None` when that estimate abstained.
-    mi_action: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3878,7 +6860,7 @@ fn compute_pid_pair_metrics(
     source_1: OfflineVldaSourceMatrix<'_>,
     source_2: OfflineVldaSourceMatrix<'_>,
     target: OfflineVldaTargetMatrix<'_>,
-    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
+    diagnostics: Vec<OfflineVldaAxisDiagnostics>,
     pid_cfg: &Pid2Config,
 ) -> Result<OfflineVldaPidPairMetrics> {
     let axes = [source_1.name, source_2.name, target.name];
@@ -3900,14 +6882,7 @@ fn compute_pid_pair_metrics(
 
     // The estimate is requested only when the COMPLETE source-target tuple is support-compatible
     // and its observed sample survives preflight.
-    let (diagnostics, rejection) = continuous_preflight(
-        &[
-            (source_1.name, source_1.matrix),
-            (source_2.name, source_2.matrix),
-            (target.name, target.matrix),
-        ],
-        support,
-    );
+    let (diagnostics, rejection) = continuous_preflight_from_diagnostics(diagnostics);
     if let Some((reason, detail)) = rejection {
         return Ok(empty(abstained_outcome(
             MEASURE_CONTINUOUS_PID2,
@@ -3951,8 +6926,8 @@ fn compute_pid_pair_metrics(
         source_2: source_2.name.to_string(),
         target: target.name.to_string(),
         outcome: produced_outcome(MEASURE_CONTINUOUS_PID2, &axes, diagnostics),
-        mi_source_1_action: source_1.mi_action,
-        mi_source_2_action: source_2.mi_action,
+        mi_source_1_action: Some(est.mi_s1_t),
+        mi_source_2_action: Some(est.mi_s2_t),
         mi_joint_action: Some(est.mi_s1s2_t),
         co_information: Some(est.mi_s1_t + est.mi_s2_t - est.mi_s1s2_t),
         redundancy: Some(pid.redundancy),
@@ -3971,6 +6946,38 @@ const MEASURE_CONTINUOUS_PID2: &str = "continuous_isx_pid2";
 const MEASURE_QUANTIZED_MI: &str = "plugin_quantized_mi";
 const MEASURE_QUANTIZED_PID2: &str = "quantized_imin_pid2";
 
+#[derive(Clone, Copy, Debug)]
+struct RowBits<'a>(&'a [f64]);
+
+fn canonical_row_bits(value: f64) -> u64 {
+    if value == 0.0 {
+        0
+    } else {
+        value.to_bits()
+    }
+}
+
+impl PartialEq for RowBits<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.len() == other.0.len()
+            && self
+                .0
+                .iter()
+                .zip(other.0)
+                .all(|(left, right)| canonical_row_bits(*left) == canonical_row_bits(*right))
+    }
+}
+
+impl Eq for RowBits<'_> {}
+
+impl Hash for RowBits<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for value in self.0 {
+            canonical_row_bits(*value).hash(state);
+        }
+    }
+}
+
 /// Observed-sample evidence for one axis.
 ///
 /// Evidence, not a population-support finding: exact ties reject the sample for a continuous
@@ -3980,10 +6987,11 @@ fn axis_diagnostics(
     matrix: MatRef<'_>,
     support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
 ) -> OfflineVldaAxisDiagnostics {
-    let mut counts: BTreeMap<Vec<u64>, usize> = BTreeMap::new();
+    // The matrix outlives this map. Borrow each row instead of copying every
+    // high-dimensional row into a second allocation solely to count ties.
+    let mut counts: HashMap<RowBits<'_>, usize> = HashMap::new();
     for i in 0..matrix.nrows() {
-        let key: Vec<u64> = matrix.row(i).iter().map(|value| value.to_bits()).collect();
-        *counts.entry(key).or_insert(0) += 1;
+        *counts.entry(RowBits(matrix.row(i))).or_insert(0) += 1;
     }
     OfflineVldaAxisDiagnostics {
         axis: axis.to_string(),
@@ -3994,24 +7002,18 @@ fn axis_diagnostics(
     }
 }
 
-/// Declared-support, then observed-sample, preflight for a continuous estimate over `axes`.
+/// Evaluate declared-support and observed-sample diagnostics for one continuous estimate.
 ///
 /// A continuous estimate is requested only when **every** axis of the complete source–target tuple
 /// declares an absolutely-continuous population law *and* the observed sample survives the
 /// exact-tie check. The declared checks run first: they are statements about the estimand and hold
 /// regardless of what this particular sample looks like.
-fn continuous_preflight(
-    axes: &[(&str, MatRef<'_>)],
-    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
+fn continuous_preflight_from_diagnostics(
+    diagnostics: Vec<OfflineVldaAxisDiagnostics>,
 ) -> (
     Vec<OfflineVldaAxisDiagnostics>,
     Option<(OfflineVldaAbstainReason, String)>,
 ) {
-    let diagnostics: Vec<OfflineVldaAxisDiagnostics> = axes
-        .iter()
-        .map(|(name, matrix)| axis_diagnostics(name, *matrix, support))
-        .collect();
-
     let undeclared: Vec<&str> = diagnostics
         .iter()
         .filter(|d| d.declared_support.is_none())
@@ -4238,12 +7240,11 @@ fn continuous_mi_estimate(
     source: MatRef<'_>,
     target_name: &'static str,
     target: MatRef<'_>,
-    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
+    diagnostics: Vec<OfflineVldaAxisDiagnostics>,
     ksg: &KsgConfig,
 ) -> Result<OfflineVldaMiEstimate> {
     let axes = [source_name, target_name];
-    let (diagnostics, rejection) =
-        continuous_preflight(&[(source_name, source), (target_name, target)], support);
+    let (diagnostics, rejection) = continuous_preflight_from_diagnostics(diagnostics);
     if let Some((reason, detail)) = rejection {
         return Ok(OfflineVldaMiEstimate {
             outcome: abstained_outcome(MEASURE_CONTINUOUS_MI, &axes, diagnostics, reason, detail),
@@ -4274,32 +7275,6 @@ fn continuous_mi_estimate(
             }
         }
     }
-}
-
-/// One requested quantized marginal MI.
-///
-/// The quantized estimand is defined for any declared support, so it carries no continuity
-/// preflight. It is a **different measure** with its own estimand identity and output namespace —
-/// never a substitute for an abstained continuous estimate (`grandplan.md` §7.6).
-fn quantized_mi_estimate(
-    source_name: &'static str,
-    source: MatRef<'_>,
-    target_name: &'static str,
-    target: MatRef<'_>,
-    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
-    bins: usize,
-) -> Result<OfflineVldaMiEstimate> {
-    let axes = [source_name, target_name];
-    let diagnostics = vec![
-        axis_diagnostics(source_name, source, support),
-        axis_diagnostics(target_name, target, support),
-    ];
-    let source_bins = quantize_rows(source, bins)?;
-    let target_bins = quantize_rows(target, bins)?;
-    Ok(OfflineVldaMiEstimate {
-        outcome: produced_outcome(MEASURE_QUANTIZED_MI, &axes, diagnostics),
-        value: Some(plugin_discrete_mi(&source_bins, &target_bins)?),
-    })
 }
 
 /// The KSG configuration used by every continuous screen in this harness.
@@ -4343,53 +7318,107 @@ fn quantize(x: MatRef<'_>, bins: usize) -> Result<QuantizedData> {
         .map_err(|e| anyhow::anyhow!("quantizer transform: {e}"))
 }
 
+struct PreparedQuantizedAxis {
+    data: QuantizedData,
+    category_ids: Vec<u32>,
+    unique_fraction: f64,
+}
+
+fn prepare_quantized_axis(matrix: MatRef<'_>, bins: usize) -> Result<PreparedQuantizedAxis> {
+    let data = quantize(matrix, bins)?;
+    let category_ids = category_ids(&data)?;
+    let unique_fraction = if category_ids.is_empty() {
+        0.0
+    } else {
+        category_ids
+            .iter()
+            .copied()
+            .max()
+            .map_or(0, |maximum| maximum as usize + 1) as f64
+            / category_ids.len() as f64
+    };
+    Ok(PreparedQuantizedAxis {
+        data,
+        category_ids,
+        unique_fraction,
+    })
+}
+
 /// Collapse each row's bin tuple into one category id, preserving row-tuple equality.
 fn category_ids(quantized: &QuantizedData) -> Result<Vec<u32>> {
     let matrix = quantized.matrix.as_ref();
-    // Deterministic tuple->id assignment (BTreeMap, never HashMap — pid-rs determinism convention).
-    let mut ids = BTreeMap::new();
+    // IDs follow first appearance in row order. Map iteration order is never observed, so a
+    // borrowed-row hash lookup stays deterministic and avoids copying each high-dimensional row.
+    let mut ids: HashMap<&[usize], u32> = HashMap::new();
+    ids.try_reserve(matrix.nrows())
+        .context("failed to reserve quantized category lookup")?;
     let mut out = Vec::with_capacity(matrix.nrows());
     for i in 0..matrix.nrows() {
         let next = u32::try_from(ids.len()).context("too many distinct bin tuples for u32")?;
-        let id = *ids.entry(matrix.row(i).to_vec()).or_insert(next);
+        let id = *ids.entry(matrix.row(i)).or_insert(next);
         out.push(id);
     }
     Ok(out)
 }
 
-fn quantize_rows(x: MatRef<'_>, bins: usize) -> Result<Vec<u32>> {
-    category_ids(&quantize(x, bins)?)
-}
-
-/// Plug-in discrete MI, `H(X) + H(Y) - H(X,Y)`, over row-tuple categories.
-///
-/// Replaces pid-core's removed `discrete_mi`, which computed exactly this.
-fn plugin_discrete_mi(x: &[u32], y: &[u32]) -> Result<f64> {
-    let h_x = entropy_discrete(x).map_err(|e| anyhow::anyhow!("entropy: {e}"))?;
-    let h_y = entropy_discrete(y).map_err(|e| anyhow::anyhow!("entropy: {e}"))?;
-    let h_xy =
-        joint_entropy_discrete(&[x, y]).map_err(|e| anyhow::anyhow!("joint entropy: {e}"))?;
-    Ok(h_x + h_y - h_xy)
-}
-
-/// The current pid-core review surface omits `Clone` on `MatOwned`; rebuild it row-wise.
-fn clone_mat(m: &MatOwned) -> Result<MatOwned> {
-    let source = m.as_ref();
-    let (nrows, ncols) = (source.nrows(), source.ncols());
-    let mut data = Vec::with_capacity(nrows * ncols);
-    for i in 0..nrows {
-        data.extend_from_slice(source.row(i));
-    }
-    MatOwned::new(data, nrows, ncols).map_err(|e| anyhow::anyhow!("clone matrix: {e}"))
-}
-
-/// Fraction of rows whose bin pattern is unique (1.0 = every sample in its own bin).
-fn unique_row_fraction<T: std::hash::Hash + Eq>(bins: &[T]) -> f64 {
-    if bins.is_empty() {
+fn triple_unique_fraction(first: &[u32], second: &[u32], third: &[u32]) -> f64 {
+    debug_assert_eq!(first.len(), second.len());
+    debug_assert_eq!(first.len(), third.len());
+    if first.is_empty() {
         return 0.0;
     }
-    let unique: std::collections::HashSet<&T> = bins.iter().collect();
-    unique.len() as f64 / bins.len() as f64
+    first
+        .iter()
+        .copied()
+        .zip(second.iter().copied())
+        .zip(third.iter().copied())
+        .map(|((first, second), third)| (first, second, third))
+        .collect::<std::collections::HashSet<_>>()
+        .len() as f64
+        / first.len() as f64
+}
+
+fn paired_unique_fraction(left: &[u32], right: &[u32]) -> f64 {
+    debug_assert_eq!(left.len(), right.len());
+    if left.is_empty() {
+        return 0.0;
+    }
+    left.iter()
+        .copied()
+        .zip(right.iter().copied())
+        .collect::<std::collections::HashSet<_>>()
+        .len() as f64
+        / left.len() as f64
+}
+
+fn discrete_mi_outcome(
+    source_name: &'static str,
+    diagnostics: Vec<OfflineVldaAxisDiagnostics>,
+    source: &PreparedQuantizedAxis,
+    target: &PreparedQuantizedAxis,
+) -> OfflineVldaOutcome {
+    let source_target_unique_fraction =
+        paired_unique_fraction(&source.category_ids, &target.category_ids);
+    let saturation_warning = [
+        source.unique_fraction,
+        target.unique_fraction,
+        source_target_unique_fraction,
+    ]
+    .into_iter()
+    .any(|fraction| fraction > OFFLINE_DISCRETE_SATURATION_UNIQUE_FRACTION_MAX);
+    let mut outcome = produced_outcome(MEASURE_QUANTIZED_MI, &[source_name, "A"], diagnostics);
+    if saturation_warning {
+        outcome.status = OfflineVldaEstimateStatus::ProducedWithWarning;
+        outcome.scientific_gates.estimator = OfflineVldaScientificGateVerdict::Blocked;
+        outcome.scientific_gates.reason_code = Some("discrete_saturation".to_string());
+        outcome.reason_detail = Some(format!(
+            "quantized plug-in MI is saturated: source_unique_fraction={:.6}, \
+             target_unique_fraction={:.6}, source_target_unique_fraction={:.6}; nearly unique \
+             bins make MI track sample size rather than dependence (grandplan section 7.6)",
+            source.unique_fraction, target.unique_fraction, source_target_unique_fraction
+        ));
+    }
+    outcome
 }
 
 /// Discrete-mode PID pair metrics: quantization + counting-based entropy instead of kNN.
@@ -4401,26 +7430,20 @@ fn compute_pid_pair_metrics_discrete(
     source_1: OfflineVldaSourceMatrix<'_>,
     source_2: OfflineVldaSourceMatrix<'_>,
     target: OfflineVldaTargetMatrix<'_>,
-    support: &BTreeMap<String, OfflineVldaDeclaredSupport>,
-    num_bins: usize,
+    source_1_quantized: &PreparedQuantizedAxis,
+    source_2_quantized: &PreparedQuantizedAxis,
+    target_quantized: &PreparedQuantizedAxis,
+    pair_diagnostics: Vec<OfflineVldaAxisDiagnostics>,
 ) -> Result<OfflineVldaPidPairMetrics> {
     let axes = [source_1.name, source_2.name, target.name];
     // The quantized `I_min` estimand is defined for any declared support, so there is no continuity
     // preflight here. It is a DIFFERENT measure with its own estimand identity and output
     // namespace — never an automatic substitute for an abstained continuous estimate, and never
     // pooled with one (grandplan §7.6).
-    let pair_diagnostics = vec![
-        axis_diagnostics(source_1.name, source_1.matrix, support),
-        axis_diagnostics(source_2.name, source_2.matrix, support),
-        axis_diagnostics(target.name, target.matrix, support),
-    ];
-    let s1_q = quantize(source_1.matrix, num_bins)?;
-    let s2_q = quantize(source_2.matrix, num_bins)?;
-    let t_q = quantize(target.matrix, num_bins)?;
     let pid = imin_pid2(
-        s1_q.matrix.as_ref(),
-        s2_q.matrix.as_ref(),
-        t_q.matrix.as_ref(),
+        source_1_quantized.data.matrix.as_ref(),
+        source_2_quantized.data.matrix.as_ref(),
+        target_quantized.data.matrix.as_ref(),
     )?;
     // `IminPid2Result` carries the joint MI of the same quantized variables, so the atoms and the
     // co-information stay on one consistent decomposition (Red + U1 + U2 + Syn = mi_s1s2_t).
@@ -4429,19 +7452,14 @@ fn compute_pid_pair_metrics_discrete(
     // Co-information: MI(S1;T) + MI(S2;T) - MI(S1,S2;T)
     let co_information = pid.mi_s1_t + pid.mi_s2_t - mi_s1s2_t;
     // Saturation diagnostics (grandplan §7.6).
-    let s1_ids = category_ids(&s1_q)?;
-    let s2_ids = category_ids(&s2_q)?;
-    let t_ids = category_ids(&t_q)?;
-    let joint_ids: Vec<(u32, u32, u32)> = s1_ids
-        .iter()
-        .zip(&s2_ids)
-        .zip(&t_ids)
-        .map(|((&s1, &s2), &t)| (s1, s2, t))
-        .collect();
-    let unique_fraction_source_1 = unique_row_fraction(&s1_ids);
-    let unique_fraction_source_2 = unique_row_fraction(&s2_ids);
-    let unique_fraction_target = unique_row_fraction(&t_ids);
-    let unique_fraction_joint = unique_row_fraction(&joint_ids);
+    let unique_fraction_source_1 = source_1_quantized.unique_fraction;
+    let unique_fraction_source_2 = source_2_quantized.unique_fraction;
+    let unique_fraction_target = target_quantized.unique_fraction;
+    let unique_fraction_joint = triple_unique_fraction(
+        &source_1_quantized.category_ids,
+        &source_2_quantized.category_ids,
+        &target_quantized.category_ids,
+    );
     let saturation_warning = [
         unique_fraction_source_1,
         unique_fraction_source_2,
@@ -4484,35 +7502,46 @@ fn compute_pid_pair_metrics_discrete(
     })
 }
 
-/// Dimension-averaged lag-1 autocorrelation of one standardized axis matrix,
-/// with lag products pooled across episode segments (never crossing an episode
-/// boundary when ids exist). Returns `(r1, n_rows)`.
+/// Dimension-averaged lag-1 autocorrelation of one standardized axis matrix.
+/// Lag pairs never cross episode boundaries when episode identifiers exist.
 fn axis_lag1_autocorr(matrix: &MatOwned, segments: &[std::ops::Range<usize>]) -> f64 {
     let m = matrix.as_ref();
     let d = m.ncols();
     if d == 0 {
         return 0.0;
     }
-    let mut num = 0.0f64;
-    let mut den = 0.0f64;
-    for segment in segments {
-        for t in segment.clone() {
-            let row = m.row(t);
-            for value in row {
-                den += value * value;
-            }
-            if t + 1 < segment.end {
-                let next = m.row(t + 1);
-                for (a, b) in row.iter().zip(next) {
-                    num += a * b;
-                }
+    let mut correlation_sum = 0.0;
+    for column in 0..d {
+        // Scale first so finite, extreme inputs cannot overflow the sums of squares.
+        let scale = segments
+            .iter()
+            .flat_map(|segment| segment.start..segment.end.saturating_sub(1))
+            .fold(0.0_f64, |maximum, row| {
+                maximum
+                    .max(m.row(row)[column].abs())
+                    .max(m.row(row + 1)[column].abs())
+            });
+        if scale == 0.0 {
+            continue;
+        }
+        let mut cross = 0.0;
+        let mut left_square = 0.0;
+        let mut right_square = 0.0;
+        for segment in segments {
+            for row in segment.start..segment.end.saturating_sub(1) {
+                let left = m.row(row)[column] / scale;
+                let right = m.row(row + 1)[column] / scale;
+                cross += left * right;
+                left_square += left * left;
+                right_square += right * right;
             }
         }
+        let denominator = left_square.sqrt() * right_square.sqrt();
+        if denominator > 0.0 {
+            correlation_sum += (cross / denominator).clamp(-1.0, 1.0);
+        }
     }
-    if den <= 0.0 {
-        return 0.0;
-    }
-    (num / den).clamp(-0.99, 0.99)
+    (correlation_sum / d as f64).clamp(-0.99, 0.99)
 }
 
 /// See [`OfflineVldaTemporalReport`]. Segments are maximal runs of consecutive
@@ -4551,7 +7580,10 @@ fn compute_temporal_report(
         // Integrated autocorrelation time under AR(1); only positive
         // dependence lengthens the required block.
         let tau = ((1.0 + r1) / (1.0 - r1)).max(1.0);
-        let block = tau.ceil() as usize;
+        // One recommendation must be valid for both the half-sample envelope and the circular
+        // shift null. The latter requires `samples >= 2 * block + 1`.
+        let max_admissible_block = n.saturating_sub(1).div_euclid(2).max(1);
+        let block = (tau.ceil() as usize).clamp(1, max_admissible_block);
         recommended_block_len = recommended_block_len.max(block);
         variables.insert(
             name.to_string(),
@@ -4573,7 +7605,7 @@ fn compute_temporal_report(
     }
 }
 
-fn compute_geometry_report(prepared: &PreparedVldaMatrices) -> OfflineVldaGeometryReport {
+fn compute_geometry_report(prepared: &PreparedVldaMatrices) -> Result<OfflineVldaGeometryReport> {
     let metric = Metric::Chebyshev;
     let intrinsic_cfg = IntrinsicDimConfig::default()
         .with_k(OFFLINE_GEOMETRY_INTRINSIC_K)
@@ -4589,23 +7621,47 @@ fn compute_geometry_report(prepared: &PreparedVldaMatrices) -> OfflineVldaGeomet
         ("L", prepared.l.as_ref()),
         ("D", prepared.d.as_ref()),
         ("A", prepared.a.as_ref()),
-        ("VL", prepared.vl.as_ref()),
-        ("VLDA", prepared.vlda.as_ref()),
     ] {
         variables.insert(
             name.to_string(),
             compute_geometry_variable(matrix, &intrinsic_cfg, &distance_cfg, &hyperbolicity_cfg),
         );
     }
-    let gates = compute_geometry_gates(&variables, &prepared.preprocessing);
-    OfflineVldaGeometryReport {
+    let vl = concatenate_rows(&[prepared.v.as_ref(), prepared.l.as_ref()])?;
+    variables.insert(
+        "VL".to_string(),
+        compute_geometry_variable(
+            vl.as_ref(),
+            &intrinsic_cfg,
+            &distance_cfg,
+            &hyperbolicity_cfg,
+        ),
+    );
+    drop(vl);
+    let vlda = concatenate_rows(&[
+        prepared.v.as_ref(),
+        prepared.l.as_ref(),
+        prepared.d.as_ref(),
+        prepared.a.as_ref(),
+    ])?;
+    variables.insert(
+        "VLDA".to_string(),
+        compute_geometry_variable(
+            vlda.as_ref(),
+            &intrinsic_cfg,
+            &distance_cfg,
+            &hyperbolicity_cfg,
+        ),
+    );
+    let diagnostics = compute_geometry_diagnostics(&variables, &prepared.preprocessing);
+    Ok(OfflineVldaGeometryReport {
         space: "per_variable_standardized".to_string(),
         metric: "chebyshev".to_string(),
         intrinsic_k: OFFLINE_GEOMETRY_INTRINSIC_K,
         hyperbolicity_samples: OFFLINE_GEOMETRY_HYPERBOLICITY_SAMPLES,
-        gates,
+        diagnostics,
         variables,
-    }
+    })
 }
 
 fn compute_geometry_variable(
@@ -4686,10 +7742,10 @@ fn finite_option(value: f64) -> Option<f64> {
     value.is_finite().then_some(value)
 }
 
-fn compute_geometry_gates(
+fn compute_geometry_diagnostics(
     variables: &BTreeMap<String, OfflineVldaGeometryVariable>,
     preprocessing: &OfflineVldaPreprocessingReport,
-) -> OfflineVldaGeometryGates {
+) -> OfflineVldaGeometryDiagnostics {
     let mut warnings = Vec::new();
     // Degenerate-axis guard: a variable whose every dimension is constant has zero
     // variance, hence zero mutual information with anything by construction, so every
@@ -4709,9 +7765,9 @@ fn compute_geometry_gates(
     }
     for (name, variable) in variables {
         match variable.intrinsic_dimension {
-            Some(value) if value > OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION => warnings.push(
+            Some(value) if value > OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION_WARNING => warnings.push(
                 format!(
-                    "geometry {name} intrinsic_dimension {value:.4} exceeds {OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION:.4}"
+                    "geometry {name} intrinsic_dimension {value:.4} exceeds the descriptive warning threshold {OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION_WARNING:.4}"
                 ),
             ),
             Some(_) => {}
@@ -4724,8 +7780,8 @@ fn compute_geometry_gates(
             )),
         }
         match variable.pairwise_cv {
-            Some(value) if value < OFFLINE_GEOMETRY_MIN_PAIRWISE_CV => warnings.push(format!(
-                "geometry {name} pairwise_cv {value:.4} is below {OFFLINE_GEOMETRY_MIN_PAIRWISE_CV:.4}"
+            Some(value) if value < OFFLINE_GEOMETRY_MIN_PAIRWISE_CV_WARNING => warnings.push(format!(
+                "geometry {name} pairwise_cv {value:.4} is below the descriptive warning threshold {OFFLINE_GEOMETRY_MIN_PAIRWISE_CV_WARNING:.4}"
             )),
             Some(_) => {}
             None => warnings.push(format!(
@@ -4736,42 +7792,67 @@ fn compute_geometry_gates(
                     .unwrap_or("unknown error")
             )),
         }
-        match variable.gromov_delta_rel {
-            Some(value) if value < OFFLINE_GEOMETRY_MIN_DELTA_REL => warnings.push(format!(
-                "geometry {name} delta_rel {value:.4} is below {OFFLINE_GEOMETRY_MIN_DELTA_REL:.4}"
-            )),
-            Some(_) => {}
-            None => warnings.push(format!(
+        if variable.gromov_delta_rel.is_none() {
+            warnings.push(format!(
                 "geometry {name} delta_rel unavailable: {}",
                 variable
                     .gromov_error
                     .as_deref()
                     .unwrap_or("missing diameter")
-            )),
+            ));
         }
     }
-    OfflineVldaGeometryGates {
+    OfflineVldaGeometryDiagnostics {
         status: if warnings.is_empty() {
-            "pass".to_string()
+            "clear".to_string()
         } else {
-            "warn".to_string()
+            "warning".to_string()
         },
-        max_intrinsic_dimension: OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION,
-        min_pairwise_cv: OFFLINE_GEOMETRY_MIN_PAIRWISE_CV,
-        min_delta_rel: OFFLINE_GEOMETRY_MIN_DELTA_REL,
+        max_intrinsic_dimension_warning: OFFLINE_GEOMETRY_MAX_INTRINSIC_DIMENSION_WARNING,
+        min_pairwise_cv_warning: OFFLINE_GEOMETRY_MIN_PAIRWISE_CV_WARNING,
         warnings,
     }
 }
 
-fn flatten<F>(samples: &[OfflineVldaSample], dim: usize, values: F) -> Vec<f64>
+fn flatten_selected<F>(
+    samples: &[OfflineVldaSample],
+    train_roles: Option<&[OfflineVldaSplitRole]>,
+    expected_rows: usize,
+    dim: usize,
+    values: F,
+) -> Result<Vec<f64>>
 where
     F: Fn(&OfflineVldaSample) -> &[f64],
 {
-    let mut out = Vec::with_capacity(samples.len() * dim);
-    for sample in samples {
-        out.extend_from_slice(values(sample));
+    ensure!(
+        train_roles.is_none_or(|roles| roles.len() == samples.len()),
+        "offline VLDA selected roles do not match the sample count"
+    );
+    let scalars = expected_rows
+        .checked_mul(dim)
+        .context("offline VLDA selected matrix size overflowed usize")?;
+    let mut out = Vec::new();
+    out.try_reserve_exact(scalars)
+        .context("failed to reserve offline VLDA selected matrix")?;
+    let mut rows = 0usize;
+    for (index, sample) in samples.iter().enumerate() {
+        if train_roles.is_some_and(|roles| roles[index] != OfflineVldaSplitRole::Train) {
+            continue;
+        }
+        let row = values(sample);
+        ensure!(
+            row.len() == dim,
+            "offline VLDA selected row has width {}, expected {dim}",
+            row.len()
+        );
+        out.extend_from_slice(row);
+        rows += 1;
     }
-    out
+    ensure!(
+        rows == expected_rows,
+        "offline VLDA selection produced {rows} rows, expected {expected_rows}"
+    );
+    Ok(out)
 }
 
 #[derive(Debug, Clone)]
@@ -4905,22 +7986,22 @@ fn heldout_episode_disjoint_report(
     let mut heldout_episode_ids = BTreeSet::new();
     let mut missing_episode_samples = 0;
     for (sample, role) in samples.iter().zip(roles) {
-        let Some(episode_id) = &sample.episode_id else {
+        let Some(episode_id) = sample.episode_id.as_deref() else {
             missing_episode_samples += 1;
             continue;
         };
         match role {
             OfflineVldaSplitRole::Train => {
-                train_episode_ids.insert(episode_id.clone());
+                train_episode_ids.insert(episode_id);
             }
             OfflineVldaSplitRole::Heldout => {
-                heldout_episode_ids.insert(episode_id.clone());
+                heldout_episode_ids.insert(episode_id);
             }
         }
     }
     let shared_episode_ids = train_episode_ids
         .intersection(&heldout_episode_ids)
-        .cloned()
+        .map(|episode_id| (*episode_id).to_string())
         .collect::<Vec<_>>();
     let mut warnings = Vec::new();
     if missing_episode_samples > 0 {
@@ -4976,7 +8057,7 @@ fn success_labels(samples: &[OfflineVldaSample]) -> Option<Vec<bool>> {
     }
 }
 
-fn success_metrics(labels: &Option<Vec<bool>>) -> (Option<f64>, Option<f64>) {
+fn success_metrics(labels: Option<&[bool]>) -> (Option<f64>, Option<f64>) {
     let Some(labels) = labels else {
         return (None, None);
     };
@@ -4988,99 +8069,40 @@ fn success_metrics(labels: &Option<Vec<bool>>) -> (Option<f64>, Option<f64>) {
     (Some(success_rate), Some(majority_success_accuracy))
 }
 
-fn heldout_prediction_records(
+fn append_all_heldout_centroid_prediction_records(
+    records: &mut Vec<OfflineVldaHeldoutPredictionRecord>,
     samples: &[OfflineVldaSample],
-    split: Option<&OfflineVldaHeldoutSplitPlan>,
-) -> Vec<OfflineVldaHeldoutPredictionRecord> {
-    let Some(labels) = success_labels(samples) else {
-        return Vec::new();
+    labels: &[bool],
+    roles: &[OfflineVldaSplitRole],
+) -> Result<Option<OfflineVldaCentroidModel>> {
+    let Some(first) = samples.first() else {
+        return Ok(None);
     };
-    let Some(split) = split else {
-        return Vec::new();
+    let v_end = first.v.len();
+    let l_end = v_end
+        .checked_add(first.l.len())
+        .context("offline VLDA centroid feature dimension overflow")?;
+    let d_end = l_end
+        .checked_add(first.d.len())
+        .context("offline VLDA centroid feature dimension overflow")?;
+    let a_end = d_end
+        .checked_add(first.a.len())
+        .context("offline VLDA centroid feature dimension overflow")?;
+    let Some(model) = train_standardized_centroid_model(samples, labels, roles)? else {
+        return Ok(None);
     };
-    let mut records = Vec::new();
-    append_heldout_majority_prediction_records(&mut records, samples, &labels, &split.roles);
-    append_heldout_nn_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "V",
-        |sample| sample.v.clone(),
-    );
-    append_heldout_nn_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "L",
-        |sample| sample.l.clone(),
-    );
-    append_heldout_nn_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "D",
-        |sample| sample.d.clone(),
-    );
-    append_heldout_nn_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "A",
-        |sample| sample.a.clone(),
-    );
-    append_heldout_nn_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "VLDA",
-        vlda_values,
-    );
-    append_heldout_centroid_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "V",
-        |sample| sample.v.clone(),
-    );
-    append_heldout_centroid_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "L",
-        |sample| sample.l.clone(),
-    );
-    append_heldout_centroid_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "D",
-        |sample| sample.d.clone(),
-    );
-    append_heldout_centroid_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "A",
-        |sample| sample.a.clone(),
-    );
-    append_heldout_centroid_prediction_records(
-        &mut records,
-        samples,
-        &labels,
-        &split.roles,
-        "VLDA",
-        vlda_values,
-    );
-    records
+    for (variable, range) in [
+        ("V", 0..v_end),
+        ("L", v_end..l_end),
+        ("D", l_end..d_end),
+        ("A", d_end..a_end),
+        ("VLDA", 0..a_end),
+    ] {
+        append_heldout_centroid_prediction_records_from_model(
+            records, samples, labels, roles, variable, range, &model,
+        )?;
+    }
+    Ok(Some(model))
 }
 
 fn heldout_failure_diagnostics(
@@ -5205,54 +8227,170 @@ fn append_heldout_majority_prediction_records(
     }
 }
 
-fn append_heldout_nn_prediction_records<F>(
-    records: &mut Vec<OfflineVldaHeldoutPredictionRecord>,
+struct OfflineVldaNnBaselines {
+    loo_accuracy: f64,
+    episode_accuracy: Option<f64>,
+    heldout_predictions: Vec<OfflineVldaHeldoutPredictionRecord>,
+}
+
+fn update_nearest_candidate(
+    best: &mut Option<(usize, f64)>,
     samples: &[OfflineVldaSample],
-    labels: &[bool],
-    roles: &[OfflineVldaSplitRole],
-    variable: &str,
-    values: F,
-) where
-    F: Fn(&OfflineVldaSample) -> Vec<f64>,
-{
-    let features = samples.iter().map(values).collect::<Vec<_>>();
-    for idx in heldout_indices(roles) {
-        let (nearest_idx, squared_distance) =
-            nearest_neighbor_in_train(samples, &features, &features[idx], roles);
-        records.push(heldout_prediction_record(
-            samples,
-            labels,
-            idx,
-            OfflineVldaHeldoutPredictionInput {
-                classifier: "train_split_1nn",
-                variable: Some(variable),
-                predicted_success: labels[nearest_idx],
-                score: None,
-                score_name: None,
-                nearest_train_sample_id: Some(samples[nearest_idx].sample_id.clone()),
-                squared_distance: Some(squared_distance),
-            },
-        ));
+    candidate_idx: usize,
+    distance: f64,
+) {
+    let replace = match *best {
+        None => true,
+        Some((current_idx, current_distance)) => match distance.total_cmp(&current_distance) {
+            Ordering::Less => true,
+            Ordering::Equal => {
+                samples[candidate_idx].sample_id.as_str() < samples[current_idx].sample_id.as_str()
+            }
+            Ordering::Greater => false,
+        },
+    };
+    if replace {
+        *best = Some((candidate_idx, distance));
     }
 }
 
-fn append_heldout_centroid_prediction_records<F>(
+fn compute_nn_baselines<F>(
+    samples: &[OfflineVldaSample],
+    labels: &[bool],
+    episode_ids: Option<&[&str]>,
+    roles: Option<&[OfflineVldaSplitRole]>,
+    variable: &str,
+    squared_distance: F,
+) -> Result<OfflineVldaNnBaselines>
+where
+    F: Fn(&OfflineVldaSample, &OfflineVldaSample) -> f64,
+{
+    ensure!(
+        samples.len() == labels.len()
+            && episode_ids.is_none_or(|ids| ids.len() == samples.len())
+            && roles.is_none_or(|roles| roles.len() == samples.len()),
+        "offline VLDA nearest-neighbor inputs have inconsistent lengths"
+    );
+    let mut nearest = vec![None; samples.len()];
+    let mut nearest_other_episode = vec![None; samples.len()];
+    let mut nearest_train = vec![None; samples.len()];
+    // Distance is symmetric. Visit each unordered pair once, then update both
+    // query rows. This halves the dominant baseline work without changing the
+    // sample-id tie rule or any emitted prediction.
+    for left_idx in 0..samples.len() {
+        for right_idx in (left_idx + 1)..samples.len() {
+            let distance = squared_distance(&samples[left_idx], &samples[right_idx]);
+            ensure!(
+                distance.is_finite() && distance >= 0.0,
+                "offline VLDA {variable} squared distance is not finite for samples {} and {}",
+                samples[left_idx].sample_id,
+                samples[right_idx].sample_id
+            );
+            update_nearest_candidate(&mut nearest[left_idx], samples, right_idx, distance);
+            update_nearest_candidate(&mut nearest[right_idx], samples, left_idx, distance);
+            if episode_ids.is_some_and(|ids| ids[left_idx] != ids[right_idx]) {
+                update_nearest_candidate(
+                    &mut nearest_other_episode[left_idx],
+                    samples,
+                    right_idx,
+                    distance,
+                );
+                update_nearest_candidate(
+                    &mut nearest_other_episode[right_idx],
+                    samples,
+                    left_idx,
+                    distance,
+                );
+            }
+            if let Some(roles) = roles {
+                match (roles[left_idx], roles[right_idx]) {
+                    (OfflineVldaSplitRole::Heldout, OfflineVldaSplitRole::Train) => {
+                        update_nearest_candidate(
+                            &mut nearest_train[left_idx],
+                            samples,
+                            right_idx,
+                            distance,
+                        );
+                    }
+                    (OfflineVldaSplitRole::Train, OfflineVldaSplitRole::Heldout) => {
+                        update_nearest_candidate(
+                            &mut nearest_train[right_idx],
+                            samples,
+                            left_idx,
+                            distance,
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let mut loo_correct = 0usize;
+    let mut episode_correct = 0usize;
+    let mut heldout_predictions = Vec::new();
+    for idx in 0..samples.len() {
+        let (nearest_idx, _) = nearest[idx].context(
+            "offline VLDA nearest-neighbor baseline requires at least two validated samples",
+        )?;
+        loo_correct += usize::from(labels[nearest_idx] == labels[idx]);
+        if episode_ids.is_some() {
+            let (nearest_idx, _) = nearest_other_episode[idx].context(
+                "offline VLDA episode baseline requires at least two validated episodes",
+            )?;
+            episode_correct += usize::from(labels[nearest_idx] == labels[idx]);
+        }
+        if roles.is_some_and(|roles| roles[idx] == OfflineVldaSplitRole::Heldout) {
+            let (nearest_idx, squared_distance) = nearest_train[idx].context(
+                "offline VLDA held-out baseline requires at least one validated train sample",
+            )?;
+            heldout_predictions.push(heldout_prediction_record(
+                samples,
+                labels,
+                idx,
+                OfflineVldaHeldoutPredictionInput {
+                    classifier: "train_split_1nn",
+                    variable: Some(variable),
+                    predicted_success: labels[nearest_idx],
+                    score: None,
+                    score_name: None,
+                    nearest_train_sample_id: Some(samples[nearest_idx].sample_id.clone()),
+                    squared_distance: Some(squared_distance),
+                },
+            ));
+        }
+    }
+    Ok(OfflineVldaNnBaselines {
+        loo_accuracy: loo_correct as f64 / labels.len() as f64,
+        episode_accuracy: episode_ids.map(|_| episode_correct as f64 / labels.len() as f64),
+        heldout_predictions,
+    })
+}
+
+fn append_heldout_centroid_prediction_records_from_model(
     records: &mut Vec<OfflineVldaHeldoutPredictionRecord>,
     samples: &[OfflineVldaSample],
     labels: &[bool],
     roles: &[OfflineVldaSplitRole],
     variable: &str,
-    values: F,
-) where
-    F: Fn(&OfflineVldaSample) -> Vec<f64>,
-{
-    let Some(model) = train_standardized_centroid_model(samples, labels, roles, values) else {
-        return;
-    };
+    feature_range: std::ops::Range<usize>,
+    model: &OfflineVldaCentroidModel,
+) -> Result<()> {
     for idx in heldout_indices(roles) {
-        let false_distance = squared_euclidean(&model.features[idx], &model.centroids[0]);
-        let true_distance = squared_euclidean(&model.features[idx], &model.centroids[1]);
+        let false_distance = squared_euclidean(
+            &model.row(idx)[feature_range.clone()],
+            &model.centroids[0][feature_range.clone()],
+        );
+        let true_distance = squared_euclidean(
+            &model.row(idx)[feature_range.clone()],
+            &model.centroids[1][feature_range.clone()],
+        );
         let score = false_distance - true_distance;
+        ensure!(
+            false_distance.is_finite() && true_distance.is_finite() && score.is_finite(),
+            "offline VLDA {variable} centroid score is not finite for sample {}",
+            samples[idx].sample_id
+        );
         records.push(heldout_prediction_record(
             samples,
             labels,
@@ -5268,6 +8406,7 @@ fn append_heldout_centroid_prediction_records<F>(
             },
         ));
     }
+    Ok(())
 }
 
 fn heldout_prediction_record(
@@ -5303,85 +8442,31 @@ fn heldout_indices(roles: &[OfflineVldaSplitRole]) -> impl Iterator<Item = usize
         .filter_map(|(idx, role)| (*role == OfflineVldaSplitRole::Heldout).then_some(idx))
 }
 
-fn vlda_values(sample: &OfflineVldaSample) -> Vec<f64> {
-    let mut values =
-        Vec::with_capacity(sample.v.len() + sample.l.len() + sample.d.len() + sample.a.len());
-    values.extend_from_slice(&sample.v);
-    values.extend_from_slice(&sample.l);
-    values.extend_from_slice(&sample.d);
-    values.extend_from_slice(&sample.a);
-    values
-}
-
-fn episode_ids(samples: &[OfflineVldaSample]) -> Option<Vec<String>> {
+fn episode_ids(samples: &[OfflineVldaSample]) -> Option<Vec<&str>> {
     let episode_ids = samples
         .iter()
-        .map(|sample| sample.episode_id.clone())
+        .map(|sample| sample.episode_id.as_deref())
         .collect::<Option<Vec<_>>>()?;
-    (episode_ids.iter().collect::<BTreeSet<_>>().len() >= 2).then_some(episode_ids)
+    (episode_ids.iter().copied().collect::<BTreeSet<_>>().len() >= 2).then_some(episode_ids)
 }
 
-fn episode_loo_majority_success_accuracy(labels: &[bool], episode_ids: &[String]) -> f64 {
+fn episode_loo_majority_success_accuracy(labels: &[bool], episode_ids: &[&str]) -> f64 {
+    let total_successes = labels.iter().filter(|label| **label).count();
+    let mut episode_counts = BTreeMap::<&str, (usize, usize)>::new();
+    for (label, episode_id) in labels.iter().zip(episode_ids) {
+        let (successes, total) = episode_counts.entry(episode_id).or_default();
+        *total += 1;
+        *successes += usize::from(*label);
+    }
     let correct = labels
         .iter()
         .enumerate()
         .filter(|(idx, label)| {
-            let mut successes = 0;
-            let mut total = 0;
-            for (candidate_idx, candidate_label) in labels.iter().enumerate() {
-                if episode_ids[candidate_idx] == episode_ids[*idx] {
-                    continue;
-                }
-                total += 1;
-                if *candidate_label {
-                    successes += 1;
-                }
-            }
-            let majority = successes * 2 >= total;
+            let (episode_successes, episode_total) = episode_counts[episode_ids[*idx]];
+            let outside_successes = total_successes - episode_successes;
+            let outside_total = labels.len() - episode_total;
+            let majority = outside_successes * 2 >= outside_total;
             majority == **label
-        })
-        .count();
-    correct as f64 / labels.len() as f64
-}
-
-fn loo_nn_success_accuracy<F>(samples: &[OfflineVldaSample], labels: &[bool], values: F) -> f64
-where
-    F: Fn(&OfflineVldaSample) -> Vec<f64>,
-{
-    let features = samples.iter().map(values).collect::<Vec<_>>();
-    let correct = features
-        .iter()
-        .enumerate()
-        .filter(|(idx, feature)| {
-            let nearest = nearest_neighbor_idx(samples, &features, *idx, feature);
-            labels[nearest] == labels[*idx]
-        })
-        .count();
-    correct as f64 / labels.len() as f64
-}
-
-fn episode_loo_nn_success_accuracy<F>(
-    samples: &[OfflineVldaSample],
-    labels: &[bool],
-    episode_ids: &[String],
-    values: F,
-) -> f64
-where
-    F: Fn(&OfflineVldaSample) -> Vec<f64>,
-{
-    let features = samples.iter().map(values).collect::<Vec<_>>();
-    let correct = features
-        .iter()
-        .enumerate()
-        .filter(|(idx, feature)| {
-            let nearest = nearest_neighbor_idx_excluding_episode(
-                samples,
-                &features,
-                *idx,
-                feature,
-                episode_ids,
-            );
-            labels[nearest] == labels[*idx]
         })
         .count();
     correct as f64 / labels.len() as f64
@@ -5395,93 +8480,364 @@ struct OfflineVldaHeldoutClassifierMetrics {
 }
 
 struct OfflineVldaCentroidModel {
-    features: Vec<Vec<f64>>,
+    features: Vec<f64>,
+    feature_dim: usize,
     centroids: [Vec<f64>; 2],
 }
 
-fn heldout_majority_success_metrics(
-    labels: &[bool],
-    roles: &[OfflineVldaSplitRole],
-) -> OfflineVldaHeldoutClassifierMetrics {
-    let mut train_successes = 0;
-    let mut train_total = 0;
-    for (label, role) in labels.iter().zip(roles) {
-        if *role == OfflineVldaSplitRole::Train {
-            train_total += 1;
-            if *label {
-                train_successes += 1;
-            }
-        }
+impl OfflineVldaCentroidModel {
+    fn row(&self, index: usize) -> &[f64] {
+        let start = index * self.feature_dim;
+        &self.features[start..start + self.feature_dim]
     }
-    let majority = train_successes * 2 >= train_total;
-    heldout_prediction_metrics(labels, roles, |_| majority)
 }
 
-fn heldout_nn_success_metrics<F>(
-    samples: &[OfflineVldaSample],
-    labels: &[bool],
-    roles: &[OfflineVldaSplitRole],
-    values: F,
-) -> OfflineVldaHeldoutClassifierMetrics
-where
-    F: Fn(&OfflineVldaSample) -> Vec<f64>,
-{
-    let features = samples.iter().map(values).collect::<Vec<_>>();
-    heldout_prediction_metrics(labels, roles, |idx| {
-        let nearest = nearest_neighbor_idx_in_train(samples, &features, &features[idx], roles);
-        labels[nearest]
+fn heldout_metrics_from_records(
+    records: &[OfflineVldaHeldoutPredictionRecord],
+    classifier: &str,
+    variable: Option<&str>,
+) -> Option<OfflineVldaHeldoutClassifierMetrics> {
+    let mut correct = 0usize;
+    let mut total = 0usize;
+    let mut class_correct = [0usize; 2];
+    let mut class_total = [0usize; 2];
+    let mut scores = Vec::new();
+    for record in records
+        .iter()
+        .filter(|record| record.classifier == classifier && record.variable.as_deref() == variable)
+    {
+        let class = usize::from(record.true_success);
+        total += 1;
+        class_total[class] += 1;
+        if record.correct {
+            correct += 1;
+            class_correct[class] += 1;
+        }
+        if let Some(score) = record.score {
+            scores.push((score, record.true_success));
+        }
+    }
+    if total == 0 {
+        return None;
+    }
+    let balanced_accuracy = (class_total[0] > 0 && class_total[1] > 0).then_some(
+        (class_correct[0] as f64 / class_total[0] as f64
+            + class_correct[1] as f64 / class_total[1] as f64)
+            / 2.0,
+    );
+    Some(OfflineVldaHeldoutClassifierMetrics {
+        accuracy: correct as f64 / total as f64,
+        balanced_accuracy,
+        auroc: heldout_auroc(&scores),
     })
 }
 
-fn heldout_centroid_success_metrics<F>(
-    samples: &[OfflineVldaSample],
-    labels: &[bool],
-    roles: &[OfflineVldaSplitRole],
-    values: F,
-) -> Option<OfflineVldaHeldoutClassifierMetrics>
-where
-    F: Fn(&OfflineVldaSample) -> Vec<f64>,
-{
-    let model = train_standardized_centroid_model(samples, labels, roles, values)?;
-    Some(heldout_scored_prediction_metrics(labels, roles, |idx| {
-        let false_distance = squared_euclidean(&model.features[idx], &model.centroids[0]);
-        let true_distance = squared_euclidean(&model.features[idx], &model.centroids[1]);
-        let score = false_distance - true_distance;
-        (score > 0.0, score)
-    }))
+fn validate_heldout_prediction_contract(report: &OfflineVldaReport) -> Result<()> {
+    let records = &report.heldout_predictions;
+    if records.is_empty() {
+        ensure!(
+            report.heldout_failure_diagnostics.is_empty(),
+            "offline VLDA report has held-out failure diagnostics without prediction records"
+        );
+    } else {
+        let split = report
+            .heldout_split
+            .as_ref()
+            .context("offline VLDA report has held-out predictions without a split")?;
+        let heldout_ids = split
+            .heldout_sample_ids
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        let mut identities = BTreeSet::new();
+        for record in records {
+            ensure!(
+                heldout_ids.contains(record.sample_id.as_str()),
+                "offline VLDA held-out prediction names a sample outside the held-out split: {}",
+                record.sample_id
+            );
+            ensure!(
+                record.correct == (record.predicted_success == record.true_success),
+                "offline VLDA held-out prediction has an inconsistent correctness flag for {}",
+                record.sample_id
+            );
+            ensure!(
+                record.score.is_some() == record.score_name.is_some(),
+                "offline VLDA held-out prediction score and score name disagree for {}",
+                record.sample_id
+            );
+            ensure!(
+                record.score.is_none_or(f64::is_finite)
+                    && record
+                        .squared_distance
+                        .is_none_or(|distance| distance.is_finite() && distance >= 0.0),
+                "offline VLDA held-out prediction has a non-finite or negative diagnostic for {}",
+                record.sample_id
+            );
+            let identity = (
+                record.classifier.as_str(),
+                record.variable.as_deref(),
+                record.sample_id.as_str(),
+            );
+            ensure!(
+                identities.insert(identity),
+                "offline VLDA held-out prediction identity is duplicated: classifier={}, variable={:?}, sample_id={}",
+                record.classifier,
+                record.variable,
+                record.sample_id
+            );
+            match (record.classifier.as_str(), record.variable.as_deref()) {
+                ("train_split_majority", None) => ensure!(
+                    record.score.is_none()
+                        && record.nearest_train_sample_id.is_none()
+                        && record.squared_distance.is_none(),
+                    "offline VLDA majority prediction carries an inapplicable diagnostic"
+                ),
+                ("train_split_1nn", Some("V" | "L" | "D" | "A" | "VLDA")) => {
+                    ensure!(
+                        record.score.is_none()
+                            && record.nearest_train_sample_id.is_some()
+                            && record.squared_distance.is_some(),
+                        "offline VLDA 1-NN prediction has an invalid diagnostic shape"
+                    );
+                }
+                (
+                    "train_split_nearest_centroid",
+                    Some("V" | "L" | "D" | "A" | "VLDA"),
+                ) => {
+                    ensure!(
+                        record.score_name.as_deref() == Some(OFFLINE_CENTROID_SUCCESS_SCORE)
+                            && record
+                                .score
+                                .is_some_and(|score| record.predicted_success == (score > 0.0))
+                            && record.nearest_train_sample_id.is_none()
+                            && record.squared_distance.is_none(),
+                        "offline VLDA centroid prediction has an invalid score contract"
+                    );
+                }
+                ("train_split_logreg", Some("VLDA")) => ensure!(
+                    record.score_name.as_deref() == Some("decision_function_logit")
+                        && record
+                            .score
+                            .is_some_and(|score| record.predicted_success == (score >= 0.0))
+                        && record.nearest_train_sample_id.is_none()
+                        && record.squared_distance.is_none(),
+                    "offline VLDA logistic prediction has an invalid score contract"
+                ),
+                _ => bail!(
+                    "offline VLDA held-out prediction has an unknown classifier/variable contract: {}/{}",
+                    record.classifier,
+                    record.variable.as_deref().unwrap_or("none")
+                ),
+            }
+        }
+        let mut group_counts = BTreeMap::<(&str, Option<&str>), usize>::new();
+        for record in records {
+            *group_counts
+                .entry((record.classifier.as_str(), record.variable.as_deref()))
+                .or_default() += 1;
+        }
+        ensure!(
+            group_counts
+                .values()
+                .all(|count| *count == split.heldout_samples),
+            "offline VLDA held-out prediction group omits one or more held-out samples"
+        );
+    }
+
+    let metrics = &report.metrics;
+    for (classifier, variable, actual_accuracy, actual_balanced, actual_auroc) in [
+        (
+            "train_split_majority",
+            None,
+            metrics.heldout_majority_success_accuracy,
+            metrics.heldout_majority_success_balanced_accuracy,
+            None,
+        ),
+        (
+            "train_split_1nn",
+            Some("V"),
+            metrics.heldout_nn_v_success_accuracy,
+            metrics.heldout_nn_v_success_balanced_accuracy,
+            None,
+        ),
+        (
+            "train_split_1nn",
+            Some("L"),
+            metrics.heldout_nn_l_success_accuracy,
+            metrics.heldout_nn_l_success_balanced_accuracy,
+            None,
+        ),
+        (
+            "train_split_1nn",
+            Some("D"),
+            metrics.heldout_nn_d_success_accuracy,
+            metrics.heldout_nn_d_success_balanced_accuracy,
+            None,
+        ),
+        (
+            "train_split_1nn",
+            Some("A"),
+            metrics.heldout_nn_a_success_accuracy,
+            metrics.heldout_nn_a_success_balanced_accuracy,
+            None,
+        ),
+        (
+            "train_split_1nn",
+            Some("VLDA"),
+            metrics.heldout_nn_vlda_success_accuracy,
+            metrics.heldout_nn_vlda_success_balanced_accuracy,
+            None,
+        ),
+        (
+            "train_split_nearest_centroid",
+            Some("V"),
+            metrics.heldout_centroid_v_success_accuracy,
+            metrics.heldout_centroid_v_success_balanced_accuracy,
+            metrics.heldout_centroid_v_success_auroc,
+        ),
+        (
+            "train_split_nearest_centroid",
+            Some("L"),
+            metrics.heldout_centroid_l_success_accuracy,
+            metrics.heldout_centroid_l_success_balanced_accuracy,
+            metrics.heldout_centroid_l_success_auroc,
+        ),
+        (
+            "train_split_nearest_centroid",
+            Some("D"),
+            metrics.heldout_centroid_d_success_accuracy,
+            metrics.heldout_centroid_d_success_balanced_accuracy,
+            metrics.heldout_centroid_d_success_auroc,
+        ),
+        (
+            "train_split_nearest_centroid",
+            Some("A"),
+            metrics.heldout_centroid_a_success_accuracy,
+            metrics.heldout_centroid_a_success_balanced_accuracy,
+            metrics.heldout_centroid_a_success_auroc,
+        ),
+        (
+            "train_split_nearest_centroid",
+            Some("VLDA"),
+            metrics.heldout_centroid_vlda_success_accuracy,
+            metrics.heldout_centroid_vlda_success_balanced_accuracy,
+            metrics.heldout_centroid_vlda_success_auroc,
+        ),
+        (
+            "train_split_logreg",
+            Some("VLDA"),
+            metrics.heldout_logreg_vlda_success_accuracy,
+            metrics.heldout_logreg_vlda_success_balanced_accuracy,
+            metrics.heldout_logreg_vlda_success_auroc,
+        ),
+    ] {
+        let expected = heldout_metrics_from_records(records, classifier, variable);
+        ensure!(
+            same_optional_f64(actual_accuracy, expected.map(|value| value.accuracy))
+                && same_optional_f64(
+                    actual_balanced,
+                    expected.and_then(|value| value.balanced_accuracy)
+                )
+                && same_optional_f64(actual_auroc, expected.and_then(|value| value.auroc)),
+            "offline VLDA held-out aggregate does not reconstruct from predictions: classifier={classifier}, variable={variable:?}"
+        );
+    }
+
+    ensure!(
+        report.heldout_failure_diagnostics == heldout_failure_diagnostics(records),
+        "offline VLDA held-out failure diagnostics do not reconstruct from predictions"
+    );
+    Ok(())
 }
 
-fn train_standardized_centroid_model<F>(
+fn train_standardized_centroid_model(
     samples: &[OfflineVldaSample],
     labels: &[bool],
     roles: &[OfflineVldaSplitRole],
-    values: F,
-) -> Option<OfflineVldaCentroidModel>
-where
-    F: Fn(&OfflineVldaSample) -> Vec<f64>,
-{
-    let features = samples.iter().map(values).collect::<Vec<_>>();
-    let dim = features.first()?.len();
+) -> Result<Option<OfflineVldaCentroidModel>> {
+    let Some(first) = samples.first() else {
+        return Ok(None);
+    };
+    let dim = first
+        .v
+        .len()
+        .checked_add(first.l.len())
+        .and_then(|value| value.checked_add(first.d.len()))
+        .and_then(|value| value.checked_add(first.a.len()))
+        .context("offline VLDA centroid feature dimension overflow")?;
+    if dim == 0 {
+        return Ok(None);
+    }
+    ensure!(
+        labels.len() == samples.len() && roles.len() == samples.len(),
+        "offline VLDA centroid inputs have inconsistent dimensions"
+    );
+    let feature_count = samples
+        .len()
+        .checked_mul(dim)
+        .context("offline VLDA centroid feature count overflow")?;
+    let mut features = Vec::with_capacity(feature_count);
+    for sample in samples {
+        let sample_dim = sample
+            .v
+            .len()
+            .checked_add(sample.l.len())
+            .and_then(|value| value.checked_add(sample.d.len()))
+            .and_then(|value| value.checked_add(sample.a.len()))
+            .context("offline VLDA centroid feature dimension overflow")?;
+        ensure!(
+            sample_dim == dim,
+            "offline VLDA centroid inputs have inconsistent dimensions"
+        );
+        features.extend_from_slice(&sample.v);
+        features.extend_from_slice(&sample.l);
+        features.extend_from_slice(&sample.d);
+        features.extend_from_slice(&sample.a);
+    }
     let train_total = roles
         .iter()
         .filter(|role| **role == OfflineVldaSplitRole::Train)
         .count();
-    let mut mean = vec![0.0; dim];
-    for (feature, role) in features.iter().zip(roles) {
+    if train_total == 0 {
+        return Ok(None);
+    }
+
+    // Scale each column before summation. This gives the same train-only
+    // z-score semantics without overflowing merely because finite inputs have
+    // a large common magnitude.
+    let mut scale = vec![0.0_f64; dim];
+    for (feature, role) in features.chunks_exact(dim).zip(roles) {
         if *role == OfflineVldaSplitRole::Train {
-            for (sum, value) in mean.iter_mut().zip(feature) {
-                *sum += *value;
+            for (scale, value) in scale.iter_mut().zip(feature) {
+                *scale = scale.max(value.abs());
             }
         }
     }
-    for value in &mut mean {
+    let mut scaled_mean = vec![0.0; dim];
+    for (feature, role) in features.chunks_exact(dim).zip(roles) {
+        if *role == OfflineVldaSplitRole::Train {
+            for ((sum, value), scale) in scaled_mean.iter_mut().zip(feature).zip(&scale) {
+                if *scale != 0.0 {
+                    *sum += *value / *scale;
+                }
+            }
+        }
+    }
+    for value in &mut scaled_mean {
         *value /= train_total as f64;
     }
     let mut variance = vec![0.0; dim];
-    for (feature, role) in features.iter().zip(roles) {
+    for (feature, role) in features.chunks_exact(dim).zip(roles) {
         if *role == OfflineVldaSplitRole::Train {
-            for ((sum, value), mean) in variance.iter_mut().zip(feature).zip(&mean) {
-                let delta = value - mean;
+            for (((sum, value), scale), mean) in variance
+                .iter_mut()
+                .zip(feature)
+                .zip(&scale)
+                .zip(&scaled_mean)
+            {
+                let scaled = if *scale == 0.0 { 0.0 } else { *value / *scale };
+                let delta = scaled - mean;
                 *sum += delta * delta;
             }
         }
@@ -5490,26 +8846,34 @@ where
         .into_iter()
         .map(|sum| {
             if sum == 0.0 {
-                1.0
+                // A train-constant feature has no fitted information. Mapping
+                // it to zero for every row also prevents an arbitrary held-out
+                // deviation from adding a common, possibly overflowing term to
+                // both centroid distances.
+                0.0
             } else {
                 (train_total as f64 / sum).sqrt()
             }
         })
         .collect::<Vec<_>>();
-    let features = features
-        .iter()
-        .map(|feature| {
-            feature
-                .iter()
-                .zip(&mean)
-                .zip(&inv_std)
-                .map(|((value, mean), inv_std)| (value - mean) * inv_std)
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
+    for feature in features.chunks_exact_mut(dim) {
+        for (((value, scale), mean), inv_std) in feature
+            .iter_mut()
+            .zip(&scale)
+            .zip(&scaled_mean)
+            .zip(&inv_std)
+        {
+            let scaled = if *scale == 0.0 { 0.0 } else { *value / *scale };
+            *value = (scaled - mean) * inv_std;
+            ensure!(
+                value.is_finite(),
+                "offline VLDA train-standardized feature is not finite"
+            );
+        }
+    }
     let mut centroids = [vec![0.0; dim], vec![0.0; dim]];
     let mut counts = [0usize, 0usize];
-    for (idx, feature) in features.iter().enumerate() {
+    for (idx, feature) in features.chunks_exact(dim).enumerate() {
         if roles[idx] != OfflineVldaSplitRole::Train {
             continue;
         }
@@ -5520,39 +8884,36 @@ where
         }
     }
     if counts.contains(&0) {
-        return None;
+        return Ok(None);
     }
     for (centroid, count) in centroids.iter_mut().zip(counts) {
         for value in centroid {
             *value /= count as f64;
         }
     }
-    Some(OfflineVldaCentroidModel {
+    Ok(Some(OfflineVldaCentroidModel {
         features,
+        feature_dim: dim,
         centroids,
-    })
+    }))
 }
 
 /// SAFE-class internal-feature failure-detector baseline: fit an L2-regularized
 /// logistic regression on the train split (features standardized with train-only
-/// statistics) and score the held-out split. Leakage-safe: both the standardizer
-/// and the classifier see train rows only. Returns `None` if either class is
-/// absent from the train split or the fit fails.
-fn heldout_logreg_success_metrics<F>(
+/// statistics) and score the held-out split. The caller shares the exact VLDA
+/// standardization used by the centroid baseline. A requested fit failure is an
+/// analysis error.
+fn append_heldout_logreg_prediction_records(
+    records: &mut Vec<OfflineVldaHeldoutPredictionRecord>,
     samples: &[OfflineVldaSample],
     labels: &[bool],
     roles: &[OfflineVldaSplitRole],
-    values: F,
-) -> Option<OfflineVldaHeldoutClassifierMetrics>
-where
-    F: Fn(&OfflineVldaSample) -> Vec<f64>,
-{
-    // Reuse the train-only standardization machinery (and its both-classes guard)
-    // from the centroid baseline; we only need its standardized `features`.
-    let model = train_standardized_centroid_model(samples, labels, roles, values)?;
-    let dim = model.features.first()?.len();
+    model: &OfflineVldaCentroidModel,
+    dense_solver_budget: ResourceBudget,
+) -> Result<()> {
+    let dim = model.feature_dim;
     if dim == 0 {
-        return None;
+        return Ok(());
     }
 
     // Assemble the train design matrix + labels (standardized features, train rows).
@@ -5560,257 +8921,114 @@ where
     let mut train_labels = Vec::new();
     for (idx, role) in roles.iter().enumerate() {
         if *role == OfflineVldaSplitRole::Train {
-            train_rows.extend_from_slice(&model.features[idx]);
+            train_rows.extend_from_slice(model.row(idx));
             train_labels.push(labels[idx]);
         }
     }
     let n_train = train_labels.len();
     if n_train == 0 {
-        return None;
+        return Ok(());
     }
-    let x_train = MatOwned::new(train_rows, n_train, dim).ok()?;
+    let x_train = MatOwned::new(train_rows, n_train, dim)
+        .context("failed to construct held-out logistic-regression training matrix")?;
     // This SAFE-class static factual-outcome baseline is dependency groundwork, not an H1
-    // response or prospective H2 endpoint. If the fit fails, the metric must not vanish silently.
-    let logreg = match LogisticRegression::fit(
+    // response or prospective H2 endpoint. Once applicable and admitted, it must not disappear.
+    let logreg = LogisticRegression::fit_with_budget(
         x_train.as_ref(),
         &train_labels,
         &LogisticRegressionConfig::default(),
-    ) {
-        Ok(model) => model,
-        Err(err) => {
-            eprintln!(
-                "[pid-offline-harness] heldout_logreg_vlda baseline dropped: \
-                 logistic fit failed: {err}"
-            );
-            return None;
-        }
-    };
+        dense_solver_budget,
+    )
+    .context("held-out VLDA logistic-regression baseline failed")?;
 
-    Some(heldout_scored_prediction_metrics(labels, roles, |idx| {
-        // Decision-function logit on the (train-standardized) held-out features.
+    for idx in heldout_indices(roles) {
+        // Decision-function logit on the train-standardized held-out features.
         let logit = logreg.intercept()
-            + model.features[idx]
+            + model
+                .row(idx)
                 .iter()
                 .zip(logreg.weights())
                 .map(|(a, b)| a * b)
                 .sum::<f64>();
-        (logit >= 0.0, logit)
-    }))
-}
-
-fn heldout_prediction_metrics<F>(
-    labels: &[bool],
-    roles: &[OfflineVldaSplitRole],
-    mut predict: F,
-) -> OfflineVldaHeldoutClassifierMetrics
-where
-    F: FnMut(usize) -> bool,
-{
-    let mut correct = 0;
-    let mut total = 0;
-    let mut class_correct = [0usize; 2];
-    let mut class_total = [0usize; 2];
-    for (idx, label) in labels.iter().enumerate() {
-        if roles[idx] != OfflineVldaSplitRole::Heldout {
-            continue;
-        }
-        let class = usize::from(*label);
-        let prediction = predict(idx);
-        total += 1;
-        class_total[class] += 1;
-        if prediction == *label {
-            correct += 1;
-            class_correct[class] += 1;
-        }
+        ensure!(
+            logit.is_finite(),
+            "offline VLDA held-out logistic-regression score is not finite for sample {}",
+            samples[idx].sample_id
+        );
+        records.push(heldout_prediction_record(
+            samples,
+            labels,
+            idx,
+            OfflineVldaHeldoutPredictionInput {
+                classifier: "train_split_logreg",
+                variable: Some("VLDA"),
+                predicted_success: logit >= 0.0,
+                score: Some(logit),
+                score_name: Some("decision_function_logit".to_string()),
+                nearest_train_sample_id: None,
+                squared_distance: None,
+            },
+        ));
     }
-    let balanced_accuracy = (class_total[0] > 0 && class_total[1] > 0).then_some(
-        (class_correct[0] as f64 / class_total[0] as f64
-            + class_correct[1] as f64 / class_total[1] as f64)
-            / 2.0,
-    );
-    OfflineVldaHeldoutClassifierMetrics {
-        accuracy: correct as f64 / total as f64,
-        balanced_accuracy,
-        auroc: None,
-    }
-}
-
-fn heldout_scored_prediction_metrics<F>(
-    labels: &[bool],
-    roles: &[OfflineVldaSplitRole],
-    mut predict: F,
-) -> OfflineVldaHeldoutClassifierMetrics
-where
-    F: FnMut(usize) -> (bool, f64),
-{
-    let mut correct = 0;
-    let mut total = 0;
-    let mut class_correct = [0usize; 2];
-    let mut class_total = [0usize; 2];
-    let mut scores = Vec::new();
-    for (idx, label) in labels.iter().enumerate() {
-        if roles[idx] != OfflineVldaSplitRole::Heldout {
-            continue;
-        }
-        let class = usize::from(*label);
-        let (prediction, score) = predict(idx);
-        total += 1;
-        class_total[class] += 1;
-        scores.push((score, *label));
-        if prediction == *label {
-            correct += 1;
-            class_correct[class] += 1;
-        }
-    }
-    let balanced_accuracy = (class_total[0] > 0 && class_total[1] > 0).then_some(
-        (class_correct[0] as f64 / class_total[0] as f64
-            + class_correct[1] as f64 / class_total[1] as f64)
-            / 2.0,
-    );
-    OfflineVldaHeldoutClassifierMetrics {
-        accuracy: correct as f64 / total as f64,
-        balanced_accuracy,
-        auroc: heldout_auroc(&scores),
-    }
+    Ok(())
 }
 
 fn heldout_auroc(scores: &[(f64, bool)]) -> Option<f64> {
-    let positives = scores
-        .iter()
-        .filter_map(|(score, label)| (*label).then_some(*score))
-        .collect::<Vec<_>>();
-    let negatives = scores
-        .iter()
-        .filter_map(|(score, label)| (!*label).then_some(*score))
-        .collect::<Vec<_>>();
-    if positives.is_empty() || negatives.is_empty() {
+    let positives = scores.iter().filter(|(_, label)| *label).count();
+    let negatives = scores.len().saturating_sub(positives);
+    if positives == 0 || negatives == 0 {
         return None;
     }
-    let mut wins = 0.0;
-    for positive in &positives {
-        for negative in &negatives {
-            match positive.total_cmp(negative) {
-                Ordering::Greater => wins += 1.0,
-                Ordering::Equal => wins += 0.5,
-                Ordering::Less => {}
-            }
-        }
-    }
-    Some(wins / (positives.len() * negatives.len()) as f64)
-}
 
-fn nearest_neighbor_idx(
-    samples: &[OfflineVldaSample],
-    features: &[Vec<f64>],
-    idx: usize,
-    feature: &[f64],
-) -> usize {
-    let mut best_idx: Option<usize> = None;
-    let mut best_distance = f64::INFINITY;
-    for (candidate_idx, candidate) in features.iter().enumerate() {
-        if candidate_idx == idx {
-            continue;
+    // Count Mann-Whitney wins by equal-score groups. This preserves the exact
+    // half-credit tie rule while reducing the former O(P*N) comparison loop to
+    // one O(n log n) sort and one linear scan.
+    let mut ranked = scores.to_vec();
+    ranked.sort_by(|left, right| left.0.total_cmp(&right.0));
+    let mut negatives_before = 0u128;
+    let mut doubled_wins = 0u128;
+    let mut start = 0usize;
+    while start < ranked.len() {
+        let mut end = start + 1;
+        while end < ranked.len() && ranked[end].0.total_cmp(&ranked[start].0) == Ordering::Equal {
+            end += 1;
         }
-        let distance = squared_euclidean(feature, candidate);
-        let replace = match best_idx {
-            None => true,
-            Some(current_idx) => match distance.total_cmp(&best_distance) {
-                Ordering::Less => true,
-                Ordering::Equal => {
-                    samples[candidate_idx].sample_id.as_str()
-                        < samples[current_idx].sample_id.as_str()
-                }
-                Ordering::Greater => false,
-            },
-        };
-        if replace {
-            best_idx = Some(candidate_idx);
-            best_distance = distance;
-        }
+        let group_positives = ranked[start..end]
+            .iter()
+            .filter(|(_, label)| *label)
+            .count() as u128;
+        let group_negatives = (end - start) as u128 - group_positives;
+        doubled_wins += 2 * group_positives * negatives_before + group_positives * group_negatives;
+        negatives_before += group_negatives;
+        start = end;
     }
-    best_idx.expect("validated dataset has at least two samples")
-}
-
-fn nearest_neighbor_idx_in_train(
-    samples: &[OfflineVldaSample],
-    features: &[Vec<f64>],
-    feature: &[f64],
-    roles: &[OfflineVldaSplitRole],
-) -> usize {
-    nearest_neighbor_in_train(samples, features, feature, roles).0
-}
-
-fn nearest_neighbor_in_train(
-    samples: &[OfflineVldaSample],
-    features: &[Vec<f64>],
-    feature: &[f64],
-    roles: &[OfflineVldaSplitRole],
-) -> (usize, f64) {
-    let mut best_idx: Option<usize> = None;
-    let mut best_distance = f64::INFINITY;
-    for (candidate_idx, candidate) in features.iter().enumerate() {
-        if roles[candidate_idx] != OfflineVldaSplitRole::Train {
-            continue;
-        }
-        let distance = squared_euclidean(feature, candidate);
-        let replace = match best_idx {
-            None => true,
-            Some(current_idx) => match distance.total_cmp(&best_distance) {
-                Ordering::Less => true,
-                Ordering::Equal => {
-                    samples[candidate_idx].sample_id.as_str()
-                        < samples[current_idx].sample_id.as_str()
-                }
-                Ordering::Greater => false,
-            },
-        };
-        if replace {
-            best_idx = Some(candidate_idx);
-            best_distance = distance;
-        }
-    }
-    (
-        best_idx.expect("validated held-out split has at least one train sample"),
-        best_distance,
-    )
-}
-
-fn nearest_neighbor_idx_excluding_episode(
-    samples: &[OfflineVldaSample],
-    features: &[Vec<f64>],
-    idx: usize,
-    feature: &[f64],
-    episode_ids: &[String],
-) -> usize {
-    let mut best_idx: Option<usize> = None;
-    let mut best_distance = f64::INFINITY;
-    for (candidate_idx, candidate) in features.iter().enumerate() {
-        if episode_ids[candidate_idx] == episode_ids[idx] {
-            continue;
-        }
-        let distance = squared_euclidean(feature, candidate);
-        let replace = match best_idx {
-            None => true,
-            Some(current_idx) => match distance.total_cmp(&best_distance) {
-                Ordering::Less => true,
-                Ordering::Equal => {
-                    samples[candidate_idx].sample_id.as_str()
-                        < samples[current_idx].sample_id.as_str()
-                }
-                Ordering::Greater => false,
-            },
-        };
-        if replace {
-            best_idx = Some(candidate_idx);
-            best_distance = distance;
-        }
-    }
-    best_idx.expect("validated episode ids include at least two episodes")
+    Some(doubled_wins as f64 / (2 * positives as u128 * negatives as u128) as f64)
 }
 
 fn squared_euclidean(left: &[f64], right: &[f64]) -> f64 {
     left.iter()
         .zip(right)
+        .map(|(left, right)| {
+            let delta = left - right;
+            delta * delta
+        })
+        .sum()
+}
+
+fn squared_euclidean_vlda(left: &OfflineVldaSample, right: &OfflineVldaSample) -> f64 {
+    left.v
+        .iter()
+        .chain(&left.l)
+        .chain(&left.d)
+        .chain(&left.a)
+        .zip(
+            right
+                .v
+                .iter()
+                .chain(&right.l)
+                .chain(&right.d)
+                .chain(&right.a),
+        )
         .map(|(left, right)| {
             let delta = left - right;
             delta * delta
@@ -5892,16 +9110,16 @@ fn write_metric_events<W: Write>(
     }
 
     // Structured abstention records + the eligibility denominators.
-    for estimate in [
-        &report.metrics.mi_v_action,
-        &report.metrics.mi_l_action,
-        &report.metrics.mi_d_action,
+    for (axis, estimate) in [
+        ("V", &report.metrics.mi_v_action),
+        ("L", &report.metrics.mi_l_action),
+        ("D", &report.metrics.mi_d_action),
     ] {
         if estimate.outcome.abstained() {
             writer.append(&RunLogEvent::LabelObserved {
                 step: report.dims.samples as u64,
                 timestamp_ns: timestamp_base_ns + idx,
-                name: "offline_vlda.pid.abstained".to_string(),
+                name: format!("offline_vlda.pid.abstained.{axis}"),
                 value: serde_json::to_value(&estimate.outcome)?,
                 metadata: BTreeMap::new(),
             })?;
@@ -6323,9 +9541,14 @@ fn write_metric_events<W: Write>(
             let mut metadata = offline_vlda_heldout_split_metric_metadata(
                 report,
                 "train_split_logreg",
-                Some("train_standardized_l2_logistic"),
+                None,
                 metric,
             );
+            metadata.insert(
+                "feature_space".to_string(),
+                "train_standardized_vlda".to_string(),
+            );
+            metadata.insert("model".to_string(), "l2_logistic_regression".to_string());
             metadata.insert("score".to_string(), "decision_function_logit".to_string());
             writer.append(&RunLogEvent::EvaluationMetric {
                 step: report.dims.samples as u64,
@@ -6724,6 +9947,9 @@ fn heldout_failure_metric_prefix(
                 variable.to_ascii_lowercase()
             )
         }),
+        "train_split_logreg" if diagnostic.variable.as_deref() == Some("VLDA") => {
+            Some("offline_vlda.baseline.heldout_logreg_vlda_failure".to_string())
+        }
         _ => None,
     }
 }
@@ -6744,6 +9970,14 @@ fn offline_vlda_heldout_failure_metric_metadata(
         distance,
         metric,
     );
+    if diagnostic.classifier == "train_split_logreg" {
+        metadata.insert(
+            "feature_space".to_string(),
+            "train_standardized_vlda".to_string(),
+        );
+        metadata.insert("model".to_string(), "l2_logistic_regression".to_string());
+        metadata.insert("score".to_string(), "decision_function_logit".to_string());
+    }
     metadata.insert("target_class".to_string(), "failure".to_string());
     metadata.insert("positive_label".to_string(), "success_false".to_string());
     metadata.insert(
@@ -6916,6 +10150,19 @@ fn write_train_split_pid_metric_events<W: Write>(
         return Ok(());
     };
     let Some(metrics) = &train_pid.metrics else {
+        writer.append(&RunLogEvent::LabelObserved {
+            step: report.dims.samples as u64,
+            timestamp_ns: timestamp_base_ns + *idx,
+            name: "offline_vlda.pid.train_split.status".to_string(),
+            value: json!({
+                "status": train_pid.status.as_str(),
+                "error": train_pid.error.as_deref(),
+                "samples": train_pid.samples,
+                "heldout_samples_excluded": train_pid.heldout_samples_excluded,
+            }),
+            metadata: BTreeMap::new(),
+        })?;
+        *idx += 1;
         return Ok(());
     };
     let vl_outcome = metrics.pid_pairs.get("VL").map(|pair| &pair.outcome);
@@ -6979,6 +10226,42 @@ fn write_train_split_pid_metric_events<W: Write>(
         })?;
         *idx += 1;
     }
+    for (axis, estimate) in [
+        ("V", &metrics.mi_v_action),
+        ("L", &metrics.mi_l_action),
+        ("D", &metrics.mi_d_action),
+    ] {
+        if estimate.outcome.abstained() {
+            writer.append(&RunLogEvent::LabelObserved {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + *idx,
+                name: format!("offline_vlda.pid.train_split.abstained.{axis}"),
+                value: serde_json::to_value(&estimate.outcome)?,
+                metadata: BTreeMap::new(),
+            })?;
+            *idx += 1;
+        }
+    }
+    for (pair_name, pair) in &metrics.pid_pairs {
+        if pair.outcome.abstained() {
+            writer.append(&RunLogEvent::LabelObserved {
+                step: report.dims.samples as u64,
+                timestamp_ns: timestamp_base_ns + *idx,
+                name: format!("offline_vlda.pid.train_split.abstained.{pair_name}"),
+                value: serde_json::to_value(&pair.outcome)?,
+                metadata: BTreeMap::new(),
+            })?;
+            *idx += 1;
+        }
+    }
+    writer.append(&RunLogEvent::LabelObserved {
+        step: report.dims.samples as u64,
+        timestamp_ns: timestamp_base_ns + *idx,
+        name: "offline_vlda.pid.train_split.estimate_denominators".to_string(),
+        value: serde_json::to_value(&metrics.estimate_denominators)?,
+        metadata: BTreeMap::new(),
+    })?;
+    *idx += 1;
     for pair in ["VD", "LD"] {
         if let Some(pair_metrics) = metrics.pid_pairs.get(pair) {
             write_pid_pair_metric_events(
@@ -7088,19 +10371,19 @@ fn write_geometry_metric_events<W: Write>(
     writer.append(&RunLogEvent::GeometryMetric {
         step: report.dims.samples as u64,
         timestamp_ns: timestamp_base_ns + *idx,
-        name: "offline_vlda.geometry.gate_pass".to_string(),
-        value: if report.geometry.gates.status == "pass" {
+        name: "offline_vlda.geometry.diagnostics_clear".to_string(),
+        value: if report.geometry.diagnostics.status == "clear" {
             1.0
         } else {
             0.0
         },
         metadata: [
-            ("category".to_string(), "geometry_gate".to_string()),
+            ("category".to_string(), "geometry_diagnostics".to_string()),
             ("space".to_string(), report.geometry.space.clone()),
             ("metric".to_string(), report.geometry.metric.clone()),
             (
                 "warnings".to_string(),
-                report.geometry.gates.warnings.len().to_string(),
+                report.geometry.diagnostics.warnings.len().to_string(),
             ),
         ]
         .into_iter()
@@ -7120,11 +10403,37 @@ fn ensure_parent(path: &Path) -> Result<()> {
     Ok(())
 }
 
+fn exact_artifact_uri(path: &Path, description: &str) -> Result<String> {
+    path.to_str()
+        .map(str::to_string)
+        .with_context(|| format!("{description} must be valid UTF-8 for run-log provenance"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use pid_runlog::{read_events_from_path, summarize_events, validate_events};
+    use std::collections::HashSet;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn continuous_options() -> OfflineVldaHarnessOptions {
+        OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Continuous,
+            ..OfflineVldaHarnessOptions::default()
+        }
+    }
+
+    #[test]
+    fn row_identity_matches_floating_point_zero_semantics() {
+        let positive = [0.0, 1.0];
+        let negative = [-0.0, 1.0];
+        assert_eq!(RowBits(&positive), RowBits(&negative));
+
+        let mut rows = HashSet::new();
+        rows.insert(RowBits(&positive));
+        rows.insert(RowBits(&negative));
+        assert_eq!(rows.len(), 1);
+    }
 
     #[test]
     fn estimator_abstentions_are_classified_by_typed_error_variant() {
@@ -7169,7 +10478,13 @@ mod tests {
 
     #[test]
     fn publication_rejects_status_value_contradiction_before_creating_output() {
-        let mut report = run_offline_vlda_harness(fixture_dataset(), None, None).unwrap();
+        let mut report = run_offline_vlda_harness_with_options(
+            fixture_dataset(),
+            None,
+            None,
+            &continuous_options(),
+        )
+        .unwrap();
         assert!(report.metrics.mi_l_action.outcome.abstained());
         assert!(report.metrics.mi_l_action.value.is_none());
         report.metrics.mi_l_action.value = Some(0.0);
@@ -7181,6 +10496,119 @@ mod tests {
             .to_string()
             .contains("inconsistent with numeric-value"));
         assert!(!summary_path.exists());
+    }
+
+    #[test]
+    fn publication_rejects_pid_mode_that_contradicts_the_metric_family() {
+        let mut report = run_offline_vlda_harness_with_options(
+            fixture_dataset(),
+            None,
+            None,
+            &continuous_options(),
+        )
+        .unwrap();
+        report.config["metric_pipeline"]["pid_mode"] = json!(PidMode::Disabled);
+        report.config_hash = pid_runlog::canonical_json_hash_v2(&report.config).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let summary_path = dir.path().join("forged-pid-mode-summary.json");
+        let error = write_offline_vlda_summary(&summary_path, &report).unwrap_err();
+
+        assert!(
+            format!("{error:#}").contains("metric-pipeline configuration does not reconstruct")
+                || format!("{error:#}").contains("disabled PID mode carries"),
+            "unexpected error: {error:#}"
+        );
+        assert!(!summary_path.exists());
+    }
+
+    #[test]
+    fn runlog_publication_reconstructs_recorded_resource_usage() {
+        let dataset = fixture_dataset();
+        let mut report = run_offline_vlda_harness(dataset.clone(), None, None).unwrap();
+        let recorded = report.config["resource_usage"]["total_axis_scalars"]
+            .as_u64()
+            .unwrap();
+        report.config["resource_usage"]["total_axis_scalars"] = json!(recorded - 1);
+        report.config_hash = pid_runlog::canonical_json_hash_v2(&report.config).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let runlog_path = directory.path().join("forged-resource-usage.jsonl");
+
+        let error =
+            write_offline_vlda_runlog(&runlog_path, None, None, &dataset, &report).unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("axis-scalar usage contradicts its dimensions"));
+        assert!(!runlog_path.exists());
+    }
+
+    #[test]
+    fn runlog_publication_requires_the_exact_summary_bytes() {
+        let dataset = fixture_dataset();
+        let report = run_offline_vlda_harness(dataset.clone(), None, None).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let summary_path = directory.path().join("summary-with-trailing-space.json");
+        let runlog_path = directory.path().join("summary-with-trailing-space.jsonl");
+        write_offline_vlda_summary(&summary_path, &report).unwrap();
+        let mut bytes = std::fs::read(&summary_path).unwrap();
+        bytes.push(b' ');
+        std::fs::write(&summary_path, bytes).unwrap();
+
+        let error =
+            write_offline_vlda_runlog(&runlog_path, Some(&summary_path), None, &dataset, &report)
+                .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("not the exact JSON serialization"));
+        assert!(!runlog_path.exists());
+    }
+
+    #[test]
+    fn runlog_publication_reconstructs_axis_provenance() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples {
+            sample
+                .metadata
+                .insert("v_provenance".to_string(), "token_slice:vision".to_string());
+            sample.metadata.insert(
+                "l_provenance".to_string(),
+                "token_slice:language".to_string(),
+            );
+            sample
+                .metadata
+                .insert("d_provenance".to_string(), "token_slice:state".to_string());
+            sample
+                .metadata
+                .insert("a_provenance".to_string(), "action_vector".to_string());
+        }
+        let mut report = run_offline_vlda_harness(dataset.clone(), None, None).unwrap();
+        assert_eq!(report.axis_provenance.len(), 4);
+        report.axis_provenance.clear();
+        let directory = tempfile::tempdir().unwrap();
+        let runlog_path = directory.path().join("forged-axis-provenance.jsonl");
+
+        let error =
+            write_offline_vlda_runlog(&runlog_path, None, None, &dataset, &report).unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("axis provenance does not reconstruct"));
+        assert!(!runlog_path.exists());
+    }
+
+    #[test]
+    fn in_memory_resource_limits_require_every_positive_ceiling() {
+        let limits = OfflineVldaResourceLimits {
+            max_metadata_json_depth: 0,
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = admit_dataset_resources(&fixture_dataset(), None, None, &limits).unwrap_err();
+
+        assert!(error.to_string().contains("max_metadata_json_depth"));
+        assert!(error.to_string().contains("greater than zero"));
     }
 
     #[test]
@@ -7267,6 +10695,761 @@ mod tests {
     }
 
     #[test]
+    fn resource_limits_accept_every_observed_value_at_the_exact_limit() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Disabled,
+            ..OfflineVldaHarnessOptions::default()
+        };
+        let observed = admit_dataset_resources(
+            &dataset,
+            Some(&options),
+            None,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap();
+        let limits = OfflineVldaResourceLimits {
+            max_input_bytes: OFFLINE_DEFAULT_MAX_INPUT_BYTES,
+            max_samples: observed.samples,
+            max_total_axis_scalars: observed.total_axis_scalars,
+            max_total_metadata_entries: observed.total_metadata_entries,
+            max_total_metadata_json_nodes: observed.total_metadata_json_nodes,
+            max_total_metadata_utf8_bytes: observed.total_metadata_utf8_bytes,
+            max_metadata_json_depth: observed.metadata_json_depth,
+            max_pairwise_distance_evaluations: observed
+                .projected_total_pairwise_distance_evaluations,
+            max_distance_coordinate_evaluations: observed
+                .projected_total_distance_coordinate_evaluations,
+            max_dense_solver_operations: observed.projected_dense_solver_operations.max(1),
+        };
+
+        let report = run_offline_vlda_harness_with_options_and_limits(
+            dataset, None, None, &options, &limits,
+        )
+        .unwrap();
+
+        assert_eq!(
+            report.config["resource_limits"],
+            serde_json::to_value(&limits).unwrap()
+        );
+        assert_eq!(
+            report.config["resource_usage"],
+            serde_json::to_value(&observed).unwrap()
+        );
+        assert_eq!(
+            report.config["resource_accounting"]["pairwise_limit_scope"],
+            "single_main_analysis_call"
+        );
+        assert_eq!(
+            observed.projected_main_pairwise_distance_evaluations,
+            21_616
+        );
+        assert_eq!(
+            observed.projected_uncertainty_pairwise_distance_evaluations,
+            0
+        );
+        assert_eq!(
+            observed.projected_total_pairwise_distance_evaluations,
+            21_616
+        );
+        assert_eq!(
+            observed.projected_main_distance_coordinate_evaluations,
+            108_080
+        );
+        assert_eq!(
+            observed.projected_uncertainty_distance_coordinate_evaluations,
+            0
+        );
+        assert_eq!(
+            observed.projected_total_distance_coordinate_evaluations,
+            108_080
+        );
+        assert_eq!(observed.projected_dense_solver_operations, 136_800);
+    }
+
+    #[test]
+    fn dense_solver_projection_matches_pinned_pid_core_resource_contract() {
+        let dataset = fixture_dataset();
+        let dims = validate_dataset(&dataset).unwrap();
+        let prepared = prepare_standardized_embeddings(&dataset.samples, &dims).unwrap();
+        let x = prepared.v.as_ref();
+        let y = prepared.a.as_ref();
+        let components = 1usize;
+
+        assert_eq!(
+            projected_pls_fit_operations(
+                x.nrows() as u128,
+                x.ncols() as u128,
+                y.ncols() as u128,
+                components as u128,
+            )
+            .unwrap(),
+            PlsProjector::fit_resource_estimate(x, y, components)
+                .unwrap()
+                .operations_hint
+        );
+        assert_eq!(
+            projected_pls_cv_operations(
+                x.nrows() as u128,
+                x.ncols() as u128,
+                y.ncols() as u128,
+                components as u128,
+            )
+            .unwrap(),
+            pid_core::experimental::pipelines::pls_cv_select_components_resource_estimate(
+                x, y, components,
+            )
+            .unwrap()
+            .operations_hint
+        );
+
+        let projector = PlsProjector::fit(x, y, components).unwrap();
+        assert_eq!(
+            projected_pls_transform_operations(
+                x.nrows() as u128,
+                x.ncols() as u128,
+                components as u128,
+            )
+            .unwrap(),
+            projector
+                .transform_resource_estimate(x.nrows())
+                .unwrap()
+                .operations_hint
+        );
+
+        let logistic = LogisticRegressionConfig::default();
+        assert_eq!(
+            projected_logistic_operations(x.nrows() as u128, x.ncols() as u128).unwrap(),
+            LogisticRegression::fit_resource_estimate(x, &logistic)
+                .unwrap()
+                .operations_hint
+        );
+    }
+
+    #[test]
+    fn aggregate_dense_solver_limit_rejects_before_analysis() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Disabled,
+            ..OfflineVldaHarnessOptions::default()
+        };
+        let projected = projected_dense_solver_operations(&dataset, &options).unwrap();
+        assert!(
+            projected > 0,
+            "fixture must exercise held-out logistic work"
+        );
+        let limits = OfflineVldaResourceLimits {
+            max_dense_solver_operations: u64::try_from(projected - 1).unwrap(),
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = run_offline_vlda_harness_with_options_and_limits(
+            dataset, None, None, &options, &limits,
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("dense-solver operations"));
+        assert!(error.to_string().contains(&format!(
+            "observed {projected}, limit {}",
+            limits.max_dense_solver_operations
+        )));
+    }
+
+    #[test]
+    fn default_resource_limits_admit_routine_fixtures_and_reject_stress_work() {
+        for (name, encoded) in [
+            (
+                "offline_vlda_fixture.json",
+                include_str!("../fixtures/offline_vlda_fixture.json"),
+            ),
+            (
+                "offline_vlda_continuous_fixture.json",
+                include_str!("../fixtures/offline_vlda_continuous_fixture.json"),
+            ),
+        ] {
+            let dataset: OfflineVldaDataset = serde_json::from_str(encoded).unwrap();
+            let options = OfflineVldaHarnessOptions {
+                pid_mode: PidMode::Continuous,
+                ..OfflineVldaHarnessOptions::default()
+            };
+            admit_dataset_resources(
+                &dataset,
+                Some(&options),
+                None,
+                &OfflineVldaResourceLimits::default(),
+            )
+            .unwrap_or_else(|error| panic!("default limits rejected {name}: {error:#}"));
+        }
+
+        let stress: OfflineVldaDataset = serde_json::from_str(include_str!(
+            "../fixtures/offline_vlda_highdim_fixture.json"
+        ))
+        .unwrap();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Continuous,
+            ..OfflineVldaHarnessOptions::default()
+        };
+        let error = admit_dataset_resources(
+            &stress,
+            Some(&options),
+            None,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("dense-solver operations"));
+
+        let stress_limits: OfflineVldaResourceLimits =
+            serde_json::from_str(include_str!("../fixtures/offline_vlda_highdim_limits.json"))
+                .unwrap();
+        admit_dataset_resources(&stress, Some(&options), None, &stress_limits).unwrap();
+    }
+
+    #[test]
+    fn in_memory_entry_point_rejects_one_sample_over_before_shape_validation() {
+        let template = fixture_dataset().samples[0].clone();
+        let dataset = OfflineVldaDataset {
+            samples: vec![template; OFFLINE_DEFAULT_MAX_SAMPLES + 1],
+            ..fixture_dataset()
+        };
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Disabled,
+            ..OfflineVldaHarnessOptions::default()
+        };
+
+        let error =
+            run_offline_vlda_harness_with_options(dataset, None, None, &options).unwrap_err();
+
+        assert!(error.to_string().contains("samples"));
+        assert!(error.to_string().contains("observed 1025, limit 1024"));
+        assert!(!error
+            .to_string()
+            .contains("sample_id values must be unique"));
+    }
+
+    #[test]
+    fn file_entry_point_rejects_one_sample_over_custom_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("dataset.json");
+        std::fs::write(&path, serde_json::to_vec(&fixture_dataset()).unwrap()).unwrap();
+        let limits = OfflineVldaResourceLimits {
+            max_samples: 15,
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = read_offline_vlda_dataset_with_limits(&path, &limits).unwrap_err();
+
+        assert!(error.to_string().contains("observed 16, limit 15"));
+    }
+
+    #[test]
+    fn file_entry_point_applies_the_typed_raw_input_byte_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("dataset.json");
+        let encoded = serde_json::to_vec(&fixture_dataset()).unwrap();
+        std::fs::write(&path, &encoded).unwrap();
+        let limits = OfflineVldaResourceLimits {
+            max_input_bytes: u64::try_from(encoded.len() - 1).unwrap(),
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = read_offline_vlda_dataset_with_limits(&path, &limits).unwrap_err();
+
+        assert!(error.to_string().contains("offline VLDA input"));
+        assert!(error.to_string().contains("exceeds"));
+        assert!(!error.to_string().contains("failed to parse"));
+    }
+
+    #[test]
+    fn file_entry_point_rejects_unknown_dataset_and_sample_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        for (name, pointer) in [
+            ("unknown-dataset.json", ""),
+            ("unknown-sample.json", "/samples/0"),
+        ] {
+            let mut value = serde_json::to_value(fixture_dataset()).unwrap();
+            value
+                .pointer_mut(pointer)
+                .and_then(Value::as_object_mut)
+                .unwrap()
+                .insert("misspelled_contract_field".to_string(), json!(true));
+            let path = dir.path().join(name);
+            std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+
+            let error = read_offline_vlda_dataset(&path).unwrap_err();
+
+            assert!(
+                format!("{error:#}").contains("unknown field `misspelled_contract_field`"),
+                "unexpected error for {name}: {error:#}"
+            );
+        }
+    }
+
+    #[test]
+    fn file_entry_point_rejects_duplicate_contract_map_keys() {
+        let dir = tempfile::tempdir().unwrap();
+        let encoded = serde_json::to_string(&fixture_dataset()).unwrap();
+        let cases = [
+            (
+                "duplicate-support.json",
+                encoded.replacen("\"support\":{", "\"support\":{\"v\":\"categorical\",", 1),
+            ),
+            (
+                "duplicate-label.json",
+                encoded.replacen(
+                    "\"labels\":{\"success\":false}",
+                    "\"labels\":{\"success\":true,\"success\":false}",
+                    1,
+                ),
+            ),
+            (
+                "duplicate-metadata.json",
+                encoded.replacen(
+                    "\"metadata\":{\"split\":\"train\"}",
+                    "\"metadata\":{\"split\":\"heldout\",\"split\":\"train\"}",
+                    1,
+                ),
+            ),
+            (
+                "duplicate-nested-label-object.json",
+                encoded.replacen(
+                    "\"labels\":{\"success\":false}",
+                    "\"labels\":{\"success\":false,\"nested\":{\"key\":1,\"key\":2}}",
+                    1,
+                ),
+            ),
+        ];
+        for (name, duplicate) in cases {
+            assert_ne!(
+                duplicate, encoded,
+                "test fixture replacement failed for {name}"
+            );
+            let path = dir.path().join(name);
+            std::fs::write(&path, duplicate).unwrap();
+
+            let error = read_offline_vlda_dataset(&path).unwrap_err();
+
+            assert!(
+                format!("{error:#}").contains("duplicate JSON object key"),
+                "unexpected error for {name}: {error:#}"
+            );
+        }
+    }
+
+    #[test]
+    fn resource_preflight_rejects_unknown_support_axes_and_empty_episode_ids() {
+        let mut unknown_support = fixture_dataset();
+        unknown_support.support.insert(
+            "action".to_string(),
+            OfflineVldaDeclaredSupport::Categorical,
+        );
+        let error = admit_dataset_resources(
+            &unknown_support,
+            None,
+            None,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("unknown axis \"action\""));
+
+        let mut empty_episode = fixture_dataset();
+        empty_episode.samples[0].episode_id = Some(String::new());
+        let error = run_offline_vlda_harness_with_options(
+            empty_episode,
+            None,
+            None,
+            &OfflineVldaHarnessOptions {
+                pid_mode: PidMode::Disabled,
+                ..OfflineVldaHarnessOptions::default()
+            },
+        )
+        .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("episode_id must not be empty when present"));
+    }
+
+    #[test]
+    fn decoded_axis_and_metadata_limits_reject_one_over() {
+        let dataset = fixture_dataset();
+        let observed =
+            admit_dataset_resources(&dataset, None, None, &OfflineVldaResourceLimits::default())
+                .unwrap();
+        for (resource, limits) in [
+            (
+                "axis scalars",
+                OfflineVldaResourceLimits {
+                    max_total_axis_scalars: observed.total_axis_scalars - 1,
+                    ..OfflineVldaResourceLimits::default()
+                },
+            ),
+            (
+                "metadata entries",
+                OfflineVldaResourceLimits {
+                    max_total_metadata_entries: observed.total_metadata_entries - 1,
+                    ..OfflineVldaResourceLimits::default()
+                },
+            ),
+            (
+                "metadata JSON nodes",
+                OfflineVldaResourceLimits {
+                    max_total_metadata_json_nodes: observed.total_metadata_json_nodes - 1,
+                    ..OfflineVldaResourceLimits::default()
+                },
+            ),
+            (
+                "metadata UTF-8 bytes",
+                OfflineVldaResourceLimits {
+                    max_total_metadata_utf8_bytes: observed.total_metadata_utf8_bytes - 1,
+                    ..OfflineVldaResourceLimits::default()
+                },
+            ),
+        ] {
+            let error = admit_dataset_resources(&dataset, None, None, &limits).unwrap_err();
+            assert!(
+                error.to_string().contains(resource),
+                "expected {resource} rejection, got {error:#}"
+            );
+        }
+    }
+
+    #[test]
+    fn metadata_json_depth_limit_is_iterative_and_fail_closed() {
+        let mut dataset = fixture_dataset();
+        dataset.samples[0].labels.insert(
+            "nested".to_string(),
+            json!({"level_2": [{"level_4": "value"}]}),
+        );
+        let limits = OfflineVldaResourceLimits {
+            max_metadata_json_depth: 3,
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = admit_dataset_resources(&dataset, None, None, &limits).unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("metadata JSON depth: observed 4, limit 3"));
+    }
+
+    #[test]
+    fn pid_none_still_rejects_projected_pairwise_work_one_over() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Disabled,
+            ..OfflineVldaHarnessOptions::default()
+        };
+        let observed = projected_analysis_distance_evaluations(&dataset, options.pid_mode).unwrap();
+        let limits = OfflineVldaResourceLimits {
+            max_pairwise_distance_evaluations: u64::try_from(observed - 1).unwrap(),
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = run_offline_vlda_harness_with_options_and_limits(
+            dataset, None, None, &options, &limits,
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains(&format!(
+            "observed {observed}, limit {}",
+            limits.max_pairwise_distance_evaluations
+        )));
+    }
+
+    #[test]
+    fn distance_coordinate_cap_rejects_high_dimensional_work_one_over() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Disabled,
+            ..OfflineVldaHarnessOptions::default()
+        };
+        let observed = admit_dataset_resources(
+            &dataset,
+            Some(&options),
+            None,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap();
+        let limit = observed
+            .projected_total_distance_coordinate_evaluations
+            .checked_sub(1)
+            .unwrap();
+        let limits = OfflineVldaResourceLimits {
+            max_distance_coordinate_evaluations: limit,
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = run_offline_vlda_harness_with_options_and_limits(
+            dataset, None, None, &options, &limits,
+        )
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("projected distance coordinate evaluations"));
+        assert!(error.to_string().contains(&format!(
+            "observed {}, limit {limit}",
+            observed.projected_total_distance_coordinate_evaluations
+        )));
+    }
+
+    #[test]
+    fn uncertainty_entry_point_applies_pairwise_limit_independently() {
+        let config = OfflineVldaUncertaintyConfig {
+            n_perm: 1,
+            ..OfflineVldaUncertaintyConfig::default()
+        };
+        let projected =
+            projected_uncertainty_distance_evaluations(fixture_dataset().samples.len(), &config)
+                .unwrap();
+        let limits = OfflineVldaResourceLimits {
+            max_pairwise_distance_evaluations: u64::try_from(projected - 1).unwrap(),
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = compute_offline_pid_uncertainty_with_limits(
+            &fixture_dataset(),
+            PidMode::Continuous,
+            &config,
+            &limits,
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains(&format!(
+            "observed {projected}, limit {}",
+            limits.max_pairwise_distance_evaluations
+        )));
+    }
+
+    #[test]
+    fn pid_projection_matches_pid_core_pairwise_budget_units() {
+        let dataset = fixture_dataset();
+        let dims = validate_dataset(&dataset).unwrap();
+        let prepared = prepare_standardized_embeddings(&dataset.samples, &dims).unwrap();
+        let pairs = unordered_pair_count(dataset.samples.len() as u128, "test pairs").unwrap();
+        let ksg = ksg_config();
+        let pid_cfg = pid2_config(&ksg);
+
+        let ksg_estimate = pid_core::stable::continuous::ksg_resource_estimate(
+            prepared.v.as_ref(),
+            prepared.a.as_ref(),
+        )
+        .unwrap();
+        let pid2_estimate = pid2_resource_estimate(
+            prepared.v.as_ref(),
+            prepared.v.as_ref(),
+            prepared.a.as_ref(),
+            &pid_cfg,
+        )
+        .unwrap();
+
+        assert_eq!(
+            ksg_estimate.pairwise_distances,
+            OFFLINE_KSG_PAIRWISE_PASSES * pairs
+        );
+        assert_eq!(
+            pid2_estimate.pairwise_distances,
+            OFFLINE_PID2_PAIRWISE_PASSES * pairs
+        );
+    }
+
+    #[test]
+    fn aggregate_invocation_checked_adds_main_and_uncertainty_before_analysis() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Continuous,
+            ..OfflineVldaHarnessOptions::default()
+        };
+        let uncertainty = OfflineVldaUncertaintyConfig {
+            n_perm: 1,
+            ..OfflineVldaUncertaintyConfig::default()
+        };
+        let main = projected_analysis_distance_evaluations(&dataset, options.pid_mode).unwrap();
+        let optional =
+            projected_uncertainty_distance_evaluations(dataset.samples.len(), &uncertainty)
+                .unwrap();
+        let individually_sufficient = main.max(optional);
+        let aggregate = checked_work_add(main, optional, "test aggregate").unwrap();
+        assert!(aggregate > individually_sufficient);
+        let limits = OfflineVldaResourceLimits {
+            max_pairwise_distance_evaluations: u64::try_from(individually_sufficient).unwrap(),
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let error = run_offline_vlda_harness_with_options_and_invocation_limits(
+            dataset,
+            None,
+            None,
+            &options,
+            &uncertainty,
+            &limits,
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("aggregate invocation"));
+        assert!(error.to_string().contains(&format!(
+            "observed {aggregate}, limit {individually_sufficient}"
+        )));
+    }
+
+    #[test]
+    fn aggregate_invocation_binds_exact_main_uncertainty_and_total_usage() {
+        let dataset = fixture_dataset();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Continuous,
+            ..OfflineVldaHarnessOptions::default()
+        };
+        let uncertainty = OfflineVldaUncertaintyConfig {
+            n_perm: 1,
+            ..OfflineVldaUncertaintyConfig::default()
+        };
+        let expected = admit_dataset_resources(
+            &dataset,
+            Some(&options),
+            Some(&uncertainty),
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap();
+        let limits = OfflineVldaResourceLimits {
+            max_pairwise_distance_evaluations: expected
+                .projected_total_pairwise_distance_evaluations,
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        let report = run_offline_vlda_harness_with_options_and_invocation_limits(
+            dataset,
+            None,
+            None,
+            &options,
+            &uncertainty,
+            &limits,
+        )
+        .unwrap();
+
+        assert_eq!(
+            report.config["resource_usage"],
+            serde_json::to_value(&expected).unwrap()
+        );
+        assert_eq!(
+            report.config["resource_accounting"]["pairwise_limit_scope"],
+            "aggregate_main_and_optional_uncertainty"
+        );
+    }
+
+    #[test]
+    fn aggregate_invocation_rejects_a_block_larger_than_the_half_sample_envelope() {
+        let dataset = fixture_dataset();
+        let samples = dataset.samples.len();
+        let uncertainty = OfflineVldaUncertaintyConfig {
+            n_boot: 2,
+            block_size: samples / 2 + 1,
+            ..OfflineVldaUncertaintyConfig::default()
+        };
+
+        let error = run_offline_vlda_harness_with_options_and_invocation_limits(
+            dataset,
+            None,
+            None,
+            &continuous_options(),
+            &uncertainty,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("half-sample stability envelope"));
+    }
+
+    #[test]
+    fn continuous_uncertainty_rejects_one_bootstrap_before_main_analysis() {
+        let mut dataset = fixture_dataset();
+        dataset.samples[1].sample_id = dataset.samples[0].sample_id.clone();
+        let uncertainty = OfflineVldaUncertaintyConfig {
+            n_boot: 1,
+            ..OfflineVldaUncertaintyConfig::default()
+        };
+
+        let error = run_offline_vlda_harness_with_options_and_invocation_limits(
+            dataset,
+            None,
+            None,
+            &continuous_options(),
+            &uncertainty,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("at least two bootstrap resamples"));
+        assert!(!error
+            .to_string()
+            .contains("sample_id values must be unique"));
+    }
+
+    #[test]
+    fn aggregate_invocation_rejects_an_impossible_circular_shift() {
+        let dataset = fixture_dataset();
+        let min_shift = dataset.samples.len() / 2;
+        let uncertainty = OfflineVldaUncertaintyConfig {
+            n_perm: 1,
+            permutation_scheme: PermutationScheme::CircularShift { min_shift },
+            ..OfflineVldaUncertaintyConfig::default()
+        };
+
+        let error = run_offline_vlda_harness_with_options_and_invocation_limits(
+            dataset,
+            None,
+            None,
+            &continuous_options(),
+            &uncertainty,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("requires samples >= 2*min_shift+1"));
+    }
+
+    #[test]
+    fn huge_uncertainty_count_rejects_before_main_dataset_validation() {
+        let mut dataset = fixture_dataset();
+        dataset.samples[1].sample_id = dataset.samples[0].sample_id.clone();
+        let options = OfflineVldaHarnessOptions {
+            pid_mode: PidMode::Continuous,
+            ..OfflineVldaHarnessOptions::default()
+        };
+        let uncertainty = OfflineVldaUncertaintyConfig {
+            n_perm: usize::MAX,
+            ..OfflineVldaUncertaintyConfig::default()
+        };
+
+        let error = run_offline_vlda_harness_with_options_and_invocation_limits(
+            dataset,
+            None,
+            None,
+            &options,
+            &uncertainty,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("aggregate invocation"));
+        assert!(error
+            .to_string()
+            .contains("projected pairwise distance evaluations"));
+        assert!(!error
+            .to_string()
+            .contains("sample_id values must be unique"));
+    }
+
+    #[test]
+    fn synthetic_pairwise_projection_overflow_returns_error() {
+        let error = projected_geometry_distance_evaluations(u128::MAX).unwrap_err();
+
+        assert!(error.to_string().contains("resource projection overflow"));
+    }
+
+    #[test]
     fn temporal_report_distinguishes_persistent_from_alternating_series() {
         // One long episode; V is a slow ramp (lag-1 near +1), L alternates
         // sign every step (lag-1 near -1). The diagnostic must give the ramp a
@@ -7315,9 +11498,113 @@ mod tests {
         assert!(v.recommended_block_len > 1);
         assert_eq!(l.recommended_block_len, 1, "negative r1 needs no block");
         assert!(t.recommended_block_len >= v.recommended_block_len);
+        assert!(t.recommended_block_len <= (n - 1) / 2);
         // The fixture's own report carries the diagnostic too.
         let base = run_offline_vlda_harness(fixture_dataset(), None, None).unwrap();
         assert_eq!(base.temporal.variables.len(), 4);
+    }
+
+    #[test]
+    fn lag1_uses_only_paired_rows_within_episode_segments() {
+        let matrix = MatOwned::new(vec![-1.0, -1.0, 1.0, 1.0], 4, 1).unwrap();
+
+        let correlation = axis_lag1_autocorr(&matrix, &[0..2, 2..4]);
+
+        assert_eq!(correlation, 0.99);
+    }
+
+    #[test]
+    fn centroid_standardization_handles_large_finite_common_scales() {
+        let make_sample = |idx: usize, value: f64| OfflineVldaSample {
+            sample_id: format!("large-{idx}"),
+            episode_id: None,
+            v: vec![value],
+            l: vec![value],
+            d: vec![value],
+            a: vec![value],
+            labels: BTreeMap::new(),
+            metadata: BTreeMap::new(),
+        };
+        let samples = vec![
+            make_sample(0, -f64::MAX),
+            make_sample(1, f64::MAX),
+            make_sample(2, -f64::MAX / 2.0),
+            make_sample(3, f64::MAX / 2.0),
+        ];
+        let labels = [false, true, false, true];
+        let roles = [
+            OfflineVldaSplitRole::Train,
+            OfflineVldaSplitRole::Train,
+            OfflineVldaSplitRole::Heldout,
+            OfflineVldaSplitRole::Heldout,
+        ];
+
+        let model = train_standardized_centroid_model(&samples, &labels, &roles)
+            .unwrap()
+            .unwrap();
+
+        assert!(model.features.iter().all(|value| value.is_finite()));
+        assert!(model
+            .centroids
+            .iter()
+            .flatten()
+            .all(|value| value.is_finite()));
+    }
+
+    #[test]
+    fn centroid_standardization_deactivates_train_constant_columns() {
+        let make_sample = |idx: usize, value: f64| OfflineVldaSample {
+            sample_id: format!("constant-{idx}"),
+            episode_id: None,
+            v: vec![value],
+            l: vec![value],
+            d: vec![value],
+            a: vec![value],
+            labels: BTreeMap::new(),
+            metadata: BTreeMap::new(),
+        };
+        let samples = vec![
+            make_sample(0, 7.0),
+            make_sample(1, 7.0),
+            make_sample(2, f64::MAX),
+        ];
+        let labels = [false, true, true];
+        let roles = [
+            OfflineVldaSplitRole::Train,
+            OfflineVldaSplitRole::Train,
+            OfflineVldaSplitRole::Heldout,
+        ];
+
+        let model = train_standardized_centroid_model(&samples, &labels, &roles)
+            .unwrap()
+            .unwrap();
+
+        assert!(model.features.iter().all(|value| *value == 0.0));
+    }
+
+    #[test]
+    fn nearest_neighbor_rejects_unrepresentable_squared_distance() {
+        let make_sample = |idx: usize, value: f64| OfflineVldaSample {
+            sample_id: format!("extreme-{idx}"),
+            episode_id: None,
+            v: vec![value],
+            l: vec![0.0],
+            d: vec![0.0],
+            a: vec![0.0],
+            labels: BTreeMap::new(),
+            metadata: BTreeMap::new(),
+        };
+        let samples = [make_sample(0, -f64::MAX), make_sample(1, f64::MAX)];
+
+        let error =
+            match compute_nn_baselines(&samples, &[false, true], None, None, "V", |left, right| {
+                squared_euclidean(&left.v, &right.v)
+            }) {
+                Ok(_) => panic!("unrepresentable squared distance must reject"),
+                Err(error) => error,
+            };
+
+        assert!(error.to_string().contains("squared distance is not finite"));
     }
 
     fn fixture_dataset() -> OfflineVldaDataset {
@@ -7374,6 +11661,105 @@ mod tests {
             publication_receipt_verified: false,
             samples,
         }
+    }
+
+    #[test]
+    fn streaming_dataset_hash_matches_canonical_json_v2() {
+        let mut dataset = fixture_dataset();
+        dataset.capture_integrity = Some("complete_with_warning".to_string());
+        dataset.publication_receipt = Some("receipt.json".to_string());
+        dataset.samples[0].labels.insert(
+            "nested".to_string(),
+            json!({
+                "z": [null, true, {"b": 2, "a": 1}],
+                "a": "value"
+            }),
+        );
+
+        assert_eq!(
+            offline_vlda_dataset_content_sha256(&dataset).unwrap(),
+            pid_runlog::canonical_json_hash_v2(&dataset).unwrap()
+        );
+    }
+
+    #[test]
+    fn streaming_sample_hash_matches_canonical_json_v2() {
+        let mut sample = fixture_dataset().samples.remove(0);
+        sample.labels.insert(
+            "nested".to_string(),
+            json!({
+                "z": [null, true, {"b": 2, "a": 1}],
+                "a": "value"
+            }),
+        );
+
+        assert_eq!(
+            offline_vlda_sample_content_sha256(&sample).unwrap(),
+            pid_runlog::canonical_json_hash_v2(&sample).unwrap()
+        );
+    }
+
+    #[test]
+    fn streaming_sample_hash_has_no_runlog_line_size_ceiling() {
+        let mut sample = fixture_dataset().samples.remove(0);
+        sample.labels.insert(
+            "payload".to_string(),
+            Value::String("x".repeat(4 * 1_024 * 1_024)),
+        );
+
+        assert!(pid_runlog::canonical_json_hash_v2(&sample).is_err());
+        let expected = pid_runlog::canonical_json_hash_v2_with_limits(
+            &sample,
+            RunLogLimits::default()
+                .with_max_line_bytes(8 * 1_024 * 1_024)
+                .with_max_string_bytes(8 * 1_024 * 1_024),
+        )
+        .unwrap();
+        assert_eq!(
+            offline_vlda_sample_content_sha256(&sample).unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn streaming_dataset_hash_has_no_runlog_line_size_ceiling() {
+        let label = "x".repeat(4_096);
+        let samples = (0..1_024)
+            .map(|index| OfflineVldaSample {
+                sample_id: format!("sample-{index:04}"),
+                episode_id: None,
+                v: vec![index as f64],
+                l: vec![0.0],
+                d: vec![0.0],
+                a: vec![0.0],
+                labels: [("payload".to_string(), Value::String(label.clone()))]
+                    .into_iter()
+                    .collect(),
+                metadata: BTreeMap::new(),
+            })
+            .collect();
+        let dataset = OfflineVldaDataset {
+            run_id: None,
+            source: None,
+            model: None,
+            task: None,
+            support: BTreeMap::new(),
+            capture_integrity: None,
+            publication_receipt: None,
+            publication_receipt_verified: false,
+            samples,
+        };
+
+        assert!(pid_runlog::canonical_json_hash_v2(&dataset).is_err());
+        let expected = pid_runlog::canonical_json_hash_v2_with_limits(
+            &dataset,
+            RunLogLimits::default().with_max_line_bytes(8 * 1_024 * 1_024),
+        )
+        .unwrap();
+        assert_eq!(
+            offline_vlda_dataset_content_sha256(&dataset).unwrap(),
+            expected
+        );
     }
 
     fn legacy_ncp_fixture_config() -> serde_json::Value {
@@ -7515,6 +11901,30 @@ mod tests {
     }
 
     #[test]
+    fn malformed_ncp_input_rejects_before_receipt_io() {
+        let (dataset_path, dir) = write_ncp_publication_fixture("complete");
+        let mut dataset: Value =
+            serde_json::from_slice(&std::fs::read(&dataset_path).unwrap()).unwrap();
+        dataset["samples"] = Value::Array(
+            dataset["samples"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .take(1)
+                .cloned()
+                .collect(),
+        );
+        std::fs::write(&dataset_path, serde_json::to_vec(&dataset).unwrap()).unwrap();
+        std::fs::remove_file(dir.join("dataset.json.publication.json")).unwrap();
+
+        let error = read_offline_vlda_dataset(&dataset_path).unwrap_err();
+
+        assert!(format!("{error:#}").contains("must contain at least 8 samples"));
+        assert!(!format!("{error:#}").contains("publication receipt"));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
     fn ncp_input_requires_the_exact_dataset_artifact_event_identity() {
         let (dataset_path, dir) = write_ncp_publication_fixture("complete");
         let runlog_path = dir.join("runlog.jsonl");
@@ -7545,6 +11955,32 @@ mod tests {
     }
 
     #[test]
+    fn ncp_input_rejects_duplicate_runlog_members_even_when_receipt_hash_matches() {
+        let (dataset_path, dir) = write_ncp_publication_fixture("complete");
+        let runlog_path = dir.join("runlog.jsonl");
+        let original = std::fs::read_to_string(&runlog_path).unwrap();
+        let duplicate = original.replacen(
+            "\"run_id\":\"ncp-fixture\"",
+            "\"run_id\":\"ncp-fixture\",\"run_id\":\"ncp-fixture\"",
+            1,
+        );
+        assert_ne!(duplicate, original);
+        std::fs::write(&runlog_path, duplicate.as_bytes()).unwrap();
+
+        let receipt_path = dir.join("dataset.json.publication.json");
+        let mut receipt: Value =
+            serde_json::from_slice(&std::fs::read(&receipt_path).unwrap()).unwrap();
+        receipt["runlog_sha256"] = json!(pid_runlog::sha256_hex(duplicate.as_bytes()));
+        std::fs::write(&receipt_path, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
+
+        let error = read_offline_vlda_dataset(&dataset_path)
+            .expect_err("content-bound duplicate keys must fail closed");
+
+        assert!(format!("{error:#}").contains("duplicate JSON object key \"run_id\""));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
     fn ncp_schema_1_receipt_rejects_missing_or_drifted_legacy_identity() {
         let (dataset_path, dir) = write_ncp_publication_fixture_with_config(
             "complete",
@@ -7558,7 +11994,7 @@ mod tests {
             ("/ncp/tag", json!("v1.0.0")),
             (
                 "/ncp/revision",
-                json!("1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd"),
+                json!("1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68"),
             ),
             ("/ncp/wire", json!("1.0")),
             ("/ncp/contract_hash", json!("163acc57d8a62b66")),
@@ -7591,7 +12027,7 @@ mod tests {
                 "component": "ncp-observer10",
                 "ncp": {
                     "tag": "1.0.0-rc.1",
-                    "revision": "1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd",
+                    "revision": "1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68",
                     "wire": "1.0",
                     "contract_hash": "163acc57d8a62b66",
                 },
@@ -7612,12 +12048,12 @@ mod tests {
 
         let error = read_offline_vlda_dataset(&dir).unwrap_err();
 
-        assert!(error.to_string().contains("must be a regular file"));
+        assert!(error.to_string().contains("regular file"));
         std::fs::remove_dir_all(dir).ok();
     }
 
     #[test]
-    fn runlog_keeps_the_exact_parsed_input_snapshot_hash_after_path_replacement() {
+    fn runlog_rejects_an_input_path_replaced_after_analysis() {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -7640,24 +12076,82 @@ mod tests {
         .unwrap();
         std::fs::write(&input_path, b"replacement after parse").unwrap();
 
-        write_offline_vlda_runlog(&runlog_path, None, Some(&input_path), &dataset, &report)
-            .unwrap();
+        let error =
+            write_offline_vlda_runlog(&runlog_path, None, Some(&input_path), &dataset, &report)
+                .unwrap_err();
 
-        let events = read_events_from_path(&runlog_path).unwrap();
-        let logged_hash = events.iter().find_map(|event| match event {
-            RunLogEvent::ArtifactLogged {
-                name,
-                sha256: Some(hash),
-                ..
-            } if name == "offline_vlda_input_json" => Some(hash),
-            _ => None,
-        });
-        assert_eq!(logged_hash, Some(&snapshot_sha256));
-        assert_ne!(
-            pid_runlog::sha256_file(&input_path).unwrap(),
-            snapshot_sha256
-        );
+        assert!(error
+            .to_string()
+            .contains("no longer matches the analyzed snapshot"));
+        assert!(!runlog_path.exists());
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn runlog_rejects_input_bytes_that_do_not_encode_the_publication_dataset() {
+        let directory = tempfile::tempdir().unwrap();
+        let input_path = directory.path().join("dataset.json");
+        let runlog_path = directory.path().join("runlog.jsonl");
+        let recorded_dataset = fixture_dataset();
+        std::fs::write(
+            &input_path,
+            serde_json::to_vec_pretty(&recorded_dataset).unwrap(),
+        )
+        .unwrap();
+        let input_sha256 = pid_runlog::sha256_file(&input_path).unwrap();
+
+        let mut publication_dataset = recorded_dataset;
+        publication_dataset.task = Some("different-publication-dataset".to_string());
+        let report = run_offline_vlda_harness(
+            publication_dataset.clone(),
+            Some(input_path.to_str().unwrap().to_string()),
+            Some(input_sha256),
+        )
+        .unwrap();
+
+        let error = write_offline_vlda_runlog(
+            &runlog_path,
+            None,
+            Some(&input_path),
+            &publication_dataset,
+            &report,
+        )
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("does not encode the publication dataset"));
+        assert!(!runlog_path.exists());
+    }
+
+    #[test]
+    fn runlog_rejects_ambiguous_publication_input_json() {
+        let directory = tempfile::tempdir().unwrap();
+        let input_path = directory.path().join("dataset.json");
+        let runlog_path = directory.path().join("runlog.jsonl");
+        let dataset = fixture_dataset();
+        let encoded = serde_json::to_string_pretty(&dataset).unwrap();
+        let ambiguous = encoded.replacen(
+            "  \"task\": \"fixture_task\",",
+            "  \"task\": \"fixture_task\",\n  \"task\": \"fixture_task\",",
+            1,
+        );
+        assert_ne!(ambiguous, encoded);
+        std::fs::write(&input_path, ambiguous).unwrap();
+        let input_sha256 = pid_runlog::sha256_file(&input_path).unwrap();
+        let report = run_offline_vlda_harness(
+            dataset.clone(),
+            Some(input_path.to_str().unwrap().to_string()),
+            Some(input_sha256),
+        )
+        .unwrap();
+
+        let error =
+            write_offline_vlda_runlog(&runlog_path, None, Some(&input_path), &dataset, &report)
+                .unwrap_err();
+
+        assert!(format!("{error:#}").contains("duplicate JSON object key"));
+        assert!(!runlog_path.exists());
     }
 
     /// pid-runlog schema 2 requires a real 64-character hex SHA-256 digest; a stub like "abc" is
@@ -7737,9 +12231,9 @@ mod tests {
         };
         // Two clean, one fabricated-L, one recency-misaligned-D.
         let samples = vec![
-            sample("channel", "seq"),
-            sample("channel", "seq"),
-            sample("absent_zeroed", "seq"),
+            sample("channel", "source"),
+            sample("channel", "source"),
+            sample("absent_zeroed", "source"),
             sample("channel", "recency_fallback"),
         ];
         let prov = axis_provenance(&samples);
@@ -7768,9 +12262,16 @@ mod tests {
         assert!(axis_provenance(&clean).is_empty());
 
         // All-clean markers -> status ok, no note.
-        let ok = vec![sample("channel", "seq")];
+        let ok = vec![sample("channel", "source")];
         let p = axis_provenance(&ok);
         assert!(p.iter().all(|x| x.status == "ok" && x.note.is_none()));
+
+        // Invented values do not become honest merely because they avoid a denylist.
+        let unknown = axis_provenance(&[sample("channel", "invented")]);
+        let d = unknown.iter().find(|p| p.axis == "D").unwrap();
+        assert_eq!(d.status, "degraded");
+        assert_eq!(d.degraded_samples, 1);
+        assert!(d.note.as_ref().unwrap().contains("unrecognized: 1"));
     }
 
     #[test]
@@ -7805,6 +12306,28 @@ mod tests {
         assert_eq!(l.status, "degraded");
         assert_eq!(l.degraded_samples, 1);
         assert!(prov.iter().find(|p| p.axis == "V").unwrap().status == "ok");
+
+        // Once the SAFE convention is active, every sample must carry all four
+        // markers. Sparse positive attestation fails closed.
+        let mut sparse = safe("token_slice:language");
+        sparse.metadata.remove("d_provenance");
+        let prov = axis_provenance(&[safe("token_slice:language"), sparse]);
+        let d = prov
+            .iter()
+            .find(|p| p.axis == "D" && p.marker == "d_provenance")
+            .unwrap();
+        assert_eq!(d.status, "degraded");
+        assert_eq!(d.total_samples, 2);
+        assert_eq!(d.degraded_samples, 1);
+        assert!(d.note.as_ref().unwrap().contains("missing: 1"));
+
+        // Empty token-slice declarations are not accepted provenance values.
+        let malformed = axis_provenance(&[safe("token_slice:")]);
+        let l = malformed
+            .iter()
+            .find(|p| p.axis == "L" && p.marker == "l_provenance")
+            .unwrap();
+        assert_eq!(l.status, "degraded");
     }
 
     #[test]
@@ -7833,7 +12356,7 @@ mod tests {
     }
 
     #[test]
-    fn geometry_gates_flag_all_constant_variable_as_degenerate() {
+    fn geometry_diagnostics_flag_all_constant_variable_as_degenerate() {
         // An all-constant L (every dim zero-variance, e.g. a fabricated all-zero language
         // channel — NCP_DEV_PROMPT Gap 2) must be flagged: zero variance ⇒ zero mutual
         // information by construction, so any PID atom involving it is invalid.
@@ -7841,15 +12364,15 @@ mod tests {
         let mut preprocessing = BTreeMap::new();
         preprocessing.insert("V".to_string(), preprocessing_variable(4, 0));
         preprocessing.insert("L".to_string(), preprocessing_variable(8, 8));
-        let gates = compute_geometry_gates(
+        let diagnostics = compute_geometry_diagnostics(
             &variables,
             &OfflineVldaPreprocessingReport {
                 strategy: "per_variable_standardized".to_string(),
                 variables: preprocessing.clone(),
             },
         );
-        assert_eq!(gates.status, "warn");
-        let degenerate: Vec<_> = gates
+        assert_eq!(diagnostics.status, "warning");
+        let degenerate: Vec<_> = diagnostics
             .warnings
             .iter()
             .filter(|w| w.contains("all-constant"))
@@ -7858,7 +12381,7 @@ mod tests {
             degenerate.len(),
             1,
             "exactly L should be flagged: {:?}",
-            gates.warnings
+            diagnostics.warnings
         );
         assert!(degenerate[0].contains("geometry L is all-constant"));
 
@@ -7868,7 +12391,7 @@ mod tests {
         let mut healthy = BTreeMap::new();
         healthy.insert("V".to_string(), preprocessing_variable(4, 1));
         healthy.insert("L".to_string(), preprocessing_variable(8, 0));
-        let gates = compute_geometry_gates(
+        let diagnostics = compute_geometry_diagnostics(
             &variables,
             &OfflineVldaPreprocessingReport {
                 strategy: "per_variable_standardized".to_string(),
@@ -7876,9 +12399,12 @@ mod tests {
             },
         );
         assert!(
-            gates.warnings.iter().all(|w| !w.contains("all-constant")),
+            diagnostics
+                .warnings
+                .iter()
+                .all(|w| !w.contains("all-constant")),
             "no variable should be flagged degenerate: {:?}",
-            gates.warnings
+            diagnostics.warnings
         );
     }
 
@@ -8146,16 +12672,23 @@ mod tests {
             RunLogEvent::EvaluationMetric { name, .. }
                 if name == "offline_vlda.baseline.heldout_logreg_vlda_success_accuracy"
         )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RunLogEvent::LabelObserved { name, value, .. }
+                if name == "offline_vlda.pid.train_split.status"
+                    && value.get("status").and_then(Value::as_str) == Some("disabled")
+        )));
         std::fs::remove_file(runlog_path).unwrap();
     }
 
     #[test]
     fn offline_vlda_harness_validates_and_summarizes() {
         let dataset = fixture_dataset();
-        let report = run_offline_vlda_harness(
+        let report = run_offline_vlda_harness_with_options(
             dataset.clone(),
             Some("memory://fixture.json".to_string()),
             Some(TEST_INPUT_SHA256.to_string()),
+            &continuous_options(),
         )
         .unwrap();
         assert_eq!(report.dims.samples, 16);
@@ -8303,7 +12836,7 @@ mod tests {
             .heldout_logreg_vlda_success_auroc
             .expect("logreg auroc emitted");
         assert!((0.0..=1.0).contains(&lr_auroc));
-        assert_eq!(report.heldout_predictions.len(), 44);
+        assert_eq!(report.heldout_predictions.len(), 48);
         let centroid_prediction = report
             .heldout_predictions
             .iter()
@@ -8333,7 +12866,7 @@ mod tests {
             .unwrap();
         assert!(nn_prediction.nearest_train_sample_id.is_some());
         assert!(nn_prediction.squared_distance.is_some());
-        assert_eq!(report.heldout_failure_diagnostics.len(), 11);
+        assert_eq!(report.heldout_failure_diagnostics.len(), 12);
         let majority_failure = failure_diagnostic(&report, "train_split_majority", None);
         assert_eq!(majority_failure.samples, 4);
         assert_eq!(majority_failure.true_failures, 1);
@@ -8378,8 +12911,8 @@ mod tests {
         assert!(report.geometry.variables["L"]
             .intrinsic_dimension_error
             .is_some());
-        assert_eq!(report.geometry.gates.status, "warn");
-        assert!(!report.geometry.gates.warnings.is_empty());
+        assert_eq!(report.geometry.diagnostics.status, "warning");
+        assert!(!report.geometry.diagnostics.warnings.is_empty());
 
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -8461,6 +12994,23 @@ mod tests {
             )
         });
         assert!(has_denominators);
+        for name in [
+            "offline_vlda.pid.abstained.L",
+            "offline_vlda.pid.train_split.abstained.L",
+            "offline_vlda.pid.train_split.abstained.VL",
+            "offline_vlda.pid.train_split.abstained.VD",
+            "offline_vlda.pid.train_split.abstained.LD",
+            "offline_vlda.pid.train_split.estimate_denominators",
+        ] {
+            assert!(
+                events.iter().any(|event| matches!(
+                    event,
+                    RunLogEvent::LabelObserved { name: observed, .. }
+                        if observed == name
+                )),
+                "{name} missing from the run log"
+            );
+        }
         let has_heldout_baseline = events.iter().any(|event| {
             matches!(
                 event,
@@ -8563,7 +13113,7 @@ mod tests {
                 )
             })
             .count();
-        assert_eq!(heldout_prediction_correct_events, 44);
+        assert_eq!(heldout_prediction_correct_events, 48);
         let heldout_prediction_score_events = events
             .iter()
             .filter(|event| {
@@ -8574,7 +13124,7 @@ mod tests {
                 )
             })
             .count();
-        assert_eq!(heldout_prediction_score_events, 20);
+        assert_eq!(heldout_prediction_score_events, 24);
         let heldout_prediction_distance_events = events
             .iter()
             .filter(|event| {
@@ -8681,10 +13231,10 @@ mod tests {
         // pid-core review contract fails its geometry diagnostics closed (degenerate data /
         // ambiguous shell) and records the reason instead of emitting a number. 21 -> 19.
         assert!(summary.geometry_metrics >= 19);
-        assert_eq!(summary.evaluation_metrics, 142);
+        assert_eq!(summary.evaluation_metrics, 149);
         assert_eq!(summary.pid_metric_events, 2);
         assert!(summary.geometry_metric_events >= 19);
-        assert_eq!(summary.evaluation_metric_events, 223);
+        assert_eq!(summary.evaluation_metric_events, 238);
 
         let _ = std::fs::remove_file(summary_path);
         let _ = std::fs::remove_file(runlog_path);
@@ -8692,7 +13242,7 @@ mod tests {
 
     #[test]
     fn offline_vlda_runlog_timestamps_stay_monotonic_at_capture_scale() {
-        // A real VLA capture emits ~21 metric events per labeled held-out
+        // A real VLA capture emits roughly two dozen metric events per labeled held-out
         // sample; once the total passes 10,000 the old fixed ArtifactLogged/
         // ErrorLogged/RunEnded offsets were overtaken and the run log failed
         // its own advertised `pid-runlog-replay --validate` step. Inflate the
@@ -8709,26 +13259,31 @@ mod tests {
             report.heldout_predictions.extend(originals.iter().cloned());
         }
 
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let runlog_path =
-            std::env::temp_dir().join(format!("pid-offline-vlda-monotonic-scale-{stamp}.jsonl"));
-        write_offline_vlda_runlog(&runlog_path, None, None, &dataset, &report).unwrap();
-        let validation = pid_runlog::validate_events_from_path(&runlog_path).unwrap();
-        assert_eq!(
-            validation.errors,
-            0,
-            "capture-scale run log must validate: {:?}",
-            validation
-                .issues
-                .iter()
-                .filter(|issue| issue.severity == pid_runlog::ValidationSeverity::Error)
-                .take(3)
-                .collect::<Vec<_>>()
-        );
-        let _ = std::fs::remove_file(runlog_path);
+        let metric_timestamp_base = 10_000_u64;
+        let mut writer = RunLogWriter::new(Vec::new());
+        let metric_events =
+            write_metric_events(&mut writer, &report, metric_timestamp_base).unwrap();
+        assert!(metric_events > 10_000);
+        writer
+            .append(&RunLogEvent::RunEnded {
+                run_id: report.run_id.clone(),
+                timestamp_ns: metric_timestamp_base + metric_events,
+                status: RunStatus::Succeeded,
+                message: None,
+            })
+            .unwrap();
+        writer.flush().unwrap();
+        let timestamps = writer
+            .into_inner()
+            .split(|byte| *byte == b'\n')
+            .filter(|line| !line.is_empty())
+            .map(|line| {
+                serde_json::from_slice::<Value>(line).unwrap()["timestamp_ns"]
+                    .as_u64()
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        assert!(timestamps.windows(2).all(|pair| pair[0] <= pair[1]));
     }
 
     #[test]
@@ -8762,7 +13317,6 @@ mod tests {
             &dataset,
             &report,
             OfflineVldaRunlogOptions {
-                require_geometry_pass: false,
                 require_success_labels: false,
                 require_heldout_split: false,
                 require_heldout_class_coverage: true,
@@ -8823,7 +13377,6 @@ mod tests {
             &dataset,
             &report,
             OfflineVldaRunlogOptions {
-                require_geometry_pass: false,
                 require_success_labels: false,
                 require_heldout_split: false,
                 require_heldout_class_coverage: false,
@@ -8881,7 +13434,6 @@ mod tests {
             &dataset,
             &report,
             OfflineVldaRunlogOptions {
-                require_geometry_pass: false,
                 require_success_labels: false,
                 require_heldout_split: true,
                 require_heldout_class_coverage: false,
@@ -8955,10 +13507,11 @@ mod tests {
             .join("fixtures/offline_vlda_fixture.json");
         let dataset = read_offline_vlda_dataset(&path).unwrap();
         let input_sha256 = pid_runlog::sha256_file(&path).unwrap();
-        let report = run_offline_vlda_harness(
+        let report = run_offline_vlda_harness_with_options(
             dataset,
             Some(path.display().to_string()),
             Some(input_sha256),
+            &continuous_options(),
         )
         .unwrap();
         assert_eq!(report.run_id, "offline-vlda-fixture-run");
@@ -8994,20 +13547,21 @@ mod tests {
                 .shared_episodes,
             0
         );
-        assert_eq!(report.heldout_failure_diagnostics.len(), 11);
+        assert_eq!(report.heldout_failure_diagnostics.len(), 12);
         assert_eq!(report.train_split_pid.as_ref().unwrap().status, "available");
         assert!(report.metrics.pid_pairs.contains_key("LD"));
         assert_eq!(report.geometry.variables.len(), 6);
-        assert_eq!(report.geometry.gates.status, "warn");
+        assert_eq!(report.geometry.diagnostics.status, "warning");
     }
 
     #[test]
     fn offline_vlda_train_split_pid_excludes_heldout_samples() {
         let dataset = fixture_dataset();
-        let base_report = run_offline_vlda_harness(
+        let base_report = run_offline_vlda_harness_with_options(
             dataset,
             Some("memory://fixture.json".to_string()),
             Some(TEST_INPUT_SHA256.to_string()),
+            &continuous_options(),
         )
         .unwrap();
         let mut changed_heldout = fixture_dataset();
@@ -9028,10 +13582,11 @@ mod tests {
                 }
             }
         }
-        let changed_report = run_offline_vlda_harness(
+        let changed_report = run_offline_vlda_harness_with_options(
             changed_heldout,
             Some("memory://fixture.json".to_string()),
             Some(TEST_INPUT_SHA256.to_string()),
+            &continuous_options(),
         )
         .unwrap();
         let base_train_pid = base_report.train_split_pid.as_ref().unwrap();
@@ -9051,56 +13606,6 @@ mod tests {
             base_report.metrics.pid_pairs, changed_report.metrics.pid_pairs,
             "legacy all-sample PID screens should remain explicitly scoped because they include held-out samples"
         );
-    }
-
-    #[test]
-    fn offline_vlda_strict_geometry_gate_marks_run_failed() {
-        let dataset = fixture_dataset();
-        let report = run_offline_vlda_harness(
-            dataset.clone(),
-            Some("memory://fixture.json".to_string()),
-            Some(TEST_INPUT_SHA256.to_string()),
-        )
-        .unwrap();
-        assert_eq!(report.geometry.gates.status, "warn");
-
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir();
-        let runlog_path = dir.join(format!("pid-offline-vlda-strict-{stamp}.jsonl"));
-        write_offline_vlda_runlog_with_options(
-            &runlog_path,
-            None,
-            None,
-            &dataset,
-            &report,
-            OfflineVldaRunlogOptions {
-                require_geometry_pass: true,
-                require_success_labels: false,
-                require_heldout_split: false,
-                require_heldout_class_coverage: false,
-                require_heldout_episode_disjoint: false,
-                require_axis_provenance_honest: false,
-            },
-        )
-        .unwrap();
-        let events = read_events_from_path(&runlog_path).unwrap();
-        let validation = validate_events(&events).unwrap();
-        assert!(validation.is_valid(), "{:?}", validation.issues);
-        let summary = summarize_events(&events).unwrap();
-        assert_eq!(summary.status, Some(RunStatus::Failed));
-        assert_eq!(summary.errors, 1);
-        // 19, not 21: `L` is a binary axis, so its duplicate rows give a zero nearest-neighbor
-        // distance. The current pid-core review contract fails those geometry diagnostics closed
-        // (degenerate data / ambiguous k-th-neighbor shell) instead of emitting a number, and the
-        // reasons are recorded as `intrinsic_dimension_error` /
-        // `distance_concentration_error` in the summary.
-        assert_eq!(summary.geometry_metrics, 19);
-        assert_eq!(summary.geometry_metric_events, 19);
-
-        let _ = std::fs::remove_file(runlog_path);
     }
 
     #[test]
@@ -9171,8 +13676,8 @@ mod tests {
         assert_eq!(coverage.heldout_successes, 4);
         assert_eq!(coverage.heldout_failures, 0);
         assert_eq!(coverage.warnings.len(), 1);
-        assert_eq!(report.heldout_predictions.len(), 44);
-        assert_eq!(report.heldout_failure_diagnostics.len(), 11);
+        assert_eq!(report.heldout_predictions.len(), 48);
+        assert_eq!(report.heldout_failure_diagnostics.len(), 12);
         let majority_failure = failure_diagnostic(&report, "train_split_majority", None);
         assert_eq!(majority_failure.true_failures, 0);
         assert_eq!(majority_failure.failure_recall, None);
@@ -9207,7 +13712,6 @@ mod tests {
             &dataset,
             &report,
             OfflineVldaRunlogOptions {
-                require_geometry_pass: false,
                 require_success_labels: true,
                 require_heldout_split: false,
                 require_heldout_class_coverage: false,
@@ -9269,7 +13773,6 @@ mod tests {
             &dataset,
             &report,
             OfflineVldaRunlogOptions {
-                require_geometry_pass: false,
                 require_success_labels: false,
                 require_heldout_split: true,
                 require_heldout_class_coverage: false,
@@ -9312,6 +13815,28 @@ mod tests {
         dataset.samples[1].sample_id = dataset.samples[0].sample_id.clone();
         let err = run_offline_vlda_harness(dataset, None, None).unwrap_err();
         assert!(format!("{err:#}").contains("unique"));
+    }
+
+    #[test]
+    fn uncertainty_tail_mass_rejects_zero_in_requests_and_artifacts() {
+        let dataset = fixture_dataset();
+        let invalid = OfflineVldaUncertaintyConfig {
+            alpha: 0.0,
+            ..OfflineVldaUncertaintyConfig::default()
+        };
+        let request_error =
+            compute_offline_pid_uncertainty(&dataset, PidMode::Disabled, &invalid).unwrap_err();
+        assert!(request_error.to_string().contains("strictly inside"));
+
+        let mut artifact = compute_offline_pid_uncertainty(
+            &dataset,
+            PidMode::Disabled,
+            &OfflineVldaUncertaintyConfig::default(),
+        )
+        .unwrap();
+        artifact.alpha = 0.0;
+        let artifact_error = validate_offline_pid_uncertainty(&artifact).unwrap_err();
+        assert!(artifact_error.to_string().contains("strictly inside"));
     }
 
     #[test]
@@ -9496,6 +14021,33 @@ mod tests {
     }
 
     #[test]
+    fn pid_uncertainty_typed_skips_still_enforce_decoded_resource_limits() {
+        let dataset = fixture_dataset();
+        let limits = OfflineVldaResourceLimits {
+            max_samples: dataset.samples.len() - 1,
+            ..OfflineVldaResourceLimits::default()
+        };
+
+        for (mode, config) in [
+            (PidMode::Continuous, OfflineVldaUncertaintyConfig::default()),
+            (
+                PidMode::Discrete,
+                OfflineVldaUncertaintyConfig {
+                    n_perm: 1,
+                    ..OfflineVldaUncertaintyConfig::default()
+                },
+            ),
+        ] {
+            let error =
+                compute_offline_pid_uncertainty_with_limits(&dataset, mode, &config, &limits)
+                    .unwrap_err();
+            assert!(error
+                .to_string()
+                .contains("resource limit exceeded for samples"));
+        }
+    }
+
+    #[test]
     fn uncertainty_publication_rejects_produced_status_without_requested_values() {
         let config = OfflineVldaUncertaintyConfig {
             n_boot: 8,
@@ -9557,6 +14109,111 @@ mod tests {
             "{error:#}"
         );
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn uncertainty_skip_rejects_forged_mode_and_scheme_provenance() {
+        let config = OfflineVldaUncertaintyConfig {
+            n_boot: 1,
+            ..Default::default()
+        };
+        let uncertainty = compute_offline_pid_uncertainty(
+            &continuous_fixture_dataset(),
+            PidMode::Discrete,
+            &config,
+        )
+        .unwrap();
+        assert_eq!(uncertainty.pid_mode, PidMode::Discrete);
+
+        let mut forged_mode = uncertainty.clone();
+        forged_mode.pid_mode = PidMode::Continuous;
+        let error = validate_offline_pid_uncertainty(&forged_mode).unwrap_err();
+        assert!(error.to_string().contains("unknown skip reason"));
+
+        let mut forged_scheme = uncertainty;
+        forged_scheme.resample_scheme = "bootstrap_with_replacement".to_string();
+        let error = validate_offline_pid_uncertainty(&forged_scheme).unwrap_err();
+        assert!(error.to_string().contains("wrong resampling scheme"));
+    }
+
+    #[test]
+    fn uncertainty_sidecar_round_trips_exactly_and_rejects_forged_subsample_length() {
+        let dataset = continuous_fixture_dataset();
+        let options = continuous_options();
+        let config = OfflineVldaUncertaintyConfig {
+            n_boot: 8,
+            ..Default::default()
+        };
+        let report = run_offline_vlda_harness_borrowed_with_options_and_invocation_limits(
+            &dataset,
+            None,
+            None,
+            &options,
+            &config,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap();
+        let uncertainty =
+            compute_offline_pid_uncertainty(&dataset, options.pid_mode, &config).unwrap();
+
+        let directory = tempfile::tempdir().unwrap();
+        let uncertainty_path = directory.path().join("uncertainty.json");
+        let runlog_path = directory.path().join("uncertainty.jsonl");
+        write_offline_pid_uncertainty(&uncertainty_path, &uncertainty).unwrap();
+        let recorded_bytes = std::fs::read(&uncertainty_path).unwrap();
+        assert_eq!(
+            recorded_bytes,
+            serde_json::to_vec_pretty(&uncertainty).unwrap()
+        );
+        let round_tripped: OfflineVldaPidUncertainty =
+            serde_json::from_slice(&recorded_bytes).unwrap();
+        assert_eq!(round_tripped, uncertainty);
+        write_offline_vlda_runlog_with_options_and_uncertainty(
+            &runlog_path,
+            OfflineVldaRunlogArtifacts {
+                uncertainty_path: Some(&uncertainty_path),
+                uncertainty: Some(&uncertainty),
+                ..OfflineVldaRunlogArtifacts::default()
+            },
+            &dataset,
+            &report,
+            OfflineVldaRunlogOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            pid_runlog::validate_events(&pid_runlog::read_events_from_path(&runlog_path).unwrap())
+                .unwrap()
+                .errors,
+            0
+        );
+
+        let mut forged = uncertainty;
+        forged.subsample_len -= forged.block_size;
+        validate_offline_pid_uncertainty(&forged).unwrap();
+        let forged_path = directory.path().join("forged-uncertainty.json");
+        let forged_runlog_path = directory.path().join("forged-uncertainty.jsonl");
+        write_offline_pid_uncertainty(&forged_path, &forged).unwrap();
+
+        let error = write_offline_vlda_runlog_with_options_and_uncertainty(
+            &forged_runlog_path,
+            OfflineVldaRunlogArtifacts {
+                uncertainty_path: Some(&forged_path),
+                uncertainty: Some(&forged),
+                ..OfflineVldaRunlogArtifacts::default()
+            },
+            &dataset,
+            &report,
+            OfflineVldaRunlogOptions::default(),
+        )
+        .unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("uncertainty artifact does not match the report request"),
+            "unexpected error: {error:#}"
+        );
+        assert!(!forged_runlog_path.exists());
     }
 
     #[test]

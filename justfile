@@ -18,72 +18,97 @@ fmt:
     cargo fmt
 
 lint:
-    cargo clippy --locked --workspace -- -D warnings
+    cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+
+# Full locked Python quality gates used by CI.
+python-lint:
+    uv run --no-sync ruff check .
+    uv run --no-sync ruff format --check .
+
+python-bindings:
+    uv run --no-sync maturin develop --locked --manifest-path pid-rs/crates/pid-python/Cargo.toml
+
+python-test: python-bindings
+    uv run --no-sync pytest tests/python -q
+
+# Required local gate. Feature-specific, NCP, supply-chain, and formal checks remain
+# additive because they depend on the files changed and on optional local tools.
+check:
+    cargo fmt --all -- --check
+    cargo check --locked -p pid-bridge -p pid-sim --all-targets --no-default-features
+    cargo test --locked -p pid-sim --no-default-features lean_bridge_surface_excludes_rerun_export
+    cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+    cargo test --locked --workspace --all-targets --all-features
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+    just python-lint
+    just python-test
+    just docs-audit
+    just notices-check
 
 # Docset audits (offline). audit_grandplan.py validates the R1-R112 reference ledger.
 docs-audit:
-    python scripts/audit_ci_pins.py
-    python scripts/generate_capability_matrix.py --check
-    python scripts/audit_release_requirements.py
-    python scripts/audit_release_review.py
-    python scripts/audit_candidate_release.py
-    python scripts/audit_research_governance.py
-    python scripts/audit_research_governance_successor.py
-    python scripts/audit_grandplan.py
-    python scripts/audit_grandplan_claims.py
-    python scripts/audit_docset_claims.py --all-tracked-markdown
-    python scripts/audit_repo_truth.py
+    uv run --no-sync python scripts/audit_ci_pins.py
+    uv run --no-sync python scripts/generate_capability_matrix.py --check
+    uv run --no-sync python scripts/audit_release_requirements.py
+    uv run --no-sync python scripts/audit_release_review.py
+    uv run --no-sync python scripts/audit_research_governance.py
+    uv run --no-sync python scripts/audit_research_governance_successor.py
+    uv run --no-sync python scripts/audit_grandplan.py --check-italic-titles
+    uv run --no-sync python scripts/audit_grandplan_claims.py
+    uv run --no-sync python scripts/audit_docset_claims.py --all-tracked-markdown
+    uv run --no-sync python scripts/audit_markdown_links.py
+    uv run --no-sync python scripts/audit_repo_truth.py
 
 # Machine-checked abstract invariants and required countermodels. These prove only
 # the stated SMT abstractions; see formal/README.md for the refinement boundary.
 formal:
-    python scripts/check_formal_models.py
+    uv run --no-sync python scripts/check_formal_models.py
 
 # The reviewed catalog is the source; both the machine-readable resolved matrix and
 # the human-readable table are deterministic, content-hash-bound generated outputs.
 capability-matrix:
-    python scripts/generate_capability_matrix.py --write
+    uv run --no-sync python scripts/generate_capability_matrix.py --write
 
 capability-matrix-check:
-    python scripts/generate_capability_matrix.py --check
+    uv run --no-sync python scripts/generate_capability_matrix.py --check
 
 # Fail-closed integrity audit for the frozen 0.9 review intake. This validates the
 # tracked baseline and imported task graph; it deliberately does not claim that any
 # substantive task, file, human review, or scientific gate is complete.
 release-review-audit:
-    python scripts/audit_release_review.py
+    uv run --no-sync python scripts/audit_release_review.py
 
 # Validate the non-promoted, content-bound candidate decision record. This checks exact
 # source coverage and legal progress transitions; `published:false` does not describe
 # public availability of the 0.9.0 source prerelease or promote any open disposition.
 release-candidate-audit:
-    python scripts/audit_candidate_release.py
+    uv run --no-sync python scripts/audit_candidate_release.py
 
 # Verify the complete imported task procedures and all 4,800 open lens dispositions.
 # The external handoff path is never inferred; pass it explicitly for byte-level regeneration.
 release-requirements-audit:
-    python scripts/audit_release_requirements.py
+    uv run --no-sync python scripts/audit_release_requirements.py
 
 release-requirements-check handoff_dir:
-    python scripts/generate_release_requirements.py --handoff-dir {{ quote(handoff_dir) }} --check
-    python scripts/audit_release_requirements.py --handoff-dir {{ quote(handoff_dir) }}
+    uv run --no-sync python scripts/generate_release_requirements.py --handoff-dir {{ quote(handoff_dir) }} --check
+    uv run --no-sync python scripts/audit_release_requirements.py --handoff-dir {{ quote(handoff_dir) }}
 
 # Honest current-state M0 scaffolds. Passing validates structure and cross-file
 # consistency; it does not mean the preregistration or scientific freeze is ready.
 research-governance:
-    python scripts/audit_research_governance.py
-    python scripts/audit_research_governance_successor.py
+    uv run --no-sync python scripts/audit_research_governance.py
+    uv run --no-sync python scripts/audit_research_governance_successor.py
 
-# Dependency firebreak (grandplan.md §8.9.3): prove the minimum path needs neither
-# NCP nor PID atoms.
+# Estimator-request firebreak (grandplan.md §8.9.3): prove the minimum path keeps
+# NCP out and requests no MI or PID atoms.
 #   (1) the core builds with NCP disabled — `ncp-observer` is workspace-excluded, so a
 #       default `--workspace` build never compiles it (no NCP/Zenoh on the critical path);
 #   (2) static factual-outcome label baselines (majority + the SAFE-class held-out logistic
-#       regression) are emitted independently of PID. This is dependency groundwork only;
-# it does not implement H1 response scoring or prospective H2 landmark prediction.
+#       regression) emit no PID request. The analysis feature still links shared pid-core code.
+# It does not implement H1 response scoring or prospective H2 landmark prediction.
 firebreak:
-    cargo build --locked --workspace
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- \
+    cargo build --locked -p pid-bridge -p pid-sim
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- \
       --input crates/pid-sim/fixtures/offline_vlda_fixture.json \
       --summary-json outputs/firebreak_summary.json --runlog outputs/firebreak_runlog.jsonl \
       --pid-mode none
@@ -92,9 +117,8 @@ firebreak:
     grep -q '"pid": "disabled"' outputs/firebreak_summary.json
     grep -q '"requested": 0' outputs/firebreak_summary.json
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/firebreak_runlog.jsonl
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | grep -q 'pid_metrics=0'
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | grep -q 'pid_metric_events=0'
-    @echo "firebreak OK: core builds NCP-disabled; static label baselines emitted without PID atoms"
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/firebreak_runlog.jsonl | awk '{ for (i=1; i<=NF; i++) seen[$i]=1 } END { exit !(seen["pid_metrics=0"] && seen["pid_metric_events=0"]) }'
+    @echo "firebreak OK: core builds NCP-disabled; static label baselines requested no PID atoms"
 
 # Deterministic, offline NCP wire-0.8 fault suite. Published artifacts must
 # reconstruct exactly; explicit retry alone may clean writer-reserved crash scratch.
@@ -125,28 +149,28 @@ exp0-uncertainty path="outputs/exp0_uncertainty_runlog.jsonl" summary="outputs/e
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(path) }} | grep -q 'pid_metrics=7'
 
 toy-harness runlog="outputs/toy_vla_runlog.jsonl" summary="outputs/toy_vla_summary.json" episodes="32":
-    cargo run --locked -p pid-sim --bin pid-toy-harness -- --episodes {{ quote(episodes) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }}
+    cargo run --locked -p pid-sim --features analysis --bin pid-toy-harness -- --episodes {{ quote(episodes) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
 # H1 shared structural/noninterference preflight. These are content-addressed software fixtures,
 # not Protocol A/B response estimates and not H1 evidence. Both rejection paths must still write a
 # schema-valid failed run log.
 h1-preflight valid="crates/pid-sim/fixtures/h1_preflight_valid.json" invalid="crates/pid-sim/fixtures/h1_preflight_invalid.json" parse_invalid="crates/pid-sim/fixtures/h1_preflight_parse_invalid.json":
-    cargo run --locked -p pid-sim --bin pid-h1-preflight -- --input {{ quote(valid) }} --summary-json outputs/h1_preflight_summary.json --runlog outputs/h1_preflight_runlog.jsonl
+    cargo run --locked -p pid-sim --features protocol-references --bin pid-h1-preflight -- --input {{ quote(valid) }} --summary-json outputs/h1_preflight_summary.json --runlog outputs/h1_preflight_runlog.jsonl
     grep -q '"passed": true' outputs/h1_preflight_summary.json
     grep -q '"establishes_h1_evidence": false' outputs/h1_preflight_summary.json
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_preflight_runlog.jsonl
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_runlog.jsonl | grep -F 'pid_metrics=0' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
     cp outputs/h1_preflight_runlog.jsonl outputs/h1_preflight_runlog.first.jsonl
-    cargo run --locked -p pid-sim --bin pid-h1-preflight -- --input {{ quote(valid) }} --summary-json outputs/h1_preflight_summary.json --runlog outputs/h1_preflight_runlog.jsonl
+    cargo run --locked -p pid-sim --features protocol-references --bin pid-h1-preflight -- --input {{ quote(valid) }} --summary-json outputs/h1_preflight_summary.json --runlog outputs/h1_preflight_runlog.jsonl
     cmp -s outputs/h1_preflight_runlog.first.jsonl outputs/h1_preflight_runlog.jsonl
-    if cargo run --locked -p pid-sim --bin pid-h1-preflight -- --input {{ quote(invalid) }} --summary-json outputs/h1_preflight_invalid_summary.json --runlog outputs/h1_preflight_invalid_runlog.jsonl; then echo "expected H1 semantic/artifact preflight failure"; exit 1; fi
+    if cargo run --locked -p pid-sim --features protocol-references --bin pid-h1-preflight -- --input {{ quote(invalid) }} --summary-json outputs/h1_preflight_invalid_summary.json --runlog outputs/h1_preflight_invalid_runlog.jsonl; then echo "expected H1 semantic/artifact preflight failure"; exit 1; fi
     grep -q '"artifact_hash_mismatch"' outputs/h1_preflight_invalid_summary.json
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_preflight_invalid_runlog.jsonl
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_invalid_runlog.jsonl | grep -F 'errors=1' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
-    if cargo run --locked -p pid-sim --bin pid-h1-preflight -- --input {{ quote(parse_invalid) }} --summary-json outputs/h1_preflight_parse_invalid_summary.json --runlog outputs/h1_preflight_parse_invalid_runlog.jsonl; then echo "expected H1 contract parse failure"; exit 1; fi
+    if cargo run --locked -p pid-sim --features protocol-references --bin pid-h1-preflight -- --input {{ quote(parse_invalid) }} --summary-json outputs/h1_preflight_parse_invalid_summary.json --runlog outputs/h1_preflight_parse_invalid_runlog.jsonl; then echo "expected H1 contract parse failure"; exit 1; fi
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_preflight_parse_invalid_runlog.jsonl
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_parse_invalid_runlog.jsonl | grep -F 'errors=1' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_preflight_parse_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
@@ -156,7 +180,7 @@ h1-preflight valid="crates/pid-sim/fixtures/h1_preflight_valid.json" invalid="cr
 # performs fixed leave-one-outer-fold-out proper scoring. It is synthetic, PID-free, and produces
 # no H1 scientific evidence. Readable invalid inputs must still produce schema-valid failed logs.
 h1-protocol-a valid="crates/pid-sim/fixtures/h1_protocol_a_valid.json" parse_invalid="crates/pid-sim/fixtures/h1_protocol_a_parse_invalid.json": h1-preflight
-    cargo run --locked -p pid-sim --bin pid-h1-protocol-a -- --input {{ quote(valid) }} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_summary.json --preflight-runlog outputs/h1_preflight_runlog.jsonl --summary-json outputs/h1_protocol_a_summary.json --runlog outputs/h1_protocol_a_runlog.jsonl
+    cargo run --locked -p pid-sim --features protocol-references --bin pid-h1-protocol-a -- --input {{ quote(valid) }} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_summary.json --preflight-runlog outputs/h1_preflight_runlog.jsonl --summary-json outputs/h1_protocol_a_summary.json --runlog outputs/h1_protocol_a_runlog.jsonl
     grep -q '"passed": true' outputs/h1_protocol_a_summary.json
     grep -q '"synthetic_fixture_only": true' outputs/h1_protocol_a_summary.json
     grep -q '"establishes_h1_evidence": false' outputs/h1_protocol_a_summary.json
@@ -164,14 +188,14 @@ h1-protocol-a valid="crates/pid-sim/fixtures/h1_protocol_a_valid.json" parse_inv
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_runlog.jsonl | grep -F 'pid_metrics=0' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
     cp outputs/h1_protocol_a_runlog.jsonl outputs/h1_protocol_a_runlog.first.jsonl
-    cargo run --locked -p pid-sim --bin pid-h1-protocol-a -- --input {{ quote(valid) }} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_summary.json --preflight-runlog outputs/h1_preflight_runlog.jsonl --summary-json outputs/h1_protocol_a_summary.json --runlog outputs/h1_protocol_a_runlog.jsonl
+    cargo run --locked -p pid-sim --features protocol-references --bin pid-h1-protocol-a -- --input {{ quote(valid) }} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_summary.json --preflight-runlog outputs/h1_preflight_runlog.jsonl --summary-json outputs/h1_protocol_a_summary.json --runlog outputs/h1_protocol_a_runlog.jsonl
     cmp -s outputs/h1_protocol_a_runlog.first.jsonl outputs/h1_protocol_a_runlog.jsonl
-    if cargo run --locked -p pid-sim --bin pid-h1-protocol-a -- --input {{ quote(valid) }} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_invalid_summary.json --preflight-runlog outputs/h1_preflight_invalid_runlog.jsonl --summary-json outputs/h1_protocol_a_invalid_preflight_summary.json --runlog outputs/h1_protocol_a_invalid_preflight_runlog.jsonl; then echo "expected Protocol-A preflight binding failure"; exit 1; fi
+    if cargo run --locked -p pid-sim --features protocol-references --bin pid-h1-protocol-a -- --input {{ quote(valid) }} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_invalid_summary.json --preflight-runlog outputs/h1_preflight_invalid_runlog.jsonl --summary-json outputs/h1_protocol_a_invalid_preflight_summary.json --runlog outputs/h1_protocol_a_invalid_preflight_runlog.jsonl; then echo "expected Protocol-A preflight binding failure"; exit 1; fi
     grep -q '"preflight_summary_not_eligible"' outputs/h1_protocol_a_invalid_preflight_summary.json
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_protocol_a_invalid_preflight_runlog.jsonl
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_invalid_preflight_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_invalid_preflight_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
-    if cargo run --locked -p pid-sim --bin pid-h1-protocol-a -- --input {{ quote(parse_invalid) }} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_summary.json --preflight-runlog outputs/h1_preflight_runlog.jsonl --summary-json outputs/h1_protocol_a_parse_invalid_summary.json --runlog outputs/h1_protocol_a_parse_invalid_runlog.jsonl; then echo "expected Protocol-A contract parse failure"; exit 1; fi
+    if cargo run --locked -p pid-sim --features protocol-references --bin pid-h1-protocol-a -- --input {{ quote(parse_invalid) }} --preflight-input crates/pid-sim/fixtures/h1_preflight_valid.json --preflight-summary outputs/h1_preflight_summary.json --preflight-runlog outputs/h1_preflight_runlog.jsonl --summary-json outputs/h1_protocol_a_parse_invalid_summary.json --runlog outputs/h1_protocol_a_parse_invalid_runlog.jsonl; then echo "expected Protocol-A contract parse failure"; exit 1; fi
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h1_protocol_a_parse_invalid_runlog.jsonl
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_parse_invalid_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h1_protocol_a_parse_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
@@ -183,7 +207,7 @@ h1-protocol-a valid="crates/pid-sim/fixtures/h1_protocol_a_valid.json" parse_inv
 # alarm/lead-time accounting, and readable failure.
 # This is PID-free synthetic protocol arithmetic and is not prospective capture or H2 evidence.
 h2-reference complete="crates/pid-sim/fixtures/h2_reference/dataset_complete.json" censored="crates/pid-sim/fixtures/h2_reference/dataset_censored.json" parse_invalid="crates/pid-sim/fixtures/h2_reference/dataset_parse_invalid.json":
-    cargo run --locked -p pid-sim --bin pid-h2-reference -- --dataset {{ quote(complete) }} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_summary.json --runlog outputs/h2_reference_runlog.jsonl
+    cargo run --locked -p pid-sim --features protocol-references --bin pid-h2-reference -- --dataset {{ quote(complete) }} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_summary.json --runlog outputs/h2_reference_runlog.jsonl
     grep -q '"passed": true' outputs/h2_reference_summary.json
     grep -q '"synthetic_fixture_only": true' outputs/h2_reference_summary.json
     grep -q '"establishes_h2_evidence": false' outputs/h2_reference_summary.json
@@ -195,9 +219,9 @@ h2-reference complete="crates/pid-sim/fixtures/h2_reference/dataset_complete.jso
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
     python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json; events=[json.loads(line) for line in open("outputs/h2_reference_runlog.jsonl")]; names=[event["name"] for event in events if event["type"]=="evaluation_metric"]; assert names.count("h2_reference.fixed_prediction_paired_brier_improvement_point")==1; assert not any("fixed_prediction_paired_brier_improvement_lower_bound" in name or "fixed_prediction_paired_brier_improvement_upper_bound" in name for name in names)'
     cp outputs/h2_reference_runlog.jsonl outputs/h2_reference_runlog.first.jsonl
-    cargo run --locked -p pid-sim --bin pid-h2-reference -- --dataset {{ quote(complete) }} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_summary.json --runlog outputs/h2_reference_runlog.jsonl
+    cargo run --locked -p pid-sim --features protocol-references --bin pid-h2-reference -- --dataset {{ quote(complete) }} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_summary.json --runlog outputs/h2_reference_runlog.jsonl
     cmp -s outputs/h2_reference_runlog.first.jsonl outputs/h2_reference_runlog.jsonl
-    cargo run --locked -p pid-sim --bin pid-h2-reference -- --dataset {{ quote(censored) }} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_censored_summary.json --runlog outputs/h2_reference_censored_runlog.jsonl
+    cargo run --locked -p pid-sim --features protocol-references --bin pid-h2-reference -- --dataset {{ quote(censored) }} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_censored_summary.json --runlog outputs/h2_reference_censored_runlog.jsonl
     grep -q '"censored_outcomes": 1' outputs/h2_reference_censored_summary.json
     grep -q '"status": "outcome_unobserved_censored"' outputs/h2_reference_censored_summary.json
     grep -q '"ipcw_weight": null' outputs/h2_reference_censored_summary.json
@@ -209,14 +233,14 @@ h2-reference complete="crates/pid-sim/fixtures/h2_reference/dataset_complete.jso
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_censored_runlog.jsonl | grep -F 'interventions=0' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_censored_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
     python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json; events=[json.loads(line) for line in open("outputs/h2_reference_censored_runlog.jsonl")]; names=[event["name"] for event in events if event["type"]=="evaluation_metric"]; assert names.count("h2_reference.fixed_prediction_paired_brier_improvement_lower_bound")==1; assert names.count("h2_reference.fixed_prediction_paired_brier_improvement_upper_bound")==1; assert not any(name.endswith("_point") for name in names if "fixed_prediction_paired_brier_improvement" in name)'
-    if cargo run --locked -p pid-sim --bin pid-h2-reference -- --dataset {{ quote(parse_invalid) }} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_invalid_summary.json --runlog outputs/h2_reference_invalid_runlog.jsonl; then echo "expected H2 contract parse failure"; exit 1; fi
+    if cargo run --locked -p pid-sim --features protocol-references --bin pid-h2-reference -- --dataset {{ quote(parse_invalid) }} --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_invalid_summary.json --runlog outputs/h2_reference_invalid_runlog.jsonl; then echo "expected H2 contract parse failure"; exit 1; fi
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h2_reference_invalid_runlog.jsonl
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_invalid_runlog.jsonl | grep -F 'evaluation_metric_events=0' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_invalid_runlog.jsonl | grep -F 'pid_metric_events=0' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_invalid_runlog.jsonl | grep -F 'actions=0' >/dev/null
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- outputs/h2_reference_invalid_runlog.jsonl | grep -F 'interventions=0' >/dev/null
     perl -0pe 's/"censoring_stratum_frozen_at_ns": 0/"censoring_stratum_frozen_at_ns": 11/' {{ quote(complete) }} > outputs/h2_reference_semantic_invalid.json
-    if cargo run --locked -p pid-sim --bin pid-h2-reference -- --dataset outputs/h2_reference_semantic_invalid.json --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_semantic_invalid_summary.json --runlog outputs/h2_reference_semantic_invalid_runlog.jsonl; then echo "expected H2 semantic lineage failure"; exit 1; fi
+    if cargo run --locked -p pid-sim --features protocol-references --bin pid-h2-reference -- --dataset outputs/h2_reference_semantic_invalid.json --analysis-plan crates/pid-sim/fixtures/h2_reference/analysis_plan.json --event-ontology crates/pid-sim/fixtures/h2_reference/event_ontology.json --feature-contract crates/pid-sim/fixtures/h2_reference/feature_contract.json --split-manifest crates/pid-sim/fixtures/h2_reference/split_manifest.json --summary-json outputs/h2_reference_semantic_invalid_summary.json --runlog outputs/h2_reference_semantic_invalid_runlog.jsonl; then echo "expected H2 semantic lineage failure"; exit 1; fi
     grep -q '"feature_unavailable_at_landmark"' outputs/h2_reference_semantic_invalid_summary.json
     python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json; d=json.load(open("outputs/h2_reference_semantic_invalid_summary.json")); assert d["report"]["fixed_prediction_paired_brier_improvement_identification"]["result"]=={"status":"unavailable_invalid_input"}'
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/h2_reference_semantic_invalid_runlog.jsonl
@@ -246,44 +270,39 @@ safe-adapter out="outputs/safe_vlda_v2.json":
     set -euo pipefail
     rollouts="$(mktemp -d "${TMPDIR:-/tmp}/prisoma-safe.XXXXXX")"
     trap 'rm -rf "$rollouts"' EXIT
-    python -m experiments.safe_adapter synth --out "$rollouts"
+    uv run --no-sync python -m experiments.safe_adapter synth --out "$rollouts"
     test -s "$rollouts/safe_bundle_manifest.json"
-    python -m experiments.safe_adapter convert --rollouts "$rollouts" --out {{ quote(out) }} --seen-tasks 0,1 --overwrite
-    python -c 'import json, sys; d=json.load(open(sys.argv[1], encoding="utf-8")); ok=d["samples"] and all(s["metadata"].get("bundle_manifest_sha256") for s in d["samples"]); raise SystemExit(0 if ok else "missing bundle-manifest binding")' {{ quote(out) }}
-    python -m experiments.safe_adapter verify --input {{ quote(out) }}
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(out) }} --summary-json outputs/safe_vlda_summary.json --runlog outputs/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint --require-axis-provenance-honest
+    uv run --no-sync python -m experiments.safe_adapter convert --rollouts "$rollouts" --out {{ quote(out) }} --seen-tasks 0,1 --overwrite
+    uv run --no-sync python -c 'import json, sys; d=json.load(open(sys.argv[1], encoding="utf-8")); ok=d["samples"] and all(s["metadata"].get("bundle_manifest_sha256") for s in d["samples"]); raise SystemExit(0 if ok else "missing bundle-manifest binding")' {{ quote(out) }}
+    uv run --no-sync python -m experiments.safe_adapter verify --input {{ quote(out) }}
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(out) }} --summary-json outputs/safe_vlda_summary.json --runlog outputs/safe_vlda_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint --require-axis-provenance-honest
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate outputs/safe_vlda_runlog.jsonl
 
 # H4/exploratory attribution companion: recorded ranking-sensitivity check plus
 # reconstructable evidence/artifact events -> schema-validated canonical run log.
 attribution-probe runlog="outputs/attribution_runlog.jsonl" artifacts="outputs/attribution":
-    python -m experiments.attribution demo --runlog {{ quote(runlog) }} --artifacts {{ quote(artifacts) }}
+    uv run --no-sync python -m experiments.attribution demo --runlog {{ quote(runlog) }} --artifacts {{ quote(artifacts) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'attributions=2'
 
 # Python experiment tests (SAFE adapter + attribution probe; numpy only).
 experiments-test:
-    python -m pytest tests/python/test_safe_adapter.py tests/python/test_attribution.py -q
+    uv run --no-sync pytest tests/python/test_safe_adapter.py tests/python/test_attribution.py -q
 
 # Regenerate the direct-dependency third-party notices (Rust + Python).
 notices:
-    python scripts/generate_third_party_notices.py --write
+    uv run --no-sync python scripts/generate_third_party_notices.py --write
 
 notices-check:
-    python scripts/generate_third_party_notices.py --check
+    uv run --no-sync python scripts/generate_third_party_notices.py --check
 
 offline-harness input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_runlog.jsonl" summary="outputs/offline_vlda_summary.json":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }}
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode continuous
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'pid_metrics=4'
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'pid_metric_events=4'
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'geometry_metrics=20'
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'geometry_metric_events=20'
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'evaluation_metrics=142'
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'evaluation_metric_events=223'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | awk '{ for (i=1; i<=NF; i++) seen[$i]=1 } END { exit !(seen["pid_metrics=4"] && seen["pid_metric_events=4"] && seen["geometry_metrics=20"] && seen["geometry_metric_events=20"] && seen["evaluation_metrics=149"] && seen["evaluation_metric_events=238"]) }'
 
 offline-harness-require-labels input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_labeled_runlog.jsonl" summary="outputs/offline_vlda_labeled_summary.json":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-success-labels
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-success-labels
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
 # Opt-in PID-screen uncertainty: raw m-sample percentile stability envelopes +
@@ -292,40 +311,35 @@ offline-harness-require-labels input="crates/pid-sim/fixtures/offline_vlda_fixtu
 # The sidecar explicitly states that the percentiles are not calibrated n-sample
 # confidence intervals. The default counts assert here to prove that invariant.
 offline-harness-uncertainty input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_unc_runlog.jsonl" summary="outputs/offline_vlda_unc_summary.json" unc="outputs/offline_vlda_uncertainty.json" boot="200" perm="200":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --bootstrap {{ quote(boot) }} --permutation {{ quote(perm) }} --uncertainty-json {{ quote(unc) }}
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode continuous --bootstrap {{ quote(boot) }} --permutation {{ quote(perm) }} --uncertainty-json {{ quote(unc) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'evaluation_metrics=142'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'evaluation_metrics=149'
     test -s {{ quote(unc) }}
 
 offline-harness-require-heldout input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_runlog.jsonl" summary="outputs/offline_vlda_heldout_summary.json":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-split
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-split
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'errors=0'
 
 offline-harness-require-heldout-class-coverage input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_class_coverage_runlog.jsonl" summary="outputs/offline_vlda_heldout_class_coverage_summary.json":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-class-coverage
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-class-coverage
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'errors=0'
 
 offline-harness-require-heldout-episode-disjoint input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_episode_disjoint_runlog.jsonl" summary="outputs/offline_vlda_heldout_episode_disjoint_summary.json":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-episode-disjoint
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-episode-disjoint
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'errors=0'
 
-offline-harness-strict input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_strict_runlog.jsonl" summary="outputs/offline_vlda_strict_summary.json":
-    if cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-geometry-pass; then echo "expected strict offline geometry gate failure"; exit 1; fi
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'errors=1'
-
 offline-harness-highdim input="crates/pid-sim/fixtures/offline_vlda_highdim_fixture.json" runlog="outputs/offline_vlda_highdim_runlog.jsonl" summary="outputs/offline_vlda_highdim_summary.json":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }}
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --resource-limits-json crates/pid-sim/fixtures/offline_vlda_highdim_limits.json --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
 # Positive-path continuous fixture: every axis DECLARED absolutely continuous, equal ambient source
 # dimensions (continuous shared exclusions requires them), tie-free. All 6 requested estimates are
 # produced — the counterpart to `offline-harness`, whose binary-L fixture abstains.
 offline-harness-continuous input="crates/pid-sim/fixtures/offline_vlda_continuous_fixture.json" runlog="outputs/offline_vlda_continuous_runlog.jsonl" summary="outputs/offline_vlda_continuous_summary.json":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }}
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode continuous
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
 # Exercise both report outcomes. The mixed-support fixture must abstain without numeric
@@ -336,12 +350,12 @@ estimate-report-contract: offline-harness offline-harness-continuous
 
 # Discrete (quantized I_min) PID mode; results carry saturation diagnostics (grandplan §8.1.6).
 offline-harness-discrete input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_discrete_runlog.jsonl" summary="outputs/offline_vlda_discrete_summary.json":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode discrete --discrete-bins 8
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode discrete --discrete-bins 8
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
 # PLS-project sources toward A, then discrete PID (high-dim escape hatch).
 offline-harness-discrete-pls input="crates/pid-sim/fixtures/offline_vlda_highdim_fixture.json" runlog="outputs/offline_vlda_highdim_dpls_runlog.jsonl" summary="outputs/offline_vlda_highdim_dpls_summary.json":
-    cargo run --locked -p pid-sim --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode discrete-pls --pls-components 2 --discrete-bins 8
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --resource-limits-json crates/pid-sim/fixtures/offline_vlda_highdim_limits.json --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode discrete-pls --pls-components 2 --discrete-bins 8
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
 # M1 run-log smoke path.
@@ -363,7 +377,7 @@ runlog-bridge-tcp path="outputs/demo_bridge_tcp_runlog.jsonl" addr="127.0.0.1:38
     cargo run --locked -p pid-sim --bin pid-sim-bridge-tcp -- --bind {{ quote(addr) }} {{ quote(path) }}
 
 runlog-bridge-ws path="outputs/demo_bridge_ws_runlog.jsonl" addr="127.0.0.1:38473":
-    cargo run --locked -p pid-sim --bin pid-sim-bridge-ws -- --bind {{ quote(addr) }} {{ quote(path) }}
+    cargo run --locked -p pid-sim --features websocket --bin pid-sim-bridge-ws -- --bind {{ quote(addr) }} {{ quote(path) }}
 
 bridge-contract out="outputs/bridge_runlog_contract.json":
     cargo run --locked -p pid-bridge --bin pid-bridge-contract -- --out {{ quote(out) }}
@@ -373,9 +387,9 @@ bridge-contract out="outputs/bridge_runlog_contract.json":
 # file behavior. Not remote-security, forwarding/proxy, or adversarial-filesystem validation.
 bridge-security:
     cargo test --locked -p pid-bridge
-    cargo test --locked -p pid-rerun
+    cargo test --locked -p pid-rerun --all-features
     cargo test --locked -p pid-sim --bin pid-sim-bridge-tcp
-    cargo test --locked -p pid-sim --bin pid-sim-bridge-ws
+    cargo test --locked -p pid-sim --features websocket --bin pid-sim-bridge-ws
     cargo test --locked -p pid-sim --lib
 
 runlog-replay path="outputs/demo_runlog.jsonl":
@@ -416,5 +430,5 @@ runlog-rerun-bridge path="outputs/demo_bridge_runlog.jsonl" out="outputs/demo_br
 
 runlog-bridge-export-rerun source="outputs/demo_bridge_runlog.jsonl" path="outputs/demo_bridge_export_rerun_runlog.jsonl" out="outputs/demo_bridge_export_rerun.rrd":
     cargo run --locked -p pid-sim --bin pid-sim-bridge-demo -- {{ quote(source) }}
-    python -c 'import json, os, sys; print(json.dumps({"jsonrpc":"2.0","id":"export","method":"export.rerun","params":{"run_log_uri":os.path.realpath(sys.argv[1]),"output_uri":os.path.realpath(sys.argv[2])}}, separators=(",", ":")))' {{ quote(source) }} {{ quote(out) }} | cargo run --locked -p pid-sim --bin pid-sim-bridge-stdio -- {{ quote(path) }}
+    python -c 'import json, os, sys; print(json.dumps({"jsonrpc":"2.0","id":"export","method":"export.rerun","params":{"run_log_uri":os.path.realpath(sys.argv[1]),"output_uri":os.path.realpath(sys.argv[2])}}, separators=(",", ":")))' {{ quote(source) }} {{ quote(out) }} | cargo run --locked -p pid-sim --features rerun-export --bin pid-sim-bridge-stdio -- {{ quote(path) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(path) }}

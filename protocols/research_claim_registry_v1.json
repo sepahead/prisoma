@@ -161,7 +161,14 @@
       "claim_id": "H3",
       "registered_role": "incremental_pid_value_inside_validated_support",
       "execution_status": "not_eligible",
-      "scientific_status": "blocked_on_population_measure_estimator_and_application_gates",
+      "scientific_status": "not_eligible_see_pid_gate_status",
+      "pid_gate_status": {
+        "population": "open_unfrozen",
+        "measure": "not_adjudicated",
+        "atom_estimator": "blocked",
+        "continuous_application": "blocked_not_application_validated",
+        "high_dimensional_mi_coherence": "no_go"
+      },
       "pid_dependency": "required_if_activated",
       "current_artifacts": [
         {

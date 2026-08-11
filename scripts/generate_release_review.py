@@ -358,16 +358,18 @@ def _run_git(
                     break
             if overflow is not None:
                 break
-        if os.name == "posix" or timed_out or overflow is not None:
-            _terminate_process_group(process)
-        remaining = max(0.0, deadline - time.monotonic())
-        try:
-            returncode = process.wait(timeout=max(1.0, remaining))
-        except subprocess.TimeoutExpired:
-            timed_out = True
+        if timed_out or overflow is not None:
             _terminate_process_group(process)
             process.wait(timeout=5.0)
             returncode = process.returncode
+        else:
+            try:
+                returncode = process.wait(timeout=max(0.0, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                _terminate_process_group(process)
+                process.wait(timeout=5.0)
+                returncode = process.returncode
     finally:
         _terminate_process_group(process)
         try:

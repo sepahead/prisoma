@@ -38,37 +38,30 @@ def test_git_subprocess_has_output_and_time_budgets(
         )
 
 
-@pytest.mark.skipif(os.name != "posix", reason="process-group check requires POSIX")
-def test_git_subprocess_reaps_descendants_and_setup_failures(
+@pytest.mark.skipif(os.name != "posix", reason="fd lifecycle check requires POSIX")
+def test_git_subprocess_can_close_pipes_before_a_clean_exit(
     tmp_path: Path, monkeypatch
 ) -> None:
     monkeypatch.setattr(MODULE, "ROOT", tmp_path)
-    descendant_marker = tmp_path / "descendant-escaped"
-    spawn_descendant = """
-import subprocess
-import sys
 
-subprocess.Popen(
-    [
-        sys.executable,
-        "-c",
-        "import pathlib, sys, time; time.sleep(0.2); "
-        "pathlib.Path(sys.argv[1]).write_text('escaped', encoding='utf-8')",
-        sys.argv[1],
-    ],
-    stdin=subprocess.DEVNULL,
-    stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL,
-)
-"""
-    MODULE._run_bounded(
-        [sys.executable, "-c", spawn_descendant, os.fspath(descendant_marker)],
+    completed = MODULE._run_bounded(
+        [
+            sys.executable,
+            "-c",
+            "import os, time; os.close(1); os.close(2); time.sleep(0.05)",
+        ],
         timeout_seconds=2,
         max_output_bytes=32,
     )
-    time.sleep(0.5)
-    assert not descendant_marker.exists()
 
+    assert completed.returncode == 0
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group check requires POSIX")
+def test_git_subprocess_reaps_process_group_after_setup_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
     setup_marker = tmp_path / "setup-escaped"
     delayed_marker = (
         "import pathlib, sys, time; time.sleep(0.2); "
@@ -112,6 +105,27 @@ def test_json_reader_rejects_duplicate_constants_symlinks_and_oversize(
         MODULE._json_object(duplicate, label="fixture")
 
 
+def test_reader_rejects_a_final_lexical_path_swap(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "source.txt"
+    replacement = tmp_path / "replacement.txt"
+    path.write_text("stable\n", encoding="utf-8")
+    replacement.write_text("stable\n", encoding="utf-8")
+    real_lstat = MODULE.Path.lstat
+    calls = 0
+
+    def swapped_lstat(candidate: Path) -> object:
+        nonlocal calls
+        if candidate == path:
+            calls += 1
+            if calls == 2:
+                return real_lstat(replacement)
+        return real_lstat(candidate)
+
+    monkeypatch.setattr(MODULE.Path, "lstat", swapped_lstat)
+    with pytest.raises(MODULE.TruthAuditError, match="changed while reading"):
+        MODULE._read_regular_bytes(path, label="fixture")
+
+
 def test_overlay_path_is_confined_and_symlink_free(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(MODULE, "ROOT", tmp_path)
     inside = tmp_path / "inside.csv"
@@ -132,6 +146,183 @@ def test_toml_reader_rejects_malformed_input(tmp_path: Path) -> None:
     malformed.write_text("[broken\n", encoding="utf-8")
     with pytest.raises(MODULE.TruthAuditError, match="cannot parse"):
         MODULE._toml_object(malformed, label="fixture")
+
+
+def test_cargo_deny_policy_requires_all_transitive_advisories(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    deny = tmp_path / "deny.toml"
+    deny.write_text(
+        '[advisories]\nunsound = "all"\nunmaintained = "all"\n',
+        encoding="utf-8",
+    )
+    assert MODULE.cargo_deny_policy_problems() == []
+
+    deny.write_text(
+        '[advisories]\nunsound = "workspace"\nunmaintained = "none"\n',
+        encoding="utf-8",
+    )
+    assert MODULE.cargo_deny_policy_problems() == [
+        "deny.toml advisories.unsound must be `all` for transitive coverage",
+        "deny.toml advisories.unmaintained must be `all` for transitive coverage",
+    ]
+
+
+def test_cargo_deny_policy_rejects_a_missing_advisories_table(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    (tmp_path / "deny.toml").write_text("[licenses]\nversion = 2\n", encoding="utf-8")
+    with pytest.raises(MODULE.TruthAuditError, match="advisories table is missing"):
+        MODULE.cargo_deny_policy_problems()
+
+
+def test_pid_sim_dependency_isolation_is_explicit(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    (tmp_path / "Cargo.toml").write_text(
+        """\
+[workspace]
+default-members = ["crates/pid-bridge", "crates/pid-sim"]
+""",
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "crates" / "pid-sim" / "Cargo.toml"
+    manifest.parent.mkdir(parents=True)
+    source = manifest.parent / "src" / "lib.rs"
+    source.parent.mkdir()
+    source.write_text(
+        """\
+#[cfg(feature = "legacy-sensitivity")]
+#[path = "power.rs"]
+pub mod legacy_sensitivity;
+#[cfg(feature = "protocol-references")]
+pub mod h1_preflight;
+#[cfg(feature = "protocol-references")]
+pub mod h1_protocol_a;
+#[cfg(feature = "protocol-references")]
+pub mod h2_reference;
+#[cfg(feature = "rapier")]
+pub mod manipulation;
+#[cfg(feature = "rapier")]
+pub mod physics;
+#[cfg(feature = "analysis")]
+pub mod offline_harness;
+#[cfg(feature = "analysis")]
+pub mod toy_harness;
+""",
+        encoding="utf-8",
+    )
+    manifest.write_text(
+        """\
+[[bin]]
+name = "pid-sim-legacy-sensitivity"
+required-features = ["legacy-sensitivity"]
+[[bin]]
+name = "pid-h1-preflight"
+required-features = ["protocol-references"]
+[[bin]]
+name = "pid-h1-protocol-a"
+required-features = ["protocol-references"]
+[[bin]]
+name = "pid-h2-reference"
+required-features = ["protocol-references"]
+[[bin]]
+name = "pid-toy-harness"
+required-features = ["analysis"]
+[[bin]]
+name = "pid-offline-harness"
+required-features = ["analysis"]
+[[bin]]
+name = "pid-sim-bridge-ws"
+required-features = ["websocket"]
+[[bin]]
+name = "pid-rapier-harness"
+required-features = ["rapier"]
+[features]
+default = []
+analysis = ["dep:pid-core", "dep:same-file"]
+legacy-sensitivity = []
+protocol-references = []
+websocket = ["dep:sha1"]
+rerun-export = ["dep:pid-rerun", "dep:tempfile"]
+rapier = ["dep:rapier3d-f64"]
+[dependencies]
+pid-core = { version = "1", optional = true }
+same-file = { version = "1", optional = true }
+sha1 = { version = "1", optional = true }
+pid-rerun = { version = "1", optional = true }
+tempfile = { version = "1", optional = true }
+rapier3d-f64 = { version = "1", optional = true }
+""",
+        encoding="utf-8",
+    )
+    assert MODULE.pid_sim_dependency_isolation_problems() == []
+
+    valid_manifest = manifest.read_text(encoding="utf-8")
+    manifest.write_text(
+        valid_manifest.replace(
+            'name = "pid-h1-preflight"\nrequired-features = ["protocol-references"]',
+            'name = "pid-h1-preflight"\nrequired-features = []',
+        ),
+        encoding="utf-8",
+    )
+    assert MODULE.pid_sim_dependency_isolation_problems() == [
+        "pid-sim binary 'pid-h1-preflight' must require feature 'protocol-references'"
+    ]
+    manifest.write_text(valid_manifest, encoding="utf-8")
+
+    valid_source = source.read_text(encoding="utf-8")
+    source.write_text(
+        valid_source.replace(
+            '#[cfg(feature = "rapier")]\npub mod manipulation;',
+            "pub mod manipulation;",
+        ),
+        encoding="utf-8",
+    )
+    assert MODULE.pid_sim_dependency_isolation_problems() == [
+        "pid-sim module 'manipulation' must require feature 'rapier'"
+    ]
+    source.write_text(valid_source, encoding="utf-8")
+
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace(
+            'pid-core = { version = "1", optional = true }',
+            'pid-core = { version = "1" }',
+        ),
+        encoding="utf-8",
+    )
+    assert MODULE.pid_sim_dependency_isolation_problems() == [
+        "pid-sim dependency 'pid-core' must remain optional"
+    ]
+
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8")
+        .replace(
+            'pid-core = { version = "1" }',
+            'pid-core = { version = "1", optional = true }',
+        )
+        .replace(
+            "default = []",
+            'default = ["analysis"]',
+        ),
+        encoding="utf-8",
+    )
+    assert MODULE.pid_sim_dependency_isolation_problems() == [
+        "pid-sim default feature set must remain empty"
+    ]
+
+    (tmp_path / "Cargo.toml").write_text(
+        """\
+[workspace]
+default-members = ["crates/pid-rerun"]
+""",
+        encoding="utf-8",
+    )
+    assert MODULE.pid_sim_dependency_isolation_problems() == [
+        "Cargo.toml default-members must remain the bridge and simulation core",
+        "pid-sim default feature set must remain empty",
+    ]
 
 
 def test_gitlink_revision_requires_one_exact_stage_zero_entry(monkeypatch) -> None:
@@ -295,6 +486,90 @@ def test_justfile_reproducibility_rejects_unlocked_unquoted_and_optimized_checks
     assert any("without `quote(...)`" in problem for problem in problems)
     assert any("optimization-mode guard" in problem for problem in problems)
     assert any("strict-mode shell with pipefail" in problem for problem in problems)
+
+
+def test_local_quality_gate_requires_locked_full_commands_and_documentation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    (tmp_path / ".github").mkdir(parents=True)
+    (tmp_path / "justfile").write_text(
+        """\
+check:
+    cargo fmt --all -- --check
+    cargo check --locked -p pid-bridge -p pid-sim --all-targets --no-default-features
+    cargo test --locked -p pid-sim --no-default-features lean_bridge_surface_excludes_rerun_export
+    cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+    cargo test --locked --workspace --all-targets --all-features
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+    just python-lint
+    just python-test
+    just docs-audit
+    just notices-check
+""",
+        encoding="utf-8",
+    )
+    for relative in (
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+    ):
+        path = tmp_path / relative
+        path.write_text("Run `just check`.\n", encoding="utf-8")
+    assert MODULE.local_quality_gate_problems() == []
+
+    justfile = tmp_path / "justfile"
+    justfile.write_text(
+        justfile.read_text(encoding="utf-8").replace(
+            "    cargo test --locked --workspace --all-targets --all-features\n", ""
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "CONTRIBUTING.md").write_text(
+        "Run selected checks.\n", encoding="utf-8"
+    )
+    problems = MODULE.local_quality_gate_problems()
+    assert any(
+        "cargo test --locked --workspace --all-targets --all-features" in problem
+        for problem in problems
+    )
+    assert "CONTRIBUTING.md omits the required `just check` gate" in problems
+
+
+def test_local_quality_gate_does_not_accept_commands_from_another_recipe(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    (tmp_path / ".github").mkdir(parents=True)
+    (tmp_path / "justfile").write_text(
+        """\
+check:
+    cargo fmt --all -- --check
+
+decoy:
+    cargo check --locked -p pid-bridge -p pid-sim --all-targets --no-default-features
+    cargo test --locked -p pid-sim --no-default-features lean_bridge_surface_excludes_rerun_export
+    cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+    cargo test --locked --workspace --all-targets --all-features
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+    just python-lint
+    just python-test
+    just docs-audit
+    just notices-check
+""",
+        encoding="utf-8",
+    )
+    for relative in (
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+    ):
+        (tmp_path / relative).write_text("Run `just check`.\n", encoding="utf-8")
+
+    problems = MODULE.local_quality_gate_problems()
+
+    assert any("cargo clippy" in problem for problem in problems)
+    assert any("just notices-check" in problem for problem in problems)
 
 
 def test_exp0_documentation_distinguishes_cells_from_seeded_case_results(

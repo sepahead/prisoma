@@ -1,31 +1,49 @@
-# WorldWarp Integration
+# WorldWarp comparator specification
 
-> **Documentation Cross-Reference**:
-> - `grandplan.md` — Canonical spec and world-model positioning
-> - `EXPERIMENTS.md` — When/why to treat external world models as staged variables
-> - `DIAGRAMS.md` — Agent Bridge control plane (how services are invoked + logged)
+**Docset alignment:** v12.5
 
-**Docset alignment:** docset v12.5 (optional external comparator — evidence-ladder **E1** interface spec per grandplan §8.9; pre-implementation, not built in this repo today, not a direct ecosystem edge)
-**Status:** Specification / integration notes (verify upstream claims at time of use)
+**Status:** E1 interface specification only
 
-**Docset-wide final solution:** `grandplan.md` §16 is the decision log. WorldWarp or any external world model is an optional external comparator (evidence-ladder E1, grandplan §8.9); it must emit versioned artifacts into the run log and be visualized through the same Rerun/Tauri split rather than becoming an unlogged side channel.
+**Implementation:** Not built in Prisoma
 
-## Overview
-WorldWarp (https://github.com/sepahead/WorldWarp) is an external framework for generating long-range, camera-conditioned scenes from a single image. In the prisoma context, it can be treated as an *optional* external world-model baseline (evaluative/generative) to compare against VLA internal representations. Verify model backbones, licenses, and reproducibility constraints from the upstream repo before using it in experiments.
+`grandplan.md` section 16 is the decision record. WorldWarp is an optional external comparator.
+It is not a Prisoma dependency, integration, producer, or thesis prerequisite.
 
-## Key Features
-- **As described upstream (verify):** asynchronous chunk-wise generation, explicit camera conditioning, and an online cache intended to improve geometric consistency across frames.
-- **Interactive GUI (verify):** upstream mentions a GUI for rapid testing and parameter tuning (e.g., camera paths, generation strength).
-- **Foundation model integration (verify):** WorldWarp may integrate one or more video/VLM backbones; confirm exact models/versions and licensing in the upstream documentation rather than assuming specific WAN/Qwen variants.
+## Current boundary
 
-## Relevance to prisoma
-WorldWarp aligns with the "Generative World Model" component of the prisoma architecture.
-- **Environment Generation:** Can generate diverse, consistent background scenes for robot simulation from a single seed image.
-- **Visual Forecasting:** Serves as a predictive model for what a robot *should* see after a camera movement, providing a candidate "D" (Dynamics / world-model axis — never depth) reference for PID comparison.
-- **Data Augmentation:** Capable of creating novel viewpoints of existing datasets to robustify VLA training.
+The candidate upstream repository is <https://github.com/sepahead/WorldWarp>. Prisoma has no
+pinned WorldWarp revision, consumer adapter, executable fixture, or rights-approved model bundle.
+Verify the upstream implementation, models, licenses, and compute needs before any adoption.
 
-## Integration Points
-1.  **Evaluative World Model:** Use WorldWarp to generate expected future frames based on robot camera motions. Treat the predicted frames/latents as an explicit staged variable (e.g., `D_worldwarp`) and analyze `(V_obs, D_worldwarp; A)` under the same contract-first logging rules as other world models.
-2.  **Simulation Environment:** Record generated scenes as run-log artifacts, visualize them in Rerun during Phases 1–3, and integrate them into SparkJS/Three.js only for Phase 4 custom rendering.
-3.  **Counterfactual Analysis:** Generate "what-if" scenarios by altering camera trajectories to test VLA robustness to viewpoint shifts.
-4.  **Agent Bridge orchestration (planned):** invoke WorldWarp as an external service through the same control plane as the GUI (JSON‑RPC/MCP), and log prompts/camera paths/versions/seeds as first-class artifacts for replay.
+Generated scenes are not observations, simulator ground truth, or causal interventions. A
+generated frame or latent becomes a candidate D source only after the section 9.1 mapping review.
+D never means depth, dynamics by default, or natural policy use.
+
+## Required adapter contract
+
+If Prisoma adopts this comparator, the adapter must:
+
+- use the Agent Bridge as its only request plane;
+- record each request and result in the canonical run log;
+- pin the upstream revision, model, checkpoint, configuration, and execution environment;
+- bind prompts, source media, camera paths, seeds, outputs, and rights receipts by exact digest;
+- keep observed inputs separate from generated predictions;
+- declare population support and computation status for each emitted axis;
+- enforce input, output, time, memory, and process limits; and
+- remain optional when the external service is unavailable.
+
+Rerun may show the recorded artifacts during diagnostic phases. A Phase 4 shell may render them
+only from the same logged identities. No UI may create an unlogged control or evidence path.
+
+## Admission before scientific use
+
+Require all of the following before a WorldWarp result enters a study:
+
+1. Complete the model, data, license, privacy, and redistribution review.
+2. Implement a bounded, content-addressed adapter with replayable fixtures.
+3. Test adapter conformance independently from the service implementation.
+4. Freeze a separate counterfactual-support question and matched comparator.
+5. Measure realism and support against observed or simulator-ground-truth interventions.
+6. Apply the population, measure, estimator, and application gates to derived diagnostics.
+
+Until those steps pass, WorldWarp remains an off-critical-path E1 proposal.

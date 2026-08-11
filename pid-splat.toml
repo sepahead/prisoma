@@ -179,12 +179,11 @@ bootstrap_samples = 100
 percentile_tail_mass = 0.05
 stability_interpretation = "raw_m_sample_percentiles_not_n_sample_confidence_intervals"
 
-# Geometry validation (see EXPERIMENTS.md §4.0)
-[pid.geometry_gate]
+# Descriptive geometry diagnostics. These values never establish estimator validity.
+[pid.geometry_diagnostics]
 enabled = true
-max_intrinsic_dim = 20            # Fail if intrinsic dim > this
-min_gromov_delta_rel = 0.1        # Fail if δ_rel < this (tree-like); δ_rel = 2δ/diam under chosen metric
-min_distance_cv = 0.1             # Fail if CV < this (distance concentration)
+max_intrinsic_dim_warning = 20    # Warn if intrinsic dim exceeds this
+min_distance_cv_warning = 0.1     # Warn if CV is below this
 
 # =============================================================================
 # ZENOH MIDDLEWARE

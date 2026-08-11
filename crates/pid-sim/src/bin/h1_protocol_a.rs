@@ -1,15 +1,19 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::{BufReader, BufWriter, Cursor, Read, Write};
+use std::io::{BufReader, BufWriter, Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{bail, Context, Result};
 use pid_runlog::{Actor, ActorType, RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
+use pid_sim::file_snapshot::{
+    parse_strict_json, read_bounded_regular_file, sync_directory, validate_strict_json_lines,
+};
 use pid_sim::h1_preflight::{
-    H1PreflightDeclaration, H1PreflightInput, H1PreflightReport, H1PreflightValidationScope,
-    H1PrimaryProtocol, H1TargetPopulation, H1_PREFLIGHT_SCHEMA_VERSION,
+    H1InputSnapshotStatus, H1PreflightDeclaration, H1PreflightInput, H1PreflightReport,
+    H1PreflightValidationScope, H1PrimaryProtocol, H1TargetPopulation,
+    H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION, H1_PREFLIGHT_SCHEMA_VERSION,
 };
 use pid_sim::h1_protocol_a::{
     run_h1_protocol_a, H1ProtocolACaseOutcome, H1ProtocolAInput,
@@ -19,7 +23,6 @@ use pid_sim::h1_protocol_a::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 const COMPONENT: &str = "pid-h1-protocol-a";
 const MAX_INPUT_BYTES: u64 = 16 * 1024 * 1024;
@@ -79,7 +82,9 @@ struct PreflightSummary {
     schema_version: u32,
     run_id: String,
     input_uri: String,
-    input_sha256: String,
+    input_snapshot_status: H1InputSnapshotStatus,
+    input_sha256: Option<String>,
+    input_byte_len: u64,
     config_hash: String,
     parsed: bool,
     passed: bool,
@@ -100,7 +105,9 @@ struct PreflightVerdict {
     denominators: Option<Value>,
     issue_count: usize,
     reason_codes: Vec<String>,
-    input_sha256: String,
+    input_snapshot_status: H1InputSnapshotStatus,
+    input_sha256: Option<String>,
+    input_byte_len: u64,
     summary_sha256: String,
     evidence_bundle_hash: String,
     verified_artifact_count: usize,
@@ -155,7 +162,7 @@ fn main() -> Result<()> {
     let input_snapshot = read_exact_snapshot(&args.input, MAX_INPUT_BYTES)?;
     let input_sha256 = input_snapshot.sha256.clone();
     let (input, parse_issue) = match input_snapshot.bytes.as_deref() {
-        Some(bytes) => match serde_json::from_slice::<H1ProtocolAInput>(bytes) {
+        Some(bytes) => match parse_strict_json::<H1ProtocolAInput>(bytes, "H1 Protocol A input") {
             Ok(input) => (Some(input), None),
             Err(error) => (
                 None,
@@ -371,7 +378,7 @@ fn verify_preflight_binding(
         }
     }
     let preflight_document = preflight_input.bytes.as_deref().and_then(|bytes| {
-        match serde_json::from_slice::<H1PreflightInput>(bytes) {
+        match parse_strict_json::<H1PreflightInput>(bytes, "H1 preflight input") {
             Ok(document) => Some(document),
             Err(error) => {
                 push_cli_issue(
@@ -384,22 +391,30 @@ fn verify_preflight_binding(
             }
         }
     });
-    let summary =
-        preflight_summary.bytes.as_deref().and_then(|bytes| {
-            match serde_json::from_slice::<PreflightSummary>(bytes) {
-                Ok(summary) => Some(summary),
-                Err(error) => {
-                    push_cli_issue(
-                        &mut issues,
-                        "preflight_summary_parse_failed",
-                        "preflight.summary",
-                        error.to_string(),
-                    );
-                    None
-                }
+    let summary = preflight_summary.bytes.as_deref().and_then(|bytes| {
+        match parse_strict_json::<PreflightSummary>(bytes, "H1 preflight summary") {
+            Ok(summary) => Some(summary),
+            Err(error) => {
+                push_cli_issue(
+                    &mut issues,
+                    "preflight_summary_parse_failed",
+                    "preflight.summary",
+                    error.to_string(),
+                );
+                None
             }
-        });
+        }
+    });
     let runlog_events = preflight_runlog.bytes.as_deref().and_then(|bytes| {
+        if let Err(error) = validate_strict_json_lines(bytes, "H1 preflight run log") {
+            push_cli_issue(
+                &mut issues,
+                "preflight_runlog_parse_failed",
+                "preflight.runlog",
+                error.to_string(),
+            );
+            return None;
+        }
         match pid_runlog::read_events(BufReader::new(Cursor::new(bytes))) {
             Ok(events) => Some(events),
             Err(error) => {
@@ -424,6 +439,7 @@ fn verify_preflight_binding(
             preflight_document,
             summary,
             events,
+            preflight_input.byte_len,
             summary_sha256,
             &mut issues,
         );
@@ -441,6 +457,7 @@ fn validate_preflight_semantics(
     preflight_input: &H1PreflightInput,
     summary: &PreflightSummary,
     events: &[RunLogEvent],
+    preflight_input_byte_len: u64,
     summary_sha256: &str,
     issues: &mut Vec<CliIssue>,
 ) {
@@ -450,7 +467,7 @@ fn validate_preflight_semantics(
             && report.issues.is_empty()
     });
     let evidence_bundle_hash = pid_runlog::canonical_json_hash_v2(&summary.verified_artifacts);
-    if summary.schema_version != H1_PREFLIGHT_SCHEMA_VERSION
+    if summary.schema_version != H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION
         || !summary.parsed
         || !summary.passed
         || summary.establishes_h1_evidence
@@ -458,7 +475,9 @@ fn validate_preflight_semantics(
         || !summary.fatal_issues.is_empty()
         || summary.run_id != input.preflight.run_id
         || summary.input_uri != input.preflight.input.artifact_uri
-        || summary.input_sha256 != input.preflight.input.sha256
+        || summary.input_snapshot_status != H1InputSnapshotStatus::Exact
+        || summary.input_sha256.as_deref() != Some(input.preflight.input.sha256.as_str())
+        || summary.input_byte_len != preflight_input_byte_len
         || summary.evidence_bundle_hash != input.preflight.evidence_bundle_hash
         || evidence_bundle_hash.as_ref().ok().map(String::as_str)
             != Some(summary.evidence_bundle_hash.as_str())
@@ -510,14 +529,16 @@ fn validate_preflight_semantics(
         .then(|| serde_json::from_value::<PreflightVerdict>(verdict_values[0].clone()).ok())
         .flatten();
     if verdict.as_ref().is_none_or(|verdict| {
-        verdict.schema_version != H1_PREFLIGHT_SCHEMA_VERSION
+        verdict.schema_version != H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION
             || verdict.primary_protocol != "protocol_a"
             || !verdict.passed
             || verdict.establishes_h1_evidence
             || verdict.denominators.is_none()
             || verdict.issue_count != 0
             || !verdict.reason_codes.is_empty()
+            || verdict.input_snapshot_status != summary.input_snapshot_status
             || verdict.input_sha256 != summary.input_sha256
+            || verdict.input_byte_len != summary.input_byte_len
             || verdict.summary_sha256 != summary_sha256
             || verdict.evidence_bundle_hash != summary.evidence_bundle_hash
             || verdict.verified_artifact_count != summary.verified_artifacts.len()
@@ -958,45 +979,11 @@ fn parse_args() -> Result<Option<Args>> {
 }
 
 fn read_exact_snapshot(path: &Path, maximum: u64) -> Result<ExactSnapshot> {
-    let mut file =
-        fs::File::open(path).with_context(|| format!("failed to open {}", path.display()))?;
-    let metadata = file.metadata()?;
-    if !metadata.is_file() {
-        bail!("input is not a regular file: {}", path.display());
-    }
-    if metadata.len() > maximum {
-        return Ok(ExactSnapshot {
-            bytes: None,
-            sha256: None,
-            byte_len: metadata.len(),
-        });
-    }
-    let mut bytes = Vec::new();
-    let mut hasher = Sha256::new();
-    let mut byte_len = 0_u64;
-    let mut chunk = [0_u8; 64 * 1024];
-    loop {
-        let count = file.read(&mut chunk)?;
-        if count == 0 {
-            break;
-        }
-        byte_len = byte_len
-            .checked_add(count as u64)
-            .context("input byte count overflowed u64")?;
-        if byte_len > maximum {
-            return Ok(ExactSnapshot {
-                bytes: None,
-                sha256: None,
-                byte_len,
-            });
-        }
-        hasher.update(&chunk[..count]);
-        bytes.extend_from_slice(&chunk[..count]);
-    }
+    let snapshot = read_bounded_regular_file(path, maximum, "H1 Protocol A input")?;
     Ok(ExactSnapshot {
-        bytes: Some(bytes),
-        sha256: Some(pid_sim::lowercase_hex(hasher.finalize())),
-        byte_len,
+        bytes: snapshot.bytes,
+        sha256: snapshot.sha256,
+        byte_len: snapshot.byte_len,
     })
 }
 
@@ -1087,8 +1074,7 @@ fn sync_parent(path: &Path) -> Result<()> {
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
-    fs::File::open(parent)?.sync_all()?;
-    Ok(())
+    sync_directory(parent, "H1 Protocol A output directory")
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {

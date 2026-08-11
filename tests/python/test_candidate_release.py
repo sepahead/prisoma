@@ -356,7 +356,6 @@ def test_candidate_git_helper_enforces_exact_caps_and_timeout(
         """#!/usr/bin/env python3
 import os
 import pathlib
-import subprocess
 import sys
 import time
 
@@ -368,19 +367,6 @@ elif mode == "stderr":
 elif mode == "timeout":
     time.sleep(2)
     pathlib.Path(os.environ["FAKE_GIT_MARKER"]).write_text("escaped", encoding="utf-8")
-elif mode == "descendant":
-    subprocess.Popen(
-        [
-            sys.executable,
-            "-c",
-            "import pathlib, sys, time; time.sleep(0.2); "
-            "pathlib.Path(sys.argv[1]).write_text('escaped', encoding='utf-8')",
-            os.environ["FAKE_GIT_MARKER"],
-        ],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
 elif mode == "setup_failure":
     time.sleep(0.2)
     pathlib.Path(os.environ["FAKE_GIT_MARKER"]).write_text("escaped", encoding="utf-8")
@@ -411,13 +397,6 @@ elif mode == "setup_failure":
     assert caught.value.code == "GIT_TIMEOUT"
     time.sleep(0.1)
     assert not marker.exists()
-
-    descendant_marker = tmp_path / "descendant-escaped"
-    monkeypatch.setenv("FAKE_GIT_MODE", "descendant")
-    monkeypatch.setenv("FAKE_GIT_MARKER", os.fspath(descendant_marker))
-    assert run_git(tmp_path, ["ignored"], max_bytes=4) == b""
-    time.sleep(0.5)
-    assert not descendant_marker.exists()
 
     setup_marker = tmp_path / "setup-escaped"
     monkeypatch.setenv("FAKE_GIT_MODE", "setup_failure")
@@ -802,6 +781,105 @@ def test_task_claim_defect_receipt_and_draft_boundaries_are_explicit() -> None:
         "H4": "exploratory_not_established",
     }
     assert draft["release"]["one_point_zero_convergence_claimed"] is False
+
+
+def test_source_defect_types_clean_dirty_and_post_push_states() -> None:
+    generator = _load_generator()
+    inventory = _read(CANDIDATE_DIR / "source_inventory.json")
+    progress = inventory["progress_snapshot"]["document"]
+    receipts = generator["build_receipts"](inventory, progress)
+
+    clean_register = generator["build_defect_register"](inventory, progress, receipts)
+    clean_defect = next(
+        defect for defect in clean_register["defects"] if defect["id"] == "DEF-P0-001"
+    )
+    assert clean_defect["status"] == "open"
+    assert clean_defect["blocks_release"] is True
+    assert clean_defect["source_snapshot"] == {
+        "kind": "clean_committed_snapshot",
+        "head_commit": inventory["source"]["head_commit"],
+    }
+    assert clean_defect["post_push_binding"] == {
+        "receipt_id": "RCP-POST-PUSH-CI",
+        "receipt_status": "pending_post_push_ci",
+        "exact_pushed_commit": None,
+        "receipt_reports_success": False,
+    }
+    assert clean_defect["title"] == (
+        "clean committed candidate snapshot lacks a successful exact pushed-commit and "
+        "post-push CI binding"
+    )
+    assert clean_defect["resolution_rule"] == (
+        "use a reviewed successor schema to bind a clean exact candidate commit to "
+        "authenticated successful post-push main CI evidence"
+    )
+    assert "dirty" not in clean_defect["title"]
+
+    dirty_inventory = copy.deepcopy(inventory)
+    dirty_inventory["source"]["clean"] = False
+    dirty_inventory["source"]["state"] = "dirty_uncommitted_source_snapshot"
+    dirty_register = generator["build_defect_register"](
+        dirty_inventory, progress, receipts
+    )
+    dirty_defect = next(
+        defect for defect in dirty_register["defects"] if defect["id"] == "DEF-P0-001"
+    )
+    assert dirty_defect["source_snapshot"]["kind"] == "dirty_uncommitted_snapshot"
+    assert dirty_defect["title"].startswith("dirty candidate source snapshot")
+
+    passed_receipts = copy.deepcopy(receipts)
+    post_push = next(
+        receipt
+        for receipt in passed_receipts["receipts"]
+        if receipt["id"] == "RCP-POST-PUSH-CI"
+    )
+    post_push["status"] = "passed"
+    post_push["execution"]["commit"] = inventory["source"]["head_commit"]
+    passed_register = generator["build_defect_register"](
+        inventory, progress, passed_receipts
+    )
+    passed_defect = next(
+        defect for defect in passed_register["defects"] if defect["id"] == "DEF-P0-001"
+    )
+    assert passed_defect["status"] == "open"
+    assert passed_defect["blocks_release"] is True
+    assert passed_defect["post_push_binding"]["receipt_reports_success"] is True
+    assert (
+        passed_defect["post_push_binding"]["exact_pushed_commit"]
+        == inventory["source"]["head_commit"]
+    )
+    assert "schema 0.1 cannot authenticate or promote it" in passed_defect["title"]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("title", "resolution_rule", "snapshot_kind", "post_push_status"),
+)
+def test_source_defect_typed_truth_mutations_fail_closed(mutation: str) -> None:
+    generator = _load_generator()
+    auditor = _load_auditor()
+    inventory = _read(CANDIDATE_DIR / "source_inventory.json")
+    artifacts = generator["build_artifacts_from_inventory"](ROOT, inventory)
+    documents = {name: json.loads(raw) for name, raw in artifacts.items()}
+    auditor["_validate_semantic_boundaries"](documents)
+
+    source_defect = next(
+        defect
+        for defect in documents["defect_register.json"]["defects"]
+        if defect["id"] == "DEF-P0-001"
+    )
+    if mutation == "title":
+        source_defect["title"] = "candidate source snapshot is dirty"
+    elif mutation == "resolution_rule":
+        source_defect["resolution_rule"] = "record a local passing test"
+    elif mutation == "snapshot_kind":
+        source_defect["source_snapshot"]["kind"] = "dirty_uncommitted_snapshot"
+    else:
+        source_defect["post_push_binding"]["receipt_status"] = "failed"
+
+    with pytest.raises(auditor["CandidateError"]) as caught:
+        auditor["_validate_semantic_boundaries"](documents)
+    assert caught.value.code == "DEFECT_SOURCE_BINDING"
 
 
 def test_generator_requires_explicit_source_state_and_is_deterministic(

@@ -9,6 +9,9 @@ boolean is true only when the stronger frozen validation gate passes.
 
 from __future__ import annotations
 
+# Import this module first. It captures package source hashes before the core
+# implementation modules load.
+from . import provenance as _provenance  # noqa: F401
 from .attribute import finite_difference_gradient, grad_times_input, lrp_epsilon
 from .faithfulness import (
     AttributionValidationCase,

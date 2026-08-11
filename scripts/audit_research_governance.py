@@ -97,7 +97,7 @@ SEMANTIC_SNAPSHOT_SHA256 = {
     "claim_registry_scope": (
         "3d0c81c164f99b491aea8f2ddae889ffceef93bf52956f1f251e15db7944e638"
     ),
-    "claim_snapshots": "7a475e3d7bd55c31cdc3e672c69ed8e015360c9063d274cc8aca41a07a9c0e4d",
+    "claim_snapshots": "5d93980b09d2825afe7367f6332308cd9dbf3a83b5b294374430f1d0d805a0c1",
 }
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -1641,11 +1641,26 @@ CLAIM_KEYS = {
     "prohibited_language",
 }
 CLAIM_WITH_MUE_KEYS = CLAIM_KEYS | {"minimum_useful_effect_status"}
+H3_CLAIM_KEYS = CLAIM_WITH_MUE_KEYS | {"pid_gate_status"}
 H4_CLAIM_KEYS = CLAIM_WITH_MUE_KEYS | {
     "reference_artifact_semantics",
     "confirmatory_design_contract",
 }
 CLAIM_ARTIFACT_KEYS = {"path", "status"}
+H3_PID_GATE_STATUS_KEYS = {
+    "population",
+    "measure",
+    "atom_estimator",
+    "continuous_application",
+    "high_dimensional_mi_coherence",
+}
+EXPECTED_H3_PID_GATE_STATUS = {
+    "population": "open_unfrozen",
+    "measure": "not_adjudicated",
+    "atom_estimator": "blocked",
+    "continuous_application": "blocked_not_application_validated",
+    "high_dimensional_mi_coherence": "no_go",
+}
 H4_REFERENCE_ARTIFACT_KEYS = {
     "diagnostic_name",
     "scientific_role",
@@ -1722,7 +1737,7 @@ EXPECTED_CLAIM_STATES = {
     ),
     "H3": (
         "not_eligible",
-        "blocked_on_population_measure_estimator_and_application_gates",
+        "not_eligible_see_pid_gate_status",
         "unfrozen_until_h3_activation",
     ),
     "H4": (
@@ -1830,6 +1845,8 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
         claim_context = f"{context}.claims[{index}]"
         if claim_id == "EC1":
             expected_keys = CLAIM_KEYS
+        elif claim_id == "H3":
+            expected_keys = H3_CLAIM_KEYS
         elif claim_id == "H4":
             expected_keys = H4_CLAIM_KEYS
         else:
@@ -1862,6 +1879,20 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
             )
             _string(artifact["path"], context=f"{artifact_context}.path")
             _string(artifact["status"], context=f"{artifact_context}.status")
+
+        if claim_id == "H3":
+            gate_context = f"{claim_context}.pid_gate_status"
+            gate_status = _exact_keys(
+                claim["pid_gate_status"],
+                H3_PID_GATE_STATUS_KEYS,
+                context=gate_context,
+            )
+            for field, expected in EXPECTED_H3_PID_GATE_STATUS.items():
+                actual = _string(gate_status[field], context=f"{gate_context}.{field}")
+                if actual != expected:
+                    raise GovernanceError(
+                        f"{gate_context}.{field} must equal {expected!r}"
+                    )
 
         if claim_id == "H4":
             reference_context = f"{claim_context}.reference_artifact_semantics"
@@ -1905,7 +1936,7 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
                 or claim["minimum_useful_effect_status"] != mue
             ):
                 raise GovernanceError(
-                    f"{claim_context} overstates its current claim state"
+                    f"{claim_context} differs from its exact current claim state"
                 )
     _require_semantic_snapshot(
         claims, snapshot="claim_snapshots", context=f"{context}.claims"

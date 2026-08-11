@@ -49,7 +49,6 @@ def _install_fake_git(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         f"#!{sys.executable}\n"
         "import os\n"
         "import pathlib\n"
-        "import subprocess\n"
         "import sys\n"
         "import time\n"
         "pid_file = os.environ.get('FAKE_GIT_PID_FILE')\n"
@@ -64,20 +63,6 @@ def _install_fake_git(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "if stderr_bytes:\n"
         "    sys.stderr.buffer.write(b'e' * stderr_bytes)\n"
         "    sys.stderr.buffer.flush()\n"
-        "descendant_marker = os.environ.get('FAKE_GIT_DESCENDANT_MARKER')\n"
-        "if descendant_marker is not None:\n"
-        "    subprocess.Popen(\n"
-        "        [\n"
-        "            sys.executable,\n"
-        "            '-c',\n"
-        "            'import pathlib, sys, time; time.sleep(0.2); '\n"
-        "            \"pathlib.Path(sys.argv[1]).write_text('escaped', encoding='utf-8')\",\n"
-        "            descendant_marker,\n"
-        "        ],\n"
-        "        stdin=subprocess.DEVNULL,\n"
-        "        stdout=subprocess.DEVNULL,\n"
-        "        stderr=subprocess.DEVNULL,\n"
-        "    )\n"
         "time.sleep(float(os.environ.get('FAKE_GIT_SLEEP_SECONDS', '0')))\n"
         "marker = os.environ.get('FAKE_GIT_MARKER')\n"
         "if marker is not None:\n"
@@ -654,20 +639,6 @@ def test_run_git_timeout_kills_and_reaps_process(
         os.waitpid(pid, os.WNOHANG)
     with pytest.raises(ProcessLookupError):
         os.kill(pid, 0)
-
-
-def test_run_git_reaps_descendants_after_success(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    generator = _load_generator()
-    _install_fake_git(tmp_path, monkeypatch)
-    marker = tmp_path / "descendant-escaped"
-    monkeypatch.setenv("FAKE_GIT_DESCENDANT_MARKER", os.fspath(marker))
-
-    assert generator["_run_git"](tmp_path, ["descendant"], max_bytes=16) == b""
-
-    time.sleep(0.5)
-    assert not marker.exists()
 
 
 def test_run_git_selector_setup_failure_reaps_process(

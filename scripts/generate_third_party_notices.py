@@ -12,8 +12,8 @@ materials is a release-time step with dedicated tooling (``cargo about`` /
 
 Usage::
 
-    python scripts/generate_third_party_notices.py --write   # regenerate the file
-    python scripts/generate_third_party_notices.py --check   # exit 1 on drift (CI)
+    uv run --no-sync python scripts/generate_third_party_notices.py --write
+    uv run --no-sync python scripts/generate_third_party_notices.py --check
 """
 
 from __future__ import annotations
@@ -47,6 +47,24 @@ class NoticeGenerationError(RuntimeError):
     """A bounded input or subprocess violated the notice-generation contract."""
 
 
+def _same_file_snapshot(left: os.stat_result, right: os.stat_result) -> bool:
+    return (
+        left.st_dev,
+        left.st_ino,
+        left.st_mode,
+        left.st_size,
+        left.st_mtime_ns,
+        left.st_ctime_ns,
+    ) == (
+        right.st_dev,
+        right.st_ino,
+        right.st_mode,
+        right.st_size,
+        right.st_mtime_ns,
+        right.st_ctime_ns,
+    )
+
+
 def _read_regular_bytes(path: Path, *, max_bytes: int, label: str) -> bytes:
     try:
         before = path.lstat()
@@ -63,17 +81,19 @@ def _read_regular_bytes(path: Path, *, max_bytes: int, label: str) -> bytes:
             f"{label} exceeds the {max_bytes}-byte limit: {path}"
         )
 
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     try:
         descriptor = os.open(path, flags)
     except OSError as error:
         raise NoticeGenerationError(f"cannot open {label} {path}: {error}") from error
     try:
         opened = os.fstat(descriptor)
-        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
-            before.st_dev,
-            before.st_ino,
-        ):
+        if not stat.S_ISREG(opened.st_mode) or not _same_file_snapshot(before, opened):
             raise NoticeGenerationError(f"{label} changed while opening: {path}")
         chunks: list[bytes] = []
         remaining = max_bytes + 1
@@ -84,6 +104,12 @@ def _read_regular_bytes(path: Path, *, max_bytes: int, label: str) -> bytes:
             chunks.append(chunk)
             remaining -= len(chunk)
         after = os.fstat(descriptor)
+        try:
+            named_after = path.lstat()
+        except OSError as error:
+            raise NoticeGenerationError(
+                f"{label} changed while reading: {path}"
+            ) from error
     finally:
         os.close(descriptor)
     payload = b"".join(chunks)
@@ -91,12 +117,13 @@ def _read_regular_bytes(path: Path, *, max_bytes: int, label: str) -> bytes:
         raise NoticeGenerationError(
             f"{label} exceeds the {max_bytes}-byte limit: {path}"
         )
-    if (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns) != (
-        after.st_dev,
-        after.st_ino,
-        after.st_size,
-        after.st_mtime_ns,
-    ) or len(payload) != after.st_size:
+    if (
+        not stat.S_ISREG(after.st_mode)
+        or not stat.S_ISREG(named_after.st_mode)
+        or not _same_file_snapshot(opened, after)
+        or not _same_file_snapshot(after, named_after)
+        or len(payload) != after.st_size
+    ):
         raise NoticeGenerationError(f"{label} changed while reading: {path}")
     return payload
 
@@ -110,17 +137,21 @@ def _read_regular_text(path: Path, *, max_bytes: int, label: str) -> str:
         raise NoticeGenerationError(f"{label} is not valid UTF-8: {path}") from error
 
 
+def _kill_process_group(process: subprocess.Popen[bytes]) -> None:
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except PermissionError:
+        if sys.platform != "darwin":
+            raise
+
+
 def _terminate(process: subprocess.Popen[bytes]) -> None:
     if process.returncode is not None:
         return
     if os.name == "posix":
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        except PermissionError:
-            if sys.platform != "darwin":
-                raise
+        _kill_process_group(process)
     else:
         try:
             process.kill()
@@ -182,16 +213,7 @@ def _run_bounded(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise subprocess.TimeoutExpired(command, timeout_seconds)
-        if os.name == "posix":
-            _terminate(process)
         return_code = process.wait(timeout=remaining)
-    except BaseException:
-        _terminate(process)
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            pass
-        raise
     finally:
         _terminate(process)
         try:
@@ -429,7 +451,7 @@ def render() -> str:
         "# Third-Party Notices (generated)",
         "",
         "Direct dependencies of the workspace crates and declared Python packages.",
-        "Regenerate with `python scripts/generate_third_party_notices.py --write`.",
+        "Regenerate with `uv run --no-sync python scripts/generate_third_party_notices.py --write`.",
         "See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.",
         "",
         "## Rust direct dependencies",
@@ -489,7 +511,14 @@ def _atomic_write(path: Path, content: str) -> None:
             os.fsync(handle.fileno())
         os.chmod(temporary, 0o644)
         os.replace(temporary, path)
-        directory_fd = os.open(path.parent, os.O_RDONLY)
+        directory_flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        directory_fd = os.open(path.parent, directory_flags)
         try:
             os.fsync(directory_fd)
         finally:
@@ -544,7 +573,7 @@ def main(argv: list[str] | None = None) -> int:
     if current != content:
         print(
             f"{OUTPUT.relative_to(REPO_ROOT)} is out of date; "
-            "run `python scripts/generate_third_party_notices.py --write`",
+            "run `uv run --no-sync python scripts/generate_third_party_notices.py --write`",
             file=sys.stderr,
         )
         return 1

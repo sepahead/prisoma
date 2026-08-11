@@ -95,6 +95,7 @@ REQUIRED_FEATURE_IDS = frozenset(
     {
         "analysis.estimate_abstention",
         "bridge.agent_control_plane",
+        "bridge.engram_pairing",
         "capture.offline_vlda_harness",
         "capture.safe_reference_adapter",
         "docs.capability_matrix",
@@ -175,6 +176,24 @@ class CatalogError(ValueError):
     """The capability catalog is malformed, unsafe, or semantically inconsistent."""
 
 
+def _same_file_snapshot(left: os.stat_result, right: os.stat_result) -> bool:
+    return (
+        left.st_dev,
+        left.st_ino,
+        left.st_mode,
+        left.st_size,
+        left.st_mtime_ns,
+        left.st_ctime_ns,
+    ) == (
+        right.st_dev,
+        right.st_ino,
+        right.st_mode,
+        right.st_size,
+        right.st_mtime_ns,
+        right.st_ctime_ns,
+    )
+
+
 def _read_regular_bytes(path: Path, *, max_bytes: int, context: str) -> bytes:
     try:
         before = path.lstat()
@@ -185,17 +204,19 @@ def _read_regular_bytes(path: Path, *, max_bytes: int, context: str) -> bytes:
     if before.st_size > max_bytes:
         raise CatalogError(f"{context} exceeds the {max_bytes}-byte limit: {path}")
 
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     try:
         descriptor = os.open(path, flags)
     except OSError as error:
         raise CatalogError(f"cannot open {context} {path}: {error}") from error
     try:
         opened = os.fstat(descriptor)
-        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (
-            before.st_dev,
-            before.st_ino,
-        ):
+        if not stat.S_ISREG(opened.st_mode) or not _same_file_snapshot(before, opened):
             raise CatalogError(f"{context} changed while opening: {path}")
         chunks: list[bytes] = []
         remaining = max_bytes + 1
@@ -206,17 +227,22 @@ def _read_regular_bytes(path: Path, *, max_bytes: int, context: str) -> bytes:
             chunks.append(chunk)
             remaining -= len(chunk)
         after = os.fstat(descriptor)
+        try:
+            named_after = path.lstat()
+        except OSError as error:
+            raise CatalogError(f"{context} changed while reading: {path}") from error
     finally:
         os.close(descriptor)
     payload = b"".join(chunks)
     if len(payload) > max_bytes:
         raise CatalogError(f"{context} exceeds the {max_bytes}-byte limit: {path}")
-    if (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns) != (
-        after.st_dev,
-        after.st_ino,
-        after.st_size,
-        after.st_mtime_ns,
-    ) or len(payload) != after.st_size:
+    if (
+        not stat.S_ISREG(after.st_mode)
+        or not stat.S_ISREG(named_after.st_mode)
+        or not _same_file_snapshot(opened, after)
+        or not _same_file_snapshot(after, named_after)
+        or len(payload) != after.st_size
+    ):
         raise CatalogError(f"{context} changed while reading: {path}")
     return payload
 
@@ -230,17 +256,21 @@ def _read_regular_text(path: Path, *, max_bytes: int, context: str) -> str:
         raise CatalogError(f"{context} is not valid UTF-8: {path}") from error
 
 
+def _kill_process_group(process: subprocess.Popen[bytes]) -> None:
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except PermissionError:
+        if sys.platform != "darwin":
+            raise
+
+
 def _terminate(process: subprocess.Popen[bytes]) -> None:
     if process.returncode is not None:
         return
     if os.name == "posix":
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        except PermissionError:
-            if sys.platform != "darwin":
-                raise
+        _kill_process_group(process)
     else:
         try:
             process.kill()
@@ -337,16 +367,7 @@ def _run_bounded(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise subprocess.TimeoutExpired(command, timeout_seconds)
-        if os.name == "posix":
-            _terminate(process)
         return_code = process.wait(timeout=remaining)
-    except BaseException:
-        _terminate(process)
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            pass
-        raise
     finally:
         _terminate(process)
         try:
@@ -1311,7 +1332,14 @@ def _atomic_write(path: Path, content: str) -> None:
             os.fsync(handle.fileno())
         os.chmod(temporary, 0o644)
         os.replace(temporary, path)
-        directory_fd = os.open(path.parent, os.O_RDONLY)
+        directory_flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        directory_fd = os.open(path.parent, directory_flags)
         try:
             os.fsync(directory_fd)
         finally:

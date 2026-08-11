@@ -24,7 +24,6 @@ import io
 import json
 import math
 import os
-import platform
 import re
 import stat
 import tempfile
@@ -34,6 +33,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+
+from .provenance import attribution_software_manifest
 
 SCHEMA_VERSION = 2
 MAX_RERUN_RELEVANCE_VALUES = 1024
@@ -279,6 +280,18 @@ def _require_evidence_text(value: object, context: str) -> str:
     return value
 
 
+def _require_plain_dict(value: object, context: str) -> dict[str, object]:
+    if type(value) is not dict:
+        raise ValueError(f"{context} must be a plain object")
+    return value
+
+
+def _require_plain_list(value: object, context: str) -> list[object]:
+    if type(value) is not list:
+        raise ValueError(f"{context} must be a plain array")
+    return value
+
+
 def _require_canonical_f64_text(value: object, context: str) -> str:
     text = _require_evidence_text(value, context)
     try:
@@ -302,7 +315,7 @@ def _evidence_case_diagnostic_vector(
     values: list[float] = []
     not_computed = 0
     for index, case in enumerate(cases):
-        assert isinstance(case, dict)
+        case = _require_plain_dict(case, f"evidence bundle case {index}")
         encoded = case.get(field)
         if encoded == "not_computed":
             not_computed += 1
@@ -604,25 +617,6 @@ def _recompute_record_work_estimate(
     return total
 
 
-def _expected_software_manifest() -> dict[str, object]:
-    directory = Path(__file__).resolve().parent
-    source_sha256 = {
-        name: hashlib.sha256((directory / name).read_bytes()).hexdigest()
-        for name in (
-            "attribute.py",
-            "faithfulness.py",
-            "model.py",
-            "probe.py",
-            "runlog.py",
-        )
-    }
-    return {
-        "python": platform.python_version(),
-        "numpy": np.__version__,
-        "source_sha256": source_sha256,
-    }
-
-
 def _verify_positive_evidence_decision(
     bundle: dict[str, object],
     *,
@@ -745,13 +739,13 @@ def _verify_positive_evidence_decision(
         ),
     )
 
-    model_bundle = bundle["model"]
-    assert isinstance(model_bundle, dict)
+    model_bundle = _require_plain_dict(bundle["model"], "evidence bundle model")
     d_in = int(model_bundle["d_in"])
     d_model = int(model_bundle["d_model"])
     model = SmallTransformer(d_in=d_in, d_model=d_model, seed=0)
-    parameters = model_bundle["parameters"]
-    assert isinstance(parameters, dict)
+    parameters = _require_plain_dict(
+        model_bundle["parameters"], "evidence bundle model.parameters"
+    )
     for name in ("w_embed", "w_q", "w_k", "w_v", "w_o", "w_head"):
         shape, payload = _decode_exact_f64_bundle(
             parameters[name],
@@ -765,12 +759,11 @@ def _verify_positive_evidence_decision(
         )
     model.validate_parameters()
 
-    evidence_cases = bundle["cases"]
-    assert isinstance(evidence_cases, list)
+    evidence_cases = _require_plain_list(bundle["cases"], "evidence bundle cases")
     validation_cases = []
     case_rows: list[dict[str, object]] = []
-    for index, case in enumerate(evidence_cases):
-        assert isinstance(case, dict)
+    for index, raw_case in enumerate(evidence_cases):
+        case = _require_plain_dict(raw_case, f"evidence bundle case {index}")
 
         def decode_array(field: str) -> np.ndarray:
             shape, payload = _decode_exact_f64_bundle(
@@ -940,8 +933,9 @@ def _validate_evidence_metadata(
     if len(group_ids) != len(cases):
         raise ValueError("evidence bundle cases must contain objects")
 
-    primary_method = bundle["primary_method"]
-    assert isinstance(primary_method, str)
+    primary_method = _require_evidence_text(
+        bundle["primary_method"], "evidence bundle primary_method"
+    )
     expected_role = "primary" if record.method == primary_method else "secondary"
     expected_metadata = {
         "diagnostic": "deletion_ranking_sensitivity",
@@ -1016,15 +1010,12 @@ def _validate_evidence_config(
 ) -> None:
     """Reject supplied configuration values that contradict exact evidence."""
 
-    model = first_bundle["model"]
-    gate = first_bundle["gate"]
-    cases = first_bundle["cases"]
-    assert isinstance(model, dict)
-    assert isinstance(gate, dict)
-    assert isinstance(cases, list)
+    model = _require_plain_dict(first_bundle["model"], "evidence bundle model")
+    gate = _require_plain_dict(first_bundle["gate"], "evidence bundle gate")
+    cases = _require_plain_list(first_bundle["cases"], "evidence bundle cases")
     token_counts: set[int] = set()
-    for index, case in enumerate(cases):
-        assert isinstance(case, dict)
+    for index, raw_case in enumerate(cases):
+        case = _require_plain_dict(raw_case, f"evidence bundle case {index}")
         x = case.get("x")
         if not isinstance(x, dict):
             raise ValueError(f"evidence bundle case {index}.x must be an object")
@@ -1091,6 +1082,7 @@ def _validate_evidence_bundle(
     metadata: dict[str, str],
     representative_relevance: np.ndarray,
     record_index: int,
+    software_manifest: dict[str, object] | None,
 ) -> tuple[dict[str, object], int, bool]:
     """Require the probe's reconstructable v2 evidence shape before publication."""
 
@@ -1134,9 +1126,10 @@ def _validate_evidence_bundle(
         raise ValueError(
             "evidence bundle method implementation does not match metadata"
         )
-    if bundle.get("software") != _expected_software_manifest():
+    if software_manifest is None or bundle.get("software") != software_manifest:
         raise ValueError(
-            "evidence bundle software provenance does not match the publishing runtime"
+            "evidence bundle software provenance does not match the import-time "
+            "source manifest"
         )
     expected_modality = (
         record.modality if record.modality is not None else "not_declared"
@@ -1180,7 +1173,7 @@ def _validate_evidence_bundle(
 
     model = bundle.get("model")
     recomputed_model_hash = _recompute_model_parameter_hash(model)
-    assert isinstance(model, dict)
+    model = _require_plain_dict(model, "evidence bundle model")
     model_hash = _require_sha256(
         model.get("parameter_sha256"), "evidence bundle model.parameter_sha256"
     )
@@ -1278,8 +1271,7 @@ def _validate_evidence_bundle(
         raise ValueError(
             "recorded check does not match the evidence decision and predeclared role"
         )
-    evidence_cases = bundle.get("cases")
-    assert isinstance(evidence_cases, list)
+    evidence_cases = _require_plain_list(bundle.get("cases"), "evidence bundle cases")
     _validate_evidence_metadata(
         metadata=metadata,
         record=record,
@@ -1492,22 +1484,97 @@ def _stage_synced_bytes(directory: Path, payload: bytes) -> Path:
     return staged_path
 
 
+def _same_artifact_snapshot(left: os.stat_result, right: os.stat_result) -> bool:
+    return (
+        left.st_dev,
+        left.st_ino,
+        left.st_mode,
+        left.st_nlink,
+        left.st_size,
+        left.st_mtime_ns,
+        left.st_ctime_ns,
+    ) == (
+        right.st_dev,
+        right.st_ino,
+        right.st_mode,
+        right.st_nlink,
+        right.st_size,
+        right.st_mtime_ns,
+        right.st_ctime_ns,
+    )
+
+
 def _verify_existing_artifact(path: Path, expected_bytes: bytes) -> None:
     try:
-        metadata = path.lstat()
+        lexical_before = path.lstat()
     except FileNotFoundError as error:
         raise OSError(
             f"installed artifact disappeared before verification: {path}"
         ) from error
-    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+    if stat.S_ISLNK(lexical_before.st_mode) or not stat.S_ISREG(lexical_before.st_mode):
         raise ValueError(
             f"artifact destination must be a regular non-symlink file: {path}"
         )
-    if metadata.st_nlink != 1:
+    if lexical_before.st_nlink != 1:
         raise ValueError(
             f"artifact destination must not have hard-link aliases: {path}"
         )
-    if metadata.st_size != len(expected_bytes) or path.read_bytes() != expected_bytes:
+    if lexical_before.st_size != len(expected_bytes):
+        raise FileExistsError(
+            f"content-addressed artifact exists with different bytes: {path}"
+        )
+
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    nonblock = getattr(os, "O_NONBLOCK", None)
+    if isinstance(nofollow, int):
+        flags |= nofollow
+    if isinstance(nonblock, int):
+        flags |= nonblock
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise ValueError(f"cannot safely open artifact destination: {path}") from error
+    try:
+        opened_before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened_before.st_mode)
+            or opened_before.st_nlink != 1
+            or not _same_artifact_snapshot(lexical_before, opened_before)
+        ):
+            raise ValueError(f"artifact destination changed while opening: {path}")
+        matches_expected = True
+        offset = 0
+        remaining = len(expected_bytes) + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            end = offset + len(chunk)
+            if end > len(expected_bytes) or chunk != expected_bytes[offset:end]:
+                matches_expected = False
+            offset = end
+            remaining -= len(chunk)
+        opened_after = os.fstat(descriptor)
+        try:
+            lexical_after = path.lstat()
+        except OSError as error:
+            raise ValueError(
+                f"artifact destination changed while verifying: {path}"
+            ) from error
+    finally:
+        os.close(descriptor)
+
+    if (
+        not stat.S_ISREG(opened_after.st_mode)
+        or not stat.S_ISREG(lexical_after.st_mode)
+        or opened_after.st_nlink != 1
+        or lexical_after.st_nlink != 1
+        or not _same_artifact_snapshot(opened_before, opened_after)
+        or not _same_artifact_snapshot(opened_after, lexical_after)
+    ):
+        raise ValueError(f"artifact destination changed while verifying: {path}")
+    if not matches_expected or offset != len(expected_bytes):
         raise FileExistsError(
             f"content-addressed artifact exists with different bytes: {path}"
         )
@@ -1614,6 +1681,7 @@ def write_attribution_runlog(
         isinstance(record, AttributionRecord) and record.evidence_bundle is not None
         for record in records
     )
+    software_manifest = attribution_software_manifest() if evidence_batch else None
     if projected_event_count > MAX_RERUN_EVENTS:
         raise ValueError(
             f"run-log event count exceeds the {MAX_RERUN_EVENTS}-event viewer limit"
@@ -1798,11 +1866,14 @@ def write_attribution_runlog(
                 metadata=metadata,
                 representative_relevance=rel,
                 record_index=i,
+                software_manifest=software_manifest,
             )
-            primary_method = evidence_bundle["primary_method"]
-            assert isinstance(primary_method, str)
-            evidence_model = evidence_bundle["model"]
-            assert isinstance(evidence_model, dict)
+            primary_method = _require_evidence_text(
+                evidence_bundle["primary_method"], "evidence bundle primary_method"
+            )
+            evidence_model = _require_plain_dict(
+                evidence_bundle["model"], "evidence bundle model"
+            )
             batch_identity = (
                 rec.target_output,
                 rec.modality if rec.modality is not None else "not_declared",
@@ -1852,10 +1923,12 @@ def write_attribution_runlog(
                         f"{MAX_EVIDENCE_RECOMPUTE_MULTIPLY_ADDS}-multiply-add "
                         "publication-recomputation resource budget"
                     )
-                evidence_gate = evidence_bundle["gate"]
-                evidence_decision = evidence_bundle["decision"]
-                assert isinstance(evidence_gate, dict)
-                assert isinstance(evidence_decision, dict)
+                evidence_gate = _require_plain_dict(
+                    evidence_bundle["gate"], "evidence bundle gate"
+                )
+                evidence_decision = _require_plain_dict(
+                    evidence_bundle["decision"], "evidence bundle decision"
+                )
                 positive_evidence.append(
                     (evidence_bundle, evidence_gate, evidence_decision)
                 )
@@ -1929,10 +2002,13 @@ def write_attribution_runlog(
                 "an attribution evidence publication batch may contain at most "
                 "one positive legacy compatibility flag"
             )
-        assert evidence_primary_method is not None
-        assert evidence_batch_identity is not None
-        assert evidence_first_bundle is not None
-        assert evidence_first_work is not None
+        if (
+            evidence_primary_method is None
+            or evidence_batch_identity is None
+            or evidence_first_bundle is None
+            or evidence_first_work is None
+        ):
+            raise RuntimeError("attribution evidence batch state is incomplete")
         _validate_evidence_config(
             config,
             records_count=len(records),
@@ -1953,7 +2029,6 @@ def write_attribution_runlog(
             gate=evidence_gate,
             decision=evidence_decision,
         )
-
     events.append(
         {
             "type": "run_ended",
@@ -1968,7 +2043,6 @@ def write_attribution_runlog(
     # the filesystem. Together with the in-memory artifact framing above, this
     # prevents invalid content from leaving publication files behind.
     runlog_bytes = _serialize_bounded_runlog(events)
-
     # Existing content-addressed names are checked before any directory or staging
     # file is created, then checked again during the no-clobber installation.
     for artifact_path, artifact_bytes in prepared_artifacts.values():

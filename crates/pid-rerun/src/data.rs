@@ -18,19 +18,19 @@ use serde::{Deserialize, Serialize};
 pub struct VlaFrame {
     /// Timestamp in seconds
     pub timestamp: f64,
-    /// Vision embedding (e.g., DINO, SigLIP) - shape [embed_dim]
+    /// Vision embedding (for example, DINO or SigLIP), with `embed_dim` elements.
     pub vision_embedding: Array1<f64>,
-    /// Language embedding - shape [embed_dim]
+    /// Language embedding with `embed_dim` elements.
     pub language_embedding: Option<Array1<f64>>,
-    /// Action output - shape [action_dim] (e.g., 7 for robot arm)
+    /// Action output with `action_dim` elements (for example, 7 for a robot arm).
     pub action: Array1<f64>,
     /// Optional: RGB image as flattened bytes
     pub image: Option<Vec<u8>>,
-    /// Optional: Image dimensions [height, width, channels]
+    /// Optional image dimensions, shaped `[height, width, channels]`.
     pub image_shape: Option<[usize; 3]>,
-    /// Optional: 3D object positions - shape [n_objects, 3]
+    /// Optional 3-D object positions, shaped `[n_objects, 3]`.
     pub object_positions: Option<Array2<f64>>,
-    /// Optional: Robot proprioception - shape [proprio_dim]
+    /// Optional robot proprioception with `proprio_dim` elements.
     pub proprioception: Option<Array1<f64>>,
 }
 
@@ -113,12 +113,10 @@ impl VlaEpisode {
 
     /// Get the duration of the episode in seconds.
     pub fn duration(&self) -> f64 {
-        if self.frames.is_empty() {
-            return 0.0;
-        }
-        let first = self.frames.first().unwrap().timestamp;
-        let last = self.frames.last().unwrap().timestamp;
-        last - first
+        self.frames
+            .first()
+            .zip(self.frames.last())
+            .map_or(0.0, |(first, last)| last.timestamp - first.timestamp)
     }
 
     /// Get vision embeddings as a 2D array [n_frames, embed_dim].

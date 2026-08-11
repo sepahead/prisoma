@@ -8,13 +8,9 @@ Describe the change and its purpose in one short paragraph.
 
 ## Required checks
 
-- [ ] `cargo fmt --all -- --check` passes.
-- [ ] `cargo clippy --locked --workspace -- -D warnings` passes.
-- [ ] `cargo test --locked --workspace` passes.
-- [ ] `python scripts/audit_docset_claims.py --all-tracked-markdown` passes.
-- [ ] `python scripts/audit_grandplan.py` passes.
-- [ ] `python scripts/audit_research_governance.py` passes.
-- [ ] `python scripts/generate_capability_matrix.py --check` passes.
+- [ ] `just check` passes the locked Rust, Python, formatting, notice, and truth-audit gates.
+- [ ] If NCP or its lock changed, its explicit test and `cargo deny` checks pass.
+- [ ] If `formal/`, its registry, or its runner changed, run `just formal` with Z3 4.16.0.
 
 ## Claim control
 

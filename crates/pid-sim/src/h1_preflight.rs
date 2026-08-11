@@ -11,6 +11,28 @@ use serde::{Deserialize, Serialize};
 
 /// The only preflight schema accepted by this implementation.
 pub const H1_PREFLIGHT_SCHEMA_VERSION: u32 = 2;
+/// Schema for CLI summary and run-log verdict artifacts.
+///
+/// Version 3 makes oversized-input provenance explicit. It records the stable
+/// observed length and emits no whole-file digest for a rejected input.
+pub const H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION: u32 = 3;
+
+/// Whether a preflight result binds all input bytes or rejects a stable oversized file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum H1InputSnapshotStatus {
+    Exact,
+    RejectedOversize,
+}
+
+impl H1InputSnapshotStatus {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+            Self::RejectedOversize => "rejected_oversize",
+        }
+    }
+}
 
 /// Canonical identifiers are deliberately ASCII and bounded so visually or
 /// bytewise different spellings cannot evade duplicate/fold checks.
@@ -1841,7 +1863,10 @@ fn validate_evaluation_order(
 
 type FoldMemberships<'a> = BTreeMap<&'a str, (&'a str, Vec<usize>, bool)>;
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "fold leakage updates the registry, all affected cases, and the typed issue ledger"
+)]
 fn check_fold_membership<'a>(
     memberships: &mut FoldMemberships<'a>,
     group_id: &'a str,

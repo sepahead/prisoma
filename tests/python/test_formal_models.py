@@ -75,6 +75,32 @@ def test_registry_snapshot_rejects_duplicate_json_members(
         formal._load_registry()
 
 
+def test_formal_snapshot_uses_nofollow_nonblocking_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    nofollow = getattr(formal.os, "O_NOFOLLOW", 0)
+    nonblock = getattr(formal.os, "O_NONBLOCK", 0)
+    if not nofollow or not nonblock:
+        pytest.skip("host does not expose Unix no-follow and nonblocking open flags")
+    source = tmp_path / "model.smt2"
+    source.write_bytes(b"(check-sat)\n")
+    real_open = formal.os.open
+    captured_flags: list[int] = []
+
+    def recording_open(path: object, flags: int, mode: int = 0o777) -> int:
+        captured_flags.append(flags)
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(formal.os, "open", recording_open)
+    assert (
+        formal._read_bounded_regular_file(source, max_bytes=32, description="fixture")
+        == b"(check-sat)\n"
+    )
+    assert len(captured_flags) == 1
+    assert captured_flags[0] & nofollow
+    assert captured_flags[0] & nonblock
+
+
 def test_typed_outcome_domains_track_the_rust_contract() -> None:
     rust_source = (
         formal.ROOT / "crates" / "pid-sim" / "src" / "offline_harness.rs"

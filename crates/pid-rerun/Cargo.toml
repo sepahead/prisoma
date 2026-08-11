@@ -4,7 +4,7 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Rerun visualization adapters for prisoma diagnostics"
+description = "Rerun visualization adapters for Prisoma diagnostics"
 license.workspace = true
 repository.workspace = true
 # Internal workspace crate (path-depends into the pid-rs submodule); never published to
@@ -25,15 +25,16 @@ path = "src/bin/viewer.rs"
 [[bin]]
 name = "vla-demo"
 path = "src/bin/vla_demo.rs"
+required-features = ["vla-demo"]
 
 [[bin]]
 name = "runlog-to-rerun"
 path = "src/bin/runlog_to_rerun.rs"
 
 [dependencies]
-# `vla-demo` exercises the continuous 2-source PID path, which is default-off in the current
-# pid-core review surface.
-pid-core = { path = "../../pid-rs/crates/pid-core", features = ["experimental-continuous"] }
+# Only `vla-demo` needs the estimator. Keep it out of the validating converter
+# and bridge-export graph.
+pid-core = { path = "../../pid-rs/crates/pid-core", optional = true, features = ["experimental-continuous"] }
 pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
 # The adapter only emits SDK archetypes and recording streams. Depend on the narrow
 # SDK crates directly: the `rerun` umbrella crate unconditionally pulls its remote
@@ -44,7 +45,7 @@ re-log-encoding = { package = "re_log_encoding", version = "0.34.1", default-fea
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-ndarray = "0.17"
+ndarray = { version = "0.17", optional = true }
 tempfile = "3.20"
 
 [target.'cfg(unix)'.dependencies]
@@ -57,3 +58,5 @@ re-log-encoding = { package = "re_log_encoding", version = "0.34.1", default-fea
 
 [features]
 default = []
+vla = ["dep:ndarray"]
+vla-demo = ["vla", "dep:pid-core"]

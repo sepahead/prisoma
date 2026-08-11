@@ -16,7 +16,7 @@ being true as the code moves).
 > no numeric placeholder** (no zero, no NaN, no metric event). Exact ties reject a *sample*, never
 > the population law. Never auto-route a failed continuous term to discrete `I_min`: different
 > measure, different estimand, never pooled.
-> Public `pid-rs` main was observed at `e50c12e` on 2026-07-24. Its newer contracts and exact
+> Public `pid-rs` main was observed at `cb351ad` on 2026-08-11. Its newer contracts and exact
 > certifier remain unadopted until a consumer-owned review proves compatibility and added value.
 
 > **Single source of truth for the Rust PID estimators: [`pid-rs`](https://github.com/sepahead/pid-rs).**
@@ -24,8 +24,8 @@ being true as the code moves).
 > They are pinned as the `pid-rs/` git submodule; the local crates path-depend into
 > `pid-rs/crates/*`. Edit the estimator core upstream in `pid-rs` (then bump the submodule),
 > never here. Run its binaries via
-> `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0` and
-> `cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay`.
+> `cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0` and
+> `cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay`.
 
 ## Contents
 
@@ -102,7 +102,8 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
 6. **Candidate evidence stays separate from immutable intake.** The handoff baselines under
    `release/0.9.0/{review,requirements}` are never edited to imply progress. Candidate updates
    enter only through `release/0.9.0/candidate_progress.json`; regenerate the content-bound
-   `release/0.9.0/candidate/` artifacts and run `python scripts/audit_candidate_release.py`.
+   `release/0.9.0/candidate/` artifacts and run
+   `uv run --no-sync python scripts/audit_candidate_release.py`.
    Passing that audit proves internal integrity, not task closure, release readiness, or a
    scientific claim. Progress schema 0.1 is deliberately non-promotable: it records only
    open/in-progress/blocked work, wave rework, and failed evidence. Positive terminal states
@@ -169,9 +170,10 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   persist. The optional `--engram-host` TCP profile forces an exact three-method read-only surface.
   It adds finite request-count, 64 KiB line, 8 MiB aggregate-input, 64 MiB run-log-byte,
   2,048-event, and 8-pairing-attempt limits. It also requires operator-paste pairing: one
-  CSPRNG startup secret printed once on stderr, mutual HMAC-SHA256 proofs over the profile, exact
-  request id, and fresh 32-byte nonces, binding to one TCP connection, and a latch after eight
-  failed connections. Pairing proves secret possession only, never process or build attestation.
+  CSPRNG startup secret printed once on stderr. Mutual HMAC-SHA256 proofs bind the profile, the
+  request ID's RFC 8785 JCS form, and fresh 32-byte nonces to one TCP connection. Eight failed
+  connections latch the bridge. Pairing proves secret possession only, never process or build
+  attestation.
   Run-log usage includes the TCP prefix, each request and response, and the
   terminal seal. Its `--unique-run-log-dir` option atomically creates one no-clobber log in an
   existing directory and prints that canonical path before listening. The
@@ -183,9 +185,14 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   use are unsupported. File RPCs use non-adversarial
   canonical confinement that rejects traversal, observed symlinks, non-regular/out-of-root inputs,
   missing parents, and pre-existing outputs; it is not a security-grade sandbox against hardlinks,
-  aliases, or concurrent filesystem mutation. Run logs and Rerun outputs are no-replace; export
-  parses/manifests the same exact byte snapshot read from the source and stages, syncs, and installs
-  finalized RRD bytes/hash no-clobber. Executable transport run logs use `File::sync_all` for the
+  aliases, or concurrent filesystem mutation. Run logs and Rerun outputs are no-replace. The
+  default `pid-sim` build excludes protocol references, legacy sensitivity, analysis,
+  Rerun/Arrow, Rapier, and WebSocket. The `protocol-references` feature enables the H1/H2 CLIs.
+  The `analysis` feature enables the toy and offline harnesses. The `websocket` feature enables
+  that transport. The default runtime contract omits `export.rerun`. The opt-in
+  `rerun-export` feature parses and manifests the same exact source snapshot, then stages, syncs,
+  and installs finalized RRD bytes/hash no-clobber.
+  Executable transport run logs use `File::sync_all` for the
   initial prefix, each session flush before a wire response, and the terminal seal; generic
   `SimBridgeSession<W>` remains sink-defined. There is no parent-directory fsync, power-loss claim,
   or cross-file run-log/export transaction. Ordinary accepted-client errors seal `Failed` only while
@@ -193,17 +200,17 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   provenance, an apparently complete terminal record with indeterminate status/durability, or an
   orphan RRD. This is local E0 hardening with **no** authentication, authorization, TLS,
   redaction, or remote-security assessment;
-  safe-mode `bridge.describe`/`sim.status`/`log.replay`; bridge
-  `log.start`/`log.stop`, deterministic `intervention.apply`, and `export.rerun`; flow
-  checks and action/intervention replay verification; the toy labeled harness; a
+  safe-mode `bridge.describe`/`bridge.session`/`sim.status`/`log.replay`; bridge
+  `log.start`/`log.stop`, deterministic `intervention.apply`, and feature-gated `export.rerun`; flow
+  checks and action/intervention replay verification; the feature-gated toy labeled harness; a
   `PhysicsBackend` trait with a null adapter and a **real `rapier3d-f64` backend**
   (gravity/contacts/friction, deterministic; behind the `rapier` feature) plus a scripted
   push-to-goal manipulation (`manipulation.rs`, `pid-rapier-harness`) emitting canonical
   run-log events with real `Flow_gt` and physics-derived labels; and the **offline
-  `(V,L,D,A)` artifact-to-runlog harness** with: all-pairs `V/L/D→A` PID screens (plus
+  `(V,L,D,A)` artifact-to-runlog harness** behind `analysis`, with: all-pairs `V/L/D→A` PID screens (plus
   train-split-only screens when a metadata split is present), standardization provenance,
-  geometry diagnostics/gates, strict fail-closed modes
-  (label/geometry/held-out-split/class-coverage/episode-disjoint/axis-provenance),
+  geometry diagnostics, strict fail-closed modes
+  (label/held-out-split/class-coverage/episode-disjoint/axis-provenance),
   committed NCP-publication verification (dataset/run-log hashes, canonical-log artifact binding,
   and a successful `complete` or `complete_with_warning` visible-receipt grade;
   degraded/uncommitted NCP artifacts reject),
@@ -211,10 +218,19 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   majority/1-NN/nearest-centroid baselines (accuracy, balanced accuracy, centroid AUROC),
   a SAFE-class held-out logistic-regression failure detector (`heldout_logreg_vlda`;
   train-fit, held-out-scored), held-out per-sample prediction records, failure-class
-  confusion/rate diagnostics, `--pid-mode none|continuous|discrete|discrete-pls` (`none` is the
-  true zero-MI/PID dependency-firebreak path) with per-pair
+  confusion/rate diagnostics, default 64 MiB input, 1,024-sample, 50,000,000 pairwise-work,
+  100,000,000 distance-coordinate, and 100,000,000 aggregate dense-solver CLI caps, and a
+  complete strict
+  `--resource-limits-json` override. Producer caps do not imply harness
+  admission. Report configuration binds the applied limits, distance projections, and dense-solver
+  projection. Optional uncertainty remains an out-of-band sidecar. The CLI computes it first,
+  then writes the summary, sidecar, and run log. A later write can leave that output prefix. No
+  cross-file transaction is claimed.
+  `--pid-mode none|continuous|discrete|discrete-pls` (`none` is the default and requests
+  zero MI/PID work; the opt-in analysis build still links shared `pid-core` code) with per-pair
   `discrete_saturation` diagnostics; a fail-closed typed H1 common-preflight validator/CLI with
-  a schema-v2 representative mechanism scope, exact-byte content-addressed/strictly bound
+  a schema-v2 input contract and schema-v3 result artifacts, a representative-mechanism scope,
+  exact-byte content-addressed and strictly bound
   policy/instrumentation/manifests, clock/timing/lineage/fold checks,
   per-axis-scaled outputs, paired start/reset/RNG/input receipts, diagnostic-instrumentation
   noninterference, valid failed run logs for readable invalid inputs, and passing/failing fixtures;
@@ -231,7 +247,8 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   declared-payoff utility with explicit censoring abstentions. It is PID-free protocol arithmetic,
   not prospective capture, validated calibration, the comparator frontier, or H2 evidence; and a
   high-dimensional synthetic VLDA fixture
-  (`offline_vlda_highdim_fixture.json`: v=128, l=64, d=32, a=7).
+  (`offline_vlda_highdim_fixture.json`: v=128, l=64, d=32, a=7). That stress fixture uses the
+  explicit `offline_vlda_highdim_limits.json` override.
 - **`pid-rerun`** — run-log→Rerun conversion and a validated replay adapter with
   summary/provenance/validation diagnostics; replay summaries distinguish unique metric
   names from total metric-event counts; surfaces `attribution_logged` events (see below).
@@ -294,9 +311,11 @@ Do not rewrite immutable review intake, generated files, vendored files, or subm
   and aggregates independent-group wins with a conservative one-sided binomial tail. Exactly one
   predeclared primary method can set the legacy compatibility boolean. Complete-work preflight,
   reconstructable content-addressed evidence bundles, companion `artifact_logged` events, and
-  schema-valid `attribution_logged` events are implemented. This is never a causal or mechanistic
-  faithfulness claim. Production VLAs should use a separately pinned and validated LXT/AttnLRP
-  implementation where appropriate.
+  schema-valid `attribution_logged` events are implemented. Evidence binds hashes of the exact
+  package source bytes observed before the core modules load. It does not detect later source
+  changes or attest loaded bytecode. This is never a
+  causal or mechanistic faithfulness claim. Production VLAs should use a separately pinned and
+  validated LXT/AttnLRP implementation where appropriate.
 
 ### Attribution / mechanistic-probe tooling (H4 / exploratory)
 
@@ -344,13 +363,13 @@ No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authori
 - **Pinned dependency:** the manifest pins the latest immutable NCP `v0.8.0` release (wire
   0.8) and resolves from the published repository; no sibling checkout or path override is
   required. Official NCP main was observed at
-  `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on 2026-08-03. That commit is the
+  `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` on 2026-08-11. That commit is the
   unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0; compact proto contract
   hash `163acc57d8a62b66`). It uses a different wire.
   NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**.
   They cover the native-1.0 observer, missing-variable and research-claim semantics, and
   fault-observatory migration plus Prisoma observer-role qualification. See the
-  [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
+  [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
 - **Workspace-excluded by design:** it is in `Cargo.toml` `exclude`, not a member, because a
   broken dependency in a *member* would fail manifest resolution for **every** `cargo`
   command (including `-p`-scoped ones). Exclusion keeps root workspace resolution/build/test
@@ -359,7 +378,8 @@ No live Paper2Brain-to-Prisoma producer, NCP bridge, wire translator, or authori
 - **Off the critical path:** an optional, read-only `(V,L,D,A)` source only — grandplan does
   not depend on Engram; the reference producer for the confirmatory H-experiments is
   `experiments/safe_adapter`, and the core builds with NCP disabled and runs its static non-PID
-  label-baseline smoke with PID disabled (dependency firebreak, `grandplan.md` §8.9.3). This is
+  label-baseline smoke with PID requests disabled (`grandplan.md` §8.9.3). The analysis build still
+  links shared `pid-core` code. This is
   groundwork for H1/H2, not either protocol. Workspace tests remain independent
   of NCP/Engram/Zenoh; the high-dimensional MI/coherence and application verdicts remain
   NO-GO/BLOCKED as stated above.
@@ -427,30 +447,33 @@ viewer phases and the deferred Tauri/SparkJS shell. Do not describe them as runn
 ## Gates before any PR or commit
 
 ```bash
-cargo fmt --all -- --check
-cargo clippy --workspace -- -D warnings
-cargo test --workspace
-python scripts/audit_docset_claims.py --all-tracked-markdown
-python scripts/audit_grandplan.py   # validates the R1-R112 reference ledger
-python scripts/audit_research_governance.py
-python scripts/generate_capability_matrix.py --check
+just check
 ```
 
-Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
-`just exp0-bin` (prints the GO/PIVOT/NO-GO verdict).
+Run `uv sync --locked --group ui` before `just check`. The UI group is needed only because the
+full suite tests the optional PNG utility. Ordinary use can keep the smaller default environment.
+The aggregate verifies the no-default-feature Rust surface before all-target, all-feature Clippy
+and tests. That surface excludes protocol references, legacy sensitivity, analysis, WebSocket,
+Rapier, and Rerun export. The aggregate also runs warning-free all-feature rustdoc, Ruff checks,
+generated-notice drift checks, and all offline truth audits. Use
+`just test` for the default locked Cargo test only. Use `just docs-audit` for the complete
+documentation, governance, release-integrity, capability, and repository-truth audit set. The
+estimator gate itself is `just exp0-bin` (prints the GO/PIVOT/NO-GO verdict).
 
 ## Useful commands
 
 - Search: `rg -n "pattern"`
-- Tests: `just test` (or `cargo test` if `just` isn't installed)
+- Required local gate: `just check`
+- Rust tests only: `just test` (or `cargo test --locked` if `just` is not installed)
+- Full Python tests only: `just python-test`
 - M0 governance integrity (honest unfinished state, not a freeze): `just research-governance`
 - NCP wire-0.8 deterministic fault suite: `just ncp-fault-observatory outputs/ncp_fault_observatory`
 - Estimator gate:
-  - `just exp0` (or `cargo test --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all exp0 -- --nocapture`)
-  - `just exp0-bin` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`)
-  - `just exp0-runlog` (or `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl`)
+  - `just exp0` (or `cargo test --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all exp0 -- --nocapture`)
+  - `just exp0-bin` (or `cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`)
+  - `just exp0-runlog` (or `cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --summary-json outputs/exp0_summary.json --runlog outputs/exp0_runlog.jsonl`)
 - Toy labeled harness:
-  - `just toy-harness` (or `cargo run -p pid-sim --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`)
+  - `just toy-harness` (or `cargo run --locked -p pid-sim --features analysis --bin pid-toy-harness -- --summary-json outputs/toy_vla_summary.json --runlog outputs/toy_vla_runlog.jsonl`)
 - H1 common structural/noninterference preflight (fixture plumbing, not Protocol A/B evidence):
   - `just h1-preflight`
 - H1 deterministic Protocol A software reference (synthetic fixture/scoring primitive, not H1 evidence):
@@ -458,14 +481,14 @@ Or the wrappers: `just test` and `just docs-audit`. The estimator gate itself is
 - H2 deterministic fixed-horizon/IPCW/alarm software reference (synthetic protocol arithmetic, not H2 evidence):
   - `just h2-reference`
 - Offline VLDA embedding harness:
-  - `just offline-harness` (or `cargo run -p pid-sim --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl`)
+  - `just offline-harness` (or `cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json outputs/offline_vlda_summary.json --runlog outputs/offline_vlda_runlog.jsonl`)
   - `just offline-harness-require-labels` — exercises `--require-success-labels` on the labeled fixture.
   - `just offline-harness-require-heldout` — exercises `--require-heldout-split`; the checked fixture has `metadata.split=train/test` assignments and passes this strict path.
   - `just offline-harness-require-heldout-class-coverage` — exercises `--require-heldout-class-coverage`; the checked fixture has both classes in train/test subsets and passes.
   - `just offline-harness-require-heldout-episode-disjoint` — exercises `--require-heldout-episode-disjoint`; the checked fixture has disjoint train/test `episode_id` sets and passes.
-  - `just offline-harness-strict` — exercises `--require-geometry-pass`; the checked fixture is *expected* to exit nonzero while writing a valid failed run log (fail-closed demonstration).
+  - Geometry output is descriptive. It records risk warnings but never acts as an estimator-validity gate.
   - `just offline-harness-highdim` — the high-dimensional synthetic fixture (v=128, l=64, d=32, a=7, 48 samples).
-  - `just firebreak` — runs the non-PID prediction/geometry path with `--pid-mode none` and asserts zero MI/PID requests and events.
+  - `just firebreak` — runs the non-PID prediction/geometry path with `--pid-mode none` and asserts zero MI/PID requests and events. It is an estimator-request check, not a link-time dependency claim.
   - `just offline-harness-discrete` — `--pid-mode discrete --discrete-bins 8` (quantized `I_min` PID with per-pair `discrete_saturation` diagnostics; expect `saturation_warning=true` on the tiny smoke fixtures. The warning does not fail the CLI, but its estimator verdict is blocked and the values are non-evidence).
   - `just offline-harness-discrete-pls` — `--pid-mode discrete-pls --pls-components 2 --discrete-bins 8` on the high-dim fixture (PLS-project sources toward `A`, then discrete PID).
 - Run-log smoke:

@@ -3,13 +3,15 @@ use pid_rerun::{init_recording, prepare_new_recording_path, save_recording, RunL
 use pid_runlog::{
     HashIdentity, HashRevision, RunLogEvent, RunLogHashIdentities, RunLogLimits, RunManifest,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+use std::fmt;
 use std::fs::OpenOptions;
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 
 #[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 
 #[derive(Debug, PartialEq, Eq)]
 struct ConverterOptions {
@@ -59,46 +61,85 @@ struct SnapshotManifestWire {
     artifacts: Vec<SnapshotArtifactManifestWire>,
 }
 
+#[cfg(unix)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct FileIdentity {
+    device: u64,
+    inode: u64,
+    mode: u32,
+    links: u64,
+    len: u64,
+    modified_seconds: i64,
+    modified_nanoseconds: i64,
+    changed_seconds: i64,
+    changed_nanoseconds: i64,
+}
+
+#[cfg(unix)]
+impl FileIdentity {
+    fn from_metadata(metadata: &std::fs::Metadata) -> Self {
+        Self {
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            mode: metadata.mode(),
+            links: metadata.nlink(),
+            len: metadata.len(),
+            modified_seconds: metadata.mtime(),
+            modified_nanoseconds: metadata.mtime_nsec(),
+            changed_seconds: metadata.ctime(),
+            changed_nanoseconds: metadata.ctime_nsec(),
+        }
+    }
+}
+
+#[cfg(unix)]
+fn regular_file_identity(metadata: &std::fs::Metadata, path: &Path) -> Result<FileIdentity> {
+    ensure!(
+        !metadata.file_type().is_symlink() && metadata.is_file(),
+        "run-log input must be a non-symlink regular file: {}",
+        path.display()
+    );
+    Ok(FileIdentity::from_metadata(metadata))
+}
+
+#[cfg(unix)]
 fn read_bounded_snapshot(path: &Path, limits: RunLogLimits) -> Result<Vec<u8>> {
     let path_metadata = std::fs::symlink_metadata(path)
         .with_context(|| format!("failed to inspect run log {}", path.display()))?;
+    let path_identity = regular_file_identity(&path_metadata, path)?;
     ensure!(
-        !path_metadata.file_type().is_symlink() && path_metadata.is_file(),
-        "run-log input must be a non-symlink regular file: {}",
-        path.display()
+        path_identity.len <= limits.max_file_bytes,
+        "run-log file bytes exceed resource limit: requested {}, limit {}",
+        path_identity.len,
+        limits.max_file_bytes
     );
 
     let mut options = OpenOptions::new();
     options.read(true);
     // A path replacement between the metadata check and open must not turn a
     // converter invocation into a blocking FIFO read or a symlink traversal.
-    #[cfg(unix)]
-    options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
-    let file = options
+    options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC);
+    let mut file = options
         .open(path)
         .with_context(|| format!("failed to open run log {}", path.display()))?;
-    let metadata = file
+    let opened_before = file
         .metadata()
         .with_context(|| format!("failed to stat open run log {}", path.display()))?;
+    let opened_identity = regular_file_identity(&opened_before, path)?;
     ensure!(
-        metadata.is_file(),
-        "opened run-log input is not a regular file: {}",
+        opened_identity == path_identity,
+        "run-log input changed between path inspection and descriptor open: {}",
         path.display()
     );
-    ensure!(
-        metadata.len() <= limits.max_file_bytes,
-        "run-log file bytes exceed resource limit: requested {}, limit {}",
-        metadata.len(),
-        limits.max_file_bytes
-    );
 
-    let initial_capacity = usize::try_from(metadata.len())
+    let initial_capacity = usize::try_from(opened_identity.len)
         .context("run-log file length is not representable in memory")?;
     let mut snapshot = Vec::new();
     snapshot
         .try_reserve_exact(initial_capacity)
         .context("failed to reserve bounded run-log snapshot")?;
-    file.take(limits.max_file_bytes.saturating_add(1))
+    (&mut file)
+        .take(limits.max_file_bytes.saturating_add(1))
         .read_to_end(&mut snapshot)
         .with_context(|| format!("failed to read run log {}", path.display()))?;
     let snapshot_len = u64::try_from(snapshot.len())
@@ -108,7 +149,135 @@ fn read_bounded_snapshot(path: &Path, limits: RunLogLimits) -> Result<Vec<u8>> {
         "run-log file bytes exceed resource limit: requested {snapshot_len}, limit {}",
         limits.max_file_bytes
     );
+    let opened_after = file
+        .metadata()
+        .with_context(|| format!("failed to re-inspect open run log {}", path.display()))?;
+    ensure!(
+        regular_file_identity(&opened_after, path)? == opened_identity
+            && snapshot_len == opened_identity.len,
+        "run-log input changed while its descriptor was read: {}",
+        path.display()
+    );
+    let path_after = std::fs::symlink_metadata(path)
+        .with_context(|| format!("failed to re-inspect run log {}", path.display()))?;
+    ensure!(
+        regular_file_identity(&path_after, path)? == opened_identity,
+        "run-log input path changed while it was read: {}",
+        path.display()
+    );
     Ok(snapshot)
+}
+
+#[cfg(not(unix))]
+fn read_bounded_snapshot(_path: &Path, _limits: RunLogLimits) -> Result<Vec<u8>> {
+    bail!("descriptor-bound run-log snapshots require Unix O_NOFOLLOW support")
+}
+
+struct StrictJson;
+
+impl<'de> Deserialize<'de> for StrictJson {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StrictJsonVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for StrictJsonVisitor {
+            type Value = StrictJson;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("one JSON value without duplicate object keys")
+            }
+
+            fn visit_bool<E>(self, _: bool) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_i64<E>(self, _: i64) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_u64<E>(self, _: u64) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_f64<E>(self, value: f64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                if value.is_finite() {
+                    Ok(StrictJson)
+                } else {
+                    Err(E::custom("non-finite JSON number"))
+                }
+            }
+
+            fn visit_str<E>(self, _: &str) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_string<E>(self, _: String) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_none<E>(self) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_unit<E>(self) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_some<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                StrictJson::deserialize(deserializer)
+            }
+
+            fn visit_seq<A>(self, mut sequence: A) -> std::result::Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                while sequence.next_element::<StrictJson>()?.is_some() {}
+                Ok(StrictJson)
+            }
+
+            fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut keys = BTreeSet::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    if !keys.insert(key.clone()) {
+                        return Err(serde::de::Error::custom(format!(
+                            "duplicate JSON object key {key:?}"
+                        )));
+                    }
+                    map.next_value::<StrictJson>()?;
+                }
+                Ok(StrictJson)
+            }
+        }
+
+        deserializer.deserialize_any(StrictJsonVisitor)
+    }
+}
+
+fn validate_strict_json_lines(bytes: &[u8]) -> Result<()> {
+    for (line_index, raw_line) in bytes.split(|byte| *byte == b'\n').enumerate() {
+        let line = raw_line.strip_suffix(b"\r").unwrap_or(raw_line);
+        if line.iter().all(u8::is_ascii_whitespace) {
+            continue;
+        }
+        let mut deserializer = serde_json::Deserializer::from_slice(line);
+        StrictJson::deserialize(&mut deserializer)
+            .with_context(|| format!("run-log line {} is not strict JSON", line_index + 1))?;
+        deserializer
+            .end()
+            .with_context(|| format!("run-log line {} is not strict JSON", line_index + 1))?;
+    }
+    Ok(())
 }
 
 fn manifest_for_snapshot(
@@ -192,6 +361,7 @@ fn prepare_snapshot(
     allow_invalid: bool,
     limits: RunLogLimits,
 ) -> Result<PreparedRunLog> {
+    validate_strict_json_lines(snapshot)?;
     let events = pid_runlog::read_events_with_limits(Cursor::new(snapshot), limits)?;
     let validation = pid_runlog::validate_events_with_limits(&events, limits)?;
     if !validation.is_valid() && !allow_invalid {
@@ -594,6 +764,21 @@ mod tests {
 
         assert!(format!("{error:#}").contains("run log failed validation"));
         Ok(())
+    }
+
+    #[test]
+    fn duplicate_json_members_fail_before_runlog_parsing() {
+        let duplicate = br#"{"type":"run_started","run_id":"first","run_id":"second"}"#;
+
+        let error = prepare_snapshot(
+            Path::new("duplicate-runlog.jsonl"),
+            duplicate,
+            true,
+            RunLogLimits::default(),
+        )
+        .expect_err("allow-invalid must not select last-key-wins semantics");
+
+        assert!(format!("{error:#}").contains("duplicate JSON object key \"run_id\""));
     }
 
     #[test]

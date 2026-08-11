@@ -4,7 +4,7 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Deterministic object-simulation harness and Flow_gt extraction for prisoma"
+description = "Deterministic object-simulation harness and Flow_gt extraction for Prisoma"
 license.workspace = true
 repository.workspace = true
 # Internal workspace crate (path-depends into the pid-rs submodule); never published to
@@ -21,6 +21,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "pid-sim-legacy-sensitivity"
 path = "src/bin/power_gate.rs"
+required-features = ["legacy-sensitivity"]
 
 [[bin]]
 name = "pid-sim-demo"
@@ -41,6 +42,7 @@ path = "src/bin/bridge_tcp.rs"
 [[bin]]
 name = "pid-sim-bridge-ws"
 path = "src/bin/bridge_ws.rs"
+required-features = ["websocket"]
 
 [[bin]]
 name = "pid-sim-verify"
@@ -49,22 +51,27 @@ path = "src/bin/verify.rs"
 [[bin]]
 name = "pid-toy-harness"
 path = "src/bin/toy_harness.rs"
+required-features = ["analysis"]
 
 [[bin]]
 name = "pid-offline-harness"
 path = "src/bin/offline_harness.rs"
+required-features = ["analysis"]
 
 [[bin]]
 name = "pid-h1-preflight"
 path = "src/bin/h1_preflight.rs"
+required-features = ["protocol-references"]
 
 [[bin]]
 name = "pid-h1-protocol-a"
 path = "src/bin/h1_protocol_a.rs"
+required-features = ["protocol-references"]
 
 [[bin]]
 name = "pid-h2-reference"
 path = "src/bin/h2_reference.rs"
+required-features = ["protocol-references"]
 
 [[bin]]
 name = "pid-rapier-harness"
@@ -72,7 +79,13 @@ path = "src/bin/rapier_harness.rs"
 required-features = ["rapier"]
 
 [features]
-rapier = ["dep:rapier3d-f64"]
+default = []
+analysis = ["dep:pid-core", "dep:same-file"]
+legacy-sensitivity = []
+protocol-references = []
+rapier = ["dep:rapier3d-f64", "dep:same-file"]
+rerun-export = ["dep:pid-rerun", "dep:tempfile"]
+websocket = ["dep:sha1"]
 
 [dependencies]
 anyhow = "1.0"
@@ -80,21 +93,36 @@ base64 = "0.22"
 # Operating-system CSPRNG for the Engram host bridge pairing secret. The bridge
 # fails before it listens when this source is unavailable.
 getrandom = "0.3"
+# RustCrypto HMAC implementation for the Engram startup-secret proof. Keep the
+# protocol framing here; do not maintain a local cryptographic primitive.
+hmac = "0.13"
 # The current pid-core review surface ships an empty default feature set: the continuous
 # shared-exclusions estimators and the resampling/PLS pipelines the harnesses depend on are
 # default-off research surfaces. Enabling a feature is a software switch, not a validity claim
 # (`grandplan.md` §7.1).
-pid-core = { path = "../../pid-rs/crates/pid-core", features = [
+pid-core = { path = "../../pid-rs/crates/pid-core", optional = true, features = [
     "experimental-continuous",
     "experimental-pipelines",
 ] }
 pid-bridge = { path = "../pid-bridge" }
-pid-rerun = { path = "../pid-rerun" }
+# Keep the Rerun/Arrow graph out of simulation, protocol, and offline-analysis
+# builds that do not publish RRD files.
+pid-rerun = { path = "../pid-rerun", optional = true }
 pid-runlog = { path = "../../pid-rs/crates/pid-runlog" }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-same-file = "1.0"
-sha1 = "0.11"
+# Preserve every finite IEEE-754 value across the JSON sidecar write/read boundary. The default
+# fast parser can differ by one ULP, which invalidates exact derived-value and provenance checks.
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
+same-file = { version = "1.0", optional = true }
+sha1 = { version = "0.11", optional = true }
 sha2 = "0.11"
-tempfile = "3.20"
+tempfile = { version = "3.20", optional = true }
+zeroize = "1.9"
 rapier3d-f64 = { version = "0.34", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+# No-follow and nonblocking flags for descriptor-bound local input snapshots.
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3.20"

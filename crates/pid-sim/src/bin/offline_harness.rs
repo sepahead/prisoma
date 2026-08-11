@@ -1,27 +1,28 @@
 use anyhow::{bail, Context, Result};
 use pid_sim::offline_harness::{
-    compute_offline_pid_uncertainty, offline_vlda_axis_provenance_failure_messages,
-    offline_vlda_geometry_gate_failure_message,
+    offline_vlda_axis_provenance_failure_messages,
     offline_vlda_heldout_class_coverage_failure_message,
     offline_vlda_heldout_class_coverage_status,
     offline_vlda_heldout_episode_disjoint_failure_message,
     offline_vlda_heldout_episode_disjoint_status, offline_vlda_heldout_split_failure_message,
     offline_vlda_heldout_split_status, offline_vlda_split_scientific_eligibility_failure_message,
     offline_vlda_success_label_failure_message, offline_vlda_success_label_status,
-    offline_vlda_train_split_pid_status, read_offline_vlda_dataset_with_hash,
-    run_offline_vlda_harness_with_options, write_offline_pid_uncertainty,
-    write_offline_vlda_runlog_with_options, write_offline_vlda_summary, OfflineVldaHarnessOptions,
+    offline_vlda_train_split_pid_status, read_offline_vlda_dataset_with_hash_and_limits,
+    read_offline_vlda_resource_limits,
+    run_offline_vlda_invocation_borrowed_with_options_and_limits, write_offline_pid_uncertainty,
+    write_offline_vlda_runlog_with_options_and_uncertainty, write_offline_vlda_summary,
+    OfflineVldaHarnessOptions, OfflineVldaResourceLimits, OfflineVldaRunlogArtifacts,
     OfflineVldaRunlogOptions, OfflineVldaUncertaintyConfig, PermutationScheme, PidMode,
     PlsComponentSelection,
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq)]
 struct Args {
     input: PathBuf,
+    resource_limits_json: Option<PathBuf>,
     summary_json: PathBuf,
     runlog: PathBuf,
-    require_geometry_pass: bool,
     require_success_labels: bool,
     require_heldout_split: bool,
     require_heldout_class_coverage: bool,
@@ -38,44 +39,43 @@ struct Args {
     uncertainty_json: Option<PathBuf>,
 }
 
+const DEFAULT_RESOURCE_LIMITS_JSON_EXAMPLE: &str = r#"{
+  "max_input_bytes": 67108864,
+  "max_samples": 1024,
+  "max_total_axis_scalars": 1048576,
+  "max_total_metadata_entries": 65536,
+  "max_total_metadata_json_nodes": 65536,
+  "max_total_metadata_utf8_bytes": 8388608,
+  "max_metadata_json_depth": 64,
+  "max_pairwise_distance_evaluations": 50000000,
+  "max_distance_coordinate_evaluations": 100000000,
+  "max_dense_solver_operations": 100000000
+}"#;
+
 fn main() -> Result<()> {
     let args = parse_args(std::env::args().skip(1))?;
+    let uncertainty_path = (args.bootstrap > 0 || args.permutation > 0).then(|| {
+        args.uncertainty_json
+            .clone()
+            .unwrap_or_else(|| args.summary_json.with_extension("uncertainty.json"))
+    });
+    ensure_distinct_paths(&args, uncertainty_path.as_deref())?;
+    let resource_limits = match &args.resource_limits_json {
+        Some(path) => read_offline_vlda_resource_limits(path)?,
+        None => OfflineVldaResourceLimits::default(),
+    };
     let input_uri = args
         .input
         .to_str()
         .ok_or_else(|| anyhow::anyhow!("--input path must be valid UTF-8 for run-log provenance"))?
         .to_string();
-    let (dataset, input_sha256) = read_offline_vlda_dataset_with_hash(&args.input)?;
+    let (dataset, input_sha256) =
+        read_offline_vlda_dataset_with_hash_and_limits(&args.input, &resource_limits)?;
     let harness_options = OfflineVldaHarnessOptions {
         pid_mode: args.pid_mode,
         discrete_bins: args.discrete_bins,
         pls: args.pls,
     };
-    let report = run_offline_vlda_harness_with_options(
-        dataset.clone(),
-        Some(input_uri),
-        Some(input_sha256),
-        &harness_options,
-    )?;
-    write_offline_vlda_summary(&args.summary_json, &report)?;
-    write_offline_vlda_runlog_with_options(
-        &args.runlog,
-        Some(&args.summary_json),
-        Some(&args.input),
-        &dataset,
-        &report,
-        OfflineVldaRunlogOptions {
-            require_geometry_pass: args.require_geometry_pass,
-            require_success_labels: args.require_success_labels,
-            require_heldout_split: args.require_heldout_split,
-            require_heldout_class_coverage: args.require_heldout_class_coverage,
-            require_heldout_episode_disjoint: args.require_heldout_episode_disjoint,
-            require_axis_provenance_honest: args.require_axis_provenance_honest,
-        },
-    )?;
-
-    // Opt-in PID-screen uncertainty: written to a dedicated file so the canonical
-    // run-log / summary metric counts are never perturbed.
     let uncertainty_config = OfflineVldaUncertaintyConfig {
         n_boot: args.bootstrap,
         n_perm: args.permutation,
@@ -92,14 +92,49 @@ fn main() -> Result<()> {
         },
         ..Default::default()
     };
-    if uncertainty_config.enabled() {
-        let uncertainty =
-            compute_offline_pid_uncertainty(&dataset, args.pid_mode, &uncertainty_config)?;
-        let path = args
-            .uncertainty_json
+    let invocation = run_offline_vlda_invocation_borrowed_with_options_and_limits(
+        &dataset,
+        Some(input_uri),
+        Some(input_sha256),
+        &harness_options,
+        &uncertainty_config,
+        &resource_limits,
+    )?;
+    let report = invocation.report;
+    let uncertainty_output = if let Some(uncertainty) = invocation.uncertainty {
+        let path = uncertainty_path
             .clone()
-            .unwrap_or_else(|| args.summary_json.with_extension("uncertainty.json"));
-        write_offline_pid_uncertainty(&path, &uncertainty)?;
+            .context("enabled uncertainty output path was not resolved")?;
+        Some((path, uncertainty))
+    } else {
+        None
+    };
+    write_offline_vlda_summary(&args.summary_json, &report)?;
+    if let Some((path, uncertainty)) = &uncertainty_output {
+        write_offline_pid_uncertainty(path, uncertainty)?;
+    }
+    write_offline_vlda_runlog_with_options_and_uncertainty(
+        &args.runlog,
+        OfflineVldaRunlogArtifacts {
+            summary_path: Some(&args.summary_json),
+            input_path: Some(&args.input),
+            uncertainty_path: uncertainty_output.as_ref().map(|(path, _)| path.as_path()),
+            uncertainty: uncertainty_output
+                .as_ref()
+                .map(|(_, uncertainty)| uncertainty),
+        },
+        &dataset,
+        &report,
+        OfflineVldaRunlogOptions {
+            require_success_labels: args.require_success_labels,
+            require_heldout_split: args.require_heldout_split,
+            require_heldout_class_coverage: args.require_heldout_class_coverage,
+            require_heldout_episode_disjoint: args.require_heldout_episode_disjoint,
+            require_axis_provenance_honest: args.require_axis_provenance_honest,
+        },
+    )?;
+
+    if let Some((path, uncertainty)) = &uncertainty_output {
         println!(
             "pid_uncertainty={} mode={} stability_interpretation={} n_boot={} n_perm={} perm_scheme={} subsample_len={} pairs={}",
             path.display(),
@@ -113,12 +148,12 @@ fn main() -> Result<()> {
         );
     }
     println!(
-        "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_gate_status={} success_label_status={} heldout_split_status={} train_split_pid_status={} heldout_class_coverage_status={} heldout_episode_disjoint_status={}",
+        "offline_vlda_summary={} runlog={} samples={} config_hash={} geometry_diagnostic_status={} success_label_status={} heldout_split_status={} train_split_pid_status={} heldout_class_coverage_status={} heldout_episode_disjoint_status={}",
         args.summary_json.display(),
         args.runlog.display(),
         report.dims.samples,
         report.config_hash,
-        report.geometry.gates.status,
+        report.geometry.diagnostics.status,
         offline_vlda_success_label_status(&report),
         offline_vlda_heldout_split_status(&report),
         offline_vlda_train_split_pid_status(&report),
@@ -126,9 +161,6 @@ fn main() -> Result<()> {
         offline_vlda_heldout_episode_disjoint_status(&report)
     );
     let mut failures = Vec::new();
-    if args.require_geometry_pass && report.geometry.gates.status != "pass" {
-        failures.push(offline_vlda_geometry_gate_failure_message(&report));
-    }
     if args.require_success_labels && report.metrics.success_rate.is_none() {
         failures.push(offline_vlda_success_label_failure_message(
             &dataset, &report,
@@ -172,15 +204,15 @@ fn main() -> Result<()> {
 
 fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut input = None;
+    let mut resource_limits_json = None;
     let mut summary_json = PathBuf::from("outputs/offline_vlda_summary.json");
     let mut runlog = PathBuf::from("outputs/offline_vlda_runlog.jsonl");
-    let mut require_geometry_pass = false;
     let mut require_success_labels = false;
     let mut require_heldout_split = false;
     let mut require_heldout_class_coverage = false;
     let mut require_heldout_episode_disjoint = false;
     let mut require_axis_provenance_honest = false;
-    let mut pid_mode = PidMode::Continuous;
+    let mut pid_mode = PidMode::Disabled;
     let mut discrete_bins: usize = 10;
     let mut pls = PlsComponentSelection::Fixed(2);
     let mut bootstrap: usize = 0;
@@ -201,15 +233,18 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
                     iter.next().context("--input requires a path")?,
                 ));
             }
+            "--resource-limits-json" => {
+                resource_limits_json = Some(PathBuf::from(
+                    iter.next()
+                        .context("--resource-limits-json requires a path")?,
+                ));
+            }
             "--summary-json" => {
                 summary_json =
                     PathBuf::from(iter.next().context("--summary-json requires a path")?);
             }
             "--runlog" => {
                 runlog = PathBuf::from(iter.next().context("--runlog requires a path")?);
-            }
-            "--require-geometry-pass" => {
-                require_geometry_pass = true;
             }
             "--require-success-labels" => {
                 require_success_labels = true;
@@ -330,11 +365,14 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
         }
     }
     let input = input.context("--input is required")?;
+    if uncertainty_json.is_some() && bootstrap == 0 && permutation == 0 {
+        bail!("--uncertainty-json requires --bootstrap N or --permutation N with N > 0");
+    }
     Ok(Args {
         input,
+        resource_limits_json,
         summary_json,
         runlog,
-        require_geometry_pass,
         require_success_labels,
         require_heldout_split,
         require_heldout_class_coverage,
@@ -352,15 +390,101 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     })
 }
 
+fn comparable_path(path: &Path) -> Result<PathBuf> {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    if absolute.exists() {
+        return absolute
+            .canonicalize()
+            .with_context(|| format!("failed to resolve {}", absolute.display()));
+    }
+    let mut normalized = PathBuf::new();
+    for component in absolute.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                normalized.pop();
+            }
+            component => normalized.push(component.as_os_str()),
+        }
+    }
+    if let (Some(parent), Some(name)) = (normalized.parent(), normalized.file_name()) {
+        if let Ok(parent) = parent.canonicalize() {
+            return Ok(parent.join(name));
+        }
+    }
+    Ok(normalized)
+}
+
+fn paths_alias(left: &Path, right: &Path) -> Result<bool> {
+    if left.exists() && right.exists() {
+        return same_file::is_same_file(left, right).with_context(|| {
+            format!(
+                "failed to compare path identities {} and {}",
+                left.display(),
+                right.display()
+            )
+        });
+    }
+    Ok(comparable_path(left)? == comparable_path(right)?)
+}
+
+fn ensure_distinct_paths(args: &Args, uncertainty_path: Option<&Path>) -> Result<()> {
+    let mut paths = vec![
+        ("input", args.input.as_path(), false),
+        ("summary", args.summary_json.as_path(), true),
+        ("runlog", args.runlog.as_path(), true),
+    ];
+    if let Some(path) = args.resource_limits_json.as_deref() {
+        paths.push(("resource limits", path, false));
+    }
+    if let Some(path) = uncertainty_path {
+        paths.push(("uncertainty", path, true));
+    }
+
+    for (name, path, output) in &paths {
+        if *output
+            && std::fs::symlink_metadata(path)
+                .is_ok_and(|metadata| metadata.file_type().is_symlink())
+        {
+            bail!("{name} output must not be a symlink: {}", path.display());
+        }
+    }
+    for (index, (left_name, left, _)) in paths.iter().enumerate() {
+        for (right_name, right, _) in &paths[index + 1..] {
+            if paths_alias(left, right)? {
+                bail!(
+                    "{left_name} and {right_name} paths must be distinct: {}",
+                    left.display()
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 fn print_usage() {
     println!(
-        "Usage: pid-offline-harness --input PATH [--summary-json PATH] [--runlog PATH] [--require-geometry-pass] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode none|continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N|cv|cv:MAX] [--bootstrap N] [--permutation N] [--permutation-scheme full-shuffle|circular-shift] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
+        "Usage: pid-offline-harness --input PATH [--resource-limits-json PATH] [--summary-json PATH] [--runlog PATH] [--require-success-labels] [--require-heldout-split] [--require-heldout-class-coverage] [--require-heldout-episode-disjoint] [--require-axis-provenance-honest] [--pid-mode none|continuous|discrete|discrete-pls] [--discrete-bins N] [--pls-components N|cv|cv:MAX] [--bootstrap N] [--permutation N] [--permutation-scheme full-shuffle|circular-shift] [--uncertainty-block-size N] [--uncertainty-alpha F] [--uncertainty-json PATH]\n\
          \n\
          Converts captured (V,L,D,A) embedding JSON into canonical summary and run-log artifacts.\n\
+         Geometry output is descriptive. Its warnings never establish or block estimator validity.\n\
          \n\
+         --resource-limits-json PATH\n\
+                                 Use a reviewed, strict JSON override for the typed resource\n\
+                                 limits. Defaults cap input at 64 MiB, samples at 1,024, pairwise\n\
+                                 work at 50,000,000, coordinate work at 100,000,000, and dense-\n\
+                                 solver work at 100,000,000. The CLI\n\
+                                 checked-adds main and optional uncertainty projections before\n\
+                                 analysis. Applied values and usage are bound into report and\n\
+                                 run-log configuration. Larger SAFE or\n\
+                                 NCP artifacts need a reviewed complete override.\n\
          --pid-mode none         Skip all MI/PID estimates; run labels, geometry, and non-PID\n\
-                                 prediction baselines only (dependency-firebreak path).\n\
-         --pid-mode continuous   Use KSG kNN-based MI and continuous I^sx PID (default).\n\
+                                 prediction baselines only (default estimator-request firebreak).\n\
+         --pid-mode continuous   Opt in to KSG kNN-based MI and continuous I^sx PID.\n\
          --pid-mode discrete     Use equal-width quantization + counting-based discrete PID\n\
                                  (I_min-style redundancy, not discrete i^sx; results carry\n\
                                  saturation diagnostics — see grandplan §7.6).\n\
@@ -370,15 +494,19 @@ fn print_usage() {
          --discrete-bins N       Number of bins for discrete modes (default: 10, min: 2).\n\
          --pls-components X      PLS components for discrete-pls: a fixed count N
                                  (default: 2), or 'cv' / 'cv:MAX' for per-source LOO-CV
-                                 Q² selection (default MAX: 8) - the preregistered
-                                 grandplan §6.2 leakage-safe fitted preprocessing method. In discrete-pls mode
-                                 the summary also carries a shuffled-target permutation
-                                 control (the selection-inflation floor); read the real
-                                 atoms relative to it, and treat in-sample discrete-pls
+                                 Q² selection (default MAX: 8). This is the preregistered
+                                 grandplan §6.2 fitted preprocessing method. In discrete-pls
+                                 mode, the summary also carries a shuffled-target permutation
+                                 control. Read the real atoms relative to that
+                                 selection-inflation floor. Treat in-sample discrete-pls
                                  output as screening-only.\n\
          --bootstrap N           Number of m-out-of-n subsample resamples. The emitted raw\n\
                                  percentiles are stability envelopes at m, not calibrated\n\
-                                 n-sample confidence intervals.\n\
+                                 n-sample confidence intervals. Continuous mode requires N >= 2.\n\
+         --uncertainty-block-size N\n\
+                                 Predeclared dependence length (default: 1). Bootstrap use\n\
+                                 requires N <= floor(samples/2). Circular shift also requires\n\
+                                 samples >= 2*N+1.\n\
          --uncertainty-alpha F   Two-sided tail mass for those raw percentiles (default: 0.05);\n\
                                  it is not a confidence-interval significance claim.\n\
          --permutation-scheme    Null for --permutation p-values (default: full-shuffle).\n\
@@ -387,6 +515,9 @@ fn print_usage() {
                                  circular-shift preserves each source's own serial\n\
                                  dependence (rotation null; min_shift = the\n\
                                  --uncertainty-block-size dependence length)."
+    );
+    println!(
+        "\nComplete default --resource-limits-json document:\n{DEFAULT_RESOURCE_LIMITS_JSON_EXAMPLE}"
     );
 }
 
@@ -399,11 +530,12 @@ mod tests {
         let args = parse_args([
             "--input".to_string(),
             "fixture.json".to_string(),
+            "--resource-limits-json".to_string(),
+            "limits.json".to_string(),
             "--summary-json".to_string(),
             "summary.json".to_string(),
             "--runlog".to_string(),
             "runlog.jsonl".to_string(),
-            "--require-geometry-pass".to_string(),
             "--require-success-labels".to_string(),
             "--require-heldout-split".to_string(),
             "--require-heldout-class-coverage".to_string(),
@@ -411,16 +543,152 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(args.input, PathBuf::from("fixture.json"));
+        assert_eq!(
+            args.resource_limits_json,
+            Some(PathBuf::from("limits.json"))
+        );
         assert_eq!(args.summary_json, PathBuf::from("summary.json"));
         assert_eq!(args.runlog, PathBuf::from("runlog.jsonl"));
-        assert!(args.require_geometry_pass);
         assert!(args.require_success_labels);
         assert!(args.require_heldout_split);
         assert!(args.require_heldout_class_coverage);
         assert!(args.require_heldout_episode_disjoint);
-        assert_eq!(args.pid_mode, PidMode::Continuous);
+        assert_eq!(args.pid_mode, PidMode::Disabled);
         assert_eq!(args.discrete_bins, 10);
         assert_eq!(args.pls, PlsComponentSelection::Fixed(2));
+    }
+
+    fn write_limits_fixture(bytes: &[u8]) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("limits.json");
+        std::fs::write(&path, bytes).unwrap();
+        (dir, path)
+    }
+
+    #[test]
+    fn read_resource_limits_accepts_complete_positive_typed_file() {
+        let expected = OfflineVldaResourceLimits::default();
+        let (_dir, path) = write_limits_fixture(&serde_json::to_vec(&expected).unwrap());
+
+        let observed = read_offline_vlda_resource_limits(&path).unwrap();
+
+        assert_eq!(observed, expected);
+    }
+
+    #[test]
+    fn help_resource_limits_example_matches_typed_defaults() {
+        let observed: OfflineVldaResourceLimits =
+            serde_json::from_str(DEFAULT_RESOURCE_LIMITS_JSON_EXAMPLE).unwrap();
+
+        assert_eq!(observed, OfflineVldaResourceLimits::default());
+    }
+
+    #[test]
+    fn read_resource_limits_accepts_reviewed_safe_size_override() {
+        let expected = OfflineVldaResourceLimits {
+            max_samples: 250_000,
+            max_total_axis_scalars: 10_000_000,
+            max_pairwise_distance_evaluations: 100_000_000_000,
+            max_distance_coordinate_evaluations: 1_000_000_000_000,
+            max_dense_solver_operations: 1_000_000_000_000,
+            ..OfflineVldaResourceLimits::default()
+        };
+        let (_dir, path) = write_limits_fixture(&serde_json::to_vec(&expected).unwrap());
+
+        let observed = read_offline_vlda_resource_limits(&path).unwrap();
+
+        assert_eq!(observed, expected);
+    }
+
+    #[test]
+    fn read_resource_limits_rejects_missing_required_field() {
+        let mut value = serde_json::to_value(OfflineVldaResourceLimits::default()).unwrap();
+        value.as_object_mut().unwrap().remove("max_samples");
+        let (_dir, path) = write_limits_fixture(&serde_json::to_vec(&value).unwrap());
+
+        let error = read_offline_vlda_resource_limits(&path).unwrap_err();
+
+        assert!(error.to_string().contains("failed to parse"));
+    }
+
+    #[test]
+    fn read_resource_limits_rejects_unknown_field() {
+        let mut value = serde_json::to_value(OfflineVldaResourceLimits::default()).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("unreviewed_limit".to_string(), serde_json::json!(1));
+        let (_dir, path) = write_limits_fixture(&serde_json::to_vec(&value).unwrap());
+
+        let error = read_offline_vlda_resource_limits(&path).unwrap_err();
+
+        assert!(error.to_string().contains("failed to parse"));
+    }
+
+    #[test]
+    fn read_resource_limits_rejects_zero_field() {
+        let limits = OfflineVldaResourceLimits {
+            max_samples: 0,
+            ..OfflineVldaResourceLimits::default()
+        };
+        let (_dir, path) = write_limits_fixture(&serde_json::to_vec(&limits).unwrap());
+
+        let error = read_offline_vlda_resource_limits(&path).unwrap_err();
+
+        assert!(error.to_string().contains("max_samples"));
+        assert!(error.to_string().contains("observed 0"));
+    }
+
+    #[test]
+    fn read_resource_limits_rejects_malformed_json() {
+        let (_dir, path) = write_limits_fixture(b"{");
+
+        let error = read_offline_vlda_resource_limits(&path).unwrap_err();
+
+        assert!(error.to_string().contains("not strict JSON"));
+    }
+
+    #[test]
+    fn read_resource_limits_rejects_duplicate_fields() {
+        let encoded = serde_json::to_string(&OfflineVldaResourceLimits::default()).unwrap();
+        let duplicate = encoded.replacen(
+            "\"max_samples\":1024",
+            "\"max_samples\":1024,\"max_samples\":1",
+            1,
+        );
+        assert_ne!(duplicate, encoded);
+        let (_dir, path) = write_limits_fixture(duplicate.as_bytes());
+
+        let error = read_offline_vlda_resource_limits(&path).unwrap_err();
+
+        assert!(error.to_string().contains("not strict JSON"));
+    }
+
+    #[test]
+    fn read_resource_limits_rejects_file_byte_limit_before_json_parse() {
+        let oversized = vec![b' '; 64 * 1_024 + 1];
+        let (_dir, path) = write_limits_fixture(&oversized);
+
+        let error = read_offline_vlda_resource_limits(&path).unwrap_err();
+
+        assert!(error.to_string().contains("exceeds the 65536-byte limit"));
+        assert!(!error.to_string().contains("failed to parse"));
+    }
+
+    #[test]
+    fn read_resource_limits_rejects_integer_type_overflow() {
+        let encoded = serde_json::to_string(&OfflineVldaResourceLimits::default()).unwrap();
+        let extreme = encoded.replacen(
+            "\"max_samples\":1024",
+            "\"max_samples\":184467440737095516160",
+            1,
+        );
+        assert_ne!(extreme, encoded);
+        let (_dir, path) = write_limits_fixture(extreme.as_bytes());
+
+        let error = read_offline_vlda_resource_limits(&path).unwrap_err();
+
+        assert!(error.to_string().contains("failed to parse"));
     }
 
     #[test]
@@ -503,5 +771,87 @@ mod tests {
             "quantum".to_string(),
         ])
         .is_err());
+    }
+
+    #[test]
+    fn parse_args_rejects_unused_uncertainty_output() {
+        let error = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--uncertainty-json".to_string(),
+            "uncertainty.json".to_string(),
+        ])
+        .unwrap_err();
+
+        assert!(error.to_string().contains("requires --bootstrap"));
+    }
+
+    #[test]
+    fn output_paths_must_be_distinct_before_any_write() {
+        let directory = tempfile::tempdir().unwrap();
+        let input = directory.path().join("input.json");
+        let output = directory.path().join("output.json");
+        std::fs::write(&input, b"{}").unwrap();
+        let args = parse_args([
+            "--input".to_string(),
+            input.display().to_string(),
+            "--summary-json".to_string(),
+            output.display().to_string(),
+            "--runlog".to_string(),
+            output.display().to_string(),
+        ])
+        .unwrap();
+
+        let error = ensure_distinct_paths(&args, None).unwrap_err();
+
+        assert!(error.to_string().contains("summary and runlog"));
+        assert!(!output.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn existing_hardlink_alias_cannot_overwrite_input() {
+        let directory = tempfile::tempdir().unwrap();
+        let input = directory.path().join("input.json");
+        let summary = directory.path().join("summary.json");
+        let runlog = directory.path().join("runlog.jsonl");
+        std::fs::write(&input, b"protected input").unwrap();
+        std::fs::hard_link(&input, &summary).unwrap();
+        let args = parse_args([
+            "--input".to_string(),
+            input.display().to_string(),
+            "--summary-json".to_string(),
+            summary.display().to_string(),
+            "--runlog".to_string(),
+            runlog.display().to_string(),
+        ])
+        .unwrap();
+
+        let error = ensure_distinct_paths(&args, None).unwrap_err();
+
+        assert!(error.to_string().contains("input and summary"));
+        assert_eq!(std::fs::read(&input).unwrap(), b"protected input");
+    }
+
+    #[test]
+    fn existing_distinct_outputs_allow_reproducible_refresh() {
+        let directory = tempfile::tempdir().unwrap();
+        let input = directory.path().join("input.json");
+        let summary = directory.path().join("summary.json");
+        let runlog = directory.path().join("runlog.jsonl");
+        std::fs::write(&input, b"{}").unwrap();
+        std::fs::write(&summary, b"old summary").unwrap();
+        std::fs::write(&runlog, b"old run log").unwrap();
+        let args = parse_args([
+            "--input".to_string(),
+            input.display().to_string(),
+            "--summary-json".to_string(),
+            summary.display().to_string(),
+            "--runlog".to_string(),
+            runlog.display().to_string(),
+        ])
+        .unwrap();
+
+        ensure_distinct_paths(&args, None).unwrap();
     }
 }

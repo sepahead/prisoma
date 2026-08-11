@@ -6,6 +6,7 @@ import base64
 import copy
 import hashlib
 import json
+import os
 from dataclasses import replace
 from pathlib import PurePosixPath
 
@@ -476,6 +477,36 @@ def test_run_probe_emits_records_with_verdicts():
         )
         assert rec.evidence_bundle["work_estimate_multiply_adds"] == expected_work
         assert rec.metadata["probe_work_estimate_multiply_adds"] == str(expected_work)
+
+
+def test_probe_records_one_deterministic_import_source_manifest(tmp_path):
+    model, _ = _model_and_input(seed=46)
+    records = run_attribution_probe(model, _probe_cases(46), gate=_gate())
+    manifests = [record.evidence_bundle["software"] for record in records]
+    assert all(manifest == manifests[0] for manifest in manifests)
+    assert manifests[0]["source_binding"] == "import_time_source_snapshot_v1"
+    assert set(manifests[0]["source_sha256"]) == {
+        "__init__.py",
+        "__main__.py",
+        "attribute.py",
+        "faithfulness.py",
+        "model.py",
+        "probe.py",
+        "provenance.py",
+        "runlog.py",
+    }
+    write_attribution_runlog(
+        tmp_path / "attr.jsonl",
+        records,
+        artifact_dir=tmp_path / "artifacts",
+    )
+
+    repeated = run_attribution_probe(
+        SmallTransformer(d_in=5, d_model=8, seed=46),
+        _probe_cases(46),
+        gate=_gate(),
+    )
+    assert repeated[0].evidence_bundle["software"] == manifests[0]
 
 
 def test_probe_preflights_complete_composed_work_before_attribution(monkeypatch):
@@ -1217,6 +1248,78 @@ def test_write_runlog_rejects_artifact_destination_aliases(tmp_path, alias_kind)
     assert not runlog_path.exists()
     assert alias_target.read_bytes() == artifact_bytes
     assert not list(publication_dir.rglob(".attribution-stage-*.tmp"))
+
+
+def test_existing_artifact_verification_uses_nofollow_nonblocking_open(
+    tmp_path, monkeypatch
+):
+    artifact = tmp_path / "artifact.npy"
+    expected = b"bounded artifact bytes"
+    artifact.write_bytes(expected)
+    real_open = attribution_runlog.os.open
+    observed_flags = None
+
+    def recording_open(path, flags, mode=0o777):
+        nonlocal observed_flags
+        observed_flags = flags
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(attribution_runlog.os, "open", recording_open)
+    attribution_runlog._verify_existing_artifact(artifact, expected)
+
+    assert observed_flags is not None
+    assert observed_flags & attribution_runlog.os.O_NOFOLLOW
+    assert observed_flags & attribution_runlog.os.O_NONBLOCK
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO requires POSIX")
+def test_existing_artifact_verification_rejects_regular_to_fifo_swap(
+    tmp_path, monkeypatch
+):
+    artifact = tmp_path / "artifact.npy"
+    expected = b"bounded artifact bytes"
+    artifact.write_bytes(expected)
+    real_lstat = attribution_runlog.Path.lstat
+    swapped = False
+
+    def swapping_lstat(candidate):
+        nonlocal swapped
+        metadata = real_lstat(candidate)
+        if candidate == artifact and not swapped:
+            artifact.unlink()
+            os.mkfifo(artifact)
+            swapped = True
+        return metadata
+
+    monkeypatch.setattr(attribution_runlog.Path, "lstat", swapping_lstat)
+    with pytest.raises(ValueError, match="changed while opening"):
+        attribution_runlog._verify_existing_artifact(artifact, expected)
+
+    assert swapped
+
+
+def test_existing_artifact_verification_rejects_final_lexical_swap(
+    tmp_path, monkeypatch
+):
+    artifact = tmp_path / "artifact.npy"
+    replacement = tmp_path / "replacement.npy"
+    expected = b"bounded artifact bytes"
+    artifact.write_bytes(expected)
+    replacement.write_bytes(expected)
+    real_lstat = attribution_runlog.Path.lstat
+    artifact_calls = 0
+
+    def swapped_lstat(candidate):
+        nonlocal artifact_calls
+        if candidate == artifact:
+            artifact_calls += 1
+            if artifact_calls == 2:
+                return real_lstat(replacement)
+        return real_lstat(candidate)
+
+    monkeypatch.setattr(attribution_runlog.Path, "lstat", swapped_lstat)
+    with pytest.raises(ValueError, match="changed while verifying"):
+        attribution_runlog._verify_existing_artifact(artifact, expected)
 
 
 def test_attribution_record_rejects_empty_fields():

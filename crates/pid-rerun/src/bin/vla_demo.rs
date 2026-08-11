@@ -6,8 +6,8 @@
 //! 3. Logs everything to Rerun for visualization
 //!
 //! Usage:
-//!   cargo run -p pid-rerun --bin vla-demo -- --serve
-//!   cargo run -p pid-rerun --bin vla-demo -- --save demo.rrd
+//!   cargo run -p pid-rerun --features vla-demo --bin vla-demo -- --serve
+//!   cargo run -p pid-rerun --features vla-demo --bin vla-demo -- --save demo.rrd
 
 use anyhow::{bail, ensure, Context, Result};
 use ndarray::{s, Array2};

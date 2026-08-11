@@ -82,7 +82,12 @@ def _read_bounded_regular_file(
     if path_before.st_size > max_bytes:
         raise RuntimeError(f"{description} exceeds {max_bytes} bytes: {path}")
 
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     try:
         descriptor = os.open(path, flags)
     except OSError as exc:

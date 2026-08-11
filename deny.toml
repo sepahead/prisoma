@@ -1,13 +1,13 @@
 # cargo-deny — supply-chain gate for the prisoma workspace.
-# Run locally with `cargo deny check`; CI runs it via cargo-deny-action.
+# Run locally with `cargo deny --locked check`; CI runs it via cargo-deny-action.
 #
 # Modelled on the canonical pid-rs/deny.toml (the pid-rs submodule's own gate) and the
 # NCP deny.toml — prisoma's `ncp-observer` crate git-depends on NCP + Zenoh, so this
 # allowlist is the union that covers both the core estimator tree and the NCP/Zenoh
 # TLS stack. Default behaviour is DENY: anything not explicitly allowed below fails.
 #
-# Scope note: this gate covers the default workspace members AND the workspace-EXCLUDED
-# `crates/ncp-observer` (cargo-deny in CI is invoked once for the workspace root and once
+# Scope note: this gate covers all workspace members, including non-default `pid-rerun`, AND the
+# workspace-excluded `crates/ncp-observer` (cargo-deny in CI runs once for the root and once
 # with `--manifest-path crates/ncp-observer/Cargo.toml`). It deliberately does NOT cover
 # the vendored `.external/repos/*` trees or the `pid-rs/` submodule (pid-rs runs its own
 # cargo-deny in its own CI).
@@ -17,6 +17,11 @@ version = 2
 # A known-vulnerable crate fails the build. A yanked crate (pulled from crates.io after
 # publish) is also denied — it must not be in the lock.
 yanked = "deny"
+# Check transitive crates too. A safe-code soundness defect remains a release risk when it
+# enters through NCP, Zenoh, Rerun, Rapier, or another indirect dependency.
+unsound = "all"
+# Report every unmaintained transitive crate. Reviewed exceptions remain explicit below.
+unmaintained = "all"
 # The resolved bytes, rustls-webpki, and historical Rerun/Arrow lz4 findings were fixed by lock
 # updates, not ignored. The exceptions below have no compatible in-lock repair and are confined
 # to the separately checked `ncp-observer` Zenoh graph. Remove each exception when that upstream
@@ -40,8 +45,8 @@ ignore = [
 [licenses]
 version = 2
 # Default-deny: a dependency whose license is NOT in this allowlist fails the build.
-# This set is the union of pid-rs and NCP's allowlists and is exactly what the workspace
-# (default members + ncp-observer's NCP/Zenoh tree) resolves to — e.g. `ring`
+# This set is the union of pid-rs and NCP's allowlists and is exactly what all workspace members
+# plus ncp-observer's NCP/Zenoh tree resolve to — e.g. `ring`
 # (Apache-2.0 AND ISC), `webpki-roots` (CDLA-Permissive-2.0), `encoding_rs`
 # ((Apache-2.0 OR MIT) AND BSD-3-Clause). Adding a dep with a new license is a deliberate
 # review step, not a silent pass.

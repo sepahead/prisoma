@@ -8,6 +8,9 @@ The updater is a manual cache-maintenance utility. It uses a fixed HTTPS API ori
 bounded responses, strict local schemas, and atomic cache replacement; those checks do
 not authenticate publication metadata or replace source review.
 
+Run one updater process at a time. Atomic replacement prevents a partial cache, but this
+manual utility does not coordinate concurrent publishers.
+
 Usage:
   - Update cache for all arXiv IDs referenced in grandplan.md:
       python scripts/update_arxiv_ref_cache.py
@@ -109,6 +112,17 @@ class _BoundedTreeBuilder(ET.TreeBuilder):
         return element
 
 
+def _stable_file_identity(value: os.stat_result) -> tuple[int, int, int, int, int, int]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
 def validate_arxiv_id(value: str) -> str:
     if not isinstance(value, str) or ARXIV_EXPLICIT_ID_RE.fullmatch(value) is None:
         raise ValueError(
@@ -138,12 +152,18 @@ def _read_regular_file(path: Path, *, max_bytes: int, label: str) -> bytes:
     if metadata.st_size > max_bytes:
         raise ValueError(f"{label} exceeds the {max_bytes}-byte limit: {path}")
 
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    fd = os.open(path, flags)
     try:
         opened = os.fstat(fd)
         if not stat.S_ISREG(opened.st_mode):
             raise ValueError(f"{label} must be a regular file: {path}")
-        if (opened.st_dev, opened.st_ino) != (metadata.st_dev, metadata.st_ino):
+        if _stable_file_identity(opened) != _stable_file_identity(metadata):
             raise ValueError(f"{label} changed while it was being opened: {path}")
         if opened.st_size > max_bytes:
             raise ValueError(f"{label} exceeds the {max_bytes}-byte limit: {path}")
@@ -156,10 +176,23 @@ def _read_regular_file(path: Path, *, max_bytes: int, label: str) -> bytes:
             chunks.append(chunk)
             remaining -= len(chunk)
         data = b"".join(chunks)
+        opened_after = os.fstat(fd)
+        try:
+            named_after = path.lstat()
+        except OSError as exc:
+            raise ValueError(f"{label} changed while it was read: {path}") from exc
     finally:
         os.close(fd)
     if len(data) > max_bytes:
         raise ValueError(f"{label} exceeds the {max_bytes}-byte limit: {path}")
+    if (
+        not stat.S_ISREG(opened_after.st_mode)
+        or not stat.S_ISREG(named_after.st_mode)
+        or _stable_file_identity(opened) != _stable_file_identity(opened_after)
+        or _stable_file_identity(opened_after) != _stable_file_identity(named_after)
+        or len(data) != opened_after.st_size
+    ):
+        raise ValueError(f"{label} changed while it was read: {path}")
     return data
 
 

@@ -14,14 +14,18 @@
 //! - `vla/embeddings`: Embedding geometry diagnostics
 //! - `run/provenance/trace_hash_v2`: explicit `sha256` / `replay_trace_v2` run identity
 
+#[cfg(feature = "vla")]
 pub mod adapters;
+#[cfg(feature = "vla")]
 pub mod data;
 pub mod entities;
 pub mod runlog;
 
 mod bounded_process;
 
+#[cfg(feature = "vla")]
 pub use adapters::{PidLogger, VlaLogger};
+#[cfg(feature = "vla")]
 pub use data::{VlaEpisode, VlaFrame};
 pub use entities::EntityPaths;
 pub use runlog::RunLogRerunLogger;

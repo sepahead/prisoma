@@ -1,5 +1,19 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
+use pid_sim::file_snapshot::{read_bounded_regular_file, validate_strict_json_lines};
+use std::io::Cursor;
+use std::path::Path;
 use std::path::PathBuf;
+
+fn read_runlog_snapshot(path: &Path) -> Result<Vec<pid_runlog::RunLogEvent>> {
+    let limits = pid_runlog::RunLogLimits::default();
+    let snapshot = read_bounded_regular_file(path, limits.max_file_bytes, "run-log input")?;
+    let bytes = snapshot.exact_bytes(limits.max_file_bytes)?;
+    validate_strict_json_lines(bytes, "run-log input")?;
+    let events = pid_runlog::read_events_with_limits(Cursor::new(bytes), limits)
+        .context("failed to parse the exact run-log snapshot")?;
+    snapshot.verify_path()?;
+    Ok(events)
+}
 
 fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
@@ -30,7 +44,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let events = pid_runlog::read_events_from_path(&path)?;
+    let events = read_runlog_snapshot(&path)?;
     let validation = pid_runlog::validate_events(&events)?;
     let flow = pid_sim::verify_flow_gt(&events, tolerance);
     println!("runlog_valid={}", validation.is_valid());

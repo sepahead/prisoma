@@ -1,404 +1,192 @@
-# prisoma UI/UX Specification (Docset v12.5)
+# Prisoma UI Design Blueprint
 
-This file is the **UI contract** for the PID‑Splat viewer/intervention harness described in `grandplan.md` and referenced by the `README.md` engineering plan.
+This file defines image-generation prompts for a deferred user interface. It is not a description
+of an implemented application. The current runnable viewer surface is the `pid-rerun` adapter.
 
-The UI is **offline‑first** and **agent‑native**:
-- **Offline‑first:** the first usable UI is a **run‑log viewer** (record → replay → analyze) before any live transport.
-- **Agent‑native:** the GUI must call the same **Agent Bridge** API that scripts/LLM tools call; every action is logged and replayable.
+The product order is:
 
-**Docset-wide final solution:** `grandplan.md` §16 is the decision log (control plane §8.11, visualization §8.13). The UI should first expose run-library/replay/Rerun workflows, then a thin Agent Bridge control panel, then optional Tauri/SparkJS custom rendering; it must never become a second source of truth.
+1. Rerun-first offline inspection.
+2. A thin Agent Bridge client when live control is justified.
+3. An optional Tauri/SparkJS shell after the evidence workflow is stable.
 
-## 0) Design Principles (Non‑Negotiable)
+Every future UI must preserve two rules. The canonical run log remains authoritative. Every
+mutation goes through the Agent Bridge.
 
-Aligned to `grandplan.md` §12 (milestones M0–M7) and §5.1 (gate sequence).
+## 1. Design principles
 
-1. **Gate-driven:** make estimator-gate (S1) / geometry status visible; avoid “pretty but unscientific” controls.
-2. **No hidden state:** everything that changes the run (interventions, branch, config) must show provenance + be in the run log.
-3. **One control plane:** the UI is a *client* of Agent Bridge; it cannot do secret local mutations.
-4. **Viewer-first:** deliver value before “live mode”:
-   - M1: run library + metadata + replay integrity
-   - M2: Agent Bridge status + safety (GUI actions are RPC)
-   - M4: 3D playback + timeline + overlays
-5. **Physics is explicit:** splats are appearance; collisions/contacts come from collision geometry.
-6. **Color semantics are explicit:** default overlay convention is **R = Syn⁺**, **G = Red**, **B = Unq(V)** (`grandplan.md` §8.13). The UI must always show a legend and allow exporting the mapping.
-7. **Accessible & legible:** high contrast, readable typography, colorblind-aware palettes; never rely only on color (use labels/markers).
+- Show evidence status before visual polish.
+- Distinguish computation status from all four scientific gates.
+- Keep replay mode visibly separate from live mode.
+- Show hashes, revisions, actors, and artifact identities near derived views.
+- Never imply that a missing metric equals zero.
+- Never imply that PID is always available or valid.
+- Use text and shape in addition to color.
+- Keep optional rendering and NCP state out of the default navigation.
 
-## 1) Information Architecture (Navigation)
+The five parts below are design prompts. None is a release commitment.
 
-Left navigation (minimal set; everything else is contextual):
-- **Runs** (M1): browse/import/export run logs; view metadata; open viewer.
-- **Viewer** (M4): playback + overlays + event inspection.
-- **Compare** (optional): run‑vs‑run diff (cross‑backend replay is a core use case; `DIAGRAMS.md` §11).
-- **Capture** (optional): prospective 3DGS reconstruction-quality diagnostics and unscored view
-  proposals (`GAUSS_MI_INTEGRATION.md`); no weighted PID or estimated information gain exists.
-- **Settings**: local paths, renderer backend, Agent Bridge status, (optional) Zenoh.
+## 2. Run library
 
-## 2) Core UI Objects (What the UI “talks about”)
-
-The UI is anchored on the **run log** (M1). Everything else is derived:
-- **Run**: a directory or single artifact containing:
-  - config + hashes + provenance
-  - time series: `state`, `action`, `embeddings` (`V/L/D/A`), `metrics` (PID/CI), `events` (interventions)
-- **Event**: an agent‑bridge RPC call or system event, with `request_id`, timestamps, actor identity, payload hash.
-- **Frame**: a replay step (time index) that maps to state + optional renderable snapshots.
-- **Overlay**: a mapping from metrics → visuals (must be exported and versioned).
-
-## 3) Screens & Components (Ordered by Engineering Plan)
-
-### 3.1 Runs Screen (M1) — “Run Library”
-
-Purpose: select a run, inspect provenance, open viewer/compare, export artifacts.
-
-**Must-have UI elements**
-- Search + filters: experiment (H1–H4 programme / S-gates), model, physics backend, date, outcome, tags.
-- Run table/list with stable identifiers and quick status badges:
-  - estimator-gate (S1) status for that run (GO/PIVOT/NO‑GO) if available
-  - physics backend
-  - presence/absence of `V/L/D/A`, `Flow_gt`, `Flow_pred`
-- Right‑hand details panel for selected run:
-  - config hash, code revision, dataset version, actor provenance
-  - buttons: **Open Viewer**, **Open Compare**, **Export**
-
-**ASCII sketch (attempt A)**
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ prisoma ─ Runs                                              [Import] [New]   │
-├───────┬──────────────────────────────────────────────────────┬───────────────┤
-│ NAV   │ Search: [__________]  Filters: Exp ▾ Model ▾ Backend ▾ │ RUN DETAILS  │
-│ Runs  │                                                      │ ┌───────────┐ │
-│ Viewer│  ┌────────────────────────────────────────────────┐  │ │ Run: #42  │ │
-│ Compare│ │ Run ID  Exp  Model   Phys   Date     Outcome   │  │ │ Exp0:NO-GO  │ │
-│ Capture│ ├────────────────────────────────────────────────┤  │ │ hashes…   │ │
-│ Settings│ │ 42     Exp1 SmolVLA Rapier 2026‑01‑05 fail     │  │ │ artifacts │ │
-│       │ │ 43     Exp1 OpenVLA MuJoCo 2026‑01‑05 pass     │  │ │ [Viewer]  │ │
-│       │ │ 44     Exp4 …     Rapier 2026‑01‑05 …        │  │ │ [Compare] │ │
-│       │ └────────────────────────────────────────────────┘  │ │ [Export]  │ │
-└───────┴──────────────────────────────────────────────────────┴───────────────┘
-```
-
-**ASCII sketch (attempt B)**
-```
-┌──────────────┬───────────────────────────────────────────────────────────────┐
-│ Runs (M1)     │  [Search runs…]  [Exp ▾] [Model ▾] [Backend ▾] [Tags ▾]      │
-├──────────────┼───────────────────────────────────────────────────────────────┤
-│ Recent        │  ▸ Run 44  Exp4  Flow_gt ✓  PID ✓  outcome: —                 │
-│ Starred       │  ▸ Run 43  Exp1  Flow_gt ✗  PID ✓  outcome: pass              │
-│ Imported      │  ▸ Run 42  Exp1  Flow_gt ✓  PID ✓  outcome: fail              │
-│              │                                                               │
-│              │  Selected: Run 42                                             │
-│              │  - revision: abc123   config_hash: …                          │
-│              │  - actors: human_gui, script                                  │
-│              │  [Open Viewer] [Open Compare] [Export]                        │
-└──────────────┴───────────────────────────────────────────────────────────────┘
-```
+The run library is the first useful product view. It loads local canonical logs and displays their
+validation, terminal, provenance, and gate status.
 
 ```json
 {
   "type": "ui_part",
   "id": "runs_library",
-  "title": "Runs Screen (Run Library)",
-  "milestone": "M1",
+  "title": "Validated Run Library",
+  "milestone": "deferred product surface; Rerun-first",
   "requirements": [
-    "Desktop app screenshot (not mobile).",
-    "Left navigation includes: Runs, Viewer, Compare, Capture, Settings.",
-    "Main area shows a run list/table with filters (experiment, model, physics backend, date, outcome).",
-    "Selected run details panel shows provenance (hash/revision) and buttons: Open Viewer, Compare, Export.",
-    "Design is offline-first: shows local run logs / imports; no cloud dashboards."
+    "Show a desktop run library for local canonical run logs.",
+    "Display validation, terminal, and scientific-gate badges as separate fields.",
+    "Show the source revision, config hash, run id, and artifact count for the selected run.",
+    "Offer Open in Rerun, Validate, Compare, and Export actions.",
+    "Do not show a cloud dashboard, New Experiment wizard, or automatic scientific verdict."
   ],
-  "prompt_seed": "High-fidelity product UI mockup of a cross-platform desktop app called prisoma. Dark theme, clean typography, high contrast. Left sidebar navigation: Runs, Viewer, Compare, Capture, Settings. Main content is a Run Library: search bar and filter chips (Experiment, Model, Physics backend, Date, Outcome). A table of runs with columns Run ID, Experiment, Model, Physics, Date, Outcome. Right-hand details panel for selected run showing config hash/revision, artifact badges (Flow_gt, PID metrics), and buttons Open Viewer, Open Compare, Export. Minimalistic, modern, realistic spacing, legible text.",
-  "negative_prompt": "low resolution, blurry, illegible text, mobile UI, browser UI, neon, clutter, random charts without labels",
-  "image": {"width": 1600, "height": 1000},
+  "prompt_seed": "Professional desktop research UI for Prisoma. Dark neutral theme with high contrast and compact spacing. Left navigation has Runs, Replay, Compare, and Settings. The main table lists local canonical run logs with separate columns for validation, terminal status, population gate, measure gate, estimator gate, and application gate. The selected-run panel shows exact revision, config hash, run id, artifacts, and buttons Open in Rerun, Validate, Compare, Export. Clearly label the screen Offline. Avoid decorative simulation imagery.",
+  "negative_prompt": "mobile UI, cloud analytics, game HUD, neon, automatic PASS badge, unlabeled PID score, clutter, illegible hashes",
+  "image": {"width": 1536, "height": 1024},
   "score_threshold": 9.0,
   "max_iterations": 8,
   "allow_img2img": true
 }
 ```
 
----
+## 3. Agent Bridge status
 
-### 3.2 Agent Bridge Panel (M2) — “API & Safety”
-
-Purpose: expose local control plane status and make the UI obviously scriptable.
-
-**Must-have UI elements**
-- Status: listening address, auth token, connected clients.
-- Safety mode: read‑only by default for external sessions; capability toggles.
-- Recent RPC calls list (request id, method, actor).
-
-**ASCII sketch (attempt A)**
-```
-┌──────────────────────────────────────────────────────────────┐
-│ Agent Bridge (Local)                                         │
-├──────────────────────────────────────────────────────────────┤
-│ Status: ● running   ws://127.0.0.1:9123   Token: [copy]       │
-│ Clients: UI(connected), script(disconnected), llm(disconn)    │
-│ Safe mode: [ON]  External default: read-only                  │
-│ Capabilities: [scene.edit] [run.control] [export] [network ✗] │
-│ Recent calls:                                                  │
-│  - req_91  scene.spawn   actor: human_gui                      │
-│  - req_92  run.pause     actor: script                         │
-└──────────────────────────────────────────────────────────────┘
-```
-
-**ASCII sketch (attempt B)**
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│ Settings ▸ Agent Bridge                                               │
-├───────────────────────────────┬──────────────────────────────────────┤
-│ Endpoint: ws://127.0.0.1:9123 │ Clients: UI ✓  script ✓  llm ✓       │
-│ Token:  *************** [Copy]│ Safe mode: ON (external read-only)   │
-├───────────────────────────────┴──────────────────────────────────────┤
-│ Capabilities: [x] scene.edit  [x] run.control  [x] export  [ ] net    │
-│ Recent RPC: req_91 scene.spawn  req_92 run.pause  req_93 export.bundle│
-└──────────────────────────────────────────────────────────────────────┘
-```
+This panel describes the future thin client. It must use the exported method contract. Standard
+profiles have no authentication. The paired Engram-host profile is a distinct read-only profile.
 
 ```json
 {
   "type": "ui_part",
   "id": "agent_bridge_panel",
-  "title": "Agent Bridge Panel (API & Safety)",
-  "milestone": "M2",
+  "title": "Agent Bridge Status and Request Inspector",
+  "milestone": "deferred thin control client",
   "requirements": [
-    "A panel or modal titled Agent Bridge with local endpoint and a copy-token control.",
-    "Shows connected clients and recent RPC calls with request ids.",
-    "Shows safe-mode defaults (read-only external sessions) and capability toggles.",
-    "Consistent visual style with the rest of the app."
+    "Show the active local endpoint, transport, safe-mode state, profile, and run id.",
+    "List the exact allowed dotted method names from bridge.describe.",
+    "Show recent request ids, methods, actors, and response outcomes.",
+    "State that standard profiles are unauthenticated and local-only.",
+    "If the Engram-host profile is active, show Paired without revealing the startup secret.",
+    "Do not show fictional capability toggles, bearer tokens, scene.spawn, or run.pause."
   ],
-  "prompt_seed": "High-fidelity desktop app settings panel titled 'Agent Bridge' for prisoma. Dark theme. Shows status (running), local WebSocket endpoint ws://127.0.0.1:9123, an auth token field with a Copy button, a list of connected clients (UI, script, llm tools), Safe Mode toggle (ON) with note 'external default: read-only', capability toggles (scene.edit, run.control, export; network disabled), and a small table of recent RPC calls with request_id and actor. Clean and readable.",
-  "negative_prompt": "terminal screenshot, code editor, mobile settings screen",
-  "image": {"width": 1400, "height": 900},
+  "prompt_seed": "Professional Prisoma desktop panel titled Agent Bridge. Show endpoint 127.0.0.1, transport, Safe Mode, active profile, run id, and a compact list of canonical dotted methods. Include a request table with request id, actor, method, and response outcome. Display a clear warning: Standard profile is unauthenticated and local-only. Include a separate Paired indicator only for the read-only Engram-host profile. No secret value, auth token, or fictional capability switches.",
+  "negative_prompt": "API key on screen, bearer token, scene.spawn, run.pause, permission toggles, remote cloud endpoint, security shield claim, mobile settings",
+  "image": {"width": 1536, "height": 1024},
   "score_threshold": 9.0,
   "max_iterations": 8,
   "allow_img2img": true
 }
 ```
 
----
+## 4. Replay inspector
 
-### 3.3 Viewer Screen (M4) — “Offline Playback + Diagnostics”
-
-Purpose: replay a run deterministically, inspect events, overlays, and metrics, and create branches for interventions.
-
-**Layout (baseline)**
-- **Top toolbar**: open run, play/pause, step, speed, overlay toggles, export.
-- **Center**: 3D viewport (splats + meshes) with overlay legend.
-- **Bottom**: timeline scrubber + event markers + optional metric strip charts.
-- **Right inspector**: selected object/splat, pose/collider, per-frame metrics, event details.
-- **Left scene tree** (optional in MVP): objects, cameras, overlay layers.
-
-**Must-have UI elements**
-- “You are in replay mode” indicator; “branch from here” action creates a new run.
-- Event list with provenance (actor type, request id).
-- Overlay legend (R=Syn⁺, G=Red, B=Unq(V)) + toggle.
-
-**ASCII sketch (attempt A)**
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ prisoma Viewer  Run: #42  [⏮] [⏯] [⏭] speed:1.0x  Overlays ▾  Export ▾       │
-├───────┬──────────────────────────────────────────────────────┬───────────────┤
-│ Scene │                                                      │ Inspector     │
-│ ▸ obj │   ┌──────────────────────── 3D VIEW ───────────────┐ │ Selected: cup │
-│ ▸ cam │   │ splats + mesh robot + PID overlay (legend)     │ │ pose: …       │
-│ ▸ ovl │   └────────────────────────────────────────────────┘ │ collider: …   │
-│       │                                                      │ PID @cursor:  │
-│       │                                                      │ Syn: … Red:…  │
-├───────┴──────────────────────────────────────────────────────┴───────────────┤
-│ Timeline: |■■■●■■■■■■■■■■■■|  Events: ▲ ▲   Charts: Syn/Red/Unq vs time       │
-│ [Branch from here]  [Jump to event]  [Annotate failure]                        │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-**ASCII sketch (attempt B)**
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Viewer (Replay)  Run 42  Backend: Rapier  Exp:1  Model:SmolVLA               │
-│ [Play] [Step] [Pause@checkpoint]  Overlay: PID ▣  Uncertainty ▢  Export ▾   │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ 3D View (center)                          │ Event Log (right)                │
-│ ┌───────────────────────────────┐         │ - t=12.4s  rpc: scene.move       │
-│ │ (splats + meshes)             │         │ - t=13.0s  rpc: perturb.friction │
-│ │ legend: R Syn+ G Red B Unq(V) │         │ - t=13.2s  failure_label: miss   │
-│ └───────────────────────────────┘         │                                  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Timeline + markers + mini charts (Syn/Red/Unq, success prob)                 │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+The replay view derives all state from one validated run log. It can surface recorded geometry,
+events, labels, and diagnostics. The current adapter does not implement this complete panel set.
 
 ```json
 {
   "type": "ui_part",
   "id": "viewer_replay",
-  "title": "Viewer Screen (Offline Replay + Diagnostics)",
-  "milestone": "M4",
+  "title": "Canonical Replay Inspector",
+  "milestone": "specified complete Rerun diagnostic view",
   "requirements": [
-    "Desktop app screenshot with a large central 3D viewport and a bottom timeline scrubber.",
-    "Top toolbar includes play/pause/step, speed, overlay toggles, export.",
-    "Visible legend: R=Syn+, G=Red, B=Unq(V) (or equivalent explicit legend).",
-    "Right panel shows Inspector and/or Event Log with provenance (request id / actor).",
-    "A clear call-to-action for branching from a replay checkpoint (e.g., 'Branch from here').",
-    "Design emphasizes offline replay mode (no live streaming implied)."
+    "Show a prominent Offline Replay state and the validated run identity.",
+    "Use one timeline for events, actions, interventions, labels, and recorded metrics.",
+    "Show request and response provenance in an event inspector.",
+    "Represent abstained or not-requested metrics as typed states, never zeros.",
+    "Show scientific gates separately from computation outcomes.",
+    "Offer branch preparation only as an Agent Bridge request, not a direct environment edit."
   ],
-  "prompt_seed": "High-fidelity product UI mockup of a cross-platform desktop app called prisoma in Viewer (Replay) mode. Dark theme, modern and minimal. Top toolbar: Play/Pause, Step, speed dropdown, overlay toggles, Export. Center is a large 3D viewport placeholder showing splats + mesh robot with a subtle PID overlay. Always-visible legend: R=Syn+ G=Red B=Unq(V). Bottom has a timeline scrubber with event markers and small strip charts for Syn/Red/Unq over time. Right side has an Inspector + Event Log listing interventions with actor type and request id. Include a prominent 'Branch from here' button near the timeline. Crisp layout, readable text, realistic spacing.",
-  "negative_prompt": "mobile UI, web browser chrome, tiny illegible labels, messy rainbow colors, fantasy sci-fi UI",
-  "image": {"width": 1800, "height": 1100},
+  "prompt_seed": "High-fidelity Prisoma desktop replay inspector. Prominent banner Offline Replay. Center shows a restrained recorded-scene viewport placeholder. Bottom has one synchronized timeline with event, action, intervention, label, and metric tracks. Right panel shows request and response provenance plus separate computation and four-gate status. An abstained PID row says Abstained with a reason and no numeric value. A button says Prepare branch through Agent Bridge. Scientific research-tool aesthetic, compact and legible.",
+  "negative_prompt": "live control joystick, direct scene editing, zero for abstention, universal PID heatmap, game HUD, fantasy 3D scene, unlabeled colors",
+  "image": {"width": 1536, "height": 1024},
   "score_threshold": 9.0,
   "max_iterations": 10,
   "allow_img2img": true
 }
 ```
 
----
+## 5. Run comparison
 
-### 3.4 Compare Screen (Cross‑Backend Replay) — “Run A vs Run B”
-
-Purpose: compare two runs (often Rapier vs MuJoCo replay) and quantify divergence (`grandplan.md` §8.5 replay levels / §6.10 robustness; `DIAGRAMS.md` §11).
-
-**Must-have UI elements**
-- Side‑by‑side synchronized viewports or “difference mode”.
-- Shared timeline with two traces and divergence overlays.
-- A divergence summary panel (state error, contact mismatch rate, success mismatch).
-
-**ASCII sketch (attempt A)**
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Compare  Run A: #42 (Rapier)   Run B: #42b (MuJoCo)   [Sync] [Export report]  │
-├───────────────────────────────┬───────────────────────────────┬──────────────┤
-│ View A (left)                 │ View B (right)                │ Divergence   │
-│ ┌───────────────────────────┐ │ ┌───────────────────────────┐ │ pose Δ: …    │
-│ │ (viewport A)              │ │ │ (viewport B)              │ │ contacts:…   │
-│ └───────────────────────────┘ │ └───────────────────────────┘ │ success: …   │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Timeline (shared) + markers + divergence plot                                │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-**ASCII sketch (attempt B)**
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Compare ▸ A: Run 42 (Rapier)  vs  B: Run 42b (MuJoCo)   Mode: Diff ▾  [Sync]  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Diff View (ghosted overlays)                       │ Divergence (summary)     │
-│ ┌───────────────────────────────────────────────┐  │ pose Δ peak: t=13.0s    │
-│ │ red = A, blue = B, purple = overlap          │  │ contacts mismatch: 18%   │
-│ │ (single viewport; toggle A/B/diff)           │  │ success mismatch: YES    │
-│ └───────────────────────────────────────────────┘  │ [Jump to peak] [Report] │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Timeline: |■■●■■■■■■|   A trace   B trace   divergence trace                  │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+Comparison is an optional replay analysis. It must state the alignment and tolerance contract.
+Prisoma does not currently implement a complete cross-backend comparison application.
 
 ```json
 {
   "type": "ui_part",
   "id": "compare_cross_backend",
-  "title": "Compare Screen (Cross-Backend Replay)",
-  "milestone": "optional (grandplan §8.5 replay levels / §6.10 robustness)",
+  "title": "Content-Bound Run Comparison",
+  "milestone": "optional deferred replay analysis",
   "requirements": [
-    "Desktop compare screen with two synchronized viewports (Run A vs Run B).",
-    "Visible labels for physics backend per side (e.g., Rapier vs MuJoCo).",
-    "Shared timeline scrubber and a divergence summary panel (pose/contact/success).",
-    "Design is consistent with Viewer screen styling and emphasizes reproducible comparison."
+    "Show two exact run identities and their validation status.",
+    "Show the selected alignment key, replay level, and tolerance profile.",
+    "Use a shared timeline with explicit unmatched-event markers.",
+    "Separate state, contact, event, and terminal-outcome differences.",
+    "Do not present one aggregate divergence score as a replay verdict."
   ],
-  "prompt_seed": "High-fidelity product UI mockup of prisoma in Compare mode. Dark theme. Top bar shows Run A (Rapier) vs Run B (MuJoCo) with Sync enabled. Two large synchronized 3D viewports side-by-side, each labeled with backend and run id. Right-side panel titled Divergence Summary with metrics like pose delta, contact mismatch, success mismatch, and a small divergence chart. Bottom shared timeline scrubber with markers and a divergence plot. Clean, professional, readable typography.",
-  "negative_prompt": "split-screen video editor, mobile UI, gaming HUD, clutter",
-  "image": {"width": 1800, "height": 1100},
+  "prompt_seed": "Professional Prisoma run comparison screen. Header shows exact Run A and Run B identities, validation state, alignment key, replay level, and tolerance profile. Use synchronized restrained view placeholders and one shared timeline. Mark unmatched events explicitly. Right panel separates state delta, contact mismatch, event mismatch, and terminal outcome. No single overall score. Dark neutral scientific-tool style.",
+  "negative_prompt": "single accuracy score, backend winner badge, unqualified percentage, game replay, mobile UI, decorative dashboard",
+  "image": {"width": 1536, "height": 1024},
   "score_threshold": 9.0,
   "max_iterations": 8,
   "allow_img2img": true
 }
 ```
 
----
+## 6. Reconstruction-quality study
 
-### 3.5 Reconstruction-Quality Study Screen (Optional add-on — not a numbered milestone; grandplan §8.9, E1 candidate)
-
-Purpose: prospectively study 3DGS reconstruction quality as a nuisance covariate, stratum, or
-exclusion sensitivity (`grandplan.md` §8.9 ecosystem, E1 optional pre-implementation spec;
-`GAUSS_MI_INTEGRATION.md`). This is a UI blueprint, not a computable uncertainty, active-view, or
-information-estimator contract.
-
-**Must-have UI elements**
-- Quality-overlay toggle + legend, with provenance and validation status visible.
-- Manually configured candidate viewpoints labeled **unscored**. Estimated information gain stays
-  unavailable until a posterior/predictive observation law and estimator pass separate validation.
-- Export quality artifacts (`SceneUncertaintyMap`) and, only through the Agent Bridge, record an
-  accepted capture proposal as a canonical command/action event.
-- Coverage, held-out residual, and fraction-unreliable diagnostics. `N_eff` and weighted PID are
-  prohibited because they belong to the quarantined heuristic, not the admissible E1 study.
-
-**ASCII sketch (attempt A)**
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Reconstruction Quality (E1 design) Scene: table_v1   [Recompute] [Export]    │
-├───────────────────────────────┬───────────────────────────────┬──────────────┤
-│ 3D View + quality overlay     │ Candidate views (unscored)    │ Diagnostics  │
-│ ┌───────────────────────────┐ │ - cam_01: +15° orbit         │ coverage: …  │
-│ │ held-out residual strata  │ │ - cam_02: top-down          │ residual: …  │
-│ │ legend + validation state │ │ - cam_03: side              │ unreliable:… │
-│ └───────────────────────────┘ │ [Record via Agent Bridge]    │ no PID/IG    │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-**ASCII sketch (attempt B)**
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Quality Study (Optional E1) Scene: table_v1   Overlay: Quality ▣  Views: 12  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ 3D View (held-out residual/coverage strata)   │ Candidate views (unscored)   │
-│ ┌──────────────────────────────────────────┐  │ 1) orbit +15°  unscored     │
-│ │ legend + artifact provenance            │  │ 2) top-down    unscored     │
-│ │ toggle: show unreliable gaussians only  │  │ 3) side        unscored     │
-│ └──────────────────────────────────────────┘  │ [Record proposal] [Export]  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Diagnostics: coverage … unreliable frac … residual@heldout … [Re-run gate]  │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+This optional E1 design supports a future reconstruction-quality covariate study. It does not
+implement weighted PID, information gain, or active-view optimization.
 
 ```json
 {
   "type": "ui_part",
   "id": "gauss_mi_uncertainty",
-  "title": "Reconstruction-Quality Study Screen (Optional E1 Design)",
-  "milestone": "optional (grandplan §8.9, E1 candidate)",
+  "title": "Reconstruction-Quality Covariate Study",
+  "milestone": "optional E1 interface specification",
   "requirements": [
-    "Desktop screen titled Reconstruction Quality (Optional E1 Design).",
-    "Central viewport shows a 3DGS scene with a held-out residual or coverage overlay, provenance, validation state, and a clear legend.",
-    "A panel lists manually configured candidate viewpoints explicitly labeled unscored; no information-gain values are shown.",
-    "A diagnostics panel shows coverage, held-out residual, and fraction unreliable; N_eff and weighted PID are absent.",
-    "Any accepted capture proposal is recorded through the Agent Bridge; the design does not imply a working active-view estimator."
+    "Label the screen Optional Study and show the exact reconstruction artifact identity.",
+    "Show coverage, held-out residual, and unreliable-region strata with provenance.",
+    "Label every candidate view Unscored.",
+    "Allow export of a content-bound quality artifact.",
+    "Record an accepted capture proposal through the Agent Bridge.",
+    "Do not show information gain, effective sample size, weighted MI, or weighted PID."
   ],
-  "prompt_seed": "High-fidelity product UI mockup of prisoma in a mode labeled 'Reconstruction Quality — Optional E1 Design'. Dark theme. Left/center large 3D viewport shows a gaussian-splat scene with a held-out residual or coverage overlay, provenance, validation state, and a clear legend. Right panel lists 3-5 manually configured candidate viewpoints, each visibly labeled 'unscored', with a button 'Record proposal via Agent Bridge'. Another panel shows coverage, held-out residual, and fraction unreliable, plus export controls for SceneUncertaintyMap. Show no information-gain score, N_eff, weighted MI, or weighted PID. Clean, scientific tool aesthetic, readable text.",
-  "negative_prompt": "medical UI, finance dashboard, illegible labels, noisy gradients",
-  "image": {"width": 1800, "height": 1100},
+  "prompt_seed": "High-fidelity Prisoma optional study screen titled Reconstruction-Quality Covariate Study. Show exact artifact identity and provenance. A restrained 3D reconstruction view uses clearly labeled coverage and held-out residual strata. Candidate viewpoints are all visibly Unscored. Controls export a content-bound quality artifact and record a proposal through Agent Bridge. A boundary note says No information-gain or weighted-PID estimator. Professional scientific UI.",
+  "negative_prompt": "information gain number, N_eff, weighted PID, autonomous camera motion, direct capture control, medical dashboard, neon heatmap",
+  "image": {"width": 1536, "height": 1024},
   "score_threshold": 9.0,
   "max_iterations": 10,
   "allow_img2img": true
 }
 ```
 
----
+## 7. Prompt utility
 
-## 4) Prompt‑Iteration Workflow (How the scripts use this file)
+`uidesigner/prompt_loop.py` is an optional operator-run design aid. It extracts these JSON blocks,
+generates an image through FAL, and asks Vertex AI for a bounded critique. It does not build UI code.
 
-Each `ui_part` JSON block is machine‑readable. The `uidesigner/prompt_loop.py` script:
-1. Extracts the `requirements` and `prompt_seed`.
-2. Calls **gpt‑image‑1.5 via FAL** to render an image.
-3. Sends the image + requirements to **Gemini (Vertex AI)** for critique + a numeric score.
-4. Uses Gemini to propose a revised prompt and loops until the score threshold is met.
+Run a dry parse without external calls:
 
-**Output convention**
-- Writes artifacts under `uidesigner/out/<UTC timestamp>/<ui_part.id>/` and a session manifest at `uidesigner/out/<UTC timestamp>/session.json`:
-  - `iter_01.prompt.txt`, `iter_01.png`, `iter_01.review.json`, `iter_01.fal.json`
-  - … up to `max_iterations`
-  - `best.png`, `best.prompt.txt`, `best.review.json`
-
-**Quick usage**
 ```bash
-python3 uidesigner/prompt_loop.py --dry-run
-python3 uidesigner/prompt_loop.py --only runs_library,viewer_replay
+uv sync --locked --group ui
+uv run --no-sync python uidesigner/prompt_loop.py --dry-run
 ```
 
-**Required config**
-- FAL: set `FAL_KEY` (and optionally `FAL_ENDPOINT`).
-- Vertex AI: set `GOOGLE_CLOUD_PROJECT` (and optionally `GOOGLE_CLOUD_LOCATION`, `GEMINI_VISION_MODEL`, `GEMINI_TEXT_MODEL`) and authenticate via ADC (`gcloud auth application-default login`) or a service account.
+Run selected parts only after configuring external credentials:
+
+```bash
+uv run --no-sync python uidesigner/prompt_loop.py \
+  --only runs_library,viewer_replay
+```
+
+Set `FAL_KEY` for generation. Set `GOOGLE_CLOUD_PROJECT` and authenticate Application Default
+Credentials for critique. Never commit credentials or generated external responses as evidence.
+
+The checked FAL defaults use `fal-ai/gpt-image-1.5` for generation and its separate `/edit`
+endpoint for revisions. They accept only `1024x1024`, `1536x1024`, or `1024x1536`.
+The Vertex default is the `gemini-3.1-pro-preview` identifier observed on 2026-08-11.
+Review both vendors' current model pages before a paid run. Override the endpoints or models when
+their lifecycle changes.

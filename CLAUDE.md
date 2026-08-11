@@ -1,9 +1,9 @@
-# CLAUDE.md — prisoma
+# CLAUDE.md — Prisoma
 
 **`AGENTS.md` is the source of truth for how to work in this repo.** Read it first; this
 file restates the highest-leverage rules and adds Claude-Code-specific notes.
 
-## What prisoma is
+## What Prisoma is
 
 A gate-driven research toolkit providing **auditable experiment semantics** for
 intervention-grounded diagnosis of Vision-Language-Action (VLA) policies. Partial Information
@@ -61,15 +61,13 @@ Follow the complete policy and exception list in `AGENTS.md`.
 ## Before you open a PR / commit
 
 ```bash
-cargo fmt --all -- --check
-cargo clippy --workspace -- -D warnings
-cargo test --workspace
-python scripts/audit_docset_claims.py --all-tracked-markdown
-python scripts/audit_grandplan.py   # validates the R1-R112 reference ledger
+uv sync --locked --group ui
+just check
 ```
 
 The estimator gate: `just exp0-bin` (prints the GO/PIVOT/NO-GO verdict) — or the `cargo`
-equivalents in `AGENTS.md`. `just test` / `just docs-audit` wrap the above.
+equivalents in `AGENTS.md`. `just test`, `just python-test`, and `just docs-audit` provide focused
+subsets of the required local gate.
 
 ## Claude-specific
 
@@ -83,16 +81,17 @@ equivalents in `AGENTS.md`. `just test` / `just docs-audit` wrap the above.
   optional, exploratory-only, **read-only** `(V,L,D,A)` source (E2 edge, `grandplan.md` §8.9) —
   part of the M2 ecosystem-conformance benchmark, not a critical-path dependency. The reference
   adapter for the confirmatory H-experiments is `experiments/safe_adapter`; the core must build
-  with NCP disabled and H1/H2 must run with PID disabled (dependency firebreak, §8.9.3).
+  with NCP disabled and H1/H2 must run without requesting PID atoms (dependency firebreak,
+  §8.9.3).
 - **NCP is a pinned git dependency**, currently the latest immutable release `v0.8.0` (wire
   0.8); no sibling checkout is required. Keep this legacy consumer frozen. A different wire
   requires a separate consumer surface, corpus, and qualification path. Official NCP main was
-  observed at `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on 2026-08-03. That commit is the
+  observed at `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` on 2026-08-11. That commit is the
   unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash
   `163acc57d8a62b66`). NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready,
   and **NOT RUN**. `P03` covers fault-observatory migration and Prisoma observer-role
   qualification. See the
-  [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
-- **The estimator pin is deliberate.** Public `pid-rs` main at `e50c12e` has newer unadopted
+  [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
+- **The estimator pin is deliberate.** Public `pid-rs` main at `cb351ad` has newer unadopted
   contracts and exact-certifier work. Keep `796c11e` until a consumer-owned compatibility and
   scientific-value review supports a pin change. New provenance surfaces do not open PID gates.

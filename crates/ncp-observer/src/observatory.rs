@@ -6,6 +6,8 @@
 //! separate observer-native signals from the fixture manifest's oracle, so a
 //! wholly omitted tick is never credited as a native detection.
 
+#[cfg(unix)]
+use super::sync_directory;
 use super::{
     atomic_write_with, classify_callback_receipt, ingest_wire_frame, publication_receipt_path,
     read_bounded, read_bounded_regular_snapshot, serialize_json_pretty_bounded,
@@ -26,7 +28,6 @@ use pid_runlog::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::File;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -2426,7 +2427,10 @@ fn normalized_runlog_hash(
         .context("failed to hash publication-normalized logical run log")
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the fingerprint binds each independently reviewed observatory outcome surface"
+)]
 fn outcome_fingerprint(
     scenario: FaultScenario,
     schedule_hash: &str,
@@ -3288,17 +3292,13 @@ fn ensure_directory(path: &Path) -> anyhow::Result<bool> {
     };
     #[cfg(unix)]
     {
-        File::open(path)
-            .and_then(|directory| directory.sync_all())
-            .with_context(|| format!("failed to fsync directory {}", path.display()))?;
+        sync_directory(path)?;
         if created {
             let parent = path
                 .parent()
                 .filter(|parent| !parent.as_os_str().is_empty())
                 .unwrap_or_else(|| Path::new("."));
-            File::open(parent)
-                .and_then(|directory| directory.sync_all())
-                .with_context(|| format!("failed to fsync directory {}", parent.display()))?;
+            sync_directory(parent)?;
         }
     }
     Ok(created)
@@ -3323,17 +3323,12 @@ fn atomic_write_bytes(path: &Path, bytes: &[u8], context: &str) -> anyhow::Resul
     if write_result.is_ok() {
         return Ok(());
     }
-    let existing = read_bounded(path, bytes.len()).with_context(|| {
+    sync_installed_file(path, bytes, context).with_context(|| {
         format!(
-            "failed to recover possibly installed {context} after write error: {}",
+            "failed to recover and re-establish durability for exact {context} retry: {}",
             write_result.unwrap_err()
         )
-    })?;
-    if existing != bytes {
-        anyhow::bail!("existing {context} differs from the exact retry bytes");
-    }
-    sync_installed_file(path)
-        .with_context(|| format!("failed to re-establish durability for exact {context} retry"))
+    })
 }
 
 fn provenance_assessment(consumer: &ConsumerProvenance) -> ProvenanceAssessment {
@@ -3899,14 +3894,7 @@ fn recover_reserved_temporary_entries(
     }
     #[cfg(unix)]
     for directory in touched_directories {
-        File::open(&directory)
-            .and_then(|file| file.sync_all())
-            .with_context(|| {
-                format!(
-                    "failed to fsync recovered observatory directory {}",
-                    directory.display()
-                )
-            })?;
+        sync_directory(&directory)?;
     }
     Ok(())
 }
@@ -4350,7 +4338,7 @@ fn recover_committed_publication(
     {
         anyhow::bail!("existing committed observatory bundle is not an exact retry");
     }
-    sync_installed_file(&receipt_path)?;
+    sync_installed_file(&receipt_path, &receipt_bytes, "observatory receipt")?;
     Ok(ObservatoryOutcome {
         report_path,
         runlog_path,

@@ -70,17 +70,18 @@ The first request on each accepted connection must be a paired
 `mechanism`, `client_nonce`, and `client_proof`.
 
 Engram derives `client_proof` with HMAC-SHA256 keyed by the pasted secret. That
-message binds the active profile, the exact JSON-RPC request-id text, and one
-fresh 32-byte client nonce. Prisoma compares the proofs in constant time.
+message binds the active profile, the RFC 8785 JCS form of the JSON-RPC request
+id, and one fresh 32-byte client nonce. Pairing accepts string and safe-integer
+ids. Prisoma uses the RustCrypto HMAC verifier.
 
 A successful result adds a `pairing` member with a fresh 32-byte server nonce
-and a server proof. That proof binds the profile, the same request-id text,
+and a server proof. That proof binds the profile, the same canonical request id,
 both nonces, and the SHA-256 of the RFC 8785 JCS form of the session result
 without its own `pairing` member. Engram verifies the server proof before it
 trusts any session field.
 
-A client nonce never repeats inside one connection. The first valid client
-proof binds the secret to that single TCP connection. Each later
+A client nonce never repeats inside one connection. Prisoma commits the
+single-connection binding only after it records a successful paired session result. Each later
 `bridge.session` refresh on the bound socket carries a fresh nonce and a fresh
 proof.
 
@@ -92,7 +93,8 @@ then closes the socket. A replay of captured bytes on a new socket gets the
 same rejection.
 
 Each accepted connection consumes one unit of `max_pairing_attempts`. A
-timeout, a wrong proof, and a post-binding connection each consume one unit.
+timeout and a wrong proof each consume one unit. A successful proof ends the listener after that
+connection closes.
 Eight failed connections latch the bridge. No further pairing is possible on
 that launch. `bridge.session` reports `pairing_attempts` in `resource_usage`.
 
@@ -137,7 +139,7 @@ It is not Prisoma validation, replay evidence, NCP, a closed loop, or control
 authority.
 
 Prisoma pins the latest immutable NCP `v0.8.0` release and uses wire 0.8. Official NCP
-main was observed at `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` on 2026-08-03.
+main was observed at `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` on 2026-08-11.
 That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
 compact proto contract hash `163acc57d8a62b66`). The manifest declares target Engram wire
 1.0 and marks it incompatible with Prisoma wire 0.8. NCP's provider inventory records a
@@ -145,7 +147,7 @@ preserved in-progress Paper2Brain migration that targets candidate wire 1.0. It 
 installed or qualified integration. No translation path exists.
 NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**.
 `P03` covers fault-observatory migration and Prisoma observer-role qualification. See the
-[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
+[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
 
 ## Validation
 

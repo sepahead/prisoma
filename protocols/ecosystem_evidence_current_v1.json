@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-08-03",
+  "as_of_date": "2026-08-11",
   "scope": "dated current-state overlay on the complete 2026-07-12 public-ecosystem ledger; normal CI validates it offline",
   "baseline": {
     "path": "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -13,20 +13,20 @@
     "expiry": "re-review an edge when its producer revision, consumer revision, schema, wire, model, or adapter revision changes"
   },
   "last_network_refresh": {
-    "date": "2026-07-28",
-    "method": "official GitHub refs and exact-revision repository surfaces for Crebain, the named Engram repository, and the Paper2Brain Engram Neural Labs host; archived baseline left immutable",
+    "date": "2026-08-11",
+    "method": "official GitHub refs and exact-revision repository surfaces for pid-rs, NCP, the named Engram repository, and the Paper2Brain Engram Neural Labs host; Paper2Brain's current main still carries the exact reviewed Prisoma descriptor bytes; archived baseline left immutable",
     "conclusion": "pid-rs and NCP remain the only E2 dependency edges; Paper2Brain has an E2 immutable consumer-manifest edge, with no live producer, NCP bridge, authority, or E4 scientific conformance"
   },
   "last_provider_boundary_refresh": {
-    "date": "2026-08-03",
-    "method": "network verification of the official NCP main ref at 1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd plus inspection of the exact provider boundary and task ledger; archived baseline left immutable",
-    "conclusion": "official NCP main at 1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd is an unreleased and release-blocked 1.0.0-rc.1 wire-1.0 candidate; Prisoma remains frozen on immutable v0.8.0 wire 0.8; P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN"
+    "date": "2026-08-11",
+    "method": "network verification of the official NCP main ref at 1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68 plus inspection of the exact provider boundary and task ledger; archived baseline left immutable",
+    "conclusion": "official NCP main at 1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68 is an unreleased and release-blocked 1.0.0-rc.1 wire-1.0 candidate; Prisoma remains frozen on immutable v0.8.0 wire 0.8; P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN"
   },
   "overrides": [
     {
       "project": "pid-rs",
       "observed_revision": "796c11e70f009634b853dc4ada6f565563d82f51",
-      "upstream_head_observed": "e50c12e0af2cc79682a87e5ac65c4fe1d8cf2b94",
+      "upstream_head_observed": "cb351ad25803be35edd776245a37e24c69a03f3f",
       "evidence_level": "E2_dependency_E3_tested_local_paths",
       "relationship": "direct pinned submodule and local path dependency",
       "current_boundary": "the exact 0.9.0 post-tag review source is pinned seven commits after v0.9.0; upstream main has additional unadopted scientific-contract and exact-certifier work but states that Prisoma integration is not claimed; the pin makes no 1.x compatibility promise or registry/wheel publication promise, and its fixtures do not establish high-dimensional VLA application validity or independent corroboration",
@@ -36,13 +36,13 @@
       "project": "NCP",
       "observed_revision": "v0.8.0",
       "resolved_revision": "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e",
-      "upstream_head_observed": "1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd",
+      "upstream_head_observed": "1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68",
       "evidence_level": "E2_dependency_with_tested_local_observer_fixtures",
       "relationship": "optional immutable dependency of the workspace-excluded read-only observer",
       "current_boundary": "upstream main is an unreleased, release-blocked 1.0.0-rc.1 candidate on wire 1.0 with compact proto contract hash 163acc57d8a62b66; immutable v0.8.0 uses a different wire and remains the exact Prisoma pin; P01, P02, and P03 are OPEN, not dependency-ready, and NOT RUN; P03 covers fault-observatory migration and Prisoma observer-role qualification; no conforming public live producer, secure deployment receipt, or E4 scientific conformance report exists",
       "source": "https://github.com/sepahead/NCP/tree/v0.8.0",
-      "upstream_source": "https://github.com/sepahead/NCP/tree/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd",
-      "task_ledger_source": "https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json"
+      "upstream_source": "https://github.com/sepahead/NCP/tree/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68",
+      "task_ledger_source": "https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json"
     },
     {
       "project": "galadriel",
@@ -79,13 +79,14 @@
     },
     {
       "project": "paper2brain",
-      "observed_revision": "07b85ac48b9e2125ebc8b9d3a63d29926ff293fa",
+      "observed_revision": "62af3b5a31ef11f7f7a61cf535e2576cc11b0ad9",
       "evidence_level": "E2_declared_immutable_consumer_manifest",
       "relationship": "public executable Engram Neural Labs host with a byte-locked Prisoma manifest, a generic bounded JSON-RPC TCP adapter, and a tested structural preview; local live-presentation evidence exists without producer or control authority",
       "prisoma_descriptor_path": "integrations/engram/manifest.json",
+      "provider_descriptor_path": "integrations/extensions/prisoma/manifest.json",
       "prisoma_descriptor_sha256": "006a6cc5fe46041fcc180d1890a36f821e8901768161952b143bbfc3c3fd70f9",
       "current_boundary": "Paper2Brain imports the byte-locked descriptor and implements the bounded generic live status adapter plus structural preview, which is not Prisoma validation; the descriptor declares target Engram wire 1.0 incompatible with Prisoma wire 0.8; NCP's provider inventory records a preserved in-progress Paper2Brain migration that targets candidate wire 1.0, but it is not an installed or qualified integration; the descriptor starts no process and grants no authority; there is no live Paper2Brain-to-Prisoma producer, wire translator, artifact importer, NCP bridge, producer-consumer scientific golden fixture, or E4 scientific conformance report",
-      "source": "https://github.com/sepahead/Paper2Brain/tree/07b85ac48b9e2125ebc8b9d3a63d29926ff293fa"
+      "source": "https://github.com/sepahead/Paper2Brain/tree/62af3b5a31ef11f7f7a61cf535e2576cc11b0ad9"
     },
     {
       "project": "haldir",

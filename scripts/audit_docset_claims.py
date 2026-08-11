@@ -145,7 +145,7 @@ def _run_git_bounded(
     timeout_seconds: float = GIT_TIMEOUT_SECONDS,
     max_output_bytes: int = MAX_GIT_OUTPUT_BYTES,
 ) -> subprocess.CompletedProcess[bytes]:
-    """Run one Git query with bounded output and descendant cleanup."""
+    """Run one fixed Git query with bounded output and failure cleanup."""
 
     if timeout_seconds <= 0:
         raise subprocess.TimeoutExpired(command, timeout_seconds)
@@ -188,8 +188,6 @@ def _run_git_bounded(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise subprocess.TimeoutExpired(command, timeout_seconds)
-        if os.name == "posix":
-            _terminate_process_group(process)
         returncode = process.wait(timeout=remaining)
     except BaseException:
         _terminate_process_group(process)

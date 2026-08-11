@@ -5,16 +5,20 @@ members = [
     "crates/pid-rerun",
     "crates/pid-sim",
 ]
+# Keep the default build on the contract and execution core. Protocol
+# references, legacy sensitivity, analysis, Rerun, Rapier, and WebSocket are
+# explicit features. Full gates use `--workspace --all-features`.
+default-members = ["crates/pid-bridge", "crates/pid-sim"]
 # `pid-core` and `pid-runlog` are NOT vendored here. They are the canonical, single source
 # of truth at https://github.com/sepahead/pid-rs, pinned in this repo as the `pid-rs/` git
 # submodule (run `git submodule update --init`). The crates above path-depend into
 # `pid-rs/crates/*`; `pid-rs` is its own workspace, so it is excluded here. Build/test the
 # estimator core and run its `exp0` / `pid-runlog-replay` binaries from the submodule, e.g.
-# `cargo run --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`.
+# `cargo run --locked --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0`.
 #
 # `ncp-observer` is intentionally NOT a default member: it git-depends on the published NCP
 # SDK (https://github.com/sepahead/NCP, tag v0.8.0) and pulls in NCP + Zenoh — deliberately
-# kept OFF prisoma's critical path. Build it explicitly with `--manifest-path`.
+# kept off Prisoma's critical path. Build it explicitly with `--manifest-path`.
 exclude = ["crates/ncp-observer", "pid-rs"]
 
 [workspace.package]

@@ -529,6 +529,50 @@ def test_catalog_parse_and_source_hash_share_one_bounded_snapshot(
     )
 
 
+def test_capability_snapshot_uses_nofollow_nonblocking_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.json"
+    source.write_bytes(b"{}\n")
+    real_open = _MODULE.os.open
+    captured_flags: list[int] = []
+
+    def recording_open(path: object, flags: int, mode: int = 0o777) -> int:
+        captured_flags.append(flags)
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(_MODULE.os, "open", recording_open)
+    assert (
+        _MODULE._read_regular_bytes(source, max_bytes=32, context="fixture") == b"{}\n"
+    )
+    assert len(captured_flags) == 1
+    assert captured_flags[0] & _MODULE.os.O_NOFOLLOW
+    assert captured_flags[0] & _MODULE.os.O_NONBLOCK
+
+
+def test_capability_snapshot_rejects_final_lexical_path_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.json"
+    replacement = tmp_path / "replacement.json"
+    source.write_bytes(b"{}\n")
+    replacement.write_bytes(b"{}\n")
+    real_lstat = _MODULE.Path.lstat
+    source_calls = 0
+
+    def swapped_lstat(candidate: Path) -> object:
+        nonlocal source_calls
+        if candidate == source:
+            source_calls += 1
+            if source_calls == 2:
+                return real_lstat(replacement)
+        return real_lstat(candidate)
+
+    monkeypatch.setattr(_MODULE.Path, "lstat", swapped_lstat)
+    with pytest.raises(CatalogError, match="changed while reading"):
+        _MODULE._read_regular_bytes(source, max_bytes=32, context="fixture")
+
+
 def test_content_digest_enforces_aggregate_byte_budget(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -563,6 +607,27 @@ def test_capability_write_is_atomic_and_symlink_safe(
     assert real.read_text(encoding="utf-8") == "real\n"
 
 
+def test_capability_write_opens_parent_as_nofollow_nonblocking_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "matrix.json"
+    real_open = _MODULE.os.open
+    captured: list[tuple[Path, int]] = []
+
+    def recording_open(path: object, flags: int, mode: int = 0o777) -> int:
+        captured.append((Path(path), flags))
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(_MODULE.os, "open", recording_open)
+    _MODULE._atomic_write(target, "{}\n")
+
+    directory_flags = [flags for path, flags in captured if path == tmp_path]
+    assert len(directory_flags) == 1
+    assert directory_flags[0] & _MODULE.os.O_DIRECTORY
+    assert directory_flags[0] & _MODULE.os.O_NOFOLLOW
+    assert directory_flags[0] & _MODULE.os.O_NONBLOCK
+
+
 def test_git_subprocess_has_output_and_time_budgets(tmp_path: Path) -> None:
     with pytest.raises(CatalogError, match="aggregate 32-byte"):
         _MODULE._run_bounded(
@@ -580,37 +645,30 @@ def test_git_subprocess_has_output_and_time_budgets(tmp_path: Path) -> None:
         )
 
 
-@pytest.mark.skipif(os.name != "posix", reason="process-group check requires POSIX")
-def test_git_subprocess_reaps_descendants_and_setup_failures(
-    tmp_path: Path, monkeypatch
-) -> None:
-    descendant_marker = tmp_path / "descendant-escaped"
-    spawn_descendant = """
-import subprocess
-import sys
+@pytest.mark.skipif(os.name != "posix", reason="descriptor-close check requires POSIX")
+def test_git_subprocess_allows_cleanup_after_both_pipes_close(tmp_path: Path) -> None:
+    marker = tmp_path / "cleanup-finished"
+    program = (
+        "import os, pathlib, sys, time; "
+        "os.close(1); os.close(2); time.sleep(0.05); "
+        "pathlib.Path(sys.argv[1]).write_text('done', encoding='utf-8')"
+    )
 
-subprocess.Popen(
-    [
-        sys.executable,
-        "-c",
-        "import pathlib, sys, time; time.sleep(0.2); "
-        "pathlib.Path(sys.argv[1]).write_text('escaped', encoding='utf-8')",
-        sys.argv[1],
-    ],
-    stdin=subprocess.DEVNULL,
-    stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL,
-)
-"""
-    _MODULE._run_bounded(
-        [sys.executable, "-c", spawn_descendant, os.fspath(descendant_marker)],
+    result = _MODULE._run_bounded(
+        [sys.executable, "-c", program, os.fspath(marker)],
         cwd=tmp_path,
         timeout_seconds=2,
         max_output_bytes=32,
     )
-    time.sleep(0.5)
-    assert not descendant_marker.exists()
 
+    assert result.returncode == 0
+    assert marker.read_text(encoding="utf-8") == "done"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group check requires POSIX")
+def test_git_subprocess_reaps_process_group_after_setup_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
     setup_marker = tmp_path / "setup-escaped"
     delayed_marker = (
         "import pathlib, sys, time; time.sleep(0.2); "

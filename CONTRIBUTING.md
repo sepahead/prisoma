@@ -19,7 +19,7 @@ The root is a source/research project rather than a PyPI package. Build the
 canonical Python estimator binding from the pinned upstream workspace:
 
 ```bash
-maturin develop --manifest-path pid-rs/crates/pid-python/Cargo.toml
+uv run --no-sync maturin develop --locked --manifest-path pid-rs/crates/pid-python/Cargo.toml
 ```
 
 ## Ownership and scope
@@ -60,25 +60,40 @@ generated files, vendored files, or submodule documentation to satisfy a style p
 Run before every commit or pull request:
 
 ```bash
-cargo fmt --all -- --check
-cargo clippy --locked --workspace -- -D warnings
-cargo test --locked --workspace
-python scripts/audit_docset_claims.py --all-tracked-markdown
-python scripts/audit_grandplan.py
-python scripts/audit_research_governance.py
-python scripts/generate_capability_matrix.py --check
+uv sync --locked --group ui
+just check
+```
+
+The `ui` group is required only because the full suite tests the optional PNG utility. Ordinary
+Prisoma use can keep the smaller default environment. `just check` verifies the lean default Rust
+surface. It excludes protocol references, legacy sensitivity, analysis, WebSocket, Rapier, and
+Rerun features. The gate then runs all-target, all-feature Clippy, tests, and rustdoc. It also runs
+the Python suite, Ruff, notice drift checks, and the pre-commit offline truth audits.
+
+The candidate release audit is commit-bound. Run `just release-candidate-audit` after the source
+commit and candidate regeneration. CI runs this audit separately. Do not make an ordinary
+pre-commit gate depend on evidence for a commit that does not yet exist.
+
+For focused Python iteration, run:
+
+```bash
+uv run --no-sync pytest tests/python -q
+uv run --no-sync ruff check .
+uv run --no-sync ruff format --check .
 ```
 
 Also run the checks appropriate to the files changed:
 
 ```bash
-python -m pytest tests/python -q
-ruff check .
-python scripts/generate_third_party_notices.py --check
 cargo test --locked --manifest-path crates/ncp-observer/Cargo.toml
 cargo deny --locked check
 cargo deny --locked --manifest-path crates/ncp-observer/Cargo.toml check
+just formal
 ```
+
+Run the NCP checks when its excluded crate or lock changes. Run both advisory checks when a Rust
+manifest, lock, or policy changes. Run `just formal` when a formal model, its registry, or its
+runner changes. It requires exact Z3 4.16.0.
 
 Add positive, malformed/negative, boundary/resource, replay/timing/leakage, and
 independent or property-based cases where applicable. Record exact commands and

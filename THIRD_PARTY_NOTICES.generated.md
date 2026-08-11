@@ -3,7 +3,7 @@
 # Third-Party Notices (generated)
 
 Direct dependencies of the workspace crates and declared Python packages.
-Regenerate with `python scripts/generate_third_party_notices.py --write`.
+Regenerate with `uv run --no-sync python scripts/generate_third_party_notices.py --write`.
 See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 
 ## Rust direct dependencies
@@ -13,6 +13,7 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 | `anyhow` | 1.0.103 | MIT OR Apache-2.0 |
 | `base64` | 0.22.1 | MIT OR Apache-2.0 |
 | `getrandom` | 0.3.4 | MIT OR Apache-2.0 |
+| `hmac` | 0.13.0 | MIT OR Apache-2.0 |
 | `libc` | 0.2.186 | MIT OR Apache-2.0 |
 | `ndarray` | 0.17.2 | MIT OR Apache-2.0 |
 | `pid-core` | 0.9.0 | MIT OR Apache-2.0 |
@@ -27,6 +28,7 @@ See `THIRD_PARTY_NOTICES.md` for the curated overview and release checklist.
 | `sha1` | 0.11.0 | MIT OR Apache-2.0 |
 | `sha2` | 0.11.0 | MIT OR Apache-2.0 |
 | `tempfile` | 3.27.0 | MIT OR Apache-2.0 |
+| `zeroize` | 1.9.0 | Apache-2.0 OR MIT |
 
 ## Python declared dependencies (versions locked in `uv.lock`)
 
@@ -35,6 +37,7 @@ from each project's PyPI page at release time.
 
 | Package | Locked version |
 |---|---|
+| `markdown-it-py` | 4.2.0 |
 | `matplotlib` | 3.10.8 |
 | `maturin` | 1.13.1 |
 | `numpy` | 2.4.6 [python_full_version < '3.12']; 2.5.1 [python_full_version >= '3.12'] |

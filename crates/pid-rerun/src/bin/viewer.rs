@@ -50,7 +50,7 @@ fn main() -> Result<()> {
         }
         ViewerOptions::Launch => {
             println!("Spawning Rerun viewer...");
-            println!("Use the vla-demo binary to send data to the viewer.");
+            println!("Use the feature-gated vla-demo binary to send data to the viewer.");
             run_viewer(None)?;
         }
     }

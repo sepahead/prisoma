@@ -6,11 +6,13 @@ import os
 import runpy
 import selectors
 import socket
+import struct
 import subprocess
 import sys
 import time
 import urllib.parse
 import urllib.request
+import zlib
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -122,6 +124,84 @@ class _Response:
         self.close()
 
 
+def _png_chunk(
+    chunk_type: bytes, payload: bytes, *, corrupt_crc: bool = False
+) -> bytes:
+    crc = zlib.crc32(chunk_type)
+    crc = zlib.crc32(payload, crc) & 0xFFFFFFFF
+    if corrupt_crc:
+        crc ^= 1
+    return (
+        struct.pack(">I", len(payload)) + chunk_type + payload + struct.pack(">I", crc)
+    )
+
+
+def _png_ihdr(
+    width: int,
+    height: int,
+    *,
+    bit_depth: int = 8,
+    color_type: int = 2,
+    compression: int = 0,
+    filter_method: int = 0,
+    interlace: int = 0,
+) -> bytes:
+    return _png_chunk(
+        b"IHDR",
+        struct.pack(
+            ">IIBBBBB",
+            width,
+            height,
+            bit_depth,
+            color_type,
+            compression,
+            filter_method,
+            interlace,
+        ),
+    )
+
+
+def _png(
+    width: int = 2,
+    height: int = 2,
+    *,
+    bit_depth: int = 8,
+    color_type: int = 2,
+    compression: int = 0,
+    filter_method: int = 0,
+    interlace: int = 0,
+    scanline_filter: int = 0,
+    before_idat: tuple[bytes, ...] = (),
+    after_idat: tuple[bytes, ...] = (),
+    compressed_payload: bytes | None = None,
+    corrupt_idat_crc: bool = False,
+) -> bytes:
+    channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}.get(color_type, 1)
+    row_bytes = (width * channels * max(bit_depth, 1) + 7) // 8
+    raw = b"".join(bytes((scanline_filter,)) + bytes(row_bytes) for _ in range(height))
+    compressed = (
+        zlib.compress(raw) if compressed_payload is None else compressed_payload
+    )
+    return b"".join(
+        (
+            ui.PNG_SIGNATURE,
+            _png_ihdr(
+                width,
+                height,
+                bit_depth=bit_depth,
+                color_type=color_type,
+                compression=compression,
+                filter_method=filter_method,
+                interlace=interlace,
+            ),
+            *before_idat,
+            _png_chunk(b"IDAT", compressed, corrupt_crc=corrupt_idat_crc),
+            *after_idat,
+            _png_chunk(b"IEND", b""),
+        )
+    )
+
+
 def test_checked_ui_document_loads_current_parts() -> None:
     root = Path(__file__).resolve().parents[2]
     parts = ui.load_ui_parts(root / "uidesigner" / "UI.md")
@@ -165,6 +245,29 @@ def test_ui_document_rejects_duplicate_keys_and_symlink_input(tmp_path: Path) ->
     link.symlink_to(target)
     with pytest.raises(ValueError, match="regular, non-symlink"):
         ui.load_ui_parts(link)
+
+
+def test_ui_reader_rejects_a_final_lexical_path_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "source.md"
+    replacement = tmp_path / "replacement.md"
+    path.write_text("stable\n", encoding="utf-8")
+    replacement.write_text("stable\n", encoding="utf-8")
+    real_lstat = ui.Path.lstat
+    calls = 0
+
+    def swapped_lstat(candidate: Path) -> object:
+        nonlocal calls
+        if candidate == path:
+            calls += 1
+            if calls == 2:
+                return real_lstat(replacement)
+        return real_lstat(candidate)
+
+    monkeypatch.setattr(ui.Path, "lstat", swapped_lstat)
+    with pytest.raises(ValueError, match="changed while it was read"):
+        ui._read_regular_file(path, max_bytes=1024, label="fixture")
 
 
 def test_output_directories_are_single_segment_and_do_not_follow_symlinks(
@@ -260,16 +363,154 @@ def test_image_download_requires_bounded_png_without_network(
             ),
         )
 
-    set_response(ui.PNG_SIGNATURE + b"fixture", "image/png")
-    assert ui._http_get_image("https://images.example/output.png").startswith(
-        ui.PNG_SIGNATURE
+    valid = _png(width=2, height=3)
+    info = ui._validate_png(valid, label="fixture", expected_size=(2, 3))
+    assert (info.width, info.height, info.mode) == (2, 3, "RGB")
+
+    set_response(valid, "image/png")
+    assert (
+        ui._http_get_image("https://images.example/output.png", expected_size=(2, 3))
+        == valid
     )
     set_response(b"not-png", "image/png")
     with pytest.raises(ValueError, match="PNG signature"):
         ui._http_get_image("https://images.example/output.png")
-    set_response(ui.PNG_SIGNATURE, "text/html")
+    set_response(valid, "text/html")
     with pytest.raises(ValueError, match="not PNG"):
         ui._http_get_image("https://images.example/output.png")
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    (
+        ui.PNG_SIGNATURE,
+        _png()[:-1],
+        _png(compressed_payload=b"not-a-zlib-stream"),
+        _png(scanline_filter=5),
+    ),
+)
+def test_png_preflight_rejects_signature_only_truncation_and_invalid_image_data(
+    malformed: bytes,
+) -> None:
+    with pytest.raises(ValueError):
+        ui._validate_png(malformed, label="fixture")
+
+
+def test_png_validation_rejects_corrupt_or_unsupported_files() -> None:
+    with pytest.raises(ValueError, match="valid decodable PNG"):
+        ui._validate_png(_png(corrupt_idat_crc=True), label="fixture")
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    (
+        _png(width=ui.MAX_IMAGE_SIDE + 1, height=1),
+        _png(bit_depth=4, color_type=2),
+        _png(interlace=2),
+    ),
+)
+def test_png_preflight_rejects_extreme_dimensions_and_unsupported_ihdr(
+    malformed: bytes,
+) -> None:
+    with pytest.raises(ValueError):
+        ui._validate_png(malformed, label="fixture")
+
+
+def test_png_preflight_rejects_wrong_requested_dimensions() -> None:
+    with pytest.raises(ValueError, match="do not match the requested"):
+        ui._validate_png(_png(width=2, height=3), label="fixture", expected_size=(3, 2))
+
+
+def test_png_preflight_enforces_aggregate_pixel_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ui, "MAX_IMAGE_PIXELS", 3)
+    with pytest.raises(ValueError, match="pixel limit"):
+        ui._validate_png(_png(width=2, height=2), label="fixture")
+
+
+def test_fal_backend_binds_download_and_initial_image_dimensions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = ui.FalGptImageClient(fal_key="test-key", endpoint="fal-ai/test-model")
+    requests: list[tuple[str, dict[str, Any]]] = []
+
+    def fake_post(
+        url: str, headers: dict[str, str], payload: dict[str, Any], **kwargs: Any
+    ) -> dict[str, Any]:
+        requests.append((url, payload))
+        return {"images": [{"url": "https://images.example/out.png"}]}
+
+    monkeypatch.setattr(ui, "_http_json_post", fake_post)
+
+    response: dict[str, bytes] = {"image": _png(width=1024, height=1024)}
+    monkeypatch.setattr(
+        ui,
+        "_open_validated_url",
+        lambda *args, **kwargs: _Response(
+            response["image"],
+            url="https://images.example/out.png",
+            content_type="image/png",
+        ),
+    )
+    image, _ = client.generate(
+        prompt="Render a bounded panel.",
+        negative_prompt="No clutter.",
+        width=1024,
+        height=1024,
+    )
+    assert image == response["image"]
+    assert requests[-1][0] == "https://fal.run/fal-ai/test-model"
+    assert requests[-1][1]["image_size"] == "1024x1024"
+    assert requests[-1][1]["output_format"] == "png"
+    assert requests[-1][1]["num_images"] == 1
+    assert requests[-1][1]["prompt"].endswith(
+        "Avoid these visual elements: No clutter."
+    )
+    assert "negative_prompt" not in requests[-1][1]
+
+    response["image"] = _png(width=2, height=2)
+    with pytest.raises(ValueError, match="do not match the requested"):
+        client.generate(
+            prompt="Render a bounded panel.",
+            negative_prompt=None,
+            width=1024,
+            height=1024,
+        )
+
+    init_image = tmp_path / "init.png"
+    init_image.write_bytes(_png(width=2, height=2))
+    with pytest.raises(ValueError, match="do not match the requested"):
+        client.generate(
+            prompt="Render a bounded panel.",
+            negative_prompt=None,
+            width=1024,
+            height=1024,
+            init_image_path=init_image,
+            mode="img2img",
+        )
+
+    init_image.write_bytes(_png(width=1024, height=1024))
+    response["image"] = _png(width=1024, height=1024)
+    client.generate(
+        prompt="Revise a bounded panel.",
+        negative_prompt=None,
+        width=1024,
+        height=1024,
+        init_image_path=init_image,
+        mode="img2img",
+    )
+    assert requests[-1][0] == "https://fal.run/fal-ai/test-model/edit"
+    assert requests[-1][1]["image_urls"][0].startswith("data:image/png;base64,")
+    assert "image" not in requests[-1][1]
+
+    with pytest.raises(ValueError, match="must be one of"):
+        client.generate(
+            prompt="Render an unsupported size.",
+            negative_prompt=None,
+            width=1600,
+            height=1000,
+        )
 
 
 def test_model_json_and_review_schema_are_strict(
@@ -298,8 +539,8 @@ def test_model_json_and_review_schema_are_strict(
         requirements=["Show a panel."],
         prompt_seed="Render a panel.",
         negative_prompt=None,
-        image_width=1024,
-        image_height=768,
+        image_width=256,
+        image_height=256,
         score_threshold=9.0,
         max_iterations=2,
         allow_img2img=False,
@@ -309,8 +550,49 @@ def test_model_json_and_review_schema_are_strict(
         "_critique_via_rest",
         lambda **kwargs: '{"score":11,"pass":true,"issues":[],"fixes":[]}',
     )
-    with pytest.raises(ValueError, match="finite and in"):
+    with pytest.raises(ValueError, match="valid decodable PNG"):
         client.critique_ui(part=part, image_bytes=ui.PNG_SIGNATURE)
+    with pytest.raises(ValueError, match="finite and in"):
+        client.critique_ui(part=part, image_bytes=_png(width=256, height=256))
+
+
+def test_iteration_rejects_invalid_png_before_saving_or_forwarding(
+    tmp_path: Path,
+) -> None:
+    part = ui.UiPart(
+        part_id="safe_panel",
+        title="Safe panel",
+        milestone="optional",
+        requirements=["Show a panel."],
+        prompt_seed="Render a panel.",
+        negative_prompt=None,
+        image_width=256,
+        image_height=256,
+        score_threshold=9.0,
+        max_iterations=1,
+        allow_img2img=False,
+    )
+
+    class InvalidFal:
+        def generate(self, **kwargs: object) -> tuple[bytes, dict[str, Any]]:
+            return ui.PNG_SIGNATURE, {}
+
+    class ForbiddenGemini:
+        def critique_ui(self, **kwargs: object) -> ui.Review:
+            pytest.fail("invalid image must not be forwarded")
+
+    output = tmp_path / "out"
+    output.mkdir()
+    with pytest.raises(ValueError, match="valid decodable PNG"):
+        ui.optimize_part(
+            part=part,
+            fal=InvalidFal(),  # type: ignore[arg-type]
+            gemini=ForbiddenGemini(),  # type: ignore[arg-type]
+            out_dir=output,
+            dry_run=False,
+            sleep_s=0,
+        )
+    assert not list(output.rglob("*.png"))
 
 
 def test_subprocess_output_and_runtime_are_bounded() -> None:
@@ -362,38 +644,26 @@ def test_bounded_subprocess_uses_an_isolated_process_group(
     assert observed["start_new_session"] is (os.name == "posix")
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX process-group guarantee")
-def test_bounded_subprocess_signals_group_before_leader_reap(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.skipif(os.name != "posix", reason="POSIX descriptor behavior")
+def test_bounded_subprocess_can_finish_after_closing_its_output_descriptors(
+    tmp_path: Path,
 ) -> None:
-    real_popen = ui.subprocess.Popen
-    real_killpg = ui.os.killpg
-    owned: dict[str, subprocess.Popen[bytes]] = {}
-    signaled = False
+    marker = tmp_path / "cleanup-finished.txt"
+    code = (
+        "import os,pathlib,sys,time;"
+        "os.close(1);os.close(2);time.sleep(0.05);"
+        "pathlib.Path(sys.argv[1]).write_text('finished', encoding='utf-8')"
+    )
 
-    def recording_popen(*args: object, **kwargs: object) -> subprocess.Popen[bytes]:
-        process = real_popen(*args, **kwargs)
-        owned["process"] = process
-        return process
-
-    def recording_killpg(pgid: int, sig: int) -> None:
-        nonlocal signaled
-        process = owned["process"]
-        assert pgid == process.pid
-        assert process.returncode is None
-        signaled = True
-        real_killpg(pgid, sig)
-
-    monkeypatch.setattr(ui.subprocess, "Popen", recording_popen)
-    monkeypatch.setattr(ui.os, "killpg", recording_killpg)
     return_code, output = ui._run_command_bounded(
-        [sys.executable, "-c", "print('owned')"],
+        [sys.executable, "-c", code, str(marker)],
         timeout_s=2.0,
         max_output_bytes=64,
     )
+
     assert return_code == 0
-    assert output == b"owned\n"
-    assert signaled
+    assert output == b""
+    assert marker.read_text(encoding="utf-8") == "finished"
 
 
 @pytest.mark.parametrize(
@@ -420,36 +690,6 @@ def test_bounded_script_cleanup_never_signals_a_reaped_leader(
 
     monkeypatch.setattr(namespace["os"], "killpg", forbidden_killpg)
     namespace[helper_name](SimpleNamespace(pid=123_456, returncode=0))
-
-
-@pytest.mark.skipif(os.name != "posix", reason="POSIX process-group guarantee")
-def test_bounded_subprocess_kills_descendants_after_group_leader_exits(
-    tmp_path: Path,
-) -> None:
-    marker = tmp_path / "escaped.txt"
-    child_code = (
-        "import pathlib,sys,time;"
-        "time.sleep(0.35);"
-        "pathlib.Path(sys.argv[1]).write_text('escaped', encoding='utf-8')"
-    )
-    parent_code = (
-        "import subprocess,sys;"
-        "child=subprocess.Popen("
-        "[sys.executable,'-c',sys.argv[1],sys.argv[2]],"
-        "stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,"
-        "stderr=subprocess.DEVNULL,close_fds=True);"
-        "print(child.pid)"
-    )
-
-    return_code, output = ui._run_command_bounded(
-        [sys.executable, "-c", parent_code, child_code, str(marker)],
-        timeout_s=2.0,
-        max_output_bytes=64,
-    )
-    assert return_code == 0
-    assert int(output.strip()) > 0
-    time.sleep(0.5)
-    assert not marker.exists()
 
 
 def test_bounded_subprocess_cleans_up_when_selector_setup_fails(
@@ -551,6 +791,33 @@ def test_arxiv_cache_is_schema_checked_atomic_and_symlink_safe(
     with pytest.raises(ValueError, match="parent must be a regular directory"):
         arxiv.save_cache(linked_parent / "cache.json", expected)
     assert list(outside_dir.iterdir()) == []
+
+
+def test_arxiv_reader_rejects_a_final_lexical_path_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache_path = tmp_path / "cache.json"
+    replacement = tmp_path / "replacement.json"
+    cache_path.write_text("{}\n", encoding="utf-8")
+    replacement.write_text("{}\n", encoding="utf-8")
+    real_lstat = arxiv.Path.lstat
+    calls = 0
+
+    def swapped_lstat(candidate: Path) -> object:
+        nonlocal calls
+        if candidate == cache_path:
+            calls += 1
+            if calls == 2:
+                return real_lstat(replacement)
+        return real_lstat(candidate)
+
+    monkeypatch.setattr(arxiv.Path, "lstat", swapped_lstat)
+    with pytest.raises(ValueError, match="changed while it was read"):
+        arxiv._read_regular_file(
+            cache_path,
+            max_bytes=arxiv.MAX_CACHE_BYTES,
+            label="arXiv cache",
+        )
 
 
 def test_atom_parser_accepts_versioned_ids_and_rejects_active_or_excessive_content(

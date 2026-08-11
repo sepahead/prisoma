@@ -9,7 +9,8 @@ Pipeline (per ui_part in uidesigner/UI.md):
   4) Iterate until score >= threshold (or max iterations)
 
 This script is designed to be run by a human with credentials configured:
-  - FAL: set FAL_KEY and verify the endpoint name (default: fal-ai/gpt-image-1.5)
+  - FAL: set FAL_KEY and verify the generation and edit endpoints
+    (defaults: fal-ai/gpt-image-1.5 and fal-ai/gpt-image-1.5/edit)
   - Vertex AI: set GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION and authenticate
     (ADC via gcloud or service account).
 
@@ -27,6 +28,7 @@ import argparse
 import base64
 import dataclasses
 import datetime as dt
+import io
 import ipaddress
 import json
 import math
@@ -47,6 +49,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Literal
+
+from PIL import Image, UnidentifiedImageError
 
 
 MAX_UI_MD_BYTES = 2 * 1024 * 1024
@@ -69,6 +73,7 @@ MAX_SLEEP_SECONDS = 300.0
 HTTP_TIMEOUT_SECONDS = 180.0
 GCLOUD_TIMEOUT_SECONDS = 30.0
 MAX_SUBPROCESS_OUTPUT_BYTES = 64 * 1024
+SUBPROCESS_REAP_TIMEOUT_SECONDS = 1.0
 
 UI_PART_ID_RE = re.compile(r"[a-z][a-z0-9_]{0,63}\Z")
 FAL_ENDPOINT_RE = re.compile(
@@ -81,6 +86,12 @@ MODEL_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 ENV_NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 SAFE_OUTPUT_SEGMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PNG_IEND = b"\x00\x00\x00\x00IEND\xaeB`\x82"
+FAL_GPT_IMAGE_SIZES = {
+    (1024, 1024): "1024x1024",
+    (1536, 1024): "1536x1024",
+    (1024, 1536): "1024x1536",
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -107,8 +118,26 @@ class Review:
     raw_text: str
 
 
+@dataclasses.dataclass(frozen=True)
+class PngInfo:
+    width: int
+    height: int
+    mode: str
+
+
 def _now_stamp() -> str:
     return dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _stable_file_identity(value: os.stat_result) -> tuple[int, int, int, int, int, int]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
 
 
 def _read_regular_file(path: Path, *, max_bytes: int, label: str) -> bytes:
@@ -121,12 +150,18 @@ def _read_regular_file(path: Path, *, max_bytes: int, label: str) -> bytes:
     if metadata.st_size > max_bytes:
         raise ValueError(f"{label} exceeds the {max_bytes}-byte limit: {path}")
 
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    fd = os.open(path, flags)
     try:
         opened = os.fstat(fd)
         if not stat.S_ISREG(opened.st_mode):
             raise ValueError(f"{label} must be a regular file: {path}")
-        if (opened.st_dev, opened.st_ino) != (metadata.st_dev, metadata.st_ino):
+        if _stable_file_identity(opened) != _stable_file_identity(metadata):
             raise ValueError(f"{label} changed while it was being opened: {path}")
         if opened.st_size > max_bytes:
             raise ValueError(f"{label} exceeds the {max_bytes}-byte limit: {path}")
@@ -139,10 +174,23 @@ def _read_regular_file(path: Path, *, max_bytes: int, label: str) -> bytes:
             chunks.append(chunk)
             remaining -= len(chunk)
         data = b"".join(chunks)
+        opened_after = os.fstat(fd)
+        try:
+            named_after = path.lstat()
+        except OSError as exc:
+            raise ValueError(f"{label} changed while it was read: {path}") from exc
     finally:
         os.close(fd)
     if len(data) > max_bytes:
         raise ValueError(f"{label} exceeds the {max_bytes}-byte limit: {path}")
+    if (
+        not stat.S_ISREG(opened_after.st_mode)
+        or not stat.S_ISREG(named_after.st_mode)
+        or _stable_file_identity(opened) != _stable_file_identity(opened_after)
+        or _stable_file_identity(opened_after) != _stable_file_identity(named_after)
+        or len(data) != opened_after.st_size
+    ):
+        raise ValueError(f"{label} changed while it was read: {path}")
     return data
 
 
@@ -208,6 +256,76 @@ def _decode_json_object(data: bytes | str, *, label: str) -> dict[str, Any]:
     if not isinstance(obj, dict):
         raise ValueError(f"{label} must be a JSON object")
     return obj
+
+
+def _validate_png(
+    data: bytes,
+    *,
+    label: str,
+    max_bytes: int = MAX_IMAGE_BYTES,
+    expected_size: tuple[int, int] | None = None,
+) -> PngInfo:
+    """Decode one bounded, single-frame PNG and verify its requested dimensions."""
+
+    if type(data) is not bytes:
+        raise ValueError(f"{label} must be bytes")
+    if len(data) > max_bytes:
+        raise ValueError(f"{label} exceeds the {max_bytes}-byte limit")
+    if not data.startswith(PNG_SIGNATURE):
+        raise ValueError(f"{label} does not have a PNG signature")
+    if not data.endswith(PNG_IEND):
+        raise ValueError(
+            f"{label} is not a valid decodable PNG: its final IEND chunk is missing"
+        )
+    if expected_size is not None and (
+        type(expected_size) is not tuple
+        or len(expected_size) != 2
+        or any(type(value) is not int for value in expected_size)
+        or any(value <= 0 or value > MAX_IMAGE_SIDE for value in expected_size)
+        or expected_size[0] * expected_size[1] > MAX_IMAGE_PIXELS
+    ):
+        raise ValueError(f"{label} expected dimensions are invalid")
+
+    try:
+        with Image.open(io.BytesIO(data), formats=("PNG",)) as image:
+            if image.format != "PNG":
+                raise ValueError(f"{label} is not a PNG image")
+            width, height = image.size
+            mode = image.mode
+            frames = getattr(image, "n_frames", 1)
+            if width <= 0 or height <= 0:
+                raise ValueError(f"{label} PNG dimensions must be positive")
+            if width > MAX_IMAGE_SIDE or height > MAX_IMAGE_SIDE:
+                raise ValueError(
+                    f"{label} PNG dimensions exceed the {MAX_IMAGE_SIDE}-pixel side limit"
+                )
+            if width * height > MAX_IMAGE_PIXELS:
+                raise ValueError(
+                    f"{label} PNG dimensions exceed the {MAX_IMAGE_PIXELS}-pixel limit"
+                )
+            if frames != 1:
+                raise ValueError(f"{label} must be a single-frame PNG")
+            if expected_size is not None and (width, height) != expected_size:
+                raise ValueError(
+                    f"{label} PNG dimensions {width}x{height} do not match the requested "
+                    f"{expected_size[0]}x{expected_size[1]}"
+                )
+            image.verify()
+
+        # Pillow's verify pass checks the container without decoding pixels.
+        # Reopen the bounded bytes and force the complete pixel decode.
+        with Image.open(io.BytesIO(data), formats=("PNG",)) as decoded:
+            if decoded.format != "PNG" or decoded.size != (width, height):
+                raise ValueError(f"{label} PNG identity changed during decode")
+            decoded.load()
+    except (
+        Image.DecompressionBombError,
+        UnidentifiedImageError,
+        OSError,
+        SyntaxError,
+    ) as exc:
+        raise ValueError(f"{label} is not a valid decodable PNG") from exc
+    return PngInfo(width=width, height=height, mode=mode)
 
 
 def _validate_https_url(
@@ -382,7 +500,12 @@ def _http_json_post(
     return _decode_json_object(body, label="HTTP JSON response")
 
 
-def _http_get_image(url: str, timeout_s: float = 180) -> bytes:
+def _http_get_image(
+    url: str,
+    timeout_s: float = 180,
+    *,
+    expected_size: tuple[int, int] | None = None,
+) -> bytes:
     req = urllib.request.Request(
         url,
         headers={
@@ -406,8 +529,7 @@ def _http_get_image(url: str, timeout_s: float = 180) -> bytes:
         body = _read_response_bytes(
             resp, max_bytes=MAX_IMAGE_BYTES, label="FAL image response"
         )
-    if not body.startswith(PNG_SIGNATURE):
-        raise ValueError("FAL image response does not have a PNG signature")
+    _validate_png(body, label="FAL image response", expected_size=expected_size)
     return body
 
 
@@ -650,19 +772,27 @@ class FalGptImageClient:
     """
     Minimal FAL client using HTTPS + JSON.
 
-    NOTE: FAL model endpoints and response shapes can change; treat this as a template.
-    Verify the endpoint name and the output JSON schema in FAL docs for your account.
+    FAL model endpoints and response shapes can change. Verify both endpoint
+    names and their schemas before a paid run.
     """
 
-    def __init__(self, *, fal_key: str, endpoint: str) -> None:
+    def __init__(
+        self, *, fal_key: str, endpoint: str, edit_endpoint: str | None = None
+    ) -> None:
         if len(fal_key) > 16_384 or any(char in fal_key for char in "\r\n\x00"):
             raise ValueError("FAL key is invalid or exceeds the 16384-character limit")
         if FAL_ENDPOINT_RE.fullmatch(endpoint) is None:
             raise ValueError(
                 "FAL endpoint must contain 2-4 safe slash-separated path segments"
             )
+        edit_endpoint = edit_endpoint or f"{endpoint}/edit"
+        if FAL_ENDPOINT_RE.fullmatch(edit_endpoint) is None:
+            raise ValueError(
+                "FAL edit endpoint must contain 2-4 safe slash-separated path segments"
+            )
         self._fal_key = fal_key
         self._endpoint = endpoint
+        self._edit_endpoint = edit_endpoint
 
     def generate(
         self,
@@ -697,6 +827,10 @@ class FalGptImageClient:
         )
         if checked_width * checked_height > MAX_IMAGE_PIXELS:
             raise ValueError(f"FAL image exceeds the {MAX_IMAGE_PIXELS}-pixel limit")
+        image_size = FAL_GPT_IMAGE_SIZES.get((checked_width, checked_height))
+        if image_size is None:
+            supported = ", ".join(sorted(FAL_GPT_IMAGE_SIZES.values()))
+            raise ValueError(f"FAL GPT Image dimensions must be one of: {supported}")
         if mode not in ("text2img", "img2img"):
             raise ValueError(f"Unsupported FAL generation mode: {mode!r}")
         if mode == "img2img" and init_image_path is None:
@@ -704,30 +838,44 @@ class FalGptImageClient:
         if mode == "text2img" and init_image_path is not None:
             raise ValueError("text2img mode must not include an initial image")
 
-        url = f"https://fal.run/{self._endpoint}"
+        endpoint = self._edit_endpoint if mode == "img2img" else self._endpoint
+        url = f"https://fal.run/{endpoint}"
         headers = {"Authorization": f"Key {self._fal_key}"}
 
-        payload: dict[str, Any] = {
-            "prompt": prompt,
-            "image_size": {"width": checked_width, "height": checked_height},
-        }
+        effective_prompt = prompt
         if negative_prompt:
-            payload["negative_prompt"] = negative_prompt
+            effective_prompt = (
+                f"{prompt}\n\nAvoid these visual elements: {negative_prompt}"
+            )
+            _checked_text(
+                effective_prompt,
+                label="combined FAL prompt",
+                max_chars=MAX_PROMPT_CHARS,
+            )
+        payload: dict[str, Any] = {
+            "prompt": effective_prompt,
+            "image_size": image_size,
+            "num_images": 1,
+            "output_format": "png",
+        }
 
-        # Image-to-image support is endpoint-specific. Common patterns are:
-        #  - "image_url": "https://..."  (requires hosting the image)
-        #  - "image": "data:image/png;base64,..." (inline data URI)
+        # GPT Image 1.5 uses a separate edit endpoint and accepts reference
+        # images through `image_urls`. A data URI keeps operator images local.
         if mode == "img2img" and init_image_path is not None:
             init_bytes = _read_regular_file(
                 init_image_path,
                 max_bytes=MAX_INIT_IMAGE_BYTES,
                 label="FAL initial image",
             )
-            if not init_bytes.startswith(PNG_SIGNATURE):
-                raise ValueError("FAL initial image does not have a PNG signature")
-            payload["image"] = "data:image/png;base64," + base64.b64encode(
-                init_bytes
-            ).decode("ascii")
+            _validate_png(
+                init_bytes,
+                label="FAL initial image",
+                max_bytes=MAX_INIT_IMAGE_BYTES,
+                expected_size=(checked_width, checked_height),
+            )
+            payload["image_urls"] = [
+                "data:image/png;base64," + base64.b64encode(init_bytes).decode("ascii")
+            ]
 
         result = _http_json_post(url, headers=headers, payload=payload)
 
@@ -747,7 +895,9 @@ class FalGptImageClient:
         if not isinstance(image_url, str) or not image_url.strip():
             raise ValueError("FAL image URL must be a nonempty string")
 
-        image_bytes = _http_get_image(image_url)
+        image_bytes = _http_get_image(
+            image_url, expected_size=(checked_width, checked_height)
+        )
         return image_bytes, result
 
 
@@ -812,14 +962,6 @@ def _run_command_bounded(
                         f"Subprocess output exceeds the {max_output_bytes}-byte limit"
                     )
         try:
-            if os.name == "posix":
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                except PermissionError:
-                    if sys.platform != "darwin":
-                        raise
             return_code = process.wait(timeout=max(0.0, deadline - time.monotonic()))
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError(
@@ -842,7 +984,20 @@ def _run_command_bounded(
                     process.kill()
         finally:
             try:
-                process.wait()
+                process.wait(timeout=SUBPROCESS_REAP_TIMEOUT_SECONDS)
+            except subprocess.TimeoutExpired:
+                # Never trade a bounded command for an unbounded cleanup wait.
+                # Retry the leader directly in case a process-group signal was unavailable.
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+                try:
+                    process.wait(timeout=SUBPROCESS_REAP_TIMEOUT_SECONDS)
+                except subprocess.TimeoutExpired as final_exc:
+                    raise RuntimeError(
+                        "Subprocess did not exit after forced termination"
+                    ) from final_exc
             finally:
                 if selector is not None:
                     selector.close()
@@ -956,10 +1111,11 @@ class GeminiVertexClient:
         _validate_ui_part(part)
         if not self._project:
             raise RuntimeError("A GCP project id is required for Gemini requests")
-        if len(image_bytes) > MAX_IMAGE_BYTES or not image_bytes.startswith(
-            PNG_SIGNATURE
-        ):
-            raise ValueError("Gemini input must be a bounded PNG image")
+        _validate_png(
+            image_bytes,
+            label="Gemini input",
+            expected_size=(part.image_width, part.image_height),
+        )
         prompt = (
             "You are a strict UI/UX reviewer for a scientific desktop app.\n"
             "Evaluate the provided UI mockup image against the requirements list.\n"
@@ -1295,6 +1451,11 @@ def optimize_part(
             ) from e
 
         image_path = part_dir / f"{iter_tag}.png"
+        _validate_png(
+            image_bytes,
+            label="FAL generated image",
+            expected_size=(part.image_width, part.image_height),
+        )
         _atomic_write_bytes(image_path, image_bytes, max_bytes=MAX_IMAGE_BYTES)
         _write_json(part_dir / f"{iter_tag}.fal.json", fal_meta)
 
@@ -1365,6 +1526,11 @@ def main(argv: list[str] | None = None) -> None:
         type=str,
         default=os.environ.get("FAL_ENDPOINT", "fal-ai/gpt-image-1.5"),
     )
+    ap.add_argument(
+        "--fal-edit-endpoint",
+        type=str,
+        default=os.environ.get("FAL_EDIT_ENDPOINT", "fal-ai/gpt-image-1.5/edit"),
+    )
     ap.add_argument("--fal-key-env", type=str, default="FAL_KEY")
 
     ap.add_argument(
@@ -1378,12 +1544,12 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument(
         "--gemini-vision-model",
         type=str,
-        default=os.environ.get("GEMINI_VISION_MODEL", "gemini-1.5-pro"),
+        default=os.environ.get("GEMINI_VISION_MODEL", "gemini-3.1-pro-preview"),
     )
     ap.add_argument(
         "--gemini-text-model",
         type=str,
-        default=os.environ.get("GEMINI_TEXT_MODEL", "gemini-1.5-pro"),
+        default=os.environ.get("GEMINI_TEXT_MODEL", "gemini-3.1-pro-preview"),
     )
 
     ap.add_argument("--sleep", type=float, default=1.0)
@@ -1423,7 +1589,11 @@ def main(argv: list[str] | None = None) -> None:
             minimum=0.0,
             maximum=MAX_SLEEP_SECONDS,
         )
-        fal = FalGptImageClient(fal_key=fal_key, endpoint=args.fal_endpoint)
+        fal = FalGptImageClient(
+            fal_key=fal_key,
+            endpoint=args.fal_endpoint,
+            edit_endpoint=args.fal_edit_endpoint,
+        )
         gemini = GeminiVertexClient(
             project=args.gcp_project,
             location=args.gcp_location,
@@ -1439,6 +1609,7 @@ def main(argv: list[str] | None = None) -> None:
         {
             "ui_md": str(args.ui_md),
             "fal_endpoint": args.fal_endpoint,
+            "fal_edit_endpoint": args.fal_edit_endpoint,
             "gcp_project": args.gcp_project,
             "gcp_location": args.gcp_location,
             "gemini_vision_model": args.gemini_vision_model,

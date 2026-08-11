@@ -12,10 +12,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import platform
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from types import MappingProxyType
 
 import numpy as np
@@ -34,6 +32,7 @@ from .faithfulness import (
     ranking_sensitivity_check,
 )
 from .model import SmallTransformer
+from .provenance import attribution_software_manifest
 from .runlog import AttributionRecord
 
 METHODS = MappingProxyType(
@@ -253,26 +252,14 @@ def _exact_array_bundle(array: np.ndarray) -> dict[str, object]:
     }
 
 
-def _source_sha256() -> dict[str, str]:
-    directory = Path(__file__).resolve().parent
-    result: dict[str, str] = {}
-    for name in (
-        "attribute.py",
-        "faithfulness.py",
-        "model.py",
-        "probe.py",
-        "runlog.py",
-    ):
-        result[name] = hashlib.sha256((directory / name).read_bytes()).hexdigest()
-    return result
-
-
-def _model_bundle(model: SmallTransformer) -> dict[str, object]:
+def _model_bundle(
+    model: SmallTransformer, *, parameter_sha256: str
+) -> dict[str, object]:
     return {
         "kind": "small_transformer_v1",
         "d_in": model.d_in,
         "d_model": model.d_model,
-        "parameter_sha256": model.parameter_sha256(),
+        "parameter_sha256": parameter_sha256,
         "parameters": {
             name: _exact_array_bundle(getattr(model, name))
             for name in ("w_embed", "w_q", "w_k", "w_v", "w_o", "w_head")
@@ -293,14 +280,13 @@ def _evidence_bundle(
     modality: str | None,
     layer: str | None,
     work_estimate: int,
+    model_parameter_sha256: str,
+    gate_content_sha256: str,
+    case_set_sha256: str,
 ) -> dict[str, object]:
     return {
         "schema": "prisoma-attribution-evidence-v2",
-        "software": {
-            "python": platform.python_version(),
-            "numpy": np.__version__,
-            "source_sha256": _source_sha256(),
-        },
+        "software": attribution_software_manifest(),
         "method": method,
         "method_implementation": METHOD_IMPLEMENTATIONS[method],
         "primary_method": primary_method,
@@ -308,11 +294,11 @@ def _evidence_bundle(
         "modality": modality or "not_declared",
         "layer": layer or "not_declared",
         "work_estimate_multiply_adds": work_estimate,
-        "model": _model_bundle(model),
+        "model": _model_bundle(model, parameter_sha256=model_parameter_sha256),
         "gate": ranking_gate_manifest(gate),
-        "gate_content_sha256": ranking_gate_content_sha256(gate),
+        "gate_content_sha256": gate_content_sha256,
         "frozen_gate_id": gate.frozen_gate_id,
-        "case_set_sha256": _validation_input_baseline_set_hash(cases),
+        "case_set_sha256": case_set_sha256,
         "cases": [
             {
                 "case_id": case.case_id,
@@ -386,11 +372,19 @@ def run_attribution_probe(
         layer = _canonical_identifier(layer, "layer")
     model.validate_parameters()
     prepared_cases = _validated_probe_cases(model, cases, gate)
-    _probe_work_estimate(model, prepared_cases, gate, validated_methods)
     method_work_estimates = {
         name: _probe_work_estimate(model, prepared_cases, gate, (name,))
         for name in validated_methods
     }
+    total_work_estimate = sum(method_work_estimates.values())
+    if total_work_estimate > MAX_PROBE_MULTIPLY_ADDS:
+        raise ValueError(
+            "complete attribution probe exceeds the "
+            f"{MAX_PROBE_MULTIPLY_ADDS}-multiply-add resource budget"
+        )
+    model_parameter_sha256 = model.parameter_sha256()
+    gate_content_sha256 = ranking_gate_content_sha256(gate)
+    case_set_sha256 = _validation_input_baseline_set_hash(prepared_cases)
 
     records: list[AttributionRecord] = []
     for name in validated_methods:
@@ -459,15 +453,13 @@ def run_attribution_probe(
             "validation_relevance_set_sha256": _relevance_set_hash(
                 [case.case_id for case in prepared_cases], relevance_arrays
             ),
-            "validation_input_baseline_set_sha256": (
-                _validation_input_baseline_set_hash(prepared_cases)
-            ),
+            "validation_input_baseline_set_sha256": (case_set_sha256),
             "baseline_may_be_out_of_distribution": "true",
             "feature_dependence_unresolved": "true",
             "causal_or_mechanistic_faithfulness_established": "false",
             "method_implementation": METHOD_IMPLEMENTATIONS[name],
-            "model_parameter_sha256": model.parameter_sha256(),
-            "gate_content_sha256": ranking_gate_content_sha256(gate),
+            "model_parameter_sha256": model_parameter_sha256,
+            "gate_content_sha256": gate_content_sha256,
             "probe_work_estimate_multiply_adds": str(method_work_estimates[name]),
             "confirmatory_role": "primary" if name == primary_method else "secondary",
             "multiplicity_policy": "one_predeclared_primary_method",
@@ -484,6 +476,9 @@ def run_attribution_probe(
             modality=modality,
             layer=layer,
             work_estimate=method_work_estimates[name],
+            model_parameter_sha256=model_parameter_sha256,
+            gate_content_sha256=gate_content_sha256,
+            case_set_sha256=case_set_sha256,
         )
         records.append(
             AttributionRecord(

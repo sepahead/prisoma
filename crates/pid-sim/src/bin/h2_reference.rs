@@ -1,12 +1,13 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{bail, Context, Result};
 use pid_runlog::{RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
+use pid_sim::file_snapshot::{parse_strict_json, read_bounded_regular_file, sync_directory};
 use pid_sim::h2_reference::{
     run_h2_reference, H2AlarmResult, H2AnalysisPlan, H2Dataset, H2EventOntology, H2FeatureContract,
     H2FixedPredictionBrierImprovementIdentification, H2FixedPredictionBrierImprovementResult,
@@ -16,7 +17,6 @@ use pid_sim::h2_reference::{
 };
 use serde::Serialize;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 const COMPONENT: &str = "pid-h2-reference";
 const MAX_DATASET_BYTES: u64 = 16 * 1024 * 1024;
@@ -350,7 +350,7 @@ where
         );
         return None;
     };
-    match serde_json::from_slice(bytes) {
+    match parse_strict_json(bytes, field) {
         Ok(value) => Some(value),
         Err(error) => {
             push_issue(issues, "contract_parse_failed", field, error.to_string());
@@ -432,10 +432,14 @@ fn write_runlog(
     .collect::<BTreeMap<_, _>>();
     let temporary = temporary_path(&args.runlog, "runlog");
     let file = OpenOptions::new()
+        .read(true)
         .write(true)
         .create_new(true)
         .open(&temporary)
         .with_context(|| format!("failed to create {}", temporary.display()))?;
+    let mut inspection_file = file
+        .try_clone()
+        .context("failed to clone the new H2 run-log descriptor")?;
     let mut guard = TemporaryPathGuard::new(temporary.clone());
     let mut writer = RunLogWriter::new(BufWriter::new(file));
     writer.append(&RunLogEvent::RunStarted {
@@ -868,7 +872,8 @@ fn write_runlog(
     writer.flush_durable()?;
     drop(writer);
 
-    let events = pid_runlog::read_events(BufReader::new(fs::File::open(&temporary)?))?;
+    inspection_file.seek(SeekFrom::Start(0))?;
+    let events = pid_runlog::read_events(BufReader::new(inspection_file))?;
     let replay = pid_runlog::summarize_events(&events)?;
     if replay.validation_errors != 0
         || replay.run_id.as_deref() != Some(run_id)
@@ -1013,45 +1018,11 @@ fn parse_args() -> Result<Option<Args>> {
 }
 
 fn read_exact_snapshot(path: &Path, maximum: u64) -> Result<ExactSnapshot> {
-    let mut file =
-        fs::File::open(path).with_context(|| format!("failed to open input {}", path.display()))?;
-    let metadata = file.metadata()?;
-    if !metadata.is_file() {
-        bail!("input is not a regular file: {}", path.display());
-    }
-    if metadata.len() > maximum {
-        return Ok(ExactSnapshot {
-            bytes: None,
-            sha256: None,
-            byte_len: metadata.len(),
-        });
-    }
-    let mut bytes = Vec::new();
-    let mut hasher = Sha256::new();
-    let mut byte_len = 0_u64;
-    let mut chunk = [0_u8; 64 * 1024];
-    loop {
-        let count = file.read(&mut chunk)?;
-        if count == 0 {
-            break;
-        }
-        byte_len = byte_len
-            .checked_add(count as u64)
-            .context("input byte count overflowed u64")?;
-        if byte_len > maximum {
-            return Ok(ExactSnapshot {
-                bytes: None,
-                sha256: None,
-                byte_len,
-            });
-        }
-        hasher.update(&chunk[..count]);
-        bytes.extend_from_slice(&chunk[..count]);
-    }
+    let snapshot = read_bounded_regular_file(path, maximum, "H2 reference input")?;
     Ok(ExactSnapshot {
-        bytes: Some(bytes),
-        sha256: Some(pid_sim::lowercase_hex(hasher.finalize())),
-        byte_len,
+        bytes: snapshot.bytes,
+        sha256: snapshot.sha256,
+        byte_len: snapshot.byte_len,
     })
 }
 
@@ -1143,8 +1114,7 @@ fn sync_parent(path: &Path) -> Result<()> {
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
-    fs::File::open(parent)?.sync_all()?;
-    Ok(())
+    sync_directory(parent, "H2 reference output directory")
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {
@@ -1166,8 +1136,14 @@ fn push_issue(
 
 fn print_usage() {
     println!(
-        "Usage: pid-h2-reference --dataset PATH --analysis-plan PATH \\\n+         --event-ontology PATH --feature-contract PATH --split-manifest PATH \\\n+         --summary-json PATH --runlog PATH\n\
-         Runs a deterministic synthetic finite-benchmark reference only; it produces no H2 evidence."
+        "{}",
+        concat!(
+            "Usage: pid-h2-reference --dataset PATH --analysis-plan PATH \\\n",
+            "         --event-ontology PATH --feature-contract PATH --split-manifest PATH \\\n",
+            "         --summary-json PATH --runlog PATH\n",
+            "Runs a deterministic synthetic finite-benchmark reference only; ",
+            "it produces no H2 evidence."
+        )
     );
 }
 

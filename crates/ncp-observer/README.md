@@ -12,15 +12,15 @@ live publisher or bridge for NCP wire 0.8. This crate is a **read-only observer*
 the NCP data-plane keys over Zenoh and never drives anything (the Agent Bridge stays the only
 control plane).
 
-> **Compatibility boundary (rechecked 2026-08-03):** this crate pins the latest immutable
+> **Compatibility boundary (rechecked 2026-08-11):** this crate pins the latest immutable
 > NCP `v0.8.0` release and wire 0.8. Official NCP main was observed at
-> `1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd` during this check. That commit is the
+> `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` during this check. That commit is the
 > unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
 > compact proto contract hash `163acc57d8a62b66`). It uses a different wire.
 > NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and
 > **NOT RUN**. They cover the native-1.0 observer, missing-variable and research-claim
 > semantics, and fault-observatory migration plus Prisoma observer-role qualification.
-> See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1bcfb190d4d9a2e0032f44e634854ff9ed19a0bd/evidence/implementation/task-ledger.v1.json).
+> See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
 
 It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the published
 NCP repo **<https://github.com/sepahead/NCP>**. Spec: `NEURO_CYBERNETIC_PROTOCOL.md`
@@ -31,7 +31,7 @@ in that repo.
 This crate is **optional and exploratory-only**. It is **not** on grandplan's critical
 path — grandplan does not depend on Engram, and the S2/EC1 reference `(V,L,D,A)` producer
 is `experiments/safe_adapter/`. The core workspace builds and tests with NCP/Engram/Zenoh
-absent, and the static factual-outcome baseline smoke runs with PID disabled; `ncp-observer` is **excluded from the
+absent, and the static factual-outcome baseline smoke requests no PID atoms; `ncp-observer` is **excluded from the
 default cargo workspace** (build it with `--manifest-path`, see below).
 
 It can support *exploratory* PID screens on a future conforming producer, but it is **below the
@@ -133,12 +133,10 @@ rejects it for analysis.
 ### (V, L, D, A) mapping
 - **V** ← `SensorFrame` channels (all but the language channel), flattened.
 - **L** ← the `instruction` `SensorFrame` channel (configurable).
-- **D** ← `ObservationFrame` record-port readouts — the pre-motor neural state
-  (world-model status **untested**: no architecture-evidence probe (grandplan §9.1 —
-  a fused hidden state may not be called a "world model"/"dynamics" axis without it)
-  has been run on these ports; "internal simulation" is what the `PID(V,D;A)` probe would *test*,
-  not an established property). Note: in `(V,L,D,A)`, **D is the Dynamics /
-  world-model axis**, not depth.
+- **D** ← `ObservationFrame` record-port readouts, declared as a pre-motor neural-state source.
+  D is not depth. World-model, dynamics, internal-simulation, and policy-use status are
+  **untested**. No architecture-evidence probe required by `grandplan.md` §9.1 has run on these
+  ports. `PID(V,D;A)` would test a measure-relative relationship, not prove any of those roles.
 - **A** ← `CommandFrame` channels, flattened.
 
 ### Alignment (correctness)
@@ -171,7 +169,7 @@ frames are dropped and counted.
 cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
     --open --session uav3 --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
 # then verify the committed bundle and run PID-disabled diagnostics/baselines
-cargo run --locked -p pid-sim --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
+cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input outputs/ncp_vlda.json \
     --pid-mode none --summary-json outputs/ncp_summary.json \
     --runlog outputs/ncp_baseline_runlog.jsonl
 

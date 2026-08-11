@@ -31,17 +31,26 @@ fn main() -> Result<()> {
         .open(&path)
         .with_context(|| format!("failed to create new run log {}", path.display()))?;
     let mut writer = RunLogWriter::new(pid_sim::FsyncFileWriter::new(file));
-    let config = pid_sim::deterministic_sim_config(
+    let profile = if safe_mode {
+        pid_sim::BridgeRuntimeProfile::SafeMode
+    } else {
+        pid_sim::BridgeRuntimeProfile::Standard
+    };
+    let config = pid_sim::deterministic_bridge_config(
         "pid-sim-bridge-stdio",
-        Some("stdio_jsonl"),
+        "stdio_jsonl",
         None,
         None,
-        Some(safe_mode),
+        profile,
     );
     let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
     let mut metadata = BTreeMap::new();
     metadata.insert("source".to_string(), "pid-sim-bridge-stdio".to_string());
     metadata.insert("safe_mode".to_string(), safe_mode.to_string());
+    metadata.insert(
+        "active_profile".to_string(),
+        profile.identifier().to_string(),
+    );
     metadata.insert(
         "artifact_root".to_string(),
         artifact_root.display().to_string(),
@@ -72,7 +81,7 @@ fn main() -> Result<()> {
         safe_mode,
         "bridge-stdio-run",
     );
-    session.set_run_log_path(&path);
+    session.set_run_log_path(&path)?;
     session.set_artifact_root(&artifact_root)?;
     // Detect buffered provenance-storage failures before accepting control
     // input or emitting any response.

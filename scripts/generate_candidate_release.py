@@ -279,16 +279,20 @@ def _run_git(
                     break
             if overflow is not None:
                 break
-        if os.name == "posix" or timed_out or overflow is not None:
-            _terminate_process_group(process)
-        remaining = max(0.0, deadline - time.monotonic())
-        try:
-            returncode = process.wait(timeout=max(1.0, remaining))
-        except subprocess.TimeoutExpired:
-            timed_out = True
+        if timed_out or overflow is not None:
             _terminate_process_group(process)
             process.wait(timeout=5.0)
             returncode = process.returncode
+        else:
+            try:
+                # EOF on both pipes can precede process exit. Let the fixed Git
+                # command complete; terminate its isolated group only on error.
+                returncode = process.wait(timeout=max(0.0, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                _terminate_process_group(process)
+                process.wait(timeout=5.0)
+                returncode = process.returncode
     finally:
         _terminate_process_group(process)
         try:
@@ -3245,22 +3249,102 @@ def build_receipts(
     return document
 
 
+def _source_binding_defect_fields(
+    inventory: Mapping[str, Any], receipts: Mapping[str, Any]
+) -> dict[str, Any]:
+    source = inventory.get("source")
+    if not isinstance(source, Mapping):
+        fail("DEFECT_SOURCE_BINDING", "candidate source record is absent")
+    clean = source.get("clean")
+    head_commit = source.get("head_commit")
+    if type(clean) is not bool or not isinstance(head_commit, str):
+        fail("DEFECT_SOURCE_BINDING", "candidate source identity is invalid")
+
+    receipt_rows = receipts.get("receipts")
+    if not isinstance(receipt_rows, list):
+        fail("DEFECT_SOURCE_BINDING", "candidate receipt records are absent")
+    post_push_rows = [
+        receipt
+        for receipt in receipt_rows
+        if isinstance(receipt, Mapping) and receipt.get("id") == "RCP-POST-PUSH-CI"
+    ]
+    if len(post_push_rows) != 1:
+        fail("DEFECT_SOURCE_BINDING", "post-push CI receipt identity is invalid")
+    post_push = post_push_rows[0]
+    receipt_status = post_push.get("status")
+    execution = post_push.get("execution")
+    if not isinstance(receipt_status, str) or not isinstance(execution, Mapping):
+        fail("DEFECT_SOURCE_BINDING", "post-push CI receipt state is invalid")
+    exact_pushed_commit = (
+        execution.get("commit") if receipt_status == "passed" else None
+    )
+    if receipt_status == "passed" and exact_pushed_commit != head_commit:
+        fail(
+            "DEFECT_SOURCE_BINDING",
+            "passed post-push CI receipt does not bind the candidate source HEAD",
+        )
+
+    if clean:
+        snapshot_kind = "clean_committed_snapshot"
+        if exact_pushed_commit is None:
+            title = (
+                "clean committed candidate snapshot lacks a successful exact pushed-commit "
+                "and post-push CI binding"
+            )
+        else:
+            title = (
+                "clean candidate source binding reports post-push success but schema 0.1 "
+                "cannot authenticate or promote it"
+            )
+    else:
+        snapshot_kind = "dirty_uncommitted_snapshot"
+        if exact_pushed_commit is None:
+            title = (
+                "dirty candidate source snapshot lacks a successful exact pushed-commit and "
+                "post-push CI binding"
+            )
+        else:
+            title = (
+                "dirty candidate snapshot cannot be promoted even when a receipt reports "
+                "post-push success"
+            )
+
+    return {
+        "title": title,
+        "resolution_rule": (
+            "use a reviewed successor schema to bind a clean exact candidate commit "
+            "to authenticated successful post-push main CI evidence"
+        ),
+        "source_snapshot": {
+            "kind": snapshot_kind,
+            "head_commit": head_commit,
+        },
+        "post_push_binding": {
+            "receipt_id": "RCP-POST-PUSH-CI",
+            "receipt_status": receipt_status,
+            "exact_pushed_commit": exact_pushed_commit,
+            "receipt_reports_success": receipt_status == "passed",
+        },
+    }
+
+
 def build_defect_register(
     inventory: Mapping[str, Any],
     progress: Mapping[str, Any],
     receipts: Mapping[str, Any],
 ) -> dict[str, Any]:
+    source_binding = _source_binding_defect_fields(inventory, receipts)
     defects = [
         {
             "id": "DEF-P0-001",
             "priority": "P0",
             "status": "open",
-            "title": "candidate source snapshot is dirty and has no exact pushed commit",
+            "title": source_binding["title"],
             "blocks_release": True,
             "evidence_receipt_ids": ["RCP-POST-PUSH-CI"],
-            "resolution_rule": (
-                "bind a clean exact candidate commit and successful post-push main CI"
-            ),
+            "resolution_rule": (source_binding["resolution_rule"]),
+            "source_snapshot": source_binding["source_snapshot"],
+            "post_push_binding": source_binding["post_push_binding"],
         },
         {
             "id": "DEF-P0-002",

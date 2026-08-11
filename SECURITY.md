@@ -22,8 +22,8 @@ private dataset, or exploit. Include, when available:
   authority is affected; and
 - any known workaround.
 
-Do not test against infrastructure or data you do not own or have explicit
-permission to assess. There is no bug-bounty programme.
+Do not test infrastructure or data unless you own it or have permission to assess it. There is no
+bug-bounty program.
 
 ## Current trust boundaries
 
@@ -37,10 +37,10 @@ permission to assess. There is no bug-bounty programme.
   pairing attempts. Run-log accounting includes the TCP prefix and terminal
   seal. The hosted unique-directory option uses atomic no-replace creation.
 - That profile requires operator-paste pairing. One startup secret comes from
-  the operating-system CSPRNG. The process prints it once on stderr and never
-  writes it to a file, a response, or the run log. Mutual HMAC-SHA256 proofs
-  bind the active profile, the exact request id, and fresh 32-byte nonces. The
-  first valid proof binds the secret to one TCP connection. Eight failed
+  the operating-system CSPRNG. Prisoma sends it once to stderr. Prisoma does not add it to a
+  response or the run log. Mutual HMAC-SHA256 proofs
+  bind the active profile, the request ID's RFC 8785 JCS form, and fresh 32-byte
+  nonces. The first valid proof binds the secret to one TCP connection. Eight failed
   connections latch the bridge for that launch. Pairing proves startup-secret
   possession only. An operator can forward the secret, and another local
   process can read the terminal or squat the port before Prisoma listens.

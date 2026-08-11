@@ -359,7 +359,7 @@ pub mod rapier_adapter {
     //! Real Rapier3D (f64) physics adapter.
     //!
     //! Wraps a single-threaded `rapier3d_f64` pipeline behind the
-    //! [`PhysicsBackend`](super::PhysicsBackend) trait: dynamic cuboid rigid
+    //! [`PhysicsBackend`] trait: dynamic cuboid rigid
     //! bodies, gravity, contacts, and friction are all real. Box geometry is
     //! derived from the `half_extents`/`mass_kg` passed to
     //! [`PhysicsBackend::add_rigid_body`] (collider density is back-solved from
@@ -439,9 +439,9 @@ pub mod rapier_adapter {
 
         /// Add a static ground slab whose top face sits at `z = 0`.
         ///
-        /// Not part of the [`PhysicsBackend`] trait: kinematic backends (e.g.
-        /// [`NullPhysicsBackend`](super::NullPhysicsBackend)) have no contacts, so a
-        /// ground plane is meaningful only for a real dynamics backend.
+        /// This method is not part of the [`PhysicsBackend`] trait. Kinematic
+        /// backends, such as [`NullPhysicsBackend`], have no contacts. A ground
+        /// plane is meaningful only for a real dynamics backend.
         pub fn add_ground_slab(
             &mut self,
             half_extent_xy: f64,

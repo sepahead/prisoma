@@ -5,9 +5,9 @@
 - Added an ASD-STE100 Issue 9 writing policy to the contributor guidance. The policy uses
   “STE-aligned” language and preserves technical, scientific, legal, generated, and immutable
   content boundaries.
-- Refreshed the living ecosystem overlay on 2026-07-24. The reviewed `pid-rs@796c11e` and NCP
-  `v0.8.0` pins remain deliberate. Newer public heads are recorded without claiming compatibility,
-  integration, or scientific promotion.
+- Refreshed the living ecosystem overlay on 2026-08-11. The reviewed `pid-rs@796c11e` and NCP
+  `v0.8.0` pins remain deliberate. Current public heads and the unchanged Paper2Brain descriptor
+  bytes are recorded without claiming compatibility, integration, or scientific promotion.
 - Clarified the substantive implementation sequence: complete accountable freeze decisions, one
   rights-approved raw-to-run-log SAFE path, a structurally independent EC1 adapter, and the frozen
   conventional-stack comparison before optional sibling integrations.
@@ -20,10 +20,139 @@
   descriptor for an Engram host. The profile is read-only, conflicts with `--allow-mutations`,
   and exposes only `bridge.describe`, `bridge.session`, and `sim.status`. It requires
   `operator-paste-psk-hmac-sha256-v1` pairing: one CSPRNG startup secret printed once on stderr,
-  mutual HMAC-SHA256 proofs over the profile, exact request id, and fresh 32-byte nonces,
+  mutual HMAC-SHA256 proofs over the profile, the request id's RFC 8785 JCS form, and fresh
+  32-byte nonces,
   binding to one TCP connection, and a latch after eight failed connections. Pairing proves
   startup-secret possession only. It is not process, build, or transport attestation, and the
   profile adds no actuation, NCP translation, or closed loop.
+- Defined pairing request-id binding as RFC 8785 JCS over a string or safe integer. Replaced the
+  local HMAC and comparison code with the RustCrypto HMAC verifier. `PairingSecret` now exposes
+  proof construction and verification without exposing its raw key. Its operator announcement
+  token is built directly in one zeroizing allocation and returned in zeroizing storage instead of
+  relying on every caller to wrap a `String`.
+- Removed the 11 underscore JSON-RPC method aliases. Use canonical dotted method names on the
+  wire. Legacy underscore action names remain valid only during run-log replay.
+- Changed `BridgeRpcRequest::into_bridge_request` to require the transport message index. It now
+  constructs the same type-tagged, session-unique run-log request ID as the wire dispatchers.
+  Direct callers can no longer create collision-prone canonical requests from reused JSON-RPC IDs.
+  Removed the collision-prone bare-ID renderer and the response helper that could not preserve the
+  original wire ID type. Callers must pass the original ID to
+  `BridgeRpcResponse::from_bridge_response_with_id`.
+- Changed `DeterministicObjectSim::upsert_object` and `from_snapshot` to return `Result`. Both
+  APIs now reject invalid objects before mutation, and snapshot construction rejects duplicate
+  object IDs. Bridge run configuration hashes now bind the exact active profile, method surface,
+  resource limits, and pairing contract.
+- Changed `SimBridgeSession::with_engram_host_profile_and_run_id` to require `PairingSecret`.
+  Removed `enable_engram_pairing`, `SimBridgeSession::set_safe_mode`, and
+  `LocalBridge::set_safe_mode`. Pairing, safe mode, and the active method profile are now
+  constructor invariants that cannot diverge from the hashed run configuration. Direct typed,
+  single-message, and unpaired line dispatch APIs now reject this
+  profile. `dispatch_rpc_lines_paired` creates and owns each connection's authorization state.
+  Callers cannot inject or reuse an accepted state, or bypass the session-owned binding with a
+  separate Boolean. The session commits that binding only after it records the successful exact
+  `bridge.session` exchange and flushes the server proof response to the connection. The TCP
+  executable now closes the listener as soon as that bound connection ends. It no longer adds a
+  fixed post-session drain. File RPC paths now configure once and reject reconfiguration after
+  session input begins.
+- Added typed offline VLDA resource limits for input bytes, decoded samples, scalars, metadata, and
+  projected work. Existing read and run APIs now apply conservative defaults. They reject inputs
+  above 64 MiB, 1,024 samples, 50,000,000 pairwise units, 100,000,000 distance-coordinate units,
+  or 100,000,000 aggregate dense-solver operations. The dense projection covers every PLS
+  selection fold, fit, transform, shuffled control, train-only screen, and applicable logistic fit.
+  It uses dimension-only checked arithmetic and allocates no analysis matrices. The CLI
+  checked-adds main and optional uncertainty work against both invocation caps. Larger inputs need
+  a complete strict `--resource-limits-json` document. The high-dimensional stress fixture uses
+  a checked 2,000,000,000-operation override. Library callers can use the additive
+  `*_with_limits` APIs. This is an intentional behavioral limit for formerly unbounded workloads.
+  Unix dataset, limits, NCP receipt, and NCP run-log reads now use one bounded `O_NOFOLLOW`
+  descriptor snapshot with identity rechecks. Nonblocking opens prevent FIFO swaps from waiting
+  for a writer. Other special files fail the type check if the open returns. Non-Unix
+  exact-snapshot reads fail closed. Optional uncertainty remains an out-of-band sidecar. The CLI
+  computes it before output, then writes the summary, sidecar, and run log. A later write can leave
+  that output prefix; no cross-file transaction is claimed. The sidecar now binds the requested PID
+  mode and exact subsample contract. Preflight rejects unused uncertainty paths, output symlinks,
+  duplicate output paths, and existing input/output aliases before any write. Summary and run-log
+  publication now reconstruct the full metric-pipeline configuration and reject any PID mode,
+  measure family, estimator identity, PLS control, or configuration mismatch. The harness enables
+  exact finite-float JSON parsing so durable sidecar values retain their IEEE-754 identity. Dataset
+  readers now complete structural validation before return. Applicable logistic fit failures now
+  fail the analysis instead of disappearing behind a missing optional metric. The CLI now borrows
+  the admitted dataset through an additive library entry point instead of cloning every sample.
+  After parsing, readers release the duplicate raw JSON while retaining its hash and identity
+  guard. One zero-copy distance scan per feature view now supplies sample, episode, and held-out
+  1-NN results. Held-out metrics derive from their emitted predictions, which also removes duplicate
+  centroid passes. Episode-majority work is linear. AUROC uses an exact rank scan instead of a
+  quadratic positive-by-negative loop. The discrete-PLS target-shuffle control now borrows V/L/D
+  and allocates only the shuffled A matrix. Geometry builds VL and VLDA only when needed, one at a
+  time, and never materializes a VLD intermediate. The train-only PID screen borrows selected
+  samples instead of cloning their labels and metadata. Each PID screen computes row diagnostics
+  once per axis and reuses their typed summaries across marginal and pair outcomes. Discrete
+  screens likewise fit and quantize each axis once, then reuse the same codes for every estimate.
+  Marginal MI records reuse the exact values already computed inside produced PID2 estimates.
+  A standalone continuous marginal runs only when its pair estimates yielded no value. The
+  centroid and logistic baselines now share one in-place VLDA standardization. That model uses one
+  contiguous feature buffer instead of one allocation per sample. Raw axes are flattened and
+  standardized one at a time, so temporary raw matrices do not coexist. Exact-tie diagnostics
+  borrow matrix rows instead of copying their bit patterns. Scale-normalized training statistics
+  avoid overflow from large finite common scales. Train-constant columns map to zero for every row.
+  Non-finite derived distances and scores now reject.
+- Changed the offline harness default PID mode from continuous to `none`. Baseline and geometry
+  work remains available by default. Continuous and quantized PID now require an explicit
+  `--pid-mode` opt-in. This is an estimator-request firebreak. The opt-in analysis build still
+  links shared `pid-core` geometry and logistic code.
+- Split optional workloads from the `pid-sim` execution core. H1/H2 CLIs require
+  `--features protocol-references`. The historical sensitivity CLI requires
+  `--features legacy-sensitivity`. Toy and offline harnesses require `--features analysis`.
+  WebSocket, Rapier, and Rerun export remain explicit features. The default build excludes all of
+  these modules and optional graphs. Default contracts omit and block `export.rerun`. Full-feature
+  gates retain every tested surface. Sessions built without Rerun export no longer carry pending
+  export rollback state. CI builds the run-log verifier once per job instead of
+  starting Cargo for every replay. It also consolidates Rapier and Ruff checks. This removes three
+  duplicate environment-install jobs, including an identical second Rust 1.93 pass. One positive
+  offline run now checks all three compatible held-out gates instead of repeating the analysis.
+- Read-only bridge requests no longer clone the complete simulation scene. Transactional scene
+  cloning now occurs only for the four methods that can mutate simulator state.
+- Split `pid-rerun`'s synthetic VLA adapters and estimator demo behind `vla` and `vla-demo`.
+  The default validating converter and bridge export no longer compile `pid-core` or the separate
+  `ndarray` 0.17 VLA layer. Rerun's SDK keeps its own `ndarray` 0.16 dependency.
+- Reclassified offline geometry output as descriptive diagnostics. Removed
+  `--require-geometry-pass`, `OfflineVldaRunlogOptions::require_geometry_pass`, and the
+  `offline_vlda.geometry.gate_pass` metric. New reports use `geometry.diagnostics` and emit
+  `offline_vlda.geometry.diagnostics_clear`. Intrinsic-dimension and distance-concentration
+  thresholds can raise warnings, but they never establish or block estimator validity. Sampled
+  delta remains descriptive and has no threshold. This is an intentional pre-1.0 API and schema
+  correction required by `grandplan.md` section 7.9.
+- Made the offline VLDA provenance gate an allowlist-based, complete-sample attestation. Unknown
+  values, malformed token-slice values, missing per-sample markers, and incomplete active producer
+  conventions now fail closed. SAFE inputs require all four axis markers. NCP inputs require both
+  source markers. This remains a mechanical declaration check, not semantic validation or
+  authentication.
+- Made the offline VLDA input schema strict. Dataset and sample objects reject unknown fields.
+  Support, label, and metadata maps reject duplicate keys. Support declarations reject axes other
+  than `v`, `l`, `d`, or `a`. Present episode identifiers must be nonempty.
+- Made local run-log ingress strict at the Rerun converter, verifier CLI, H1 binding, and NCP
+  publication boundaries. Duplicate JSON members now reject before typed replay. The converter
+  also binds parsing and manifest construction to one bounded descriptor snapshot.
+- Advanced H1 preflight summary and verdict artifacts to schema 3. Oversized inputs now record a
+  typed rejection, exact observed length, and no false whole-file digest. The scientific preflight
+  input contract remains schema 2, and Protocol A requires the new exact-input artifact binding.
+- Updated the optional NCP observer lock to `event-listener` 5.4.2. This resolves
+  RUSTSEC-2026-0221 and removes the unused `concurrent-queue` dependency. NCP finalization now
+  serializes borrowed samples and streams terminal events after the retained event slice. It no
+  longer deep-clones either collection before allocating the bounded publication bytes.
+- Extended the advisory gate to all transitive unsound and unmaintained crates. Reviewed
+  observer exceptions remain explicit in `deny.toml`.
+- Added bounded PNG validation to the optional UI tool. The pinned Pillow decoder verifies the
+  container and decodes all pixels after byte, dimension, frame-count, and pixel-count checks.
+  The UI decoder remains outside the default developer dependency groups. The FAL client now uses
+  the documented GPT Image generation and edit schemas, separate endpoints, and supported size
+  tokens. The default Vertex model now names the current reviewed Gemini 3.1 Pro preview and stays
+  operator-overridable.
+- Bound attribution evidence to an import-time hash manifest of every package-owned Python
+  source. The manifest is captured once and reused without repeated source I/O. This is source
+  provenance. It does not detect later source changes, prove which bytecode ran, or attest
+  dependencies, interpreter state, or process state. Each probe now computes its shared model,
+  gate, case-set hashes, and per-method work budget once.
 
 ## 0.9.0 - 2026-07-16
 

@@ -113,7 +113,7 @@ use std::ffi::OsString;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, ErrorKind, Read as _, Write as _};
 #[cfg(unix)]
-use std::os::unix::fs::MetadataExt as _;
+use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -166,6 +166,21 @@ pub struct OfflineVldaDataset {
     /// are durable. The offline harness verifies it before accepting NCP input.
     pub publication_receipt: String,
     pub samples: Vec<OfflineVldaSample>,
+}
+
+/// Borrowed serialization view used during publication. The durable JSON shape
+/// is identical to [`OfflineVldaDataset`], but finalization does not duplicate
+/// every retained sample before it allocates the bounded output bytes.
+#[derive(Serialize)]
+struct OfflineVldaDatasetRef<'a> {
+    run_id: &'a str,
+    source: &'static str,
+    model: &'a str,
+    task: &'a str,
+    capture_integrity: &'a str,
+    support: &'a BTreeMap<String, String>,
+    publication_receipt: &'a str,
+    samples: &'a [OfflineVldaSample],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1151,9 +1166,7 @@ where
         std::fs::remove_file(&temp_path)
             .with_context(|| format!("failed to remove temporary link {}", temp_path.display()))?;
         #[cfg(unix)]
-        File::open(parent)
-            .and_then(|directory| directory.sync_all())
-            .with_context(|| format!("failed to fsync directory {}", parent.display()))?;
+        sync_directory(parent)?;
         Ok(())
     })();
     if result.is_err() {
@@ -1181,19 +1194,47 @@ fn output_target(path: &Path) -> anyhow::Result<PathBuf> {
 /// Re-establish durability when a previous no-replace install completed but
 /// its final directory fsync reported an error. Exact retries may adopt only a
 /// byte-for-byte matching file, then fsync both the file and directory again.
-fn sync_installed_file(path: &Path) -> anyhow::Result<()> {
-    File::open(path)
-        .and_then(|file| file.sync_all())
+fn sync_installed_file(path: &Path, expected: &[u8], description: &str) -> anyhow::Result<()> {
+    let named = std::fs::symlink_metadata(path).with_context(|| {
+        format!(
+            "failed to inspect installed {description} {}",
+            path.display()
+        )
+    })?;
+    if !named.file_type().is_file() || usize::try_from(named.len()).ok() != Some(expected.len()) {
+        anyhow::bail!(
+            "refusing to adopt non-byte-identical {description} {}",
+            path.display()
+        );
+    }
+    let (file, actual, opened_after_read) =
+        open_bounded_regular_snapshot_with_hook(path, expected.len(), || {})?;
+    if actual != expected {
+        anyhow::bail!(
+            "refusing to adopt non-byte-identical {description} {}",
+            path.display()
+        );
+    }
+    file.sync_all()
         .with_context(|| format!("failed to fsync installed file {}", path.display()))?;
+    let opened_after_sync = file
+        .metadata()
+        .with_context(|| format!("failed to inspect synced file {}", path.display()))?;
+    let path_after_sync = std::fs::symlink_metadata(path)
+        .with_context(|| format!("failed to re-inspect synced file {}", path.display()))?;
+    if !path_after_sync.file_type().is_file()
+        || !same_file_snapshot(&opened_after_read, &opened_after_sync)
+        || !same_file_snapshot(&opened_after_sync, &path_after_sync)
+    {
+        anyhow::bail!("installed file {} changed while syncing", path.display());
+    }
     #[cfg(unix)]
     {
         let parent = path
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
             .unwrap_or_else(|| Path::new("."));
-        File::open(parent)
-            .and_then(|directory| directory.sync_all())
-            .with_context(|| format!("failed to fsync directory {}", parent.display()))?;
+        sync_directory(parent)?;
     }
     Ok(())
 }
@@ -1215,6 +1256,8 @@ fn serialize_json_pretty_bounded<T: Serialize>(
 fn same_file_snapshot(left: &std::fs::Metadata, right: &std::fs::Metadata) -> bool {
     left.dev() == right.dev()
         && left.ino() == right.ino()
+        && left.mode() == right.mode()
+        && left.nlink() == right.nlink()
         && left.len() == right.len()
         && left.mtime() == right.mtime()
         && left.mtime_nsec() == right.mtime_nsec()
@@ -1230,10 +1273,85 @@ fn same_file_snapshot(left: &std::fs::Metadata, right: &std::fs::Metadata) -> bo
         && left.modified().ok() == right.modified().ok()
 }
 
-/// Read one bounded regular-file snapshot without following an already-present
-/// symlink. The opened handle and pathname identity are checked before and after
-/// the bounded read so replacement/growth races fail closed.
-pub fn read_bounded_regular_snapshot(path: &Path, max_bytes: usize) -> anyhow::Result<Vec<u8>> {
+#[cfg(unix)]
+const fn bounded_snapshot_open_flags() -> i32 {
+    libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC
+}
+
+#[cfg(unix)]
+fn open_bounded_snapshot(path: &Path) -> std::io::Result<File> {
+    let mut options = OpenOptions::new();
+    options
+        .read(true)
+        .custom_flags(bounded_snapshot_open_flags());
+    options.open(path)
+}
+
+#[cfg(not(unix))]
+fn open_bounded_snapshot(_path: &Path) -> std::io::Result<File> {
+    Err(std::io::Error::new(
+        ErrorKind::Unsupported,
+        "descriptor-bound exact snapshots require Unix O_NOFOLLOW support",
+    ))
+}
+
+#[cfg(unix)]
+pub(crate) fn sync_directory(path: &Path) -> anyhow::Result<()> {
+    let path_before = std::fs::symlink_metadata(path)
+        .with_context(|| format!("failed to inspect directory {} for fsync", path.display()))?;
+    if !path_before.file_type().is_dir() {
+        anyhow::bail!(
+            "fsync target {} must be a non-symlink directory",
+            path.display()
+        );
+    }
+    let mut options = OpenOptions::new();
+    options
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC);
+    let directory = options
+        .open(path)
+        .with_context(|| format!("failed to open directory {} for fsync", path.display()))?;
+    let opened_before = directory
+        .metadata()
+        .with_context(|| format!("failed to inspect directory {}", path.display()))?;
+    let path_after_open = std::fs::symlink_metadata(path)
+        .with_context(|| format!("failed to re-inspect directory {}", path.display()))?;
+    if !opened_before.file_type().is_dir()
+        || !path_after_open.file_type().is_dir()
+        || !same_file_snapshot(&path_before, &opened_before)
+        || !same_file_snapshot(&opened_before, &path_after_open)
+    {
+        anyhow::bail!(
+            "directory {} changed while opening for fsync",
+            path.display()
+        );
+    }
+    directory
+        .sync_all()
+        .with_context(|| format!("failed to fsync directory {}", path.display()))?;
+    let opened_after = directory
+        .metadata()
+        .with_context(|| format!("failed to re-inspect directory {}", path.display()))?;
+    let path_after_sync = std::fs::symlink_metadata(path)
+        .with_context(|| format!("failed to re-inspect directory {}", path.display()))?;
+    if !path_after_sync.file_type().is_dir()
+        || !same_file_snapshot(&opened_before, &opened_after)
+        || !same_file_snapshot(&opened_after, &path_after_sync)
+    {
+        anyhow::bail!("directory {} changed while syncing", path.display());
+    }
+    Ok(())
+}
+
+fn open_bounded_regular_snapshot_with_hook<F>(
+    path: &Path,
+    max_bytes: usize,
+    after_initial_inspection: F,
+) -> anyhow::Result<(File, Vec<u8>, std::fs::Metadata)>
+where
+    F: FnOnce(),
+{
     let before = std::fs::symlink_metadata(path)
         .with_context(|| format!("failed to inspect bounded input {}", path.display()))?;
     if !before.file_type().is_file() {
@@ -1245,7 +1363,8 @@ pub fn read_bounded_regular_snapshot(path: &Path, max_bytes: usize) -> anyhow::R
     if before.len() > u64::try_from(max_bytes).unwrap_or(u64::MAX) {
         anyhow::bail!("bounded input {} exceeds {max_bytes} bytes", path.display());
     }
-    let mut file = File::open(path)
+    after_initial_inspection();
+    let mut file = open_bounded_snapshot(path)
         .with_context(|| format!("failed to open bounded input {}", path.display()))?;
     let opened_before = file
         .metadata()
@@ -1263,6 +1382,11 @@ pub fn read_bounded_regular_snapshot(path: &Path, max_bytes: usize) -> anyhow::R
         .unwrap_or(u64::MAX)
         .saturating_add(1);
     let mut bytes = Vec::new();
+    let expected_len = usize::try_from(opened_before.len())
+        .context("bounded input length does not fit this platform")?;
+    bytes
+        .try_reserve_exact(expected_len)
+        .context("failed to reserve bounded input buffer")?;
     std::io::Read::by_ref(&mut file)
         .take(read_limit)
         .read_to_end(&mut bytes)
@@ -1281,10 +1405,30 @@ pub fn read_bounded_regular_snapshot(path: &Path, max_bytes: usize) -> anyhow::R
     if !path_after_read.file_type().is_file()
         || !same_file_snapshot(&opened_before, &opened_after)
         || !same_file_snapshot(&opened_after, &path_after_read)
+        || u64::try_from(bytes.len()).ok() != Some(opened_after.len())
     {
         anyhow::bail!("bounded input {} changed while reading", path.display());
     }
-    Ok(bytes)
+    Ok((file, bytes, opened_after))
+}
+
+fn read_bounded_regular_snapshot_with_hook<F>(
+    path: &Path,
+    max_bytes: usize,
+    after_initial_inspection: F,
+) -> anyhow::Result<Vec<u8>>
+where
+    F: FnOnce(),
+{
+    open_bounded_regular_snapshot_with_hook(path, max_bytes, after_initial_inspection)
+        .map(|(_, bytes, _)| bytes)
+}
+
+/// Read one bounded regular-file snapshot through one descriptor. Unix opens use
+/// no-follow and nonblocking flags and verify the handle and pathname identity
+/// before and after the bounded read. Non-Unix calls fail closed.
+pub fn read_bounded_regular_snapshot(path: &Path, max_bytes: usize) -> anyhow::Result<Vec<u8>> {
+    read_bounded_regular_snapshot_with_hook(path, max_bytes, || {})
 }
 
 fn read_bounded(path: &Path, max_bytes: usize) -> anyhow::Result<Vec<u8>> {
@@ -1297,6 +1441,7 @@ trait FinalizeIo {
     fn append_runlog(
         &mut self,
         events: &[RunLogEvent],
+        terminal_events: &[RunLogEvent],
         max_bytes: usize,
     ) -> anyhow::Result<Vec<u8>>;
     fn write_runlog(&mut self, path: &Path, bytes: &[u8]) -> anyhow::Result<()>;
@@ -1321,10 +1466,11 @@ impl FinalizeIo for FsFinalizeIo {
     fn append_runlog(
         &mut self,
         events: &[RunLogEvent],
+        terminal_events: &[RunLogEvent],
         max_bytes: usize,
     ) -> anyhow::Result<Vec<u8>> {
         let mut writer = RunLogWriter::new(BoundedBuffer::new(max_bytes));
-        for event in events {
+        for event in events.iter().chain(terminal_events) {
             writer.append(event)?;
         }
         writer.flush()?;
@@ -2650,15 +2796,17 @@ impl Observer {
             self.finalization_started = true;
         }
         let stats = self.stats.clone();
-        let dataset = OfflineVldaDataset {
-            run_id: self.run_id.clone(),
-            source: "ncp".into(),
-            model: self.model.clone(),
-            task: self.task.clone(),
-            capture_integrity: stats.capture_integrity().to_string(),
-            support: BTreeMap::new(),
-            publication_receipt: receipt_uri,
-            samples: self.samples.clone(),
+        let capture_integrity = stats.capture_integrity();
+        let support = BTreeMap::new();
+        let dataset = OfflineVldaDatasetRef {
+            run_id: &self.run_id,
+            source: "ncp",
+            model: &self.model,
+            task: &self.task,
+            capture_integrity,
+            support: &support,
+            publication_receipt: &receipt_uri,
+            samples: &self.samples,
         };
         // Construct and size-check both outputs before either final path becomes
         // visible. Deterministic serialization/hash/run-log failures therefore
@@ -2667,38 +2815,42 @@ impl Observer {
             serialize_json_pretty_bounded(&dataset, self.limits.max_artifact_bytes)?;
         let sha256 = io.hash_artifact(&dataset_bytes)?;
         let ts = self.max_ts;
-        let mut final_events = self.runlog_events.clone();
-        final_events.push(RunLogEvent::ArtifactLogged {
-            timestamp_ns: ts,
-            name: "ncp_vlda_dataset".to_string(),
-            kind: "dataset_json".to_string(),
-            uri: dataset_uri.clone(),
-            sha256: Some(sha256.clone()),
-            metadata: BTreeMap::from([
-                ("kept_samples".to_string(), stats.kept_samples.to_string()),
-                (
-                    "capture_integrity".to_string(),
-                    stats.capture_integrity().to_string(),
-                ),
-                ("capture_quality".to_string(), stats.summary()),
-            ]),
-        });
-        let capture_integrity = stats.capture_integrity();
-        final_events.push(RunLogEvent::RunEnded {
-            run_id: self.run_id.clone(),
-            timestamp_ns: ts,
-            status: if matches!(capture_integrity, "complete" | "complete_with_warning") {
-                RunStatus::Succeeded
-            } else {
-                RunStatus::Failed
+        let terminal_events = [
+            RunLogEvent::ArtifactLogged {
+                timestamp_ns: ts,
+                name: "ncp_vlda_dataset".to_string(),
+                kind: "dataset_json".to_string(),
+                uri: dataset_uri.clone(),
+                sha256: Some(sha256.clone()),
+                metadata: BTreeMap::from([
+                    ("kept_samples".to_string(), stats.kept_samples.to_string()),
+                    (
+                        "capture_integrity".to_string(),
+                        stats.capture_integrity().to_string(),
+                    ),
+                    ("capture_quality".to_string(), stats.summary()),
+                ]),
             },
-            message: Some(format!(
-                "{} (V,L,D,A) samples from NCP [capture_integrity={capture_integrity}; {}]",
-                dataset.samples.len(),
-                stats.summary()
-            )),
-        });
-        let runlog_bytes = io.append_runlog(&final_events, self.limits.max_runlog_bytes)?;
+            RunLogEvent::RunEnded {
+                run_id: self.run_id.clone(),
+                timestamp_ns: ts,
+                status: if matches!(capture_integrity, "complete" | "complete_with_warning") {
+                    RunStatus::Succeeded
+                } else {
+                    RunStatus::Failed
+                },
+                message: Some(format!(
+                    "{} (V,L,D,A) samples from NCP [capture_integrity={capture_integrity}; {}]",
+                    self.samples.len(),
+                    stats.summary()
+                )),
+            },
+        ];
+        let runlog_bytes = io.append_runlog(
+            &self.runlog_events,
+            &terminal_events,
+            self.limits.max_runlog_bytes,
+        )?;
         let receipt = OfflineVldaPublicationReceipt {
             schema_version: PUBLICATION_RECEIPT_SCHEMA_VERSION,
             committed: true,
@@ -2710,38 +2862,17 @@ impl Observer {
         };
         let receipt_bytes = serialize_json_pretty_bounded(&receipt, MAX_PUBLICATION_RECEIPT_BYTES)?;
         if dataset_target.exists() {
-            let existing = read_bounded(&dataset_target, self.limits.max_artifact_bytes)?;
-            if existing != dataset_bytes {
-                anyhow::bail!(
-                    "refusing to adopt non-byte-identical artifact {}",
-                    dataset_target.display()
-                );
-            }
-            sync_installed_file(&dataset_target)?;
+            sync_installed_file(&dataset_target, &dataset_bytes, "artifact")?;
         } else {
             io.write_artifact(&dataset_target, &dataset_bytes)?;
         }
         if runlog_target.exists() {
-            let existing = read_bounded(&runlog_target, self.limits.max_runlog_bytes)?;
-            if existing != runlog_bytes {
-                anyhow::bail!(
-                    "refusing to adopt non-byte-identical run log {}",
-                    runlog_target.display()
-                );
-            }
-            sync_installed_file(&runlog_target)?;
+            sync_installed_file(&runlog_target, &runlog_bytes, "run log")?;
         } else {
             io.write_runlog(&runlog_target, &runlog_bytes)?;
         }
         if receipt_target.exists() {
-            let existing = read_bounded(&receipt_target, MAX_PUBLICATION_RECEIPT_BYTES)?;
-            if existing != receipt_bytes {
-                anyhow::bail!(
-                    "refusing to adopt non-byte-identical publication receipt {}",
-                    receipt_target.display()
-                );
-            }
-            sync_installed_file(&receipt_target)?;
+            sync_installed_file(&receipt_target, &receipt_bytes, "publication receipt")?;
         } else {
             io.write_receipt(&receipt_target, &receipt_bytes)?;
         }
@@ -2844,10 +2975,11 @@ mod tests {
         fn append_runlog(
             &mut self,
             events: &[RunLogEvent],
+            terminal_events: &[RunLogEvent],
             max_bytes: usize,
         ) -> anyhow::Result<Vec<u8>> {
             self.fail(FailStage::Append)?;
-            self.fs.append_runlog(events, max_bytes)
+            self.fs.append_runlog(events, terminal_events, max_bytes)
         }
 
         fn write_runlog(&mut self, path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
@@ -2873,9 +3005,10 @@ mod tests {
         fn append_runlog(
             &mut self,
             events: &[RunLogEvent],
+            terminal_events: &[RunLogEvent],
             max_bytes: usize,
         ) -> anyhow::Result<Vec<u8>> {
-            self.fs.append_runlog(events, max_bytes)
+            self.fs.append_runlog(events, terminal_events, max_bytes)
         }
 
         fn write_runlog(&mut self, path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
@@ -2910,9 +3043,10 @@ mod tests {
         fn append_runlog(
             &mut self,
             events: &[RunLogEvent],
+            terminal_events: &[RunLogEvent],
             max_bytes: usize,
         ) -> anyhow::Result<Vec<u8>> {
-            self.fs.append_runlog(events, max_bytes)
+            self.fs.append_runlog(events, terminal_events, max_bytes)
         }
 
         fn write_runlog(&mut self, path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
@@ -3025,6 +3159,60 @@ mod tests {
             "ncp_observer_{name}_{}_{nonce}",
             std::process::id()
         ))
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_snapshot_open_flags_prevent_link_following_and_fifo_blocking() {
+        let flags = bounded_snapshot_open_flags();
+
+        assert_ne!(flags & libc::O_NOFOLLOW, 0);
+        assert_ne!(flags & libc::O_NONBLOCK, 0);
+        assert_ne!(flags & libc::O_CLOEXEC, 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_snapshot_rejects_regular_to_symlink_swap() {
+        use std::os::unix::fs::symlink;
+
+        let dir = unique_test_dir("snapshot_symlink_swap");
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("input.json");
+        let target = dir.join("target.json");
+        std::fs::write(&input, b"original").unwrap();
+        std::fs::write(&target, b"replacement").unwrap();
+
+        let error = read_bounded_regular_snapshot_with_hook(&input, 64, || {
+            std::fs::remove_file(&input).unwrap();
+            symlink(&target, &input).unwrap();
+        })
+        .unwrap_err();
+
+        assert!(error.to_string().contains("failed to open bounded input"));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_snapshot_rejects_regular_to_fifo_swap_without_blocking() {
+        let dir = unique_test_dir("snapshot_fifo_swap");
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("input.json");
+        std::fs::write(&input, b"original").unwrap();
+
+        let error = read_bounded_regular_snapshot_with_hook(&input, 64, || {
+            std::fs::remove_file(&input).unwrap();
+            let status = std::process::Command::new("mkfifo")
+                .arg(&input)
+                .status()
+                .unwrap();
+            assert!(status.success());
+        })
+        .unwrap_err();
+
+        assert!(error.to_string().contains("changed while opening"));
+        std::fs::remove_dir_all(dir).ok();
     }
 
     fn observer_with_exact_sample(runlog: &Path) -> Observer {

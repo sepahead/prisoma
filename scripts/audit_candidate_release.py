@@ -53,6 +53,7 @@ from generate_candidate_release import (
     _remaining_capture_seconds,
     _run_git,
     _SHA256_RE,
+    _source_binding_defect_fields,
     _validate_progress_document,
     _worktree_state,
     build_artifact_manifest,
@@ -1403,6 +1404,26 @@ def _validate_semantic_boundaries(documents: Mapping[str, Mapping[str, Any]]) ->
     priorities = Counter(defect.get("priority") for defect in defect_rows)
     if set(priorities) != {"P0", "P1", "P2"}:
         fail("DEFECT_PRIORITIES", "candidate defect register lacks P0/P1/P2 records")
+    source_defects = [
+        defect for defect in defect_rows if defect.get("id") == "DEF-P0-001"
+    ]
+    if len(source_defects) != 1:
+        fail("DEFECT_SOURCE_BINDING", "candidate source defect identity differs")
+    expected_source_fields = _source_binding_defect_fields(inventory, receipts)
+    source_defect = source_defects[0]
+    if any(
+        source_defect.get(field) != expected_source_fields[field]
+        for field in (
+            "title",
+            "resolution_rule",
+            "source_snapshot",
+            "post_push_binding",
+        )
+    ):
+        fail(
+            "DEFECT_SOURCE_BINDING",
+            "candidate source defect contradicts the captured source or post-push receipt",
+        )
     for defect in defect_rows:
         if defect.get("status") not in {
             "open",

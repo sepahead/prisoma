@@ -15,7 +15,8 @@ target power 0.8. Each simulator executes its retired v10.7 procedure (episode-l
 paired bootstrap or family-blocked bootstrap) at the simplified unit encoded by that tool; those
 units and endpoints do not implement the current §6.8 design.
 
-The preserved source now builds as `pid-sim-legacy-sensitivity`. New reports use explicit
+The preserved source builds with `--features legacy-sensitivity` as
+`pid-sim-legacy-sensitivity`. New reports use explicit
 `legacy_v10_7_*` endpoint IDs and machine-readable `nonpromotable` /
 `current_hypothesis_gate_status: not_evaluated` fields. A successful process exit means only that
 the deterministic historical calculation completed; it is never a scientific gate result.

@@ -26,15 +26,22 @@ dev = [
   "ruff>=0.6",
 ]
 
+docs = [
+  "markdown-it-py>=4,<5",
+]
+
 analysis = [
   "numpy>=1.26",
   "scipy>=1.11",
   "pandas>=2.2",
   "matplotlib>=3.8",
-  # Security floor: matplotlib's unconstrained transitive Pillow dependency otherwise
-  # permits releases affected by the 2026 image-decoder advisories.
-  "pillow>=12.2.0",
   "seaborn>=0.13",
+]
+
+ui = [
+  # The optional UI design utility decodes remote PNG responses through Pillow.
+  # Keep the decoder above the current 2026 security-fix floor.
+  "pillow>=12.3.0",
 ]
 
 report = [
@@ -47,7 +54,10 @@ report = [
 # submodule and is built explicitly from its own Cargo manifest.
 package = false
 required-version = "==0.11.28"
-default-groups = ["runtime", "dev", "analysis"]
+# Keep the checked developer environment complete but small. Tracked tests that
+# exercise the UI utility opt into `ui` in CI. Install optional groups only for
+# the corresponding operator task.
+default-groups = ["runtime", "dev", "docs"]
 
 [tool.ruff]
 extend-exclude = [

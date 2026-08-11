@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeSet;
 use std::fmt;
-use std::io::Write;
+use std::io::{self, Write};
 use std::str::FromStr;
 
 pub const BRIDGE_METHODS: &[&str] = &[
@@ -219,17 +219,17 @@ impl FromStr for BridgeMethod {
 
     fn from_str(value: &str) -> Result<Self> {
         match value {
-            "bridge.describe" | "bridge_describe" => Ok(BridgeMethod::BridgeDescribe),
-            "bridge.session" | "bridge_session" => Ok(BridgeMethod::BridgeSession),
-            "sim.status" | "sim_status" => Ok(BridgeMethod::SimStatus),
-            "sim.reset" | "sim_reset" => Ok(BridgeMethod::SimReset),
-            "sim.step" | "sim_step" => Ok(BridgeMethod::SimStep),
-            "log.start" | "log_start" => Ok(BridgeMethod::LogStart),
-            "log.stop" | "log_stop" => Ok(BridgeMethod::LogStop),
-            "log.replay" | "log_replay" => Ok(BridgeMethod::LogReplay),
-            "scene.set_object" | "scene_set_object" => Ok(BridgeMethod::SceneSetObject),
-            "intervention.apply" | "intervention_apply" => Ok(BridgeMethod::InterventionApply),
-            "export.rerun" | "export_rerun" => Ok(BridgeMethod::ExportRerun),
+            "bridge.describe" => Ok(BridgeMethod::BridgeDescribe),
+            "bridge.session" => Ok(BridgeMethod::BridgeSession),
+            "sim.status" => Ok(BridgeMethod::SimStatus),
+            "sim.reset" => Ok(BridgeMethod::SimReset),
+            "sim.step" => Ok(BridgeMethod::SimStep),
+            "log.start" => Ok(BridgeMethod::LogStart),
+            "log.stop" => Ok(BridgeMethod::LogStop),
+            "log.replay" => Ok(BridgeMethod::LogReplay),
+            "scene.set_object" => Ok(BridgeMethod::SceneSetObject),
+            "intervention.apply" => Ok(BridgeMethod::InterventionApply),
+            "export.rerun" => Ok(BridgeMethod::ExportRerun),
             other => bail!("unknown bridge method: {other}"),
         }
     }
@@ -272,108 +272,110 @@ pub struct BridgeRpcRequest {
     pub params: Option<Value>,
 }
 
-/// Validate one complete JSON document before `serde_json::Value` can apply
-/// last-key-wins semantics. The second parse preserves arbitrary-precision
-/// number tokens after this recursive duplicate-key preflight succeeds.
-pub fn parse_strict_json_value(text: &str) -> std::result::Result<Value, serde_json::Error> {
-    struct StrictJson;
+struct StrictJson;
 
-    impl<'de> Deserialize<'de> for StrictJson {
-        fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de>,
-        {
-            struct StrictJsonVisitor;
+impl<'de> Deserialize<'de> for StrictJson {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StrictJsonVisitor;
 
-            impl<'de> serde::de::Visitor<'de> for StrictJsonVisitor {
-                type Value = StrictJson;
+        impl<'de> serde::de::Visitor<'de> for StrictJsonVisitor {
+            type Value = StrictJson;
 
-                fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                    formatter.write_str("one JSON value without duplicate object keys")
-                }
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("one JSON value without duplicate object keys")
+            }
 
-                fn visit_bool<E>(self, _: bool) -> std::result::Result<Self::Value, E> {
+            fn visit_bool<E>(self, _: bool) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_i64<E>(self, _: i64) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_u64<E>(self, _: u64) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_f64<E>(self, value: f64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                if value.is_finite() {
                     Ok(StrictJson)
-                }
-
-                fn visit_i64<E>(self, _: i64) -> std::result::Result<Self::Value, E> {
-                    Ok(StrictJson)
-                }
-
-                fn visit_u64<E>(self, _: u64) -> std::result::Result<Self::Value, E> {
-                    Ok(StrictJson)
-                }
-
-                fn visit_f64<E>(self, value: f64) -> std::result::Result<Self::Value, E>
-                where
-                    E: serde::de::Error,
-                {
-                    if value.is_finite() {
-                        Ok(StrictJson)
-                    } else {
-                        Err(E::custom("non-finite JSON number"))
-                    }
-                }
-
-                fn visit_str<E>(self, _: &str) -> std::result::Result<Self::Value, E> {
-                    Ok(StrictJson)
-                }
-
-                fn visit_string<E>(self, _: String) -> std::result::Result<Self::Value, E> {
-                    Ok(StrictJson)
-                }
-
-                fn visit_none<E>(self) -> std::result::Result<Self::Value, E> {
-                    Ok(StrictJson)
-                }
-
-                fn visit_unit<E>(self) -> std::result::Result<Self::Value, E> {
-                    Ok(StrictJson)
-                }
-
-                fn visit_some<D>(
-                    self,
-                    deserializer: D,
-                ) -> std::result::Result<Self::Value, D::Error>
-                where
-                    D: serde::Deserializer<'de>,
-                {
-                    StrictJson::deserialize(deserializer)
-                }
-
-                fn visit_seq<A>(self, mut sequence: A) -> std::result::Result<Self::Value, A::Error>
-                where
-                    A: serde::de::SeqAccess<'de>,
-                {
-                    while sequence.next_element::<StrictJson>()?.is_some() {}
-                    Ok(StrictJson)
-                }
-
-                fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
-                where
-                    A: serde::de::MapAccess<'de>,
-                {
-                    let mut keys = BTreeSet::new();
-                    while let Some(key) = map.next_key::<String>()? {
-                        if !keys.insert(key.clone()) {
-                            return Err(serde::de::Error::custom(format!(
-                                "duplicate JSON object key {key:?}"
-                            )));
-                        }
-                        map.next_value::<StrictJson>()?;
-                    }
-                    Ok(StrictJson)
+                } else {
+                    Err(E::custom("non-finite JSON number"))
                 }
             }
 
-            deserializer.deserialize_any(StrictJsonVisitor)
-        }
-    }
+            fn visit_str<E>(self, _: &str) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
 
-    let mut deserializer = serde_json::Deserializer::from_str(text);
+            fn visit_string<E>(self, _: String) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_none<E>(self) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_unit<E>(self) -> std::result::Result<Self::Value, E> {
+                Ok(StrictJson)
+            }
+
+            fn visit_some<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                StrictJson::deserialize(deserializer)
+            }
+
+            fn visit_seq<A>(self, mut sequence: A) -> std::result::Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                while sequence.next_element::<StrictJson>()?.is_some() {}
+                Ok(StrictJson)
+            }
+
+            fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut keys = BTreeSet::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    if !keys.insert(key.clone()) {
+                        return Err(serde::de::Error::custom(format!(
+                            "duplicate JSON object key {key:?}"
+                        )));
+                    }
+                    map.next_value::<StrictJson>()?;
+                }
+                Ok(StrictJson)
+            }
+        }
+
+        deserializer.deserialize_any(StrictJsonVisitor)
+    }
+}
+
+/// Validate one complete JSON document before any typed or untyped parse can
+/// apply last-key-wins semantics to duplicate object members.
+pub fn validate_strict_json_bytes(bytes: &[u8]) -> std::result::Result<(), serde_json::Error> {
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     StrictJson::deserialize(&mut deserializer)?;
-    deserializer.end()?;
-    serde_json::from_str(text)
+    deserializer.end()
+}
+
+/// Parse one complete JSON document without duplicate object members. The
+/// direct `arbitrary_precision` feature preserves large JSON number tokens.
+pub fn parse_strict_json_value(text: &str) -> std::result::Result<Value, serde_json::Error> {
+    validate_strict_json_bytes(text.as_bytes())?;
+    serde_json::from_slice(text.as_bytes())
 }
 
 /// Serde normally maps both a missing member and an explicit JSON null to
@@ -386,22 +388,6 @@ where
     D: serde::Deserializer<'de>,
 {
     Value::deserialize(deserializer).map(Some)
-}
-
-/// Render a (valid) JSON-RPC id as a bare string. Distinct JSON ids can render
-/// identically (`1` vs `"1"`, explicit JSON null → `"null"`), and clients may
-/// legally reuse ids — so this rendering is **not unique** and must not be used
-/// as a run-log `request_id` on its own: `pid-runlog` validation hard-errors on
-/// duplicate request/response ids, so a spec-valid client could invalidate the
-/// log. Use [`rpc_id_to_unique_request_id`] for run-log recording; wire
-/// responses echo the original [`Value`] verbatim either way.
-pub fn rpc_id_to_request_id(id: &Value) -> String {
-    match id {
-        Value::String(s) => s.clone(),
-        Value::Number(n) => n.to_string(),
-        Value::Null => "null".to_string(),
-        other => other.to_string(),
-    }
 }
 
 /// Render a (valid) JSON-RPC id as a run-log `request_id` that is **unique by
@@ -506,17 +492,25 @@ impl BridgeRpcRequest {
         BridgeMethod::from_str(&self.method)
     }
 
+    /// Convert a validated wire request into a canonical request.
+    ///
+    /// `message_index` must be monotone within the transport session. It makes
+    /// the run-log identifier unique even when a client reuses a JSON-RPC id.
     pub fn into_bridge_request(
         self,
+        message_index: usize,
         actor: Actor,
         step: Option<u64>,
         timestamp_ns: u64,
     ) -> Result<BridgeRequest> {
-        let id = self.validated_id()?.cloned().unwrap_or(Value::Null);
+        let request_id = match self.validated_id()? {
+            Some(id) => rpc_id_to_unique_request_id(id, message_index),
+            None => rpc_notification_to_unique_request_id(message_index),
+        };
         let method = self.validated_method()?;
         self.validated_params_for_method(&method)?;
         Ok(BridgeRequest {
-            request_id: rpc_id_to_request_id(&id),
+            request_id,
             step,
             timestamp_ns,
             actor,
@@ -564,13 +558,6 @@ impl BridgeRpcResponse {
                     .unwrap_or_else(|| "bridge request failed".to_string()),
             )
         }
-    }
-
-    /// Convenience for callers that only have the stringified `request_id`
-    /// (e.g. tests replaying run-log records); wire dispatch paths should use
-    /// [`Self::from_bridge_response_with_id`] to echo the original id type.
-    pub fn from_bridge_response(response: &BridgeResponse) -> Self {
-        Self::from_bridge_response_with_id(response, Value::String(response.request_id.clone()))
     }
 
     pub fn is_ok(&self) -> bool {
@@ -678,6 +665,25 @@ pub struct LocalBridge<W> {
     run_log_usage: BridgeRunLogUsage,
 }
 
+#[derive(Default)]
+struct ByteCounter(u64);
+
+impl Write for ByteCounter {
+    fn write(&mut self, input: &[u8]) -> io::Result<usize> {
+        self.0 =
+            self.0
+                .checked_add(u64::try_from(input.len()).map_err(|_| {
+                    io::Error::other("bridge run-log event length does not fit u64")
+                })?)
+                .ok_or_else(|| io::Error::other("bridge run-log event length overflow"))?;
+        Ok(input.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 /// Aggregate run-log growth limits for one bridge session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -730,10 +736,6 @@ impl<W: Write> LocalBridge<W> {
         self.safe_mode
     }
 
-    pub fn set_safe_mode(&mut self, safe_mode: bool) {
-        self.safe_mode = safe_mode;
-    }
-
     pub fn run_log_limits(&self) -> Option<BridgeRunLogLimits> {
         self.run_log_limits
     }
@@ -751,9 +753,11 @@ impl<W: Write> LocalBridge<W> {
     }
 
     pub fn record_event(&mut self, event: &RunLogEvent) -> Result<()> {
-        let encoded = serde_json::to_vec(event).context("failed to size bridge run-log event")?;
-        let event_bytes = u64::try_from(encoded.len())
-            .context("bridge run-log event length does not fit u64")?
+        let mut counter = ByteCounter::default();
+        serde_json::to_writer(&mut counter, event)
+            .context("failed to size bridge run-log event")?;
+        let event_bytes = counter
+            .0
             .checked_add(1)
             .context("bridge run-log event length overflow")?;
         let next_bytes = self
@@ -1325,9 +1329,9 @@ mod tests {
             method: "sim.step".to_string(),
             params: Some(json!({ "dt": 0.1 })),
         };
-        let request = rpc.into_bridge_request(actor(), Some(0), 123).unwrap();
+        let request = rpc.into_bridge_request(4, actor(), Some(0), 123).unwrap();
         assert_eq!(request.method, BridgeMethod::SimStep);
-        assert_eq!(request.request_id, "rpc-1");
+        assert_eq!(request.request_id, "message-4:s:rpc-1");
     }
 
     #[test]
@@ -1338,8 +1342,8 @@ mod tests {
             serde_json::from_str(r#"{"jsonrpc":"2.0","id":7,"method":"sim.status","params":{}}"#)
                 .unwrap();
         assert_eq!(numeric.validated_id().unwrap().cloned(), Some(json!(7)));
-        let request = numeric.into_bridge_request(actor(), Some(0), 1).unwrap();
-        assert_eq!(request.request_id, "7");
+        let request = numeric.into_bridge_request(5, actor(), Some(0), 1).unwrap();
+        assert_eq!(request.request_id, "message-5:n:7");
 
         // A request without an id remains distinguishable as a notification.
         let notif: BridgeRpcRequest =
@@ -1347,10 +1351,10 @@ mod tests {
         assert_eq!(notif.validated_id().unwrap(), None);
         assert_eq!(
             notif
-                .into_bridge_request(actor(), Some(0), 1)
+                .into_bridge_request(6, actor(), Some(0), 1)
                 .unwrap()
                 .request_id,
-            "null"
+            "message-6:notification"
         );
     }
 
@@ -1361,7 +1365,7 @@ mod tests {
         )
         .unwrap();
         assert!(bad.validated_id().is_err());
-        assert!(bad.into_bridge_request(actor(), Some(0), 1).is_err());
+        assert!(bad.into_bridge_request(0, actor(), Some(0), 1).is_err());
     }
 
     #[test]
@@ -1374,7 +1378,7 @@ mod tests {
             let request: BridgeRpcRequest = serde_json::from_str(text).unwrap();
             assert!(request.validated_id().is_err(), "{text}");
             assert!(
-                request.into_bridge_request(actor(), Some(0), 1).is_err(),
+                request.into_bridge_request(0, actor(), Some(0), 1).is_err(),
                 "{text}"
             );
         }
@@ -1391,7 +1395,7 @@ mod tests {
             let request: BridgeRpcRequest = serde_json::from_str(text).unwrap();
             assert!(request.validated_params().is_err(), "{text}");
             assert!(
-                request.into_bridge_request(actor(), Some(0), 1).is_err(),
+                request.into_bridge_request(0, actor(), Some(0), 1).is_err(),
                 "{text}"
             );
         }
@@ -1405,7 +1409,7 @@ mod tests {
         .unwrap();
         let method = request.validated_method().unwrap();
         assert!(request.validated_params_for_method(&method).is_err());
-        assert!(request.into_bridge_request(actor(), Some(0), 1).is_err());
+        assert!(request.into_bridge_request(0, actor(), Some(0), 1).is_err());
     }
 
     #[test]
@@ -1419,7 +1423,7 @@ mod tests {
         assert!(method.safe_mode_allowed());
         request.validated_params_for_method(&method).unwrap();
 
-        let request = request.into_bridge_request(actor(), Some(0), 1).unwrap();
+        let request = request.into_bridge_request(0, actor(), Some(0), 1).unwrap();
         assert_eq!(request.method, BridgeMethod::BridgeDescribe);
         assert_eq!(request.payload, json!({}));
     }
@@ -1432,7 +1436,7 @@ mod tests {
         .unwrap();
         let method = request.validated_method().unwrap();
         assert!(request.validated_params_for_method(&method).is_err());
-        assert!(request.into_bridge_request(actor(), Some(0), 1).is_err());
+        assert!(request.into_bridge_request(0, actor(), Some(0), 1).is_err());
     }
 
     #[test]
@@ -1446,7 +1450,7 @@ mod tests {
         assert!(method.safe_mode_allowed());
         request.validated_params_for_method(&method).unwrap();
 
-        let request = request.into_bridge_request(actor(), Some(0), 1).unwrap();
+        let request = request.into_bridge_request(0, actor(), Some(0), 1).unwrap();
         assert_eq!(request.method, BridgeMethod::BridgeSession);
         assert_eq!(request.payload, json!({}));
     }
@@ -1459,7 +1463,7 @@ mod tests {
         .unwrap();
         let method = request.validated_method().unwrap();
         assert!(request.validated_params_for_method(&method).is_err());
-        assert!(request.into_bridge_request(actor(), Some(0), 1).is_err());
+        assert!(request.into_bridge_request(0, actor(), Some(0), 1).is_err());
     }
 
     #[test]
@@ -1471,7 +1475,7 @@ mod tests {
         let method = request.validated_method().unwrap();
         assert_eq!(method, BridgeMethod::BridgeSession);
         request.validated_params_for_method(&method).unwrap();
-        let request = request.into_bridge_request(actor(), Some(0), 1).unwrap();
+        let request = request.into_bridge_request(0, actor(), Some(0), 1).unwrap();
         assert_eq!(
             request.payload["pairing"]["mechanism"],
             json!("operator-paste-psk-hmac-sha256-v1")
@@ -1486,7 +1490,7 @@ mod tests {
         .unwrap();
         let method = request.validated_method().unwrap();
         assert!(request.validated_params_for_method(&method).is_err());
-        assert!(request.into_bridge_request(actor(), Some(0), 1).is_err());
+        assert!(request.into_bridge_request(0, actor(), Some(0), 1).is_err());
     }
 
     #[test]
@@ -1679,6 +1683,28 @@ mod tests {
     }
 
     #[test]
+    fn bridge_method_parser_rejects_noncanonical_underscore_aliases() {
+        for alias in [
+            "bridge_describe",
+            "bridge_session",
+            "sim_status",
+            "sim_reset",
+            "sim_step",
+            "log_start",
+            "log_stop",
+            "log_replay",
+            "scene_set_object",
+            "intervention_apply",
+            "export_rerun",
+        ] {
+            assert!(
+                BridgeMethod::from_str(alias).is_err(),
+                "noncanonical method alias {alias:?} must fail closed"
+            );
+        }
+    }
+
+    #[test]
     fn rpc_response_converts_bridge_success_and_failure() {
         let success = BridgeResponse {
             request_id: "ok-1".to_string(),
@@ -1688,9 +1714,9 @@ mod tests {
             message: None,
             result: Some(json!({ "step": 1 })),
         };
-        let rpc = BridgeRpcResponse::from_bridge_response(&success);
+        let rpc = BridgeRpcResponse::from_bridge_response_with_id(&success, json!(17));
         assert!(rpc.is_ok());
-        assert_eq!(rpc.id, json!("ok-1"));
+        assert_eq!(rpc.id, json!(17));
         assert_eq!(rpc.result, Some(json!({ "step": 1 })));
 
         let failure = BridgeResponse {
@@ -1701,8 +1727,9 @@ mod tests {
             message: Some("bad request".to_string()),
             result: None,
         };
-        let rpc = BridgeRpcResponse::from_bridge_response(&failure);
+        let rpc = BridgeRpcResponse::from_bridge_response_with_id(&failure, json!("wire-err"));
         assert!(!rpc.is_ok());
+        assert_eq!(rpc.id, json!("wire-err"));
         assert_eq!(rpc.error.unwrap().message, "bad request");
     }
 }

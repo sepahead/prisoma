@@ -56,7 +56,7 @@ among these sources. They do not perform scientific or independent human review.
 | H1-A | Synthetic common preflight and deterministic finite Protocol-A scoring primitive. | **Software fixture only; no H1 evidence.** |
 | H1-B | Canonical randomized closed-loop design. | **Blocked and unimplemented.** |
 | H2 | Synthetic fixed-horizon/IPCW/alarm arithmetic reference. | **Software fixture only; no H2 evidence.** |
-| H3 | Report-first estimator eligibility/abstention behavior and negative gate records. | **Not eligible; all four gates are blocked.** |
+| H3 | Report-first estimator eligibility/abstention behavior and negative gate records. | **Not eligible.** Population is open/unfrozen. Measure is not adjudicated. The current atom-estimator and continuous-application gates are blocked. High-dimensional MI/coherence is NO-GO. |
 | H4 | Reference-model attribution logging and deletion-ranking-sensitivity control. | **Exploratory software groundwork only; no causal or mechanistic faithfulness result.** |
 | NCP | Read-only wire-0.8 observer and deterministic local fault observatory. | **Experimental optional component; not live integration or scientific evidence.** |
 
@@ -150,13 +150,15 @@ and [`§6.4`](grandplan.md#64-h2-analysis-prospective-failure-with-time-and-cens
 - [`crates/pid-sim/src/h2_reference.rs`](crates/pid-sim/src/h2_reference.rs) and
   [`crates/pid-sim/fixtures/h2_reference`](crates/pid-sim/fixtures/h2_reference): `just
   h2-reference`.
-- The PID- and NCP-independent static label-baseline smoke: `just firebreak`.
+- The PID-request-disabled and NCP-independent static label-baseline smoke: `just firebreak`.
 
 The H2 reference exercises deterministic synthetic fixed-horizon landmark eligibility,
 task-family-held-out weighted fitting, grouped cross-fitted stratified reverse-KM IPCW,
 Horvitz–Thompson Brier arithmetic, competing-event classification, reliability bins, frozen alarm
 and nondetection accounting, and declared-payoff utility. The firebreak demonstrates only that a
-local static baseline path can run without PID or NCP. Neither is prospective H2 evidence.
+local static baseline path can run without requesting PID atoms and without NCP. The opt-in
+analysis binary still links shared `pid-core` geometry and logistic code. Neither path is
+prospective H2 evidence.
 
 **Missing scientific evidence**
 
@@ -189,8 +191,10 @@ and [`§7.1`](grandplan.md#71-separate-four-questions).
 - `just offline-harness` exercises local synthetic artifact diagnostics; geometry output does not
   clear a PID gate.
 
-The current population, measure, estimator, and application gates are all blocked for H3. The
-`pid-rs` submodule is the canonical implementation dependency, not an independent implementation.
+H3 is not eligible. The population gate is open and unfrozen. The measure gate is not adjudicated.
+The current atom-estimator and continuous-application gates are blocked, and high-dimensional
+MI/coherence is NO-GO. The `pid-rs` submodule is the canonical implementation dependency, not an
+independent implementation.
 Quantized discrete `I_min` is a different estimand from continuous shared-exclusions and cannot be
 used as an automatic fallback or pooled comparison.
 

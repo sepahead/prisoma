@@ -7,9 +7,11 @@ scientific evidence.
 - `research_claim_registry_v1.json` maps EC1 and H1–H4 to their current executable artifacts,
   proof commands, blockers, and permitted claim language. Development/blinded-pilot nuisance and
   design parameters remain unfrozen instead of receiving invented values; minimum useful effects
-  require separate domain and decision justification. The current H4 software artifact is a
-  reference-model deletion-ranking-sensitivity diagnostic only; it does not establish causal use,
-  mechanism, or attribution faithfulness. Its current-state date may advance beyond the historical
+  require separate domain and decision justification. H3 records population, measure,
+  atom-estimator, continuous-application, and high-dimensional MI/coherence states separately. The
+  current H4 software artifact is a reference-model deletion-ranking-sensitivity diagnostic only.
+  It does not establish causal use, mechanism, or attribution faithfulness. Its current-state date
+  may advance beyond the historical
   intake bundle only when it content-binds a typed v2 successor with the same date and status.
 - `m0_preregistration_skeleton_v1.json` is an **unfrozen** branch-separated H1-A/H1-B/H2/H3/H4
   historical scaffold. Its exact checked bytes and intake-time artifact hashes are preserved;

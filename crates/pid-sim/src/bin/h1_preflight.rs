@@ -1,21 +1,25 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{BufReader, BufWriter, Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{bail, Context, Result};
 use pid_runlog::{RunLogEvent, RunLogWriter, RunStatus, RUN_LOG_SCHEMA_VERSION};
+use pid_sim::file_snapshot::{
+    hash_bounded_regular_file, parse_strict_json, read_bounded_regular_file, sync_directory,
+    validate_strict_json_lines,
+};
 use pid_sim::h1_preflight::{
     validate_h1_preflight, H1ArtifactRef, H1ClockDomainKind, H1DesignBlindingOrderEntry,
-    H1MissingValuePolicy, H1NoninterferenceTolerances, H1OutputAxisScale, H1OutputMetric,
-    H1PidAbstentionPolicy, H1PreflightInput, H1PreflightReport, H1PreflightValidationScope,
-    H1PrimaryProtocol, H1SplitManifestEntry, H1TargetPopulation, H1_PREFLIGHT_SCHEMA_VERSION,
+    H1InputSnapshotStatus, H1MissingValuePolicy, H1NoninterferenceTolerances, H1OutputAxisScale,
+    H1OutputMetric, H1PidAbstentionPolicy, H1PreflightInput, H1PreflightReport,
+    H1PreflightValidationScope, H1PrimaryProtocol, H1SplitManifestEntry, H1TargetPopulation,
+    H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION, H1_PREFLIGHT_SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 const COMPONENT: &str = "pid-h1-preflight";
 const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
@@ -40,7 +44,7 @@ struct TemporaryPathGuard {
 
 struct InputSnapshot {
     bytes: Option<Vec<u8>>,
-    sha256: String,
+    sha256: Option<String>,
     size: u64,
 }
 
@@ -102,7 +106,9 @@ struct H1PreflightSummary {
     schema_version: u32,
     run_id: String,
     input_uri: String,
-    input_sha256: String,
+    input_snapshot_status: H1InputSnapshotStatus,
+    input_sha256: Option<String>,
+    input_byte_len: u64,
     config_hash: String,
     parsed: bool,
     passed: bool,
@@ -123,7 +129,9 @@ struct H1PreflightVerdict<'a> {
     denominators: Option<&'a pid_sim::h1_preflight::H1PreflightDenominators>,
     issue_count: usize,
     reason_codes: Vec<String>,
-    input_sha256: &'a str,
+    input_snapshot_status: H1InputSnapshotStatus,
+    input_sha256: Option<&'a str>,
+    input_byte_len: u64,
     summary_sha256: &'a str,
     evidence_bundle_hash: &'a str,
     verified_artifact_count: usize,
@@ -291,9 +299,18 @@ fn main() -> Result<()> {
 
     let input_snapshot = read_input_snapshot(&args.input)?;
     let input_sha256 = input_snapshot.sha256;
+    let input_snapshot_status = if input_sha256.is_some() {
+        H1InputSnapshotStatus::Exact
+    } else {
+        H1InputSnapshotStatus::RejectedOversize
+    };
+    let run_id = match input_sha256.as_deref() {
+        Some(sha256) => preflight_run_id(sha256),
+        None => format!("h1-preflight-rejected-oversize-{}", input_snapshot.size),
+    };
     let artifact_root = canonical_artifact_root(&args)?;
     let (parsed, load_issue) = if let Some(input_bytes) = input_snapshot.bytes {
-        match serde_json::from_slice::<H1PreflightInput>(&input_bytes) {
+        match parse_strict_json::<H1PreflightInput>(&input_bytes, "H1 preflight input") {
             Ok(input) => (Some(input), None),
             Err(error) => (
                 None,
@@ -321,7 +338,6 @@ fn main() -> Result<()> {
     let (run_id, protocol, config, report, fatal_issues, verified_artifacts, evidence_bundle_hash) =
         match parsed {
             Some(input) => {
-                let run_id = preflight_run_id(&input_sha256);
                 let protocol = Some(input.declaration.primary_protocol);
                 let verification = verify_input_artifacts(&input, &artifact_root, &args)?;
                 let evidence_bundle_hash =
@@ -329,7 +345,10 @@ fn main() -> Result<()> {
                 let config = json!({
                     "component": COMPONENT,
                     "preflight_schema_version": H1_PREFLIGHT_SCHEMA_VERSION,
+                    "artifact_schema_version": H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION,
+                    "input_snapshot_status": input_snapshot_status,
                     "input_sha256": input_sha256,
+                    "input_byte_len": input_snapshot.size,
                     "evidence_bundle_hash": evidence_bundle_hash,
                     "verified_artifacts": verification.verified,
                     "artifact_resolution": "relative_to_cli_artifact_root",
@@ -339,7 +358,7 @@ fn main() -> Result<()> {
                 });
                 let report = validate_h1_preflight(&input);
                 (
-                    run_id,
+                    run_id.clone(),
                     protocol,
                     config,
                     Some(report),
@@ -349,13 +368,15 @@ fn main() -> Result<()> {
                 )
             }
             None => {
-                let run_id = preflight_run_id(&input_sha256);
                 let verified_artifacts = Vec::<VerifiedArtifactRecord>::new();
                 let evidence_bundle_hash = pid_runlog::canonical_json_hash_v2(&verified_artifacts)?;
                 let config = json!({
                     "component": COMPONENT,
                     "preflight_schema_version": H1_PREFLIGHT_SCHEMA_VERSION,
+                    "artifact_schema_version": H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION,
+                    "input_snapshot_status": input_snapshot_status,
                     "input_sha256": input_sha256,
+                    "input_byte_len": input_snapshot.size,
                     "evidence_bundle_hash": evidence_bundle_hash,
                     "verified_artifacts": verified_artifacts,
                     "artifact_resolution": "not_evaluated_for_unparsed_input",
@@ -364,7 +385,7 @@ fn main() -> Result<()> {
                     "parsed": false,
                 });
                 (
-                    run_id,
+                    run_id.clone(),
                     None,
                     config,
                     None,
@@ -379,10 +400,12 @@ fn main() -> Result<()> {
     let passed =
         report.as_ref().is_some_and(H1PreflightReport::is_valid) && fatal_issues.is_empty();
     let summary = H1PreflightSummary {
-        schema_version: H1_PREFLIGHT_SCHEMA_VERSION,
+        schema_version: H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION,
         run_id: run_id.clone(),
         input_uri: args.input.display().to_string(),
+        input_snapshot_status,
         input_sha256: input_sha256.clone(),
+        input_byte_len: input_snapshot.size,
         config_hash: config_hash.clone(),
         parsed: report.is_some(),
         passed,
@@ -400,7 +423,7 @@ fn main() -> Result<()> {
         &args,
         &run_id,
         protocol,
-        &input_sha256,
+        input_sha256.as_deref(),
         &summary_sha256,
         &config_hash,
         config,
@@ -420,12 +443,15 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the durable run-log boundary binds each independently hashed artifact explicitly"
+)]
 fn write_runlog(
     args: &Args,
     run_id: &str,
     protocol: Option<H1PrimaryProtocol>,
-    input_sha256: &str,
+    input_sha256: Option<&str>,
     summary_sha256: &str,
     config_hash: &str,
     config: Value,
@@ -483,8 +509,20 @@ fn write_runlog(
         name: "h1_preflight_input".to_string(),
         kind: "h1_preflight_input_json".to_string(),
         uri: args.input.display().to_string(),
-        sha256: Some(input_sha256.to_string()),
-        metadata: common_metadata.clone(),
+        sha256: input_sha256.map(str::to_string),
+        metadata: [
+            (
+                "input_snapshot_status".to_string(),
+                summary.input_snapshot_status.as_str().to_string(),
+            ),
+            (
+                "input_byte_len".to_string(),
+                summary.input_byte_len.to_string(),
+            ),
+        ]
+        .into_iter()
+        .chain(common_metadata.clone())
+        .collect(),
     })?;
     let mut timestamp_ns = 3_u64;
     for artifact in &summary.verified_artifacts {
@@ -514,14 +552,16 @@ fn write_runlog(
     timestamp_ns += 1;
     let reason_codes = summary_reason_codes(summary)?;
     let verdict = H1PreflightVerdict {
-        schema_version: H1_PREFLIGHT_SCHEMA_VERSION,
+        schema_version: H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION,
         primary_protocol: protocol_name,
         passed: summary.passed,
         establishes_h1_evidence: false,
         denominators: summary.report.as_ref().map(|report| &report.denominators),
         issue_count: summary_issue_count(summary),
         reason_codes: reason_codes.clone(),
+        input_snapshot_status: summary.input_snapshot_status,
         input_sha256,
+        input_byte_len: summary.input_byte_len,
         summary_sha256,
         evidence_bundle_hash: &summary.evidence_bundle_hash,
         verified_artifact_count: summary.verified_artifacts.len(),
@@ -686,44 +726,11 @@ fn canonical_artifact_root(args: &Args) -> Result<PathBuf> {
 }
 
 fn read_input_snapshot(path: &Path) -> Result<InputSnapshot> {
-    let mut file = fs::File::open(path)
-        .with_context(|| format!("failed to open H1 preflight input {}", path.display()))?;
-    let metadata = file
-        .metadata()
-        .with_context(|| format!("failed to stat H1 preflight input {}", path.display()))?;
-    if !metadata.is_file() {
-        bail!("H1 preflight input must be a regular file");
-    }
-
-    let initial_capacity = usize::try_from(metadata.len().min(MAX_INPUT_BYTES)).unwrap_or(0);
-    let mut bytes = Some(Vec::with_capacity(initial_capacity));
-    let mut hasher = Sha256::new();
-    let mut size = 0_u64;
-    let mut chunk = [0_u8; 64 * 1024];
-    loop {
-        let count = file
-            .read(&mut chunk)
-            .with_context(|| format!("failed to read H1 preflight input {}", path.display()))?;
-        if count == 0 {
-            break;
-        }
-        size = size
-            .checked_add(count as u64)
-            .context("H1 preflight input byte count overflowed u64")?;
-        hasher.update(&chunk[..count]);
-        if size <= MAX_INPUT_BYTES {
-            if let Some(buffer) = &mut bytes {
-                buffer.extend_from_slice(&chunk[..count]);
-            }
-        } else {
-            bytes = None;
-        }
-    }
-
+    let snapshot = read_bounded_regular_file(path, MAX_INPUT_BYTES, "H1 preflight input")?;
     Ok(InputSnapshot {
-        bytes,
-        sha256: pid_sim::lowercase_hex(hasher.finalize()),
-        size,
+        bytes: snapshot.bytes,
+        sha256: snapshot.sha256,
+        size: snapshot.byte_len,
     })
 }
 
@@ -879,7 +886,7 @@ fn verify_input_artifacts(
                         .map(|(sha256, byte_len)| (sha256, byte_len, None, None)),
                     ArtifactKind::StrictJson => read_exact_file(&path, MAX_MANIFEST_BYTES)
                         .map(|(bytes, sha256, byte_len)| (sha256, byte_len, Some(bytes), None)),
-                    ArtifactKind::SourceRun => snapshot_source_run(&path, &args.runlog)
+                    ArtifactKind::SourceRun => snapshot_source_run(&path)
                         .map(|(sha256, byte_len, summary)| (sha256, byte_len, None, Some(summary))),
                 };
                 match captured {
@@ -1020,119 +1027,34 @@ fn add_artifact_group(
 }
 
 fn read_exact_file(path: &Path, max_bytes: u64) -> Result<(Vec<u8>, String, u64)> {
-    let mut file = fs::File::open(path)
-        .with_context(|| format!("failed to open artifact {}", path.display()))?;
-    if !file.metadata()?.is_file() {
-        bail!("artifact is not a regular file: {}", path.display());
+    let snapshot = read_bounded_regular_file(path, max_bytes, "H1 preflight artifact")?;
+    let byte_len = snapshot.byte_len;
+    match (snapshot.bytes, snapshot.sha256) {
+        (Some(bytes), Some(sha256)) => Ok((bytes, sha256, byte_len)),
+        _ => bail!(
+            "artifact {} exceeds the {}-byte snapshot limit",
+            path.display(),
+            max_bytes
+        ),
     }
-    let mut bytes = Vec::new();
-    let mut hasher = Sha256::new();
-    let mut byte_len = 0_u64;
-    let mut chunk = [0_u8; 64 * 1024];
-    loop {
-        let count = file.read(&mut chunk)?;
-        if count == 0 {
-            break;
-        }
-        byte_len = byte_len
-            .checked_add(count as u64)
-            .context("artifact byte count overflowed u64")?;
-        if byte_len > max_bytes {
-            bail!(
-                "artifact {} exceeds the {}-byte snapshot limit",
-                path.display(),
-                max_bytes
-            );
-        }
-        hasher.update(&chunk[..count]);
-        bytes
-            .try_reserve(count)
-            .context("failed to reserve artifact snapshot buffer")?;
-        bytes.extend_from_slice(&chunk[..count]);
-    }
-    Ok((bytes, pid_sim::lowercase_hex(hasher.finalize()), byte_len))
 }
 
 fn hash_exact_file(path: &Path, max_bytes: u64) -> Result<(String, u64)> {
-    let mut file = fs::File::open(path)
-        .with_context(|| format!("failed to open artifact {}", path.display()))?;
-    if !file.metadata()?.is_file() {
-        bail!("artifact is not a regular file: {}", path.display());
-    }
-    let mut hasher = Sha256::new();
-    let mut byte_len = 0_u64;
-    let mut chunk = [0_u8; 64 * 1024];
-    loop {
-        let count = file.read(&mut chunk)?;
-        if count == 0 {
-            break;
-        }
-        byte_len = byte_len
-            .checked_add(count as u64)
-            .context("artifact byte count overflowed u64")?;
-        if byte_len > max_bytes {
-            bail!(
-                "artifact {} exceeds the {}-byte hashing limit",
-                path.display(),
-                max_bytes
-            );
-        }
-        hasher.update(&chunk[..count]);
-    }
-    Ok((pid_sim::lowercase_hex(hasher.finalize()), byte_len))
+    hash_bounded_regular_file(path, max_bytes, "H1 preflight artifact")
 }
 
-fn snapshot_source_run(
-    source_path: &Path,
-    runlog_output_path: &Path,
-) -> Result<(String, u64, pid_runlog::RunLogSummary)> {
-    let mut source = fs::File::open(source_path)
-        .with_context(|| format!("failed to open source run {}", source_path.display()))?;
-    if !source.metadata()?.is_file() {
-        bail!("source run is not a regular file");
-    }
-    let snapshot_path = temporary_source_snapshot_path(runlog_output_path);
-    let snapshot_file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create_new(true)
-        .open(&snapshot_path)
-        .with_context(|| {
-            format!(
-                "failed to create source-run snapshot {}",
-                snapshot_path.display()
-            )
-        })?;
-    let _guard = TemporaryPathGuard::new(snapshot_path);
-    let inspection_file = snapshot_file.try_clone()?;
-    let mut writer = BufWriter::new(snapshot_file);
-    let mut hasher = Sha256::new();
-    let mut byte_len = 0_u64;
+fn snapshot_source_run(source_path: &Path) -> Result<(String, u64, pid_runlog::RunLogSummary)> {
     let max_bytes = pid_runlog::RunLogLimits::default().max_file_bytes;
-    let mut chunk = [0_u8; 64 * 1024];
-    loop {
-        let count = source.read(&mut chunk)?;
-        if count == 0 {
-            break;
-        }
-        byte_len = byte_len
-            .checked_add(count as u64)
-            .context("source-run byte count overflowed u64")?;
-        if byte_len > max_bytes {
-            bail!("source run exceeds the {max_bytes}-byte validation limit");
-        }
-        hasher.update(&chunk[..count]);
-        writer.write_all(&chunk[..count])?;
-    }
-    writer.flush()?;
-    writer.get_ref().sync_all()?;
-    drop(writer);
-
-    let mut inspection_file = inspection_file;
-    inspection_file.seek(SeekFrom::Start(0))?;
-    let events = pid_runlog::read_events(BufReader::new(inspection_file))?;
+    let snapshot = read_bounded_regular_file(source_path, max_bytes, "H1 source run")?;
+    let byte_len = snapshot.byte_len;
+    let (bytes, sha256) = match (snapshot.bytes, snapshot.sha256) {
+        (Some(bytes), Some(sha256)) => (bytes, sha256),
+        _ => bail!("source run exceeds the {max_bytes}-byte validation limit"),
+    };
+    validate_strict_json_lines(&bytes, "H1 source run")?;
+    let events = pid_runlog::read_events(BufReader::new(Cursor::new(&bytes)))?;
     let summary = pid_runlog::summarize_events(&events)?;
-    Ok((pid_sim::lowercase_hex(hasher.finalize()), byte_len, summary))
+    Ok((sha256, byte_len, summary))
 }
 
 fn validate_semantic_documents(
@@ -1416,7 +1338,7 @@ fn validate_one_document<T: for<'de> Deserialize<'de>>(
         });
         return;
     };
-    match serde_json::from_slice::<T>(bytes) {
+    match parse_strict_json::<T>(bytes, field) {
         Ok(document) if matches(&document) => {}
         Ok(_) => issues.push(H1PreflightCliIssue {
             code: format!("{field}_content_mismatch"),
@@ -1487,17 +1409,6 @@ fn temporary_runlog_path(path: &Path) -> PathBuf {
     ))
 }
 
-fn temporary_source_snapshot_path(path: &Path) -> PathBuf {
-    let file_name = path
-        .file_name()
-        .map_or_else(|| "runlog".into(), |name| name.to_string_lossy());
-    path.with_file_name(format!(
-        ".{file_name}.{}.{}.source-snapshot.tmp",
-        std::process::id(),
-        TEMP_COUNTER.fetch_add(1, Ordering::Relaxed)
-    ))
-}
-
 fn temporary_atomic_path(path: &Path) -> PathBuf {
     let file_name = path
         .file_name()
@@ -1535,11 +1446,7 @@ fn sync_parent(path: &Path) -> Result<()> {
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
-    fs::File::open(parent)
-        .with_context(|| format!("failed to open output directory {}", parent.display()))?
-        .sync_all()
-        .with_context(|| format!("failed to fsync output directory {}", parent.display()))?;
-    Ok(())
+    sync_directory(parent, "H1 preflight output directory")
 }
 
 fn print_usage() {
@@ -1748,8 +1655,30 @@ mod tests {
         fs::write(&path, bytes).unwrap();
         let snapshot = read_input_snapshot(&path).unwrap();
         fs::remove_file(&path).unwrap();
+        let expected_sha256 = sha256_bytes(bytes);
         assert_eq!(snapshot.bytes.as_deref(), Some(bytes.as_slice()));
-        assert_eq!(snapshot.sha256, sha256_bytes(bytes));
+        assert_eq!(snapshot.sha256.as_deref(), Some(expected_sha256.as_str()));
         assert_eq!(snapshot.size, bytes.len() as u64);
+    }
+
+    #[test]
+    fn oversized_input_has_no_whole_file_digest() {
+        let path = std::env::temp_dir().join(format!(
+            "prisoma-h1-input-oversize-{}-{}.json",
+            std::process::id(),
+            TEMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::write(
+            &path,
+            vec![b' '; usize::try_from(MAX_INPUT_BYTES + 1).unwrap()],
+        )
+        .unwrap();
+
+        let snapshot = read_input_snapshot(&path).unwrap();
+
+        fs::remove_file(&path).unwrap();
+        assert!(snapshot.bytes.is_none());
+        assert!(snapshot.sha256.is_none());
+        assert_eq!(snapshot.size, MAX_INPUT_BYTES + 1);
     }
 }

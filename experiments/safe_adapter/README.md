@@ -86,7 +86,7 @@ To prepare an already safe-exported real bundle, generate the manifest without
 deserializing its payloads:
 
 ```bash
-python -m experiments.safe_adapter manifest \
+uv run --no-sync python -m experiments.safe_adapter manifest \
     --rollouts /path/to/safe-export \
     --source-name vla-safe/SAFE \
     --source-revision <exact-commit-or-release> \
@@ -141,17 +141,17 @@ No layer may be changed after looking at `evaluation`.
 
 ```bash
 # 1. (testing) synthesize a bounded canonical bundle + hashed manifest
-python -m experiments.safe_adapter synth --out /tmp/safe_synth
+uv run --no-sync python -m experiments.safe_adapter synth --out /tmp/safe_synth
 
 # 2. convert to the (V,L,D,A) contract; seen tasks 0,1 -> train, rest -> held-out
-python -m experiments.safe_adapter convert \
+uv run --no-sync python -m experiments.safe_adapter convert \
     --rollouts /tmp/safe_synth --out outputs/safe_vlda.json --seen-tasks 0,1
 
 # 3. pre-flight verify (class coverage + episode disjointness, fail-closed)
-python -m experiments.safe_adapter verify --input outputs/safe_vlda.json
+uv run --no-sync python -m experiments.safe_adapter verify --input outputs/safe_vlda.json
 
 # 4. run the real harness with the leakage gates the contract was built to pass
-cargo run -p pid-sim --bin pid-offline-harness -- \
+cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- \
     --input outputs/safe_vlda.json \
     --summary-json outputs/safe_vlda_summary.json \
     --runlog outputs/safe_vlda_runlog.jsonl \
@@ -159,11 +159,11 @@ cargo run -p pid-sim --bin pid-offline-harness -- \
     --require-heldout-episode-disjoint --require-axis-provenance-honest
 ```
 
-`--require-axis-provenance-honest` is an opt-in gate (mirroring
-`--require-geometry-pass`) that fails the run on degraded or absent axis
-provenance markers; the offline VLDA harness surfaces the per-axis
-`{v,l,d,a}_provenance` it checks (`token_slice:*` / `hidden_state_pool` /
-`action_vector` are honest, `text_hash_proxy` is degraded). The `just
+`--require-axis-provenance-honest` is an opt-in gate that fails the run on missing,
+unrecognized, or degraded axis provenance. Every SAFE sample must carry all four
+`{v,l,d,a}_provenance` markers. The harness accepts only values that this producer can
+emit. `token_slice:*`, `explicit_features`, `hidden_state_pool`, and `action_vector`
+are direct-source declarations. `text_hash_proxy` is degraded. The `just
 safe-adapter` recipe passes this flag plus the three held-out gates. Here
 “honest” means the declared bytes/slice are present and not silently fabricated;
 it is a mechanical provenance gate, not architecture/semantic validation. The

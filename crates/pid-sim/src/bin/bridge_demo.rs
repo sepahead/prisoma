@@ -17,12 +17,12 @@ fn main() -> Result<()> {
     }
 
     let mut writer = RunLogWriter::create(&path)?;
-    let config = pid_sim::deterministic_sim_config(
+    let config = pid_sim::deterministic_bridge_config(
         "pid-sim-bridge-demo",
-        Some("local"),
+        "local",
         Some(0.1),
         Some(5),
-        Some(false),
+        pid_sim::BridgeRuntimeProfile::Standard,
     );
     let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
     let mut metadata = BTreeMap::new();

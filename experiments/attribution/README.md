@@ -67,6 +67,8 @@ split manifest before interpreting a production result.
   against a fixed multiply-add budget, and binds one predeclared primary method.
   Before any attribution is evaluated it rejects malformed/leaky designs and work
   that exceeds the complete budget.
+* `provenance.py` hashes each bounded package-owned source before the core modules
+  load. Each evidence bundle records that import-time manifest.
 * `runlog.py` writes bounded `run_started` / `config_logged` /
   `artifact_logged` / `attribution_logged` / `run_ended` JSONL plus immutable
   content-addressed artifacts. Each method receives a compact NumPy relevance artifact
@@ -85,6 +87,10 @@ split manifest before interpreting a production result.
 The NumPy `SmallTransformer` is a runnable stand-in, not a production VLA. A real
 transformer integration should pin and validate its model/checkpoint and attribution
 implementation independently; swapping in LXT/AttnLRP does not waive this gate.
+The Python binding is local source provenance. It does not prove which bytecode ran.
+It does not detect source changes after import. It does not bind mutable runtime state,
+imported dependency code, or process state.
+It is not signing, interpreter attestation, or protection against a compromised runtime.
 
 ## Limitations that remain even after a pass
 
@@ -108,19 +114,20 @@ shape-matched zero baseline whose metadata says that distributional support is n
 established:
 
 ```bash
-python -m experiments.attribution demo \
+uv run --no-sync python -m experiments.attribution demo \
     --runlog outputs/attribution_runlog.jsonl --artifacts outputs/attribution
-cargo run --manifest-path pid-rs/crates/pid-runlog/Cargo.toml \
+cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml \
     --bin pid-runlog-replay -- --validate outputs/attribution_runlog.jsonl
-cargo run -p pid-rerun --bin runlog-to-rerun -- \
+cargo run --locked -p pid-rerun --bin runlog-to-rerun -- \
     outputs/attribution_runlog.jsonl --load-attribution-artifacts \
     --save outputs/attribution_runlog.rrd
 ```
 
 Each method prints `passed`, `failed`, or `abstained`, the typed reason, and the
 conservative group-win binomial-tail probability when computed. Probe evidence
-publication requires the confined artifact directory and remains bounded and
-no-clobber. The Rerun adapter surfaces the recorded compatibility check and
+publication requires the confined artifact directory. Publication is bounded.
+Content-addressed artifacts are no-clobber. The requested run-log path is atomically
+replaced. The Rerun adapter surfaces the recorded compatibility check and
 provenance, not validated faithfulness; external relevance loading remains explicit
 and exact-hash/shape checked.
 
@@ -130,4 +137,4 @@ leakage; insufficient groups; malformed/non-finite arrays and predictor outputs;
 under-resolved or unattainable frozen gates; content-derived gate identity; predictor
 determinism; exact-tie abstention; one-primary-method multiplicity; complete-work
 budgets; relevance conservation; optional autograd agreement; reconstructable
-evidence bundles; and run-log publication/validation behavior.
+evidence bundles; import-time source manifests; and run-log publication behavior.

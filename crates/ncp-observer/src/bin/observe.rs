@@ -10,7 +10,7 @@
 //! cargo run --locked --manifest-path crates/ncp-observer/Cargo.toml --bin ncp-observe -- \
 //!     --secure --session uav3 --out outputs/ncp_vlda.json --runlog outputs/ncp_runlog.jsonl
 //! # then:
-//! cargo run --locked -p pid-sim --bin pid-offline-harness -- \
+//! cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- \
 //!     --input outputs/ncp_vlda.json --pid-mode none \
 //!     --summary-json outputs/ncp_summary.json --runlog outputs/ncp_baseline_runlog.jsonl
 //! ```

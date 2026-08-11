@@ -6,15 +6,11 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Write};
 use std::net::{SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const DEFAULT_BIND_ADDR: &str = "127.0.0.1:38472";
 const CLIENT_IO_TIMEOUT: Duration = Duration::from_secs(30);
 const UNIQUE_RUN_LOG_CREATE_ATTEMPTS: u16 = 128;
-/// Window for answering connections queued while the bound connection ran. A
-/// replay socket already in the listen backlog is accepted on the first poll.
-const POST_PAIRING_DRAIN: Duration = Duration::from_millis(250);
-const POST_PAIRING_POLL: Duration = Duration::from_millis(5);
 
 #[derive(Debug, Eq, PartialEq)]
 enum RunLogTarget {
@@ -73,12 +69,19 @@ fn main() -> Result<()> {
         run_id,
         writer,
     } = prepare_run_log(&run_log_target)?;
-    let config = pid_sim::deterministic_sim_config(
+    let profile = if engram_host {
+        pid_sim::BridgeRuntimeProfile::EngramHostReadOnly
+    } else if safe_mode {
+        pid_sim::BridgeRuntimeProfile::SafeMode
+    } else {
+        pid_sim::BridgeRuntimeProfile::Standard
+    };
+    let config = pid_sim::deterministic_bridge_config(
         "pid-sim-bridge-tcp",
-        Some("tcp_jsonl"),
+        "tcp_jsonl",
         None,
         None,
-        Some(safe_mode),
+        profile,
     );
     let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
     let mut metadata = BTreeMap::new();
@@ -86,14 +89,7 @@ fn main() -> Result<()> {
     metadata.insert("safe_mode".to_string(), safe_mode.to_string());
     metadata.insert(
         "active_profile".to_string(),
-        if engram_host {
-            pid_sim::ENGRAM_HOST_BRIDGE_PROFILE
-        } else if safe_mode {
-            pid_sim::SAFE_MODE_BRIDGE_PROFILE
-        } else {
-            pid_sim::STANDARD_BRIDGE_PROFILE
-        }
-        .to_string(),
+        profile.identifier().to_string(),
     );
     metadata.insert("bind_addr".to_string(), local_addr.to_string());
     metadata.insert("requested_bind_addr".to_string(), bind_addr.to_string());
@@ -126,24 +122,27 @@ fn main() -> Result<()> {
 
     let sim = pid_sim::demo_sim();
     let initial_snapshot = sim.snapshot_event();
-    let mut session = if engram_host {
-        pid_sim::SimBridgeSession::with_engram_host_profile_and_run_id(writer, sim, &run_id)
+    let (mut session, announcement_token) = if engram_host {
+        let secret = pairing_secret
+            .context("Engram host profile requires the pre-listener pairing secret")?;
+        let token = secret.announcement_token();
+        (
+            pid_sim::SimBridgeSession::with_engram_host_profile_and_run_id(
+                writer, sim, &run_id, secret,
+            ),
+            Some(token),
+        )
     } else {
-        pid_sim::SimBridgeSession::with_safe_mode_and_run_id(writer, sim, safe_mode, &run_id)
-    };
-    let announcement_token = match pairing_secret {
-        Some(secret) => {
-            let token = secret.announcement_token();
-            session.enable_engram_pairing(secret, pid_sim::MAX_PAIRING_ATTEMPTS);
-            Some(token)
-        }
-        None => None,
+        (
+            pid_sim::SimBridgeSession::with_safe_mode_and_run_id(writer, sim, safe_mode, &run_id),
+            None,
+        )
     };
     append_session_prefix(
         &mut session,
         &[run_started, config_logged, initial_snapshot],
     )?;
-    session.set_run_log_path(&path);
+    session.set_run_log_path(&path)?;
     session.set_artifact_root(&artifact_root)?;
     // Detect buffered provenance-storage failures before advertising the
     // listener or accepting a control client.
@@ -151,9 +150,10 @@ fn main() -> Result<()> {
     // The startup secret appears exactly once, on this stderr line, and nowhere
     // else: not in the run log, not in a response, not in any file.
     match &announcement_token {
-        Some(token) => eprintln!("run_log={} pairing={token}", path.display()),
+        Some(token) => eprintln!("run_log={} pairing={}", path.display(), token.as_str()),
         None => eprintln!("run_log={}", path.display()),
     }
+    drop(announcement_token);
     let actor = Actor {
         actor_type: ActorType::Script,
         actor_id: "pid-sim-bridge-tcp".to_string(),
@@ -198,6 +198,12 @@ struct ServedConnections {
     paired: bool,
 }
 
+#[derive(Debug, Default, Eq, PartialEq)]
+struct ServedClient {
+    handled: usize,
+    paired: bool,
+}
+
 fn serve_connections<W: Write>(
     listener: &TcpListener,
     session: &mut pid_sim::SimBridgeSession<W>,
@@ -206,9 +212,9 @@ fn serve_connections<W: Write>(
     if !session.pairing_required() {
         let (stream, peer_addr) = listener.accept().context("failed to accept TCP client")?;
         eprintln!("accepted {peer_addr}");
-        let handled = serve_client(stream, session, actor, None, false)?;
+        let client = serve_client(stream, session, actor)?;
         return Ok(ServedConnections {
-            handled,
+            handled: client.handled,
             connections: 1,
             pairing_required: false,
             paired: false,
@@ -228,92 +234,38 @@ fn serve_connections<W: Write>(
         let (stream, peer_addr) = listener.accept().context("failed to accept TCP client")?;
         eprintln!("accepted {peer_addr}");
         served.connections += 1;
-        session.begin_pairing_attempt()?;
-        let mut pairing = pid_sim::ConnectionPairing::new();
-        let result = serve_client(stream, session, actor, Some(&mut pairing), false);
-        served.handled += finish_pairing_connection(result, &pairing, session)?;
-        if pairing.accepted() {
+        let was_bound = session.pairing_bound();
+        let client =
+            finish_pairing_connection(serve_client(stream, session, actor), was_bound, session)?;
+        served.handled += client.handled;
+        if client.paired {
             served.paired = true;
         }
-    }
-    if served.paired {
-        served.handled +=
-            drain_post_pairing_connections(listener, session, actor, &mut served.connections)?;
     }
     Ok(served)
 }
 
-/// Answer connections that were queued while the bound connection was served.
-///
-/// After binding, a captured-request replay on a new socket must observe the
-/// pairing rejection rather than a silent close. A connection already waiting in
-/// the listen backlog is accepted immediately; the short deadline only covers
-/// accept scheduling, so the bridge still terminates without a client.
-fn drain_post_pairing_connections<W: Write>(
-    listener: &TcpListener,
-    session: &mut pid_sim::SimBridgeSession<W>,
-    actor: &Actor,
-    connections: &mut usize,
-) -> Result<usize> {
-    listener
-        .set_nonblocking(true)
-        .context("failed to set the listener non-blocking")?;
-    let deadline = Instant::now() + POST_PAIRING_DRAIN;
-    let mut handled = 0usize;
-    loop {
-        if session.pairing_attempts_exhausted() || Instant::now() >= deadline {
-            break;
-        }
-        match listener.accept() {
-            Ok((stream, peer_addr)) => {
-                stream
-                    .set_nonblocking(false)
-                    .context("failed to set the accepted stream blocking")?;
-                eprintln!("accepted {peer_addr}");
-                *connections += 1;
-                session.begin_pairing_attempt()?;
-                let mut pairing = pid_sim::ConnectionPairing::new();
-                let result = serve_client(stream, session, actor, Some(&mut pairing), true);
-                handled += finish_pairing_connection(result, &pairing, session)?;
-                // One post-binding rejection is enough evidence; do not hold the
-                // run open waiting for more.
-                break;
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                std::thread::sleep(POST_PAIRING_POLL);
-            }
-            Err(error) => {
-                return Err(error).context("failed to accept a post-pairing TCP client");
-            }
-        }
-    }
-    listener
-        .set_nonblocking(false)
-        .context("failed to restore the blocking listener")?;
-    Ok(handled)
-}
-
 /// Complete one accepted-connection pairing unit without hiding fatal state.
 ///
-/// A connection-local failure before proof acceptance, including a read
+/// A connection-local failure before connection binding, including a read
 /// timeout, consumes the unit and lets the finite pairing loop continue. An
-/// error after proof acceptance or provenance poisoning remains fatal.
+/// error after binding or provenance poisoning remains fatal.
 fn finish_pairing_connection<W: Write>(
-    result: Result<usize>,
-    pairing: &pid_sim::ConnectionPairing,
+    result: Result<ServedClient>,
+    was_bound: bool,
     session: &mut pid_sim::SimBridgeSession<W>,
-) -> Result<usize> {
+) -> Result<ServedClient> {
     match result {
-        Ok(handled) => {
-            if !pairing.accepted() {
+        Ok(client) => {
+            if !client.paired {
                 session.record_failed_pairing_attempt();
             }
-            Ok(handled)
+            Ok(client)
         }
-        Err(error) if !pairing.accepted() && !session.poisoned() => {
+        Err(error) if session.pairing_bound() == was_bound && !session.poisoned() => {
             session.record_failed_pairing_attempt();
-            eprintln!("pairing connection ended before proof acceptance: {error:#}");
-            Ok(0)
+            eprintln!("pairing connection ended before connection binding: {error:#}");
+            Ok(ServedClient::default())
         }
         Err(error) => Err(error),
     }
@@ -323,22 +275,25 @@ fn serve_client<W: Write>(
     stream: std::net::TcpStream,
     session: &mut pid_sim::SimBridgeSession<W>,
     actor: &Actor,
-    pairing: Option<&mut pid_sim::ConnectionPairing>,
-    bound_elsewhere: bool,
-) -> Result<usize> {
+) -> Result<ServedClient> {
     configure_client_stream(&stream)?;
     let reader = BufReader::new(stream.try_clone().context("failed to clone TCP stream")?);
     let mut output = BufWriter::new(stream);
-    let handled = pid_sim::dispatch_rpc_lines_paired(
-        reader,
-        &mut output,
-        session,
-        actor.clone(),
-        pairing,
-        bound_elsewhere,
-    )?;
+    let client = if session.pairing_required() {
+        let outcome =
+            pid_sim::dispatch_rpc_lines_paired(reader, &mut output, session, actor.clone())?;
+        ServedClient {
+            handled: outcome.handled(),
+            paired: outcome.accepted(),
+        }
+    } else {
+        ServedClient {
+            handled: pid_sim::dispatch_rpc_lines(reader, &mut output, session, actor.clone())?,
+            paired: false,
+        }
+    };
     output.flush().context("failed to flush TCP responses")?;
-    Ok(handled)
+    Ok(client)
 }
 
 fn parse_args(args: &[OsString]) -> Result<ParsedCommand> {
@@ -577,7 +532,9 @@ fn configure_client_stream(stream: &std::net::TcpStream) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::Engine as _;
     use pid_bridge::{BridgeMethod, BridgeRequest};
+    use std::io::{BufRead, Read};
     use std::net::TcpStream;
     use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -868,33 +825,58 @@ mod tests {
 
     #[test]
     fn unpaired_transport_failure_consumes_the_attempt_without_poisoning_the_run() {
+        struct TimedOutInput;
+
+        impl Read for TimedOutInput {
+            fn read(&mut self, _buffer: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "simulated read timeout",
+                ))
+            }
+        }
+
+        impl BufRead for TimedOutInput {
+            fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "simulated read timeout",
+                ))
+            }
+
+            fn consume(&mut self, _amount: usize) {}
+        }
+
         let writer = RunLogWriter::new(Vec::new());
         let mut session = pid_sim::SimBridgeSession::with_engram_host_profile_and_run_id(
             writer,
             pid_sim::demo_sim(),
             "pairing-timeout",
+            pid_sim::PairingSecret::from_bytes([7; 32]),
         );
-        session.enable_engram_pairing(pid_sim::PairingSecret::from_bytes([7; 32]), 1);
-        session
-            .begin_pairing_attempt()
-            .expect("the first pairing unit should be available");
-        let pairing = pid_sim::ConnectionPairing::new();
-
-        let handled = finish_pairing_connection(
-            Err(anyhow::anyhow!("simulated read timeout")),
-            &pairing,
-            &mut session,
-        )
-        .expect("an unpaired connection error should be recoverable");
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "pairing-timeout".to_string(),
+            session_id: None,
+        };
+        let mut output = Vec::new();
+        let result =
+            pid_sim::dispatch_rpc_lines_paired(TimedOutInput, &mut output, &mut session, actor)
+                .map(|outcome| ServedClient {
+                    handled: outcome.handled(),
+                    paired: outcome.accepted(),
+                });
+        let client = finish_pairing_connection(result, false, &mut session)
+            .expect("an unpaired connection error should be recoverable");
 
         assert_eq!(
             (
-                handled,
+                client.handled,
                 session.pairing_attempts_used(),
                 session.pairing_latched(),
                 session.poisoned(),
             ),
-            (0, 1, true, false)
+            (0, 1, false, false)
         );
     }
 
@@ -917,19 +899,28 @@ mod tests {
             writer,
             pid_sim::demo_sim(),
             "pairing-poison",
+            pid_sim::PairingSecret::from_bytes([9; 32]),
         );
-        session.enable_engram_pairing(pid_sim::PairingSecret::from_bytes([9; 32]), 1);
-        session
-            .begin_pairing_attempt()
-            .expect("the first pairing unit should be available");
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "pairing-poison".to_string(),
+            session_id: None,
+        };
+        let mut output = Vec::new();
+        let outcome = pid_sim::dispatch_rpc_lines_paired(
+            std::io::Cursor::new(Vec::<u8>::new()),
+            &mut output,
+            &mut session,
+            actor,
+        )
+        .expect("an empty connection should still consume one pairing unit");
+        assert!(!outcome.accepted());
         session
             .record_rejected_rpc("pairing-poison", "force the provenance failure")
             .expect_err("the failing writer must poison the session");
-        let pairing = pid_sim::ConnectionPairing::new();
-
         let error = finish_pairing_connection(
             Err(anyhow::anyhow!("simulated client failure")),
-            &pairing,
+            false,
             &mut session,
         )
         .expect_err("a poisoned provenance log must remain fatal");
@@ -939,12 +930,12 @@ mod tests {
 
     #[test]
     fn engram_profile_session_usage_includes_the_complete_tcp_prefix() {
-        let config = pid_sim::deterministic_sim_config(
+        let config = pid_sim::deterministic_bridge_config(
             "prefix-test",
-            Some("tcp_jsonl"),
+            "tcp_jsonl",
             None,
             None,
-            Some(true),
+            pid_sim::BridgeRuntimeProfile::EngramHostReadOnly,
         );
         let config_hash =
             pid_runlog::canonical_json_hash_v2(&config).expect("config hash should serialize");
@@ -981,23 +972,51 @@ mod tests {
             writer,
             sim,
             "bridge-tcp-run",
+            pid_sim::PairingSecret::from_bytes([11; 32]),
         );
 
         append_session_prefix(&mut session, &prefix).expect("prefix should fit hosted limits");
         assert_eq!(session.run_log_usage().bytes, expected_prefix_bytes);
         assert_eq!(session.run_log_usage().events, prefix.len());
 
+        let client_secret = pid_sim::PairingSecret::from_bytes([11; 32]);
+        let client_nonce = [12u8; 32];
+        let client_proof = client_secret
+            .client_proof(
+                pid_sim::ENGRAM_HOST_BRIDGE_PROFILE,
+                &serde_json::json!("session-after-prefix"),
+                &client_nonce,
+            )
+            .expect("the test client proof should build");
+        let raw_request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "session-after-prefix",
+            "method": "bridge.session",
+            "params": {
+                "pairing": {
+                    "mechanism": pid_sim::PAIRING_MECHANISM,
+                    "client_nonce": base64::engine::general_purpose::URL_SAFE_NO_PAD
+                        .encode(client_nonce),
+                    "client_proof": base64::engine::general_purpose::URL_SAFE_NO_PAD
+                        .encode(client_proof),
+                }
+            }
+        });
+        let actor = Actor {
+            actor_type: ActorType::Script,
+            actor_id: "prefix-test".to_string(),
+            session_id: Some("prefix-test".to_string()),
+        };
         let request = BridgeRequest {
-            request_id: "session-after-prefix".to_string(),
+            request_id: pid_bridge::rpc_id_to_unique_request_id(
+                &serde_json::json!("session-after-prefix"),
+                1,
+            ),
             step: Some(0),
             timestamp_ns: 0,
-            actor: Actor {
-                actor_type: ActorType::Script,
-                actor_id: "prefix-test".to_string(),
-                session_id: Some("prefix-test".to_string()),
-            },
+            actor: actor.clone(),
             method: BridgeMethod::BridgeSession,
-            payload: serde_json::json!({}),
+            payload: raw_request["params"].clone(),
         };
         let request_bytes = u64::try_from(
             serde_json::to_vec(
@@ -1011,9 +1030,27 @@ mod tests {
         .expect("request event length should fit u64")
             + 1;
 
-        let response = session
-            .dispatch(&request)
-            .expect("session request should fit");
+        let input = format!(
+            "{}\n",
+            serde_json::to_string(&raw_request).expect("pairing request should serialize")
+        );
+        let mut output = Vec::new();
+        let outcome = pid_sim::dispatch_rpc_lines_paired(
+            std::io::Cursor::new(input),
+            &mut output,
+            &mut session,
+            actor,
+        )
+        .expect("paired session request should fit");
+        assert_eq!(outcome.handled(), 1);
+        assert!(outcome.accepted());
+        let response: pid_bridge::BridgeRpcResponse = serde_json::from_slice(
+            output
+                .split(|byte| *byte == b'\n')
+                .next()
+                .expect("paired response should contain one line"),
+        )
+        .expect("paired response should parse");
         let result = response
             .result
             .expect("session response should contain a result");

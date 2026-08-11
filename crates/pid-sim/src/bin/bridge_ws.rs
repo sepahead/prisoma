@@ -50,17 +50,26 @@ fn main() -> Result<()> {
         .context("failed to read local address")?;
     let (path, artifact_root) = prepare_artifact_path(&path)?;
     let mut writer = create_run_log(&path)?;
-    let config = pid_sim::deterministic_sim_config(
+    let profile = if safe_mode {
+        pid_sim::BridgeRuntimeProfile::SafeMode
+    } else {
+        pid_sim::BridgeRuntimeProfile::Standard
+    };
+    let config = pid_sim::deterministic_bridge_config(
         "pid-sim-bridge-ws",
-        Some("websocket_jsonrpc"),
+        "websocket_jsonrpc",
         None,
         None,
-        Some(safe_mode),
+        profile,
     );
     let config_hash = pid_runlog::canonical_json_hash_v2(&config)?;
     let mut metadata = BTreeMap::new();
     metadata.insert("source".to_string(), "pid-sim-bridge-ws".to_string());
     metadata.insert("safe_mode".to_string(), safe_mode.to_string());
+    metadata.insert(
+        "active_profile".to_string(),
+        profile.identifier().to_string(),
+    );
     metadata.insert("bind_addr".to_string(), local_addr.to_string());
     metadata.insert("requested_bind_addr".to_string(), bind_addr.to_string());
     metadata.insert(
@@ -88,7 +97,7 @@ fn main() -> Result<()> {
         safe_mode,
         "bridge-ws-run",
     );
-    session.set_run_log_path(&path);
+    session.set_run_log_path(&path)?;
     session.set_artifact_root(&artifact_root)?;
     // Detect buffered provenance-storage failures before advertising the
     // listener or accepting a control client.
