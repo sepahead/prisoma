@@ -34,7 +34,7 @@
       "feature_id": "analysis.estimate_abstention",
       "feature": "Report-first PID estimate eligibility and abstention",
       "status": "tested",
-      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:f2513c6655292711cf169612cb3f1fc229af79f5c101615bf88d2c4bc530e6bb",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:e5eb690cd844574c25081ea0bee8c679fecfb811195498da1386e2f6a4f832e6",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -75,7 +75,7 @@
       "feature_id": "bridge.agent_control_plane",
       "feature": "Agent Bridge typed control plane",
       "status": "tested",
-      "exact_revision": "local-sha256:978d457996fc07b9e39ba85bc4825366d0607c238f28654a0f1c15c6cbbc114c",
+      "exact_revision": "local-sha256:baf9942838c2270443849e86fc923d65ebc724c1966d96a08059eae8604ea6d8",
       "revision_inputs": [
         "crates/pid-bridge",
         "crates/pid-rerun",
@@ -128,7 +128,7 @@
       "feature_id": "bridge.engram_pairing",
       "feature": "Engram operator-paste startup-secret pairing",
       "status": "tested",
-      "exact_revision": "local-sha256:04c735ce70008246635417ef4641b4cb6bc969777f0394d34482bfb6160235a5",
+      "exact_revision": "local-sha256:676b52778e0adef92e1a97a808b7255cfc6ad78d0f898b5def62a6c6dec7f453",
       "revision_inputs": [
         "crates/pid-sim",
         "integrations/engram",
@@ -166,7 +166,7 @@
       "feature_id": "capture.offline_vlda_harness",
       "feature": "Offline (V,L,D,A) artifact-to-run-log harness",
       "status": "tested",
-      "exact_revision": "local-sha256:d4baf434d445c909bfea1805d24d70fad9b8d475ab12856544d99c02ebb3b680",
+      "exact_revision": "local-sha256:bc0c9cf1f553b0fa2ff9b051c37e01f912072dff1c012b3d383b0250f7b1da99",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -203,7 +203,7 @@
       "feature_id": "capture.safe_reference_adapter",
       "feature": "SAFE canonical-bundle reference adapter",
       "status": "tested",
-      "exact_revision": "local-sha256:dfdad57514f82499e59207fcadfb9192fed6eeb5888d52936faeed8142046e07",
+      "exact_revision": "local-sha256:bf65491fde394ee0f39cd699b0f3194113c994ed10c5784a78911197de2e92b2",
       "revision_inputs": [
         "experiments/safe_adapter",
         "tests/python/test_safe_adapter.py",
@@ -341,7 +341,7 @@
       "feature_id": "experiment.h1_common_preflight",
       "feature": "H1 pre-treatment lineage and diagnostic-noninterference preflight",
       "status": "tested",
-      "exact_revision": "local-sha256:d4baf434d445c909bfea1805d24d70fad9b8d475ab12856544d99c02ebb3b680",
+      "exact_revision": "local-sha256:bc0c9cf1f553b0fa2ff9b051c37e01f912072dff1c012b3d383b0250f7b1da99",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -377,7 +377,7 @@
       "feature_id": "experiment.h1_protocol_a_reference",
       "feature": "Deterministic H1 Protocol-A scoring reference",
       "status": "tested",
-      "exact_revision": "local-sha256:d4baf434d445c909bfea1805d24d70fad9b8d475ab12856544d99c02ebb3b680",
+      "exact_revision": "local-sha256:bc0c9cf1f553b0fa2ff9b051c37e01f912072dff1c012b3d383b0250f7b1da99",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -393,7 +393,7 @@
         },
         {
           "path": "crates/pid-sim/fixtures/h1_protocol_a_valid.json",
-          "sha256": "255c94ba48a947acddf283b69de7d2fec7fb1d65530b102023c53f3d234a6027"
+          "sha256": "38223ab105256be6a9dc136ff9de664760a701c4f043df13d0e37f4cc58e3e53"
         },
         {
           "path": "protocols/research_claim_registry_v1.json",
@@ -471,7 +471,7 @@
       "feature_id": "experiment.h2_reference",
       "feature": "Deterministic H2 fixed-horizon/IPCW/alarm arithmetic reference",
       "status": "tested",
-      "exact_revision": "local-sha256:d4baf434d445c909bfea1805d24d70fad9b8d475ab12856544d99c02ebb3b680",
+      "exact_revision": "local-sha256:bc0c9cf1f553b0fa2ff9b051c37e01f912072dff1c012b3d383b0250f7b1da99",
       "revision_inputs": [
         "crates/pid-sim",
         "pid-rs",
@@ -868,7 +868,7 @@
       "feature_id": "replay.canonical_runlog",
       "feature": "Canonical run-log validation, replay, manifest, and sidecars",
       "status": "tested",
-      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:f2513c6655292711cf169612cb3f1fc229af79f5c101615bf88d2c4bc530e6bb",
+      "exact_revision": "pid-rs@796c11e70f009634b853dc4ada6f565563d82f51; local-sha256:e5eb690cd844574c25081ea0bee8c679fecfb811195498da1386e2f6a4f832e6",
       "revision_inputs": [
         "pid-rs",
         ".gitmodules",
@@ -905,7 +905,7 @@
       "feature_id": "sim.rapier_backend",
       "feature": "Rapier3D-f64 manipulation backend",
       "status": "tested",
-      "exact_revision": "rapier3d-f64@0.34.0#sha256:4351e821e5db9464a22d59f3e7903ab5759f7c1241bb82f042486494e5178ecf; local-sha256:515566341e7258372291b15debf5cb15e15973b69f07c7e24230b71c444c087f",
+      "exact_revision": "rapier3d-f64@0.34.0#sha256:4351e821e5db9464a22d59f3e7903ab5759f7c1241bb82f042486494e5178ecf; local-sha256:556f702de3123908b57319c002bc6a00213120c3bb33e4947aba769b3db2ee8d",
       "revision_inputs": [
         "crates/pid-sim",
         "Cargo.toml",
@@ -967,7 +967,7 @@
       "feature_id": "viewer.rerun_adapter",
       "feature": "Run-log-to-Rerun validating adapter",
       "status": "tested",
-      "exact_revision": "re_log_encoding@0.34.1#sha256:8a5df35e1e32e783014827a362bf68fb97f9b122240ad731511207fb8fceec48; re_sdk@0.34.1#sha256:3e426edaa5b4aae7338893282b53e671afc02770601d054f4754bc42ec43ff29; re_sdk_types@0.34.1#sha256:dcbecb95e90d133d4721715412f24b333895f56373fe0ebce99ecdf0aa0b9bc2; local-sha256:9cb4811ca5d15add1ed5f2dbe2ccdff60c37ce3422f9b8e6d0f1ddeb1e985425",
+      "exact_revision": "re_log_encoding@0.34.1#sha256:8a5df35e1e32e783014827a362bf68fb97f9b122240ad731511207fb8fceec48; re_sdk@0.34.1#sha256:3e426edaa5b4aae7338893282b53e671afc02770601d054f4754bc42ec43ff29; re_sdk_types@0.34.1#sha256:dcbecb95e90d133d4721715412f24b333895f56373fe0ebce99ecdf0aa0b9bc2; local-sha256:3e45bd16c98d4c06117573d39903078605ca55e79981e3673d36ea86353ef7f6",
       "revision_inputs": [
         "crates/pid-rerun",
         "crates/pid-sim",
