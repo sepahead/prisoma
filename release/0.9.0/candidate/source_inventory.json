@@ -285,7 +285,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "9c08ade9338f8900159d3f4fc242fabfa3d619e8",
+        "git_blob_id": "9af4b1c096c641dddd85de7deb1f36de9177f4e2",
         "independent_reviewer": null,
         "language": "YAML",
         "line_count": 665,
@@ -296,20 +296,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "33a7960fd82e81d0215899b1a918f363ec11e221d76607d609725136fa8d4108",
+        "sha256": "9980b77184701aeb3521786c8762debcc524869c634b0715ae4d6892eca3274e",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "9c08ade9338f8900159d3f4fc242fabfa3d619e8"
+        "oid": "9af4b1c096c641dddd85de7deb1f36de9177f4e2"
       },
       "index": {
-        "bytes": 47744,
-        "content_sha256": "33a7960fd82e81d0215899b1a918f363ec11e221d76607d609725136fa8d4108",
+        "bytes": 47763,
+        "content_sha256": "9980b77184701aeb3521786c8762debcc524869c634b0715ae4d6892eca3274e",
         "mode": "100644",
-        "oid": "9c08ade9338f8900159d3f4fc242fabfa3d619e8"
+        "oid": "9af4b1c096c641dddd85de7deb1f36de9177f4e2"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -320,14 +320,14 @@
       },
       "path": ".github/workflows/ci.yml",
       "working_tree": {
-        "bytes": 47744,
+        "bytes": 47763,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
         "line_count": 665,
         "link_target": null,
         "mode": "100644",
-        "sha256": "33a7960fd82e81d0215899b1a918f363ec11e221d76607d609725136fa8d4108"
+        "sha256": "9980b77184701aeb3521786c8762debcc524869c634b0715ae4d6892eca3274e"
       },
       "worktree_state": "unchanged"
     },
@@ -780,10 +780,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "147ec8fc83f4e735b624b62c2982bf9253745a99",
+        "git_blob_id": "715220b2ddcd04bd9bf90d7a5a246e7c3d77c6c9",
         "independent_reviewer": null,
         "language": "Markdown",
-        "line_count": 1268,
+        "line_count": 1271,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "CHANGELOG.md",
         "public_surface": true,
@@ -791,20 +791,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "38b600294c082cfdd92907eadfb730b0831e1118d99b8af41e9c3dd326c5d26b",
+        "sha256": "f69f18bcf65168724a3d78c10fa471373cbcc6a019d5b98271718ff8155af4ba",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "147ec8fc83f4e735b624b62c2982bf9253745a99"
+        "oid": "715220b2ddcd04bd9bf90d7a5a246e7c3d77c6c9"
       },
       "index": {
-        "bytes": 117837,
-        "content_sha256": "38b600294c082cfdd92907eadfb730b0831e1118d99b8af41e9c3dd326c5d26b",
+        "bytes": 118081,
+        "content_sha256": "f69f18bcf65168724a3d78c10fa471373cbcc6a019d5b98271718ff8155af4ba",
         "mode": "100644",
-        "oid": "147ec8fc83f4e735b624b62c2982bf9253745a99"
+        "oid": "715220b2ddcd04bd9bf90d7a5a246e7c3d77c6c9"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -815,14 +815,14 @@
       },
       "path": "CHANGELOG.md",
       "working_tree": {
-        "bytes": 117837,
+        "bytes": 118081,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 1268,
+        "line_count": 1271,
         "link_target": null,
         "mode": "100644",
-        "sha256": "38b600294c082cfdd92907eadfb730b0831e1118d99b8af41e9c3dd326c5d26b"
+        "sha256": "f69f18bcf65168724a3d78c10fa471373cbcc6a019d5b98271718ff8155af4ba"
       },
       "worktree_state": "unchanged"
     },
@@ -6995,7 +6995,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "a1ca96272989b228010a65958b2d0276cfe52747",
+        "git_blob_id": "a968707a5f319b642eb6e1ee1458b88d1bd11cfd",
         "independent_reviewer": null,
         "language": "Markdown",
         "line_count": 41,
@@ -7006,20 +7006,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "13bf4df849849ad5b33532a1159cd23604aa79a525ba5dbb59dd2c210d9adc5f",
+        "sha256": "1e5c3ffd99715ec76ab1c4a0dc110d34c752c4a28a08df8dd8b3f4927dfc1ad6",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "a1ca96272989b228010a65958b2d0276cfe52747"
+        "oid": "a968707a5f319b642eb6e1ee1458b88d1bd11cfd"
       },
       "index": {
         "bytes": 28893,
-        "content_sha256": "13bf4df849849ad5b33532a1159cd23604aa79a525ba5dbb59dd2c210d9adc5f",
+        "content_sha256": "1e5c3ffd99715ec76ab1c4a0dc110d34c752c4a28a08df8dd8b3f4927dfc1ad6",
         "mode": "100644",
-        "oid": "a1ca96272989b228010a65958b2d0276cfe52747"
+        "oid": "a968707a5f319b642eb6e1ee1458b88d1bd11cfd"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -7037,7 +7037,7 @@
         "line_count": 41,
         "link_target": null,
         "mode": "100644",
-        "sha256": "13bf4df849849ad5b33532a1159cd23604aa79a525ba5dbb59dd2c210d9adc5f"
+        "sha256": "1e5c3ffd99715ec76ab1c4a0dc110d34c752c4a28a08df8dd8b3f4927dfc1ad6"
       },
       "worktree_state": "unchanged"
     },
@@ -22010,7 +22010,7 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": true,
-        "git_blob_id": "155b40b00f72f23f0ff359b60d50f1a8d74916a8",
+        "git_blob_id": "83f95bd02eef3d2260f8fb3c1c9be8328ea637c5",
         "independent_reviewer": null,
         "language": "JSON",
         "line_count": 1093,
@@ -22021,20 +22021,20 @@
         "reviewer": null,
         "science_critical": true,
         "security_critical": false,
-        "sha256": "4dad516ba3fd9d7993be8cb59af2af27c77a12bb3afb14744e8be7c0489dff6b",
+        "sha256": "5238df9f7deba7676921673c6503770c89bd34533be760746ef83932afd39c7b",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "155b40b00f72f23f0ff359b60d50f1a8d74916a8"
+        "oid": "83f95bd02eef3d2260f8fb3c1c9be8328ea637c5"
       },
       "index": {
         "bytes": 49869,
-        "content_sha256": "4dad516ba3fd9d7993be8cb59af2af27c77a12bb3afb14744e8be7c0489dff6b",
+        "content_sha256": "5238df9f7deba7676921673c6503770c89bd34533be760746ef83932afd39c7b",
         "mode": "100644",
-        "oid": "155b40b00f72f23f0ff359b60d50f1a8d74916a8"
+        "oid": "83f95bd02eef3d2260f8fb3c1c9be8328ea637c5"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -22052,7 +22052,7 @@
         "line_count": 1093,
         "link_target": null,
         "mode": "100644",
-        "sha256": "4dad516ba3fd9d7993be8cb59af2af27c77a12bb3afb14744e8be7c0489dff6b"
+        "sha256": "5238df9f7deba7676921673c6503770c89bd34533be760746ef83932afd39c7b"
       },
       "worktree_state": "unchanged"
     },
@@ -23550,10 +23550,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "abf49d911e33c360f86e9a9f951896da900bed45",
+        "git_blob_id": "2a2c95e4afba26cdc8a6e96c27eb8d1ed548f190",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 1882,
+        "line_count": 1955,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "scripts/audit_repo_truth.py",
         "public_surface": false,
@@ -23561,20 +23561,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": true,
-        "sha256": "c5320255ce79c8aa7ffd14d4b74c2426904b17a7261d4234076481ab313c0331",
+        "sha256": "634732dbe01d298a990f1b49ce813ace068dc124d919558170602314606567c0",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "abf49d911e33c360f86e9a9f951896da900bed45"
+        "oid": "2a2c95e4afba26cdc8a6e96c27eb8d1ed548f190"
       },
       "index": {
-        "bytes": 75563,
-        "content_sha256": "c5320255ce79c8aa7ffd14d4b74c2426904b17a7261d4234076481ab313c0331",
+        "bytes": 78402,
+        "content_sha256": "634732dbe01d298a990f1b49ce813ace068dc124d919558170602314606567c0",
         "mode": "100644",
-        "oid": "abf49d911e33c360f86e9a9f951896da900bed45"
+        "oid": "2a2c95e4afba26cdc8a6e96c27eb8d1ed548f190"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -23585,14 +23585,14 @@
       },
       "path": "scripts/audit_repo_truth.py",
       "working_tree": {
-        "bytes": 75563,
+        "bytes": 78402,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 1882,
+        "line_count": 1955,
         "link_target": null,
         "mode": "100644",
-        "sha256": "c5320255ce79c8aa7ffd14d4b74c2426904b17a7261d4234076481ab313c0331"
+        "sha256": "634732dbe01d298a990f1b49ce813ace068dc124d919558170602314606567c0"
       },
       "worktree_state": "unchanged"
     },
@@ -24760,10 +24760,10 @@
         "disposition": "OPEN_NOT_REVIEWED",
         "evidence": [],
         "generated": false,
-        "git_blob_id": "dee744b0908bd4e1f59e7f1e65e72eba43158fab",
+        "git_blob_id": "f155b7d2bed61af4b16b9489666f928b84b86fe7",
         "independent_reviewer": null,
         "language": "Python",
-        "line_count": 833,
+        "line_count": 880,
         "notes": "Inventory only; substantive file review and requirement closure are not claimed.",
         "path": "tests/python/test_repo_truth_hardening.py",
         "public_surface": false,
@@ -24771,20 +24771,20 @@
         "reviewer": null,
         "science_critical": false,
         "security_critical": false,
-        "sha256": "bac181f6915dd0b492eb8409bb6f33675fbca516bb20c7ee153f9710af896f81",
+        "sha256": "7380e284ca42918d4b842696a524eed1956801dcfa06cb7eda689b45e822111c",
         "tests": [],
         "updated_at": null
       },
       "head": {
         "mode": "100644",
         "object_type": "blob",
-        "oid": "dee744b0908bd4e1f59e7f1e65e72eba43158fab"
+        "oid": "f155b7d2bed61af4b16b9489666f928b84b86fe7"
       },
       "index": {
-        "bytes": 28141,
-        "content_sha256": "bac181f6915dd0b492eb8409bb6f33675fbca516bb20c7ee153f9710af896f81",
+        "bytes": 29875,
+        "content_sha256": "7380e284ca42918d4b842696a524eed1956801dcfa06cb7eda689b45e822111c",
         "mode": "100644",
-        "oid": "dee744b0908bd4e1f59e7f1e65e72eba43158fab"
+        "oid": "f155b7d2bed61af4b16b9489666f928b84b86fe7"
       },
       "index_state": "unchanged",
       "inventory_origin": {
@@ -24795,14 +24795,14 @@
       },
       "path": "tests/python/test_repo_truth_hardening.py",
       "working_tree": {
-        "bytes": 28141,
+        "bytes": 29875,
         "gitlink_head": null,
         "gitlink_status_sha256": null,
         "kind": "regular",
-        "line_count": 833,
+        "line_count": 880,
         "link_target": null,
         "mode": "100644",
-        "sha256": "bac181f6915dd0b492eb8409bb6f33675fbca516bb20c7ee153f9710af896f81"
+        "sha256": "7380e284ca42918d4b842696a524eed1956801dcfa06cb7eda689b45e822111c"
       },
       "worktree_state": "unchanged"
     },
@@ -25283,12 +25283,12 @@
   "repository": "https://github.com/sepahead/prisoma",
   "schema_version": "prisoma.release-candidate/0.1.0",
   "source": {
-    "candidate_state_sha256": "de2a5242d204c4a05c2de189f2b617ebeef2610d98dd43d8a4e0afb627bda843",
+    "candidate_state_sha256": "03bc5e3893df8bb286d47903522f29337eb8752de909de40b541004ba77a0378",
     "clean": true,
     "explicit_source_arguments_required": true,
-    "head_commit": "3474bf1ba918f9ed1492bd494058fa5b2888d720",
-    "head_tree": "02a6a7d51b85ac20263e568bea55cccd45f9409c",
-    "index_entries_sha256": "705cbdde18d3e13b52cc495fdce7359970d677254a8c84af5419d393dc1e6259",
+    "head_commit": "4f0c3387d5b17e11c882c4530560ab4d9d811b0a",
+    "head_tree": "eac126eb65874e17f712d2a40e63200ebbd17e3f",
+    "index_entries_sha256": "1f5064a7e682ee883cd8b00df29edbf9428910a25904df908f62b7c9b0ef179a",
     "recursive_gitlinks": [
       {
         "commit": "796c11e70f009634b853dc4ada6f565563d82f51",
@@ -25299,7 +25299,7 @@
       }
     ],
     "state": "clean_source_snapshot",
-    "worktree_entries_sha256": "4391b7051d27630bd4501d8d19c438b0f095f85ae1eb98dc3624982232b72daa"
+    "worktree_entries_sha256": "681f4d2ac2f468d0406f34197329f679757cf6af23d63c87c67f0d1465bf89dc"
   },
   "summary": {
     "clean": true,
