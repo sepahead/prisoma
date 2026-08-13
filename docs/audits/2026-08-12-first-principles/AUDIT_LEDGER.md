@@ -372,9 +372,14 @@ and record a prepared-stream-monitor gap. They do not change the release decisio
   expected stale-candidate binding failures.
 - [x] Personal final diff, current-Markdown, generated-file, immutable-intake, submodule, and
   source-tree review.
-- [ ] Clean source commit and push.
+- [x] Core source-audit commit `03b46396dc8908b35381d2779cc6e903f2e03652` pushed to
+  `origin/main` and fetched back at the same revision.
 - [ ] Candidate regeneration, audit, commit, and push.
 - [ ] Final branch, worktree, submodule, and remote-state cleanup.
+
+The last two operations happen after this source-bound ledger freezes. Do not edit the source
+again only to mark its own later publication. Use the candidate artifacts, final Git history,
+fetched remote revision, and worktree inventory as the authoritative completion evidence.
 
 ## Promotion rule
 
