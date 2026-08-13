@@ -54,14 +54,14 @@ GITLEAKS_VERSION = "8.30.1"
 GITLEAKS_REVISION = "83d9cd684c87d95d656c1458ef04895a7f1cbd8e"
 CREBAIN_REVIEW_REVISION = "7f6b3bdf4d20aba1b351b3ceacb259bd123c93a6"
 ENGRAM_PLACEHOLDER_REVISION = "a4ce6ab9897dd3f1265b4cacc53f0afc349087cd"
-PAPER2BRAIN_REVIEW_REVISION = "62af3b5a31ef11f7f7a61cf535e2576cc11b0ad9"
-PID_RS_UPSTREAM_REVISION = "cb351ad25803be35edd776245a37e24c69a03f3f"
+PAPER2BRAIN_REVIEW_REVISION = "2648caf18d24075c4a36af81a6bb032bb551244e"
+PID_RS_UPSTREAM_REVISION = "bbdfda40f0a49a2260b10eafdcb438fc61ae94e9"
 NCP_LEGACY_TAG = "v0.8.0"
 NCP_LEGACY_VERSION = "0.8.0"
 NCP_LEGACY_REVISION = "2f5bd586d4bb20c90362bb6f5698b7f64057ba4e"
 NCP_LEGACY_WIRE = "0.8"
 NCP_LEGACY_COMPACT_HASH = "d1b50a2d8a265276"
-NCP_CANDIDATE_REVISION = "1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68"
+NCP_CANDIDATE_REVISION = "1a04294c90c1b50eba06ae1c6afe9c951319250d"
 NCP_CANDIDATE_COMPACT_HASH = "163acc57d8a62b66"
 NCP_LEGACY_SOURCE_URL = f"https://github.com/sepahead/NCP/tree/{NCP_LEGACY_TAG}"
 NCP_CANDIDATE_SOURCE_URL = (
@@ -749,6 +749,30 @@ def justfile_reproducibility_problems() -> list[str]:
     return problems
 
 
+def replay_pipeline_problems() -> list[str]:
+    """Reject early-closing consumers of the Rust replay summary stream."""
+
+    problems: list[str] = []
+    early_close = re.compile(
+        r"pid-runlog-replay[^\n|]*\|\s*grep\s+(?:-[A-Za-z]*q|--quiet)\b"
+    )
+    env_early_close = re.compile(
+        r"PID_RUNLOG_REPLAY[^\n|]*\|\s*grep\s+(?:-[A-Za-z]*q|--quiet)\b"
+    )
+    for relative, pattern in (
+        ("justfile", early_close),
+        (".github/workflows/ci.yml", env_early_close),
+    ):
+        text = _read_regular_text(ROOT / relative, label=relative)
+        for match in pattern.finditer(text):
+            line_no = text.count("\n", 0, match.start()) + 1
+            problems.append(
+                f"{relative}:{line_no}: replay summary uses an early-closing grep; "
+                "drain the stream so pid-runlog-replay cannot receive a broken pipe"
+            )
+    return problems
+
+
 def local_quality_gate_problems() -> list[str]:
     """Keep one visible aggregate local gate without claiming shell semantics."""
 
@@ -1132,6 +1156,7 @@ def _audit() -> int:
     problems.extend(exp0_command_problems())
     problems.extend(exp0_documentation_problems())
     problems.extend(justfile_reproducibility_problems())
+    problems.extend(replay_pipeline_problems())
     problems.extend(local_quality_gate_problems())
     problems.extend(readme_reproducibility_problems())
     problems.extend(flake_reproducibility_problems())

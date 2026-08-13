@@ -12,15 +12,16 @@
 > This brief is self-contained. Read it top to
 > bottom before touching code.
 
-> **Compatibility boundary (rechecked 2026-08-11):** keep the latest immutable NCP
+> **Compatibility boundary (rechecked 2026-08-13):** keep the latest immutable NCP
 > `v0.8.0` release / wire 0.8. Official NCP main was observed at
-> `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` during this check. That commit is the
+> `1a04294c90c1b50eba06ae1c6afe9c951319250d` during this check. That commit is the
 > unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
 > compact proto contract hash `163acc57d8a62b66`). It uses a different wire.
 > NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and
 > **NOT RUN**. They cover the native-1.0 observer, missing-variable and research-claim
 > semantics, and fault-observatory migration plus Prisoma observer-role qualification.
-> See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
+> New low-overhead architecture prose is coordination-only. B01 remains `IN_PROGRESS` with no
+> passing receipt. See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
 
 ## 1. Context (what this is and is not)
 
@@ -37,13 +38,13 @@ The analysis receives that contract through several adapters:
 
 | Adapter or source | Role | Status |
 |---|---|---|
-| `experiments/safe_adapter/` (SAFE rollouts) | **Critical-path producer** (S2/EC1 reference adapter; grandplan §5.1, §8.7) | Implemented contract adapter with honest axis provenance; real capture and the diagnostic-noninterference preflight remain open |
+| `experiments/safe_adapter/` (SAFE rollouts) | **Reference adapter implementation; candidate critical-path real-data producer** (grandplan §5.1, §8.7) | Implemented contract adapter with declared axis provenance; real capture and the diagnostic-noninterference preflight remain open |
 | `crates/pid-sim` fixtures + Rapier/toy harnesses | Standalone sim sources | Software/conformance smokes, not scientific gate passes |
-| **`crates/ncp-observer` (this)** | **Optional** read-only NCP consumer/observer and Prisoma artifact adapter for a future conforming Engram/NEST producer | **Exploratory-only — below the S2/EC1 conformance bar (optional M2 ecosystem item); no compatible live Paper2Brain publisher** |
+| **`crates/ncp-observer` (this)** | **Optional** read-only NCP consumer/observer and Prisoma artifact adapter for a future conforming Engram/NEST producer | **Exploratory-only — not eligible for a registered S2/EC1 evaluation (optional M2 ecosystem item); no compatible live Paper2Brain publisher** |
 
-`ncp-observer` is a **read-only passive tap**: it subscribes to a conforming producer's
-Neuro-Cybernetic Protocol (NCP) data planes over Zenoh and converts each closed-loop tick
-into an `OfflineVldaSample`. It is **not on grandplan's critical path** (grandplan does
+`ncp-observer` is a **read-only passive tap**. It subscribes to a conforming producer's
+Neuro-Cybernetic Protocol (NCP) data planes over Zenoh. It converts each eligible, complete,
+source-correlated tick into an `OfflineVldaSample`. It is **not on grandplan's critical path** (grandplan does
 not depend on Engram at all), and root workspace resolution/build/test is independent of
 NCP/Engram/Zenoh. That dependency firebreak does not imply a scientific PID gate pass.
 Your job is to make this optional bridge *good enough to
@@ -74,8 +75,9 @@ axis-provenance markers. Geometry diagnostics are descriptive and never gate val
 recipe already runs it alongside the three held-out gates.)
 
 …exiting 0. That establishes only the adapter-side prerequisites for H1/H2 baselines and the
-**conditional H3 PID-necessity audit** (does gated PID/CI add value beyond the strongest valid
-non-PID model; grandplan §3.8 PID kill rules, §6.5 baseline hierarchy). It does not clear the
+**conditional H3 PID-necessity audit** (does the full PID/abstention/exact-fallback policy add value
+beyond the frozen matched-access comparator registry; grandplan §3.8 PID kill rules, §6.5 baseline
+hierarchy). It does not clear the
 population, measure, estimator, or application gates. The current NCP artifact deliberately
 declares no population support: continuous KSG/shared-exclusions requests abstain;
 `--pid-mode none` requests nothing; and quantized discrete `I_min` can produce only a
@@ -93,8 +95,11 @@ Already correct (do not regress):
 - Deterministic channel ordering (sorted `BTreeMap` keys), read-only, System actor, and
   canonical run-log emission (`EmbeddingContract` / `EmbeddingCaptured` / `LabelObserved`,
   plus a finalize-time `ArtifactLogged` registering the dataset artifact with its sha256).
-  Run-log timestamps ride a monotonic clock (out-of-order sensor `t` values are clamped),
-  so the emitted log passes `pid-runlog-replay --validate`.
+  A sensor clock must be finite, nonnegative, and within the unsigned run-log nanosecond range.
+  Conversion truncates fractional nanoseconds toward zero. The observer rejects an invalid clock
+  before it changes capture state. It clamps only a valid out-of-order clock to preserve monotonic
+  run-log time. Each kept sample and capture event preserves the raw converted value as
+  `sensor_timestamp_ns`.
 - **Exact D alignment in prisoma, including arrival reordering**: plane-published
   `ObservationFrame.source` echoes the driving sensor `StreamPosition`; readouts are keyed
   by its full `{epoch, seq}` even before a sensor establishes the active epoch. Completed
@@ -188,14 +193,16 @@ only if a `success_channel` is configured — so the strict gates and the PID-ne
   label from the task outcome (not a placeholder). Keep the split assignment deterministic
   and leakage-safe (no `episode_id` in both train and test).
 - **Acceptance:** the five `--require-*` strict modes above all pass on a real session
-  capture, and `heldout_logreg_vlda` (the learned H2-class baseline, grandplan §6.5) runs.
+  capture, and `heldout_logreg_vlda` (a static factual-outcome baseline, not H2) runs.
   This is necessary but not sufficient for H1–H4: protocol-specific capture/assignment and
-  outcome machinery remain separate, and PID interpretation still requires all four gates.
+  outcome machinery remain separate, and PID interpretation still requires all four gates. The
+  static held-out logistic path is not an H2 protocol or prospective result.
 
 ## 5. Hard constraints (do not violate)
 
-1. **Run log is the source of truth.** Every captured sample must be reconstructable from
-   the canonical run-log events; the JSON artifact is a convenience view.
+1. **Run log is the source of truth for accepted recorded events.** Every captured sample must be
+   reconstructable from canonical events. The JSON artifact is a convenience view. The log cannot
+   prove an upstream event that the observer never received.
 2. **The observer drives nothing.** It is read-only; the Agent Bridge stays the *only*
    control plane. Never add a publish/command path here.
 3. **The NCP-specific mapping lives in prisoma** (`crates/ncp-observer`), not in Engram.
@@ -206,9 +213,9 @@ only if a `success_channel` is configured — so the strict gates and the PID-ne
    first-available-ports in BTreeMap order; before any world-model claim, run a
    `grandplan.md` §9.2-style physics/world-model probe on the candidate ports —
    a pre-motor readout is the locus most at risk of measuring action formatting
-   (see `RESEARCH_VLA_D_NCP.md` §6.1).
+   (see `RESEARCH_VLA_D_NCP.md` recommendation 1).
 7. **Prefer exclusion over backfill for absent L.** The research memo's position
-   (`RESEARCH_VLA_D_NCP.md` §6.2): if Engram never grows a real language channel,
+   (`RESEARCH_VLA_D_NCP.md` recommendation 2): if Engram never grows a real language channel,
    keep excluding absent-L ticks permanently and restrict Engram screens to
    D/V-involving atoms — do not accept any zero/hash proxy for L.
 

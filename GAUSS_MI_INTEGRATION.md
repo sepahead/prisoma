@@ -2,7 +2,7 @@
 
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan
-> - `pidsplatspecs.md` — Simulation environment (PID-Splat)
+> - `pidsplatspecs.md` — Stable simulator and bridge interface contract
 > - `DIAGRAMS.md` — System diagrams (GauSS‑MI overview)
 > - `EXPERIMENTS.md` — Capture protocols + quality gates
 > - `pid-rs/crates/pid-core` (submodule) — Rust implementation context (estimator changes land upstream in pid-rs, then the submodule is bumped; estimator code is never added to this repo directly)
@@ -10,7 +10,7 @@
 **Docset alignment:** docset v12.5 (optional E1 covariate/view-study design; the weighted-PID sketch is quarantined E0, not an estimator interface or direct ecosystem edge)
 **Spec version:** 1.1
 **Originally proposed:** 2026-01-03
-**Last reconciled:** 2026-07-13
+**Last reconciled:** 2026-08-12
 **Status:** Specification (Pre-Implementation)
 
 **Docset-wide final solution:** `grandplan.md` §16 is the decision log. A reconstruction-quality

@@ -3,7 +3,7 @@
 //! Runs a scripted "push the cube toward a goal" episode on a real Rapier3D
 //! backend (or, with `--backend null`, on the kinematic Null backend for a
 //! cross-backend robustness check), writes the canonical run log, and prints the
-//! externally meaningful success label.
+//! state-derived synthetic success label.
 //!
 //! Example:
 //! ```text

@@ -76,7 +76,9 @@ bug-bounty program.
   attestation, trusted timestamps, or proof of historical non-access.
 - The SAFE adapter's strict formats reduce deserialization risk, but external
   datasets, model weights, checkpoints, and legacy conversions remain separate
-  trust and rights boundaries.
+  trust and rights boundaries. Pin and verify each artifact before use. Do not load an
+  unverified downloaded checkpoint through a pickle-capable path. Prefer a reviewed
+  weights-only or `safetensors` path. Use isolation for any required legacy conversion.
 
 The canonical limitations are in [LIMITATIONS.md](LIMITATIONS.md) and the
 implementation-specific threat boundaries are in `grandplan.md` sections 8 and

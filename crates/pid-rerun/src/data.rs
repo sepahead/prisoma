@@ -180,7 +180,7 @@ pub fn generate_synthetic_episode(
     use std::f64::consts::PI;
 
     // Simple LCG for reproducibility. Take the top 32 bits (>>32) so the value maps
-    // onto the `u32::MAX` divisor: ratio ∈ [0, 1], rescaled to a symmetric [-1, 1).
+    // onto the `u32::MAX` divisor: ratio ∈ [0, 1], rescaled to the closed interval [-1, 1].
     // (A >>33 shift would keep only 31 bits, capping the ratio at 0.5 and yielding
     // exclusively negative samples.)
     let mut state = seed;

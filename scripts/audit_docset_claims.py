@@ -919,7 +919,7 @@ def audit_one(
                 continue
             if "observation" in line.lower() or "field notes" in line.lower():
                 continue
-            if not re.search(r"\bverify\b", line, re.IGNORECASE):
+            if not re.search(r"\bverif(?:y|ied|ication)\b", line, re.IGNORECASE):
                 findings.append(
                     Finding("venue_claim_needs_verify", path, line_no, line.rstrip())
                 )

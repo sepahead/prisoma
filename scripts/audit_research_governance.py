@@ -97,7 +97,7 @@ SEMANTIC_SNAPSHOT_SHA256 = {
     "claim_registry_scope": (
         "3d0c81c164f99b491aea8f2ddae889ffceef93bf52956f1f251e15db7944e638"
     ),
-    "claim_snapshots": "5d93980b09d2825afe7367f6332308cd9dbf3a83b5b294374430f1d0d805a0c1",
+    "claim_snapshots": "b9ad19dc6412e51b006ebe3000c2e8f2404f79e95fdfbc24d1cb384905b43cae",
 }
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -1601,8 +1601,8 @@ M0_STATUS_KEYS = {
 EXPECTED_M0_STATUSES = {
     "overall": "not_freeze_ready",
     "preregistration_skeleton": (
-        "implemented_unfrozen_v1_scaffold_plus_typed_v2_successor_draft_"
-        "neither_is_a_preregistration"
+        "implemented_unfrozen_v1_scaffold_plus_revised_unreviewed_typed_v2_"
+        "successor_neither_is_a_preregistration"
     ),
     "causal_graph": "unfrozen_pending_policy_environment_and_intervention_selection",
     "variable_dictionary": "partial_software_contracts_only",
@@ -1814,7 +1814,7 @@ def _validate_claim_registry(root: Path, registry: dict[str, Any]) -> None:
         binding_date != successor_date
         or registry_date != successor_date
         or binding_status != successor_status
-        or successor_status != "reviewed_successor_draft_unfrozen"
+        or successor_status != "successor_draft_revised_unreviewed"
     ):
         raise GovernanceError(
             f"{successor_context} date/status does not match the current registry "

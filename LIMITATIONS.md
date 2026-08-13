@@ -5,7 +5,7 @@
 **Author:** Sepehr Mahmoudian
 **Canonical research specification:** [`grandplan.md`](grandplan.md), docset v12.5
 
-The Prisoma 0.9.0 source prerelease packages tested software groundwork and explicit research
+The Prisoma 0.9.0 source prerelease contains tested software groundwork and explicit research
 protocols. Its internal candidate decision record remains NO-GO and `published:false`; that field
 denies candidate-package and scientific promotion, not public source availability. This is not a
 scientific-results release, a frozen preregistration, a validated safety system, or a
@@ -23,18 +23,18 @@ ever differ, the more restrictive statement governs until the discrepancy is rev
 
 | Area | Current status | What 0.9 does not establish |
 |---|---|---|
-| M0 governance | **Not freeze-ready.** Historical v1 remains non-promotable; the reviewed v2 successor is an all-null typed draft contract. | A preregistration, completed freeze candidate, substantive scientific review, or permission to begin confirmatory capture. |
+| M0 governance | **Not freeze-ready.** Historical v1 remains non-promotable. The revised v2 successor is an all-null, unreviewed typed draft contract. | A preregistration, completed freeze candidate, substantive scientific review, or permission to begin confirmatory capture. |
 | Confirmatory holdout | **None registered.** The access ledger contains a genesis record only. | Historical or off-repository non-access, independent custody, blinding, or a first-attempt result. |
-| EC1 | Partial run-log, replay, bridge, Rerun-conversion, and synthetic SAFE-ingress groundwork. | Provenance-complete replay as an externally benchmarked infrastructure claim. |
+| EC1 | Partial run-log, replay, bridge, Rerun-conversion, and synthetic SAFE-ingress groundwork. | Registered capture–replay fidelity and fault detection as an externally benchmarked claim, or completeness beyond the frozen universe. |
 | H1-A | A deterministic finite synthetic Protocol-A scoring reference and common preflight are runnable. | Real paired intervention-response evidence, a physical individual effect, or generalization beyond the fixture contract. |
 | H1-B | The randomized closed-loop protocol is specified but unimplemented. | Randomized assignment, intention-to-treat or effect-modification evidence, or closed-loop robustness. |
-| H2 | A deterministic synthetic fixed-horizon/IPCW/alarm arithmetic reference is runnable. | Prospective prediction, calibration validity, warning benefit, comparator superiority, safety gain, or deployment validity. |
-| H3 | **Not eligible.** Population is open/unfrozen. Measure is not adjudicated. The current atom-estimator and continuous-application gates are blocked. High-dimensional MI/coherence is NO-GO. | Interpretable PID atoms on real embeddings or held-out incremental PID value. |
+| H2 | A deterministic synthetic fixed-horizon/IPCW/alarm arithmetic reference is runnable. | A proper observed-data score, a frozen aligned prediction-object contract, prospective prediction, calibration validity, warning benefit, comparator superiority, safety gain, or deployment validity. |
+| H3 | **Not eligible.** Population is open/unfrozen. Measure is not adjudicated. The current atom-estimator and continuous-application gates are blocked. High-dimensional MI/coherence is NO-GO. | Interpretable PID atoms on real embeddings, eligible-only promotion, or full-target held-out incremental policy value. |
 | H4 | A small reference-model attribution path exercises logging and a group-level deletion-ranking-sensitivity control. | Causal or mechanistic faithfulness, representational availability, natural policy use, or divergence between availability and the effect of a tested intervention in a real VLA. |
 | NCP observer | Optional, workspace-excluded, read-only wire-0.8 experimental component. | Final protocol interoperability, a live Engram integration, transport completeness, security validation, EC1, or a scientific result. |
 
 The detailed claim definitions and stop rules are in
-[`grandplan.md` §4](grandplan.md#4-confirmatory-claim-registry),
+[`grandplan.md` §4](grandplan.md#4-confirmatory-claim-template-registry),
 [`§7`](grandplan.md#7-estimator-and-measure-validation), and
 [`§12`](grandplan.md#12-milestones-gates-and-stop-rules).
 
@@ -44,11 +44,11 @@ The following language is deliberately narrower than the project objectives.
 
 | Claim | Permitted for 0.9 | Prohibited for 0.9 |
 |---|---|---|
-| EC1 | Canonical run-log, local replay/conversion, and bounded content-addressed SAFE synthetic-ingress paths are implemented for the tested fixtures. | “EC1 is complete,” “externally validated,” or “deployment ready.” |
-| H1-A | The schema-v2 preflight input contract, schema-v3 result artifact, and deterministic finite-benchmark Protocol-A software reference are fixture-runnable scoring primitives. They establish no H1 evidence. | “H1 passed,” “a physical individual effect was observed,” or “closed-loop robustness was established.” |
+| EC1 | Canonical run-log, local replay/conversion, and bounded content-addressed SAFE synthetic-ingress paths are implemented for the tested fixtures. | “EC1 is complete,” “provenance-complete beyond the registered universe,” “externally validated,” or “deployment ready.” |
+| H1-A | The schema-v2 preflight input contract, schema-v3 result artifact, and deterministic finite-benchmark Protocol-A software reference are fixture-runnable scoring primitives. They establish no H1-A evidence and cannot establish H1-B. | Unqualified “H1 passed,” “a physical individual effect was observed,” or “closed-loop robustness was established.” |
 | H1-B | A randomized closed-loop design is specified in the canonical plan; execution remains blocked. | Any statement that Protocol B was implemented, randomized, analyzed, or validated. Protocol A may not be substituted for Protocol B. |
-| H2 | The deterministic synthetic reference exercises the named fixed-horizon, grouped fitting, IPCW, reliability-bin, alarm, nondetection, and declared-payoff arithmetic on checked fixtures only. | “H2 passed,” or any claim of prospective prediction, calibration validity, warning benefit, censoring-assumption validity, comparator superiority, transport, safety gain, or deployment validity. |
-| H3 | PID estimates abstain or remain noninterpretable outside their named population, measure, estimator, and application gates. | Any claim that geometry, a nonzero atom, or an emitted number establishes real-embedding PID validity. |
+| H2 | The deterministic synthetic reference exercises the named fixed-horizon, grouped fitting, IPCW risk-estimator, reliability-bin, alarm, nondetection, and declared-payoff arithmetic on checked fixtures only. | “H2 passed,” an `IPCW` label establishes propriety, a likelihood for another prediction object is interchangeable, or any claim of prospective prediction, calibration validity, warning benefit, censoring-assumption validity, comparator superiority, transport, safety gain, or deployment validity. |
+| H3 | PID estimates abstain or remain noninterpretable outside their named population, measure, estimator, and application gates. The primary target is the full policy with exact M1 fallback. | Any claim that eligible-only performance, geometry, a nonzero atom, or an emitted number establishes real-embedding PID validity or incremental value. |
 | H4 | The reference attribution path exercises canonical logging and a deletion-ranking-sensitivity control. | Any claim that the control establishes causal/mechanistic faithfulness, natural policy use, a tested-intervention effect, or H4. |
 
 “Specified,” “implemented,” “tested,” and “validated” are different states. In particular, a
@@ -92,12 +92,18 @@ The real study cannot be frozen by filling null fields in the historical v1 scaf
 v2 successor draft now types and content-binds the missing contract surface, including EC1 finite
 acceptance with complete detection/replay/false-positive coverage and a mandatory, separately
 estimated absolute sensitivity floor for every registered fault–adapter pair—never an aggregate
-substitute—H1-A calibration bins, H1-B endpoint hierarchy, H2's
-target/censoring/one-primary-score/non-rescuable-success contract, H3 warning dispositions and
-H3/H4 selection, plus H4 target sampling, transport, one tuple/outcome, simultaneous inference,
-weight uncertainty, and joint power. Every freeze-bearing v2 value remains null. A real freeze
-still
-requires a separate completed candidate binding the target population, policy, embodiment,
+substitute—H1-A's typed response, comparator, positive-margin one-sided success, calibration,
+uncertainty, multiplicity, and scope contract; H1-B's primary endpoint, hierarchy,
+positive-margin success, mandatory design checks, and directional replication; H2's aligned
+prediction-object/target/censoring/one-primary-scoring-contract/non-rescuable-success contract,
+H3's full-population fallback policy, positive incremental-value margin, one-sided superiority
+decision, dependence-aware uncertainty, replication target, and warning dispositions, plus H3/H4
+selection and H4 target sampling, transport, one tuple/outcome, simultaneous inference,
+uncertainty when target weights are estimated, exact fixed weights for an enumerated finite target,
+and joint power. A future candidate populates only its selected H1 and H3/H4 contracts. Inactive
+protocol slots stay null. The 2026-08-12 scoring correction reopened review of v2.
+Every freeze-bearing v2 value remains null. A real freeze still requires a new review and a
+separate completed candidate binding the target population, policy, embodiment,
 environment, intervention, outcomes, time origin, units, estimands, minimum useful effects,
 splits, multiplicity, power/precision design, missingness, rights, and analysis environment, plus
 the required review decisions and immutable receipts. No such signatures or decisions are
@@ -122,8 +128,9 @@ high-dimensional MI/coherence route is NO-GO, and continuous shared-exclusions P
 embeddings is not application-validated. An output may be computed only when declared support
 permits it; an abstention has no numeric placeholder and must not be interpreted as zero.
 
-Public `pid-rs` main was observed at `cb351ad` on 2026-08-11. Its newer contracts and exact
-certifier remain unadopted. Provenance improvements do not establish application validity.
+Public `pid-rs` main was observed at `bbdfda40` on 2026-08-13. Its newer method catalogs,
+formal/categorical assurance work, source-errata records, and exact-certifier surfaces remain
+unadopted. Provenance improvements do not establish application validity.
 
 Population, measure, estimator, and application verdicts are separate. Geometry diagnostics and
 sampled-mean delta are descriptive and cannot clear those gates. Continuous shared-exclusions
@@ -131,7 +138,41 @@ atoms and quantized discrete Williams–Beer `I_min` atoms are different estiman
 pooled or silently substituted. Quantization, PLS, scaling, and other fitted transformations must
 be fitted inside training folds for any future held-out comparison. H3 requires an eligible
 episode-local feature and a task-family-blocked M2-over-M1 comparison after the non-PID H1 or H2
-problem is established; neither exists in 0.9.
+problem is established. Its primary comparison must retain the complete frozen target ledger and
+use the exact same-fold M1 output for each abstention. Neither path exists in 0.9.
+
+## World-action-model limitations
+
+`VLA` and `WAM` do not define exclusive model classes. Prisoma classifies the deployed directed
+graph. A predictive loss does not prove runtime future use. Intended-future conditioning does not
+prove action-conditioned dynamics. Coupled joint generation does not expose a candidate-action
+forecast query by algebraic factorization alone.
+
+Action-conditioned prediction is not an interventional transition by architecture. It needs
+randomized executed actions, support checks, execution receipts, proper scores, and calibration.
+Generated-video quality and task success cannot replace these tests.
+
+Forward prediction and global latent non-collapse do not prove physical-state identity,
+action-sensitivity, or embodiment transfer. A finite-horizon world branch also does not supply
+task memory, failure recovery, or a correct replan schedule.
+
+Asynchronous chunk execution does not remove latency by itself. It changes command scheduling and
+can execute stale or misindexed actions. Prisoma has no qualified asynchronous WAM controller.
+Any future claim must bind observation, inference, dispatch, and execution times and test delay
+tails rather than report model latency alone.
+
+No reviewed WAM has a qualified Prisoma adapter. No predictive candidate has passed the local
+MPS, parity, latency, memory, rights, checkpoint-loader, and hook gates. Flex-\(\pi\) had no
+runnable code or checkpoint at the review cutoff. JEPA-WAM has released source and weights, but
+its reviewed stack is CUDA-only and its checkpoint uses pickle-based PyTorch serialization.
+LiLa-WAM has no language input, no source-code license, and no MPS qualification. Its released
+inference loop does not call its future decoder. Efficient-WAM has released source and weights,
+but its reviewed joint sampler asserts CUDA before its nominal attention fallback and uses
+float64/complex RoPE. Its model repository has no declared weight license.
+
+Social-media claims are discovery leads only. The supplied Dyna-2 post points to a company report.
+That report contains a matched internal objective study and a separate matched architecture study.
+Neither is independently reproducible. Neither identifies online future simulation or planning.
 
 ## Data rights, privacy, and ethics limitations
 
@@ -191,13 +232,14 @@ authentication, ACL enforcement, or producer noninterference. The observer's vis
 capture grade is a join/publication grade, not proof that every source event was delivered.
 Schema-1 publication receipts accept only the frozen `v0.8.0` tag, revision, wire, and compact
 hash; another wire needs a separately reviewed receipt schema and consumer.
-Official NCP main was observed at `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` on
-2026-08-11. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire
+Official NCP main was observed at `1a04294c90c1b50eba06ae1c6afe9c951319250d` on
+2026-08-13. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire
 1.0; compact proto contract hash `163acc57d8a62b66`). The latest immutable release is `v0.8.0`,
 which uses a different wire. NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not
 dependency-ready, and **NOT RUN**. `P03` covers fault-observatory migration and Prisoma
-observer-role qualification. See the
-[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
+observer-role qualification. The refined low-overhead architecture and prepared-stream-monitor
+gap record are coordination-only. B01 remains `IN_PROGRESS` with no passing receipt. See the
+[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
 The Zenoh 1.9 dependency graph retains `lz4_flex` 0.10.0, which is affected by the
 high-severity RUSTSEC-2026-0041 block-decompression information disclosure. The checked profile
 does not enable Zenoh's `transport_compression`, so the affected call is cfg-elided, and CI fails
@@ -209,9 +251,10 @@ exists. The observer graph also retains the unmaintained `paste` 1.0.15 proc-mac
 Rapier 0.34 removed `paste` from the root graph. `deny.toml` records these temporary observer
 exceptions.
 
-No conforming public live producer currently supplies the honest language, split, episode, and
+No reviewed public live producer currently supplies the honest language, split, episode, and
 outcome structure needed by the research path, and the public Engram repository is not a live
-integration. NCP remains optional and outside the default workspace. Galadriel, Haldir, Crebain,
+integration. This is a bounded statement about reviewed public sources. NCP remains optional and
+outside the default workspace. Galadriel, Haldir, Crebain,
 WorldWarp, and other ecosystem candidates are not required for the core claims and are not
 integrations merely because they are named or share maintainers.
 
@@ -234,7 +277,7 @@ manifest, and 8 MiB of retained relevance values plus their in-memory shape and 
 These viewer limits are stricter than the canonical run-log reader. Headless saves explicitly finalize the
 encoder and install a staged, file-synced
 `.rrd` without replacement, but do not fsync the parent directory. The Python attribution producer
-uses immutable content-addressed relevance artifacts and reconstructable JSON evidence bundles,
+uses no-clobber content-addressed relevance artifacts and reconstructable JSON evidence bundles,
 with companion `artifact_logged` events, and replaces the run-log name last. The Rerun track is the
 recorded compatibility check, not a validated-faithfulness verdict. A failed publication can leave
 an unreferenced new artifact, and no cross-file transaction or power-loss guarantee is claimed.

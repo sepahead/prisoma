@@ -241,6 +241,9 @@ def test_synth_load_convert_end_to_end(tmp_path):
     assert md["v_provenance"].startswith("token_slice")
     assert md["d_provenance"].startswith("token_slice")
     assert md["label_provenance"] == "episode_success"
+    assert [sample.metadata["sequence_index"] for sample in dataset.samples[:10]] == [
+        str(step) for step in range(10)
+    ]
     assert md["raw_csv_sha256"] == rollouts[0].extra["raw_csv_sha256"]
     assert md["bundle_manifest_sha256"] == rollouts[0].extra["bundle_manifest_sha256"]
     assert md["bundle_manifest_locator_status"] == "external_not_archived_by_converter"

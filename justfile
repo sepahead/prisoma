@@ -45,7 +45,7 @@ check:
     just docs-audit
     just notices-check
 
-# Docset audits (offline). audit_grandplan.py validates the R1-R112 reference ledger.
+# Docset audits (offline). audit_grandplan.py validates the canonical reference ledger.
 docs-audit:
     uv run --no-sync python scripts/audit_ci_pins.py
     uv run --no-sync python scripts/generate_capability_matrix.py --check
@@ -146,7 +146,7 @@ exp0-runlog path="outputs/exp0_runlog.jsonl" summary="outputs/exp0_summary.json"
 exp0-uncertainty path="outputs/exp0_uncertainty_runlog.jsonl" summary="outputs/exp0_uncertainty_summary.json" boot="200" perm="200":
     cargo run --locked --release --manifest-path pid-rs/crates/pid-core/Cargo.toml --features experimental-all --bin exp0 -- --seeds 1 --bootstrap {{ quote(boot) }} --permutation {{ quote(perm) }} --summary-json {{ quote(summary) }} --runlog {{ quote(path) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(path) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(path) }} | grep -q 'pid_metrics=7'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(path) }} | grep -F 'pid_metrics=7' >/dev/null
 
 toy-harness runlog="outputs/toy_vla_runlog.jsonl" summary="outputs/toy_vla_summary.json" episodes="32":
     cargo run --locked -p pid-sim --features analysis --bin pid-toy-harness -- --episodes {{ quote(episodes) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }}
@@ -252,7 +252,7 @@ h2-reference complete="crates/pid-sim/fixtures/h2_reference/dataset_complete.jso
 rapier-harness runlog="outputs/rapier_push_runlog.jsonl" summary="outputs/rapier_push_summary.json" impulse="0.18":
     cargo run --locked -p pid-sim --features rapier --bin pid-rapier-harness -- --runlog {{ quote(runlog) }} --summary-json {{ quote(summary) }} --push-impulse {{ quote(impulse) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'errors=0'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -F 'errors=0' >/dev/null
 
 # Rapier feature build + physics/manipulation tests (heavy dependency compile).
 rapier-test:
@@ -283,7 +283,7 @@ safe-adapter out="outputs/safe_vlda_v2.json":
 attribution-probe runlog="outputs/attribution_runlog.jsonl" artifacts="outputs/attribution":
     uv run --no-sync python -m experiments.attribution demo --runlog {{ quote(runlog) }} --artifacts {{ quote(artifacts) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'attributions=2'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -F 'attributions=2' >/dev/null
 
 # Python experiment tests (SAFE adapter + attribution probe; numpy only).
 experiments-test:
@@ -306,30 +306,32 @@ offline-harness-require-labels input="crates/pid-sim/fixtures/offline_vlda_fixtu
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
 
 # Opt-in PID-screen uncertainty: raw m-sample percentile stability envelopes +
-# single-source permutation p-values on the continuous (V,L)/(V,D)/(L,D)->A atoms,
+# single-source null tail fractions on the continuous (V,L)/(V,D)/(L,D)->A atoms,
 # written to a dedicated file (the canonical runlog/summary counts are untouched).
-# The sidecar explicitly states that the percentiles are not calibrated n-sample
-# confidence intervals. The default counts assert here to prove that invariant.
+# The sidecar distinguishes exchangeability p-values from circular-shift surrogate scores. The
+# committed fixture has multiple non-singleton episodes, so this recipe also proves the current
+# resamplers fail closed instead of crossing episode boundaries.
 offline-harness-uncertainty input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_unc_runlog.jsonl" summary="outputs/offline_vlda_unc_summary.json" unc="outputs/offline_vlda_uncertainty.json" boot="200" perm="200":
-    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode continuous --bootstrap {{ quote(boot) }} --permutation {{ quote(perm) }} --uncertainty-json {{ quote(unc) }}
+    cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --pid-mode continuous --bootstrap {{ quote(boot) }} --uncertainty-block-size 1 --permutation {{ quote(perm) }} --permutation-scheme full-shuffle --uncertainty-json {{ quote(unc) }}
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'evaluation_metrics=149'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -F 'evaluation_metrics=149' >/dev/null
     test -s {{ quote(unc) }}
+    python -c 'import sys; sys.flags.optimize == 0 or sys.exit("recipe checks require unoptimized Python"); import json; d=json.load(open(sys.argv[1], encoding="utf-8")); assert d["schema_version"]==2; assert d["mode"]=="skipped:episode_aware_resampling_required_for_row_topology"; assert d["row_topology"]=="multiple_episodes_with_repeated_rows"; assert d["pairs"]==[]' {{ quote(unc) }}
 
 offline-harness-require-heldout input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_runlog.jsonl" summary="outputs/offline_vlda_heldout_summary.json":
     cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-split
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'errors=0'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -F 'errors=0' >/dev/null
 
 offline-harness-require-heldout-class-coverage input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_class_coverage_runlog.jsonl" summary="outputs/offline_vlda_heldout_class_coverage_summary.json":
     cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-class-coverage
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'errors=0'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -F 'errors=0' >/dev/null
 
 offline-harness-require-heldout-episode-disjoint input="crates/pid-sim/fixtures/offline_vlda_fixture.json" runlog="outputs/offline_vlda_heldout_episode_disjoint_runlog.jsonl" summary="outputs/offline_vlda_heldout_episode_disjoint_summary.json":
     cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }} --require-heldout-episode-disjoint
     cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- --validate {{ quote(runlog) }}
-    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -q 'errors=0'
+    cargo run --locked --manifest-path pid-rs/crates/pid-runlog/Cargo.toml --bin pid-runlog-replay -- {{ quote(runlog) }} | grep -F 'errors=0' >/dev/null
 
 offline-harness-highdim input="crates/pid-sim/fixtures/offline_vlda_highdim_fixture.json" runlog="outputs/offline_vlda_highdim_runlog.jsonl" summary="outputs/offline_vlda_highdim_summary.json":
     cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input {{ quote(input) }} --resource-limits-json crates/pid-sim/fixtures/offline_vlda_highdim_limits.json --summary-json {{ quote(summary) }} --runlog {{ quote(runlog) }}

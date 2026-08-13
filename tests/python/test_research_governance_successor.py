@@ -35,13 +35,14 @@ GRANDPLAN = Path("grandplan.md")
 FREEZE_RECEIPT = Path("protocols/test_m0_freeze_receipt_v1.json")
 
 EXPECTED_BLOCKERS = [
+    "M0_SUCCESSOR_REVISION_UNREVIEWED",
     "M0_SUCCESSOR_DRAFT_UNFROZEN",
     "M0_SUCCESSOR_CLAIM_SELECTION_UNFROZEN",
     "M0_SUCCESSOR_EC1_FINITE_ACCEPTANCE_PROTOCOL_UNFROZEN",
-    "M0_SUCCESSOR_H1A_CALIBRATION_POLICY_UNFROZEN",
-    "M0_SUCCESSOR_H1B_PRIMARY_EFFECT_ENDPOINT_HIERARCHY_UNFROZEN",
+    "M0_SUCCESSOR_H1A_PRIMARY_RESPONSE_CALIBRATION_SUCCESS_CONTRACT_UNFROZEN",
+    "M0_SUCCESSOR_H1B_PRIMARY_EFFECT_HIERARCHY_SUCCESS_CONTRACT_UNFROZEN",
     "M0_SUCCESSOR_H2_PRIMARY_SCORE_CENSORING_SUCCESS_PROTOCOL_UNFROZEN",
-    "M0_SUCCESSOR_H3_WARNING_DISPOSITION_UNFROZEN",
+    "M0_SUCCESSOR_H3_INCREMENTAL_VALUE_AND_WARNING_CONTRACT_UNFROZEN",
     "M0_SUCCESSOR_H4_TARGET_TRANSPORT_TUPLE_INFERENCE_POWER_UNFROZEN",
     "M0_SUCCESSOR_CONTENT_BOUND_FREEZE_RECEIPTS_MISSING",
 ]
@@ -208,7 +209,13 @@ def _ec1_endpoint(
     }
 
 
-def _materialized_candidate(root: Path = ROOT) -> dict:
+def _materialized_candidate(
+    root: Path = ROOT,
+    *,
+    selected_h1: str = "h1_protocol_a",
+    selected_branch: str = "H3",
+    selection_timing: str = "before_any_h3_or_h4_confirmatory_outcome",
+) -> dict:
     document = _load(root)
     document["status"] = "freeze_candidate_under_review"
 
@@ -216,12 +223,10 @@ def _materialized_candidate(root: Path = ROOT) -> dict:
         slot["value"] = _binding(root)
 
     selection = document["claim_selection_contract"]["slots"]
-    selection["active_scientific_claims"]["value"] = ["H1", "H2", "H3"]
-    selection["selected_h1_protocol"]["value"] = "h1_protocol_a"
-    selection["selected_h3_or_h4_branch"]["value"] = "H3"
-    selection["h3_h4_selection_timing"]["value"] = (
-        "before_any_h3_or_h4_confirmatory_outcome"
-    )
+    selection["active_scientific_claims"]["value"] = ["H1", "H2", selected_branch]
+    selection["selected_h1_protocol"]["value"] = selected_h1
+    selection["selected_h3_or_h4_branch"]["value"] = selected_branch
+    selection["h3_h4_selection_timing"]["value"] = selection_timing
     selection["branch_selection_and_error_control_binding"]["value"] = _binding(root)
 
     protocols = document["typed_protocol_contracts"]
@@ -300,6 +305,22 @@ def _materialized_candidate(root: Path = ROOT) -> dict:
 
     h1a = protocols["h1_protocol_a"]["slots"]
     h1a["heldout_outcomes_used_to_define_bins"]["value"] = False
+    h1a["primary_response_prediction_contract"]["value"] = {
+        "endpoint_id": "heldout_algorithmic_response_prediction",
+        "response_functional_binding": _binding(root),
+        "primary_score_binding": _binding(root),
+        "matched_access_comparator_binding": _binding(root),
+        "minimum_useful_margin": 0.01,
+        "improvement_direction": ("positive_values_favor_diagnostic_augmented_model"),
+        "uncertainty_and_dependence_binding": _binding(root),
+        "calibration_acceptance_and_failure_consequence_binding": _binding(root),
+        "multiplicity_procedure_binding": _binding(root),
+        "replication_or_finite_benchmark_scope_binding": _binding(root),
+        "success_decision": (
+            "one_sided_lower_confidence_bound_exceeds_minimum_useful_margin"
+        ),
+        "secondary_endpoints_cannot_rescue_primary_failure": True,
+    }
 
     h1b = protocols["h1_protocol_b"]["slots"]
     h1b["primary_effect_endpoint_id"]["value"] = "cross_fitted_r_loss"
@@ -327,26 +348,43 @@ def _materialized_candidate(root: Path = ROOT) -> dict:
             "pass_condition_binding": _binding(root),
         },
     ]
+    h1b["primary_effect_success_contract"]["value"] = {
+        "primary_endpoint_id": "cross_fitted_r_loss",
+        "canonical_improvement_contrast_binding": _binding(root),
+        "mandatory_effect_validation_stack_binding": _binding(root),
+        "overall_itt_assignment_engagement_and_specificity_binding": _binding(root),
+        "uncertainty_and_dependence_binding": _binding(root),
+        "replication_target_binding": _binding(root),
+        "success_decision": (
+            "one_sided_lower_confidence_bound_exceeds_minimum_useful_margin"
+        ),
+        "secondary_endpoints_cannot_rescue_primary_failure": True,
+        "factual_outcome_fit_cannot_establish_success": True,
+        "directional_replication_required": True,
+    }
 
     h2 = protocols["h2"]["slots"]
-    h2["primary_proper_score"]["value"] = {
+    h2["primary_scoring_contract"]["value"] = {
         "endpoint_id": "heldout_ipcw_brier",
         "role": "primary",
-        "score_family": "time_dependent_brier",
-        "censoring_handling": "cross_fitted_ipcw",
+        "prediction_object": "fixed_horizon_event_probability",
+        "score_family": "fixed_horizon_brier_loss",
+        "censoring_handling": "cross_fitted_ipcw_complete_data_risk",
+        "evaluation_object": "complete_data_risk_estimator_under_censoring",
         "direction": "lower_is_better",
         "minimum_useful_margin": 0.01,
         "unit": "episode_landmark_with_episode_clustered_inference",
         "estimand_binding": _binding(root),
         "score_definition_binding": _binding(root),
-        "properness_and_identifiability_assumptions_binding": _binding(root),
+        "censoring_model_or_law_binding": _binding(root),
+        "validity_and_identifiability_assumptions_binding": _binding(root),
         "fitted_only_within_outer_training": True,
         "forecast_dependent_censoring_weights": False,
     }
     h2["success_rule"]["value"] = {
         "primary_endpoint_id": "heldout_ipcw_brier",
         "primary_improvement_direction": "baseline_score_minus_diagnostic_score",
-        "strongest_matched_access_baseline_required": True,
+        "frozen_matched_access_comparator_rule_required": True,
         "minimum_useful_margin_required": True,
         "external_or_later_time_replication_required": True,
         "calibration_requirement": (
@@ -358,6 +396,9 @@ def _materialized_candidate(root: Path = ROOT) -> dict:
         "subgroup_requirement": "prespecified_degradation_bounds_hold",
         "decision_utility_role": "secondary_gatekeeping",
         "secondary_endpoints_cannot_rescue_primary_failure": True,
+        "success_decision": (
+            "one_sided_lower_confidence_bound_exceeds_minimum_useful_margin"
+        ),
         "success_decision_binding": _binding(root),
     }
 
@@ -370,6 +411,24 @@ def _materialized_candidate(root: Path = ROOT) -> dict:
         }
     ]
     h3["allowlisted_use_output_warning_codes"]["value"] = []
+    h3["primary_incremental_value_contract"]["value"] = {
+        "endpoint_id": "full_population_pid_incremental_value",
+        "active_parent_primary_endpoint_binding": _binding(root),
+        "pid_regime_and_feature_construction_binding": _binding(root),
+        "canonical_improvement_contrast_binding": _binding(root),
+        "improvement_direction": "positive_values_favor_deployed_m2_policy",
+        "minimum_useful_margin": 0.01,
+        "support_abstention_and_warning_acceptance_binding": _binding(root),
+        "uncertainty_and_dependence_procedure_binding": _binding(root),
+        "multiplicity_procedure_binding": _binding(root),
+        "replication_target_binding": _binding(root),
+        "success_decision": (
+            "one_sided_lower_confidence_bound_exceeds_minimum_useful_margin"
+        ),
+        "eligible_only_analysis_cannot_establish_success": True,
+        "secondary_endpoints_cannot_rescue_primary_failure": True,
+        "independent_replication_required": True,
+    }
 
     h4 = protocols["h4"]["slots"]
     h4["primary_tuple"]["value"] = {
@@ -403,7 +462,7 @@ def _materialized_candidate(root: Path = ROOT) -> dict:
         "intersection_union_per_cell": True,
         "availability_bound_direction": "simultaneous_lower_bound",
         "effect_interval_requirement": "wholly_inside_equivalence_region",
-        "target_weight_uncertainty_included": True,
+        "target_weight_uncertainty_treatment": "included_in_simultaneous_inference",
         "divergence_mass_lower_bound_binding": _binding(root),
     }
     h4["joint_design_power_plan"]["value"] = {
@@ -414,6 +473,14 @@ def _materialized_candidate(root: Path = ROOT) -> dict:
         "simulation_design_binding": _binding(root),
         "operating_characteristics_binding": _binding(root),
     }
+
+    active_protocols = {"ec1", "h2", selected_h1, selected_branch.lower()}
+    if selection_timing == "after_h3_with_fresh_holdout_and_sequential_error_control":
+        active_protocols.add("h3")
+    for protocol_id, protocol in protocols.items():
+        if protocol_id not in active_protocols:
+            for slot in protocol["slots"].values():
+                slot["value"] = None
     return document
 
 
@@ -421,7 +488,7 @@ def _materialized_frozen(
     root: Path,
     *,
     candidate: dict | None = None,
-    frozen_at: str = "2026-07-16T12:00:00Z",
+    frozen_at: str = "2026-08-12T12:00:00Z",
 ) -> dict:
     reviewed_candidate = (
         _materialized_candidate(root) if candidate is None else copy.deepcopy(candidate)
@@ -470,7 +537,7 @@ def test_checked_successor_is_valid_and_honestly_unfrozen() -> None:
         check=False,
     )
     assert default.returncode == 0, default.stderr
-    assert "remains honestly unfrozen" in default.stdout
+    assert "remains honestly unreviewed and unfrozen" in default.stdout
 
     strict = subprocess.run(
         [sys.executable, str(SCRIPT), "--require-freeze-ready"],
@@ -535,6 +602,41 @@ def test_fully_materialized_candidate_and_typed_frozen_receipt_validate(
     frozen = _materialized_frozen(root, candidate=candidate)
     assert validate_successor_document(frozen, root=root) == []
 
+    for selected_h1 in ("h1_protocol_a", "h1_protocol_b"):
+        for selected_branch in ("H3", "H4"):
+            candidate = _materialized_candidate(
+                root,
+                selected_h1=selected_h1,
+                selected_branch=selected_branch,
+            )
+            assert validate_successor_document(candidate, root=root) == [
+                "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
+            ]
+
+
+def test_candidate_populates_only_selected_protocol_contracts() -> None:
+    candidate = _materialized_candidate()
+    candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
+        "primary_effect_endpoint_id"
+    ]["value"] = "unused_but_populated"
+    with pytest.raises(SuccessorGovernanceError, match="populated inactive protocol"):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    candidate["typed_protocol_contracts"]["h4"]["slots"]["target_population_binding"][
+        "value"
+    ] = _binding()
+    with pytest.raises(SuccessorGovernanceError, match="populated inactive protocol"):
+        validate_successor_document(candidate, root=ROOT)
+
+    switched = _materialized_candidate(
+        selected_branch="H4",
+        selection_timing="after_h3_with_fresh_holdout_and_sequential_error_control",
+    )
+    assert validate_successor_document(switched, root=ROOT) == [
+        "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
+    ]
+
 
 def test_arbitrary_receipt_revision_or_post_review_candidate_drift_cannot_freeze(
     tmp_path: Path,
@@ -548,7 +650,7 @@ def test_arbitrary_receipt_revision_or_post_review_candidate_drift_cannot_freeze
     arbitrary_receipt["freeze_revision"] = MODULE._canonical_freeze_candidate_sha256(
         arbitrary_receipt
     )
-    arbitrary_receipt["frozen_at"] = "2026-07-16T12:00:00Z"
+    arbitrary_receipt["frozen_at"] = "2026-08-12T12:00:00Z"
     with pytest.raises(
         SuccessorGovernanceError,
         match="freeze_receipt document",
@@ -565,7 +667,7 @@ def test_arbitrary_receipt_revision_or_post_review_candidate_drift_cannot_freeze
 
     post_review_drift = _materialized_frozen(root, candidate=candidate)
     post_review_drift["typed_protocol_contracts"]["h2"]["slots"][
-        "primary_proper_score"
+        "primary_scoring_contract"
     ]["value"]["minimum_useful_margin"] = 0.02
     with pytest.raises(
         SuccessorGovernanceError,
@@ -574,7 +676,7 @@ def test_arbitrary_receipt_revision_or_post_review_candidate_drift_cannot_freeze
         validate_successor_document(post_review_drift, root=root)
 
     receipt_timestamp_drift = _materialized_frozen(root, candidate=candidate)
-    receipt_timestamp_drift["frozen_at"] = "2026-07-16T12:00:01Z"
+    receipt_timestamp_drift["frozen_at"] = "2026-08-12T12:00:01Z"
     with pytest.raises(
         SuccessorGovernanceError,
         match="frozen_at disagrees",
@@ -793,14 +895,71 @@ def test_h1a_bins_and_h1b_primary_hierarchy_are_enforced() -> None:
         validate_successor_document(candidate, root=ROOT)
 
     candidate = _materialized_candidate()
+    h1a_contract = candidate["typed_protocol_contracts"]["h1_protocol_a"]["slots"][
+        "primary_response_prediction_contract"
+    ]["value"]
+    h1a_contract["minimum_useful_margin"] = 0.0
+    with pytest.raises(SuccessorGovernanceError, match="margin must be positive"):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    h1a_contract = candidate["typed_protocol_contracts"]["h1_protocol_a"]["slots"][
+        "primary_response_prediction_contract"
+    ]["value"]
+    h1a_contract["success_decision"] = "noninferiority"
+    with pytest.raises(SuccessorGovernanceError, match="one-sided superiority"):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    h1a_contract = candidate["typed_protocol_contracts"]["h1_protocol_a"]["slots"][
+        "primary_response_prediction_contract"
+    ]["value"]
+    h1a_contract["secondary_endpoints_cannot_rescue_primary_failure"] = False
+    with pytest.raises(SuccessorGovernanceError, match="must be true"):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
+    h1b_success = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
+        "primary_effect_success_contract"
+    ]["value"]
+    h1b_success["primary_endpoint_id"] = "different_endpoint"
+    with pytest.raises(
+        SuccessorGovernanceError,
+        match="disagrees with the one primary effect endpoint",
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
+    h1b_success = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
+        "primary_effect_success_contract"
+    ]["value"]
+    h1b_success["success_decision"] = "equivalence"
+    with pytest.raises(SuccessorGovernanceError, match="one-sided superiority"):
+        validate_successor_document(candidate, root=ROOT)
+
+    for field in (
+        "secondary_endpoints_cannot_rescue_primary_failure",
+        "factual_outcome_fit_cannot_establish_success",
+        "directional_replication_required",
+    ):
+        candidate = _materialized_candidate(selected_h1="h1_protocol_b")
+        h1b_success = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
+            "primary_effect_success_contract"
+        ]["value"]
+        h1b_success[field] = False
+        with pytest.raises(SuccessorGovernanceError, match=f"{field} must be true"):
+            validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
     endpoints = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
         "effect_endpoint_registry"
     ]["value"]
     endpoints[1]["role"] = "primary"
+    endpoints[1]["direction"] = "lower_is_better"
     with pytest.raises(SuccessorGovernanceError, match="exactly one primary"):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
     hierarchy = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
         "decision_hierarchy"
     ]["value"]
@@ -808,7 +967,7 @@ def test_h1a_bins_and_h1b_primary_hierarchy_are_enforced() -> None:
     with pytest.raises(SuccessorGovernanceError, match="unknown endpoint"):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
     hierarchy = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
         "decision_hierarchy"
     ]["value"]
@@ -816,7 +975,7 @@ def test_h1a_bins_and_h1b_primary_hierarchy_are_enforced() -> None:
     with pytest.raises(SuccessorGovernanceError, match="omits confirmatory"):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
     hierarchy = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
         "decision_hierarchy"
     ]["value"]
@@ -824,7 +983,7 @@ def test_h1a_bins_and_h1b_primary_hierarchy_are_enforced() -> None:
     with pytest.raises(SuccessorGovernanceError, match="must not repeat"):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
     hierarchy = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
         "decision_hierarchy"
     ]["value"]
@@ -832,7 +991,7 @@ def test_h1a_bins_and_h1b_primary_hierarchy_are_enforced() -> None:
     with pytest.raises(SuccessorGovernanceError, match="role disagrees"):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
     endpoints = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
         "effect_endpoint_registry"
     ]["value"]
@@ -840,7 +999,7 @@ def test_h1a_bins_and_h1b_primary_hierarchy_are_enforced() -> None:
     with pytest.raises(SuccessorGovernanceError, match="positive.*confirmatory"):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
     endpoints = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
         "effect_endpoint_registry"
     ]["value"]
@@ -851,7 +1010,7 @@ def test_h1a_bins_and_h1b_primary_hierarchy_are_enforced() -> None:
     ):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
     endpoints = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
         "effect_endpoint_registry"
     ]["value"]
@@ -862,8 +1021,17 @@ def test_h1a_bins_and_h1b_primary_hierarchy_are_enforced() -> None:
     ):
         validate_successor_document(candidate, root=ROOT)
 
+    candidate = _materialized_candidate(selected_h1="h1_protocol_b")
+    endpoints = candidate["typed_protocol_contracts"]["h1_protocol_b"]["slots"][
+        "effect_endpoint_registry"
+    ]["value"]
+    endpoints[0]["endpoint_kind"] = "causal_calibration"
+    endpoints[0]["direction"] = "inside_equivalence_region"
+    with pytest.raises(SuccessorGovernanceError, match="one-sided improvement rule"):
+        validate_successor_document(candidate, root=ROOT)
 
-def test_h2_requires_one_proper_score_and_non_rescuable_success_hierarchy() -> None:
+
+def test_h2_requires_one_scoring_contract_and_non_rescuable_success_hierarchy() -> None:
     document = _load()
     del document["typed_protocol_contracts"]["h2"]
     with pytest.raises(SuccessorGovernanceError, match="missing=.*h2"):
@@ -871,7 +1039,7 @@ def test_h2_requires_one_proper_score_and_non_rescuable_success_hierarchy() -> N
 
     candidate = _materialized_candidate()
     score = candidate["typed_protocol_contracts"]["h2"]["slots"][
-        "primary_proper_score"
+        "primary_scoring_contract"
     ]["value"]
     score["role"] = "secondary_gatekeeping"
     with pytest.raises(SuccessorGovernanceError, match="role must equal 'primary'"):
@@ -879,7 +1047,7 @@ def test_h2_requires_one_proper_score_and_non_rescuable_success_hierarchy() -> N
 
     candidate = _materialized_candidate()
     score = candidate["typed_protocol_contracts"]["h2"]["slots"][
-        "primary_proper_score"
+        "primary_scoring_contract"
     ]["value"]
     score["direction"] = "higher_is_better"
     with pytest.raises(SuccessorGovernanceError, match="lower_is_better"):
@@ -887,7 +1055,7 @@ def test_h2_requires_one_proper_score_and_non_rescuable_success_hierarchy() -> N
 
     candidate = _materialized_candidate()
     score = candidate["typed_protocol_contracts"]["h2"]["slots"][
-        "primary_proper_score"
+        "primary_scoring_contract"
     ]["value"]
     score["minimum_useful_margin"] = 0.0
     with pytest.raises(SuccessorGovernanceError, match="must be positive"):
@@ -895,41 +1063,114 @@ def test_h2_requires_one_proper_score_and_non_rescuable_success_hierarchy() -> N
 
     candidate = _materialized_candidate()
     score = candidate["typed_protocol_contracts"]["h2"]["slots"][
-        "primary_proper_score"
+        "primary_scoring_contract"
     ]["value"]
-    score["score_family"] = "fixed_horizon_log_loss"
-    score["censoring_handling"] = "cross_fitted_ipcw"
+    score["score_family"] = "right_censored_log_likelihood"
+    score["censoring_handling"] = "cross_fitted_ipcw_complete_data_risk"
+    score["evaluation_object"] = "complete_data_risk_estimator_under_censoring"
     with pytest.raises(
         SuccessorGovernanceError,
-        match="unsupported score-family/censoring-handling pair",
+        match="unsupported prediction-object, score, censoring, and evaluation-object contract",
     ):
         validate_successor_document(candidate, root=ROOT)
 
     candidate = _materialized_candidate()
     score = candidate["typed_protocol_contracts"]["h2"]["slots"][
-        "primary_proper_score"
+        "primary_scoring_contract"
+    ]["value"]
+    score["score_family"] = "right_censored_log_likelihood"
+    score["censoring_handling"] = "mapped_observed_data_law"
+    score["evaluation_object"] = "proper_observed_data_score"
+    with pytest.raises(
+        SuccessorGovernanceError,
+        match="unsupported prediction-object, score, censoring, and evaluation-object contract",
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    score = candidate["typed_protocol_contracts"]["h2"]["slots"][
+        "primary_scoring_contract"
+    ]["value"]
+    score["score_family"] = "mapped_observed_data_score"
+    score["censoring_handling"] = "mapped_observed_data_law"
+    score["evaluation_object"] = "proper_observed_data_score"
+    with pytest.raises(
+        SuccessorGovernanceError,
+        match="unsupported prediction-object, score, censoring, and evaluation-object contract",
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    score = candidate["typed_protocol_contracts"]["h2"]["slots"][
+        "primary_scoring_contract"
     ]["value"]
     score["score_family"] = "fixed_horizon_log_loss"
     score["censoring_handling"] = "complete_followup_only"
+    score["evaluation_object"] = "proper_complete_data_score"
     with pytest.raises(
         SuccessorGovernanceError,
-        match="unsupported score-family/censoring-handling pair",
+        match="unsupported prediction-object, score, censoring, and evaluation-object contract",
     ):
         validate_successor_document(candidate, root=ROOT)
 
     candidate = _materialized_candidate()
     score = candidate["typed_protocol_contracts"]["h2"]["slots"][
-        "primary_proper_score"
+        "primary_scoring_contract"
     ]["value"]
     score["score_family"] = "fixed_horizon_log_loss"
     score["censoring_handling"] = "full_eligible_population_complete_followup"
+    score["evaluation_object"] = "proper_complete_data_score"
     assert validate_successor_document(candidate, root=ROOT) == [
         "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
     ]
 
+    for prediction_object, score_family, censoring_handling, evaluation_object in (
+        (
+            "fixed_horizon_event_probability",
+            "fixed_horizon_brier_loss",
+            "full_eligible_population_complete_followup",
+            "proper_complete_data_score",
+        ),
+        (
+            "fixed_horizon_event_probability",
+            "fixed_horizon_log_loss",
+            "cross_fitted_ipcw_complete_data_risk",
+            "complete_data_risk_estimator_under_censoring",
+        ),
+        (
+            "fixed_horizon_event_probability",
+            "censoring_adjusted_fixed_horizon_brier",
+            "forecast_independent_conditional_censoring_law",
+            "proper_observed_data_score_on_identifiable_horizon_risk",
+        ),
+        (
+            "full_event_time_and_type_distribution",
+            "right_censored_log_likelihood",
+            "mapped_observed_data_law",
+            "proper_observed_data_score",
+        ),
+        (
+            "event_time_and_type_distribution_through_horizon",
+            "mapped_observed_data_score",
+            "mapped_observed_data_law",
+            "proper_observed_data_score",
+        ),
+    ):
+        candidate = _materialized_candidate()
+        score = candidate["typed_protocol_contracts"]["h2"]["slots"][
+            "primary_scoring_contract"
+        ]["value"]
+        score["prediction_object"] = prediction_object
+        score["score_family"] = score_family
+        score["censoring_handling"] = censoring_handling
+        score["evaluation_object"] = evaluation_object
+        assert validate_successor_document(candidate, root=ROOT) == [
+            "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
+        ]
+
     candidate = _materialized_candidate()
     score = candidate["typed_protocol_contracts"]["h2"]["slots"][
-        "primary_proper_score"
+        "primary_scoring_contract"
     ]["value"]
     score["fitted_only_within_outer_training"] = False
     with pytest.raises(
@@ -940,7 +1181,7 @@ def test_h2_requires_one_proper_score_and_non_rescuable_success_hierarchy() -> N
 
     candidate = _materialized_candidate()
     score = candidate["typed_protocol_contracts"]["h2"]["slots"][
-        "primary_proper_score"
+        "primary_scoring_contract"
     ]["value"]
     score["forecast_dependent_censoring_weights"] = True
     with pytest.raises(
@@ -956,7 +1197,7 @@ def test_h2_requires_one_proper_score_and_non_rescuable_success_hierarchy() -> N
     success["primary_endpoint_id"] = "different_endpoint"
     with pytest.raises(
         SuccessorGovernanceError,
-        match="disagrees with the one primary proper-score endpoint",
+        match="disagrees with the one primary scoring contract",
     ):
         validate_successor_document(candidate, root=ROOT)
 
@@ -980,6 +1221,14 @@ def test_h2_requires_one_proper_score_and_non_rescuable_success_hierarchy() -> N
         SuccessorGovernanceError,
         match="secondary_endpoints_cannot_rescue_primary_failure must be true",
     ):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    success = candidate["typed_protocol_contracts"]["h2"]["slots"]["success_rule"][
+        "value"
+    ]
+    success["success_decision"] = "noninferiority"
+    with pytest.raises(SuccessorGovernanceError, match="one-sided superiority"):
         validate_successor_document(candidate, root=ROOT)
 
 
@@ -1102,34 +1351,81 @@ def test_h3_warning_allowlist_and_unknown_warning_default_are_fail_closed() -> N
         validate_successor_document(document, root=ROOT)
 
 
+def test_h3_incremental_value_requires_useful_superiority_and_full_population() -> None:
+    candidate = _materialized_candidate()
+    contract = candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "primary_incremental_value_contract"
+    ]["value"]
+    contract["minimum_useful_margin"] = 0.0
+    with pytest.raises(SuccessorGovernanceError, match="margin must be positive"):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    contract = candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "primary_incremental_value_contract"
+    ]["value"]
+    contract["success_decision"] = "noninferior_or_not_significantly_worse"
+    with pytest.raises(SuccessorGovernanceError, match="one-sided superiority"):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    contract = candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "primary_incremental_value_contract"
+    ]["value"]
+    contract["improvement_direction"] = "positive_values_favor_m1"
+    with pytest.raises(SuccessorGovernanceError, match="complete deployed M2 policy"):
+        validate_successor_document(candidate, root=ROOT)
+
+    candidate = _materialized_candidate()
+    contract = candidate["typed_protocol_contracts"]["h3"]["slots"][
+        "primary_incremental_value_contract"
+    ]["value"]
+    contract["eligible_only_analysis_cannot_establish_success"] = False
+    with pytest.raises(
+        SuccessorGovernanceError,
+        match="eligible_only_analysis_cannot_establish_success must be true",
+    ):
+        validate_successor_document(candidate, root=ROOT)
+
+
 def test_h4_tuple_simultaneous_inference_weight_uncertainty_and_power_are_joint() -> (
     None
 ):
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_branch="H4")
     h4 = candidate["typed_protocol_contracts"]["h4"]["slots"]
     h4["primary_tuple"]["value"]["outcome_id"] = ["multiple", "outcomes"]
     with pytest.raises(SuccessorGovernanceError, match="non-empty string"):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_branch="H4")
     h4 = candidate["typed_protocol_contracts"]["h4"]["slots"]
     h4["simultaneous_inference_plan"]["value"]["strong_familywise_control"] = False
     with pytest.raises(SuccessorGovernanceError, match="must be true"):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_branch="H4")
     h4 = candidate["typed_protocol_contracts"]["h4"]["slots"]
-    h4["simultaneous_inference_plan"]["value"]["target_weight_uncertainty_included"] = (
-        False
-    )
-    with pytest.raises(SuccessorGovernanceError, match="uncertainty.*true"):
+    h4["simultaneous_inference_plan"]["value"][
+        "target_weight_uncertainty_treatment"
+    ] = "not_applicable_exact_finite_target_enumeration"
+    with pytest.raises(SuccessorGovernanceError, match="must include target-weight"):
         validate_successor_document(candidate, root=ROOT)
 
-    candidate = _materialized_candidate()
+    candidate = _materialized_candidate(selected_branch="H4")
     h4 = candidate["typed_protocol_contracts"]["h4"]["slots"]
     h4["joint_design_power_plan"]["value"]["required_scenarios"].pop()
     with pytest.raises(SuccessorGovernanceError, match="incomplete H4 joint-power"):
         validate_successor_document(candidate, root=ROOT)
+
+    finite_target = _materialized_candidate(selected_branch="H4")
+    h4 = finite_target["typed_protocol_contracts"]["h4"]["slots"]
+    h4["confirmatory_sample_source"]["value"] = "finite_benchmark_equals_target"
+    h4["simultaneous_inference_plan"]["value"][
+        "target_weight_uncertainty_treatment"
+    ] = "not_applicable_exact_finite_target_enumeration"
+    assert validate_successor_document(finite_target, root=ROOT) == [
+        "M0_SUCCESSOR_FREEZE_CANDIDATE_REVIEW_PENDING"
+    ]
 
 
 def test_base_v1_binding_drift_and_false_freeze_metadata_are_rejected(

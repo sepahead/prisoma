@@ -11,8 +11,8 @@ use pid_sim::file_snapshot::{
     parse_strict_json, read_bounded_regular_file, sync_directory, validate_strict_json_lines,
 };
 use pid_sim::h1_preflight::{
-    H1InputSnapshotStatus, H1PreflightDeclaration, H1PreflightInput, H1PreflightReport,
-    H1PreflightValidationScope, H1PrimaryProtocol, H1TargetPopulation,
+    validate_h1_preflight, H1InputSnapshotStatus, H1PreflightDeclaration, H1PreflightInput,
+    H1PreflightReport, H1PreflightValidationScope, H1PrimaryProtocol, H1TargetPopulation,
     H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION, H1_PREFLIGHT_SCHEMA_VERSION,
 };
 use pid_sim::h1_protocol_a::{
@@ -461,11 +461,8 @@ fn validate_preflight_semantics(
     summary_sha256: &str,
     issues: &mut Vec<CliIssue>,
 ) {
-    let summary_report_valid = summary.report.as_ref().is_some_and(|report| {
-        report.primary_protocol == H1PrimaryProtocol::ProtocolA
-            && report.passed
-            && report.issues.is_empty()
-    });
+    let summary_report_valid =
+        preflight_report_matches_input(preflight_input, summary.report.as_ref());
     let evidence_bundle_hash = pid_runlog::canonical_json_hash_v2(&summary.verified_artifacts);
     if summary.schema_version != H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION
         || !summary.parsed
@@ -506,6 +503,8 @@ fn validate_preflight_semantics(
         || runlog_summary.config_hash.as_deref() != Some(summary.config_hash.as_str())
         || runlog_summary.status != Some(RunStatus::Succeeded)
         || runlog_summary.pid_metric_events != 0
+        || runlog_summary.actions != 0
+        || runlog_summary.interventions != 0
     {
         push_cli_issue(
             issues,
@@ -591,7 +590,8 @@ fn validate_preflight_semantics(
             .as_ref()
             .ok()
             .map(String::as_str)
-            == Some(summary.config_hash.as_str());
+            == Some(summary.config_hash.as_str())
+        && preflight_config_matches_summary(configs[0].1, preflight_input, summary);
     let declaration = (configs.len() == 1)
         .then(|| configs[0].1.get("declaration"))
         .flatten()
@@ -610,6 +610,40 @@ fn validate_preflight_semantics(
             "Protocol-A plan does not match the exact preflight policy, scope, boundaries, treatment, clock, and output contract",
         );
     }
+}
+
+fn preflight_report_matches_input(
+    input: &H1PreflightInput,
+    report: Option<&H1PreflightReport>,
+) -> bool {
+    report.is_some_and(|report| {
+        report.primary_protocol == H1PrimaryProtocol::ProtocolA
+            && report.passed
+            && report.issues.is_empty()
+            && report == &validate_h1_preflight(input)
+    })
+}
+
+fn preflight_config_matches_summary(
+    config: &Value,
+    input: &H1PreflightInput,
+    summary: &PreflightSummary,
+) -> bool {
+    config
+        == &json!({
+            "component": "pid-h1-preflight",
+            "preflight_schema_version": H1_PREFLIGHT_SCHEMA_VERSION,
+            "artifact_schema_version": H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION,
+            "input_snapshot_status": summary.input_snapshot_status,
+            "input_sha256": summary.input_sha256,
+            "input_byte_len": summary.input_byte_len,
+            "evidence_bundle_hash": summary.evidence_bundle_hash,
+            "verified_artifacts": summary.verified_artifacts,
+            "artifact_resolution": "relative_to_cli_artifact_root",
+            "timestamp_semantics": "deterministic_event_index_not_capture_clock",
+            "evidence_scope": "software_preflight_only",
+            "declaration": input.declaration,
+        })
 }
 
 fn declaration_matches_plan(
@@ -1307,5 +1341,60 @@ mod tests {
         assert!(declaration_matches_plan(&preflight.declaration, &protocol));
         protocol.plan.execution_context = "different-process".to_string();
         assert!(!declaration_matches_plan(&preflight.declaration, &protocol));
+    }
+
+    #[test]
+    fn preflight_report_is_recomputed_instead_of_trusted() {
+        let mut preflight = serde_json::from_str::<H1PreflightInput>(include_str!(
+            "../../fixtures/h1_preflight_valid.json"
+        ))
+        .expect("parse checked preflight fixture");
+        let reported = validate_h1_preflight(&preflight);
+        assert!(preflight_report_matches_input(&preflight, Some(&reported)));
+
+        preflight.cases[0].moderator.lineage_stage =
+            pid_sim::h1_preflight::H1ModeratorLineageStage::TreatedForwardPass;
+        assert!(!preflight_report_matches_input(&preflight, Some(&reported)));
+    }
+
+    #[test]
+    fn preflight_config_binding_is_exact_and_rejects_extra_claims() {
+        let input = serde_json::from_str::<H1PreflightInput>(include_str!(
+            "../../fixtures/h1_preflight_valid.json"
+        ))
+        .expect("parse checked preflight fixture");
+        let summary = PreflightSummary {
+            schema_version: H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION,
+            run_id: "preflight-config-binding".to_string(),
+            input_uri: "input.json".to_string(),
+            input_snapshot_status: H1InputSnapshotStatus::Exact,
+            input_sha256: Some("a".repeat(64)),
+            input_byte_len: 42,
+            config_hash: "unused-in-helper".to_string(),
+            parsed: true,
+            passed: true,
+            establishes_h1_evidence: false,
+            evidence_bundle_hash: "b".repeat(64),
+            verified_artifacts: Vec::new(),
+            report: Some(validate_h1_preflight(&input)),
+            fatal_issues: Vec::new(),
+        };
+        let mut config = json!({
+            "component": "pid-h1-preflight",
+            "preflight_schema_version": H1_PREFLIGHT_SCHEMA_VERSION,
+            "artifact_schema_version": H1_PREFLIGHT_ARTIFACT_SCHEMA_VERSION,
+            "input_snapshot_status": summary.input_snapshot_status,
+            "input_sha256": summary.input_sha256,
+            "input_byte_len": summary.input_byte_len,
+            "evidence_bundle_hash": summary.evidence_bundle_hash,
+            "verified_artifacts": summary.verified_artifacts,
+            "artifact_resolution": "relative_to_cli_artifact_root",
+            "timestamp_semantics": "deterministic_event_index_not_capture_clock",
+            "evidence_scope": "software_preflight_only",
+            "declaration": input.declaration,
+        });
+        assert!(preflight_config_matches_summary(&config, &input, &summary));
+        config["scientific_claim"] = json!("H1 passed");
+        assert!(!preflight_config_matches_summary(&config, &input, &summary));
     }
 }

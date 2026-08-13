@@ -6,7 +6,7 @@
 //! backend/solver/task provenance. With the Rapier backend the dynamics are real
 //! (gravity, contacts, friction), so the cube accelerates under the push impulse
 //! and decelerates under friction; whether it lands within tolerance of the goal
-//! is an externally meaningful success/failure label, not a hand-set flag.
+//! is a state-derived success/failure label, not a hand-set flag.
 //!
 //! The runner is generic over the backend so the *same* scripted commands can be
 //! replayed on the kinematic [`NullPhysicsBackend`](crate::physics::NullPhysicsBackend)
@@ -201,7 +201,7 @@ pub struct PushEpisode {
 }
 
 /// Run a scripted push-to-goal episode and return the canonical run-log events
-/// plus the externally meaningful success label.
+/// plus the state-derived success label.
 ///
 /// The caller is responsible for any backend-specific scene setup (e.g. calling
 /// `add_ground_slab` on the Rapier backend) *before* this function adds the cube.

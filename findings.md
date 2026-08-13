@@ -3,12 +3,13 @@
 > **Documentation Cross-Reference**:
 > - `grandplan.md` — Master plan and theoretical foundations
 > - `README.md` — Quick start guide
-> - `ARCHITECTURE.md` — Component breakdown and advantages over VLM-based robotics
+> - `ARCHITECTURE.md` — Current component boundaries and low-overhead design
 > - `DIAGRAMS.md` — Visual architecture diagrams
-> - `EXPERIMENTS.md` — Experimental protocols for Rerun-first diagnostics, modular physics, and hypothesis testing
-> - `pidsplatspecs.md` — Detailed simulation environment and PID specifications
+> - `EXPERIMENTS.md` — Executable proofs and blocked scientific protocols
+> - `pidsplatspecs.md` — Stable runtime and adapter contract
 
-**Docset alignment:** this evidence record is aligned to `grandplan.md` docset v12.5 (scientific cut 2026-07-12).
+**Docset alignment:** this evidence record uses the 2026-07-12 scientific cut and the
+first-principles reconciliation through 2026-08-13 in `grandplan.md` docset v12.5.
 
 ## Contents
 
@@ -59,8 +60,8 @@ real embeddings, but state the reason precisely.
 gate sequence. These findings justify a fail-closed Experiment 0 estimator gate (S1). Geometry
 statistics remain descriptive warnings unless a versioned support envelope has calibrated them
 against held-out recovery; they are not independent proof of validity or failure. Build the EC1
-provenance-complete run-log/replay/Rerun substrate before any Tauri/SparkJS product shell or
-high-dimensional VLA atom claim.
+run-log/replay/Rerun substrate and test its registered provenance fields before any Tauri/SparkJS
+product shell or high-dimensional VLA atom claim.
 
 ---
 
@@ -191,7 +192,8 @@ with estimator error unless a dimension-specific `I^sx_∩` oracle is supplied.
 
 ## Three Hypotheses
 
-Terminology note: the hypotheses in this section are local Experiment 0 diagnostic hypotheses about estimator behavior. They are not the canonical confirmatory claim registry (EC1, H1–H4), which lives in `grandplan.md` §4 and is summarized in `README.md`.
+Terminology note: these hypotheses concern local Experiment 0 estimator behavior. They are not the
+canonical unfrozen claim templates. EC1 and H1–H4 live in `grandplan.md` section 4.
 
 ### Hypothesis 1: Recovery failure under nuisance dimensions
 > The near-zero estimates are a finite-sample recovery failure caused by nuisance dimensions,
@@ -255,6 +257,9 @@ regime, not a guaranteed repair.
 ---
 
 ## Implications for VLA Analysis
+
+These estimator findings apply equally to states from policies branded as WAMs. A generated or
+predictive-trained `D` does not open the population, measure, estimator, or application gate.
 
 ### The Core Problem
 
@@ -344,14 +349,14 @@ Based on Exp0 findings (negative vulnerability observed in `redundant_copy` at `
 ### 2. Applied V-L-A-D Scenarios
 
 *   **Scenario A: V-L-A (Vision-Language Alignment)**
-    *   **Sources:** $V_{red}$ (PCA/SAE $\to$ 20d), $L_{red}$ (PCA/SAE $\to$ 20d).
+    *   **Sources:** train-fit, frozen, validation-qualified reductions $V_{red}$ and $L_{red}$.
     *   **Method candidate:** Shannon invariants, only after all MI terms validate.
     *   **Goal:** screen additive/redundancy–synergy balance. High `r̄` does not imply good
         grounding without external targets and interventions.
 
 *   **Scenario B: V-D-A (World Model Consistency)**
-    *   **Sources:** $V_{red}$ (20d), $D_{red}$ (20d).
-    *   **Method:** **Shannon Invariants ($\bar{r}$)**.
+    *   **Sources:** train-fit, frozen, validation-qualified reductions $V_{red}$ and $D_{red}$.
+    *   **Method candidate:** Shannon invariants, only after every constituent MI validates.
     *   **Goal:** $\bar{r} \approx 1$ means *additive* MI, which is **consistent with** the policy ignoring the Dream state (or V) — but additivity can also arise from Red ≈ Syn cancellation, so confirm with interventions before concluding "ignored".
 
 *   **Scenario C: "Flow-as-Bridge" (target-side reduction candidate)**
@@ -429,7 +434,7 @@ all four gates.
 
 ## Final Verdict on Hypotheses
 
-### Hypothesis 1: Estimated recovery failure despite preserved population signal
+### Final verdict 1: Estimated recovery failure despite preserved population signal
 **VERDICT: SUPPORTED FOR THE TESTED REGIMES; NOT A CORRECTNESS CLAIM**
 
 The data-generating law preserves non-zero MI while the finite-sample estimate approaches zero and
@@ -440,7 +445,7 @@ explanation, not a uniquely identified population mechanism.
 The collapse does not mean that the population signal disappeared, and explaining a failed estimate
 does not make it valid.
 
-### Hypothesis 2: Regime-limited kNN recovery at high effective dimension
+### Final verdict 2: Regime-limited kNN recovery at high effective dimension
 **VERDICT: SUPPORTED IN THE TESTED NUISANCE-RICH REGIMES; UNIVERSAL CLAIM REJECTED**
 
 The observed failure is consistent with qualitative kNN-MI limitations under the synthetic
@@ -454,7 +459,7 @@ response is to:
 2. Use low-d targets (flow summaries) when possible
 3. Use supervised dimensionality reduction when high-d sources are unavoidable
 
-### Hypothesis 3: Projection Should Recover Signal
+### Final verdict 3: Projection should recover signal
 **VERDICT: FALSE (as implemented)**
 
 In this isotropic equal-variance construction, the tested random projection and PCA baselines
@@ -496,9 +501,10 @@ transform, test on held-out data, and include shuffled-target selection controls
 
 ## Open Questions
 
-1. What is the intrinsic dimension of real VLA embeddings (e.g., DINO, SigLIP)?
-2. Do VLA action spaces have concentrated or dispersed geometry?
-3. Can we validate PID estimates against known robotics ground truth?
+1. What effective dimension and dependence structure do the exact candidate tensor sites have?
+2. Which train-fit reduction preserves held-out target information without leaking outcomes?
+3. Which low-dimensional robotics systems supply matching PID ground truth or exact references?
+4. Does a predictive-policy `D` retain action sensitivity after task, state, and policy confounding?
 
 ---
 
@@ -526,11 +532,12 @@ unconditional theorem of failure for every distribution or nearest-neighbor esti
 
 ---
 
-*Last updated: 2026-07-16 (docset v12.5 — gate verdicts mapped onto the four PID gates
+*Last updated: 2026-08-13 (docset v12.5 — first-principles claim boundaries reconciled;
+gate verdicts mapped onto the four PID gates
 of `grandplan.md` §7.1; MI/coherence estimator gate NO-GO separated from the continuous
 `I^sx_∩` application gate BLOCKED / NOT APPLICATION-VALIDATED; nuisance-dimension atom
 invariance and δ validity-gate claims withdrawn; current results attributed to the exact 0.9.0
 post-tag review-source pin and
-historical 0.3/0.4 behavior labelled explicitly)*
+historical 0.3/0.4 behavior labeled explicitly)*
 *Based on analysis of the current `exp0.rs`, experimental output, and implementation of PLS +
 discrete PID (now wired into the offline harness with saturation diagnostics)*

@@ -1,8 +1,9 @@
 //! # ncp-observer — prisoma's passive NCP tap
 //!
 //! A future conforming NEST/Engram publisher could become an optional `(V,L,D,A)`
-//! source. Unlike the critical-path `experiments/safe_adapter` reference producer,
-//! this integration remains exploratory, off-path, and PID-disabled by default.
+//! source. Unlike the reference `experiments/safe_adapter` implementation and its
+//! candidate critical-path real-data path, this integration remains exploratory,
+//! off-path, and PID-disabled by default.
 //! This crate is a **read-only observer**: it subscribes to the NCP data-plane keys
 //! (`…/session/{id}/{sensor,command,observation}`) and converts each closed-loop
 //! tick into an `OfflineVldaSample`, writing both
@@ -36,6 +37,10 @@
 //!   neural state before the motor head. Its world-model status is untested and
 //!   requires separate architecture evidence plus held-out probes/interventions.
 //! - **A** (action) ← `CommandFrame` channels, flattened.
+//! - **success** (optional outcome) ← exactly one binary scalar (`0` or `1`) in
+//!   the configured success channel. A present empty, vector-valued, non-finite,
+//!   or non-binary channel is rejected. The success and language channel names
+//!   must be distinct.
 //!
 //! ## Alignment (the correctness rule)
 //! V and A are joined on the driving **sensor `StreamPosition`** (`{epoch, seq}`)
@@ -58,6 +63,10 @@
 //! observation with NO `source` is the pull/RPC form and is dropped (source
 //! ABSENCE, not the retired `seq == 0` sentinel); there is no recency fallback or
 //! future-D pairing.
+//! The authorizing sensor clock must be finite, nonnegative, and within the
+//! unsigned run-log nanosecond range. Conversion truncates fractional nanoseconds
+//! toward zero. Invalid clocks are rejected before they can authorize an epoch,
+//! generation, watermark, sample, or event.
 //!
 //! ## Sessions, epochs, and unstamped frames
 //! - An unstamped join position is dropped and counted: a `SensorFrame` whose own
@@ -211,7 +220,8 @@ type StreamKey = (String, i64);
 pub struct Mapping {
     /// `SensorFrame` channel carrying the language/instruction embedding.
     pub language_channel: String,
-    /// `SensorFrame` channel carrying a per-tick success label (optional).
+    /// `SensorFrame` channel carrying one per-tick success scalar (optional).
+    /// When present, the named channel must contain exactly one `0` or `1`.
     pub success_channel: Option<String>,
     /// One NEST trial id → `episode_id`.
     pub episode_id: Option<String>,
@@ -994,7 +1004,10 @@ struct Partial {
     l_present: bool,
     a: Option<Vec<f64>>,
     success: Option<serde_json::Value>,
-    t: Option<f64>,
+    /// Exact nanoseconds derived from the authorizing sensor clock. Run-log events
+    /// project this value onto a nondecreasing clock and preserve this source value
+    /// in metadata. Command clocks never substitute for a missing sensor clock.
+    timestamp_ns: Option<u64>,
     sensor_hash: Option<String>,
     command_hash: Option<String>,
     generation: Option<String>,
@@ -1627,25 +1640,12 @@ impl Observer {
             ("run_id", self.run_id.as_str()),
             ("model", self.model.as_str()),
             ("task", self.task.as_str()),
-            ("language_channel", self.mapping.language_channel.as_str()),
         ] {
             if value.is_empty() || value.len() > 4096 {
                 anyhow::bail!("{name} must be a non-empty bounded string");
             }
         }
-        if self
-            .mapping
-            .success_channel
-            .as_ref()
-            .is_some_and(|value| value.is_empty() || value.len() > 4096)
-            || self
-                .mapping
-                .episode_id
-                .as_ref()
-                .is_some_and(|value| value.is_empty() || value.len() > 4096)
-        {
-            anyhow::bail!("mapping channel and episode identifiers must be bounded");
-        }
+        self.validate_mapping()?;
         self.runlog_path = Some(path.as_ref().to_path_buf());
         let config = serde_json::json!({
             "component": "ncp-observer",
@@ -1726,12 +1726,38 @@ impl Observer {
     }
 
     fn ensure_capturing(&self) -> anyhow::Result<()> {
+        self.validate_mapping()?;
         if self.finalized {
             anyhow::bail!("observer is finalized; refusing post-event artifact mutation");
         }
         if self.finalization_started {
             anyhow::bail!(
                 "observer finalization has started; refusing mutation while an exact retry is pending"
+            );
+        }
+        Ok(())
+    }
+
+    fn validate_mapping(&self) -> anyhow::Result<()> {
+        if self.mapping.language_channel.is_empty() || self.mapping.language_channel.len() > 4096 {
+            anyhow::bail!("language_channel must be a non-empty bounded string");
+        }
+        if self
+            .mapping
+            .success_channel
+            .as_ref()
+            .is_some_and(|value| value.is_empty() || value.len() > 4096)
+            || self
+                .mapping
+                .episode_id
+                .as_ref()
+                .is_some_and(|value| value.is_empty() || value.len() > 4096)
+        {
+            anyhow::bail!("mapping channel and episode identifiers must be bounded");
+        }
+        if self.mapping.success_channel.as_deref() == Some(self.mapping.language_channel.as_str()) {
+            anyhow::bail!(
+                "language and success channels must be distinct to prevent outcome leakage"
             );
         }
         Ok(())
@@ -1747,11 +1773,22 @@ impl Observer {
         }
     }
 
-    /// Monotonic run-log timestamp for a sensor time `t` (seconds).
-    fn stamp(&mut self, t: f64) -> u64 {
-        let ts = (t * 1e9).max(0.0) as u64;
-        self.max_ts = self.max_ts.max(ts);
+    /// Clamp an already-validated sensor timestamp to the monotonic run-log clock.
+    fn stamp(&mut self, timestamp_ns: u64) -> u64 {
+        self.max_ts = self.max_ts.max(timestamp_ns);
         self.max_ts
+    }
+
+    /// Convert producer-local sensor seconds to the run-log's unsigned nanoseconds.
+    ///
+    /// NCP wire 0.8 requires only a finite `SensorFrame.t`. The consumer must also
+    /// reject negative values and finite values whose nanosecond conversion would
+    /// saturate. Fractional nanoseconds truncate toward zero. A saturating cast
+    /// would invent or alias accepted evidence.
+    fn sensor_timestamp_ns(t: f64) -> Option<u64> {
+        let nanoseconds = t * 1_000_000_000.0;
+        (t >= 0.0 && nanoseconds.is_finite() && nanoseconds < u64::MAX as f64)
+            .then_some(nanoseconds.floor() as u64)
     }
 
     /// Check the capture identity without locking a previously unseen
@@ -2101,6 +2138,11 @@ impl Observer {
 
         // Validate and bound every derived axis before the sensor can lock a
         // generation, authorize an epoch transition, or advance the watermark.
+        let Some(timestamp_ns) = Self::sensor_timestamp_ns(sensor.t) else {
+            self.stats.invalid_payloads_dropped =
+                self.stats.invalid_payloads_dropped.saturating_add(1);
+            return Ok(());
+        };
         let l_channel = sensor.channels.get(&self.mapping.language_channel);
         if l_channel.is_some_and(|channel| {
             channel.data.len() > self.limits.max_axis_values
@@ -2125,13 +2167,22 @@ impl Observer {
                 self.stats.invalid_payloads_dropped.saturating_add(1);
             return Ok(());
         };
-        let success = self
+        let success = match self
             .mapping
             .success_channel
             .as_ref()
             .and_then(|channel| sensor.channels.get(channel))
-            .and_then(|value| value.data.first().copied())
-            .map(|value| serde_json::json!(value != 0.0));
+        {
+            None => None,
+            Some(channel) if channel.data.len() == 1 && matches!(channel.data[0], 0.0 | 1.0) => {
+                Some(serde_json::json!(channel.data[0] == 1.0))
+            }
+            Some(_) => {
+                self.stats.invalid_payloads_dropped =
+                    self.stats.invalid_payloads_dropped.saturating_add(1);
+                return Ok(());
+            }
+        };
 
         let passenger_generation_mismatch = self
             .pending
@@ -2174,7 +2225,7 @@ impl Observer {
         entry.v = Some(v);
         entry.l = Some(l);
         entry.l_present = l_present;
-        entry.t = Some(sensor.t);
+        entry.timestamp_ns = Some(timestamp_ns);
         entry.sensor_hash = Some(sensor_hash);
         entry.generation = Some(sensor.session.generation.clone());
         if success.is_some() {
@@ -2260,15 +2311,6 @@ impl Observer {
         entry
             .generation
             .get_or_insert_with(|| command.session.generation.clone());
-        if entry.t.is_none() {
-            // Prefer the driving sensor's time (`source_t`) as the tick clock; fall
-            // back to the command's own creation time when it was left unset.
-            entry.t = Some(if command.source_t != 0.0 {
-                command.source_t
-            } else {
-                command.t
-            });
-        }
         self.enforce_bounds();
         self.emit_ready();
         Ok(())
@@ -2508,6 +2550,14 @@ impl Observer {
             observation_hash,
             conflicted: false,
         };
+        let Some(timestamp_ns) = p.timestamp_ns else {
+            // A complete V+A tick must contain an authorizing sensor. Do not
+            // fabricate a zero clock if internal state ever violates that invariant.
+            self.stats.invalid_payloads_dropped =
+                self.stats.invalid_payloads_dropped.saturating_add(1);
+            self.close_key((epoch, seq), receipts);
+            return;
+        };
         let v = p.v.unwrap_or_default();
         let l = p.l.unwrap_or_default();
         let a = p.a.unwrap_or_default();
@@ -2585,6 +2635,7 @@ impl Observer {
         let mut metadata = BTreeMap::new();
         metadata.insert("seq".to_string(), seq.to_string());
         metadata.insert("epoch".to_string(), epoch.clone());
+        metadata.insert("sensor_timestamp_ns".to_string(), timestamp_ns.to_string());
         metadata.insert("source".to_string(), "ncp".to_string());
         // Honest provenance: D is exact-source ({epoch, seq}) or the tick is
         // excluded. A kept sample's L is nonempty (empty-L ticks
@@ -2606,7 +2657,7 @@ impl Observer {
             labels: labels.clone(),
             metadata,
         };
-        self.buffer_runlog(&sample, p.t.unwrap_or(0.0), &labels);
+        self.buffer_runlog(&sample, timestamp_ns, &labels);
         self.samples.push(sample);
         self.total_sample_elements = next_total_elements;
         self.stats.kept_samples = self.stats.kept_samples.saturating_add(1);
@@ -2618,10 +2669,10 @@ impl Observer {
     fn buffer_runlog(
         &mut self,
         sample: &OfflineVldaSample,
-        t: f64,
+        timestamp_ns: u64,
         labels: &BTreeMap<String, serde_json::Value>,
     ) {
-        let ts = self.stamp(t);
+        let ts = self.stamp(timestamp_ns);
         let step = self.n;
         if self.runlog_path.is_none() {
             return;
@@ -2654,7 +2705,13 @@ impl Observer {
         // records how each axis was aligned, independent of the JSON artifact.
         let mut meta = BTreeMap::new();
         meta.insert("sample_id".to_string(), sample.sample_id.clone());
-        for key in ["seq", "epoch", "l_source", "d_source"] {
+        for key in [
+            "seq",
+            "epoch",
+            "sensor_timestamp_ns",
+            "l_source",
+            "d_source",
+        ] {
             if let Some(value) = sample.metadata.get(key) {
                 meta.insert(key.to_string(), value.clone());
             }
@@ -3354,6 +3411,42 @@ mod tests {
         assert!(error.to_string().contains("with_expected_session"));
     }
 
+    #[test]
+    fn canonical_runlog_rejects_language_success_channel_alias() {
+        let mapping = Mapping {
+            language_channel: "shared".into(),
+            success_channel: Some("shared".into()),
+            episode_id: None,
+        };
+        let error = Observer::new("run", "nest", "reach", mapping)
+            .with_expected_session(SID)
+            .unwrap()
+            .with_runlog("unused.jsonl")
+            .err()
+            .unwrap();
+
+        assert!(error.to_string().contains("must be distinct"));
+    }
+
+    #[test]
+    fn in_memory_ingress_rejects_language_success_channel_alias_before_mutation() {
+        let mapping = Mapping {
+            language_channel: "shared".into(),
+            success_channel: Some("shared".into()),
+            episode_id: None,
+        };
+        let mut observer = Observer::new("run", "nest", "reach", mapping);
+
+        let error = observer
+            .on_sensor(&sensor(1, 1.0, &[("shared", vec![1.0])]))
+            .unwrap_err();
+
+        assert!(error.to_string().contains("must be distinct"));
+        assert_eq!(observer.stats, ObserverStats::default());
+        assert!(observer.pending.is_empty());
+        assert!(observer.expected_generation.is_none());
+    }
+
     fn assert_finalize_retry_reconstructs(stage: FailStage) {
         let dir = unique_test_dir("retry");
         std::fs::create_dir_all(&dir).unwrap();
@@ -3651,9 +3744,133 @@ mod tests {
         );
         assert_eq!(s.l, vec![0.5]);
         assert_eq!(
+            s.metadata.get("sensor_timestamp_ns"),
+            Some(&"1000000000".to_string())
+        );
+        assert_eq!(
             s.labels.get("success"),
             Some(&serde_json::json!(true)),
             "the success outcome must surface as a label"
+        );
+    }
+
+    #[test]
+    fn configured_success_channel_requires_one_scalar_before_state_mutation() {
+        let mapping = Mapping {
+            language_channel: "instruction".into(),
+            success_channel: Some("success".into()),
+            episode_id: None,
+        };
+        let mut observer = Observer::new("run", "nest", "reach", mapping);
+
+        for (seq, invalid_success) in [
+            (1, Vec::new()),
+            (2, vec![0.0, 1.0]),
+            (3, vec![f64::NAN]),
+            (4, vec![f64::INFINITY]),
+            (5, vec![-1.0]),
+            (6, vec![0.5]),
+            (7, vec![2.0]),
+        ] {
+            observer
+                .on_sensor(&sensor(
+                    seq,
+                    1.0,
+                    &[
+                        ("pose", vec![1.0]),
+                        ("instruction", vec![0.5]),
+                        ("success", invalid_success),
+                    ],
+                ))
+                .unwrap();
+        }
+
+        assert_eq!(observer.stats.invalid_payloads_dropped, 7);
+        assert!(observer.pending.is_empty());
+        assert!(observer.expected_generation.is_none());
+        assert!(observer.active_epoch.is_none());
+        assert_eq!(observer.sample_count(), 0);
+    }
+
+    #[test]
+    fn sensor_clock_rejects_out_of_range_values_before_state_mutation() {
+        assert_eq!(Observer::sensor_timestamp_ns(0.0), Some(0));
+        assert_eq!(Observer::sensor_timestamp_ns(0.000_000_000_9), Some(0));
+        assert_eq!(Observer::sensor_timestamp_ns(1.25), Some(1_250_000_000));
+
+        let mut observer = Observer::new("run", "nest", "reach", Mapping::default());
+        let first_rejected_second = u64::MAX as f64 / 1_000_000_000.0;
+        for (seq, invalid_time) in [
+            (1, -f64::MIN_POSITIVE),
+            (2, first_rejected_second),
+            (3, f64::MAX),
+        ] {
+            observer
+                .on_sensor(&sensor(
+                    seq,
+                    invalid_time,
+                    &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+                ))
+                .unwrap();
+        }
+
+        assert_eq!(observer.stats.invalid_payloads_dropped, 3);
+        assert!(observer.pending.is_empty());
+        assert!(observer.expected_generation.is_none());
+        assert!(observer.active_epoch.is_none());
+        assert_eq!(observer.max_seq, 0);
+        assert_eq!(observer.max_ts, 0);
+    }
+
+    #[test]
+    fn sensor_clock_preserves_raw_time_when_event_time_is_projected_monotonically() {
+        let mut observer = Observer::new("run", "nest", "reach", Mapping::default())
+            .with_expected_session(SID)
+            .unwrap()
+            .with_runlog("unused.jsonl")
+            .unwrap();
+        for (seq, timestamp) in [(1, 2.0), (2, 1.0)] {
+            observer
+                .on_observation(&observation(seq, vec![3.0]))
+                .unwrap();
+            observer
+                .on_sensor(&sensor(
+                    seq,
+                    timestamp,
+                    &[("pose", vec![1.0]), ("instruction", vec![0.5])],
+                ))
+                .unwrap();
+            observer
+                .on_command(&command(
+                    seq,
+                    timestamp,
+                    &[("velocity_setpoint", vec![0.1])],
+                ))
+                .unwrap();
+        }
+        observer.flush_complete().unwrap();
+
+        assert_eq!(
+            observer.sample(1).metadata.get("sensor_timestamp_ns"),
+            Some(&"1000000000".to_string())
+        );
+        let second_capture = observer
+            .runlog_events
+            .iter()
+            .find_map(|event| match event {
+                RunLogEvent::EmbeddingCaptured {
+                    step: 1,
+                    timestamp_ns,
+                    metadata,
+                    ..
+                } => Some((*timestamp_ns, metadata)),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(second_capture.0, 2_000_000_000);
+        assert_eq!(
+            second_capture.1.get("sensor_timestamp_ns"),
+            Some(&"1000000000".to_string())
         );
     }
 

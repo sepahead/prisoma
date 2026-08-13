@@ -115,6 +115,7 @@ REQUIRED_FEATURE_IDS = frozenset(
         "pid.estimator_core",
         "proposal.gauss_mi_covariate",
         "proposal.gauss_mi_weighted_pid",
+        "proposal.m4_predictive_policy_qualification",
         "proposal.worldwarp_external",
         "replay.canonical_runlog",
         "sim.rapier_backend",

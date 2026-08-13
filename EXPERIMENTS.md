@@ -7,15 +7,16 @@ The repository contains protocol groundwork. It does not contain a completed con
 
 ## 0. Scope
 
-### 0.1 Claim registry
+### 0.1 Unfrozen claim-template registry
 
 | Claim | Question | Runnable today | Current boundary |
 |---|---|---|---|
-| EC1 | Can captured work be reconstructed and replayed? | Local schema, replay, adapter, and fault fixtures | No external finite acceptance study |
-| H1 | Do pre-treatment diagnostics predict intervention response? | Common preflight and synthetic Protocol-A reference | Real policy, environment, dose, and estimand remain unfrozen |
-| H2 | Do pre-treatment features predict future failure? | Synthetic fixed-horizon arithmetic reference | No prospective real capture or validated calibration |
-| H3 | Does PID add valid incremental value? | Estimator diagnostics and bounded harness | Not eligible; high-dimensional path is NO-GO |
-| H4 | Do diagnostics align with tested intervention effects? | Exploratory attribution reference | No causal or mechanistic-faithfulness evidence |
+| EC1 | Can registered accepted events be reconstructed and replayed under frozen margins? | Local schema, replay, adapter, and fault fixtures | No external finite acceptance study |
+| H1-A | Do pre-treatment diagnostics predict a paired frozen-snapshot response? | Common preflight and synthetic Protocol-A reference | Real policy, environment, dose, and estimand remain unfrozen |
+| H1-B | Do pre-treatment diagnostics predict randomized closed-loop effect modification? | Specification only | No randomized implementation or evidence |
+| H2 | Do pre-treatment features predict future failure under one scoring and censoring contract? | Synthetic fixed-horizon risk-estimator arithmetic reference | No prospective real capture or validated calibration |
+| H3 | Does the full PID/abstention/exact-fallback policy add value on the target population? | Estimator diagnostics and bounded harness | Not eligible; high-dimensional path is NO-GO |
+| H4 | Does availability diverge from response to one tested intervention? | Exploratory attribution reference | No availability or tested-response evidence |
 
 The machine-readable source is
 [`protocols/research_claim_registry_v1.json`](protocols/research_claim_registry_v1.json).
@@ -32,8 +33,8 @@ Run the stages in this order:
 | EC1 groundwork | `just runlog-sidecars-proof` and `just runlog-rerun-proof` | Local fixtures reconstruct and convert | External replay validation |
 | PID firebreak | `just firebreak` | Static baselines run without PID atoms or NCP | H1 or H2 evidence |
 | H1 preflight | `just h1-preflight` | The checked fixture satisfies the common contract | A physical response estimate |
-| H1 Protocol A | `just h1-protocol-a` | Synthetic scoring arithmetic is deterministic | H1 evidence |
-| H2 reference | `just h2-reference` | Synthetic censoring and score arithmetic is deterministic | H2 evidence |
+| H1 Protocol A | `just h1-protocol-a` | Synthetic scoring arithmetic is deterministic | H1-A or H1-B evidence |
+| H2 reference | `just h2-reference` | Synthetic censoring and risk-estimator arithmetic is deterministic | H2 evidence or a proper observed-data score |
 | H3 diagnostics | `just exp0-bin` | Current diagnostic verdicts reproduce | Atom or application validity |
 | Offline harness | `just offline-harness` | The fixture passes the selected software path | Real-data eligibility |
 | H4 reference | `just attribution-probe` | Bounded reference artifacts reconstruct | Causal faithfulness |
@@ -43,8 +44,9 @@ genuinely complete. Do not weaken those checks to make them pass.
 
 ### 0.3 Data-source rule
 
-The harness is source-agnostic over one strict `(V,L,D,A)` contract. The reference producer for
-confirmatory work is `experiments/safe_adapter`. Local simulator fixtures are cross-checks.
+The harness is source-agnostic over one strict `(V,L,D,A)` contract. The reference adapter
+implementation is `experiments/safe_adapter`. It is the candidate critical-path real-data producer.
+Local simulator fixtures are cross-checks.
 
 The NCP observer is optional and off the critical path. It is not a substitute for a real SAFE
 capture. `D` is a declared source axis, not an assumed depth channel.
@@ -99,7 +101,7 @@ Before EC1 can pass, freeze:
 - The supported adapter set.
 - The finite fault universe.
 - The replay oracle and tolerances.
-- Per-fault and per-adapter sensitivity floors.
+- One absolute sensitivity floor for each registered fault-adapter pair.
 - Valid-case false-positive obligations.
 - Uncertainty and multiplicity rules.
 - A conventional external baseline.
@@ -118,9 +120,10 @@ just h1-preflight
 ```
 
 `pid-h1-preflight` validates the structural, timing, lineage, fold, reset, RNG, clone, and
-instrumentation-noninterference contract. The valid fixture is a representative mechanism only.
+instrumentation-noninterference contract. The valid input is a representative-mechanism structural
+fixture only.
 
-The result establishes no response estimate and no H1 evidence.
+The result establishes no response estimate and no H1-A evidence. It cannot establish H1-B.
 
 ### 3.2 Protocol-A software reference
 
@@ -135,7 +138,7 @@ reverses treatment order, records zero RNG draws, and scores fixed-design and mo
 of outer fold.
 
 It is a deterministic finite benchmark. It is not a subprocess audit, physical effect, stochastic
-policy result, Protocol B implementation, or H1 result.
+policy result, Protocol B implementation, or H1-A evidence.
 
 ### 3.3 Required real protocol freeze
 
@@ -146,10 +149,13 @@ Before real capture, freeze:
 3. The pre-treatment feature whitelist and instrumentation comparison.
 4. Protocol A or Protocol B.
 5. One estimand and its direction.
-6. Calibration bins or effect endpoint rules.
-7. The testing hierarchy and non-rescuable primary endpoint.
-8. Minimum useful effects with domain justification.
-9. Holdout, access, and contamination controls.
+6. One proper response score or one effect-specific primary endpoint.
+7. A matched-access comparator and positive useful margin.
+8. A one-sided lower-confidence-bound decision under frozen uncertainty and multiplicity.
+9. Calibration acceptance and failure rules or the full effect-validation stack.
+10. The testing hierarchy and non-rescuable primary endpoint.
+11. The finite-benchmark or directional-replication scope.
+12. Holdout, access, and contamination controls.
 
 Do not select treatment strength from held-out response behavior.
 
@@ -169,7 +175,7 @@ artifacts. It exercises:
 - Task-family-held-out fitting.
 - Grouped cross-fitting.
 - Stratified reverse-KM IPCW.
-- Horvitz-Thompson Brier arithmetic.
+- Horvitz–Thompson IPCW Brier risk-estimator arithmetic.
 - Competing-event classification.
 - Reliability bins.
 - Frozen alarm and nondetection accounting.
@@ -187,7 +193,11 @@ Before real capture, freeze:
 2. One primary failure definition and competing events.
 3. Censoring strata and sensitivity analyses.
 4. The independent episode and task-family units.
-5. One primary proper score.
+5. One primary scoring contract that aligns the prediction object, score, risk, censoring,
+   identification, and uncertainty.
+   A forecast-independent censoring-adjusted Brier construction can target scalar horizon risk
+   under its exact conditional-censoring and positivity assumptions. A right-censored likelihood
+   requires a full event-time-and-type law. Freeze the complete competing-event ontology.
 6. Calibration intercept, slope, and uncertainty requirements.
 7. Alarm threshold selection using training information only.
 8. The matched-access comparator frontier.
@@ -256,10 +266,15 @@ splits permit them. Geometry diagnostics do not replace any PID gate.
 ### 5.4 Activation rule
 
 H3 remains inactive unless all four gates pass inside one frozen regime. One regime is one tuple
-of measure, preprocessing, and estimator configuration.
+of measure, preprocessing, and estimator configuration. Its primary denominator is the complete
+frozen target ledger. Each abstention uses the exact same-fold M1 output.
 
-If H3 activates, compare PID only against matched-access strong baselines. Measure incremental
-predictive or decision value out of fold. Do not promote atom magnitude by itself.
+If H3 activates, use the frozen matched-access comparator registry and predeclared selection or
+ensemble rule. Measure incremental predictive or decision value out of fold. Report warning,
+abstention, and fallback rates. Define improvement so larger values are better. Require its
+one-sided lower confidence bound to exceed the positive useful margin under the frozen
+multiplicity rule. Noninferiority, equivalence, and eligible-only performance cannot establish
+added value.
 
 ## 6. H4 tested-intervention-effect protocol
 
@@ -282,9 +297,13 @@ claim.
 
 ### 6.2 Required confirmatory H4 design
 
-Freeze the availability rule, intervention target, effect endpoint, transport assumptions,
-independent group, and inference method before capture. Attribution agreement alone cannot define
-success.
+Freeze one target population, sampling or transport contract, baseline-defined region rule,
+weight vector, probe, intervention construction, effect endpoint, margins, and independent unit
+before capture. Use simultaneous availability-superiority and effect-equivalence inference. Bind
+uncertainty for estimated target weights, exact fixed finite-target weights, and joint design
+power. A second construction is required before the
+claim generalizes beyond the primary construction. Attribution agreement alone cannot define
+success. A small tested effect does not establish natural policy non-use.
 
 Production work should use a separately pinned and validated AttnLRP implementation when that
 method is appropriate.
@@ -314,8 +333,22 @@ with an explicit reviewed `--resource-limits-json` file.
 The file is strict JSON, bounded to 64 KiB, and rejects unknown or zero fields. The applied values
 and projected usage enter the report configuration hash.
 
+The same configuration binds report contract `prisoma.offline_vlda.report/2`. Publication rejects
+an unversioned or unknown report contract instead of inferring compatibility from JSON shape.
+
 Optional uncertainty is admitted together with the main analysis. A large bootstrap or permutation
-request fails before the main analysis begins.
+request fails before the main analysis begins. Schema 2 records the row topology and null
+calibration. Current resamplers fail closed when mixed episode identifiers or multiple
+non-singleton episodes would force a block or shift across boundaries. Multi-row block
+subsampling and circular shifts require one episode with a strictly increasing canonical decimal
+`metadata.sequence_index`. An `episode_id` alone does not establish order. Rows without episode
+identifiers support only unit-block subsampling and full shuffle under a declared
+row-exchangeability assumption. The CLI requires an
+explicit block size for every bootstrap and circular-shift request. It requires an explicit scheme
+for every permutation request. A combined request cannot mix an exchangeable-row bootstrap with a
+serial surrogate, or a block bootstrap with a full shuffle. Restricted circular shifts yield
+approximate surrogate tail fractions, not p-values. The temporal AR(1) screen is descriptive. Its
+derived hints require the same sequence-index receipt and cannot select a block length by itself.
 
 ## 9. Reproducibility checklist
 
@@ -354,6 +387,32 @@ It requires a pinned adapter, matched support, rights review, and content-bound 
 
 Generated scenes are not causal ground truth. This comparator is off the critical path.
 
+Classify each candidate by its deployed graph before capture. Keep predictive co-training,
+intended-future conditioning, coupled joint generation, action-conditioned prediction, and
+candidate planning separate. Do not infer an operational conditional query by factorizing a joint
+density.
+
+Use this matched six-arm mechanism ladder if the study is activated:
+
+1. train and deploy an action-only direct policy;
+2. add a future loss but deploy the direct policy;
+3. expose an intended future to action generation;
+4. jointly sample future and action slots without clamping a candidate action;
+5. add action-conditioned prediction and scoring, but force execution of the frozen direct-policy
+   proposal; and
+6. enable score-based selection among at least two otherwise identical proposals.
+
+Match data, backbone, optimizer, parameters, compute, controller, and evaluation. Match arms 5 and
+6 on proposals, predictions, scores, and compute. Validate the action-conditioned predictor with
+randomized executed actions. Require arm 6 to pass a fixed-proposal decision-flip test. Log every
+proposal, prediction, score, selection, controller conversion, and execution receipt. If execution
+overlaps inference, also bind observation capture, inference start and finish, committed-prefix
+indices, dispatch, and acknowledgement. Compare delay tails and alignment error before comparing
+smoothing methods.
+
+The full protocol and M4 qualification sequence are in the
+[WAM frontier review](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md).
+
 ### 10.3 Rendering and UI
 
 Gaussian-splat rendering and a Tauri/SparkJS shell are deferred surfaces. They may visualize
@@ -364,7 +423,7 @@ evidence, but they cannot become control authorities or prerequisites for the co
 Before writing a result, answer each question:
 
 1. Was the claim registered before access to the relevant outcomes?
-2. Was the experimental unit independent?
+2. Did the unit and inference cluster match the sampling, assignment, and interference assumptions?
 3. Were all features available before treatment or landmark?
 4. Did the population gate pass?
 5. Did the measure gate pass?
@@ -372,6 +431,6 @@ Before writing a result, answer each question:
 7. Did the application gate pass?
 8. Did the required baseline comparison pass out of fold?
 9. Did every required sensitivity analysis retain its status?
-10. Does the wording stay inside the claim registry's permitted language?
+10. Does the wording stay inside the claim-template registry's permitted language?
 
 If any required answer is no or unknown, keep the claim blocked.

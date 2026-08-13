@@ -136,13 +136,15 @@ fn main() -> Result<()> {
 
     if let Some((path, uncertainty)) = &uncertainty_output {
         println!(
-            "pid_uncertainty={} mode={} stability_interpretation={} n_boot={} n_perm={} perm_scheme={} subsample_len={} pairs={}",
+            "pid_uncertainty={} mode={} row_topology={} stability_interpretation={} n_boot={} n_perm={} perm_scheme={} perm_calibration={} subsample_len={} pairs={}",
             path.display(),
             uncertainty.mode,
+            uncertainty.row_topology,
             uncertainty.stability_interpretation,
             uncertainty.n_boot,
             uncertainty.n_perm,
             uncertainty.permutation_scheme,
+            uncertainty.permutation_calibration,
             uncertainty.subsample_len,
             uncertainty.pairs.len(),
         );
@@ -220,6 +222,9 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut uncertainty_block_size: usize = 1;
     let mut uncertainty_alpha: f64 = 0.05;
     let mut permutation_scheme_circular = false;
+    let mut permutation_scheme_explicit = false;
+    let mut uncertainty_block_size_explicit = false;
+    let mut uncertainty_alpha_explicit = false;
     let mut uncertainty_json: Option<PathBuf> = None;
     let mut iter = args.into_iter();
     while let Some(arg) = iter.next() {
@@ -333,6 +338,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
                         "--permutation-scheme: expected full-shuffle|circular-shift, got '{other}'"
                     ),
                 };
+                permutation_scheme_explicit = true;
             }
             "--uncertainty-block-size" => {
                 let raw = iter
@@ -344,6 +350,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 if uncertainty_block_size < 1 {
                     bail!("--uncertainty-block-size must be >= 1");
                 }
+                uncertainty_block_size_explicit = true;
             }
             "--uncertainty-alpha" => {
                 let raw = iter
@@ -355,6 +362,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 if !(uncertainty_alpha > 0.0 && uncertainty_alpha < 1.0) {
                     bail!("--uncertainty-alpha must be in (0,1)");
                 }
+                uncertainty_alpha_explicit = true;
             }
             "--uncertainty-json" => {
                 uncertainty_json = Some(PathBuf::from(
@@ -367,6 +375,37 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let input = input.context("--input is required")?;
     if uncertainty_json.is_some() && bootstrap == 0 && permutation == 0 {
         bail!("--uncertainty-json requires --bootstrap N or --permutation N with N > 0");
+    }
+    if uncertainty_alpha_explicit && bootstrap == 0 {
+        bail!("--uncertainty-alpha requires --bootstrap N with N > 0");
+    }
+    if permutation > 0 && !permutation_scheme_explicit {
+        bail!(
+            "--permutation N requires an explicit --permutation-scheme full-shuffle|circular-shift"
+        );
+    }
+    if permutation == 0 && permutation_scheme_explicit {
+        bail!("--permutation-scheme requires --permutation N with N > 0");
+    }
+    let block_size_required = bootstrap > 0 || (permutation > 0 && permutation_scheme_circular);
+    if block_size_required && !uncertainty_block_size_explicit {
+        bail!(
+            "--bootstrap N and circular-shift permutations require an explicit --uncertainty-block-size N"
+        );
+    }
+    if !block_size_required && uncertainty_block_size_explicit {
+        bail!(
+            "--uncertainty-block-size requires --bootstrap N with N > 0 or a circular-shift permutation"
+        );
+    }
+    if bootstrap > 0 && permutation > 0 {
+        let bootstrap_declares_row_exchangeability = uncertainty_block_size == 1;
+        let permutation_declares_row_exchangeability = !permutation_scheme_circular;
+        if bootstrap_declares_row_exchangeability != permutation_declares_row_exchangeability {
+            bail!(
+                "combined bootstrap and permutation requests must use coherent row assumptions: block size 1 requires full-shuffle; block size > 1 requires circular-shift"
+            );
+        }
     }
     Ok(Args {
         input,
@@ -502,19 +541,29 @@ fn print_usage() {
                                  output as screening-only.\n\
          --bootstrap N           Number of m-out-of-n subsample resamples. The emitted raw\n\
                                  percentiles are stability envelopes at m, not calibrated\n\
-                                 n-sample confidence intervals. Continuous mode requires N >= 2.\n\
+                                 n-sample confidence intervals. Continuous mode requires N >= 2\n\
+                                 and an explicit --uncertainty-block-size.\n\
          --uncertainty-block-size N\n\
-                                 Predeclared dependence length (default: 1). Bootstrap use\n\
-                                 requires N <= floor(samples/2). Circular shift also requires\n\
-                                 samples >= 2*N+1.\n\
-         --uncertainty-alpha F   Two-sided tail mass for those raw percentiles (default: 0.05);\n\
-                                 it is not a confidence-interval significance claim.\n\
-         --permutation-scheme    Null for --permutation p-values (default: full-shuffle).\n\
+                                 Predeclared dependence length. Required with bootstrap and\n\
+                                 circular shift. For bootstrap, N=1 declares independent,\n\
+                                 exchangeable rows. N>1 declares weak stationary dependence.\n\
+                                 Bootstrap requires N <= floor(samples/2). Circular shift also\n\
+                                 requires samples >= 2*N+1.\n\
+         --uncertainty-alpha F   Two-sided tail mass for bootstrap raw percentiles (default: 0.05).\n\
+                                 This option requires --bootstrap. It does not configure a\n\
+                                 permutation threshold.\n\
+                                 It is not a confidence-interval significance claim.\n\
+         --permutation-scheme    Required with --permutation. Selects its tail-fraction transform.\n\
                                  full-shuffle assumes exchangeable (i.i.d.) rows and is\n\
                                  anti-conservative on autocorrelated per-step captures;\n\
                                  circular-shift preserves each source's own serial\n\
-                                 dependence (rotation null; min_shift = the\n\
-                                 --uncertainty-block-size dependence length)."
+                                 order up to a wrap seam. Its restricted-rotation result is\n\
+                                 an approximate surrogate score, not a p-value. Circular-shift\n\
+                                 resampling requires one identified ordered episode. Unit-block\n\
+                                 bootstrap or full shuffle can run without episode ids only under\n\
+                                 the explicit exchangeability declarations. Partial episode ids\n\
+                                 or multiple dependent episodes skip. A combined bootstrap and\n\
+                                 permutation request must declare one coherent dependence class."
     );
     println!(
         "\nComplete default --resource-limits-json document:\n{DEFAULT_RESOURCE_LIMITS_JSON_EXAMPLE}"
@@ -716,6 +765,143 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(args.pid_mode, PidMode::Disabled);
+    }
+
+    #[test]
+    fn parse_args_requires_an_explicit_permutation_null() {
+        let missing = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--permutation".to_string(),
+            "10".to_string(),
+        ])
+        .unwrap_err();
+        assert!(missing.to_string().contains("requires an explicit"));
+
+        let unused = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--permutation-scheme".to_string(),
+            "full-shuffle".to_string(),
+        ])
+        .unwrap_err();
+        assert!(unused.to_string().contains("requires --permutation"));
+
+        let accepted = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--permutation".to_string(),
+            "10".to_string(),
+            "--permutation-scheme".to_string(),
+            "circular-shift".to_string(),
+            "--uncertainty-block-size".to_string(),
+            "2".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(accepted.permutation, 10);
+        assert!(accepted.permutation_scheme_circular);
+    }
+
+    #[test]
+    fn parse_args_requires_an_explicit_bootstrap_dependence_length() {
+        let error = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--bootstrap".to_string(),
+            "10".to_string(),
+        ])
+        .unwrap_err();
+
+        assert!(error.to_string().contains("uncertainty-block-size"));
+    }
+
+    #[test]
+    fn parse_args_accepts_an_explicit_unit_block_exchangeability_declaration() {
+        let args = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--bootstrap".to_string(),
+            "10".to_string(),
+            "--uncertainty-block-size".to_string(),
+            "1".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(args.uncertainty_block_size, 1);
+    }
+
+    #[test]
+    fn parse_args_rejects_incoherent_combined_uncertainty_assumptions() {
+        for (block_size, scheme) in [("2", "full-shuffle"), ("1", "circular-shift")] {
+            let error = parse_args([
+                "--input".to_string(),
+                "fixture.json".to_string(),
+                "--bootstrap".to_string(),
+                "10".to_string(),
+                "--permutation".to_string(),
+                "10".to_string(),
+                "--permutation-scheme".to_string(),
+                scheme.to_string(),
+                "--uncertainty-block-size".to_string(),
+                block_size.to_string(),
+            ])
+            .unwrap_err();
+
+            assert!(error.to_string().contains("coherent row assumptions"));
+        }
+    }
+
+    #[test]
+    fn parse_args_accepts_coherent_combined_uncertainty_assumptions() {
+        for (block_size, scheme) in [("1", "full-shuffle"), ("2", "circular-shift")] {
+            parse_args([
+                "--input".to_string(),
+                "fixture.json".to_string(),
+                "--bootstrap".to_string(),
+                "10".to_string(),
+                "--permutation".to_string(),
+                "10".to_string(),
+                "--permutation-scheme".to_string(),
+                scheme.to_string(),
+                "--uncertainty-block-size".to_string(),
+                block_size.to_string(),
+            ])
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn parse_args_rejects_an_unused_uncertainty_block_size() {
+        let error = parse_args([
+            "--input".to_string(),
+            "fixture.json".to_string(),
+            "--uncertainty-block-size".to_string(),
+            "1".to_string(),
+        ])
+        .unwrap_err();
+
+        assert!(error.to_string().contains("requires --bootstrap"));
+    }
+
+    #[test]
+    fn parse_args_rejects_alpha_without_bootstrap_percentiles() {
+        for extra in [
+            vec!["--uncertainty-alpha".to_string(), "0.1".to_string()],
+            vec![
+                "--permutation".to_string(),
+                "10".to_string(),
+                "--permutation-scheme".to_string(),
+                "full-shuffle".to_string(),
+                "--uncertainty-alpha".to_string(),
+                "0.1".to_string(),
+            ],
+        ] {
+            let mut arguments = vec!["--input".to_string(), "fixture.json".to_string()];
+            arguments.extend(extra);
+            let error = parse_args(arguments).unwrap_err();
+
+            assert!(error.to_string().contains("requires --bootstrap"));
+        }
     }
 
     #[test]

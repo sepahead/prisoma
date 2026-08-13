@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Validate the typed, still-unfrozen M0 successor governance draft.
 
-The checked-in v2 artifact is a reviewed future-freeze contract, not a preregistration or
-scientific result.  It binds the additional structure that a future freeze candidate
-must provide while leaving every scientific value null.  The validator also supports
-validating an explicitly materialized ``freeze_candidate_under_review`` or ``frozen``
-document, so the cross-field rules are executable before real values exist.
+The checked-in v2 artifact is a revised, unreviewed future-freeze contract. It is not a
+preregistration or scientific result. It binds the structure that a future freeze
+candidate must provide while leaving every scientific value null. The validator also
+supports an explicitly materialized ``freeze_candidate_under_review`` or ``frozen``
+document, so reviewers can exercise the cross-field rules before real values exist.
 """
 
 from __future__ import annotations
@@ -36,26 +36,41 @@ MAX_STRING_BYTES = 64 * 1024
 MAX_REPOSITORY_PATH_BYTES = 4096
 
 EXPECTED_SCOPE = (
-    "reviewed typed successor draft for future M0 freeze review; it contains no "
-    "frozen scientific value, does not promote any claim, and does not authorize "
-    "confirmatory holdout access"
+    "revised typed successor draft awaiting new M0 scientific and statistical review; "
+    "it contains no frozen scientific value, does not promote any claim, and does not "
+    "authorize confirmatory holdout access"
 )
 EXPECTED_BASE_V1_PATH = "protocols/m0_preregistration_skeleton_v1.json"
 EXPECTED_FREEZE_REQUIREMENTS = [
-    "every required typed slot must be non-null and type-valid before a freeze "
-    "candidate can pass",
+    "every global, selection, mandatory-protocol, and selected-protocol typed slot must "
+    "be non-null and type-valid before a freeze candidate can pass; every inactive "
+    "protocol slot must remain null",
     "active scientific claims must be H1 and H2 plus exactly one of H3 or H4, "
     "never more than three",
-    "H1 Protocol A calibration bins must be prespecified or train-defined without "
-    "heldout outcomes",
+    "H1 Protocol A must bind one primary response-prediction contract with a positive "
+    "minimum useful margin, matched-access comparator, one-sided superiority rule, "
+    "uncertainty, calibration consequence, multiplicity, and replication or finite-benchmark "
+    "scope; calibration bins must be prespecified or train-defined without heldout outcomes",
     "H1 Protocol B must name exactly one primary effect-specific endpoint and one "
-    "explicit testing hierarchy",
-    "H2 must freeze exactly one censoring-aware proper-score endpoint and bind its "
-    "minimum useful margin, censoring assumptions, calibration, actionability, "
-    "subgroup, replication, multiplicity, and secondary-only decision-utility rules",
+    "explicit testing hierarchy; it must bind a positive-margin one-sided success rule, "
+    "the mandatory effect-validation stack, overall ITT and design checks, uncertainty, "
+    "directional replication, and the non-rescuable primary boundary",
+    "H2 must freeze exactly one primary scoring contract that aligns the prediction "
+    "object, score, target risk, censoring construction, identification assumptions, "
+    "identifiable region, and uncertainty procedure; a forecast-independent "
+    "censoring-adjusted horizon score may target scalar risk only under its exact "
+    "conditional-censoring, positivity, and censoring-law validation contract; a "
+    "right-censored likelihood requires the full event-time-and-type law; the complete "
+    "competing-event ontology must be frozen; the contract must also bind the minimum useful "
+    "margin, calibration, "
+    "actionability, subgroup, replication, multiplicity, and secondary-only "
+    "decision-utility rules",
     "H3 primary scoring must retain the complete inherited target ledger with exact "
-    "same-fold M1 fallback for every abstention; every warning must follow the frozen "
-    "disposition map and every unlisted warning must abstain with exact M1 fallback",
+    "same-fold M1 fallback for every abstention; bind one positive minimum useful "
+    "incremental-value margin, one-sided superiority decision, PID regime and feature "
+    "construction, dependence-aware uncertainty, multiplicity, support and warning "
+    "acceptance, and replication target; every warning must follow the frozen disposition "
+    "map and every unlisted warning must abstain with exact M1 fallback",
     "H4 must bind the target and sampling design, transport assumptions when needed, "
     "one outcome and primary tuple, simultaneous strong error control, target-weight "
     "uncertainty, and joint design power",
@@ -69,13 +84,14 @@ EXPECTED_FREEZE_REQUIREMENTS = [
 ]
 
 FREEZE_BLOCKERS = [
+    "M0_SUCCESSOR_REVISION_UNREVIEWED",
     "M0_SUCCESSOR_DRAFT_UNFROZEN",
     "M0_SUCCESSOR_CLAIM_SELECTION_UNFROZEN",
     "M0_SUCCESSOR_EC1_FINITE_ACCEPTANCE_PROTOCOL_UNFROZEN",
-    "M0_SUCCESSOR_H1A_CALIBRATION_POLICY_UNFROZEN",
-    "M0_SUCCESSOR_H1B_PRIMARY_EFFECT_ENDPOINT_HIERARCHY_UNFROZEN",
+    "M0_SUCCESSOR_H1A_PRIMARY_RESPONSE_CALIBRATION_SUCCESS_CONTRACT_UNFROZEN",
+    "M0_SUCCESSOR_H1B_PRIMARY_EFFECT_HIERARCHY_SUCCESS_CONTRACT_UNFROZEN",
     "M0_SUCCESSOR_H2_PRIMARY_SCORE_CENSORING_SUCCESS_PROTOCOL_UNFROZEN",
-    "M0_SUCCESSOR_H3_WARNING_DISPOSITION_UNFROZEN",
+    "M0_SUCCESSOR_H3_INCREMENTAL_VALUE_AND_WARNING_CONTRACT_UNFROZEN",
     "M0_SUCCESSOR_H4_TARGET_TRANSPORT_TUPLE_INFERENCE_POWER_UNFROZEN",
     "M0_SUCCESSOR_CONTENT_BOUND_FREEZE_RECEIPTS_MISSING",
 ]
@@ -152,7 +168,7 @@ EXPECTED_PROTOCOL_SLOTS = {
     "ec1": {
         "supported_adapter_ids": ("finite_nonempty_string_array", None),
         "declared_capability_matrix_binding": ("content_binding", None),
-        "required_causal_temporal_variable_inventory_binding": (
+        "required_intervention_state_outcome_temporal_variable_inventory_binding": (
             "content_binding",
             None,
         ),
@@ -191,14 +207,20 @@ EXPECTED_PROTOCOL_SLOTS = {
             ("primary_gate", "secondary_gatekeeping", "secondary_descriptive"),
         ),
         "heldout_outcomes_used_to_define_bins": ("boolean", None),
-        "response_scale_score_and_uncertainty_binding": ("content_binding", None),
+        "primary_response_prediction_contract": (
+            "h1a_primary_response_contract",
+            None,
+        ),
     },
     "h1_protocol_b": {
         "primary_effect_endpoint_id": ("string", None),
         "effect_endpoint_registry": ("h1b_effect_endpoint_array", None),
         "decision_hierarchy": ("decision_hierarchy_array", None),
         "multiplicity_procedure_binding": ("content_binding", None),
-        "success_rule_binding": ("content_binding", None),
+        "primary_effect_success_contract": (
+            "h1b_primary_effect_success_contract",
+            None,
+        ),
     },
     "h2": {
         "target_population_and_intended_use_binding": ("content_binding", None),
@@ -229,7 +251,7 @@ EXPECTED_PROTOCOL_SLOTS = {
             "content_binding",
             None,
         ),
-        "primary_proper_score": ("h2_primary_proper_score", None),
+        "primary_scoring_contract": ("h2_primary_scoring_contract", None),
         "calibration_intercept_slope_reliability_binding": (
             "content_binding",
             None,
@@ -263,6 +285,10 @@ EXPECTED_PROTOCOL_SLOTS = {
         "allowlisted_use_output_warning_codes": ("finite_string_array", None),
         "warning_disposition_receipt_binding": ("content_binding", None),
         "active_parent_claim": ("enum", ("H1", "H2")),
+        "primary_incremental_value_contract": (
+            "h3_incremental_value_contract",
+            None,
+        ),
     },
     "h4": {
         "target_population_binding": ("content_binding", None),
@@ -299,7 +325,10 @@ EXPECTED_PROTOCOL_SLOTS = {
         ),
         "joint_design_power_plan": ("h4_joint_design_power_plan", None),
         "positive_and_negative_controls_binding": ("content_binding", None),
-        "replication_construction_binding": ("content_binding", None),
+        "replication_construction_or_single_construction_scope_binding": (
+            "content_binding",
+            None,
+        ),
         "permitted_interpretation_binding": ("content_binding", None),
     },
 }
@@ -309,25 +338,29 @@ PROTOCOL_KEYS = {
         "registered_claim_id",
         "claim_class",
         "unregistered_fault_policy",
+        "activation_rule",
         "slots",
     },
     "h1_protocol_a": {
         "registered_claim_id",
         "protocol_label",
         "heldout_outcome_defined_bins_policy",
+        "activation_rule",
         "slots",
     },
     "h1_protocol_b": {
         "registered_claim_id",
         "protocol_label",
         "one_primary_effect_endpoint_required",
+        "activation_rule",
         "slots",
     },
     "h2": {
         "registered_claim_id",
         "protocol_label",
-        "one_primary_proper_score_required",
+        "one_primary_scoring_contract_required",
         "decision_utility_primary_role_forbidden",
+        "activation_rule",
         "slots",
     },
     "h3": {
@@ -335,14 +368,25 @@ PROTOCOL_KEYS = {
         "unlisted_warning_disposition",
         "allowed_warning_dispositions",
         "common_comparison_population_contract",
+        "activation_rule",
         "slots",
     },
     "h4": {
         "registered_claim_id",
         "protocol_label",
         "individual_effect_prevalence_claim_forbidden",
+        "activation_rule",
         "slots",
     },
+}
+
+EXPECTED_PROTOCOL_ACTIVATION_RULES = {
+    "ec1": "mandatory_engineering_acceptance",
+    "h1_protocol_a": "required_only_when_selected_h1_protocol_a",
+    "h1_protocol_b": "required_only_when_selected_h1_protocol_b",
+    "h2": "mandatory_scientific_claim",
+    "h3": "required_when_selected_h3_or_retained_as_post_h3_history",
+    "h4": "required_only_when_selected_h4",
 }
 
 H4_POWER_SCENARIOS = {
@@ -369,6 +413,34 @@ H1B_ENDPOINT_DIRECTIONS = {
     "policy_value": {"higher_is_better"},
     "policy_regret": {"lower_is_better"},
     "factual_outcome_proper_loss": {"lower_is_better"},
+}
+
+H1A_PRIMARY_RESPONSE_KEYS = {
+    "endpoint_id",
+    "response_functional_binding",
+    "primary_score_binding",
+    "matched_access_comparator_binding",
+    "minimum_useful_margin",
+    "improvement_direction",
+    "uncertainty_and_dependence_binding",
+    "calibration_acceptance_and_failure_consequence_binding",
+    "multiplicity_procedure_binding",
+    "replication_or_finite_benchmark_scope_binding",
+    "success_decision",
+    "secondary_endpoints_cannot_rescue_primary_failure",
+}
+
+H1B_PRIMARY_EFFECT_SUCCESS_KEYS = {
+    "primary_endpoint_id",
+    "canonical_improvement_contrast_binding",
+    "mandatory_effect_validation_stack_binding",
+    "overall_itt_assignment_engagement_and_specificity_binding",
+    "uncertainty_and_dependence_binding",
+    "replication_target_binding",
+    "success_decision",
+    "secondary_endpoints_cannot_rescue_primary_failure",
+    "factual_outcome_fit_cannot_establish_success",
+    "directional_replication_required",
 }
 
 H3_COMMON_COMPARISON_KEYS = {
@@ -456,6 +528,23 @@ EXPECTED_H3_FAIL_CLOSED_CONDITIONS = [
     "primary_analysis_restricts_to_pid_eligible_or_successfully_computed_cases",
     "target_ledger_or_eligibility_changes_after_outer_holdout_outcome_access",
 ]
+
+H3_INCREMENTAL_VALUE_KEYS = {
+    "endpoint_id",
+    "active_parent_primary_endpoint_binding",
+    "pid_regime_and_feature_construction_binding",
+    "canonical_improvement_contrast_binding",
+    "improvement_direction",
+    "minimum_useful_margin",
+    "support_abstention_and_warning_acceptance_binding",
+    "uncertainty_and_dependence_procedure_binding",
+    "multiplicity_procedure_binding",
+    "replication_target_binding",
+    "success_decision",
+    "eligible_only_analysis_cannot_establish_success",
+    "secondary_endpoints_cannot_rescue_primary_failure",
+    "independent_replication_required",
+}
 
 
 class SuccessorGovernanceError(ValueError):
@@ -1088,6 +1177,12 @@ def _validate_endpoint_array(
         direction = _string(
             endpoint["direction"], context=f"{endpoint_context}.direction"
         )
+        if role == "primary" and direction == "inside_equivalence_region":
+            raise SuccessorGovernanceError(
+                f"{endpoint_context} a primary H1-B endpoint must support the "
+                "canonical one-sided improvement rule; equivalence-region endpoints "
+                "may be gatekeeping or descriptive only"
+            )
         if direction not in allowed_directions:
             raise SuccessorGovernanceError(
                 f"{endpoint_context}.direction is incompatible with H1-B endpoint "
@@ -1439,6 +1534,107 @@ def _validate_warning_dispositions(
     return result
 
 
+def _validate_h1a_primary_response_contract(
+    value: Any,
+    *,
+    reader: _ContentSnapshotReader,
+    context: str,
+) -> dict[str, Any]:
+    contract = _exact_keys(value, H1A_PRIMARY_RESPONSE_KEYS, context=context)
+    _string(contract["endpoint_id"], context=f"{context}.endpoint_id")
+    for field in (
+        "response_functional_binding",
+        "primary_score_binding",
+        "matched_access_comparator_binding",
+        "uncertainty_and_dependence_binding",
+        "calibration_acceptance_and_failure_consequence_binding",
+        "multiplicity_procedure_binding",
+        "replication_or_finite_benchmark_scope_binding",
+    ):
+        _content_binding(
+            contract[field],
+            reader=reader,
+            context=f"{context}.{field}",
+        )
+    margin = _number(
+        contract["minimum_useful_margin"],
+        context=f"{context}.minimum_useful_margin",
+    )
+    if margin <= 0.0:
+        raise SuccessorGovernanceError(
+            f"{context}.minimum_useful_margin must be positive"
+        )
+    if (
+        contract["improvement_direction"]
+        != "positive_values_favor_diagnostic_augmented_model"
+    ):
+        raise SuccessorGovernanceError(
+            f"{context}.improvement_direction must canonically orient positive "
+            "values toward the diagnostic-augmented model"
+        )
+    if (
+        contract["success_decision"]
+        != "one_sided_lower_confidence_bound_exceeds_minimum_useful_margin"
+    ):
+        raise SuccessorGovernanceError(
+            f"{context}.success_decision must require one-sided superiority over "
+            "the minimum useful margin"
+        )
+    if not _boolean(
+        contract["secondary_endpoints_cannot_rescue_primary_failure"],
+        context=f"{context}.secondary_endpoints_cannot_rescue_primary_failure",
+    ):
+        raise SuccessorGovernanceError(
+            f"{context}.secondary_endpoints_cannot_rescue_primary_failure must be true"
+        )
+    return contract
+
+
+def _validate_h1b_primary_effect_success_contract(
+    value: Any,
+    *,
+    reader: _ContentSnapshotReader,
+    context: str,
+) -> dict[str, Any]:
+    contract = _exact_keys(
+        value,
+        H1B_PRIMARY_EFFECT_SUCCESS_KEYS,
+        context=context,
+    )
+    _string(
+        contract["primary_endpoint_id"],
+        context=f"{context}.primary_endpoint_id",
+    )
+    for field in (
+        "canonical_improvement_contrast_binding",
+        "mandatory_effect_validation_stack_binding",
+        "overall_itt_assignment_engagement_and_specificity_binding",
+        "uncertainty_and_dependence_binding",
+        "replication_target_binding",
+    ):
+        _content_binding(
+            contract[field],
+            reader=reader,
+            context=f"{context}.{field}",
+        )
+    if (
+        contract["success_decision"]
+        != "one_sided_lower_confidence_bound_exceeds_minimum_useful_margin"
+    ):
+        raise SuccessorGovernanceError(
+            f"{context}.success_decision must require one-sided superiority over "
+            "the primary endpoint's positive minimum useful margin"
+        )
+    for field in (
+        "secondary_endpoints_cannot_rescue_primary_failure",
+        "factual_outcome_fit_cannot_establish_success",
+        "directional_replication_required",
+    ):
+        if not _boolean(contract[field], context=f"{context}.{field}"):
+            raise SuccessorGovernanceError(f"{context}.{field} must be true")
+    return contract
+
+
 def _validate_h3_common_comparison_contract(
     value: Any,
     *,
@@ -1511,7 +1707,60 @@ def _validate_h3_common_comparison_contract(
     return contract
 
 
-def _validate_h2_primary_proper_score(
+def _validate_h3_incremental_value_contract(
+    value: Any,
+    *,
+    reader: _ContentSnapshotReader,
+    context: str,
+) -> dict[str, Any]:
+    contract = _exact_keys(value, H3_INCREMENTAL_VALUE_KEYS, context=context)
+    _string(contract["endpoint_id"], context=f"{context}.endpoint_id")
+    for field in (
+        "active_parent_primary_endpoint_binding",
+        "pid_regime_and_feature_construction_binding",
+        "canonical_improvement_contrast_binding",
+        "support_abstention_and_warning_acceptance_binding",
+        "uncertainty_and_dependence_procedure_binding",
+        "multiplicity_procedure_binding",
+        "replication_target_binding",
+    ):
+        _content_binding(
+            contract[field],
+            reader=reader,
+            context=f"{context}.{field}",
+        )
+    if contract["improvement_direction"] != "positive_values_favor_deployed_m2_policy":
+        raise SuccessorGovernanceError(
+            f"{context}.improvement_direction must canonically orient positive "
+            "values toward the complete deployed M2 policy"
+        )
+    margin = _number(
+        contract["minimum_useful_margin"],
+        context=f"{context}.minimum_useful_margin",
+    )
+    if margin <= 0.0:
+        raise SuccessorGovernanceError(
+            f"{context}.minimum_useful_margin must be positive"
+        )
+    if (
+        contract["success_decision"]
+        != "one_sided_lower_confidence_bound_exceeds_minimum_useful_margin"
+    ):
+        raise SuccessorGovernanceError(
+            f"{context}.success_decision must require one-sided superiority over "
+            "the minimum useful margin"
+        )
+    for field in (
+        "eligible_only_analysis_cannot_establish_success",
+        "secondary_endpoints_cannot_rescue_primary_failure",
+        "independent_replication_required",
+    ):
+        if not _boolean(contract[field], context=f"{context}.{field}"):
+            raise SuccessorGovernanceError(f"{context}.{field} must be true")
+    return contract
+
+
+def _validate_h2_primary_scoring_contract(
     value: Any,
     *,
     reader: _ContentSnapshotReader,
@@ -1522,14 +1771,17 @@ def _validate_h2_primary_proper_score(
         {
             "endpoint_id",
             "role",
+            "prediction_object",
             "score_family",
             "censoring_handling",
+            "evaluation_object",
             "direction",
             "minimum_useful_margin",
             "unit",
             "estimand_binding",
             "score_definition_binding",
-            "properness_and_identifiability_assumptions_binding",
+            "censoring_model_or_law_binding",
+            "validity_and_identifiability_assumptions_binding",
             "fitted_only_within_outer_training",
             "forecast_dependent_censoring_weights",
         },
@@ -1538,8 +1790,17 @@ def _validate_h2_primary_proper_score(
     _string(endpoint["endpoint_id"], context=f"{context}.endpoint_id")
     if endpoint["role"] != "primary":
         raise SuccessorGovernanceError(f"{context}.role must equal 'primary'")
+    prediction_object = _string(
+        endpoint["prediction_object"], context=f"{context}.prediction_object"
+    )
     score_family = _string(endpoint["score_family"], context=f"{context}.score_family")
-    if score_family not in {"fixed_horizon_log_loss", "time_dependent_brier"}:
+    if score_family not in {
+        "censoring_adjusted_fixed_horizon_brier",
+        "fixed_horizon_log_loss",
+        "fixed_horizon_brier_loss",
+        "right_censored_log_likelihood",
+        "mapped_observed_data_score",
+    }:
         raise SuccessorGovernanceError(
             f"{context}.score_family has unknown value {score_family!r}"
         )
@@ -1547,16 +1808,63 @@ def _validate_h2_primary_proper_score(
         endpoint["censoring_handling"],
         context=f"{context}.censoring_handling",
     )
-    allowed_pairs = {
-        ("fixed_horizon_log_loss", "full_eligible_population_complete_followup"),
-        ("fixed_horizon_log_loss", "marginalized_observed_data_score"),
-        ("time_dependent_brier", "full_eligible_population_complete_followup"),
-        ("time_dependent_brier", "cross_fitted_ipcw"),
-        ("time_dependent_brier", "marginalized_observed_data_score"),
+    evaluation_object = _string(
+        endpoint["evaluation_object"],
+        context=f"{context}.evaluation_object",
+    )
+    allowed_contracts = {
+        (
+            "fixed_horizon_event_probability",
+            "fixed_horizon_log_loss",
+            "full_eligible_population_complete_followup",
+            "proper_complete_data_score",
+        ),
+        (
+            "fixed_horizon_event_probability",
+            "fixed_horizon_brier_loss",
+            "full_eligible_population_complete_followup",
+            "proper_complete_data_score",
+        ),
+        (
+            "fixed_horizon_event_probability",
+            "fixed_horizon_log_loss",
+            "cross_fitted_ipcw_complete_data_risk",
+            "complete_data_risk_estimator_under_censoring",
+        ),
+        (
+            "fixed_horizon_event_probability",
+            "fixed_horizon_brier_loss",
+            "cross_fitted_ipcw_complete_data_risk",
+            "complete_data_risk_estimator_under_censoring",
+        ),
+        (
+            "fixed_horizon_event_probability",
+            "censoring_adjusted_fixed_horizon_brier",
+            "forecast_independent_conditional_censoring_law",
+            "proper_observed_data_score_on_identifiable_horizon_risk",
+        ),
+        (
+            "full_event_time_and_type_distribution",
+            "right_censored_log_likelihood",
+            "mapped_observed_data_law",
+            "proper_observed_data_score",
+        ),
+        (
+            "event_time_and_type_distribution_through_horizon",
+            "mapped_observed_data_score",
+            "mapped_observed_data_law",
+            "proper_observed_data_score",
+        ),
     }
-    if (score_family, censoring_handling) not in allowed_pairs:
+    if (
+        prediction_object,
+        score_family,
+        censoring_handling,
+        evaluation_object,
+    ) not in allowed_contracts:
         raise SuccessorGovernanceError(
-            f"{context} has an unsupported score-family/censoring-handling pair"
+            f"{context} has an unsupported prediction-object, score, censoring, "
+            "and evaluation-object contract"
         )
     if endpoint["direction"] != "lower_is_better":
         raise SuccessorGovernanceError(
@@ -1574,7 +1882,8 @@ def _validate_h2_primary_proper_score(
     for field in (
         "estimand_binding",
         "score_definition_binding",
-        "properness_and_identifiability_assumptions_binding",
+        "censoring_model_or_law_binding",
+        "validity_and_identifiability_assumptions_binding",
     ):
         _content_binding(
             endpoint[field],
@@ -1609,7 +1918,7 @@ def _validate_h2_success_rule(
         {
             "primary_endpoint_id",
             "primary_improvement_direction",
-            "strongest_matched_access_baseline_required",
+            "frozen_matched_access_comparator_rule_required",
             "minimum_useful_margin_required",
             "external_or_later_time_replication_required",
             "calibration_requirement",
@@ -1617,6 +1926,7 @@ def _validate_h2_success_rule(
             "subgroup_requirement",
             "decision_utility_role",
             "secondary_endpoints_cannot_rescue_primary_failure",
+            "success_decision",
             "success_decision_binding",
         },
         context=context,
@@ -1630,7 +1940,7 @@ def _validate_h2_success_rule(
             "improvement"
         )
     for field in (
-        "strongest_matched_access_baseline_required",
+        "frozen_matched_access_comparator_rule_required",
         "minimum_useful_margin_required",
         "external_or_later_time_replication_required",
         "secondary_endpoints_cannot_rescue_primary_failure",
@@ -1662,6 +1972,14 @@ def _validate_h2_success_rule(
     if utility_role not in {"secondary_gatekeeping", "secondary_descriptive"}:
         raise SuccessorGovernanceError(
             f"{context}.decision_utility_role must be secondary, never primary"
+        )
+    if (
+        rule["success_decision"]
+        != "one_sided_lower_confidence_bound_exceeds_minimum_useful_margin"
+    ):
+        raise SuccessorGovernanceError(
+            f"{context}.success_decision must require one-sided superiority over "
+            "the minimum useful margin"
         )
     _content_binding(
         rule["success_decision_binding"],
@@ -1760,7 +2078,7 @@ def _validate_h4_inference_plan(
             "intersection_union_per_cell",
             "availability_bound_direction",
             "effect_interval_requirement",
-            "target_weight_uncertainty_included",
+            "target_weight_uncertainty_treatment",
             "divergence_mass_lower_bound_binding",
         },
         context=context,
@@ -1807,12 +2125,17 @@ def _validate_h4_inference_plan(
             f"{context}.effect_interval_requirement must equal "
             "'wholly_inside_equivalence_region'"
         )
-    if not _boolean(
-        plan["target_weight_uncertainty_included"],
-        context=f"{context}.target_weight_uncertainty_included",
-    ):
+    weight_treatment = _string(
+        plan["target_weight_uncertainty_treatment"],
+        context=f"{context}.target_weight_uncertainty_treatment",
+    )
+    if weight_treatment not in {
+        "included_in_simultaneous_inference",
+        "not_applicable_exact_finite_target_enumeration",
+    }:
         raise SuccessorGovernanceError(
-            f"{context}.target_weight_uncertainty_included must be true"
+            f"{context}.target_weight_uncertainty_treatment has unknown value "
+            f"{weight_treatment!r}"
         )
     _content_binding(
         plan["divergence_mass_lower_bound_binding"],
@@ -1908,6 +2231,18 @@ def _validate_slot_value(
         return _string_array(value, context=context, allow_empty=False)
     if value_type == "finite_string_array":
         return _string_array(value, context=context, allow_empty=True)
+    if value_type == "h1a_primary_response_contract":
+        return _validate_h1a_primary_response_contract(
+            value,
+            reader=reader,
+            context=context,
+        )
+    if value_type == "h1b_primary_effect_success_contract":
+        return _validate_h1b_primary_effect_success_contract(
+            value,
+            reader=reader,
+            context=context,
+        )
     if value_type == "h1b_effect_endpoint_array":
         return _validate_endpoint_array(value, reader=reader, context=context)
     if value_type == "ec1_endpoint_array":
@@ -1922,8 +2257,14 @@ def _validate_slot_value(
         return _validate_decision_hierarchy(value, reader=reader, context=context)
     if value_type == "warning_disposition_array":
         return _validate_warning_dispositions(value, reader=reader, context=context)
-    if value_type == "h2_primary_proper_score":
-        return _validate_h2_primary_proper_score(
+    if value_type == "h3_incremental_value_contract":
+        return _validate_h3_incremental_value_contract(
+            value,
+            reader=reader,
+            context=context,
+        )
+    if value_type == "h2_primary_scoring_contract":
+        return _validate_h2_primary_scoring_contract(
             value,
             reader=reader,
             context=context,
@@ -1996,6 +2337,40 @@ def _all_slot_values(document: dict[str, Any]) -> list[tuple[str, Any]]:
     return result
 
 
+def _active_protocol_ids(document: dict[str, Any]) -> set[str]:
+    """Return the protocol contracts that a materialized candidate must populate."""
+
+    selection = document["claim_selection_contract"]["slots"]
+    selected_h1 = selection["selected_h1_protocol"]["value"]
+    selected_branch = selection["selected_h3_or_h4_branch"]["value"]
+    timing = selection["h3_h4_selection_timing"]["value"]
+    active = {"ec1", "h2", selected_h1, selected_branch.lower()}
+    if timing == "after_h3_with_fresh_holdout_and_sequential_error_control":
+        active.add("h3")
+    return active
+
+
+def _candidate_slot_values(
+    document: dict[str, Any],
+) -> tuple[list[tuple[str, Any]], list[tuple[str, Any]]]:
+    """Split candidate slots into active-required and inactive-forbidden values."""
+
+    active_protocols = _active_protocol_ids(document)
+    required: list[tuple[str, Any]] = []
+    inactive: list[tuple[str, Any]] = []
+    for field, slot in document["global_freeze_slots"].items():
+        required.append((f"global_freeze_slots.{field}", slot["value"]))
+    for field, slot in document["claim_selection_contract"]["slots"].items():
+        required.append((f"claim_selection_contract.slots.{field}", slot["value"]))
+    for protocol_id, protocol in document["typed_protocol_contracts"].items():
+        destination = required if protocol_id in active_protocols else inactive
+        for field, slot in protocol["slots"].items():
+            destination.append(
+                (f"typed_protocol_contracts.{protocol_id}.slots.{field}", slot["value"])
+            )
+    return required, inactive
+
+
 def validate_active_scientific_claims(
     active_claims: list[str],
     *,
@@ -2029,11 +2404,11 @@ def validate_active_scientific_claims(
         )
 
 
-def _validate_candidate_semantics(
+def _validate_claim_selection_semantics(
     document: dict[str, Any],
     *,
     reader: _ContentSnapshotReader,
-) -> None:
+) -> tuple[list[str], str, str, str]:
     claim_slots = document["claim_selection_contract"]["slots"]
     active_claims = _validate_slot_value(
         claim_slots["active_scientific_claims"]["value"],
@@ -2042,7 +2417,7 @@ def _validate_candidate_semantics(
         reader=reader,
         context="claim_selection_contract.slots.active_scientific_claims.value",
     )
-    _validate_slot_value(
+    selected_h1 = _validate_slot_value(
         claim_slots["selected_h1_protocol"]["value"],
         value_type="enum",
         allowed_values=("h1_protocol_a", "h1_protocol_b"),
@@ -2081,6 +2456,18 @@ def _validate_candidate_semantics(
         raise SuccessorGovernanceError(
             "post-H3 branch selection is valid only for a fresh-holdout H4 branch"
         )
+    return active_claims, selected_h1, selected_branch, timing
+
+
+def _validate_candidate_semantics(
+    document: dict[str, Any],
+    *,
+    reader: _ContentSnapshotReader,
+) -> None:
+    _, selected_h1, selected_branch, timing = _validate_claim_selection_semantics(
+        document,
+        reader=reader,
+    )
 
     protocols = document["typed_protocol_contracts"]
     ec1 = protocols["ec1"]["slots"]
@@ -2204,111 +2591,142 @@ def _validate_candidate_semantics(
             f"EC1 endpoint registry contains unmapped acceptance endpoints: {unused}"
         )
 
-    h1a = protocols["h1_protocol_a"]["slots"]
-    if h1a["heldout_outcomes_used_to_define_bins"]["value"] is not False:
-        raise SuccessorGovernanceError(
-            "H1 Protocol A heldout outcomes may not define calibration bins"
-        )
-
-    h1b = protocols["h1_protocol_b"]["slots"]
-    h1b_endpoints = h1b["effect_endpoint_registry"]["value"]
-    primary_endpoints = [
-        endpoint for endpoint in h1b_endpoints if endpoint["role"] == "primary"
-    ]
-    if len(primary_endpoints) != 1:
-        raise SuccessorGovernanceError(
-            "H1 Protocol B must have exactly one primary effect endpoint"
-        )
-    primary_id = h1b["primary_effect_endpoint_id"]["value"]
-    if primary_endpoints[0]["endpoint_id"] != primary_id:
-        raise SuccessorGovernanceError(
-            "H1 Protocol B primary_effect_endpoint_id disagrees with the endpoint registry"
-        )
-    endpoint_ids = {endpoint["endpoint_id"] for endpoint in h1b_endpoints}
-    hierarchy = h1b["decision_hierarchy"]["value"]
-    hierarchy_id_list = [stage["endpoint_id"] for stage in hierarchy]
-    if len(hierarchy_id_list) != len(set(hierarchy_id_list)):
-        raise SuccessorGovernanceError(
-            "H1 Protocol B decision hierarchy must not repeat an endpoint"
-        )
-    hierarchy_ids = set(hierarchy_id_list)
-    if not hierarchy_ids.issubset(endpoint_ids):
-        raise SuccessorGovernanceError(
-            "H1 Protocol B decision hierarchy references an unknown endpoint"
-        )
-    confirmatory_ids = {
-        endpoint["endpoint_id"]
-        for endpoint in h1b_endpoints
-        if endpoint["role"] in {"primary", "secondary_gatekeeping"}
-    }
-    if not confirmatory_ids.issubset(hierarchy_ids):
-        missing = sorted(confirmatory_ids - hierarchy_ids)
-        raise SuccessorGovernanceError(
-            f"H1 Protocol B hierarchy omits confirmatory endpoints: {missing}"
-        )
-    endpoint_roles = {
-        endpoint["endpoint_id"]: endpoint["role"] for endpoint in h1b_endpoints
-    }
-    hierarchy_role_for_endpoint = {
-        "primary": "primary_gate",
-        "secondary_gatekeeping": "secondary_gatekeeping",
-        "secondary_descriptive": "secondary_descriptive",
-    }
-    for stage in hierarchy:
-        expected_role = hierarchy_role_for_endpoint[
-            endpoint_roles[stage["endpoint_id"]]
-        ]
-        if stage["role"] != expected_role:
+    if selected_h1 == "h1_protocol_a":
+        h1a = protocols["h1_protocol_a"]["slots"]
+        if h1a["heldout_outcomes_used_to_define_bins"]["value"] is not False:
             raise SuccessorGovernanceError(
-                "H1 Protocol B hierarchy role disagrees with endpoint registry "
-                f"for {stage['endpoint_id']!r}"
+                "H1 Protocol A heldout outcomes may not define calibration bins"
             )
-    primary_gates = [stage for stage in hierarchy if stage["role"] == "primary_gate"]
-    if len(primary_gates) != 1 or primary_gates[0]["endpoint_id"] != primary_id:
-        raise SuccessorGovernanceError(
-            "H1 Protocol B hierarchy must contain one primary gate for the primary endpoint"
-        )
-    if hierarchy[0]["role"] != "primary_gate":
-        raise SuccessorGovernanceError(
-            "H1 Protocol B primary gate must be the first decision stage"
-        )
+    else:
+        h1b = protocols["h1_protocol_b"]["slots"]
+        h1b_endpoints = h1b["effect_endpoint_registry"]["value"]
+        primary_endpoints = [
+            endpoint for endpoint in h1b_endpoints if endpoint["role"] == "primary"
+        ]
+        if len(primary_endpoints) != 1:
+            raise SuccessorGovernanceError(
+                "H1 Protocol B must have exactly one primary effect endpoint"
+            )
+        primary_id = h1b["primary_effect_endpoint_id"]["value"]
+        if primary_endpoints[0]["endpoint_id"] != primary_id:
+            raise SuccessorGovernanceError(
+                "H1 Protocol B primary_effect_endpoint_id disagrees with the endpoint registry"
+            )
+        primary_success = h1b["primary_effect_success_contract"]["value"]
+        if primary_success["primary_endpoint_id"] != primary_id:
+            raise SuccessorGovernanceError(
+                "H1 Protocol B primary_effect_success_contract disagrees with the "
+                "one primary effect endpoint"
+            )
+        endpoint_ids = {endpoint["endpoint_id"] for endpoint in h1b_endpoints}
+        hierarchy = h1b["decision_hierarchy"]["value"]
+        hierarchy_id_list = [stage["endpoint_id"] for stage in hierarchy]
+        if len(hierarchy_id_list) != len(set(hierarchy_id_list)):
+            raise SuccessorGovernanceError(
+                "H1 Protocol B decision hierarchy must not repeat an endpoint"
+            )
+        hierarchy_ids = set(hierarchy_id_list)
+        if not hierarchy_ids.issubset(endpoint_ids):
+            raise SuccessorGovernanceError(
+                "H1 Protocol B decision hierarchy references an unknown endpoint"
+            )
+        confirmatory_ids = {
+            endpoint["endpoint_id"]
+            for endpoint in h1b_endpoints
+            if endpoint["role"] in {"primary", "secondary_gatekeeping"}
+        }
+        if not confirmatory_ids.issubset(hierarchy_ids):
+            missing = sorted(confirmatory_ids - hierarchy_ids)
+            raise SuccessorGovernanceError(
+                f"H1 Protocol B hierarchy omits confirmatory endpoints: {missing}"
+            )
+        endpoint_roles = {
+            endpoint["endpoint_id"]: endpoint["role"] for endpoint in h1b_endpoints
+        }
+        hierarchy_role_for_endpoint = {
+            "primary": "primary_gate",
+            "secondary_gatekeeping": "secondary_gatekeeping",
+            "secondary_descriptive": "secondary_descriptive",
+        }
+        for stage in hierarchy:
+            expected_role = hierarchy_role_for_endpoint[
+                endpoint_roles[stage["endpoint_id"]]
+            ]
+            if stage["role"] != expected_role:
+                raise SuccessorGovernanceError(
+                    "H1 Protocol B hierarchy role disagrees with endpoint registry "
+                    f"for {stage['endpoint_id']!r}"
+                )
+        primary_gates = [
+            stage for stage in hierarchy if stage["role"] == "primary_gate"
+        ]
+        if len(primary_gates) != 1 or primary_gates[0]["endpoint_id"] != primary_id:
+            raise SuccessorGovernanceError(
+                "H1 Protocol B hierarchy must contain one primary gate for the primary endpoint"
+            )
+        if hierarchy[0]["role"] != "primary_gate":
+            raise SuccessorGovernanceError(
+                "H1 Protocol B primary gate must be the first decision stage"
+            )
 
     h2 = protocols["h2"]["slots"]
-    primary_score = h2["primary_proper_score"]["value"]
+    primary_score = h2["primary_scoring_contract"]["value"]
     success_rule = h2["success_rule"]["value"]
     if success_rule["primary_endpoint_id"] != primary_score["endpoint_id"]:
         raise SuccessorGovernanceError(
             "H2 success rule primary_endpoint_id disagrees with the one primary "
-            "proper-score endpoint"
+            "scoring contract"
         )
 
-    h3 = protocols["h3"]["slots"]
-    warning_dispositions = h3["warning_dispositions"]["value"]
-    use_output_codes = sorted(
-        disposition["warning_code"]
-        for disposition in warning_dispositions
-        if disposition["disposition"] == "use_pid_output"
-    )
-    allowlist = sorted(h3["allowlisted_use_output_warning_codes"]["value"])
-    if allowlist != use_output_codes:
-        raise SuccessorGovernanceError(
-            "H3 use-output warning allowlist must exactly match the disposition map"
-        )
-
-    h4 = protocols["h4"]["slots"]
-    inference = h4["simultaneous_inference_plan"]["value"]
-    power = h4["joint_design_power_plan"]["value"]
-    if power["maximum_familywise_type_i_error"] > inference["family_alpha"] + 1e-15:
-        raise SuccessorGovernanceError(
-            "H4 joint design maximum familywise type-I error exceeds family alpha"
-        )
-    if (
-        h4["confirmatory_sample_source"]["value"] == "transported_randomized_sample"
-        and not h4["conditional_effect_transport_assumptions_binding"]["value"]
+    if selected_branch == "H3" or (
+        timing == "after_h3_with_fresh_holdout_and_sequential_error_control"
     ):
-        raise SuccessorGovernanceError(
-            "H4 transported randomized samples require effect-transport assumptions"
+        h3 = protocols["h3"]["slots"]
+        warning_dispositions = h3["warning_dispositions"]["value"]
+        use_output_codes = sorted(
+            disposition["warning_code"]
+            for disposition in warning_dispositions
+            if disposition["disposition"] == "use_pid_output"
         )
+        allowlist = sorted(h3["allowlisted_use_output_warning_codes"]["value"])
+        if allowlist != use_output_codes:
+            raise SuccessorGovernanceError(
+                "H3 use-output warning allowlist must exactly match the disposition map"
+            )
+
+    if selected_branch == "H4":
+        h4 = protocols["h4"]["slots"]
+        inference = h4["simultaneous_inference_plan"]["value"]
+        power = h4["joint_design_power_plan"]["value"]
+        weight_treatment = inference["target_weight_uncertainty_treatment"]
+        sample_source = h4["confirmatory_sample_source"]["value"]
+        if (
+            sample_source == "finite_benchmark_equals_target"
+            and weight_treatment != "not_applicable_exact_finite_target_enumeration"
+        ):
+            raise SuccessorGovernanceError(
+                "H4 exact finite-target enumeration must declare target-weight "
+                "uncertainty not applicable"
+            )
+        if (
+            sample_source != "finite_benchmark_equals_target"
+            and weight_treatment != "included_in_simultaneous_inference"
+        ):
+            raise SuccessorGovernanceError(
+                "H4 sampled or transported targets must include target-weight "
+                "uncertainty in simultaneous inference"
+            )
+        if power["maximum_familywise_type_i_error"] > inference["family_alpha"] + 1e-15:
+            raise SuccessorGovernanceError(
+                "H4 joint design maximum familywise type-I error exceeds family alpha"
+            )
+        if (
+            sample_source == "transported_randomized_sample"
+            and not h4["conditional_effect_transport_assumptions_binding"]["value"]
+        ):
+            raise SuccessorGovernanceError(
+                "H4 transported randomized samples require effect-transport assumptions"
+            )
 
 
 def validate_successor_document(
@@ -2358,7 +2776,7 @@ def validate_successor_document(
 
     status = _string(artifact["status"], context=f"{SUCCESSOR_PATH}.status")
     if status not in {
-        "reviewed_successor_draft_unfrozen",
+        "successor_draft_revised_unreviewed",
         "freeze_candidate_under_review",
         "frozen",
     }:
@@ -2422,6 +2840,13 @@ def validate_successor_document(
             expected=expected_slots,
             context=f"{protocol_context}.slots",
         )
+        if (
+            protocol["activation_rule"]
+            != EXPECTED_PROTOCOL_ACTIVATION_RULES[protocol_id]
+        ):
+            raise SuccessorGovernanceError(
+                f"{protocol_context}.activation_rule drifted"
+            )
 
     ec1 = protocols["ec1"]
     if (
@@ -2448,10 +2873,10 @@ def validate_successor_document(
     if (
         h2["registered_claim_id"] != "H2"
         or h2["protocol_label"] != "prospective_censoring_aware_failure_prediction"
-        or h2["one_primary_proper_score_required"] is not True
+        or h2["one_primary_scoring_contract_required"] is not True
         or h2["decision_utility_primary_role_forbidden"] is not True
     ):
-        raise SuccessorGovernanceError("H2 primary-score boundary drifted")
+        raise SuccessorGovernanceError("H2 primary-scoring-contract boundary drifted")
     h3 = protocols["h3"]
     if (
         h3["registered_claim_id"] != "H3"
@@ -2491,7 +2916,7 @@ def validate_successor_document(
         )
 
     slot_values = _all_slot_values(artifact)
-    if status == "reviewed_successor_draft_unfrozen":
+    if status == "successor_draft_revised_unreviewed":
         non_null = [path for path, value in slot_values if value is not None]
         if non_null:
             raise SuccessorGovernanceError(
@@ -2507,10 +2932,19 @@ def validate_successor_document(
             )
         return list(FREEZE_BLOCKERS)
 
-    missing = [path for path, value in slot_values if value is None]
+    _validate_claim_selection_semantics(artifact, reader=reader)
+    required_slot_values, inactive_slot_values = _candidate_slot_values(artifact)
+    missing = [path for path, value in required_slot_values if value is None]
     if missing:
         raise SuccessorGovernanceError(
-            f"{status} has null required freeze slots: {missing}"
+            f"{status} has null active required freeze slots: {missing}"
+        )
+    populated_inactive = [
+        path for path, value in inactive_slot_values if value is not None
+    ]
+    if populated_inactive:
+        raise SuccessorGovernanceError(
+            f"{status} has populated inactive protocol slots: {populated_inactive}"
         )
 
     for field, slot in artifact["global_freeze_slots"].items():
@@ -2532,7 +2966,10 @@ def validate_successor_document(
             reader=reader,
             context=f"claim_selection_contract.slots.{field}.value",
         )
+    active_protocols = _active_protocol_ids(artifact)
     for protocol_id, protocol in protocols.items():
+        if protocol_id not in active_protocols:
+            continue
         for field, slot in protocol["slots"].items():
             allowed = (
                 tuple(slot["allowed_values"]) if slot["value_type"] == "enum" else None
@@ -2641,8 +3078,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if blockers:
         print(
-            "Research-governance successor OK: typed draft is structurally valid "
-            "and remains honestly unfrozen"
+            "Research-governance successor OK: revised typed draft is structurally "
+            "valid and remains honestly unreviewed and unfrozen"
         )
     else:
         print("Research-governance successor OK: frozen contract is structurally valid")

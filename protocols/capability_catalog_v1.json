@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-08-11",
+  "as_of_date": "2026-08-13",
   "canonical_spec": {
     "path": "grandplan.md",
     "version": "12.5",
     "sections": [
-      "§4 confirmatory claim registry",
+      "§4 confirmatory claim-template registry",
       "§7 estimator gates",
       "§8 infrastructure and ecosystem evidence",
       "§12 milestones"
@@ -63,7 +63,7 @@
         "crates/pid-sim/src/bin/bridge_ws.rs",
         "ARCHITECTURE.md"
       ],
-      "known_limitations": "TCP/WebSocket binaries refuse non-loopback bind addresses and default safe, but forwarding/proxying/tunnelling a loopback listener is not prevented. TCP/stdio JSONL lines have a 1 MiB cap, WebSocket upgrade/incoming-frame inputs have 16 KiB/1 MiB caps, and network read/write operations have 30-second timeouts. Standard profiles have no total request/session, request-count, or aggregate-traffic limit, so progress-making trickle traffic may persist. The optional Engram profile adds finite request-count, aggregate-input, pairing-attempt, and run-log limits, but no independent wall-clock deadline. Its separate capability row records startup-secret-possession pairing and its limits. The enumerated WebSocket gate requires GET /bridge HTTP/1.1, exactly one each of a nonempty Host, Upgrade websocket, tokenized Connection containing upgrade, version 13, and a base64 16-byte key, and no Origin; it does not claim general malformed-request detection. Client application messages are unfragmented, masked UTF-8 text frames; ping, pong, and close control frames are supported, while binary frames, fragmentation, and extensions/RSV use are rejected. The JSON-RPC 2.0 surface is single-request only: missing-id notifications are silent and distinct from explicit null, parameters are omitted or named objects rather than positional arrays, undeclared top-level method keys are rejected, sim.step requires numeric dt, and batches are unsupported. Profile-invalid parameters use -32602; handler/domain failures after validation use -32000. File RPCs provide non-adversarial canonical confinement and no-replace outputs, not a security-grade sandbox against hardlinks, aliases, or concurrent filesystem mutation. Export parses/manifests the same exact byte snapshot read from the source and stages/syncs/installs no-clobber finalized RRD bytes/hash. Executable transport run logs call File::sync_all for the initial prefix, each session flush before a wire response, and the terminal seal; generic SimBridgeSession<W> durability is sink-defined. There is no parent-directory fsync, power-loss durability, or cross-file run-log/export transaction. Crashes or provenance-storage failures may leave incomplete/unreadable logs, an apparently complete terminal record with indeterminate status/durability, or orphan RRDs. Standard profiles have no authentication. No profile provides authenticated actor identity, authorization, TLS, redaction, remote-security assessment, full target UI/VLA/backend control coverage, or a versioned subscription stream; actor identity remains locally declared.",
+      "known_limitations": "TCP/WebSocket binaries refuse non-loopback bind addresses and start with mutations disabled, but forwarding/proxying/tunnelling a loopback listener is not prevented. TCP/stdio JSONL lines have a 1 MiB cap, WebSocket upgrade/incoming-frame inputs have 16 KiB/1 MiB caps, and network read/write operations have 30-second timeouts. Standard profiles have no total request/session, request-count, or aggregate-traffic limit, so progress-making trickle traffic may persist. The optional Engram profile adds finite request-count, aggregate-input, pairing-attempt, and run-log limits, but no independent wall-clock deadline. Its separate capability row records startup-secret-possession pairing and its limits. The enumerated WebSocket gate requires GET /bridge HTTP/1.1, exactly one each of a nonempty Host, Upgrade websocket, tokenized Connection containing upgrade, version 13, and a base64 16-byte key, and no Origin; it does not claim general malformed-request detection. Client application messages are unfragmented, masked UTF-8 text frames; ping, pong, and close control frames are supported, while binary frames, fragmentation, and extensions/RSV use are rejected. The JSON-RPC 2.0 surface is single-request only: missing-id notifications are silent and distinct from explicit null, parameters are omitted or named objects rather than positional arrays, undeclared top-level method keys are rejected, sim.step requires numeric dt, and batches are unsupported. Profile-invalid parameters use -32602; handler/domain failures after validation use -32000. File RPCs provide non-adversarial canonical confinement and no-replace outputs, not a security-grade sandbox against hardlinks, aliases, or concurrent filesystem mutation. Export parses/manifests the same exact byte snapshot read from the source and stages/syncs/installs no-clobber finalized RRD bytes/hash. Executable transport run logs call File::sync_all for the initial prefix, each session flush before a wire response, and the terminal seal; generic SimBridgeSession<W> durability is sink-defined. There is no parent-directory fsync, power-loss durability, or cross-file run-log/export transaction. Crashes or provenance-storage failures may leave incomplete/unreadable logs, an apparently complete terminal record with indeterminate status/durability, or orphan RRDs. Standard profiles have no authentication. No profile provides authenticated actor identity, authorization, TLS, redaction, remote-security assessment, full target UI/VLA/backend control coverage, or a versioned subscription stream; actor identity remains locally declared.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
       "evidence_scope": "local unit-tested single-request dispatch, bind/default/wire caps, enumerated WebSocket checks, and non-adversarial canonical/no-replace file behavior; not remote-security, forwarding/proxy, adversarial-filesystem, crash-durability, or scientific validation",
@@ -247,7 +247,7 @@
         "crates/pid-sim/fixtures/h1_preflight_valid.json",
         "protocols/research_claim_registry_v1.json"
       ],
-      "known_limitations": "The checked policy and instrumentation chain is representative synthetic software only; no real policy timing equivalence, causal freeze, or H1 evidence follows.",
+      "known_limitations": "The checked policy and instrumentation chain is representative synthetic software only; no real policy timing equivalence, causal freeze, H1-A evidence, or H1-B implementation follows.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
       "evidence_scope": "content-addressed positive and fail-closed local fixtures",
@@ -273,7 +273,7 @@
         "crates/pid-sim/fixtures/h1_protocol_a_valid.json",
         "protocols/research_claim_registry_v1.json"
       ],
-      "known_limitations": "This finite synthetic benchmark identifies only paired algorithmic response under its clone/coupling contract; it is not a physical individual effect, real intervention, or H1 result.",
+      "known_limitations": "This finite synthetic benchmark identifies only paired algorithmic response under its clone/coupling contract; it is not a physical individual effect, real intervention, H1-A result, or H1-B implementation.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
       "evidence_scope": "deterministic PID-free local arithmetic and replay fixture",
@@ -386,29 +386,35 @@
       "revision_inputs": [
         "grandplan.md",
         "protocols/m0_preregistration_skeleton_v1.json",
+        "protocols/m0_preregistration_successor_draft_v2.json",
         "protocols/holdout_registry_v1.json",
         "protocols/holdout_access_ledger_v1.jsonl",
         "protocols/transport_contamination_ledger_v1.json",
         "protocols/literature_screening_ledger_v1.json",
         "protocols/research_claim_registry_v1.json",
         "scripts/audit_research_governance.py",
-        "tests/python/test_research_governance.py"
+        "scripts/audit_research_governance_successor.py",
+        "tests/python/test_research_governance.py",
+        "tests/python/test_research_governance_successor.py"
       ],
       "external_revision": null,
       "test_command": "just research-governance",
       "evidence_artifacts": [
         "protocols/m0_preregistration_skeleton_v1.json",
+        "protocols/m0_preregistration_successor_draft_v2.json",
         "protocols/holdout_registry_v1.json",
         "protocols/holdout_access_ledger_v1.jsonl",
         "protocols/transport_contamination_ledger_v1.json",
         "protocols/literature_screening_ledger_v1.json",
         "scripts/audit_research_governance.py",
-        "tests/python/test_research_governance.py"
+        "scripts/audit_research_governance_successor.py",
+        "tests/python/test_research_governance.py",
+        "tests/python/test_research_governance_successor.py"
       ],
-      "known_limitations": "Structural integrity validation only: the study is not frozen; no confirmatory holdout is registered; the local unsigned access chain cannot prove historical or off-repository non-access; transport, contamination, and rights assessments are incomplete; the legacy citation inventory is not a systematic review; and no scientific claim evidence follows. The v1 scaffold is intentionally non-promotable, so a real freeze needs a reviewed successor schema and validator with typed, content-bound receipts.",
+      "known_limitations": "Structural integrity validation only: the study is not frozen; no confirmatory holdout is registered; the local unsigned access chain cannot prove historical or off-repository non-access; transport, contamination, and rights assessments are incomplete; the legacy citation inventory is not a systematic review; and no scientific claim evidence follows. The v1 scaffold is intentionally non-promotable. The all-null v2 successor has typed content-bound obligations and its own validator, but the 2026-08-12 H2 correction reopened review, so it is not a freeze candidate.",
       "evidence_level": "E0",
       "evidence_basis": "intention_or_local_only",
-      "evidence_scope": "offline schema, binding, hash-chain, and honest-unfinished-state checks only",
+      "evidence_scope": "offline v1/v2 schema, binding, hash-chain, typed-obligation, and honest-unfinished-state checks only",
       "thesis_dependency": "required",
       "claim_ids": [
         "H1",
@@ -593,6 +599,36 @@
       "thesis_dependency": "not_on_thesis_path",
       "claim_ids": [
         "H3"
+      ]
+    },
+    {
+      "feature_id": "proposal.m4_predictive_policy_qualification",
+      "feature": "M4 Max predictive-policy and world-action-model qualification",
+      "status": "specified",
+      "revision_inputs": [
+        "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md",
+        "grandplan.md",
+        "RESEARCH_VLA_D_NCP.md",
+        "ARCHITECTURE.md",
+        "experiments/safe_adapter/README.md"
+      ],
+      "external_revision": null,
+      "test_command": null,
+      "evidence_artifacts": [
+        "docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md",
+        "grandplan.md",
+        "RESEARCH_VLA_D_NCP.md"
+      ],
+      "known_limitations": "No candidate is an integrated Prisoma dependency. No checkpoint has passed the required rights, safe-loader, CPU/MPS parity, finite-output, hook, latency, or unified-memory gates on this M4 Max. Published code and weight licenses remain separate. Literature and artifact review do not establish scientific validity.",
+      "evidence_level": "E1",
+      "evidence_basis": "interface_specification",
+      "evidence_scope": "prospective low-overhead M4 qualification contract and deployed-graph taxonomy only",
+      "thesis_dependency": "optional",
+      "claim_ids": [
+        "H1",
+        "H2",
+        "H3",
+        "H4"
       ]
     },
     {

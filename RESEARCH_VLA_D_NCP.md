@@ -1,9 +1,9 @@
-# Vision-Language-Action Models and the Internal-Dynamics Axis "D": State of the Art, the NCP Spiking Bridge, and a Four-Lens Sufficiency Verdict
+# VLA and world-action models, the `D` axis, and the NCP sufficiency verdict
 
-**Author:** Sepehr Mahmoudian · **Date:** 1 July 2026
+**Author:** Sepehr Mahmoudian · **Original memo:** 1 July 2026 · **Reconciled:** 13 August 2026
 
-> **Repository facts synced 11 August 2026.** The observer pins immutable NCP `v0.8.0`, wire
-> 0.8. Official NCP main was observed at `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68`.
+> **Repository facts synced 13 August 2026.** The observer pins immutable NCP `v0.8.0`, wire
+> 0.8. Official NCP main was observed at `1a04294c90c1b50eba06ae1c6afe9c951319250d`.
 > That commit is the incompatible, unreleased, release-blocked `1.0.0-rc.1` candidate on
 > wire 1.0. Its compact proto contract hash is `163acc57d8a62b66`. NCP ledger tasks
 > `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. `P03` covers
@@ -26,11 +26,29 @@
 > specific model names and benchmark numbers against those sources before reuse.
 > Section 7 separates external claims, repository facts, and author judgment.
 
-## Bottom line (as of 1 July 2026)
+## Bottom line (reconciled 13 August 2026)
 
 The internal-dynamics, hidden-state, or world-model axis "D" is not depth. Several
 cited 2026 policies use latent world models, and cited interpretability studies report
 probeable or steerable structure in VLA hidden states [2][3][10][11][13][14][15].
+
+VLAs are not dead. `VLA` usually names an input-output interface. `WAM` can name a
+predictive training loss, a backbone, a generated-future path, an action-conditioned predictor,
+or a planner. Many reviewed systems remain direct VLA policies at deployment [86]–[96][107]–[122].
+
+Prisoma therefore classifies the deployed directed graph. It does not classify a system from its
+paper title. Flex-\(\pi\), for example, generates an intended future that actions can read. Its
+future cannot read candidate actions [86]. It is not an action-conditioned transition model.
+
+ForeWAM and Rift use the same class-C direction with lower deployment overhead [123][124]. Each
+creates action-independent future-position state in one prefill. Rift's paired cache interventions
+show that the tested action path uses that state. They do not establish physical correctness or an
+interventional transition.
+
+World Action Planner is class E because it proposes, predicts, ranks, and selects candidates
+[125]. CheckVLA is different. It predicts the execution of committed actions and can repair the
+remaining action suffix [126]. This is a class-D verifier and repair wrapper, not candidate
+planning.
 
 Prisoma treats D as a first-class, source-agnostic diagnostic input. It asks what D
 adds about action and whether D predicts physically valid 3D trajectories. PID is a
@@ -44,8 +62,8 @@ completeness, and value relative to the SAFE adapter.
 Some engineering and statistical gaps can be repaired. The scientific mismatch is
 more structural. No real language stream, architecture-evidenced state selection, or
 qualified world-model-bearing readout exists. NCP therefore remains exploratory,
-fail-closed, and off the critical path. The SAFE adapter is the near-term source for
-real (V,L,D,A) data.
+fail-closed, and off the critical path. The SAFE adapter is the candidate near-term source for
+real (V,L,D,A) data. Real capture and noninterference evidence remain open.
 
 ---
 
@@ -55,18 +73,112 @@ In the Prisoma VLDA contract, V, L, and D are declared source axes, and A is the
 **D is not depth.** Its exact producer, timing, ancestry, and probe evidence govern every
 semantic label. World-model, dynamics, internal-state, or planning semantics require separate
 evidence. The contract enumerates three candidate forms (repo-internal): `D_explicit`,
-`D_hidden[k]`, and `D_fused`. These names record the selected tensor role and provenance. They do
-not establish policy use or an internal simulation.
+`D_hidden[k]`, and `D_fused`. These names record the selected tensor role and provenance. They
+do not establish natural policy use, a response to any untested intervention, or an internal
+simulation.
 
-A recent survey defines a **World Action Model (WAM)** as one in which a predicted future
-observation helps produce, choose, or check an action [5]. Such an observation is one candidate D
-source, not D by definition. Prisoma tests whether a declared D source predicts physically valid
-3D trajectories. A positive result supports a world-model hypothesis. It does not establish policy
-use or exclude near-output action formatting by itself.
+A recent survey defines a **World Action Model (WAM)** through a predicted future that helps
+produce, choose, or check an action [5]. This wide definition joins distinct deployed graphs.
+Such a future is one candidate `D` source. It is not `D` by definition.
 
-## 2. VLA and D: state of the art as of July 2026
+Prisoma tests whether a declared `D` source predicts a named later variable. A positive result
+supports only that predictive statement. It does not establish natural use, intervention response,
+causal dynamics, or planning.
 
-### 2.1 Latent world models are a prominent D candidate
+## 2. VLA and D: state of the art through 13 August 2026
+
+### 2.1 Deployed graph, not WAM branding
+
+Let \(H\) contain all policy-visible history. Let \(F\) be a generated future. Let \(A^\pi\)
+be the policy proposal. Let \(A^{exec}\) be the executed command.
+
+Prisoma treats these as different operational and statistical contracts:
+
+\[
+q_{\mathrm{intent}}(F\mid H,L),\quad
+q_{\mathrm{joint}}(F,A^\pi\mid H,L),\quad
+q_{\mathrm{query}}(F\mid H,L,A^\pi),\quad
+p(F\mid H,L,\operatorname{do}(A^{exec})).
+\]
+
+| Class | Deployed graph | Meaning |
+|---|---|---|
+| A | \(\pi(A^\pi\mid H,L)\) | direct policy |
+| B | predictive training target; direct deployment | predictive co-training |
+| C | \(q(F\mid H,L)\,\pi(A^\pi\mid H,L,F)\) | intended-future conditioning |
+| J | jointly sample \(q(F,A^\pi\mid H,L)\), without a clamped-action query | coupled joint generation |
+| D | \(q(F\mid H,L,A^\pi)\) | action-conditioned observational prediction |
+| E | propose, predict, score, and select | predictive candidate planning |
+
+Flex-\(\pi\) is class C in full mode [86]. DreamZero uses the same broad future-then-inverse
+factorization [87]. The stage-level JEPA-WAM predicts an intended next-stage latent and uses it to
+condition local video and action generation, so it is class C-like [92]. VLA-JEPA, Fast-WAM,
+SLIM, LiLa-WAM, World Tokens, Dyna-2's scaling policy, and arXiv:2608.09381 JEPA-WAM are class B
+at deployment [2][88]–[91][99][107]. Their predictive target can improve the policy without
+becoming a runtime simulator. LiLa-WAM's released inference loop returns shared predictive-trained
+tokens, but it ignores them and never calls the future decoder.
+
+SelfWAM's optional rollout and UWM's forward mode expose class-D queries [93][94]. FACT is class D
+in direct mode and class E when its optional candidate ranking runs [95]. \(\tau0\)-WM and CoWAM
+are reviewed class-E systems [96][109]. CoWAM is the clearest selective-decision design in the
+August cohort. It scores one fixed candidate pool, preserves or overrides the nominal action, and
+abstains when its contracts do not admit a candidate. Neither system identifies an interventional
+transition from architecture alone.
+
+Surgical WAM, DynamicWAM, and FlowPilot are class J [108][110][111]. They jointly couple future
+and action streams, but do not expose a clamped candidate-action forecast. DreamWAM is class B in
+its no-rollout mode and class J in its joint mode [114]. A conditional factorization of a joint
+density does not create a clamped-action operation.
+
+SG-WAM, Vid2WAM, and MobileWAM remove their predictive teacher or branch at deployment
+[112][113][116]. Robust-WAM removes its teacher and alignment head but keeps learned query tokens
+[115]. These systems are class B. Their results test predictive training or distillation, not a
+callable transition query. An exact-phrase arXiv screen found 36 August 2026 “world action model”
+submissions through 13 August. Every item has a typed disposition in the dated frontier review.
+
+A broader-name search reaches the same conclusion. World-to-Wrist keeps the VLA label while a
+predicted wrist future conditions action generation, so it is class C [117]. LDA-1B is class B in
+policy mode and exposes a separate class-D forward task [119]. WLA-0 is class B by default and
+class E when its optional test-time path samples, predicts, scores, and selects candidates [120].
+Efficient-WAM is class J in the released code. Its video and action tokens use bidirectional joint
+attention, and no clamped candidate-action query is exposed [118]. Model branding does not select
+the class.
+
+ForeWAM and Rift extend the class-C branch with one-pass future-position state [123][124]. World
+Action Planner is an explicit class-E design [125]. CheckVLA instead uses a class-D forecast to
+verify committed actions and trigger a suffix repair [126]. These systems strengthen different
+comparators. They do not collapse conditioning, transition identification, verification, and
+planning into one claim.
+
+A planner must compare at least two candidate actions. It must predict and score each candidate.
+Its frozen score must cause the selection. It must log proposals, predictions, scores, and the
+selected action. It must pass a decision-flip test with fixed proposals.
+
+Action-conditioned causal language requires randomized executed actions, valid resets, action
+support, proposal-to-execution consistency, proper scores, calibration, failure preservation, and
+hidden-state-alias tests [97][98]. Generated pixel quality is not enough.
+
+The phrase “VLAs are dead” is therefore not a testable architecture claim. The 2026 frontier is a
+hybrid. Predictive objectives, state models, memory, and fast feedback increasingly augment the
+vision-language-action interface.
+
+A separate real-time WAM study compares six chunk-execution strategies on a 10 Hz bimanual
+platform [106]. It reports that incorrect observation-to-command alignment causes boundary errors
+that blending cannot repair. Its online comparison has three tasks and five trials per
+method–task cell. The timing lesson is directly relevant. The reported method ordering is not a
+universal deployment result.
+
+The supplied X post is a discovery lead, not an independent source [100]. Dyna reports a
+1.55-fold pooled success ratio over seven tasks and three checkpoints [99]. That internal
+Dyna-2-versus-Dyna-1 comparison matches data, training hyperparameters, and three starting
+checkpoints per architecture. The architectures still differ, and the ratio pools trials and
+checkpoints. A separate same-Dyna-2 study compares action-only, joint, and video-co-trained
+objectives under matched action data and steps. Dyna reports that joint training wins all 39 tasks
+at each tested scale. This supports predictive co-training inside Dyna-2. It does not identify
+online future simulation or planning, because the deployed action field does not consume the
+predicted video field.
+
+### 2.2 Latent world models are a prominent D candidate
 
 A prominent 2026 candidate is a learned latent world model rather than a pixel reconstructor.
 **VLA-JEPA** attaches a JEPA-style latent world model with "leakage-free state prediction." A
@@ -78,11 +190,59 @@ on five of seven LIBERO-Plus perturbation dimensions and on SimplerEnv Google Ro
 makes predicted future state a training target. It does not make the learned state a decision
 variable by construction or prove that the deployed action path uses it.
 
-All figures in this subsection are **paper-reported** benchmark numbers (traceable to the bracketed citations); treat them as such — benchmark- and protocol-dependent, not independently re-measured here. **LaWAM** predicts compact latent visual subgoals in the frozen DINOv3 latent space (via inverse-dynamics-inferred latent actions and a repurposed forward decoder) rather than reconstructing pixels or video, hitting 98.6% on LIBERO and 91.22% on RoboTwin at 187 ms per action-chunk and up to 24× lower wall-clock latency than pixel-space World-Action Models, using a 230M-parameter LaWM (~95% fewer world-modeling params) inside a 2.3B policy [11]. **AHEAD** augments a *frozen* 7B OpenVLA with a motion-aware latent world model that derives per-token velocity and acceleration from optical flow using only +4.9M parameters, targeting dynamic manipulation where objects move during execution; in simulation it reaches 79–97% across 20 dynamic scenarios (vs 31–58% for the best baseline), and on a physical xArm 7 it succeeds 29–30/30 on conveyor and rolling-ball and 19/30 on projectile catching where every baseline scores 0/30 [3]. **ALAM** learns algebraically-consistent latent transitions from action-free video (composition/reversal consistency: z_a^c ≈ z_a^b + z_b^c), yielding a locally additive latent space with 25–85× lower additivity/reversibility error than unstructured baselines, and transfer raises VLA success from 47.9% to 85.0% on MetaWorld MT50 and 94.1% to 98.1% on LIBERO [10]. **World-Value-Action (WAV)** does implicit planning in a structured latent trajectory space and *proves* that planning directly in action space suffers exponential decay in feasible-trajectory probability as horizon grows — a formal argument for why D (latent) beats A (raw action-space search) on long horizons [6].
+All figures in this subsection are paper-reported and protocol-dependent. Prisoma did not
+independently measure them.
 
-The taxonomy work makes the trend explicit: WAMs partition into Render-and-Decode, Latent-Only, and Video-Generation-Free philosophies, decompose along predictive substrate / action coupling / architectural backbone / deployment regime, and the field is trending toward "generating less of the future while preserving what is needed for control" [5]. Robustness studies find WAMs generalize better than plain VLAs under visual and language perturbations — attributed to spatiotemporal priors from web-scale video pretraining — with LingBot-VA at 74.2% on RoboTwin 2.0-Plus and Cosmos-Policy at 82.2% on LIBERO-Plus, and hybrids intermediate, so *integration methodology matters* [9][79][80]. At the frontier, **NVIDIA Cosmos 3** unifies language, image, video, audio, and action in one mixture-of-transformers, subsuming VLMs, video generators, world simulators, and world-action models, ranked best open-source T2I/I2V and best policy by RoboArena at writing [4]; **GR00T N1.6** pairs a 32-layer diffusion-transformer action head with an internal Cosmos-2B VLM, unfreezes the top 4 VLM layers, and predicts state-relative action chunks, converging faster with smoother actions on real bimanual robots [7][72]. Predecessors GR00T N1.5/FLARE, V-JEPA 2, DreamVLA, WorldVLA, F1, and the latent-action lineage (LAPA, CLAM, UniVLA, Genie) frame the trajectory into this world-model-centric present [19][20][21][22][23][24][25][26][27].
+**LaWAM** predicts compact latent visual subgoals in a frozen DINOv3 space. It infers latent
+actions and reuses a forward decoder instead of reconstructing pixels or video. The paper reports
+98.6% on LIBERO and 91.22% on RoboTwin at 187 ms per action chunk. It also reports up to 24-fold
+lower latency than pixel-space WAMs. Its 2.3B policy contains a 230M-parameter LaWM [11].
 
-### 2.2 Hidden states are probeable, value-like, and steerable
+**LiLa-WAM** uses a frozen DINOv3 encoder and a 0.5B bidirectional flow policy. The paper reports
+single-24-GB-GPU training and an action-conditioned latent probe [107]. The released inference
+loop consumes only the action velocity. It ignores the returned shared tokens and does not call
+the future decoder. The source has no language input, no repository license, no locked dependency
+manifest, and no MPS qualification. It is a low-overhead predictive ablation, not a full VLDA
+source or deployed simulator.
+
+**Efficient-WAM** releases a 1B class-J coupled sampler and two roughly 1.98 GB checkpoints [118].
+The source is Apache-2.0, but the model repository has no card or declared weight license. The
+runtime asserts CUDA before its nominal attention fallback. It also uses float64/complex RoPE,
+plain `torch.load`, UMT5-XXL, and a Wan VAE. It is later Metal port work, not a low-overhead MPS
+configuration.
+
+**Surgical WAM** jointly samples future-video and action slots with a Cosmos Policy backbone
+[108]. Its paper reports a matched action-free-video pretraining ablation on four simulated
+surgical tasks. No official runnable code or checkpoint was verified by the review cutoff. It is
+current architecture evidence, not an executable local candidate or independent result.
+
+**AHEAD** adds a 4.9M-parameter motion-aware latent model to frozen 7B OpenVLA. It derives
+per-token velocity and acceleration from optical flow. The paper reports 79–97% across 20 dynamic
+simulation scenarios. Its best reported baseline range is 31–58%. On an xArm 7, it reports 29 or
+30 successes on conveyor and rolling-ball tasks. It reports 19 of 30 on projectile catching, where
+the listed baselines report zero [3].
+
+**ALAM** learns algebraically consistent latent transitions from action-free video. Its declared
+objective encourages composition and reversal consistency. The paper reports 25–85-fold lower
+additivity or reversibility error. It also reports transfer gains from 47.9% to 85.0% on MetaWorld
+MT50 and from 94.1% to 98.1% on LIBERO [10].
+
+**World-Value-Action** gives a theoretical argument under its stated search model. Feasible
+action-space trajectory probability can decay exponentially with horizon [6]. This result does not
+prove that a latent `D` universally improves action-space planning.
+
+The taxonomy work distinguishes render-and-decode, latent-only, and video-generation-free WAMs
+[5]. A direct robustness study reports stronger results for several WAMs under its visual and
+language perturbations. It reports 74.2% for LingBot-VA on RoboTwin 2.0-Plus and 82.2% for
+Cosmos-Policy on LIBERO-Plus [9]. These are paper-reported results, not independent measurements.
+A broader robot-world-model survey places the comparison in its architectural context [80].
+
+At the frontier, **NVIDIA Cosmos 3** unifies language, image, video, audio, and action in one
+mixture-of-transformers [4]. **GR00T N1.6** uses an internal Cosmos-2B VLM and a diffusion-
+transformer action head [7][72]. Earlier V-JEPA, latent-action, and world-action work frames this
+lineage [19]–[27].
+
+### 2.3 Hidden states are probeable, value-like, and steerable
 
 Another literature reads D from an existing policy instead of designing it.
 **Frozen-VLA probing** uses linear probes on frozen OpenVLA, Pi0.5, DINOv2, and
@@ -108,27 +268,63 @@ keyframes and report stronger OpenVLA interventions. Their usefulness still
 depends on architecture and intervention site [16][31].
 
 Related work covers emergent representations, symbolic-state probes, steering,
-and VLA-Trace diagnostics [28][29][30][12]. These studies motivate Prisoma's
-physics-probe-then-gate rule. A readout can carry decision-relevant structure and
-still reflect visual entanglement or near-output action formatting.
+and VLA-Trace diagnostics [28][29][30][12]. Newer direct precedents remove objects from driving
+scenes, compare internal responses, suppress visual shortcuts through a counterfactual branch,
+and steer VLA activations in simulation and on a robot [82][83][84]. These studies motivate
+Prisoma's physics-probe-then-gate rule. They do not make one intervention a universal test of
+natural pathway use. A readout can carry decision-relevant structure and still reflect visual
+entanglement or near-output action formatting.
 
-### 2.3 Information-theoretic and PID analysis of multimodal internal state
+New negative evidence makes forward prediction an inadequate admission test. XEWorld reports
+that reviewed action-conditioned world models generalize by visual similarity more than physical
+kinematic similarity on held-out embodiments [101]. PhyLatent reports three latent failures despite
+global non-collapse: physical invariance, physical identifiability, and counterfactual dynamics
+[102]. PSG-JEPA reports that forward prediction alone does not ensure that individual latents or
+latent changes identify robot state [103]. These author results strengthen the need for external
+physical-state, change, action-sensitivity, and held-out-embodiment tests.
 
-A third, smaller literature applies PID directly. Applying PID to large VLMs decomposes decision-relevant information into redundant/unique/synergistic components (an "information spectrum"); profiling 26 LVLMs across four datasets reveals two task regimes (synergy-driven vs knowledge-driven), two family strategies (fusion-centric vs language-centric), and a three-phase layer-wise pattern with visual instruction tuning as the stage where fusion is learned [17]. In LLMs, a "synergistic core" concentrates in middle layers while early/late layers rely on redundancy; this emerges through training (absent at init), ablating synergistic components hurts far more than removing redundant ones, and RL fine-tuning of synergistic regions yields larger gains [18]. These are the direct scientific antecedents for Prisoma's layerwise `D_hidden[k]` selection and for its unique/redundant/synergistic screens. Complementary multimodal-interaction methods (SynIB synergy bottleneck, modality-contribution disentangling, conditional utilization rate, sample-level interaction, and an information-theoretic capability/robustness bound for VLAs) map the surrounding design space [32][33][34][35][36].
+HarnessWAM and TempoWAM also separate world prediction from execution management [104][105]. They
+add task state, progress monitoring, event-triggered deliberation, recovery, or adaptive replanning
+around finite-horizon policies. Prisoma should measure these external mechanisms separately. A
+world branch does not supply them automatically.
 
-### 2.4 PID estimator SOTA and its limits
+### 2.4 Information-theoretic and PID analysis of multimodal internal state
 
-Prisoma's estimator core is pid-rs: shared-exclusions redundancy I^sx_cap (Makkeh–Gutknecht–Wibral), a continuous I^sx_cap estimator (Ehrlich et al.), and KSG mutual information (repo-internal) [39][40]. The 2026 estimator frontier matters for what NCP could ever clear. A closed-form **Gaussian multi-source PID** estimator gives explicit formulas (no iterative optimization), extends beyond two sources, validates finite-sample convergence with limited data, and ships open-source `gaussian-pid` [1][41][71]. But the theory is simultaneously getting *harder*: a comprehensive review catalogs the properties/measures of PID [37], and multiple 2025–2026 results establish **inconsistencies** in multivariate PID — subsystem inconsistency (the whole is less than the sum of parts), novel inconsistency results, and constructions that break naive extensions [38][65][66]. Related MI-estimation advances (high-dimensional MI, MIST supervised MI, task-relevant latent dimensionality, partial information *rate* decomposition) bear on the same small-n / high-d / autocorrelated regimes Prisoma must survive [42][43][44][45]. Prisoma's current Exp0 verdict on clean synthetic high-dimensional controls is **NO-GO** — the gate working as designed, not a bug (repo-internal). Any new D source inherits that fragile regime.
+A third, smaller literature applies PID directly. One study profiles 26 large vision–language
+models across tasks, layers, and training stages [17]. Sensory PID conditions on language,
+decomposes audio–video contributions, and adds modality-shuffling and instruction interventions
+[85]. In LLMs, a reported synergistic core concentrates in middle layers [18]. These studies are
+direct antecedents for Prisoma's layerwise `D_hidden[k]` screens. They do not validate Prisoma's
+population, measure, estimator, or application regime. Complementary multimodal-interaction
+methods map the surrounding design space [32][33][34][35][36].
 
-### 2.5 Failure diagnosis from internal state, and neuromorphic control
+### 2.5 PID estimator SOTA and its limits
 
-A fourth literature reads internal features to *predict failure*. **SAFE** does multitask failure detection for VLAs from internal features [46]; a wave of 2026 work extends this — perturbation-based uncertainty, FIPER runtime failure prediction, trajectory failure-signal discovery, flow-based UQ, uncertainty-at-critical-moments, an action-space probe, and failure-aware reconstruction [47][48][49][50][51][52][53][54]. This is why the SAFE adapter is Prisoma's critical-path producer: it can declare selected hidden states as D, actions as A, and success/failure labels with explicit provenance (repo-internal). That mapping does not establish dynamics or policy use.
+Prisoma's estimator core is pid-rs: shared-exclusions redundancy `I^sx_∩` (Makkeh–Gutknecht–Wibral), a continuous `I^sx_∩` estimator (Ehrlich et al.), and KSG mutual information (repo-internal) [39][40]. The 2026 estimator frontier matters for what NCP could ever clear. A closed-form **Gaussian multi-source PID** estimator gives explicit formulas without iterative optimization and extends beyond two sources [1]. Its authors prove plug-in consistency and report controlled numerical stability studies in finite-sample Gaussian regimes. Those results do not validate arbitrary VLA or spiking data. But the theory is simultaneously getting *harder*: a comprehensive review catalogs the properties/measures of PID [37], and multiple 2025–2026 results establish **inconsistencies** in multivariate PID — subsystem inconsistency (the whole is less than the sum of parts), novel inconsistency results, and constructions that break naive extensions [38][65][66]. Related MI-estimation advances (high-dimensional MI, MIST supervised MI, task-relevant latent dimensionality, partial information *rate* decomposition) bear on the same small-n / high-d / autocorrelated regimes Prisoma must survive [42][43][44][45]. Prisoma's current Exp0 verdict on clean synthetic high-dimensional controls is **NO-GO** — the gate working as designed, not a bug (repo-internal). Any new D source inherits that fragile regime.
 
-Finally, the **neuromorphic/SNN** literature is where NCP would have to land as a *legitimate* D source. There now exist spiking world models with multicompartment neurons for model-based RL [55], SNNs for continuous control via end-to-end model-based learning [56], neuromodulation-based spiking controllers [57], analog spiking arm control [58], spike-driven decision transformers [59], spiking diffusion policy [60], HPC-scale embodied SNN simulation [61], and methods bridging discrete spikes to continuous control (Proxy Target, surrogate-gradient representation analysis) [62][63]. Crucially, the PID-in-neural-data literature shows synergy/redundancy is a *real, measurable* property of biological and spiking populations — parietal population codes, neuromorphic spike encoding, organotypic cultures where synergy is greater downstream of recurrent flow, time-varying synergy/redundancy dominance in human cortex, and electronic-oscillator networks [64][68][69][70][67] — with Gaussian PID bias-correction methods for high-dimensional neural data [71]. So the *idea* of PID on a spiking D is scientifically live; the question is whether *this* SNN, wired *this* way, qualifies.
+### 2.6 Failure diagnosis from internal state, and neuromorphic control
+
+A fourth literature reads internal features to *predict failure*. **SAFE** does multitask failure detection for VLAs from internal features [46]; a wave of 2026 work extends this — perturbation-based uncertainty, FIPER runtime failure prediction, trajectory failure-signal discovery, flow-based UQ, uncertainty-at-critical-moments, an action-space probe, and failure-aware reconstruction [47][48][49][50][51][52][53][54]. This is why the SAFE implementation is Prisoma's reference adapter and candidate critical-path real-data path: it can declare selected hidden states as D, actions as A, and success/failure labels with explicit provenance (repo-internal). That mapping does not establish dynamics, natural pathway use, or response to an intervention.
+
+Finally, the **neuromorphic/SNN** literature is where NCP would have to land as a *legitimate* D source. There now exist spiking world models with multicompartment neurons for model-based RL [55], SNNs for continuous control via end-to-end model-based learning [56], neuromodulation-based spiking controllers [57], analog spiking arm control [58], spike-driven decision transformers [59], spiking diffusion policy [60], HPC-scale embodied SNN simulation [61], and methods bridging discrete spikes to continuous control (Proxy Target, surrogate-gradient representation analysis) [62][63]. PID studies report measure- and regime-specific redundancy or synergy estimates in biological, spiking, and oscillator systems [64][68][69][70][67]. Gaussian-PID bias-correction work also targets high-dimensional neural data [71]. These results motivate a study of a spiking D, but they do not establish a mechanism, a unique decomposition, or validity for this SNN.
 
 ## 3. Where Prisoma sits
 
-Prisoma is not another VLA; it is a *gate-driven experiment-semantics and diagnostic* layer for VLA policies (repo-internal). Its distinctive commitments align cleanly with the four literatures above. (1) It makes D a **first-class, source-agnostic axis** and requires architecture evidence before a candidate tensor receives that role — the operationalization the LVLM/LLM PID papers imply but do not enforce [17][18]. (2) Its candidate decompositions I(V,L;A), PID(V,D;A), and the three-way CI(V,L,D;A)/I(V,L,D;A) turn the "information spectrum" idea into explicit, provenance-carrying measurement regimes rather than guaranteed headline outputs (repo-internal). (3) Its exploratory **PID(V,D;Flow)** target — where Flow is an intermediate 3D world-state bridge and Flow_gt is simulator ground truth — asks a concrete WAM-style question [5]: does D predict physically valid trajectory quantities, or merely action formatting near the motor head? (4) It is *four-gate first*: population, measure, estimator, and application verdicts all govern atom interpretation; geometry is supporting evidence, never a substitute. The default high-dimensional MI/coherence path is NO-GO and continuous atoms on real embeddings remain application-blocked (repo-internal). This is the same finite-sample humility the estimator literature now demands [1][37][38][42]. The current confirmatory registry is **EC1 plus H1–H4**: provenance-complete replay; intervention-response prediction; prospective failure prediction; conditional PID incremental value; and availability–use divergence. PID kill rules can retire H3 while H1/H2 continue with PID disabled. Flow and attribution remain exploratory companions. In short, Prisoma is a *diagnostic consumer* of the D that the world-model VLAs [2][3][10][11] and the probing/SAE literature [13][14][15][16] are producing.
+Prisoma is not another VLA. It is a gate-driven experiment-semantics and diagnostic layer for VLA
+policies (repo-internal). It makes D a source-agnostic axis and requires architecture evidence
+before assigning a stronger semantic role. Its PID and mutual-information screens are conditional
+measurement candidates, not headline outputs. Its exploratory `Flow` target asks whether D
+predicts declared physical trajectory quantities. It cannot prove natural pathway use.
+
+The population, measure, estimator, and application gates govern every atom interpretation.
+Geometry can support a warning or eligibility rule, but it cannot replace those gates. The current
+high-dimensional MI/coherence path is NO-GO. Continuous atoms on real embeddings remain
+application-blocked (repo-internal). EC1 and H1–H4 are unfrozen claim templates: finite registered
+capture–replay fidelity and fault detection; H1-A frozen-snapshot response prediction or H1-B
+randomized closed-loop effect modification; prospective H2 failure prediction; full-target H3 PID
+incremental value with exact non-PID fallback; and H4 divergence between availability and the
+cell-average response to one tested intervention. PID kill rules can retire H3 while H1 and H2
+continue with PID disabled. Flow and attribution remain exploratory companions.
 
 ## 4. How NCP fits
 
@@ -137,13 +333,15 @@ external Zenoh pub/sub protocol. Its three data planes can expose a conforming s
 producer: perception (`SensorFrame`), action (`CommandFrame`), and neural observation
 (`ObservationFrame`).
 
-Official NCP main was observed at `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` on
-2026-08-11. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate. It uses
+Official NCP main was observed at `1a04294c90c1b50eba06ae1c6afe9c951319250d` on
+2026-08-13. That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate. It uses
 wire 1.0 and compact proto contract hash `163acc57d8a62b66`. Wire 1.0 is incompatible with
 this observer.
 NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**. `P03`
-covers fault-observatory migration and Prisoma observer-role qualification. See the
-[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
+covers fault-observatory migration and Prisoma observer-role qualification. Refined low-overhead
+architecture prose and the prepared-stream-monitor gap record are coordination-only. B01 remains
+`IN_PROGRESS` with no passing receipt. See the
+[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
 
 The intended future producer is **Engram**, described as a NEST spiking network. The named public
 `sepahead/engram` repository remains a README-only placeholder. The executable Engram Neural Labs
@@ -152,7 +350,8 @@ Paper2Brain migration that targets candidate wire 1.0. It is not an installed or
 integration. Prisoma has a digest-locked, read-only headless-runtime descriptor for that host. Its
 generic adapter reads only describe, session, and status. This live status path is not NCP, an
 artifact validator, or a control path. The descriptor starts no process and grants no authority.
-Today, no compatible live wire-0.8 publisher exists.
+The review found that no compatible live wire-0.8 publisher exists in the public surface at the
+2026-08-13 cutoff.
 
 The `ncp-observer` crate is therefore a producer-agnostic **read-only passive tap**. It drives nothing; the Agent Bridge is the only control plane. It maps NCP onto (V,L,D,A): V ← `SensorFrame` channels minus language/success; L ← a named `SensorFrame` channel (default `instruction`); absent-language ticks are excluded from the artifact and counted (`excluded_empty_l`), never zeroed; **D ← `ObservationFrame` record-port readouts = pre-motor neural state** (world-model status untested); and A ← `CommandFrame` channels. Wire 0.8 correlates the planes with the full driving-sensor `StreamPosition`: a sensor contributes its own `stream`, while `CommandFrame.source` and a plane-published `ObservationFrame.source` echo the same `{epoch, seq}`. The observer never joins on arrival time or bare `seq`. Every kept sample carries `l_source = "channel"` and exact `d_source = "source"`; a source-less pull/RPC observation or missing readout is dropped or excludes the tick instead of being paired by recency.
 
@@ -166,45 +365,89 @@ The intended payoff is a research hypothesis, not a shipped control loop. The cu
 
 Is Engram a legitimate VLA analog, and is its pre-motor ObservationFrame readout a legitimate "D" comparable to a transformer VLA hidden state? The honest answer is no, today, and mostly *not by adding data*. Three disanalogies are structural (repo-internal). First, **no genuine live language stream has been demonstrated**: L is a named SensorFrame channel, and the observer excludes any tick where it is absent. That fail-closed behavior prevents fabrication, but it cannot make a non-language system support the I(V,L;A) decomposition. Second, the **"world model" label is unearned for a fixed pre-motor port**: grandplan §9.1–9.2 requires architecture mapping and external predictive evidence before assigning a scientific role. A pre-*motor* readout is exactly the near-output locus most at risk of action formatting rather than world content; physics decodability often peaks at intermediate depth and degrades toward output layers [13], and the cleanest D comes from models whose predicted latents are decision variables by construction [2][21], a guarantee an extracted SNN readout cannot offer. Third, the observer performs no architecture-evidence port selection — it concatenates configured record ports in deterministic BTreeMap order. An SNN may expose meaningful state families, but they require their own documented structure and probe/intervention evidence rather than being treated as a transformer layer stack (repo-internal). These are architectural properties, not mere data-collection gaps.
 
-What *is* scientifically sound is Prisoma's **handling** of the weak analogy. Missing axes are excluded rather than fabricated, exact source correlation is mandatory, support declarations and computation outcomes are explicit, and `--require-axis-provenance-honest` is available. Geometry diagnostics can expose degeneracy, but they do not themselves grant scientific eligibility; population, measure, estimator, and application verdicts remain separate. The crate is workspace-excluded and framed as an optional M2 ecosystem item below the S2/EC1 conformance bar, so the core H1/H2 program can run with NCP absent and PID disabled (repo-internal). The integrity of the *program* holds; the *analogy* does not. Verdict on the literal lens claim: INSUFFICIENT.
+What *is* scientifically sound is Prisoma's **handling** of the weak analogy. Missing axes are excluded rather than fabricated, exact source correlation is mandatory, support declarations and computation outcomes are explicit, and `--require-axis-provenance-honest` is available. Geometry diagnostics can expose degeneracy, but they do not themselves grant scientific eligibility; population, measure, estimator, and application verdicts remain separate. The crate is workspace-excluded and framed as an optional M2 ecosystem item that is not eligible for a registered S2/EC1 evaluation, so the core H1/H2 program can run with NCP absent and PID disabled (repo-internal). The integrity of the *program* holds; the *analogy* does not. Verdict on the literal lens claim: INSUFFICIENT.
 
 ### 5.2 Statistical / estimator adequacy — **INSUFFICIENT TODAY, FIXABLE in part**
 
-No NCP data exists to test, so the question is answered structurally (repo-internal). As shaped today, an absent-L tick is excluded before artifact publication; a tick without an exact source-stamped D readout is excluded too. Missing `metadata.split`/`episode_id`/`success` means no leakage-resistant held-out evaluation and no majority/1-NN/nearest-centroid/logistic H2-class baseline can be computed under the strict modes. Even a structurally complete artifact would only make the baselines runnable: continuous KSG/shared-exclusions computation would still need declared support; quantized discrete `I_min` could at most be a non-evidentiary diagnostic with population `NotEvaluated` and application `Blocked`; and interpretation would still require population, measure, estimator, and application gates. This is the honesty machinery working — the claim is not "NCP passes" but "NCP fails closed until its provenance and study structure are sufficient," which is the correct default.
+No NCP data exists to test, so the question is answered structurally (repo-internal). As shaped today, an absent-L tick is excluded before artifact publication; a tick without an exact source-stamped D readout is excluded too. Missing `metadata.split`/`episode_id`/`success` means no leakage-resistant held-out evaluation and no majority, 1-NN, nearest-centroid, or logistic failure-label baseline can be computed under the strict modes. Even a structurally complete artifact would only make the baselines runnable: continuous KSG/shared-exclusions computation would still need declared support; quantized discrete `I_min` could at most be a non-evidentiary diagnostic with population `NotEvaluated` and application `Blocked`; and interpretation would still require population, measure, estimator, and application gates. This is the honesty machinery working — the claim is not "NCP passes" but "NCP fails closed until its provenance and study structure are sufficient," which is the correct default.
 
-There is one genuine potential advantage: **low dimensionality**. Exp0's NO-GO is driven by high-dimensional estimator incoherence, with historical intrinsic-dimension and MI-collapse diagnostics documenting the regime. A NEST closed loop with a handful of V channels, a few D ports, and low-dimensional A is *plausibly* easier, but low dimensionality alone passes none of the four gates. Three risks remain: (i) spike-count D is categorical/atomic by construction, so the current pid-rs support contract correctly rejects it for a declared continuous KSG/`I^sx` estimand rather than treating ties as a repairable nuisance; (ii) a steady-state SNN can produce a degenerate near-constant axis; and (iii) temporal autocorrelation reduces effective sample size even with exact wire-0.8 source joins. The retired recency fallback is no longer implemented. `MAX_INFLIGHT=4096` remains an ingress bound, not a sample count. A Gaussian-PID path for a separately justified approximately Gaussian continuous readout is an adoption recommendation, not current capability. Verdict: INSUFFICIENT today; transport alignment is repaired, while population/measure/estimator/application validity remains unresolved.
+There is one genuine potential advantage: **low dimensionality**. Exp0's NO-GO is driven by high-dimensional estimator incoherence, with historical intrinsic-dimension and MI-collapse diagnostics documenting the regime. A NEST closed loop with a handful of V channels, a few D ports, and low-dimensional A is *plausibly* easier, but low dimensionality alone passes none of the four gates. Three risks remain: (i) spike-count D is categorical/atomic by construction, so the current pid-rs support contract correctly rejects it for a declared continuous KSG/`I^sx` estimand rather than treating ties as a repairable nuisance; (ii) a steady-state SNN can produce a degenerate near-constant axis; and (iii) temporal autocorrelation reduces independent information even with exact wire-0.8 source joins. A lag-1 AR(1) heuristic does not quantify the effective sample size of a nonlinear PID estimator. The retired recency fallback is no longer implemented. `MAX_INFLIGHT=4096` remains an ingress bound, not a sample count. A Gaussian-PID path for a separately justified approximately Gaussian continuous readout is an adoption recommendation, not current capability. Verdict: INSUFFICIENT today; transport alignment is repaired, while population/measure/estimator/application validity remains unresolved.
 
 ### 5.3 Engineering completeness — **INSUFFICIENT TODAY, FIXABLE**
 
-The three documented NCP gaps before it meets the S2/EC1 conformance bar are all engineering, and all repairable in principle (repo-internal): (1) precise D source correlation — wire 0.8 defines `ObservationFrame.source` as the driving sensor's full `StreamPosition`, and the observer enforces/counts source absence on ingress; a conforming external plane publisher must actually stamp it; (2) honest L — a real language channel must be instrumented, while absent-L ticks remain excluded rather than backfilled; and (3) `metadata.split`/`episode_id`/`success` structure so held-out baselines and episode-disjoint splits exist. The passive-tap architecture, `{epoch, seq}` source-join discipline, DROP-QoS-aware pairing, bounded in-flight state, and provenance stamping are sound engineering. This lens is the most tractable, but a zero/hash language proxy is fabricated evidence, and adapter completeness cannot manufacture population/measure/estimator/application validity. Verdict: INSUFFICIENT today, fixable in-repo only after the external publisher supplies the required source and study channels.
+The three documented NCP gaps before it can enter a registered S2/EC1 evaluation are all engineering, and all repairable in principle (repo-internal): (1) precise D source correlation — wire 0.8 defines `ObservationFrame.source` as the driving sensor's full `StreamPosition`, and the observer enforces/counts source absence on ingress; a conforming external plane publisher must actually stamp it; (2) honest L — a real language channel must be instrumented, while absent-L ticks remain excluded rather than backfilled; and (3) `metadata.split`/`episode_id`/`success` structure so held-out baselines and episode-disjoint splits exist. The passive-tap architecture, `{epoch, seq}` source-join discipline, DROP-QoS-aware pairing, bounded in-flight state, and provenance stamping are sound engineering. This lens is the most tractable, but a zero/hash language proxy is fabricated evidence, and adapter completeness cannot manufacture population/measure/estimator/application validity. Verdict: INSUFFICIENT today, fixable in-repo only after the external publisher supplies the required source and study channels.
 
-### 5.4 Value vs the SAFE adapter — **SAFE dominates for the critical path**
+### 5.4 Value vs the SAFE adapter — **SAFE is the critical-path candidate**
 
-SAFE (OpenVLA + pi0-FAST rollouts with success/failure outcomes) can provide genuine VLA hidden states, actions, instructions, and outcomes, and `experiments/safe_adapter` implements the reference contract mapping with honest axis provenance. It is therefore the correct critical-path producer, but it is not "ready" for confirmation: real capture, the instrumented-versus-uninstrumented diagnostic-noninterference preflight, and the H1/H2 protocol machinery remain open (repo-internal). SAFE exposes the language and architecture structure needed for §9.1 source mapping and anchors the failure-detection literature where D-from-internal-state has demonstrated value [46][47][48][49][50][51][52][53]. NCP's distinctive value is not as a VLA substitute but as (a) a possible design-time codec-prioritization consumer of scientifically gated PID screens and (b) an exploratory sim-vs-neuromorphic fidelity test [68][64] — both off the headline path. Verdict: SAFE is sufficient in principle and is the implemented reference adapter; NCP is complementary and exploratory.
+SAFE rollouts can provide genuine VLA hidden states, actions, instructions, and outcomes.
+`experiments/safe_adapter` implements the reference mapping with declared axis provenance. It is
+the candidate critical-path real-data producer, but it is not ready for confirmation.
+Real capture and the diagnostic-noninterference preflight remain open. The H1/H2 protocol work
+also remains open. SAFE provides the language and architecture structure required by §9.1. Its
+literature also supports failure detection from internal state [46][47][48][49][50][51][52][53].
+
+NCP is not a VLA substitute. Its narrower candidate roles are design-time codec prioritization
+and an exploratory simulation-to-neuromorphic fidelity test [68][64]. Both roles remain off the
+headline path. Verdict: SAFE has the required variable types in principle. Its implementation is
+the reference adapter and candidate critical-path real-data path. NCP remains complementary and
+exploratory.
 
 ### 5.5 Integrated verdict
 
-**NCP is not sufficient, today, for VLA studies or the (V,L,D,A)/VLDA PID contract.** The scientific lens is the binding constraint and is largely structural: no demonstrated language stream, no architecture-evidenced state selection, and a pre-motor D at high risk of action formatting rather than world-model content [13][2]. The statistical and engineering lenses are INSUFFICIENT-but-fixable, with two external/structural caveats (publisher-side `ObservationFrame.source` stamping and the impossibility of synthesizing a real L). Against SAFE, NCP loses decisively as a *critical-path producer* but retains narrower candidate value for a future design-time codec-optimization study or a separately validated fidelity comparison. The correct posture — which the repo already enforces — is **exploratory, four-gate governed, non-headline**.
+**NCP is not sufficient, today, for VLA studies or the (V,L,D,A)/VLDA PID contract.** The scientific lens is the binding constraint and is largely structural: no demonstrated language stream, no architecture-evidenced state selection, and a pre-motor D at high risk of action formatting rather than world-model content [13][2]. The statistical and engineering lenses are INSUFFICIENT-but-fixable, with two external/structural caveats (publisher-side `ObservationFrame.source` stamping and the impossibility of synthesizing a real L). Against SAFE, NCP loses decisively as a *critical-path adapter* but retains narrower candidate value for a future design-time codec-optimization study or a separately validated fidelity comparison. The correct posture — which the repo already enforces — is **exploratory, four-gate governed, non-headline**.
 
 ## 6. Recommendations
 
 1. **Do not call Engram's pre-motor readout a "world model" or "internal simulation" in any result** until grandplan §9.1–9.2 architecture mapping and external predictive evidence support that role. Use "pre-motor neural state (world-model status untested)."
 2. **Treat Engram as a neural-dynamics source, not a VLA analog.** Missing-L ticks are currently excluded. Drop the I(V,L;A) target for this source unless a genuine language channel is instrumented; do not accept a hash/zero proxy as L.
-3. **Apply explicit architecture evidence before calling any port "D":** map record ports, probe preregistered physical/task variables on held-out data, and use interventions where possible [17][18]; otherwise document D as configured pre-motor ports, not a principled world-model state.
+3. **Apply explicit architecture evidence before calling any port "D":** map record ports, probe preregistered physical/task variables on held-out data, and use frozen interventions where possible [82][84]; otherwise document D as configured pre-motor ports, not a principled world-model state.
 4. **Resolve the estimator regime for spike data:** separate analog-rate ports from categorical spike-count ports and do not concatenate heterogeneous units into one continuous D. Preregister one measure/preprocessing/estimator tuple; never auto-route a failed continuous term to discrete `I_min` or pool the two. Evaluate a Gaussian-PID path only for separately justified low-dimensional approximately Gaussian readouts [1][41][71], and use block/group resampling for autocorrelated sessions [44].
 5. **Keep the honesty scaffolding load-bearing:** never let an Engram atom into a comparison table without its `l_source`/`d_source`, computation outcome, and population/measure/estimator/application verdicts attached; keep `--require-axis-provenance-honest` mandatory on Engram artifacts.
-6. **Prioritize the SAFE adapter as the S2/EC1 real-VLA producer** and complete its real capture, diagnostic-noninterference preflight, and protocol-specific structure; NCP remains an optional M2 ecosystem item.
+6. **Prioritize the SAFE adapter as the S2/EC1 real-VLA adapter** and complete its real capture, diagnostic-noninterference preflight, and protocol-specific structure; NCP remains an optional M2 ecosystem item.
 7. **Test NCP's candidate payoff rather than assuming it:** add a separate per-channel estimand and validated analysis before considering a human-reviewed static codec policy or sim-vs-neuromorphic fidelity comparison [68][64] — never add per-tick PID or an observer control path.
+8. **Classify every WAM by its deployed graph.** Do not use a generated future, training loss, or
+   paper name as evidence of action-conditioned dynamics or planning
+   [86]–[96][108]–[116][123]–[126].
+9. **Use the matched six-arm mechanism ladder.** Separate direct policy, predictive co-training,
+   intended-future use, coupled joint generation, action-conditioned forecast validity, and
+   score-based candidate selection.
+   Match data, backbone, compute, controller, and evaluation. Keep prediction and scoring present
+   but noncontrolling in arm 5. Enable selection only in arm 6.
+10. **Keep the M4 path low overhead.** Treat SmolVLA as an MPS baseline candidate. Qualify it and
+    SLIM before use. Treat Efficient-WAM as a later class-J code port. Review a JEPA-WAM MPS port
+    only after those gates pass. Its released model is a 5,355,388,110-byte pickle-based artifact
+    from a CUDA-tested stack. Test LiLa-WAM only as a separate no-language predictive ablation.
+    Keep multi-billion-parameter video WAMs off the critical path [77][88][91][107][118].
+    Measure the full observation-to-command delay distribution before adding asynchronous chunk
+    execution [106]. Use one-pass class-C models only after their hidden-state path beats matched
+    direct-policy and predictive-training controls [123][124].
 
-## 7. Currency & confidence (as of July 2026)
+## 7. Currency and confidence (reconciled 13 August 2026)
 
-**(a) Externally sourced facts** (traceable to [n]; all figures are **paper-reported** benchmark numbers — verify against the cited source before reuse): the latent-world-model VLA results — VLA-JEPA 97.2% LIBERO / leakage-free design [2][8], LaWAM 98.6% LIBERO at 187 ms [11], AHEAD dynamic-manipulation gains [3], ALAM additivity/transfer [10], WAV's horizon-decay proof [6]; the WAM survey/taxonomy and robustness findings [5][9][80]; Cosmos 3 and GR00T N1.6 [4][7][72]; the probing/mechanistic/SAE results, with the corrected +10.67pp-over-random push-plate figure [14], visual-pathway dominance [13], SAE interpretability/steering with corrected memorized rates [15][16]; the PID-on-LVLM/LLM structure [17][18]; PID estimator SOTA and inconsistency results [1][37][38][65][66]; SAFE and the failure-detection wave [46]–[53]; the neuromorphic/SNN and PID-in-neural-data corpus [55]–[71].
+**Externally sourced facts.** All benchmark figures are paper-reported. Verify each cited source
+before reuse. The review covers these areas:
 
-**(b) Repo-internal facts** (authoritative for what Prisoma/NCP do, verified by codebase grounding, not independently externally checkable): the VLDA contract and source-role rules; the pid-rs estimator core; the high-dimensional MI/coherence NO-GO and continuous-atom application block; the `ncp-observer` V/L/D/A mapping, provenance markers, full-`StreamPosition` source join, missing-L/source exclusion, bounded visible-receipt/conflict accounting, `MAX_INFLIGHT=4096` plus finite resident/output ceilings, and committed publication receipt; the explicit absence of own-stream gap/timing/QoS/authentication evidence; the three NCP gaps; NCP's optional-M2/off-critical-path/workspace-excluded status; the SAFE adapter's implemented contract mapping and remaining preflight/capture gaps; the current EC1/H1–H4 registry; and the four PID gates.
+- latent VLA and WAM results [2]–[11], [77], [86]–[99], and [101]–[126];
+- deployed computation graphs and artifact status [86]–[99] and [101]–[126];
+- action, representation, and execution-management warnings [97], [98], and [101]–[105];
+- probing, counterfactual, mechanistic, and sparse-autoencoder results [13]–[16] and [82]–[84];
+- PID and multimodal-information work [1], [17], [18], [37]–[45], [65], [66], and [85];
+- SAFE and failure-detection work [46]–[53]; and
+- neuromorphic, spiking-control, and neural-PID work [55]–[71].
 
-**(c) Author judgment** (my synthesis, not a citation): that D is the organizing axis of 2026 VLA research; that the scientific disanalogy is *binding and largely structural* while statistical/engineering deficits are *fixable*; the integrated INSUFFICIENT verdict and its lens-by-lens allocation; the SAFE-dominates-for-critical-path conclusion; and the recommendation ordering.
+**Repo-internal facts** (authoritative for what Prisoma and NCP do, verified against the named code revisions, not independent scientific evidence): the VLDA contract and source-role rules; the pid-rs estimator core; the high-dimensional MI/coherence NO-GO and continuous-atom application block; the `ncp-observer` V/L/D/A mapping, provenance markers, full-`StreamPosition` source join, missing-L/source exclusion, bounded visible-receipt/conflict accounting, `MAX_INFLIGHT=4096` plus finite resident/output ceilings, and committed publication receipt; the explicit absence of own-stream gap/timing/QoS/authentication evidence; the three NCP gaps; NCP's optional-M2/off-critical-path/workspace-excluded status; the SAFE adapter's implemented contract mapping and remaining preflight/capture gaps; the current unfrozen EC1/H1–H4 claim-template registry; and the four PID gates.
 
-**Could NOT be verified to July 2026:** the physical semantics of Engram's configured record ports, whether an architecture-evidence/physics probe has been attempted upstream, whether the current external publisher stamps wire-0.8 observation sources, or whether a genuine language channel can be instrumented in practice. No NCP data exists to run through the four gates, so all statistical claims about NCP are structural predictions, not measurements. Low dimensionality is plausible but untested; there is no universal ID cutoff that would establish eligibility. Reference [81] is untitled and not relied upon for any factual claim.
+**Author judgment** (my synthesis, not a citation): that `D` is one useful organizing axis,
+but only after deployed-graph classification; that the NCP disanalogy is *binding and largely
+structural* while some statistical and engineering deficits are *fixable*; the integrated
+INSUFFICIENT verdict; the SAFE critical-path decision; and the recommendation order.
+
+**Could not be verified by 13 August 2026:** the physical semantics of Engram's configured record
+ports, whether an architecture-evidence or physics probe was attempted upstream, whether the
+current external publisher stamps wire-0.8 observation sources, or whether a genuine language
+channel can be instrumented. No NCP data exists to run through the four gates. All statistical NCP
+claims are therefore structural predictions, not measurements. Low dimensionality is plausible
+but untested. No universal intrinsic-dimension cutoff establishes eligibility.
 
 **Overall confidence:** medium-high on the external literature synthesis and on the integrated verdict; medium on the specific estimator-regime predictions for spike data (untested); lower on any counterfactual about a *future* NCP that instruments a real L and passes a physics probe.
 
@@ -287,7 +530,51 @@ SAFE (OpenVLA + pi0-FAST rollouts with success/failure outcomes) can provide gen
 [75] Helix: A VLA Model for Generalist Humanoid Control — https://www.figure.ai/news/helix
 [76] Fine-Tuning VLA Models: Optimizing Speed and Success — https://arxiv.org/abs/2502.19645
 [77] SmolVLA — https://arxiv.org/pdf/2506.01844
-[78] Is LIBERO Still a Reliable Benchmark? A Simple Flow-Matching VLA Test — https://medium.com/@yananchen1116/is-libero-still-a-reliable-benchmark-a-simple-flow-matching-vla-test-7aabb0983ca5
-[79] Ant Group Releases LingBot-VLA — https://www.marktechpost.com/2026/01/29/ant-group-releases-lingbot-vla-a-vision-language-action-foundation-model-for-real-world-robot-manipulation/
 [80] World Model for Robot Learning: A Comprehensive Survey — https://arxiv.org/html/2605.00080
-[81] (untitled) — https://arxiv.org/abs/2606.09646
+[82] What Do They See? Interpreting Complex Road Scenarios Through the Eyes of Vision-Language-Action Models for Safe and Trustworthy Autonomous Vehicle Learning — https://arxiv.org/abs/2607.16938
+[83] CofactVLA: Deconfounding Vision-Language-Action Models via Counterfactual Intervention — https://arxiv.org/abs/2608.04396
+[84] Mechanistic Interpretability for Steering Vision-Language-Action Models — https://proceedings.mlr.press/v305/haon25a.html
+[85] Towards Understanding Modality Interaction in Multimodal Language Models via Partial Information Decomposition — https://arxiv.org/abs/2606.00959
+[86] Flex-\(\pi\): A Multi-Stream World-Action Model with Compute Flexibility — https://arxiv.org/abs/2608.10860 and https://flex-pi.github.io/
+[87] DreamZero: Learning Robot Control from Video Generation — https://arxiv.org/abs/2602.15922
+[88] SLIM-0.5B: Learning Action-Grounded Predictive Latents for Robot Manipulation — https://arxiv.org/abs/2608.09771 and https://github.com/kzz1031/SLIM
+[89] World Tokens: Enhancing Embodied Policies with Training-Time World Modeling — https://arxiv.org/abs/2608.09730
+[90] Fast-WAM: Do World Action Models Need Test-time Future Imagination? — https://arxiv.org/abs/2603.16666
+[91] JEPA-WAM: Learning VLA Policies with Joint-Embedding World Modeling — https://arxiv.org/abs/2608.09381
+[92] JEPA-WAM: Stage-Level Joint-Embedding Prediction for World-Action Models — https://arxiv.org/abs/2608.10780
+[93] SelfWAM: A Self-Grounded Unified World Action Model for Fast Robot Control — https://arxiv.org/abs/2608.00725
+[94] Unified World Models: Coupling Video and Action Diffusion — https://arxiv.org/abs/2504.02792
+[95] FACT: Failure-Aware Causal Training for World-Action Models — https://arxiv.org/abs/2608.10232 and https://fact-wam.github.io/
+[96] \(\tau0\)-WM: A Unified Video-Action World Model for Robotic Manipulation — https://arxiv.org/abs/2606.01027
+[97] MiraBench: Evaluating Action-Conditioned Reliability in Robotic World Models — https://arxiv.org/abs/2605.29360
+[98] Hallucination in World Models Is Predictable and Preventable — https://arxiv.org/abs/2606.27326
+[99] Dyna-2 technical report — https://www.dyna.co/dyna-2
+[100] Supplied X discovery lead for Dyna-2 — https://x.com/CyberRobooo/status/2086999365789601933
+[101] XEWorld: Can Action-Conditioned World Models Generalize to Unseen Robot Embodiments? — https://arxiv.org/abs/2608.05799
+[102] PhyLatent: Learning Dynamics-Relevant Representations for JEPA World Models — https://arxiv.org/abs/2608.05720
+[103] Is Forward Prediction Enough? Physical State Grounding for JEPA World Models — https://arxiv.org/abs/2608.06799
+[104] HarnessWAM: Bridging Prediction and Deliberation in World Action Models — https://arxiv.org/abs/2608.09516
+[105] Rethink Before You Execute: Adaptive Execution for World Action Models (TempoWAM) — https://arxiv.org/abs/2608.09492
+[106] World Action Models in Real Time: An Empirical Study of Smooth Execution via Asynchronous Deployment — https://arxiv.org/abs/2608.01880
+[107] LiLa-WAM: Lightweight Latent Reasoning World-Action Model for Robotic Manipulation — https://arxiv.org/abs/2608.03701 and https://github.com/teee000/LiLa-WAM
+[108] Surgical WAM: A World-Action Model for Data-Efficient Surgical Robot Learning — https://arxiv.org/abs/2608.11204
+[109] CoWAM: Coordination Contracts for Selective Policy Intervention with WAMs — https://arxiv.org/abs/2608.02578
+[110] DynamicWAM: Dual-Path Motion Conditioning for World-Action Models in Dynamic Manipulation — https://arxiv.org/abs/2608.00793
+[111] FlowPilot: Real-Time World-Action Modeling for Agile UAV Navigation — https://arxiv.org/abs/2608.00635
+[112] SG-WAM: Self-Guided World Modeling in Geometry-Aware Policy Space — https://arxiv.org/abs/2608.01397
+[113] Vid2WAM: Distilling Video Diffusion Priors into World Action Models — https://arxiv.org/abs/2608.08558
+[114] DreamWAM: Beyond RGB Future Prediction for World Action Models — https://arxiv.org/abs/2608.04996 and https://github.com/hustvl/DreamWAM
+[115] Robust-WAM: Bridging Generative Pretraining and Semantic Foresight in World-Action Models — https://arxiv.org/abs/2608.05903
+[116] MobileWAM: Bridging World Action Models to Mobile Manipulation with Chain-of-Foresight — https://arxiv.org/abs/2608.04657
+[117] World-to-Wrist: Task-Conditioned Future Wrist Modeling for Fine-Grained Robot Manipulation — https://arxiv.org/abs/2608.05369 and https://github.com/yyyyu120/W2-VLA
+[118] Efficient-WAM: A 1B-Parameter World-Action Model with Low-Cost Future Imagination — https://arxiv.org/abs/2606.10040 and https://github.com/jiajun613/Efficient-WAM
+[119] LDA-1B: Scaling Latent Dynamics Action Model via Universal Embodied Data Ingestion — https://arxiv.org/abs/2602.12215 and https://github.com/jiangranlv/LDA-1B
+[120] World-Language-Action Model for Unified World Modeling, Language Reasoning, and Action Synthesis — https://arxiv.org/abs/2606.05979 and https://github.com/SJTU-DENG-Lab/WLA
+[121] RepWAM: World Action Modeling with Representation Visual-Action Tokenizers — https://arxiv.org/abs/2606.13674 and https://github.com/wdrink/RepWAM
+[122] Kairos: A Regret-Aware Native World-Action Model Stack for Physical AI — https://arxiv.org/abs/2606.16533 and https://github.com/kairos-agi/kairos
+[123] Foresight Without Seeing: Latent Futures for World Action Models (ForeWAM) — https://arxiv.org/abs/2608.11605
+[124] Keep the Future, Drop the Rollout: RIFT for World Action Models — https://arxiv.org/abs/2608.11521
+[125] World Action Planner: Generalizable Decision-Making with Action-Conditioned World Models — https://arxiv.org/abs/2607.27599 and https://worldactionplanner.github.io/
+[126] CheckVLA: Execution-Time Verification with Action-Conditioned World Model for Long-Horizon Mobile Manipulation — https://arxiv.org/abs/2607.26789
+The complete architecture and M4 artifact audit is
+[`WORLD_ACTION_MODEL_FRONTIER.md`](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md).

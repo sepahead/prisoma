@@ -25,12 +25,13 @@ uv run --no-sync maturin develop --locked --manifest-path pid-rs/crates/pid-pyth
 ## Ownership and scope
 
 - `grandplan.md` is the canonical research and engineering specification. Keep
-  the active docset and machine-readable claim registry consistent with it.
+  the active docset and machine-readable claim-template registry consistent with it.
 - `pid-core`, `pid-python`, and `pid-runlog` are owned by the `pid-rs`
   repository. Change them upstream, release them there, and then update the
   Prisoma submodule pin with migration evidence.
-- The run log is the source of truth, the Agent Bridge is the only control
-  plane, and Rerun/Tauri/SparkJS roles follow `grandplan.md` section 16.
+- The run log governs accepted recorded events. It cannot prove an unseen upstream event.
+  The Agent Bridge is the only control plane. Rerun/Tauri/SparkJS roles follow
+  `grandplan.md` section 16.
 - Do not add real participant, robot, customer, restricted, or secret data to
   the repository. Synthetic fixtures must identify themselves as synthetic.
 
@@ -44,10 +45,33 @@ independent or accountable-human review must actually exist; names, signatures,
 holdout custody, access history, ethics review, and data/model rights must never
 be inferred or fabricated.
 
+Every H1 result must name H1-A or H1-B. For H2, keep a complete-data proper score, an IPCW
+complete-data risk estimator, and a proper observed-data score distinct. Freeze one contract that
+binds the prediction object, score, target risk, censoring construction, assumptions, margin, and
+uncertainty method. A right-censored likelihood requires the full event-time-and-type law. The
+revised M0 v2 draft is unreviewed and all-null.
+In a future candidate, populate only EC1, H2, the selected H1 protocol, and the selected H3/H4
+branch. Leave every inactive protocol slot null. A post-H3 switch to H4 requires a fresh untouched
+sample and the frozen sequential-error rule.
+
 PID interpretation additionally requires separate population, measure,
 estimator, and application gates. Never pool continuous shared-exclusions atoms
 with discrete Williams–Beer `I_min`, route a failed continuous term to a
 different estimand, or emit a numeric placeholder for an abstention.
+
+Classify every predictive policy by its deployed computation graph. Keep these cases distinct:
+
+- a predictive target used only during training;
+- an intended future generated before the action;
+- a coupled joint future-action sampler without a clamped action query;
+- an observational predictor conditioned on a proposed action; and
+- a planner that proposes, predicts, scores, and selects at least two actions.
+
+Do not infer causal dynamics from directed attention, action conditioning, video quality, or task
+success. Causal action-consequence language requires randomized executed actions, execution
+receipts, support checks, proper scores, and calibration. Planning language requires recorded
+candidates, predictions, scores, selection, and a decision-flip test. Follow `grandplan.md`
+section 9.2, "World-model experiments."
 
 ## Technical writing
 
@@ -65,7 +89,7 @@ just check
 ```
 
 The `ui` group is required only because the full suite tests the optional PNG utility. Ordinary
-Prisoma use can keep the smaller default environment. `just check` verifies the lean default Rust
+Prisoma use can keep the smaller default environment. `just check` verifies the low-overhead default Rust
 surface. It excludes protocol references, legacy sensitivity, analysis, WebSocket, Rapier, and
 Rerun features. The gate then runs all-target, all-feature Clippy, tests, and rustdoc. It also runs
 the Python suite, Ruff, notice drift checks, and the pre-commit offline truth audits.

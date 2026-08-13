@@ -23,23 +23,26 @@ integrations. It also rejects a monolithic simulator or UI as the project center
 
 ### 2.1 Canonical run log
 
-Every captured sample and accepted control request must be reconstructable from canonical events.
-Sidecars and viewers are derived views. They cannot override the run log.
+Every sample admitted to an artifact and every accepted control request must be reconstructable
+from canonical events. Sidecars and viewers are derived views. They cannot override the run log.
+The run log governs accepted recorded events. It cannot prove an upstream event that the capture
+boundary never saw.
 
 Schema-2 streams require exactly one response for each bridge request. Replay validation detects
 missing, duplicate, or inconsistent events before a result becomes evidence.
 
 ### 2.2 Agent Bridge control plane
 
-Every mutating client submits work through the Agent Bridge. The bridge records the request before
-dispatch. Observers, analysis code, Rerun, and future UI code remain read-only.
+Every client that mutates a policy, controller, simulator, or environment submits work through the
+Agent Bridge. The bridge records the request before dispatch. Observers, analysis code, Rerun, and
+future UI code have no control authority.
 
 ```mermaid
 flowchart LR
     Client["policy, script, or UI"] --> Bridge["Agent Bridge"]
-    Bridge -->|append request| Log["canonical run log"]
+    Bridge -->|append accepted events| Log["canonical run log"]
     Bridge --> Backend["environment or physics backend"]
-    Backend -->|observations and outcomes| Log
+    Backend -->|effects, observations, outcomes| Bridge
     Log --> Replay["validation and replay"]
     Log --> Viewer["Rerun adapter"]
 ```
@@ -108,8 +111,9 @@ specified but not built. A Tauri/SparkJS shell is deferred and is not a thesis d
 The offline harness accepts a strict `(V,L,D,A)` artifact with labels and metadata. Producers must
 declare each axis and its population support. Prisoma never infers support from observed values.
 
-The reference critical-path producer is `experiments/safe_adapter`. It validates content-bound
-SAFE input bundles. Current committed outputs are synthetic software proofs.
+`experiments/safe_adapter` is the reference adapter implementation and the candidate critical-path
+real-data producer. It validates content-bound SAFE input bundles. Current committed outputs are
+synthetic software proofs.
 
 The optional `ncp-observer` is a read-only producer adapter for NCP wire 0.8. It is workspace-
 excluded. NCP and Zenoh therefore stay outside the default dependency graph.
@@ -148,7 +152,14 @@ flowchart LR
 ```
 
 The harness admits the complete invocation before analysis. Main and uncertainty projections share
-one aggregate work cap. The train-only screen fits independent preprocessing.
+one aggregate work cap. Unsupported episode topology produces a zero-work typed uncertainty skip.
+Multi-row block subsampling and circular shifts require one episode with a strictly increasing
+canonical decimal `metadata.sequence_index`. An `episode_id` does not establish order. Unit-block
+subsampling and full shuffle also support identified singleton episodes or rows without episode
+identifiers under the declared row-exchangeability null. The resamplers do not cross multiple
+non-singleton episode boundaries. A combined bootstrap and permutation request must declare one
+row-dependence class. Circular-shift tail fractions are approximate surrogate scores.
+The train-only screen fits independent preprocessing.
 
 `--pid-mode none` is the default. It removes MI and PID requests while retaining factual-outcome
 baselines. The explicit `analysis` feature still links `pid-core` for shared geometry and logistic
@@ -160,7 +171,7 @@ Inputs are read from one descriptor-bound, bounded snapshot on supported Unix ho
 uses staged files, file synchronization, and no-replace installation. A later output failure can
 leave an earlier file. No multi-file transaction is claimed.
 
-## 5. Lean overhead model
+## 5. Low-overhead model
 
 Low overhead is a design constraint, not a benchmark claim.
 
@@ -198,6 +209,26 @@ Report serialization uses bounded writers.
 These choices reduce peak memory and duplicate computation. They do not change scientific
 eligibility.
 
+### 5.4 Model-side capture
+
+Model hooks are optional and disabled by default. Capture only declared tensor sites. Use bounded
+queues and explicit drop counters. Move projection, MI, PID, geometry, and attribution work
+outside the action loop.
+
+For predictive policies, record the deployed graph and whether the future branch runs. Record
+policy proposals, controller output, executed actions, solver state, masks, and chunk timing.
+Bind observation capture, inference start and finish, committed-prefix indices, dispatch, and
+acknowledgement. An inference latency number alone cannot establish correct asynchronous execution.
+Predictive-training state, intended-future state, coupled joint-sampler state, and
+action-conditioned query state are different contracts. A joint density does not create an
+operational conditional query.
+
+SmolVLA is the current MPS baseline candidate. SLIM is the first compact predictive-training
+candidate for the full VLDA contract. Efficient-WAM is a later class-J code port with concrete
+attention, RoPE, device, loader, and dependency-memory blockers. JEPA-WAM is another later MPS port
+candidate with released source and weights. LiLa-WAM is a separate no-language, 0.5B predictive
+ablation. None is a current runtime dependency. Full video WAMs remain outside the critical path.
+
 ## 6. Security and trust boundaries
 
 ### 6.1 Local bridge profiles
@@ -230,7 +261,7 @@ Machine-readable ledgers in `protocols/` separate four kinds of truth:
 
 | Ledger | Question answered |
 |---|---|
-| Claim registry | What can the current software and evidence support? |
+| Claim-template registry | What can the current software and evidence support? |
 | Governance drafts | What must be frozen before confirmatory capture? |
 | Capability catalog | What exists, at which evidence level, and under which pin? |
 | Ecosystem overlay | What external revisions were reviewed and when? |
@@ -246,13 +277,19 @@ schema and authenticated exact-commit evidence exist.
 ### 8.1 Reconstruction-quality study
 
 `GAUSS_MI_INTEGRATION.md` specifies an optional reconstruction-quality covariate and active-view
-study. No measurement contract or implementation exists. It cannot weight KSG or PID under the
+study. No frozen, implemented measurement contract exists. It cannot weight KSG or PID under the
 rejected heuristic sketch.
 
 ### 8.2 External world-model comparator
 
 `WORLD_WARP_INTEGRATION.md` specifies a possible external comparator. No pinned adapter, rights-
 approved bundle, or matched-support result exists. Generated scenes are not causal ground truth.
+
+The dated [WAM frontier review](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md)
+defines six deployed-graph classes, including coupled joint generation. A planner must propose,
+predict, score, and select over at
+least two actions. Action-conditioned prediction remains observational until randomized executed-
+action validation passes.
 
 ### 8.3 Rendering and product UI
 
@@ -263,7 +300,7 @@ consume canonical evidence and route mutations through the Agent Bridge.
 
 An architectural change is acceptable only if it preserves these conditions:
 
-1. The run log remains authoritative.
+1. The run log remains authoritative for accepted recorded events.
 2. No control path bypasses the Agent Bridge.
 3. Optional systems stay outside the critical path.
 4. Resource costs remain admitted before expensive work.

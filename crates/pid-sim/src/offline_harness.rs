@@ -50,7 +50,8 @@ const OFFLINE_NCP_RUNLOG_MAX_BYTES: usize = 64 * 1024 * 1024;
 const OFFLINE_RESOURCE_LIMITS_MAX_BYTES: usize = 64 * 1_024;
 const OFFLINE_SUMMARY_MAX_BYTES: u64 = 64 * 1_024 * 1_024;
 const OFFLINE_UNCERTAINTY_MAX_BYTES: u64 = 8 * 1_024 * 1_024;
-const OFFLINE_UNCERTAINTY_SCHEMA_VERSION: u32 = 1;
+const OFFLINE_VLDA_REPORT_SCHEMA: &str = "prisoma.offline_vlda.report/2";
+const OFFLINE_UNCERTAINTY_SCHEMA_VERSION: u32 = 2;
 
 const OFFLINE_DEFAULT_MAX_INPUT_BYTES: u64 = 64 * 1_024 * 1_024;
 const OFFLINE_DEFAULT_MAX_SAMPLES: usize = 1_024;
@@ -235,7 +236,7 @@ impl Serialize for CanonicalJsonValue<'_> {
                     .try_reserve_exact(values.len())
                     .map_err(S::Error::custom)?;
                 entries.extend(values.iter());
-                entries.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+                entries.sort_unstable_by_key(|(key, _)| *key);
                 let mut map = serializer.serialize_map(Some(entries.len()))?;
                 for (key, value) in entries {
                     map.serialize_entry(key, &CanonicalJsonValue(value))?;
@@ -1121,38 +1122,47 @@ pub struct OfflineVldaPreprocessingVariable {
     pub inv_std_sha256: String,
 }
 
-/// Per-axis temporal-dependence diagnostic (audit item 25). Per-step rows are
-/// **not** i.i.d. when episodes autocorrelate, and every kNN estimate in this
-/// harness assumes they are — this quantifies how far a capture is from that
-/// validated regime and what block length the dependence-aware tools need.
-/// Non-gating: a high lag-1 does not fail the run; it tells the analyst to
-/// (a) read point estimates as computed on `effective_sample_size`, not `n`,
-/// and (b) feed `recommended_block_len` to `--uncertainty-block-size` and the
-/// circular-shift null.
+/// Per-axis temporal-dependence diagnostic. Per-step rows are not independent when episodes
+/// autocorrelate, while the point estimators do not model that dependence. This report provides a
+/// descriptive lag-1 screen only. Its AR(1) approximation is not an effective sample size for a
+/// nonlinear MI/PID estimator, a denominator correction, or a valid block-length selector.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaTemporalReport {
     /// One entry per axis (V/L/D/A).
     pub variables: BTreeMap<String, OfflineVldaTemporalVariable>,
-    /// Max over axes of the per-axis recommendation — the single block length
-    /// to hand the moving-block bootstrap and `CircularShift { min_shift }`.
-    pub recommended_block_len: usize,
-    /// `"within_episode"` when episode ids exist (lag products never cross an
-    /// episode boundary); `"row_order"` otherwise (boundaries mix in).
+    /// Maximum AR(1) block-length heuristic over axes. This exists only when all rows declare one
+    /// complete episode with a strict canonical `metadata.sequence_index` receipt. It requires an
+    /// independent, pre-outcome justification before use.
+    pub recommended_block_len: Option<usize>,
+    /// Number of ordered segments used by the diagnostic.
+    pub segments: usize,
+    /// Number of adjacent row pairs that stayed inside those segments.
+    pub lag_pairs: usize,
+    /// `"within_episode"` when every row has an episode id, `"row_order"` when no row has one,
+    /// or `"known_episode_segments_only_mixed_ids"` when missing ids prevent a complete series.
     pub scope: String,
+    /// Stable machine-readable warning against inferential reuse.
+    pub interpretation: String,
+    /// Evidence used to interpret the row sequence. A same-episode label is not an order receipt.
+    pub ordering_basis: String,
 }
 
 /// One axis's temporal diagnostic.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaTemporalVariable {
     /// Dimension-averaged lag-1 correlation of the globally standardized columns.
-    /// Lag pairs pool within episode segments. Per-segment means are not re-removed.
-    pub lag1_autocorr: f64,
-    /// AR(1)-approximate effective sample size `n·(1−r)/(1+r)`, clamped to
-    /// `[1, n]` — the honest denominator for reading the point estimates.
-    pub effective_sample_size: f64,
-    /// AR(1) integrated autocorrelation time `(1+r)/(1−r)` rounded up, then capped at the
-    /// largest value valid for both half-sample resampling and the circular-shift null.
-    pub recommended_block_len: usize,
+    /// Lag pairs pool within episode segments. Per-segment means are not re-removed. `None` means
+    /// the topology supplied no adjacent within-series pair.
+    pub lag1_autocorr: Option<f64>,
+    /// Descriptive AR(1) approximation `n·(1−r)/(1+r)`, clamped to `[1, n]`. This exists only
+    /// when all rows declare one complete episode with a strict canonical
+    /// `metadata.sequence_index` receipt. It is not the sampling denominator of any estimator in
+    /// this harness.
+    pub effective_sample_size: Option<f64>,
+    /// Descriptive AR(1) integrated-autocorrelation-time heuristic for one declared complete
+    /// episode with a strict canonical `metadata.sequence_index` receipt. It is not a validated
+    /// or automatically selected resampling block length.
+    pub recommended_block_len: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2042,7 +2052,11 @@ fn admit_dataset_resources(
     {
         (Some(PidMode::Continuous), Some(config)) if config.enabled() => {
             validate_uncertainty_config_for_samples(config, dataset.samples.len())?;
-            projected_uncertainty_distance_evaluations(dataset.samples.len(), config)?
+            if uncertainty_row_topology(&dataset.samples).supports(config) {
+                projected_uncertainty_distance_evaluations(dataset.samples.len(), config)?
+            } else {
+                0
+            }
         }
         (_, Some(config)) => {
             validate_uncertainty_config(config)?;
@@ -2696,6 +2710,7 @@ fn run_offline_vlda_harness_after_resource_preflight(
         uncertainty_config,
     } = preflight;
     let aggregate_invocation = uncertainty_config.is_some();
+    let row_topology = uncertainty_row_topology(&dataset.samples);
     let uncertainty_request = match uncertainty_config {
         Some(config) => json!({
             "enabled": config.enabled(),
@@ -2709,6 +2724,12 @@ fn run_offline_vlda_harness_after_resource_preflight(
             } else {
                 "not_requested".to_string()
             },
+            "permutation_calibration": permutation_calibration_label(
+                config.permutation_scheme,
+                config.n_perm,
+            )?,
+            "row_topology": row_topology.label(),
+            "execution": uncertainty_execution_label(options.pid_mode, config, row_topology),
         }),
         None => json!({
             "enabled": false,
@@ -2730,6 +2751,7 @@ fn run_offline_vlda_harness_after_resource_preflight(
         .unwrap_or_else(|| "offline-vlda-run".to_string());
     let config = json!({
         "harness": "offline_vlda",
+        "report_schema": OFFLINE_VLDA_REPORT_SCHEMA,
         "source": &dataset.source,
         "model": &dataset.model,
         "task": &dataset.task,
@@ -2755,7 +2777,7 @@ fn run_offline_vlda_harness_after_resource_preflight(
             "distance_projection_model": "pairwise_units_times_max_combined_axis_width_v2",
             "dense_solver_projection_model": "pid_core_0_9_logreg_pls_worst_case_v1",
             "optional_uncertainty": if aggregate_invocation {
-                "included_in_aggregate_preflight"
+                "included_or_typed_skip_in_aggregate_preflight"
             } else {
                 "not_included_by_single_analysis_api"
             }
@@ -3277,7 +3299,8 @@ pub struct OfflineVldaUncertaintyConfig {
     pub n_boot: usize,
     /// Number of permutations for single-source unique-atom nulls (0 disables them).
     pub n_perm: usize,
-    /// Moving-block length for the resamplers (1 = i.i.d.).
+    /// Predeclared row dependence scale for the subsample resampler. A value of one is an
+    /// exchangeability assertion only when rows are independent sampling units.
     pub block_size: usize,
     /// Two-sided tail mass used to select the raw m-sample percentiles.
     pub alpha: f64,
@@ -3286,10 +3309,9 @@ pub struct OfflineVldaUncertaintyConfig {
     /// How the permutation null rearranges the shuffled source's rows.
     /// `FullShuffle` simulates **exchangeable (i.i.d.) rows** — on per-step
     /// captures with within-episode autocorrelation it is anti-conservative.
-    /// `CircularShift { min_shift }` preserves the source's own serial
-    /// dependence (rotations) and is the dependence-respecting null for
-    /// stationary trajectory data; set `min_shift` to the dependence length
-    /// (the same order as `block_size`).
+    /// `CircularShift { min_shift }` preserves one source's serial order up to a wrap seam and
+    /// produces an approximate stationary-surrogate score, not a p-value. It is supported only
+    /// for one ordered series. Current resamplers fail closed on multiple non-singleton episodes.
     pub permutation_scheme: PermutationScheme,
 }
 
@@ -3308,7 +3330,7 @@ impl Default for OfflineVldaUncertaintyConfig {
 
 /// Stable string label for the permutation scheme, recorded in the uncertainty
 /// artifact so a standalone JSON consumer can tell which null produced the
-/// p-values.
+/// tail fractions.
 fn permutation_scheme_label(scheme: PermutationScheme) -> Result<String> {
     Ok(match scheme {
         PermutationScheme::FullShuffle => "full_shuffle".to_string(),
@@ -3324,6 +3346,148 @@ fn permutation_scheme_label(scheme: PermutationScheme) -> Result<String> {
     })
 }
 
+fn permutation_calibration_label(scheme: PermutationScheme, n_perm: usize) -> Result<&'static str> {
+    if n_perm == 0 {
+        return Ok("not_requested");
+    }
+    match scheme {
+        PermutationScheme::FullShuffle | PermutationScheme::BlockShuffle { .. } => {
+            Ok("monte_carlo_p_value_under_declared_exchangeability")
+        }
+        PermutationScheme::CircularShift { .. } => {
+            Ok("approximate_stationary_surrogate_score_not_p_value")
+        }
+        other => bail!("unsupported permutation scheme for uncertainty calibration: {other:?}"),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OfflineVldaUncertaintyRowTopology {
+    /// No row has an episode id. This does not establish one continuous ordered series.
+    RowOrderWithoutEpisodeIds,
+    /// Every row belongs to one episode and carries a strict canonical sequence index.
+    SingleOrderedEpisode,
+    /// Every row belongs to one episode, but row order has no strict sequence-index receipt.
+    SingleEpisodeWithoutVerifiedOrder,
+    /// Every row has a distinct episode id and is therefore one complete sampling unit.
+    SingletonEpisodes,
+    /// More than one episode exists and at least one contains multiple ordered rows.
+    MultipleEpisodesWithRepeatedRows,
+    /// Some rows have episode ids and others do not.
+    MixedEpisodeIdPresence,
+}
+
+impl OfflineVldaUncertaintyRowTopology {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::RowOrderWithoutEpisodeIds => "row_order_without_episode_ids",
+            Self::SingleOrderedEpisode => "single_ordered_episode",
+            Self::SingleEpisodeWithoutVerifiedOrder => "single_episode_without_verified_order",
+            Self::SingletonEpisodes => "singleton_episodes",
+            Self::MultipleEpisodesWithRepeatedRows => "multiple_episodes_with_repeated_rows",
+            Self::MixedEpisodeIdPresence => "mixed_episode_id_presence",
+        }
+    }
+
+    fn from_label(label: &str) -> Result<Self> {
+        match label {
+            "row_order_without_episode_ids" => Ok(Self::RowOrderWithoutEpisodeIds),
+            "single_ordered_episode" => Ok(Self::SingleOrderedEpisode),
+            "single_episode_without_verified_order" => Ok(Self::SingleEpisodeWithoutVerifiedOrder),
+            "singleton_episodes" => Ok(Self::SingletonEpisodes),
+            "multiple_episodes_with_repeated_rows" => Ok(Self::MultipleEpisodesWithRepeatedRows),
+            "mixed_episode_id_presence" => Ok(Self::MixedEpisodeIdPresence),
+            _ => bail!("unknown offline VLDA uncertainty row topology: {label}"),
+        }
+    }
+
+    fn supports(self, config: &OfflineVldaUncertaintyConfig) -> bool {
+        let row_exchangeable_only = || {
+            (config.n_boot == 0 || config.block_size == 1)
+                && (config.n_perm == 0
+                    || matches!(config.permutation_scheme, PermutationScheme::FullShuffle))
+        };
+        match self {
+            // Missing episode identities do not authorize a synthetic time series. The caller
+            // may still make the explicit row-exchangeability assertion encoded by unit blocks
+            // and a full shuffle.
+            Self::RowOrderWithoutEpisodeIds | Self::SingletonEpisodes => row_exchangeable_only(),
+            Self::SingleOrderedEpisode => true,
+            Self::SingleEpisodeWithoutVerifiedOrder
+            | Self::MultipleEpisodesWithRepeatedRows
+            | Self::MixedEpisodeIdPresence => false,
+        }
+    }
+}
+
+fn has_strict_sequence_index(samples: &[OfflineVldaSample]) -> bool {
+    let mut previous = None::<u64>;
+    for sample in samples {
+        let Some(raw) = sample.metadata.get("sequence_index") else {
+            return false;
+        };
+        let Ok(current) = raw.parse::<u64>() else {
+            return false;
+        };
+        if current.to_string() != *raw || previous.is_some_and(|value| current <= value) {
+            return false;
+        }
+        previous = Some(current);
+    }
+    previous.is_some()
+}
+
+fn uncertainty_execution_label(
+    pid_mode: PidMode,
+    config: &OfflineVldaUncertaintyConfig,
+    topology: OfflineVldaUncertaintyRowTopology,
+) -> &'static str {
+    if !config.enabled() {
+        "not_requested"
+    } else if pid_mode != PidMode::Continuous {
+        "typed_skip_non_continuous_measure"
+    } else if !topology.supports(config) {
+        "typed_skip_episode_aware_resampling_required"
+    } else {
+        "eligible_for_execution"
+    }
+}
+
+fn uncertainty_row_topology(samples: &[OfflineVldaSample]) -> OfflineVldaUncertaintyRowTopology {
+    let present = samples
+        .iter()
+        .filter(|sample| sample.episode_id.is_some())
+        .count();
+    if present == 0 {
+        return OfflineVldaUncertaintyRowTopology::RowOrderWithoutEpisodeIds;
+    }
+    if present != samples.len() {
+        return OfflineVldaUncertaintyRowTopology::MixedEpisodeIdPresence;
+    }
+    let mut counts = BTreeMap::<&str, usize>::new();
+    for sample in samples {
+        let episode_id = sample
+            .episode_id
+            .as_deref()
+            .expect("all episode ids were checked as present");
+        *counts.entry(episode_id).or_default() += 1;
+    }
+    if counts.len() == 1 {
+        if has_strict_sequence_index(samples) {
+            OfflineVldaUncertaintyRowTopology::SingleOrderedEpisode
+        } else {
+            OfflineVldaUncertaintyRowTopology::SingleEpisodeWithoutVerifiedOrder
+        }
+    } else if counts.values().all(|count| *count == 1) {
+        OfflineVldaUncertaintyRowTopology::SingletonEpisodes
+    } else {
+        OfflineVldaUncertaintyRowTopology::MultipleEpisodesWithRepeatedRows
+    }
+}
+
+const UNSUPPORTED_UNCERTAINTY_TOPOLOGY_MODE: &str =
+    "skipped:episode_aware_resampling_required_for_row_topology";
+
 impl OfflineVldaUncertaintyConfig {
     pub fn enabled(&self) -> bool {
         self.n_boot > 0 || self.n_perm > 0
@@ -3333,11 +3497,31 @@ impl OfflineVldaUncertaintyConfig {
 fn validate_uncertainty_config(config: &OfflineVldaUncertaintyConfig) -> Result<()> {
     ensure!(config.block_size > 0, "uncertainty block_size must be >= 1");
     ensure!(
+        config.n_boot == 0 || config.n_boot >= 2,
+        "continuous uncertainty requires at least two bootstrap resamples"
+    );
+    ensure!(
         config.alpha.is_finite() && config.alpha > 0.0 && config.alpha < 1.0,
         "uncertainty raw-percentile tail mass must lie strictly inside (0, 1)"
     );
     if config.n_perm > 0 {
         let _ = permutation_scheme_label(config.permutation_scheme)?;
+    }
+    if config.n_boot > 0 && config.n_perm > 0 {
+        let bootstrap_declares_row_exchangeability = config.block_size == 1;
+        let permutation_declares_row_exchangeability =
+            matches!(config.permutation_scheme, PermutationScheme::FullShuffle);
+        ensure!(
+            bootstrap_declares_row_exchangeability == permutation_declares_row_exchangeability,
+            "one uncertainty request cannot combine incompatible row assumptions: unit-block bootstrap must pair with full shuffle, while multi-row block bootstrap must pair with a dependence-preserving permutation or surrogate"
+        );
+        if let PermutationScheme::BlockShuffle { block_size } = config.permutation_scheme {
+            ensure!(
+                block_size == config.block_size,
+                "one uncertainty request cannot combine different bootstrap and block-shuffle dependence scales: bootstrap block_size={}, permutation block_size={block_size}",
+                config.block_size
+            );
+        }
     }
     Ok(())
 }
@@ -3348,10 +3532,6 @@ fn validate_uncertainty_config_for_samples(
 ) -> Result<()> {
     validate_uncertainty_config(config)?;
     if config.n_boot > 0 {
-        ensure!(
-            config.n_boot >= 2,
-            "continuous uncertainty requires at least two bootstrap resamples"
-        );
         ensure!(
             samples >= 2 && config.block_size <= samples / 2,
             "uncertainty block_size must fit inside the declared half-sample stability envelope: samples={samples}, block_size={}",
@@ -3420,7 +3600,7 @@ pub struct OfflineVldaAtomStabilityEnvelope {
     pub bias_vs_point: Option<f64>,
 }
 
-/// Raw m-sample stability envelopes + permutation p-values for one two-source pair → A.
+/// Raw m-sample stability envelopes and null tail fractions for one two-source pair → A.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OfflineVldaPairUncertainty {
     pub pair: String,
@@ -3444,10 +3624,14 @@ pub struct OfflineVldaPairUncertainty {
     pub unique_s1: Option<OfflineVldaAtomStabilityEnvelope>,
     pub unique_s2: Option<OfflineVldaAtomStabilityEnvelope>,
     pub synergy: Option<OfflineVldaAtomStabilityEnvelope>,
-    /// One-sided permutation p-value for `unique_s1` (shuffling source 1).
-    pub unique_s1_perm_p: Option<f64>,
-    /// One-sided permutation p-value for `unique_s2` (shuffling source 2).
-    pub unique_s2_perm_p: Option<f64>,
+    /// One-sided null tail fraction for `unique_s1` after transforming source 1. This is a
+    /// Monte Carlo p-value only under a supported exchangeability scheme and its exact declared
+    /// null. A circular-shift value is an approximate surrogate score.
+    #[serde(alias = "unique_s1_perm_p")]
+    pub unique_s1_tail_fraction: Option<f64>,
+    /// One-sided null tail fraction for `unique_s2` after transforming source 2.
+    #[serde(alias = "unique_s2_perm_p")]
+    pub unique_s2_tail_fraction: Option<f64>,
     pub perm_n_valid_s1: usize,
     pub perm_n_valid_s2: usize,
 }
@@ -3507,24 +3691,31 @@ pub struct OfflineVldaPidUncertainty {
     #[serde(default)]
     pub seed: u64,
     pub resample_scheme: String,
-    /// Which permutation null produced the p-values (`"full_shuffle"` or
-    /// `"circular_shift(min_shift=N)"`). Defaults to empty on artifacts written
-    /// before the field existed.
+    /// Dataset row topology used to admit or reject the current resamplers.
+    pub row_topology: String,
+    /// Which permutation or surrogate transform produced the tail fractions.
     #[serde(default)]
     pub permutation_scheme: String,
+    /// `"monte_carlo_p_value_under_declared_exchangeability"`,
+    /// `"approximate_stationary_surrogate_score_not_p_value"`, or `"not_requested"`.
+    pub permutation_calibration: String,
     pub pairs: Vec<OfflineVldaPairUncertainty>,
 }
 
-/// Compute raw m-sample stability percentiles and single-source permutation p-values for the
+/// Compute raw m-sample stability percentiles and single-source null tail fractions for the
 /// three two-source `(V,L)→A` / `(V,D)→A` / `(L,D)→A` PID screens.
 ///
 /// This is the analysis-side complement to the Exp0 uncertainty gate: it quantifies
 /// uncertainty on the **continuous `I^sx_∩`** atoms (the primary atom-level measure;
 /// discrete `I_min` modes are a different measure — Warning 6 — and are reported as
-/// `skipped`). Resampling is Politis–Romano subsampling without replacement, which
-/// is safe for the KSG kNN estimator (a with-replacement bootstrap is not — see
-/// `pid_core::RowResampleScheme`). Its raw percentiles describe estimator stability at
-/// `m = subsample_len`; they do not have calibrated n-sample confidence-interval coverage.
+/// `skipped`). Resampling is Politis–Romano subsampling without replacement. It avoids the
+/// duplicate indices created by an ordinary with-replacement bootstrap, but does not establish
+/// inferential validity for KSG or `I^sx_∩`; ties already present in the data can still reject a
+/// resample. Its raw percentiles describe estimator stability at `m = subsample_len`; they do not
+/// have calibrated n-sample confidence-interval coverage.
+/// Full shuffles require exchangeable rows. Circular shifts produce approximate stationary-series
+/// surrogate scores, not p-values. The current implementation does not cross or pool dependent
+/// episode boundaries: it returns a typed skip when multiple episodes contain repeated rows.
 ///
 /// It is intentionally self-contained and written to a dedicated file by the
 /// binary, so it never perturbs the canonical run-log / summary metric counts.
@@ -3572,6 +3763,7 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
     dataset_content_sha256: String,
 ) -> Result<OfflineVldaPidUncertainty> {
     validate_uncertainty_config(config)?;
+    let row_topology = uncertainty_row_topology(&dataset.samples);
     if !config.enabled() {
         return Ok(OfflineVldaPidUncertainty {
             schema_version: OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
@@ -3587,7 +3779,9 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
             alpha: config.alpha,
             seed: config.seed,
             resample_scheme: "not_requested".to_string(),
+            row_topology: row_topology.label().to_string(),
             permutation_scheme: "not_requested".to_string(),
+            permutation_calibration: "not_requested".to_string(),
             pairs: Vec::new(),
         });
     }
@@ -3610,15 +3804,54 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
             } else {
                 "not_requested".to_string()
             },
+            row_topology: row_topology.label().to_string(),
             permutation_scheme: if config.n_perm > 0 {
                 permutation_scheme_label(config.permutation_scheme)?
             } else {
                 "not_requested".to_string()
             },
+            permutation_calibration: permutation_calibration_label(
+                config.permutation_scheme,
+                config.n_perm,
+            )?
+            .to_string(),
             pairs: Vec::new(),
         });
     }
     validate_uncertainty_config_for_samples(config, dataset.samples.len())?;
+    if !row_topology.supports(config) {
+        return Ok(OfflineVldaPidUncertainty {
+            schema_version: OFFLINE_UNCERTAINTY_SCHEMA_VERSION,
+            dataset_content_sha256,
+            estimator_revision: ESTIMATOR_REVISION.to_string(),
+            pid_mode,
+            mode: UNSUPPORTED_UNCERTAINTY_TOPOLOGY_MODE.to_string(),
+            stability_interpretation: raw_m_sample_stability_interpretation(),
+            n_boot: config.n_boot,
+            n_perm: config.n_perm,
+            block_size: config.block_size,
+            subsample_len: 0,
+            alpha: config.alpha,
+            seed: config.seed,
+            resample_scheme: if config.n_boot > 0 {
+                "politis_romano_subsample".to_string()
+            } else {
+                "not_requested".to_string()
+            },
+            row_topology: row_topology.label().to_string(),
+            permutation_scheme: if config.n_perm > 0 {
+                permutation_scheme_label(config.permutation_scheme)?
+            } else {
+                "not_requested".to_string()
+            },
+            permutation_calibration: permutation_calibration_label(
+                config.permutation_scheme,
+                config.n_perm,
+            )?
+            .to_string(),
+            pairs: Vec::new(),
+        });
+    }
     let projected = projected_uncertainty_distance_evaluations(dataset.samples.len(), config)?;
     let _ = enforce_pairwise_distance_limit(projected, limits, "uncertainty analysis")?;
     let projected_coordinates = projected_distance_coordinate_evaluations(
@@ -3706,8 +3939,8 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
                 unique_s1: None,
                 unique_s2: None,
                 synergy: None,
-                unique_s1_perm_p: None,
-                unique_s2_perm_p: None,
+                unique_s1_tail_fraction: None,
+                unique_s2_tail_fraction: None,
                 perm_n_valid_s1: 0,
                 perm_n_valid_s2: 0,
             });
@@ -3717,15 +3950,17 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
             .context("accepted uncertainty pair lacks its resource estimate")?;
 
         let (redundancy, unique_s1, unique_s2, synergy) = if config.n_boot > 0 {
-            // The current pid-core review contract requires an explicit resampling-validity
-            // declaration. These rows are episode-grouped and autocorrelated — which is *why* the
-            // harness block-subsamples — so declare weak stationary dependence at the configured
-            // block length rather than asserting independent rows. `--block-size` is fixed before
-            // the resampling outcomes are seen, hence `FixedAPriori`.
-            let validity = ResamplingValidityDeclaration::weakly_dependent_stationary(
-                config.block_size,
-                BlockLengthSelection::FixedAPriori,
-            )?;
+            // The caller fixes this assumption before the outcomes are visible. Unit blocks
+            // assert independent, exchangeable rows. Longer blocks assert a weakly dependent
+            // stationary series at the declared scale.
+            let validity = if config.block_size == 1 {
+                ResamplingValidityDeclaration::independent_rows(BlockLengthSelection::FixedAPriori)
+            } else {
+                ResamplingValidityDeclaration::weakly_dependent_stationary(
+                    config.block_size,
+                    BlockLengthSelection::FixedAPriori,
+                )?
+            };
             let boot_cfg = BootstrapConfig::new(
                 config.n_boot,
                 config.block_size,
@@ -3766,12 +4001,11 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
             (None, None, None, None)
         };
 
-        let (unique_s1_perm_p, perm_n_valid_s1, unique_s2_perm_p, perm_n_valid_s2) =
+        let (unique_s1_tail_fraction, perm_n_valid_s1, unique_s2_tail_fraction, perm_n_valid_s2) =
             if config.n_perm > 0 {
-                // Shuffle source 1 → null for its unique atom; likewise source 2.
-                // The scheme decides the null: FullShuffle assumes exchangeable
-                // rows; CircularShift preserves within-series autocorrelation
-                // (the honest null for per-step trajectory captures).
+                // Transform source 1 for its unique-atom null; likewise source 2. FullShuffle
+                // asserts row exchangeability. CircularShift preserves one series up to a wrap
+                // seam and returns an approximate surrogate tail fraction, not a p-value.
                 let callback = StatisticCallbackDeclaration::scalar(pair_resource_estimate);
                 let p1 = permutation_rows_pvalue_with(
                     &mats,
@@ -3808,17 +4042,17 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
         if config.n_boot > 0 && redundancy.is_none() {
             warning_codes.push(OfflineVldaUncertaintyWarning::BootstrapStatisticsUnavailable);
         }
-        if config.n_perm > 0 && unique_s1_perm_p.is_none() {
+        if config.n_perm > 0 && unique_s1_tail_fraction.is_none() {
             warning_codes.push(OfflineVldaUncertaintyWarning::UniqueSource1PermutationUnavailable);
         }
-        if config.n_perm > 0 && unique_s2_perm_p.is_none() {
+        if config.n_perm > 0 && unique_s2_tail_fraction.is_none() {
             warning_codes.push(OfflineVldaUncertaintyWarning::UniqueSource2PermutationUnavailable);
         }
         let requested_components =
             usize::from(config.n_boot > 0) + 2 * usize::from(config.n_perm > 0);
         let produced_components = usize::from(redundancy.is_some())
-            + usize::from(unique_s1_perm_p.is_some())
-            + usize::from(unique_s2_perm_p.is_some());
+            + usize::from(unique_s1_tail_fraction.is_some())
+            + usize::from(unique_s2_tail_fraction.is_some());
         let (status, scientific_gates, reason_code, reason_detail) = if produced_components
             == requested_components
         {
@@ -3876,8 +4110,8 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
             unique_s1,
             unique_s2,
             synergy,
-            unique_s1_perm_p,
-            unique_s2_perm_p,
+            unique_s1_tail_fraction,
+            unique_s2_tail_fraction,
             perm_n_valid_s1,
             perm_n_valid_s2,
         });
@@ -3901,11 +4135,17 @@ fn compute_offline_pid_uncertainty_after_resource_preflight(
         } else {
             "not_requested".to_string()
         },
+        row_topology: row_topology.label().to_string(),
         permutation_scheme: if config.n_perm > 0 {
             permutation_scheme_label(config.permutation_scheme)?
         } else {
             "not_requested".to_string()
         },
+        permutation_calibration: permutation_calibration_label(
+            config.permutation_scheme,
+            config.n_perm,
+        )?
+        .to_string(),
         pairs,
     })
 }
@@ -4818,7 +5058,7 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
                         "resource_usage_scope": "complete_cli_invocation_projection",
                         "distance_projection_model": "pairwise_units_times_max_combined_axis_width_v2",
                         "dense_solver_projection_model": "pid_core_0_9_logreg_pls_worst_case_v1",
-                        "optional_uncertainty": "included_in_aggregate_preflight",
+                        "optional_uncertainty": "included_or_typed_skip_in_aggregate_preflight",
                     }),
                 "offline VLDA report has an invalid aggregate resource-accounting contract"
             );
@@ -4837,6 +5077,11 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
                 .and_then(Value::as_str)
                 .context("offline VLDA aggregate report is missing its permutation scheme")?;
             let permutation_scheme = parse_recorded_permutation_scheme(scheme_label, n_perm)?;
+            let topology_label = request
+                .get("row_topology")
+                .and_then(Value::as_str)
+                .context("offline VLDA aggregate report is missing its row topology")?;
+            let row_topology = OfflineVldaUncertaintyRowTopology::from_label(topology_label)?;
             let config = OfflineVldaUncertaintyConfig {
                 n_boot,
                 n_perm,
@@ -4846,6 +5091,7 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
                 permutation_scheme,
             };
             validate_uncertainty_config(&config)?;
+            let execution = uncertainty_execution_label(options.pid_mode, &config, row_topology);
             ensure!(
                 request
                     == &json!({
@@ -4860,8 +5106,19 @@ fn report_resource_binding(report: &OfflineVldaReport) -> Result<ReportResourceB
                         } else {
                             "not_requested".to_string()
                         },
+                        "permutation_calibration": permutation_calibration_label(
+                            config.permutation_scheme,
+                            config.n_perm,
+                        )?,
+                        "row_topology": row_topology.label(),
+                        "execution": execution,
                     }),
                 "offline VLDA aggregate report carries an invalid uncertainty request"
+            );
+            ensure!(
+                execution == "eligible_for_execution"
+                    || usage.projected_uncertainty_pairwise_distance_evaluations == 0,
+                "offline VLDA typed uncertainty skip carries projected computation work"
             );
             Some(config)
         }
@@ -4904,6 +5161,11 @@ fn validate_offline_vlda_report(report: &OfflineVldaReport) -> Result<()> {
     ensure!(
         report.config.get("harness").and_then(Value::as_str) == Some("offline_vlda"),
         "offline VLDA report configuration has the wrong harness identity"
+    );
+    ensure!(
+        report.config.get("report_schema").and_then(Value::as_str)
+            == Some(OFFLINE_VLDA_REPORT_SCHEMA),
+        "offline VLDA report configuration has an unsupported report schema"
     );
     ensure!(
         report.config.get("samples").and_then(Value::as_u64)
@@ -4985,8 +5247,9 @@ fn validate_atom_stability_envelope(
         "{context}: raw m-sample percentile endpoints are reversed"
     );
     ensure!(
-        atom.n_valid > 0 && atom.n_valid <= n_boot,
-        "{context}: valid resample count is outside 1..={n_boot}"
+        atom.n_valid == n_boot,
+        "{context}: stability envelope exists without every requested resample: valid={}, requested={n_boot}",
+        atom.n_valid
     );
     let boot_mean = atom
         .boot_mean
@@ -5002,6 +5265,54 @@ fn validate_atom_stability_envelope(
         bias_vs_point.to_bits() == (boot_mean - atom.point).to_bits(),
         "{context}: m-sample bias diagnostic does not equal boot_mean - point"
     );
+    Ok(())
+}
+
+fn validate_uncertainty_points_match_report(
+    uncertainty: &OfflineVldaPidUncertainty,
+    report: &OfflineVldaReport,
+) -> Result<()> {
+    for pair in &uncertainty.pairs {
+        let report_pair = report.metrics.pid_pairs.get(&pair.pair).with_context(|| {
+            format!(
+                "offline VLDA PID uncertainty pair {} is absent from the main report",
+                pair.pair
+            )
+        })?;
+        for (atom_name, envelope, report_point) in [
+            (
+                "redundancy",
+                pair.redundancy.as_ref(),
+                report_pair.redundancy,
+            ),
+            (
+                "unique_s1",
+                pair.unique_s1.as_ref(),
+                report_pair.unique_source_1,
+            ),
+            (
+                "unique_s2",
+                pair.unique_s2.as_ref(),
+                report_pair.unique_source_2,
+            ),
+            ("synergy", pair.synergy.as_ref(), report_pair.synergy),
+        ] {
+            let Some(envelope) = envelope else {
+                continue;
+            };
+            let report_point = report_point.with_context(|| {
+                format!(
+                    "offline VLDA PID uncertainty {} {atom_name} has a point value while the main report abstained",
+                    pair.pair
+                )
+            })?;
+            ensure!(
+                envelope.point.to_bits() == report_point.to_bits(),
+                "offline VLDA PID uncertainty {} {atom_name} point does not match the main report",
+                pair.pair
+            );
+        }
+    }
     Ok(())
 }
 
@@ -5034,6 +5345,23 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
         uncertainty.block_size > 0,
         "PID uncertainty block size must be positive"
     );
+    let row_topology = OfflineVldaUncertaintyRowTopology::from_label(&uncertainty.row_topology)?;
+    let permutation_scheme =
+        parse_recorded_permutation_scheme(&uncertainty.permutation_scheme, uncertainty.n_perm)?;
+    ensure!(
+        uncertainty.permutation_calibration
+            == permutation_calibration_label(permutation_scheme, uncertainty.n_perm)?,
+        "PID uncertainty permutation calibration contradicts its scheme"
+    );
+    let config = OfflineVldaUncertaintyConfig {
+        n_boot: uncertainty.n_boot,
+        n_perm: uncertainty.n_perm,
+        block_size: uncertainty.block_size,
+        alpha: uncertainty.alpha,
+        seed: uncertainty.seed,
+        permutation_scheme,
+    };
+    validate_uncertainty_config(&config)?;
     if uncertainty.mode.starts_with("skipped:") {
         ensure!(
             uncertainty.pairs.is_empty(),
@@ -5048,8 +5376,16 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
                 uncertainty.n_boot == 0
                     && uncertainty.n_perm == 0
                     && uncertainty.resample_scheme == "not_requested"
-                    && uncertainty.permutation_scheme == "not_requested",
+                    && uncertainty.permutation_scheme == "not_requested"
+                    && uncertainty.permutation_calibration == "not_requested",
                 "no-request PID uncertainty skip carries a requested component or scheme"
+            );
+        } else if uncertainty.mode == UNSUPPORTED_UNCERTAINTY_TOPOLOGY_MODE {
+            ensure!(
+                uncertainty.pid_mode == PidMode::Continuous
+                    && config.enabled()
+                    && !row_topology.supports(&config),
+                "PID uncertainty topology skip is inconsistent with its row topology or request"
             );
         } else {
             ensure!(
@@ -5065,28 +5401,25 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
                 uncertainty.n_boot > 0 || uncertainty.n_perm > 0,
                 "non-continuous PID uncertainty skip records no requested component"
             );
-            ensure!(
-                uncertainty.resample_scheme
-                    == if uncertainty.n_boot > 0 {
-                        "politis_romano_subsample"
-                    } else {
-                        "not_requested"
-                    },
-                "non-continuous PID uncertainty skip carries the wrong resampling scheme"
-            );
-            ensure!(
-                uncertainty.permutation_scheme
-                    == if uncertainty.n_perm > 0 {
-                        permutation_scheme_label(parse_recorded_permutation_scheme(
-                            &uncertainty.permutation_scheme,
-                            uncertainty.n_perm,
-                        )?)?
-                    } else {
-                        "not_requested".to_string()
-                    },
-                "non-continuous PID uncertainty skip carries the wrong permutation scheme"
-            );
         }
+        ensure!(
+            uncertainty.resample_scheme
+                == if uncertainty.n_boot > 0 {
+                    "politis_romano_subsample"
+                } else {
+                    "not_requested"
+                },
+            "PID uncertainty skip carries the wrong resampling scheme"
+        );
+        ensure!(
+            uncertainty.permutation_scheme
+                == if uncertainty.n_perm > 0 {
+                    permutation_scheme_label(permutation_scheme)?
+                } else {
+                    "not_requested".to_string()
+                },
+            "PID uncertainty skip carries the wrong permutation scheme"
+        );
         return Ok(());
     }
     ensure!(
@@ -5096,6 +5429,10 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
     ensure!(
         uncertainty.n_boot > 0 || uncertainty.n_perm > 0,
         "continuous PID uncertainty artifact requested no inferential component"
+    );
+    ensure!(
+        row_topology.supports(&config),
+        "continuous PID uncertainty artifact uses a resampler that crosses unsupported episode boundaries"
     );
     if uncertainty.n_boot > 0 {
         ensure!(
@@ -5159,18 +5496,20 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
         );
         ensure!(
             uncertainty.n_perm > 0
-                || (pair.unique_s1_perm_p.is_none()
-                    && pair.unique_s2_perm_p.is_none()
+                || (pair.unique_s1_tail_fraction.is_none()
+                    && pair.unique_s2_tail_fraction.is_none()
                     && pair.perm_n_valid_s1 == 0
                     && pair.perm_n_valid_s2 == 0),
             "PID uncertainty pair {} carries unrequested permutation results",
             pair.pair
         );
-        let has_any_numeric =
-            has_any_atom || pair.unique_s1_perm_p.is_some() || pair.unique_s2_perm_p.is_some();
+        let has_any_numeric = has_any_atom
+            || pair.unique_s1_tail_fraction.is_some()
+            || pair.unique_s2_tail_fraction.is_some();
         let requested_complete = (uncertainty.n_boot == 0 || has_all_atoms)
             && (uncertainty.n_perm == 0
-                || (pair.unique_s1_perm_p.is_some() && pair.unique_s2_perm_p.is_some()));
+                || (pair.unique_s1_tail_fraction.is_some()
+                    && pair.unique_s2_tail_fraction.is_some()));
         let synthetic_outcome = OfflineVldaOutcome {
             status: pair.status,
             measure: MEASURE_CONTINUOUS_PID2.to_string(),
@@ -5215,11 +5554,11 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
                     expected_warnings
                         .push(OfflineVldaUncertaintyWarning::BootstrapStatisticsUnavailable);
                 }
-                if uncertainty.n_perm > 0 && pair.unique_s1_perm_p.is_none() {
+                if uncertainty.n_perm > 0 && pair.unique_s1_tail_fraction.is_none() {
                     expected_warnings
                         .push(OfflineVldaUncertaintyWarning::UniqueSource1PermutationUnavailable);
                 }
-                if uncertainty.n_perm > 0 && pair.unique_s2_perm_p.is_none() {
+                if uncertainty.n_perm > 0 && pair.unique_s2_tail_fraction.is_none() {
                     expected_warnings
                         .push(OfflineVldaUncertaintyWarning::UniqueSource2PermutationUnavailable);
                 }
@@ -5248,16 +5587,24 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
         }
         for (name, value, n_valid) in [
             (
-                "unique_s1_perm_p",
-                pair.unique_s1_perm_p,
+                "unique_s1_tail_fraction",
+                pair.unique_s1_tail_fraction,
                 pair.perm_n_valid_s1,
             ),
             (
-                "unique_s2_perm_p",
-                pair.unique_s2_perm_p,
+                "unique_s2_tail_fraction",
+                pair.unique_s2_tail_fraction,
                 pair.perm_n_valid_s2,
             ),
         ] {
+            if uncertainty.n_perm == 0 {
+                ensure!(
+                    value.is_none() && n_valid == 0,
+                    "PID uncertainty pair {} {name} carries an unrequested permutation result",
+                    pair.pair
+                );
+                continue;
+            }
             if let Some(value) = value {
                 ensure!(
                     value.is_finite() && (0.0..=1.0).contains(&value),
@@ -5265,14 +5612,14 @@ fn validate_offline_pid_uncertainty(uncertainty: &OfflineVldaPidUncertainty) -> 
                     pair.pair
                 );
                 ensure!(
-                    n_valid > 0 && n_valid <= uncertainty.n_perm,
-                    "PID uncertainty pair {} {name} has an invalid permutation count",
+                    n_valid == uncertainty.n_perm,
+                    "PID uncertainty pair {} {name} exists without every requested permutation",
                     pair.pair
                 );
             } else {
                 ensure!(
-                    n_valid <= uncertainty.n_perm,
-                    "PID uncertainty pair {} {name} has too many valid permutations",
+                    n_valid < uncertainty.n_perm,
+                    "PID uncertainty pair {} {name} is absent despite every requested permutation being valid",
                     pair.pair
                 );
             }
@@ -5409,6 +5756,24 @@ pub fn write_offline_vlda_runlog_with_options_and_uncertainty(
             == Some(dataset_content_sha256.as_str()),
         "offline VLDA report does not bind the publication dataset"
     );
+    if let Some(config) = resource_binding.uncertainty_config.as_ref() {
+        let request = report
+            .config
+            .get("uncertainty_request")
+            .context("offline VLDA aggregate report is missing its uncertainty request")?;
+        let expected_row_topology = uncertainty_row_topology(&dataset.samples);
+        ensure!(
+            request.get("row_topology").and_then(Value::as_str)
+                == Some(expected_row_topology.label())
+                && request.get("execution").and_then(Value::as_str)
+                    == Some(uncertainty_execution_label(
+                        resource_binding.options.pid_mode,
+                        config,
+                        expected_row_topology,
+                    )),
+            "offline VLDA uncertainty request does not match the publication dataset row topology"
+        );
+    }
     let summary_uri = summary_path
         .map(|path| exact_artifact_uri(path, "offline VLDA summary path"))
         .transpose()?;
@@ -5468,16 +5833,25 @@ pub fn write_offline_vlda_runlog_with_options_and_uncertainty(
             .config
             .get("uncertainty_request")
             .context("offline VLDA report is missing its uncertainty request")?;
-        let expected_subsample_len =
-            if recorded.pid_mode == PidMode::Continuous && recorded.n_boot > 0 {
-                (((dataset.samples.len() / 2) / recorded.block_size).max(1)) * recorded.block_size
-            } else {
-                0
-            };
+        let expected_subsample_len = if recorded.mode == "continuous" && recorded.n_boot > 0 {
+            (((dataset.samples.len() / 2) / recorded.block_size).max(1)) * recorded.block_size
+        } else {
+            0
+        };
+        let expected_row_topology = uncertainty_row_topology(&dataset.samples);
         ensure!(
             recorded.dataset_content_sha256 == dataset_content_sha256
                 && recorded.pid_mode == resource_binding.options.pid_mode
                 && recorded.subsample_len == expected_subsample_len
+                && recorded.row_topology == expected_row_topology.label()
+                && recorded.permutation_calibration
+                    == permutation_calibration_label(
+                        parse_recorded_permutation_scheme(
+                            &recorded.permutation_scheme,
+                            recorded.n_perm,
+                        )?,
+                        recorded.n_perm,
+                    )?
                 && report
                     .config
                     .get("dataset_content_sha256")
@@ -5492,9 +5866,32 @@ pub fn write_offline_vlda_runlog_with_options_and_uncertainty(
                 && request.get("alpha").and_then(Value::as_f64) == Some(recorded.alpha)
                 && request.get("seed").and_then(Value::as_u64) == Some(recorded.seed)
                 && request.get("permutation_scheme").and_then(Value::as_str)
-                    == Some(recorded.permutation_scheme.as_str()),
+                    == Some(recorded.permutation_scheme.as_str())
+                && request
+                    .get("permutation_calibration")
+                    .and_then(Value::as_str)
+                    == Some(recorded.permutation_calibration.as_str())
+                && request.get("row_topology").and_then(Value::as_str)
+                    == Some(recorded.row_topology.as_str())
+                && request.get("execution").and_then(Value::as_str)
+                    == Some(uncertainty_execution_label(
+                        recorded.pid_mode,
+                        &OfflineVldaUncertaintyConfig {
+                            n_boot: recorded.n_boot,
+                            n_perm: recorded.n_perm,
+                            block_size: recorded.block_size,
+                            alpha: recorded.alpha,
+                            seed: recorded.seed,
+                            permutation_scheme: parse_recorded_permutation_scheme(
+                                &recorded.permutation_scheme,
+                                recorded.n_perm,
+                            )?,
+                        },
+                        expected_row_topology,
+                    )),
             "offline VLDA PID uncertainty artifact does not match the report request"
         );
+        validate_uncertainty_points_match_report(&recorded, report)?;
     }
     let summary_sha256 = summary_snapshot
         .as_ref()
@@ -7504,11 +7901,15 @@ fn compute_pid_pair_metrics_discrete(
 
 /// Dimension-averaged lag-1 autocorrelation of one standardized axis matrix.
 /// Lag pairs never cross episode boundaries when episode identifiers exist.
-fn axis_lag1_autocorr(matrix: &MatOwned, segments: &[std::ops::Range<usize>]) -> f64 {
+fn axis_lag1_autocorr(matrix: &MatOwned, segments: &[std::ops::Range<usize>]) -> Option<f64> {
     let m = matrix.as_ref();
     let d = m.ncols();
-    if d == 0 {
-        return 0.0;
+    let lag_pairs = segments
+        .iter()
+        .map(|segment| segment.len().saturating_sub(1))
+        .sum::<usize>();
+    if d == 0 || lag_pairs == 0 {
+        return None;
     }
     let mut correlation_sum = 0.0;
     for column in 0..d {
@@ -7541,7 +7942,7 @@ fn axis_lag1_autocorr(matrix: &MatOwned, segments: &[std::ops::Range<usize>]) ->
             correlation_sum += (cross / denominator).clamp(-1.0, 1.0);
         }
     }
-    (correlation_sum / d as f64).clamp(-0.99, 0.99)
+    Some((correlation_sum / d as f64).clamp(-0.99, 0.99))
 }
 
 /// See [`OfflineVldaTemporalReport`]. Segments are maximal runs of consecutive
@@ -7553,6 +7954,7 @@ fn compute_temporal_report(
 ) -> OfflineVldaTemporalReport {
     let n = samples.len();
     let have_ids = samples.iter().all(|sample| sample.episode_id.is_some());
+    let have_no_ids = samples.iter().all(|sample| sample.episode_id.is_none());
     let mut segments: Vec<std::ops::Range<usize>> = Vec::new();
     if have_ids {
         let mut start = 0usize;
@@ -7563,12 +7965,44 @@ fn compute_temporal_report(
                 start = idx;
             }
         }
-    } else {
+    } else if have_no_ids {
         segments.push(0..n);
+    } else {
+        // Missing ids do not authorize a synthetic bridge between two known episode segments.
+        // Retain only maximal runs with the same known id. Treat each missing-id row as a
+        // singleton, which contributes no lag pair.
+        let mut idx = 0usize;
+        while idx < n {
+            let start = idx;
+            let Some(episode_id) = samples[idx].episode_id.as_deref() else {
+                segments.push(idx..idx + 1);
+                idx += 1;
+                continue;
+            };
+            idx += 1;
+            while idx < n && samples[idx].episode_id.as_deref() == Some(episode_id) {
+                idx += 1;
+            }
+            segments.push(start..idx);
+        }
     }
 
     let mut variables = BTreeMap::new();
-    let mut recommended_block_len = 1usize;
+    let lag_pairs = segments
+        .iter()
+        .map(|segment| segment.len().saturating_sub(1))
+        .sum::<usize>();
+    // Row order alone does not identify one time series. Emit AR(1)-derived values only when
+    // every row declares the same episode, that episode spans the full dataset, and each row has
+    // a strict canonical `metadata.sequence_index`. An episode id groups rows but does not order
+    // them.
+    let one_declared_complete_series = have_ids
+        && segments.len() == 1
+        && segments
+            .first()
+            .is_some_and(|segment| segment.start == 0 && segment.end == n)
+        && has_strict_sequence_index(samples);
+    let mut recommended_block_len = None::<usize>;
     for (name, matrix) in [
         ("V", &prepared.v),
         ("L", &prepared.l),
@@ -7576,15 +8010,18 @@ fn compute_temporal_report(
         ("A", &prepared.a),
     ] {
         let r1 = axis_lag1_autocorr(matrix, &segments);
-        let n_eff = (n as f64 * (1.0 - r1) / (1.0 + r1)).clamp(1.0, n as f64);
-        // Integrated autocorrelation time under AR(1); only positive
-        // dependence lengthens the required block.
-        let tau = ((1.0 + r1) / (1.0 - r1)).max(1.0);
-        // One recommendation must be valid for both the half-sample envelope and the circular
-        // shift null. The latter requires `samples >= 2 * block + 1`.
-        let max_admissible_block = n.saturating_sub(1).div_euclid(2).max(1);
-        let block = (tau.ceil() as usize).clamp(1, max_admissible_block);
-        recommended_block_len = recommended_block_len.max(block);
+        let (n_eff, block) = if let Some(r1) = r1.filter(|_| one_declared_complete_series) {
+            let n_eff = (n as f64 * (1.0 - r1) / (1.0 + r1)).clamp(1.0, n as f64);
+            // Integrated autocorrelation time under a descriptive AR(1) approximation. The cap
+            // keeps the hint syntactically admissible but does not validate it for inference.
+            let tau = ((1.0 + r1) / (1.0 - r1)).max(1.0);
+            let max_admissible_block = n.saturating_sub(1).div_euclid(2).max(1);
+            let block = (tau.ceil() as usize).clamp(1, max_admissible_block);
+            recommended_block_len = Some(recommended_block_len.unwrap_or(1).max(block));
+            (Some(n_eff), Some(block))
+        } else {
+            (None, None)
+        };
         variables.insert(
             name.to_string(),
             OfflineVldaTemporalVariable {
@@ -7597,10 +8034,20 @@ fn compute_temporal_report(
     OfflineVldaTemporalReport {
         variables,
         recommended_block_len,
+        segments: segments.len(),
+        lag_pairs,
         scope: if have_ids {
             "within_episode".to_string()
-        } else {
+        } else if have_no_ids {
             "row_order".to_string()
+        } else {
+            "known_episode_segments_only_mixed_ids".to_string()
+        },
+        interpretation: "descriptive_ar1_screen_not_estimator_effective_sample_size_or_block_selector;ar1_heuristics_only_for_one_declared_episode_with_strict_metadata_sequence_index".to_string(),
+        ordering_basis: if has_strict_sequence_index(samples) {
+            "strict_canonical_metadata_sequence_index".to_string()
+        } else {
+            "dataset_row_order_only_unverified".to_string()
         },
     }
 }
@@ -7747,18 +8194,17 @@ fn compute_geometry_diagnostics(
     preprocessing: &OfflineVldaPreprocessingReport,
 ) -> OfflineVldaGeometryDiagnostics {
     let mut warnings = Vec::new();
-    // Degenerate-axis guard: a variable whose every dimension is constant has zero
-    // variance, hence zero mutual information with anything by construction, so every
-    // PID atom that involves it is invalid (not merely small). This reuses the
-    // already-computed `zero_variance_dims` so an all-zeroed channel (e.g. a fabricated
-    // all-zero L from an absent language channel — see NCP_DEV_PROMPT Gap 2) is flagged
-    // loudly rather than silently passed through the gates.
+    // Degenerate-sample guard. An axis that is constant in this observed sample carries no
+    // sample variation, and the continuous estimator rejects its exact ties. This does not prove
+    // that the population variable is constant, that a measure-relative atom is zero, or that a
+    // discrete estimand is undefined. Reuse the preprocessing count so a fabricated all-zero
+    // channel is never silently treated as eligible continuous evidence.
     for (name, variable) in &preprocessing.variables {
         if variable.input_dim > 0 && variable.zero_variance_dims == variable.input_dim {
             warnings.push(format!(
                 "geometry {name} is all-constant (zero_variance_dims == input_dim == {}): \
-                 zero variance implies zero mutual information by construction, so every \
-                 PID atom involving {name} is degenerate/invalid",
+                 this observed sample has no {name} variation and is ineligible for the current \
+                 continuous estimator; do not infer a population law or zero PID atom",
                 variable.input_dim
             ));
         }
@@ -11194,20 +11640,20 @@ mod tests {
 
     #[test]
     fn uncertainty_entry_point_applies_pairwise_limit_independently() {
+        let dataset = as_single_ordered_episode(fixture_dataset());
         let config = OfflineVldaUncertaintyConfig {
             n_perm: 1,
             ..OfflineVldaUncertaintyConfig::default()
         };
         let projected =
-            projected_uncertainty_distance_evaluations(fixture_dataset().samples.len(), &config)
-                .unwrap();
+            projected_uncertainty_distance_evaluations(dataset.samples.len(), &config).unwrap();
         let limits = OfflineVldaResourceLimits {
             max_pairwise_distance_evaluations: u64::try_from(projected - 1).unwrap(),
             ..OfflineVldaResourceLimits::default()
         };
 
         let error = compute_offline_pid_uncertainty_with_limits(
-            &fixture_dataset(),
+            &dataset,
             PidMode::Continuous,
             &config,
             &limits,
@@ -11254,7 +11700,7 @@ mod tests {
 
     #[test]
     fn aggregate_invocation_checked_adds_main_and_uncertainty_before_analysis() {
-        let dataset = fixture_dataset();
+        let dataset = as_single_ordered_episode(fixture_dataset());
         let options = OfflineVldaHarnessOptions {
             pid_mode: PidMode::Continuous,
             ..OfflineVldaHarnessOptions::default()
@@ -11412,7 +11858,7 @@ mod tests {
 
     #[test]
     fn huge_uncertainty_count_rejects_before_main_dataset_validation() {
-        let mut dataset = fixture_dataset();
+        let mut dataset = as_single_ordered_episode(fixture_dataset());
         dataset.samples[1].sample_id = dataset.samples[0].sample_id.clone();
         let options = OfflineVldaHarnessOptions {
             pid_mode: PidMode::Continuous,
@@ -11471,7 +11917,9 @@ mod tests {
                     labels: [("success".to_string(), json!(idx % 2 == 0))]
                         .into_iter()
                         .collect(),
-                    metadata: BTreeMap::new(),
+                    metadata: [("sequence_index".to_string(), idx.to_string())]
+                        .into_iter()
+                        .collect(),
                 }
             })
             .collect();
@@ -11484,24 +11932,59 @@ mod tests {
         assert_eq!(t.scope, "within_episode");
         let v = &t.variables["V"];
         let l = &t.variables["L"];
-        assert!(v.lag1_autocorr > 0.8, "ramp lag1 = {}", v.lag1_autocorr);
+        let v_r1 = v.lag1_autocorr.expect("ramp has lag pairs");
+        let l_r1 = l.lag1_autocorr.expect("alternating series has lag pairs");
+        assert!(v_r1 > 0.8, "ramp lag1 = {v_r1}");
+        assert!(l_r1 < -0.8, "alternating lag1 = {l_r1}");
+        let v_n_eff = v
+            .effective_sample_size
+            .expect("ramp has an AR(1) approximation");
         assert!(
-            l.lag1_autocorr < -0.8,
-            "alternating lag1 = {}",
-            l.lag1_autocorr
+            v_n_eff < n as f64 / 4.0,
+            "persistent axis must shrink the descriptive AR(1) value: {v_n_eff}"
         );
-        assert!(
-            v.effective_sample_size < n as f64 / 4.0,
-            "persistent axis must shrink n_eff: {}",
-            v.effective_sample_size
+        assert!(v.recommended_block_len.is_some_and(|value| value > 1));
+        assert_eq!(
+            l.recommended_block_len,
+            Some(1),
+            "negative r1 does not lengthen the heuristic"
         );
-        assert!(v.recommended_block_len > 1);
-        assert_eq!(l.recommended_block_len, 1, "negative r1 needs no block");
         assert!(t.recommended_block_len >= v.recommended_block_len);
-        assert!(t.recommended_block_len <= (n - 1) / 2);
+        assert!(t
+            .recommended_block_len
+            .is_some_and(|value| value <= (n - 1) / 2));
+        assert_eq!(t.segments, 1);
+        assert_eq!(t.lag_pairs, n - 1);
+        assert_eq!(
+            t.interpretation,
+            "descriptive_ar1_screen_not_estimator_effective_sample_size_or_block_selector;ar1_heuristics_only_for_one_declared_episode_with_strict_metadata_sequence_index"
+        );
+        assert_eq!(t.ordering_basis, "strict_canonical_metadata_sequence_index");
         // The fixture's own report carries the diagnostic too.
         let base = run_offline_vlda_harness(fixture_dataset(), None, None).unwrap();
         assert_eq!(base.temporal.variables.len(), 4);
+        assert_eq!(
+            base.config["report_schema"],
+            json!(OFFLINE_VLDA_REPORT_SCHEMA)
+        );
+    }
+
+    #[test]
+    fn report_validation_rejects_an_unversioned_summary() {
+        let mut report = run_offline_vlda_harness(fixture_dataset(), None, None).unwrap();
+        report
+            .config
+            .as_object_mut()
+            .expect("report configuration is an object")
+            .remove("report_schema");
+        report.config_hash = pid_runlog::canonical_json_hash_v2(&report.config).unwrap();
+
+        let error = validate_offline_vlda_report(&report).unwrap_err();
+
+        assert!(
+            error.to_string().contains("unsupported report schema"),
+            "{error:#}"
+        );
     }
 
     #[test]
@@ -11510,7 +11993,90 @@ mod tests {
 
         let correlation = axis_lag1_autocorr(&matrix, &[0..2, 2..4]);
 
-        assert_eq!(correlation, 0.99);
+        assert_eq!(correlation, Some(0.99));
+    }
+
+    #[test]
+    fn temporal_report_withholds_ar1_values_without_within_series_pairs() {
+        let mut dataset = fixture_dataset();
+        for (idx, sample) in dataset.samples.iter_mut().enumerate() {
+            sample.episode_id = Some(format!("singleton-{idx}"));
+        }
+
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+
+        assert_eq!(report.temporal.scope, "within_episode");
+        assert_eq!(report.temporal.segments, report.dims.samples);
+        assert_eq!(report.temporal.lag_pairs, 0);
+        assert_eq!(report.temporal.recommended_block_len, None);
+        assert!(report.temporal.variables.values().all(|variable| {
+            variable.lag1_autocorr.is_none()
+                && variable.effective_sample_size.is_none()
+                && variable.recommended_block_len.is_none()
+        }));
+    }
+
+    #[test]
+    fn temporal_report_does_not_infer_one_series_from_unlabeled_row_order() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples {
+            sample.episode_id = None;
+        }
+
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+
+        assert_eq!(report.temporal.scope, "row_order");
+        assert_eq!(report.temporal.segments, 1);
+        assert_eq!(report.temporal.lag_pairs, report.dims.samples - 1);
+        assert!(report.temporal.variables.values().all(|variable| {
+            variable.effective_sample_size.is_none() && variable.recommended_block_len.is_none()
+        }));
+        assert_eq!(report.temporal.recommended_block_len, None);
+        assert_eq!(
+            report.temporal.ordering_basis,
+            "dataset_row_order_only_unverified"
+        );
+    }
+
+    #[test]
+    fn temporal_report_does_not_infer_order_from_one_episode_id() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples {
+            sample.episode_id = Some("one-episode".to_string());
+            sample.metadata.remove("sequence_index");
+        }
+
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+
+        assert!(report.temporal.variables.values().all(|variable| {
+            variable.effective_sample_size.is_none() && variable.recommended_block_len.is_none()
+        }));
+        assert_eq!(report.temporal.recommended_block_len, None);
+        assert_eq!(
+            report.temporal.ordering_basis,
+            "dataset_row_order_only_unverified"
+        );
+    }
+
+    #[test]
+    fn temporal_report_never_bridges_missing_episode_ids() {
+        let mut dataset = fixture_dataset();
+        for sample in &mut dataset.samples[2..] {
+            sample.episode_id = None;
+        }
+
+        let report = run_offline_vlda_harness(dataset, None, None).unwrap();
+
+        assert_eq!(
+            report.temporal.scope,
+            "known_episode_segments_only_mixed_ids"
+        );
+        assert_eq!(report.temporal.segments, report.dims.samples - 1);
+        assert_eq!(report.temporal.lag_pairs, 1);
+        assert!(report.temporal.variables.values().all(|variable| {
+            variable.effective_sample_size.is_none() && variable.recommended_block_len.is_none()
+        }));
+        assert_eq!(report.temporal.recommended_block_len, None);
     }
 
     #[test]
@@ -12213,6 +12779,16 @@ mod tests {
         .expect("continuous fixture parses")
     }
 
+    fn as_single_ordered_episode(mut dataset: OfflineVldaDataset) -> OfflineVldaDataset {
+        for (index, sample) in dataset.samples.iter_mut().enumerate() {
+            sample.episode_id = Some("single-ordered-episode".to_string());
+            sample
+                .metadata
+                .insert("sequence_index".to_string(), index.to_string());
+        }
+        dataset
+    }
+
     #[test]
     fn axis_provenance_flags_fabricated_and_misaligned_axes() {
         // Build samples carrying the provenance markers ncp-observer stamps.
@@ -12358,8 +12934,9 @@ mod tests {
     #[test]
     fn geometry_diagnostics_flag_all_constant_variable_as_degenerate() {
         // An all-constant L (every dim zero-variance, e.g. a fabricated all-zero language
-        // channel — NCP_DEV_PROMPT Gap 2) must be flagged: zero variance ⇒ zero mutual
-        // information by construction, so any PID atom involving it is invalid.
+        // channel — NCP_DEV_PROMPT Gap 2) must be flagged. The observed sample contains no
+        // variation on that axis, and the continuous estimator rejects the exact ties. This
+        // diagnostic does not infer the population law or assign zero to a PID atom.
         let mut variables = BTreeMap::new();
         let mut preprocessing = BTreeMap::new();
         preprocessing.insert("V".to_string(), preprocessing_variable(4, 0));
@@ -13840,8 +14417,69 @@ mod tests {
     }
 
     #[test]
-    fn pid_uncertainty_continuous_emits_stability_envelopes_and_perm_pvalues() {
-        let dataset = continuous_fixture_dataset();
+    fn uncertainty_rejects_incoherent_combined_row_assumptions() {
+        for config in [
+            OfflineVldaUncertaintyConfig {
+                n_boot: 8,
+                n_perm: 8,
+                block_size: 2,
+                permutation_scheme: PermutationScheme::FullShuffle,
+                ..OfflineVldaUncertaintyConfig::default()
+            },
+            OfflineVldaUncertaintyConfig {
+                n_boot: 8,
+                n_perm: 8,
+                block_size: 1,
+                permutation_scheme: PermutationScheme::CircularShift { min_shift: 1 },
+                ..OfflineVldaUncertaintyConfig::default()
+            },
+            OfflineVldaUncertaintyConfig {
+                n_boot: 8,
+                n_perm: 8,
+                block_size: 2,
+                permutation_scheme: PermutationScheme::BlockShuffle { block_size: 4 },
+                ..OfflineVldaUncertaintyConfig::default()
+            },
+        ] {
+            let error = validate_uncertainty_config(&config).unwrap_err();
+            assert!(
+                error.to_string().contains("incompatible row assumptions")
+                    || error
+                        .to_string()
+                        .contains("different bootstrap and block-shuffle")
+            );
+        }
+
+        for config in [
+            OfflineVldaUncertaintyConfig {
+                n_boot: 8,
+                n_perm: 8,
+                block_size: 1,
+                permutation_scheme: PermutationScheme::FullShuffle,
+                ..OfflineVldaUncertaintyConfig::default()
+            },
+            OfflineVldaUncertaintyConfig {
+                n_boot: 8,
+                n_perm: 8,
+                block_size: 2,
+                permutation_scheme: PermutationScheme::CircularShift { min_shift: 2 },
+                ..OfflineVldaUncertaintyConfig::default()
+            },
+            OfflineVldaUncertaintyConfig {
+                n_boot: 8,
+                n_perm: 8,
+                block_size: 2,
+                permutation_scheme: PermutationScheme::BlockShuffle { block_size: 2 },
+                ..OfflineVldaUncertaintyConfig::default()
+            },
+        ] {
+            validate_uncertainty_config(&config).unwrap();
+        }
+    }
+
+    #[test]
+    fn pid_uncertainty_continuous_emits_stability_envelopes_and_null_tail_fractions() {
+        let dataset = as_single_ordered_episode(continuous_fixture_dataset());
         let cfg = OfflineVldaUncertaintyConfig {
             n_boot: 24,
             n_perm: 40,
@@ -13859,6 +14497,11 @@ mod tests {
         assert_eq!(u.pairs.len(), 3);
         assert!(u.subsample_len >= 1);
         assert_eq!(u.permutation_scheme, "full_shuffle");
+        assert_eq!(
+            u.permutation_calibration,
+            "monte_carlo_p_value_under_declared_exchangeability"
+        );
+        assert_eq!(u.row_topology, "single_ordered_episode");
         // Deterministic given the same config.
         let u2 = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
         assert_eq!(u, u2);
@@ -13866,16 +14509,16 @@ mod tests {
         // Raw m-sample stability percentiles are present and ordered (n_boot > 0).
         let red = vl.redundancy.as_ref().unwrap();
         assert!(red.m_sample_percentile_lower <= red.m_sample_percentile_upper);
-        assert!(red.n_valid > 0 && red.n_valid <= cfg.n_boot);
+        assert_eq!(red.n_valid, cfg.n_boot);
         // Subsample-bias diagnostic: the m-out-of-n center is exposed alongside
         // the point estimate, and the precomputed gap is exactly their difference.
         let boot_mean = red.boot_mean.expect("boot_mean present on new artifacts");
         let gap = red.bias_vs_point.expect("bias_vs_point present");
         assert!((gap - (boot_mean - red.point)).abs() < 1e-12);
         assert!(vl.synergy.is_some() && vl.unique_s1.is_some() && vl.unique_s2.is_some());
-        // Permutation p-values present and valid (n_perm > 0).
-        let p1 = vl.unique_s1_perm_p.unwrap();
-        let p2 = vl.unique_s2_perm_p.unwrap();
+        // Null tail fractions are present and bounded (n_perm > 0).
+        let p1 = vl.unique_s1_tail_fraction.unwrap();
+        let p2 = vl.unique_s2_tail_fraction.unwrap();
         assert!((0.0..=1.0).contains(&p1) && (0.0..=1.0).contains(&p2));
         assert!(vl.perm_n_valid_s1 > 0 && vl.perm_n_valid_s2 > 0);
 
@@ -13926,13 +14569,97 @@ mod tests {
     }
 
     #[test]
+    fn pid_uncertainty_fails_closed_on_multiple_dependent_episodes() {
+        let dataset = continuous_fixture_dataset();
+        let options = continuous_options();
+        let config = OfflineVldaUncertaintyConfig {
+            n_boot: 8,
+            n_perm: 8,
+            ..Default::default()
+        };
+
+        let invocation = run_offline_vlda_invocation_borrowed_with_options_and_limits(
+            &dataset,
+            None,
+            None,
+            &options,
+            &config,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap();
+        let uncertainty = invocation.uncertainty.expect("typed skip is published");
+
+        assert_eq!(uncertainty.mode, UNSUPPORTED_UNCERTAINTY_TOPOLOGY_MODE);
+        assert_eq!(
+            uncertainty.row_topology,
+            "multiple_episodes_with_repeated_rows"
+        );
+        assert!(uncertainty.pairs.is_empty());
+        assert_eq!(uncertainty.subsample_len, 0);
+        assert_eq!(
+            invocation.report.config["uncertainty_request"]["execution"],
+            "typed_skip_episode_aware_resampling_required"
+        );
+        assert_eq!(
+            invocation.report.config["resource_usage"]
+                ["projected_uncertainty_pairwise_distance_evaluations"],
+            0
+        );
+    }
+
+    #[test]
+    fn pid_uncertainty_requires_an_identified_series_for_circular_shift() {
+        let mut dataset = continuous_fixture_dataset();
+        for sample in &mut dataset.samples {
+            sample.episode_id = None;
+        }
+        let config = OfflineVldaUncertaintyConfig {
+            n_perm: 8,
+            permutation_scheme: PermutationScheme::CircularShift { min_shift: 2 },
+            ..Default::default()
+        };
+
+        let uncertainty =
+            compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &config).unwrap();
+
+        assert_eq!(uncertainty.mode, UNSUPPORTED_UNCERTAINTY_TOPOLOGY_MODE);
+        assert_eq!(uncertainty.row_topology, "row_order_without_episode_ids");
+        assert!(uncertainty.pairs.is_empty());
+        assert_eq!(uncertainty.subsample_len, 0);
+    }
+
+    #[test]
+    fn pid_uncertainty_requires_a_sequence_receipt_for_one_episode() {
+        let mut dataset = continuous_fixture_dataset();
+        for sample in &mut dataset.samples {
+            sample.episode_id = Some("one-episode".to_string());
+            sample.metadata.remove("sequence_index");
+        }
+        let config = OfflineVldaUncertaintyConfig {
+            n_perm: 8,
+            permutation_scheme: PermutationScheme::CircularShift { min_shift: 2 },
+            ..Default::default()
+        };
+
+        let uncertainty =
+            compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &config).unwrap();
+
+        assert_eq!(uncertainty.mode, UNSUPPORTED_UNCERTAINTY_TOPOLOGY_MODE);
+        assert_eq!(
+            uncertainty.row_topology,
+            "single_episode_without_verified_order"
+        );
+        assert!(uncertainty.pairs.is_empty());
+    }
+
+    #[test]
     fn pid_uncertainty_records_application_block_for_produced_pairs() {
         let config = OfflineVldaUncertaintyConfig {
             n_boot: 8,
             ..Default::default()
         };
         let uncertainty = compute_offline_pid_uncertainty(
-            &continuous_fixture_dataset(),
+            &as_single_ordered_episode(continuous_fixture_dataset()),
             PidMode::Continuous,
             &config,
         )
@@ -13960,9 +14687,12 @@ mod tests {
             n_boot: 8,
             ..Default::default()
         };
-        let uncertainty =
-            compute_offline_pid_uncertainty(&fixture_dataset(), PidMode::Continuous, &config)
-                .unwrap();
+        let uncertainty = compute_offline_pid_uncertainty(
+            &as_single_ordered_episode(fixture_dataset()),
+            PidMode::Continuous,
+            &config,
+        )
+        .unwrap();
         let pair = uncertainty
             .pairs
             .iter()
@@ -13986,8 +14716,8 @@ mod tests {
     }
 
     #[test]
-    fn pid_uncertainty_bootstrap_only_omits_perm_pvalues() {
-        let dataset = continuous_fixture_dataset();
+    fn pid_uncertainty_bootstrap_only_omits_null_tail_fractions() {
+        let dataset = as_single_ordered_episode(continuous_fixture_dataset());
         let cfg = OfflineVldaUncertaintyConfig {
             n_boot: 24,
             n_perm: 0,
@@ -13997,10 +14727,11 @@ mod tests {
             permutation_scheme: PermutationScheme::FullShuffle,
         };
         let u = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
+        validate_offline_pid_uncertainty(&u).unwrap();
         let vl = &u.pairs[0];
         assert_eq!(vl.status, OfflineVldaEstimateStatus::Produced);
         assert!(vl.redundancy.is_some());
-        assert!(vl.unique_s1_perm_p.is_none() && vl.unique_s2_perm_p.is_none());
+        assert!(vl.unique_s1_tail_fraction.is_none() && vl.unique_s2_tail_fraction.is_none());
         assert!(!OfflineVldaUncertaintyConfig::default().enabled());
     }
 
@@ -14054,7 +14785,7 @@ mod tests {
             ..Default::default()
         };
         let mut uncertainty = compute_offline_pid_uncertainty(
-            &continuous_fixture_dataset(),
+            &as_single_ordered_episode(continuous_fixture_dataset()),
             PidMode::Continuous,
             &config,
         )
@@ -14090,7 +14821,7 @@ mod tests {
             ..Default::default()
         };
         let mut uncertainty = compute_offline_pid_uncertainty(
-            &continuous_fixture_dataset(),
+            &as_single_ordered_episode(continuous_fixture_dataset()),
             PidMode::Continuous,
             &config,
         )
@@ -14112,9 +14843,184 @@ mod tests {
     }
 
     #[test]
+    fn uncertainty_validation_binds_tail_presence_to_complete_permutation_counts() {
+        let config = OfflineVldaUncertaintyConfig {
+            n_perm: 8,
+            ..Default::default()
+        };
+        let uncertainty = compute_offline_pid_uncertainty(
+            &as_single_ordered_episode(continuous_fixture_dataset()),
+            PidMode::Continuous,
+            &config,
+        )
+        .unwrap();
+
+        let mut partial_with_value = uncertainty.clone();
+        let pair = partial_with_value
+            .pairs
+            .iter_mut()
+            .find(|pair| pair.unique_s1_tail_fraction.is_some())
+            .unwrap();
+        pair.perm_n_valid_s1 -= 1;
+        let error = validate_offline_pid_uncertainty(&partial_with_value).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("exists without every requested permutation"));
+
+        let mut complete_without_value = uncertainty;
+        let pair = complete_without_value
+            .pairs
+            .iter_mut()
+            .find(|pair| pair.unique_s1_tail_fraction.is_some())
+            .unwrap();
+        pair.unique_s1_tail_fraction = None;
+        pair.status = OfflineVldaEstimateStatus::ProducedWithWarning;
+        pair.warning_codes =
+            vec![OfflineVldaUncertaintyWarning::UniqueSource1PermutationUnavailable];
+        pair.scientific_gates.estimator = OfflineVldaScientificGateVerdict::Blocked;
+        pair.scientific_gates.reason_code =
+            Some("uncertainty_statistics_partially_unavailable".to_string());
+        pair.reason_detail = Some(
+            "some requested uncertainty components were unavailable: unique_source_1_permutation_unavailable"
+                .to_string(),
+        );
+        let error = validate_offline_pid_uncertainty(&complete_without_value).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("absent despite every requested permutation being valid"),
+            "{error:#}"
+        );
+    }
+
+    #[test]
+    fn uncertainty_validation_requires_every_requested_bootstrap_replicate() {
+        let config = OfflineVldaUncertaintyConfig {
+            n_boot: 8,
+            ..Default::default()
+        };
+        let mut uncertainty = compute_offline_pid_uncertainty(
+            &as_single_ordered_episode(continuous_fixture_dataset()),
+            PidMode::Continuous,
+            &config,
+        )
+        .unwrap();
+        let atom = uncertainty
+            .pairs
+            .iter_mut()
+            .find_map(|pair| pair.redundancy.as_mut())
+            .expect("continuous fixture should produce a stability envelope");
+        atom.n_valid -= 1;
+
+        let error = validate_offline_pid_uncertainty(&uncertainty).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("exists without every requested resample"),
+            "{error:#}"
+        );
+    }
+
+    #[test]
+    fn runlog_publication_rejects_uncertainty_point_that_disagrees_with_report() {
+        let dataset = as_single_ordered_episode(continuous_fixture_dataset());
+        let options = continuous_options();
+        let config = OfflineVldaUncertaintyConfig {
+            n_boot: 8,
+            ..Default::default()
+        };
+        let report = run_offline_vlda_harness_borrowed_with_options_and_invocation_limits(
+            &dataset,
+            None,
+            None,
+            &options,
+            &config,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap();
+        let mut uncertainty =
+            compute_offline_pid_uncertainty(&dataset, options.pid_mode, &config).unwrap();
+        let atom = uncertainty
+            .pairs
+            .iter_mut()
+            .find_map(|pair| pair.redundancy.as_mut())
+            .expect("continuous fixture should produce a stability envelope");
+        atom.point += 1.0;
+        atom.bias_vs_point = Some(atom.boot_mean.unwrap() - atom.point);
+        validate_offline_pid_uncertainty(&uncertainty).unwrap();
+
+        let directory = tempfile::tempdir().unwrap();
+        let uncertainty_path = directory.path().join("forged-point.json");
+        let runlog_path = directory.path().join("forged-point.jsonl");
+        write_offline_pid_uncertainty(&uncertainty_path, &uncertainty).unwrap();
+
+        let error = write_offline_vlda_runlog_with_options_and_uncertainty(
+            &runlog_path,
+            OfflineVldaRunlogArtifacts {
+                uncertainty_path: Some(&uncertainty_path),
+                uncertainty: Some(&uncertainty),
+                ..OfflineVldaRunlogArtifacts::default()
+            },
+            &dataset,
+            &report,
+            OfflineVldaRunlogOptions::default(),
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("point does not match the main report"),
+            "{error:#}"
+        );
+        assert!(!runlog_path.exists());
+    }
+
+    #[test]
+    fn runlog_publication_binds_disabled_uncertainty_topology_to_dataset() {
+        let dataset = continuous_fixture_dataset();
+        let options = continuous_options();
+        let config = OfflineVldaUncertaintyConfig::default();
+        let mut report = run_offline_vlda_harness_borrowed_with_options_and_invocation_limits(
+            &dataset,
+            None,
+            None,
+            &options,
+            &config,
+            &OfflineVldaResourceLimits::default(),
+        )
+        .unwrap();
+        let expected = uncertainty_row_topology(&dataset.samples);
+        let forged = if expected == OfflineVldaUncertaintyRowTopology::RowOrderWithoutEpisodeIds {
+            OfflineVldaUncertaintyRowTopology::SingleOrderedEpisode
+        } else {
+            OfflineVldaUncertaintyRowTopology::RowOrderWithoutEpisodeIds
+        };
+        report.config["uncertainty_request"]["row_topology"] = json!(forged.label());
+        report.config_hash = pid_runlog::canonical_json_hash_v2(&report.config).unwrap();
+
+        let directory = tempfile::tempdir().unwrap();
+        let runlog_path = directory.path().join("forged-topology.jsonl");
+        let error = write_offline_vlda_runlog_with_options_and_uncertainty(
+            &runlog_path,
+            OfflineVldaRunlogArtifacts::default(),
+            &dataset,
+            &report,
+            OfflineVldaRunlogOptions::default(),
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("does not match the publication dataset row topology"),
+            "{error:#}"
+        );
+        assert!(!runlog_path.exists());
+    }
+
+    #[test]
     fn uncertainty_skip_rejects_forged_mode_and_scheme_provenance() {
         let config = OfflineVldaUncertaintyConfig {
-            n_boot: 1,
+            n_boot: 2,
             ..Default::default()
         };
         let uncertainty = compute_offline_pid_uncertainty(
@@ -14138,7 +15044,7 @@ mod tests {
 
     #[test]
     fn uncertainty_sidecar_round_trips_exactly_and_rejects_forged_subsample_length() {
-        let dataset = continuous_fixture_dataset();
+        let dataset = as_single_ordered_episode(continuous_fixture_dataset());
         let options = continuous_options();
         let config = OfflineVldaUncertaintyConfig {
             n_boot: 8,
@@ -14217,12 +15123,11 @@ mod tests {
     }
 
     #[test]
-    fn pid_uncertainty_circular_shift_null_is_supported_and_recorded() {
-        // The dependence-respecting null for per-step trajectory captures:
-        // rotations preserve each source's own autocorrelation while breaking
-        // its alignment with the others. The fixture has n = 48 rows, so
-        // min_shift = 4 leaves 41 admissible offsets — well-formed.
-        let dataset = continuous_fixture_dataset();
+    fn pid_uncertainty_circular_shift_surrogate_is_supported_and_recorded() {
+        // A circular shift preserves one source series up to its wrap seam. The restricted shifts
+        // form a surrogate distribution, not a randomization-test p-value. The fixture has n = 48
+        // rows, so min_shift = 4 leaves 41 admissible offsets.
+        let dataset = as_single_ordered_episode(continuous_fixture_dataset());
         let cfg = OfflineVldaUncertaintyConfig {
             n_perm: 40,
             permutation_scheme: PermutationScheme::CircularShift { min_shift: 4 },
@@ -14231,9 +15136,13 @@ mod tests {
         let u = compute_offline_pid_uncertainty(&dataset, PidMode::Continuous, &cfg).unwrap();
         assert_eq!(u.mode, "continuous");
         assert_eq!(u.permutation_scheme, "circular_shift(min_shift=4)");
+        assert_eq!(
+            u.permutation_calibration,
+            "approximate_stationary_surrogate_score_not_p_value"
+        );
         let vl = u.pairs.iter().find(|p| p.pair == "VL").unwrap();
-        let p1 = vl.unique_s1_perm_p.unwrap();
-        let p2 = vl.unique_s2_perm_p.unwrap();
+        let p1 = vl.unique_s1_tail_fraction.unwrap();
+        let p2 = vl.unique_s2_tail_fraction.unwrap();
         assert!((0.0..=1.0).contains(&p1) && (0.0..=1.0).contains(&p2));
         assert!(vl.perm_n_valid_s1 > 0 && vl.perm_n_valid_s2 > 0);
         // Deterministic given the same config.

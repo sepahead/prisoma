@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of_date": "2026-07-16",
+  "as_of_date": "2026-08-12",
   "canonical_spec": {
     "path": "grandplan.md",
     "version": "12.5",
@@ -8,14 +8,14 @@
   },
   "m0_successor_binding": {
     "path": "protocols/m0_preregistration_successor_draft_v2.json",
-    "sha256": "2caf3cfe92919f202aaa4807a388e459ac9a068bdaf63701f17176f00b8aa607",
-    "as_of_date": "2026-07-16",
-    "status": "reviewed_successor_draft_unfrozen"
+    "sha256": "8f0c334004790bbc599e39cd88f16c0c81cd648a8f67a22e40dbcfe89a2ca3fb",
+    "as_of_date": "2026-08-12",
+    "status": "successor_draft_revised_unreviewed"
   },
   "scope": "current execution and freeze status; not a scientific result or preregistration",
   "m0_freeze_status": {
     "overall": "not_freeze_ready",
-    "preregistration_skeleton": "implemented_unfrozen_v1_scaffold_plus_typed_v2_successor_draft_neither_is_a_preregistration",
+    "preregistration_skeleton": "implemented_unfrozen_v1_scaffold_plus_revised_unreviewed_typed_v2_successor_neither_is_a_preregistration",
     "causal_graph": "unfrozen_pending_policy_environment_and_intervention_selection",
     "variable_dictionary": "partial_software_contracts_only",
     "treatment_ontology": "partial_h1_common_preflight_only",
@@ -33,7 +33,7 @@
   "claims": [
     {
       "claim_id": "EC1",
-      "registered_role": "provenance_complete_replay",
+      "registered_role": "finite_registered_capture_replay_fidelity_and_fault_detection",
       "execution_status": "partial_software_groundwork",
       "scientific_status": "not_externally_benchmarked",
       "pid_dependency": "none",
@@ -65,11 +65,11 @@
         "adapter_promotion_report"
       ],
       "permitted_language": "canonical run-log, local replay/conversion, and bounded content-addressed SAFE synthetic-ingress paths are implemented for the tested fixtures",
-      "prohibited_language": "EC1 is complete, externally validated, or deployment ready"
+      "prohibited_language": "EC1 is complete, provenance-complete beyond the registered universe, externally validated, or deployment ready"
     },
     {
       "claim_id": "H1",
-      "registered_role": "pre_treatment_diagnostics_predict_intervention_response",
+      "registered_role": "claim_family_for_pre_treatment_prediction_of_a_named_intervention_response",
       "execution_status": "deterministic_protocol_a_software_reference_fixture_runnable_protocol_b_unimplemented",
       "scientific_status": "blocked_on_pilot_and_real_capture",
       "pid_dependency": "none",
@@ -107,18 +107,18 @@
         "real_policy_environment_and_intervention_freeze",
         "pilot_dose_engagement_specificity_and_controls",
         "protocol_a_or_protocol_b_preregistration",
-        "protocol_a_prespecified_or_train_defined_calibration_bins_without_heldout_outcome_definition",
-        "protocol_b_one_primary_effect_endpoint_and_explicit_testing_hierarchy",
+        "protocol_a_positive_margin_one_sided_primary_response_contract_with_matched_access_comparator_calibration_consequence_and_scope",
+        "protocol_b_positive_margin_one_sided_primary_effect_contract_with_mandatory_design_checks_hierarchy_and_directional_replication",
         "real_heldout_response_or_effect_result",
         "current_nested_capture_design_gate"
       ],
       "minimum_useful_effect_status": "unfrozen_pending_domain_and_decision_justification",
       "permitted_language": "the schema-v2 common preflight and deterministic finite-benchmark Protocol-A software reference are fixture-runnable scoring primitives and establish no H1 evidence",
-      "prohibited_language": "H1 passed, a physical individual effect was observed, or closed-loop robustness was established"
+      "prohibited_language": "H1 passed without an A or B protocol label, a physical individual effect was observed, or closed-loop robustness was established"
     },
     {
       "claim_id": "H2",
-      "registered_role": "prospective_censoring_aware_failure_prediction",
+      "registered_role": "prospective_failure_prediction_under_one_frozen_prediction_scoring_and_censoring_contract",
       "execution_status": "deterministic_synthetic_fixed_horizon_software_reference_fixture_runnable_real_execution_unimplemented",
       "scientific_status": "blocked_on_domain_freeze_real_capture_comparator_frontier_and_external_validation",
       "pid_dependency": "none",
@@ -146,6 +146,7 @@
       ],
       "remaining_required_artifacts": [
         "domain_specific_real_estimand_event_ontology_and_landmark_freeze",
+        "one_primary_contract_aligning_a_censoring_sufficient_prediction_object_score_risk_identification_and_uncertainty",
         "prospective_real_capture_with_independent_failure_episode_and_family_power",
         "full_calibration_intercept_slope_and_uncertainty_stack",
         "training_only_alarm_threshold_selection_or_external_threshold_justification",
@@ -154,12 +155,12 @@
         "external_or_later_time_holdout"
       ],
       "minimum_useful_effect_status": "unfrozen_pending_domain_and_decision_justification",
-      "permitted_language": "the deterministic synthetic reference exercises fixed-horizon landmark eligibility, grouped train-only fitting, competing-event classification, stratified reverse-KM IPCW Brier arithmetic, reliability bins, frozen alarm accounting, nondetection retention, and declared-payoff utility on checked fixtures only",
-      "prohibited_language": "H2 passed; prospective prediction, calibration validity, warning benefit, comparator superiority, censoring-assumption validity, transport, safety gain, or deployment validity exists"
+      "permitted_language": "the deterministic synthetic reference exercises fixed-horizon landmark eligibility, grouped train-only fitting, competing-event classification, stratified reverse-KM IPCW Brier risk-estimator arithmetic, reliability bins, frozen alarm accounting, nondetection retention, and declared-payoff utility on checked fixtures only",
+      "prohibited_language": "H2 passed; an IPCW or Brier label establishes propriety without the exact prediction object, forecast-independent censoring construction, assumptions, positivity region, and censoring-law validation; a likelihood for another prediction object is interchangeable; prospective prediction, calibration validity, warning benefit, comparator superiority, censoring-assumption validity, transport, safety gain, or deployment validity exists"
     },
     {
       "claim_id": "H3",
-      "registered_role": "incremental_pid_value_inside_validated_support",
+      "registered_role": "full_target_population_incremental_value_of_a_pid_abstention_and_exact_fallback_policy",
       "execution_status": "not_eligible",
       "scientific_status": "not_eligible_see_pid_gate_status",
       "pid_gate_status": {
@@ -196,7 +197,7 @@
     },
     {
       "claim_id": "H4",
-      "registered_role": "representational_availability_can_diverge_from_tested_intervention_effect",
+      "registered_role": "representational_availability_can_diverge_from_response_to_one_tested_intervention",
       "execution_status": "exploratory_deletion_ranking_sensitivity_groundwork_only",
       "scientific_status": "blocked_on_real_probe_and_intervention_study",
       "pid_dependency": "none",
@@ -244,7 +245,7 @@
       ],
       "minimum_useful_effect_status": "unfrozen_pending_domain_and_decision_justification",
       "permitted_language": "the reference attribution path exercises logging and deletion ranking sensitivity on a small reference model only",
-      "prohibited_language": "the reference diagnostic establishes causal or mechanistic faithfulness, causal policy use, H4, individual effects, or individual-effect prevalence"
+      "prohibited_language": "the reference diagnostic establishes causal or mechanistic faithfulness, natural policy use or non-use, H4, individual effects, or individual-effect prevalence"
     }
   ]
 }

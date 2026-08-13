@@ -307,6 +307,7 @@ def rollout_to_samples(
                     "split": split,
                     "task_id": str(rollout.task_id),
                     "step": str(step),
+                    "sequence_index": str(step),
                     "v_provenance": v_prov,
                     "l_provenance": l_prov,
                     "d_provenance": d_prov,

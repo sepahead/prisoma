@@ -3,7 +3,8 @@
 These diagrams summarize the current Prisoma design. They do not add requirements beyond
 [`grandplan.md`](grandplan.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
 
-Solid nodes exist in the repository. Dashed nodes are optional, external, or deferred.
+Named current nodes exist in the repository. Dashed connections mark optional, external, or
+deferred paths.
 
 ## 1. Current status
 
@@ -11,13 +12,15 @@ Solid nodes exist in the repository. Dashed nodes are optional, external, or def
 flowchart TD
     Groundwork["software groundwork: runnable"]
     EC1["EC1: partial local replay groundwork"]
-    H1["H1: synthetic Protocol-A reference only"]
-    H2["H2: synthetic fixed-horizon reference only"]
-    H3["H3: not eligible"]
+    H1A["H1-A: synthetic Protocol-A reference only"]
+    H1B["H1-B: specified, unimplemented"]
+    H2["H2: synthetic risk-estimator reference only"]
+    H3["H3 full policy: not eligible"]
     H4["H4: exploratory attribution only"]
 
     Groundwork --> EC1
-    Groundwork --> H1
+    Groundwork --> H1A
+    Groundwork --> H1B
     Groundwork --> H2
     Groundwork --> H3
     Groundwork --> H4
@@ -38,8 +41,8 @@ flowchart LR
     Client["policy, operator, script, or future UI"] --> Bridge["Agent Bridge"]
     Bridge -->|1. record request| Log["canonical run log"]
     Bridge -->|2. validated dispatch| Backend["environment or physics backend"]
-    Backend -->|3. observation and outcome events| Log
-    Bridge -->|4. record response| Log
+    Backend -->|3. effects, observations, outcomes| Bridge
+    Bridge -->|4. record effects and response| Log
 
     Log --> Replay["validation and replay"]
     Log --> Rerun["Rerun adapter / opt-in bridge export"]
@@ -133,8 +136,8 @@ flowchart LR
     NCP -.->|workspace-excluded| Optional["NCP and Zenoh dependency graph"]
 ```
 
-The critical-path producer is the SAFE adapter. The NCP observer is optional and read-only.
-Neither current path provides real confirmatory capture.
+The SAFE implementation is the reference adapter and the candidate critical-path real-data path.
+The NCP observer is optional and read-only. Neither current path provides real confirmatory capture.
 
 ## 7. H1 and H2 software references
 
@@ -143,9 +146,9 @@ flowchart TD
     H1Input["H1 schema-v2 fixture"] --> H1Preflight["common preflight"]
     H1Preflight -->|exact passed chain| H1A["Protocol-A finite benchmark"]
     H1A --> H1Log["schema-valid run log"]
-    H1A --> H1Boundary["synthetic scoring primitive; no H1 evidence"]
+    H1A --> H1Boundary["synthetic scoring primitive; no H1-A evidence"]
 
-    H2Artifacts["four frozen planning artifacts"] --> H2Ref["H2 fixed-horizon reference"]
+    H2Artifacts["four fixture-bound planning artifacts"] --> H2Ref["H2 fixed-horizon risk-estimator reference"]
     H2Dataset["complete or censored fixture"] --> H2Ref
     H2Ref --> H2Log["schema-valid run log"]
     H2Ref --> H2Boundary["protocol arithmetic; no H2 evidence"]
@@ -182,6 +185,34 @@ flowchart TD
 
 These proposals must consume canonical evidence and preserve the control invariant. They are not
 runtime dependencies and are not on the thesis critical path.
+
+World-model labels do not determine the deployed graph:
+
+```mermaid
+flowchart TD
+    T["deployed-graph taxonomy"]
+    A["A: direct policy"]
+    B["B: predictive training; direct deployment"]
+    C["C: intended future conditions action"]
+    J["J: coupled joint future-action generation"]
+    D["D: proposed action conditions prediction"]
+    E["E: propose, predict, score, select"]
+    Gate["randomized executed-action validation"]
+    Causal["admitted causal transition claim"]
+
+    T --> A
+    T --> B
+    T --> C
+    T --> J
+    T --> D
+    T --> E
+    D -.-> Gate
+    E -.-> Gate
+    Gate -->|only if passed| Causal
+```
+
+The classes are alternatives, not a progression or validity order. A system can expose more than
+one class in different modes. No class clears the PID or causal gates by architecture.
 
 ## 10. Dependency firebreak
 

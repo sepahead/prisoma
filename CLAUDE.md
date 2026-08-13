@@ -8,7 +8,7 @@ file restates the highest-leverage rules and adds Claude-Code-specific notes.
 A gate-driven research toolkit providing **auditable experiment semantics** for
 intervention-grounded diagnosis of Vision-Language-Action (VLA) policies. Partial Information
 Decomposition (shared-exclusions `I^sx_∩`) is one **conditional** candidate diagnostic — central
-only if its measure, estimator, application regime, and incremental value pass preregistered
+only if its measure, estimator, application regime, and incremental value pass frozen
 gates — not the thesis premise. The canonical spec is `grandplan.md` (**docset v12.5**);
 `README.md` is the entry point. The Rust PID estimators live **upstream** in the
 [`pid-rs`](https://github.com/sepahead/pid-rs) submodule (`pid-core`, `pid-runlog`, `pid-python`)
@@ -45,18 +45,35 @@ Follow the complete policy and exception list in `AGENTS.md`.
    atom-estimator validation as `blocked`, while the strict band gates analytic MI rather than
    atoms (`findings.md`). It never compares shared-exclusions redundancy with a zero target.
    Sampled-mean δ is descriptive, not a validity gate. One
-   (PID measure, preprocessing, estimator config) tuple = one preregistered regime; never pool
+   (PID measure, preprocessing, estimator config) tuple = one pre-outcome frozen regime; never pool
    continuous `I^sx_∩` atoms with discrete `I_min` atoms — `--pid-mode discrete` is Williams–Beer
    `I_min`, **not** discrete `i^sx_∩` (`grandplan.md` §7.6). Confirmatory claims are bound by the
-   §4 claim registry (EC1, H1–H4), the §3.8 PID kill rules, and the §6 statistical analysis plan.
+   §4 claim-template registry (EC1, H1–H4), the §3.8 PID kill rules, and the §6 statistical
+   analysis plan. Every H1 result must say H1-A or H1-B. H1 success needs a positive useful
+   margin and a one-sided lower confidence bound above it. Noninferiority, equivalence,
+   nonsignificance, or a secondary endpoint cannot rescue the primary endpoint. For H2, keep a
+   complete-data proper score, an IPCW estimator of complete-data risk, and a proper observed-data score distinct.
+   Bind the prediction object, score, target risk, censoring construction, assumptions, and
+   uncertainty as one contract. A forecast-independent censoring-adjusted horizon score can
+   target scalar risk only under its exact assumptions. A right-censored likelihood requires the
+   full event-time-and-type law.
+   A future v2 freeze candidate populates only the selected H1 and H3/H4 contracts. Keep every
+   inactive protocol slot null. A post-H3 switch to H4 needs a fresh untouched sample and the
+   frozen sequential-error rule.
 2. **Honesty over roadmap.** Do not claim non-existent crates/scripts/assets are runnable.
    Avoid hard-coded performance/cost claims unless backed by a committed source or a clearly
-   labelled in-repo measurement — the doc-audit scripts (`scripts/audit_*.py`) enforce this.
+   labeled in-repo measurement — the doc-audit scripts (`scripts/audit_*.py`) enforce this.
    Keep the docset version stamps consistent across `README.md` / `AGENTS.md` /
    `grandplan.md` / `DIAGRAMS.md` / `findings.md` (all **v12.5**).
-3. **Run log = source of truth; Agent Bridge = only control plane.** Every captured sample
-   must be reconstructable from canonical run-log events. Observers and harnesses drive
-   nothing.
+3. **Run log = source of truth; Agent Bridge = only control plane.** Every sample admitted to an
+   artifact must be reconstructable from canonical run-log events. The log governs accepted recorded
+   events. It cannot prove an upstream event that the capture boundary never observed. Observers
+   and harnesses drive nothing.
+4. **Deployed graph beats model branding.** Do not treat `VLA` and `WAM` as exclusive classes.
+   Separate predictive co-training, intended-future conditioning, coupled joint generation,
+   action-conditioned prediction, and candidate planning. A joint sampler is not an
+   action-conditioned query by algebra alone. Do not call an action-conditioned predictor causal without the
+   randomized executed-action gate. See `grandplan.md` §9.2.
 
 ## Before you open a PR / commit
 
@@ -80,18 +97,22 @@ subsets of the required local gate.
   `--manifest-path crates/ncp-observer/Cargo.toml`, never `-p` from the repo root. It is an
   optional, exploratory-only, **read-only** `(V,L,D,A)` source (E2 edge, `grandplan.md` §8.9) —
   part of the M2 ecosystem-conformance benchmark, not a critical-path dependency. The reference
-  adapter for the confirmatory H-experiments is `experiments/safe_adapter`; the core must build
+  adapter implementation and candidate critical-path real-data producer is
+  `experiments/safe_adapter`; the core must build
   with NCP disabled and H1/H2 must run without requesting PID atoms (dependency firebreak,
   §8.9.3).
 - **NCP is a pinned git dependency**, currently the latest immutable release `v0.8.0` (wire
   0.8); no sibling checkout is required. Keep this legacy consumer frozen. A different wire
   requires a separate consumer surface, corpus, and qualification path. Official NCP main was
-  observed at `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` on 2026-08-11. That commit is the
+  observed at `1a04294c90c1b50eba06ae1c6afe9c951319250d` on 2026-08-13. That commit is the
   unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0; compact proto contract hash
   `163acc57d8a62b66`). NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready,
   and **NOT RUN**. `P03` covers fault-observatory migration and Prisoma observer-role
-  qualification. See the
-  [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
-- **The estimator pin is deliberate.** Public `pid-rs` main at `cb351ad` has newer unadopted
-  contracts and exact-certifier work. Keep `796c11e` until a consumer-owned compatibility and
-  scientific-value review supports a pin change. New provenance surfaces do not open PID gates.
+  qualification. Refined low-overhead architecture prose and the prepared-stream-monitor gap
+  record are coordination-only. B01 remains `IN_PROGRESS` with no passing receipt. See the
+  [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
+- **The estimator pin is deliberate.** Public `pid-rs` main was observed at `bbdfda40` on
+  2026-08-13. It has newer unadopted method catalogs, formal/categorical assurance work,
+  source-errata records, and exact-certifier surfaces. Keep `796c11e` until a consumer-owned
+  compatibility and scientific-value review supports a pin change. New provenance surfaces do
+  not open PID gates.

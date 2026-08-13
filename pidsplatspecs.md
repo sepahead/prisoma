@@ -27,7 +27,7 @@ No surface in this table establishes a confirmatory result.
 
 Every conforming adapter must preserve these rules:
 
-1. The canonical run log is the source of truth.
+1. The canonical run log is the source of truth for accepted recorded events.
 2. The Agent Bridge is the only control plane.
 3. A read-only observer cannot issue actions or interventions.
 4. Every evidence artifact binds exact source bytes.
@@ -50,6 +50,7 @@ A finalized schema-2 bridge stream requires:
 
 Every event needed to reconstruct a captured sample must enter this stream. An external database,
 viewer cache, or sidecar cannot become the authoritative source.
+The stream cannot prove an upstream event that its capture boundary never observed.
 
 Derived artifacts must record their URI, content hash, kind, and relevant shape or schema metadata.
 
@@ -113,8 +114,9 @@ Pairing proves startup-secret possession only. It is not process, binary, build,
 
 ## 5. Environment adapter contract
 
-An environment adapter receives only validated bridge operations. It returns deterministic state
-or an explicit domain error for the same request.
+An environment adapter receives only validated bridge operations. It returns a typed result or an
+explicit domain error for the same request. It must declare and record its determinism or
+stochasticity contract.
 
 The current repository includes:
 
@@ -150,6 +152,15 @@ The producer declares population support separately for `V`, `L`, `D`, and `A`. 
 infers this support from the sample.
 
 `D` is neutral in the shared contract. Each adapter must declare its meaning and provenance.
+
+For predictive policies, the declaration must name the deployed graph. Use separate labels for
+predictive-trained current context, intended future, and candidate-action-conditioned prediction.
+Use a separate coupled-joint-sampler label when future and action slots update together without a
+clamped action query. Do not infer that query by factorizing a joint density. Do not use
+`counterfactual` without the randomized executed-action gate. Record policy proposal,
+controller output, and executed action separately when they differ. An asynchronous chunk adapter
+must also record observation capture, inference start and finish, committed-prefix indices,
+dispatch, acknowledgement, and measured end-to-end delay.
 
 Strict held-out analysis uses a boolean `success` label and a recognized `split` value. Stronger
 gates can require class coverage, episode disjointness, and accepted axis-provenance markers.
@@ -190,6 +201,7 @@ an automatic fallback for another.
 
 The report records:
 
+- Report contract `prisoma.offline_vlda.report/2` in its hashed configuration.
 - Exact input identity.
 - Estimator and measure identity.
 - Preprocessing provenance.
@@ -200,7 +212,13 @@ The report records:
 - Applied resource limits and projected usage.
 
 Optional uncertainty stays in a separately content-bound sidecar. It cannot alter the main report
-after publication.
+after publication. Sidecar schema 2 records row topology and calibration. It returns a typed skip
+when current row transforms would cross dependent episode boundaries. Serial transforms require
+one episode and a strictly increasing canonical decimal `metadata.sequence_index`. Restricted
+circular shifts produce surrogate tail fractions, not p-values. A combined bootstrap and
+permutation request must use one row-dependence class. An `episode_id` alone does not establish
+order. The temporal AR(1) screen does not establish an estimator effective sample size or a valid
+block length.
 
 ## 8. H1 and H2 reference contracts
 
@@ -208,18 +226,25 @@ after publication.
 fold, clone, and instrumentation-noninterference obligations.
 
 `pid-h1-protocol-a` consumes the exact passed preflight chain. It runs a deterministic finite
-benchmark and emits no H1 evidentiary claim.
+benchmark and emits no H1-A evidence. It cannot establish H1-B.
+
+A real H1 study needs one typed protocol-specific primary decision. Improvement must favor the
+diagnostic-augmented model, and the useful margin must be positive. The one-sided lower confidence
+bound must exceed that margin under frozen uncertainty and multiplicity. Equivalence,
+noninferiority, nonsignificance, factual-outcome fit, or a secondary endpoint cannot rescue
+primary failure.
 
 `pid-h2-reference` binds four planning artifacts and one bounded dataset. It exercises fixed-horizon
-censoring and score arithmetic. It emits no prospective H2 claim.
+censoring and IPCW risk-estimator arithmetic. It emits no prospective H2 claim or proper
+observed-data score.
 
 Each reader preserves a typed failed artifact for readable invalid input when its CLI contract
 promises one.
 
 ## 9. Viewer contract
 
-The implemented Rerun adapter consumes a bounded validated run-log snapshot. It writes headless RRD
-output without replacement or streams to a matching viewer version.
+The implemented Rerun adapter consumes a bounded run-log snapshot that passes validation. It
+writes headless RRD output without replacement or streams to a matching viewer version.
 
 Attribution artifact loading is opt-in. It validates bounded NumPy arrays, recorded hashes, shapes,
 and local path confinement before the first viewer write.
@@ -232,6 +257,9 @@ must derive all state from canonical evidence.
 Gaussian splats, reconstruction-quality covariates, world-model comparators, and custom product UI
 are optional studies or deferred surfaces. They are not required by the runtime contract.
 
+A world-model adapter must state whether prediction runs at deployment. A planning adapter must
+record at least two proposals, their predictions and scores, and the score-caused selection.
+
 If an optional adapter is added, it must:
 
 1. Pin its implementation and model revision.
@@ -243,8 +271,9 @@ If an optional adapter is added, it must:
 
 ## 11. Failure policy
 
-Reject malformed, oversized, non-finite, ambiguous, or scientifically unsupported inputs before
-expensive work. Preserve a typed reason. Do not invent a result to keep a pipeline running.
+Reject malformed, oversized, non-finite, or structurally ambiguous inputs before expensive work.
+For a scientifically unsupported analysis path, emit a typed abstention and continue only with
+independently valid paths. Do not invent a result to keep a pipeline running.
 
 Storage failures can leave incomplete logs or partial output sets. The system does not claim a
 multi-file transaction, parent-directory durability on every path, or crash-proof finalization.

@@ -19,6 +19,23 @@ Generated scenes are not observations, simulator ground truth, or causal interve
 generated frame or latent becomes a candidate D source only after the section 9.1 mapping review.
 D never means depth, dynamics by default, or natural policy use.
 
+## Deployed-graph admission
+
+Before adapter work, classify the exact upstream graph with the six classes in `grandplan.md`
+section 9.2. Record whether prediction is training-only, intended-future conditioned, coupled to
+action in a joint sampler, exposed as an action-conditioned query, or part of candidate selection.
+
+Do not infer an operational action-conditioned query by factorizing a joint density.
+
+Do not use `counterfactual` for an action-conditioned prediction without randomized executed-
+action validation. Do not use `planner` unless the runtime proposes, predicts, scores, and selects
+over at least two actions.
+
+The current August review found that several WAMs remove their future branch at deployment.
+Flex-\(\pi\)'s generated future cannot attend candidate actions. Model branding cannot replace
+this graph audit. See the
+[dated frontier review](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md).
+
 ## Required adapter contract
 
 If Prisoma adopts this comparator, the adapter must:
@@ -45,5 +62,7 @@ Require all of the following before a WorldWarp result enters a study:
 4. Freeze a separate counterfactual-support question and matched comparator.
 5. Measure realism and support against observed or simulator-ground-truth interventions.
 6. Apply the population, measure, estimator, and application gates to derived diagnostics.
+7. For action-conditioned claims, pass the randomized executed-action causal gate.
+8. For planning claims, pass the candidate-log and decision-flip tests.
 
 Until those steps pass, WorldWarp remains an off-critical-path E1 proposal.

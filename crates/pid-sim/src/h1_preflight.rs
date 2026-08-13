@@ -1980,13 +1980,25 @@ pub fn scaled_output_delta(
     {
         return None;
     }
-    Some(
-        left.iter()
-            .zip(right)
-            .zip(&contract.axes)
-            .map(|((lhs, rhs), axis)| (rhs - lhs) / axis.scale)
-            .collect(),
-    )
+    let deltas = left
+        .iter()
+        .zip(right)
+        .zip(&contract.axes)
+        .map(|((lhs, rhs), axis)| {
+            if lhs.is_sign_negative() == rhs.is_sign_negative() {
+                // Same-sign subtraction cannot exceed the finite input range.
+                (rhs - lhs) / axis.scale
+            } else {
+                // Scale before adding opposite magnitudes. This preserves a representable
+                // dimensionless delta when the unscaled subtraction alone would overflow.
+                rhs / axis.scale - lhs / axis.scale
+            }
+        })
+        .collect::<Vec<_>>();
+    deltas
+        .iter()
+        .all(|delta| delta.is_finite())
+        .then_some(deltas)
 }
 
 /// Return the scaled L2 or L-infinity distance under a frozen output-metric contract.
@@ -1996,10 +2008,13 @@ pub fn scaled_output_distance(
     right: &[f64],
 ) -> Option<f64> {
     let scaled_deltas = scaled_output_delta(contract, left, right)?.into_iter();
-    match contract.metric {
-        H1OutputMetric::L2 => Some(scaled_deltas.map(|delta| delta * delta).sum::<f64>().sqrt()),
-        H1OutputMetric::LInf => scaled_deltas.map(f64::abs).reduce(f64::max),
-    }
+    let distance = match contract.metric {
+        // `hypot` rescales its operands. A direct sum of squares can overflow even when the
+        // represented Euclidean norm is finite.
+        H1OutputMetric::L2 => scaled_deltas.fold(0.0, f64::hypot),
+        H1OutputMetric::LInf => scaled_deltas.map(f64::abs).reduce(f64::max)?,
+    };
+    distance.is_finite().then_some(distance)
 }
 
 fn approximately_equal(left: f64, right: f64) -> bool {
@@ -2706,6 +2721,59 @@ mod tests {
             .pop();
         let report = validate_h1_preflight(&wrong_dimension);
         assert!(codes(&report).contains(&H1PreflightReasonCode::OutputDimensionMismatch));
+    }
+
+    #[test]
+    fn scaled_output_delta_avoids_unscaled_subtraction_overflow() {
+        let mut contract = H1OutputMetricContract {
+            artifact: artifact("overflow-metric", 'a'),
+            metric: H1OutputMetric::L2,
+            axes: vec![H1OutputAxisScale {
+                axis_name: "action".to_string(),
+                scale: 1.0,
+                unit: "dimensionless".to_string(),
+            }],
+        };
+        contract.axes[0].scale = f64::MAX;
+        assert_eq!(
+            scaled_output_delta(&contract, &[-f64::MAX], &[f64::MAX]),
+            Some(vec![2.0])
+        );
+        assert_eq!(
+            scaled_output_distance(&contract, &[-f64::MAX], &[f64::MAX]),
+            Some(2.0)
+        );
+
+        contract.axes[0].scale = 1.0;
+        assert!(scaled_output_delta(&contract, &[-f64::MAX], &[f64::MAX]).is_none());
+        assert!(scaled_output_distance(&contract, &[-f64::MAX], &[f64::MAX]).is_none());
+    }
+
+    #[test]
+    fn scaled_l2_distance_avoids_intermediate_square_overflow() {
+        let contract = H1OutputMetricContract {
+            artifact: artifact("stable-l2", 'a'),
+            metric: H1OutputMetric::L2,
+            axes: vec![
+                H1OutputAxisScale {
+                    axis_name: "x".to_string(),
+                    scale: 1.0,
+                    unit: "dimensionless".to_string(),
+                },
+                H1OutputAxisScale {
+                    axis_name: "y".to_string(),
+                    scale: 1.0,
+                    unit: "dimensionless".to_string(),
+                },
+            ],
+        };
+
+        let distance = scaled_output_distance(&contract, &[0.0, 0.0], &[1e200, 1e200])
+            .expect("the represented norm is finite");
+        assert!(distance.is_finite());
+        assert!((distance / 1e200 - 2.0_f64.sqrt()).abs() < 1e-12);
+
+        assert!(scaled_output_distance(&contract, &[0.0, 0.0], &[f64::MAX, f64::MAX]).is_none());
     }
 
     #[test]

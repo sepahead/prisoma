@@ -43,6 +43,25 @@ def _kinds(
     ]
 
 
+@pytest.mark.parametrize("marker", ["verify", "verified", "verification"])
+def test_venue_claim_accepts_explicit_verification_language(
+    tmp_path: Path, marker: str
+) -> None:
+    path = _write(
+        tmp_path,
+        "grandplan.md",
+        f"The official ICLR record was {marker} before this venue claim.\n",
+    )
+
+    assert "venue_claim_needs_verify" not in _kinds(path)
+
+
+def test_venue_claim_without_verification_language_is_reported(tmp_path: Path) -> None:
+    path = _write(tmp_path, "grandplan.md", "This was an ICLR 2026 paper.\n")
+
+    assert "venue_claim_needs_verify" in _kinds(path)
+
+
 def test_bounded_runner_waits_for_normal_cleanup_after_pipe_eof(tmp_path: Path):
     marker = tmp_path / "cleanup-complete"
     script = (

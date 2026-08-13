@@ -536,6 +536,36 @@ check:
     assert "CONTRIBUTING.md omits the required `just check` gate" in problems
 
 
+def test_replay_pipelines_must_drain_summary_output(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    workflow = tmp_path / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True)
+    justfile = tmp_path / "justfile"
+    justfile.write_text(
+        "pid-runlog-replay run.jsonl | grep -F 'errors=0' >/dev/null\n",
+        encoding="utf-8",
+    )
+    workflow.write_text(
+        "run: \"$PID_RUNLOG_REPLAY\" run.jsonl | grep -F 'errors=0' >/dev/null\n",
+        encoding="utf-8",
+    )
+    assert MODULE.replay_pipeline_problems() == []
+
+    justfile.write_text(
+        "pid-runlog-replay run.jsonl | grep -q 'errors=0'\n",
+        encoding="utf-8",
+    )
+    workflow.write_text(
+        "run: \"$PID_RUNLOG_REPLAY\" run.jsonl | grep -Fq 'errors=0'\n",
+        encoding="utf-8",
+    )
+    problems = MODULE.replay_pipeline_problems()
+    assert len(problems) == 2
+    assert all("early-closing grep" in problem for problem in problems)
+
+
 def test_local_quality_gate_does_not_accept_commands_from_another_recipe(
     tmp_path: Path, monkeypatch
 ) -> None:

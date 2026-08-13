@@ -1,7 +1,8 @@
 # `ncp-observer` — passive Neuro-Cybernetic Protocol tap for prisoma
 
-Converts a conforming Neuro-Cybernetic Protocol producer into another `(V,L,D,A)` source for
-prisoma's Partial Information Decomposition. The intended future producer is a NEST/Engram
+Converts a conforming Neuro-Cybernetic Protocol producer into a candidate `(V,L,D,A)` source for
+Prisoma's offline diagnostics. PID remains conditional on all four scientific gates. The intended
+future producer is a NEST/Engram
 session. The named public `sepahead/engram` repository remains a README-only placeholder. The
 executable Engram Neural Labs host lives in `sepahead/Paper2Brain`. NCP's provider inventory
 records a preserved in-progress Paper2Brain migration that targets candidate wire 1.0. It is not
@@ -12,15 +13,16 @@ live publisher or bridge for NCP wire 0.8. This crate is a **read-only observer*
 the NCP data-plane keys over Zenoh and never drives anything (the Agent Bridge stays the only
 control plane).
 
-> **Compatibility boundary (rechecked 2026-08-11):** this crate pins the latest immutable
+> **Compatibility boundary (rechecked 2026-08-13):** this crate pins the latest immutable
 > NCP `v0.8.0` release and wire 0.8. Official NCP main was observed at
-> `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` during this check. That commit is the
+> `1a04294c90c1b50eba06ae1c6afe9c951319250d` during this check. That commit is the
 > unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
 > compact proto contract hash `163acc57d8a62b66`). It uses a different wire.
 > NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and
 > **NOT RUN**. They cover the native-1.0 observer, missing-variable and research-claim
 > semantics, and fault-observatory migration plus Prisoma observer-role qualification.
-> See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
+> New low-overhead architecture prose is coordination-only. B01 remains `IN_PROGRESS` with no
+> passing receipt. See the [verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
 
 It uses the canonical Rust NCP SDK (`ncp-core` + `ncp-zenoh`) from the published
 NCP repo **<https://github.com/sepahead/NCP>**. Spec: `NEURO_CYBERNETIC_PROTOCOL.md`
@@ -29,13 +31,15 @@ in that repo.
 ## Scope & status (read before relying on it)
 
 This crate is **optional and exploratory-only**. It is **not** on grandplan's critical
-path — grandplan does not depend on Engram, and the S2/EC1 reference `(V,L,D,A)` producer
-is `experiments/safe_adapter/`. The core workspace builds and tests with NCP/Engram/Zenoh
+path. Grandplan does not depend on Engram. `experiments/safe_adapter/` is the reference adapter
+implementation and the candidate critical-path real-data `(V,L,D,A)` producer. That adapter has
+not completed S2 or EC1. The core workspace builds
+and tests with NCP/Engram/Zenoh
 absent, and the static factual-outcome baseline smoke requests no PID atoms; `ncp-observer` is **excluded from the
 default cargo workspace** (build it with `--manifest-path`, see below).
 
-It can support *exploratory* PID screens on a future conforming producer, but it is **below the
-S2/EC1 conformance bar** (an optional M2 ecosystem item) until the gaps below close:
+It can support *exploratory* PID screens on a future conforming producer. It cannot enter a
+registered S2/EC1 evaluation (an optional M2 ecosystem item) until the gaps below close:
 
 1. **D alignment — exact-only and immutable in-repo.** `ObservationFrame` carries
    a `source` echoing the driving `SensorFrame.stream`, and this observer joins D
@@ -94,8 +98,8 @@ The in-repo work and external publisher requirements are tracked in
 
 ## What it does
 
-Subscribes to `engram/ncp/session/{id}/{sensor,command,observation}` and converts
-each closed-loop tick into an `OfflineVldaSample`, writing:
+Subscribes to `engram/ncp/session/{id}/{sensor,command,observation}`. It converts each eligible,
+complete, source-correlated tick into an `OfflineVldaSample`, writing:
 
 1. an **`OfflineVldaDataset` JSON artifact** — after receipt verification it can
    run through `pid-offline-harness` for diagnostics/baselines. It carries no
@@ -104,7 +108,7 @@ each closed-loop tick into an `OfflineVldaSample`, writing:
    requests no estimates; and quantized discrete `I_min` can run only as a
    non-evidentiary diagnostic with population `NotEvaluated` and application
    `Blocked`, pending justified per-axis declarations and the remaining gates; and
-2. **canonical run-log events** (the source of truth): one `EmbeddingContract`
+2. **canonical run-log events** (the source of truth for accepted recorded events): one `EmbeddingContract`
    declaring the `(V,L,D,A)` variables, an `EmbeddingCaptured` per kept sample, a
    `LabelObserved` per success label, and — at finalize — an `ArtifactLogged`
    registering the dataset artifact (uri + sha256) so the run log can locate and
@@ -131,13 +135,19 @@ still preserves their diagnostic bundle but exits nonzero, and the offline harne
 rejects it for analysis.
 
 ### (V, L, D, A) mapping
-- **V** ← `SensorFrame` channels (all but the language channel), flattened.
+- **V** ← `SensorFrame` channels except the language and configured success channels,
+  flattened.
 - **L** ← the `instruction` `SensorFrame` channel (configurable).
 - **D** ← `ObservationFrame` record-port readouts, declared as a pre-motor neural-state source.
-  D is not depth. World-model, dynamics, internal-simulation, and policy-use status are
-  **untested**. No architecture-evidence probe required by `grandplan.md` §9.1 has run on these
+  D is not depth. World-model, dynamics, internal-simulation, natural-pathway-use, and
+  tested-response status are **untested**. No architecture-evidence probe required by
+  `grandplan.md` §9.1 has run on these
   ports. `PID(V,D;A)` would test a measure-relative relationship, not prove any of those roles.
 - **A** ← `CommandFrame` channels, flattened.
+- **success** ← one exact binary scalar (`0` or `1`) in the configured channel. Zero maps to
+  `false`; one maps to `true`. A present empty, vector-valued, non-finite, or non-binary channel is
+  invalid. An absent channel means that tick has no success label. The success and language
+  channel names must be distinct.
 
 ### Alignment (correctness)
 V and A are joined on the driving sensor's **`StreamPosition` (`{epoch, seq}`)** —
@@ -160,6 +170,12 @@ Each frame's payload `session_id` must equal the explicitly bound capture sessio
 Passenger generations are retained per key, while the live `session.generation`
 is locked only by the first validated authorizing sensor; stale/foreign-session
 frames are dropped and counted.
+The authorizing sensor clock must be finite, nonnegative, and within the unsigned
+run-log nanosecond range. Conversion truncates fractional nanoseconds toward zero.
+The observer rejects an invalid clock before it can authorize capture state. It
+does not clamp or saturate an out-of-range value into accepted evidence. Each kept
+sample and `EmbeddingCaptured` event preserves the exact converted value as
+`sensor_timestamp_ns`. The event timestamp is a nondecreasing projection for run-log validity.
 
 ## Run
 

@@ -7,7 +7,7 @@
 
 # Prisoma
 
-Prisoma is a lean research toolkit for auditable experiments on embodied policies.
+Prisoma is a low-overhead research toolkit for auditable experiments on embodied policies.
 It provides capture, intervention, replay, protocol, and evidence-groundwork components.
 Partial information decomposition (PID) is one conditional diagnostic, not the product.
 
@@ -18,7 +18,8 @@ The project asks whether pre-treatment diagnostics predict intervention response
 failure beyond strong baselines. It does not assume that PID will answer that question.
 Negative gate results are valid results.
 
-> Current scientific status: confirmatory claims remain blocked. The high-dimensional
+> Current scientific status: EC1 and H1–H4 are unfrozen claim templates, not completed
+> hypotheses. Confirmatory claims remain blocked. The high-dimensional
 > MI/coherence path is **NO-GO**. The continuous shared-exclusions application gate is
 > **BLOCKED / NOT APPLICATION-VALIDATED**.
 
@@ -29,7 +30,8 @@ viewer, or estimator library.
 
 Three invariants define the architecture:
 
-1. The canonical run log is the source of truth.
+1. The canonical run log is the source of truth for accepted recorded events. It does not prove
+   that an upstream source emitted an event the capture boundary never observed.
 2. The Agent Bridge is the only control plane.
 3. Scientific interpretation requires separate population, measure, estimator, and application gates.
 
@@ -53,14 +55,20 @@ content-bound capture --> (V,L,D,A) adapter --> bounded offline analysis
 `D` is a declared source axis. It often represents dynamics or hidden state, but Prisoma
 does not assign one universal meaning to it.
 
+Prisoma also does not treat `VLA` and `WAM` as rival scientific classes. It classifies the
+deployed directed graph. Predictive training, intended-future conditioning, coupled joint
+generation, action-conditioned prediction, and candidate planning are different designs. A joint
+density does not create an operational action-conditioned query. See the
+[dated frontier review](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md).
+
 The local crates stay small in role:
 
 | Component | Responsibility | Boundary |
 |---|---|---|
 | `pid-bridge` | Request contracts and run-log integration | No transport or physics ownership |
 | `pid-sim` | Deterministic fixtures, bridge transports, protocol references, offline harness | Protocols, analysis, WebSocket, Rapier, and Rerun export are opt-in; not a general simulator product |
-| `pid-rerun` | Validated run-log-to-Rerun conversion | No control authority |
-| `experiments/safe_adapter` | Reference `(V,L,D,A)` producer | Synthetic proof only until real capture |
+| `pid-rerun` | Bounded run-log-validating Rerun conversion | No control authority |
+| `experiments/safe_adapter` | Reference `(V,L,D,A)` adapter implementation | Candidate real-data path; synthetic proof only until real capture |
 | `experiments/attribution` | Bounded exploratory attribution probe | No causal-faithfulness claim |
 | `crates/ncp-observer` | Optional read-only wire-0.8 observer | Excluded from the main workspace |
 
@@ -79,7 +87,7 @@ The computation status of a number never authorizes its interpretation.
 | Measure | Not adjudicated for the default atom path | The required measure-level validation is incomplete |
 | Atom estimator | Blocked | Current atom recovery does not clear the estimator gate |
 | Continuous application | Blocked | No application-valid support envelope exists for real VLA embeddings |
-| High-dimensional MI/coherence | NO-GO | Current nuisance tests fail the preregistered route |
+| High-dimensional MI/coherence | NO-GO | Current nuisance tests fail the reviewed analysis route |
 
 An abstained estimate has no zero, NaN, or metric placeholder. Exact ties can reject a
 sample. They cannot redefine its population law. Prisoma never routes a failed continuous
@@ -91,16 +99,16 @@ See [findings.md](findings.md) for current estimator evidence. See
 ## What is implemented
 
 - Canonical schema-2 run-log validation, replay, manifests, and sidecars.
-- A safe-by-default local Agent Bridge over in-process, stdio, TCP, and WebSocket transports.
+- A mutation-disabled-by-default local Agent Bridge over in-process, stdio, TCP, and WebSocket transports.
 - A finite, paired, read-only Engram-host TCP profile with secret-possession proofs.
 - Deterministic object and Rapier-backed manipulation fixtures.
 - A bounded offline `(V,L,D,A)` harness with static baselines and explicit PID modes.
 - Typed resource admission for samples, decoded metadata, distance work, and dense solvers.
 - H1 common-preflight and Protocol-A synthetic software references.
-- An H2 fixed-horizon synthetic arithmetic reference.
+- An H2 fixed-horizon synthetic IPCW risk-estimator arithmetic reference.
 - A content-bound SAFE adapter and a bounded attribution reference probe.
-- A validated Rerun conversion adapter.
-- Machine-readable claim, capability, governance, and release-truth ledgers.
+- A run-log-validating Rerun conversion adapter.
+- Machine-readable claim-template, capability, governance, and release-truth ledgers.
 
 These are software proofs for stated fixtures. They are not EC1 validation, a frozen
 preregistration, a confirmatory result, a safety result, or deployment evidence.
@@ -114,6 +122,8 @@ preregistration, a confirmatory result, a safety result, or deployment evidence.
 - The complete Rerun diagnostic application.
 - A Tauri/SparkJS product shell.
 - A Gaussian-splatting or world-model runtime.
+- A qualified SLIM, LiLa-WAM, Flex-\(\pi\), or other WAM adapter.
+- An MPS-validated predictive-policy pipeline.
 
 Optional rendering and comparator studies remain separate proposals. They do not define the
 core architecture and do not sit on the thesis critical path.
@@ -187,7 +197,7 @@ just runlog-rerun-proof
 just formal
 ```
 
-The firebreak proves that static factual-outcome baselines request no PID atoms or NCP data.
+The firebreak checks that static factual-outcome baselines request no PID atoms or NCP data.
 It does not implement the H1 response or prospective H2 endpoint.
 
 Run the offline harness directly:
@@ -208,7 +218,8 @@ cargo run --locked \
 The default `--pid-mode none` is the estimator-request firebreak. It emits no MI or PID request.
 The opt-in `analysis` build still links `pid-core` because geometry and logistic code reuse that
 library. Continuous and quantized modes require explicit opt-in. They remain diagnostic and do not
-clear the four scientific gates.
+clear the four scientific gates. New summary configurations bind report contract
+`prisoma.offline_vlda.report/2`. Publication rejects an unversioned or unknown report contract.
 
 ## Resource and overhead model
 
@@ -227,17 +238,28 @@ descriptor snapshots.
 These limits are safety and availability controls. They are not performance claims. Measure
 the exact workload before selecting hardware or raising a limit.
 
+For one M4 Max, use the documented SmolVLA MPS path only as a baseline candidate. SLIM is the
+first compact predictive-training candidate for the full VLDA contract. Efficient-WAM is a later
+class-J code port. Its released attention helper rejects non-CUDA devices before its nominal
+fallback. JEPA-WAM is another later MPS port candidate with released source and weights. LiLa-WAM
+is a separate 0.5B no-language predictive ablation. Full video WAMs remain off the critical path.
+No reviewed predictive model is currently a Prisoma dependency or a qualified MPS runtime. Any
+future asynchronous chunk path must measure the full observation-to-command delay. Bind each
+executed command to its source observation and chunk index.
+
 ## NCP and Engram boundary
 
 Prisoma pins the optional observer to NCP `v0.8.0` and wire 0.8. The crate is excluded from
 the default workspace so NCP and Zenoh remain off the critical path.
 
 Official NCP main was observed at
-`1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` on 2026-08-11. That source is the release-blocked
+`1a04294c90c1b50eba06ae1c6afe9c951319250d` on 2026-08-13. That source is the release-blocked
 `1.0.0-rc.1` candidate and uses wire 1.0. Its compact proto contract hash
 `163acc57d8a62b66` remains unadopted. Ledger tasks
-[`P01`, `P02`, and `P03`](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json)
+[`P01`, `P02`, and `P03`](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json)
 are OPEN, not dependency-ready, and NOT RUN. They include Prisoma observer-role qualification.
+The refined low-overhead architecture and prepared-stream-monitor gap record are coordination
+artifacts. B01 remains in progress.
 
 The named `sepahead/engram` repository remains a README-only placeholder. The executable host
 is `sepahead/Paper2Brain`. Its provider record describes a preserved in-progress Paper2Brain
@@ -281,7 +303,11 @@ Read these documents in this order:
 | [findings.md](findings.md) | Current estimator evidence and verdicts |
 | [LIMITATIONS.md](LIMITATIONS.md) | Claim, security, and deployment limits |
 | [THESIS_EVIDENCE_INDEX.md](THESIS_EVIDENCE_INDEX.md) | Claim-to-evidence and blocker map |
+| [WORLD_ACTION_MODEL_FRONTIER.md](docs/audits/2026-08-12-first-principles/WORLD_ACTION_MODEL_FRONTIER.md) | Dated WAM taxonomy, causal gate, and M4 decision |
+| [RESEARCH_VLA_D_NCP.md](RESEARCH_VLA_D_NCP.md) | D-axis, VLA, and optional NCP literature synthesis |
 | [docs/CAPABILITY_MATRIX.md](docs/CAPABILITY_MATRIX.md) | Generated content-bound capability inventory |
+| [docs/audits/2026-08-12-first-principles/FIRST_PRINCIPLES_AUDIT.md](docs/audits/2026-08-12-first-principles/FIRST_PRINCIPLES_AUDIT.md) | Dated hypothesis, source, and repository audit |
+| [docs/audits/2026-08-12-first-principles/PID_RS_HANDOFF.md](docs/audits/2026-08-12-first-principles/PID_RS_HANDOFF.md) | Consumer-owned `pid-rs` migration and assurance handoff |
 | [AGENTS.md](AGENTS.md) | Contributor ground truth and gate rules |
 
 `GAUSS_MI_INTEGRATION.md` and `WORLD_WARP_INTEGRATION.md` are optional study specifications.

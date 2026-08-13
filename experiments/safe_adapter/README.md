@@ -1,10 +1,11 @@
-# SAFE → (V, L, D, A) adapter (S2/EC1 reference capture adapter)
+# SAFE → (V, L, D, A) reference adapter
 
 Adapts the released **SAFE** VLA rollout datasets into this project's `(V, L, D, A)` +
 labels contract, so a real VLA/task capture can be run through `pid-offline-harness`
 without building capture from scratch. SAFE (`vla-safe/SAFE`; NeurIPS 2025 per the repo — verify venue/license) released OpenVLA-on-WidowX/LIBERO and π0-FAST-on-Franka rollouts with success/failure outcomes. This is
-the reference capture adapter for the S2/EC1 gate recorded in `REVIEW_AND_TODO.md` and
-`grandplan.md` §8.7 (adapter contract) / §8.9.4 (adapter promotion contract).
+the reference adapter implementation for the S2/EC1 gate recorded in `REVIEW_AND_TODO.md` and
+`grandplan.md` §8.7 (adapter contract) / §8.9.4 (adapter promotion contract). It is the
+candidate critical-path real-data producer, not completed confirmatory evidence.
 
 ## What the released SAFE tensors actually give you (read this first)
 
@@ -17,10 +18,11 @@ released SAFE data cleanly provides:
 | **D** (neutral candidate internal-state axis) | `hidden_states` — a declared policy-backbone site `D_hidden[k]`; world/plan semantics remain unestablished | `hidden_state_pool` or `token_slice:state` |
 | success label | `episode_success` | `episode_success` |
 | `episode_id` | `task{id}--ep{idx}` | — |
+| within-episode order | canonical decimal `metadata.sequence_index` copied from the rollout step | — |
 | train/held-out split | Prisoma's manifest-bound outer partition: declared seen task IDs → train, remaining task IDs → test (not SAFE's internal train/`val_seen`/`val_unseen` roles) | — |
 
 It does **not** ship clean, separate pre-fusion vision `V` or text `L` embeddings.
-The adapter never fabricates them. The supported non-fabricated sources are:
+The adapter never invents source bytes. The supported declared sources are:
 
 - **token slicing** (`token_slice`): if the *raw* per-token hidden states
   `(T, n_token, d)` and token-group ranges are exported, slice the vision /
@@ -33,8 +35,8 @@ The adapter never fabricates them. The supported non-fabricated sources are:
   vision-feature array (e.g. from running a vision encoder over the rollout frames)
   or `(T, d_l)` language features from a sentence encoder.
 - **text hashing proxy** (`text_hash`): a deterministic, transparent featurization
-  of the instruction text for `L`. Clearly labelled `text_hash_proxy` in metadata —
-  it is reproducible but is **not** a learned semantic embedding; prefer real
+  of the instruction text for `L`. Clearly labeled `text_hash_proxy` in metadata —
+  it is reproducible but is **not** a learned semantic embedding or strict-gate source; prefer real
   `language_features`.
 
 If only **pooled** hidden states are available and you select `hidden_pool` for
@@ -136,6 +138,10 @@ selection and untouched-evaluation scores. A near-output or intermediate peak is
 hook-point diagnostic only: it can reflect action formatting, probe accessibility, or
 selection noise and is not evidence that a world model or an “emergence zone” exists.
 No layer may be changed after looking at `evaluation`.
+
+For a WAM-derived producer, classify the deployed graph before choosing `D`. A training-only
+future target yields a predictive-trained current-context state. An intended future is not an
+action-conditioned transition. Preserve proposed and executed actions as separate variables.
 
 ## End-to-end usage
 

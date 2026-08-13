@@ -5,9 +5,55 @@
 - Added an ASD-STE100 Issue 9 writing policy to the contributor guidance. The policy uses
   “STE-aligned” language and preserves technical, scientific, legal, generated, and immutable
   content boundaries.
-- Refreshed the living ecosystem overlay on 2026-08-11. The reviewed `pid-rs@796c11e` and NCP
+- Refreshed the living ecosystem overlay through 2026-08-13. The reviewed `pid-rs@796c11e` and NCP
   `v0.8.0` pins remain deliberate. Current public heads and the unchanged Paper2Brain descriptor
   bytes are recorded without claiming compatibility, integration, or scientific promotion.
+- Added a 2026-08-12 first-principles audit memo and a `pid-rs` adoption handoff. The memo keeps
+  PID conditional, tightens pathway-use language to named interventions, and preserves the
+  population, measure, estimator, and application gates.
+- Changed replay-summary assertions in local recipes and CI to drain stdout. This avoids an
+  upstream `pid-runlog-replay` broken-pipe panic when an early-closing consumer finds a match.
+  The `pid-rs` handoff records the reproduced CLI defect and the requested regression.
+- Expanded the canonical adversarial design review from 20 to 50 concrete lenses. Each added lens
+  has a question, failure condition, and design consequence. The separate 500-view hypothesis
+  matrix remains a structured audit, not a claim of 500 reviewers or tests.
+- Added a dated world-action-model frontier review. The design now classifies deployed graphs
+  instead of treating VLA and WAM as rival labels. It separates predictive co-training,
+  intended-future conditioning, coupled joint generation, action-conditioned prediction, and
+  candidate planning. It does not infer an operational conditional query by factorizing a joint
+  density. It also
+  records the causal-admission gate and the low-overhead M4 Max candidate order. An exact-phrase
+  arXiv screen assigns a typed disposition to all 36 August 2026 submissions available through
+  2026-08-13. The refresh adds ForeWAM and Rift as one-pass class-C interfaces. Rift also supplies
+  bounded future-cache intervention evidence. It adds World Action Planner as a second class-E
+  example and CheckVLA as a class-D execution-verification comparator. It adds CoWAM as selective
+  class-E design evidence. It adds DynamicWAM,
+  FlowPilot, SG-WAM, Vid2WAM, DreamWAM, Robust-WAM, and MobileWAM to the deployed-graph boundary.
+  A broader-name search adds World-to-Wrist, Efficient-WAM, LDA-1B, WLA-0, RepWAM, and Kairos.
+  It also binds the released JEPA-WAM and Efficient-WAM source and model revisions. Executable
+  review classifies Efficient-WAM as class J and finds a CUDA-only attention gate before its
+  nominal fallback. Both released artifacts remain unqualified for MPS and outside the critical
+  path. The review also separates the three hypotheses hidden by the “VLAs are dead” slogan:
+  backbone choice, predictive co-training, and deployed consequence prediction or planning.
+- Recast EC1 and H1–H4 as unfrozen claim templates. The plan now separates H1-A from H1-B,
+  scores H3 on the full target population with exact fallback, and bounds H4 to one tested
+  intervention construction. H2 now freezes a scoring contract that binds the prediction object
+  and distinguishes complete-data scores, censoring-adjusted horizon scores, risk estimators, and
+  full-distribution likelihoods. A forecast-independent conditional IPCW Brier construction can
+  target scalar horizon risk under its exact assumptions. A right-censored likelihood instead
+  requires the full event-time-and-type law. This correction reopened review of the all-null M0 v2
+  successor draft.
+- Closed H1-A and H1-B freeze-contract gaps. H1-A now binds one response functional, proper score,
+  matched-access comparator, positive useful margin, one-sided superiority rule, uncertainty,
+  calibration consequence, multiplicity procedure, and finite-benchmark or replication scope.
+  H1-B now binds one positive-margin effect-specific endpoint, the complete validation stack, ITT
+  and design checks, uncertainty, and directional replication. Noninferiority, equivalence,
+  nonsignificance, factual-outcome fit, or a secondary endpoint cannot rescue primary failure.
+- Closed an H3 freeze-contract gap. The v2 successor now binds the exact parent endpoint, PID
+  regime and local-feature construction, positive useful-value margin, full-population score
+  contrast, dependence-aware uncertainty, multiplicity, support and warning acceptance, and
+  replication target. H3 requires a one-sided lower confidence bound above the useful margin.
+  Noninferiority, equivalence, or a nonsignificant difference cannot establish added value.
 - Clarified the substantive implementation sequence: complete accountable freeze decisions, one
   rights-approved raw-to-run-log SAFE path, a structurally independent EC1 adapter, and the frozen
   conventional-stack comparison before optional sibling integrations.
@@ -96,6 +142,39 @@
   borrow matrix rows instead of copying their bit patterns. Scale-normalized training statistics
   avoid overflow from large finite common scales. Train-constant columns map to zero for every row.
   Non-finite derived distances and scores now reject.
+- Advanced the optional offline uncertainty sidecar to schema 2. The current resamplers now return
+  a typed skip for mixed episode-id coverage and for multiple episodes with repeated rows. They no
+  longer concatenate those episodes into one synthetic stationary series. The sidecar records the
+  admitted row topology and calibration class. Null outputs are now named tail fractions.
+  Full-shuffle values are Monte Carlo p-values only under the declared row-exchangeability null.
+  Restricted circular-shift values are approximate stationary-surrogate scores, not p-values.
+  Multi-row block subsampling and circular shifts now require one episode with a strictly
+  increasing canonical decimal `metadata.sequence_index`. An `episode_id` alone does not prove
+  row order. The SAFE adapter now emits that explicit receipt from its rollout step.
+  Missing episode identifiers do not authorize either path. Unit-block subsampling and full
+  shuffle remain available under the declared row-exchangeability null.
+  The CLI no longer selects a null by default. `--permutation N` now requires an explicit
+  `--permutation-scheme`. Bootstrap and circular-shift requests also require an explicit
+  `--uncertainty-block-size`. Combined bootstrap and permutation requests now reject incompatible
+  exchangeable-row and serial-dependence declarations.
+  Temporal output now withholds lag-1 when no within-series pair exists. It emits AR(1)-derived
+  sample-size and block hints only for one declared episode that spans every row and has the same
+  strict sequence-index receipt. Unlabeled row order does not establish a series. Every AR(1)
+  value is a descriptive screen, not an estimator sample size or an automatic block selector.
+  Mixed episode-id input never creates a lag pair across an unknown boundary. New summaries bind
+  `prisoma.offline_vlda.report/2` in the hashed configuration. Validation rejects an unversioned
+  or unknown summary contract instead of guessing compatibility from its JSON shape. Published
+  bootstrap atom summaries now require every requested replicate to be valid. The sidecar's
+  original-data atom value must also match the main report exactly. A partial resample set or a
+  point-value mismatch rejects publication.
+- Reopened the M0 v2 successor for scientific and statistical review after the H1–H4
+  first-principles correction. A future candidate now activates EC1, H2, exactly one H1 protocol,
+  and exactly one H3/H4 branch. Every inactive protocol slot must stay null. H1-A, H1-B, H2, and
+  H3 now carry typed positive-margin primary success contracts. H2 binds one prediction object,
+  score, target risk, censoring construction, assumptions, identifiable region, and uncertainty
+  procedure. H4 permits exact fixed weights only for an enumerated finite target and otherwise
+  requires target-weight uncertainty. The current all-null artifact remains unreviewed,
+  unfrozen, and non-promotable.
 - Changed the offline harness default PID mode from continuous to `none`. Baseline and geometry
   work remains available by default. Continuous and quantized PID now require an explicit
   `--pid-mode` opt-in. This is an estimator-request firebreak. The opt-in analysis build still
@@ -136,10 +215,26 @@
 - Advanced H1 preflight summary and verdict artifacts to schema 3. Oversized inputs now record a
   typed rejection, exact observed length, and no false whole-file digest. The scientific preflight
   input contract remains schema 2, and Protocol A requires the new exact-input artifact binding.
+  Protocol A now recomputes the complete preflight report from that input instead of trusting the
+  report embedded in the summary. It also binds the summary configuration and requires a
+  zero-action, zero-intervention preflight log. Scaled response construction divides opposite-
+  sign operands before addition, so an overflowing unscaled subtraction cannot hide a finite
+  dimensionless delta. Its Euclidean metric uses scaled `hypot` accumulation. The path rejects
+  only a non-finite scaled delta or final norm.
 - Updated the optional NCP observer lock to `event-listener` 5.4.2. This resolves
   RUSTSEC-2026-0221 and removes the unused `concurrent-queue` dependency. NCP finalization now
   serializes borrowed samples and streams terminal events after the retained event slice. It no
   longer deep-clones either collection before allocating the bounded publication bytes.
+- Made NCP outcome and clock admission unambiguous. A configured, present success channel must
+  contain exactly one finite scalar. Sensor time must be finite, nonnegative, and within the
+  unsigned run-log nanosecond range. Conversion truncates fractional nanoseconds toward zero.
+  Invalid values reject before they can authorize generation, epoch, watermark, sample, or event
+  state. Command time no longer substitutes for the sensor clock.
+  Every capture ingress rejects a language and success channel alias before state mutation.
+  Each kept sample and capture event preserves raw converted sensor time as
+  `sensor_timestamp_ns`. The run-log event clock remains a nondecreasing projection.
+- Made the standalone flow and deterministic-replay verifiers reject empty or non-finite numeric
+  evidence. NaN can no longer evade a tolerance comparison through IEEE comparison semantics.
 - Extended the advisory gate to all transitive unsound and unmaintained crates. Reviewed
   observer exceptions remain explicit in `deny.toml`.
 - Added bounded PNG validation to the optional UI tool. The pinned Pillow decoder verifies the
@@ -501,7 +596,7 @@ candidate-package promotion remains NO-GO.
   abstains on zero prediction variance. Bounded artifact reads, output-alias checks, dense-scoring
   work limits, deterministic replay, and readable invalid-chain/parse fixtures fail closed with no
   numeric or PID events. This remains a scoring primitive: no subprocess/stochastic audit, physical
-  individual effect, Protocol B, real capture, or H1 evidence.
+  individual effect, Protocol B, real capture, or H1-A evidence.
 - Added living machine-readable current-state overlays in `protocols/` for ecosystem evidence and
   EC1/H1-H4 execution status, plus offline truth-audit checks. Corrected the named public Engram edge
   to its verified README-only placeholder revision and distinguished Haldir's reviewed revision from

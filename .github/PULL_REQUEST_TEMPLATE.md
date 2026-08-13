@@ -19,4 +19,6 @@ Describe the change and its purpose in one short paragraph.
 - [ ] No hand edits to generated files (`docs/CAPABILITY_MATRIX.md`,
       `THIRD_PARTY_NOTICES.generated.md`,
       `protocols/capability_matrix_current_v1.json`).
+- [ ] Predictive-policy claims name the deployed graph. Causal and planning terms satisfy
+      `grandplan.md` section 9.2, "World-model experiments."
 - [ ] No AI co-author trailers.

@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "artifact_id": "prisoma_m0_preregistration_successor_draft_v2",
-  "as_of_date": "2026-07-16",
+  "as_of_date": "2026-08-12",
   "canonical_spec": {
     "path": "grandplan.md",
     "version": "12.5"
@@ -10,8 +10,8 @@
     "path": "protocols/m0_preregistration_skeleton_v1.json",
     "sha256": "dd916a3f1819d38f8e19cb8f30d2eaeaa2fcb9895360fcf028c2f40b455bb6e7"
   },
-  "scope": "reviewed typed successor draft for future M0 freeze review; it contains no frozen scientific value, does not promote any claim, and does not authorize confirmatory holdout access",
-  "status": "reviewed_successor_draft_unfrozen",
+  "scope": "revised typed successor draft awaiting new M0 scientific and statistical review; it contains no frozen scientific value, does not promote any claim, and does not authorize confirmatory holdout access",
+  "status": "successor_draft_revised_unreviewed",
   "freeze_receipt": null,
   "freeze_revision": null,
   "frozen_at": null,
@@ -95,6 +95,7 @@
       "registered_claim_id": "EC1",
       "claim_class": "engineering_acceptance",
       "unregistered_fault_policy": "not_evaluated_never_detected",
+      "activation_rule": "mandatory_engineering_acceptance",
       "slots": {
         "supported_adapter_ids": {
           "value_type": "finite_nonempty_string_array",
@@ -106,7 +107,7 @@
           "required_for_freeze": true,
           "value": null
         },
-        "required_causal_temporal_variable_inventory_binding": {
+        "required_intervention_state_outcome_temporal_variable_inventory_binding": {
           "value_type": "content_binding",
           "required_for_freeze": true,
           "value": null
@@ -202,6 +203,7 @@
       "registered_claim_id": "H1",
       "protocol_label": "paired_frozen_snapshot_algorithmic_response",
       "heldout_outcome_defined_bins_policy": "forbidden",
+      "activation_rule": "required_only_when_selected_h1_protocol_a",
       "slots": {
         "calibration_bin_origin": {
           "value_type": "enum",
@@ -232,8 +234,8 @@
           "required_for_freeze": true,
           "value": null
         },
-        "response_scale_score_and_uncertainty_binding": {
-          "value_type": "content_binding",
+        "primary_response_prediction_contract": {
+          "value_type": "h1a_primary_response_contract",
           "required_for_freeze": true,
           "value": null
         }
@@ -243,6 +245,7 @@
       "registered_claim_id": "H1",
       "protocol_label": "randomized_closed_loop_effect_modification",
       "one_primary_effect_endpoint_required": true,
+      "activation_rule": "required_only_when_selected_h1_protocol_b",
       "slots": {
         "primary_effect_endpoint_id": {
           "value_type": "string",
@@ -264,8 +267,8 @@
           "required_for_freeze": true,
           "value": null
         },
-        "success_rule_binding": {
-          "value_type": "content_binding",
+        "primary_effect_success_contract": {
+          "value_type": "h1b_primary_effect_success_contract",
           "required_for_freeze": true,
           "value": null
         }
@@ -274,8 +277,9 @@
     "h2": {
       "registered_claim_id": "H2",
       "protocol_label": "prospective_censoring_aware_failure_prediction",
-      "one_primary_proper_score_required": true,
+      "one_primary_scoring_contract_required": true,
       "decision_utility_primary_role_forbidden": true,
+      "activation_rule": "mandatory_scientific_claim",
       "slots": {
         "target_population_and_intended_use_binding": {
           "value_type": "content_binding",
@@ -327,8 +331,8 @@
           "required_for_freeze": true,
           "value": null
         },
-        "primary_proper_score": {
-          "value_type": "h2_primary_proper_score",
+        "primary_scoring_contract": {
+          "value_type": "h2_primary_scoring_contract",
           "required_for_freeze": true,
           "value": null
         },
@@ -458,6 +462,7 @@
           "target_ledger_or_eligibility_changes_after_outer_holdout_outcome_access"
         ]
       },
+      "activation_rule": "required_when_selected_h3_or_retained_as_post_h3_history",
       "slots": {
         "warning_code_registry_binding": {
           "value_type": "content_binding",
@@ -487,6 +492,11 @@
           ],
           "required_for_freeze": true,
           "value": null
+        },
+        "primary_incremental_value_contract": {
+          "value_type": "h3_incremental_value_contract",
+          "required_for_freeze": true,
+          "value": null
         }
       }
     },
@@ -494,6 +504,7 @@
       "registered_claim_id": "H4",
       "protocol_label": "representational_availability_versus_tested_intervention_effect",
       "individual_effect_prevalence_claim_forbidden": true,
+      "activation_rule": "required_only_when_selected_h4",
       "slots": {
         "target_population_binding": {
           "value_type": "content_binding",
@@ -575,7 +586,7 @@
           "required_for_freeze": true,
           "value": null
         },
-        "replication_construction_binding": {
+        "replication_construction_or_single_construction_scope_binding": {
           "value_type": "content_binding",
           "required_for_freeze": true,
           "value": null
@@ -589,12 +600,12 @@
     }
   },
   "freeze_requirements": [
-    "every required typed slot must be non-null and type-valid before a freeze candidate can pass",
+    "every global, selection, mandatory-protocol, and selected-protocol typed slot must be non-null and type-valid before a freeze candidate can pass; every inactive protocol slot must remain null",
     "active scientific claims must be H1 and H2 plus exactly one of H3 or H4, never more than three",
-    "H1 Protocol A calibration bins must be prespecified or train-defined without heldout outcomes",
-    "H1 Protocol B must name exactly one primary effect-specific endpoint and one explicit testing hierarchy",
-    "H2 must freeze exactly one censoring-aware proper-score endpoint and bind its minimum useful margin, censoring assumptions, calibration, actionability, subgroup, replication, multiplicity, and secondary-only decision-utility rules",
-    "H3 primary scoring must retain the complete inherited target ledger with exact same-fold M1 fallback for every abstention; every warning must follow the frozen disposition map and every unlisted warning must abstain with exact M1 fallback",
+    "H1 Protocol A must bind one primary response-prediction contract with a positive minimum useful margin, matched-access comparator, one-sided superiority rule, uncertainty, calibration consequence, multiplicity, and replication or finite-benchmark scope; calibration bins must be prespecified or train-defined without heldout outcomes",
+    "H1 Protocol B must name exactly one primary effect-specific endpoint and one explicit testing hierarchy; it must bind a positive-margin one-sided success rule, the mandatory effect-validation stack, overall ITT and design checks, uncertainty, directional replication, and the non-rescuable primary boundary",
+    "H2 must freeze exactly one primary scoring contract that aligns the prediction object, score, target risk, censoring construction, identification assumptions, identifiable region, and uncertainty procedure; a forecast-independent censoring-adjusted horizon score may target scalar risk only under its exact conditional-censoring, positivity, and censoring-law validation contract; a right-censored likelihood requires the full event-time-and-type law; the complete competing-event ontology must be frozen; the contract must also bind the minimum useful margin, calibration, actionability, subgroup, replication, multiplicity, and secondary-only decision-utility rules",
+    "H3 primary scoring must retain the complete inherited target ledger with exact same-fold M1 fallback for every abstention; bind one positive minimum useful incremental-value margin, one-sided superiority decision, PID regime and feature construction, dependence-aware uncertainty, multiplicity, support and warning acceptance, and replication target; every warning must follow the frozen disposition map and every unlisted warning must abstain with exact M1 fallback",
     "H4 must bind the target and sampling design, transport assumptions when needed, one outcome and primary tuple, simultaneous strong error control, target-weight uncertainty, and joint design power",
     "EC1 acceptance must be finite, oracle-graded, comparator-benchmarked, uncertainty-aware, and require complete fault-detection, replay-fidelity, and valid-case false-positive endpoint coverage for the registered universe; every registered fault-adapter pair requires its own absolute sensitivity floor and mandatory pass, with no distribution-average substitution",
     "freeze metadata and content-bound review receipts must be present before the status can become frozen"

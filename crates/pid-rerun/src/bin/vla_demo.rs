@@ -246,7 +246,7 @@ fn main() -> Result<()> {
     // Generate synthetic VLA episode
     println!("Generating synthetic VLA episode...");
     let n_frames = 100;
-    let vision_dim = 64; // Use smaller dim for demo (real: 768-4096)
+    let vision_dim = 64; // Keep this synthetic demo inexpensive.
     let action_dim = 7;
     let episode = generate_synthetic_episode(n_frames, vision_dim, action_dim, 42);
     episode.validate_shapes()?;
@@ -331,7 +331,7 @@ fn main() -> Result<()> {
                 timestamp,
                 "WARN",
                 &format!(
-                    "High intrinsic dimension detected: {:.1} (threshold: 20)",
+                    "Synthetic demo threshold exceeded: intrinsic dimension {:.1} > 20",
                     diagnostics.intrinsic_dim
                 ),
             )?;
@@ -411,9 +411,11 @@ fn main() -> Result<()> {
         save_recording(&rec, path)?;
         println!("Recording saved successfully!");
     } else if serve {
-        // Keep running so viewer stays connected (only in interactive mode)
+        // Keep running so the viewer stays connected in interactive mode.
         println!("\nPress Ctrl+C to exit...");
-        std::thread::sleep(std::time::Duration::from_secs(3600));
+        loop {
+            std::thread::park();
+        }
     } else {
         println!("\nNo --save or --serve selected; recording was buffered and discarded.");
     }

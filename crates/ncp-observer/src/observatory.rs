@@ -51,22 +51,23 @@ const GENERATION_B: &str = "00000000-0000-4000-8000-0000000000d4";
 const BASELINE_TICKS: usize = 12;
 // Reviewed hashes of the identity-normalized samples specified by the v1 fixture:
 // V=[seq,1], L=[0.25], D=[seq/10], A=[seq/100], success=true,
-// episode_id="synthetic-observatory", and provenance source/channel/source.
+// sensor_timestamp_ns=seq*1_000_000_000, episode_id="synthetic-observatory",
+// and provenance source/channel/source.
 // Keeping these literal makes the content oracle independent of Observer output;
 // a common decoder, channel-mapping, or join regression cannot redefine "clean".
 const GOLDEN_CLEAN_SAMPLE_VALUE_HASHES: [&str; BASELINE_TICKS] = [
-    "f63a1288f795428207aab4474c887fba94ec9459a18ea1d7fbad844b2ab7588b",
-    "78043a3847ccc5e5972660a96f4c03abf696a27d668ea3427d045c1c8ed56a7c",
-    "83b2c66b462f061e32f67fceff16f77f59263bf9660bb8be43c75d713886fefc",
-    "7a8a1d582041cb8b60d476e8f7bbab05f05e5917628604a88eeb5693b673ab69",
-    "8c40a3a203a2483ddf91554cced1cdebba1b2de9fc0c4acbb1c5acee965f8f3a",
-    "46e8b9535268ca387d4ad16f349a2461202107e74dcb3f1c3e65654250020d97",
-    "5cc652b7c7f1deebc16d614929d6364029216a4680988c5ce2dedb1523fb930e",
-    "42b3c6b6940bb9bacf51f046e8a16df168266709aed4d2ee8cf7ffce53855166",
-    "7bfff323e314daea031aebb313cf1c54c72582af5e4a9a83c110ad15d7af7e47",
-    "c4f069c5ce9b765144346d8cae8fd156f5d683b7982923b81a7ee38c6d6d0d4c",
-    "d64a5611e8503166d9741b8b30d9a7eae98c19dbac9a2c240bf9859e0829f7e1",
-    "3a9477170f77f0bdc1bfdbca45707cc3e04dd3d725eeada028a1dbd7e5e08f3c",
+    "f2574b4ea55f17dafb1e647493903f5f65c654d81540e6a0d712cb5001b41964",
+    "85789cb58234e9e7bf27ad9e8608dd5669a15f249b6b26d87afc859d5ea2a953",
+    "21a8ea375cfd3c9b0edec6962efa8a4142d009a0bbe0b54b2279f2e8de62f468",
+    "8f06c34c0f477928a80fffc3bd2bcdbc9f7cfdcf71e53ec79989622f13ce46d7",
+    "121652a78fc4b9d132e2ca8924a852f3578ed1af0abea30a50677e2132964afb",
+    "19c243fbd420f78aaa3ed9dc99b04e642c1504a144dce1c77a8c2717f713ef60",
+    "aef5cefa49c1f670789ae747ae87df91b5427a65dfbf07fddd6b3e2b1e28dd70",
+    "6363f9a9662e34b772629a7f43eebdc52821786903b02a136c0cc4d765783482",
+    "3b8e106d5307351a8c5b35ce1782716161b2a6d59717aba11e6e82e53e171565",
+    "07b893f382d8a89666dd751607202d82671cbfe220f1c7c0e4ca3717f3b88292",
+    "d19145d3e223fea26d0c4765e5cd77d263672b29a562783b5428114dfda41b91",
+    "eb5417e14a58e3d7b1635967d3ef65ef8ea0ee131d02a7e82f0a9911b5facb19",
 ];
 
 /// Conservative in-memory limits for a fault-observatory run.
@@ -4729,7 +4730,7 @@ mod tests {
     }
 
     #[test]
-    fn reviewed_sample_hashes_bind_the_fixture_values_independently() {
+    fn reviewed_sample_hashes_bind_fixture_values_and_sensor_time_independently() {
         for (seq, golden_hash) in (1_i64..=12).zip(GOLDEN_CLEAN_SAMPLE_VALUE_HASHES) {
             let sample = OfflineVldaSample {
                 sample_id: format!("ncp-{EPOCH_A}-{seq}"),
@@ -4742,6 +4743,10 @@ mod tests {
                 metadata: BTreeMap::from([
                     ("epoch".to_string(), EPOCH_A.to_string()),
                     ("seq".to_string(), seq.to_string()),
+                    (
+                        "sensor_timestamp_ns".to_string(),
+                        (seq * 1_000_000_000).to_string(),
+                    ),
                     ("source".to_string(), "ncp".to_string()),
                     ("l_source".to_string(), "channel".to_string()),
                     ("d_source".to_string(), "source".to_string()),

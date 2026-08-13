@@ -9,8 +9,8 @@ The product order is:
 2. A thin Agent Bridge client when live control is justified.
 3. An optional Tauri/SparkJS shell after the evidence workflow is stable.
 
-Every future UI must preserve two rules. The canonical run log remains authoritative. Every
-mutation goes through the Agent Bridge.
+Every future UI must preserve two rules. The canonical run log remains authoritative for accepted
+recorded events. Every mutation goes through the Agent Bridge.
 
 ## 1. Design principles
 

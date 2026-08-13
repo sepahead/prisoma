@@ -133,21 +133,23 @@ before Prisoma listens.
 The session report is a peer assertion. It does not prove process identity,
 source revision, executable digest, or transport authentication.
 
-The canonical run log remains the source of truth.
+The canonical run log remains the source of truth for accepted recorded events.
 The `prisoma.canonical-run-log.v2` renderer is a structural preview.
 It is not Prisoma validation, replay evidence, NCP, a closed loop, or control
 authority.
 
 Prisoma pins the latest immutable NCP `v0.8.0` release and uses wire 0.8. Official NCP
-main was observed at `1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68` on 2026-08-11.
+main was observed at `1a04294c90c1b50eba06ae1c6afe9c951319250d` on 2026-08-13.
 That commit is the unreleased, release-blocked `1.0.0-rc.1` candidate (wire 1.0;
 compact proto contract hash `163acc57d8a62b66`). The manifest declares target Engram wire
 1.0 and marks it incompatible with Prisoma wire 0.8. NCP's provider inventory records a
 preserved in-progress Paper2Brain migration that targets candidate wire 1.0. It is not an
 installed or qualified integration. No translation path exists.
 NCP ledger tasks `P01`, `P02`, and `P03` are OPEN, not dependency-ready, and **NOT RUN**.
-`P03` covers fault-observatory migration and Prisoma observer-role qualification. See the
-[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1ffd3bf9a6c52d0279eb31a56e0664e4eec24d68/evidence/implementation/task-ledger.v1.json).
+`P03` covers fault-observatory migration and Prisoma observer-role qualification. The refined
+low-overhead architecture and prepared-stream-monitor gap record are coordination-only. B01
+remains `IN_PROGRESS` with no passing receipt. See the
+[verified NCP task ledger](https://github.com/sepahead/NCP/blob/1a04294c90c1b50eba06ae1c6afe9c951319250d/evidence/implementation/task-ledger.v1.json).
 
 ## Validation
 

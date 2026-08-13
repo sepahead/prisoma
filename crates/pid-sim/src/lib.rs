@@ -1508,7 +1508,7 @@ impl<W: Write> SimBridgeSession<W> {
             "pending Rerun export",
         ) {
             Ok(snapshot) => snapshot,
-            Err(error)
+            Err(_)
                 if std::fs::symlink_metadata(&pending.path)
                     .is_err_and(|source| source.kind() == std::io::ErrorKind::NotFound) =>
             {
@@ -2812,10 +2812,29 @@ pub fn verify_flow_gt(events: &[RunLogEvent], tolerance: f64) -> FlowVerificatio
     for event in events {
         match event {
             RunLogEvent::SimSnapshot { step, objects, .. } => {
-                let positions: Positions = objects
-                    .iter()
-                    .map(|object| (object.object_id.clone(), object.pose.position))
-                    .collect();
+                let mut positions = Positions::new();
+                for object in objects {
+                    if object.object_id.is_empty() {
+                        report.issues.push(format!(
+                            "snapshot object_id at step {step} must not be empty"
+                        ));
+                    }
+                    if !object.pose.position.iter().all(|value| value.is_finite()) {
+                        report.issues.push(format!(
+                            "snapshot position for {} at step {step} must be finite",
+                            object.object_id
+                        ));
+                    }
+                    if positions
+                        .insert(object.object_id.clone(), object.pose.position)
+                        .is_some()
+                    {
+                        report.issues.push(format!(
+                            "snapshot object_id {} is duplicated at step {step}",
+                            object.object_id
+                        ));
+                    }
+                }
                 match &current {
                     // Same-step re-snapshot (intervention / scene edit): it
                     // replaces the current state; `previous` is untouched.
@@ -2867,6 +2886,12 @@ pub fn verify_flow_gt(events: &[RunLogEvent], tolerance: f64) -> FlowVerificatio
                     ));
                     continue;
                 };
+                if flow.is_empty() {
+                    report.issues.push(format!(
+                        "flow for {object_id} at step {step} must not be empty"
+                    ));
+                    continue;
+                }
                 for vec in flow {
                     let expected = [
                         current_position[0] - previous_position[0],
@@ -2874,7 +2899,9 @@ pub fn verify_flow_gt(events: &[RunLogEvent], tolerance: f64) -> FlowVerificatio
                         current_position[2] - previous_position[2],
                     ];
                     report.checked_flows += 1;
-                    if (vec[0] - expected[0]).abs() > tolerance
+                    if !vec.iter().all(|value| value.is_finite())
+                        || !expected.iter().all(|value| value.is_finite())
+                        || (vec[0] - expected[0]).abs() > tolerance
                         || (vec[1] - expected[1]).abs() > tolerance
                         || (vec[2] - expected[2]).abs() > tolerance
                     {
@@ -3335,6 +3362,7 @@ fn compare_slice(
     report: &mut SimReplayReport,
 ) {
     if expected.len() != actual.len()
+        || !expected.iter().chain(actual).all(|value| value.is_finite())
         || expected
             .iter()
             .zip(actual)
@@ -6856,6 +6884,54 @@ mod tests {
     }
 
     #[test]
+    fn flow_verifier_rejects_nonfinite_and_empty_flow_values() {
+        let mut sim = demo_sim();
+        let mut events = vec![sim.snapshot_event()];
+        sim.step_fixed(0.1).unwrap();
+        events.push(sim.snapshot_event());
+        events.push(RunLogEvent::FlowGt {
+            step: 1,
+            timestamp_ns: 100_000_000,
+            object_id: "red_cube".to_string(),
+            flow: vec![[f64::NAN, 0.0, 0.0]],
+        });
+        events.push(RunLogEvent::FlowGt {
+            step: 1,
+            timestamp_ns: 100_000_000,
+            object_id: "blue_cube".to_string(),
+            flow: Vec::new(),
+        });
+
+        let report = verify_flow_gt(&events, 1e-12);
+
+        assert!(!report.is_valid());
+        assert!(report.issues.iter().any(|issue| issue.contains("red_cube")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.contains("must not be empty")));
+    }
+
+    #[test]
+    fn flow_verifier_rejects_duplicate_snapshot_object_ids() {
+        let sim = demo_sim();
+        let mut snapshot = sim.snapshot_event();
+        if let RunLogEvent::SimSnapshot { objects, .. } = &mut snapshot {
+            objects.push(objects[0].clone());
+        } else {
+            panic!("demo snapshot must be a SimSnapshot event");
+        }
+
+        let report = verify_flow_gt(&[snapshot], 1e-12);
+
+        assert!(!report.is_valid());
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.contains("duplicated at step")));
+    }
+
+    #[test]
     fn sim_replay_verifier_checks_logged_actions_against_snapshots() {
         let actor = Actor {
             actor_type: ActorType::Script,
@@ -6913,6 +6989,37 @@ mod tests {
             .issues
             .iter()
             .any(|issue| issue.contains("snapshot timestamp")));
+    }
+
+    #[test]
+    fn sim_replay_verifier_rejects_nonfinite_snapshot_values() {
+        let mut expected = demo_sim();
+        let mut events = vec![expected.snapshot_event()];
+        let payload = json!({ "dt": 0.1 });
+        events.push(RunLogEvent::ActionApplied {
+            step: 1,
+            timestamp_ns: 100_000_000,
+            actor: Actor {
+                actor_type: ActorType::Script,
+                actor_id: "sim-replay-test".to_string(),
+                session_id: None,
+            },
+            action_type: "sim.step".to_string(),
+            payload_hash: pid_runlog::canonical_json_hash_v2(&payload).unwrap(),
+            payload,
+        });
+        expected.step_fixed(0.1).unwrap();
+        let mut hostile = expected.snapshot_event();
+        let RunLogEvent::SimSnapshot { objects, .. } = &mut hostile else {
+            unreachable!("snapshot_event always returns SimSnapshot");
+        };
+        objects[0].pose.position[0] = f64::NAN;
+        events.push(hostile);
+
+        let report = verify_sim_replay(&events, 1e-12);
+
+        assert!(!report.is_valid());
+        assert!(report.issues.iter().any(|issue| issue.contains("position")));
     }
 
     #[test]
