@@ -14,6 +14,9 @@
 - Changed replay-summary assertions in local recipes and CI to drain stdout. This avoids an
   upstream `pid-runlog-replay` broken-pipe panic when an early-closing consumer finds a match.
   The `pid-rs` handoff records the reproduced CLI defect and the requested regression.
+- Fixed the hosted governance gate after the H3 successor blocker became the broader
+  incremental-value-and-warning contract. The repository-truth audit now binds CI's selected
+  strict-gate assertions to the validator's literal blocker list.
 - Expanded the canonical adversarial design review from 20 to 50 concrete lenses. Each added lens
   has a question, failure condition, and design consequence. The separate 500-view hypothesis
   matrix remains a structured audit, not a claim of 500 reviewers or tests.

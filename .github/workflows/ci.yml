@@ -557,7 +557,7 @@ jobs:
           test "$successor_status" -eq 3
           test ! -s /tmp/m0-successor-freeze.stdout
           grep -Fx -- '- M0_SUCCESSOR_DRAFT_UNFROZEN' /tmp/m0-successor-freeze.stderr
-          grep -Fx -- '- M0_SUCCESSOR_H3_WARNING_DISPOSITION_UNFROZEN' /tmp/m0-successor-freeze.stderr
+          grep -Fx -- '- M0_SUCCESSOR_H3_INCREMENTAL_VALUE_AND_WARNING_CONTRACT_UNFROZEN' /tmp/m0-successor-freeze.stderr
           grep -Fx -- '- M0_SUCCESSOR_H4_TARGET_TRANSPORT_TUPLE_INFERENCE_POWER_UNFROZEN' /tmp/m0-successor-freeze.stderr
       - name: Generated capability matrix is current
         run: python scripts/generate_capability_matrix.py --check

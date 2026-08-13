@@ -566,6 +566,53 @@ def test_replay_pipelines_must_drain_summary_output(
     assert all("early-closing grep" in problem for problem in problems)
 
 
+def test_governance_ci_blockers_follow_the_validator_contract(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    scripts = tmp_path / "scripts"
+    workflows = tmp_path / ".github" / "workflows"
+    scripts.mkdir()
+    workflows.mkdir(parents=True)
+    validator = scripts / "audit_research_governance_successor.py"
+    validator.write_text(
+        "FREEZE_BLOCKERS = [\n"
+        + "".join(
+            f"    {blocker!r},\n" for blocker in MODULE.GOVERNANCE_SUCCESSOR_CI_BLOCKERS
+        )
+        + "]\n",
+        encoding="utf-8",
+    )
+    workflow = workflows / "ci.yml"
+    workflow.write_text(
+        "\n".join(
+            f"grep -Fx -- '- {blocker}' /tmp/m0-successor-freeze.stderr"
+            for blocker in MODULE.GOVERNANCE_SUCCESSOR_CI_BLOCKERS
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert MODULE.governance_ci_contract_problems() == []
+
+    current = "M0_SUCCESSOR_H3_INCREMENTAL_VALUE_AND_WARNING_CONTRACT_UNFROZEN"
+    stale = "M0_SUCCESSOR_H3_WARNING_DISPOSITION_UNFROZEN"
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8").replace(current, stale),
+        encoding="utf-8",
+    )
+    problems = MODULE.governance_ci_contract_problems()
+    assert any("must assert the current successor" in problem for problem in problems)
+    assert any("retired narrow H3" in problem for problem in problems)
+
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8").replace(stale, current),
+        encoding="utf-8",
+    )
+    validator.write_text("FREEZE_BLOCKERS = []\n", encoding="utf-8")
+    problems = MODULE.governance_ci_contract_problems()
+    assert sum("validator omits" in problem for problem in problems) == 3
+
+
 def test_local_quality_gate_does_not_accept_commands_from_another_recipe(
     tmp_path: Path, monkeypatch
 ) -> None:

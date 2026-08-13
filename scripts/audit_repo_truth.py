@@ -10,6 +10,7 @@ CI proves that the reviewed offline state and active prose agree.
 
 from __future__ import annotations
 
+import ast
 import csv
 import hashlib
 import io
@@ -73,6 +74,11 @@ NCP_CANDIDATE_TASK_LEDGER_URL = (
 )
 ENGRAM_DESCRIPTOR_SHA256 = (
     "006a6cc5fe46041fcc180d1890a36f821e8901768161952b143bbfc3c3fd70f9"
+)
+GOVERNANCE_SUCCESSOR_CI_BLOCKERS = (
+    "M0_SUCCESSOR_DRAFT_UNFROZEN",
+    "M0_SUCCESSOR_H3_INCREMENTAL_VALUE_AND_WARNING_CONTRACT_UNFROZEN",
+    "M0_SUCCESSOR_H4_TARGET_TRANSPORT_TUPLE_INFERENCE_POWER_UNFROZEN",
 )
 
 
@@ -773,6 +779,72 @@ def replay_pipeline_problems() -> list[str]:
     return problems
 
 
+def governance_ci_contract_problems() -> list[str]:
+    """Bind CI's strict-gate assertions to the validator's blocker contract."""
+
+    problems: list[str] = []
+    validator_path = ROOT / "scripts/audit_research_governance_successor.py"
+    validator_source = _read_regular_text(
+        validator_path, label="scripts/audit_research_governance_successor.py"
+    )
+    try:
+        tree = ast.parse(validator_source, filename=os.fspath(validator_path))
+    except SyntaxError as error:
+        raise TruthAuditError(
+            "cannot parse the research-governance successor validator"
+        ) from error
+    assignments = [
+        node.value
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "FREEZE_BLOCKERS"
+            for target in node.targets
+        )
+    ]
+    if len(assignments) != 1:
+        problems.append(
+            "research-governance successor validator must define one literal "
+            "FREEZE_BLOCKERS contract"
+        )
+        validator_blockers: tuple[str, ...] = ()
+    else:
+        try:
+            literal = ast.literal_eval(assignments[0])
+        except (TypeError, ValueError) as error:
+            raise TruthAuditError(
+                "research-governance successor FREEZE_BLOCKERS is not literal"
+            ) from error
+        if not isinstance(literal, list) or not all(
+            isinstance(item, str) for item in literal
+        ):
+            raise TruthAuditError(
+                "research-governance successor FREEZE_BLOCKERS must be a string list"
+            )
+        validator_blockers = tuple(literal)
+
+    workflow = _read_regular_text(
+        ROOT / ".github/workflows/ci.yml", label=".github/workflows/ci.yml"
+    )
+    for blocker in GOVERNANCE_SUCCESSOR_CI_BLOCKERS:
+        if blocker not in validator_blockers:
+            problems.append(
+                "research-governance successor validator omits the CI-required "
+                f"blocker {blocker!r}"
+            )
+        assertion = f"grep -Fx -- '- {blocker}' /tmp/m0-successor-freeze.stderr"
+        if workflow.count(assertion) != 1:
+            problems.append(
+                ".github/workflows/ci.yml must assert the current successor "
+                f"freeze blocker exactly once: {blocker}"
+            )
+    if "M0_SUCCESSOR_H3_WARNING_DISPOSITION_UNFROZEN" in workflow:
+        problems.append(
+            ".github/workflows/ci.yml retains the retired narrow H3 successor blocker"
+        )
+    return problems
+
+
 def local_quality_gate_problems() -> list[str]:
     """Keep one visible aggregate local gate without claiming shell semantics."""
 
@@ -1157,6 +1229,7 @@ def _audit() -> int:
     problems.extend(exp0_documentation_problems())
     problems.extend(justfile_reproducibility_problems())
     problems.extend(replay_pipeline_problems())
+    problems.extend(governance_ci_contract_problems())
     problems.extend(local_quality_gate_problems())
     problems.extend(readme_reproducibility_problems())
     problems.extend(flake_reproducibility_problems())

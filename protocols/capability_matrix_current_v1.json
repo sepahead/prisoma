@@ -282,7 +282,7 @@
       "feature_id": "ecosystem.evidence_ledger",
       "feature": "Current E0-E5 ecosystem evidence overlay",
       "status": "tested",
-      "exact_revision": "local-sha256:4ab5922da43360d1c87818d0789162452c730720669d6637ef0b5a0117b34451",
+      "exact_revision": "local-sha256:298bddf175aabe3b41ba3726aba4c017a944e2e95e907c50492b1554d7382dc4",
       "revision_inputs": [
         "protocols/ecosystem_evidence_current_v1.json",
         "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
