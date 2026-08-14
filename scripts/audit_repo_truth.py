@@ -848,6 +848,42 @@ def governance_ci_contract_problems() -> list[str]:
     return problems
 
 
+def continuous_smoke_contract_problems() -> list[str]:
+    """Bind CI's positive continuous smoke to its declared joint-law fixture."""
+
+    workflow = _read_regular_text(
+        ROOT / ".github/workflows/ci.yml", label=".github/workflows/ci.yml"
+    )
+    problems: list[str] = []
+    for required in (
+        "--input crates/pid-sim/fixtures/offline_vlda_continuous_fixture.json ",
+        '.config.metric_pipeline.pid_mode == "Continuous"',
+        "(.config.continuous_tuple_support | length) == 6",
+        '.scientific_gates.application == "blocked"',
+        ".scientific_gates.interpretation_allowed == false",
+        ".metrics.estimate_denominators.estimated == 6",
+        'seen["pid_metrics=42"]',
+        'seen["pid_metric_events=42"]',
+    ):
+        if required not in workflow:
+            problems.append(
+                ".github/workflows/ci.yml positive continuous smoke is missing "
+                f"{required!r}"
+            )
+
+    stale_command = (
+        "--input crates/pid-sim/fixtures/offline_vlda_fixture.json "
+        "--summary-json /tmp/prisoma_offline_vlda_summary.json "
+        "--runlog /tmp/prisoma_offline_vlda_runlog.jsonl --pid-mode continuous"
+    )
+    if stale_command in workflow:
+        problems.append(
+            ".github/workflows/ci.yml requests a positive continuous estimate from "
+            "the mixed-support abstention fixture"
+        )
+    return problems
+
+
 def local_quality_gate_problems() -> list[str]:
     """Keep one visible aggregate local gate without claiming shell semantics."""
 
@@ -1677,6 +1713,7 @@ def _audit() -> int:
     problems.extend(justfile_reproducibility_problems())
     problems.extend(replay_pipeline_problems())
     problems.extend(governance_ci_contract_problems())
+    problems.extend(continuous_smoke_contract_problems())
     problems.extend(local_quality_gate_problems())
     problems.extend(readme_reproducibility_problems())
     problems.extend(flake_reproducibility_problems())

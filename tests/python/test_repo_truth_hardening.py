@@ -614,6 +614,36 @@ def test_governance_ci_blockers_follow_the_validator_contract(
     assert sum("validator omits" in problem for problem in problems) == 3
 
 
+def test_continuous_smoke_requires_the_declared_joint_law_fixture(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    workflow = tmp_path / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True)
+    valid = """\
+--input crates/pid-sim/fixtures/offline_vlda_continuous_fixture.json --summary-json /tmp/prisoma_offline_vlda_summary.json --runlog /tmp/prisoma_offline_vlda_runlog.jsonl --pid-mode continuous
+.config.metric_pipeline.pid_mode == "Continuous"
+(.config.continuous_tuple_support | length) == 6
+.scientific_gates.application == "blocked"
+.scientific_gates.interpretation_allowed == false
+.metrics.estimate_denominators.estimated == 6
+seen["pid_metrics=42"]
+seen["pid_metric_events=42"]
+"""
+    workflow.write_text(valid, encoding="utf-8")
+    assert MODULE.continuous_smoke_contract_problems() == []
+
+    workflow.write_text(
+        valid.replace(
+            "offline_vlda_continuous_fixture.json", "offline_vlda_fixture.json"
+        ),
+        encoding="utf-8",
+    )
+    problems = MODULE.continuous_smoke_contract_problems()
+    assert any("missing" in problem for problem in problems)
+    assert any("mixed-support abstention fixture" in problem for problem in problems)
+
+
 def test_local_quality_gate_does_not_accept_commands_from_another_recipe(
     tmp_path: Path, monkeypatch
 ) -> None:

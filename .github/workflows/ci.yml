@@ -175,15 +175,36 @@ jobs:
           "$PID_RUNLOG_REPLAY" --validate /tmp/prisoma_exp0_runlog.jsonl
           cargo run --locked -p pid-sim --features analysis --bin pid-toy-harness -- --episodes 32 --summary-json /tmp/prisoma_toy_summary.json --runlog /tmp/prisoma_toy_runlog.jsonl
           "$PID_RUNLOG_REPLAY" --validate /tmp/prisoma_toy_runlog.jsonl
-          cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/prisoma_offline_vlda_summary.json --runlog /tmp/prisoma_offline_vlda_runlog.jsonl --pid-mode continuous
+          # Exercise the positive continuous path only on the synthetic fixture that
+          # declares every required complete-tuple joint-law contract. The mixed-support
+          # fixture below remains the fail-closed abstention and held-out-gate surface.
+          cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_continuous_fixture.json --summary-json /tmp/prisoma_offline_vlda_summary.json --runlog /tmp/prisoma_offline_vlda_runlog.jsonl --pid-mode continuous
+          jq -e '
+            .config.metric_pipeline.pid_mode == "Continuous" and
+            (.config.continuous_tuple_support | length) == 6 and
+            ([.config.continuous_tuple_support[]] | all(. == "regular_full_dimensional_finite_information")) and
+            ([.metrics.mi_v_action, .metrics.mi_l_action, .metrics.mi_d_action,
+              .metrics.pid_pairs.VL, .metrics.pid_pairs.VD, .metrics.pid_pairs.LD]
+             | all(.status == "produced" and
+                   .information_units == "nats" and
+                   .scientific_gates.population == "conditional" and
+                   .scientific_gates.application == "blocked" and
+                   .scientific_gates.interpretation_allowed == false and
+                   .scientific_gates.reason_code == "application_support_envelope_not_validated")) and
+            .metrics.estimate_denominators.requested == 6 and
+            .metrics.estimate_denominators.estimated == 6 and
+            .metrics.estimate_denominators.abstained == 0
+          ' /tmp/prisoma_offline_vlda_summary.json >/dev/null
           "$PID_RUNLOG_REPLAY" --validate /tmp/prisoma_offline_vlda_runlog.jsonl
-          "$PID_RUNLOG_REPLAY" /tmp/prisoma_offline_vlda_runlog.jsonl | grep -F 'embedding_contracts=1' >/dev/null
-          "$PID_RUNLOG_REPLAY" /tmp/prisoma_offline_vlda_runlog.jsonl | grep -F 'pid_metrics=4' >/dev/null
-          "$PID_RUNLOG_REPLAY" /tmp/prisoma_offline_vlda_runlog.jsonl | grep -F 'pid_metric_events=4' >/dev/null
-          "$PID_RUNLOG_REPLAY" /tmp/prisoma_offline_vlda_runlog.jsonl | grep -F 'geometry_metrics=20' >/dev/null
-          "$PID_RUNLOG_REPLAY" /tmp/prisoma_offline_vlda_runlog.jsonl | grep -F 'geometry_metric_events=20' >/dev/null
-          "$PID_RUNLOG_REPLAY" /tmp/prisoma_offline_vlda_runlog.jsonl | grep -F 'evaluation_metrics=149' >/dev/null
-          "$PID_RUNLOG_REPLAY" /tmp/prisoma_offline_vlda_runlog.jsonl | grep -F 'evaluation_metric_events=238' >/dev/null
+          "$PID_RUNLOG_REPLAY" /tmp/prisoma_offline_vlda_runlog.jsonl | awk '
+            { for (i = 1; i <= NF; i++) seen[$i] = 1 }
+            END {
+              exit !(seen["embedding_contracts=1"] &&
+                     seen["pid_metrics=42"] && seen["pid_metric_events=42"] &&
+                     seen["geometry_metrics=25"] && seen["geometry_metric_events=25"] &&
+                     seen["evaluation_metrics=152"] && seen["evaluation_metric_events=701"])
+            }
+          '
           # One positive run proves the three compatible held-out gates together.
           # Unit tests retain isolated failure coverage for each gate.
           cargo run --locked -p pid-sim --features analysis --bin pid-offline-harness -- --input crates/pid-sim/fixtures/offline_vlda_fixture.json --summary-json /tmp/prisoma_offline_vlda_heldout_summary.json --runlog /tmp/prisoma_offline_vlda_heldout_runlog.jsonl --require-heldout-split --require-heldout-class-coverage --require-heldout-episode-disjoint

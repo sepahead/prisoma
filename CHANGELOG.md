@@ -32,6 +32,9 @@
 - Fixed the PID-request firebreak after report schema 5 moved the mode into its typed
   metric-pipeline receipt. The local top-level gate now runs the same exact JSON and zero-event
   checks as CI.
+- Fixed the hosted continuous-estimator smoke after complete-tuple support became mandatory. The
+  positive path now uses the declared synthetic continuous fixture. It checks all six estimate
+  outcomes, their information units, and their blocked application gates before replay.
 - Fixed the hosted governance gate after the H3 successor blocker became the broader
   incremental-value-and-warning contract. The repository-truth audit now binds CI's selected
   strict-gate assertions to the validator's literal blocker list.

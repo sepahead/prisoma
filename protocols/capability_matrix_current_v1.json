@@ -287,7 +287,7 @@
       "feature_id": "ecosystem.evidence_ledger",
       "feature": "Current E0-E5 ecosystem evidence overlay",
       "status": "tested",
-      "exact_revision": "local-sha256:565ffb5f056db2c9998ce3e0cee974c3ed34d1782fdb83de59aa0d90d6311b80",
+      "exact_revision": "local-sha256:9c2b295f59eb95e5aade56918f8bd7161a8d9a9f6283bf3dfa76cf7f67d0e99a",
       "revision_inputs": [
         "protocols/ecosystem_evidence_current_v1.json",
         "docs/reviews/2026-07-12-grandplan-v12.5/prisoma_ecosystem_evidence_2026-07-12.csv",
@@ -703,7 +703,7 @@
       "feature_id": "governance.world_model_claim_ledger",
       "feature": "Machine-checkable W1-W3 claim-boundary ledger",
       "status": "tested",
-      "exact_revision": "local-sha256:325e44d54677931eccd07e255f1d89b7c620f0d7346f36b630b0452329d3c0a7",
+      "exact_revision": "local-sha256:a8f8aa455f84d9d97463266d3a6ee767f72ffed9e2563ccfec706cfceaac3e94",
       "revision_inputs": [
         "grandplan.md",
         "protocols/world_model_claim_registry_v1.json",
@@ -719,11 +719,11 @@
         },
         {
           "path": "scripts/audit_repo_truth.py",
-          "sha256": "87d2fad34cb83809e8480324b087c086eef3ef8b10b004e0193908c6a58bde5f"
+          "sha256": "f767e821a9be569e51ce667979d38c5ed501656cd071a4ec2cfddf8f2078c489"
         },
         {
           "path": "tests/python/test_repo_truth_hardening.py",
-          "sha256": "798de2bf16abc3eedb5366f6cbfd7ba24b4739a14229b78e5acdffea6592c322"
+          "sha256": "3560c7a016d7385c217f3022af6c5571941f16b14e40ab58361a27d8ba0d56f8"
         }
       ],
       "known_limitations": "The audit checks local schema, artifact, command, and language boundaries. It is not a preregistration, authenticated holdout ledger, freeze approval, learned-model qualification, executed study, or scientific review.",
